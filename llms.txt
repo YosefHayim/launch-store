@@ -7,8 +7,6 @@ Launch runs the EAS Build pipeline locally: prebuild → resolve credentials →
 ## Docs
 
 - [README](./README.md): install, quick start, the command surface, configuration, and how credentials are handled.
-- [PLAN](./docs/PLAN.md): the source of truth — locked decisions, App Store Connect API endpoint coverage, architecture, the v1 pipeline, scope boundary, and security notes.
-- [Remote / cloud-Mac build](./docs/plan-aws-ec2-mac.md): off-Mac builds for Windows/Linux — AWS EC2 Mac compute, the EAS handoff, verified AWS costs, the SecretStore/ComputeHost seams, and the security amendments.
 - [CONTRIBUTING](./CONTRIBUTING.md): dev setup, the quality gate, adding a provider, tests, and CI.
 - [AGENTS](./AGENTS.md): working rules for AI agents and contributors.
 

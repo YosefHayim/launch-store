@@ -15,7 +15,7 @@ Launch can also build on a cloud Mac in **your own** AWS account or hand off to 
 [Building without a Mac](#building-without-a-mac).
 
 > Today Launch ships **iOS → TestFlight**. Storage, credentials, build, and submit are pluggable
-> interfaces, so Android and cloud backends drop in as one-file additions — see [`PLAN.md`](./docs/PLAN.md).
+> interfaces, so Android and cloud backends drop in as one-file additions.
 
 <table align="center">
   <tr>
@@ -144,7 +144,7 @@ launch cloud teardown                    # stop + release the host (warns about 
 The honest tradeoff: for occasional builds a GitHub Actions macOS runner is cheaper than EC2 Mac. Launch's
 value here is automation in **your own** account with the **same keys everywhere**, not "cheaper than EAS."
 Remote builds upload a transient copy of your signing keys to your own host with explicit consent and shred
-them after — full design and verified AWS costs are in [`docs/plan-aws-ec2-mac.md`](./docs/plan-aws-ec2-mac.md).
+them after.
 
 ## Requirements
 
@@ -227,7 +227,6 @@ A worked example lives in [`examples/hello-world`](./examples/hello-world).
 ## Contributing
 
 See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for dev setup, the quality gate, and how to add a backend.
-The architecture and every locked decision are in [`PLAN.md`](./docs/PLAN.md).
 
 ## How your credentials are handled
 
