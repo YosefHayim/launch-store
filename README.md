@@ -48,6 +48,56 @@ already control — free and open source.
 - **It teaches as it runs.** Add `--explain` to any command to expand each step — CSR, provisioning
   profile, TestFlight — into plain English.
 
+## Features
+
+Everything Launch does today, on hardware you control:
+
+**Build & ship (iOS)**
+
+- **One command to TestFlight.** `launch build ios` generates the native project, signs the `.ipa`, and
+  uploads — the same build → sign → submit flow EAS runs, on your own Mac.
+- **Real download-size check.** Reports the actual per-device size and fails the build if it busts the
+  `sizeBudgetMB` you configured.
+- **Artifact safety net.** Refuses to upload a simulator build, a `.app`, or an empty `.ipa` — mistakes
+  that otherwise fail opaquely deep inside submit.
+- **Dry run.** `--dry-run` rehearses the entire pipeline with no network, no build, and no account changes.
+- **Deliberate public release.** TestFlight is the default; pushing to the public App Store review queue is
+  the separate, confirmed `launch release ios`.
+
+**Credentials, kept local**
+
+- **API key in your Keychain.** Your App Store Connect `.p8` and distribution key live in the macOS
+  Keychain; only a CSR is ever sent to Apple.
+- **Auto-discovering `set-key`.** `launch creds set-key` finds the `AuthKey_*.p8` in `~/Downloads`, reads
+  the Key ID from its filename, and asks only for what it can't infer — or runs fully unattended from
+  flags/env (`ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_API_KEY_PATH`) for CI.
+- **Reuses what Apple caps.** Picks up your existing distribution certificate and provisioning profile
+  instead of minting new ones, and provisions them inline when they're missing.
+
+**Zero-friction onboarding**
+
+- **`launch doctor --fix`.** Detects the whole iOS toolchain — Xcode, Ruby, fastlane, CocoaPods, openssl,
+  Node — and installs the missing brew-able tools after a single consent (Homebrew is bootstrapped behind a
+  typed-`yes`; Xcode is guided). `--yes` skips every prompt for CI and agents.
+- **Interactive front door.** Running `launch` with no arguments lifts off an animated rocket banner, then a
+  wizard that detects your OS and routes the build accordingly.
+- **Silent self-upgrade.** Picks up a newer release from npm and re-runs your command on it — guarded and
+  throttled to once a day, and a no-op in CI, when piped, and for agents.
+- **`--explain` anything.** Expand each step — CSR, provisioning profile, TestFlight — into plain English on
+  any command.
+
+**Build without a Mac**
+
+- **Your own cloud Mac.** Provision an EC2 Mac in _your own_ AWS account, build, then tear it down —
+  `launch cloud` manages the host with live cost tracking.
+- **Any Mac over SSH, or Expo EAS.** Hand off to a Mac you already reach (`--remote user@host`) or to Expo's
+  cloud — see [Building without a Mac](#building-without-a-mac).
+
+**Open by design**
+
+- **MIT, no lock-in.** Pluggable storage, credentials, build, and submit providers built on `fastlane` and
+  Apple's own tooling — nothing proprietary to migrate off later.
+
 ## Platform support
 
 <table align="center">
