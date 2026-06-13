@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SigningAssets } from "../../core/types.js";
-import { exportOptionsPlist, parseThinningReport } from "./fastlane.js";
+import { assertDeviceArtifact, exportOptionsPlist, parseThinningReport } from "./fastlane.js";
 
 const MB = 1024 ** 2;
 
@@ -63,5 +63,32 @@ describe("exportOptionsPlist — manual App Store signing inputs", () => {
     expect(plist).toContain("<key>signingCertificate</key><string>Apple Distribution</string>");
     expect(plist).toContain("<key>com.example.hello</key><string>Launch_com.example.hello_AppStore</string>");
     expect(plist).toContain("thin-for-all-variants");
+  });
+});
+
+describe("assertDeviceArtifact — reject a non-submittable build before upload", () => {
+  it("accepts a real device .ipa with a positive size", () => {
+    expect(() => {
+      assertDeviceArtifact("/tmp/launch-build-x/Looopi.ipa", 12 * MB);
+    }).not.toThrow();
+  });
+
+  it("rejects a simulator artifact (the reported xcrun simctl failure mode)", () => {
+    const simPath = "/path/ios/build/Build/Products/Release-iphonesimulator/Looopi.app";
+    expect(() => {
+      assertDeviceArtifact(simPath, 8 * MB);
+    }).toThrow(/simulator/i);
+  });
+
+  it("rejects a .app bundle that isn't a packaged .ipa", () => {
+    expect(() => {
+      assertDeviceArtifact("/tmp/Looopi.app", 8 * MB);
+    }).toThrow(/\.ipa/);
+  });
+
+  it("rejects a 0-byte artifact from a silently-failed export", () => {
+    expect(() => {
+      assertDeviceArtifact("/tmp/Looopi.ipa", 0);
+    }).toThrow(/empty/i);
   });
 });
