@@ -20,7 +20,11 @@ export type GlossaryTopic =
   | "app-record"
   | "agreements"
   | "testflight"
-  | "env-vars";
+  | "env-vars"
+  | "remote-build"
+  | "ec2-mac"
+  | "golden-ami"
+  | "eas-handoff";
 
 const GLOSSARY: Record<GlossaryTopic, string> = {
   prebuild: [
@@ -86,6 +90,26 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "Build-time env: Launch loads .env for the chosen profile and exposes those values to the app.",
     "There is no EXPO_PUBLIC_ prefix guard here, so anything in .env can reach the shipped bundle —",
     "keep backend secrets out of it. Launch warns on secret-looking names as a gentle net.",
+  ].join("\n"),
+  "remote-build": [
+    "Remote build: iOS can only be signed on macOS, so a non-Mac developer builds on a remote Mac.",
+    "Launch syncs your project over SSH, uploads a transient copy of your signing keys into a throwaway",
+    "keychain on the host, runs the same fastlane build there, pulls the .ipa home, and shreds the host.",
+  ].join("\n"),
+  "ec2-mac": [
+    "EC2 Mac: a Mac instance you rent in your OWN AWS account. It runs on a Dedicated Host with a hard",
+    "24-hour minimum (Apple's license) at ~$0.65/hr — about $16 minimum per session, whether you run 1",
+    "build or 50. Stopping the instance does NOT stop the bill; only releasing the host does, after 24h.",
+  ].join("\n"),
+  "golden-ami": [
+    "Golden AMI: a snapshot of a Mac instance with the toolchain (Xcode/fastlane/node) already installed,",
+    "kept in your own account because Xcode can't be redistributed. Launch bootstraps one on first use and",
+    "reuses it so later sessions boot ready to build, wasting less of the paid 24-hour window.",
+  ].join("\n"),
+  "eas-handoff": [
+    "EAS handoff: if you have no Mac and no AWS, Launch can orchestrate Expo's eas-cli for you — it drives",
+    "`eas build` in Expo's cloud, downloads the .ipa, and can run `eas submit`. It's the one place Launch",
+    "leans on the tool it replaces; you're on Expo's free-tier caps, but it costs nothing and needs no Mac.",
   ].join("\n"),
 };
 

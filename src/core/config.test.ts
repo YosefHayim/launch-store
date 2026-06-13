@@ -32,7 +32,9 @@ describe("defineConfig", () => {
     expect(config.credentials).toBe("local");
     expect(config.storage).toBe("local");
     expect(config.buildEngine).toBe("fastlane");
+    expect(config.submit).toBe("app-store-connect");
     expect(config.appRoots).toBeUndefined();
+    expect(config.aws).toBeUndefined();
   });
 
   it("preserves explicit overrides and appRoots", () => {

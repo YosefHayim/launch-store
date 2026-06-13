@@ -3,7 +3,7 @@ node_modules/
 dist/
 *.tsbuildinfo
 
-# Secrets — NEVER commit. Launch keeps these in the macOS Keychain / ~/.launch.
+# Secrets — NEVER commit. Launch keeps these in the OS keychain / ~/.launch.
 .env
 .env.*.local
 *.p8
@@ -11,6 +11,7 @@ dist/
 *.mobileprovision
 *.keystore
 *.jks
+*.pem
 AuthKey_*.p8
 
 # Launch's local state (artifacts, metadata cache)

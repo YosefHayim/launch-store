@@ -43,7 +43,10 @@ ${appRootsLine}
 
   credentials: "local", // macOS Keychain + ~/.launch (your own keys, cached locally)
   storage: "local", // ~/.launch/artifacts (swap for s3/r2/supabase later)
-  buildEngine: "fastlane", // gym archives + exports the signed .ipa
+  buildEngine: "fastlane", // "fastlane" (local) · "remote-mac" (AWS EC2 Mac) · "eas" (Expo cloud)
+
+  // No Mac? Build remotely. Run \`launch\` (the wizard) or \`launch cloud doctor\`. See docs/plan-aws-ec2-mac.md.
+  // aws: { region: "us-east-1" }, // for \`launch build ios --remote aws\`
 
   profiles: {
     production: {

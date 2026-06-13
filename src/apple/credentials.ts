@@ -348,6 +348,143 @@ export async function ensureSigningCredentials(options: EnsureSigningOptions): P
   };
 }
 
+/**
+ * Local files + identifiers needed to sign on a REMOTE Mac, produced by {@link ensureRemoteSigningAssets}.
+ *
+ * The remote pipeline uploads `p12Path` and `profilePath` (plus the API `.p8`) into a throwaway
+ * keychain on the host; `p12Password` unlocks the `.p12` there. `teamId`/`profileName`/`certName` feed
+ * the host's manual-signing export options. The remote Mac re-reads the profile's UUID itself, so it
+ * isn't carried here. Distinct from {@link SigningAssets} (which assumes a locally-installed profile).
+ */
+export interface RemoteSigningBundle {
+  bundleId: string;
+  /** Codesign identity name, e.g. `Apple Distribution`. */
+  certName: string;
+  /** Serial of the distribution certificate (for logging/reuse). */
+  certSerial: string;
+  /** Apple Developer Team ID (from the App ID's seed id). */
+  teamId: string;
+  /** Deterministic App Store profile name Launch creates. */
+  profileName: string;
+  /** Absolute local path to the password-protected `.p12` to upload. */
+  p12Path: string;
+  /** Password that unlocks the `.p12` (from the OS secret store). */
+  p12Password: string;
+  /** Absolute local path to the `.mobileprovision` bytes to upload. */
+  profilePath: string;
+}
+
+/**
+ * Resolve a bundle's signing assets for a REMOTE (off-Mac) build, leaving local files to upload.
+ *
+ * The cross-platform twin of {@link ensureSigningCredentials}: it ensures the same Apple resources
+ * over the API and packages the distribution `.p12` locally with openssl (decision 7 — the private
+ * key is born on your machine, never on rented infra), but it does NOT import anything into a local
+ * codesign keychain or install the profile where a local Xcode looks — there is none. The remote Mac
+ * imports the `.p12` into a throwaway keychain and reads the profile itself. Touches only the ASC API
+ * and openssl, so it runs on Windows/Linux.
+ */
+export async function ensureRemoteSigningAssets(options: EnsureSigningOptions): Promise<RemoteSigningBundle> {
+  const { bundleId, appName, ascKey, log, dryRun, confirmCreate } = options;
+
+  if (dryRun) {
+    log.info(`[dry-run] would ensure App ID + distribution .p12 + App Store profile for ${bundleId}, ready to upload`);
+    return {
+      bundleId,
+      certName: DISTRIBUTION_CERT_NAME,
+      certSerial: "DRYRUN000000",
+      teamId: "DRYRUNTEAM",
+      profileName: `Launch_${bundleId}_AppStore`,
+      p12Path: join(CREDENTIALS_DIR, "dry-run.p12"),
+      p12Password: "dry-run",
+      profilePath: join(CREDENTIALS_DIR, "dry-run.mobileprovision"),
+    };
+  }
+
+  const client = new AppStoreConnectClient(ascKey);
+  const index = readIndex();
+
+  // 1. App ID must exist before a profile can reference it.
+  let bundle = await client.findBundleId(bundleId);
+  if (!bundle) {
+    if (!(await confirmCreate(`Register App ID "${bundleId}" in your Apple account?`))) {
+      throw new Error(`App ID ${bundleId} is not registered. Re-run and confirm, or register it in the portal.`);
+    }
+    bundle = await client.createBundleId(bundleId, appName);
+    log.step("app id", `registered ${bundleId}`, "bundle-id");
+  } else {
+    log.step("app id", `${bundleId} already registered`, "bundle-id");
+  }
+
+  // 2. Distribution cert as a local .p12 — reuse the cached one, else mint with openssl (no keychain import).
+  const liveCerts = await client.listDistributionCertificates();
+  const password = await p12Password();
+  const reusable = reusableCertificate(index, liveCerts);
+  let cert: CertRecord;
+  let freshCert = false;
+  if (reusable) {
+    cert = reusable;
+    log.step("certificate", `reusing distribution cert ${cert.serial}`, "distribution-certificate");
+  } else {
+    if (liveCerts.length >= DISTRIBUTION_CERT_CAP) {
+      log.warn(
+        `Apple already has ${liveCerts.length} distribution certificate(s) and none are Launch's. ` +
+          `If creation fails, revoke an unused one in the Developer portal (Apple caps these).`,
+      );
+    }
+    if (!(await confirmCreate("Create a new distribution certificate (generates a private key on this machine)?"))) {
+      throw new Error("No usable distribution certificate. Re-run and confirm to create one.");
+    }
+    cert = await createCertificateForUpload(client, password);
+    freshCert = true;
+    index.certificate = cert;
+    writeIndex(index);
+    log.step("certificate", `created distribution cert ${cert.serial}`, "distribution-certificate");
+  }
+
+  // 3. App Store profile — reuse by name unless a fresh cert was minted; save the bytes to upload.
+  const profileName = `Launch_${bundleId}_AppStore`;
+  const existingProfile = await client.findProfileByName(profileName);
+  let profile: ProfileResource;
+  if (existingProfile && !freshCert) {
+    profile = existingProfile;
+    log.step("profile", `reusing ${profileName}`, "provisioning-profile");
+  } else {
+    if (existingProfile) await client.deleteProfile(existingProfile.id);
+    profile = await client.createAppStoreProfile(profileName, bundle.id, cert.id);
+    log.step("profile", `created ${profileName}`, "provisioning-profile");
+  }
+  ensureDir(CREDENTIALS_DIR);
+  const profilePath = join(CREDENTIALS_DIR, `${bundleId}.mobileprovision`);
+  writeFileSync(profilePath, Buffer.from(profile.profileContent, "base64"));
+
+  return {
+    bundleId,
+    certName: DISTRIBUTION_CERT_NAME,
+    certSerial: cert.serial,
+    teamId: bundle.seedId ?? "",
+    profileName,
+    p12Path: cert.p12Path,
+    p12Password: password,
+    profilePath,
+  };
+}
+
+/** Mint a distribution cert + local `.p12` for upload, WITHOUT importing it into a local keychain. */
+async function createCertificateForUpload(client: AppStoreConnectClient, password: string): Promise<CertRecord> {
+  const work = mkdtempSync(join(tmpdir(), "launch-cert-"));
+  try {
+    const { keyPath, csrPem } = await generateKeypairAndCsr(work);
+    const created = await client.createCertificate(csrPem);
+    ensureDir(CREDENTIALS_DIR);
+    const p12Path = join(CREDENTIALS_DIR, `dist-${created.serialNumber}.p12`);
+    await packageP12(work, keyPath, created.certificateContent, p12Path, password);
+    return { id: created.id, serial: created.serialNumber, p12Path };
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
 /** A cached cert is reusable only if Apple still lists its serial and the local `.p12` backup exists. */
 function reusableCertificate(index: CredentialsIndex, liveCerts: CertificateResource[]): CertRecord | null {
   const cached = index.certificate;

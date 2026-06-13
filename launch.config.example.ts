@@ -15,7 +15,16 @@ export default defineConfig({
 
   credentials: "local", // macOS Keychain + ~/.launch
   storage: "local", // ~/.launch/artifacts (swap for s3/r2/supabase later)
-  buildEngine: "fastlane",
+  buildEngine: "fastlane", // "fastlane" (local Mac) · "remote-mac" (AWS EC2 Mac) · "eas" (Expo cloud)
+  // submit: "app-store-connect", // or "eas" to submit through Expo
+
+  // Remote builds for non-Mac developers (see docs/plan-aws-ec2-mac.md). Only needed for `--remote aws`.
+  // aws: {
+  //   region: "us-east-1",
+  //   // profile: "default",          // a named ~/.aws profile (resolved via the standard chain)
+  //   // amiId: "ami-…",              // BYO golden AMI with Xcode; omit to bootstrap + snapshot one
+  //   // instanceType: "mac2.metal",  // default; cheapest M-series in most regions
+  // },
 
   profiles: {
     production: {
