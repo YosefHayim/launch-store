@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "name": "Hello World",
+    "slug": "hello-world",
+    "version": "1.0.0",
+    "ios": {
+      "bundleIdentifier": "com.example.helloworld"
+    }
+  }
+}
