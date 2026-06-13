@@ -18,7 +18,7 @@ export default defineConfig({
   buildEngine: "fastlane", // "fastlane" (local Mac) · "remote-mac" (AWS EC2 Mac) · "eas" (Expo cloud)
   // submit: "app-store-connect", // or "eas" to submit through Expo
 
-  // Remote builds for non-Mac developers (see docs/plan-aws-ec2-mac.md). Only needed for `--remote aws`.
+  // Remote builds for non-Mac developers. Only needed for `--remote aws`.
   // aws: {
   //   region: "us-east-1",
   //   // profile: "default",          // a named ~/.aws profile (resolved via the standard chain)

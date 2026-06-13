@@ -2,8 +2,8 @@
  * Loader for Launch's OPTIONAL cloud dependencies.
  *
  * The AWS SDK and the native keyring are declared in `optionalDependencies` and imported only on the
- * remote-build / non-Mac paths, so a local-only Mac install never loads them (decision 4/6 in
- * docs/plan-aws-ec2-mac.md). This helper turns the one failure that matters — the package isn't
+ * remote-build / non-Mac paths, so a local-only Mac install never loads them. This helper turns the
+ * one failure that matters — the package isn't
  * installed (e.g. the user ran `npm install --no-optional`, or a prebuilt native binary was missing) —
  * into an actionable "install this" message, while letting any other error surface unchanged.
  */

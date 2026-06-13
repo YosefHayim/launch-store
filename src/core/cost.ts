@@ -1,7 +1,7 @@
 /**
  * EC2 Mac cost model — the figures the lifecycle UX is built on.
  *
- * Every number here was verified against AWS's own docs (see docs/plan-aws-ec2-mac.md § Cost): the
+ * Every number here was verified against AWS's own published pricing and EC2 Mac docs: the
  * Dedicated Host has a hard 24-hour minimum allocation (Apple license), bills per second after that,
  * and — critically — *stopping the instance does not stop the bill; only releasing the host does*.
  * Launch's whole cost UX (typed consent, the live banner, paid-window reuse, auto-release near the
