@@ -19,6 +19,7 @@
 
 import { confirm as clackConfirm, isCancel, text } from "@clack/prompts";
 import { exists, run } from "./exec.js";
+import { isMac } from "./os.js";
 
 /**
  * A tool a local iOS build needs, and how to install it on macOS.
@@ -116,7 +117,7 @@ export interface EnsureToolchainOptions {
   assumeYes?: boolean;
   /** Injected IO (tests pass a fake); defaults to {@link realIo}. */
   io?: ToolchainIo;
-  /** Host platform; defaults to `process.platform`. */
+  /** Host-platform override for tests; production detects the real host via {@link isMac}. */
   platform?: NodeJS.Platform;
 }
 
@@ -141,11 +142,10 @@ async function detectMissing(io: ToolchainIo, tools: Tool[]): Promise<Tool[]> {
  */
 export async function ensureToolchain(options: EnsureToolchainOptions = {}): Promise<boolean> {
   const io = options.io ?? realIo();
-  // MERGE: once the AWS-EC2 branch lands core/os.ts, replace this with `isMac()` from there.
-  const platform = options.platform ?? process.platform;
+  const onMac = options.platform ? options.platform === "darwin" : isMac();
   const assumeYes = options.assumeYes ?? false;
 
-  if (platform !== "darwin") {
+  if (!onMac) {
     io.log("Toolchain auto-install is macOS-only — on this host, build remotely or via EAS.");
     return true;
   }
