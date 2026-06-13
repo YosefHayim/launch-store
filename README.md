@@ -1,6 +1,12 @@
-# Launch
+<p align="center">
+  <img src="assets/launch-logo.png" alt="Launch" width="220" />
+</p>
 
-**Build and ship your iOS apps to the App Store from your own Mac, with your own keys — no Expo bill.**
+<h1 align="center">Launch</h1>
+
+<p align="center">
+  <strong>Build and ship your iOS apps to the App Store from your own Mac, with your own keys — no Expo bill.</strong>
+</p>
 
 Launch does locally what EAS Build does in Expo's cloud: it generates the native project, manages your
 Apple signing credentials, builds and signs the `.ipa`, tells you the real per-device download size,
