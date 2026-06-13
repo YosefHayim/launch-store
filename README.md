@@ -32,8 +32,8 @@ Install Launch as a dev dependency of your app (recommended — this makes the t
 import resolve), or globally for the `launch` command alone:
 
 ```bash
-npm install --save-dev launchcli     # per-project (recommended)
-npm install --global launchcli       # or global
+npm install --save-dev launch-store     # per-project (recommended)
+npm install --global launch-store       # or global
 ```
 
 ## Quick start
@@ -69,7 +69,7 @@ App facts (bundle id, version) are read from each `app.json`, so they're never d
 `launch.config.ts` holds only Launch-specific settings:
 
 ```ts
-import { defineConfig } from "launchcli";
+import { defineConfig } from "launch-store";
 
 export default defineConfig({
   // appRoots: ["./apps"],   // for a monorepo; omit to scan the repo root

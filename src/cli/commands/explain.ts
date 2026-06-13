@@ -12,6 +12,7 @@ import { explainTopic, isGlossaryTopic, listTopics } from "../../core/glossary.j
 export function registerExplainCommand(program: Command): void {
   program
     .command("explain")
+    .description("plain-English glossary for an Apple/iOS term (csr, app-record, provisioning-profile, …)")
     .argument("[topic]", "a term to explain, e.g. provisioning-profile")
     .action((topic?: string) => {
       if (!topic) {

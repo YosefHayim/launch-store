@@ -66,6 +66,7 @@ async function setup(): Promise<void> {
 export function registerCredsCommand(program: Command): void {
   program
     .command("creds")
+    .description("inspect, import the API key, or provision the cert + profile")
     .argument("[action]", "status | set-key | setup", "status")
     .action(async (action: string) => {
       switch (action) {

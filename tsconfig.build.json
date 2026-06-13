@@ -1,4 +1,7 @@
 {
   "extends": "./tsconfig.json",
+  // The published dist ships .js + .d.ts only. Source maps would point at .ts files that aren't in
+  // the tarball, so they're dead weight for consumers — disable them for the build artifact.
+  "compilerOptions": { "sourceMap": false },
   "exclude": ["src/**/*.test.ts"]
 }

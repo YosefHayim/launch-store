@@ -2,7 +2,7 @@
  * `launch init` — scaffold Launch into an existing app or monorepo.
  *
  * Detects the app(s) in the current repo, then writes a commented `launch.config.ts` (and a starter
- * `.env.example` if missing) so a new user goes from `npm i -g launchcli` to a working config in one
+ * `.env.example` if missing) so a new user goes from `npm i -g launch-store` to a working config in one
  * step. It only writes config — it never touches credentials or the native project.
  */
 
@@ -31,7 +31,7 @@ function configTemplate(appRoot: string | null): string {
   const appRootsLine = appRoot
     ? `  appRoots: ["${appRoot}"], // every app.json lives under here`
     : `  // appRoots: ["./apps"], // uncomment if your apps live in a subfolder`;
-  return `import { defineConfig } from "launchcli";
+  return `import { defineConfig } from "launch-store";
 
 /**
  * Launch configuration. App facts (bundle id, version) are read from each app.json — this file holds

@@ -1,5 +1,5 @@
 {
-  "name": "launchcli",
+  "name": "launch-store",
   "version": "0.1.0",
   "description": "Build and ship your iOS/Android apps to the stores from your own machine, with your own keys — no Expo bill.",
   "keywords": [
@@ -47,7 +47,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "dev": "tsx src/cli/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
