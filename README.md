@@ -16,6 +16,27 @@ and uploads to TestFlight — using the Mac you already own and keys that never 
 > not yet built (see [`PLAN.md`](./docs/PLAN.md)). The storage/credentials/build/submit layers are pluggable
 > interfaces, so adding a backend is a one-file change.
 
+## Why Launch? (the honest version)
+
+If you've hit **Expo's EAS Build** paywall and you're looking for a **free, open-source EAS alternative**,
+Launch runs the same build → sign → TestFlight flow on hardware you already control:
+
+- **No subscription, no per-build fees.** EAS bills by build — the free tier caps your monthly builds and
+  enforces a 45-minute timeout; paid plans run **$19–$199/mo** plus overage. Launch builds on the Mac you
+  already own: **$0 compute, unlimited builds, no queue timeout.**
+- **Your signing keys never leave your machine.** Your distribution certificate and App Store Connect API
+  key stay in your local **macOS Keychain** — Launch only ever sends a CSR to Apple. With a hosted service
+  your keys live on someone else's servers.
+- **No lock-in.** MIT-licensed, with `fastlane` + Apple's own tooling underneath and pluggable
+  storage/credentials/build/submit layers. Nothing proprietary to migrate off later.
+- **It teaches as it runs.** Add `--explain` to any command to expand each step (CSR, provisioning profile,
+  TestFlight) into plain English.
+
+**When Launch is _not_ the right tool.** It needs a **Mac with Xcode** — iOS apps can only be signed on
+macOS (Apple's rule, not ours), so there is no Windows/Linux build host and no managed cloud queue. v1 also
+targets **iOS → TestFlight** only. If you have no Mac and build only occasionally, a hosted service or a
+**GitHub Actions macOS runner** (free for public repos, Xcode preinstalled) will likely serve you better.
+
 ## Requirements
 
 - macOS with **Xcode** + command-line tools
