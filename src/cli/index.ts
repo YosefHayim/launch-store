@@ -15,6 +15,8 @@ import { registerReleaseCommand } from "./commands/release.js";
 import { registerCredsCommand } from "./commands/creds.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerExplainCommand } from "./commands/explain.js";
+import { registerCloudCommand } from "./commands/cloud.js";
+import { runWizard } from "./commands/wizard.js";
 
 /**
  * Read the CLI version straight from the package manifest so `package.json` stays the single
@@ -45,6 +47,12 @@ registerReleaseCommand(program);
 registerCredsCommand(program);
 registerDoctorCommand(program);
 registerExplainCommand(program);
+registerCloudCommand(program);
+
+// No subcommand → the interactive wizard (the Expo-style front door that routes by OS).
+program.action(async () => {
+  await runWizard();
+});
 
 program.parseAsync(process.argv).catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : String(error));

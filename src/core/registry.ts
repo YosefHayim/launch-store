@@ -7,12 +7,13 @@
  * install never imports their SDKs.
  */
 
-import type { BuildEngine, CredentialsProvider, StorageProvider, Submitter } from "./types.js";
+import type { BuildEngine, ComputeHost, CredentialsProvider, StorageProvider, Submitter } from "./types.js";
 
 const credentialsProviders = new Map<string, CredentialsProvider>();
 const buildEngines = new Map<string, BuildEngine>();
 const storageProviders = new Map<string, StorageProvider>();
 const submitters = new Map<string, Submitter>();
+const computeHosts = new Map<string, ComputeHost>();
 
 /** Register a credentials provider under its `name`. */
 export function registerCredentialsProvider(provider: CredentialsProvider): void {
@@ -34,6 +35,11 @@ export function registerSubmitter(submitter: Submitter): void {
   submitters.set(submitter.name, submitter);
 }
 
+/** Register a compute host (remote-Mac provisioner) under its `name`. */
+export function registerComputeHost(host: ComputeHost): void {
+  computeHosts.set(host.name, host);
+}
+
 /** Look up a registered provider, throwing a clear error listing the available names if missing. */
 function lookup<T>(kind: string, name: string, registry: Map<string, T>): T {
   const found = registry.get(name);
@@ -53,3 +59,5 @@ export const getBuildEngine = (name: string): BuildEngine => lookup("build engin
 export const getStorageProvider = (name: string): StorageProvider => lookup("storage provider", name, storageProviders);
 
 export const getSubmitter = (name: string): Submitter => lookup("submitter", name, submitters);
+
+export const getComputeHost = (name: string): ComputeHost => lookup("compute host", name, computeHosts);

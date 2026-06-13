@@ -15,7 +15,9 @@ import type {
   AppDescriptor,
   AppleCredentials,
   BuildArtifact,
+  LaunchConfig,
   Platform,
+  RemoteTarget,
   ResolvedBuildContext,
   SigningAssets,
   SizeReport,
@@ -44,12 +46,30 @@ export interface BuildRunOptions {
   target: SubmitTarget;
   /** Rehearse the flow with no real changes (`--dry-run`). */
   dryRun: boolean;
+  /** Build on a remote Mac (AWS EC2 Mac / a Mac over SSH) instead of locally. */
+  remote?: RemoteTarget;
+}
+
+/**
+ * The shared front half of every build path: config + app + profile + validated env + a logger.
+ *
+ * Produced by {@link prepareBuild} and consumed by the local spine ({@link runLocalBuild}), the remote
+ * pipeline (`core/remotePipeline.ts`), and the EAS handoff (`core/easPipeline.ts`) so all three select
+ * the app, validate `.env`, and log the header identically — the divergence is only in HOW they build.
+ */
+export interface PreparedBuild {
+  config: LaunchConfig;
+  app: AppDescriptor;
+  profile: ResolvedBuildContext["profile"];
+  env: Record<string, string>;
+  ctx: ResolvedBuildContext;
+  log: Logger;
 }
 
 /** Placeholder API key used in `--dry-run`, so the flow runs without an imported credential. */
-const DRY_RUN_KEY = { keyId: "DRYRUN", issuerId: "DRYRUN", p8: "" };
+export const DRY_RUN_KEY = { keyId: "DRYRUN", issuerId: "DRYRUN", p8: "" };
 
-const mb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+export const mb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 const delay = (ms: number): Promise<void> =>
   new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -139,9 +159,11 @@ async function resolveSigning(
 }
 
 /**
- * Run the full pipeline. Throws with a clear message on any failed step; the CLI layer prints it.
+ * Resolve the shared front half of a build: config, the chosen app, the profile, a validated env, a
+ * logger, and the {@link ResolvedBuildContext}. Refuses Android (v1 is iOS) before any work. Every
+ * build path — local, remote, EAS — starts here so app selection and `.env` validation never drift.
  */
-export async function runBuild(options: BuildRunOptions): Promise<void> {
+export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBuild> {
   const { dryRun } = options;
   const log = createLogger(options.explain);
 
@@ -152,9 +174,10 @@ export async function runBuild(options: BuildRunOptions): Promise<void> {
   const { config, apps } = await loadConfig();
   const app = await selectApp(apps, options.appName);
   const profile = config.profiles[options.profileName] ?? { name: options.profileName, sizeBudgetMB: 200 };
-  log.step("config", `${app.name} · ${profile.name} · ios${dryRun ? " · dry-run" : ""}`);
+  const remoteSuffix = options.remote ? (options.remote.kind === "aws" ? " · remote(aws)" : " · remote(ssh)") : "";
+  log.step("config", `${app.name} · ${profile.name} · ios${dryRun ? " · dry-run" : ""}${remoteSuffix}`);
 
-  // 1. Validate env against .env.example before doing any expensive work.
+  // Validate env against .env.example before doing any expensive work.
   const env = loadDotenvFile(join(app.dir, profile.envFile ?? ".env"));
   const missing = missingKeys(app.dir, env);
   if (missing.length > 0)
@@ -165,6 +188,33 @@ export async function runBuild(options: BuildRunOptions): Promise<void> {
   log.step("env", `${Object.keys(env).length} vars validated`, "env-vars");
 
   const ctx: ResolvedBuildContext = { platform: "ios", app, profile, env, explain: options.explain, dryRun };
+  return { config, app, profile, env, ctx, log };
+}
+
+/**
+ * Run a build. Dispatches to the right path: `--remote` → the remote-Mac pipeline, `buildEngine: "eas"`
+ * → the EAS handoff, otherwise the local Mac spine. Throws with a clear message on any failed step.
+ */
+export async function runBuild(options: BuildRunOptions): Promise<void> {
+  const prepared = await prepareBuild(options);
+  // `--remote` wins; a config `buildEngine: "remote-mac"` defaults the remote target to AWS.
+  const remote =
+    options.remote ?? (prepared.config.buildEngine === "remote-mac" ? ({ kind: "aws" } as const) : undefined);
+  if (remote) {
+    const { runRemoteBuild } = await import("./remotePipeline.js");
+    return runRemoteBuild(prepared, { ...options, remote });
+  }
+  if (prepared.config.buildEngine === "eas") {
+    const { runEasBuild } = await import("./easPipeline.js");
+    return runEasBuild(prepared, options);
+  }
+  return runLocalBuild(prepared, options);
+}
+
+/** The local Mac spine: prebuild → resolve creds/signing → build number → gym → size → store → submit. */
+async function runLocalBuild(prepared: PreparedBuild, options: BuildRunOptions): Promise<void> {
+  const { config, app, profile, ctx, log } = prepared;
+  const { dryRun } = options;
 
   // 2. Generate the native project only when it's missing (bare/committed ios/ is used as-is).
   await ensureNativeProject(ctx, log);
@@ -223,7 +273,7 @@ export async function runBuild(options: BuildRunOptions): Promise<void> {
         "testflight",
       );
     } else {
-      await getSubmitter("app-store-connect").submit(artifactPath, options.target, signedCredentials, ctx);
+      await getSubmitter(config.submit).submit(artifactPath, options.target, signedCredentials, ctx);
       log.step(
         "submit",
         options.target === "testflight" ? "uploaded to TestFlight" : "submitted for App Store review",
@@ -257,7 +307,11 @@ async function ensureNativeProject(ctx: ResolvedBuildContext, log: Logger): Prom
 }
 
 /** Resolve the next build number from App Store Connect, or a placeholder in dry-run. */
-async function nextBuildNumber(ascKey: AppleCredentials["ascKey"], bundleId: string, dryRun: boolean): Promise<number> {
+export async function nextBuildNumber(
+  ascKey: AppleCredentials["ascKey"],
+  bundleId: string,
+  dryRun: boolean,
+): Promise<number> {
   if (dryRun || !bundleId) return 1;
   const asc = new AppStoreConnectClient(ascKey);
   return (await asc.getLatestBuildNumber(bundleId)) + 1;
@@ -288,7 +342,7 @@ async function reportProcessing(
 }
 
 /** Print per-device sizes from the report and, if any exceeds the budget, ask before continuing. */
-async function reportSizeAndGate(report: SizeReport, budgetMB: number, log: Logger): Promise<void> {
+export async function reportSizeAndGate(report: SizeReport, budgetMB: number, log: Logger): Promise<void> {
   const budgetBytes = budgetMB * 1024 * 1024;
   if (report.entries.length === 0) {
     log.step("size", `${mb(report.ipaBytes)} on disk (no per-device report)`, "app-thinning");

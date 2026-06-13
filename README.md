@@ -10,7 +10,9 @@
 
 Launch does locally what EAS Build does in Expo's cloud: it generates the native project, manages your
 Apple signing credentials, builds and signs the `.ipa`, reports the real per-device download size, and
-uploads to TestFlight — on the Mac you already own, with keys that never leave it.
+uploads to TestFlight — on the Mac you already own, with keys that stay in your local Keychain. No Mac?
+Launch can also build on a cloud Mac in **your own** AWS account or hand off to Expo EAS — see
+[Building without a Mac](#building-without-a-mac).
 
 > Today Launch ships **iOS → TestFlight**. Storage, credentials, build, and submit are pluggable
 > interfaces, so Android and cloud backends drop in as one-file additions — see [`PLAN.md`](./docs/PLAN.md).
@@ -36,9 +38,11 @@ already control — free and open source.
 - **$0 compute, unlimited builds.** EAS bills by build: the free tier caps your monthly builds behind a
   45-minute timeout, and paid plans run **$19–$199/mo** plus overage. Launch builds on your own Mac — no
   meter, no queue, no timeout.
-- **Your keys never leave your machine.** Your distribution certificate and App Store Connect API key stay
-  in your local **macOS Keychain**; Launch only ever sends a CSR to Apple. A hosted service keeps your keys
-  on its servers — Launch never sees them.
+- **Your keys stay in your local keychain.** For local builds, your distribution certificate and App Store
+  Connect API key stay in your OS keychain; Launch only ever sends a CSR to Apple. A hosted service keeps
+  your keys on _its_ servers — Launch never sees them. (Building without a Mac is the one exception: with
+  your explicit consent, a transient copy is uploaded to **your own** cloud/remote Mac and shredded after
+  the build — never to anyone else's servers. See [Building without a Mac](#building-without-a-mac).)
 - **No lock-in, ever.** MIT-licensed, built on `fastlane` and Apple's own tooling, with pluggable
   storage/credentials/build/submit layers. Nothing proprietary to migrate off later.
 - **It teaches as it runs.** Add `--explain` to any command to expand each step — CSR, provisioning
@@ -64,7 +68,33 @@ exactly why your signing keys stay on your own hardware instead of a build farm:
 no shared cloud queue, just your machine.
 
 No Mac, or you ship only once in a while? A **GitHub Actions macOS runner** (free on public repos, Xcode
-preinstalled) is a solid fit too.
+preinstalled) is a solid fit too — and Launch itself can build without a local Mac, below.
+
+## Building without a Mac
+
+iOS signing is macOS-only, so a Windows/Linux developer needs a Mac somewhere. Run `launch` with no
+arguments for an interactive wizard that detects your OS and offers three honest paths:
+
+| Path                    | What happens                                                                                            | Cost                                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| **AWS cloud Mac**       | Launch provisions an EC2 Mac in **your own** AWS account, builds + signs + submits, then tears it down. | You pay AWS directly — **~$16 minimum per 24h session** (Apple's license sets a hard 24h floor). |
+| **Expo EAS**            | Launch orchestrates `eas-cli` end-to-end (`eas build` → download → `eas submit`) on Expo's cloud.       | Expo's **free tier** with monthly caps.                                                          |
+| **Connect a Mac (SSH)** | Build on any Mac you can reach — a colleague's, MacStadium, a hand-launched instance.                   | Whatever that Mac costs you.                                                                     |
+
+Or drive it directly:
+
+```bash
+launch build ios --remote aws            # build on a cloud Mac in your AWS account
+launch build ios --remote ec2-user@host  # build on a Mac you reach over SSH
+launch cloud doctor                      # check AWS creds, region, Mac-host quota, IAM
+launch cloud status                      # live host: age, cost so far, releasable-after time
+launch cloud teardown                    # stop + release the host (warns about the 24h floor)
+```
+
+The honest tradeoff: for occasional builds a GitHub Actions macOS runner is cheaper than EC2 Mac. Launch's
+value here is automation in **your own** account with the **same keys everywhere**, not "cheaper than EAS."
+Remote builds upload a transient copy of your signing keys to your own host with explicit consent and shred
+them after — full design and verified AWS costs are in [`docs/plan-aws-ec2-mac.md`](./docs/plan-aws-ec2-mac.md).
 
 ## Requirements
 
@@ -103,14 +133,16 @@ provision them inline. Public App Store submission is the separate, deliberate `
 
 ## Commands
 
-| Command                                 | What it does                                                                                                          |
-| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `launch init`                           | Scaffold `launch.config.ts` (+ `.env.example`) into the current repo.                                                 |
-| `launch build <ios\|android>`           | Run the full pipeline and upload to TestFlight. Flags: `--profile`, `--app`, `--explain`, `--no-submit`, `--dry-run`. |
-| `launch release <ios\|android>`         | Submit the latest stored build to the **public** App Store review queue (with confirmation).                          |
-| `launch creds [status\|set-key\|setup]` | Inspect, import the API key, or provision the cert + profile.                                                         |
-| `launch doctor`                         | Check the toolchain and Apple account (missing app record, unsigned agreements).                                      |
-| `launch explain [topic]`                | Plain-English glossary (`csr`, `app-record`, `provisioning-profile`, …).                                              |
+| Command                                          | What it does                                                                                                                      |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `launch`                                         | Interactive wizard — detects your OS and routes (the Expo-style front door, great on a non-Mac).                                  |
+| `launch init`                                    | Scaffold `launch.config.ts` (+ `.env.example`) into the current repo.                                                             |
+| `launch build <ios\|android>`                    | Run the full pipeline and upload to TestFlight. Flags: `--profile`, `--app`, `--explain`, `--no-submit`, `--remote`, `--dry-run`. |
+| `launch release <ios\|android>`                  | Submit the latest stored build to the **public** App Store review queue (with confirmation).                                      |
+| `launch creds [status\|set-key\|setup]`          | Inspect, import the API key, or provision the cert + profile.                                                                     |
+| `launch cloud [setup\|status\|teardown\|doctor]` | Manage the remote AWS EC2 Mac build host (see [Building without a Mac](#building-without-a-mac)).                                 |
+| `launch doctor`                                  | Check the toolchain and Apple account (missing app record, unsigned agreements).                                                  |
+| `launch explain [topic]`                         | Plain-English glossary (`csr`, `app-record`, `provisioning-profile`, `ec2-mac`, …).                                               |
 
 Add `--explain` to any build to expand every step into a short teaching block — useful whether it's your
 first iOS release or your hundredth.
@@ -128,7 +160,12 @@ export default defineConfig({
   // appRoots: ["./apps"],   // for a monorepo; omit to scan the repo root
   credentials: "local", // macOS Keychain + ~/.launch
   storage: "local", // ~/.launch/artifacts (swap for s3/r2/supabase later)
-  buildEngine: "fastlane",
+  buildEngine: "fastlane", // "fastlane" (local Mac) · "remote-mac" (AWS EC2 Mac) · "eas" (Expo cloud)
+  // submit: "app-store-connect", // or "eas" to submit through Expo
+
+  // Only needed to build without a Mac via `--remote aws` — see "Building without a Mac".
+  // aws: { region: "us-east-1" },
+
   profiles: {
     production: { name: "production", envFile: ".env", sizeBudgetMB: 200 },
   },

@@ -8,7 +8,8 @@ describe("glossary — the single source for --explain and docs", () => {
     expect(topics).toContain("csr");
     expect(topics).toContain("app-record");
     expect(topics).toContain("provisioning-profile");
-    expect(topics.length).toBe(13);
+    expect(topics).toContain("ec2-mac");
+    expect(topics.length).toBe(17);
     expect(new Set(topics).size).toBe(topics.length);
   });
 

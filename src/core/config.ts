@@ -30,8 +30,10 @@ export function defineConfig(input: LaunchConfigInput): LaunchConfig {
     credentials: input.credentials ?? "local",
     storage: input.storage ?? "local",
     buildEngine: input.buildEngine ?? "fastlane",
+    submit: input.submit ?? "app-store-connect",
     profiles: input.profiles,
     ...(input.appRoots ? { appRoots: input.appRoots } : {}),
+    ...(input.aws ? { aws: input.aws } : {}),
   };
 }
 
@@ -45,6 +47,7 @@ const DEFAULT_CONFIG: LaunchConfig = {
   credentials: "local",
   storage: "local",
   buildEngine: "fastlane",
+  submit: "app-store-connect",
   profiles: { production: { name: "production", sizeBudgetMB: 200 } },
 };
 

@@ -19,9 +19,12 @@ before changing direction.
 - **`src/core/glossary.ts` is the single source for teaching text** — it feeds both `launch explain`
   and the `--explain` step expansions. Edit term explanations only there; never duplicate them in docs.
 - **Adding infrastructure = implement an interface + register it.** Implement one of
-  `BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` from `types.ts`, then register
-  it in `src/providers/index.ts`. Do **not** touch `src/core/pipeline.ts` to add a backend — it selects
-  providers by name from config. Lazy-load heavy SDKs inside the provider so a local-only run stays lean.
+  `BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost` from `types.ts`,
+  then register it in `src/providers/index.ts`. Do **not** touch `src/core/pipeline.ts` to add a backend —
+  it selects providers by name from config. Lazy-load heavy SDKs inside the provider so a local-only run
+  stays lean (the AWS SDK / native keyring are `optionalDependencies`, dynamic-imported on the cloud paths
+  only). Off-Mac builds live in `core/remotePipeline.ts` (host lifecycle) + `core/easPipeline.ts` (EAS
+  handoff) beside the local spine; see `docs/plan-aws-ec2-mac.md`.
 - **The config seam:** the user's `launch.config.ts` is loaded with jiti; the public API
   (`defineConfig` + config types) is re-exported from `src/index.ts` — the package `exports` entry.
   Keep `src/index.ts` re-exports only, with no logic.

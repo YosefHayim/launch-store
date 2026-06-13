@@ -1,38 +1,29 @@
 /**
- * macOS Keychain access via the built-in `security` CLI.
+ * Secret credential storage — the stable, secret-agnostic API the rest of Launch calls.
  *
- * This is where Launch keeps secret credential material (the App Store Connect `.p8`, and later the
- * `.p12` password) so it is encrypted at rest by the OS and never sits in the repo or in `~/.launch`
- * metadata. Generic, secret-agnostic helpers; the credentials provider decides the account names.
+ * This is where Launch keeps secret material (the App Store Connect `.p8`, the distribution `.p12`
+ * password) so it is encrypted at rest by the OS and never sits in the repo or in `~/.launch`
+ * metadata. The actual backend is chosen per host by {@link getSecretStore} — the macOS Keychain on a
+ * Mac, the Windows Credential Manager / Linux libsecret elsewhere — so these helpers behave the same
+ * on every platform and callers stay unchanged.
  *
- * Note: `security ... -w <value>` passes the secret as an argument, briefly visible to `ps`. This
- * matches how Xcode/fastlane tooling behaves and is an accepted tradeoff for a local developer tool.
+ * NOTE: importing a cert into a *codesign* keychain (the `security import` / `security cms` calls in
+ * `apple/credentials.ts`) is a different concern and is not secret storage — it stays there.
  */
 
-import { capture } from "./exec.js";
+import { getSecretStore } from "./secretStore.js";
 
-/** Keychain service all Launch secrets are filed under, so they're easy to find/audit/remove. */
-const SERVICE = "launch";
-
-/** Store (or overwrite, via `-U`) a secret for `account` in the login keychain. */
+/** Store (or overwrite) a secret for `account` in the host's native secret store. */
 export async function setSecret(account: string, value: string): Promise<void> {
-  await capture("security", ["add-generic-password", "-U", "-s", SERVICE, "-a", account, "-w", value]);
+  await getSecretStore().set(account, value);
 }
 
 /** Read a secret for `account`, or null if it isn't present. */
 export async function getSecret(account: string): Promise<string | null> {
-  try {
-    return await capture("security", ["find-generic-password", "-s", SERVICE, "-a", account, "-w"]);
-  } catch {
-    return null;
-  }
+  return getSecretStore().get(account);
 }
 
 /** Remove a stored secret for `account`. No-op if it doesn't exist. */
 export async function deleteSecret(account: string): Promise<void> {
-  try {
-    await capture("security", ["delete-generic-password", "-s", SERVICE, "-a", account]);
-  } catch {
-    /* already absent */
-  }
+  await getSecretStore().delete(account);
 }

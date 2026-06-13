@@ -8,13 +8,16 @@ Launch runs the EAS Build pipeline locally: prebuild → resolve credentials →
 
 - [README](./README.md): install, quick start, the command surface, configuration, and how credentials are handled.
 - [PLAN](./docs/PLAN.md): the source of truth — locked decisions, App Store Connect API endpoint coverage, architecture, the v1 pipeline, scope boundary, and security notes.
+- [Remote / cloud-Mac build](./docs/plan-aws-ec2-mac.md): off-Mac builds for Windows/Linux — AWS EC2 Mac compute, the EAS handoff, verified AWS costs, the SecretStore/ComputeHost seams, and the security amendments.
 - [CONTRIBUTING](./CONTRIBUTING.md): dev setup, the quality gate, adding a provider, tests, and CI.
 - [AGENTS](./AGENTS.md): working rules for AI agents and contributors.
 
 ## Source
 
-- [Domain types & provider interfaces](./src/core/types.ts): the single source of truth for Launch's vocabulary.
-- [Pipeline](./src/core/pipeline.ts): the build → submit spine and the `--dry-run` rehearsal.
+- [Domain types & provider interfaces](./src/core/types.ts): the single source of truth for Launch's vocabulary (incl. SecretStore, ComputeHost).
+- [Pipeline](./src/core/pipeline.ts): the build → submit spine, the shared `prepareBuild` front half, and the `--dry-run` rehearsal.
+- [Remote pipeline](./src/core/remotePipeline.ts): the C1–C7 host lifecycle for off-Mac builds; [EAS pipeline](./src/core/easPipeline.ts): the Expo handoff.
+- [AWS EC2 Mac host](./src/providers/compute/awsEc2Mac.ts): allocate/status/teardown + golden-AMI + `cloud doctor`; [SSH transport](./src/core/ssh.ts) and [remote build ops](./src/core/remoteBuild.ts).
 - [Glossary](./src/core/glossary.ts): plain-English term definitions shared by `launch explain` and the docs.
 - [App Store Connect client](./src/apple/ascClient.ts): the Apple API integration (JWT auth, bundle ids, certs, profiles, builds).
 - [Public API](./src/index.ts): what a user's `launch.config.ts` imports (`defineConfig`).

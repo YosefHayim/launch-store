@@ -112,10 +112,16 @@ local-only install pulls nothing extra.
 core/pipeline.ts orchestrates:
 
   CredentialsProvider  resolve() status()                 ── local (Keychain) ✓   [team / S3 later]
-  BuildEngine          build() → { ipaPath, sizeReport } ── fastlane ✓            [xcodebuild later]
+  BuildEngine          build() → { ipaPath, sizeReport } ── fastlane ✓ · eas ✓    [xcodebuild later]
   StorageProvider      put() list() url()                 ── local ✓              [s3 / r2 / supabase later]
-  Submitter            submit(ipa, target)                ── App Store Connect ✓  [google play later]
+  Submitter            submit(ipa, target)                ── App Store Connect ✓ · eas ✓  [google play later]
+  SecretStore          get() set() delete()               ── macOS security ✓ · native keyring ✓ (Win/Linux)
+  ComputeHost          allocate() status() teardown()     ── aws-ec2-mac ✓ · byo-ssh ✓
 ```
+
+The last two seams power off-Mac builds: `SecretStore` widens the macOS Keychain to Windows/Linux, and
+`ComputeHost` provisions a remote Mac the same fastlane spine runs on over SSH. Full design + verified AWS
+costs: [`plan-aws-ec2-mac.md`](./plan-aws-ec2-mac.md).
 
 ### Directory layout
 
@@ -226,6 +232,15 @@ the user's environment, not bundled.
 - **expo** (not a dep) — `npx expo prebuild` is run from the app when it's Expo-managed and lacks `ios/`.
 - **fastlane** (not a dep) — `gym` (archive+export) + `pilot`/`deliver` (upload), invoked as a CLI.
 
+**Optional (cloud / off-Mac builds only — `optionalDependencies`, lazy-loaded):**
+
+- **@aws-sdk/client-ec2** + **@aws-sdk/credential-providers** — allocate/run/release the EC2 Mac host and
+  resolve AWS creds via the standard chain. Dynamic-imported inside the `aws-ec2-mac` host only, so a
+  local Mac build never loads them. Modular v3 clients keep the footprint to EC2, not the whole SDK.
+- **@napi-rs/keyring** — OS-native secret store for Windows/Linux (Credential Manager / libsecret); the
+  maintained successor to the archived `keytar`. Loaded only off-macOS (a Mac uses the `security` CLI).
+- **eas-cli** (not a dep) — detected/invoked via `npx` for the EAS handoff path; never bundled.
+
 ### Dev tooling
 
 - **typescript** (max-strict) + **typescript-eslint** (`strict-type-checked`) + **prettier** — quality gate.
@@ -243,7 +258,7 @@ the user's environment, not bundled.
 
 - Android (Gradle build + Google Play submission) — the very next milestone.
 - Cloud storage providers (Supabase / R2 / S3) — drop-in behind `StorageProvider`.
-- Remote/cloud Mac build compute — a `ComputeProvider` behind the build step.
+- Remote/cloud Mac build compute — **implemented**: a `ComputeHost` (`aws-ec2-mac` / `byo-ssh`) + an SSH remote-build pipeline + an `eas` handoff + a cross-platform `SecretStore`, with a no-args wizard and a `launch cloud` group. Opt-in via `launch` / `--remote`. See [`plan-aws-ec2-mac.md`](./plan-aws-ec2-mac.md).
 - OTA JS updates (the EAS Update equivalent) — a separate, larger system.
 - Ad-hoc / internal distribution (install links) — needs a different profile type + hosting.
 

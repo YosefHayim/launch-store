@@ -31,6 +31,13 @@ export const CREDENTIALS_INDEX = join(CREDENTIALS_DIR, "index.json");
 /** Where macOS/Xcode looks for installed provisioning profiles (by `<uuid>.mobileprovision`). */
 export const PROVISIONING_PROFILES_DIR = join(homedir(), "Library", "MobileDevice", "Provisioning Profiles");
 
+/**
+ * Machine-discovered remote-build state: the live AWS host handle (id + allocation timestamp) and the
+ * golden AMI id Launch created for this machine. Non-secret infra ids only — never `.env`, never
+ * committed, never secrets (those stay in the OS keychain). See docs/plan-aws-ec2-mac.md.
+ */
+export const CLOUD_STATE = join(LAUNCH_HOME, "cloud.json");
+
 /** Create a directory (and parents) if it doesn't exist, returning the path for chaining. */
 export function ensureDir(dir: string): string {
   mkdirSync(dir, { recursive: true });
