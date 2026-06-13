@@ -1,6 +1,6 @@
 {
   "name": "launch-store",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Build and ship your iOS/Android apps to the stores from your own machine, with your own keys — no Expo bill.",
   "keywords": [
     "cli",
