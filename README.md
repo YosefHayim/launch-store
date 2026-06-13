@@ -5,16 +5,15 @@
 <h1 align="center">Launch</h1>
 
 <p align="center">
-  <strong>Build and ship your iOS apps to the App Store from your own Mac, with your own keys — no Expo bill.</strong>
+  <strong>Ship your iOS app to TestFlight from your own Mac — your keys, your hardware, no Expo bill.</strong>
 </p>
 
 Launch does locally what EAS Build does in Expo's cloud: it generates the native project, manages your
-Apple signing credentials, builds and signs the `.ipa`, tells you the real per-device download size,
-and uploads to TestFlight — using the Mac you already own and keys that never leave your machine.
+Apple signing credentials, builds and signs the `.ipa`, reports the real per-device download size, and
+uploads to TestFlight — on the Mac you already own, with keys that never leave it.
 
-> v1 is **iOS → TestFlight**. Android, cloud storage, and remote build compute are designed-for but
-> not yet built (see [`PLAN.md`](./docs/PLAN.md)). The storage/credentials/build/submit layers are pluggable
-> interfaces, so adding a backend is a one-file change.
+> Today Launch ships **iOS → TestFlight**. Storage, credentials, build, and submit are pluggable
+> interfaces, so Android and cloud backends drop in as one-file additions — see [`PLAN.md`](./docs/PLAN.md).
 
 <table align="center">
   <tr>
@@ -29,26 +28,21 @@ and uploads to TestFlight — using the Mac you already own and keys that never 
   </tr>
 </table>
 
-## Why Launch? (the honest version)
+## Why developers switch to Launch
 
-If you've hit **Expo's EAS Build** paywall and you're looking for a **free, open-source EAS alternative**,
-Launch runs the same build → sign → TestFlight flow on hardware you already control:
+Hit **Expo's EAS Build** paywall? Launch runs the same build → sign → TestFlight flow on hardware you
+already control — free and open source.
 
-- **No subscription, no per-build fees.** EAS bills by build — the free tier caps your monthly builds and
-  enforces a 45-minute timeout; paid plans run **$19–$199/mo** plus overage. Launch builds on the Mac you
-  already own: **$0 compute, unlimited builds, no queue timeout.**
-- **Your signing keys never leave your machine.** Your distribution certificate and App Store Connect API
-  key stay in your local **macOS Keychain** — Launch only ever sends a CSR to Apple. With a hosted service
-  your keys live on someone else's servers.
-- **No lock-in.** MIT-licensed, with `fastlane` + Apple's own tooling underneath and pluggable
+- **$0 compute, unlimited builds.** EAS bills by build: the free tier caps your monthly builds behind a
+  45-minute timeout, and paid plans run **$19–$199/mo** plus overage. Launch builds on your own Mac — no
+  meter, no queue, no timeout.
+- **Your keys never leave your machine.** Your distribution certificate and App Store Connect API key stay
+  in your local **macOS Keychain**; Launch only ever sends a CSR to Apple. A hosted service keeps your keys
+  on its servers — Launch never sees them.
+- **No lock-in, ever.** MIT-licensed, built on `fastlane` and Apple's own tooling, with pluggable
   storage/credentials/build/submit layers. Nothing proprietary to migrate off later.
-- **It teaches as it runs.** Add `--explain` to any command to expand each step (CSR, provisioning profile,
-  TestFlight) into plain English.
-
-**When Launch is _not_ the right tool.** It needs a **Mac with Xcode** — iOS apps can only be signed on
-macOS (Apple's rule, not ours), so there is no Windows/Linux build host and no managed cloud queue. v1 also
-targets **iOS → TestFlight** only. If you have no Mac and build only occasionally, a hosted service or a
-**GitHub Actions macOS runner** (free for public repos, Xcode preinstalled) will likely serve you better.
+- **It teaches as it runs.** Add `--explain` to any command to expand each step — CSR, provisioning
+  profile, TestFlight — into plain English.
 
 ## Platform support
 
@@ -63,11 +57,20 @@ targets **iOS → TestFlight** only. If you have no Mac and build only occasiona
   </tr>
 </table>
 
+## Built for Mac owners
+
+Launch needs a **Mac with Xcode** — Apple only allows iOS apps to be signed on macOS. That constraint is
+exactly why your signing keys stay on your own hardware instead of a build farm: no Windows or Linux host,
+no shared cloud queue, just your machine.
+
+No Mac, or you ship only once in a while? A **GitHub Actions macOS runner** (free on public repos, Xcode
+preinstalled) is a solid fit too.
+
 ## Requirements
 
 - macOS with **Xcode** + command-line tools
 - **fastlane** (`brew install fastlane`)
-- **openssl** (ships with macOS) — used to generate your distribution key/CSR locally
+- **openssl** (ships with macOS) — generates your distribution key/CSR locally
 - **Node 20+**
 - An **App Store Connect API key** (`.p8` + Key ID + Issuer ID) — [generate one here](https://appstoreconnect.apple.com/access/integrations/api)
 
@@ -75,8 +78,8 @@ Run `launch doctor` any time to check all of the above.
 
 ## Install
 
-Install Launch as a dev dependency of your app (recommended — this makes the typed `launch.config.ts`
-import resolve), or globally for the `launch` command alone:
+Launch is on npm. Install it as a dev dependency of your app so the typed `launch.config.ts` import
+resolves, or globally for just the `launch` command:
 
 ```bash
 npm install --save-dev launch-store     # per-project (recommended)
@@ -84,6 +87,8 @@ npm install --global launch-store       # or global
 ```
 
 ## Quick start
+
+From paywall to TestFlight in five commands:
 
 ```bash
 launch init                 # scaffold launch.config.ts + .env.example, tailored to your repo
@@ -107,8 +112,8 @@ provision them inline. Public App Store submission is the separate, deliberate `
 | `launch doctor`                         | Check the toolchain and Apple account (missing app record, unsigned agreements).                                      |
 | `launch explain [topic]`                | Plain-English glossary (`csr`, `app-record`, `provisioning-profile`, …).                                              |
 
-Add `--explain` to any build to expand every step into a short teaching block — useful whether it's
-your first iOS release or your hundredth.
+Add `--explain` to any build to expand every step into a short teaching block — useful whether it's your
+first iOS release or your hundredth.
 
 ## Configuration
 
