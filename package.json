@@ -38,7 +38,7 @@
     }
   },
   "bin": {
-    "launch": "./dist/cli/index.js"
+    "launch": "dist/cli/index.js"
   },
   "files": [
     "dist"
