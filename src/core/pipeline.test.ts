@@ -51,7 +51,7 @@ function writeRepo(expo: Record<string, unknown>): string {
 }
 
 describe("runBuild --dry-run (the end-to-end spine)", () => {
-  it("rehearses every step with no network and no spawned process", async () => {
+  it("rehearses every iOS step with no network and no spawned process", async () => {
     tempRepo = writeRepo({ slug: "hello", version: "1.0.0", ios: { bundleIdentifier: "com.example.hello" } });
     process.chdir(tempRepo);
 
@@ -62,7 +62,7 @@ describe("runBuild --dry-run (the end-to-end spine)", () => {
         appName: undefined,
         explain: false,
         submit: true,
-        target: "testflight",
+        target: "testing",
         dryRun: true,
       }),
     ).resolves.toBeUndefined();
@@ -70,18 +70,27 @@ describe("runBuild --dry-run (the end-to-end spine)", () => {
     expect(fetchGuard).not.toHaveBeenCalled();
   });
 
-  it("refuses Android in v1 before doing any work", async () => {
+  it("rehearses every Android step with no network and no spawned process", async () => {
+    tempRepo = writeRepo({
+      slug: "hello",
+      version: "1.0.0",
+      android: { package: "com.example.hello", versionCode: 3 },
+    });
+    process.chdir(tempRepo);
+
     await expect(
       runBuild({
         platform: "android",
         profileName: "production",
         appName: undefined,
         explain: false,
-        submit: false,
-        target: "testflight",
+        submit: true,
+        target: "testing",
         dryRun: true,
       }),
-    ).rejects.toThrow(/Android isn't in v1/);
+    ).resolves.toBeUndefined();
+
+    expect(fetchGuard).not.toHaveBeenCalled();
   });
 });
 

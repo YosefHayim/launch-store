@@ -16,7 +16,7 @@ import { runEasBuild } from "../../core/easPipeline.js";
 import { hostOs, hostOsLabel } from "../../core/os.js";
 import { parseSshTarget } from "../../providers/compute/byoSsh.js";
 
-/** Defaults the wizard builds with — production profile, upload to TestFlight, real run. */
+/** Defaults the wizard builds with — production profile, upload to the testing track, real run. */
 function baseOptions(): BuildRunOptions {
   return {
     platform: "ios",
@@ -24,7 +24,7 @@ function baseOptions(): BuildRunOptions {
     appName: undefined,
     explain: false,
     submit: true,
-    target: "testflight",
+    target: "testing",
     dryRun: false,
   };
 }

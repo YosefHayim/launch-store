@@ -9,15 +9,36 @@
  * {@link BuildEngine}, {@link StorageProvider}, or {@link Submitter}.
  */
 
-/** Target mobile platform. iOS can only be built on macOS; Android is deferred to a later milestone. */
+/** Target mobile platform. iOS can only be built (signed) on macOS; Android builds on any OS. */
 export type Platform = "ios" | "android";
 
 /**
- * Where a submission lands.
- * - `testflight`: uploads for internal/external testing (the default, safe path).
- * - `appstore`: enters Apple's public review queue (deliberate `launch release --to-store` only).
+ * Where a submission lands, neutrally named and mapped to each store by the platform's submitter.
+ * - `testing`: a testing track (iOS → TestFlight; Android → the chosen {@link PlayTrack}, default
+ *   `internal`). The default, safe path.
+ * - `production`: the store's public release queue (iOS App Store review / Android production track).
+ *   Reached only by the deliberate `launch release` command.
  */
-export type SubmitTarget = "testflight" | "appstore";
+export type SubmitTarget = "testing" | "production";
+
+/**
+ * A Google Play release track. `internal` is the safe default: a new personal Play account must run
+ * ~20 testers for 14 days on a testing track before production is unlocked, so defaulting anywhere
+ * else would fail for fresh accounts. Has no iOS equivalent.
+ */
+export type PlayTrack = "internal" | "closed" | "open" | "production";
+
+/**
+ * Resolved Android release settings for one invocation, carried on {@link ResolvedBuildContext} so the
+ * Google Play submitter reads a single source of truth. Resolved from `--track`/`--rollout`, then the
+ * profile's defaults, then the safe fallback. Present only for Android builds; absent on iOS.
+ */
+export interface AndroidReleaseOptions {
+  /** The Play track this build is assigned to. */
+  track: PlayTrack;
+  /** Staged-rollout fraction for a production release, 0–1 (`1` = full rollout). Ignored off production. */
+  rollout: number;
+}
 
 /**
  * One app discovered in the surrounding monorepo.
@@ -33,10 +54,17 @@ export interface AppDescriptor {
   dir: string;
   /** Absolute path to the discovered `app.json` / `app.config.*`. */
   configPath: string;
-  /** iOS bundle identifier, e.g. `com.loopi.pomedero`. Undefined until prebuild config is read. */
+  /** iOS bundle identifier (`ios.bundleIdentifier`), e.g. `com.loopi.pomedero`. Undefined for Android-only apps. */
   bundleId?: string;
+  /** Android application id (`android.package`), e.g. `com.loopi.pomedero`. Undefined for iOS-only apps. */
+  packageName?: string;
   /** Human version string (`expo.version`), e.g. `1.0.0`. */
   version?: string;
+  /**
+   * Android `versionCode` floor from `app.json` (`android.versionCode`). The store's latest + 1 wins
+   * when higher, so an intentional local bump is never clobbered but the store stays the source of truth.
+   */
+  androidVersionCode?: number;
 }
 
 /**
@@ -57,6 +85,16 @@ export interface BuildProfile {
    * soft-gates (asks for confirmation) rather than failing. Defaults to 200 (Apple's cellular line).
    */
   sizeBudgetMB?: number;
+  /**
+   * Android-only: default Play track for `launch build android` when `--track` is omitted. Defaults
+   * to `internal` (the only safe target for a fresh account). Ignored on iOS.
+   */
+  track?: PlayTrack;
+  /**
+   * Android-only: default staged-rollout fraction (0–1) for production releases when `--rollout` is
+   * omitted. Defaults to `1.0` (full rollout). Ignored on iOS.
+   */
+  rollout?: number;
 }
 
 /**
@@ -68,13 +106,19 @@ export interface BuildProfile {
 export interface LaunchConfig {
   /** Build profiles keyed by name. */
   profiles: Record<string, BuildProfile>;
-  /** Registered name of the credentials provider to use. Defaults to `local`. */
+  /** Registered name of the credentials provider to use. Defaults to `local` (serves both platforms). */
   credentials: string;
   /** Registered name of the artifact storage provider to use. Defaults to `local`. */
   storage: string;
-  /** Registered name of the build engine to use. `fastlane` (local) or `eas` (cloud handoff). */
+  /**
+   * Registered name of the build engine. Carries the iOS default `fastlane` (or `eas` for the cloud
+   * handoff); an Android build swaps that iOS baseline for its twin `gradle` unless overridden here.
+   */
   buildEngine: string;
-  /** Registered name of the submitter to use. Defaults to `app-store-connect`; `eas` for the EAS path. */
+  /**
+   * Registered name of the submitter. Carries the iOS default `app-store-connect` (or `eas`); an
+   * Android build swaps that iOS baseline for its twin `google-play` unless overridden here.
+   */
   submit: string;
   /** Glob roots to scan for apps. Defaults to the repo root. */
   appRoots?: string[];
@@ -98,6 +142,8 @@ export interface ResolvedBuildContext {
   explain: boolean;
   /** Rehearse the flow: print every step and the exact commands/requests, make no real changes. */
   dryRun: boolean;
+  /** Resolved Android track + rollout. Present only for Android builds; the submitter reads it. */
+  android?: AndroidReleaseOptions;
 }
 
 /**
@@ -154,13 +200,64 @@ export interface AppleCredentials {
   signing?: SigningAssets;
 }
 
-/** Per-device entry in an {@link SizeReport}, taken from Xcode's App Thinning Size Report. */
+/**
+ * The upload keystore Launch owns (or imported) to sign Android App Bundles — the Android twin of
+ * {@link SigningAssets}.
+ *
+ * Under Play App Signing, Google holds the real *app signing key* and never reveals it; the developer
+ * only ever signs uploads with this separate, recoverable *upload key*. The store/key passwords live
+ * in the {@link SecretStore}, never beside the file; this shape carries the non-secret references plus
+ * the in-memory passwords a `gradle`/`bundletool` step needs right now.
+ */
+export interface KeystoreAssets {
+  /** Absolute path to the upload keystore (JKS/PKCS12), backed up under `~/.launch/credentials` (chmod 600). */
+  path: string;
+  /** Key alias inside the keystore, e.g. `upload`. */
+  alias: string;
+  /** Password unlocking the keystore file (from the {@link SecretStore}). */
+  storePassword: string;
+  /** Password unlocking the key entry (from the {@link SecretStore}; often equal to the store password). */
+  keyPassword: string;
+}
+
+/**
+ * Android credentials resolved for a build — the Android twin of {@link AppleCredentials}.
+ *
+ * The secret material (service-account JSON, keystore passwords) lives in the {@link SecretStore};
+ * this shape carries the in-memory bytes/paths a build/submit step needs right now. `keystore` is
+ * absent for steps that only need the Play API (e.g. submission, `versionCode` lookup).
+ */
+export interface AndroidCredentials {
+  /** Play Developer API service-account key JSON — Launch's single Google credential (manage + read). */
+  serviceAccountJson: string;
+  /** Resolved upload keystore for signing the `.aab`, when needed. */
+  keystore?: KeystoreAssets;
+}
+
+/**
+ * Credentials for one build, discriminated by `platform` so a single pipeline + registry serve both
+ * stores. Every provider interface ({@link CredentialsProvider}, {@link BuildEngine}, {@link Submitter})
+ * speaks this union; each concrete provider narrows with `switch (creds.platform)` and rejects the
+ * platform it doesn't serve. This discriminant is what lets the iOS and Android legs share the spine
+ * with no `any` and no unchecked casts.
+ */
+export type BuildCredentials =
+  | ({ platform: "ios" } & AppleCredentials)
+  | ({ platform: "android" } & AndroidCredentials);
+
+/**
+ * One row in a {@link SizeReport}: a device variant's estimated store download/install size.
+ *
+ * On iOS these come per-device from Xcode's App Thinning Size Report. On Android there is no thinning
+ * report; `bundletool get-size` yields a single worst-case download, surfaced as one representative
+ * row (`installBytes` left 0 — Play doesn't expose an honest install figure).
+ */
 export interface SizeReportEntry {
-  /** Device variant name, e.g. `iPhone15,2`. */
+  /** Variant name, e.g. `iPhone15,2` (iOS) or `worst-case device` (Android bundletool estimate). */
   device: string;
-  /** Estimated bytes the device downloads from the store (after app thinning). */
+  /** Estimated bytes the device downloads from the store (after iOS thinning / Android splits). */
   downloadBytes: number;
-  /** Estimated bytes installed on the device. */
+  /** Estimated bytes installed on the device. 0 when the platform gives no honest install figure. */
   installBytes: number;
 }
 
@@ -168,12 +265,12 @@ export interface SizeReportEntry {
  * Size analysis produced right after the build, before any upload.
  *
  * Surfacing this locally is the whole point of the size step: know the real per-device download
- * before spending a TestFlight round-trip discovering the app is too large.
+ * before spending a store round-trip discovering the app is too large.
  */
 export interface SizeReport {
-  /** Raw `.ipa` file size on disk (a zip — not what users actually download). */
-  ipaBytes: number;
-  /** Per-device download/install estimates. Empty if no thinning report was produced. */
+  /** Raw artifact file size on disk — the `.ipa` (iOS) or `.aab` (Android); NOT what users download. */
+  artifactBytes: number;
+  /** Per-device download/install estimates. Empty when no per-device report was produced. */
   entries: SizeReportEntry[];
 }
 
@@ -190,7 +287,7 @@ export interface BuildArtifact {
   profile: string;
   /** App version string, e.g. `1.0.0`. */
   version: string;
-  /** Unique, monotonically increasing build number (Apple requirement). */
+  /** Unique, monotonically increasing build identifier — iOS `CFBundleVersion` or Android `versionCode`. */
   buildNumber: number;
   sizeReport: SizeReport;
   /** ISO-8601 creation timestamp, stamped by the caller (the pipeline). */
@@ -212,35 +309,37 @@ export interface StoredArtifact {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Resolves and persists the Apple credentials a build needs.
+ * Resolves and persists the credentials a build needs, for whichever platform the context names.
  *
- * The v1 `local` implementation reads/writes the macOS Keychain and `~/.launch`. A future
- * `team` or `s3` implementation could fetch shared, encrypted credentials instead — the
- * pipeline neither knows nor cares which backend answered.
+ * The `local` implementation reads/writes the OS secret store and `~/.launch`, branching on
+ * `ctx.platform` to return {@link AppleCredentials} (iOS) or {@link AndroidCredentials} (Android) as a
+ * {@link BuildCredentials}. A future `team`/`s3` implementation could fetch shared, encrypted
+ * credentials instead — the pipeline neither knows nor cares which backend answered.
  */
 export interface CredentialsProvider {
   /** Registry name, e.g. `local`. */
   readonly name: string;
   /**
-   * Resolve credentials for the given context: a cache hit returns immediately; a miss uses the
-   * App Store Connect API to reuse-or-create the certificate and provisioning profile, then caches.
+   * Resolve credentials for the given context: a cache hit returns immediately. iOS reuses-or-creates
+   * the certificate + provisioning profile via the App Store Connect API; Android returns the
+   * service-account key plus any cached upload keystore. The result is discriminated by `platform`.
    */
-  resolve(ctx: ResolvedBuildContext): Promise<AppleCredentials>;
-  /** Human-readable status of what's cached (used by `launch creds status`). */
+  resolve(ctx: ResolvedBuildContext): Promise<BuildCredentials>;
+  /** Human-readable status of what's cached, across both platforms (used by `launch creds status`). */
   status(): Promise<string>;
 }
 
 /**
  * Compiles and signs the native project into a distributable artifact.
  *
- * The v1 `fastlane` implementation runs `gym`; a later `xcodebuild` implementation could drive
- * Apple's tools directly behind the exact same call.
+ * `fastlane` runs `gym` → `.ipa` (iOS); `gradle` runs `bundleRelease` → `.aab` (Android). Each engine
+ * narrows {@link BuildCredentials} to the platform it serves and rejects the other.
  */
 export interface BuildEngine {
-  /** Registry name, e.g. `fastlane`. */
+  /** Registry name, e.g. `fastlane` or `gradle`. */
   readonly name: string;
   /** Archive, sign, export, and analyze size for the resolved build. */
-  build(ctx: ResolvedBuildContext, creds: AppleCredentials): Promise<{ artifactPath: string; sizeReport: SizeReport }>;
+  build(ctx: ResolvedBuildContext, creds: BuildCredentials): Promise<{ artifactPath: string; sizeReport: SizeReport }>;
 }
 
 /**
@@ -263,18 +362,19 @@ export interface StorageProvider {
 /**
  * Uploads a built artifact to a distribution destination.
  *
- * The v1 implementation submits to App Store Connect (TestFlight by default) via fastlane `pilot`.
- * A later Google Play submitter implements the same interface.
+ * `app-store-connect` submits to TestFlight/App Store via fastlane `pilot`/`deliver`; `google-play`
+ * submits to a Play track via fastlane `supply`. Each narrows {@link BuildCredentials} to its platform
+ * and maps the neutral {@link SubmitTarget} onto its store's concept (Android also reads `ctx.android`).
  */
 export interface Submitter {
-  /** Registry name, e.g. `app-store-connect`. */
+  /** Registry name, e.g. `app-store-connect` or `google-play`. */
   readonly name: string;
   /** Upload `artifactPath` to `target`, authenticating with `creds`. */
-  submit(artifactPath: string, target: SubmitTarget, creds: AppleCredentials, ctx: ResolvedBuildContext): Promise<void>;
+  submit(artifactPath: string, target: SubmitTarget, creds: BuildCredentials, ctx: ResolvedBuildContext): Promise<void>;
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Remote / cloud-Mac build — the off-Mac path (see docs/plan-aws-ec2-mac.md). */
+/*  Remote / cloud-Mac build — the off-Mac path.                                */
 /*  Two extra seams on top of the four above: a SecretStore (OS-native secret   */
 /*  storage that also works on Windows/Linux) and a ComputeHost (provisions the */
 /*  remote Mac). The remote build then drives the SAME fastlane spine over SSH. */

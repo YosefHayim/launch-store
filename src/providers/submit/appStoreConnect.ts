@@ -10,7 +10,13 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AppleCredentials, ResolvedBuildContext, Submitter, SubmitTarget } from "../../core/types.js";
+import type {
+  AppleCredentials,
+  BuildCredentials,
+  ResolvedBuildContext,
+  Submitter,
+  SubmitTarget,
+} from "../../core/types.js";
 import { run } from "../../core/exec.js";
 
 /** Write the API key in the JSON shape fastlane's `--api_key_path` expects; returns the file path. */
@@ -35,13 +41,14 @@ export const appStoreConnectSubmitter: Submitter = {
   async submit(
     artifactPath: string,
     target: SubmitTarget,
-    creds: AppleCredentials,
+    creds: BuildCredentials,
     _ctx: ResolvedBuildContext,
   ): Promise<void> {
+    if (creds.platform !== "ios") throw new Error("The app-store-connect submitter handles iOS only.");
     const apiKeyPath = writeApiKeyFile(creds);
     try {
       const args =
-        target === "testflight"
+        target === "testing"
           ? [
               "pilot",
               "upload",

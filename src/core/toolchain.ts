@@ -55,6 +55,20 @@ export const REQUIRED_TOOLS: Tool[] = [
   { label: "Node", command: "node", install: { kind: "brew", formula: "node" } },
 ];
 
+/**
+ * The toolchain an Android build needs — the executables `launch doctor --platform android` probes.
+ * Unlike iOS, none of these are macOS-only (Android builds anywhere), and Xcode has no analog: the
+ * JDK supplies `keytool`, gradle runs via the project's own wrapper (checked separately, not here),
+ * `bundletool` estimates the download, and `fastlane` does the upload. `ANDROID_HOME` (the SDK) is an
+ * env var, also checked separately in `doctor`.
+ */
+export const ANDROID_TOOLS: Tool[] = [
+  { label: "JDK (keytool)", command: "keytool", install: { kind: "brew", formula: "openjdk" } },
+  { label: "fastlane", command: "fastlane", install: { kind: "brew", formula: "fastlane" } },
+  { label: "bundletool", command: "bundletool", install: { kind: "brew", formula: "bundletool" } },
+  { label: "Node", command: "node", install: { kind: "brew", formula: "node" } },
+];
+
 /** The official Homebrew installer one-liner, run verbatim under `bash -c` so its `$(curl …)` substitution and `/dev/tty` prompts work. */
 const HOMEBREW_INSTALL_COMMAND =
   '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"';

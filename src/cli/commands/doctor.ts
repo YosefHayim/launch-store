@@ -1,22 +1,31 @@
 /**
  * `launch doctor` — preflight check (and, with `--fix`, an installer).
  *
- * Verifies the toolchain a local iOS build needs (Xcode, Ruby, fastlane, CocoaPods, openssl) and,
- * when an API key is present, the things that otherwise fail deep inside a build: an unsigned/expired
- * Apple agreement, and apps with no App Store Connect record (the one step the API can't create).
+ * Platform-aware. For iOS it verifies the build toolchain (Xcode, Ruby, fastlane, CocoaPods, openssl)
+ * and, when an API key is present, the things that otherwise fail deep inside a build: an
+ * unsigned/expired Apple agreement, and apps with no App Store Connect record (the one step the API
+ * can't create). For Android (`--platform android`) it runs the same philosophy in three tiers: HARD
+ * toolchain checks (JDK/keytool, Android SDK, the gradle wrapper, fastlane, bundletool), a PREFLIGHT
+ * that the service account can reach each app (deep-linking "Create app" + Play App Signing when not),
+ * and WARNINGS for the irreducible Play gates (the new-account testing requirement, sensitive perms).
  *
- * `--fix` hands the toolchain check to {@link ensureToolchain}, which asks one consent and installs
- * the missing tools via Homebrew (`--yes` skips the prompt for CI/agents).
+ * `--fix` (iOS only) hands the toolchain check to {@link ensureToolchain}, which asks one consent and
+ * installs the missing tools via Homebrew (`--yes` skips the prompt for CI/agents).
  */
 
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import type { Command } from "commander";
 import { exists } from "../../core/exec.js";
 import { loadConfig } from "../../core/config.js";
-import { REQUIRED_TOOLS, ensureToolchain, fixHint } from "../../core/toolchain.js";
+import { ANDROID_TOOLS, REQUIRED_TOOLS, ensureToolchain, fixHint } from "../../core/toolchain.js";
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
+import { GooglePlayClient, parseServiceAccount } from "../../google/playClient.js";
+import { loadServiceAccount } from "../../google/credentials.js";
 import { loadAscKey, localCredentialsProvider } from "../../providers/credentials/local.js";
 
 const APP_STORE_CONNECT_APPS_URL = "https://appstoreconnect.apple.com/apps";
+const PLAY_CONSOLE_URL = "https://play.google.com/console";
 
 /** Probe Apple for an unsigned/expired agreement and for missing app records; best-effort. */
 async function checkAppleAccount(): Promise<boolean> {
@@ -51,7 +60,7 @@ async function checkAppleAccount(): Promise<boolean> {
   return allOk;
 }
 
-/** Report the toolchain read-only: one ✓/✗ line per required tool. Returns whether all are present. */
+/** Report the iOS toolchain read-only: one ✓/✗ line per required tool. Returns whether all are present. */
 async function reportToolchain(): Promise<boolean> {
   let allOk = true;
   for (const tool of REQUIRED_TOOLS) {
@@ -62,14 +71,98 @@ async function reportToolchain(): Promise<boolean> {
   return allOk;
 }
 
+/**
+ * Tier 1 (HARD): report the Android toolchain plus the two non-PATH prerequisites — the Android SDK
+ * (`ANDROID_HOME`/`ANDROID_SDK_ROOT`) and a per-app gradle wrapper. Returns whether everything needed
+ * to build is present.
+ */
+async function reportAndroidToolchain(): Promise<boolean> {
+  let allOk = true;
+  for (const tool of ANDROID_TOOLS) {
+    const ok = await exists(tool.command);
+    allOk &&= ok;
+    console.log(`${ok ? "✓" : "✗"} ${tool.label}${ok ? "" : `  — ${fixHint(tool)}`}`);
+  }
+
+  const sdk = process.env["ANDROID_HOME"] ?? process.env["ANDROID_SDK_ROOT"];
+  if (sdk) {
+    console.log(`✓ Android SDK (${sdk})`);
+  } else {
+    allOk = false;
+    console.log("✗ Android SDK — set ANDROID_HOME (install via Android Studio or the command-line tools)");
+  }
+
+  const { apps } = await loadConfig();
+  for (const app of apps) {
+    if (!app.packageName) continue;
+    const hasWrapper = existsSync(join(app.dir, "android", "gradlew"));
+    console.log(
+      hasWrapper
+        ? `✓ Gradle wrapper for ${app.name}`
+        : `• No android/gradlew for ${app.name} yet — \`launch build android\` will run \`expo prebuild\` to generate it`,
+    );
+  }
+  return allOk;
+}
+
+/**
+ * Tiers 2 (PREFLIGHT) + 3 (WARN): confirm the service account can reach each app (deep-linking the
+ * irreducible Play Console steps when it can't), then surface the Play gates Launch can't automate.
+ * Returns whether the reachable-app preflight passed.
+ */
+async function checkPlayAccount(): Promise<boolean> {
+  const json = await loadServiceAccount();
+  if (!json) {
+    console.log("• No service account imported — skipping Play checks (`launch creds set-key --platform android`).");
+    return true;
+  }
+
+  const client = new GooglePlayClient(parseServiceAccount(json));
+  const { apps } = await loadConfig();
+  let allOk = true;
+  for (const app of apps) {
+    if (!app.packageName) continue;
+    try {
+      await client.assertAppExists(app.packageName);
+      console.log(`✓ Play app reachable for ${app.packageName}`);
+    } catch (error) {
+      allOk = false;
+      console.log(`✗ ${error instanceof Error ? error.message : String(error)}`);
+      console.log(`  Create the app + enroll in Play App Signing on first release at ${PLAY_CONSOLE_URL}`);
+    }
+  }
+
+  console.log(
+    "• Note: a new personal Play account needs ~20 testers for 14 days on a testing track before production unlocks.",
+  );
+  console.log(
+    "• Note: sensitive/high-risk permissions can make the Publishing API reject a release until declared in Play Console.",
+  );
+  return allOk;
+}
+
 /** Attach the `doctor` command to the program. */
 export function registerDoctorCommand(program: Command): void {
   program
     .command("doctor")
-    .description("check that the local toolchain and Apple account are ready")
-    .option("--fix", "install any missing build tools (asks for consent first)")
+    .description("check that the local toolchain and store account are ready")
+    .option("--platform <p>", "ios (default) or android")
+    .option("--fix", "install any missing build tools (iOS only; asks for consent first)")
     .option("--yes", "skip prompts and proceed with installs (CI/agents)")
-    .action(async (options: { fix?: boolean; yes?: boolean }) => {
+    .action(async (options: { platform?: string; fix?: boolean; yes?: boolean }) => {
+      const platform = options.platform ?? "ios";
+      if (platform !== "ios" && platform !== "android") {
+        throw new Error(`Unknown platform "${platform}". Use "ios" or "android".`);
+      }
+
+      if (platform === "android") {
+        const toolsOk = await reportAndroidToolchain();
+        console.log(`• ${await localCredentialsProvider.status()}`);
+        const playOk = await checkPlayAccount();
+        if (!toolsOk || !playOk) process.exitCode = 1;
+        return;
+      }
+
       const toolsOk = options.fix
         ? await ensureToolchain({ assumeYes: options.yes === true })
         : await reportToolchain();

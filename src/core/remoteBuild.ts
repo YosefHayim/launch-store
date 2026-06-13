@@ -158,7 +158,7 @@ export async function pullArtifact(
   } catch {
     /* no thinning report produced — degrade to ipa size only */
   }
-  return { ipaPath, sizeReport: { ipaBytes: statSync(ipaPath).size, entries } };
+  return { ipaPath, sizeReport: { artifactBytes: statSync(ipaPath).size, entries } };
 }
 
 /** Delete the ephemeral keychain and the per-session work tree on the host. Best-effort, runs on every exit path. */
@@ -235,7 +235,7 @@ if [ "$SUBMIT" = "1" ]; then
   KEYJSON="$WORK/asc_key.json"
   P8_ESCAPED="$(python3 -c 'import json,sys; print(json.dumps(open(sys.argv[1]).read()))' "$CREDS/asc.p8")"
   printf '{"key_id":"%s","issuer_id":"%s","key":%s,"in_house":false}' "$ASC_KEY_ID" "$ASC_ISSUER_ID" "$P8_ESCAPED" > "$KEYJSON"
-  if [ "$SUBMIT_TARGET" = "appstore" ]; then
+  if [ "$SUBMIT_TARGET" = "production" ]; then
     fastlane deliver --ipa "$IPA" --api_key_path "$KEYJSON" --submit_for_review true --force true
   else
     fastlane pilot upload --ipa "$IPA" --api_key_path "$KEYJSON" --skip_waiting_for_build_processing true

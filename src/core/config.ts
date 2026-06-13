@@ -79,8 +79,8 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 /**
  * Build an {@link AppDescriptor} from a parsed/evaluated Expo config. Tolerates an `{ expo: {...} }`
- * wrapper or a flat shape (Expo or bare React Native), and a config missing the iOS or version
- * fields. Returns null when there's no usable app handle (neither `slug` nor `name`).
+ * wrapper or a flat shape (Expo or bare React Native), and a config missing the iOS, Android, or
+ * version fields. Returns null when there's no usable app handle (neither `slug` nor `name`).
  */
 function toDescriptor(raw: Record<string, unknown>, dir: string, configPath: string): AppDescriptor | null {
   const expo = asRecord(raw["expo"]) ?? raw;
@@ -92,6 +92,9 @@ function toDescriptor(raw: Record<string, unknown>, dir: string, configPath: str
   const descriptor: AppDescriptor = { name: handle.toLowerCase(), dir, configPath };
   const ios = asRecord(expo["ios"]);
   if (ios && typeof ios["bundleIdentifier"] === "string") descriptor.bundleId = ios["bundleIdentifier"];
+  const android = asRecord(expo["android"]);
+  if (android && typeof android["package"] === "string") descriptor.packageName = android["package"];
+  if (android && typeof android["versionCode"] === "number") descriptor.androidVersionCode = android["versionCode"];
   if (typeof expo["version"] === "string") descriptor.version = expo["version"];
   return descriptor;
 }

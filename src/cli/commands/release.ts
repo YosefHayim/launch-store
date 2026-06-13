@@ -8,25 +8,34 @@
 
 import type { Command } from "commander";
 import { cancel, confirm, isCancel } from "@clack/prompts";
-import type { Platform, ResolvedBuildContext } from "../../core/types.js";
+import type { AndroidReleaseOptions, Platform, ResolvedBuildContext } from "../../core/types.js";
 import { loadConfig } from "../../core/config.js";
-import { selectApp } from "../../core/pipeline.js";
+import { resolveSubmitterName, selectApp } from "../../core/pipeline.js";
 import { getCredentialsProvider, getStorageProvider, getSubmitter } from "../../core/registry.js";
 
 interface ReleaseCommandOptions {
   app?: string;
   profile: string;
   explain: boolean;
+  /** Android-only: staged-rollout fraction for the production release (`--rollout`). */
+  rollout?: string;
 }
+
+/** The store's public-release destination, phrased per platform for the confirmation prompt. */
+const PUBLIC_DESTINATION: Record<Platform, string> = {
+  ios: "the PUBLIC App Store review queue",
+  android: "the PUBLIC Play production track",
+};
 
 /** Attach the `release` command to the program. */
 export function registerReleaseCommand(program: Command): void {
   program
     .command("release")
-    .description("submit the latest stored build to the public App Store review queue (with confirmation)")
+    .description("submit the latest stored build to the store's PUBLIC production track (with confirmation)")
     .argument("<platform>", "ios or android")
     .option("-a, --app <name>", "app handle")
     .option("-p, --profile <name>", "build profile", "production")
+    .option("--rollout <fraction>", "Android only — staged-rollout fraction (default: 1.0)")
     .option("--explain", "expand each step", false)
     .action(async (platform: string, options: ReleaseCommandOptions) => {
       if (platform !== "ios" && platform !== "android") {
@@ -36,7 +45,7 @@ export function registerReleaseCommand(program: Command): void {
     });
 }
 
-/** Submit the latest stored artifact for `app` to the public App Store review queue. */
+/** Submit the latest stored artifact for `app` to the store's public production track. */
 async function runRelease(platform: Platform, options: ReleaseCommandOptions): Promise<void> {
   const { config, apps } = await loadConfig();
   const app = await selectApp(apps, options.app);
@@ -49,7 +58,7 @@ async function runRelease(platform: Platform, options: ReleaseCommandOptions): P
   }
 
   const proceed = await confirm({
-    message: `Submit ${app.name} ${latest.version} (${latest.buildNumber}) to the PUBLIC App Store review queue?`,
+    message: `Submit ${app.name} ${latest.version} (${latest.buildNumber}) to ${PUBLIC_DESTINATION[platform]}?`,
   });
   if (isCancel(proceed) || !proceed) {
     cancel("Cancelled — nothing submitted.");
@@ -57,8 +66,21 @@ async function runRelease(platform: Platform, options: ReleaseCommandOptions): P
   }
 
   const profile = config.profiles[options.profile] ?? { name: options.profile };
-  const ctx: ResolvedBuildContext = { platform, app, profile, env: {}, explain: options.explain, dryRun: false };
+  // Production releases roll out fully unless an Android `--rollout` (or the profile) narrows it.
+  const rollout = options.rollout !== undefined ? Number.parseFloat(options.rollout) : (profile.rollout ?? 1.0);
+  const android: AndroidReleaseOptions | undefined =
+    platform === "android" ? { track: "production", rollout } : undefined;
+  const ctx: ResolvedBuildContext = {
+    platform,
+    app,
+    profile,
+    env: {},
+    explain: options.explain,
+    dryRun: false,
+    ...(android ? { android } : {}),
+  };
   const credentials = await getCredentialsProvider(config.credentials).resolve(ctx);
-  await getSubmitter("app-store-connect").submit(latest.path, "appstore", credentials, ctx);
-  console.log(`Submitted ${app.name} ${latest.version} (${latest.buildNumber}) for App Store review.`);
+  await getSubmitter(resolveSubmitterName(config, platform)).submit(latest.path, "production", credentials, ctx);
+  const destination = platform === "ios" ? "App Store review" : "the Play production track";
+  console.log(`Submitted ${app.name} ${latest.version} (${latest.buildNumber}) to ${destination}.`);
 }

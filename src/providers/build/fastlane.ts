@@ -12,7 +12,7 @@ import { mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync, exists
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type {
-  AppleCredentials,
+  BuildCredentials,
   BuildEngine,
   ResolvedBuildContext,
   SigningAssets,
@@ -109,11 +109,12 @@ export const fastlaneBuildEngine: BuildEngine = {
 
   async build(
     ctx: ResolvedBuildContext,
-    creds: AppleCredentials,
+    creds: BuildCredentials,
   ): Promise<{ artifactPath: string; sizeReport: SizeReport }> {
     if (ctx.dryRun) {
-      return { artifactPath: "(dry-run, not built)", sizeReport: { ipaBytes: 0, entries: [] } };
+      return { artifactPath: "(dry-run, not built)", sizeReport: { artifactBytes: 0, entries: [] } };
     }
+    if (creds.platform !== "ios") throw new Error("The fastlane build engine builds iOS only.");
     const signing = creds.signing;
     if (!signing) throw new Error("No signing assets resolved — run `launch creds setup` first.");
 
@@ -162,6 +163,6 @@ export const fastlaneBuildEngine: BuildEngine = {
 
     const reportPath = join(outputDir, "App Thinning Size Report.txt");
     const entries = existsSync(reportPath) ? parseThinningReport(readFileSync(reportPath, "utf8")) : [];
-    return { artifactPath, sizeReport: { ipaBytes, entries } };
+    return { artifactPath, sizeReport: { artifactBytes: ipaBytes, entries } };
   },
 };

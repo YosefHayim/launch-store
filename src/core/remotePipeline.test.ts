@@ -58,7 +58,7 @@ const base = {
   appName: undefined,
   explain: false,
   submit: true,
-  target: "testflight" as const,
+  target: "testing" as const,
   dryRun: true,
 };
 

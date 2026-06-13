@@ -9,7 +9,11 @@ describe("glossary — the single source for --explain and docs", () => {
     expect(topics).toContain("app-record");
     expect(topics).toContain("provisioning-profile");
     expect(topics).toContain("ec2-mac");
-    expect(topics.length).toBe(17);
+    // Android topics added alongside the Android leg.
+    expect(topics).toContain("upload-key");
+    expect(topics).toContain("play-app-signing");
+    expect(topics).toContain("bundletool");
+    expect(topics.length).toBe(23);
     expect(new Set(topics).size).toBe(topics.length);
   });
 

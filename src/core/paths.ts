@@ -28,13 +28,20 @@ export const CREDENTIALS_DIR = join(LAUNCH_HOME, "credentials");
 /** JSON map of the resolved distribution certificate + per-bundle provisioning profiles. */
 export const CREDENTIALS_INDEX = join(CREDENTIALS_DIR, "index.json");
 
+/**
+ * Non-secret Android signing metadata: the upload-keystore record (path + alias). The keystore file
+ * itself is backed up beside it in {@link CREDENTIALS_DIR} (chmod 600); the store/key passwords live
+ * in the OS secret store, never here. Kept separate from the iOS {@link CREDENTIALS_INDEX}.
+ */
+export const ANDROID_CREDENTIALS_INDEX = join(CREDENTIALS_DIR, "android.json");
+
 /** Where macOS/Xcode looks for installed provisioning profiles (by `<uuid>.mobileprovision`). */
 export const PROVISIONING_PROFILES_DIR = join(homedir(), "Library", "MobileDevice", "Provisioning Profiles");
 
 /**
  * Machine-discovered remote-build state: the live AWS host handle (id + allocation timestamp) and the
  * golden AMI id Launch created for this machine. Non-secret infra ids only — never `.env`, never
- * committed, never secrets (those stay in the OS keychain). See docs/plan-aws-ec2-mac.md.
+ * committed, never secrets (those stay in the OS keychain).
  */
 export const CLOUD_STATE = join(LAUNCH_HOME, "cloud.json");
 

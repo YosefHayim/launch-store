@@ -100,7 +100,7 @@ function rehearse(prepared: PreparedBuild, options: BuildRunOptions, buildNumber
   if (options.submit) {
     log.step(
       "submit",
-      `would upload to ${options.target === "testflight" ? "TestFlight" : "App Store review"} from the host`,
+      `would upload to ${options.target === "testing" ? "TestFlight" : "App Store review"} from the host`,
       "testflight",
     );
   }
@@ -192,7 +192,7 @@ export async function runRemoteBuild(prepared: PreparedBuild, options: BuildRunO
     };
     const stored = await getStorageProvider(config.storage).put(artifact);
     log.step("store", stored.location);
-    if (options.submit && options.target === "testflight") {
+    if (options.submit && options.target === "testing") {
       log.step("submit", "uploaded to TestFlight from the host", "testflight");
     }
   } finally {
@@ -214,7 +214,7 @@ export async function runRemoteBuild(prepared: PreparedBuild, options: BuildRunO
   }
   log.gap();
   // Reaching here means the try block completed, so the artifact + its size report are set.
-  log.info(`Done. ${app.name} ${app.version ?? "0.0.0"} (${buildNumber}) · ${mb(sizeReport.ipaBytes)} on disk`);
+  log.info(`Done. ${app.name} ${app.version ?? "0.0.0"} (${buildNumber}) · ${mb(sizeReport.artifactBytes)} on disk`);
 }
 
 /** Load the App Store Connect API key or fail with the fix in the message. */

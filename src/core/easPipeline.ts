@@ -21,7 +21,7 @@ export async function runEasBuild(prepared: PreparedBuild, options: BuildRunOpti
     if (options.submit) {
       log.step(
         "submit",
-        `would run \`eas submit --platform ios\` → ${options.target === "testflight" ? "TestFlight" : "App Store review"}`,
+        `would run \`eas submit --platform ios\` → ${options.target === "testing" ? "TestFlight" : "App Store review"}`,
         "testflight",
       );
     }
@@ -57,7 +57,7 @@ export async function runEasBuild(prepared: PreparedBuild, options: BuildRunOpti
     await easSubmit(ctx, ipaPath, profile.name);
     log.step(
       "submit",
-      options.target === "testflight" ? "submitted to TestFlight via EAS" : "submitted for App Store review via EAS",
+      options.target === "testing" ? "submitted to TestFlight via EAS" : "submitted for App Store review via EAS",
       "testflight",
     );
   }
