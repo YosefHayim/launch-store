@@ -92,7 +92,7 @@ export async function easBuildToIpa(
   await downloadFile(url, ipaPath);
   return {
     ipaPath,
-    sizeReport: { ipaBytes: statSync(ipaPath).size, entries: [] },
+    sizeReport: { artifactBytes: statSync(ipaPath).size, entries: [] },
     buildNumber: parseBuildNumber(json),
   };
 }

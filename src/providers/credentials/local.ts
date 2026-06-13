@@ -1,19 +1,27 @@
 /**
- * The `local` credentials provider — v1's only credentials backend.
+ * The `local` credentials provider — Launch's only credentials backend, serving both platforms.
  *
- * Secret material (the App Store Connect `.p8`, the distribution `.p12` password) lives in the
- * macOS Keychain; non-secret metadata (key id, issuer id, cert serial, profile paths) sits in
- * `~/.launch`. This is the reference implementation of {@link CredentialsProvider}: a future
- * `team`/`s3` backend swaps the storage without the pipeline noticing.
+ * Secret material (the App Store Connect `.p8`, the distribution `.p12` password, the Play
+ * service-account JSON, the keystore passwords) lives in the OS secret store; non-secret metadata
+ * (key/issuer ids, cert serial, profile paths, keystore path/alias) sits in `~/.launch`. This is the
+ * reference implementation of {@link CredentialsProvider}: a future `team`/`s3` backend swaps the
+ * storage without the pipeline noticing.
  *
- * `resolve()` is the silent-reuse path: it returns the API key plus any already-provisioned signing
- * assets for the app, WITHOUT calling Apple. Creating missing certificates/profiles is the job of
- * `launch creds setup` (and the pipeline's inline offer), which run the interactive provisioning flow.
+ * `resolve()` is the silent-reuse path: it branches on `ctx.platform` and returns the cached
+ * credentials for that platform WITHOUT any network call. Creating missing certificates/profiles
+ * (iOS) or the upload keystore (Android) is the job of `launch creds setup` (and the pipeline's inline
+ * offer), which run the interactive provisioning flow.
  */
 
-import type { AppleCredentials, CredentialsProvider, ResolvedBuildContext } from "../../core/types.js";
+import type {
+  AppleCredentials,
+  BuildCredentials,
+  CredentialsProvider,
+  ResolvedBuildContext,
+} from "../../core/types.js";
 import { getSecret, setSecret } from "../../core/keychain.js";
 import { describeStoredCredentials, loadCachedSigningAssets } from "../../apple/credentials.js";
+import { describeStoredAndroidCredentials, loadCachedKeystore, loadServiceAccount } from "../../google/credentials.js";
 
 const ACCOUNT_KEY_ID = "asc-key-id";
 const ACCOUNT_ISSUER_ID = "asc-issuer-id";
@@ -64,7 +72,7 @@ export async function loadAscKey(): Promise<AppleCredentials["ascKey"] | null> {
   return { keyId, issuerId, p8: decodeP8(p8) };
 }
 
-/** Error thrown when no API key has been imported yet, with the fix in the message. */
+/** Error thrown when no iOS API key has been imported yet, with the fix in the message. */
 class MissingCredentialsError extends Error {
   constructor() {
     super("No App Store Connect API key found. Import one with: launch creds set-key");
@@ -72,22 +80,62 @@ class MissingCredentialsError extends Error {
   }
 }
 
+/** Error thrown when no Play service account has been imported yet, with the fix in the message. */
+class MissingAndroidCredentialsError extends Error {
+  constructor() {
+    super("No Play service account found. Import one with: launch creds set-key --platform android <key.json>");
+    this.name = "MissingAndroidCredentialsError";
+  }
+}
+
+/** Resolve cached iOS credentials: the API key plus any already-provisioned signing assets. */
+async function resolveIos(ctx: ResolvedBuildContext): Promise<BuildCredentials> {
+  const ascKey = await loadAscKey();
+  if (!ascKey) throw new MissingCredentialsError();
+  const cached = ctx.app.bundleId ? loadCachedSigningAssets(ctx.app.bundleId) : null;
+  return cached ? { platform: "ios", ascKey, signing: cached } : { platform: "ios", ascKey };
+}
+
+/** Resolve cached Android credentials: the service-account JSON plus any cached upload keystore. */
+async function resolveAndroid(): Promise<BuildCredentials> {
+  const serviceAccountJson = await loadServiceAccount();
+  if (!serviceAccountJson) throw new MissingAndroidCredentialsError();
+  const keystore = await loadCachedKeystore();
+  return keystore ? { platform: "android", serviceAccountJson, keystore } : { platform: "android", serviceAccountJson };
+}
+
+/** One line of `launch creds status` for the iOS leg. */
+async function iosStatus(): Promise<string> {
+  const keyId = await getSecret(ACCOUNT_KEY_ID);
+  if (!keyId) return "iOS: no API key imported.";
+  const { certSerial, bundleIds } = describeStoredCredentials();
+  const certLine = certSerial ? `distribution cert ${certSerial}` : "no distribution cert yet";
+  const profileLine = bundleIds.length ? `profiles for ${bundleIds.join(", ")}` : "no profiles yet";
+  return `iOS: API key ${keyId}; ${certLine}; ${profileLine}.`;
+}
+
+/** One line of `launch creds status` for the Android leg. */
+async function androidStatus(): Promise<string> {
+  const { keystoreAlias, hasServiceAccount } = await describeStoredAndroidCredentials();
+  if (!hasServiceAccount && !keystoreAlias) return "Android: no service account or upload keystore yet.";
+  const saLine = hasServiceAccount ? "service account present" : "no service account yet";
+  const keystoreLine = keystoreAlias ? `upload keystore (alias ${keystoreAlias})` : "no upload keystore yet";
+  return `Android: ${saLine}; ${keystoreLine}.`;
+}
+
 export const localCredentialsProvider: CredentialsProvider = {
   name: "local",
 
-  async resolve(ctx: ResolvedBuildContext): Promise<AppleCredentials> {
-    const ascKey = await loadAscKey();
-    if (!ascKey) throw new MissingCredentialsError();
-    const cached = ctx.app.bundleId ? loadCachedSigningAssets(ctx.app.bundleId) : null;
-    return cached ? { ascKey, signing: cached } : { ascKey };
+  resolve(ctx: ResolvedBuildContext): Promise<BuildCredentials> {
+    switch (ctx.platform) {
+      case "ios":
+        return resolveIos(ctx);
+      case "android":
+        return resolveAndroid();
+    }
   },
 
   async status(): Promise<string> {
-    const keyId = await getSecret(ACCOUNT_KEY_ID);
-    if (!keyId) return "No API key imported.";
-    const { certSerial, bundleIds } = describeStoredCredentials();
-    const certLine = certSerial ? `distribution cert ${certSerial}` : "no distribution cert yet";
-    const profileLine = bundleIds.length ? `profiles for ${bundleIds.join(", ")}` : "no profiles yet";
-    return `API key present (Key ID ${keyId}); ${certLine}; ${profileLine}.`;
+    return [await iosStatus(), await androidStatus()].join("\n");
   },
 };

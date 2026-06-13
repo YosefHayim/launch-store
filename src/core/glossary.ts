@@ -24,7 +24,13 @@ export type GlossaryTopic =
   | "remote-build"
   | "ec2-mac"
   | "golden-ami"
-  | "eas-handoff";
+  | "eas-handoff"
+  | "service-account"
+  | "upload-key"
+  | "play-app-signing"
+  | "play-track"
+  | "version-code"
+  | "bundletool";
 
 const GLOSSARY: Record<GlossaryTopic, string> = {
   prebuild: [
@@ -110,6 +116,36 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "EAS handoff: if you have no Mac and no AWS, Launch can orchestrate Expo's eas-cli for you — it drives",
     "`eas build` in Expo's cloud, downloads the .ipa, and can run `eas submit`. It's the one place Launch",
     "leans on the tool it replaces; you're on Expo's free-tier caps, but it costs nothing and needs no Mac.",
+  ].join("\n"),
+  "service-account": [
+    "Service account: a Google Cloud robot account whose JSON key authenticates Launch to the Play",
+    "Developer API — the Android analog of the App Store Connect key. You create it in Google Cloud and",
+    "grant it access in Play Console → Users & Permissions. Launch keeps the JSON in your OS secret store.",
+  ].join("\n"),
+  "upload-key": [
+    "Upload key: the key you sign your .aab with before uploading. Under Play App Signing it is NOT the",
+    "real app signing key (Google holds that) — it only proves the upload is yours, so a lost upload key",
+    "is recoverable via a Play Console reset. Launch generates/owns it with keytool, like the iOS cert.",
+  ].join("\n"),
+  "play-app-signing": [
+    "Play App Signing: Google holds your real app signing key in its KMS and re-signs every release, so",
+    "the key never leaves Google and can't be lost. You enroll once at your first release (a Play Console",
+    "step the API can't do). It's what makes the upload key recoverable — Launch mandates it.",
+  ].join("\n"),
+  "play-track": [
+    "Play track: where a release lands — internal, closed, or open testing, or production. A new personal",
+    "account must run ~20 testers for 14 days on a testing track before production unlocks, so Launch",
+    "defaults to the internal track; production is the deliberate `launch release android`.",
+  ].join("\n"),
+  "version-code": [
+    "versionCode: Android's integer build counter (separate from the human versionName). Every upload",
+    "must be higher than the last. Launch reads the latest from the Play Developer API and bumps it,",
+    "treating app.json's android.versionCode as a floor — so you never hit 'versionCode already used'.",
+  ].join("\n"),
+  bundletool: [
+    "bundletool: Google's tool that turns your .aab into the per-device APK splits Play would serve, then",
+    "estimates the real download. The .aab file size is NOT what users download, so Launch runs bundletool",
+    "to report the honest worst-case download before any upload — the Android twin of iOS app thinning.",
   ].join("\n"),
 };
 

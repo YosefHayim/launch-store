@@ -8,4 +8,4 @@
 
 export { defineConfig } from "./core/config.js";
 export type { LaunchConfigInput } from "./core/config.js";
-export type { LaunchConfig, BuildProfile } from "./core/types.js";
+export type { LaunchConfig, BuildProfile, PlayTrack } from "./core/types.js";

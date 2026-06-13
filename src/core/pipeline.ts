@@ -9,14 +9,20 @@
  */
 
 import { join } from "node:path";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { cancel, confirm, isCancel, select } from "@clack/prompts";
 import type {
+  AndroidCredentials,
+  AndroidReleaseOptions,
   AppDescriptor,
   AppleCredentials,
   BuildArtifact,
+  BuildCredentials,
+  BuildProfile,
+  KeystoreAssets,
   LaunchConfig,
   Platform,
+  PlayTrack,
   RemoteTarget,
   ResolvedBuildContext,
   SigningAssets,
@@ -27,9 +33,12 @@ import { loadConfig } from "./config.js";
 import { loadDotenvFile, missingKeys, secretLookingKeys } from "./env.js";
 import { getBuildEngine, getCredentialsProvider, getStorageProvider, getSubmitter } from "./registry.js";
 import { createLogger, type Logger } from "./logger.js";
+import type { GlossaryTopic } from "./glossary.js";
 import { run } from "./exec.js";
 import { AppStoreConnectClient } from "../apple/ascClient.js";
 import { ensureSigningCredentials } from "../apple/credentials.js";
+import { ensureUploadKeystore } from "../google/credentials.js";
+import { GooglePlayClient, parseServiceAccount } from "../google/playClient.js";
 
 /** Options for one `launch build` invocation. */
 export interface BuildRunOptions {
@@ -42,11 +51,15 @@ export interface BuildRunOptions {
   explain: boolean;
   /** Upload after building (`--no-submit` disables). */
   submit: boolean;
-  /** Where a submission lands. */
+  /** Where a submission lands (testing track vs production). */
   target: SubmitTarget;
+  /** Android-only: Play track override (`--track`). Falls back to the profile, then `internal`. */
+  track?: PlayTrack;
+  /** Android-only: staged-rollout fraction override (`--rollout`), 0–1. Falls back to the profile, then 1. */
+  rollout?: number;
   /** Rehearse the flow with no real changes (`--dry-run`). */
   dryRun: boolean;
-  /** Build on a remote Mac (AWS EC2 Mac / a Mac over SSH) instead of locally. */
+  /** Build on a remote Mac (AWS EC2 Mac / a Mac over SSH) instead of locally. iOS-only. */
   remote?: RemoteTarget;
 }
 
@@ -68,6 +81,47 @@ export interface PreparedBuild {
 
 /** Placeholder API key used in `--dry-run`, so the flow runs without an imported credential. */
 export const DRY_RUN_KEY = { keyId: "DRYRUN", issuerId: "DRYRUN", p8: "" };
+
+/**
+ * The built-in iOS provider defaults that `config` carries by default, and their Android twins.
+ *
+ * `buildEngine`/`submit` are single, platform-defaulted config fields: an iOS-only config needs
+ * nothing, and an Android build swaps the *iOS baseline default* for its Android twin. Any non-default
+ * override (e.g. `eas`) is honored as-is on both platforms — see {@link resolveBuildEngineName}.
+ */
+const IOS_BUILD_ENGINE = "fastlane";
+const IOS_SUBMITTER = "app-store-connect";
+const ANDROID_BUILD_ENGINE = "gradle";
+const ANDROID_SUBMITTER = "google-play";
+
+/** The build engine name for a platform, swapping the iOS baseline default (`fastlane`) for `gradle` on Android. */
+export function resolveBuildEngineName(config: LaunchConfig, platform: Platform): string {
+  if (platform === "android" && config.buildEngine === IOS_BUILD_ENGINE) return ANDROID_BUILD_ENGINE;
+  return config.buildEngine;
+}
+
+/** The submitter name for a platform, swapping the iOS baseline default (`app-store-connect`) for `google-play` on Android. */
+export function resolveSubmitterName(config: LaunchConfig, platform: Platform): string {
+  if (platform === "android" && config.submit === IOS_SUBMITTER) return ANDROID_SUBMITTER;
+  return config.submit;
+}
+
+/**
+ * Resolve the Android track + rollout for one invocation: an explicit `--track`/`--rollout` wins,
+ * then the profile default, then the safe fallback (`internal` for a testing target, `production`
+ * only when the target itself is production). The result rides on {@link ResolvedBuildContext.android}
+ * so the Google Play submitter reads one source of truth.
+ */
+export function resolveAndroidRelease(
+  options: Pick<BuildRunOptions, "target" | "track" | "rollout">,
+  profile: BuildProfile,
+): AndroidReleaseOptions {
+  const fallback: PlayTrack = options.target === "production" ? "production" : "internal";
+  return {
+    track: options.track ?? profile.track ?? fallback,
+    rollout: options.rollout ?? profile.rollout ?? 1.0,
+  };
+}
 
 export const mb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 const delay = (ms: number): Promise<void> =>
@@ -159,23 +213,38 @@ async function resolveSigning(
 }
 
 /**
+ * Resolve the upload keystore: reuse silently when cached, otherwise provision (or import) it inline.
+ * The Android twin of {@link resolveSigning} — the build never hard-blocks; it offers setup in place.
+ */
+async function resolveKeystore(
+  credentials: AndroidCredentials,
+  app: AppDescriptor,
+  log: Logger,
+  dryRun: boolean,
+): Promise<KeystoreAssets> {
+  if (credentials.keystore) {
+    log.step("keystore", `reusing upload keystore (alias ${credentials.keystore.alias})`, "upload-key");
+    return credentials.keystore;
+  }
+  if (!dryRun) log.info(`No cached upload keystore for ${app.name} — provisioning one now.`);
+  return ensureUploadKeystore({ appName: app.name, log, dryRun, confirmCreate: interactiveConfirm });
+}
+
+/**
  * Resolve the shared front half of a build: config, the chosen app, the profile, a validated env, a
- * logger, and the {@link ResolvedBuildContext}. Refuses Android (v1 is iOS) before any work. Every
- * build path — local, remote, EAS — starts here so app selection and `.env` validation never drift.
+ * logger, and the {@link ResolvedBuildContext}. Identical for iOS and Android — every build path
+ * (local, remote, EAS) starts here so app selection and `.env` validation never drift; the platforms
+ * diverge only in HOW they build (see {@link runIosBuild} / {@link runAndroidBuild}).
  */
 export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBuild> {
-  const { dryRun } = options;
+  const { dryRun, platform } = options;
   const log = createLogger(options.explain);
-
-  if (options.platform === "android") {
-    throw new Error("Android isn't in v1 yet — iOS first. It's the next milestone.");
-  }
 
   const { config, apps } = await loadConfig();
   const app = await selectApp(apps, options.appName);
   const profile = config.profiles[options.profileName] ?? { name: options.profileName, sizeBudgetMB: 200 };
   const remoteSuffix = options.remote ? (options.remote.kind === "aws" ? " · remote(aws)" : " · remote(ssh)") : "";
-  log.step("config", `${app.name} · ${profile.name} · ios${dryRun ? " · dry-run" : ""}${remoteSuffix}`);
+  log.step("config", `${app.name} · ${profile.name} · ${platform}${dryRun ? " · dry-run" : ""}${remoteSuffix}`);
 
   // Validate env against .env.example before doing any expensive work.
   const env = loadDotenvFile(join(app.dir, profile.envFile ?? ".env"));
@@ -187,16 +256,30 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
   }
   log.step("env", `${Object.keys(env).length} vars validated`, "env-vars");
 
-  const ctx: ResolvedBuildContext = { platform: "ios", app, profile, env, explain: options.explain, dryRun };
+  const android = platform === "android" ? resolveAndroidRelease(options, profile) : undefined;
+  const ctx: ResolvedBuildContext = {
+    platform,
+    app,
+    profile,
+    env,
+    explain: options.explain,
+    dryRun,
+    ...(android ? { android } : {}),
+  };
   return { config, app, profile, env, ctx, log };
 }
 
 /**
- * Run a build. Dispatches to the right path: `--remote` → the remote-Mac pipeline, `buildEngine: "eas"`
- * → the EAS handoff, otherwise the local Mac spine. Throws with a clear message on any failed step.
+ * Run a build. Dispatches to the right path: Android always builds locally (no Mac needed); for iOS,
+ * `--remote` → the remote-Mac pipeline, `buildEngine: "eas"` → the EAS handoff, otherwise the local
+ * Mac spine. Throws with a clear message on any failed step.
  */
 export async function runBuild(options: BuildRunOptions): Promise<void> {
   const prepared = await prepareBuild(options);
+
+  // Android builds on any OS — it has no off-Mac problem, so no remote/EAS off-ramp applies.
+  if (options.platform === "android") return runLocalBuild(prepared, options);
+
   // `--remote` wins; a config `buildEngine: "remote-mac"` defaults the remote target to AWS.
   const remote =
     options.remote ?? (prepared.config.buildEngine === "remote-mac" ? ({ kind: "aws" } as const) : undefined);
@@ -211,23 +294,31 @@ export async function runBuild(options: BuildRunOptions): Promise<void> {
   return runLocalBuild(prepared, options);
 }
 
-/** The local Mac spine: prebuild → resolve creds/signing → build number → gym → size → store → submit. */
+/** The local spine: fork by platform after the shared front (prepareBuild) and before the shared tail. */
 async function runLocalBuild(prepared: PreparedBuild, options: BuildRunOptions): Promise<void> {
-  const { config, app, profile, ctx, log } = prepared;
+  return prepared.ctx.platform === "android" ? runAndroidBuild(prepared, options) : runIosBuild(prepared, options);
+}
+
+/** The iOS spine: prebuild → resolve creds/signing → build number → gym → size → store → submit. */
+async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): Promise<void> {
+  const { config, app, ctx, log } = prepared;
   const { dryRun } = options;
 
   // 2. Generate the native project only when it's missing (bare/committed ios/ is used as-is).
   await ensureNativeProject(ctx, log);
 
   // 3. Resolve the API key, then reuse-or-provision the distribution cert + profile.
-  const credentials = dryRun ? { ascKey: DRY_RUN_KEY } : await getCredentialsProvider(config.credentials).resolve(ctx);
-  log.step("credentials", dryRun ? "dry-run (no key needed)" : `key ${credentials.ascKey.keyId}`, "asc-api-key");
-  const signing = await resolveSigning(credentials, app, log, dryRun);
-  const signedCredentials: AppleCredentials = { ascKey: credentials.ascKey, signing };
+  const resolved: BuildCredentials = dryRun
+    ? { platform: "ios", ascKey: DRY_RUN_KEY }
+    : await getCredentialsProvider(config.credentials).resolve(ctx);
+  if (resolved.platform !== "ios") throw new Error("Expected iOS credentials for an iOS build.");
+  log.step("credentials", dryRun ? "dry-run (no key needed)" : `key ${resolved.ascKey.keyId}`, "asc-api-key");
+  const signing = await resolveSigning(resolved, app, log, dryRun);
+  const credentials: BuildCredentials = { platform: "ios", ascKey: resolved.ascKey, signing };
 
   // 4. Auto-bump the build number from the last one Apple has on record.
   const bundleId = app.bundleId ?? "";
-  const buildNumber = await nextBuildNumber(credentials.ascKey, bundleId, dryRun);
+  const buildNumber = await nextBuildNumber(resolved.ascKey, bundleId, dryRun);
   const stamped = dryRun ? false : await setIosBuildNumber(app.dir, buildNumber);
   log.step(
     "build number",
@@ -240,55 +331,145 @@ async function runLocalBuild(prepared: PreparedBuild, options: BuildRunOptions):
   );
 
   // 5. Compile, sign, export, and analyze size.
-  const { artifactPath, sizeReport } = await getBuildEngine(config.buildEngine).build(ctx, signedCredentials);
+  const { artifactPath, sizeReport } = await getBuildEngine(resolveBuildEngineName(config, "ios")).build(
+    ctx,
+    credentials,
+  );
   log.step("build", dryRun ? "skipped (dry-run)" : artifactPath);
 
   // 6. Show size and soft-gate against the profile budget.
-  await reportSizeAndGate(sizeReport, profile.sizeBudgetMB ?? 200, log);
+  await reportSizeAndGate(sizeReport, prepared.profile.sizeBudgetMB ?? 200, log);
 
-  // 7. Store the artifact.
-  if (dryRun) {
-    log.step("store", "skipped (dry-run)");
-  } else {
-    const artifact: BuildArtifact = {
-      path: artifactPath,
-      platform: "ios",
-      appName: app.name,
-      profile: profile.name,
-      version: app.version ?? "0.0.0",
-      buildNumber,
-      sizeReport,
-      createdAt: new Date().toISOString(),
-    };
-    const stored = await getStorageProvider(config.storage).put(artifact);
-    log.step("store", stored.location);
-  }
+  // 7. Store the artifact (shared with Android).
+  await storeArtifact(prepared, artifactPath, buildNumber, sizeReport);
 
   // 8. Submit (TestFlight by default), then report processing status.
   if (options.submit) {
     if (dryRun) {
       log.step(
         "submit",
-        `would upload to ${options.target === "testflight" ? "TestFlight" : "App Store review"}`,
+        `would upload to ${options.target === "testing" ? "TestFlight" : "App Store review"}`,
         "testflight",
       );
     } else {
-      await getSubmitter(config.submit).submit(artifactPath, options.target, signedCredentials, ctx);
+      await getSubmitter(resolveSubmitterName(config, "ios")).submit(artifactPath, options.target, credentials, ctx);
       log.step(
         "submit",
-        options.target === "testflight" ? "uploaded to TestFlight" : "submitted for App Store review",
+        options.target === "testing" ? "uploaded to TestFlight" : "submitted for App Store review",
         "testflight",
       );
-      if (options.target === "testflight" && bundleId) {
-        await reportProcessing(credentials.ascKey, bundleId, buildNumber, log);
+      if (options.target === "testing" && bundleId) {
+        await reportProcessing(resolved.ascKey, bundleId, buildNumber, log);
       }
     }
   }
 
   log.gap();
   log.info(
-    `Done. ${app.name} ${app.version ?? "0.0.0"} (${buildNumber})${dryRun ? " · dry-run, nothing changed" : ` · ${mb(sizeReport.ipaBytes)} on disk`}`,
+    `Done. ${app.name} ${app.version ?? "0.0.0"} (${buildNumber})${dryRun ? " · dry-run, nothing changed" : ` · ${mb(sizeReport.artifactBytes)} on disk`}`,
   );
+}
+
+/** The Android spine: prebuild → resolve service account + keystore → versionCode → gradle .aab → size → store → supply. */
+async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions): Promise<void> {
+  const { config, app, ctx, log } = prepared;
+  const { dryRun } = options;
+  const packageName = app.packageName;
+  if (!packageName) throw new Error(`No Android application id for ${app.name}. Set android.package in app.json.`);
+
+  // 2. Generate the native project only when it's missing (committed android/ is used as-is).
+  await ensureAndroidProject(ctx, log);
+
+  // 3. Resolve the Play service account, then reuse-or-provision the upload keystore.
+  const resolved: BuildCredentials = dryRun
+    ? { platform: "android", serviceAccountJson: "" }
+    : await getCredentialsProvider(config.credentials).resolve(ctx);
+  if (resolved.platform !== "android") throw new Error("Expected Android credentials for an Android build.");
+  log.step("credentials", dryRun ? "dry-run (no service account needed)" : "service account loaded", "service-account");
+  const keystore = await resolveKeystore(resolved, app, log, dryRun);
+  const credentials: BuildCredentials = {
+    platform: "android",
+    serviceAccountJson: resolved.serviceAccountJson,
+    keystore,
+  };
+
+  // 4. Auto-bump the versionCode from the latest Google Play has on record (app.json as a floor).
+  const versionCode = await nextVersionCode(
+    resolved.serviceAccountJson,
+    packageName,
+    app.androidVersionCode ?? 0,
+    dryRun,
+  );
+  const stamped = dryRun ? false : setAndroidVersionCode(app.dir, versionCode);
+  log.step(
+    "version code",
+    dryRun
+      ? `would set next versionCode (≈${versionCode})`
+      : stamped
+        ? `set to ${versionCode}`
+        : `${versionCode} (could not stamp build.gradle)`,
+    "version-code",
+  );
+
+  // 5. Compile, sign (upload key), export the .aab, and estimate the download with bundletool.
+  const { artifactPath, sizeReport } = await getBuildEngine(resolveBuildEngineName(config, "android")).build(
+    ctx,
+    credentials,
+  );
+  log.step("build", dryRun ? "skipped (dry-run)" : artifactPath);
+
+  // 6. Show size and soft-gate against the profile budget (shared gate; bundletool estimate).
+  await reportSizeAndGate(sizeReport, prepared.profile.sizeBudgetMB ?? 200, log, "bundletool");
+
+  // 7. Store the artifact (shared with iOS).
+  await storeArtifact(prepared, artifactPath, versionCode, sizeReport);
+
+  // 8. Submit to the resolved Play track via fastlane supply.
+  const track = ctx.android?.track ?? "internal";
+  if (options.submit) {
+    if (dryRun) {
+      log.step("submit", `would upload to the ${track} track via fastlane supply`, "play-track");
+    } else {
+      await getSubmitter(resolveSubmitterName(config, "android")).submit(
+        artifactPath,
+        options.target,
+        credentials,
+        ctx,
+      );
+      log.step("submit", `uploaded to the ${track} track`, "play-track");
+    }
+  }
+
+  log.gap();
+  log.info(
+    `Done. ${app.name} ${app.version ?? "0.0.0"} (${versionCode})${dryRun ? " · dry-run, nothing changed" : ` · ${mb(sizeReport.artifactBytes)} on disk`}`,
+  );
+}
+
+/** Store the built artifact (skipped in dry-run) and log its location. Shared by both platform spines. */
+async function storeArtifact(
+  prepared: PreparedBuild,
+  artifactPath: string,
+  buildNumber: number,
+  sizeReport: SizeReport,
+): Promise<void> {
+  const { config, app, profile, ctx, log } = prepared;
+  if (ctx.dryRun) {
+    log.step("store", "skipped (dry-run)");
+    return;
+  }
+  const artifact: BuildArtifact = {
+    path: artifactPath,
+    platform: ctx.platform,
+    appName: app.name,
+    profile: profile.name,
+    version: app.version ?? "0.0.0",
+    buildNumber,
+    sizeReport,
+    createdAt: new Date().toISOString(),
+  };
+  const stored = await getStorageProvider(config.storage).put(artifact);
+  log.step("store", stored.location);
 }
 
 /** Run `expo prebuild` only when there's no native `ios/` yet; otherwise use what's committed. */
@@ -306,6 +487,21 @@ async function ensureNativeProject(ctx: ResolvedBuildContext, log: Logger): Prom
   log.step("prebuild", "ios/ generated from app.json", "prebuild");
 }
 
+/** Run `expo prebuild` only when there's no native `android/` yet; otherwise use what's committed. */
+async function ensureAndroidProject(ctx: ResolvedBuildContext, log: Logger): Promise<void> {
+  const androidDir = join(ctx.app.dir, "android");
+  if (existsSync(androidDir)) {
+    log.step("native project", "using existing android/ (no prebuild needed)", "prebuild");
+    return;
+  }
+  if (ctx.dryRun) {
+    log.step("prebuild", "would run `expo prebuild --platform android` (no android/ found)", "prebuild");
+    return;
+  }
+  await run("npx", ["expo", "prebuild", "--platform", "android", "--clean"], { cwd: ctx.app.dir, env: ctx.env });
+  log.step("prebuild", "android/ generated from app.json", "prebuild");
+}
+
 /** Resolve the next build number from App Store Connect, or a placeholder in dry-run. */
 export async function nextBuildNumber(
   ascKey: AppleCredentials["ascKey"],
@@ -315,6 +511,37 @@ export async function nextBuildNumber(
   if (dryRun || !bundleId) return 1;
   const asc = new AppStoreConnectClient(ascKey);
   return (await asc.getLatestBuildNumber(bundleId)) + 1;
+}
+
+/**
+ * Resolve the next Android `versionCode`: one above the highest of Google Play's latest and the
+ * `app.json` floor, or a placeholder in dry-run. The Android twin of {@link nextBuildNumber} — the
+ * store stays the source of truth, but an intentional local bump (the floor) is never clobbered.
+ */
+export async function nextVersionCode(
+  serviceAccountJson: string,
+  packageName: string,
+  floor: number,
+  dryRun: boolean,
+): Promise<number> {
+  if (dryRun || !packageName || !serviceAccountJson) return Math.max(floor, 0) + 1;
+  const play = new GooglePlayClient(parseServiceAccount(serviceAccountJson));
+  const latest = await play.getLatestVersionCode(packageName);
+  return Math.max(latest, floor) + 1;
+}
+
+/**
+ * Stamp the bumped `versionCode` into the generated `android/app/build.gradle`. A line-edit (no
+ * PlistBuddy analog on Android); returns whether a `versionCode <n>` line was found and updated.
+ */
+function setAndroidVersionCode(appDir: string, versionCode: number): boolean {
+  const gradlePath = join(appDir, "android", "app", "build.gradle");
+  if (!existsSync(gradlePath)) return false;
+  const original = readFileSync(gradlePath, "utf8");
+  const updated = original.replace(/versionCode\s+\d+/, `versionCode ${versionCode}`);
+  if (updated === original) return false;
+  writeFileSync(gradlePath, updated);
+  return true;
 }
 
 /** Poll the uploaded build's processing state briefly so the run ends with a clear status. */
@@ -341,20 +568,26 @@ async function reportProcessing(
   log.info("Still processing — it'll appear in TestFlight shortly.");
 }
 
-/** Print per-device sizes from the report and, if any exceeds the budget, ask before continuing. */
-export async function reportSizeAndGate(report: SizeReport, budgetMB: number, log: Logger): Promise<void> {
+/**
+ * Print the size report and, if the worst-case download exceeds the budget, ask before continuing.
+ * Shared by every build path; `sizeTopic` lets the caller pick the right `--explain` block (iOS app
+ * thinning vs Android bundletool). Install size is shown only when the platform gives an honest figure.
+ */
+export async function reportSizeAndGate(
+  report: SizeReport,
+  budgetMB: number,
+  log: Logger,
+  sizeTopic: GlossaryTopic = "app-thinning",
+): Promise<void> {
   const budgetBytes = budgetMB * 1024 * 1024;
   if (report.entries.length === 0) {
-    log.step("size", `${mb(report.ipaBytes)} on disk (no per-device report)`, "app-thinning");
+    log.step("size", `${mb(report.artifactBytes)} on disk (no per-device report)`, sizeTopic);
     return;
   }
   const worst = report.entries.reduce((max, entry) => (entry.downloadBytes > max.downloadBytes ? entry : max));
   for (const entry of report.entries) {
-    log.step(
-      "size",
-      `${entry.device}: download ${mb(entry.downloadBytes)} · install ${mb(entry.installBytes)}`,
-      "app-thinning",
-    );
+    const installSuffix = entry.installBytes > 0 ? ` · install ${mb(entry.installBytes)}` : "";
+    log.step("size", `${entry.device}: download ${mb(entry.downloadBytes)}${installSuffix}`, sizeTopic);
   }
   if (worst.downloadBytes > budgetBytes) {
     const proceed = await confirm({
