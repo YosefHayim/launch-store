@@ -1,0 +1,93 @@
+name: Publish
+
+# Publishes launch-store to npm via OIDC Trusted Publishing — there is NO NPM_TOKEN secret.
+# npm verifies this workflow's GitHub OIDC identity, mints a short-lived token, and attaches a
+# provenance attestation to the release (the npm page shows it was built here, from this commit).
+#
+# IMPORTANT: the workflow filename `publish.yml` must match the Trusted Publisher configured for
+# the `launch-store` package on npmjs.com (Settings → Trusted Publisher: owner YosefHayim,
+# repo launch-store, workflow publish.yml). Renaming this file invalidates the OIDC match and
+# publishing will start failing.
+#
+# Release flow (you do this; a bot can't — a GITHUB_TOKEN-created release won't fire `release`):
+#   1. npm version <patch|minor|major>      # bumps package.json, commits, tags vX.Y.Z
+#   2. git push origin main --follow-tags
+#   3. gh release create vX.Y.Z --generate-notes   # the notes are the changelog
+# Publishing that release triggers the job below. `workflow_dispatch` is the manual recovery path.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to (re)publish, e.g. v0.2.0. Defaults to main HEAD."
+        required: false
+        default: ""
+
+# OIDC trusted publishing needs id-token: write; nothing here writes to the repo.
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: publish-${{ github.event.release.tag_name || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve ref to publish
+        id: ref
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          if [ -n "$RELEASE_TAG" ]; then
+            echo "ref=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          elif [ -n "$INPUT_TAG" ]; then
+            echo "ref=$INPUT_TAG" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24 # bundles npm >= 11.5.1, required for OIDC trusted publishing
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: Verify npm supports OIDC trusted publishing
+        run: |
+          test "$(printf '%s\n' "11.5.1" "$(npm -v)" | sort -V | head -1)" = "11.5.1" || {
+            echo "::error::npm $(npm -v) is below 11.5.1; trusted publishing is not supported"
+            exit 1
+          }
+
+      - run: npm ci
+
+      - name: Verify the release tag matches package.json version
+        if: github.event_name == 'release'
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$RELEASE_TAG" != "v${PKG_VERSION}" ]; then
+            echo "::error::release tag ${RELEASE_TAG} != package.json v${PKG_VERSION}. Run 'npm version' before cutting the release."
+            exit 1
+          fi
+
+      # The same gate CI runs on every push, re-run here so a tag can never publish a broken build.
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+
+      - name: Publish to npm (OIDC trusted publishing + provenance)
+        run: npm publish --access public --provenance
