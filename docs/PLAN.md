@@ -121,7 +121,7 @@ core/pipeline.ts orchestrates:
 
 ```
 launch/
-  PLAN.md                 ← this file
+  docs/PLAN.md            ← this file (architecture + locked decisions)
   README.md               usage / quick start
   package.json            bin: { launch }, exports defineConfig, name: launch-store
   tsconfig.json           MAX-strict, NodeNext ESM, emits dist + .d.ts (the typecheck + lint config)
