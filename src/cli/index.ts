@@ -9,6 +9,8 @@
 import { readFileSync } from "node:fs";
 import { Command } from "commander";
 import { registerBuiltins } from "../providers/index.js";
+import { renderBanner } from "../core/banner.js";
+import { runAutoUpgrade } from "../core/updateCheck.js";
 import { registerInitCommand } from "./commands/init.js";
 import { registerBuildCommand } from "./commands/build.js";
 import { registerReleaseCommand } from "./commands/release.js";
@@ -49,12 +51,25 @@ registerDoctorCommand(program);
 registerExplainCommand(program);
 registerCloudCommand(program);
 
-// No subcommand → the interactive wizard (the Expo-style front door that routes by OS).
+// No subcommand → the animated rocket banner, then the interactive wizard (the Expo-style front
+// door that detects the host OS and routes the build accordingly).
 program.action(async () => {
+  await renderBanner();
   await runWizard();
 });
 
-program.parseAsync(process.argv).catch((error: unknown) => {
+/**
+ * Boot the CLI: silently self-upgrade first (guarded/throttled — usually an instant no-op), then let
+ * commander dispatch. With no subcommand it falls through to the action above (banner + wizard); with
+ * a subcommand it runs that command. Both the upgrade and the banner degrade to no-ops in CI, when
+ * piped, and for agents, so scripts are unaffected.
+ */
+async function main(): Promise<void> {
+  await runAutoUpgrade(readVersion());
+  await program.parseAsync(process.argv);
+}
+
+main().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 });
