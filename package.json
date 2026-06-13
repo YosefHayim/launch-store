@@ -47,7 +47,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && chmod +x dist/cli/index.js",
     "dev": "tsx src/cli/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",

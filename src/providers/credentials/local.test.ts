@@ -56,6 +56,15 @@ describe("storeAscKey / loadAscKey", () => {
     expect(ascKey?.p8).toBe(PEM);
   });
 
+  it("repairs a legacy hex-encoded PEM (macOS `security -w` corruption) without a re-import", async () => {
+    store.set("asc-key-id", "KEY123");
+    store.set("asc-issuer-id", "issuer-uuid");
+    // A pre-base64 build stored the raw multi-line PEM; macOS `security -w` returns it hex-encoded.
+    store.set("asc-p8", Buffer.from(PEM, "utf8").toString("hex"));
+    const ascKey = await loadAscKey();
+    expect(ascKey?.p8).toBe(PEM);
+  });
+
   it("returns null when no key has been imported", async () => {
     expect(await loadAscKey()).toBeNull();
   });
