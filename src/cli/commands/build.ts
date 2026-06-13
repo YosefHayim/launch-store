@@ -19,6 +19,7 @@ interface BuildCommandOptions {
 export function registerBuildCommand(program: Command): void {
   program
     .command("build")
+    .description("run the full pipeline and upload to TestFlight (--no-submit to build only)")
     .argument("<platform>", "ios or android")
     .option("-p, --profile <name>", "build profile", "production")
     .option("-a, --app <name>", "app handle (auto-selected if there's only one)")

@@ -23,6 +23,7 @@ interface ReleaseCommandOptions {
 export function registerReleaseCommand(program: Command): void {
   program
     .command("release")
+    .description("submit the latest stored build to the public App Store review queue (with confirmation)")
     .argument("<platform>", "ios or android")
     .option("-a, --app <name>", "app handle")
     .option("-p, --profile <name>", "build profile", "production")

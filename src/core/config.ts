@@ -12,7 +12,7 @@ import type { AppDescriptor, LaunchConfig } from "./types.js";
 /**
  * On-the-fly loader for the user's config. The compiled `launch` binary runs on plain Node, which
  * can't `import()` a TypeScript file — jiti transpiles `launch.config.ts` in memory and resolves its
- * `launchcli` import from the user's project. (Chosen over bundling a TS toolchain ourselves; it's
+ * `launch-store` import from the user's project. (Chosen over bundling a TS toolchain ourselves; it's
  * the same loader Nuxt/ESLint use for config files.)
  */
 const jiti = createJiti(import.meta.url);

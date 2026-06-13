@@ -7,7 +7,7 @@
  * from Launch's registry; the defaults shown are the v1 built-ins.
  */
 
-import { defineConfig } from "launchcli";
+import { defineConfig } from "launch-store";
 
 export default defineConfig({
   // Where to scan for apps. Omit to scan the repo root.

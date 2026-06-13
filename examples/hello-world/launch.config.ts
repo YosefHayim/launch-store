@@ -1,4 +1,4 @@
-import { defineConfig } from "launchcli";
+import { defineConfig } from "launch-store";
 
 /**
  * Example Launch config for a single app. App facts (bundle id, version) come from app.json — this
