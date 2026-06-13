@@ -30,6 +30,13 @@ jobs:
       - name: Test (with coverage)
         run: npm run test:coverage | tee coverage.txt
       - run: npm run build
+      - name: Smoke-test the built CLI
+        # The unit tests run against src/ via tsx; this proves the COMPILED artifact we publish
+        # actually boots on each supported Node version (catches a broken dist before release).
+        run: |
+          node dist/cli/index.js --version
+          node dist/cli/index.js --help
+          node dist/cli/index.js explain csr
       - name: Coverage summary
         if: always()
         run: |

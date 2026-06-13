@@ -1,7 +1,8 @@
 /**
  * Loads Launch's hybrid configuration: CLI-specific settings come from `launch.config.ts`, while
- * app FACTS (bundle id, version) are auto-discovered from each app's existing `app.json` — so
- * nothing is duplicated across a 40+ app monorepo and `app.json` stays the source of truth.
+ * app FACTS (bundle id, version) are auto-discovered from each app's existing Expo config
+ * (`app.json`, or a dynamic `app.config.{ts,js,mjs}`) — so nothing is duplicated across a 40+ app
+ * monorepo and the app's own config stays the source of truth.
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
@@ -61,35 +62,94 @@ async function readLaunchConfig(root: string): Promise<LaunchConfig> {
   return DEFAULT_CONFIG;
 }
 
-/**
- * Read one Expo `app.json`/`app.config.json` into an {@link AppDescriptor}. Returns null if the
- * file isn't a recognizable Expo config (it tolerates either an `{ expo: {...} }` wrapper or a
- * flat shape).
- */
-function readAppConfig(configPath: string, dir: string): AppDescriptor | null {
-  try {
-    const parsed = JSON.parse(readFileSync(configPath, "utf8")) as Record<string, unknown>;
-    const expo = (parsed["expo"] ?? parsed) as {
-      name?: string;
-      slug?: string;
-      version?: string;
-      ios?: { bundleIdentifier?: string };
-    };
-    const handle = expo.slug ?? expo.name;
-    if (!handle) return null;
-    const descriptor: AppDescriptor = { name: handle.toLowerCase(), dir, configPath };
-    if (expo.ios?.bundleIdentifier) descriptor.bundleId = expo.ios.bundleIdentifier;
-    if (expo.version) descriptor.version = expo.version;
-    return descriptor;
-  } catch {
-    return null;
-  }
+/** The static (JSON) and dynamic (evaluated) Expo config filenames, each in Expo's precedence order. */
+const STATIC_CONFIGS = ["app.config.json", "app.json"] as const;
+const DYNAMIC_CONFIGS = ["app.config.ts", "app.config.js", "app.config.mjs"] as const;
+
+/** A dynamic Expo config exported as a function — Expo hands it the static config to extend. */
+type DynamicConfigFn = (arg: { config: Record<string, unknown> }) => unknown;
+
+/** Narrow an unknown value to a plain object, or null. */
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
 }
 
-/** Recursively scan a root for `app.json`/`app.config.json`, skipping heavy/generated directories. */
-function discoverApps(root: string, maxDepth = 4): AppDescriptor[] {
+/**
+ * Build an {@link AppDescriptor} from a parsed/evaluated Expo config. Tolerates an `{ expo: {...} }`
+ * wrapper or a flat shape (Expo or bare React Native), and a config missing the iOS or version
+ * fields. Returns null when there's no usable app handle (neither `slug` nor `name`).
+ */
+function toDescriptor(raw: Record<string, unknown>, dir: string, configPath: string): AppDescriptor | null {
+  const expo = asRecord(raw["expo"]) ?? raw;
+  const slug = typeof expo["slug"] === "string" ? expo["slug"] : undefined;
+  const name = typeof expo["name"] === "string" ? expo["name"] : undefined;
+  const handle = slug ?? name;
+  if (!handle) return null;
+
+  const descriptor: AppDescriptor = { name: handle.toLowerCase(), dir, configPath };
+  const ios = asRecord(expo["ios"]);
+  if (ios && typeof ios["bundleIdentifier"] === "string") descriptor.bundleId = ios["bundleIdentifier"];
+  if (typeof expo["version"] === "string") descriptor.version = expo["version"];
+  return descriptor;
+}
+
+/** Read the highest-precedence static (JSON) config in a directory, if any. */
+function readStaticConfig(dir: string): { raw: Record<string, unknown>; path: string } | null {
+  for (const file of STATIC_CONFIGS) {
+    const path = join(dir, file);
+    if (!existsSync(path)) continue;
+    try {
+      const raw = asRecord(JSON.parse(readFileSync(path, "utf8")));
+      if (raw) return { raw, path };
+    } catch {
+      // malformed JSON — try the next candidate
+    }
+  }
+  return null;
+}
+
+/**
+ * Evaluate the highest-precedence dynamic config (`app.config.{ts,js,mjs}`) in a directory, if any.
+ * A dynamic config may export an object or a function; Expo calls the function with the static
+ * config so it can extend it, so we pass the same. A config that throws when evaluated is skipped
+ * (we fall back to the static JSON), keeping discovery resilient when the repo's own deps are absent.
+ */
+async function readDynamicConfig(
+  dir: string,
+  staticConfig: Record<string, unknown>,
+): Promise<{ raw: Record<string, unknown>; path: string } | null> {
+  for (const file of DYNAMIC_CONFIGS) {
+    const path = join(dir, file);
+    if (!existsSync(path)) continue;
+    try {
+      const mod = await jiti.import<{ default?: unknown }>(path);
+      if (mod.default === undefined) continue;
+      const evaluated =
+        typeof mod.default === "function" ? (mod.default as DynamicConfigFn)({ config: staticConfig }) : mod.default;
+      const raw = asRecord(await evaluated);
+      if (raw) return { raw, path };
+    } catch {
+      // a config that fails to load/evaluate — fall back to the static JSON
+    }
+  }
+  return null;
+}
+
+/**
+ * Resolve the single app config in a directory. A dynamic config wins over the static JSON (Expo's
+ * precedence) and is handed the static config to extend; with neither present, the directory has no app.
+ */
+async function readAppAt(dir: string): Promise<AppDescriptor | null> {
+  const fromStatic = readStaticConfig(dir);
+  const fromDynamic = await readDynamicConfig(dir, fromStatic?.raw ?? {});
+  const chosen = fromDynamic ?? fromStatic;
+  return chosen ? toDescriptor(chosen.raw, dir, chosen.path) : null;
+}
+
+/** Recursively scan a root for Expo configs (static or dynamic), skipping heavy/generated directories. */
+async function discoverApps(root: string, maxDepth = 4): Promise<AppDescriptor[]> {
   const found: AppDescriptor[] = [];
-  const walk = (dir: string, depth: number): void => {
+  const walk = async (dir: string, depth: number): Promise<void> => {
     if (depth > maxDepth) return;
     let entries: string[];
     try {
@@ -97,19 +157,15 @@ function discoverApps(root: string, maxDepth = 4): AppDescriptor[] {
     } catch {
       return;
     }
-    for (const candidate of ["app.json", "app.config.json"]) {
-      if (entries.includes(candidate)) {
-        const app = readAppConfig(join(dir, candidate), dir);
-        if (app) found.push(app);
-      }
-    }
+    const app = await readAppAt(dir);
+    if (app) found.push(app);
     for (const entry of entries) {
       if (SKIP_DIRS.has(entry) || entry.startsWith(".")) continue;
       const child = join(dir, entry);
-      if (statSync(child).isDirectory()) walk(child, depth + 1);
+      if (statSync(child).isDirectory()) await walk(child, depth + 1);
     }
   };
-  walk(root, 0);
+  await walk(root, 0);
   return found;
 }
 
@@ -117,6 +173,6 @@ function discoverApps(root: string, maxDepth = 4): AppDescriptor[] {
 export async function loadConfig(cwd: string = process.cwd()): Promise<LoadedConfig> {
   const config = await readLaunchConfig(cwd);
   const roots = config.appRoots ?? [cwd];
-  const apps = roots.flatMap((root) => discoverApps(root));
+  const apps = (await Promise.all(roots.map((root) => discoverApps(root)))).flat();
   return { config, apps };
 }
