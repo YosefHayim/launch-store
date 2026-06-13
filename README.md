@@ -13,7 +13,7 @@ Apple signing credentials, builds and signs the `.ipa`, tells you the real per-d
 and uploads to TestFlight — using the Mac you already own and keys that never leave your machine.
 
 > v1 is **iOS → TestFlight**. Android, cloud storage, and remote build compute are designed-for but
-> not yet built (see [`PLAN.md`](./PLAN.md)). The storage/credentials/build/submit layers are pluggable
+> not yet built (see [`PLAN.md`](./docs/PLAN.md)). The storage/credentials/build/submit layers are pluggable
 > interfaces, so adding a backend is a one-file change.
 
 ## Requirements
@@ -65,8 +65,9 @@ your first iOS release or your hundredth.
 
 ## Configuration
 
-App facts (bundle id, version) are read from each `app.json`, so they're never duplicated.
-`launch.config.ts` holds only Launch-specific settings:
+App facts (bundle id, version) are read from each app's Expo config — `app.json` or a dynamic
+`app.config.{ts,js}` — so they're never duplicated. `launch.config.ts` holds only Launch-specific
+settings:
 
 ```ts
 import { defineConfig } from "launch-store";
@@ -87,7 +88,7 @@ A worked example lives in [`examples/hello-world`](./examples/hello-world).
 ## Contributing
 
 See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for dev setup, the quality gate, and how to add a backend.
-The architecture and every locked decision are in [`PLAN.md`](./PLAN.md).
+The architecture and every locked decision are in [`PLAN.md`](./docs/PLAN.md).
 
 ## How your credentials are handled
 

@@ -16,6 +16,12 @@ function writeApp(repo: string, relDir: string, expo: Record<string, unknown>): 
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "app.json"), JSON.stringify({ expo }));
 }
+/** Write an arbitrary config file (e.g. app.config.ts) into a (possibly nested) app directory. */
+function writeConfigFile(repo: string, relDir: string, filename: string, contents: string): void {
+  const dir = join(repo, relDir);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, filename), contents);
+}
 afterEach(() => {
   while (tempDirs.length > 0) rmSync(tempDirs.pop()!, { recursive: true, force: true });
 });
@@ -93,5 +99,63 @@ describe("loadConfig — auto-discovers apps, app.json stays the source of truth
 
     const { apps } = await loadConfig(repo);
     expect(apps).toHaveLength(0);
+  });
+});
+
+describe("loadConfig — reads dynamic Expo config (app.config.{ts,js}) and bare React Native", () => {
+  it("discovers an app from an object-export app.config.ts", async () => {
+    const repo = makeRepo();
+    writeConfigFile(
+      repo,
+      "ts-app",
+      "app.config.ts",
+      `export default { expo: { name: "TS App", slug: "ts-app", version: "2.0.0", ios: { bundleIdentifier: "com.example.ts" } } };`,
+    );
+
+    const { apps } = await loadConfig(repo);
+
+    expect(apps).toHaveLength(1);
+    expect(apps[0]).toMatchObject({ name: "ts-app", bundleId: "com.example.ts", version: "2.0.0" });
+  });
+
+  it("evaluates a function-form app.config.js, handing it the static config to extend", async () => {
+    const repo = makeRepo();
+    writeApp(repo, "dyn", { slug: "static-slug", ios: { bundleIdentifier: "com.example.dyn" } });
+    writeConfigFile(
+      repo,
+      "dyn",
+      "app.config.js",
+      `export default ({ config }) => ({ expo: { ...config.expo, slug: "dynamic-slug", version: "9.9.9" } });`,
+    );
+
+    const { apps } = await loadConfig(repo);
+
+    // The dynamic config wins over app.json, but kept the bundle id it received from it.
+    expect(apps).toHaveLength(1);
+    expect(apps[0]).toMatchObject({ name: "dynamic-slug", bundleId: "com.example.dyn", version: "9.9.9" });
+  });
+
+  it("discovers a bare React Native app.json (name only, no expo wrapper or bundle id)", async () => {
+    const repo = makeRepo();
+    const dir = join(repo, "bare");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "app.json"), JSON.stringify({ name: "BareRN", displayName: "Bare RN" }));
+
+    const { apps } = await loadConfig(repo);
+
+    expect(apps).toHaveLength(1);
+    expect(apps[0]?.name).toBe("barern");
+    expect(apps[0]?.bundleId).toBeUndefined();
+  });
+
+  it("falls back to the static app.json when a dynamic config throws on evaluation", async () => {
+    const repo = makeRepo();
+    writeApp(repo, "broken-dyn", { slug: "fallback", ios: { bundleIdentifier: "com.example.fb" } });
+    writeConfigFile(repo, "broken-dyn", "app.config.ts", `throw new Error("boom");`);
+
+    const { apps } = await loadConfig(repo);
+
+    expect(apps).toHaveLength(1);
+    expect(apps[0]).toMatchObject({ name: "fallback", bundleId: "com.example.fb" });
   });
 });
