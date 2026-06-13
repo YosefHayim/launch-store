@@ -1,0 +1,25 @@
+# Relay
+
+> Open-source CLI that builds and ships your iOS/Android apps to the stores from your own Mac, with your own keys — the local, no-subscription replacement for EAS Build. v1 is iOS → TestFlight.
+
+Relay runs the EAS Build pipeline locally: prebuild → resolve credentials → compile & sign → size-check → store → submit to TestFlight. Signing keys stay in the macOS Keychain; storage, credentials, build engine, and submission are pluggable behind small interfaces. App facts come from each `app.json`, so nothing is duplicated.
+
+## Docs
+
+- [README](./README.md): install, quick start, the command surface, configuration, and how credentials are handled.
+- [PLAN](./PLAN.md): the source of truth — locked decisions, App Store Connect API endpoint coverage, architecture, the v1 pipeline, scope boundary, and security notes.
+- [CONTRIBUTING](./CONTRIBUTING.md): dev setup, the quality gate, adding a provider, tests, and CI.
+- [AGENTS](./AGENTS.md): working rules for AI agents and contributors.
+
+## Source
+
+- [Domain types & provider interfaces](./src/core/types.ts): the single source of truth for Relay's vocabulary.
+- [Pipeline](./src/core/pipeline.ts): the build → submit spine and the `--dry-run` rehearsal.
+- [Glossary](./src/core/glossary.ts): plain-English term definitions shared by `relay explain` and the docs.
+- [App Store Connect client](./src/apple/ascClient.ts): the Apple API integration (JWT auth, bundle ids, certs, profiles, builds).
+- [Public API](./src/index.ts): what a user's `relay.config.ts` imports (`defineConfig`).
+
+## Optional
+
+- [Example app](./examples/hello-world): a worked `app.json` + `relay.config.ts`.
+- [LICENSE](./LICENSE): MIT.
