@@ -38,8 +38,18 @@ interface SetKeyOptions {
   yes?: boolean;
 }
 
-/** Directories scanned for an `AuthKey_*.p8` when no explicit path is given (Apple downloads to Downloads). */
-const SEARCH_DIRS = [join(homedir(), "Downloads"), process.cwd()];
+/**
+ * Directories scanned for an `AuthKey_*.p8` when no explicit path is given, most-likely first:
+ * the browser's Downloads (Apple's "Download" button lands here), the locations Apple's own tools
+ * read keys from, Launch's own credentials dir, and the project (`./private_keys`, then cwd).
+ */
+const SEARCH_DIRS = [
+  join(homedir(), "Downloads"),
+  join(homedir(), ".appstoreconnect", "private_keys"),
+  join(homedir(), ".launch", "credentials"),
+  join(process.cwd(), "private_keys"),
+  process.cwd(),
+];
 
 /** Prompt for a required value, exiting cleanly if the user cancels. */
 async function ask(message: string, placeholder?: string): Promise<string> {
