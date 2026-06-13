@@ -1,7 +1,7 @@
 # Contributing to Launch
 
 Thanks for helping build a local, no-subscription replacement for EAS Build. This guide is the
-**how-to-work-on-it**; the **architecture and decisions** live in [`PLAN.md`](./PLAN.md) and the
+**how-to-work-on-it**; the **architecture and decisions** live in [`PLAN.md`](./docs/PLAN.md) and the
 **day-to-day conventions** in [`AGENTS.md`](./AGENTS.md). This file links to those rather than repeat
 them.
 
@@ -91,6 +91,6 @@ The same five steps apply to a `BuildEngine`, `CredentialsProvider`, or `Submitt
 - Write clear, imperative commit messages (`add s3 storage provider`, not `wip`).
 - When you add a dependency or a non-obvious pattern, note the rationale (what, why over alternatives,
   the tradeoff) in the PR description — see Global development principles in the project standards.
-- Check the **Scope boundary** in `PLAN.md` so a change lands in the right milestone (v1 is iOS →
+- Check the **Scope boundary** in `docs/PLAN.md` so a change lands in the right milestone (v1 is iOS →
   TestFlight; Android and cloud backends are designed-for but deferred).
 - Never commit secrets. `.p8` / `.p12` / `.env` are git-ignored and belong in the Keychain.

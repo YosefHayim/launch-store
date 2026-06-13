@@ -3,13 +3,13 @@
 Working rules for AI agents and contributors editing Launch. This file holds only what you **can't
 infer** from the code and configs — the project-specific conventions and the commands that gate a
 change. It deliberately does **not** restate style rules (those live in the tooling) or architecture
-(that lives in [`PLAN.md`](./PLAN.md), the source of truth) or usage (that's [`README.md`](./README.md)).
+(that lives in [`PLAN.md`](./docs/PLAN.md), the source of truth) or usage (that's [`README.md`](./README.md)).
 
 ## The shape of the repo
 
 One TypeScript/Node ESM package. `src/cli` is thin commander wiring; `src/core` is the domain and the
 build→submit pipeline; `src/providers` are the swappable backends; `src/apple` is the App Store Connect
-integration. The full directory map and the reasoning behind every decision are in `PLAN.md` — read it
+integration. The full directory map and the reasoning behind every decision are in `docs/PLAN.md` — read it
 before changing direction.
 
 ## Conventions a tool can't enforce for you
