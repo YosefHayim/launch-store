@@ -18,13 +18,13 @@
     "app-store-connect",
     "ci-cd"
   ],
-  "homepage": "https://github.com/YosefHayim/launch#readme",
+  "homepage": "https://github.com/YosefHayim/launch-store#readme",
   "bugs": {
-    "url": "https://github.com/YosefHayim/launch/issues"
+    "url": "https://github.com/YosefHayim/launch-store/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/YosefHayim/launch.git"
+    "url": "git+https://github.com/YosefHayim/launch-store.git"
   },
   "author": "YosefHayim",
   "license": "MIT",
