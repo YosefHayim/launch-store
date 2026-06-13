@@ -20,13 +20,37 @@ const ACCOUNT_ISSUER_ID = "asc-issuer-id";
 const ACCOUNT_P8 = "asc-p8";
 
 /**
+ * Encode the `.p8` PEM for storage as a single line of base64.
+ *
+ * Why: the PEM is multi-line, and the macOS backend stores secrets via `security … -w`, which
+ * HEX-ENCODES any value containing newlines when it's read back (`security … -w` emits hex for
+ * non-printable/multi-line data). That silently corrupted the key so every Apple JWT failed with a
+ * pkcs8 parse error. Base64 has no newlines, so the value round-trips verbatim on every backend
+ * (macOS `security`, Windows Credential Manager, Linux libsecret). The Key ID / Issuer ID are
+ * single-line tokens and are stored as-is.
+ */
+function encodeP8(pem: string): string {
+  return Buffer.from(pem, "utf8").toString("base64");
+}
+
+/**
+ * Decode a stored `.p8` back to its PEM. New imports are base64 (see {@link encodeP8}); a value that
+ * doesn't base64-decode to a PEM is returned verbatim, so a key written by an older build (raw PEM)
+ * still loads without forcing a re-import.
+ */
+function decodeP8(stored: string): string {
+  const decoded = Buffer.from(stored, "base64").toString("utf8");
+  return decoded.includes("PRIVATE KEY") ? decoded : stored;
+}
+
+/**
  * Persist an App Store Connect API key into the Keychain. Backs `launch creds set-key`.
- * The `.p8` is the private key's PEM contents, not its file path.
+ * The `.p8` is the private key's PEM contents (base64-encoded at rest), not its file path.
  */
 export async function storeAscKey(keyId: string, issuerId: string, p8: string): Promise<void> {
   await setSecret(ACCOUNT_KEY_ID, keyId);
   await setSecret(ACCOUNT_ISSUER_ID, issuerId);
-  await setSecret(ACCOUNT_P8, p8);
+  await setSecret(ACCOUNT_P8, encodeP8(p8));
 }
 
 /** Read just the API key from the Keychain, or null if none is imported. */
@@ -37,7 +61,7 @@ export async function loadAscKey(): Promise<AppleCredentials["ascKey"] | null> {
     getSecret(ACCOUNT_P8),
   ]);
   if (!keyId || !issuerId || !p8) return null;
-  return { keyId, issuerId, p8 };
+  return { keyId, issuerId, p8: decodeP8(p8) };
 }
 
 /** Error thrown when no API key has been imported yet, with the fix in the message. */
