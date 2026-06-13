@@ -1,6 +1,6 @@
 /**
- * `relay build <platform>` — the main command: runs the full pipeline and, by default, uploads to
- * TestFlight. `--no-submit` stops after building; public release is the separate `relay release`.
+ * `launch build <platform>` — the main command: runs the full pipeline and, by default, uploads to
+ * TestFlight. `--no-submit` stops after building; public release is the separate `launch release`.
  */
 
 import type { Command } from "commander";

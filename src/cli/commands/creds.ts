@@ -1,10 +1,10 @@
 /**
- * `relay creds [status|set-key|setup]` — inspect or provision Apple credentials.
+ * `launch creds [status|set-key|setup]` — inspect or provision Apple credentials.
  *
  * - `set-key` imports an App Store Connect API key (`.p8` + Key ID + Issuer ID) into the Keychain.
  * - `setup` runs the one-time provisioning: registers the App ID and creates/reuses the distribution
  *   certificate + App Store provisioning profile via the API (with a confirmation before each real
- *   Apple resource), so a later `relay build` just reuses them.
+ *   Apple resource), so a later `launch build` just reuses them.
  * - `status` reports what's stored.
  */
 
@@ -45,7 +45,7 @@ async function setKey(): Promise<void> {
 /** Provision (or reuse) the distribution certificate + provisioning profile for an app. */
 async function setup(): Promise<void> {
   const ascKey = await loadAscKey();
-  if (!ascKey) throw new Error("Import an API key first: relay creds set-key");
+  if (!ascKey) throw new Error("Import an API key first: launch creds set-key");
   const { apps } = await loadConfig();
   const app = await selectApp(apps, undefined);
   if (!app.bundleId) throw new Error(`No iOS bundle identifier for ${app.name}. Set ios.bundleIdentifier in app.json.`);

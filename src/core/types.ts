@@ -1,8 +1,8 @@
 /**
- * Central domain types and the four provider interfaces that make Relay's
+ * Central domain types and the four provider interfaces that make Launch's
  * infrastructure pluggable.
  *
- * Everything Relay does flows through these shapes, so this file is the single
+ * Everything Launch does flows through these shapes, so this file is the single
  * source of truth for the vocabulary: a build has a {@link ResolvedBuildContext},
  * it produces a {@link BuildArtifact} with a {@link SizeReport}, and each
  * swappable backend implements one of {@link CredentialsProvider},
@@ -15,19 +15,19 @@ export type Platform = "ios" | "android";
 /**
  * Where a submission lands.
  * - `testflight`: uploads for internal/external testing (the default, safe path).
- * - `appstore`: enters Apple's public review queue (deliberate `relay release --to-store` only).
+ * - `appstore`: enters Apple's public review queue (deliberate `launch release --to-store` only).
  */
 export type SubmitTarget = "testflight" | "appstore";
 
 /**
  * One app discovered in the surrounding monorepo.
  *
- * Relay auto-discovers these by scanning for `app.json`/`app.config` files, so the
+ * Launch auto-discovers these by scanning for `app.json`/`app.config` files, so the
  * facts here (bundle id, version) come straight from Expo's config and are never
- * duplicated in Relay's own config — `app.json` stays the single source of truth.
+ * duplicated in Launch's own config — `app.json` stays the single source of truth.
  */
 export interface AppDescriptor {
-  /** Short, unique handle used on the CLI (`relay build ios --app <name>`). Derived from the app slug. */
+  /** Short, unique handle used on the CLI (`launch build ios --app <name>`). Derived from the app slug. */
   name: string;
   /** Absolute path to the app's project directory (the folder containing its `app.json`). */
   dir: string;
@@ -40,9 +40,9 @@ export interface AppDescriptor {
 }
 
 /**
- * A named build profile from `relay.config.ts` (e.g. `production`, `preview`).
+ * A named build profile from `launch.config.ts` (e.g. `production`, `preview`).
  *
- * Holds only Relay-specific settings; app facts stay in `app.json`. A profile maps to a
+ * Holds only Launch-specific settings; app facts stay in `app.json`. A profile maps to a
  * `.env` file whose values are injected into the build and gates the artifact on size.
  */
 export interface BuildProfile {
@@ -60,12 +60,12 @@ export interface BuildProfile {
 }
 
 /**
- * The fully-resolved configuration for one `relay` invocation.
+ * The fully-resolved configuration for one `launch` invocation.
  *
- * Produced by {@link loadConfig} from `relay.config.ts` plus auto-discovered apps. Names here
+ * Produced by {@link loadConfig} from `launch.config.ts` plus auto-discovered apps. Names here
  * (`storage`, `credentials`, `buildEngine`) are looked up in the provider registry at runtime.
  */
-export interface RelayConfig {
+export interface LaunchConfig {
   /** Build profiles keyed by name. */
   profiles: Record<string, BuildProfile>;
   /** Registered name of the credentials provider to use. Defaults to `local`. */
@@ -97,7 +97,7 @@ export interface ResolvedBuildContext {
 }
 
 /**
- * The App Store Connect API key — Relay's single Apple credential.
+ * The App Store Connect API key — Launch's single Apple credential.
  *
  * Used for everything: minting JWTs, managing signing assets, and uploading builds. The `.p8`
  * private key lives in the macOS Keychain; this shape carries its in-memory bytes plus the two
@@ -144,7 +144,7 @@ export interface SigningAssets {
  * `signing` is absent for steps that only need the API key (e.g. submission, build-number lookup).
  */
 export interface AppleCredentials {
-  /** App Store Connect API key — Relay's single credential for managing creds and uploading. */
+  /** App Store Connect API key — Launch's single credential for managing creds and uploading. */
   ascKey: AscKey;
   /** Resolved distribution certificate + provisioning profile for code signing, when needed. */
   signing?: SigningAssets;
@@ -174,7 +174,7 @@ export interface SizeReport {
 }
 
 /**
- * A built, signed artifact plus the metadata Relay records about it.
+ * A built, signed artifact plus the metadata Launch records about it.
  *
  * Stored by a {@link StorageProvider} and used to build the run summary and the local index.
  */
@@ -204,13 +204,13 @@ export interface StoredArtifact {
 /* -------------------------------------------------------------------------- */
 /*  Provider interfaces — the "any infra, easily added" seam.                 */
 /*  Implement one of these + register() to add a backend. Nothing else needs  */
-/*  to change; the pipeline selects providers by name from RelayConfig.       */
+/*  to change; the pipeline selects providers by name from LaunchConfig.       */
 /* -------------------------------------------------------------------------- */
 
 /**
  * Resolves and persists the Apple credentials a build needs.
  *
- * The v1 `local` implementation reads/writes the macOS Keychain and `~/.relay`. A future
+ * The v1 `local` implementation reads/writes the macOS Keychain and `~/.launch`. A future
  * `team` or `s3` implementation could fetch shared, encrypted credentials instead — the
  * pipeline neither knows nor cares which backend answered.
  */
@@ -222,7 +222,7 @@ export interface CredentialsProvider {
    * App Store Connect API to reuse-or-create the certificate and provisioning profile, then caches.
    */
   resolve(ctx: ResolvedBuildContext): Promise<AppleCredentials>;
-  /** Human-readable status of what's cached (used by `relay creds status`). */
+  /** Human-readable status of what's cached (used by `launch creds status`). */
   status(): Promise<string>;
 }
 

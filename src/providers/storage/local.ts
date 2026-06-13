@@ -1,7 +1,7 @@
 /**
  * The `local` storage provider — v1's only artifact backend.
  *
- * Copies each built artifact into `~/.relay/artifacts` and records it in a newest-first JSON index,
+ * Copies each built artifact into `~/.launch/artifacts` and records it in a newest-first JSON index,
  * giving you a local build history with retrievable paths. It's deliberately shaped after the S3
  * object-store model ({@link StorageProvider}: put/list/url) so an R2/S3/Supabase provider is a
  * thin drop-in later — the pipeline calls these three methods regardless of where bytes land.

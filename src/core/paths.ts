@@ -1,8 +1,8 @@
 /**
- * Canonical filesystem locations for Relay's local state.
+ * Canonical filesystem locations for Launch's local state.
  *
- * Everything non-secret Relay caches (artifacts, the artifact index, provisioning profiles, key
- * metadata) lives under `~/.relay`. Secrets do NOT live here — they're in the macOS Keychain.
+ * Everything non-secret Launch caches (artifacts, the artifact index, provisioning profiles, key
+ * metadata) lives under `~/.launch`. Secrets do NOT live here — they're in the macOS Keychain.
  * Centralizing the paths keeps providers from inventing their own layout.
  */
 
@@ -10,11 +10,11 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { mkdirSync } from "node:fs";
 
-/** Root of Relay's local state directory. */
-export const RELAY_HOME = join(homedir(), ".relay");
+/** Root of Launch's local state directory. */
+export const LAUNCH_HOME = join(homedir(), ".launch");
 
 /** Where built artifacts are copied by the local storage provider. */
-export const ARTIFACTS_DIR = join(RELAY_HOME, "artifacts");
+export const ARTIFACTS_DIR = join(LAUNCH_HOME, "artifacts");
 
 /** JSON index of stored artifacts (newest-first history). */
 export const ARTIFACT_INDEX = join(ARTIFACTS_DIR, "index.json");
@@ -23,7 +23,7 @@ export const ARTIFACT_INDEX = join(ARTIFACTS_DIR, "index.json");
  * Non-secret signing metadata + the encrypted `.p12` backup live here (chmod 600). The private
  * key is ALSO in the login Keychain for signing; this backup just survives a Keychain reset.
  */
-export const CREDENTIALS_DIR = join(RELAY_HOME, "credentials");
+export const CREDENTIALS_DIR = join(LAUNCH_HOME, "credentials");
 
 /** JSON map of the resolved distribution certificate + per-bundle provisioning profiles. */
 export const CREDENTIALS_INDEX = join(CREDENTIALS_DIR, "index.json");

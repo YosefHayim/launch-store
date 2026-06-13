@@ -3,12 +3,12 @@
  *
  * Secret material (the App Store Connect `.p8`, the distribution `.p12` password) lives in the
  * macOS Keychain; non-secret metadata (key id, issuer id, cert serial, profile paths) sits in
- * `~/.relay`. This is the reference implementation of {@link CredentialsProvider}: a future
+ * `~/.launch`. This is the reference implementation of {@link CredentialsProvider}: a future
  * `team`/`s3` backend swaps the storage without the pipeline noticing.
  *
  * `resolve()` is the silent-reuse path: it returns the API key plus any already-provisioned signing
  * assets for the app, WITHOUT calling Apple. Creating missing certificates/profiles is the job of
- * `relay creds setup` (and the pipeline's inline offer), which run the interactive provisioning flow.
+ * `launch creds setup` (and the pipeline's inline offer), which run the interactive provisioning flow.
  */
 
 import type { AppleCredentials, CredentialsProvider, ResolvedBuildContext } from "../../core/types.js";
@@ -20,7 +20,7 @@ const ACCOUNT_ISSUER_ID = "asc-issuer-id";
 const ACCOUNT_P8 = "asc-p8";
 
 /**
- * Persist an App Store Connect API key into the Keychain. Backs `relay creds set-key`.
+ * Persist an App Store Connect API key into the Keychain. Backs `launch creds set-key`.
  * The `.p8` is the private key's PEM contents, not its file path.
  */
 export async function storeAscKey(keyId: string, issuerId: string, p8: string): Promise<void> {
@@ -43,7 +43,7 @@ export async function loadAscKey(): Promise<AppleCredentials["ascKey"] | null> {
 /** Error thrown when no API key has been imported yet, with the fix in the message. */
 class MissingCredentialsError extends Error {
   constructor() {
-    super("No App Store Connect API key found. Import one with: relay creds set-key");
+    super("No App Store Connect API key found. Import one with: launch creds set-key");
     this.name = "MissingCredentialsError";
   }
 }

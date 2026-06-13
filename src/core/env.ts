@@ -15,7 +15,7 @@ import { join } from "node:path";
  *
  * Deliberately minimal (no interpolation/expansion): blank lines and `#` comments are skipped,
  * an optional leading `export` is dropped, the first `=` splits key from value, and matching
- * surrounding quotes are stripped. This avoids a dependency for a format Relay fully controls.
+ * surrounding quotes are stripped. This avoids a dependency for a format Launch fully controls.
  */
 export function parseDotenv(content: string): Record<string, string> {
   const out: Record<string, string> = {};

@@ -1,8 +1,8 @@
 /**
  * macOS Keychain access via the built-in `security` CLI.
  *
- * This is where Relay keeps secret credential material (the App Store Connect `.p8`, and later the
- * `.p12` password) so it is encrypted at rest by the OS and never sits in the repo or in `~/.relay`
+ * This is where Launch keeps secret credential material (the App Store Connect `.p8`, and later the
+ * `.p12` password) so it is encrypted at rest by the OS and never sits in the repo or in `~/.launch`
  * metadata. Generic, secret-agnostic helpers; the credentials provider decides the account names.
  *
  * Note: `security ... -w <value>` passes the secret as an argument, briefly visible to `ps`. This
@@ -11,8 +11,8 @@
 
 import { capture } from "./exec.js";
 
-/** Keychain service all Relay secrets are filed under, so they're easy to find/audit/remove. */
-const SERVICE = "relay";
+/** Keychain service all Launch secrets are filed under, so they're easy to find/audit/remove. */
+const SERVICE = "launch";
 
 /** Store (or overwrite, via `-U`) a secret for `account` in the login keychain. */
 export async function setSecret(account: string, value: string): Promise<void> {

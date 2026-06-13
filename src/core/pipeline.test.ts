@@ -43,9 +43,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** Create a one-app repo (no relay.config.ts, so loadConfig uses defaults — no jiti, fully hermetic). */
+/** Create a one-app repo (no launch.config.ts, so loadConfig uses defaults — no jiti, fully hermetic). */
 function writeRepo(expo: Record<string, unknown>): string {
-  const dir = mkdtempSync(join(tmpdir(), "relay-pipeline-"));
+  const dir = mkdtempSync(join(tmpdir(), "launch-pipeline-"));
   writeFileSync(join(dir, "app.json"), JSON.stringify({ expo }));
   return dir;
 }

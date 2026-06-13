@@ -1,8 +1,8 @@
 /**
- * `relay init` — scaffold Relay into an existing app or monorepo.
+ * `launch init` — scaffold Launch into an existing app or monorepo.
  *
- * Detects the app(s) in the current repo, then writes a commented `relay.config.ts` (and a starter
- * `.env.example` if missing) so a new user goes from `npm i -g relaybuild` to a working config in one
+ * Detects the app(s) in the current repo, then writes a commented `launch.config.ts` (and a starter
+ * `.env.example` if missing) so a new user goes from `npm i -g launchcli` to a working config in one
  * step. It only writes config — it never touches credentials or the native project.
  */
 
@@ -26,23 +26,23 @@ function detectAppRoot(apps: AppDescriptor[], cwd: string): string | null {
   return segments.size === 1 && only ? `./${only}` : null;
 }
 
-/** The commented config Relay writes, tailored with a detected `appRoots` when there is one. */
+/** The commented config Launch writes, tailored with a detected `appRoots` when there is one. */
 function configTemplate(appRoot: string | null): string {
   const appRootsLine = appRoot
     ? `  appRoots: ["${appRoot}"], // every app.json lives under here`
     : `  // appRoots: ["./apps"], // uncomment if your apps live in a subfolder`;
-  return `import { defineConfig } from "relaybuild";
+  return `import { defineConfig } from "launchcli";
 
 /**
- * Relay configuration. App facts (bundle id, version) are read from each app.json — this file holds
- * only Relay-specific settings. Provider names are resolved from Relay's registry; the v1 built-ins
+ * Launch configuration. App facts (bundle id, version) are read from each app.json — this file holds
+ * only Launch-specific settings. Provider names are resolved from Launch's registry; the v1 built-ins
  * are shown below as the defaults.
  */
 export default defineConfig({
 ${appRootsLine}
 
-  credentials: "local", // macOS Keychain + ~/.relay (your own keys, cached locally)
-  storage: "local", // ~/.relay/artifacts (swap for s3/r2/supabase later)
+  credentials: "local", // macOS Keychain + ~/.launch (your own keys, cached locally)
+  storage: "local", // ~/.launch/artifacts (swap for s3/r2/supabase later)
   buildEngine: "fastlane", // gym archives + exports the signed .ipa
 
   profiles: {
@@ -58,7 +58,7 @@ ${appRootsLine}
 
 const ENV_EXAMPLE_TEMPLATE = `# Committed template of the env keys your app expects. Copy to .env and fill real values.
 # NOTE: there is no EXPO_PUBLIC_ prefix guard here — anything in .env can reach the app bundle.
-# Keep backend secrets OUT of this file. Relay warns on secret-looking names as a safety net.
+# Keep backend secrets OUT of this file. Launch warns on secret-looking names as a safety net.
 API_URL=
 `;
 
@@ -73,27 +73,27 @@ function writeIfAbsent(path: string, contents: string): boolean {
 export function registerInitCommand(program: Command): void {
   program
     .command("init")
-    .description("scaffold relay.config.ts (and .env.example) into the current repo")
+    .description("scaffold launch.config.ts (and .env.example) into the current repo")
     .action(async () => {
-      intro("relay init");
+      intro("launch init");
       const cwd = process.cwd();
       const { apps } = await loadConfig(cwd);
 
       if (apps.length === 0) {
-        note("No app.json found under this folder. Relay will still scaffold a config you can edit.", "Heads up");
+        note("No app.json found under this folder. Launch will still scaffold a config you can edit.", "Heads up");
       } else {
         const list = apps.map((app) => `• ${app.name}${app.bundleId ? `  (${app.bundleId})` : ""}`).join("\n");
         note(list, `Found ${apps.length} app${apps.length === 1 ? "" : "s"}`);
       }
 
-      const configPath = join(cwd, "relay.config.ts");
+      const configPath = join(cwd, "launch.config.ts");
       if (existsSync(configPath)) {
         const overwrite = await confirm({
-          message: "relay.config.ts already exists. Overwrite it?",
+          message: "launch.config.ts already exists. Overwrite it?",
           initialValue: false,
         });
         if (isCancel(overwrite) || !overwrite) {
-          cancel("Left your relay.config.ts untouched.");
+          cancel("Left your launch.config.ts untouched.");
           process.exit(0);
         }
       }
@@ -101,18 +101,18 @@ export function registerInitCommand(program: Command): void {
       writeFileSync(configPath, configTemplate(detectAppRoot(apps, cwd)));
       const wroteEnv = writeIfAbsent(join(cwd, ".env.example"), ENV_EXAMPLE_TEMPLATE);
 
-      const written = ["relay.config.ts", wroteEnv ? ".env.example" : null].filter(Boolean).join(", ");
+      const written = ["launch.config.ts", wroteEnv ? ".env.example" : null].filter(Boolean).join(", ");
       note(
         [
           `Wrote: ${written}`,
           "",
           "Next:",
-          "  1. relay creds set-key   # import your App Store Connect API key",
-          "  2. relay creds setup     # create/reuse your cert + provisioning profile",
-          "  3. relay build ios --dry-run   # rehearse the whole flow, no changes",
+          "  1. launch creds set-key   # import your App Store Connect API key",
+          "  2. launch creds setup     # create/reuse your cert + provisioning profile",
+          "  3. launch build ios --dry-run   # rehearse the whole flow, no changes",
         ].join("\n"),
         "Done",
       );
-      outro("Relay is configured.");
+      outro("Launch is configured.");
     });
 }

@@ -1,8 +1,8 @@
 /**
- * `relay release <platform>` — the deliberate, separate path to the PUBLIC App Store review queue.
+ * `launch release <platform>` — the deliberate, separate path to the PUBLIC App Store review queue.
  *
  * It does not build: it takes the most recent stored artifact for the app and, after an explicit
- * confirmation, submits it for review. Keeping public release out of `relay build` is what makes an
+ * confirmation, submits it for review. Keeping public release out of `launch build` is what makes an
  * accidental public release impossible.
  */
 
@@ -44,7 +44,7 @@ async function runRelease(platform: Platform, options: ReleaseCommandOptions): P
     (artifact) => artifact.appName === app.name && artifact.platform === platform,
   );
   if (!latest) {
-    throw new Error(`No stored ${platform} build for ${app.name}. Run \`relay build ${platform}\` first.`);
+    throw new Error(`No stored ${platform} build for ${app.name}. Run \`launch build ${platform}\` first.`);
   }
 
   const proceed = await confirm({

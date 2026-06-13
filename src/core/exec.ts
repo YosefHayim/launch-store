@@ -57,7 +57,7 @@ export function capture(command: string, args: string[], options: ExecOptions = 
   });
 }
 
-/** Return whether an executable is on the PATH — used by `relay doctor` preflight checks. */
+/** Return whether an executable is on the PATH — used by `launch doctor` preflight checks. */
 export async function exists(command: string): Promise<boolean> {
   try {
     await capture("which", [command], {});

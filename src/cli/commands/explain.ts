@@ -1,5 +1,5 @@
 /**
- * `relay explain [topic]` — the on-demand glossary.
+ * `launch explain [topic]` — the on-demand glossary.
  *
  * With no argument it lists known topics; with one it prints that term's plain-English explanation.
  * Reads the same {@link glossary} the inline `--explain` output uses, so there's one source of truth.

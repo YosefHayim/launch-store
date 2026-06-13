@@ -2,7 +2,7 @@
  * Vitest configuration.
  *
  * Tests live beside the code they cover (`src/**\/*.test.ts`) and run in a Node environment, since
- * Relay is a CLI that shells out and talks to the filesystem/network. Coverage excludes the test
+ * Launch is a CLI that shells out and talks to the filesystem/network. Coverage excludes the test
  * files themselves and the thin `src/cli` commander wiring (exercised end-to-end via the dry-run
  * pipeline test rather than unit-tested). The text-summary reporter is what CI surfaces in its
  * run summary.

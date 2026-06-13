@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Working rules for AI agents and contributors editing Relay. This file holds only what you **can't
+Working rules for AI agents and contributors editing Launch. This file holds only what you **can't
 infer** from the code and configs — the project-specific conventions and the commands that gate a
 change. It deliberately does **not** restate style rules (those live in the tooling) or architecture
 (that lives in [`PLAN.md`](./PLAN.md), the source of truth) or usage (that's [`README.md`](./README.md)).
@@ -16,19 +16,19 @@ before changing direction.
 
 - **`src/core/types.ts` is the single source of truth for domain types** and the four provider
   interfaces. Add or change a shape there, not inline in a feature file.
-- **`src/core/glossary.ts` is the single source for teaching text** — it feeds both `relay explain`
+- **`src/core/glossary.ts` is the single source for teaching text** — it feeds both `launch explain`
   and the `--explain` step expansions. Edit term explanations only there; never duplicate them in docs.
 - **Adding infrastructure = implement an interface + register it.** Implement one of
   `BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` from `types.ts`, then register
   it in `src/providers/index.ts`. Do **not** touch `src/core/pipeline.ts` to add a backend — it selects
   providers by name from config. Lazy-load heavy SDKs inside the provider so a local-only run stays lean.
-- **The config seam:** the user's `relay.config.ts` is loaded with jiti; the public API
+- **The config seam:** the user's `launch.config.ts` is loaded with jiti; the public API
   (`defineConfig` + config types) is re-exported from `src/index.ts` — the package `exports` entry.
   Keep `src/index.ts` re-exports only, with no logic.
 - **All child processes go through `src/core/exec.ts`** (`run`/`capture`, `shell: false`, argument
   arrays). Never build a shell string or call `spawn`/`exec` directly.
-- **Secrets never touch the repo or `~/.relay` metadata.** The `.p8`/`.p12`/private keys live in the
-  macOS Keychain; `~/.relay` holds paths and ids only. Don't log, write, or commit key material, and
+- **Secrets never touch the repo or `~/.launch` metadata.** The `.p8`/`.p12`/private keys live in the
+  macOS Keychain; `~/.launch` holds paths and ids only. Don't log, write, or commit key material, and
   honor `.gitignore`.
 
 ## Style is enforced, not documented

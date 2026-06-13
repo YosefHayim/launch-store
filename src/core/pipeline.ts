@@ -29,7 +29,7 @@ import { run } from "./exec.js";
 import { AppStoreConnectClient } from "../apple/ascClient.js";
 import { ensureSigningCredentials } from "../apple/credentials.js";
 
-/** Options for one `relay build` invocation. */
+/** Options for one `launch build` invocation. */
 export interface BuildRunOptions {
   platform: Platform;
   /** App handle (`--app`); when omitted the pipeline picks the only app or prompts. */
@@ -57,7 +57,7 @@ const delay = (ms: number): Promise<void> =>
 
 /** Pick the app to build: an explicit `--app`, the sole discovered app, or an interactive prompt. */
 export async function selectApp(apps: AppDescriptor[], appName: string | undefined): Promise<AppDescriptor> {
-  if (apps.length === 0) throw new Error("No apps found. Run Relay from a repo containing at least one app.json.");
+  if (apps.length === 0) throw new Error("No apps found. Run Launch from a repo containing at least one app.json.");
   if (appName) {
     const match = apps.find((app) => app.name === appName);
     if (!match) throw new Error(`App "${appName}" not found. Available: ${apps.map((a) => a.name).join(", ")}.`);
@@ -93,7 +93,7 @@ async function setIosBuildNumber(appDir: string, buildNumber: number): Promise<b
 }
 
 /**
- * A yes/no prompt that exits cleanly on cancel. Shared with `relay creds setup` so provisioning
+ * A yes/no prompt that exits cleanly on cancel. Shared with `launch creds setup` so provisioning
  * confirmations look identical whether triggered inline by a build or run explicitly.
  */
 export function interactiveConfirm(message: string): Promise<boolean> {

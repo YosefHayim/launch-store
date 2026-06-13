@@ -1,20 +1,20 @@
 /**
- * Example Relay configuration.
+ * Example Launch configuration.
  *
- * Copy this to `relay.config.ts` at the root of your app (or monorepo). It holds ONLY Relay-specific
+ * Copy this to `launch.config.ts` at the root of your app (or monorepo). It holds ONLY Launch-specific
  * settings — app facts like bundle id and version are auto-discovered from each app's `app.json`,
  * so nothing is duplicated. Provider names (`storage`, `credentials`, `buildEngine`) are resolved
- * from Relay's registry; the defaults shown are the v1 built-ins.
+ * from Launch's registry; the defaults shown are the v1 built-ins.
  */
 
-import { defineConfig } from "relaybuild";
+import { defineConfig } from "launchcli";
 
 export default defineConfig({
   // Where to scan for apps. Omit to scan the repo root.
   // appRoots: ["./apps"],
 
-  credentials: "local", // macOS Keychain + ~/.relay
-  storage: "local", // ~/.relay/artifacts (swap for s3/r2/supabase later)
+  credentials: "local", // macOS Keychain + ~/.launch
+  storage: "local", // ~/.launch/artifacts (swap for s3/r2/supabase later)
   buildEngine: "fastlane",
 
   profiles: {
