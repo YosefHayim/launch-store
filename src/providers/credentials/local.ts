@@ -42,13 +42,23 @@ function encodeP8(pem: string): string {
 }
 
 /**
- * Decode a stored `.p8` back to its PEM. New imports are base64 (see {@link encodeP8}); a value that
- * doesn't base64-decode to a PEM is returned verbatim, so a key written by an older build (raw PEM)
- * still loads without forcing a re-import.
+ * Decode a stored `.p8` back to its PEM, repairing every legacy on-disk form so upgrading never
+ * forces a re-import:
+ * - current: single-line base64 (see {@link encodeP8});
+ * - legacy hex: a multi-line PEM stored by a pre-base64 build, which the macOS `security -w` backend
+ *   HEX-encodes on read-back — the exact corruption base64 was introduced to prevent;
+ * - oldest: a raw PEM that happened to round-trip intact.
+ *
+ * A value matching none of these is returned verbatim.
  */
 function decodeP8(stored: string): string {
-  const decoded = Buffer.from(stored, "base64").toString("utf8");
-  return decoded.includes("PRIVATE KEY") ? decoded : stored;
+  const fromBase64 = Buffer.from(stored, "base64").toString("utf8");
+  if (fromBase64.includes("PRIVATE KEY")) return fromBase64;
+  if (/^(?:[0-9a-fA-F]{2})+$/.test(stored)) {
+    const fromHex = Buffer.from(stored, "hex").toString("utf8");
+    if (fromHex.includes("PRIVATE KEY")) return fromHex;
+  }
+  return stored;
 }
 
 /**

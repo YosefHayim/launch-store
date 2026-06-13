@@ -27,3 +27,6 @@ android/
 # OS / editor noise
 .DS_Store
 *.log
+
+# Claude Code agent worktrees / session state
+.claude/
