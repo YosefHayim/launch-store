@@ -1,0 +1,25 @@
+# Dependencies & build output
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Secrets — NEVER commit. Relay keeps these in the macOS Keychain / ~/.relay.
+.env
+.env.*.local
+*.p8
+*.p12
+*.mobileprovision
+*.keystore
+*.jks
+AuthKey_*.p8
+
+# Relay's local state (artifacts, metadata cache)
+.relay/
+
+# Generated native projects (recreated by `expo prebuild`)
+ios/
+android/
+
+# OS / editor noise
+.DS_Store
+*.log
