@@ -1,38 +1,22 @@
 /**
- * `launch doctor` — preflight check.
+ * `launch doctor` — preflight check (and, with `--fix`, an installer).
  *
  * Verifies the toolchain a local iOS build needs (Xcode, Ruby, fastlane, CocoaPods, openssl) and,
  * when an API key is present, the things that otherwise fail deep inside a build: an unsigned/expired
  * Apple agreement, and apps with no App Store Connect record (the one step the API can't create).
+ *
+ * `--fix` hands the toolchain check to {@link ensureToolchain}, which asks one consent and installs
+ * the missing tools via Homebrew (`--yes` skips the prompt for CI/agents).
  */
 
 import type { Command } from "commander";
 import { exists } from "../../core/exec.js";
 import { loadConfig } from "../../core/config.js";
+import { REQUIRED_TOOLS, ensureToolchain, fixHint } from "../../core/toolchain.js";
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { loadAscKey, localCredentialsProvider } from "../../providers/credentials/local.js";
 
-/** A single tool to probe and the hint shown when it's missing. */
-interface ToolCheck {
-  label: string;
-  command: string;
-  fix: string;
-}
-
 const APP_STORE_CONNECT_APPS_URL = "https://appstoreconnect.apple.com/apps";
-
-const TOOL_CHECKS: ToolCheck[] = [
-  {
-    label: "Xcode (xcodebuild)",
-    command: "xcodebuild",
-    fix: "Install Xcode from the App Store, then `xcode-select --install`.",
-  },
-  { label: "Ruby", command: "ruby", fix: "Install Ruby (it ships with macOS, or use Homebrew/rbenv)." },
-  { label: "fastlane", command: "fastlane", fix: "Install with `brew install fastlane` or `gem install fastlane`." },
-  { label: "CocoaPods (pod)", command: "pod", fix: "Install with `brew install cocoapods`." },
-  { label: "openssl", command: "openssl", fix: "Install with `brew install openssl` (ships with macOS)." },
-  { label: "Node", command: "node", fix: "Install Node 18+." },
-];
 
 /** Probe Apple for an unsigned/expired agreement and for missing app records; best-effort. */
 async function checkAppleAccount(): Promise<boolean> {
@@ -67,20 +51,30 @@ async function checkAppleAccount(): Promise<boolean> {
   return allOk;
 }
 
+/** Report the toolchain read-only: one ✓/✗ line per required tool. Returns whether all are present. */
+async function reportToolchain(): Promise<boolean> {
+  let allOk = true;
+  for (const tool of REQUIRED_TOOLS) {
+    const ok = await exists(tool.command);
+    allOk &&= ok;
+    console.log(`${ok ? "✓" : "✗"} ${tool.label}${ok ? "" : `  — ${fixHint(tool)}`}`);
+  }
+  return allOk;
+}
+
 /** Attach the `doctor` command to the program. */
 export function registerDoctorCommand(program: Command): void {
   program
     .command("doctor")
     .description("check that the local toolchain and Apple account are ready")
-    .action(async () => {
-      let allOk = true;
-      for (const check of TOOL_CHECKS) {
-        const ok = await exists(check.command);
-        allOk &&= ok;
-        console.log(`${ok ? "✓" : "✗"} ${check.label}${ok ? "" : `  — ${check.fix}`}`);
-      }
+    .option("--fix", "install any missing build tools (asks for consent first)")
+    .option("--yes", "skip prompts and proceed with installs (CI/agents)")
+    .action(async (options: { fix?: boolean; yes?: boolean }) => {
+      const toolsOk = options.fix
+        ? await ensureToolchain({ assumeYes: options.yes === true })
+        : await reportToolchain();
       console.log(`• ${await localCredentialsProvider.status()}`);
       const appleOk = await checkAppleAccount();
-      if (!allOk || !appleOk) process.exitCode = 1;
+      if (!toolsOk || !appleOk) process.exitCode = 1;
     });
 }
