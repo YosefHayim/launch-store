@@ -132,7 +132,6 @@ launch/
   .husky/pre-commit       lint-staged (eslint --fix + prettier) then tsc --noEmit
   .github/workflows/ci.yml  CI gate: typecheck/lint/format/test/build on Node 20 + 22
   .gitignore              guards .env, *.p8, *.p12, *.mobileprovision, ~/.launch leakage
-  .env.example            documented env template
   launch.config.example.ts copy → launch.config.ts at repo root of the app monorepo
   examples/hello-world/   reference app (app.json + launch.config.ts) for onboarding + smoke tests
   AGENTS.md / CLAUDE.md   working rules for agents/contributors (CLAUDE.md points to AGENTS.md)
