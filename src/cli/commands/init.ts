@@ -45,7 +45,7 @@ ${appRootsLine}
   storage: "local", // ~/.launch/artifacts (swap for s3/r2/supabase later)
   buildEngine: "fastlane", // "fastlane" (local) · "remote-mac" (AWS EC2 Mac) · "eas" (Expo cloud)
 
-  // No Mac? Build remotely. Run \`launch\` (the wizard) or \`launch cloud doctor\`. See docs/plan-aws-ec2-mac.md.
+  // No Mac? Build remotely. Run \`launch\` (the wizard) or \`launch cloud doctor\`.
   // aws: { region: "us-east-1" }, // for \`launch build ios --remote aws\`
 
   profiles: {
