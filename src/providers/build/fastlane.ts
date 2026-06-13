@@ -58,6 +58,34 @@ export function parseThinningReport(text: string): SizeReportEntry[] {
   return entries;
 }
 
+/**
+ * Guard that the build produced a real device App Store archive before we try to submit it.
+ *
+ * A simulator build yields a `.app` under a `*-iphonesimulator` directory whose binary is built for
+ * the simulator — it can never reach TestFlight, and the failure otherwise surfaces late and cryptic
+ * (the reported symptom was an `xcrun simctl install …` error). Catching it the moment gym finishes
+ * fails loud and actionable instead of wasting an upload round-trip on a dead artifact.
+ *
+ * @param artifactPath absolute path gym reported for the exported artifact
+ * @param sizeBytes the artifact's size on disk (a 0-byte file means the export failed silently)
+ */
+export function assertDeviceArtifact(artifactPath: string, sizeBytes: number): void {
+  if (/-iphonesimulator/i.test(artifactPath)) {
+    throw new Error(
+      `Build produced a simulator artifact (${artifactPath}). TestFlight needs a device archive — ` +
+        `build for "Any iOS Device", not a simulator, then re-run \`launch build ios\`.`,
+    );
+  }
+  if (!artifactPath.toLowerCase().endsWith(".ipa")) {
+    throw new Error(
+      `Expected a signed .ipa but got ${artifactPath} — a .app bundle is a simulator/unpackaged build and can't be submitted.`,
+    );
+  }
+  if (sizeBytes <= 0) {
+    throw new Error(`Build artifact ${artifactPath} is empty (0 bytes) — the export failed silently.`);
+  }
+}
+
 /** Build the export-options plist for manual App Store signing with the resolved profile + cert. */
 export function exportOptionsPlist(signing: SigningAssets): string {
   return [
@@ -129,9 +157,11 @@ export const fastlaneBuildEngine: BuildEngine = {
     const ipa = readdirSync(outputDir).find((entry) => entry.endsWith(".ipa"));
     if (!ipa) throw new Error(`gym finished but produced no .ipa in ${outputDir}.`);
     const artifactPath = join(outputDir, ipa);
+    const ipaBytes = statSync(artifactPath).size;
+    assertDeviceArtifact(artifactPath, ipaBytes);
 
     const reportPath = join(outputDir, "App Thinning Size Report.txt");
     const entries = existsSync(reportPath) ? parseThinningReport(readFileSync(reportPath, "utf8")) : [];
-    return { artifactPath, sizeReport: { ipaBytes: statSync(artifactPath).size, entries } };
+    return { artifactPath, sizeReport: { ipaBytes, entries } };
   },
 };
