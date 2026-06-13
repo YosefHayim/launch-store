@@ -3,7 +3,7 @@ node_modules/
 dist/
 *.tsbuildinfo
 
-# Secrets — NEVER commit. Relay keeps these in the macOS Keychain / ~/.relay.
+# Secrets — NEVER commit. Launch keeps these in the macOS Keychain / ~/.launch.
 .env
 .env.*.local
 *.p8
@@ -13,8 +13,8 @@ dist/
 *.jks
 AuthKey_*.p8
 
-# Relay's local state (artifacts, metadata cache)
-.relay/
+# Launch's local state (artifacts, metadata cache)
+.launch/
 
 # Generated native projects (recreated by `expo prebuild`)
 ios/

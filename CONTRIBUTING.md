@@ -1,4 +1,4 @@
-# Contributing to Relay
+# Contributing to Launch
 
 Thanks for helping build a local, no-subscription replacement for EAS Build. This guide is the
 **how-to-work-on-it**; the **architecture and decisions** live in [`PLAN.md`](./PLAN.md) and the
@@ -11,20 +11,20 @@ them.
 
 That's all you need to work on the CLI and its tests. A real iOS build additionally needs a Mac with
 Xcode + fastlane and an App Store Connect API key — but the test suite mocks those, so you can
-contribute to most of Relay on any OS.
+contribute to most of Launch on any OS.
 
 ## Setup
 
 ```bash
 git clone <your-fork>
-cd relay
+cd launch
 npm install          # also installs the husky pre-commit hook
 npm run dev -- --help # run the CLI from source (tsx), no build needed
 ```
 
 ## The quality gate
 
-Relay's codebase is the product's reference implementation, so it's kept provably clean. Two layers
+Launch's codebase is the product's reference implementation, so it's kept provably clean. Two layers
 enforce that:
 
 - **Locally**, the husky pre-commit hook runs `lint-staged` (ESLint `--fix` + Prettier on staged
@@ -63,7 +63,7 @@ that asserts no network call or process spawn happens.
 
 What the suite intentionally does **not** mock is the live `openssl` / `security` / `fastlane` shell
 calls — asserting their exact arguments just re-encodes the implementation and goes brittle. Those are
-verified by `relay build ios --dry-run` (which rehearses every step) and `relay doctor` (which checks
+verified by `launch build ios --dry-run` (which rehearses every step) and `launch doctor` (which checks
 the toolchain and Apple account). **Add a test for any new logic you introduce.**
 
 ## Adding a backend (storage, build engine, credentials, submitter)
@@ -79,7 +79,7 @@ provider:
    never pulls it in.
 3. **Register it** in [`src/providers/index.ts`](./src/providers/index.ts) via
    `registerStorageProvider(...)`.
-4. **Select it** by name from a `relay.config.ts` (`storage: "s3"`). Nothing in
+4. **Select it** by name from a `launch.config.ts` (`storage: "s3"`). Nothing in
    `src/core/pipeline.ts` changes — the pipeline looks providers up by name.
 5. **Add a test** beside it and run the gate.
 

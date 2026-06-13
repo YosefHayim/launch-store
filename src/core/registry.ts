@@ -1,8 +1,8 @@
 /**
- * The provider registry — Relay's tiny dependency-injection seam.
+ * The provider registry — Launch's tiny dependency-injection seam.
  *
  * Built-in providers register themselves here at startup; the pipeline then looks one up by the
- * name in `relay.config.ts`. Adding a backend is "implement an interface + call `register*`",
+ * name in `launch.config.ts`. Adding a backend is "implement an interface + call `register*`",
  * with no change to the pipeline. Cloud-heavy providers can be registered lazily so a local-only
  * install never imports their SDKs.
  */

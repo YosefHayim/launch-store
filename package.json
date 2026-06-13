@@ -1,7 +1,32 @@
 {
-  "name": "relaybuild",
-  "version": "0.0.0",
+  "name": "launchcli",
+  "version": "0.1.0",
   "description": "Build and ship your iOS/Android apps to the stores from your own machine, with your own keys — no Expo bill.",
+  "keywords": [
+    "cli",
+    "mobile",
+    "ios",
+    "android",
+    "app-store",
+    "testflight",
+    "play-store",
+    "fastlane",
+    "react-native",
+    "expo",
+    "eas",
+    "code-signing",
+    "app-store-connect",
+    "ci-cd"
+  ],
+  "homepage": "https://github.com/YosefHayim/launch#readme",
+  "bugs": {
+    "url": "https://github.com/YosefHayim/launch/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/YosefHayim/launch.git"
+  },
+  "author": "YosefHayim",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,7 +38,7 @@
     }
   },
   "bin": {
-    "relay": "./dist/cli/index.js"
+    "launch": "./dist/cli/index.js"
   },
   "files": [
     "dist"
@@ -31,7 +56,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "relay": "tsx src/cli/index.ts",
+    "launch": "tsx src/cli/index.ts",
     "prepare": "husky"
   },
   "dependencies": {

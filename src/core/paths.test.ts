@@ -8,7 +8,7 @@ import {
   CREDENTIALS_DIR,
   CREDENTIALS_INDEX,
   PROVISIONING_PROFILES_DIR,
-  RELAY_HOME,
+  LAUNCH_HOME,
   ensureDir,
 } from "./paths.js";
 
@@ -17,10 +17,10 @@ afterEach(() => {
   while (tempDirs.length > 0) rmSync(tempDirs.pop()!, { recursive: true, force: true });
 });
 
-describe("paths — one canonical layout for ~/.relay", () => {
-  it("nests all local state under ~/.relay", () => {
-    expect(RELAY_HOME.endsWith(".relay")).toBe(true);
-    expect(ARTIFACTS_DIR.startsWith(RELAY_HOME)).toBe(true);
+describe("paths — one canonical layout for ~/.launch", () => {
+  it("nests all local state under ~/.launch", () => {
+    expect(LAUNCH_HOME.endsWith(".launch")).toBe(true);
+    expect(ARTIFACTS_DIR.startsWith(LAUNCH_HOME)).toBe(true);
     expect(ARTIFACT_INDEX.startsWith(ARTIFACTS_DIR)).toBe(true);
     expect(CREDENTIALS_INDEX.startsWith(CREDENTIALS_DIR)).toBe(true);
   });
@@ -30,7 +30,7 @@ describe("paths — one canonical layout for ~/.relay", () => {
   });
 
   it("ensureDir creates nested directories idempotently and returns the path", () => {
-    const root = mkdtempSync(join(tmpdir(), "relay-paths-"));
+    const root = mkdtempSync(join(tmpdir(), "launch-paths-"));
     tempDirs.push(root);
     const nested = join(root, "a", "b", "c");
     expect(ensureDir(nested)).toBe(nested);

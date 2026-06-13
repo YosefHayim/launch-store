@@ -1,14 +1,14 @@
 /**
  * Apple signing-credential automation — the "manage your own keys, locally" engine.
  *
- * This is the leg of EAS Build that Relay replaces without a subscription: it registers the App
+ * This is the leg of EAS Build that Launch replaces without a subscription: it registers the App
  * ID, creates (or reuses) a distribution certificate, and creates (or reuses) the matching App
  * Store provisioning profile — all through the official App Store Connect API, so you almost never
  * open the Apple Developer website.
  *
  * Security model: the certificate's private key is generated locally (`openssl`), so only a CSR
  * ever leaves the machine. The signed key+cert is imported into the login Keychain (so `xcodebuild`
- * can sign) AND backed up as a password-protected `.p12` under `~/.relay/credentials` (chmod 600);
+ * can sign) AND backed up as a password-protected `.p12` under `~/.launch/credentials` (chmod 600);
  * the `.p12` password lives in the Keychain, never beside the file. Reuse-first throughout, because
  * Apple caps distribution certificates at ~2–3 and a wasted slot is painful to recover.
  */
@@ -34,7 +34,7 @@ const P12_PASSWORD_ACCOUNT = "dist-cert-p12-password";
 /** Apple's distribution-certificate cap; creating past it fails, so warn first. */
 const DISTRIBUTION_CERT_CAP = 2;
 
-/** Persisted record of the distribution certificate Relay created and backed up. */
+/** Persisted record of the distribution certificate Launch created and backed up. */
 interface CertRecord {
   /** App Store Connect certificate resource id. */
   id: string;
@@ -54,7 +54,7 @@ interface ProfileRecord {
   teamId: string;
 }
 
-/** On-disk credential metadata (`~/.relay/credentials/index.json`). No secrets — paths + ids only. */
+/** On-disk credential metadata (`~/.launch/credentials/index.json`). No secrets — paths + ids only. */
 interface CredentialsIndex {
   certificate?: CertRecord;
   profiles: Record<string, ProfileRecord>;
@@ -75,7 +75,7 @@ export interface EnsureSigningOptions {
   confirmCreate: (message: string) => Promise<boolean>;
 }
 
-/** Summarize what signing material is cached locally, for `relay creds status`. */
+/** Summarize what signing material is cached locally, for `launch creds status`. */
 export function describeStoredCredentials(): { certSerial: string | null; bundleIds: string[] } {
   const index = readIndex();
   return { certSerial: index.certificate?.serial ?? null, bundleIds: Object.keys(index.profiles) };
@@ -148,7 +148,7 @@ async function generateKeypairAndCsr(dir: string): Promise<{ keyPath: string; cs
     "-out",
     csrPath,
     "-subj",
-    "/CN=Relay Distribution/O=Relay/C=US",
+    "/CN=Launch Distribution/O=Launch/C=US",
   ]);
   return { keyPath, csrPem: readFileSync(csrPath, "utf8") };
 }
@@ -214,7 +214,7 @@ async function readProfileMetadata(
   return { uuid, name, teamId: plistFirstArrayString(xml, "TeamIdentifier") };
 }
 
-/** Decode the base64 profile content, install it where Xcode looks, and back it up under ~/.relay. */
+/** Decode the base64 profile content, install it where Xcode looks, and back it up under ~/.launch. */
 async function installProfile(
   bundleId: string,
   profileContent: string,
@@ -245,7 +245,7 @@ function dryRunAssets(bundleId: string): SigningAssets {
     teamId: "DRYRUNTEAM",
     certName: DISTRIBUTION_CERT_NAME,
     certSerial: "DRYRUN000000",
-    profileName: `Relay_${bundleId}_AppStore`,
+    profileName: `Launch_${bundleId}_AppStore`,
     profileUuid: "00000000-0000-0000-0000-000000000000",
     profilePath: join(PROVISIONING_PROFILES_DIR, "dry-run.mobileprovision"),
   };
@@ -298,7 +298,7 @@ export async function ensureSigningCredentials(options: EnsureSigningOptions): P
   } else {
     if (liveCerts.length >= DISTRIBUTION_CERT_CAP) {
       log.warn(
-        `Apple already has ${liveCerts.length} distribution certificate(s) and none are Relay's. ` +
+        `Apple already has ${liveCerts.length} distribution certificate(s) and none are Launch's. ` +
           `If creation fails, revoke an unused one in the Developer portal (Apple caps these).`,
       );
     }
@@ -314,7 +314,7 @@ export async function ensureSigningCredentials(options: EnsureSigningOptions): P
 
   // 3. App Store profile: reuse by name unless we just minted a new cert (then recreate to match it).
   // Space-free name so it passes safely through xcodebuild's PROVISIONING_PROFILE_SPECIFIER setting.
-  const profileName = `Relay_${bundleId}_AppStore`;
+  const profileName = `Launch_${bundleId}_AppStore`;
   const existingProfile = await client.findProfileByName(profileName);
   let profile: ProfileResource;
   if (existingProfile && !freshCert) {
@@ -357,7 +357,7 @@ function reusableCertificate(index: CredentialsIndex, liveCerts: CertificateReso
 
 /** Generate a key/CSR, ask Apple to sign it, and package + back up the `.p12`. Returns the record. */
 async function createAndStoreCertificate(client: AppStoreConnectClient, password: string): Promise<CertRecord> {
-  const work = mkdtempSync(join(tmpdir(), "relay-cert-"));
+  const work = mkdtempSync(join(tmpdir(), "launch-cert-"));
   try {
     const { keyPath, csrPem } = await generateKeypairAndCsr(work);
     const created = await client.createCertificate(csrPem);

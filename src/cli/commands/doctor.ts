@@ -1,5 +1,5 @@
 /**
- * `relay doctor` — preflight check.
+ * `launch doctor` — preflight check.
  *
  * Verifies the toolchain a local iOS build needs (Xcode, Ruby, fastlane, CocoaPods, openssl) and,
  * when an API key is present, the things that otherwise fail deep inside a build: an unsigned/expired
@@ -38,7 +38,7 @@ const TOOL_CHECKS: ToolCheck[] = [
 async function checkAppleAccount(): Promise<boolean> {
   const ascKey = await loadAscKey();
   if (!ascKey) {
-    console.log("• No API key imported — skipping Apple checks (`relay creds set-key`).");
+    console.log("• No API key imported — skipping Apple checks (`launch creds set-key`).");
     return true;
   }
   const client = new AppStoreConnectClient(ascKey);

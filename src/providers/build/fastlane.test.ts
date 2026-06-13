@@ -50,7 +50,7 @@ describe("exportOptionsPlist — manual App Store signing inputs", () => {
     teamId: "ABCDE12345",
     certName: "Apple Distribution",
     certSerial: "SERIAL123",
-    profileName: "Relay_com.example.hello_AppStore",
+    profileName: "Launch_com.example.hello_AppStore",
     profileUuid: "uuid-1",
     profilePath: "/tmp/uuid-1.mobileprovision",
   };
@@ -61,7 +61,7 @@ describe("exportOptionsPlist — manual App Store signing inputs", () => {
     expect(plist).toContain("<key>signingStyle</key><string>manual</string>");
     expect(plist).toContain("<key>teamID</key><string>ABCDE12345</string>");
     expect(plist).toContain("<key>signingCertificate</key><string>Apple Distribution</string>");
-    expect(plist).toContain("<key>com.example.hello</key><string>Relay_com.example.hello_AppStore</string>");
+    expect(plist).toContain("<key>com.example.hello</key><string>Launch_com.example.hello_AppStore</string>");
     expect(plist).toContain("thin-for-all-variants");
   });
 });

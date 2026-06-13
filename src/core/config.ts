@@ -1,5 +1,5 @@
 /**
- * Loads Relay's hybrid configuration: CLI-specific settings come from `relay.config.ts`, while
+ * Loads Launch's hybrid configuration: CLI-specific settings come from `launch.config.ts`, while
  * app FACTS (bundle id, version) are auto-discovered from each app's existing `app.json` — so
  * nothing is duplicated across a 40+ app monorepo and `app.json` stays the source of truth.
  */
@@ -7,24 +7,24 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { createJiti } from "jiti";
-import type { AppDescriptor, RelayConfig } from "./types.js";
+import type { AppDescriptor, LaunchConfig } from "./types.js";
 
 /**
- * On-the-fly loader for the user's config. The compiled `relay` binary runs on plain Node, which
- * can't `import()` a TypeScript file — jiti transpiles `relay.config.ts` in memory and resolves its
- * `relaybuild` import from the user's project. (Chosen over bundling a TS toolchain ourselves; it's
+ * On-the-fly loader for the user's config. The compiled `launch` binary runs on plain Node, which
+ * can't `import()` a TypeScript file — jiti transpiles `launch.config.ts` in memory and resolves its
+ * `launchcli` import from the user's project. (Chosen over bundling a TS toolchain ourselves; it's
  * the same loader Nuxt/ESLint use for config files.)
  */
 const jiti = createJiti(import.meta.url);
 
 /** Input to {@link defineConfig}: `profiles` is required; provider names default sensibly. */
-export type RelayConfigInput = Pick<RelayConfig, "profiles"> & Partial<Omit<RelayConfig, "profiles">>;
+export type LaunchConfigInput = Pick<LaunchConfig, "profiles"> & Partial<Omit<LaunchConfig, "profiles">>;
 
 /**
- * Author a typed `relay.config.ts`. Fills in the v1 defaults (`local` credentials + storage,
+ * Author a typed `launch.config.ts`. Fills in the v1 defaults (`local` credentials + storage,
  * `fastlane` engine) so a minimal config only needs to declare profiles.
  */
-export function defineConfig(input: RelayConfigInput): RelayConfig {
+export function defineConfig(input: LaunchConfigInput): LaunchConfig {
   return {
     credentials: input.credentials ?? "local",
     storage: input.storage ?? "local",
@@ -34,27 +34,27 @@ export function defineConfig(input: RelayConfigInput): RelayConfig {
   };
 }
 
-/** The fully-resolved configuration plus every app Relay found. */
+/** The fully-resolved configuration plus every app Launch found. */
 export interface LoadedConfig {
-  config: RelayConfig;
+  config: LaunchConfig;
   apps: AppDescriptor[];
 }
 
-const DEFAULT_CONFIG: RelayConfig = {
+const DEFAULT_CONFIG: LaunchConfig = {
   credentials: "local",
   storage: "local",
   buildEngine: "fastlane",
   profiles: { production: { name: "production", sizeBudgetMB: 200 } },
 };
 
-const SKIP_DIRS = new Set(["node_modules", ".git", "ios", "android", "dist", ".expo", ".relay"]);
+const SKIP_DIRS = new Set(["node_modules", ".git", "ios", "android", "dist", ".expo", ".launch"]);
 
-/** Read `relay.config.{ts,js,mjs}` from `root` if present, else fall back to defaults. */
-async function readRelayConfig(root: string): Promise<RelayConfig> {
-  for (const file of ["relay.config.ts", "relay.config.mjs", "relay.config.js"]) {
+/** Read `launch.config.{ts,js,mjs}` from `root` if present, else fall back to defaults. */
+async function readLaunchConfig(root: string): Promise<LaunchConfig> {
+  for (const file of ["launch.config.ts", "launch.config.mjs", "launch.config.js"]) {
     const path = join(root, file);
     if (!existsSync(path)) continue;
-    const loaded = await jiti.import<{ default?: RelayConfig }>(path);
+    const loaded = await jiti.import<{ default?: LaunchConfig }>(path);
     if (!loaded.default) throw new Error(`${file} must \`export default defineConfig({ ... })\`.`);
     return loaded.default;
   }
@@ -113,9 +113,9 @@ function discoverApps(root: string, maxDepth = 4): AppDescriptor[] {
   return found;
 }
 
-/** Load the Relay config and discover apps under its `appRoots` (defaulting to `cwd`). */
+/** Load the Launch config and discover apps under its `appRoots` (defaulting to `cwd`). */
 export async function loadConfig(cwd: string = process.cwd()): Promise<LoadedConfig> {
-  const config = await readRelayConfig(cwd);
+  const config = await readLaunchConfig(cwd);
   const roots = config.appRoots ?? [cwd];
   const apps = roots.flatMap((root) => discoverApps(root));
   return { config, apps };

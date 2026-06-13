@@ -3,12 +3,12 @@
  *
  * Authenticates with the App Store Connect API key (the `.p8`) by minting a short-lived ES256 JWT,
  * exactly as Apple's docs require — no password, no 2FA. This one key drives every Apple
- * interaction Relay needs: reading build numbers, and the "Certificates, Identifiers & Profiles"
+ * interaction Launch needs: reading build numbers, and the "Certificates, Identifiers & Profiles"
  * automation (register a bundle id, create a distribution certificate from a CSR, create/download a
  * provisioning profile) that replaces the trips you'd otherwise make through the Developer website.
  *
  * Note Apple's API deliberately has NO endpoint to create a new app *record* — that one step stays
- * in the App Store Connect UI. {@link getAppId} returning null is how Relay detects it's missing.
+ * in the App Store Connect UI. {@link getAppId} returning null is how Launch detects it's missing.
  *
  * @see https://developer.apple.com/documentation/appstoreconnectapi
  */
@@ -200,7 +200,7 @@ export class AppStoreConnectClient {
     };
   }
 
-  /** Find a provisioning profile by exact name (Relay names its profiles deterministically). */
+  /** Find a provisioning profile by exact name (Launch names its profiles deterministically). */
   async findProfileByName(name: string): Promise<ProfileResource | null> {
     const { data } = await this.request<ResourceList<{ name: string; uuid: string; profileContent: string }>>(
       "GET",

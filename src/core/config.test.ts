@@ -6,7 +6,7 @@ import { defineConfig, loadConfig } from "./config.js";
 
 const tempDirs: string[] = [];
 function makeRepo(): string {
-  const dir = mkdtempSync(join(tmpdir(), "relay-config-"));
+  const dir = mkdtempSync(join(tmpdir(), "launch-config-"));
   tempDirs.push(dir);
   return dir;
 }

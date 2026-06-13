@@ -17,7 +17,7 @@ import { localStorageProvider } from "./storage/local.js";
 import { fastlaneBuildEngine } from "./build/fastlane.js";
 import { appStoreConnectSubmitter } from "./submit/appStoreConnect.js";
 
-/** Register every provider that ships with Relay. */
+/** Register every provider that ships with Launch. */
 export function registerBuiltins(): void {
   registerCredentialsProvider(localCredentialsProvider);
   registerStorageProvider(localStorageProvider);

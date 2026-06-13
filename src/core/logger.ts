@@ -1,5 +1,5 @@
 /**
- * Relay's two-tier output.
+ * Launch's two-tier output.
  *
  * By default each pipeline step prints one clean labelled line, so an experienced dev sees a
  * scannable run. With `--explain`, the same step expands into a plain-English teaching block

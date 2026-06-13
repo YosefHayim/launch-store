@@ -2,9 +2,9 @@
  * The `fastlane` build engine — v1's iOS compile/sign/export path.
  *
  * Drives fastlane `gym` to archive and export a signed `.ipa` using MANUAL signing with the exact
- * distribution certificate + provisioning profile Relay resolved (so there's no surprise about
+ * distribution certificate + provisioning profile Launch resolved (so there's no surprise about
  * which identity signs the build). It exports with app thinning so Xcode emits the App Thinning
- * Size Report — the source of the per-device download/install numbers Relay shows before any upload.
+ * Size Report — the source of the per-device download/install numbers Launch shows before any upload.
  * Implements {@link BuildEngine}; a raw-`xcodebuild` engine could replace it behind the same call.
  */
 
@@ -87,11 +87,11 @@ export const fastlaneBuildEngine: BuildEngine = {
       return { artifactPath: "(dry-run, not built)", sizeReport: { ipaBytes: 0, entries: [] } };
     }
     const signing = creds.signing;
-    if (!signing) throw new Error("No signing assets resolved — run `relay creds setup` first.");
+    if (!signing) throw new Error("No signing assets resolved — run `launch creds setup` first.");
 
     const iosDir = join(ctx.app.dir, "ios");
     const { workspace, scheme } = findWorkspace(iosDir);
-    const outputDir = mkdtempSync(join(tmpdir(), "relay-build-"));
+    const outputDir = mkdtempSync(join(tmpdir(), "launch-build-"));
     const plistPath = join(outputDir, "ExportOptions.plist");
     writeFileSync(plistPath, exportOptionsPlist(signing));
 

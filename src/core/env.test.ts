@@ -6,7 +6,7 @@ import { loadDotenvFile, missingKeys, parseDotenv, secretLookingKeys } from "./e
 
 const tempDirs: string[] = [];
 function makeTempDir(): string {
-  const dir = mkdtempSync(join(tmpdir(), "relay-env-"));
+  const dir = mkdtempSync(join(tmpdir(), "launch-env-"));
   tempDirs.push(dir);
   return dir;
 }
