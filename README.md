@@ -16,6 +16,19 @@ and uploads to TestFlight — using the Mac you already own and keys that never 
 > not yet built (see [`PLAN.md`](./docs/PLAN.md)). The storage/credentials/build/submit layers are pluggable
 > interfaces, so adding a backend is a one-file change.
 
+<table align="center">
+  <tr>
+    <td align="center"><img src="assets/badges/zero-build-cost.jpg" alt="Zero build cost — $0 on your Mac, stop renting Expo builds" width="250" /></td>
+    <td align="center"><img src="assets/badges/no-queue-wait.jpg" alt="No queue wait — build on your own machine, no shared cloud line" width="250" /></td>
+    <td align="center"><img src="assets/badges/no-timeout-limit.jpg" alt="No timeout limit — run as long as needed, no 45-minute or 2-hour cap" width="250" /></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="assets/badges/keys-stay-local.jpg" alt="Keys stay local — signing keys stay in the macOS Keychain and never leave your Mac" width="250" /></td>
+    <td align="center"><img src="assets/badges/no-vendor-lock-in.jpg" alt="No vendor lock-in — MIT-licensed with swappable providers, you stay in control" width="250" /></td>
+    <td align="center"><img src="assets/badges/best-for-mac-owners.jpg" alt="Best for Mac owners — if you own a Mac, Launch makes sense (Apple Developer account still required)" width="250" /></td>
+  </tr>
+</table>
+
 ## Why Launch? (the honest version)
 
 If you've hit **Expo's EAS Build** paywall and you're looking for a **free, open-source EAS alternative**,
@@ -36,6 +49,19 @@ Launch runs the same build → sign → TestFlight flow on hardware you already 
 macOS (Apple's rule, not ours), so there is no Windows/Linux build host and no managed cloud queue. v1 also
 targets **iOS → TestFlight** only. If you have no Mac and build only occasionally, a hosted service or a
 **GitHub Actions macOS runner** (free for public repos, Xcode preinstalled) will likely serve you better.
+
+## Platform support
+
+<table align="center">
+  <tr>
+    <td align="center" width="240"><img src="assets/platforms/ios.jpg" alt="iOS" width="200" /></td>
+    <td align="center" width="240"><img src="assets/platforms/android.jpg" alt="Android" width="200" /></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>iOS</strong><br />✅ Shipping now — build, sign &amp; upload to TestFlight</td>
+    <td align="center"><strong>Android</strong><br />🚧 Planned — pluggable interfaces designed, not yet built</td>
+  </tr>
+</table>
 
 ## Requirements
 
