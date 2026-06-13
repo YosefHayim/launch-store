@@ -1,0 +1,41 @@
+name: CI
+
+# The full quality gate, re-run on every push to main and every PR. The local husky hook runs the
+# same checks but can be bypassed (`--no-verify`), so CI is the authoritative gate. Unit tests mock
+# the Mac-specific bits (openssl/security/fastlane), so they run on Linux; a real iOS build needs a
+# physical Mac and isn't attempted here.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    name: node-${{ matrix.node }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      - name: Test (with coverage)
+        run: npm run test:coverage | tee coverage.txt
+      - run: npm run build
+      - name: Coverage summary
+        if: always()
+        run: |
+          {
+            echo '### Coverage (node ${{ matrix.node }})'
+            echo '```'
+            tail -n 20 coverage.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
