@@ -57,7 +57,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "launch": "tsx src/cli/index.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@clack/prompts": "^0.7.0",
