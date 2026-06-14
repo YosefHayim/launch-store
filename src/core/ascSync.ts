@@ -141,7 +141,7 @@ export interface ReconcileReport {
 const DEFAULT_TERRITORY = "USA";
 
 /** Placeholder id for a resource that doesn't exist yet during a dry-run (its create closures never run). */
-const DRY_RUN_ID = "(dry-run)";
+export const DRY_RUN_ID = "(dry-run)";
 
 /**
  * Capabilities Apple enables on every App ID and won't let you remove. We must never propose disabling
@@ -149,16 +149,29 @@ const DRY_RUN_ID = "(dry-run)";
  */
 const ALWAYS_ENABLED_CAPABILITIES = new Set<string>(["IN_APP_PURCHASE", "GAME_CENTER"]);
 
-/** Mutable per-run context threaded through the reconcile walk. */
-interface ReconcileContext {
-  api: AscCatalogApi;
+/**
+ * The mutable action log a reconcile pass appends to: the actions collected so far plus the two run
+ * flags {@link act} consults. Declared apart from {@link ReconcileContext} (which adds the catalog API
+ * client) so a sibling reconciler that does NOT use {@link AscCatalogApi} — e.g. the screenshot/asset
+ * pass in `ascScreenshots.ts` — can reuse {@link act} and {@link succeededOrPlanned} without depending
+ * on the catalog surface. This is the one shared seam between the two reconcilers.
+ */
+export interface ActionLog {
+  /** Actions recorded so far, in order — becomes the plan (dry-run) and the applied summary. */
   actions: PlannedAction[];
+  /** Rehearse only: record each action as `planned` and perform no writes. */
   dryRun: boolean;
+  /** Permit destructive actions; without it a destructive action is recorded as `skipped`. */
   allowDestructive: boolean;
 }
 
+/** Mutable per-run context threaded through the catalog reconcile walk: the {@link ActionLog} plus the client. */
+interface ReconcileContext extends ActionLog {
+  api: AscCatalogApi;
+}
+
 /** True once an action reached a terminal "this work happened (or was meant to)" state we can build on. */
-function succeededOrPlanned(status: ActionStatus): boolean {
+export function succeededOrPlanned(status: ActionStatus): boolean {
   return status === "applied" || status === "planned";
 }
 
@@ -169,16 +182,16 @@ function succeededOrPlanned(status: ActionStatus): boolean {
  * (the created resource), which is `undefined` on a dry-run or failure — callers fall back to
  * {@link DRY_RUN_ID} for the id of a not-yet-created parent.
  */
-async function act<T>(
-  ctx: ReconcileContext,
+export async function act<T>(
+  log: ActionLog,
   description: string,
   destructive: boolean,
   run: () => Promise<T>,
 ): Promise<{ status: ActionStatus; value?: T }> {
   const action: PlannedAction = { description, destructive, status: "planned" };
-  ctx.actions.push(action);
-  if (ctx.dryRun) return { status: action.status };
-  if (destructive && !ctx.allowDestructive) {
+  log.actions.push(action);
+  if (log.dryRun) return { status: action.status };
+  if (destructive && !log.allowDestructive) {
     action.status = "skipped";
     return { status: "skipped" };
   }
