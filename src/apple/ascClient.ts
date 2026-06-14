@@ -334,6 +334,50 @@ export interface CustomerReviewResponseResource {
 }
 
 /**
+ * One App Store Connect **team member** (`users`) — a person who has accepted access to the account.
+ * `username` is their Apple ID email (the key `launch team remove` matches on); `roles` is Apple's
+ * permission set (`ADMIN`, `APP_MANAGER`, `DEVELOPER`, …). Contrast {@link UserInvitationResource}, which
+ * is a member who's been invited but hasn't accepted yet.
+ */
+export interface UserResource {
+  id: string;
+  username: string;
+  firstName?: string;
+  lastName?: string;
+  roles: string[];
+}
+
+/**
+ * One **pending** team invitation (`userInvitations`) — an invited member who hasn't accepted. Mirrors
+ * {@link UserResource} but keyed by `email` and carrying the invite's `expirationDate`. Removing one cancels
+ * the invitation rather than revoking access.
+ */
+export interface UserInvitationResource {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  roles: string[];
+  /** ISO-8601 instant the invitation lapses if unaccepted. */
+  expirationDate?: string;
+}
+
+/**
+ * The attributes required to invite a new team member, passed straight to `POST /v1/userInvitations`.
+ * `allAppsVisible` grants visibility to every app (the default for a CLI invite); `provisioningAllowed`
+ * lets the member create signing assets. Per-app visibility scoping (the `visibleApps` relationship) is a
+ * portal/follow-up concern and intentionally not modeled here.
+ */
+export interface NewUserInvitation {
+  email: string;
+  firstName: string;
+  lastName: string;
+  roles: string[];
+  allAppsVisible: boolean;
+  provisioningAllowed: boolean;
+}
+
+/**
  * An analytics report request — the subscription that makes reports available for an app. `ONGOING`
  * keeps producing daily/weekly/monthly instances; `ONE_TIME_SNAPSHOT` is a single historical pull.
  */
@@ -2223,6 +2267,87 @@ export class AppStoreConnectClient {
   /** Delete a developer response by its resource id. */
   async deleteCustomerReviewResponse(responseId: string): Promise<void> {
     await this.request<unknown>("DELETE", `/customerReviewResponses/${responseId}`);
+  }
+
+  // ── App Store Connect team: users & invitations (`launch team`) ────────────────────────────────────
+
+  /** List the App Store Connect team members (people who have accepted access). */
+  async listUsers(): Promise<UserResource[]> {
+    const data = await this.requestAll<{
+      username?: string;
+      firstName?: string;
+      lastName?: string;
+      roles?: string[];
+    }>("/users?limit=200&fields[users]=username,firstName,lastName,roles");
+    return data.map((entry) => ({
+      id: entry.id,
+      username: entry.attributes.username ?? "",
+      ...(entry.attributes.firstName ? { firstName: entry.attributes.firstName } : {}),
+      ...(entry.attributes.lastName ? { lastName: entry.attributes.lastName } : {}),
+      roles: entry.attributes.roles ?? [],
+    }));
+  }
+
+  /** List the pending (not-yet-accepted) team invitations. */
+  async listUserInvitations(): Promise<UserInvitationResource[]> {
+    const data = await this.requestAll<{
+      email?: string;
+      firstName?: string;
+      lastName?: string;
+      roles?: string[];
+      expirationDate?: string;
+    }>("/userInvitations?limit=200&fields[userInvitations]=email,firstName,lastName,roles,expirationDate");
+    return data.map((entry) => ({
+      id: entry.id,
+      email: entry.attributes.email ?? "",
+      ...(entry.attributes.firstName ? { firstName: entry.attributes.firstName } : {}),
+      ...(entry.attributes.lastName ? { lastName: entry.attributes.lastName } : {}),
+      roles: entry.attributes.roles ?? [],
+      ...(entry.attributes.expirationDate ? { expirationDate: entry.attributes.expirationDate } : {}),
+    }));
+  }
+
+  /** Invite a new team member by email with the given roles; returns the created pending invitation. */
+  async inviteUser(invite: NewUserInvitation): Promise<UserInvitationResource> {
+    const { data } = await this.request<
+      ResourceSingle<{
+        email?: string;
+        firstName?: string;
+        lastName?: string;
+        roles?: string[];
+        expirationDate?: string;
+      }>
+    >("POST", "/userInvitations", {
+      data: {
+        type: "userInvitations",
+        attributes: {
+          email: invite.email,
+          firstName: invite.firstName,
+          lastName: invite.lastName,
+          roles: invite.roles,
+          allAppsVisible: invite.allAppsVisible,
+          provisioningAllowed: invite.provisioningAllowed,
+        },
+      },
+    });
+    return {
+      id: data.id,
+      email: data.attributes.email ?? invite.email,
+      ...(data.attributes.firstName ? { firstName: data.attributes.firstName } : {}),
+      ...(data.attributes.lastName ? { lastName: data.attributes.lastName } : {}),
+      roles: data.attributes.roles ?? invite.roles,
+      ...(data.attributes.expirationDate ? { expirationDate: data.attributes.expirationDate } : {}),
+    };
+  }
+
+  /** Remove a team member (an accepted user) by their resource id — revokes their access. */
+  async deleteUser(userId: string): Promise<void> {
+    await this.request<unknown>("DELETE", `/users/${userId}`);
+  }
+
+  /** Cancel a pending invitation by its resource id. */
+  async cancelUserInvitation(invitationId: string): Promise<void> {
+    await this.request<unknown>("DELETE", `/userInvitations/${invitationId}`);
   }
 
   /* ------------------------------------------------------------------------ */
