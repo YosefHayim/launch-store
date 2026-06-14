@@ -1,7 +1,7 @@
 /**
  * `launch sync` — reconcile App Store Connect product configuration (capabilities, in-app purchases,
- * subscriptions, pricing), textual store-listing copy, AND screenshots to match config, across every
- * discovered app at once.
+ * subscriptions, pricing), textual store-listing copy, screenshots, AND app preview videos to match
+ * config, across every discovered app at once.
  *
  * This fills the gap EAS leaves: `eas build`/`submit` ship the binary, but nothing declaratively manages
  * IAPs, subscriptions, capability flags, per-locale listing copy, or screenshots — those are hand-work in
@@ -29,8 +29,18 @@ import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { mapEntitlementsToCapabilities, type CapabilityType } from "../../core/capabilities.js";
 import { runPool } from "../../core/asyncPool.js";
 import { reconcileApp, type PlannedAction, type ReconcileReport } from "../../core/ascSync.js";
-import { reconcileScreenshots, type SubscriptionReviewScreenshot } from "../../core/ascScreenshots.js";
-import { discoverScreenshots, fingerprintAsset, type LocalScreenshot } from "../../core/screenshotAssets.js";
+import {
+  reconcilePreviews,
+  reconcileScreenshots,
+  type SubscriptionReviewScreenshot,
+} from "../../core/ascScreenshots.js";
+import {
+  discoverPreviews,
+  discoverScreenshots,
+  fingerprintAsset,
+  type LocalPreview,
+  type LocalScreenshot,
+} from "../../core/screenshotAssets.js";
 import { loadStoreConfig, type AppleStoreConfig } from "../../core/storeConfig.js";
 
 /** How many apps reconcile concurrently. Bounded so the single ASC key stays under Apple's rate ceiling. */
@@ -58,6 +68,8 @@ interface SyncJob {
   listing?: AppleStoreConfig;
   /** App Store screenshots discovered under `<appDir>/screenshots/<locale>/<displayType>/`, fingerprinted. */
   screenshots: LocalScreenshot[];
+  /** App preview videos discovered under `<appDir>/previews/<locale>/<previewType>/`, fingerprinted. */
+  previews: LocalPreview[];
   /** Subscriptions declaring a `reviewScreenshot`, paired with the path fingerprinted at apply time. */
   subscriptionReviewScreenshots: { productId: string; relPath: string }[];
   /** Entitlement keys with no known capability mapping — surfaced as a warning, not an error. */
@@ -123,8 +135,9 @@ function buildJobs(apps: AppDescriptor[], config: LaunchConfig): SyncJob[] {
     const productCount = (products.inAppPurchases?.length ?? 0) + (products.subscriptionGroups?.length ?? 0);
     const listing = loadListing(app.dir);
     const screenshots = discoverScreenshots(app.dir);
+    const previews = discoverPreviews(app.dir);
     const subscriptionReviewScreenshots = collectSubscriptionReviewScreenshots(products);
-    const hasAssets = screenshots.length > 0 || subscriptionReviewScreenshots.length > 0;
+    const hasAssets = screenshots.length > 0 || previews.length > 0 || subscriptionReviewScreenshots.length > 0;
     if (enable.length === 0 && productCount === 0 && !hasListing(listing) && !hasAssets) continue;
     jobs.push({
       app,
@@ -133,6 +146,7 @@ function buildJobs(apps: AppDescriptor[], config: LaunchConfig): SyncJob[] {
       products,
       ...(listing ? { listing } : {}),
       screenshots,
+      previews,
       subscriptionReviewScreenshots,
       unmapped,
     });
@@ -157,6 +171,7 @@ async function reconcileJob(
       allowDestructive,
     });
     await appendScreenshotActions(client, job, report, dryRun, allowDestructive);
+    await appendPreviewActions(client, job, report, dryRun, allowDestructive);
     return { job, report };
   } catch (error) {
     return { job, error: error instanceof Error ? error.message : String(error) };
@@ -211,6 +226,38 @@ async function appendScreenshotActions(
   }
 }
 
+/**
+ * Run the app-preview-video pass for one app and append its actions to the report. Isolated in its own
+ * try/catch (like {@link appendScreenshotActions}) so a preview failure is one recorded action, not a lost
+ * report. Previews are fingerprinted at discovery, so this pass is a pure reconcile with no filesystem read.
+ */
+async function appendPreviewActions(
+  client: AppStoreConnectClient,
+  job: SyncJob,
+  report: ReconcileReport,
+  dryRun: boolean,
+  allowDestructive: boolean,
+): Promise<void> {
+  if (job.previews.length === 0) return;
+  try {
+    const actions = await reconcilePreviews(client, {
+      bundleId: job.bundleId,
+      previews: job.previews,
+      dryRun,
+      allowDestructive,
+    });
+    report.actions.push(...actions);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    report.actions.push({
+      description: `previews: ${message}`,
+      destructive: false,
+      status: "failed",
+      error: message,
+    });
+  }
+}
+
 /** The leading glyph for an action line: `-` for destructive, `+` otherwise. */
 function glyph(destructive: boolean): string {
   return destructive ? "-" : "+";
@@ -234,7 +281,7 @@ export function registerSyncCommand(program: Command): void {
   program
     .command("sync")
     .description(
-      "reconcile App Store Connect products (capabilities, IAPs, subscriptions, pricing), store-listing copy, and screenshots from config",
+      "reconcile App Store Connect products (capabilities, IAPs, subscriptions, pricing), store-listing copy, screenshots, and app previews from config",
     )
     .option("-a, --app <names>", "comma-separated app handles to sync (default: all apps with something to sync)")
     .option("--dry-run", "print the plan and exit, making no changes", false)
@@ -247,7 +294,7 @@ export function registerSyncCommand(program: Command): void {
 
       if (jobs.length === 0) {
         log.info(
-          "Nothing to sync — no apps with capabilities, products, a store.config.json listing, or a screenshots/ folder. Add a `products` entry, run `launch metadata pull`, or drop screenshots under `<app>/screenshots/<locale>/<displayType>/`.",
+          "Nothing to sync — no apps with capabilities, products, a store.config.json listing, a screenshots/ folder, or a previews/ folder. Add a `products` entry, run `launch metadata pull`, drop screenshots under `<app>/screenshots/<locale>/<displayType>/`, or app previews under `<app>/previews/<locale>/<previewType>/`.",
         );
         return;
       }
