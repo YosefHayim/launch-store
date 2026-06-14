@@ -61,6 +61,28 @@ export interface PlayRelease {
   userFraction?: number;
 }
 
+/** A price in a currency's micro-units — Play's money shape (`priceMicros` + ISO `currency`). */
+export interface PlayMoney {
+  priceMicros?: string;
+  currency?: string;
+}
+
+/**
+ * A Play in-app **managed product** (`inappproducts`) — the slice Launch reconciles. `purchaseType` is
+ * `managedUser` for one-time products (subscriptions use a separate API). `listings` is keyed by locale.
+ */
+export interface InAppProductResource {
+  sku: string;
+  status?: string;
+  purchaseType?: string;
+  defaultLanguage?: string;
+  defaultPrice?: PlayMoney;
+  /** Region code (e.g. `US`) → price. */
+  prices?: Record<string, PlayMoney>;
+  /** Locale (e.g. `en-US`) → listing copy. */
+  listings?: Record<string, { title?: string; description?: string }>;
+}
+
 /** Raised when a package has no Play app record (or the service account can't reach it). */
 export class PlayAppNotFoundError extends Error {
   constructor(packageName: string, detail: string) {
@@ -250,6 +272,42 @@ export class GooglePlayClient {
       throw new PlayAppNotFoundError(packageName, error instanceof Error ? error.message : String(error));
     }
     await this.deleteEdit(packageName, editId).catch(() => undefined);
+  }
+
+  /**
+   * List the app's in-app **managed products** (`inappproducts`). Not edit-scoped — the products API is a
+   * direct CRUD surface (unlike tracks/listings). Pages through Google's token pagination in full.
+   */
+  async listInAppProducts(packageName: string): Promise<InAppProductResource[]> {
+    const products: InAppProductResource[] = [];
+    let token: string | undefined;
+    do {
+      const query = token ? `?token=${encodeURIComponent(token)}` : "";
+      const page = await this.request<{
+        inappproduct?: InAppProductResource[];
+        tokenPagination?: { nextPageToken?: string };
+      }>("GET", `/applications/${encodeURIComponent(packageName)}/inappproducts${query}`);
+      products.push(...(page.inappproduct ?? []));
+      token = page.tokenPagination?.nextPageToken;
+    } while (token);
+    return products;
+  }
+
+  /** Create a new in-app managed product (POST). The product's `sku` lives in the body. */
+  async insertInAppProduct(packageName: string, product: InAppProductResource): Promise<void> {
+    await this.request<unknown>("POST", `/applications/${encodeURIComponent(packageName)}/inappproducts`, {
+      ...product,
+      packageName,
+    });
+  }
+
+  /** Update an existing in-app managed product by SKU (PUT). */
+  async updateInAppProduct(packageName: string, product: InAppProductResource): Promise<void> {
+    await this.request<unknown>(
+      "PUT",
+      `/applications/${encodeURIComponent(packageName)}/inappproducts/${encodeURIComponent(product.sku)}`,
+      { ...product, packageName },
+    );
   }
 }
 
