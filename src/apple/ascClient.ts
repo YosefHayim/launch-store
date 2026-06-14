@@ -15,6 +15,7 @@
 
 import { SignJWT, importPKCS8 } from "jose";
 import type { AscKey } from "../core/types.js";
+import { highestVersion } from "../core/version.js";
 
 const BASE_URL = "https://api.appstoreconnect.apple.com/v1";
 const AUDIENCE = "appstoreconnect-v1";
@@ -135,6 +136,32 @@ export class AppStoreConnectClient {
     const latest = data[0]?.attributes.version;
     const parsed = latest ? Number.parseInt(latest, 10) : 0;
     return Number.isNaN(parsed) ? 0 : parsed;
+  }
+
+  /**
+   * Return the highest marketing version (`CFBundleShortVersionString`) already on App Store Connect
+   * for an app — folding both submitted App Store versions and TestFlight pre-release versions — or
+   * null when the app has none yet (or no record exists). The caller suggests the next bump from this,
+   * so a developer never silently reuses or guesses a version. Compared numerically (see
+   * {@link highestVersion}) rather than trusting Apple's lexical sort, which mis-orders `1.10.0`.
+   */
+  async getLatestMarketingVersion(bundleId: string): Promise<string | null> {
+    const appId = await this.getAppId(bundleId);
+    if (!appId) return null;
+    const [appStore, preRelease] = await Promise.all([
+      this.request<ResourceList<{ versionString: string }>>(
+        "GET",
+        `/apps/${appId}/appStoreVersions?fields[appStoreVersions]=versionString&limit=200`,
+      ),
+      this.request<ResourceList<{ version: string }>>(
+        "GET",
+        `/apps/${appId}/preReleaseVersions?fields[preReleaseVersions]=version&limit=200`,
+      ),
+    ]);
+    return highestVersion([
+      ...appStore.data.map((entry) => entry.attributes.versionString),
+      ...preRelease.data.map((entry) => entry.attributes.version),
+    ]);
   }
 
   /** Poll a freshly uploaded build's processing state (e.g. `PROCESSING`, `VALID`, `INVALID`). */

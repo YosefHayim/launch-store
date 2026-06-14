@@ -1,8 +1,9 @@
 import { describe, expect, it, afterEach } from "vitest";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { defineConfig, loadConfig } from "./config.js";
+import { defineConfig, loadConfig, writeAppVersion } from "./config.js";
+import type { AppDescriptor } from "./types.js";
 
 const tempDirs: string[] = [];
 function makeRepo(): string {
@@ -159,5 +160,38 @@ describe("loadConfig — reads dynamic Expo config (app.config.{ts,js}) and bare
 
     expect(apps).toHaveLength(1);
     expect(apps[0]).toMatchObject({ name: "fallback", bundleId: "com.example.fb" });
+  });
+});
+
+describe("writeAppVersion — persist the bump back to a static app.json", () => {
+  it("updates expo.version on a discovered app, leaving siblings intact", async () => {
+    const repo = makeRepo();
+    writeApp(repo, ".", { name: "Hello", slug: "hello", version: "1.0.0", ios: { bundleIdentifier: "com.x" } });
+    const app = (await loadConfig(repo)).apps[0]!;
+
+    expect(writeAppVersion(app, "1.0.1")).toBe(true);
+
+    const written = JSON.parse(readFileSync(join(repo, "app.json"), "utf8"));
+    expect(written.expo.version).toBe("1.0.1");
+    expect(written.expo.ios.bundleIdentifier).toBe("com.x");
+  });
+
+  it("writes a flat version when there's no expo wrapper", () => {
+    const repo = makeRepo();
+    writeFileSync(join(repo, "app.json"), JSON.stringify({ name: "Bare", slug: "bare", version: "0.1.0" }));
+    const app: AppDescriptor = { name: "bare", dir: repo, configPath: join(repo, "app.json"), version: "0.1.0" };
+
+    expect(writeAppVersion(app, "0.2.0")).toBe(true);
+    expect(JSON.parse(readFileSync(join(repo, "app.json"), "utf8")).version).toBe("0.2.0");
+  });
+
+  it("refuses a dynamic config (app.config.ts) — the caller stamps the native project instead", () => {
+    const app: AppDescriptor = {
+      name: "dyn",
+      dir: "/tmp/does-not-matter",
+      configPath: "/tmp/does-not-matter/app.config.ts",
+      version: "1.0.0",
+    };
+    expect(writeAppVersion(app, "1.1.0")).toBe(false);
   });
 });
