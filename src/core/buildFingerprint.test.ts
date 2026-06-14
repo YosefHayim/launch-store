@@ -42,7 +42,9 @@ describe("computeBuildFingerprint — stable hash of the native graph", () => {
 describe("extractNativeConfigSlice — only native-graph fields count", () => {
   it("pulls plugins, newArchEnabled, and ios.deploymentTarget through the expo wrapper", () => {
     const slice = extractNativeConfigSlice(
-      JSON.stringify({ expo: { name: "Demo", plugins: ["expo-router"], newArchEnabled: true, ios: { deploymentTarget: "15.1" } } }),
+      JSON.stringify({
+        expo: { name: "Demo", plugins: ["expo-router"], newArchEnabled: true, ios: { deploymentTarget: "15.1" } },
+      }),
     );
     expect(JSON.parse(slice)).toEqual({ plugins: ["expo-router"], newArchEnabled: true, iosDeploymentTarget: "15.1" });
   });

@@ -98,7 +98,10 @@ export async function openRemoteSession(target: SshTarget, appName: string): Pro
   const home = await sshCapture(target, "echo $HOME");
   const workDir = `${home}/.launch-remote/${appName}`;
   const credsDir = await sshCapture(target, "mktemp -d /tmp/launch-creds.XXXXXXXX");
-  await sshRun(target, `mkdir -p ${shellQuote(`${workDir}/app`)} ${shellQuote(`${workDir}/out`)} ${shellQuote(credsDir)}`);
+  await sshRun(
+    target,
+    `mkdir -p ${shellQuote(`${workDir}/app`)} ${shellQuote(`${workDir}/out`)} ${shellQuote(credsDir)}`,
+  );
   return { target, workDir, credsDir, keychainPassword: randomBytes(18).toString("hex") };
 }
 
@@ -136,7 +139,10 @@ export async function uploadSigningMaterial(session: RemoteSession, inputs: Remo
  * env (`FORCE_CLEAN`, `USE_CCACHE`); the host owns its own staleness check, so this returns whether it
  * actually clean-built (read from a marker the script writes) for the pipeline to stamp on the artifact.
  */
-export async function runBuildOnHost(session: RemoteSession, inputs: RemoteBuildInputs): Promise<{ cleanBuilt: boolean }> {
+export async function runBuildOnHost(
+  session: RemoteSession,
+  inputs: RemoteBuildInputs,
+): Promise<{ cleanBuilt: boolean }> {
   const staging = mkdtempSync(join(tmpdir(), "launch-remote-"));
   const scriptLocal = join(staging, "build.sh");
   writeFileSync(scriptLocal, REMOTE_BUILD_SCRIPT);
