@@ -16,4 +16,36 @@ export default defineConfig({
       sizeBudgetMB: 200,
     },
   },
+
+  // Declarative App Store Connect product catalog, keyed by iOS bundle id (must match app.json's
+  // `ios.bundleIdentifier`). `launch sync` reconciles these onto App Store Connect — the gap EAS leaves.
+  // Capabilities are NOT declared here: they're read from `app.json` `ios.entitlements` automatically.
+  products: {
+    "com.example.helloworld": {
+      subscriptionGroups: [
+        {
+          referenceName: "Pro",
+          localizations: [{ locale: "en-US", name: "Pro" }],
+          subscriptions: [
+            {
+              productId: "com.example.helloworld.pro.monthly",
+              referenceName: "Pro Monthly",
+              subscriptionPeriod: "ONE_MONTH",
+              localizations: [{ locale: "en-US", name: "Pro Monthly", description: "All features, billed monthly." }],
+              price: { customerPrice: 4.99 },
+            },
+          ],
+        },
+      ],
+      inAppPurchases: [
+        {
+          productId: "com.example.helloworld.removeads",
+          referenceName: "Remove Ads",
+          type: "NON_CONSUMABLE",
+          localizations: [{ locale: "en-US", name: "Remove Ads", description: "Hide all ads forever." }],
+          price: { customerPrice: 0.99 },
+        },
+      ],
+    },
+  },
 });

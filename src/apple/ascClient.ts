@@ -16,8 +16,11 @@
 import { SignJWT, importPKCS8 } from "jose";
 import type { AscKey } from "../core/types.js";
 import { highestVersion } from "../core/version.js";
+import { withRetry } from "../core/asyncPool.js";
 
-const BASE_URL = "https://api.appstoreconnect.apple.com/v1";
+/** Scheme + host of the App Store Connect API; most resources hang off `/v1`, a few newer ones off `/v2`. */
+const API_ORIGIN = "https://api.appstoreconnect.apple.com";
+const BASE_URL = `${API_ORIGIN}/v1`;
 const AUDIENCE = "appstoreconnect-v1";
 /** Apple rejects tokens whose lifetime exceeds 20 minutes; stay safely under it. */
 const TOKEN_TTL_SECONDS = 19 * 60;
@@ -42,6 +45,26 @@ interface AscError {
   code: string;
   title: string;
   detail?: string;
+}
+
+/**
+ * A non-2xx response from the App Store Connect API. Carries the HTTP `status` so callers can tell a
+ * transient failure (429 rate-limit, 5xx) apart from a permanent 4xx, while the message preserves
+ * Apple's human-readable `detail`. Extends Error, so existing `rejects.toThrow(/…/)` assertions hold.
+ */
+export class AscRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "AscRequestError";
+  }
+}
+
+/** Whether an error is a transient App Store Connect failure worth retrying (HTTP 429 or any 5xx). */
+export function isRetryableAscError(error: unknown): boolean {
+  return error instanceof AscRequestError && (error.status === 429 || error.status >= 500);
 }
 
 /** A registered Bundle ID resource (an App ID in the Developer portal). */
@@ -80,6 +103,62 @@ export interface ProfileResource {
   uuid: string;
   /** Base64-encoded `.mobileprovision` contents. */
   profileContent: string;
+}
+
+/** A capability enabled on a bundle id (App ID), e.g. `PUSH_NOTIFICATIONS`. */
+export interface BundleIdCapabilityResource {
+  id: string;
+  capabilityType: string;
+}
+
+/** An in-app purchase (the `inAppPurchasesV2` resource) on an app. */
+export interface InAppPurchaseResource {
+  id: string;
+  /** Apple product id, the catalog's natural key. */
+  productId: string;
+  /** Internal reference name. */
+  name: string;
+  /** `CONSUMABLE` / `NON_CONSUMABLE` / `NON_RENEWING_SUBSCRIPTION`. */
+  inAppPurchaseType: string;
+  /** Apple's lifecycle state, e.g. `MISSING_METADATA` / `READY_TO_SUBMIT`. Absent unless requested. */
+  state?: string;
+}
+
+/** A subscription group — the container for mutually-exclusive subscription levels. */
+export interface SubscriptionGroupResource {
+  id: string;
+  referenceName: string;
+}
+
+/** One auto-renewable subscription within a group. */
+export interface SubscriptionResource {
+  id: string;
+  productId: string;
+  name: string;
+  /** Apple's lifecycle state, e.g. `MISSING_METADATA`. Absent unless requested. */
+  state?: string;
+}
+
+/**
+ * One locale's stored copy for a product, group, or subscription. The same shape serves in-app-purchase,
+ * subscription, and subscription-group localizations — Apple keys them all on `locale`, with `name`
+ * always present and `description` only on the product/subscription variants.
+ */
+export interface LocalizationResource {
+  id: string;
+  locale: string;
+  name: string;
+  description?: string;
+}
+
+/**
+ * A price point — one rung of Apple's fixed price ladder for a product in a territory. `customerPrice`
+ * is the amount the buyer pays (e.g. `"9.99"`); a price is set by linking the product to one of these.
+ */
+export interface PricePointResource {
+  id: string;
+  customerPrice: string;
+  territory: string;
 }
 
 interface ResourceList<A> {
@@ -126,6 +205,13 @@ export class AppStoreConnectClient {
    * the `/v1/v1/...` double-prefix bug that breaks naive clients once a collection spans pages.
    */
   private async request<T>(method: string, pathOrUrl: string, body?: unknown): Promise<T> {
+    // Transparent backoff on Apple's transient failures (429 rate-limit / 5xx). A fresh token is
+    // minted per attempt, so a retry that straddles the 19-minute TTL re-signs rather than 401s.
+    return withRetry(() => this.requestOnce<T>(method, pathOrUrl, body), { isRetryable: isRetryableAscError });
+  }
+
+  /** A single (un-retried) authenticated request — the retry wrapper lives in {@link request}. */
+  private async requestOnce<T>(method: string, pathOrUrl: string, body?: unknown): Promise<T> {
     const url = pathOrUrl.startsWith("http") ? pathOrUrl : `${BASE_URL}${pathOrUrl}`;
     const response = await fetch(url, {
       method,
@@ -138,9 +224,17 @@ export class AppStoreConnectClient {
     if (response.status === 204) return undefined as T;
     const text = await response.text();
     if (!response.ok) {
-      throw new Error(`App Store Connect ${method} ${pathOrUrl} failed (${response.status}): ${describeErrors(text)}`);
+      throw new AscRequestError(
+        `App Store Connect ${method} ${pathOrUrl} failed (${response.status}): ${describeErrors(text)}`,
+        response.status,
+      );
     }
     return JSON.parse(text) as T;
+  }
+
+  /** Build an absolute URL for a `/v2` resource — a few newer collections (in-app purchases) live there. */
+  private v2(path: string): string {
+    return `${API_ORIGIN}/v2${path}`;
   }
 
   /**
@@ -411,6 +505,347 @@ export class AppStoreConnectClient {
       profileContent: data.attributes.profileContent,
     };
   }
+
+  /* ------------------------------------------------------------------------ */
+  /*  App Store Connect product catalog — capabilities, in-app purchases,      */
+  /*  subscriptions, and pricing. Consumed by the `launch sync` reconciler     */
+  /*  (core/ascSync.ts); none of this is needed by the build/sign path.        */
+  /* ------------------------------------------------------------------------ */
+
+  /** List the capabilities currently enabled on a bundle id (App ID). */
+  async listBundleIdCapabilities(bundleIdResourceId: string): Promise<BundleIdCapabilityResource[]> {
+    const data = await this.requestAll<{ capabilityType?: string }>(
+      `/bundleIds/${bundleIdResourceId}/bundleIdCapabilities?limit=200`,
+    );
+    return data.flatMap((entry) =>
+      entry.attributes.capabilityType ? [{ id: entry.id, capabilityType: entry.attributes.capabilityType }] : [],
+    );
+  }
+
+  /** Enable a capability on a bundle id. The reconciler only calls this for a capability not already on. */
+  async enableCapability(bundleIdResourceId: string, capabilityType: string): Promise<BundleIdCapabilityResource> {
+    const { data } = await this.request<ResourceSingle<{ capabilityType?: string }>>("POST", "/bundleIdCapabilities", {
+      data: {
+        type: "bundleIdCapabilities",
+        attributes: { capabilityType },
+        relationships: { bundleId: { data: { type: "bundleIds", id: bundleIdResourceId } } },
+      },
+    });
+    return { id: data.id, capabilityType: data.attributes.capabilityType ?? capabilityType };
+  }
+
+  /** Disable a capability by its resource id (only reached under `--allow-destructive`). */
+  async disableCapability(capabilityId: string): Promise<void> {
+    await this.request<unknown>("DELETE", `/bundleIdCapabilities/${capabilityId}`);
+  }
+
+  /** List an app's in-app purchases (the `inAppPurchasesV2` collection), across all pages. */
+  async listInAppPurchases(appId: string): Promise<InAppPurchaseResource[]> {
+    const data = await this.requestAll<{
+      productId?: string;
+      name?: string;
+      inAppPurchaseType?: string;
+      state?: string;
+    }>(`/apps/${appId}/inAppPurchasesV2?limit=200&fields[inAppPurchases]=productId,name,inAppPurchaseType,state`);
+    return data.map((entry) => ({
+      id: entry.id,
+      productId: entry.attributes.productId ?? "",
+      name: entry.attributes.name ?? "",
+      inAppPurchaseType: entry.attributes.inAppPurchaseType ?? "",
+      ...(entry.attributes.state ? { state: entry.attributes.state } : {}),
+    }));
+  }
+
+  /** Create an in-app purchase. Note the `/v2` path — IAP creation is one of Apple's few v2 endpoints. */
+  async createInAppPurchase(
+    appId: string,
+    input: { productId: string; name: string; inAppPurchaseType: string },
+  ): Promise<InAppPurchaseResource> {
+    const { data } = await this.request<
+      ResourceSingle<{ productId?: string; name?: string; inAppPurchaseType?: string }>
+    >("POST", this.v2("/inAppPurchases"), {
+      data: {
+        type: "inAppPurchases",
+        attributes: { productId: input.productId, name: input.name, inAppPurchaseType: input.inAppPurchaseType },
+        relationships: { app: { data: { type: "apps", id: appId } } },
+      },
+    });
+    return {
+      id: data.id,
+      productId: data.attributes.productId ?? input.productId,
+      name: data.attributes.name ?? input.name,
+      inAppPurchaseType: data.attributes.inAppPurchaseType ?? input.inAppPurchaseType,
+    };
+  }
+
+  /** List the localizations already attached to an in-app purchase. */
+  async listInAppPurchaseLocalizations(iapId: string): Promise<LocalizationResource[]> {
+    return this.localizationsFrom(`/inAppPurchasesV2/${iapId}/inAppPurchaseLocalizations?limit=200`);
+  }
+
+  /** Create one locale's display copy for an in-app purchase. */
+  async createInAppPurchaseLocalization(
+    iapId: string,
+    input: { locale: string; name: string; description?: string },
+  ): Promise<LocalizationResource> {
+    return this.createLocalization("inAppPurchaseLocalizations", "inAppPurchaseV2", "inAppPurchases", iapId, input);
+  }
+
+  /** List an app's subscription groups. */
+  async listSubscriptionGroups(appId: string): Promise<SubscriptionGroupResource[]> {
+    const data = await this.requestAll<{ referenceName?: string }>(
+      `/apps/${appId}/subscriptionGroups?limit=200&fields[subscriptionGroups]=referenceName`,
+    );
+    return data.flatMap((entry) =>
+      entry.attributes.referenceName ? [{ id: entry.id, referenceName: entry.attributes.referenceName }] : [],
+    );
+  }
+
+  /** Create a subscription group on an app. */
+  async createSubscriptionGroup(appId: string, referenceName: string): Promise<SubscriptionGroupResource> {
+    const { data } = await this.request<ResourceSingle<{ referenceName?: string }>>("POST", "/subscriptionGroups", {
+      data: {
+        type: "subscriptionGroups",
+        attributes: { referenceName },
+        relationships: { app: { data: { type: "apps", id: appId } } },
+      },
+    });
+    return { id: data.id, referenceName: data.attributes.referenceName ?? referenceName };
+  }
+
+  /** List a subscription group's display-name localizations. */
+  async listSubscriptionGroupLocalizations(groupId: string): Promise<LocalizationResource[]> {
+    return this.localizationsFrom(`/subscriptionGroups/${groupId}/subscriptionGroupLocalizations?limit=200`);
+  }
+
+  /** Create one locale's display name for a subscription group (groups carry a name only, no description). */
+  async createSubscriptionGroupLocalization(
+    groupId: string,
+    input: { locale: string; name: string },
+  ): Promise<LocalizationResource> {
+    return this.createLocalization(
+      "subscriptionGroupLocalizations",
+      "subscriptionGroup",
+      "subscriptionGroups",
+      groupId,
+      input,
+    );
+  }
+
+  /** List the subscriptions in a group. */
+  async listSubscriptions(groupId: string): Promise<SubscriptionResource[]> {
+    const data = await this.requestAll<{ productId?: string; name?: string; state?: string }>(
+      `/subscriptionGroups/${groupId}/subscriptions?limit=200&fields[subscriptions]=productId,name,state`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      productId: entry.attributes.productId ?? "",
+      name: entry.attributes.name ?? "",
+      ...(entry.attributes.state ? { state: entry.attributes.state } : {}),
+    }));
+  }
+
+  /** Create an auto-renewable subscription in a group. */
+  async createSubscription(
+    groupId: string,
+    input: { productId: string; name: string; subscriptionPeriod: string; groupLevel: number },
+  ): Promise<SubscriptionResource> {
+    const { data } = await this.request<ResourceSingle<{ productId?: string; name?: string }>>(
+      "POST",
+      "/subscriptions",
+      {
+        data: {
+          type: "subscriptions",
+          attributes: {
+            productId: input.productId,
+            name: input.name,
+            subscriptionPeriod: input.subscriptionPeriod,
+            groupLevel: input.groupLevel,
+          },
+          relationships: { group: { data: { type: "subscriptionGroups", id: groupId } } },
+        },
+      },
+    );
+    return {
+      id: data.id,
+      productId: data.attributes.productId ?? input.productId,
+      name: data.attributes.name ?? input.name,
+    };
+  }
+
+  /** List a subscription's display-copy localizations. */
+  async listSubscriptionLocalizations(subscriptionId: string): Promise<LocalizationResource[]> {
+    return this.localizationsFrom(`/subscriptions/${subscriptionId}/subscriptionLocalizations?limit=200`);
+  }
+
+  /** Create one locale's display copy for a subscription. */
+  async createSubscriptionLocalization(
+    subscriptionId: string,
+    input: { locale: string; name: string; description?: string },
+  ): Promise<LocalizationResource> {
+    return this.createLocalization("subscriptionLocalizations", "subscription", "subscriptions", subscriptionId, input);
+  }
+
+  /** Whether a subscription already has at least one price set (so the reconciler skips re-pricing it). */
+  async subscriptionHasPrice(subscriptionId: string): Promise<boolean> {
+    const { data } = await this.request<ResourceList<unknown>>(
+      "GET",
+      `/subscriptions/${subscriptionId}/prices?limit=1`,
+    );
+    return data.length > 0;
+  }
+
+  /** Find the subscription price point in `territory` whose customer price equals `customerPrice`, or null. */
+  async findSubscriptionPricePoint(
+    subscriptionId: string,
+    territory: string,
+    customerPrice: number,
+  ): Promise<PricePointResource | null> {
+    const points = await this.requestAll<{ customerPrice?: string; territory?: string }>(
+      `/subscriptions/${subscriptionId}/pricePoints?filter[territory]=${encodeURIComponent(territory)}&limit=8000`,
+    );
+    return matchPricePoint(points, territory, customerPrice);
+  }
+
+  /** Set a subscription's price by linking it to a resolved price point (effective immediately). */
+  async createSubscriptionPrice(subscriptionId: string, pricePointId: string): Promise<void> {
+    await this.request<unknown>("POST", "/subscriptionPrices", {
+      data: {
+        type: "subscriptionPrices",
+        attributes: { preserveCurrentPrice: false },
+        relationships: {
+          subscription: { data: { type: "subscriptions", id: subscriptionId } },
+          subscriptionPricePoint: { data: { type: "subscriptionPricePoints", id: pricePointId } },
+        },
+      },
+    });
+  }
+
+  /** Whether an in-app purchase already has a price schedule (so the reconciler skips re-pricing it). */
+  async inAppPurchaseHasPrice(iapId: string): Promise<boolean> {
+    try {
+      const { data } = await this.request<{ data: { id: string } | null }>(
+        "GET",
+        `/inAppPurchasesV2/${iapId}/iapPriceSchedule`,
+      );
+      return data !== null;
+    } catch (error) {
+      // No schedule yet reads as a 404 on some accounts — that's "unpriced", not a real failure.
+      if (error instanceof AscRequestError && error.status === 404) return false;
+      throw error;
+    }
+  }
+
+  /** Find the IAP price point in `territory` whose customer price equals `customerPrice`, or null. */
+  async findInAppPurchasePricePoint(
+    iapId: string,
+    territory: string,
+    customerPrice: number,
+  ): Promise<PricePointResource | null> {
+    const points = await this.requestAll<{ customerPrice?: string; territory?: string }>(
+      this.v2(`/inAppPurchases/${iapId}/pricePoints?filter[territory]=${encodeURIComponent(territory)}&limit=8000`),
+    );
+    return matchPricePoint(points, territory, customerPrice);
+  }
+
+  /**
+   * Set an IAP's price by creating a price schedule anchored on a base territory's price point. The
+   * relationship references a client-supplied temp id that the `included` price resource carries —
+   * the JSON:API pattern Apple requires here — and a `baseTerritory` is mandatory (omitting it returns
+   * Apple's `BASE_TERRITORY_INTERVAL_REQUIRED` 409).
+   */
+  async createInAppPurchasePriceSchedule(iapId: string, baseTerritory: string, pricePointId: string): Promise<void> {
+    const priceRef = "launch-base-price";
+    await this.request<unknown>("POST", "/inAppPurchasePriceSchedules", {
+      data: {
+        type: "inAppPurchasePriceSchedules",
+        relationships: {
+          inAppPurchase: { data: { type: "inAppPurchases", id: iapId } },
+          baseTerritory: { data: { type: "territories", id: baseTerritory } },
+          manualPrices: { data: [{ type: "inAppPurchasePrices", id: priceRef }] },
+        },
+      },
+      included: [
+        {
+          type: "inAppPurchasePrices",
+          id: priceRef,
+          attributes: { startDate: null },
+          relationships: {
+            inAppPurchaseV2: { data: { type: "inAppPurchases", id: iapId } },
+            inAppPurchasePricePoint: { data: { type: "inAppPurchasePricePoints", id: pricePointId } },
+          },
+        },
+      ],
+    });
+  }
+
+  /** Shared GET → {@link LocalizationResource}[] for any product/subscription/group localization collection. */
+  private async localizationsFrom(path: string): Promise<LocalizationResource[]> {
+    const data = await this.requestAll<{ locale?: string; name?: string; description?: string }>(path);
+    return data.flatMap((entry) =>
+      entry.attributes.locale && entry.attributes.name
+        ? [
+            {
+              id: entry.id,
+              locale: entry.attributes.locale,
+              name: entry.attributes.name,
+              ...(entry.attributes.description ? { description: entry.attributes.description } : {}),
+            },
+          ]
+        : [],
+    );
+  }
+
+  /** Shared POST for any localization resource, parameterized by its type and parent relationship. */
+  private async createLocalization(
+    resourceType: string,
+    relationshipName: string,
+    parentType: string,
+    parentId: string,
+    input: { locale: string; name: string; description?: string },
+  ): Promise<LocalizationResource> {
+    const { data } = await this.request<ResourceSingle<{ locale?: string; name?: string; description?: string }>>(
+      "POST",
+      `/${resourceType}`,
+      {
+        data: {
+          type: resourceType,
+          attributes: {
+            locale: input.locale,
+            name: input.name,
+            ...(input.description === undefined ? {} : { description: input.description }),
+          },
+          relationships: { [relationshipName]: { data: { type: parentType, id: parentId } } },
+        },
+      },
+    );
+    return {
+      id: data.id,
+      locale: data.attributes.locale ?? input.locale,
+      name: data.attributes.name ?? input.name,
+      ...(data.attributes.description ? { description: data.attributes.description } : {}),
+    };
+  }
+}
+
+/**
+ * Find the price point whose `customerPrice` equals the desired amount in a territory. Apple returns
+ * prices as decimal strings (`"9.99"`); we parse and compare numerically so `"9.99"` matches `9.99`.
+ * Returns null when no rung matches — the reconciler turns that into an actionable "no price point for
+ * $X" error rather than silently leaving the product unpriced.
+ */
+function matchPricePoint(
+  points: { id: string; attributes: { customerPrice?: string; territory?: string } }[],
+  territory: string,
+  customerPrice: number,
+): PricePointResource | null {
+  for (const point of points) {
+    const price = point.attributes.customerPrice;
+    if (price !== undefined && Number.parseFloat(price) === customerPrice) {
+      return { id: point.id, customerPrice: price, territory: point.attributes.territory ?? territory };
+    }
+  }
+  return null;
 }
 
 /** Extract Apple's human-readable error detail from a failed-response body, falling back to raw text. */
