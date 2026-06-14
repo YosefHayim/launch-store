@@ -499,7 +499,11 @@ async function setupAndroid(options: CredsOptions): Promise<void> {
 }
 
 /** `launch creds push-key [import|status|export]` — the APNs push-key vault (import-only; Apple has no create API). */
-async function pushKeyCommand(sub: string | undefined, value: string | undefined, options: CredsOptions): Promise<void> {
+async function pushKeyCommand(
+  sub: string | undefined,
+  value: string | undefined,
+  options: CredsOptions,
+): Promise<void> {
   switch (sub) {
     case "import":
       await importPushKeyCommand(value, options);
@@ -567,14 +571,17 @@ function statusPushKeys(): void {
 async function exportPushKeyCommand(keyIdArg: string | undefined, options: CredsOptions): Promise<void> {
   if (!keyIdArg) throw new Error("Usage: launch creds push-key export <keyId> --out <path>.");
   const record = findPushKey(keyIdArg);
-  if (!record) throw new Error(`No APNs key "${keyIdArg}" in the vault. List them with \`launch creds push-key status\`.`);
+  if (!record)
+    throw new Error(`No APNs key "${keyIdArg}" in the vault. List them with \`launch creds push-key status\`.`);
   const pem = await loadPushKey(record.keyId);
   if (!pem) throw new Error(`APNs key ${record.keyId} has no stored secret — re-import it.`);
 
   const canPrompt = options.yes !== true && process.stdin.isTTY;
   const dest =
     options.out ??
-    (canPrompt ? await ask("Write the .p8 to", `~/AuthKey_${record.keyId}.p8`) : requireValue("An output path", "--out <path>"));
+    (canPrompt
+      ? await ask("Write the .p8 to", `~/AuthKey_${record.keyId}.p8`)
+      : requireValue("An output path", "--out <path>"));
   const path = expandHome(dest);
   if (existsSync(path) && options.force !== true) {
     throw new Error(`${tildify(path)} already exists. Pass --force to overwrite.`);
