@@ -10,9 +10,11 @@
  */
 
 import { spinner } from "@clack/prompts";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { run, runQuiet, type ExecOptions } from "./exec.js";
 import { ensureDir, LOGS_DIR } from "./paths.js";
+import { diagnoseBuildLog, formatDiagnoses } from "./buildDiagnostics.js";
 
 /** Process-wide toggle: when true, `runWithProgress` streams the raw tool output instead of a spinner. */
 let streamRawOutput = false;
@@ -90,11 +92,25 @@ function logStamp(): string {
   return new Date().toISOString().replace(/:/g, "-").replace(/\..+$/, "");
 }
 
-/** Print a failed tool's captured tail and the path to its full log. */
+/**
+ * Print a failed tool's captured tail and the path to its full log, then — when the log matches a known
+ * native-build failure — the likely cause and the fix (see {@link diagnoseBuildLog}). Diagnostics scan
+ * the full log on disk (falling back to the in-memory tail if it can't be read), since the real cause
+ * sometimes precedes the trailing lines.
+ */
 function reportFailure(label: string, tail: string[], logFile: string): void {
   console.error(`\n${label} failed. Last lines:`);
   for (const line of tail) console.error(`  ${line}`);
   console.error(`\nFull log: ${logFile}`);
+
+  let logText = tail.join("\n");
+  try {
+    logText = readFileSync(logFile, "utf8");
+  } catch {
+    /* log unreadable (e.g. tee never opened) — diagnose the in-memory tail instead */
+  }
+  const diagnosis = formatDiagnoses(diagnoseBuildLog(logText));
+  if (diagnosis) console.error(`\n${diagnosis}`);
 }
 
 /**
