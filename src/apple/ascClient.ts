@@ -807,6 +807,17 @@ interface AccessibilityDeclarationAttributes extends AccessibilitySupport {
 }
 
 /**
+ * An app's store availability (Apple's v2 model): whether it auto-enables in territories Apple adds later,
+ * plus the territory codes it's currently for sale in. `availableTerritories` holds Apple territory codes
+ * (e.g. `USA`, `GBR`) — the `territories` resource ids, used directly when setting availability.
+ */
+export interface AppAvailabilityResource {
+  id: string;
+  availableInNewTerritories: boolean;
+  availableTerritories: string[];
+}
+
+/**
  * An app version's App Review details — the contact info and demo-account credentials Apple's reviewer
  * uses. Carried as an open attribute map for the same forward-compat reason as the age-rating
  * declaration. Note `demoAccountPassword` is write-only on Apple's side: it is never returned on a read
@@ -1037,6 +1048,21 @@ interface CustomerReviewPage {
       createdDate?: string;
     };
     relationships?: { response?: { data?: { id: string } | null } };
+  }[];
+  links?: { next?: string };
+}
+
+/**
+ * One page of an app's `territoryAvailabilities`, read with each row's `territory` relationship intact
+ * (which {@link AppStoreConnectClient.requestAll} drops) — the territory resource id is the territory code
+ * (`USA`, `GBR`) the availability applies to. Kept as a named interface so the paginating read isn't
+ * self-referential (TS7022).
+ */
+interface TerritoryAvailabilityPage {
+  data: {
+    id: string;
+    attributes?: { available?: boolean };
+    relationships?: { territory?: { data?: { id: string } | null } };
   }[];
   links?: { next?: string };
 }
@@ -2535,6 +2561,71 @@ export class AppStoreConnectClient {
   ): Promise<void> {
     await this.request<unknown>("PATCH", `/accessibilityDeclarations/${declarationId}`, {
       data: { type: "accessibilityDeclarations", id: declarationId, attributes: changes },
+    });
+  }
+
+  /**
+   * Read an app's store availability — the `availableInNewTerritories` flag plus every territory code it's
+   * for sale in — or null when the app has no availability set yet. The territory list is paged through in
+   * full (Apple links past the first page), keeping each row's `territory` relationship so the code survives
+   * (which {@link requestAll} would drop).
+   */
+  async getAppAvailability(appId: string): Promise<AppAvailabilityResource | null> {
+    let head: { data: { id: string; attributes?: { availableInNewTerritories?: boolean } } | null };
+    try {
+      head = await this.request("GET", `/apps/${appId}/appAvailabilityV2`);
+    } catch (error) {
+      if (error instanceof AscRequestError && error.status === 404) return null;
+      throw error;
+    }
+    if (!head.data) return null;
+
+    const availableTerritories: string[] = [];
+    let next: string | undefined =
+      `${this.v2(`/appAvailabilities/${head.data.id}/territoryAvailabilities`)}?fields[territoryAvailabilities]=available,territory&limit=200`;
+    while (next) {
+      const page: TerritoryAvailabilityPage = await this.request("GET", next);
+      for (const row of page.data) {
+        const code = row.relationships?.territory?.data?.id;
+        if (row.attributes?.available && code) availableTerritories.push(code);
+      }
+      next = page.links?.next;
+    }
+    return {
+      id: head.data.id,
+      availableInNewTerritories: head.data.attributes?.availableInNewTerritories ?? false,
+      availableTerritories,
+    };
+  }
+
+  /**
+   * Set an app's store availability to exactly `territories` (Apple territory codes), with the
+   * `availableInNewTerritories` flag. Uses Apple's v2 create-with-inline-`included` shape: each territory
+   * becomes an inline `territoryAvailabilities` resource (available, keyed by the territory code) the new
+   * `appAvailabilities` references. Creating the singleton replaces the app's current availability.
+   */
+  async setAppAvailability(
+    appId: string,
+    input: { availableInNewTerritories: boolean; territories: string[] },
+  ): Promise<void> {
+    const included = input.territories.map((code) => ({
+      type: "territoryAvailabilities",
+      id: code,
+      attributes: { available: true },
+      relationships: { territory: { data: { type: "territories", id: code } } },
+    }));
+    await this.request<unknown>("POST", this.v2("/appAvailabilities"), {
+      data: {
+        type: "appAvailabilities",
+        attributes: { availableInNewTerritories: input.availableInNewTerritories },
+        relationships: {
+          app: { data: { type: "apps", id: appId } },
+          territoryAvailabilities: {
+            data: included.map((entry) => ({ type: "territoryAvailabilities", id: entry.id })),
+          },
+        },
+      },
+      included,
     });
   }
 
