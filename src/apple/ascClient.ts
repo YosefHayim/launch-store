@@ -771,6 +771,27 @@ export interface AppClipLocalizationResource {
   subtitle?: string;
 }
 
+/**
+ * One alternative-distribution domain — a domain the team is authorized to distribute apps from under
+ * the EU DMA (web distribution / alternative marketplaces). Team-level, not per-app; matched to config
+ * on `domain`.
+ */
+export interface AlternativeDistributionDomainResource {
+  id: string;
+  domain?: string;
+  referenceName?: string;
+}
+
+/**
+ * The team's alternative-distribution **public** key — the package-signing key Apple verifies EU
+ * distribution packages against (the developer keeps the private half). Not a secret; registered once
+ * at the team level.
+ */
+export interface AlternativeDistributionKeyResource {
+  id: string;
+  publicKey?: string;
+}
+
 interface ResourceList<A> {
   data: { id: string; attributes: A }[];
 }
@@ -3265,6 +3286,51 @@ export class AppStoreConnectClient {
     );
     await this.putAssetBytes(operations, bytes);
     await this.commitAsset("appPreviews", id, bytes);
+  }
+
+  /**
+   * List the team's authorized alternative-distribution domains (EU DMA web distribution). Team-level —
+   * no app scope — so the reconciler matches declared domains to these by `domain`.
+   */
+  async listAlternativeDistributionDomains(): Promise<AlternativeDistributionDomainResource[]> {
+    const data = await this.requestAll<{ domain?: string; referenceName?: string }>(
+      "/alternativeDistributionDomains?limit=200",
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      ...(entry.attributes.domain ? { domain: entry.attributes.domain } : {}),
+      ...(entry.attributes.referenceName ? { referenceName: entry.attributes.referenceName } : {}),
+    }));
+  }
+
+  /** Authorize a new alternative-distribution domain for the team. */
+  async createAlternativeDistributionDomain(domain: string, referenceName: string): Promise<void> {
+    const body: components["schemas"]["AlternativeDistributionDomainCreateRequest"] = {
+      data: { type: "alternativeDistributionDomains", attributes: { domain, referenceName } },
+    };
+    await this.request<unknown>("POST", "/alternativeDistributionDomains", body);
+  }
+
+  /** List the team's registered alternative-distribution public keys (usually zero or one). */
+  async listAlternativeDistributionKeys(): Promise<AlternativeDistributionKeyResource[]> {
+    const data = await this.requestAll<{ publicKey?: string }>("/alternativeDistributionKeys?limit=200");
+    return data.map((entry) => ({
+      id: entry.id,
+      ...(entry.attributes.publicKey ? { publicKey: entry.attributes.publicKey } : {}),
+    }));
+  }
+
+  /** Register the team's alternative-distribution package-signing public key (the PEM `publicKey`). */
+  async createAlternativeDistributionKey(publicKey: string): Promise<{ id: string }> {
+    const body: components["schemas"]["AlternativeDistributionKeyCreateRequest"] = {
+      data: { type: "alternativeDistributionKeys", attributes: { publicKey } },
+    };
+    const { data } = await this.request<ResourceSingle<{ publicKey?: string }>>(
+      "POST",
+      "/alternativeDistributionKeys",
+      body,
+    );
+    return { id: data.id };
   }
 
   /** Reserve an asset: POST the resource with `fileName`/`fileSize`, returning its id + upload operations. */
