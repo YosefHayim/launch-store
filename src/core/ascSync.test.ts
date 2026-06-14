@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { reconcileApp, type AscCatalogApi, type ReconcileInput } from "./ascSync.js";
+import type { AppleStoreConfig } from "./storeConfig.js";
 import type { AppProducts, InAppPurchaseConfig, SubscriptionGroupConfig } from "./types.js";
 
 /** A fully-stubbed {@link AscCatalogApi}. Reads default to "nothing exists yet"; writes resolve to a created resource. */
@@ -65,6 +66,14 @@ function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {
         Promise.resolve({ id: "spp", customerPrice: String(price), territory }),
       ),
     createSubscriptionPrice: vi.fn().mockResolvedValue(undefined),
+    getEditableAppInfoId: vi.fn().mockResolvedValue("appinfo1"),
+    listAppInfoLocalizations: vi.fn().mockResolvedValue([]),
+    createAppInfoLocalization: vi.fn().mockResolvedValue(undefined),
+    updateAppInfoLocalization: vi.fn().mockResolvedValue(undefined),
+    getEditableVersionId: vi.fn().mockResolvedValue("version1"),
+    listVersionLocalizations: vi.fn().mockResolvedValue([]),
+    createVersionLocalization: vi.fn().mockResolvedValue(undefined),
+    updateVersionLocalization: vi.fn().mockResolvedValue(undefined),
   };
   return { ...base, ...overrides };
 }
@@ -288,5 +297,100 @@ describe("reconcileApp", () => {
       "grp-new",
       expect.objectContaining({ productId: "com.acme.pro.monthly", groupLevel: 2 }),
     );
+  });
+});
+
+describe("reconcileApp — store listing localizations", () => {
+  /** A listing-only run: no capabilities/products, just the App Store listing for one or more locales. */
+  function listingInput(listing: AppleStoreConfig, overrides: Partial<ReconcileInput> = {}): ReconcileInput {
+    return input({ capabilities: [], products: {}, listing, ...overrides });
+  }
+
+  it("creates missing app-level and version-level locales, routing each field correctly", async () => {
+    const api = makeApi();
+    const listing: AppleStoreConfig = {
+      info: { "en-US": { title: "Acme", subtitle: "Do things", description: "Long copy", keywords: ["a", "b"] } },
+    };
+
+    const report = await reconcileApp(api, listingInput(listing));
+
+    expect(report.actions.map((action) => action.description)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("create listing [en-US] App Info"),
+        expect.stringContaining("create listing [en-US] App Store version"),
+      ]),
+    );
+    expect(api.createAppInfoLocalization).toHaveBeenCalledWith("appinfo1", "en-US", {
+      name: "Acme",
+      subtitle: "Do things",
+    });
+    expect(api.createVersionLocalization).toHaveBeenCalledWith("version1", "en-US", {
+      description: "Long copy",
+      keywords: "a,b",
+    });
+  });
+
+  it("patches only the fields that changed, leaving matching copy untouched", async () => {
+    const api = makeApi({
+      listAppInfoLocalizations: vi
+        .fn()
+        .mockResolvedValue([{ id: "ail1", locale: "en-US", fields: { name: "Old", subtitle: "Sub" } }]),
+      listVersionLocalizations: vi
+        .fn()
+        .mockResolvedValue([{ id: "vl1", locale: "en-US", fields: { description: "Desc", keywords: "a" } }]),
+    });
+    const listing: AppleStoreConfig = {
+      info: { "en-US": { title: "New", subtitle: "Sub", description: "Desc", keywords: ["a", "b"] } },
+    };
+
+    await reconcileApp(api, listingInput(listing));
+
+    expect(api.updateAppInfoLocalization).toHaveBeenCalledWith("ail1", { name: "New" });
+    expect(api.updateVersionLocalization).toHaveBeenCalledWith("vl1", { keywords: "a,b" });
+  });
+
+  it("is a no-op when the stored listing already matches", async () => {
+    const api = makeApi({
+      listAppInfoLocalizations: vi.fn().mockResolvedValue([{ id: "ail1", locale: "en-US", fields: { name: "Acme" } }]),
+      listVersionLocalizations: vi
+        .fn()
+        .mockResolvedValue([{ id: "vl1", locale: "en-US", fields: { description: "Copy" } }]),
+    });
+    const listing: AppleStoreConfig = { info: { "en-US": { title: "Acme", description: "Copy" } } };
+
+    const report = await reconcileApp(api, listingInput(listing));
+
+    expect(report.actions).toHaveLength(0);
+    expect(api.updateAppInfoLocalization).not.toHaveBeenCalled();
+    expect(api.updateVersionLocalization).not.toHaveBeenCalled();
+  });
+
+  it("skips an over-length field but still writes the valid ones", async () => {
+    const api = makeApi();
+    const listing: AppleStoreConfig = {
+      info: { "en-US": { title: "Acme", description: "Copy", keywords: ["x".repeat(120)] } },
+    };
+
+    const report = await reconcileApp(api, listingInput(listing));
+
+    expect(report.actions.find((action) => action.status === "skipped")?.description).toContain(
+      "keywords is 120 chars (max 100)",
+    );
+    expect(api.createVersionLocalization).toHaveBeenCalledWith("version1", "en-US", { description: "Copy" });
+  });
+
+  it("skips version copy when no editable App Store version exists, but still writes app-level copy", async () => {
+    const api = makeApi({ getEditableVersionId: vi.fn().mockResolvedValue(null) });
+    const listing: AppleStoreConfig = { info: { "en-US": { title: "Acme", description: "Copy" } } };
+
+    const report = await reconcileApp(api, listingInput(listing));
+
+    expect(
+      report.actions.some(
+        (action) => action.status === "skipped" && action.description.includes("no editable App Store version"),
+      ),
+    ).toBe(true);
+    expect(api.createVersionLocalization).not.toHaveBeenCalled();
+    expect(api.createAppInfoLocalization).toHaveBeenCalled();
   });
 });
