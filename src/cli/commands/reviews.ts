@@ -52,14 +52,15 @@ async function resolveBundleId(appSelector: string | undefined): Promise<string>
   return app.bundleId;
 }
 
-/** Parse + validate the `--rating` filter (1–5), or undefined when absent. */
-function parseRating(value: string | undefined): number | undefined {
+/** Parse + validate the `--rating` filter (1–5), or undefined when absent. Exported for unit tests. */
+export function parseRating(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;
-  const rating = Number.parseInt(value, 10);
-  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+  // Require all-digits: `Number.parseInt("3x")` would silently accept "3x" as 3 and filter wrongly.
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed) || Number(trimmed) < 1 || Number(trimmed) > 5) {
     throw new Error(`--rating must be a whole number 1–5 (got "${value}").`);
   }
-  return rating;
+  return Number(trimmed);
 }
 
 /** Collapse the list options into the {@link ReviewFilters} the core takes, omitting unset fields. */

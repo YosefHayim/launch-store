@@ -50,9 +50,12 @@ describe("eachDate", () => {
     expect(eachDate("2026-01-31", "2026-02-01")).toEqual(["2026-01-31", "2026-02-01"]);
   });
 
-  it("throws on an inverted range and on a malformed date", () => {
+  it("throws on an inverted range, a malformed date, and an out-of-range (normalized) date", () => {
     expect(() => eachDate("2026-06-03", "2026-06-01")).toThrow(/before start/);
-    expect(() => eachDate("nope", "2026-06-01")).toThrow(/Invalid date range/);
+    expect(() => eachDate("nope", "2026-06-01")).toThrow(/Invalid date/);
+    expect(() => eachDate("2026-6-1", "2026-06-01")).toThrow(/Invalid date/);
+    // June has 30 days — 2026-06-31 would silently normalize to July 1 without the round-trip guard.
+    expect(() => eachDate("2026-06-31", "2026-06-31")).toThrow(/Invalid calendar date/);
   });
 });
 
