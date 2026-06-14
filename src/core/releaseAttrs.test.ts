@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { summarize } from "./asc/storeSync.js";
-import { parseReleaseConfig, reconcileRelease, type AscReleaseApi, type ReleaseConfig } from "./releaseAttrs.js";
+import { parseReleaseConfig, reconcileRelease, type AscReleaseApi } from "./releaseAttrs.js";
+import type { ReleaseAttributesConfig } from "./types.js";
 
 /** A configurable {@link AscReleaseApi} fake; every method is a spy with a sensible default. */
 function makeApi(overrides: Partial<AscReleaseApi> = {}): AscReleaseApi {
@@ -21,7 +22,7 @@ function makeApi(overrides: Partial<AscReleaseApi> = {}): AscReleaseApi {
   };
 }
 
-const reconcile = (api: AscReleaseApi, config: ReleaseConfig, dryRun = false) =>
+const reconcile = (api: AscReleaseApi, config: ReleaseAttributesConfig, dryRun = false) =>
   reconcileRelease(api, { bundleId: "com.acme.app", config, dryRun });
 
 describe("parseReleaseConfig", () => {

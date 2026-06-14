@@ -29,36 +29,12 @@ import type {
 import { act, skip, type ReconcileContext } from "./asc/storeSync.js";
 import type { PlannedAction, ReconcileReport } from "./ascSync.js";
 import { asRecord } from "./json.js";
+import type { AppClipConfig, AppClipLocalizationConfig, AppClipsConfig } from "./types.js";
 
 /** Platform whose editable App Store version the default experience releases with. */
 const DEFAULT_PLATFORM = "IOS";
 /** The valid App Clip card actions (Apple's `AppClipAction` enum) — used to validate parsed config. */
 const APP_CLIP_ACTIONS: readonly AppClipActionValue[] = ["OPEN", "VIEW", "PLAY"];
-
-/** One locale of an App Clip card: the subtitle shown under the app name in that locale. */
-export interface AppClipLocalizationConfig {
-  subtitle: string;
-}
-
-/**
- * One App Clip's declared card metadata. Both fields are optional and reconciled independently, so a clip
- * may declare just an `action`, just `localizations`, or both.
- */
-export interface AppClipConfig {
-  /** The card's call-to-action button (`OPEN` / `VIEW` / `PLAY`). */
-  action?: AppClipActionValue;
-  /** Per-locale card subtitles, keyed by Apple locale (e.g. `en-US`). */
-  localizations?: Record<string, AppClipLocalizationConfig>;
-}
-
-/**
- * The full `appclips.config.json` document: each App Clip keyed by its **own** bundle id (e.g.
- * `com.acme.app.Clip`, not the parent app's), which is how a config entry is matched to the clip the
- * build produced.
- */
-export interface AppClipsConfig {
-  clips: Record<string, AppClipConfig>;
-}
 
 /**
  * The exact slice of {@link AppStoreConnectClient} the App Clips reconciler depends on. Declaring it here

@@ -29,6 +29,7 @@ import type {
 import { act, skip, type ReconcileContext } from "./asc/storeSync.js";
 import type { ReconcileReport } from "./ascSync.js";
 import { asRecord } from "./json.js";
+import type { ReleaseAttributesConfig, ReleaseCategories, ReleasePricing, ReviewDetailsConfig } from "./types.js";
 
 /** Default platform whose editable version owns the App Review details. */
 const DEFAULT_PLATFORM = "IOS";
@@ -36,48 +37,6 @@ const DEFAULT_PLATFORM = "IOS";
 const DEFAULT_TERRITORY = "USA";
 /** Demo-account password is write-only on Apple's side; it's diffed and rendered by name only, never value. */
 const DEMO_PASSWORD_KEY = "demoAccountPassword";
-
-/** Declared primary/secondary App Store categories (`appCategories` ids such as `PRODUCTIVITY`). */
-export interface ReleaseCategories {
-  primary?: string;
-  secondary?: string;
-}
-
-/** Declared base price: a customer price (e.g. `9.99`) in a base territory Apple equalizes from. */
-export interface ReleasePricing {
-  /** Base territory to anchor the price on (default `USA`). */
-  baseTerritory?: string;
-  /** The customer-facing price in the base territory; must match one of Apple's price-ladder rungs. */
-  customerPrice: number;
-}
-
-/**
- * Declared App Review details: the contact Apple reaches and the demo account its reviewer signs in
- * with. Field names match Apple's `appStoreReviewDetails` attributes verbatim. `demoAccountPassword` is
- * never read back from Apple or logged — see {@link DEMO_PASSWORD_KEY}.
- */
-export interface ReviewDetailsConfig {
-  contactFirstName?: string;
-  contactLastName?: string;
-  contactPhone?: string;
-  contactEmail?: string;
-  demoAccountRequired?: boolean;
-  demoAccountName?: string;
-  demoAccountPassword?: string;
-  notes?: string;
-}
-
-/**
- * The full `release.config.json` document. Every section is optional and reconciled independently, so a
- * file may declare only the attribute(s) you manage as code (e.g. just `pricing`).
- */
-export interface ReleaseConfig {
-  /** Age-rating answers as Apple's `name → value` map (enum strings or booleans); only changed keys are sent. */
-  ageRating?: Record<string, AgeRatingValue>;
-  categories?: ReleaseCategories;
-  pricing?: ReleasePricing;
-  reviewDetails?: ReviewDetailsConfig;
-}
 
 /**
  * The exact slice of {@link AppStoreConnectClient} the release reconciler depends on. Declaring it here
@@ -107,7 +66,7 @@ export interface ReleaseReconcileInput {
   /** The app's iOS bundle id — resolves the ASC app record. */
   bundleId: string;
   /** The declared release attributes. */
-  config: ReleaseConfig;
+  config: ReleaseAttributesConfig;
   /** Platform whose editable version owns the review details (default `IOS`). */
   platform?: string;
   /** Rehearse only: read state and build the plan, perform no writes. */
@@ -323,15 +282,15 @@ function parseReviewDetails(raw: Record<string, unknown>): ReviewDetailsConfig {
 }
 
 /**
- * Parse and validate a raw `release.config.json` value into a typed {@link ReleaseConfig}. Rejects a
+ * Parse and validate a raw `release.config.json` value into a typed {@link ReleaseAttributesConfig}. Rejects a
  * non-object document, an empty document (no recognized section), and malformed values, so a bad file
  * fails loudly instead of silently reconciling nothing.
  */
-export function parseReleaseConfig(raw: unknown): ReleaseConfig {
+export function parseReleaseConfig(raw: unknown): ReleaseAttributesConfig {
   const record = asRecord(raw);
   if (!record) throw new Error("release.config.json must be a JSON object.");
 
-  const config: ReleaseConfig = {};
+  const config: ReleaseAttributesConfig = {};
   const ageRating = asRecord(record["ageRating"]);
   if (ageRating) config.ageRating = parseAgeRating(ageRating);
   const categories = asRecord(record["categories"]);
@@ -351,7 +310,7 @@ export function parseReleaseConfig(raw: unknown): ReleaseConfig {
 }
 
 /** Read and parse a `release.config.json` from disk. */
-export function loadReleaseConfig(path: string): ReleaseConfig {
+export function loadReleaseConfig(path: string): ReleaseAttributesConfig {
   if (!existsSync(path)) {
     throw new Error(
       `No release config at ${path}. Create one (see \`launch release-config --help\`) or pass --config.`,

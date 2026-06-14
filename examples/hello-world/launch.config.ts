@@ -8,10 +8,12 @@ import { defineConfig } from "launch-store";
  * capabilities, export compliance) are NOT here: they live in `app.json` and Launch reads them straight
  * from Expo's config, exactly where EAS reads them. This file holds only Launch's own settings.
  *
- * `launch init` scaffolds a minimal version of this (providers + one profile + a commented products
- * block). The six `*.config.json` sidecars beside this file (Game Center, App Clips, EU distribution,
- * Wallet, release attributes, store metadata) are read directly by their own commands today; folding
- * them into this single typed config is tracked in issue #101.
+ * `launch init` scaffolds a minimal version of this (providers + one profile + commented sections).
+ * The five Launch-native App Store Connect sections — Game Center, App Clips, release attributes,
+ * Wallet, and EU distribution — are typed fields right here (issue #101); their standalone
+ * `*.config.json` sidecars still work for back-compat. Only `store.config.json` remains a deliberate
+ * sidecar: its `apple` section mirrors the Expo/EAS metadata schema verbatim (the `eas metadata`
+ * migration path).
  *
  * Want a zero-setup local build to play with? The only fields you must change are `storage: "local"`
  * (drop `storageConfig`) and you can ignore `aws`. Everything else is parse-valid and dry-run-able as is.
@@ -154,13 +156,104 @@ export default defineConfig({
   // ── iOS public-release policy (`launch release`, `launch rollout`) ──────────────────────────────────
   // Defaults applied to the App Store version `launch release` submits. NOTE: this is the release
   // *behavior* (when/how it goes live). The release *attributes* (age rating, categories, price, review
-  // contact) live in release.config.json and are applied by `launch release-config`.
+  // contact) are the `releaseAttributes` field below, applied by `launch release-config`.
   release: {
     releaseType: "AFTER_APPROVAL", // go live automatically once Apple approves
     phasedRelease: true, // Apple's 7-day gradual rollout for the update
     usesNonExemptEncryption: false, // standard HTTPS only → Launch clears export compliance over the API
     primaryLocale: "en-US",
     releaseNotes: { "en-US": "Faster taps, fewer bugs, and a brand-new Pro tier." },
+  },
+
+  // ── Game Center achievements & leaderboards (`launch game-center`) ──────────────────────────────────
+  // Per-app (keyed by iOS bundle id). Reconciled additively to App Store Connect — re-runs only create
+  // what's missing. Single-config form of the old gamecenter.config.json.
+  gameCenter: {
+    "com.example.helloworld": {
+      achievements: [
+        {
+          vendorIdentifier: "first_tap",
+          referenceName: "First Tap",
+          points: 10,
+          showBeforeEarned: true,
+          repeatable: false,
+          name: "First Tap",
+          beforeEarnedDescription: "Tap the button for the very first time.",
+          afterEarnedDescription: "You tapped the button. A journey of a thousand taps begins.",
+        },
+        {
+          vendorIdentifier: "hundred_taps",
+          referenceName: "Century",
+          points: 50,
+          name: "Century",
+          beforeEarnedDescription: "Reach 100 taps in a single session.",
+          afterEarnedDescription: "100 taps. Your finger is now a machine.",
+        },
+      ],
+      leaderboards: [
+        {
+          vendorIdentifier: "top_tappers",
+          referenceName: "Top Tappers",
+          defaultFormatter: "INTEGER",
+          submissionType: "BEST_SCORE",
+          scoreSortType: "DESC",
+          name: "Top Tappers",
+        },
+      ],
+    },
+  },
+
+  // ── App Clip card metadata (`launch app-clips`) ─────────────────────────────────────────────────────
+  // Per-app (keyed by the parent app's bundle id); each clip keyed by its OWN bundle id. The clip binary
+  // comes from a build target — this configures the card's action + subtitle.
+  appClips: {
+    "com.example.helloworld": {
+      clips: {
+        "com.example.helloworld.Clip": {
+          action: "OPEN",
+          localizations: { "en-US": { subtitle: "Play instantly, no install" } },
+        },
+      },
+    },
+  },
+
+  // ── App Store release attributes (`launch release-config`) ──────────────────────────────────────────
+  // Per-app (keyed by iOS bundle id): age rating, store categories, base price, and App Review details.
+  // Distinct from `release` above (that's the release *policy*). Single-config form of release.config.json.
+  releaseAttributes: {
+    "com.example.helloworld": {
+      ageRating: {
+        violenceCartoonOrFantasy: "NONE",
+        profanityOrCrudeHumor: "NONE",
+        matureOrSuggestiveThemes: "NONE",
+        gambling: false,
+        unrestrictedWebAccess: false,
+      },
+      categories: { primary: "GAMES", secondary: "ENTERTAINMENT" },
+      pricing: { baseTerritory: "USA", customerPrice: 0 }, // free
+      reviewDetails: {
+        contactFirstName: "Ada",
+        contactLastName: "Lovelace",
+        contactPhone: "+1-555-0100",
+        contactEmail: "review@helloworld.example",
+        demoAccountRequired: false,
+        notes: "Tap the big button to raise the score. No account or login required.",
+      },
+    },
+  },
+
+  // ── Apple Pay merchant ids & Wallet pass type ids (`launch wallet`) ─────────────────────────────────
+  // Team-level (not per-app) — these Identifiers are shared across the team. Registered additively.
+  wallet: {
+    merchantIds: [{ identifier: "merchant.com.example.helloworld", name: "Hello World Payments" }],
+    passTypeIds: [{ identifier: "pass.com.example.helloworld.coupon", name: "Hello World Coupon" }],
+  },
+
+  // ── EU alternative-distribution domains, DMA (`launch eu-distribution`) ─────────────────────────────
+  // Team-level. Authorizes the domains you host distribution packages from. The signing key is a
+  // register-once action (`launch eu-distribution set-key`), not declared here.
+  euDistribution: {
+    domains: [{ domain: "downloads.example.com", referenceName: "Hello World EU downloads" }],
   },
 
   // ── AWS EC2 Mac settings for off-Mac builds (`launch build ios --remote aws`, `launch cloud`) ────────

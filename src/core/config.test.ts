@@ -2,7 +2,7 @@ import { describe, expect, it, afterEach } from "vitest";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { defineConfig, loadConfig, writeAppVersion } from "./config.js";
+import { defineConfig, loadConfig, resolveSidecarConfig, writeAppVersion } from "./config.js";
 import type { AppDescriptor } from "./types.js";
 
 const tempDirs: string[] = [];
@@ -57,6 +57,78 @@ describe("defineConfig", () => {
       release: { releaseType: "MANUAL", phasedRelease: true, releaseNotes: "Bug fixes." },
     });
     expect(config.release).toEqual({ releaseType: "MANUAL", phasedRelease: true, releaseNotes: "Bug fixes." });
+  });
+
+  it("carries the folded App Store Connect sections through (issue #101)", () => {
+    const config = defineConfig({
+      profiles: { production: { name: "production" } },
+      gameCenter: { "com.acme.app": { achievements: [] } },
+      appClips: { "com.acme.app": { clips: {} } },
+      releaseAttributes: { "com.acme.app": { pricing: { customerPrice: 0 } } },
+      wallet: { merchantIds: [{ identifier: "merchant.com.acme.app", name: "Acme" }] },
+      euDistribution: { domains: [{ domain: "downloads.acme.com", referenceName: "Acme" }] },
+    });
+    expect(config.gameCenter).toEqual({ "com.acme.app": { achievements: [] } });
+    expect(config.appClips).toEqual({ "com.acme.app": { clips: {} } });
+    expect(config.releaseAttributes).toEqual({ "com.acme.app": { pricing: { customerPrice: 0 } } });
+    expect(config.wallet).toEqual({ merchantIds: [{ identifier: "merchant.com.acme.app", name: "Acme" }] });
+    expect(config.euDistribution).toEqual({ domains: [{ domain: "downloads.acme.com", referenceName: "Acme" }] });
+  });
+
+  it("omits the folded sections when they aren't declared", () => {
+    const config = defineConfig({ profiles: { production: { name: "production" } } });
+    expect(config.gameCenter).toBeUndefined();
+    expect(config.appClips).toBeUndefined();
+    expect(config.releaseAttributes).toBeUndefined();
+    expect(config.wallet).toBeUndefined();
+    expect(config.euDistribution).toBeUndefined();
+  });
+});
+
+describe("resolveSidecarConfig — typed field vs JSON sidecar precedence (issue #101)", () => {
+  /** A loader that reads + JSON-parses the sidecar, like the real `load*Config` helpers. */
+  const readJson = (path: string): { source: string } => JSON.parse(readFileSync(path, "utf8")) as { source: string };
+
+  it("uses the typed field when present and --config was left at its default", () => {
+    const result = resolveSidecarConfig({
+      typed: { source: "typed" },
+      configPath: "/nonexistent.config.json",
+      explicitPath: false,
+      load: () => ({ source: "sidecar" }),
+    });
+    expect(result).toEqual({ source: "typed" });
+  });
+
+  it("falls back to the default-path sidecar when there is no typed field", () => {
+    const path = join(makeRepo(), "x.config.json");
+    writeFileSync(path, JSON.stringify({ source: "sidecar" }));
+    expect(resolveSidecarConfig({ typed: undefined, configPath: path, explicitPath: false, load: readJson })).toEqual({
+      source: "sidecar",
+    });
+  });
+
+  it("returns undefined when neither a typed field nor a default-path sidecar exists", () => {
+    const path = join(makeRepo(), "missing.config.json");
+    expect(
+      resolveSidecarConfig({
+        typed: undefined,
+        configPath: path,
+        explicitPath: false,
+        load: (): { source: string } => {
+          throw new Error("should not be called");
+        },
+      }),
+    ).toBeUndefined();
+  });
+
+  it("an explicitly-passed --config wins even when a typed field is present", () => {
+    const path = join(makeRepo(), "explicit.config.json");
+    writeFileSync(path, JSON.stringify({ source: "sidecar" }));
+    expect(
+      resolveSidecarConfig({ typed: { source: "typed" }, configPath: path, explicitPath: true, load: readJson }),
+    ).toEqual({
+      source: "sidecar",
+    });
   });
 });
 
