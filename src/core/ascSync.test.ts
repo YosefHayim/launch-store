@@ -1,0 +1,292 @@
+import { describe, expect, it, vi } from "vitest";
+import { reconcileApp, type AscCatalogApi, type ReconcileInput } from "./ascSync.js";
+import type { AppProducts, InAppPurchaseConfig, SubscriptionGroupConfig } from "./types.js";
+
+/** A fully-stubbed {@link AscCatalogApi}. Reads default to "nothing exists yet"; writes resolve to a created resource. */
+function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {
+  const base: AscCatalogApi = {
+    getAppId: vi.fn().mockResolvedValue("app1"),
+    findBundleId: vi.fn().mockResolvedValue({ id: "bundle1", identifier: "com.acme.app" }),
+    listBundleIdCapabilities: vi.fn().mockResolvedValue([]),
+    enableCapability: vi
+      .fn()
+      .mockImplementation((_b: string, capabilityType: string) => Promise.resolve({ id: "cap-new", capabilityType })),
+    disableCapability: vi.fn().mockResolvedValue(undefined),
+    listInAppPurchases: vi.fn().mockResolvedValue([]),
+    createInAppPurchase: vi
+      .fn()
+      .mockImplementation((_a: string, input: { productId: string; name: string; inAppPurchaseType: string }) =>
+        Promise.resolve({
+          id: "iap-new",
+          productId: input.productId,
+          name: input.name,
+          inAppPurchaseType: input.inAppPurchaseType,
+        }),
+      ),
+    listInAppPurchaseLocalizations: vi.fn().mockResolvedValue([]),
+    createInAppPurchaseLocalization: vi
+      .fn()
+      .mockImplementation((_i: string, input: { locale: string; name: string }) =>
+        Promise.resolve({ id: "iloc", locale: input.locale, name: input.name }),
+      ),
+    inAppPurchaseHasPrice: vi.fn().mockResolvedValue(false),
+    findInAppPurchasePricePoint: vi
+      .fn()
+      .mockImplementation((_i: string, territory: string, price: number) =>
+        Promise.resolve({ id: "ipp", customerPrice: String(price), territory }),
+      ),
+    createInAppPurchasePriceSchedule: vi.fn().mockResolvedValue(undefined),
+    listSubscriptionGroups: vi.fn().mockResolvedValue([]),
+    createSubscriptionGroup: vi
+      .fn()
+      .mockImplementation((_a: string, referenceName: string) => Promise.resolve({ id: "grp-new", referenceName })),
+    listSubscriptionGroupLocalizations: vi.fn().mockResolvedValue([]),
+    createSubscriptionGroupLocalization: vi
+      .fn()
+      .mockImplementation((_g: string, input: { locale: string; name: string }) =>
+        Promise.resolve({ id: "gloc", locale: input.locale, name: input.name }),
+      ),
+    listSubscriptions: vi.fn().mockResolvedValue([]),
+    createSubscription: vi
+      .fn()
+      .mockImplementation((_g: string, input: { productId: string; name: string }) =>
+        Promise.resolve({ id: "sub-new", productId: input.productId, name: input.name }),
+      ),
+    listSubscriptionLocalizations: vi.fn().mockResolvedValue([]),
+    createSubscriptionLocalization: vi
+      .fn()
+      .mockImplementation((_s: string, input: { locale: string; name: string }) =>
+        Promise.resolve({ id: "sloc", locale: input.locale, name: input.name }),
+      ),
+    subscriptionHasPrice: vi.fn().mockResolvedValue(false),
+    findSubscriptionPricePoint: vi
+      .fn()
+      .mockImplementation((_s: string, territory: string, price: number) =>
+        Promise.resolve({ id: "spp", customerPrice: String(price), territory }),
+      ),
+    createSubscriptionPrice: vi.fn().mockResolvedValue(undefined),
+  };
+  return { ...base, ...overrides };
+}
+
+const IAPS: InAppPurchaseConfig[] = [
+  {
+    productId: "com.acme.coins",
+    referenceName: "Coins",
+    type: "CONSUMABLE",
+    localizations: [{ locale: "en-US", name: "Coins" }],
+    price: { customerPrice: 4.99 },
+  },
+];
+
+const SUBSCRIPTION_GROUPS: SubscriptionGroupConfig[] = [
+  {
+    referenceName: "Pro",
+    localizations: [{ locale: "en-US", name: "Pro Tiers" }],
+    subscriptions: [
+      {
+        productId: "com.acme.pro.monthly",
+        referenceName: "Pro Monthly",
+        subscriptionPeriod: "ONE_MONTH",
+        localizations: [{ locale: "en-US", name: "Pro" }],
+        price: { customerPrice: 9.99 },
+      },
+    ],
+  },
+];
+
+const PRODUCTS: AppProducts = { inAppPurchases: IAPS, subscriptionGroups: SUBSCRIPTION_GROUPS };
+
+function input(overrides: Partial<ReconcileInput> = {}): ReconcileInput {
+  return {
+    bundleId: "com.acme.app",
+    capabilities: ["PUSH_NOTIFICATIONS"],
+    products: PRODUCTS,
+    dryRun: false,
+    allowDestructive: false,
+    ...overrides,
+  };
+}
+
+describe("reconcileApp", () => {
+  it("plans every create from an empty account without performing any writes (dry-run)", async () => {
+    const api = makeApi();
+    const report = await reconcileApp(api, input({ dryRun: true }));
+
+    const descriptions = report.actions.map((action) => action.description);
+    expect(descriptions).toEqual([
+      "enable capability PUSH_NOTIFICATIONS",
+      "create in-app purchase com.acme.coins (CONSUMABLE)",
+      "add IAP copy com.acme.coins [en-US]",
+      "set IAP price com.acme.coins = 4.99 (USA)",
+      'create subscription group "Pro"',
+      'add group name "Pro" [en-US]',
+      "create subscription com.acme.pro.monthly (ONE_MONTH)",
+      "add subscription copy com.acme.pro.monthly [en-US]",
+      "set subscription price com.acme.pro.monthly = 9.99 (USA)",
+    ]);
+    expect(report.actions.every((action) => action.status === "planned")).toBe(true);
+    expect(api.enableCapability).not.toHaveBeenCalled();
+    expect(api.createInAppPurchase).not.toHaveBeenCalled();
+    expect(api.createSubscription).not.toHaveBeenCalled();
+  });
+
+  it("applies every create against an empty account, in dependency order", async () => {
+    const api = makeApi();
+    const report = await reconcileApp(api, input());
+
+    expect(report.actions.every((action) => action.status === "applied")).toBe(true);
+    expect(api.enableCapability).toHaveBeenCalledWith("bundle1", "PUSH_NOTIFICATIONS");
+    expect(api.createInAppPurchase).toHaveBeenCalledWith("app1", {
+      productId: "com.acme.coins",
+      name: "Coins",
+      inAppPurchaseType: "CONSUMABLE",
+    });
+    expect(api.createInAppPurchasePriceSchedule).toHaveBeenCalledWith("iap-new", "USA", "ipp");
+    expect(api.createSubscription).toHaveBeenCalledWith("grp-new", {
+      productId: "com.acme.pro.monthly",
+      name: "Pro Monthly",
+      subscriptionPeriod: "ONE_MONTH",
+      groupLevel: 1,
+    });
+    expect(api.createSubscriptionPrice).toHaveBeenCalledWith("sub-new", "spp");
+  });
+
+  it("is additive: existing products, localizations, capabilities, and prices are left untouched", async () => {
+    const api = makeApi({
+      listBundleIdCapabilities: vi.fn().mockResolvedValue([{ id: "c1", capabilityType: "PUSH_NOTIFICATIONS" }]),
+      listInAppPurchases: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "iap1", productId: "com.acme.coins", name: "Coins", inAppPurchaseType: "CONSUMABLE" },
+        ]),
+      listInAppPurchaseLocalizations: vi.fn().mockResolvedValue([{ id: "l1", locale: "en-US", name: "Coins" }]),
+      inAppPurchaseHasPrice: vi.fn().mockResolvedValue(true),
+      listSubscriptionGroups: vi.fn().mockResolvedValue([{ id: "grp1", referenceName: "Pro" }]),
+      listSubscriptionGroupLocalizations: vi
+        .fn()
+        .mockResolvedValue([{ id: "gl1", locale: "en-US", name: "Pro Tiers" }]),
+      listSubscriptions: vi
+        .fn()
+        .mockResolvedValue([{ id: "sub1", productId: "com.acme.pro.monthly", name: "Pro Monthly" }]),
+      listSubscriptionLocalizations: vi.fn().mockResolvedValue([{ id: "sl1", locale: "en-US", name: "Pro" }]),
+      subscriptionHasPrice: vi.fn().mockResolvedValue(true),
+    });
+
+    const report = await reconcileApp(api, input());
+
+    expect(report.actions).toEqual([]);
+    expect(api.enableCapability).not.toHaveBeenCalled();
+    expect(api.createInAppPurchase).not.toHaveBeenCalled();
+    expect(api.createInAppPurchaseLocalization).not.toHaveBeenCalled();
+    expect(api.createInAppPurchasePriceSchedule).not.toHaveBeenCalled();
+    expect(api.createSubscription).not.toHaveBeenCalled();
+    expect(api.createSubscriptionPrice).not.toHaveBeenCalled();
+  });
+
+  it("gates capability removal behind allowDestructive", async () => {
+    const withExtra = {
+      listBundleIdCapabilities: vi.fn().mockResolvedValue([{ id: "c-extra", capabilityType: "HEALTHKIT" }]),
+    };
+
+    const guarded = makeApi(withExtra);
+    const guardedReport = await reconcileApp(guarded, input());
+    const disable = guardedReport.actions.find((action) => action.description === "disable capability HEALTHKIT");
+    expect(disable).toMatchObject({ destructive: true, status: "skipped" });
+    expect(guarded.disableCapability).not.toHaveBeenCalled();
+
+    const allowed = makeApi(withExtra);
+    await reconcileApp(allowed, input({ allowDestructive: true }));
+    expect(allowed.disableCapability).toHaveBeenCalledWith("c-extra");
+  });
+
+  it("never proposes removing Apple's always-on capabilities (IN_APP_PURCHASE / GAME_CENTER)", async () => {
+    const api = makeApi({
+      listBundleIdCapabilities: vi.fn().mockResolvedValue([
+        { id: "c1", capabilityType: "IN_APP_PURCHASE" },
+        { id: "c2", capabilityType: "GAME_CENTER" },
+      ]),
+    });
+    const report = await reconcileApp(api, input({ capabilities: [] }));
+    expect(report.actions.filter((action) => action.destructive)).toEqual([]);
+  });
+
+  it("throws an actionable error when the app has no App Store Connect record", async () => {
+    const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
+    await expect(reconcileApp(api, input())).rejects.toThrow(/No App Store Connect app record.*Apple has no API/s);
+  });
+
+  it("skips capabilities (without failing) when the bundle id isn't registered yet", async () => {
+    const api = makeApi({ findBundleId: vi.fn().mockResolvedValue(null) });
+    const report = await reconcileApp(api, input({ products: {} }));
+    expect(report.actions).toHaveLength(1);
+    expect(report.actions[0]).toMatchObject({ status: "skipped" });
+    expect(report.actions[0]!.description).toContain("not registered yet");
+    expect(api.enableCapability).not.toHaveBeenCalled();
+  });
+
+  it("isolates a failing action (no matching price point) and still applies the rest", async () => {
+    const api = makeApi({
+      findInAppPurchasePricePoint: vi.fn().mockResolvedValue(null),
+    });
+    const report = await reconcileApp(api, input({ capabilities: [], products: { inAppPurchases: IAPS } }));
+
+    const priceAction = report.actions.find((action) => action.description.startsWith("set IAP price"));
+    expect(priceAction).toMatchObject({ status: "failed" });
+    expect(priceAction?.error).toMatch(/No USA price point matches 4.99/);
+    // The create + localization before it still went through — one failure doesn't abort the walk.
+    expect(api.createInAppPurchase).toHaveBeenCalled();
+    expect(api.createInAppPurchaseLocalization).toHaveBeenCalled();
+    expect(api.createInAppPurchasePriceSchedule).not.toHaveBeenCalled();
+  });
+
+  it("skips a new product's dependent work when its creation fails", async () => {
+    const api = makeApi({
+      createInAppPurchase: vi.fn().mockRejectedValue(new Error("duplicate productId")),
+    });
+    const report = await reconcileApp(api, input({ capabilities: [], products: { inAppPurchases: IAPS } }));
+
+    expect(report.actions.map((action) => ({ d: action.description, s: action.status }))).toEqual([
+      { d: "create in-app purchase com.acme.coins (CONSUMABLE)", s: "failed" },
+    ]);
+    expect(api.createInAppPurchaseLocalization).not.toHaveBeenCalled();
+    expect(api.findInAppPurchasePricePoint).not.toHaveBeenCalled();
+  });
+
+  it("assigns group levels from config order (first subscription = level 1)", async () => {
+    const api = makeApi();
+    const twoTiers: AppProducts = {
+      subscriptionGroups: [
+        {
+          referenceName: "Pro",
+          localizations: [{ locale: "en-US", name: "Pro" }],
+          subscriptions: [
+            {
+              productId: "com.acme.pro.yearly",
+              referenceName: "Yearly",
+              subscriptionPeriod: "ONE_YEAR",
+              localizations: [{ locale: "en-US", name: "Yearly" }],
+            },
+            {
+              productId: "com.acme.pro.monthly",
+              referenceName: "Monthly",
+              subscriptionPeriod: "ONE_MONTH",
+              localizations: [{ locale: "en-US", name: "Monthly" }],
+            },
+          ],
+        },
+      ],
+    };
+    await reconcileApp(api, input({ capabilities: [], products: twoTiers }));
+    expect(api.createSubscription).toHaveBeenNthCalledWith(
+      1,
+      "grp-new",
+      expect.objectContaining({ productId: "com.acme.pro.yearly", groupLevel: 1 }),
+    );
+    expect(api.createSubscription).toHaveBeenNthCalledWith(
+      2,
+      "grp-new",
+      expect.objectContaining({ productId: "com.acme.pro.monthly", groupLevel: 2 }),
+    );
+  });
+});
