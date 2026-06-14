@@ -1,0 +1,28 @@
+# The published npm tarball is dist/ only — enforced by `files: ["dist"]` in package.json, which is an
+# allowlist and the primary guard. This denylist is belt-and-suspenders: it keeps heavy media and source
+# out of the package even if `files` is ever loosened. npm always includes package.json, README.md, and
+# LICENSE regardless of this file.
+
+# Heavy media — README badges & logos (~1 MB of JPG/PNG). Rendered from GitHub; never needed once installed.
+assets/
+.tui-preview/
+
+# Source & tooling — the package ships compiled dist/, not the TypeScript source or dev configs.
+src/
+scripts/
+docs/
+examples/
+.github/
+.husky/
+tsconfig*.json
+eslint.config.js
+vitest.config.*
+
+# Local notes & generated noise.
+CONTEXT.md
+language.md
+AGENTS.md
+CLAUDE.md
+llms.txt
+*.log
+*.tsbuildinfo
