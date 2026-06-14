@@ -1,0 +1,43 @@
+name: ASC schema drift
+
+# Our typed App Store Connect client is generated from a COMMITTED snapshot of Apple's OpenAPI spec
+# (src/core/asc/schema.ts, produced by `npm run gen:asc`). Apple revises that spec out-of-band, so this
+# job re-vendors it and fails when the committed types are stale — a maintainer then just re-runs
+# `npm run gen:asc` and commits the result.
+#
+# It is intentionally NOT part of ci.yml's per-PR gate: that gate must stay deterministic and offline,
+# whereas this job makes a live download from developer.apple.com. Instead it runs:
+#   - weekly (catches an upstream spec bump without blocking unrelated PRs on Apple's release cadence),
+#   - on demand (workflow_dispatch),
+#   - on PRs that touch the generator or the generated types (catches a hand-edit or tooling change
+#     immediately — the generated file is marked "do not edit by hand").
+on:
+  schedule:
+    - cron: "0 7 * * 1" # Mondays 07:00 UTC
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/core/asc/**"
+      - "scripts/gen-asc-types.ts"
+      - ".github/workflows/schema-drift.yml"
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Regenerate types from Apple's current spec
+        run: npm run gen:asc
+      - name: Fail if the committed types are stale
+        run: |
+          if ! git diff --quiet -- src/core/asc/schema.ts; then
+            echo "::error file=src/core/asc/schema.ts::Generated ASC types are out of date with Apple's published OpenAPI spec. Run 'npm run gen:asc' and commit the result."
+            git diff --stat -- src/core/asc/schema.ts
+            exit 1
+          fi
+          echo "ASC types are in sync with Apple's current spec."
