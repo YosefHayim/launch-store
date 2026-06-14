@@ -16,6 +16,7 @@ import { run, runQuiet, type ExecOptions } from "./exec.js";
 import { ensureDir, LOGS_DIR } from "./paths.js";
 import { diagnoseBuildLog, formatDiagnoses } from "./buildDiagnostics.js";
 import { currentBuildLog } from "./buildLog.js";
+import type { BuildEstimate } from "./buildFingerprint.js";
 
 /** Process-wide toggle: when true, `runWithProgress` streams the raw tool output instead of a spinner. */
 let streamRawOutput = false;
@@ -41,6 +42,20 @@ export interface ProgressRunOptions extends ExecOptions {
   label: string;
   /** Map a raw output line to a short status appended after the label; return undefined to ignore it. */
   parseStep?: (line: string) => string | undefined;
+  /**
+   * A learned ETA for this build kind. When present the spinner shows a progress bar filling toward it
+   * (step-count, or elapsed/eta before any step parses); absent (first build of a kind) keeps the plain
+   * elapsed clock. Every `parseStep` hit counts as one step, so the bar's denominator must be the same.
+   */
+  estimate?: BuildEstimate;
+}
+
+/** What {@link runWithProgress} measured — fed back to {@link import("./buildFingerprint.js").updateEstimate}. */
+export interface RunProgressResult {
+  /** Wall-clock duration of the tool run, ms. */
+  elapsedMs: number;
+  /** Number of parsed progress steps (0 in stream mode, where output isn't parsed). */
+  steps: number;
 }
 
 /** Trailing lines kept in memory to show as context when a tool fails. */
@@ -58,6 +73,44 @@ export function formatElapsed(ms: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return minutes > 0 ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${seconds}s`;
+}
+
+/**
+ * Render a fixed-width text progress bar, e.g. `[#########-----]`. `fraction` is clamped to 0–1 so an
+ * over-budget build (more steps/time than last time) shows a full-but-capped bar rather than overflowing
+ * the line. ASCII glyphs keep it legible in any terminal and in captured logs.
+ */
+export function renderBar(fraction: number, width = 14): string {
+  const clamped = Math.max(0, Math.min(1, fraction));
+  // Floor (not round) so a capped 99% fraction leaves a trailing `-` — the bar never reads "done" mid-run.
+  const filled = Math.floor(clamped * width);
+  return `[${"#".repeat(filled)}${"-".repeat(width - filled)}]`;
+}
+
+/**
+ * Compose the one spinner line. With a {@link BuildEstimate} it shows a bar plus `count/~total` and
+ * `elapsed / ~eta`; the bar fills by step-count (a good time proxy once steps parse) and falls back to
+ * elapsed/eta before the first step or when no steps are emitted. With no estimate (the first build of a
+ * kind, or a step-less tool like prebuild) it degrades to the plain `label · step   elapsed` clock. The
+ * fraction is capped at 99% so the bar never reads "done" until the process actually exits. Pure → testable.
+ */
+export function formatProgressLine(parts: {
+  label: string;
+  step: string;
+  elapsedMs: number;
+  steps: number;
+  estimate?: BuildEstimate;
+}): string {
+  const { label, step, elapsedMs, steps, estimate } = parts;
+  const head = `${label}${step ? ` · ${step}` : ""}`;
+  const elapsed = formatElapsed(elapsedMs);
+  if (!estimate || estimate.ms <= 0) return `${head}   ${elapsed}`;
+
+  const bySteps = estimate.steps > 0 && steps > 0;
+  const fraction = bySteps ? steps / estimate.steps : elapsedMs / estimate.ms;
+  const bar = renderBar(Math.min(fraction, 0.99));
+  const counter = bySteps ? ` ${steps}/~${estimate.steps}` : "";
+  return `${head}   ${bar}${counter} · ${elapsed} / ~${formatElapsed(estimate.ms)}`;
 }
 
 /**
@@ -121,11 +174,19 @@ function reportFailure(label: string, tail: string[], logFile: string): void {
  * shows the live step from `parseStep` and a running clock; on failure the tail and log path are
  * printed before the error propagates. In stream mode it is exactly {@link run} (inherited stdio).
  */
-export async function runWithProgress(command: string, args: string[], options: ProgressRunOptions): Promise<void> {
-  const { label, parseStep, ...exec } = options;
+export async function runWithProgress(
+  command: string,
+  args: string[],
+  options: ProgressRunOptions,
+): Promise<RunProgressResult> {
+  const { label, parseStep, estimate, ...exec } = options;
 
   if (selectProgressMode(process.stdout.isTTY, process.env, streamRawOutput) === "stream") {
-    return run(command, args, exec);
+    // Raw streaming (CI / piped / --verbose): no bar, but still time the run so the duration EMA learns.
+    // Output isn't parsed here, so step count is 0 — the caller carries the prior step total forward.
+    const startedAt = Date.now();
+    await run(command, args, exec);
+    return { elapsedMs: Date.now() - startedAt, steps: 0 };
   }
 
   // A build in progress claims the per-build log (redacted, keyed by build id); standalone steps
@@ -135,10 +196,13 @@ export async function runWithProgress(command: string, args: string[], options: 
   const startedAt = Date.now();
   const tail: string[] = [];
   let step = "";
+  let steps = 0;
 
   const progress = spinner();
   const render = (): void => {
-    progress.message(`${label}${step ? ` · ${step}` : ""}   ${formatElapsed(Date.now() - startedAt)}`);
+    progress.message(
+      formatProgressLine({ label, step, elapsedMs: Date.now() - startedAt, steps, ...(estimate ? { estimate } : {}) }),
+    );
   };
   const clock = setInterval(render, 1000);
   clock.unref(); // never let the elapsed ticker hold the process open
@@ -155,12 +219,14 @@ export async function runWithProgress(command: string, args: string[], options: 
         const next = parseStep?.(line);
         if (next) {
           step = next;
+          steps++; // every parsed ▸/Task line is one step — the bar's numerator and the recorded total
           render();
         }
       },
     });
     clearInterval(clock);
     progress.stop(`${label} · ${formatElapsed(Date.now() - startedAt)}`);
+    return { elapsedMs: Date.now() - startedAt, steps };
   } catch (error) {
     clearInterval(clock);
     progress.error(`${label} failed`);

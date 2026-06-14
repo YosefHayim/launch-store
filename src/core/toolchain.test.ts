@@ -8,6 +8,7 @@
 import { describe, it, expect } from "vitest";
 import {
   REQUIRED_TOOLS,
+  ensureCcacheInstalled,
   ensureToolchain,
   fixHint,
   planInstall,
@@ -172,5 +173,33 @@ describe("ensureToolchain", () => {
     const { io, logs } = makeIo({ present: [...present, "brew"], confirm: false });
     expect(await ensureToolchain({ io, platform: "darwin" })).toBe(true);
     expect(logs.join("\n")).toMatch(/ccache \(recommended/);
+  });
+});
+
+describe("ensureCcacheInstalled — the inline build-time ccache offer", () => {
+  it("installs and configures ccache when accepted, reusing doctor's config", async () => {
+    const { io, runs } = makeIo({ present: ["brew"], confirm: true });
+    expect(await ensureCcacheInstalled({ interactive: true, io })).toBe("installed");
+    expect(runs).toContainEqual(["brew", "install", "ccache"]);
+    expect(runs).toContainEqual(["ccache", "--max-size", "10G"]);
+    expect(runs.some((r) => r[0] === "ccache" && r[1] === "--set-config")).toBe(true);
+  });
+
+  it("remembers nothing and installs nothing when declined", async () => {
+    const { io, runs } = makeIo({ present: ["brew"], confirm: false });
+    expect(await ensureCcacheInstalled({ interactive: true, io })).toBe("declined");
+    expect(runs).toEqual([]);
+  });
+
+  it("skips silently (never blocks a build) when non-interactive", async () => {
+    const { io, runs } = makeIo({ present: ["brew"], confirm: true });
+    expect(await ensureCcacheInstalled({ interactive: false, io })).toBe("skipped-noninteractive");
+    expect(runs).toEqual([]);
+  });
+
+  it("skips (pointing at doctor) when Homebrew is missing — no brew bootstrap inside a build", async () => {
+    const { io, runs } = makeIo({ present: [], confirm: true });
+    expect(await ensureCcacheInstalled({ interactive: true, io })).toBe("skipped-no-brew");
+    expect(runs).toEqual([]);
   });
 });

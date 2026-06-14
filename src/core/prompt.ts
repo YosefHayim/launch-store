@@ -60,6 +60,12 @@ export interface PickOneArgs<T> {
   nonInteractive: NonInteractivePolicy<T>;
   /** Override the flat-list → search cutoff (default {@link PICK_SEARCH_THRESHOLD}). */
   searchThreshold?: number;
+  /**
+   * Pre-highlight this option in the flat-list prompt (matched by `===` against each option's `value`),
+   * so a remembered choice is one keystroke away. Ignored when the value isn't among `options` (stale)
+   * and in the type-to-search variant, where the user types rather than scrolls.
+   */
+  initialValue?: T;
 }
 
 /**
@@ -85,6 +91,9 @@ export async function pickOne<T>(args: PickOneArgs<T>): Promise<T> {
       : { value: String(index), label: option.label },
   );
   const threshold = args.searchThreshold ?? PICK_SEARCH_THRESHOLD;
+  // Pre-select the remembered option by its string index (clack's value), when it's still in the list.
+  const initialIndex =
+    args.initialValue !== undefined ? args.options.findIndex((option) => option.value === args.initialValue) : -1;
   const choice =
     args.options.length > threshold
       ? await autocomplete({
@@ -94,7 +103,11 @@ export async function pickOne<T>(args: PickOneArgs<T>): Promise<T> {
           maxItems: 10,
           filter: (search, option) => fuzzyMatch(search, `${option.label} ${option.hint ?? ""}`),
         })
-      : await select({ message: args.message, options });
+      : await select({
+          message: args.message,
+          options,
+          ...(initialIndex >= 0 ? { initialValue: String(initialIndex) } : {}),
+        });
   if (isCancel(choice)) {
     cancel("Cancelled.");
     process.exit(0);

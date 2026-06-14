@@ -15,6 +15,14 @@
 /** Which component of a {@link SemVer} a bump advances (resetting the lower components to 0). */
 export type VersionBump = "major" | "minor" | "patch";
 
+/**
+ * A user-facing version-bump choice: a semver {@link VersionBump} or `"keep"` (reuse the current version).
+ * This is the rememberable set — the kind persisted as a build's last pick (see `core/lastRun.ts`) and the
+ * accepted values of `launch build --bump` (alongside the CLI-only `"ask"`, which forces the prompt). A
+ * "Custom…" typed version has no kind, so it's never remembered.
+ */
+export type BumpKind = VersionBump | "keep";
+
 /** A parsed marketing version. Pre-release / build metadata is dropped — only the numeric core is kept. */
 export interface SemVer {
   major: number;

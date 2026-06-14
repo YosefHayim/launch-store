@@ -264,6 +264,39 @@ async function configureCcache(io: ToolchainIo): Promise<void> {
   await io.run("ccache", ["--set-config", `sloppiness=${CCACHE_SLOPPINESS}`]);
 }
 
+/** The outcome of the inline ccache offer, so a build can log it and persist a decline correctly. */
+export type CcacheOfferResult = "installed" | "declined" | "skipped-no-brew" | "skipped-noninteractive";
+
+/**
+ * Offer to install + configure ccache inline during a build when it's missing — the convenience twin of
+ * `launch doctor --fix`, reusing {@link configureCcache} so the cache is tuned identically (no second
+ * source of truth). The caller guarantees ccache is absent and owns the user-facing notices; this only
+ * decides and acts:
+ * - non-interactive (CI / piped / no TTY) → `"skipped-noninteractive"` — never block a build on stdin;
+ * - Homebrew missing → `"skipped-no-brew"` — don't chain a brew bootstrap into a build; point at doctor;
+ * - declined → `"declined"` — the caller remembers it so later builds never re-prompt;
+ * - accepted → `brew install ccache` + configure → `"installed"` — this build's pod-install/gym pick it up.
+ *
+ * Never throws on a decline or a failed install: a build without ccache simply runs uncached.
+ */
+export async function ensureCcacheInstalled(options: {
+  interactive: boolean;
+  io?: ToolchainIo;
+}): Promise<CcacheOfferResult> {
+  const io = options.io ?? realIo();
+  if (!options.interactive) return "skipped-noninteractive";
+  if (!(await io.exists("brew"))) return "skipped-no-brew";
+  const proceed = await io.confirm(
+    "ccache isn't installed — install it via Homebrew now? It makes repeat builds much faster (this build stays uncached).",
+  );
+  if (!proceed) return "declined";
+  io.log("→ brew install ccache…");
+  await io.run("brew", ["install", "ccache"]);
+  if (!(await io.exists("ccache"))) return "skipped-no-brew";
+  await configureCcache(io);
+  return "installed";
+}
+
 /**
  * Ensure Homebrew exists (guided/consented), then install the brew-able tools in one batch.
  * Extracted from {@link ensureToolchain} to keep that function's flow legible.
