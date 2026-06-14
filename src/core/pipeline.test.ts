@@ -11,7 +11,14 @@ vi.mock("node:child_process", () => ({
 }));
 
 import { registerBuiltins } from "../providers/index.js";
-import { runBuild, selectApp, sizeSummary, uploadSizeReadout, worstDownloadBytes } from "./pipeline.js";
+import {
+  resolveBumpKind,
+  runBuild,
+  selectApp,
+  sizeSummary,
+  uploadSizeReadout,
+  worstDownloadBytes,
+} from "./pipeline.js";
 import type { AppDescriptor, SizeReport } from "./types.js";
 
 registerBuiltins();
@@ -191,5 +198,40 @@ describe("uploadSizeReadout — pre-upload size lines + growth warning", () => {
     );
     expect(readout.lines).toEqual(["on disk 61.0 MB (no per-device estimate)"]);
     expect(readout.grew).toBeNull();
+  });
+});
+
+describe("resolveBumpKind — flag > remembered > prompt precedence", () => {
+  it("applies an explicit --bump kind, even non-interactively (scriptable in CI)", () => {
+    expect(resolveBumpKind({ flag: "minor", remembered: "patch", canPrompt: true })).toEqual({
+      mode: "apply",
+      kind: "minor",
+      source: "flag",
+    });
+    expect(resolveBumpKind({ flag: "major", remembered: undefined, canPrompt: false })).toEqual({
+      mode: "apply",
+      kind: "major",
+      source: "flag",
+    });
+  });
+
+  it("forces the prompt on --bump ask, ignoring a remembered pick", () => {
+    expect(resolveBumpKind({ flag: "ask", remembered: "patch", canPrompt: true })).toEqual({ mode: "prompt" });
+  });
+
+  it("auto-applies a remembered pick when no flag is given and we can prompt", () => {
+    expect(resolveBumpKind({ flag: undefined, remembered: "patch", canPrompt: true })).toEqual({
+      mode: "apply",
+      kind: "patch",
+      source: "remembered",
+    });
+  });
+
+  it("prompts on a first run (no flag, nothing remembered)", () => {
+    expect(resolveBumpKind({ flag: undefined, remembered: undefined, canPrompt: true })).toEqual({ mode: "prompt" });
+  });
+
+  it("leaves the config version untouched under --yes/CI with no flag", () => {
+    expect(resolveBumpKind({ flag: undefined, remembered: "patch", canPrompt: false })).toEqual({ mode: "leave" });
   });
 });

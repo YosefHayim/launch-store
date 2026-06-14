@@ -5,6 +5,7 @@
 
 import type { Command } from "commander";
 import type { Distribution, PlayTrack, RemoteTarget } from "../../core/types.js";
+import type { BumpKind } from "../../core/version.js";
 import { runBuild } from "../../core/pipeline.js";
 import { setVerboseOutput } from "../../core/progress.js";
 import { addEnvFlags, envOverrides, type EnvFlags } from "../options.js";
@@ -32,6 +33,23 @@ interface BuildCommandOptions extends EnvFlags {
   account?: string;
   /** How to distribute (`--distribution`): `store` (default) or `internal` (ad-hoc install link). */
   distribution?: string;
+  /** iOS-only version bump (`--bump`): patch|minor|major|keep, or `ask` to force the prompt. */
+  bump?: string;
+}
+
+/** The accepted `--bump` values: the rememberable {@link BumpKind} kinds plus `ask` (force the prompt). */
+const BUMP_SELECTORS: readonly (BumpKind | "ask")[] = ["patch", "minor", "major", "keep", "ask"];
+
+/**
+ * Validate `--bump`. Returns undefined when omitted (→ remembered pick, else prompt). An explicit value
+ * wins over a remembered one and makes the version scriptable in CI; `ask` forces the interactive prompt.
+ */
+function parseBump(bump: string | undefined): BumpKind | "ask" | undefined {
+  if (bump === undefined) return undefined;
+  if (!(BUMP_SELECTORS as readonly string[]).includes(bump)) {
+    throw new Error(`Unknown --bump "${bump}". Use one of: ${BUMP_SELECTORS.join(", ")}.`);
+  }
+  return bump as BumpKind | "ask";
 }
 
 /** Valid distribution modes, used to validate `--distribution` before it reaches the pipeline. */
@@ -91,6 +109,10 @@ export function registerBuildCommand(program: Command): void {
     .option("--no-submit", "build only; do not upload")
     .option("--remote [target]", "iOS only — build on a remote Mac: 'aws' (default) or user@host over SSH")
     .option("--distribution <mode>", "store (default, TestFlight/Play) or internal (ad-hoc install link)")
+    .option(
+      "--bump <kind>",
+      "iOS only — version bump: patch|minor|major|keep (default: last used, else prompt) or 'ask' to force the prompt",
+    )
     .option("--track <track>", "Android only — Play track: internal|closed|open|production (default: internal)")
     .option("--rollout <fraction>", "Android only — staged-rollout fraction for production (default: 1.0)")
     .option(
@@ -110,6 +132,7 @@ export function registerBuildCommand(program: Command): void {
     const track = parseTrack(options.track);
     const rollout = parseRollout(options.rollout);
     const distribution = parseDistribution(options.distribution);
+    const bump = parseBump(options.bump);
     await runBuild({
       platform,
       profileName: options.profile,
@@ -128,6 +151,7 @@ export function registerBuildCommand(program: Command): void {
       ...(track ? { track } : {}),
       ...(rollout !== undefined ? { rollout } : {}),
       ...(options.account ? { account: options.account } : {}),
+      ...(bump ? { bump } : {}),
     });
   });
 }

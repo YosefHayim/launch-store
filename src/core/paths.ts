@@ -96,6 +96,13 @@ export const CLOUD_STATE = join(LAUNCH_HOME, "cloud.json");
  */
 export const BUILD_STATE_DIR = join(LAUNCH_HOME, "build-state");
 
+/**
+ * Remembered interactive build picks (`{ lastApp?, apps: { <app>: { bump } } }`) so a re-run defaults to
+ * last time's choices. Host-local UX convenience, never secret and never committed — the declarative home
+ * for a default a user wants to *share* is their `launch.config.ts`, not this file. See `core/lastRun.ts`.
+ */
+export const LAST_RUN_FILE = join(LAUNCH_HOME, "last-run.json");
+
 /** Create a directory (and parents) if it doesn't exist, returning the path for chaining. */
 export function ensureDir(dir: string): string {
   mkdirSync(dir, { recursive: true });

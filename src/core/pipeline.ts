@@ -37,7 +37,10 @@ import { checkApp, formatFinding } from "./configCheck.js";
 import { resolveBuildSecrets } from "./buildSecrets.js";
 import { notifyCompletion, type NotifyEvent } from "./notify.js";
 import { pickOne } from "./prompt.js";
-import { compareVersions, formatVersion, highestVersion, nextVersion, parseVersion } from "./version.js";
+import { compareVersions, formatVersion, highestVersion, nextVersion, parseVersion, type BumpKind } from "./version.js";
+import { readLastApp, readLastBump, rememberLastRun } from "./lastRun.js";
+import { ccacheOfferDeclined, markCcacheOfferDeclined } from "./firstRun.js";
+import { ensureCcacheInstalled } from "./toolchain.js";
 import { ENV_SOURCE, formatEnvTable, missingKeys, resolveEnv, secretLookingKeys, type ResolvedEnv } from "./env.js";
 import { beginBuildLog, buildLogId, endBuildLog } from "./buildLog.js";
 import { getBuildEngine, getCredentialsProvider, getSubmitter } from "./registry.js";
@@ -87,6 +90,12 @@ export interface BuildRunOptions {
   includeLocal?: boolean;
   /** Print the resolved env provenance table (`--print-env`) and exit without building. */
   printEnv?: boolean;
+  /**
+   * iOS version-bump selector (`--bump`). A {@link BumpKind} applies that bump non-interactively (and wins
+   * over a remembered pick); `"ask"` forces the prompt; omitted falls back to the remembered pick, then the
+   * prompt. See {@link resolveBumpKind}.
+   */
+  bump?: BumpKind | "ask";
 }
 
 /**
@@ -171,6 +180,9 @@ export async function selectApp(apps: AppDescriptor[], appName: string | undefin
   const sole = apps[0];
   if (apps.length === 1 && sole) return sole;
 
+  // Pre-select the app built last time (when it's still discovered) so a re-run is one keystroke; the
+  // pick still shows, so a monorepo never silently builds the wrong app.
+  const lastApp = apps.find((app) => app.name === readLastApp());
   return pickOne<AppDescriptor>({
     message: `Which app? (${apps.length} found)`,
     options: apps.map((app) => {
@@ -179,6 +191,7 @@ export async function selectApp(apps: AppDescriptor[], appName: string | undefin
     }),
     canPrompt: process.stdin.isTTY,
     nonInteractive: { kind: "require", flagHint: "— pass --app <name> to choose one non-interactively." },
+    ...(lastApp ? { initialValue: lastApp } : {}),
   });
 }
 
@@ -570,8 +583,12 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
   const internal = ctx.distribution === "internal";
 
   // 3b. Suggest the next marketing version from what's already on the store (interactive store uploads only —
-  // an internal install-link build doesn't touch the store, so the store-version prompt is skipped).
-  if (options.submit && !internal) await resolveMarketingVersion(resolved.ascKey, bundleId, app, options, log);
+  // an internal install-link build doesn't touch the store, so the store-version prompt is skipped). The
+  // applied bump kind is remembered after a successful build (see the rememberLastRun calls below).
+  let resolvedBump: BumpKind | undefined;
+  if (options.submit && !internal) {
+    resolvedBump = await resolveMarketingVersion(resolved.ascKey, bundleId, app, options, log);
+  }
 
   // 4. Auto-bump the build number from the last one Apple has on record.
   const buildNumber = dryRun
@@ -626,6 +643,8 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
     if (dryRun) {
       log.gap();
       log.info(`Done. ${app.name} ${app.version ?? "0.0.0"} (${buildNumber}) · dry-run, nothing changed`);
+    } else {
+      rememberLastRun(app.name, resolvedBump);
     }
     return;
   }
@@ -677,6 +696,8 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
     link,
     log,
   });
+  // Remember this run's picks so the next build defaults to them (app pre-selected, bump auto-applied).
+  rememberLastRun(app.name, resolvedBump);
 }
 
 /** The Android spine: prebuild → resolve service account + keystore → versionCode → gradle .aab → size → store → supply. */
@@ -750,6 +771,8 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
     if (dryRun) {
       log.gap();
       log.info(`Done. ${app.name} ${app.version ?? "0.0.0"} (${versionCode}) · dry-run, nothing changed`);
+    } else {
+      rememberLastRun(app.name);
     }
     return;
   }
@@ -795,6 +818,8 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
     link: options.submit ? "https://play.google.com/console" : undefined,
     log,
   });
+  // Remember the app built so the next run's picker pre-selects it (Android has no marketing-bump prompt).
+  rememberLastRun(app.name);
 }
 
 /** What {@link BuildEngine.build} resolves to — named so the build-log wrapper can pass it through. */
@@ -855,12 +880,34 @@ async function storeArtifact(
   log.step("store", stored.location);
 }
 
-/** Nudge (once, before building) when ccache is absent — the build still runs, just uncached. */
+/** The one-line notice when a build runs uncached. No fabricated multiplier — we have no measured baseline. */
+const CCACHE_NOTICE =
+  "ccache isn't installed — this build runs uncached. `launch doctor --fix` (or brew install ccache) speeds up repeat builds.";
+
+/**
+ * Before building, when ccache is missing, offer to install it inline (interactive only) so this build —
+ * and every later one — is cached. Degrades to a one-line notice in CI / without Homebrew; once the offer
+ * is declined it's remembered, so later builds show the notice but never re-prompt. Reuses doctor's
+ * install+configure path via {@link ensureCcacheInstalled}, and never blocks or fails the build.
+ */
 async function nudgeIfNoCcache(log: Logger): Promise<void> {
-  if (!(await exists("ccache"))) {
-    log.warn(
-      "ccache isn't installed — this build won't be cached. Run `launch doctor --fix` to speed up future builds.",
-    );
+  if (await exists("ccache")) return;
+  if (ccacheOfferDeclined()) {
+    log.warn(CCACHE_NOTICE);
+    return;
+  }
+  switch (await ensureCcacheInstalled({ interactive: isInteractive() })) {
+    case "installed":
+      log.step("ccache", "installed + configured — this build is now cached", "ccache");
+      return;
+    case "declined":
+      markCcacheOfferDeclined();
+      log.warn(CCACHE_NOTICE);
+      return;
+    case "skipped-no-brew":
+    case "skipped-noninteractive":
+      log.warn(CCACHE_NOTICE);
+      return;
   }
 }
 
@@ -925,79 +972,64 @@ export async function nextBuildNumber(
   return (await asc.getLatestBuildNumber(bundleId)) + 1;
 }
 
-/** Sentinel `select` values for the two non-numeric choices in the version prompt. */
-const KEEP_VERSION = "__keep__";
-const CUSTOM_VERSION = "__custom__";
+/**
+ * How the marketing-version bump gets chosen for one run. `apply` carries the resolved {@link BumpKind}
+ * and where it came from; `prompt` runs the interactive picker; `leave` keeps the app-config version as-is.
+ */
+export type BumpResolution =
+  | { mode: "apply"; kind: BumpKind; source: "flag" | "remembered" }
+  | { mode: "prompt" }
+  | { mode: "leave" };
 
 /**
- * Suggest — and apply — the app's marketing version before the build, from what's already on the
- * store. Queries App Store Connect for the highest existing version (App Store + TestFlight), proposes
- * the next patch / minor / major above it (never below the app's own config version), and lets the
- * developer pick, keep the current one, or type one. The choice is stamped into Info.plist and
- * persisted to a static `app.json`, and mirrored onto `app.version` so every later step (the size
- * confirm, the receipt) reports it — giving a deliberate, collision-free version each release.
- *
- * Interactive uploads only: a dry-run rehearses the step with no network, and `--yes` / CI / a
- * non-TTY leave the config version untouched (versions are set deliberately there, not via a prompt).
+ * Decide how to pick the version bump, by precedence: an explicit `--bump` kind wins and applies even
+ * non-interactively (so the version is scriptable in CI); otherwise, when we can prompt, `--bump ask`
+ * forces the picker, a remembered pick auto-applies, and a first run prompts; when we can't prompt and
+ * no flag was given, the app-config version is left untouched. Pure → testable with no store round-trip.
  */
-async function resolveMarketingVersion(
-  ascKey: AppleCredentials["ascKey"],
-  bundleId: string,
-  app: AppDescriptor,
-  options: BuildRunOptions,
-  log: Logger,
-): Promise<void> {
-  const current = app.version ?? "0.0.0";
+export function resolveBumpKind(args: {
+  flag: BumpKind | "ask" | undefined;
+  remembered: BumpKind | undefined;
+  canPrompt: boolean;
+}): BumpResolution {
+  if (args.flag && args.flag !== "ask") return { mode: "apply", kind: args.flag, source: "flag" };
+  if (!args.canPrompt) return { mode: "leave" };
+  if (args.flag === "ask") return { mode: "prompt" };
+  if (args.remembered) return { mode: "apply", kind: args.remembered, source: "remembered" };
+  return { mode: "prompt" };
+}
 
-  if (options.dryRun) {
-    log.step(
-      "version",
-      `would suggest the next version above the store's latest (config has ${current})`,
-      "marketing-version",
-    );
-    return;
-  }
-  if (options.yes || !isInteractive()) {
-    log.step(
-      "version",
-      `${current} (from app config; not prompting under --yes / non-interactive)`,
-      "marketing-version",
-    );
-    return;
-  }
-
-  const latest = bundleId
-    ? await withSpinner("Checking versions already on App Store Connect", () =>
-        new AppStoreConnectClient(ascKey).getLatestMarketingVersion(bundleId),
-      )
-    : null;
-
-  // Never propose at or below what's already on the store or what the app config already declares.
-  const baseline = highestVersion([latest, current].filter((v): v is string => v !== null)) ?? current;
+/**
+ * The interactive version picker: patch/minor/major above the baseline, keep the current, or type a
+ * custom one. Returns the resolved version and its {@link BumpKind} — `undefined` for a typed "Custom…"
+ * version, which has no kind and so is never remembered. Cancelling (Ctrl-C) exits cleanly.
+ */
+async function promptVersion(
+  baseline: string,
+  current: string,
+  latest: string | null,
+): Promise<{ chosen: string; kind: BumpKind | undefined }> {
   const patch = nextVersion(baseline, "patch");
   const minor = nextVersion(baseline, "minor");
   const major = nextVersion(baseline, "major");
-
-  const choice = await select({
+  const choice = await select<BumpKind | "custom">({
     message: latest
       ? `App Store Connect's latest is ${latest}. Which version ships next?`
       : "No versions on App Store Connect yet. Which version ships?",
-    initialValue: latest ? patch : KEEP_VERSION,
+    initialValue: latest ? "patch" : "keep",
     options: [
-      { value: patch, label: `Patch  → ${patch}`, hint: "bug fixes" },
-      { value: minor, label: `Minor  → ${minor}`, hint: "new features" },
-      { value: major, label: `Major  → ${major}`, hint: "breaking changes" },
-      { value: KEEP_VERSION, label: `Keep   → ${current}`, hint: "reuse the app config version" },
-      { value: CUSTOM_VERSION, label: "Custom…", hint: "type a version" },
+      { value: "patch", label: `Patch  → ${patch}`, hint: "bug fixes" },
+      { value: "minor", label: `Minor  → ${minor}`, hint: "new features" },
+      { value: "major", label: `Major  → ${major}`, hint: "breaking changes" },
+      { value: "keep", label: `Keep   → ${current}`, hint: "reuse the app config version" },
+      { value: "custom", label: "Custom…", hint: "type a version" },
     ],
   });
   if (isCancel(choice)) {
     cancel("Cancelled.");
     process.exit(0);
   }
-
-  let chosen: string;
-  if (choice === CUSTOM_VERSION) {
+  if (choice === "custom") {
     const typed = await text({
       message: "Version (MAJOR.MINOR.PATCH):",
       initialValue: patch,
@@ -1008,25 +1040,97 @@ async function resolveMarketingVersion(
       process.exit(0);
     }
     const parsed = parseVersion(typed);
-    chosen = parsed ? formatVersion(parsed) : typed.trim();
-  } else if (choice === KEEP_VERSION) {
-    chosen = current;
-  } else {
-    chosen = choice;
+    return { chosen: parsed ? formatVersion(parsed) : typed.trim(), kind: undefined };
   }
+  if (choice === "keep") return { chosen: current, kind: "keep" };
+  return { chosen: nextVersion(baseline, choice), kind: choice };
+}
 
+/**
+ * Stamp the resolved version into Info.plist + a static app.json, mirror it onto `app.version` so every
+ * later step reports it, warn when it doesn't increment the store's latest, and log the step. `note`
+ * explains the source (e.g. `patch, remembered`) so the line is self-documenting.
+ */
+async function applyChosenVersion(
+  app: AppDescriptor,
+  chosen: string,
+  latest: string | null,
+  note: string,
+  log: Logger,
+): Promise<void> {
   if (latest && compareVersions(chosen, latest) <= 0) {
     log.warn(
       `${chosen} doesn't increment the store's ${latest} — fine for another TestFlight build, but the App Store rejects a release that reuses a version.`,
     );
   }
-
   const stamped = await setIosMarketingVersion(app.dir, chosen);
   const persisted = writeAppVersion(app, chosen);
   app.version = chosen;
   const notes = [persisted ? "app config updated" : "app config not written (dynamic config)"];
   if (!stamped) notes.push("Info.plist not stamped");
-  log.step("version", `${chosen} (${notes.join("; ")})`, "marketing-version");
+  log.step("version", `${chosen} (${note}; ${notes.join("; ")})`, "marketing-version");
+}
+
+/**
+ * Resolve — and apply — the app's marketing version before the build. By precedence (see
+ * {@link resolveBumpKind}): an explicit `--bump`, a remembered pick (auto-applied, no prompt), the
+ * interactive picker, or — under `--yes`/CI with no flag — the app-config version untouched. The chosen
+ * version is computed above the store's latest (App Store + TestFlight) and the app's own version, then
+ * stamped into Info.plist + app config and mirrored onto `app.version` so every later step reports it.
+ * Returns the {@link BumpKind} applied (for remembering on success), or `undefined` when nothing was
+ * applied or a one-off Custom version was typed.
+ */
+async function resolveMarketingVersion(
+  ascKey: AppleCredentials["ascKey"],
+  bundleId: string,
+  app: AppDescriptor,
+  options: BuildRunOptions,
+  log: Logger,
+): Promise<BumpKind | undefined> {
+  const current = app.version ?? "0.0.0";
+
+  if (options.dryRun) {
+    log.step(
+      "version",
+      `would suggest the next version above the store's latest (config has ${current})`,
+      "marketing-version",
+    );
+    return undefined;
+  }
+
+  const decision = resolveBumpKind({
+    flag: options.bump,
+    remembered: readLastBump(app.name),
+    canPrompt: isInteractive() && options.yes !== true,
+  });
+  if (decision.mode === "leave") {
+    log.step(
+      "version",
+      `${current} (from app config; not prompting under --yes / non-interactive)`,
+      "marketing-version",
+    );
+    return undefined;
+  }
+
+  const latest = bundleId
+    ? await withSpinner("Checking versions already on App Store Connect", () =>
+        new AppStoreConnectClient(ascKey).getLatestMarketingVersion(bundleId),
+      )
+    : null;
+  // Never propose at or below what's already on the store or what the app config already declares.
+  const baseline = highestVersion([latest, current].filter((v): v is string => v !== null)) ?? current;
+
+  if (decision.mode === "prompt") {
+    const { chosen, kind } = await promptVersion(baseline, current, latest);
+    await applyChosenVersion(app, chosen, latest, kind ?? "custom", log);
+    return kind;
+  }
+
+  // apply (flag or remembered): compute the version from the kind.
+  const chosen = decision.kind === "keep" ? current : nextVersion(baseline, decision.kind);
+  const source = decision.source === "flag" ? "--bump" : "remembered";
+  await applyChosenVersion(app, chosen, latest, `${decision.kind}, ${source}`, log);
+  return decision.kind;
 }
 
 /**

@@ -23,6 +23,13 @@ import type {
 } from "../../core/types.js";
 import { capture, run } from "../../core/exec.js";
 import { runWithProgress, gradleProgressStep } from "../../core/progress.js";
+import { estimateFor, readBuildState, updateEstimate, writeBuildState } from "../../core/buildFingerprint.js";
+
+/**
+ * The single ETA baseline key for Android. Unlike iOS there's no clean/incremental split — Gradle tracks
+ * its own task inputs/outputs, so every build learns one "default" estimate (see {@link BuildEstimate}).
+ */
+const ANDROID_ESTIMATE_KIND = "default";
 
 /** Locate the Gradle wrapper for the platform; absolute path so `spawn` needs no shell to resolve it. */
 function gradleWrapper(androidDir: string): string {
@@ -132,8 +139,11 @@ export const gradleBuildEngine: BuildEngine = {
     const internal = ctx.distribution === "internal";
     const assembleTask = internal ? ":app:assembleRelease" : ":app:bundleRelease";
 
+    const stored = readBuildState(ctx.app.name, "android");
+    const estimate = estimateFor(stored, ANDROID_ESTIMATE_KIND);
+
     // Sign the artifact with the resolved upload key via AGP's injected-signing properties (no build.gradle edit).
-    await runWithProgress(
+    const buildRun = await runWithProgress(
       wrapper,
       [
         ...(cleanBuilt ? [":app:clean"] : []),
@@ -143,8 +153,26 @@ export const gradleBuildEngine: BuildEngine = {
         `-Pandroid.injected.signing.key.alias=${keystore.alias}`,
         `-Pandroid.injected.signing.key.password=${keystore.keyPassword}`,
       ],
-      { label: `Building Android · ${ctx.app.name}`, parseStep: gradleProgressStep, cwd: androidDir, env: ctx.env },
+      {
+        label: `Building Android · ${ctx.app.name}`,
+        parseStep: gradleProgressStep,
+        ...(estimate ? { estimate } : {}),
+        cwd: androidDir,
+        env: ctx.env,
+      },
     );
+
+    // Learn this build's duration/Gradle-task count into the one "default" baseline so the next ETA improves.
+    // Android has no native fingerprint (Gradle owns incrementality), so it's stored empty; stream mode
+    // reports 0 steps (output unparsed), so carry the prior step total forward.
+    const prior = stored?.estimates?.[ANDROID_ESTIMATE_KIND];
+    const sample = { ms: buildRun.elapsedMs, steps: buildRun.steps > 0 ? buildRun.steps : (prior?.steps ?? 0) };
+    writeBuildState(ctx.app.name, "android", {
+      fingerprint: "",
+      builtAt: new Date().toISOString(),
+      cleanBuilt,
+      estimates: { ...(stored?.estimates ?? {}), [ANDROID_ESTIMATE_KIND]: updateEstimate(prior, sample) },
+    });
 
     // An .apk's on-disk size is essentially the download (no Play splits), so report it directly;
     // an .aab gets the bundletool worst-case estimate (the .aab file size is NOT the download).
