@@ -25,8 +25,8 @@ const ipa: BuildArtifact = {
 const keystore: KeystoreAssets = {
   path: "/ks/upload.jks",
   alias: "upload",
-  storePassword: "supersecret",
-  keyPassword: "keysecret",
+  storePassword: "test-store-pw",
+  keyPassword: "test-key-pw",
 };
 
 describe("resignOutputPath", () => {
@@ -68,8 +68,8 @@ describe("androidResignSpec", () => {
       "env:LAUNCH_KS_KEYPASS",
       "/out.apk",
     ]);
-    expect(spec.args).not.toContain("supersecret");
-    expect(spec.env["LAUNCH_KS_STOREPASS"]).toBe("supersecret");
+    expect(spec.args).not.toContain("test-store-pw");
+    expect(spec.env["LAUNCH_KS_STOREPASS"]).toBe("test-store-pw");
   });
 
   it("uses jarsigner for an .aab, alias last, passwords via :env", () => {
@@ -78,7 +78,7 @@ describe("androidResignSpec", () => {
     expect(spec.args).toContain("-storepass:env");
     expect(spec.args).toContain("LAUNCH_KS_STOREPASS");
     expect(spec.args[spec.args.length - 1]).toBe("upload");
-    expect(spec.args).not.toContain("supersecret");
-    expect(spec.env["LAUNCH_KS_KEYPASS"]).toBe("keysecret");
+    expect(spec.args).not.toContain("test-store-pw");
+    expect(spec.env["LAUNCH_KS_KEYPASS"]).toBe("test-key-pw");
   });
 });
