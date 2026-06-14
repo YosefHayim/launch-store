@@ -32,6 +32,7 @@ import { registerRunCommand } from "./commands/run.js";
 import { registerFingerprintCommand } from "./commands/fingerprint.js";
 import { registerDiagnoseCommand } from "./commands/diagnose.js";
 import { registerResignCommand } from "./commands/resign.js";
+import { registerSetupCommand } from "./commands/setup.js";
 import { runWizard } from "./commands/wizard.js";
 
 /**
@@ -65,6 +66,7 @@ registerSecretCommand(program);
 registerMetadataCommand(program);
 registerSyncCommand(program);
 registerDeviceCommand(program);
+registerSetupCommand(program);
 registerDoctorCommand(program);
 registerExplainCommand(program);
 registerUpdateCommand(program);
