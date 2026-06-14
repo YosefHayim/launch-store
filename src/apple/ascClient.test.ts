@@ -1238,6 +1238,109 @@ describe("Apple Pay / Wallet identifiers", () => {
   });
 });
 
+describe("Game Center", () => {
+  it("returns null when the app has no Game Center detail yet (404)", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(404, JSON.stringify({ errors: [{ title: "Not Found" }] })));
+    expect(await client.getGameCenterDetail("app-1")).toBeNull();
+    expect(fetchMock.mock.calls[0]![0]).toContain("/apps/app-1/gameCenterDetail");
+  });
+
+  it("enables Game Center by creating a detail with the app relationship", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(201, JSON.stringify({ data: { id: "gc-1", attributes: {} } })));
+    const detail = await client.createGameCenterDetail("app-1");
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body as string);
+    expect(body.data.relationships.app.data).toEqual({ type: "apps", id: "app-1" });
+    expect(detail).toEqual({ id: "gc-1" });
+  });
+
+  it("creates a V2 achievement with an inline version and returns the real version id", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        201,
+        JSON.stringify({
+          data: {
+            id: "ach-1",
+            relationships: { versions: { data: [{ type: "gameCenterAchievementVersions", id: "ver-real" }] } },
+          },
+        }),
+      ),
+    );
+    const result = await client.createGameCenterAchievement("gc-1", {
+      referenceName: "First Win",
+      vendorIdentifier: "first_win",
+      points: 10,
+      showBeforeEarned: false,
+      repeatable: false,
+    });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/v2/gameCenterAchievements");
+    const body = JSON.parse(init.body as string);
+    // temp-id appears in both the versions relationship and the included inline version (the offer-code pattern).
+    expect(body.data.relationships.versions.data[0].id).toBe("version-0");
+    expect(body.included[0]).toEqual({ type: "gameCenterAchievementVersions", id: "version-0" });
+    expect(body.data.relationships.gameCenterDetail.data).toEqual({ type: "gameCenterDetails", id: "gc-1" });
+    expect(result).toEqual({ id: "ach-1", versionId: "ver-real" });
+  });
+
+  it("returns a null version id when Apple's create response omits the versions relationship", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(201, JSON.stringify({ data: { id: "ach-2", relationships: {} } })));
+    const result = await client.createGameCenterAchievement("gc-1", {
+      referenceName: "x",
+      vendorIdentifier: "x",
+      points: 1,
+      showBeforeEarned: false,
+      repeatable: false,
+    });
+    expect(result.versionId).toBeNull();
+  });
+
+  it("attaches an achievement localization to the version", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(201, JSON.stringify({ data: { id: "loc-1", attributes: {} } })));
+    await client.createGameCenterAchievementLocalization("ver-real", {
+      locale: "en-US",
+      name: "First Win",
+      beforeEarnedDescription: "Win a game",
+      afterEarnedDescription: "You won!",
+    });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/v2/gameCenterAchievementLocalizations");
+    const body = JSON.parse(init.body as string);
+    expect(body.data.attributes).toEqual({
+      locale: "en-US",
+      name: "First Win",
+      beforeEarnedDescription: "Win a game",
+      afterEarnedDescription: "You won!",
+    });
+    expect(body.data.relationships.version.data).toEqual({ type: "gameCenterAchievementVersions", id: "ver-real" });
+  });
+
+  it("creates a V2 leaderboard with its attributes and an inline version", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        201,
+        JSON.stringify({
+          data: {
+            id: "lb-1",
+            relationships: { versions: { data: [{ type: "gameCenterLeaderboardVersions", id: "lv-real" }] } },
+          },
+        }),
+      ),
+    );
+    const result = await client.createGameCenterLeaderboard("gc-1", {
+      referenceName: "High Score",
+      vendorIdentifier: "high_score",
+      defaultFormatter: "INTEGER",
+      submissionType: "BEST_SCORE",
+      scoreSortType: "DESC",
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body as string);
+    expect(body.data.attributes.defaultFormatter).toBe("INTEGER");
+    expect(body.data.attributes.scoreSortType).toBe("DESC");
+    expect(body.included[0].type).toBe("gameCenterLeaderboardVersions");
+    expect(result).toEqual({ id: "lb-1", versionId: "lv-real" });
+  });
+});
+
 describe("describeErrors", () => {
   it("joins Apple's error details, falling back to titles", () => {
     expect(describeErrors(JSON.stringify({ errors: [{ detail: "d1" }, { title: "t2" }] }))).toBe("d1; t2");
