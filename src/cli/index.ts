@@ -23,6 +23,7 @@ import { registerMetadataCommand } from "./commands/metadata.js";
 import { registerSyncCommand } from "./commands/sync.js";
 import { registerReviewsCommand } from "./commands/reviews.js";
 import { registerReportsCommand } from "./commands/reports.js";
+import { registerReleaseConfigCommand } from "./commands/releaseConfig.js";
 import { registerDeviceCommand } from "./commands/device.js";
 import { registerTestflightCommand } from "./commands/testflight.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
@@ -37,6 +38,7 @@ import { registerRunCommand } from "./commands/run.js";
 import { registerFingerprintCommand } from "./commands/fingerprint.js";
 import { registerDiagnoseCommand } from "./commands/diagnose.js";
 import { registerResignCommand } from "./commands/resign.js";
+import { registerSetupCommand } from "./commands/setup.js";
 import { runWizard } from "./commands/wizard.js";
 
 /**
@@ -73,8 +75,10 @@ registerMetadataCommand(program);
 registerSyncCommand(program);
 registerReviewsCommand(program);
 registerReportsCommand(program);
+registerReleaseConfigCommand(program);
 registerDeviceCommand(program);
 registerTestflightCommand(program);
+registerSetupCommand(program);
 registerDoctorCommand(program);
 registerExplainCommand(program);
 registerUpdateCommand(program);

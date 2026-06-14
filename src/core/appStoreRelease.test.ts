@@ -53,6 +53,7 @@ function input(overrides: Partial<ReleaseInput> = {}): ReleaseInput {
     usesNonExemptEncryption: false,
     whatsNew: { "en-US": "Bug fixes." },
     build: VALID_BUILD,
+    dryRun: false,
     ...overrides,
   };
 }
@@ -165,6 +166,42 @@ describe("releaseApp — submit an update over the API", () => {
     const processing: BuildResource = { id: "b-2", version: "43", processingState: "PROCESSING", expired: false };
     await expect(releaseApp(api, input({ build: processing }))).rejects.toThrow(/still processing|PROCESSING/);
     expect(api.selectBuildForVersion).not.toHaveBeenCalled();
+  });
+
+  it("plans every step in a dry-run without performing any write", async () => {
+    const api = makeApi();
+    const report = await releaseApp(api, input({ dryRun: true }));
+
+    for (const write of [
+      api.createAppStoreVersion,
+      api.selectBuildForVersion,
+      api.setBuildUsesNonExemptEncryption,
+      api.createAppStoreVersionLocalization,
+      api.createReviewSubmission,
+      api.addReviewSubmissionItem,
+      api.submitReviewSubmission,
+    ]) {
+      expect(write).not.toHaveBeenCalled();
+    }
+    expect(report.submitted).toBe(false);
+    expect(report.actions.length).toBeGreaterThan(0);
+    expect(report.actions.every((action) => action.status === "planned")).toBe(true);
+    expect(report.actions.map((action) => action.description)).toContain("create App Store version 1.2.0");
+  });
+
+  it("captures a failed step and keeps going (one failure no longer aborts the rest)", async () => {
+    const api = makeApi({
+      listAppStoreVersions: vi
+        .fn()
+        .mockResolvedValue([{ id: "v5", versionString: "1.2.0", appStoreState: "PREPARE_FOR_SUBMISSION" }]),
+      selectBuildForVersion: vi.fn().mockRejectedValue(new Error("build attach boom")),
+    });
+    const report = await releaseApp(api, input());
+
+    const attach = report.actions.find((action) => action.description.startsWith("attach build"));
+    expect(attach).toMatchObject({ status: "failed", error: expect.stringContaining("boom") });
+    // The walk continued past the failure all the way to submit.
+    expect(api.submitReviewSubmission).toHaveBeenCalled();
   });
 });
 
