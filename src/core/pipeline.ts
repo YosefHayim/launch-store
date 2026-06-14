@@ -34,6 +34,7 @@ import type {
 import { refreshIdentityIfStale, resolveBuildAccount, setActiveKeyId } from "./accounts.js";
 import { loadConfig, writeAppVersion } from "./config.js";
 import { checkApp, formatFinding } from "./configCheck.js";
+import { resolveBuildSecrets } from "./buildSecrets.js";
 import { pickOne } from "./prompt.js";
 import { compareVersions, formatVersion, highestVersion, nextVersion, parseVersion } from "./version.js";
 import { loadDotenvFile, missingKeys, secretLookingKeys } from "./env.js";
@@ -337,15 +338,27 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
   const remoteSuffix = options.remote ? (options.remote.kind === "aws" ? " · remote(aws)" : " · remote(ssh)") : "";
   log.step("config", `${app.name} · ${profile.name} · ${platform}${dryRun ? " · dry-run" : ""}${remoteSuffix}`);
 
-  // Validate env against .env.example before doing any expensive work.
-  const env = loadDotenvFile(join(app.dir, profile.envFile ?? ".env"));
+  // Validate env against .env.example before doing any expensive work. Keychain-backed secrets are
+  // merged over .env (stored secrets win) so a documented key moved out of plaintext into `launch
+  // secret` still satisfies the .env.example check and reaches the build.
+  const dotenvEnv = loadDotenvFile(join(app.dir, profile.envFile ?? ".env"));
+  const secrets = await resolveBuildSecrets(app.name, profile.name);
+  const env = { ...dotenvEnv, ...secrets };
   const missing = missingKeys(app.dir, env);
   if (missing.length > 0)
     throw new Error(`Missing env keys (in .env.example, absent from .env): ${missing.join(", ")}`);
-  for (const name of secretLookingKeys(env)) {
-    log.warn(`"${name}" looks like a backend secret — it would be bundled into the app. Keep secrets out of .env.`);
+  // Only nag about secret-looking names sitting in plaintext .env — keychain secrets are meant to be secret.
+  for (const name of secretLookingKeys(dotenvEnv)) {
+    log.warn(
+      `"${name}" looks like a backend secret — it would be bundled into the app. Store it with \`launch secret set ${name}\`.`,
+    );
   }
-  log.step("env", `${Object.keys(env).length} vars validated`, "env-vars");
+  const secretCount = Object.keys(secrets).length;
+  log.step(
+    "env",
+    `${Object.keys(env).length} vars validated${secretCount > 0 ? ` (${secretCount} from keychain)` : ""}`,
+    "env-vars",
+  );
 
   // Preflight the app config against known native-config footguns, before any expensive native work.
   // Warnings are surfaced; a build-breaking error (an invalid bundle id / package, a splash with no
