@@ -105,3 +105,4 @@ your terminal.
 ## Build-time env
 
 - **build-time env** — Launch loads `.env` for the chosen profile and exposes those values to the app. There's no `EXPO_PUBLIC_` guard, so anything in `.env` can reach the shipped bundle — keep backend secrets out; Launch warns on secret-looking names.
+- **env precedence** — `build`, `release`, and `update` resolve env through one ladder, so a value never differs between commands. Highest wins: `--env` flags › keychain secrets › profile `env:` › `.env.local` (only with `--include-local`) › `.env.<profile>` › `.env`. `--print-env` prints the resolved values (secrets masked) and which layer each came from; `.env.local` is never loaded unless you opt in.

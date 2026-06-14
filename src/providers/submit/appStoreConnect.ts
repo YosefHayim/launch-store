@@ -19,7 +19,7 @@ export const appStoreConnectSubmitter: Submitter = {
     artifactPath: string,
     target: SubmitTarget,
     creds: BuildCredentials,
-    _ctx: ResolvedBuildContext,
+    ctx: ResolvedBuildContext,
   ): Promise<void> {
     if (creds.platform !== "ios") throw new Error("The app-store-connect submitter handles iOS only.");
     const apiKeyPath = writeAscApiKeyFile(creds.ascKey);
@@ -47,7 +47,8 @@ export const appStoreConnectSubmitter: Submitter = {
               "--force",
               "true",
             ];
-      await run("fastlane", args);
+      // Resolved env (profile env: / .env / keychain / --env) reaches fastlane as its process env.
+      await run("fastlane", args, { env: ctx.env });
     } finally {
       rmSync(apiKeyPath, { force: true });
     }

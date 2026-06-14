@@ -38,7 +38,7 @@ import { resolveBuildSecrets } from "./buildSecrets.js";
 import { notifyCompletion, type NotifyEvent } from "./notify.js";
 import { pickOne } from "./prompt.js";
 import { compareVersions, formatVersion, highestVersion, nextVersion, parseVersion } from "./version.js";
-import { loadDotenvFile, missingKeys, secretLookingKeys } from "./env.js";
+import { ENV_SOURCE, formatEnvTable, missingKeys, resolveEnv, secretLookingKeys, type ResolvedEnv } from "./env.js";
 import { beginBuildLog, buildLogId, endBuildLog } from "./buildLog.js";
 import { getBuildEngine, getCredentialsProvider, getSubmitter } from "./registry.js";
 import { resolveStorageProvider } from "./storage.js";
@@ -81,6 +81,12 @@ export interface BuildRunOptions {
   account?: string;
   /** How to distribute (`--distribution`): `store` (default, TestFlight/Play) or `internal` (ad-hoc install link). */
   distribution?: Distribution;
+  /** Inline env overrides from repeated `--env KEY=VAL`; the highest-precedence layer. */
+  envOverrides?: Record<string, string>;
+  /** Opt into `.env.local` (`--include-local`); off by default to avoid surprise local env. */
+  includeLocal?: boolean;
+  /** Print the resolved env provenance table (`--print-env`) and exit without building. */
+  printEnv?: boolean;
 }
 
 /**
@@ -325,9 +331,71 @@ async function resolveKeystore(
 }
 
 /**
+ * Resolve the layered env for any command (build / release / update) from an app + profile: keychain
+ * secrets resolved here, then handed with the dotenv files, inline `profile.env`, and `--env` flags to
+ * the one precedence ladder in {@link resolveEnv}. The single place keychain meets the resolver, so
+ * every command injects identical env (issue #25). Pure resolver stays keychain-free for testability.
+ */
+export async function resolveCommandEnv(input: {
+  app: AppDescriptor;
+  profile: BuildProfile;
+  cliEnv?: Record<string, string> | undefined;
+  includeLocal?: boolean | undefined;
+}): Promise<ResolvedEnv> {
+  const secrets = await resolveBuildSecrets(input.app.name, input.profile.name);
+  return resolveEnv({
+    appDir: input.app.dir,
+    profileName: input.profile.name,
+    profileEnv: input.profile.env,
+    envFile: input.profile.envFile,
+    secrets,
+    cliEnv: input.cliEnv,
+    includeLocal: input.includeLocal,
+  });
+}
+
+/**
+ * Gate + warn on a resolved env before an artifact-baking command (build, update): hard-fail on any
+ * `.env.example` key that's missing, then warn about secret-looking names coming from a plaintext
+ * source (dotenv files / inline `env:`) since they'd be bundled into the app. Keychain secrets and
+ * `--env` flags are exempt — the former are meant to be secret, the latter an explicit override.
+ * Release does NOT call this: it promotes a prebuilt artifact, so its env never bakes into the app.
+ */
+export function validateResolvedEnv(appDir: string, resolved: ResolvedEnv, log: Logger): void {
+  const missing = missingKeys(appDir, resolved.values);
+  if (missing.length > 0) {
+    throw new Error(`Missing env keys (in .env.example, absent from your env): ${missing.join(", ")}`);
+  }
+  for (const name of secretLookingKeys(resolved.values)) {
+    const source = resolved.sources[name];
+    if (source === ENV_SOURCE.secret || source === ENV_SOURCE.flag) continue;
+    log.warn(
+      `"${name}" looks like a backend secret (from ${source}) — it would be bundled into the app. Store it with \`launch secret set ${name}\`.`,
+    );
+  }
+}
+
+/**
+ * Resolve env exactly as a build would and print the masked provenance table (`--print-env`), with no
+ * config preflight or build work — a clean "what env will be injected, and from where" preview.
+ */
+async function previewEnv(options: BuildRunOptions): Promise<void> {
+  const { config, apps } = await loadConfig();
+  const app = await selectApp(apps, options.appName);
+  const profile = config.profiles[options.profileName] ?? { name: options.profileName, sizeBudgetMB: 200 };
+  const resolved = await resolveCommandEnv({
+    app,
+    profile,
+    cliEnv: options.envOverrides,
+    includeLocal: options.includeLocal,
+  });
+  console.log(formatEnvTable(resolved));
+}
+
+/**
  * Resolve the shared front half of a build: config, the chosen app, the profile, a validated env, a
  * logger, and the {@link ResolvedBuildContext}. Identical for iOS and Android — every build path
- * (local, remote, EAS) starts here so app selection and `.env` validation never drift; the platforms
+ * (local, remote, EAS) starts here so app selection and env validation never drift; the platforms
  * diverge only in HOW they build (see {@link runIosBuild} / {@link runAndroidBuild}).
  */
 export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBuild> {
@@ -340,22 +408,16 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
   const remoteSuffix = options.remote ? (options.remote.kind === "aws" ? " · remote(aws)" : " · remote(ssh)") : "";
   log.step("config", `${app.name} · ${profile.name} · ${platform}${dryRun ? " · dry-run" : ""}${remoteSuffix}`);
 
-  // Validate env against .env.example before doing any expensive work. Keychain-backed secrets are
-  // merged over .env (stored secrets win) so a documented key moved out of plaintext into `launch
-  // secret` still satisfies the .env.example check and reaches the build.
-  const dotenvEnv = loadDotenvFile(join(app.dir, profile.envFile ?? ".env"));
-  const secrets = await resolveBuildSecrets(app.name, profile.name);
-  const env = { ...dotenvEnv, ...secrets };
-  const missing = missingKeys(app.dir, env);
-  if (missing.length > 0)
-    throw new Error(`Missing env keys (in .env.example, absent from .env): ${missing.join(", ")}`);
-  // Only nag about secret-looking names sitting in plaintext .env — keychain secrets are meant to be secret.
-  for (const name of secretLookingKeys(dotenvEnv)) {
-    log.warn(
-      `"${name}" looks like a backend secret — it would be bundled into the app. Store it with \`launch secret set ${name}\`.`,
-    );
-  }
-  const secretCount = Object.keys(secrets).length;
+  // Resolve + validate env before any expensive work, so a missing/secret-looking key fails fast.
+  const resolved = await resolveCommandEnv({
+    app,
+    profile,
+    cliEnv: options.envOverrides,
+    includeLocal: options.includeLocal,
+  });
+  const env = resolved.values;
+  validateResolvedEnv(app.dir, resolved, log);
+  const secretCount = Object.values(resolved.sources).filter((source) => source === ENV_SOURCE.secret).length;
   log.step(
     "env",
     `${Object.keys(env).length} vars validated${secretCount > 0 ? ` (${secretCount} from keychain)` : ""}`,
@@ -399,6 +461,10 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
  * Dry-runs never notify (they change nothing). See {@link dispatchBuild} for the path selection.
  */
 export async function runBuild(options: BuildRunOptions): Promise<void> {
+  if (options.printEnv) {
+    await previewEnv(options);
+    return;
+  }
   const prepared = await prepareBuild(options);
   try {
     await dispatchBuild(prepared, options);

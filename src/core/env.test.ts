@@ -2,7 +2,16 @@ import { describe, expect, it, afterEach } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadDotenvFile, missingKeys, parseDotenv, secretLookingKeys } from "./env.js";
+import {
+  ENV_SOURCE,
+  formatEnvTable,
+  loadDotenvFile,
+  missingKeys,
+  parseCliEnv,
+  parseDotenv,
+  resolveEnv,
+  secretLookingKeys,
+} from "./env.js";
 
 const tempDirs: string[] = [];
 function makeTempDir(): string {
@@ -78,5 +87,93 @@ describe("secretLookingKeys — gentle guard against bundling a secret", () => {
       APP_NAME: "x",
     });
     expect(flagged).toEqual([]);
+  });
+});
+
+describe("resolveEnv — the one precedence ladder", () => {
+  it("layers lowest→highest: .env < .env.<profile> < .env.local < profile env: < secrets < flags", () => {
+    const dir = makeTempDir();
+    writeFileSync(join(dir, ".env"), "A=base\nB=base\nC=base\nD=base\nE=base\nF=base\n");
+    writeFileSync(
+      join(dir, ".env.production"),
+      "B=profileFile\nC=profileFile\nD=profileFile\nE=profileFile\nF=profileFile\n",
+    );
+    writeFileSync(join(dir, ".env.local"), "C=local\nD=local\nE=local\nF=local\n");
+    const resolved = resolveEnv({
+      appDir: dir,
+      profileName: "production",
+      includeLocal: true,
+      profileEnv: { D: "profileInline", E: "profileInline", F: "profileInline" },
+      secrets: { E: "secret", F: "secret" },
+      cliEnv: { F: "flag" },
+    });
+    expect(resolved.values).toEqual({
+      A: "base",
+      B: "profileFile",
+      C: "local",
+      D: "profileInline",
+      E: "secret",
+      F: "flag",
+    });
+    expect(resolved.sources).toEqual({
+      A: ".env",
+      B: ".env.production",
+      C: ENV_SOURCE.local,
+      D: ENV_SOURCE.profile,
+      E: ENV_SOURCE.secret,
+      F: ENV_SOURCE.flag,
+    });
+  });
+
+  it("omits .env.local unless includeLocal is set", () => {
+    const dir = makeTempDir();
+    writeFileSync(join(dir, ".env"), "X=base\n");
+    writeFileSync(join(dir, ".env.local"), "X=local\n");
+    expect(resolveEnv({ appDir: dir, profileName: "production" }).values).toEqual({ X: "base" });
+    expect(resolveEnv({ appDir: dir, profileName: "production", includeLocal: true }).values).toEqual({ X: "local" });
+  });
+
+  it("renames the base file via envFile and still derives .env.<profile> by name", () => {
+    const dir = makeTempDir();
+    writeFileSync(join(dir, "custom.env"), "A=fromCustom\nB=fromCustom\n");
+    writeFileSync(join(dir, ".env.staging"), "B=fromProfileFile\n");
+    const resolved = resolveEnv({ appDir: dir, profileName: "staging", envFile: "custom.env" });
+    expect(resolved.values).toEqual({ A: "fromCustom", B: "fromProfileFile" });
+    expect(resolved.sources).toEqual({ A: "custom.env", B: ".env.staging" });
+  });
+
+  it("returns empty maps when nothing resolves", () => {
+    const resolved = resolveEnv({ appDir: makeTempDir(), profileName: "production" });
+    expect(resolved.values).toEqual({});
+    expect(resolved.sources).toEqual({});
+  });
+});
+
+describe("parseCliEnv — repeated --env KEY=VAL", () => {
+  it("splits on the first = and keeps = in the value", () => {
+    expect(parseCliEnv(["A=1", "DSN=postgres://u:p@h/db?x=1"])).toEqual({ A: "1", DSN: "postgres://u:p@h/db?x=1" });
+  });
+
+  it("throws on a pair with no = or an empty key", () => {
+    expect(() => parseCliEnv(["NOPE"])).toThrow(/Invalid --env/);
+    expect(() => parseCliEnv(["=value"])).toThrow(/empty/);
+  });
+});
+
+describe("formatEnvTable — masked provenance for --print-env", () => {
+  it("masks secret-looking names and keychain values, shows the rest, labels sources", () => {
+    const table = formatEnvTable({
+      values: { API_URL: "https://example.test", API_TOKEN: "tok_distinct", FEATURE: "kc_distinct" },
+      sources: { API_URL: ".env", API_TOKEN: ENV_SOURCE.flag, FEATURE: ENV_SOURCE.secret },
+    });
+    expect(table).toContain("https://example.test"); // non-secret value shown in full
+    expect(table).not.toContain("tok_distinct"); // secret-looking name masked even though it's a flag
+    expect(table).not.toContain("kc_distinct"); // keychain-sourced value masked even with an innocuous name
+    expect(table).toContain("••••••");
+    expect(table).toContain(".env");
+  });
+
+  it("reports when nothing resolved", () => {
+    expect(formatEnvTable({ values: {}, sources: {} })).toBe("(no env vars resolved)");
   });
 });

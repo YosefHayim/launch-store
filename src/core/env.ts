@@ -1,10 +1,16 @@
 /**
- * Build-time environment handling: `.env` (real values) validated against `.env.example`
- * (the committed template), with no `EXPO_PUBLIC_` prefix convention.
+ * Build-time environment handling: dotenv parsing, the one precedence ladder that every command
+ * resolves env through ({@link resolveEnv}), and the validation that runs before env is baked into an
+ * artifact. `.env` is validated against `.env.example` (the committed template), with no
+ * `EXPO_PUBLIC_` prefix convention.
  *
- * Two safety behaviors live here: fail BEFORE a build if a documented key is missing (so you
- * never burn a build discovering it), and warn on secret-looking names since, without a prefix
- * guard, anything in `.env` can be injected into the shipped app.
+ * Two safety behaviors live here: fail BEFORE a build if a documented key is missing (so you never
+ * burn a build discovering it), and warn on secret-looking names since, without a prefix guard,
+ * anything resolved can be injected into the shipped app.
+ *
+ * {@link resolveEnv} is deliberately PURE — keychain secrets are resolved by the caller and passed in
+ * — so the precedence rules unit-test without touching the OS keychain. `core/pipeline.ts`
+ * (`resolveCommandEnv`) is the one place that pairs it with the keychain.
  */
 
 import { readFileSync, existsSync } from "node:fs";
@@ -77,4 +83,110 @@ export function isSecretLookingName(name: string): boolean {
  */
 export function secretLookingKeys(env: Record<string, string>): string[] {
   return Object.keys(env).filter(isSecretLookingName);
+}
+
+/**
+ * Human-readable label for the layer a resolved value won from. Used as `ResolvedEnv.sources[key]`
+ * and rendered verbatim in the `--print-env` table, so it doubles as the documented precedence
+ * vocabulary. File layers carry their actual filename (`.env`, `.env.production`, `.env.local`).
+ */
+export const ENV_SOURCE = {
+  flag: "--env (flag)",
+  secret: "keychain secret",
+  profile: "profile env:",
+  local: ".env.local",
+} as const;
+
+/**
+ * The resolved build/update/release environment plus where each value came from.
+ *
+ * `values` is the flat map injected into the command's subprocess; `sources` maps each key to the
+ * winning layer's {@link ENV_SOURCE} label (or a `.env*` filename) for provenance in `--print-env`.
+ * The two maps always share the same keys.
+ */
+export interface ResolvedEnv {
+  values: Record<string, string>;
+  sources: Record<string, string>;
+}
+
+/**
+ * Inputs to {@link resolveEnv}. `secrets` (keychain) and `cliEnv` (`--env` flags) are pre-resolved by
+ * the caller; the dotenv files are read here from `appDir`. `includeLocal` opts `.env.local` in
+ * (off by default to avoid surprise local env). `envFile` renames the base file (default `.env`).
+ */
+export interface ResolveEnvInput {
+  appDir: string;
+  profileName: string;
+  profileEnv?: Record<string, string> | undefined;
+  envFile?: string | undefined;
+  secrets?: Record<string, string> | undefined;
+  cliEnv?: Record<string, string> | undefined;
+  includeLocal?: boolean | undefined;
+}
+
+/**
+ * Resolve env through the single precedence ladder (lowest → highest, later overrides earlier):
+ * `.env` (base) → `.env.<profile>` → `.env.local` (only with `includeLocal`) → profile `env:` →
+ * keychain secrets → `--env` flags. This is THE definition of env precedence for the whole CLI;
+ * build, release, and update all resolve through it so they never drift (issue #25). Pure: does no
+ * keychain or process work beyond reading the dotenv files.
+ */
+export function resolveEnv(input: ResolveEnvInput): ResolvedEnv {
+  const baseFile = input.envFile ?? ".env";
+  const layers: { source: string; vars: Record<string, string> }[] = [
+    { source: baseFile, vars: loadDotenvFile(join(input.appDir, baseFile)) },
+    { source: `.env.${input.profileName}`, vars: loadDotenvFile(join(input.appDir, `.env.${input.profileName}`)) },
+  ];
+  if (input.includeLocal) {
+    layers.push({ source: ENV_SOURCE.local, vars: loadDotenvFile(join(input.appDir, ".env.local")) });
+  }
+  layers.push({ source: ENV_SOURCE.profile, vars: input.profileEnv ?? {} });
+  layers.push({ source: ENV_SOURCE.secret, vars: input.secrets ?? {} });
+  layers.push({ source: ENV_SOURCE.flag, vars: input.cliEnv ?? {} });
+
+  const values: Record<string, string> = {};
+  const sources: Record<string, string> = {};
+  for (const layer of layers) {
+    for (const [key, value] of Object.entries(layer.vars)) {
+      values[key] = value;
+      sources[key] = layer.source;
+    }
+  }
+  return { values, sources };
+}
+
+/**
+ * Parse repeated `--env KEY=VALUE` flags into a map. Splits on the FIRST `=` so values may contain
+ * `=` (e.g. a DSN or base64). Throws on a pair with no `=` or an empty key so a typo fails loudly
+ * rather than silently dropping an override.
+ */
+export function parseCliEnv(pairs: string[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const pair of pairs) {
+    const eq = pair.indexOf("=");
+    if (eq === -1) throw new Error(`Invalid --env "${pair}". Use --env KEY=VALUE.`);
+    const key = pair.slice(0, eq).trim();
+    if (key === "") throw new Error(`Invalid --env "${pair}". The key is empty.`);
+    out[key] = pair.slice(eq + 1);
+  }
+  return out;
+}
+
+/**
+ * Render a resolved env as a masked provenance table for `--print-env`: `KEY  VALUE  SOURCE`, sorted
+ * by key. Values are masked when the name looks secret ({@link isSecretLookingName}) or came from the
+ * keychain — so the table is safe to paste — while non-secret values show in full for verification.
+ */
+export function formatEnvTable(resolved: ResolvedEnv): string {
+  const keys = Object.keys(resolved.values).sort();
+  if (keys.length === 0) return "(no env vars resolved)";
+  const rows = keys.map((key) => {
+    const masked = isSecretLookingName(key) || resolved.sources[key] === ENV_SOURCE.secret;
+    return { key, value: masked ? "••••••" : (resolved.values[key] ?? ""), source: resolved.sources[key] ?? "" };
+  });
+  const keyWidth = Math.max("KEY".length, ...rows.map((row) => row.key.length));
+  const valueWidth = Math.max("VALUE".length, ...rows.map((row) => row.value.length));
+  const header = `${"KEY".padEnd(keyWidth)}  ${"VALUE".padEnd(valueWidth)}  SOURCE`;
+  const lines = rows.map((row) => `${row.key.padEnd(keyWidth)}  ${row.value.padEnd(valueWidth)}  ${row.source}`);
+  return [header, "─".repeat(header.length), ...lines].join("\n");
 }

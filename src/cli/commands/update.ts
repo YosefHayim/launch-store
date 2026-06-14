@@ -17,7 +17,9 @@ import { join } from "node:path";
 import type { Command } from "commander";
 import type { AppDescriptor, LaunchConfig } from "../../core/types.js";
 import { loadConfig } from "../../core/config.js";
-import { selectApp } from "../../core/pipeline.js";
+import { resolveCommandEnv, selectApp, validateResolvedEnv } from "../../core/pipeline.js";
+import { formatEnvTable } from "../../core/env.js";
+import { addEnvFlags, envOverrides, type EnvFlags } from "../options.js";
 import { createLogger, type Logger } from "../../core/logger.js";
 import { runWithProgress } from "../../core/progress.js";
 import { isCloudStorage, resolveStorageProvider } from "../../core/storage.js";
@@ -39,10 +41,12 @@ interface ExportMetadata {
   fileMetadata: Record<string, { bundle: string; assets: { path: string; ext: string }[] }>;
 }
 
-interface UpdateOptions {
+interface UpdateOptions extends EnvFlags {
   channel: string;
   platform: string;
   app?: string;
+  /** Build profile whose env (`profile.env`, `.env.<profile>`) is baked into the exported bundle. */
+  profile: string;
   runtimeVersion?: string;
   /** commander sets this false when `--no-sign` is passed. */
   sign: boolean;
@@ -154,59 +158,75 @@ async function publishPlatform(
 
 /** Attach the `update` command to the program. */
 export function registerUpdateCommand(program: Command): void {
-  program
+  const command = program
     .command("update")
     .description("publish an over-the-air JS update (Expo Updates protocol) to your own bucket")
     .option("--channel <name>", "release channel testers/builds map to", "production")
     .option("--platform <p>", "ios, android, or all", "all")
     .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
+    .option("-p, --profile <name>", "build profile whose env is baked into the bundle", "production")
     .option("--runtime-version <v>", "runtime version this update targets (default: from app config)")
     .option("--no-sign", "publish unsigned (lower security floor — anyone who can write the bucket can push JS)")
-    .option("--dry-run", "rehearse: print the layout, worker, and app config without exporting or uploading", false)
-    .action(async (options: UpdateOptions) => {
-      const log = createLogger(false);
-      const platforms = platformsFor(options.platform);
-      const { config, apps } = await loadConfig();
-      const app = await selectApp(apps, options.app);
-      const runtimeVersion = resolveRuntimeVersion(app, options.runtimeVersion);
+    .option("--dry-run", "rehearse: print the layout, worker, and app config without exporting or uploading", false);
+  addEnvFlags(command).action(async (options: UpdateOptions) => {
+    const log = createLogger(false);
+    const platforms = platformsFor(options.platform);
+    const { config, apps } = await loadConfig();
+    const app = await selectApp(apps, options.app);
+    const profile = config.profiles[options.profile] ?? { name: options.profile };
+    const runtimeVersion = resolveRuntimeVersion(app, options.runtimeVersion);
 
-      if (!isCloudStorage(config)) {
-        throw new Error(
-          'OTA updates need a cloud storage provider. Set `storage: "s3"` (or `supabase`) + a `storageConfig` block in launch.config.ts.',
+    // Same env Launch would bake into a build, exported into this OTA bundle (issue #25).
+    const resolvedEnv = await resolveCommandEnv({
+      app,
+      profile,
+      cliEnv: envOverrides(options),
+      includeLocal: options.includeLocal,
+    });
+    if (options.printEnv) {
+      console.log(formatEnvTable(resolvedEnv));
+      return;
+    }
+    validateResolvedEnv(app.dir, resolvedEnv, log);
+
+    if (!isCloudStorage(config)) {
+      throw new Error(
+        'OTA updates need a cloud storage provider. Set `storage: "s3"` (or `supabase`) + a `storageConfig` block in launch.config.ts.',
+      );
+    }
+    log.step("config", `${app.name} · channel ${options.channel} · rtv ${runtimeVersion} · ${platforms.join("+")}`);
+
+    const storage = resolveStorageProvider(config);
+    const workerPath = "updates/_worker.js";
+
+    if (options.dryRun) {
+      for (const platform of platforms) {
+        log.step(
+          "update",
+          `would export + upload ${platform} manifest → updates/${options.channel}/${platform}/${runtimeVersion}/`,
+          "ota-update",
         );
       }
-      log.step("config", `${app.name} · channel ${options.channel} · rtv ${runtimeVersion} · ${platforms.join("+")}`);
-
-      const storage = resolveStorageProvider(config);
-      const workerPath = "updates/_worker.js";
-
-      if (options.dryRun) {
-        for (const platform of platforms) {
-          log.step(
-            "update",
-            `would export + upload ${platform} manifest → updates/${options.channel}/${platform}/${runtimeVersion}/`,
-            "ota-update",
-          );
-        }
-        log.info(`signing: ${options.sign ? "on (manifests code-signed)" : "off (--no-sign)"}`);
-        printAfterPublish(storage.publicUrl(workerPath), runtimeVersion, options.sign, log);
-        return;
-      }
-
-      const distDir = join(app.dir, "dist");
-      await runWithProgress("npx", ["expo", "export", "--output-dir", distDir], {
-        label: `Exporting JS bundle · ${app.name}`,
-        cwd: app.dir,
-      });
-      const metadata = readExportMetadata(distDir);
-      for (const platform of platforms) {
-        await publishPlatform(config, distDir, metadata, platform, options.channel, runtimeVersion, options.sign, log);
-      }
-
-      // Upload the edge worker so the static manifests are servable over the protocol.
-      await storage.putObject(workerPath, updatesWorkerScript(storage.publicUrl("")), "application/javascript");
+      log.info(`signing: ${options.sign ? "on (manifests code-signed)" : "off (--no-sign)"}`);
       printAfterPublish(storage.publicUrl(workerPath), runtimeVersion, options.sign, log);
+      return;
+    }
+
+    const distDir = join(app.dir, "dist");
+    await runWithProgress("npx", ["expo", "export", "--output-dir", distDir], {
+      label: `Exporting JS bundle · ${app.name}`,
+      cwd: app.dir,
+      env: resolvedEnv.values,
     });
+    const metadata = readExportMetadata(distDir);
+    for (const platform of platforms) {
+      await publishPlatform(config, distDir, metadata, platform, options.channel, runtimeVersion, options.sign, log);
+    }
+
+    // Upload the edge worker so the static manifests are servable over the protocol.
+    await storage.putObject(workerPath, updatesWorkerScript(storage.publicUrl("")), "application/javascript");
+    printAfterPublish(storage.publicUrl(workerPath), runtimeVersion, options.sign, log);
+  });
 }
 
 /** Print the post-publish next steps: deploy the worker, then wire the app's `updates` config once. */

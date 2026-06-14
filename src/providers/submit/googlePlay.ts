@@ -70,7 +70,8 @@ export const googlePlaySubmitter: Submitter = {
       ];
       // A partial rollout becomes a staged ("inProgress") release; a full one is left to complete.
       if (rollout < 1) args.push("--rollout", String(rollout));
-      await run("fastlane", args);
+      // Resolved env (profile env: / .env / keychain / --env) reaches fastlane as its process env.
+      await run("fastlane", args, { env: ctx.env });
     } finally {
       rmSync(jsonKeyPath, { force: true });
     }

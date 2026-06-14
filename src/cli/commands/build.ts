@@ -7,8 +7,9 @@ import type { Command } from "commander";
 import type { Distribution, PlayTrack, RemoteTarget } from "../../core/types.js";
 import { runBuild } from "../../core/pipeline.js";
 import { setVerboseOutput } from "../../core/progress.js";
+import { addEnvFlags, envOverrides, type EnvFlags } from "../options.js";
 
-interface BuildCommandOptions {
+interface BuildCommandOptions extends EnvFlags {
   profile: string;
   app?: string;
   explain: boolean;
@@ -79,7 +80,7 @@ function parseRollout(rollout: string | undefined): number | undefined {
 
 /** Attach the `build` command to the program. */
 export function registerBuildCommand(program: Command): void {
-  program
+  const command = program
     .command("build")
     .description("run the full pipeline and upload to the testing track (--no-submit to build only)")
     .argument("<platform>", "ios or android")
@@ -99,31 +100,34 @@ export function registerBuildCommand(program: Command): void {
     )
     .option("--dry-run", "rehearse every step and print what it would do, changing nothing", false)
     .option("-y, --yes", "skip the pre-upload size confirmation (auto-confirm)", false)
-    .option("-v, --verbose", "stream the full xcodebuild/gradle output instead of a progress spinner", false)
-    .action(async (platform: string, options: BuildCommandOptions) => {
-      if (platform !== "ios" && platform !== "android") {
-        throw new Error(`Unknown platform "${platform}". Use "ios" or "android".`);
-      }
-      setVerboseOutput(options.verbose);
-      const remote = resolveRemote(options.remote);
-      const track = parseTrack(options.track);
-      const rollout = parseRollout(options.rollout);
-      const distribution = parseDistribution(options.distribution);
-      await runBuild({
-        platform,
-        profileName: options.profile,
-        appName: options.app,
-        explain: options.explain,
-        submit: options.submit,
-        target: "testing",
-        dryRun: options.dryRun,
-        yes: options.yes,
-        forceClean: options.clean,
-        distribution,
-        ...(remote ? { remote } : {}),
-        ...(track ? { track } : {}),
-        ...(rollout !== undefined ? { rollout } : {}),
-        ...(options.account ? { account: options.account } : {}),
-      });
+    .option("-v, --verbose", "stream the full xcodebuild/gradle output instead of a progress spinner", false);
+  addEnvFlags(command).action(async (platform: string, options: BuildCommandOptions) => {
+    if (platform !== "ios" && platform !== "android") {
+      throw new Error(`Unknown platform "${platform}". Use "ios" or "android".`);
+    }
+    setVerboseOutput(options.verbose);
+    const remote = resolveRemote(options.remote);
+    const track = parseTrack(options.track);
+    const rollout = parseRollout(options.rollout);
+    const distribution = parseDistribution(options.distribution);
+    await runBuild({
+      platform,
+      profileName: options.profile,
+      appName: options.app,
+      explain: options.explain,
+      submit: options.submit,
+      target: "testing",
+      dryRun: options.dryRun,
+      yes: options.yes,
+      forceClean: options.clean,
+      distribution,
+      envOverrides: envOverrides(options),
+      includeLocal: options.includeLocal,
+      printEnv: options.printEnv,
+      ...(remote ? { remote } : {}),
+      ...(track ? { track } : {}),
+      ...(rollout !== undefined ? { rollout } : {}),
+      ...(options.account ? { account: options.account } : {}),
     });
+  });
 }
