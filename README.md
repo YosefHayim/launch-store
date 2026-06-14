@@ -303,8 +303,10 @@ export default defineConfig({
 ```
 
 Run `launch build <platform> --print-env` to see the fully resolved environment and where each value
-came from (secrets masked), before a single build runs. A worked example lives in
-[`examples/hello-world`](./examples/hello-world).
+came from (secrets masked), before a single build runs. A full-feature, dual-platform (iOS + Android)
+example — exercising every config-as-code surface, from products and offers to Game Center, Wallet, and
+store metadata — lives in [`examples/hello-world`](./examples/hello-world) (see its README for a
+feature-by-feature tour).
 
 ## Building without a Mac
 

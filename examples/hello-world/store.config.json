@@ -1,0 +1,29 @@
+{
+  "configVersion": 1,
+  "apple": {
+    "categories": ["GAMES", "ENTERTAINMENT"],
+    "info": {
+      "en-US": {
+        "title": "Hello World",
+        "subtitle": "The tap game that ships itself",
+        "description": "Hello World is a tiny tap game with one button and a global leaderboard. It exists to show how Launch builds, signs, and ships a real Expo app to both stores from your own machine — no Expo bill, your keys, your buckets.",
+        "keywords": ["tap", "game", "clicker", "hello", "world", "leaderboard"],
+        "promotionalText": "Now with a Pro tier and a worldwide Top Tappers leaderboard.",
+        "releaseNotes": "Faster taps, fewer bugs, and a brand-new Pro tier.",
+        "marketingUrl": "https://helloworld.example",
+        "supportUrl": "https://helloworld.example/support",
+        "privacyPolicyUrl": "https://helloworld.example/privacy"
+      }
+    }
+  },
+  "android": {
+    "info": {
+      "en-US": {
+        "title": "Hello World",
+        "shortDescription": "A tiny tap game that ships itself.",
+        "fullDescription": "Hello World is a tiny tap game with one button and a global leaderboard. It exists to show how Launch builds, signs, and ships a real Expo app to both stores from your own machine — no Expo bill, your keys, your buckets.",
+        "video": "https://youtu.be/helloworld"
+      }
+    }
+  }
+}
