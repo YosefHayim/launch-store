@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   formatElapsed,
+  formatProgressLine,
   gradleProgressStep,
   isInteractive,
+  renderBar,
   selectProgressMode,
   withSpinner,
   xcodeProgressStep,
@@ -95,5 +97,67 @@ describe("gradleProgressStep — surface the Gradle task", () => {
 
   it("ignores non-task lines", () => {
     expect(gradleProgressStep("BUILD SUCCESSFUL in 1m 12s")).toBeUndefined();
+  });
+});
+
+describe("renderBar — fixed-width text bar, clamped", () => {
+  it("renders empty, half, and full at width 14", () => {
+    expect(renderBar(0)).toBe("[--------------]");
+    expect(renderBar(0.5)).toBe("[#######-------]");
+    expect(renderBar(1)).toBe("[##############]");
+  });
+
+  it("clamps out-of-range fractions instead of overflowing the line", () => {
+    expect(renderBar(1.7)).toBe("[##############]");
+    expect(renderBar(-3)).toBe("[--------------]");
+  });
+
+  it("honors a custom width", () => {
+    expect(renderBar(0.5, 4)).toBe("[##--]");
+  });
+});
+
+describe("formatProgressLine — bar + step-count + elapsed/eta, degrading gracefully", () => {
+  it("shows only the label, step, and elapsed clock when there's no estimate (first build of a kind)", () => {
+    expect(
+      formatProgressLine({ label: "Building iOS · pomedero", step: "Compiling X.m", elapsedMs: 25_000, steps: 12 }),
+    ).toBe("Building iOS · pomedero · Compiling X.m   25s");
+  });
+
+  it("fills the bar by step-count and shows count/~total · elapsed / ~eta", () => {
+    const line = formatProgressLine({
+      label: "Building iOS · pomedero",
+      step: "Signing pomedero.app",
+      elapsedMs: 18_000,
+      steps: 21,
+      estimate: { ms: 41_000, steps: 28 },
+    });
+    expect(line).toContain("21/~28");
+    expect(line).toContain("18s / ~41s");
+    expect(line).toContain("[");
+  });
+
+  it("falls back to the time fraction before any step parses (steps 0)", () => {
+    const line = formatProgressLine({
+      label: "Building iOS · pomedero",
+      step: "",
+      elapsedMs: 20_500, // ~half of the 41s estimate
+      steps: 0,
+      estimate: { ms: 41_000, steps: 28 },
+    });
+    expect(line).not.toContain("/~28"); // no step counter when steps haven't parsed yet
+    expect(line).toContain("[#######-------]"); // ~50% by time
+    expect(line).toContain("20s / ~41s");
+  });
+
+  it("caps the bar below 100% when the build runs longer/larger than the estimate", () => {
+    const line = formatProgressLine({
+      label: "Building iOS · pomedero",
+      step: "Compiling",
+      elapsedMs: 90_000,
+      steps: 99,
+      estimate: { ms: 41_000, steps: 28 },
+    });
+    expect(line).not.toContain("[##############]"); // never reads "done" until the process exits
   });
 });

@@ -6,9 +6,11 @@ import {
   type BuildState,
   type FingerprintParts,
   computeBuildFingerprint,
+  estimateFor,
   extractNativeConfigSlice,
   readBuildState,
   resolveClean,
+  updateEstimate,
   writeBuildState,
 } from "./buildFingerprint.js";
 
@@ -106,5 +108,51 @@ describe("readBuildState / writeBuildState — round-trip through a temp dir", (
     expect(readBuildState("demo", "ios", dir)).toEqual(state);
     expect(readBuildState("demo", "android", dir)).toBeNull();
     expect(readBuildState("other", "ios", dir)).toBeNull();
+  });
+
+  it("round-trips the per-kind estimates the ETA learns from", () => {
+    const state: BuildState = {
+      fingerprint: "abc",
+      builtAt: "2026-06-14T00:00:00Z",
+      cleanBuilt: true,
+      estimates: { clean: { ms: 214000, steps: 660 }, incremental: { ms: 41000, steps: 28 } },
+    };
+    writeBuildState("demo", "ios", state, dir);
+    expect(readBuildState("demo", "ios", dir)).toEqual(state);
+  });
+});
+
+describe("updateEstimate — EMA so one freak-slow build only half-skews the next ETA", () => {
+  it("adopts the first sample verbatim when there's no prior", () => {
+    expect(updateEstimate(undefined, { ms: 41000, steps: 28 })).toEqual({ ms: 41000, steps: 28 });
+  });
+
+  it("blends half the new sample with half the prior (default alpha 0.5), rounding", () => {
+    // a freak-slow 80s build over a 41s baseline lands at 60.5s → 60500 (rounded), and self-heals next run
+    expect(updateEstimate({ ms: 41000, steps: 28 }, { ms: 80000, steps: 40 })).toEqual({ ms: 60500, steps: 34 });
+    expect(updateEstimate({ ms: 60500, steps: 34 }, { ms: 40000, steps: 28 })).toEqual({ ms: 50250, steps: 31 });
+  });
+
+  it("honors a custom alpha", () => {
+    expect(updateEstimate({ ms: 100, steps: 10 }, { ms: 200, steps: 20 }, 0.25)).toEqual({ ms: 125, steps: 13 });
+  });
+});
+
+describe("estimateFor — pick the baseline matching this build's kind", () => {
+  const state: BuildState = {
+    fingerprint: "abc",
+    builtAt: "2026-06-14T00:00:00Z",
+    cleanBuilt: false,
+    estimates: { clean: { ms: 214000, steps: 660 }, incremental: { ms: 41000, steps: 28 } },
+  };
+
+  it("returns the estimate for a known kind", () => {
+    expect(estimateFor(state, "incremental")).toEqual({ ms: 41000, steps: 28 });
+  });
+
+  it("returns undefined for an unrecorded kind, no estimates, or null state", () => {
+    expect(estimateFor(state, "default")).toBeUndefined();
+    expect(estimateFor({ fingerprint: "x", builtAt: "t", cleanBuilt: false }, "clean")).toBeUndefined();
+    expect(estimateFor(null, "clean")).toBeUndefined();
   });
 });
