@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { GameCenterAchievementResource, GameCenterLeaderboardResource } from "../apple/ascClient.js";
+import { summarize } from "./asc/storeSync.js";
 import {
   type AscGameCenterApi,
   type GameCenterConfig,
   parseGameCenterConfig,
   reconcileGameCenter,
-  summarizeGameCenter,
 } from "./gameCenter.js";
 
 /** Records every write the reconciler makes, so a test can assert what was (and wasn't) sent. */
@@ -149,7 +149,7 @@ describe("reconcileGameCenter", () => {
     expect(calls.leaderboards).toEqual([{ detailId: "detail-new", vendorIdentifier: "high_score" }]);
     expect(calls.leaderboardLocales).toEqual([{ versionId: "lv-1", locale: "en-US", name: "High Score" }]);
     // enable + 2 creates + 2 localizations = 5 applied
-    expect(summarizeGameCenter(report.actions)).toEqual({ applied: 5, failed: 0, skipped: 0 });
+    expect(summarize(report.actions)).toEqual({ applied: 5, failed: 0, skipped: 0 });
   });
 
   it("only creates items the detail doesn't already have (idempotent by vendorIdentifier)", async () => {
@@ -181,7 +181,7 @@ describe("reconcileGameCenter", () => {
     });
     expect(calls.achievements).toHaveLength(1); // the achievement is still created
     expect(calls.achievementLocales).toHaveLength(0); // but no localization attempt
-    const summary = summarizeGameCenter(report.actions);
+    const summary = summarize(report.actions);
     expect(summary).toEqual({ applied: 1, failed: 0, skipped: 1 });
   });
 
@@ -190,7 +190,7 @@ describe("reconcileGameCenter", () => {
     api.createGameCenterLeaderboard = () => Promise.reject(new Error("vendor id taken"));
     const report = await reconcileGameCenter(api, { bundleId: "com.acme.app", config: CONFIG, dryRun: false });
 
-    const summary = summarizeGameCenter(report.actions);
+    const summary = summarize(report.actions);
     expect(summary.failed).toBe(1);
     expect(summary.skipped).toBe(1); // the leaderboard's localization
     expect(calls.leaderboardLocales).toHaveLength(0);

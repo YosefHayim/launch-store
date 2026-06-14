@@ -1,11 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  parseReleaseConfig,
-  reconcileRelease,
-  summarizeRelease,
-  type AscReleaseApi,
-  type ReleaseConfig,
-} from "./releaseAttrs.js";
+import { summarize } from "./asc/storeSync.js";
+import { parseReleaseConfig, reconcileRelease, type AscReleaseApi, type ReleaseConfig } from "./releaseAttrs.js";
 
 /** A configurable {@link AscReleaseApi} fake; every method is a spy with a sensible default. */
 function makeApi(overrides: Partial<AscReleaseApi> = {}): AscReleaseApi {
@@ -212,10 +207,10 @@ describe("reconcileRelease — App Review details", () => {
   });
 });
 
-describe("summarizeRelease", () => {
+describe("summarize", () => {
   it("tallies action statuses", () => {
     expect(
-      summarizeRelease([
+      summarize([
         { description: "a", destructive: false, status: "applied" },
         { description: "b", destructive: false, status: "failed", error: "x" },
         { description: "c", destructive: false, status: "skipped" },

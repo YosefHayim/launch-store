@@ -15,7 +15,8 @@ import type { PlannedAction } from "../../core/ascSync.js";
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { loadActiveAscKey } from "../../core/accounts.js";
 import { createLogger } from "../../core/logger.js";
-import { loadWalletConfig, reconcileWalletIds, summarizeWallet } from "../../core/walletIds.js";
+import { summarize } from "../../core/asc/storeSync.js";
+import { loadWalletConfig, reconcileWalletIds } from "../../core/walletIds.js";
 
 /** CLI options for the default `launch wallet` reconcile. */
 interface WalletOptions {
@@ -74,7 +75,7 @@ async function runReconcile(options: WalletOptions): Promise<void> {
   }
 
   const applied = await reconcileWalletIds(client, config, false);
-  const summary = summarizeWallet(applied);
+  const summary = summarize(applied);
   const rows = applied.map((action) =>
     action.status === "failed" ? `✗ ${action.description} — ${action.error ?? "failed"}` : `✓ ${action.description}`,
   );

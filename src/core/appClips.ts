@@ -26,7 +26,9 @@ import type {
   AppClipLocalizationResource,
   AppClipResource,
 } from "../apple/ascClient.js";
+import { act, skip, type ReconcileContext } from "./asc/storeSync.js";
 import type { PlannedAction, ReconcileReport } from "./ascSync.js";
+import { asRecord } from "./json.js";
 
 /** Platform whose editable App Store version the default experience releases with. */
 const DEFAULT_PLATFORM = "IOS";
@@ -89,35 +91,6 @@ export interface AppClipsReconcileInput {
   platform?: string;
   /** Rehearse only: read state and build the plan, perform no writes. */
   dryRun: boolean;
-}
-
-/** Mutable per-run context threaded through the reconcile walk (mirrors `core/releaseAttrs.ts`). */
-interface ReconcileContext {
-  actions: PlannedAction[];
-  dryRun: boolean;
-}
-
-/**
- * Record an action and, unless this is a dry-run, perform it. A thrown error is captured on the action
- * (status `failed`) rather than propagated, so the surrounding walk keeps going. App Clip card edits are
- * all creates/updates — never destructive — so this is the simpler twin of `ascSync`'s `act`.
- */
-async function act(ctx: ReconcileContext, description: string, run: () => Promise<void>): Promise<void> {
-  const action: PlannedAction = { description, destructive: false, status: "planned" };
-  ctx.actions.push(action);
-  if (ctx.dryRun) return;
-  try {
-    await run();
-    action.status = "applied";
-  } catch (error) {
-    action.status = "failed";
-    action.error = error instanceof Error ? error.message : String(error);
-  }
-}
-
-/** Record a sub-area we can't act on yet (e.g. the clip's build hasn't been uploaded) as a skip with a reason. */
-function skip(ctx: ReconcileContext, description: string): void {
-  ctx.actions.push({ description, destructive: false, status: "skipped" });
 }
 
 /** The actionable error when an app has no App Store Connect record (Apple has no API to create one). */
@@ -266,13 +239,6 @@ async function reconcileLocalizations(
   }
 }
 
-/** Narrow an unknown value to a plain object, or null. Arrays are rejected so a malformed section fails loudly. */
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
 /** Type guard: is the string one of Apple's three App Clip card actions? */
 function isAppClipAction(value: string): value is AppClipActionValue {
   return (APP_CLIP_ACTIONS as readonly string[]).includes(value);
@@ -343,17 +309,4 @@ export function loadAppClipsConfig(path: string): AppClipsConfig {
     throw new Error(`No App Clips config at ${path}. Create one (see \`launch app-clips --help\`) or pass --config.`);
   }
   return parseAppClipsConfig(JSON.parse(readFileSync(path, "utf8")));
-}
-
-/** Tally a report's action statuses for the run summary (mirrors the `launch sync` / `release-config` summary). */
-export function summarizeAppClips(actions: PlannedAction[]): { applied: number; failed: number; skipped: number } {
-  let applied = 0;
-  let failed = 0;
-  let skipped = 0;
-  for (const action of actions) {
-    if (action.status === "applied") applied++;
-    else if (action.status === "failed") failed++;
-    else if (action.status === "skipped") skipped++;
-  }
-  return { applied, failed, skipped };
 }

@@ -33,7 +33,9 @@ import {
   type LeaderboardSortType,
   type LeaderboardSubmissionType,
 } from "../apple/ascClient.js";
+import { skip, type ReconcileContext } from "./asc/storeSync.js";
 import type { PlannedAction } from "./ascSync.js";
+import { asRecord } from "./json.js";
 
 /** Default locale for an achievement / leaderboard localization that doesn't name one. */
 const DEFAULT_LOCALE = "en-US";
@@ -131,22 +133,11 @@ export interface GameCenterReconcileInput {
   dryRun: boolean;
 }
 
-/** Mutable per-run context threaded through the reconcile walk (mirrors `core/releaseAttrs.ts`). */
-interface ReconcileContext {
-  actions: PlannedAction[];
-  dryRun: boolean;
-}
-
 /** Push a planned action and return its handle, so the caller can mark it applied/failed after running. */
 function plan(ctx: ReconcileContext, description: string): PlannedAction {
   const action: PlannedAction = { description, destructive: false, status: "planned" };
   ctx.actions.push(action);
   return action;
-}
-
-/** Record a sub-area we can't act on (e.g. Game Center couldn't be enabled) as a skip with a reason. */
-function skip(ctx: ReconcileContext, description: string): void {
-  ctx.actions.push({ description, destructive: false, status: "skipped" });
 }
 
 /** The actionable error when an app has no App Store Connect record (Apple has no API to create one). */
@@ -326,13 +317,6 @@ async function applyLocalization(
   }
 }
 
-/** Narrow an unknown value to a plain object, or null. Arrays are rejected so a malformed section fails loudly. */
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
 /** Read a required non-empty string field, throwing a located error when missing or the wrong type. */
 function requireString(record: Record<string, unknown>, key: string, where: string): string {
   const value = record[key];
@@ -458,17 +442,4 @@ export function loadGameCenterConfig(path: string): GameCenterConfig {
     );
   }
   return parseGameCenterConfig(JSON.parse(readFileSync(path, "utf8")));
-}
-
-/** Tally a report's action statuses for the run summary (mirrors the other store-sync commands). */
-export function summarizeGameCenter(actions: PlannedAction[]): { applied: number; failed: number; skipped: number } {
-  let applied = 0;
-  let failed = 0;
-  let skipped = 0;
-  for (const action of actions) {
-    if (action.status === "applied") applied++;
-    else if (action.status === "failed") failed++;
-    else if (action.status === "skipped") skipped++;
-  }
-  return { applied, failed, skipped };
 }
