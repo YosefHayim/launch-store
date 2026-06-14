@@ -23,6 +23,7 @@ import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerExplainCommand } from "./commands/explain.js";
 import { registerUpdateCommand } from "./commands/update.js";
 import { registerCloudCommand } from "./commands/cloud.js";
+import { registerDemoCommand } from "./commands/demo.js";
 import { runWizard } from "./commands/wizard.js";
 
 /**
@@ -59,6 +60,7 @@ registerDoctorCommand(program);
 registerExplainCommand(program);
 registerUpdateCommand(program);
 registerCloudCommand(program);
+registerDemoCommand(program);
 
 // No subcommand → the animated rocket banner, then the interactive wizard (the Expo-style front
 // door that detects the host OS and routes the build accordingly).

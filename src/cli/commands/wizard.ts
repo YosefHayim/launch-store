@@ -19,6 +19,9 @@ import { cancel, confirm, intro, isCancel, note, outro, select, text } from "@cl
 import type { AppDescriptor, LaunchConfig, Platform } from "../../core/types.js";
 import { type GlossaryTopic, explainTopic } from "../../core/glossary.js";
 import { hostOsLabel, isMac } from "../../core/os.js";
+import { isInteractive } from "../../core/progress.js";
+import { hasSeenTour, markTourSeen } from "../../core/firstRun.js";
+import { runTour } from "../../core/tour.js";
 import { getActiveAccount } from "../../core/accounts.js";
 import { loadConfig } from "../../core/config.js";
 import { type BuildRunOptions, prepareBuild, runBuild } from "../../core/pipeline.js";
@@ -248,8 +251,38 @@ async function runGuidedSetup(): Promise<void> {
   note("Setup complete.", "Done");
 }
 
+/**
+ * Pick which platform leg the simulated tour walks through (default iOS). Returns null if the user
+ * skips. Shared by the first-run auto-play below and the standalone `launch demo` command.
+ */
+export async function promptTourPlatform(): Promise<Platform | null> {
+  const choice = await select<Platform>({
+    message: "Take the 60-second tour? Pick a platform to walk through (Esc to skip)",
+    options: [
+      { value: "ios", label: "iOS → TestFlight" },
+      { value: "android", label: "Android → Google Play" },
+    ],
+    initialValue: "ios",
+  });
+  return isCancel(choice) ? null : choice;
+}
+
+/**
+ * On the very first interactive `launch` (no args) on this machine, auto-play the simulated walkthrough
+ * once, then record it so later runs go straight to the menu. No-op in CI / piped / agent runs (the
+ * tour needs a TTY) and once it's been seen. Offered-once: even skipping the platform pick marks it
+ * seen, so the tour never nags.
+ */
+async function maybeRunFirstRunTour(): Promise<void> {
+  if (!isInteractive() || hasSeenTour()) return;
+  const platform = await promptTourPlatform();
+  markTourSeen();
+  if (platform) await runTour(platform, true);
+}
+
 /** Run the interactive front door. */
 export async function runWizard(): Promise<void> {
+  await maybeRunFirstRunTour();
   intro("Launch");
   note(`Detected ${hostOsLabel()}.`, "Environment");
 
