@@ -199,6 +199,144 @@ export interface ProductPrice {
 }
 
 /**
+ * Who an offer is allowed to target, mirroring Apple's `customerEligibilities`: `NEW` (never
+ * subscribed), `EXISTING` (currently subscribed), `EXPIRED` (previously subscribed, now lapsed).
+ */
+export type OfferCustomerEligibility = "NEW" | "EXISTING" | "EXPIRED";
+
+/**
+ * Whether an offer stacks with or replaces the subscription's introductory offer
+ * (Apple's `offerEligibility` on offer codes). `REPLACE_INTRO_OFFERS` is the common choice.
+ */
+export type OfferEligibility = "STACK_WITH_INTRO_OFFERS" | "REPLACE_INTRO_OFFERS";
+
+/**
+ * One offer billing unit, mirroring Apple's `SubscriptionOfferDuration`. The offer lasts
+ * {@link OfferConfigBase.numberOfPeriods} × this duration.
+ */
+export type OfferDuration =
+  | "THREE_DAYS"
+  | "ONE_WEEK"
+  | "TWO_WEEKS"
+  | "ONE_MONTH"
+  | "TWO_MONTHS"
+  | "THREE_MONTHS"
+  | "SIX_MONTHS"
+  | "ONE_YEAR";
+
+/**
+ * How an offer discounts, mirroring Apple's `SubscriptionOfferMode`: `PAY_AS_YOU_GO` (a reduced price
+ * each period), `PAY_UP_FRONT` (one reduced price for the whole span), or `FREE_TRIAL` (no charge — and
+ * so no {@link OfferPrice} is allowed).
+ */
+export type OfferMode = "PAY_AS_YOU_GO" | "PAY_UP_FRONT" | "FREE_TRIAL";
+
+/**
+ * One territory's discounted price for an offer, resolved to an Apple subscription price point exactly
+ * like {@link ProductPrice} (the customer-facing amount must equal a point on Apple's fixed ladder).
+ * Omit prices entirely for a `FREE_TRIAL` offer.
+ */
+export interface OfferPrice {
+  /** Territory whose price point is matched, e.g. `USA`. Defaults to `USA`. */
+  territory?: string;
+  /** Exact customer-facing price in the territory's currency, e.g. `4.99`. Must equal an Apple price point. */
+  customerPrice: number;
+}
+
+/**
+ * Fields shared by the price-bearing offer kinds (offer codes, promotional, win-back). `numberOfPeriods`
+ * is how many {@link OfferConfigBase.duration} units the offer runs; `prices` is per-territory and
+ * required unless `offerMode` is `FREE_TRIAL`.
+ */
+export interface OfferConfigBase {
+  /** Offer billing duration unit. */
+  duration: OfferDuration;
+  /** How the offer discounts. `FREE_TRIAL` must omit {@link OfferConfigBase.prices}. */
+  offerMode: OfferMode;
+  /** How many {@link OfferConfigBase.duration} units the offer spans. */
+  numberOfPeriods: number;
+  /** Per-territory discounted prices. Required unless `offerMode` is `FREE_TRIAL`. */
+  prices?: OfferPrice[];
+}
+
+/**
+ * A subscription offer-code campaign (Apple's `subscriptionOfferCodes`) — a redeemable promo that grants
+ * an introductory price. `name` is the reconciler's natural key (unique per subscription); offer-code
+ * terms are immutable once created, so the reconciler only ever creates a missing code, never edits one
+ * (deactivation is the explicit `launch offers deactivate` action). One-time-use and custom code batches
+ * are generated separately (the imperative `launch offers codes` subcommands), not declared here.
+ */
+export interface OfferCodeConfig extends OfferConfigBase {
+  /** Campaign name shown in App Store Connect — unique per subscription; the reconciler's key. */
+  name: string;
+  /** Which customers may redeem the code. */
+  customerEligibilities: OfferCustomerEligibility[];
+  /** Whether the code stacks with or replaces the intro offer. */
+  offerEligibility: OfferEligibility;
+}
+
+/**
+ * A promotional offer (Apple's `subscriptionPromotionalOffers`) — a developer-presented discount
+ * surfaced in-app to existing/lapsed subscribers. `offerCode` is the product-level identifier the app
+ * passes to StoreKit at redemption; it is the reconciler's natural key (unique per subscription).
+ */
+export interface PromotionalOfferConfig extends OfferConfigBase {
+  /** Internal name shown in App Store Connect. */
+  name: string;
+  /** Product-level offer identifier the app references in StoreKit — the reconciler's key. */
+  offerCode: string;
+}
+
+/**
+ * An introductory offer (Apple's `subscriptionIntroductoryOffers`) — the one auto-applied first-time
+ * discount. Apple allows at most one per (subscription, territory); when `territory` is omitted it
+ * applies to all territories the subscription is sold in. `territory` is the reconciler's natural key.
+ */
+export interface IntroductoryOfferConfig {
+  /** Billing duration unit. */
+  duration: OfferDuration;
+  /** How the offer discounts. `FREE_TRIAL` must omit {@link IntroductoryOfferConfig.price}. */
+  offerMode: OfferMode;
+  /** How many `duration` units the offer spans. */
+  numberOfPeriods: number;
+  /** Territory this intro offer applies to (the reconciler's key); omit for all territories. */
+  territory?: string;
+  /** The discounted price in {@link IntroductoryOfferConfig.territory}. Required unless `FREE_TRIAL`. */
+  price?: OfferPrice;
+  /** ISO date (`YYYY-MM-DD`) the offer starts; omit to start immediately. */
+  startDate?: string;
+  /** ISO date (`YYYY-MM-DD`) the offer ends; omit for no end. */
+  endDate?: string;
+}
+
+/**
+ * A win-back offer (Apple's `winBackOffers`) — a discount shown on the App Store to lapsed subscribers,
+ * gated on how long they previously paid and how long ago they churned. `offerId` is the reconciler's
+ * natural key (unique within the app). Win-back offers carry no images here — promotion artwork is the
+ * `promotionIntent` auto-generated path; custom artwork is a deferred follow-up.
+ */
+export interface WinBackOfferConfig extends OfferConfigBase {
+  /** Stable offer identifier the app references — the reconciler's key (unique within the app). */
+  offerId: string;
+  /** Internal reference name shown in App Store Connect. */
+  referenceName: string;
+  /** Minimum months the customer must previously have paid to be eligible. */
+  eligiblePaidMonths: number;
+  /** Eligible window since the customer last subscribed, in months (inclusive `[min, max]`). */
+  monthsSinceLastSubscribed: { min: number; max: number };
+  /** Minimum months to wait between showing successive win-back offers; omit for Apple's default. */
+  waitBetweenOffersMonths?: number;
+  /** ISO date (`YYYY-MM-DD`) the offer starts. Required by Apple. */
+  startDate: string;
+  /** ISO date (`YYYY-MM-DD`) the offer ends; omit for no end. */
+  endDate?: string;
+  /** Display priority among competing win-back offers. Defaults to `NORMAL`. */
+  priority?: "HIGH" | "NORMAL";
+  /** Whether Apple auto-generates promotion artwork (`USE_AUTO_GENERATED_ASSETS`) or the offer isn't promoted. */
+  promotionIntent?: "NOT_PROMOTED" | "USE_AUTO_GENERATED_ASSETS";
+}
+
+/**
  * One auto-renewable subscription product inside a {@link SubscriptionGroupConfig}. `productId` is the
  * globally-unique Apple product id the app references at runtime and the reconciler's natural key.
  */
@@ -213,6 +351,14 @@ export interface SubscriptionConfig {
   localizations: ProductLocalization[];
   /** Baseline price. Omit only to price manually in the UI. */
   price?: ProductPrice;
+  /** Offer-code campaigns to ensure exist on this subscription (`launch offers`). */
+  offerCodes?: OfferCodeConfig[];
+  /** Promotional offers to ensure exist on this subscription. */
+  promotionalOffers?: PromotionalOfferConfig[];
+  /** Introductory offers (at most one per territory) to ensure exist on this subscription. */
+  introductoryOffers?: IntroductoryOfferConfig[];
+  /** Win-back offers to ensure exist on this subscription. */
+  winBackOffers?: WinBackOfferConfig[];
   /**
    * Path (relative to the app directory) to this subscription's **App Review screenshot** — the image
    * Apple requires before a subscription can be submitted. `launch sync` uploads it via the reservation
@@ -254,16 +400,35 @@ export interface InAppPurchaseConfig {
 }
 
 /**
+ * One promoted purchase (Apple's `promotedPurchases`) — an IAP or subscription surfaced on the app's
+ * App Store product page. Declaration order in {@link AppProducts.promotedPurchases} is the display
+ * order Apple shows; `launch offers` reorders the live list to match. `productId` references an existing
+ * subscription or in-app purchase; the reconciler resolves it to the live resource.
+ */
+export interface PromotedPurchaseConfig {
+  /** Apple product id of the subscription or in-app purchase to promote. */
+  productId: string;
+  /** Whether the promotion is visible to all users (vs. targeted via the API). Defaults to `true`. */
+  visibleForAllUsers?: boolean;
+  /** Whether the promotion is enabled. Defaults to `true`. */
+  enabled?: boolean;
+}
+
+/**
  * The declarative App Store Connect product catalog for ONE app, keyed by iOS bundle id under
  * {@link LaunchConfig.products}. `launch sync` reconciles the live account to match this: it creates
- * missing groups/subscriptions/IAPs, fills in localizations, and sets prices. Both fields are optional
- * so an app can sell only subscriptions, only one-off purchases, or (with neither key set) nothing.
+ * missing groups/subscriptions/IAPs, fills in localizations, and sets prices. `launch offers` reconciles
+ * the subscription offers nested under {@link SubscriptionGroupConfig} and the
+ * {@link AppProducts.promotedPurchases} ordering. All fields are optional so an app can sell only
+ * subscriptions, only one-off purchases, or (with none set) nothing.
  */
 export interface AppProducts {
   /** Auto-renewable subscription groups and the subscriptions within them. */
   subscriptionGroups?: SubscriptionGroupConfig[];
   /** One-off in-app purchases. */
   inAppPurchases?: InAppPurchaseConfig[];
+  /** Promoted purchases in product-page display order (`launch offers` reorders the live list to match). */
+  promotedPurchases?: PromotedPurchaseConfig[];
 }
 
 /**
