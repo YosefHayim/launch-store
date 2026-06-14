@@ -26,6 +26,13 @@ import { GooglePlayClient, parseServiceAccount } from "../../google/playClient.j
 import { loadServiceAccount } from "../../google/credentials.js";
 import { loadActiveAscKey } from "../../core/accounts.js";
 import { checkApp, formatFinding } from "../../core/configCheck.js";
+import {
+  describeExportComplianceConfig,
+  reconcileExportCompliance,
+  summarizeExportComplianceResult,
+} from "../../core/exportCompliance.js";
+import { appPrivacyChecklist } from "../../core/privacyNutritionLabel.js";
+import { formatPermissionLine, probeKeyPermissions } from "../../core/ascPermissions.js";
 import { localCredentialsProvider } from "../../providers/credentials/local.js";
 
 const APP_STORE_CONNECT_APPS_URL = "https://appstoreconnect.apple.com/apps";
@@ -203,6 +210,84 @@ async function reportConfigChecks(platform: "ios" | "android"): Promise<boolean>
 }
 
 /**
+ * Report each iOS app's export-compliance posture from its Expo config (`ios.config.usesNonExemptEncryption`),
+ * so a developer answers the encryption question once instead of being re-prompted on every upload. With
+ * `--fix` and an active Apple account, also reconcile the latest uploaded build via the App Store Connect
+ * API — answering it directly, or reusing an approved App Encryption Declaration. Always advisory (✓/•),
+ * never fails the doctor and best-effort on the network side.
+ */
+async function reportExportCompliance(fix: boolean): Promise<void> {
+  const { apps } = await loadConfig();
+  const iosApps = apps.filter((app) => app.bundleId);
+  if (iosApps.length === 0) return;
+
+  const ascKey = fix ? await loadActiveAscKey() : null;
+  const client = ascKey ? new AppStoreConnectClient(ascKey) : null;
+  for (const app of iosApps) {
+    const status = describeExportComplianceConfig(app.usesNonExemptEncryption);
+    console.log(`${status.ok ? "✓" : "•"} ${app.name}: ${status.message}`);
+    if (!client || !app.bundleId || app.usesNonExemptEncryption === undefined) continue;
+    try {
+      const buildNumber = await client.getLatestBuildNumber(app.bundleId);
+      if (buildNumber === 0) continue;
+      const result = await reconcileExportCompliance(client, {
+        bundleId: app.bundleId,
+        buildNumber,
+        usesNonExemptEncryption: app.usesNonExemptEncryption,
+      });
+      console.log(`  ↳ build ${buildNumber}: ${summarizeExportComplianceResult(result)}`);
+    } catch (error) {
+      console.log(
+        `  ↳ could not reconcile export compliance — ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+}
+
+/**
+ * Remind that the App Privacy "nutrition label" is a one-time **manual** step — App Store Connect has no
+ * API for the data-collection declarations (verified against Apple's OpenAPI spec; see
+ * `core/privacyNutritionLabel.ts`), so Launch emits the precise UI checklist rather than silently leaving
+ * a submission blocker. Informational (•). Only shown when at least one discovered app targets iOS.
+ */
+async function reportAppPrivacy(): Promise<void> {
+  const { apps } = await loadConfig();
+  if (!apps.some((app) => app.bundleId)) return;
+  appPrivacyChecklist().forEach((line, index) => {
+    console.log(index === 0 ? `• ${line}` : line);
+  });
+}
+
+/**
+ * Probe the active App Store Connect API key against each role-gated feature and print a per-feature
+ * access matrix, so a developer learns up front that (say) their key can't reply to reviews — instead
+ * of discovering it when `launch reviews respond` 403s mid-flight. Apple has no API to read a key's own
+ * role, so each line reflects an actual probe read (see `core/ascPermissions.ts`). Advisory (✓/✗/•):
+ * never fails the doctor. Skipped when no Apple account is configured — `checkAppleAccount` already says
+ * so. Best-effort: app-scoped probes need an app record, resolved here from the first iOS app.
+ */
+async function reportKeyPermissions(): Promise<void> {
+  const ascKey = await loadActiveAscKey();
+  if (!ascKey) return;
+  const client = new AppStoreConnectClient(ascKey);
+  const { apps } = await loadConfig();
+  const bundleId = apps.find((app) => app.bundleId)?.bundleId;
+  let appId: string | null = null;
+  if (bundleId) {
+    try {
+      appId = await client.getAppId(bundleId);
+    } catch {
+      appId = null;
+    }
+  }
+  const results = await probeKeyPermissions(client, appId);
+  console.log("• API-key role access (per feature):");
+  for (const result of results) {
+    console.log(`  ${formatPermissionLine(result)}`);
+  }
+}
+
+/**
  * Report the detected package manager + monorepo workspace root, and warn on the known Corepack/
  * lockfile footguns (see `core/packageManager.ts`). Informational — these warn (•), never fail the
  * check, since the build still runs; surfacing them up front avoids the EAS-class wrong-PM wasted build.
@@ -243,6 +328,9 @@ export async function runDoctor(options: {
   await reportCodesignIdentity();
   const appleOk = await checkAppleAccount();
   const configOk = await reportConfigChecks("ios");
+  await reportExportCompliance(options.fix === true);
+  await reportAppPrivacy();
+  await reportKeyPermissions();
   return toolsOk && appleOk && configOk;
 }
 

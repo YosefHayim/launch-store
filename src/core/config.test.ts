@@ -36,6 +36,7 @@ describe("defineConfig", () => {
     expect(config.submit).toBe("app-store-connect");
     expect(config.appRoots).toBeUndefined();
     expect(config.aws).toBeUndefined();
+    expect(config.release).toBeUndefined();
   });
 
   it("preserves explicit overrides and appRoots", () => {
@@ -48,6 +49,14 @@ describe("defineConfig", () => {
     expect(config.credentials).toBe("team");
     expect(config.storage).toBe("s3");
     expect(config.appRoots).toEqual(["./apps"]);
+  });
+
+  it("carries an explicit release policy through unchanged", () => {
+    const config = defineConfig({
+      profiles: { production: { name: "production" } },
+      release: { releaseType: "MANUAL", phasedRelease: true, releaseNotes: "Bug fixes." },
+    });
+    expect(config.release).toEqual({ releaseType: "MANUAL", phasedRelease: true, releaseNotes: "Bug fixes." });
   });
 });
 
@@ -66,6 +75,19 @@ describe("loadConfig — auto-discovers apps, app.json stays the source of truth
     expect(config.buildEngine).toBe("fastlane");
     expect(apps).toHaveLength(1);
     expect(apps[0]).toMatchObject({ name: "hello-world", bundleId: "com.example.hello", version: "1.2.3" });
+    expect(apps[0]?.usesNonExemptEncryption).toBeUndefined();
+  });
+
+  it("reads the Expo export-compliance answer (ios.config.usesNonExemptEncryption)", async () => {
+    const repo = makeRepo();
+    writeApp(repo, ".", {
+      slug: "secure-app",
+      ios: { bundleIdentifier: "com.example.secure", config: { usesNonExemptEncryption: false } },
+    });
+
+    const { apps } = await loadConfig(repo);
+
+    expect(apps[0]?.usesNonExemptEncryption).toBe(false);
   });
 
   it("scans nested directories but skips heavy/generated folders", async () => {

@@ -1,18 +1,21 @@
 /**
  * `launch sync` — reconcile App Store Connect product configuration (capabilities, in-app purchases,
- * subscriptions, pricing) to match `launch.config.ts`, across every discovered app at once.
+ * subscriptions, pricing) AND textual store-listing copy to match config, across every discovered app at once.
  *
- * This fills the gap EAS leaves: `eas build`/`submit` ship the binary and `eas metadata` covers listing
- * copy, but nothing manages IAPs, subscriptions, or capability flags — those are hand-work in the App
- * Store Connect UI. `launch sync` makes them declarative.
+ * This fills the gap EAS leaves: `eas build`/`submit` ship the binary, but nothing declaratively manages
+ * IAPs, subscriptions, capability flags, or per-locale listing copy — those are hand-work in the App
+ * Store Connect UI. `launch sync` makes them declarative: products from `launch.config.ts` and the App
+ * Store listing from each app's `store.config.json` (the same file `launch metadata` uses).
  *
  * Flow: build a per-app job list (capabilities from each app's `app.json` entitlements, products from
- * `config.products[bundleId]`), run a read-only PLAN pass over all apps in parallel, print it, confirm,
- * then run the APPLY pass. Apps run behind a bounded pool sharing the one ASC key, each isolated so one
- * app's failure never aborts the batch. `--dry-run` stops after the plan; `--allow-destructive` permits
- * capability removals; `--yes` skips the prompt for CI.
+ * `config.products[bundleId]`, listing from `store.config.json`), run a read-only PLAN pass over all apps
+ * in parallel, print it, confirm, then run the APPLY pass. Apps run behind a bounded pool sharing the one
+ * ASC key, each isolated so one app's failure never aborts the batch. `--dry-run` stops after the plan;
+ * `--allow-destructive` permits capability removals; `--yes` skips the prompt for CI.
  */
 
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { cancel, confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
 import type { AppDescriptor, AppProducts, LaunchConfig } from "../../core/types.js";
@@ -23,6 +26,7 @@ import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { mapEntitlementsToCapabilities, type CapabilityType } from "../../core/capabilities.js";
 import { runPool } from "../../core/asyncPool.js";
 import { reconcileApp, type ReconcileReport } from "../../core/ascSync.js";
+import { loadStoreConfig, type AppleStoreConfig } from "../../core/storeConfig.js";
 
 /** How many apps reconcile concurrently. Bounded so the single ASC key stays under Apple's rate ceiling. */
 const SYNC_CONCURRENCY = 4;
@@ -45,8 +49,30 @@ interface SyncJob {
   bundleId: string;
   capabilities: CapabilityType[];
   products: AppProducts;
+  /** The app's `store.config.json` `apple` listing, when present — reconciled natively into ASC. */
+  listing?: AppleStoreConfig;
   /** Entitlement keys with no known capability mapping — surfaced as a warning, not an error. */
   unmapped: string[];
+}
+
+/**
+ * Read an app's `store.config.json` `apple` listing, or undefined when absent. A malformed file is
+ * swallowed here (returns undefined) so a broken listing never blocks product/capability sync — the
+ * dedicated `launch metadata` command is where it's loudly validated.
+ */
+function loadListing(appDir: string): AppleStoreConfig | undefined {
+  const path = join(appDir, "store.config.json");
+  if (!existsSync(path)) return undefined;
+  try {
+    return loadStoreConfig(path).apple;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Whether a listing carries at least one locale with at least one field worth reconciling. */
+function hasListing(listing: AppleStoreConfig | undefined): boolean {
+  return listing !== undefined && Object.values(listing.info).some((info) => Object.keys(info).length > 0);
 }
 
 /**
@@ -71,7 +97,7 @@ function selectApps(apps: AppDescriptor[], selector: string | undefined): AppDes
   });
 }
 
-/** Build the job list, dropping apps with no iOS bundle id and nothing (neither capabilities nor products) to sync. */
+/** Build the job list, dropping apps with no iOS bundle id and nothing (capabilities, products, or listing) to sync. */
 function buildJobs(apps: AppDescriptor[], config: LaunchConfig): SyncJob[] {
   const jobs: SyncJob[] = [];
   for (const app of apps) {
@@ -79,8 +105,16 @@ function buildJobs(apps: AppDescriptor[], config: LaunchConfig): SyncJob[] {
     const { enable, unmapped } = mapEntitlementsToCapabilities(app.iosEntitlements);
     const products = config.products?.[app.bundleId] ?? {};
     const productCount = (products.inAppPurchases?.length ?? 0) + (products.subscriptionGroups?.length ?? 0);
-    if (enable.length === 0 && productCount === 0) continue;
-    jobs.push({ app, bundleId: app.bundleId, capabilities: enable, products, unmapped });
+    const listing = loadListing(app.dir);
+    if (enable.length === 0 && productCount === 0 && !hasListing(listing)) continue;
+    jobs.push({
+      app,
+      bundleId: app.bundleId,
+      capabilities: enable,
+      products,
+      ...(listing ? { listing } : {}),
+      unmapped,
+    });
   }
   return jobs;
 }
@@ -97,6 +131,7 @@ async function reconcileJob(
       bundleId: job.bundleId,
       capabilities: job.capabilities,
       products: job.products,
+      ...(job.listing ? { listing: job.listing } : {}),
       dryRun,
       allowDestructive,
     });
@@ -129,7 +164,7 @@ export function registerSyncCommand(program: Command): void {
   program
     .command("sync")
     .description(
-      "reconcile App Store Connect products (capabilities, IAPs, subscriptions, pricing) from launch.config.ts",
+      "reconcile App Store Connect products (capabilities, IAPs, subscriptions, pricing) and store-listing copy from config",
     )
     .option("-a, --app <names>", "comma-separated app handles to sync (default: all apps with something to sync)")
     .option("--dry-run", "print the plan and exit, making no changes", false)
@@ -141,7 +176,9 @@ export function registerSyncCommand(program: Command): void {
       const jobs = buildJobs(selectApps(apps, options.app), config);
 
       if (jobs.length === 0) {
-        log.info("No apps with capabilities or products to sync. Add a `products` entry in launch.config.ts.");
+        log.info(
+          "Nothing to sync — no apps with capabilities, products, or a store.config.json listing. Add a `products` entry or run `launch metadata pull`.",
+        );
         return;
       }
 
