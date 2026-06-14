@@ -11,6 +11,8 @@ export type { LaunchConfigInput } from "./core/config.js";
 export type {
   LaunchConfig,
   BuildProfile,
+  ReleaseConfig,
+  ReleaseType,
   PlayTrack,
   AppProducts,
   SubscriptionGroupConfig,

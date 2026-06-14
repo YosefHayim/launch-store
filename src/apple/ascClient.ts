@@ -161,6 +161,70 @@ export interface PricePointResource {
   territory: string;
 }
 
+/**
+ * A build uploaded to App Store Connect. The release flow reads these so a developer can promote an
+ * already-verified TestFlight build instead of re-uploading, and to wait for a fresh upload to finish
+ * processing before attaching it to a version.
+ */
+export interface BuildResource {
+  id: string;
+  /** Build number — Apple's `version` attribute on a build (the CFBundleVersion). */
+  buildNumber: string;
+  /** Apple's processing state: `PROCESSING`, `VALID`, or `INVALID`. Only a `VALID` build is submittable. */
+  processingState: string;
+  /** ISO-8601 instant the build was uploaded. Absent on older builds Apple no longer dates. */
+  uploadedDate?: string | undefined;
+  /** Whether Apple has expired the build (TestFlight's 90-day limit); an expired build can't be submitted. */
+  expired: boolean;
+}
+
+/**
+ * One App Store version — a single public release moving through its lifecycle (the `appStoreVersions`
+ * resource). `appStoreState` is the lifecycle the `release`/`status` flow branches on (editable vs.
+ * in-review vs. live).
+ */
+export interface AppStoreVersionResource {
+  id: string;
+  /** Marketing version, e.g. `1.4.0` (CFBundleShortVersionString). */
+  versionString: string;
+  /** Apple's lifecycle state, e.g. `PREPARE_FOR_SUBMISSION`, `WAITING_FOR_REVIEW`, `READY_FOR_SALE`. */
+  appStoreState: string;
+  /** How the approved build goes live (`AFTER_APPROVAL` / `MANUAL` / `SCHEDULED`). Absent unless requested. */
+  releaseType?: string | undefined;
+}
+
+/**
+ * One locale's editable App Store version copy. The release flow only touches `whatsNew` (the
+ * "What's New in This Version" notes); the rest of the listing stays with `launch metadata` (fastlane).
+ */
+export interface AppStoreVersionLocalizationResource {
+  id: string;
+  locale: string;
+  /** The release-notes text for this version + locale. Absent when unset. */
+  whatsNew?: string | undefined;
+}
+
+/**
+ * A version's phased-release record (`appStoreVersionPhasedRelease`) — Apple's 7-day gradual percentage
+ * rollout for an approved update. `launch rollout` steers it via {@link PhasedReleaseResource.phasedReleaseState}.
+ */
+export interface PhasedReleaseResource {
+  id: string;
+  /** Apple's state: `INACTIVE`, `ACTIVE`, `PAUSED`, or `COMPLETE`. */
+  phasedReleaseState: string;
+}
+
+/**
+ * A review submission — Apple's modern, batched submit container (`reviewSubmissions`), which replaced
+ * the deprecated per-version `appStoreVersionSubmissions`. A version is submitted by adding it as an
+ * item then flipping the submission to `submitted`.
+ */
+export interface ReviewSubmissionResource {
+  id: string;
+  /** Apple's state, e.g. `READY_FOR_REVIEW` (created, not yet submitted), `WAITING_FOR_REVIEW`, `IN_REVIEW`. */
+  state: string;
+}
+
 interface ResourceList<A> {
   data: { id: string; attributes: A }[];
 }
@@ -776,6 +840,230 @@ export class AppStoreConnectClient {
           },
         },
       ],
+    });
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /*  App Store release lifecycle — builds, versions, export compliance,        */
+  /*  what's-new, phased release, and the modern review-submission flow.        */
+  /*  Consumed by core/appStoreRelease.ts (the `release`/`status`/`rollout`     */
+  /*  commands). The build/sign path needs none of this.                       */
+  /* ------------------------------------------------------------------------ */
+
+  /**
+   * List an app's uploaded builds, newest first, across all pages. The release flow reads this to let a
+   * developer promote an already-verified TestFlight build instead of re-uploading. Empty when the app
+   * has no record yet. Returns enough to show and filter the picker: number, processing state, upload
+   * date, and Apple's expiry flag.
+   */
+  async listBuilds(bundleId: string): Promise<BuildResource[]> {
+    const appId = await this.getAppId(bundleId);
+    if (!appId) return [];
+    const data = await this.requestAll<{
+      version?: string;
+      processingState?: string;
+      uploadedDate?: string;
+      expired?: boolean;
+    }>(
+      `/builds?filter[app]=${appId}&sort=-version&limit=200&fields[builds]=version,processingState,uploadedDate,expired`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      buildNumber: entry.attributes.version ?? "",
+      processingState: entry.attributes.processingState ?? "",
+      uploadedDate: entry.attributes.uploadedDate,
+      expired: entry.attributes.expired ?? false,
+    }));
+  }
+
+  /**
+   * The marketing version (CFBundleShortVersionString) a build belongs to, read from its related
+   * pre-release version, or null when it has none. Needed when promoting an existing build: an App Store
+   * version's `versionString` must match the build's marketing version for Apple to accept the pairing.
+   */
+  async getBuildMarketingVersion(buildId: string): Promise<string | null> {
+    const { data } = await this.request<{ data: { id: string; attributes: { version?: string } } | null }>(
+      "GET",
+      `/builds/${buildId}/preReleaseVersion?fields[preReleaseVersions]=version`,
+    );
+    return data?.attributes.version ?? null;
+  }
+
+  /**
+   * Set a build's export-compliance answer (`usesNonExemptEncryption`), clearing the "Missing
+   * Compliance" block before submission. Done at submit time so a promoted TestFlight build — which
+   * never ran a local Launch build — is covered too. See `core/exportCompliance.ts` for how the boolean
+   * is resolved.
+   */
+  async setBuildUsesNonExemptEncryption(buildId: string, usesNonExemptEncryption: boolean): Promise<void> {
+    await this.request<unknown>("PATCH", `/builds/${buildId}`, {
+      data: { type: "builds", id: buildId, attributes: { usesNonExemptEncryption } },
+    });
+  }
+
+  /**
+   * List an app's App Store versions for one platform, newest first, across all pages. The release
+   * state machine reads this to find an editable version to reuse (the idempotent-resume / hotfix path)
+   * or to decide a fresh version is needed.
+   */
+  async listAppStoreVersions(appId: string, platform: string): Promise<AppStoreVersionResource[]> {
+    const data = await this.requestAll<{ versionString?: string; appStoreState?: string; releaseType?: string }>(
+      `/apps/${appId}/appStoreVersions?filter[platform]=${platform}` +
+        `&fields[appStoreVersions]=versionString,appStoreState,releaseType&limit=200`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      versionString: entry.attributes.versionString ?? "",
+      appStoreState: entry.attributes.appStoreState ?? "",
+      releaseType: entry.attributes.releaseType,
+    }));
+  }
+
+  /** Create a new App Store version for a platform, with its release type (and a scheduled date when set). */
+  async createAppStoreVersion(
+    appId: string,
+    input: { versionString: string; platform: string; releaseType: string; earliestReleaseDate?: string },
+  ): Promise<AppStoreVersionResource> {
+    const attributes: Record<string, unknown> = {
+      platform: input.platform,
+      versionString: input.versionString,
+      releaseType: input.releaseType,
+    };
+    if (input.earliestReleaseDate) attributes["earliestReleaseDate"] = input.earliestReleaseDate;
+    const { data } = await this.request<
+      ResourceSingle<{ versionString?: string; appStoreState?: string; releaseType?: string }>
+    >("POST", "/appStoreVersions", {
+      data: {
+        type: "appStoreVersions",
+        attributes,
+        relationships: { app: { data: { type: "apps", id: appId } } },
+      },
+    });
+    return {
+      id: data.id,
+      versionString: data.attributes.versionString ?? input.versionString,
+      appStoreState: data.attributes.appStoreState ?? "",
+      releaseType: data.attributes.releaseType ?? input.releaseType,
+    };
+  }
+
+  /**
+   * Update an existing App Store version's version string, release type, and/or scheduled date. Passing
+   * `earliestReleaseDate: null` clears a previously-scheduled date (switching back to MANUAL/AFTER_APPROVAL).
+   */
+  async updateAppStoreVersion(
+    versionId: string,
+    input: { versionString?: string; releaseType?: string; earliestReleaseDate?: string | null },
+  ): Promise<void> {
+    const attributes: Record<string, unknown> = {};
+    if (input.versionString !== undefined) attributes["versionString"] = input.versionString;
+    if (input.releaseType !== undefined) attributes["releaseType"] = input.releaseType;
+    if (input.earliestReleaseDate !== undefined) attributes["earliestReleaseDate"] = input.earliestReleaseDate;
+    await this.request<unknown>("PATCH", `/appStoreVersions/${versionId}`, {
+      data: { type: "appStoreVersions", id: versionId, attributes },
+    });
+  }
+
+  /** Attach a build to an App Store version (the version↔build relationship). */
+  async selectBuildForVersion(versionId: string, buildId: string): Promise<void> {
+    await this.request<unknown>("PATCH", `/appStoreVersions/${versionId}/relationships/build`, {
+      data: { type: "builds", id: buildId },
+    });
+  }
+
+  /** List a version's per-locale editable copy (the release flow reads/writes only `whatsNew`). */
+  async listAppStoreVersionLocalizations(versionId: string): Promise<AppStoreVersionLocalizationResource[]> {
+    const data = await this.requestAll<{ locale?: string; whatsNew?: string }>(
+      `/appStoreVersions/${versionId}/appStoreVersionLocalizations` +
+        `?fields[appStoreVersionLocalizations]=locale,whatsNew&limit=200`,
+    );
+    return data.flatMap((entry) =>
+      entry.attributes.locale
+        ? [{ id: entry.id, locale: entry.attributes.locale, whatsNew: entry.attributes.whatsNew }]
+        : [],
+    );
+  }
+
+  /** Set one locale's "What's New in This Version" release notes on a version. */
+  async updateVersionWhatsNew(localizationId: string, whatsNew: string): Promise<void> {
+    await this.request<unknown>("PATCH", `/appStoreVersionLocalizations/${localizationId}`, {
+      data: { type: "appStoreVersionLocalizations", id: localizationId, attributes: { whatsNew } },
+    });
+  }
+
+  /** A version's phased-release record, or null when none has been created for it. */
+  async getPhasedRelease(versionId: string): Promise<PhasedReleaseResource | null> {
+    const { data } = await this.request<{ data: { id: string; attributes: { phasedReleaseState?: string } } | null }>(
+      "GET",
+      `/appStoreVersions/${versionId}/appStoreVersionPhasedRelease`,
+    );
+    return data ? { id: data.id, phasedReleaseState: data.attributes.phasedReleaseState ?? "" } : null;
+  }
+
+  /** Start a phased (gradual, 7-day) release for an approved version. */
+  async createPhasedRelease(versionId: string): Promise<PhasedReleaseResource> {
+    const { data } = await this.request<ResourceSingle<{ phasedReleaseState?: string }>>(
+      "POST",
+      "/appStoreVersionPhasedReleases",
+      {
+        data: {
+          type: "appStoreVersionPhasedReleases",
+          relationships: { appStoreVersion: { data: { type: "appStoreVersions", id: versionId } } },
+        },
+      },
+    );
+    return { id: data.id, phasedReleaseState: data.attributes.phasedReleaseState ?? "" };
+  }
+
+  /** Steer a phased release: `PAUSE`, `ACTIVE` (resume), or `COMPLETE` (release to everyone now). */
+  async updatePhasedRelease(phasedReleaseId: string, phasedReleaseState: string): Promise<void> {
+    await this.request<unknown>("PATCH", `/appStoreVersionPhasedReleases/${phasedReleaseId}`, {
+      data: { type: "appStoreVersionPhasedReleases", id: phasedReleaseId, attributes: { phasedReleaseState } },
+    });
+  }
+
+  /** Cancel a not-yet-started phased release so an immediate 100% release goes out instead. */
+  async deletePhasedRelease(phasedReleaseId: string): Promise<void> {
+    await this.request<unknown>("DELETE", `/appStoreVersionPhasedReleases/${phasedReleaseId}`);
+  }
+
+  /** List an app's review submissions for a platform (to find an open, not-yet-submitted one to reuse). */
+  async listReviewSubmissions(appId: string, platform: string): Promise<ReviewSubmissionResource[]> {
+    const data = await this.requestAll<{ state?: string }>(
+      `/apps/${appId}/reviewSubmissions?filter[platform]=${platform}&fields[reviewSubmissions]=state,platform&limit=200`,
+    );
+    return data.map((entry) => ({ id: entry.id, state: entry.attributes.state ?? "" }));
+  }
+
+  /** Open a new review submission for an app + platform (the modern batched submit container). */
+  async createReviewSubmission(appId: string, platform: string): Promise<ReviewSubmissionResource> {
+    const { data } = await this.request<ResourceSingle<{ state?: string }>>("POST", "/reviewSubmissions", {
+      data: {
+        type: "reviewSubmissions",
+        attributes: { platform },
+        relationships: { app: { data: { type: "apps", id: appId } } },
+      },
+    });
+    return { id: data.id, state: data.attributes.state ?? "" };
+  }
+
+  /** Add an App Store version to an open review submission as an item. */
+  async addReviewSubmissionItem(submissionId: string, versionId: string): Promise<void> {
+    await this.request<unknown>("POST", "/reviewSubmissionItems", {
+      data: {
+        type: "reviewSubmissionItems",
+        relationships: {
+          reviewSubmission: { data: { type: "reviewSubmissions", id: submissionId } },
+          appStoreVersion: { data: { type: "appStoreVersions", id: versionId } },
+        },
+      },
+    });
+  }
+
+  /** Submit an open review submission to App Store review (flips `submitted` true). */
+  async submitReviewSubmission(submissionId: string): Promise<void> {
+    await this.request<unknown>("PATCH", `/reviewSubmissions/${submissionId}`, {
+      data: { type: "reviewSubmissions", id: submissionId, attributes: { submitted: true } },
     });
   }
 

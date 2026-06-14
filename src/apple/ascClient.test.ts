@@ -429,6 +429,178 @@ describe("AppStoreConnectClient — product catalog", () => {
   });
 });
 
+describe("AppStoreConnectClient — release lifecycle", () => {
+  it("lists builds newest-first with the right fields, resolving the app id first", async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: "app1", attributes: {} }] })))
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [
+              {
+                id: "b9",
+                attributes: { version: "9", processingState: "VALID", uploadedDate: "2026-06-10", expired: false },
+              },
+              { id: "b8", attributes: { version: "8", processingState: "PROCESSING", expired: false } },
+            ],
+          }),
+        ),
+      );
+    const builds = await client.listBuilds("com.example.hello");
+    expect(builds).toEqual([
+      { id: "b9", buildNumber: "9", processingState: "VALID", uploadedDate: "2026-06-10", expired: false },
+      { id: "b8", buildNumber: "8", processingState: "PROCESSING", uploadedDate: undefined, expired: false },
+    ]);
+    expect(String(fetchMock.mock.calls[1]![0])).toContain("/builds?filter[app]=app1&sort=-version");
+    expect(String(fetchMock.mock.calls[1]![0])).toContain(
+      "fields[builds]=version,processingState,uploadedDate,expired",
+    );
+  });
+
+  it("returns no builds when the app record is missing", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })));
+    expect(await client.listBuilds("com.example.missing")).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads a build's marketing version from its pre-release version", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(200, JSON.stringify({ data: { id: "pr1", attributes: { version: "1.4.0" } } })),
+    );
+    expect(await client.getBuildMarketingVersion("b9")).toBe("1.4.0");
+    expect(String(fetchMock.mock.calls[0]![0])).toContain("/builds/b9/preReleaseVersion");
+  });
+
+  it("PATCHes a build's export-compliance answer", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(204, ""));
+    await client.setBuildUsesNonExemptEncryption("b9", false);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(init.method).toBe("PATCH");
+    expect(url).toContain("/builds/b9");
+    expect(JSON.parse(init.body as string)).toEqual({
+      data: { type: "builds", id: "b9", attributes: { usesNonExemptEncryption: false } },
+    });
+  });
+
+  it("creates an App Store version with a scheduled date only when given one", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        201,
+        JSON.stringify({
+          data: { id: "v1", attributes: { versionString: "1.4.0", appStoreState: "PREPARE_FOR_SUBMISSION" } },
+        }),
+      ),
+    );
+    await client.createAppStoreVersion("app1", {
+      versionString: "1.4.0",
+      platform: "IOS",
+      releaseType: "SCHEDULED",
+      earliestReleaseDate: "2026-07-01T12:00:00Z",
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body as string);
+    expect(body.data.type).toBe("appStoreVersions");
+    expect(body.data.attributes).toMatchObject({
+      platform: "IOS",
+      versionString: "1.4.0",
+      releaseType: "SCHEDULED",
+      earliestReleaseDate: "2026-07-01T12:00:00Z",
+    });
+    expect(body.data.relationships.app.data).toEqual({ type: "apps", id: "app1" });
+  });
+
+  it("omits earliestReleaseDate from a non-scheduled version create", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(201, JSON.stringify({ data: { id: "v1", attributes: { versionString: "1.4.0" } } })),
+    );
+    await client.createAppStoreVersion("app1", {
+      versionString: "1.4.0",
+      platform: "IOS",
+      releaseType: "AFTER_APPROVAL",
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body as string);
+    expect(body.data.attributes).not.toHaveProperty("earliestReleaseDate");
+  });
+
+  it("attaches a build to a version via the relationship endpoint", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(204, ""));
+    await client.selectBuildForVersion("v1", "b9");
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(init.method).toBe("PATCH");
+    expect(url).toContain("/appStoreVersions/v1/relationships/build");
+    expect(JSON.parse(init.body as string)).toEqual({ data: { type: "builds", id: "b9" } });
+  });
+
+  it("sets a version's what's-new for a locale", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(204, ""));
+    await client.updateVersionWhatsNew("loc1", "Bug fixes.");
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/appStoreVersionLocalizations/loc1");
+    expect(JSON.parse(init.body as string)).toEqual({
+      data: { type: "appStoreVersionLocalizations", id: "loc1", attributes: { whatsNew: "Bug fixes." } },
+    });
+  });
+
+  it("reads a phased release, or null when absent", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse(200, JSON.stringify({ data: { id: "ph1", attributes: { phasedReleaseState: "ACTIVE" } } })),
+      )
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: null })));
+    expect(await client.getPhasedRelease("v1")).toEqual({ id: "ph1", phasedReleaseState: "ACTIVE" });
+    expect(await client.getPhasedRelease("v2")).toBeNull();
+  });
+
+  it("steers a phased release with the requested state", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(204, ""));
+    await client.updatePhasedRelease("ph1", "PAUSE");
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body as string);
+    expect(body).toEqual({
+      data: { type: "appStoreVersionPhasedReleases", id: "ph1", attributes: { phasedReleaseState: "PAUSE" } },
+    });
+  });
+
+  it("runs the modern review-submission flow: create → add item → submit", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse(201, JSON.stringify({ data: { id: "rs1", attributes: { state: "READY_FOR_REVIEW" } } })),
+      )
+      .mockResolvedValueOnce(fakeResponse(201, JSON.stringify({ data: { id: "item1", attributes: {} } })))
+      .mockResolvedValueOnce(
+        fakeResponse(200, JSON.stringify({ data: { id: "rs1", attributes: { state: "WAITING_FOR_REVIEW" } } })),
+      );
+
+    const submission = await client.createReviewSubmission("app1", "IOS");
+    expect(submission).toEqual({ id: "rs1", state: "READY_FOR_REVIEW" });
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body as string)).toMatchObject({
+      data: {
+        type: "reviewSubmissions",
+        attributes: { platform: "IOS" },
+        relationships: { app: { data: { id: "app1" } } },
+      },
+    });
+
+    await client.addReviewSubmissionItem("rs1", "v1");
+    expect(JSON.parse(fetchMock.mock.calls[1]![1].body as string)).toMatchObject({
+      data: {
+        type: "reviewSubmissionItems",
+        relationships: {
+          reviewSubmission: { data: { type: "reviewSubmissions", id: "rs1" } },
+          appStoreVersion: { data: { type: "appStoreVersions", id: "v1" } },
+        },
+      },
+    });
+
+    await client.submitReviewSubmission("rs1");
+    const [url, init] = fetchMock.mock.calls[2]!;
+    expect(init.method).toBe("PATCH");
+    expect(url).toContain("/reviewSubmissions/rs1");
+    expect(JSON.parse(init.body as string)).toEqual({
+      data: { type: "reviewSubmissions", id: "rs1", attributes: { submitted: true } },
+    });
+  });
+});
+
 describe("describeErrors", () => {
   it("joins Apple's error details, falling back to titles", () => {
     expect(describeErrors(JSON.stringify({ errors: [{ detail: "d1" }, { title: "t2" }] }))).toBe("d1; t2");

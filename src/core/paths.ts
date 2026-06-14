@@ -103,6 +103,16 @@ export const BUILD_STATE_DIR = join(LAUNCH_HOME, "build-state");
  */
 export const LAST_RUN_FILE = join(LAUNCH_HOME, "last-run.json");
 
+/**
+ * Remembered export-compliance answers (`{ <bundleId>: boolean }`) — whether each app uses
+ * non-exempt encryption, the one-time "Missing Compliance" question App Store Connect asks before a
+ * build can be submitted. Persisted after the first interactive answer so later releases set it
+ * automatically. Non-secret host-local UX state; the durable, shareable home for this is the app's
+ * own `ios.config.usesNonExemptEncryption` in `app.json`, which always wins over this file. See
+ * `core/exportCompliance.ts`.
+ */
+export const COMPLIANCE_FILE = join(LAUNCH_HOME, "compliance.json");
+
 /** Create a directory (and parents) if it doesn't exist, returning the path for chaining. */
 export function ensureDir(dir: string): string {
   mkdirSync(dir, { recursive: true });

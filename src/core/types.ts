@@ -249,6 +249,41 @@ export interface AppProducts {
 }
 
 /**
+ * How an approved iOS release reaches the public App Store — the App Store version's `releaseType`,
+ * mirroring Apple's enum on the `appStoreVersions` resource. Read by `launch release` (and overridable
+ * per-run with `--manual` / `--scheduled <iso>`).
+ * - `AFTER_APPROVAL`: go live automatically the moment Apple approves it. Launch's default — the
+ *   hands-off path most solo developers want.
+ * - `MANUAL`: hold after approval until you press release (via `launch status`/the portal). Use when
+ *   you want to coordinate the go-live with a marketing moment.
+ * - `SCHEDULED`: go live at a fixed future instant, set via {@link ReleaseConfig.earliestReleaseDate}.
+ */
+export type ReleaseType = "AFTER_APPROVAL" | "MANUAL" | "SCHEDULED";
+
+/**
+ * iOS public-release policy, declared under {@link LaunchConfig.release}. These are the defaults
+ * `launch release` applies when no per-run flag overrides them; every field is optional so an absent
+ * `release` block means "go live after approval, all at once" — the safe, common case. Android release
+ * policy is unaffected (it rides on the Play track + `--rollout`, see {@link AndroidReleaseOptions}).
+ */
+export interface ReleaseConfig {
+  /** How an approved build reaches the store. Defaults to `AFTER_APPROVAL`. Overridable with `--manual`/`--scheduled`. */
+  releaseType?: ReleaseType;
+  /**
+   * ISO-8601 instant to go live at — only meaningful with `releaseType: "SCHEDULED"` (ignored otherwise).
+   * A `--scheduled <iso>` flag sets both this and the release type for one run.
+   */
+  earliestReleaseDate?: string;
+  /**
+   * Opt into Apple's 7-day phased release (a gradual percentage rollout) for an approved update.
+   * Defaults to `false` — an immediate 100% release. Overridable per-run with `--phased`, and steerable
+   * afterward with `launch rollout <pause|resume|complete>`. Ignored for a first version (Apple only
+   * phases updates).
+   */
+  phasedRelease?: boolean;
+}
+
+/**
  * Build/submit completion notifications — the EAS-`webhook` parity hook, declared under
  * {@link LaunchConfig.notify}. A local Mac build can run many minutes; this pings when it finishes.
  * Both fields are optional and independent: set a `webhookUrl`, a `command`, both, or (absent) get
@@ -302,6 +337,11 @@ export interface LaunchConfig {
   products?: Record<string, AppProducts>;
   /** Build/submit completion notifications (webhook + shell hook). Absent = no notifications. See {@link NotifyConfig}. */
   notify?: NotifyConfig;
+  /**
+   * iOS public-release policy for `launch release` (release type, scheduled date, phased rollout).
+   * Absent = the safe defaults (go live after approval, all at once). See {@link ReleaseConfig}.
+   */
+  release?: ReleaseConfig;
   /** AWS EC2 Mac settings for remote (off-Mac) builds. Only needed when building via `--remote aws`. */
   aws?: AwsConfig;
   /**
