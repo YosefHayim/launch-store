@@ -11,8 +11,8 @@
  * unit-tested; only {@link notifyCompletion} does I/O (the POST + the shell run).
  */
 
-import { exec } from "node:child_process";
 import type { LaunchConfig, NotifyConfig, Platform } from "./types.js";
+import { runQuiet } from "./exec.js";
 import { createLogger } from "./logger.js";
 
 /**
@@ -92,17 +92,20 @@ async function postWebhook(url: string, event: NotifyEvent, log: ReturnType<type
 }
 
 /**
- * Run the shell hook with the event in its environment. Uses the platform shell (like a git hook) —
- * the command is the user's own config, not interpolated Launch data, so there's no injection vector.
- * Best-effort: a non-zero exit or spawn error is reported, never thrown.
+ * Run the shell hook with the event in its environment, like a git hook. Routed through
+ * `core/exec.ts` (`shell: false`, explicit `["-c", command]` argv) rather than `child_process.exec`,
+ * so Node never spawns a shell over a concatenated string — the AGENTS.md rule. The command is the
+ * user's own `launch.config.ts` value, and event data reaches it only as `LAUNCH_*` environment vars,
+ * never spliced into the command string, so there is no injection path from Launch-controlled data.
+ * Output is drained (not printed) to keep the post-run summary clean; a non-zero exit or spawn error
+ * is reported, never thrown — a notification must not fail a build that already ran.
  */
-function runHook(command: string, event: NotifyEvent, log: ReturnType<typeof createLogger>): Promise<void> {
-  return new Promise((resolve) => {
-    exec(command, { env: { ...process.env, ...notifyEnv(event) } }, (error) => {
-      if (error) log.warn(`Notification command failed: ${error.message}`);
-      resolve();
-    });
-  });
+async function runHook(command: string, event: NotifyEvent, log: ReturnType<typeof createLogger>): Promise<void> {
+  try {
+    await runQuiet("/bin/sh", ["-c", command], { env: notifyEnv(event) });
+  } catch (error) {
+    log.warn(`Notification command failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 /**
