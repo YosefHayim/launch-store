@@ -9,8 +9,11 @@
  *
  * Like Apple's missing `POST /v1/apps`, the Play API deliberately CANNOT create an app record — that
  * stays a Play Console UI step. {@link GooglePlayClient.assertAppExists} failing is how Launch detects
- * it's missing. The actual upload is done by fastlane `supply` (it owns the transactional multi-call
- * edit + resumable upload); this client is reads-only by design (see docs/plan-android.md, decision 7).
+ * it's missing. The binary upload stays with fastlane `supply` (it owns the resumable AAB upload), but
+ * this client now also **writes** the Play product surface (in-app products, subscriptions, reviews,
+ * tracks) directly — see ADR `docs/adr/0001-store-crud-parity.md`, which supersedes the reads-only
+ * stance of `docs/plan-android.md` decision 7. Edit-scoped writes (tracks, listings) go through
+ * {@link GooglePlayClient.withEdit}, which opens a transactional edit, applies changes, then commits.
  *
  * @see https://developers.google.com/android-publisher
  */
@@ -170,9 +173,43 @@ export class GooglePlayClient {
     return id;
   }
 
+  /** Commit an edit, applying every change made inside it atomically. */
+  private async commitEdit(packageName: string, editId: string): Promise<void> {
+    await this.request<unknown>("POST", `/applications/${encodeURIComponent(packageName)}/edits/${editId}:commit`);
+  }
+
   /** Abandon an edit so no transaction is left dangling (best-effort; callers ignore failures). */
   private async deleteEdit(packageName: string, editId: string): Promise<void> {
     await this.request<unknown>("DELETE", `/applications/${encodeURIComponent(packageName)}/edits/${editId}`);
+  }
+
+  /** Open a throwaway edit for a read, run `read`, then always abandon it (reads never commit). */
+  private async withReadEdit<T>(packageName: string, read: (editId: string) => Promise<T>): Promise<T> {
+    const editId = await this.createEdit(packageName);
+    try {
+      return await read(editId);
+    } finally {
+      await this.deleteEdit(packageName, editId).catch(() => undefined);
+    }
+  }
+
+  /**
+   * Run edit-scoped **writes** transactionally: open an edit, apply changes via `apply`, then COMMIT so
+   * they land atomically. On any error the edit is abandoned (rolled back) so a partial change never
+   * lands. This is the write twin of {@link withReadEdit} and the foundation the edit-based Play
+   * reconcilers (tracks, testers, country availability, listings) build on. Returns whatever `apply`
+   * returns. The Play API requires every track/listing change to live inside such an edit.
+   */
+  async withEdit<T>(packageName: string, apply: (editId: string) => Promise<T>): Promise<T> {
+    const editId = await this.createEdit(packageName);
+    try {
+      const result = await apply(editId);
+      await this.commitEdit(packageName, editId);
+      return result;
+    } catch (error) {
+      await this.deleteEdit(packageName, editId).catch(() => undefined);
+      throw error;
+    }
   }
 
   /**
@@ -180,31 +217,25 @@ export class GooglePlayClient {
    * bumps this for the next upload (parallels {@link AppStoreConnectClient.getLatestBuildNumber}).
    */
   async getLatestVersionCode(packageName: string): Promise<number> {
-    const editId = await this.createEdit(packageName);
-    try {
+    return this.withReadEdit(packageName, async (editId) => {
       const { bundles } = await this.request<{ bundles?: { versionCode?: number }[] }>(
         "GET",
         `/applications/${encodeURIComponent(packageName)}/edits/${editId}/bundles`,
       );
       const codes = (bundles ?? []).map((bundle) => bundle.versionCode ?? 0);
       return codes.length > 0 ? Math.max(...codes) : 0;
-    } finally {
-      await this.deleteEdit(packageName, editId).catch(() => undefined);
-    }
+    });
   }
 
   /** Read the releases currently on a track (for status reporting); empty array when the track is unused. */
   async getTrackReleases(packageName: string, track: string): Promise<PlayRelease[]> {
-    const editId = await this.createEdit(packageName);
-    try {
+    return this.withReadEdit(packageName, async (editId) => {
       const { releases } = await this.request<{ releases?: PlayRelease[] }>(
         "GET",
         `/applications/${encodeURIComponent(packageName)}/edits/${editId}/tracks/${encodeURIComponent(track)}`,
       );
       return releases ?? [];
-    } finally {
-      await this.deleteEdit(packageName, editId).catch(() => undefined);
-    }
+    });
   }
 
   /**

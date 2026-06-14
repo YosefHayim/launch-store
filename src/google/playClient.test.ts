@@ -124,3 +124,40 @@ describe("GooglePlayClient — auth + reads", () => {
     await expect(client.assertAppExists("com.example.missing")).rejects.toBeInstanceOf(PlayAppNotFoundError);
   });
 });
+
+/** Map recorded fetch calls to `"METHOD url"` strings for asserting the edit lifecycle. */
+function calledRoutes(): string[] {
+  return fetchMock.mock.calls.map(
+    (call) => `${(call[1] as { method?: string } | undefined)?.method ?? "GET"} ${call[0] as string}`,
+  );
+}
+
+describe("GooglePlayClient.withEdit (transactional writes)", () => {
+  it("opens an edit, runs the writes, then commits — no rollback", async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ access_token: "tok", expires_in: 3600 })))
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ id: "edit1" }))) // createEdit
+      .mockResolvedValueOnce(fakeResponse(204, "")); // commitEdit
+
+    const result = await client.withEdit("com.example.app", (editId) => Promise.resolve(editId));
+
+    expect(result).toBe("edit1");
+    const routes = calledRoutes();
+    expect(routes.some((route) => route.includes("/edits") && route.startsWith("POST"))).toBe(true);
+    expect(routes.some((route) => route.includes(":commit"))).toBe(true);
+    expect(routes.some((route) => route.startsWith("DELETE"))).toBe(false);
+  });
+
+  it("abandons the edit (DELETE, no commit) when the writes throw, and re-throws", async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ access_token: "tok", expires_in: 3600 })))
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ id: "edit1" }))) // createEdit
+      .mockResolvedValueOnce(fakeResponse(204, "")); // deleteEdit (rollback)
+
+    await expect(client.withEdit("com.example.app", () => Promise.reject(new Error("boom")))).rejects.toThrow("boom");
+
+    const routes = calledRoutes();
+    expect(routes.some((route) => route.includes(":commit"))).toBe(false);
+    expect(routes.some((route) => route.startsWith("DELETE"))).toBe(true);
+  });
+});
