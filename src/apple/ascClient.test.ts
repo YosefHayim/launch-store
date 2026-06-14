@@ -494,6 +494,91 @@ describe("AppStoreConnectClient — export compliance", () => {
   });
 });
 
+describe("AppStoreConnectClient — listing localizations", () => {
+  it("picks the editable App Store version, ignoring a live one", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: "v-live", attributes: { appStoreState: "READY_FOR_SALE" } },
+            { id: "v-edit", attributes: { appStoreState: "PREPARE_FOR_SUBMISSION" } },
+          ],
+        }),
+      ),
+    );
+    expect(await client.getEditableVersionId("app1")).toBe("v-edit");
+    expect(fetchMock.mock.calls[0]![0]).toContain("/apps/app1/appStoreVersions");
+  });
+
+  it("returns null when no App Store version is editable", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(200, JSON.stringify({ data: [{ id: "v-live", attributes: { appStoreState: "READY_FOR_SALE" } }] })),
+    );
+    expect(await client.getEditableVersionId("app1")).toBeNull();
+  });
+
+  it("picks the editable appInfo by state", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: "ai-live", attributes: { state: "READY_FOR_DISTRIBUTION" } },
+            { id: "ai-edit", attributes: { state: "PREPARE_FOR_SUBMISSION" } },
+          ],
+        }),
+      ),
+    );
+    expect(await client.getEditableAppInfoId("app1")).toBe("ai-edit");
+  });
+
+  it("lists version localizations, keeping only present non-empty fields", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            {
+              id: "vl1",
+              attributes: { locale: "en-US", description: "Copy", keywords: "a,b", whatsNew: null, marketingUrl: "" },
+            },
+          ],
+        }),
+      ),
+    );
+    expect(await client.listVersionLocalizations("v-edit")).toEqual([
+      { id: "vl1", locale: "en-US", fields: { description: "Copy", keywords: "a,b" } },
+    ]);
+  });
+
+  it("POSTs a new version localization with the appStoreVersion relationship", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(201, JSON.stringify({ data: { id: "vl-new", attributes: {} } })));
+    await client.createVersionLocalization("v-edit", "fr-FR", { description: "Texte" });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toContain("/appStoreVersionLocalizations");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      data: {
+        type: "appStoreVersionLocalizations",
+        attributes: { locale: "fr-FR", description: "Texte" },
+        relationships: { appStoreVersion: { data: { type: "appStoreVersions", id: "v-edit" } } },
+      },
+    });
+  });
+
+  it("PATCHes only the changed fields on an app-level localization", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: { id: "ail1", attributes: {} } })));
+    await client.updateAppInfoLocalization("ail1", { name: "New" });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toContain("/appInfoLocalizations/ail1");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({
+      data: { type: "appInfoLocalizations", id: "ail1", attributes: { name: "New" } },
+    });
+  });
+});
+
 describe("describeErrors", () => {
   it("joins Apple's error details, falling back to titles", () => {
     expect(describeErrors(JSON.stringify({ errors: [{ detail: "d1" }, { title: "t2" }] }))).toBe("d1; t2");
