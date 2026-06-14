@@ -15,6 +15,8 @@ import { runAutoUpgrade } from "../core/updateCheck.js";
 import { registerInitCommand } from "./commands/init.js";
 import { registerBuildCommand } from "./commands/build.js";
 import { registerReleaseCommand } from "./commands/release.js";
+import { registerStatusCommand } from "./commands/status.js";
+import { registerRolloutCommand } from "./commands/rollout.js";
 import { registerCredsCommand } from "./commands/creds.js";
 import { registerSecretCommand } from "./commands/secret.js";
 import { registerMetadataCommand } from "./commands/metadata.js";
@@ -60,6 +62,8 @@ program
 registerInitCommand(program);
 registerBuildCommand(program);
 registerReleaseCommand(program);
+registerStatusCommand(program);
+registerRolloutCommand(program);
 registerCredsCommand(program);
 registerSecretCommand(program);
 registerMetadataCommand(program);

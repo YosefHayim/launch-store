@@ -1,0 +1,139 @@
+/**
+ * `launch status [--watch] [--json]` — where each app's current App Store release stands.
+ *
+ * Reads the live App Store version + review-submission state + build processing over the API and prints
+ * a terminal verdict (and the phased-rollout state, when one's running). `--watch` polls until the
+ * review settles; `--json` plus the documented exit codes (0 approved/released, 2 rejected, 3 still in
+ * progress, 1 error) make it scriptable in CI. On a rejection it points at Resolution Center — Apple's
+ * API doesn't expose the rejection text, so Launch links rather than scrapes.
+ */
+
+import type { Command } from "commander";
+import type { AppDescriptor } from "../../core/types.js";
+import { loadConfig } from "../../core/config.js";
+import { createLogger } from "../../core/logger.js";
+import { loadActiveAscKey } from "../../core/accounts.js";
+import { AppStoreConnectClient } from "../../apple/ascClient.js";
+import { IOS_PLATFORM, readReleaseStatus, type ReleaseStatus } from "../../core/appStoreRelease.js";
+
+/** CLI options for `launch status`. */
+interface StatusOptions {
+  /** Comma-separated app handles; default is every discovered iOS app. */
+  app?: string;
+  /** Poll until every app's review reaches a terminal verdict. */
+  watch?: boolean;
+  /** Machine-readable output (an array of {@link ReleaseStatus}) for CI. */
+  json?: boolean;
+}
+
+/** One discovered iOS app reduced to what the status read needs. */
+interface IosApp {
+  name: string;
+  bundleId: string;
+}
+
+/** How long to wait between `--watch` polls — App Store states change on the order of minutes. */
+const WATCH_INTERVAL_MS = 30_000;
+
+/** Resolve the iOS apps to report on from discovery + the optional `--app` selector. */
+export function selectIosApps(apps: AppDescriptor[], selector: string | undefined): IosApp[] {
+  const ios = apps.flatMap((app) => (app.bundleId ? [{ name: app.name, bundleId: app.bundleId }] : []));
+  if (!selector) return ios;
+  const wanted = selector
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean);
+  const byName = new Map(ios.map((app) => [app.name, app]));
+  return wanted.map((name) => {
+    const app = byName.get(name);
+    if (!app) throw new Error(`Unknown iOS app "${name}". iOS apps: ${ios.map((a) => a.name).join(", ") || "none"}.`);
+    return app;
+  });
+}
+
+/** One human status line, e.g. `v1.2.0 · In review · build 42 · phased: ACTIVE`. */
+export function formatStatusLine(status: ReleaseStatus): string {
+  const parts = [status.versionString ? `v${status.versionString}` : "no App Store version", status.verdict.label];
+  if (status.buildNumber) {
+    const processing =
+      status.buildProcessingState && status.buildProcessingState !== "VALID" ? ` (${status.buildProcessingState})` : "";
+    parts.push(`build ${status.buildNumber}${processing}`);
+  }
+  if (status.phasedReleaseState) parts.push(`phased: ${status.phasedReleaseState}`);
+  return parts.join(" · ");
+}
+
+/**
+ * The process exit code for a batch of verdicts — the worst wins, in priority order:
+ * error (1) › rejected (2) › in progress (3) › ok (0). Lets CI gate a `launch status` call.
+ */
+export function worstExitCode(codes: number[]): number {
+  const rank = (code: number): number => (code === 1 ? 3 : code === 2 ? 2 : code === 3 ? 1 : 0);
+  return codes.reduce((worst, code) => (rank(code) > rank(worst) ? code : worst), 0);
+}
+
+/** Attach the `status` command to the program. */
+export function registerStatusCommand(program: Command): void {
+  program
+    .command("status")
+    .description("show each app's App Store version, review, and phased-rollout state")
+    .option("-a, --app <names>", "comma-separated app handles (default: all iOS apps)")
+    .option("--watch", "poll until the review reaches a terminal verdict", false)
+    .option("--json", "machine-readable output for CI", false)
+    .action(async (options: StatusOptions) => {
+      const { apps } = await loadConfig();
+      const ios = selectIosApps(apps, options.app);
+      const log = createLogger(false);
+      if (ios.length === 0) {
+        log.info("No iOS apps discovered. Add an app with an ios.bundleIdentifier in app.json.");
+        return;
+      }
+
+      const ascKey = await loadActiveAscKey();
+      if (!ascKey) throw new Error("No active Apple account. Run `launch creds set-key` first.");
+      const client = new AppStoreConnectClient(ascKey);
+
+      const readAll = (): Promise<{ name: string; status: ReleaseStatus }[]> =>
+        Promise.all(
+          ios.map(async (app) => ({
+            name: app.name,
+            status: await readReleaseStatus(client, app.bundleId, IOS_PLATFORM),
+          })),
+        );
+
+      if (options.watch && !options.json) {
+        await watch(readAll, log);
+        return;
+      }
+
+      const results = await readAll();
+      if (options.json)
+        console.log(
+          JSON.stringify(
+            results.map((result) => result.status),
+            null,
+            2,
+          ),
+        );
+      else for (const { name, status } of results) log.step(name, formatStatusLine(status));
+      process.exitCode = worstExitCode(results.map((result) => result.status.verdict.exitCode));
+    });
+}
+
+/** Poll until every app's verdict is terminal, printing each round. */
+async function watch(
+  readAll: () => Promise<{ name: string; status: ReleaseStatus }[]>,
+  log: ReturnType<typeof createLogger>,
+): Promise<void> {
+  const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+  for (;;) {
+    const results = await readAll();
+    log.gap();
+    for (const { name, status } of results) log.step(name, formatStatusLine(status));
+    if (results.every((result) => result.status.verdict.done)) {
+      process.exitCode = worstExitCode(results.map((result) => result.status.verdict.exitCode));
+      return;
+    }
+    await sleep(WATCH_INTERVAL_MS);
+  }
+}
