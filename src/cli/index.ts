@@ -24,6 +24,11 @@ import { registerExplainCommand } from "./commands/explain.js";
 import { registerUpdateCommand } from "./commands/update.js";
 import { registerCloudCommand } from "./commands/cloud.js";
 import { registerDemoCommand } from "./commands/demo.js";
+import { registerBuildsCommand } from "./commands/builds.js";
+import { registerCiCommand } from "./commands/ci.js";
+import { registerRunCommand } from "./commands/run.js";
+import { registerFingerprintCommand } from "./commands/fingerprint.js";
+import { registerDiagnoseCommand } from "./commands/diagnose.js";
 import { runWizard } from "./commands/wizard.js";
 
 /**
@@ -61,6 +66,11 @@ registerExplainCommand(program);
 registerUpdateCommand(program);
 registerCloudCommand(program);
 registerDemoCommand(program);
+registerBuildsCommand(program);
+registerCiCommand(program);
+registerRunCommand(program);
+registerFingerprintCommand(program);
+registerDiagnoseCommand(program);
 
 // No subcommand → the animated rocket banner, then the interactive wizard (the Expo-style front
 // door that detects the host OS and routes the build accordingly).
