@@ -535,6 +535,27 @@ export interface BuildResource {
   expired: boolean;
 }
 
+/** One locale's TestFlight "What to Test" note for a build (`betaBuildLocalizations`). */
+export interface BetaBuildLocalizationResource {
+  id: string;
+  locale: string;
+  /** The "What to Test" text testers see for this build; absent until set. */
+  whatsNew?: string;
+}
+
+/** Apple's Beta App Review verdict for a build's submission. */
+export type BetaReviewState = "WAITING_FOR_REVIEW" | "IN_REVIEW" | "REJECTED" | "APPROVED";
+
+/**
+ * A build's Beta App Review submission (`betaAppReviewSubmissions`) — the request that lets *external*
+ * TestFlight testers install it. One per build; `state` is Apple's verdict. Absent until the build is
+ * submitted for beta review.
+ */
+export interface BetaAppReviewSubmissionResource {
+  id: string;
+  state?: BetaReviewState;
+}
+
 /**
  * An App Store version — the per-release container carrying lifecycle state, release type, and the
  * attached build. One per marketing version + platform; `launch release` reuses an editable one or
@@ -3027,6 +3048,67 @@ export class AppStoreConnectClient {
     );
     const first = data[0];
     return first ? toBuildResource(first) : null;
+  }
+
+  /** List a build's TestFlight "What to Test" notes, one per locale (`betaBuildLocalizations`). */
+  async listBetaBuildLocalizations(buildId: string): Promise<BetaBuildLocalizationResource[]> {
+    const data = await this.requestAll<{ locale?: string; whatsNew?: string }>(
+      `/builds/${buildId}/betaBuildLocalizations?limit=200&fields[betaBuildLocalizations]=locale,whatsNew`,
+    );
+    return data.flatMap((entry) =>
+      entry.attributes.locale
+        ? [
+            {
+              id: entry.id,
+              locale: entry.attributes.locale,
+              ...(entry.attributes.whatsNew ? { whatsNew: entry.attributes.whatsNew } : {}),
+            },
+          ]
+        : [],
+    );
+  }
+
+  /** Create a build's "What to Test" note for one locale. */
+  async createBetaBuildLocalization(buildId: string, locale: string, whatsNew: string): Promise<void> {
+    await this.request<unknown>("POST", "/betaBuildLocalizations", {
+      data: {
+        type: "betaBuildLocalizations",
+        attributes: { locale, whatsNew },
+        relationships: { build: { data: { type: "builds", id: buildId } } },
+      },
+    });
+  }
+
+  /** Update one locale's "What to Test" note. */
+  async updateBetaBuildLocalization(localizationId: string, whatsNew: string): Promise<void> {
+    await this.request<unknown>("PATCH", `/betaBuildLocalizations/${localizationId}`, {
+      data: { type: "betaBuildLocalizations", id: localizationId, attributes: { whatsNew } },
+    });
+  }
+
+  /** Read a build's Beta App Review submission (its current verdict), or null when it hasn't been submitted. */
+  async getBetaAppReviewSubmission(buildId: string): Promise<BetaAppReviewSubmissionResource | null> {
+    try {
+      const { data } = await this.request<{
+        data: { id: string; attributes?: { betaReviewState?: BetaReviewState } } | null;
+      }>("GET", `/builds/${buildId}/betaAppReviewSubmission`);
+      return data
+        ? { id: data.id, ...(data.attributes?.betaReviewState ? { state: data.attributes.betaReviewState } : {}) }
+        : null;
+    } catch (error) {
+      if (error instanceof AscRequestError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  /** Submit a build for Beta App Review (required before external testers can install it). */
+  async createBetaAppReviewSubmission(buildId: string): Promise<void> {
+    await this.request<unknown>("POST", "/betaAppReviewSubmissions", {
+      data: {
+        type: "betaAppReviewSubmissions",
+        relationships: { build: { data: { type: "builds", id: buildId } } },
+      },
+    });
   }
 
   /** List an app's App Store versions for a platform (e.g. `IOS`), across all pages. */
