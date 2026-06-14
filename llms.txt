@@ -1,8 +1,8 @@
 # Launch
 
-> Open-source CLI that builds and ships your iOS and Android apps to the stores from your own machine, with your own keys — the local, no-subscription replacement for EAS Build/Submit/Update. Ships iOS → TestFlight and Android → Google Play.
+> Open-source CLI that owns the whole release for your iOS and Android apps — signing setup, store/product config, build, ship, and OTA updates — from your own machine, with your own keys. The local, no-subscription replacement for EAS Build/Submit/Update, plus the store-setup steps EAS leaves to you. Ships iOS → TestFlight and Android → Google Play.
 
-Launch runs the EAS pipeline locally: prebuild → resolve credentials → compile & sign → size-check → store → submit to the testing track (TestFlight / Play internal). Signing keys stay in the OS keychain (macOS Keychain, or the platform secret store elsewhere); storage, credentials, build engine, and submission are pluggable behind small interfaces. App facts come from each `app.json`, so nothing is duplicated. `launch demo` walks the whole flow as a zero-setup simulation.
+Launch runs the EAS pipeline locally: prebuild → resolve credentials → compile & sign → size-check → store → submit to the testing track (TestFlight / Play internal). Around that build path it also configures the stores as code: `launch sync` reconciles in-app purchases, subscriptions, and capabilities onto App Store Connect from `launch.config.ts`, and `launch metadata` syncs the listing for both platforms. Signing keys stay in the OS keychain (macOS Keychain, or the platform secret store elsewhere); storage, credentials, build engine, and submission are pluggable behind small interfaces. App facts come from each `app.json`, so nothing is duplicated. `launch demo` walks the whole flow as a zero-setup simulation.
 
 ## Docs
 
@@ -18,7 +18,8 @@ Launch runs the EAS pipeline locally: prebuild → resolve credentials → compi
 - [AWS EC2 Mac host](./src/providers/compute/awsEc2Mac.ts): allocate/status/teardown + golden-AMI + `cloud doctor`; [SSH transport](./src/core/ssh.ts) and [remote build ops](./src/core/remoteBuild.ts).
 - [Glossary](./src/core/glossary.ts): plain-English term definitions shared by `launch explain` and the docs.
 - [App Store Connect client](./src/apple/ascClient.ts): the Apple API integration (JWT auth, bundle ids, certs, profiles, builds).
-- [Public API](./src/index.ts): what a user's `launch.config.ts` imports (`defineConfig`).
+- [ASC product sync](./src/core/ascSync.ts): the declarative reconciler behind `launch sync` (capabilities, IAPs, subscriptions, pricing).
+- [Public API](./src/index.ts): what a user's `launch.config.ts` imports (`defineConfig`, the `products` catalog).
 
 ## Optional
 
