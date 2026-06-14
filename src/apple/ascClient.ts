@@ -525,6 +525,46 @@ export interface PromotedPurchaseCreate {
   enabled: boolean;
 }
 
+/**
+ * An app's App Info record — the container that owns the App Store category relationships and the
+ * age-rating declaration. An app can have more than one (a live one plus an editable one); the
+ * reconciler edits the editable one, falling back to the first when no state is reported.
+ */
+export interface AppInfoResource {
+  id: string;
+  /** Apple's editable-state hint (e.g. `PREPARE_FOR_SUBMISSION`), when the response carries one. */
+  state?: string;
+  /** Current primary App Store category id (an `appCategories` id such as `PRODUCTIVITY`), if set. */
+  primaryCategoryId?: string;
+  /** Current secondary App Store category id, if set. */
+  secondaryCategoryId?: string;
+}
+
+/** One age-rating answer: a content-descriptor enum string (`NONE` / `INFREQUENT_OR_MILD` / …) or a boolean flag. */
+export type AgeRatingValue = string | boolean;
+
+/**
+ * An app's age-rating declaration. Apple's attribute set (content-descriptor enums like
+ * `violenceCartoonOrFantasy`, plus booleans and age bands) changes over time, so the attributes are
+ * carried as an open `name → value` map rather than a fixed shape: config supplies the answers verbatim
+ * and the reconciler PATCHes only the ones that differ, so a new descriptor needs no code change here.
+ */
+export interface AgeRatingDeclarationResource {
+  id: string;
+  attributes: Record<string, AgeRatingValue>;
+}
+
+/**
+ * An app version's App Review details — the contact info and demo-account credentials Apple's reviewer
+ * uses. Carried as an open attribute map for the same forward-compat reason as the age-rating
+ * declaration. Note `demoAccountPassword` is write-only on Apple's side: it is never returned on a read
+ * (so a change to the password alone can't be diffed) and Launch never logs it.
+ */
+export interface AppStoreReviewDetailResource {
+  id: string;
+  attributes: Record<string, string | boolean>;
+}
+
 interface ResourceList<A> {
   data: { id: string; attributes: A }[];
 }
@@ -592,6 +632,19 @@ interface PromotedPurchasePage {
   }[];
   links?: { next?: string };
 }
+
+/**
+ * App / version / app-info states in which Apple still accepts metadata edits (categories, age rating,
+ * review details). Once a version is past these (e.g. `WAITING_FOR_REVIEW`, `PENDING_DEVELOPER_RELEASE`)
+ * those fields are frozen, so the reconciler picks the editable record and errors loudly when none exists.
+ */
+const EDITABLE_METADATA_STATES = new Set<string>([
+  "PREPARE_FOR_SUBMISSION",
+  "DEVELOPER_REJECTED",
+  "REJECTED",
+  "METADATA_REJECTED",
+  "INVALID_BINARY",
+]);
 
 /** Client bound to one App Store Connect API key. */
 export class AppStoreConnectClient {
@@ -1758,6 +1811,209 @@ export class AppStoreConnectClient {
           ]
         : [],
     );
+  }
+
+  /**
+   * Resolve the app's editable App Info — the record that owns App Store categories and the age-rating
+   * declaration — with its current category ids. Apps can have a live + an editable App Info; we prefer
+   * one in an editable {@link EDITABLE_METADATA_STATES editable state} and fall back to the first.
+   * `include=primaryCategory,secondaryCategory` forces Apple to populate the relationship linkage so we
+   * can read the current category ids without a second round-trip. Returns null when the app has none.
+   */
+  async getAppInfo(appId: string): Promise<AppInfoResource | null> {
+    const { data } = await this.request<{
+      data: {
+        id: string;
+        attributes?: { state?: string; appStoreState?: string };
+        relationships?: {
+          primaryCategory?: { data?: { id: string } | null };
+          secondaryCategory?: { data?: { id: string } | null };
+        };
+      }[];
+    }>("GET", `/apps/${appId}/appInfos?include=primaryCategory,secondaryCategory&limit=200`);
+    if (data.length === 0) return null;
+    const editable = data.find((info) =>
+      EDITABLE_METADATA_STATES.has(info.attributes?.state ?? info.attributes?.appStoreState ?? ""),
+    );
+    const target = editable ?? data[0];
+    if (!target) return null;
+    const state = target.attributes?.state ?? target.attributes?.appStoreState;
+    const primaryCategoryId = target.relationships?.primaryCategory?.data?.id;
+    const secondaryCategoryId = target.relationships?.secondaryCategory?.data?.id;
+    return {
+      id: target.id,
+      ...(state ? { state } : {}),
+      ...(primaryCategoryId ? { primaryCategoryId } : {}),
+      ...(secondaryCategoryId ? { secondaryCategoryId } : {}),
+    };
+  }
+
+  /**
+   * Set an App Info's primary/secondary App Store categories. Categories are JSON:API *relationships*
+   * (type `appCategories`, id e.g. `PRODUCTIVITY`), not attributes; only the keys passed are sent, so
+   * the reconciler can change one without clearing the other.
+   */
+  async updateAppInfoCategories(
+    appInfoId: string,
+    categories: { primaryCategoryId?: string; secondaryCategoryId?: string },
+  ): Promise<void> {
+    const relationships: Record<string, { data: { type: "appCategories"; id: string } }> = {};
+    if (categories.primaryCategoryId) {
+      relationships["primaryCategory"] = { data: { type: "appCategories", id: categories.primaryCategoryId } };
+    }
+    if (categories.secondaryCategoryId) {
+      relationships["secondaryCategory"] = { data: { type: "appCategories", id: categories.secondaryCategoryId } };
+    }
+    await this.request<unknown>("PATCH", `/appInfos/${appInfoId}`, {
+      data: { type: "appInfos", id: appInfoId, relationships },
+    });
+  }
+
+  /** Read an App Info's age-rating declaration (its current answers), or null when none exists yet. */
+  async getAgeRatingDeclaration(appInfoId: string): Promise<AgeRatingDeclarationResource | null> {
+    try {
+      const { data } = await this.request<{
+        data: { id: string; attributes?: Record<string, AgeRatingValue> } | null;
+      }>("GET", `/appInfos/${appInfoId}/ageRatingDeclaration`);
+      return data ? { id: data.id, attributes: data.attributes ?? {} } : null;
+    } catch (error) {
+      if (error instanceof AscRequestError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  /** Update an age-rating declaration with the given answers (only the supplied keys are changed). */
+  async updateAgeRatingDeclaration(declarationId: string, attributes: Record<string, AgeRatingValue>): Promise<void> {
+    await this.request<unknown>("PATCH", `/ageRatingDeclarations/${declarationId}`, {
+      data: { type: "ageRatingDeclarations", id: declarationId, attributes },
+    });
+  }
+
+  /** Find the app price point in `territory` whose customer price equals `customerPrice`, or null. */
+  async findAppPricePoint(appId: string, territory: string, customerPrice: number): Promise<PricePointResource | null> {
+    const points = await this.requestAll<{ customerPrice?: string; territory?: string }>(
+      `/apps/${appId}/appPricePoints?filter[territory]=${encodeURIComponent(territory)}&limit=8000`,
+    );
+    return matchPricePoint(points, territory, customerPrice);
+  }
+
+  /**
+   * The app's currently-effective manual customer price for `territory`, or null when none is set there.
+   * Reads the price schedule's manual prices with the linked price point sideloaded, so the reconciler
+   * can skip re-pricing when the declared price already matches. (Prices Apple auto-generates for other
+   * regions live under `automaticPrices`; the declared base price is always a manual one.)
+   *
+   * `manualPrices` returns past, current, AND future-scheduled intervals — the currently-effective one is
+   * the open interval (`startDate` null/past and `endDate` null). We match only that, so a stale or a
+   * not-yet-active scheduled price never masquerades as the current price. `limit=200` is ample: manual
+   * prices are at most one per territory (≤175) plus a handful of scheduled changes.
+   */
+  async getCurrentAppPrice(appId: string, territory: string): Promise<string | null> {
+    let body: {
+      data: {
+        attributes?: { startDate?: string | null; endDate?: string | null };
+        relationships?: { appPricePoint?: { data?: { id: string } | null } };
+      }[];
+      included?: { type: string; id: string; attributes?: { customerPrice?: string; territory?: string } }[];
+    };
+    try {
+      body = await this.request("GET", `/apps/${appId}/appPriceSchedule/manualPrices?include=appPricePoint&limit=200`);
+    } catch (error) {
+      if (error instanceof AscRequestError && error.status === 404) return null;
+      throw error;
+    }
+    const pointsById = new Map(
+      (body.included ?? [])
+        .filter((entry) => entry.type === "appPricePoints")
+        .map((entry) => [entry.id, entry.attributes] as const),
+    );
+    for (const price of body.data) {
+      // The active interval has no future start and no scheduled end; skip historical/future entries.
+      if (price.attributes?.startDate != null || price.attributes?.endDate != null) continue;
+      const pointId = price.relationships?.appPricePoint?.data?.id;
+      const point = pointId ? pointsById.get(pointId) : undefined;
+      if (point?.territory === territory && point.customerPrice !== undefined) return point.customerPrice;
+    }
+    return null;
+  }
+
+  /**
+   * Set the app's price by creating a price schedule anchored on a base territory's price point — the
+   * app-level twin of {@link createInAppPurchasePriceSchedule}, using the same JSON:API temp-id +
+   * `included` pattern Apple requires, with the mandatory `baseTerritory` (omitting it returns a 409).
+   */
+  async createAppPriceSchedule(appId: string, baseTerritory: string, pricePointId: string): Promise<void> {
+    const priceRef = "launch-base-price";
+    await this.request<unknown>("POST", "/appPriceSchedules", {
+      data: {
+        type: "appPriceSchedules",
+        relationships: {
+          app: { data: { type: "apps", id: appId } },
+          baseTerritory: { data: { type: "territories", id: baseTerritory } },
+          manualPrices: { data: [{ type: "appPrices", id: priceRef }] },
+        },
+      },
+      included: [
+        {
+          type: "appPrices",
+          id: priceRef,
+          attributes: { startDate: null },
+          relationships: {
+            app: { data: { type: "apps", id: appId } },
+            appPricePoint: { data: { type: "appPricePoints", id: pricePointId } },
+          },
+        },
+      ],
+    });
+  }
+
+  /**
+   * Find the app's editable App Store version for a platform (the one whose App Review details can still
+   * be changed), or null when none is in an {@link EDITABLE_METADATA_STATES editable state}.
+   */
+  async findEditableAppStoreVersion(appId: string, platform: string): Promise<{ id: string } | null> {
+    const data = await this.requestAll<{ appVersionState?: string; appStoreState?: string }>(
+      `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=50&fields[appStoreVersions]=appVersionState,appStoreState`,
+    );
+    const editable = data.find((version) =>
+      EDITABLE_METADATA_STATES.has(version.attributes.appVersionState ?? version.attributes.appStoreState ?? ""),
+    );
+    return editable ? { id: editable.id } : null;
+  }
+
+  /** Read a version's App Review details (contact info; never the demo password), or null when unset. */
+  async getAppStoreReviewDetail(versionId: string): Promise<AppStoreReviewDetailResource | null> {
+    try {
+      const { data } = await this.request<{
+        data: { id: string; attributes?: Record<string, string | boolean> } | null;
+      }>("GET", `/appStoreVersions/${versionId}/appStoreReviewDetail`);
+      return data ? { id: data.id, attributes: data.attributes ?? {} } : null;
+    } catch (error) {
+      if (error instanceof AscRequestError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  /** Create a version's App Review details from the given attributes. */
+  async createAppStoreReviewDetail(
+    versionId: string,
+    attributes: Record<string, string | boolean>,
+  ): Promise<{ id: string }> {
+    const { data } = await this.request<ResourceSingle<unknown>>("POST", "/appStoreReviewDetails", {
+      data: {
+        type: "appStoreReviewDetails",
+        attributes,
+        relationships: { appStoreVersion: { data: { type: "appStoreVersions", id: versionId } } },
+      },
+    });
+    return { id: data.id };
+  }
+
+  /** Update a version's existing App Review details (only the supplied attributes change). */
+  async updateAppStoreReviewDetail(detailId: string, attributes: Record<string, string | boolean>): Promise<void> {
+    await this.request<unknown>("PATCH", `/appStoreReviewDetails/${detailId}`, {
+      data: { type: "appStoreReviewDetails", id: detailId, attributes },
+    });
   }
 
   /** Shared GET → {@link LocalizationResource}[] for any product/subscription/group localization collection. */
