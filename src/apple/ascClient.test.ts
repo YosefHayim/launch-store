@@ -1019,3 +1019,121 @@ describe("AppStoreConnectClient — App Store release lifecycle", () => {
     });
   });
 });
+
+describe("AppStoreConnectClient — App Store screenshots", () => {
+  it("createScreenshotSet posts the display type + version-localization relationship", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        201,
+        JSON.stringify({ data: { id: "set1", attributes: { screenshotDisplayType: "APP_IPHONE_67" } } }),
+      ),
+    );
+
+    expect(await client.createScreenshotSet("loc1", "APP_IPHONE_67")).toEqual({
+      id: "set1",
+      displayType: "APP_IPHONE_67",
+    });
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/appScreenshotSets");
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      data: {
+        type: "appScreenshotSets",
+        attributes: { screenshotDisplayType: "APP_IPHONE_67" },
+        relationships: { appStoreVersionLocalization: { data: { type: "appStoreVersionLocalizations", id: "loc1" } } },
+      },
+    });
+  });
+
+  it("listScreenshotSets maps the display type and drops sets without one", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: "s1", attributes: { screenshotDisplayType: "APP_DESKTOP" } },
+            { id: "s2", attributes: {} },
+          ],
+        }),
+      ),
+    );
+    expect(await client.listScreenshotSets("loc1")).toEqual([{ id: "s1", displayType: "APP_DESKTOP" }]);
+  });
+
+  it("listScreenshots keeps fileName/checksum and flattens assetDeliveryState.state", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            {
+              id: "sh1",
+              attributes: { fileName: "01.png", sourceFileChecksum: "abc", assetDeliveryState: { state: "COMPLETE" } },
+            },
+            { id: "sh2", attributes: { sourceFileChecksum: "x" } },
+          ],
+        }),
+      ),
+    );
+    expect(await client.listScreenshots("set1")).toEqual([
+      { id: "sh1", fileName: "01.png", sourceFileChecksum: "abc", assetDeliveryState: "COMPLETE" },
+    ]);
+  });
+
+  it("reserveScreenshot sends fileName/fileSize and returns the parsed upload operations", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        201,
+        JSON.stringify({
+          data: {
+            id: "sh1",
+            attributes: {
+              uploadOperations: [
+                {
+                  method: "PUT",
+                  url: "https://up/1",
+                  length: 10,
+                  offset: 0,
+                  requestHeaders: [{ name: "Content-Type", value: "image/png" }],
+                },
+              ],
+            },
+          },
+        }),
+      ),
+    );
+
+    const reservation = await client.reserveScreenshot("set1", "01.png", 10);
+
+    expect(reservation.id).toBe("sh1");
+    expect(reservation.operations).toEqual([
+      {
+        method: "PUT",
+        url: "https://up/1",
+        length: 10,
+        offset: 0,
+        requestHeaders: [{ name: "Content-Type", value: "image/png" }],
+      },
+    ]);
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body as string)).toMatchObject({
+      data: {
+        type: "appScreenshots",
+        attributes: { fileName: "01.png", fileSize: 10 },
+        relationships: { appScreenshotSet: { data: { type: "appScreenshotSets", id: "set1" } } },
+      },
+    });
+  });
+
+  it("commitScreenshot PATCHes uploaded:true with the source checksum", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: { id: "sh1", attributes: {} } })));
+
+    await client.commitScreenshot("sh1", "deadbeef");
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(init.method).toBe("PATCH");
+    expect(url).toContain("/appScreenshots/sh1");
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      data: { type: "appScreenshots", id: "sh1", attributes: { uploaded: true, sourceFileChecksum: "deadbeef" } },
+    });
+  });
+});

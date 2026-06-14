@@ -17,6 +17,7 @@ import { SignJWT, importPKCS8 } from "jose";
 import type { AscKey } from "../core/types.js";
 import { highestVersion } from "../core/version.js";
 import { withRetry } from "../core/asyncPool.js";
+import { parseUploadOperations, type UploadOperation } from "../core/ascAssets.js";
 
 /** Scheme + host of the App Store Connect API; most resources hang off `/v1`, a few newer ones off `/v2`. */
 const API_ORIGIN = "https://api.appstoreconnect.apple.com";
@@ -401,6 +402,36 @@ export interface ReviewSubmissionResource {
   id: string;
   /** `READY_FOR_REVIEW` / `WAITING_FOR_REVIEW` / `IN_REVIEW` / `COMPLETING` / `COMPLETE` / `CANCELING` / `UNRESOLVED_ISSUES`. */
   state: string;
+}
+
+/**
+ * An App Store screenshot set — the ordered bucket of screenshots for one (locale, device family). It
+ * binds an `appStoreVersionLocalization` to a `screenshotDisplayType` (e.g. `APP_IPHONE_67`); a localized
+ * listing has one set per device family it ships screenshots for.
+ */
+export interface ScreenshotSetResource {
+  id: string;
+  /** Apple's device-family constant the set covers, e.g. `APP_IPHONE_67` / `APP_IPAD_PRO_3GEN_129` / `APP_DESKTOP`. */
+  displayType: string;
+}
+
+/**
+ * One screenshot within a set. `sourceFileChecksum` is the MD5 Apple stored at commit — Launch compares
+ * it to a local file's MD5 to skip re-uploading an unchanged screenshot — and is absent until the asset
+ * finishes processing. `assetDeliveryState` is Apple's processing verdict for the same reason.
+ */
+export interface ScreenshotResource {
+  id: string;
+  fileName: string;
+  sourceFileChecksum?: string;
+  /** Apple's processing state, e.g. `UPLOAD_COMPLETE` / `COMPLETE` / `FAILED`. Absent unless requested. */
+  assetDeliveryState?: string;
+}
+
+/** A reserved screenshot upload: the new resource id plus the chunked PUT plan Apple returned. */
+export interface ScreenshotReservation {
+  id: string;
+  operations: UploadOperation[];
 }
 
 interface ResourceList<A> {
@@ -1325,6 +1356,97 @@ export class AppStoreConnectClient {
           ]
         : [],
     );
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /*  App Store screenshots — reservation-flow upload. Consumed by the         */
+  /*  `launch screenshots` command; the chunk transport lives in ascAssets.ts. */
+  /*  (Hand-typed JSON:API shapes; migrate to the generated spec types — #56.) */
+  /* ------------------------------------------------------------------------ */
+
+  /** List the screenshot sets under a version localization (one per device family), across all pages. */
+  async listScreenshotSets(localizationId: string): Promise<ScreenshotSetResource[]> {
+    const data = await this.requestAll<{ screenshotDisplayType?: string }>(
+      `/appStoreVersionLocalizations/${localizationId}/appScreenshotSets?limit=200&fields[appScreenshotSets]=screenshotDisplayType`,
+    );
+    return data.flatMap((entry) =>
+      entry.attributes.screenshotDisplayType
+        ? [{ id: entry.id, displayType: entry.attributes.screenshotDisplayType }]
+        : [],
+    );
+  }
+
+  /** Create a screenshot set binding a version localization to a device family, returning its id. */
+  async createScreenshotSet(localizationId: string, displayType: string): Promise<ScreenshotSetResource> {
+    const { data } = await this.request<ResourceSingle<{ screenshotDisplayType?: string }>>(
+      "POST",
+      "/appScreenshotSets",
+      {
+        data: {
+          type: "appScreenshotSets",
+          attributes: { screenshotDisplayType: displayType },
+          relationships: {
+            appStoreVersionLocalization: { data: { type: "appStoreVersionLocalizations", id: localizationId } },
+          },
+        },
+      },
+    );
+    return { id: data.id, displayType: data.attributes.screenshotDisplayType ?? displayType };
+  }
+
+  /** List the screenshots already in a set — the diff source for skipping an unchanged file by checksum. */
+  async listScreenshots(setId: string): Promise<ScreenshotResource[]> {
+    const data = await this.requestAll<{
+      fileName?: string;
+      sourceFileChecksum?: string | null;
+      assetDeliveryState?: { state?: string } | null;
+    }>(
+      `/appScreenshotSets/${setId}/appScreenshots?limit=200&fields[appScreenshots]=fileName,sourceFileChecksum,assetDeliveryState`,
+    );
+    return data.flatMap((entry) =>
+      entry.attributes.fileName
+        ? [
+            {
+              id: entry.id,
+              fileName: entry.attributes.fileName,
+              ...(entry.attributes.sourceFileChecksum
+                ? { sourceFileChecksum: entry.attributes.sourceFileChecksum }
+                : {}),
+              ...(entry.attributes.assetDeliveryState?.state
+                ? { assetDeliveryState: entry.attributes.assetDeliveryState.state }
+                : {}),
+            },
+          ]
+        : [],
+    );
+  }
+
+  /**
+   * Reserve a screenshot upload in a set: Apple allocates the resource and returns the chunked PUT plan
+   * ({@link ScreenshotReservation.operations}). The caller PUTs the bytes via
+   * {@link uploadReservedAsset}, then calls {@link commitScreenshot} to finalize.
+   */
+  async reserveScreenshot(setId: string, fileName: string, fileSize: number): Promise<ScreenshotReservation> {
+    const { data } = await this.request<ResourceSingle<{ uploadOperations?: unknown }>>("POST", "/appScreenshots", {
+      data: {
+        type: "appScreenshots",
+        attributes: { fileName, fileSize },
+        relationships: { appScreenshotSet: { data: { type: "appScreenshotSets", id: setId } } },
+      },
+    });
+    return { id: data.id, operations: parseUploadOperations(data.attributes.uploadOperations) };
+  }
+
+  /** Commit a reserved screenshot once its bytes are uploaded, attesting the MD5 so Apple verifies them. */
+  async commitScreenshot(screenshotId: string, sourceFileChecksum: string): Promise<void> {
+    await this.request<unknown>("PATCH", `/appScreenshots/${screenshotId}`, {
+      data: { type: "appScreenshots", id: screenshotId, attributes: { uploaded: true, sourceFileChecksum } },
+    });
+  }
+
+  /** Delete a screenshot — used to replace one whose bytes changed (same fileName, new checksum). */
+  async deleteScreenshot(screenshotId: string): Promise<void> {
+    await this.request<unknown>("DELETE", `/appScreenshots/${screenshotId}`);
   }
 
   /** Shared GET → {@link LocalizationResource}[] for any product/subscription/group localization collection. */
