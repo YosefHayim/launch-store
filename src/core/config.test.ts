@@ -163,6 +163,26 @@ describe("loadConfig — reads dynamic Expo config (app.config.{ts,js}) and bare
   });
 });
 
+describe("loadConfig — resolves the launch-store import without a local dependency (issue #8)", () => {
+  it("loads a config that imports defineConfig from launch-store in a project with no node_modules", async () => {
+    const repo = makeRepo();
+    // This temp repo has no node_modules, so `import "launch-store"` can only resolve via the loader's
+    // self-alias. Before the alias a globally-installed CLI threw "Cannot find package 'launch-store'".
+    writeFileSync(
+      join(repo, "launch.config.ts"),
+      `import { defineConfig } from "launch-store";\n` +
+        `export default defineConfig({ profiles: { staging: { name: "staging", sizeBudgetMB: 123 } } });\n`,
+    );
+    writeApp(repo, ".", { name: "Hello", slug: "hello", ios: { bundleIdentifier: "com.example.hello" } });
+
+    const { config } = await loadConfig(repo);
+
+    // The custom profile proves OUR file loaded; the filled-in default proves it ran through defineConfig.
+    expect(config.profiles["staging"]?.sizeBudgetMB).toBe(123);
+    expect(config.buildEngine).toBe("fastlane");
+  });
+});
+
 describe("writeAppVersion — persist the bump back to a static app.json", () => {
   it("updates expo.version on a discovered app, leaving siblings intact", async () => {
     const repo = makeRepo();
