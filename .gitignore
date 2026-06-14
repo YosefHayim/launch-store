@@ -15,7 +15,9 @@ dist/
 AuthKey_*.p8
 
 # Internal design docs — local-only working notes, not part of the public/published repo.
-docs/
+# Exception: docs/agents/ is tracked — it's the engineering-skills config agents/contributors read.
+docs/*
+!docs/agents/
 
 # Launch's local state (artifacts, metadata cache)
 .launch/

@@ -16,6 +16,9 @@ export const LAUNCH_HOME = join(homedir(), ".launch");
 /** Where built artifacts are copied by the local storage provider. */
 export const ARTIFACTS_DIR = join(LAUNCH_HOME, "artifacts");
 
+/** Full tee'd logs of long external tools (xcodebuild, gradle, prebuild) — written while a spinner hides the noise. */
+export const LOGS_DIR = join(LAUNCH_HOME, "logs");
+
 /** JSON index of stored artifacts (newest-first history). */
 export const ARTIFACT_INDEX = join(ARTIFACTS_DIR, "index.json");
 

@@ -22,6 +22,7 @@ import type {
   SizeReportEntry,
 } from "../../core/types.js";
 import { capture, run } from "../../core/exec.js";
+import { runWithProgress, gradleProgressStep } from "../../core/progress.js";
 
 /** Locate the Gradle wrapper for the platform; absolute path so `spawn` needs no shell to resolve it. */
 function gradleWrapper(androidDir: string): string {
@@ -115,7 +116,7 @@ export const gradleBuildEngine: BuildEngine = {
     const wrapper = gradleWrapper(androidDir);
 
     // Sign the bundle with the resolved upload key via AGP's injected-signing properties (no build.gradle edit).
-    await run(
+    await runWithProgress(
       wrapper,
       [
         ":app:bundleRelease",
@@ -124,7 +125,7 @@ export const gradleBuildEngine: BuildEngine = {
         `-Pandroid.injected.signing.key.alias=${keystore.alias}`,
         `-Pandroid.injected.signing.key.password=${keystore.keyPassword}`,
       ],
-      { cwd: androidDir, env: ctx.env },
+      { label: `Building Android · ${ctx.app.name}`, parseStep: gradleProgressStep, cwd: androidDir, env: ctx.env },
     );
 
     const artifactPath = findBundle(androidDir);

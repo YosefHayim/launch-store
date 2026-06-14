@@ -35,6 +35,7 @@ import { getBuildEngine, getCredentialsProvider, getStorageProvider, getSubmitte
 import { createLogger, type Logger } from "./logger.js";
 import type { GlossaryTopic } from "./glossary.js";
 import { run } from "./exec.js";
+import { runWithProgress } from "./progress.js";
 import { AppStoreConnectClient } from "../apple/ascClient.js";
 import { ensureSigningCredentials } from "../apple/credentials.js";
 import { ensureUploadKeystore } from "../google/credentials.js";
@@ -483,7 +484,11 @@ async function ensureNativeProject(ctx: ResolvedBuildContext, log: Logger): Prom
     log.step("prebuild", "would run `expo prebuild --platform ios` (no ios/ found)", "prebuild");
     return;
   }
-  await run("npx", ["expo", "prebuild", "--platform", "ios", "--clean"], { cwd: ctx.app.dir, env: ctx.env });
+  await runWithProgress("npx", ["expo", "prebuild", "--platform", "ios", "--clean"], {
+    label: "Generating ios/ (expo prebuild)",
+    cwd: ctx.app.dir,
+    env: ctx.env,
+  });
   log.step("prebuild", "ios/ generated from app.json", "prebuild");
 }
 
@@ -498,7 +503,11 @@ async function ensureAndroidProject(ctx: ResolvedBuildContext, log: Logger): Pro
     log.step("prebuild", "would run `expo prebuild --platform android` (no android/ found)", "prebuild");
     return;
   }
-  await run("npx", ["expo", "prebuild", "--platform", "android", "--clean"], { cwd: ctx.app.dir, env: ctx.env });
+  await runWithProgress("npx", ["expo", "prebuild", "--platform", "android", "--clean"], {
+    label: "Generating android/ (expo prebuild)",
+    cwd: ctx.app.dir,
+    env: ctx.env,
+  });
   log.step("prebuild", "android/ generated from app.json", "prebuild");
 }
 
