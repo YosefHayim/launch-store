@@ -4,7 +4,8 @@ import type {
   AppClipLocalizationResource,
   AppClipResource,
 } from "../apple/ascClient.js";
-import { type AscAppClipsApi, parseAppClipsConfig, reconcileAppClips, summarizeAppClips } from "./appClips.js";
+import { summarize } from "./asc/storeSync.js";
+import { type AscAppClipsApi, parseAppClipsConfig, reconcileAppClips } from "./appClips.js";
 import type { AppClipsConfig } from "./types.js";
 
 /** Records every write the reconciler makes, so a test can assert what was (and wasn't) sent. */
@@ -138,7 +139,7 @@ describe("reconcileAppClips", () => {
 
     expect(calls.createdExperiences).toEqual([{ appClipId: "clip-1", versionId: "ver-1", action: "OPEN" }]);
     expect(calls.createdLocalizations).toEqual([{ experienceId: "exp-new-1", locale: "en-US", subtitle: "Order now" }]);
-    expect(summarizeAppClips(report.actions)).toEqual({ applied: 2, failed: 0, skipped: 0 });
+    expect(summarize(report.actions)).toEqual({ applied: 2, failed: 0, skipped: 0 });
   });
 
   it("plans (but does not perform) creates on a dry-run, including the subtitle of a not-yet-created experience", async () => {
@@ -162,7 +163,7 @@ describe("reconcileAppClips", () => {
     expect(calls.updatedActions).toEqual([{ experienceId: "exp-1", action: "OPEN" }]);
     expect(calls.updatedLocalizations).toEqual([{ localizationId: "loc-1", subtitle: "Order now" }]);
     expect(calls.createdExperiences).toHaveLength(0);
-    expect(summarizeAppClips(report.actions)).toEqual({ applied: 2, failed: 0, skipped: 0 });
+    expect(summarize(report.actions)).toEqual({ applied: 2, failed: 0, skipped: 0 });
   });
 
   it("makes no changes when the experience and subtitle already match", async () => {
@@ -193,7 +194,7 @@ describe("reconcileAppClips", () => {
     api.createAppClipDefaultExperience = () => Promise.reject(new Error("boom"));
     const report = await reconcileAppClips(api, { bundleId: "com.acme.app", config: ONE_CLIP, dryRun: false });
 
-    const summary = summarizeAppClips(report.actions);
+    const summary = summarize(report.actions);
     expect(summary.failed).toBe(1);
     expect(summary.skipped).toBe(1);
     expect(calls.createdLocalizations).toHaveLength(0);

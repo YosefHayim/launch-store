@@ -19,7 +19,8 @@ import { loadConfig, resolveSidecarConfig } from "../../core/config.js";
 import { selectApp } from "../../core/pipeline.js";
 import { loadActiveAscKey } from "../../core/accounts.js";
 import { createLogger } from "../../core/logger.js";
-import { loadGameCenterConfig, reconcileGameCenter, summarizeGameCenter } from "../../core/gameCenter.js";
+import { summarize } from "../../core/asc/storeSync.js";
+import { loadGameCenterConfig, reconcileGameCenter } from "../../core/gameCenter.js";
 
 /** CLI options for `launch game-center`. */
 interface GameCenterOptions {
@@ -119,7 +120,7 @@ export function registerGameCenterCommand(program: Command): void {
       }
 
       const applied = await reconcileGameCenter(client, { bundleId, config, dryRun: false });
-      const summary = summarizeGameCenter(applied.actions);
+      const summary = summarize(applied.actions);
       const rows = applied.actions.map((action) => {
         if (action.status === "failed") return `✗ ${action.description} — ${action.error ?? "failed"}`;
         return `${action.status === "skipped" ? "•" : "✓"} ${action.description}`;

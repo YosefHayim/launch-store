@@ -19,7 +19,10 @@ import { loadConfig } from "../../core/config.js";
 import { selectApp } from "../../core/pipeline.js";
 import { loadActiveAscKey } from "../../core/accounts.js";
 import { pickOne } from "../../core/prompt.js";
+import { createLogger } from "../../core/logger.js";
 import { AppStoreConnectClient, type BetaGroupResource } from "../../apple/ascClient.js";
+import type { PlannedAction } from "../../core/ascSync.js";
+import { loadBetaReviewConfig, reconcileBetaReview, summarizeBetaReview } from "../../core/betaReview.js";
 
 /** One tester to add, parsed from a CLI argument or a CSV row. */
 interface TesterInput {
@@ -307,6 +310,92 @@ async function removeTesters(emails: string[], options: TesterCommandOptions): P
   console.log(`✓ Removed ${matched.length} tester(s) from "${group.name}".`);
 }
 
+/** Options for `launch testflight release` — set "What to Test" notes and submit a build for beta review. */
+interface ReleaseOptions {
+  app?: string;
+  build?: string;
+  whatsNew?: string;
+  locale?: string;
+  config?: string;
+  review?: boolean;
+  dryRun?: boolean;
+  yes?: boolean;
+}
+
+/**
+ * Render one beta-review action line: `✗` for a failure (with Apple's detail), `•` for a skip,
+ * `+` for a planned/applied change. Exported for tests.
+ */
+export function renderBetaAction(action: PlannedAction): string {
+  if (action.status === "failed") return `✗ ${action.description}${action.error ? ` — ${action.error}` : ""}`;
+  if (action.status === "skipped") return `• ${action.description}`;
+  return `+ ${action.description}`;
+}
+
+/**
+ * `launch testflight release` — set a build's "What to Test" notes (from `--whats-new` or
+ * `testflight.config.json`) and submit it for Beta App Review. Notes from `--whats-new` apply to
+ * `--locale` (default `en-US`); a config file localizes them. `--no-review` sets notes only.
+ */
+async function releaseBuild(options: ReleaseOptions): Promise<void> {
+  const log = createLogger(false);
+  const whatToTest = options.whatsNew
+    ? { [options.locale ?? "en-US"]: options.whatsNew }
+    : loadBetaReviewConfig(options.config ?? "testflight.config.json").whatToTest;
+
+  const asc = await client();
+  const { appId, name } = await resolveAppId(asc, options.app);
+  const submitForReview = options.review !== false;
+  const input = {
+    appId,
+    ...(options.build ? { buildVersion: options.build } : {}),
+    whatToTest,
+    submitForReview,
+  };
+
+  const plan = await reconcileBetaReview(asc, { ...input, dryRun: true });
+  const planned = plan.actions.filter((action) => action.status === "planned");
+  const label = `${name} build ${plan.buildVersion}`;
+
+  log.gap();
+  if (plan.actions.length === 0) {
+    log.step(label, "TestFlight release prep already in sync");
+    return;
+  }
+  log.notice(label, ...plan.actions.map(renderBetaAction));
+
+  log.gap();
+  log.info(`${planned.length} change(s) for ${label}.`);
+  if (options.dryRun === true) {
+    log.info("Dry run — no changes made. Re-run without --dry-run to apply.");
+    return;
+  }
+  if (planned.length === 0) {
+    log.step("testflight", "nothing to apply (everything already in sync)");
+    return;
+  }
+
+  if (options.yes !== true) {
+    if (!process.stdout.isTTY) {
+      throw new Error("Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).");
+    }
+    const proceed = await confirm({ message: `Apply ${planned.length} change(s) to ${label}?` });
+    if (isCancel(proceed) || !proceed) {
+      cancel("Aborted — no changes made.");
+      return;
+    }
+  }
+
+  const applied = await reconcileBetaReview(asc, { ...input, dryRun: false });
+  const summary = summarizeBetaReview(applied.actions);
+  const rows = applied.actions.map((action) => {
+    if (action.status === "failed") return `✗ ${action.description} — ${action.error ?? "failed"}`;
+    return `${action.status === "skipped" ? "•" : "✓"} ${action.description}`;
+  });
+  log.box(summary.failed > 0 ? "Applied with errors" : "Applied", rows);
+  if (summary.failed > 0) process.exitCode = 1;
+}
+
 /** Attach the `testflight` command (with its tester/group subcommands) to the program. */
 export function registerTestflightCommand(program: Command): void {
   const testflight = program.command("testflight").description("manage TestFlight beta groups and testers");
@@ -353,4 +442,17 @@ export function registerTestflightCommand(program: Command): void {
     .option("--dry-run", "report what would change without removing anyone", false)
     .option("-y, --yes", "skip the confirmation prompt", false)
     .action((emails: string[], options: TesterCommandOptions) => removeTesters(emails, options));
+
+  testflight
+    .command("release")
+    .description('set a build\'s "What to Test" notes and submit it for Beta App Review')
+    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
+    .option("--build <version>", "target build by CFBundleVersion (default: the latest valid build)")
+    .option("--whats-new <text>", "What to Test notes (for --locale); overrides the config file")
+    .option("--locale <locale>", "locale for --whats-new", "en-US")
+    .option("--config <path>", "path to testflight.config.json (localized whatToTest)", "testflight.config.json")
+    .option("--no-review", "set the notes only; don't submit for Beta App Review")
+    .option("--dry-run", "print the plan and exit, making no changes", false)
+    .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
+    .action((options: ReleaseOptions) => releaseBuild(options));
 }
