@@ -66,6 +66,19 @@ describe("loadConfig — auto-discovers apps, app.json stays the source of truth
     expect(config.buildEngine).toBe("fastlane");
     expect(apps).toHaveLength(1);
     expect(apps[0]).toMatchObject({ name: "hello-world", bundleId: "com.example.hello", version: "1.2.3" });
+    expect(apps[0]?.usesNonExemptEncryption).toBeUndefined();
+  });
+
+  it("reads the Expo export-compliance answer (ios.config.usesNonExemptEncryption)", async () => {
+    const repo = makeRepo();
+    writeApp(repo, ".", {
+      slug: "secure-app",
+      ios: { bundleIdentifier: "com.example.secure", config: { usesNonExemptEncryption: false } },
+    });
+
+    const { apps } = await loadConfig(repo);
+
+    expect(apps[0]?.usesNonExemptEncryption).toBe(false);
   });
 
   it("scans nested directories but skips heavy/generated folders", async () => {

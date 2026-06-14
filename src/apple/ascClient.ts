@@ -161,6 +161,18 @@ export interface PricePointResource {
   territory: string;
 }
 
+/**
+ * An existing App Encryption Declaration on an app — the reusable, one-time export-compliance answer
+ * for builds that use non-exempt encryption. Only an `APPROVED` declaration clears a build without a
+ * fresh, document-backed submission, so `state` is what gates reuse. See
+ * {@link AppStoreConnectClient.listEncryptionDeclarations}.
+ */
+export interface EncryptionDeclarationResource {
+  id: string;
+  /** Apple's review state: `CREATED` | `IN_REVIEW` | `APPROVED` | `REJECTED` | `INVALID` | `EXPIRED`. */
+  state: string;
+}
+
 interface ResourceList<A> {
   data: { id: string; attributes: A }[];
 }
@@ -314,6 +326,60 @@ export class AppStoreConnectClient {
       `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1&fields[builds]=processingState`,
     );
     return data[0]?.attributes.processingState ?? null;
+  }
+
+  /**
+   * Resolve a specific uploaded build by its build number, returning its ASC id plus the current
+   * export-compliance answer (`usesNonExemptEncryption`: `true`/`false` once answered, `null` while
+   * unanswered). Null when no build with that number exists yet (e.g. still ingesting after upload).
+   * The id is what {@link setBuildUsesNonExemptEncryption} and {@link linkBuildToDeclaration} act on.
+   */
+  async findBuild(
+    bundleId: string,
+    buildNumber: number,
+  ): Promise<{ id: string; usesNonExemptEncryption: boolean | null } | null> {
+    const appId = await this.getAppId(bundleId);
+    if (!appId) return null;
+    const { data } = await this.request<ResourceList<{ usesNonExemptEncryption: boolean | null }>>(
+      "GET",
+      `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1&fields[builds]=usesNonExemptEncryption`,
+    );
+    const build = data[0];
+    return build ? { id: build.id, usesNonExemptEncryption: build.attributes.usesNonExemptEncryption ?? null } : null;
+  }
+
+  /**
+   * Answer a build's export-compliance question directly via its `usesNonExemptEncryption` attribute —
+   * the one-call path for the common "no / only-exempt encryption" case (`false`), so App Store Connect
+   * stops re-prompting on every upload. Apple accepts this only before the build is submitted for review.
+   */
+  async setBuildUsesNonExemptEncryption(buildId: string, value: boolean): Promise<void> {
+    await this.request<unknown>("PATCH", `/builds/${buildId}`, {
+      data: { type: "builds", id: buildId, attributes: { usesNonExemptEncryption: value } },
+    });
+  }
+
+  /**
+   * List an app's existing App Encryption Declarations (all states) — the reuse candidates for a build
+   * that uses non-exempt encryption. Returns `[]` when the app has none or has no ASC record yet.
+   */
+  async listEncryptionDeclarations(bundleId: string): Promise<EncryptionDeclarationResource[]> {
+    const appId = await this.getAppId(bundleId);
+    if (!appId) return [];
+    const data = await this.requestAll<{ appEncryptionDeclarationState: string }>(
+      `/apps/${appId}/appEncryptionDeclarations?fields[appEncryptionDeclarations]=appEncryptionDeclarationState&limit=200`,
+    );
+    return data.map((entry) => ({ id: entry.id, state: entry.attributes.appEncryptionDeclarationState }));
+  }
+
+  /**
+   * Attach a build to an existing App Encryption Declaration, reusing that one-time, document-backed
+   * answer instead of submitting a fresh declaration per build (Apple returns `204 No Content`).
+   */
+  async linkBuildToDeclaration(declarationId: string, buildId: string): Promise<void> {
+    await this.request<unknown>("POST", `/appEncryptionDeclarations/${declarationId}/relationships/builds`, {
+      data: [{ type: "builds", id: buildId }],
+    });
   }
 
   /** Cheap call that fails with a clear message when the account has an unsigned/expired agreement. */
