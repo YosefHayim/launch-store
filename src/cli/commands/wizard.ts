@@ -4,7 +4,9 @@
  * Running `launch` with no subcommand lands here. It's a guided, teaching-first journey: every step
  * renders the full glossary block for that decision (so a newcomer learns the "why") plus a one-line
  * hint on each option, then routes the build. A fresh checkout (no `launch.config.ts`) is walked
- * through guided setup first; otherwise a small menu offers Build or Set up.
+ * through guided setup first; a returning user whose last build still resolves is offered a one-keypress
+ * "Repeat last build?" replay (see {@link maybeRepeatLastBuild}); otherwise a small menu offers Build or
+ * Set up.
  *
  * The journey is platform-first (the Apple account only matters for iOS-signed builds): pick a
  * platform → for iOS pick where to build, which Apple account, a profile, and whether to upload →
@@ -16,13 +18,14 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { cancel, confirm, intro, isCancel, note, outro, select, text } from "@clack/prompts";
-import type { AppDescriptor, LaunchConfig, Platform } from "../../core/types.js";
+import type { AppDescriptor, BuildLocation, LaunchConfig, Platform } from "../../core/types.js";
 import { type GlossaryTopic, explainTopic } from "../../core/glossary.js";
 import { hostOsLabel, isMac } from "../../core/os.js";
 import { isInteractive } from "../../core/progress.js";
 import { hasSeenTour, markTourSeen } from "../../core/firstRun.js";
 import { runTour } from "../../core/tour.js";
-import { getActiveAccount } from "../../core/accounts.js";
+import { getActiveAccount, listAccounts, setActiveKeyId } from "../../core/accounts.js";
+import { type LastFlow, readLastFlow, rememberLastFlow } from "../../core/lastRun.js";
 import { loadConfig } from "../../core/config.js";
 import { type BuildRunOptions, prepareBuild, runBuild } from "../../core/pipeline.js";
 import { runEasBuild } from "../../core/easPipeline.js";
@@ -30,9 +33,6 @@ import { chooseAccountInteractive, setupIos } from "./creds.js";
 import { runInit } from "./init.js";
 import { runDoctor } from "./doctor.js";
 import { parseSshTarget } from "../../providers/compute/byoSsh.js";
-
-/** Where an iOS build runs. `local` is offered only on a Mac; the rest work from any host. */
-type BuildLocation = "local" | "aws" | "ssh" | "eas";
 
 /** Resolve a Clack prompt, exiting cleanly on cancel and narrowing the cancel symbol away. */
 function resolvePrompt<T>(value: T | symbol): T {
@@ -143,7 +143,7 @@ async function runIosJourney(config: LaunchConfig): Promise<void> {
   const location = await selectLocation();
 
   teach("apple-account", "Apple account");
-  await chooseAccountInteractive();
+  const account = await chooseAccountInteractive();
   if (location === "eas") {
     note(
       "EAS signs in Expo's cloud, so this account isn't used to sign — it just stays your active account for other Launch commands.",
@@ -157,17 +157,38 @@ async function runIosJourney(config: LaunchConfig): Promise<void> {
   teach("testflight", "After build");
   const submit = await selectAfterBuild("TestFlight");
 
-  const options = buildOptions("ios", profileName, submit);
+  const sshTarget = location === "ssh" ? await promptSshTarget() : undefined;
+  await dispatchIosBuild(location, buildOptions("ios", profileName, submit), sshTarget);
+
+  // Record only after the build succeeds (a throw above skips this), so a repeat never replays a failure.
+  rememberLastFlow({
+    platform: "ios",
+    location,
+    profile: profileName,
+    submit,
+    account: account.keyId,
+    ...(sshTarget ? { sshTarget } : {}),
+  });
+}
+
+/** Run the build path for an iOS {@link BuildLocation}. Shared by the interactive journey and replay. */
+async function dispatchIosBuild(location: BuildLocation, options: BuildRunOptions, sshTarget?: string): Promise<void> {
   switch (location) {
     case "local":
-      return runBuild(options);
+      await runBuild(options);
+      return;
     case "aws":
-      return runBuild({ ...options, remote: { kind: "aws" } });
-    case "ssh":
-      return runBuild({ ...options, remote: { kind: "ssh", target: await promptSshTarget() } });
+      await runBuild({ ...options, remote: { kind: "aws" } });
+      return;
+    case "ssh": {
+      if (!sshTarget) throw new Error("An SSH build needs a target (user@host).");
+      await runBuild({ ...options, remote: { kind: "ssh", target: sshTarget } });
+      return;
+    }
     case "eas": {
       const prepared = await prepareBuild(options);
-      return runEasBuild(prepared, options);
+      await runEasBuild(prepared, options);
+      return;
     }
   }
 }
@@ -181,6 +202,8 @@ async function runAndroidJourney(config: LaunchConfig): Promise<void> {
   const submit = await selectAfterBuild("Google Play (internal track)");
 
   await runBuild(buildOptions("android", profileName, submit));
+  // Android always builds locally; record after success so the next run can offer to repeat it.
+  rememberLastFlow({ platform: "android", location: "local", profile: profileName, submit });
 }
 
 /** The build journey: platform first, then the platform-specific steps. */
@@ -189,6 +212,101 @@ async function runBuildJourney(): Promise<void> {
   teach("build-platform", "Platform");
   const platform = await selectPlatform(apps);
   return platform === "ios" ? runIosJourney(config) : runAndroidJourney(config);
+}
+
+/** The short wizard label for an iOS build location, used in the repeat-build summary line. */
+function locationLabel(location: BuildLocation): string {
+  switch (location) {
+    case "local":
+      return "This Mac";
+    case "aws":
+      return "AWS cloud Mac";
+    case "ssh":
+      return "Mac over SSH";
+    case "eas":
+      return "Expo EAS";
+  }
+}
+
+/**
+ * The one-line human summary of a remembered flow, e.g. `ios · This Mac · production · upload`. The
+ * build location is shown for iOS only (Android always builds locally). Pure → the prompt wording is
+ * unit-testable.
+ */
+export function formatFlowSummary(flow: LastFlow): string {
+  const parts = [
+    flow.platform,
+    ...(flow.platform === "ios" ? [locationLabel(flow.location)] : []),
+    flow.profile,
+    flow.submit ? "upload" : "build only",
+  ];
+  return parts.join(" · ");
+}
+
+/**
+ * Why a remembered flow can't be replayed against the current state, or null when it's still valid. The
+ * wizard only offers a repeat when this returns null, so the shortcut never dangles a build that would
+ * fail: the platform must still be configured (an app declares its id), the profile must still exist
+ * (unless no profiles are defined, when the pipeline's default applies), and — for iOS — the Apple
+ * account must still be registered and an SSH flow must still carry its target. Pure (registry passed
+ * in) so the gate is unit-testable.
+ */
+export function flowInvalidReason(
+  flow: LastFlow,
+  config: LaunchConfig,
+  apps: AppDescriptor[],
+  accountKeyIds: Set<string>,
+): string | null {
+  const platformConfigured =
+    flow.platform === "ios" ? apps.some((app) => app.bundleId) : apps.some((app) => app.packageName);
+  if (!platformConfigured) return `no ${flow.platform} app configured`;
+
+  const profileNames = Object.keys(config.profiles);
+  if (profileNames.length > 0 && !profileNames.includes(flow.profile)) {
+    return `profile "${flow.profile}" no longer exists`;
+  }
+
+  if (flow.platform === "ios") {
+    if (flow.account && !accountKeyIds.has(flow.account)) return "the Apple account it used is no longer registered";
+    if (flow.location === "ssh" && !flow.sshTarget) return "the remembered SSH flow has no target";
+  }
+  return null;
+}
+
+/**
+ * Replay a validated remembered flow with no further prompts: re-activate its Apple account, then run
+ * the same build path the interactive journey would. The caller has already confirmed the flow resolves
+ * (see {@link flowInvalidReason}), so the account exists and an SSH flow has its target. Re-records the
+ * flow so a successful repeat stays the remembered one.
+ */
+async function replayFlow(flow: LastFlow): Promise<void> {
+  if (flow.account) setActiveKeyId(flow.account);
+  const options = buildOptions(flow.platform, flow.profile, flow.submit);
+  if (flow.platform === "android") {
+    await runBuild(options);
+  } else {
+    await dispatchIosBuild(flow.location, options, flow.sshTarget);
+  }
+  rememberLastFlow(flow);
+}
+
+/**
+ * Offer the one-keypress repeat of the last successful wizard build. Returns true when a build was
+ * replayed (the caller is done), false when there's nothing valid to repeat or the user declined — in
+ * which case the normal wizard runs. A flow that no longer resolves is silently skipped (never shown),
+ * so the shortcut only ever appears when it will work end-to-end. The prompt defaults to yes, so a bare
+ * Enter repeats — the existing pre-upload size confirmation still guards the actual upload.
+ */
+async function maybeRepeatLastBuild(): Promise<boolean> {
+  const flow = readLastFlow();
+  if (!flow) return false;
+  const { config, apps } = await loadConfig();
+  if (flowInvalidReason(flow, config, apps, new Set(listAccounts().map((account) => account.keyId)))) return false;
+
+  const repeat = await confirm({ message: `Repeat last build?  ${formatFlowSummary(flow)}`, initialValue: true });
+  if (isCancel(repeat) || !repeat) return false;
+  await replayFlow(flow);
+  return true;
 }
 
 /**
@@ -291,6 +409,12 @@ export async function runWizard(): Promise<void> {
     note("Looks like a fresh checkout — let's get Launch ready first.", "First run");
     await runGuidedSetup();
     if (await confirmBuildNow()) await runBuildJourney();
+    outro("Done.");
+    return;
+  }
+
+  // Returning user with a still-valid last build → one-keypress repeat, skipping the menu entirely.
+  if (await maybeRepeatLastBuild()) {
     outro("Done.");
     return;
   }
