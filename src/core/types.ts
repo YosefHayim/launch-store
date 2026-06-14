@@ -242,6 +242,27 @@ export interface AppProducts {
 }
 
 /**
+ * Build/submit completion notifications — the EAS-`webhook` parity hook, declared under
+ * {@link LaunchConfig.notify}. A local Mac build can run many minutes; this pings when it finishes.
+ * Both fields are optional and independent: set a `webhookUrl`, a `command`, both, or (absent) get
+ * the silent default. Fired on success AND failure; never blocks or fails the build (best-effort).
+ */
+export interface NotifyConfig {
+  /**
+   * Incoming-webhook URL posted a JSON body on completion. The payload carries both `text` (Slack)
+   * and `content` (Discord) set to a human summary, plus the structured event fields, so a Slack or
+   * Discord webhook renders it directly and a custom endpoint can read the typed data.
+   */
+  webhookUrl?: string;
+  /**
+   * Shell command run on completion with the event in its environment as `LAUNCH_*` vars
+   * (`LAUNCH_EVENT`, `LAUNCH_STATUS`, `LAUNCH_APP`, `LAUNCH_VERSION`, `LAUNCH_BUILD_NUMBER`,
+   * `LAUNCH_DESTINATION`, `LAUNCH_ERROR`). Runs through the platform shell, like a git hook.
+   */
+  command?: string;
+}
+
+/**
  * The fully-resolved configuration for one `launch` invocation.
  *
  * Produced by {@link loadConfig} from `launch.config.ts` plus auto-discovered apps. Names here
@@ -272,6 +293,8 @@ export interface LaunchConfig {
    * this. Absent for apps that sell nothing. See {@link AppProducts}.
    */
   products?: Record<string, AppProducts>;
+  /** Build/submit completion notifications (webhook + shell hook). Absent = no notifications. See {@link NotifyConfig}. */
+  notify?: NotifyConfig;
   /** AWS EC2 Mac settings for remote (off-Mac) builds. Only needed when building via `--remote aws`. */
   aws?: AwsConfig;
   /**
