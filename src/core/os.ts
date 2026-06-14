@@ -6,8 +6,17 @@
  * SSH) or hand off to Expo EAS. Centralized here rather than scattering `process.platform` checks.
  */
 
-import { platform } from "node:os";
+import { cpus, platform, totalmem } from "node:os";
 import type { HostOs } from "./types.js";
+
+/**
+ * The host's compile-relevant resources: logical-core count and total RAM. Wraps Node's `cpus()` /
+ * `totalmem()` in one place so the build-parallelism cap ({@link computeBuildJobs}) reads a single,
+ * mockable source instead of poking `node:os` from inside a provider.
+ */
+export function hostResources(): { cores: number; memBytes: number } {
+  return { cores: cpus().length, memBytes: totalmem() };
+}
 
 /** Resolve the current {@link HostOs} from Node's platform string (anything non-darwin/win32 is treated as linux). */
 export function hostOs(): HostOs {
