@@ -1,0 +1,8 @@
+{
+  "domains": [
+    {
+      "domain": "downloads.example.com",
+      "referenceName": "Hello World EU downloads"
+    }
+  ]
+}

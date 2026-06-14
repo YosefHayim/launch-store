@@ -1,0 +1,10 @@
+{
+  "clips": {
+    "com.example.helloworld.Clip": {
+      "action": "OPEN",
+      "localizations": {
+        "en-US": { "subtitle": "Play instantly, no install" }
+      }
+    }
+  }
+}

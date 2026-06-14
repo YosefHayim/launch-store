@@ -1,0 +1,14 @@
+{
+  "merchantIds": [
+    {
+      "identifier": "merchant.com.example.helloworld",
+      "name": "Hello World Payments"
+    }
+  ],
+  "passTypeIds": [
+    {
+      "identifier": "pass.com.example.helloworld.coupon",
+      "name": "Hello World Coupon"
+    }
+  ]
+}
