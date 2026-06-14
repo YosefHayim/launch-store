@@ -32,3 +32,6 @@ android/
 
 # Claude Code agent worktrees / session state
 .claude/
+
+# TUI style preview — throwaway scratch played via `npx tsx .tui-preview/preview.ts`, never shipped.
+.tui-preview/
