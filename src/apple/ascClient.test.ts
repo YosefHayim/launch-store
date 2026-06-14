@@ -1145,6 +1145,52 @@ describe("App Clips", () => {
   });
 });
 
+describe("EU alternative distribution", () => {
+  it("lists authorized distribution domains with their reference names", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: "d1", attributes: { domain: "downloads.acme.com", referenceName: "Acme Downloads" } },
+            { id: "d2", attributes: { domain: "cdn.acme.com" } },
+          ],
+        }),
+      ),
+    );
+    const domains = await client.listAlternativeDistributionDomains();
+    expect(fetchMock.mock.calls[0]![0]).toContain("/alternativeDistributionDomains?limit=200");
+    expect(domains).toEqual([
+      { id: "d1", domain: "downloads.acme.com", referenceName: "Acme Downloads" },
+      { id: "d2", domain: "cdn.acme.com" },
+    ]);
+  });
+
+  it("creates a distribution domain with the domain + reference name", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(201, JSON.stringify({ data: { id: "d-new", attributes: {} } })));
+    await client.createAlternativeDistributionDomain("cdn.acme.com", "Acme CDN");
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(init.method).toBe("POST");
+    expect(url).toContain("/alternativeDistributionDomains");
+    const body = JSON.parse(init.body as string);
+    expect(body.data).toEqual({
+      type: "alternativeDistributionDomains",
+      attributes: { domain: "cdn.acme.com", referenceName: "Acme CDN" },
+    });
+  });
+
+  it("registers the package-signing public key", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(201, JSON.stringify({ data: { id: "k-new", attributes: {} } })));
+    const created = await client.createAlternativeDistributionKey(
+      "-----BEGIN PUBLIC KEY-----\nABC\n-----END PUBLIC KEY-----",
+    );
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body as string);
+    expect(body.data.type).toBe("alternativeDistributionKeys");
+    expect(body.data.attributes.publicKey).toContain("BEGIN PUBLIC KEY");
+    expect(created).toEqual({ id: "k-new" });
+  });
+});
+
 describe("describeErrors", () => {
   it("joins Apple's error details, falling back to titles", () => {
     expect(describeErrors(JSON.stringify({ errors: [{ detail: "d1" }, { title: "t2" }] }))).toBe("d1; t2");
