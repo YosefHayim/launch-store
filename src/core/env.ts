@@ -190,3 +190,19 @@ export function formatEnvTable(resolved: ResolvedEnv): string {
   const lines = rows.map((row) => `${row.key.padEnd(keyWidth)}  ${row.value.padEnd(valueWidth)}  ${row.source}`);
   return [header, "─".repeat(header.length), ...lines].join("\n");
 }
+
+/**
+ * Per-key provenance rows for the in-build env log: `KEY  source`, sorted by key with the key column
+ * padded so sources line up. Unlike {@link formatEnvTable} this renders NO values — not even masked
+ * ones — because the build log's only job is to show WHICH vars, and from WHICH layer, are being
+ * injected into the bundle; with no values present there's nothing to leak. Empty array when no env
+ * resolved. Pairs with the count summary `prepareBuild` logs above it, so a run visibly confirms the
+ * layered env is reaching the build (issue #109, where local iOS silently dropped everything above
+ * the app's own `.env`).
+ */
+export function envInjectionRows(resolved: ResolvedEnv): string[] {
+  const keys = Object.keys(resolved.values).sort();
+  if (keys.length === 0) return [];
+  const keyWidth = Math.max(...keys.map((key) => key.length));
+  return keys.map((key) => `${key.padEnd(keyWidth)}  ${resolved.sources[key] ?? ""}`);
+}

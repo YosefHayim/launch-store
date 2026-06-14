@@ -1,7 +1,7 @@
 import { isAbsolute } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { SigningAssets } from "../../core/types.js";
-import { assertDeviceArtifact, exportOptionsPlist, parseThinningReport, resolveIosDir } from "./fastlane.js";
+import { assertDeviceArtifact, exportOptionsPlist, gymEnv, parseThinningReport, resolveIosDir } from "./fastlane.js";
 
 const MB = 1024 ** 2;
 
@@ -105,5 +105,27 @@ describe("assertDeviceArtifact — reject a non-submittable build before upload"
     expect(() => {
       assertDeviceArtifact("/tmp/Looopi.ipa", 0);
     }).toThrow(/empty/i);
+  });
+});
+
+describe("gymEnv — forwards Launch's resolved env to the bundle step; build/auth vars still win (#109)", () => {
+  const ascKey = { keyId: "KID", issuerId: "ISS" };
+
+  it("forwards ctx.env (the EXPO_PUBLIC_* layer that inlines into the bundle) alongside the ASC key", () => {
+    const env = gymEnv({ EXPO_PUBLIC_CDN_URL: "https://real.cdn", EXPO_PUBLIC_FLAG: "on" }, {}, ascKey);
+    expect(env["EXPO_PUBLIC_CDN_URL"]).toBe("https://real.cdn");
+    expect(env["EXPO_PUBLIC_FLAG"]).toBe("on");
+    expect(env["APP_STORE_CONNECT_API_KEY_KEY_ID"]).toBe("KID");
+    expect(env["APP_STORE_CONNECT_API_KEY_ISSUER_ID"]).toBe("ISS");
+  });
+
+  it("lets ccache and the resolved ASC key override a colliding user var (build/auth wins)", () => {
+    const env = gymEnv(
+      { CC: "user-cc", APP_STORE_CONNECT_API_KEY_KEY_ID: "user-override" },
+      { CC: "ccache-cc" },
+      ascKey,
+    );
+    expect(env["CC"]).toBe("ccache-cc"); // ccache wrapper wins over a user `--env CC`
+    expect(env["APP_STORE_CONNECT_API_KEY_KEY_ID"]).toBe("KID"); // resolved creds win over a spoofed override
   });
 });
