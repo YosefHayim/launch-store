@@ -14,7 +14,8 @@
  */
 
 import { SignJWT, importPKCS8 } from "jose";
-import type { AscKey } from "../core/types.js";
+import type { AscKey, OfferCustomerEligibility, OfferDuration, OfferEligibility, OfferMode } from "../core/types.js";
+import type { components } from "../core/asc/schema.js";
 import { highestVersion } from "../core/version.js";
 import { withRetry } from "../core/asyncPool.js";
 
@@ -403,6 +404,127 @@ export interface ReviewSubmissionResource {
   state: string;
 }
 
+/**
+ * One territory's resolved offer price: the territory code plus the Apple `subscriptionPricePoints` id
+ * the customer-facing amount maps to. The reconciler resolves each {@link OfferPrice} to one of these
+ * (via {@link AppStoreConnectClient.findSubscriptionPricePoint}) before any offer is created, so the
+ * client only ever builds wire bodies from already-validated price points.
+ */
+export interface ResolvedOfferPrice {
+  /** Apple territory code, e.g. `USA` — used directly as the `territories` resource id. */
+  territory: string;
+  /** Resolved `subscriptionPricePoints` id for the customer price in this territory. */
+  pricePointId: string;
+}
+
+/** An offer-code campaign on a subscription, as listed for idempotent reconcile. `name` is the key. */
+export interface OfferCodeResource {
+  id: string;
+  name: string;
+  /** Whether the campaign is currently active; deactivating sets this false. */
+  active: boolean;
+}
+
+/** A promotional offer on a subscription. `offerCode` (the StoreKit-facing id) is the reconciler's key. */
+export interface PromotionalOfferResource {
+  id: string;
+  name: string;
+  offerCode: string;
+}
+
+/**
+ * An introductory offer on a subscription. `territory` is the territory code it applies to, or null for
+ * an all-territories offer — the reconciler's key (Apple permits at most one intro offer per territory).
+ */
+export interface IntroductoryOfferResource {
+  id: string;
+  territory: string | null;
+}
+
+/** A win-back offer on a subscription, keyed by its stable `offerId`. */
+export interface WinBackOfferResource {
+  id: string;
+  offerId: string;
+}
+
+/**
+ * A promoted purchase on an app's product page. Exactly one of `inAppPurchaseId` / `subscriptionId` is
+ * set — the live *resource* id of the promoted product (not its `productId`); the reconciler maps config
+ * `productId`s onto these via the subscription/IAP listings to find what's already promoted.
+ */
+export interface PromotedPurchaseResource {
+  id: string;
+  inAppPurchaseId: string | null;
+  subscriptionId: string | null;
+  enabled: boolean;
+  visibleForAllUsers: boolean;
+}
+
+/** Create input for an offer-code campaign — prices already resolved to {@link ResolvedOfferPrice}s. */
+export interface OfferCodeCreate {
+  subscriptionId: string;
+  name: string;
+  customerEligibilities: OfferCustomerEligibility[];
+  offerEligibility: OfferEligibility;
+  duration: OfferDuration;
+  offerMode: OfferMode;
+  numberOfPeriods: number;
+  /** Empty for a `FREE_TRIAL` offer; otherwise one entry per declared territory. */
+  prices: ResolvedOfferPrice[];
+}
+
+/** Create input for a promotional offer — `offerCode` is the StoreKit-facing id; prices pre-resolved. */
+export interface PromotionalOfferCreate {
+  subscriptionId: string;
+  name: string;
+  offerCode: string;
+  duration: OfferDuration;
+  offerMode: OfferMode;
+  numberOfPeriods: number;
+  prices: ResolvedOfferPrice[];
+}
+
+/** Create input for an introductory offer — at most one per territory (null = all territories). */
+export interface IntroductoryOfferCreate {
+  subscriptionId: string;
+  duration: OfferDuration;
+  offerMode: OfferMode;
+  numberOfPeriods: number;
+  /** Resolved single-territory price, or null for a `FREE_TRIAL` (no price). */
+  price: ResolvedOfferPrice | null;
+  /** Territory the offer applies to, or null for all territories. */
+  territory: string | null;
+  startDate?: string;
+  endDate?: string;
+}
+
+/** Create input for a win-back offer — carries Apple's lapsed-customer eligibility windows. */
+export interface WinBackOfferCreate {
+  subscriptionId: string;
+  offerId: string;
+  referenceName: string;
+  duration: OfferDuration;
+  offerMode: OfferMode;
+  numberOfPeriods: number;
+  eligiblePaidMonths: number;
+  monthsSinceLastSubscribed: { min: number; max: number };
+  waitBetweenOffersMonths?: number;
+  startDate: string;
+  endDate?: string;
+  priority: "HIGH" | "NORMAL";
+  promotionIntent?: "NOT_PROMOTED" | "USE_AUTO_GENERATED_ASSETS";
+  prices: ResolvedOfferPrice[];
+}
+
+/** A promoted product to register — exactly one of the two ids is set (resolved from a config `productId`). */
+export interface PromotedPurchaseCreate {
+  appId: string;
+  inAppPurchaseId?: string;
+  subscriptionId?: string;
+  visibleForAllUsers: boolean;
+  enabled: boolean;
+}
+
 interface ResourceList<A> {
   data: { id: string; attributes: A }[];
 }
@@ -450,6 +572,23 @@ interface CustomerReviewPage {
       createdDate?: string;
     };
     relationships?: { response?: { data?: { id: string } | null } };
+  }[];
+  links?: { next?: string };
+}
+
+/**
+ * One page of `/apps/{id}/promotedPurchases`, read with each row's product `relationships` intact (which
+ * {@link AppStoreConnectClient.requestAll} drops) — the linkage is how a promoted purchase is matched to
+ * a config `productId`. Kept as a named interface so the paginating read isn't self-referential (TS7022).
+ */
+interface PromotedPurchasePage {
+  data: {
+    id: string;
+    attributes?: { enabled?: boolean; visibleForAllUsers?: boolean };
+    relationships?: {
+      inAppPurchaseV2?: { data?: { id: string } | null };
+      subscription?: { data?: { id: string } | null };
+    };
   }[];
   links?: { next?: string };
 }
@@ -1140,6 +1279,300 @@ export class AppStoreConnectClient {
         },
       },
     });
+  }
+
+  /* ----------------------------------------------------------------------- */
+  /*  Subscription offers — offer codes, promotional/introductory/win-back    */
+  /*  offers, and promoted-purchase ordering. Consumed by `launch offers`     */
+  /*  (core/offers.ts). Wire bodies are built from the generated #56 spec     */
+  /*  types so the exact billing shapes are typecheck-enforced.               */
+  /* ----------------------------------------------------------------------- */
+
+  /** List a subscription's offer-code campaigns (the reconciler's `name`-keyed idempotency set). */
+  async listSubscriptionOfferCodes(subscriptionId: string): Promise<OfferCodeResource[]> {
+    const data = await this.requestAll<{ name?: string; active?: boolean }>(
+      `/subscriptions/${subscriptionId}/offerCodes?limit=200`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      name: entry.attributes.name ?? "",
+      active: entry.attributes.active ?? false,
+    }));
+  }
+
+  /** Create an offer-code campaign with its per-territory prices (temp-id + `included` inline pattern). */
+  async createSubscriptionOfferCode(input: OfferCodeCreate): Promise<OfferCodeResource> {
+    const body: components["schemas"]["SubscriptionOfferCodeCreateRequest"] = {
+      data: {
+        type: "subscriptionOfferCodes",
+        attributes: {
+          name: input.name,
+          customerEligibilities: input.customerEligibilities,
+          offerEligibility: input.offerEligibility,
+          duration: input.duration,
+          offerMode: input.offerMode,
+          numberOfPeriods: input.numberOfPeriods,
+        },
+        relationships: {
+          subscription: { data: { type: "subscriptions", id: input.subscriptionId } },
+          prices: {
+            data: input.prices.map((_, index) => ({ type: "subscriptionOfferCodePrices", id: `price-${index}` })),
+          },
+        },
+      },
+      included: input.prices.map((price, index) => ({
+        type: "subscriptionOfferCodePrices",
+        id: `price-${index}`,
+        relationships: {
+          territory: { data: { type: "territories", id: price.territory } },
+          subscriptionPricePoint: { data: { type: "subscriptionPricePoints", id: price.pricePointId } },
+        },
+      })),
+    };
+    const { data } = await this.request<ResourceSingle<{ name?: string; active?: boolean }>>(
+      "POST",
+      "/subscriptionOfferCodes",
+      body,
+    );
+    return { id: data.id, name: data.attributes.name ?? input.name, active: data.attributes.active ?? true };
+  }
+
+  /** Deactivate an offer-code campaign (Apple only lets you toggle `active`, never edit the terms). */
+  async deactivateOfferCode(offerCodeId: string): Promise<void> {
+    const body: components["schemas"]["SubscriptionOfferCodeUpdateRequest"] = {
+      data: { type: "subscriptionOfferCodes", id: offerCodeId, attributes: { active: false } },
+    };
+    await this.request<unknown>("PATCH", `/subscriptionOfferCodes/${offerCodeId}`, body);
+  }
+
+  /** Generate a batch of one-time-use codes under an offer-code campaign. */
+  async createOfferCodeOneTimeUseBatch(
+    offerCodeId: string,
+    numberOfCodes: number,
+    expirationDate: string,
+  ): Promise<void> {
+    const body: components["schemas"]["SubscriptionOfferCodeOneTimeUseCodeCreateRequest"] = {
+      data: {
+        type: "subscriptionOfferCodeOneTimeUseCodes",
+        attributes: { numberOfCodes, expirationDate },
+        relationships: { offerCode: { data: { type: "subscriptionOfferCodes", id: offerCodeId } } },
+      },
+    };
+    await this.request<unknown>("POST", "/subscriptionOfferCodeOneTimeUseCodes", body);
+  }
+
+  /** Create a custom (shareable) code under an offer-code campaign, redeemable `numberOfCodes` times. */
+  async createOfferCodeCustomCode(
+    offerCodeId: string,
+    customCode: string,
+    numberOfCodes: number,
+    expirationDate?: string,
+  ): Promise<void> {
+    const body: components["schemas"]["SubscriptionOfferCodeCustomCodeCreateRequest"] = {
+      data: {
+        type: "subscriptionOfferCodeCustomCodes",
+        attributes: { customCode, numberOfCodes, ...(expirationDate ? { expirationDate } : {}) },
+        relationships: { offerCode: { data: { type: "subscriptionOfferCodes", id: offerCodeId } } },
+      },
+    };
+    await this.request<unknown>("POST", "/subscriptionOfferCodeCustomCodes", body);
+  }
+
+  /** List a subscription's promotional offers (keyed by the StoreKit-facing `offerCode`). */
+  async listPromotionalOffers(subscriptionId: string): Promise<PromotionalOfferResource[]> {
+    const data = await this.requestAll<{ name?: string; offerCode?: string }>(
+      `/subscriptions/${subscriptionId}/promotionalOffers?limit=200`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      name: entry.attributes.name ?? "",
+      offerCode: entry.attributes.offerCode ?? "",
+    }));
+  }
+
+  /** Create a promotional offer with its per-territory prices. */
+  async createPromotionalOffer(input: PromotionalOfferCreate): Promise<PromotionalOfferResource> {
+    const body: components["schemas"]["SubscriptionPromotionalOfferCreateRequest"] = {
+      data: {
+        type: "subscriptionPromotionalOffers",
+        attributes: {
+          duration: input.duration,
+          name: input.name,
+          numberOfPeriods: input.numberOfPeriods,
+          offerCode: input.offerCode,
+          offerMode: input.offerMode,
+        },
+        relationships: {
+          subscription: { data: { type: "subscriptions", id: input.subscriptionId } },
+          prices: {
+            data: input.prices.map((_, index) => ({
+              type: "subscriptionPromotionalOfferPrices",
+              id: `price-${index}`,
+            })),
+          },
+        },
+      },
+      included: input.prices.map((price, index) => ({
+        type: "subscriptionPromotionalOfferPrices",
+        id: `price-${index}`,
+        relationships: {
+          territory: { data: { type: "territories", id: price.territory } },
+          subscriptionPricePoint: { data: { type: "subscriptionPricePoints", id: price.pricePointId } },
+        },
+      })),
+    };
+    const { data } = await this.request<ResourceSingle<{ name?: string; offerCode?: string }>>(
+      "POST",
+      "/subscriptionPromotionalOffers",
+      body,
+    );
+    return {
+      id: data.id,
+      name: data.attributes.name ?? input.name,
+      offerCode: data.attributes.offerCode ?? input.offerCode,
+    };
+  }
+
+  /** List a subscription's introductory offers, keyed by territory (null = an all-territories offer). */
+  async listIntroductoryOffers(subscriptionId: string): Promise<IntroductoryOfferResource[]> {
+    const { data } = await this.request<{
+      data: { id: string; relationships?: { territory?: { data?: { id: string } | null } } }[];
+    }>("GET", `/subscriptions/${subscriptionId}/introductoryOffers?include=territory&limit=200`);
+    return data.map((entry) => ({ id: entry.id, territory: entry.relationships?.territory?.data?.id ?? null }));
+  }
+
+  /** Create an introductory offer for one territory (or all territories when `territory`/`price` are null). */
+  async createIntroductoryOffer(input: IntroductoryOfferCreate): Promise<void> {
+    const body: components["schemas"]["SubscriptionIntroductoryOfferCreateRequest"] = {
+      data: {
+        type: "subscriptionIntroductoryOffers",
+        attributes: {
+          duration: input.duration,
+          offerMode: input.offerMode,
+          numberOfPeriods: input.numberOfPeriods,
+          ...(input.startDate ? { startDate: input.startDate } : {}),
+          ...(input.endDate ? { endDate: input.endDate } : {}),
+        },
+        relationships: {
+          subscription: { data: { type: "subscriptions", id: input.subscriptionId } },
+          ...(input.territory ? { territory: { data: { type: "territories", id: input.territory } } } : {}),
+          ...(input.price
+            ? { subscriptionPricePoint: { data: { type: "subscriptionPricePoints", id: input.price.pricePointId } } }
+            : {}),
+        },
+      },
+    };
+    await this.request<unknown>("POST", "/subscriptionIntroductoryOffers", body);
+  }
+
+  /** List a subscription's win-back offers, keyed by the stable `offerId`. */
+  async listWinBackOffers(subscriptionId: string): Promise<WinBackOfferResource[]> {
+    const data = await this.requestAll<{ offerId?: string }>(
+      `/subscriptions/${subscriptionId}/winBackOffers?limit=200`,
+    );
+    return data.map((entry) => ({ id: entry.id, offerId: entry.attributes.offerId ?? "" }));
+  }
+
+  /** Create a win-back offer with its lapsed-customer eligibility windows and per-territory prices. */
+  async createWinBackOffer(input: WinBackOfferCreate): Promise<void> {
+    const body: components["schemas"]["WinBackOfferCreateRequest"] = {
+      data: {
+        type: "winBackOffers",
+        attributes: {
+          referenceName: input.referenceName,
+          offerId: input.offerId,
+          duration: input.duration,
+          offerMode: input.offerMode,
+          periodCount: input.numberOfPeriods,
+          customerEligibilityPaidSubscriptionDurationInMonths: input.eligiblePaidMonths,
+          customerEligibilityTimeSinceLastSubscribedInMonths: {
+            minimum: input.monthsSinceLastSubscribed.min,
+            maximum: input.monthsSinceLastSubscribed.max,
+          },
+          ...(input.waitBetweenOffersMonths !== undefined
+            ? { customerEligibilityWaitBetweenOffersInMonths: input.waitBetweenOffersMonths }
+            : {}),
+          startDate: input.startDate,
+          ...(input.endDate ? { endDate: input.endDate } : {}),
+          priority: input.priority,
+          ...(input.promotionIntent ? { promotionIntent: input.promotionIntent } : {}),
+        },
+        relationships: {
+          subscription: { data: { type: "subscriptions", id: input.subscriptionId } },
+          prices: {
+            data: input.prices.map((_, index) => ({ type: "winBackOfferPrices", id: `price-${index}` })),
+          },
+        },
+      },
+      included: input.prices.map((price, index) => ({
+        type: "winBackOfferPrices",
+        id: `price-${index}`,
+        relationships: {
+          territory: { data: { type: "territories", id: price.territory } },
+          subscriptionPricePoint: { data: { type: "subscriptionPricePoints", id: price.pricePointId } },
+        },
+      })),
+    };
+    await this.request<unknown>("POST", "/winBackOffers", body);
+  }
+
+  /** List an app's promoted purchases in their current product-page order, with each one's product linkage. */
+  async listPromotedPurchases(appId: string): Promise<PromotedPurchaseResource[]> {
+    const all: PromotedPurchaseResource[] = [];
+    let next: string | undefined = `/apps/${appId}/promotedPurchases?limit=200`;
+    while (next) {
+      const page: PromotedPurchasePage = await this.request<PromotedPurchasePage>("GET", next);
+      for (const entry of page.data) {
+        all.push({
+          id: entry.id,
+          inAppPurchaseId: entry.relationships?.inAppPurchaseV2?.data?.id ?? null,
+          subscriptionId: entry.relationships?.subscription?.data?.id ?? null,
+          enabled: entry.attributes?.enabled ?? false,
+          visibleForAllUsers: entry.attributes?.visibleForAllUsers ?? false,
+        });
+      }
+      next = page.links?.next;
+    }
+    return all;
+  }
+
+  /** Register a promoted purchase for one product (subscription or IAP) on an app. */
+  async createPromotedPurchase(input: PromotedPurchaseCreate): Promise<PromotedPurchaseResource> {
+    const body: components["schemas"]["PromotedPurchaseCreateRequest"] = {
+      data: {
+        type: "promotedPurchases",
+        attributes: { visibleForAllUsers: input.visibleForAllUsers, enabled: input.enabled },
+        relationships: {
+          app: { data: { type: "apps", id: input.appId } },
+          ...(input.inAppPurchaseId
+            ? { inAppPurchaseV2: { data: { type: "inAppPurchases", id: input.inAppPurchaseId } } }
+            : {}),
+          ...(input.subscriptionId
+            ? { subscription: { data: { type: "subscriptions", id: input.subscriptionId } } }
+            : {}),
+        },
+      },
+    };
+    const { data } = await this.request<ResourceSingle<{ enabled?: boolean; visibleForAllUsers?: boolean }>>(
+      "POST",
+      "/promotedPurchases",
+      body,
+    );
+    return {
+      id: data.id,
+      inAppPurchaseId: input.inAppPurchaseId ?? null,
+      subscriptionId: input.subscriptionId ?? null,
+      enabled: data.attributes.enabled ?? input.enabled,
+      visibleForAllUsers: data.attributes.visibleForAllUsers ?? input.visibleForAllUsers,
+    };
+  }
+
+  /** Replace the app's promoted-purchase ordering with `orderedIds` (the product-page display order). */
+  async reorderPromotedPurchases(appId: string, orderedIds: string[]): Promise<void> {
+    const body: components["schemas"]["AppPromotedPurchasesLinkagesRequest"] = {
+      data: orderedIds.map((id) => ({ type: "promotedPurchases", id })),
+    };
+    await this.request<unknown>("PATCH", `/apps/${appId}/relationships/promotedPurchases`, body);
   }
 
   /** Whether an in-app purchase already has a price schedule (so the reconciler skips re-pricing it). */
