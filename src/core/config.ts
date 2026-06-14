@@ -48,9 +48,40 @@ export function defineConfig(input: LaunchConfigInput): LaunchConfig {
     ...(input.products ? { products: input.products } : {}),
     ...(input.notify ? { notify: input.notify } : {}),
     ...(input.release ? { release: input.release } : {}),
+    ...(input.gameCenter ? { gameCenter: input.gameCenter } : {}),
+    ...(input.appClips ? { appClips: input.appClips } : {}),
+    ...(input.releaseAttributes ? { releaseAttributes: input.releaseAttributes } : {}),
+    ...(input.wallet ? { wallet: input.wallet } : {}),
+    ...(input.euDistribution ? { euDistribution: input.euDistribution } : {}),
     ...(input.aws ? { aws: input.aws } : {}),
     ...(input.storageConfig ? { storageConfig: input.storageConfig } : {}),
   };
+}
+
+/**
+ * Resolve a Launch-native config section that can be declared either as a typed field on
+ * `launch.config.ts` (the single-config path — issue #101) or as its standalone `*.config.json`
+ * sidecar (back-compat). Precedence, highest first:
+ *   1. an explicitly-passed `--config <path>` — the user pointed at a sidecar on purpose, so load it;
+ *   2. the typed field, when present on the loaded config;
+ *   3. the sidecar at its default path, when that file exists.
+ * Returns `undefined` when none apply, so the caller throws a feature-specific "nothing declared" hint.
+ * `load` is the section's existing JSON loader (which itself throws a helpful error on a missing path).
+ */
+export function resolveSidecarConfig<T>(params: {
+  /** The typed value read off the loaded config (e.g. `config.gameCenter?.[bundleId]`), if any. */
+  typed: T | undefined;
+  /** The `--config` path (defaulted by the command); used for both the explicit and fallback loads. */
+  configPath: string;
+  /** Whether `--config` was passed on the CLI (`command.getOptionValueSource("config") === "cli"`). */
+  explicitPath: boolean;
+  /** The section's JSON loader, e.g. `loadGameCenterConfig`. */
+  load: (path: string) => T;
+}): T | undefined {
+  if (params.explicitPath) return params.load(params.configPath);
+  if (params.typed !== undefined) return params.typed;
+  if (existsSync(params.configPath)) return params.load(params.configPath);
+  return undefined;
 }
 
 /** The fully-resolved configuration plus every app Launch found. */

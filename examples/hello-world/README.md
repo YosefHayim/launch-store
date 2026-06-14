@@ -4,8 +4,11 @@ A single, runnable, **dual-platform (iOS + Android)** Expo app wired to **every 
 configure as code**. It's a tiny one-button tap game; the point isn't the app, it's the config around
 it. Use it as a reference when setting up your own project, or copy the folder and swap in your ids.
 
-Every file here works with **today's** shipped CLI. (Folding the six `*.config.json` sidecars into the
-single typed `launch.config.ts` is planned — tracked in issue #101 — so this example will get simpler.)
+Every file here works with **today's** shipped CLI. The five Launch-native App Store Connect sections
+(Game Center, App Clips, release attributes, Wallet, EU distribution) are **typed fields in
+`launch.config.ts`** (issue #101); the standalone `*.config.json` sidecars still work for back-compat.
+Only `store.config.json` stays a sidecar — its `apple` section mirrors the Expo/EAS metadata schema
+verbatim (the `eas metadata` migration path).
 
 ## Run it
 
@@ -21,8 +24,8 @@ launch build ios --dry-run          # rehearse the build → sign → submit pip
 launch build android --dry-run      # the Android leg (gradle → AAB → Play internal track)
 ```
 
-> Run all `launch` commands **from this directory** — each `*.config.json` sidecar is resolved relative
-> to the current directory, and the app is discovered from `app.json` here.
+> Run all `launch` commands **from this directory** — `launch.config.ts` and `store.config.json` are
+> resolved relative to the current directory, and the app is discovered from `app.json` here.
 
 > **Want zero cloud setup?** This config is intentionally maximal. For a purely local build, edit
 > `launch.config.ts`: set `storage: "local"` and remove `storageConfig` (and ignore `aws`). Everything
@@ -30,19 +33,14 @@ launch build android --dry-run      # the Android leg (gradle → AAB → Play i
 
 ## What's in here
 
-| File                                                             | What it is                                                                                                                                                          |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app.json`                                                       | Expo app facts — bundle id, `android.package`, version, capabilities, export compliance. The source of truth Launch reads (never duplicated in `launch.config.ts`). |
-| `App.tsx` / `package.json` / `babel.config.js` / `tsconfig.json` | The minimal runnable Expo app (a tap counter).                                                                                                                      |
-| `launch.config.ts`                                               | The one **typed** config: providers, profiles, the product catalog (subscriptions, offers, IAP, promoted), release policy, notifications, AWS, and cloud storage.   |
-| `.env.production` / `.env.preview`                               | Committed, **non-secret** per-profile build env. (Secrets go in `launch secret`.)                                                                                   |
-| `.env.example`                                                   | Template documenting the env keys; copy to `.env` for local overrides.                                                                                              |
-| `gamecenter.config.json`                                         | Game Center achievements + a leaderboard → `launch game-center`.                                                                                                    |
-| `appclips.config.json`                                           | App Clip card action + subtitle → `launch app-clips`.                                                                                                               |
-| `eu-distribution.config.json`                                    | EU (DMA) alternative-distribution domain → `launch eu-distribution`.                                                                                                |
-| `wallet.config.json`                                             | Apple Pay merchant id + Wallet pass type id → `launch wallet`.                                                                                                      |
-| `release.config.json`                                            | App Store release attributes — age rating, categories, price, review contact → `launch release-config`.                                                             |
-| `store.config.json`                                              | Store listing text for **both** stores (Apple + Android) → `launch metadata` / `launch sync`.                                                                       |
+| File                                                             | What it is                                                                                                                                                                                                                                                    |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app.json`                                                       | Expo app facts — bundle id, `android.package`, version, capabilities, export compliance. The source of truth Launch reads (never duplicated in `launch.config.ts`).                                                                                           |
+| `App.tsx` / `package.json` / `babel.config.js` / `tsconfig.json` | The minimal runnable Expo app (a tap counter).                                                                                                                                                                                                                |
+| `launch.config.ts`                                               | The one **typed** config — providers, profiles, the product catalog (subscriptions, offers, IAP, promoted), release policy, notifications, AWS, cloud storage, **plus** the Game Center, App Clips, release-attributes, Wallet, and EU-distribution sections. |
+| `.env.production` / `.env.preview`                               | Committed, **non-secret** per-profile build env. (Secrets go in `launch secret`.)                                                                                                                                                                             |
+| `.env.example`                                                   | Template documenting the env keys; copy to `.env` for local overrides.                                                                                                                                                                                        |
+| `store.config.json`                                              | Store listing text for **both** stores (Apple + Android) → `launch metadata` / `launch sync`. The lone sidecar — its `apple` section mirrors the Expo/EAS schema verbatim.                                                                                    |
 
 ## Feature → where it's configured → how it's applied
 
@@ -62,11 +60,11 @@ Everything below is demonstrated by a real file in this folder.
 | Remote (off-Mac) AWS EC2 Mac build                      | `launch.config.ts` `aws`                     | `launch build ios --remote aws`, `launch cloud`  |
 | Cloud artifact + OTA storage                            | `launch.config.ts` `storageConfig`           | `launch build`, `launch update`                  |
 | App capabilities + export compliance                    | `app.json` `ios.entitlements` / `ios.config` | `launch sync`, `launch release`                  |
-| Game Center achievements + leaderboards                 | `gamecenter.config.json`                     | `launch game-center`                             |
-| App Clip card metadata                                  | `appclips.config.json`                       | `launch app-clips`                               |
-| EU alternative distribution (DMA)                       | `eu-distribution.config.json`                | `launch eu-distribution`                         |
-| Apple Pay / Wallet identifiers                          | `wallet.config.json`                         | `launch wallet`                                  |
-| Release attributes (age/category/price/review)          | `release.config.json`                        | `launch release-config`                          |
+| Game Center achievements + leaderboards                 | `launch.config.ts` `gameCenter`              | `launch game-center`                             |
+| App Clip card metadata                                  | `launch.config.ts` `appClips`                | `launch app-clips`                               |
+| EU alternative distribution (DMA)                       | `launch.config.ts` `euDistribution`          | `launch eu-distribution`                         |
+| Apple Pay / Wallet identifiers                          | `launch.config.ts` `wallet`                  | `launch wallet`                                  |
+| Release attributes (age/category/price/review)          | `launch.config.ts` `releaseAttributes`       | `launch release-config`                          |
 | Store listing text (iOS + Android)                      | `store.config.json`                          | `launch metadata push`, `launch sync`            |
 
 ## The rest of the CLI (no config file needed)

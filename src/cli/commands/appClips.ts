@@ -18,8 +18,9 @@
 import { cancel, confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
 import type { PlannedAction } from "../../core/ascSync.js";
+import type { LaunchConfig } from "../../core/types.js";
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
-import { loadConfig } from "../../core/config.js";
+import { loadConfig, resolveSidecarConfig } from "../../core/config.js";
 import { selectApp } from "../../core/pipeline.js";
 import { loadActiveAscKey } from "../../core/accounts.js";
 import { createLogger } from "../../core/logger.js";
@@ -41,14 +42,14 @@ async function activeClient(): Promise<AppStoreConnectClient> {
   return new AppStoreConnectClient(ascKey);
 }
 
-/** Resolve the selected app's iOS bundle id, erroring when the app has none. */
-async function resolveBundleId(appSelector: string | undefined): Promise<string> {
-  const { apps } = await loadConfig();
+/** Resolve the selected app's iOS bundle id plus the loaded Launch config (for its typed config sections). */
+async function resolveApp(appSelector: string | undefined): Promise<{ launchConfig: LaunchConfig; bundleId: string }> {
+  const { config: launchConfig, apps } = await loadConfig();
   const app = await selectApp(apps, appSelector);
   if (!app.bundleId) {
     throw new Error(`No iOS bundle identifier for ${app.name} (set ios.bundleIdentifier in app.json).`);
   }
-  return app.bundleId;
+  return { launchConfig, bundleId: app.bundleId };
 }
 
 /**
@@ -71,10 +72,20 @@ export function registerAppClipsCommand(program: Command): void {
     .option("--config <path>", "path to the App Clips config file", "appclips.config.json")
     .option("--dry-run", "print the plan and exit, making no changes", false)
     .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
-    .action(async (options: AppClipsOptions) => {
+    .action(async (options: AppClipsOptions, command: Command) => {
       const log = createLogger(false);
-      const config = loadAppClipsConfig(options.config);
-      const bundleId = await resolveBundleId(options.app);
+      const { launchConfig, bundleId } = await resolveApp(options.app);
+      const config = resolveSidecarConfig({
+        typed: launchConfig.appClips?.[bundleId],
+        configPath: options.config,
+        explicitPath: command.getOptionValueSource("config") === "cli",
+        load: loadAppClipsConfig,
+      });
+      if (!config) {
+        throw new Error(
+          `No App Clips config for ${bundleId}. Add an \`appClips\` entry to launch.config.ts or create ${options.config}.`,
+        );
+      }
       const client = await activeClient();
 
       const plan = await reconcileAppClips(client, { bundleId, config, dryRun: true });

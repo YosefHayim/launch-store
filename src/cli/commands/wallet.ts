@@ -14,6 +14,7 @@ import type { Command } from "commander";
 import type { PlannedAction } from "../../core/ascSync.js";
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { loadActiveAscKey } from "../../core/accounts.js";
+import { loadConfig, resolveSidecarConfig } from "../../core/config.js";
 import { createLogger } from "../../core/logger.js";
 import { summarize } from "../../core/asc/storeSync.js";
 import { loadWalletConfig, reconcileWalletIds } from "../../core/walletIds.js";
@@ -42,9 +43,18 @@ export function renderAction(action: PlannedAction): string {
 }
 
 /** The body of `launch wallet`: plan identifier registrations, print, confirm, apply. */
-async function runReconcile(options: WalletOptions): Promise<void> {
+async function runReconcile(options: WalletOptions, command: Command): Promise<void> {
   const log = createLogger(false);
-  const config = loadWalletConfig(options.config);
+  const { config: launchConfig } = await loadConfig();
+  const config = resolveSidecarConfig({
+    typed: launchConfig.wallet,
+    configPath: options.config,
+    explicitPath: command.getOptionValueSource("config") === "cli",
+    load: loadWalletConfig,
+  });
+  if (!config) {
+    throw new Error(`No wallet config. Add a \`wallet\` field to launch.config.ts or create ${options.config}.`);
+  }
   const client = await activeClient();
 
   const plan = await reconcileWalletIds(client, config, true);
@@ -91,7 +101,7 @@ export function registerWalletCommand(program: Command): void {
     .option("--config <path>", "path to the wallet config file", "wallet.config.json")
     .option("--dry-run", "print the plan and exit, making no changes", false)
     .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
-    .action((options: WalletOptions) => runReconcile(options));
+    .action((options: WalletOptions, command: Command) => runReconcile(options, command));
 
   wallet
     .command("list")

@@ -3,10 +3,10 @@ import type { AlternativeDistributionDomainResource } from "../apple/ascClient.j
 import { summarize } from "./asc/storeSync.js";
 import {
   type AscEuDistributionApi,
-  type EuDistributionConfig,
   parseEuDistributionConfig,
   reconcileEuDistributionDomains,
 } from "./euDistribution.js";
+import type { EuDistributionConfig } from "./types.js";
 
 /** A hand-rolled {@link AscEuDistributionApi} — no network — serving `existing` and recording creates. */
 function makeApi(existing: AlternativeDistributionDomainResource[]): {
