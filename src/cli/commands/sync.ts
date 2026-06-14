@@ -1,17 +1,20 @@
 /**
  * `launch sync` — reconcile App Store Connect product configuration (capabilities, in-app purchases,
- * subscriptions, pricing) AND textual store-listing copy to match config, across every discovered app at once.
+ * subscriptions, pricing), textual store-listing copy, AND screenshots to match config, across every
+ * discovered app at once.
  *
  * This fills the gap EAS leaves: `eas build`/`submit` ship the binary, but nothing declaratively manages
- * IAPs, subscriptions, capability flags, or per-locale listing copy — those are hand-work in the App
- * Store Connect UI. `launch sync` makes them declarative: products from `launch.config.ts` and the App
- * Store listing from each app's `store.config.json` (the same file `launch metadata` uses).
+ * IAPs, subscriptions, capability flags, per-locale listing copy, or screenshots — those are hand-work in
+ * the App Store Connect UI. `launch sync` makes them declarative: products from `launch.config.ts`, the
+ * App Store listing from each app's `store.config.json` (the same file `launch metadata` uses), and
+ * screenshots from each app's `screenshots/<locale>/<displayType>/` folder.
  *
  * Flow: build a per-app job list (capabilities from each app's `app.json` entitlements, products from
- * `config.products[bundleId]`, listing from `store.config.json`), run a read-only PLAN pass over all apps
- * in parallel, print it, confirm, then run the APPLY pass. Apps run behind a bounded pool sharing the one
- * ASC key, each isolated so one app's failure never aborts the batch. `--dry-run` stops after the plan;
- * `--allow-destructive` permits capability removals; `--yes` skips the prompt for CI.
+ * `config.products[bundleId]`, listing from `store.config.json`, screenshots from `<app>/screenshots/`),
+ * run a read-only PLAN pass over all apps in parallel, print it, confirm, then run the APPLY pass. Apps
+ * run behind a bounded pool sharing the one ASC key, each isolated so one app's failure never aborts the
+ * batch. `--dry-run` stops after the plan; `--allow-destructive` permits capability removals; `--yes`
+ * skips the prompt for CI.
  */
 
 import { existsSync } from "node:fs";
@@ -25,7 +28,9 @@ import { loadActiveAscKey } from "../../core/accounts.js";
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { mapEntitlementsToCapabilities, type CapabilityType } from "../../core/capabilities.js";
 import { runPool } from "../../core/asyncPool.js";
-import { reconcileApp, type ReconcileReport } from "../../core/ascSync.js";
+import { reconcileApp, type PlannedAction, type ReconcileReport } from "../../core/ascSync.js";
+import { reconcileScreenshots, type SubscriptionReviewScreenshot } from "../../core/ascScreenshots.js";
+import { discoverScreenshots, fingerprintAsset, type LocalScreenshot } from "../../core/screenshotAssets.js";
 import { loadStoreConfig, type AppleStoreConfig } from "../../core/storeConfig.js";
 
 /** How many apps reconcile concurrently. Bounded so the single ASC key stays under Apple's rate ceiling. */
@@ -51,6 +56,10 @@ interface SyncJob {
   products: AppProducts;
   /** The app's `store.config.json` `apple` listing, when present — reconciled natively into ASC. */
   listing?: AppleStoreConfig;
+  /** App Store screenshots discovered under `<appDir>/screenshots/<locale>/<displayType>/`, fingerprinted. */
+  screenshots: LocalScreenshot[];
+  /** Subscriptions declaring a `reviewScreenshot`, paired with the path fingerprinted at apply time. */
+  subscriptionReviewScreenshots: { productId: string; relPath: string }[];
   /** Entitlement keys with no known capability mapping — surfaced as a warning, not an error. */
   unmapped: string[];
 }
@@ -97,7 +106,14 @@ function selectApps(apps: AppDescriptor[], selector: string | undefined): AppDes
   });
 }
 
-/** Build the job list, dropping apps with no iOS bundle id and nothing (capabilities, products, or listing) to sync. */
+/** The subscriptions that declare a review screenshot, paired with the relative path to upload. */
+function collectSubscriptionReviewScreenshots(products: AppProducts): { productId: string; relPath: string }[] {
+  return (products.subscriptionGroups ?? [])
+    .flatMap((group) => group.subscriptions)
+    .flatMap((sub) => (sub.reviewScreenshot ? [{ productId: sub.productId, relPath: sub.reviewScreenshot }] : []));
+}
+
+/** Build the job list, dropping apps with no iOS bundle id and nothing (capabilities, products, listing, or assets) to sync. */
 function buildJobs(apps: AppDescriptor[], config: LaunchConfig): SyncJob[] {
   const jobs: SyncJob[] = [];
   for (const app of apps) {
@@ -106,13 +122,18 @@ function buildJobs(apps: AppDescriptor[], config: LaunchConfig): SyncJob[] {
     const products = config.products?.[app.bundleId] ?? {};
     const productCount = (products.inAppPurchases?.length ?? 0) + (products.subscriptionGroups?.length ?? 0);
     const listing = loadListing(app.dir);
-    if (enable.length === 0 && productCount === 0 && !hasListing(listing)) continue;
+    const screenshots = discoverScreenshots(app.dir);
+    const subscriptionReviewScreenshots = collectSubscriptionReviewScreenshots(products);
+    const hasAssets = screenshots.length > 0 || subscriptionReviewScreenshots.length > 0;
+    if (enable.length === 0 && productCount === 0 && !hasListing(listing) && !hasAssets) continue;
     jobs.push({
       app,
       bundleId: app.bundleId,
       capabilities: enable,
       products,
       ...(listing ? { listing } : {}),
+      screenshots,
+      subscriptionReviewScreenshots,
       unmapped,
     });
   }
@@ -135,9 +156,58 @@ async function reconcileJob(
       dryRun,
       allowDestructive,
     });
+    await appendScreenshotActions(client, job, report, dryRun, allowDestructive);
     return { job, report };
   } catch (error) {
     return { job, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/**
+ * Run the screenshot/asset pass for one app and append its actions to the catalog report. Isolated in its
+ * own try/catch so a screenshot failure is recorded as one failed action rather than discarding the
+ * (already-applied) catalog actions. Declared subscription review screenshots are fingerprinted here
+ * (the filesystem read), recording an actionable skip for any missing file before the pure reconciler runs.
+ */
+async function appendScreenshotActions(
+  client: AppStoreConnectClient,
+  job: SyncJob,
+  report: ReconcileReport,
+  dryRun: boolean,
+  allowDestructive: boolean,
+): Promise<void> {
+  if (job.screenshots.length === 0 && job.subscriptionReviewScreenshots.length === 0) return;
+  try {
+    const subscriptionReviewScreenshots: SubscriptionReviewScreenshot[] = [];
+    const missing: PlannedAction[] = [];
+    for (const { productId, relPath } of job.subscriptionReviewScreenshots) {
+      const asset = fingerprintAsset(job.app.dir, relPath);
+      if (!asset) {
+        missing.push({
+          description: `subscription review screenshot ${productId}: file not found at ${relPath} — skipped`,
+          destructive: false,
+          status: "skipped",
+        });
+        continue;
+      }
+      subscriptionReviewScreenshots.push({ productId, asset });
+    }
+    const actions = await reconcileScreenshots(client, {
+      bundleId: job.bundleId,
+      screenshots: job.screenshots,
+      subscriptionReviewScreenshots,
+      dryRun,
+      allowDestructive,
+    });
+    report.actions.push(...missing, ...actions);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    report.actions.push({
+      description: `screenshots: ${message}`,
+      destructive: false,
+      status: "failed",
+      error: message,
+    });
   }
 }
 
@@ -164,7 +234,7 @@ export function registerSyncCommand(program: Command): void {
   program
     .command("sync")
     .description(
-      "reconcile App Store Connect products (capabilities, IAPs, subscriptions, pricing) and store-listing copy from config",
+      "reconcile App Store Connect products (capabilities, IAPs, subscriptions, pricing), store-listing copy, and screenshots from config",
     )
     .option("-a, --app <names>", "comma-separated app handles to sync (default: all apps with something to sync)")
     .option("--dry-run", "print the plan and exit, making no changes", false)
@@ -177,7 +247,7 @@ export function registerSyncCommand(program: Command): void {
 
       if (jobs.length === 0) {
         log.info(
-          "Nothing to sync — no apps with capabilities, products, or a store.config.json listing. Add a `products` entry or run `launch metadata pull`.",
+          "Nothing to sync — no apps with capabilities, products, a store.config.json listing, or a screenshots/ folder. Add a `products` entry, run `launch metadata pull`, or drop screenshots under `<app>/screenshots/<locale>/<displayType>/`.",
         );
         return;
       }
