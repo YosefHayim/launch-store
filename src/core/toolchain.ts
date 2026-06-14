@@ -100,6 +100,49 @@ export function planInstall(missing: Tool[]): { brew: Tool[]; guided: Tool[] } {
 }
 
 /**
+ * Generate the bash toolchain preflight that runs ON the remote Mac before a build — the remote twin of
+ * `launch doctor`, emitted from {@link REQUIRED_TOOLS} so the host and local checks never drift (issue #6).
+ *
+ * `mode` reflects who owns the host:
+ * - `"install"` — the AWS EC2 Mac is ours, so a missing brew-able required tool is installed (and the
+ *   recommended ccache best-effort), then re-checked; only an un-installable miss (Xcode) or a failed
+ *   install fails the preflight.
+ * - `"assert"` — a BYO-SSH host is the user's machine, so nothing is mutated: a missing required tool
+ *   fails with the same `brew install …` hint `launch doctor` prints; a missing ccache only warns.
+ *
+ * Prints `LAUNCH_PREFLIGHT_OK` on success; on a missing required tool it lists each gap and exits
+ * non-zero, so the SSH step fails fast with an actionable message instead of a cryptic mid-build error.
+ */
+export function remoteToolchainPreflight(mode: "install" | "assert"): string {
+  const canInstall = mode === "install";
+  // Single-quote any message embedded in `echo` so backticks in a hint (e.g. Xcode's) stay literal.
+  const q = (text: string): string => `'${text.replace(/'/g, "'\\''")}'`;
+  const lines: string[] = ["set -uo pipefail", "MISSING=0"];
+  if (canInstall) {
+    // Put Homebrew on PATH in a non-interactive SSH shell before any install attempt.
+    lines.push(
+      `eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null || /usr/local/bin/brew shellenv 2>/dev/null || true)"`,
+    );
+  }
+  for (const tool of REQUIRED_TOOLS) {
+    const present = `command -v ${tool.command} >/dev/null 2>&1`;
+    if (canInstall && tool.install.kind === "brew") {
+      lines.push(
+        `${present} || { echo ${q(`→ installing ${tool.label}`)}; brew install ${tool.install.formula} || true; }`,
+      );
+    }
+    if (tool.tier === "required") {
+      lines.push(`${present} || { echo ${q(`✗ ${tool.label} missing — ${fixHint(tool)}`)}; MISSING=1; }`);
+    } else {
+      lines.push(`${present} || echo ${q(`• ${tool.label} (recommended) — ${fixHint(tool)}`)}`);
+    }
+  }
+  lines.push(`if [ "$MISSING" = 1 ]; then echo LAUNCH_PREFLIGHT_FAILED; exit 1; fi`);
+  lines.push("echo LAUNCH_PREFLIGHT_OK");
+  return lines.join("\n");
+}
+
+/**
  * Side-effecting operations {@link ensureToolchain} needs, injected so tests can supply fakes.
  * Production wiring ({@link realIo}) maps these onto the repo's exec helpers, clack prompts, and console.
  */

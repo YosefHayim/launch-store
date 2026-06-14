@@ -19,6 +19,7 @@ import { LAUNCH_HOME, ensureDir } from "../../core/paths.js";
 import { consentMessage, costForDurationUsd, releasableAt } from "../../core/cost.js";
 import { getAmiId, setAmiId } from "../../core/cloudState.js";
 import { requireOptional } from "../../core/optionalDep.js";
+import { REQUIRED_TOOLS } from "../../core/toolchain.js";
 import { sshCapture, sshReachable } from "../../core/ssh.js";
 
 import type { _InstanceType } from "@aws-sdk/client-ec2";
@@ -442,16 +443,26 @@ async function waitForSsh(
   throw new Error("SSH did not become reachable before the boot timeout.");
 }
 
+/**
+ * The brew-able half of the canonical {@link REQUIRED_TOOLS}, so a golden AMI is bootstrapped with the
+ * SAME toolchain the per-build doctor checks for — not a hand-maintained subset that drifts. fastlane
+ * keeps its `gem install` fallback for the rare host where the formula is unavailable.
+ */
+const BOOTSTRAP_BREW_LINES = REQUIRED_TOOLS.flatMap((tool) => {
+  if (tool.install.kind !== "brew") return [];
+  const fallback = tool.command === "fastlane" ? " || sudo gem install fastlane" : "";
+  return [`command -v ${tool.command} >/dev/null || brew install ${tool.install.formula}${fallback} || true`];
+});
+
 /** Toolchain bootstrap script run once on a base AMI before snapshotting a golden image. */
 const BOOTSTRAP_SCRIPT = [
   "set -e",
   "command -v brew >/dev/null || echo LAUNCH_NO_BREW",
-  "command -v node >/dev/null || brew install node || true",
-  "command -v fastlane >/dev/null || brew install fastlane || sudo gem install fastlane || true",
+  ...BOOTSTRAP_BREW_LINES,
   "xcodebuild -version >/dev/null 2>&1 || echo LAUNCH_NO_XCODE",
 ].join("\n");
 
-/** Install node/fastlane and assert full Xcode is present (the one part Launch can't legally redistribute). */
+/** Install the brew-able toolchain and assert full Xcode is present (the one part Launch can't legally redistribute). */
 async function bootstrapToolchain(ssh: SshTarget): Promise<void> {
   const output = await sshCapture(ssh, BOOTSTRAP_SCRIPT);
   if (output.includes("LAUNCH_NO_XCODE")) {
