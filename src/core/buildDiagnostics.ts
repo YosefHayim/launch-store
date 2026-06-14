@@ -121,7 +121,11 @@ const SIGNATURES: DiagnosticSignature[] = [
     title: "Dependency download failed (network)",
     cause: "A dependency couldn't be fetched — usually a network, proxy, or registry outage.",
     fix: "Check your connection/proxy and retry; the build is likely fine once the registry is reachable.",
-    match: [/Could not resolve all (?:files|dependencies|artifacts)/i, /Could not GET/i, /Connection (?:timed out|refused)/i],
+    match: [
+      /Could not resolve all (?:files|dependencies|artifacts)/i,
+      /Could not GET/i,
+      /Connection (?:timed out|refused)/i,
+    ],
   },
   {
     title: "Out of disk space",

@@ -71,6 +71,13 @@ export interface AppDescriptor {
   /** Human version string (`expo.version`), e.g. `1.0.0`. */
   version?: string;
   /**
+   * The app's iOS entitlements (`ios.entitlements` from `app.json`/`app.config`), verbatim. This is the
+   * single source of truth for which capabilities `launch sync` enables on the bundle id — read from
+   * the app's own Expo config (exactly where EAS reads them), never redeclared in `launch.config.ts`.
+   * Absent when the app declares no entitlements.
+   */
+  iosEntitlements?: Record<string, unknown>;
+  /**
    * Android `versionCode` floor from `app.json` (`android.versionCode`). The store's latest + 1 wins
    * when higher, so an intentional local bump is never clobbered but the store stays the source of truth.
    */
@@ -107,6 +114,133 @@ export interface BuildProfile {
   rollout?: number;
 }
 
+/* -------------------------------------------------------------------------- */
+/*  App Store Connect product catalog — the declarative input to `launch sync`. */
+/*  These shapes describe the DESIRED state of an app's monetization on ASC;    */
+/*  the reconciler (core/ascSync.ts) diffs them against the live account and     */
+/*  applies the difference. Capabilities are intentionally absent here — they    */
+/*  derive from each app's `app.json` entitlements (see AppDescriptor).          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Apple's billing period for an auto-renewable subscription — the `subscriptionPeriod` enum the App
+ * Store Connect API expects on a `subscriptions` resource. There is no "lifetime" period; a one-off
+ * unlock is an {@link InAppPurchaseConfig} of type `NON_CONSUMABLE`, not a subscription.
+ */
+export type SubscriptionPeriod = "ONE_WEEK" | "ONE_MONTH" | "TWO_MONTHS" | "THREE_MONTHS" | "SIX_MONTHS" | "ONE_YEAR";
+
+/**
+ * The kind of one-off in-app purchase, mirroring Apple's `inAppPurchaseType` on `inAppPurchasesV2`.
+ * Auto-renewable subscriptions are deliberately NOT here — they live under {@link SubscriptionGroupConfig}
+ * because Apple models them as a distinct resource with group-level mutual exclusivity.
+ */
+export type InAppPurchaseType = "CONSUMABLE" | "NON_CONSUMABLE" | "NON_RENEWING_SUBSCRIPTION";
+
+/**
+ * One locale's customer-facing copy for a subscription or in-app purchase — the display name (and
+ * optional description) shown on the product page. Apple keeps a product in "Missing Metadata" until
+ * it has at least one localization, so the reconciler rejects an empty list rather than silently
+ * creating an unsubmittable product. The `locale` is the natural key the reconciler matches on.
+ */
+export interface ProductLocalization {
+  /** App Store locale code, e.g. `en-US`. */
+  locale: string;
+  /** Customer-facing display name (Apple limit: 30 characters). */
+  name: string;
+  /** Customer-facing description (Apple limit: 45 characters). Omitted when not provided. */
+  description?: string;
+}
+
+/**
+ * One locale's display name for a subscription GROUP. Groups carry only a name (no description); it's
+ * shown at the point of purchase grouping the subscription levels. Without one, every subscription in
+ * the group is stuck in "Missing Metadata", so at least one is required per group.
+ */
+export interface GroupLocalization {
+  /** App Store locale code, e.g. `en-US`. */
+  locale: string;
+  /** Customer-facing group name. */
+  name: string;
+}
+
+/**
+ * A product's baseline price, expressed as the customer-facing amount in a base territory.
+ *
+ * Apple does not accept arbitrary numbers — every price is one of a fixed ladder of *price points*.
+ * The reconciler resolves this declaration to the price point whose `customerPrice` equals
+ * {@link ProductPrice.customerPrice} in {@link ProductPrice.baseTerritory}, erroring (with the nearby
+ * points listed) when none matches exactly, then anchors the other territories off it — the same model
+ * the App Store Connect UI uses. A product with no price can never be submitted, so omit this only
+ * when you intend to set the price by hand in the UI.
+ */
+export interface ProductPrice {
+  /** Base territory whose price point is matched, e.g. `USA`. Defaults to `USA`. */
+  baseTerritory?: string;
+  /** Exact customer-facing price in the base territory's currency, e.g. `9.99`. Must equal an Apple price point. */
+  customerPrice: number;
+}
+
+/**
+ * One auto-renewable subscription product inside a {@link SubscriptionGroupConfig}. `productId` is the
+ * globally-unique Apple product id the app references at runtime and the reconciler's natural key.
+ */
+export interface SubscriptionConfig {
+  /** Apple product id, e.g. `com.acme.pro.monthly`. Globally unique; the reconciler matches on it. */
+  productId: string;
+  /** Internal reference name shown only in App Store Connect (Apple limit: 64 characters). */
+  referenceName: string;
+  /** Billing period for this level. */
+  subscriptionPeriod: SubscriptionPeriod;
+  /** Per-locale display copy; at least one entry is required for a submittable product. */
+  localizations: ProductLocalization[];
+  /** Baseline price. Omit only to price manually in the UI. */
+  price?: ProductPrice;
+}
+
+/**
+ * A subscription group — Apple's container for mutually-exclusive subscription levels (a customer holds
+ * at most one active subscription per group). `referenceName` is unique within the app and is the
+ * reconciler's natural key for the group.
+ */
+export interface SubscriptionGroupConfig {
+  /** Internal reference name (unique within the app) — the reconciler's natural key for the group. */
+  referenceName: string;
+  /** Per-locale group display name; at least one entry is required (else the group's subs stay unsubmittable). */
+  localizations: GroupLocalization[];
+  /** The subscription levels in this group. */
+  subscriptions: SubscriptionConfig[];
+}
+
+/**
+ * One non-subscription in-app purchase (consumable, non-consumable, or non-renewing subscription).
+ * `productId` is the globally-unique Apple product id and the reconciler's natural key.
+ */
+export interface InAppPurchaseConfig {
+  /** Apple product id, e.g. `com.acme.coins.100`. Globally unique; the reconciler matches on it. */
+  productId: string;
+  /** Internal reference name shown only in App Store Connect. */
+  referenceName: string;
+  /** The purchase kind. */
+  type: InAppPurchaseType;
+  /** Per-locale display copy; at least one entry is required for a submittable product. */
+  localizations: ProductLocalization[];
+  /** Baseline price. Omit only to price manually in the UI. */
+  price?: ProductPrice;
+}
+
+/**
+ * The declarative App Store Connect product catalog for ONE app, keyed by iOS bundle id under
+ * {@link LaunchConfig.products}. `launch sync` reconciles the live account to match this: it creates
+ * missing groups/subscriptions/IAPs, fills in localizations, and sets prices. Both fields are optional
+ * so an app can sell only subscriptions, only one-off purchases, or (with neither key set) nothing.
+ */
+export interface AppProducts {
+  /** Auto-renewable subscription groups and the subscriptions within them. */
+  subscriptionGroups?: SubscriptionGroupConfig[];
+  /** One-off in-app purchases. */
+  inAppPurchases?: InAppPurchaseConfig[];
+}
+
 /**
  * The fully-resolved configuration for one `launch` invocation.
  *
@@ -132,6 +266,12 @@ export interface LaunchConfig {
   submit: string;
   /** Glob roots to scan for apps. Defaults to the repo root. */
   appRoots?: string[];
+  /**
+   * Declarative App Store Connect product catalog, keyed by iOS bundle id. Drives `launch sync`, which
+   * reconciles each app's subscriptions, in-app purchases, and pricing on App Store Connect to match
+   * this. Absent for apps that sell nothing. See {@link AppProducts}.
+   */
+  products?: Record<string, AppProducts>;
   /** AWS EC2 Mac settings for remote (off-Mac) builds. Only needed when building via `--remote aws`. */
   aws?: AwsConfig;
   /**

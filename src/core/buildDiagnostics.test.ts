@@ -43,10 +43,7 @@ describe("diagnoseBuildLog — maps native errors to a cause + fix", () => {
       "error: No profiles for 'com.acme.app' were found", // repeated — must not duplicate
     ].join("\n");
     const titles = diagnoseBuildLog(log).map((d) => d.title);
-    expect(titles).toEqual([
-      "Code signing — no usable certificate or profile",
-      "Android SDK location not found",
-    ]);
+    expect(titles).toEqual(["Code signing — no usable certificate or profile", "Android SDK location not found"]);
   });
 });
 
@@ -59,9 +56,7 @@ describe("formatDiagnoses", () => {
   });
 
   it("uses the plural header when more than one matched", () => {
-    const text = formatDiagnoses(
-      diagnoseBuildLog("SDK location not found\nUnsupported class file major version 65"),
-    );
+    const text = formatDiagnoses(diagnoseBuildLog("SDK location not found\nUnsupported class file major version 65"));
     expect(text).toContain("Likely causes:");
   });
 

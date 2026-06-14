@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  adbInstallArgs,
-  bundletoolBuildApksArgs,
-  bundletoolInstallApksArgs,
-  devicectlInstallArgs,
-} from "./run.js";
+import { adbInstallArgs, bundletoolBuildApksArgs, bundletoolInstallApksArgs, devicectlInstallArgs } from "./run.js";
 
 describe("adbInstallArgs", () => {
   it("reinstalls without a serial when none is given", () => {
