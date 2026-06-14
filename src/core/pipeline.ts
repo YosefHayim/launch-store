@@ -35,6 +35,7 @@ import { refreshIdentityIfStale, resolveBuildAccount, setActiveKeyId } from "./a
 import { loadConfig, writeAppVersion } from "./config.js";
 import { checkApp, formatFinding } from "./configCheck.js";
 import { resolveBuildSecrets } from "./buildSecrets.js";
+import { notifyCompletion, type NotifyEvent } from "./notify.js";
 import { pickOne } from "./prompt.js";
 import { compareVersions, formatVersion, highestVersion, nextVersion, parseVersion } from "./version.js";
 import { loadDotenvFile, missingKeys, secretLookingKeys } from "./env.js";
@@ -392,13 +393,26 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
 }
 
 /**
- * Run a build. Dispatches to the right path: Android always builds locally (no Mac needed); for iOS,
- * `--remote` → the remote-Mac pipeline, `buildEngine: "eas"` → the EAS handoff, otherwise the local
- * Mac spine. Throws with a clear message on any failed step.
+ * Run a build, then fire any configured completion notification. Throws with a clear message on any
+ * failed step — but first notifies the failure, so an unattended/CI build pings on both outcomes.
+ * Dry-runs never notify (they change nothing). See {@link dispatchBuild} for the path selection.
  */
 export async function runBuild(options: BuildRunOptions): Promise<void> {
   const prepared = await prepareBuild(options);
+  try {
+    await dispatchBuild(prepared, options);
+    if (!options.dryRun) await notifyCompletion(prepared.config, await buildSuccessEvent(prepared, options));
+  } catch (error) {
+    if (!options.dryRun) await notifyCompletion(prepared.config, buildFailureEvent(prepared, options, error));
+    throw error;
+  }
+}
 
+/**
+ * Select the build path: Android always builds locally (no Mac needed); for iOS, `--remote` → the
+ * remote-Mac pipeline, `buildEngine: "eas"` → the EAS handoff, otherwise the local Mac spine.
+ */
+async function dispatchBuild(prepared: PreparedBuild, options: BuildRunOptions): Promise<void> {
   // Android builds on any OS — it has no off-Mac problem, so no remote/EAS off-ramp applies.
   if (options.platform === "android") return runLocalBuild(prepared, options);
 
@@ -414,6 +428,47 @@ export async function runBuild(options: BuildRunOptions): Promise<void> {
     return runEasBuild(prepared, options);
   }
   return runLocalBuild(prepared, options);
+}
+
+/**
+ * The success {@link NotifyEvent} for a finished run, read back from the artifact just stored (the
+ * source of truth for the build number + size). `event` is `submit` once a store upload happened, else
+ * `build` (a `--no-submit` or internal install-link run). Falls back to the app's config version when
+ * no stored artifact is found (e.g. a remote/EAS path that stores elsewhere).
+ */
+async function buildSuccessEvent(prepared: PreparedBuild, options: BuildRunOptions): Promise<NotifyEvent> {
+  const { config, app, ctx } = prepared;
+  const internal = ctx.distribution === "internal";
+  const latest = (await resolveStorageProvider(config).list()).find(
+    (artifact) => artifact.appName === app.name && artifact.platform === options.platform,
+  );
+  const event: NotifyEvent = {
+    event: options.submit && !internal ? "submit" : "build",
+    status: "success",
+    app: app.name,
+    platform: options.platform,
+    version: latest?.version ?? app.version ?? "0.0.0",
+    destination: internal ? "internal install link" : receiptDestination(options.platform, options, ctx.android?.track),
+  };
+  if (latest) {
+    event.buildNumber = latest.buildNumber;
+    const size = worstDownloadBytes(latest.sizeReport);
+    if (size > 0) event.sizeBytes = size;
+  }
+  return event;
+}
+
+/** The failure {@link NotifyEvent} for a run that threw, carrying the error message and what's known. */
+function buildFailureEvent(prepared: PreparedBuild, options: BuildRunOptions, error: unknown): NotifyEvent {
+  const internal = prepared.ctx.distribution === "internal";
+  return {
+    event: options.submit && !internal ? "submit" : "build",
+    status: "failure",
+    app: prepared.app.name,
+    platform: options.platform,
+    version: prepared.app.version ?? "0.0.0",
+    error: error instanceof Error ? error.message : String(error),
+  };
 }
 
 /** The local spine: fork by platform after the shared front (prepareBuild) and before the shared tail. */

@@ -10,7 +10,8 @@ import type { Command } from "commander";
 import { cancel, confirm, isCancel } from "@clack/prompts";
 import type { AndroidReleaseOptions, BuildArtifact, Platform, ResolvedBuildContext } from "../../core/types.js";
 import { loadConfig } from "../../core/config.js";
-import { resolveSubmitterName, selectApp } from "../../core/pipeline.js";
+import { resolveSubmitterName, selectApp, worstDownloadBytes } from "../../core/pipeline.js";
+import { notifyCompletion, type NotifyEvent } from "../../core/notify.js";
 import { getCredentialsProvider, getStorageProvider, getSubmitter } from "../../core/registry.js";
 
 interface ReleaseCommandOptions {
@@ -102,7 +103,29 @@ async function runRelease(platform: Platform, options: ReleaseCommandOptions): P
     ...(android ? { android } : {}),
   };
   const credentials = await getCredentialsProvider(config.credentials).resolve(ctx);
-  await getSubmitter(resolveSubmitterName(config, platform)).submit(latest.path, "production", credentials, ctx);
   const destination = platform === "ios" ? "App Store review" : "the Play production track";
+  const event: NotifyEvent = {
+    event: "submit",
+    status: "success",
+    app: app.name,
+    platform,
+    version: latest.version,
+    buildNumber: latest.buildNumber,
+    destination,
+  };
+  const size = worstDownloadBytes(latest.sizeReport);
+  if (size > 0) event.sizeBytes = size;
+
+  try {
+    await getSubmitter(resolveSubmitterName(config, platform)).submit(latest.path, "production", credentials, ctx);
+  } catch (error) {
+    await notifyCompletion(config, {
+      ...event,
+      status: "failure",
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
   console.log(`Submitted ${app.name} ${latest.version} (${latest.buildNumber}) to ${destination}.`);
+  await notifyCompletion(config, event);
 }
