@@ -48,6 +48,13 @@ export const PROVISIONING_PROFILES_DIR = join(homedir(), "Library", "MobileDevic
  */
 export const CLOUD_STATE = join(LAUNCH_HOME, "cloud.json");
 
+/**
+ * Per-app build fingerprints (`<app>-<platform>.json`) that decide clean-vs-incremental. Host-local
+ * and kept NEXT to the caches they validate — a cache's validity is host-specific, so this never rides
+ * on the (possibly remote/shared) artifact index. Non-secret: a hash + timestamp only.
+ */
+export const BUILD_STATE_DIR = join(LAUNCH_HOME, "build-state");
+
 /** Create a directory (and parents) if it doesn't exist, returning the path for chaining. */
 export function ensureDir(dir: string): string {
   mkdirSync(dir, { recursive: true });
