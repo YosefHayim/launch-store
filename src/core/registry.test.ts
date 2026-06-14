@@ -10,6 +10,7 @@ function fakeStorage(name: string): StorageProvider {
     list: () => Promise.resolve([]),
     url: () => Promise.resolve(""),
     putObject: () => Promise.reject(new Error("not used")),
+    getObject: () => Promise.resolve(null),
     publicUrl: () => "",
   };
 }

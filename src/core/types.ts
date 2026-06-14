@@ -641,6 +641,13 @@ export interface StorageProvider {
    */
   putObject(key: string, body: Buffer | string, contentType: string): Promise<StoredArtifact>;
   /**
+   * Read a raw object previously written with {@link putObject}, or `null` when the key is absent.
+   * The read counterpart of {@link putObject}: powers the OTA update lifecycle (`updates list/view/
+   * rollback`), which reads back the per-channel history index, the immutable manifest snapshots, and
+   * the active rollback directive. Returns raw bytes so callers parse JSON or pass assets through as-is.
+   */
+  getObject(key: string): Promise<Buffer | null>;
+  /**
    * The public URL an object at `key` is served from — computed without a network call so a manifest
    * can reference an asset's URL before that asset is uploaded (e.g. the install plist points at the
    * IPA's URL). For `local` this is a `file://` path (real install links need a cloud provider).
