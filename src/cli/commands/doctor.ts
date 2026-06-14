@@ -31,6 +31,7 @@ import {
   reconcileExportCompliance,
   summarizeExportComplianceResult,
 } from "../../core/exportCompliance.js";
+import { appPrivacyChecklist } from "../../core/privacyNutritionLabel.js";
 import { localCredentialsProvider } from "../../providers/credentials/local.js";
 
 const APP_STORE_CONNECT_APPS_URL = "https://appstoreconnect.apple.com/apps";
@@ -243,6 +244,20 @@ async function reportExportCompliance(fix: boolean): Promise<void> {
 }
 
 /**
+ * Remind that the App Privacy "nutrition label" is a one-time **manual** step — App Store Connect has no
+ * API for the data-collection declarations (verified against Apple's OpenAPI spec; see
+ * `core/privacyNutritionLabel.ts`), so Launch emits the precise UI checklist rather than silently leaving
+ * a submission blocker. Informational (•). Only shown when at least one discovered app targets iOS.
+ */
+async function reportAppPrivacy(): Promise<void> {
+  const { apps } = await loadConfig();
+  if (!apps.some((app) => app.bundleId)) return;
+  appPrivacyChecklist().forEach((line, index) => {
+    console.log(index === 0 ? `• ${line}` : line);
+  });
+}
+
+/**
  * Report the detected package manager + monorepo workspace root, and warn on the known Corepack/
  * lockfile footguns (see `core/packageManager.ts`). Informational — these warn (•), never fail the
  * check, since the build still runs; surfacing them up front avoids the EAS-class wrong-PM wasted build.
@@ -284,6 +299,7 @@ export async function runDoctor(options: {
   const appleOk = await checkAppleAccount();
   const configOk = await reportConfigChecks("ios");
   await reportExportCompliance(options.fix === true);
+  await reportAppPrivacy();
   return toolsOk && appleOk && configOk;
 }
 
