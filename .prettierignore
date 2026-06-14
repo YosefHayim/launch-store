@@ -3,3 +3,6 @@ node_modules
 *.log
 .launch
 .claude
+
+# Generated from Apple's OpenAPI spec by `npm run gen:asc` — never hand-formatted.
+src/core/asc/schema.ts
