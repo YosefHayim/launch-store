@@ -250,6 +250,31 @@ export interface ReviewScreenshotResource {
 }
 
 /**
+ * One App Store app-preview-video **set** — the per-(version localization × device target) bucket previews
+ * hang off, the video counterpart of {@link ScreenshotSetResource}. `previewType` is Apple's device-target
+ * enum (e.g. `IPHONE_67`); the reconciler matches a local folder's target to the set with the same type,
+ * creating the set when none exists.
+ */
+export interface PreviewSetResource {
+  id: string;
+  previewType: string;
+}
+
+/**
+ * One uploaded App Store app preview video. Same idempotency contract as {@link ScreenshotResource}:
+ * `sourceFileChecksum` is the MD5 Apple stored at commit time (the reconciler's skip key), and
+ * `assetDeliveryState` flags a half-finished upload worth re-sending. Apple processes the video
+ * asynchronously after commit, but the checksum is recorded at commit — so a re-run while processing is
+ * still in flight matches by checksum and re-uploads nothing.
+ */
+export interface PreviewResource {
+  id: string;
+  fileName: string;
+  sourceFileChecksum?: string;
+  assetDeliveryState?: string;
+}
+
+/**
  * A TestFlight beta group — a named tester bucket that belongs to exactly one app. External groups
  * invite testers by email (and can gate distribution on Beta App Review); the internal group holds
  * App Store Connect team users. A tester reaches an app's TestFlight by being in one of its groups,
@@ -2658,6 +2683,67 @@ export class AppStoreConnectClient {
     );
     await this.putAssetBytes(operations, bytes);
     await this.commitAsset("subscriptionAppStoreReviewScreenshots", id, bytes);
+  }
+
+  // ── App Store assets: app preview videos (`launch sync`) ───────────────────────────────────────────
+
+  /** List the app-preview-video sets (one per device target) bound to one App Store version localization. */
+  async listPreviewSets(versionLocalizationId: string): Promise<PreviewSetResource[]> {
+    const data = await this.requestAll<{ previewType?: string }>(
+      `/appStoreVersionLocalizations/${versionLocalizationId}/appPreviewSets?fields[appPreviewSets]=previewType&limit=200`,
+    );
+    return data.map((entry) => ({ id: entry.id, previewType: entry.attributes.previewType ?? "" }));
+  }
+
+  /** Create an app-preview-video set for one device target under a version localization, returning the new set. */
+  async createPreviewSet(versionLocalizationId: string, previewType: string): Promise<PreviewSetResource> {
+    const { data } = await this.request<ResourceSingle<{ previewType?: string }>>("POST", "/appPreviewSets", {
+      data: {
+        type: "appPreviewSets",
+        attributes: { previewType },
+        relationships: {
+          appStoreVersionLocalization: { data: { type: "appStoreVersionLocalizations", id: versionLocalizationId } },
+        },
+      },
+    });
+    return { id: data.id, previewType: data.attributes.previewType ?? previewType };
+  }
+
+  /** List the previews already in a set, with their stored checksums (the reconciler's skip key). */
+  async listPreviews(setId: string): Promise<PreviewResource[]> {
+    const data = await this.requestAll<{
+      fileName?: string;
+      sourceFileChecksum?: string;
+      assetDeliveryState?: { state?: string };
+    }>(
+      `/appPreviewSets/${setId}/appPreviews?fields[appPreviews]=fileName,sourceFileChecksum,assetDeliveryState&limit=200`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      fileName: entry.attributes.fileName ?? "",
+      ...(entry.attributes.sourceFileChecksum ? { sourceFileChecksum: entry.attributes.sourceFileChecksum } : {}),
+      ...(entry.attributes.assetDeliveryState?.state
+        ? { assetDeliveryState: entry.attributes.assetDeliveryState.state }
+        : {}),
+    }));
+  }
+
+  /**
+   * Upload one app preview video into a set via the full reserve→PUT→commit asset flow (identical to
+   * {@link uploadScreenshot}; only the resource type differs). The poster frame (`previewFrameTimeCode`) is
+   * left to Apple's default selection — the folder convention carries no frame time, and forcing one would
+   * invent config nobody asked for; an explicit poster is a deliberate follow-up if ever needed.
+   */
+  async uploadPreview(setId: string, fileName: string, filePath: string): Promise<void> {
+    const bytes = await readFile(filePath);
+    const { id, operations } = await this.reserveAsset(
+      "appPreviews",
+      { relationship: "appPreviewSet", type: "appPreviewSets", id: setId },
+      fileName,
+      bytes.byteLength,
+    );
+    await this.putAssetBytes(operations, bytes);
+    await this.commitAsset("appPreviews", id, bytes);
   }
 
   /** Reserve an asset: POST the resource with `fileName`/`fileSize`, returning its id + upload operations. */
