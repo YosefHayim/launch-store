@@ -45,6 +45,7 @@ export function defineConfig(input: LaunchConfigInput): LaunchConfig {
     submit: input.submit ?? "app-store-connect",
     profiles: input.profiles,
     ...(input.appRoots ? { appRoots: input.appRoots } : {}),
+    ...(input.products ? { products: input.products } : {}),
     ...(input.aws ? { aws: input.aws } : {}),
     ...(input.storageConfig ? { storageConfig: input.storageConfig } : {}),
   };
@@ -105,6 +106,8 @@ function toDescriptor(raw: Record<string, unknown>, dir: string, configPath: str
   const descriptor: AppDescriptor = { name: handle.toLowerCase(), dir, configPath };
   const ios = asRecord(expo["ios"]);
   if (ios && typeof ios["bundleIdentifier"] === "string") descriptor.bundleId = ios["bundleIdentifier"];
+  const entitlements = ios ? asRecord(ios["entitlements"]) : null;
+  if (entitlements) descriptor.iosEntitlements = entitlements;
   const android = asRecord(expo["android"]);
   if (android && typeof android["package"] === "string") descriptor.packageName = android["package"];
   if (android && typeof android["versionCode"] === "number") descriptor.androidVersionCode = android["versionCode"];
