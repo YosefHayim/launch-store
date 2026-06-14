@@ -11,7 +11,7 @@ vi.mock("node:child_process", () => ({
 }));
 
 import { registerBuiltins } from "../providers/index.js";
-import { fuzzyMatch, runBuild, selectApp, sizeSummary, worstDownloadBytes } from "./pipeline.js";
+import { runBuild, selectApp, sizeSummary, worstDownloadBytes } from "./pipeline.js";
 import type { AppDescriptor, SizeReport } from "./types.js";
 
 registerBuiltins();
@@ -117,23 +117,10 @@ describe("selectApp", () => {
     expect(await selectApp([alpha, beta], "beta")).toBe(beta);
     await expect(selectApp([alpha, beta], "gamma")).rejects.toThrow(/App "gamma" not found/);
   });
-});
 
-describe("fuzzyMatch — the app picker's subsequence filter", () => {
-  it("matches an in-order subsequence, case-insensitively", () => {
-    expect(fuzzyMatch("pmd", "pomedero")).toBe(true);
-    expect(fuzzyMatch("PMD", "Pomedero")).toBe(true);
-    expect(fuzzyMatch("pomedero", "pomedero")).toBe(true);
-  });
-
-  it("rejects characters that aren't a subsequence", () => {
-    expect(fuzzyMatch("dmp", "pomedero")).toBe(false);
-    expect(fuzzyMatch("xyz", "pomedero")).toBe(false);
-  });
-
-  it("treats a blank query as a match so the full list shows", () => {
-    expect(fuzzyMatch("", "anything")).toBe(true);
-    expect(fuzzyMatch("   ", "anything")).toBe(true);
+  it("refuses to guess with multiple apps and no TTY, pointing at --app", async () => {
+    // The vitest process has no TTY, so the picker must not hang — it throws an actionable error.
+    await expect(selectApp([app("alpha"), app("beta")], undefined)).rejects.toThrow(/--app/);
   });
 });
 

@@ -10,7 +10,7 @@
 
 import { join } from "node:path";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { autocomplete, cancel, confirm, isCancel, select, text } from "@clack/prompts";
+import { cancel, confirm, isCancel, select, text } from "@clack/prompts";
 import type {
   AccountRecord,
   AndroidCredentials,
@@ -32,6 +32,7 @@ import type {
 } from "./types.js";
 import { refreshIdentityIfStale, resolveBuildAccount, setActiveKeyId } from "./accounts.js";
 import { loadConfig, writeAppVersion } from "./config.js";
+import { pickOne } from "./prompt.js";
 import { compareVersions, formatVersion, highestVersion, nextVersion, parseVersion } from "./version.js";
 import { loadDotenvFile, missingKeys, secretLookingKeys } from "./env.js";
 import { getBuildEngine, getCredentialsProvider, getStorageProvider, getSubmitter } from "./registry.js";
@@ -139,29 +140,11 @@ const delay = (ms: number): Promise<void> =>
     setTimeout(resolve, ms);
   });
 
-/** Above this many apps, the picker switches from a flat list to a type-to-search autocomplete. */
-const APP_PICKER_SEARCH_THRESHOLD = 8;
-
 /**
- * Subsequence fuzzy match: every character of `query` must appear in `haystack` in order, case-
- * insensitively (so `"pmd"` matches `"pomedero"`). Dependency-free; powers the app picker's filter
- * over big monorepos without pulling in a ranking library.
- */
-export function fuzzyMatch(query: string, haystack: string): boolean {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return true;
-  const hay = haystack.toLowerCase();
-  let n = 0;
-  for (let h = 0; h < hay.length && n < needle.length; h++) {
-    if (hay[h] === needle[n]) n++;
-  }
-  return n === needle.length;
-}
-
-/**
- * Pick the app to build: an explicit `--app`, the sole discovered app, or an interactive prompt.
- * Past {@link APP_PICKER_SEARCH_THRESHOLD} apps (large monorepos) the flat list would overflow the
- * viewport, so it switches to a fuzzy type-to-search autocomplete over the name and bundle/package id.
+ * Pick the app to build: an explicit `--app`, the sole discovered app, or an interactive prompt. The
+ * prompt is the shared {@link pickOne}, which past a threshold (large monorepos) switches the flat list
+ * to a fuzzy type-to-search over the name and bundle/package id. With no TTY and more than one app it
+ * refuses to guess and tells the user to pass `--app`, rather than silently building the wrong one.
  */
 export async function selectApp(apps: AppDescriptor[], appName: string | undefined): Promise<AppDescriptor> {
   if (apps.length === 0) throw new Error("No apps found. Run Launch from a repo containing at least one app.json.");
@@ -173,27 +156,15 @@ export async function selectApp(apps: AppDescriptor[], appName: string | undefin
   const sole = apps[0];
   if (apps.length === 1 && sole) return sole;
 
-  const options = apps.map((app) => {
-    const hint = app.bundleId ?? app.packageName;
-    return hint ? { value: app.name, label: app.name, hint } : { value: app.name, label: app.name };
+  return pickOne<AppDescriptor>({
+    message: `Which app? (${apps.length} found)`,
+    options: apps.map((app) => {
+      const hint = app.bundleId ?? app.packageName;
+      return hint ? { value: app, label: app.name, hint } : { value: app, label: app.name };
+    }),
+    canPrompt: process.stdin.isTTY,
+    nonInteractive: { kind: "require", flagHint: "— pass --app <name> to choose one non-interactively." },
   });
-  const choice =
-    apps.length > APP_PICKER_SEARCH_THRESHOLD
-      ? await autocomplete({
-          message: `Which app? (${apps.length} found)`,
-          options,
-          placeholder: "Type to search…",
-          maxItems: 10,
-          filter: (search, option) => fuzzyMatch(search, `${option.value} ${option.hint ?? ""}`),
-        })
-      : await select({ message: "Which app?", options });
-  if (isCancel(choice)) {
-    cancel("Cancelled.");
-    process.exit(0);
-  }
-  const picked = apps.find((app) => app.name === choice);
-  if (!picked) throw new Error("Could not match the selected app.");
-  return picked;
 }
 
 /** The interactive build-time account picker: choose among onboarded accounts and make the pick active. */
