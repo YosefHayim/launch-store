@@ -1,11 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  reconcilePreviews,
   reconcileScreenshots,
+  type PreviewReconcileInput,
+  type PreviewsApi,
   type ScreenshotReconcileInput,
   type ScreenshotsApi,
   type SubscriptionReviewScreenshot,
 } from "./ascScreenshots.js";
-import type { LocalAsset, LocalScreenshot } from "./screenshotAssets.js";
+import type { LocalAsset, LocalPreview, LocalScreenshot } from "./screenshotAssets.js";
 
 /**
  * A fully-stubbed {@link ScreenshotsApi}. Reads default to "an editable version with one en-US locale and
@@ -216,5 +219,169 @@ describe("reconcileScreenshots — subscription review screenshots", () => {
       description: expect.stringContaining("not on App Store Connect yet"),
     });
     expect(api.uploadSubscriptionReviewScreenshot).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * A fully-stubbed {@link PreviewsApi}. Reads default to "an editable version with one en-US locale and no
+ * previews yet"; writes resolve to a created resource. Override per test to set up other states.
+ */
+function makePreviewsApi(overrides: Partial<PreviewsApi> = {}): PreviewsApi {
+  const base: PreviewsApi = {
+    getAppId: vi.fn().mockResolvedValue("app1"),
+    getEditableVersionId: vi.fn().mockResolvedValue("ver1"),
+    listVersionLocalizations: vi.fn().mockResolvedValue([{ id: "loc-en", locale: "en-US", fields: {} }]),
+    listPreviewSets: vi.fn().mockResolvedValue([]),
+    createPreviewSet: vi
+      .fn()
+      .mockImplementation((_loc: string, previewType: string) => Promise.resolve({ id: "set-new", previewType })),
+    listPreviews: vi.fn().mockResolvedValue([]),
+    uploadPreview: vi.fn().mockResolvedValue(undefined),
+  };
+  return { ...base, ...overrides };
+}
+
+/** Build a {@link LocalPreview} with sensible defaults for the field under test. */
+function preview(overrides: Partial<LocalPreview> = {}): LocalPreview {
+  return {
+    locale: "en-US",
+    previewType: "IPHONE_67",
+    fileName: "01.mp4",
+    path: "/tmp/01.mp4",
+    checksum: "sum-01",
+    size: 1000,
+    ...overrides,
+  };
+}
+
+function previewInput(overrides: Partial<PreviewReconcileInput> = {}): PreviewReconcileInput {
+  return { bundleId: "com.acme.app", previews: [], dryRun: false, allowDestructive: false, ...overrides };
+}
+
+describe("reconcilePreviews", () => {
+  it("does nothing when there are no previews to reconcile", async () => {
+    const api = makePreviewsApi();
+    const actions = await reconcilePreviews(api, previewInput());
+    expect(actions).toEqual([]);
+    expect(api.getAppId).not.toHaveBeenCalled();
+  });
+
+  it("skips with guidance when the app has no App Store Connect record", async () => {
+    const api = makePreviewsApi({ getAppId: vi.fn().mockResolvedValue(null) });
+    const actions = await reconcilePreviews(api, previewInput({ previews: [preview()] }));
+    expect(actions).toHaveLength(1);
+    expect(actions[0]).toMatchObject({
+      status: "skipped",
+      description: expect.stringContaining("no App Store Connect app record"),
+    });
+  });
+
+  it("skips when there is no editable App Store version", async () => {
+    const api = makePreviewsApi({ getEditableVersionId: vi.fn().mockResolvedValue(null) });
+    const actions = await reconcilePreviews(api, previewInput({ previews: [preview()] }));
+    expect(actions).toHaveLength(1);
+    expect(actions[0]).toMatchObject({
+      status: "skipped",
+      description: expect.stringContaining("no editable App Store version"),
+    });
+  });
+
+  it("plans set creation + upload from an empty version without performing writes (dry-run)", async () => {
+    const api = makePreviewsApi();
+    const actions = await reconcilePreviews(api, previewInput({ previews: [preview()], dryRun: true }));
+    expect(actions.map((a) => a.description)).toEqual([
+      'create preview set iPhone 6.7" [en-US]',
+      'upload preview iPhone 6.7" [en-US] 01.mp4',
+    ]);
+    expect(actions.every((a) => a.status === "planned")).toBe(true);
+    expect(api.createPreviewSet).not.toHaveBeenCalled();
+    expect(api.uploadPreview).not.toHaveBeenCalled();
+  });
+
+  it("creates the set and uploads on apply", async () => {
+    const api = makePreviewsApi();
+    const actions = await reconcilePreviews(api, previewInput({ previews: [preview()] }));
+    expect(actions.every((a) => a.status === "applied")).toBe(true);
+    expect(api.createPreviewSet).toHaveBeenCalledWith("loc-en", "IPHONE_67");
+    expect(api.uploadPreview).toHaveBeenCalledWith("set-new", "01.mp4", "/tmp/01.mp4");
+  });
+
+  it("reuses an existing set and skips a preview already uploaded byte-for-byte (idempotent)", async () => {
+    const api = makePreviewsApi({
+      listPreviewSets: vi.fn().mockResolvedValue([{ id: "set1", previewType: "IPHONE_67" }]),
+      listPreviews: vi.fn().mockResolvedValue([{ id: "p1", fileName: "01.mp4", sourceFileChecksum: "sum-01" }]),
+    });
+    const actions = await reconcilePreviews(api, previewInput({ previews: [preview({ checksum: "sum-01" })] }));
+    expect(actions).toEqual([]);
+    expect(api.createPreviewSet).not.toHaveBeenCalled();
+    expect(api.uploadPreview).not.toHaveBeenCalled();
+  });
+
+  it("uploads a changed file (same name, new checksum) into the existing set", async () => {
+    const api = makePreviewsApi({
+      listPreviewSets: vi.fn().mockResolvedValue([{ id: "set1", previewType: "IPHONE_67" }]),
+      listPreviews: vi.fn().mockResolvedValue([{ id: "p1", fileName: "01.mp4", sourceFileChecksum: "old-sum" }]),
+    });
+    const actions = await reconcilePreviews(api, previewInput({ previews: [preview({ checksum: "new-sum" })] }));
+    expect(actions.map((a) => a.status)).toEqual(["applied"]);
+    expect(api.uploadPreview).toHaveBeenCalledWith("set1", "01.mp4", "/tmp/01.mp4");
+  });
+
+  it("re-uploads a matching checksum whose previous delivery FAILED", async () => {
+    const api = makePreviewsApi({
+      listPreviewSets: vi.fn().mockResolvedValue([{ id: "set1", previewType: "IPHONE_67" }]),
+      listPreviews: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "p1", fileName: "01.mp4", sourceFileChecksum: "sum-01", assetDeliveryState: "FAILED" },
+        ]),
+    });
+    const actions = await reconcilePreviews(api, previewInput({ previews: [preview({ checksum: "sum-01" })] }));
+    expect(actions.map((a) => a.status)).toEqual(["applied"]);
+    expect(api.uploadPreview).toHaveBeenCalledWith("set1", "01.mp4", "/tmp/01.mp4");
+  });
+
+  it("treats an in-processing (non-FAILED) preview as already uploaded, so a re-run uploads nothing", async () => {
+    const api = makePreviewsApi({
+      listPreviewSets: vi.fn().mockResolvedValue([{ id: "set1", previewType: "IPHONE_67" }]),
+      listPreviews: vi
+        .fn()
+        .mockResolvedValue([
+          { id: "p1", fileName: "01.mp4", sourceFileChecksum: "sum-01", assetDeliveryState: "UPLOAD_COMPLETE" },
+        ]),
+    });
+    const actions = await reconcilePreviews(api, previewInput({ previews: [preview({ checksum: "sum-01" })] }));
+    expect(actions).toEqual([]);
+    expect(api.uploadPreview).not.toHaveBeenCalled();
+  });
+
+  it("skips a locale that isn't on the editable version", async () => {
+    const api = makePreviewsApi();
+    const actions = await reconcilePreviews(api, previewInput({ previews: [preview({ locale: "fr-FR" })] }));
+    expect(actions).toHaveLength(1);
+    expect(actions[0]).toMatchObject({
+      status: "skipped",
+      description: expect.stringContaining("locale not on the editable version"),
+    });
+    expect(api.uploadPreview).not.toHaveBeenCalled();
+  });
+
+  it("skips previews beyond Apple's per-set maximum", async () => {
+    const existing = Array.from({ length: 3 }, (_, i) => ({
+      id: `p${i}`,
+      fileName: `${i}.mp4`,
+      sourceFileChecksum: `old-${i}`,
+    }));
+    const api = makePreviewsApi({
+      listPreviewSets: vi.fn().mockResolvedValue([{ id: "set1", previewType: "IPHONE_67" }]),
+      listPreviews: vi.fn().mockResolvedValue(existing),
+    });
+    const actions = await reconcilePreviews(
+      api,
+      previewInput({ previews: [preview({ fileName: "04.mp4", checksum: "fresh" })] }),
+    );
+    expect(actions).toHaveLength(1);
+    expect(actions[0]).toMatchObject({ status: "skipped", description: expect.stringContaining("set is full") });
+    expect(api.uploadPreview).not.toHaveBeenCalled();
   });
 });

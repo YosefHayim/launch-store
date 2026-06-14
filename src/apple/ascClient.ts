@@ -153,6 +153,26 @@ export interface InAppPurchaseResource {
   state?: string;
 }
 
+/**
+ * One **sandbox tester** (`sandboxTesters`) — a fake Apple ID for StoreKit testing of purchases and
+ * subscriptions, created in App Store Connect (Apple exposes no API to create one). `acAccountName` is the
+ * tester's sandbox email — the key `launch sandbox clear` matches on. `subscriptionRenewalRate` is the
+ * accelerated renewal interval Apple uses for sandbox subscriptions.
+ */
+export interface SandboxTesterResource {
+  id: string;
+  acAccountName: string;
+  firstName?: string;
+  lastName?: string;
+  /** App Store territory the tester shops in (e.g. `USA`). */
+  territory?: string;
+  applePayCompatible?: boolean;
+  /** Whether Apple injects interruptions (e.g. price-consent prompts) into the tester's purchases. */
+  interruptPurchases?: boolean;
+  /** Accelerated sandbox renewal interval, e.g. `MONTHLY_RENEWAL_EVERY_ONE_HOUR`. */
+  subscriptionRenewalRate?: string;
+}
+
 /** A subscription group — the container for mutually-exclusive subscription levels. */
 export interface SubscriptionGroupResource {
   id: string;
@@ -250,6 +270,31 @@ export interface ReviewScreenshotResource {
 }
 
 /**
+ * One App Store app-preview-video **set** — the per-(version localization × device target) bucket previews
+ * hang off, the video counterpart of {@link ScreenshotSetResource}. `previewType` is Apple's device-target
+ * enum (e.g. `IPHONE_67`); the reconciler matches a local folder's target to the set with the same type,
+ * creating the set when none exists.
+ */
+export interface PreviewSetResource {
+  id: string;
+  previewType: string;
+}
+
+/**
+ * One uploaded App Store app preview video. Same idempotency contract as {@link ScreenshotResource}:
+ * `sourceFileChecksum` is the MD5 Apple stored at commit time (the reconciler's skip key), and
+ * `assetDeliveryState` flags a half-finished upload worth re-sending. Apple processes the video
+ * asynchronously after commit, but the checksum is recorded at commit — so a re-run while processing is
+ * still in flight matches by checksum and re-uploads nothing.
+ */
+export interface PreviewResource {
+  id: string;
+  fileName: string;
+  sourceFileChecksum?: string;
+  assetDeliveryState?: string;
+}
+
+/**
  * A TestFlight beta group — a named tester bucket that belongs to exactly one app. External groups
  * invite testers by email (and can gate distribution on Beta App Review); the internal group holds
  * App Store Connect team users. A tester reaches an app's TestFlight by being in one of its groups,
@@ -309,6 +354,50 @@ export interface CustomerReviewResponseResource {
 }
 
 /**
+ * One App Store Connect **team member** (`users`) — a person who has accepted access to the account.
+ * `username` is their Apple ID email (the key `launch team remove` matches on); `roles` is Apple's
+ * permission set (`ADMIN`, `APP_MANAGER`, `DEVELOPER`, …). Contrast {@link UserInvitationResource}, which
+ * is a member who's been invited but hasn't accepted yet.
+ */
+export interface UserResource {
+  id: string;
+  username: string;
+  firstName?: string;
+  lastName?: string;
+  roles: string[];
+}
+
+/**
+ * One **pending** team invitation (`userInvitations`) — an invited member who hasn't accepted. Mirrors
+ * {@link UserResource} but keyed by `email` and carrying the invite's `expirationDate`. Removing one cancels
+ * the invitation rather than revoking access.
+ */
+export interface UserInvitationResource {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  roles: string[];
+  /** ISO-8601 instant the invitation lapses if unaccepted. */
+  expirationDate?: string;
+}
+
+/**
+ * The attributes required to invite a new team member, passed straight to `POST /v1/userInvitations`.
+ * `allAppsVisible` grants visibility to every app (the default for a CLI invite); `provisioningAllowed`
+ * lets the member create signing assets. Per-app visibility scoping (the `visibleApps` relationship) is a
+ * portal/follow-up concern and intentionally not modeled here.
+ */
+export interface NewUserInvitation {
+  email: string;
+  firstName: string;
+  lastName: string;
+  roles: string[];
+  allAppsVisible: boolean;
+  provisioningAllowed: boolean;
+}
+
+/**
  * An analytics report request — the subscription that makes reports available for an app. `ONGOING`
  * keeps producing daily/weekly/monthly instances; `ONE_TIME_SNAPSHOT` is a single historical pull.
  */
@@ -347,6 +436,55 @@ export interface AnalyticsReportSegmentResource {
   /** Apple's checksum of the decompressed segment, for integrity verification. */
   checksum?: string | undefined;
   sizeInBytes?: number | undefined;
+}
+
+/**
+ * One **in-app event** (`appEvents`) — a time-bounded happening (a live event, premiere, challenge, …)
+ * surfaced on the App Store product page. `eventState` is Apple's lifecycle (`DRAFT` → `READY_FOR_REVIEW`
+ * → … → `PUBLISHED` → `PAST`/`ARCHIVED`); `referenceName` is the internal label. Localized copy and
+ * territory schedules hang off it separately.
+ */
+export interface AppEventResource {
+  id: string;
+  referenceName: string;
+  /** The event badge, e.g. `LIVE_EVENT` / `PREMIERE` / `CHALLENGE`. */
+  badge?: string;
+  /** Apple's lifecycle state, e.g. `DRAFT` / `IN_REVIEW` / `PUBLISHED`. */
+  eventState?: string;
+  /** The event's primary locale (e.g. `en-US`) — the fallback for unlocalized territories. */
+  primaryLocale?: string;
+  /** Deep link opened when a user taps the event. */
+  deepLink?: string;
+  /** `HIGH` | `NORMAL` — how prominently Apple may feature it. */
+  priority?: string;
+  /** Marketing purpose, e.g. `ATTRACT_NEW_USERS`. */
+  purpose?: string;
+}
+
+/** One locale's copy for an in-app event (`appEventLocalizations`) — name + short/long descriptions. */
+export interface AppEventLocalizationResource {
+  id: string;
+  locale: string;
+  name?: string;
+  shortDescription?: string;
+  longDescription?: string;
+}
+
+/** Attributes to create an in-app event, passed to `POST /v1/appEvents` (alongside the app relationship). */
+export interface NewAppEvent {
+  referenceName: string;
+  badge?: string;
+  primaryLocale?: string;
+  deepLink?: string;
+  priority?: string;
+  purpose?: string;
+}
+
+/** The editable copy fields of an in-app event localization (create or update). */
+export interface AppEventLocalizationInput {
+  name?: string;
+  shortDescription?: string;
+  longDescription?: string;
 }
 
 /**
@@ -1209,6 +1347,49 @@ export class AppStoreConnectClient {
   /** Disable a capability by its resource id (only reached under `--allow-destructive`). */
   async disableCapability(capabilityId: string): Promise<void> {
     await this.request<unknown>("DELETE", `/bundleIdCapabilities/${capabilityId}`);
+  }
+
+  // ── Sandbox testers: StoreKit testing accounts (`launch sandbox`) ─────────────────────────────────
+
+  /** List the account's sandbox testers (the `/v2/sandboxTesters` collection), across all pages. */
+  async listSandboxTesters(): Promise<SandboxTesterResource[]> {
+    const data = await this.requestAll<{
+      acAccountName?: string;
+      firstName?: string;
+      lastName?: string;
+      territory?: string;
+      applePayCompatible?: boolean;
+      interruptPurchases?: boolean;
+      subscriptionRenewalRate?: string;
+    }>(this.v2("/sandboxTesters?limit=200"));
+    return data.map((entry) => ({
+      id: entry.id,
+      acAccountName: entry.attributes.acAccountName ?? "",
+      ...(entry.attributes.firstName ? { firstName: entry.attributes.firstName } : {}),
+      ...(entry.attributes.lastName ? { lastName: entry.attributes.lastName } : {}),
+      ...(entry.attributes.territory ? { territory: entry.attributes.territory } : {}),
+      ...(entry.attributes.applePayCompatible !== undefined
+        ? { applePayCompatible: entry.attributes.applePayCompatible }
+        : {}),
+      ...(entry.attributes.interruptPurchases !== undefined
+        ? { interruptPurchases: entry.attributes.interruptPurchases }
+        : {}),
+      ...(entry.attributes.subscriptionRenewalRate
+        ? { subscriptionRenewalRate: entry.attributes.subscriptionRenewalRate }
+        : {}),
+    }));
+  }
+
+  /** Clear the StoreKit purchase history for one or more sandbox testers (a single batched request). */
+  async clearSandboxTesterPurchaseHistory(testerIds: string[]): Promise<void> {
+    await this.request<unknown>("POST", this.v2("/sandboxTestersClearPurchaseHistoryRequest"), {
+      data: {
+        type: "sandboxTestersClearPurchaseHistoryRequest",
+        relationships: {
+          sandboxTesters: { data: testerIds.map((id) => ({ type: "sandboxTesters", id })) },
+        },
+      },
+    });
   }
 
   /** List an app's in-app purchases (the `inAppPurchasesV2` collection), across all pages. */
@@ -2200,6 +2381,87 @@ export class AppStoreConnectClient {
     await this.request<unknown>("DELETE", `/customerReviewResponses/${responseId}`);
   }
 
+  // ── App Store Connect team: users & invitations (`launch team`) ────────────────────────────────────
+
+  /** List the App Store Connect team members (people who have accepted access). */
+  async listUsers(): Promise<UserResource[]> {
+    const data = await this.requestAll<{
+      username?: string;
+      firstName?: string;
+      lastName?: string;
+      roles?: string[];
+    }>("/users?limit=200&fields[users]=username,firstName,lastName,roles");
+    return data.map((entry) => ({
+      id: entry.id,
+      username: entry.attributes.username ?? "",
+      ...(entry.attributes.firstName ? { firstName: entry.attributes.firstName } : {}),
+      ...(entry.attributes.lastName ? { lastName: entry.attributes.lastName } : {}),
+      roles: entry.attributes.roles ?? [],
+    }));
+  }
+
+  /** List the pending (not-yet-accepted) team invitations. */
+  async listUserInvitations(): Promise<UserInvitationResource[]> {
+    const data = await this.requestAll<{
+      email?: string;
+      firstName?: string;
+      lastName?: string;
+      roles?: string[];
+      expirationDate?: string;
+    }>("/userInvitations?limit=200&fields[userInvitations]=email,firstName,lastName,roles,expirationDate");
+    return data.map((entry) => ({
+      id: entry.id,
+      email: entry.attributes.email ?? "",
+      ...(entry.attributes.firstName ? { firstName: entry.attributes.firstName } : {}),
+      ...(entry.attributes.lastName ? { lastName: entry.attributes.lastName } : {}),
+      roles: entry.attributes.roles ?? [],
+      ...(entry.attributes.expirationDate ? { expirationDate: entry.attributes.expirationDate } : {}),
+    }));
+  }
+
+  /** Invite a new team member by email with the given roles; returns the created pending invitation. */
+  async inviteUser(invite: NewUserInvitation): Promise<UserInvitationResource> {
+    const { data } = await this.request<
+      ResourceSingle<{
+        email?: string;
+        firstName?: string;
+        lastName?: string;
+        roles?: string[];
+        expirationDate?: string;
+      }>
+    >("POST", "/userInvitations", {
+      data: {
+        type: "userInvitations",
+        attributes: {
+          email: invite.email,
+          firstName: invite.firstName,
+          lastName: invite.lastName,
+          roles: invite.roles,
+          allAppsVisible: invite.allAppsVisible,
+          provisioningAllowed: invite.provisioningAllowed,
+        },
+      },
+    });
+    return {
+      id: data.id,
+      email: data.attributes.email ?? invite.email,
+      ...(data.attributes.firstName ? { firstName: data.attributes.firstName } : {}),
+      ...(data.attributes.lastName ? { lastName: data.attributes.lastName } : {}),
+      roles: data.attributes.roles ?? invite.roles,
+      ...(data.attributes.expirationDate ? { expirationDate: data.attributes.expirationDate } : {}),
+    };
+  }
+
+  /** Remove a team member (an accepted user) by their resource id — revokes their access. */
+  async deleteUser(userId: string): Promise<void> {
+    await this.request<unknown>("DELETE", `/users/${userId}`);
+  }
+
+  /** Cancel a pending invitation by its resource id. */
+  async cancelUserInvitation(invitationId: string): Promise<void> {
+    await this.request<unknown>("DELETE", `/userInvitations/${invitationId}`);
+  }
+
   /* ------------------------------------------------------------------------ */
   /*  Reports — Sales & Trends / Finance (gzipped TSV) and the Analytics       */
   /*  Reports flow. Consumed by `launch reports` (core/reports.ts).            */
@@ -2569,6 +2831,139 @@ export class AppStoreConnectClient {
     return { id: data.id, state: data.attributes.state ?? "" };
   }
 
+  // ── In-app events: events & their localizations (`launch events`) ──────────────────────────────────
+
+  /** List an app's in-app events (newest lifecycle first is not guaranteed; Apple returns creation order). */
+  async listAppEvents(appId: string): Promise<AppEventResource[]> {
+    const data = await this.requestAll<{
+      referenceName?: string;
+      badge?: string;
+      eventState?: string;
+      primaryLocale?: string;
+      deepLink?: string;
+      priority?: string;
+      purpose?: string;
+    }>(
+      `/apps/${appId}/appEvents?limit=200&fields[appEvents]=referenceName,badge,eventState,primaryLocale,deepLink,priority,purpose`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      referenceName: entry.attributes.referenceName ?? "",
+      ...(entry.attributes.badge ? { badge: entry.attributes.badge } : {}),
+      ...(entry.attributes.eventState ? { eventState: entry.attributes.eventState } : {}),
+      ...(entry.attributes.primaryLocale ? { primaryLocale: entry.attributes.primaryLocale } : {}),
+      ...(entry.attributes.deepLink ? { deepLink: entry.attributes.deepLink } : {}),
+      ...(entry.attributes.priority ? { priority: entry.attributes.priority } : {}),
+      ...(entry.attributes.purpose ? { purpose: entry.attributes.purpose } : {}),
+    }));
+  }
+
+  /** List one event's localizations (per-locale name + descriptions). */
+  async listAppEventLocalizations(eventId: string): Promise<AppEventLocalizationResource[]> {
+    const data = await this.requestAll<{
+      locale?: string;
+      name?: string;
+      shortDescription?: string;
+      longDescription?: string;
+    }>(
+      `/appEvents/${eventId}/appEventLocalizations?limit=200&fields[appEventLocalizations]=locale,name,shortDescription,longDescription`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      locale: entry.attributes.locale ?? "",
+      ...(entry.attributes.name ? { name: entry.attributes.name } : {}),
+      ...(entry.attributes.shortDescription ? { shortDescription: entry.attributes.shortDescription } : {}),
+      ...(entry.attributes.longDescription ? { longDescription: entry.attributes.longDescription } : {}),
+    }));
+  }
+
+  /** Create a draft in-app event for an app, returning the created event. */
+  async createAppEvent(appId: string, attributes: NewAppEvent): Promise<AppEventResource> {
+    const { data } = await this.request<
+      ResourceSingle<{
+        referenceName?: string;
+        badge?: string;
+        eventState?: string;
+        primaryLocale?: string;
+        deepLink?: string;
+        priority?: string;
+        purpose?: string;
+      }>
+    >("POST", "/appEvents", {
+      data: {
+        type: "appEvents",
+        attributes: {
+          referenceName: attributes.referenceName,
+          ...(attributes.badge ? { badge: attributes.badge } : {}),
+          ...(attributes.primaryLocale ? { primaryLocale: attributes.primaryLocale } : {}),
+          ...(attributes.deepLink ? { deepLink: attributes.deepLink } : {}),
+          ...(attributes.priority ? { priority: attributes.priority } : {}),
+          ...(attributes.purpose ? { purpose: attributes.purpose } : {}),
+        },
+        relationships: { app: { data: { type: "apps", id: appId } } },
+      },
+    });
+    return {
+      id: data.id,
+      referenceName: data.attributes.referenceName ?? attributes.referenceName,
+      ...(data.attributes.badge ? { badge: data.attributes.badge } : {}),
+      ...(data.attributes.eventState ? { eventState: data.attributes.eventState } : {}),
+      ...(data.attributes.primaryLocale ? { primaryLocale: data.attributes.primaryLocale } : {}),
+      ...(data.attributes.deepLink ? { deepLink: data.attributes.deepLink } : {}),
+      ...(data.attributes.priority ? { priority: data.attributes.priority } : {}),
+      ...(data.attributes.purpose ? { purpose: data.attributes.purpose } : {}),
+    };
+  }
+
+  /** Delete an in-app event by id (only a DRAFT event can be deleted). */
+  async deleteAppEvent(eventId: string): Promise<void> {
+    await this.request<unknown>("DELETE", `/appEvents/${eventId}`);
+  }
+
+  /** Create a localization (locale + copy) for an event, returning the created localization. */
+  async createAppEventLocalization(
+    eventId: string,
+    locale: string,
+    attributes: AppEventLocalizationInput,
+  ): Promise<AppEventLocalizationResource> {
+    const { data } = await this.request<
+      ResourceSingle<{ locale?: string; name?: string; shortDescription?: string; longDescription?: string }>
+    >("POST", "/appEventLocalizations", {
+      data: {
+        type: "appEventLocalizations",
+        attributes: {
+          locale,
+          ...(attributes.name !== undefined ? { name: attributes.name } : {}),
+          ...(attributes.shortDescription !== undefined ? { shortDescription: attributes.shortDescription } : {}),
+          ...(attributes.longDescription !== undefined ? { longDescription: attributes.longDescription } : {}),
+        },
+        relationships: { appEvent: { data: { type: "appEvents", id: eventId } } },
+      },
+    });
+    return toAppEventLocalization(data, locale);
+  }
+
+  /** Update an existing event localization's copy by its id, returning the updated localization. */
+  async updateAppEventLocalization(
+    localizationId: string,
+    attributes: AppEventLocalizationInput,
+  ): Promise<AppEventLocalizationResource> {
+    const { data } = await this.request<
+      ResourceSingle<{ locale?: string; name?: string; shortDescription?: string; longDescription?: string }>
+    >("PATCH", `/appEventLocalizations/${localizationId}`, {
+      data: {
+        type: "appEventLocalizations",
+        id: localizationId,
+        attributes: {
+          ...(attributes.name !== undefined ? { name: attributes.name } : {}),
+          ...(attributes.shortDescription !== undefined ? { shortDescription: attributes.shortDescription } : {}),
+          ...(attributes.longDescription !== undefined ? { longDescription: attributes.longDescription } : {}),
+        },
+      },
+    });
+    return toAppEventLocalization(data, "");
+  }
+
   // ── App Store assets: screenshots & subscription review screenshots (`launch sync`) ────────────────
 
   /** List the screenshot sets (one per device display type) bound to one App Store version localization. */
@@ -2658,6 +3053,67 @@ export class AppStoreConnectClient {
     );
     await this.putAssetBytes(operations, bytes);
     await this.commitAsset("subscriptionAppStoreReviewScreenshots", id, bytes);
+  }
+
+  // ── App Store assets: app preview videos (`launch sync`) ───────────────────────────────────────────
+
+  /** List the app-preview-video sets (one per device target) bound to one App Store version localization. */
+  async listPreviewSets(versionLocalizationId: string): Promise<PreviewSetResource[]> {
+    const data = await this.requestAll<{ previewType?: string }>(
+      `/appStoreVersionLocalizations/${versionLocalizationId}/appPreviewSets?fields[appPreviewSets]=previewType&limit=200`,
+    );
+    return data.map((entry) => ({ id: entry.id, previewType: entry.attributes.previewType ?? "" }));
+  }
+
+  /** Create an app-preview-video set for one device target under a version localization, returning the new set. */
+  async createPreviewSet(versionLocalizationId: string, previewType: string): Promise<PreviewSetResource> {
+    const { data } = await this.request<ResourceSingle<{ previewType?: string }>>("POST", "/appPreviewSets", {
+      data: {
+        type: "appPreviewSets",
+        attributes: { previewType },
+        relationships: {
+          appStoreVersionLocalization: { data: { type: "appStoreVersionLocalizations", id: versionLocalizationId } },
+        },
+      },
+    });
+    return { id: data.id, previewType: data.attributes.previewType ?? previewType };
+  }
+
+  /** List the previews already in a set, with their stored checksums (the reconciler's skip key). */
+  async listPreviews(setId: string): Promise<PreviewResource[]> {
+    const data = await this.requestAll<{
+      fileName?: string;
+      sourceFileChecksum?: string;
+      assetDeliveryState?: { state?: string };
+    }>(
+      `/appPreviewSets/${setId}/appPreviews?fields[appPreviews]=fileName,sourceFileChecksum,assetDeliveryState&limit=200`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      fileName: entry.attributes.fileName ?? "",
+      ...(entry.attributes.sourceFileChecksum ? { sourceFileChecksum: entry.attributes.sourceFileChecksum } : {}),
+      ...(entry.attributes.assetDeliveryState?.state
+        ? { assetDeliveryState: entry.attributes.assetDeliveryState.state }
+        : {}),
+    }));
+  }
+
+  /**
+   * Upload one app preview video into a set via the full reserve→PUT→commit asset flow (identical to
+   * {@link uploadScreenshot}; only the resource type differs). The poster frame (`previewFrameTimeCode`) is
+   * left to Apple's default selection — the folder convention carries no frame time, and forcing one would
+   * invent config nobody asked for; an explicit poster is a deliberate follow-up if ever needed.
+   */
+  async uploadPreview(setId: string, fileName: string, filePath: string): Promise<void> {
+    const bytes = await readFile(filePath);
+    const { id, operations } = await this.reserveAsset(
+      "appPreviews",
+      { relationship: "appPreviewSet", type: "appPreviewSets", id: setId },
+      fileName,
+      bytes.byteLength,
+    );
+    await this.putAssetBytes(operations, bytes);
+    await this.commitAsset("appPreviews", id, bytes);
   }
 
   /** Reserve an asset: POST the resource with `fileName`/`fileSize`, returning its id + upload operations. */
@@ -2775,6 +3231,27 @@ function toReviewResponse(data: {
     responseBody: data.attributes.responseBody ?? "",
     ...(data.attributes.state ? { state: data.attributes.state } : {}),
     ...(data.attributes.lastModifiedDate ? { lastModifiedDate: data.attributes.lastModifiedDate } : {}),
+  };
+}
+
+/**
+ * Project an ASC `appEventLocalizations` resource object into an {@link AppEventLocalizationResource}.
+ * `fallbackLocale` supplies the locale on a PATCH response (Apple's update payload omits the unchanged
+ * `locale`); it's the empty string when the caller doesn't need it (the create path passes the locale).
+ */
+function toAppEventLocalization(
+  data: {
+    id: string;
+    attributes: { locale?: string; name?: string; shortDescription?: string; longDescription?: string };
+  },
+  fallbackLocale: string,
+): AppEventLocalizationResource {
+  return {
+    id: data.id,
+    locale: data.attributes.locale ?? fallbackLocale,
+    ...(data.attributes.name ? { name: data.attributes.name } : {}),
+    ...(data.attributes.shortDescription ? { shortDescription: data.attributes.shortDescription } : {}),
+    ...(data.attributes.longDescription ? { longDescription: data.attributes.longDescription } : {}),
   };
 }
 
