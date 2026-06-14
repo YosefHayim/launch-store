@@ -1,7 +1,7 @@
 {
   "name": "launch-store",
   "version": "0.11.0",
-  "description": "Build and ship your iOS/Android apps to the stores from your own machine, with your own keys — no Expo bill.",
+  "description": "Open-source, self-hosted alternative to Expo EAS — build, sign & ship your Expo / React Native apps to TestFlight & Google Play from your own machine, with your own keys. No per-build bill.",
   "keywords": [
     "cli",
     "mobile",
@@ -16,7 +16,11 @@
     "eas",
     "code-signing",
     "app-store-connect",
-    "ci-cd"
+    "ci-cd",
+    "eas-alternative",
+    "expo-eas",
+    "ota-updates",
+    "self-hosted"
   ],
   "homepage": "https://github.com/YosefHayim/launch-store#readme",
   "bugs": {
@@ -49,6 +53,7 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json && chmod +x dist/cli/index.js",
     "dev": "tsx src/cli/index.ts",
+    "gen:asc": "tsx scripts/gen-asc-types.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "format": "prettier --write .",
@@ -73,6 +78,7 @@
     "eslint-config-prettier": "^9.1.0",
     "husky": "^9.1.6",
     "lint-staged": "^15.2.10",
+    "openapi-typescript": "^7.13.0",
     "prettier": "^3.3.3",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",

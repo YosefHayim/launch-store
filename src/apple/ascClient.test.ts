@@ -18,6 +18,18 @@ function fakeResponse(status: number, body: string) {
   return { status, ok: status >= 200 && status < 300, text: () => Promise.resolve(body) };
 }
 
+/** Stand-in for a binary (gzip) response: the report/segment paths read `arrayBuffer`, errors read `text`. */
+function fakeBinaryResponse(status: number, bytes: string, errorBody = "") {
+  // TextEncoder yields a Uint8Array whose buffer is exactly the bytes — Buffer.from(str).buffer would
+  // expose Node's shared allocation pool, so arrayBuffer() must return this precisely-sized slice.
+  return {
+    status,
+    ok: status >= 200 && status < 300,
+    arrayBuffer: () => Promise.resolve(new TextEncoder().encode(bytes).buffer),
+    text: () => Promise.resolve(errorBody),
+  };
+}
+
 /** Decode a JWT's header + payload (no verification needed — we only assert the claims we set). */
 function decodeJwt(token: string): { header: Record<string, unknown>; payload: Record<string, unknown> } {
   const [header, payload] = token.split(".");
@@ -429,6 +441,653 @@ describe("AppStoreConnectClient — product catalog", () => {
   });
 });
 
+describe("AppStoreConnectClient — export compliance", () => {
+  it("resolves a build's id and export-compliance answer by build number", async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: "app1", attributes: {} }] })))
+      .mockResolvedValueOnce(
+        fakeResponse(200, JSON.stringify({ data: [{ id: "build9", attributes: { usesNonExemptEncryption: false } }] })),
+      );
+
+    expect(await client.findBuild("com.example.hello", 9)).toEqual({ id: "build9", usesNonExemptEncryption: false });
+    expect(fetchMock.mock.calls[1]![0]).toContain("/builds?filter[app]=app1&filter[version]=9");
+  });
+
+  it("reports null usesNonExemptEncryption when the build hasn't answered yet", async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: "app1", attributes: {} }] })))
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: "build9", attributes: {} }] })));
+
+    expect(await client.findBuild("com.example.hello", 9)).toEqual({ id: "build9", usesNonExemptEncryption: null });
+  });
+
+  it("returns null for findBuild when the app record is missing", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })));
+    expect(await client.findBuild("com.example.missing", 9)).toBeNull();
+  });
+
+  it("PATCHes the build's usesNonExemptEncryption attribute", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: { id: "build9", attributes: {} } })));
+
+    await client.setBuildUsesNonExemptEncryption("build9", false);
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toContain("/builds/build9");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({
+      data: { type: "builds", id: "build9", attributes: { usesNonExemptEncryption: false } },
+    });
+  });
+
+  it("lists an app's encryption declarations with their review state", async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: "app1", attributes: {} }] })))
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [{ id: "decl1", attributes: { appEncryptionDeclarationState: "APPROVED" } }],
+          }),
+        ),
+      );
+
+    expect(await client.listEncryptionDeclarations("com.example.hello")).toEqual([{ id: "decl1", state: "APPROVED" }]);
+  });
+
+  it("links a build to a declaration via the relationships endpoint", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(204, ""));
+
+    await client.linkBuildToDeclaration("decl1", "build9");
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toContain("/appEncryptionDeclarations/decl1/relationships/builds");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ data: [{ type: "builds", id: "build9" }] });
+  });
+});
+
+describe("AppStoreConnectClient — listing localizations", () => {
+  it("picks the editable App Store version, ignoring a live one", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: "v-live", attributes: { appStoreState: "READY_FOR_SALE" } },
+            { id: "v-edit", attributes: { appStoreState: "PREPARE_FOR_SUBMISSION" } },
+          ],
+        }),
+      ),
+    );
+    expect(await client.getEditableVersionId("app1")).toBe("v-edit");
+    expect(fetchMock.mock.calls[0]![0]).toContain("/apps/app1/appStoreVersions");
+  });
+
+  it("returns null when no App Store version is editable", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(200, JSON.stringify({ data: [{ id: "v-live", attributes: { appStoreState: "READY_FOR_SALE" } }] })),
+    );
+    expect(await client.getEditableVersionId("app1")).toBeNull();
+  });
+
+  it("picks the editable appInfo by state", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: "ai-live", attributes: { state: "READY_FOR_DISTRIBUTION" } },
+            { id: "ai-edit", attributes: { state: "PREPARE_FOR_SUBMISSION" } },
+          ],
+        }),
+      ),
+    );
+    expect(await client.getEditableAppInfoId("app1")).toBe("ai-edit");
+  });
+
+  it("lists version localizations, keeping only present non-empty fields", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            {
+              id: "vl1",
+              attributes: { locale: "en-US", description: "Copy", keywords: "a,b", whatsNew: null, marketingUrl: "" },
+            },
+          ],
+        }),
+      ),
+    );
+    expect(await client.listVersionLocalizations("v-edit")).toEqual([
+      { id: "vl1", locale: "en-US", fields: { description: "Copy", keywords: "a,b" } },
+    ]);
+  });
+
+  it("POSTs a new version localization with the appStoreVersion relationship", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(201, JSON.stringify({ data: { id: "vl-new", attributes: {} } })));
+    await client.createVersionLocalization("v-edit", "fr-FR", { description: "Texte" });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toContain("/appStoreVersionLocalizations");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      data: {
+        type: "appStoreVersionLocalizations",
+        attributes: { locale: "fr-FR", description: "Texte" },
+        relationships: { appStoreVersion: { data: { type: "appStoreVersions", id: "v-edit" } } },
+      },
+    });
+  });
+
+  it("PATCHes only the changed fields on an app-level localization", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: { id: "ail1", attributes: {} } })));
+    await client.updateAppInfoLocalization("ail1", { name: "New" });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toContain("/appInfoLocalizations/ail1");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({
+      data: { type: "appInfoLocalizations", id: "ail1", attributes: { name: "New" } },
+    });
+  });
+});
+
+describe("AppStoreConnectClient — TestFlight beta groups + testers", () => {
+  it("creates an external beta group with the app relationship", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(201, JSON.stringify({ data: { id: "bg1", attributes: { name: "External Testers" } } })),
+    );
+    const group = await client.createBetaGroup("app1", "External Testers");
+    expect(group).toEqual({ id: "bg1", name: "External Testers" });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/betaGroups");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      data: {
+        type: "betaGroups",
+        attributes: { name: "External Testers" },
+        relationships: { app: { data: { type: "apps", id: "app1" } } },
+      },
+    });
+  });
+
+  it("lists beta groups, dropping a nameless row and surfacing internal/public-link", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: "bg1", attributes: { name: "External", isInternalGroup: false, publicLink: "https://tf/x" } },
+            { id: "bg2", attributes: { name: "Team", isInternalGroup: true } },
+            { id: "bg3", attributes: {} },
+          ],
+        }),
+      ),
+    );
+    expect(await client.listBetaGroups("app1")).toEqual([
+      { id: "bg1", name: "External", isInternal: false, publicLink: "https://tf/x" },
+      { id: "bg2", name: "Team", isInternal: true },
+    ]);
+    expect(fetchMock.mock.calls[0]![0]).toContain("/apps/app1/betaGroups");
+  });
+
+  it("finds a beta group by name case-insensitively", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(200, JSON.stringify({ data: [{ id: "bg1", attributes: { name: "External Testers" } }] })),
+    );
+    expect((await client.findBetaGroupByName("app1", "external testers"))?.id).toBe("bg1");
+  });
+
+  it("creates a tester with the betaGroups relationship (the invite-sending path)", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        201,
+        JSON.stringify({ data: { id: "t1", attributes: { email: "a@x.com", firstName: "Dana", state: "INVITED" } } }),
+      ),
+    );
+    const tester = await client.createBetaTester("bg1", { email: "a@x.com", firstName: "Dana" });
+    expect(tester).toMatchObject({ id: "t1", email: "a@x.com", firstName: "Dana", state: "INVITED" });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/betaTesters");
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      data: {
+        type: "betaTesters",
+        attributes: { email: "a@x.com", firstName: "Dana" },
+        relationships: { betaGroups: { data: [{ type: "betaGroups", id: "bg1" }] } },
+      },
+    });
+  });
+
+  it("finds a tester by email via the filter, matching case-insensitively", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(200, JSON.stringify({ data: [{ id: "t1", attributes: { email: "A@X.com" } }] })),
+    );
+    expect((await client.findBetaTesterByEmail("a@x.com"))?.id).toBe("t1");
+    expect(fetchMock.mock.calls[0]![0]).toContain("/betaTesters?filter[email]=a%40x.com");
+  });
+
+  it("bulk-adds existing testers to a group via the relationship endpoint", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(204, ""));
+    await client.addTestersToGroup("bg1", ["t1", "t2"]);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/betaGroups/bg1/relationships/betaTesters");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      data: [
+        { type: "betaTesters", id: "t1" },
+        { type: "betaTesters", id: "t2" },
+      ],
+    });
+  });
+
+  it("removes testers from a group with a DELETE carrying the relationship body", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(204, ""));
+    await client.removeTestersFromGroup("bg1", ["t1"]);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/betaGroups/bg1/relationships/betaTesters");
+    expect(init.method).toBe("DELETE");
+    expect(JSON.parse(init.body as string)).toEqual({ data: [{ type: "betaTesters", id: "t1" }] });
+  });
+});
+
+describe("AppStoreConnectClient — customer reviews", () => {
+  it("lists reviews with include=response, computing `answered` from the response relationship", async () => {
+    const page2 = "https://api.appstoreconnect.apple.com/v1/apps/app1/customerReviews?cursor=P2";
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [
+              {
+                id: "r1",
+                attributes: { rating: 5, title: "Love it", body: "Great", reviewerNickname: "fan", territory: "USA" },
+                relationships: { response: { data: { id: "resp1" } } },
+              },
+            ],
+            links: { next: page2 },
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [{ id: "r2", attributes: { rating: 1 }, relationships: { response: { data: null } } }],
+          }),
+        ),
+      );
+
+    const reviews = await client.listCustomerReviews("app1", { rating: 5, territory: "USA" });
+
+    expect(reviews).toEqual([
+      {
+        id: "r1",
+        rating: 5,
+        title: "Love it",
+        body: "Great",
+        reviewerNickname: "fan",
+        territory: "USA",
+        answered: true,
+      },
+      { id: "r2", rating: 1, answered: false },
+    ]);
+    const firstUrl = String(fetchMock.mock.calls[0]![0]);
+    expect(firstUrl).toContain("/apps/app1/customerReviews?include=response&sort=-createdDate");
+    expect(firstUrl).toContain("filter[rating]=5");
+    expect(firstUrl).toContain("filter[territory]=USA");
+    // Page 2 follows the absolute cursor verbatim — no /v1/v1 double-prefix.
+    expect(String(fetchMock.mock.calls[1]![0])).toBe(page2);
+  });
+
+  it("returns null for a review with no developer response (Apple 404s)", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(404, JSON.stringify({ errors: [{ title: "Not Found" }] })));
+    expect(await client.getCustomerReviewResponse("r1")).toBeNull();
+  });
+
+  it("creates/replaces a response with the review relationship", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        201,
+        JSON.stringify({ data: { id: "resp1", attributes: { responseBody: "Thanks!", state: "PENDING_PUBLISH" } } }),
+      ),
+    );
+    const response = await client.createCustomerReviewResponse("r1", "Thanks!");
+    expect(response).toEqual({ id: "resp1", responseBody: "Thanks!", state: "PENDING_PUBLISH" });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/customerReviewResponses");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      data: {
+        type: "customerReviewResponses",
+        attributes: { responseBody: "Thanks!" },
+        relationships: { review: { data: { type: "customerReviews", id: "r1" } } },
+      },
+    });
+  });
+
+  it("deletes a response by id", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(204, ""));
+    await client.deleteCustomerReviewResponse("resp1");
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(init.method).toBe("DELETE");
+    expect(url).toContain("/customerReviewResponses/resp1");
+  });
+});
+
+describe("AppStoreConnectClient — reports", () => {
+  it("downloads a sales report with the right filters and gzip Accept header", async () => {
+    fetchMock.mockResolvedValueOnce(fakeBinaryResponse(200, "gzip-bytes"));
+    const bytes = await client.getSalesReport({
+      vendorNumber: "12345678",
+      frequency: "DAILY",
+      reportType: "SALES",
+      reportSubType: "SUMMARY",
+      reportDate: "2026-06-01",
+      version: "1_0",
+    });
+    expect(bytes.toString()).toBe("gzip-bytes");
+    const [url, init] = fetchMock.mock.calls[0]!;
+    const path = String(url);
+    expect(path).toContain("/salesReports?");
+    expect(path).toContain("filter[frequency]=DAILY");
+    expect(path).toContain("filter[reportType]=SALES");
+    expect(path).toContain("filter[reportSubType]=SUMMARY");
+    expect(path).toContain("filter[vendorNumber]=12345678");
+    expect(path).toContain("filter[reportDate]=2026-06-01");
+    expect(path).toContain("filter[version]=1_0");
+    expect((init.headers as Record<string, string>)["Accept"]).toBe("application/a-gzip, application/json");
+  });
+
+  it("defaults the finance report type to FINANCE_DETAIL", async () => {
+    fetchMock.mockResolvedValueOnce(fakeBinaryResponse(200, "fin"));
+    await client.getFinanceReport({ vendorNumber: "12345678", reportDate: "2026-05", regionCode: "ZZ" });
+    const path = String(fetchMock.mock.calls[0]![0]);
+    expect(path).toContain("/financeReports?");
+    expect(path).toContain("filter[regionCode]=ZZ");
+    expect(path).toContain("filter[reportType]=FINANCE_DETAIL");
+  });
+
+  it("surfaces Apple's 'no sales' detail on a report 404", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeBinaryResponse(
+        404,
+        "",
+        JSON.stringify({ errors: [{ detail: "There were no sales for the date specified." }] }),
+      ),
+    );
+    await expect(
+      client.getSalesReport({
+        vendorNumber: "1",
+        frequency: "DAILY",
+        reportType: "SALES",
+        reportSubType: "SUMMARY",
+        reportDate: "2026-06-01",
+      }),
+    ).rejects.toThrow(/404.*no sales/);
+  });
+
+  it("creates an analytics report request with the app relationship", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(201, JSON.stringify({ data: { id: "req1", attributes: { accessType: "ONGOING" } } })),
+    );
+    const request = await client.createAnalyticsReportRequest("app1", "ONGOING");
+    expect(request).toEqual({ id: "req1", accessType: "ONGOING" });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/analyticsReportRequests");
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      data: {
+        type: "analyticsReportRequests",
+        attributes: { accessType: "ONGOING" },
+        relationships: { app: { data: { type: "apps", id: "app1" } } },
+      },
+    });
+  });
+
+  it("filters reports by category and instances by granularity/date", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({ data: [{ id: "rep1", attributes: { name: "App Sessions", category: "APP_USAGE" } }] }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [{ id: "inst1", attributes: { granularity: "DAILY", processingDate: "2026-06-01" } }],
+          }),
+        ),
+      );
+
+    const reports = await client.listAnalyticsReports("req1", { category: "APP_USAGE" });
+    expect(reports).toEqual([{ id: "rep1", name: "App Sessions", category: "APP_USAGE" }]);
+    expect(String(fetchMock.mock.calls[0]![0])).toContain(
+      "/analyticsReportRequests/req1/reports?limit=200&filter[category]=APP_USAGE",
+    );
+
+    const instances = await client.listAnalyticsReportInstances("rep1", {
+      granularity: "DAILY",
+      processingDate: "2026-06-01",
+    });
+    expect(instances).toEqual([{ id: "inst1", granularity: "DAILY", processingDate: "2026-06-01" }]);
+    const instUrl = String(fetchMock.mock.calls[1]![0]);
+    expect(instUrl).toContain("/analyticsReports/rep1/instances?limit=200&filter[granularity]=DAILY");
+    expect(instUrl).toContain("filter[processingDate]=2026-06-01");
+  });
+
+  it("lists segments (dropping any without a url) and downloads one unauthenticated", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: "seg1", attributes: { url: "https://store.example/seg1.gz", checksum: "abc", sizeInBytes: 10 } },
+            { id: "seg2", attributes: {} },
+          ],
+        }),
+      ),
+    );
+    const segments = await client.listAnalyticsReportSegments("inst1");
+    expect(segments).toEqual([{ id: "seg1", url: "https://store.example/seg1.gz", checksum: "abc", sizeInBytes: 10 }]);
+
+    fetchMock.mockResolvedValueOnce(fakeBinaryResponse(200, "segment-gzip"));
+    const bytes = await client.downloadAnalyticsSegment("https://store.example/seg1.gz");
+    expect(bytes.toString()).toBe("segment-gzip");
+    // Presigned URL → no init (and therefore no Authorization), so the storage backend doesn't 400 on dual auth.
+    expect(fetchMock.mock.calls[1]![1]).toBeUndefined();
+  });
+});
+
+describe("app-level release attributes", () => {
+  it("resolves the editable app info and its current category ids", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: "live", attributes: { state: "READY_FOR_DISTRIBUTION" }, relationships: {} },
+            {
+              id: "editable",
+              attributes: { state: "PREPARE_FOR_SUBMISSION" },
+              relationships: {
+                primaryCategory: { data: { type: "appCategories", id: "PRODUCTIVITY" } },
+                secondaryCategory: { data: { type: "appCategories", id: "BUSINESS" } },
+              },
+            },
+          ],
+        }),
+      ),
+    );
+    const info = await client.getAppInfo("app1");
+    expect(fetchMock.mock.calls[0]![0]).toContain("/apps/app1/appInfos?include=primaryCategory,secondaryCategory");
+    expect(info).toEqual({
+      id: "editable",
+      state: "PREPARE_FOR_SUBMISSION",
+      primaryCategoryId: "PRODUCTIVITY",
+      secondaryCategoryId: "BUSINESS",
+    });
+  });
+
+  it("PATCHes only the categories provided, as appCategories relationships", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: { id: "editable", attributes: {} } })));
+    await client.updateAppInfoCategories("editable", { primaryCategoryId: "GAMES" });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(init.method).toBe("PATCH");
+    expect(url).toContain("/appInfos/editable");
+    const body = JSON.parse(init.body as string);
+    expect(body.data.relationships.primaryCategory.data).toEqual({ type: "appCategories", id: "GAMES" });
+    expect(body.data.relationships.secondaryCategory).toBeUndefined();
+  });
+
+  it("reads an age-rating declaration and treats a 404 as none", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(200, JSON.stringify({ data: { id: "age1", attributes: { violenceCartoonOrFantasy: "NONE" } } })),
+    );
+    expect(await client.getAgeRatingDeclaration("editable")).toEqual({
+      id: "age1",
+      attributes: { violenceCartoonOrFantasy: "NONE" },
+    });
+    fetchMock.mockResolvedValueOnce(fakeResponse(404, JSON.stringify({ errors: [{ title: "Not Found" }] })));
+    expect(await client.getAgeRatingDeclaration("editable")).toBeNull();
+  });
+
+  it("PATCHes age-rating answers verbatim", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: { id: "age1", attributes: {} } })));
+    await client.updateAgeRatingDeclaration("age1", { gambling: false, violenceRealistic: "INFREQUENT_OR_MILD" });
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body as string);
+    expect(body.data).toEqual({
+      type: "ageRatingDeclarations",
+      id: "age1",
+      attributes: { gambling: false, violenceRealistic: "INFREQUENT_OR_MILD" },
+    });
+  });
+
+  it("matches an app price point by territory and customer price", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: "pp1", attributes: { customerPrice: "4.99", territory: "USA" } },
+            { id: "pp2", attributes: { customerPrice: "9.99", territory: "USA" } },
+          ],
+        }),
+      ),
+    );
+    const point = await client.findAppPricePoint("app1", "USA", 9.99);
+    expect(fetchMock.mock.calls[0]![0]).toContain("/apps/app1/appPricePoints?filter[territory]=USA");
+    expect(point).toEqual({ id: "pp2", customerPrice: "9.99", territory: "USA" });
+  });
+
+  it("reads the open-interval manual app price and skips scheduled future prices", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            // A future scheduled change for USA — must be ignored, not mistaken for the current price.
+            {
+              attributes: { startDate: "2026-12-01", endDate: null },
+              relationships: { appPricePoint: { data: { id: "future" } } },
+            },
+            // The currently-effective price: open interval (no start, no end).
+            {
+              attributes: { startDate: null, endDate: null },
+              relationships: { appPricePoint: { data: { id: "pp2" } } },
+            },
+          ],
+          included: [
+            { type: "appPricePoints", id: "future", attributes: { customerPrice: "12.99", territory: "USA" } },
+            { type: "appPricePoints", id: "pp2", attributes: { customerPrice: "9.99", territory: "USA" } },
+          ],
+        }),
+      ),
+    );
+    expect(await client.getCurrentAppPrice("app1", "USA")).toBe("9.99");
+    expect(fetchMock.mock.calls[0]![0]).toContain("/apps/app1/appPriceSchedule/manualPrices?include=appPricePoint");
+  });
+
+  it("returns null for the current app price when the schedule is absent (404)", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(404, JSON.stringify({ errors: [{ title: "Not Found" }] })));
+    expect(await client.getCurrentAppPrice("app1", "USA")).toBeNull();
+  });
+
+  it("builds an app price schedule with a base territory and a temp-id included price", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(201, JSON.stringify({ data: { id: "sched1", attributes: {} } })));
+    await client.createAppPriceSchedule("app1", "USA", "pp2");
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/appPriceSchedules");
+    const body = JSON.parse(init.body as string);
+    expect(body.data.type).toBe("appPriceSchedules");
+    expect(body.data.relationships.app.data).toEqual({ type: "apps", id: "app1" });
+    expect(body.data.relationships.baseTerritory.data).toEqual({ type: "territories", id: "USA" });
+    const tempId = body.data.relationships.manualPrices.data[0].id;
+    expect(body.included[0]).toMatchObject({
+      type: "appPrices",
+      id: tempId,
+      relationships: { appPricePoint: { data: { type: "appPricePoints", id: "pp2" } } },
+    });
+  });
+
+  it("finds the editable App Store version and skips frozen ones", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: "v-live", attributes: { appVersionState: "READY_FOR_DISTRIBUTION" } },
+            { id: "v-edit", attributes: { appVersionState: "PREPARE_FOR_SUBMISSION" } },
+          ],
+        }),
+      ),
+    );
+    expect(await client.findEditableAppStoreVersion("app1", "IOS")).toEqual({ id: "v-edit" });
+    expect(fetchMock.mock.calls[0]![0]).toContain("/apps/app1/appStoreVersions?filter[platform]=IOS");
+  });
+
+  it("returns null when no App Store version is editable", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({ data: [{ id: "v-live", attributes: { appVersionState: "REPLACED_WITH_NEW_VERSION" } }] }),
+      ),
+    );
+    expect(await client.findEditableAppStoreVersion("app1", "IOS")).toBeNull();
+  });
+
+  it("reads review details, creates them with the version relationship, and patches updates", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(200, JSON.stringify({ data: { id: "rd1", attributes: { contactEmail: "a@b.co" } } })),
+    );
+    expect(await client.getAppStoreReviewDetail("v-edit")).toEqual({
+      id: "rd1",
+      attributes: { contactEmail: "a@b.co" },
+    });
+
+    fetchMock.mockResolvedValueOnce(fakeResponse(201, JSON.stringify({ data: { id: "rd2", attributes: {} } })));
+    const created = await client.createAppStoreReviewDetail("v-edit", {
+      contactEmail: "a@b.co",
+      demoAccountRequired: false,
+    });
+    expect(created).toEqual({ id: "rd2" });
+    const createBody = JSON.parse(fetchMock.mock.calls[1]![1].body as string);
+    expect(createBody.data.relationships.appStoreVersion.data).toEqual({ type: "appStoreVersions", id: "v-edit" });
+    expect(createBody.data.attributes).toEqual({ contactEmail: "a@b.co", demoAccountRequired: false });
+
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: { id: "rd2", attributes: {} } })));
+    await client.updateAppStoreReviewDetail("rd2", { notes: "use the QR code" });
+    const [patchUrl, patchInit] = fetchMock.mock.calls[2]!;
+    expect(patchInit.method).toBe("PATCH");
+    expect(patchUrl).toContain("/appStoreReviewDetails/rd2");
+  });
+
+  it("returns null review details on a 404", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(404, JSON.stringify({ errors: [{ title: "Not Found" }] })));
+    expect(await client.getAppStoreReviewDetail("v-edit")).toBeNull();
+  });
+});
+
 describe("describeErrors", () => {
   it("joins Apple's error details, falling back to titles", () => {
     expect(describeErrors(JSON.stringify({ errors: [{ detail: "d1" }, { title: "t2" }] }))).toBe("d1; t2");
@@ -437,5 +1096,115 @@ describe("describeErrors", () => {
   it("returns the raw body when it isn't JSON, and a placeholder when empty", () => {
     expect(describeErrors("plain text failure")).toBe("plain text failure");
     expect(describeErrors("")).toBe("no response body");
+  });
+});
+
+describe("AppStoreConnectClient — App Store release lifecycle", () => {
+  it("lists recent builds with processing state and expiry, newest upload first", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [{ id: "b1", attributes: { version: "42", processingState: "VALID", expired: false } }],
+        }),
+      ),
+    );
+    const builds = await client.listBuilds("app1");
+    expect(builds[0]).toEqual({ id: "b1", version: "42", processingState: "VALID", expired: false });
+    expect(fetchMock.mock.calls[0]![0]).toContain("/builds?filter[app]=app1&sort=-uploadedDate");
+  });
+
+  it("declares export compliance with a PATCH to the build", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(204, ""));
+    await client.setBuildUsesNonExemptEncryption("b1", false);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(init.method).toBe("PATCH");
+    expect(url).toContain("/builds/b1");
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      data: { type: "builds", id: "b1", attributes: { usesNonExemptEncryption: false } },
+    });
+  });
+
+  it("creates an App Store version with the app relationship and release type", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        201,
+        JSON.stringify({
+          data: { id: "v1", attributes: { versionString: "1.2.0", appStoreState: "PREPARE_FOR_SUBMISSION" } },
+        }),
+      ),
+    );
+    const version = await client.createAppStoreVersion("app1", {
+      versionString: "1.2.0",
+      platform: "IOS",
+      releaseType: "AFTER_APPROVAL",
+    });
+    expect(version).toMatchObject({ id: "v1", versionString: "1.2.0", appStoreState: "PREPARE_FOR_SUBMISSION" });
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body as string)).toMatchObject({
+      data: {
+        type: "appStoreVersions",
+        attributes: { platform: "IOS", versionString: "1.2.0", releaseType: "AFTER_APPROVAL" },
+        relationships: { app: { data: { type: "apps", id: "app1" } } },
+      },
+    });
+  });
+
+  it("attaches a build via the relationships/build PATCH", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(204, ""));
+    await client.selectBuildForVersion("v1", "b1");
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(init.method).toBe("PATCH");
+    expect(url).toContain("/appStoreVersions/v1/relationships/build");
+    expect(JSON.parse(init.body as string)).toEqual({ data: { type: "builds", id: "b1" } });
+  });
+
+  it("opens a review submission, adds the version as an item, and submits it", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse(201, JSON.stringify({ data: { id: "rs1", attributes: { state: "READY_FOR_REVIEW" } } })),
+      )
+      .mockResolvedValueOnce(fakeResponse(201, JSON.stringify({ data: { id: "item1", attributes: {} } })))
+      .mockResolvedValueOnce(fakeResponse(204, ""));
+
+    const submission = await client.createReviewSubmission("app1", "IOS");
+    expect(submission).toEqual({ id: "rs1", state: "READY_FOR_REVIEW" });
+    await client.addReviewSubmissionItem("rs1", "v1");
+    await client.submitReviewSubmission("rs1");
+
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body as string)).toMatchObject({
+      data: {
+        type: "reviewSubmissions",
+        attributes: { platform: "IOS" },
+        relationships: { app: { data: { id: "app1" } } },
+      },
+    });
+    expect(JSON.parse(fetchMock.mock.calls[1]![1].body as string)).toMatchObject({
+      data: {
+        type: "reviewSubmissionItems",
+        relationships: { reviewSubmission: { data: { id: "rs1" } }, appStoreVersion: { data: { id: "v1" } } },
+      },
+    });
+    expect(JSON.parse(fetchMock.mock.calls[2]![1].body as string)).toMatchObject({
+      data: { type: "reviewSubmissions", id: "rs1", attributes: { submitted: true } },
+    });
+  });
+
+  it("returns null for a phased release that doesn't exist (404 or empty relationship)", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(404, JSON.stringify({ errors: [{ title: "Not Found" }] })));
+    expect(await client.getPhasedRelease("v1")).toBeNull();
+
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: null })));
+    expect(await client.getPhasedRelease("v2")).toBeNull();
+  });
+
+  it("steers a phased release with a state PATCH", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(204, ""));
+    await client.updatePhasedRelease("ph1", "PAUSE");
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(init.method).toBe("PATCH");
+    expect(url).toContain("/appStoreVersionPhasedReleases/ph1");
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      data: { type: "appStoreVersionPhasedReleases", id: "ph1", attributes: { phasedReleaseState: "PAUSE" } },
+    });
   });
 });
