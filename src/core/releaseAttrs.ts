@@ -10,8 +10,8 @@
  * it actually differs), the command prints them, then an APPLY pass performs them, each action isolated
  * so one failing sub-area never aborts the rest. Each sub-area is independent: declaring only `pricing`
  * touches only pricing. The reconcile-action vocabulary (PlannedAction / ActionStatus / ReconcileReport)
- * is reused from `ascSync.ts` so plans render identically to `launch sync`; the small {@link act} helper
- * is restated here because `ascSync` keeps its copy private.
+ * is reused from `ascSync.ts` so plans render identically to `launch sync`, and the {@link act} / {@link skip}
+ * reconcile primitives come from the shared `core/asc/storeSync.ts` vocabulary.
  *
  * This is a standalone command rather than a `launch sync` subcommand on purpose: the `launch sync`
  * orchestrator is owned by a parallel in-flight change, and these app-level attributes are a distinct
@@ -26,7 +26,9 @@ import type {
   AppStoreReviewDetailResource,
   PricePointResource,
 } from "../apple/ascClient.js";
-import type { PlannedAction, ReconcileReport } from "./ascSync.js";
+import { act, skip, type ReconcileContext } from "./asc/storeSync.js";
+import type { ReconcileReport } from "./ascSync.js";
+import { asRecord } from "./json.js";
 
 /** Default platform whose editable version owns the App Review details. */
 const DEFAULT_PLATFORM = "IOS";
@@ -110,36 +112,6 @@ export interface ReleaseReconcileInput {
   platform?: string;
   /** Rehearse only: read state and build the plan, perform no writes. */
   dryRun: boolean;
-}
-
-/** Mutable per-run context threaded through the reconcile walk. */
-interface ReconcileContext {
-  actions: PlannedAction[];
-  dryRun: boolean;
-}
-
-/**
- * Record an action and, unless this is a dry-run, perform it. A thrown error is captured on the action
- * (status `failed`) rather than propagated, so the surrounding walk keeps going. Release attributes are
- * all sets/updates — never destructive — so this is the simpler twin of `ascSync`'s `act`.
- */
-async function act(ctx: ReconcileContext, description: string, run: () => Promise<void>): Promise<void> {
-  const action: PlannedAction = { description, destructive: false, status: "planned" };
-  ctx.actions.push(action);
-  if (ctx.dryRun) return;
-  try {
-    await run();
-    action.status = "applied";
-  } catch (error) {
-    action.status = "failed";
-    action.error = error instanceof Error ? error.message : String(error);
-  }
-}
-
-/** Record a sub-area we can't act on yet (e.g. no editable version) as a skipped action with a reason. */
-function skip(ctx: ReconcileContext, description: string): void {
-  const action: PlannedAction = { description, destructive: false, status: "skipped" };
-  ctx.actions.push(action);
 }
 
 /** The actionable error when an app has no App Store Connect record (Apple has no API to create one). */
@@ -300,16 +272,6 @@ function renderFields(attributes: Record<string, string | boolean>): string {
   return Object.keys(attributes).join(", ");
 }
 
-/**
- * Narrow an unknown value to a plain object, or null. Arrays are rejected so a malformed section like
- * `categories: []` fails loudly (via the empty-document check) instead of passing as a valid empty record.
- */
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
 /** Parse the `categories` section, keeping only string primary/secondary ids that are present. */
 function parseCategories(raw: Record<string, unknown>): ReleaseCategories {
   const categories: ReleaseCategories = {};
@@ -396,17 +358,4 @@ export function loadReleaseConfig(path: string): ReleaseConfig {
     );
   }
   return parseReleaseConfig(JSON.parse(readFileSync(path, "utf8")));
-}
-
-/** Tally a report's action statuses for the run summary (mirrors the `launch sync` summary). */
-export function summarizeRelease(actions: PlannedAction[]): { applied: number; failed: number; skipped: number } {
-  let applied = 0;
-  let failed = 0;
-  let skipped = 0;
-  for (const action of actions) {
-    if (action.status === "applied") applied++;
-    else if (action.status === "failed") failed++;
-    else if (action.status === "skipped") skipped++;
-  }
-  return { applied, failed, skipped };
 }
