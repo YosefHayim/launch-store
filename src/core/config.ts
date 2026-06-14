@@ -7,16 +7,28 @@
 
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 import type { AppDescriptor, LaunchConfig } from "./types.js";
 
 /**
- * On-the-fly loader for the user's config. The compiled `launch` binary runs on plain Node, which
- * can't `import()` a TypeScript file — jiti transpiles `launch.config.ts` in memory and resolves its
- * `launch-store` import from the user's project. (Chosen over bundling a TS toolchain ourselves; it's
- * the same loader Nuxt/ESLint use for config files.)
+ * Absolute path to THIS package's own public entry (`defineConfig` + the config types), resolved
+ * relative to the loader so it points at whichever copy is actually running — the globally-installed
+ * `dist/index.js` in production, the TypeScript source under vitest. The layout `<root>/{src,dist}/core/`
+ * makes `../index.js` the entry from either tree.
  */
-const jiti = createJiti(import.meta.url);
+const SELF_ENTRY = fileURLToPath(new URL("../index.js", import.meta.url));
+
+/**
+ * On-the-fly loader for the user's config. The compiled `launch` binary runs on plain Node, which
+ * can't `import()` a TypeScript file — jiti transpiles `launch.config.ts` in memory. The `alias` pins
+ * the config's `import { defineConfig } from "launch-store"` to {@link SELF_ENTRY}, so a globally
+ * installed `launch` loads the config even when the user's project has no local `launch-store`
+ * dependency (issue #8), and the config always binds to the exact `defineConfig` of the CLI consuming
+ * it — no dual-package version skew. (jiti chosen over bundling a TS toolchain ourselves; it's the
+ * same loader Nuxt/ESLint use for config files.)
+ */
+const jiti = createJiti(import.meta.url, { alias: { "launch-store": SELF_ENTRY } });
 
 /** Input to {@link defineConfig}: `profiles` is required; provider names default sensibly. */
 export type LaunchConfigInput = Pick<LaunchConfig, "profiles"> & Partial<Omit<LaunchConfig, "profiles">>;
