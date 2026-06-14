@@ -32,6 +32,7 @@ import {
   summarizeExportComplianceResult,
 } from "../../core/exportCompliance.js";
 import { appPrivacyChecklist } from "../../core/privacyNutritionLabel.js";
+import { formatPermissionLine, probeKeyPermissions } from "../../core/ascPermissions.js";
 import { localCredentialsProvider } from "../../providers/credentials/local.js";
 
 const APP_STORE_CONNECT_APPS_URL = "https://appstoreconnect.apple.com/apps";
@@ -258,6 +259,35 @@ async function reportAppPrivacy(): Promise<void> {
 }
 
 /**
+ * Probe the active App Store Connect API key against each role-gated feature and print a per-feature
+ * access matrix, so a developer learns up front that (say) their key can't reply to reviews — instead
+ * of discovering it when `launch reviews respond` 403s mid-flight. Apple has no API to read a key's own
+ * role, so each line reflects an actual probe read (see `core/ascPermissions.ts`). Advisory (✓/✗/•):
+ * never fails the doctor. Skipped when no Apple account is configured — `checkAppleAccount` already says
+ * so. Best-effort: app-scoped probes need an app record, resolved here from the first iOS app.
+ */
+async function reportKeyPermissions(): Promise<void> {
+  const ascKey = await loadActiveAscKey();
+  if (!ascKey) return;
+  const client = new AppStoreConnectClient(ascKey);
+  const { apps } = await loadConfig();
+  const bundleId = apps.find((app) => app.bundleId)?.bundleId;
+  let appId: string | null = null;
+  if (bundleId) {
+    try {
+      appId = await client.getAppId(bundleId);
+    } catch {
+      appId = null;
+    }
+  }
+  const results = await probeKeyPermissions(client, appId);
+  console.log("• API-key role access (per feature):");
+  for (const result of results) {
+    console.log(`  ${formatPermissionLine(result)}`);
+  }
+}
+
+/**
  * Report the detected package manager + monorepo workspace root, and warn on the known Corepack/
  * lockfile footguns (see `core/packageManager.ts`). Informational — these warn (•), never fail the
  * check, since the build still runs; surfacing them up front avoids the EAS-class wrong-PM wasted build.
@@ -300,6 +330,7 @@ export async function runDoctor(options: {
   const configOk = await reportConfigChecks("ios");
   await reportExportCompliance(options.fix === true);
   await reportAppPrivacy();
+  await reportKeyPermissions();
   return toolsOk && appleOk && configOk;
 }
 
