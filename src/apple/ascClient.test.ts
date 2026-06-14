@@ -579,6 +579,104 @@ describe("AppStoreConnectClient — listing localizations", () => {
   });
 });
 
+describe("AppStoreConnectClient — TestFlight beta groups + testers", () => {
+  it("creates an external beta group with the app relationship", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(201, JSON.stringify({ data: { id: "bg1", attributes: { name: "External Testers" } } })),
+    );
+    const group = await client.createBetaGroup("app1", "External Testers");
+    expect(group).toEqual({ id: "bg1", name: "External Testers" });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/betaGroups");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      data: {
+        type: "betaGroups",
+        attributes: { name: "External Testers" },
+        relationships: { app: { data: { type: "apps", id: "app1" } } },
+      },
+    });
+  });
+
+  it("lists beta groups, dropping a nameless row and surfacing internal/public-link", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: "bg1", attributes: { name: "External", isInternalGroup: false, publicLink: "https://tf/x" } },
+            { id: "bg2", attributes: { name: "Team", isInternalGroup: true } },
+            { id: "bg3", attributes: {} },
+          ],
+        }),
+      ),
+    );
+    expect(await client.listBetaGroups("app1")).toEqual([
+      { id: "bg1", name: "External", isInternal: false, publicLink: "https://tf/x" },
+      { id: "bg2", name: "Team", isInternal: true },
+    ]);
+    expect(fetchMock.mock.calls[0]![0]).toContain("/apps/app1/betaGroups");
+  });
+
+  it("finds a beta group by name case-insensitively", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(200, JSON.stringify({ data: [{ id: "bg1", attributes: { name: "External Testers" } }] })),
+    );
+    expect((await client.findBetaGroupByName("app1", "external testers"))?.id).toBe("bg1");
+  });
+
+  it("creates a tester with the betaGroups relationship (the invite-sending path)", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        201,
+        JSON.stringify({ data: { id: "t1", attributes: { email: "a@x.com", firstName: "Dana", state: "INVITED" } } }),
+      ),
+    );
+    const tester = await client.createBetaTester("bg1", { email: "a@x.com", firstName: "Dana" });
+    expect(tester).toMatchObject({ id: "t1", email: "a@x.com", firstName: "Dana", state: "INVITED" });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/betaTesters");
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      data: {
+        type: "betaTesters",
+        attributes: { email: "a@x.com", firstName: "Dana" },
+        relationships: { betaGroups: { data: [{ type: "betaGroups", id: "bg1" }] } },
+      },
+    });
+  });
+
+  it("finds a tester by email via the filter, matching case-insensitively", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(200, JSON.stringify({ data: [{ id: "t1", attributes: { email: "A@X.com" } }] })),
+    );
+    expect((await client.findBetaTesterByEmail("a@x.com"))?.id).toBe("t1");
+    expect(fetchMock.mock.calls[0]![0]).toContain("/betaTesters?filter[email]=a%40x.com");
+  });
+
+  it("bulk-adds existing testers to a group via the relationship endpoint", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(204, ""));
+    await client.addTestersToGroup("bg1", ["t1", "t2"]);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/betaGroups/bg1/relationships/betaTesters");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      data: [
+        { type: "betaTesters", id: "t1" },
+        { type: "betaTesters", id: "t2" },
+      ],
+    });
+  });
+
+  it("removes testers from a group with a DELETE carrying the relationship body", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(204, ""));
+    await client.removeTestersFromGroup("bg1", ["t1"]);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/betaGroups/bg1/relationships/betaTesters");
+    expect(init.method).toBe("DELETE");
+    expect(JSON.parse(init.body as string)).toEqual({ data: [{ type: "betaTesters", id: "t1" }] });
+  });
+});
+
 describe("describeErrors", () => {
   it("joins Apple's error details, falling back to titles", () => {
     expect(describeErrors(JSON.stringify({ errors: [{ detail: "d1" }, { title: "t2" }] }))).toBe("d1; t2");

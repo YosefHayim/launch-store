@@ -212,6 +212,35 @@ export interface ListingLocalization {
   fields: Record<string, string>;
 }
 
+/**
+ * A TestFlight beta group — a named tester bucket that belongs to exactly one app. External groups
+ * invite testers by email (and can gate distribution on Beta App Review); the internal group holds
+ * App Store Connect team users. A tester reaches an app's TestFlight by being in one of its groups,
+ * which is why every `launch testflight` tester operation goes through a group.
+ */
+export interface BetaGroupResource {
+  id: string;
+  name: string;
+  /** True for the team-user internal group; external groups are the ones you invite by email. Absent unless requested. */
+  isInternal?: boolean;
+  /** Public TestFlight invite link, when the group has one enabled. Absent otherwise. */
+  publicLink?: string;
+}
+
+/**
+ * A TestFlight tester. Apple keys testers on `email` and scopes them to the team — the same person is
+ * one tester resource reused across apps/groups — so adding an existing email to a new group links
+ * rather than duplicates. `firstName`/`lastName` are optional and shown in the invite.
+ */
+export interface BetaTesterResource {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  /** Apple's invite state, e.g. `INVITED` / `ACCEPTED` / `INSTALLED`. Absent unless requested. */
+  state?: string;
+}
+
 interface ResourceList<A> {
   data: { id: string; attributes: A }[];
 }
@@ -985,6 +1014,133 @@ export class AppStoreConnectClient {
         },
       ],
     });
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /*  TestFlight management — beta groups + testers. Consumed by the           */
+  /*  `launch testflight` command; independent of the build/sign path.         */
+  /*  (Hand-typed JSON:API shapes; migrate to the generated spec types — #56.) */
+  /* ------------------------------------------------------------------------ */
+
+  /** List an app's TestFlight beta groups (internal + external), across all pages. */
+  async listBetaGroups(appId: string): Promise<BetaGroupResource[]> {
+    const data = await this.requestAll<{ name?: string; isInternalGroup?: boolean; publicLink?: string | null }>(
+      `/apps/${appId}/betaGroups?limit=200&fields[betaGroups]=name,isInternalGroup,publicLink`,
+    );
+    return data.flatMap((entry) =>
+      entry.attributes.name
+        ? [
+            {
+              id: entry.id,
+              name: entry.attributes.name,
+              ...(entry.attributes.isInternalGroup === undefined
+                ? {}
+                : { isInternal: entry.attributes.isInternalGroup }),
+              ...(entry.attributes.publicLink ? { publicLink: entry.attributes.publicLink } : {}),
+            },
+          ]
+        : [],
+    );
+  }
+
+  /** Find an app's beta group by exact, case-insensitive name, or null when there's no such group. */
+  async findBetaGroupByName(appId: string, name: string): Promise<BetaGroupResource | null> {
+    const wanted = name.toLowerCase();
+    return (await this.listBetaGroups(appId)).find((group) => group.name.toLowerCase() === wanted) ?? null;
+  }
+
+  /** Create an external beta group on an app — the bucket external testers are invited into. */
+  async createBetaGroup(appId: string, name: string): Promise<BetaGroupResource> {
+    const { data } = await this.request<ResourceSingle<{ name?: string }>>("POST", "/betaGroups", {
+      data: {
+        type: "betaGroups",
+        attributes: { name },
+        relationships: { app: { data: { type: "apps", id: appId } } },
+      },
+    });
+    return { id: data.id, name: data.attributes.name ?? name };
+  }
+
+  /** List the testers in a beta group, across all pages. */
+  async listBetaTestersInGroup(groupId: string): Promise<BetaTesterResource[]> {
+    return this.betaTestersFrom(
+      `/betaGroups/${groupId}/betaTesters?limit=200&fields[betaTesters]=email,firstName,lastName,state`,
+    );
+  }
+
+  /**
+   * Find a tester by email anywhere on the team, or null. Testers are team-scoped, so a hit here is the
+   * person to link into a group rather than re-create; {@link createBetaTester} would otherwise 409.
+   */
+  async findBetaTesterByEmail(email: string): Promise<BetaTesterResource | null> {
+    const wanted = email.toLowerCase();
+    const data = await this.betaTestersFrom(
+      `/betaTesters?filter[email]=${encodeURIComponent(email)}&limit=1&fields[betaTesters]=email,firstName,lastName,state`,
+    );
+    return data.find((tester) => tester.email.toLowerCase() === wanted) ?? data[0] ?? null;
+  }
+
+  /**
+   * Create a tester and add them to a beta group in one call — for an external group this sends the
+   * TestFlight invite email. Use {@link addTestersToGroup} instead when the tester already exists on
+   * the team (an existing email here returns Apple's 409).
+   */
+  async createBetaTester(
+    groupId: string,
+    input: { email: string; firstName?: string; lastName?: string },
+  ): Promise<BetaTesterResource> {
+    const { data } = await this.request<
+      ResourceSingle<{ email?: string; firstName?: string; lastName?: string; state?: string }>
+    >("POST", "/betaTesters", {
+      data: {
+        type: "betaTesters",
+        attributes: {
+          email: input.email,
+          ...(input.firstName === undefined ? {} : { firstName: input.firstName }),
+          ...(input.lastName === undefined ? {} : { lastName: input.lastName }),
+        },
+        relationships: { betaGroups: { data: [{ type: "betaGroups", id: groupId }] } },
+      },
+    });
+    return {
+      id: data.id,
+      email: data.attributes.email ?? input.email,
+      ...(data.attributes.firstName ? { firstName: data.attributes.firstName } : {}),
+      ...(data.attributes.lastName ? { lastName: data.attributes.lastName } : {}),
+      ...(data.attributes.state ? { state: data.attributes.state } : {}),
+    };
+  }
+
+  /** Add existing testers to a beta group in one relationship call (invites external testers). */
+  async addTestersToGroup(groupId: string, testerIds: string[]): Promise<void> {
+    await this.request<unknown>("POST", `/betaGroups/${groupId}/relationships/betaTesters`, {
+      data: testerIds.map((id) => ({ type: "betaTesters", id })),
+    });
+  }
+
+  /** Remove testers from a beta group; they keep app access through any other group they're in. */
+  async removeTestersFromGroup(groupId: string, testerIds: string[]): Promise<void> {
+    await this.request<unknown>("DELETE", `/betaGroups/${groupId}/relationships/betaTesters`, {
+      data: testerIds.map((id) => ({ type: "betaTesters", id })),
+    });
+  }
+
+  /** Shared GET → {@link BetaTesterResource}[] for any beta-tester collection (group members or a lookup). */
+  private async betaTestersFrom(path: string): Promise<BetaTesterResource[]> {
+    const data = await this.requestAll<{ email?: string; firstName?: string; lastName?: string; state?: string }>(path);
+    return data.flatMap((entry) =>
+      entry.attributes.email
+        ? [
+            {
+              id: entry.id,
+              email: entry.attributes.email,
+              ...(entry.attributes.firstName ? { firstName: entry.attributes.firstName } : {}),
+              ...(entry.attributes.lastName ? { lastName: entry.attributes.lastName } : {}),
+              ...(entry.attributes.state ? { state: entry.attributes.state } : {}),
+            },
+          ]
+        : [],
+    );
   }
 
   /** Shared GET → {@link LocalizationResource}[] for any product/subscription/group localization collection. */
