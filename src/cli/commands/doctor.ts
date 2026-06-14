@@ -177,6 +177,29 @@ async function reportCodesignIdentity(): Promise<void> {
   }
 }
 
+/**
+ * Run the doctor preflight for a platform and return whether everything required passed. The body of
+ * `launch doctor`, extracted so the no-args wizard's guided setup can run the same checks inline (and
+ * so callers can branch on the result instead of only reading a process exit code).
+ */
+export async function runDoctor(options: {
+  platform: "ios" | "android";
+  fix?: boolean;
+  yes?: boolean;
+}): Promise<boolean> {
+  if (options.platform === "android") {
+    const toolsOk = await reportAndroidToolchain();
+    console.log(`• ${await localCredentialsProvider.status()}`);
+    const playOk = await checkPlayAccount();
+    return toolsOk && playOk;
+  }
+  const toolsOk = options.fix ? await ensureToolchain({ assumeYes: options.yes === true }) : await reportToolchain();
+  console.log(`• ${await localCredentialsProvider.status()}`);
+  await reportCodesignIdentity();
+  const appleOk = await checkAppleAccount();
+  return toolsOk && appleOk;
+}
+
 /** Attach the `doctor` command to the program. */
 export function registerDoctorCommand(program: Command): void {
   program
@@ -190,21 +213,7 @@ export function registerDoctorCommand(program: Command): void {
       if (platform !== "ios" && platform !== "android") {
         throw new Error(`Unknown platform "${platform}". Use "ios" or "android".`);
       }
-
-      if (platform === "android") {
-        const toolsOk = await reportAndroidToolchain();
-        console.log(`• ${await localCredentialsProvider.status()}`);
-        const playOk = await checkPlayAccount();
-        if (!toolsOk || !playOk) process.exitCode = 1;
-        return;
-      }
-
-      const toolsOk = options.fix
-        ? await ensureToolchain({ assumeYes: options.yes === true })
-        : await reportToolchain();
-      console.log(`• ${await localCredentialsProvider.status()}`);
-      await reportCodesignIdentity();
-      const appleOk = await checkAppleAccount();
-      if (!toolsOk || !appleOk) process.exitCode = 1;
+      const ok = await runDoctor({ platform, fix: options.fix === true, yes: options.yes === true });
+      if (!ok) process.exitCode = 1;
     });
 }

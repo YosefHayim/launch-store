@@ -23,7 +23,19 @@ describe("glossary — the single source for --explain and docs", () => {
     expect(topics).toContain("ad-hoc-distribution");
     expect(topics).toContain("ota-update");
     expect(topics).toContain("store-metadata");
-    expect(topics.length).toBe(30);
+    // Foundational ecosystem/toolchain terms for developers new to RN/Expo/Apple/Google.
+    expect(topics).toContain("react-native");
+    expect(topics).toContain("expo");
+    expect(topics).toContain("eas");
+    expect(topics).toContain("xcode");
+    expect(topics).toContain("gradle");
+    expect(topics).toContain("runtime-version");
+    // Interactive wizard build-flow steps.
+    expect(topics).toContain("build-platform");
+    expect(topics).toContain("build-location");
+    expect(topics).toContain("apple-account");
+    expect(topics).toContain("build-profile");
+    expect(topics.length).toBe(53);
     expect(new Set(topics).size).toBe(topics.length);
   });
 

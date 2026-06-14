@@ -17,7 +17,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { Command } from "commander";
 import { cancel, confirm, isCancel, password, select, text } from "@clack/prompts";
-import type { AscKey } from "../../core/types.js";
+import type { AccountRecord, AscKey } from "../../core/types.js";
 import {
   type AccountIdentity,
   addAccount,
@@ -47,7 +47,7 @@ import { localCredentialsProvider } from "../../providers/credentials/local.js";
  * from the filename), discovered (the `.p8` in `~/Downloads`), or prompted for — unless `yes` forces
  * non-interactive (then a missing required value fails with the exact flag/env to set).
  */
-interface CredsOptions {
+export interface CredsOptions {
   /** Which platform's credentials to act on. Defaults to `ios`. */
   platform?: string;
   /** App Store Connect Key ID; defaults to the one in the `AuthKey_<KEYID>.p8` filename. */
@@ -312,11 +312,17 @@ function discoverUnimportedKeys(importedKeyIds: Set<string>): { path: string; ke
   return candidates;
 }
 
-/** Render the merged picker (onboarded accounts + un-imported `.p8`s) and act on the choice. */
-async function pickAndActivate(options: CredsOptions): Promise<void> {
+/**
+ * The interactive Apple-account chooser shared by `launch creds use` and the no-args wizard. Lists the
+ * onboarded accounts (marking the active one), any un-imported `.p8`s found on disk as quick-add rows,
+ * and an explicit "+ Add another Apple account…" row that runs full onboarding. Activates the chosen
+ * account and returns it. The add row is always present, so it works even before any account exists.
+ */
+export async function chooseAccountInteractive(options: CredsOptions = {}): Promise<AccountRecord> {
   const accounts = listAccounts();
   const active = getActiveKeyId();
   const unimported = discoverUnimportedKeys(new Set(accounts.map((a) => a.keyId)));
+  const ADD_NEW = "add:new";
 
   const rows = [
     ...accounts.map((a) => {
@@ -332,8 +338,8 @@ async function pickAndActivate(options: CredsOptions): Promise<void> {
       label: `${tildify(u.path)} — not imported`,
       hint: `key ${u.keyId} · add`,
     })),
+    { value: ADD_NEW, label: "+ Add another Apple account…", hint: "import a new .p8 key" },
   ];
-  if (rows.length === 0) throw new Error("No Apple accounts and no .p8 keys found. Add one: launch creds set-key");
 
   const choice = await select({ message: "Choose an Apple account:", options: rows });
   if (isCancel(choice)) {
@@ -345,9 +351,14 @@ async function pickAndActivate(options: CredsOptions): Promise<void> {
     setActiveKeyId(keyId);
     const account = accounts.find((a) => a.keyId === keyId);
     console.log(`Active Apple account: ${account?.label ?? keyId} (key ${keyId}).`);
-    return;
+  } else if (choice === ADD_NEW) {
+    await setKey(options);
+  } else {
+    await importIosKeyFromPath(choice.slice("file:".length), options, true);
   }
-  await importIosKeyFromPath(choice.slice("file:".length), options, true);
+  const chosen = getActiveAccount();
+  if (!chosen) throw new Error("No active Apple account after selection.");
+  return chosen;
 }
 
 /** Switch the active Apple account: a direct selector, or the merged picker when none is given. */
@@ -362,7 +373,7 @@ async function useAccount(selector: string | undefined, options: CredsOptions): 
   if (options.yes === true || !process.stdin.isTTY) {
     throw new Error("Pass an account label or Key ID: launch creds use <account>.");
   }
-  await pickAndActivate(options);
+  await chooseAccountInteractive(options);
 }
 
 /** Rename an account's label, rejecting a clash with another account. */
@@ -417,7 +428,7 @@ async function refreshAccounts(selector: string | undefined): Promise<void> {
 }
 
 /** Provision (or reuse) the distribution certificate + provisioning profile for the chosen iOS account/app. */
-async function setupIos(options: CredsOptions): Promise<void> {
+export async function setupIos(options: CredsOptions): Promise<void> {
   const selector = options.account ?? process.env["ASC_ACCOUNT"];
   const account = selector ? matchAccount(listAccounts(), selector) : getActiveAccount();
   if (!account) {

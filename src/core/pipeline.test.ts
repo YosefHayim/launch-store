@@ -11,7 +11,7 @@ vi.mock("node:child_process", () => ({
 }));
 
 import { registerBuiltins } from "../providers/index.js";
-import { runBuild, selectApp, sizeSummary, worstDownloadBytes } from "./pipeline.js";
+import { runBuild, selectApp, sizeSummary, uploadSizeReadout, worstDownloadBytes } from "./pipeline.js";
 import type { AppDescriptor, SizeReport } from "./types.js";
 
 registerBuiltins();
@@ -147,5 +147,49 @@ describe("size helpers — the both-numbers headline (F2)", () => {
 
   it("sizeSummary falls back to on-disk alone when there's no per-device estimate", () => {
     expect(sizeSummary(report([], 61.3 * MB))).toBe("on disk 61.3 MB (no per-device estimate)");
+  });
+});
+
+describe("uploadSizeReadout — pre-upload size lines + growth warning", () => {
+  const MB = 1024 * 1024;
+  const report = (downloadMB: number, artifactMB = 64): SizeReport => ({
+    artifactBytes: artifactMB * MB,
+    entries: [{ device: "iphone", downloadBytes: downloadMB * MB, installBytes: 0 }],
+  });
+
+  it("shows download + on-disk and no delta on the first build", () => {
+    const { lines, grew } = uploadSizeReadout(report(38, 61));
+    expect(lines).toEqual(["download 38.0 MB", "on disk 61.0 MB"]);
+    expect(grew).toBeNull();
+  });
+
+  it("appends a signed delta against the previous build", () => {
+    const { lines } = uploadSizeReadout(report(38), { downloadBytes: 33.8 * MB, buildNumber: 41 });
+    expect(lines[0]).toBe("download 38.0 MB (+4.2 MB since build 41)");
+  });
+
+  it("warns when the download grows more than 10% over the previous build", () => {
+    const { grew } = uploadSizeReadout(report(38), { downloadBytes: 33.8 * MB, buildNumber: 41 });
+    expect(grew).toEqual({ pct: 12, buildNumber: 41 });
+  });
+
+  it("does not warn for growth at or under 10%", () => {
+    const { grew } = uploadSizeReadout(report(36), { downloadBytes: 33.8 * MB, buildNumber: 41 });
+    expect(grew).toBeNull();
+  });
+
+  it("shows a negative delta and no warning when the build shrank", () => {
+    const { lines, grew } = uploadSizeReadout(report(30), { downloadBytes: 33.8 * MB, buildNumber: 41 });
+    expect(lines[0]).toBe("download 30.0 MB (-3.8 MB since build 41)");
+    expect(grew).toBeNull();
+  });
+
+  it("falls back to on-disk only (no delta) when there's no per-device estimate", () => {
+    const readout = uploadSizeReadout(
+      { artifactBytes: 61 * MB, entries: [] },
+      { downloadBytes: 10 * MB, buildNumber: 1 },
+    );
+    expect(readout.lines).toEqual(["on disk 61.0 MB (no per-device estimate)"]);
+    expect(readout.grew).toBeNull();
   });
 });

@@ -492,6 +492,7 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
         app,
         version: app.version ?? "0.0.0",
         buildNumber,
+        previous: await previousBuild(config, app, "ios", buildNumber),
         yes: options.yes ?? false,
         log,
       });
@@ -615,6 +616,7 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
         app,
         version: app.version ?? "0.0.0",
         buildNumber: versionCode,
+        previous: await previousBuild(config, app, "android", versionCode),
         yes: options.yes ?? false,
         log,
       });
@@ -923,6 +925,53 @@ export function sizeSummary(report: SizeReport): string {
   return `download ${mb(worstDownloadBytes(report))} · on disk ${mb(report.artifactBytes)}`;
 }
 
+/** A build whose worst-case download grows beyond this fraction over the previous one earns a warning. */
+const GROWTH_WARN_RATIO = 0.1;
+
+/**
+ * The size lines for the pre-upload checkpoint, with an optional delta against the previous build.
+ * Returns the display lines (download + on-disk, or on-disk alone when there's no per-device estimate)
+ * plus, when the worst-case download grew past {@link GROWTH_WARN_RATIO}, the growth to warn about — so
+ * the caller renders the line and the warning consistently. Pure (no I/O) for direct unit testing.
+ */
+export function uploadSizeReadout(
+  report: SizeReport,
+  previous?: { downloadBytes: number; buildNumber: number },
+): { lines: string[]; grew: { pct: number; buildNumber: number } | null } {
+  if (report.entries.length === 0) {
+    return { lines: [`on disk ${mb(report.artifactBytes)} (no per-device estimate)`], grew: null };
+  }
+  const worst = worstDownloadBytes(report);
+  let downloadLine = `download ${mb(worst)}`;
+  let grew: { pct: number; buildNumber: number } | null = null;
+  if (previous && previous.downloadBytes > 0) {
+    const delta = worst - previous.downloadBytes;
+    const ratio = delta / previous.downloadBytes;
+    downloadLine += ` (${delta >= 0 ? "+" : "-"}${mb(Math.abs(delta))} since build ${previous.buildNumber})`;
+    if (ratio > GROWTH_WARN_RATIO) grew = { pct: Math.round(ratio * 100), buildNumber: previous.buildNumber };
+  }
+  return { lines: [downloadLine, `on disk ${mb(report.artifactBytes)}`], grew };
+}
+
+/**
+ * The most recent prior stored build for this app+platform — the baseline for the upload-time size
+ * delta. Reads the newest-first artifact index and skips the build we just stored (matched by build
+ * number) so the delta compares against the previous upload, not itself. Undefined on the first build.
+ */
+export async function previousBuild(
+  config: LaunchConfig,
+  app: AppDescriptor,
+  platform: Platform,
+  currentBuildNumber: number,
+): Promise<{ downloadBytes: number; buildNumber: number } | undefined> {
+  const history = await resolveStorageProvider(config).list();
+  const prior = history.find(
+    (artifact) =>
+      artifact.appName === app.name && artifact.platform === platform && artifact.buildNumber !== currentBuildNumber,
+  );
+  return prior ? { downloadBytes: worstDownloadBytes(prior.sizeReport), buildNumber: prior.buildNumber } : undefined;
+}
+
 /**
  * Print the per-device size readout for a freshly built artifact (iOS thinning / Android bundletool),
  * or a single on-disk line when there's no per-device report. Display only — the budget decision lives
@@ -952,6 +1001,11 @@ export interface ConfirmUploadOptions {
   version: string;
   /** Build number (iOS) or versionCode (Android) about to be uploaded. */
   buildNumber: number;
+  /**
+   * The previous stored build for this app+platform, for the upload-time size delta. Omitted on the
+   * first build (nothing to compare against), in which case no delta line or growth warning is shown.
+   */
+  previous?: { downloadBytes: number; buildNumber: number } | undefined;
   /** `--yes`: skip the prompt and proceed (also implied in CI / non-TTY). */
   yes: boolean;
   log: Logger;
@@ -965,10 +1019,14 @@ export interface ConfirmUploadOptions {
  * still logs the over-budget warning so the record shows it.
  */
 export async function confirmUpload(options: ConfirmUploadOptions): Promise<void> {
-  const { report, budgetMB, destination, app, version, buildNumber, yes, log } = options;
+  const { report, budgetMB, destination, app, version, buildNumber, previous, yes, log } = options;
   const overBudget = worstDownloadBytes(report) > budgetMB * 1024 * 1024;
+  const { lines, grew } = uploadSizeReadout(report, previous);
 
-  log.notice(`▲ Upload to ${destination}`, `${app.name} ${version} (build ${buildNumber}) · ${sizeSummary(report)}`);
+  log.notice(`▲ Upload to ${destination}`, `${app.name} ${version} (build ${buildNumber})`, ...lines);
+  if (grew) {
+    log.warn(`Grew ${grew.pct}% since build ${grew.buildNumber}.`);
+  }
   if (overBudget) {
     log.warn(`Worst-case download ${mb(worstDownloadBytes(report))} is over the ${budgetMB} MB budget.`);
   }

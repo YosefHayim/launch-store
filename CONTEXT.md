@@ -15,6 +15,33 @@ uploads it to the testing track (a separate, deliberate command does the public 
 The product goal is a "boring, traceable" path from source to store that an individual developer can
 run and understand, with an `--explain` mode that teaches the why and the terminology as it goes.
 
+## Ecosystem primer (new to React Native / Expo / EAS?)
+
+If the terms below are unfamiliar, read this first; every italicized word is defined term-by-term in
+[`language.md`](./language.md) (or run `launch explain <topic>`). The stack, bottom to top:
+
+1. **Your code is _React Native_** — one TypeScript/React codebase that runs as a real native iOS +
+   Android app. **_Expo_** sits on top of it so you describe the app once in **_app.json_** (name,
+   icons, version, permissions, _config plugins_) instead of editing native projects by hand.
+2. **_prebuild_ generates the native projects.** `expo prebuild` turns `app.json` into real `ios/`
+   and `android/` folders. From there it's ordinary native tooling: on iOS, **_Xcode_** (compiler +
+   signing, macOS-only) driven by **_fastlane_**, with native libraries from **_CocoaPods_**; on
+   Android, **_Gradle_** (needs only a JDK, no Mac).
+3. **Publishing needs accounts + signing.** Apple: an **_Apple Developer Program_** membership, the
+   **_App Store Connect_** portal/API, and a chain of signing assets (_bundle id_ → _CSR_ →
+   _distribution certificate_ → _provisioning profile_) so a build can be _code-signed_ and sent to
+   **_TestFlight_**. Google: the **_Play Console_**, a _service account_ for its API, and an _upload
+   key_ under _Play App Signing_. Launch automates all of this except the handful of one-time steps
+   the APIs genuinely can't do (creating the _app record_, signing _agreements_, enrolling Play App
+   Signing) — for those it deep-links you to the right page.
+4. **_EAS_ is the thing Launch replaces.** EAS (Expo Application Services) is Expo's _paid cloud_ that
+   runs steps 2–3 on their servers and hosts _OTA updates_. Launch does the same steps on **your own
+   machine and accounts** for $0 — and can still _hand off_ to `eas-cli` if you have no Mac.
+
+So Launch's place in the world: it owns the orchestration (`app.json` → prebuild → sign → build →
+size-check → store → submit), and delegates the heavy lifting to the same native tools Expo/EAS use
+(Xcode/fastlane, Gradle, the ASC and Play APIs) — just locally, transparently, and without the bill.
+
 ## The core flow: build → sign → submit
 
 `src/core/pipeline.ts` is the single linear spine. One `launch build <platform>` runs, in order:
