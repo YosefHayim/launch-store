@@ -20,6 +20,7 @@ import type {
   BuildArtifact,
   BuildCredentials,
   BuildProfile,
+  Distribution,
   KeystoreAssets,
   LaunchConfig,
   Platform,
@@ -35,13 +36,15 @@ import { loadConfig, writeAppVersion } from "./config.js";
 import { pickOne } from "./prompt.js";
 import { compareVersions, formatVersion, highestVersion, nextVersion, parseVersion } from "./version.js";
 import { loadDotenvFile, missingKeys, secretLookingKeys } from "./env.js";
-import { getBuildEngine, getCredentialsProvider, getStorageProvider, getSubmitter } from "./registry.js";
+import { getBuildEngine, getCredentialsProvider, getSubmitter } from "./registry.js";
+import { resolveStorageProvider } from "./storage.js";
 import { createLogger, type Logger } from "./logger.js";
 import type { GlossaryTopic } from "./glossary.js";
 import { capture, exists, run } from "./exec.js";
 import { isInteractive, runWithProgress, withSpinner } from "./progress.js";
 import { AppStoreConnectClient } from "../apple/ascClient.js";
-import { ensureSigningCredentials } from "../apple/credentials.js";
+import { ensureAdHocSigningCredentials, ensureSigningCredentials } from "../apple/credentials.js";
+import { distributeArtifact } from "./distribute.js";
 import { ensureUploadKeystore } from "../google/credentials.js";
 import { GooglePlayClient, parseServiceAccount } from "../google/playClient.js";
 
@@ -72,6 +75,8 @@ export interface BuildRunOptions {
   remote?: RemoteTarget;
   /** Apple account to build with (`--account`): a label or Key ID. Defaults to the active account. iOS-only. */
   account?: string;
+  /** How to distribute (`--distribution`): `store` (default, TestFlight/Play) or `internal` (ad-hoc install link). */
+  distribution?: Distribution;
 }
 
 /**
@@ -260,9 +265,23 @@ async function resolveSigning(
   app: AppDescriptor,
   log: Logger,
   dryRun: boolean,
+  distribution: Distribution | undefined,
 ): Promise<SigningAssets> {
   const bundleId = app.bundleId;
   if (!bundleId) throw new Error(`No iOS bundle identifier for ${app.name}. Set ios.bundleIdentifier in app.json.`);
+  // An ad-hoc (internal) build needs a device-scoped ad-hoc profile, recreated each run, so the cached
+  // App Store assets don't apply — go straight to ad-hoc provisioning.
+  if (distribution === "internal") {
+    if (!dryRun) log.info(`Provisioning an ad-hoc profile for ${bundleId} over your registered devices.`);
+    return ensureAdHocSigningCredentials({
+      bundleId,
+      appName: app.name,
+      ascKey: credentials.ascKey,
+      log,
+      dryRun,
+      confirmCreate: interactiveConfirm,
+    });
+  }
   if (credentials.signing) {
     log.step(
       "signing",
@@ -337,6 +356,7 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
     dryRun,
     forceClean: options.forceClean ?? false,
     ...(android ? { android } : {}),
+    ...(options.distribution ? { distribution: options.distribution } : {}),
   };
   return { config, app, profile, env, ctx, log };
 }
@@ -392,12 +412,14 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
     : await getCredentialsProvider(config.credentials).resolve(ctx);
   if (resolved.platform !== "ios") throw new Error("Expected iOS credentials for an iOS build.");
   log.step("credentials", dryRun ? "dry-run (no key needed)" : `key ${resolved.ascKey.keyId}`, "asc-api-key");
-  const signing = await resolveSigning(resolved, app, log, dryRun);
+  const signing = await resolveSigning(resolved, app, log, dryRun, ctx.distribution);
   const credentials: BuildCredentials = { platform: "ios", ascKey: resolved.ascKey, signing };
   const bundleId = app.bundleId ?? "";
+  const internal = ctx.distribution === "internal";
 
-  // 3b. Suggest the next marketing version from what's already on the store (interactive uploads only).
-  if (options.submit) await resolveMarketingVersion(resolved.ascKey, bundleId, app, options, log);
+  // 3b. Suggest the next marketing version from what's already on the store (interactive store uploads only —
+  // an internal install-link build doesn't touch the store, so the store-version prompt is skipped).
+  if (options.submit && !internal) await resolveMarketingVersion(resolved.ascKey, bundleId, app, options, log);
 
   // 4. Auto-bump the build number from the last one Apple has on record.
   const buildNumber = dryRun
@@ -436,6 +458,26 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
 
   // 7. Store the artifact (shared with Android).
   await storeArtifact(prepared, artifactPath, buildNumber, sizeReport, cleanBuilt);
+
+  // 8a. Internal distribution: skip the store entirely — upload an ad-hoc install link instead.
+  if (internal) {
+    await distributeArtifact({
+      config,
+      app,
+      platform: "ios",
+      artifactPath,
+      version: app.version ?? "0.0.0",
+      buildNumber,
+      bundleId,
+      dryRun,
+      log,
+    });
+    if (dryRun) {
+      log.gap();
+      log.info(`Done. ${app.name} ${app.version ?? "0.0.0"} (${buildNumber}) · dry-run, nothing changed`);
+    }
+    return;
+  }
 
   // 8. Confirm the upload (size shown; budget enforced here), submit, then report processing status.
   const destination = options.target === "testing" ? "TestFlight" : "App Store review";
@@ -541,6 +583,25 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
   // 7. Store the artifact (shared with iOS).
   await storeArtifact(prepared, artifactPath, versionCode, sizeReport, cleanBuilt);
 
+  // 8a. Internal distribution: skip the Play track — upload the .apk as a direct install link.
+  if (ctx.distribution === "internal") {
+    await distributeArtifact({
+      config,
+      app,
+      platform: "android",
+      artifactPath,
+      version: app.version ?? "0.0.0",
+      buildNumber: versionCode,
+      dryRun,
+      log,
+    });
+    if (dryRun) {
+      log.gap();
+      log.info(`Done. ${app.name} ${app.version ?? "0.0.0"} (${versionCode}) · dry-run, nothing changed`);
+    }
+    return;
+  }
+
   // 8. Confirm the upload (size shown; budget enforced here), then submit via fastlane supply.
   const track = ctx.android?.track ?? "internal";
   if (options.submit) {
@@ -607,7 +668,7 @@ async function storeArtifact(
     clean: cleanBuilt,
     createdAt: new Date().toISOString(),
   };
-  const stored = await getStorageProvider(config.storage).put(artifact);
+  const stored = await resolveStorageProvider(config).put(artifact);
   log.step("store", stored.location);
 }
 

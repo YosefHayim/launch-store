@@ -16,8 +16,11 @@ import { registerInitCommand } from "./commands/init.js";
 import { registerBuildCommand } from "./commands/build.js";
 import { registerReleaseCommand } from "./commands/release.js";
 import { registerCredsCommand } from "./commands/creds.js";
+import { registerMetadataCommand } from "./commands/metadata.js";
+import { registerDeviceCommand } from "./commands/device.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerExplainCommand } from "./commands/explain.js";
+import { registerUpdateCommand } from "./commands/update.js";
 import { registerCloudCommand } from "./commands/cloud.js";
 import { runWizard } from "./commands/wizard.js";
 
@@ -48,8 +51,11 @@ registerInitCommand(program);
 registerBuildCommand(program);
 registerReleaseCommand(program);
 registerCredsCommand(program);
+registerMetadataCommand(program);
+registerDeviceCommand(program);
 registerDoctorCommand(program);
 registerExplainCommand(program);
+registerUpdateCommand(program);
 registerCloudCommand(program);
 
 // No subcommand → the animated rocket banner, then the interactive wizard (the Expo-style front

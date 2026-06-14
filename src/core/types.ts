@@ -13,6 +13,16 @@
 export type Platform = "ios" | "android";
 
 /**
+ * How a build is distributed.
+ * - `store`: the normal path — App Store/TestFlight (iOS) or a Play track (Android). The default.
+ * - `internal`: an install link for registered testers — an ad-hoc-signed `.ipa` (iOS, valid only for
+ *   the devices on the ad-hoc profile) or a directly-installable `.apk` (Android), hosted on the
+ *   user's own bucket with an `itms-services` manifest + landing page. The EAS "internal distribution"
+ *   equivalent, with no shared cloud queue.
+ */
+export type Distribution = "store" | "internal";
+
+/**
  * Where a submission lands, neutrally named and mapped to each store by the platform's submitter.
  * - `testing`: a testing track (iOS → TestFlight; Android → the chosen {@link PlayTrack}, default
  *   `internal`). The default, safe path.
@@ -124,6 +134,39 @@ export interface LaunchConfig {
   appRoots?: string[];
   /** AWS EC2 Mac settings for remote (off-Mac) builds. Only needed when building via `--remote aws`. */
   aws?: AwsConfig;
+  /**
+   * Bucket/endpoint settings for a cloud {@link StorageProvider} (`s3` / `supabase`). Required when
+   * `storage` names a cloud provider — it's where ad-hoc install links and OTA update manifests are
+   * hosted. Secrets stay out: access keys resolve from env / the OS secret store, never from here.
+   */
+  storageConfig?: StorageConfig;
+}
+
+/**
+ * Non-secret settings for a cloud {@link StorageProvider}. Launch writes static artifacts (install
+ * plists, OTA manifests, JS bundles, IPAs/AABs) here and serves them from {@link StorageConfig.publicBaseUrl},
+ * so the user owns the infra (no Launch-hosted server). Credentials are NEVER stored here — the S3
+ * access key / Supabase service key resolve from env vars or the OS secret store at call time.
+ */
+export interface StorageConfig {
+  /**
+   * S3-compatible endpoint, e.g. `https://<account>.r2.cloudflarestorage.com` (Cloudflare R2),
+   * a Backblaze B2 / MinIO endpoint, etc. Omit for AWS S3 (the SDK derives it from the region).
+   * Unused by the `supabase` provider.
+   */
+  endpoint?: string;
+  /** Bucket name (S3-compatible) or storage bucket id (Supabase). */
+  bucket: string;
+  /** Region for an S3-compatible provider. Defaults to `auto` (correct for R2) when omitted; unused by Supabase. */
+  region?: string;
+  /**
+   * Public base URL that maps to the bucket root — used to build install links and OTA manifest URLs.
+   * e.g. an R2 custom domain `https://cdn.example.com`, or a Supabase public object URL prefix
+   * `https://<project>.supabase.co/storage/v1/object/public/<bucket>`. No trailing slash required.
+   */
+  publicBaseUrl: string;
+  /** Supabase project URL (`https://<project>.supabase.co`). Required by `supabase`, unused by `s3`. */
+  supabaseUrl?: string;
 }
 
 /**
@@ -149,6 +192,12 @@ export interface ResolvedBuildContext {
   forceClean: boolean;
   /** Resolved Android track + rollout. Present only for Android builds; the submitter reads it. */
   android?: AndroidReleaseOptions;
+  /**
+   * How this build is distributed (`store` default, or `internal` for an ad-hoc install link). Read by
+   * the build engine to pick the export method (ad-hoc vs app-store / APK vs AAB) and by the pipeline
+   * to choose the distribute-vs-submit tail. Absent is treated as `store`.
+   */
+  distribution?: Distribution;
   /**
    * Key ID of the Apple account resolved for this iOS run (from `--account`/`ASC_ACCOUNT`, the active
    * account, or the build-time picker). The `local` credentials provider loads this account's key and
@@ -408,18 +457,32 @@ export interface BuildEngine {
 /**
  * Persists build artifacts and hands back a retrievable location.
  *
- * Shaped after the S3 object-store model (`put`/`get`/`list`/`url`) so cloud providers
- * (R2, S3, Supabase) are thin drop-ins. v1 ships only the `local` provider.
+ * Shaped after the S3 object-store model (`put`/`list`/`url` for build artifacts, plus
+ * `putObject`/`publicUrl` for the raw files ad-hoc install links and OTA manifests need) so cloud
+ * providers (R2, S3, Supabase) are thin drop-ins. `local` writes under `~/.launch`; the cloud
+ * providers upload to the user's own bucket and serve from {@link StorageConfig.publicBaseUrl}.
  */
 export interface StorageProvider {
-  /** Registry name, e.g. `local`. */
+  /** Registry name, e.g. `local`, `s3`, `supabase`. */
   readonly name: string;
-  /** Store an artifact and return a pointer to it. */
+  /** Store a build artifact and return a pointer to it. */
   put(artifact: BuildArtifact): Promise<StoredArtifact>;
-  /** List stored artifacts, newest first. */
+  /** List stored build artifacts, newest first. */
   list(): Promise<BuildArtifact[]>;
   /** Resolve a retrievable location (path or URL) for a stored artifact id. */
   url(id: string): Promise<string>;
+  /**
+   * Upload a raw object at `key` (a forward-slash path within the bucket) with the given content type,
+   * returning its retrievable location. Powers ad-hoc distribution (IPA/APK + install plist + landing
+   * page) and OTA updates (manifest JSON + JS bundles + assets), which store arbitrary keyed files.
+   */
+  putObject(key: string, body: Buffer | string, contentType: string): Promise<StoredArtifact>;
+  /**
+   * The public URL an object at `key` is served from — computed without a network call so a manifest
+   * can reference an asset's URL before that asset is uploaded (e.g. the install plist points at the
+   * IPA's URL). For `local` this is a `file://` path (real install links need a cloud provider).
+   */
+  publicUrl(key: string): string;
 }
 
 /**

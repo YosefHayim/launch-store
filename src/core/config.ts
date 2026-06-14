@@ -46,6 +46,7 @@ export function defineConfig(input: LaunchConfigInput): LaunchConfig {
     profiles: input.profiles,
     ...(input.appRoots ? { appRoots: input.appRoots } : {}),
     ...(input.aws ? { aws: input.aws } : {}),
+    ...(input.storageConfig ? { storageConfig: input.storageConfig } : {}),
   };
 }
 

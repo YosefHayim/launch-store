@@ -34,7 +34,10 @@ export type GlossaryTopic =
   | "bundletool"
   | "ccache"
   | "incremental-build"
-  | "build-fingerprint";
+  | "build-fingerprint"
+  | "ad-hoc-distribution"
+  | "ota-update"
+  | "store-metadata";
 
 const GLOSSARY: Record<GlossaryTopic, string> = {
   prebuild: [
@@ -170,6 +173,21 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "Build fingerprint: a hash of the inputs that move the native graph — Podfile.lock, the native config",
     "slice, and the Xcode version. Launch stores it per app and compares it each build: unchanged means a",
     "fast incremental build; changed means one `pod install` + a clean build. JS-only edits don't count.",
+  ].join("\n"),
+  "ad-hoc-distribution": [
+    "Ad-hoc / internal distribution: an install link for your testers without TestFlight. iOS signs an",
+    "ad-hoc .ipa valid only for devices whose UDID is on the profile (register them with `launch device add`)",
+    "and serves an itms-services manifest; Android serves the .apk directly. Both host on YOUR own bucket.",
+  ].join("\n"),
+  "ota-update": [
+    "OTA update: ship a JS/asset-only change to installed apps without a new store build, using the Expo",
+    "Updates protocol your app already embeds (expo-updates). `launch update` exports the bundle, writes a",
+    "signed manifest keyed by runtime version + channel to your bucket, and the app fetches it on launch.",
+  ].join("\n"),
+  "store-metadata": [
+    "Store metadata: your listing — name, subtitle, description, keywords, release notes, URLs. Launch syncs",
+    "it from a versioned store.config.json (Expo's schema for iOS, plus an android extension) via fastlane",
+    "deliver/supply, so the listing lives in your repo and pushes deterministically alongside the build.",
   ].join("\n"),
 };
 

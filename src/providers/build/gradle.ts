@@ -40,6 +40,15 @@ function findBundle(androidDir: string): string {
   return join(releaseDir, aab);
 }
 
+/** Find the single release `.apk` Gradle emitted under `app/build/outputs/apk/release/` (internal distribution). */
+function findApk(androidDir: string): string {
+  const releaseDir = join(androidDir, "app", "build", "outputs", "apk", "release");
+  if (!existsSync(releaseDir)) throw new Error(`Gradle produced no release apk dir (${releaseDir}).`);
+  const apk = readdirSync(releaseDir).find((entry) => entry.endsWith(".apk"));
+  if (!apk) throw new Error(`No .apk found in ${releaseDir} after assembleRelease.`);
+  return join(releaseDir, apk);
+}
+
 /**
  * Parse `bundletool get-size total --dimensions=ALL` CSV into the min/max download in bytes.
  *
@@ -119,12 +128,16 @@ export const gradleBuildEngine: BuildEngine = {
     // (iOS-style native fingerprinting isn't needed here — Gradle tracks task inputs/outputs itself.)
     const cleanBuilt = ctx.forceClean;
 
-    // Sign the bundle with the resolved upload key via AGP's injected-signing properties (no build.gradle edit).
+    // Internal distribution needs a directly-installable .apk; the store path produces an .aab.
+    const internal = ctx.distribution === "internal";
+    const assembleTask = internal ? ":app:assembleRelease" : ":app:bundleRelease";
+
+    // Sign the artifact with the resolved upload key via AGP's injected-signing properties (no build.gradle edit).
     await runWithProgress(
       wrapper,
       [
         ...(cleanBuilt ? [":app:clean"] : []),
-        ":app:bundleRelease",
+        assembleTask,
         `-Pandroid.injected.signing.store.file=${keystore.path}`,
         `-Pandroid.injected.signing.store.password=${keystore.storePassword}`,
         `-Pandroid.injected.signing.key.alias=${keystore.alias}`,
@@ -132,6 +145,18 @@ export const gradleBuildEngine: BuildEngine = {
       ],
       { label: `Building Android · ${ctx.app.name}`, parseStep: gradleProgressStep, cwd: androidDir, env: ctx.env },
     );
+
+    // An .apk's on-disk size is essentially the download (no Play splits), so report it directly;
+    // an .aab gets the bundletool worst-case estimate (the .aab file size is NOT the download).
+    if (internal) {
+      const apkPath = findApk(androidDir);
+      const apkBytes = statSync(apkPath).size;
+      return {
+        artifactPath: apkPath,
+        sizeReport: { artifactBytes: apkBytes, entries: [{ device: "apk", downloadBytes: apkBytes, installBytes: 0 }] },
+        cleanBuilt,
+      };
+    }
 
     const artifactPath = findBundle(androidDir);
     const artifactBytes = statSync(artifactPath).size;

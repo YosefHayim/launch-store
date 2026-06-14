@@ -97,10 +97,39 @@ Everything Launch does today, on hardware you control:
 - **Any Mac over SSH, or Expo EAS.** Hand off to a Mac you already reach (`--remote user@host`) or to Expo's
   cloud — see [Building without a Mac](#building-without-a-mac).
 
+**Distribute & update**
+
+- **Internal distribution (install links).** `launch build ios --distribution internal` ad-hoc-signs over
+  your registered devices and hosts an `itms-services` install link on your own bucket; Android serves the
+  `.apk` directly. Register testers with `launch device add <udid>`. No TestFlight, no shared cloud queue.
+- **Store metadata, both platforms.** `launch metadata pull/push` syncs your listing (name, subtitle,
+  description, keywords, release notes, URLs) from a versioned `store.config.json` — Expo's schema for iOS,
+  plus an `android` extension. (`eas metadata` is iOS-only; Launch covers Play too.)
+- **Over-the-air updates.** `launch update` publishes a JS/asset update via the **Expo Updates protocol**
+  the `expo-updates` client already speaks — exported, **code-signed by default**, and uploaded to your own
+  bucket (S3 / R2 / Supabase). The EAS Update replacement, hosted on your infrastructure.
+
 **Open by design**
 
 - **MIT, no lock-in.** Pluggable storage, credentials, build, and submit providers built on `fastlane` and
   Apple's own tooling — nothing proprietary to migrate off later.
+
+## Launch vs EAS
+
+Launch matches the EAS Build/Submit/Update/metadata surface on hardware you own — and structurally avoids
+the failure modes EAS users hit most:
+
+| Pain in EAS                                                   | In Launch                                                                             |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Apple-ID **2FA** prompts / rejected codes block builds        | Authenticates with an **App Store Connect API key (JWT)** — no password, no 2FA, ever |
+| Builds **queue** in a shared cloud, sometimes for hours       | Builds on **your machine** — no queue, no timeout                                     |
+| Toolchain/Node pinned by the build image; `.env` not resolved | Uses **your own** toolchain and environment                                           |
+| `eas metadata` is **iOS-only**                                | `launch metadata` covers **iOS _and_ Android**                                        |
+| EAS Update runs on **Expo's servers** (paid)                  | `launch update` serves the **same protocol** from **your own bucket**                 |
+| Per-build pricing, monthly caps                               | **$0 compute** on your Mac; pay only your own cloud if you build without one          |
+
+`launch doctor` surfaces these live (e.g. it confirms API-key auth and that your distribution identity is
+visible to `codesign` from the login keychain — sidestepping the macOS-Tahoe temp-keychain failures).
 
 ## Platform support
 
@@ -187,16 +216,19 @@ provision them inline. Public App Store submission is the separate, deliberate `
 
 ## Commands
 
-| Command                                          | What it does                                                                                                                                 |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `launch`                                         | Interactive wizard — detects your OS and routes (the Expo-style front door, great on a non-Mac).                                             |
-| `launch init`                                    | Scaffold `launch.config.ts` (+ `.env.example`) into the current repo.                                                                        |
-| `launch build <ios\|android>`                    | Run the full pipeline and upload to TestFlight. Flags: `--profile`, `--app`, `--explain`, `--no-submit`, `--remote`, `--clean`, `--dry-run`. |
-| `launch release <ios\|android>`                  | Submit the latest stored build to the **public** App Store review queue (with confirmation).                                                 |
-| `launch creds [status\|set-key\|setup]`          | Inspect, import the API key, or provision the cert + profile.                                                                                |
-| `launch cloud [setup\|status\|teardown\|doctor]` | Manage the remote AWS EC2 Mac build host (see [Building without a Mac](#building-without-a-mac)).                                            |
-| `launch doctor`                                  | Check the toolchain and Apple account (missing app record, unsigned agreements).                                                             |
-| `launch explain [topic]`                         | Plain-English glossary (`csr`, `app-record`, `provisioning-profile`, `ec2-mac`, …).                                                          |
+| Command                                          | What it does                                                                                                                                                        |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `launch`                                         | Interactive wizard — detects your OS and routes (the Expo-style front door, great on a non-Mac).                                                                    |
+| `launch init`                                    | Scaffold `launch.config.ts` (+ `.env.example`) into the current repo.                                                                                               |
+| `launch build <ios\|android>`                    | Run the full pipeline and upload to TestFlight/Play. Flags: `--profile`, `--app`, `--explain`, `--no-submit`, `--remote`, `--distribution`, `--clean`, `--dry-run`. |
+| `launch release <ios\|android>`                  | Submit the latest stored build to the **public** App Store review queue (with confirmation).                                                                        |
+| `launch creds [status\|set-key\|setup]`          | Inspect, import the API key, or provision the cert + profile.                                                                                                       |
+| `launch metadata [pull\|push]`                   | Sync the store listing (name, description, keywords, screenshots) via `store.config.json` — iOS + Android.                                                          |
+| `launch device [add\|list]`                      | Register/list devices for ad-hoc (internal) distribution.                                                                                                           |
+| `launch update`                                  | Publish an over-the-air JS update (Expo Updates protocol, code-signed) to your own bucket.                                                                          |
+| `launch cloud [setup\|status\|teardown\|doctor]` | Manage the remote AWS EC2 Mac build host (see [Building without a Mac](#building-without-a-mac)).                                                                   |
+| `launch doctor`                                  | Check the toolchain and Apple account (missing app record, unsigned agreements).                                                                                    |
+| `launch explain [topic]`                         | Plain-English glossary (`csr`, `app-record`, `ota-update`, `ad-hoc-distribution`, …).                                                                               |
 
 Add `--explain` to any build to expand every step into a short teaching block — useful whether it's your
 first iOS release or your hundredth.
