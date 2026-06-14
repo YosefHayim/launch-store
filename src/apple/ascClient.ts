@@ -601,6 +601,38 @@ export interface AppStoreReviewDetailResource {
   attributes: Record<string, string | boolean>;
 }
 
+/** The App Clip card's call-to-action button — Apple's `AppClipAction` enum, restated for public signatures. */
+export type AppClipActionValue = "OPEN" | "VIEW" | "PLAY";
+
+/**
+ * An app's App Clip — the install-free slice launched from a link / NFC / App Clip Code. Created by
+ * uploading a build with an App Clip target (Apple has no API to create one), so this is read-only; the
+ * reconciler matches a config entry to a clip by its own `bundleId` and skips clips no build produced yet.
+ */
+export interface AppClipResource {
+  id: string;
+  /** The clip's own bundle id (e.g. `com.acme.app.Clip`) — the key config entries are matched on. */
+  bundleId?: string;
+}
+
+/**
+ * One default App Clip experience — the App Clip card configuration for a specific App Store version.
+ * `action` is the card's call-to-action; `versionId` is the editable version it releases with (from the
+ * `releaseWithAppStoreVersion` relationship), used to pick the experience for the version being prepared.
+ */
+export interface AppClipDefaultExperienceResource {
+  id: string;
+  action?: string;
+  versionId?: string;
+}
+
+/** One locale of an App Clip's default experience — the card subtitle shown to users in that locale. */
+export interface AppClipLocalizationResource {
+  id: string;
+  locale: string;
+  subtitle?: string;
+}
+
 interface ResourceList<A> {
   data: { id: string; attributes: A }[];
 }
@@ -688,6 +720,20 @@ interface PromotedPurchasePage {
       inAppPurchaseV2?: { data?: { id: string } | null };
       subscription?: { data?: { id: string } | null };
     };
+  }[];
+  links?: { next?: string };
+}
+
+/**
+ * One page of an App Clip's `appClipDefaultExperiences`, read with each row's `releaseWithAppStoreVersion`
+ * relationship intact (which {@link AppStoreConnectClient.requestAll} drops) — that linkage is how an
+ * experience is matched to the editable App Store version being reconciled.
+ */
+interface AppClipExperiencePage {
+  data: {
+    id: string;
+    attributes?: { action?: string };
+    relationships?: { releaseWithAppStoreVersion?: { data?: { id: string } | null } };
   }[];
   links?: { next?: string };
 }
@@ -986,6 +1032,111 @@ export class AppStoreConnectClient {
     await this.request<unknown>("PATCH", `/appStoreVersionLocalizations/${localizationId}`, {
       data: { type: "appStoreVersionLocalizations", id: localizationId, attributes: fields },
     });
+  }
+
+  /**
+   * List an app's App Clips (read-only — a clip is created by uploading a build with an App Clip target).
+   * The reconciler matches a config entry to a clip by its own `bundleId`.
+   */
+  async listAppClips(appId: string): Promise<AppClipResource[]> {
+    const data = await this.requestAll<{ bundleId?: string }>(`/apps/${appId}/appClips?limit=200`);
+    return data.map((entry) => ({
+      id: entry.id,
+      ...(entry.attributes.bundleId ? { bundleId: entry.attributes.bundleId } : {}),
+    }));
+  }
+
+  /**
+   * List a clip's default experiences with each one's card `action` and the App Store version it releases
+   * with — the version linkage lets the reconciler pick the experience for the version being prepared.
+   */
+  async listAppClipDefaultExperiences(appClipId: string): Promise<AppClipDefaultExperienceResource[]> {
+    const all: AppClipDefaultExperienceResource[] = [];
+    let next: string | undefined =
+      `/appClips/${appClipId}/appClipDefaultExperiences` +
+      `?include=releaseWithAppStoreVersion&fields[appClipDefaultExperiences]=action,releaseWithAppStoreVersion&limit=200`;
+    while (next) {
+      const page: AppClipExperiencePage = await this.request<AppClipExperiencePage>("GET", next);
+      for (const entry of page.data) {
+        all.push({
+          id: entry.id,
+          ...(entry.attributes?.action ? { action: entry.attributes.action } : {}),
+          ...(entry.relationships?.releaseWithAppStoreVersion?.data?.id
+            ? { versionId: entry.relationships.releaseWithAppStoreVersion.data.id }
+            : {}),
+        });
+      }
+      next = page.links?.next;
+    }
+    return all;
+  }
+
+  /** Create a clip's default experience for an editable version, optionally setting the card action. */
+  async createAppClipDefaultExperience(
+    appClipId: string,
+    versionId: string,
+    action?: AppClipActionValue,
+  ): Promise<{ id: string }> {
+    const body: components["schemas"]["AppClipDefaultExperienceCreateRequest"] = {
+      data: {
+        type: "appClipDefaultExperiences",
+        ...(action ? { attributes: { action } } : {}),
+        relationships: {
+          appClip: { data: { type: "appClips", id: appClipId } },
+          releaseWithAppStoreVersion: { data: { type: "appStoreVersions", id: versionId } },
+        },
+      },
+    };
+    const { data } = await this.request<ResourceSingle<{ action?: string }>>(
+      "POST",
+      "/appClipDefaultExperiences",
+      body,
+    );
+    return { id: data.id };
+  }
+
+  /** PATCH a default experience's card call-to-action (`OPEN` / `VIEW` / `PLAY`). */
+  async updateAppClipDefaultExperienceAction(experienceId: string, action: AppClipActionValue): Promise<void> {
+    const body: components["schemas"]["AppClipDefaultExperienceUpdateRequest"] = {
+      data: { type: "appClipDefaultExperiences", id: experienceId, attributes: { action } },
+    };
+    await this.request<unknown>("PATCH", `/appClipDefaultExperiences/${experienceId}`, body);
+  }
+
+  /** List a default experience's per-locale card localizations (locale + subtitle). */
+  async listAppClipDefaultExperienceLocalizations(experienceId: string): Promise<AppClipLocalizationResource[]> {
+    const data = await this.requestAll<{ locale?: string; subtitle?: string }>(
+      `/appClipDefaultExperiences/${experienceId}/appClipDefaultExperienceLocalizations?limit=200`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      locale: entry.attributes.locale ?? "",
+      ...(entry.attributes.subtitle ? { subtitle: entry.attributes.subtitle } : {}),
+    }));
+  }
+
+  /** Create a card localization (locale + subtitle) under a default experience. */
+  async createAppClipDefaultExperienceLocalization(
+    experienceId: string,
+    locale: string,
+    subtitle: string,
+  ): Promise<void> {
+    const body: components["schemas"]["AppClipDefaultExperienceLocalizationCreateRequest"] = {
+      data: {
+        type: "appClipDefaultExperienceLocalizations",
+        attributes: { locale, subtitle },
+        relationships: { appClipDefaultExperience: { data: { type: "appClipDefaultExperiences", id: experienceId } } },
+      },
+    };
+    await this.request<unknown>("POST", "/appClipDefaultExperienceLocalizations", body);
+  }
+
+  /** PATCH a card localization's subtitle (the locale itself is immutable). */
+  async updateAppClipDefaultExperienceLocalization(localizationId: string, subtitle: string): Promise<void> {
+    const body: components["schemas"]["AppClipDefaultExperienceLocalizationUpdateRequest"] = {
+      data: { type: "appClipDefaultExperienceLocalizations", id: localizationId, attributes: { subtitle } },
+    };
+    await this.request<unknown>("PATCH", `/appClipDefaultExperienceLocalizations/${localizationId}`, body);
   }
 
   /** Cheap call that fails with a clear message when the account has an unsigned/expired agreement. */
