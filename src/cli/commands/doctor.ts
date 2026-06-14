@@ -26,6 +26,11 @@ import { GooglePlayClient, parseServiceAccount } from "../../google/playClient.j
 import { loadServiceAccount } from "../../google/credentials.js";
 import { loadActiveAscKey } from "../../core/accounts.js";
 import { checkApp, formatFinding } from "../../core/configCheck.js";
+import {
+  describeExportComplianceConfig,
+  reconcileExportCompliance,
+  summarizeExportComplianceResult,
+} from "../../core/exportCompliance.js";
 import { localCredentialsProvider } from "../../providers/credentials/local.js";
 
 const APP_STORE_CONNECT_APPS_URL = "https://appstoreconnect.apple.com/apps";
@@ -203,6 +208,41 @@ async function reportConfigChecks(platform: "ios" | "android"): Promise<boolean>
 }
 
 /**
+ * Report each iOS app's export-compliance posture from its Expo config (`ios.config.usesNonExemptEncryption`),
+ * so a developer answers the encryption question once instead of being re-prompted on every upload. With
+ * `--fix` and an active Apple account, also reconcile the latest uploaded build via the App Store Connect
+ * API — answering it directly, or reusing an approved App Encryption Declaration. Always advisory (✓/•),
+ * never fails the doctor and best-effort on the network side.
+ */
+async function reportExportCompliance(fix: boolean): Promise<void> {
+  const { apps } = await loadConfig();
+  const iosApps = apps.filter((app) => app.bundleId);
+  if (iosApps.length === 0) return;
+
+  const ascKey = fix ? await loadActiveAscKey() : null;
+  const client = ascKey ? new AppStoreConnectClient(ascKey) : null;
+  for (const app of iosApps) {
+    const status = describeExportComplianceConfig(app.usesNonExemptEncryption);
+    console.log(`${status.ok ? "✓" : "•"} ${app.name}: ${status.message}`);
+    if (!client || !app.bundleId || app.usesNonExemptEncryption === undefined) continue;
+    try {
+      const buildNumber = await client.getLatestBuildNumber(app.bundleId);
+      if (buildNumber === 0) continue;
+      const result = await reconcileExportCompliance(client, {
+        bundleId: app.bundleId,
+        buildNumber,
+        usesNonExemptEncryption: app.usesNonExemptEncryption,
+      });
+      console.log(`  ↳ build ${buildNumber}: ${summarizeExportComplianceResult(result)}`);
+    } catch (error) {
+      console.log(
+        `  ↳ could not reconcile export compliance — ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+}
+
+/**
  * Report the detected package manager + monorepo workspace root, and warn on the known Corepack/
  * lockfile footguns (see `core/packageManager.ts`). Informational — these warn (•), never fail the
  * check, since the build still runs; surfacing them up front avoids the EAS-class wrong-PM wasted build.
@@ -243,6 +283,7 @@ export async function runDoctor(options: {
   await reportCodesignIdentity();
   const appleOk = await checkAppleAccount();
   const configOk = await reportConfigChecks("ios");
+  await reportExportCompliance(options.fix === true);
   return toolsOk && appleOk && configOk;
 }
 

@@ -82,6 +82,17 @@ export interface AppDescriptor {
    * when higher, so an intentional local bump is never clobbered but the store stays the source of truth.
    */
   androidVersionCode?: number;
+  /**
+   * Export-compliance answer from `app.json` (`ios.config.usesNonExemptEncryption`) — the standard Expo
+   * field that becomes `ITSAppUsesNonExemptEncryption` in the built `Info.plist`. Read from the app's own
+   * Expo config (exactly where EAS reads it), never redeclared in `launch.config.ts`. `false` means the
+   * app uses no encryption, or only exempt encryption, so the binary self-answers the export-compliance
+   * question and no per-upload prompt appears; `true` means it uses non-exempt encryption and needs a
+   * formal {@link https://developer.apple.com/documentation/appstoreconnectapi/appencryptiondeclaration App Encryption Declaration}.
+   * Absent when the app leaves the field unset — then App Store Connect re-asks the question on every
+   * upload (see `core/exportCompliance.ts`). iOS only.
+   */
+  usesNonExemptEncryption?: boolean;
 }
 
 /**
