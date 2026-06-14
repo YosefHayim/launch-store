@@ -812,6 +812,73 @@ export interface PassTypeIdResource {
   name?: string;
 }
 
+/**
+ * Apple's leaderboard score formatters — the closed enum a leaderboard's `defaultFormatter` must be.
+ * `satisfies` keeps this runtime list in lockstep with the generated OpenAPI enum: drift fails the build.
+ */
+export const LEADERBOARD_FORMATTERS = [
+  "INTEGER",
+  "DECIMAL_POINT_1_PLACE",
+  "DECIMAL_POINT_2_PLACE",
+  "DECIMAL_POINT_3_PLACE",
+  "ELAPSED_TIME_CENTISECOND",
+  "ELAPSED_TIME_MINUTE",
+  "ELAPSED_TIME_SECOND",
+  "MONEY_POUND_DECIMAL",
+  "MONEY_POUND",
+  "MONEY_DOLLAR_DECIMAL",
+  "MONEY_DOLLAR",
+  "MONEY_EURO_DECIMAL",
+  "MONEY_EURO",
+  "MONEY_FRANC_DECIMAL",
+  "MONEY_FRANC",
+  "MONEY_KRONER_DECIMAL",
+  "MONEY_KRONER",
+  "MONEY_YEN",
+] as const satisfies readonly components["schemas"]["GameCenterLeaderboardFormatter"][];
+
+/** One of Apple's leaderboard score formatters. */
+export type LeaderboardFormatter = (typeof LEADERBOARD_FORMATTERS)[number];
+
+/** How a leaderboard score is aggregated and sorted — Apple's two closed enums, restated for config. */
+export type LeaderboardSubmissionType = "BEST_SCORE" | "MOST_RECENT_SCORE";
+export type LeaderboardSortType = "ASC" | "DESC";
+
+/** An app's Game Center configuration container (read-only attributes; created to enable Game Center). */
+export interface GameCenterDetailResource {
+  id: string;
+}
+
+/** A Game Center achievement, identified for config matching by its developer-chosen `vendorIdentifier`. */
+export interface GameCenterAchievementResource {
+  id: string;
+  vendorIdentifier?: string;
+}
+
+/** A Game Center leaderboard, identified for config matching by its developer-chosen `vendorIdentifier`. */
+export interface GameCenterLeaderboardResource {
+  id: string;
+  vendorIdentifier?: string;
+}
+
+/** Attributes for creating a Game Center achievement (mirrors Apple's `GameCenterAchievementV2CreateRequest`). */
+export interface GameCenterAchievementCreate {
+  referenceName: string;
+  vendorIdentifier: string;
+  points: number;
+  showBeforeEarned: boolean;
+  repeatable: boolean;
+}
+
+/** Attributes for creating a Game Center leaderboard (mirrors Apple's `GameCenterLeaderboardV2CreateRequest`). */
+export interface GameCenterLeaderboardCreate {
+  referenceName: string;
+  vendorIdentifier: string;
+  defaultFormatter: LeaderboardFormatter;
+  submissionType: LeaderboardSubmissionType;
+  scoreSortType: LeaderboardSortType;
+}
+
 interface ResourceList<A> {
   data: { id: string; attributes: A }[];
 }
@@ -3387,6 +3454,130 @@ export class AppStoreConnectClient {
       data: { type: "passTypeIds", attributes: { name, identifier } },
     };
     await this.request<unknown>("POST", "/passTypeIds", body);
+  }
+
+  // ── Game Center: detail container + achievements / leaderboards (`launch game-center`) ───────────────
+
+  /** Read an app's Game Center detail (the container enabling Game Center), or null when not yet enabled. */
+  async getGameCenterDetail(appId: string): Promise<GameCenterDetailResource | null> {
+    try {
+      const { data } = await this.request<{ data: { id: string } | null }>("GET", `/apps/${appId}/gameCenterDetail`);
+      return data ? { id: data.id } : null;
+    } catch (error) {
+      if (error instanceof AscRequestError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  /** Enable Game Center for an app by creating its detail container, returning the new detail. */
+  async createGameCenterDetail(appId: string): Promise<GameCenterDetailResource> {
+    const body: components["schemas"]["GameCenterDetailCreateRequest"] = {
+      data: { type: "gameCenterDetails", relationships: { app: { data: { type: "apps", id: appId } } } },
+    };
+    const { data } = await this.request<ResourceSingle<Record<string, never>>>("POST", "/gameCenterDetails", body);
+    return { id: data.id };
+  }
+
+  /** List a detail's achievements (just their `vendorIdentifier`s — the reconciler's idempotency key). */
+  async listGameCenterAchievements(detailId: string): Promise<GameCenterAchievementResource[]> {
+    const data = await this.requestAll<{ vendorIdentifier?: string }>(
+      `/gameCenterDetails/${detailId}/gameCenterAchievements?fields[gameCenterAchievements]=vendorIdentifier&limit=200`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      ...(entry.attributes.vendorIdentifier ? { vendorIdentifier: entry.attributes.vendorIdentifier } : {}),
+    }));
+  }
+
+  /**
+   * Create a Game Center achievement (V2) under a detail. The V2 model couples an achievement to an
+   * initial version, so the create supplies an inline `gameCenterAchievementVersions` with a temp id
+   * (the same temp-id + `included` pattern as {@link createSubscriptionOfferCode}); Apple returns the real
+   * version id in `data.relationships.versions`, which {@link createGameCenterAchievementLocalization}
+   * needs since localizations attach to the version, not the achievement.
+   */
+  async createGameCenterAchievement(
+    detailId: string,
+    attributes: GameCenterAchievementCreate,
+  ): Promise<{ id: string; versionId: string | null }> {
+    const body: components["schemas"]["GameCenterAchievementV2CreateRequest"] = {
+      data: {
+        type: "gameCenterAchievements",
+        attributes,
+        relationships: {
+          gameCenterDetail: { data: { type: "gameCenterDetails", id: detailId } },
+          versions: { data: [{ type: "gameCenterAchievementVersions", id: "version-0" }] },
+        },
+      },
+      included: [{ type: "gameCenterAchievementVersions", id: "version-0" }],
+    };
+    const { data } = await this.request<{
+      data: { id: string; relationships?: { versions?: { data?: { id: string }[] } } };
+    }>("POST", this.v2("/gameCenterAchievements"), body);
+    return { id: data.id, versionId: data.relationships?.versions?.data?.[0]?.id ?? null };
+  }
+
+  /** Create the default-locale localization for an achievement version (name + before/after descriptions). */
+  async createGameCenterAchievementLocalization(
+    versionId: string,
+    fields: { locale: string; name: string; beforeEarnedDescription: string; afterEarnedDescription: string },
+  ): Promise<void> {
+    const body: components["schemas"]["GameCenterAchievementLocalizationV2CreateRequest"] = {
+      data: {
+        type: "gameCenterAchievementLocalizations",
+        attributes: fields,
+        relationships: { version: { data: { type: "gameCenterAchievementVersions", id: versionId } } },
+      },
+    };
+    await this.request<unknown>("POST", this.v2("/gameCenterAchievementLocalizations"), body);
+  }
+
+  /** List a detail's leaderboards (just their `vendorIdentifier`s — the reconciler's idempotency key). */
+  async listGameCenterLeaderboards(detailId: string): Promise<GameCenterLeaderboardResource[]> {
+    const data = await this.requestAll<{ vendorIdentifier?: string }>(
+      `/gameCenterDetails/${detailId}/gameCenterLeaderboards?fields[gameCenterLeaderboards]=vendorIdentifier&limit=200`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      ...(entry.attributes.vendorIdentifier ? { vendorIdentifier: entry.attributes.vendorIdentifier } : {}),
+    }));
+  }
+
+  /** Create a Game Center leaderboard (V2) under a detail — same inline-version pattern as the achievement create. */
+  async createGameCenterLeaderboard(
+    detailId: string,
+    attributes: GameCenterLeaderboardCreate,
+  ): Promise<{ id: string; versionId: string | null }> {
+    const body: components["schemas"]["GameCenterLeaderboardV2CreateRequest"] = {
+      data: {
+        type: "gameCenterLeaderboards",
+        attributes,
+        relationships: {
+          gameCenterDetail: { data: { type: "gameCenterDetails", id: detailId } },
+          versions: { data: [{ type: "gameCenterLeaderboardVersions", id: "version-0" }] },
+        },
+      },
+      included: [{ type: "gameCenterLeaderboardVersions", id: "version-0" }],
+    };
+    const { data } = await this.request<{
+      data: { id: string; relationships?: { versions?: { data?: { id: string }[] } } };
+    }>("POST", this.v2("/gameCenterLeaderboards"), body);
+    return { id: data.id, versionId: data.relationships?.versions?.data?.[0]?.id ?? null };
+  }
+
+  /** Create the default-locale localization for a leaderboard version (name, optional formatter override). */
+  async createGameCenterLeaderboardLocalization(
+    versionId: string,
+    fields: { locale: string; name: string; formatterOverride?: LeaderboardFormatter },
+  ): Promise<void> {
+    const body: components["schemas"]["GameCenterLeaderboardLocalizationV2CreateRequest"] = {
+      data: {
+        type: "gameCenterLeaderboardLocalizations",
+        attributes: fields,
+        relationships: { version: { data: { type: "gameCenterLeaderboardVersions", id: versionId } } },
+      },
+    };
+    await this.request<unknown>("POST", this.v2("/gameCenterLeaderboardLocalizations"), body);
   }
 
   /** Reserve an asset: POST the resource with `fileName`/`fileSize`, returning its id + upload operations. */
