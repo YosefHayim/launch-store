@@ -57,6 +57,7 @@ export type GlossaryTopic =
   | "store-metadata"
   // Build-time env
   | "env-vars"
+  | "env-precedence"
   // Build speed / cache
   | "ccache"
   | "incremental-build"
@@ -278,6 +279,12 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "Build-time env: Launch loads .env for the chosen profile and exposes those values to the app.",
     "There is no EXPO_PUBLIC_ prefix guard here, so anything in .env can reach the shipped bundle —",
     "keep backend secrets out of it. Launch warns on secret-looking names as a gentle net.",
+  ].join("\n"),
+  "env-precedence": [
+    "Env precedence: build, release, and update resolve env through ONE ladder, so a var never differs",
+    "between them. Highest wins: --env flags › keychain secrets › profile env: › .env.local (only with",
+    "--include-local) › .env.<profile> › .env. `--print-env` prints the resolved values (secrets masked)",
+    "and which layer each came from. .env.local is never loaded unless you opt in.",
   ].join("\n"),
 
   // ── Build speed / cache ───────────────────────────────────────────────────

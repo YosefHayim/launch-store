@@ -95,6 +95,13 @@ export interface BuildProfile {
   name: string;
   /** Dotenv file to load for this profile, relative to the app dir. Defaults to `.env`. */
   envFile?: string;
+  /**
+   * Inline env vars for this profile, merged into the build/update/release environment. They sit
+   * above the dotenv files (`.env.local`, `.env.<profile>`, `.env`) but below keychain secrets and
+   * `--env` flags in the precedence ladder — see `core/env.ts` `resolveEnv`. Use for non-secret,
+   * committed config that should travel with the profile; keep real secrets in `launch secret`.
+   */
+  env?: Record<string, string>;
   /** Enable SSL pinning for this profile (mirrors the existing build.ts toggle). Defaults to false. */
   ssl?: boolean;
   /**

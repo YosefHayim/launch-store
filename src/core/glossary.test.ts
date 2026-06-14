@@ -25,6 +25,8 @@ describe("glossary — the single source for --explain and docs", () => {
     expect(topics).toContain("store-metadata");
     // APNs push-key vault (issue #19).
     expect(topics).toContain("apns-key");
+    // Consistent env resolution (issue #25).
+    expect(topics).toContain("env-precedence");
     // Foundational ecosystem/toolchain terms for developers new to RN/Expo/Apple/Google.
     expect(topics).toContain("react-native");
     expect(topics).toContain("expo");
@@ -37,8 +39,9 @@ describe("glossary — the single source for --explain and docs", () => {
     expect(topics).toContain("build-location");
     expect(topics).toContain("apple-account");
     expect(topics).toContain("build-profile");
+    // Bundle-ID capabilities teaching entry (issue #19, PR #43).
     expect(topics).toContain("bundle-id-capability");
-    expect(topics.length).toBe(55);
+    expect(topics.length).toBe(56);
     expect(new Set(topics).size).toBe(topics.length);
   });
 
