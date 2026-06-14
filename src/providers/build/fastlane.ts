@@ -19,7 +19,7 @@ import type {
   SizeReport,
   SizeReportEntry,
 } from "../../core/types.js";
-import { run } from "../../core/exec.js";
+import { runWithProgress, xcodeProgressStep } from "../../core/progress.js";
 
 /** Locate the generated Xcode workspace and derive its scheme from the `ios/` directory. */
 function findWorkspace(iosDir: string): { workspace: string; scheme: string } {
@@ -124,7 +124,7 @@ export const fastlaneBuildEngine: BuildEngine = {
     const plistPath = join(outputDir, "ExportOptions.plist");
     writeFileSync(plistPath, exportOptionsPlist(signing));
 
-    await run(
+    await runWithProgress(
       "fastlane",
       [
         "gym",
@@ -147,6 +147,8 @@ export const fastlaneBuildEngine: BuildEngine = {
       ],
       // The API key lets gym's signing/upload helpers talk to Apple without a 2FA prompt.
       {
+        label: `Building iOS · ${ctx.app.name}`,
+        parseStep: xcodeProgressStep,
         cwd: ctx.app.dir,
         env: {
           APP_STORE_CONNECT_API_KEY_KEY_ID: creds.ascKey.keyId,

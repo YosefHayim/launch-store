@@ -6,6 +6,7 @@
 import type { Command } from "commander";
 import type { PlayTrack, RemoteTarget } from "../../core/types.js";
 import { runBuild } from "../../core/pipeline.js";
+import { setVerboseOutput } from "../../core/progress.js";
 
 interface BuildCommandOptions {
   profile: string;
@@ -14,6 +15,8 @@ interface BuildCommandOptions {
   /** commander sets this false when `--no-submit` is passed. */
   submit: boolean;
   dryRun: boolean;
+  /** Stream the raw xcodebuild/gradle/prebuild output instead of the spinner (`--verbose`). */
+  verbose: boolean;
   /** `--remote` (bare → AWS) or `--remote <target>` where target is `aws` or `user@host`. iOS-only. */
   remote?: string | boolean;
   /** Android-only: Play track (`--track`). */
@@ -68,10 +71,12 @@ export function registerBuildCommand(program: Command): void {
     .option("--track <track>", "Android only — Play track: internal|closed|open|production (default: internal)")
     .option("--rollout <fraction>", "Android only — staged-rollout fraction for production (default: 1.0)")
     .option("--dry-run", "rehearse every step and print what it would do, changing nothing", false)
+    .option("-v, --verbose", "stream the full xcodebuild/gradle output instead of a progress spinner", false)
     .action(async (platform: string, options: BuildCommandOptions) => {
       if (platform !== "ios" && platform !== "android") {
         throw new Error(`Unknown platform "${platform}". Use "ios" or "android".`);
       }
+      setVerboseOutput(options.verbose);
       const remote = resolveRemote(options.remote);
       const track = parseTrack(options.track);
       const rollout = parseRollout(options.rollout);

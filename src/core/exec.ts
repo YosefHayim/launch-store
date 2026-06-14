@@ -3,10 +3,12 @@
  *
  * All commands run with `shell: false` and an explicit argument array — never a concatenated
  * string — which sidesteps the shell-injection class of bug (and the DEP0190 warning the old
- * build script emitted). `run` streams output for long builds; `capture` collects it for parsing.
+ * build script emitted). `run` streams output for long builds; `capture` collects it for parsing;
+ * `runQuiet` pipes output to a log file + a per-line callback so a spinner can hide the noise.
  */
 
 import { spawn } from "node:child_process";
+import { createWriteStream } from "node:fs";
 
 /** Options shared by {@link run} and {@link capture}. */
 export interface ExecOptions {
@@ -14,6 +16,14 @@ export interface ExecOptions {
   cwd?: string;
   /** Extra environment variables merged over `process.env`. */
   env?: Record<string, string>;
+}
+
+/** Extra options for {@link runQuiet}: where to tee the full output and how to observe it live. */
+export interface QuietExecOptions extends ExecOptions {
+  /** Called once per line of combined stdout+stderr as it arrives — used to drive a spinner. */
+  onLine?: (line: string) => void;
+  /** Append the complete combined output here (the file is created/opened in append mode). */
+  logFile?: string;
 }
 
 /**
@@ -30,6 +40,50 @@ export function run(command: string, args: string[], options: ExecOptions = {}):
     });
     child.on("error", reject);
     child.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`${command} exited with code ${code ?? "unknown"}`));
+    });
+  });
+}
+
+/**
+ * Run a command with its output piped (not inherited): each line is forwarded to `onLine` and the
+ * full stream is tee'd to `logFile`. Nothing is printed directly, so a caller can render a spinner
+ * over the top and keep the complete log on disk for debugging. Resolves on exit 0, rejects with the
+ * exit code otherwise (the caller owns surfacing the captured tail).
+ */
+export function runQuiet(command: string, args: string[], options: QuietExecOptions = {}): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const logStream = options.logFile ? createWriteStream(options.logFile, { flags: "a" }) : undefined;
+    const child = spawn(command, args, {
+      cwd: options.cwd,
+      env: { ...process.env, ...options.env },
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: false,
+    });
+
+    // Buffer across chunks so `onLine` always receives whole lines, never a split fragment.
+    let pending = "";
+    const consume = (chunk: Buffer): void => {
+      logStream?.write(chunk);
+      pending += chunk.toString();
+      let newline = pending.indexOf("\n");
+      while (newline !== -1) {
+        options.onLine?.(pending.slice(0, newline));
+        pending = pending.slice(newline + 1);
+        newline = pending.indexOf("\n");
+      }
+    };
+    child.stdout.on("data", consume);
+    child.stderr.on("data", consume);
+
+    child.on("error", (error) => {
+      logStream?.end();
+      reject(error);
+    });
+    child.on("close", (code) => {
+      if (pending) options.onLine?.(pending);
+      logStream?.end();
       if (code === 0) resolve();
       else reject(new Error(`${command} exited with code ${code ?? "unknown"}`));
     });
