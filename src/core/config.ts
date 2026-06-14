@@ -109,6 +109,10 @@ function toDescriptor(raw: Record<string, unknown>, dir: string, configPath: str
   if (ios && typeof ios["bundleIdentifier"] === "string") descriptor.bundleId = ios["bundleIdentifier"];
   const entitlements = ios ? asRecord(ios["entitlements"]) : null;
   if (entitlements) descriptor.iosEntitlements = entitlements;
+  const iosConfig = ios ? asRecord(ios["config"]) : null;
+  if (iosConfig && typeof iosConfig["usesNonExemptEncryption"] === "boolean") {
+    descriptor.usesNonExemptEncryption = iosConfig["usesNonExemptEncryption"];
+  }
   const android = asRecord(expo["android"]);
   if (android && typeof android["package"] === "string") descriptor.packageName = android["package"];
   if (android && typeof android["versionCode"] === "number") descriptor.androidVersionCode = android["versionCode"];
