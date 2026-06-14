@@ -387,6 +387,27 @@ export interface AscKey {
 }
 
 /**
+ * One imported APNs authentication key (`.p8`) in Launch's push-key vault (`~/.launch/push-keys.json`).
+ *
+ * An APNs auth key is how a backend sends push notifications to your app. Unlike the App Store Connect
+ * key, Apple exposes NO API to create one — it's a download-once, portal-only key (Certificates, IDs &
+ * Profiles → Keys), capped at 2 per account — so Launch can only *import* and safeguard a key you've
+ * already downloaded, never mint one. Launch never *uses* these keys (push is a backend/runtime concern);
+ * the vault exists so a download-once secret isn't lost. This record is non-secret metadata only — the
+ * `.p8` PEM stays in the OS secret store under `apns-p8:<keyId>`. An APNs key is team-wide, not per-app.
+ */
+export interface ApnsKeyRecord {
+  /** The key's ID — the 10-char value in the `AuthKey_<KEYID>.p8` filename. The vault's primary key. */
+  keyId: string;
+  /** Apple Team ID the key belongs to, when known (from the active account or `--team-id`). */
+  teamId?: string;
+  /** Human label chosen at import time (e.g. `Prod push`). Defaults to the Key ID. */
+  label?: string;
+  /** ISO-8601 instant the key was imported into the vault. */
+  importedAt: string;
+}
+
+/**
  * One onboarded Apple account in Launch's registry (`~/.launch/accounts.json`).
  *
  * An App Store Connect API key belongs to exactly one Apple team, so each registry entry *is* an

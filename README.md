@@ -64,7 +64,8 @@ and open source:
   credentials or the native project.
 - **Keys in your keychain.** `launch creds set-key` finds the `AuthKey_*.p8` in `~/Downloads`, validates
   it against Apple, and stores it in your OS secret store; `creds setup` registers the app id + creates or
-  reuses the signing assets; multi-account `creds use/rename/remove` switches between teams.
+  reuses the signing assets; multi-account `creds use/rename/remove` switches between teams. `creds push-key`
+  vaults a download-once APNs auth key (Apple has no API to create one) and re-exports it on demand.
 - **Secrets, not plaintext `.env`.** `launch secret set <NAME>` stores a build secret in your OS keychain
   (scoped per app/profile) and injects it into the build env — keeping real secrets out of a committed
   `.env`; `secret list` (masked) and `secret rm` round it out.
