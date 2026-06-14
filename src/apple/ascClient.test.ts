@@ -1191,6 +1191,53 @@ describe("EU alternative distribution", () => {
   });
 });
 
+describe("Apple Pay / Wallet identifiers", () => {
+  it("lists merchant ids with their identifier + name", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: "m1", attributes: { identifier: "merchant.com.acme.app", name: "Acme Pay" } },
+            { id: "m2", attributes: { identifier: "merchant.com.acme.b2b" } },
+          ],
+        }),
+      ),
+    );
+    const merchantIds = await client.listMerchantIds();
+    expect(fetchMock.mock.calls[0]![0]).toContain("/merchantIds?limit=200");
+    expect(merchantIds).toEqual([
+      { id: "m1", identifier: "merchant.com.acme.app", name: "Acme Pay" },
+      { id: "m2", identifier: "merchant.com.acme.b2b" },
+    ]);
+  });
+
+  it("registers a merchant id with name + identifier", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(201, JSON.stringify({ data: { id: "m-new", attributes: {} } })));
+    await client.createMerchantId("merchant.com.acme.app", "Acme Pay");
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(init.method).toBe("POST");
+    expect(url).toContain("/merchantIds");
+    const body = JSON.parse(init.body as string);
+    expect(body.data).toEqual({
+      type: "merchantIds",
+      attributes: { name: "Acme Pay", identifier: "merchant.com.acme.app" },
+    });
+  });
+
+  it("registers a pass type id with name + identifier", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(201, JSON.stringify({ data: { id: "p-new", attributes: {} } })));
+    await client.createPassTypeId("pass.com.acme.coupon", "Acme Coupon");
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/passTypeIds");
+    const body = JSON.parse(init.body as string);
+    expect(body.data).toEqual({
+      type: "passTypeIds",
+      attributes: { name: "Acme Coupon", identifier: "pass.com.acme.coupon" },
+    });
+  });
+});
+
 describe("describeErrors", () => {
   it("joins Apple's error details, falling back to titles", () => {
     expect(describeErrors(JSON.stringify({ errors: [{ detail: "d1" }, { title: "t2" }] }))).toBe("d1; t2");
