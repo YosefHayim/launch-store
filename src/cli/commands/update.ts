@@ -25,11 +25,14 @@ import { ensureCodeSigner } from "../../core/codeSign.js";
 import {
   assembleManifest,
   contentTypeFor,
+  historySnapshotKey,
   manifestKey,
+  manifestSignatureKey,
   updatesAppConfigSnippet,
   updatesWorkerScript,
   type ManifestAsset,
 } from "../../core/otaManifest.js";
+import { clearRollbackDirective, recordPublish } from "../../core/updateHistory.js";
 
 /** The subset of `expo export`'s `metadata.json` Launch reads: per-platform bundle + asset paths. */
 interface ExportMetadata {
@@ -59,7 +62,7 @@ function platformsFor(platform: string): ("ios" | "android")[] {
  * in the app config, then the app's marketing version. A fingerprint-policy runtime version (an object,
  * not a string) can't be resolved statically — those must pass `--runtime-version`.
  */
-function resolveRuntimeVersion(app: AppDescriptor, override: string | undefined): string {
+export function resolveRuntimeVersion(app: AppDescriptor, override: string | undefined): string {
   if (override) return override;
   try {
     const raw = JSON.parse(readFileSync(app.configPath, "utf8")) as {
@@ -128,11 +131,24 @@ async function publishPlatform(
   });
   const body = JSON.stringify(manifest);
   await storage.putObject(manifestKey(channel, platform, runtimeVersion), body, "application/json");
+  // Immutable snapshot so `launch updates view`/`rollback` can read this exact manifest back later.
+  await storage.putObject(historySnapshotKey(channel, platform, runtimeVersion, manifest.id), body, "application/json");
 
   if (sign) {
     const signer = await ensureCodeSigner(false, log);
-    await storage.putObject(`${prefix}/manifest.sig`, signer.sign(body), "text/plain");
+    await storage.putObject(manifestSignatureKey(channel, platform, runtimeVersion), signer.sign(body), "text/plain");
   }
+
+  await recordPublish(storage, channel, platform, {
+    id: manifest.id,
+    runtimeVersion,
+    createdAt: manifest.createdAt,
+    active: true,
+    signed: sign,
+    kind: "publish",
+  });
+  // A fresh publish supersedes any prior `--to-embedded` rollback for this runtime version.
+  await clearRollbackDirective(storage, channel, platform, runtimeVersion);
   log.step("update", `${platform} · ${assets.length} asset(s) → ${prefix}/`, "ota-update");
 }
 

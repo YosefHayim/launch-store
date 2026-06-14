@@ -103,6 +103,12 @@ export function createSupabaseStorageProvider(config: StorageConfig): StoragePro
       return upload(key, body, contentType);
     },
 
+    async getObject(key: string): Promise<Buffer | null> {
+      const serviceKey = await resolveServiceKey();
+      const response = await fetch(objectEndpoint(key), { headers: { Authorization: `Bearer ${serviceKey}` } });
+      return response.ok ? Buffer.from(await response.arrayBuffer()) : null;
+    },
+
     publicUrl,
   };
 }
