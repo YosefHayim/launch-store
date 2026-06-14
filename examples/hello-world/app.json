@@ -3,8 +3,24 @@
     "name": "Hello World",
     "slug": "hello-world",
     "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "helloworld",
     "ios": {
-      "bundleIdentifier": "com.example.helloworld"
+      "bundleIdentifier": "com.example.helloworld",
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.developer.game-center": true,
+        "com.apple.developer.in-app-payments": ["merchant.com.example.helloworld"],
+        "com.apple.developer.pass-type-identifiers": ["pass.com.example.helloworld.coupon"],
+        "com.apple.developer.associated-domains": ["applinks:downloads.example.com"]
+      }
+    },
+    "android": {
+      "package": "com.example.helloworld",
+      "versionCode": 1
     }
   }
 }
