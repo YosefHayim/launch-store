@@ -23,7 +23,20 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: npm
-      - run: npm ci
+      # Cache the installed dependency tree so an unchanged lockfile skips `npm ci` entirely. The key
+      # binds OS + Node major + lockfile hash; any dependency change flips the hash and forces a clean
+      # reinstall. Deliberately NO restore-keys — a partial node_modules carried over from a different
+      # lockfile is a silent correctness hazard, so we reuse an EXACT match or reinstall from scratch.
+      # `cache: npm` above still warms ~/.npm, so the reinstall on a miss stays fast.
+      - name: Cache node_modules
+        id: node-modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-modules-${{ runner.os }}-node${{ matrix.node }}-${{ hashFiles('package-lock.json') }}
+      - name: Install dependencies
+        if: steps.node-modules.outputs.cache-hit != 'true'
+        run: npm ci
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run format:check
