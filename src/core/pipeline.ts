@@ -33,6 +33,7 @@ import type {
 } from "./types.js";
 import { refreshIdentityIfStale, resolveBuildAccount, setActiveKeyId } from "./accounts.js";
 import { loadConfig, writeAppVersion } from "./config.js";
+import { checkApp, formatFinding } from "./configCheck.js";
 import { pickOne } from "./prompt.js";
 import { compareVersions, formatVersion, highestVersion, nextVersion, parseVersion } from "./version.js";
 import { loadDotenvFile, missingKeys, secretLookingKeys } from "./env.js";
@@ -345,6 +346,22 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
     log.warn(`"${name}" looks like a backend secret — it would be bundled into the app. Keep secrets out of .env.`);
   }
   log.step("env", `${Object.keys(env).length} vars validated`, "env-vars");
+
+  // Preflight the app config against known native-config footguns, before any expensive native work.
+  // Warnings are surfaced; a build-breaking error (an invalid bundle id / package, a splash with no
+  // backgroundColor) hard-stops here rather than failing deep inside xcodebuild/gradle minutes later.
+  const findings = await checkApp(app, platform);
+  for (const finding of findings) {
+    if (finding.severity === "warn") log.warn(formatFinding(finding));
+  }
+  const configErrors = findings.filter((finding) => finding.severity === "error");
+  if (configErrors.length > 0) {
+    throw new Error(
+      `App config preflight failed for ${app.name}:\n` +
+        configErrors.map((finding) => `  ✗ ${formatFinding(finding)}`).join("\n"),
+    );
+  }
+  log.step("config check", findings.length > 0 ? `${findings.length} warning(s)` : "no footguns");
 
   const android = platform === "android" ? resolveAndroidRelease(options, profile) : undefined;
   const ctx: ResolvedBuildContext = {

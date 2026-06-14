@@ -24,6 +24,7 @@ import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { GooglePlayClient, parseServiceAccount } from "../../google/playClient.js";
 import { loadServiceAccount } from "../../google/credentials.js";
 import { loadActiveAscKey } from "../../core/accounts.js";
+import { checkApp, formatFinding } from "../../core/configCheck.js";
 import { localCredentialsProvider } from "../../providers/credentials/local.js";
 
 const APP_STORE_CONNECT_APPS_URL = "https://appstoreconnect.apple.com/apps";
@@ -178,6 +179,29 @@ async function reportCodesignIdentity(): Promise<void> {
 }
 
 /**
+ * Validate each discovered app's Expo config against the known native-config footguns, the same
+ * "fail before a wasted build" check `launch build` runs at its head. An `error` finding (invalid
+ * bundle id / package, a splash with no backgroundColor) fails the doctor; a `warn` (missing icon or
+ * scheme) is surfaced but doesn't. Returns whether every app passed without an error.
+ */
+async function reportConfigChecks(platform: "ios" | "android"): Promise<boolean> {
+  const { apps } = await loadConfig();
+  let allOk = true;
+  for (const app of apps) {
+    const findings = await checkApp(app, platform);
+    if (findings.length === 0) {
+      console.log(`✓ ${app.name}: app config clean`);
+      continue;
+    }
+    for (const finding of findings) {
+      if (finding.severity === "error") allOk = false;
+      console.log(`${finding.severity === "error" ? "✗" : "•"} ${app.name}: ${formatFinding(finding)}`);
+    }
+  }
+  return allOk;
+}
+
+/**
  * Run the doctor preflight for a platform and return whether everything required passed. The body of
  * `launch doctor`, extracted so the no-args wizard's guided setup can run the same checks inline (and
  * so callers can branch on the result instead of only reading a process exit code).
@@ -191,13 +215,15 @@ export async function runDoctor(options: {
     const toolsOk = await reportAndroidToolchain();
     console.log(`• ${await localCredentialsProvider.status()}`);
     const playOk = await checkPlayAccount();
-    return toolsOk && playOk;
+    const configOk = await reportConfigChecks("android");
+    return toolsOk && playOk && configOk;
   }
   const toolsOk = options.fix ? await ensureToolchain({ assumeYes: options.yes === true }) : await reportToolchain();
   console.log(`• ${await localCredentialsProvider.status()}`);
   await reportCodesignIdentity();
   const appleOk = await checkAppleAccount();
-  return toolsOk && appleOk;
+  const configOk = await reportConfigChecks("ios");
+  return toolsOk && appleOk && configOk;
 }
 
 /** Attach the `doctor` command to the program. */
