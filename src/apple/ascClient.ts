@@ -241,6 +241,106 @@ export interface BetaTesterResource {
   state?: string;
 }
 
+/**
+ * One customer review of an app. `answered` is derived from the `response` relationship so a caller
+ * can filter unanswered reviews without a follow-up request per review. Optional text fields are absent
+ * (not empty) when Apple omits them — a review can have a rating but no title or body.
+ */
+export interface CustomerReviewResource {
+  id: string;
+  /** Star rating, 1–5. */
+  rating: number;
+  title?: string | undefined;
+  body?: string | undefined;
+  /** The reviewer's display name, e.g. `appfan99`. */
+  reviewerNickname?: string | undefined;
+  /** Two/three-letter territory the review was left in (e.g. `USA`). */
+  territory?: string | undefined;
+  /** ISO-8601 timestamp Apple recorded the review. */
+  createdDate?: string | undefined;
+  /** True when a developer response is already attached (published or pending moderation). */
+  answered: boolean;
+}
+
+/** A developer's response to a customer review — the editable, moderated reply shown under the review. */
+export interface CustomerReviewResponseResource {
+  id: string;
+  responseBody: string;
+  /** Apple's moderation state, e.g. `PUBLISHED` / `PENDING_PUBLISH`. Absent unless Apple returns it. */
+  state?: string | undefined;
+  lastModifiedDate?: string | undefined;
+}
+
+/**
+ * An analytics report request — the subscription that makes reports available for an app. `ONGOING`
+ * keeps producing daily/weekly/monthly instances; `ONE_TIME_SNAPSHOT` is a single historical pull.
+ */
+export interface AnalyticsReportRequestResource {
+  id: string;
+  /** `ONGOING` | `ONE_TIME_SNAPSHOT`. */
+  accessType: string;
+  /** True when Apple stopped an `ONGOING` request because nothing consumed it for ~12 months. */
+  stoppedDueToInactivity?: boolean | undefined;
+}
+
+/** One report available within a request (e.g. "App Store Installations"), grouped by category. */
+export interface AnalyticsReportResource {
+  id: string;
+  name: string;
+  /** `APP_USAGE` | `APP_STORE_ENGAGEMENT` | `COMMERCE` | `FRAMEWORK_USAGE` | `PERFORMANCE`. */
+  category?: string | undefined;
+}
+
+/** One time-period instance of a report — a single day/week/month of generated data. */
+export interface AnalyticsReportInstanceResource {
+  id: string;
+  /** `DAILY` | `WEEKLY` | `MONTHLY`. */
+  granularity: string;
+  /** The date this instance covers (`YYYY-MM-DD`). */
+  processingDate?: string | undefined;
+}
+
+/**
+ * One downloadable segment of a report instance: a presigned `url` to a gzipped TSV plus its
+ * `checksum`. A large instance is split across several segments that the caller concatenates.
+ */
+export interface AnalyticsReportSegmentResource {
+  id: string;
+  url: string;
+  /** Apple's checksum of the decompressed segment, for integrity verification. */
+  checksum?: string | undefined;
+  sizeInBytes?: number | undefined;
+}
+
+/**
+ * Parameters for a Sales & Trends report download — Apple's `filter[...]` query for `/v1/salesReports`.
+ * `reportDate`'s format follows `frequency` (a day `2026-06-01` for DAILY, a year `2026` for YEARLY).
+ * A disallowed `reportType`/`reportSubType` combination surfaces as a misleading "invalid vendor number".
+ */
+export interface SalesReportQuery {
+  vendorNumber: string;
+  /** `DAILY` | `WEEKLY` | `MONTHLY` | `YEARLY`. */
+  frequency: string;
+  /** `SALES` | `SUBSCRIPTION` | `SUBSCRIPTION_EVENT` | `SUBSCRIBER` | `PREORDER` | … */
+  reportType: string;
+  /** `SUMMARY` | `DETAILED` | … (valid set depends on `reportType`). */
+  reportSubType: string;
+  reportDate: string;
+  /** Report schema version, e.g. `1_0`; Apple now requires it for several report types. */
+  version?: string | undefined;
+}
+
+/** Parameters for a Finance report download — Apple's `filter[...]` query for `/v1/financeReports`. */
+export interface FinanceReportQuery {
+  vendorNumber: string;
+  /** Fiscal period `YYYY-MM` (Apple's fiscal calendar, not the Gregorian month). */
+  reportDate: string;
+  /** Region code, e.g. `ZZ` (all regions) or `US`. */
+  regionCode: string;
+  /** `FINANCE_DETAIL` (default) | `FINANCIAL`. */
+  reportType?: string | undefined;
+}
+
 interface ResourceList<A> {
   data: { id: string; attributes: A }[];
 }
@@ -268,6 +368,28 @@ function pickListingFields(attributes: Record<string, unknown>, keys: readonly s
     if (typeof value === "string" && value.length > 0) fields[key] = value;
   }
   return fields;
+}
+
+/**
+ * One page of `/customerReviews`, fetched with `include=response` so each row's `relationships.response`
+ * linkage is present — that's how {@link CustomerReviewResource.answered} is computed without a per-review
+ * call. Kept separate from {@link PagedList} because {@link AppStoreConnectClient.requestAll} drops
+ * relationships, and the answered flag needs them.
+ */
+interface CustomerReviewPage {
+  data: {
+    id: string;
+    attributes: {
+      rating?: number;
+      title?: string;
+      body?: string;
+      reviewerNickname?: string;
+      territory?: string;
+      createdDate?: string;
+    };
+    relationships?: { response?: { data?: { id: string } | null } };
+  }[];
+  links?: { next?: string };
 }
 
 /** Client bound to one App Store Connect API key. */
@@ -1190,6 +1312,234 @@ export class AppStoreConnectClient {
       ...(data.attributes.description ? { description: data.attributes.description } : {}),
     };
   }
+
+  /* ------------------------------------------------------------------------ */
+  /*  Customer reviews — read reviews and create/replace/delete the developer  */
+  /*  response. Consumed by `launch reviews` (core/reviews.ts).                 */
+  /* ------------------------------------------------------------------------ */
+
+  /**
+   * List an app's customer reviews, newest first, across all pages. Fetched with `include=response`
+   * so each row carries {@link CustomerReviewResource.answered} without a follow-up call;
+   * `filter[rating]` / `filter[territory]` narrow server-side when provided.
+   */
+  async listCustomerReviews(
+    appId: string,
+    filters: { rating?: number; territory?: string } = {},
+  ): Promise<CustomerReviewResource[]> {
+    let path = `/apps/${appId}/customerReviews?include=response&sort=-createdDate&limit=200`;
+    if (filters.rating !== undefined) path += `&filter[rating]=${filters.rating}`;
+    if (filters.territory) path += `&filter[territory]=${encodeURIComponent(filters.territory)}`;
+
+    const reviews: CustomerReviewResource[] = [];
+    let next: string | undefined = path;
+    while (next) {
+      const page: CustomerReviewPage = await this.request<CustomerReviewPage>("GET", next);
+      for (const { id, attributes, relationships } of page.data) {
+        reviews.push({
+          id,
+          rating: typeof attributes.rating === "number" ? attributes.rating : 0,
+          ...(attributes.title ? { title: attributes.title } : {}),
+          ...(attributes.body ? { body: attributes.body } : {}),
+          ...(attributes.reviewerNickname ? { reviewerNickname: attributes.reviewerNickname } : {}),
+          ...(attributes.territory ? { territory: attributes.territory } : {}),
+          ...(attributes.createdDate ? { createdDate: attributes.createdDate } : {}),
+          answered: Boolean(relationships?.response?.data),
+        });
+      }
+      next = page.links?.next;
+    }
+    return reviews;
+  }
+
+  /** Read the developer response attached to a review, or null when none exists yet (Apple 404s on none). */
+  async getCustomerReviewResponse(reviewId: string): Promise<CustomerReviewResponseResource | null> {
+    try {
+      const { data } = await this.request<{
+        data: {
+          id: string;
+          attributes: { responseBody?: string; state?: string; lastModifiedDate?: string };
+        } | null;
+      }>("GET", `/customerReviews/${reviewId}/response`);
+      return data ? toReviewResponse(data) : null;
+    } catch (error) {
+      if (error instanceof AscRequestError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  /**
+   * Create or replace the developer response to a review. Apple's `POST /v1/customerReviewResponses`
+   * is an upsert — it replaces an existing response in place — so callers never delete-then-recreate.
+   */
+  async createCustomerReviewResponse(reviewId: string, responseBody: string): Promise<CustomerReviewResponseResource> {
+    const { data } = await this.request<
+      ResourceSingle<{ responseBody?: string; state?: string; lastModifiedDate?: string }>
+    >("POST", "/customerReviewResponses", {
+      data: {
+        type: "customerReviewResponses",
+        attributes: { responseBody },
+        relationships: { review: { data: { type: "customerReviews", id: reviewId } } },
+      },
+    });
+    return toReviewResponse(data);
+  }
+
+  /** Delete a developer response by its resource id. */
+  async deleteCustomerReviewResponse(responseId: string): Promise<void> {
+    await this.request<unknown>("DELETE", `/customerReviewResponses/${responseId}`);
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /*  Reports — Sales & Trends / Finance (gzipped TSV) and the Analytics       */
+  /*  Reports flow. Consumed by `launch reports` (core/reports.ts).            */
+  /* ------------------------------------------------------------------------ */
+
+  /** Download a Sales & Trends report as raw gzip bytes (the caller decompresses + parses the TSV). */
+  async getSalesReport(query: SalesReportQuery): Promise<Buffer> {
+    const params = [
+      `filter[frequency]=${query.frequency}`,
+      `filter[reportType]=${query.reportType}`,
+      `filter[reportSubType]=${query.reportSubType}`,
+      `filter[vendorNumber]=${encodeURIComponent(query.vendorNumber)}`,
+      `filter[reportDate]=${query.reportDate}`,
+      ...(query.version ? [`filter[version]=${query.version}`] : []),
+    ];
+    return this.getReportBytes(`/salesReports?${params.join("&")}`);
+  }
+
+  /** Download a Finance report as raw gzip bytes (the caller decompresses + parses the TSV). */
+  async getFinanceReport(query: FinanceReportQuery): Promise<Buffer> {
+    const params = [
+      `filter[regionCode]=${query.regionCode}`,
+      `filter[reportDate]=${query.reportDate}`,
+      `filter[reportType]=${query.reportType ?? "FINANCE_DETAIL"}`,
+      `filter[vendorNumber]=${encodeURIComponent(query.vendorNumber)}`,
+    ];
+    return this.getReportBytes(`/financeReports?${params.join("&")}`);
+  }
+
+  /** List an app's analytics report requests of one access type (`ONGOING` / `ONE_TIME_SNAPSHOT`). */
+  async listAnalyticsReportRequests(appId: string, accessType: string): Promise<AnalyticsReportRequestResource[]> {
+    const data = await this.requestAll<{ accessType?: string; stoppedDueToInactivity?: boolean }>(
+      `/apps/${appId}/analyticsReportRequests?filter[accessType]=${accessType}&limit=200`,
+    );
+    return data.map((entry) => toReportRequest(entry, accessType));
+  }
+
+  /**
+   * Create an analytics report request for an app. Creating a brand-new report type for the first time
+   * needs the Admin role — a non-Admin key returns 403, which `launch reports` surfaces actionably.
+   */
+  async createAnalyticsReportRequest(appId: string, accessType: string): Promise<AnalyticsReportRequestResource> {
+    const { data } = await this.request<ResourceSingle<{ accessType?: string; stoppedDueToInactivity?: boolean }>>(
+      "POST",
+      "/analyticsReportRequests",
+      {
+        data: {
+          type: "analyticsReportRequests",
+          attributes: { accessType },
+          relationships: { app: { data: { type: "apps", id: appId } } },
+        },
+      },
+    );
+    return toReportRequest(data, accessType);
+  }
+
+  /** List the reports available within a request, optionally filtered by category or exact name. */
+  async listAnalyticsReports(
+    requestId: string,
+    filters: { category?: string; name?: string } = {},
+  ): Promise<AnalyticsReportResource[]> {
+    let path = `/analyticsReportRequests/${requestId}/reports?limit=200`;
+    if (filters.category) path += `&filter[category]=${filters.category}`;
+    if (filters.name) path += `&filter[name]=${encodeURIComponent(filters.name)}`;
+    const data = await this.requestAll<{ name?: string; category?: string }>(path);
+    return data.map((entry) => ({
+      id: entry.id,
+      name: entry.attributes.name ?? "",
+      ...(entry.attributes.category ? { category: entry.attributes.category } : {}),
+    }));
+  }
+
+  /** List a report's time-period instances, optionally filtered by granularity / processing date. */
+  async listAnalyticsReportInstances(
+    reportId: string,
+    filters: { granularity?: string; processingDate?: string } = {},
+  ): Promise<AnalyticsReportInstanceResource[]> {
+    let path = `/analyticsReports/${reportId}/instances?limit=200`;
+    if (filters.granularity) path += `&filter[granularity]=${filters.granularity}`;
+    if (filters.processingDate) path += `&filter[processingDate]=${filters.processingDate}`;
+    const data = await this.requestAll<{ granularity?: string; processingDate?: string }>(path);
+    return data.map((entry) => ({
+      id: entry.id,
+      granularity: entry.attributes.granularity ?? "",
+      ...(entry.attributes.processingDate ? { processingDate: entry.attributes.processingDate } : {}),
+    }));
+  }
+
+  /** List the downloadable segments of a report instance (each a presigned URL to a gzipped TSV). */
+  async listAnalyticsReportSegments(instanceId: string): Promise<AnalyticsReportSegmentResource[]> {
+    const data = await this.requestAll<{ url?: string; checksum?: string; sizeInBytes?: number }>(
+      `/analyticsReportInstances/${instanceId}/segments?limit=200`,
+    );
+    return data.flatMap((entry) =>
+      entry.attributes.url
+        ? [
+            {
+              id: entry.id,
+              url: entry.attributes.url,
+              ...(entry.attributes.checksum ? { checksum: entry.attributes.checksum } : {}),
+              ...(entry.attributes.sizeInBytes !== undefined ? { sizeInBytes: entry.attributes.sizeInBytes } : {}),
+            },
+          ]
+        : [],
+    );
+  }
+
+  /**
+   * Download an analytics segment's gzipped body from its presigned URL. The URL carries its own
+   * query-string auth, so this is an UNauthenticated fetch — adding the API Bearer would make the
+   * storage backend reject the request for presenting two auth mechanisms.
+   */
+  async downloadAnalyticsSegment(url: string): Promise<Buffer> {
+    return withRetry(
+      async () => {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new AscRequestError(`Analytics segment download failed (${response.status}).`, response.status);
+        }
+        return Buffer.from(await response.arrayBuffer());
+      },
+      { isRetryable: isRetryableAscError },
+    );
+  }
+
+  /**
+   * GET a gzipped report body (sales/finance) as raw bytes, with transparent retry on Apple's transient
+   * failures. Surfaces Apple's JSON error `detail` (e.g. "There were no sales for the date specified")
+   * on a 4xx instead of a bare status, so the command can show an actionable message.
+   */
+  private async getReportBytes(pathOrUrl: string): Promise<Buffer> {
+    return withRetry(() => this.getReportBytesOnce(pathOrUrl), { isRetryable: isRetryableAscError });
+  }
+
+  /** A single (un-retried) gzipped-report fetch — the retry wrapper lives in {@link getReportBytes}. */
+  private async getReportBytesOnce(pathOrUrl: string): Promise<Buffer> {
+    const url = pathOrUrl.startsWith("http") ? pathOrUrl : `${BASE_URL}${pathOrUrl}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${await this.token()}`, Accept: "application/a-gzip, application/json" },
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new AscRequestError(
+        `App Store Connect GET ${pathOrUrl} failed (${response.status}): ${describeErrors(text)}`,
+        response.status,
+      );
+    }
+    return Buffer.from(await response.arrayBuffer());
+  }
 }
 
 /**
@@ -1210,6 +1560,33 @@ function matchPricePoint(
     }
   }
   return null;
+}
+
+/** Project an ASC `customerReviewResponses` resource object into a {@link CustomerReviewResponseResource}. */
+function toReviewResponse(data: {
+  id: string;
+  attributes: { responseBody?: string; state?: string; lastModifiedDate?: string };
+}): CustomerReviewResponseResource {
+  return {
+    id: data.id,
+    responseBody: data.attributes.responseBody ?? "",
+    ...(data.attributes.state ? { state: data.attributes.state } : {}),
+    ...(data.attributes.lastModifiedDate ? { lastModifiedDate: data.attributes.lastModifiedDate } : {}),
+  };
+}
+
+/** Project an ASC `analyticsReportRequests` resource object into an {@link AnalyticsReportRequestResource}. */
+function toReportRequest(
+  entry: { id: string; attributes: { accessType?: string; stoppedDueToInactivity?: boolean } },
+  fallbackAccessType: string,
+): AnalyticsReportRequestResource {
+  return {
+    id: entry.id,
+    accessType: entry.attributes.accessType ?? fallbackAccessType,
+    ...(entry.attributes.stoppedDueToInactivity !== undefined
+      ? { stoppedDueToInactivity: entry.attributes.stoppedDueToInactivity }
+      : {}),
+  };
 }
 
 /** Extract Apple's human-readable error detail from a failed-response body, falling back to raw text. */
