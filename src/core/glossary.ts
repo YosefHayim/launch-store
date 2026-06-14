@@ -38,6 +38,7 @@ export type GlossaryTopic =
   | "distribution-certificate"
   | "provisioning-profile"
   | "entitlements"
+  | "apns-key"
   | "code-signing"
   | "udid"
   // iOS — versioning & download size
@@ -194,6 +195,12 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "Entitlements: the capabilities an app is allowed to use — push notifications, iCloud, app groups.",
     "They live in an entitlements file and must match what the provisioning profile grants, or signing",
     "fails. `expo prebuild` generates them from your app.json; Launch builds against the matching profile.",
+  ].join("\n"),
+  "apns-key": [
+    "APNs auth key: a .p8 your backend uses to send push notifications to your app. Apple has NO API to",
+    "create one — it's a download-once, portal-only key (Certificates, IDs & Profiles → Keys), capped at",
+    "2 per account — so Launch can't mint it, only import and safeguard one. `launch creds push-key` vaults",
+    "it in your keychain and re-exports it on demand; Launch never sends push itself (that's your server).",
   ].join("\n"),
   "code-signing": [
     "Code signing: stamping the app with your distribution certificate so Apple (and the device)",

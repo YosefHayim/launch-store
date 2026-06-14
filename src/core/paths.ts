@@ -76,6 +76,13 @@ export const ANDROID_CREDENTIALS_INDEX = join(CREDENTIALS_DIR, "android.json");
 export const PROVISIONING_PROFILES_DIR = join(homedir(), "Library", "MobileDevice", "Provisioning Profiles");
 
 /**
+ * Vault index of imported APNs auth keys (`{ keys: [{ keyId, teamId?, label?, importedAt }] }`).
+ * Non-secret metadata only — each key's `.p8` PEM stays in the OS secret store under `apns-p8:<keyId>`.
+ * APNs keys are portal-only (Apple has no create API), so Launch safeguards an imported one, never mints it.
+ */
+export const PUSH_KEYS_FILE = join(LAUNCH_HOME, "push-keys.json");
+
+/**
  * Machine-discovered remote-build state: the live AWS host handle (id + allocation timestamp) and the
  * golden AMI id Launch created for this machine. Non-secret infra ids only — never `.env`, never
  * committed, never secrets (those stay in the OS keychain).
