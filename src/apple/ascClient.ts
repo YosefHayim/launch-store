@@ -39,6 +39,32 @@ export const AD_HOC_PROFILE_TYPE = "IOS_APP_ADHOC";
 /** Platform value Apple expects when registering a device for ad-hoc distribution. */
 const IOS_DEVICE_PLATFORM = "IOS";
 
+/**
+ * App Store version states in which listing metadata is still editable, so `launch sync` may write
+ * localizations into that version. A live `READY_FOR_SALE` (or in-review) version is intentionally left
+ * alone. See {@link AppStoreConnectClient.getEditableVersionId}.
+ */
+const EDITABLE_VERSION_STATES = new Set<string>([
+  "PREPARE_FOR_SUBMISSION",
+  "METADATA_REJECTED",
+  "DEVELOPER_REJECTED",
+  "REJECTED",
+  "INVALID_BINARY",
+]);
+/** App-info states in which the app-level listing (name/subtitle/privacy URL) is still editable. */
+const EDITABLE_APPINFO_STATES = new Set<string>(["PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED", "REJECTED"]);
+/** ASC `appInfoLocalizations` attribute keys Launch manages (app-level — persists across versions). */
+const APP_INFO_LISTING_FIELDS = ["name", "subtitle", "privacyPolicyUrl"] as const;
+/** ASC `appStoreVersionLocalizations` attribute keys Launch manages (version-level — per release). */
+const VERSION_LISTING_FIELDS = [
+  "description",
+  "keywords",
+  "whatsNew",
+  "promotionalText",
+  "supportUrl",
+  "marketingUrl",
+] as const;
+
 /** One App Store Connect API error, as returned in the `errors` array of a failed response. */
 interface AscError {
   status: string;
@@ -161,6 +187,262 @@ export interface PricePointResource {
   territory: string;
 }
 
+/**
+ * An existing App Encryption Declaration on an app — the reusable, one-time export-compliance answer
+ * for builds that use non-exempt encryption. Only an `APPROVED` declaration clears a build without a
+ * fresh, document-backed submission, so `state` is what gates reuse. See
+ * {@link AppStoreConnectClient.listEncryptionDeclarations}.
+ */
+export interface EncryptionDeclarationResource {
+  id: string;
+  /** Apple's review state: `CREATED` | `IN_REVIEW` | `APPROVED` | `REJECTED` | `INVALID` | `EXPIRED`. */
+  state: string;
+}
+
+/**
+ * One locale's stored App Store listing copy, normalized to the present (non-empty) fields only. The
+ * same shape serves both the app-level `appInfoLocalizations` (name/subtitle/privacy URL — persists
+ * across versions) and the version-level `appStoreVersionLocalizations` (description/keywords/whatsNew/…
+ * — per release); the caller picks which level. `fields` is keyed by Apple's attribute name, so a diff
+ * against desired config is a plain key-by-key comparison.
+ */
+export interface ListingLocalization {
+  id: string;
+  locale: string;
+  fields: Record<string, string>;
+}
+
+/**
+ * A TestFlight beta group — a named tester bucket that belongs to exactly one app. External groups
+ * invite testers by email (and can gate distribution on Beta App Review); the internal group holds
+ * App Store Connect team users. A tester reaches an app's TestFlight by being in one of its groups,
+ * which is why every `launch testflight` tester operation goes through a group.
+ */
+export interface BetaGroupResource {
+  id: string;
+  name: string;
+  /** True for the team-user internal group; external groups are the ones you invite by email. Absent unless requested. */
+  isInternal?: boolean;
+  /** Public TestFlight invite link, when the group has one enabled. Absent otherwise. */
+  publicLink?: string;
+}
+
+/**
+ * A TestFlight tester. Apple keys testers on `email` and scopes them to the team — the same person is
+ * one tester resource reused across apps/groups — so adding an existing email to a new group links
+ * rather than duplicates. `firstName`/`lastName` are optional and shown in the invite.
+ */
+export interface BetaTesterResource {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  /** Apple's invite state, e.g. `INVITED` / `ACCEPTED` / `INSTALLED`. Absent unless requested. */
+  state?: string;
+}
+
+/**
+ * One customer review of an app. `answered` is derived from the `response` relationship so a caller
+ * can filter unanswered reviews without a follow-up request per review. Optional text fields are absent
+ * (not empty) when Apple omits them — a review can have a rating but no title or body.
+ */
+export interface CustomerReviewResource {
+  id: string;
+  /** Star rating, 1–5. */
+  rating: number;
+  title?: string | undefined;
+  body?: string | undefined;
+  /** The reviewer's display name, e.g. `appfan99`. */
+  reviewerNickname?: string | undefined;
+  /** Two/three-letter territory the review was left in (e.g. `USA`). */
+  territory?: string | undefined;
+  /** ISO-8601 timestamp Apple recorded the review. */
+  createdDate?: string | undefined;
+  /** True when a developer response is already attached (published or pending moderation). */
+  answered: boolean;
+}
+
+/** A developer's response to a customer review — the editable, moderated reply shown under the review. */
+export interface CustomerReviewResponseResource {
+  id: string;
+  responseBody: string;
+  /** Apple's moderation state, e.g. `PUBLISHED` / `PENDING_PUBLISH`. Absent unless Apple returns it. */
+  state?: string | undefined;
+  lastModifiedDate?: string | undefined;
+}
+
+/**
+ * An analytics report request — the subscription that makes reports available for an app. `ONGOING`
+ * keeps producing daily/weekly/monthly instances; `ONE_TIME_SNAPSHOT` is a single historical pull.
+ */
+export interface AnalyticsReportRequestResource {
+  id: string;
+  /** `ONGOING` | `ONE_TIME_SNAPSHOT`. */
+  accessType: string;
+  /** True when Apple stopped an `ONGOING` request because nothing consumed it for ~12 months. */
+  stoppedDueToInactivity?: boolean | undefined;
+}
+
+/** One report available within a request (e.g. "App Store Installations"), grouped by category. */
+export interface AnalyticsReportResource {
+  id: string;
+  name: string;
+  /** `APP_USAGE` | `APP_STORE_ENGAGEMENT` | `COMMERCE` | `FRAMEWORK_USAGE` | `PERFORMANCE`. */
+  category?: string | undefined;
+}
+
+/** One time-period instance of a report — a single day/week/month of generated data. */
+export interface AnalyticsReportInstanceResource {
+  id: string;
+  /** `DAILY` | `WEEKLY` | `MONTHLY`. */
+  granularity: string;
+  /** The date this instance covers (`YYYY-MM-DD`). */
+  processingDate?: string | undefined;
+}
+
+/**
+ * One downloadable segment of a report instance: a presigned `url` to a gzipped TSV plus its
+ * `checksum`. A large instance is split across several segments that the caller concatenates.
+ */
+export interface AnalyticsReportSegmentResource {
+  id: string;
+  url: string;
+  /** Apple's checksum of the decompressed segment, for integrity verification. */
+  checksum?: string | undefined;
+  sizeInBytes?: number | undefined;
+}
+
+/**
+ * Parameters for a Sales & Trends report download — Apple's `filter[...]` query for `/v1/salesReports`.
+ * `reportDate`'s format follows `frequency` (a day `2026-06-01` for DAILY, a year `2026` for YEARLY).
+ * A disallowed `reportType`/`reportSubType` combination surfaces as a misleading "invalid vendor number".
+ */
+export interface SalesReportQuery {
+  vendorNumber: string;
+  /** `DAILY` | `WEEKLY` | `MONTHLY` | `YEARLY`. */
+  frequency: string;
+  /** `SALES` | `SUBSCRIPTION` | `SUBSCRIPTION_EVENT` | `SUBSCRIBER` | `PREORDER` | … */
+  reportType: string;
+  /** `SUMMARY` | `DETAILED` | … (valid set depends on `reportType`). */
+  reportSubType: string;
+  reportDate: string;
+  /** Report schema version, e.g. `1_0`; Apple now requires it for several report types. */
+  version?: string | undefined;
+}
+
+/** Parameters for a Finance report download — Apple's `filter[...]` query for `/v1/financeReports`. */
+export interface FinanceReportQuery {
+  vendorNumber: string;
+  /** Fiscal period `YYYY-MM` (Apple's fiscal calendar, not the Gregorian month). */
+  reportDate: string;
+  /** Region code, e.g. `ZZ` (all regions) or `US`. */
+  regionCode: string;
+  /** `FINANCE_DETAIL` (default) | `FINANCIAL`. */
+  reportType?: string | undefined;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  App Store release-lifecycle resources — consumed by core/appStoreRelease.ts  */
+/*  (the version → build → review → rollout state machine). Untouched by the      */
+/*  build/sign path and the `launch sync` catalog reconciler.                     */
+/* -------------------------------------------------------------------------- */
+
+/** A build (one uploaded binary) on App Store Connect, with the fields the release flow reads. */
+export interface BuildResource {
+  id: string;
+  /** `CFBundleVersion` (the build number) as Apple's string, e.g. `"42"`. */
+  version: string;
+  /** Apple's processing state, e.g. `PROCESSING` / `VALID` / `INVALID`. Only a `VALID` build is attachable. */
+  processingState: string;
+  /** ISO-8601 upload instant, when requested in the field set. */
+  uploadedDate?: string;
+  /** Whether Apple expired the build (TestFlight's 90-day limit); an expired build can't be submitted. */
+  expired: boolean;
+}
+
+/**
+ * An App Store version — the per-release container carrying lifecycle state, release type, and the
+ * attached build. One per marketing version + platform; `launch release` reuses an editable one or
+ * creates the next.
+ */
+export interface AppStoreVersionResource {
+  id: string;
+  /** Marketing version (`CFBundleShortVersionString`), e.g. `1.2.0`. */
+  versionString: string;
+  /** Apple's lifecycle state, e.g. `PREPARE_FOR_SUBMISSION` / `WAITING_FOR_REVIEW` / `READY_FOR_SALE`. */
+  appStoreState: string;
+  /** How the approved version goes live (`AFTER_APPROVAL` / `MANUAL` / `SCHEDULED`), when requested. */
+  releaseType?: string;
+}
+
+/** One locale's editable version copy. Launch only ever writes `whatsNew` (the release notes). */
+export interface AppStoreVersionLocalizationResource {
+  id: string;
+  locale: string;
+  /** "What's New in This Version" text; absent until set. */
+  whatsNew?: string;
+}
+
+/** A version's phased-release schedule (Apple's 7-day staged rollout), present only once one exists. */
+export interface PhasedReleaseResource {
+  id: string;
+  /** `ACTIVE` / `PAUSED` / `COMPLETE` / `INACTIVE`. */
+  phasedReleaseState: string;
+  /** Which day (1–7) of the ramp the rollout is on, when Apple reports it. */
+  currentDayNumber?: number;
+}
+
+/**
+ * An App Store review submission — Apple's current submission model: a per-app container the version is
+ * added to as an item, then submitted as a unit. `state` distinguishes an addable draft
+ * (`READY_FOR_REVIEW`) from one already in Apple's queue.
+ */
+export interface ReviewSubmissionResource {
+  id: string;
+  /** `READY_FOR_REVIEW` / `WAITING_FOR_REVIEW` / `IN_REVIEW` / `COMPLETING` / `COMPLETE` / `CANCELING` / `UNRESOLVED_ISSUES`. */
+  state: string;
+}
+
+/**
+ * An app's App Info record — the container that owns the App Store category relationships and the
+ * age-rating declaration. An app can have more than one (a live one plus an editable one); the
+ * reconciler edits the editable one, falling back to the first when no state is reported.
+ */
+export interface AppInfoResource {
+  id: string;
+  /** Apple's editable-state hint (e.g. `PREPARE_FOR_SUBMISSION`), when the response carries one. */
+  state?: string;
+  /** Current primary App Store category id (an `appCategories` id such as `PRODUCTIVITY`), if set. */
+  primaryCategoryId?: string;
+  /** Current secondary App Store category id, if set. */
+  secondaryCategoryId?: string;
+}
+
+/** One age-rating answer: a content-descriptor enum string (`NONE` / `INFREQUENT_OR_MILD` / …) or a boolean flag. */
+export type AgeRatingValue = string | boolean;
+
+/**
+ * An app's age-rating declaration. Apple's attribute set (content-descriptor enums like
+ * `violenceCartoonOrFantasy`, plus booleans and age bands) changes over time, so the attributes are
+ * carried as an open `name → value` map rather than a fixed shape: config supplies the answers verbatim
+ * and the reconciler PATCHes only the ones that differ, so a new descriptor needs no code change here.
+ */
+export interface AgeRatingDeclarationResource {
+  id: string;
+  attributes: Record<string, AgeRatingValue>;
+}
+
+/**
+ * An app version's App Review details — the contact info and demo-account credentials Apple's reviewer
+ * uses. Carried as an open attribute map for the same forward-compat reason as the age-rating
+ * declaration. Note `demoAccountPassword` is write-only on Apple's side: it is never returned on a read
+ * (so a change to the password alone can't be diffed) and Launch never logs it.
+ */
+export interface AppStoreReviewDetailResource {
+  id: string;
+  attributes: Record<string, string | boolean>;
+}
+
 interface ResourceList<A> {
   data: { id: string; attributes: A }[];
 }
@@ -176,6 +458,54 @@ interface PagedList<A> {
   data: { id: string; attributes: A }[];
   links?: { next?: string };
 }
+
+/**
+ * Pick the given keys out of a localization's raw attributes, keeping only present, non-empty strings.
+ * Apple returns empty fields as `null` or `""`; both are dropped so a diff treats "unset" uniformly.
+ */
+function pickListingFields(attributes: Record<string, unknown>, keys: readonly string[]): Record<string, string> {
+  const fields: Record<string, string> = {};
+  for (const key of keys) {
+    const value = attributes[key];
+    if (typeof value === "string" && value.length > 0) fields[key] = value;
+  }
+  return fields;
+}
+
+/**
+ * One page of `/customerReviews`, fetched with `include=response` so each row's `relationships.response`
+ * linkage is present — that's how {@link CustomerReviewResource.answered} is computed without a per-review
+ * call. Kept separate from {@link PagedList} because {@link AppStoreConnectClient.requestAll} drops
+ * relationships, and the answered flag needs them.
+ */
+interface CustomerReviewPage {
+  data: {
+    id: string;
+    attributes: {
+      rating?: number;
+      title?: string;
+      body?: string;
+      reviewerNickname?: string;
+      territory?: string;
+      createdDate?: string;
+    };
+    relationships?: { response?: { data?: { id: string } | null } };
+  }[];
+  links?: { next?: string };
+}
+
+/**
+ * App / version / app-info states in which Apple still accepts metadata edits (categories, age rating,
+ * review details). Once a version is past these (e.g. `WAITING_FOR_REVIEW`, `PENDING_DEVELOPER_RELEASE`)
+ * those fields are frozen, so the reconciler picks the editable record and errors loudly when none exists.
+ */
+const EDITABLE_METADATA_STATES = new Set<string>([
+  "PREPARE_FOR_SUBMISSION",
+  "DEVELOPER_REJECTED",
+  "REJECTED",
+  "METADATA_REJECTED",
+  "INVALID_BINARY",
+]);
 
 /** Client bound to one App Store Connect API key. */
 export class AppStoreConnectClient {
@@ -314,6 +644,150 @@ export class AppStoreConnectClient {
       `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1&fields[builds]=processingState`,
     );
     return data[0]?.attributes.processingState ?? null;
+  }
+
+  /**
+   * Resolve a specific uploaded build by its build number, returning its ASC id plus the current
+   * export-compliance answer (`usesNonExemptEncryption`: `true`/`false` once answered, `null` while
+   * unanswered). Null when no build with that number exists yet (e.g. still ingesting after upload).
+   * The id is what {@link setBuildUsesNonExemptEncryption} and {@link linkBuildToDeclaration} act on.
+   */
+  async findBuild(
+    bundleId: string,
+    buildNumber: number,
+  ): Promise<{ id: string; usesNonExemptEncryption: boolean | null } | null> {
+    const appId = await this.getAppId(bundleId);
+    if (!appId) return null;
+    const { data } = await this.request<ResourceList<{ usesNonExemptEncryption: boolean | null }>>(
+      "GET",
+      `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1&fields[builds]=usesNonExemptEncryption`,
+    );
+    const build = data[0];
+    return build ? { id: build.id, usesNonExemptEncryption: build.attributes.usesNonExemptEncryption ?? null } : null;
+  }
+
+  /**
+   * Answer a build's export-compliance question directly via its `usesNonExemptEncryption` attribute —
+   * the one-call path for the common "no / only-exempt encryption" case (`false`), so App Store Connect
+   * stops re-prompting on every upload. Apple accepts this only before the build is submitted for review.
+   */
+  async setBuildUsesNonExemptEncryption(buildId: string, value: boolean): Promise<void> {
+    await this.request<unknown>("PATCH", `/builds/${buildId}`, {
+      data: { type: "builds", id: buildId, attributes: { usesNonExemptEncryption: value } },
+    });
+  }
+
+  /**
+   * Resolve the app's current **editable** `appInfo` (the container for app-level listing copy — name,
+   * subtitle, privacy URL — that persists across versions), or null when none is in an editable state.
+   * A live app keeps a read-only `READY_FOR_DISTRIBUTION` appInfo we must never PATCH.
+   */
+  async getEditableAppInfoId(appId: string): Promise<string | null> {
+    const { data } = await this.request<ResourceList<{ state?: string; appStoreState?: string }>>(
+      "GET",
+      `/apps/${appId}/appInfos?fields[appInfos]=state,appStoreState&limit=20`,
+    );
+    const editable = data.find((info) => {
+      const state = info.attributes.state ?? info.attributes.appStoreState;
+      return state !== undefined && EDITABLE_APPINFO_STATES.has(state);
+    });
+    return editable?.id ?? null;
+  }
+
+  /** List the app-level listing localizations (name/subtitle/privacy URL) under an `appInfo`. */
+  async listAppInfoLocalizations(appInfoId: string): Promise<ListingLocalization[]> {
+    const data = await this.requestAll<Record<string, unknown>>(
+      `/appInfos/${appInfoId}/appInfoLocalizations?limit=200`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      locale: typeof entry.attributes["locale"] === "string" ? entry.attributes["locale"] : "",
+      fields: pickListingFields(entry.attributes, APP_INFO_LISTING_FIELDS),
+    }));
+  }
+
+  /** Create a missing app-level listing locale. `fields` must include `name` (Apple requires it). */
+  async createAppInfoLocalization(appInfoId: string, locale: string, fields: Record<string, string>): Promise<void> {
+    await this.request<unknown>("POST", "/appInfoLocalizations", {
+      data: {
+        type: "appInfoLocalizations",
+        attributes: { locale, ...fields },
+        relationships: { appInfo: { data: { type: "appInfos", id: appInfoId } } },
+      },
+    });
+  }
+
+  /** Patch changed fields on an existing app-level listing locale (locale itself is immutable). */
+  async updateAppInfoLocalization(localizationId: string, fields: Record<string, string>): Promise<void> {
+    await this.request<unknown>("PATCH", `/appInfoLocalizations/${localizationId}`, {
+      data: { type: "appInfoLocalizations", id: localizationId, attributes: fields },
+    });
+  }
+
+  /**
+   * List an app's existing App Encryption Declarations (all states) — the reuse candidates for a build
+   * that uses non-exempt encryption. Returns `[]` when the app has none or has no ASC record yet.
+   */
+  async listEncryptionDeclarations(bundleId: string): Promise<EncryptionDeclarationResource[]> {
+    const appId = await this.getAppId(bundleId);
+    if (!appId) return [];
+    const data = await this.requestAll<{ appEncryptionDeclarationState: string }>(
+      `/apps/${appId}/appEncryptionDeclarations?fields[appEncryptionDeclarations]=appEncryptionDeclarationState&limit=200`,
+    );
+    return data.map((entry) => ({ id: entry.id, state: entry.attributes.appEncryptionDeclarationState }));
+  }
+
+  /**
+   * Attach a build to an existing App Encryption Declaration, reusing that one-time, document-backed
+   * answer instead of submitting a fresh declaration per build (Apple returns `204 No Content`).
+   */
+  async linkBuildToDeclaration(declarationId: string, buildId: string): Promise<void> {
+    await this.request<unknown>("POST", `/appEncryptionDeclarations/${declarationId}/relationships/builds`, {
+      data: [{ type: "builds", id: buildId }],
+    });
+  }
+
+  /**
+   * Resolve the app's current **editable** App Store version (the one whose listing copy — description,
+   * keywords, what's new, … — can still be changed), or null when only a live/in-review version exists.
+   */
+  async getEditableVersionId(appId: string): Promise<string | null> {
+    const { data } = await this.request<ResourceList<{ appStoreState: string }>>(
+      "GET",
+      `/apps/${appId}/appStoreVersions?fields[appStoreVersions]=appStoreState&limit=20`,
+    );
+    const editable = data.find((version) => EDITABLE_VERSION_STATES.has(version.attributes.appStoreState));
+    return editable?.id ?? null;
+  }
+
+  /** List the version-level listing localizations (description/keywords/whatsNew/…) under a version. */
+  async listVersionLocalizations(versionId: string): Promise<ListingLocalization[]> {
+    const data = await this.requestAll<Record<string, unknown>>(
+      `/appStoreVersions/${versionId}/appStoreVersionLocalizations?limit=200`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      locale: typeof entry.attributes["locale"] === "string" ? entry.attributes["locale"] : "",
+      fields: pickListingFields(entry.attributes, VERSION_LISTING_FIELDS),
+    }));
+  }
+
+  /** Create a missing version-level listing locale (Apple requires only `locale`). */
+  async createVersionLocalization(versionId: string, locale: string, fields: Record<string, string>): Promise<void> {
+    await this.request<unknown>("POST", "/appStoreVersionLocalizations", {
+      data: {
+        type: "appStoreVersionLocalizations",
+        attributes: { locale, ...fields },
+        relationships: { appStoreVersion: { data: { type: "appStoreVersions", id: versionId } } },
+      },
+    });
+  }
+
+  /** Patch changed fields on an existing version-level listing locale (locale itself is immutable). */
+  async updateVersionLocalization(localizationId: string, fields: Record<string, string>): Promise<void> {
+    await this.request<unknown>("PATCH", `/appStoreVersionLocalizations/${localizationId}`, {
+      data: { type: "appStoreVersionLocalizations", id: localizationId, attributes: fields },
+    });
   }
 
   /** Cheap call that fails with a clear message when the account has an unsigned/expired agreement. */
@@ -779,6 +1253,336 @@ export class AppStoreConnectClient {
     });
   }
 
+  /* ------------------------------------------------------------------------ */
+  /*  TestFlight management — beta groups + testers. Consumed by the           */
+  /*  `launch testflight` command; independent of the build/sign path.         */
+  /*  (Hand-typed JSON:API shapes; migrate to the generated spec types — #56.) */
+  /* ------------------------------------------------------------------------ */
+
+  /** List an app's TestFlight beta groups (internal + external), across all pages. */
+  async listBetaGroups(appId: string): Promise<BetaGroupResource[]> {
+    const data = await this.requestAll<{ name?: string; isInternalGroup?: boolean; publicLink?: string | null }>(
+      `/apps/${appId}/betaGroups?limit=200&fields[betaGroups]=name,isInternalGroup,publicLink`,
+    );
+    return data.flatMap((entry) =>
+      entry.attributes.name
+        ? [
+            {
+              id: entry.id,
+              name: entry.attributes.name,
+              ...(entry.attributes.isInternalGroup === undefined
+                ? {}
+                : { isInternal: entry.attributes.isInternalGroup }),
+              ...(entry.attributes.publicLink ? { publicLink: entry.attributes.publicLink } : {}),
+            },
+          ]
+        : [],
+    );
+  }
+
+  /** Find an app's beta group by exact, case-insensitive name, or null when there's no such group. */
+  async findBetaGroupByName(appId: string, name: string): Promise<BetaGroupResource | null> {
+    const wanted = name.toLowerCase();
+    return (await this.listBetaGroups(appId)).find((group) => group.name.toLowerCase() === wanted) ?? null;
+  }
+
+  /** Create an external beta group on an app — the bucket external testers are invited into. */
+  async createBetaGroup(appId: string, name: string): Promise<BetaGroupResource> {
+    const { data } = await this.request<ResourceSingle<{ name?: string }>>("POST", "/betaGroups", {
+      data: {
+        type: "betaGroups",
+        attributes: { name },
+        relationships: { app: { data: { type: "apps", id: appId } } },
+      },
+    });
+    return { id: data.id, name: data.attributes.name ?? name };
+  }
+
+  /** List the testers in a beta group, across all pages. */
+  async listBetaTestersInGroup(groupId: string): Promise<BetaTesterResource[]> {
+    return this.betaTestersFrom(
+      `/betaGroups/${groupId}/betaTesters?limit=200&fields[betaTesters]=email,firstName,lastName,state`,
+    );
+  }
+
+  /**
+   * Find a tester by email anywhere on the team, or null. Testers are team-scoped, so a hit here is the
+   * person to link into a group rather than re-create; {@link createBetaTester} would otherwise 409.
+   */
+  async findBetaTesterByEmail(email: string): Promise<BetaTesterResource | null> {
+    const wanted = email.toLowerCase();
+    const data = await this.betaTestersFrom(
+      `/betaTesters?filter[email]=${encodeURIComponent(email)}&limit=1&fields[betaTesters]=email,firstName,lastName,state`,
+    );
+    return data.find((tester) => tester.email.toLowerCase() === wanted) ?? data[0] ?? null;
+  }
+
+  /**
+   * Create a tester and add them to a beta group in one call — for an external group this sends the
+   * TestFlight invite email. Use {@link addTestersToGroup} instead when the tester already exists on
+   * the team (an existing email here returns Apple's 409).
+   */
+  async createBetaTester(
+    groupId: string,
+    input: { email: string; firstName?: string; lastName?: string },
+  ): Promise<BetaTesterResource> {
+    const { data } = await this.request<
+      ResourceSingle<{ email?: string; firstName?: string; lastName?: string; state?: string }>
+    >("POST", "/betaTesters", {
+      data: {
+        type: "betaTesters",
+        attributes: {
+          email: input.email,
+          ...(input.firstName === undefined ? {} : { firstName: input.firstName }),
+          ...(input.lastName === undefined ? {} : { lastName: input.lastName }),
+        },
+        relationships: { betaGroups: { data: [{ type: "betaGroups", id: groupId }] } },
+      },
+    });
+    return {
+      id: data.id,
+      email: data.attributes.email ?? input.email,
+      ...(data.attributes.firstName ? { firstName: data.attributes.firstName } : {}),
+      ...(data.attributes.lastName ? { lastName: data.attributes.lastName } : {}),
+      ...(data.attributes.state ? { state: data.attributes.state } : {}),
+    };
+  }
+
+  /** Add existing testers to a beta group in one relationship call (invites external testers). */
+  async addTestersToGroup(groupId: string, testerIds: string[]): Promise<void> {
+    await this.request<unknown>("POST", `/betaGroups/${groupId}/relationships/betaTesters`, {
+      data: testerIds.map((id) => ({ type: "betaTesters", id })),
+    });
+  }
+
+  /** Remove testers from a beta group; they keep app access through any other group they're in. */
+  async removeTestersFromGroup(groupId: string, testerIds: string[]): Promise<void> {
+    await this.request<unknown>("DELETE", `/betaGroups/${groupId}/relationships/betaTesters`, {
+      data: testerIds.map((id) => ({ type: "betaTesters", id })),
+    });
+  }
+
+  /** Shared GET → {@link BetaTesterResource}[] for any beta-tester collection (group members or a lookup). */
+  private async betaTestersFrom(path: string): Promise<BetaTesterResource[]> {
+    const data = await this.requestAll<{ email?: string; firstName?: string; lastName?: string; state?: string }>(path);
+    return data.flatMap((entry) =>
+      entry.attributes.email
+        ? [
+            {
+              id: entry.id,
+              email: entry.attributes.email,
+              ...(entry.attributes.firstName ? { firstName: entry.attributes.firstName } : {}),
+              ...(entry.attributes.lastName ? { lastName: entry.attributes.lastName } : {}),
+              ...(entry.attributes.state ? { state: entry.attributes.state } : {}),
+            },
+          ]
+        : [],
+    );
+  }
+
+  /**
+   * Resolve the app's editable App Info — the record that owns App Store categories and the age-rating
+   * declaration — with its current category ids. Apps can have a live + an editable App Info; we prefer
+   * one in an editable {@link EDITABLE_METADATA_STATES editable state} and fall back to the first.
+   * `include=primaryCategory,secondaryCategory` forces Apple to populate the relationship linkage so we
+   * can read the current category ids without a second round-trip. Returns null when the app has none.
+   */
+  async getAppInfo(appId: string): Promise<AppInfoResource | null> {
+    const { data } = await this.request<{
+      data: {
+        id: string;
+        attributes?: { state?: string; appStoreState?: string };
+        relationships?: {
+          primaryCategory?: { data?: { id: string } | null };
+          secondaryCategory?: { data?: { id: string } | null };
+        };
+      }[];
+    }>("GET", `/apps/${appId}/appInfos?include=primaryCategory,secondaryCategory&limit=200`);
+    if (data.length === 0) return null;
+    const editable = data.find((info) =>
+      EDITABLE_METADATA_STATES.has(info.attributes?.state ?? info.attributes?.appStoreState ?? ""),
+    );
+    const target = editable ?? data[0];
+    if (!target) return null;
+    const state = target.attributes?.state ?? target.attributes?.appStoreState;
+    const primaryCategoryId = target.relationships?.primaryCategory?.data?.id;
+    const secondaryCategoryId = target.relationships?.secondaryCategory?.data?.id;
+    return {
+      id: target.id,
+      ...(state ? { state } : {}),
+      ...(primaryCategoryId ? { primaryCategoryId } : {}),
+      ...(secondaryCategoryId ? { secondaryCategoryId } : {}),
+    };
+  }
+
+  /**
+   * Set an App Info's primary/secondary App Store categories. Categories are JSON:API *relationships*
+   * (type `appCategories`, id e.g. `PRODUCTIVITY`), not attributes; only the keys passed are sent, so
+   * the reconciler can change one without clearing the other.
+   */
+  async updateAppInfoCategories(
+    appInfoId: string,
+    categories: { primaryCategoryId?: string; secondaryCategoryId?: string },
+  ): Promise<void> {
+    const relationships: Record<string, { data: { type: "appCategories"; id: string } }> = {};
+    if (categories.primaryCategoryId) {
+      relationships["primaryCategory"] = { data: { type: "appCategories", id: categories.primaryCategoryId } };
+    }
+    if (categories.secondaryCategoryId) {
+      relationships["secondaryCategory"] = { data: { type: "appCategories", id: categories.secondaryCategoryId } };
+    }
+    await this.request<unknown>("PATCH", `/appInfos/${appInfoId}`, {
+      data: { type: "appInfos", id: appInfoId, relationships },
+    });
+  }
+
+  /** Read an App Info's age-rating declaration (its current answers), or null when none exists yet. */
+  async getAgeRatingDeclaration(appInfoId: string): Promise<AgeRatingDeclarationResource | null> {
+    try {
+      const { data } = await this.request<{
+        data: { id: string; attributes?: Record<string, AgeRatingValue> } | null;
+      }>("GET", `/appInfos/${appInfoId}/ageRatingDeclaration`);
+      return data ? { id: data.id, attributes: data.attributes ?? {} } : null;
+    } catch (error) {
+      if (error instanceof AscRequestError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  /** Update an age-rating declaration with the given answers (only the supplied keys are changed). */
+  async updateAgeRatingDeclaration(declarationId: string, attributes: Record<string, AgeRatingValue>): Promise<void> {
+    await this.request<unknown>("PATCH", `/ageRatingDeclarations/${declarationId}`, {
+      data: { type: "ageRatingDeclarations", id: declarationId, attributes },
+    });
+  }
+
+  /** Find the app price point in `territory` whose customer price equals `customerPrice`, or null. */
+  async findAppPricePoint(appId: string, territory: string, customerPrice: number): Promise<PricePointResource | null> {
+    const points = await this.requestAll<{ customerPrice?: string; territory?: string }>(
+      `/apps/${appId}/appPricePoints?filter[territory]=${encodeURIComponent(territory)}&limit=8000`,
+    );
+    return matchPricePoint(points, territory, customerPrice);
+  }
+
+  /**
+   * The app's currently-effective manual customer price for `territory`, or null when none is set there.
+   * Reads the price schedule's manual prices with the linked price point sideloaded, so the reconciler
+   * can skip re-pricing when the declared price already matches. (Prices Apple auto-generates for other
+   * regions live under `automaticPrices`; the declared base price is always a manual one.)
+   *
+   * `manualPrices` returns past, current, AND future-scheduled intervals — the currently-effective one is
+   * the open interval (`startDate` null/past and `endDate` null). We match only that, so a stale or a
+   * not-yet-active scheduled price never masquerades as the current price. `limit=200` is ample: manual
+   * prices are at most one per territory (≤175) plus a handful of scheduled changes.
+   */
+  async getCurrentAppPrice(appId: string, territory: string): Promise<string | null> {
+    let body: {
+      data: {
+        attributes?: { startDate?: string | null; endDate?: string | null };
+        relationships?: { appPricePoint?: { data?: { id: string } | null } };
+      }[];
+      included?: { type: string; id: string; attributes?: { customerPrice?: string; territory?: string } }[];
+    };
+    try {
+      body = await this.request("GET", `/apps/${appId}/appPriceSchedule/manualPrices?include=appPricePoint&limit=200`);
+    } catch (error) {
+      if (error instanceof AscRequestError && error.status === 404) return null;
+      throw error;
+    }
+    const pointsById = new Map(
+      (body.included ?? [])
+        .filter((entry) => entry.type === "appPricePoints")
+        .map((entry) => [entry.id, entry.attributes] as const),
+    );
+    for (const price of body.data) {
+      // The active interval has no future start and no scheduled end; skip historical/future entries.
+      if (price.attributes?.startDate != null || price.attributes?.endDate != null) continue;
+      const pointId = price.relationships?.appPricePoint?.data?.id;
+      const point = pointId ? pointsById.get(pointId) : undefined;
+      if (point?.territory === territory && point.customerPrice !== undefined) return point.customerPrice;
+    }
+    return null;
+  }
+
+  /**
+   * Set the app's price by creating a price schedule anchored on a base territory's price point — the
+   * app-level twin of {@link createInAppPurchasePriceSchedule}, using the same JSON:API temp-id +
+   * `included` pattern Apple requires, with the mandatory `baseTerritory` (omitting it returns a 409).
+   */
+  async createAppPriceSchedule(appId: string, baseTerritory: string, pricePointId: string): Promise<void> {
+    const priceRef = "launch-base-price";
+    await this.request<unknown>("POST", "/appPriceSchedules", {
+      data: {
+        type: "appPriceSchedules",
+        relationships: {
+          app: { data: { type: "apps", id: appId } },
+          baseTerritory: { data: { type: "territories", id: baseTerritory } },
+          manualPrices: { data: [{ type: "appPrices", id: priceRef }] },
+        },
+      },
+      included: [
+        {
+          type: "appPrices",
+          id: priceRef,
+          attributes: { startDate: null },
+          relationships: {
+            app: { data: { type: "apps", id: appId } },
+            appPricePoint: { data: { type: "appPricePoints", id: pricePointId } },
+          },
+        },
+      ],
+    });
+  }
+
+  /**
+   * Find the app's editable App Store version for a platform (the one whose App Review details can still
+   * be changed), or null when none is in an {@link EDITABLE_METADATA_STATES editable state}.
+   */
+  async findEditableAppStoreVersion(appId: string, platform: string): Promise<{ id: string } | null> {
+    const data = await this.requestAll<{ appVersionState?: string; appStoreState?: string }>(
+      `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=50&fields[appStoreVersions]=appVersionState,appStoreState`,
+    );
+    const editable = data.find((version) =>
+      EDITABLE_METADATA_STATES.has(version.attributes.appVersionState ?? version.attributes.appStoreState ?? ""),
+    );
+    return editable ? { id: editable.id } : null;
+  }
+
+  /** Read a version's App Review details (contact info; never the demo password), or null when unset. */
+  async getAppStoreReviewDetail(versionId: string): Promise<AppStoreReviewDetailResource | null> {
+    try {
+      const { data } = await this.request<{
+        data: { id: string; attributes?: Record<string, string | boolean> } | null;
+      }>("GET", `/appStoreVersions/${versionId}/appStoreReviewDetail`);
+      return data ? { id: data.id, attributes: data.attributes ?? {} } : null;
+    } catch (error) {
+      if (error instanceof AscRequestError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  /** Create a version's App Review details from the given attributes. */
+  async createAppStoreReviewDetail(
+    versionId: string,
+    attributes: Record<string, string | boolean>,
+  ): Promise<{ id: string }> {
+    const { data } = await this.request<ResourceSingle<unknown>>("POST", "/appStoreReviewDetails", {
+      data: {
+        type: "appStoreReviewDetails",
+        attributes,
+        relationships: { appStoreVersion: { data: { type: "appStoreVersions", id: versionId } } },
+      },
+    });
+    return { id: data.id };
+  }
+
+  /** Update a version's existing App Review details (only the supplied attributes change). */
+  async updateAppStoreReviewDetail(detailId: string, attributes: Record<string, string | boolean>): Promise<void> {
+    await this.request<unknown>("PATCH", `/appStoreReviewDetails/${detailId}`, {
+      data: { type: "appStoreReviewDetails", id: detailId, attributes },
+    });
+  }
+
   /** Shared GET → {@link LocalizationResource}[] for any product/subscription/group localization collection. */
   private async localizationsFrom(path: string): Promise<LocalizationResource[]> {
     const data = await this.requestAll<{ locale?: string; name?: string; description?: string }>(path);
@@ -826,6 +1630,491 @@ export class AppStoreConnectClient {
       ...(data.attributes.description ? { description: data.attributes.description } : {}),
     };
   }
+
+  /* ------------------------------------------------------------------------ */
+  /*  Customer reviews — read reviews and create/replace/delete the developer  */
+  /*  response. Consumed by `launch reviews` (core/reviews.ts).                 */
+  /* ------------------------------------------------------------------------ */
+
+  /**
+   * List an app's customer reviews, newest first, across all pages. Fetched with `include=response`
+   * so each row carries {@link CustomerReviewResource.answered} without a follow-up call;
+   * `filter[rating]` / `filter[territory]` narrow server-side when provided.
+   */
+  async listCustomerReviews(
+    appId: string,
+    filters: { rating?: number; territory?: string } = {},
+  ): Promise<CustomerReviewResource[]> {
+    let path = `/apps/${appId}/customerReviews?include=response&sort=-createdDate&limit=200`;
+    if (filters.rating !== undefined) path += `&filter[rating]=${filters.rating}`;
+    if (filters.territory) path += `&filter[territory]=${encodeURIComponent(filters.territory)}`;
+
+    const reviews: CustomerReviewResource[] = [];
+    let next: string | undefined = path;
+    while (next) {
+      const page: CustomerReviewPage = await this.request<CustomerReviewPage>("GET", next);
+      for (const { id, attributes, relationships } of page.data) {
+        reviews.push({
+          id,
+          rating: typeof attributes.rating === "number" ? attributes.rating : 0,
+          ...(attributes.title ? { title: attributes.title } : {}),
+          ...(attributes.body ? { body: attributes.body } : {}),
+          ...(attributes.reviewerNickname ? { reviewerNickname: attributes.reviewerNickname } : {}),
+          ...(attributes.territory ? { territory: attributes.territory } : {}),
+          ...(attributes.createdDate ? { createdDate: attributes.createdDate } : {}),
+          answered: Boolean(relationships?.response?.data),
+        });
+      }
+      next = page.links?.next;
+    }
+    return reviews;
+  }
+
+  /** Read the developer response attached to a review, or null when none exists yet (Apple 404s on none). */
+  async getCustomerReviewResponse(reviewId: string): Promise<CustomerReviewResponseResource | null> {
+    try {
+      const { data } = await this.request<{
+        data: {
+          id: string;
+          attributes: { responseBody?: string; state?: string; lastModifiedDate?: string };
+        } | null;
+      }>("GET", `/customerReviews/${reviewId}/response`);
+      return data ? toReviewResponse(data) : null;
+    } catch (error) {
+      if (error instanceof AscRequestError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  /**
+   * Create or replace the developer response to a review. Apple's `POST /v1/customerReviewResponses`
+   * is an upsert — it replaces an existing response in place — so callers never delete-then-recreate.
+   */
+  async createCustomerReviewResponse(reviewId: string, responseBody: string): Promise<CustomerReviewResponseResource> {
+    const { data } = await this.request<
+      ResourceSingle<{ responseBody?: string; state?: string; lastModifiedDate?: string }>
+    >("POST", "/customerReviewResponses", {
+      data: {
+        type: "customerReviewResponses",
+        attributes: { responseBody },
+        relationships: { review: { data: { type: "customerReviews", id: reviewId } } },
+      },
+    });
+    return toReviewResponse(data);
+  }
+
+  /** Delete a developer response by its resource id. */
+  async deleteCustomerReviewResponse(responseId: string): Promise<void> {
+    await this.request<unknown>("DELETE", `/customerReviewResponses/${responseId}`);
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /*  Reports — Sales & Trends / Finance (gzipped TSV) and the Analytics       */
+  /*  Reports flow. Consumed by `launch reports` (core/reports.ts).            */
+  /* ------------------------------------------------------------------------ */
+
+  /** Download a Sales & Trends report as raw gzip bytes (the caller decompresses + parses the TSV). */
+  async getSalesReport(query: SalesReportQuery): Promise<Buffer> {
+    const params = [
+      `filter[frequency]=${query.frequency}`,
+      `filter[reportType]=${query.reportType}`,
+      `filter[reportSubType]=${query.reportSubType}`,
+      `filter[vendorNumber]=${encodeURIComponent(query.vendorNumber)}`,
+      `filter[reportDate]=${query.reportDate}`,
+      ...(query.version ? [`filter[version]=${query.version}`] : []),
+    ];
+    return this.getReportBytes(`/salesReports?${params.join("&")}`);
+  }
+
+  /** Download a Finance report as raw gzip bytes (the caller decompresses + parses the TSV). */
+  async getFinanceReport(query: FinanceReportQuery): Promise<Buffer> {
+    const params = [
+      `filter[regionCode]=${query.regionCode}`,
+      `filter[reportDate]=${query.reportDate}`,
+      `filter[reportType]=${query.reportType ?? "FINANCE_DETAIL"}`,
+      `filter[vendorNumber]=${encodeURIComponent(query.vendorNumber)}`,
+    ];
+    return this.getReportBytes(`/financeReports?${params.join("&")}`);
+  }
+
+  /** List an app's analytics report requests of one access type (`ONGOING` / `ONE_TIME_SNAPSHOT`). */
+  async listAnalyticsReportRequests(appId: string, accessType: string): Promise<AnalyticsReportRequestResource[]> {
+    const data = await this.requestAll<{ accessType?: string; stoppedDueToInactivity?: boolean }>(
+      `/apps/${appId}/analyticsReportRequests?filter[accessType]=${accessType}&limit=200`,
+    );
+    return data.map((entry) => toReportRequest(entry, accessType));
+  }
+
+  /**
+   * Create an analytics report request for an app. Creating a brand-new report type for the first time
+   * needs the Admin role — a non-Admin key returns 403, which `launch reports` surfaces actionably.
+   */
+  async createAnalyticsReportRequest(appId: string, accessType: string): Promise<AnalyticsReportRequestResource> {
+    const { data } = await this.request<ResourceSingle<{ accessType?: string; stoppedDueToInactivity?: boolean }>>(
+      "POST",
+      "/analyticsReportRequests",
+      {
+        data: {
+          type: "analyticsReportRequests",
+          attributes: { accessType },
+          relationships: { app: { data: { type: "apps", id: appId } } },
+        },
+      },
+    );
+    return toReportRequest(data, accessType);
+  }
+
+  /** List the reports available within a request, optionally filtered by category or exact name. */
+  async listAnalyticsReports(
+    requestId: string,
+    filters: { category?: string; name?: string } = {},
+  ): Promise<AnalyticsReportResource[]> {
+    let path = `/analyticsReportRequests/${requestId}/reports?limit=200`;
+    if (filters.category) path += `&filter[category]=${filters.category}`;
+    if (filters.name) path += `&filter[name]=${encodeURIComponent(filters.name)}`;
+    const data = await this.requestAll<{ name?: string; category?: string }>(path);
+    return data.map((entry) => ({
+      id: entry.id,
+      name: entry.attributes.name ?? "",
+      ...(entry.attributes.category ? { category: entry.attributes.category } : {}),
+    }));
+  }
+
+  /** List a report's time-period instances, optionally filtered by granularity / processing date. */
+  async listAnalyticsReportInstances(
+    reportId: string,
+    filters: { granularity?: string; processingDate?: string } = {},
+  ): Promise<AnalyticsReportInstanceResource[]> {
+    let path = `/analyticsReports/${reportId}/instances?limit=200`;
+    if (filters.granularity) path += `&filter[granularity]=${filters.granularity}`;
+    if (filters.processingDate) path += `&filter[processingDate]=${filters.processingDate}`;
+    const data = await this.requestAll<{ granularity?: string; processingDate?: string }>(path);
+    return data.map((entry) => ({
+      id: entry.id,
+      granularity: entry.attributes.granularity ?? "",
+      ...(entry.attributes.processingDate ? { processingDate: entry.attributes.processingDate } : {}),
+    }));
+  }
+
+  /** List the downloadable segments of a report instance (each a presigned URL to a gzipped TSV). */
+  async listAnalyticsReportSegments(instanceId: string): Promise<AnalyticsReportSegmentResource[]> {
+    const data = await this.requestAll<{ url?: string; checksum?: string; sizeInBytes?: number }>(
+      `/analyticsReportInstances/${instanceId}/segments?limit=200`,
+    );
+    return data.flatMap((entry) =>
+      entry.attributes.url
+        ? [
+            {
+              id: entry.id,
+              url: entry.attributes.url,
+              ...(entry.attributes.checksum ? { checksum: entry.attributes.checksum } : {}),
+              ...(entry.attributes.sizeInBytes !== undefined ? { sizeInBytes: entry.attributes.sizeInBytes } : {}),
+            },
+          ]
+        : [],
+    );
+  }
+
+  /**
+   * Download an analytics segment's gzipped body from its presigned URL. The URL carries its own
+   * query-string auth, so this is an UNauthenticated fetch — adding the API Bearer would make the
+   * storage backend reject the request for presenting two auth mechanisms.
+   */
+  async downloadAnalyticsSegment(url: string): Promise<Buffer> {
+    return withRetry(
+      async () => {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new AscRequestError(`Analytics segment download failed (${response.status}).`, response.status);
+        }
+        return Buffer.from(await response.arrayBuffer());
+      },
+      { isRetryable: isRetryableAscError },
+    );
+  }
+
+  /**
+   * GET a gzipped report body (sales/finance) as raw bytes, with transparent retry on Apple's transient
+   * failures. Surfaces Apple's JSON error `detail` (e.g. "There were no sales for the date specified")
+   * on a 4xx instead of a bare status, so the command can show an actionable message.
+   */
+  private async getReportBytes(pathOrUrl: string): Promise<Buffer> {
+    return withRetry(() => this.getReportBytesOnce(pathOrUrl), { isRetryable: isRetryableAscError });
+  }
+
+  /** A single (un-retried) gzipped-report fetch — the retry wrapper lives in {@link getReportBytes}. */
+  private async getReportBytesOnce(pathOrUrl: string): Promise<Buffer> {
+    const url = pathOrUrl.startsWith("http") ? pathOrUrl : `${BASE_URL}${pathOrUrl}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${await this.token()}`, Accept: "application/a-gzip, application/json" },
+    });
+    if (!response.ok) {
+      const text = await response.text();
+      throw new AscRequestError(
+        `App Store Connect GET ${pathOrUrl} failed (${response.status}): ${describeErrors(text)}`,
+        response.status,
+      );
+    }
+    return Buffer.from(await response.arrayBuffer());
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /*  App Store release lifecycle — versions, builds, localizations, review     */
+  /*  submissions, and phased release. Consumed by core/appStoreRelease.ts.     */
+  /* ------------------------------------------------------------------------ */
+
+  /** List an app's most recent builds (one page, newest upload first) for the release build picker. */
+  async listBuilds(appId: string, limit = 25): Promise<BuildResource[]> {
+    const { data } = await this.request<
+      ResourceList<{ version?: string; processingState?: string; uploadedDate?: string; expired?: boolean }>
+    >(
+      "GET",
+      `/builds?filter[app]=${appId}&sort=-uploadedDate&limit=${limit}&fields[builds]=version,processingState,uploadedDate,expired`,
+    );
+    return data.map((entry) => toBuildResource(entry));
+  }
+
+  /** Find one build by its `CFBundleVersion` number (the resource id is needed to attach / PATCH it), or null. */
+  async findBuildByVersion(appId: string, buildNumber: number): Promise<BuildResource | null> {
+    const { data } = await this.request<
+      ResourceList<{ version?: string; processingState?: string; uploadedDate?: string; expired?: boolean }>
+    >(
+      "GET",
+      `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1&fields[builds]=version,processingState,uploadedDate,expired`,
+    );
+    const first = data[0];
+    return first ? toBuildResource(first) : null;
+  }
+
+  /** List an app's App Store versions for a platform (e.g. `IOS`), across all pages. */
+  async listAppStoreVersions(appId: string, platform: string): Promise<AppStoreVersionResource[]> {
+    const data = await this.requestAll<{ versionString?: string; appStoreState?: string; releaseType?: string }>(
+      `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=200&fields[appStoreVersions]=versionString,appStoreState,releaseType`,
+    );
+    return data.map((entry) => toVersionResource(entry));
+  }
+
+  /** Create a new App Store version for a marketing version string on a platform. */
+  async createAppStoreVersion(
+    appId: string,
+    input: { versionString: string; platform: string; releaseType?: string; earliestReleaseDate?: string },
+  ): Promise<AppStoreVersionResource> {
+    const attributes: Record<string, string> = { platform: input.platform, versionString: input.versionString };
+    if (input.releaseType) attributes["releaseType"] = input.releaseType;
+    if (input.earliestReleaseDate) attributes["earliestReleaseDate"] = input.earliestReleaseDate;
+    const { data } = await this.request<
+      ResourceSingle<{ versionString?: string; appStoreState?: string; releaseType?: string }>
+    >("POST", "/appStoreVersions", {
+      data: { type: "appStoreVersions", attributes, relationships: { app: { data: { type: "apps", id: appId } } } },
+    });
+    return toVersionResource({ id: data.id, attributes: data.attributes }, input.versionString);
+  }
+
+  /** Update an editable version's release type / scheduled date / version string. */
+  async updateAppStoreVersion(
+    versionId: string,
+    input: { releaseType?: string; earliestReleaseDate?: string; versionString?: string },
+  ): Promise<void> {
+    const attributes: Record<string, string> = {};
+    if (input.releaseType) attributes["releaseType"] = input.releaseType;
+    if (input.earliestReleaseDate) attributes["earliestReleaseDate"] = input.earliestReleaseDate;
+    if (input.versionString) attributes["versionString"] = input.versionString;
+    await this.request<unknown>("PATCH", `/appStoreVersions/${versionId}`, {
+      data: { type: "appStoreVersions", id: versionId, attributes },
+    });
+  }
+
+  /** Attach a (processed, VALID) build to a version — the `relationships/build` PATCH. */
+  async selectBuildForVersion(versionId: string, buildId: string): Promise<void> {
+    await this.request<unknown>("PATCH", `/appStoreVersions/${versionId}/relationships/build`, {
+      data: { type: "builds", id: buildId },
+    });
+  }
+
+  /** List a version's per-locale copy (Launch reads only `whatsNew`). */
+  async listAppStoreVersionLocalizations(versionId: string): Promise<AppStoreVersionLocalizationResource[]> {
+    const data = await this.requestAll<{ locale?: string; whatsNew?: string }>(
+      `/appStoreVersions/${versionId}/appStoreVersionLocalizations?limit=200&fields[appStoreVersionLocalizations]=locale,whatsNew`,
+    );
+    return data.flatMap((entry) =>
+      entry.attributes.locale
+        ? [
+            {
+              id: entry.id,
+              locale: entry.attributes.locale,
+              ...(entry.attributes.whatsNew ? { whatsNew: entry.attributes.whatsNew } : {}),
+            },
+          ]
+        : [],
+    );
+  }
+
+  /** Create one locale's version copy with its release notes. */
+  async createAppStoreVersionLocalization(
+    versionId: string,
+    input: { locale: string; whatsNew: string },
+  ): Promise<AppStoreVersionLocalizationResource> {
+    const { data } = await this.request<ResourceSingle<{ locale?: string; whatsNew?: string }>>(
+      "POST",
+      "/appStoreVersionLocalizations",
+      {
+        data: {
+          type: "appStoreVersionLocalizations",
+          attributes: { locale: input.locale, whatsNew: input.whatsNew },
+          relationships: { appStoreVersion: { data: { type: "appStoreVersions", id: versionId } } },
+        },
+      },
+    );
+    return {
+      id: data.id,
+      locale: data.attributes.locale ?? input.locale,
+      ...(data.attributes.whatsNew ? { whatsNew: data.attributes.whatsNew } : {}),
+    };
+  }
+
+  /** Update one locale's release notes (`whatsNew`). */
+  async updateAppStoreVersionLocalization(localizationId: string, whatsNew: string): Promise<void> {
+    await this.request<unknown>("PATCH", `/appStoreVersionLocalizations/${localizationId}`, {
+      data: { type: "appStoreVersionLocalizations", id: localizationId, attributes: { whatsNew } },
+    });
+  }
+
+  /** A version's phased-release schedule, or null when none has been created yet (a fresh version). */
+  async getPhasedRelease(versionId: string): Promise<PhasedReleaseResource | null> {
+    try {
+      const { data } = await this.request<{
+        data: { id: string; attributes: { phasedReleaseState?: string; currentDayNumber?: number } } | null;
+      }>("GET", `/appStoreVersions/${versionId}/appStoreVersionPhasedRelease`);
+      return data ? toPhasedRelease(data) : null;
+    } catch (error) {
+      if (error instanceof AscRequestError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  /** Create a phased release on a version (starts `ACTIVE`; takes effect once the version goes live). */
+  async createPhasedRelease(versionId: string): Promise<PhasedReleaseResource> {
+    const { data } = await this.request<ResourceSingle<{ phasedReleaseState?: string; currentDayNumber?: number }>>(
+      "POST",
+      "/appStoreVersionPhasedReleases",
+      {
+        data: {
+          type: "appStoreVersionPhasedReleases",
+          attributes: { phasedReleaseState: "ACTIVE" },
+          relationships: { appStoreVersion: { data: { type: "appStoreVersions", id: versionId } } },
+        },
+      },
+    );
+    return toPhasedRelease({ id: data.id, attributes: data.attributes });
+  }
+
+  /** Steer a phased release: `PAUSE`, `ACTIVE` (resume), or `COMPLETE` (finish the ramp now). */
+  async updatePhasedRelease(phasedReleaseId: string, phasedReleaseState: string): Promise<void> {
+    await this.request<unknown>("PATCH", `/appStoreVersionPhasedReleases/${phasedReleaseId}`, {
+      data: { type: "appStoreVersionPhasedReleases", id: phasedReleaseId, attributes: { phasedReleaseState } },
+    });
+  }
+
+  /** Remove a phased release (opt back into an immediate 100% rollout before go-live). */
+  async deletePhasedRelease(phasedReleaseId: string): Promise<void> {
+    await this.request<unknown>("DELETE", `/appStoreVersionPhasedReleases/${phasedReleaseId}`);
+  }
+
+  /** List an app's review submissions for a platform (to reuse an addable `READY_FOR_REVIEW` draft). */
+  async listReviewSubmissions(appId: string, platform: string): Promise<ReviewSubmissionResource[]> {
+    const data = await this.requestAll<{ state?: string }>(
+      `/apps/${appId}/reviewSubmissions?filter[platform]=${platform}&limit=200&fields[reviewSubmissions]=state`,
+    );
+    return data.map((entry) => ({ id: entry.id, state: entry.attributes.state ?? "" }));
+  }
+
+  /** Open a new review submission container for a platform. */
+  async createReviewSubmission(appId: string, platform: string): Promise<ReviewSubmissionResource> {
+    const { data } = await this.request<ResourceSingle<{ state?: string }>>("POST", "/reviewSubmissions", {
+      data: {
+        type: "reviewSubmissions",
+        attributes: { platform },
+        relationships: { app: { data: { type: "apps", id: appId } } },
+      },
+    });
+    return { id: data.id, state: data.attributes.state ?? "" };
+  }
+
+  /** Add a version to a review submission as an item (required before the submission can be submitted). */
+  async addReviewSubmissionItem(submissionId: string, versionId: string): Promise<void> {
+    await this.request<unknown>("POST", "/reviewSubmissionItems", {
+      data: {
+        type: "reviewSubmissionItems",
+        relationships: {
+          reviewSubmission: { data: { type: "reviewSubmissions", id: submissionId } },
+          appStoreVersion: { data: { type: "appStoreVersions", id: versionId } },
+        },
+      },
+    });
+  }
+
+  /** Submit a review submission to Apple (the `submitted: true` PATCH). */
+  async submitReviewSubmission(submissionId: string): Promise<void> {
+    await this.request<unknown>("PATCH", `/reviewSubmissions/${submissionId}`, {
+      data: { type: "reviewSubmissions", id: submissionId, attributes: { submitted: true } },
+    });
+  }
+
+  /** Cancel a review submission — the hotfix-loop withdraw that frees the version to be edited again. */
+  async cancelReviewSubmission(submissionId: string): Promise<void> {
+    await this.request<unknown>("PATCH", `/reviewSubmissions/${submissionId}`, {
+      data: { type: "reviewSubmissions", id: submissionId, attributes: { canceled: true } },
+    });
+  }
+
+  /** Read one review submission's current state (for `launch status`). */
+  async getReviewSubmission(submissionId: string): Promise<ReviewSubmissionResource> {
+    const { data } = await this.request<ResourceSingle<{ state?: string }>>(
+      "GET",
+      `/reviewSubmissions/${submissionId}?fields[reviewSubmissions]=state`,
+    );
+    return { id: data.id, state: data.attributes.state ?? "" };
+  }
+}
+
+/** Map a raw build row onto a {@link BuildResource}, defaulting the optional/absent attributes. */
+function toBuildResource(entry: {
+  id: string;
+  attributes: { version?: string; processingState?: string; uploadedDate?: string; expired?: boolean };
+}): BuildResource {
+  return {
+    id: entry.id,
+    version: entry.attributes.version ?? "",
+    processingState: entry.attributes.processingState ?? "",
+    ...(entry.attributes.uploadedDate ? { uploadedDate: entry.attributes.uploadedDate } : {}),
+    expired: entry.attributes.expired ?? false,
+  };
+}
+
+/** Map a raw version row onto an {@link AppStoreVersionResource}, keeping a known versionString fallback. */
+function toVersionResource(
+  entry: { id: string; attributes: { versionString?: string; appStoreState?: string; releaseType?: string } },
+  fallbackVersion = "",
+): AppStoreVersionResource {
+  return {
+    id: entry.id,
+    versionString: entry.attributes.versionString ?? fallbackVersion,
+    appStoreState: entry.attributes.appStoreState ?? "",
+    ...(entry.attributes.releaseType ? { releaseType: entry.attributes.releaseType } : {}),
+  };
+}
+
+/** Map a raw phased-release row onto a {@link PhasedReleaseResource}. */
+function toPhasedRelease(entry: {
+  id: string;
+  attributes: { phasedReleaseState?: string; currentDayNumber?: number };
+}): PhasedReleaseResource {
+  return {
+    id: entry.id,
+    phasedReleaseState: entry.attributes.phasedReleaseState ?? "",
+    ...(entry.attributes.currentDayNumber !== undefined ? { currentDayNumber: entry.attributes.currentDayNumber } : {}),
+  };
 }
 
 /**
@@ -846,6 +2135,33 @@ function matchPricePoint(
     }
   }
   return null;
+}
+
+/** Project an ASC `customerReviewResponses` resource object into a {@link CustomerReviewResponseResource}. */
+function toReviewResponse(data: {
+  id: string;
+  attributes: { responseBody?: string; state?: string; lastModifiedDate?: string };
+}): CustomerReviewResponseResource {
+  return {
+    id: data.id,
+    responseBody: data.attributes.responseBody ?? "",
+    ...(data.attributes.state ? { state: data.attributes.state } : {}),
+    ...(data.attributes.lastModifiedDate ? { lastModifiedDate: data.attributes.lastModifiedDate } : {}),
+  };
+}
+
+/** Project an ASC `analyticsReportRequests` resource object into an {@link AnalyticsReportRequestResource}. */
+function toReportRequest(
+  entry: { id: string; attributes: { accessType?: string; stoppedDueToInactivity?: boolean } },
+  fallbackAccessType: string,
+): AnalyticsReportRequestResource {
+  return {
+    id: entry.id,
+    accessType: entry.attributes.accessType ?? fallbackAccessType,
+    ...(entry.attributes.stoppedDueToInactivity !== undefined
+      ? { stoppedDueToInactivity: entry.attributes.stoppedDueToInactivity }
+      : {}),
+  };
 }
 
 /** Extract Apple's human-readable error detail from a failed-response body, falling back to raw text. */
