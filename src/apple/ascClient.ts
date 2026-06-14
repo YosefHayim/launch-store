@@ -792,6 +792,26 @@ export interface AlternativeDistributionKeyResource {
   publicKey?: string;
 }
 
+/**
+ * An Apple Pay **merchant id** (e.g. `merchant.com.acme.app`) registered on the team. Team-level, like a
+ * bundle id; matched to config on `identifier`. (Its payment-processing certificate is a separate flow.)
+ */
+export interface MerchantIdResource {
+  id: string;
+  identifier?: string;
+  name?: string;
+}
+
+/**
+ * A Wallet **pass type id** (e.g. `pass.com.acme.coupon`) registered on the team — the identifier a
+ * `.pkpass` is signed against. Team-level; matched to config on `identifier`.
+ */
+export interface PassTypeIdResource {
+  id: string;
+  identifier?: string;
+  name?: string;
+}
+
 interface ResourceList<A> {
   data: { id: string; attributes: A }[];
 }
@@ -3331,6 +3351,42 @@ export class AppStoreConnectClient {
       body,
     );
     return { id: data.id };
+  }
+
+  /** List the team's registered Apple Pay merchant ids (matched to config on `identifier`). */
+  async listMerchantIds(): Promise<MerchantIdResource[]> {
+    const data = await this.requestAll<{ identifier?: string; name?: string }>("/merchantIds?limit=200");
+    return data.map((entry) => ({
+      id: entry.id,
+      ...(entry.attributes.identifier ? { identifier: entry.attributes.identifier } : {}),
+      ...(entry.attributes.name ? { name: entry.attributes.name } : {}),
+    }));
+  }
+
+  /** Register an Apple Pay merchant id (`merchant.…`) on the team. */
+  async createMerchantId(identifier: string, name: string): Promise<void> {
+    const body: components["schemas"]["MerchantIdCreateRequest"] = {
+      data: { type: "merchantIds", attributes: { name, identifier } },
+    };
+    await this.request<unknown>("POST", "/merchantIds", body);
+  }
+
+  /** List the team's registered Wallet pass type ids (matched to config on `identifier`). */
+  async listPassTypeIds(): Promise<PassTypeIdResource[]> {
+    const data = await this.requestAll<{ identifier?: string; name?: string }>("/passTypeIds?limit=200");
+    return data.map((entry) => ({
+      id: entry.id,
+      ...(entry.attributes.identifier ? { identifier: entry.attributes.identifier } : {}),
+      ...(entry.attributes.name ? { name: entry.attributes.name } : {}),
+    }));
+  }
+
+  /** Register a Wallet pass type id (`pass.…`) on the team. */
+  async createPassTypeId(identifier: string, name: string): Promise<void> {
+    const body: components["schemas"]["PassTypeIdCreateRequest"] = {
+      data: { type: "passTypeIds", attributes: { name, identifier } },
+    };
+    await this.request<unknown>("POST", "/passTypeIds", body);
   }
 
   /** Reserve an asset: POST the resource with `fileName`/`fileSize`, returning its id + upload operations. */
