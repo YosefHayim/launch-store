@@ -503,7 +503,7 @@ export interface NotifyConfig {
   /**
    * Shell command run on completion with the event in its environment as `LAUNCH_*` vars
    * (`LAUNCH_EVENT`, `LAUNCH_STATUS`, `LAUNCH_APP`, `LAUNCH_VERSION`, `LAUNCH_BUILD_NUMBER`,
-   * `LAUNCH_DESTINATION`, `LAUNCH_ERROR`). Runs through the platform shell, like a git hook.
+   * `LAUNCH_DESTINATION`, `LAUNCH_ERROR`). Runs under `/bin/sh -c`, like a git hook.
    */
   command?: string;
 }
