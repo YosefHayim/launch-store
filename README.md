@@ -29,16 +29,21 @@ cloud Mac in **your own** AWS account or hands off to Expo EAS — see [Building
 > **New here?** Run `launch demo` for a 60-second simulated walkthrough of the whole pipeline — no
 > setup, no build, no account needed. It also auto-plays the first time you run `launch`.
 
+<!-- Feature map — one badge per stage of the release, in pipeline order. Mirrors the Features section below. -->
 <table align="center">
   <tr>
-    <td align="center"><img src="assets/badges/zero-build-cost.jpg" alt="Zero build cost — $0 on your machine, stop renting Expo builds" width="250" /></td>
-    <td align="center"><img src="assets/badges/no-queue-wait.jpg" alt="No queue wait — build on your own machine, no shared cloud line" width="250" /></td>
-    <td align="center"><img src="assets/badges/no-timeout-limit.jpg" alt="No timeout limit — run as long as needed, no 45-minute or 2-hour cap" width="250" /></td>
+    <td align="center"><img src="assets/badges/feature-setup-verify.jpg" alt="Set up & verify — one-step config, keys in your OS keychain, secrets, and a smart preflight" width="150" /></td>
+    <td align="center"><img src="assets/badges/feature-app-store-connect.jpg" alt="Configure App Store Connect — products, pricing, listing, offers, and metadata as code, not clicks" width="150" /></td>
+    <td align="center"><img src="assets/badges/feature-google-play.jpg" alt="Configure Google Play — products, subscriptions, offers, tracks & reviews as code" width="150" /></td>
+    <td align="center"><img src="assets/badges/feature-build-ship.jpg" alt="Build & ship iOS & Android — one command, fast builds, size checks, safe uploads to test tracks" width="150" /></td>
+    <td align="center"><img src="assets/badges/feature-public-release.jpg" alt="Deliberate public release — submit, track & roll out from the CLI, no portal needed" width="150" /></td>
   </tr>
   <tr>
-    <td align="center"><img src="assets/badges/keys-stay-local.jpg" alt="Keys stay local — signing keys stay in your OS keychain and never leave your machine" width="250" /></td>
-    <td align="center"><img src="assets/badges/no-vendor-lock-in.jpg" alt="No vendor lock-in — MIT-licensed with swappable providers, you stay in control" width="250" /></td>
-    <td align="center"><img src="assets/badges/best-for-mac-owners.jpg" alt="Best for Mac owners — if you own a Mac, Launch makes sense (developer accounts still required)" width="250" /></td>
+    <td align="center"><img src="assets/badges/feature-resign.jpg" alt="Re-sign without rebuilding — re-sign IPAs/AABs with new credentials from stored artifacts" width="150" /></td>
+    <td align="center"><img src="assets/badges/feature-notifications.jpg" alt="Completion notifications — Slack, Discord or shell hooks on build success and failure" width="150" /></td>
+    <td align="center"><img src="assets/badges/feature-distribute-update.jpg" alt="Distribute & update — internal distribution, over-the-air updates, and instant rollback" width="150" /></td>
+    <td align="center"><img src="assets/badges/feature-team-testers.jpg" alt="Manage testers, team & reviews — TestFlight groups, reviews, team access, and sandbox testers, all via API" width="150" /></td>
+    <td align="center"><img src="assets/badges/feature-reports.jpg" alt="Sales, finance & analytics reports — download App Store Connect reports for analysis and automation" width="150" /></td>
   </tr>
 </table>
 
