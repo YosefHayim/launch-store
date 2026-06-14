@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { MerchantIdResource, PassTypeIdResource } from "../apple/ascClient.js";
 import { summarize } from "./asc/storeSync.js";
-import { type AscWalletApi, type WalletConfig, parseWalletConfig, reconcileWalletIds } from "./walletIds.js";
+import { type AscWalletApi, parseWalletConfig, reconcileWalletIds } from "./walletIds.js";
+import type { WalletConfig } from "./types.js";
 
 /** A hand-rolled {@link AscWalletApi} — no network — serving `existing` and recording creates. */
 function makeApi(existing: { merchantIds?: MerchantIdResource[]; passTypeIds?: PassTypeIdResource[] }): {

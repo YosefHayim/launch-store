@@ -18,22 +18,7 @@ import { existsSync, readFileSync } from "node:fs";
 import type { MerchantIdResource, PassTypeIdResource } from "../apple/ascClient.js";
 import { act, type PlannedAction, type ReconcileContext } from "./asc/storeSync.js";
 import { asRecord } from "./json.js";
-
-/** One declared identifier: the reverse-DNS id plus a human-readable name shown in the portal. */
-export interface WalletIdConfig {
-  /** The identifier to register (e.g. `merchant.com.acme.app` or `pass.com.acme.coupon`). */
-  identifier: string;
-  /** A label shown in App Store Connect / the developer portal. */
-  name: string;
-}
-
-/** The full `wallet.config.json` document — either family may be omitted. */
-export interface WalletConfig {
-  /** Apple Pay merchant ids to register. */
-  merchantIds?: WalletIdConfig[];
-  /** Wallet pass type ids to register. */
-  passTypeIds?: WalletIdConfig[];
-}
+import type { WalletConfig, WalletIdConfig } from "./types.js";
 
 /**
  * The exact slice of {@link AppStoreConnectClient} the wallet reconciler depends on. Declaring it here
