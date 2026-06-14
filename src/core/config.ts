@@ -47,6 +47,7 @@ export function defineConfig(input: LaunchConfigInput): LaunchConfig {
     ...(input.appRoots ? { appRoots: input.appRoots } : {}),
     ...(input.products ? { products: input.products } : {}),
     ...(input.notify ? { notify: input.notify } : {}),
+    ...(input.release ? { release: input.release } : {}),
     ...(input.aws ? { aws: input.aws } : {}),
     ...(input.storageConfig ? { storageConfig: input.storageConfig } : {}),
   };

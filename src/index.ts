@@ -12,6 +12,8 @@ export type {
   LaunchConfig,
   BuildProfile,
   PlayTrack,
+  ReleaseConfig,
+  ReleaseType,
   AppProducts,
   SubscriptionGroupConfig,
   SubscriptionConfig,
