@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MerchantIdResource, PassTypeIdResource } from "../apple/ascClient.js";
-import {
-  type AscWalletApi,
-  type WalletConfig,
-  parseWalletConfig,
-  reconcileWalletIds,
-  summarizeWallet,
-} from "./walletIds.js";
+import { summarize } from "./asc/storeSync.js";
+import { type AscWalletApi, type WalletConfig, parseWalletConfig, reconcileWalletIds } from "./walletIds.js";
 
 /** A hand-rolled {@link AscWalletApi} — no network — serving `existing` and recording creates. */
 function makeApi(existing: { merchantIds?: MerchantIdResource[]; passTypeIds?: PassTypeIdResource[] }): {
@@ -72,7 +67,7 @@ describe("reconcileWalletIds", () => {
 
     expect(created.merchant).toEqual([]);
     expect(created.passType).toEqual(["pass.com.acme.ticket"]);
-    expect(summarizeWallet(actions)).toEqual({ applied: 1, failed: 0, skipped: 0 });
+    expect(summarize(actions)).toEqual({ applied: 1, failed: 0, skipped: 0 });
     expect(actions[0]?.description).toBe("register Wallet pass type id pass.com.acme.ticket (Acme Ticket)");
   });
 
@@ -81,7 +76,7 @@ describe("reconcileWalletIds", () => {
     const actions = await reconcileWalletIds(api, CONFIG, false);
     expect(created.merchant).toEqual(["merchant.com.acme.app"]);
     expect(created.passType).toEqual(["pass.com.acme.coupon", "pass.com.acme.ticket"]);
-    expect(summarizeWallet(actions)).toEqual({ applied: 3, failed: 0, skipped: 0 });
+    expect(summarize(actions)).toEqual({ applied: 3, failed: 0, skipped: 0 });
   });
 
   it("skips the read for a family the config omits", async () => {
@@ -110,7 +105,7 @@ describe("reconcileWalletIds", () => {
       identifier === "pass.com.acme.coupon" ? Promise.reject(new Error("already taken")) : Promise.resolve();
     const actions = await reconcileWalletIds(api, CONFIG, false);
 
-    const summary = summarizeWallet(actions);
+    const summary = summarize(actions);
     expect(summary).toEqual({ applied: 2, failed: 1, skipped: 0 });
     expect(actions.find((action) => action.status === "failed")?.error).toBe("already taken");
   });
