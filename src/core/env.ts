@@ -53,17 +53,28 @@ export function missingKeys(appDir: string, env: Record<string, string>): string
   return Object.keys(example).filter((key) => env[key] === undefined || env[key] === "");
 }
 
+/** Names containing one of these are always treated as secret (case-insensitive). */
+const OBVIOUSLY_SECRET = /(SECRET|PRIVATE|PASSWORD|PASSWD|TOKEN)/i;
+/** A trailing `_KEY` is secret-ish unless qualified as publishable. */
+const KEYISH = /_KEY$/i;
+/** Qualifiers that mark a `_KEY` as safe to ship (publishable/anon keys). */
+const PUBLISHABLE = /(PUBLISHABLE|PUBLIC|CLIENT|WEB|ANON)/i;
+
+/**
+ * Whether a single variable NAME looks like a backend secret: it contains SECRET/PRIVATE/PASSWORD/
+ * TOKEN, or ends in `_KEY` without a publishable/public/client/web/anon qualifier. The one heuristic
+ * shared by the `.env` warning ({@link secretLookingKeys}) and build-log redaction (`core/redact.ts`),
+ * so both agree on what counts as a secret.
+ */
+export function isSecretLookingName(name: string): boolean {
+  if (OBVIOUSLY_SECRET.test(name)) return true;
+  return KEYISH.test(name) && !PUBLISHABLE.test(name);
+}
+
 /**
  * Heuristically flag env keys that look like backend secrets, which should not be in a file
- * whose values get bundled into the app. Names containing SECRET/PRIVATE/PASSWORD/TOKEN, or
- * ending in `_KEY` without a publishable/public/client/web qualifier, are flagged.
+ * whose values get bundled into the app. See {@link isSecretLookingName} for the rule.
  */
 export function secretLookingKeys(env: Record<string, string>): string[] {
-  const obviouslySecret = /(SECRET|PRIVATE|PASSWORD|PASSWD|TOKEN)/i;
-  const keyish = /_KEY$/i;
-  const publishable = /(PUBLISHABLE|PUBLIC|CLIENT|WEB|ANON)/i;
-  return Object.keys(env).filter((name) => {
-    if (obviouslySecret.test(name)) return true;
-    return keyish.test(name) && !publishable.test(name);
-  });
+  return Object.keys(env).filter(isSecretLookingName);
 }

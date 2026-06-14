@@ -242,6 +242,31 @@ export interface AppProducts {
 }
 
 /**
+ * One completion-notification channel: a webhook URL and/or a shell command. Both are optional, so a
+ * hook can ping Slack, run a local command, or do both. Dependency-free — the webhook is a plain JSON
+ * POST (Slack/Discord-compatible `{ text }`); the shell command receives the build metadata as
+ * `LAUNCH_*` environment variables. See `core/notify.ts`.
+ */
+export interface NotifyHook {
+  /** Incoming-webhook URL (Slack/Discord-compatible). Receives a JSON `{ text }` body on completion. */
+  webhook?: string;
+  /** Shell command run on completion with `LAUNCH_STATUS`, `LAUNCH_APP`, `LAUNCH_VERSION`, … in its env. */
+  shell?: string;
+}
+
+/**
+ * Build/submit completion hooks — the local equivalent of EAS's build webhooks, for the long local
+ * Mac builds where a ping on done/failed is high-value. Each hook fires on BOTH success and failure;
+ * an absent hook is a no-op. Lives under {@link LaunchConfig.notify}.
+ */
+export interface NotifyConfig {
+  /** Fired when a build finishes (success or failure), with the artifact path, size, and build number. */
+  onBuildComplete?: NotifyHook;
+  /** Fired when an upload/submit finishes (success or failure), with the store destination. */
+  onSubmitComplete?: NotifyHook;
+}
+
+/**
  * The fully-resolved configuration for one `launch` invocation.
  *
  * Produced by {@link loadConfig} from `launch.config.ts` plus auto-discovered apps. Names here
@@ -274,6 +299,8 @@ export interface LaunchConfig {
   products?: Record<string, AppProducts>;
   /** AWS EC2 Mac settings for remote (off-Mac) builds. Only needed when building via `--remote aws`. */
   aws?: AwsConfig;
+  /** Completion-notification hooks (webhook / shell) fired when a build or submit finishes. See {@link NotifyConfig}. */
+  notify?: NotifyConfig;
   /**
    * Bucket/endpoint settings for a cloud {@link StorageProvider} (`s3` / `supabase`). Required when
    * `storage` names a cloud provider — it's where ad-hoc install links and OTA update manifests are

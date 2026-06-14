@@ -38,6 +38,8 @@ import { compareVersions, formatVersion, highestVersion, nextVersion, parseVersi
 import { loadDotenvFile, missingKeys, secretLookingKeys } from "./env.js";
 import { getBuildEngine, getCredentialsProvider, getSubmitter } from "./registry.js";
 import { resolveStorageProvider } from "./storage.js";
+import { beginBuildLog, buildLogId, endBuildLog } from "./buildLog.js";
+import { type NotifyEvent, notify } from "./notify.js";
 import { createLogger, type Logger } from "./logger.js";
 import type { GlossaryTopic } from "./glossary.js";
 import { capture, exists, run } from "./exec.js";
@@ -440,9 +442,8 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
 
   // 5. Compile, sign, export, and analyze size — clean or incremental per the build fingerprint.
   if (!dryRun) await nudgeIfNoCcache(log);
-  const { artifactPath, sizeReport, cleanBuilt } = await getBuildEngine(resolveBuildEngineName(config, "ios")).build(
-    ctx,
-    credentials,
+  const { artifactPath, sizeReport, cleanBuilt } = await runBuildStep(prepared, buildNumber, () =>
+    getBuildEngine(resolveBuildEngineName(config, "ios")).build(ctx, credentials),
   );
   log.step(
     "build",
@@ -496,7 +497,11 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
         yes: options.yes ?? false,
         log,
       });
-      await getSubmitter(resolveSubmitterName(config, "ios")).submit(artifactPath, options.target, credentials, ctx);
+      await runSubmitStep(
+        config,
+        { app: app.name, platform: "ios", version: app.version ?? "0.0.0", buildNumber, destination },
+        () => getSubmitter(resolveSubmitterName(config, "ios")).submit(artifactPath, options.target, credentials, ctx),
+      );
       log.step(
         "submit",
         options.target === "testing" ? "uploaded to TestFlight" : "submitted for App Store review",
@@ -569,9 +574,9 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
   );
 
   // 5. Compile, sign (upload key), export the .aab, and estimate the download with bundletool.
-  const { artifactPath, sizeReport, cleanBuilt } = await getBuildEngine(
-    resolveBuildEngineName(config, "android"),
-  ).build(ctx, credentials);
+  const { artifactPath, sizeReport, cleanBuilt } = await runBuildStep(prepared, versionCode, () =>
+    getBuildEngine(resolveBuildEngineName(config, "android")).build(ctx, credentials),
+  );
   log.step(
     "build",
     dryRun ? "skipped (dry-run)" : `${cleanBuilt ? "clean (from scratch)" : "incremental (Gradle)"} · ${artifactPath}`,
@@ -620,11 +625,17 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
         yes: options.yes ?? false,
         log,
       });
-      await getSubmitter(resolveSubmitterName(config, "android")).submit(
-        artifactPath,
-        options.target,
-        credentials,
-        ctx,
+      await runSubmitStep(
+        config,
+        {
+          app: app.name,
+          platform: "android",
+          version: app.version ?? "0.0.0",
+          buildNumber: versionCode,
+          destination: `Google Play (${track} track)`,
+        },
+        () =>
+          getSubmitter(resolveSubmitterName(config, "android")).submit(artifactPath, options.target, credentials, ctx),
       );
       log.step("submit", `uploaded to the ${track} track`, "play-track");
     }
@@ -644,6 +655,70 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
     link: options.submit ? "https://play.google.com/console" : undefined,
     log,
   });
+}
+
+/** The result every {@link BuildEngine.build} returns — named so the per-build-step wrapper can pass it through. */
+interface BuildOutput {
+  artifactPath: string;
+  sizeReport: SizeReport;
+  cleanBuilt: boolean;
+}
+
+/**
+ * Run the build engine wrapped with the two cross-cutting concerns that belong around the compile step:
+ * its native output is captured to the per-build log (keyed by build id) for `launch builds log` and
+ * the failure diagnostics, and a build failure fires the `onBuildComplete` notification (success fires
+ * from {@link storeArtifact} once the artifact exists). Both are skipped in dry-run — no real build runs.
+ */
+async function runBuildStep(
+  prepared: PreparedBuild,
+  buildNumber: number,
+  build: () => Promise<BuildOutput>,
+): Promise<BuildOutput> {
+  const { ctx, app, config } = prepared;
+  const version = app.version ?? "0.0.0";
+  if (ctx.dryRun) return build();
+  beginBuildLog(buildLogId({ appName: app.name, version, buildNumber, platform: ctx.platform }));
+  try {
+    return await build();
+  } catch (error) {
+    await notify(config, {
+      kind: "build",
+      status: "failure",
+      app: app.name,
+      platform: ctx.platform,
+      version,
+      buildNumber,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  } finally {
+    endBuildLog();
+  }
+}
+
+/**
+ * Run the submit step, firing `onSubmitComplete` on the way out — success when the upload returns,
+ * failure (with the error) when it throws (then rethrows). Shared by both spines so iOS and Android
+ * notify identically. `base` carries the app/version/build/destination already known at the call site.
+ */
+async function runSubmitStep(
+  config: LaunchConfig,
+  base: Omit<NotifyEvent, "kind" | "status" | "error">,
+  submit: () => Promise<void>,
+): Promise<void> {
+  try {
+    await submit();
+    await notify(config, { ...base, kind: "submit", status: "success" });
+  } catch (error) {
+    await notify(config, {
+      ...base,
+      kind: "submit",
+      status: "failure",
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 }
 
 /** Store the built artifact (skipped in dry-run) and log its location. Shared by both platform spines. */
@@ -672,6 +747,18 @@ async function storeArtifact(
   };
   const stored = await resolveStorageProvider(config).put(artifact);
   log.step("store", stored.location);
+
+  // The build is done and the artifact exists — fire onBuildComplete (success). A build FAILURE is
+  // notified from runBuildStep instead, so exactly one build notification fires per run.
+  await notify(config, {
+    kind: "build",
+    status: "success",
+    app: app.name,
+    platform: ctx.platform,
+    version: app.version ?? "0.0.0",
+    buildNumber,
+    downloadBytes: worstDownloadBytes(sizeReport),
+  });
 }
 
 /** Nudge (once, before building) when ccache is absent — the build still runs, just uncached. */

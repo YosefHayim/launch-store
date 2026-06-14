@@ -29,6 +29,7 @@ import { registerCiCommand } from "./commands/ci.js";
 import { registerRunCommand } from "./commands/run.js";
 import { registerFingerprintCommand } from "./commands/fingerprint.js";
 import { registerDiagnoseCommand } from "./commands/diagnose.js";
+import { registerResignCommand } from "./commands/resign.js";
 import { runWizard } from "./commands/wizard.js";
 
 /**
@@ -71,6 +72,7 @@ registerCiCommand(program);
 registerRunCommand(program);
 registerFingerprintCommand(program);
 registerDiagnoseCommand(program);
+registerResignCommand(program);
 
 // No subcommand → the animated rocket banner, then the interactive wizard (the Expo-style front
 // door that detects the host OS and routes the build accordingly).
