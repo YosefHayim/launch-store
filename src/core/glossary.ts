@@ -38,6 +38,7 @@ export type GlossaryTopic =
   | "distribution-certificate"
   | "provisioning-profile"
   | "entitlements"
+  | "bundle-id-capability"
   | "apns-key"
   | "code-signing"
   | "udid"
@@ -195,6 +196,13 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "Entitlements: the capabilities an app is allowed to use — push notifications, iCloud, app groups.",
     "They live in an entitlements file and must match what the provisioning profile grants, or signing",
     "fails. `expo prebuild` generates them from your app.json; Launch builds against the matching profile.",
+  ].join("\n"),
+  "bundle-id-capability": [
+    "Bundle ID capability: a service an App ID is allowed to use — push notifications, associated domains,",
+    "app groups, iCloud. They're set on the App ID and must match the app's entitlements or signing fails.",
+    "Launch syncs them over the API (POST/DELETE /v1/bundleIdCapabilities) from what launch.config.ts",
+    "declares — enabling the ones you added, disabling the managed ones you removed — and leaves every",
+    "already-correct capability (and its sub-settings, e.g. push 'Broadcast') untouched, unlike EAS.",
   ].join("\n"),
   "apns-key": [
     "APNs auth key: a .p8 your backend uses to send push notifications to your app. Apple has NO API to",
