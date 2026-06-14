@@ -728,6 +728,63 @@ export interface AgeRatingDeclarationResource {
   attributes: Record<string, AgeRatingValue>;
 }
 
+/** The device families an accessibility declaration can target — Apple's `DeviceFamily` enum, restated for public signatures. */
+export type DeviceFamily = "IPHONE" | "IPAD" | "APPLE_TV" | "APPLE_WATCH" | "MAC" | "VISION";
+
+/** The ordered list of `DeviceFamily` values, for validating config and iterating. */
+export const DEVICE_FAMILIES: readonly DeviceFamily[] = ["IPHONE", "IPAD", "APPLE_TV", "APPLE_WATCH", "MAC", "VISION"];
+
+/**
+ * The accessibility-support flags an accessibility declaration carries — the answers behind Apple's 2025
+ * "Accessibility Nutrition Labels". Unlike the age-rating declaration's open map, Apple's accessibility
+ * attribute set is a *fixed, enumerable* list of nine `supports*` booleans, so a typed shape is both safe
+ * and honest here (a new flag is a deliberate Apple change, not silent config drift). Every flag is
+ * optional: an omitted flag means "the app does not support this feature" — the reconciler normalizes
+ * absent to `false` so diffs are deterministic.
+ */
+export interface AccessibilitySupport {
+  supportsAudioDescriptions?: boolean;
+  supportsCaptions?: boolean;
+  supportsDarkInterface?: boolean;
+  supportsDifferentiateWithoutColorAlone?: boolean;
+  supportsLargerText?: boolean;
+  supportsReducedMotion?: boolean;
+  supportsSufficientContrast?: boolean;
+  supportsVoiceControl?: boolean;
+  supportsVoiceover?: boolean;
+}
+
+/** The nine `AccessibilitySupport` keys, used to diff a declaration against config and to build requests. */
+export const ACCESSIBILITY_SUPPORT_KEYS: readonly (keyof AccessibilitySupport)[] = [
+  "supportsAudioDescriptions",
+  "supportsCaptions",
+  "supportsDarkInterface",
+  "supportsDifferentiateWithoutColorAlone",
+  "supportsLargerText",
+  "supportsReducedMotion",
+  "supportsSufficientContrast",
+  "supportsVoiceControl",
+  "supportsVoiceover",
+];
+
+/**
+ * One app's accessibility declaration for a single {@link DeviceFamily}. Apple keeps at most one live
+ * declaration per family; `state` distinguishes a `DRAFT` (editable, not yet shown to users) from the
+ * live `PUBLISHED` one and the `REPLACED` history a publish leaves behind.
+ */
+export interface AccessibilityDeclarationResource {
+  id: string;
+  deviceFamily: DeviceFamily;
+  state: "DRAFT" | "PUBLISHED" | "REPLACED";
+  support: AccessibilitySupport;
+}
+
+/** Apple's raw `accessibilityDeclarations` attribute bag — the support flags plus the family/state metadata. Internal to the read path. */
+interface AccessibilityDeclarationAttributes extends AccessibilitySupport {
+  deviceFamily?: DeviceFamily;
+  state?: AccessibilityDeclarationResource["state"];
+}
+
 /**
  * An app version's App Review details — the contact info and demo-account credentials Apple's reviewer
  * uses. Carried as an open attribute map for the same forward-compat reason as the age-rating
@@ -929,6 +986,16 @@ function pickListingFields(attributes: Record<string, unknown>, keys: readonly s
     if (typeof value === "string" && value.length > 0) fields[key] = value;
   }
   return fields;
+}
+
+/** Keep only the nine `supports*` booleans from a raw accessibility-declaration attribute bag (dropping `deviceFamily` / `state`). */
+function pickAccessibilitySupport(attributes: Partial<AccessibilitySupport>): AccessibilitySupport {
+  const support: AccessibilitySupport = {};
+  for (const key of ACCESSIBILITY_SUPPORT_KEYS) {
+    const value = attributes[key];
+    if (typeof value === "boolean") support[key] = value;
+  }
+  return support;
 }
 
 /**
@@ -2385,6 +2452,68 @@ export class AppStoreConnectClient {
   async updateAgeRatingDeclaration(declarationId: string, attributes: Record<string, AgeRatingValue>): Promise<void> {
     await this.request<unknown>("PATCH", `/ageRatingDeclarations/${declarationId}`, {
       data: { type: "ageRatingDeclarations", id: declarationId, attributes },
+    });
+  }
+
+  /**
+   * List an app's accessibility declarations — at most one live (`DRAFT`/`PUBLISHED`) per device family,
+   * plus any `REPLACED` history a prior publish left behind. Returns [] when the app has none yet. Rows
+   * Apple returns without a `deviceFamily` are dropped, since the family is the reconcile key.
+   */
+  async listAccessibilityDeclarations(appId: string): Promise<AccessibilityDeclarationResource[]> {
+    const rows = await this.requestAll<AccessibilityDeclarationAttributes>(
+      `/apps/${appId}/accessibilityDeclarations?limit=200`,
+    );
+    return rows.flatMap((row) =>
+      row.attributes.deviceFamily
+        ? [
+            {
+              id: row.id,
+              deviceFamily: row.attributes.deviceFamily,
+              state: row.attributes.state ?? "DRAFT",
+              support: pickAccessibilitySupport(row.attributes),
+            },
+          ]
+        : [],
+    );
+  }
+
+  /** Create a `DRAFT` accessibility declaration for one device family with the given support flags. */
+  async createAccessibilityDeclaration(
+    appId: string,
+    deviceFamily: DeviceFamily,
+    support: AccessibilitySupport,
+  ): Promise<AccessibilityDeclarationResource> {
+    const { data } = await this.request<{ data: { id: string; attributes?: AccessibilityDeclarationAttributes } }>(
+      "POST",
+      "/accessibilityDeclarations",
+      {
+        data: {
+          type: "accessibilityDeclarations",
+          attributes: { deviceFamily, ...support },
+          relationships: { app: { data: { type: "apps", id: appId } } },
+        },
+      },
+    );
+    return {
+      id: data.id,
+      deviceFamily,
+      state: data.attributes?.state ?? "DRAFT",
+      support: pickAccessibilitySupport(data.attributes ?? {}),
+    };
+  }
+
+  /**
+   * Update an accessibility declaration's support flags and/or publish it. `publish: true` moves a `DRAFT`
+   * live; only the supplied keys change. Apple keeps the publish flag separate from the support booleans,
+   * so a caller can publish an unchanged draft by passing `{ publish: true }` alone.
+   */
+  async updateAccessibilityDeclaration(
+    declarationId: string,
+    changes: AccessibilitySupport & { publish?: boolean },
+  ): Promise<void> {
+    await this.request<unknown>("PATCH", `/accessibilityDeclarations/${declarationId}`, {
+      data: { type: "accessibilityDeclarations", id: declarationId, attributes: changes },
     });
   }
 
