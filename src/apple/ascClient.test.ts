@@ -18,6 +18,18 @@ function fakeResponse(status: number, body: string) {
   return { status, ok: status >= 200 && status < 300, text: () => Promise.resolve(body) };
 }
 
+/** Stand-in for a binary (gzip) response: the report/segment paths read `arrayBuffer`, errors read `text`. */
+function fakeBinaryResponse(status: number, bytes: string, errorBody = "") {
+  // TextEncoder yields a Uint8Array whose buffer is exactly the bytes — Buffer.from(str).buffer would
+  // expose Node's shared allocation pool, so arrayBuffer() must return this precisely-sized slice.
+  return {
+    status,
+    ok: status >= 200 && status < 300,
+    arrayBuffer: () => Promise.resolve(new TextEncoder().encode(bytes).buffer),
+    text: () => Promise.resolve(errorBody),
+  };
+}
+
 /** Decode a JWT's header + payload (no verification needed — we only assert the claims we set). */
 function decodeJwt(token: string): { header: Record<string, unknown>; payload: Record<string, unknown> } {
   const [header, payload] = token.split(".");
@@ -426,6 +438,216 @@ describe("AppStoreConnectClient — product catalog", () => {
   it("reports an unpriced in-app purchase when the price-schedule relationship is empty/404", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(404, JSON.stringify({ errors: [{ title: "Not Found" }] })));
     expect(await client.inAppPurchaseHasPrice("iap1")).toBe(false);
+  });
+});
+
+describe("AppStoreConnectClient — customer reviews", () => {
+  it("lists reviews with include=response, computing `answered` from the response relationship", async () => {
+    const page2 = "https://api.appstoreconnect.apple.com/v1/apps/app1/customerReviews?cursor=P2";
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [
+              {
+                id: "r1",
+                attributes: { rating: 5, title: "Love it", body: "Great", reviewerNickname: "fan", territory: "USA" },
+                relationships: { response: { data: { id: "resp1" } } },
+              },
+            ],
+            links: { next: page2 },
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [{ id: "r2", attributes: { rating: 1 }, relationships: { response: { data: null } } }],
+          }),
+        ),
+      );
+
+    const reviews = await client.listCustomerReviews("app1", { rating: 5, territory: "USA" });
+
+    expect(reviews).toEqual([
+      {
+        id: "r1",
+        rating: 5,
+        title: "Love it",
+        body: "Great",
+        reviewerNickname: "fan",
+        territory: "USA",
+        answered: true,
+      },
+      { id: "r2", rating: 1, answered: false },
+    ]);
+    const firstUrl = String(fetchMock.mock.calls[0]![0]);
+    expect(firstUrl).toContain("/apps/app1/customerReviews?include=response&sort=-createdDate");
+    expect(firstUrl).toContain("filter[rating]=5");
+    expect(firstUrl).toContain("filter[territory]=USA");
+    // Page 2 follows the absolute cursor verbatim — no /v1/v1 double-prefix.
+    expect(String(fetchMock.mock.calls[1]![0])).toBe(page2);
+  });
+
+  it("returns null for a review with no developer response (Apple 404s)", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(404, JSON.stringify({ errors: [{ title: "Not Found" }] })));
+    expect(await client.getCustomerReviewResponse("r1")).toBeNull();
+  });
+
+  it("creates/replaces a response with the review relationship", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        201,
+        JSON.stringify({ data: { id: "resp1", attributes: { responseBody: "Thanks!", state: "PENDING_PUBLISH" } } }),
+      ),
+    );
+    const response = await client.createCustomerReviewResponse("r1", "Thanks!");
+    expect(response).toEqual({ id: "resp1", responseBody: "Thanks!", state: "PENDING_PUBLISH" });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/customerReviewResponses");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      data: {
+        type: "customerReviewResponses",
+        attributes: { responseBody: "Thanks!" },
+        relationships: { review: { data: { type: "customerReviews", id: "r1" } } },
+      },
+    });
+  });
+
+  it("deletes a response by id", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(204, ""));
+    await client.deleteCustomerReviewResponse("resp1");
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(init.method).toBe("DELETE");
+    expect(url).toContain("/customerReviewResponses/resp1");
+  });
+});
+
+describe("AppStoreConnectClient — reports", () => {
+  it("downloads a sales report with the right filters and gzip Accept header", async () => {
+    fetchMock.mockResolvedValueOnce(fakeBinaryResponse(200, "gzip-bytes"));
+    const bytes = await client.getSalesReport({
+      vendorNumber: "12345678",
+      frequency: "DAILY",
+      reportType: "SALES",
+      reportSubType: "SUMMARY",
+      reportDate: "2026-06-01",
+      version: "1_0",
+    });
+    expect(bytes.toString()).toBe("gzip-bytes");
+    const [url, init] = fetchMock.mock.calls[0]!;
+    const path = String(url);
+    expect(path).toContain("/salesReports?");
+    expect(path).toContain("filter[frequency]=DAILY");
+    expect(path).toContain("filter[reportType]=SALES");
+    expect(path).toContain("filter[reportSubType]=SUMMARY");
+    expect(path).toContain("filter[vendorNumber]=12345678");
+    expect(path).toContain("filter[reportDate]=2026-06-01");
+    expect(path).toContain("filter[version]=1_0");
+    expect((init.headers as Record<string, string>)["Accept"]).toBe("application/a-gzip, application/json");
+  });
+
+  it("defaults the finance report type to FINANCE_DETAIL", async () => {
+    fetchMock.mockResolvedValueOnce(fakeBinaryResponse(200, "fin"));
+    await client.getFinanceReport({ vendorNumber: "12345678", reportDate: "2026-05", regionCode: "ZZ" });
+    const path = String(fetchMock.mock.calls[0]![0]);
+    expect(path).toContain("/financeReports?");
+    expect(path).toContain("filter[regionCode]=ZZ");
+    expect(path).toContain("filter[reportType]=FINANCE_DETAIL");
+  });
+
+  it("surfaces Apple's 'no sales' detail on a report 404", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeBinaryResponse(
+        404,
+        "",
+        JSON.stringify({ errors: [{ detail: "There were no sales for the date specified." }] }),
+      ),
+    );
+    await expect(
+      client.getSalesReport({
+        vendorNumber: "1",
+        frequency: "DAILY",
+        reportType: "SALES",
+        reportSubType: "SUMMARY",
+        reportDate: "2026-06-01",
+      }),
+    ).rejects.toThrow(/404.*no sales/);
+  });
+
+  it("creates an analytics report request with the app relationship", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(201, JSON.stringify({ data: { id: "req1", attributes: { accessType: "ONGOING" } } })),
+    );
+    const request = await client.createAnalyticsReportRequest("app1", "ONGOING");
+    expect(request).toEqual({ id: "req1", accessType: "ONGOING" });
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toContain("/analyticsReportRequests");
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      data: {
+        type: "analyticsReportRequests",
+        attributes: { accessType: "ONGOING" },
+        relationships: { app: { data: { type: "apps", id: "app1" } } },
+      },
+    });
+  });
+
+  it("filters reports by category and instances by granularity/date", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({ data: [{ id: "rep1", attributes: { name: "App Sessions", category: "APP_USAGE" } }] }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [{ id: "inst1", attributes: { granularity: "DAILY", processingDate: "2026-06-01" } }],
+          }),
+        ),
+      );
+
+    const reports = await client.listAnalyticsReports("req1", { category: "APP_USAGE" });
+    expect(reports).toEqual([{ id: "rep1", name: "App Sessions", category: "APP_USAGE" }]);
+    expect(String(fetchMock.mock.calls[0]![0])).toContain(
+      "/analyticsReportRequests/req1/reports?limit=200&filter[category]=APP_USAGE",
+    );
+
+    const instances = await client.listAnalyticsReportInstances("rep1", {
+      granularity: "DAILY",
+      processingDate: "2026-06-01",
+    });
+    expect(instances).toEqual([{ id: "inst1", granularity: "DAILY", processingDate: "2026-06-01" }]);
+    const instUrl = String(fetchMock.mock.calls[1]![0]);
+    expect(instUrl).toContain("/analyticsReports/rep1/instances?limit=200&filter[granularity]=DAILY");
+    expect(instUrl).toContain("filter[processingDate]=2026-06-01");
+  });
+
+  it("lists segments (dropping any without a url) and downloads one unauthenticated", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: "seg1", attributes: { url: "https://store.example/seg1.gz", checksum: "abc", sizeInBytes: 10 } },
+            { id: "seg2", attributes: {} },
+          ],
+        }),
+      ),
+    );
+    const segments = await client.listAnalyticsReportSegments("inst1");
+    expect(segments).toEqual([{ id: "seg1", url: "https://store.example/seg1.gz", checksum: "abc", sizeInBytes: 10 }]);
+
+    fetchMock.mockResolvedValueOnce(fakeBinaryResponse(200, "segment-gzip"));
+    const bytes = await client.downloadAnalyticsSegment("https://store.example/seg1.gz");
+    expect(bytes.toString()).toBe("segment-gzip");
+    // Presigned URL → no init (and therefore no Authorization), so the storage backend doesn't 400 on dual auth.
+    expect(fetchMock.mock.calls[1]![1]).toBeUndefined();
   });
 });
 
