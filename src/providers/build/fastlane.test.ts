@@ -1,8 +1,23 @@
+import { isAbsolute } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { SigningAssets } from "../../core/types.js";
-import { assertDeviceArtifact, exportOptionsPlist, parseThinningReport } from "./fastlane.js";
+import { assertDeviceArtifact, exportOptionsPlist, parseThinningReport, resolveIosDir } from "./fastlane.js";
 
 const MB = 1024 ** 2;
+
+describe("resolveIosDir — absolute ios path so gym can't double the subpath in a monorepo", () => {
+  it("returns an absolute path for a relative app dir (the monorepo `appRoots` case)", () => {
+    const iosDir = resolveIosDir("apps/pomedero");
+    expect(isAbsolute(iosDir)).toBe(true);
+    expect(iosDir.endsWith("/apps/pomedero/ios")).toBe(true);
+    // The reported failure: gym re-resolved a relative workspace against its app-dir cwd.
+    expect(iosDir).not.toContain("apps/pomedero/apps/pomedero");
+  });
+
+  it("leaves an already-absolute app dir untouched", () => {
+    expect(resolveIosDir("/Users/x/zaatar/apps/pomedero")).toBe("/Users/x/zaatar/apps/pomedero/ios");
+  });
+});
 
 const REPORT = `App Thinning Size Report for All Variants of MyApp.ipa
 
