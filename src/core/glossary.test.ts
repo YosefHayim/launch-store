@@ -37,7 +37,8 @@ describe("glossary — the single source for --explain and docs", () => {
     expect(topics).toContain("build-location");
     expect(topics).toContain("apple-account");
     expect(topics).toContain("build-profile");
-    expect(topics.length).toBe(54);
+    expect(topics).toContain("bundle-id-capability");
+    expect(topics.length).toBe(55);
     expect(new Set(topics).size).toBe(topics.length);
   });
 
