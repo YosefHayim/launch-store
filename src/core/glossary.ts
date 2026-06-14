@@ -49,6 +49,12 @@ export type GlossaryTopic =
   // Distribution & testing
   | "testflight"
   | "ad-hoc-distribution"
+  // App Store release lifecycle
+  | "app-store-version"
+  | "review-submission"
+  | "release-type"
+  | "phased-release"
+  | "export-compliance"
   // Over-the-air updates
   | "ota-update"
   | "runtime-version"
@@ -248,6 +254,38 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "Ad-hoc / internal distribution: an install link for your testers without TestFlight. iOS signs an",
     "ad-hoc .ipa valid only for devices whose UDID is on the profile (register them with `launch device add`)",
     "and serves an itms-services manifest; Android serves the .apk directly. Both host on YOUR own bucket.",
+  ].join("\n"),
+
+  // ── App Store release lifecycle ───────────────────────────────────────────
+  "app-store-version": [
+    "App Store version: the per-release record on App Store Connect (one per marketing version) holding its",
+    "review state, the attached build, the release type, and the 'What's New' notes. `launch release` creates",
+    "or reuses the editable one, attaches your build, and submits it — the version is the unit Apple reviews",
+    "and ships, separate from TestFlight.",
+  ].join("\n"),
+  "review-submission": [
+    "Review submission: Apple's container for what you send to App Review. You add your App Store version to",
+    "it as an item, then submit the whole thing. `launch release` drives this over the API (create → add",
+    "version → submit), so you never click 'Submit for Review', and re-running resumes a submission already",
+    "in progress instead of duplicating it.",
+  ].join("\n"),
+  "release-type": [
+    "Release type: how an APPROVED build reaches the public store. AFTER_APPROVAL goes live automatically the",
+    "moment Apple approves (Launch's default); MANUAL holds it until you press release; SCHEDULED goes live at",
+    "a date you set. Configure it in launch.config.ts (release.releaseType) or per-run with --manual /",
+    "--scheduled <iso>.",
+  ].join("\n"),
+  "phased-release": [
+    "Phased release: Apple's optional 7-day staged rollout of an approved UPDATE — a growing percentage of",
+    "users each day instead of everyone at once, so a regression reaches few people. Opt in with",
+    "`launch release --phased`, then pause/resume/finish it with `launch rollout`. It applies only to updates",
+    "(a first version always ships to 100%).",
+  ].join("\n"),
+  "export-compliance": [
+    "Export compliance: Apple's encryption question every build must answer before it can ship. Standard",
+    "HTTPS/system crypto is exempt — Launch declares that over the API (usesNonExemptEncryption=false) so the",
+    "build clears 'Waiting for Export Compliance' with no portal trip. Set release.usesNonExemptEncryption to",
+    "true only for proprietary/non-exempt encryption, which needs documentation Apple's API can't accept.",
   ].join("\n"),
 
   // ── Over-the-air updates ──────────────────────────────────────────────────
