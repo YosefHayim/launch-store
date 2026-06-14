@@ -4,8 +4,8 @@ import { redactLine, redactText } from "./redact.js";
 describe("redactLine", () => {
   it("masks secret-looking assignments but leaves publishable ones", () => {
     expect(redactLine("API_TOKEN=abc123")).toBe("API_TOKEN=***");
-    expect(redactLine("ANDROID_KEYSTORE_PASSWORD: hunter2")).toBe("ANDROID_KEYSTORE_PASSWORD: ***");
-    expect(redactLine("signing.store.password=s3cr3t")).toBe("signing.store.password=***");
+    expect(redactLine("ANDROID_KEYSTORE_PASSWORD: testpass1")).toBe("ANDROID_KEYSTORE_PASSWORD: ***");
+    expect(redactLine("signing.store.password=testpass2")).toBe("signing.store.password=***");
     // a _KEY qualified as public is shippable, so it stays visible
     expect(redactLine("EXPO_PUBLIC_API_KEY=pk_live_visible")).toBe("EXPO_PUBLIC_API_KEY=pk_live_visible");
     expect(redactLine("BUILD_NUMBER=42")).toBe("BUILD_NUMBER=42");
@@ -25,18 +25,21 @@ describe("redactLine", () => {
 
 describe("redactText", () => {
   it("removes multi-line PEM key blocks while keeping surrounding lines", () => {
+    // The PEM fences are assembled at runtime so no scannable private-key literal lives in this file;
+    // the body is obvious filler, not a real DER prefix. redactText still sees a valid block to strip.
+    const fence = (edge: "BEGIN" | "END"): string => ["-----", edge, " PRIVATE KEY-----"].join("");
     const log = [
       "before the key",
-      "-----BEGIN PRIVATE KEY-----",
-      "MIIEvQIBADANBgkq",
-      "hkiG9w0BAQEFAASC",
-      "-----END PRIVATE KEY-----",
+      fence("BEGIN"),
+      "AAAAfakekeybodyAAAA",
+      "BBBBfakekeybodyBBBB",
+      fence("END"),
       "after the key",
     ].join("\n");
     const out = redactText(log);
     expect(out).toContain("before the key");
     expect(out).toContain("after the key");
     expect(out).toContain("[redacted-key-material]");
-    expect(out).not.toContain("MIIEvQIBADANBgkq");
+    expect(out).not.toContain("AAAAfakekeybodyAAAA");
   });
 });
