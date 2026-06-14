@@ -180,6 +180,39 @@ export interface SubscriptionOfferResource {
   offerTags?: { tag: string }[];
 }
 
+/**
+ * One Play customer review, flattened from the API's `comments[]` shape into the slice Launch shows. A
+ * Play review nests the user's comment and any developer reply under `comments`; this lifts the rating,
+ * text, and reply to the top level. `answered` is true when a developer reply already exists.
+ *
+ * NOTE: the Play reviews API only returns reviews that have **text** and were created/updated in roughly
+ * the **last week**, and replies are allowed only within that window — surfaced as a Play error otherwise.
+ */
+export interface PlayReview {
+  reviewId: string;
+  authorName?: string;
+  /** Star rating 1–5 (0 if the review carries no user comment). */
+  rating: number;
+  /** The user's review text, in the requested translation language when one was passed. */
+  text?: string;
+  reviewerLanguage?: string;
+  device?: string;
+  appVersionName?: string;
+  /** ISO-8601 timestamp the user last edited the review. */
+  lastModified?: string;
+  /** Whether a developer reply already exists (the Play twin of a review being "answered"). */
+  answered: boolean;
+  /** The current developer reply text, when one exists. */
+  developerReply?: string;
+}
+
+/** Outcome of replying to a review: the stored reply text and when it was last edited. */
+export interface PlayReplyResult {
+  replyText: string;
+  /** ISO-8601 timestamp Play recorded for the reply. */
+  lastEdited?: string;
+}
+
 /** Raised when a package has no Play app record (or the service account can't reach it). */
 export class PlayAppNotFoundError extends Error {
   constructor(packageName: string, detail: string) {
@@ -189,6 +222,66 @@ export class PlayAppNotFoundError extends Error {
     );
     this.name = "PlayAppNotFoundError";
   }
+}
+
+/** Google's epoch-seconds timestamp; lifted to ISO-8601 for display. */
+interface PlayTimestamp {
+  seconds?: string;
+  nanos?: number;
+}
+
+/** Raw `userComment` from the reviews API — the subset Launch reads. */
+interface RawUserComment {
+  text?: string;
+  starRating?: number;
+  reviewerLanguage?: string;
+  device?: string;
+  appVersionName?: string;
+  lastModified?: PlayTimestamp;
+}
+
+/** Raw `developerComment` (the existing reply) from the reviews API. */
+interface RawDeveloperComment {
+  text?: string;
+  lastModified?: PlayTimestamp;
+}
+
+/** One entry in a review's `comments[]`: either the user's comment or the developer's reply. */
+interface RawReviewComment {
+  userComment?: RawUserComment;
+  developerComment?: RawDeveloperComment;
+}
+
+/** Raw review as the API returns it, before flattening into {@link PlayReview}. */
+interface RawReview {
+  reviewId: string;
+  authorName?: string;
+  comments?: RawReviewComment[];
+}
+
+/** Lift Google's epoch-seconds timestamp to ISO-8601, or undefined when absent. */
+function timestampToIso(timestamp: PlayTimestamp | undefined): string | undefined {
+  return timestamp?.seconds ? new Date(Number(timestamp.seconds) * 1000).toISOString() : undefined;
+}
+
+/** Flatten a raw review's nested comments into the {@link PlayReview} slice Launch shows. */
+function normalizeReview(raw: RawReview): PlayReview {
+  const user = raw.comments?.find((comment) => comment.userComment)?.userComment;
+  const developer = raw.comments?.find((comment) => comment.developerComment)?.developerComment;
+  const review: PlayReview = {
+    reviewId: raw.reviewId,
+    rating: user?.starRating ?? 0,
+    answered: developer !== undefined,
+  };
+  if (raw.authorName) review.authorName = raw.authorName;
+  if (user?.text) review.text = user.text;
+  if (user?.reviewerLanguage) review.reviewerLanguage = user.reviewerLanguage;
+  if (user?.device) review.device = user.device;
+  if (user?.appVersionName) review.appVersionName = user.appVersionName;
+  const lastModified = timestampToIso(user?.lastModified);
+  if (lastModified) review.lastModified = lastModified;
+  if (developer?.text) review.developerReply = developer.text;
+  return review;
 }
 
 /**
@@ -502,6 +595,59 @@ export class GooglePlayClient {
   ): Promise<void> {
     const base = `${this.subscriptionsPath(packageName)}/${encodeURIComponent(productId)}/basePlans/${encodeURIComponent(basePlanId)}/offers/${encodeURIComponent(offerId)}:activate`;
     await this.request<unknown>("POST", base, { packageName, productId, basePlanId, offerId });
+  }
+
+  /**
+   * List the app's customer reviews (flattened to {@link PlayReview}), paging in full. `translationLanguage`
+   * asks Play to machine-translate review text into that BCP-47 language. Only reviews with text from the
+   * last ~week are returned — a Play platform limit, not Launch's.
+   */
+  async listReviews(packageName: string, options: { translationLanguage?: string } = {}): Promise<PlayReview[]> {
+    const reviews: PlayReview[] = [];
+    let token: string | undefined;
+    do {
+      const params = new URLSearchParams();
+      if (options.translationLanguage) params.set("translationLanguage", options.translationLanguage);
+      if (token) params.set("token", token);
+      const query = params.toString() ? `?${params.toString()}` : "";
+      const page = await this.request<{ reviews?: RawReview[]; tokenPagination?: { nextPageToken?: string } }>(
+        "GET",
+        `/applications/${encodeURIComponent(packageName)}/reviews${query}`,
+      );
+      for (const raw of page.reviews ?? []) reviews.push(normalizeReview(raw));
+      token = page.tokenPagination?.nextPageToken;
+    } while (token);
+    return reviews;
+  }
+
+  /** Fetch one review by id (flattened to {@link PlayReview}), or null when it doesn't exist / is too old. */
+  async getReview(packageName: string, reviewId: string): Promise<PlayReview | null> {
+    try {
+      const raw = await this.request<RawReview>(
+        "GET",
+        `/applications/${encodeURIComponent(packageName)}/reviews/${encodeURIComponent(reviewId)}`,
+      );
+      return normalizeReview(raw);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("(404)")) return null;
+      throw error;
+    }
+  }
+
+  /**
+   * Post (or replace) the public developer reply to a review. Play's reply endpoint is an upsert — it
+   * edits an existing reply in place — and only accepts reviews from the last ~week.
+   */
+  async replyToReview(packageName: string, reviewId: string, replyText: string): Promise<PlayReplyResult> {
+    const response = await this.request<{ result?: { replyText?: string; lastEdited?: PlayTimestamp } }>(
+      "POST",
+      `/applications/${encodeURIComponent(packageName)}/reviews/${encodeURIComponent(reviewId)}:reply`,
+      { replyText },
+    );
+    const result: PlayReplyResult = { replyText: response.result?.replyText ?? replyText };
+    const lastEdited = timestampToIso(response.result?.lastEdited);
+    if (lastEdited) result.lastEdited = lastEdited;
+    return result;
   }
 }
 
