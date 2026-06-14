@@ -10,9 +10,13 @@
  *   current `appStoreState`. {@link nextReleaseAction} is the pure transition table; re-running a release
  *   reuses an editable version, no-ops when one is already submitted/approved, and errors clearly when
  *   the exact version is already live (you must bump).
- * - **Sequential, fail-loud.** Unlike `sync` (independent products), release steps are dependencies — a
- *   failed build-attach must stop, not skip — so a step that throws aborts with an actionable message;
- *   the caller surfaces it and fires the failure notification.
+ * - **Plan, then apply.** The same walk runs twice from the command: once with `dryRun` to produce the
+ *   plan (read-only — it still GETs current state, but performs no writes), and once for real after the
+ *   user confirms (`--dry-run` stops at the plan). Each write is isolated via {@link act}: a failure is
+ *   captured on its action and the walk continues, so the run summary reports every failed step rather
+ *   than aborting on the first — and the caller surfaces a non-zero exit. This mirrors `core/ascSync.ts`.
+ *   The two genuine preconditions (no app record, the chosen build isn't `VALID`/expired, the version is
+ *   already live) still throw, because there's no release to plan past them.
  *
  * Scope: this automates an UPDATE to an already-configured app — the realistic zero-portal case (Apple
  * carries age rating, screenshots, privacy, and review contact forward from the prior submission). A
@@ -170,11 +174,23 @@ export interface ReleaseInput {
   whatsNew: Record<string, string>;
   /** The build to attach (its resource id + state), or null to keep the version's current build. */
   build: BuildResource | null;
+  /** Rehearse only: read live state and record the plan, perform no writes. */
+  dryRun: boolean;
 }
 
-/** One thing the release flow did, for the run summary. */
+/** Where one release step ended up: planned (dry-run), or applied / skipped / failed after a real run. */
+export type ReleaseActionStatus = "planned" | "applied" | "skipped" | "failed";
+
+/** One step of the release walk — recorded for the `--dry-run` plan and the post-run summary. */
 export interface ReleaseAction {
+  /** Human-readable line, e.g. `attach build 42`. */
   description: string;
+  /** Lifecycle: `planned` in a dry-run; `applied` / `skipped` / `failed` after a real apply. */
+  status: ReleaseActionStatus;
+  /** Apple's error detail when {@link ReleaseAction.status} is `failed`. */
+  error?: string;
+  /** Why a step was skipped (e.g. `locale not on this version`). */
+  note?: string;
 }
 
 /** The outcome of a release run: the version it acted on and the ordered steps it performed. */
@@ -200,88 +216,147 @@ export function appRecordMissingMessage(bundleId: string, command = "launch rele
   );
 }
 
+/** Placeholder id for a version that would only be created in a dry-run (its create closure never runs). */
+const DRY_RUN_ID = "(dry-run)";
+
+/** Mutable per-run context threaded through the release walk. */
+interface ReleaseContext {
+  api: AscReleaseApi;
+  actions: ReleaseAction[];
+  dryRun: boolean;
+}
+
+/**
+ * Record a step and, unless this is a dry-run, perform it. A thrown error is captured on the action
+ * (status `failed`) rather than propagated, so the walk keeps going and the summary reports every
+ * failure. Returns the terminal status plus the run's value (e.g. a created resource), `undefined` on a
+ * dry-run or failure — callers fall back to {@link DRY_RUN_ID} for the id of a not-yet-created version.
+ */
+async function act<T>(
+  ctx: ReleaseContext,
+  description: string,
+  run: () => Promise<T>,
+): Promise<{ status: ReleaseActionStatus; value?: T }> {
+  const action: ReleaseAction = { description, status: "planned" };
+  ctx.actions.push(action);
+  if (ctx.dryRun) return { status: "planned" };
+  try {
+    const value = await run();
+    action.status = "applied";
+    return { status: "applied", value };
+  } catch (error) {
+    action.status = "failed";
+    action.error = error instanceof Error ? error.message : String(error);
+    return { status: "failed" };
+  }
+}
+
 /**
  * Drive one App Store version to "submitted for review", idempotently. Resolves (reuses, retargets, or
  * creates) the editable version, attaches the chosen build, declares export compliance, writes release
- * notes, sets the release type / phased rollout, then submits via Apple's review-submission model.
- * Throws (with an actionable message) on a precondition the user must fix; the caller surfaces it.
+ * notes, sets the release type / phased rollout, then submits via Apple's review-submission model. With
+ * `input.dryRun` it records what each step WOULD do and performs no writes. Throws only on a precondition
+ * the user must fix (no app record, the build isn't `VALID`/expired, the version is already live); every
+ * other step is captured per-action (see {@link act}), so one failure never aborts the rest.
  */
 export async function releaseApp(api: AscReleaseApi, input: ReleaseInput): Promise<ReleaseReport> {
-  const actions: ReleaseAction[] = [];
-  const record = (description: string): void => void actions.push({ description });
+  const ctx: ReleaseContext = { api, actions: [], dryRun: input.dryRun };
 
   const appId = await api.getAppId(input.bundleId);
   if (!appId) throw new Error(appRecordMissingMessage(input.bundleId));
 
-  const resolved = await resolveVersion(api, appId, input, record);
-  if (resolved.idempotentState) {
-    return {
-      bundleId: input.bundleId,
-      versionId: resolved.version.id,
-      versionString: resolved.version.versionString,
-      appStoreState: resolved.idempotentState,
-      submitted: false,
-      alreadyInReview: true,
-      actions,
-    };
-  }
-  const version = resolved.version;
-
-  if (input.build) {
-    if (input.build.processingState !== "VALID") {
+  // The chosen build's state is a user-fix precondition — surface it before walking (even in a dry-run),
+  // and narrow `build` to a const so the step closures capture it without a non-null assertion.
+  const build = input.build;
+  if (build) {
+    if (build.processingState !== "VALID") {
       throw new Error(
-        `Build ${input.build.version} is ${input.build.processingState || "still processing"} on App Store Connect — ` +
+        `Build ${build.version} is ${build.processingState || "still processing"} on App Store Connect — ` +
           `wait for it to finish (\`launch status\`), then re-run.`,
       );
     }
-    if (input.build.expired) {
-      throw new Error(`Build ${input.build.version} has expired on App Store Connect — upload a fresh build first.`);
+    if (build.expired) {
+      throw new Error(`Build ${build.version} has expired on App Store Connect — upload a fresh build first.`);
     }
-    await api.selectBuildForVersion(version.id, input.build.id);
-    record(`attach build ${input.build.version}`);
-    await api.setBuildUsesNonExemptEncryption(input.build.id, input.usesNonExemptEncryption);
-    record(`declare export compliance (usesNonExemptEncryption=${String(input.usesNonExemptEncryption)})`);
   }
 
-  await applyReleaseNotes(api, version.id, input.whatsNew, record);
+  const resolved = await resolveVersion(ctx, appId, input);
+  if (resolved.idempotentState) {
+    ctx.actions.push({
+      description: `version ${resolved.versionString} already ${resolved.idempotentState} — nothing to submit`,
+      status: "skipped",
+    });
+    return {
+      bundleId: input.bundleId,
+      versionId: resolved.versionId,
+      versionString: resolved.versionString,
+      appStoreState: resolved.idempotentState,
+      submitted: false,
+      alreadyInReview: true,
+      actions: ctx.actions,
+    };
+  }
+  const versionId = resolved.versionId;
 
-  await api.updateAppStoreVersion(version.id, {
-    releaseType: input.releaseType,
-    ...(input.earliestReleaseDate ? { earliestReleaseDate: input.earliestReleaseDate } : {}),
-  });
-  record(`set release type ${input.releaseType}${input.earliestReleaseDate ? ` @ ${input.earliestReleaseDate}` : ""}`);
+  // A real (non-dry) run whose version create failed has no id to build on — its failure is already
+  // recorded, so stop rather than hammer Apple with the placeholder id on every downstream step.
+  if (!ctx.dryRun && versionId === DRY_RUN_ID) {
+    return {
+      bundleId: input.bundleId,
+      versionId,
+      versionString: input.versionString,
+      appStoreState: "PREPARE_FOR_SUBMISSION",
+      submitted: false,
+      alreadyInReview: false,
+      actions: ctx.actions,
+    };
+  }
 
-  await applyPhasedRelease(api, version.id, input.phasedRelease, record);
+  if (build) {
+    await act(ctx, `attach build ${build.version}`, () => api.selectBuildForVersion(versionId, build.id));
+    await act(ctx, `declare export compliance (usesNonExemptEncryption=${String(input.usesNonExemptEncryption)})`, () =>
+      api.setBuildUsesNonExemptEncryption(build.id, input.usesNonExemptEncryption),
+    );
+  }
 
-  const submission = await findOrCreateReviewSubmission(api, appId, input.platform, record);
-  await api.addReviewSubmissionItem(submission.id, version.id);
-  record("add version to review submission");
-  await api.submitReviewSubmission(submission.id);
-  record("submit for App Store review");
+  await applyReleaseNotes(ctx, versionId, input.whatsNew);
+
+  await act(
+    ctx,
+    `set release type ${input.releaseType}${input.earliestReleaseDate ? ` @ ${input.earliestReleaseDate}` : ""}`,
+    () =>
+      api.updateAppStoreVersion(versionId, {
+        releaseType: input.releaseType,
+        ...(input.earliestReleaseDate ? { earliestReleaseDate: input.earliestReleaseDate } : {}),
+      }),
+  );
+
+  await applyPhasedRelease(ctx, versionId, input.phasedRelease);
+  await submitForReview(ctx, appId, versionId, input.platform);
 
   return {
     bundleId: input.bundleId,
-    versionId: version.id,
-    versionString: version.versionString,
+    versionId,
+    versionString: resolved.versionString,
     appStoreState: "WAITING_FOR_REVIEW",
-    submitted: true,
+    submitted: !input.dryRun,
     alreadyInReview: false,
-    actions,
+    actions: ctx.actions,
   };
 }
 
 /**
  * Resolve the version to act on: reuse the one already at this version string (no-op if it's already
  * submitted/approved, error if it's already live), else retarget the open editable version, else create
- * a fresh one. Returns `idempotentState` set when the caller should stop (already submitted/approved).
+ * a fresh one. Returns its id ({@link DRY_RUN_ID} when a create was only planned or failed) plus an
+ * `idempotentState` set when the caller should stop (already submitted/approved).
  */
 async function resolveVersion(
-  api: AscReleaseApi,
+  ctx: ReleaseContext,
   appId: string,
   input: ReleaseInput,
-  record: (description: string) => void,
-): Promise<{ version: AppStoreVersionResource; idempotentState?: string }> {
-  const versions = await api.listAppStoreVersions(appId, input.platform);
+): Promise<{ versionId: string; versionString: string; idempotentState?: string }> {
+  const versions = await ctx.api.listAppStoreVersions(appId, input.platform);
 
   const sameString = versions.find((version) => version.versionString === input.versionString);
   if (sameString) {
@@ -293,77 +368,97 @@ async function resolveVersion(
       );
     }
     if (phase === "submitted" || phase === "pending-release") {
-      return { version: sameString, idempotentState: sameString.appStoreState };
+      return {
+        versionId: sameString.id,
+        versionString: sameString.versionString,
+        idempotentState: sameString.appStoreState,
+      };
     }
-    return { version: sameString };
+    return { versionId: sameString.id, versionString: sameString.versionString };
   }
 
   const editable = versions.find((version) => nextReleaseAction(version.appStoreState) === "editable");
   if (editable) {
-    await api.updateAppStoreVersion(editable.id, { versionString: input.versionString });
-    record(`retarget open version to ${input.versionString}`);
-    return { version: { ...editable, versionString: input.versionString } };
+    await act(ctx, `retarget open version to ${input.versionString}`, () =>
+      ctx.api.updateAppStoreVersion(editable.id, { versionString: input.versionString }),
+    );
+    return { versionId: editable.id, versionString: input.versionString };
   }
 
-  const created = await api.createAppStoreVersion(appId, {
-    versionString: input.versionString,
-    platform: input.platform,
-    releaseType: input.releaseType,
-    ...(input.earliestReleaseDate ? { earliestReleaseDate: input.earliestReleaseDate } : {}),
-  });
-  record(`create App Store version ${input.versionString}`);
-  return { version: created };
+  const created = await act(ctx, `create App Store version ${input.versionString}`, () =>
+    ctx.api.createAppStoreVersion(appId, {
+      versionString: input.versionString,
+      platform: input.platform,
+      releaseType: input.releaseType,
+      ...(input.earliestReleaseDate ? { earliestReleaseDate: input.earliestReleaseDate } : {}),
+    }),
+  );
+  return { versionId: created.value?.id ?? DRY_RUN_ID, versionString: input.versionString };
 }
 
 /** Write each locale's release notes, creating the localization or updating its `whatsNew`. */
 async function applyReleaseNotes(
-  api: AscReleaseApi,
+  ctx: ReleaseContext,
   versionId: string,
   whatsNew: Record<string, string>,
-  record: (description: string) => void,
 ): Promise<void> {
   const locales = Object.entries(whatsNew);
   if (locales.length === 0) return;
-  const existing = await api.listAppStoreVersionLocalizations(versionId);
+  // A version that would only be created in a dry-run has no localizations to read yet — just plan the count.
+  if (versionId === DRY_RUN_ID) {
+    ctx.actions.push({ description: `set release notes for ${locales.length} locale(s)`, status: "planned" });
+    return;
+  }
+  const existing = await ctx.api.listAppStoreVersionLocalizations(versionId);
   for (const [locale, text] of locales) {
     const match = existing.find((localization) => localization.locale === locale);
-    if (match) await api.updateAppStoreVersionLocalization(match.id, text);
-    else await api.createAppStoreVersionLocalization(versionId, { locale, whatsNew: text });
-    record(`set release notes [${locale}]`);
+    if (match)
+      await act(ctx, `set release notes [${locale}]`, () => ctx.api.updateAppStoreVersionLocalization(match.id, text));
+    else
+      await act(ctx, `set release notes [${locale}]`, () =>
+        ctx.api.createAppStoreVersionLocalization(versionId, { locale, whatsNew: text }),
+      );
   }
 }
 
 /** Bring the version's phased-release schedule in line with the requested opt-in (create or remove it). */
-async function applyPhasedRelease(
-  api: AscReleaseApi,
-  versionId: string,
-  wantPhased: boolean,
-  record: (description: string) => void,
-): Promise<void> {
-  const existing = await api.getPhasedRelease(versionId);
+async function applyPhasedRelease(ctx: ReleaseContext, versionId: string, wantPhased: boolean): Promise<void> {
+  if (versionId === DRY_RUN_ID) {
+    if (wantPhased) ctx.actions.push({ description: "enable phased release", status: "planned" });
+    return;
+  }
+  const existing = await ctx.api.getPhasedRelease(versionId);
   if (wantPhased && !existing) {
-    await api.createPhasedRelease(versionId);
-    record("enable phased release");
+    await act(ctx, "enable phased release", () => ctx.api.createPhasedRelease(versionId));
   } else if (!wantPhased && existing) {
-    await api.deletePhasedRelease(existing.id);
-    record("disable phased release (immediate 100% rollout)");
+    await act(ctx, "disable phased release (immediate 100% rollout)", () => ctx.api.deletePhasedRelease(existing.id));
   }
 }
 
-/** Reuse an addable (`READY_FOR_REVIEW`) review submission, or open a new one. */
-async function findOrCreateReviewSubmission(
-  api: AscReleaseApi,
-  appId: string,
-  platform: string,
-  record: (description: string) => void,
-): Promise<ReviewSubmissionResource> {
-  const open = (await api.listReviewSubmissions(appId, platform)).find(
+/** Reuse an addable (`READY_FOR_REVIEW`) review submission or open one, add the version, and submit it. */
+async function submitForReview(ctx: ReleaseContext, appId: string, versionId: string, platform: string): Promise<void> {
+  const open = (await ctx.api.listReviewSubmissions(appId, platform)).find(
     (submission) => submission.state === "READY_FOR_REVIEW",
   );
-  if (open) return open;
-  const created = await api.createReviewSubmission(appId, platform);
-  record("open review submission");
-  return created;
+  let submissionId: string;
+  if (open) {
+    submissionId = open.id;
+  } else {
+    const created = await act(ctx, "open review submission", () => ctx.api.createReviewSubmission(appId, platform));
+    submissionId = created.value?.id ?? DRY_RUN_ID;
+  }
+
+  await act(ctx, "add version to review submission", async () => {
+    try {
+      await ctx.api.addReviewSubmissionItem(submissionId, versionId);
+    } catch (error) {
+      // Idempotent resume: the item is already in the submission from a prior run — not a real failure.
+      const message = error instanceof Error ? error.message : String(error);
+      if (/already|duplicat|exist/i.test(message)) return;
+      throw error;
+    }
+  });
+  await act(ctx, "submit for App Store review", () => ctx.api.submitReviewSubmission(submissionId));
 }
 
 /** A live read of where an app's current release stands — backs `launch status` and the watch loop. */
