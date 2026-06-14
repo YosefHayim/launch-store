@@ -23,7 +23,14 @@ import { runWithProgress, xcodeProgressStep } from "../../core/progress.js";
 import { exists, run } from "../../core/exec.js";
 import { hostResources } from "../../core/os.js";
 import { buildXcargs, ccacheEnv, computeBuildJobs } from "../../core/buildFlags.js";
-import { gatherIosFingerprint, readBuildState, resolveClean, writeBuildState } from "../../core/buildFingerprint.js";
+import {
+  estimateFor,
+  gatherIosFingerprint,
+  readBuildState,
+  resolveClean,
+  updateEstimate,
+  writeBuildState,
+} from "../../core/buildFingerprint.js";
 
 /**
  * Resolve an app's iOS project directory to an ABSOLUTE path.
@@ -145,7 +152,11 @@ export const fastlaneBuildEngine: BuildEngine = {
 
     // Decide clean-vs-incremental from the native-graph fingerprint (or a forced `--clean`).
     const fingerprint = await gatherIosFingerprint(iosDir, ctx.app.configPath);
-    const decision = resolveClean(ctx.forceClean, readBuildState(ctx.app.name, "ios"), fingerprint);
+    const stored = readBuildState(ctx.app.name, "ios");
+    const decision = resolveClean(ctx.forceClean, stored, fingerprint);
+    // A clean and an incremental build take wildly different times, so the ETA is keyed on the verdict.
+    const kind = decision.clean ? "clean" : "incremental";
+    const estimate = estimateFor(stored, kind);
 
     // ccache wires in only when it's installed; otherwise the build runs uncached (doctor recommends it).
     const ccacheVars = (await exists("ccache")) ? ccacheEnv() : {};
@@ -165,7 +176,7 @@ export const fastlaneBuildEngine: BuildEngine = {
     const exportMethod = ctx.distribution === "internal" ? "ad-hoc" : "app-store";
     writeFileSync(plistPath, exportOptionsPlist(signing, exportMethod));
 
-    await runWithProgress(
+    const buildRun = await runWithProgress(
       "fastlane",
       [
         "gym",
@@ -191,6 +202,7 @@ export const fastlaneBuildEngine: BuildEngine = {
       {
         label: `Building iOS · ${ctx.app.name}`,
         parseStep: xcodeProgressStep,
+        ...(estimate ? { estimate } : {}),
         cwd: ctx.app.dir,
         env: {
           ...ccacheVars,
@@ -206,11 +218,16 @@ export const fastlaneBuildEngine: BuildEngine = {
     const ipaBytes = statSync(artifactPath).size;
     assertDeviceArtifact(artifactPath, ipaBytes);
 
-    // Record the fingerprint so the next build can validate (or invalidate) these now-warm caches.
+    // Record the fingerprint so the next build can validate (or invalidate) these now-warm caches, plus
+    // this build's duration/step-count folded into the kind's EMA so the next build's ETA learns. In
+    // stream mode steps come back 0 (output unparsed), so carry the prior step total forward.
+    const prior = stored?.estimates?.[kind];
+    const sample = { ms: buildRun.elapsedMs, steps: buildRun.steps > 0 ? buildRun.steps : (prior?.steps ?? 0) };
     writeBuildState(ctx.app.name, "ios", {
       fingerprint,
       builtAt: new Date().toISOString(),
       cleanBuilt: decision.clean,
+      estimates: { ...(stored?.estimates ?? {}), [kind]: updateEstimate(prior, sample) },
     });
 
     const reportPath = join(outputDir, "App Thinning Size Report.txt");
