@@ -1,5 +1,6 @@
 /**
- * The asset half of `launch sync`: upload App Store **screenshots** (per locale × device target) and
+ * The asset half of `launch sync`: upload App Store **screenshots** (per locale × device target), **app
+ * preview videos** (the parallel `appPreviewSets`/`appPreviews` flow, via {@link reconcilePreviews}), and
  * **subscription review screenshots** to App Store Connect, idempotently. It's the deliberate follow-up
  * the catalog reconciler (`ascSync.ts`) flagged — products clear "Missing Metadata", but a screenshot is
  * a chunked binary upload, so it lives in its own pass.
@@ -24,6 +25,8 @@
  */
 
 import type {
+  PreviewResource,
+  PreviewSetResource,
   ReviewScreenshotResource,
   ScreenshotResource,
   ScreenshotSetResource,
@@ -34,8 +37,11 @@ import type {
 import { act, DRY_RUN_ID, succeededOrPlanned, type ActionLog, type PlannedAction } from "./ascSync.js";
 import {
   displayTypeLabel,
+  MAX_PREVIEWS_PER_SET,
   MAX_SCREENSHOTS_PER_SET,
+  previewTypeLabel,
   type LocalAsset,
+  type LocalPreview,
   type LocalScreenshot,
 } from "./screenshotAssets.js";
 
@@ -249,5 +255,141 @@ async function reconcileSubscriptionReviewScreenshots(
     await act(log, `upload subscription review screenshot ${item.productId} (${item.asset.fileName})`, false, () =>
       api.uploadSubscriptionReviewScreenshot(subscriptionId, item.asset.fileName, item.asset.path),
     );
+  }
+}
+
+// ── App preview videos ───────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The slice of {@link AppStoreConnectClient} the **preview** reconciler depends on — the video counterpart
+ * of {@link ScreenshotsApi}. Kept as its own narrow interface (rather than widening `ScreenshotsApi`) so the
+ * screenshot pass and its test fake stay untouched; `AppStoreConnectClient` satisfies both structurally. The
+ * `uploadPreview` method hides the reserve→PUT→commit asset flow, so this module never touches checksums or
+ * upload operations directly.
+ */
+export interface PreviewsApi {
+  getAppId(bundleId: string): Promise<string | null>;
+  getEditableVersionId(appId: string): Promise<string | null>;
+  /** Maps each declared locale to its version-localization id (shared with the listing/screenshot reconcilers). */
+  listVersionLocalizations(versionId: string): Promise<ListingLocalization[]>;
+  listPreviewSets(versionLocalizationId: string): Promise<PreviewSetResource[]>;
+  createPreviewSet(versionLocalizationId: string, previewType: string): Promise<PreviewSetResource>;
+  listPreviews(setId: string): Promise<PreviewResource[]>;
+  uploadPreview(setId: string, fileName: string, filePath: string): Promise<void>;
+}
+
+/** Inputs to the app-preview reconcile pass for one app. */
+export interface PreviewReconcileInput {
+  /** The app's iOS bundle id — resolves the ASC app record. */
+  bundleId: string;
+  /** App preview videos discovered from `<appDir>/previews/<locale>/<previewType>/`, fingerprinted. */
+  previews: LocalPreview[];
+  /** Rehearse only: build the plan, perform no uploads. */
+  dryRun: boolean;
+  /** Permit destructive actions. None exist yet (upload is additive); accepted for parity with the catalog pass. */
+  allowDestructive: boolean;
+}
+
+/**
+ * Reconcile one app's App Store **preview videos**, the video counterpart of {@link reconcileScreenshots}.
+ * Resolves the ASC app record + editable version once, then uploads (per locale × `previewType` set) the
+ * videos Apple doesn't already have. Idempotent and additive: a local file whose MD5 already appears on
+ * Apple is skipped, and because Apple records that checksum at commit time — before it finishes processing
+ * the video asynchronously — a re-run mid-processing re-uploads nothing. Never throws for a per-asset
+ * failure; those are captured on their action by {@link act}.
+ */
+export async function reconcilePreviews(api: PreviewsApi, input: PreviewReconcileInput): Promise<PlannedAction[]> {
+  const log: ActionLog = { actions: [], dryRun: input.dryRun, allowDestructive: input.allowDestructive };
+  if (input.previews.length === 0) return log.actions;
+
+  const appId = await api.getAppId(input.bundleId);
+  if (!appId) {
+    skip(log, `previews: no App Store Connect app record for ${input.bundleId} — create the app, then re-run`);
+    return log.actions;
+  }
+
+  const versionId = await api.getEditableVersionId(appId);
+  if (!versionId) {
+    skip(log, "previews: no editable App Store version — prepare a version in App Store Connect, then re-run");
+    return log.actions;
+  }
+
+  const localizations = await api.listVersionLocalizations(versionId);
+  const localizationIdByLocale = new Map(localizations.map((localization) => [localization.locale, localization.id]));
+
+  for (const [locale, localePreviews] of groupBy(input.previews, (preview) => preview.locale)) {
+    const localizationId = localizationIdByLocale.get(locale);
+    if (!localizationId) {
+      skip(
+        log,
+        `previews [${locale}]: locale not on the editable version — sync the listing for ${locale} first ` +
+          `(${localePreviews.length} preview(s) waiting)`,
+      );
+      continue;
+    }
+
+    const setByType = new Map((await api.listPreviewSets(localizationId)).map((set) => [set.previewType, set]));
+    for (const [previewType, typePreviews] of groupBy(localePreviews, (preview) => preview.previewType)) {
+      await reconcilePreviewSet(
+        api,
+        log,
+        localizationId,
+        setByType.get(previewType),
+        previewType,
+        locale,
+        typePreviews,
+      );
+    }
+  }
+  return log.actions;
+}
+
+/** Resolve (or create) one preview-type set, then upload the local previews Apple doesn't already have. */
+async function reconcilePreviewSet(
+  api: PreviewsApi,
+  log: ActionLog,
+  localizationId: string,
+  existingSet: PreviewSetResource | undefined,
+  previewType: string,
+  locale: string,
+  previews: LocalPreview[],
+): Promise<void> {
+  const label = previewTypeLabel(previewType);
+
+  let setId: string;
+  let existing: PreviewResource[];
+  if (existingSet) {
+    setId = existingSet.id;
+    existing = await api.listPreviews(setId);
+  } else {
+    const created = await act(log, `create preview set ${label} [${locale}]`, false, () =>
+      api.createPreviewSet(localizationId, previewType),
+    );
+    if (!succeededOrPlanned(created.status)) return;
+    setId = created.value?.id ?? DRY_RUN_ID;
+    existing = [];
+  }
+
+  // A FAILED delivery never finished, so don't treat its checksum as "already uploaded" — let it re-send.
+  const uploadedChecksums = new Set(
+    existing
+      .filter((preview) => preview.assetDeliveryState !== "FAILED")
+      .map((preview) => preview.sourceFileChecksum)
+      .filter((sum): sum is string => !!sum),
+  );
+  let count = existing.length;
+  for (const preview of previews) {
+    if (uploadedChecksums.has(preview.checksum)) continue; // already on Apple, byte-for-byte
+    if (count >= MAX_PREVIEWS_PER_SET) {
+      skip(
+        log,
+        `preview ${label} [${locale}] ${preview.fileName}: set is full (${MAX_PREVIEWS_PER_SET} max) — skipped`,
+      );
+      continue;
+    }
+    await act(log, `upload preview ${label} [${locale}] ${preview.fileName}`, false, () =>
+      api.uploadPreview(setId, preview.fileName, preview.path),
+    );
+    count++;
   }
 }
