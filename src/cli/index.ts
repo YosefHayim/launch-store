@@ -42,6 +42,7 @@ import { registerFingerprintCommand } from "./commands/fingerprint.js";
 import { registerDiagnoseCommand } from "./commands/diagnose.js";
 import { registerResignCommand } from "./commands/resign.js";
 import { registerSetupCommand } from "./commands/setup.js";
+import { registerSandboxCommand } from "./commands/sandbox.js";
 import { runWizard } from "./commands/wizard.js";
 
 /**
@@ -85,6 +86,7 @@ registerDeviceCommand(program);
 registerTestflightCommand(program);
 registerEventsCommand(program);
 registerSetupCommand(program);
+registerSandboxCommand(program);
 registerDoctorCommand(program);
 registerExplainCommand(program);
 registerUpdateCommand(program);

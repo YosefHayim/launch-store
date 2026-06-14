@@ -153,6 +153,26 @@ export interface InAppPurchaseResource {
   state?: string;
 }
 
+/**
+ * One **sandbox tester** (`sandboxTesters`) — a fake Apple ID for StoreKit testing of purchases and
+ * subscriptions, created in App Store Connect (Apple exposes no API to create one). `acAccountName` is the
+ * tester's sandbox email — the key `launch sandbox clear` matches on. `subscriptionRenewalRate` is the
+ * accelerated renewal interval Apple uses for sandbox subscriptions.
+ */
+export interface SandboxTesterResource {
+  id: string;
+  acAccountName: string;
+  firstName?: string;
+  lastName?: string;
+  /** App Store territory the tester shops in (e.g. `USA`). */
+  territory?: string;
+  applePayCompatible?: boolean;
+  /** Whether Apple injects interruptions (e.g. price-consent prompts) into the tester's purchases. */
+  interruptPurchases?: boolean;
+  /** Accelerated sandbox renewal interval, e.g. `MONTHLY_RENEWAL_EVERY_ONE_HOUR`. */
+  subscriptionRenewalRate?: string;
+}
+
 /** A subscription group — the container for mutually-exclusive subscription levels. */
 export interface SubscriptionGroupResource {
   id: string;
@@ -1327,6 +1347,49 @@ export class AppStoreConnectClient {
   /** Disable a capability by its resource id (only reached under `--allow-destructive`). */
   async disableCapability(capabilityId: string): Promise<void> {
     await this.request<unknown>("DELETE", `/bundleIdCapabilities/${capabilityId}`);
+  }
+
+  // ── Sandbox testers: StoreKit testing accounts (`launch sandbox`) ─────────────────────────────────
+
+  /** List the account's sandbox testers (the `/v2/sandboxTesters` collection), across all pages. */
+  async listSandboxTesters(): Promise<SandboxTesterResource[]> {
+    const data = await this.requestAll<{
+      acAccountName?: string;
+      firstName?: string;
+      lastName?: string;
+      territory?: string;
+      applePayCompatible?: boolean;
+      interruptPurchases?: boolean;
+      subscriptionRenewalRate?: string;
+    }>(this.v2("/sandboxTesters?limit=200"));
+    return data.map((entry) => ({
+      id: entry.id,
+      acAccountName: entry.attributes.acAccountName ?? "",
+      ...(entry.attributes.firstName ? { firstName: entry.attributes.firstName } : {}),
+      ...(entry.attributes.lastName ? { lastName: entry.attributes.lastName } : {}),
+      ...(entry.attributes.territory ? { territory: entry.attributes.territory } : {}),
+      ...(entry.attributes.applePayCompatible !== undefined
+        ? { applePayCompatible: entry.attributes.applePayCompatible }
+        : {}),
+      ...(entry.attributes.interruptPurchases !== undefined
+        ? { interruptPurchases: entry.attributes.interruptPurchases }
+        : {}),
+      ...(entry.attributes.subscriptionRenewalRate
+        ? { subscriptionRenewalRate: entry.attributes.subscriptionRenewalRate }
+        : {}),
+    }));
+  }
+
+  /** Clear the StoreKit purchase history for one or more sandbox testers (a single batched request). */
+  async clearSandboxTesterPurchaseHistory(testerIds: string[]): Promise<void> {
+    await this.request<unknown>("POST", this.v2("/sandboxTestersClearPurchaseHistoryRequest"), {
+      data: {
+        type: "sandboxTestersClearPurchaseHistoryRequest",
+        relationships: {
+          sandboxTesters: { data: testerIds.map((id) => ({ type: "sandboxTesters", id })) },
+        },
+      },
+    });
   }
 
   /** List an app's in-app purchases (the `inAppPurchasesV2` collection), across all pages. */
