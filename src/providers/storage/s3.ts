@@ -114,6 +114,17 @@ export function createS3StorageProvider(config: StorageConfig): StorageProvider 
       return upload(key, body, contentType);
     },
 
+    async getObject(key: string): Promise<Buffer | null> {
+      const { s3, client } = await makeClient(config);
+      try {
+        const response = await client.send(new s3.GetObjectCommand({ Bucket: config.bucket, Key: key }));
+        const bytes = await response.Body?.transformToByteArray();
+        return bytes ? Buffer.from(bytes) : null;
+      } catch {
+        return null;
+      }
+    },
+
     publicUrl,
   };
 }

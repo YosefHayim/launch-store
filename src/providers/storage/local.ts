@@ -62,6 +62,11 @@ export const localStorageProvider: StorageProvider = {
     return { id: key, location: pathToFileURL(dest).href };
   },
 
+  async getObject(key: string): Promise<Buffer | null> {
+    const path = objectPath(key);
+    return existsSync(path) ? readFileSync(path) : null;
+  },
+
   publicUrl(key: string): string {
     return pathToFileURL(objectPath(key)).href;
   },
