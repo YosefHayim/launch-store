@@ -10,7 +10,7 @@
 
 import { mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type {
   BuildCredentials,
   BuildEngine,
@@ -24,6 +24,20 @@ import { exists, run } from "../../core/exec.js";
 import { hostResources } from "../../core/os.js";
 import { buildXcargs, ccacheEnv, computeBuildJobs } from "../../core/buildFlags.js";
 import { gatherIosFingerprint, readBuildState, resolveClean, writeBuildState } from "../../core/buildFingerprint.js";
+
+/**
+ * Resolve an app's iOS project directory to an ABSOLUTE path.
+ *
+ * `ctx.app.dir` is relative whenever `launch.config.ts` uses a relative `appRoots` — the monorepo
+ * case, e.g. `apps/pomedero`. gym is run with its `cwd` at the app dir, and it re-resolves a
+ * *relative* `--workspace` against that cwd, doubling the subpath to
+ * `apps/pomedero/apps/pomedero/ios/…` and failing with "Workspace file not found". Resolving the
+ * dir to absolute here means the workspace path gym receives (and the `pod install` cwd) is one no
+ * cwd can double, in both single-app and monorepo layouts.
+ */
+export function resolveIosDir(appDir: string): string {
+  return resolve(appDir, "ios");
+}
 
 /** Locate the generated Xcode workspace and derive its scheme from the `ios/` directory. */
 function findWorkspace(iosDir: string): { workspace: string; scheme: string } {
@@ -126,7 +140,7 @@ export const fastlaneBuildEngine: BuildEngine = {
     const signing = creds.signing;
     if (!signing) throw new Error("No signing assets resolved — run `launch creds setup` first.");
 
-    const iosDir = join(ctx.app.dir, "ios");
+    const iosDir = resolveIosDir(ctx.app.dir);
     const { workspace, scheme } = findWorkspace(iosDir);
 
     // Decide clean-vs-incremental from the native-graph fingerprint (or a forced `--clean`).

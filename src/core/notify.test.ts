@@ -1,57 +1,65 @@
 import { describe, expect, it } from "vitest";
-import { type NotifyEvent, formatNotifyMessage, notifyEnv } from "./notify.js";
+import { notifyEnv, notifyMessage, notifyPayload, type NotifyEvent } from "./notify.js";
 
-const base: NotifyEvent = {
-  kind: "build",
+const success: NotifyEvent = {
+  event: "submit",
   status: "success",
-  app: "looopi",
+  app: "acme",
   platform: "ios",
-  version: "1.2.0",
+  version: "1.2.3",
   buildNumber: 42,
+  sizeBytes: 50 * 1024 * 1024,
+  destination: "TestFlight",
 };
 
-describe("formatNotifyMessage", () => {
-  it("summarizes a successful build with its download size", () => {
-    const msg = formatNotifyMessage({ ...base, downloadBytes: 47 * 1024 * 1024 });
-    expect(msg).toContain("✅");
-    expect(msg).toContain("looopi 1.2.0 (build 42)");
-    expect(msg).toContain("ios build success");
-    expect(msg).toContain("download 47.0 MB");
+const failure: NotifyEvent = {
+  event: "build",
+  status: "failure",
+  app: "acme",
+  platform: "android",
+  version: "1.2.3",
+  error: "gradle exited with code 1",
+};
+
+describe("notifyMessage", () => {
+  it("summarizes a success with build number and destination", () => {
+    expect(notifyMessage(success)).toBe("✅ Launch: acme 1.2.3 (42) submit succeeded → TestFlight");
   });
 
-  it("summarizes a submit with its destination", () => {
-    const msg = formatNotifyMessage({ ...base, kind: "submit", destination: "TestFlight" });
-    expect(msg).toContain("ios submit success");
-    expect(msg).toContain("→ TestFlight");
+  it("summarizes a failure with the error", () => {
+    expect(notifyMessage(failure)).toBe("❌ Launch: acme 1.2.3 — build failed: gradle exited with code 1");
   });
+});
 
-  it("shows the error on failure", () => {
-    const msg = formatNotifyMessage({ ...base, status: "failure", error: "xcodebuild exited with code 65" });
-    expect(msg).toContain("❌");
-    expect(msg).toContain("build failure");
-    expect(msg).toContain("xcodebuild exited with code 65");
+describe("notifyPayload", () => {
+  it("sets both text (Slack) and content (Discord) to the message and carries the event fields", () => {
+    const payload = notifyPayload(success);
+    const message = notifyMessage(success);
+    expect(payload["text"]).toBe(message);
+    expect(payload["content"]).toBe(message);
+    expect(payload["status"]).toBe("success");
+    expect(payload["buildNumber"]).toBe(42);
   });
 });
 
 describe("notifyEnv", () => {
-  it("exposes LAUNCH_* metadata as strings, omitting absent fields", () => {
-    const env = notifyEnv({ ...base, downloadBytes: 1048576 });
+  it("exposes the core fields as LAUNCH_* strings", () => {
+    const env = notifyEnv(success);
     expect(env).toMatchObject({
-      LAUNCH_KIND: "build",
+      LAUNCH_EVENT: "submit",
       LAUNCH_STATUS: "success",
-      LAUNCH_APP: "looopi",
+      LAUNCH_APP: "acme",
       LAUNCH_PLATFORM: "ios",
-      LAUNCH_VERSION: "1.2.0",
+      LAUNCH_VERSION: "1.2.3",
       LAUNCH_BUILD_NUMBER: "42",
-      LAUNCH_DOWNLOAD_BYTES: "1048576",
+      LAUNCH_DESTINATION: "TestFlight",
     });
-    expect(env["LAUNCH_ERROR"]).toBeUndefined();
-    expect(env["LAUNCH_MESSAGE"]).toContain("looopi");
   });
 
-  it("includes the error and omits the download on failure", () => {
-    const env = notifyEnv({ ...base, status: "failure", error: "boom" });
-    expect(env["LAUNCH_ERROR"]).toBe("boom");
-    expect(env["LAUNCH_DOWNLOAD_BYTES"]).toBeUndefined();
+  it("omits absent optional fields and includes the error on failure", () => {
+    const env = notifyEnv(failure);
+    expect(env["LAUNCH_BUILD_NUMBER"]).toBeUndefined();
+    expect(env["LAUNCH_DESTINATION"]).toBeUndefined();
+    expect(env["LAUNCH_ERROR"]).toBe("gradle exited with code 1");
   });
 });

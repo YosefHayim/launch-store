@@ -19,7 +19,10 @@ Launch runs the EAS pipeline locally: prebuild → resolve credentials → compi
 - [Glossary](./src/core/glossary.ts): plain-English term definitions shared by `launch explain` and the docs.
 - [App Store Connect client](./src/apple/ascClient.ts): the Apple API integration (JWT auth, bundle ids, certs, profiles, builds).
 - [ASC product sync](./src/core/ascSync.ts): the declarative reconciler behind `launch sync` (capabilities, IAPs, subscriptions, pricing).
-- [Public API](./src/index.ts): what a user's `launch.config.ts` imports (`defineConfig`, the `products` catalog).
+- [Config preflight](./src/core/configCheck.ts): the app-config footgun validator run by `launch doctor` and at the head of `launch build`.
+- [Build secrets](./src/core/buildSecrets.ts): keychain-backed `launch secret` storage + build-time injection over `.env`.
+- [Completion notifications](./src/core/notify.ts): the `notify` webhook + shell hook fired on build/submit completion.
+- [Public API](./src/index.ts): what a user's `launch.config.ts` imports (`defineConfig`, the `products` catalog, the `notify` config).
 
 ## Optional
 

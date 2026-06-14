@@ -36,6 +36,15 @@ export const STATE_FILE = join(LAUNCH_HOME, "state.json");
 export const ACCOUNTS_FILE = join(LAUNCH_HOME, "accounts.json");
 
 /**
+ * Index of keychain-backed build secrets (`{ secrets: [{ app, profile, name }] }`). Non-secret: it
+ * records only WHICH secrets exist and their app/profile scope, so `launch secret list` can enumerate
+ * them and a build knows which to inject. Each secret's VALUE stays in the OS secret store (the OS
+ * keychain isn't reliably enumerable cross-platform, which is why this thin index exists). See
+ * `core/buildSecrets.ts`.
+ */
+export const SECRETS_FILE = join(LAUNCH_HOME, "secrets.json");
+
+/**
  * Non-secret signing metadata + the encrypted `.p12` backup live here (chmod 600). The private
  * key is ALSO in the login Keychain for signing; this backup just survives a Keychain reset.
  * Per-account signing assets live in a {@link accountCredentialsDir} subfolder keyed by Key ID.

@@ -242,28 +242,24 @@ export interface AppProducts {
 }
 
 /**
- * One completion-notification channel: a webhook URL and/or a shell command. Both are optional, so a
- * hook can ping Slack, run a local command, or do both. Dependency-free — the webhook is a plain JSON
- * POST (Slack/Discord-compatible `{ text }`); the shell command receives the build metadata as
- * `LAUNCH_*` environment variables. See `core/notify.ts`.
- */
-export interface NotifyHook {
-  /** Incoming-webhook URL (Slack/Discord-compatible). Receives a JSON `{ text }` body on completion. */
-  webhook?: string;
-  /** Shell command run on completion with `LAUNCH_STATUS`, `LAUNCH_APP`, `LAUNCH_VERSION`, … in its env. */
-  shell?: string;
-}
-
-/**
- * Build/submit completion hooks — the local equivalent of EAS's build webhooks, for the long local
- * Mac builds where a ping on done/failed is high-value. Each hook fires on BOTH success and failure;
- * an absent hook is a no-op. Lives under {@link LaunchConfig.notify}.
+ * Build/submit completion notifications — the EAS-`webhook` parity hook, declared under
+ * {@link LaunchConfig.notify}. A local Mac build can run many minutes; this pings when it finishes.
+ * Both fields are optional and independent: set a `webhookUrl`, a `command`, both, or (absent) get
+ * the silent default. Fired on success AND failure; never blocks or fails the build (best-effort).
  */
 export interface NotifyConfig {
-  /** Fired when a build finishes (success or failure), with the artifact path, size, and build number. */
-  onBuildComplete?: NotifyHook;
-  /** Fired when an upload/submit finishes (success or failure), with the store destination. */
-  onSubmitComplete?: NotifyHook;
+  /**
+   * Incoming-webhook URL posted a JSON body on completion. The payload carries both `text` (Slack)
+   * and `content` (Discord) set to a human summary, plus the structured event fields, so a Slack or
+   * Discord webhook renders it directly and a custom endpoint can read the typed data.
+   */
+  webhookUrl?: string;
+  /**
+   * Shell command run on completion with the event in its environment as `LAUNCH_*` vars
+   * (`LAUNCH_EVENT`, `LAUNCH_STATUS`, `LAUNCH_APP`, `LAUNCH_VERSION`, `LAUNCH_BUILD_NUMBER`,
+   * `LAUNCH_DESTINATION`, `LAUNCH_ERROR`). Runs through the platform shell, like a git hook.
+   */
+  command?: string;
 }
 
 /**
@@ -297,10 +293,10 @@ export interface LaunchConfig {
    * this. Absent for apps that sell nothing. See {@link AppProducts}.
    */
   products?: Record<string, AppProducts>;
+  /** Build/submit completion notifications (webhook + shell hook). Absent = no notifications. See {@link NotifyConfig}. */
+  notify?: NotifyConfig;
   /** AWS EC2 Mac settings for remote (off-Mac) builds. Only needed when building via `--remote aws`. */
   aws?: AwsConfig;
-  /** Completion-notification hooks (webhook / shell) fired when a build or submit finishes. See {@link NotifyConfig}. */
-  notify?: NotifyConfig;
   /**
    * Bucket/endpoint settings for a cloud {@link StorageProvider} (`s3` / `supabase`). Required when
    * `storage` names a cloud provider — it's where ad-hoc install links and OTA update manifests are

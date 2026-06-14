@@ -33,13 +33,15 @@ import type {
 } from "./types.js";
 import { refreshIdentityIfStale, resolveBuildAccount, setActiveKeyId } from "./accounts.js";
 import { loadConfig, writeAppVersion } from "./config.js";
+import { checkApp, formatFinding } from "./configCheck.js";
+import { resolveBuildSecrets } from "./buildSecrets.js";
+import { notifyCompletion, type NotifyEvent } from "./notify.js";
 import { pickOne } from "./prompt.js";
 import { compareVersions, formatVersion, highestVersion, nextVersion, parseVersion } from "./version.js";
 import { loadDotenvFile, missingKeys, secretLookingKeys } from "./env.js";
+import { beginBuildLog, buildLogId, endBuildLog } from "./buildLog.js";
 import { getBuildEngine, getCredentialsProvider, getSubmitter } from "./registry.js";
 import { resolveStorageProvider } from "./storage.js";
-import { beginBuildLog, buildLogId, endBuildLog } from "./buildLog.js";
-import { type NotifyEvent, notify } from "./notify.js";
 import { createLogger, type Logger } from "./logger.js";
 import type { GlossaryTopic } from "./glossary.js";
 import { capture, exists, run } from "./exec.js";
@@ -338,15 +340,43 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
   const remoteSuffix = options.remote ? (options.remote.kind === "aws" ? " · remote(aws)" : " · remote(ssh)") : "";
   log.step("config", `${app.name} · ${profile.name} · ${platform}${dryRun ? " · dry-run" : ""}${remoteSuffix}`);
 
-  // Validate env against .env.example before doing any expensive work.
-  const env = loadDotenvFile(join(app.dir, profile.envFile ?? ".env"));
+  // Validate env against .env.example before doing any expensive work. Keychain-backed secrets are
+  // merged over .env (stored secrets win) so a documented key moved out of plaintext into `launch
+  // secret` still satisfies the .env.example check and reaches the build.
+  const dotenvEnv = loadDotenvFile(join(app.dir, profile.envFile ?? ".env"));
+  const secrets = await resolveBuildSecrets(app.name, profile.name);
+  const env = { ...dotenvEnv, ...secrets };
   const missing = missingKeys(app.dir, env);
   if (missing.length > 0)
     throw new Error(`Missing env keys (in .env.example, absent from .env): ${missing.join(", ")}`);
-  for (const name of secretLookingKeys(env)) {
-    log.warn(`"${name}" looks like a backend secret — it would be bundled into the app. Keep secrets out of .env.`);
+  // Only nag about secret-looking names sitting in plaintext .env — keychain secrets are meant to be secret.
+  for (const name of secretLookingKeys(dotenvEnv)) {
+    log.warn(
+      `"${name}" looks like a backend secret — it would be bundled into the app. Store it with \`launch secret set ${name}\`.`,
+    );
   }
-  log.step("env", `${Object.keys(env).length} vars validated`, "env-vars");
+  const secretCount = Object.keys(secrets).length;
+  log.step(
+    "env",
+    `${Object.keys(env).length} vars validated${secretCount > 0 ? ` (${secretCount} from keychain)` : ""}`,
+    "env-vars",
+  );
+
+  // Preflight the app config against known native-config footguns, before any expensive native work.
+  // Warnings are surfaced; a build-breaking error (an invalid bundle id / package, a splash with no
+  // backgroundColor) hard-stops here rather than failing deep inside xcodebuild/gradle minutes later.
+  const findings = await checkApp(app, platform);
+  for (const finding of findings) {
+    if (finding.severity === "warn") log.warn(formatFinding(finding));
+  }
+  const configErrors = findings.filter((finding) => finding.severity === "error");
+  if (configErrors.length > 0) {
+    throw new Error(
+      `App config preflight failed for ${app.name}:\n` +
+        configErrors.map((finding) => `  ✗ ${formatFinding(finding)}`).join("\n"),
+    );
+  }
+  log.step("config check", findings.length > 0 ? `${findings.length} warning(s)` : "no footguns");
 
   const android = platform === "android" ? resolveAndroidRelease(options, profile) : undefined;
   const ctx: ResolvedBuildContext = {
@@ -364,13 +394,26 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
 }
 
 /**
- * Run a build. Dispatches to the right path: Android always builds locally (no Mac needed); for iOS,
- * `--remote` → the remote-Mac pipeline, `buildEngine: "eas"` → the EAS handoff, otherwise the local
- * Mac spine. Throws with a clear message on any failed step.
+ * Run a build, then fire any configured completion notification. Throws with a clear message on any
+ * failed step — but first notifies the failure, so an unattended/CI build pings on both outcomes.
+ * Dry-runs never notify (they change nothing). See {@link dispatchBuild} for the path selection.
  */
 export async function runBuild(options: BuildRunOptions): Promise<void> {
   const prepared = await prepareBuild(options);
+  try {
+    await dispatchBuild(prepared, options);
+    if (!options.dryRun) await notifyCompletion(prepared.config, await buildSuccessEvent(prepared, options));
+  } catch (error) {
+    if (!options.dryRun) await notifyCompletion(prepared.config, buildFailureEvent(prepared, options, error));
+    throw error;
+  }
+}
 
+/**
+ * Select the build path: Android always builds locally (no Mac needed); for iOS, `--remote` → the
+ * remote-Mac pipeline, `buildEngine: "eas"` → the EAS handoff, otherwise the local Mac spine.
+ */
+async function dispatchBuild(prepared: PreparedBuild, options: BuildRunOptions): Promise<void> {
   // Android builds on any OS — it has no off-Mac problem, so no remote/EAS off-ramp applies.
   if (options.platform === "android") return runLocalBuild(prepared, options);
 
@@ -386,6 +429,47 @@ export async function runBuild(options: BuildRunOptions): Promise<void> {
     return runEasBuild(prepared, options);
   }
   return runLocalBuild(prepared, options);
+}
+
+/**
+ * The success {@link NotifyEvent} for a finished run, read back from the artifact just stored (the
+ * source of truth for the build number + size). `event` is `submit` once a store upload happened, else
+ * `build` (a `--no-submit` or internal install-link run). Falls back to the app's config version when
+ * no stored artifact is found (e.g. a remote/EAS path that stores elsewhere).
+ */
+async function buildSuccessEvent(prepared: PreparedBuild, options: BuildRunOptions): Promise<NotifyEvent> {
+  const { config, app, ctx } = prepared;
+  const internal = ctx.distribution === "internal";
+  const latest = (await resolveStorageProvider(config).list()).find(
+    (artifact) => artifact.appName === app.name && artifact.platform === options.platform,
+  );
+  const event: NotifyEvent = {
+    event: options.submit && !internal ? "submit" : "build",
+    status: "success",
+    app: app.name,
+    platform: options.platform,
+    version: latest?.version ?? app.version ?? "0.0.0",
+    destination: internal ? "internal install link" : receiptDestination(options.platform, options, ctx.android?.track),
+  };
+  if (latest) {
+    event.buildNumber = latest.buildNumber;
+    const size = worstDownloadBytes(latest.sizeReport);
+    if (size > 0) event.sizeBytes = size;
+  }
+  return event;
+}
+
+/** The failure {@link NotifyEvent} for a run that threw, carrying the error message and what's known. */
+function buildFailureEvent(prepared: PreparedBuild, options: BuildRunOptions, error: unknown): NotifyEvent {
+  const internal = prepared.ctx.distribution === "internal";
+  return {
+    event: options.submit && !internal ? "submit" : "build",
+    status: "failure",
+    app: prepared.app.name,
+    platform: options.platform,
+    version: prepared.app.version ?? "0.0.0",
+    error: error instanceof Error ? error.message : String(error),
+  };
 }
 
 /** The local spine: fork by platform after the shared front (prepareBuild) and before the shared tail. */
@@ -497,11 +581,7 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
         yes: options.yes ?? false,
         log,
       });
-      await runSubmitStep(
-        config,
-        { app: app.name, platform: "ios", version: app.version ?? "0.0.0", buildNumber, destination },
-        () => getSubmitter(resolveSubmitterName(config, "ios")).submit(artifactPath, options.target, credentials, ctx),
-      );
+      await getSubmitter(resolveSubmitterName(config, "ios")).submit(artifactPath, options.target, credentials, ctx);
       log.step(
         "submit",
         options.target === "testing" ? "uploaded to TestFlight" : "submitted for App Store review",
@@ -625,17 +705,11 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
         yes: options.yes ?? false,
         log,
       });
-      await runSubmitStep(
-        config,
-        {
-          app: app.name,
-          platform: "android",
-          version: app.version ?? "0.0.0",
-          buildNumber: versionCode,
-          destination: `Google Play (${track} track)`,
-        },
-        () =>
-          getSubmitter(resolveSubmitterName(config, "android")).submit(artifactPath, options.target, credentials, ctx),
+      await getSubmitter(resolveSubmitterName(config, "android")).submit(
+        artifactPath,
+        options.target,
+        credentials,
+        ctx,
       );
       log.step("submit", `uploaded to the ${track} track`, "play-track");
     }
@@ -657,7 +731,7 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
   });
 }
 
-/** The result every {@link BuildEngine.build} returns — named so the per-build-step wrapper can pass it through. */
+/** What {@link BuildEngine.build} resolves to — named so the build-log wrapper can pass it through. */
 interface BuildOutput {
   artifactPath: string;
   sizeReport: SizeReport;
@@ -665,59 +739,25 @@ interface BuildOutput {
 }
 
 /**
- * Run the build engine wrapped with the two cross-cutting concerns that belong around the compile step:
- * its native output is captured to the per-build log (keyed by build id) for `launch builds log` and
- * the failure diagnostics, and a build failure fires the `onBuildComplete` notification (success fires
- * from {@link storeArtifact} once the artifact exists). Both are skipped in dry-run — no real build runs.
+ * Wrap the build-engine call so its native output is captured to a per-build log keyed by build id
+ * (read back by `launch builds log` and the failure diagnostics). Skipped in dry-run — no real build
+ * runs. Completion notifications fire separately at the dispatch boundary (see {@link runBuild}), so
+ * this stays a single concern: own the log's lifecycle around the compile, nothing more.
  */
 async function runBuildStep(
   prepared: PreparedBuild,
   buildNumber: number,
   build: () => Promise<BuildOutput>,
 ): Promise<BuildOutput> {
-  const { ctx, app, config } = prepared;
-  const version = app.version ?? "0.0.0";
+  const { ctx, app } = prepared;
   if (ctx.dryRun) return build();
-  beginBuildLog(buildLogId({ appName: app.name, version, buildNumber, platform: ctx.platform }));
+  beginBuildLog(
+    buildLogId({ appName: app.name, version: app.version ?? "0.0.0", buildNumber, platform: ctx.platform }),
+  );
   try {
     return await build();
-  } catch (error) {
-    await notify(config, {
-      kind: "build",
-      status: "failure",
-      app: app.name,
-      platform: ctx.platform,
-      version,
-      buildNumber,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
   } finally {
     endBuildLog();
-  }
-}
-
-/**
- * Run the submit step, firing `onSubmitComplete` on the way out — success when the upload returns,
- * failure (with the error) when it throws (then rethrows). Shared by both spines so iOS and Android
- * notify identically. `base` carries the app/version/build/destination already known at the call site.
- */
-async function runSubmitStep(
-  config: LaunchConfig,
-  base: Omit<NotifyEvent, "kind" | "status" | "error">,
-  submit: () => Promise<void>,
-): Promise<void> {
-  try {
-    await submit();
-    await notify(config, { ...base, kind: "submit", status: "success" });
-  } catch (error) {
-    await notify(config, {
-      ...base,
-      kind: "submit",
-      status: "failure",
-      error: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
   }
 }
 
@@ -747,18 +787,6 @@ async function storeArtifact(
   };
   const stored = await resolveStorageProvider(config).put(artifact);
   log.step("store", stored.location);
-
-  // The build is done and the artifact exists — fire onBuildComplete (success). A build FAILURE is
-  // notified from runBuildStep instead, so exactly one build notification fires per run.
-  await notify(config, {
-    kind: "build",
-    status: "success",
-    app: app.name,
-    platform: ctx.platform,
-    version: app.version ?? "0.0.0",
-    buildNumber,
-    downloadBytes: worstDownloadBytes(sizeReport),
-  });
 }
 
 /** Nudge (once, before building) when ccache is absent — the build still runs, just uncached. */

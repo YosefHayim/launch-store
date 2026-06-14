@@ -1,97 +1,121 @@
 /**
- * Build/submit completion notifications — EAS-webhook parity for local builds.
+ * Build/submit completion notifications — the EAS-`webhook` parity hook.
  *
- * A local Mac build can run many minutes; a ping when it finishes (or fails) is high-value. Each
- * configured hook (`launch.config.ts` → {@link NotifyConfig}) can POST to a Slack/Discord-compatible
- * webhook and/or run a shell command with the build metadata in its environment. Dependency-free: the
- * webhook is a plain `fetch` POST, the shell command runs through `core/exec.ts` (`sh -c`, no string
- * interpolation from us). Notifications are best-effort — a failed ping never fails the build — and a
- * no-op when nothing is configured, so an unconfigured project is unaffected.
+ * A local Mac build can run many minutes, so a ping on completion (success or failure) is high-value.
+ * When `launch.config.ts` declares a {@link NotifyConfig}, {@link notifyCompletion} POSTs a
+ * Slack/Discord-compatible JSON body to the webhook and/or runs a shell command with the event in its
+ * environment. It is strictly best-effort: every failure is swallowed and logged, never thrown, so a
+ * flaky webhook can't fail a build that already succeeded.
+ *
+ * The payload builders ({@link notifyPayload}, {@link notifyMessage}, {@link notifyEnv}) are pure and
+ * unit-tested; only {@link notifyCompletion} does I/O (the POST + the shell run).
  */
 
-import type { LaunchConfig, NotifyHook, Platform } from "./types.js";
-import { run } from "./exec.js";
-import { mb } from "./pipeline.js";
+import { exec } from "node:child_process";
+import type { LaunchConfig, NotifyConfig, Platform } from "./types.js";
+import { createLogger } from "./logger.js";
 
 /**
- * What happened, for one notification. Carries enough for a readable message and a rich shell env:
- * what kind of step (build vs submit), whether it succeeded, and the build's identity/size/destination.
+ * The completion event passed to {@link notifyCompletion} — everything a webhook payload or shell hook
+ * reports about a finished run. `event` is the furthest stage reached (`submit` once an upload was
+ * attempted, else `build`); `status` is its outcome. Size/buildNumber/destination are filled when
+ * known (a success has them; an early failure may not).
  */
 export interface NotifyEvent {
-  kind: "build" | "submit";
+  event: "build" | "submit";
   status: "success" | "failure";
   app: string;
   platform: Platform;
   version: string;
-  buildNumber: number;
-  /** Where it landed (TestFlight / a Play track), when known. */
+  /** iOS build number / Android versionCode, when the run got far enough to assign one. */
+  buildNumber?: number;
+  /** Worst-case store download in bytes, when a size report was produced. */
+  sizeBytes?: number;
+  /** Where it landed, e.g. `TestFlight`, `App Store review`, `Google Play (internal track)`. */
   destination?: string;
-  /** Worst-case store download in bytes, when known (build events). */
-  downloadBytes?: number;
-  /** Error message, on failure. */
+  /** Failure message, present only when `status` is `failure`. */
   error?: string;
 }
 
-/** A one-line human summary of an event, used as the webhook `text` and a final console line. */
-export function formatNotifyMessage(event: NotifyEvent): string {
+/** A one-line human summary of the event, used as the Slack/Discord message text. */
+export function notifyMessage(event: NotifyEvent): string {
   const icon = event.status === "success" ? "✅" : "❌";
-  const verb = event.kind === "build" ? "build" : "submit";
-  const head = `${icon} ${event.app} ${event.version} (build ${event.buildNumber}) · ${event.platform} ${verb} ${event.status}`;
-  const parts: string[] = [];
+  const what = event.event === "submit" ? "submit" : "build";
+  const head = `${icon} Launch: ${event.app} ${event.version}`;
   if (event.status === "failure") {
-    if (event.error) parts.push(event.error);
-  } else {
-    if (event.destination) parts.push(`→ ${event.destination}`);
-    if (event.downloadBytes !== undefined) parts.push(`download ${mb(event.downloadBytes)}`);
+    return `${head} — ${what} failed${event.error ? `: ${event.error}` : ""}`;
   }
-  return parts.length > 0 ? `${head} · ${parts.join(" · ")}` : head;
+  const where = event.destination ? ` → ${event.destination}` : "";
+  const build = event.buildNumber !== undefined ? ` (${event.buildNumber})` : "";
+  return `${head}${build} ${what} succeeded${where}`;
 }
 
-/** The `LAUNCH_*` environment a shell hook receives — all values stringified, undefined keys omitted. */
+/**
+ * The JSON body POSTed to the webhook. `text` (Slack) and `content` (Discord) both carry the human
+ * message so the same URL works for either; the structured event fields ride alongside for a custom
+ * endpoint. Pure — the exact bytes are determined by the event.
+ */
+export function notifyPayload(event: NotifyEvent): Record<string, unknown> {
+  const message = notifyMessage(event);
+  return { text: message, content: message, ...event };
+}
+
+/** The `LAUNCH_*` environment a shell hook receives. Omitted fields simply don't appear. */
 export function notifyEnv(event: NotifyEvent): Record<string, string> {
   const env: Record<string, string> = {
-    LAUNCH_KIND: event.kind,
+    LAUNCH_EVENT: event.event,
     LAUNCH_STATUS: event.status,
     LAUNCH_APP: event.app,
     LAUNCH_PLATFORM: event.platform,
     LAUNCH_VERSION: event.version,
-    LAUNCH_BUILD_NUMBER: String(event.buildNumber),
-    LAUNCH_MESSAGE: formatNotifyMessage(event),
+    LAUNCH_MESSAGE: notifyMessage(event),
   };
-  if (event.destination !== undefined) env["LAUNCH_DESTINATION"] = event.destination;
-  if (event.downloadBytes !== undefined) env["LAUNCH_DOWNLOAD_BYTES"] = String(event.downloadBytes);
-  if (event.error !== undefined) env["LAUNCH_ERROR"] = event.error;
+  if (event.buildNumber !== undefined) env["LAUNCH_BUILD_NUMBER"] = String(event.buildNumber);
+  if (event.sizeBytes !== undefined) env["LAUNCH_SIZE_BYTES"] = String(event.sizeBytes);
+  if (event.destination) env["LAUNCH_DESTINATION"] = event.destination;
+  if (event.error) env["LAUNCH_ERROR"] = event.error;
   return env;
 }
 
-/** Fire one hook's webhook + shell, swallowing errors so a notification never breaks the build. */
-async function fireHook(hook: NotifyHook, event: NotifyEvent): Promise<void> {
-  if (hook.webhook) {
-    try {
-      await fetch(hook.webhook, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text: formatNotifyMessage(event) }),
-      });
-    } catch {
-      /* a webhook that's unreachable/misconfigured must not fail the build */
-    }
-  }
-  if (hook.shell) {
-    try {
-      await run("sh", ["-c", hook.shell], { env: notifyEnv(event) });
-    } catch {
-      /* the user's hook command failed — surface nothing; it's a side-channel, not the build */
-    }
+/** POST the payload to the webhook. Best-effort: any network/HTTP error is reported, never thrown. */
+async function postWebhook(url: string, event: NotifyEvent, log: ReturnType<typeof createLogger>): Promise<void> {
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(notifyPayload(event)),
+    });
+    if (!response.ok) log.warn(`Notification webhook returned ${response.status}.`);
+  } catch (error) {
+    log.warn(`Notification webhook failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
 /**
- * Fire the hook for this event kind, if configured. The single entry point the pipeline calls on
- * build/submit completion (success or failure). No-op when `notify` or the specific hook is absent.
+ * Run the shell hook with the event in its environment. Uses the platform shell (like a git hook) —
+ * the command is the user's own config, not interpolated Launch data, so there's no injection vector.
+ * Best-effort: a non-zero exit or spawn error is reported, never thrown.
  */
-export async function notify(config: LaunchConfig, event: NotifyEvent): Promise<void> {
-  const hook = event.kind === "build" ? config.notify?.onBuildComplete : config.notify?.onSubmitComplete;
-  if (!hook) return;
-  await fireHook(hook, event);
+function runHook(command: string, event: NotifyEvent, log: ReturnType<typeof createLogger>): Promise<void> {
+  return new Promise((resolve) => {
+    exec(command, { env: { ...process.env, ...notifyEnv(event) } }, (error) => {
+      if (error) log.warn(`Notification command failed: ${error.message}`);
+      resolve();
+    });
+  });
+}
+
+/**
+ * Fire the configured completion notifications for `event`. A no-op when neither a `webhookUrl` nor a
+ * `command` is set. The webhook and the shell hook run concurrently; both are best-effort, so this
+ * resolves even when one (or both) fail — a notification must never break a build that already ran.
+ */
+export async function notifyCompletion(config: LaunchConfig, event: NotifyEvent): Promise<void> {
+  const notify: NotifyConfig | undefined = config.notify;
+  if (!notify?.webhookUrl && !notify?.command) return;
+  const log = createLogger(false);
+  await Promise.all([
+    notify.webhookUrl ? postWebhook(notify.webhookUrl, event, log) : Promise.resolve(),
+    notify.command ? runHook(notify.command, event, log) : Promise.resolve(),
+  ]);
 }
