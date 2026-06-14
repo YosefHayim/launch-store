@@ -19,7 +19,11 @@ describe("glossary — the single source for --explain and docs", () => {
     expect(topics).toContain("build-fingerprint");
     // Next-version suggestion.
     expect(topics).toContain("marketing-version");
-    expect(topics.length).toBe(27);
+    // EAS-parity release: internal distribution, OTA updates, store metadata.
+    expect(topics).toContain("ad-hoc-distribution");
+    expect(topics).toContain("ota-update");
+    expect(topics).toContain("store-metadata");
+    expect(topics.length).toBe(30);
     expect(new Set(topics).size).toBe(topics.length);
   });
 

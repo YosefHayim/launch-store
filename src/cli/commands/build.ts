@@ -4,7 +4,7 @@
  */
 
 import type { Command } from "commander";
-import type { PlayTrack, RemoteTarget } from "../../core/types.js";
+import type { Distribution, PlayTrack, RemoteTarget } from "../../core/types.js";
 import { runBuild } from "../../core/pipeline.js";
 import { setVerboseOutput } from "../../core/progress.js";
 
@@ -29,6 +29,20 @@ interface BuildCommandOptions {
   clean: boolean;
   /** iOS-only: Apple account to build with (`--account`) — a label or Key ID. Defaults to the active one. */
   account?: string;
+  /** How to distribute (`--distribution`): `store` (default) or `internal` (ad-hoc install link). */
+  distribution?: string;
+}
+
+/** Valid distribution modes, used to validate `--distribution` before it reaches the pipeline. */
+const DISTRIBUTIONS: readonly Distribution[] = ["store", "internal"];
+
+/** Validate `--distribution`, defaulting to `store`. */
+function parseDistribution(distribution: string | undefined): Distribution {
+  const value = distribution ?? "store";
+  if (!(DISTRIBUTIONS as readonly string[]).includes(value)) {
+    throw new Error(`Unknown --distribution "${value}". Use one of: ${DISTRIBUTIONS.join(", ")}.`);
+  }
+  return value as Distribution;
 }
 
 /** Valid Play tracks, used to validate `--track` before it reaches the pipeline. */
@@ -75,6 +89,7 @@ export function registerBuildCommand(program: Command): void {
     .option("--explain", "expand each step into a plain-English teaching block", false)
     .option("--no-submit", "build only; do not upload")
     .option("--remote [target]", "iOS only — build on a remote Mac: 'aws' (default) or user@host over SSH")
+    .option("--distribution <mode>", "store (default, TestFlight/Play) or internal (ad-hoc install link)")
     .option("--track <track>", "Android only — Play track: internal|closed|open|production (default: internal)")
     .option("--rollout <fraction>", "Android only — staged-rollout fraction for production (default: 1.0)")
     .option(
@@ -93,6 +108,7 @@ export function registerBuildCommand(program: Command): void {
       const remote = resolveRemote(options.remote);
       const track = parseTrack(options.track);
       const rollout = parseRollout(options.rollout);
+      const distribution = parseDistribution(options.distribution);
       await runBuild({
         platform,
         profileName: options.profile,
@@ -103,6 +119,7 @@ export function registerBuildCommand(program: Command): void {
         dryRun: options.dryRun,
         yes: options.yes,
         forceClean: options.clean,
+        distribution,
         ...(remote ? { remote } : {}),
         ...(track ? { track } : {}),
         ...(rollout !== undefined ? { rollout } : {}),

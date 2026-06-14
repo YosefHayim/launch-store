@@ -8,9 +8,18 @@
  */
 
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, extname, join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { basename, dirname, extname, join } from "node:path";
 import type { BuildArtifact, StorageProvider, StoredArtifact } from "../../core/types.js";
 import { ARTIFACT_INDEX, ARTIFACTS_DIR, ensureDir } from "../../core/paths.js";
+
+/** Where raw keyed objects (install plists, OTA manifests/bundles) land under the local store. */
+const OBJECTS_DIR = join(ARTIFACTS_DIR, "objects");
+
+/** Resolve a forward-slash object key to an absolute path under {@link OBJECTS_DIR}. */
+function objectPath(key: string): string {
+  return join(OBJECTS_DIR, ...key.split("/"));
+}
 
 /** Read the artifact index, tolerating a missing or empty file. */
 function readIndex(): BuildArtifact[] {
@@ -44,5 +53,16 @@ export const localStorageProvider: StorageProvider = {
     const path = join(ARTIFACTS_DIR, basename(id));
     if (!existsSync(path)) throw new Error(`No stored artifact with id "${id}".`);
     return path;
+  },
+
+  async putObject(key: string, body: Buffer | string, _contentType: string): Promise<StoredArtifact> {
+    const dest = objectPath(key);
+    ensureDir(dirname(dest));
+    writeFileSync(dest, body);
+    return { id: key, location: pathToFileURL(dest).href };
+  },
+
+  publicUrl(key: string): string {
+    return pathToFileURL(objectPath(key)).href;
   },
 };

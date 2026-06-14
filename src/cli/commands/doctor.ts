@@ -16,7 +16,8 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Command } from "commander";
-import { exists } from "../../core/exec.js";
+import { capture, exists } from "../../core/exec.js";
+import { hostOs } from "../../core/os.js";
 import { loadConfig } from "../../core/config.js";
 import { ANDROID_TOOLS, REQUIRED_TOOLS, ensureToolchain, fixHint } from "../../core/toolchain.js";
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
@@ -39,6 +40,9 @@ async function checkAppleAccount(): Promise<boolean> {
   try {
     await client.assertReady();
     console.log("✓ Apple agreements accepted");
+    // The dodge worth surfacing: API-key (JWT) auth means none of the Apple-ID 2FA breakage EAS keeps
+    // hitting (codes rejected, voice/SMS delivery failures) can ever block a Launch build.
+    console.log("  via App Store Connect API key — no password, no 2FA (immune to the Apple-ID 2FA failures EAS hits)");
   } catch (error) {
     console.log(`✗ Apple account check failed — ${error instanceof Error ? error.message : String(error)}`);
     return false;
@@ -150,6 +154,29 @@ async function checkPlayAccount(): Promise<boolean> {
   return allOk;
 }
 
+/**
+ * Verify the distribution identity is actually visible to `codesign`, the way a build will look it up.
+ *
+ * This is the guard against the EAS-class failure where, on macOS Tahoe, a distribution cert imported
+ * into a *temporary* keychain reports "0 valid identities" and the build dies cryptically. Launch
+ * imports into the LOGIN keychain instead, so `security find-identity -p codesigning` sees it — this
+ * check confirms that's true on this machine before a build relies on it. Informational (•, never ✗)
+ * when no cert is set up yet: that's a not-provisioned state, not a fault. macOS only.
+ */
+async function reportCodesignIdentity(): Promise<void> {
+  if (hostOs() !== "macos") return;
+  try {
+    const output = await capture("security", ["find-identity", "-v", "-p", "codesigning"]);
+    if (/Apple Distribution|iPhone Distribution/.test(output)) {
+      console.log("✓ Distribution identity visible to codesign (login keychain — Tahoe-safe)");
+    } else {
+      console.log("• No distribution identity in the login keychain yet — `launch creds setup` imports one");
+    }
+  } catch {
+    console.log("• Could not query codesign identities (security CLI unavailable)");
+  }
+}
+
 /** Attach the `doctor` command to the program. */
 export function registerDoctorCommand(program: Command): void {
   program
@@ -176,6 +203,7 @@ export function registerDoctorCommand(program: Command): void {
         ? await ensureToolchain({ assumeYes: options.yes === true })
         : await reportToolchain();
       console.log(`• ${await localCredentialsProvider.status()}`);
+      await reportCodesignIdentity();
       const appleOk = await checkAppleAccount();
       if (!toolsOk || !appleOk) process.exitCode = 1;
     });
