@@ -13,6 +13,8 @@
  * @see https://developer.apple.com/documentation/appstoreconnectapi
  */
 
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { SignJWT, importPKCS8 } from "jose";
 import type { AscKey } from "../core/types.js";
 import { highestVersion } from "../core/version.js";
@@ -210,6 +212,40 @@ export interface ListingLocalization {
   id: string;
   locale: string;
   fields: Record<string, string>;
+}
+
+/**
+ * One App Store screenshot **set** — the per-(version localization × device target) bucket screenshots
+ * hang off. `screenshotDisplayType` is Apple's device-target enum (e.g. `APP_IPHONE_67`); the reconciler
+ * matches a local folder's target to the set with the same type, creating the set when none exists.
+ */
+export interface ScreenshotSetResource {
+  id: string;
+  screenshotDisplayType: string;
+}
+
+/**
+ * One uploaded App Store screenshot. `sourceFileChecksum` is the MD5 Apple stored at commit time — the
+ * reconciler's idempotency key: a local file whose MD5 already appears here is skipped. `assetDeliveryState`
+ * (`UPLOAD_COMPLETE` / `COMPLETE` / `FAILED`) flags a half-finished upload worth re-sending. Both are
+ * absent until requested/committed.
+ */
+export interface ScreenshotResource {
+  id: string;
+  fileName: string;
+  sourceFileChecksum?: string;
+  assetDeliveryState?: string;
+}
+
+/**
+ * A subscription's App Review screenshot (`subscriptionAppStoreReviewScreenshots`) — the single image
+ * Apple requires to submit a subscription. Same idempotency key as {@link ScreenshotResource}: re-upload
+ * only when the stored MD5 differs from the local file's.
+ */
+export interface ReviewScreenshotResource {
+  id: string;
+  sourceFileChecksum?: string;
+  assetDeliveryState?: string;
 }
 
 /**
@@ -417,6 +453,29 @@ interface ResourceSingle<A> {
 interface PagedList<A> {
   data: { id: string; attributes: A }[];
   links?: { next?: string };
+}
+
+/**
+ * One chunk Apple wants PUT to its upload CDN, taken from a reservation's `uploadOperations`. The URL is
+ * presigned (no Authorization header of ours), and `requestHeaders` must be sent verbatim. A screenshot
+ * is usually a single operation; large assets are split across several with `offset`/`length`.
+ */
+interface UploadOperation {
+  method?: string;
+  url: string;
+  length?: number;
+  offset?: number;
+  requestHeaders?: { name?: string; value?: string }[];
+}
+
+/** A reserved asset (screenshot / review screenshot): its new id plus the chunks to PUT before committing. */
+interface AssetReservation {
+  data: { id: string; attributes: { uploadOperations?: UploadOperation[] } };
+}
+
+/** Lowercase-hex MD5 of an asset's bytes — the `sourceFileChecksum` Apple verifies at commit time. */
+function md5Hex(bytes: Buffer): string {
+  return createHash("md5").update(bytes).digest("hex");
 }
 
 /**
@@ -1819,6 +1878,142 @@ export class AppStoreConnectClient {
       `/reviewSubmissions/${submissionId}?fields[reviewSubmissions]=state`,
     );
     return { id: data.id, state: data.attributes.state ?? "" };
+  }
+
+  // ── App Store assets: screenshots & subscription review screenshots (`launch sync`) ────────────────
+
+  /** List the screenshot sets (one per device display type) bound to one App Store version localization. */
+  async listScreenshotSets(versionLocalizationId: string): Promise<ScreenshotSetResource[]> {
+    const data = await this.requestAll<{ screenshotDisplayType?: string }>(
+      `/appStoreVersionLocalizations/${versionLocalizationId}/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType&limit=200`,
+    );
+    return data.map((entry) => ({ id: entry.id, screenshotDisplayType: entry.attributes.screenshotDisplayType ?? "" }));
+  }
+
+  /** Create a screenshot set for one display type under a version localization, returning the new set. */
+  async createScreenshotSet(versionLocalizationId: string, displayType: string): Promise<ScreenshotSetResource> {
+    const { data } = await this.request<ResourceSingle<{ screenshotDisplayType?: string }>>(
+      "POST",
+      "/appScreenshotSets",
+      {
+        data: {
+          type: "appScreenshotSets",
+          attributes: { screenshotDisplayType: displayType },
+          relationships: {
+            appStoreVersionLocalization: { data: { type: "appStoreVersionLocalizations", id: versionLocalizationId } },
+          },
+        },
+      },
+    );
+    return { id: data.id, screenshotDisplayType: data.attributes.screenshotDisplayType ?? displayType };
+  }
+
+  /** List the screenshots already in a set, with their stored checksums (the reconciler's skip key). */
+  async listScreenshots(setId: string): Promise<ScreenshotResource[]> {
+    const data = await this.requestAll<{
+      fileName?: string;
+      sourceFileChecksum?: string;
+      assetDeliveryState?: { state?: string };
+    }>(
+      `/appScreenshotSets/${setId}/appScreenshots?fields[appScreenshots]=fileName,sourceFileChecksum,assetDeliveryState&limit=200`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      fileName: entry.attributes.fileName ?? "",
+      ...(entry.attributes.sourceFileChecksum ? { sourceFileChecksum: entry.attributes.sourceFileChecksum } : {}),
+      ...(entry.attributes.assetDeliveryState?.state
+        ? { assetDeliveryState: entry.attributes.assetDeliveryState.state }
+        : {}),
+    }));
+  }
+
+  /** Upload one screenshot into a set via the full reserve→PUT→commit asset flow. */
+  async uploadScreenshot(setId: string, fileName: string, filePath: string): Promise<void> {
+    const bytes = await readFile(filePath);
+    const { id, operations } = await this.reserveAsset(
+      "appScreenshots",
+      { relationship: "appScreenshotSet", type: "appScreenshotSets", id: setId },
+      fileName,
+      bytes.byteLength,
+    );
+    await this.putAssetBytes(operations, bytes);
+    await this.commitAsset("appScreenshots", id, bytes);
+  }
+
+  /** The subscription's current App Review screenshot, or null when it has none. */
+  async getSubscriptionReviewScreenshot(subscriptionId: string): Promise<ReviewScreenshotResource | null> {
+    const { data } = await this.request<{
+      data: { id: string; attributes: { sourceFileChecksum?: string; assetDeliveryState?: { state?: string } } } | null;
+    }>(
+      "GET",
+      `/subscriptions/${subscriptionId}/appStoreReviewScreenshot?fields[subscriptionAppStoreReviewScreenshots]=sourceFileChecksum,assetDeliveryState`,
+    );
+    if (!data) return null;
+    return {
+      id: data.id,
+      ...(data.attributes.sourceFileChecksum ? { sourceFileChecksum: data.attributes.sourceFileChecksum } : {}),
+      ...(data.attributes.assetDeliveryState?.state
+        ? { assetDeliveryState: data.attributes.assetDeliveryState.state }
+        : {}),
+    };
+  }
+
+  /** Upload a subscription's App Review screenshot via the reserve→PUT→commit flow. */
+  async uploadSubscriptionReviewScreenshot(subscriptionId: string, fileName: string, filePath: string): Promise<void> {
+    const bytes = await readFile(filePath);
+    const { id, operations } = await this.reserveAsset(
+      "subscriptionAppStoreReviewScreenshots",
+      { relationship: "subscription", type: "subscriptions", id: subscriptionId },
+      fileName,
+      bytes.byteLength,
+    );
+    await this.putAssetBytes(operations, bytes);
+    await this.commitAsset("subscriptionAppStoreReviewScreenshots", id, bytes);
+  }
+
+  /** Reserve an asset: POST the resource with `fileName`/`fileSize`, returning its id + upload operations. */
+  private async reserveAsset(
+    type: string,
+    parent: { relationship: string; type: string; id: string },
+    fileName: string,
+    fileSize: number,
+  ): Promise<{ id: string; operations: UploadOperation[] }> {
+    const reservation = await this.request<AssetReservation>("POST", `/${type}`, {
+      data: {
+        type,
+        attributes: { fileName, fileSize },
+        relationships: { [parent.relationship]: { data: { type: parent.type, id: parent.id } } },
+      },
+    });
+    return { id: reservation.data.id, operations: reservation.data.attributes.uploadOperations ?? [] };
+  }
+
+  /** PUT a reserved asset's bytes to Apple's CDN, one operation (chunk) at a time, with transient-retry. */
+  private async putAssetBytes(operations: UploadOperation[], bytes: Buffer): Promise<void> {
+    for (const operation of operations) {
+      const offset = operation.offset ?? 0;
+      const chunk = bytes.subarray(offset, offset + (operation.length ?? bytes.byteLength));
+      const headers: Record<string, string> = {};
+      for (const header of operation.requestHeaders ?? []) {
+        if (header.name && header.value !== undefined) headers[header.name] = header.value;
+      }
+      await withRetry(
+        async () => {
+          const response = await fetch(operation.url, { method: operation.method ?? "PUT", headers, body: chunk });
+          if (!response.ok) {
+            throw new AscRequestError(`asset upload chunk failed (${response.status})`, response.status);
+          }
+        },
+        { isRetryable: isRetryableAscError },
+      );
+    }
+  }
+
+  /** Commit a reserved asset once its bytes are uploaded: PATCH `uploaded:true` + the MD5 Apple verifies. */
+  private async commitAsset(type: string, id: string, bytes: Buffer): Promise<void> {
+    await this.request<unknown>("PATCH", `/${type}/${id}`, {
+      data: { type, id, attributes: { uploaded: true, sourceFileChecksum: md5Hex(bytes) } },
+    });
   }
 }
 
