@@ -41,7 +41,15 @@ import { compareVersions, formatVersion, highestVersion, nextVersion, parseVersi
 import { readLastApp, readLastBump, rememberLastRun } from "./lastRun.js";
 import { ccacheOfferDeclined, markCcacheOfferDeclined } from "./firstRun.js";
 import { ensureCcacheInstalled } from "./toolchain.js";
-import { ENV_SOURCE, formatEnvTable, missingKeys, resolveEnv, secretLookingKeys, type ResolvedEnv } from "./env.js";
+import {
+  ENV_SOURCE,
+  envInjectionRows,
+  formatEnvTable,
+  missingKeys,
+  resolveEnv,
+  secretLookingKeys,
+  type ResolvedEnv,
+} from "./env.js";
 import { beginBuildLog, buildLogId, endBuildLog } from "./buildLog.js";
 import { getBuildEngine, getCredentialsProvider, getSubmitter } from "./registry.js";
 import { resolveStorageProvider } from "./storage.js";
@@ -431,11 +439,16 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
   const env = resolved.values;
   validateResolvedEnv(app.dir, resolved, log);
   const secretCount = Object.values(resolved.sources).filter((source) => source === ENV_SOURCE.secret).length;
+  const varCount = Object.keys(env).length;
+  const keychainNote = secretCount > 0 ? ` (${secretCount} from keychain)` : "";
+  // The count summary, then one provenance row per var (KEY → source, no values) so a run visibly
+  // confirms every layer reaches the bundle step — local iOS used to drop everything above `.env`.
   log.step(
     "env",
-    `${Object.keys(env).length} vars validated${secretCount > 0 ? ` (${secretCount} from keychain)` : ""}`,
+    `${varCount} vars validated${keychainNote}${varCount > 0 ? " → injecting into bundle:" : ""}`,
     "env-vars",
   );
+  for (const row of envInjectionRows(resolved)) log.info(row);
 
   // Preflight the app config against known native-config footguns, before any expensive native work.
   // Warnings are surfaced; a build-breaking error (an invalid bundle id / package, a splash with no
