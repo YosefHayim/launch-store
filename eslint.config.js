@@ -46,6 +46,9 @@ export default tseslint.config(
       "@typescript-eslint/no-unsafe-call": "off",
       "@typescript-eslint/no-unsafe-argument": "off",
       "@typescript-eslint/no-unsafe-return": "off",
+      // Asserting on a mock method (`expect(fake.method).toHaveBeenCalled()`) reads it unbound; the
+      // `this`-scoping warning is a false positive for spies, which is exactly what this block covers.
+      "@typescript-eslint/unbound-method": "off",
     },
   },
   prettier,
