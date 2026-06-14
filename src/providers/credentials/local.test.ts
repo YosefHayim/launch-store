@@ -1,71 +1,103 @@
 /**
- * Tests for the `local` credentials provider's API-key storage — specifically the base64-at-rest
- * encoding that fixes the macOS `security -w` hex-corruption bug (issue #1). The Keychain backend is
- * mocked with an in-memory map so these run anywhere with no real `security` calls.
+ * Tests for the `local` credentials provider's iOS resolution and status, now that it reads the Apple
+ * account registry. The registry and the signing cache are mocked so these run anywhere with no real
+ * secret-store or filesystem access — what we assert is the branching: which account's key is loaded,
+ * and how `status` renders the onboarded accounts.
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import type { AccountRecord, AscKey, ResolvedBuildContext } from "../../core/types.js";
 
-const { store } = vi.hoisted(() => ({ store: new Map<string, string>() }));
-
-vi.mock("../../core/keychain.js", () => ({
-  setSecret: async (account: string, value: string): Promise<void> => {
-    store.set(account, value);
-  },
-  getSecret: async (account: string): Promise<string | null> => store.get(account) ?? null,
-  deleteSecret: async (account: string): Promise<void> => {
-    store.delete(account);
-  },
+const accounts = vi.hoisted(() => ({
+  records: [] as AccountRecord[],
+  active: null as string | null,
+  keys: new Map<string, AscKey>(),
 }));
 
-import { storeAscKey, loadAscKey } from "./local.js";
+vi.mock("../../core/accounts.js", () => ({
+  listAccounts: () => accounts.records,
+  getActiveKeyId: () => accounts.active,
+  loadActiveAscKey: async () => (accounts.active ? (accounts.keys.get(accounts.active) ?? null) : null),
+  loadAscKeyById: async (keyId: string) => accounts.keys.get(keyId) ?? null,
+}));
 
-/** A realistic multi-line PKCS#8 PEM — the exact shape that triggered the hex-corruption bug. */
-const PEM = [
-  "-----BEGIN PRIVATE KEY-----",
-  "MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQgevZzL1gdAFr88hb2",
-  "OF/2NxApJCzGCEDdfSp6VQO30hyhRANCAAQRWz+jn65BtOMvdyHKcvjBeBSDZH2r",
-  "1RTwjmYSi9R/zpBnuQ4EiMnCqfMPWiZqB4QdbAd0E7oH50VpuZ1P087",
-  "-----END PRIVATE KEY-----",
-].join("\n");
+vi.mock("../../apple/credentials.js", () => ({
+  loadCachedSigningAssets: () => null,
+  describeStoredCredentials: () => ({ certSerial: null, bundleIds: [] }),
+}));
 
-describe("storeAscKey / loadAscKey", () => {
+vi.mock("../../google/credentials.js", () => ({
+  describeStoredAndroidCredentials: async () => ({ keystoreAlias: null, hasServiceAccount: false }),
+  loadCachedKeystore: async () => null,
+  loadServiceAccount: async () => null,
+}));
+
+import { localCredentialsProvider } from "./local.js";
+
+/** Minimal iOS build context — only the fields `resolveIos` reads. */
+function iosContext(account?: string): ResolvedBuildContext {
+  return {
+    platform: "ios",
+    app: { name: "pomedero", dir: "/tmp/pomedero", configPath: "/tmp/pomedero/app.json", bundleId: "com.x.pomedero" },
+    profile: { name: "production" },
+    env: {},
+    explain: false,
+    dryRun: false,
+    forceClean: false,
+    ...(account ? { account } : {}),
+  };
+}
+
+const KEY_A: AscKey = { keyId: "AAAA1111", issuerId: "issuer-a", p8: "pem-a" };
+const KEY_B: AscKey = { keyId: "BBBB2222", issuerId: "issuer-b", p8: "pem-b" };
+
+describe("localCredentialsProvider.resolve (iOS account selection)", () => {
   beforeEach(() => {
-    store.clear();
+    accounts.records = [
+      { keyId: "AAAA1111", issuerId: "issuer-a", label: "Personal", addedAt: "t" },
+      { keyId: "BBBB2222", issuerId: "issuer-b", label: "Acme", addedAt: "t" },
+    ];
+    accounts.active = "AAAA1111";
+    accounts.keys = new Map([
+      ["AAAA1111", KEY_A],
+      ["BBBB2222", KEY_B],
+    ]);
   });
 
-  it("stores the .p8 as a single line so `security -w` cannot hex-encode it", async () => {
-    await storeAscKey("KEY123", "issuer-uuid", PEM);
-    const stored = store.get("asc-p8");
-    expect(stored).toBeDefined();
-    expect(stored).not.toContain("\n");
-    expect(stored).not.toBe(PEM);
+  it("loads the active account's key when the context names none", async () => {
+    const creds = await localCredentialsProvider.resolve(iosContext());
+    expect(creds.platform).toBe("ios");
+    if (creds.platform === "ios") expect(creds.ascKey).toEqual(KEY_A);
   });
 
-  it("round-trips a multi-line PEM through store → load unchanged", async () => {
-    await storeAscKey("KEY123", "issuer-uuid", PEM);
-    const ascKey = await loadAscKey();
-    expect(ascKey).toEqual({ keyId: "KEY123", issuerId: "issuer-uuid", p8: PEM });
+  it("loads the context's named account, overriding the active one", async () => {
+    const creds = await localCredentialsProvider.resolve(iosContext("BBBB2222"));
+    if (creds.platform === "ios") expect(creds.ascKey).toEqual(KEY_B);
   });
 
-  it("loads a legacy verbatim PEM (pre-base64) without forcing a re-import", async () => {
-    store.set("asc-key-id", "KEY123");
-    store.set("asc-issuer-id", "issuer-uuid");
-    store.set("asc-p8", PEM); // older builds stored the raw PEM
-    const ascKey = await loadAscKey();
-    expect(ascKey?.p8).toBe(PEM);
+  it("throws an actionable error when no account is available", async () => {
+    accounts.active = null;
+    await expect(localCredentialsProvider.resolve(iosContext())).rejects.toThrow(/launch creds set-key/);
+  });
+});
+
+describe("localCredentialsProvider.status", () => {
+  beforeEach(() => {
+    accounts.records = [{ keyId: "AAAA1111", issuerId: "issuer-a", label: "Personal", teamId: "TEAM1", addedAt: "t" }];
+    accounts.active = "AAAA1111";
   });
 
-  it("repairs a legacy hex-encoded PEM (macOS `security -w` corruption) without a re-import", async () => {
-    store.set("asc-key-id", "KEY123");
-    store.set("asc-issuer-id", "issuer-uuid");
-    // A pre-base64 build stored the raw multi-line PEM; macOS `security -w` returns it hex-encoded.
-    store.set("asc-p8", Buffer.from(PEM, "utf8").toString("hex"));
-    const ascKey = await loadAscKey();
-    expect(ascKey?.p8).toBe(PEM);
+  it("lists each account with the active one marked", async () => {
+    const status = await localCredentialsProvider.status();
+    expect(status).toContain("iOS accounts (1):");
+    expect(status).toContain("Personal ← active");
+    expect(status).toContain("team TEAM1");
   });
 
-  it("returns null when no key has been imported", async () => {
-    expect(await loadAscKey()).toBeNull();
+  it("reports an empty registry plainly", async () => {
+    accounts.records = [];
+    accounts.active = null;
+    const status = await localCredentialsProvider.status();
+    expect(status).toContain("no Apple account imported");
   });
 });

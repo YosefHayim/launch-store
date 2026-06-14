@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { autocomplete, cancel, confirm, isCancel, select, text } from "@clack/prompts";
 import type {
+  AccountRecord,
   AndroidCredentials,
   AndroidReleaseOptions,
   AppDescriptor,
@@ -29,6 +30,7 @@ import type {
   SizeReport,
   SubmitTarget,
 } from "./types.js";
+import { refreshIdentityIfStale, resolveBuildAccount, setActiveKeyId } from "./accounts.js";
 import { loadConfig, writeAppVersion } from "./config.js";
 import { compareVersions, formatVersion, highestVersion, nextVersion, parseVersion } from "./version.js";
 import { loadDotenvFile, missingKeys, secretLookingKeys } from "./env.js";
@@ -67,6 +69,8 @@ export interface BuildRunOptions {
   forceClean?: boolean;
   /** Build on a remote Mac (AWS EC2 Mac / a Mac over SSH) instead of locally. iOS-only. */
   remote?: RemoteTarget;
+  /** Apple account to build with (`--account`): a label or Key ID. Defaults to the active account. iOS-only. */
+  account?: string;
 }
 
 /**
@@ -190,6 +194,43 @@ export async function selectApp(apps: AppDescriptor[], appName: string | undefin
   const picked = apps.find((app) => app.name === choice);
   if (!picked) throw new Error("Could not match the selected app.");
   return picked;
+}
+
+/** The interactive build-time account picker: choose among onboarded accounts and make the pick active. */
+async function pickAccount(accounts: AccountRecord[]): Promise<AccountRecord> {
+  const choice = await select({
+    message: "Which Apple account?",
+    options: accounts.map((account) => {
+      const hint = account.teamId ?? (account.apps?.length ? account.apps.slice(0, 2).join(", ") : undefined);
+      return { value: account.keyId, label: account.label, ...(hint ? { hint } : {}) };
+    }),
+  });
+  if (isCancel(choice)) {
+    cancel("Cancelled.");
+    process.exit(0);
+  }
+  const picked = accounts.find((account) => account.keyId === choice);
+  if (!picked) throw new Error("Could not match the selected account.");
+  setActiveKeyId(picked.keyId);
+  return picked;
+}
+
+/**
+ * Resolve which Apple account an iOS build uses: `--account`/`ASC_ACCOUNT` → the active account → an
+ * interactive picker (TTY only; CI fails fast with the fix). Shared by the local spine and the remote
+ * pipeline so both select the account identically. Logs the chosen account as a build step.
+ */
+export async function resolveIosAccount(
+  options: Pick<BuildRunOptions, "account">,
+  log: Logger,
+): Promise<AccountRecord> {
+  const account = await resolveBuildAccount({
+    selector: options.account ?? process.env["ASC_ACCOUNT"],
+    interactive: isInteractive(),
+    pick: pickAccount,
+  });
+  log.step("account", `${account.label}${account.teamId ? ` · team ${account.teamId}` : ""} · key ${account.keyId}`);
+  return account;
 }
 
 /** Set the iOS build number into the generated Info.plist so the binary carries the bumped value. */
@@ -367,6 +408,13 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
   // 2. Generate the native project only when it's missing (bare/committed ios/ is used as-is).
   await ensureNativeProject(ctx, log);
 
+  // 2.5. Resolve which Apple account to build with (skipped in dry-run, which uses the placeholder key).
+  let account: AccountRecord | undefined;
+  if (!dryRun) {
+    account = await resolveIosAccount(options, log);
+    ctx.account = account.keyId;
+  }
+
   // 3. Resolve the API key, then reuse-or-provision the distribution cert + profile.
   const resolved: BuildCredentials = dryRun
     ? { platform: "ios", ascKey: DRY_RUN_KEY }
@@ -451,6 +499,8 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
     log.info(`Done. ${app.name} ${app.version ?? "0.0.0"} (${buildNumber}) · dry-run, nothing changed`);
     return;
   }
+  // Backfill this account's Team ID + app names from Apple the first time we have a live key in hand.
+  if (account) await refreshIdentityIfStale(account, resolved.ascKey);
   const link =
     options.submit && bundleId ? await resolveAscBuildLink(resolved.ascKey, bundleId, options.target) : undefined;
   renderReceipt({
@@ -799,7 +849,7 @@ function setAndroidVersionCode(appDir: string, versionCode: number): boolean {
  * Poll the uploaded build's processing state briefly under a spinner, so the run ends with a clear
  * status instead of dead air between polls. Safe to Ctrl-C — Apple keeps processing regardless.
  */
-async function reportProcessing(
+export async function reportProcessing(
   ascKey: AppleCredentials["ascKey"],
   bundleId: string,
   buildNumber: number,
@@ -903,7 +953,7 @@ export async function confirmUpload(options: ConfirmUploadOptions): Promise<void
 }
 
 /** The receipt's destination line: where the build actually went (or that it wasn't uploaded). */
-function receiptDestination(platform: Platform, options: BuildRunOptions, track?: PlayTrack): string {
+export function receiptDestination(platform: Platform, options: BuildRunOptions, track?: PlayTrack): string {
   if (!options.submit) return "built · not uploaded";
   if (platform === "android") return `Play · ${track ?? "internal"} track`;
   return options.target === "testing" ? "TestFlight" : "App Store · in review";
@@ -913,7 +963,7 @@ function receiptDestination(platform: Platform, options: BuildRunOptions, track?
  * Best-effort deep link to the uploaded build in App Store Connect: a real per-app TestFlight/overview
  * URL when the app id resolves, else the console home. Never throws — a link is a nicety, not a gate.
  */
-async function resolveAscBuildLink(
+export async function resolveAscBuildLink(
   ascKey: AppleCredentials["ascKey"],
   bundleId: string,
   target: SubmitTarget,

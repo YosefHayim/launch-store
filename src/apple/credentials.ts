@@ -13,15 +13,24 @@
  * Apple caps distribution certificates at ~2–3 and a wasted slot is painful to recover.
  */
 
-import { chmodSync, copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { randomBytes } from "node:crypto";
 import type { AscKey, SigningAssets } from "../core/types.js";
 import type { Logger } from "../core/logger.js";
 import { capture } from "../core/exec.js";
 import { getSecret, setSecret } from "../core/keychain.js";
-import { CREDENTIALS_DIR, CREDENTIALS_INDEX, PROVISIONING_PROFILES_DIR, ensureDir } from "../core/paths.js";
+import { CREDENTIALS_INDEX, PROVISIONING_PROFILES_DIR, accountCredentialsDir, ensureDir } from "../core/paths.js";
 import {
   AppStoreConnectClient,
   DISTRIBUTION_CERT_NAME,
@@ -29,8 +38,14 @@ import {
   type ProfileResource,
 } from "./ascClient.js";
 
-/** Keychain account holding the random password that protects the `.p12` backup. */
-const P12_PASSWORD_ACCOUNT = "dist-cert-p12-password";
+/**
+ * Keychain account holding the random password that protects an account's `.p12` backup, namespaced
+ * by Key ID so each Apple account's `.p12` has its own password. Exported so first-run migration can
+ * rename the legacy single-account entry (`dist-cert-p12-password`) onto this scheme.
+ */
+export function p12PasswordAccount(keyId: string): string {
+  return `dist-cert-p12-password:${keyId}`;
+}
 /** Apple's distribution-certificate cap; creating past it fails, so warn first. */
 const DISTRIBUTION_CERT_CAP = 2;
 
@@ -75,27 +90,33 @@ export interface EnsureSigningOptions {
   confirmCreate: (message: string) => Promise<boolean>;
 }
 
-/** Summarize what signing material is cached locally, for `launch creds status`. */
-export function describeStoredCredentials(): { certSerial: string | null; bundleIds: string[] } {
-  const index = readIndex();
+/** Summarize what signing material is cached locally for one account, for `launch creds status`. */
+export function describeStoredCredentials(keyId: string): { certSerial: string | null; bundleIds: string[] } {
+  const index = readIndex(keyId);
   return { certSerial: index.certificate?.serial ?? null, bundleIds: Object.keys(index.profiles) };
 }
 
-/** Read the credentials index, tolerating a missing or malformed file. */
-function readIndex(): CredentialsIndex {
-  if (!existsSync(CREDENTIALS_INDEX)) return { profiles: {} };
+/** Absolute path to one account's signing index. */
+function indexPath(keyId: string): string {
+  return join(accountCredentialsDir(keyId), "index.json");
+}
+
+/** Read an account's credentials index, tolerating a missing or malformed file. */
+function readIndex(keyId: string): CredentialsIndex {
+  const path = indexPath(keyId);
+  if (!existsSync(path)) return { profiles: {} };
   try {
-    const parsed = JSON.parse(readFileSync(CREDENTIALS_INDEX, "utf8")) as Partial<CredentialsIndex>;
+    const parsed = JSON.parse(readFileSync(path, "utf8")) as Partial<CredentialsIndex>;
     return { profiles: parsed.profiles ?? {}, ...(parsed.certificate ? { certificate: parsed.certificate } : {}) };
   } catch {
     return { profiles: {} };
   }
 }
 
-/** Write the credentials index back to disk. */
-function writeIndex(index: CredentialsIndex): void {
-  ensureDir(CREDENTIALS_DIR);
-  writeFileSync(CREDENTIALS_INDEX, JSON.stringify(index, null, 2));
+/** Write an account's credentials index back to disk. */
+function writeIndex(keyId: string, index: CredentialsIndex): void {
+  ensureDir(accountCredentialsDir(keyId));
+  writeFileSync(indexPath(keyId), JSON.stringify(index, null, 2));
 }
 
 /** Pull a single `<key>…</key><string>…</string>` value out of a provisioning profile's plist XML. */
@@ -115,8 +136,8 @@ function plistFirstArrayString(xml: string, key: string): string | null {
  * path. Null if anything is missing (no cert backup, no installed profile), which tells the caller
  * to run setup. Verifies the files actually exist, not just that metadata mentions them.
  */
-export function loadCachedSigningAssets(bundleId: string): SigningAssets | null {
-  const index = readIndex();
+export function loadCachedSigningAssets(keyId: string, bundleId: string): SigningAssets | null {
+  const index = readIndex(keyId);
   const cert = index.certificate;
   const profile = index.profiles[bundleId];
   if (!cert || !profile) return null;
@@ -214,13 +235,13 @@ async function readProfileMetadata(
   return { uuid, name, teamId: plistFirstArrayString(xml, "TeamIdentifier") };
 }
 
-/** Decode the base64 profile content, install it where Xcode looks, and back it up under ~/.launch. */
+/** Decode the base64 profile content, install it where Xcode looks, and back it up per-account. */
 async function installProfile(
+  keyId: string,
   bundleId: string,
   profileContent: string,
 ): Promise<{ uuid: string; name: string; teamId: string | null; installedPath: string }> {
-  ensureDir(CREDENTIALS_DIR);
-  const backupPath = join(CREDENTIALS_DIR, `${bundleId}.mobileprovision`);
+  const backupPath = join(ensureDir(accountCredentialsDir(keyId)), `${bundleId}.mobileprovision`);
   writeFileSync(backupPath, Buffer.from(profileContent, "base64"));
   const { uuid, name, teamId } = await readProfileMetadata(backupPath);
   ensureDir(PROVISIONING_PROFILES_DIR);
@@ -229,12 +250,13 @@ async function installProfile(
   return { uuid, name, teamId, installedPath };
 }
 
-/** Get (or create + persist) the random password that protects the `.p12` backup. */
-async function p12Password(): Promise<string> {
-  const existing = await getSecret(P12_PASSWORD_ACCOUNT);
+/** Get (or create + persist) the random password that protects one account's `.p12` backup. */
+async function p12Password(keyId: string): Promise<string> {
+  const account = p12PasswordAccount(keyId);
+  const existing = await getSecret(account);
   if (existing) return existing;
   const password = randomBytes(24).toString("hex");
-  await setSecret(P12_PASSWORD_ACCOUNT, password);
+  await setSecret(account, password);
   return password;
 }
 
@@ -268,8 +290,9 @@ export async function ensureSigningCredentials(options: EnsureSigningOptions): P
     return dryRunAssets(bundleId);
   }
 
+  const keyId = ascKey.keyId;
   const client = new AppStoreConnectClient(ascKey);
-  const index = readIndex();
+  const index = readIndex(keyId);
 
   // 1. App ID must be registered before a profile can reference it.
   let bundle = await client.findBundleId(bundleId);
@@ -287,7 +310,7 @@ export async function ensureSigningCredentials(options: EnsureSigningOptions): P
 
   // 2. Distribution certificate: reuse the cached one if Apple still lists it, else create one.
   const liveCerts = await client.listDistributionCertificates();
-  const password = await p12Password();
+  const password = await p12Password(keyId);
   const reusable = reusableCertificate(index, liveCerts);
   let cert: CertRecord;
   let freshCert = false;
@@ -305,10 +328,10 @@ export async function ensureSigningCredentials(options: EnsureSigningOptions): P
     if (!(await confirmCreate("Create a new distribution certificate (generates a private key on this Mac)?"))) {
       throw new Error("No usable distribution certificate. Re-run and confirm to create one.");
     }
-    cert = await createAndStoreCertificate(client, password);
+    cert = await createAndStoreCertificate(client, password, keyId);
     freshCert = true;
     index.certificate = cert;
-    writeIndex(index);
+    writeIndex(keyId, index);
     log.step("certificate", `created distribution cert ${cert.serial}`, "distribution-certificate");
   }
 
@@ -326,7 +349,7 @@ export async function ensureSigningCredentials(options: EnsureSigningOptions): P
     log.step("profile", `created ${profileName}`, "provisioning-profile");
   }
 
-  const installed = await installProfile(bundleId, profile.profileContent);
+  const installed = await installProfile(keyId, bundleId, profile.profileContent);
   const teamId = installed.teamId ?? bundle.seedId ?? "";
   index.profiles[bundleId] = {
     id: profile.id,
@@ -335,7 +358,7 @@ export async function ensureSigningCredentials(options: EnsureSigningOptions): P
     path: installed.installedPath,
     teamId,
   };
-  writeIndex(index);
+  writeIndex(keyId, index);
 
   return {
     bundleId,
@@ -395,14 +418,15 @@ export async function ensureRemoteSigningAssets(options: EnsureSigningOptions): 
       certSerial: "DRYRUN000000",
       teamId: "DRYRUNTEAM",
       profileName: `Launch_${bundleId}_AppStore`,
-      p12Path: join(CREDENTIALS_DIR, "dry-run.p12"),
+      p12Path: join(accountCredentialsDir(ascKey.keyId), "dry-run.p12"),
       p12Password: "dry-run",
-      profilePath: join(CREDENTIALS_DIR, "dry-run.mobileprovision"),
+      profilePath: join(accountCredentialsDir(ascKey.keyId), "dry-run.mobileprovision"),
     };
   }
 
+  const keyId = ascKey.keyId;
   const client = new AppStoreConnectClient(ascKey);
-  const index = readIndex();
+  const index = readIndex(keyId);
 
   // 1. App ID must exist before a profile can reference it.
   let bundle = await client.findBundleId(bundleId);
@@ -418,7 +442,7 @@ export async function ensureRemoteSigningAssets(options: EnsureSigningOptions): 
 
   // 2. Distribution cert as a local .p12 — reuse the cached one, else mint with openssl (no keychain import).
   const liveCerts = await client.listDistributionCertificates();
-  const password = await p12Password();
+  const password = await p12Password(keyId);
   const reusable = reusableCertificate(index, liveCerts);
   let cert: CertRecord;
   let freshCert = false;
@@ -435,10 +459,10 @@ export async function ensureRemoteSigningAssets(options: EnsureSigningOptions): 
     if (!(await confirmCreate("Create a new distribution certificate (generates a private key on this machine)?"))) {
       throw new Error("No usable distribution certificate. Re-run and confirm to create one.");
     }
-    cert = await createCertificateForUpload(client, password);
+    cert = await createCertificateForUpload(client, password, keyId);
     freshCert = true;
     index.certificate = cert;
-    writeIndex(index);
+    writeIndex(keyId, index);
     log.step("certificate", `created distribution cert ${cert.serial}`, "distribution-certificate");
   }
 
@@ -454,8 +478,7 @@ export async function ensureRemoteSigningAssets(options: EnsureSigningOptions): 
     profile = await client.createAppStoreProfile(profileName, bundle.id, cert.id);
     log.step("profile", `created ${profileName}`, "provisioning-profile");
   }
-  ensureDir(CREDENTIALS_DIR);
-  const profilePath = join(CREDENTIALS_DIR, `${bundleId}.mobileprovision`);
+  const profilePath = join(ensureDir(accountCredentialsDir(keyId)), `${bundleId}.mobileprovision`);
   writeFileSync(profilePath, Buffer.from(profile.profileContent, "base64"));
 
   return {
@@ -471,13 +494,16 @@ export async function ensureRemoteSigningAssets(options: EnsureSigningOptions): 
 }
 
 /** Mint a distribution cert + local `.p12` for upload, WITHOUT importing it into a local keychain. */
-async function createCertificateForUpload(client: AppStoreConnectClient, password: string): Promise<CertRecord> {
+async function createCertificateForUpload(
+  client: AppStoreConnectClient,
+  password: string,
+  keyId: string,
+): Promise<CertRecord> {
   const work = mkdtempSync(join(tmpdir(), "launch-cert-"));
   try {
     const { keyPath, csrPem } = await generateKeypairAndCsr(work);
     const created = await client.createCertificate(csrPem);
-    ensureDir(CREDENTIALS_DIR);
-    const p12Path = join(CREDENTIALS_DIR, `dist-${created.serialNumber}.p12`);
+    const p12Path = join(ensureDir(accountCredentialsDir(keyId)), `dist-${created.serialNumber}.p12`);
     await packageP12(work, keyPath, created.certificateContent, p12Path, password);
     return { id: created.id, serial: created.serialNumber, p12Path };
   } finally {
@@ -493,17 +519,59 @@ function reusableCertificate(index: CredentialsIndex, liveCerts: CertificateReso
 }
 
 /** Generate a key/CSR, ask Apple to sign it, and package + back up the `.p12`. Returns the record. */
-async function createAndStoreCertificate(client: AppStoreConnectClient, password: string): Promise<CertRecord> {
+async function createAndStoreCertificate(
+  client: AppStoreConnectClient,
+  password: string,
+  keyId: string,
+): Promise<CertRecord> {
   const work = mkdtempSync(join(tmpdir(), "launch-cert-"));
   try {
     const { keyPath, csrPem } = await generateKeypairAndCsr(work);
     const created = await client.createCertificate(csrPem);
-    ensureDir(CREDENTIALS_DIR);
-    const p12Path = join(CREDENTIALS_DIR, `dist-${created.serialNumber}.p12`);
+    const p12Path = join(ensureDir(accountCredentialsDir(keyId)), `dist-${created.serialNumber}.p12`);
     await packageP12(work, keyPath, created.certificateContent, p12Path, password);
     await importP12(p12Path, password);
     return { id: created.id, serial: created.serialNumber, p12Path };
   } finally {
     rmSync(work, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Move a pre-multi-account signing index (the flat `~/.launch/credentials/index.json` plus the `.p12`
+ * and `.mobileprovision` files it references) into the per-account folder for `keyId`, rewriting the
+ * stored paths so {@link reusableCertificate} still finds the cached `.p12` (and so doesn't burn an
+ * Apple cert slot re-creating one). Best-effort and idempotent: a missing legacy index is a no-op, and
+ * a failed file move just leaves that account to re-provision on its next build. Called once by the
+ * account-registry migration; see `core/accounts.ts`.
+ */
+export function migrateLegacySigningIndex(keyId: string): void {
+  if (!existsSync(CREDENTIALS_INDEX)) return;
+  let index: CredentialsIndex;
+  try {
+    index = JSON.parse(readFileSync(CREDENTIALS_INDEX, "utf8")) as CredentialsIndex;
+  } catch {
+    return; // malformed legacy index — leave it; the account re-provisions cleanly
+  }
+  const destDir = ensureDir(accountCredentialsDir(keyId));
+  const moveInto = (path: string | undefined): string | undefined => {
+    if (!path || !existsSync(path)) return path;
+    const dest = join(destDir, basename(path));
+    try {
+      renameSync(path, dest);
+      return dest;
+    } catch {
+      return path; // cross-device or permission issue — keep the original path
+    }
+  };
+  if (index.certificate) index.certificate.p12Path = moveInto(index.certificate.p12Path) ?? index.certificate.p12Path;
+  for (const record of Object.values(index.profiles)) {
+    record.path = moveInto(record.path) ?? record.path;
+  }
+  writeFileSync(join(destDir, "index.json"), JSON.stringify(index, null, 2));
+  try {
+    rmSync(CREDENTIALS_INDEX);
+  } catch {
+    /* leave the legacy file if it can't be removed — the per-account copy is what's read now */
   }
 }

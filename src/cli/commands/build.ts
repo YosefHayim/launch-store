@@ -27,6 +27,8 @@ interface BuildCommandOptions {
   rollout?: string;
   /** Force a from-scratch build instead of the default fingerprint-gated incremental (`--clean`). */
   clean: boolean;
+  /** iOS-only: Apple account to build with (`--account`) — a label or Key ID. Defaults to the active one. */
+  account?: string;
 }
 
 /** Valid Play tracks, used to validate `--track` before it reaches the pipeline. */
@@ -69,6 +71,7 @@ export function registerBuildCommand(program: Command): void {
     .argument("<platform>", "ios or android")
     .option("-p, --profile <name>", "build profile", "production")
     .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
+    .option("--account <name>", "iOS only — Apple account to build with: label or Key ID (default: active)")
     .option("--explain", "expand each step into a plain-English teaching block", false)
     .option("--no-submit", "build only; do not upload")
     .option("--remote [target]", "iOS only — build on a remote Mac: 'aws' (default) or user@host over SSH")
@@ -103,6 +106,7 @@ export function registerBuildCommand(program: Command): void {
         ...(remote ? { remote } : {}),
         ...(track ? { track } : {}),
         ...(rollout !== undefined ? { rollout } : {}),
+        ...(options.account ? { account: options.account } : {}),
       });
     });
 }

@@ -149,22 +149,67 @@ export interface ResolvedBuildContext {
   forceClean: boolean;
   /** Resolved Android track + rollout. Present only for Android builds; the submitter reads it. */
   android?: AndroidReleaseOptions;
+  /**
+   * Key ID of the Apple account resolved for this iOS run (from `--account`/`ASC_ACCOUNT`, the active
+   * account, or the build-time picker). The `local` credentials provider loads this account's key and
+   * signing assets. Absent on Android and on iOS dry-runs (which use the placeholder key).
+   */
+  account?: string;
 }
 
 /**
- * The App Store Connect API key — Launch's single Apple credential.
+ * The App Store Connect API key — one Apple account's credential.
  *
  * Used for everything: minting JWTs, managing signing assets, and uploading builds. The `.p8`
- * private key lives in the macOS Keychain; this shape carries its in-memory bytes plus the two
- * non-secret identifiers Apple needs alongside it.
+ * private key lives in the OS secret store (namespaced per account by {@link AscKey.keyId}); this
+ * shape carries its in-memory bytes plus the two non-secret identifiers Apple needs alongside it.
+ * An API key belongs to exactly one Apple team, so the key *is* the account — see {@link AccountRecord}.
  */
 export interface AscKey {
-  /** The key's ID (e.g. `QS5924Q3MD`). */
+  /** The key's ID (e.g. `QS5924Q3MD`). Globally unique per Apple, so it doubles as the account key. */
   keyId: string;
   /** The issuer UUID for the account's API keys. */
   issuerId: string;
   /** PEM contents of the `.p8` private key. Held in memory only, never written to the repo. */
   p8: string;
+}
+
+/**
+ * One onboarded Apple account in Launch's registry (`~/.launch/accounts.json`).
+ *
+ * An App Store Connect API key belongs to exactly one Apple team, so each registry entry *is* an
+ * account: there is no separate team/provider to choose. This record holds only non-secret metadata
+ * — the `.p8` private key itself stays in the OS secret store under `asc-p8:<keyId>`. `teamId` and
+ * `apps` are resolved from Apple once at add-time and cached for an instant, offline-capable picker;
+ * `resolvedAt` being absent means they were never fetched (e.g. the key was added while offline).
+ */
+export interface AccountRecord {
+  /** App Store Connect Key ID — the registry's primary key (globally unique per Apple). */
+  keyId: string;
+  /** Issuer UUID for this account's API keys. Non-secret; needed alongside the `.p8` to mint a JWT. */
+  issuerId: string;
+  /** Human label chosen at add-time, unique across accounts (e.g. `Personal`, `Acme client`). */
+  label: string;
+  /** Apple Team ID (the bundle-id `seedId`, e.g. `5NS9ZUMYCS`), resolved from Apple. Absent until resolved. */
+  teamId?: string;
+  /** Names of the apps this key can see, cached for recognizability in the picker. Absent until resolved. */
+  apps?: string[];
+  /** ISO-8601 instant the account was added to the registry. */
+  addedAt: string;
+  /** ISO-8601 instant `teamId`/`apps` were last fetched from Apple. Absent = never resolved. */
+  resolvedAt?: string;
+}
+
+/**
+ * The on-disk shape of `~/.launch/accounts.json`: the set of onboarded Apple accounts plus which one
+ * is active. `active` is the Key ID a build uses when no `--account`/`ASC_ACCOUNT` override is given;
+ * `null` means none is selected yet (a fresh install, or the active account was just removed).
+ */
+export interface AccountsFile {
+  /** Key ID of the active account, or `null` when none is selected. */
+  active: string | null;
+  /** Every onboarded account, in insertion order. */
+  accounts: AccountRecord[];
 }
 
 /**

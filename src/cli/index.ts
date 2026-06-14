@@ -9,6 +9,7 @@
 import { readFileSync } from "node:fs";
 import { Command } from "commander";
 import { registerBuiltins } from "../providers/index.js";
+import { migrateLegacyAccounts } from "../core/accounts.js";
 import { renderBanner } from "../core/banner.js";
 import { runAutoUpgrade } from "../core/updateCheck.js";
 import { registerInitCommand } from "./commands/init.js";
@@ -66,6 +67,9 @@ program.action(async () => {
  */
 async function main(): Promise<void> {
   await runAutoUpgrade(readVersion());
+  // One-time, near-instant no-op after the first post-upgrade run: moves a pre-multi-account key into
+  // the registry. Best-effort — a hiccup must not block the CLI; commands re-attempt it on next run.
+  await migrateLegacyAccounts().catch(() => undefined);
   await program.parseAsync(process.argv);
 }
 

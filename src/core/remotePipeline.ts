@@ -2,17 +2,20 @@
  * The remote-Mac build pipeline — the host lifecycle (C1–C7) wrapped around the SAME build spine.
  *
  * Selected by `--remote` (or the wizard on a non-Mac). It reuses the shared front half from
- * `core/pipeline.ts` (app selection, `.env` validation, build-number bump, size gate) and the
- * host-agnostic build operations from `core/remoteBuild.ts`, adding only what's specific to building
- * off-Mac: acquire/reuse a {@link ComputeHost}, upload a transient copy of the signing material, run
- * gym + submit on the host, pull the `.ipa` home, shred the host, and keep it alive for the paid window.
+ * `core/pipeline.ts` (app selection, `.env` validation, build-number bump, size readout, the
+ * end-of-run receipt) and the host-agnostic build operations from `core/remoteBuild.ts`, adding only
+ * what's specific to building off-Mac: acquire/reuse a {@link ComputeHost}, upload a transient copy of
+ * the signing material, run gym + submit on the host, pull the `.ipa` home, shred the host, and keep
+ * it alive for the paid window.
  *
  * `--dry-run` rehearses C1–C7 with NO AWS calls, NO SSH, and NO account changes — the same guarantee
  * the local dry-run gives — so it's safe to preview on a machine with no AWS access.
  */
 
 import type {
+  AccountRecord,
   AllocateRequest,
+  AscKey,
   BuildArtifact,
   ComputeHost,
   HostHandle,
@@ -25,17 +28,22 @@ import {
   DRY_RUN_KEY,
   type PreparedBuild,
   interactiveConfirm,
-  mb,
   nextBuildNumber,
+  receiptDestination,
+  renderReceipt,
+  reportProcessing,
   reportSize,
+  resolveAscBuildLink,
+  resolveIosAccount,
 } from "./pipeline.js";
+import { loadAscKeyById, refreshIdentityIfStale } from "./accounts.js";
+import { withSpinner } from "./progress.js";
 import { getComputeHost, getStorageProvider } from "./registry.js";
 import { type Logger } from "./logger.js";
 import { ARTIFACTS_DIR } from "./paths.js";
 import { autoReleaseAt, costBanner } from "./cost.js";
 import { clearLiveHost, getLiveHost, setLiveHost } from "./cloudState.js";
 import { ensureRemoteSigningAssets } from "../apple/credentials.js";
-import { loadAscKey } from "../providers/credentials/local.js";
 import {
   type RemoteBuildInputs,
   openRemoteSession,
@@ -127,9 +135,16 @@ export async function runRemoteBuild(prepared: PreparedBuild, options: BuildRunO
   if (!bundleId) throw new Error(`No iOS bundle identifier for ${app.name}. Set ios.bundleIdentifier in app.json.`);
   const { dryRun } = options;
 
-  // C1. Resolve the API key + signing material locally (cross-platform), and the build number via ASC.
+  // C1. Resolve the Apple account + signing material locally (cross-platform), and the build number via ASC.
   log.step("remote", remote.kind === "aws" ? "AWS EC2 Mac (your account)" : `SSH ${remote.target}`, "remote-build");
-  const ascKey = dryRun ? DRY_RUN_KEY : await requireAscKey();
+  let ascKey: AscKey = DRY_RUN_KEY;
+  let account: AccountRecord | undefined;
+  if (!dryRun) {
+    account = await resolveIosAccount(options, log);
+    const loaded = await loadAscKeyById(account.keyId);
+    if (!loaded) throw new Error(`Apple account "${account.label}" has no stored key. Re-import: launch creds set-key`);
+    ascKey = loaded;
+  }
   log.step("credentials", dryRun ? "dry-run (no key needed)" : `key ${ascKey.keyId}`, "asc-api-key");
   const signing = await ensureRemoteSigningAssets({
     bundleId,
@@ -139,7 +154,11 @@ export async function runRemoteBuild(prepared: PreparedBuild, options: BuildRunO
     dryRun,
     confirmCreate: interactiveConfirm,
   });
-  const buildNumber = await nextBuildNumber(ascKey, bundleId, dryRun);
+  const buildNumber = dryRun
+    ? await nextBuildNumber(ascKey, bundleId, dryRun)
+    : await withSpinner("Checking last build number on App Store Connect", () =>
+        nextBuildNumber(ascKey, bundleId, dryRun),
+      );
   log.step(
     "build number",
     dryRun ? `would set next build number (≈${buildNumber})` : String(buildNumber),
@@ -208,7 +227,7 @@ export async function runRemoteBuild(prepared: PreparedBuild, options: BuildRunO
       log.step("submit", "uploaded to TestFlight from the host", "testflight");
     }
   } finally {
-    // C6. Shred the host session on every exit path (success, failure, size-gate abort).
+    // C6. Shred the host session on every exit path (success or build failure).
     try {
       await shredHost(session);
       log.step("shred", "secrets shredded (keychain + creds); warm work tree kept for the next build");
@@ -217,21 +236,32 @@ export async function runRemoteBuild(prepared: PreparedBuild, options: BuildRunO
     }
   }
 
-  // C7. Host disposition: keep AWS hosts alive for the paid window; auto-release is scheduled near 23.5h.
+  // C7. Surface Apple-side processing for a TestFlight upload (the build uploaded from the host; we
+  // poll ASC locally for parity with the local spine), then the host disposition, then the receipt.
+  if (options.submit && options.target === "testing") {
+    await reportProcessing(ascKey, bundleId, buildNumber, log);
+  }
+
+  // Keep AWS hosts alive for the already-paid window; auto-release is scheduled near 23.5h.
   if (handle.provider === "aws-ec2-mac") {
     log.info(
       `Host kept alive for the paid window (run \`launch cloud teardown\` when done; ` +
         `it auto-releases near ${new Date(autoReleaseAt(handle.allocatedAt)).toLocaleTimeString()}).`,
     );
   }
-  log.gap();
-  // Reaching here means the try block completed, so the artifact + its size report are set.
-  log.info(`Done. ${app.name} ${app.version ?? "0.0.0"} (${buildNumber}) · ${mb(sizeReport.artifactBytes)} on disk`);
-}
 
-/** Load the App Store Connect API key or fail with the fix in the message. */
-async function requireAscKey(): Promise<NonNullable<Awaited<ReturnType<typeof loadAscKey>>>> {
-  const ascKey = await loadAscKey();
-  if (!ascKey) throw new Error("No App Store Connect API key found. Import one with: launch creds set-key");
-  return ascKey;
+  // Backfill the account's Team ID + app names from Apple now that we have a live key in hand.
+  if (account) await refreshIdentityIfStale(account, ascKey);
+
+  // Reaching here means the try block completed, so the size report is set.
+  const link = options.submit ? await resolveAscBuildLink(ascKey, bundleId, options.target) : undefined;
+  renderReceipt({
+    app,
+    version: app.version ?? "0.0.0",
+    buildNumber,
+    report: sizeReport,
+    destination: receiptDestination("ios", options),
+    link,
+    log,
+  });
 }
