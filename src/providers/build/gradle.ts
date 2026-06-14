@@ -104,9 +104,9 @@ export const gradleBuildEngine: BuildEngine = {
   async build(
     ctx: ResolvedBuildContext,
     creds: BuildCredentials,
-  ): Promise<{ artifactPath: string; sizeReport: SizeReport }> {
+  ): Promise<{ artifactPath: string; sizeReport: SizeReport; cleanBuilt: boolean }> {
     if (ctx.dryRun) {
-      return { artifactPath: "(dry-run, not built)", sizeReport: { artifactBytes: 0, entries: [] } };
+      return { artifactPath: "(dry-run, not built)", sizeReport: { artifactBytes: 0, entries: [] }, cleanBuilt: false };
     }
     if (creds.platform !== "android") throw new Error("The gradle build engine builds Android only.");
     const keystore = creds.keystore;
@@ -115,10 +115,15 @@ export const gradleBuildEngine: BuildEngine = {
     const androidDir = join(ctx.app.dir, "android");
     const wrapper = gradleWrapper(androidDir);
 
+    // Gradle is incrementally correct by default; `--clean` prepends the clean task for a from-scratch build.
+    // (iOS-style native fingerprinting isn't needed here — Gradle tracks task inputs/outputs itself.)
+    const cleanBuilt = ctx.forceClean;
+
     // Sign the bundle with the resolved upload key via AGP's injected-signing properties (no build.gradle edit).
     await runWithProgress(
       wrapper,
       [
+        ...(cleanBuilt ? [":app:clean"] : []),
         ":app:bundleRelease",
         `-Pandroid.injected.signing.store.file=${keystore.path}`,
         `-Pandroid.injected.signing.store.password=${keystore.storePassword}`,
@@ -131,6 +136,6 @@ export const gradleBuildEngine: BuildEngine = {
     const artifactPath = findBundle(androidDir);
     const artifactBytes = statSync(artifactPath).size;
     const entries = await estimateDownload(artifactPath, keystore);
-    return { artifactPath, sizeReport: { artifactBytes, entries } };
+    return { artifactPath, sizeReport: { artifactBytes, entries }, cleanBuilt };
   },
 };

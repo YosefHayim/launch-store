@@ -34,7 +34,7 @@ import { loadDotenvFile, missingKeys, secretLookingKeys } from "./env.js";
 import { getBuildEngine, getCredentialsProvider, getStorageProvider, getSubmitter } from "./registry.js";
 import { createLogger, type Logger } from "./logger.js";
 import type { GlossaryTopic } from "./glossary.js";
-import { run } from "./exec.js";
+import { capture, exists, run } from "./exec.js";
 import { runWithProgress } from "./progress.js";
 import { AppStoreConnectClient } from "../apple/ascClient.js";
 import { ensureSigningCredentials } from "../apple/credentials.js";
@@ -60,6 +60,8 @@ export interface BuildRunOptions {
   rollout?: number;
   /** Rehearse the flow with no real changes (`--dry-run`). */
   dryRun: boolean;
+  /** Force a from-scratch build (`--clean`); omitted/false lets the fingerprint decide. iOS-gated; Android cleans too. */
+  forceClean?: boolean;
   /** Build on a remote Mac (AWS EC2 Mac / a Mac over SSH) instead of locally. iOS-only. */
   remote?: RemoteTarget;
 }
@@ -265,6 +267,7 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
     env,
     explain: options.explain,
     dryRun,
+    forceClean: options.forceClean ?? false,
     ...(android ? { android } : {}),
   };
   return { config, app, profile, env, ctx, log };
@@ -331,18 +334,24 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
     "build-number",
   );
 
-  // 5. Compile, sign, export, and analyze size.
-  const { artifactPath, sizeReport } = await getBuildEngine(resolveBuildEngineName(config, "ios")).build(
+  // 5. Compile, sign, export, and analyze size — clean or incremental per the build fingerprint.
+  if (!dryRun) await nudgeIfNoCcache(log);
+  const { artifactPath, sizeReport, cleanBuilt } = await getBuildEngine(resolveBuildEngineName(config, "ios")).build(
     ctx,
     credentials,
   );
-  log.step("build", dryRun ? "skipped (dry-run)" : artifactPath);
+  log.step(
+    "build",
+    dryRun ? "skipped (dry-run)" : `${cleanBuilt ? "clean (from scratch)" : "incremental (cache warm)"} · ${artifactPath}`,
+    "incremental-build",
+  );
+  if (!dryRun) await reportCcacheStats(log);
 
   // 6. Show size and soft-gate against the profile budget.
   await reportSizeAndGate(sizeReport, prepared.profile.sizeBudgetMB ?? 200, log);
 
   // 7. Store the artifact (shared with Android).
-  await storeArtifact(prepared, artifactPath, buildNumber, sizeReport);
+  await storeArtifact(prepared, artifactPath, buildNumber, sizeReport, cleanBuilt);
 
   // 8. Submit (TestFlight by default), then report processing status.
   if (options.submit) {
@@ -413,17 +422,21 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
   );
 
   // 5. Compile, sign (upload key), export the .aab, and estimate the download with bundletool.
-  const { artifactPath, sizeReport } = await getBuildEngine(resolveBuildEngineName(config, "android")).build(
+  const { artifactPath, sizeReport, cleanBuilt } = await getBuildEngine(resolveBuildEngineName(config, "android")).build(
     ctx,
     credentials,
   );
-  log.step("build", dryRun ? "skipped (dry-run)" : artifactPath);
+  log.step(
+    "build",
+    dryRun ? "skipped (dry-run)" : `${cleanBuilt ? "clean (from scratch)" : "incremental (Gradle)"} · ${artifactPath}`,
+    "incremental-build",
+  );
 
   // 6. Show size and soft-gate against the profile budget (shared gate; bundletool estimate).
   await reportSizeAndGate(sizeReport, prepared.profile.sizeBudgetMB ?? 200, log, "bundletool");
 
   // 7. Store the artifact (shared with iOS).
-  await storeArtifact(prepared, artifactPath, versionCode, sizeReport);
+  await storeArtifact(prepared, artifactPath, versionCode, sizeReport, cleanBuilt);
 
   // 8. Submit to the resolved Play track via fastlane supply.
   const track = ctx.android?.track ?? "internal";
@@ -453,6 +466,7 @@ async function storeArtifact(
   artifactPath: string,
   buildNumber: number,
   sizeReport: SizeReport,
+  cleanBuilt: boolean,
 ): Promise<void> {
   const { config, app, profile, ctx, log } = prepared;
   if (ctx.dryRun) {
@@ -467,10 +481,30 @@ async function storeArtifact(
     version: app.version ?? "0.0.0",
     buildNumber,
     sizeReport,
+    clean: cleanBuilt,
     createdAt: new Date().toISOString(),
   };
   const stored = await getStorageProvider(config.storage).put(artifact);
   log.step("store", stored.location);
+}
+
+/** Nudge (once, before building) when ccache is absent — the build still runs, just uncached. */
+async function nudgeIfNoCcache(log: Logger): Promise<void> {
+  if (!(await exists("ccache"))) {
+    log.warn("ccache isn't installed — this build won't be cached. Run `launch doctor --fix` to speed up future builds.");
+  }
+}
+
+/** After an iOS build, surface a one-line ccache hit summary when ccache is present. Best-effort. */
+async function reportCcacheStats(log: Logger): Promise<void> {
+  if (!(await exists("ccache"))) return;
+  try {
+    const stats = await capture("ccache", ["-s"]);
+    const hitLine = stats.split("\n").find((line) => /hit/i.test(line));
+    if (hitLine) log.step("cache", hitLine.trim(), "ccache");
+  } catch {
+    /* ccache -s unavailable — skip the summary */
+  }
 }
 
 /** Run `expo prebuild` only when there's no native `ios/` yet; otherwise use what's committed. */

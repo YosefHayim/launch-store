@@ -31,6 +31,7 @@ describe("gradleBuildEngine — dry-run rehearses without building or signing", 
     env: {},
     explain: false,
     dryRun: true,
+    forceClean: false,
   } satisfies ResolvedBuildContext;
   const creds: BuildCredentials = { platform: "android", serviceAccountJson: "" };
 

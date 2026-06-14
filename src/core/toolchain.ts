@@ -31,6 +31,13 @@ export interface Tool {
   label: string;
   /** Executable probed on `PATH` to decide if the tool is present. */
   command: string;
+  /**
+   * Whether the build *needs* this tool or merely *benefits* from it. A missing `required` tool fails
+   * the doctor (exit 1) and blocks a build; a missing `recommended` tool (ccache) only warns — the
+   * build still runs, just uncached. The split is what lets ccache ship on-by-default without becoming
+   * a hard dependency on machines that don't have it yet.
+   */
+  tier: "required" | "recommended";
   /** How to obtain it when missing. */
   install: { kind: "brew"; formula: string } | { kind: "guide"; how: string };
 }
@@ -43,16 +50,19 @@ export const REQUIRED_TOOLS: Tool[] = [
   {
     label: "Xcode (xcodebuild)",
     command: "xcodebuild",
+    tier: "required",
     install: {
       kind: "guide",
       how: "Install Xcode from the App Store, then run `xcode-select --install` for the Command Line Tools.",
     },
   },
-  { label: "Ruby", command: "ruby", install: { kind: "brew", formula: "ruby" } },
-  { label: "fastlane", command: "fastlane", install: { kind: "brew", formula: "fastlane" } },
-  { label: "CocoaPods (pod)", command: "pod", install: { kind: "brew", formula: "cocoapods" } },
-  { label: "openssl", command: "openssl", install: { kind: "brew", formula: "openssl" } },
-  { label: "Node", command: "node", install: { kind: "brew", formula: "node" } },
+  { label: "Ruby", command: "ruby", tier: "required", install: { kind: "brew", formula: "ruby" } },
+  { label: "fastlane", command: "fastlane", tier: "required", install: { kind: "brew", formula: "fastlane" } },
+  { label: "CocoaPods (pod)", command: "pod", tier: "required", install: { kind: "brew", formula: "cocoapods" } },
+  { label: "openssl", command: "openssl", tier: "required", install: { kind: "brew", formula: "openssl" } },
+  { label: "Node", command: "node", tier: "required", install: { kind: "brew", formula: "node" } },
+  // Recommended, not required: makes a clean build 50–70% cheaper; absent → uncached, never a hard fail.
+  { label: "ccache", command: "ccache", tier: "recommended", install: { kind: "brew", formula: "ccache" } },
 ];
 
 /**
@@ -63,10 +73,10 @@ export const REQUIRED_TOOLS: Tool[] = [
  * env var, also checked separately in `doctor`.
  */
 export const ANDROID_TOOLS: Tool[] = [
-  { label: "JDK (keytool)", command: "keytool", install: { kind: "brew", formula: "openjdk" } },
-  { label: "fastlane", command: "fastlane", install: { kind: "brew", formula: "fastlane" } },
-  { label: "bundletool", command: "bundletool", install: { kind: "brew", formula: "bundletool" } },
-  { label: "Node", command: "node", install: { kind: "brew", formula: "node" } },
+  { label: "JDK (keytool)", command: "keytool", tier: "required", install: { kind: "brew", formula: "openjdk" } },
+  { label: "fastlane", command: "fastlane", tier: "required", install: { kind: "brew", formula: "fastlane" } },
+  { label: "bundletool", command: "bundletool", tier: "required", install: { kind: "brew", formula: "bundletool" } },
+  { label: "Node", command: "node", tier: "required", install: { kind: "brew", formula: "node" } },
 ];
 
 /** The official Homebrew installer one-liner, run verbatim under `bash -c` so its `$(curl …)` substitution and `/dev/tty` prompts work. */
@@ -177,13 +187,38 @@ export async function ensureToolchain(options: EnsureToolchainOptions = {}): Pro
     await installBrewTools(io, brew, assumeYes);
   }
 
+  // If ccache was among the freshly installed tools, configure it once (size + Xcode-friendly sloppiness).
+  if (missing.some((tool) => tool.command === "ccache") && (await io.exists("ccache"))) {
+    await configureCcache(io);
+  }
+
   const stillMissing = await detectMissing(io, REQUIRED_TOOLS);
-  if (stillMissing.length === 0) {
+  for (const tool of stillMissing.filter((t) => t.tier === "recommended")) {
+    io.log(`• ${tool.label} (recommended, skipped) — ${fixHint(tool)}`);
+  }
+  const requiredMissing = stillMissing.filter((tool) => tool.tier === "required");
+  if (requiredMissing.length === 0) {
     io.log("✓ Toolchain ready.");
     return true;
   }
-  io.log(`Still missing: ${stillMissing.map((tool) => tool.label).join(", ")}. See the hints above.`);
+  io.log(`Still missing: ${requiredMissing.map((tool) => tool.label).join(", ")}. See the hints above.`);
   return false;
+}
+
+/** ccache cap and the sloppiness flags that make caching reliable for Xcode/CocoaPods ObjC/C++ builds. */
+const CCACHE_MAX_SIZE = "10G";
+const CCACHE_SLOPPINESS =
+  "clang_index_store,file_stat_matches,include_file_ctime,include_file_mtime,ivfsoverlay,pch_defines,modules,system_headers,time_macros";
+
+/**
+ * Configure ccache once, right after installing it: a generous size cap so warm objects survive between
+ * builds, plus the sloppiness flags Xcode/CocoaPods builds need to actually hit the cache (timestamps and
+ * the clang index store would otherwise bust every entry). Idempotent — safe to re-run on a later `--fix`.
+ */
+async function configureCcache(io: ToolchainIo): Promise<void> {
+  io.log(`→ configuring ccache (max-size ${CCACHE_MAX_SIZE}, Xcode-friendly sloppiness)…`);
+  await io.run("ccache", ["--max-size", CCACHE_MAX_SIZE]);
+  await io.run("ccache", ["--set-config", `sloppiness=${CCACHE_SLOPPINESS}`]);
 }
 
 /**

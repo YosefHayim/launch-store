@@ -13,7 +13,11 @@ describe("glossary — the single source for --explain and docs", () => {
     expect(topics).toContain("upload-key");
     expect(topics).toContain("play-app-signing");
     expect(topics).toContain("bundletool");
-    expect(topics.length).toBe(23);
+    // Build-cache topics (issue #9).
+    expect(topics).toContain("ccache");
+    expect(topics).toContain("incremental-build");
+    expect(topics).toContain("build-fingerprint");
+    expect(topics.length).toBe(26);
     expect(new Set(topics).size).toBe(topics.length);
   });
 

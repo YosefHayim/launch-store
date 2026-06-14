@@ -60,11 +60,19 @@ async function checkAppleAccount(): Promise<boolean> {
   return allOk;
 }
 
-/** Report the iOS toolchain read-only: one ✓/✗ line per required tool. Returns whether all are present. */
+/**
+ * Report the iOS toolchain read-only: one line per tool. A missing *required* tool prints ✗ and fails
+ * the check; a missing *recommended* tool (ccache) prints • and does NOT — the build still runs, just
+ * uncached. Returns whether every required tool is present.
+ */
 async function reportToolchain(): Promise<boolean> {
   let allOk = true;
   for (const tool of REQUIRED_TOOLS) {
     const ok = await exists(tool.command);
+    if (tool.tier === "recommended") {
+      console.log(ok ? `✓ ${tool.label}` : `• ${tool.label} (recommended) — ${fixHint(tool)}`);
+      continue;
+    }
     allOk &&= ok;
     console.log(`${ok ? "✓" : "✗"} ${tool.label}${ok ? "" : `  — ${fixHint(tool)}`}`);
   }
