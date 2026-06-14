@@ -63,7 +63,7 @@ const SEARCH_DIRS = [
 async function ask(message: string, placeholder?: string): Promise<string> {
   const value = await text({
     message,
-    validate: (v) => (v.trim() === "" ? "Required." : undefined),
+    validate: (v) => (v?.trim() ? undefined : "Required."),
     ...(placeholder ? { placeholder } : {}),
   });
   if (isCancel(value)) {
@@ -131,8 +131,7 @@ async function resolveP8Path(options: CredsOptions, canPrompt: boolean): Promise
       cancel("Cancelled.");
       process.exit(0);
     }
-    // clack's `select` generics infer a weak value type; the chosen value is one of our path strings.
-    return String(choice);
+    return choice;
   }
 
   if (!canPrompt) requireValue("A .p8 key file", "--p8 <path> or ASC_API_KEY_PATH (none found in ~/Downloads)");

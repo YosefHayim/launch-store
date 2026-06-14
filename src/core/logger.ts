@@ -7,6 +7,7 @@
  * never drifts from the code. This is the mechanism behind the "explain the why and the terms" goal.
  */
 
+import { box as clackBox } from "@clack/prompts";
 import { explainTopic, type GlossaryTopic } from "./glossary.js";
 
 const useColor = process.stdout.isTTY;
@@ -29,6 +30,17 @@ export interface Logger {
   info(message: string): void;
   warn(message: string): void;
   error(message: string): void;
+  /**
+   * A call-to-action block before a decision (e.g. the pre-upload checkpoint): a bold lead line plus
+   * dim detail lines, set off by a leading gap so it stands apart from the step stream.
+   */
+  notice(lead: string, ...details: string[]): void;
+  /**
+   * A titled summary block — the end-of-run "Shipped" receipt. A rounded box on an interactive TTY
+   * (clack's box, matching the wizard's look); plain labelled lines when output isn't a TTY (CI logs,
+   * pipes), since box-drawing characters misalign once captured or wrapped.
+   */
+  box(title: string, rows: string[]): void;
   /** A blank line / visual break. */
   gap(): void;
 }
@@ -52,6 +64,20 @@ export function createLogger(explain: boolean): Logger {
     },
     error: (message) => {
       console.error(`${red("✗")} ${message}`);
+    },
+    notice: (lead, ...details) => {
+      console.log("");
+      console.log(`  ${bold(lead)}`);
+      for (const detail of details) console.log(`    ${dim(detail)}`);
+    },
+    box: (title, rows) => {
+      if (useColor) {
+        clackBox(rows.join("\n"), title, { width: "auto", rounded: true });
+        return;
+      }
+      console.log("");
+      console.log(title);
+      for (const row of rows) console.log(`  ${row}`);
     },
     gap: () => {
       console.log("");

@@ -15,6 +15,8 @@ interface BuildCommandOptions {
   /** commander sets this false when `--no-submit` is passed. */
   submit: boolean;
   dryRun: boolean;
+  /** Skip the interactive pre-upload size confirmation (`--yes`); auto-confirm. */
+  yes: boolean;
   /** Stream the raw xcodebuild/gradle/prebuild output instead of the spinner (`--verbose`). */
   verbose: boolean;
   /** `--remote` (bare → AWS) or `--remote <target>` where target is `aws` or `user@host`. iOS-only. */
@@ -72,8 +74,13 @@ export function registerBuildCommand(program: Command): void {
     .option("--remote [target]", "iOS only — build on a remote Mac: 'aws' (default) or user@host over SSH")
     .option("--track <track>", "Android only — Play track: internal|closed|open|production (default: internal)")
     .option("--rollout <fraction>", "Android only — staged-rollout fraction for production (default: 1.0)")
-    .option("--clean", "force a from-scratch build (default: fast incremental, clean only when native deps change)", false)
+    .option(
+      "--clean",
+      "force a from-scratch build (default: fast incremental, clean only when native deps change)",
+      false,
+    )
     .option("--dry-run", "rehearse every step and print what it would do, changing nothing", false)
+    .option("-y, --yes", "skip the pre-upload size confirmation (auto-confirm)", false)
     .option("-v, --verbose", "stream the full xcodebuild/gradle output instead of a progress spinner", false)
     .action(async (platform: string, options: BuildCommandOptions) => {
       if (platform !== "ios" && platform !== "android") {
@@ -91,6 +98,7 @@ export function registerBuildCommand(program: Command): void {
         submit: options.submit,
         target: "testing",
         dryRun: options.dryRun,
+        yes: options.yes,
         forceClean: options.clean,
         ...(remote ? { remote } : {}),
         ...(track ? { track } : {}),

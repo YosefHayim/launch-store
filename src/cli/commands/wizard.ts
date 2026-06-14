@@ -43,6 +43,7 @@ async function promptSshTarget(): Promise<string> {
     message: "SSH target for your Mac",
     placeholder: "ec2-user@host or user@host:port",
     validate: (value) => {
+      if (!value) return "Enter an SSH target.";
       try {
         parseSshTarget(value);
         return undefined;

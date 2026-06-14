@@ -8,7 +8,7 @@
  */
 
 import type { BuildArtifact } from "./types.js";
-import { type BuildRunOptions, type PreparedBuild, reportSizeAndGate } from "./pipeline.js";
+import { type BuildRunOptions, type PreparedBuild, confirmUpload, reportSize, renderReceipt } from "./pipeline.js";
 import { getStorageProvider } from "./registry.js";
 import { detectEasCli, easBuildToIpa, easSubmit, ensureExpoSession } from "../providers/build/eas.js";
 
@@ -37,7 +37,7 @@ export async function runEasBuild(prepared: PreparedBuild, options: BuildRunOpti
   const { ipaPath, sizeReport, buildNumber } = await easBuildToIpa(ctx, profile.name);
   log.step("build", ipaPath);
 
-  await reportSizeAndGate(sizeReport, profile.sizeBudgetMB ?? 200, log);
+  reportSize(sizeReport, log);
 
   const artifact: BuildArtifact = {
     path: ipaPath,
@@ -55,6 +55,16 @@ export async function runEasBuild(prepared: PreparedBuild, options: BuildRunOpti
   log.step("store", stored.location);
 
   if (options.submit) {
+    await confirmUpload({
+      report: sizeReport,
+      budgetMB: profile.sizeBudgetMB ?? 200,
+      destination: options.target === "testing" ? "TestFlight (via EAS)" : "App Store review (via EAS)",
+      app,
+      version: app.version ?? "0.0.0",
+      buildNumber,
+      yes: options.yes ?? false,
+      log,
+    });
     log.info("Submitting via eas submit…");
     await easSubmit(ctx, ipaPath, profile.name);
     log.step(
@@ -64,6 +74,16 @@ export async function runEasBuild(prepared: PreparedBuild, options: BuildRunOpti
     );
   }
 
-  log.gap();
-  log.info(`Done. ${app.name} ${app.version ?? "0.0.0"} (${buildNumber}) via EAS`);
+  renderReceipt({
+    app,
+    version: app.version ?? "0.0.0",
+    buildNumber,
+    report: sizeReport,
+    destination: options.submit
+      ? options.target === "testing"
+        ? "TestFlight · via EAS"
+        : "App Store · in review (via EAS)"
+      : "built · not uploaded",
+    log,
+  });
 }
