@@ -18,7 +18,8 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import type { AlternativeDistributionDomainResource } from "../apple/ascClient.js";
-import type { PlannedAction } from "./ascSync.js";
+import { act, type PlannedAction, type ReconcileContext } from "./asc/storeSync.js";
+import { asRecord } from "./json.js";
 import type { EuDistributionConfig, EuDistributionDomainConfig } from "./types.js";
 
 /**
@@ -29,29 +30,6 @@ import type { EuDistributionConfig, EuDistributionDomainConfig } from "./types.j
 export interface AscEuDistributionApi {
   listAlternativeDistributionDomains(): Promise<AlternativeDistributionDomainResource[]>;
   createAlternativeDistributionDomain(domain: string, referenceName: string): Promise<void>;
-}
-
-/** Mutable per-run context threaded through the reconcile walk (mirrors `core/releaseAttrs.ts`). */
-interface ReconcileContext {
-  actions: PlannedAction[];
-  dryRun: boolean;
-}
-
-/**
- * Record an action and, unless this is a dry-run, perform it. A thrown error is captured on the action
- * (status `failed`) rather than propagated, so one bad domain never aborts the rest of the walk.
- */
-async function act(ctx: ReconcileContext, description: string, run: () => Promise<void>): Promise<void> {
-  const action: PlannedAction = { description, destructive: false, status: "planned" };
-  ctx.actions.push(action);
-  if (ctx.dryRun) return;
-  try {
-    await run();
-    action.status = "applied";
-  } catch (error) {
-    action.status = "failed";
-    action.error = error instanceof Error ? error.message : String(error);
-  }
 }
 
 /**
@@ -75,13 +53,6 @@ export async function reconcileEuDistributionDomains(
     );
   }
   return ctx.actions;
-}
-
-/** Narrow an unknown value to a plain object, or null. Arrays are rejected so a malformed section fails loudly. */
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
 }
 
 /** Parse and validate one domain entry, requiring a non-empty `domain` and `referenceName`. */
@@ -123,21 +94,4 @@ export function loadEuDistributionConfig(path: string): EuDistributionConfig {
     );
   }
   return parseEuDistributionConfig(JSON.parse(readFileSync(path, "utf8")));
-}
-
-/** Tally a report's action statuses for the run summary (mirrors the other store-sync commands). */
-export function summarizeEuDistribution(actions: PlannedAction[]): {
-  applied: number;
-  failed: number;
-  skipped: number;
-} {
-  let applied = 0;
-  let failed = 0;
-  let skipped = 0;
-  for (const action of actions) {
-    if (action.status === "applied") applied++;
-    else if (action.status === "failed") failed++;
-    else if (action.status === "skipped") skipped++;
-  }
-  return { applied, failed, skipped };
 }

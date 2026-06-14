@@ -24,7 +24,8 @@ import { loadConfig, resolveSidecarConfig } from "../../core/config.js";
 import { selectApp } from "../../core/pipeline.js";
 import { loadActiveAscKey } from "../../core/accounts.js";
 import { createLogger } from "../../core/logger.js";
-import { loadAppClipsConfig, reconcileAppClips, summarizeAppClips } from "../../core/appClips.js";
+import { summarize } from "../../core/asc/storeSync.js";
+import { loadAppClipsConfig, reconcileAppClips } from "../../core/appClips.js";
 
 /** CLI options for `launch app-clips`. */
 interface AppClipsOptions {
@@ -122,7 +123,7 @@ export function registerAppClipsCommand(program: Command): void {
       }
 
       const applied = await reconcileAppClips(client, { bundleId, config, dryRun: false });
-      const summary = summarizeAppClips(applied.actions);
+      const summary = summarize(applied.actions);
       const rows = applied.actions.map((action) => {
         if (action.status === "failed") return `✗ ${action.description} — ${action.error ?? "failed"}`;
         return `${action.status === "skipped" ? "•" : "✓"} ${action.description}`;
