@@ -10,6 +10,8 @@
  * accidental public release impossible.
  */
 
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import type { Command } from "commander";
 import { cancel, confirm, isCancel } from "@clack/prompts";
 import type {
@@ -24,12 +26,22 @@ import type {
   ResolvedBuildContext,
 } from "../../core/types.js";
 import { loadConfig } from "../../core/config.js";
-import { mb, resolveCommandEnv, resolveSubmitterName, selectApp, worstDownloadBytes } from "../../core/pipeline.js";
+import {
+  mb,
+  resolveCommandEnv,
+  resolveIosAccount,
+  resolveSubmitterName,
+  selectApp,
+  worstDownloadBytes,
+} from "../../core/pipeline.js";
 import { formatEnvTable, type ResolvedEnv } from "../../core/env.js";
 import { notifyCompletion, type NotifyEvent } from "../../core/notify.js";
 import { getCredentialsProvider, getStorageProvider, getSubmitter } from "../../core/registry.js";
-import { createLogger } from "../../core/logger.js";
-import { loadActiveAscKey } from "../../core/accounts.js";
+import { createLogger, type Logger } from "../../core/logger.js";
+import { loadAscKeyById } from "../../core/accounts.js";
+import { isInteractive } from "../../core/progress.js";
+import { pickOne } from "../../core/prompt.js";
+import { loadStoreConfig } from "../../core/storeConfig.js";
 import { AppStoreConnectClient, type BuildResource } from "../../apple/ascClient.js";
 import {
   appRecordMissingMessage,
@@ -45,10 +57,14 @@ interface ReleaseCommandOptions extends EnvFlags {
   app?: string;
   profile: string;
   explain: boolean;
+  /** iOS-only: Apple account selector (label or Key ID); falls back to `ASC_ACCOUNT`, then the active account. */
+  account?: string;
   /** Android-only: staged-rollout fraction for the production release (`--rollout`). */
   rollout?: string;
   /** iOS-only: promote an existing build number, or `"latest"`, instead of uploading the local artifact. */
   build?: string;
+  /** iOS-only: force uploading the latest local build (skip the upload-vs-promote picker). */
+  upload?: boolean;
   /** iOS-only: `--no-wait` sets this false — upload the binary and return without waiting/submitting. */
   wait: boolean;
   /** iOS-only: hold the approved build for manual release. */
@@ -57,6 +73,8 @@ interface ReleaseCommandOptions extends EnvFlags {
   scheduled?: string;
   /** iOS-only: opt into Apple's 7-day phased rollout. */
   phased?: boolean;
+  /** iOS-only: print the release plan (read-only — touches nothing on App Store Connect) and exit. */
+  dryRun?: boolean;
   /** iOS-only: show the one-time App Store Connect setup checklist and exit. */
   createApp?: boolean;
 }
@@ -78,12 +96,18 @@ export function registerReleaseCommand(program: Command): void {
     .argument("<platform>", "ios or android")
     .option("-a, --app <name>", "app handle")
     .option("-p, --profile <name>", "build profile", "production")
+    .option(
+      "--account <id>",
+      "iOS only — Apple account label or Key ID (default: ASC_ACCOUNT, then the active account)",
+    )
     .option("--rollout <fraction>", "Android only — staged-rollout fraction (default: 1.0)")
     .option("--build <n>", 'iOS only — promote an existing build number, or "latest", instead of uploading')
+    .option("--upload", "iOS only — upload the latest local build (skip the upload-vs-promote picker)", false)
     .option("--no-wait", "iOS only — after uploading, return without waiting for processing/submit")
     .option("--manual", "iOS only — hold the approved build for manual release", false)
     .option("--scheduled <iso>", "iOS only — schedule the go-live at an ISO-8601 instant")
     .option("--phased", "iOS only — opt into Apple's 7-day phased rollout", false)
+    .option("--dry-run", "iOS only — print the release plan (touches nothing) and exit", false)
     .option("--create-app", "iOS only — show the one-time App Store Connect setup checklist and exit", false)
     .option("--explain", "expand each step", false);
   addEnvFlags(command).action(async (platform: string, options: ReleaseCommandOptions) => {
@@ -131,10 +155,35 @@ function resolveReleaseType(
 }
 
 /** Normalize config release notes (a bare string targets the primary locale) into a per-locale map. */
-function resolveReleaseNotes(release: ReleaseConfig | undefined, primaryLocale: string): Record<string, string> {
+export function resolveReleaseNotes(release: ReleaseConfig | undefined, primaryLocale: string): Record<string, string> {
   const notes = release?.releaseNotes;
   if (!notes) return {};
   return typeof notes === "string" ? { [primaryLocale]: notes } : notes;
+}
+
+/**
+ * Per-locale `releaseNotes` from the app's `store.config.json` — the same listing file `launch sync`
+ * and `launch metadata` read — or `{}` when the file is absent. A malformed file fails loudly via
+ * {@link loadStoreConfig}, consistent with those commands (the developer fixes the typo once).
+ */
+export function readStoreReleaseNotes(appDir: string): Record<string, string> {
+  const path = join(appDir, "store.config.json");
+  if (!existsSync(path)) return {};
+  const info = loadStoreConfig(path).apple?.info ?? {};
+  const notes: Record<string, string> = {};
+  for (const [locale, localeInfo] of Object.entries(info)) {
+    if (localeInfo.releaseNotes) notes[locale] = localeInfo.releaseNotes;
+  }
+  return notes;
+}
+
+/**
+ * The "What's New" to write, merging both sources Launch supports: `release.releaseNotes` from
+ * `launch.config.ts` as the base, with `store.config.json`'s per-locale `releaseNotes` taking precedence
+ * (it's the richer, per-locale, EAS-compatible listing file). Empty leaves the version's notes untouched.
+ */
+export function resolveWhatsNew(release: ReleaseConfig | undefined, appDir: string): Record<string, string> {
+  return { ...resolveReleaseNotes(release, release?.primaryLocale ?? "en-US"), ...readStoreReleaseNotes(appDir) };
 }
 
 /** The newest build that's processed and not expired — i.e. attachable to an App Store version. */
@@ -161,6 +210,9 @@ async function askConfirm(message: string): Promise<boolean> {
   return !isCancel(proceed) && proceed;
 }
 
+/** The release-input fields that don't depend on the chosen build — shared by the dry-run and real paths. */
+type ReleaseInputCommon = Omit<ReleaseInput, "versionString" | "build" | "dryRun">;
+
 /** iOS public release — API-driven submit (see module header). */
 async function runIosRelease(
   app: AppDescriptor,
@@ -173,14 +225,47 @@ async function runIosRelease(
   const bundleId = app.bundleId;
   if (!bundleId) throw new Error(`${app.name} has no iOS bundle id (ios.bundleIdentifier in app.json).`);
 
-  const ascKey = await loadActiveAscKey();
-  if (!ascKey) throw new Error("No active Apple account. Run `launch creds set-key` first.");
+  const account = await resolveIosAccount(options, log);
+  const ascKey = await loadAscKeyById(account.keyId);
+  if (!ascKey) {
+    throw new Error(`No App Store Connect key stored for account ${account.label}. Run \`launch creds set-key\`.`);
+  }
   const client = new AppStoreConnectClient(ascKey);
 
   const appId = await client.getAppId(bundleId);
   if (options.createApp || !appId) {
     log.info(appRecordMissingMessage(bundleId));
     process.exitCode = 1;
+    return;
+  }
+
+  const { releaseType, earliestReleaseDate } = resolveReleaseType(config.release, options);
+  const whatsNew = resolveWhatsNew(config.release, app.dir);
+  if (Object.keys(whatsNew).length === 0) {
+    log.warn(
+      "No release notes configured (release.releaseNotes or store.config.json) — keeps the existing “What's New”.",
+    );
+  }
+  const common: ReleaseInputCommon = {
+    bundleId,
+    platform: IOS_PLATFORM,
+    releaseType,
+    ...(earliestReleaseDate ? { earliestReleaseDate } : {}),
+    phasedRelease: options.phased === true || config.release?.phasedRelease === true,
+    usesNonExemptEncryption: config.release?.usesNonExemptEncryption ?? false,
+    whatsNew,
+  };
+
+  // --dry-run: a read-only plan. Resolve state only (never upload, never prompt), then print what it'd do.
+  if (options.dryRun) {
+    const build =
+      options.build !== undefined ? await resolveBuildToPromote(client, appId, app.name, options.build) : null;
+    if (!build) {
+      log.info("Plan assumes uploading the latest local build (pass --build <n> to plan against a verified build).");
+    }
+    const versionString = await resolveVersionString(client, app, bundleId);
+    const report = await releaseApp(client, { ...common, versionString, build, dryRun: true });
+    renderReleasePlan(report, app.name, log);
     return;
   }
 
@@ -198,24 +283,7 @@ async function runIosRelease(
   if (!chosen) return; // cancelled, or uploaded-and-returned under --no-wait
   const { build, versionString } = chosen;
 
-  const { releaseType, earliestReleaseDate } = resolveReleaseType(config.release, options);
-  const whatsNew = resolveReleaseNotes(config.release, config.release?.primaryLocale ?? "en-US");
-  if (Object.keys(whatsNew).length === 0) {
-    log.warn("No release notes configured (release.releaseNotes) — the version keeps any existing “What's New”.");
-  }
-
-  const input: ReleaseInput = {
-    bundleId,
-    platform: IOS_PLATFORM,
-    versionString,
-    releaseType,
-    ...(earliestReleaseDate ? { earliestReleaseDate } : {}),
-    phasedRelease: options.phased === true || config.release?.phasedRelease === true,
-    usesNonExemptEncryption: config.release?.usesNonExemptEncryption ?? false,
-    whatsNew,
-    build,
-  };
-
+  const input: ReleaseInput = { ...common, versionString, build, dryRun: false };
   const buildNumber = Number.parseInt(build.version, 10);
   const event: NotifyEvent = {
     event: "submit",
@@ -239,22 +307,106 @@ async function runIosRelease(
     throw error;
   }
 
-  if (report.alreadyInReview) {
-    log.info(`${app.name} ${report.versionString} is already ${report.appStoreState} — nothing to submit.`);
-  } else {
-    log.box("Submitted for App Store review", [
-      `${app.name} ${report.versionString} (build ${build.version})`,
-      ...report.actions.map((action) => `• ${action.description}`),
-    ]);
+  const failures = renderReleaseReport(report, app.name, build.version, log);
+  if (failures > 0) {
+    process.exitCode = 1;
+    await notifyCompletion(config, { ...event, status: "failure", error: `${failures} release step(s) failed` });
+    return;
   }
   await notifyCompletion(config, event);
   log.info(`Track the review with \`launch status -a ${app.name} --watch\`.`);
 }
 
+/** Render the read-only `--dry-run` plan: the steps the release WOULD perform, with nothing submitted. */
+function renderReleasePlan(report: ReleaseReport, appName: string, log: Logger): void {
+  const lines = report.actions.map((action) =>
+    action.status === "skipped"
+      ? `– ${action.description}${action.note ? ` (${action.note})` : ""}`
+      : `• ${action.description}`,
+  );
+  log.box(
+    `Plan — ${appName} ${report.versionString} (dry run, nothing submitted)`,
+    lines.length > 0 ? lines : ["nothing to do — already submitted or up to date"],
+  );
+}
+
+/** Render a real release run (applied / skipped / failed per step) and return the number of failed steps. */
+function renderReleaseReport(report: ReleaseReport, appName: string, buildLabel: string, log: Logger): number {
+  if (report.alreadyInReview) {
+    log.info(`${appName} ${report.versionString} is already ${report.appStoreState} — nothing to submit.`);
+    return 0;
+  }
+  let failures = 0;
+  const lines = report.actions.map((action) => {
+    if (action.status === "failed") {
+      failures++;
+      return `✗ ${action.description}${action.error ? ` — ${action.error}` : ""}`;
+    }
+    if (action.status === "skipped") return `– ${action.description}${action.note ? ` (${action.note})` : ""}`;
+    return `• ${action.description}`;
+  });
+  const title =
+    failures > 0 ? `Submitted with ${failures} failed step(s) — see below` : "Submitted for App Store review";
+  log.box(title, [`${appName} ${report.versionString} (build ${buildLabel})`, ...lines]);
+  return failures;
+}
+
+/** A resolved build source: upload the latest local build, or promote an already-verified one. */
+type BuildSource = { kind: "upload" } | { kind: "promote"; build: BuildResource };
+
 /**
- * Resolve the build to submit: promote an explicit/`latest` processed build, or upload the latest local
- * artifact and wait for it to process. Returns null when the user cancels or when `--no-wait` uploaded
- * and returned without submitting.
+ * Choose which build to release. `--upload` forces a fresh upload; `--build <n|latest>` promotes a
+ * specific verified build; otherwise an interactive picker offers upload-vs-promote (cursor on the
+ * newest verified TestFlight build), and a non-interactive run (CI) defaults to uploading the latest
+ * local build. Surfacing already-verified builds turns the common "promote what I already tested in
+ * TestFlight" case into one keystroke instead of a re-upload.
+ */
+async function resolveBuildSource(
+  client: AppStoreConnectClient,
+  appId: string,
+  appName: string,
+  options: ReleaseCommandOptions,
+  log: Logger,
+): Promise<BuildSource> {
+  if (options.upload === true) return { kind: "upload" };
+  if (options.build !== undefined) {
+    return { kind: "promote", build: await resolveBuildToPromote(client, appId, appName, options.build) };
+  }
+
+  const verified = (await client.listBuilds(appId)).filter(
+    (build) => build.processingState === "VALID" && !build.expired,
+  );
+  if (verified.length === 0) {
+    if (isInteractive()) log.info("No verified TestFlight build to promote yet — will upload the latest local build.");
+    return { kind: "upload" };
+  }
+
+  const promoteOptions = verified.map((build) => ({
+    value: { kind: "promote", build } satisfies BuildSource,
+    label: `Promote build ${build.version}`,
+    hint: build.uploadedDate ? `verified · uploaded ${build.uploadedDate.slice(0, 10)}` : "verified",
+  }));
+  return pickOne<BuildSource>({
+    message: "Release which build?",
+    options: [
+      { value: { kind: "upload" }, label: "Upload the latest local build", hint: "send a fresh .ipa to TestFlight" },
+      ...promoteOptions,
+    ],
+    canPrompt: isInteractive(),
+    // Highlight the newest verified build, but a non-TTY run defaults to uploading the latest local build.
+    ...(promoteOptions[0] ? { initialValue: promoteOptions[0].value } : {}),
+    nonInteractive: {
+      kind: "fallback",
+      value: { kind: "upload" },
+      note: "Non-interactive: uploading the latest local build (pass --build <n> to promote a verified one).",
+    },
+  });
+}
+
+/**
+ * Resolve the build to submit: promote an already-verified build, or upload the latest local artifact
+ * and wait for it to process. Returns null when the user cancels or when `--no-wait` uploaded and
+ * returned without submitting.
  */
 async function resolveIosBuild(
   client: AppStoreConnectClient,
@@ -264,11 +416,12 @@ async function resolveIosBuild(
   config: LaunchConfig,
   options: ReleaseCommandOptions,
   ctx: ResolvedBuildContext,
-  log: ReturnType<typeof createLogger>,
+  log: Logger,
 ): Promise<{ build: BuildResource; versionString: string } | null> {
-  // Promote a specific build number, or the latest processed one.
-  if (options.build !== undefined) {
-    const build = await resolveBuildToPromote(client, appId, app.name, options.build);
+  const source = await resolveBuildSource(client, appId, app.name, options, log);
+
+  if (source.kind === "promote") {
+    const { build } = source;
     const versionString = await resolveVersionString(client, app, bundleId);
     if (!(await askConfirm(`Submit ${app.name} ${versionString} (build ${build.version}) for App Store review?`))) {
       cancel("Cancelled — nothing submitted.");
@@ -277,23 +430,13 @@ async function resolveIosBuild(
     return { build, versionString };
   }
 
-  // Default: upload the latest local artifact; fall back to promoting a processed build if none is local.
   const artifact = (await getStorageProvider(config.storage).list()).find(
     (stored) => stored.appName === app.name && stored.platform === "ios",
   );
   if (!artifact) {
-    const build = newestValidBuild(await client.listBuilds(appId));
-    if (!build) {
-      throw new Error(
-        `No stored iOS build for ${app.name}, and no processed build on App Store Connect. Run \`launch build ios\` first.`,
-      );
-    }
-    const versionString = await resolveVersionString(client, app, bundleId);
-    if (!(await askConfirm(`No local build found — submit the latest processed build ${build.version} for review?`))) {
-      cancel("Cancelled — nothing submitted.");
-      return null;
-    }
-    return { build, versionString };
+    throw new Error(
+      `No stored iOS build for ${app.name}. Run \`launch build ios\` first, or promote one with --build.`,
+    );
   }
 
   const size = worstDownloadBytes(artifact.sizeReport);
