@@ -9,11 +9,15 @@
  * they never build, upload, or mutate state.
  */
 
+import { existsSync } from "node:fs";
 import type { Command } from "commander";
 import type { BuildArtifact, Platform } from "../../core/types.js";
 import { loadConfig } from "../../core/config.js";
 import { resolveStorageProvider } from "../../core/storage.js";
 import { mb, sizeSummary, worstDownloadBytes } from "../../core/pipeline.js";
+import { buildLogId, buildLogPath, readBuildLog } from "../../core/buildLog.js";
+import { run } from "../../core/exec.js";
+import { hostOs } from "../../core/os.js";
 
 /**
  * A flat, presentation-ready view of one stored build — the shape `builds list --json` emits and the
@@ -38,10 +42,11 @@ export interface BuildRow {
 
 /**
  * Stable identifier for a build, derived from its natural keys rather than a storage path or file
- * extension, so `builds list` and `builds view` agree on it regardless of which provider stored it.
+ * extension, so `builds list`/`view`/`log` agree on it regardless of which provider stored it. The
+ * derivation lives in `core/buildLog.ts` (one source of truth shared with the per-build log path).
  */
 export function buildId(artifact: BuildArtifact): string {
-  return `${artifact.appName}-${artifact.version}-${artifact.buildNumber}-${artifact.platform}`;
+  return buildLogId(artifact);
 }
 
 /** Project a persisted {@link BuildArtifact} into the presentation {@link BuildRow}. */
@@ -142,6 +147,19 @@ async function loadHistory(): Promise<BuildArtifact[]> {
   return resolveStorageProvider(config).list();
 }
 
+/**
+ * Reveal a log file: prefer `$EDITOR`, else the OS viewer (`open`/`xdg-open`). On Windows without an
+ * `$EDITOR` there's no shell-free opener, so we print the path for the user to open. Best-effort UX.
+ */
+async function openLog(path: string): Promise<void> {
+  const editor = process.env["EDITOR"];
+  if (editor) return run(editor, [path]);
+  const os = hostOs();
+  if (os === "macos") return run("open", [path]);
+  if (os === "linux") return run("xdg-open", [path]);
+  console.log(`Log file: ${path}  (set $EDITOR to open it automatically)`);
+}
+
 /** Attach the `builds` command (with `list` / `view` subcommands) to the program. */
 export function registerBuildsCommand(program: Command): void {
   const builds = program.command("builds").description("inspect local build history (the artifact index)");
@@ -182,5 +200,30 @@ export function registerBuildsCommand(program: Command): void {
         throw new Error(`No build matches "${ref}". Run \`launch builds list\` to see what's available.`);
       }
       console.log(options.json ? JSON.stringify(toBuildRow(found), null, 2) : formatBuildDetail(found));
+    });
+
+  builds
+    .command("log")
+    .description("print a past build's full native log (secrets redacted), or open it in your editor")
+    .argument("<id|latest>", "a build id from `builds list`, a build number, or `latest`")
+    .option("--open", "reveal the log in your editor / OS viewer instead of printing it", false)
+    .action(async (ref: string, options: { open: boolean }) => {
+      const found = findBuild(await loadHistory(), ref);
+      if (!found) {
+        throw new Error(`No build matches "${ref}". Run \`launch builds list\` to see what's available.`);
+      }
+      const id = buildId(found);
+      if (!existsSync(buildLogPath(id))) {
+        throw new Error(
+          `No stored log for build ${id}. Logs are captured for local builds (run under the progress ` +
+            `spinner); CI / --verbose builds stream their output to stdout instead.`,
+        );
+      }
+      if (options.open) {
+        await openLog(buildLogPath(id));
+        return;
+      }
+      const text = readBuildLog(id);
+      console.log(text?.trim() ? text : "(log is empty)");
     });
 }

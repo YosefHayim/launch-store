@@ -20,6 +20,7 @@ import { capture, exists } from "../../core/exec.js";
 import { hostOs } from "../../core/os.js";
 import { loadConfig } from "../../core/config.js";
 import { ANDROID_TOOLS, REQUIRED_TOOLS, ensureToolchain, fixHint } from "../../core/toolchain.js";
+import { inspectPackageSetup, packageManagerWarnings } from "../../core/packageManager.js";
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { GooglePlayClient, parseServiceAccount } from "../../google/playClient.js";
 import { loadServiceAccount } from "../../google/credentials.js";
@@ -202,6 +203,24 @@ async function reportConfigChecks(platform: "ios" | "android"): Promise<boolean>
 }
 
 /**
+ * Report the detected package manager + monorepo workspace root, and warn on the known Corepack/
+ * lockfile footguns (see `core/packageManager.ts`). Informational — these warn (•), never fail the
+ * check, since the build still runs; surfacing them up front avoids the EAS-class wrong-PM wasted build.
+ */
+async function reportPackageManager(): Promise<void> {
+  const setup = inspectPackageSetup(process.cwd());
+  const version = setup.pm.version ? `@${setup.pm.version}` : "";
+  console.log(`✓ Package manager: ${setup.pm.name}${version} (via ${setup.pm.source})`);
+  if (setup.workspace) {
+    console.log(`✓ Monorepo workspace root: ${setup.workspace.root} (${setup.workspace.kind})`);
+  }
+  const corepackAvailable = await exists("corepack");
+  for (const warning of packageManagerWarnings({ info: setup.pm, lockfile: setup.lockfile, corepackAvailable })) {
+    console.log(`• ${warning}`);
+  }
+}
+
+/**
  * Run the doctor preflight for a platform and return whether everything required passed. The body of
  * `launch doctor`, extracted so the no-args wizard's guided setup can run the same checks inline (and
  * so callers can branch on the result instead of only reading a process exit code).
@@ -211,6 +230,7 @@ export async function runDoctor(options: {
   fix?: boolean;
   yes?: boolean;
 }): Promise<boolean> {
+  await reportPackageManager();
   if (options.platform === "android") {
     const toolsOk = await reportAndroidToolchain();
     console.log(`• ${await localCredentialsProvider.status()}`);
