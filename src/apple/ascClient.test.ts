@@ -429,6 +429,71 @@ describe("AppStoreConnectClient — product catalog", () => {
   });
 });
 
+describe("AppStoreConnectClient — export compliance", () => {
+  it("resolves a build's id and export-compliance answer by build number", async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: "app1", attributes: {} }] })))
+      .mockResolvedValueOnce(
+        fakeResponse(200, JSON.stringify({ data: [{ id: "build9", attributes: { usesNonExemptEncryption: false } }] })),
+      );
+
+    expect(await client.findBuild("com.example.hello", 9)).toEqual({ id: "build9", usesNonExemptEncryption: false });
+    expect(fetchMock.mock.calls[1]![0]).toContain("/builds?filter[app]=app1&filter[version]=9");
+  });
+
+  it("reports null usesNonExemptEncryption when the build hasn't answered yet", async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: "app1", attributes: {} }] })))
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: "build9", attributes: {} }] })));
+
+    expect(await client.findBuild("com.example.hello", 9)).toEqual({ id: "build9", usesNonExemptEncryption: null });
+  });
+
+  it("returns null for findBuild when the app record is missing", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })));
+    expect(await client.findBuild("com.example.missing", 9)).toBeNull();
+  });
+
+  it("PATCHes the build's usesNonExemptEncryption attribute", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: { id: "build9", attributes: {} } })));
+
+    await client.setBuildUsesNonExemptEncryption("build9", false);
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toContain("/builds/build9");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({
+      data: { type: "builds", id: "build9", attributes: { usesNonExemptEncryption: false } },
+    });
+  });
+
+  it("lists an app's encryption declarations with their review state", async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: "app1", attributes: {} }] })))
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [{ id: "decl1", attributes: { appEncryptionDeclarationState: "APPROVED" } }],
+          }),
+        ),
+      );
+
+    expect(await client.listEncryptionDeclarations("com.example.hello")).toEqual([{ id: "decl1", state: "APPROVED" }]);
+  });
+
+  it("links a build to a declaration via the relationships endpoint", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(204, ""));
+
+    await client.linkBuildToDeclaration("decl1", "build9");
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toContain("/appEncryptionDeclarations/decl1/relationships/builds");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ data: [{ type: "builds", id: "build9" }] });
+  });
+});
+
 describe("describeErrors", () => {
   it("joins Apple's error details, falling back to titles", () => {
     expect(describeErrors(JSON.stringify({ errors: [{ detail: "d1" }, { title: "t2" }] }))).toBe("d1; t2");
