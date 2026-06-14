@@ -100,20 +100,22 @@ describe("gradleProgressStep — surface the Gradle task", () => {
   });
 });
 
-describe("renderBar — fixed-width text bar, clamped", () => {
+describe("renderBar — candy Aurora bar, clamped (plain off-TTY)", () => {
+  // Under vitest stdout isn't a TTY, so the bar renders plain (no color): rounded caps ╶…╴, a heavy ━
+  // fill, and a dim ─ track — exactly the captured-log path.
   it("renders empty, half, and full at width 14", () => {
-    expect(renderBar(0)).toBe("[--------------]");
-    expect(renderBar(0.5)).toBe("[#######-------]");
-    expect(renderBar(1)).toBe("[##############]");
+    expect(renderBar(0)).toBe(`╶${"─".repeat(14)}╴`);
+    expect(renderBar(0.5)).toBe(`╶${"━".repeat(7)}${"─".repeat(7)}╴`);
+    expect(renderBar(1)).toBe(`╶${"━".repeat(14)}╴`);
   });
 
   it("clamps out-of-range fractions instead of overflowing the line", () => {
-    expect(renderBar(1.7)).toBe("[##############]");
-    expect(renderBar(-3)).toBe("[--------------]");
+    expect(renderBar(1.7)).toBe(`╶${"━".repeat(14)}╴`);
+    expect(renderBar(-3)).toBe(`╶${"─".repeat(14)}╴`);
   });
 
   it("honors a custom width", () => {
-    expect(renderBar(0.5, 4)).toBe("[##--]");
+    expect(renderBar(0.5, 4)).toBe(`╶${"━".repeat(2)}${"─".repeat(2)}╴`);
   });
 });
 
@@ -134,7 +136,7 @@ describe("formatProgressLine — bar + step-count + elapsed/eta, degrading grace
     });
     expect(line).toContain("21/~28");
     expect(line).toContain("18s / ~41s");
-    expect(line).toContain("[");
+    expect(line).toContain("╶"); // the candy bar's left cap
   });
 
   it("falls back to the time fraction before any step parses (steps 0)", () => {
@@ -146,7 +148,7 @@ describe("formatProgressLine — bar + step-count + elapsed/eta, degrading grace
       estimate: { ms: 41_000, steps: 28 },
     });
     expect(line).not.toContain("/~28"); // no step counter when steps haven't parsed yet
-    expect(line).toContain("[#######-------]"); // ~50% by time
+    expect(line).toContain(`╶${"━".repeat(7)}${"─".repeat(7)}╴`); // ~50% by time
     expect(line).toContain("20s / ~41s");
   });
 
@@ -158,6 +160,6 @@ describe("formatProgressLine — bar + step-count + elapsed/eta, degrading grace
       steps: 99,
       estimate: { ms: 41_000, steps: 28 },
     });
-    expect(line).not.toContain("[##############]"); // never reads "done" until the process exits
+    expect(line).not.toContain(`╶${"━".repeat(14)}╴`); // never reads "done" until the process exits
   });
 });
