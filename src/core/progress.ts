@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { run, runQuiet, type ExecOptions } from "./exec.js";
 import { ensureDir, LOGS_DIR } from "./paths.js";
 import { diagnoseBuildLog, formatDiagnoses } from "./buildDiagnostics.js";
+import { currentBuildLog } from "./buildLog.js";
 
 /** Process-wide toggle: when true, `runWithProgress` streams the raw tool output instead of a spinner. */
 let streamRawOutput = false;
@@ -127,7 +128,10 @@ export async function runWithProgress(command: string, args: string[], options: 
     return run(command, args, exec);
   }
 
-  const logFile = join(ensureDir(LOGS_DIR), `${logSlug(label)}-${logStamp()}.log`);
+  // A build in progress claims the per-build log (redacted, keyed by build id); standalone steps
+  // (e.g. prebuild, before the id is known) fall back to a transient stamped file kept raw.
+  const buildLog = currentBuildLog();
+  const logFile = buildLog ?? join(ensureDir(LOGS_DIR), `${logSlug(label)}-${logStamp()}.log`);
   const startedAt = Date.now();
   const tail: string[] = [];
   let step = "";
@@ -144,6 +148,7 @@ export async function runWithProgress(command: string, args: string[], options: 
     await runQuiet(command, args, {
       ...exec,
       logFile,
+      redact: buildLog !== null,
       onLine: (line) => {
         tail.push(line);
         if (tail.length > TAIL_LINES) tail.shift();

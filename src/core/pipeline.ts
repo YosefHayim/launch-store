@@ -39,6 +39,7 @@ import { notifyCompletion, type NotifyEvent } from "./notify.js";
 import { pickOne } from "./prompt.js";
 import { compareVersions, formatVersion, highestVersion, nextVersion, parseVersion } from "./version.js";
 import { loadDotenvFile, missingKeys, secretLookingKeys } from "./env.js";
+import { beginBuildLog, buildLogId, endBuildLog } from "./buildLog.js";
 import { getBuildEngine, getCredentialsProvider, getSubmitter } from "./registry.js";
 import { resolveStorageProvider } from "./storage.js";
 import { createLogger, type Logger } from "./logger.js";
@@ -525,9 +526,8 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
 
   // 5. Compile, sign, export, and analyze size — clean or incremental per the build fingerprint.
   if (!dryRun) await nudgeIfNoCcache(log);
-  const { artifactPath, sizeReport, cleanBuilt } = await getBuildEngine(resolveBuildEngineName(config, "ios")).build(
-    ctx,
-    credentials,
+  const { artifactPath, sizeReport, cleanBuilt } = await runBuildStep(prepared, buildNumber, () =>
+    getBuildEngine(resolveBuildEngineName(config, "ios")).build(ctx, credentials),
   );
   log.step(
     "build",
@@ -654,9 +654,9 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
   );
 
   // 5. Compile, sign (upload key), export the .aab, and estimate the download with bundletool.
-  const { artifactPath, sizeReport, cleanBuilt } = await getBuildEngine(
-    resolveBuildEngineName(config, "android"),
-  ).build(ctx, credentials);
+  const { artifactPath, sizeReport, cleanBuilt } = await runBuildStep(prepared, versionCode, () =>
+    getBuildEngine(resolveBuildEngineName(config, "android")).build(ctx, credentials),
+  );
   log.step(
     "build",
     dryRun ? "skipped (dry-run)" : `${cleanBuilt ? "clean (from scratch)" : "incremental (Gradle)"} · ${artifactPath}`,
@@ -729,6 +729,36 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
     link: options.submit ? "https://play.google.com/console" : undefined,
     log,
   });
+}
+
+/** What {@link BuildEngine.build} resolves to — named so the build-log wrapper can pass it through. */
+interface BuildOutput {
+  artifactPath: string;
+  sizeReport: SizeReport;
+  cleanBuilt: boolean;
+}
+
+/**
+ * Wrap the build-engine call so its native output is captured to a per-build log keyed by build id
+ * (read back by `launch builds log` and the failure diagnostics). Skipped in dry-run — no real build
+ * runs. Completion notifications fire separately at the dispatch boundary (see {@link runBuild}), so
+ * this stays a single concern: own the log's lifecycle around the compile, nothing more.
+ */
+async function runBuildStep(
+  prepared: PreparedBuild,
+  buildNumber: number,
+  build: () => Promise<BuildOutput>,
+): Promise<BuildOutput> {
+  const { ctx, app } = prepared;
+  if (ctx.dryRun) return build();
+  beginBuildLog(
+    buildLogId({ appName: app.name, version: app.version ?? "0.0.0", buildNumber, platform: ctx.platform }),
+  );
+  try {
+    return await build();
+  } finally {
+    endBuildLog();
+  }
 }
 
 /** Store the built artifact (skipped in dry-run) and log its location. Shared by both platform spines. */

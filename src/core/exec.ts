@@ -9,6 +9,7 @@
 
 import { spawn } from "node:child_process";
 import { createWriteStream } from "node:fs";
+import { redactLine } from "./redact.js";
 
 /** Options shared by {@link run} and {@link capture}. */
 export interface ExecOptions {
@@ -24,6 +25,12 @@ export interface QuietExecOptions extends ExecOptions {
   onLine?: (line: string) => void;
   /** Append the complete combined output here (the file is created/opened in append mode). */
   logFile?: string;
+  /**
+   * Redact secrets line-by-line before they reach {@link logFile} (see `core/redact.ts`). Used for the
+   * shareable per-build log; left off for transient per-step logs, which keep raw chunk writes. Implies
+   * the tee normalizes line endings to `\n` (it writes whole redacted lines, not raw chunks).
+   */
+  redact?: boolean;
 }
 
 /**
@@ -62,14 +69,19 @@ export function runQuiet(command: string, args: string[], options: QuietExecOpti
       shell: false,
     });
 
-    // Buffer across chunks so `onLine` always receives whole lines, never a split fragment.
+    // Buffer across chunks so `onLine` always receives whole lines, never a split fragment. When
+    // redacting we tee whole (scrubbed) lines instead of raw chunks, so a secret can never straddle a
+    // chunk boundary and slip through un-redacted.
+    const { redact } = options;
     let pending = "";
     const consume = (chunk: Buffer): void => {
-      logStream?.write(chunk);
+      if (logStream && !redact) logStream.write(chunk);
       pending += chunk.toString();
       let newline = pending.indexOf("\n");
       while (newline !== -1) {
-        options.onLine?.(pending.slice(0, newline));
+        const line = pending.slice(0, newline);
+        if (logStream && redact) logStream.write(`${redactLine(line)}\n`);
+        options.onLine?.(line);
         pending = pending.slice(newline + 1);
         newline = pending.indexOf("\n");
       }
@@ -82,7 +94,10 @@ export function runQuiet(command: string, args: string[], options: QuietExecOpti
       reject(error);
     });
     child.on("close", (code) => {
-      if (pending) options.onLine?.(pending);
+      if (pending) {
+        if (logStream && redact) logStream.write(redactLine(pending));
+        options.onLine?.(pending);
+      }
       logStream?.end();
       if (code === 0) resolve();
       else reject(new Error(`${command} exited with code ${code ?? "unknown"}`));
