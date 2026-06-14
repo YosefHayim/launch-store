@@ -1,6 +1,6 @@
 /**
- * `launch creds [status|set-key|setup|use|rename|remove|refresh]` — manage credentials for either
- * platform and switch between multiple Apple accounts.
+ * `launch creds [status|set-key|setup|use|rename|remove|refresh|push-key]` — manage credentials for
+ * either platform and switch between multiple Apple accounts.
  *
  * - `set-key` onboards an account's API credential and makes it active. iOS: an App Store Connect API
  *   key (`.p8` + Key ID + Issuer ID), auto-discovering the `AuthKey_*.p8` in `~/Downloads`, validated
@@ -10,9 +10,11 @@
  * - `use` switches the active Apple account — `use <label>` directly, or a merged picker (onboarded
  *   accounts plus un-imported `.p8`s found on disk) when run with no argument.
  * - `rename` / `remove` / `refresh` manage the account registry; `status` reports every account.
+ * - `push-key [import|status|export]` is the APNs auth-key vault: import a download-once `.p8` Apple
+ *   has no API to mint, list what's vaulted, or re-export one to disk. See `core/pushKeyStore.ts`.
  */
 
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { Command } from "commander";
@@ -35,6 +37,7 @@ import {
 import { loadConfig } from "../../core/config.js";
 import { createLogger } from "../../core/logger.js";
 import { pickOne } from "../../core/prompt.js";
+import { findPushKey, importPushKey, listPushKeys, loadPushKey } from "../../core/pushKeyStore.js";
 import { interactiveConfirm, selectApp } from "../../core/pipeline.js";
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { ensureSigningCredentials } from "../../apple/credentials.js";
@@ -66,6 +69,12 @@ export interface CredsOptions {
   alias?: string;
   /** Non-interactive: fail (with the flag/env to set) instead of prompting. For CI, remote, agents. */
   yes?: boolean;
+  /** APNs Team ID for `push-key import`; defaults to the active account's resolved Team ID. */
+  teamId?: string;
+  /** Output path for `push-key export` — where to write the `.p8`; else prompted (or required in CI). */
+  out?: string;
+  /** Overwrite the existing file on `push-key export` (a deliberate guard around a secret). */
+  force?: boolean;
 }
 
 /**
@@ -489,14 +498,108 @@ async function setupAndroid(options: CredsOptions): Promise<void> {
   console.log(`Ready: upload keystore at ${tildify(keystore.path)} (alias ${keystore.alias}).`);
 }
 
+/** `launch creds push-key [import|status|export]` — the APNs push-key vault (import-only; Apple has no create API). */
+async function pushKeyCommand(sub: string | undefined, value: string | undefined, options: CredsOptions): Promise<void> {
+  switch (sub) {
+    case "import":
+      await importPushKeyCommand(value, options);
+      return;
+    case undefined:
+    case "status":
+      statusPushKeys();
+      return;
+    case "export":
+      await exportPushKeyCommand(value, options);
+      return;
+    default:
+      throw new Error(`Unknown push-key action "${sub}". Use import, status, or export.`);
+  }
+}
+
+/**
+ * Import an APNs `.p8` into the vault. The Key ID comes from the `AuthKey_<KEYID>.p8` filename (or
+ * `--key-id`); the Team ID defaults to the active account's. The source `.p8` is NOT offered for
+ * deletion — like the ASC key it's download-once from Apple, and unlike the ASC key there's no API to
+ * verify the stored copy works, so removing the only plaintext copy would be unsafe.
+ */
+async function importPushKeyCommand(pathArg: string | undefined, options: CredsOptions): Promise<void> {
+  const canPrompt = options.yes !== true && process.stdin.isTTY;
+  const given =
+    pathArg ??
+    options.p8 ??
+    (canPrompt
+      ? await ask("Path to the APNs key (.p8)", "~/Downloads/AuthKey_XXXX.p8")
+      : requireValue("A .p8 path", "the path as an argument"));
+  const path = expandHome(given);
+  if (!existsSync(path)) throw new Error(`No .p8 file at ${given}.`);
+
+  const keyId =
+    reconcileKeyId(options.keyId, extractKeyId(path)) ??
+    (canPrompt
+      ? await ask("APNs Key ID", "e.g. ABC123DEFG")
+      : requireValue("Key ID", "--key-id (or name the file AuthKey_<KEYID>.p8)"));
+  const teamId = options.teamId ?? getActiveAccount()?.teamId;
+  const label = options.label ?? keyId;
+
+  await importPushKey({ keyId, p8: readFileSync(path, "utf8"), label, ...(teamId ? { teamId } : {}) });
+  console.log(`Imported APNs key ${keyId}${teamId ? ` (team ${teamId})` : ""} into the vault.`);
+  console.log(`The .p8 stays in your keychain. Keep ${tildify(path)} too — Apple lets you download it only once.`);
+}
+
+/** List the APNs keys in the vault. */
+function statusPushKeys(): void {
+  const keys = listPushKeys();
+  if (keys.length === 0) {
+    console.log("No APNs keys in the vault. Import one with `launch creds push-key import <path-to-.p8>`.");
+    return;
+  }
+  for (const key of keys) {
+    const parts = [
+      key.label && key.label !== key.keyId ? key.label : undefined,
+      key.teamId ? `team ${key.teamId}` : undefined,
+    ].filter((part): part is string => Boolean(part));
+    console.log(`• ${key.keyId}${parts.length ? ` — ${parts.join(" · ")}` : ""}`);
+  }
+  console.log(`\n${keys.length} APNs key(s).`);
+}
+
+/** Export a vaulted APNs `.p8` back to disk (chmod 600), with a consent prompt and an overwrite guard. */
+async function exportPushKeyCommand(keyIdArg: string | undefined, options: CredsOptions): Promise<void> {
+  if (!keyIdArg) throw new Error("Usage: launch creds push-key export <keyId> --out <path>.");
+  const record = findPushKey(keyIdArg);
+  if (!record) throw new Error(`No APNs key "${keyIdArg}" in the vault. List them with \`launch creds push-key status\`.`);
+  const pem = await loadPushKey(record.keyId);
+  if (!pem) throw new Error(`APNs key ${record.keyId} has no stored secret — re-import it.`);
+
+  const canPrompt = options.yes !== true && process.stdin.isTTY;
+  const dest =
+    options.out ??
+    (canPrompt ? await ask("Write the .p8 to", `~/AuthKey_${record.keyId}.p8`) : requireValue("An output path", "--out <path>"));
+  const path = expandHome(dest);
+  if (existsSync(path) && options.force !== true) {
+    throw new Error(`${tildify(path)} already exists. Pass --force to overwrite.`);
+  }
+  if (canPrompt) {
+    const ok = await interactiveConfirm(
+      `Write the secret APNs key ${record.keyId} to ${tildify(path)}? Treat the file like a password.`,
+    );
+    if (!ok) {
+      console.log("Left unchanged.");
+      return;
+    }
+  }
+  writeFileSync(path, pem, { mode: 0o600 });
+  console.log(`Wrote APNs key ${record.keyId} to ${tildify(path)} (chmod 600). Keep it secret.`);
+}
+
 /** Attach the `creds` command to the program. */
 export function registerCredsCommand(program: Command): void {
   program
     .command("creds")
     .description("inspect credentials, onboard/switch Apple accounts, or provision signing assets")
-    .argument("[action]", "status | set-key | setup | use | rename | remove | refresh", "status")
-    .argument("[value]", "account selector (use/rename/remove/refresh) or Android set-key JSON path")
-    .argument("[value2]", "rename: the new label")
+    .argument("[action]", "status | set-key | setup | use | rename | remove | refresh | push-key", "status")
+    .argument("[value]", "account selector / Android set-key path / push-key sub-action (import|status|export)")
+    .argument("[value2]", "rename: new label · push-key: import .p8 path or export Key ID")
     .option("--platform <p>", "ios (default) or android")
     .option("--key-id <id>", "iOS: App Store Connect Key ID (else read from the AuthKey_*.p8 filename)")
     .option("--issuer-id <id>", "iOS: Issuer ID UUID (else ASC_ISSUER_ID, else prompted)")
@@ -505,6 +608,9 @@ export function registerCredsCommand(program: Command): void {
     .option("--account <name>", "iOS setup: account to provision against (label or Key ID; default: active)")
     .option("--import <keystore>", "Android setup: import an existing upload keystore instead of generating one")
     .option("--alias <alias>", "Android setup: key alias inside the imported keystore")
+    .option("--team-id <id>", "push-key import: Apple Team ID for the APNs key (default: active account's team)")
+    .option("--out <path>", "push-key export: file path to write the .p8 to")
+    .option("--force", "push-key export: overwrite the output file if it already exists")
     .option("--yes", "non-interactive: fail instead of prompting (CI, remote, agents)")
     .action(async (action: string, value: string | undefined, value2: string | undefined, options: CredsOptions) => {
       const platform = options.platform ?? "ios";
@@ -535,8 +641,13 @@ export function registerCredsCommand(program: Command): void {
         case "refresh":
           await refreshAccounts(value);
           return;
+        case "push-key":
+          await pushKeyCommand(value, value2, options);
+          return;
         default:
-          throw new Error(`Unknown action "${action}". Use status, set-key, setup, use, rename, remove, or refresh.`);
+          throw new Error(
+            `Unknown action "${action}". Use status, set-key, setup, use, rename, remove, refresh, or push-key.`,
+          );
       }
     });
 }
