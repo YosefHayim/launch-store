@@ -4,13 +4,8 @@ import type {
   AppClipLocalizationResource,
   AppClipResource,
 } from "../apple/ascClient.js";
-import {
-  type AppClipsConfig,
-  type AscAppClipsApi,
-  parseAppClipsConfig,
-  reconcileAppClips,
-  summarizeAppClips,
-} from "./appClips.js";
+import { type AscAppClipsApi, parseAppClipsConfig, reconcileAppClips, summarizeAppClips } from "./appClips.js";
+import type { AppClipsConfig } from "./types.js";
 
 /** Records every write the reconciler makes, so a test can assert what was (and wasn't) sent. */
 interface Calls {

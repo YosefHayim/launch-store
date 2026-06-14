@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { AlternativeDistributionDomainResource } from "../apple/ascClient.js";
 import {
   type AscEuDistributionApi,
-  type EuDistributionConfig,
   parseEuDistributionConfig,
   reconcileEuDistributionDomains,
   summarizeEuDistribution,
 } from "./euDistribution.js";
+import type { EuDistributionConfig } from "./types.js";
 
 /** A hand-rolled {@link AscEuDistributionApi} — no network — serving `existing` and recording creates. */
 function makeApi(existing: AlternativeDistributionDomainResource[]): {

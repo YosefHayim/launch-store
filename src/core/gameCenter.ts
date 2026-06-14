@@ -34,55 +34,12 @@ import {
   type LeaderboardSubmissionType,
 } from "../apple/ascClient.js";
 import type { PlannedAction } from "./ascSync.js";
+import type { AchievementConfig, GameCenterConfig, LeaderboardConfig } from "./types.js";
 
 /** Default locale for an achievement / leaderboard localization that doesn't name one. */
 const DEFAULT_LOCALE = "en-US";
 const SUBMISSION_TYPES: readonly LeaderboardSubmissionType[] = ["BEST_SCORE", "MOST_RECENT_SCORE"];
 const SORT_TYPES: readonly LeaderboardSortType[] = ["ASC", "DESC"];
-
-/** One declared achievement: Apple's create attributes plus its default-locale localization text. */
-export interface AchievementConfig {
-  /** Developer-chosen stable id used to match config to Apple's record (never shown to players). */
-  vendorIdentifier: string;
-  /** Internal name shown in App Store Connect. */
-  referenceName: string;
-  /** Points awarded (Apple caps the total across achievements at 1000). */
-  points: number;
-  /** Whether the achievement is visible to players before it's earned (default false). */
-  showBeforeEarned?: boolean;
-  /** Whether it can be earned more than once (default false). */
-  repeatable?: boolean;
-  /** Player-facing title in the localization. */
-  name: string;
-  /** Player-facing description shown before the achievement is earned. */
-  beforeEarnedDescription: string;
-  /** Player-facing description shown after it's earned. */
-  afterEarnedDescription: string;
-  /** Locale for the localization above (default `en-US`). */
-  locale?: string;
-}
-
-/** One declared leaderboard: Apple's create attributes plus its default-locale localization name. */
-export interface LeaderboardConfig {
-  vendorIdentifier: string;
-  referenceName: string;
-  /** How scores are formatted (e.g. `INTEGER`, `ELAPSED_TIME_SECOND`). */
-  defaultFormatter: LeaderboardFormatter;
-  /** Whether the board keeps each player's best or most recent score. */
-  submissionType: LeaderboardSubmissionType;
-  /** Whether higher (`DESC`) or lower (`ASC`) scores rank first. */
-  scoreSortType: LeaderboardSortType;
-  /** Player-facing title in the localization. */
-  name: string;
-  /** Locale for the localization above (default `en-US`). */
-  locale?: string;
-}
-
-/** The full `gamecenter.config.json` document — either list may be omitted. */
-export interface GameCenterConfig {
-  achievements?: AchievementConfig[];
-  leaderboards?: LeaderboardConfig[];
-}
 
 /**
  * The exact slice of {@link AppStoreConnectClient} the Game Center reconciler depends on. Declared here

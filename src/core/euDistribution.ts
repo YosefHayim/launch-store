@@ -19,20 +19,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import type { AlternativeDistributionDomainResource } from "../apple/ascClient.js";
 import type { PlannedAction } from "./ascSync.js";
-
-/** One authorized distribution domain: the host plus a human-readable reference name. */
-export interface EuDistributionDomainConfig {
-  /** The domain authorized to host distribution packages (e.g. `downloads.acme.com`). */
-  domain: string;
-  /** A label shown in App Store Connect to identify the domain. */
-  referenceName: string;
-}
-
-/** The full `eu-distribution.config.json` document. */
-export interface EuDistributionConfig {
-  /** Domains to authorize for EU alternative distribution. */
-  domains: EuDistributionDomainConfig[];
-}
+import type { EuDistributionConfig, EuDistributionDomainConfig } from "./types.js";
 
 /**
  * The exact slice of {@link AppStoreConnectClient} the domain reconciler depends on. Declaring it here
