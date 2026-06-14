@@ -34,6 +34,7 @@ import {
 } from "../../core/accounts.js";
 import { loadConfig } from "../../core/config.js";
 import { createLogger } from "../../core/logger.js";
+import { pickOne } from "../../core/prompt.js";
 import { interactiveConfirm, selectApp } from "../../core/pipeline.js";
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { ensureSigningCredentials } from "../../apple/credentials.js";
@@ -140,19 +141,16 @@ async function resolveP8Path(options: CredsOptions, canPrompt: boolean): Promise
     return first;
   }
   if (first) {
-    if (!canPrompt) {
-      console.log(`Multiple API keys found; using ${tildify(first)}. Pass --p8 to choose another.`);
-      return first;
-    }
-    const choice = await select({
+    return pickOne<string>({
       message: "Multiple API keys found — pick one:",
       options: found.map((path) => ({ value: path, label: tildify(path) })),
+      canPrompt,
+      nonInteractive: {
+        kind: "fallback",
+        value: first,
+        note: `Multiple API keys found; using ${tildify(first)}. Pass --p8 to choose another.`,
+      },
     });
-    if (isCancel(choice)) {
-      cancel("Cancelled.");
-      process.exit(0);
-    }
-    return choice;
   }
 
   if (!canPrompt) requireValue("A .p8 key file", "--p8 <path> or ASC_API_KEY_PATH (none found in ~/Downloads)");
