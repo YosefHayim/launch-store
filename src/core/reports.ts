@@ -66,17 +66,32 @@ export function parseTsv(text: string): ParsedReport {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * Parse a strict `YYYY-MM-DD` into a UTC timestamp, rejecting both a malformed format and an
+ * out-of-range calendar date. `Date.parse`/`Date.UTC` silently *normalize* an overflow (e.g.
+ * `2026-06-31` → July 1), which would download the wrong day; the round-trip check below catches that
+ * and fails loudly instead.
+ */
+function parseYmd(date: string): number {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!match) throw new Error(`Invalid date "${date}" (use YYYY-MM-DD).`);
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const ms = Date.UTC(year, month - 1, day);
+  const back = new Date(ms);
+  if (back.getUTCFullYear() !== year || back.getUTCMonth() !== month - 1 || back.getUTCDate() !== day) {
+    throw new Error(`Invalid calendar date "${date}".`);
+  }
+  return ms;
+}
+
+/**
  * Every calendar date from `from` to `to` inclusive as `YYYY-MM-DD`, for downloading a span of DAILY
  * reports in one command. Pure UTC arithmetic, so it's deterministic regardless of host timezone.
- * Throws on a malformed bound or an inverted range, so a typo fails loudly rather than looping or
- * silently doing nothing.
+ * Throws on a malformed/out-of-range bound or an inverted range, so a typo fails loudly rather than
+ * looping or silently doing nothing.
  */
 export function eachDate(from: string, to: string): string[] {
-  const start = Date.parse(`${from}T00:00:00Z`);
-  const end = Date.parse(`${to}T00:00:00Z`);
-  if (Number.isNaN(start) || Number.isNaN(end)) {
-    throw new Error(`Invalid date range ${from}..${to} (use YYYY-MM-DD).`);
-  }
+  const start = parseYmd(from);
+  const end = parseYmd(to);
   if (end < start) throw new Error(`Date range end ${to} is before start ${from}.`);
   const dates: string[] = [];
   for (let day = start; day <= end; day += DAY_MS) {

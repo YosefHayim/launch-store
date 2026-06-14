@@ -79,13 +79,19 @@ function writeReport(outDir: string, baseName: string, text: string, asJson: boo
   return { path, rows: parsed.rows.length };
 }
 
-/** Download + write one report, surfacing Apple's "no data" 404 as a notice rather than a hard failure. */
+/**
+ * Download + write one report. When `noDataOn404` is set (sales/finance), Apple's 404-with-"no sales"
+ * for an empty period is treated as a normal empty result rather than an error. Analytics passes it
+ * false: a segment-download 404 ("resource does not exist") is a genuine failure that must surface,
+ * not be masked as "no data".
+ */
 async function downloadOne(
   log: Logger,
   baseName: string,
   asJson: boolean,
   outDir: string,
   fetchBytes: () => Promise<Buffer>,
+  noDataOn404: boolean,
 ): Promise<void> {
   try {
     const text = decompressReport(await fetchBytes());
@@ -93,8 +99,7 @@ async function downloadOne(
     log.step(baseName, `${rows} row${rows === 1 ? "" : "s"} → ${path}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    // Apple returns 404 with "There were no sales…" for a period with no data — a normal empty result.
-    if (message.includes("(404)")) {
+    if (noDataOn404 && message.includes("(404)")) {
       log.info(`${baseName}: no data for this period.`);
       return;
     }
@@ -169,15 +174,21 @@ export function registerReportsCommand(program: Command): void {
       const dates = resolveSalesDates(options);
       const client = await activeClient();
       for (const date of dates) {
-        await downloadOne(log, `sales-${options.frequency}-${date}`, options.json === true, options.out, () =>
-          client.getSalesReport({
-            vendorNumber,
-            frequency: options.frequency,
-            reportType: options.reportType,
-            reportSubType: options.subType,
-            reportDate: date,
-            ...(options.version ? { version: options.version } : {}),
-          }),
+        await downloadOne(
+          log,
+          `sales-${options.frequency}-${date}`,
+          options.json === true,
+          options.out,
+          () =>
+            client.getSalesReport({
+              vendorNumber,
+              frequency: options.frequency,
+              reportType: options.reportType,
+              reportSubType: options.subType,
+              reportDate: date,
+              ...(options.version ? { version: options.version } : {}),
+            }),
+          true,
         );
       }
     });
@@ -197,13 +208,19 @@ export function registerReportsCommand(program: Command): void {
       const { date } = options;
       if (!date) throw new Error("A fiscal period is required. Pass --date <YYYY-MM>.");
       const client = await activeClient();
-      await downloadOne(log, `finance-${options.region}-${date}`, options.json === true, options.out, () =>
-        client.getFinanceReport({
-          vendorNumber,
-          reportDate: date,
-          regionCode: options.region,
-          reportType: options.reportType,
-        }),
+      await downloadOne(
+        log,
+        `finance-${options.region}-${date}`,
+        options.json === true,
+        options.out,
+        () =>
+          client.getFinanceReport({
+            vendorNumber,
+            reportDate: date,
+            regionCode: options.region,
+            reportType: options.reportType,
+          }),
+        true,
       );
     });
 
@@ -246,7 +263,14 @@ export function registerReportsCommand(program: Command): void {
       for (const download of collection.downloads) {
         const datePart = download.processingDate || "all";
         const baseName = `analytics-${slug(download.reportName)}-${datePart}-${index++}`;
-        await downloadOne(log, baseName, false, options.out, () => client.downloadAnalyticsSegment(download.url));
+        await downloadOne(
+          log,
+          baseName,
+          false,
+          options.out,
+          () => client.downloadAnalyticsSegment(download.url),
+          false,
+        );
       }
       log.step(
         "analytics",
