@@ -10,7 +10,7 @@
 
 import { join } from "node:path";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { cancel, confirm, isCancel, select } from "@clack/prompts";
+import { autocomplete, cancel, confirm, isCancel, select } from "@clack/prompts";
 import type {
   AndroidCredentials,
   AndroidReleaseOptions,
@@ -35,7 +35,7 @@ import { getBuildEngine, getCredentialsProvider, getStorageProvider, getSubmitte
 import { createLogger, type Logger } from "./logger.js";
 import type { GlossaryTopic } from "./glossary.js";
 import { capture, exists, run } from "./exec.js";
-import { runWithProgress } from "./progress.js";
+import { isInteractive, runWithProgress, withSpinner } from "./progress.js";
 import { AppStoreConnectClient } from "../apple/ascClient.js";
 import { ensureSigningCredentials } from "../apple/credentials.js";
 import { ensureUploadKeystore } from "../google/credentials.js";
@@ -60,6 +60,8 @@ export interface BuildRunOptions {
   rollout?: number;
   /** Rehearse the flow with no real changes (`--dry-run`). */
   dryRun: boolean;
+  /** Skip the interactive pre-upload confirmation (`--yes`); always implied in CI / non-TTY. */
+  yes?: boolean;
   /** Force a from-scratch build (`--clean`); omitted/false lets the fingerprint decide. iOS-gated; Android cleans too. */
   forceClean?: boolean;
   /** Build on a remote Mac (AWS EC2 Mac / a Mac over SSH) instead of locally. iOS-only. */
@@ -132,7 +134,30 @@ const delay = (ms: number): Promise<void> =>
     setTimeout(resolve, ms);
   });
 
-/** Pick the app to build: an explicit `--app`, the sole discovered app, or an interactive prompt. */
+/** Above this many apps, the picker switches from a flat list to a type-to-search autocomplete. */
+const APP_PICKER_SEARCH_THRESHOLD = 8;
+
+/**
+ * Subsequence fuzzy match: every character of `query` must appear in `haystack` in order, case-
+ * insensitively (so `"pmd"` matches `"pomedero"`). Dependency-free; powers the app picker's filter
+ * over big monorepos without pulling in a ranking library.
+ */
+export function fuzzyMatch(query: string, haystack: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  const hay = haystack.toLowerCase();
+  let n = 0;
+  for (let h = 0; h < hay.length && n < needle.length; h++) {
+    if (hay[h] === needle[n]) n++;
+  }
+  return n === needle.length;
+}
+
+/**
+ * Pick the app to build: an explicit `--app`, the sole discovered app, or an interactive prompt.
+ * Past {@link APP_PICKER_SEARCH_THRESHOLD} apps (large monorepos) the flat list would overflow the
+ * viewport, so it switches to a fuzzy type-to-search autocomplete over the name and bundle/package id.
+ */
 export async function selectApp(apps: AppDescriptor[], appName: string | undefined): Promise<AppDescriptor> {
   if (apps.length === 0) throw new Error("No apps found. Run Launch from a repo containing at least one app.json.");
   if (appName) {
@@ -142,10 +167,21 @@ export async function selectApp(apps: AppDescriptor[], appName: string | undefin
   }
   const sole = apps[0];
   if (apps.length === 1 && sole) return sole;
-  const choice = await select({
-    message: "Which app?",
-    options: apps.map((app) => ({ value: app.name, label: `${app.name}${app.bundleId ? `  (${app.bundleId})` : ""}` })),
+
+  const options = apps.map((app) => {
+    const hint = app.bundleId ?? app.packageName;
+    return hint ? { value: app.name, label: app.name, hint } : { value: app.name, label: app.name };
   });
+  const choice =
+    apps.length > APP_PICKER_SEARCH_THRESHOLD
+      ? await autocomplete({
+          message: `Which app? (${apps.length} found)`,
+          options,
+          placeholder: "Type to search…",
+          maxItems: 10,
+          filter: (search, option) => fuzzyMatch(search, `${option.value} ${option.hint ?? ""}`),
+        })
+      : await select({ message: "Which app?", options });
   if (isCancel(choice)) {
     cancel("Cancelled.");
     process.exit(0);
@@ -322,7 +358,11 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
 
   // 4. Auto-bump the build number from the last one Apple has on record.
   const bundleId = app.bundleId ?? "";
-  const buildNumber = await nextBuildNumber(resolved.ascKey, bundleId, dryRun);
+  const buildNumber = dryRun
+    ? await nextBuildNumber(resolved.ascKey, bundleId, dryRun)
+    : await withSpinner("Checking last build number on App Store Connect", () =>
+        nextBuildNumber(resolved.ascKey, bundleId, dryRun),
+      );
   const stamped = dryRun ? false : await setIosBuildNumber(app.dir, buildNumber);
   log.step(
     "build number",
@@ -342,26 +382,35 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
   );
   log.step(
     "build",
-    dryRun ? "skipped (dry-run)" : `${cleanBuilt ? "clean (from scratch)" : "incremental (cache warm)"} · ${artifactPath}`,
+    dryRun
+      ? "skipped (dry-run)"
+      : `${cleanBuilt ? "clean (from scratch)" : "incremental (cache warm)"} · ${artifactPath}`,
     "incremental-build",
   );
   if (!dryRun) await reportCcacheStats(log);
 
-  // 6. Show size and soft-gate against the profile budget.
-  await reportSizeAndGate(sizeReport, prepared.profile.sizeBudgetMB ?? 200, log);
+  // 6. Show the per-device size readout (the budget decision happens at the upload boundary).
+  reportSize(sizeReport, log);
 
   // 7. Store the artifact (shared with Android).
   await storeArtifact(prepared, artifactPath, buildNumber, sizeReport, cleanBuilt);
 
-  // 8. Submit (TestFlight by default), then report processing status.
+  // 8. Confirm the upload (size shown; budget enforced here), submit, then report processing status.
+  const destination = options.target === "testing" ? "TestFlight" : "App Store review";
   if (options.submit) {
     if (dryRun) {
-      log.step(
-        "submit",
-        `would upload to ${options.target === "testing" ? "TestFlight" : "App Store review"}`,
-        "testflight",
-      );
+      log.step("submit", `would upload to ${destination}`, "testflight");
     } else {
+      await confirmUpload({
+        report: sizeReport,
+        budgetMB: prepared.profile.sizeBudgetMB ?? 200,
+        destination,
+        app,
+        version: app.version ?? "0.0.0",
+        buildNumber,
+        yes: options.yes ?? false,
+        log,
+      });
       await getSubmitter(resolveSubmitterName(config, "ios")).submit(artifactPath, options.target, credentials, ctx);
       log.step(
         "submit",
@@ -374,10 +423,22 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
     }
   }
 
-  log.gap();
-  log.info(
-    `Done. ${app.name} ${app.version ?? "0.0.0"} (${buildNumber})${dryRun ? " · dry-run, nothing changed" : ` · ${mb(sizeReport.artifactBytes)} on disk`}`,
-  );
+  if (dryRun) {
+    log.gap();
+    log.info(`Done. ${app.name} ${app.version ?? "0.0.0"} (${buildNumber}) · dry-run, nothing changed`);
+    return;
+  }
+  const link =
+    options.submit && bundleId ? await resolveAscBuildLink(resolved.ascKey, bundleId, options.target) : undefined;
+  renderReceipt({
+    app,
+    version: app.version ?? "0.0.0",
+    buildNumber,
+    report: sizeReport,
+    destination: receiptDestination("ios", options),
+    link,
+    log,
+  });
 }
 
 /** The Android spine: prebuild → resolve service account + keystore → versionCode → gradle .aab → size → store → supply. */
@@ -404,12 +465,11 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
   };
 
   // 4. Auto-bump the versionCode from the latest Google Play has on record (app.json as a floor).
-  const versionCode = await nextVersionCode(
-    resolved.serviceAccountJson,
-    packageName,
-    app.androidVersionCode ?? 0,
-    dryRun,
-  );
+  const versionCode = dryRun
+    ? await nextVersionCode(resolved.serviceAccountJson, packageName, app.androidVersionCode ?? 0, dryRun)
+    : await withSpinner("Checking latest versionCode on Google Play", () =>
+        nextVersionCode(resolved.serviceAccountJson, packageName, app.androidVersionCode ?? 0, dryRun),
+      );
   const stamped = dryRun ? false : setAndroidVersionCode(app.dir, versionCode);
   log.step(
     "version code",
@@ -422,28 +482,37 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
   );
 
   // 5. Compile, sign (upload key), export the .aab, and estimate the download with bundletool.
-  const { artifactPath, sizeReport, cleanBuilt } = await getBuildEngine(resolveBuildEngineName(config, "android")).build(
-    ctx,
-    credentials,
-  );
+  const { artifactPath, sizeReport, cleanBuilt } = await getBuildEngine(
+    resolveBuildEngineName(config, "android"),
+  ).build(ctx, credentials);
   log.step(
     "build",
     dryRun ? "skipped (dry-run)" : `${cleanBuilt ? "clean (from scratch)" : "incremental (Gradle)"} · ${artifactPath}`,
     "incremental-build",
   );
 
-  // 6. Show size and soft-gate against the profile budget (shared gate; bundletool estimate).
-  await reportSizeAndGate(sizeReport, prepared.profile.sizeBudgetMB ?? 200, log, "bundletool");
+  // 6. Show the size readout (bundletool estimate; the budget decision happens at the upload boundary).
+  reportSize(sizeReport, log, "bundletool");
 
   // 7. Store the artifact (shared with iOS).
   await storeArtifact(prepared, artifactPath, versionCode, sizeReport, cleanBuilt);
 
-  // 8. Submit to the resolved Play track via fastlane supply.
+  // 8. Confirm the upload (size shown; budget enforced here), then submit via fastlane supply.
   const track = ctx.android?.track ?? "internal";
   if (options.submit) {
     if (dryRun) {
       log.step("submit", `would upload to the ${track} track via fastlane supply`, "play-track");
     } else {
+      await confirmUpload({
+        report: sizeReport,
+        budgetMB: prepared.profile.sizeBudgetMB ?? 200,
+        destination: `Google Play (${track} track)`,
+        app,
+        version: app.version ?? "0.0.0",
+        buildNumber: versionCode,
+        yes: options.yes ?? false,
+        log,
+      });
       await getSubmitter(resolveSubmitterName(config, "android")).submit(
         artifactPath,
         options.target,
@@ -454,10 +523,20 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
     }
   }
 
-  log.gap();
-  log.info(
-    `Done. ${app.name} ${app.version ?? "0.0.0"} (${versionCode})${dryRun ? " · dry-run, nothing changed" : ` · ${mb(sizeReport.artifactBytes)} on disk`}`,
-  );
+  if (dryRun) {
+    log.gap();
+    log.info(`Done. ${app.name} ${app.version ?? "0.0.0"} (${versionCode}) · dry-run, nothing changed`);
+    return;
+  }
+  renderReceipt({
+    app,
+    version: app.version ?? "0.0.0",
+    buildNumber: versionCode,
+    report: sizeReport,
+    destination: receiptDestination("android", options, track),
+    link: options.submit ? "https://play.google.com/console" : undefined,
+    log,
+  });
 }
 
 /** Store the built artifact (skipped in dry-run) and log its location. Shared by both platform spines. */
@@ -491,7 +570,9 @@ async function storeArtifact(
 /** Nudge (once, before building) when ccache is absent — the build still runs, just uncached. */
 async function nudgeIfNoCcache(log: Logger): Promise<void> {
   if (!(await exists("ccache"))) {
-    log.warn("ccache isn't installed — this build won't be cached. Run `launch doctor --fix` to speed up future builds.");
+    log.warn(
+      "ccache isn't installed — this build won't be cached. Run `launch doctor --fix` to speed up future builds.",
+    );
   }
 }
 
@@ -587,7 +668,10 @@ function setAndroidVersionCode(appDir: string, versionCode: number): boolean {
   return true;
 }
 
-/** Poll the uploaded build's processing state briefly so the run ends with a clear status. */
+/**
+ * Poll the uploaded build's processing state briefly under a spinner, so the run ends with a clear
+ * status instead of dead air between polls. Safe to Ctrl-C — Apple keeps processing regardless.
+ */
 async function reportProcessing(
   ascKey: AppleCredentials["ascKey"],
   bundleId: string,
@@ -595,50 +679,146 @@ async function reportProcessing(
   log: Logger,
 ): Promise<void> {
   const asc = new AppStoreConnectClient(ascKey);
-  log.info("Waiting for TestFlight to process the build (safe to Ctrl-C; it keeps processing)…");
-  for (let attempt = 0; attempt < 6; attempt++) {
-    await delay(10_000);
-    try {
-      const state = await asc.getBuildProcessingState(bundleId, buildNumber);
-      if (state && state !== "PROCESSING") {
-        log.step("processing", state === "VALID" ? "ready to test on TestFlight" : `state: ${state}`);
-        return;
+  const state = await withSpinner("Processing on Apple's side (safe to Ctrl-C; it keeps processing)", async () => {
+    for (let attempt = 0; attempt < 6; attempt++) {
+      await delay(10_000);
+      try {
+        const current = await asc.getBuildProcessingState(bundleId, buildNumber);
+        if (current && current !== "PROCESSING") return current;
+      } catch {
+        /* transient; keep polling */
       }
-    } catch {
-      /* transient; keep polling */
     }
+    return null;
+  });
+  if (state) {
+    log.step("processing", state === "VALID" ? "ready to test on TestFlight" : `state: ${state}`);
+  } else {
+    log.info("Still processing — it'll appear in TestFlight shortly.");
   }
-  log.info("Still processing — it'll appear in TestFlight shortly.");
+}
+
+/** Worst-case store download across device variants, or the on-disk size when no per-device report exists. */
+export function worstDownloadBytes(report: SizeReport): number {
+  if (report.entries.length === 0) return report.artifactBytes;
+  return report.entries.reduce((max, entry) => Math.max(max, entry.downloadBytes), 0);
 }
 
 /**
- * Print the size report and, if the worst-case download exceeds the budget, ask before continuing.
- * Shared by every build path; `sizeTopic` lets the caller pick the right `--explain` block (iOS app
- * thinning vs Android bundletool). Install size is shown only when the platform gives an honest figure.
+ * The canonical size string wherever a size headline appears (the upload confirm and the receipt):
+ * both numbers, no hierarchy. Falls back to on-disk alone when the build produced no per-device
+ * estimate, so the line never claims a download figure it doesn't have.
  */
-export async function reportSizeAndGate(
-  report: SizeReport,
-  budgetMB: number,
-  log: Logger,
-  sizeTopic: GlossaryTopic = "app-thinning",
-): Promise<void> {
-  const budgetBytes = budgetMB * 1024 * 1024;
+export function sizeSummary(report: SizeReport): string {
+  if (report.entries.length === 0) return `on disk ${mb(report.artifactBytes)} (no per-device estimate)`;
+  return `download ${mb(worstDownloadBytes(report))} · on disk ${mb(report.artifactBytes)}`;
+}
+
+/**
+ * Print the per-device size readout for a freshly built artifact (iOS thinning / Android bundletool),
+ * or a single on-disk line when there's no per-device report. Display only — the budget decision lives
+ * in {@link confirmUpload}, so this runs on every build, including `--no-submit`. `sizeTopic` selects
+ * the matching `--explain` block.
+ */
+export function reportSize(report: SizeReport, log: Logger, sizeTopic: GlossaryTopic = "app-thinning"): void {
   if (report.entries.length === 0) {
     log.step("size", `${mb(report.artifactBytes)} on disk (no per-device report)`, sizeTopic);
     return;
   }
-  const worst = report.entries.reduce((max, entry) => (entry.downloadBytes > max.downloadBytes ? entry : max));
   for (const entry of report.entries) {
     const installSuffix = entry.installBytes > 0 ? ` · install ${mb(entry.installBytes)}` : "";
     log.step("size", `${entry.device}: download ${mb(entry.downloadBytes)}${installSuffix}`, sizeTopic);
   }
-  if (worst.downloadBytes > budgetBytes) {
-    const proceed = await confirm({
-      message: `${worst.device} downloads ${mb(worst.downloadBytes)}, over the ${budgetMB} MB budget. Continue?`,
-    });
-    if (isCancel(proceed) || !proceed) {
-      cancel("Stopped before upload (over size budget).");
-      process.exit(0);
-    }
+}
+
+/** Inputs for the pre-upload checkpoint {@link confirmUpload}. */
+export interface ConfirmUploadOptions {
+  report: SizeReport;
+  /** Soft size budget in MB; an over-budget worst-case download leads the prompt with a warning. */
+  budgetMB: number;
+  /** Human destination, e.g. `"TestFlight"`, `"App Store review"`, or `"Google Play (internal track)"`. */
+  destination: string;
+  app: AppDescriptor;
+  /** App version string, e.g. `1.0.0`. */
+  version: string;
+  /** Build number (iOS) or versionCode (Android) about to be uploaded. */
+  buildNumber: number;
+  /** `--yes`: skip the prompt and proceed (also implied in CI / non-TTY). */
+  yes: boolean;
+  log: Logger;
+}
+
+/**
+ * The single pre-upload checkpoint, at the real upload boundary. It always surfaces what's about to
+ * ship — app, build number, and the both-numbers size — and, when the worst-case download exceeds the
+ * budget, leads with a warning (this is where the old size gate now lives). In an interactive terminal
+ * it asks to continue; in CI / a pipe / under `--yes` it never blocks on stdin — it proceeds, but
+ * still logs the over-budget warning so the record shows it.
+ */
+export async function confirmUpload(options: ConfirmUploadOptions): Promise<void> {
+  const { report, budgetMB, destination, app, version, buildNumber, yes, log } = options;
+  const overBudget = worstDownloadBytes(report) > budgetMB * 1024 * 1024;
+
+  log.notice(`▲ Upload to ${destination}`, `${app.name} ${version} (build ${buildNumber}) · ${sizeSummary(report)}`);
+  if (overBudget) {
+    log.warn(`Worst-case download ${mb(worstDownloadBytes(report))} is over the ${budgetMB} MB budget.`);
   }
+
+  if (yes || !isInteractive()) {
+    if (overBudget) log.info("Proceeding anyway (non-interactive or --yes).");
+    return;
+  }
+  const proceed = await confirm({ message: "Continue?" });
+  if (isCancel(proceed) || !proceed) {
+    cancel(overBudget ? "Stopped before upload (over size budget)." : "Stopped before upload.");
+    process.exit(0);
+  }
+}
+
+/** The receipt's destination line: where the build actually went (or that it wasn't uploaded). */
+function receiptDestination(platform: Platform, options: BuildRunOptions, track?: PlayTrack): string {
+  if (!options.submit) return "built · not uploaded";
+  if (platform === "android") return `Play · ${track ?? "internal"} track`;
+  return options.target === "testing" ? "TestFlight" : "App Store · in review";
+}
+
+/**
+ * Best-effort deep link to the uploaded build in App Store Connect: a real per-app TestFlight/overview
+ * URL when the app id resolves, else the console home. Never throws — a link is a nicety, not a gate.
+ */
+async function resolveAscBuildLink(
+  ascKey: AppleCredentials["ascKey"],
+  bundleId: string,
+  target: SubmitTarget,
+): Promise<string> {
+  const appId = await new AppStoreConnectClient(ascKey).getAppId(bundleId).catch(() => null);
+  if (!appId) return "https://appstoreconnect.apple.com";
+  return target === "testing"
+    ? `https://appstoreconnect.apple.com/apps/${appId}/testflight/ios`
+    : `https://appstoreconnect.apple.com/apps/${appId}`;
+}
+
+/** Inputs for the end-of-run {@link renderReceipt} summary. */
+interface ReceiptOptions {
+  app: AppDescriptor;
+  version: string;
+  buildNumber: number;
+  report: SizeReport;
+  /** Where it landed, from {@link receiptDestination}. */
+  destination: string;
+  /** Best-effort console deep link; omitted in dry-run / `--no-submit` / when unresolved. */
+  link?: string | undefined;
+  log: Logger;
+}
+
+/**
+ * The end-of-run "Shipped" receipt: one scannable summary of what landed where — app/version/build,
+ * the both-numbers size, the destination, and a console link. Rendered as a box on a TTY, plain lines
+ * in CI (see {@link Logger.box}).
+ */
+export function renderReceipt(options: ReceiptOptions): void {
+  const { app, version, buildNumber, report, destination, link, log } = options;
+  const rows = [`${app.name} ${version} (${buildNumber})`, sizeSummary(report), destination];
+  if (link) rows.push(link);
+  log.box("Shipped", rows);
 }

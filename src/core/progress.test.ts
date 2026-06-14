@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { formatElapsed, gradleProgressStep, selectProgressMode, xcodeProgressStep } from "./progress.js";
+import {
+  formatElapsed,
+  gradleProgressStep,
+  isInteractive,
+  selectProgressMode,
+  withSpinner,
+  xcodeProgressStep,
+} from "./progress.js";
 
 describe("selectProgressMode — only a real interactive TTY gets the spinner", () => {
   it("uses the spinner on an interactive, non-CI TTY without --verbose", () => {
@@ -46,6 +53,34 @@ describe("xcodeProgressStep — surface the xcpretty step", () => {
     expect(step).toBeDefined();
     expect(step?.length).toBeLessThanOrEqual(52);
     expect(step?.endsWith("…")).toBe(true);
+  });
+});
+
+describe("isInteractive — prompt only on a real, non-CI TTY", () => {
+  it("is true on an interactive TTY with no CI marker", () => {
+    expect(isInteractive(true, {})).toBe(true);
+  });
+
+  it("is false when stdout isn't a TTY (pipes, log files, agents)", () => {
+    expect(isInteractive(false, {})).toBe(false);
+  });
+
+  it("is false in CI even on a TTY, so it never blocks on stdin", () => {
+    expect(isInteractive(true, { CI: "true" })).toBe(false);
+  });
+});
+
+describe("withSpinner — silent network steps degrade cleanly off-TTY", () => {
+  it("runs the task and returns its result (no spinner without a TTY)", async () => {
+    await expect(withSpinner("looking up", async () => 42)).resolves.toBe(42);
+  });
+
+  it("propagates a task rejection", async () => {
+    await expect(
+      withSpinner("looking up", async () => {
+        throw new Error("boom");
+      }),
+    ).rejects.toThrow("boom");
   });
 });
 

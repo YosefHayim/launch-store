@@ -11,8 +11,8 @@ vi.mock("node:child_process", () => ({
 }));
 
 import { registerBuiltins } from "../providers/index.js";
-import { runBuild, selectApp } from "./pipeline.js";
-import type { AppDescriptor } from "./types.js";
+import { fuzzyMatch, runBuild, selectApp, sizeSummary, worstDownloadBytes } from "./pipeline.js";
+import type { AppDescriptor, SizeReport } from "./types.js";
 
 registerBuiltins();
 
@@ -116,5 +116,49 @@ describe("selectApp", () => {
     const beta = app("beta");
     expect(await selectApp([alpha, beta], "beta")).toBe(beta);
     await expect(selectApp([alpha, beta], "gamma")).rejects.toThrow(/App "gamma" not found/);
+  });
+});
+
+describe("fuzzyMatch — the app picker's subsequence filter", () => {
+  it("matches an in-order subsequence, case-insensitively", () => {
+    expect(fuzzyMatch("pmd", "pomedero")).toBe(true);
+    expect(fuzzyMatch("PMD", "Pomedero")).toBe(true);
+    expect(fuzzyMatch("pomedero", "pomedero")).toBe(true);
+  });
+
+  it("rejects characters that aren't a subsequence", () => {
+    expect(fuzzyMatch("dmp", "pomedero")).toBe(false);
+    expect(fuzzyMatch("xyz", "pomedero")).toBe(false);
+  });
+
+  it("treats a blank query as a match so the full list shows", () => {
+    expect(fuzzyMatch("", "anything")).toBe(true);
+    expect(fuzzyMatch("   ", "anything")).toBe(true);
+  });
+});
+
+describe("size helpers — the both-numbers headline (F2)", () => {
+  const MB = 1024 * 1024;
+  const report = (entries: SizeReport["entries"], artifactBytes = 64 * MB): SizeReport => ({ artifactBytes, entries });
+
+  it("worstDownloadBytes picks the largest per-device download", () => {
+    const r = report([
+      { device: "a", downloadBytes: 40 * MB, installBytes: 0 },
+      { device: "b", downloadBytes: 47 * MB, installBytes: 0 },
+    ]);
+    expect(worstDownloadBytes(r)).toBe(47 * MB);
+  });
+
+  it("worstDownloadBytes falls back to the on-disk size with no per-device entries", () => {
+    expect(worstDownloadBytes(report([], 61 * MB))).toBe(61 * MB);
+  });
+
+  it("sizeSummary shows both numbers when a per-device estimate exists", () => {
+    const r = report([{ device: "a", downloadBytes: 47.2 * MB, installBytes: 0 }], 61.3 * MB);
+    expect(sizeSummary(r)).toBe("download 47.2 MB · on disk 61.3 MB");
+  });
+
+  it("sizeSummary falls back to on-disk alone when there's no per-device estimate", () => {
+    expect(sizeSummary(report([], 61.3 * MB))).toBe("on disk 61.3 MB (no per-device estimate)");
   });
 });

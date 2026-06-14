@@ -27,7 +27,7 @@ import {
   interactiveConfirm,
   mb,
   nextBuildNumber,
-  reportSizeAndGate,
+  reportSize,
 } from "./pipeline.js";
 import { getComputeHost, getStorageProvider } from "./registry.js";
 import { type Logger } from "./logger.js";
@@ -96,7 +96,11 @@ function rehearse(prepared: PreparedBuild, options: BuildRunOptions, buildNumber
   log.step("acquire host", "would reuse the live paid-window host, or allocate one (typed cost consent first)");
   log.step("sync", "would sync the project into the host's persistent work tree (warm node_modules/ios/Pods)");
   log.step("upload creds", "would upload .p8/.p12/profile into a per-run ephemeral keychain on the host");
-  log.step("build", "would run fastlane gym on the host (incremental unless native deps changed or --clean)", undefined);
+  log.step(
+    "build",
+    "would run fastlane gym on the host (incremental unless native deps changed or --clean)",
+    undefined,
+  );
   if (options.submit) {
     log.step(
       "submit",
@@ -181,10 +185,11 @@ export async function runRemoteBuild(prepared: PreparedBuild, options: BuildRunO
       "incremental-build",
     );
 
-    // C5. Pull the artifact home, gate on size, store it for `launch release`.
+    // C5. Pull the artifact home and store it for `launch release`. The upload already happened on the
+    // host (bundled with the build), so this is a display-only size readout, not a pre-upload gate.
     const pulled = await pullArtifact(session, app.name, ARTIFACTS_DIR);
     sizeReport = pulled.sizeReport;
-    await reportSizeAndGate(pulled.sizeReport, profile.sizeBudgetMB ?? 200, log);
+    reportSize(pulled.sizeReport, log);
     const artifact: BuildArtifact = {
       path: pulled.ipaPath,
       platform: "ios",

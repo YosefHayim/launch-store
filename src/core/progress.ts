@@ -142,8 +142,50 @@ export async function runWithProgress(command: string, args: string[], options: 
     progress.stop(`${label} · ${formatElapsed(Date.now() - startedAt)}`);
   } catch (error) {
     clearInterval(clock);
-    progress.stop(`${label} failed`, 1);
+    progress.error(`${label} failed`);
     reportFailure(label, tail, logFile);
+    throw error;
+  }
+}
+
+/**
+ * Whether we can safely prompt the user: a real interactive TTY that isn't a CI runner. Drives the
+ * pre-upload confirmation — in CI or a pipe we never block on stdin; we proceed and log instead. Args
+ * default to the live process but are injectable so the decision is unit-testable (like
+ * {@link selectProgressMode}).
+ */
+export function isInteractive(isTTY = process.stdout.isTTY, env: NodeJS.ProcessEnv = process.env): boolean {
+  return isTTY && !env["CI"];
+}
+
+/**
+ * Run a silent async step under a spinner so long network round-trips (App Store Connect / Google
+ * Play lookups, the TestFlight processing poll) don't show a frozen screen. Degrades to a plain
+ * awaited call — no animation — whenever {@link selectProgressMode} picks "stream" (non-TTY, CI, or
+ * `--verbose`), so logs and scripts stay clean. Unlike {@link runWithProgress} it drives no child
+ * process; it just awaits `task` while telling the user what's happening.
+ */
+export async function withSpinner<T>(label: string, task: () => Promise<T>): Promise<T> {
+  if (selectProgressMode(process.stdout.isTTY, process.env, streamRawOutput) === "stream") {
+    return task();
+  }
+
+  const startedAt = Date.now();
+  const progress = spinner();
+  const clock = setInterval(() => {
+    progress.message(`${label}   ${formatElapsed(Date.now() - startedAt)}`);
+  }, 1000);
+  clock.unref();
+  progress.start(`${label}…`);
+
+  try {
+    const result = await task();
+    clearInterval(clock);
+    progress.stop(`${label} · ${formatElapsed(Date.now() - startedAt)}`);
+    return result;
+  } catch (error) {
+    clearInterval(clock);
+    progress.error(`${label} failed`);
     throw error;
   }
 }
