@@ -1,6 +1,6 @@
 /**
- * Silent self-upgrade: when a newer `launch-store` is on npm, upgrade the global install and re-run
- * the user's command on the new version — no prompt.
+ * Silent self-upgrade: when a newer `launch-store` is on npm, upgrade the global install under a
+ * spinner and re-run the user's command on the new version — no confirmation prompt.
  *
  * Because a silent global mutation is risky, it's heavily guarded (see {@link autoUpgradeBlockedReason}):
  * only an interactive, non-CI, installed (not `tsx`-from-source) run upgrades; the registry is polled at
@@ -13,6 +13,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
+import { spinner } from "@clack/prompts";
 import { LAUNCH_HOME, ensureDir } from "./paths.js";
 import { capture } from "./exec.js";
 
@@ -88,7 +89,8 @@ export interface UpdateCheckDeps {
   readState(): UpdateState | null;
   writeState(state: UpdateState): void;
   fetchLatest(): Promise<string | null>;
-  upgrade(): Promise<UpgradeResult>;
+  /** Perform the global upgrade; `current`/`latest` label the progress spinner. */
+  upgrade(current: string, latest: string): Promise<UpgradeResult>;
   reexec(): void;
   notify(message: string): void;
 }
@@ -106,8 +108,7 @@ export async function maybeAutoUpgrade(deps: UpdateCheckDeps): Promise<void> {
   deps.writeState({ lastCheckedAt: deps.now(), ...(latest ? { latestSeen: latest } : {}) });
   if (!latest || !isNewer(latest, deps.currentVersion)) return;
 
-  deps.notify(`↻ launch ${deps.currentVersion} → ${latest}: upgrading…`);
-  const result = await deps.upgrade();
+  const result = await deps.upgrade(deps.currentVersion, latest);
   switch (result) {
     case "upgraded":
       deps.reexec();
@@ -171,12 +172,22 @@ async function fetchLatestVersion(pkg: string): Promise<string | null> {
   }
 }
 
-/** Run the global upgrade, classifying a permission failure so the caller can degrade to a notice. */
-async function performUpgrade(): Promise<UpgradeResult> {
+/**
+ * Run the global upgrade under a spinner, classifying a permission failure so the caller can degrade
+ * to a notice. Uses the same `@clack/prompts` spinner as the rest of the CLI, but is result-driven
+ * rather than throw-driven so the EACCES-vs-generic distinction survives in the return value. Always
+ * called on an interactive TTY (auto-upgrade is otherwise blocked), so a spinner is the right
+ * affordance here.
+ */
+async function performUpgrade(current: string, latest: string): Promise<UpgradeResult> {
+  const progress = spinner();
+  progress.start(`Upgrading launch ${current} → ${latest}`);
   try {
     await capture("npm", ["install", "-g", `${PACKAGE_NAME}@latest`]);
+    progress.stop(`launch upgraded to ${latest} — relaunching`);
     return "upgraded";
   } catch (error) {
+    progress.error(`launch ${latest} available — automatic upgrade failed`);
     const message = error instanceof Error ? error.message : String(error);
     return /EACCES|permission denied/i.test(message) ? "eacces" : "failed";
   }
