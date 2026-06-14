@@ -5,14 +5,17 @@
 <h1 align="center">Launch</h1>
 
 <p align="center">
-  <strong>Ship your iOS and Android apps to TestFlight and Google Play from your own machine — your keys, your hardware, no Expo bill.</strong>
+  <strong>The local release layer for Expo &amp; React Native apps — set up signing, configure the stores, build, and ship to TestFlight &amp; Google Play from the machine you already own. Your keys, your hardware, no Expo bill.</strong>
 </p>
 
-Launch does locally what EAS Build/Submit/Update do in Expo's cloud: it generates the native project,
-manages your signing credentials, builds and signs the binary, reports the real per-device download
-size, stores the artifact, and uploads it to the testing track — on the machine you already own, with
-keys that stay in your local keychain. iOS signing needs a Mac; if you don't have one, Launch builds on
-a cloud Mac in **your own** AWS account or hands off to Expo EAS — see [Building without a Mac](#building-without-a-mac).
+Shipping an app is more than a build: signing setup, App Store Connect / Play Console config, in-app
+purchases, listing metadata, the upload, and the over-the-air updates after. EAS builds and submits —
+the rest is scattered across Apple's and Google's portals and a handful of tools. Launch pulls the
+**whole release** into one local, declarative workflow: it provisions your signing, reconciles your
+store products, generates the native project, builds and signs the binary, reports the real per-device
+download size, stores the artifact, and uploads to the testing track — on hardware you own, with keys
+that stay in your local keychain. iOS signing needs a Mac; if you don't have one, Launch builds on a
+cloud Mac in **your own** AWS account or hands off to Expo EAS — see [Building without a Mac](#building-without-a-mac).
 
 > **New here?** Run `launch demo` for a 60-second simulated walkthrough of the whole pipeline — no
 > setup, no build, no account needed. It also auto-plays the first time you run `launch`.
@@ -30,11 +33,17 @@ a cloud Mac in **your own** AWS account or hands off to Expo EAS — see [Buildi
   </tr>
 </table>
 
-## Why switch to Launch
+## Why Launch
 
-Hit **Expo's EAS Build** paywall? Launch runs the same build → sign → submit flow on hardware you
-already control — free and open source.
+The build was never the hard part — the release around it is. Launch owns that whole surface, locally
+and open source:
 
+- **The whole release, one workflow.** Signing, store products, build, size-check, upload, and OTA
+  updates come from one `launch.config.ts` and a handful of commands — not a dozen dashboards and CI
+  snippets.
+- **Store setup as code.** `launch sync` reconciles in-app purchases, subscriptions, and capabilities
+  onto App Store Connect from config; `launch metadata` does the same for your listing. These are the
+  parts EAS leaves you to click through by hand.
 - **$0 compute, unlimited builds.** EAS bills by build, caps the free tier behind a 45-minute timeout,
   and runs **$19–$199/mo** plus overage on paid plans. Launch builds on your own machine — no meter, no
   queue, no timeout.
@@ -44,9 +53,31 @@ already control — free and open source.
 - **No lock-in, ever.** MIT-licensed, built on `fastlane`, Gradle, and the platforms' own APIs, with
   pluggable storage/credentials/build/submit providers. Nothing proprietary to migrate off later.
 - **It teaches as it runs.** Add `--explain` to any command — or run `launch demo` — to expand each step
-  (CSR, provisioning profile, TestFlight, Play track) into plain English.
+  (CSR, provisioning profile, TestFlight, Play track, subscription group) into plain English.
 
 ## Features
+
+**Set up & verify**
+
+- **Config in one step.** `launch init` detects your app(s) — including an `apps/*` monorepo — and writes
+  a commented `launch.config.ts` (+ a starter `.env.example`). It only writes config; it never touches
+  credentials or the native project.
+- **Keys in your keychain.** `launch creds set-key` finds the `AuthKey_*.p8` in `~/Downloads`, validates
+  it against Apple, and stores it in your OS secret store; `creds setup` registers the app id + creates or
+  reuses the signing assets; multi-account `creds use/rename/remove` switches between teams.
+- **`launch doctor --fix`.** Detects the iOS/Android toolchain and installs the missing brew-able tools
+  behind a single consent (`--yes` skips it for CI/agents), and flags the store-side blockers — a missing
+  App Store Connect record, an unsigned Apple agreement — before a build hits them.
+
+**Configure the stores — as code**
+
+- **Products as code.** `launch sync` reconciles your in-app purchases, subscriptions, and capabilities
+  onto App Store Connect to match `launch.config.ts` — a read-only plan, your confirmation, then apply,
+  across every app at once. This is the gap EAS leaves entirely: IAPs and subscriptions are otherwise
+  hand-work in the App Store Connect UI.
+- **Store metadata, both platforms.** `launch metadata pull/push` syncs your listing (name, description,
+  keywords, screenshots, release notes) from a versioned `store.config.json`. (`eas metadata` is iOS-only;
+  Launch covers Play too.)
 
 **Build & ship — iOS and Android**
 
@@ -62,43 +93,31 @@ already control — free and open source.
 - **Deliberate public release.** The testing track is the default; the public App Store / Play
   production track is the separate, confirmed `launch release <platform>`.
 
-**Credentials, kept local**
+**Distribute & update**
 
-- **Keys in your keychain.** The ASC `.p8` + distribution key (iOS) and the Play service account +
-  upload key (Android) live in your OS secret store — only a CSR is ever sent to Apple.
-- **Auto-discovering setup.** `launch creds set-key` finds the `AuthKey_*.p8` in `~/Downloads` and asks
-  only for what it can't infer; multi-account `creds use/rename/remove` switches between teams.
-- **Reuses what the stores cap.** Picks up an existing distribution certificate + provisioning profile
-  instead of minting new ones, and enforces Play App Signing.
+- **Internal distribution.** `launch build <platform> --distribution internal` hosts an ad-hoc iOS
+  install link / Android `.apk` on your own bucket; register testers with `launch device add <udid>`.
+- **Over-the-air updates.** `launch update` publishes a JS/asset update via the **Expo Updates protocol**
+  `expo-updates` already speaks — code-signed and hosted on your own bucket (S3 / R2 / Supabase).
 
 **Onboarding & teaching**
 
 - **`launch demo`.** A simulated, zero-setup walkthrough of the whole pipeline (auto-plays once on first
   run); `--explain` on any command and `launch explain <topic>` cover the terminology on demand.
-- **`launch doctor --fix`.** Detects the iOS/Android toolchain and installs the missing brew-able tools
-  behind a single consent. `--yes` skips every prompt for CI and agents.
 - **Silent self-upgrade.** Picks up a newer npm release and re-runs your command on it — throttled to
   once a day and a no-op in CI, when piped, and for agents.
 
-**Distribute & update**
-
-- **Internal distribution.** `launch build <platform> --distribution internal` hosts an ad-hoc iOS
-  install link / Android `.apk` on your own bucket; register testers with `launch device add <udid>`.
-- **Store metadata, both platforms.** `launch metadata pull/push` syncs your listing from a versioned
-  `store.config.json`. (`eas metadata` is iOS-only; Launch covers Play too.)
-- **Over-the-air updates.** `launch update` publishes a JS/asset update via the **Expo Updates protocol**
-  `expo-updates` already speaks — code-signed and hosted on your own bucket (S3 / R2 / Supabase).
-
 ## Launch vs EAS
 
-Launch matches the EAS Build/Submit/Update/metadata surface on hardware you own — and structurally
-avoids the failure modes EAS users hit most:
+Launch covers the full EAS Build/Submit/Update/metadata surface on hardware you own — and the release
+steps EAS leaves to you:
 
 | Pain in EAS                                                   | In Launch                                                                              |
 | ------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | Apple-ID **2FA** prompts / rejected codes block builds        | Authenticates with an **App Store Connect API key (JWT)** — no password, no 2FA, ever  |
 | Builds **queue** in a shared cloud, sometimes for hours       | Builds on **your machine** — no queue, no timeout                                      |
 | Toolchain/Node pinned by the build image; `.env` not resolved | Uses **your own** toolchain and environment                                            |
+| **IAPs & subscriptions are hand-work** in the ASC UI          | `launch sync` reconciles them **declaratively** from `launch.config.ts`                |
 | `eas metadata` is **iOS-only**                                | `launch metadata` covers **iOS _and_ Android**                                         |
 | EAS Update runs on **Expo's servers** (paid)                  | `launch update` serves the **same protocol** from **your own bucket**                  |
 | Per-build pricing, monthly caps                               | **$0 compute** on your machine; pay only your own cloud if you build iOS without a Mac |
@@ -148,6 +167,9 @@ launch build ios            # build, sign, size-check, and upload to the testing
 `launch build` reuses your cached credentials silently; if they're missing it offers to provision them
 inline. Public release is the separate, deliberate `launch release <platform>`.
 
+Selling in-app purchases or subscriptions? Declare them in `launch.config.ts` and run `launch sync` to
+create and reconcile them on App Store Connect — no clicking through the portal.
+
 ## Commands
 
 | Command                                          | What it does                                                                                                                                                          |
@@ -158,6 +180,7 @@ inline. Public release is the separate, deliberate `launch release <platform>`.
 | `launch build <ios\|android>`                    | Run the full pipeline and upload to the testing track. Flags: `--profile`, `--app`, `--explain`, `--no-submit`, `--remote`, `--distribution`, `--clean`, `--dry-run`. |
 | `launch release <ios\|android>`                  | Submit the latest stored build to the **public** App Store / Play production track (with confirmation).                                                               |
 | `launch creds [status\|set-key\|setup\|use\|…]`  | Inspect credentials, import the API key, provision signing, or switch Apple accounts.                                                                                 |
+| `launch sync`                                    | Reconcile in-app purchases, subscriptions & capabilities onto App Store Connect from `launch.config.ts` (plan → confirm → apply, all apps at once).                   |
 | `launch metadata [pull\|push]`                   | Sync the store listing (name, description, keywords, screenshots) via `store.config.json` — iOS + Android.                                                            |
 | `launch update`                                  | Publish an over-the-air JS update (Expo Updates protocol, code-signed) to your own bucket.                                                                            |
 | `launch device [add\|list]`                      | Register/list devices for ad-hoc (internal) distribution.                                                                                                             |
@@ -186,6 +209,11 @@ export default defineConfig({
   profiles: {
     production: { name: "production", envFile: ".env", sizeBudgetMB: 200 },
   },
+
+  // In-app purchases & subscriptions, keyed by bundle id — `launch sync` reconciles these onto App Store
+  // Connect. Capabilities aren't declared here; they're read from app.json's `ios.entitlements`. Omit if
+  // your app sells nothing. See examples/hello-world for a worked catalog.
+  // products: { "com.company.app": { subscriptionGroups: [/* … */], inAppPurchases: [/* … */] } },
 });
 ```
 
