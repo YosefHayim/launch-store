@@ -96,24 +96,28 @@ const FLAME_B = ["  yyy  ", " oototo", "   o   ", "   t   "] as const;
 const BURST = ["  *  ", " *✦* ", "  *  "] as const;
 
 /**
- * The Apple logo as a pixel bitmap (`a` silver body, `l` green leaf). The silhouette is built to read
- * as the real mark: two top lobes with a center dip, a tapered leaf angled up-right from that dip, a
- * concave bite on the right edge, and two splayed feet with a center cleft. 12 pixel rows fold into 6
- * half-block rows. Dim grey while waiting, full color on strike.
+ * The Apple logo as a pixel bitmap (`a` silver body, `l` green leaf), traced 1:1 from the official
+ * Apple vector (the two-subpath SVG: body+bite, then leaf) by rasterizing its filled silhouette into
+ * this grid. That's why the shape is exact — the two top lobes with a real center cleft, the leaf
+ * tilted up-right from the cleft, the bite on the right edge, and the two feet with a center notch are
+ * the logo's own geometry, not hand-stepped pixels. 14 pixel rows fold into 7 half-block rows. Dim
+ * grey while waiting, full color on strike.
  */
 const APPLE_PX = [
-  "        ll    ",
-  "       ll     ",
-  "   aa  l  aa  ",
-  "  aaaa  aaaa  ",
-  "  aaaaaaaaaaa ",
-  " aaaaaaaaaa   ",
-  " aaaaaaaaa    ",
-  " aaaaaaaaa    ",
-  " aaaaaaaaaaa  ",
-  "  aaaaaaaaa   ",
-  "  aaaa aaaa   ",
-  "  aaa   aaa   ",
+  "            ll",
+  "  aaaa  aaalll",
+  " aaaaaaaaaall",
+  "aaaaaaaaaaal",
+  "aaaaaaaaaaaa",
+  "aaaaaaaaaaa",
+  "aaaaaaaaaaa",
+  "aaaaaaaaaaaa",
+  "aaaaaaaaaaaa",
+  " aaaaaaaaaaaa",
+  " aaaaaaaaaaaa",
+  " aaaaaaaaaaaa",
+  "  aaaaaaaaaa",
+  "   aaa  aaa",
 ] as const;
 /**
  * Build the Google Play logo as a four-facet pixel bitmap from geometry, so the triangle's edges are
