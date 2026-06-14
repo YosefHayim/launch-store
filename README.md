@@ -50,9 +50,10 @@ and open source:
 - **The whole release, one workflow.** Signing, store products, build, size-check, upload, and OTA
   updates come from one `launch.config.ts` and a handful of commands — not a dozen dashboards and CI
   snippets.
-- **Store setup as code.** `launch sync` reconciles in-app purchases, subscriptions, and capabilities
-  onto App Store Connect from config; `launch metadata` does the same for your listing. These are the
-  parts EAS leaves you to click through by hand.
+- **Store setup as code.** `launch sync` reconciles in-app purchases, subscriptions, pricing, and
+  capabilities onto App Store Connect from one typed `launch.config.ts`; a dozen more commands cover Game
+  Center, Wallet, App Clips, in-app events, A/B experiments, territories, and the whole Google Play
+  catalog — plus `launch metadata` for the listing. These are the parts EAS leaves you to click by hand.
 - **$0 compute, unlimited builds.** EAS bills by build, caps the free tier behind a 45-minute timeout,
   and runs **$19–$199/mo** plus overage on paid plans. Launch builds on your own machine — no meter, no
   queue, no timeout.
@@ -87,20 +88,42 @@ and open source:
   once from `ios.config.usesNonExemptEncryption`, and with `--fix` answered on the latest build over the
   API), and the one-time manual **App Privacy** questionnaire — which Apple exposes no API for, so Launch
   prints the exact checklist instead of letting it block a submission by surprise.
+- **Signing status at a glance.** `launch setup ios` reports your iOS provisioning end to end — active
+  account, App ID, capabilities, distribution certificate, profile, and registered devices — and with
+  `--provision` ensures the certificate + App Store profile, the same as `launch creds setup`.
 
-**Configure the stores — as code**
+**Configure App Store Connect — as code**
 
-- **Products as code.** `launch sync` reconciles your in-app purchases, subscriptions, and capabilities
-  onto App Store Connect to match `launch.config.ts` — a read-only plan, your confirmation, then apply,
-  across every app at once. This is the gap EAS leaves entirely: IAPs and subscriptions are otherwise
-  hand-work in the App Store Connect UI.
-- **Store metadata, both platforms.** `launch metadata pull/push` syncs your listing (name, description,
-  keywords, screenshots, release notes) from a versioned `store.config.json`. (`eas metadata` is iOS-only;
-  Launch covers Play too.)
-- **Listing copy, reconciled over the API.** `launch sync` also reconciles your App Store **textual
-  listing** per locale — name, subtitle, description, keywords, what's-new, and the privacy / support /
-  marketing URLs — straight onto the editable App Store version via the API, idempotently (it never
-  touches a live or in-review version).
+Each section below is declared in `launch.config.ts` (or its standalone `*.config.json` sidecar) and
+reconciled with a read-only **plan → your confirmation → apply** — idempotently, never touching a live or
+in-review version. This is the surface EAS leaves entirely to the App Store Connect website.
+
+- **Products, pricing & listing.** `launch sync` reconciles your in-app purchases, subscriptions,
+  capabilities, and **pricing** onto App Store Connect — and, in the same pass, the per-locale **listing
+  copy** (name, subtitle, description, keywords, what's-new, privacy / support / marketing URLs),
+  **screenshots**, and **app previews** — across every app at once.
+- **Subscription offers.** `launch offers` reconciles offer codes and promotional, introductory &
+  win-back offers, plus the promoted-purchase order; `launch offers generate-codes/list/deactivate` drive
+  offer-code campaigns from the CLI.
+- **Release attributes.** `launch release-config` reconciles the App Store **age rating, categories, base
+  price, and App Review details** (contact + demo account) onto the editable version.
+- **App identity & entitlements.** `launch game-center` (achievements & leaderboards), `launch wallet`
+  (Apple Pay merchant ids & Wallet pass type ids), `launch app-clips` (App Clip card action + subtitle),
+  and `launch eu-distribution` (EU alternative-distribution domains + package-signing key, for the DMA) —
+  the portal-clicked team setup `spaceship` exposes but EAS doesn't.
+- **Merchandising & presence.** `launch availability` (territories the app sells in), `launch custom-pages`
+  (alternate product pages), `launch experiments` (product-page A/B tests), `launch accessibility`
+  (accessibility nutrition labels), `launch events` (in-app events), and `launch metadata pull/push` (the
+  full listing for **iOS _and_ Android** — `eas metadata` is iOS-only).
+
+**Configure Google Play — as code**
+
+- **Play products & subscriptions.** `launch play-products` and `launch play-subscriptions` reconcile your
+  Play in-app products and subscriptions (base plans + offers) from the **same** `launch.config.ts` catalog
+  that drives App Store Connect — one source of truth, both stores.
+- **Tracks & reviews.** `launch play-tracks` shows track status and **promotes** a build to a track at a
+  chosen rollout with release notes (and reads/sets tester groups); `launch play-reviews` reads Play
+  customer reviews and posts replies — without opening the Play Console.
 
 **Build & ship — iOS and Android**
 
@@ -134,7 +157,7 @@ pause|resume|complete` steers a phased rollout. fastlane is scoped to the binary
 - **Roll back a bad update.** `launch updates list/view` show the per-channel history; `launch updates
 rollback` reverses a bad OTA — promote a known-good update or drop testers back to the embedded bundle.
 
-**Manage testers, reviews & reports — API-key only**
+**Manage testers, team, reviews & reports — API-key only**
 
 - **TestFlight from the CLI.** `launch testflight groups/create-group/testers/add/rm` manages beta groups
   and invites testers over the same App Store Connect API key — the management layer around the build
@@ -145,6 +168,10 @@ rollback` reverses a bad OTA — promote a known-good update or drop testers bac
 - **Sales, finance & analytics reports.** `launch reports sales/finance/analytics` downloads App Store
   Connect's Sales & Trends, Finance, and Analytics reports (gzipped TSV) straight to your machine for
   scripting — the numbers EAS never surfaces.
+- **Team & access.** `launch team list/invite/remove` reads and manages App Store Connect team members
+  and pending invitations — invite by email with roles, or revoke — over the same API key.
+- **Sandbox testers.** `launch sandbox list/clear` lists your StoreKit sandbox testers and clears their
+  purchase history so you can re-test in-app purchases from a clean slate.
 
 **Inspect & debug**
 
@@ -169,24 +196,26 @@ Launch runs the same `eas build` → `eas submit` → `eas update` pipeline (plu
 `eas credentials`) on hardware you own — and covers the store-setup steps EAS leaves to you. Where the
 two differ on the same workflow:
 
-| In Expo EAS                                                                                                 | In Launch                                                                                                          |
-| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Build compute runs on **Expo's cloud**, **$19–$199/mo** + per-build fees                                    | Builds on **your own machine** — **$0 compute**, MIT-licensed, unlimited builds                                    |
-| Builds **queue** in a shared cloud, sometimes for hours                                                     | Builds **start immediately** on your hardware — no queue                                                           |
-| Free-tier builds are **capped at a 45-minute timeout**                                                      | **No timeout** — a build runs as long as it needs                                                                  |
-| Apple-ID **2FA** prompts / expired codes interrupt builds                                                   | Authenticates with an **App Store Connect API key (JWT)** — no password, no 2FA                                    |
-| Toolchain/Node **pinned by the build image**; local `.env` not resolved                                     | Your own Xcode/Node/toolchain and a documented **env-precedence ladder** (`--print-env` to audit)                  |
-| **In-app purchases & subscriptions** are hand-work in the ASC UI                                            | `launch sync` reconciles **IAPs, subscriptions & capabilities** from `launch.config.ts`                            |
-| EAS **rewrites bundle-id capabilities every build** (clobbers toggles)                                      | `launch sync` applies a **minimal safe-diff** — capabilities it doesn't manage stay untouched                      |
-| `eas metadata` is **iOS-only**                                                                              | `launch metadata` syncs the listing for **iOS _and_ Android**                                                      |
-| After `eas submit`, the **App Store release** (version, compliance, notes, rollout) is **portal hand-work** | `launch release` drives it over the **API** — then `launch status --watch` and `launch rollout` track and steer it |
-| **Reviews, reports & TestFlight management** mean a trip to the website                                     | `launch reviews` / `launch reports` / `launch testflight` do them over the **API key** — no portal                 |
-| **EAS Update** hosts your OTA updates on **Expo's servers** (paid)                                          | `launch update` serves the **same Expo Updates protocol** from **your own bucket** (S3/R2/Supabase)                |
-| **Internal-distribution** builds are hosted by Expo                                                         | `--distribution internal` hosts the ad-hoc `.ipa`/`.apk` on **your own bucket**; `launch device`                   |
-| Signing **credentials can live on Expo's servers**                                                          | Keys stay in **your OS keychain** — only a **CSR** ever leaves your machine                                        |
-| Build **artifacts are hosted on Expo**                                                                      | Artifacts land in **your own storage** (local, or S3 / R2 / Supabase)                                              |
-| **No Mac?** EAS's paid cloud is the only path                                                               | **No Mac?** A cloud Mac in **your own AWS**, any Mac over **SSH**, or hand off to **`eas build`**                  |
-| **Closed SaaS** — proprietary, vendor lock-in                                                               | **MIT, open source** — `fastlane`/Gradle/platform APIs, swappable providers, nothing to migrate                    |
+| In Expo EAS                                                                                                         | In Launch                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Build compute runs on **Expo's cloud**, **$19–$199/mo** + per-build fees                                            | Builds on **your own machine** — **$0 compute**, MIT-licensed, unlimited builds                                                                                  |
+| Builds **queue** in a shared cloud, sometimes for hours                                                             | Builds **start immediately** on your hardware — no queue                                                                                                         |
+| Free-tier builds are **capped at a 45-minute timeout**                                                              | **No timeout** — a build runs as long as it needs                                                                                                                |
+| Apple-ID **2FA** prompts / expired codes interrupt builds                                                           | Authenticates with an **App Store Connect API key (JWT)** — no password, no 2FA                                                                                  |
+| Toolchain/Node **pinned by the build image**; local `.env` not resolved                                             | Your own Xcode/Node/toolchain and a documented **env-precedence ladder** (`--print-env` to audit)                                                                |
+| **In-app purchases & subscriptions** are hand-work in the ASC UI                                                    | `launch sync` reconciles **IAPs, subscriptions & capabilities** from `launch.config.ts`                                                                          |
+| EAS **rewrites bundle-id capabilities every build** (clobbers toggles)                                              | `launch sync` applies a **minimal safe-diff** — capabilities it doesn't manage stay untouched                                                                    |
+| `eas metadata` is **iOS-only**                                                                                      | `launch metadata` syncs the listing for **iOS _and_ Android**                                                                                                    |
+| Play **IAPs, subscriptions, tracks & reviews** mean the Play Console UI                                             | `launch play-products` / `play-subscriptions` reconcile Play from the **same** config; `launch play-tracks` / `play-reviews` drive tracks & replies over the API |
+| **Game Center, Wallet, App Clips, in-app events, A/B experiments, territories & accessibility** are **portal-only** | Each is **config as code** — `launch game-center` / `wallet` / `app-clips` / `events` / `experiments` / `availability` / `accessibility`                         |
+| After `eas submit`, the **App Store release** (version, compliance, notes, rollout) is **portal hand-work**         | `launch release` drives it over the **API** — then `launch status --watch` and `launch rollout` track and steer it                                               |
+| **Reviews, reports & TestFlight management** mean a trip to the website                                             | `launch reviews` / `launch reports` / `launch testflight` do them over the **API key** — no portal                                                               |
+| **EAS Update** hosts your OTA updates on **Expo's servers** (paid)                                                  | `launch update` serves the **same Expo Updates protocol** from **your own bucket** (S3/R2/Supabase)                                                              |
+| **Internal-distribution** builds are hosted by Expo                                                                 | `--distribution internal` hosts the ad-hoc `.ipa`/`.apk` on **your own bucket**; `launch device`                                                                 |
+| Signing **credentials can live on Expo's servers**                                                                  | Keys stay in **your OS keychain** — only a **CSR** ever leaves your machine                                                                                      |
+| Build **artifacts are hosted on Expo**                                                                              | Artifacts land in **your own storage** (local, or S3 / R2 / Supabase)                                                                                            |
+| **No Mac?** EAS's paid cloud is the only path                                                                       | **No Mac?** A cloud Mac in **your own AWS**, any Mac over **SSH**, or hand off to **`eas build`**                                                                |
+| **Closed SaaS** — proprietary, vendor lock-in                                                                       | **MIT, open source** — `fastlane`/Gradle/platform APIs, swappable providers, nothing to migrate                                                                  |
 
 ## Platform support
 
@@ -243,6 +272,7 @@ create and reconcile them on App Store Connect — no clicking through the porta
 | `launch`                                                     | Interactive wizard — guided setup on a fresh checkout, then build (auto-plays `launch demo` on first run).                                                                                                                                                                         |
 | `launch demo [ios\|android]`                                 | Simulated, zero-setup walkthrough of the build → sign → submit pipeline.                                                                                                                                                                                                           |
 | `launch init`                                                | Scaffold `launch.config.ts` (+ `.env.example`) into the current repo.                                                                                                                                                                                                              |
+| `launch setup ios`                                           | Report iOS signing & provisioning status (account, App ID, capabilities, cert, profile, devices); `--provision` ensures the cert + profile.                                                                                                                                        |
 | `launch build <ios\|android>`                                | Run the full pipeline and upload to the testing track. Flags: `--profile`, `--app`, `--distribution`, `--bump`/`--track`/`--rollout`, `--env`/`--print-env`, `--remote`, `--clean`, `--dry-run`, `--explain`, `--no-submit`, `--verbose`.                                          |
 | `launch release <ios\|android>`                              | Ship to the **public** store (with confirmation). iOS drives the App Store Connect API: version, export compliance, build attach, release notes, immediate/scheduled/phased rollout, submit. Flags: `--build`, `--no-wait`, `--manual`, `--scheduled`, `--phased`, `--create-app`. |
 | `launch status [--watch] [--json]`                           | Show each iOS app's App Store version, review state, build processing, and phased-rollout state — `--watch` polls to a terminal verdict; CI exit codes (0/2/3/1).                                                                                                                  |
@@ -250,9 +280,26 @@ create and reconcile them on App Store Connect — no clicking through the porta
 | `launch build:resign [id\|latest]`                           | Re-sign a stored `.ipa`/`.aab` with different credentials (account/profile) — no rebuild.                                                                                                                                                                                          |
 | `launch creds [status\|set-key\|setup\|use\|push-key\|…]`    | Inspect credentials, import the API key, provision signing, switch Apple accounts, or vault an APNs push key.                                                                                                                                                                      |
 | `launch secret [list\|set\|rm]`                              | Store build secrets in your OS keychain instead of plaintext `.env` (alias: `env`); injected into the build env at build time.                                                                                                                                                     |
-| `launch sync`                                                | Reconcile IAPs, subscriptions & capabilities (from `launch.config.ts`) **and** per-locale App Store listing text — name, subtitle, description, keywords, what's-new, URLs (from `store.config.json`) — plan → confirm → apply, all apps.                                          |
+| `launch sync`                                                | Reconcile App Store Connect products (capabilities, IAPs, subscriptions, pricing), per-locale listing copy, screenshots, and app previews from config — plan → confirm → apply, all apps.                                                                                          |
+| `launch offers [generate-codes\|list\|deactivate]`           | Reconcile subscription offers (offer codes, promotional, introductory, win-back) and the promoted-purchase order; manage offer-code campaigns.                                                                                                                                     |
 | `launch metadata [pull\|push]`                               | Sync the store listing (name, description, keywords, screenshots) via `store.config.json` — iOS + Android.                                                                                                                                                                         |
+| `launch release-config`                                      | Reconcile App Store release attributes — age rating, categories, base price, and App Review details — onto the editable version.                                                                                                                                                   |
+| `launch app-clips`                                           | Reconcile App Clip card metadata (call-to-action + per-locale subtitle) for the clips a build produced.                                                                                                                                                                            |
+| `launch game-center`                                         | Reconcile Game Center achievements & leaderboards onto App Store Connect.                                                                                                                                                                                                          |
+| `launch wallet [list]`                                       | Register Apple Pay merchant ids & Wallet pass type ids (team-level Apple identifiers).                                                                                                                                                                                             |
+| `launch eu-distribution [set-key\|list]`                     | Authorize EU alternative-distribution domains and register the package-signing key (the DMA).                                                                                                                                                                                      |
+| `launch availability`                                        | Set the App Store territories the app sells in, from config.                                                                                                                                                                                                                       |
+| `launch custom-pages`                                        | Reconcile custom product pages (alternate App Store listings) from config.                                                                                                                                                                                                         |
+| `launch experiments`                                         | Reconcile product-page A/B experiments from config.                                                                                                                                                                                                                                |
+| `launch accessibility`                                       | Reconcile accessibility declarations (accessibility nutrition labels) from config.                                                                                                                                                                                                 |
+| `launch events [list\|create\|localize\|delete]`             | Read and manage App Store in-app events and their localizations from the CLI.                                                                                                                                                                                                      |
+| `launch play-products`                                       | Reconcile Google Play in-app products from the same `launch.config.ts` product catalog.                                                                                                                                                                                            |
+| `launch play-subscriptions`                                  | Reconcile Google Play subscriptions (base plans + offers) from the `launch.config.ts` catalog.                                                                                                                                                                                     |
+| `launch play-tracks [status\|promote\|testers]`              | Manage Google Play release tracks — show status, promote a build at a chosen rollout with notes, read/set tester groups.                                                                                                                                                           |
+| `launch play-reviews [list\|reply]`                          | Read Google Play customer reviews and post/replace the developer reply from the CLI.                                                                                                                                                                                               |
 | `launch testflight [groups\|create-group\|testers\|add\|rm]` | Manage TestFlight beta groups and invite/remove testers over the App Store Connect API key.                                                                                                                                                                                        |
+| `launch team [list\|invite\|remove]`                         | Read and manage App Store Connect team members and pending invitations (invite by email with roles).                                                                                                                                                                               |
+| `launch sandbox [list\|clear]`                               | List StoreKit sandbox testers and clear their purchase history for re-testing in-app purchases.                                                                                                                                                                                    |
 | `launch reviews [list\|reply\|delete]`                       | Read App Store customer reviews and post/replace/delete the developer response from the CLI.                                                                                                                                                                                       |
 | `launch reports [sales\|finance\|analytics]`                 | Download App Store Connect Sales & Trends, Finance, and Analytics reports (gzipped TSV).                                                                                                                                                                                           |
 | `launch update`                                              | Publish an over-the-air JS update (Expo Updates protocol, code-signed) to your own bucket. Flags: `--channel`, `--platform`, `--runtime-version`, `--no-sign`, `--dry-run`.                                                                                                        |
@@ -296,17 +343,26 @@ export default defineConfig({
   // notify: { webhookUrl: "https://hooks.slack.com/services/…", command: "say build done" },
 
   // In-app purchases & subscriptions, keyed by bundle id — `launch sync` reconciles these onto App Store
-  // Connect. Capabilities aren't declared here; they're read from app.json's `ios.entitlements`. Omit if
-  // your app sells nothing. See examples/hello-world for a worked catalog.
+  // Connect (and `launch play-products` / `play-subscriptions` onto Google Play). Capabilities aren't
+  // declared here; they're read from app.json's `ios.entitlements`. Omit if your app sells nothing.
   // products: { "com.company.app": { subscriptionGroups: [/* … */], inAppPurchases: [/* … */] } },
+
+  // Launch-native App Store Connect sections — each reconciled by its own command, declared inline here
+  // (or, for back-compat, as a standalone `*.config.json` sidecar). Per-app ones are keyed by iOS bundle
+  // id; Wallet & EU distribution are team-level. See examples/hello-world for a worked copy of each.
+  // gameCenter: { "com.company.app": { achievements: [/* … */], leaderboards: [/* … */] } },
+  // appClips: { "com.company.app": { clips: { "com.company.app.Clip": { action: "OPEN" } } } },
+  // releaseAttributes: { "com.company.app": { pricing: { customerPrice: 9.99 }, categories: { primary: "PRODUCTIVITY" } } },
+  // wallet: { merchantIds: [/* … */], passTypeIds: [/* … */] },
+  // euDistribution: { domains: [/* … */] },
 });
 ```
 
 Run `launch build <platform> --print-env` to see the fully resolved environment and where each value
 came from (secrets masked), before a single build runs. A full-feature, dual-platform (iOS + Android)
-example — exercising every config-as-code surface, from products and offers to Game Center, Wallet, and
-store metadata — lives in [`examples/hello-world`](./examples/hello-world) (see its README for a
-feature-by-feature tour).
+example — exercising every config-as-code surface, from products, offers, and release attributes to Game
+Center, Wallet, EU distribution, and the Google Play catalog — lives in
+[`examples/hello-world`](./examples/hello-world) (see its README for a feature-by-feature tour).
 
 ## Building without a Mac
 
