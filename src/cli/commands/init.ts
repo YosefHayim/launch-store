@@ -72,6 +72,51 @@ function writeIfAbsent(path: string, contents: string): boolean {
   return true;
 }
 
+/**
+ * Scaffold `launch.config.ts` (and `.env.example` when absent) into `cwd`. The body of `launch init`,
+ * extracted so the no-args wizard's guided setup can run the same scaffold inline. Confirms before
+ * overwriting an existing config. Intro/outro framing is left to the caller so it nests cleanly inside
+ * the wizard's own framing.
+ */
+export async function runInit(cwd: string): Promise<void> {
+  const { apps } = await loadConfig(cwd);
+
+  if (apps.length === 0) {
+    note("No app.json found under this folder. Launch will still scaffold a config you can edit.", "Heads up");
+  } else {
+    const list = apps.map((app) => `• ${app.name}${app.bundleId ? `  (${app.bundleId})` : ""}`).join("\n");
+    note(list, `Found ${apps.length} app${apps.length === 1 ? "" : "s"}`);
+  }
+
+  const configPath = join(cwd, "launch.config.ts");
+  if (existsSync(configPath)) {
+    const overwrite = await confirm({
+      message: "launch.config.ts already exists. Overwrite it?",
+      initialValue: false,
+    });
+    if (isCancel(overwrite) || !overwrite) {
+      cancel("Left your launch.config.ts untouched.");
+      process.exit(0);
+    }
+  }
+
+  writeFileSync(configPath, configTemplate(detectAppRoot(apps, cwd)));
+  const wroteEnv = writeIfAbsent(join(cwd, ".env.example"), ENV_EXAMPLE_TEMPLATE);
+
+  const written = ["launch.config.ts", wroteEnv ? ".env.example" : null].filter(Boolean).join(", ");
+  note(
+    [
+      `Wrote: ${written}`,
+      "",
+      "Next:",
+      "  1. launch creds set-key   # import your App Store Connect API key",
+      "  2. launch creds setup     # create/reuse your cert + provisioning profile",
+      "  3. launch build ios --dry-run   # rehearse the whole flow, no changes",
+    ].join("\n"),
+    "Done",
+  );
+}
+
 /** Attach the `init` command to the program. */
 export function registerInitCommand(program: Command): void {
   program
@@ -79,43 +124,7 @@ export function registerInitCommand(program: Command): void {
     .description("scaffold launch.config.ts (and .env.example) into the current repo")
     .action(async () => {
       intro("launch init");
-      const cwd = process.cwd();
-      const { apps } = await loadConfig(cwd);
-
-      if (apps.length === 0) {
-        note("No app.json found under this folder. Launch will still scaffold a config you can edit.", "Heads up");
-      } else {
-        const list = apps.map((app) => `• ${app.name}${app.bundleId ? `  (${app.bundleId})` : ""}`).join("\n");
-        note(list, `Found ${apps.length} app${apps.length === 1 ? "" : "s"}`);
-      }
-
-      const configPath = join(cwd, "launch.config.ts");
-      if (existsSync(configPath)) {
-        const overwrite = await confirm({
-          message: "launch.config.ts already exists. Overwrite it?",
-          initialValue: false,
-        });
-        if (isCancel(overwrite) || !overwrite) {
-          cancel("Left your launch.config.ts untouched.");
-          process.exit(0);
-        }
-      }
-
-      writeFileSync(configPath, configTemplate(detectAppRoot(apps, cwd)));
-      const wroteEnv = writeIfAbsent(join(cwd, ".env.example"), ENV_EXAMPLE_TEMPLATE);
-
-      const written = ["launch.config.ts", wroteEnv ? ".env.example" : null].filter(Boolean).join(", ");
-      note(
-        [
-          `Wrote: ${written}`,
-          "",
-          "Next:",
-          "  1. launch creds set-key   # import your App Store Connect API key",
-          "  2. launch creds setup     # create/reuse your cert + provisioning profile",
-          "  3. launch build ios --dry-run   # rehearse the whole flow, no changes",
-        ].join("\n"),
-        "Done",
-      );
+      await runInit(process.cwd());
       outro("Launch is configured.");
     });
 }
