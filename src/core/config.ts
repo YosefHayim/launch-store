@@ -158,14 +158,30 @@ async function readDynamicConfig(
 }
 
 /**
- * Resolve the single app config in a directory. A dynamic config wins over the static JSON (Expo's
- * precedence) and is handed the static config to extend; with neither present, the directory has no app.
+ * Resolve a directory's single app config: a dynamic config wins over the static JSON (Expo's
+ * precedence) and is handed the static config to extend; null when neither is present. Shared by
+ * descriptor discovery ({@link readAppAt}) and the raw-config reader ({@link readResolvedConfig}).
  */
-async function readAppAt(dir: string): Promise<AppDescriptor | null> {
+async function resolveConfig(dir: string): Promise<{ raw: Record<string, unknown>; path: string } | null> {
   const fromStatic = readStaticConfig(dir);
   const fromDynamic = await readDynamicConfig(dir, fromStatic?.raw ?? {});
-  const chosen = fromDynamic ?? fromStatic;
+  return fromDynamic ?? fromStatic;
+}
+
+/** Resolve the single app config in a directory into an {@link AppDescriptor}, or null when there's no app. */
+async function readAppAt(dir: string): Promise<AppDescriptor | null> {
+  const chosen = await resolveConfig(dir);
   return chosen ? toDescriptor(chosen.raw, dir, chosen.path) : null;
+}
+
+/**
+ * Read a directory's fully-resolved Expo config (the static JSON extended by any dynamic
+ * `app.config.*`), exactly as discovery sees it. Exposed for the preflight validator
+ * (`core/configCheck.ts`), which inspects fields the {@link AppDescriptor} doesn't carry — splash,
+ * icon, scheme. Returns null when the directory has no Expo config.
+ */
+export async function readResolvedConfig(dir: string): Promise<Record<string, unknown> | null> {
+  return (await resolveConfig(dir))?.raw ?? null;
 }
 
 /** Recursively scan a root for Expo configs (static or dynamic), skipping heavy/generated directories. */
