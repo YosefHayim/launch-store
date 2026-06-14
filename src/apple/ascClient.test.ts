@@ -79,19 +79,27 @@ describe("AppStoreConnectClient — auth + request building", () => {
   });
 
   it("folds App Store + TestFlight versions and picks the highest numerically", async () => {
-    fetchMock
-      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: "app1", attributes: {} }] })))
-      .mockResolvedValueOnce(
-        fakeResponse(200, JSON.stringify({ data: [{ id: "v1", attributes: { versionString: "1.9.0" } }] })),
-      )
-      .mockResolvedValueOnce(
-        fakeResponse(200, JSON.stringify({ data: [{ id: "p1", attributes: { version: "1.10.0" } }] })),
-      );
+    // Route by URL, not call order: getLatestMarketingVersion fires the App Store + TestFlight
+    // lookups through Promise.all, so which fetch lands first is a race (each awaits JWT signing).
+    // Keying the mock on the path keeps the test deterministic regardless of dispatch order.
+    fetchMock.mockImplementation((url: string | URL) => {
+      const path = String(url);
+      if (path.includes("/appStoreVersions"))
+        return Promise.resolve(
+          fakeResponse(200, JSON.stringify({ data: [{ id: "v1", attributes: { versionString: "1.9.0" } }] })),
+        );
+      if (path.includes("/preReleaseVersions"))
+        return Promise.resolve(
+          fakeResponse(200, JSON.stringify({ data: [{ id: "p1", attributes: { version: "1.10.0" } }] })),
+        );
+      return Promise.resolve(fakeResponse(200, JSON.stringify({ data: [{ id: "app1", attributes: {} }] })));
+    });
 
     // 1.10.0 (TestFlight) beats 1.9.0 (App Store) — a lexical sort would wrongly pick 1.9.0.
     expect(await client.getLatestMarketingVersion("com.example.hello")).toBe("1.10.0");
-    expect(fetchMock.mock.calls[1]![0]).toContain("/apps/app1/appStoreVersions");
-    expect(fetchMock.mock.calls[2]![0]).toContain("/apps/app1/preReleaseVersions");
+    const urls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(urls.some((path) => path.includes("/apps/app1/appStoreVersions"))).toBe(true);
+    expect(urls.some((path) => path.includes("/apps/app1/preReleaseVersions"))).toBe(true);
   });
 
   it("returns null for marketing version when the app record is missing", async () => {
