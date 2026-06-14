@@ -78,6 +78,36 @@ describe("AppStoreConnectClient — auth + request building", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("folds App Store + TestFlight versions and picks the highest numerically", async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: "app1", attributes: {} }] })))
+      .mockResolvedValueOnce(
+        fakeResponse(200, JSON.stringify({ data: [{ id: "v1", attributes: { versionString: "1.9.0" } }] })),
+      )
+      .mockResolvedValueOnce(
+        fakeResponse(200, JSON.stringify({ data: [{ id: "p1", attributes: { version: "1.10.0" } }] })),
+      );
+
+    // 1.10.0 (TestFlight) beats 1.9.0 (App Store) — a lexical sort would wrongly pick 1.9.0.
+    expect(await client.getLatestMarketingVersion("com.example.hello")).toBe("1.10.0");
+    expect(fetchMock.mock.calls[1]![0]).toContain("/apps/app1/appStoreVersions");
+    expect(fetchMock.mock.calls[2]![0]).toContain("/apps/app1/preReleaseVersions");
+  });
+
+  it("returns null for marketing version when the app record is missing", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })));
+    expect(await client.getLatestMarketingVersion("com.example.missing")).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns null when the app exists but has no versions yet", async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: "app1", attributes: {} }] })))
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })))
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })));
+    expect(await client.getLatestMarketingVersion("com.example.hello")).toBeNull();
+  });
+
   it("surfaces Apple's error detail (not a bare status) on failure", async () => {
     fetchMock.mockResolvedValueOnce(
       fakeResponse(

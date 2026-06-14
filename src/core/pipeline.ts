@@ -10,7 +10,7 @@
 
 import { join } from "node:path";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { autocomplete, cancel, confirm, isCancel, select } from "@clack/prompts";
+import { autocomplete, cancel, confirm, isCancel, select, text } from "@clack/prompts";
 import type {
   AndroidCredentials,
   AndroidReleaseOptions,
@@ -29,7 +29,8 @@ import type {
   SizeReport,
   SubmitTarget,
 } from "./types.js";
-import { loadConfig } from "./config.js";
+import { loadConfig, writeAppVersion } from "./config.js";
+import { compareVersions, formatVersion, highestVersion, nextVersion, parseVersion } from "./version.js";
 import { loadDotenvFile, missingKeys, secretLookingKeys } from "./env.js";
 import { getBuildEngine, getCredentialsProvider, getStorageProvider, getSubmitter } from "./registry.js";
 import { createLogger, type Logger } from "./logger.js";
@@ -206,6 +207,25 @@ async function setIosBuildNumber(appDir: string, buildNumber: number): Promise<b
 }
 
 /**
+ * Stamp the chosen marketing version into the generated `Info.plist` (`CFBundleShortVersionString`),
+ * the iOS twin of {@link setIosBuildNumber}. Stamping the plist directly — rather than only writing
+ * `app.json` — is what makes the choice take effect even when `ios/` is committed (so prebuild, which
+ * would otherwise read `app.json`, never runs). Returns whether a target Info.plist was found.
+ */
+async function setIosMarketingVersion(appDir: string, version: string): Promise<boolean> {
+  const iosDir = join(appDir, "ios");
+  if (!existsSync(iosDir)) return false;
+  const targetDir = readdirSync(iosDir).find((entry) => existsSync(join(iosDir, entry, "Info.plist")));
+  if (!targetDir) return false;
+  await run("/usr/libexec/PlistBuddy", [
+    "-c",
+    `Set :CFBundleShortVersionString ${version}`,
+    join(iosDir, targetDir, "Info.plist"),
+  ]);
+  return true;
+}
+
+/**
  * A yes/no prompt that exits cleanly on cancel. Shared with `launch creds setup` so provisioning
  * confirmations look identical whether triggered inline by a build or run explicitly.
  */
@@ -355,9 +375,12 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
   log.step("credentials", dryRun ? "dry-run (no key needed)" : `key ${resolved.ascKey.keyId}`, "asc-api-key");
   const signing = await resolveSigning(resolved, app, log, dryRun);
   const credentials: BuildCredentials = { platform: "ios", ascKey: resolved.ascKey, signing };
+  const bundleId = app.bundleId ?? "";
+
+  // 3b. Suggest the next marketing version from what's already on the store (interactive uploads only).
+  if (options.submit) await resolveMarketingVersion(resolved.ascKey, bundleId, app, options, log);
 
   // 4. Auto-bump the build number from the last one Apple has on record.
-  const bundleId = app.bundleId ?? "";
   const buildNumber = dryRun
     ? await nextBuildNumber(resolved.ascKey, bundleId, dryRun)
     : await withSpinner("Checking last build number on App Store Connect", () =>
@@ -635,6 +658,110 @@ export async function nextBuildNumber(
   if (dryRun || !bundleId) return 1;
   const asc = new AppStoreConnectClient(ascKey);
   return (await asc.getLatestBuildNumber(bundleId)) + 1;
+}
+
+/** Sentinel `select` values for the two non-numeric choices in the version prompt. */
+const KEEP_VERSION = "__keep__";
+const CUSTOM_VERSION = "__custom__";
+
+/**
+ * Suggest — and apply — the app's marketing version before the build, from what's already on the
+ * store. Queries App Store Connect for the highest existing version (App Store + TestFlight), proposes
+ * the next patch / minor / major above it (never below the app's own config version), and lets the
+ * developer pick, keep the current one, or type one. The choice is stamped into Info.plist and
+ * persisted to a static `app.json`, and mirrored onto `app.version` so every later step (the size
+ * confirm, the receipt) reports it — giving a deliberate, collision-free version each release.
+ *
+ * Interactive uploads only: a dry-run rehearses the step with no network, and `--yes` / CI / a
+ * non-TTY leave the config version untouched (versions are set deliberately there, not via a prompt).
+ */
+async function resolveMarketingVersion(
+  ascKey: AppleCredentials["ascKey"],
+  bundleId: string,
+  app: AppDescriptor,
+  options: BuildRunOptions,
+  log: Logger,
+): Promise<void> {
+  const current = app.version ?? "0.0.0";
+
+  if (options.dryRun) {
+    log.step(
+      "version",
+      `would suggest the next version above the store's latest (config has ${current})`,
+      "marketing-version",
+    );
+    return;
+  }
+  if (options.yes || !isInteractive()) {
+    log.step(
+      "version",
+      `${current} (from app config; not prompting under --yes / non-interactive)`,
+      "marketing-version",
+    );
+    return;
+  }
+
+  const latest = bundleId
+    ? await withSpinner("Checking versions already on App Store Connect", () =>
+        new AppStoreConnectClient(ascKey).getLatestMarketingVersion(bundleId),
+      )
+    : null;
+
+  // Never propose at or below what's already on the store or what the app config already declares.
+  const baseline = highestVersion([latest, current].filter((v): v is string => v !== null)) ?? current;
+  const patch = nextVersion(baseline, "patch");
+  const minor = nextVersion(baseline, "minor");
+  const major = nextVersion(baseline, "major");
+
+  const choice = await select({
+    message: latest
+      ? `App Store Connect's latest is ${latest}. Which version ships next?`
+      : "No versions on App Store Connect yet. Which version ships?",
+    initialValue: latest ? patch : KEEP_VERSION,
+    options: [
+      { value: patch, label: `Patch  → ${patch}`, hint: "bug fixes" },
+      { value: minor, label: `Minor  → ${minor}`, hint: "new features" },
+      { value: major, label: `Major  → ${major}`, hint: "breaking changes" },
+      { value: KEEP_VERSION, label: `Keep   → ${current}`, hint: "reuse the app config version" },
+      { value: CUSTOM_VERSION, label: "Custom…", hint: "type a version" },
+    ],
+  });
+  if (isCancel(choice)) {
+    cancel("Cancelled.");
+    process.exit(0);
+  }
+
+  let chosen: string;
+  if (choice === CUSTOM_VERSION) {
+    const typed = await text({
+      message: "Version (MAJOR.MINOR.PATCH):",
+      initialValue: patch,
+      validate: (value) => (value && parseVersion(value) ? undefined : "Use a version like 1.2.3."),
+    });
+    if (isCancel(typed)) {
+      cancel("Cancelled.");
+      process.exit(0);
+    }
+    const parsed = parseVersion(typed);
+    chosen = parsed ? formatVersion(parsed) : typed.trim();
+  } else if (choice === KEEP_VERSION) {
+    chosen = current;
+  } else {
+    chosen = choice;
+  }
+
+  if (latest && compareVersions(chosen, latest) <= 0) {
+    log.warn(
+      `${chosen} doesn't increment the store's ${latest} — fine for another TestFlight build, but the App Store rejects a release that reuses a version.`,
+    );
+  }
+
+  const stamped = await setIosMarketingVersion(app.dir, chosen);
+  const persisted = writeAppVersion(app, chosen);
+  app.version = chosen;
+  const notes = [persisted ? "app config updated" : "app config not written (dynamic config)"];
+  if (!stamped) notes.push("Info.plist not stamped");
+  log.step("version", `${chosen} (${notes.join("; ")})`, "marketing-version");
 }
 
 /**

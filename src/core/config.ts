@@ -5,7 +5,7 @@
  * monorepo and the app's own config stays the source of truth.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createJiti } from "jiti";
 import type { AppDescriptor, LaunchConfig } from "./types.js";
@@ -173,6 +173,29 @@ async function discoverApps(root: string, maxDepth = 4): Promise<AppDescriptor[]
   };
   await walk(root, 0);
   return found;
+}
+
+/**
+ * Persist a new marketing version into an app's static Expo config (`expo.version`, or a flat
+ * `version`), written back as 2-space JSON. Returns whether it wrote: a dynamic config
+ * (`app.config.{ts,js,mjs}`) can't be safely rewritten — its `version` may be computed — so the
+ * caller stamps the native project instead and leaves the source untouched. Re-reads from disk
+ * rather than trusting the in-memory descriptor, so a concurrent edit since discovery isn't clobbered.
+ */
+export function writeAppVersion(app: AppDescriptor, version: string): boolean {
+  if (!app.configPath.endsWith(".json")) return false;
+  let raw: Record<string, unknown> | null;
+  try {
+    raw = asRecord(JSON.parse(readFileSync(app.configPath, "utf8")));
+  } catch {
+    return false;
+  }
+  if (!raw) return false;
+  const expo = asRecord(raw["expo"]);
+  if (expo) expo["version"] = version;
+  else raw["version"] = version;
+  writeFileSync(app.configPath, `${JSON.stringify(raw, null, 2)}\n`);
+  return true;
 }
 
 /** Load the Launch config and discover apps under its `appRoots` (defaulting to `cwd`). */

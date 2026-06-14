@@ -17,7 +17,9 @@ describe("glossary — the single source for --explain and docs", () => {
     expect(topics).toContain("ccache");
     expect(topics).toContain("incremental-build");
     expect(topics).toContain("build-fingerprint");
-    expect(topics.length).toBe(26);
+    // Next-version suggestion.
+    expect(topics).toContain("marketing-version");
+    expect(topics.length).toBe(27);
     expect(new Set(topics).size).toBe(topics.length);
   });
 

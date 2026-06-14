@@ -17,6 +17,7 @@ export type GlossaryTopic =
   | "code-signing"
   | "app-thinning"
   | "build-number"
+  | "marketing-version"
   | "app-record"
   | "agreements"
   | "testflight"
@@ -79,6 +80,11 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "Build number (CFBundleVersion): Apple requires every upload to carry a number that is unique",
     "and higher than the last for the same version. Launch queries App Store Connect for the",
     "last-used number and auto-bumps, so you never hit 'build number already used'.",
+  ].join("\n"),
+  "marketing-version": [
+    "Marketing version (CFBundleShortVersionString): the human version users see, e.g. 1.2.0 — separate",
+    "from the build number. Launch reads the versions already on App Store Connect (App Store + TestFlight)",
+    "and suggests the next bump, so you advance the version deliberately instead of reusing or guessing one.",
   ].join("\n"),
   "app-record": [
     "App record: the app's entry in App Store Connect. It's the ONE thing Apple's API can't create",
