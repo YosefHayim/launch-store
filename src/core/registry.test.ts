@@ -9,6 +9,8 @@ function fakeStorage(name: string): StorageProvider {
     put: () => Promise.reject(new Error("not used")),
     list: () => Promise.resolve([]),
     url: () => Promise.resolve(""),
+    putObject: () => Promise.reject(new Error("not used")),
+    publicUrl: () => "",
   };
 }
 
@@ -21,6 +23,8 @@ describe("provider registry — the DI seam", () => {
 
   it("throws a clear error naming the available providers when one is missing", () => {
     registerStorageProvider(fakeStorage("local"));
-    expect(() => getStorageProvider("s3")).toThrow(/Unknown storage provider "s3"\. Available: .*local/);
+    expect(() => getStorageProvider("nonexistent")).toThrow(
+      /Unknown storage provider "nonexistent"\. Available: .*local/,
+    );
   });
 });

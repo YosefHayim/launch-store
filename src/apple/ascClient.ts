@@ -31,6 +31,10 @@ export const DISTRIBUTION_CERT_TYPE = "DISTRIBUTION";
 export const DISTRIBUTION_CERT_NAME = "Apple Distribution";
 /** Provisioning profile type for App Store / TestFlight distribution. */
 export const APP_STORE_PROFILE_TYPE = "IOS_APP_STORE";
+/** Provisioning profile type for ad-hoc (install-link) distribution to a fixed set of registered devices. */
+export const AD_HOC_PROFILE_TYPE = "IOS_APP_ADHOC";
+/** Platform value Apple expects when registering a device for ad-hoc distribution. */
+const IOS_DEVICE_PLATFORM = "IOS";
 
 /** One App Store Connect API error, as returned in the `errors` array of a failed response. */
 interface AscError {
@@ -58,6 +62,17 @@ export interface CertificateResource {
   expirationDate?: string | undefined;
 }
 
+/** A device registered in the Developer portal, eligible to receive ad-hoc builds. */
+export interface DeviceResource {
+  id: string;
+  /** The device's 40-char (or 25-char, newer) UDID. */
+  udid: string;
+  /** Human label shown in the portal, e.g. `Dana's iPhone`. */
+  name: string;
+  /** Apple's status, e.g. `ENABLED` / `DISABLED`. Disabled devices don't count toward an ad-hoc profile. */
+  status?: string | undefined;
+}
+
 /** A provisioning profile resource, with the bytes needed to install it locally. */
 export interface ProfileResource {
   id: string;
@@ -72,6 +87,15 @@ interface ResourceList<A> {
 }
 interface ResourceSingle<A> {
   data: { id: string; attributes: A };
+}
+
+/**
+ * One page of a paginated collection: the page's `data` plus Apple's `links.next` — an absolute URL
+ * to the following page, present only while more pages remain. Consumed by {@link AppStoreConnectClient.requestAll}.
+ */
+interface PagedList<A> {
+  data: { id: string; attributes: A }[];
+  links?: { next?: string };
 }
 
 /** Client bound to one App Store Connect API key. */
@@ -95,9 +119,15 @@ export class AppStoreConnectClient {
    * Issue an authenticated request and parse the JSON body. On failure it surfaces Apple's own
    * error `detail` (e.g. "A required agreement is missing") instead of a bare status code, so the
    * CLI can show an actionable message.
+   *
+   * `pathOrUrl` is either a path relative to {@link BASE_URL} (e.g. `/devices?limit=200`) or an
+   * already-absolute URL — Apple's pagination `links.next` is absolute and already carries `/v1`, so
+   * {@link requestAll} passes it through verbatim. Re-prefixing such a URL with BASE_URL is exactly
+   * the `/v1/v1/...` double-prefix bug that breaks naive clients once a collection spans pages.
    */
-  private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const response = await fetch(`${BASE_URL}${path}`, {
+  private async request<T>(method: string, pathOrUrl: string, body?: unknown): Promise<T> {
+    const url = pathOrUrl.startsWith("http") ? pathOrUrl : `${BASE_URL}${pathOrUrl}`;
+    const response = await fetch(url, {
       method,
       headers: {
         Authorization: `Bearer ${await this.token()}`,
@@ -108,9 +138,28 @@ export class AppStoreConnectClient {
     if (response.status === 204) return undefined as T;
     const text = await response.text();
     if (!response.ok) {
-      throw new Error(`App Store Connect ${method} ${path} failed (${response.status}): ${describeErrors(text)}`);
+      throw new Error(`App Store Connect ${method} ${pathOrUrl} failed (${response.status}): ${describeErrors(text)}`);
     }
     return JSON.parse(text) as T;
+  }
+
+  /**
+   * GET every page of a paginated collection, following Apple's absolute `links.next` URLs verbatim
+   * until the cursor runs out. Apple caps a page at 200 and links the rest; reading only the first
+   * page silently truncates large collections (a team's devices, an app's version history), so any
+   * "list all" call routes through here rather than a single `limit=200` read.
+   */
+  // A is the caller-specified attributes shape of the returned rows; no argument infers it, so the param is required.
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+  private async requestAll<A>(path: string): Promise<{ id: string; attributes: A }[]> {
+    const all: { id: string; attributes: A }[] = [];
+    let next: string | undefined = path;
+    while (next) {
+      const page: PagedList<A> = await this.request<PagedList<A>>("GET", next);
+      all.push(...page.data);
+      next = page.links?.next;
+    }
+    return all;
   }
 
   /** Resolve the internal App Store Connect app id for a bundle identifier, or null if no record exists. */
@@ -149,18 +198,16 @@ export class AppStoreConnectClient {
     const appId = await this.getAppId(bundleId);
     if (!appId) return null;
     const [appStore, preRelease] = await Promise.all([
-      this.request<ResourceList<{ versionString: string }>>(
-        "GET",
+      this.requestAll<{ versionString: string }>(
         `/apps/${appId}/appStoreVersions?fields[appStoreVersions]=versionString&limit=200`,
       ),
-      this.request<ResourceList<{ version: string }>>(
-        "GET",
+      this.requestAll<{ version: string }>(
         `/apps/${appId}/preReleaseVersions?fields[preReleaseVersions]=version&limit=200`,
       ),
     ]);
     return highestVersion([
-      ...appStore.data.map((entry) => entry.attributes.versionString),
-      ...preRelease.data.map((entry) => entry.attributes.version),
+      ...appStore.map((entry) => entry.attributes.versionString),
+      ...preRelease.map((entry) => entry.attributes.version),
     ]);
   }
 
@@ -194,13 +241,10 @@ export class AppStoreConnectClient {
 
   /**
    * List the names of the apps this key can access — the recognizable signal for telling accounts
-   * apart in the picker (an opaque Team ID alone isn't memorable). Capped, names only.
+   * apart in the picker (an opaque Team ID alone isn't memorable). All pages, names only.
    */
-  async listAppNames(limit = 200): Promise<string[]> {
-    const { data } = await this.request<ResourceList<{ name?: string }>>(
-      "GET",
-      `/apps?fields[apps]=name&limit=${limit}`,
-    );
+  async listAppNames(): Promise<string[]> {
+    const data = await this.requestAll<{ name?: string }>("/apps?fields[apps]=name&limit=200");
     return data.map((entry) => entry.attributes.name).filter((name): name is string => Boolean(name));
   }
 
@@ -225,9 +269,9 @@ export class AppStoreConnectClient {
 
   /** List distribution certificates, newest expiry first, for reuse before creating a new one. */
   async listDistributionCertificates(): Promise<CertificateResource[]> {
-    const { data } = await this.request<
-      ResourceList<{ serialNumber: string; certificateContent: string; expirationDate?: string }>
-    >("GET", `/certificates?filter[certificateType]=${DISTRIBUTION_CERT_TYPE}&limit=200`);
+    const data = await this.requestAll<{ serialNumber: string; certificateContent: string; expirationDate?: string }>(
+      `/certificates?filter[certificateType]=${DISTRIBUTION_CERT_TYPE}&limit=200`,
+    );
     return data.map((entry) => ({
       id: entry.id,
       serialNumber: entry.attributes.serialNumber,
@@ -298,6 +342,74 @@ export class AppStoreConnectClient {
   /** Delete a provisioning profile (used when recreating one after issuing a new certificate). */
   async deleteProfile(id: string): Promise<void> {
     await this.request<unknown>("DELETE", `/profiles/${id}`);
+  }
+
+  /**
+   * List every registered device, across all pages. An ad-hoc profile must enumerate the devices it
+   * covers, and a real team easily exceeds Apple's 200-per-page cap — so this folds the whole
+   * collection via {@link requestAll} rather than reading one page (the silent-truncation trap).
+   */
+  async listDevices(): Promise<DeviceResource[]> {
+    const data = await this.requestAll<{ udid: string; name: string; status?: string }>("/devices?limit=200");
+    return data.map((entry) => ({
+      id: entry.id,
+      udid: entry.attributes.udid,
+      name: entry.attributes.name,
+      status: entry.attributes.status,
+    }));
+  }
+
+  /** Find a registered device by UDID (case-insensitive — Apple stores UDIDs lower-case), or null. */
+  async findDeviceByUdid(udid: string): Promise<DeviceResource | null> {
+    const wanted = udid.toLowerCase();
+    return (await this.listDevices()).find((device) => device.udid.toLowerCase() === wanted) ?? null;
+  }
+
+  /**
+   * Register a device so ad-hoc builds can target it. Apple treats a known UDID idempotently (it
+   * returns the existing entry rather than erroring), so callers can register-then-include safely.
+   */
+  async registerDevice(udid: string, name: string): Promise<DeviceResource> {
+    const { data } = await this.request<ResourceSingle<{ udid: string; name: string; status?: string }>>(
+      "POST",
+      "/devices",
+      { data: { type: "devices", attributes: { udid, name, platform: IOS_DEVICE_PLATFORM } } },
+    );
+    return { id: data.id, udid: data.attributes.udid, name: data.attributes.name, status: data.attributes.status };
+  }
+
+  /**
+   * Create an ad-hoc provisioning profile that ties a bundle id + distribution certificate to an
+   * explicit device set — the install-link analog of {@link createAppStoreProfile}. The profile is
+   * only valid for the `deviceIds` listed, so it must be recreated whenever the device set changes.
+   */
+  async createAdHocProfile(
+    name: string,
+    bundleIdResourceId: string,
+    certificateId: string,
+    deviceIds: string[],
+  ): Promise<ProfileResource> {
+    const { data } = await this.request<ResourceSingle<{ name: string; uuid: string; profileContent: string }>>(
+      "POST",
+      "/profiles",
+      {
+        data: {
+          type: "profiles",
+          attributes: { name, profileType: AD_HOC_PROFILE_TYPE },
+          relationships: {
+            bundleId: { data: { type: "bundleIds", id: bundleIdResourceId } },
+            certificates: { data: [{ type: "certificates", id: certificateId }] },
+            devices: { data: deviceIds.map((id) => ({ type: "devices", id })) },
+          },
+        },
+      },
+    );
+    return {
+      id: data.id,
+      name: data.attributes.name,
+      uuid: data.attributes.uuid,
+      profileContent: data.attributes.profileContent,
+    };
   }
 }
 

@@ -7,33 +7,10 @@
  * after. Implements {@link Submitter}; a Google Play submitter implements the same interface later.
  */
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import type {
-  AppleCredentials,
-  BuildCredentials,
-  ResolvedBuildContext,
-  Submitter,
-  SubmitTarget,
-} from "../../core/types.js";
+import { rmSync } from "node:fs";
+import type { BuildCredentials, ResolvedBuildContext, Submitter, SubmitTarget } from "../../core/types.js";
 import { run } from "../../core/exec.js";
-
-/** Write the API key in the JSON shape fastlane's `--api_key_path` expects; returns the file path. */
-function writeApiKeyFile(creds: AppleCredentials): string {
-  const dir = mkdtempSync(join(tmpdir(), "launch-key-"));
-  const path = join(dir, "asc_api_key.json");
-  writeFileSync(
-    path,
-    JSON.stringify({
-      key_id: creds.ascKey.keyId,
-      issuer_id: creds.ascKey.issuerId,
-      key: creds.ascKey.p8,
-      in_house: false,
-    }),
-  );
-  return path;
-}
+import { writeAscApiKeyFile } from "../../apple/apiKeyFile.js";
 
 export const appStoreConnectSubmitter: Submitter = {
   name: "app-store-connect",
@@ -45,7 +22,7 @@ export const appStoreConnectSubmitter: Submitter = {
     _ctx: ResolvedBuildContext,
   ): Promise<void> {
     if (creds.platform !== "ios") throw new Error("The app-store-connect submitter handles iOS only.");
-    const apiKeyPath = writeApiKeyFile(creds);
+    const apiKeyPath = writeAscApiKeyFile(creds.ascKey);
     try {
       const args =
         target === "testing"

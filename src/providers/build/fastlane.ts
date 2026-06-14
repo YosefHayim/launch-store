@@ -90,13 +90,17 @@ export function assertDeviceArtifact(artifactPath: string, sizeBytes: number): v
   }
 }
 
-/** Build the export-options plist for manual App Store signing with the resolved profile + cert. */
-export function exportOptionsPlist(signing: SigningAssets): string {
+/**
+ * Build the export-options plist for manual signing with the resolved profile + cert. `method` is
+ * `app-store` for a store/TestFlight build or `ad-hoc` for an internal install-link build — the only
+ * difference between the two export paths, since both use the same manual signing inputs.
+ */
+export function exportOptionsPlist(signing: SigningAssets, method: "app-store" | "ad-hoc" = "app-store"): string {
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
     '<plist version="1.0"><dict>',
-    "<key>method</key><string>app-store</string>",
+    `<key>method</key><string>${method}</string>`,
     "<key>signingStyle</key><string>manual</string>",
     `<key>teamID</key><string>${signing.teamId}</string>`,
     `<key>signingCertificate</key><string>${signing.certName}</string>`,
@@ -142,7 +146,10 @@ export const fastlaneBuildEngine: BuildEngine = {
 
     const outputDir = mkdtempSync(join(tmpdir(), "launch-build-"));
     const plistPath = join(outputDir, "ExportOptions.plist");
-    writeFileSync(plistPath, exportOptionsPlist(signing));
+    // Internal distribution exports an ad-hoc archive (installs on the profile's registered devices);
+    // everything else exports for the store. Same manual-signing inputs either way.
+    const exportMethod = ctx.distribution === "internal" ? "ad-hoc" : "app-store";
+    writeFileSync(plistPath, exportOptionsPlist(signing, exportMethod));
 
     await runWithProgress(
       "fastlane",

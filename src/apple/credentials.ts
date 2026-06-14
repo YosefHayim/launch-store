@@ -235,13 +235,18 @@ async function readProfileMetadata(
   return { uuid, name, teamId: plistFirstArrayString(xml, "TeamIdentifier") };
 }
 
-/** Decode the base64 profile content, install it where Xcode looks, and back it up per-account. */
+/**
+ * Decode the base64 profile content, install it where Xcode looks, and back it up per-account.
+ * `backupName` is the backup filename base (without extension) — the App Store path passes the bundle
+ * id; the ad-hoc path passes `<bundleId>.adhoc` so the two profiles for one bundle don't overwrite
+ * each other's backup. (The installed copy is keyed by UUID, so it never collides regardless.)
+ */
 async function installProfile(
   keyId: string,
-  bundleId: string,
+  backupName: string,
   profileContent: string,
 ): Promise<{ uuid: string; name: string; teamId: string | null; installedPath: string }> {
-  const backupPath = join(ensureDir(accountCredentialsDir(keyId)), `${bundleId}.mobileprovision`);
+  const backupPath = join(ensureDir(accountCredentialsDir(keyId)), `${backupName}.mobileprovision`);
   writeFileSync(backupPath, Buffer.from(profileContent, "base64"));
   const { uuid, name, teamId } = await readProfileMetadata(backupPath);
   ensureDir(PROVISIONING_PROFILES_DIR);
@@ -363,6 +368,94 @@ export async function ensureSigningCredentials(options: EnsureSigningOptions): P
   return {
     bundleId,
     teamId,
+    certName: DISTRIBUTION_CERT_NAME,
+    certSerial: cert.serial,
+    profileName: installed.name,
+    profileUuid: installed.uuid,
+    profilePath: installed.installedPath,
+  };
+}
+
+/**
+ * Resolve signing assets for an ad-hoc (internal-distribution) build — the install-link twin of
+ * {@link ensureSigningCredentials}.
+ *
+ * Same App ID + distribution certificate as the App Store path, but the profile is an `IOS_APP_ADHOC`
+ * profile scoped to every registered, enabled device (so the resulting `.ipa` installs over the air on
+ * those devices). Because an ad-hoc profile is only valid for the exact device set it was minted with,
+ * this recreates the profile on every run rather than reusing a stale one — the cheap, always-correct
+ * choice. Throws with an actionable message when no devices are registered (`launch device add`).
+ */
+export async function ensureAdHocSigningCredentials(options: EnsureSigningOptions): Promise<SigningAssets> {
+  const { bundleId, appName, ascKey, log, dryRun, confirmCreate } = options;
+
+  if (dryRun) {
+    log.info(
+      `[dry-run] would ensure App ID + distribution cert + an ad-hoc profile over registered devices for ${bundleId}`,
+    );
+    return { ...dryRunAssets(bundleId), profileName: `Launch_${bundleId}_AdHoc` };
+  }
+
+  const keyId = ascKey.keyId;
+  const client = new AppStoreConnectClient(ascKey);
+  const index = readIndex(keyId);
+
+  // 1. App ID — same prerequisite as the App Store path.
+  let bundle = await client.findBundleId(bundleId);
+  if (!bundle) {
+    if (!(await confirmCreate(`Register App ID "${bundleId}" in your Apple account?`))) {
+      throw new Error(`App ID ${bundleId} is not registered. Re-run and confirm, or register it in the portal.`);
+    }
+    bundle = await client.createBundleId(bundleId, appName);
+    log.step("app id", `registered ${bundleId}`, "bundle-id");
+  } else {
+    log.step("app id", `${bundleId} already registered`, "bundle-id");
+  }
+
+  // 2. Distribution certificate — reuse the cached one (importing the .p12) or create one.
+  const liveCerts = await client.listDistributionCertificates();
+  const password = await p12Password(keyId);
+  const reusable = reusableCertificate(index, liveCerts);
+  let cert: CertRecord;
+  if (reusable) {
+    cert = reusable;
+    await importP12(cert.p12Path, password);
+    log.step("certificate", `reusing distribution cert ${cert.serial}`, "distribution-certificate");
+  } else {
+    if (!(await confirmCreate("Create a new distribution certificate (generates a private key on this Mac)?"))) {
+      throw new Error("No usable distribution certificate. Re-run and confirm to create one.");
+    }
+    cert = await createAndStoreCertificate(client, password, keyId);
+    index.certificate = cert;
+    writeIndex(keyId, index);
+    log.step("certificate", `created distribution cert ${cert.serial}`, "distribution-certificate");
+  }
+
+  // 3. Every registered, enabled device goes on the profile (disabled devices don't count to Apple).
+  const devices = (await client.listDevices()).filter((device) => device.status !== "DISABLED");
+  if (devices.length === 0) {
+    throw new Error(
+      "No registered devices for an ad-hoc build. Add one with `launch device add <udid> [name]` and retry.",
+    );
+  }
+  log.step("devices", `${devices.length} registered device(s) on the ad-hoc profile`);
+
+  // 4. Ad-hoc profile — recreate each run so it tracks the current device set exactly.
+  const profileName = `Launch_${bundleId}_AdHoc`;
+  const existing = await client.findProfileByName(profileName);
+  if (existing) await client.deleteProfile(existing.id);
+  const profile = await client.createAdHocProfile(
+    profileName,
+    bundle.id,
+    cert.id,
+    devices.map((device) => device.id),
+  );
+  const installed = await installProfile(keyId, `${bundleId}.adhoc`, profile.profileContent);
+  log.step("profile", `created ${profileName} (ad-hoc)`, "provisioning-profile");
+
+  return {
+    bundleId,
+    teamId: installed.teamId ?? bundle.seedId ?? "",
     certName: DISTRIBUTION_CERT_NAME,
     certSerial: cert.serial,
     profileName: installed.name,
