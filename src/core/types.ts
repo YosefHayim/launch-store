@@ -260,6 +260,62 @@ export interface AppProducts {
 }
 
 /**
+ * How an approved iOS build reaches the public App Store — the App Store version's `releaseType`,
+ * mirroring Apple's enum on the `appStoreVersions` resource. Read by `launch release`, overridable
+ * per-run with `--manual` / `--scheduled <iso>`.
+ * - `AFTER_APPROVAL`: go live automatically the moment Apple approves. Launch's default — the
+ *   hands-off path most solo developers want.
+ * - `MANUAL`: hold after approval until you press release (`launch status` shows it's pending). Use
+ *   to line the go-live up with a marketing moment.
+ * - `SCHEDULED`: go live at a fixed future instant, set via {@link ReleaseConfig.earliestReleaseDate}.
+ */
+export type ReleaseType = "AFTER_APPROVAL" | "MANUAL" | "SCHEDULED";
+
+/**
+ * iOS public-release policy, declared under {@link LaunchConfig.release}. These are the defaults
+ * `launch release` applies to the App Store version it submits; every field is optional, so an absent
+ * `release` block means "go live after approval, all at once" — the safe, common case. Android release
+ * policy is unaffected (it rides on the Play track + `--rollout`, see {@link AndroidReleaseOptions}).
+ *
+ * Scope: this drives an UPDATE to an already-configured app. A brand-new app's first submission still
+ * needs portal-only steps (screenshots, age rating, signed agreements) and the app record itself —
+ * which Apple has no API to create — so `launch release` detects that and prints a one-time checklist.
+ */
+export interface ReleaseConfig {
+  /** How an approved build reaches the store. Defaults to `AFTER_APPROVAL`. Overridable with `--manual`/`--scheduled`. */
+  releaseType?: ReleaseType;
+  /**
+   * ISO-8601 instant to go live at — only meaningful with `releaseType: "SCHEDULED"` (ignored otherwise).
+   * A `--scheduled <iso>` flag sets both this and the release type for one run.
+   */
+  earliestReleaseDate?: string;
+  /**
+   * Opt into Apple's 7-day phased release (a gradual percentage rollout) for an approved update.
+   * Defaults to `false` — an immediate 100% release. Overridable per-run with `--phased`, and steerable
+   * afterward with `launch rollout <pause|resume|complete>`. Ignored for a first version (Apple only
+   * phases updates).
+   */
+  phasedRelease?: boolean;
+  /**
+   * Whether the binary contains non-exempt encryption (Apple's export-compliance question). `false` —
+   * the common case for apps using only standard HTTPS/system crypto — lets Launch declare compliance
+   * over the API so the build clears `WAITING_FOR_EXPORT_COMPLIANCE` without a portal trip. Set `true`
+   * only if you ship proprietary/non-exempt encryption; Launch then stops and points you to the portal,
+   * since genuine non-exempt encryption requires documentation Apple's API can't accept. Defaults to `false`.
+   */
+  usesNonExemptEncryption?: boolean;
+  /**
+   * Release notes ("What's New in This Version"), per App Store locale (e.g. `{ "en-US": "Bug fixes." }`)
+   * or a single string applied to {@link ReleaseConfig.primaryLocale}. When absent, Launch reuses the
+   * previous version's notes so a release never ships an empty "What's New". Apple stores these on the
+   * version's localization, not the version itself.
+   */
+  releaseNotes?: string | Record<string, string>;
+  /** Primary App Store locale for a bare-string {@link ReleaseConfig.releaseNotes}. Defaults to `en-US`. */
+  primaryLocale?: string;
+}
+
+/**
  * Build/submit completion notifications — the EAS-`webhook` parity hook, declared under
  * {@link LaunchConfig.notify}. A local Mac build can run many minutes; this pings when it finishes.
  * Both fields are optional and independent: set a `webhookUrl`, a `command`, both, or (absent) get
@@ -313,6 +369,12 @@ export interface LaunchConfig {
   products?: Record<string, AppProducts>;
   /** Build/submit completion notifications (webhook + shell hook). Absent = no notifications. See {@link NotifyConfig}. */
   notify?: NotifyConfig;
+  /**
+   * iOS public-release policy for `launch release` (release type, scheduled date, phased rollout,
+   * export compliance, release notes). Absent = the safe defaults (go live after approval, all at
+   * once). See {@link ReleaseConfig}.
+   */
+  release?: ReleaseConfig;
   /** AWS EC2 Mac settings for remote (off-Mac) builds. Only needed when building via `--remote aws`. */
   aws?: AwsConfig;
   /**

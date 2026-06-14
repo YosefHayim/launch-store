@@ -41,7 +41,13 @@ describe("glossary — the single source for --explain and docs", () => {
     expect(topics).toContain("build-profile");
     // Bundle-ID capabilities teaching entry (issue #19, PR #43).
     expect(topics).toContain("bundle-id-capability");
-    expect(topics.length).toBe(56);
+    // App Store release lifecycle (API-driven `launch release`/`status`/`rollout`).
+    expect(topics).toContain("app-store-version");
+    expect(topics).toContain("review-submission");
+    expect(topics).toContain("release-type");
+    expect(topics).toContain("phased-release");
+    expect(topics).toContain("export-compliance");
+    expect(topics.length).toBe(61);
     expect(new Set(topics).size).toBe(topics.length);
   });
 
