@@ -18,6 +18,8 @@ export type {
   SubscriptionGroupConfig,
   SubscriptionConfig,
   InAppPurchaseConfig,
+  PlayProductOverride,
+  PlayPriceConfig,
   ProductLocalization,
   GroupLocalization,
   ProductPrice,
