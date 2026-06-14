@@ -49,6 +49,7 @@ import {
   openRemoteSession,
   pullArtifact,
   runBuildOnHost,
+  runDoctorOnHost,
   shredHost,
   syncProject,
   uploadSigningMaterial,
@@ -194,6 +195,10 @@ export async function runRemoteBuild(prepared: PreparedBuild, options: BuildRunO
     log.info("Syncing the project to the host…");
     await syncProject(session, app.dir);
     log.step("sync", "project synced to the host's warm work tree");
+    // The remote twin of `launch doctor`: install gaps on our AWS host, assert (never mutate) a BYO host.
+    log.info("Checking the host toolchain…");
+    await runDoctorOnHost(session, remote.kind === "aws" ? "install" : "assert");
+    log.step("doctor", remote.kind === "aws" ? "host toolchain verified (gaps installed)" : "host toolchain verified");
     await uploadSigningMaterial(session, inputs);
     log.step("upload creds", "uploaded into an ephemeral keychain on the host");
     log.info("Building on the host (archive + sign + export; this can take a while)…");

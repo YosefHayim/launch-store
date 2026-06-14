@@ -23,7 +23,8 @@ import type { AscKey, SigningAssets, SizeReport, SubmitTarget, SshTarget } from 
 import type { RemoteSigningBundle } from "../apple/credentials.js";
 import { ensureDir } from "./paths.js";
 import { rsyncUp, scpDown, scpUp, sshCapture, sshRun } from "./ssh.js";
-import { exportOptionsPlist, parseThinningReport } from "../providers/build/fastlane.js";
+import { remoteToolchainPreflight } from "./toolchain.js";
+import { assertDeviceArtifact, exportOptionsPlist, parseThinningReport } from "../providers/build/fastlane.js";
 
 /**
  * What never leaves your machine in the source archive (decision 9): dependencies and native build
@@ -134,6 +135,26 @@ export async function uploadSigningMaterial(session: RemoteSession, inputs: Remo
 }
 
 /**
+ * Run the toolchain doctor ON the remote Mac before building — the remote twin of `launch doctor`.
+ * Uploads {@link remoteToolchainPreflight} and executes it: `"install"` for an AWS host we own (brew-
+ * installs any gaps) or `"assert"` for a BYO-SSH host (checks + fails with hints, never mutates the
+ * user's machine). A missing required tool exits the preflight non-zero, so `sshRun` rejects and the
+ * build fails fast with the gaps listed instead of a cryptic error deep inside fastlane.
+ */
+export async function runDoctorOnHost(session: RemoteSession, mode: "install" | "assert"): Promise<void> {
+  const staging = mkdtempSync(join(tmpdir(), "launch-remote-"));
+  const scriptLocal = join(staging, "doctor.sh");
+  writeFileSync(scriptLocal, remoteToolchainPreflight(mode));
+  const scriptRemote = `${session.credsDir}/doctor.sh`;
+  try {
+    await scpUp(session.target, scriptLocal, scriptRemote);
+  } finally {
+    rmSync(staging, { recursive: true, force: true });
+  }
+  await sshRun(session.target, `bash ${shellQuote(scriptRemote)}`);
+}
+
+/**
  * Upload the build script and run it on the host (ephemeral keychain → incremental deps/prebuild →
  * host-gated pod install + gym → optional submit). The clean-vs-incremental and ccache flags ride in as
  * env (`FORCE_CLEAN`, `USE_CCACHE`); the host owns its own staleness check, so this returns whether it
@@ -196,7 +217,11 @@ export async function pullArtifact(
   } catch {
     /* no thinning report produced — degrade to ipa size only */
   }
-  return { ipaPath, sizeReport: { artifactBytes: statSync(ipaPath).size, entries } };
+  const artifactBytes = statSync(ipaPath).size;
+  // The authoritative device-archive guard, shared with the local build: reject a simulator/.app/empty
+  // artifact with the same actionable error rather than storing or submitting a dead one (issue #6).
+  assertDeviceArtifact(ipaPath, artifactBytes);
+  return { ipaPath, sizeReport: { artifactBytes, entries } };
 }
 
 /**
@@ -292,7 +317,13 @@ fastlane gym \
 printf '%s' "$NEW_FP" > "$FP_FILE"
 printf '%s' "$CLEAN" > "$WORK/.launch-clean"
 
-IPA="$(ls "$OUT"/*.ipa | head -1)"
+# Fail fast on the host if gym produced no non-empty .ipa, so we don't waste a transfer on a dead
+# export — the authoritative device-archive guard runs locally after pull.
+IPA="$(ls "$OUT"/*.ipa 2>/dev/null | head -1)"
+if [ -z "$IPA" ] || [ ! -s "$IPA" ]; then
+  echo "LAUNCH_NO_ARTIFACT: gym produced no non-empty .ipa in $OUT" >&2
+  exit 1
+fi
 echo "LAUNCH_IPA=$IPA"
 
 # 7. Submit from the host (decision 10), using the same API key, then remove the temp key json.

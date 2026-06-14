@@ -6,7 +6,14 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { REQUIRED_TOOLS, ensureToolchain, fixHint, planInstall, type ToolchainIo } from "./toolchain.js";
+import {
+  REQUIRED_TOOLS,
+  ensureToolchain,
+  fixHint,
+  planInstall,
+  remoteToolchainPreflight,
+  type ToolchainIo,
+} from "./toolchain.js";
 
 /** Map each brew formula back to the command it provides, so the fake can mark it present after install. */
 const FORMULA_TO_COMMAND = new Map(
@@ -63,6 +70,38 @@ describe("planInstall", () => {
     const { brew, guided } = planInstall(REQUIRED_TOOLS);
     expect(guided.map((tool) => tool.command)).toEqual(["xcodebuild"]);
     expect(brew.map((tool) => tool.command)).toEqual(["ruby", "fastlane", "pod", "openssl", "node", "ccache"]);
+  });
+});
+
+describe("remoteToolchainPreflight — the on-host doctor, generated from the canonical list", () => {
+  it("checks every required tool and signs off with the success marker", () => {
+    const script = remoteToolchainPreflight("assert");
+    for (const tool of REQUIRED_TOOLS) expect(script).toContain(`command -v ${tool.command} `);
+    expect(script).toContain("LAUNCH_PREFLIGHT_OK");
+    // A missing REQUIRED tool flips MISSING=1 and exits non-zero; a recommended one only warns.
+    expect(script).toMatch(/MISSING=1.*pod|pod.*MISSING=1/s);
+    expect(script).toContain("• ccache (recommended)");
+  });
+
+  it("never mutates a BYO host (assert) but installs gaps on an AWS host (install)", () => {
+    const assert = remoteToolchainPreflight("assert");
+    // "brew install …" still appears as advice text inside a hint, but is never EXECUTED on a BYO host.
+    expect(assert).not.toContain("→ installing");
+    expect(assert).not.toMatch(/brew install \w+ \|\| true/);
+    expect(assert).not.toContain("brew shellenv");
+
+    const install = remoteToolchainPreflight("install");
+    expect(install).toContain("brew install cocoapods || true");
+    expect(install).toContain("brew install fastlane || true");
+    expect(install).toContain("→ installing");
+    expect(install).toContain("brew shellenv"); // brew put on PATH first
+  });
+
+  it("keeps Xcode's backtick-bearing hint literal (single-quoted), never a command substitution", () => {
+    const script = remoteToolchainPreflight("assert");
+    // The hint contains `xcode-select --install`; it must appear inside a single-quoted echo, not bare.
+    expect(script).toContain("'✗ Xcode (xcodebuild) missing —");
+    expect(script).not.toMatch(/echo "[^"]*`xcode-select/);
   });
 });
 
