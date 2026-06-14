@@ -391,8 +391,42 @@ export interface SubscriptionGroupConfig {
 }
 
 /**
+ * A Google Play price: an exact amount in a currency's micro-units (millionths) plus the ISO currency
+ * code. Play has no price-point ladder — `"1990000"` with currency `"USD"` is $1.99. Used for both a
+ * product's default price and any per-region overrides. Kept distinct from {@link ProductPrice} because
+ * the two stores model money differently (Apple resolves a fixed price point; Play takes a literal
+ * micro-unit amount), so a single shared price field can't serve both.
+ */
+export interface PlayPriceConfig {
+  /** Amount in micro-units: 1,000,000 = one whole unit of `currency`. */
+  priceMicros: string;
+  /** ISO 4217 currency code, e.g. `USD`. */
+  currency: string;
+}
+
+/**
+ * Google Play overrides for an {@link InAppPurchaseConfig}, so one product declaration can drive both
+ * stores. The shared fields are reused for Play — `productId` becomes the Play SKU (override via
+ * {@link PlayProductOverride.sku}) and each {@link ProductLocalization} becomes a Play listing
+ * (`name` → title, `description` → description), with the first localization's locale as the product's
+ * default language. Pricing is declared HERE rather than reused from {@link InAppPurchaseConfig.price}
+ * because the two stores' money models don't line up (see {@link PlayPriceConfig}). Present this object
+ * to publish the product to Play via `launch play-products` as an active managed product; omit it to
+ * keep the product Apple-only.
+ */
+export interface PlayProductOverride {
+  /** Play SKU; defaults to the shared {@link InAppPurchaseConfig.productId} when omitted. */
+  sku?: string;
+  /** Default price applied to every region without an explicit {@link PlayProductOverride.prices} entry. */
+  defaultPrice?: PlayPriceConfig;
+  /** Per-region price overrides keyed by ISO region code (e.g. `US`). */
+  prices?: Record<string, PlayPriceConfig>;
+}
+
+/**
  * One non-subscription in-app purchase (consumable, non-consumable, or non-renewing subscription).
- * `productId` is the globally-unique Apple product id and the reconciler's natural key.
+ * `productId` is the globally-unique Apple product id and the reconciler's natural key. Add a
+ * {@link PlayProductOverride} under `play` to also publish it to Google Play.
  */
 export interface InAppPurchaseConfig {
   /** Apple product id, e.g. `com.acme.coins.100`. Globally unique; the reconciler matches on it. */
@@ -405,6 +439,8 @@ export interface InAppPurchaseConfig {
   localizations: ProductLocalization[];
   /** Baseline price. Omit only to price manually in the UI. */
   price?: ProductPrice;
+  /** Google Play overrides; present this to also publish the product to Play (see {@link PlayProductOverride}). */
+  play?: PlayProductOverride;
 }
 
 /**
