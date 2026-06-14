@@ -23,13 +23,31 @@ export const LOGS_DIR = join(LAUNCH_HOME, "logs");
 export const ARTIFACT_INDEX = join(ARTIFACTS_DIR, "index.json");
 
 /**
+ * Registry of onboarded Apple accounts (`{ active, accounts: [...] }`). Non-secret: Key IDs, Issuer
+ * IDs, labels, and cached team/app metadata only — each account's `.p8` stays in the OS secret store.
+ */
+export const ACCOUNTS_FILE = join(LAUNCH_HOME, "accounts.json");
+
+/**
  * Non-secret signing metadata + the encrypted `.p12` backup live here (chmod 600). The private
  * key is ALSO in the login Keychain for signing; this backup just survives a Keychain reset.
+ * Per-account signing assets live in a {@link accountCredentialsDir} subfolder keyed by Key ID.
  */
 export const CREDENTIALS_DIR = join(LAUNCH_HOME, "credentials");
 
-/** JSON map of the resolved distribution certificate + per-bundle provisioning profiles. */
+/** Legacy single-account signing index, kept only so first-run migration can move it per-account. */
 export const CREDENTIALS_INDEX = join(CREDENTIALS_DIR, "index.json");
+
+/**
+ * The per-account signing directory: `~/.launch/credentials/<keyId>/` holding that account's
+ * `index.json`, `.p12` backup, and `.mobileprovision` backups. Keying by Key ID isolates each Apple
+ * team's signing material so switching accounts never reuses or overwrites another team's cert. The
+ * Key ID is sanitized to filesystem-safe characters so a malformed value can't escape the directory.
+ */
+export function accountCredentialsDir(keyId: string): string {
+  const safe = keyId.replace(/[^A-Za-z0-9_-]/g, "");
+  return join(CREDENTIALS_DIR, safe || "default");
+}
 
 /**
  * Non-secret Android signing metadata: the upload-keystore record (path + alias). The keystore file

@@ -136,6 +136,32 @@ describe("AppStoreConnectClient — auth + request building", () => {
     });
   });
 
+  it("resolves the Team ID from the first bundle id's seedId", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(200, JSON.stringify({ data: [{ id: "b1", attributes: { seedId: "ABCDE12345" } }] })),
+    );
+    expect(await client.resolveTeamId()).toBe("ABCDE12345");
+    expect(fetchMock.mock.calls[0]![0]).toContain("/bundleIds?limit=1&fields[bundleIds]=seedId");
+  });
+
+  it("returns null for the Team ID when the account has no bundle ids yet", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })));
+    expect(await client.resolveTeamId()).toBeNull();
+  });
+
+  it("lists accessible app names, dropping any without a name", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [{ attributes: { name: "Mapleleaf" } }, { attributes: {} }, { attributes: { name: "SampleApp" } }],
+        }),
+      ),
+    );
+    expect(await client.listAppNames()).toEqual(["Mapleleaf", "SampleApp"]);
+    expect(fetchMock.mock.calls[0]![0]).toContain("/apps?fields[apps]=name");
+  });
+
   it("treats a 204 as success with no body (profile deletion)", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(204, ""));
     await expect(client.deleteProfile("p1")).resolves.toBeUndefined();

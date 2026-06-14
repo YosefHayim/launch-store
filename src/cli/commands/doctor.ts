@@ -22,16 +22,17 @@ import { ANDROID_TOOLS, REQUIRED_TOOLS, ensureToolchain, fixHint } from "../../c
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { GooglePlayClient, parseServiceAccount } from "../../google/playClient.js";
 import { loadServiceAccount } from "../../google/credentials.js";
-import { loadAscKey, localCredentialsProvider } from "../../providers/credentials/local.js";
+import { loadActiveAscKey } from "../../core/accounts.js";
+import { localCredentialsProvider } from "../../providers/credentials/local.js";
 
 const APP_STORE_CONNECT_APPS_URL = "https://appstoreconnect.apple.com/apps";
 const PLAY_CONSOLE_URL = "https://play.google.com/console";
 
 /** Probe Apple for an unsigned/expired agreement and for missing app records; best-effort. */
 async function checkAppleAccount(): Promise<boolean> {
-  const ascKey = await loadAscKey();
+  const ascKey = await loadActiveAscKey();
   if (!ascKey) {
-    console.log("• No API key imported — skipping Apple checks (`launch creds set-key`).");
+    console.log("• No active Apple account — skipping Apple checks (`launch creds set-key`).");
     return true;
   }
   const client = new AppStoreConnectClient(ascKey);

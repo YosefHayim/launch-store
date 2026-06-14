@@ -3,86 +3,23 @@
  *
  * Secret material (the App Store Connect `.p8`, the distribution `.p12` password, the Play
  * service-account JSON, the keystore passwords) lives in the OS secret store; non-secret metadata
- * (key/issuer ids, cert serial, profile paths, keystore path/alias) sits in `~/.launch`. This is the
- * reference implementation of {@link CredentialsProvider}: a future `team`/`s3` backend swaps the
+ * (the account registry, cert serial, profile paths, keystore path/alias) sits in `~/.launch`. This is
+ * the reference implementation of {@link CredentialsProvider}: a future `team`/`s3` backend swaps the
  * storage without the pipeline noticing.
  *
  * `resolve()` is the silent-reuse path: it branches on `ctx.platform` and returns the cached
- * credentials for that platform WITHOUT any network call. Creating missing certificates/profiles
- * (iOS) or the upload keystore (Android) is the job of `launch creds setup` (and the pipeline's inline
- * offer), which run the interactive provisioning flow.
+ * credentials WITHOUT any network call. For iOS it loads the account named by `ctx.account` (the one
+ * the pipeline resolved from `--account`/`ASC_ACCOUNT`/active) — see `core/accounts.ts`. Onboarding a
+ * key (`launch creds set-key`) and creating missing certificates/profiles (`launch creds setup`, or
+ * the pipeline's inline offer) are separate, interactive flows.
  */
 
-import type {
-  AppleCredentials,
-  BuildCredentials,
-  CredentialsProvider,
-  ResolvedBuildContext,
-} from "../../core/types.js";
-import { getSecret, setSecret } from "../../core/keychain.js";
+import type { BuildCredentials, CredentialsProvider, ResolvedBuildContext } from "../../core/types.js";
+import { getActiveKeyId, listAccounts, loadActiveAscKey, loadAscKeyById } from "../../core/accounts.js";
 import { describeStoredCredentials, loadCachedSigningAssets } from "../../apple/credentials.js";
 import { describeStoredAndroidCredentials, loadCachedKeystore, loadServiceAccount } from "../../google/credentials.js";
 
-const ACCOUNT_KEY_ID = "asc-key-id";
-const ACCOUNT_ISSUER_ID = "asc-issuer-id";
-const ACCOUNT_P8 = "asc-p8";
-
-/**
- * Encode the `.p8` PEM for storage as a single line of base64.
- *
- * Why: the PEM is multi-line, and the macOS backend stores secrets via `security … -w`, which
- * HEX-ENCODES any value containing newlines when it's read back (`security … -w` emits hex for
- * non-printable/multi-line data). That silently corrupted the key so every Apple JWT failed with a
- * pkcs8 parse error. Base64 has no newlines, so the value round-trips verbatim on every backend
- * (macOS `security`, Windows Credential Manager, Linux libsecret). The Key ID / Issuer ID are
- * single-line tokens and are stored as-is.
- */
-function encodeP8(pem: string): string {
-  return Buffer.from(pem, "utf8").toString("base64");
-}
-
-/**
- * Decode a stored `.p8` back to its PEM, repairing every legacy on-disk form so upgrading never
- * forces a re-import:
- * - current: single-line base64 (see {@link encodeP8});
- * - legacy hex: a multi-line PEM stored by a pre-base64 build, which the macOS `security -w` backend
- *   HEX-encodes on read-back — the exact corruption base64 was introduced to prevent;
- * - oldest: a raw PEM that happened to round-trip intact.
- *
- * A value matching none of these is returned verbatim.
- */
-function decodeP8(stored: string): string {
-  const fromBase64 = Buffer.from(stored, "base64").toString("utf8");
-  if (fromBase64.includes("PRIVATE KEY")) return fromBase64;
-  if (/^(?:[0-9a-fA-F]{2})+$/.test(stored)) {
-    const fromHex = Buffer.from(stored, "hex").toString("utf8");
-    if (fromHex.includes("PRIVATE KEY")) return fromHex;
-  }
-  return stored;
-}
-
-/**
- * Persist an App Store Connect API key into the Keychain. Backs `launch creds set-key`.
- * The `.p8` is the private key's PEM contents (base64-encoded at rest), not its file path.
- */
-export async function storeAscKey(keyId: string, issuerId: string, p8: string): Promise<void> {
-  await setSecret(ACCOUNT_KEY_ID, keyId);
-  await setSecret(ACCOUNT_ISSUER_ID, issuerId);
-  await setSecret(ACCOUNT_P8, encodeP8(p8));
-}
-
-/** Read just the API key from the Keychain, or null if none is imported. */
-export async function loadAscKey(): Promise<AppleCredentials["ascKey"] | null> {
-  const [keyId, issuerId, p8] = await Promise.all([
-    getSecret(ACCOUNT_KEY_ID),
-    getSecret(ACCOUNT_ISSUER_ID),
-    getSecret(ACCOUNT_P8),
-  ]);
-  if (!keyId || !issuerId || !p8) return null;
-  return { keyId, issuerId, p8: decodeP8(p8) };
-}
-
-/** Error thrown when no iOS API key has been imported yet, with the fix in the message. */
+/** Error thrown when no usable iOS account is available, with the fix in the message. */
 class MissingCredentialsError extends Error {
   constructor() {
     super("No App Store Connect API key found. Import one with: launch creds set-key");
@@ -98,11 +35,11 @@ class MissingAndroidCredentialsError extends Error {
   }
 }
 
-/** Resolve cached iOS credentials: the API key plus any already-provisioned signing assets. */
+/** Resolve cached iOS credentials: the chosen account's API key plus any already-provisioned signing assets. */
 async function resolveIos(ctx: ResolvedBuildContext): Promise<BuildCredentials> {
-  const ascKey = await loadAscKey();
+  const ascKey = ctx.account ? await loadAscKeyById(ctx.account) : await loadActiveAscKey();
   if (!ascKey) throw new MissingCredentialsError();
-  const cached = ctx.app.bundleId ? loadCachedSigningAssets(ctx.app.bundleId) : null;
+  const cached = ctx.app.bundleId ? loadCachedSigningAssets(ascKey.keyId, ctx.app.bundleId) : null;
   return cached ? { platform: "ios", ascKey, signing: cached } : { platform: "ios", ascKey };
 }
 
@@ -114,14 +51,21 @@ async function resolveAndroid(): Promise<BuildCredentials> {
   return keystore ? { platform: "android", serviceAccountJson, keystore } : { platform: "android", serviceAccountJson };
 }
 
-/** One line of `launch creds status` for the iOS leg. */
-async function iosStatus(): Promise<string> {
-  const keyId = await getSecret(ACCOUNT_KEY_ID);
-  if (!keyId) return "iOS: no API key imported.";
-  const { certSerial, bundleIds } = describeStoredCredentials();
-  const certLine = certSerial ? `distribution cert ${certSerial}` : "no distribution cert yet";
-  const profileLine = bundleIds.length ? `profiles for ${bundleIds.join(", ")}` : "no profiles yet";
-  return `iOS: API key ${keyId}; ${certLine}; ${profileLine}.`;
+/** The `launch creds status` lines for the iOS leg: one per onboarded account, the active one marked. */
+function iosStatus(): string {
+  const accounts = listAccounts();
+  if (accounts.length === 0) return "iOS: no Apple account imported (add one with `launch creds set-key`).";
+  const active = getActiveKeyId();
+  const lines = accounts.map((account) => {
+    const { certSerial, bundleIds } = describeStoredCredentials(account.keyId);
+    const marker = account.keyId === active ? " ← active" : "";
+    const team = account.teamId ? `team ${account.teamId}` : "team unresolved";
+    const apps = account.apps?.length ? account.apps.slice(0, 3).join(", ") : "no apps cached";
+    const cert = certSerial ? `cert ${certSerial}` : "no cert";
+    const profiles = bundleIds.length ? `${bundleIds.length} profile(s)` : "no profiles";
+    return `  • ${account.label}${marker} — key ${account.keyId} · ${team} · ${apps} · ${cert} · ${profiles}`;
+  });
+  return [`iOS accounts (${accounts.length}):`, ...lines].join("\n");
 }
 
 /** One line of `launch creds status` for the Android leg. */
@@ -146,6 +90,6 @@ export const localCredentialsProvider: CredentialsProvider = {
   },
 
   async status(): Promise<string> {
-    return [await iosStatus(), await androidStatus()].join("\n");
+    return [iosStatus(), await androidStatus()].join("\n");
   },
 };

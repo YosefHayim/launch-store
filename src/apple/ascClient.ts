@@ -180,6 +180,30 @@ export class AppStoreConnectClient {
     await this.request<ResourceList<unknown>>("GET", "/bundleIds?limit=1");
   }
 
+  /**
+   * Resolve this key's Apple Team ID — the bundle-id `seedId`, the only team identifier an API key
+   * exposes (there is no org-name endpoint). Null when the account has registered no bundle ids yet.
+   */
+  async resolveTeamId(): Promise<string | null> {
+    const { data } = await this.request<ResourceList<{ seedId?: string }>>(
+      "GET",
+      "/bundleIds?limit=1&fields[bundleIds]=seedId",
+    );
+    return data[0]?.attributes.seedId ?? null;
+  }
+
+  /**
+   * List the names of the apps this key can access — the recognizable signal for telling accounts
+   * apart in the picker (an opaque Team ID alone isn't memorable). Capped, names only.
+   */
+  async listAppNames(limit = 200): Promise<string[]> {
+    const { data } = await this.request<ResourceList<{ name?: string }>>(
+      "GET",
+      `/apps?fields[apps]=name&limit=${limit}`,
+    );
+    return data.map((entry) => entry.attributes.name).filter((name): name is string => Boolean(name));
+  }
+
   /** Find a registered Bundle ID by its identifier, or null if it isn't registered yet. */
   async findBundleId(identifier: string): Promise<BundleIdResource | null> {
     const { data } = await this.request<ResourceList<{ identifier: string; seedId?: string }>>(
