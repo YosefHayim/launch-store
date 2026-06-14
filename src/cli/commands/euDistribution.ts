@@ -21,11 +21,8 @@ import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { loadActiveAscKey } from "../../core/accounts.js";
 import { loadConfig, resolveSidecarConfig } from "../../core/config.js";
 import { createLogger } from "../../core/logger.js";
-import {
-  loadEuDistributionConfig,
-  reconcileEuDistributionDomains,
-  summarizeEuDistribution,
-} from "../../core/euDistribution.js";
+import { summarize } from "../../core/asc/storeSync.js";
+import { loadEuDistributionConfig, reconcileEuDistributionDomains } from "../../core/euDistribution.js";
 
 /** CLI options for the default `launch eu-distribution` domain reconcile. */
 interface EuDistributionOptions {
@@ -95,7 +92,7 @@ async function runReconcile(options: EuDistributionOptions, command: Command): P
   }
 
   const applied = await reconcileEuDistributionDomains(client, config, false);
-  const summary = summarizeEuDistribution(applied);
+  const summary = summarize(applied);
   const rows = applied.map((action) =>
     action.status === "failed" ? `✗ ${action.description} — ${action.error ?? "failed"}` : `✓ ${action.description}`,
   );

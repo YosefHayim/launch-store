@@ -535,6 +535,27 @@ export interface BuildResource {
   expired: boolean;
 }
 
+/** One locale's TestFlight "What to Test" note for a build (`betaBuildLocalizations`). */
+export interface BetaBuildLocalizationResource {
+  id: string;
+  locale: string;
+  /** The "What to Test" text testers see for this build; absent until set. */
+  whatsNew?: string;
+}
+
+/** Apple's Beta App Review verdict for a build's submission. */
+export type BetaReviewState = "WAITING_FOR_REVIEW" | "IN_REVIEW" | "REJECTED" | "APPROVED";
+
+/**
+ * A build's Beta App Review submission (`betaAppReviewSubmissions`) — the request that lets *external*
+ * TestFlight testers install it. One per build; `state` is Apple's verdict. Absent until the build is
+ * submitted for beta review.
+ */
+export interface BetaAppReviewSubmissionResource {
+  id: string;
+  state?: BetaReviewState;
+}
+
 /**
  * An App Store version — the per-release container carrying lifecycle state, release type, and the
  * attached build. One per marketing version + platform; `launch release` reuses an editable one or
@@ -726,6 +747,107 @@ export type AgeRatingValue = string | boolean;
 export interface AgeRatingDeclarationResource {
   id: string;
   attributes: Record<string, AgeRatingValue>;
+}
+
+/** The device families an accessibility declaration can target — Apple's `DeviceFamily` enum, restated for public signatures. */
+export type DeviceFamily = "IPHONE" | "IPAD" | "APPLE_TV" | "APPLE_WATCH" | "MAC" | "VISION";
+
+/** The ordered list of `DeviceFamily` values, for validating config and iterating. */
+export const DEVICE_FAMILIES: readonly DeviceFamily[] = ["IPHONE", "IPAD", "APPLE_TV", "APPLE_WATCH", "MAC", "VISION"];
+
+/**
+ * The accessibility-support flags an accessibility declaration carries — the answers behind Apple's 2025
+ * "Accessibility Nutrition Labels". Unlike the age-rating declaration's open map, Apple's accessibility
+ * attribute set is a *fixed, enumerable* list of nine `supports*` booleans, so a typed shape is both safe
+ * and honest here (a new flag is a deliberate Apple change, not silent config drift). Every flag is
+ * optional: an omitted flag means "the app does not support this feature" — the reconciler normalizes
+ * absent to `false` so diffs are deterministic.
+ */
+export interface AccessibilitySupport {
+  supportsAudioDescriptions?: boolean;
+  supportsCaptions?: boolean;
+  supportsDarkInterface?: boolean;
+  supportsDifferentiateWithoutColorAlone?: boolean;
+  supportsLargerText?: boolean;
+  supportsReducedMotion?: boolean;
+  supportsSufficientContrast?: boolean;
+  supportsVoiceControl?: boolean;
+  supportsVoiceover?: boolean;
+}
+
+/** The nine `AccessibilitySupport` keys, used to diff a declaration against config and to build requests. */
+export const ACCESSIBILITY_SUPPORT_KEYS: readonly (keyof AccessibilitySupport)[] = [
+  "supportsAudioDescriptions",
+  "supportsCaptions",
+  "supportsDarkInterface",
+  "supportsDifferentiateWithoutColorAlone",
+  "supportsLargerText",
+  "supportsReducedMotion",
+  "supportsSufficientContrast",
+  "supportsVoiceControl",
+  "supportsVoiceover",
+];
+
+/**
+ * One app's accessibility declaration for a single {@link DeviceFamily}. Apple keeps at most one live
+ * declaration per family; `state` distinguishes a `DRAFT` (editable, not yet shown to users) from the
+ * live `PUBLISHED` one and the `REPLACED` history a publish leaves behind.
+ */
+export interface AccessibilityDeclarationResource {
+  id: string;
+  deviceFamily: DeviceFamily;
+  state: "DRAFT" | "PUBLISHED" | "REPLACED";
+  support: AccessibilitySupport;
+}
+
+/** Apple's raw `accessibilityDeclarations` attribute bag — the support flags plus the family/state metadata. Internal to the read path. */
+interface AccessibilityDeclarationAttributes extends AccessibilitySupport {
+  deviceFamily?: DeviceFamily;
+  state?: AccessibilityDeclarationResource["state"];
+}
+
+/**
+ * An app's store availability (Apple's v2 model): whether it auto-enables in territories Apple adds later,
+ * plus the territory codes it's currently for sale in. `availableTerritories` holds Apple territory codes
+ * (e.g. `USA`, `GBR`) — the `territories` resource ids, used directly when setting availability.
+ */
+export interface AppAvailabilityResource {
+  id: string;
+  availableInNewTerritories: boolean;
+  availableTerritories: string[];
+}
+
+/** A custom product page — an alternate App Store listing (marketing variant), matched by its `name`. */
+export interface CustomProductPageResource {
+  id: string;
+  name: string;
+}
+
+/** One version of a custom product page; its localizations hang off it. `state` decides whether it's editable. */
+export interface CustomProductPageVersionResource {
+  id: string;
+  state: string;
+}
+
+/** One locale's custom-product-page copy. Launch writes the `promotionalText`; screenshots are out of scope. */
+export interface CustomProductPageLocalizationResource {
+  id: string;
+  locale: string;
+  promotionalText?: string;
+}
+
+/** A product-page A/B experiment (Apple's v2 model), matched by its `name`. */
+export interface VersionExperimentResource {
+  id: string;
+  name: string;
+  state: string;
+  trafficProportion?: number;
+}
+
+/** One treatment (variant arm) of a version experiment, matched by its `name`. */
+export interface ExperimentTreatmentResource {
+  id: string;
+  name: string;
 }
 
 /**
@@ -931,6 +1053,16 @@ function pickListingFields(attributes: Record<string, unknown>, keys: readonly s
   return fields;
 }
 
+/** Keep only the nine `supports*` booleans from a raw accessibility-declaration attribute bag (dropping `deviceFamily` / `state`). */
+function pickAccessibilitySupport(attributes: Partial<AccessibilitySupport>): AccessibilitySupport {
+  const support: AccessibilitySupport = {};
+  for (const key of ACCESSIBILITY_SUPPORT_KEYS) {
+    const value = attributes[key];
+    if (typeof value === "boolean") support[key] = value;
+  }
+  return support;
+}
+
 /**
  * One page of `/customerReviews`, fetched with `include=response` so each row's `relationships.response`
  * linkage is present — that's how {@link CustomerReviewResource.answered} is computed without a per-review
@@ -949,6 +1081,21 @@ interface CustomerReviewPage {
       createdDate?: string;
     };
     relationships?: { response?: { data?: { id: string } | null } };
+  }[];
+  links?: { next?: string };
+}
+
+/**
+ * One page of an app's `territoryAvailabilities`, read with each row's `territory` relationship intact
+ * (which {@link AppStoreConnectClient.requestAll} drops) — the territory resource id is the territory code
+ * (`USA`, `GBR`) the availability applies to. Kept as a named interface so the paginating read isn't
+ * self-referential (TS7022).
+ */
+interface TerritoryAvailabilityPage {
+  data: {
+    id: string;
+    attributes?: { available?: boolean };
+    relationships?: { territory?: { data?: { id: string } | null } };
   }[];
   links?: { next?: string };
 }
@@ -2388,6 +2535,267 @@ export class AppStoreConnectClient {
     });
   }
 
+  /**
+   * List an app's accessibility declarations — at most one live (`DRAFT`/`PUBLISHED`) per device family,
+   * plus any `REPLACED` history a prior publish left behind. Returns [] when the app has none yet. Rows
+   * Apple returns without a `deviceFamily` are dropped, since the family is the reconcile key.
+   */
+  async listAccessibilityDeclarations(appId: string): Promise<AccessibilityDeclarationResource[]> {
+    const rows = await this.requestAll<AccessibilityDeclarationAttributes>(
+      `/apps/${appId}/accessibilityDeclarations?limit=200`,
+    );
+    return rows.flatMap((row) =>
+      row.attributes.deviceFamily
+        ? [
+            {
+              id: row.id,
+              deviceFamily: row.attributes.deviceFamily,
+              state: row.attributes.state ?? "DRAFT",
+              support: pickAccessibilitySupport(row.attributes),
+            },
+          ]
+        : [],
+    );
+  }
+
+  /** Create a `DRAFT` accessibility declaration for one device family with the given support flags. */
+  async createAccessibilityDeclaration(
+    appId: string,
+    deviceFamily: DeviceFamily,
+    support: AccessibilitySupport,
+  ): Promise<AccessibilityDeclarationResource> {
+    const { data } = await this.request<{ data: { id: string; attributes?: AccessibilityDeclarationAttributes } }>(
+      "POST",
+      "/accessibilityDeclarations",
+      {
+        data: {
+          type: "accessibilityDeclarations",
+          attributes: { deviceFamily, ...support },
+          relationships: { app: { data: { type: "apps", id: appId } } },
+        },
+      },
+    );
+    return {
+      id: data.id,
+      deviceFamily,
+      state: data.attributes?.state ?? "DRAFT",
+      support: pickAccessibilitySupport(data.attributes ?? {}),
+    };
+  }
+
+  /**
+   * Update an accessibility declaration's support flags and/or publish it. `publish: true` moves a `DRAFT`
+   * live; only the supplied keys change. Apple keeps the publish flag separate from the support booleans,
+   * so a caller can publish an unchanged draft by passing `{ publish: true }` alone.
+   */
+  async updateAccessibilityDeclaration(
+    declarationId: string,
+    changes: AccessibilitySupport & { publish?: boolean },
+  ): Promise<void> {
+    await this.request<unknown>("PATCH", `/accessibilityDeclarations/${declarationId}`, {
+      data: { type: "accessibilityDeclarations", id: declarationId, attributes: changes },
+    });
+  }
+
+  /**
+   * Read an app's store availability — the `availableInNewTerritories` flag plus every territory code it's
+   * for sale in — or null when the app has no availability set yet. The territory list is paged through in
+   * full (Apple links past the first page), keeping each row's `territory` relationship so the code survives
+   * (which {@link requestAll} would drop).
+   */
+  async getAppAvailability(appId: string): Promise<AppAvailabilityResource | null> {
+    let head: { data: { id: string; attributes?: { availableInNewTerritories?: boolean } } | null };
+    try {
+      head = await this.request("GET", `/apps/${appId}/appAvailabilityV2`);
+    } catch (error) {
+      if (error instanceof AscRequestError && error.status === 404) return null;
+      throw error;
+    }
+    if (!head.data) return null;
+
+    const availableTerritories: string[] = [];
+    let next: string | undefined =
+      `${this.v2(`/appAvailabilities/${head.data.id}/territoryAvailabilities`)}?fields[territoryAvailabilities]=available,territory&limit=200`;
+    while (next) {
+      const page: TerritoryAvailabilityPage = await this.request("GET", next);
+      for (const row of page.data) {
+        const code = row.relationships?.territory?.data?.id;
+        if (row.attributes?.available && code) availableTerritories.push(code);
+      }
+      next = page.links?.next;
+    }
+    return {
+      id: head.data.id,
+      availableInNewTerritories: head.data.attributes?.availableInNewTerritories ?? false,
+      availableTerritories,
+    };
+  }
+
+  /**
+   * Set an app's store availability to exactly `territories` (Apple territory codes), with the
+   * `availableInNewTerritories` flag. Uses Apple's v2 create-with-inline-`included` shape: each territory
+   * becomes an inline `territoryAvailabilities` resource (available, keyed by the territory code) the new
+   * `appAvailabilities` references. Creating the singleton replaces the app's current availability.
+   */
+  async setAppAvailability(
+    appId: string,
+    input: { availableInNewTerritories: boolean; territories: string[] },
+  ): Promise<void> {
+    const included = input.territories.map((code) => ({
+      type: "territoryAvailabilities",
+      id: code,
+      attributes: { available: true },
+      relationships: { territory: { data: { type: "territories", id: code } } },
+    }));
+    await this.request<unknown>("POST", this.v2("/appAvailabilities"), {
+      data: {
+        type: "appAvailabilities",
+        attributes: { availableInNewTerritories: input.availableInNewTerritories },
+        relationships: {
+          app: { data: { type: "apps", id: appId } },
+          territoryAvailabilities: {
+            data: included.map((entry) => ({ type: "territoryAvailabilities", id: entry.id })),
+          },
+        },
+      },
+      included,
+    });
+  }
+
+  /** List an app's custom product pages (alternate listings), matched by name. */
+  async listCustomProductPages(appId: string): Promise<CustomProductPageResource[]> {
+    const data = await this.requestAll<{ name?: string }>(
+      `/apps/${appId}/appCustomProductPages?limit=200&fields[appCustomProductPages]=name`,
+    );
+    return data.flatMap((entry) => (entry.attributes.name ? [{ id: entry.id, name: entry.attributes.name }] : []));
+  }
+
+  /** Create a custom product page by name; Apple seeds it with an editable version cloned from the default listing. */
+  async createCustomProductPage(appId: string, name: string): Promise<CustomProductPageResource> {
+    const { data } = await this.request<{ data: { id: string } }>("POST", "/appCustomProductPages", {
+      data: {
+        type: "appCustomProductPages",
+        attributes: { name },
+        relationships: { app: { data: { type: "apps", id: appId } } },
+      },
+    });
+    return { id: data.id, name };
+  }
+
+  /** List a custom product page's versions, so the reconciler can pick the editable one to localize. */
+  async listCustomProductPageVersions(pageId: string): Promise<CustomProductPageVersionResource[]> {
+    const data = await this.requestAll<{ state?: string }>(
+      `/appCustomProductPages/${pageId}/appCustomProductPageVersions?limit=200&fields[appCustomProductPageVersions]=state`,
+    );
+    return data.map((entry) => ({ id: entry.id, state: entry.attributes.state ?? "" }));
+  }
+
+  /** List a custom product page version's per-locale copy (Launch reads/writes `promotionalText`). */
+  async listCustomProductPageLocalizations(versionId: string): Promise<CustomProductPageLocalizationResource[]> {
+    const data = await this.requestAll<{ locale?: string; promotionalText?: string }>(
+      `/appCustomProductPageVersions/${versionId}/appCustomProductPageLocalizations?limit=200&fields[appCustomProductPageLocalizations]=locale,promotionalText`,
+    );
+    return data.flatMap((entry) =>
+      entry.attributes.locale
+        ? [
+            {
+              id: entry.id,
+              locale: entry.attributes.locale,
+              ...(entry.attributes.promotionalText ? { promotionalText: entry.attributes.promotionalText } : {}),
+            },
+          ]
+        : [],
+    );
+  }
+
+  /** Create one locale's custom-product-page localization with its promotional text. */
+  async createCustomProductPageLocalization(versionId: string, locale: string, promotionalText: string): Promise<void> {
+    await this.request<unknown>("POST", "/appCustomProductPageLocalizations", {
+      data: {
+        type: "appCustomProductPageLocalizations",
+        attributes: { locale, promotionalText },
+        relationships: {
+          appCustomProductPageVersion: { data: { type: "appCustomProductPageVersions", id: versionId } },
+        },
+      },
+    });
+  }
+
+  /** Update one custom-product-page localization's promotional text. */
+  async updateCustomProductPageLocalization(localizationId: string, promotionalText: string): Promise<void> {
+    await this.request<unknown>("PATCH", `/appCustomProductPageLocalizations/${localizationId}`, {
+      data: { type: "appCustomProductPageLocalizations", id: localizationId, attributes: { promotionalText } },
+    });
+  }
+
+  /** List an app's product-page A/B experiments (v2), matched by name. */
+  async listVersionExperiments(appId: string): Promise<VersionExperimentResource[]> {
+    const data = await this.requestAll<{ name?: string; state?: string; trafficProportion?: number }>(
+      `/apps/${appId}/appStoreVersionExperimentsV2?limit=200&fields[appStoreVersionExperiments]=name,state,trafficProportion`,
+    );
+    return data.flatMap((entry) =>
+      entry.attributes.name
+        ? [
+            {
+              id: entry.id,
+              name: entry.attributes.name,
+              state: entry.attributes.state ?? "",
+              ...(entry.attributes.trafficProportion !== undefined
+                ? { trafficProportion: entry.attributes.trafficProportion }
+                : {}),
+            },
+          ]
+        : [],
+    );
+  }
+
+  /** Create a product-page A/B experiment (v2) with its name, platform, and traffic split. */
+  async createVersionExperiment(
+    appId: string,
+    input: { name: string; platform: string; trafficProportion: number },
+  ): Promise<VersionExperimentResource> {
+    const { data } = await this.request<{ data: { id: string } }>("POST", "/appStoreVersionExperiments", {
+      data: {
+        type: "appStoreVersionExperiments",
+        attributes: { name: input.name, platform: input.platform, trafficProportion: input.trafficProportion },
+        relationships: { app: { data: { type: "apps", id: appId } } },
+      },
+    });
+    return {
+      id: data.id,
+      name: input.name,
+      state: "PREPARE_FOR_SUBMISSION",
+      trafficProportion: input.trafficProportion,
+    };
+  }
+
+  /** List a version experiment's treatments (variant arms), matched by name. */
+  async listExperimentTreatments(experimentId: string): Promise<ExperimentTreatmentResource[]> {
+    const data = await this.requestAll<{ name?: string }>(
+      `/appStoreVersionExperiments/${experimentId}/appStoreVersionExperimentTreatments?limit=200&fields[appStoreVersionExperimentTreatments]=name`,
+    );
+    return data.flatMap((entry) => (entry.attributes.name ? [{ id: entry.id, name: entry.attributes.name }] : []));
+  }
+
+  /** Create one treatment (variant arm) on a version experiment. */
+  async createExperimentTreatment(
+    experimentId: string,
+    input: { name: string; appIconName?: string },
+  ): Promise<ExperimentTreatmentResource> {
+    const attributes: { name: string; appIconName?: string } = { name: input.name };
+    if (input.appIconName) attributes.appIconName = input.appIconName;
+    const { data } = await this.request<{ data: { id: string } }>("POST", "/appStoreVersionExperimentTreatments", {
+      data: {
+        type: "appStoreVersionExperimentTreatments",
+        attributes,
+        relationships: {
+          appStoreVersionExperimentV2: { data: { type: "appStoreVersionExperiments", id: experimentId } },
+        },
+      },
+    });
+    return { id: data.id, name: input.name };
+  }
+
   /** Find the app price point in `territory` whose customer price equals `customerPrice`, or null. */
   async findAppPricePoint(appId: string, territory: string, customerPrice: number): Promise<PricePointResource | null> {
     const points = await this.requestAll<{ customerPrice?: string; territory?: string }>(
@@ -2898,6 +3306,67 @@ export class AppStoreConnectClient {
     );
     const first = data[0];
     return first ? toBuildResource(first) : null;
+  }
+
+  /** List a build's TestFlight "What to Test" notes, one per locale (`betaBuildLocalizations`). */
+  async listBetaBuildLocalizations(buildId: string): Promise<BetaBuildLocalizationResource[]> {
+    const data = await this.requestAll<{ locale?: string; whatsNew?: string }>(
+      `/builds/${buildId}/betaBuildLocalizations?limit=200&fields[betaBuildLocalizations]=locale,whatsNew`,
+    );
+    return data.flatMap((entry) =>
+      entry.attributes.locale
+        ? [
+            {
+              id: entry.id,
+              locale: entry.attributes.locale,
+              ...(entry.attributes.whatsNew ? { whatsNew: entry.attributes.whatsNew } : {}),
+            },
+          ]
+        : [],
+    );
+  }
+
+  /** Create a build's "What to Test" note for one locale. */
+  async createBetaBuildLocalization(buildId: string, locale: string, whatsNew: string): Promise<void> {
+    await this.request<unknown>("POST", "/betaBuildLocalizations", {
+      data: {
+        type: "betaBuildLocalizations",
+        attributes: { locale, whatsNew },
+        relationships: { build: { data: { type: "builds", id: buildId } } },
+      },
+    });
+  }
+
+  /** Update one locale's "What to Test" note. */
+  async updateBetaBuildLocalization(localizationId: string, whatsNew: string): Promise<void> {
+    await this.request<unknown>("PATCH", `/betaBuildLocalizations/${localizationId}`, {
+      data: { type: "betaBuildLocalizations", id: localizationId, attributes: { whatsNew } },
+    });
+  }
+
+  /** Read a build's Beta App Review submission (its current verdict), or null when it hasn't been submitted. */
+  async getBetaAppReviewSubmission(buildId: string): Promise<BetaAppReviewSubmissionResource | null> {
+    try {
+      const { data } = await this.request<{
+        data: { id: string; attributes?: { betaReviewState?: BetaReviewState } } | null;
+      }>("GET", `/builds/${buildId}/betaAppReviewSubmission`);
+      return data
+        ? { id: data.id, ...(data.attributes?.betaReviewState ? { state: data.attributes.betaReviewState } : {}) }
+        : null;
+    } catch (error) {
+      if (error instanceof AscRequestError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  /** Submit a build for Beta App Review (required before external testers can install it). */
+  async createBetaAppReviewSubmission(buildId: string): Promise<void> {
+    await this.request<unknown>("POST", "/betaAppReviewSubmissions", {
+      data: {
+        type: "betaAppReviewSubmissions",
+        relationships: { build: { data: { type: "builds", id: buildId } } },
+      },
+    });
   }
 
   /** List an app's App Store versions for a platform (e.g. `IOS`), across all pages. */

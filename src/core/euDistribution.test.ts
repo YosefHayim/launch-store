@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { AlternativeDistributionDomainResource } from "../apple/ascClient.js";
+import { summarize } from "./asc/storeSync.js";
 import {
   type AscEuDistributionApi,
   parseEuDistributionConfig,
   reconcileEuDistributionDomains,
-  summarizeEuDistribution,
 } from "./euDistribution.js";
 import type { EuDistributionConfig } from "./types.js";
 
@@ -60,7 +60,7 @@ describe("reconcileEuDistributionDomains", () => {
     const actions = await reconcileEuDistributionDomains(api, CONFIG, false);
 
     expect(created).toEqual([{ domain: "cdn.acme.com", referenceName: "Acme CDN" }]);
-    expect(summarizeEuDistribution(actions)).toEqual({ applied: 1, failed: 0, skipped: 0 });
+    expect(summarize(actions)).toEqual({ applied: 1, failed: 0, skipped: 0 });
     expect(actions[0]?.description).toBe("authorize distribution domain cdn.acme.com (Acme CDN)");
   });
 
@@ -87,7 +87,7 @@ describe("reconcileEuDistributionDomains", () => {
       domain === "downloads.acme.com" ? Promise.reject(new Error("invalid domain")) : Promise.resolve();
     const actions = await reconcileEuDistributionDomains(api, CONFIG, false);
 
-    const summary = summarizeEuDistribution(actions);
+    const summary = summarize(actions);
     expect(summary).toEqual({ applied: 1, failed: 1, skipped: 0 });
     expect(actions.find((action) => action.status === "failed")?.error).toBe("invalid domain");
   });

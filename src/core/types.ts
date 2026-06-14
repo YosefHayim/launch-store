@@ -357,8 +357,47 @@ export interface WinBackOfferConfig extends OfferConfigBase {
 }
 
 /**
+ * One Google Play offer on a subscription's base plan — a free trial, an introductory price, or both
+ * (Play allows up to two offer phases). `offerId` is the natural key the reconciler matches on. Set
+ * {@link PlaySubscriptionOfferConfig.freeTrialDuration} for a free phase and/or
+ * {@link PlaySubscriptionOfferConfig.introPrices} for a discounted phase; an offer with neither is
+ * rejected (it would discount nothing).
+ */
+export interface PlaySubscriptionOfferConfig {
+  /** Play offer id (unique within the base plan). */
+  offerId: string;
+  /** Free-trial length as an ISO-8601 duration (e.g. `P1W`, `P1M`). Omit for no trial phase. */
+  freeTrialDuration?: string;
+  /** Introductory per-region prices (region code → micro-units + currency). Omit for no intro phase. */
+  introPrices?: Record<string, PlayPriceConfig>;
+  /** How many billing periods the introductory price repeats for. Defaults to 1. */
+  introRecurrenceCount?: number;
+}
+
+/**
+ * Google Play overrides for a {@link SubscriptionConfig}, so one subscription declaration can drive both
+ * stores. Apple models each billing period as a separate product, so Launch maps one config to one Play
+ * subscription with a single auto-renewing **base plan** whose billing period is derived from
+ * {@link SubscriptionConfig.subscriptionPeriod}. Listings come from the shared localizations; pricing is
+ * declared HERE (Play's per-region `units`+`nanos` money diverges from Apple's price points — see
+ * {@link PlayPriceConfig}). Present this object to publish the subscription to Play via
+ * `launch play-subscriptions`; omit it to keep the subscription Apple-only.
+ */
+export interface PlaySubscriptionOverride {
+  /** Play subscription product id; defaults to the shared {@link SubscriptionConfig.productId}. */
+  productId?: string;
+  /** Base-plan id; defaults to a slug of the billing period (e.g. `p1m`). */
+  basePlanId?: string;
+  /** Per-region base-plan prices (region code → micro-units + currency). At least one region required. */
+  prices: Record<string, PlayPriceConfig>;
+  /** Offers (free trials / introductory pricing) to ensure exist on the base plan. */
+  offers?: PlaySubscriptionOfferConfig[];
+}
+
+/**
  * One auto-renewable subscription product inside a {@link SubscriptionGroupConfig}. `productId` is the
- * globally-unique Apple product id the app references at runtime and the reconciler's natural key.
+ * globally-unique Apple product id the app references at runtime and the reconciler's natural key. Add a
+ * {@link PlaySubscriptionOverride} under `play` to also publish it to Google Play.
  */
 export interface SubscriptionConfig {
   /** Apple product id, e.g. `com.acme.pro.monthly`. Globally unique; the reconciler matches on it. */
@@ -386,6 +425,8 @@ export interface SubscriptionConfig {
    * to attach it by hand in App Store Connect. Reconciled in `core/ascScreenshots.ts`, not here.
    */
   reviewScreenshot?: string;
+  /** Google Play overrides; present this to also publish the subscription to Play (see {@link PlaySubscriptionOverride}). */
+  play?: PlaySubscriptionOverride;
 }
 
 /**
@@ -403,8 +444,42 @@ export interface SubscriptionGroupConfig {
 }
 
 /**
+ * A Google Play price: an exact amount in a currency's micro-units (millionths) plus the ISO currency
+ * code. Play has no price-point ladder — `"1990000"` with currency `"USD"` is $1.99. Used for both a
+ * product's default price and any per-region overrides. Kept distinct from {@link ProductPrice} because
+ * the two stores model money differently (Apple resolves a fixed price point; Play takes a literal
+ * micro-unit amount), so a single shared price field can't serve both.
+ */
+export interface PlayPriceConfig {
+  /** Amount in micro-units: 1,000,000 = one whole unit of `currency`. */
+  priceMicros: string;
+  /** ISO 4217 currency code, e.g. `USD`. */
+  currency: string;
+}
+
+/**
+ * Google Play overrides for an {@link InAppPurchaseConfig}, so one product declaration can drive both
+ * stores. The shared fields are reused for Play — `productId` becomes the Play SKU (override via
+ * {@link PlayProductOverride.sku}) and each {@link ProductLocalization} becomes a Play listing
+ * (`name` → title, `description` → description), with the first localization's locale as the product's
+ * default language. Pricing is declared HERE rather than reused from {@link InAppPurchaseConfig.price}
+ * because the two stores' money models don't line up (see {@link PlayPriceConfig}). Present this object
+ * to publish the product to Play via `launch play-products` as an active managed product; omit it to
+ * keep the product Apple-only.
+ */
+export interface PlayProductOverride {
+  /** Play SKU; defaults to the shared {@link InAppPurchaseConfig.productId} when omitted. */
+  sku?: string;
+  /** Default price applied to every region without an explicit {@link PlayProductOverride.prices} entry. */
+  defaultPrice?: PlayPriceConfig;
+  /** Per-region price overrides keyed by ISO region code (e.g. `US`). */
+  prices?: Record<string, PlayPriceConfig>;
+}
+
+/**
  * One non-subscription in-app purchase (consumable, non-consumable, or non-renewing subscription).
- * `productId` is the globally-unique Apple product id and the reconciler's natural key.
+ * `productId` is the globally-unique Apple product id and the reconciler's natural key. Add a
+ * {@link PlayProductOverride} under `play` to also publish it to Google Play.
  */
 export interface InAppPurchaseConfig {
   /** Apple product id, e.g. `com.acme.coins.100`. Globally unique; the reconciler matches on it. */
@@ -417,6 +492,8 @@ export interface InAppPurchaseConfig {
   localizations: ProductLocalization[];
   /** Baseline price. Omit only to price manually in the UI. */
   price?: ProductPrice;
+  /** Google Play overrides; present this to also publish the product to Play (see {@link PlayProductOverride}). */
+  play?: PlayProductOverride;
 }
 
 /**

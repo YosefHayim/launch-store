@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseTestersCsv } from "./testflight.js";
+import { parseTestersCsv, renderBetaAction } from "./testflight.js";
 
 describe("parseTestersCsv", () => {
   it("parses email,firstName,lastName rows and trims whitespace", () => {
@@ -27,5 +27,31 @@ describe("parseTestersCsv", () => {
 
   it("ignores rows without an @ (junk or partial lines)", () => {
     expect(parseTestersCsv("not-an-email\na@x.com")).toEqual([{ email: "a@x.com" }]);
+  });
+});
+
+describe("renderBetaAction", () => {
+  it("marks a change with +, a skip with •", () => {
+    expect(renderBetaAction({ description: 'set "What to Test" (en-US)', destructive: false, status: "planned" })).toBe(
+      '+ set "What to Test" (en-US)',
+    );
+    expect(
+      renderBetaAction({
+        description: "submit for Beta App Review: build already submitted (in review)",
+        destructive: false,
+        status: "skipped",
+      }),
+    ).toBe("• submit for Beta App Review: build already submitted (in review)");
+  });
+
+  it("renders a failed action with ✗ and Apple's error detail", () => {
+    expect(
+      renderBetaAction({
+        description: "submit for Beta App Review",
+        destructive: false,
+        status: "failed",
+        error: "build is still processing",
+      }),
+    ).toBe("✗ submit for Beta App Review — build is still processing");
   });
 });

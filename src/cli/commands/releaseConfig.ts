@@ -21,7 +21,8 @@ import { loadConfig, resolveSidecarConfig } from "../../core/config.js";
 import { selectApp } from "../../core/pipeline.js";
 import { loadActiveAscKey } from "../../core/accounts.js";
 import { createLogger } from "../../core/logger.js";
-import { loadReleaseConfig, reconcileRelease, summarizeRelease } from "../../core/releaseAttrs.js";
+import { summarize } from "../../core/asc/storeSync.js";
+import { loadReleaseConfig, reconcileRelease } from "../../core/releaseAttrs.js";
 
 /** CLI options for `launch release-config`. */
 interface ReleaseConfigOptions {
@@ -121,7 +122,7 @@ export function registerReleaseConfigCommand(program: Command): void {
       }
 
       const applied = await reconcileRelease(client, { bundleId, config, dryRun: false });
-      const summary = summarizeRelease(applied.actions);
+      const summary = summarize(applied.actions);
       const rows = applied.actions.map((action) => {
         if (action.status === "failed") return `✗ ${action.description} — ${action.error ?? "failed"}`;
         return `${action.status === "skipped" ? "•" : "✓"} ${action.description}`;
