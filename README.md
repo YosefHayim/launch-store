@@ -65,9 +65,14 @@ and open source:
 - **Keys in your keychain.** `launch creds set-key` finds the `AuthKey_*.p8` in `~/Downloads`, validates
   it against Apple, and stores it in your OS secret store; `creds setup` registers the app id + creates or
   reuses the signing assets; multi-account `creds use/rename/remove` switches between teams.
+- **Secrets, not plaintext `.env`.** `launch secret set <NAME>` stores a build secret in your OS keychain
+  (scoped per app/profile) and injects it into the build env — keeping real secrets out of a committed
+  `.env`; `secret list` (masked) and `secret rm` round it out.
 - **`launch doctor --fix`.** Detects the iOS/Android toolchain and installs the missing brew-able tools
-  behind a single consent (`--yes` skips it for CI/agents), and flags the store-side blockers — a missing
-  App Store Connect record, an unsigned Apple agreement — before a build hits them.
+  behind a single consent (`--yes` skips it for CI/agents), flags the store-side blockers — a missing App
+  Store Connect record, an unsigned Apple agreement — and validates your Expo config for known
+  native-config footguns (a bad bundle id / package, a splash with no `backgroundColor`) — the same
+  preflight `launch build` runs up front, so a one-line config mistake fails in a second, not a build.
 
 **Configure the stores — as code**
 
@@ -92,6 +97,9 @@ and open source:
   rehearses the whole pipeline with no network, build, or account changes.
 - **Deliberate public release.** The testing track is the default; the public App Store / Play
   production track is the separate, confirmed `launch release <platform>`.
+- **Completion notifications.** A `notify` block pings a Slack/Discord webhook and/or runs a shell hook
+  when a build or submit finishes — on success _and_ failure — so an unattended/CI run tells you when
+  it's done. EAS-`webhook` parity, with no hosted service.
 
 **Distribute & update**
 
@@ -180,6 +188,7 @@ create and reconcile them on App Store Connect — no clicking through the porta
 | `launch build <ios\|android>`                    | Run the full pipeline and upload to the testing track. Flags: `--profile`, `--app`, `--explain`, `--no-submit`, `--remote`, `--distribution`, `--clean`, `--dry-run`. |
 | `launch release <ios\|android>`                  | Submit the latest stored build to the **public** App Store / Play production track (with confirmation).                                                               |
 | `launch creds [status\|set-key\|setup\|use\|…]`  | Inspect credentials, import the API key, provision signing, or switch Apple accounts.                                                                                 |
+| `launch secret [list\|set\|rm]`                  | Store build secrets in your OS keychain instead of plaintext `.env` (alias: `env`); injected into the build env at build time.                                        |
 | `launch sync`                                    | Reconcile in-app purchases, subscriptions & capabilities onto App Store Connect from `launch.config.ts` (plan → confirm → apply, all apps at once).                   |
 | `launch metadata [pull\|push]`                   | Sync the store listing (name, description, keywords, screenshots) via `store.config.json` — iOS + Android.                                                            |
 | `launch update`                                  | Publish an over-the-air JS update (Expo Updates protocol, code-signed) to your own bucket.                                                                            |
@@ -214,6 +223,10 @@ export default defineConfig({
   profiles: {
     production: { name: "production", envFile: ".env", sizeBudgetMB: 200 },
   },
+
+  // Ping a Slack/Discord webhook and/or run a shell hook when a build or submit finishes (success or
+  // failure). Both fields are optional; omit `notify` entirely for no notifications.
+  // notify: { webhookUrl: "https://hooks.slack.com/services/…", command: "say build done" },
 
   // In-app purchases & subscriptions, keyed by bundle id — `launch sync` reconciles these onto App Store
   // Connect. Capabilities aren't declared here; they're read from app.json's `ios.entitlements`. Omit if
