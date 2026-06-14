@@ -1,7 +1,7 @@
 {
   "name": "launch-store",
   "version": "0.11.0",
-  "description": "Build and ship your iOS/Android apps to the stores from your own machine, with your own keys — no Expo bill.",
+  "description": "Open-source, self-hosted alternative to Expo EAS — build, sign & ship your Expo / React Native apps to TestFlight & Google Play from your own machine, with your own keys. No per-build bill.",
   "keywords": [
     "cli",
     "mobile",
@@ -16,7 +16,11 @@
     "eas",
     "code-signing",
     "app-store-connect",
-    "ci-cd"
+    "ci-cd",
+    "eas-alternative",
+    "expo-eas",
+    "ota-updates",
+    "self-hosted"
   ],
   "homepage": "https://github.com/YosefHayim/launch-store#readme",
   "bugs": {
