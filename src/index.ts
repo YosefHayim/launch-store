@@ -17,6 +17,8 @@ export type {
   AppProducts,
   SubscriptionGroupConfig,
   SubscriptionConfig,
+  PlaySubscriptionOverride,
+  PlaySubscriptionOfferConfig,
   InAppPurchaseConfig,
   PlayProductOverride,
   PlayPriceConfig,
