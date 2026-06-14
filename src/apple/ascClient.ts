@@ -419,6 +419,55 @@ export interface AnalyticsReportSegmentResource {
 }
 
 /**
+ * One **in-app event** (`appEvents`) — a time-bounded happening (a live event, premiere, challenge, …)
+ * surfaced on the App Store product page. `eventState` is Apple's lifecycle (`DRAFT` → `READY_FOR_REVIEW`
+ * → … → `PUBLISHED` → `PAST`/`ARCHIVED`); `referenceName` is the internal label. Localized copy and
+ * territory schedules hang off it separately.
+ */
+export interface AppEventResource {
+  id: string;
+  referenceName: string;
+  /** The event badge, e.g. `LIVE_EVENT` / `PREMIERE` / `CHALLENGE`. */
+  badge?: string;
+  /** Apple's lifecycle state, e.g. `DRAFT` / `IN_REVIEW` / `PUBLISHED`. */
+  eventState?: string;
+  /** The event's primary locale (e.g. `en-US`) — the fallback for unlocalized territories. */
+  primaryLocale?: string;
+  /** Deep link opened when a user taps the event. */
+  deepLink?: string;
+  /** `HIGH` | `NORMAL` — how prominently Apple may feature it. */
+  priority?: string;
+  /** Marketing purpose, e.g. `ATTRACT_NEW_USERS`. */
+  purpose?: string;
+}
+
+/** One locale's copy for an in-app event (`appEventLocalizations`) — name + short/long descriptions. */
+export interface AppEventLocalizationResource {
+  id: string;
+  locale: string;
+  name?: string;
+  shortDescription?: string;
+  longDescription?: string;
+}
+
+/** Attributes to create an in-app event, passed to `POST /v1/appEvents` (alongside the app relationship). */
+export interface NewAppEvent {
+  referenceName: string;
+  badge?: string;
+  primaryLocale?: string;
+  deepLink?: string;
+  priority?: string;
+  purpose?: string;
+}
+
+/** The editable copy fields of an in-app event localization (create or update). */
+export interface AppEventLocalizationInput {
+  name?: string;
+  shortDescription?: string;
+  longDescription?: string;
+}
+
+/**
  * Parameters for a Sales & Trends report download — Apple's `filter[...]` query for `/v1/salesReports`.
  * `reportDate`'s format follows `frequency` (a day `2026-06-01` for DAILY, a year `2026` for YEARLY).
  * A disallowed `reportType`/`reportSubType` combination surfaces as a misleading "invalid vendor number".
@@ -2719,6 +2768,139 @@ export class AppStoreConnectClient {
     return { id: data.id, state: data.attributes.state ?? "" };
   }
 
+  // ── In-app events: events & their localizations (`launch events`) ──────────────────────────────────
+
+  /** List an app's in-app events (newest lifecycle first is not guaranteed; Apple returns creation order). */
+  async listAppEvents(appId: string): Promise<AppEventResource[]> {
+    const data = await this.requestAll<{
+      referenceName?: string;
+      badge?: string;
+      eventState?: string;
+      primaryLocale?: string;
+      deepLink?: string;
+      priority?: string;
+      purpose?: string;
+    }>(
+      `/apps/${appId}/appEvents?limit=200&fields[appEvents]=referenceName,badge,eventState,primaryLocale,deepLink,priority,purpose`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      referenceName: entry.attributes.referenceName ?? "",
+      ...(entry.attributes.badge ? { badge: entry.attributes.badge } : {}),
+      ...(entry.attributes.eventState ? { eventState: entry.attributes.eventState } : {}),
+      ...(entry.attributes.primaryLocale ? { primaryLocale: entry.attributes.primaryLocale } : {}),
+      ...(entry.attributes.deepLink ? { deepLink: entry.attributes.deepLink } : {}),
+      ...(entry.attributes.priority ? { priority: entry.attributes.priority } : {}),
+      ...(entry.attributes.purpose ? { purpose: entry.attributes.purpose } : {}),
+    }));
+  }
+
+  /** List one event's localizations (per-locale name + descriptions). */
+  async listAppEventLocalizations(eventId: string): Promise<AppEventLocalizationResource[]> {
+    const data = await this.requestAll<{
+      locale?: string;
+      name?: string;
+      shortDescription?: string;
+      longDescription?: string;
+    }>(
+      `/appEvents/${eventId}/appEventLocalizations?limit=200&fields[appEventLocalizations]=locale,name,shortDescription,longDescription`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      locale: entry.attributes.locale ?? "",
+      ...(entry.attributes.name ? { name: entry.attributes.name } : {}),
+      ...(entry.attributes.shortDescription ? { shortDescription: entry.attributes.shortDescription } : {}),
+      ...(entry.attributes.longDescription ? { longDescription: entry.attributes.longDescription } : {}),
+    }));
+  }
+
+  /** Create a draft in-app event for an app, returning the created event. */
+  async createAppEvent(appId: string, attributes: NewAppEvent): Promise<AppEventResource> {
+    const { data } = await this.request<
+      ResourceSingle<{
+        referenceName?: string;
+        badge?: string;
+        eventState?: string;
+        primaryLocale?: string;
+        deepLink?: string;
+        priority?: string;
+        purpose?: string;
+      }>
+    >("POST", "/appEvents", {
+      data: {
+        type: "appEvents",
+        attributes: {
+          referenceName: attributes.referenceName,
+          ...(attributes.badge ? { badge: attributes.badge } : {}),
+          ...(attributes.primaryLocale ? { primaryLocale: attributes.primaryLocale } : {}),
+          ...(attributes.deepLink ? { deepLink: attributes.deepLink } : {}),
+          ...(attributes.priority ? { priority: attributes.priority } : {}),
+          ...(attributes.purpose ? { purpose: attributes.purpose } : {}),
+        },
+        relationships: { app: { data: { type: "apps", id: appId } } },
+      },
+    });
+    return {
+      id: data.id,
+      referenceName: data.attributes.referenceName ?? attributes.referenceName,
+      ...(data.attributes.badge ? { badge: data.attributes.badge } : {}),
+      ...(data.attributes.eventState ? { eventState: data.attributes.eventState } : {}),
+      ...(data.attributes.primaryLocale ? { primaryLocale: data.attributes.primaryLocale } : {}),
+      ...(data.attributes.deepLink ? { deepLink: data.attributes.deepLink } : {}),
+      ...(data.attributes.priority ? { priority: data.attributes.priority } : {}),
+      ...(data.attributes.purpose ? { purpose: data.attributes.purpose } : {}),
+    };
+  }
+
+  /** Delete an in-app event by id (only a DRAFT event can be deleted). */
+  async deleteAppEvent(eventId: string): Promise<void> {
+    await this.request<unknown>("DELETE", `/appEvents/${eventId}`);
+  }
+
+  /** Create a localization (locale + copy) for an event, returning the created localization. */
+  async createAppEventLocalization(
+    eventId: string,
+    locale: string,
+    attributes: AppEventLocalizationInput,
+  ): Promise<AppEventLocalizationResource> {
+    const { data } = await this.request<
+      ResourceSingle<{ locale?: string; name?: string; shortDescription?: string; longDescription?: string }>
+    >("POST", "/appEventLocalizations", {
+      data: {
+        type: "appEventLocalizations",
+        attributes: {
+          locale,
+          ...(attributes.name !== undefined ? { name: attributes.name } : {}),
+          ...(attributes.shortDescription !== undefined ? { shortDescription: attributes.shortDescription } : {}),
+          ...(attributes.longDescription !== undefined ? { longDescription: attributes.longDescription } : {}),
+        },
+        relationships: { appEvent: { data: { type: "appEvents", id: eventId } } },
+      },
+    });
+    return toAppEventLocalization(data, locale);
+  }
+
+  /** Update an existing event localization's copy by its id, returning the updated localization. */
+  async updateAppEventLocalization(
+    localizationId: string,
+    attributes: AppEventLocalizationInput,
+  ): Promise<AppEventLocalizationResource> {
+    const { data } = await this.request<
+      ResourceSingle<{ locale?: string; name?: string; shortDescription?: string; longDescription?: string }>
+    >("PATCH", `/appEventLocalizations/${localizationId}`, {
+      data: {
+        type: "appEventLocalizations",
+        id: localizationId,
+        attributes: {
+          ...(attributes.name !== undefined ? { name: attributes.name } : {}),
+          ...(attributes.shortDescription !== undefined ? { shortDescription: attributes.shortDescription } : {}),
+          ...(attributes.longDescription !== undefined ? { longDescription: attributes.longDescription } : {}),
+        },
+      },
+    });
+    return toAppEventLocalization(data, "");
+  }
+
   // ── App Store assets: screenshots & subscription review screenshots (`launch sync`) ────────────────
 
   /** List the screenshot sets (one per device display type) bound to one App Store version localization. */
@@ -2986,6 +3168,27 @@ function toReviewResponse(data: {
     responseBody: data.attributes.responseBody ?? "",
     ...(data.attributes.state ? { state: data.attributes.state } : {}),
     ...(data.attributes.lastModifiedDate ? { lastModifiedDate: data.attributes.lastModifiedDate } : {}),
+  };
+}
+
+/**
+ * Project an ASC `appEventLocalizations` resource object into an {@link AppEventLocalizationResource}.
+ * `fallbackLocale` supplies the locale on a PATCH response (Apple's update payload omits the unchanged
+ * `locale`); it's the empty string when the caller doesn't need it (the create path passes the locale).
+ */
+function toAppEventLocalization(
+  data: {
+    id: string;
+    attributes: { locale?: string; name?: string; shortDescription?: string; longDescription?: string };
+  },
+  fallbackLocale: string,
+): AppEventLocalizationResource {
+  return {
+    id: data.id,
+    locale: data.attributes.locale ?? fallbackLocale,
+    ...(data.attributes.name ? { name: data.attributes.name } : {}),
+    ...(data.attributes.shortDescription ? { shortDescription: data.attributes.shortDescription } : {}),
+    ...(data.attributes.longDescription ? { longDescription: data.attributes.longDescription } : {}),
   };
 }
 
