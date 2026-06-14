@@ -5,7 +5,16 @@
 <h1 align="center">Launch</h1>
 
 <p align="center">
-  <strong>The local release layer for Expo &amp; React Native apps — set up signing, configure the stores, build, and ship to TestFlight &amp; Google Play from the machine you already own. Your keys, your hardware, no Expo bill.</strong>
+  <strong>Launch is the open-source, self-hosted alternative to Expo EAS — set up signing, configure the stores, build, and ship your Expo &amp; React Native app to TestFlight &amp; Google Play from the machine you already own. Your keys, your hardware, no Expo bill.</strong>
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/launch-store"><img src="https://img.shields.io/npm/v/launch-store?logo=npm&color=cb3837" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/launch-store"><img src="https://img.shields.io/npm/dm/launch-store?logo=npm&color=cb3837" alt="npm downloads" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/YosefHayim/launch-store/ci.yml?branch=main&logo=github&label=CI" alt="CI status" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/npm/l/launch-store?color=blue" alt="MIT license" /></a>
+  <img src="https://img.shields.io/node/v/launch-store?logo=node.js&color=339933" alt="Node version" />
+  <img src="https://img.shields.io/badge/types-included-3178c6?logo=typescript&logoColor=white" alt="TypeScript types included" />
 </p>
 
 Shipping an app is more than a build: signing setup, App Store Connect / Play Console config, in-app
@@ -98,6 +107,8 @@ and open source:
   rehearses the whole pipeline with no network, build, or account changes.
 - **Deliberate public release.** The testing track is the default; the public App Store / Play
   production track is the separate, confirmed `launch release <platform>`.
+- **Re-sign without rebuilding.** `launch build:resign` re-signs a stored `.ipa`/`.aab` with different
+  credentials (a new account or profile) straight from the artifact — no rebuild.
 - **Completion notifications.** A `notify` block pings a Slack/Discord webhook and/or runs a shell hook
   when a build or submit finishes — on success _and_ failure — so an unattended/CI run tells you when
   it's done. EAS-`webhook` parity, with no hosted service.
@@ -108,6 +119,18 @@ and open source:
   install link / Android `.apk` on your own bucket; register testers with `launch device add <udid>`.
 - **Over-the-air updates.** `launch update` publishes a JS/asset update via the **Expo Updates protocol**
   `expo-updates` already speaks — code-signed and hosted on your own bucket (S3 / R2 / Supabase).
+- **Roll back a bad update.** `launch updates list/view` show the per-channel history; `launch updates
+rollback` reverses a bad OTA — promote a known-good update or drop testers back to the embedded bundle.
+
+**Inspect & debug**
+
+- **Build history.** `launch builds list/view/log` reads the local artifact index — ids, per-device
+  sizes, artifact paths, and the raw build log for any build.
+- **Install & run.** `launch run [id|latest]` installs a built artifact onto a connected device or
+  simulator (`adb`/`bundletool` for Android, `devicectl` for iOS).
+- **Explain a failure.** `launch diagnose` maps an `xcodebuild`/Gradle/CocoaPods error to a plain-English
+  cause and fix; `launch fingerprint` shows why the next build will be clean vs incremental. `--verbose`
+  streams the raw build output instead of the progress spinner.
 
 **Onboarding & teaching**
 
@@ -118,18 +141,26 @@ and open source:
 
 ## Launch vs EAS
 
-Launch covers the full EAS Build/Submit/Update/metadata surface on hardware you own — and the release
-steps EAS leaves to you:
+Launch runs the same `eas build` → `eas submit` → `eas update` pipeline (plus `eas metadata` and
+`eas credentials`) on hardware you own — and covers the store-setup steps EAS leaves to you. Where the
+two differ on the same workflow:
 
-| Pain in EAS                                                   | In Launch                                                                              |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Apple-ID **2FA** prompts / rejected codes block builds        | Authenticates with an **App Store Connect API key (JWT)** — no password, no 2FA, ever  |
-| Builds **queue** in a shared cloud, sometimes for hours       | Builds on **your machine** — no queue, no timeout                                      |
-| Toolchain/Node pinned by the build image; `.env` not resolved | Uses **your own** toolchain and environment                                            |
-| **IAPs & subscriptions are hand-work** in the ASC UI          | `launch sync` reconciles them **declaratively** from `launch.config.ts`                |
-| `eas metadata` is **iOS-only**                                | `launch metadata` covers **iOS _and_ Android**                                         |
-| EAS Update runs on **Expo's servers** (paid)                  | `launch update` serves the **same protocol** from **your own bucket**                  |
-| Per-build pricing, monthly caps                               | **$0 compute** on your machine; pay only your own cloud if you build iOS without a Mac |
+| In Expo EAS                                                              | In Launch                                                                                           |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Build compute runs on **Expo's cloud**, **$19–$199/mo** + per-build fees | Builds on **your own machine** — **$0 compute**, MIT-licensed, unlimited builds                     |
+| Builds **queue** in a shared cloud, sometimes for hours                  | Builds **start immediately** on your hardware — no queue                                            |
+| Free-tier builds are **capped at a 45-minute timeout**                   | **No timeout** — a build runs as long as it needs                                                   |
+| Apple-ID **2FA** prompts / expired codes interrupt builds                | Authenticates with an **App Store Connect API key (JWT)** — no password, no 2FA                     |
+| Toolchain/Node **pinned by the build image**; local `.env` not resolved  | Your own Xcode/Node/toolchain and a documented **env-precedence ladder** (`--print-env` to audit)   |
+| **In-app purchases & subscriptions** are hand-work in the ASC UI         | `launch sync` reconciles **IAPs, subscriptions & capabilities** from `launch.config.ts`             |
+| EAS **rewrites bundle-id capabilities every build** (clobbers toggles)   | `launch sync` applies a **minimal safe-diff** — capabilities it doesn't manage stay untouched       |
+| `eas metadata` is **iOS-only**                                           | `launch metadata` syncs the listing for **iOS _and_ Android**                                       |
+| **EAS Update** hosts your OTA updates on **Expo's servers** (paid)       | `launch update` serves the **same Expo Updates protocol** from **your own bucket** (S3/R2/Supabase) |
+| **Internal-distribution** builds are hosted by Expo                      | `--distribution internal` hosts the ad-hoc `.ipa`/`.apk` on **your own bucket**; `launch device`    |
+| Signing **credentials can live on Expo's servers**                       | Keys stay in **your OS keychain** — only a **CSR** ever leaves your machine                         |
+| Build **artifacts are hosted on Expo**                                   | Artifacts land in **your own storage** (local, or S3 / R2 / Supabase)                               |
+| **No Mac?** EAS's paid cloud is the only path                            | **No Mac?** A cloud Mac in **your own AWS**, any Mac over **SSH**, or hand off to **`eas build`**   |
+| **Closed SaaS** — proprietary, vendor lock-in                            | **MIT, open source** — `fastlane`/Gradle/platform APIs, swappable providers, nothing to migrate     |
 
 ## Platform support
 
@@ -181,27 +212,29 @@ create and reconcile them on App Store Connect — no clicking through the porta
 
 ## Commands
 
-| Command                                          | What it does                                                                                                                                                          |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `launch`                                         | Interactive wizard — guided setup on a fresh checkout, then build (auto-plays `launch demo` on first run).                                                            |
-| `launch demo [ios\|android]`                     | Simulated, zero-setup walkthrough of the build → sign → submit pipeline.                                                                                              |
-| `launch init`                                    | Scaffold `launch.config.ts` (+ `.env.example`) into the current repo.                                                                                                 |
-| `launch build <ios\|android>`                    | Run the full pipeline and upload to the testing track. Flags: `--profile`, `--app`, `--explain`, `--no-submit`, `--remote`, `--distribution`, `--clean`, `--dry-run`. |
-| `launch release <ios\|android>`                  | Submit the latest stored build to the **public** App Store / Play production track (with confirmation).                                                               |
-| `launch creds [status\|set-key\|setup\|use\|…]`  | Inspect credentials, import the API key, provision signing, or switch Apple accounts.                                                                                 |
-| `launch secret [list\|set\|rm]`                  | Store build secrets in your OS keychain instead of plaintext `.env` (alias: `env`); injected into the build env at build time.                                        |
-| `launch sync`                                    | Reconcile in-app purchases, subscriptions & capabilities onto App Store Connect from `launch.config.ts` (plan → confirm → apply, all apps at once).                   |
-| `launch metadata [pull\|push]`                   | Sync the store listing (name, description, keywords, screenshots) via `store.config.json` — iOS + Android.                                                            |
-| `launch update`                                  | Publish an over-the-air JS update (Expo Updates protocol, code-signed) to your own bucket.                                                                            |
-| `launch device [add\|list]`                      | Register/list devices for ad-hoc (internal) distribution.                                                                                                             |
-| `launch builds [list\|view]`                     | Inspect local build history from the artifact index — ids, per-device sizes, and artifact paths.                                                                      |
-| `launch run [id\|latest]`                        | Install a built artifact on a connected device/simulator (`adb`/`bundletool` for Android, `devicectl` for iOS).                                                       |
-| `launch fingerprint`                             | Show the native build fingerprint and why the next build is clean vs incremental.                                                                                     |
-| `launch diagnose`                                | Explain a native build failure — map `xcodebuild`/Gradle/CocoaPods errors to a plain-English cause + fix.                                                             |
-| `launch ci init`                                 | Scaffold a GitHub Actions macOS-runner workflow wired to the CLI's unattended flags (`--android` adds an Android job).                                                |
-| `launch cloud [setup\|status\|teardown\|doctor]` | Manage the remote AWS EC2 Mac build host (see [Building without a Mac](#building-without-a-mac)).                                                                     |
-| `launch doctor`                                  | Check the toolchain and store account (missing app record, unsigned agreements).                                                                                      |
-| `launch explain [topic]`                         | Plain-English glossary (`csr`, `app-record`, `ota-update`, `play-track`, …).                                                                                          |
+| Command                                                   | What it does                                                                                                                                                                                                                              |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `launch`                                                  | Interactive wizard — guided setup on a fresh checkout, then build (auto-plays `launch demo` on first run).                                                                                                                                |
+| `launch demo [ios\|android]`                              | Simulated, zero-setup walkthrough of the build → sign → submit pipeline.                                                                                                                                                                  |
+| `launch init`                                             | Scaffold `launch.config.ts` (+ `.env.example`) into the current repo.                                                                                                                                                                     |
+| `launch build <ios\|android>`                             | Run the full pipeline and upload to the testing track. Flags: `--profile`, `--app`, `--distribution`, `--bump`/`--track`/`--rollout`, `--env`/`--print-env`, `--remote`, `--clean`, `--dry-run`, `--explain`, `--no-submit`, `--verbose`. |
+| `launch release <ios\|android>`                           | Submit the latest stored build to the **public** App Store / Play production track (with confirmation).                                                                                                                                   |
+| `launch build:resign [id\|latest]`                        | Re-sign a stored `.ipa`/`.aab` with different credentials (account/profile) — no rebuild.                                                                                                                                                 |
+| `launch creds [status\|set-key\|setup\|use\|push-key\|…]` | Inspect credentials, import the API key, provision signing, switch Apple accounts, or vault an APNs push key.                                                                                                                             |
+| `launch secret [list\|set\|rm]`                           | Store build secrets in your OS keychain instead of plaintext `.env` (alias: `env`); injected into the build env at build time.                                                                                                            |
+| `launch sync`                                             | Reconcile in-app purchases, subscriptions & capabilities onto App Store Connect from `launch.config.ts` (plan → confirm → apply, all apps at once).                                                                                       |
+| `launch metadata [pull\|push]`                            | Sync the store listing (name, description, keywords, screenshots) via `store.config.json` — iOS + Android.                                                                                                                                |
+| `launch update`                                           | Publish an over-the-air JS update (Expo Updates protocol, code-signed) to your own bucket. Flags: `--channel`, `--platform`, `--runtime-version`, `--no-sign`, `--dry-run`.                                                               |
+| `launch updates [list\|view\|rollback]`                   | Inspect the OTA history and **roll back** a bad update — promote a prior update or drop to the embedded bundle.                                                                                                                           |
+| `launch device [add\|list]`                               | Register/list devices for ad-hoc (internal) distribution.                                                                                                                                                                                 |
+| `launch builds [list\|view\|log]`                         | Inspect local build history from the artifact index — ids, per-device sizes, artifact paths, and raw logs.                                                                                                                                |
+| `launch run [id\|latest]`                                 | Install a built artifact on a connected device/simulator (`adb`/`bundletool` for Android, `devicectl` for iOS).                                                                                                                           |
+| `launch fingerprint`                                      | Show the native build fingerprint and why the next build is clean vs incremental.                                                                                                                                                         |
+| `launch diagnose`                                         | Explain a native build failure — map `xcodebuild`/Gradle/CocoaPods errors to a plain-English cause + fix.                                                                                                                                 |
+| `launch ci init`                                          | Scaffold a GitHub Actions macOS-runner workflow wired to the CLI's unattended flags (`--android` adds an Android job).                                                                                                                    |
+| `launch cloud [setup\|status\|teardown\|doctor]`          | Manage the remote AWS EC2 Mac build host (see [Building without a Mac](#building-without-a-mac)).                                                                                                                                         |
+| `launch doctor`                                           | Check the toolchain and store account (missing app record, unsigned agreements).                                                                                                                                                          |
+| `launch explain [topic]`                                  | Plain-English glossary (`csr`, `app-record`, `ota-update`, `play-track`, …).                                                                                                                                                              |
 
 ## Configuration
 
@@ -222,7 +255,9 @@ export default defineConfig({
   // aws: { region: "us-east-1" },
 
   profiles: {
-    production: { name: "production", envFile: ".env", sizeBudgetMB: 200 },
+    // `env` is inline per-profile vars; `envFile` renames the base dotenv. Precedence, highest first:
+    // --env flags › keychain secrets › profile `env:` › .env.local (--include-local) › .env.<profile> › .env
+    production: { name: "production", envFile: ".env", env: {}, sizeBudgetMB: 200 },
   },
 
   // Ping a Slack/Discord webhook and/or run a shell hook when a build or submit finishes (success or
@@ -236,7 +271,9 @@ export default defineConfig({
 });
 ```
 
-A worked example lives in [`examples/hello-world`](./examples/hello-world).
+Run `launch build <platform> --print-env` to see the fully resolved environment and where each value
+came from (secrets masked), before a single build runs. A worked example lives in
+[`examples/hello-world`](./examples/hello-world).
 
 ## Building without a Mac
 
@@ -270,6 +307,34 @@ everywhere.
 - Your private key is generated locally — only a CSR is ever sent to Apple.
 - Launch reuses an existing distribution certificate instead of creating new ones (the stores cap them).
 
+## FAQ
+
+**Is Launch free?** Yes — it's MIT-licensed and open source, and builds run on your own machine, so
+there's no per-build fee or subscription. The only cost is optional: building iOS without a Mac means
+paying your own AWS for an EC2 Mac (or using a Mac you already have).
+
+**Is this an Expo EAS alternative?** Yes. Launch runs the same build → submit → update pipeline — plus
+the store-setup steps EAS leaves to you (IAPs, subscriptions, capabilities, Android metadata) — locally,
+on your own Apple and Google accounts. It can still hand off to `eas build` when you have no Mac.
+
+**Do I need a Mac?** For iOS, yes — Apple's signing and toolchain are macOS-only. No Mac? Launch builds
+on a cloud Mac in **your own** AWS account, any Mac over SSH, or hands off to EAS. Android builds
+anywhere a JDK runs, no Mac required.
+
+**Does it work with React Native and Expo?** Launch targets Expo / React Native apps that describe
+themselves through Expo config (`app.json` / `app.config.ts`) and `expo prebuild` — it reads your app
+facts from there and never duplicates them.
+
+**Where do my keys live?** In your OS keychain. The `.p8` API key, the distribution private key, and the
+Android upload key never touch the repo or anyone's servers; only a CSR is ever sent to Apple.
+
+**Can I use it in CI?** Yes — `launch ci init` scaffolds a GitHub Actions macOS-runner workflow wired to
+the unattended flags, and every command degrades to non-interactive in CI, when piped, and for agents.
+
+**What about over-the-air updates?** `launch update` publishes via the Expo Updates protocol your
+`expo-updates` runtime already speaks — code-signed and hosted on your own bucket (S3 / R2 / Supabase),
+with `launch updates rollback` to reverse a bad release.
+
 ## Contributing
 
 See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for dev setup, the quality gate, and how to add a backend.
@@ -277,3 +342,9 @@ See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for dev setup, the quality gate, and 
 ## License
 
 MIT
+
+---
+
+<sub>Launch is an open-source **Expo EAS alternative** — a local, self-hosted way to **build and ship
+React Native apps to the App Store and Google Play from your own machine**: iOS code signing, TestFlight
+& Google Play submission, store config as code, and Expo-protocol OTA updates, with no per-build bill.</sub>
