@@ -39,6 +39,32 @@ export const AD_HOC_PROFILE_TYPE = "IOS_APP_ADHOC";
 /** Platform value Apple expects when registering a device for ad-hoc distribution. */
 const IOS_DEVICE_PLATFORM = "IOS";
 
+/**
+ * App Store version states in which listing metadata is still editable, so `launch sync` may write
+ * localizations into that version. A live `READY_FOR_SALE` (or in-review) version is intentionally left
+ * alone. See {@link AppStoreConnectClient.getEditableVersionId}.
+ */
+const EDITABLE_VERSION_STATES = new Set<string>([
+  "PREPARE_FOR_SUBMISSION",
+  "METADATA_REJECTED",
+  "DEVELOPER_REJECTED",
+  "REJECTED",
+  "INVALID_BINARY",
+]);
+/** App-info states in which the app-level listing (name/subtitle/privacy URL) is still editable. */
+const EDITABLE_APPINFO_STATES = new Set<string>(["PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED", "REJECTED"]);
+/** ASC `appInfoLocalizations` attribute keys Launch manages (app-level — persists across versions). */
+const APP_INFO_LISTING_FIELDS = ["name", "subtitle", "privacyPolicyUrl"] as const;
+/** ASC `appStoreVersionLocalizations` attribute keys Launch manages (version-level — per release). */
+const VERSION_LISTING_FIELDS = [
+  "description",
+  "keywords",
+  "whatsNew",
+  "promotionalText",
+  "supportUrl",
+  "marketingUrl",
+] as const;
+
 /** One App Store Connect API error, as returned in the `errors` array of a failed response. */
 interface AscError {
   status: string;
@@ -173,6 +199,19 @@ export interface EncryptionDeclarationResource {
   state: string;
 }
 
+/**
+ * One locale's stored App Store listing copy, normalized to the present (non-empty) fields only. The
+ * same shape serves both the app-level `appInfoLocalizations` (name/subtitle/privacy URL — persists
+ * across versions) and the version-level `appStoreVersionLocalizations` (description/keywords/whatsNew/…
+ * — per release); the caller picks which level. `fields` is keyed by Apple's attribute name, so a diff
+ * against desired config is a plain key-by-key comparison.
+ */
+export interface ListingLocalization {
+  id: string;
+  locale: string;
+  fields: Record<string, string>;
+}
+
 interface ResourceList<A> {
   data: { id: string; attributes: A }[];
 }
@@ -187,6 +226,19 @@ interface ResourceSingle<A> {
 interface PagedList<A> {
   data: { id: string; attributes: A }[];
   links?: { next?: string };
+}
+
+/**
+ * Pick the given keys out of a localization's raw attributes, keeping only present, non-empty strings.
+ * Apple returns empty fields as `null` or `""`; both are dropped so a diff treats "unset" uniformly.
+ */
+function pickListingFields(attributes: Record<string, unknown>, keys: readonly string[]): Record<string, string> {
+  const fields: Record<string, string> = {};
+  for (const key of keys) {
+    const value = attributes[key];
+    if (typeof value === "string" && value.length > 0) fields[key] = value;
+  }
+  return fields;
 }
 
 /** Client bound to one App Store Connect API key. */
@@ -360,6 +412,53 @@ export class AppStoreConnectClient {
   }
 
   /**
+   * Resolve the app's current **editable** `appInfo` (the container for app-level listing copy — name,
+   * subtitle, privacy URL — that persists across versions), or null when none is in an editable state.
+   * A live app keeps a read-only `READY_FOR_DISTRIBUTION` appInfo we must never PATCH.
+   */
+  async getEditableAppInfoId(appId: string): Promise<string | null> {
+    const { data } = await this.request<ResourceList<{ state?: string; appStoreState?: string }>>(
+      "GET",
+      `/apps/${appId}/appInfos?fields[appInfos]=state,appStoreState&limit=20`,
+    );
+    const editable = data.find((info) => {
+      const state = info.attributes.state ?? info.attributes.appStoreState;
+      return state !== undefined && EDITABLE_APPINFO_STATES.has(state);
+    });
+    return editable?.id ?? null;
+  }
+
+  /** List the app-level listing localizations (name/subtitle/privacy URL) under an `appInfo`. */
+  async listAppInfoLocalizations(appInfoId: string): Promise<ListingLocalization[]> {
+    const data = await this.requestAll<Record<string, unknown>>(
+      `/appInfos/${appInfoId}/appInfoLocalizations?limit=200`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      locale: typeof entry.attributes["locale"] === "string" ? entry.attributes["locale"] : "",
+      fields: pickListingFields(entry.attributes, APP_INFO_LISTING_FIELDS),
+    }));
+  }
+
+  /** Create a missing app-level listing locale. `fields` must include `name` (Apple requires it). */
+  async createAppInfoLocalization(appInfoId: string, locale: string, fields: Record<string, string>): Promise<void> {
+    await this.request<unknown>("POST", "/appInfoLocalizations", {
+      data: {
+        type: "appInfoLocalizations",
+        attributes: { locale, ...fields },
+        relationships: { appInfo: { data: { type: "appInfos", id: appInfoId } } },
+      },
+    });
+  }
+
+  /** Patch changed fields on an existing app-level listing locale (locale itself is immutable). */
+  async updateAppInfoLocalization(localizationId: string, fields: Record<string, string>): Promise<void> {
+    await this.request<unknown>("PATCH", `/appInfoLocalizations/${localizationId}`, {
+      data: { type: "appInfoLocalizations", id: localizationId, attributes: fields },
+    });
+  }
+
+  /**
    * List an app's existing App Encryption Declarations (all states) — the reuse candidates for a build
    * that uses non-exempt encryption. Returns `[]` when the app has none or has no ASC record yet.
    */
@@ -379,6 +478,49 @@ export class AppStoreConnectClient {
   async linkBuildToDeclaration(declarationId: string, buildId: string): Promise<void> {
     await this.request<unknown>("POST", `/appEncryptionDeclarations/${declarationId}/relationships/builds`, {
       data: [{ type: "builds", id: buildId }],
+    });
+  }
+
+  /**
+   * Resolve the app's current **editable** App Store version (the one whose listing copy — description,
+   * keywords, what's new, … — can still be changed), or null when only a live/in-review version exists.
+   */
+  async getEditableVersionId(appId: string): Promise<string | null> {
+    const { data } = await this.request<ResourceList<{ appStoreState: string }>>(
+      "GET",
+      `/apps/${appId}/appStoreVersions?fields[appStoreVersions]=appStoreState&limit=20`,
+    );
+    const editable = data.find((version) => EDITABLE_VERSION_STATES.has(version.attributes.appStoreState));
+    return editable?.id ?? null;
+  }
+
+  /** List the version-level listing localizations (description/keywords/whatsNew/…) under a version. */
+  async listVersionLocalizations(versionId: string): Promise<ListingLocalization[]> {
+    const data = await this.requestAll<Record<string, unknown>>(
+      `/appStoreVersions/${versionId}/appStoreVersionLocalizations?limit=200`,
+    );
+    return data.map((entry) => ({
+      id: entry.id,
+      locale: typeof entry.attributes["locale"] === "string" ? entry.attributes["locale"] : "",
+      fields: pickListingFields(entry.attributes, VERSION_LISTING_FIELDS),
+    }));
+  }
+
+  /** Create a missing version-level listing locale (Apple requires only `locale`). */
+  async createVersionLocalization(versionId: string, locale: string, fields: Record<string, string>): Promise<void> {
+    await this.request<unknown>("POST", "/appStoreVersionLocalizations", {
+      data: {
+        type: "appStoreVersionLocalizations",
+        attributes: { locale, ...fields },
+        relationships: { appStoreVersion: { data: { type: "appStoreVersions", id: versionId } } },
+      },
+    });
+  }
+
+  /** Patch changed fields on an existing version-level listing locale (locale itself is immutable). */
+  async updateVersionLocalization(localizationId: string, fields: Record<string, string>): Promise<void> {
+    await this.request<unknown>("PATCH", `/appStoreVersionLocalizations/${localizationId}`, {
+      data: { type: "appStoreVersionLocalizations", id: localizationId, attributes: fields },
     });
   }
 
