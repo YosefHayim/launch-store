@@ -133,6 +133,29 @@ export function exportOptionsPlist(signing: SigningAssets, method: "app-store" |
   ].join("\n");
 }
 
+/**
+ * Assemble the environment for the `gym` subprocess, layered by precedence (later spreads win).
+ *
+ * `ctx.env` goes in FIRST — it's Launch's resolved build env (the `--env` › secrets › `profile env:`
+ * › `.env.<profile>` › `.env` ladder), and it's what `xcodebuild`'s "Bundle React Native code"
+ * phase reads to inline `EXPO_PUBLIC_*` into the shipped bundle. The ccache compiler wrappers and the
+ * App Store Connect API key are layered over it so those build-critical/auth vars still win over any
+ * same-named user var. Gradle/EAS/submit already forward `ctx.env`; local iOS was the lone gap that
+ * silently dropped every layer above the app's own `.env` (issue #109).
+ */
+export function gymEnv(
+  ctxEnv: Record<string, string>,
+  ccacheVars: Record<string, string>,
+  ascKey: { keyId: string; issuerId: string },
+): Record<string, string> {
+  return {
+    ...ctxEnv,
+    ...ccacheVars,
+    APP_STORE_CONNECT_API_KEY_KEY_ID: ascKey.keyId,
+    APP_STORE_CONNECT_API_KEY_ISSUER_ID: ascKey.issuerId,
+  };
+}
+
 export const fastlaneBuildEngine: BuildEngine = {
   name: "fastlane",
 
@@ -163,7 +186,7 @@ export const fastlaneBuildEngine: BuildEngine = {
 
     // Re-resolve Pods only when the native graph changed (or they're absent) — baking ccache in then.
     if (decision.nativeChanged || !existsSync(join(iosDir, "Pods"))) {
-      await run("pod", ["install"], { cwd: iosDir, env: ccacheVars });
+      await run("pod", ["install"], { cwd: iosDir, env: { ...ctx.env, ...ccacheVars } });
     }
 
     const { cores, memBytes } = hostResources();
@@ -198,17 +221,14 @@ export const fastlaneBuildEngine: BuildEngine = {
         // Clean only when the fingerprint changed or `--clean` was passed; otherwise reuse warm DerivedData.
         ...(decision.clean ? ["--clean"] : []),
       ],
-      // The API key lets gym's signing/upload helpers talk to Apple without a 2FA prompt; ccache env tunes the compile.
+      // gym env = Launch's resolved env (EXPO_PUBLIC_* for the bundle) + ccache tuning + the ASC API
+      // key (so gym's signing/upload helpers reach Apple without a 2FA prompt). See {@link gymEnv}.
       {
         label: `Building iOS · ${ctx.app.name}`,
         parseStep: xcodeProgressStep,
         ...(estimate ? { estimate } : {}),
         cwd: ctx.app.dir,
-        env: {
-          ...ccacheVars,
-          APP_STORE_CONNECT_API_KEY_KEY_ID: creds.ascKey.keyId,
-          APP_STORE_CONNECT_API_KEY_ISSUER_ID: creds.ascKey.issuerId,
-        },
+        env: gymEnv(ctx.env, ccacheVars, creds.ascKey),
       },
     );
 

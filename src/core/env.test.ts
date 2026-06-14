@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   ENV_SOURCE,
+  envInjectionRows,
   formatEnvTable,
   loadDotenvFile,
   missingKeys,
@@ -175,5 +176,32 @@ describe("formatEnvTable — masked provenance for --print-env", () => {
 
   it("reports when nothing resolved", () => {
     expect(formatEnvTable({ values: {}, sources: {} })).toBe("(no env vars resolved)");
+  });
+});
+
+describe("envInjectionRows — key→source provenance for the in-build log (no values)", () => {
+  it("returns one sorted KEY → source row per var and never the value", () => {
+    const rows = envInjectionRows({
+      values: { EXPO_PUBLIC_CDN: "https://real.cdn", API_KEY: "tok_distinct", APP_NAME: "Acme" },
+      sources: { EXPO_PUBLIC_CDN: ENV_SOURCE.flag, API_KEY: ENV_SOURCE.secret, APP_NAME: ".env" },
+    });
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toMatch(/^API_KEY\s+keychain secret$/); // sorted by key, source labelled
+    expect(rows[1]).toMatch(/^APP_NAME\s+\.env$/);
+    expect(rows[2]).toMatch(/^EXPO_PUBLIC_CDN\s+--env \(flag\)$/);
+    // The build log proves WHICH vars + source — never a value, so there's nothing to leak.
+    const joined = rows.join("\n");
+    expect(joined).not.toContain("tok_distinct");
+    expect(joined).not.toContain("https://real.cdn");
+    expect(joined).not.toContain("Acme");
+  });
+
+  it("pads keys so the source column aligns", () => {
+    const rows = envInjectionRows({ values: { A: "1", LONGER_KEY: "2" }, sources: { A: ".env", LONGER_KEY: ".env" } });
+    expect(rows[0]?.indexOf(".env")).toBe(rows[1]?.indexOf(".env"));
+  });
+
+  it("is empty when no env resolved", () => {
+    expect(envInjectionRows({ values: {}, sources: {} })).toEqual([]);
   });
 });
