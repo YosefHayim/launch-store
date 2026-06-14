@@ -10,11 +10,13 @@ import type { Command } from "commander";
 import { cancel, confirm, isCancel } from "@clack/prompts";
 import type { AndroidReleaseOptions, BuildArtifact, Platform, ResolvedBuildContext } from "../../core/types.js";
 import { loadConfig } from "../../core/config.js";
-import { resolveSubmitterName, selectApp, worstDownloadBytes } from "../../core/pipeline.js";
+import { resolveCommandEnv, resolveSubmitterName, selectApp, worstDownloadBytes } from "../../core/pipeline.js";
+import { formatEnvTable } from "../../core/env.js";
 import { notifyCompletion, type NotifyEvent } from "../../core/notify.js";
 import { getCredentialsProvider, getStorageProvider, getSubmitter } from "../../core/registry.js";
+import { addEnvFlags, envOverrides, type EnvFlags } from "../options.js";
 
-interface ReleaseCommandOptions {
+interface ReleaseCommandOptions extends EnvFlags {
   app?: string;
   profile: string;
   explain: boolean;
@@ -39,26 +41,40 @@ export function shouldNudgeRelease(artifact: Pick<BuildArtifact, "clean">): bool
 
 /** Attach the `release` command to the program. */
 export function registerReleaseCommand(program: Command): void {
-  program
+  const command = program
     .command("release")
     .description("submit the latest stored build to the store's PUBLIC production track (with confirmation)")
     .argument("<platform>", "ios or android")
     .option("-a, --app <name>", "app handle")
     .option("-p, --profile <name>", "build profile", "production")
     .option("--rollout <fraction>", "Android only — staged-rollout fraction (default: 1.0)")
-    .option("--explain", "expand each step", false)
-    .action(async (platform: string, options: ReleaseCommandOptions) => {
-      if (platform !== "ios" && platform !== "android") {
-        throw new Error(`Unknown platform "${platform}". Use "ios" or "android".`);
-      }
-      await runRelease(platform, options);
-    });
+    .option("--explain", "expand each step", false);
+  addEnvFlags(command).action(async (platform: string, options: ReleaseCommandOptions) => {
+    if (platform !== "ios" && platform !== "android") {
+      throw new Error(`Unknown platform "${platform}". Use "ios" or "android".`);
+    }
+    await runRelease(platform, options);
+  });
 }
 
 /** Submit the latest stored artifact for `app` to the store's public production track. */
 async function runRelease(platform: Platform, options: ReleaseCommandOptions): Promise<void> {
   const { config, apps } = await loadConfig();
   const app = await selectApp(apps, options.app);
+  const profile = config.profiles[options.profile] ?? { name: options.profile };
+
+  // Release resolves env (for the submit/fastlane subprocess) but never gates on it — it promotes a
+  // prebuilt artifact, so the app's env was already baked at build time. See `validateResolvedEnv`.
+  const resolvedEnv = await resolveCommandEnv({
+    app,
+    profile,
+    cliEnv: envOverrides(options),
+    includeLocal: options.includeLocal,
+  });
+  if (options.printEnv) {
+    console.log(formatEnvTable(resolvedEnv));
+    return;
+  }
 
   const latest = (await getStorageProvider(config.storage).list()).find(
     (artifact) => artifact.appName === app.name && artifact.platform === platform,
@@ -86,7 +102,6 @@ async function runRelease(platform: Platform, options: ReleaseCommandOptions): P
     }
   }
 
-  const profile = config.profiles[options.profile] ?? { name: options.profile };
   // Production releases roll out fully unless an Android `--rollout` (or the profile) narrows it.
   const rollout = options.rollout !== undefined ? Number.parseFloat(options.rollout) : (profile.rollout ?? 1.0);
   const android: AndroidReleaseOptions | undefined =
@@ -95,7 +110,7 @@ async function runRelease(platform: Platform, options: ReleaseCommandOptions): P
     platform,
     app,
     profile,
-    env: {},
+    env: resolvedEnv.values,
     explain: options.explain,
     dryRun: false,
     // Release never compiles — it promotes a stored artifact — so the clean/incremental decision is moot.
