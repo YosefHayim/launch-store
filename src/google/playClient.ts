@@ -55,7 +55,7 @@ interface CachedToken {
   expiresAt: number;
 }
 
-/** One release within a Play track, as the API returns it (the slice Launch reads). */
+/** One release within a Play track, as the API returns it (the slice Launch reads/writes). */
 export interface PlayRelease {
   /** Human release name, e.g. `1.0.0 (12)`. */
   name?: string;
@@ -65,6 +65,22 @@ export interface PlayRelease {
   status?: string;
   /** Staged-rollout fraction (0–1) when `status` is `inProgress`. */
   userFraction?: number;
+  /** Per-language "What's new" notes shown on the store for this release. */
+  releaseNotes?: { language: string; text: string }[];
+}
+
+/** A track and its releases (`edits.tracks`) — the unit `launch play-tracks` reads and writes. */
+export interface PlayTrackInfo {
+  track: string;
+  releases: PlayRelease[];
+}
+
+/** A track's country availability (`edits.countryavailability`) — read-only; Play exposes no write API. */
+export interface PlayCountryAvailability {
+  /** Whether the track is being made available to the rest of the world beyond `countries`. */
+  restOfWorld?: boolean;
+  /** Per-country availability entries Play returns for the track. */
+  countries: { countryCode: string }[];
 }
 
 /** A price in a currency's micro-units — Play's money shape (`priceMicros` + ISO `currency`). */
@@ -447,6 +463,68 @@ export class GooglePlayClient {
         `/applications/${encodeURIComponent(packageName)}/edits/${editId}/tracks/${encodeURIComponent(track)}`,
       );
       return releases ?? [];
+    });
+  }
+
+  /** Read every track and its releases (for `launch play-tracks status`). */
+  async listTracks(packageName: string): Promise<PlayTrackInfo[]> {
+    return this.withReadEdit(packageName, async (editId) => {
+      const { tracks } = await this.request<{ tracks?: PlayTrackInfo[] }>(
+        "GET",
+        `/applications/${encodeURIComponent(packageName)}/edits/${editId}/tracks`,
+      );
+      return tracks ?? [];
+    });
+  }
+
+  /**
+   * Replace a track's releases in one committed edit — the promote/rollout/halt write. Play supersedes
+   * any prior release on the track, so a single new release is the standard payload. Transactional via
+   * {@link withEdit}: a failure abandons the edit, leaving the live track untouched.
+   */
+  async setTrackReleases(packageName: string, track: string, releases: PlayRelease[]): Promise<void> {
+    await this.withEdit(packageName, async (editId) => {
+      await this.request<unknown>(
+        "PUT",
+        `/applications/${encodeURIComponent(packageName)}/edits/${editId}/tracks/${encodeURIComponent(track)}`,
+        { track, releases },
+      );
+    });
+  }
+
+  /** Read the Google Groups configured as testers for a track (closed/internal testing). */
+  async getTesters(packageName: string, track: string): Promise<string[]> {
+    return this.withReadEdit(packageName, async (editId) => {
+      const { googleGroups } = await this.request<{ googleGroups?: string[] }>(
+        "GET",
+        `/applications/${encodeURIComponent(packageName)}/edits/${editId}/testers/${encodeURIComponent(track)}`,
+      );
+      return googleGroups ?? [];
+    });
+  }
+
+  /** Set the Google Groups allowed to test a track, in one committed edit. */
+  async setTesters(packageName: string, track: string, googleGroups: string[]): Promise<void> {
+    await this.withEdit(packageName, async (editId) => {
+      await this.request<unknown>(
+        "PUT",
+        `/applications/${encodeURIComponent(packageName)}/edits/${editId}/testers/${encodeURIComponent(track)}`,
+        { googleGroups },
+      );
+    });
+  }
+
+  /** Read a track's country availability. Read-only — Play exposes no API to change it. */
+  async getCountryAvailability(packageName: string, track: string): Promise<PlayCountryAvailability> {
+    return this.withReadEdit(packageName, async (editId) => {
+      const availability = await this.request<{ restOfWorld?: boolean; countries?: { countryCode: string }[] }>(
+        "GET",
+        `/applications/${encodeURIComponent(packageName)}/edits/${editId}/countryavailability/${encodeURIComponent(track)}`,
+      );
+      return {
+        ...(availability.restOfWorld === undefined ? {} : { restOfWorld: availability.restOfWorld }),
+        countries: availability.countries ?? [],
+      };
     });
   }
 
