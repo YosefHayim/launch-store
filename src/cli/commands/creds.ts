@@ -12,11 +12,11 @@
  * - `rename` / `remove` / `refresh` manage the account registry; `status` reports every account.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import type { Command } from "commander";
-import { cancel, isCancel, password, select, text } from "@clack/prompts";
+import { cancel, confirm, isCancel, password, select, text } from "@clack/prompts";
 import type { AscKey } from "../../core/types.js";
 import {
   type AccountIdentity,
@@ -80,6 +80,49 @@ const SEARCH_DIRS = [
   join(process.cwd(), "private_keys"),
   process.cwd(),
 ];
+
+/**
+ * Whether `file` sits directly in one of the {@link SEARCH_DIRS} Launch scans — i.e. a sync'd/backed-up
+ * "dumping ground" (chiefly `~/Downloads`) where a private key shouldn't be left lying around once it's
+ * safely in the keychain. A key the user deliberately placed elsewhere (an explicit `--p8 ~/vault/…`)
+ * is NOT in a discovery dir, so it's never offered for deletion. Exported for the unit test.
+ */
+export function isInDiscoveryDir(file: string): boolean {
+  const parent = resolve(dirname(file));
+  return SEARCH_DIRS.some((dir) => resolve(dir) === parent);
+}
+
+/**
+ * After a secret has been imported into the OS keychain (now the source of truth), offer to remove the
+ * plaintext source file when it's sitting in a discovery directory. Honors the project invariant that
+ * secrets live only in the keychain — it never relocates the file into `~/.launch`, only deletes it.
+ *
+ * Interactive: prompt, defaulting to delete. Non-interactive: keep it and print the exact path, so a key
+ * is never deleted without consent (and the user still learns it's safe to remove).
+ */
+async function offerToRemoveImportedSecret(file: string, label: string, canPrompt: boolean): Promise<void> {
+  if (!isInDiscoveryDir(file)) return;
+  if (!canPrompt) {
+    console.log(
+      `The plaintext ${label} is still at ${tildify(file)} — it's in your keychain now, so you can delete it.`,
+    );
+    return;
+  }
+  const remove = await confirm({
+    message: `Remove the plaintext ${label} from ${tildify(file)}? It's now stored securely in your keychain.`,
+    initialValue: true,
+  });
+  if (isCancel(remove)) {
+    cancel("Cancelled.");
+    process.exit(0);
+  }
+  if (!remove) {
+    console.log(`Kept ${tildify(file)}.`);
+    return;
+  }
+  rmSync(file, { force: true });
+  console.log(`Removed ${tildify(file)}.`);
+}
 
 /** Prompt for a required value, exiting cleanly if the user cancels. */
 async function ask(message: string, placeholder?: string): Promise<string> {
@@ -215,6 +258,10 @@ async function importIosKeyFromPath(p8Path: string, options: CredsOptions, canPr
     ? ` · sees ${identity.apps.slice(0, 3).join(", ")}${identity.apps.length > 3 ? "…" : ""}`
     : "";
   console.log(`Added Apple account "${label}" (key ${keyId}${teamLine}) and set it active.${appsLine}`);
+
+  // Only offer to delete the source .p8 once Apple has verified the stored copy works (teamId resolved).
+  // Apple lets you download a .p8 exactly once, so we never remove an unverified key's only copy.
+  if (identity.teamId) await offerToRemoveImportedSecret(p8Path, "App Store Connect key", canPrompt);
 }
 
 /** Import an App Store Connect API key (the iOS `set-key`), discovering the `.p8` first. */
@@ -237,6 +284,8 @@ async function setAndroidKey(value: string | undefined, options: CredsOptions): 
   if (!existsSync(path)) throw new Error(`No service-account JSON at ${given}.`);
   await storeServiceAccount(readFileSync(path, "utf8"));
   console.log(`Stored Play service account (${tildify(path)}) in the secret store.`);
+  // The JSON is re-downloadable from the Google Cloud console, so no verification gate is needed here.
+  await offerToRemoveImportedSecret(path, "Play service-account key", canPrompt);
 }
 
 /** A short hint string for an account row in the picker: team and a couple of app names, if known. */
