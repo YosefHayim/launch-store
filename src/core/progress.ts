@@ -17,6 +17,10 @@ import { ensureDir, LOGS_DIR } from "./paths.js";
 import { diagnoseBuildLog, formatDiagnoses } from "./buildDiagnostics.js";
 import { currentBuildLog } from "./buildLog.js";
 import type { BuildEstimate } from "./buildFingerprint.js";
+import { AURORA, auroraPaint, mix } from "./aurora.js";
+
+/** A painter bound to this process's color decision — drives the candy progress bar's violet→cyan fill. */
+const paint = auroraPaint();
 
 /** Process-wide toggle: when true, `runWithProgress` streams the raw tool output instead of a spinner. */
 let streamRawOutput = false;
@@ -76,15 +80,23 @@ export function formatElapsed(ms: number): string {
 }
 
 /**
- * Render a fixed-width text progress bar, e.g. `[#########-----]`. `fraction` is clamped to 0–1 so an
- * over-budget build (more steps/time than last time) shows a full-but-capped bar rather than overflowing
- * the line. ASCII glyphs keep it legible in any terminal and in captured logs.
+ * Render the "candy" Aurora progress bar — rounded violet/cyan end-caps (`╶`…`╴`) around a heavy `━`
+ * fill that ramps violet→cyan, over a dim `─` track. `fraction` is clamped to 0–1 so an over-budget
+ * build (more steps/time than last time) shows a full-but-capped bar rather than overflowing the line.
+ * On a color TTY each fill cell is its own gradient step; off a TTY / under `NO_COLOR` it degrades to a
+ * plain `╶━━━──╴`, still legible in any captured log.
  */
 export function renderBar(fraction: number, width = 14): string {
   const clamped = Math.max(0, Math.min(1, fraction));
-  // Floor (not round) so a capped 99% fraction leaves a trailing `-` — the bar never reads "done" mid-run.
+  // Floor (not round) so a capped 99% fraction leaves a trailing track cell — the bar never reads "done" mid-run.
   const filled = Math.floor(clamped * width);
-  return `[${"#".repeat(filled)}${"-".repeat(width - filled)}]`;
+  const fill = paint.enabled
+    ? Array.from({ length: filled }, (_, i) =>
+        paint.fg(mix(AURORA.violet, AURORA.cyan, width <= 1 ? 0 : i / (width - 1)), "━"),
+      ).join("")
+    : "━".repeat(filled);
+  const track = paint.fg(AURORA.dim, "─".repeat(width - filled));
+  return `${paint.fg(AURORA.violet, "╶")}${fill}${track}${paint.fg(AURORA.cyan, "╴")}`;
 }
 
 /**
@@ -107,10 +119,12 @@ export function formatProgressLine(parts: {
   if (!estimate || estimate.ms <= 0) return `${head}   ${elapsed}`;
 
   const bySteps = estimate.steps > 0 && steps > 0;
-  const fraction = bySteps ? steps / estimate.steps : elapsedMs / estimate.ms;
-  const bar = renderBar(Math.min(fraction, 0.99));
+  // Cap at 99% so the bar (and the percent) never read "done" until the process actually exits.
+  const fraction = Math.min(bySteps ? steps / estimate.steps : elapsedMs / estimate.ms, 0.99);
+  const bar = renderBar(fraction);
+  const pct = paint.gradient(`${Math.round(fraction * 100)}%`, AURORA.violet, AURORA.cyan);
   const counter = bySteps ? ` ${steps}/~${estimate.steps}` : "";
-  return `${head}   ${bar}${counter} · ${elapsed} / ~${formatElapsed(estimate.ms)}`;
+  return `${head}   ${bar} ${pct}${counter} · ${elapsed} / ~${formatElapsed(estimate.ms)}`;
 }
 
 /**

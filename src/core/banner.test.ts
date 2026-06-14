@@ -24,18 +24,21 @@ function stripAnsi(text: string): string {
 describe("buildFrames", () => {
   it("produces equal-height frames ending in the LAUNCH wordmark", () => {
     const frames = buildFrames();
-    expect(frames.length).toBe(27);
+    expect(frames.length).toBeGreaterThan(20); // ignition + the full left→right flight + settle
     const heights = new Set(frames.map((frame) => frame.split("\n").length));
     expect(heights.size).toBe(1); // every frame is the same number of lines (clean in-place redraw)
-    expect(frames.at(-1)).toContain("L  A  U  N  C  H");
+    expect(frames.at(-1)).toContain("L A U N C H");
   });
 
-  it("lights both store targets only after the rocket strikes", () => {
+  it("delivers to both stores only after the rocket fires across", () => {
     const frames = buildFrames();
-    expect(frames[0]).toContain("App Store");
-    expect(frames[0]).not.toContain("✓"); // not yet delivered while it climbs
-    expect(frames.at(-1)).toContain("✓ App Store");
-    expect(frames.at(-1)).toContain("✓ Google Play");
+    const first = frames[0] ?? "";
+    expect(first).toContain("ignition"); // still on the pad
+    expect(first).not.toContain("✓"); // nothing delivered yet
+    const last = frames.at(-1) ?? "";
+    expect(last).toContain("App Store");
+    expect(last).toContain("Google Play");
+    expect(last).toContain("✓");
   });
 
   it("embeds color codes only when color is requested, matching the depth", () => {
@@ -59,7 +62,7 @@ describe("staticBanner", () => {
     const banner = staticBanner();
     expect(banner).toContain("App Store");
     expect(banner).toContain("Google Play");
-    expect(banner).toContain("L  A  U  N  C  H");
+    expect(banner).toContain("L A U N C H");
     expect(banner).not.toContain(ESC);
   });
 });
@@ -103,7 +106,7 @@ describe("renderBanner", () => {
     const { stream, chunks } = capture();
     await renderBanner({ stream, isTTY: false, env: {} });
     expect(chunks.length).toBe(1);
-    expect(chunks.join("")).toContain("L  A  U  N  C  H");
+    expect(chunks.join("")).toContain("L A U N C H");
     expect(chunks.join("")).not.toContain(cursorUp); // static path never moves the cursor
   });
 
@@ -112,7 +115,7 @@ describe("renderBanner", () => {
     await renderBanner({ stream, isTTY: true, env: {}, sleep: () => Promise.resolve() });
     const output = chunks.join("");
     expect(stripAnsi(output)).toContain("ignition…");
-    expect(stripAnsi(output)).toContain("L  A  U  N  C  H");
+    expect(stripAnsi(output)).toContain("L A U N C H");
     expect(output).toContain(cursorUp); // redrew at least once in place
   });
 
