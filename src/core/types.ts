@@ -9,6 +9,18 @@
  * {@link BuildEngine}, {@link StorageProvider}, or {@link Submitter}.
  */
 
+// The five Launch-native config sections folded in from their JSON sidecars (issue #101) reuse the
+// App Store Connect schema enums that `apple/ascClient.ts` owns and guards against the generated
+// OpenAPI types. This is a type-only import (erased at build, no runtime dependency or cycle), and it
+// keeps the enums single-sourced where they're validated rather than duplicating Apple's lists here.
+import type {
+  AgeRatingValue,
+  AppClipActionValue,
+  LeaderboardFormatter,
+  LeaderboardSortType,
+  LeaderboardSubmissionType,
+} from "../apple/ascClient.js";
+
 /** Target mobile platform. iOS can only be built (signed) on macOS; Android builds on any OS. */
 export type Platform = "ios" | "android";
 
@@ -516,6 +528,169 @@ export interface NotifyConfig {
   command?: string;
 }
 
+// ── Launch-native App Store Connect config sections ────────────────────────────────────────────────
+// Each section below is reconciled to App Store Connect by its own command and can be declared either
+// as a typed field on {@link LaunchConfig} (the single-config path) or, for back-compat, as its
+// standalone `*.config.json` sidecar. The per-app sections (Game Center, App Clips, release
+// attributes) are keyed by iOS bundle id like {@link LaunchConfig.products}; Wallet and EU
+// distribution are team-level (one object, no app key). See issue #101.
+
+/** One declared Game Center achievement: Apple's create attributes plus its default-locale localization. */
+export interface AchievementConfig {
+  /** Developer-chosen stable id used to match config to Apple's record (never shown to players). */
+  vendorIdentifier: string;
+  /** Internal name shown in App Store Connect. */
+  referenceName: string;
+  /** Points awarded (Apple caps the total across achievements at 1000). */
+  points: number;
+  /** Whether the achievement is visible to players before it's earned (default false). */
+  showBeforeEarned?: boolean;
+  /** Whether it can be earned more than once (default false). */
+  repeatable?: boolean;
+  /** Player-facing title in the localization. */
+  name: string;
+  /** Player-facing description shown before the achievement is earned. */
+  beforeEarnedDescription: string;
+  /** Player-facing description shown after it's earned. */
+  afterEarnedDescription: string;
+  /** Locale for the localization above (default `en-US`). */
+  locale?: string;
+}
+
+/** One declared Game Center leaderboard: Apple's create attributes plus its default-locale localization name. */
+export interface LeaderboardConfig {
+  vendorIdentifier: string;
+  referenceName: string;
+  /** How scores are formatted (e.g. `INTEGER`, `ELAPSED_TIME_SECOND`). */
+  defaultFormatter: LeaderboardFormatter;
+  /** Whether the board keeps each player's best or most recent score. */
+  submissionType: LeaderboardSubmissionType;
+  /** Whether higher (`DESC`) or lower (`ASC`) scores rank first. */
+  scoreSortType: LeaderboardSortType;
+  /** Player-facing title in the localization. */
+  name: string;
+  /** Locale for the localization above (default `en-US`). */
+  locale?: string;
+}
+
+/**
+ * An app's declared Game Center achievements and leaderboards — the `gamecenter.config.json` document,
+ * or one entry of {@link LaunchConfig.gameCenter} (keyed by iOS bundle id). Either list may be omitted.
+ * Reconciled additively by `launch game-center`.
+ */
+export interface GameCenterConfig {
+  achievements?: AchievementConfig[];
+  leaderboards?: LeaderboardConfig[];
+}
+
+/** One locale of an App Clip card: the subtitle shown under the app name in that locale. */
+export interface AppClipLocalizationConfig {
+  subtitle: string;
+}
+
+/**
+ * One App Clip's declared card metadata. Both fields are optional and reconciled independently, so a clip
+ * may declare just an `action`, just `localizations`, or both.
+ */
+export interface AppClipConfig {
+  /** The card's call-to-action button (`OPEN` / `VIEW` / `PLAY`). */
+  action?: AppClipActionValue;
+  /** Per-locale card subtitles, keyed by Apple locale (e.g. `en-US`). */
+  localizations?: Record<string, AppClipLocalizationConfig>;
+}
+
+/**
+ * An app's declared App Clips — the `appclips.config.json` document, or one entry of
+ * {@link LaunchConfig.appClips} (keyed by the parent app's iOS bundle id). Each App Clip is keyed by
+ * its **own** bundle id (e.g. `com.acme.app.Clip`), which is how a config entry is matched to the clip
+ * the build produced. Reconciled by `launch app-clips`.
+ */
+export interface AppClipsConfig {
+  clips: Record<string, AppClipConfig>;
+}
+
+/** One authorized EU distribution domain: the host plus a human-readable reference name. */
+export interface EuDistributionDomainConfig {
+  /** The domain authorized to host distribution packages (e.g. `downloads.acme.com`). */
+  domain: string;
+  /** A label shown in App Store Connect to identify the domain. */
+  referenceName: string;
+}
+
+/**
+ * The team's EU alternative-distribution domains — the `eu-distribution.config.json` document, or
+ * {@link LaunchConfig.euDistribution}. Team-level (not per-app); reconciled by `launch eu-distribution`.
+ */
+export interface EuDistributionConfig {
+  /** Domains to authorize for EU alternative distribution. */
+  domains: EuDistributionDomainConfig[];
+}
+
+/** One declared Apple identifier: the reverse-DNS id plus a human-readable name shown in the portal. */
+export interface WalletIdConfig {
+  /** The identifier to register (e.g. `merchant.com.acme.app` or `pass.com.acme.coupon`). */
+  identifier: string;
+  /** A label shown in App Store Connect / the developer portal. */
+  name: string;
+}
+
+/**
+ * The team's Apple Pay merchant ids and Wallet pass type ids — the `wallet.config.json` document, or
+ * {@link LaunchConfig.wallet}. Team-level; either family may be omitted. Registered by `launch wallet`.
+ */
+export interface WalletConfig {
+  /** Apple Pay merchant ids to register. */
+  merchantIds?: WalletIdConfig[];
+  /** Wallet pass type ids to register. */
+  passTypeIds?: WalletIdConfig[];
+}
+
+/** Declared primary/secondary App Store categories (`appCategories` ids such as `PRODUCTIVITY`). */
+export interface ReleaseCategories {
+  primary?: string;
+  secondary?: string;
+}
+
+/** Declared base price: a customer price (e.g. `9.99`) in a base territory Apple equalizes from. */
+export interface ReleasePricing {
+  /** Base territory to anchor the price on (default `USA`). */
+  baseTerritory?: string;
+  /** The customer-facing price in the base territory; must match one of Apple's price-ladder rungs. */
+  customerPrice: number;
+}
+
+/**
+ * Declared App Review details: the contact Apple reaches and the demo account its reviewer signs in
+ * with. Field names match Apple's `appStoreReviewDetails` attributes verbatim. `demoAccountPassword` is
+ * never read back from Apple or logged.
+ */
+export interface ReviewDetailsConfig {
+  contactFirstName?: string;
+  contactLastName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  demoAccountRequired?: boolean;
+  demoAccountName?: string;
+  demoAccountPassword?: string;
+  notes?: string;
+}
+
+/**
+ * An app's declared App Store *release attributes* — age rating, App Store categories, base price, and
+ * App Review details — the `release.config.json` document, or one entry of
+ * {@link LaunchConfig.releaseAttributes} (keyed by iOS bundle id). Every section is optional and
+ * reconciled independently by `launch release-config`, so a file may declare only the attribute(s) you
+ * manage as code (e.g. just `pricing`). Named to avoid colliding with {@link ReleaseConfig}, which is
+ * the distinct iOS *release policy* (when/how a version goes live).
+ */
+export interface ReleaseAttributesConfig {
+  /** Age-rating answers as Apple's `name → value` map (enum strings or booleans); only changed keys are sent. */
+  ageRating?: Record<string, AgeRatingValue>;
+  categories?: ReleaseCategories;
+  pricing?: ReleasePricing;
+  reviewDetails?: ReviewDetailsConfig;
+}
+
 /**
  * The fully-resolved configuration for one `launch` invocation.
  *
@@ -555,6 +730,32 @@ export interface LaunchConfig {
    * once). See {@link ReleaseConfig}.
    */
   release?: ReleaseConfig;
+  /**
+   * Game Center achievements & leaderboards, keyed by iOS bundle id. Drives `launch game-center`. The
+   * single-config form of `gamecenter.config.json` (still accepted for back-compat). See {@link GameCenterConfig}.
+   */
+  gameCenter?: Record<string, GameCenterConfig>;
+  /**
+   * App Clip card metadata, keyed by the parent app's iOS bundle id. Drives `launch app-clips`. The
+   * single-config form of `appclips.config.json` (still accepted for back-compat). See {@link AppClipsConfig}.
+   */
+  appClips?: Record<string, AppClipsConfig>;
+  /**
+   * App Store release attributes (age rating, categories, price, review details), keyed by iOS bundle id.
+   * Drives `launch release-config`. The single-config form of `release.config.json` (still accepted for
+   * back-compat). Distinct from {@link LaunchConfig.release} (the release *policy*). See {@link ReleaseAttributesConfig}.
+   */
+  releaseAttributes?: Record<string, ReleaseAttributesConfig>;
+  /**
+   * Team-level Apple Pay merchant ids & Wallet pass type ids. Drives `launch wallet`. The single-config
+   * form of `wallet.config.json` (still accepted for back-compat). See {@link WalletConfig}.
+   */
+  wallet?: WalletConfig;
+  /**
+   * Team-level EU alternative-distribution domains (DMA). Drives `launch eu-distribution`. The
+   * single-config form of `eu-distribution.config.json` (still accepted for back-compat). See {@link EuDistributionConfig}.
+   */
+  euDistribution?: EuDistributionConfig;
   /** AWS EC2 Mac settings for remote (off-Mac) builds. Only needed when building via `--remote aws`. */
   aws?: AwsConfig;
   /**

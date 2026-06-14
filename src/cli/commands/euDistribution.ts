@@ -19,6 +19,7 @@ import type { Command } from "commander";
 import type { PlannedAction } from "../../core/ascSync.js";
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { loadActiveAscKey } from "../../core/accounts.js";
+import { loadConfig, resolveSidecarConfig } from "../../core/config.js";
 import { createLogger } from "../../core/logger.js";
 import {
   loadEuDistributionConfig,
@@ -50,9 +51,20 @@ export function renderAction(action: PlannedAction): string {
 }
 
 /** The body of `launch eu-distribution`: plan domain authorizations, print, confirm, apply. */
-async function runReconcile(options: EuDistributionOptions): Promise<void> {
+async function runReconcile(options: EuDistributionOptions, command: Command): Promise<void> {
   const log = createLogger(false);
-  const config = loadEuDistributionConfig(options.config);
+  const { config: launchConfig } = await loadConfig();
+  const config = resolveSidecarConfig({
+    typed: launchConfig.euDistribution,
+    configPath: options.config,
+    explicitPath: command.getOptionValueSource("config") === "cli",
+    load: loadEuDistributionConfig,
+  });
+  if (!config) {
+    throw new Error(
+      `No EU distribution config. Add an \`euDistribution\` field to launch.config.ts or create ${options.config}.`,
+    );
+  }
   const client = await activeClient();
 
   const plan = await reconcileEuDistributionDomains(client, config, true);
@@ -99,7 +111,7 @@ export function registerEuDistributionCommand(program: Command): void {
     .option("--config <path>", "path to the EU distribution config file", "eu-distribution.config.json")
     .option("--dry-run", "print the plan and exit, making no changes", false)
     .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
-    .action((options: EuDistributionOptions) => runReconcile(options));
+    .action((options: EuDistributionOptions, command: Command) => runReconcile(options, command));
 
   eu.command("set-key <pemPath>")
     .description("register the team's package-signing public key (the public half — a plain .pem file)")

@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { GameCenterAchievementResource, GameCenterLeaderboardResource } from "../apple/ascClient.js";
 import {
   type AscGameCenterApi,
-  type GameCenterConfig,
   parseGameCenterConfig,
   reconcileGameCenter,
   summarizeGameCenter,
 } from "./gameCenter.js";
+import type { GameCenterConfig } from "./types.js";
 
 /** Records every write the reconciler makes, so a test can assert what was (and wasn't) sent. */
 interface Calls {
