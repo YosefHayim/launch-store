@@ -23,6 +23,13 @@ export const LOGS_DIR = join(LAUNCH_HOME, "logs");
 export const ARTIFACT_INDEX = join(ARTIFACTS_DIR, "index.json");
 
 /**
+ * Cross-run UX state: whether the user has seen the first-run tour, and when. Non-secret, host-local,
+ * and intentionally tiny — it exists only so `launch` (no args) plays the walkthrough once and never
+ * nags afterward. See `firstRun.ts`.
+ */
+export const STATE_FILE = join(LAUNCH_HOME, "state.json");
+
+/**
  * Registry of onboarded Apple accounts (`{ active, accounts: [...] }`). Non-secret: Key IDs, Issuer
  * IDs, labels, and cached team/app metadata only — each account's `.p8` stays in the OS secret store.
  */

@@ -13,7 +13,9 @@ native project, archives and signs it, estimates the store download size, stores
 uploads it to the testing track (a separate, deliberate command does the public release).
 
 The product goal is a "boring, traceable" path from source to store that an individual developer can
-run and understand, with an `--explain` mode that teaches the why and the terminology as it goes.
+run and understand, with an `--explain` mode that teaches the why and the terminology as it goes — and a
+first-run `launch demo` that simulates the whole pipeline (no config, build, or account needed) so a
+newcomer sees the flow before committing to it.
 
 ## Ecosystem primer (new to React Native / Expo / EAS?)
 
@@ -44,7 +46,9 @@ size-check → store → submit), and delegates the heavy lifting to the same na
 
 ## The core flow: build → sign → submit
 
-`src/core/pipeline.ts` is the single linear spine. One `launch build <platform>` runs, in order:
+`src/core/pipeline.ts` is the single linear spine; its phases are named in `src/core/phases.ts`
+(`PIPELINE_PHASES`), the canonical list the first-run tour also narrates. One `launch build <platform>`
+runs, in order:
 
 1. **Resolve app + profile + env** — pick the app from `launch.config.ts`, validate `.env`.
 2. **Prebuild** — `expo prebuild` only if there's no native `ios/` / `android/` yet.
@@ -64,13 +68,13 @@ Keeping public release out of `launch build` is what makes an accidental public 
 
 One TypeScript / Node ESM package, four areas under `src/`:
 
-| Path            | Owns                                                                                                                                                                                                        |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/cli`       | Thin `commander` wiring — one file per command, each attaching via a `register*` function.                                                                                                                  |
-| `src/core`      | The domain: `types`, the `pipeline` (+ `remotePipeline` / `easPipeline`), the provider `registry`, and `exec` / `paths` / `glossary` / `logger` / `progress` / `config` / `env` / `toolchain` / `keychain`. |
-| `src/providers` | The swappable backends, grouped by role: `build`, `storage`, `credentials`, `submit`, `compute`.                                                                                                            |
-| `src/apple`     | The App Store Connect integration (JWT auth, bundle ids, certs, profiles).                                                                                                                                  |
-| `src/google`    | The Google Play integration (service-account auth, upload keystore, Play client).                                                                                                                           |
+| Path            | Owns                                                                                                                                                                                                                                                                   |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/cli`       | Thin `commander` wiring — one file per command, each attaching via a `register*` function.                                                                                                                                                                             |
+| `src/core`      | The domain: `types`, the `pipeline` (+ `remotePipeline` / `easPipeline`) and its `phases`, the provider `registry`, the first-run `tour` / `firstRun` marker, and `exec` / `paths` / `glossary` / `logger` / `progress` / `config` / `env` / `toolchain` / `keychain`. |
+| `src/providers` | The swappable backends, grouped by role: `build`, `storage`, `credentials`, `submit`, `compute`.                                                                                                                                                                       |
+| `src/apple`     | The App Store Connect integration (JWT auth, bundle ids, certs, profiles).                                                                                                                                                                                             |
+| `src/google`    | The Google Play integration (service-account auth, upload keystore, Play client).                                                                                                                                                                                      |
 
 ## The provider model
 
