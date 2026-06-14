@@ -24,6 +24,12 @@ const BASE_URL = "https://androidpublisher.googleapis.com/androidpublisher/v3";
 const OAUTH_SCOPE = "https://www.googleapis.com/auth/androidpublisher";
 /** Google rejects assertions older than an hour; 50 minutes leaves comfortable margin. */
 const ASSERTION_TTL_SECONDS = 50 * 60;
+/**
+ * Region snapshot the subscriptions monetization API pins prices against — a required query parameter on
+ * every subscription/offer write. `2022/02` is Google's current published version; bump it here if Google
+ * retires it (the API rejects an unsupported value with an actionable message).
+ */
+const REGIONS_VERSION = "2022/02";
 
 /**
  * The fields Launch reads out of a Play service-account JSON key.
@@ -81,6 +87,97 @@ export interface InAppProductResource {
   prices?: Record<string, PlayMoney>;
   /** Locale (e.g. `en-US`) → listing copy. */
   listings?: Record<string, { title?: string; description?: string }>;
+}
+
+/**
+ * Money in the **subscriptions** monetization API. Unlike {@link PlayMoney} (in-app products, which use
+ * `priceMicros`), subscriptions express amounts as whole `units` plus `nanos` (billionths) alongside the
+ * ISO currency — Google's standard `Money` type. `units: "1", nanos: 990000000` is 1.99.
+ */
+export interface PlayMoneyUnits {
+  currencyCode: string;
+  /** Whole units of the currency, as a string integer (Google encodes int64 as a string). */
+  units: string;
+  /** Fractional units in billionths (0–999,999,999). */
+  nanos: number;
+}
+
+/** One locale's store copy for a Play subscription (`languageCode` is the natural key). */
+export interface SubscriptionListing {
+  languageCode: string;
+  title: string;
+  description: string;
+  benefits?: string[];
+}
+
+/** Per-region price + new-subscriber availability for a base plan. */
+export interface RegionalBasePlanConfig {
+  regionCode: string;
+  newSubscriberAvailability?: boolean;
+  price?: PlayMoneyUnits;
+}
+
+/** Auto-renewing base-plan settings; `billingPeriodDuration` is an ISO-8601 duration like `P1M`. */
+export interface AutoRenewingBasePlanType {
+  billingPeriodDuration: string;
+}
+
+/**
+ * One billing plan under a subscription. `state` (DRAFT/ACTIVE/INACTIVE) is read-only — Launch flips a
+ * fresh base plan live with the separate activate endpoint, not by writing this field.
+ */
+export interface BasePlan {
+  basePlanId: string;
+  state?: string;
+  autoRenewingBasePlanType?: AutoRenewingBasePlanType;
+  regionalConfigs?: RegionalBasePlanConfig[];
+  offerTags?: { tag: string }[];
+}
+
+/** A Play subscription product (`monetization.subscriptions`) — the product, its listings, and base plans. */
+export interface SubscriptionResource {
+  packageName?: string;
+  productId: string;
+  basePlans?: BasePlan[];
+  listings?: SubscriptionListing[];
+}
+
+/** Offer-level new-subscriber availability for one region (must be a subset of the base plan's regions). */
+export interface RegionalSubscriptionOfferConfig {
+  regionCode: string;
+  newSubscriberAvailability?: boolean;
+}
+
+/** One region's pricing inside an offer phase: either a fixed `price` or `free` (an empty object). */
+export interface OfferPhaseRegionalConfig {
+  regionCode: string;
+  price?: PlayMoneyUnits;
+  free?: Record<string, never>;
+}
+
+/** One phase of a subscription offer — e.g. a free trial or an introductory price for N billing periods. */
+export interface SubscriptionOfferPhase {
+  /** How many billing periods this phase repeats for. */
+  recurrenceCount: number;
+  /** Phase length as an ISO-8601 duration (e.g. `P1W`); omitted when it tracks the base plan's period. */
+  duration?: string;
+  regionalConfigs: OfferPhaseRegionalConfig[];
+}
+
+/**
+ * A subscription offer (`monetization.subscriptions.basePlans.offers`). `state` is read-only (activated
+ * via the separate endpoint). Every region in {@link SubscriptionOfferResource.regionalConfigs} must also
+ * appear in each phase's `regionalConfigs`, or Play rejects the offer.
+ */
+export interface SubscriptionOfferResource {
+  packageName?: string;
+  productId?: string;
+  basePlanId?: string;
+  offerId: string;
+  state?: string;
+  phases: SubscriptionOfferPhase[];
+  regionalConfigs: RegionalSubscriptionOfferConfig[];
+  offerTags?: { tag: string }[];
 }
 
 /** Raised when a package has no Play app record (or the service account can't reach it). */
@@ -308,6 +405,103 @@ export class GooglePlayClient {
       `/applications/${encodeURIComponent(packageName)}/inappproducts/${encodeURIComponent(product.sku)}`,
       { ...product, packageName },
     );
+  }
+
+  /** Base path for an app's subscription monetization resources. */
+  private subscriptionsPath(packageName: string): string {
+    return `/applications/${encodeURIComponent(packageName)}/subscriptions`;
+  }
+
+  /** List the app's subscription products (`monetization.subscriptions`), paging in full. */
+  async listSubscriptions(packageName: string): Promise<SubscriptionResource[]> {
+    const subscriptions: SubscriptionResource[] = [];
+    let token: string | undefined;
+    do {
+      const query = token ? `?pageToken=${encodeURIComponent(token)}` : "";
+      const page = await this.request<{ subscriptions?: SubscriptionResource[]; nextPageToken?: string }>(
+        "GET",
+        `${this.subscriptionsPath(packageName)}${query}`,
+      );
+      subscriptions.push(...(page.subscriptions ?? []));
+      token = page.nextPageToken;
+    } while (token);
+    return subscriptions;
+  }
+
+  /**
+   * Create a subscription with its base plans (which Play creates in DRAFT — activate them separately).
+   * `regionsVersion.version` is required; the product id rides both the query and the body.
+   */
+  async createSubscription(packageName: string, subscription: SubscriptionResource): Promise<void> {
+    const query = `?productId=${encodeURIComponent(subscription.productId)}&regionsVersion.version=${REGIONS_VERSION}`;
+    await this.request<unknown>("POST", `${this.subscriptionsPath(packageName)}${query}`, {
+      ...subscription,
+      packageName,
+    });
+  }
+
+  /**
+   * Patch a subscription's masked fields (PATCH with an `updateMask` — Play requires field-level updates).
+   * The masked fields are *replaced* by what's in `subscription`, so the reconciler sends a merged value
+   * (e.g. existing listings + the changed ones) to stay additive.
+   */
+  async patchSubscription(packageName: string, subscription: SubscriptionResource, updateMask: string): Promise<void> {
+    const query = `?updateMask=${encodeURIComponent(updateMask)}&regionsVersion.version=${REGIONS_VERSION}`;
+    await this.request<unknown>(
+      "PATCH",
+      `${this.subscriptionsPath(packageName)}/${encodeURIComponent(subscription.productId)}${query}`,
+      { ...subscription, packageName },
+    );
+  }
+
+  /** Activate a base plan (DRAFT → ACTIVE), making it purchasable. Idempotent on an already-active plan. */
+  async activateBasePlan(packageName: string, productId: string, basePlanId: string): Promise<void> {
+    await this.request<unknown>(
+      "POST",
+      `${this.subscriptionsPath(packageName)}/${encodeURIComponent(productId)}/basePlans/${encodeURIComponent(basePlanId)}:activate`,
+      { packageName, productId, basePlanId },
+    );
+  }
+
+  /** List the offers on one base plan, paging in full. */
+  async listSubscriptionOffers(
+    packageName: string,
+    productId: string,
+    basePlanId: string,
+  ): Promise<SubscriptionOfferResource[]> {
+    const base = `${this.subscriptionsPath(packageName)}/${encodeURIComponent(productId)}/basePlans/${encodeURIComponent(basePlanId)}/offers`;
+    const offers: SubscriptionOfferResource[] = [];
+    let token: string | undefined;
+    do {
+      const query = token ? `?pageToken=${encodeURIComponent(token)}` : "";
+      const page = await this.request<{ subscriptionOffers?: SubscriptionOfferResource[]; nextPageToken?: string }>(
+        "GET",
+        `${base}${query}`,
+      );
+      offers.push(...(page.subscriptionOffers ?? []));
+      token = page.nextPageToken;
+    } while (token);
+    return offers;
+  }
+
+  /** Create a subscription offer (in DRAFT — activate it separately). `regionsVersion.version` is required. */
+  async createSubscriptionOffer(packageName: string, offer: SubscriptionOfferResource): Promise<void> {
+    const productId = offer.productId ?? "";
+    const basePlanId = offer.basePlanId ?? "";
+    const base = `${this.subscriptionsPath(packageName)}/${encodeURIComponent(productId)}/basePlans/${encodeURIComponent(basePlanId)}/offers`;
+    const query = `?offerId=${encodeURIComponent(offer.offerId)}&regionsVersion.version=${REGIONS_VERSION}`;
+    await this.request<unknown>("POST", `${base}${query}`, { ...offer, packageName });
+  }
+
+  /** Activate a subscription offer (DRAFT → ACTIVE), making it available. */
+  async activateSubscriptionOffer(
+    packageName: string,
+    productId: string,
+    basePlanId: string,
+    offerId: string,
+  ): Promise<void> {
+    const base = `${this.subscriptionsPath(packageName)}/${encodeURIComponent(productId)}/basePlans/${encodeURIComponent(basePlanId)}/offers/${encodeURIComponent(offerId)}:activate`;
+    await this.request<unknown>("POST", base, { packageName, productId, basePlanId, offerId });
   }
 }
 
