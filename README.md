@@ -56,6 +56,9 @@ Everything Launch does today, on hardware you control:
 
 - **One command to TestFlight.** `launch build ios` generates the native project, signs the `.ipa`, and
   uploads — the same build → sign → submit flow EAS runs, on your own Mac.
+- **Fast by default.** Unlike a clean-room `eas build --local`, Launch keeps caches warm: ccache wires in
+  at `pod install`, DerivedData stays put, and a native-graph fingerprint forces a from-scratch build only
+  when your Pods actually change. A JS edit rebuilds incrementally; `launch build ios --clean` forces clean.
 - **Real download-size check.** Reports the actual per-device size and fails the build if it busts the
   `sizeBudgetMB` you configured.
 - **Artifact safety net.** Refuses to upload a simulator build, a `.app`, or an empty `.ipa` — mistakes
@@ -78,7 +81,8 @@ Everything Launch does today, on hardware you control:
 
 - **`launch doctor --fix`.** Detects the whole iOS toolchain — Xcode, Ruby, fastlane, CocoaPods, openssl,
   Node — and installs the missing brew-able tools after a single consent (Homebrew is bootstrapped behind a
-  typed-`yes`; Xcode is guided). `--yes` skips every prompt for CI and agents.
+  typed-`yes`; Xcode is guided). It also installs and configures ccache (recommended, never required — a
+  missing ccache only warns). `--yes` skips every prompt for CI and agents.
 - **Interactive front door.** Running `launch` with no arguments lifts off an animated rocket banner, then a
   wizard that detects your OS and routes the build accordingly.
 - **Silent self-upgrade.** Picks up a newer release from npm and re-runs your command on it — guarded and
@@ -187,7 +191,7 @@ provision them inline. Public App Store submission is the separate, deliberate `
 | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
 | `launch`                                         | Interactive wizard — detects your OS and routes (the Expo-style front door, great on a non-Mac).                                  |
 | `launch init`                                    | Scaffold `launch.config.ts` (+ `.env.example`) into the current repo.                                                             |
-| `launch build <ios\|android>`                    | Run the full pipeline and upload to TestFlight. Flags: `--profile`, `--app`, `--explain`, `--no-submit`, `--remote`, `--dry-run`. |
+| `launch build <ios\|android>`                    | Run the full pipeline and upload to TestFlight. Flags: `--profile`, `--app`, `--explain`, `--no-submit`, `--remote`, `--clean`, `--dry-run`. |
 | `launch release <ios\|android>`                  | Submit the latest stored build to the **public** App Store review queue (with confirmation).                                      |
 | `launch creds [status\|set-key\|setup]`          | Inspect, import the API key, or provision the cert + profile.                                                                     |
 | `launch cloud [setup\|status\|teardown\|doctor]` | Manage the remote AWS EC2 Mac build host (see [Building without a Mac](#building-without-a-mac)).                                 |

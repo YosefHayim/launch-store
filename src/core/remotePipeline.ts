@@ -94,9 +94,9 @@ async function acquireHost(
 function rehearse(prepared: PreparedBuild, options: BuildRunOptions, buildNumber: number): void {
   const { app, log } = prepared;
   log.step("acquire host", "would reuse the live paid-window host, or allocate one (typed cost consent first)");
-  log.step("sync", "would archive + sync the project (excluding node_modules/.git/ios/.env)");
-  log.step("upload creds", "would upload .p8/.p12/profile into an ephemeral keychain on the host");
-  log.step("build", "would run fastlane gym on the host", undefined);
+  log.step("sync", "would sync the project into the host's persistent work tree (warm node_modules/ios/Pods)");
+  log.step("upload creds", "would upload .p8/.p12/profile into a per-run ephemeral keychain on the host");
+  log.step("build", "would run fastlane gym on the host (incremental unless native deps changed or --clean)", undefined);
   if (options.submit) {
     log.step(
       "submit",
@@ -105,7 +105,7 @@ function rehearse(prepared: PreparedBuild, options: BuildRunOptions, buildNumber
     );
   }
   log.step("pull", "would pull the .ipa home to ~/.launch/artifacts");
-  log.step("shred", "would delete the ephemeral keychain + temp files on the host");
+  log.step("shred", "would shred the secrets (keychain + creds), keeping the warm work tree for next time");
   log.step("host", "would keep the host for the paid window; auto-release scheduled near 23.5h");
   log.gap();
   log.info(`Done. ${app.name} ${app.version ?? "0.0.0"} (${buildNumber}) · dry-run, nothing changed`);
@@ -160,21 +160,26 @@ export async function runRemoteBuild(prepared: PreparedBuild, options: BuildRunO
     buildNumber,
     submit: options.submit,
     submitTarget: options.target,
+    forceClean: options.forceClean ?? false,
     env,
   };
 
-  const session = await openRemoteSession(handle.ssh);
+  const session = await openRemoteSession(handle.ssh, app.name);
   let sizeReport: SizeReport | null = null;
   try {
-    // C4 + spine. Sync source, upload transient creds, build (+submit) on the host.
+    // C4 + spine. Sync source into the persistent tree, upload transient creds, build (+submit) on the host.
     log.info("Syncing the project to the host…");
     await syncProject(session, app.dir);
-    log.step("sync", "project synced to the host");
+    log.step("sync", "project synced to the host's warm work tree");
     await uploadSigningMaterial(session, inputs);
     log.step("upload creds", "uploaded into an ephemeral keychain on the host");
     log.info("Building on the host (archive + sign + export; this can take a while)…");
-    await runBuildOnHost(session, inputs);
-    log.step("build", options.submit ? "built and submitted on the host" : "built on the host");
+    const { cleanBuilt } = await runBuildOnHost(session, inputs);
+    log.step(
+      "build",
+      `${cleanBuilt ? "clean (from scratch)" : "incremental (cache warm)"} · ${options.submit ? "built and submitted" : "built"} on the host`,
+      "incremental-build",
+    );
 
     // C5. Pull the artifact home, gate on size, store it for `launch release`.
     const pulled = await pullArtifact(session, app.name, ARTIFACTS_DIR);
@@ -188,6 +193,8 @@ export async function runRemoteBuild(prepared: PreparedBuild, options: BuildRunO
       version: app.version ?? "0.0.0",
       buildNumber,
       sizeReport: pulled.sizeReport,
+      // The host decides clean-vs-incremental from its own warm tree and reports it back.
+      clean: cleanBuilt,
       createdAt: new Date().toISOString(),
     };
     const stored = await getStorageProvider(config.storage).put(artifact);
@@ -199,7 +206,7 @@ export async function runRemoteBuild(prepared: PreparedBuild, options: BuildRunO
     // C6. Shred the host session on every exit path (success, failure, size-gate abort).
     try {
       await shredHost(session);
-      log.step("shred", "ephemeral keychain + temp files removed on the host");
+      log.step("shred", "secrets shredded (keychain + creds); warm work tree kept for the next build");
     } catch {
       log.warn("Could not fully shred the host session — check the host manually.");
     }

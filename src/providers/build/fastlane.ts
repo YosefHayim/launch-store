@@ -20,6 +20,10 @@ import type {
   SizeReportEntry,
 } from "../../core/types.js";
 import { runWithProgress, xcodeProgressStep } from "../../core/progress.js";
+import { exists, run } from "../../core/exec.js";
+import { hostResources } from "../../core/os.js";
+import { buildXcargs, ccacheEnv, computeBuildJobs } from "../../core/buildFlags.js";
+import { gatherIosFingerprint, readBuildState, resolveClean, writeBuildState } from "../../core/buildFingerprint.js";
 
 /** Locate the generated Xcode workspace and derive its scheme from the `ios/` directory. */
 function findWorkspace(iosDir: string): { workspace: string; scheme: string } {
@@ -110,9 +114,9 @@ export const fastlaneBuildEngine: BuildEngine = {
   async build(
     ctx: ResolvedBuildContext,
     creds: BuildCredentials,
-  ): Promise<{ artifactPath: string; sizeReport: SizeReport }> {
+  ): Promise<{ artifactPath: string; sizeReport: SizeReport; cleanBuilt: boolean }> {
     if (ctx.dryRun) {
-      return { artifactPath: "(dry-run, not built)", sizeReport: { artifactBytes: 0, entries: [] } };
+      return { artifactPath: "(dry-run, not built)", sizeReport: { artifactBytes: 0, entries: [] }, cleanBuilt: false };
     }
     if (creds.platform !== "ios") throw new Error("The fastlane build engine builds iOS only.");
     const signing = creds.signing;
@@ -120,6 +124,22 @@ export const fastlaneBuildEngine: BuildEngine = {
 
     const iosDir = join(ctx.app.dir, "ios");
     const { workspace, scheme } = findWorkspace(iosDir);
+
+    // Decide clean-vs-incremental from the native-graph fingerprint (or a forced `--clean`).
+    const fingerprint = await gatherIosFingerprint(iosDir, ctx.app.configPath);
+    const decision = resolveClean(ctx.forceClean, readBuildState(ctx.app.name, "ios"), fingerprint);
+
+    // ccache wires in only when it's installed; otherwise the build runs uncached (doctor recommends it).
+    const ccacheVars = (await exists("ccache")) ? ccacheEnv() : {};
+
+    // Re-resolve Pods only when the native graph changed (or they're absent) — baking ccache in then.
+    if (decision.nativeChanged || !existsSync(join(iosDir, "Pods"))) {
+      await run("pod", ["install"], { cwd: iosDir, env: ccacheVars });
+    }
+
+    const { cores, memBytes } = hostResources();
+    const jobs = computeBuildJobs(cores, memBytes);
+
     const outputDir = mkdtempSync(join(tmpdir(), "launch-build-"));
     const plistPath = join(outputDir, "ExportOptions.plist");
     writeFileSync(plistPath, exportOptionsPlist(signing));
@@ -140,17 +160,19 @@ export const fastlaneBuildEngine: BuildEngine = {
         plistPath,
         "--codesigning_identity",
         signing.certName,
-        // Force manual signing during the archive step with the resolved team + profile.
+        // Manual signing with the resolved team/profile, plus the shared headless tuning (index store + jobs).
         "--xcargs",
-        `DEVELOPMENT_TEAM=${signing.teamId} CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER=${signing.profileName}`,
-        "--clean",
+        buildXcargs(signing, jobs),
+        // Clean only when the fingerprint changed or `--clean` was passed; otherwise reuse warm DerivedData.
+        ...(decision.clean ? ["--clean"] : []),
       ],
-      // The API key lets gym's signing/upload helpers talk to Apple without a 2FA prompt.
+      // The API key lets gym's signing/upload helpers talk to Apple without a 2FA prompt; ccache env tunes the compile.
       {
         label: `Building iOS · ${ctx.app.name}`,
         parseStep: xcodeProgressStep,
         cwd: ctx.app.dir,
         env: {
+          ...ccacheVars,
           APP_STORE_CONNECT_API_KEY_KEY_ID: creds.ascKey.keyId,
           APP_STORE_CONNECT_API_KEY_ISSUER_ID: creds.ascKey.issuerId,
         },
@@ -163,8 +185,15 @@ export const fastlaneBuildEngine: BuildEngine = {
     const ipaBytes = statSync(artifactPath).size;
     assertDeviceArtifact(artifactPath, ipaBytes);
 
+    // Record the fingerprint so the next build can validate (or invalidate) these now-warm caches.
+    writeBuildState(ctx.app.name, "ios", {
+      fingerprint,
+      builtAt: new Date().toISOString(),
+      cleanBuilt: decision.clean,
+    });
+
     const reportPath = join(outputDir, "App Thinning Size Report.txt");
     const entries = existsSync(reportPath) ? parseThinningReport(readFileSync(reportPath, "utf8")) : [];
-    return { artifactPath, sizeReport: { artifactBytes: ipaBytes, entries } };
+    return { artifactPath, sizeReport: { artifactBytes: ipaBytes, entries }, cleanBuilt: decision.clean };
   },
 };

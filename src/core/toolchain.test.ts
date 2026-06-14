@@ -62,7 +62,7 @@ describe("planInstall", () => {
   it("splits missing tools into brew-installable and guided", () => {
     const { brew, guided } = planInstall(REQUIRED_TOOLS);
     expect(guided.map((tool) => tool.command)).toEqual(["xcodebuild"]);
-    expect(brew.map((tool) => tool.command)).toEqual(["ruby", "fastlane", "pod", "openssl", "node"]);
+    expect(brew.map((tool) => tool.command)).toEqual(["ruby", "fastlane", "pod", "openssl", "node", "ccache"]);
   });
 });
 
@@ -116,5 +116,22 @@ describe("ensureToolchain", () => {
     expect(await ensureToolchain({ io, platform: "darwin", assumeYes: true })).toBe(false);
     expect(runs).toEqual([]);
     expect(logs.join("\n")).toMatch(/App Store/);
+  });
+
+  it("installs AND configures ccache when it's the lone (recommended) gap, still succeeding", async () => {
+    const present = ALL_COMMANDS.filter((command) => command !== "ccache");
+    const { io, runs } = makeIo({ present: [...present, "brew"], confirm: true });
+    expect(await ensureToolchain({ io, platform: "darwin", assumeYes: true })).toBe(true);
+    expect(runs).toContainEqual(["brew", "install", "ccache"]);
+    expect(runs).toContainEqual(["ccache", "--max-size", "10G"]);
+    expect(runs.some((r) => r[0] === "ccache" && r[1] === "--set-config")).toBe(true);
+  });
+
+  it("still succeeds (only warns) when ccache stays missing — recommended never fails the toolchain", async () => {
+    // brew batch declined, so ccache is never installed; the required tools are all present.
+    const present = ALL_COMMANDS.filter((command) => command !== "ccache");
+    const { io, logs } = makeIo({ present: [...present, "brew"], confirm: false });
+    expect(await ensureToolchain({ io, platform: "darwin" })).toBe(true);
+    expect(logs.join("\n")).toMatch(/ccache \(recommended/);
   });
 });

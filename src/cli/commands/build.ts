@@ -23,6 +23,8 @@ interface BuildCommandOptions {
   track?: string;
   /** Android-only: staged-rollout fraction (`--rollout`). */
   rollout?: string;
+  /** Force a from-scratch build instead of the default fingerprint-gated incremental (`--clean`). */
+  clean: boolean;
 }
 
 /** Valid Play tracks, used to validate `--track` before it reaches the pipeline. */
@@ -70,6 +72,7 @@ export function registerBuildCommand(program: Command): void {
     .option("--remote [target]", "iOS only — build on a remote Mac: 'aws' (default) or user@host over SSH")
     .option("--track <track>", "Android only — Play track: internal|closed|open|production (default: internal)")
     .option("--rollout <fraction>", "Android only — staged-rollout fraction for production (default: 1.0)")
+    .option("--clean", "force a from-scratch build (default: fast incremental, clean only when native deps change)", false)
     .option("--dry-run", "rehearse every step and print what it would do, changing nothing", false)
     .option("-v, --verbose", "stream the full xcodebuild/gradle output instead of a progress spinner", false)
     .action(async (platform: string, options: BuildCommandOptions) => {
@@ -88,6 +91,7 @@ export function registerBuildCommand(program: Command): void {
         submit: options.submit,
         target: "testing",
         dryRun: options.dryRun,
+        forceClean: options.clean,
         ...(remote ? { remote } : {}),
         ...(track ? { track } : {}),
         ...(rollout !== undefined ? { rollout } : {}),

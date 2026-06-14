@@ -30,7 +30,10 @@ export type GlossaryTopic =
   | "play-app-signing"
   | "play-track"
   | "version-code"
-  | "bundletool";
+  | "bundletool"
+  | "ccache"
+  | "incremental-build"
+  | "build-fingerprint";
 
 const GLOSSARY: Record<GlossaryTopic, string> = {
   prebuild: [
@@ -146,6 +149,21 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "bundletool: Google's tool that turns your .aab into the per-device APK splits Play would serve, then",
     "estimates the real download. The .aab file size is NOT what users download, so Launch runs bundletool",
     "to report the honest worst-case download before any upload — the Android twin of iOS app thinning.",
+  ].join("\n"),
+  ccache: [
+    "ccache: a compiler cache keyed by file content. The first build fills it; later builds reuse the",
+    "cached object for any unchanged source — cutting a from-scratch iOS compile 50–70%. Launch wires it",
+    "in at `pod install` (USE_CCACHE) and turns it on by default; `launch doctor` installs and sizes it.",
+  ].join("\n"),
+  "incremental-build": [
+    "Incremental build: reusing the warm compiler caches and DerivedData from your last build instead of",
+    "recompiling everything. It's the default and the common case (a JS edit needs no native recompile).",
+    "Launch falls back to a clean build only when the native graph changed, or you pass `--clean`.",
+  ].join("\n"),
+  "build-fingerprint": [
+    "Build fingerprint: a hash of the inputs that move the native graph — Podfile.lock, the native config",
+    "slice, and the Xcode version. Launch stores it per app and compares it each build: unchanged means a",
+    "fast incremental build; changed means one `pod install` + a clean build. JS-only edits don't count.",
   ].join("\n"),
 };
 

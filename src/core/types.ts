@@ -142,6 +142,11 @@ export interface ResolvedBuildContext {
   explain: boolean;
   /** Rehearse the flow: print every step and the exact commands/requests, make no real changes. */
   dryRun: boolean;
+  /**
+   * Force a from-scratch (clean) build, set from `launch build --clean`. When false (the default) the
+   * build engine decides clean-vs-incremental from the build fingerprint (see `core/buildFingerprint.ts`).
+   */
+  forceClean: boolean;
   /** Resolved Android track + rollout. Present only for Android builds; the submitter reads it. */
   android?: AndroidReleaseOptions;
 }
@@ -290,6 +295,12 @@ export interface BuildArtifact {
   /** Unique, monotonically increasing build identifier — iOS `CFBundleVersion` or Android `versionCode`. */
   buildNumber: number;
   sizeReport: SizeReport;
+  /**
+   * Whether this artifact was compiled clean (from scratch) vs incrementally off warm caches. Read by
+   * `launch release` to ask a second confirmation before promoting an incremental build to production —
+   * the reproducibility guard, since release reuses this stored artifact rather than rebuilding.
+   */
+  clean: boolean;
   /** ISO-8601 creation timestamp, stamped by the caller (the pipeline). */
   createdAt: string;
 }
@@ -338,8 +349,15 @@ export interface CredentialsProvider {
 export interface BuildEngine {
   /** Registry name, e.g. `fastlane` or `gradle`. */
   readonly name: string;
-  /** Archive, sign, export, and analyze size for the resolved build. */
-  build(ctx: ResolvedBuildContext, creds: BuildCredentials): Promise<{ artifactPath: string; sizeReport: SizeReport }>;
+  /**
+   * Archive, sign, export, and analyze size for the resolved build. `cleanBuilt` reports whether this
+   * was a from-scratch compile (vs an incremental one reusing warm caches) so the pipeline can stamp
+   * {@link BuildArtifact.clean} — which `launch release` reads to nudge before promoting an incremental.
+   */
+  build(
+    ctx: ResolvedBuildContext,
+    creds: BuildCredentials,
+  ): Promise<{ artifactPath: string; sizeReport: SizeReport; cleanBuilt: boolean }>;
 }
 
 /**

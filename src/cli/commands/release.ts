@@ -8,7 +8,7 @@
 
 import type { Command } from "commander";
 import { cancel, confirm, isCancel } from "@clack/prompts";
-import type { AndroidReleaseOptions, Platform, ResolvedBuildContext } from "../../core/types.js";
+import type { AndroidReleaseOptions, BuildArtifact, Platform, ResolvedBuildContext } from "../../core/types.js";
 import { loadConfig } from "../../core/config.js";
 import { resolveSubmitterName, selectApp } from "../../core/pipeline.js";
 import { getCredentialsProvider, getStorageProvider, getSubmitter } from "../../core/registry.js";
@@ -26,6 +26,15 @@ const PUBLIC_DESTINATION: Record<Platform, string> = {
   ios: "the PUBLIC App Store review queue",
   android: "the PUBLIC Play production track",
 };
+
+/**
+ * Whether to ask a second confirmation before promoting this artifact: true when it was built
+ * incrementally (not clean). Release reuses the stored artifact rather than rebuilding, so an
+ * incremental build's reproducibility is worth a deliberate extra nod before it reaches the public store.
+ */
+export function shouldNudgeRelease(artifact: Pick<BuildArtifact, "clean">): boolean {
+  return !artifact.clean;
+}
 
 /** Attach the `release` command to the program. */
 export function registerReleaseCommand(program: Command): void {
@@ -65,6 +74,17 @@ async function runRelease(platform: Platform, options: ReleaseCommandOptions): P
     process.exit(0);
   }
 
+  // Reproducibility guard: release never rebuilds, so warn before promoting an incrementally-built artifact.
+  if (shouldNudgeRelease(latest)) {
+    const proceedIncremental = await confirm({
+      message: `This build was incremental, not clean — promote anyway? Run \`launch build ${platform} --clean\` first for a from-scratch artifact.`,
+    });
+    if (isCancel(proceedIncremental) || !proceedIncremental) {
+      cancel("Cancelled — nothing submitted.");
+      process.exit(0);
+    }
+  }
+
   const profile = config.profiles[options.profile] ?? { name: options.profile };
   // Production releases roll out fully unless an Android `--rollout` (or the profile) narrows it.
   const rollout = options.rollout !== undefined ? Number.parseFloat(options.rollout) : (profile.rollout ?? 1.0);
@@ -77,6 +97,8 @@ async function runRelease(platform: Platform, options: ReleaseCommandOptions): P
     env: {},
     explain: options.explain,
     dryRun: false,
+    // Release never compiles — it promotes a stored artifact — so the clean/incremental decision is moot.
+    forceClean: false,
     ...(android ? { android } : {}),
   };
   const credentials = await getCredentialsProvider(config.credentials).resolve(ctx);

@@ -47,6 +47,8 @@ export async function runEasBuild(prepared: PreparedBuild, options: BuildRunOpti
     version: app.version ?? "0.0.0",
     buildNumber,
     sizeReport,
+    // EAS always clean-builds in Expo's cloud, so its artifacts are reproducible — no release nudge.
+    clean: true,
     createdAt: new Date().toISOString(),
   };
   const stored = await getStorageProvider(config.storage).put(artifact);
