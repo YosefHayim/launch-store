@@ -4,11 +4,15 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  discoverPreviews,
   discoverScreenshots,
   displayTypeLabel,
   fingerprintAsset,
   hashFile,
   KNOWN_DISPLAY_TYPES,
+  KNOWN_PREVIEW_TYPES,
+  PREVIEWS_DIRNAME,
+  previewTypeLabel,
   SCREENSHOTS_DIRNAME,
 } from "./screenshotAssets.js";
 
@@ -84,6 +88,53 @@ describe("discoverScreenshots", () => {
     expect(shots).toHaveLength(1);
     expect(shots[0]?.displayType).toBe("APP_IPHONE_69_FUTURE");
     expect(shots[0]?.fileName).toBe("01.png");
+  });
+});
+
+describe("previewTypeLabel", () => {
+  it("maps a known constant to a friendly label", () => {
+    expect(previewTypeLabel("IPHONE_67")).toBe(KNOWN_PREVIEW_TYPES["IPHONE_67"]);
+    expect(previewTypeLabel("DESKTOP")).toBe("Mac");
+  });
+
+  it("falls back to the raw constant for an unknown (new-hardware) type", () => {
+    expect(previewTypeLabel("IPHONE_69_FUTURE")).toBe("IPHONE_69_FUTURE");
+  });
+});
+
+describe("discoverPreviews", () => {
+  it("returns [] when the convention folder is absent", () => {
+    expect(discoverPreviews(workDir())).toEqual([]);
+  });
+
+  it("walks locale/previewType folders, fingerprints videos, and sorts deterministically", () => {
+    const appDir = workDir();
+    writeFile(appDir, `${PREVIEWS_DIRNAME}/en-US/IPHONE_67/02.mp4`, "two");
+    writeFile(appDir, `${PREVIEWS_DIRNAME}/en-US/IPHONE_67/01.mov`, "one");
+    writeFile(appDir, `${PREVIEWS_DIRNAME}/en-US/DESKTOP/mac.m4v`, "mac");
+    writeFile(appDir, `${PREVIEWS_DIRNAME}/de-DE/IPHONE_67/01.mp4`, "eins");
+
+    const previews = discoverPreviews(appDir);
+    expect(previews.map((p) => [p.locale, p.previewType, p.fileName])).toEqual([
+      ["de-DE", "IPHONE_67", "01.mp4"],
+      ["en-US", "DESKTOP", "mac.m4v"],
+      ["en-US", "IPHONE_67", "01.mov"],
+      ["en-US", "IPHONE_67", "02.mp4"],
+    ]);
+    const iphone01 = previews.find((p) => p.locale === "en-US" && p.fileName === "01.mov");
+    expect(iphone01?.checksum).toBe(md5("one"));
+    expect(iphone01?.size).toBe(3);
+  });
+
+  it("ignores non-video files and keeps unknown preview-type folders (Apple's enum lags new hardware)", () => {
+    const appDir = workDir();
+    writeFile(appDir, `${PREVIEWS_DIRNAME}/en-US/IPHONE_69_FUTURE/01.mp4`, "future");
+    writeFile(appDir, `${PREVIEWS_DIRNAME}/en-US/IPHONE_69_FUTURE/01.png`, "ignore me");
+
+    const previews = discoverPreviews(appDir);
+    expect(previews).toHaveLength(1);
+    expect(previews[0]?.previewType).toBe("IPHONE_69_FUTURE");
+    expect(previews[0]?.fileName).toBe("01.mp4");
   });
 });
 

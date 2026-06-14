@@ -1,13 +1,15 @@
 /**
- * Discover and fingerprint the App Store assets `launch sync` uploads (screenshots and subscription
- * review screenshots), so the reconciler in `core/ascScreenshots.ts` can diff them against App Store
- * Connect without touching the filesystem itself.
+ * Discover and fingerprint the App Store assets `launch sync` uploads (screenshots, app preview videos,
+ * and subscription review screenshots), so the reconcilers in `core/ascScreenshots.ts` can diff them
+ * against App Store Connect without touching the filesystem itself.
  *
  * Layout convention (chosen to mirror fastlane `deliver` while staying explicit about Apple's device
  * enum): screenshots live under `<appDir>/screenshots/<locale>/<DISPLAY_TYPE>/<image files>`, e.g.
  * `screenshots/en-US/APP_IPHONE_67/01.png`. The second-level folder name IS Apple's
  * `screenshotDisplayType` — naming the target explicitly avoids guessing device family from pixel
- * dimensions (which fails for new hardware Apple maps onto an older constant).
+ * dimensions (which fails for new hardware Apple maps onto an older constant). App preview videos use the
+ * parallel `<appDir>/previews/<locale>/<PREVIEW_TYPE>/<video files>` tree, where the second-level folder
+ * is Apple's `previewType` (e.g. `IPHONE_67`) — same lagging-enum caveat, same explicit-target rationale.
  *
  * Idempotency: every asset is MD5-fingerprinted here, matching the `sourceFileChecksum` Apple stores at
  * commit time. The reconciler skips any local file whose checksum already appears on Apple, so re-running
@@ -104,10 +106,10 @@ function subdirs(dir: string): string[] {
     .sort();
 }
 
-/** Image file names directly in `dir`, sorted so the upload order is deterministic. */
-function imageFilesIn(dir: string): string[] {
+/** File names directly in `dir` whose extension is in `extensions` (lowercased), sorted for a deterministic upload order. */
+function mediaFilesIn(dir: string, extensions: Set<string>): string[] {
   return readdirSync(dir, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && IMAGE_EXTENSIONS.has(extname(entry.name).toLowerCase()))
+    .filter((entry) => entry.isFile() && extensions.has(extname(entry.name).toLowerCase()))
     .map((entry) => entry.name)
     .sort();
 }
@@ -124,7 +126,7 @@ export function discoverScreenshots(appDir: string): LocalScreenshot[] {
     const localeDir = join(root, locale);
     for (const displayType of subdirs(localeDir)) {
       const typeDir = join(localeDir, displayType);
-      for (const fileName of imageFilesIn(typeDir)) {
+      for (const fileName of mediaFilesIn(typeDir, IMAGE_EXTENSIONS)) {
         const path = join(typeDir, fileName);
         const { checksum, size } = hashFile(path);
         screenshots.push({ locale, displayType, fileName, path, checksum, size });
@@ -144,4 +146,76 @@ export function fingerprintAsset(appDir: string, relPath: string): LocalAsset | 
   if (!existsSync(path) || !statSync(path).isFile()) return null;
   const { checksum, size } = hashFile(path);
   return { path, fileName: basename(path), checksum, size };
+}
+
+// ── App preview videos (`previews/<locale>/<previewType>/`) ──────────────────────────────────────────
+
+/** Folder, relative to an app's directory, that holds the per-locale app-preview-video tree. */
+export const PREVIEWS_DIRNAME = "previews";
+
+/** Apple's cap on app preview videos per (localization × preview type) set; extras are skipped, not silently dropped. */
+export const MAX_PREVIEWS_PER_SET = 3;
+
+/** Video container extensions Apple accepts for App Store app previews (lowercased). */
+const VIDEO_EXTENSIONS = new Set([".mov", ".mp4", ".m4v"]);
+
+/**
+ * Apple's `previewType` constants → a human label. Like {@link KNOWN_DISPLAY_TYPES} this is a
+ * **fallback/labeling table only**: folder names are NOT restricted to it. The `previewType` enum lags new
+ * hardware the same way `screenshotDisplayType` does, so an unrecognized folder name is still uploaded
+ * (Apple maps it) — the table only supplies a friendlier plan line when the type is known. App previews
+ * exist for fewer targets than screenshots (no Watch or iMessage previews), which is why this list is shorter.
+ */
+export const KNOWN_PREVIEW_TYPES: Record<string, string> = {
+  IPHONE_67: 'iPhone 6.7"',
+  IPHONE_65: 'iPhone 6.5"',
+  IPHONE_61: 'iPhone 6.1"',
+  IPHONE_58: 'iPhone 5.8"',
+  IPHONE_55: 'iPhone 5.5"',
+  IPHONE_47: 'iPhone 4.7"',
+  IPHONE_40: 'iPhone 4"',
+  IPHONE_35: 'iPhone 3.5"',
+  IPAD_PRO_3GEN_129: 'iPad Pro 12.9" (3rd gen)',
+  IPAD_PRO_3GEN_11: 'iPad Pro 11" (3rd gen)',
+  IPAD_PRO_129: 'iPad Pro 12.9"',
+  IPAD_105: 'iPad 10.5"',
+  IPAD_97: 'iPad 9.7"',
+  DESKTOP: "Mac",
+  APPLE_TV: "Apple TV",
+  APPLE_VISION_PRO: "Apple Vision Pro",
+};
+
+/** One discovered app preview video: a {@link LocalAsset} tagged with the locale + preview type its folder named. */
+export interface LocalPreview extends LocalAsset {
+  /** App Store locale (the first-level folder), e.g. `en-US`. */
+  locale: string;
+  /** Apple `previewType` (the second-level folder), e.g. `IPHONE_67`. */
+  previewType: string;
+}
+
+/** A friendlier label for a preview type, or the raw constant when it isn't in {@link KNOWN_PREVIEW_TYPES}. */
+export function previewTypeLabel(previewType: string): string {
+  return KNOWN_PREVIEW_TYPES[previewType] ?? previewType;
+}
+
+/**
+ * Walk `<appDir>/previews/<locale>/<previewType>/` and fingerprint every video, returning a flat,
+ * deterministically-ordered list — the preview counterpart to {@link discoverScreenshots}. Returns [] when
+ * the convention folder is absent (an app simply isn't managing app previews through Launch).
+ */
+export function discoverPreviews(appDir: string): LocalPreview[] {
+  const root = join(appDir, PREVIEWS_DIRNAME);
+  const previews: LocalPreview[] = [];
+  for (const locale of subdirs(root)) {
+    const localeDir = join(root, locale);
+    for (const previewType of subdirs(localeDir)) {
+      const typeDir = join(localeDir, previewType);
+      for (const fileName of mediaFilesIn(typeDir, VIDEO_EXTENSIONS)) {
+        const path = join(typeDir, fileName);
+        const { checksum, size } = hashFile(path);
+        previews.push({ locale, previewType, fileName, path, checksum, size });
+      }
+    }
+  }
+  return previews;
 }
