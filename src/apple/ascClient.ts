@@ -817,6 +817,39 @@ export interface AppAvailabilityResource {
   availableTerritories: string[];
 }
 
+/** A custom product page — an alternate App Store listing (marketing variant), matched by its `name`. */
+export interface CustomProductPageResource {
+  id: string;
+  name: string;
+}
+
+/** One version of a custom product page; its localizations hang off it. `state` decides whether it's editable. */
+export interface CustomProductPageVersionResource {
+  id: string;
+  state: string;
+}
+
+/** One locale's custom-product-page copy. Launch writes the `promotionalText`; screenshots are out of scope. */
+export interface CustomProductPageLocalizationResource {
+  id: string;
+  locale: string;
+  promotionalText?: string;
+}
+
+/** A product-page A/B experiment (Apple's v2 model), matched by its `name`. */
+export interface VersionExperimentResource {
+  id: string;
+  name: string;
+  state: string;
+  trafficProportion?: number;
+}
+
+/** One treatment (variant arm) of a version experiment, matched by its `name`. */
+export interface ExperimentTreatmentResource {
+  id: string;
+  name: string;
+}
+
 /**
  * An app version's App Review details — the contact info and demo-account credentials Apple's reviewer
  * uses. Carried as an open attribute map for the same forward-compat reason as the age-rating
@@ -2627,6 +2660,140 @@ export class AppStoreConnectClient {
       },
       included,
     });
+  }
+
+  /** List an app's custom product pages (alternate listings), matched by name. */
+  async listCustomProductPages(appId: string): Promise<CustomProductPageResource[]> {
+    const data = await this.requestAll<{ name?: string }>(
+      `/apps/${appId}/appCustomProductPages?limit=200&fields[appCustomProductPages]=name`,
+    );
+    return data.flatMap((entry) => (entry.attributes.name ? [{ id: entry.id, name: entry.attributes.name }] : []));
+  }
+
+  /** Create a custom product page by name; Apple seeds it with an editable version cloned from the default listing. */
+  async createCustomProductPage(appId: string, name: string): Promise<CustomProductPageResource> {
+    const { data } = await this.request<{ data: { id: string } }>("POST", "/appCustomProductPages", {
+      data: {
+        type: "appCustomProductPages",
+        attributes: { name },
+        relationships: { app: { data: { type: "apps", id: appId } } },
+      },
+    });
+    return { id: data.id, name };
+  }
+
+  /** List a custom product page's versions, so the reconciler can pick the editable one to localize. */
+  async listCustomProductPageVersions(pageId: string): Promise<CustomProductPageVersionResource[]> {
+    const data = await this.requestAll<{ state?: string }>(
+      `/appCustomProductPages/${pageId}/appCustomProductPageVersions?limit=200&fields[appCustomProductPageVersions]=state`,
+    );
+    return data.map((entry) => ({ id: entry.id, state: entry.attributes.state ?? "" }));
+  }
+
+  /** List a custom product page version's per-locale copy (Launch reads/writes `promotionalText`). */
+  async listCustomProductPageLocalizations(versionId: string): Promise<CustomProductPageLocalizationResource[]> {
+    const data = await this.requestAll<{ locale?: string; promotionalText?: string }>(
+      `/appCustomProductPageVersions/${versionId}/appCustomProductPageLocalizations?limit=200&fields[appCustomProductPageLocalizations]=locale,promotionalText`,
+    );
+    return data.flatMap((entry) =>
+      entry.attributes.locale
+        ? [
+            {
+              id: entry.id,
+              locale: entry.attributes.locale,
+              ...(entry.attributes.promotionalText ? { promotionalText: entry.attributes.promotionalText } : {}),
+            },
+          ]
+        : [],
+    );
+  }
+
+  /** Create one locale's custom-product-page localization with its promotional text. */
+  async createCustomProductPageLocalization(versionId: string, locale: string, promotionalText: string): Promise<void> {
+    await this.request<unknown>("POST", "/appCustomProductPageLocalizations", {
+      data: {
+        type: "appCustomProductPageLocalizations",
+        attributes: { locale, promotionalText },
+        relationships: {
+          appCustomProductPageVersion: { data: { type: "appCustomProductPageVersions", id: versionId } },
+        },
+      },
+    });
+  }
+
+  /** Update one custom-product-page localization's promotional text. */
+  async updateCustomProductPageLocalization(localizationId: string, promotionalText: string): Promise<void> {
+    await this.request<unknown>("PATCH", `/appCustomProductPageLocalizations/${localizationId}`, {
+      data: { type: "appCustomProductPageLocalizations", id: localizationId, attributes: { promotionalText } },
+    });
+  }
+
+  /** List an app's product-page A/B experiments (v2), matched by name. */
+  async listVersionExperiments(appId: string): Promise<VersionExperimentResource[]> {
+    const data = await this.requestAll<{ name?: string; state?: string; trafficProportion?: number }>(
+      `/apps/${appId}/appStoreVersionExperimentsV2?limit=200&fields[appStoreVersionExperiments]=name,state,trafficProportion`,
+    );
+    return data.flatMap((entry) =>
+      entry.attributes.name
+        ? [
+            {
+              id: entry.id,
+              name: entry.attributes.name,
+              state: entry.attributes.state ?? "",
+              ...(entry.attributes.trafficProportion !== undefined
+                ? { trafficProportion: entry.attributes.trafficProportion }
+                : {}),
+            },
+          ]
+        : [],
+    );
+  }
+
+  /** Create a product-page A/B experiment (v2) with its name, platform, and traffic split. */
+  async createVersionExperiment(
+    appId: string,
+    input: { name: string; platform: string; trafficProportion: number },
+  ): Promise<VersionExperimentResource> {
+    const { data } = await this.request<{ data: { id: string } }>("POST", "/appStoreVersionExperiments", {
+      data: {
+        type: "appStoreVersionExperiments",
+        attributes: { name: input.name, platform: input.platform, trafficProportion: input.trafficProportion },
+        relationships: { app: { data: { type: "apps", id: appId } } },
+      },
+    });
+    return {
+      id: data.id,
+      name: input.name,
+      state: "PREPARE_FOR_SUBMISSION",
+      trafficProportion: input.trafficProportion,
+    };
+  }
+
+  /** List a version experiment's treatments (variant arms), matched by name. */
+  async listExperimentTreatments(experimentId: string): Promise<ExperimentTreatmentResource[]> {
+    const data = await this.requestAll<{ name?: string }>(
+      `/appStoreVersionExperiments/${experimentId}/appStoreVersionExperimentTreatments?limit=200&fields[appStoreVersionExperimentTreatments]=name`,
+    );
+    return data.flatMap((entry) => (entry.attributes.name ? [{ id: entry.id, name: entry.attributes.name }] : []));
+  }
+
+  /** Create one treatment (variant arm) on a version experiment. */
+  async createExperimentTreatment(
+    experimentId: string,
+    input: { name: string; appIconName?: string },
+  ): Promise<ExperimentTreatmentResource> {
+    const attributes: { name: string; appIconName?: string } = { name: input.name };
+    if (input.appIconName) attributes.appIconName = input.appIconName;
+    const { data } = await this.request<{ data: { id: string } }>("POST", "/appStoreVersionExperimentTreatments", {
+      data: {
+        type: "appStoreVersionExperimentTreatments",
+        attributes,
+        relationships: {
+          appStoreVersionExperimentV2: { data: { type: "appStoreVersionExperiments", id: experimentId } },
+        },
+      },
+    });
+    return { id: data.id, name: input.name };
   }
 
   /** Find the app price point in `territory` whose customer price equals `customerPrice`, or null. */
