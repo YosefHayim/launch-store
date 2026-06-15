@@ -18,10 +18,10 @@ import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { GooglePlayClient, parseServiceAccount } from "../../google/playClient.js";
 import { loadServiceAccount } from "../../google/credentials.js";
 import { selectApps } from "../../core/syncJobs.js";
-import type { AscCatalogApi, PlannedAction } from "../../core/ascSync.js";
+import type { PlannedAction } from "../../core/ascSync.js";
 import { listSurfacePlanners, registerBuiltinPlanners } from "../../core/plan/registry.js";
 import { PLAN_EXIT, runPlanners, type PlanOutcome } from "../../core/plan/orchestrator.js";
-import type { PlanContext, PlanStore, PlayCatalogApi, SurfacePlan } from "../../core/plan/types.js";
+import type { AscSurfacesApi, PlanContext, PlanStore, PlayCatalogApi, SurfacePlan } from "../../core/plan/types.js";
 
 /** A successfully-read per-app surface (the usual case) — narrowed for the renderer. */
 type PlannedAppSurface = Extract<SurfacePlan, { state: "planned"; scope: "app" }>;
@@ -155,7 +155,7 @@ export async function runPlan(input: RunPlanInput): Promise<void> {
     planners = [match];
   }
 
-  let cachedApi: AscCatalogApi | null | undefined;
+  let cachedApi: AscSurfacesApi | null | undefined;
   let cachedPlayApi: PlayCatalogApi | null | undefined;
   const ctx: PlanContext = {
     config,

@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { listingPlanner } from "./listing.js";
+import { makeAscApiFake } from "./ascApiFake.testkit.js";
 import type { AscCatalogApi } from "../../ascSync.js";
 import type { PlanContext } from "../types.js";
 import type { AppleLocaleInfo } from "../../storeConfig.js";
@@ -77,7 +78,9 @@ function makeCtx(api: AscCatalogApi | null, appDir: string): PlanContext {
   return {
     config,
     apps: [app],
-    resolveAscApi: () => Promise.resolve(api),
+    // Widen the catalog-only fake to the full surface API the context now exposes; the listing methods
+    // (which these tests assert on) win over the factory's inert defaults via the trailing spread.
+    resolveAscApi: () => Promise.resolve(api === null ? null : { ...makeAscApiFake(), ...api }),
     resolvePlayApi: () => Promise.resolve(null),
   };
 }
