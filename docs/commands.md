@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **204 App Store Connect & Google Play API operations** across **45 commands**, guarded by **1079 tests**.
+> Launch wraps **204 App Store Connect & Google Play API operations** across **47 commands**, guarded by **1122 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -152,6 +152,25 @@ reconcile App Store Connect products (capabilities, IAPs, subscriptions, pricing
 | `--dry-run`           | print the plan and exit, making no changes                                     |
 | `--allow-destructive` | permit destructive actions such as removing a capability                       |
 | `-y, --yes`           | skip the confirmation prompt (for CI)                                          |
+
+## `launch plan [surface]`
+
+diff launch.config against live store state (read-only): capabilities, IAPs, subscriptions, pricing
+
+| Flag                | Description                                                    |
+| ------------------- | -------------------------------------------------------------- |
+| `-a, --app <names>` | comma-separated app handles (default: all apps)                |
+| `--check`           | exit 2 when drift is present (CI gate); same as `launch drift` |
+| `--json`            | machine-readable output for CI/agents                          |
+
+## `launch drift [surface]`
+
+fail when live store state has drifted from launch.config (alias for `launch plan --check`)
+
+| Flag                | Description                                     |
+| ------------------- | ----------------------------------------------- |
+| `-a, --app <names>` | comma-separated app handles (default: all apps) |
+| `--json`            | machine-readable output for CI/agents           |
 
 ## `launch offers`
 

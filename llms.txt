@@ -48,7 +48,7 @@ Launch runs the EAS pipeline locally: prebuild → resolve credentials → compi
 
 ## Commands
 
-All 45 `launch` commands (204 store-API operations underneath, 1079 tests):
+All 47 `launch` commands (204 store-API operations underneath, 1122 tests):
 
 - `launch init` — scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` — onboard an app that already ships: import its App Store Connect setup into config
@@ -62,6 +62,8 @@ All 45 `launch` commands (204 store-API operations underneath, 1079 tests):
   - `launch metadata pull` — download the live store listing into store.config.json
   - `launch metadata push` — upload store.config.json to the store listing (metadata only; no binary)
 - `launch sync` — reconcile App Store Connect products (capabilities, IAPs, subscriptions, pricing), store-listing copy, screenshots, and app previews from config
+- `launch plan [surface]` — diff launch.config against live store state (read-only): capabilities, IAPs, subscriptions, pricing
+- `launch drift [surface]` — fail when live store state has drifted from launch.config (alias for `launch plan --check`)
 - `launch offers` — reconcile subscription offers (codes, promo/intro/win-back) and promoted-purchase order from config
   - `launch offers generate-codes <productId> <offerName>` — generate redeemable codes under an existing offer-code campaign
   - `launch offers list <productId>` — list a subscription's offer-code campaigns and their states
@@ -151,7 +153,7 @@ All 45 `launch` commands (204 store-API operations underneath, 1079 tests):
 
 ## Reference
 
-- [Command reference](./docs/commands.md): all 45 `launch` commands and every flag, generated from the CLI.
+- [Command reference](./docs/commands.md): all 47 `launch` commands and every flag, generated from the CLI.
 
 ## Source
 

@@ -20,7 +20,7 @@
 <p align="center">
   <a href="./docs/commands.md"><img src="https://img.shields.io/badge/store%20API-204%20endpoints-8957e5?logo=apple&logoColor=white" alt="204 App Store Connect &amp; Google Play API operations" /></a>
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1079%20passing-3fb950?logo=vitest&logoColor=white" alt="1079 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1122%20passing-3fb950?logo=vitest&logoColor=white" alt="1122 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -167,9 +167,9 @@ Launch ejecuta el mismo pipeline `eas build` → `eas submit` → `eas update` (
 
 ## Requisitos
 
-- **iOS:** macOS con **Xcode** + las herramientas de línea de comandos, **fastlane** (`brew install fastlane`) y una **clave de API de App Store Connect** (`.p8` + Key ID + Issuer ID) — [genera una aquí](https://appstoreconnect.apple.com/access/integrations/api).
+- **iOS:** una **suscripción al Apple Developer Program** ($99/año) — [regístrate aquí](https://developer.apple.com/programs/enroll/) — y luego macOS con **Xcode** + las herramientas de línea de comandos, **fastlane** (`brew install fastlane`) y una **clave de API de App Store Connect** (`.p8` + Key ID + Issuer ID) — [genera una aquí](https://appstoreconnect.apple.com/access/integrations/api).
   ¿Sin Mac? Consulta [Compilar sin una Mac](#compilar-sin-una-mac).
-- **Android:** un **JDK** (cualquier sistema operativo — sin necesidad de Mac) y una clave JSON de **cuenta de servicio de Google Play**.
+- **Android:** una **cuenta de Google Play Developer** (pago único de $25) — [regístrate aquí](https://play.google.com/console/signup) — y luego un **JDK** (cualquier sistema operativo — sin necesidad de Mac) y una clave JSON de **cuenta de servicio de Google Play**.
 - **Node 20+** en todas las plataformas.
 
 Ejecuta `launch doctor` en cualquier momento para comprobar todo lo anterior.
