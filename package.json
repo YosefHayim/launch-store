@@ -54,6 +54,8 @@
     "build": "rm -rf dist && tsc -p tsconfig.build.json && chmod +x dist/cli/index.js",
     "dev": "tsx src/cli/index.ts",
     "gen:asc": "tsx scripts/gen-asc-types.ts",
+    "docs:gen": "tsx scripts/gen-docs.ts",
+    "docs:check": "tsx scripts/gen-docs.ts --check",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "format": "prettier --write .",
