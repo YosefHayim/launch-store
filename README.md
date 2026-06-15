@@ -39,7 +39,7 @@
   <a href="./README.ru.md">Русский</a>
 </p>
 
-Shipping an app is more than a build: signing setup, App Store Connect / Play Console config, in-app
+Shipping an app is more than a build: signing setup, [App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console) config, in-app
 purchases, listing metadata, the upload, and the over-the-air updates after. EAS builds and submits —
 the rest is scattered across Apple's and Google's portals and a handful of tools. Launch pulls the
 **whole release** into one local, declarative workflow: it provisions your signing, reconciles your
@@ -446,6 +446,16 @@ everywhere.
 ## Contributing
 
 See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for dev setup, the quality gate, and how to add a backend.
+
+## Contributors
+
+<p align="center">
+  <a href="https://github.com/YosefHayim"><img src="https://github.com/YosefHayim.png?size=120" width="120" alt="YosefHayim" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/YosefHayim/launch-store/graphs/contributors">All contributors →</a>
+</p>
 
 ## License
 

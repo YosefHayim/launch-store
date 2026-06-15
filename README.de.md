@@ -40,7 +40,7 @@
 </p>
 
 Eine App zu veröffentlichen ist mehr als nur ein Build: das Einrichten der Signierung, die Konfiguration
-in App Store Connect / Play Console, In-App-Käufe, Listing-Metadaten, der Upload und danach die
+in [App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console), In-App-Käufe, Listing-Metadaten, der Upload und danach die
 Over-the-Air-Updates. EAS baut und reicht ein — der Rest ist über die Portale von Apple und Google und
 eine Handvoll Werkzeuge verstreut. Launch zieht die **gesamte Veröffentlichung** in einen einzigen
 lokalen, deklarativen Workflow zusammen: es richtet Ihre Signierung ein, gleicht Ihre Store-Produkte ab,
@@ -480,6 +480,16 @@ Launch liegt hier in der Automatisierung in Ihrem eigenen Konto mit überall den
 
 Siehe [`CONTRIBUTING.md`](./CONTRIBUTING.md) für die Entwicklungseinrichtung, das Qualitäts-Gate und wie
 man ein Backend hinzufügt.
+
+## Mitwirkende
+
+<p align="center">
+  <a href="https://github.com/YosefHayim"><img src="https://github.com/YosefHayim.png?size=120" width="120" alt="YosefHayim" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/YosefHayim/launch-store/graphs/contributors">Alle Mitwirkenden →</a>
+</p>
 
 ## Lizenz
 
