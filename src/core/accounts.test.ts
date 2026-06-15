@@ -8,7 +8,7 @@
 
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { rmSync } from "node:fs";
-import type { AccountsFile } from "./types.js";
+import type { AccountRecord, AccountsFile } from "./types.js";
 
 const secrets = vi.hoisted(() => ({ store: new Map<string, string>() }));
 // Redirect HOME before any import evaluates `core/paths.js`, so the real module's `~/.launch` (and
@@ -37,6 +37,7 @@ import {
   decideBuildAccount,
   decodeP8,
   encodeP8,
+  formatAccountSummary,
   getActiveKeyId,
   listAccounts,
   loadAscKeyById,
@@ -91,6 +92,37 @@ describe("matchAccount", () => {
   });
   it("returns undefined for an unknown selector", () => {
     expect(matchAccount(accounts, "nope")).toBeUndefined();
+  });
+});
+
+describe("formatAccountSummary", () => {
+  const base: AccountRecord = { keyId: "F5763D97BY", issuerId: "issuer-x", label: "default", addedAt: "t" };
+
+  it("degrades to label · team · key when no apps are cached", () => {
+    expect(formatAccountSummary({ ...base, teamId: "5NS9ZUMYCS" })).toBe("default · team 5NS9ZUMYCS · key F5763D97BY");
+  });
+
+  it("omits the team segment when the account is unresolved", () => {
+    expect(formatAccountSummary(base)).toBe("default · key F5763D97BY");
+  });
+
+  it("lists up to three app names inline with no +N suffix", () => {
+    expect(formatAccountSummary({ ...base, teamId: "5NS9ZUMYCS", apps: ["OlyWell", "Zaatar", "Mealsy"] })).toBe(
+      "default · OlyWell, Zaatar, Mealsy · team 5NS9ZUMYCS · key F5763D97BY",
+    );
+  });
+
+  it("collapses the apps beyond the third into a +N count", () => {
+    const apps = ["OlyWell", "Zaatar", "Mealsy", "Pomedero", "Looopi", "Sutton", "Nimbus"];
+    expect(formatAccountSummary({ ...base, teamId: "5NS9ZUMYCS", apps })).toBe(
+      "default · OlyWell, Zaatar, Mealsy +4 · team 5NS9ZUMYCS · key F5763D97BY",
+    );
+  });
+
+  it("drops the leading label for the picker hint via includeLabel:false", () => {
+    expect(formatAccountSummary({ ...base, teamId: "5NS9ZUMYCS", apps: ["OlyWell"] }, { includeLabel: false })).toBe(
+      "OlyWell · team 5NS9ZUMYCS · key F5763D97BY",
+    );
   });
 });
 

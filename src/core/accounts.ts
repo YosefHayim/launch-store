@@ -105,6 +105,43 @@ export function matchAccount(accounts: AccountRecord[], selector: string): Accou
   return accounts.find((account) => account.keyId.toLowerCase() === needle || account.label.toLowerCase() === needle);
 }
 
+/** Max app names shown inline in {@link formatAccountSummary} before the remainder collapses to `+N`. */
+const ACCOUNT_SUMMARY_APP_LIMIT = 3;
+
+/** Options for {@link formatAccountSummary}. */
+export interface AccountSummaryOptions {
+  /**
+   * Whether to lead with the account label. The build step line and `launch creds` listing want it
+   * (`default · …`); the interactive picker renders the label separately as the option title, so it
+   * passes `false` to keep the hint from repeating it.
+   */
+  includeLabel?: boolean;
+}
+
+/**
+ * One human-recognizable line for an account, shared by the build step line, the `launch creds`
+ * listing, and the account picker hint so all three read identically.
+ *
+ * It leads with the cached app names the key can see — the thing a person actually recognizes — then
+ * the Team ID and Key ID for traceability: `default · OlyWell, Zaatar, Mealsy +4 · team … · key …`.
+ * Up to {@link ACCOUNT_SUMMARY_APP_LIMIT} apps show inline and the rest collapse to `+N`; an empty or
+ * not-yet-resolved app list is omitted, so the line degrades cleanly to `label · team · key`. Renders
+ * only what's cached on the record — never an Apple call.
+ */
+export function formatAccountSummary(account: AccountRecord, options: AccountSummaryOptions = {}): string {
+  const segments: string[] = [];
+  if (options.includeLabel !== false) segments.push(account.label);
+  const apps = account.apps ?? [];
+  if (apps.length > 0) {
+    const extra = apps.length - ACCOUNT_SUMMARY_APP_LIMIT;
+    const shown = apps.slice(0, ACCOUNT_SUMMARY_APP_LIMIT).join(", ");
+    segments.push(extra > 0 ? `${shown} +${extra}` : shown);
+  }
+  if (account.teamId) segments.push(`team ${account.teamId}`);
+  segments.push(`key ${account.keyId}`);
+  return segments.join(" · ");
+}
+
 /** Inputs to {@link addAccount}: the key material plus any team/apps already resolved from Apple. */
 export interface AddAccountInput {
   keyId: string;
