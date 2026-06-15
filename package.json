@@ -1,6 +1,6 @@
 {
   "name": "launch-store",
-  "version": "0.13.2",
+  "version": "0.13.3",
   "description": "Open-source, self-hosted alternative to Expo EAS — build, sign & ship your Expo / React Native apps to TestFlight & Google Play from your own machine, with your own keys. No per-build bill.",
   "keywords": [
     "cli",
