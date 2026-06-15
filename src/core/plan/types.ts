@@ -15,9 +15,19 @@
 
 import type { AppDescriptor, LaunchConfig } from "../types.js";
 import type { AscCatalogApi, PlannedAction } from "../ascSync.js";
+import type { PlayProductsApi } from "../playProducts.js";
+import type { PlaySubscriptionsApi } from "../playSubscriptions.js";
 
 /** Which store a surface belongs to — drives credential resolution and how the diff is grouped. */
 export type PlanStore = "appstore" | "play";
+
+/**
+ * The read surface of the Google Play catalog the Play planners share — the union of the products and
+ * subscriptions reconcilers' interfaces. One resolver hands this to both planners (mirroring how a single
+ * {@link AscCatalogApi} backs every App Store surface); each planner uses only the slice it needs, and
+ * `GooglePlayClient` satisfies the whole thing structurally.
+ */
+export interface PlayCatalogApi extends PlayProductsApi, PlaySubscriptionsApi {}
 
 /**
  * One app's slice of a surface's plan. `actions` is the reconciler's existing {@link PlannedAction} list
@@ -60,6 +70,8 @@ export interface PlanContext {
   apps: AppDescriptor[];
   /** Resolve the read-only App Store Connect catalog client, or `null` when no Apple account is active. */
   resolveAscApi(): Promise<AscCatalogApi | null>;
+  /** Resolve the read-only Google Play catalog client, or `null` when no Play service account is configured. */
+  resolvePlayApi(): Promise<PlayCatalogApi | null>;
 }
 
 /**

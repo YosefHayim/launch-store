@@ -13,7 +13,12 @@ function makeCtx(): PlanContext {
     buildEngine: "fastlane",
     submit: "app-store-connect",
   };
-  return { config, apps: [], resolveAscApi: () => Promise.resolve(null) };
+  return {
+    config,
+    apps: [],
+    resolveAscApi: () => Promise.resolve(null),
+    resolvePlayApi: () => Promise.resolve(null),
+  };
 }
 
 /** A planner that returns a canned surface, ignoring its context. */
