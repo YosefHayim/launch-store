@@ -1,6 +1,15 @@
-<p align="center">
-  <img src="assets/launch-logo.png" alt="Launch" width="220" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/ios.jpg" alt="iOS" width="150" /></td>
+    <td align="center" valign="middle" width="280"><img src="assets/launch-logo.png" alt="Launch — build, sign &amp; ship to the App Store and Google Play" width="230" /></td>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/android.jpg" alt="Android" width="150" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>✅ <strong>iOS</strong> · TestFlight</sub></td>
+    <td></td>
+    <td align="center"><sub>✅ <strong>Android</strong> · Google&nbsp;Play</sub></td>
+  </tr>
+</table>
 
 <h1 align="center">Launch</h1>
 
@@ -253,19 +262,6 @@ two differ on the same workflow:
 | Build **artifacts are hosted on Expo**                                                                              | Artifacts land in **your own storage** (local, or S3 / R2 / Supabase)                                                                                            |
 | **No Mac?** EAS's paid cloud is the only path                                                                       | **No Mac?** A cloud Mac in **your own AWS**, any Mac over **SSH**, or hand off to **`eas build`**                                                                |
 | **Closed SaaS** — proprietary, vendor lock-in                                                                       | **MIT, open source** — `fastlane`/Gradle/platform APIs, swappable providers, nothing to migrate                                                                  |
-
-## Platform support
-
-<table align="center">
-  <tr>
-    <td align="center" width="240"><img src="assets/platforms/ios.jpg" alt="iOS" width="200" /></td>
-    <td align="center" width="240"><img src="assets/platforms/android.jpg" alt="Android" width="200" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>iOS</strong><br />✅ Shipping — build, sign &amp; upload to TestFlight</td>
-    <td align="center"><strong>Android</strong><br />✅ Shipping — build, sign &amp; upload to Google Play</td>
-  </tr>
-</table>
 
 ## Requirements
 

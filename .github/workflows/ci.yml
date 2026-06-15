@@ -9,6 +9,11 @@ on:
     branches: [main]
   pull_request:
 
+# Least-privilege GITHUB_TOKEN: this gate only reads the repo (and writes the run's step summary,
+# which needs no token scope), so it gets read-only `contents` and nothing else.
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
