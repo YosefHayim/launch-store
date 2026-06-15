@@ -48,7 +48,7 @@ Launch runs the EAS pipeline locally: prebuild → resolve credentials → compi
 
 ## Commands
 
-All 44 `launch` commands (204 store-API operations underneath, 1037 tests):
+All 45 `launch` commands (204 store-API operations underneath, 1070 tests):
 
 - `launch init` — scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` — onboard an app that already ships: import its App Store Connect setup into config
@@ -135,6 +135,9 @@ All 44 `launch` commands (204 store-API operations underneath, 1037 tests):
   - `launch builds prune` — delete build binaries older than the retention window (keeps the newest per app+platform)
 - `launch ci` — scaffold CI workflows for building & shipping Launch apps
   - `launch ci init` — write a GitHub Actions workflow that builds and ships on a hosted runner
+- `launch agents` — scaffold agent skills/rules (Claude, Cursor, Codex) so coding agents can drive Launch
+  - `launch agents init` — write Claude skills, Cursor rules, and the AGENTS.md Launch section into this repo
+  - `launch agents check` — verify the scaffolded agent files are in sync with the installed Launch
 - `launch run [id|latest]` — install a built artifact on a connected device (iOS device or Android device/emulator)
 - `launch fingerprint` — show the native fingerprint and why the next build is clean or incremental (iOS)
 - `launch diagnose [logfile]` — explain a failed native build — parse the cause + fix from a build log
@@ -148,7 +151,7 @@ All 44 `launch` commands (204 store-API operations underneath, 1037 tests):
 
 ## Reference
 
-- [Command reference](./docs/commands.md): all 44 `launch` commands and every flag, generated from the CLI.
+- [Command reference](./docs/commands.md): all 45 `launch` commands and every flag, generated from the CLI.
 
 ## Source
 

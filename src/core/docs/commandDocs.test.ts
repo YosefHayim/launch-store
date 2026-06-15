@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  AGENT_SKILLS_BLURB,
+  AGENT_SKILLS_END,
+  AGENT_SKILLS_SIGNATURE,
+  AGENT_SKILLS_START,
   CANONICAL_SENTENCE,
   type CommandSpec,
   type DocStats,
@@ -12,10 +16,12 @@ import {
   STATS_BADGES_START,
   countAsyncMethods,
   countTestCases,
+  renderAgentSkillsRegion,
   renderCommandReference,
   renderFaqRegion,
   renderLlmsTxt,
   renderStatsBadges,
+  spliceReadmeAgentSkills,
   spliceReadmeBadges,
   spliceReadmeFaq,
 } from "./commandDocs.js";
@@ -167,6 +173,40 @@ describe("spliceReadmeFaq", () => {
 
   it("throws when the FAQ markers are missing rather than dropping the FAQ", () => {
     expect(() => spliceReadmeFaq("# Launch\n\nNo markers here.", "x")).toThrow(/faq markers/);
+  });
+});
+
+describe("renderAgentSkillsRegion", () => {
+  const block = renderAgentSkillsRegion();
+
+  it("is fenced by the agent-skills markers so docs:gen can splice it back in", () => {
+    expect(block.startsWith(AGENT_SKILLS_START)).toBe(true);
+    expect(block.endsWith(AGENT_SKILLS_END)).toBe(true);
+  });
+
+  it("carries the shared blurb verbatim, so every README cites one source", () => {
+    expect(block).toContain(AGENT_SKILLS_BLURB);
+    expect(block).toContain(AGENT_SKILLS_SIGNATURE);
+  });
+
+  it("stays a heading-less callout, so it can't shift the translated READMEs' section skeleton", () => {
+    expect(block).not.toContain("\n## ");
+  });
+});
+
+describe("spliceReadmeAgentSkills", () => {
+  const readme = ["# Launch", "", AGENT_SKILLS_START, "", "stale", "", AGENT_SKILLS_END, "", "Body."].join("\n");
+
+  it("replaces the whole fenced region with the freshly rendered callout", () => {
+    const spliced = spliceReadmeAgentSkills(readme, renderAgentSkillsRegion());
+    expect(spliced).toContain(AGENT_SKILLS_SIGNATURE);
+    expect(spliced).not.toContain("stale");
+    expect(spliced.startsWith("# Launch")).toBe(true);
+    expect(spliced.endsWith("Body.")).toBe(true);
+  });
+
+  it("throws when the markers are missing rather than dropping the callout", () => {
+    expect(() => spliceReadmeAgentSkills("# Launch\n\nNo markers here.", "x")).toThrow(/agent-skills markers/);
   });
 });
 
