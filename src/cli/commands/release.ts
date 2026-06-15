@@ -131,6 +131,7 @@ async function runRelease(platform: Platform, options: ReleaseCommandOptions): P
     profile,
     cliEnv: envOverrides(options),
     includeLocal: options.includeLocal,
+    envExclude: config.envExclude,
   });
   if (options.printEnv) {
     console.log(formatEnvTable(resolvedEnv));

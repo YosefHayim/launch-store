@@ -37,6 +37,17 @@ export default defineConfig({
   // monorepo would use `["apps/*"]`. Here the single app sits beside this config.
   appRoots: ["."],
 
+  // ── Backend-only env (never injected into a build) ──────────────────────────────────────────────────
+  // A hard denylist over the resolved env, enforced across every layer (`.env`, `.env.<profile>`,
+  // keychain, inline `env:`, even an explicit `--env`). These names are dropped outright, so a backend
+  // secret kept in the app's `.env` for local server tooling can never be bundled into the shipped app —
+  // not even if an `app.config.js` forwards `process.env`. Each entry is an exact name OR a `PREFIX*`
+  // wildcard: `OPENAI_*` drops `OPENAI_API_KEY`, `OPENAI_ORG_ID`, … in one line (wildcards anchor at the
+  // start, so a publishable `EXPO_PUBLIC_..._KEY` is never caught). Different from `launch secret set`,
+  // which still INJECTS the value (the build needs it) and only moves it out of plaintext. A name matched
+  // here is also exempt from the `.env.example` missing-key gate.
+  envExclude: ["OPENAI_*", "GEMINI_*", "STRIPE_SECRET_KEY", "SENTRY_AUTH_TOKEN"],
+
   // ── Build profiles ───────────────────────────────────────────────────────────────────────────────
   // A profile bundles the env + size budget + Android release defaults for one kind of build.
   // Select one with `launch build ios --profile <name>`.

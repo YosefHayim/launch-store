@@ -182,12 +182,13 @@ export function registerUpdateCommand(program: Command): void {
       profile,
       cliEnv: envOverrides(options),
       includeLocal: options.includeLocal,
+      envExclude: config.envExclude,
     });
     if (options.printEnv) {
       console.log(formatEnvTable(resolvedEnv));
       return;
     }
-    validateResolvedEnv(app.dir, resolvedEnv, log);
+    validateResolvedEnv(app.dir, resolvedEnv, log, config.envExclude);
 
     if (!isCloudStorage(config)) {
       throw new Error(

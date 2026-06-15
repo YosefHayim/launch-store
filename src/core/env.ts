@@ -48,15 +48,39 @@ export function loadDotenvFile(filePath: string): Record<string, string> {
 }
 
 /**
+ * Whether an env var NAME is denied by an `envExclude` list. An entry ending in `*` is a prefix match —
+ * `OPENAI_*` denies every name starting with `OPENAI_`, so a whole family of backend keys collapses to
+ * one line; any other entry is an exact, case-sensitive name match. Prefixes anchor at the START, so a
+ * pattern can't catch a name by its tail — there is deliberately no `*_KEY` suffix form, which would also
+ * snag a publishable `EXPO_PUBLIC_..._KEY`. The single matching rule shared by {@link resolveEnv} (drops
+ * matches before injection) and {@link missingKeys} (exempts matches from the gate), so the two agree.
+ */
+export function isEnvExcluded(name: string, patterns: string[]): boolean {
+  for (const pattern of patterns) {
+    if (pattern.endsWith("*")) {
+      if (name.startsWith(pattern.slice(0, -1))) return true;
+    } else if (name === pattern) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Compare the profile's env against `.env.example` in the same directory and return the keys
  * the example documents but the env is missing (empty values count as missing). Empty array
- * when there is no `.env.example` — nothing to validate against.
+ * when there is no `.env.example` — nothing to validate against. Keys matched by `exclude` (the
+ * `envExclude` list — exact names or `PREFIX*`, see {@link isEnvExcluded}) are skipped: a deliberately
+ * backend-only secret isn't "missing", so documenting it in `.env.example` doesn't trip the gate — even
+ * when no layer sets it.
  */
-export function missingKeys(appDir: string, env: Record<string, string>): string[] {
+export function missingKeys(appDir: string, env: Record<string, string>, exclude: string[] = []): string[] {
   const examplePath = join(appDir, ".env.example");
   if (!existsSync(examplePath)) return [];
   const example = loadDotenvFile(examplePath);
-  return Object.keys(example).filter((key) => env[key] === undefined || env[key] === "");
+  return Object.keys(example).filter(
+    (key) => !isEnvExcluded(key, exclude) && (env[key] === undefined || env[key] === ""),
+  );
 }
 
 /** Names containing one of these are always treated as secret (case-insensitive). */
@@ -102,17 +126,20 @@ export const ENV_SOURCE = {
  *
  * `values` is the flat map injected into the command's subprocess; `sources` maps each key to the
  * winning layer's {@link ENV_SOURCE} label (or a `.env*` filename) for provenance in `--print-env`.
- * The two maps always share the same keys.
+ * The two maps always share the same keys. `excluded` lists the `envExclude` names that were actually
+ * set by some layer and then dropped — surfaced in the build log and exempted from the missing-key gate.
  */
 export interface ResolvedEnv {
   values: Record<string, string>;
   sources: Record<string, string>;
+  excluded: string[];
 }
 
 /**
  * Inputs to {@link resolveEnv}. `secrets` (keychain) and `cliEnv` (`--env` flags) are pre-resolved by
  * the caller; the dotenv files are read here from `appDir`. `includeLocal` opts `.env.local` in
  * (off by default to avoid surprise local env). `envFile` renames the base file (default `.env`).
+ * `envExclude` names are dropped after all layers merge — see {@link resolveEnv}.
  */
 export interface ResolveEnvInput {
   appDir: string;
@@ -122,6 +149,7 @@ export interface ResolveEnvInput {
   secrets?: Record<string, string> | undefined;
   cliEnv?: Record<string, string> | undefined;
   includeLocal?: boolean | undefined;
+  envExclude?: string[] | undefined;
 }
 
 /**
@@ -130,6 +158,11 @@ export interface ResolveEnvInput {
  * keychain secrets → `--env` flags. This is THE definition of env precedence for the whole CLI;
  * build, release, and update all resolve through it so they never drift (issue #25). Pure: does no
  * keychain or process work beyond reading the dotenv files.
+ *
+ * `envExclude` is a hard denylist: a name matched by the list (an exact name, or a `PREFIX*` wildcard —
+ * see {@link isEnvExcluded}) is dropped from EVERY layer, so it can never reach the build subprocess no
+ * matter which layer set it — even an explicit `--env`. Exclusion beats precedence by design; to inject
+ * such a name you drop it from the list.
  */
 export function resolveEnv(input: ResolveEnvInput): ResolvedEnv {
   const baseFile = input.envFile ?? ".env";
@@ -144,15 +177,24 @@ export function resolveEnv(input: ResolveEnvInput): ResolvedEnv {
   layers.push({ source: ENV_SOURCE.secret, vars: input.secrets ?? {} });
   layers.push({ source: ENV_SOURCE.flag, vars: input.cliEnv ?? {} });
 
+  // Hard denylist: an excluded name is skipped in EVERY layer, so it can never land in the result no
+  // matter which layer (incl. the final `--env`) set it — exclusion wins over precedence by design. Names
+  // some layer actually tried to set are recorded, so the build log reports real drops, not the raw list.
+  const exclude = input.envExclude ?? [];
+  const excludedSeen = new Set<string>();
   const values: Record<string, string> = {};
   const sources: Record<string, string> = {};
   for (const layer of layers) {
     for (const [key, value] of Object.entries(layer.vars)) {
+      if (exclude.length > 0 && isEnvExcluded(key, exclude)) {
+        excludedSeen.add(key);
+        continue;
+      }
       values[key] = value;
       sources[key] = layer.source;
     }
   }
-  return { values, sources };
+  return { values, sources, excluded: [...excludedSeen] };
 }
 
 /**
