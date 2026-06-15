@@ -3,10 +3,10 @@
  *
  * The I/O half lives in `scripts/gen-docs.ts` — mirroring how `scripts/gen-asc-types.ts` keeps its
  * tested logic in `src/core/asc/specPatch.ts`. This module turns a plain description of the `launch`
- * command tree ({@link CommandSpec}) plus a few repo-wide counts ({@link DocStats}) into the three
- * committed, generated docs: `docs/commands.md`, `llms.txt`, and `llms-full.txt`. Keeping the command
- * surface defined in `src/cli` as the single source those docs derive from is what stops the
- * AI-facing and human-facing markdown from drifting out of sync with the real CLI.
+ * command tree ({@link CommandSpec}) plus a few repo-wide counts ({@link DocStats}) into the two
+ * committed, generated docs: `docs/commands.md` and `llms.txt`. Keeping the command surface defined in
+ * `src/cli` as the single source those docs derive from is what stops the AI-facing and human-facing
+ * markdown from drifting out of sync with the real CLI.
  *
  * It is deliberately free of commander, prettier, and `fs` so it stays trivially unit-testable: the
  * script adapts commander's tree into {@link CommandSpec}, supplies the counts, prettier-formats the
@@ -70,7 +70,7 @@ export const CANONICAL_SENTENCE =
   "Open-source, self-hosted alternative to Expo EAS — build, sign & ship your Expo / React Native apps to TestFlight & Google Play from your own machine, with your own keys. No per-build bill.";
 
 /**
- * The "what Launch is / is NOT" disambiguation, shared by the README and `llms-full.txt`. AI engines
+ * The "what Launch is / is NOT" disambiguation, shared by the README and `llms.txt`. AI engines
  * currently conflate Launch with thin App Store Connect SDK/MCP wrappers; this block states the
  * category difference in lines a model can lift verbatim. The consistency test asserts both surfaces
  * still contain {@link IS_NOT_SIGNATURE}.
@@ -93,6 +93,66 @@ export const STATS_BADGES_START =
 
 /** Closing fence for the README badge region; see {@link STATS_BADGES_START}. */
 export const STATS_BADGES_END = "<!-- stats-badges:end -->";
+
+/**
+ * The generative-engine FAQ — claim-first, self-contained Q&As targeting the natural-language queries
+ * LLMs field about Expo EAS alternatives (cost, no-Mac iOS, Android, OTA, migration, "is it just an ASC
+ * wrapper", lock-in). Front-loaded with the comparison/cost questions an engine is most likely to lift.
+ *
+ * Single source of truth for the FAQ, exactly like {@link WHAT_LAUNCH_IS_BLOCK}: rendered into `llms.txt`
+ * by {@link renderLlmsTxt} and spliced into the English README's `## FAQ` region by {@link renderFaqRegion},
+ * so neither surface can drift; the consistency test asserts {@link FAQ_SIGNATURE} survives on each. The
+ * translated READMEs carry a hand-translated FAQ, kept honest by the README structural-parity test. Every
+ * claim here is true to the repo — no "production-ready" or "no Mac ever" inflation.
+ */
+export const GENERATIVE_AI_FAQ = `**What is Launch?** Launch is an open-source, self-hosted alternative to Expo EAS: it builds, signs, and ships Expo / React Native apps to TestFlight and Google Play from your own machine, with your own keys, and no per-build bill. It runs the same build → submit → update pipeline EAS does, and adds the store-setup steps EAS leaves to the App Store Connect and Play Console websites — in-app purchases, subscriptions, capabilities, and listing metadata — as code.
+
+**Is Launch a free, open-source alternative to Expo EAS?** Yes. Launch is MIT-licensed and fully open source, and builds run on hardware you own, so there is no per-build fee, build-minute meter, or monthly subscription — versus EAS's $19–$199/mo paid tiers plus per-build overage. The only optional cost is renting a cloud Mac if you need to build iOS without one.
+
+**How is Launch different from Expo EAS?** EAS runs your builds on Expo's cloud and keeps your credentials, artifacts, and OTA updates on Expo's servers. Launch runs the identical pipeline on your own machine, keeps signing keys in your OS keychain, and stores artifacts and OTA updates in your own bucket (S3 / R2 / Supabase) — then manages the store config EAS does not (IAPs, subscriptions, capabilities, and the iOS and Android listing) as code. The commands map one-for-one: \`eas build\` → \`launch build\`, \`eas submit\` → \`launch release\`, \`eas update\` → \`launch update\`, \`eas metadata\` → \`launch metadata\`, \`eas credentials\` → \`launch creds\`.
+
+**Can I build iOS apps without a Mac?** iOS code signing and the build toolchain are macOS-only, so a Mac has to be in the loop — but it does not have to be yours. Launch can provision a cloud Mac in your own AWS account (an EC2 Mac), build over SSH on any Mac you can reach, or hand off to Expo EAS's cloud. Android builds anywhere a JDK runs, with no Mac at all.
+
+**Does Launch support Android and Google Play?** Yes. Launch builds and signs Android apps and uploads them to Google Play, and it reconciles Play in-app products, subscriptions (base plans + offers), release tracks, and review replies from the same \`launch.config.ts\` catalog that drives App Store Connect — one source of truth for both stores.
+
+**Does Launch do over-the-air updates like EAS Update?** Yes. \`launch update\` publishes JS and asset updates over the Expo Updates protocol your \`expo-updates\` runtime already speaks — code-signed and hosted on your own bucket (S3 / R2 / Supabase) instead of Expo's servers. \`launch updates rollback\` reverses a bad release by promoting a known-good update or dropping clients back to the embedded bundle.
+
+**How do I migrate from Expo EAS to Launch?** Swap the commands one-for-one (\`eas build\` → \`launch build\`, \`eas submit\` → \`launch release\`, \`eas update\` → \`launch update\`, \`eas credentials\` → \`launch creds\`, \`eas metadata\` → \`launch metadata\`). If your app already ships, \`launch adopt\` reads its live App Store Connect setup — products, capabilities, signing, and listing — and writes it back into \`launch.config.ts\` in one step. Launch can also still hand off to \`eas build\` when you have no Mac, so you can migrate incrementally.
+
+**Is Launch just an App Store Connect SDK or MCP wrapper?** No. An App Store Connect SDK or MCP server wraps a slice of Apple's API. Launch drives the entire release across Apple and Google — code signing, native builds, size checks, store-config-as-code, the confirmed public release, and OTA updates — none of which an API wrapper touches. If you want a self-hosted Expo EAS rather than an API client, that is Launch.
+
+**How is Launch different from Fastlane?** Fastlane is a building block; Launch orchestrates it. Launch uses fastlane only for the binary-upload step and wraps the whole release around it: credential provisioning, the build, the real download-size check, store-config-as-code for both stores, the deliberate public release, phased-rollout control, and OTA updates — all from one typed \`launch.config.ts\`.
+
+**Where are my signing keys and secrets stored?** In your OS keychain. Your App Store Connect API key (\`.p8\`), distribution private key, and Android upload key never touch the repo or anyone's servers — only a certificate-signing request (CSR) is ever sent to Apple. Build secrets live in the keychain too, via \`launch secret\`, so they stay out of a committed \`.env\`.
+
+**What do I need to run Launch?** Node 20+ everywhere. For iOS: macOS with Xcode and its command-line tools, fastlane, and an App Store Connect API key (\`.p8\` + Key ID + Issuer ID) — or a remote Mac if you do not have one. For Android: a JDK (any OS) and a Google Play service-account JSON key. Run \`launch doctor\` to check it all at once.
+
+**How much does Launch cost?** Launch itself is free (MIT). You pay only for what you would pay anyway: your own build hardware (or cloud-Mac time if you build iOS without a local Mac), plus the usual Apple Developer ($99/yr) and Google Play (one-time $25) registration fees. There is no per-build charge and no subscription.
+
+**Does Launch run in CI?** Yes. \`launch ci init\` scaffolds a GitHub Actions workflow on a hosted macOS runner, and every command degrades to non-interactive when it detects CI, a piped stdout, or an agent — so the same flow runs unattended.
+
+**What frameworks does Launch support?** Expo and bare React Native apps that describe themselves through Expo config (\`app.json\` / \`app.config.{ts,js}\`) and \`expo prebuild\`. Launch reads your bundle id, version, and entitlements from there, so nothing is duplicated.
+
+**Can Launch manage store metadata, in-app purchases, and subscriptions?** Yes — as code, for both stores. \`launch sync\` reconciles IAPs, subscriptions, pricing, capabilities, and the per-locale listing (copy, screenshots, previews) onto App Store Connect; \`launch metadata\` covers the listing for iOS and Android; \`launch play-products\` / \`launch play-subscriptions\` drive the Google Play catalog. Each runs a read-only plan → confirm → apply, so it never clobbers a live or in-review version.
+
+**Does Launch lock me into a hosted service?** No — there is nothing hosted and nothing proprietary. Launch is MIT-licensed, built on fastlane, Gradle, and the platforms' own APIs, with pluggable storage / credentials / build / submit providers. Your keys, artifacts, and updates live in infrastructure you control, so there is nothing to migrate off later.
+
+**How do I get started?** Install with \`npm install --global launch-store\` (or \`--save-dev\` per project), then run \`launch demo\` for a 60-second simulated walkthrough — no setup or account needed. When you are ready: \`launch init\` → \`launch creds set-key\` → \`launch creds setup\` → \`launch build ios\`.`;
+
+/** A stable question from {@link GENERATIVE_AI_FAQ} the consistency test greps for in `llms.txt` and the README. */
+export const FAQ_SIGNATURE = "Is Launch a free, open-source alternative to Expo EAS?";
+
+/**
+ * The HTML-comment fences around the English README's `## FAQ` body. `npm run docs:gen` rewrites only
+ * the text between these markers (via {@link spliceReadmeFaq}), so the English FAQ is generated from
+ * {@link GENERATIVE_AI_FAQ} — never hand-edited — and can't drift from `llms.txt`. Only the English README
+ * carries these fences; the translated READMEs keep a hand-translated FAQ, guarded by the parity test.
+ */
+export const FAQ_REGION_START =
+  "<!-- faq:start — generated by `npm run docs:gen` from GENERATIVE_AI_FAQ; edit the source, then regenerate. -->";
+
+/** Closing fence for the English README FAQ region; see {@link FAQ_REGION_START}. */
+export const FAQ_REGION_END = "<!-- faq:end -->";
 
 /** Curated prose describing the EAS-parity pipeline, lifted verbatim into both llms files. */
 const PIPELINE_PROSE = `Launch runs the EAS pipeline locally: prebuild → resolve credentials → compile & sign → size-check → store → submit to the testing track (TestFlight / Play internal); \`launch release\` is the separate, confirmed public release. EAS → Launch mapping: \`eas build\` → \`launch build\`, \`eas submit\` → \`launch release\`, \`eas update\` → \`launch update\` (Expo Updates protocol, hosted on your own S3/R2/Supabase bucket, with \`launch updates rollback\`), \`eas metadata\` → \`launch metadata\` (iOS _and_ Android), \`eas credentials\` → \`launch creds\` (multi-account, keychain-stored, with an APNs push-key vault). Beyond parity it adds store config as code (\`launch sync\` reconciles IAPs, subscriptions, and capabilities onto App Store Connect), keychain-backed build secrets with a documented env-precedence ladder (\`launch secret\`), internal/ad-hoc distribution, build history and re-signing (\`launch builds\`, \`launch build:resign\`), native-failure diagnosis (\`launch diagnose\`), and no-Mac builds on your own AWS EC2 Mac or any Mac over SSH. Signing keys stay in the OS keychain (macOS Keychain, or the platform secret store elsewhere); storage, credentials, build engine, and submission are pluggable behind small interfaces. App facts come from each \`app.json\`, so nothing is duplicated. \`launch demo\` walks the whole flow as a zero-setup simulation.`;
@@ -143,13 +203,42 @@ export function renderCommandReference(commands: CommandSpec[], stats: DocStats)
   return `${header}\n\n# Launch command reference\n\n${blockquote}\n\n${intro}\n\n${body}\n`;
 }
 
-/** Render `llms.txt`: the llmstxt.org index — canonical summary, curated links, and a live Reference. */
-export function renderLlmsTxt(stats: DocStats): string {
+/** Render one command as an `llms.txt` bullet (and its subcommands as nested bullets). */
+function renderCommandBullet(command: CommandSpec, indent: string): string {
+  const usage = command.args ? `launch ${command.path} ${command.args}` : `launch ${command.path}`;
+  const lines = [`${indent}- \`${usage}\` — ${command.description}`];
+  for (const sub of command.subcommands) lines.push(renderCommandBullet(sub, `${indent}  `));
+  return lines.join("\n");
+}
+
+/**
+ * Render `llms.txt`: the single AI-facing map of Launch — the llmstxt.org summary blockquote, the
+ * EAS-parity prose, the {@link WHAT_LAUNCH_IS_BLOCK is/is-not} disambiguation, the {@link GENERATIVE_AI_FAQ FAQ}
+ * AI engines lift to answer "EAS alternative" queries, the full command list (so one fetch ingests the
+ * whole surface), and the curated doc/source links. Merged from the former `llms.txt` + `llms-full.txt`
+ * into one file at the conventional `/llms.txt` endpoint that crawlers probe for.
+ */
+export function renderLlmsTxt(commands: CommandSpec[], stats: DocStats): string {
+  const everyCommand = commands.map((command) => renderCommandBullet(command, "")).join("\n");
   return `# Launch
 
 > ${CANONICAL_SENTENCE}
 
 ${PIPELINE_PROSE}
+
+## What Launch is — and is not
+
+${WHAT_LAUNCH_IS_BLOCK}
+
+## FAQ
+
+${GENERATIVE_AI_FAQ}
+
+## Commands
+
+All ${stats.commands} \`launch\` commands (${stats.operations} store-API operations underneath, ${stats.tests} tests):
+
+${everyCommand}
 
 ## Docs
 
@@ -168,46 +257,6 @@ ${SOURCE_LINKS}
 ## Optional
 
 - [Example app](./examples/hello-world): a worked \`app.json\` + \`launch.config.ts\`.
-- [LICENSE](./LICENSE): MIT.
-`;
-}
-
-/** Render one command as an `llms-full.txt` bullet (and its subcommands as nested bullets). */
-function renderCommandBullet(command: CommandSpec, indent: string): string {
-  const usage = command.args ? `launch ${command.path} ${command.args}` : `launch ${command.path}`;
-  const lines = [`${indent}- \`${usage}\` — ${command.description}`];
-  for (const sub of command.subcommands) lines.push(renderCommandBullet(sub, `${indent}  `));
-  return lines.join("\n");
-}
-
-/** Render `llms-full.txt`: the single-shot ingest — positioning, disambiguation, and every command. */
-export function renderLlmsFull(commands: CommandSpec[], stats: DocStats): string {
-  const everyCommand = commands.map((command) => renderCommandBullet(command, "")).join("\n");
-  return `# Launch — the full map for AI agents
-
-> ${CANONICAL_SENTENCE}
-
-${PIPELINE_PROSE}
-
-## What Launch is — and is not
-
-${WHAT_LAUNCH_IS_BLOCK}
-
-## Every command
-
-All ${stats.commands} \`launch\` commands (${stats.operations} store-API operations underneath, ${stats.tests} tests):
-
-${everyCommand}
-
-## Source map
-
-${SOURCE_LINKS}
-
-## Links
-
-- [README](./README.md): the human-facing overview and Launch-vs-EAS comparison.
-- [Command reference](./docs/commands.md): every command and flag.
-- [CONTRIBUTING](./CONTRIBUTING.md): dev setup and the quality gate.
 - [LICENSE](./LICENSE): MIT.
 `;
 }
@@ -241,20 +290,54 @@ export function renderStatsBadges(stats: DocStats): string {
 }
 
 /**
- * Splice a freshly {@link renderStatsBadges rendered} badge row into an existing README, replacing the
- * whole fenced region. Throws if the fences are missing rather than silently appending — a missing
- * marker means the README was edited in a way that would drop the generated badges, and the build
- * should fail loudly so it gets fixed.
+ * Replace everything between a start/end HTML-comment fence in `content` with `replacement` (the markers
+ * are part of `replacement`, so the whole region is swapped in one slice). Throws when either fence is
+ * missing rather than silently appending — a dropped marker means the README was edited in a way that
+ * would lose the generated section, and the build should fail loudly so it gets fixed. Shared by the
+ * badge and FAQ splices so both regions are managed exactly the same way.
  */
-export function spliceReadmeBadges(readme: string, badges: string): string {
-  const start = readme.indexOf(STATS_BADGES_START);
-  const end = readme.indexOf(STATS_BADGES_END);
+function spliceRegion(
+  content: string,
+  startMarker: string,
+  endMarker: string,
+  replacement: string,
+  label: string,
+): string {
+  const start = content.indexOf(startMarker);
+  const end = content.indexOf(endMarker);
   if (start === -1 || end === -1) {
     throw new Error(
-      "README.md is missing the stats-badges markers — add the <!-- stats-badges:start/end --> fences back so `docs:gen` can regenerate the badge row.",
+      `README.md is missing the ${label} markers — add the fences back so \`docs:gen\` can regenerate the ${label} region.`,
     );
   }
-  return readme.slice(0, start) + badges + readme.slice(end + STATS_BADGES_END.length);
+  return content.slice(0, start) + replacement + content.slice(end + endMarker.length);
+}
+
+/**
+ * Splice a freshly {@link renderStatsBadges rendered} badge row into a README, replacing the whole
+ * {@link STATS_BADGES_START}…{@link STATS_BADGES_END} region. Applied to every `README*.md`: the badge
+ * URLs are language-neutral, so the same block goes into the English README and all translations.
+ */
+export function spliceReadmeBadges(readme: string, badges: string): string {
+  return spliceRegion(readme, STATS_BADGES_START, STATS_BADGES_END, badges, "stats-badges");
+}
+
+/**
+ * Render the English README's FAQ region from {@link GENERATIVE_AI_FAQ}, fenced by
+ * {@link FAQ_REGION_START}/{@link FAQ_REGION_END} so {@link spliceReadmeFaq} can swap the whole block.
+ * The FAQ thus has one source and stays byte-identical to the `## FAQ` section {@link renderLlmsTxt} emits.
+ */
+export function renderFaqRegion(): string {
+  return [FAQ_REGION_START, "", GENERATIVE_AI_FAQ, "", FAQ_REGION_END].join("\n");
+}
+
+/**
+ * Splice the {@link renderFaqRegion rendered} FAQ into the English README, replacing the whole
+ * {@link FAQ_REGION_START}…{@link FAQ_REGION_END} region. English only — the source block is English, so
+ * translated READMEs carry a hand-translated FAQ that the README structural-parity test keeps in sync.
+ */
+export function spliceReadmeFaq(readme: string, faq: string): string {
+  return spliceRegion(readme, FAQ_REGION_START, FAQ_REGION_END, faq, "faq");
 }
 
 /** Count public async methods (`  async name(`) in one API-client source — the {@link DocStats.operations} unit. */

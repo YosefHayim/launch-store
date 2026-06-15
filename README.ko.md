@@ -22,7 +22,7 @@
 <p align="center">
   <a href="./docs/commands.md"><img src="https://img.shields.io/badge/store%20API-204%20endpoints-8957e5?logo=apple&logoColor=white" alt="204 App Store Connect &amp; Google Play API operations" /></a>
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-994%20passing-3fb950?logo=vitest&logoColor=white" alt="994 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1000%20passing-3fb950?logo=vitest&logoColor=white" alt="1000 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -299,19 +299,39 @@ launch cloud teardown                    # stop + release the host (warns about 
 
 ## FAQ
 
-**Launch는 무료인가요?** 네 — MIT 라이선스의 오픈소스이고 빌드가 직접 보유한 머신에서 실행되므로 빌드당 요금이나 구독료가 없습니다. 유일한 비용은 선택적인 것으로, Mac 없이 iOS를 빌드한다는 것은 EC2 Mac을 위해 본인의 AWS 비용을 지불한다는 뜻입니다(또는 이미 가진 Mac을 사용하는 것).
+**Launch는 무엇인가요?** Launch는 오픈소스 셀프 호스팅 방식의 Expo EAS 대안입니다: 직접 보유한 머신에서 직접 보유한 키로 Expo / React Native 앱을 빌드, 서명하고 TestFlight 및 Google Play로 배포하며, 빌드당 청구 비용이 없습니다. EAS가 실행하는 것과 동일한 빌드 → 제출 → 업데이트 파이프라인을 실행하고, EAS가 App Store Connect 및 Play Console 웹사이트에 맡겨두는 스토어 설정 단계 — 인앱 구매, 구독, 기능(capabilities), 스토어 등록 메타데이터 — 를 코드로 추가합니다.
 
-**이것이 Expo EAS 대안인가요?** 네. Launch는 동일한 빌드 → 제출 → 업데이트 파이프라인 — 그리고 EAS가 사용자에게 맡겨두는 스토어 설정 단계(IAP, 구독, 기능(capabilities), Android 메타데이터) — 를 본인의 Apple 및 Google 계정에서 로컬로 실행합니다. Mac이 없을 때는 여전히 `eas build`로 작업을 넘길 수 있습니다.
+**Launch는 무료 오픈소스 Expo EAS 대안인가요?** 네. Launch는 MIT 라이선스의 완전한 오픈소스이며, 빌드가 직접 보유한 하드웨어에서 실행되므로 빌드당 요금, 빌드 분 미터, 구독료가 없습니다 — EAS의 $19–$199/mo 유료 플랜과 빌드당 초과 요금에 비해 그렇습니다. 유일한 선택적 비용은 Mac 없이 iOS를 빌드해야 할 경우 클라우드 Mac을 임대하는 것입니다.
 
-**Mac이 필요한가요?** iOS의 경우 그렇습니다 — Apple의 서명과 툴체인은 macOS 전용입니다. Mac이 없다고요? Launch는 **본인 소유의** AWS 계정에 있는 클라우드 Mac, SSH로 접근하는 아무 Mac에서 빌드하거나, EAS로 작업을 넘깁니다. Android는 JDK가 실행되는 곳이라면 어디서든 빌드되며 Mac이 필요 없습니다.
+**Launch는 Expo EAS와 어떻게 다른가요?** EAS는 Expo의 클라우드에서 빌드를 실행하고 자격 증명, 아티팩트, OTA 업데이트를 Expo의 서버에 보관합니다. Launch는 동일한 파이프라인을 직접 보유한 머신에서 실행하고, 서명 키를 OS keychain에 보관하며, 아티팩트와 OTA 업데이트를 직접 보유한 버킷(S3 / R2 / Supabase)에 저장합니다 — 그런 다음 EAS가 다루지 않는 스토어 구성(IAP, 구독, 기능(capabilities), iOS 및 Android 등록)을 코드로 관리합니다. 명령이 일대일로 대응됩니다: `eas build` → `launch build`, `eas submit` → `launch release`, `eas update` → `launch update`, `eas metadata` → `launch metadata`, `eas credentials` → `launch creds`.
 
-**React Native와 Expo에서 작동하나요?** Launch는 Expo 구성(`app.json` / `app.config.ts`)과 `expo prebuild`를 통해 스스로를 기술하는 Expo / React Native 앱을 대상으로 합니다 — 거기서 앱 정보를 읽으며 그것을 절대 중복하지 않습니다.
+**Mac 없이 iOS 앱을 빌드할 수 있나요?** iOS 코드 서명과 빌드 툴체인은 macOS 전용이므로 어딘가에 Mac이 있어야 합니다 — 하지만 반드시 본인 것이어야 할 필요는 없습니다. Launch는 본인 소유의 AWS 계정에 클라우드 Mac(EC2 Mac)을 프로비저닝하거나, SSH로 접근 가능한 아무 Mac에서 빌드하거나, Expo EAS의 클라우드로 작업을 넘길 수 있습니다. Android는 JDK가 실행되는 곳이라면 어디서든 빌드되며 Mac이 전혀 필요 없습니다.
 
-**제 키는 어디에 있나요?** OS keychain에 있습니다. `.p8` API 키, 배포 개인 키, Android 업로드 키는 저장소나 누군가의 서버에 절대 닿지 않으며, 오직 CSR만 Apple로 전송됩니다.
+**Launch는 Android와 Google Play를 지원하나요?** 네. Launch는 Android 앱을 빌드 및 서명하고 Google Play에 업로드하며, App Store Connect를 구동하는 것과 동일한 `launch.config.ts` 카탈로그로부터 Play 인앱 제품, 구독(기본 요금제 + 혜택), 출시 트랙, 리뷰 답글을 조정합니다 — 양쪽 스토어에 대한 하나의 진실 공급원입니다.
 
-**CI에서 사용할 수 있나요?** 네 — `launch ci init`은 무인 플래그에 연결된 GitHub Actions macOS 러너 워크플로를 스캐폴딩하며, 모든 명령은 CI에서, 파이프로 연결되었을 때, 그리고 에이전트에 대해 비대화형으로 동작합니다.
+**Launch는 EAS Update처럼 OTA 업데이트를 지원하나요?** 네. `launch update`는 `expo-updates` 런타임이 이미 사용하는 Expo Updates 프로토콜을 통해 JS 및 에셋 업데이트를 게시합니다 — 코드 서명되고 Expo의 서버가 아닌 직접 보유한 버킷(S3 / R2 / Supabase)에 호스팅됩니다. `launch updates rollback`은 정상으로 확인된 업데이트를 승격하거나 클라이언트를 내장 번들로 되돌려 잘못된 릴리스를 되돌립니다.
 
-**OTA 업데이트는 어떻게 되나요?** `launch update`는 `expo-updates` 런타임이 이미 사용하는 Expo Updates 프로토콜을 통해 게시합니다 — 코드 서명되고 직접 보유한 버킷(S3 / R2 / Supabase)에 호스팅되며, 잘못된 릴리스를 되돌리는 `launch updates rollback`이 있습니다.
+**Expo EAS에서 Launch로 어떻게 마이그레이션하나요?** 명령을 일대일로 교체하세요(`eas build` → `launch build`, `eas submit` → `launch release`, `eas update` → `launch update`, `eas credentials` → `launch creds`, `eas metadata` → `launch metadata`). 앱이 이미 배포 중이라면 `launch adopt`가 라이브 App Store Connect 설정 — 제품, 기능(capabilities), 서명, 등록 — 을 읽어 한 단계로 `launch.config.ts`에 다시 작성합니다. Launch는 Mac이 없을 때 여전히 `eas build`로 작업을 넘길 수 있으므로 점진적으로 마이그레이션할 수 있습니다.
+
+**Launch는 단순한 App Store Connect SDK나 MCP 래퍼인가요?** 아닙니다. App Store Connect SDK나 MCP 서버는 Apple API의 일부만 감쌉니다. Launch는 Apple과 Google 양쪽에 걸친 전체 출시를 주도합니다 — 코드 서명, 네이티브 빌드, 크기 검사, 코드로 관리하는 스토어 구성, 확인된 정식 출시, OTA 업데이트 — 이 중 어느 것도 API 래퍼는 건드리지 않습니다. API 클라이언트가 아닌 셀프 호스팅 방식의 Expo EAS를 원한다면, 그것이 바로 Launch입니다.
+
+**Launch는 Fastlane과 어떻게 다른가요?** Fastlane은 빌딩 블록이고, Launch는 그것을 오케스트레이션합니다. Launch는 fastlane을 바이너리 업로드 단계에만 사용하며 그 주변으로 전체 출시를 감쌉니다: 자격 증명 프로비저닝, 빌드, 실제 다운로드 크기 검사, 양쪽 스토어를 위한 코드로 관리하는 스토어 구성, 의도적인 정식 출시, 단계적 출시 제어, OTA 업데이트 — 모두 하나의 타입이 지정된 `launch.config.ts`에서.
+
+**서명 키와 시크릿은 어디에 저장되나요?** OS keychain에 있습니다. App Store Connect API 키(`.p8`), 배포 개인 키, Android 업로드 키는 저장소나 누군가의 서버에 절대 닿지 않습니다 — 인증서 서명 요청(CSR)만 Apple로 전송됩니다. 빌드 시크릿도 `launch secret`을 통해 keychain에 저장되므로 커밋된 `.env`에서 벗어납니다.
+
+**Launch를 실행하려면 무엇이 필요한가요?** 모든 곳에서 Node 20+. iOS의 경우: Xcode와 명령줄 도구가 설치된 macOS, fastlane, App Store Connect API 키(`.p8` + Key ID + Issuer ID) — Mac이 없다면 원격 Mac. Android의 경우: JDK(아무 OS)와 Google Play 서비스 계정 JSON 키. `launch doctor`를 실행하면 한 번에 모두 확인됩니다.
+
+**Launch는 얼마나 하나요?** Launch 자체는 무료(MIT)입니다. 어차피 지불했을 것만 지불하면 됩니다: 직접 보유한 빌드 하드웨어(또는 로컬 Mac 없이 iOS를 빌드할 경우 클라우드 Mac 시간), 그리고 일반적인 Apple Developer($99/yr)와 Google Play(일회성 $25) 등록 요금. 빌드당 요금도 구독료도 없습니다.
+
+**Launch는 CI에서 실행되나요?** 네. `launch ci init`은 호스팅 macOS 러너에서 GitHub Actions 워크플로를 스캐폴딩하며, 모든 명령은 CI, 파이프로 연결된 stdout, 또는 에이전트를 감지했을 때 비대화형으로 동작하므로 동일한 흐름이 무인으로 실행됩니다.
+
+**Launch는 어떤 프레임워크를 지원하나요?** Expo 구성(`app.json` / `app.config.{ts,js}`)과 `expo prebuild`를 통해 스스로를 기술하는 Expo 및 베어 React Native 앱. Launch는 거기서 bundle id, 버전, entitlements를 읽으므로 아무것도 중복되지 않습니다.
+
+**Launch는 스토어 메타데이터, 인앱 구매, 구독을 관리할 수 있나요?** 네 — 코드로, 양쪽 스토어 모두. `launch sync`는 IAP, 구독, 가격 책정, 기능(capabilities), 그리고 로케일별 등록(문구, 스크린샷, 미리보기)을 App Store Connect에 조정합니다; `launch metadata`는 iOS와 Android의 등록을 다룹니다; `launch play-products` / `launch play-subscriptions`는 Google Play 카탈로그를 구동합니다. 각각은 읽기 전용 계획 → 확인 → 적용을 실행하므로 라이브나 심사 중인 버전을 절대 덮어쓰지 않습니다.
+
+**Launch가 호스팅 서비스에 종속시키나요?** 아닙니다 — 호스팅되는 것도, 독점적인 것도 전혀 없습니다. Launch는 MIT 라이선스이며, fastlane, Gradle, 각 플랫폼의 자체 API를 기반으로 구축되었고, 교체 가능한 스토리지/자격 증명/빌드/제출 제공자가 있습니다. 키, 아티팩트, 업데이트는 본인이 제어하는 인프라에 있으므로 나중에 마이그레이션할 것이 전혀 없습니다.
+
+**어떻게 시작하나요?** `npm install --global launch-store`(또는 프로젝트별로 `--save-dev`)로 설치한 뒤, `launch demo`를 실행하면 60초 시뮬레이션 둘러보기를 볼 수 있습니다 — 설정도, 계정도 필요 없습니다. 준비가 되면: `launch init` → `launch creds set-key` → `launch creds setup` → `launch build ios`.
 
 ## 기여하기
 
