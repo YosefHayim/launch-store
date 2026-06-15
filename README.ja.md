@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://github.com/YosefHayim/launch-store"><img src="assets/launch-v3.png" alt="Launch — ビルド・署名して App Store と Google Play へ配信" width="640" /></a>
+  <a href="https://github.com/YosefHayim/launch-store"><img src="assets/launch-v4.png" alt="Launch — ビルド・署名して App Store と Google Play へ配信" width="640" /></a>
 </p>
 
 <p align="center">
