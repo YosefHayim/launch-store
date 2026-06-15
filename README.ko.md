@@ -37,6 +37,10 @@
   <a href="./README.ru.md">Русский</a>
 </p>
 
+<p align="center">
+  📦 <a href="https://github.com/YosefHayim/launch-store/releases">릴리스 및 변경 내역</a>
+</p>
+
 앱을 출시하는 일은 단순한 빌드 그 이상입니다. 서명 설정, [App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console) 구성, 인앱 구매, 스토어 등록 메타데이터, 업로드, 그리고 그 이후의 OTA 업데이트까지 모두 포함됩니다. EAS는 빌드와 제출을 처리하지만, 나머지는 Apple과 Google의 포털과 여러 도구에 흩어져 있습니다. Launch는 **출시 전체**를 하나의 로컬, 선언적 워크플로로 모읍니다. 서명을 프로비저닝하고, 스토어 제품을 조정하고, 네이티브 프로젝트를 생성하고, 바이너리를 빌드 및 서명하고, 실제 기기별 다운로드 크기를 보고하고, 아티팩트를 저장하고, 테스트 트랙으로 업로드합니다. 이 모든 작업이 직접 보유한 하드웨어에서, 로컬 keychain에 남아 있는 키로 이루어집니다. iOS 서명에는 Mac이 필요합니다. Mac이 없다면 Launch는 **본인 소유의** AWS 계정에 있는 클라우드 Mac에서 빌드하거나 Expo EAS로 작업을 넘깁니다 — [Mac 없이 빌드하기](#mac-없이-빌드하기)를 참고하세요.
 
 > **처음이신가요?** `launch demo`를 실행하면 전체 파이프라인을 60초 동안 시뮬레이션한 둘러보기를 볼 수 있습니다 — 설정도, 빌드도, 계정도 필요 없습니다. `launch`를 처음 실행할 때 자동으로 재생되기도 합니다.

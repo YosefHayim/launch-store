@@ -37,6 +37,10 @@
   <b>Русский</b>
 </p>
 
+<p align="center">
+  📦 <a href="https://github.com/YosefHayim/launch-store/releases">Релизы и журнал изменений</a>
+</p>
+
 Выпуск приложения — это не только сборка: настройка подписи, конфигурация [App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console),
 встроенные покупки, метаданные карточки приложения, загрузка и последующие обновления «по воздуху» (OTA).
 EAS собирает и отправляет — всё остальное разбросано по порталам Apple и Google и нескольким инструментам.
