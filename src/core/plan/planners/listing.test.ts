@@ -74,7 +74,12 @@ function makeCtx(api: AscCatalogApi | null, appDir: string): PlanContext {
     configPath: join(appDir, "app.json"),
     bundleId: "com.acme.alpha",
   };
-  return { config, apps: [app], resolveAscApi: () => Promise.resolve(api) };
+  return {
+    config,
+    apps: [app],
+    resolveAscApi: () => Promise.resolve(api),
+    resolvePlayApi: () => Promise.resolve(null),
+  };
 }
 
 describe("listingPlanner", () => {
