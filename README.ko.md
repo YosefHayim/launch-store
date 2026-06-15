@@ -167,8 +167,8 @@ Launch는 직접 보유한 하드웨어에서 동일한 `eas build` → `eas sub
 
 ## 요구 사항
 
-- **iOS:** **Xcode** + 명령줄 도구가 설치된 macOS, **fastlane**(`brew install fastlane`), 그리고 **App Store Connect API 키**(`.p8` + Key ID + Issuer ID) — [여기서 생성하세요](https://appstoreconnect.apple.com/access/integrations/api). Mac이 없다고요? [Mac 없이 빌드하기](#mac-없이-빌드하기)를 참고하세요.
-- **Android:** **JDK**(아무 OS — Mac 불필요)와 **Google Play 서비스 계정** JSON 키.
+- **iOS:** **Apple Developer Program** 멤버십(연 $99) — [여기서 등록하세요](https://developer.apple.com/programs/enroll/) — 그다음 **Xcode** + 명령줄 도구가 설치된 macOS, **fastlane**(`brew install fastlane`), 그리고 **App Store Connect API 키**(`.p8` + Key ID + Issuer ID) — [여기서 생성하세요](https://appstoreconnect.apple.com/access/integrations/api). Mac이 없다고요? [Mac 없이 빌드하기](#mac-없이-빌드하기)를 참고하세요.
+- **Android:** **Google Play 개발자 계정**(일회성 $25) — [여기서 등록하세요](https://play.google.com/console/signup) — 그다음 **JDK**(아무 OS — Mac 불필요)와 **Google Play 서비스 계정** JSON 키.
 - 모든 플랫폼에서 **Node 20+**.
 
 위 항목을 모두 확인하려면 언제든지 `launch doctor`를 실행하세요.

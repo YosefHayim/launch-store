@@ -167,8 +167,8 @@ Launch 在你自己拥有的硬件上运行与 `eas build` → `eas submit` → 
 
 ## 环境要求
 
-- **iOS：** 装有 **Xcode** + 命令行工具、**fastlane**（`brew install fastlane`）的 macOS，以及一把 **App Store Connect API 密钥**（`.p8` + Key ID + Issuer ID）——[在此生成一把](https://appstoreconnect.apple.com/access/integrations/api)。没有 Mac？参见[无 Mac 构建](#无-mac-构建)。
-- **Android：** 一个 **JDK**（任意操作系统——无需 Mac）和一把 **Google Play 服务账户** JSON 密钥。
+- **iOS：** 一个 **Apple Developer Program** 会员资格（99 美元/年）——[在此注册](https://developer.apple.com/programs/enroll/)——然后是装有 **Xcode** + 命令行工具、**fastlane**（`brew install fastlane`）的 macOS，以及一把 **App Store Connect API 密钥**（`.p8` + Key ID + Issuer ID）——[在此生成一把](https://appstoreconnect.apple.com/access/integrations/api)。没有 Mac？参见[无 Mac 构建](#无-mac-构建)。
+- **Android：** 一个 **Google Play 开发者账户**（一次性 25 美元）——[在此注册](https://play.google.com/console/signup)——然后是一个 **JDK**（任意操作系统——无需 Mac）和一把 **Google Play 服务账户** JSON 密钥。
 - 每个平台上都需要 **Node 20+**。
 
 随时运行 `launch doctor` 即可检查上述所有项。

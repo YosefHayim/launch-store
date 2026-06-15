@@ -167,8 +167,8 @@ Launch は、`eas build` → `eas submit` → `eas update` の同じパイプラ
 
 ## 必要要件
 
-- **iOS:** **Xcode** ＋コマンドラインツールが入った macOS、**fastlane**（`brew install fastlane`）、そして **App Store Connect API キー**（`.p8` ＋ Key ID ＋ Issuer ID） — [こちらで生成](https://appstoreconnect.apple.com/access/integrations/api)。Mac がない？ [Mac なしでビルドする](#mac-なしでビルドする) を参照してください。
-- **Android:** **JDK**（任意の OS — Mac は不要）と **Google Play サービスアカウント** の JSON キー。
+- **iOS:** **Apple Developer Program** への登録（年額 99 ドル） — [こちらで登録](https://developer.apple.com/programs/enroll/) — その後、**Xcode** ＋コマンドラインツールが入った macOS、**fastlane**（`brew install fastlane`）、そして **App Store Connect API キー**（`.p8` ＋ Key ID ＋ Issuer ID） — [こちらで生成](https://appstoreconnect.apple.com/access/integrations/api)。Mac がない？ [Mac なしでビルドする](#mac-なしでビルドする) を参照してください。
+- **Android:** **Google Play デベロッパー アカウント**（買い切り 25 ドル） — [こちらで登録](https://play.google.com/console/signup) — その後、**JDK**（任意の OS — Mac は不要）と **Google Play サービスアカウント** の JSON キー。
 - すべてのプラットフォームで **Node 20+**。
 
 `launch doctor` をいつでも実行すれば、上記すべてを確認できます。

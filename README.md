@@ -259,10 +259,10 @@ two differ on the same workflow:
 
 ## Requirements
 
-- **iOS:** macOS with **Xcode** + command-line tools, **fastlane** (`brew install fastlane`), and an
+- **iOS:** an **Apple Developer Program** membership ($99/yr) — [enroll here](https://developer.apple.com/programs/enroll/) — then macOS with **Xcode** + command-line tools, **fastlane** (`brew install fastlane`), and an
   **App Store Connect API key** (`.p8` + Key ID + Issuer ID) — [generate one here](https://appstoreconnect.apple.com/access/integrations/api).
   No Mac? See [Building without a Mac](#building-without-a-mac).
-- **Android:** a **JDK** (any OS — no Mac needed) and a **Google Play service account** JSON key.
+- **Android:** a **Google Play Developer account** (one-time $25) — [register here](https://play.google.com/console/signup) — then a **JDK** (any OS — no Mac needed) and a **Google Play service account** JSON key.
 - **Node 20+** on every platform.
 
 Run `launch doctor` any time to check all of the above.
