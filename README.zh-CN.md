@@ -37,6 +37,10 @@
   <a href="./README.ru.md">Русский</a>
 </p>
 
+<p align="center">
+  📦 <a href="https://github.com/YosefHayim/launch-store/releases">发布与更新日志</a>
+</p>
+
 发布一个应用远不止是一次构建：签名配置、[App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console) 配置、应用内购买、商店列表元数据、上传，以及之后的空中下发（OTA）更新。EAS 负责构建和提交——其余的部分则散落在 Apple 和 Google 的各个门户以及一堆工具之间。Launch 把**整个发布流程**收拢进一套本地的、声明式的工作流：它为你配置签名、协调你的商店产品、生成原生工程、构建并签名二进制文件、报告真实的每设备下载体积、保存构建产物，并上传到测试通道——全部运行在你自己拥有的硬件上，密钥始终留在你本地的钥匙串里。iOS 签名需要一台 Mac；如果你没有，Launch 可以在**你自己的** AWS 账户里用一台云端 Mac 构建，或者交给 Expo EAS——参见[无 Mac 构建](#无-mac-构建)。
 
 > **第一次使用？** 运行 `launch demo`，用 60 秒看一遍整条流水线的模拟演示——无需任何配置、无需构建、无需账户。第一次运行 `launch` 时它也会自动播放。

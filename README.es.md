@@ -37,6 +37,10 @@
   <a href="./README.ru.md">Русский</a>
 </p>
 
+<p align="center">
+  📦 <a href="https://github.com/YosefHayim/launch-store/releases">Versiones y registro de cambios</a>
+</p>
+
 Publicar una app es mucho más que una compilación: configurar la firma, ajustar [App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console), las compras dentro de la app, los metadatos de la ficha, la subida y las actualizaciones over-the-air posteriores. EAS compila y envía — el resto queda disperso entre los portales de Apple y Google y un puñado de herramientas. Launch reúne **toda la publicación** en un único flujo de trabajo local y declarativo: aprovisiona tu firma, reconcilia los productos de tu tienda, genera el proyecto nativo, compila y firma el binario, informa del tamaño de descarga real por dispositivo, almacena el artefacto y lo sube a la pista de pruebas — en hardware de tu propiedad, con claves que permanecen en tu keychain local. La firma de iOS requiere una Mac; si no tienes una, Launch compila en una Mac en la nube dentro de **tu propia** cuenta de AWS o delega en Expo EAS — consulta [Compilar sin una Mac](#compilar-sin-una-mac).
 
 > **¿Eres nuevo aquí?** Ejecuta `launch demo` para un recorrido simulado de 60 segundos de todo el pipeline — sin configuración, sin compilación, sin necesidad de cuenta. También se reproduce automáticamente la primera vez que ejecutas `launch`.

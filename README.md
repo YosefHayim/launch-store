@@ -37,6 +37,10 @@
   <a href="./README.ru.md">Русский</a>
 </p>
 
+<p align="center">
+  📦 <a href="https://github.com/YosefHayim/launch-store/releases">Releases &amp; changelog</a>
+</p>
+
 Shipping an app is more than a build: signing setup, [App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console) config, in-app
 purchases, listing metadata, the upload, and the over-the-air updates after. EAS builds and submits —
 the rest is scattered across Apple's and Google's portals and a handful of tools. Launch pulls the
