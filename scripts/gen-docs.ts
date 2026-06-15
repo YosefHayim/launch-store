@@ -1,0 +1,101 @@
+/**
+ * `npm run docs:gen` — regenerate the committed, generated docs from the live CLI definition:
+ * `docs/commands.md`, `llms.txt`, and `llms-full.txt`. `npm run docs:check` runs the same generation
+ * and fails if any committed file is stale (the per-PR freshness gate in ci.yml), mirroring how
+ * `scripts/gen-asc-types.ts` + the schema-drift workflow keep the ASC types honest.
+ *
+ * This file is just I/O orchestration (not built or linted): it introspects the commander tree from
+ * `src/cli/program.ts`, counts the headline stats from source, then hands the pure rendering to
+ * `src/core/docs/commandDocs.ts` and prettier-formats the result so `format:check` stays green.
+ */
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { Command } from "commander";
+import prettier from "prettier";
+import { buildProgram } from "../src/cli/program.js";
+import {
+  type CommandSpec,
+  type DocStats,
+  type GeneratedDoc,
+  countAsyncMethods,
+  countTestCases,
+  renderCommandReference,
+  renderLlmsFull,
+  renderLlmsTxt,
+} from "../src/core/docs/commandDocs.js";
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+/** Flatten one commander command (and its subcommands) into the {@link CommandSpec} the docs render. */
+function toSpec(command: Command, parentPath: string): CommandSpec {
+  const path = parentPath ? `${parentPath} ${command.name()}` : command.name();
+  const args = command.registeredArguments
+    .map((argument) => {
+      const inner = argument.variadic ? `${argument.name()}...` : argument.name();
+      return argument.required ? `<${inner}>` : `[${inner}]`;
+    })
+    .join(" ");
+  const options = command.options
+    .filter((option) => !option.flags.includes("--help") && !option.flags.includes("--version"))
+    .map((option) => ({ flags: option.flags, description: option.description }));
+  const subcommands = command.commands.map((sub) => toSpec(sub, path));
+  return { path, args, description: command.description(), options, subcommands };
+}
+
+/** Read every `*.test.ts` under `src/` so the test-case count reflects the real suite. */
+function readTestSources(): string[] {
+  return readdirSync(join(ROOT, "src"), { recursive: true, encoding: "utf8" })
+    .filter((entry) => entry.endsWith(".test.ts"))
+    .map((entry) => readFileSync(join(ROOT, "src", entry), "utf8"));
+}
+
+/** Compute the live headline stats: command count, store-API operations, and test cases. */
+function computeStats(commands: CommandSpec[]): DocStats {
+  const operations =
+    countAsyncMethods(readFileSync(join(ROOT, "src/apple/ascClient.ts"), "utf8")) +
+    countAsyncMethods(readFileSync(join(ROOT, "src/google/playClient.ts"), "utf8"));
+  return { commands: commands.length, operations, tests: countTestCases(readTestSources()) };
+}
+
+/** Render all three docs from the live program, prettier-formatted and ready to write or diff. */
+async function generateDocs(): Promise<GeneratedDoc[]> {
+  const commands = buildProgram().commands.map((command) => toSpec(command, ""));
+  const stats = computeStats(commands);
+  const raw: GeneratedDoc[] = [
+    { path: "docs/commands.md", body: renderCommandReference(commands, stats) },
+    { path: "llms.txt", body: renderLlmsTxt(stats) },
+    { path: "llms-full.txt", body: renderLlmsFull(commands, stats) },
+  ];
+  return Promise.all(
+    raw.map(async ({ path, body }) => {
+      const config = await prettier.resolveConfig(join(ROOT, path));
+      return { path, body: await prettier.format(body, { ...config, parser: "markdown" }) };
+    }),
+  );
+}
+
+async function main(): Promise<void> {
+  const check = process.argv.includes("--check");
+  const docs = await generateDocs();
+  const stale: string[] = [];
+  for (const { path, body } of docs) {
+    const absolute = join(ROOT, path);
+    if (check) {
+      const current = readFileSync(absolute, "utf8");
+      if (current !== body) stale.push(path);
+    } else {
+      writeFileSync(absolute, body);
+      process.stdout.write(`Wrote ${path}\n`);
+    }
+  }
+  if (check && stale.length > 0) {
+    process.stderr.write(
+      `Generated docs are stale: ${stale.join(", ")}. Run \`npm run docs:gen\` and commit the result.\n`,
+    );
+    process.exit(1);
+  }
+  if (check) process.stdout.write("Docs are in sync with the CLI.\n");
+}
+
+await main();
