@@ -280,6 +280,9 @@ inline. Public release is the separate, deliberate `launch release <platform>`.
 Selling in-app purchases or subscriptions? Declare them in `launch.config.ts` and run `launch sync` to
 create and reconcile them on App Store Connect — no clicking through the portal.
 
+Already shipping an app? `launch adopt` reads your live App Store Connect setup — products, capabilities,
+signing, and listing — and writes it back into config in one step, so you can drive it forward with `sync`.
+
 ## Commands
 
 The everyday ones:
@@ -290,10 +293,11 @@ The everyday ones:
 | `launch release <ios\|android>` | Ship the latest build to the **public** store, with confirmation.                       |
 | `launch update`                 | Publish an over-the-air JS update (Expo Updates protocol) to your own bucket.           |
 | `launch sync`                   | Reconcile App Store Connect products, pricing, and the listing from `launch.config.ts`. |
+| `launch adopt`                  | Onboard an app that already ships — import its App Store Connect setup into config.     |
 | `launch creds`                  | Inspect credentials, import the API key, provision signing, switch Apple accounts.      |
 | `launch doctor`                 | Check that the local toolchain and store account are ready.                             |
 
-**[Full command reference → `docs/commands.md`](docs/commands.md)** — all 43 commands and every flag, generated from the CLI so it never drifts. Or run `launch <command> --help`.
+**[Full command reference → `docs/commands.md`](docs/commands.md)** — all 44 commands and every flag, generated from the CLI so it never drifts. Or run `launch <command> --help`.
 
 ## Configuration
 
