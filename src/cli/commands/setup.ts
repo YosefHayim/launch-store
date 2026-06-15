@@ -19,6 +19,7 @@ import type { AscKey } from "../../core/types.js";
 import { getActiveAccount, listAccounts, loadAscKeyById, matchAccount } from "../../core/accounts.js";
 import { loadConfig } from "../../core/config.js";
 import { createLogger } from "../../core/logger.js";
+import { type SetupOptions, runSetup } from "../../core/setup.js";
 import { interactiveConfirm, selectApp } from "../../core/pipeline.js";
 import { AppStoreConnectClient, AscRequestError } from "../../apple/ascClient.js";
 import { ensureSigningCredentials, loadCachedSigningAssets } from "../../apple/credentials.js";
@@ -171,9 +172,38 @@ async function reportSetupIos(options: SetupIosOptions): Promise<void> {
   console.log(options.json ? JSON.stringify(report, null, 2) : formatReport(report));
 }
 
-/** Attach the `setup` command (with the `ios` subcommand) to the program. */
+/** Flags accepted by the bare `launch setup` auto-setup action (the parent command). */
+interface SetupCommandOptions {
+  /** Which platform to get ready (`--platform`); defaults to iOS. */
+  platform?: string;
+  /** Skip prompts and install missing tools (`--yes`) — for CI/agents. */
+  yes?: boolean;
+  /** Run the dry-run rehearsal at the end; `--no-rehearse` sets this false. */
+  rehearse?: boolean;
+}
+
+/** Validate the platform flag and normalize the command flags into {@link SetupOptions}. */
+function toSetupOptions(options: SetupCommandOptions): SetupOptions {
+  const platform = options.platform ?? "ios";
+  if (platform !== "ios" && platform !== "android") {
+    throw new Error(`Unknown platform "${platform}". Use "ios" or "android".`);
+  }
+  return { platform, yes: options.yes === true, rehearse: options.rehearse !== false };
+}
+
+/**
+ * Attach the `setup` command to the program. Bare `launch setup` runs the hands-off auto-setup
+ * ({@link runSetup}: scaffold, install tools, verify, rehearse); `launch setup ios` is the detailed
+ * iOS provisioning report below.
+ */
 export function registerSetupCommand(program: Command): void {
-  const setup = program.command("setup").description("inspect & prepare an app's store provisioning");
+  const setup = program
+    .command("setup")
+    .description("set Launch up automatically and verify everything's ready to ship")
+    .option("--platform <p>", "ios (default) or android")
+    .option("--yes", "non-interactive: install missing tools without asking (CI/agents)", false)
+    .option("--no-rehearse", "skip the dry-run pipeline rehearsal at the end")
+    .action((options: SetupCommandOptions) => runSetup(toSetupOptions(options)));
   setup
     .command("ios")
     .description("report iOS signing & provisioning status (account, App ID, capabilities, cert, profile, devices)")

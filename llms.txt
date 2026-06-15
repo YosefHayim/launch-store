@@ -48,7 +48,7 @@ Launch runs the EAS pipeline locally: prebuild → resolve credentials → compi
 
 ## Commands
 
-All 44 `launch` commands (204 store-API operations underneath, 1027 tests):
+All 44 `launch` commands (204 store-API operations underneath, 1033 tests):
 
 - `launch init` — scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` — onboard an app that already ships: import its App Store Connect setup into config
@@ -114,7 +114,7 @@ All 44 `launch` commands (204 store-API operations underneath, 1027 tests):
   - `launch events create <referenceName>` — create a draft in-app event
   - `launch events localize <eventId>` — set (or update) one locale's copy on an event
   - `launch events delete <eventId>` — delete a draft in-app event
-- `launch setup` — inspect & prepare an app's store provisioning
+- `launch setup` — set Launch up automatically and verify everything's ready to ship
   - `launch setup ios` — report iOS signing & provisioning status (account, App ID, capabilities, cert, profile, devices)
 - `launch sandbox` — list StoreKit sandbox testers and clear their purchase history
   - `launch sandbox list` — list the account's sandbox testers
