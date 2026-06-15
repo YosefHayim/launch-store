@@ -11,11 +11,10 @@
  * exporting, signing, or uploading. `--no-sign` publishes unsigned (lower security floor; see `--help`).
  */
 
-import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Command } from "commander";
-import type { AppDescriptor, LaunchConfig } from "../../core/types.js";
+import type { AppDescriptor } from "../../core/types.js";
 import { loadConfig } from "../../core/config.js";
 import { resolveCommandEnv, selectApp, validateResolvedEnv } from "../../core/pipeline.js";
 import { formatEnvTable } from "../../core/env.js";
@@ -24,22 +23,8 @@ import { createLogger, type Logger } from "../../core/logger.js";
 import { runWithProgress } from "../../core/progress.js";
 import { isCloudStorage, resolveStorageProvider } from "../../core/storage.js";
 import { ensureCodeSigner } from "../../core/codeSign.js";
-import {
-  assembleManifest,
-  contentTypeFor,
-  historySnapshotKey,
-  manifestKey,
-  manifestSignatureKey,
-  updatesAppConfigSnippet,
-  updatesWorkerScript,
-  type ManifestAsset,
-} from "../../core/otaManifest.js";
-import { clearRollbackDirective, recordPublish } from "../../core/updateHistory.js";
-
-/** The subset of `expo export`'s `metadata.json` Launch reads: per-platform bundle + asset paths. */
-interface ExportMetadata {
-  fileMetadata: Record<string, { bundle: string; assets: { path: string; ext: string }[] }>;
-}
+import { updatesAppConfigSnippet, updatesWorkerScript } from "../../core/otaManifest.js";
+import { publishOtaPlatform, readExportMetadata } from "../../core/otaPublish.js";
 
 interface UpdateOptions extends EnvFlags {
   channel: string;
@@ -80,80 +65,6 @@ export function resolveRuntimeVersion(app: AppDescriptor, override: string | und
   }
   if (app.version) return app.version;
   throw new Error("Could not resolve a runtime version. Pass --runtime-version <v> (e.g. 1.0.0).");
-}
-
-/** Read and parse `metadata.json` from an `expo export` output directory. */
-function readExportMetadata(distDir: string): ExportMetadata {
-  const path = join(distDir, "metadata.json");
-  if (!existsSync(path)) throw new Error(`No metadata.json in ${distDir} — did \`expo export\` run?`);
-  return JSON.parse(readFileSync(path, "utf8")) as ExportMetadata;
-}
-
-/**
- * Publish one platform's manifest: upload the bundle + assets, assemble + sign the manifest, and upload
- * it with its signature. Returns the public worker-relative path the manifest now lives at.
- */
-async function publishPlatform(
-  config: LaunchConfig,
-  distDir: string,
-  metadata: ExportMetadata,
-  platform: "ios" | "android",
-  channel: string,
-  runtimeVersion: string,
-  sign: boolean,
-  log: Logger,
-): Promise<void> {
-  const platformMeta = metadata.fileMetadata[platform];
-  if (!platformMeta) {
-    log.warn(`No ${platform} bundle in the export — skipping.`);
-    return;
-  }
-  const storage = resolveStorageProvider(config);
-  const prefix = `updates/${channel}/${platform}/${runtimeVersion}`;
-
-  /** Upload one exported file and return its manifest asset entry. */
-  const upload = async (relativePath: string, ext?: string): Promise<ManifestAsset> => {
-    const key = `${prefix}/${relativePath}`;
-    await storage.putObject(key, readFileSync(join(distDir, relativePath)), contentTypeFor(relativePath));
-    const base: ManifestAsset = {
-      key: relativePath,
-      contentType: contentTypeFor(relativePath),
-      url: storage.publicUrl(key),
-    };
-    return ext ? { ...base, fileExtension: `.${ext}` } : base;
-  };
-
-  const launchAsset = await upload(platformMeta.bundle);
-  const assets = await Promise.all(platformMeta.assets.map((asset) => upload(asset.path, asset.ext)));
-
-  const manifest = assembleManifest({
-    id: randomUUID(),
-    createdAt: new Date().toISOString(),
-    runtimeVersion,
-    launchAsset,
-    assets,
-  });
-  const body = JSON.stringify(manifest);
-  await storage.putObject(manifestKey(channel, platform, runtimeVersion), body, "application/json");
-  // Immutable snapshot so `launch updates view`/`rollback` can read this exact manifest back later.
-  await storage.putObject(historySnapshotKey(channel, platform, runtimeVersion, manifest.id), body, "application/json");
-
-  if (sign) {
-    const signer = await ensureCodeSigner(false, log);
-    await storage.putObject(manifestSignatureKey(channel, platform, runtimeVersion), signer.sign(body), "text/plain");
-  }
-
-  await recordPublish(storage, channel, platform, {
-    id: manifest.id,
-    runtimeVersion,
-    createdAt: manifest.createdAt,
-    active: true,
-    signed: sign,
-    kind: "publish",
-  });
-  // A fresh publish supersedes any prior `--to-embedded` rollback for this runtime version.
-  await clearRollbackDirective(storage, channel, platform, runtimeVersion);
-  log.step("update", `${platform} · ${assets.length} asset(s) → ${prefix}/`, "ota-update");
 }
 
 /** Attach the `update` command to the program. */
@@ -220,8 +131,13 @@ export function registerUpdateCommand(program: Command): void {
       env: resolvedEnv.values,
     });
     const metadata = readExportMetadata(distDir);
+    // Resolve the signer once for the whole run (idempotent; `--no-sign` publishes unsigned).
+    const signer = options.sign ? await ensureCodeSigner(false, log) : null;
     for (const platform of platforms) {
-      await publishPlatform(config, distDir, metadata, platform, options.channel, runtimeVersion, options.sign, log);
+      await publishOtaPlatform(
+        { storage, distDir, metadata, platform, channel: options.channel, runtimeVersion, signer },
+        log,
+      );
     }
 
     // Upload the edge worker so the static manifests are servable over the protocol.
