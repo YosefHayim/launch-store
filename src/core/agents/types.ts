@@ -10,7 +10,8 @@
  *
  * Two audiences live here. {@link ConsumerSkill}s teach an agent to DRIVE Launch inside a user's own
  * Expo / React Native app (scaffolded into their repo by `launch agents init`); {@link ContributorRule}s
- * teach an agent to WORK ON the launch-store codebase (committed here, generated beside the other docs).
+ * (Cursor) and {@link ContributorSkill}s (Claude) teach an agent to WORK ON the launch-store codebase
+ * (committed here, generated beside the other docs and gated by `docs:check`).
  */
 
 /** Which coding agent a generated artifact targets. */
@@ -130,9 +131,38 @@ export interface ContributorRule {
 }
 
 /**
+ * A contributor-facing, task-scoped skill for working ON the launch-store codebase — the Claude Skills
+ * counterpart to {@link ContributorRule} (which targets Cursor). Rendered to `.claude/skills/<id>/SKILL.md`
+ * by `npm run docs:gen` and gated by `docs:check`, so a committed recipe can't drift from the registry.
+ *
+ * Unlike a {@link ConsumerSkill}, the `steps` are free-form markdown (npm scripts, file edits, prose) — a
+ * contributor recipe describes the repo's own workflow, not the `launch` CLI surface, so there is no live
+ * program command to validate them against (and {@link import("./validate.js").findUnknownCommands} only
+ * walks {@link ConsumerSkill}s). `AGENTS.md` stays the canonical prose; these add Claude-native, intent-
+ * triggered task recipes on top of it.
+ */
+export interface ContributorSkill {
+  /** kebab-case id and file stem → `.claude/skills/<id>/SKILL.md`, e.g. `run-the-gate`. */
+  id: string;
+  /** human title for the skill heading, e.g. `Run the validation gate`. */
+  title: string;
+  /** third-person, intent-first triggering description Claude matches on to reach for this skill. */
+  description: string;
+  /** intent phrases the skill should fire on, rendered into the "Use this when…" list. */
+  triggers: string[];
+  /** the ordered recipe as free-form markdown lines (commands, edits) — NOT validated launch commands. */
+  steps: string[];
+  /** curated workflow prose (markdown) after the recipe; defers to `AGENTS.md` for the full conventions. */
+  body: string;
+  /** skill-specific cautions layered on top of the base context's rails. */
+  cautions?: string[];
+}
+
+/**
  * A rendered artifact: a path relative to the repo it is written into, plus the full file contents.
  * Consumer files are written into a user's repo by `launch agents init`; contributor files are written
- * here under `.cursor/rules/` by `npm run docs:gen` and gated by `docs:check`.
+ * here under `.cursor/rules/` (Cursor) and `.claude/skills/` (Claude) by `npm run docs:gen` and gated by
+ * `docs:check`.
  */
 export interface GeneratedAgentFile {
   /** path relative to the target repo root, e.g. `.claude/skills/launch-ship/SKILL.md`. */

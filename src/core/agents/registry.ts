@@ -4,14 +4,15 @@
  * This is the single source the renderers ({@link import("./render.js")}) turn into Claude Skills,
  * Cursor Rules, and the `AGENTS.md` Launch section — so the same prose can't drift across three agents.
  * Two audiences: {@link CONSUMER_SKILLS} + {@link BASE_CONTEXT} teach an agent to DRIVE Launch in a
- * user's own app (scaffolded by `launch agents init`); {@link CONTRIBUTOR_RULES} teach an agent to work
- * ON launch-store (emitted under `.cursor/rules/` by `npm run docs:gen`, gated by `docs:check`).
+ * user's own app (scaffolded by `launch agents init`); {@link CONTRIBUTOR_RULES} (Cursor) and
+ * {@link CONTRIBUTOR_SKILLS} (Claude) teach an agent to work ON launch-store (emitted under
+ * `.cursor/rules/` and `.claude/skills/` by `npm run docs:gen`, gated by `docs:check`).
  *
  * Every command a skill names is a structured {@link SkillStep} so {@link import("./validate.js")} can
  * assert it still resolves in the live `launch` program — a renamed or removed command fails the build.
  */
 
-import type { BaseContext, ConsumerSkill, ContributorRule } from "./types.js";
+import type { BaseContext, ConsumerSkill, ContributorRule, ContributorSkill } from "./types.js";
 
 /**
  * The always-on context every agent gets in a Launch repo. Derived from `AGENTS.md`, the README, and
@@ -373,6 +374,101 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
       "All child processes go through `src/core/exec.ts` — `run` streams output, `capture` collects stdout — both with `shell: false` and an explicit argv array. Never build a shell string or call `spawn` / `exec` directly.",
       "",
       "- Secrets (`.p8` / `.p12` / keystore / private keys) live in the OS keychain via the secret store; `~/.launch` holds non-secret paths and ids only. Don't log, write, or commit key material.",
+    ].join("\n"),
+  },
+];
+
+/**
+ * Claude Skills for working ON launch-store — the task-recipe counterpart to {@link CONTRIBUTOR_RULES}
+ * (which are Cursor's path-scoped rules). Each is a repeatable contributor workflow that today lives only
+ * as `AGENTS.md` prose; rendered to `.claude/skills/<id>/SKILL.md` by `npm run docs:gen` and gated by
+ * `docs:check`. The relative links resolve from a skill file's directory (`.claude/skills/<id>/`), so they
+ * climb three levels to the repo root. Steps are guidance only — nothing here auto-executes.
+ */
+export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
+  {
+    id: "run-the-gate",
+    title: "Run the validation gate",
+    description:
+      "Use when finishing or verifying a change to launch-store — run the full typecheck, lint, test, build, format, and docs gate that must be green before a change is done or a PR merges.",
+    triggers: [
+      "you finished a change and need to confirm it's green before calling it done",
+      "CI failed and you want to reproduce the gate locally",
+      "before opening or squash-merging a PR",
+    ],
+    steps: [
+      "`npm run typecheck && npm run lint && npm run test && npm run build` — the four core gates.",
+      "`npm run format:check` — prettier; CI enforces it even though the husky pre-commit hook formats on commit, so run it yourself before pushing.",
+      "`npm run docs:check` — fails if the generated docs (`docs/commands.md`, `llms.txt`, `.cursor/rules/*`, `.claude/skills/*`, README badges) drifted from the CLI; run `npm run docs:gen` and commit the result if it does.",
+    ],
+    body: [
+      "All gates must be green before a change is done. The husky pre-commit hook runs lint + format + typecheck but **not** the tests and **can** be bypassed, so run the full line yourself. Add a `*.test.ts` beside any new logic.",
+      "",
+      "See [AGENTS.md](../../../AGENTS.md) → “Before you call a change done”.",
+    ].join("\n"),
+  },
+  {
+    id: "add-a-provider",
+    title: "Add a provider backend",
+    description:
+      "Use when adding or changing a build, storage, credentials, submit, or compute backend in launch-store — implement one of the five provider interfaces and register it, without touching the pipeline.",
+    triggers: [
+      "adding a new storage / build / submit / credentials / compute backend",
+      "wiring a new SDK behind one of Launch's provider interfaces",
+    ],
+    steps: [
+      "Pick one of the five interfaces in `src/core/types.ts`: `BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`.",
+      "Implement it as a named object in `src/providers/<kind>/<name>.ts`, setting `name` to the value users put in `launch.config.ts`.",
+      "Register it in `src/providers/index.ts` (`registerBuiltins()`). The pipeline resolves a provider by its `name`, so you never edit `src/core/pipeline.ts` to add one.",
+      "Lazy-load any heavy or optional SDK through `requireOptional` in `src/core/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.",
+      "Add a `*.test.ts` beside the provider, then run the gate (see the `run-the-gate` skill).",
+    ],
+    body: [
+      "Adding a backend never edits the pipeline — that is the whole point of the registry: implement the interface, register the name, done.",
+      "",
+      "See [AGENTS.md](../../../AGENTS.md) → “Adding a backend = implement an interface + register it” for the worked S3 example.",
+    ].join("\n"),
+    cautions: [
+      "All child processes go through `src/core/exec.ts` (`run` / `capture`, `shell: false`, explicit argv) — never build a shell string or call `spawn` / `exec` directly.",
+      "Secrets stay in the OS keychain; `~/.launch` holds non-secret paths and ids only. Don't log, write, or commit key material.",
+    ],
+  },
+  {
+    id: "add-a-command",
+    title: "Add a launch CLI command",
+    description:
+      "Use when adding a new top-level `launch` command or subcommand — wire it as thin commander code and regenerate the docs the CLI surface drives.",
+    triggers: [
+      "adding a new `launch <command>` or subcommand",
+      "a `docs:check` failure after changing the CLI surface",
+    ],
+    steps: [
+      "Add the command as thin commander wiring in `src/cli/commands/` and register its `register*Command` in `src/cli/program.ts`'s `buildProgram()`. Keep domain logic in `src/core`, not the CLI layer.",
+      "Run `npm run docs:gen` — it introspects `buildProgram()` and regenerates `docs/commands.md`, `llms.txt`, the README stats badges, and the committed `.cursor/rules` / `.claude/skills`.",
+      "Commit the regenerated files; `npm run docs:check` (CI) fails if they drift.",
+      "Add a `*.test.ts` beside the new logic, then run the gate.",
+    ],
+    body: [
+      "The docs are generated from the live `buildProgram()` in `src/cli/program.ts`, so a new command surfaces in the reference automatically once you run `docs:gen` — never hand-edit the generated files.",
+      "",
+      "See [AGENTS.md](../../../AGENTS.md).",
+    ].join("\n"),
+  },
+  {
+    id: "add-a-glossary-topic",
+    title: "Add a glossary topic",
+    description:
+      "Use when adding teaching text for a concept or step in launch-store — add it to the single glossary source that feeds both `launch explain` and the `--explain` step expansions.",
+    triggers: ["adding a `launch explain` topic", "adding teaching text for a new concept, step, or store term"],
+    steps: [
+      "Add the topic to `src/core/glossary.ts` — the single source for teaching text. It feeds both `launch explain` and the `--explain` step expansions; never duplicate the strings elsewhere.",
+      "Bump the topic count in `src/core/glossary.test.ts` (`expect(topics.length).toBe(N)`) by the number of topics you added, and add a `toContain(...)` assertion per new topic.",
+      "Run the gate.",
+    ],
+    body: [
+      "The `toBe(N)` count is a known merge hotspot: if a concurrent PR also added a topic, the count collides. On rebase, **sum** both additions rather than taking one side, and keep both topics.",
+      "",
+      "See [AGENTS.md](../../../AGENTS.md).",
     ].join("\n"),
   },
 ];
