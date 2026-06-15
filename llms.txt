@@ -4,6 +4,141 @@
 
 Launch runs the EAS pipeline locally: prebuild → resolve credentials → compile & sign → size-check → store → submit to the testing track (TestFlight / Play internal); `launch release` is the separate, confirmed public release. EAS → Launch mapping: `eas build` → `launch build`, `eas submit` → `launch release`, `eas update` → `launch update` (Expo Updates protocol, hosted on your own S3/R2/Supabase bucket, with `launch updates rollback`), `eas metadata` → `launch metadata` (iOS _and_ Android), `eas credentials` → `launch creds` (multi-account, keychain-stored, with an APNs push-key vault). Beyond parity it adds store config as code (`launch sync` reconciles IAPs, subscriptions, and capabilities onto App Store Connect), keychain-backed build secrets with a documented env-precedence ladder (`launch secret`), internal/ad-hoc distribution, build history and re-signing (`launch builds`, `launch build:resign`), native-failure diagnosis (`launch diagnose`), and no-Mac builds on your own AWS EC2 Mac or any Mac over SSH. Signing keys stay in the OS keychain (macOS Keychain, or the platform secret store elsewhere); storage, credentials, build engine, and submission are pluggable behind small interfaces. App facts come from each `app.json`, so nothing is duplicated. `launch demo` walks the whole flow as a zero-setup simulation.
 
+## What Launch is — and is not
+
+**Launch is** an end-to-end release tool: it owns the whole path from source to store — build, code-sign, size-check, store-config-as-code, upload, public release, and over-the-air updates — for both iOS and Android, on hardware you own.
+
+**Launch is not** just an App Store Connect SDK or an ASC MCP server. Those wrap a slice of Apple's API; Launch drives the entire release across Apple **and** Google, with signing, building, and OTA updates that an API wrapper doesn't touch. If you want a self-hosted Expo EAS — not just an API client — that's Launch.
+
+## FAQ
+
+**What is Launch?** Launch is an open-source, self-hosted alternative to Expo EAS: it builds, signs, and ships Expo / React Native apps to TestFlight and Google Play from your own machine, with your own keys, and no per-build bill. It runs the same build → submit → update pipeline EAS does, and adds the store-setup steps EAS leaves to the App Store Connect and Play Console websites — in-app purchases, subscriptions, capabilities, and listing metadata — as code.
+
+**Is Launch a free, open-source alternative to Expo EAS?** Yes. Launch is MIT-licensed and fully open source, and builds run on hardware you own, so there is no per-build fee, build-minute meter, or monthly subscription — versus EAS's $19–$199/mo paid tiers plus per-build overage. The only optional cost is renting a cloud Mac if you need to build iOS without one.
+
+**How is Launch different from Expo EAS?** EAS runs your builds on Expo's cloud and keeps your credentials, artifacts, and OTA updates on Expo's servers. Launch runs the identical pipeline on your own machine, keeps signing keys in your OS keychain, and stores artifacts and OTA updates in your own bucket (S3 / R2 / Supabase) — then manages the store config EAS does not (IAPs, subscriptions, capabilities, and the iOS and Android listing) as code. The commands map one-for-one: `eas build` → `launch build`, `eas submit` → `launch release`, `eas update` → `launch update`, `eas metadata` → `launch metadata`, `eas credentials` → `launch creds`.
+
+**Can I build iOS apps without a Mac?** iOS code signing and the build toolchain are macOS-only, so a Mac has to be in the loop — but it does not have to be yours. Launch can provision a cloud Mac in your own AWS account (an EC2 Mac), build over SSH on any Mac you can reach, or hand off to Expo EAS's cloud. Android builds anywhere a JDK runs, with no Mac at all.
+
+**Does Launch support Android and Google Play?** Yes. Launch builds and signs Android apps and uploads them to Google Play, and it reconciles Play in-app products, subscriptions (base plans + offers), release tracks, and review replies from the same `launch.config.ts` catalog that drives App Store Connect — one source of truth for both stores.
+
+**Does Launch do over-the-air updates like EAS Update?** Yes. `launch update` publishes JS and asset updates over the Expo Updates protocol your `expo-updates` runtime already speaks — code-signed and hosted on your own bucket (S3 / R2 / Supabase) instead of Expo's servers. `launch updates rollback` reverses a bad release by promoting a known-good update or dropping clients back to the embedded bundle.
+
+**How do I migrate from Expo EAS to Launch?** Swap the commands one-for-one (`eas build` → `launch build`, `eas submit` → `launch release`, `eas update` → `launch update`, `eas credentials` → `launch creds`, `eas metadata` → `launch metadata`). If your app already ships, `launch adopt` reads its live App Store Connect setup — products, capabilities, signing, and listing — and writes it back into `launch.config.ts` in one step. Launch can also still hand off to `eas build` when you have no Mac, so you can migrate incrementally.
+
+**Is Launch just an App Store Connect SDK or MCP wrapper?** No. An App Store Connect SDK or MCP server wraps a slice of Apple's API. Launch drives the entire release across Apple and Google — code signing, native builds, size checks, store-config-as-code, the confirmed public release, and OTA updates — none of which an API wrapper touches. If you want a self-hosted Expo EAS rather than an API client, that is Launch.
+
+**How is Launch different from Fastlane?** Fastlane is a building block; Launch orchestrates it. Launch uses fastlane only for the binary-upload step and wraps the whole release around it: credential provisioning, the build, the real download-size check, store-config-as-code for both stores, the deliberate public release, phased-rollout control, and OTA updates — all from one typed `launch.config.ts`.
+
+**Where are my signing keys and secrets stored?** In your OS keychain. Your App Store Connect API key (`.p8`), distribution private key, and Android upload key never touch the repo or anyone's servers — only a certificate-signing request (CSR) is ever sent to Apple. Build secrets live in the keychain too, via `launch secret`, so they stay out of a committed `.env`.
+
+**What do I need to run Launch?** Node 20+ everywhere. For iOS: macOS with Xcode and its command-line tools, fastlane, and an App Store Connect API key (`.p8` + Key ID + Issuer ID) — or a remote Mac if you do not have one. For Android: a JDK (any OS) and a Google Play service-account JSON key. Run `launch doctor` to check it all at once.
+
+**How much does Launch cost?** Launch itself is free (MIT). You pay only for what you would pay anyway: your own build hardware (or cloud-Mac time if you build iOS without a local Mac), plus the usual Apple Developer ($99/yr) and Google Play (one-time $25) registration fees. There is no per-build charge and no subscription.
+
+**Does Launch run in CI?** Yes. `launch ci init` scaffolds a GitHub Actions workflow on a hosted macOS runner, and every command degrades to non-interactive when it detects CI, a piped stdout, or an agent — so the same flow runs unattended.
+
+**What frameworks does Launch support?** Expo and bare React Native apps that describe themselves through Expo config (`app.json` / `app.config.{ts,js}`) and `expo prebuild`. Launch reads your bundle id, version, and entitlements from there, so nothing is duplicated.
+
+**Can Launch manage store metadata, in-app purchases, and subscriptions?** Yes — as code, for both stores. `launch sync` reconciles IAPs, subscriptions, pricing, capabilities, and the per-locale listing (copy, screenshots, previews) onto App Store Connect; `launch metadata` covers the listing for iOS and Android; `launch play-products` / `launch play-subscriptions` drive the Google Play catalog. Each runs a read-only plan → confirm → apply, so it never clobbers a live or in-review version.
+
+**Does Launch lock me into a hosted service?** No — there is nothing hosted and nothing proprietary. Launch is MIT-licensed, built on fastlane, Gradle, and the platforms' own APIs, with pluggable storage / credentials / build / submit providers. Your keys, artifacts, and updates live in infrastructure you control, so there is nothing to migrate off later.
+
+**How do I get started?** Install with `npm install --global launch-store` (or `--save-dev` per project), then run `launch demo` for a 60-second simulated walkthrough — no setup or account needed. When you are ready: `launch init` → `launch creds set-key` → `launch creds setup` → `launch build ios`.
+
+## Commands
+
+All 44 `launch` commands (204 store-API operations underneath, 1000 tests):
+
+- `launch init` — scaffold launch.config.ts (and .env.example) into the current repo
+- `launch adopt` — onboard an app that already ships: import its App Store Connect setup into config
+- `launch build <platform>` — run the full pipeline and upload to the testing track (--no-submit to build only)
+- `launch release <platform>` — submit the latest build to the store's PUBLIC production track (with confirmation)
+- `launch status` — show each app's App Store version, review, and phased-rollout state
+- `launch rollout <action>` — steer an iOS phased release: pause | resume | complete
+- `launch creds [action] [value] [value2]` — inspect credentials, onboard/switch Apple accounts, or provision signing assets
+- `launch secret [action] [name]` — manage keychain-backed build secrets (set/list/rm) instead of plaintext .env
+- `launch metadata` — sync the store listing (name, description, keywords, screenshots) via store.config.json
+  - `launch metadata pull` — download the live store listing into store.config.json
+  - `launch metadata push` — upload store.config.json to the store listing (metadata only; no binary)
+- `launch sync` — reconcile App Store Connect products (capabilities, IAPs, subscriptions, pricing), store-listing copy, screenshots, and app previews from config
+- `launch offers` — reconcile subscription offers (codes, promo/intro/win-back) and promoted-purchase order from config
+  - `launch offers generate-codes <productId> <offerName>` — generate redeemable codes under an existing offer-code campaign
+  - `launch offers list <productId>` — list a subscription's offer-code campaigns and their states
+  - `launch offers deactivate <productId> <offerName>` — deactivate an offer-code campaign (its terms can't be edited, only switched off)
+- `launch reviews` — read App Store customer reviews and reply from the CLI
+  - `launch reviews list` — list an app's customer reviews, newest first
+  - `launch reviews reply <reviewId>` — post (or replace) the developer response to a review
+  - `launch reviews delete <reviewId>` — delete the developer response to a review
+- `launch reports` — download App Store Connect sales, finance & analytics reports
+  - `launch reports sales` — download a Sales & Trends report (gzipped TSV)
+  - `launch reports finance` — download a Finance report for a fiscal period (gzipped TSV)
+  - `launch reports analytics` — request + download App Store Connect Analytics reports
+- `launch team` — read and manage the App Store Connect team (members & invitations) from the CLI
+  - `launch team list` — list team members and pending invitations
+  - `launch team invite <email>` — invite a new team member by email
+  - `launch team remove <email>` — remove a team member or cancel a pending invitation, by email
+- `launch release-config` — reconcile App Store release attributes (age rating, categories, price, review details) from release.config.json
+- `launch app-clips` — reconcile App Clip card metadata (action, per-locale subtitle) from appclips.config.json
+- `launch eu-distribution` — authorize EU alternative-distribution domains from eu-distribution.config.json (DMA)
+  - `launch eu-distribution set-key <pemPath>` — register the team's package-signing public key (the public half — a plain .pem file)
+  - `launch eu-distribution list` — show the team's authorized distribution domains and whether a key is registered
+- `launch wallet` — register Apple Pay merchant ids & Wallet pass type ids from wallet.config.json
+  - `launch wallet list` — show the team's registered Apple Pay merchant ids and Wallet pass type ids
+- `launch game-center` — reconcile Game Center achievements & leaderboards from gamecenter.config.json
+- `launch accessibility` — reconcile accessibility declarations (nutrition labels) from accessibility.config.json
+- `launch availability` — set the App Store territories the app sells in, from availability.config.json
+- `launch custom-pages` — reconcile custom product pages (alternate listings) from custom-pages.config.json
+- `launch experiments` — reconcile product-page A/B experiments from experiments.config.json
+- `launch play-products` — reconcile Google Play in-app products from the launch.config.ts product catalog
+- `launch play-subscriptions` — reconcile Google Play subscriptions (base plans + offers) from the launch.config.ts catalog
+- `launch play-reviews` — read Google Play customer reviews and reply from the CLI
+  - `launch play-reviews list` — list an app's Play reviews (only reviews with text from the last ~week)
+  - `launch play-reviews reply <reviewId>` — post (or replace) the developer reply to a review
+- `launch play-tracks` — manage Google Play release tracks from the CLI
+  - `launch play-tracks status` — show each track's releases and country availability
+  - `launch play-tracks promote` — ship a build to a track at a chosen status / rollout, with release notes
+  - `launch play-tracks testers` — read or set the Google Groups allowed to test a track
+- `launch device` — manage iOS devices for ad-hoc (internal) distribution
+  - `launch device add <udid> [name]` — register a device UDID so internal builds can install on it
+  - `launch device list` — list the devices registered for ad-hoc distribution
+- `launch testflight` — manage TestFlight beta groups and testers
+  - `launch testflight groups` — list the app's TestFlight beta groups
+  - `launch testflight create-group <name>` — create an external beta group testers can be invited into
+  - `launch testflight testers` — list the testers in a beta group
+  - `launch testflight add [emails...]` — invite/add testers to a beta group (sends a TestFlight invite to new emails)
+  - `launch testflight rm <emails...>` — remove testers from a beta group
+  - `launch testflight release` — set a build's "What to Test" notes and submit it for Beta App Review
+- `launch events` — read and manage App Store in-app events from the CLI
+  - `launch events list` — list an app's in-app events and their localizations
+  - `launch events create <referenceName>` — create a draft in-app event
+  - `launch events localize <eventId>` — set (or update) one locale's copy on an event
+  - `launch events delete <eventId>` — delete a draft in-app event
+- `launch setup` — inspect & prepare an app's store provisioning
+  - `launch setup ios` — report iOS signing & provisioning status (account, App ID, capabilities, cert, profile, devices)
+- `launch sandbox` — list StoreKit sandbox testers and clear their purchase history
+  - `launch sandbox list` — list the account's sandbox testers
+  - `launch sandbox clear [emails...]` — clear sandbox testers' StoreKit purchase history (for re-testing purchases)
+- `launch doctor` — check that the local toolchain and store account are ready
+- `launch explain [topic]` — plain-English glossary for an Apple/iOS term (csr, app-record, provisioning-profile, …)
+- `launch update` — publish an over-the-air JS update (Expo Updates protocol) to your own bucket
+- `launch updates` — inspect and roll back published OTA updates
+  - `launch updates list` — list published updates, newest first
+  - `launch updates view <id|latest>` — show full detail for one published update
+  - `launch updates rollback` — republish a prior update, or roll clients back to the embedded bundle
+- `launch cloud [action]` — manage the remote AWS EC2 Mac build host (setup | status | teardown | doctor)
+- `launch demo [platform]` — replay the simulated walkthrough of the build → sign → submit pipeline
+- `launch builds` — inspect local build history (the artifact index)
+  - `launch builds list` — list past builds, newest first
+  - `launch builds view <id|latest>` — show full detail for one build
+  - `launch builds log <id|latest>` — print a past build's full native log (secrets redacted), or open it in your editor
+- `launch ci` — scaffold CI workflows for building & shipping Launch apps
+  - `launch ci init` — write a GitHub Actions workflow that builds and ships on a hosted runner
+- `launch run [id|latest]` — install a built artifact on a connected device (iOS device or Android device/emulator)
+- `launch fingerprint` — show the native fingerprint and why the next build is clean or incremental (iOS)
+- `launch diagnose [logfile]` — explain a failed native build — parse the cause + fix from a build log
+- `launch build:resign` — re-sign a stored build with different credentials, without rebuilding
+
 ## Docs
 
 - [README](./README.md): install, quick start, the command surface, configuration, and how credentials are handled.

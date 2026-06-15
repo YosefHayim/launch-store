@@ -3,16 +3,21 @@ import {
   CANONICAL_SENTENCE,
   type CommandSpec,
   type DocStats,
+  FAQ_REGION_END,
+  FAQ_REGION_START,
+  FAQ_SIGNATURE,
+  GENERATIVE_AI_FAQ,
   IS_NOT_SIGNATURE,
   STATS_BADGES_END,
   STATS_BADGES_START,
   countAsyncMethods,
   countTestCases,
   renderCommandReference,
-  renderLlmsFull,
+  renderFaqRegion,
   renderLlmsTxt,
   renderStatsBadges,
   spliceReadmeBadges,
+  spliceReadmeFaq,
 } from "./commandDocs.js";
 
 const STATS: DocStats = { commands: 2, operations: 203, tests: 920 };
@@ -71,29 +76,30 @@ describe("renderCommandReference", () => {
   });
 });
 
-describe("renderLlmsTxt", () => {
-  const txt = renderLlmsTxt(STATS);
+describe("renderLlmsTxt (the merged single AI-facing file)", () => {
+  const txt = renderLlmsTxt(SAMPLE, STATS);
 
   it("leads with the canonical sentence as the llmstxt.org summary blockquote", () => {
     expect(txt).toContain(`> ${CANONICAL_SENTENCE}`);
   });
 
+  it("carries the what-Launch-is-not disambiguation for AI engines", () => {
+    expect(txt).toContain(IS_NOT_SIGNATURE);
+  });
+
+  it("carries the generative-AI FAQ so engines can lift the EAS-alternative answers", () => {
+    expect(txt).toContain("## FAQ");
+    expect(txt).toContain(FAQ_SIGNATURE);
+  });
+
+  it("inlines every command, nesting subcommands under their parent", () => {
+    expect(txt).toContain("- `launch build <platform>` — run the full pipeline");
+    expect(txt).toContain("- `launch metadata` — sync the store listing");
+    expect(txt).toContain("  - `launch metadata pull` — download the live listing");
+  });
+
   it("links the generated command reference with the live command count", () => {
     expect(txt).toContain("[Command reference](./docs/commands.md): all 2 `launch` commands");
-  });
-});
-
-describe("renderLlmsFull", () => {
-  const full = renderLlmsFull(SAMPLE, STATS);
-
-  it("carries the what-Launch-is-not disambiguation for AI engines", () => {
-    expect(full).toContain(IS_NOT_SIGNATURE);
-  });
-
-  it("lists every command, nesting subcommands under their parent", () => {
-    expect(full).toContain("- `launch build <platform>` — run the full pipeline");
-    expect(full).toContain("- `launch metadata` — sync the store listing");
-    expect(full).toContain("  - `launch metadata pull` — download the live listing");
   });
 });
 
@@ -131,6 +137,36 @@ describe("spliceReadmeBadges", () => {
 
   it("throws when the markers are missing rather than dropping the badges", () => {
     expect(() => spliceReadmeBadges("# Launch\n\nNo markers here.", "x")).toThrow(/stats-badges markers/);
+  });
+});
+
+describe("renderFaqRegion", () => {
+  const block = renderFaqRegion();
+
+  it("is fenced by the FAQ markers so docs:gen can splice it back in", () => {
+    expect(block.startsWith(FAQ_REGION_START)).toBe(true);
+    expect(block.endsWith(FAQ_REGION_END)).toBe(true);
+  });
+
+  it("carries the generative-AI FAQ verbatim, so the README and llms.txt share one source", () => {
+    expect(block).toContain(GENERATIVE_AI_FAQ);
+    expect(block).toContain(FAQ_SIGNATURE);
+  });
+});
+
+describe("spliceReadmeFaq", () => {
+  const readme = ["# Launch", "", FAQ_REGION_START, "", "stale Q&A", "", FAQ_REGION_END, "", "Body."].join("\n");
+
+  it("replaces the whole fenced FAQ region with the freshly rendered block", () => {
+    const spliced = spliceReadmeFaq(readme, renderFaqRegion());
+    expect(spliced).toContain(FAQ_SIGNATURE);
+    expect(spliced).not.toContain("stale Q&A");
+    expect(spliced.startsWith("# Launch")).toBe(true);
+    expect(spliced.endsWith("Body.")).toBe(true);
+  });
+
+  it("throws when the FAQ markers are missing rather than dropping the FAQ", () => {
+    expect(() => spliceReadmeFaq("# Launch\n\nNo markers here.", "x")).toThrow(/faq markers/);
   });
 });
 
