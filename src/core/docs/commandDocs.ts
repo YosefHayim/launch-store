@@ -196,6 +196,7 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
       "Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconciled with a read-only **plan → your confirmation → apply** — idempotently, never touching a live or in-review version. This is the surface EAS leaves to the website.",
     features: [
       "**Products, pricing & listing.** `launch sync` reconciles in-app purchases, subscriptions, capabilities, and pricing onto App Store Connect — plus the per-locale listing copy, screenshots, and app previews — across every app at once.",
+      "**Preview & gate drift.** `launch plan` diffs `launch.config.ts` against live App Store Connect state (capabilities, IAPs, subscriptions, pricing) read-only; `launch drift` fails CI when they've diverged.",
       "**Subscription offers.** `launch offers` reconciles offer codes and promotional, introductory & win-back offers, plus the promoted-purchase order; `offers generate-codes`/`list`/`deactivate` drive campaigns from the CLI.",
       "**Release attributes.** `launch release-config` reconciles the age rating, categories, base price, and App Review details (contact + demo account) onto the editable version.",
       "**Store availability.** `launch availability` sets the App Store territories the app sells in.",
