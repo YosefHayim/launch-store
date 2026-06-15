@@ -26,7 +26,7 @@ const WIDTH = 64;
 const HEIGHT = 13;
 
 /** An sRGB color as a `[r, g, b]` triple (0–255). Emitted as truecolor, or downsampled to 256-color. */
-type Rgb = readonly [number, number, number];
+export type Rgb = readonly [number, number, number];
 
 /**
  * The brand palette for the pixel sprites — the real store/rocket hexes (Google's
@@ -145,7 +145,7 @@ const FINAL_STATUS = "delivered to the App Store + Google Play ✓";
  * the glyph is `▀`/`▄`/`█` with `fg` = the top pixel and `bg` = the bottom pixel; for text it's the
  * character with `fg` only. Both colors `undefined` renders the glyph with no ANSI escape.
  */
-interface Cell {
+export interface Cell {
   ch: string;
   fg?: Rgb;
   bg?: Rgb;
@@ -357,8 +357,8 @@ function renderRow(row: Cell[], depth: ColorDepth): string {
   return out;
 }
 
-/** Render a whole buffer to a frame string (HEIGHT lines, each WIDTH visible columns). */
-function renderBuffer(buf: Buffer, depth: ColorDepth): string {
+/** Render a whole buffer to a frame string: one line per row, same-color cell runs coalesced. */
+export function renderBuffer(buf: Buffer, depth: ColorDepth): string {
   return buf.map((row) => renderRow(row, depth)).join("\n");
 }
 
