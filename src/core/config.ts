@@ -267,6 +267,39 @@ export function writeAppVersion(app: AppDescriptor, version: string): boolean {
   return true;
 }
 
+/**
+ * Merge entitlement key→value pairs into an app's static Expo config (`expo.ios.entitlements`, or a flat
+ * `ios.entitlements`), adding only keys not already present — it never overwrites a value you've set — and
+ * return the keys actually added, written back as 2-space JSON. Returns `[]` without writing for a dynamic
+ * config (`app.config.{ts,js,mjs}`), whose entitlements may be computed, so `launch adopt` prints the block
+ * to paste instead. Re-reads from disk (like {@link writeAppVersion}) so a concurrent edit isn't clobbered.
+ * The value type is `unknown` so this stays decoupled from the adopt feature that calls it.
+ */
+export function writeAppEntitlements(app: AppDescriptor, entitlements: Record<string, unknown>): string[] {
+  if (!app.configPath.endsWith(".json")) return [];
+  let raw: Record<string, unknown> | null;
+  try {
+    raw = asRecord(JSON.parse(readFileSync(app.configPath, "utf8")));
+  } catch {
+    return [];
+  }
+  if (!raw) return [];
+  const expo = asRecord(raw["expo"]) ?? raw;
+  const ios = asRecord(expo["ios"]) ?? {};
+  const current = asRecord(ios["entitlements"]) ?? {};
+  const added: string[] = [];
+  for (const [key, value] of Object.entries(entitlements)) {
+    if (key in current) continue;
+    current[key] = value;
+    added.push(key);
+  }
+  if (added.length === 0) return [];
+  ios["entitlements"] = current;
+  expo["ios"] = ios;
+  writeFileSync(app.configPath, `${JSON.stringify(raw, null, 2)}\n`);
+  return added;
+}
+
 /** Load the Launch config and discover apps under its `appRoots` (defaulting to `cwd`). */
 export async function loadConfig(cwd: string = process.cwd()): Promise<LoadedConfig> {
   const config = await readLaunchConfig(cwd);

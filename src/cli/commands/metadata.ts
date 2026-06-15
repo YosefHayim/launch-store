@@ -65,8 +65,11 @@ async function resolveTarget(
   };
 }
 
-/** Pull the live App Store listing into `store.config.json` via `deliver download_metadata`. */
-async function pullApple(bundleId: string, configPath: string, dryRun: boolean): Promise<void> {
+/**
+ * Pull the live App Store listing into `store.config.json` via `deliver download_metadata`. Exported so
+ * `launch adopt` reuses the exact same download (no duplicated fastlane logic) when it imports listing copy.
+ */
+export async function pullAppleListing(bundleId: string, configPath: string, dryRun: boolean): Promise<void> {
   const log = createLogger(false);
   const ascKey = await loadActiveAscKey();
   if (!ascKey) throw new Error("No active Apple account. Run `launch creds set-key` first.");
@@ -236,7 +239,7 @@ export function registerMetadataCommand(program: Command): void {
       const target = await resolveTarget(options);
       if (platform === "ios") {
         if (!target.bundleId) throw new Error("No iOS bundle identifier for this app (set ios.bundleIdentifier).");
-        await pullApple(target.bundleId, target.configPath, options.dryRun === true);
+        await pullAppleListing(target.bundleId, target.configPath, options.dryRun === true);
       } else {
         if (!target.packageName) throw new Error("No Android application id for this app (set android.package).");
         await pullAndroid(target.packageName, target.configPath, options.dryRun === true);

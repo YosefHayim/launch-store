@@ -2,13 +2,24 @@
 
 # Launch command reference
 
-> Launch wraps **203 App Store Connect & Google Play API operations** across **43 commands**, guarded by **937 tests**.
+> Launch wraps **204 App Store Connect & Google Play API operations** across **44 commands**, guarded by **980 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
 ## `launch init`
 
 scaffold launch.config.ts (and .env.example) into the current repo
+
+## `launch adopt`
+
+onboard an app that already ships: import its App Store Connect setup into config
+
+| Flag                | Description                                                         |
+| ------------------- | ------------------------------------------------------------------- |
+| `--all`             | adopt every discovered app (the default when --app is omitted)      |
+| `-a, --app <names>` | comma-separated app handles to adopt (default: all discovered apps) |
+| `--dry-run`         | print the plan and exit, importing nothing                          |
+| `-y, --yes`         | skip the confirmation prompt (for CI)                               |
 
 ## `launch build <platform>`
 

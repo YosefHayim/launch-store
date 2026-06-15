@@ -12,7 +12,7 @@ Launch runs the EAS pipeline locally: prebuild → resolve credentials → compi
 
 ## Reference
 
-- [Command reference](./docs/commands.md): all 43 `launch` commands and every flag, generated from the CLI.
+- [Command reference](./docs/commands.md): all 44 `launch` commands and every flag, generated from the CLI.
 
 ## Source
 
