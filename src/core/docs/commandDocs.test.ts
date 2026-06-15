@@ -10,6 +10,10 @@ import {
   FAQ_REGION_END,
   FAQ_REGION_START,
   FAQ_SIGNATURE,
+  FEATURE_SECTIONS,
+  FEATURES_REGION_END,
+  FEATURES_REGION_START,
+  FEATURES_SIGNATURE,
   GENERATIVE_AI_FAQ,
   IS_NOT_SIGNATURE,
   STATS_BADGES_END,
@@ -19,11 +23,14 @@ import {
   renderAgentSkillsRegion,
   renderCommandReference,
   renderFaqRegion,
+  renderFeaturesList,
+  renderFeaturesRegion,
   renderLlmsTxt,
   renderStatsBadges,
   spliceReadmeAgentSkills,
   spliceReadmeBadges,
   spliceReadmeFaq,
+  spliceReadmeFeatures,
 } from "./commandDocs.js";
 
 const STATS: DocStats = { commands: 2, operations: 203, tests: 920 };
@@ -96,6 +103,11 @@ describe("renderLlmsTxt (the merged single AI-facing file)", () => {
   it("carries the generative-AI FAQ so engines can lift the EAS-alternative answers", () => {
     expect(txt).toContain("## FAQ");
     expect(txt).toContain(FAQ_SIGNATURE);
+  });
+
+  it("inlines the numbered feature map so one fetch ingests every capability", () => {
+    expect(txt).toContain("## Features");
+    expect(txt).toContain(FEATURES_SIGNATURE);
   });
 
   it("inlines every command, nesting subcommands under their parent", () => {
@@ -173,6 +185,70 @@ describe("spliceReadmeFaq", () => {
 
   it("throws when the FAQ markers are missing rather than dropping the FAQ", () => {
     expect(() => spliceReadmeFaq("# Launch\n\nNo markers here.", "x")).toThrow(/faq markers/);
+  });
+});
+
+describe("renderFeaturesList (the numbered capability map)", () => {
+  const list = renderFeaturesList();
+
+  it("numbers every feature continuously across sections, with no gaps or restarts", () => {
+    const numbers = [...list.matchAll(/^(\d+)\. /gm)].map((match) => Number(match[1]));
+    const total = FEATURE_SECTIONS.reduce((sum, section) => sum + section.features.length, 0);
+    expect(numbers).toEqual(Array.from({ length: total }, (_, i) => i + 1));
+  });
+
+  it("renders every section's bold label", () => {
+    for (const section of FEATURE_SECTIONS) expect(list).toContain(`**${section.title}**`);
+  });
+
+  it("keeps each feature on a single line, so the list stays scannable", () => {
+    for (const section of FEATURE_SECTIONS) {
+      for (const feature of section.features) expect(feature).not.toContain("\n");
+    }
+  });
+
+  it("adds no `## ` heading, so it can't shift the README's section skeleton or the parity test", () => {
+    expect(list).not.toContain("\n## ");
+  });
+});
+
+describe("renderFeaturesRegion", () => {
+  const block = renderFeaturesRegion();
+
+  it("is fenced by the features markers so docs:gen can splice it back in", () => {
+    expect(block.startsWith(FEATURES_REGION_START)).toBe(true);
+    expect(block.endsWith(FEATURES_REGION_END)).toBe(true);
+  });
+
+  it("carries the numbered list verbatim, so the README and llms.txt share one source", () => {
+    expect(block).toContain(FEATURES_SIGNATURE);
+    expect(block).toContain(renderFeaturesList());
+  });
+});
+
+describe("spliceReadmeFeatures", () => {
+  const readme = [
+    "# Launch",
+    "",
+    FEATURES_REGION_START,
+    "",
+    "stale features",
+    "",
+    FEATURES_REGION_END,
+    "",
+    "Body.",
+  ].join("\n");
+
+  it("replaces the whole fenced Features region with the freshly rendered list", () => {
+    const spliced = spliceReadmeFeatures(readme, renderFeaturesRegion());
+    expect(spliced).toContain(FEATURES_SIGNATURE);
+    expect(spliced).not.toContain("stale features");
+    expect(spliced.startsWith("# Launch")).toBe(true);
+    expect(spliced.endsWith("Body.")).toBe(true);
+  });
+
+  it("throws when the markers are missing rather than dropping the features", () => {
+    expect(() => spliceReadmeFeatures("# Launch\n\nNo markers here.", "x")).toThrow(/features markers/);
   });
 });
 

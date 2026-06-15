@@ -23,11 +23,13 @@ import {
   renderAgentSkillsRegion,
   renderCommandReference,
   renderFaqRegion,
+  renderFeaturesRegion,
   renderLlmsTxt,
   renderStatsBadges,
   spliceReadmeAgentSkills,
   spliceReadmeBadges,
   spliceReadmeFaq,
+  spliceReadmeFeatures,
 } from "../src/core/docs/commandDocs.js";
 import { renderContributorRules, renderContributorSkills } from "../src/core/agents/render.js";
 
@@ -71,17 +73,22 @@ async function generateDocs(): Promise<GeneratedDoc[]> {
   const badges = renderStatsBadges(stats);
   const agentSkills = renderAgentSkillsRegion();
   const faq = renderFaqRegion();
+  const features = renderFeaturesRegion();
   const readmes = readdirSync(ROOT)
     .filter((file) => /^README.*\.md$/.test(file))
     .sort();
   const raw: GeneratedDoc[] = [
     ...readmes.map((path) => {
       // The live-stats badge row and the agent-skills callout are language-neutral, so both blocks are
-      // spliced into every README; the FAQ source is English, so only README.md gets the generated FAQ
-      // region — the translated READMEs keep a hand-translated FAQ the structural-parity test holds in sync.
+      // spliced into every README; the FAQ and numbered Features list are English sources, so only
+      // README.md gets those generated regions — the translated READMEs keep hand-translated FAQ and
+      // Features sections that the structural-parity test holds in sync.
       let body = spliceReadmeBadges(readFileSync(join(ROOT, path), "utf8"), badges);
       body = spliceReadmeAgentSkills(body, agentSkills);
-      if (path === "README.md") body = spliceReadmeFaq(body, faq);
+      if (path === "README.md") {
+        body = spliceReadmeFaq(body, faq);
+        body = spliceReadmeFeatures(body, features);
+      }
       return { path, body };
     }),
     { path: "docs/commands.md", body: renderCommandReference(commands, stats) },
