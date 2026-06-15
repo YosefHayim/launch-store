@@ -1,19 +1,21 @@
 /**
- * `launch builds list` / `launch builds view` — read the local build history.
+ * `launch builds list` / `view` / `log` / `prune` — read and trim the local build history.
  *
  * Every successful build is copied into the artifact store and recorded in a newest-first index (see
- * the `local` {@link StorageProvider}). These commands surface that history — the local equivalent of
- * `eas build:list` / `eas build:view` — so you can see what shipped, how large each build was, and
- * where the artifact lives, without re-running anything. They go through the configured storage
- * provider's `list()`, so whichever backend stored a build is the one that reports it. Read-only:
- * they never build, upload, or mutate state.
+ * the `local` {@link StorageProvider}). `list`/`view`/`log` surface that history — the local equivalent
+ * of `eas build:list` / `eas build:view` — so you can see what shipped, how large each build was, and
+ * where the artifact lives, without re-running anything; `prune` reclaims disk by deleting binaries past
+ * the retention window (keeping the newest per app+platform, and the history row as a `pruned` marker).
+ * They go through the configured storage provider, so whichever backend stored a build reports/trims it.
  */
 
 import { existsSync } from "node:fs";
 import type { Command } from "commander";
-import type { BuildArtifact, Platform } from "../../core/types.js";
+import { cancel, confirm, isCancel } from "@clack/prompts";
+import type { BuildArtifact, Platform, PrunedArtifact } from "../../core/types.js";
 import { loadConfig } from "../../core/config.js";
 import { resolveStorageProvider } from "../../core/storage.js";
+import { resolveCommandRetentionDays } from "../../core/artifactRetention.js";
 import { mb, sizeSummary, worstDownloadBytes } from "../../core/pipeline.js";
 import { buildLogId, buildLogPath, readBuildLog } from "../../core/buildLog.js";
 import { run } from "../../core/exec.js";
@@ -38,6 +40,8 @@ export interface BuildRow {
   clean: boolean;
   createdAt: string;
   path: string;
+  /** ISO-8601 stamp when retention removed the binary; present means the file is gone (history kept). */
+  prunedAt?: string;
 }
 
 /**
@@ -62,6 +66,7 @@ export function toBuildRow(artifact: BuildArtifact): BuildRow {
     clean: artifact.clean,
     createdAt: artifact.createdAt,
     path: artifact.path,
+    ...(artifact.prunedAt ? { prunedAt: artifact.prunedAt } : {}),
   };
 }
 
@@ -88,29 +93,54 @@ function formatDate(iso: string): string {
   return iso.length >= 16 ? `${iso.slice(0, 10)} ${iso.slice(11, 16)}` : iso;
 }
 
-/** Column definitions for the `builds list` table — one source for headers and per-row cell values. */
-const COLUMNS: { header: string; cell: (row: BuildRow) => string }[] = [
-  { header: "BUILD", cell: (row) => String(row.buildNumber) },
-  { header: "APP", cell: (row) => row.app },
-  { header: "VERSION", cell: (row) => row.version },
-  { header: "PLATFORM", cell: (row) => row.platform },
-  { header: "DOWNLOAD", cell: (row) => mb(row.downloadBytes) },
-  { header: "CREATED", cell: (row) => formatDate(row.createdAt) },
-  { header: "TYPE", cell: (row) => (row.clean ? "clean" : "incremental") },
-];
+/** A table column: a header and how to render one row's cell. */
+interface Column<T> {
+  header: string;
+  cell: (row: T) => string;
+}
 
-/** Render the build rows as a left-aligned, column-padded table (header first). Assumes a non-empty list. */
-export function formatBuildsTable(rows: BuildRow[]): string {
-  const widths = COLUMNS.map((column) => Math.max(column.header.length, ...rows.map((row) => column.cell(row).length)));
+/** Render rows as a left-aligned, column-padded table (header first). Assumes a non-empty `rows`. */
+function formatTable<T>(columns: Column<T>[], rows: T[]): string {
+  const widths = columns.map((column) => Math.max(column.header.length, ...rows.map((row) => column.cell(row).length)));
   const render = (cells: string[]): string =>
     cells
       .map((cell, i) => cell.padEnd(widths[i] ?? 0))
       .join("  ")
       .trimEnd();
   return [
-    render(COLUMNS.map((column) => column.header)),
-    ...rows.map((row) => render(COLUMNS.map((column) => column.cell(row)))),
+    render(columns.map((column) => column.header)),
+    ...rows.map((row) => render(columns.map((column) => column.cell(row)))),
   ].join("\n");
+}
+
+/** Column definitions for the `builds list` table — one source for headers and per-row cell values. */
+const COLUMNS: Column<BuildRow>[] = [
+  { header: "BUILD", cell: (row) => String(row.buildNumber) },
+  { header: "APP", cell: (row) => row.app },
+  { header: "VERSION", cell: (row) => row.version },
+  { header: "PLATFORM", cell: (row) => row.platform },
+  { header: "DOWNLOAD", cell: (row) => mb(row.downloadBytes) },
+  { header: "CREATED", cell: (row) => formatDate(row.createdAt) },
+  { header: "TYPE", cell: (row) => (row.prunedAt ? "pruned" : row.clean ? "clean" : "incremental") },
+];
+
+/** Render the build rows as a left-aligned, column-padded table (header first). Assumes a non-empty list. */
+export function formatBuildsTable(rows: BuildRow[]): string {
+  return formatTable(COLUMNS, rows);
+}
+
+/** Columns for the `builds prune` preview — what each removed binary is and the disk it reclaims. */
+const PRUNE_COLUMNS: Column<PrunedArtifact>[] = [
+  { header: "BUILD", cell: (row) => String(row.buildNumber) },
+  { header: "APP", cell: (row) => row.app },
+  { header: "VERSION", cell: (row) => row.version },
+  { header: "PLATFORM", cell: (row) => row.platform },
+  { header: "SIZE", cell: (row) => mb(row.bytes) },
+];
+
+/** Render the set of binaries a prune would remove as a table (header first). Assumes a non-empty list. */
+export function formatPrunePreview(pruned: PrunedArtifact[]): string {
+  return formatTable(PRUNE_COLUMNS, pruned);
 }
 
 /** Render the full detail block for one build, including the per-device size breakdown when present. */
@@ -121,7 +151,9 @@ export function formatBuildDetail(artifact: BuildArtifact): string {
     `  profile:  ${artifact.profile}`,
     `  built:    ${formatDate(artifact.createdAt)}  (${artifact.clean ? "clean" : "incremental"})`,
     `  id:       ${buildId(artifact)}`,
-    `  artifact: ${artifact.path}`,
+    artifact.prunedAt
+      ? `  artifact: pruned ${formatDate(artifact.prunedAt)} — binary removed to save disk; rebuild to ship`
+      : `  artifact: ${artifact.path}`,
   ];
   if (artifact.sizeReport.entries.length > 0) {
     lines.push("  per-device download / install:");
@@ -147,6 +179,126 @@ async function loadHistory(): Promise<BuildArtifact[]> {
   return resolveStorageProvider(config).list();
 }
 
+/** `N build` / `N builds` — the count phrase shared across the prune messages. */
+function buildsLabel(count: number): string {
+  return `${count} build${count === 1 ? "" : "s"}`;
+}
+
+/** Validate `--days`: a positive whole number, or undefined when the flag is absent (use the configured window). */
+function parsePruneDays(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const days = Number(value);
+  if (!Number.isInteger(days) || days < 1) {
+    throw new Error(`Invalid --days "${value}". Use a positive whole number of days.`);
+  }
+  return days;
+}
+
+/** Options accepted by {@link runPrune} — the parsed `builds prune` flags (also the wizard's entry point). */
+export interface PruneCommandOptions {
+  /** Limit to one app handle. */
+  app?: string;
+  /** Limit to `ios` or `android` (validated). */
+  platform?: string;
+  /** Retention window override in days (raw CLI string; validated to a positive integer). */
+  days?: string;
+  /** Preview only — delete nothing. */
+  dryRun?: boolean;
+  /** Skip the confirmation prompt (CI / non-interactive). */
+  yes?: boolean;
+  /** Emit machine-readable JSON instead of human tables. */
+  json?: boolean;
+}
+
+/**
+ * Count how many binaries an at-default prune would remove — the wizard's gate for offering "Clean up old
+ * builds" only when it would actually do something. Zero for a non-local store (no `prune`) or an empty/
+ * fresh history, so the menu entry simply doesn't appear.
+ */
+export async function countPrunableBuilds(): Promise<number> {
+  const { config } = await loadConfig();
+  const provider = resolveStorageProvider(config);
+  if (!provider.prune) return 0;
+  const preview = await provider.prune({
+    now: Date.now(),
+    retentionDays: resolveCommandRetentionDays(config),
+    dryRun: true,
+  });
+  return preview.pruned.length;
+}
+
+/**
+ * Reclaim disk by deleting build binaries older than the retention window, always keeping the newest per
+ * app+platform (so a promotable artifact survives) and the history row (shown as `pruned`). Previews first,
+ * then — unless `--dry-run` — deletes after a confirmation (`--yes` or an interactive prompt; a
+ * non-interactive run without `--yes` refuses rather than delete unattended). Shared by the `builds prune`
+ * command and the wizard's cleanup entry.
+ */
+export async function runPrune(options: PruneCommandOptions): Promise<void> {
+  const platform = parsePlatformFilter(options.platform);
+  const days = parsePruneDays(options.days);
+  const { config } = await loadConfig();
+  const provider = resolveStorageProvider(config);
+  if (!provider.prune) {
+    throw new Error(
+      `\`builds prune\` applies only to the local artifact store; storage "${config.storage}" manages ` +
+        `retention through its own bucket lifecycle rules.`,
+    );
+  }
+  const retentionDays = resolveCommandRetentionDays(config, days);
+  const filter = {
+    now: Date.now(),
+    retentionDays,
+    ...(options.app ? { app: options.app } : {}),
+    ...(platform ? { platform } : {}),
+  };
+
+  const preview = await provider.prune({ ...filter, dryRun: true });
+  if (preview.pruned.length === 0) {
+    if (options.json) console.log(JSON.stringify(preview, null, 2));
+    else
+      console.log(
+        `Nothing to prune — no builds older than ${retentionDays}d (the newest per app+platform is always kept).`,
+      );
+    return;
+  }
+
+  if (options.dryRun) {
+    if (options.json) {
+      console.log(JSON.stringify(preview, null, 2));
+      return;
+    }
+    console.log(formatPrunePreview(preview.pruned));
+    console.log(
+      `\nDry run — would remove ${buildsLabel(preview.pruned.length)}, freeing ${mb(preview.freedBytes)}. Nothing deleted.`,
+    );
+    return;
+  }
+
+  if (!options.yes) {
+    if (!process.stdout.isTTY || options.json) {
+      throw new Error("Refusing to delete without confirmation. Re-run with --yes (or --dry-run to preview).");
+    }
+    console.log(formatPrunePreview(preview.pruned));
+    const proceed = await confirm({
+      message: `Delete ${buildsLabel(preview.pruned.length)}, freeing ${mb(preview.freedBytes)}?`,
+    });
+    if (isCancel(proceed) || !proceed) {
+      cancel("Nothing deleted.");
+      return;
+    }
+  }
+
+  const result = await provider.prune({ ...filter, dryRun: false });
+  if (options.json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  console.log(
+    `Pruned ${buildsLabel(result.pruned.length)}, freed ${mb(result.freedBytes)}. History kept (shown as "pruned" in \`builds list\`).`,
+  );
+}
+
 /**
  * Reveal a log file: prefer `$EDITOR`, else the OS viewer (`open`/`xdg-open`). On Windows without an
  * `$EDITOR` there's no shell-free opener, so we print the path for the user to open. Best-effort UX.
@@ -160,9 +312,9 @@ async function openLog(path: string): Promise<void> {
   console.log(`Log file: ${path}  (set $EDITOR to open it automatically)`);
 }
 
-/** Attach the `builds` command (with `list` / `view` subcommands) to the program. */
+/** Attach the `builds` command (with `list` / `view` / `log` / `prune` subcommands) to the program. */
 export function registerBuildsCommand(program: Command): void {
-  const builds = program.command("builds").description("inspect local build history (the artifact index)");
+  const builds = program.command("builds").description("inspect and trim local build history (the artifact index)");
 
   builds
     .command("list")
@@ -225,5 +377,18 @@ export function registerBuildsCommand(program: Command): void {
       }
       const text = readBuildLog(id);
       console.log(text?.trim() ? text : "(log is empty)");
+    });
+
+  builds
+    .command("prune")
+    .description("delete build binaries older than the retention window (keeps the newest per app+platform)")
+    .option("--days <n>", "retention window in days (default: config artifactRetentionDays, else 30)")
+    .option("-a, --app <name>", "only prune builds for this app")
+    .option("--platform <platform>", "only prune ios or android builds")
+    .option("--dry-run", "show what would be deleted without deleting", false)
+    .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
+    .option("--json", "output machine-readable JSON", false)
+    .action(async (options: PruneCommandOptions) => {
+      await runPrune(options);
     });
 }
