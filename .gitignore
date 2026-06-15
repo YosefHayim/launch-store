@@ -32,8 +32,11 @@ android/
 .DS_Store
 *.log
 
-# Claude Code agent worktrees / session state
-.claude/
+# Claude Code agent worktrees, session state, and local settings (settings.local.json) — local-only.
+# Exception: .claude/skills/ holds the committed, CI-gated contributor skills (`npm run docs:gen`),
+# the Claude counterpart to the tracked .cursor/rules. Mirrors the docs/* + !docs/agents/ split above.
+.claude/*
+!.claude/skills/
 
 # TUI style preview — throwaway scratch played via `npx tsx .tui-preview/preview.ts`, never shipped.
 .tui-preview/
