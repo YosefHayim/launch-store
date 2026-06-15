@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **204 App Store Connect & Google Play API operations** across **44 commands**, guarded by **1037 tests**.
+> Launch wraps **204 App Store Connect & Google Play API operations** across **45 commands**, guarded by **1064 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -798,6 +798,27 @@ write a GitHub Actions workflow that builds and ships on a hosted runner
 | ----------- | -------------------------------------------------- |
 | `--android` | also emit an Android job (Ubuntu runner)           |
 | `--force`   | overwrite an existing .github/workflows/launch.yml |
+
+## `launch agents`
+
+scaffold agent skills/rules (Claude, Cursor, Codex) so coding agents can drive Launch
+
+### `launch agents init`
+
+write Claude skills, Cursor rules, and the AGENTS.md Launch section into this repo
+
+| Flag             | Description                                                              |
+| ---------------- | ------------------------------------------------------------------------ |
+| `--agent <list>` | claude \| cursor \| codex \| all (comma-separated; default: auto-detect) |
+| `-y, --yes`      | non-interactive: skip the confirmation prompt (CI, agents)               |
+
+### `launch agents check`
+
+verify the scaffolded agent files are in sync with the installed Launch
+
+| Flag             | Description                                                              |
+| ---------------- | ------------------------------------------------------------------------ |
+| `--agent <list>` | claude \| cursor \| codex \| all (comma-separated; default: auto-detect) |
 
 ## `launch run [id|latest]`
 

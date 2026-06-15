@@ -8,7 +8,7 @@
  * `src/cli/program.ts`, counts the headline stats from source, then hands the pure rendering to
  * `src/core/docs/commandDocs.ts` and prettier-formats the result so `format:check` stays green.
  */
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Command } from "commander";
@@ -27,6 +27,7 @@ import {
   spliceReadmeBadges,
   spliceReadmeFaq,
 } from "../src/core/docs/commandDocs.js";
+import { renderContributorRules } from "../src/core/agents/render.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -81,6 +82,9 @@ async function generateDocs(): Promise<GeneratedDoc[]> {
     }),
     { path: "docs/commands.md", body: renderCommandReference(commands, stats) },
     { path: "llms.txt", body: renderLlmsTxt(commands, stats) },
+    // Contributor-facing Cursor rules (`.cursor/rules/*.mdc`) for working ON launch-store — generated
+    // from the same agent registry as the consumer skills and gated here so they can't drift.
+    ...renderContributorRules().map((rule) => ({ path: rule.path, body: rule.body })),
   ];
   return Promise.all(
     raw.map(async ({ path, body }) => {
@@ -100,6 +104,7 @@ async function main(): Promise<void> {
       const current = readFileSync(absolute, "utf8");
       if (current !== body) stale.push(path);
     } else {
+      mkdirSync(dirname(absolute), { recursive: true });
       writeFileSync(absolute, body);
       process.stdout.write(`Wrote ${path}\n`);
     }

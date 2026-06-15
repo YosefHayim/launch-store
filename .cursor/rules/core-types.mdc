@@ -1,0 +1,10 @@
+---
+description: Editing the domain shapes or provider interfaces.
+globs: src/core/types.ts
+alwaysApply: false
+---
+
+`src/core/types.ts` is the single source of truth for every domain shape and the five provider interfaces (`BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`).
+
+- Add or change a shape **here**, never inline in a feature file — a change ripples through every provider and the pipeline, so plan the edit before writing code.
+- One exception: the App Store Connect `*Resource` / `*Query` types live in `src/apple/ascClient.ts`, not here.
