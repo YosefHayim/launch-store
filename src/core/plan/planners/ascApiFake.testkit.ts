@@ -114,6 +114,16 @@ export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurf
     listCustomProductPageLocalizations: vi.fn().mockResolvedValue([]),
     createCustomProductPageLocalization: vi.fn(),
     updateCustomProductPageLocalization: vi.fn(),
+
+    // wallet (team-level)
+    listMerchantIds: vi.fn().mockResolvedValue([]),
+    createMerchantId: vi.fn(),
+    listPassTypeIds: vi.fn().mockResolvedValue([]),
+    createPassTypeId: vi.fn(),
+
+    // EU distribution (team-level)
+    listAlternativeDistributionDomains: vi.fn().mockResolvedValue([]),
+    createAlternativeDistributionDomain: vi.fn(),
   };
   return { ...base, ...overrides };
 }
