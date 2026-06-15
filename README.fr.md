@@ -39,7 +39,7 @@
   <a href="./README.ru.md">Русский</a>
 </p>
 
-Publier une application, c'est bien plus qu'une compilation : configuration de la signature, paramétrage d'App Store Connect / de la Play Console, achats intégrés, métadonnées de la fiche, l'envoi, puis les mises à jour over-the-air. EAS compile et soumet — le reste est éparpillé entre les portails d'Apple et de Google et une poignée d'outils. Launch rassemble **toute la publication** dans un seul flux de travail local et déclaratif : il provisionne votre signature, réconcilie vos produits sur le store, génère le projet natif, compile et signe le binaire, rapporte la taille réelle de téléchargement par appareil, stocke l'artefact, et l'envoie sur le canal de test — sur du matériel qui vous appartient, avec des clés qui restent dans votre keychain local. La signature iOS nécessite un Mac ; si vous n'en avez pas, Launch compile sur un Mac dans le cloud sur **votre propre** compte AWS ou délègue à Expo EAS — voir [Compiler sans Mac](#compiler-sans-mac).
+Publier une application, c'est bien plus qu'une compilation : configuration de la signature, paramétrage d'[App Store Connect](https://developer.apple.com/app-store-connect/) / de la [Play Console](https://play.google.com/console), achats intégrés, métadonnées de la fiche, l'envoi, puis les mises à jour over-the-air. EAS compile et soumet — le reste est éparpillé entre les portails d'Apple et de Google et une poignée d'outils. Launch rassemble **toute la publication** dans un seul flux de travail local et déclaratif : il provisionne votre signature, réconcilie vos produits sur le store, génère le projet natif, compile et signe le binaire, rapporte la taille réelle de téléchargement par appareil, stocke l'artefact, et l'envoie sur le canal de test — sur du matériel qui vous appartient, avec des clés qui restent dans votre keychain local. La signature iOS nécessite un Mac ; si vous n'en avez pas, Launch compile sur un Mac dans le cloud sur **votre propre** compte AWS ou délègue à Expo EAS — voir [Compiler sans Mac](#compiler-sans-mac).
 
 > **Vous débutez ?** Lancez `launch demo` pour une visite guidée simulée de 60 secondes de tout le pipeline — sans configuration, sans compilation, sans compte. Elle se joue aussi automatiquement la première fois que vous lancez `launch`.
 
@@ -336,6 +336,16 @@ Les compilations distantes envoient une copie transitoire de vos clés de signat
 ## Contribuer
 
 Consultez [`CONTRIBUTING.md`](./CONTRIBUTING.md) pour la configuration de dev, la barrière qualité et la manière d'ajouter un backend.
+
+## Contributeurs
+
+<p align="center">
+  <a href="https://github.com/YosefHayim"><img src="https://github.com/YosefHayim.png?size=120" width="120" alt="YosefHayim" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/YosefHayim/launch-store/graphs/contributors">Tous les contributeurs →</a>
+</p>
 
 ## Licence
 
