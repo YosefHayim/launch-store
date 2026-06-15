@@ -1,6 +1,15 @@
-<p align="center">
-  <img src="assets/launch-logo.png" alt="Launch" width="220" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/ios.jpg" alt="iOS" width="150" /></td>
+    <td align="center" valign="middle" width="280"><img src="assets/launch-logo.png" alt="Launch — сборка, подпись и публикация в App Store и Google Play" width="230" /></td>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/android.jpg" alt="Android" width="150" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>✅ <strong>iOS</strong> · TestFlight</sub></td>
+    <td></td>
+    <td align="center"><sub>✅ <strong>Android</strong> · Google&nbsp;Play</sub></td>
+  </tr>
+</table>
 
 <h1 align="center">Launch</h1>
 
@@ -256,19 +265,6 @@ Launch выполняет тот же конвейер `eas build` → `eas subm
 | **Артефакты** сборки хостятся на Expo                                                                                           | Артефакты попадают в **ваше собственное хранилище** (локальное или S3 / R2 / Supabase)                                                                           |
 | **Нет Mac?** Платное облако EAS — единственный путь                                                                             | **Нет Mac?** Облачный Mac в **вашем собственном AWS**, любой Mac через **SSH** или передача в **`eas build`**                                                    |
 | **Закрытый SaaS** — проприетарный, привязка к вендору                                                                           | **MIT, открытый исходный код** — `fastlane`/Gradle/API платформ, сменные провайдеры, мигрировать не с чего                                                       |
-
-## Поддержка платформ
-
-<table align="center">
-  <tr>
-    <td align="center" width="240"><img src="assets/platforms/ios.jpg" alt="iOS" width="200" /></td>
-    <td align="center" width="240"><img src="assets/platforms/android.jpg" alt="Android" width="200" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>iOS</strong><br />✅ В работе — сборка, подпись и загрузка в TestFlight</td>
-    <td align="center"><strong>Android</strong><br />✅ В работе — сборка, подпись и загрузка в Google Play</td>
-  </tr>
-</table>
 
 ## Требования
 

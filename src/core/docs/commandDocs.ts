@@ -170,9 +170,13 @@ const SOURCE_LINKS = `- [Domain types & provider interfaces](./src/core/types.ts
 - [Completion notifications](./src/core/notify.ts): the \`notify\` webhook + shell hook fired on build/submit completion.
 - [Public API](./src/index.ts): what a user's \`launch.config.ts\` imports (\`defineConfig\`, the \`products\` catalog, the \`notify\` config).`;
 
-/** Escape a markdown table cell: only the pipe needs escaping; prettier handles the rest on format. */
+/**
+ * Escape a markdown table cell's structural characters — backslash and pipe — in one pass. Escaping
+ * both together (rather than only `|`) means a literal backslash in the text can't combine with a
+ * following pipe to slip an unescaped delimiter through and split the cell; prettier handles the rest.
+ */
 function escapeCell(text: string): string {
-  return text.replace(/\|/g, "\\|");
+  return text.replace(/[\\|]/g, (ch) => `\\${ch}`);
 }
 
 /** Render a command's flag table, or `""` when it has no options. */

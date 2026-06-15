@@ -21,6 +21,11 @@ on:
       - "scripts/gen-asc-types.ts"
       - ".github/workflows/schema-drift.yml"
 
+# Least-privilege GITHUB_TOKEN: this job only checks out the repo and regenerates types to diff them;
+# it never writes back, so read-only `contents` is all it needs.
+permissions:
+  contents: read
+
 jobs:
   drift:
     runs-on: ubuntu-latest

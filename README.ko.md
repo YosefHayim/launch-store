@@ -1,6 +1,15 @@
-<p align="center">
-  <img src="assets/launch-logo.png" alt="Launch" width="220" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/ios.jpg" alt="iOS" width="150" /></td>
+    <td align="center" valign="middle" width="280"><img src="assets/launch-logo.png" alt="Launch — App Store와 Google Play로 빌드, 서명 및 배포" width="230" /></td>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/android.jpg" alt="Android" width="150" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>✅ <strong>iOS</strong> · TestFlight</sub></td>
+    <td></td>
+    <td align="center"><sub>✅ <strong>Android</strong> · Google&nbsp;Play</sub></td>
+  </tr>
+</table>
 
 <h1 align="center">Launch</h1>
 
@@ -162,19 +171,6 @@ Launch는 직접 보유한 하드웨어에서 동일한 `eas build` → `eas sub
 | 빌드 **아티팩트가 Expo에 호스팅됨**                                                             | 아티팩트가 **직접 보유한 스토리지**(로컬, 또는 S3 / R2 / Supabase)에 저장됨                                                                       |
 | **Mac이 없다고요?** EAS의 유료 클라우드가 유일한 경로                                           | **Mac이 없다고요?** **본인 소유의 AWS**에 있는 클라우드 Mac, **SSH**로 접근하는 아무 Mac, 또는 **`eas build`** 로 작업 넘기기                     |
 | **폐쇄형 SaaS** — 독점적, 벤더 종속                                                             | **MIT, 오픈소스** — `fastlane`/Gradle/플랫폼 API, 교체 가능한 제공자, 이전할 것 없음                                                              |
-
-## 플랫폼 지원
-
-<table align="center">
-  <tr>
-    <td align="center" width="240"><img src="assets/platforms/ios.jpg" alt="iOS" width="200" /></td>
-    <td align="center" width="240"><img src="assets/platforms/android.jpg" alt="Android" width="200" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>iOS</strong><br />✅ 배포 중 — 빌드, 서명 &amp; TestFlight로 업로드</td>
-    <td align="center"><strong>Android</strong><br />✅ 배포 중 — 빌드, 서명 &amp; Google Play로 업로드</td>
-  </tr>
-</table>
 
 ## 요구 사항
 

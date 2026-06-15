@@ -1,6 +1,15 @@
-<p align="center">
-  <img src="assets/launch-logo.png" alt="Launch" width="220" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/ios.jpg" alt="iOS" width="150" /></td>
+    <td align="center" valign="middle" width="280"><img src="assets/launch-logo.png" alt="Launch — 构建、签名并发布到 App Store 和 Google Play" width="230" /></td>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/android.jpg" alt="Android" width="150" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>✅ <strong>iOS</strong> · TestFlight</sub></td>
+    <td></td>
+    <td align="center"><sub>✅ <strong>Android</strong> · Google&nbsp;Play</sub></td>
+  </tr>
+</table>
 
 <h1 align="center">Launch</h1>
 
@@ -162,19 +171,6 @@ Launch 在你自己拥有的硬件上运行与 `eas build` → `eas submit` → 
 | 构建**产物托管在 Expo**                                                                      | 产物落在**你自己的存储**里（本地，或 S3 / R2 / Supabase）                                                                                |
 | **没有 Mac？** EAS 的付费云端是唯一途径                                                      | **没有 Mac？** 一台在**你自己 AWS** 里的云端 Mac、任意一台通过 **SSH** 连接的 Mac，或交给 **`eas build`**                                |
 | **闭源 SaaS**——专有，供应商锁定                                                              | **MIT，开源**——`fastlane`/Gradle/平台 API，提供方可替换，无任何需要迁移的东西                                                            |
-
-## 平台支持
-
-<table align="center">
-  <tr>
-    <td align="center" width="240"><img src="assets/platforms/ios.jpg" alt="iOS" width="200" /></td>
-    <td align="center" width="240"><img src="assets/platforms/android.jpg" alt="Android" width="200" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>iOS</strong><br />✅ 已可发布——构建、签名并上传到 TestFlight</td>
-    <td align="center"><strong>Android</strong><br />✅ 已可发布——构建、签名并上传到 Google Play</td>
-  </tr>
-</table>
 
 ## 环境要求
 

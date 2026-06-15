@@ -1,6 +1,15 @@
-<p align="center">
-  <img src="assets/launch-logo.png" alt="Launch" width="220" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/ios.jpg" alt="iOS" width="150" /></td>
+    <td align="center" valign="middle" width="280"><img src="assets/launch-logo.png" alt="Launch — compila, assina e publica na App Store e no Google Play" width="230" /></td>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/android.jpg" alt="Android" width="150" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>✅ <strong>iOS</strong> · TestFlight</sub></td>
+    <td></td>
+    <td align="center"><sub>✅ <strong>Android</strong> · Google&nbsp;Play</sub></td>
+  </tr>
+</table>
 
 <h1 align="center">Launch</h1>
 
@@ -245,19 +254,6 @@ dois diferem no mesmo fluxo de trabalho:
 | Os **artefatos de build são hospedados pela Expo**                                                                      | Os artefatos pousam no **seu próprio storage** (local, ou S3 / R2 / Supabase)                                                                                            |
 | **Sem Mac?** A nuvem paga do EAS é o único caminho                                                                      | **Sem Mac?** Um Mac na nuvem na **sua própria AWS**, qualquer Mac via **SSH**, ou delegação ao **`eas build`**                                                           |
 | **SaaS fechado** — proprietário, com lock-in de fornecedor                                                              | **MIT, open source** — APIs de `fastlane`/Gradle/plataforma, providers intercambiáveis, nada do que migrar                                                               |
-
-## Suporte de plataformas
-
-<table align="center">
-  <tr>
-    <td align="center" width="240"><img src="assets/platforms/ios.jpg" alt="iOS" width="200" /></td>
-    <td align="center" width="240"><img src="assets/platforms/android.jpg" alt="Android" width="200" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>iOS</strong><br />✅ Em produção — compila, assina e faz upload para o TestFlight</td>
-    <td align="center"><strong>Android</strong><br />✅ Em produção — compila, assina e faz upload para o Google Play</td>
-  </tr>
-</table>
 
 ## Requisitos
 
