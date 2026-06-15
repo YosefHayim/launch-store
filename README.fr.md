@@ -167,8 +167,8 @@ Launch exécute le même pipeline `eas build` → `eas submit` → `eas update` 
 
 ## Prérequis
 
-- **iOS :** macOS avec **Xcode** + les outils en ligne de commande, **fastlane** (`brew install fastlane`), et une **clé d'API App Store Connect** (`.p8` + Key ID + Issuer ID) — [générez-en une ici](https://appstoreconnect.apple.com/access/integrations/api). Pas de Mac ? Voir [Compiler sans Mac](#compiler-sans-mac).
-- **Android :** un **JDK** (n'importe quel OS — pas de Mac nécessaire) et une clé JSON de **compte de service Google Play**.
+- **iOS :** une **adhésion à l'Apple Developer Program** (99 $/an) — [inscrivez-vous ici](https://developer.apple.com/programs/enroll/) — puis macOS avec **Xcode** + les outils en ligne de commande, **fastlane** (`brew install fastlane`), et une **clé d'API App Store Connect** (`.p8` + Key ID + Issuer ID) — [générez-en une ici](https://appstoreconnect.apple.com/access/integrations/api). Pas de Mac ? Voir [Compiler sans Mac](#compiler-sans-mac).
+- **Android :** un **compte Google Play Developer** (25 $, paiement unique) — [inscrivez-vous ici](https://play.google.com/console/signup) — puis un **JDK** (n'importe quel OS — pas de Mac nécessaire) et une clé JSON de **compte de service Google Play**.
 - **Node 20+** sur toutes les plateformes.
 
 Lancez `launch doctor` à tout moment pour vérifier tout ce qui précède.

@@ -284,11 +284,11 @@ EAS Ihnen überlässt. Wo sich die beiden im selben Workflow unterscheiden:
 
 ## Voraussetzungen
 
-- **iOS:** macOS mit **Xcode** + Befehlszeilenwerkzeugen, **fastlane** (`brew install fastlane`) und ein
+- **iOS:** eine **Apple-Developer-Program-Mitgliedschaft** (99 $/Jahr) — [hier registrieren](https://developer.apple.com/programs/enroll/) — und dann macOS mit **Xcode** + Befehlszeilenwerkzeugen, **fastlane** (`brew install fastlane`) und ein
   **App-Store-Connect-API-Schlüssel** (`.p8` + Key-ID + Issuer-ID) — [hier einen
   generieren](https://appstoreconnect.apple.com/access/integrations/api).
   Kein Mac? Siehe [Bauen ohne Mac](#bauen-ohne-mac).
-- **Android:** ein **JDK** (jedes Betriebssystem — kein Mac nötig) und ein
+- **Android:** ein **Google-Play-Developer-Konto** (einmalig 25 $) — [hier registrieren](https://play.google.com/console/signup) — und dann ein **JDK** (jedes Betriebssystem — kein Mac nötig) und ein
   **Google-Play-Dienstkonto**-JSON-Schlüssel.
 - **Node 20+** auf jeder Plattform.
 

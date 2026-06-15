@@ -250,10 +250,10 @@ dois diferem no mesmo fluxo de trabalho:
 
 ## Requisitos
 
-- **iOS:** macOS com **Xcode** + ferramentas de linha de comando, **fastlane** (`brew install fastlane`) e uma
+- **iOS:** uma **assinatura do Apple Developer Program** (US$ 99/ano) — [inscreva-se aqui](https://developer.apple.com/programs/enroll/) — e então macOS com **Xcode** + ferramentas de linha de comando, **fastlane** (`brew install fastlane`) e uma
   **chave de API do App Store Connect** (`.p8` + Key ID + Issuer ID) — [gere uma aqui](https://appstoreconnect.apple.com/access/integrations/api).
   Sem Mac? Veja [Compilando sem um Mac](#compilando-sem-um-mac).
-- **Android:** um **JDK** (qualquer SO — sem necessidade de Mac) e uma chave JSON de **service account do Google Play**.
+- **Android:** uma **conta de desenvolvedor do Google Play** (US$ 25, pagamento único) — [cadastre-se aqui](https://play.google.com/console/signup) — e então um **JDK** (qualquer SO — sem necessidade de Mac) e uma chave JSON de **service account do Google Play**.
 - **Node 20+** em todas as plataformas.
 
 Execute `launch doctor` a qualquer momento para checar tudo isso.
