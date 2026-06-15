@@ -94,6 +94,63 @@ const IGNORED_ENTITLEMENTS = new Set<string>([
   "com.apple.developer.kernel.extended-virtual-addressing",
 ]);
 
+/**
+ * Capability type → the one **canonical** entitlement key `launch adopt` emits for it when a shipping
+ * app's provisioning profile didn't supply a concrete value (so the entitlement is written with the
+ * build-breaking {@link import("./adopt/types.js").NEEDS_VALUE} sentinel for the developer to fill in).
+ *
+ * This is the curated inverse of {@link ENTITLEMENT_TO_CAPABILITY}: that map is many-to-one (several
+ * iCloud entitlements collapse to `ICLOUD`), so the inverse must pick a single representative key per
+ * capability — the identifier-bearing one a developer most likely needs (e.g. the iCloud *container
+ * identifiers*, not the kv-store key). Capabilities Apple always enables and that carry no entitlement
+ * (`IN_APP_PURCHASE`, `GAME_CENTER`) are intentionally absent — there is nothing to write to `app.json`.
+ * Kept here, beside the forward map, so the entitlement↔capability vocabulary has one home to audit.
+ */
+export const CAPABILITY_TO_ENTITLEMENT: Partial<Record<CapabilityType, string>> = {
+  PUSH_NOTIFICATIONS: "aps-environment",
+  APPLE_ID_AUTH: "com.apple.developer.applesignin",
+  ICLOUD: "com.apple.developer.icloud-container-identifiers",
+  APP_GROUPS: "com.apple.security.application-groups",
+  APPLE_PAY: "com.apple.developer.in-app-payments",
+  HEALTHKIT: "com.apple.developer.healthkit",
+  HOMEKIT: "com.apple.developer.homekit",
+  ASSOCIATED_DOMAINS: "com.apple.developer.associated-domains",
+  PERSONAL_VPN: "com.apple.developer.networking.vpn.api",
+  NETWORK_EXTENSIONS: "com.apple.developer.networking.networkextension",
+  MULTIPATH: "com.apple.developer.networking.multipath",
+  HOT_SPOT: "com.apple.developer.networking.HotspotConfiguration",
+  ACCESS_WIFI_INFORMATION: "com.apple.developer.networking.wifi-info",
+  NFC_TAG_READING: "com.apple.developer.nfc.readersession.formats",
+  CLASSKIT: "com.apple.developer.ClassKit-environment",
+  AUTOFILL_CREDENTIAL_PROVIDER: "com.apple.developer.authentication-services.autofill-credential-provider",
+  SIRIKIT: "com.apple.developer.siri",
+  WALLET: "com.apple.developer.pass-type-identifiers",
+  MAPS: "com.apple.developer.maps",
+  SYSTEM_EXTENSION_INSTALL: "com.apple.developer.system-extension.install",
+  WIRELESS_ACCESSORY_CONFIGURATION: "com.apple.external-accessory.wireless-configuration",
+  INTER_APP_AUDIO: "inter-app-audio",
+  // DATA_PROTECTION is intentionally absent: its `com.apple.developer.default-data-protection` key is
+  // signing/OS plumbing (in IGNORED_ENTITLEMENTS, not a capability toggle), and its level is set via the
+  // capability's settings, so adopt surfaces it as advisory detail rather than an app.json entitlement.
+};
+
+/** Reverse map as a string-keyed lookup, so a raw `capabilityType` string resolves without a cast. */
+const CAPABILITY_TO_ENTITLEMENT_LOOKUP = new Map<string, string>(Object.entries(CAPABILITY_TO_ENTITLEMENT));
+
+/** Whether an entitlement key is one Launch maps to an App Store Connect capability (vs. signing plumbing). */
+export function isCapabilityEntitlement(key: string): boolean {
+  return key in ENTITLEMENT_TO_CAPABILITY;
+}
+
+/**
+ * The canonical `app.json` entitlement key for a capability type, or `undefined` for an always-on /
+ * value-less capability that needs no entitlement. Accepts a raw `capabilityType` string (Apple's wire
+ * value) so `launch adopt` can look up a gap without first narrowing to {@link CapabilityType}.
+ */
+export function entitlementForCapability(capabilityType: string): string | undefined {
+  return CAPABILITY_TO_ENTITLEMENT_LOOKUP.get(capabilityType);
+}
+
 /** The outcome of mapping entitlements: capabilities to enable, plus keys we didn't recognize. */
 export interface CapabilityMapping {
   /** Capability flags to enable on the bundle id, de-duplicated and stably ordered. */

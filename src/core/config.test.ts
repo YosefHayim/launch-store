@@ -2,7 +2,7 @@ import { describe, expect, it, afterEach } from "vitest";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { defineConfig, loadConfig, resolveSidecarConfig, writeAppVersion } from "./config.js";
+import { defineConfig, loadConfig, resolveSidecarConfig, writeAppEntitlements, writeAppVersion } from "./config.js";
 import type { AppDescriptor } from "./types.js";
 
 const tempDirs: string[] = [];
@@ -307,5 +307,45 @@ describe("writeAppVersion — persist the bump back to a static app.json", () =>
       version: "1.0.0",
     };
     expect(writeAppVersion(app, "1.1.0")).toBe(false);
+  });
+});
+
+describe("writeAppEntitlements", () => {
+  /** Build an AppDescriptor pointing at a freshly-written app.json in a temp repo. */
+  function appWith(expo: Record<string, unknown>): AppDescriptor {
+    const repo = makeRepo();
+    writeApp(repo, "app", expo);
+    return { name: "app", dir: join(repo, "app"), configPath: join(repo, "app", "app.json") };
+  }
+
+  it("adds entitlements under expo.ios.entitlements and returns the keys it wrote", () => {
+    const app = appWith({ ios: { bundleIdentifier: "com.acme.app" } });
+    const added = writeAppEntitlements(app, { "aps-environment": "production", "com.apple.developer.healthkit": true });
+    expect(added.sort()).toEqual(["aps-environment", "com.apple.developer.healthkit"]);
+    const raw = JSON.parse(readFileSync(app.configPath, "utf8")) as {
+      expo: { ios: { entitlements: Record<string, unknown> } };
+    };
+    expect(raw.expo.ios.entitlements).toEqual({
+      "aps-environment": "production",
+      "com.apple.developer.healthkit": true,
+    });
+  });
+
+  it("never overwrites an entitlement the app.json already declares", () => {
+    const app = appWith({ ios: { entitlements: { "aps-environment": "development" } } });
+    const added = writeAppEntitlements(app, {
+      "aps-environment": "production",
+      "com.apple.security.application-groups": ["group.x"],
+    });
+    expect(added).toEqual(["com.apple.security.application-groups"]);
+    const raw = JSON.parse(readFileSync(app.configPath, "utf8")) as {
+      expo: { ios: { entitlements: Record<string, unknown> } };
+    };
+    expect(raw.expo.ios.entitlements["aps-environment"]).toBe("development");
+  });
+
+  it("returns [] without writing for a dynamic config", () => {
+    const app: AppDescriptor = { name: "dyn", dir: "/tmp/x", configPath: "/tmp/x/app.config.js" };
+    expect(writeAppEntitlements(app, { "aps-environment": "production" })).toEqual([]);
   });
 });
