@@ -1,6 +1,15 @@
-<p align="center">
-  <img src="assets/launch-logo.png" alt="Launch" width="220" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/ios.jpg" alt="iOS" width="150" /></td>
+    <td align="center" valign="middle" width="280"><img src="assets/launch-logo.png" alt="Launch — ビルド・署名して App Store と Google Play へ配信" width="230" /></td>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/android.jpg" alt="Android" width="150" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>✅ <strong>iOS</strong> · TestFlight</sub></td>
+    <td></td>
+    <td align="center"><sub>✅ <strong>Android</strong> · Google&nbsp;Play</sub></td>
+  </tr>
+</table>
 
 <h1 align="center">Launch</h1>
 
@@ -162,19 +171,6 @@ Launch は、`eas build` → `eas submit` → `eas update` の同じパイプラ
 | ビルドの **成果物は Expo にホストされる**                                                                          | 成果物は **あなた自身のストレージ**（ローカル、または S3 / R2 / Supabase）に着地                                                                        |
 | **Mac がない？** EAS の有料クラウドが唯一の道                                                                      | **Mac がない？** **あなた自身の AWS** 内のクラウド Mac、**SSH** 越しの任意の Mac、または **`eas build`** への引き継ぎ                                   |
 | **クローズドな SaaS** — プロプライエタリでベンダーロックイン                                                       | **MIT、オープンソース** — `fastlane`/Gradle/プラットフォーム API、差し替え可能なプロバイダー、移行すべきものは何もなし                                  |
-
-## プラットフォーム対応
-
-<table align="center">
-  <tr>
-    <td align="center" width="240"><img src="assets/platforms/ios.jpg" alt="iOS" width="200" /></td>
-    <td align="center" width="240"><img src="assets/platforms/android.jpg" alt="Android" width="200" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>iOS</strong><br />✅ 提供中 — ビルド、署名し &amp; TestFlight へアップロード</td>
-    <td align="center"><strong>Android</strong><br />✅ 提供中 — ビルド、署名し &amp; Google Play へアップロード</td>
-  </tr>
-</table>
 
 ## 必要要件
 

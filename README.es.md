@@ -1,6 +1,15 @@
-<p align="center">
-  <img src="assets/launch-logo.png" alt="Launch" width="220" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/ios.jpg" alt="iOS" width="150" /></td>
+    <td align="center" valign="middle" width="280"><img src="assets/launch-logo.png" alt="Launch — compila, firma y publica en App Store y Google Play" width="230" /></td>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/android.jpg" alt="Android" width="150" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>✅ <strong>iOS</strong> · TestFlight</sub></td>
+    <td></td>
+    <td align="center"><sub>✅ <strong>Android</strong> · Google&nbsp;Play</sub></td>
+  </tr>
+</table>
 
 <h1 align="center">Launch</h1>
 
@@ -162,19 +171,6 @@ Launch ejecuta el mismo pipeline `eas build` → `eas submit` → `eas update` (
 | Los **artefactos** de compilación **se alojan en Expo**                                                                            | Los artefactos van a parar a **tu propio almacenamiento** (local, o S3 / R2 / Supabase)                                                                              |
 | **¿Sin Mac?** La nube de pago de EAS es el único camino                                                                            | **¿Sin Mac?** Una Mac en la nube en **tu propia cuenta de AWS**, cualquier Mac por **SSH**, o delegar en **`eas build`**                                             |
 | **SaaS cerrado** — propietario, dependencia de proveedor                                                                           | **MIT, código abierto** — APIs de `fastlane`/Gradle/plataforma, proveedores intercambiables, nada que migrar                                                         |
-
-## Compatibilidad de plataformas
-
-<table align="center">
-  <tr>
-    <td align="center" width="240"><img src="assets/platforms/ios.jpg" alt="iOS" width="200" /></td>
-    <td align="center" width="240"><img src="assets/platforms/android.jpg" alt="Android" width="200" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>iOS</strong><br />✅ En producción — compila, firma y sube a TestFlight</td>
-    <td align="center"><strong>Android</strong><br />✅ En producción — compila, firma y sube a Google Play</td>
-  </tr>
-</table>
 
 ## Requisitos
 
