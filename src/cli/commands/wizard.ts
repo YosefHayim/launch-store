@@ -32,6 +32,7 @@ import { type BuildRunOptions, prepareBuild, runBuild } from "../../core/pipelin
 import { runEasBuild } from "../../core/easPipeline.js";
 import { chooseAccountInteractive, setupIos } from "./creds.js";
 import { runInit } from "./init.js";
+import { runAdopt } from "./adopt.js";
 import { runDoctor } from "./doctor.js";
 import { parseSshTarget } from "../../providers/compute/byoSsh.js";
 
@@ -427,10 +428,15 @@ export async function runWizard(): Promise<void> {
   }
 
   const action = resolvePrompt(
-    await select<"build" | "setup">({
+    await select<"build" | "setup" | "adopt">({
       message: "What would you like to do?",
       options: [
         { value: "build", label: "Build an app", hint: "compile, check size, upload" },
+        {
+          value: "adopt",
+          label: "Adopt an existing app",
+          hint: "import an already-shipping app's setup from App Store Connect",
+        },
         {
           value: "setup",
           label: "Set up Launch (credentials & checks)",
@@ -439,6 +445,12 @@ export async function runWizard(): Promise<void> {
       ],
     }),
   );
+
+  if (action === "adopt") {
+    await runAdopt({});
+    outro("Done.");
+    return;
+  }
 
   if (action === "setup") {
     await runGuidedSetup();

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { mapEntitlementsToCapabilities } from "./capabilities.js";
+import {
+  CAPABILITY_TO_ENTITLEMENT,
+  entitlementForCapability,
+  isCapabilityEntitlement,
+  mapEntitlementsToCapabilities,
+} from "./capabilities.js";
 
 describe("mapEntitlementsToCapabilities", () => {
   it("maps known entitlement keys to their capability types", () => {
@@ -59,5 +64,28 @@ describe("mapEntitlementsToCapabilities", () => {
     });
     expect(a.enable).toEqual(b.enable);
     expect(a.enable).toEqual(["HOMEKIT", "PUSH_NOTIFICATIONS", "SIRIKIT"]);
+  });
+});
+
+describe("entitlementForCapability (reverse map for `launch adopt`)", () => {
+  it("resolves a capability type to its canonical entitlement key", () => {
+    expect(entitlementForCapability("APP_GROUPS")).toBe("com.apple.security.application-groups");
+    expect(entitlementForCapability("PUSH_NOTIFICATIONS")).toBe("aps-environment");
+  });
+
+  it("returns undefined for an always-on capability that carries no entitlement", () => {
+    expect(entitlementForCapability("IN_APP_PURCHASE")).toBeUndefined();
+    expect(entitlementForCapability("GAME_CENTER")).toBeUndefined();
+  });
+
+  it("every reverse-map key round-trips back to a real capability entitlement", () => {
+    for (const key of Object.values(CAPABILITY_TO_ENTITLEMENT)) {
+      expect(isCapabilityEntitlement(key)).toBe(true);
+    }
+  });
+
+  it("distinguishes capability entitlements from signing-plumbing keys", () => {
+    expect(isCapabilityEntitlement("aps-environment")).toBe(true);
+    expect(isCapabilityEntitlement("application-identifier")).toBe(false);
   });
 });

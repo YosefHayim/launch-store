@@ -134,10 +134,25 @@ export interface ProfileResource {
   profileContent: string;
 }
 
+/**
+ * One configured key on a capability's `settings` — Apple's per-capability toggle list (e.g. the
+ * iCloud version or the data-protection permission level). The `key` is Apple's setting enum value
+ * (`ICLOUD_VERSION`, `DATA_PROTECTION_PERMISSION_LEVEL`, …) and `options` carries the chosen option
+ * key(s). Toggles only: a capability's `settings` never carry the concrete identifier values (app
+ * group ids, container ids) — those live in the provisioning profile, which is why `launch adopt`
+ * reads capability *values* from the profile and uses these settings only as advisory detail.
+ */
+export interface CapabilitySetting {
+  key: string;
+  options?: { key: string }[];
+}
+
 /** A capability enabled on a bundle id (App ID), e.g. `PUSH_NOTIFICATIONS`. */
 export interface BundleIdCapabilityResource {
   id: string;
   capabilityType: string;
+  /** Apple's per-capability toggle settings (e.g. data-protection level, iCloud version). Absent unless requested. */
+  settings?: CapabilitySetting[];
 }
 
 /** An in-app purchase (the `inAppPurchasesV2` resource) on an app. */
@@ -184,6 +199,8 @@ export interface SubscriptionResource {
   id: string;
   productId: string;
   name: string;
+  /** Apple's billing-period enum, e.g. `ONE_MONTH`. Absent unless requested — `launch adopt` needs it to import. */
+  subscriptionPeriod?: string;
   /** Apple's lifecycle state, e.g. `MISSING_METADATA`. Absent unless requested. */
   state?: string;
 }
@@ -1728,13 +1745,46 @@ export class AppStoreConnectClient {
   /*  (core/ascSync.ts); none of this is needed by the build/sign path.        */
   /* ------------------------------------------------------------------------ */
 
-  /** List the capabilities currently enabled on a bundle id (App ID). */
+  /** List the capabilities currently enabled on a bundle id (App ID), with their toggle settings. */
   async listBundleIdCapabilities(bundleIdResourceId: string): Promise<BundleIdCapabilityResource[]> {
-    const data = await this.requestAll<{ capabilityType?: string }>(
-      `/bundleIds/${bundleIdResourceId}/bundleIdCapabilities?limit=200`,
+    const data = await this.requestAll<{ capabilityType?: string; settings?: CapabilitySetting[] | null }>(
+      `/bundleIds/${bundleIdResourceId}/bundleIdCapabilities?limit=200&fields[bundleIdCapabilities]=capabilityType,settings`,
     );
     return data.flatMap((entry) =>
-      entry.attributes.capabilityType ? [{ id: entry.id, capabilityType: entry.attributes.capabilityType }] : [],
+      entry.attributes.capabilityType
+        ? [
+            {
+              id: entry.id,
+              capabilityType: entry.attributes.capabilityType,
+              ...(entry.attributes.settings ? { settings: entry.attributes.settings } : {}),
+            },
+          ]
+        : [],
+    );
+  }
+
+  /**
+   * List the provisioning profiles attached to a bundle id, with their `.mobileprovision` bytes —
+   * the read `launch adopt` uses to recover a shipping app's real capability values (app groups,
+   * iCloud containers, merchant ids) from a profile's embedded entitlements. Unlike
+   * {@link findProfileByName}, this matches on the bundle id rather than Launch's deterministic name,
+   * so it finds profiles created in Xcode/the portal by an app onboarded before Launch.
+   */
+  async listProfilesForBundleId(bundleIdResourceId: string): Promise<ProfileResource[]> {
+    const data = await this.requestAll<{ name?: string; uuid?: string; profileContent?: string }>(
+      `/bundleIds/${bundleIdResourceId}/profiles?limit=200&fields[profiles]=name,uuid,profileContent`,
+    );
+    return data.flatMap((entry) =>
+      entry.attributes.name && entry.attributes.uuid && entry.attributes.profileContent
+        ? [
+            {
+              id: entry.id,
+              name: entry.attributes.name,
+              uuid: entry.attributes.uuid,
+              profileContent: entry.attributes.profileContent,
+            },
+          ]
+        : [],
     );
   }
 
@@ -1893,13 +1943,19 @@ export class AppStoreConnectClient {
 
   /** List the subscriptions in a group. */
   async listSubscriptions(groupId: string): Promise<SubscriptionResource[]> {
-    const data = await this.requestAll<{ productId?: string; name?: string; state?: string }>(
-      `/subscriptionGroups/${groupId}/subscriptions?limit=200&fields[subscriptions]=productId,name,state`,
+    const data = await this.requestAll<{
+      productId?: string;
+      name?: string;
+      subscriptionPeriod?: string;
+      state?: string;
+    }>(
+      `/subscriptionGroups/${groupId}/subscriptions?limit=200&fields[subscriptions]=productId,name,subscriptionPeriod,state`,
     );
     return data.map((entry) => ({
       id: entry.id,
       productId: entry.attributes.productId ?? "",
       name: entry.attributes.name ?? "",
+      ...(entry.attributes.subscriptionPeriod ? { subscriptionPeriod: entry.attributes.subscriptionPeriod } : {}),
       ...(entry.attributes.state ? { state: entry.attributes.state } : {}),
     }));
   }

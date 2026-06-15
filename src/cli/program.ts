@@ -13,6 +13,7 @@ import { readFileSync } from "node:fs";
 import { Command } from "commander";
 import { renderBanner } from "../core/banner.js";
 import { registerInitCommand } from "./commands/init.js";
+import { registerAdoptCommand } from "./commands/adopt.js";
 import { registerBuildCommand } from "./commands/build.js";
 import { registerReleaseCommand } from "./commands/release.js";
 import { registerStatusCommand } from "./commands/status.js";
@@ -85,6 +86,7 @@ export function buildProgram(): Command {
     .version(readVersion());
 
   registerInitCommand(program);
+  registerAdoptCommand(program);
   registerBuildCommand(program);
   registerReleaseCommand(program);
   registerStatusCommand(program);
