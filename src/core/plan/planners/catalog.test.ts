@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { catalogPlanner } from "./catalog.js";
+import { makeAscApiFake } from "./ascApiFake.testkit.js";
 import type { AscCatalogApi } from "../../ascSync.js";
 import type { PlanContext } from "../types.js";
 import type { AppDescriptor, AppProducts, LaunchConfig } from "../../types.js";
@@ -98,7 +99,9 @@ function makeCtx(api: AscCatalogApi | null, products: Record<string, AppProducts
   return {
     config,
     apps: [ALPHA],
-    resolveAscApi: () => Promise.resolve(api),
+    // Widen the catalog-only fake to the full surface API the context now exposes; the catalog methods
+    // (which these tests assert on) win over the factory's inert defaults via the trailing spread.
+    resolveAscApi: () => Promise.resolve(api === null ? null : { ...makeAscApiFake(), ...api }),
     resolvePlayApi: () => Promise.resolve(null),
   };
 }
@@ -120,7 +123,7 @@ describe("catalogPlanner", () => {
   it("reports the per-app diff a fresh catalog would create", async () => {
     const plan = await catalogPlanner.plan(makeCtx(makeApi(), { "com.acme.alpha": PRODUCTS }));
     expect(plan.state).toBe("planned");
-    if (plan.state !== "planned") return;
+    if (plan.state !== "planned" || plan.scope !== "app") return;
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe("com.acme.alpha");
     expect(plan.apps[0]?.actions.some((a) => a.description.includes("create in-app purchase com.acme.coins"))).toBe(
@@ -132,7 +135,7 @@ describe("catalogPlanner", () => {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await catalogPlanner.plan(makeCtx(api, { "com.acme.alpha": PRODUCTS }));
     expect(plan.state).toBe("planned");
-    if (plan.state !== "planned") return;
+    if (plan.state !== "planned" || plan.scope !== "app") return;
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
   });

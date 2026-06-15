@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { listingPlanner } from "./listing.js";
+import { makeAscApiFake } from "./ascApiFake.testkit.js";
 import type { AscCatalogApi } from "../../ascSync.js";
 import type { PlanContext } from "../types.js";
 import type { AppleLocaleInfo } from "../../storeConfig.js";
@@ -77,7 +78,9 @@ function makeCtx(api: AscCatalogApi | null, appDir: string): PlanContext {
   return {
     config,
     apps: [app],
-    resolveAscApi: () => Promise.resolve(api),
+    // Widen the catalog-only fake to the full surface API the context now exposes; the listing methods
+    // (which these tests assert on) win over the factory's inert defaults via the trailing spread.
+    resolveAscApi: () => Promise.resolve(api === null ? null : { ...makeAscApiFake(), ...api }),
     resolvePlayApi: () => Promise.resolve(null),
   };
 }
@@ -100,7 +103,7 @@ describe("listingPlanner", () => {
     const dir = appDirWithListing({ title: "Acme", description: "The best acme app." });
     const plan = await listingPlanner.plan(makeCtx(makeApi(), dir));
     expect(plan.state).toBe("planned");
-    if (plan.state !== "planned") return;
+    if (plan.state !== "planned" || plan.scope !== "app") return;
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe("com.acme.alpha");
     expect(plan.apps[0]?.actions.some((a) => a.description.startsWith("create listing [en-US] App Info"))).toBe(true);
@@ -113,7 +116,7 @@ describe("listingPlanner", () => {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await listingPlanner.plan(makeCtx(api, appDirWithListing({ title: "Acme" })));
     expect(plan.state).toBe("planned");
-    if (plan.state !== "planned") return;
+    if (plan.state !== "planned" || plan.scope !== "app") return;
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
   });

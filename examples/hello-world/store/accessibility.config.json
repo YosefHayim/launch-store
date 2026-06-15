@@ -1,0 +1,19 @@
+{
+  "publish": false,
+  "declarations": [
+    {
+      "deviceFamily": "IPHONE",
+      "supportsVoiceover": true,
+      "supportsLargerText": true,
+      "supportsDarkInterface": true,
+      "supportsSufficientContrast": true,
+      "supportsReducedMotion": true
+    },
+    {
+      "deviceFamily": "IPAD",
+      "supportsVoiceover": true,
+      "supportsLargerText": true,
+      "supportsDarkInterface": true
+    }
+  ]
+}

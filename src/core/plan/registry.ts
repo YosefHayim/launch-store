@@ -12,6 +12,15 @@ import { catalogPlanner } from "./planners/catalog.js";
 import { listingPlanner } from "./planners/listing.js";
 import { playProductsPlanner } from "./planners/playProducts.js";
 import { playSubscriptionsPlanner } from "./planners/playSubscriptions.js";
+import { releaseConfigPlanner } from "./planners/releaseConfig.js";
+import { gameCenterPlanner } from "./planners/gameCenter.js";
+import { appClipsPlanner } from "./planners/appClips.js";
+import { availabilityPlanner } from "./planners/availability.js";
+import { accessibilityPlanner } from "./planners/accessibility.js";
+import { experimentsPlanner } from "./planners/experiments.js";
+import { customPagesPlanner } from "./planners/customPages.js";
+import { walletPlanner } from "./planners/wallet.js";
+import { euDistributionPlanner } from "./planners/euDistribution.js";
 
 /** Registered planners, keyed by surface id so re-registering one replaces it (idempotent built-in wiring). */
 const PLANNERS = new Map<string, SurfacePlanner>();
@@ -27,8 +36,9 @@ export function listSurfacePlanners(): SurfacePlanner[] {
 }
 
 /**
- * Register the v1 built-in planners. Idempotent: safe to call from the command entry and from tests
- * without duplicating — catalog, listing, and Play products & subscriptions all wire in here (see
+ * Register the built-in planners. Idempotent: safe to call from the command entry and from tests without
+ * duplicating — the cross-store v1 surfaces (catalog, listing, Play products & subscriptions) plus the
+ * v1.1 breadth App Store surfaces (release-config, game-center, app-clips, …) all wire in here (see
  * `docs/adr/0003-plan-drift.md`).
  */
 export function registerBuiltinPlanners(): void {
@@ -36,4 +46,13 @@ export function registerBuiltinPlanners(): void {
   registerSurfacePlanner(listingPlanner);
   registerSurfacePlanner(playProductsPlanner);
   registerSurfacePlanner(playSubscriptionsPlanner);
+  registerSurfacePlanner(releaseConfigPlanner);
+  registerSurfacePlanner(gameCenterPlanner);
+  registerSurfacePlanner(appClipsPlanner);
+  registerSurfacePlanner(availabilityPlanner);
+  registerSurfacePlanner(accessibilityPlanner);
+  registerSurfacePlanner(experimentsPlanner);
+  registerSurfacePlanner(customPagesPlanner);
+  registerSurfacePlanner(walletPlanner);
+  registerSurfacePlanner(euDistributionPlanner);
 }

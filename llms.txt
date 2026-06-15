@@ -140,13 +140,14 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 47 `launch` commands (204 store-API operations underneath, 1146 tests):
+All 48 `launch` commands (205 store-API operations underneath, 1245 tests):
 
 - `launch init` — scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` — onboard an app that already ships: import its App Store Connect setup into config
 - `launch build <platform>` — run the full pipeline and upload to the testing track (--no-submit to build only)
 - `launch release <platform>` — submit the latest build to the store's PUBLIC production track (with confirmation)
 - `launch status` — show each app's App Store version, review, and phased-rollout state
+- `launch release-train [action] [id]` — coordinate an app's iOS + Android + OTA release as one resumable record (ADR 0004)
 - `launch rollout <action>` — steer an iOS phased release: pause | resume | complete
 - `launch creds [action] [value] [value2]` — inspect credentials, onboard/switch Apple accounts, or provision signing assets
 - `launch secret [action] [name]` — manage keychain-backed build secrets (set/list/rm) instead of plaintext .env
@@ -245,7 +246,7 @@ All 47 `launch` commands (204 store-API operations underneath, 1146 tests):
 
 ## Reference
 
-- [Command reference](./docs/commands.md): all 47 `launch` commands and every flag, generated from the CLI.
+- [Command reference](./docs/commands.md): all 48 `launch` commands and every flag, generated from the CLI.
 
 ## Source
 

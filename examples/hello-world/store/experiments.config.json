@@ -1,0 +1,10 @@
+{
+  "experiments": [
+    {
+      "name": "Hero icon A/B",
+      "platform": "IOS",
+      "trafficProportion": 50,
+      "treatments": [{ "name": "Bold icon", "appIconName": "icon-bold" }, { "name": "Minimal icon" }]
+    }
+  ]
+}

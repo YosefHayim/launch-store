@@ -11,9 +11,13 @@ import { defineConfig } from "launch-store";
  * `launch init` scaffolds a minimal version of this (providers + one profile + commented sections).
  * The five Launch-native App Store Connect sections — Game Center, App Clips, release attributes,
  * Wallet, and EU distribution — are typed fields right here (issue #101); their standalone
- * `*.config.json` sidecars still work for back-compat. Only `store.config.json` remains a deliberate
- * sidecar: its `apple` section mirrors the Expo/EAS metadata schema verbatim (the `eas metadata`
- * migration path).
+ * `*.config.json` sidecars still work for back-compat. The four file-only surfaces — availability,
+ * accessibility, experiments, and custom product pages — stay sidecar-only (`store/*.config.json`,
+ * located via `configFiles` below). And `store.config.json` is a deliberate sidecar too: its `apple`
+ * section mirrors the Expo/EAS metadata schema verbatim (the `eas metadata` migration path).
+ *
+ * Together these surfaces are what `launch plan` / `launch drift` diff against live App Store / Play
+ * state — see the "Plan coverage" table in README.md for which read two-way vs additively.
  *
  * The product catalog is store-agnostic: each subscription/IAP can carry a `play` override that
  * publishes the same product to Google Play (`launch play-subscriptions` / `launch play-products`),
@@ -337,6 +341,18 @@ export default defineConfig({
   // register-once action (`launch eu-distribution set-key`), not declared here.
   euDistribution: {
     domains: [{ domain: "downloads.example.com", referenceName: "Hello World EU downloads" }],
+  },
+
+  // ── Sidecar locations for the four file-only surfaces (`launch plan`, `launch drift`) ────────────────
+  // availability / accessibility / experiments / custom-pages have NO typed field — their desired state
+  // lives in a `*.config.json` sidecar. By default Launch looks for each at the app-dir root
+  // (`availability.config.json`, …); this map relocates them so all store-config files sit together under
+  // `store/`. `launch plan` reads every one of them in dry-run; an absent file just omits that surface.
+  configFiles: {
+    availability: "store/availability.config.json",
+    accessibility: "store/accessibility.config.json",
+    experiments: "store/experiments.config.json",
+    customPages: "store/custom-pages.config.json",
   },
 
   // ── AWS EC2 Mac settings for off-Mac builds (`launch build ios --remote aws`, `launch cloud`) ────────

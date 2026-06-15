@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **204 App Store Connect & Google Play API operations** across **47 commands**, guarded by **1146 tests**.
+> Launch wraps **205 App Store Connect & Google Play API operations** across **48 commands**, guarded by **1245 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -77,6 +77,25 @@ show each app's App Store version, review, and phased-rollout state
 | `-a, --app <names>` | comma-separated app handles (default: all iOS apps) |
 | `--watch`           | poll until the review reaches a terminal verdict    |
 | `--json`            | machine-readable output for CI                      |
+
+## `launch release-train [action] [id]`
+
+coordinate an app's iOS + Android + OTA release as one resumable record (ADR 0004)
+
+| Flag                    | Description                                                                 |
+| ----------------------- | --------------------------------------------------------------------------- |
+| `-a, --app <name>`      | app handle (auto-selected if there's only one)                              |
+| `-p, --profile <name>`  | build profile whose env feeds the Android submit + OTA export               |
+| `--platform <p>`        | start: restrict to one native platform (ios or android)                     |
+| `--no-ota`              | start: coordinate the native legs only (no OTA followers)                   |
+| `--hold`                | start: hold every car until all are approved, then release together         |
+| `--channel <name>`      | start: OTA channel the followers publish to                                 |
+| `--runtime-version <v>` | start: runtime version OTA followers target (default: from app config)      |
+| `--watch`               | status: poll until the train settles                                        |
+| `--json`                | machine-readable output for CI/agents                                       |
+| `--env <KEY=VALUE>`     | inline env override (repeatable); highest precedence                        |
+| `--include-local`       | also load .env.local (off by default to avoid surprise local env)           |
+| `--print-env`           | print the resolved env (masked) with its sources, then exit without running |
 
 ## `launch rollout <action>`
 
