@@ -15,6 +15,10 @@ import { playSubscriptionsPlanner } from "./planners/playSubscriptions.js";
 import { releaseConfigPlanner } from "./planners/releaseConfig.js";
 import { gameCenterPlanner } from "./planners/gameCenter.js";
 import { appClipsPlanner } from "./planners/appClips.js";
+import { availabilityPlanner } from "./planners/availability.js";
+import { accessibilityPlanner } from "./planners/accessibility.js";
+import { experimentsPlanner } from "./planners/experiments.js";
+import { customPagesPlanner } from "./planners/customPages.js";
 
 /** Registered planners, keyed by surface id so re-registering one replaces it (idempotent built-in wiring). */
 const PLANNERS = new Map<string, SurfacePlanner>();
@@ -43,4 +47,8 @@ export function registerBuiltinPlanners(): void {
   registerSurfacePlanner(releaseConfigPlanner);
   registerSurfacePlanner(gameCenterPlanner);
   registerSurfacePlanner(appClipsPlanner);
+  registerSurfacePlanner(availabilityPlanner);
+  registerSurfacePlanner(accessibilityPlanner);
+  registerSurfacePlanner(experimentsPlanner);
+  registerSurfacePlanner(customPagesPlanner);
 }

@@ -91,6 +91,29 @@ export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurf
     updateAppClipDefaultExperienceAction: vi.fn(),
     createAppClipDefaultExperienceLocalization: vi.fn(),
     updateAppClipDefaultExperienceLocalization: vi.fn(),
+
+    // availability
+    getAppAvailability: vi.fn().mockResolvedValue(null),
+    setAppAvailability: vi.fn(),
+
+    // accessibility
+    listAccessibilityDeclarations: vi.fn().mockResolvedValue([]),
+    createAccessibilityDeclaration: vi.fn(),
+    updateAccessibilityDeclaration: vi.fn(),
+
+    // version experiments
+    listVersionExperiments: vi.fn().mockResolvedValue([]),
+    createVersionExperiment: vi.fn(),
+    listExperimentTreatments: vi.fn().mockResolvedValue([]),
+    createExperimentTreatment: vi.fn(),
+
+    // custom product pages
+    listCustomProductPages: vi.fn().mockResolvedValue([]),
+    createCustomProductPage: vi.fn(),
+    listCustomProductPageVersions: vi.fn().mockResolvedValue([]),
+    listCustomProductPageLocalizations: vi.fn().mockResolvedValue([]),
+    createCustomProductPageLocalization: vi.fn(),
+    updateCustomProductPageLocalization: vi.fn(),
   };
   return { ...base, ...overrides };
 }

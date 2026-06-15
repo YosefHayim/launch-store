@@ -18,6 +18,10 @@ import type { AscCatalogApi, PlannedAction } from "../ascSync.js";
 import type { AscReleaseApi } from "../releaseAttrs.js";
 import type { AscGameCenterApi } from "../gameCenter.js";
 import type { AscAppClipsApi } from "../appClips.js";
+import type { AscAvailabilityApi } from "../availability.js";
+import type { AscAccessibilityApi } from "../accessibility.js";
+import type { AscExperimentsApi } from "../versionExperiments.js";
+import type { AscCustomPagesApi } from "../customProductPages.js";
 import type { PlayProductsApi } from "../playProducts.js";
 import type { PlaySubscriptionsApi } from "../playSubscriptions.js";
 
@@ -40,7 +44,16 @@ export interface PlayCatalogApi extends PlayProductsApi, PlaySubscriptionsApi {}
  * command already passes that client to these reconcilers individually — so no widening of the client is
  * required, only of the resolver's declared type. Grows by one `extends` as each surface is wired.
  */
-export interface AscSurfacesApi extends AscCatalogApi, AscReleaseApi, AscGameCenterApi, AscAppClipsApi {}
+export interface AscSurfacesApi
+  extends
+    AscCatalogApi,
+    AscReleaseApi,
+    AscGameCenterApi,
+    AscAppClipsApi,
+    AscAvailabilityApi,
+    AscAccessibilityApi,
+    AscExperimentsApi,
+    AscCustomPagesApi {}
 
 /**
  * One app's slice of a surface's plan. `actions` is the reconciler's existing {@link PlannedAction} list
