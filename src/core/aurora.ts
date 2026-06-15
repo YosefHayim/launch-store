@@ -7,8 +7,22 @@
  *
  * Color is emitted only when the caller opts in (a color-capable TTY). Off a TTY, under `NO_COLOR`, or
  * in CI every helper returns plain text, so logs, pipes, and captured transcripts stay clean and
- * grep-able. Escapes are built with `\x1b` (no raw byte) so the source stays searchable.
+ * grep-able.
+ *
+ * The truecolor escapes are emitted by `chalk` — the de-facto terminal-styling library — through a
+ * `Chalk` instance pinned to `level: 3` (24-bit). We pin the level so OUR {@link colorEnabled} gate
+ * (a real TTY without `NO_COLOR`), not chalk's own environment autodetection, is the single switch that
+ * decides plain-vs-colored; this keeps the decision identical across the logger, progress bar, and
+ * banner. chalk also closes styles with attribute-specific resets (`\x1b[39m`/`\x1b[49m`/`\x1b[22m`)
+ * rather than a blanket `\x1b[0m`, so nested spans — e.g. a {@link AuroraPaint.bg} value-chip inside a
+ * dimmed line — restore the surrounding color automatically. The {@link AURORA} palette below stays the
+ * single source of truth for the hues; chalk is only the renderer.
  */
+
+import { Chalk } from "chalk";
+
+/** A truecolor chalk instance pinned to 24-bit so {@link colorEnabled}, not chalk autodetection, gates color. */
+const chalk = new Chalk({ level: 3 });
 
 /** An sRGB color as a `[r, g, b]` triple (0–255), emitted as a 24-bit truecolor SGR escape. */
 export type Rgb = readonly [number, number, number];
@@ -55,6 +69,8 @@ export interface AuroraPaint {
   readonly enabled: boolean;
   /** Wrap text in a truecolor foreground. */
   fg(color: Rgb, text: string): string;
+  /** Wrap text in a truecolor background — the fill behind a highlighted "chip" (e.g. a value pill). */
+  bg(color: Rgb, text: string): string;
   /** Embolden text. */
   bold(text: string): string;
   /** Paint each character of `text` along a `from`→`to` gradient (spaces left untouched). */
@@ -64,13 +80,20 @@ export interface AuroraPaint {
 /** Build an {@link AuroraPaint}. Defaults to the live {@link colorEnabled} decision; pass `false` to force plain. */
 export function auroraPaint(enabled: boolean = colorEnabled()): AuroraPaint {
   if (!enabled) {
-    return { enabled, fg: (_color, text) => text, bold: (text) => text, gradient: (text) => text };
+    return {
+      enabled,
+      fg: (_color, text) => text,
+      bg: (_color, text) => text,
+      bold: (text) => text,
+      gradient: (text) => text,
+    };
   }
-  const fg = ([r, g, b]: Rgb, text: string): string => `\x1b[38;2;${r};${g};${b}m${text}\x1b[0m`;
+  const fg = ([r, g, b]: Rgb, text: string): string => chalk.rgb(r, g, b)(text);
   return {
     enabled,
     fg,
-    bold: (text) => `\x1b[1m${text}\x1b[0m`,
+    bg: ([r, g, b], text) => chalk.bgRgb(r, g, b)(text),
+    bold: (text) => chalk.bold(text),
     gradient: (text, from, to) =>
       Array.from(text, (ch, i) =>
         ch === " " ? ch : fg(mix(from, to, text.length < 2 ? 0 : i / (text.length - 1)), ch),

@@ -20,7 +20,7 @@ import type {
   SizeReportEntry,
 } from "../../core/types.js";
 import { runWithProgress, xcodeProgressStep } from "../../core/progress.js";
-import { exists, run } from "../../core/exec.js";
+import { exists } from "../../core/exec.js";
 import { hostResources } from "../../core/os.js";
 import { buildXcargs, ccacheEnv, computeBuildJobs } from "../../core/buildFlags.js";
 import {
@@ -185,8 +185,17 @@ export const fastlaneBuildEngine: BuildEngine = {
     const ccacheVars = (await exists("ccache")) ? ccacheEnv() : {};
 
     // Re-resolve Pods only when the native graph changed (or they're absent) — baking ccache in then.
+    // Under a spinner (clean `◇ Pods · 12s`), with the CocoaPods output tee'd to the build log like gym.
+    // RCT_IGNORE_PODS_DEPRECATION silences React Native's "calling `pod install` directly is deprecated"
+    // banner: Launch drives CocoaPods itself to archive an exportable, store-bound `.ipa` via gym, so the
+    // banner's suggested `expo run:ios` / `yarn ios` (which build-to-run on a device, not an exportable
+    // artifact) don't apply here. See react-native's react_native_pods.rb for the env-var contract.
     if (decision.nativeChanged || !existsSync(join(iosDir, "Pods"))) {
-      await run("pod", ["install"], { cwd: iosDir, env: { ...ctx.env, ...ccacheVars } });
+      await runWithProgress("pod", ["install"], {
+        label: "Pods",
+        cwd: iosDir,
+        env: { ...ctx.env, ...ccacheVars, RCT_IGNORE_PODS_DEPRECATION: "1" },
+      });
     }
 
     const { cores, memBytes } = hostResources();

@@ -30,16 +30,21 @@ describe("mix — linear interpolation between two colors", () => {
 });
 
 describe("auroraPaint — truecolor when enabled, identity when not", () => {
-  it("emits a 24-bit foreground escape when enabled", () => {
+  it("emits a 24-bit foreground escape when enabled (chalk closes with the fg-reset \\x1b[39m)", () => {
     const paint = auroraPaint(true);
     expect(paint.enabled).toBe(true);
-    expect(paint.fg(AURORA.cyan, "x")).toBe(`${ESC}[38;2;34;211;238mx${ESC}[0m`);
+    expect(paint.fg(AURORA.cyan, "x")).toBe(`${ESC}[38;2;34;211;238mx${ESC}[39m`);
+  });
+
+  it("emits a 24-bit background escape when enabled (chalk closes with the bg-reset \\x1b[49m)", () => {
+    expect(auroraPaint(true).bg(AURORA.dim, "x")).toBe(`${ESC}[48;2;110;102;140mx${ESC}[49m`);
   });
 
   it("returns text untouched when disabled", () => {
     const paint = auroraPaint(false);
     expect(paint.enabled).toBe(false);
     expect(paint.fg(AURORA.cyan, "x")).toBe("x");
+    expect(paint.bg(AURORA.dim, "x")).toBe("x");
     expect(paint.bold("x")).toBe("x");
     expect(paint.gradient("xy", AURORA.violet, AURORA.cyan)).toBe("xy");
   });

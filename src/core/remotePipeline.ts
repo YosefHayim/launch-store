@@ -260,7 +260,7 @@ export async function runRemoteBuild(prepared: PreparedBuild, options: BuildRunO
 
   // Reaching here means the try block completed, so the size report is set.
   const link = options.submit ? await resolveAscBuildLink(ascKey, bundleId, options.target) : undefined;
-  renderReceipt({
+  await renderReceipt({
     app,
     version: app.version ?? "0.0.0",
     buildNumber,

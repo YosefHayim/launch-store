@@ -428,7 +428,10 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
   const app = await selectApp(apps, options.appName);
   const profile = config.profiles[options.profileName] ?? { name: options.profileName, sizeBudgetMB: 200 };
   const remoteSuffix = options.remote ? (options.remote.kind === "aws" ? " · remote(aws)" : " · remote(ssh)") : "";
-  log.step("config", `${app.name} · ${profile.name} · ${platform}${dryRun ? " · dry-run" : ""}${remoteSuffix}`);
+  log.step(
+    "config",
+    `${log.chip(app.name)} · ${profile.name} · ${platform}${dryRun ? " · dry-run" : ""}${remoteSuffix}`,
+  );
 
   // Resolve + validate env before any expensive work, so a missing/secret-looking key fails fast.
   const resolved = await resolveCommandEnv({
@@ -701,7 +704,7 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
   if (account) await refreshIdentityIfStale(account, resolved.ascKey);
   const link =
     options.submit && bundleId ? await resolveAscBuildLink(resolved.ascKey, bundleId, options.target) : undefined;
-  renderReceipt({
+  await renderReceipt({
     app,
     version: app.version ?? "0.0.0",
     buildNumber,
@@ -823,7 +826,7 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
     log.info(`Done. ${app.name} ${app.version ?? "0.0.0"} (${versionCode}) · dry-run, nothing changed`);
     return;
   }
-  renderReceipt({
+  await renderReceipt({
     app,
     version: app.version ?? "0.0.0",
     buildNumber: versionCode,
@@ -1101,7 +1104,7 @@ async function applyChosenVersion(
   app.version = chosen;
   const notes = [persisted ? "app config updated" : "app config not written (dynamic config)"];
   if (!stamped) notes.push("Info.plist not stamped");
-  log.step("version", `${chosen} (${note}; ${notes.join("; ")})`, "marketing-version");
+  log.step("version", `${log.chip(chosen)} (${note}; ${notes.join("; ")})`, "marketing-version");
 }
 
 /**
@@ -1236,11 +1239,13 @@ export function worstDownloadBytes(report: SizeReport): number {
 /**
  * The canonical size string wherever a size headline appears (the upload confirm and the receipt):
  * both numbers, no hierarchy. Falls back to on-disk alone when the build produced no per-device
- * estimate, so the line never claims a download figure it doesn't have.
+ * estimate, so the line never claims a download figure it doesn't have. `wrap` decorates each size
+ * value — the receipt passes {@link Logger.chip} to pill the numbers — and defaults to identity so
+ * existing plain callers are unchanged.
  */
-export function sizeSummary(report: SizeReport): string {
-  if (report.entries.length === 0) return `on disk ${mb(report.artifactBytes)} (no per-device estimate)`;
-  return `download ${mb(worstDownloadBytes(report))} · on disk ${mb(report.artifactBytes)}`;
+export function sizeSummary(report: SizeReport, wrap: (size: string) => string = (size) => size): string {
+  if (report.entries.length === 0) return `on disk ${wrap(mb(report.artifactBytes))} (no per-device estimate)`;
+  return `download ${wrap(mb(worstDownloadBytes(report)))} · on disk ${wrap(mb(report.artifactBytes))}`;
 }
 
 /** A build whose worst-case download grows beyond this fraction over the previous one earns a warning. */
@@ -1298,12 +1303,12 @@ export async function previousBuild(
  */
 export function reportSize(report: SizeReport, log: Logger, sizeTopic: GlossaryTopic = "app-thinning"): void {
   if (report.entries.length === 0) {
-    log.step("size", `${mb(report.artifactBytes)} on disk (no per-device report)`, sizeTopic);
+    log.step("size", `${log.chip(mb(report.artifactBytes))} on disk (no per-device report)`, sizeTopic);
     return;
   }
   for (const entry of report.entries) {
     const installSuffix = entry.installBytes > 0 ? ` · install ${mb(entry.installBytes)}` : "";
-    log.step("size", `${entry.device}: download ${mb(entry.downloadBytes)}${installSuffix}`, sizeTopic);
+    log.step("size", `${entry.device}: download ${log.chip(mb(entry.downloadBytes))}${installSuffix}`, sizeTopic);
   }
 }
 
@@ -1341,7 +1346,7 @@ export async function confirmUpload(options: ConfirmUploadOptions): Promise<void
   const overBudget = worstDownloadBytes(report) > budgetMB * 1024 * 1024;
   const { lines, grew } = uploadSizeReadout(report, previous);
 
-  log.notice(`▲ Upload to ${destination}`, `${app.name} ${version} (build ${buildNumber})`, ...lines);
+  log.notice(`⬆ Upload to ${destination}`, `${app.name} ${version} (build ${buildNumber})`, ...lines);
   if (grew) {
     log.warn(`Grew ${grew.pct}% since build ${grew.buildNumber}.`);
   }
@@ -1398,12 +1403,17 @@ interface ReceiptOptions {
 
 /**
  * The end-of-run "Shipped" receipt: one scannable summary of what landed where — app/version/build,
- * the both-numbers size, the destination, and a console link. Rendered as a box on a TTY, plain lines
- * in CI (see {@link Logger.box}).
+ * the both-numbers size, the destination, and a console link, with the headline values (app, version,
+ * size) pilled via {@link Logger.chip}. A sailing pixel boat crowns the box on a TTY; plain lines in CI
+ * (see {@link Logger.shipped}). Async because the boat animates.
  */
-export function renderReceipt(options: ReceiptOptions): void {
+export async function renderReceipt(options: ReceiptOptions): Promise<void> {
   const { app, version, buildNumber, report, destination, link, log } = options;
-  const rows = [`${app.name} ${version} (${buildNumber})`, sizeSummary(report), destination];
+  const rows = [
+    `${log.chip(app.name)} ${log.chip(version)} (${buildNumber})`,
+    sizeSummary(report, (size) => log.chip(size)),
+    destination,
+  ];
   if (link) rows.push(link);
-  log.box("Shipped", rows);
+  await log.shipped(rows);
 }
