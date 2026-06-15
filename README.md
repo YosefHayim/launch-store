@@ -2,8 +2,6 @@
   <a href="https://github.com/YosefHayim/launch-store"><img src="assets/launch-v3.png" alt="Launch — build, sign &amp; ship to the App Store and Google Play" width="640" /></a>
 </p>
 
-<h1 align="center">Launch</h1>
-
 <p align="center">
   <strong>Open-source, self-hosted alternative to Expo EAS — build, sign &amp; ship your Expo / React Native apps to TestFlight &amp; Google Play from your own machine, with your own keys. No per-build bill.</strong>
 </p>

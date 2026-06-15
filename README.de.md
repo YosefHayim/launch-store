@@ -2,8 +2,6 @@
   <a href="https://github.com/YosefHayim/launch-store"><img src="assets/launch-v3.png" alt="Launch — bauen, signieren und im App Store und bei Google Play veröffentlichen" width="640" /></a>
 </p>
 
-<h1 align="center">Launch</h1>
-
 <p align="center">
   <strong>Quelloffene, selbst gehostete Alternative zu Expo EAS — bauen, signieren &amp; veröffentlichen Sie Ihre Expo-/React-Native-Apps direkt von Ihrem eigenen Rechner aus zu TestFlight &amp; Google Play, mit Ihren eigenen Schlüsseln. Keine Abrechnung pro Build.</strong>
 </p>
