@@ -103,6 +103,23 @@ export const BUILD_STATE_DIR = join(LAUNCH_HOME, "build-state");
  */
 export const LAST_RUN_FILE = join(LAUNCH_HOME, "last-run.json");
 
+/**
+ * Persisted `launch release-train` records (`<id>.json`, one per coordinated release). A train outlives a
+ * single process — review takes days — so its state lives on disk and is advanced by reconcile, mirroring
+ * {@link BUILD_STATE_DIR}. Non-secret: app handle, car states, build ids, and timestamps only. See
+ * `core/releaseTrain/record.ts`.
+ */
+export const RELEASE_TRAINS_DIR = join(LAUNCH_HOME, "release-trains");
+
+/**
+ * Path to one train's record file. The id is sanitized to filesystem-safe characters so a malformed value
+ * can never escape {@link RELEASE_TRAINS_DIR}.
+ */
+export function releaseTrainFile(id: string): string {
+  const safe = id.replace(/[^A-Za-z0-9_-]/g, "");
+  return join(RELEASE_TRAINS_DIR, `${safe || "train"}.json`);
+}
+
 /** Create a directory (and parents) if it doesn't exist, returning the path for chaining. */
 export function ensureDir(dir: string): string {
   mkdirSync(dir, { recursive: true });
