@@ -1,67 +1,21 @@
 /**
- * Tests for the ASCII banner: the frame-builder and mode selection are pure; the renderer is driven
- * with a capture stub stream and an instant sleep so the animation path runs with no real timers/TTY.
+ * Tests for the LAUNCH banner orchestration: mode/depth selection are pure; the renderer is driven with
+ * a capture stub stream and an instant sleep so the animation path runs with no real timers or TTY. The
+ * glow artwork itself (glyphs, bloom, frames) is covered in {@link ./wordmark.test.ts}.
  */
 
 import { describe, it, expect } from "vitest";
-import {
-  buildFrames,
-  renderBanner,
-  selectBannerMode,
-  selectColorDepth,
-  staticBanner,
-  type BannerStream,
-} from "./banner.js";
+import { renderBanner, selectBannerMode, selectColorDepth, staticBanner, type BannerStream } from "./banner.js";
 
 /** The ESC byte, built without a raw byte in source, so we can assert ANSI presence/absence. */
 const ESC = String.fromCharCode(27);
 
-/** Strip ANSI SGR sequences so an assertion on the visible text isn't broken by per-glyph color spans. */
-function stripAnsi(text: string): string {
-  return text.replace(new RegExp(`${ESC}\\[[0-9;]*m`, "g"), "");
-}
-
-describe("buildFrames", () => {
-  it("produces equal-height frames ending in the LAUNCH wordmark", () => {
-    const frames = buildFrames();
-    expect(frames.length).toBeGreaterThan(20); // ignition + the full left→right flight + settle
-    const heights = new Set(frames.map((frame) => frame.split("\n").length));
-    expect(heights.size).toBe(1); // every frame is the same number of lines (clean in-place redraw)
-    expect(frames.at(-1)).toContain("L A U N C H");
-  });
-
-  it("delivers to both stores only after the rocket fires across", () => {
-    const frames = buildFrames();
-    const first = frames[0] ?? "";
-    expect(first).toContain("ignition"); // still on the pad
-    expect(first).not.toContain("✓"); // nothing delivered yet
-    const last = frames.at(-1) ?? "";
-    expect(last).toContain("App Store");
-    expect(last).toContain("Google Play");
-    expect(last).toContain("✓");
-  });
-
-  it("embeds color codes only when color is requested, matching the depth", () => {
-    expect(buildFrames("ansi256").join("")).toContain(`${ESC}[38;5;`);
-    expect(buildFrames("truecolor").join("")).toContain(`${ESC}[38;2;`);
-    expect(buildFrames("none").join("")).not.toContain(ESC);
-  });
-
-  it("paints the Google Play mark in its four exact brand facets once lit", () => {
-    const litFrame = buildFrames("truecolor").at(-1) ?? "";
-    // The real Google brand hexes — blue #4285F4, green #34A853, red #EA4335, yellow #FBBC04 — as RGB.
-    expect(litFrame).toContain("66;133;244");
-    expect(litFrame).toContain("52;168;83");
-    expect(litFrame).toContain("234;67;53");
-    expect(litFrame).toContain("251;188;4");
-  });
-});
+/** The CSI cursor-up escape `renderBanner` emits between frames to redraw in place (`ESC [ <n> A`). */
+const CURSOR_UP = new RegExp(`${ESC}\\[\\d+A`);
 
 describe("staticBanner", () => {
-  it("is the final frame, names both platforms, and is plain (no ANSI)", () => {
+  it("is the plain spaced wordmark with no ANSI, for piped output and CI", () => {
     const banner = staticBanner();
-    expect(banner).toContain("App Store");
-    expect(banner).toContain("Google Play");
     expect(banner).toContain("L A U N C H");
     expect(banner).not.toContain(ESC);
   });
@@ -99,33 +53,29 @@ describe("renderBanner", () => {
     };
   }
 
-  /** The CSI cursor-up escape `renderBanner` emits between frames (`ESC [ <n> A`). */
-  const cursorUp = `${ESC}[`;
-
   it("writes a single static frame when stdout isn't a TTY", async () => {
     const { stream, chunks } = capture();
     await renderBanner({ stream, isTTY: false, env: {} });
     expect(chunks.length).toBe(1);
     expect(chunks.join("")).toContain("L A U N C H");
-    expect(chunks.join("")).not.toContain(cursorUp); // static path never moves the cursor
+    expect(chunks.join("")).not.toMatch(CURSOR_UP); // static path never moves the cursor
   });
 
-  it("animates every frame in place on a TTY (cursor-up between frames)", async () => {
+  it("animates the glowing wordmark in place on a truecolor TTY", async () => {
     const { stream, chunks } = capture();
-    await renderBanner({ stream, isTTY: true, env: {}, sleep: () => Promise.resolve() });
+    await renderBanner({ stream, isTTY: true, env: { COLORTERM: "truecolor" }, sleep: () => Promise.resolve() });
     const output = chunks.join("");
-    expect(stripAnsi(output)).toContain("ignition…");
-    expect(stripAnsi(output)).toContain("L A U N C H");
-    expect(output).toContain(cursorUp); // redrew at least once in place
+    expect(output).toMatch(/[▀▄]/u); // drawn as half-block pixel art
+    expect(output).toContain(`${ESC}[38;2;`); // truecolor glow spans
+    expect(output).toMatch(CURSOR_UP); // redrew at least once in place
   });
 
-  it("drops color when NO_COLOR is set but still animates", async () => {
+  it("drops to a plain single frame when NO_COLOR is set (the bloom needs color)", async () => {
     const { stream, chunks } = capture();
     await renderBanner({ stream, isTTY: true, env: { NO_COLOR: "1" }, sleep: () => Promise.resolve() });
     const output = chunks.join("");
-    expect(output).toContain("ignition…");
-    expect(output).toContain(cursorUp); // still animating (cursor-up is not a color code)
-    expect(output).not.toContain(`${ESC}[38;5;`); // ...but no 256-color spans
-    expect(output).not.toContain(`${ESC}[38;2;`); // ...nor truecolor spans
+    expect(output).toContain("L A U N C H");
+    expect(output).not.toContain(`${ESC}[38;5;`); // no 256-color spans
+    expect(output).not.toContain(`${ESC}[38;2;`); // nor truecolor spans
   });
 });
