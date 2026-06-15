@@ -1,0 +1,10 @@
+# Canonical author identity.
+#
+# Coalesces a stray plain-Gmail identity (which GitHub attributed to the duplicate
+# account "Josrade") into the real account "YosefHayim". This is belt-and-suspenders
+# next to the one-time history rewrite and the repo-local `user.email`: it keeps
+# `git shortlog` / `git log --use-mailmap` and other tooling to a single identity if a
+# commit ever lands under the plain address again.
+#
+# Format: <canonical name> <canonical email> <commit email to remap>
+YosefHayim <yosefisabag+03@gmail.com> <yosefisabag@gmail.com>

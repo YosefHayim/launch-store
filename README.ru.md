@@ -39,7 +39,7 @@
   <b>Русский</b>
 </p>
 
-Выпуск приложения — это не только сборка: настройка подписи, конфигурация App Store Connect / Play Console,
+Выпуск приложения — это не только сборка: настройка подписи, конфигурация [App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console),
 встроенные покупки, метаданные карточки приложения, загрузка и последующие обновления «по воздуху» (OTA).
 EAS собирает и отправляет — всё остальное разбросано по порталам Apple и Google и нескольким инструментам.
 Launch собирает **весь релиз** в один локальный декларативный рабочий процесс: он подготавливает вашу подпись,
@@ -448,6 +448,16 @@ Mac; ценность Launch здесь — автоматизация в ваш
 
 См. [`CONTRIBUTING.md`](./CONTRIBUTING.md) для настройки окружения разработки, контроля качества и того, как добавить
 бэкенд.
+
+## Участники
+
+<p align="center">
+  <a href="https://github.com/YosefHayim"><img src="https://github.com/YosefHayim.png?size=120" width="120" alt="YosefHayim" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/YosefHayim/launch-store/graphs/contributors">Все участники →</a>
+</p>
 
 ## Лицензия
 
