@@ -3,7 +3,13 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { buildProgram } from "../../cli/program.js";
-import { CANONICAL_SENTENCE, FAQ_SIGNATURE, IS_NOT_SIGNATURE, countAsyncMethods, countTestCases } from "./commandDocs.js";
+import {
+  CANONICAL_SENTENCE,
+  FAQ_SIGNATURE,
+  IS_NOT_SIGNATURE,
+  countAsyncMethods,
+  countTestCases,
+} from "./commandDocs.js";
 
 /** Repo root, derived from this file's location so the test works regardless of the cwd vitest runs in. */
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url));
@@ -70,6 +76,34 @@ describe("the README live-stats badges track the real codebase (gated alongside 
       `store%20API-${operations}%20endpoints`,
     );
     expect(readme, "README tests badge is stale — run `npm run docs:gen`").toContain(`tests-${tests}%20passing`);
+  });
+});
+
+describe("the translated READMEs stay in structural parity with English (no silent FAQ/section drift)", () => {
+  it("match README.md's section count and FAQ-question count, so a translation can't fall behind", () => {
+    // Heading TEXT is translated, but the markdown skeleton is not: split on `## ` and compare the section
+    // count, then the FAQ section question-for-question. The FAQ section is found by English's heading,
+    // then by the SAME position in each translation (section order is identical). FAQ entries are
+    // single-line `**Question?**` paragraphs, so counting line-leading `**` inside that one section is
+    // exact and wrap-insensitive — unlike a whole-file count, which trips on prose-wrap artifacts.
+    const sectionsOf = (md: string): string[] => md.split(/^## /m);
+    const countQuestions = (section: string): number => (section.match(/^\*\*/gm) ?? []).length;
+    const english = sectionsOf(read("README.md"));
+    const faqIndex = english.findIndex((section) => section.startsWith("FAQ"));
+    expect(faqIndex, "could not find the '## FAQ' section in README.md").toBeGreaterThan(-1);
+
+    const translations = readdirSync(ROOT, { encoding: "utf8" }).filter((file) => /^README\..+\.md$/.test(file));
+    expect(translations.length, "expected the translated READMEs to be present").toBeGreaterThanOrEqual(8);
+    for (const file of translations) {
+      const sections = sectionsOf(read(file));
+      expect(sections.length, `${file}: '##' section count drifted from README.md — re-sync the translation`).toBe(
+        english.length,
+      );
+      expect(
+        countQuestions(sections[faqIndex] ?? ""),
+        `${file}: FAQ question count drifted from README.md — re-translate the FAQ`,
+      ).toBe(countQuestions(english[faqIndex] ?? ""));
+    }
   });
 });
 

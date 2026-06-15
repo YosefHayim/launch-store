@@ -22,7 +22,7 @@
 <p align="center">
   <a href="./docs/commands.md"><img src="https://img.shields.io/badge/store%20API-204%20endpoints-8957e5?logo=apple&logoColor=white" alt="204 App Store Connect &amp; Google Play API operations" /></a>
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-995%20passing-3fb950?logo=vitest&logoColor=white" alt="995 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1000%20passing-3fb950?logo=vitest&logoColor=white" alt="1000 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -299,19 +299,39 @@ launch cloud teardown                    # stop + release the host (warns about 
 
 ## 常见问题
 
-**Launch 免费吗？** 是的——它采用 MIT 许可且开源，构建运行在你自己的机器上，因此没有按次构建的费用或订阅。唯一的成本是可选的：在没有 Mac 的情况下构建 iOS，意味着要为一台 EC2 Mac 付费给你自己的 AWS（或者使用你已有的一台 Mac）。
+**Launch 是什么？** Launch 是一款开源的、可自托管的 Expo EAS 替代方案：它在你自己的机器上、用你自己的密钥，将 Expo / React Native 应用构建、签名并发布到 TestFlight 和 Google Play，无任何按次构建的账单。它运行与 EAS 相同的 构建 → 提交 → 更新 流水线，并在此之上增加了 EAS 留给 App Store Connect 和 Play Console 网站的商店配置步骤——应用内购买、订阅、能力（capabilities）以及商店列表元数据——以代码的方式来管理。
 
-**这是 Expo EAS 的替代方案吗？** 是的。Launch 运行相同的 构建 → 提交 → 更新 流水线——外加 EAS 留给你处理的商店配置步骤（IAP、订阅、能力、Android 元数据）——本地运行，使用你自己的 Apple 和 Google 账户。在你没有 Mac 时，它仍然可以交给 `eas build`。
+**Launch 是免费的开源 Expo EAS 替代方案吗？** 是的。Launch 采用 MIT 许可且完全开源，构建运行在你自己拥有的硬件上，因此没有按次构建的费用、按分钟计费的表，也没有月度订阅——相较于 EAS 的 $19–$199/mo 付费档位加上按构建的超额收费。唯一的可选费用是：在没有 Mac 的情况下构建 iOS 时，租用一台云端 Mac。
 
-**我需要一台 Mac 吗？** 对于 iOS，是的——Apple 的签名和工具链仅限 macOS。没有 Mac？Launch 会在**你自己的** AWS 账户里用一台云端 Mac 构建、通过 SSH 用任意一台 Mac 构建，或交给 EAS。Android 在任何能跑 JDK 的地方都能构建，无需 Mac。
+**Launch 与 Expo EAS 有何不同？** EAS 在 Expo 的云端运行你的构建，并将你的凭据、产物和 OTA 更新保存在 Expo 的服务器上。Launch 在你自己的机器上运行相同的流水线，将签名密钥保存在你的操作系统钥匙串中，并将产物和 OTA 更新存放在你自己的存储桶（S3 / R2 / Supabase）里——同时将 EAS 不涉及的商店配置（IAP、订阅、能力，以及 iOS 和 Android 商店列表）以代码的方式进行管理。命令一一对应：`eas build` → `launch build`，`eas submit` → `launch release`，`eas update` → `launch update`，`eas metadata` → `launch metadata`，`eas credentials` → `launch creds`。
 
-**它适用于 React Native 和 Expo 吗？** Launch 面向通过 Expo 配置（`app.json` / `app.config.ts`）和 `expo prebuild` 来自我描述的 Expo / React Native 应用——它从那里读取你的应用信息，绝不重复声明它们。
+**我可以在没有 Mac 的情况下构建 iOS 应用吗？** iOS 代码签名和构建工具链仅限 macOS，因此流程中必须有一台 Mac——但不一定非得是你自己的。Launch 可以在你自己的 AWS 账户中配置一台云端 Mac（EC2 Mac），通过 SSH 在你能连接的任意 Mac 上构建，或者将任务移交给 Expo EAS 的云端。Android 在任何能运行 JDK 的地方都能构建，完全无需 Mac。
 
-**我的密钥存放在哪里？** 在你的操作系统钥匙串里。`.p8` API 密钥、分发私钥和 Android 上传密钥都绝不触碰仓库或任何人的服务器；只有一份 CSR 会被发送给 Apple。
+**Launch 支持 Android 和 Google Play 吗？** 支持。Launch 构建并签名 Android 应用，并将其上传到 Google Play；同时，它依据驱动 App Store Connect 的同一份 `launch.config.ts` 目录，协调 Play 应用内产品、订阅（基础方案 + 优惠）、发布通道和评论回复——两个商店共用单一事实来源。
 
-**我能在 CI 里用它吗？** 能——`launch ci init` 脚手架生成一份接好无人值守标志的 GitHub Actions macOS 运行器工作流，并且每条命令在 CI 中、在管道中以及对智能体而言都会降级为非交互模式。
+**Launch 像 EAS Update 一样支持空中下发（OTA）更新吗？** 支持。`launch update` 通过你的 `expo-updates` 运行时早已使用的 Expo Updates 协议发布 JS 和资源更新——经过代码签名，并托管在你自己的存储桶（S3 / R2 / Supabase）上，而非 Expo 的服务器。`launch updates rollback` 通过晋级一个已知良好的更新，或让客户端回退到内嵌 bundle，来撤销一次糟糕的发布。
 
-**空中下发（OTA）更新呢？** `launch update` 通过你的 `expo-updates` 运行时早已使用的 Expo Updates 协议发布——经过代码签名，并托管在你自己的存储桶上（S3 / R2 / Supabase），同时配有 `launch updates rollback` 来撤销一次糟糕的发布。
+**如何从 Expo EAS 迁移到 Launch？** 一一替换命令即可（`eas build` → `launch build`，`eas submit` → `launch release`，`eas update` → `launch update`，`eas credentials` → `launch creds`，`eas metadata` → `launch metadata`）。如果你的应用已在发布，`launch adopt` 会读取其线上的 App Store Connect 设置——产品、能力、签名和商店列表——并一步将它们写回 `launch.config.ts`。Launch 也仍然可以在你没有 Mac 时将任务移交给 `eas build`，因此你可以渐进式地迁移。
+
+**Launch 只是一个 App Store Connect SDK 或 MCP 封装器吗？** 不是。App Store Connect SDK 或 MCP 服务器只封装了 Apple API 的一小部分。Launch 驱动横跨 Apple 和 Google 的整个发布流程——代码签名、原生构建、体积检查、商店配置即代码、经确认的公开发布，以及 OTA 更新——这些都是 API 封装层根本触及不到的。如果你想要一个可自托管的 Expo EAS 而非一个 API 客户端，那就是 Launch。
+
+**Launch 与 Fastlane 有何不同？** Fastlane 是一块积木；Launch 则是编排者。Launch 仅将 fastlane 用于二进制文件上传步骤，并在其周围包裹了完整的发布流程：凭据配置、构建、真实的下载体积检查、两个商店的商店配置即代码、审慎的公开发布、分阶段发布控制，以及 OTA 更新——所有这一切都来自同一份有类型的 `launch.config.ts`。
+
+**我的签名密钥和机密存放在哪里？** 在你的操作系统钥匙串里。你的 App Store Connect API 密钥（`.p8`）、分发私钥和 Android 上传密钥绝不会触碰仓库或任何人的服务器——只有一份证书签名请求（CSR）会被发送给 Apple。构建机密同样通过 `launch secret` 存放在钥匙串中，从而让它们远离已提交的 `.env`。
+
+**运行 Launch 需要什么？** 处处都需要 Node 20+。对于 iOS：需要装有 Xcode 和命令行工具、fastlane，以及 App Store Connect API 密钥（`.p8` + Key ID + Issuer ID）的 macOS——或者在没有本地 Mac 时使用远程 Mac。对于 Android：需要一个 JDK（任意操作系统）和一把 Google Play 服务账户 JSON 密钥。运行 `launch doctor` 可一次检查所有项。
+
+**Launch 的费用是多少？** Launch 本身是免费的（MIT）。你只需为本来就要付费的东西买单：你自己的构建硬件（或者在没有本地 Mac 的情况下构建 iOS 时的云端 Mac 时间），加上常规的 Apple Developer 费用（$99/yr）和 Google Play 注册费（一次性 $25）。没有按次构建的收费，也没有订阅。
+
+**Launch 能在 CI 中运行吗？** 能。`launch ci init` 在一台托管的 macOS 运行器上脚手架生成一份 GitHub Actions 工作流，并且每条命令在检测到 CI、管道输出或智能体时都会自动降级为非交互模式——因此相同的流程可以无人值守地运行。
+
+**Launch 支持哪些框架？** 通过 Expo 配置（`app.json` / `app.config.{ts,js}`）和 `expo prebuild` 来自我描述的 Expo 和裸 React Native 应用。Launch 从中读取你的 bundle id、版本和授权（entitlements），因此无需重复声明。
+
+**Launch 能管理商店元数据、应用内购买和订阅吗？** 能——以代码方式，面向两个商店。`launch sync` 将 IAP、订阅、定价、能力，以及各语言区域的商店列表（文案、截图、预览）协调到 App Store Connect 上；`launch metadata` 覆盖 iOS 和 Android 的商店列表；`launch play-products` / `launch play-subscriptions` 驱动 Google Play 目录。每项操作均执行只读的 计划 → 确认 → 应用 流程，因此绝不会覆盖线上版本或审核中的版本。
+
+**Launch 会把我锁定在某个托管服务上吗？** 不会——没有任何托管内容，也没有任何专有内容。Launch 采用 MIT 许可，构建于 fastlane、Gradle 和各平台自己的 API 之上，存储/凭据/构建/提交提供方均可插拔。你的密钥、产物和更新都存放在你掌控的基础设施里，因此日后无需迁移任何东西。
+
+**如何开始使用？** 使用 `npm install --global launch-store`（或按项目 `--save-dev`）安装，然后运行 `launch demo`，进行一次 60 秒的模拟演练——无需任何配置或账户。准备好后：`launch init` → `launch creds set-key` → `launch creds setup` → `launch build ios`。
 
 ## 贡献
 

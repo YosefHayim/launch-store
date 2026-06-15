@@ -3,16 +3,21 @@ import {
   CANONICAL_SENTENCE,
   type CommandSpec,
   type DocStats,
+  FAQ_REGION_END,
+  FAQ_REGION_START,
   FAQ_SIGNATURE,
+  GENERATIVE_AI_FAQ,
   IS_NOT_SIGNATURE,
   STATS_BADGES_END,
   STATS_BADGES_START,
   countAsyncMethods,
   countTestCases,
   renderCommandReference,
+  renderFaqRegion,
   renderLlmsTxt,
   renderStatsBadges,
   spliceReadmeBadges,
+  spliceReadmeFaq,
 } from "./commandDocs.js";
 
 const STATS: DocStats = { commands: 2, operations: 203, tests: 920 };
@@ -132,6 +137,36 @@ describe("spliceReadmeBadges", () => {
 
   it("throws when the markers are missing rather than dropping the badges", () => {
     expect(() => spliceReadmeBadges("# Launch\n\nNo markers here.", "x")).toThrow(/stats-badges markers/);
+  });
+});
+
+describe("renderFaqRegion", () => {
+  const block = renderFaqRegion();
+
+  it("is fenced by the FAQ markers so docs:gen can splice it back in", () => {
+    expect(block.startsWith(FAQ_REGION_START)).toBe(true);
+    expect(block.endsWith(FAQ_REGION_END)).toBe(true);
+  });
+
+  it("carries the generative-AI FAQ verbatim, so the README and llms.txt share one source", () => {
+    expect(block).toContain(GENERATIVE_AI_FAQ);
+    expect(block).toContain(FAQ_SIGNATURE);
+  });
+});
+
+describe("spliceReadmeFaq", () => {
+  const readme = ["# Launch", "", FAQ_REGION_START, "", "stale Q&A", "", FAQ_REGION_END, "", "Body."].join("\n");
+
+  it("replaces the whole fenced FAQ region with the freshly rendered block", () => {
+    const spliced = spliceReadmeFaq(readme, renderFaqRegion());
+    expect(spliced).toContain(FAQ_SIGNATURE);
+    expect(spliced).not.toContain("stale Q&A");
+    expect(spliced.startsWith("# Launch")).toBe(true);
+    expect(spliced.endsWith("Body.")).toBe(true);
+  });
+
+  it("throws when the FAQ markers are missing rather than dropping the FAQ", () => {
+    expect(() => spliceReadmeFaq("# Launch\n\nNo markers here.", "x")).toThrow(/faq markers/);
   });
 });
 

@@ -21,9 +21,11 @@ import {
   countAsyncMethods,
   countTestCases,
   renderCommandReference,
+  renderFaqRegion,
   renderLlmsTxt,
   renderStatsBadges,
   spliceReadmeBadges,
+  spliceReadmeFaq,
 } from "../src/core/docs/commandDocs.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -63,14 +65,20 @@ function computeStats(commands: CommandSpec[]): DocStats {
 async function generateDocs(): Promise<GeneratedDoc[]> {
   const commands = buildProgram().commands.map((command) => toSpec(command, ""));
   const stats = computeStats(commands);
-  // The same live-stats badge row is spliced into the English README and every translation (README.*.md),
-  // so a new API method or test updates all of them at once and `docs:check` catches any that fall behind.
   const badges = renderStatsBadges(stats);
+  const faq = renderFaqRegion();
   const readmes = readdirSync(ROOT)
     .filter((file) => /^README.*\.md$/.test(file))
     .sort();
   const raw: GeneratedDoc[] = [
-    ...readmes.map((path) => ({ path, body: spliceReadmeBadges(readFileSync(join(ROOT, path), "utf8"), badges) })),
+    ...readmes.map((path) => {
+      // The live-stats badge row is language-neutral, so the same block is spliced into every README;
+      // the FAQ source is English, so only README.md gets the generated FAQ region — the translated
+      // READMEs keep a hand-translated FAQ that the README structural-parity test holds in sync.
+      let body = spliceReadmeBadges(readFileSync(join(ROOT, path), "utf8"), badges);
+      if (path === "README.md") body = spliceReadmeFaq(body, faq);
+      return { path, body };
+    }),
     { path: "docs/commands.md", body: renderCommandReference(commands, stats) },
     { path: "llms.txt", body: renderLlmsTxt(commands, stats) },
   ];

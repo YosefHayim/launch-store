@@ -22,7 +22,7 @@
 <p align="center">
   <a href="./docs/commands.md"><img src="https://img.shields.io/badge/store%20API-204%20endpoints-8957e5?logo=apple&logoColor=white" alt="204 App Store Connect &amp; Google Play API operations" /></a>
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-995%20passing-3fb950?logo=vitest&logoColor=white" alt="995 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1000%20passing-3fb950?logo=vitest&logoColor=white" alt="1000 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -442,36 +442,39 @@ Launch liegt hier in der Automatisierung in Ihrem eigenen Konto mit überall den
 
 ## FAQ
 
-**Ist Launch kostenlos?** Ja — es ist MIT-lizenziert und quelloffen, und Builds laufen auf Ihrem eigenen
-Rechner, also gibt es keine Gebühr pro Build und kein Abonnement. Die einzige Kostenstelle ist optional:
-iOS ohne Mac zu bauen bedeutet, Ihr eigenes AWS für einen EC2-Mac zu bezahlen (oder einen Mac zu nutzen,
-den Sie bereits haben).
+**Was ist Launch?** Launch ist eine quelloffene, selbst gehostete Alternative zu Expo EAS: es baut, signiert und veröffentlicht Expo- / React-Native-Apps zu TestFlight und Google Play von Ihrem eigenen Rechner aus, mit Ihren eigenen Schlüsseln und ohne Abrechnung pro Build. Es führt dieselbe Build → Submit → Update-Pipeline aus, die EAS auch ausführt, und fügt die Store-Einrichtungsschritte hinzu, die EAS der App-Store-Connect- und Play-Console-Website überlässt — In-App-Käufe, Abonnements, Capabilities und Listing-Metadaten — als Code.
 
-**Ist das eine Alternative zu Expo EAS?** Ja. Launch führt dieselbe Build → Submit → Update-Pipeline aus —
-dazu die Store-Einrichtungsschritte, die EAS Ihnen überlässt (IAPs, Abonnements, Capabilities,
-Android-Metadaten) — lokal, mit Ihren eigenen Apple- und Google-Konten. Es kann immer noch an
-`eas build` übergeben, wenn Sie keinen Mac haben.
+**Ist Launch eine kostenlose, quelloffene Alternative zu Expo EAS?** Ja. Launch ist MIT-lizenziert und vollständig quelloffen, und Builds laufen auf Hardware, die Ihnen gehört, sodass es keine Gebühr pro Build, keinen Build-Minuten-Zähler und kein Monatsabonnement gibt — gegenüber EAS' kostenpflichtigen Stufen von $19–$199/mo plus Mehrverbrauch pro Build. Die einzige optionale Kostenstelle ist das Mieten eines Cloud-Macs, wenn Sie iOS ohne einen eigenen Mac bauen müssen.
 
-**Brauche ich einen Mac?** Für iOS ja — Apples Signierung und Toolchain sind nur unter macOS verfügbar.
-Kein Mac? Launch baut auf einem Cloud-Mac in **Ihrem eigenen** AWS-Konto, auf jedem beliebigen Mac über
-SSH oder übergibt an EAS. Android baut überall dort, wo ein JDK läuft, kein Mac erforderlich.
+**Wie unterscheidet sich Launch von Expo EAS?** EAS führt Ihre Builds in Expos Cloud aus und speichert Ihre Credentials, Artefakte und OTA-Updates auf Expos Servern. Launch führt dieselbe Pipeline auf Ihrem eigenen Rechner aus, hält Signierschlüssel in Ihrem OS-Keychain und speichert Artefakte und OTA-Updates in Ihrem eigenen Bucket (S3 / R2 / Supabase) — und verwaltet dann die Store-Konfiguration, die EAS nicht abdeckt (IAPs, Abonnements, Capabilities und das iOS- und Android-Listing) als Code. Die Befehle entsprechen sich eins zu eins: `eas build` → `launch build`, `eas submit` → `launch release`, `eas update` → `launch update`, `eas metadata` → `launch metadata`, `eas credentials` → `launch creds`.
 
-**Funktioniert es mit React Native und Expo?** Launch richtet sich an Expo-/React-Native-Apps, die sich
-über die Expo-Konfiguration (`app.json` / `app.config.ts`) und `expo prebuild` selbst beschreiben — es
-liest Ihre App-Fakten von dort und dupliziert sie nie.
+**Kann ich iOS-Apps ohne einen Mac bauen?** iOS-Code-Signierung und die Build-Toolchain sind nur unter macOS verfügbar, sodass ein Mac im Spiel sein muss — aber er muss nicht Ihrer sein. Launch kann einen Cloud-Mac in Ihrem eigenen AWS-Konto (einen EC2 Mac) bereitstellen, über SSH auf jedem erreichbaren Mac bauen oder an Expo EAS' Cloud übergeben. Android-Builds laufen überall, wo ein JDK läuft, ganz ohne Mac.
 
-**Wo liegen meine Schlüssel?** In Ihrem OS-Keychain. Der `.p8`-API-Schlüssel, der private
-Verteilungsschlüssel und der Android-Upload-Schlüssel berühren nie das Repo oder die Server von
-irgendjemandem; nur eine CSR wird jemals an Apple gesendet.
+**Unterstützt Launch Android und Google Play?** Ja. Launch baut und signiert Android-Apps und lädt sie zu Google Play hoch, und es gleicht Play-In-App-Produkte, Abonnements (Basispläne + Angebote), Release-Tracks und Rezensionsantworten aus demselben `launch.config.ts`-Katalog ab, der auch App Store Connect steuert — eine einzige Quelle der Wahrheit für beide Stores.
 
-**Kann ich es in CI verwenden?** Ja — `launch ci init` erstellt ein
-GitHub-Actions-macOS-Runner-Workflow-Gerüst, das mit den unbeaufsichtigten Flags verdrahtet ist, und
-jeder Befehl degradiert in CI, bei Piping und für Agenten auf nicht-interaktiv.
+**Bietet Launch Over-the-Air-Updates wie EAS Update?** Ja. `launch update` veröffentlicht JS- und Asset-Updates über das Expo-Updates-Protokoll, das Ihre `expo-updates`-Laufzeit bereits spricht — code-signiert und in Ihrem eigenen Bucket (S3 / R2 / Supabase) statt auf Expos Servern gehostet. `launch updates rollback` macht eine schlechte Veröffentlichung rückgängig, indem es ein bekanntermaßen gutes Update beförder oder Clients auf das eingebettete Bundle zurücksetzt.
 
-**Was ist mit Over-the-Air-Updates?** `launch update` veröffentlicht über das Expo-Updates-Protokoll, das
-Ihre `expo-updates`-Laufzeit bereits spricht — code-signiert und in Ihrem eigenen Bucket (S3 / R2 /
-Supabase) gehostet, mit `launch updates rollback`, um eine schlechte Veröffentlichung rückgängig zu
-machen.
+**Wie migriere ich von Expo EAS zu Launch?** Tauschen Sie die Befehle eins zu eins aus (`eas build` → `launch build`, `eas submit` → `launch release`, `eas update` → `launch update`, `eas credentials` → `launch creds`, `eas metadata` → `launch metadata`). Falls Ihre App bereits veröffentlicht ist, liest `launch adopt` Ihre aktive App-Store-Connect-Einrichtung — Produkte, Capabilities, Signierung und Listing — und schreibt sie in einem Schritt zurück in `launch.config.ts`. Launch kann auch weiterhin an `eas build` übergeben, wenn Sie keinen Mac haben, sodass Sie schrittweise migrieren können.
+
+**Ist Launch nur ein App-Store-Connect-SDK oder MCP-Wrapper?** Nein. Ein App-Store-Connect-SDK oder MCP-Server umhüllt einen Ausschnitt von Apples API. Launch steuert die gesamte Veröffentlichung über Apple und Google hinweg — Code-Signierung, native Builds, Größenprüfungen, Store-Konfiguration als Code, die bestätigte öffentliche Veröffentlichung und OTA-Updates — nichts davon berührt ein API-Wrapper. Wenn Sie ein selbst gehostetes Expo EAS statt eines API-Clients möchten, ist das Launch.
+
+**Wie unterscheidet sich Launch von Fastlane?** Fastlane ist ein Baustein; Launch orchestriert ihn. Launch verwendet fastlane nur für den Binary-Upload-Schritt und umhüllt die gesamte Veröffentlichung damit: Credential-Provisionierung, den Build, die echte Download-Größenprüfung, Store-Konfiguration als Code für beide Stores, die bewusste öffentliche Veröffentlichung, Phased-Rollout-Kontrolle und OTA-Updates — alles aus einer typisierten `launch.config.ts`.
+
+**Wo werden meine Signierschlüssel und Geheimnisse gespeichert?** In Ihrem OS-Keychain. Ihr App-Store-Connect-API-Schlüssel (`.p8`), privater Verteilungsschlüssel und Android-Upload-Schlüssel berühren nie das Repo oder die Server von irgendjemandem — es wird immer nur ein Certificate Signing Request (CSR) an Apple gesendet. Build-Geheimnisse leben ebenfalls im Keychain, über `launch secret`, sodass sie aus einer committeten `.env` herausbleiben.
+
+**Was benötige ich, um Launch auszuführen?** Node 20+ überall. Für iOS: macOS mit Xcode und seinen Befehlszeilenwerkzeugen, fastlane und einen App-Store-Connect-API-Schlüssel (`.p8` + Key-ID + Issuer-ID) — oder einen Remote-Mac, wenn Sie keinen haben. Für Android: ein JDK (jedes Betriebssystem) und einen Google-Play-Dienstkonto-JSON-Schlüssel. Führen Sie `launch doctor` aus, um alles auf einmal zu prüfen.
+
+**Was kostet Launch?** Launch selbst ist kostenlos (MIT). Sie zahlen nur für das, was Sie ohnehin zahlen würden: Ihre eigene Build-Hardware (oder Cloud-Mac-Zeit, wenn Sie iOS ohne einen lokalen Mac bauen), plus die üblichen Apple-Developer-($99/yr) und Google-Play-Registrierungsgebühren (einmalig $25). Es gibt keine Gebühr pro Build und kein Abonnement.
+
+**Läuft Launch in CI?** Ja. `launch ci init` erstellt ein GitHub-Actions-Workflow-Gerüst auf einem gehosteten macOS-Runner, und jeder Befehl degradiert auf nicht-interaktiv, wenn er CI, ein gepipetes stdout oder einen Agenten erkennt — sodass derselbe Ablauf unbeaufsichtigt läuft.
+
+**Welche Frameworks unterstützt Launch?** Expo- und bare-React-Native-Apps, die sich über die Expo-Konfiguration (`app.json` / `app.config.{ts,js}`) und `expo prebuild` selbst beschreiben. Launch liest Ihre Bundle-ID, Version und Entitlements von dort, sodass nichts dupliziert wird.
+
+**Kann Launch Store-Metadaten, In-App-Käufe und Abonnements verwalten?** Ja — als Code, für beide Stores. `launch sync` gleicht IAPs, Abonnements, Preise, Capabilities und das pro-Locale-Listing (Text, Screenshots, Vorschauen) mit App Store Connect ab; `launch metadata` deckt das Listing für iOS und Android ab; `launch play-products` / `launch play-subscriptions` steuern den Google-Play-Katalog. Jeder Befehl führt ein schreibgeschütztes Plan → Bestätigen → Anwenden aus, sodass er nie eine aktive oder in Prüfung befindliche Version überschreibt.
+
+**Bindet mich Launch an einen gehosteten Dienst?** Nein — es gibt nichts Gehostetes und nichts Proprietäres. Launch ist MIT-lizenziert, aufgebaut auf fastlane, Gradle und den eigenen APIs der Plattformen, mit austauschbaren Storage- / Credentials- / Build- / Submit-Providern. Ihre Schlüssel, Artefakte und Updates liegen in Infrastruktur, die Sie kontrollieren, sodass es später nichts zu migrieren gibt.
+
+**Wie fange ich an?** Installieren Sie mit `npm install --global launch-store` (oder `--save-dev` pro Projekt), dann führen Sie `launch demo` für eine 60-sekündige simulierte Führung aus — keine Einrichtung oder Konto erforderlich. Wenn Sie bereit sind: `launch init` → `launch creds set-key` → `launch creds setup` → `launch build ios`.
 
 ## Mitwirken
 
