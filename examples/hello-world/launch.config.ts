@@ -15,8 +15,13 @@ import { defineConfig } from "launch-store";
  * sidecar: its `apple` section mirrors the Expo/EAS metadata schema verbatim (the `eas metadata`
  * migration path).
  *
+ * The product catalog is store-agnostic: each subscription/IAP can carry a `play` override that
+ * publishes the same product to Google Play (`launch play-subscriptions` / `launch play-products`),
+ * because Apple's fixed price points and Play's literal micro-unit money don't map 1:1.
+ *
  * Want a zero-setup local build to play with? The only fields you must change are `storage: "local"`
- * (drop `storageConfig`) and you can ignore `aws`. Everything else is parse-valid and dry-run-able as is.
+ * (drop `storageConfig`) and you can ignore `aws`. Everything else is parse-valid and dry-run-able as is
+ * (a declared `reviewScreenshot` with no file on disk is reported as a skip, never an error).
  */
 export default defineConfig({
   // ── Providers ────────────────────────────────────────────────────────────────────────────────────
@@ -57,6 +62,7 @@ export default defineConfig({
   // Declarative desired-state of the app's monetization, keyed by iOS bundle id (must match
   // app.json `ios.bundleIdentifier`). `launch sync` creates/updates the products + prices; `launch
   // offers` reconciles the subscription offers and the promoted-purchase ordering. The gap EAS leaves.
+  // Each subscription/IAP can add a `play` override to also publish to Google Play (see those fields).
   products: {
     "com.example.helloworld": {
       subscriptionGroups: [
@@ -70,6 +76,10 @@ export default defineConfig({
               subscriptionPeriod: "ONE_MONTH",
               localizations: [{ locale: "en-US", name: "Pro Monthly", description: "Unlimited taps, billed monthly." }],
               price: { customerPrice: 4.99 },
+              // App Review screenshot Apple requires before a subscription can be submitted. Path is
+              // relative to the app dir; `launch sync` uploads it idempotently (skipped if unchanged, and
+              // reported as a skip — not an error — when the file is absent). Drop your PNG at this path.
+              reviewScreenshot: "store/review/pro-monthly.png",
               // First-time auto-applied 1-week free trial (a FREE_TRIAL offer carries no price).
               introductoryOffers: [{ duration: "ONE_WEEK", offerMode: "FREE_TRIAL", numberOfPeriods: 1 }],
               // Developer-presented in-app discount (referenced from StoreKit by `offerCode`).
@@ -83,6 +93,24 @@ export default defineConfig({
                   prices: [{ territory: "USA", customerPrice: 2.49 }],
                 },
               ],
+              // Google Play twin: publish this same subscription to Play via `launch play-subscriptions`.
+              // Apple's price points can't express Play's per-region micro-unit money, so Play pricing is
+              // declared here. Launch maps this to one auto-renewing base plan (period from above).
+              play: {
+                basePlanId: "p1m", // defaults to a slug of the billing period when omitted
+                prices: {
+                  US: { priceMicros: "4990000", currency: "USD" }, // $4.99
+                  DE: { priceMicros: "4990000", currency: "EUR" }, // €4.99
+                },
+                offers: [
+                  { offerId: "monthly-free-trial", freeTrialDuration: "P1W" }, // matches the Apple intro offer
+                  {
+                    offerId: "monthly-intro-50",
+                    introPrices: { US: { priceMicros: "2490000", currency: "USD" } }, // $2.49 intro phase
+                    introRecurrenceCount: 3, // repeats for the first 3 billing periods
+                  },
+                ],
+              },
             },
             {
               productId: "com.example.helloworld.pro.yearly",
@@ -90,6 +118,19 @@ export default defineConfig({
               subscriptionPeriod: "ONE_YEAR",
               localizations: [{ locale: "en-US", name: "Pro Yearly", description: "Unlimited taps, billed yearly." }],
               price: { customerPrice: 39.99 },
+              // Territory-scoped intro offer with a real price + date window (the FREE_TRIAL shorthand
+              // above omits both). At most one intro offer applies per (subscription, territory).
+              introductoryOffers: [
+                {
+                  territory: "USA",
+                  duration: "THREE_MONTHS",
+                  offerMode: "PAY_AS_YOU_GO",
+                  numberOfPeriods: 1,
+                  price: { territory: "USA", customerPrice: 29.99 },
+                  startDate: "2026-01-01",
+                  endDate: "2026-12-31",
+                },
+              ],
               // Redeemable promo-code campaign granting a 1-month free trial to new customers.
               offerCodes: [
                 {
@@ -112,11 +153,21 @@ export default defineConfig({
                   prices: [{ territory: "USA", customerPrice: 19.99 }],
                   eligiblePaidMonths: 3,
                   monthsSinceLastSubscribed: { min: 1, max: 6 },
+                  waitBetweenOffersMonths: 6, // don't show another win-back within 6 months
                   startDate: "2026-01-01",
+                  endDate: "2026-12-31",
                   priority: "NORMAL",
                   promotionIntent: "USE_AUTO_GENERATED_ASSETS",
                 },
               ],
+              // Google Play twin for the yearly level.
+              play: {
+                basePlanId: "p1y",
+                prices: {
+                  US: { priceMicros: "39990000", currency: "USD" }, // $39.99
+                  DE: { priceMicros: "39990000", currency: "EUR" }, // €39.99
+                },
+              },
             },
           ],
         },
@@ -128,6 +179,11 @@ export default defineConfig({
           type: "NON_CONSUMABLE",
           localizations: [{ locale: "en-US", name: "Remove Ads", description: "Hide all ads forever." }],
           price: { customerPrice: 0.99 },
+          // Google Play twin: publish as an active managed product via `launch play-products`.
+          play: {
+            defaultPrice: { priceMicros: "990000", currency: "USD" }, // $0.99 in every region without an override
+            prices: { DE: { priceMicros: "990000", currency: "EUR" } }, // per-region override
+          },
         },
         {
           productId: "com.example.helloworld.coins.100",
@@ -135,6 +191,18 @@ export default defineConfig({
           type: "CONSUMABLE",
           localizations: [{ locale: "en-US", name: "100 Coins", description: "A pile of 100 in-game coins." }],
           price: { customerPrice: 1.99 },
+          play: {
+            sku: "coins_100", // Play SKU; defaults to the Apple product id when omitted
+            defaultPrice: { priceMicros: "1990000", currency: "USD" }, // $1.99
+          },
+        },
+        {
+          // A one-off, time-boxed unlock that does NOT auto-renew — Apple's third IAP kind.
+          productId: "com.example.helloworld.seasonpass",
+          referenceName: "Season Pass",
+          type: "NON_RENEWING_SUBSCRIPTION",
+          localizations: [{ locale: "en-US", name: "Season Pass", description: "All content for one season." }],
+          price: { customerPrice: 9.99 },
         },
       ],
       // Surfaced on the App Store product page, in this display order (`launch offers` reorders to match).
@@ -159,6 +227,8 @@ export default defineConfig({
   // contact) are the `releaseAttributes` field below, applied by `launch release-config`.
   release: {
     releaseType: "AFTER_APPROVAL", // go live automatically once Apple approves
+    // With `releaseType: "SCHEDULED"`, set `earliestReleaseDate` to the ISO-8601 instant to go live at:
+    // earliestReleaseDate: "2026-07-01T09:00:00Z",
     phasedRelease: true, // Apple's 7-day gradual rollout for the update
     usesNonExemptEncryption: false, // standard HTTPS only → Launch clears export compliance over the API
     primaryLocale: "en-US",
@@ -236,6 +306,8 @@ export default defineConfig({
         contactLastName: "Lovelace",
         contactPhone: "+1-555-0100",
         contactEmail: "review@helloworld.example",
+        // No login → demoAccountRequired stays false; set it true plus demoAccountName/demoAccountPassword
+        // when a reviewer must sign in to reach gated content (the password is never read back or logged).
         demoAccountRequired: false,
         notes: "Tap the big button to raise the score. No account or login required.",
       },
@@ -260,17 +332,25 @@ export default defineConfig({
   // Launch stores NO AWS secrets — credentials resolve through the standard SDK chain (env, ~/.aws, SSO).
   aws: {
     region: "us-east-1",
+    profile: "default", // named profile in ~/.aws; omit to use the default credential chain
     instanceType: "mac2.metal", // cheapest M-series EC2 Mac in most regions
+    amiId: "ami-0abcd1234example0", // BYO golden AMI; omit to bootstrap + snapshot one on first use
   },
 
   // ── Cloud artifact storage (used because `storage: "s3"` above) ─────────────────────────────────────
   // Where Launch writes IPAs/AABs, ad-hoc install links, and OTA update manifests, served from your own
   // domain. This example targets Cloudflare R2 (S3-compatible). Access keys are NOT here — they resolve
-  // from env vars / the OS secret store at call time.
+  // from env vars / the OS secret store at call time. (`supabaseUrl` is the Supabase-only field, unused by s3.)
   storageConfig: {
     endpoint: "https://<account-id>.r2.cloudflarestorage.com",
     bucket: "helloworld-artifacts",
     region: "auto", // correct for R2
     publicBaseUrl: "https://cdn.helloworld.example",
   },
+
+  // ── Local artifact retention (`launch builds prune`) ────────────────────────────────────────────────
+  // How many days the `local` artifact store keeps a build binary before auto-pruning it to reclaim disk;
+  // the newest build per app+platform is always kept. Defaults to 30; `0` disables the automatic sweep.
+  // Only the `local` storage provider observes this — cloud stores use their bucket's own lifecycle rules.
+  artifactRetentionDays: 30,
 });
