@@ -2,147 +2,29 @@
 /**
  * Launch CLI entry point.
  *
- * Registers the built-in providers, wires the commands onto commander, and runs. Each command
- * lives in its own file and attaches itself via a `register*` function, keeping this entry thin.
+ * Registers the built-in providers, then boots the command tree assembled in {@link buildProgram} and
+ * lets commander dispatch. The command surface itself lives in {@link import("./program.js")} so the
+ * docs generator can introspect it without launching the CLI; this file owns only the runtime boot.
  */
 
-import { readFileSync } from "node:fs";
-import { Command } from "commander";
 import { registerBuiltins } from "../providers/index.js";
 import { migrateLegacyAccounts } from "../core/accounts.js";
-import { renderBanner } from "../core/banner.js";
 import { runAutoUpgrade } from "../core/updateCheck.js";
-import { registerInitCommand } from "./commands/init.js";
-import { registerBuildCommand } from "./commands/build.js";
-import { registerReleaseCommand } from "./commands/release.js";
-import { registerStatusCommand } from "./commands/status.js";
-import { registerRolloutCommand } from "./commands/rollout.js";
-import { registerCredsCommand } from "./commands/creds.js";
-import { registerSecretCommand } from "./commands/secret.js";
-import { registerMetadataCommand } from "./commands/metadata.js";
-import { registerSyncCommand } from "./commands/sync.js";
-import { registerOffersCommand } from "./commands/offers.js";
-import { registerReviewsCommand } from "./commands/reviews.js";
-import { registerReportsCommand } from "./commands/reports.js";
-import { registerTeamCommand } from "./commands/team.js";
-import { registerReleaseConfigCommand } from "./commands/releaseConfig.js";
-import { registerAppClipsCommand } from "./commands/appClips.js";
-import { registerEuDistributionCommand } from "./commands/euDistribution.js";
-import { registerWalletCommand } from "./commands/wallet.js";
-import { registerGameCenterCommand } from "./commands/gameCenter.js";
-import { registerAccessibilityCommand } from "./commands/accessibility.js";
-import { registerAvailabilityCommand } from "./commands/availability.js";
-import { registerCustomPagesCommand } from "./commands/customPages.js";
-import { registerExperimentsCommand } from "./commands/experiments.js";
-import { registerPlayProductsCommand } from "./commands/playProducts.js";
-import { registerPlaySubscriptionsCommand } from "./commands/playSubscriptions.js";
-import { registerPlayReviewsCommand } from "./commands/playReviews.js";
-import { registerPlayTracksCommand } from "./commands/playTracks.js";
-import { registerDeviceCommand } from "./commands/device.js";
-import { registerTestflightCommand } from "./commands/testflight.js";
-import { registerEventsCommand } from "./commands/events.js";
-import { registerDoctorCommand } from "./commands/doctor.js";
-import { registerExplainCommand } from "./commands/explain.js";
-import { registerUpdateCommand } from "./commands/update.js";
-import { registerUpdatesCommand } from "./commands/updates.js";
-import { registerCloudCommand } from "./commands/cloud.js";
-import { registerDemoCommand } from "./commands/demo.js";
-import { registerBuildsCommand } from "./commands/builds.js";
-import { registerCiCommand } from "./commands/ci.js";
-import { registerRunCommand } from "./commands/run.js";
-import { registerFingerprintCommand } from "./commands/fingerprint.js";
-import { registerDiagnoseCommand } from "./commands/diagnose.js";
-import { registerResignCommand } from "./commands/resign.js";
-import { registerSetupCommand } from "./commands/setup.js";
-import { registerSandboxCommand } from "./commands/sandbox.js";
-import { runWizard } from "./commands/wizard.js";
+import { buildProgram, readVersion } from "./program.js";
 
 /**
- * Read the CLI version straight from the package manifest so `package.json` stays the single
- * source of truth (no second copy to keep in sync at release time). package.json always ships
- * with the published package, and sits two levels above the compiled `dist/cli/index.js`.
- */
-function readVersion(): string {
-  const manifest: unknown = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
-  return typeof manifest === "object" &&
-    manifest !== null &&
-    "version" in manifest &&
-    typeof manifest.version === "string"
-    ? manifest.version
-    : "0.0.0";
-}
-
-registerBuiltins();
-
-const program = new Command();
-program
-  .name("launch")
-  .description("Build and ship your iOS/Android apps to the stores from your own machine — no Expo bill.")
-  .version(readVersion());
-
-registerInitCommand(program);
-registerBuildCommand(program);
-registerReleaseCommand(program);
-registerStatusCommand(program);
-registerRolloutCommand(program);
-registerCredsCommand(program);
-registerSecretCommand(program);
-registerMetadataCommand(program);
-registerSyncCommand(program);
-registerOffersCommand(program);
-registerReviewsCommand(program);
-registerReportsCommand(program);
-registerTeamCommand(program);
-registerReleaseConfigCommand(program);
-registerAppClipsCommand(program);
-registerEuDistributionCommand(program);
-registerWalletCommand(program);
-registerGameCenterCommand(program);
-registerAccessibilityCommand(program);
-registerAvailabilityCommand(program);
-registerCustomPagesCommand(program);
-registerExperimentsCommand(program);
-registerPlayProductsCommand(program);
-registerPlaySubscriptionsCommand(program);
-registerPlayReviewsCommand(program);
-registerPlayTracksCommand(program);
-registerDeviceCommand(program);
-registerTestflightCommand(program);
-registerEventsCommand(program);
-registerSetupCommand(program);
-registerSandboxCommand(program);
-registerDoctorCommand(program);
-registerExplainCommand(program);
-registerUpdateCommand(program);
-registerUpdatesCommand(program);
-registerCloudCommand(program);
-registerDemoCommand(program);
-registerBuildsCommand(program);
-registerCiCommand(program);
-registerRunCommand(program);
-registerFingerprintCommand(program);
-registerDiagnoseCommand(program);
-registerResignCommand(program);
-
-// No subcommand → the animated rocket banner, then the interactive wizard (the Expo-style front
-// door that detects the host OS and routes the build accordingly).
-program.action(async () => {
-  await renderBanner();
-  await runWizard();
-});
-
-/**
- * Boot the CLI: silently self-upgrade first (guarded/throttled — usually an instant no-op), then let
- * commander dispatch. With no subcommand it falls through to the action above (banner + wizard); with
- * a subcommand it runs that command. Both the upgrade and the banner degrade to no-ops in CI, when
- * piped, and for agents, so scripts are unaffected.
+ * Boot the CLI: register providers, silently self-upgrade (guarded/throttled — usually an instant
+ * no-op), then let commander dispatch. With no subcommand it falls through to the banner + wizard;
+ * with a subcommand it runs that command. Both the upgrade and the banner degrade to no-ops in CI,
+ * when piped, and for agents, so scripts are unaffected.
  */
 async function main(): Promise<void> {
+  registerBuiltins();
   await runAutoUpgrade(readVersion());
   // One-time, near-instant no-op after the first post-upgrade run: moves a pre-multi-account key into
   // the registry. Best-effort — a hiccup must not block the CLI; commands re-attempt it on next run.
   await migrateLegacyAccounts().catch(() => undefined);
-  await program.parseAsync(process.argv);
+  await buildProgram().parseAsync(process.argv);
 }
 
 main().catch((error: unknown) => {
