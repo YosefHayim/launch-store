@@ -58,6 +58,8 @@ export interface AscReleaseApi {
   addReviewSubmissionItem(submissionId: string, versionId: string): Promise<void>;
   submitReviewSubmission(submissionId: string): Promise<void>;
   getReviewSubmission(submissionId: string): Promise<ReviewSubmissionResource>;
+  /** Fire the held developer release for an approved version (used by the release-train `--hold` gate). */
+  createAppStoreVersionReleaseRequest(versionId: string): Promise<void>;
 }
 
 /** The Apple platform value an App Store version is filtered/created under. iOS is all v1 covers. */

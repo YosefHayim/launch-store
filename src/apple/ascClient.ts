@@ -3613,6 +3613,21 @@ export class AppStoreConnectClient {
     });
   }
 
+  /**
+   * Fire the developer release for an approved version held at `PENDING_DEVELOPER_RELEASE` — the API form
+   * of pressing "Release this version" in App Store Connect. Used by `launch release-train` to release a
+   * held (`--hold`) version once its synchronized gate opens; a no-op-on-Apple's-side for a version that
+   * isn't pending developer release (Apple rejects it, surfaced as an {@link AscRequestError}).
+   */
+  async createAppStoreVersionReleaseRequest(versionId: string): Promise<void> {
+    await this.request<unknown>("POST", "/appStoreVersionReleaseRequests", {
+      data: {
+        type: "appStoreVersionReleaseRequests",
+        relationships: { appStoreVersion: { data: { type: "appStoreVersions", id: versionId } } },
+      },
+    });
+  }
+
   /** Cancel a review submission — the hotfix-loop withdraw that frees the version to be edited again. */
   async cancelReviewSubmission(submissionId: string): Promise<void> {
     await this.request<unknown>("PATCH", `/reviewSubmissions/${submissionId}`, {

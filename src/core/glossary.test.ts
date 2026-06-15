@@ -47,7 +47,8 @@ describe("glossary — the single source for --explain and docs", () => {
     expect(topics).toContain("release-type");
     expect(topics).toContain("phased-release");
     expect(topics).toContain("export-compliance");
-    expect(topics.length).toBe(61);
+    expect(topics).toContain("release-train");
+    expect(topics.length).toBe(62);
     expect(new Set(topics).size).toBe(topics.length);
   });
 
