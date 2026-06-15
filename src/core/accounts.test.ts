@@ -8,7 +8,7 @@
 
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { rmSync } from "node:fs";
-import type { AccountsFile } from "./types.js";
+import type { AccountRecord, AccountsFile } from "./types.js";
 
 const secrets = vi.hoisted(() => ({ store: new Map<string, string>() }));
 // Redirect HOME before any import evaluates `core/paths.js`, so the real module's `~/.launch` (and
@@ -37,6 +37,7 @@ import {
   decideBuildAccount,
   decodeP8,
   encodeP8,
+  formatAccountSummary,
   getActiveKeyId,
   listAccounts,
   loadAscKeyById,
@@ -91,6 +92,37 @@ describe("matchAccount", () => {
   });
   it("returns undefined for an unknown selector", () => {
     expect(matchAccount(accounts, "nope")).toBeUndefined();
+  });
+});
+
+describe("formatAccountSummary", () => {
+  const base: AccountRecord = { keyId: "KEYABC1234", issuerId: "issuer-x", label: "default", addedAt: "t" };
+
+  it("degrades to label · team · key when no apps are cached", () => {
+    expect(formatAccountSummary({ ...base, teamId: "ABCDE12345" })).toBe("default · team ABCDE12345 · key KEYABC1234");
+  });
+
+  it("omits the team segment when the account is unresolved", () => {
+    expect(formatAccountSummary(base)).toBe("default · key KEYABC1234");
+  });
+
+  it("lists up to three app names inline with no +N suffix", () => {
+    expect(formatAccountSummary({ ...base, teamId: "ABCDE12345", apps: ["Larkspur", "Beacon", "Cypress"] })).toBe(
+      "default · Larkspur, Beacon, Cypress · team ABCDE12345 · key KEYABC1234",
+    );
+  });
+
+  it("collapses the apps beyond the third into a +N count", () => {
+    const apps = ["Larkspur", "Beacon", "Cypress", "Mapleleaf", "SampleApp", "Dockyard", "Everglade"];
+    expect(formatAccountSummary({ ...base, teamId: "ABCDE12345", apps })).toBe(
+      "default · Larkspur, Beacon, Cypress +4 · team ABCDE12345 · key KEYABC1234",
+    );
+  });
+
+  it("drops the leading label for the picker hint via includeLabel:false", () => {
+    expect(formatAccountSummary({ ...base, teamId: "ABCDE12345", apps: ["Larkspur"] }, { includeLabel: false })).toBe(
+      "Larkspur · team ABCDE12345 · key KEYABC1234",
+    );
   });
 });
 

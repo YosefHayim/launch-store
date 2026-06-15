@@ -25,7 +25,7 @@ import { isInteractive } from "../../core/progress.js";
 import { outroDone } from "../../core/logger.js";
 import { hasSeenTour, markTourSeen } from "../../core/firstRun.js";
 import { runTour } from "../../core/tour.js";
-import { getActiveAccount, listAccounts, setActiveKeyId } from "../../core/accounts.js";
+import { formatAccountSummary, getActiveAccount, listAccounts, setActiveKeyId } from "../../core/accounts.js";
 import { type LastFlow, readLastFlow, rememberLastFlow } from "../../core/lastRun.js";
 import { loadConfig } from "../../core/config.js";
 import { missingRequiredTools } from "../../core/toolchain.js";
@@ -338,7 +338,7 @@ async function runGuidedSetup(): Promise<void> {
   // 2 · Apple account
   const active = getActiveAccount();
   if (active) {
-    note(`Active account: ${active.label}${active.teamId ? ` · team ${active.teamId}` : ""}.`, "2 · Apple account ✓");
+    note(`Active account: ${formatAccountSummary(active)}.`, "2 · Apple account ✓");
   } else {
     const add = await confirm({ message: "Add an Apple account now? (skip if you only ship Android)" });
     if (!isCancel(add) && add) await chooseAccountInteractive();
