@@ -36,7 +36,7 @@ import {
   fixHint,
   missingRequiredTools,
 } from "./toolchain.js";
-import { getActiveAccount, loadActiveAscKey } from "./accounts.js";
+import { formatAccountSummary, getActiveAccount, loadActiveAscKey } from "./accounts.js";
 import { runBuild } from "./pipeline.js";
 import { AppStoreConnectClient } from "../apple/ascClient.js";
 import { loadServiceAccount } from "../google/credentials.js";
@@ -164,8 +164,7 @@ async function appleAccountRows(apps: AppDescriptor[]): Promise<ReadinessRow[]> 
   if (!account) {
     return [row("Apple account", "todo", "import your App Store Connect key: launch creds set-key")];
   }
-  const team = account.teamId ? ` · team ${account.teamId}` : "";
-  const rows = [row(`Apple account: ${account.label}`, "ok", `key ${account.keyId}${team}`)];
+  const rows = [row(`Apple account: ${account.label}`, "ok", formatAccountSummary(account, { includeLabel: false }))];
 
   const ascKey = await loadActiveAscKey();
   if (!ascKey) return rows;

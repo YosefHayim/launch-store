@@ -20,7 +20,7 @@
 <p align="center">
   <a href="./docs/commands.md"><img src="https://img.shields.io/badge/store%20API-204%20endpoints-8957e5?logo=apple&logoColor=white" alt="204 App Store Connect &amp; Google Play API operations" /></a>
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1080%20passing-3fb950?logo=vitest&logoColor=white" alt="1080 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1130%20passing-3fb950?logo=vitest&logoColor=white" alt="1130 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -284,11 +284,11 @@ EAS Ihnen überlässt. Wo sich die beiden im selben Workflow unterscheiden:
 
 ## Voraussetzungen
 
-- **iOS:** macOS mit **Xcode** + Befehlszeilenwerkzeugen, **fastlane** (`brew install fastlane`) und ein
+- **iOS:** eine **Apple-Developer-Program-Mitgliedschaft** (99 $/Jahr) — [hier registrieren](https://developer.apple.com/programs/enroll/) — und dann macOS mit **Xcode** + Befehlszeilenwerkzeugen, **fastlane** (`brew install fastlane`) und ein
   **App-Store-Connect-API-Schlüssel** (`.p8` + Key-ID + Issuer-ID) — [hier einen
   generieren](https://appstoreconnect.apple.com/access/integrations/api).
   Kein Mac? Siehe [Bauen ohne Mac](#bauen-ohne-mac).
-- **Android:** ein **JDK** (jedes Betriebssystem — kein Mac nötig) und ein
+- **Android:** ein **Google-Play-Developer-Konto** (einmalig 25 $) — [hier registrieren](https://play.google.com/console/signup) — und dann ein **JDK** (jedes Betriebssystem — kein Mac nötig) und ein
   **Google-Play-Dienstkonto**-JSON-Schlüssel.
 - **Node 20+** auf jeder Plattform.
 

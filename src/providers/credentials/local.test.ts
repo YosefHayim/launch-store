@@ -14,12 +14,18 @@ const accounts = vi.hoisted(() => ({
   keys: new Map<string, AscKey>(),
 }));
 
-vi.mock("../../core/accounts.js", () => ({
-  listAccounts: () => accounts.records,
-  getActiveKeyId: () => accounts.active,
-  loadActiveAscKey: async () => (accounts.active ? (accounts.keys.get(accounts.active) ?? null) : null),
-  loadAscKeyById: async (keyId: string) => accounts.keys.get(keyId) ?? null,
-}));
+vi.mock("../../core/accounts.js", async () => {
+  // Keep the real, pure formatAccountSummary so the status lines exercise the actual renderer; the
+  // stateful registry reads stay stubbed against the in-memory fixtures above.
+  const actual = await vi.importActual<typeof import("../../core/accounts.js")>("../../core/accounts.js");
+  return {
+    formatAccountSummary: actual.formatAccountSummary,
+    listAccounts: () => accounts.records,
+    getActiveKeyId: () => accounts.active,
+    loadActiveAscKey: async () => (accounts.active ? (accounts.keys.get(accounts.active) ?? null) : null),
+    loadAscKeyById: async (keyId: string) => accounts.keys.get(keyId) ?? null,
+  };
+});
 
 vi.mock("../../apple/credentials.js", () => ({
   loadCachedSigningAssets: () => null,
@@ -92,6 +98,27 @@ describe("localCredentialsProvider.status", () => {
     expect(status).toContain("iOS accounts (1):");
     expect(status).toContain("Personal ← active");
     expect(status).toContain("team TEAM1");
+  });
+
+  it("surfaces the account's apps with a +N overflow", async () => {
+    accounts.records = [
+      {
+        keyId: "AAAA1111",
+        issuerId: "issuer-a",
+        label: "Personal",
+        teamId: "TEAM1",
+        apps: ["OlyWell", "Zaatar", "Mealsy", "Pomedero", "Looopi"],
+        addedAt: "t",
+      },
+    ];
+    const status = await localCredentialsProvider.status();
+    expect(status).toContain("OlyWell, Zaatar, Mealsy +2");
+  });
+
+  it("flags an unresolved account so the fix is one command away", async () => {
+    accounts.records = [{ keyId: "AAAA1111", issuerId: "issuer-a", label: "Personal", addedAt: "t" }];
+    const status = await localCredentialsProvider.status();
+    expect(status).toContain("unresolved — run `launch creds refresh`");
   });
 
   it("reports an empty registry plainly", async () => {

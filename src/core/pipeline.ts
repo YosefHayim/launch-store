@@ -31,7 +31,7 @@ import type {
   SizeReport,
   SubmitTarget,
 } from "./types.js";
-import { refreshIdentityIfStale, resolveBuildAccount, setActiveKeyId } from "./accounts.js";
+import { formatAccountSummary, refreshIdentityIfStale, resolveBuildAccount, setActiveKeyId } from "./accounts.js";
 import { loadConfig, writeAppVersion } from "./config.js";
 import { checkApp, formatFinding } from "./configCheck.js";
 import { resolveBuildSecrets } from "./buildSecrets.js";
@@ -208,10 +208,11 @@ export async function selectApp(apps: AppDescriptor[], appName: string | undefin
 async function pickAccount(accounts: AccountRecord[]): Promise<AccountRecord> {
   const choice = await select({
     message: "Which Apple account?",
-    options: accounts.map((account) => {
-      const hint = account.teamId ?? (account.apps?.length ? account.apps.slice(0, 2).join(", ") : undefined);
-      return { value: account.keyId, label: account.label, ...(hint ? { hint } : {}) };
-    }),
+    options: accounts.map((account) => ({
+      value: account.keyId,
+      label: account.label,
+      hint: formatAccountSummary(account, { includeLabel: false }),
+    })),
   });
   if (isCancel(choice)) {
     cancel("Cancelled.");
@@ -237,7 +238,7 @@ export async function resolveIosAccount(
     interactive: isInteractive(),
     pick: pickAccount,
   });
-  log.step("account", `${account.label}${account.teamId ? ` · team ${account.teamId}` : ""} · key ${account.keyId}`);
+  log.step("account", formatAccountSummary(account));
   return account;
 }
 

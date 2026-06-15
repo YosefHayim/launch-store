@@ -207,10 +207,26 @@ export async function act<T>(
 }
 
 /**
+ * Resolve the App Store Connect app-record id for a bundle id, throwing the one precondition the user
+ * must fix by hand: Apple exposes no API to create the app record, so it has to exist already. Shared by
+ * the full {@link reconcileApp} pass and the listing-only {@link reconcileAppListing} so both surface the
+ * identical, actionable message.
+ */
+async function resolveAppId(api: AscCatalogApi, bundleId: string): Promise<string> {
+  const appId = await api.getAppId(bundleId);
+  if (!appId) {
+    throw new Error(
+      `No App Store Connect app record for ${bundleId}. Create the app once in App Store Connect ` +
+        `(Apple has no API to create the app record), then re-run \`launch sync\`.`,
+    );
+  }
+  return appId;
+}
+
+/**
  * Reconcile one app end to end, in dependency order: capabilities first (a build prerequisite), then
- * in-app purchases, then subscription groups and their subscriptions. Throws only for a precondition
- * the user must fix (no ASC app record) — Apple has no API to create the app record, so that one step
- * stays manual; everything else is captured per-action.
+ * in-app purchases, then subscription groups and their subscriptions, then the textual listing. Throws
+ * only for a precondition the user must fix (no ASC app record); everything else is captured per-action.
  */
 export async function reconcileApp(api: AscCatalogApi, input: ReconcileInput): Promise<ReconcileReport> {
   const ctx: ReconcileContext = {
@@ -220,19 +236,37 @@ export async function reconcileApp(api: AscCatalogApi, input: ReconcileInput): P
     allowDestructive: input.allowDestructive,
   };
 
-  const appId = await api.getAppId(input.bundleId);
-  if (!appId) {
-    throw new Error(
-      `No App Store Connect app record for ${input.bundleId}. Create the app once in App Store Connect ` +
-        `(Apple has no API to create the app record), then re-run \`launch sync\`.`,
-    );
-  }
+  const appId = await resolveAppId(api, input.bundleId);
 
   await reconcileCapabilities(ctx, input.bundleId, input.capabilities);
   await reconcileInAppPurchases(ctx, appId, input.products.inAppPurchases ?? []);
   await reconcileSubscriptionGroups(ctx, appId, input.products.subscriptionGroups ?? []);
   if (input.listing) await reconcileListing(ctx, appId, input.listing);
 
+  return { bundleId: input.bundleId, actions: ctx.actions };
+}
+
+/** Inputs to reconcile only an app's textual store listing — the focused counterpart to {@link ReconcileInput}. */
+export interface ListingReconcileInput {
+  /** The app's iOS bundle id — resolves the ASC app record. */
+  bundleId: string;
+  /** The app's declared App Store listing (`store.config.json`'s `apple` section). */
+  listing: AppleStoreConfig;
+  /** Rehearse only: read state and build the plan, perform no writes. */
+  dryRun: boolean;
+}
+
+/**
+ * Reconcile **only** an app's textual store listing — the focused leg behind `launch plan`'s `listing`
+ * surface, run apart from the capability/IAP/subscription passes so it never double-counts what the
+ * catalog surface owns. Listing reconciliation is purely create/patch (Apple keeps no destructive listing
+ * action), so it always runs with `allowDestructive: false`. Throws the same missing-app-record
+ * precondition as {@link reconcileApp}; every listing change is captured per-action.
+ */
+export async function reconcileAppListing(api: AscCatalogApi, input: ListingReconcileInput): Promise<ReconcileReport> {
+  const ctx: ReconcileContext = { api, actions: [], dryRun: input.dryRun, allowDestructive: false };
+  const appId = await resolveAppId(api, input.bundleId);
+  await reconcileListing(ctx, appId, input.listing);
   return { bundleId: input.bundleId, actions: ctx.actions };
 }
 
