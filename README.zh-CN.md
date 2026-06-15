@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>开源、可自托管的 Expo EAS 替代方案——在你自己的机器上、用你自己的密钥，构建、签名并将你的 Expo / React Native 应用发布到 TestFlight 与 Google Play。没有按次构建的账单。</strong>
+  <strong>开源、可自托管的 Expo EAS 替代方案——用一个带类型的 launch.config.ts，在你自己的机器上、用你自己的密钥，构建、签名、配置商店，并将你的 Expo / React Native 应用发布到 App Store 与 Google Play。没有按次构建的账单。</strong>
 </p>
 
 <p align="center">

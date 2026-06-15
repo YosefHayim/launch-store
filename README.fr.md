@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Alternative open source et auto-hébergée à Expo EAS — compilez, signez et publiez vos applications Expo / React Native sur TestFlight et Google Play depuis votre propre machine, avec vos propres clés. Aucune facturation à la compilation.</strong>
+  <strong>Alternative open source et auto-hébergée à Expo EAS — compilez, signez, configurez vos stores et publiez vos applications Expo / React Native sur l'App Store et Google Play depuis un seul launch.config.ts typé, sur votre propre machine et avec vos propres clés. Aucune facturation à la compilation.</strong>
 </p>
 
 <p align="center">

@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Открытая, self-hosted альтернатива Expo EAS — собирайте, подписывайте и публикуйте свои приложения на Expo / React Native в TestFlight и Google Play прямо со своей машины, со своими ключами. Без оплаты за каждую сборку.</strong>
+  <strong>Открытая, self-hosted альтернатива Expo EAS — собирайте, подписывайте, настраивайте магазины и публикуйте свои приложения на Expo / React Native в App Store и Google Play из одного типизированного launch.config.ts, прямо со своей машины и со своими ключами. Без оплаты за каждую сборку.</strong>
 </p>
 
 <p align="center">
