@@ -1,7 +1,7 @@
 /**
- * `npm run wordmark:preview` — play the glowing pixel-art LAUNCH wordmark in the terminal so a
- * contributor (or agent) can see the style before adopting it into the banner. Animated in place on a
- * TTY (a few breathe + shimmer loops), one static frame when piped. Color depth follows the terminal.
+ * `npm run wordmark:preview` — play the glowing pixel-art LAUNCH wordmark (the `launch` banner) in the
+ * terminal on its own, looping a few times so the style is easy to inspect. Animated in place on a TTY
+ * (a few breathe + shimmer loops), one static frame when piped. Color depth follows the terminal.
  *
  * Like the other `scripts/*.ts`, this is dev I/O orchestration — not built or linted — kept
  * prettier-clean so `format:check` stays green.

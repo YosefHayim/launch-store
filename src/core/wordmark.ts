@@ -1,23 +1,20 @@
 /**
- * The glowing pixel-art "LAUNCH" wordmark — the brand logotype, drawn from scratch as half-block
- * pixels with a neon purple bloom.
+ * The glowing pixel-art "LAUNCH" wordmark — the brand logotype and the content of the `launch` banner,
+ * drawn from scratch as half-block pixels with a neon purple bloom.
  *
- * This is offered as an **adoptable style** alongside the existing {@link import("./banner.js")}
- * wordmark (which renders the plain spaced text `L A U N C H` under a violet→cyan gradient). Where the
- * banner stamps discrete colored cells, this renders the letters into a tiny RGB pixmap first — so the
- * bloom is a real additive halo that fades smoothly around the strokes — then folds the pixel rows into
- * the same half-block `▀`/`▄`/`█` cells the banner uses, so the OUTPUT format is identical: truecolor
- * where advertised, downsampled to 256-color otherwise, and a plain-text fallback under `NO_COLOR`.
- * The letters are authored upright and sheared at render time into the italic, blade-styled lean of the
- * brand mark, filled with a white→lavender vertical gradient.
+ * It renders the letters into a tiny RGB pixmap first — so the bloom is a real additive halo that fades
+ * smoothly around the strokes — then folds the pixel rows into half-block `▀`/`▄`/`█` cells via the
+ * shared {@link import("./halfblock.js")} encoder: truecolor where advertised, downsampled to 256-color
+ * otherwise, and a plain-text `L A U N C H` fallback under `NO_COLOR`. The letters are authored upright
+ * and sheared at render time into the italic, blade-styled lean of the brand mark, filled with a
+ * white→lavender vertical gradient.
  *
- * It reuses {@link Cell}, {@link Rgb}, and {@link renderBuffer} from the banner so there's one
- * half-block renderer, not two. To adopt it in the live banner, render a frame here in place of the
- * text wordmark (see the PR notes), or play {@link buildGlowFrames} the way `renderBanner` plays its
- * own frames.
+ * {@link import("./banner.js")} drives the I/O: it plays {@link buildGlowFrames} in place on a TTY (the
+ * bloom breathes while a shimmer sweeps), or prints {@link renderGlowWordmark} as a single static frame
+ * when piped. This module stays pure (string in, string out) so it's unit-testable without a terminal.
  */
 
-import { renderBuffer, type Cell, type ColorDepth, type Rgb } from "./banner.js";
+import { renderBuffer, type Cell, type ColorDepth, type Rgb } from "./halfblock.js";
 
 /** Source height in pixel rows of every glyph. Kept even so each cell pairs two pixel rows cleanly. */
 const LOGO_H = 14;
