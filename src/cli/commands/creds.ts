@@ -23,6 +23,7 @@ import type { AccountRecord, AscKey } from "../../core/types.js";
 import {
   type AccountIdentity,
   addAccount,
+  formatAccountSummary,
   getActiveKeyId,
   getActiveAccount,
   listAccounts,
@@ -297,15 +298,10 @@ async function setAndroidKey(value: string | undefined, options: CredsOptions): 
   await offerToRemoveImportedSecret(path, "Play service-account key", canPrompt);
 }
 
-/** A short hint string for an account row in the picker: team and a couple of app names, if known. */
+/** A short hint string for an account row in the picker: the apps it can see, plus team and key ids. */
 function accountHint(keyId: string): string | undefined {
   const account = listAccounts().find((a) => a.keyId === keyId);
-  if (!account) return undefined;
-  const parts = [
-    account.teamId ? `team ${account.teamId}` : undefined,
-    account.apps?.length ? account.apps.slice(0, 2).join(", ") : undefined,
-  ].filter((part): part is string => Boolean(part));
-  return parts.length ? parts.join(" · ") : undefined;
+  return account ? formatAccountSummary(account, { includeLabel: false }) : undefined;
 }
 
 /** Find `.p8` keys on disk whose Key ID isn't onboarded yet — the "add new" candidates in the picker. */
