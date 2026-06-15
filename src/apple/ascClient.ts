@@ -27,6 +27,14 @@ const BASE_URL = `${API_ORIGIN}/v1`;
 const AUDIENCE = "appstoreconnect-v1";
 /** Apple rejects tokens whose lifetime exceeds 20 minutes; stay safely under it. */
 const TOKEN_TTL_SECONDS = 19 * 60;
+/**
+ * Clock drift past which a 401 is annotated as a likely clock problem. Tokens are signed for
+ * {@link TOKEN_TTL_SECONDS} (19 min) against Apple's 20-minute ceiling, so a clock running more than
+ * ~1 minute fast pushes `exp` past that ceiling and Apple rejects the token; a clock far behind makes
+ * it look already-expired. 60s is that tight forward bound — above HTTP `Date` granularity (1s) and
+ * network jitter, so the hint won't fire on noise.
+ */
+const CLOCK_SKEW_TOLERANCE_SECONDS = 60;
 
 /**
  * Certificate type to create/reuse. `DISTRIBUTION` is Apple's modern unified "Apple Distribution"
@@ -1208,8 +1216,14 @@ export class AppStoreConnectClient {
     if (response.status === 204) return undefined as T;
     const text = await response.text();
     if (!response.ok) {
+      // A 401 most often means a wrong/expired token — but the sneaky cause is a skewed local clock,
+      // since `exp`/`iat` are signed off it. Apple's `Date` header is the authoritative reference.
+      const hint =
+        response.status === 401
+          ? clockSkewHint({ appleDate: response.headers.get("date"), nowMs: Date.now(), platform: process.platform })
+          : "";
       throw new AscRequestError(
-        `App Store Connect ${method} ${pathOrUrl} failed (${response.status}): ${describeErrors(text)}`,
+        `App Store Connect ${method} ${pathOrUrl} failed (${response.status}): ${describeErrors(text)}${hint}`,
         response.status,
       );
     }
@@ -4256,6 +4270,31 @@ function toReportRequest(
       ? { stoppedDueToInactivity: entry.attributes.stoppedDueToInactivity }
       : {}),
   };
+}
+
+/**
+ * Turn a bare 401 into an actionable hint when this machine's clock is the likely culprit.
+ *
+ * App Store Connect tokens are ES256 JWTs whose `iat`/`exp` come from the local clock, and Apple
+ * rejects any token whose lifetime it reads as expired or beyond its 20-minute ceiling — so a Mac
+ * with a skewed clock signs tokens Apple refuses, surfacing only Apple's generic "make sure it has
+ * not expired" with no pointer at the real fix. When the failed response carries Apple's authoritative
+ * `Date` header and it disagrees with this machine by more than {@link CLOCK_SKEW_TOLERANCE_SECONDS},
+ * this returns a sentence naming the drift and the resync command; otherwise it returns "".
+ *
+ * macOS-only by design: the `sudo sntp` remedy is Apple-specific and the normal App Store Connect flow
+ * runs on a Mac, so on other platforms we stay silent rather than print a command that won't apply.
+ * `appleDate` is the raw `Date` response header (null when absent); `nowMs` and `platform` are injected
+ * so the check is a pure function — unit-testable without a real clock or host OS.
+ */
+export function clockSkewHint(args: { appleDate: string | null; nowMs: number; platform: NodeJS.Platform }): string {
+  if (args.platform !== "darwin" || args.appleDate === null) return "";
+  const appleMs = Date.parse(args.appleDate);
+  if (Number.isNaN(appleMs)) return "";
+  const skewSeconds = Math.abs(args.nowMs - appleMs) / 1000;
+  if (skewSeconds < CLOCK_SKEW_TOLERANCE_SECONDS) return "";
+  const drift = skewSeconds < 120 ? `~${Math.round(skewSeconds)} seconds` : `~${Math.round(skewSeconds / 60)} minutes`;
+  return ` Your Mac's clock is off by ${drift} from Apple's, which makes the signed token read as expired — run \`sudo sntp -sS time.apple.com\` to resync, then retry.`;
 }
 
 /** Extract Apple's human-readable error detail from a failed-response body, falling back to raw text. */
