@@ -17,11 +17,12 @@
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { cancel, confirm, intro, isCancel, note, outro, select, text } from "@clack/prompts";
+import { cancel, confirm, intro, isCancel, note, select, text } from "@clack/prompts";
 import type { AppDescriptor, BuildLocation, LaunchConfig, Platform } from "../../core/types.js";
 import { type GlossaryTopic, explainTopic } from "../../core/glossary.js";
 import { hostOsLabel, isMac } from "../../core/os.js";
 import { isInteractive } from "../../core/progress.js";
+import { outroDone } from "../../core/logger.js";
 import { hasSeenTour, markTourSeen } from "../../core/firstRun.js";
 import { runTour } from "../../core/tour.js";
 import { getActiveAccount, listAccounts, setActiveKeyId } from "../../core/accounts.js";
@@ -418,13 +419,13 @@ export async function runWizard(): Promise<void> {
     note("Looks like a fresh checkout — let's get Launch ready first.", "First run");
     await runGuidedSetup();
     if (await confirmBuildNow()) await runBuildJourney();
-    outro("Done.");
+    await outroDone();
     return;
   }
 
   // Returning user with a still-valid last build → one-keypress repeat, skipping the menu entirely.
   if (await maybeRepeatLastBuild()) {
-    outro("Done.");
+    await outroDone();
     return;
   }
 
@@ -461,23 +462,23 @@ export async function runWizard(): Promise<void> {
 
   if (action === "prune") {
     await runPrune({});
-    outro("Done.");
+    await outroDone();
     return;
   }
 
   if (action === "adopt") {
     await runAdopt({});
-    outro("Done.");
+    await outroDone();
     return;
   }
 
   if (action === "setup") {
     await runGuidedSetup();
     if (!(await confirmBuildNow())) {
-      outro("Done.");
+      await outroDone();
       return;
     }
   }
   await runBuildJourney();
-  outro("Done.");
+  await outroDone();
 }
