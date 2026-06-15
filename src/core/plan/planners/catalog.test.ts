@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { catalogPlanner } from "./catalog.js";
+import { makeAscApiFake } from "./ascApiFake.testkit.js";
 import type { AscCatalogApi } from "../../ascSync.js";
 import type { PlanContext } from "../types.js";
 import type { AppDescriptor, AppProducts, LaunchConfig } from "../../types.js";
@@ -98,7 +99,9 @@ function makeCtx(api: AscCatalogApi | null, products: Record<string, AppProducts
   return {
     config,
     apps: [ALPHA],
-    resolveAscApi: () => Promise.resolve(api),
+    // Widen the catalog-only fake to the full surface API the context now exposes; the catalog methods
+    // (which these tests assert on) win over the factory's inert defaults via the trailing spread.
+    resolveAscApi: () => Promise.resolve(api === null ? null : { ...makeAscApiFake(), ...api }),
     resolvePlayApi: () => Promise.resolve(null),
   };
 }
