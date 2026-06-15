@@ -39,7 +39,7 @@
   <a href="./README.ru.md">Русский</a>
 </p>
 
-アプリを世に出すことは、単なるビルドにとどまりません。署名のセットアップ、App Store Connect / Play Console の設定、アプリ内課金、ストア掲載のメタデータ、アップロード、そしてその後の OTA（無線越し）アップデート。EAS はビルドとサブミットを担いますが、それ以外は Apple と Google のポータルや一握りのツールに散らばっています。Launch は **リリース全体** を一つのローカルで宣言的なワークフローに集約します。署名をプロビジョニングし、ストアの商品を整合させ、ネイティブプロジェクトを生成し、バイナリをビルド・署名し、デバイスごとの実際のダウンロードサイズを報告し、成果物を保存し、テスト用トラックへアップロードします。すべてあなた自身のハードウェア上で、鍵はローカルのキーチェーンに留めたまま行われます。iOS の署名には Mac が必要です。Mac がない場合、Launch は **あなた自身の** AWS アカウント内のクラウド Mac でビルドするか、Expo EAS に処理を引き継ぎます — [Mac なしでビルドする](#mac-なしでビルドする) を参照してください。
+アプリを世に出すことは、単なるビルドにとどまりません。署名のセットアップ、[App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console) の設定、アプリ内課金、ストア掲載のメタデータ、アップロード、そしてその後の OTA（無線越し）アップデート。EAS はビルドとサブミットを担いますが、それ以外は Apple と Google のポータルや一握りのツールに散らばっています。Launch は **リリース全体** を一つのローカルで宣言的なワークフローに集約します。署名をプロビジョニングし、ストアの商品を整合させ、ネイティブプロジェクトを生成し、バイナリをビルド・署名し、デバイスごとの実際のダウンロードサイズを報告し、成果物を保存し、テスト用トラックへアップロードします。すべてあなた自身のハードウェア上で、鍵はローカルのキーチェーンに留めたまま行われます。iOS の署名には Mac が必要です。Mac がない場合、Launch は **あなた自身の** AWS アカウント内のクラウド Mac でビルドするか、Expo EAS に処理を引き継ぎます — [Mac なしでビルドする](#mac-なしでビルドする) を参照してください。
 
 > **初めての方へ** `launch demo` を実行すると、パイプライン全体を 60 秒でシミュレーションした体験ができます — セットアップもビルドもアカウントも不要です。`launch` を初めて実行したときにも自動再生されます。
 
@@ -336,6 +336,16 @@ launch cloud teardown                    # stop + release the host (warns about 
 ## コントリビューション
 
 開発環境のセットアップ、品質ゲート、バックエンドの追加方法については [`CONTRIBUTING.md`](./CONTRIBUTING.md) を参照してください。
+
+## コントリビューター
+
+<p align="center">
+  <a href="https://github.com/YosefHayim"><img src="https://github.com/YosefHayim.png?size=120" width="120" alt="YosefHayim" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/YosefHayim/launch-store/graphs/contributors">すべてのコントリビューター →</a>
+</p>
 
 ## ライセンス
 
