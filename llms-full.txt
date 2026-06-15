@@ -12,7 +12,7 @@ Launch runs the EAS pipeline locally: prebuild → resolve credentials → compi
 
 ## Every command
 
-All 44 `launch` commands (204 store-API operations underneath, 987 tests):
+All 44 `launch` commands (204 store-API operations underneath, 994 tests):
 
 - `launch init` — scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` — onboard an app that already ships: import its App Store Connect setup into config
