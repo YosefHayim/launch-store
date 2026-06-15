@@ -154,6 +154,152 @@ export const FAQ_REGION_START =
 /** Closing fence for the English README FAQ region; see {@link FAQ_REGION_START}. */
 export const FAQ_REGION_END = "<!-- faq:end -->";
 
+/**
+ * One titled group in the {@link FEATURE_SECTIONS} capability map: a bold section label, an optional
+ * one-line lead, and the single-line capability statements under it. Kept as data (not prose) so
+ * {@link renderFeaturesList} can number every item continuously (1..N) across sections and the README +
+ * `llms.txt` feature lists render from one source instead of two hand-maintained copies.
+ */
+export interface FeatureSection {
+  /** the bold section label, e.g. `Build & ship — iOS and Android`. */
+  title: string;
+  /** an optional one-line lead rendered under the title, before the numbered items (e.g. the reconcile model). */
+  intro?: string;
+  /** the section's capabilities, each a single-line markdown statement of the form `**Name.** summary`. */
+  features: string[];
+}
+
+/**
+ * The canonical, ordered capability map of Launch — the single source for the README's `## Features`
+ * section and the `llms.txt` `## Features` section, so the human- and AI-facing feature lists can't
+ * drift. {@link renderFeaturesList} numbers every item continuously (1..N) across these sections; the
+ * consistency test asserts {@link FEATURES_SIGNATURE} survives on both surfaces. Each line is true to a
+ * shipped command/behavior — edit here, then run `npm run docs:gen`.
+ */
+export const FEATURE_SECTIONS: FeatureSection[] = [
+  {
+    title: "Set up & verify",
+    features: [
+      "**Config in one step.** `launch init` detects your app(s) — including an `apps/*` monorepo — and writes a commented `launch.config.ts` plus a starter `.env.example`, touching no credentials or native code.",
+      "**Onboard a live app.** `launch adopt` imports an already-shipping app's App Store Connect setup — products, capabilities, listing, signing — back into `launch.config.ts`.",
+      "**Keys in your keychain.** `launch creds set-key` validates your `AuthKey_*.p8` against Apple and vaults it in your OS keychain; `creds use`/`rename`/`remove` switch between teams.",
+      "**APNs push-key vault.** `launch creds push-key` safe-keeps a download-once APNs auth key and re-exports it on demand — Apple exposes no API to recreate one.",
+      "**Secrets, not plaintext `.env`.** `launch secret set`/`list`/`rm` stores build secrets in your OS keychain, scoped per app/profile, and injects them into the build env.",
+      "**One-command doctor.** `launch doctor --fix` detects the iOS/Android toolchain, installs the missing brew-able tools behind a single consent, and flags store-side blockers.",
+      "**Hands-off setup.** `launch setup` scaffolds config, installs tools, renders a readiness board, and rehearses the whole pipeline as a dry run.",
+      "**Signing status at a glance.** `launch setup ios` reports active account, App ID, capabilities, certificate, profile, and registered devices — with `--provision` to ensure them.",
+    ],
+  },
+  {
+    title: "Configure App Store Connect — as code",
+    intro:
+      "Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconciled with a read-only **plan → your confirmation → apply** — idempotently, never touching a live or in-review version. This is the surface EAS leaves to the website.",
+    features: [
+      "**Products, pricing & listing.** `launch sync` reconciles in-app purchases, subscriptions, capabilities, and pricing onto App Store Connect — plus the per-locale listing copy, screenshots, and app previews — across every app at once.",
+      "**Preview & gate drift.** `launch plan` diffs `launch.config.ts` against live App Store Connect (capabilities, IAPs, subscriptions, pricing, listing) and Google Play (products, subscriptions) state read-only; `launch drift` fails CI when they've diverged.",
+      "**Subscription offers.** `launch offers` reconciles offer codes and promotional, introductory & win-back offers, plus the promoted-purchase order; `offers generate-codes`/`list`/`deactivate` drive campaigns from the CLI.",
+      "**Release attributes.** `launch release-config` reconciles the age rating, categories, base price, and App Review details (contact + demo account) onto the editable version.",
+      "**Store availability.** `launch availability` sets the App Store territories the app sells in.",
+      "**Custom product pages.** `launch custom-pages` reconciles alternate App Store listings.",
+      "**Product-page A/B tests.** `launch experiments` reconciles product-page experiments and their treatments.",
+      "**In-app events.** `launch events list`/`create`/`localize`/`delete` manages App Store in-app events and their localizations.",
+      "**Game Center.** `launch game-center` reconciles achievements and leaderboards.",
+      "**Accessibility labels.** `launch accessibility` reconciles the accessibility nutrition labels.",
+      "**App Clips.** `launch app-clips` reconciles each App Clip card's action and per-locale subtitle.",
+      "**Wallet & Apple Pay ids.** `launch wallet` registers Apple Pay merchant ids and Wallet pass type ids.",
+      "**EU distribution (DMA).** `launch eu-distribution` authorizes alternative-distribution domains and registers the package-signing key.",
+      "**Listing round-trip.** `launch metadata pull`/`push` syncs the full store listing for iOS _and_ Android — `eas metadata` is iOS-only.",
+    ],
+  },
+  {
+    title: "Configure Google Play — as code",
+    features: [
+      "**Play products & subscriptions.** `launch play-products` and `launch play-subscriptions` reconcile your Play in-app products and subscriptions (base plans + offers) from the **same** `launch.config.ts` catalog that drives App Store Connect.",
+      "**Tracks.** `launch play-tracks` shows track status and promotes a build to a track at a chosen rollout with release notes, and reads/sets tester groups.",
+      "**Play reviews.** `launch play-reviews list`/`reply` reads Play customer reviews (with optional machine translation) and posts replies — without the Play Console.",
+    ],
+  },
+  {
+    title: "Build & ship — iOS and Android",
+    features: [
+      "**One command per platform.** `launch build ios` / `launch build android` runs prebuild → sign → size-check → upload to the testing track (TestFlight / Play internal) — the same flow EAS runs.",
+      "**Fast by default.** ccache wires in at `pod install`, DerivedData stays warm, and a native-graph fingerprint forces a clean build only when your native deps actually change; `--clean` forces from scratch.",
+      "**Build-time ETA & progress bar.** A learned per-build estimate drives a live progress bar; `--verbose` streams the raw `xcodebuild`/Gradle output instead.",
+      "**Real download-size check.** Reports the actual per-device size (App Thinning report / bundletool) and gates on the `sizeBudgetMB` you configured.",
+      "**Safety nets.** Refuses to upload a simulator build, a `.app`, or an empty artifact; `--dry-run` rehearses the whole pipeline with no network, build, or account changes.",
+      "**Keep server vars out of the app.** An `envExclude` denylist in `launch.config.ts` (exact names or `PREFIX*` wildcards) drops backend-only environment variables before the build, so they're never injected into the shipped bundle.",
+      "**Deliberate public release.** The testing track is the default; `launch release <platform>` drives the public store over the API end to end — version, compliance, notes, rollout, submit — with no portal.",
+      "**Steer the rollout.** `launch status [--watch]` tracks the review with CI exit codes; `launch rollout pause`/`resume`/`complete` steers an iOS phased release.",
+      "**Re-sign without rebuilding.** `launch build:resign` re-signs a stored `.ipa`/`.aab` with different credentials straight from the artifact.",
+      "**Completion notifications.** A `notify` block pings a Slack/Discord webhook and/or runs a shell hook when a build or submit finishes — on success _and_ failure.",
+    ],
+  },
+  {
+    title: "Build without a Mac",
+    features: [
+      "**Cloud Mac in your own AWS.** `launch build ios --remote aws` provisions an EC2 Mac, builds over SSH, and auto-releases it near the 24-hour billing floor; `launch cloud` manages the host lifecycle and shows running cost.",
+      "**Any Mac over SSH.** `launch build ios --remote user@host` builds on a Mac you already have, with no allocation and no billing.",
+      '**Hand off to EAS.** Set `buildEngine: "eas"` to delegate the build to Expo\'s cloud and still ship through Launch — handy for migrating incrementally.',
+    ],
+  },
+  {
+    title: "Distribute & update",
+    features: [
+      "**Internal distribution.** `launch build <platform> --distribution internal` hosts an ad-hoc iOS install link / Android `.apk` on your own bucket; register testers with `launch device add <udid>`.",
+      "**Over-the-air updates.** `launch update` publishes a code-signed JS/asset update via the **Expo Updates protocol** your `expo-updates` runtime already speaks, hosted on your own bucket (S3 / R2 / Supabase).",
+      "**Roll back a bad update.** `launch updates list`/`view` show the per-channel history; `launch updates rollback` promotes a known-good update or drops clients back to the embedded bundle.",
+      "**Pluggable storage.** Artifacts and updates live in local storage or your own S3 / R2 / Supabase bucket, served from a URL you control — no hosted service.",
+    ],
+  },
+  {
+    title: "Manage testers, team, reviews & reports — API-key only",
+    features: [
+      "**TestFlight from the CLI.** `launch testflight groups`/`create-group`/`testers`/`add`/`rm` manages beta groups and invites testers, and `testflight release` submits a build for Beta App Review — no Apple-ID password, no 2FA.",
+      "**Reviews, read & reply.** `launch reviews list`/`reply`/`delete` reads App Store reviews (filter by rating/territory) and posts, replaces, or removes the developer response.",
+      "**Sales, finance & analytics.** `launch reports sales`/`finance`/`analytics` downloads App Store Connect's reports (gzipped TSV, or `--json`) straight to your machine.",
+      "**Team & access.** `launch team list`/`invite`/`remove` reads and manages App Store Connect team members and pending invitations over the same API key.",
+      "**Sandbox testers.** `launch sandbox list`/`clear` lists your StoreKit sandbox testers and clears their purchase history for clean in-app-purchase re-tests.",
+    ],
+  },
+  {
+    title: "Inspect & debug",
+    features: [
+      "**Build history.** `launch builds list`/`view`/`log`/`prune` reads the local artifact index — ids, per-device sizes, paths, and redacted logs — and prunes binaries past the retention window.",
+      "**Install & run.** `launch run [id|latest]` installs a built artifact onto a connected device (`adb`/`bundletool` for Android, `devicectl` for iOS).",
+      "**Explain a failure.** `launch diagnose` maps an `xcodebuild`/Gradle/CocoaPods error to a plain-English cause and fix.",
+      "**Why clean vs incremental.** `launch fingerprint` shows the native fingerprint and why the next build will be clean or incremental.",
+      "**Tell your Apple accounts apart.** `launch creds` leads its account summary with the app names each API key can see, so you know which Apple account — and which apps — a build will use before you ship.",
+    ],
+  },
+  {
+    title: "Onboarding, teaching & maintenance",
+    features: [
+      "**Animated launch banner.** A glowing pixel-art `LAUNCH` wordmark with an aurora violet→cyan gradient greets you on startup — an adoptable banner style that still degrades to plain text under `NO_COLOR`.",
+      "**Zero-setup demo.** `launch demo` replays a simulated walkthrough of the whole build → sign → submit pipeline, and auto-plays once on first run.",
+      "**Teaching on demand.** `--explain` on any command and `launch explain <topic>` cover the Apple/iOS/Android terminology inline.",
+      "**Interactive wizard.** Running bare `launch` opens a guided wizard that remembers your last flow and offers a one-keypress repeat.",
+      "**Drive it from an AI agent.** `launch agents init`/`check` scaffolds Claude / Cursor / Codex skills so coding agents run the workflows under the same plan → confirm → apply guardrails.",
+      "**CI in one command.** `launch ci init` scaffolds a GitHub Actions workflow that builds and ships unattended.",
+      "**Silent self-upgrade.** Picks up a newer npm release and re-runs your command on it — throttled to once a day, and a no-op in CI, when piped, and for agents.",
+    ],
+  },
+];
+
+/** A stable phrase from the first {@link FEATURE_SECTIONS} item the consistency test greps for in `llms.txt` and the README. */
+export const FEATURES_SIGNATURE = "Config in one step";
+
+/**
+ * The HTML-comment fences around the README's `## Features` list. `npm run docs:gen` rewrites only the
+ * text between these markers (via {@link spliceReadmeFeatures}) from {@link FEATURE_SECTIONS}, so the
+ * English README's feature list can't drift from `llms.txt`. English only — the translated READMEs keep a
+ * hand-translated Features section, held in structural parity by the README parity test.
+ */
+export const FEATURES_REGION_START =
+  "<!-- features:start — generated by `npm run docs:gen` from FEATURE_SECTIONS; edit the source, then regenerate. -->";
+
+/** Closing fence for the README Features region; see {@link FEATURES_REGION_START}. */
+export const FEATURES_REGION_END = "<!-- features:end -->";
+
 /** Curated prose describing the EAS-parity pipeline, lifted verbatim into both llms files. */
 const PIPELINE_PROSE = `Launch runs the EAS pipeline locally: prebuild → resolve credentials → compile & sign → size-check → store → submit to the testing track (TestFlight / Play internal); \`launch release\` is the separate, confirmed public release. EAS → Launch mapping: \`eas build\` → \`launch build\`, \`eas submit\` → \`launch release\`, \`eas update\` → \`launch update\` (Expo Updates protocol, hosted on your own S3/R2/Supabase bucket, with \`launch updates rollback\`), \`eas metadata\` → \`launch metadata\` (iOS _and_ Android), \`eas credentials\` → \`launch creds\` (multi-account, keychain-stored, with an APNs push-key vault). Beyond parity it adds store config as code (\`launch sync\` reconciles IAPs, subscriptions, and capabilities onto App Store Connect), keychain-backed build secrets with a documented env-precedence ladder (\`launch secret\`), internal/ad-hoc distribution, build history and re-signing (\`launch builds\`, \`launch build:resign\`), native-failure diagnosis (\`launch diagnose\`), and no-Mac builds on your own AWS EC2 Mac or any Mac over SSH. Signing keys stay in the OS keychain (macOS Keychain, or the platform secret store elsewhere); storage, credentials, build engine, and submission are pluggable behind small interfaces. App facts come from each \`app.json\`, so nothing is duplicated. \`launch demo\` walks the whole flow as a zero-setup simulation.`;
 
@@ -233,6 +379,12 @@ ${PIPELINE_PROSE}
 ## What Launch is — and is not
 
 ${WHAT_LAUNCH_IS_BLOCK}
+
+## Features
+
+Everything Launch does, grouped and numbered:
+
+${renderFeaturesList()}
 
 ## FAQ
 
@@ -342,6 +494,40 @@ export function renderFaqRegion(): string {
  */
 export function spliceReadmeFaq(readme: string, faq: string): string {
   return spliceRegion(readme, FAQ_REGION_START, FAQ_REGION_END, faq, "faq");
+}
+
+/**
+ * Render the numbered capability map from {@link FEATURE_SECTIONS}: each section as a bold label (and its
+ * optional lead line) followed by its features as a markdown ordered list, numbered **continuously**
+ * across sections (1..N) so the whole feature surface reads as one ordered list. Pure and arg-free — the
+ * same output is spliced into the README and inlined into `llms.txt`, so the two can't drift. The
+ * continuing ordinal is emitted explicitly per section, which prettier preserves when it reformats.
+ */
+export function renderFeaturesList(): string {
+  let n = 0;
+  return FEATURE_SECTIONS.map((section) => {
+    const lead = section.intro ? [section.intro, ""] : [];
+    const items = section.features.map((feature) => `${(n += 1)}. ${feature}`);
+    return [`**${section.title}**`, "", ...lead, ...items].join("\n");
+  }).join("\n\n");
+}
+
+/**
+ * Render the README's Features region from {@link renderFeaturesList}, fenced by
+ * {@link FEATURES_REGION_START}/{@link FEATURES_REGION_END} so {@link spliceReadmeFeatures} can swap the
+ * whole block. English only — the translated READMEs carry a hand-translated Features section.
+ */
+export function renderFeaturesRegion(): string {
+  return [FEATURES_REGION_START, "", renderFeaturesList(), "", FEATURES_REGION_END].join("\n");
+}
+
+/**
+ * Splice the {@link renderFeaturesRegion rendered} Features list into the English README, replacing the
+ * whole {@link FEATURES_REGION_START}…{@link FEATURES_REGION_END} region. English only, exactly like the
+ * FAQ — the source is English and the translated READMEs keep a hand-translated Features section.
+ */
+export function spliceReadmeFeatures(readme: string, region: string): string {
+  return spliceRegion(readme, FEATURES_REGION_START, FEATURES_REGION_END, region, "features");
 }
 
 /**

@@ -7,6 +7,7 @@ import {
   AGENT_SKILLS_SIGNATURE,
   CANONICAL_SENTENCE,
   FAQ_SIGNATURE,
+  FEATURES_SIGNATURE,
   IS_NOT_SIGNATURE,
   countAsyncMethods,
   countTestCases,
@@ -47,6 +48,13 @@ describe("the generative-AI FAQ is present where AI engines read it", () => {
   it("appears in both the README and llms.txt", () => {
     expect(read("README.md")).toContain(FAQ_SIGNATURE);
     expect(read("llms.txt")).toContain(FAQ_SIGNATURE);
+  });
+});
+
+describe("the numbered Features map is present where readers and AI engines look", () => {
+  it("appears in both the README and llms.txt, from one generated source", () => {
+    expect(read("README.md")).toContain(FEATURES_SIGNATURE);
+    expect(read("llms.txt")).toContain(FEATURES_SIGNATURE);
   });
 });
 
