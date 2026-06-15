@@ -2,8 +2,6 @@
   <a href="https://github.com/YosefHayim/launch-store"><img src="assets/launch-v3.png" alt="Launch — сборка, подпись и публикация в App Store и Google Play" width="640" /></a>
 </p>
 
-<h1 align="center">Launch</h1>
-
 <p align="center">
   <strong>Открытая, self-hosted альтернатива Expo EAS — собирайте, подписывайте и публикуйте свои приложения на Expo / React Native в TestFlight и Google Play прямо со своей машины, со своими ключами. Без оплаты за каждую сборку.</strong>
 </p>

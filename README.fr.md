@@ -2,8 +2,6 @@
   <a href="https://github.com/YosefHayim/launch-store"><img src="assets/launch-v3.png" alt="Launch — compilez, signez et publiez sur l'App Store et Google Play" width="640" /></a>
 </p>
 
-<h1 align="center">Launch</h1>
-
 <p align="center">
   <strong>Alternative open source et auto-hébergée à Expo EAS — compilez, signez et publiez vos applications Expo / React Native sur TestFlight et Google Play depuis votre propre machine, avec vos propres clés. Aucune facturation à la compilation.</strong>
 </p>

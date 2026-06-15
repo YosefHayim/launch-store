@@ -2,8 +2,6 @@
   <a href="https://github.com/YosefHayim/launch-store"><img src="assets/launch-v3.png" alt="Launch — App Store와 Google Play로 빌드, 서명 및 배포" width="640" /></a>
 </p>
 
-<h1 align="center">Launch</h1>
-
 <p align="center">
   <strong>오픈소스 셀프 호스팅 방식의 Expo EAS 대안 — 직접 보유한 머신에서 직접 보유한 키로 Expo / React Native 앱을 빌드, 서명하고 TestFlight 및 Google Play로 배포하세요. 빌드당 청구 비용이 없습니다.</strong>
 </p>

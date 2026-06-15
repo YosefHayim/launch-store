@@ -2,8 +2,6 @@
   <a href="https://github.com/YosefHayim/launch-store"><img src="assets/launch-v3.png" alt="Launch — 构建、签名并发布到 App Store 和 Google Play" width="640" /></a>
 </p>
 
-<h1 align="center">Launch</h1>
-
 <p align="center">
   <strong>开源、可自托管的 Expo EAS 替代方案——在你自己的机器上、用你自己的密钥，构建、签名并将你的 Expo / React Native 应用发布到 TestFlight 与 Google Play。没有按次构建的账单。</strong>
 </p>
