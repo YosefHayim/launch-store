@@ -74,7 +74,7 @@ export async function runEasBuild(prepared: PreparedBuild, options: BuildRunOpti
     );
   }
 
-  renderReceipt({
+  await renderReceipt({
     app,
     version: app.version ?? "0.0.0",
     buildNumber,
