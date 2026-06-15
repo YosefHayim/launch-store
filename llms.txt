@@ -140,7 +140,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 47 `launch` commands (204 store-API operations underneath, 1145 tests):
+All 47 `launch` commands (204 store-API operations underneath, 1147 tests):
 
 - `launch init` — scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` — onboard an app that already ships: import its App Store Connect setup into config

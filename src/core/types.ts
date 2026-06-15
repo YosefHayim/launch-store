@@ -769,6 +769,22 @@ export interface ReleaseAttributesConfig {
 }
 
 /**
+ * Where the **sidecar-only** surfaces keep their `*.config.json` desired-state files when not at the
+ * default filename. These surfaces have no typed field on {@link LaunchConfig}, so without this map a
+ * non-interactive caller — chiefly `launch plan` / `launch drift`, which has no per-surface `--config`
+ * flag — can only find a sidecar at its default name. Declaring a path here makes `plan` read the same
+ * file the command would (the existing `resolveSidecarConfig` consumes it). Each entry is optional; omit
+ * the whole map to use defaults (`availability.config.json`, `accessibility.config.json`,
+ * `experiments.config.json`, `custom-pages.config.json`).
+ */
+export interface SurfaceConfigFiles {
+  availability?: string;
+  accessibility?: string;
+  experiments?: string;
+  customPages?: string;
+}
+
+/**
  * The fully-resolved configuration for one `launch` invocation.
  *
  * Produced by {@link loadConfig} from `launch.config.ts` plus auto-discovered apps. Names here
@@ -833,6 +849,13 @@ export interface LaunchConfig {
    * single-config form of `eu-distribution.config.json` (still accepted for back-compat). See {@link EuDistributionConfig}.
    */
   euDistribution?: EuDistributionConfig;
+  /**
+   * Optional non-default paths for the sidecar-only surfaces' `*.config.json` files (availability,
+   * accessibility, experiments, custom pages). Lets `launch plan` / `launch drift` find a sidecar that
+   * isn't at its default filename, since those surfaces have no typed field here. Omit to use defaults.
+   * See {@link SurfaceConfigFiles}.
+   */
+  configFiles?: SurfaceConfigFiles;
   /** AWS EC2 Mac settings for remote (off-Mac) builds. Only needed when building via `--remote aws`. */
   aws?: AwsConfig;
   /**

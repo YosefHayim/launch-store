@@ -120,7 +120,7 @@ describe("catalogPlanner", () => {
   it("reports the per-app diff a fresh catalog would create", async () => {
     const plan = await catalogPlanner.plan(makeCtx(makeApi(), { "com.acme.alpha": PRODUCTS }));
     expect(plan.state).toBe("planned");
-    if (plan.state !== "planned") return;
+    if (plan.state !== "planned" || plan.scope !== "app") return;
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe("com.acme.alpha");
     expect(plan.apps[0]?.actions.some((a) => a.description.includes("create in-app purchase com.acme.coins"))).toBe(
@@ -132,7 +132,7 @@ describe("catalogPlanner", () => {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await catalogPlanner.plan(makeCtx(api, { "com.acme.alpha": PRODUCTS }));
     expect(plan.state).toBe("planned");
-    if (plan.state !== "planned") return;
+    if (plan.state !== "planned" || plan.scope !== "app") return;
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
   });

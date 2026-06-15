@@ -69,6 +69,6 @@ export const listingPlanner: SurfacePlanner = {
     }
 
     const apps = await Promise.all(targets.map((target) => planTarget(api, target)));
-    return { surface: SURFACE, store: "appstore", state: "planned", apps };
+    return { surface: SURFACE, store: "appstore", state: "planned", scope: "app", direction: "two-way", apps };
   },
 };

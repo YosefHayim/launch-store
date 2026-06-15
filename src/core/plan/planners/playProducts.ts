@@ -80,6 +80,6 @@ export const playProductsPlanner: SurfacePlanner = {
     }
 
     const apps = await Promise.all(targets.map((target) => planTarget(api, target)));
-    return { surface: SURFACE, store: "play", state: "planned", apps };
+    return { surface: SURFACE, store: "play", state: "planned", scope: "app", direction: "two-way", apps };
   },
 };
