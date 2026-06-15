@@ -39,6 +39,7 @@ const STEP_ICONS: readonly (readonly [RegExp, string])[] = [
   [/size/i, "▦"],
   [/version/i, "❖"],
   [/upload|submit|distribute/i, "▲"],
+  [/prune|reclaim/i, "♺"],
   [/store|app id|metadata|sync/i, "▣"],
   [/update|rollback/i, "⟳"],
   [/process/i, "◷"],
@@ -76,6 +77,11 @@ export interface Logger {
   warn(message: string): void;
   error(message: string): void;
   /**
+   * A dim, indented hint hung under the step above it — informational, never a warning, so it carries the
+   * ⓘ glyph rather than ▲. Used e.g. under the `store` step to note a stored binary is auto-pruned later.
+   */
+  tip(message: string): void;
+  /**
    * A call-to-action block before a decision (e.g. the pre-upload checkpoint): a bold lead line plus
    * dim detail lines, set off by a leading gap so it stands apart from the step stream.
    */
@@ -110,6 +116,9 @@ export function createLogger(explain: boolean): Logger {
     },
     error: (message) => {
       console.error(`${paint.fg(AURORA.pink, "✗")} ${message}`);
+    },
+    tip: (message) => {
+      console.log(`   ${paint.fg(AURORA.cyan, "ⓘ")} ${paint.fg(AURORA.dim, "tip")}  ${paint.fg(AURORA.dim, message)}`);
     },
     notice: (lead, ...details) => {
       console.log("");

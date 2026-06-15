@@ -841,6 +841,14 @@ export interface LaunchConfig {
    * hosted. Secrets stay out: access keys resolve from env / the OS secret store, never from here.
    */
   storageConfig?: StorageConfig;
+  /**
+   * How many days a local build binary is kept before the artifact store auto-prunes it to reclaim disk
+   * (the newest build per app+platform is always kept, so a promotable artifact never disappears). Runs
+   * after each successful local build. Defaults to 30 when omitted; set to `0` to disable the automatic
+   * sweep entirely (`launch builds prune` still works on demand). Only the `local` provider observes
+   * this — cloud stores manage retention through their own bucket lifecycle rules.
+   */
+  artifactRetentionDays?: number;
 }
 
 /**
@@ -1119,6 +1127,58 @@ export interface BuildArtifact {
   clean: boolean;
   /** ISO-8601 creation timestamp, stamped by the caller (the pipeline). */
   createdAt: string;
+  /**
+   * ISO-8601 stamp set when artifact retention removed this build's binary to reclaim disk (see
+   * {@link LaunchConfig.artifactRetentionDays}). The index row is kept as history — `builds list` shows it
+   * as `pruned` and `builds view`/`release` explain the binary is gone — so absence means the file is still
+   * on disk. The newest build per app+platform is never pruned, so a promotable artifact always survives.
+   */
+  prunedAt?: string;
+}
+
+/**
+ * One build whose binary an artifact-retention sweep removed (or, in a dry run, would remove). A flat,
+ * presentation-ready projection of the pruned {@link BuildArtifact} plus the bytes it freed — what the
+ * `builds prune` preview/table renders and `--json` emits, kept stable apart from the persisted record.
+ */
+export interface PrunedArtifact {
+  app: string;
+  platform: Platform;
+  version: string;
+  buildNumber: number;
+  /** Size of the removed binary in bytes — what this row reclaimed (or would reclaim). */
+  bytes: number;
+  /** The artifact's recorded path (the file is gone after a real run). */
+  path: string;
+}
+
+/**
+ * Options for an artifact-retention sweep ({@link StorageProvider.prune}). `now` is injected (not read
+ * from the clock) so the policy is deterministic and unit-testable; `retentionDays` is the resolved
+ * window. An absent `app`/`platform` matches everything; `dryRun` plans without deleting.
+ */
+export interface PruneOptions {
+  /** Reference "now" in epoch ms — the age of each build is measured against this. */
+  now: number;
+  /** Builds strictly older than this many days are eligible (the newest per app+platform is always kept). */
+  retentionDays: number;
+  /** Limit the sweep to one app handle. */
+  app?: string;
+  /** Limit the sweep to one platform. */
+  platform?: Platform;
+  /** Plan and report what would be removed, deleting nothing. */
+  dryRun?: boolean;
+}
+
+/**
+ * The outcome of an artifact-retention sweep. `pruned` is empty when nothing was eligible (a no-op);
+ * `freedBytes` sums the removed binaries' sizes. When `dryRun` is true, `pruned`/`freedBytes` describe
+ * what *would* be removed and nothing was deleted.
+ */
+export interface PruneResult {
+  pruned: PrunedArtifact[];
+  freedBytes: number;
+  dryRun: boolean;
 }
 
 /** A pointer to an artifact after a {@link StorageProvider} has stored it. */
@@ -1212,6 +1272,14 @@ export interface StorageProvider {
    * IPA's URL). For `local` this is a `file://` path (real install links need a cloud provider).
    */
   publicUrl(key: string): string;
+  /**
+   * Reclaim disk by deleting build binaries older than `retentionDays`, always keeping the newest per
+   * app+platform (so a promotable artifact survives). **Local-only**: cloud providers leave this
+   * undefined because their bucket lifecycle owns retention, and the pipeline's auto-sweep simply
+   * no-ops for them. Keeps the index row (stamping {@link BuildArtifact.prunedAt}) so build history
+   * survives the binary.
+   */
+  prune?(options: PruneOptions): Promise<PruneResult>;
 }
 
 /**

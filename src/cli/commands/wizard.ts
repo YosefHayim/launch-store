@@ -33,6 +33,7 @@ import { runEasBuild } from "../../core/easPipeline.js";
 import { chooseAccountInteractive, setupIos } from "./creds.js";
 import { runInit } from "./init.js";
 import { runAdopt } from "./adopt.js";
+import { countPrunableBuilds, runPrune } from "./builds.js";
 import { runDoctor } from "./doctor.js";
 import { parseSshTarget } from "../../providers/compute/byoSsh.js";
 
@@ -427,24 +428,42 @@ export async function runWizard(): Promise<void> {
     return;
   }
 
+  // Offer cleanup only when there's something to reclaim, so the menu stays a build-first front door
+  // (Decision: don't show a dead "Clean up" entry on a fresh or already-tidy store).
+  const prunableCount = await countPrunableBuilds();
+  const menuOptions: { value: "build" | "adopt" | "setup" | "prune"; label: string; hint: string }[] = [
+    { value: "build", label: "Build an app", hint: "compile, check size, upload" },
+    {
+      value: "adopt",
+      label: "Adopt an existing app",
+      hint: "import an already-shipping app's setup from App Store Connect",
+    },
+    {
+      value: "setup",
+      label: "Set up Launch (credentials & checks)",
+      hint: "config · account · toolchain · signing",
+    },
+  ];
+  if (prunableCount > 0) {
+    menuOptions.push({
+      value: "prune",
+      label: "Clean up old builds",
+      hint: `${prunableCount} build${prunableCount === 1 ? "" : "s"} past the retention window · reclaim disk`,
+    });
+  }
+
   const action = resolvePrompt(
-    await select<"build" | "setup" | "adopt">({
+    await select<"build" | "setup" | "adopt" | "prune">({
       message: "What would you like to do?",
-      options: [
-        { value: "build", label: "Build an app", hint: "compile, check size, upload" },
-        {
-          value: "adopt",
-          label: "Adopt an existing app",
-          hint: "import an already-shipping app's setup from App Store Connect",
-        },
-        {
-          value: "setup",
-          label: "Set up Launch (credentials & checks)",
-          hint: "config · account · toolchain · signing",
-        },
-      ],
+      options: menuOptions,
     }),
   );
+
+  if (action === "prune") {
+    await runPrune({});
+    outro("Done.");
+    return;
+  }
 
   if (action === "adopt") {
     await runAdopt({});
