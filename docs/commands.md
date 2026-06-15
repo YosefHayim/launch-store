@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **204 App Store Connect & Google Play API operations** across **44 commands**, guarded by **1027 tests**.
+> Launch wraps **204 App Store Connect & Google Play API operations** across **44 commands**, guarded by **1033 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -625,7 +625,13 @@ delete a draft in-app event
 
 ## `launch setup`
 
-inspect & prepare an app's store provisioning
+set Launch up automatically and verify everything's ready to ship
+
+| Flag             | Description                                                       |
+| ---------------- | ----------------------------------------------------------------- |
+| `--platform <p>` | ios (default) or android                                          |
+| `--yes`          | non-interactive: install missing tools without asking (CI/agents) |
+| `--no-rehearse`  | skip the dry-run pipeline rehearsal at the end                    |
 
 ### `launch setup ios`
 
