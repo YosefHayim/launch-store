@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { buildProgram } from "../../cli/program.js";
 import {
+  AGENT_SKILLS_SIGNATURE,
   CANONICAL_SENTENCE,
   FAQ_SIGNATURE,
   IS_NOT_SIGNATURE,
@@ -46,6 +47,18 @@ describe("the generative-AI FAQ is present where AI engines read it", () => {
   it("appears in both the README and llms.txt", () => {
     expect(read("README.md")).toContain(FAQ_SIGNATURE);
     expect(read("llms.txt")).toContain(FAQ_SIGNATURE);
+  });
+});
+
+describe("the agent-skills mention reaches every README (gated alongside docs:check)", () => {
+  it("appears in the English README and all translations, so the `launch agents` feature is never hidden", () => {
+    const readmes = readdirSync(ROOT, { encoding: "utf8" }).filter((file) => /^README.*\.md$/.test(file));
+    expect(readmes.length, "expected the English README plus its translations").toBeGreaterThanOrEqual(9);
+    for (const file of readmes) {
+      expect(read(file), `${file} is missing the agent-skills callout — run \`npm run docs:gen\``).toContain(
+        AGENT_SKILLS_SIGNATURE,
+      );
+    }
   });
 });
 

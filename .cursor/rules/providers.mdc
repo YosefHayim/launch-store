@@ -1,0 +1,10 @@
+---
+description: Adding or changing a provider backend (build / storage / credentials / submit / compute).
+globs: src/providers/**
+alwaysApply: false
+---
+
+Adding a backend = implement one of the five interfaces from `src/core/types.ts` as a named object and register it in `src/providers/index.ts`.
+
+- The pipeline resolves a provider by its `name` (the value users put in `launch.config.ts`), so you **never** edit `src/core/pipeline.ts` to add a backend.
+- Lazy-load heavy / optional SDKs (AWS, the native keyring) through `requireOptional` in `src/core/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.

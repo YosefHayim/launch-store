@@ -1,0 +1,11 @@
+---
+description: Always-on contributing context for the launch-store codebase.
+alwaysApply: true
+---
+
+You are working **on** launch-store (the `launch` CLI), not using it. The canonical working rules live in [AGENTS.md](../../AGENTS.md) and [CLAUDE.md](../../CLAUDE.md) — read them first.
+
+- One Node ESM / TypeScript package. `src/cli` is thin commander wiring (no domain logic), `src/core` is the domain (types, the build→submit pipeline, the provider registry), `src/providers` are the swappable backends, `src/apple` is the App Store Connect integration.
+- Before calling a change done, run `npm run typecheck && npm run lint && npm run test && npm run build`, plus `npm run docs:check` (the generated docs + these rules are gated).
+- Keep it KISS / YAGNI / DRY: extend the nearest sibling file rather than inventing a new file, util, or abstraction. Add a test (`*.test.ts`) beside any new logic.
+- Never log, write, or commit secrets; `~/.launch` holds non-secret paths and ids only.
