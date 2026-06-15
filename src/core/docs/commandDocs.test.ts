@@ -3,13 +3,13 @@ import {
   CANONICAL_SENTENCE,
   type CommandSpec,
   type DocStats,
+  FAQ_SIGNATURE,
   IS_NOT_SIGNATURE,
   STATS_BADGES_END,
   STATS_BADGES_START,
   countAsyncMethods,
   countTestCases,
   renderCommandReference,
-  renderLlmsFull,
   renderLlmsTxt,
   renderStatsBadges,
   spliceReadmeBadges,
@@ -71,29 +71,30 @@ describe("renderCommandReference", () => {
   });
 });
 
-describe("renderLlmsTxt", () => {
-  const txt = renderLlmsTxt(STATS);
+describe("renderLlmsTxt (the merged single AI-facing file)", () => {
+  const txt = renderLlmsTxt(SAMPLE, STATS);
 
   it("leads with the canonical sentence as the llmstxt.org summary blockquote", () => {
     expect(txt).toContain(`> ${CANONICAL_SENTENCE}`);
   });
 
+  it("carries the what-Launch-is-not disambiguation for AI engines", () => {
+    expect(txt).toContain(IS_NOT_SIGNATURE);
+  });
+
+  it("carries the generative-AI FAQ so engines can lift the EAS-alternative answers", () => {
+    expect(txt).toContain("## FAQ");
+    expect(txt).toContain(FAQ_SIGNATURE);
+  });
+
+  it("inlines every command, nesting subcommands under their parent", () => {
+    expect(txt).toContain("- `launch build <platform>` — run the full pipeline");
+    expect(txt).toContain("- `launch metadata` — sync the store listing");
+    expect(txt).toContain("  - `launch metadata pull` — download the live listing");
+  });
+
   it("links the generated command reference with the live command count", () => {
     expect(txt).toContain("[Command reference](./docs/commands.md): all 2 `launch` commands");
-  });
-});
-
-describe("renderLlmsFull", () => {
-  const full = renderLlmsFull(SAMPLE, STATS);
-
-  it("carries the what-Launch-is-not disambiguation for AI engines", () => {
-    expect(full).toContain(IS_NOT_SIGNATURE);
-  });
-
-  it("lists every command, nesting subcommands under their parent", () => {
-    expect(full).toContain("- `launch build <platform>` — run the full pipeline");
-    expect(full).toContain("- `launch metadata` — sync the store listing");
-    expect(full).toContain("  - `launch metadata pull` — download the live listing");
   });
 });
 

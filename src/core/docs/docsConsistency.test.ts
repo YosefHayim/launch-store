@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { buildProgram } from "../../cli/program.js";
-import { CANONICAL_SENTENCE, IS_NOT_SIGNATURE, countAsyncMethods, countTestCases } from "./commandDocs.js";
+import { CANONICAL_SENTENCE, FAQ_SIGNATURE, IS_NOT_SIGNATURE, countAsyncMethods, countTestCases } from "./commandDocs.js";
 
 /** Repo root, derived from this file's location so the test works regardless of the cwd vitest runs in. */
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url));
@@ -30,9 +30,16 @@ describe("canonical category sentence is unified across surfaces (issue #89)", (
 });
 
 describe("the what-Launch-is-not disambiguation is present where AI engines read it", () => {
-  it("appears in both the README and llms-full.txt", () => {
+  it("appears in both the README and llms.txt", () => {
     expect(read("README.md")).toContain(IS_NOT_SIGNATURE);
-    expect(read("llms-full.txt")).toContain(IS_NOT_SIGNATURE);
+    expect(read("llms.txt")).toContain(IS_NOT_SIGNATURE);
+  });
+});
+
+describe("the generative-AI FAQ is present where AI engines read it", () => {
+  it("appears in both the README and llms.txt", () => {
+    expect(read("README.md")).toContain(FAQ_SIGNATURE);
+    expect(read("llms.txt")).toContain(FAQ_SIGNATURE);
   });
 });
 
@@ -43,13 +50,9 @@ function expectNoBrokenLinks(file: string): void {
   }
 }
 
-describe("every relative link in the llms files resolves on disk", () => {
+describe("every relative link in llms.txt resolves on disk", () => {
   it("llms.txt has no broken links", () => {
     expectNoBrokenLinks("llms.txt");
-  });
-
-  it("llms-full.txt has no broken links", () => {
-    expectNoBrokenLinks("llms-full.txt");
   });
 });
 

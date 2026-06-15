@@ -1,6 +1,6 @@
 /**
  * `npm run docs:gen` — regenerate the committed, generated docs from the live CLI definition:
- * `docs/commands.md`, `llms.txt`, and `llms-full.txt`. `npm run docs:check` runs the same generation
+ * `docs/commands.md` and `llms.txt`. `npm run docs:check` runs the same generation
  * and fails if any committed file is stale (the per-PR freshness gate in ci.yml), mirroring how
  * `scripts/gen-asc-types.ts` + the schema-drift workflow keep the ASC types honest.
  *
@@ -21,7 +21,6 @@ import {
   countAsyncMethods,
   countTestCases,
   renderCommandReference,
-  renderLlmsFull,
   renderLlmsTxt,
   renderStatsBadges,
   spliceReadmeBadges,
@@ -60,7 +59,7 @@ function computeStats(commands: CommandSpec[]): DocStats {
   return { commands: commands.length, operations, tests: countTestCases(readTestSources()) };
 }
 
-/** Render all three docs from the live program, prettier-formatted and ready to write or diff. */
+/** Render both docs from the live program, prettier-formatted and ready to write or diff. */
 async function generateDocs(): Promise<GeneratedDoc[]> {
   const commands = buildProgram().commands.map((command) => toSpec(command, ""));
   const stats = computeStats(commands);
@@ -73,8 +72,7 @@ async function generateDocs(): Promise<GeneratedDoc[]> {
   const raw: GeneratedDoc[] = [
     ...readmes.map((path) => ({ path, body: spliceReadmeBadges(readFileSync(join(ROOT, path), "utf8"), badges) })),
     { path: "docs/commands.md", body: renderCommandReference(commands, stats) },
-    { path: "llms.txt", body: renderLlmsTxt(stats) },
-    { path: "llms-full.txt", body: renderLlmsFull(commands, stats) },
+    { path: "llms.txt", body: renderLlmsTxt(commands, stats) },
   ];
   return Promise.all(
     raw.map(async ({ path, body }) => {
