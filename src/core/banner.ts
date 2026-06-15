@@ -1,22 +1,22 @@
 /**
- * The `launch` banner — the glowing pixel-art **LAUNCH** logotype shown on the no-args front door (just
- * before the interactive wizard). The letters bloom in a neon purple halo with a white→lavender italic
- * fill; on a TTY the glow breathes while a white shimmer sweeps across, then it settles.
+ * The `launch` banner — a cinematic pixel-art scene shown on the no-args front door (just before the
+ * interactive wizard): a silver rocket streaks across a starfield, igniting the LAUNCH STORE wordmark in
+ * its wake and charging the Apple + Google Play badges, then the lockup holds with a breathing neon glow.
  *
  * This module is just the orchestration: it picks the animate-vs-static {@link BannerMode} and the
  * {@link ColorDepth} from the environment, then drives {@link renderBanner}'s output loop. The artwork
- * itself lives in {@link import("./wordmark.js")} (the glyphs, bloom, and frames) and is encoded by the
+ * itself lives in {@link import("./rocketScene.js")} (sprites, bloom, and frames) and is encoded by the
  * shared {@link import("./halfblock.js")} half-block renderer. The mode/depth selectors are pure so
  * they're unit-testable; {@link renderBanner} takes an injectable stream + sleep so the animation runs
  * with no real TTY or timers in tests.
  */
 
 import { type ColorDepth } from "./halfblock.js";
-import { buildGlowFrames, renderGlowWordmark } from "./wordmark.js";
+import { buildRocketFrames, renderRocketBanner } from "./rocketScene.js";
 
-/** The single static banner — the settled wordmark as plain text, for piped output, logs, and CI. */
+/** The single static banner — the settled scene's plain-text tagline, for piped output, logs, and CI. */
 export function staticBanner(): string {
-  return renderGlowWordmark("none");
+  return renderRocketBanner("none");
 }
 
 /** Whether to animate. Pure so the decision is testable. */
@@ -56,7 +56,7 @@ export interface RenderBannerOptions {
 /**
  * Print the banner: animated in place on a TTY (redrawing each frame with a cursor-up escape sized to the
  * frame's own height), or a single static frame otherwise. Color depth follows the terminal (`COLORTERM`);
- * `NO_COLOR` collapses the glow to the plain `L A U N C H` text in one frame, since the bloom needs color.
+ * `NO_COLOR` collapses the scene to the plain tagline in one frame, since the bloom and logos need color.
  */
 export async function renderBanner(options: RenderBannerOptions = {}): Promise<void> {
   const stream = options.stream ?? process.stdout;
@@ -68,7 +68,7 @@ export async function renderBanner(options: RenderBannerOptions = {}): Promise<v
     return;
   }
 
-  const frames = buildGlowFrames(selectColorDepth(env));
+  const frames = buildRocketFrames(selectColorDepth(env));
   const height = (frames[0] ?? "").split("\n").length;
   const frameMs = options.frameMs ?? 70;
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));

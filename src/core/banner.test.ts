@@ -1,7 +1,7 @@
 /**
  * Tests for the LAUNCH banner orchestration: mode/depth selection are pure; the renderer is driven with
  * a capture stub stream and an instant sleep so the animation path runs with no real timers or TTY. The
- * glow artwork itself (glyphs, bloom, frames) is covered in {@link ./wordmark.test.ts}.
+ * scene artwork itself (sprites, bloom, frames) is covered in {@link ./rocketScene.test.ts}.
  */
 
 import { describe, it, expect } from "vitest";
@@ -14,9 +14,9 @@ const ESC = String.fromCharCode(27);
 const CURSOR_UP = new RegExp(`${ESC}\\[\\d+A`);
 
 describe("staticBanner", () => {
-  it("is the plain spaced wordmark with no ANSI, for piped output and CI", () => {
+  it("is the plain-text tagline with no ANSI, for piped output and CI", () => {
     const banner = staticBanner();
-    expect(banner).toContain("L A U N C H");
+    expect(banner).toContain("Launch Store");
     expect(banner).not.toContain(ESC);
   });
 });
@@ -57,11 +57,11 @@ describe("renderBanner", () => {
     const { stream, chunks } = capture();
     await renderBanner({ stream, isTTY: false, env: {} });
     expect(chunks.length).toBe(1);
-    expect(chunks.join("")).toContain("L A U N C H");
+    expect(chunks.join("")).toContain("Launch Store");
     expect(chunks.join("")).not.toMatch(CURSOR_UP); // static path never moves the cursor
   });
 
-  it("animates the glowing wordmark in place on a truecolor TTY", async () => {
+  it("animates the rocket scene in place on a truecolor TTY", async () => {
     const { stream, chunks } = capture();
     await renderBanner({ stream, isTTY: true, env: { COLORTERM: "truecolor" }, sleep: () => Promise.resolve() });
     const output = chunks.join("");
@@ -74,7 +74,7 @@ describe("renderBanner", () => {
     const { stream, chunks } = capture();
     await renderBanner({ stream, isTTY: true, env: { NO_COLOR: "1" }, sleep: () => Promise.resolve() });
     const output = chunks.join("");
-    expect(output).toContain("L A U N C H");
+    expect(output).toContain("Launch Store");
     expect(output).not.toContain(`${ESC}[38;5;`); // no 256-color spans
     expect(output).not.toContain(`${ESC}[38;2;`); // nor truecolor spans
   });
