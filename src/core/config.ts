@@ -55,6 +55,8 @@ export function defineConfig(input: LaunchConfigInput): LaunchConfig {
     ...(input.euDistribution ? { euDistribution: input.euDistribution } : {}),
     ...(input.aws ? { aws: input.aws } : {}),
     ...(input.storageConfig ? { storageConfig: input.storageConfig } : {}),
+    // `!== undefined`, not a truthy check: `0` is the meaningful "disable auto-prune" value.
+    ...(input.artifactRetentionDays !== undefined ? { artifactRetentionDays: input.artifactRetentionDays } : {}),
   };
 }
 
