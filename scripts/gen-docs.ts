@@ -29,7 +29,7 @@ import {
   spliceReadmeBadges,
   spliceReadmeFaq,
 } from "../src/core/docs/commandDocs.js";
-import { renderContributorRules } from "../src/core/agents/render.js";
+import { renderContributorRules, renderContributorSkills } from "../src/core/agents/render.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -86,9 +86,11 @@ async function generateDocs(): Promise<GeneratedDoc[]> {
     }),
     { path: "docs/commands.md", body: renderCommandReference(commands, stats) },
     { path: "llms.txt", body: renderLlmsTxt(commands, stats) },
-    // Contributor-facing Cursor rules (`.cursor/rules/*.mdc`) for working ON launch-store — generated
-    // from the same agent registry as the consumer skills and gated here so they can't drift.
+    // Contributor-facing Cursor rules (`.cursor/rules/*.mdc`) and Claude skills (`.claude/skills/*`) for
+    // working ON launch-store — generated from the same agent registry as the consumer skills and gated
+    // here so they can't drift.
     ...renderContributorRules().map((rule) => ({ path: rule.path, body: rule.body })),
+    ...renderContributorSkills().map((skill) => ({ path: skill.path, body: skill.body })),
   ];
   return Promise.all(
     raw.map(async ({ path, body }) => {
