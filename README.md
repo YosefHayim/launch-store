@@ -42,13 +42,14 @@
 </p>
 
 Shipping an app is more than a build: signing setup, [App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console) config, in-app
-purchases, listing metadata, the upload, and the over-the-air updates after. EAS builds and submits —
-the rest is scattered across Apple's and Google's portals and a handful of tools. Launch pulls the
-**whole release** into one local, declarative workflow: it provisions your signing, reconciles your
-store products, generates the native project, builds and signs the binary, reports the real per-device
-download size, stores the artifact, and uploads to the testing track — on hardware you own, with keys
-that stay in your local keychain. iOS signing needs a Mac; if you don't have one, Launch builds on a
-cloud Mac in **your own** AWS account or hands off to Expo EAS — see [Building without a Mac](#building-without-a-mac).
+purchases, subscriptions, capabilities, and listing metadata — and EAS builds and submits, then leaves
+all of that to Apple's and Google's portals and a handful of tools. Launch is the only release tool that
+makes the **whole path — store config included — declarative**: from one typed `launch.config.ts` it
+provisions your signing, reconciles your App Store Connect and Google Play catalog (products, prices,
+offers, capabilities, and listing), generates the native project, builds and signs the binary, reports
+the real per-device download size, stores the artifact, and uploads to the testing track — on hardware
+you own, with keys that stay in your local keychain. iOS signing needs a Mac; if you don't have one,
+Launch builds on a cloud Mac in **your own** AWS account or hands off to Expo EAS — see [Building without a Mac](#building-without-a-mac).
 
 > **New here?** Run `launch demo` for a 60-second simulated walkthrough of the whole pipeline — no
 > setup, no build, no account needed. It also auto-plays the first time you run `launch`.
@@ -418,7 +419,7 @@ everywhere.
 
 **Is Launch just an App Store Connect SDK or MCP wrapper?** No. An App Store Connect SDK or MCP server wraps a slice of Apple's API. Launch drives the entire release across Apple and Google — code signing, native builds, size checks, store-config-as-code, the confirmed public release, and OTA updates — none of which an API wrapper touches. If you want a self-hosted Expo EAS rather than an API client, that is Launch.
 
-**How is Launch different from Fastlane?** Fastlane is a building block; Launch orchestrates it. Launch uses fastlane only for the binary-upload step and wraps the whole release around it: credential provisioning, the build, the real download-size check, store-config-as-code for both stores, the deliberate public release, phased-rollout control, and OTA updates — all from one typed `launch.config.ts`.
+**How is Launch different from Fastlane?** Fastlane is a building block; Launch orchestrates it. Launch drives fastlane for the iOS archive (`gym`), the TestFlight / App Store upload (`pilot`), and store-listing metadata (`deliver` / `supply`), and wraps the whole release around it: credential provisioning, the native build, the real download-size check, store-config-as-code for both stores, the deliberate public release, phased-rollout control, and OTA updates — all from one typed `launch.config.ts`.
 
 **Where are my signing keys and secrets stored?** In your OS keychain. Your App Store Connect API key (`.p8`), distribution private key, and Android upload key never touch the repo or anyone's servers — only a certificate-signing request (CSR) is ever sent to Apple. Build secrets live in the keychain too, via `launch secret`, so they stay out of a committed `.env`.
 
