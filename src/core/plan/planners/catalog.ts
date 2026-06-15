@@ -59,6 +59,6 @@ export const catalogPlanner: SurfacePlanner = {
     }
 
     const apps = await Promise.all(jobs.map((job) => planJob(api, job)));
-    return { surface: SURFACE, store: "appstore", state: "planned", apps };
+    return { surface: SURFACE, store: "appstore", state: "planned", scope: "app", direction: "two-way", apps };
   },
 };

@@ -100,7 +100,7 @@ describe("listingPlanner", () => {
     const dir = appDirWithListing({ title: "Acme", description: "The best acme app." });
     const plan = await listingPlanner.plan(makeCtx(makeApi(), dir));
     expect(plan.state).toBe("planned");
-    if (plan.state !== "planned") return;
+    if (plan.state !== "planned" || plan.scope !== "app") return;
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe("com.acme.alpha");
     expect(plan.apps[0]?.actions.some((a) => a.description.startsWith("create listing [en-US] App Info"))).toBe(true);
@@ -113,7 +113,7 @@ describe("listingPlanner", () => {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
     const plan = await listingPlanner.plan(makeCtx(api, appDirWithListing({ title: "Acme" })));
     expect(plan.state).toBe("planned");
-    if (plan.state !== "planned") return;
+    if (plan.state !== "planned" || plan.scope !== "app") return;
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
   });
