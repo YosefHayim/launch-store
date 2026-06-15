@@ -23,6 +23,8 @@ import {
   renderCommandReference,
   renderLlmsFull,
   renderLlmsTxt,
+  renderStatsBadges,
+  spliceReadmeBadges,
 } from "../src/core/docs/commandDocs.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -62,7 +64,14 @@ function computeStats(commands: CommandSpec[]): DocStats {
 async function generateDocs(): Promise<GeneratedDoc[]> {
   const commands = buildProgram().commands.map((command) => toSpec(command, ""));
   const stats = computeStats(commands);
+  // The same live-stats badge row is spliced into the English README and every translation (README.*.md),
+  // so a new API method or test updates all of them at once and `docs:check` catches any that fall behind.
+  const badges = renderStatsBadges(stats);
+  const readmes = readdirSync(ROOT)
+    .filter((file) => /^README.*\.md$/.test(file))
+    .sort();
   const raw: GeneratedDoc[] = [
+    ...readmes.map((path) => ({ path, body: spliceReadmeBadges(readFileSync(join(ROOT, path), "utf8"), badges) })),
     { path: "docs/commands.md", body: renderCommandReference(commands, stats) },
     { path: "llms.txt", body: renderLlmsTxt(stats) },
     { path: "llms-full.txt", body: renderLlmsFull(commands, stats) },

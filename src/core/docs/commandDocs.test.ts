@@ -4,11 +4,15 @@ import {
   type CommandSpec,
   type DocStats,
   IS_NOT_SIGNATURE,
+  STATS_BADGES_END,
+  STATS_BADGES_START,
   countAsyncMethods,
   countTestCases,
   renderCommandReference,
   renderLlmsFull,
   renderLlmsTxt,
+  renderStatsBadges,
+  spliceReadmeBadges,
 } from "./commandDocs.js";
 
 const STATS: DocStats = { commands: 2, operations: 203, tests: 920 };
@@ -90,6 +94,43 @@ describe("renderLlmsFull", () => {
     expect(full).toContain("- `launch build <platform>` — run the full pipeline");
     expect(full).toContain("- `launch metadata` — sync the store listing");
     expect(full).toContain("  - `launch metadata pull` — download the live listing");
+  });
+});
+
+describe("renderStatsBadges", () => {
+  const block = renderStatsBadges(STATS);
+
+  it("is fenced by the markers so docs:gen can splice it back in", () => {
+    expect(block.startsWith(STATS_BADGES_START)).toBe(true);
+    expect(block.endsWith(STATS_BADGES_END)).toBe(true);
+  });
+
+  it("bakes the live operation count into the endpoint badge", () => {
+    expect(block).toContain("store%20API-203%20endpoints");
+  });
+
+  it("bakes the live test count into the tests badge", () => {
+    expect(block).toContain("tests-920%20passing");
+  });
+
+  it("renders a qualitative CRUD badge that carries no number to go stale", () => {
+    expect(block).toContain("CRUD-full%20lifecycle");
+  });
+});
+
+describe("spliceReadmeBadges", () => {
+  const readme = ["# Launch", "", STATS_BADGES_START, "", "<p>stale</p>", "", STATS_BADGES_END, "", "Body."].join("\n");
+
+  it("replaces the whole fenced region with the freshly rendered badges", () => {
+    const spliced = spliceReadmeBadges(readme, renderStatsBadges(STATS));
+    expect(spliced).toContain("tests-920%20passing");
+    expect(spliced).not.toContain("<p>stale</p>");
+    expect(spliced.startsWith("# Launch")).toBe(true);
+    expect(spliced.endsWith("Body.")).toBe(true);
+  });
+
+  it("throws when the markers are missing rather than dropping the badges", () => {
+    expect(() => spliceReadmeBadges("# Launch\n\nNo markers here.", "x")).toThrow(/stats-badges markers/);
   });
 });
 
