@@ -37,6 +37,10 @@
   <a href="./README.ru.md">Русский</a>
 </p>
 
+<p align="center">
+  📦 <a href="https://github.com/YosefHayim/launch-store/releases">Releases &amp; Changelog</a>
+</p>
+
 Eine App zu veröffentlichen ist mehr als nur ein Build: das Einrichten der Signierung, die Konfiguration
 in [App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console), In-App-Käufe, Listing-Metadaten, der Upload und danach die
 Over-the-Air-Updates. EAS baut und reicht ein — der Rest ist über die Portale von Apple und Google und
