@@ -104,7 +104,7 @@ describe("playSubscriptionsPlanner", () => {
   it("reports the per-app diff a fresh Play subscription would create", async () => {
     const plan = await playSubscriptionsPlanner.plan(makeCtx(makePlayApi(), productsWith([PLAY_SUB])));
     expect(plan.state).toBe("planned");
-    if (plan.state !== "planned") return;
+    if (plan.state !== "planned" || plan.scope !== "app") return;
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe("com.acme.alpha");
     expect(plan.apps[0]?.actions.some((a) => a.description === "create Play subscription com.acme.pro.monthly")).toBe(
@@ -116,7 +116,7 @@ describe("playSubscriptionsPlanner", () => {
     const api = makePlayApi({ assertAppExists: vi.fn().mockRejectedValue(new Error("app not found on Play")) });
     const plan = await playSubscriptionsPlanner.plan(makeCtx(api, productsWith([PLAY_SUB])));
     expect(plan.state).toBe("planned");
-    if (plan.state !== "planned") return;
+    if (plan.state !== "planned" || plan.scope !== "app") return;
     expect(plan.apps[0]?.error).toMatch(/app not found on Play/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
   });

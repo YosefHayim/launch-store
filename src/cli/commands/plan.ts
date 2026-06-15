@@ -21,7 +21,12 @@ import { selectApps } from "../../core/syncJobs.js";
 import type { AscCatalogApi, PlannedAction } from "../../core/ascSync.js";
 import { listSurfacePlanners, registerBuiltinPlanners } from "../../core/plan/registry.js";
 import { PLAN_EXIT, runPlanners, type PlanOutcome } from "../../core/plan/orchestrator.js";
-import type { PlanContext, PlanStore, PlayCatalogApi } from "../../core/plan/types.js";
+import type { PlanContext, PlanStore, PlayCatalogApi, SurfacePlan } from "../../core/plan/types.js";
+
+/** A successfully-read per-app surface (the usual case) — narrowed for the renderer. */
+type PlannedAppSurface = Extract<SurfacePlan, { state: "planned"; scope: "app" }>;
+/** A successfully-read team-level surface (wallet / EU distribution) — no per-app grouping. */
+type PlannedTeamSurface = Extract<SurfacePlan, { state: "planned"; scope: "team" }>;
 
 /** CLI options shared by `plan` and `drift` (the positional `<surface>` arrives as the action's first arg). */
 interface PlanOptions {
@@ -56,6 +61,33 @@ function renderActionLine(action: PlannedAction): string {
   return `${planGlyph(action)} ${action.description}`;
 }
 
+/**
+ * The one-way caveat shown under an additive surface: its reconciler only ensures declared items exist,
+ * so `in sync` means "config is fully applied," not "live == config" (ADR 0003 A3). Exported for tests.
+ */
+export function additiveNote(surface: string): string {
+  return `↳ ${surface} is additive — detects missing items, not portal-side additions (drift ≠ "live == config")`;
+}
+
+/** Render one per-app surface's diff, grouped app → surface; an app's precondition failure prints as an error. */
+function renderAppSurface(log: ReturnType<typeof createLogger>, surface: PlannedAppSurface): void {
+  for (const app of surface.apps) {
+    const head = `${app.app} · ${surface.surface} (${app.identifier})`;
+    if (app.error !== undefined) log.error(`${head}: ${app.error}`);
+    else if (app.actions.length === 0) log.step(`${app.app} · ${surface.surface}`, "in sync");
+    else log.notice(head, ...app.actions.map(renderActionLine));
+  }
+}
+
+/** Render a team-level surface's diff (wallet / EU distribution): no bundle id, so grouped store → Team → surface. */
+function renderTeamSurface(log: ReturnType<typeof createLogger>, surface: PlannedTeamSurface): void {
+  if (surface.actions.length === 0) {
+    log.step(`Team · ${surface.surface}`, "in sync");
+    return;
+  }
+  log.notice(`${storeLabel(surface.store)} · Team · ${surface.surface}`, ...surface.actions.map(renderActionLine));
+}
+
 /** Print the human diff, grouped store → app → surface, then a one-line summary + next step. */
 function renderOutcome(log: ReturnType<typeof createLogger>, outcome: PlanOutcome): void {
   log.gap();
@@ -70,12 +102,9 @@ function renderOutcome(log: ReturnType<typeof createLogger>, outcome: PlanOutcom
       log.warn(`${storeLabel(surface.store)} · ${surface.surface}: skipped — ${surface.reason}${hint}`);
       continue;
     }
-    for (const app of surface.apps) {
-      const head = `${app.app} · ${surface.surface} (${app.identifier})`;
-      if (app.error !== undefined) log.error(`${head}: ${app.error}`);
-      else if (app.actions.length === 0) log.step(`${app.app} · ${surface.surface}`, "in sync");
-      else log.notice(head, ...app.actions.map(renderActionLine));
-    }
+    if (surface.scope === "team") renderTeamSurface(log, surface);
+    else renderAppSurface(log, surface);
+    if (surface.direction === "additive") log.info(additiveNote(surface.surface));
   }
 
   log.gap();

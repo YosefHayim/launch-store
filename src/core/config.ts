@@ -53,6 +53,7 @@ export function defineConfig(input: LaunchConfigInput): LaunchConfig {
     ...(input.releaseAttributes ? { releaseAttributes: input.releaseAttributes } : {}),
     ...(input.wallet ? { wallet: input.wallet } : {}),
     ...(input.euDistribution ? { euDistribution: input.euDistribution } : {}),
+    ...(input.configFiles ? { configFiles: input.configFiles } : {}),
     ...(input.aws ? { aws: input.aws } : {}),
     ...(input.storageConfig ? { storageConfig: input.storageConfig } : {}),
     // `!== undefined`, not a truthy check: `0` is the meaningful "disable auto-prune" value.

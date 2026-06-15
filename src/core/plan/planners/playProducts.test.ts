@@ -101,7 +101,7 @@ describe("playProductsPlanner", () => {
       makeCtx(makePlayApi(), { "com.acme.alpha": { inAppPurchases: [PLAY_IAP] } }),
     );
     expect(plan.state).toBe("planned");
-    if (plan.state !== "planned") return;
+    if (plan.state !== "planned" || plan.scope !== "app") return;
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe("com.acme.alpha");
     expect(plan.apps[0]?.actions.some((a) => a.description === "create Play product com.acme.coins")).toBe(true);
@@ -111,7 +111,7 @@ describe("playProductsPlanner", () => {
     const api = makePlayApi({ assertAppExists: vi.fn().mockRejectedValue(new Error("app not found on Play")) });
     const plan = await playProductsPlanner.plan(makeCtx(api, { "com.acme.alpha": { inAppPurchases: [PLAY_IAP] } }));
     expect(plan.state).toBe("planned");
-    if (plan.state !== "planned") return;
+    if (plan.state !== "planned" || plan.scope !== "app") return;
     expect(plan.apps[0]?.error).toMatch(/app not found on Play/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
   });

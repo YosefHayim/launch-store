@@ -35,7 +35,12 @@ function appPlan(over: Partial<AppPlan> = {}): AppPlan {
 }
 
 function planned(surface: string, apps: AppPlan[]): SurfacePlan {
-  return { surface, store: "appstore", state: "planned", apps };
+  return { surface, store: "appstore", state: "planned", scope: "app", direction: "two-way", apps };
+}
+
+/** A team-level planned surface (wallet / EU distribution): actions, no per-app grouping (ADR 0003 A5). */
+function plannedTeam(surface: string, actions: PlannedAction[]): SurfacePlan {
+  return { surface, store: "appstore", state: "planned", scope: "team", direction: "additive", actions };
 }
 
 describe("planExitCode", () => {
@@ -95,6 +100,12 @@ describe("runPlanners", () => {
 
   it("a check run with drift exits 2", async () => {
     const outcome = await runPlanners(makeCtx(), [planner(planned("catalog", [appPlan()]))], { check: true });
+    expect(outcome.exitCode).toBe(PLAN_EXIT.drift);
+  });
+
+  it("counts a team-scoped surface's planned actions as drift", async () => {
+    const outcome = await runPlanners(makeCtx(), [planner(plannedTeam("wallet", [action()]))], { check: true });
+    expect(outcome.changeCount).toBe(1);
     expect(outcome.exitCode).toBe(PLAN_EXIT.drift);
   });
 

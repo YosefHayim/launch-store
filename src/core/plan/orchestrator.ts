@@ -90,6 +90,10 @@ export async function runPlanners(
       skippedSurfaceCount++;
       continue;
     }
+    if (surface.scope === "team") {
+      changeCount += surface.actions.filter((action) => action.status === "planned").length;
+      continue;
+    }
     for (const app of surface.apps) {
       if (app.error !== undefined) appErrorCount++;
       changeCount += app.actions.filter((action) => action.status === "planned").length;
