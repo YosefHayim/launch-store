@@ -55,6 +55,7 @@ export type GlossaryTopic =
   | "release-type"
   | "phased-release"
   | "export-compliance"
+  | "release-train"
   // Over-the-air updates
   | "ota-update"
   | "runtime-version"
@@ -286,6 +287,12 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "HTTPS/system crypto is exempt — Launch declares that over the API (usesNonExemptEncryption=false) so the",
     "build clears 'Waiting for Export Compliance' with no portal trip. Set release.usesNonExemptEncryption to",
     "true only for proprietary/non-exempt encryption, which needs documentation Apple's API can't accept.",
+  ].join("\n"),
+  "release-train": [
+    "Release train: one app's whole release coordinated across iOS, Android, and OTA as a single record —",
+    "each platform (and each OTA follower) is a 'car'. `launch release-train start` submits every car, then",
+    "`status` reconciles it forward: each car releases on its own approval, and an OTA bundle publishes once",
+    "its native platform is live. `--hold` waits until every car is approved, then releases them together.",
   ].join("\n"),
 
   // ── Over-the-air updates ──────────────────────────────────────────────────

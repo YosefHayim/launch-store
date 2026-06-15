@@ -37,6 +37,7 @@ function makeApi(overrides: Partial<AscReleaseApi> = {}): AscReleaseApi {
     addReviewSubmissionItem: vi.fn().mockResolvedValue(undefined),
     submitReviewSubmission: vi.fn().mockResolvedValue(undefined),
     getReviewSubmission: vi.fn().mockResolvedValue({ id: "rs1", state: "WAITING_FOR_REVIEW" }),
+    createAppStoreVersionReleaseRequest: vi.fn().mockResolvedValue(undefined),
   };
   return { ...base, ...overrides };
 }

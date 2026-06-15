@@ -17,6 +17,7 @@ import { registerAdoptCommand } from "./commands/adopt.js";
 import { registerBuildCommand } from "./commands/build.js";
 import { registerReleaseCommand } from "./commands/release.js";
 import { registerStatusCommand } from "./commands/status.js";
+import { registerReleaseTrainCommand } from "./commands/releaseTrain.js";
 import { registerRolloutCommand } from "./commands/rollout.js";
 import { registerCredsCommand } from "./commands/creds.js";
 import { registerSecretCommand } from "./commands/secret.js";
@@ -92,6 +93,7 @@ export function buildProgram(): Command {
   registerBuildCommand(program);
   registerReleaseCommand(program);
   registerStatusCommand(program);
+  registerReleaseTrainCommand(program);
   registerRolloutCommand(program);
   registerCredsCommand(program);
   registerSecretCommand(program);
