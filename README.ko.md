@@ -1,15 +1,6 @@
-<table align="center">
-  <tr>
-    <td align="center" valign="middle" width="190"><img src="assets/platforms/ios.jpg" alt="iOS" width="150" /></td>
-    <td align="center" valign="middle" width="280"><img src="assets/launch-logo.png" alt="Launch — App Store와 Google Play로 빌드, 서명 및 배포" width="230" /></td>
-    <td align="center" valign="middle" width="190"><img src="assets/platforms/android.jpg" alt="Android" width="150" /></td>
-  </tr>
-  <tr>
-    <td align="center"><sub>✅ <strong>iOS</strong> · TestFlight</sub></td>
-    <td></td>
-    <td align="center"><sub>✅ <strong>Android</strong> · Google&nbsp;Play</sub></td>
-  </tr>
-</table>
+<p align="center">
+  <a href="https://github.com/YosefHayim/launch-store"><img src="assets/launch-v3.png" alt="Launch — App Store와 Google Play로 빌드, 서명 및 배포" width="640" /></a>
+</p>
 
 <h1 align="center">Launch</h1>
 
