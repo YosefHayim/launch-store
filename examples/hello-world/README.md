@@ -7,8 +7,11 @@ it. Use it as a reference when setting up your own project, or copy the folder a
 Every file here works with **today's** shipped CLI. The five Launch-native App Store Connect sections
 (Game Center, App Clips, release attributes, Wallet, EU distribution) are **typed fields in
 `launch.config.ts`** (issue #101); the standalone `*.config.json` sidecars still work for back-compat.
-Only `store.config.json` stays a sidecar — its `apple` section mirrors the Expo/EAS metadata schema
-verbatim (the `eas metadata` migration path).
+The four file-only surfaces (availability, accessibility, experiments, custom product pages) live as
+**sidecars under `store/`**, located by the `configFiles` map. And `store.config.json` stays a sidecar —
+its `apple` section mirrors the Expo/EAS metadata schema verbatim (the `eas metadata` migration path).
+All of these together are what [`launch plan` / `launch drift`](#plan-coverage) diff against live store
+state.
 
 ## Run it
 
@@ -40,7 +43,8 @@ launch build android --dry-run      # the Android leg (gradle → AAB → Play i
 | `launch.config.ts`                                               | The one **typed** config — providers, profiles, the product catalog (subscriptions, offers, IAP, promoted), release policy, notifications, AWS, cloud storage, **plus** the Game Center, App Clips, release-attributes, Wallet, and EU-distribution sections. |
 | `.env.production` / `.env.preview`                               | Committed, **non-secret** per-profile build env. (Secrets go in `launch secret`.)                                                                                                                                                                             |
 | `.env.example`                                                   | Template documenting the env keys; copy to `.env` for local overrides.                                                                                                                                                                                        |
-| `store.config.json`                                              | Store listing text for **both** stores (Apple + Android) → `launch metadata` / `launch sync`. The lone sidecar — its `apple` section mirrors the Expo/EAS schema verbatim.                                                                                    |
+| `store.config.json`                                              | Store listing text for **both** stores (Apple + Android) → `launch metadata` / `launch sync`. Its `apple` section mirrors the Expo/EAS schema verbatim.                                                                                                       |
+| `store/*.config.json`                                            | The four file-only App Store surfaces — `availability`, `accessibility`, `experiments`, `custom-pages` — located by `configFiles` in `launch.config.ts`. Applied by their own commands; diffed by `launch plan`.                                              |
 
 ## Feature → where it's configured → how it's applied
 
@@ -65,7 +69,53 @@ Everything below is demonstrated by a real file in this folder.
 | EU alternative distribution (DMA)                       | `launch.config.ts` `euDistribution`          | `launch eu-distribution`                         |
 | Apple Pay / Wallet identifiers                          | `launch.config.ts` `wallet`                  | `launch wallet`                                  |
 | Release attributes (age/category/price/review)          | `launch.config.ts` `releaseAttributes`       | `launch release-config`                          |
+| Store availability (territories)                        | `store/availability.config.json`             | `launch availability`                            |
+| Accessibility nutrition labels                          | `store/accessibility.config.json`            | `launch accessibility`                           |
+| Product-page A/B experiments                            | `store/experiments.config.json`              | `launch experiments`                             |
+| Custom product pages                                    | `store/custom-pages.config.json`             | `launch custom-pages`                            |
 | Store listing text (iOS + Android)                      | `store.config.json`                          | `launch metadata push`, `launch sync`            |
+
+## Plan coverage
+
+`launch plan` reads this config and every sidecar above, diffs each surface against **live** App Store
+Connect / Google Play state, and prints what it _would_ change — no writes. `launch drift` is the same
+diff with a non-zero exit when anything is out of sync, so it gates a CI job or a pre-release check.
+Because this example turns on every surface, `launch plan` here exercises the whole matrix below.
+
+Each surface reads in one of two ways — and the distinction matters when you read a plan:
+
+- **two-way** — Launch knows the full desired set, so it reports both **additions and removals**. A
+  `= in sync` line means live state _equals_ config. (e.g. availability: config lists exactly the
+  territories you sell in, so a territory live-but-not-in-config shows as a removal.)
+- **additive** — Launch only ever **creates what's missing** and never deletes, so a plan shows
+  additions only. `= in sync` means "everything you declared exists," **not** "nothing else exists" —
+  extra items in the portal are invisible to the diff by design (e.g. an achievement you added by hand
+  stays). These are the surfaces where a destructive delete is left to the portal on purpose.
+
+| Surface              | Store     | Scope    | Reads    | Declared in                                 |
+| -------------------- | --------- | -------- | -------- | ------------------------------------------- |
+| `catalog`            | App Store | per-app  | two-way  | `products`                                  |
+| `listing`            | App Store | per-app  | two-way  | `store.config.json` (`apple`)               |
+| `release-config`     | App Store | per-app  | two-way  | `releaseAttributes`                         |
+| `availability`       | App Store | per-app  | two-way  | `store/availability.config.json`            |
+| `custom-pages`       | App Store | per-app  | two-way  | `store/custom-pages.config.json`            |
+| `game-center`        | App Store | per-app  | additive | `gameCenter`                                |
+| `app-clips`          | App Store | per-app  | additive | `appClips`                                  |
+| `accessibility`      | App Store | per-app  | additive | `store/accessibility.config.json`           |
+| `experiments`        | App Store | per-app  | additive | `store/experiments.config.json`             |
+| `wallet`             | App Store | **team** | additive | `wallet`                                    |
+| `eu-distribution`    | App Store | **team** | additive | `euDistribution`                            |
+| `play-products`      | Play      | per-app  | two-way  | `products[].inAppPurchases[].play`          |
+| `play-subscriptions` | Play      | per-app  | two-way  | `subscriptionGroups[].subscriptions[].play` |
+
+```bash
+launch plan                      # full read-only diff across every surface above
+launch plan availability         # scope the diff to one surface
+launch drift                     # same diff; non-zero exit if anything is out of sync (CI gate)
+```
+
+> **team** surfaces (`wallet`, `eu-distribution`) reconcile account-wide identifiers that carry no
+> bundle id, so their plan lists team actions rather than a per-app breakdown.
 
 ## The rest of the CLI (no config file needed)
 
