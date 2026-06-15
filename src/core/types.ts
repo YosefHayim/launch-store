@@ -849,6 +849,24 @@ export interface LaunchConfig {
    * this — cloud stores manage retention through their own bucket lifecycle rules.
    */
   artifactRetentionDays?: number;
+  /**
+   * Env var names that must NEVER be injected into a build — a hard denylist applied across every layer
+   * (`.env`, `.env.<profile>`, keychain, profile `env:`, even an explicit `--env`). A matched name is
+   * dropped outright, so it can't reach the build subprocess and therefore can't be baked into the shipped
+   * app even by an `app.config.js` that forwards `process.env`.
+   *
+   * Each entry is either an exact, case-sensitive name or a `PREFIX*` wildcard: `OPENAI_*` drops every
+   * name starting with `OPENAI_` (e.g. `OPENAI_API_KEY`, `OPENAI_ORG_ID`), so a whole family of backend
+   * keys collapses to one line instead of being listed individually. Wildcards anchor at the START — there
+   * is no tail/`*_KEY` form, by design, since that would also snag a publishable `EXPO_PUBLIC_..._KEY`.
+   *
+   * This is the home for *backend-only* values that sit in the app's `.env` for local tooling but must
+   * never ship (e.g. `OPENAI_API_KEY`, a server-side `SENTRY_AUTH_TOKEN`). It is distinct from
+   * `launch secret set`: a stored secret is still *injected* — the build needs it — it's just moved out
+   * of plaintext; `envExclude` means "don't inject this at all". A name matched here is exempt from the
+   * `.env.example` missing-key gate (even when no layer sets it). Omit (or `[]`) to exclude nothing.
+   */
+  envExclude?: string[];
 }
 
 /**

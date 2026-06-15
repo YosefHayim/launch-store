@@ -15,11 +15,13 @@ import { loadConfig } from "../../core/config.js";
 import { createLogger } from "../../core/logger.js";
 import { loadActiveAscKey } from "../../core/accounts.js";
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
+import { GooglePlayClient, parseServiceAccount } from "../../google/playClient.js";
+import { loadServiceAccount } from "../../google/credentials.js";
 import { selectApps } from "../../core/syncJobs.js";
 import type { AscCatalogApi, PlannedAction } from "../../core/ascSync.js";
 import { listSurfacePlanners, registerBuiltinPlanners } from "../../core/plan/registry.js";
 import { PLAN_EXIT, runPlanners, type PlanOutcome } from "../../core/plan/orchestrator.js";
-import type { PlanContext, PlanStore } from "../../core/plan/types.js";
+import type { PlanContext, PlanStore, PlayCatalogApi } from "../../core/plan/types.js";
 
 /** CLI options shared by `plan` and `drift` (the positional `<surface>` arrives as the action's first arg). */
 interface PlanOptions {
@@ -125,6 +127,7 @@ export async function runPlan(input: RunPlanInput): Promise<void> {
   }
 
   let cachedApi: AscCatalogApi | null | undefined;
+  let cachedPlayApi: PlayCatalogApi | null | undefined;
   const ctx: PlanContext = {
     config,
     apps: selected,
@@ -134,6 +137,13 @@ export async function runPlan(input: RunPlanInput): Promise<void> {
         cachedApi = ascKey ? new AppStoreConnectClient(ascKey) : null;
       }
       return cachedApi;
+    },
+    async resolvePlayApi() {
+      if (cachedPlayApi === undefined) {
+        const json = await loadServiceAccount();
+        cachedPlayApi = json ? new GooglePlayClient(parseServiceAccount(json)) : null;
+      }
+      return cachedPlayApi;
     },
   };
 

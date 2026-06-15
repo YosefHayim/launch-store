@@ -6,6 +6,7 @@ import {
   ENV_SOURCE,
   envInjectionRows,
   formatEnvTable,
+  isEnvExcluded,
   loadDotenvFile,
   missingKeys,
   parseCliEnv,
@@ -64,6 +65,38 @@ describe("missingKeys — fail before a wasted build", () => {
     const dir = makeTempDir();
     writeFileSync(join(dir, ".env.example"), "API_URL=\nFEATURE_FLAG=\nPRESENT=\n");
     expect(missingKeys(dir, { PRESENT: "yes", EMPTY_ONE: "" }).sort()).toEqual(["API_URL", "FEATURE_FLAG"]);
+  });
+
+  it("exempts an excluded key so documenting a backend-only secret doesn't trip the gate", () => {
+    const dir = makeTempDir();
+    writeFileSync(join(dir, ".env.example"), "API_URL=\nOPENAI_API_KEY=\n");
+    // OPENAI_API_KEY is documented but excluded → not "missing"; API_URL still is.
+    expect(missingKeys(dir, {}, ["OPENAI_API_KEY"])).toEqual(["API_URL"]);
+  });
+
+  it("exempts keys matched by an envExclude prefix even when no layer sets them", () => {
+    const dir = makeTempDir();
+    writeFileSync(join(dir, ".env.example"), "API_URL=\nOPENAI_API_KEY=\nOPENAI_ORG_ID=\n");
+    // `OPENAI_*` covers both OPENAI_ keys though neither is set; API_URL is still missing.
+    expect(missingKeys(dir, {}, ["OPENAI_*"])).toEqual(["API_URL"]);
+  });
+});
+
+describe("isEnvExcluded — exact names and PREFIX* wildcards", () => {
+  it("matches exact names case-sensitively", () => {
+    expect(isEnvExcluded("OPENAI_API_KEY", ["OPENAI_API_KEY"])).toBe(true);
+    expect(isEnvExcluded("OPENAI_API_KEY", ["openai_api_key"])).toBe(false);
+    expect(isEnvExcluded("OTHER", ["OPENAI_API_KEY"])).toBe(false);
+  });
+
+  it("treats a trailing * as a start-anchored prefix", () => {
+    expect(isEnvExcluded("OPENAI_API_KEY", ["OPENAI_*"])).toBe(true);
+    expect(isEnvExcluded("OPENAI_ORG_ID", ["OPENAI_*"])).toBe(true);
+    expect(isEnvExcluded("MY_OPENAI_KEY", ["OPENAI_*"])).toBe(false); // anchored at the start, not mid-string
+  });
+
+  it("has no suffix form, so a publishable *_KEY name is never caught by a secret-oriented prefix", () => {
+    expect(isEnvExcluded("EXPO_PUBLIC_POSTHOG_KEY", ["OPENAI_*", "SENTRY_AUTH_TOKEN"])).toBe(false);
   });
 });
 
@@ -147,6 +180,39 @@ describe("resolveEnv — the one precedence ladder", () => {
     const resolved = resolveEnv({ appDir: makeTempDir(), profileName: "production" });
     expect(resolved.values).toEqual({});
     expect(resolved.sources).toEqual({});
+    expect(resolved.excluded).toEqual([]);
+  });
+
+  it("drops envExclude names after every layer merges — even an explicit --env — and records them", () => {
+    const dir = makeTempDir();
+    writeFileSync(join(dir, ".env"), "KEEP=base\nFROM_FILE=base\n");
+    const resolved = resolveEnv({
+      appDir: dir,
+      profileName: "production",
+      secrets: { FROM_SECRET: "kc" },
+      cliEnv: { FROM_FLAG: "flag" },
+      envExclude: ["FROM_FILE", "FROM_SECRET", "FROM_FLAG", "NEVER_SET"],
+    });
+    // Exclusion wins over precedence: gone no matter which layer set it (file / keychain / flag).
+    expect(resolved.values).toEqual({ KEEP: "base" });
+    expect(resolved.sources).toEqual({ KEEP: ".env" });
+    // Only names actually present are reported dropped — NEVER_SET is silently ignored.
+    expect(resolved.excluded.sort()).toEqual(["FROM_FILE", "FROM_FLAG", "FROM_SECRET"]);
+  });
+
+  it("records no exclusions when envExclude is absent or empty", () => {
+    const dir = makeTempDir();
+    writeFileSync(join(dir, ".env"), "A=1\n");
+    expect(resolveEnv({ appDir: dir, profileName: "production" }).excluded).toEqual([]);
+    expect(resolveEnv({ appDir: dir, profileName: "production", envExclude: [] }).excluded).toEqual([]);
+  });
+
+  it("supports PREFIX* entries so a family of backend keys collapses to one line", () => {
+    const dir = makeTempDir();
+    writeFileSync(join(dir, ".env"), "OPENAI_API_KEY=x\nOPENAI_ORG_ID=y\nKEEP=z\n");
+    const resolved = resolveEnv({ appDir: dir, profileName: "production", envExclude: ["OPENAI_*"] });
+    expect(resolved.values).toEqual({ KEEP: "z" });
+    expect(resolved.excluded.sort()).toEqual(["OPENAI_API_KEY", "OPENAI_ORG_ID"]);
   });
 });
 
@@ -166,6 +232,7 @@ describe("formatEnvTable — masked provenance for --print-env", () => {
     const table = formatEnvTable({
       values: { API_URL: "https://example.test", API_TOKEN: "tok_distinct", FEATURE: "kc_distinct" },
       sources: { API_URL: ".env", API_TOKEN: ENV_SOURCE.flag, FEATURE: ENV_SOURCE.secret },
+      excluded: [],
     });
     expect(table).toContain("https://example.test"); // non-secret value shown in full
     expect(table).not.toContain("tok_distinct"); // secret-looking name masked even though it's a flag
@@ -175,7 +242,7 @@ describe("formatEnvTable — masked provenance for --print-env", () => {
   });
 
   it("reports when nothing resolved", () => {
-    expect(formatEnvTable({ values: {}, sources: {} })).toBe("(no env vars resolved)");
+    expect(formatEnvTable({ values: {}, sources: {}, excluded: [] })).toBe("(no env vars resolved)");
   });
 });
 
@@ -184,6 +251,7 @@ describe("envInjectionRows — key→source provenance for the in-build log (no 
     const rows = envInjectionRows({
       values: { EXPO_PUBLIC_CDN: "https://real.cdn", API_KEY: "tok_distinct", APP_NAME: "Acme" },
       sources: { EXPO_PUBLIC_CDN: ENV_SOURCE.flag, API_KEY: ENV_SOURCE.secret, APP_NAME: ".env" },
+      excluded: [],
     });
     expect(rows).toHaveLength(3);
     expect(rows[0]).toMatch(/^API_KEY\s+keychain secret$/); // sorted by key, source labelled
@@ -197,11 +265,15 @@ describe("envInjectionRows — key→source provenance for the in-build log (no 
   });
 
   it("pads keys so the source column aligns", () => {
-    const rows = envInjectionRows({ values: { A: "1", LONGER_KEY: "2" }, sources: { A: ".env", LONGER_KEY: ".env" } });
+    const rows = envInjectionRows({
+      values: { A: "1", LONGER_KEY: "2" },
+      sources: { A: ".env", LONGER_KEY: ".env" },
+      excluded: [],
+    });
     expect(rows[0]?.indexOf(".env")).toBe(rows[1]?.indexOf(".env"));
   });
 
   it("is empty when no env resolved", () => {
-    expect(envInjectionRows({ values: {}, sources: {} })).toEqual([]);
+    expect(envInjectionRows({ values: {}, sources: {}, excluded: [] })).toEqual([]);
   });
 });

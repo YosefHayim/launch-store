@@ -196,7 +196,7 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
       "Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconciled with a read-only **plan → your confirmation → apply** — idempotently, never touching a live or in-review version. This is the surface EAS leaves to the website.",
     features: [
       "**Products, pricing & listing.** `launch sync` reconciles in-app purchases, subscriptions, capabilities, and pricing onto App Store Connect — plus the per-locale listing copy, screenshots, and app previews — across every app at once.",
-      "**Preview & gate drift.** `launch plan` diffs `launch.config.ts` against live App Store Connect state (capabilities, IAPs, subscriptions, pricing) read-only; `launch drift` fails CI when they've diverged.",
+      "**Preview & gate drift.** `launch plan` diffs `launch.config.ts` against live App Store Connect (capabilities, IAPs, subscriptions, pricing, listing) and Google Play (products, subscriptions) state read-only; `launch drift` fails CI when they've diverged.",
       "**Subscription offers.** `launch offers` reconciles offer codes and promotional, introductory & win-back offers, plus the promoted-purchase order; `offers generate-codes`/`list`/`deactivate` drive campaigns from the CLI.",
       "**Release attributes.** `launch release-config` reconciles the age rating, categories, base price, and App Review details (contact + demo account) onto the editable version.",
       "**Store availability.** `launch availability` sets the App Store territories the app sells in.",
@@ -227,6 +227,7 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
       "**Build-time ETA & progress bar.** A learned per-build estimate drives a live progress bar; `--verbose` streams the raw `xcodebuild`/Gradle output instead.",
       "**Real download-size check.** Reports the actual per-device size (App Thinning report / bundletool) and gates on the `sizeBudgetMB` you configured.",
       "**Safety nets.** Refuses to upload a simulator build, a `.app`, or an empty artifact; `--dry-run` rehearses the whole pipeline with no network, build, or account changes.",
+      "**Keep server vars out of the app.** An `envExclude` denylist in `launch.config.ts` (exact names or `PREFIX*` wildcards) drops backend-only environment variables before the build, so they're never injected into the shipped bundle.",
       "**Deliberate public release.** The testing track is the default; `launch release <platform>` drives the public store over the API end to end — version, compliance, notes, rollout, submit — with no portal.",
       "**Steer the rollout.** `launch status [--watch]` tracks the review with CI exit codes; `launch rollout pause`/`resume`/`complete` steers an iOS phased release.",
       "**Re-sign without rebuilding.** `launch build:resign` re-signs a stored `.ipa`/`.aab` with different credentials straight from the artifact.",
@@ -267,11 +268,13 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
       "**Install & run.** `launch run [id|latest]` installs a built artifact onto a connected device (`adb`/`bundletool` for Android, `devicectl` for iOS).",
       "**Explain a failure.** `launch diagnose` maps an `xcodebuild`/Gradle/CocoaPods error to a plain-English cause and fix.",
       "**Why clean vs incremental.** `launch fingerprint` shows the native fingerprint and why the next build will be clean or incremental.",
+      "**Tell your Apple accounts apart.** `launch creds` leads its account summary with the app names each API key can see, so you know which Apple account — and which apps — a build will use before you ship.",
     ],
   },
   {
     title: "Onboarding, teaching & maintenance",
     features: [
+      "**Animated launch banner.** A glowing pixel-art `LAUNCH` wordmark with an aurora violet→cyan gradient greets you on startup — an adoptable banner style that still degrades to plain text under `NO_COLOR`.",
       "**Zero-setup demo.** `launch demo` replays a simulated walkthrough of the whole build → sign → submit pipeline, and auto-plays once on first run.",
       "**Teaching on demand.** `--explain` on any command and `launch explain <topic>` cover the Apple/iOS/Android terminology inline.",
       "**Interactive wizard.** Running bare `launch` opens a guided wizard that remembers your last flow and offers a one-keypress repeat.",

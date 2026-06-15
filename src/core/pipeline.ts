@@ -31,7 +31,7 @@ import type {
   SizeReport,
   SubmitTarget,
 } from "./types.js";
-import { refreshIdentityIfStale, resolveBuildAccount, setActiveKeyId } from "./accounts.js";
+import { formatAccountSummary, refreshIdentityIfStale, resolveBuildAccount, setActiveKeyId } from "./accounts.js";
 import { loadConfig, writeAppVersion } from "./config.js";
 import { checkApp, formatFinding } from "./configCheck.js";
 import { resolveBuildSecrets } from "./buildSecrets.js";
@@ -208,10 +208,11 @@ export async function selectApp(apps: AppDescriptor[], appName: string | undefin
 async function pickAccount(accounts: AccountRecord[]): Promise<AccountRecord> {
   const choice = await select({
     message: "Which Apple account?",
-    options: accounts.map((account) => {
-      const hint = account.teamId ?? (account.apps?.length ? account.apps.slice(0, 2).join(", ") : undefined);
-      return { value: account.keyId, label: account.label, ...(hint ? { hint } : {}) };
-    }),
+    options: accounts.map((account) => ({
+      value: account.keyId,
+      label: account.label,
+      hint: formatAccountSummary(account, { includeLabel: false }),
+    })),
   });
   if (isCancel(choice)) {
     cancel("Cancelled.");
@@ -237,7 +238,7 @@ export async function resolveIosAccount(
     interactive: isInteractive(),
     pick: pickAccount,
   });
-  log.step("account", `${account.label}${account.teamId ? ` · team ${account.teamId}` : ""} · key ${account.keyId}`);
+  log.step("account", formatAccountSummary(account));
   return account;
 }
 
@@ -363,6 +364,7 @@ export async function resolveCommandEnv(input: {
   profile: BuildProfile;
   cliEnv?: Record<string, string> | undefined;
   includeLocal?: boolean | undefined;
+  envExclude?: string[] | undefined;
 }): Promise<ResolvedEnv> {
   const secrets = await resolveBuildSecrets(input.app.name, input.profile.name);
   return resolveEnv({
@@ -373,18 +375,21 @@ export async function resolveCommandEnv(input: {
     secrets,
     cliEnv: input.cliEnv,
     includeLocal: input.includeLocal,
+    envExclude: input.envExclude,
   });
 }
 
 /**
  * Gate + warn on a resolved env before an artifact-baking command (build, update): hard-fail on any
- * `.env.example` key that's missing, then warn about secret-looking names coming from a plaintext
- * source (dotenv files / inline `env:`) since they'd be bundled into the app. Keychain secrets and
- * `--env` flags are exempt — the former are meant to be secret, the latter an explicit override.
- * Release does NOT call this: it promotes a prebuilt artifact, so its env never bakes into the app.
+ * `.env.example` key that's missing (names matched by `exclude` — the config's `envExclude` — are exempt,
+ * since they're intentionally backend-only), then warn about secret-looking names coming from a plaintext
+ * source (dotenv files / inline `env:`) since they'd be bundled into the app. Keychain secrets and `--env`
+ * flags are exempt — the former are meant to be secret, the latter an explicit override; anything in
+ * `envExclude` is already gone from `resolved.values`, so it never reaches this warning. Release does NOT
+ * call this: it promotes a prebuilt artifact, so its env never bakes into the app.
  */
-export function validateResolvedEnv(appDir: string, resolved: ResolvedEnv, log: Logger): void {
-  const missing = missingKeys(appDir, resolved.values);
+export function validateResolvedEnv(appDir: string, resolved: ResolvedEnv, log: Logger, exclude: string[] = []): void {
+  const missing = missingKeys(appDir, resolved.values, exclude);
   if (missing.length > 0) {
     throw new Error(`Missing env keys (in .env.example, absent from your env): ${missing.join(", ")}`);
   }
@@ -392,7 +397,7 @@ export function validateResolvedEnv(appDir: string, resolved: ResolvedEnv, log: 
     const source = resolved.sources[name];
     if (source === ENV_SOURCE.secret || source === ENV_SOURCE.flag) continue;
     log.warn(
-      `"${name}" looks like a backend secret (from ${source}) — it would be bundled into the app. Store it with \`launch secret set ${name}\`.`,
+      `"${name}" looks like a backend secret (from ${source}) — it would be bundled into the app. If the app needs it at build time, store it with \`launch secret set ${name}\`; if it's backend-only, add it to \`envExclude\` in launch.config.ts.`,
     );
   }
 }
@@ -410,6 +415,7 @@ async function previewEnv(options: BuildRunOptions): Promise<void> {
     profile,
     cliEnv: options.envOverrides,
     includeLocal: options.includeLocal,
+    envExclude: config.envExclude,
   });
   console.log(formatEnvTable(resolved));
 }
@@ -439,9 +445,10 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
     profile,
     cliEnv: options.envOverrides,
     includeLocal: options.includeLocal,
+    envExclude: config.envExclude,
   });
   const env = resolved.values;
-  validateResolvedEnv(app.dir, resolved, log);
+  validateResolvedEnv(app.dir, resolved, log, config.envExclude);
   const secretCount = Object.values(resolved.sources).filter((source) => source === ENV_SOURCE.secret).length;
   const varCount = Object.keys(env).length;
   const keychainNote = secretCount > 0 ? ` (${secretCount} from keychain)` : "";
@@ -453,6 +460,9 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
     "env-vars",
   );
   for (const row of envInjectionRows(resolved)) log.info(row);
+  if (resolved.excluded.length > 0) {
+    log.tip(`excluded (envExclude, not injected): ${resolved.excluded.join(", ")}`);
+  }
 
   // Preflight the app config against known native-config footguns, before any expensive native work.
   // Warnings are surfaced; a build-breaking error (an invalid bundle id / package, a splash with no

@@ -20,7 +20,7 @@
 <p align="center">
   <a href="./docs/commands.md"><img src="https://img.shields.io/badge/store%20API-204%20endpoints-8957e5?logo=apple&logoColor=white" alt="204 App Store Connect &amp; Google Play API operations" /></a>
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1108%20passing-3fb950?logo=vitest&logoColor=white" alt="1108 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1145%20passing-3fb950?logo=vitest&logoColor=white" alt="1145 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -250,10 +250,10 @@ dois diferem no mesmo fluxo de trabalho:
 
 ## Requisitos
 
-- **iOS:** macOS com **Xcode** + ferramentas de linha de comando, **fastlane** (`brew install fastlane`) e uma
+- **iOS:** uma **assinatura do Apple Developer Program** (US$ 99/ano) — [inscreva-se aqui](https://developer.apple.com/programs/enroll/) — e então macOS com **Xcode** + ferramentas de linha de comando, **fastlane** (`brew install fastlane`) e uma
   **chave de API do App Store Connect** (`.p8` + Key ID + Issuer ID) — [gere uma aqui](https://appstoreconnect.apple.com/access/integrations/api).
   Sem Mac? Veja [Compilando sem um Mac](#compilando-sem-um-mac).
-- **Android:** um **JDK** (qualquer SO — sem necessidade de Mac) e uma chave JSON de **service account do Google Play**.
+- **Android:** uma **conta de desenvolvedor do Google Play** (US$ 25, pagamento único) — [cadastre-se aqui](https://play.google.com/console/signup) — e então um **JDK** (qualquer SO — sem necessidade de Mac) e uma chave JSON de **service account do Google Play**.
 - **Node 20+** em todas as plataformas.
 
 Execute `launch doctor` a qualquer momento para checar tudo isso.
