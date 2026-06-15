@@ -27,6 +27,7 @@ import { runTour } from "../../core/tour.js";
 import { getActiveAccount, listAccounts, setActiveKeyId } from "../../core/accounts.js";
 import { type LastFlow, readLastFlow, rememberLastFlow } from "../../core/lastRun.js";
 import { loadConfig } from "../../core/config.js";
+import { missingRequiredTools } from "../../core/toolchain.js";
 import { type BuildRunOptions, prepareBuild, runBuild } from "../../core/pipeline.js";
 import { runEasBuild } from "../../core/easPipeline.js";
 import { chooseAccountInteractive, setupIos } from "./creds.js";
@@ -343,8 +344,14 @@ async function runGuidedSetup(): Promise<void> {
   // 3 · Toolchain
   if (isMac()) {
     note("Checking your iOS build toolchain…", "3 · Toolchain");
-    if (!(await runDoctor({ platform: "ios" }))) {
-      const fix = await confirm({ message: "Some tools are missing. Install them now (Homebrew)?" });
+    await runDoctor({ platform: "ios" });
+    // Offer the Homebrew install only when a required build tool is genuinely missing. `runDoctor`'s overall
+    // result also goes false for non-tool gaps (no App Store Connect record, an unsigned agreement) that
+    // Homebrew can't fix and the account/signing steps handle — gating on those misled users (issue #117).
+    const missingTools = await missingRequiredTools();
+    if (missingTools.length > 0) {
+      const labels = missingTools.map((tool) => tool.label).join(", ");
+      const fix = await confirm({ message: `Missing build tool(s): ${labels}. Install them now (Homebrew)?` });
       if (!isCancel(fix) && fix) await runDoctor({ platform: "ios", fix: true });
     }
   } else {
