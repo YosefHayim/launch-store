@@ -22,6 +22,7 @@ import { registerCredsCommand } from "./commands/creds.js";
 import { registerSecretCommand } from "./commands/secret.js";
 import { registerMetadataCommand } from "./commands/metadata.js";
 import { registerSyncCommand } from "./commands/sync.js";
+import { registerPlanCommand } from "./commands/plan.js";
 import { registerOffersCommand } from "./commands/offers.js";
 import { registerReviewsCommand } from "./commands/reviews.js";
 import { registerReportsCommand } from "./commands/reports.js";
@@ -96,6 +97,7 @@ export function buildProgram(): Command {
   registerSecretCommand(program);
   registerMetadataCommand(program);
   registerSyncCommand(program);
+  registerPlanCommand(program);
   registerOffersCommand(program);
   registerReviewsCommand(program);
   registerReportsCommand(program);
