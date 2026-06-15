@@ -20,7 +20,7 @@
 <p align="center">
   <a href="./docs/commands.md"><img src="https://img.shields.io/badge/store%20API-204%20endpoints-8957e5?logo=apple&logoColor=white" alt="204 App Store Connect &amp; Google Play API operations" /></a>
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1077%20passing-3fb950?logo=vitest&logoColor=white" alt="1077 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1135%20passing-3fb950?logo=vitest&logoColor=white" alt="1135 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -259,10 +259,10 @@ two differ on the same workflow:
 
 ## Requirements
 
-- **iOS:** macOS with **Xcode** + command-line tools, **fastlane** (`brew install fastlane`), and an
+- **iOS:** an **Apple Developer Program** membership ($99/yr) — [enroll here](https://developer.apple.com/programs/enroll/) — then macOS with **Xcode** + command-line tools, **fastlane** (`brew install fastlane`), and an
   **App Store Connect API key** (`.p8` + Key ID + Issuer ID) — [generate one here](https://appstoreconnect.apple.com/access/integrations/api).
   No Mac? See [Building without a Mac](#building-without-a-mac).
-- **Android:** a **JDK** (any OS — no Mac needed) and a **Google Play service account** JSON key.
+- **Android:** a **Google Play Developer account** (one-time $25) — [register here](https://play.google.com/console/signup) — then a **JDK** (any OS — no Mac needed) and a **Google Play service account** JSON key.
 - **Node 20+** on every platform.
 
 Run `launch doctor` any time to check all of the above.

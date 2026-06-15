@@ -15,7 +15,13 @@
  */
 
 import type { BuildCredentials, CredentialsProvider, ResolvedBuildContext } from "../../core/types.js";
-import { getActiveKeyId, listAccounts, loadActiveAscKey, loadAscKeyById } from "../../core/accounts.js";
+import {
+  formatAccountSummary,
+  getActiveKeyId,
+  listAccounts,
+  loadActiveAscKey,
+  loadAscKeyById,
+} from "../../core/accounts.js";
 import { describeStoredCredentials, loadCachedSigningAssets } from "../../apple/credentials.js";
 import { describeStoredAndroidCredentials, loadCachedKeystore, loadServiceAccount } from "../../google/credentials.js";
 
@@ -59,11 +65,10 @@ function iosStatus(): string {
   const lines = accounts.map((account) => {
     const { certSerial, bundleIds } = describeStoredCredentials(account.keyId);
     const marker = account.keyId === active ? " ← active" : "";
-    const team = account.teamId ? `team ${account.teamId}` : "team unresolved";
-    const apps = account.apps?.length ? account.apps.slice(0, 3).join(", ") : "no apps cached";
     const cert = certSerial ? `cert ${certSerial}` : "no cert";
     const profiles = bundleIds.length ? `${bundleIds.length} profile(s)` : "no profiles";
-    return `  • ${account.label}${marker} — key ${account.keyId} · ${team} · ${apps} · ${cert} · ${profiles}`;
+    const unresolved = account.teamId || account.apps?.length ? "" : " · unresolved — run `launch creds refresh`";
+    return `  • ${account.label}${marker} — ${formatAccountSummary(account, { includeLabel: false })}${unresolved} · ${cert} · ${profiles}`;
   });
   return [`iOS accounts (${accounts.length}):`, ...lines].join("\n");
 }

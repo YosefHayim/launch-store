@@ -20,7 +20,7 @@
 <p align="center">
   <a href="./docs/commands.md"><img src="https://img.shields.io/badge/store%20API-204%20endpoints-8957e5?logo=apple&logoColor=white" alt="204 App Store Connect &amp; Google Play API operations" /></a>
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1077%20passing-3fb950?logo=vitest&logoColor=white" alt="1077 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1135%20passing-3fb950?logo=vitest&logoColor=white" alt="1135 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -261,10 +261,10 @@ Launch выполняет тот же конвейер `eas build` → `eas subm
 
 ## Требования
 
-- **iOS:** macOS с **Xcode** + инструменты командной строки, **fastlane** (`brew install fastlane`) и
+- **iOS:** членство в **Apple Developer Program** ($99/год) — [зарегистрируйтесь здесь](https://developer.apple.com/programs/enroll/) — затем macOS с **Xcode** + инструменты командной строки, **fastlane** (`brew install fastlane`) и
   **ключ API App Store Connect** (`.p8` + Key ID + Issuer ID) — [сгенерируйте его здесь](https://appstoreconnect.apple.com/access/integrations/api).
   Нет Mac? См. [Сборка без Mac](#сборка-без-mac).
-- **Android:** **JDK** (любая ОС — Mac не нужен) и JSON-ключ **сервисного аккаунта Google Play**.
+- **Android:** **аккаунт разработчика Google Play** (единоразово $25) — [зарегистрируйтесь здесь](https://play.google.com/console/signup) — затем **JDK** (любая ОС — Mac не нужен) и JSON-ключ **сервисного аккаунта Google Play**.
 - **Node 20+** на каждой платформе.
 
 Запускайте `launch doctor` в любой момент, чтобы проверить всё вышеперечисленное.
