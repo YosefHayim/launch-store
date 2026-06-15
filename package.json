@@ -64,6 +64,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "launch": "tsx src/cli/index.ts",
+    "wordmark:preview": "tsx scripts/preview-wordmark.ts",
     "prepare": "husky",
     "prepublishOnly": "npm run build"
   },
