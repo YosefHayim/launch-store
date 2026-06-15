@@ -1,6 +1,15 @@
-<p align="center">
-  <img src="assets/launch-logo.png" alt="Launch" width="220" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/ios.jpg" alt="iOS" width="150" /></td>
+    <td align="center" valign="middle" width="280"><img src="assets/launch-logo.png" alt="Launch — compilez, signez et publiez sur l'App Store et Google Play" width="230" /></td>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/android.jpg" alt="Android" width="150" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>✅ <strong>iOS</strong> · TestFlight</sub></td>
+    <td></td>
+    <td align="center"><sub>✅ <strong>Android</strong> · Google&nbsp;Play</sub></td>
+  </tr>
+</table>
 
 <h1 align="center">Launch</h1>
 
@@ -39,7 +48,7 @@
   <a href="./README.ru.md">Русский</a>
 </p>
 
-Publier une application, c'est bien plus qu'une compilation : configuration de la signature, paramétrage d'App Store Connect / de la Play Console, achats intégrés, métadonnées de la fiche, l'envoi, puis les mises à jour over-the-air. EAS compile et soumet — le reste est éparpillé entre les portails d'Apple et de Google et une poignée d'outils. Launch rassemble **toute la publication** dans un seul flux de travail local et déclaratif : il provisionne votre signature, réconcilie vos produits sur le store, génère le projet natif, compile et signe le binaire, rapporte la taille réelle de téléchargement par appareil, stocke l'artefact, et l'envoie sur le canal de test — sur du matériel qui vous appartient, avec des clés qui restent dans votre keychain local. La signature iOS nécessite un Mac ; si vous n'en avez pas, Launch compile sur un Mac dans le cloud sur **votre propre** compte AWS ou délègue à Expo EAS — voir [Compiler sans Mac](#compiler-sans-mac).
+Publier une application, c'est bien plus qu'une compilation : configuration de la signature, paramétrage d'[App Store Connect](https://developer.apple.com/app-store-connect/) / de la [Play Console](https://play.google.com/console), achats intégrés, métadonnées de la fiche, l'envoi, puis les mises à jour over-the-air. EAS compile et soumet — le reste est éparpillé entre les portails d'Apple et de Google et une poignée d'outils. Launch rassemble **toute la publication** dans un seul flux de travail local et déclaratif : il provisionne votre signature, réconcilie vos produits sur le store, génère le projet natif, compile et signe le binaire, rapporte la taille réelle de téléchargement par appareil, stocke l'artefact, et l'envoie sur le canal de test — sur du matériel qui vous appartient, avec des clés qui restent dans votre keychain local. La signature iOS nécessite un Mac ; si vous n'en avez pas, Launch compile sur un Mac dans le cloud sur **votre propre** compte AWS ou délègue à Expo EAS — voir [Compiler sans Mac](#compiler-sans-mac).
 
 > **Vous débutez ?** Lancez `launch demo` pour une visite guidée simulée de 60 secondes de tout le pipeline — sans configuration, sans compilation, sans compte. Elle se joue aussi automatiquement la première fois que vous lancez `launch`.
 
@@ -162,19 +171,6 @@ Launch exécute le même pipeline `eas build` → `eas submit` → `eas update` 
 | Les **artefacts de compilation sont hébergés sur Expo**                                                                                    | Les artefacts atterrissent dans **votre propre stockage** (local, ou S3 / R2 / Supabase)                                                                                |
 | **Pas de Mac ?** Le cloud payant d'EAS est la seule voie                                                                                   | **Pas de Mac ?** Un Mac dans le cloud sur **votre propre AWS**, n'importe quel Mac via **SSH**, ou délégation à **`eas build`**                                         |
 | **SaaS fermé** — propriétaire, verrouillage fournisseur                                                                                    | **MIT, open source** — `fastlane`/Gradle/API des plateformes, fournisseurs interchangeables, rien à migrer                                                              |
-
-## Prise en charge des plateformes
-
-<table align="center">
-  <tr>
-    <td align="center" width="240"><img src="assets/platforms/ios.jpg" alt="iOS" width="200" /></td>
-    <td align="center" width="240"><img src="assets/platforms/android.jpg" alt="Android" width="200" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>iOS</strong><br />✅ En production — compilation, signature et envoi vers TestFlight</td>
-    <td align="center"><strong>Android</strong><br />✅ En production — compilation, signature et envoi vers Google Play</td>
-  </tr>
-</table>
 
 ## Prérequis
 
@@ -342,6 +338,16 @@ Les compilations distantes envoient une copie transitoire de vos clés de signat
 ## Contribuer
 
 Consultez [`CONTRIBUTING.md`](./CONTRIBUTING.md) pour la configuration de dev, la barrière qualité et la manière d'ajouter un backend.
+
+## Contributeurs
+
+<p align="center">
+  <a href="https://github.com/YosefHayim"><img src="https://github.com/YosefHayim.png?size=120" width="120" alt="YosefHayim" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/YosefHayim/launch-store/graphs/contributors">Tous les contributeurs →</a>
+</p>
 
 ## Licence
 

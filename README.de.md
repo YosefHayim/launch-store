@@ -1,6 +1,15 @@
-<p align="center">
-  <img src="assets/launch-logo.png" alt="Launch" width="220" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/ios.jpg" alt="iOS" width="150" /></td>
+    <td align="center" valign="middle" width="280"><img src="assets/launch-logo.png" alt="Launch — bauen, signieren und im App Store und bei Google Play veröffentlichen" width="230" /></td>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/android.jpg" alt="Android" width="150" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>✅ <strong>iOS</strong> · TestFlight</sub></td>
+    <td></td>
+    <td align="center"><sub>✅ <strong>Android</strong> · Google&nbsp;Play</sub></td>
+  </tr>
+</table>
 
 <h1 align="center">Launch</h1>
 
@@ -40,7 +49,7 @@
 </p>
 
 Eine App zu veröffentlichen ist mehr als nur ein Build: das Einrichten der Signierung, die Konfiguration
-in App Store Connect / Play Console, In-App-Käufe, Listing-Metadaten, der Upload und danach die
+in [App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console), In-App-Käufe, Listing-Metadaten, der Upload und danach die
 Over-the-Air-Updates. EAS baut und reicht ein — der Rest ist über die Portale von Apple und Google und
 eine Handvoll Werkzeuge verstreut. Launch zieht die **gesamte Veröffentlichung** in einen einzigen
 lokalen, deklarativen Workflow zusammen: es richtet Ihre Signierung ein, gleicht Ihre Store-Produkte ab,
@@ -280,19 +289,6 @@ EAS Ihnen überlässt. Wo sich die beiden im selben Workflow unterscheiden:
 | **Kein Mac?** Expos kostenpflichtige Cloud ist der einzige Weg                                                                  | **Kein Mac?** Ein Cloud-Mac in **Ihrem eigenen AWS**, ein beliebiger Mac über **SSH** oder Übergabe an **`eas build`**                                                        |
 | **Geschlossenes SaaS** — proprietär, Anbieterbindung                                                                            | **MIT, quelloffen** — `fastlane`/Gradle/Plattform-APIs, austauschbare Provider, nichts zu migrieren                                                                           |
 
-## Plattformunterstützung
-
-<table align="center">
-  <tr>
-    <td align="center" width="240"><img src="assets/platforms/ios.jpg" alt="iOS" width="200" /></td>
-    <td align="center" width="240"><img src="assets/platforms/android.jpg" alt="Android" width="200" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>iOS</strong><br />✅ Im Einsatz — bauen, signieren &amp; zu TestFlight hochladen</td>
-    <td align="center"><strong>Android</strong><br />✅ Im Einsatz — bauen, signieren &amp; zu Google Play hochladen</td>
-  </tr>
-</table>
-
 ## Voraussetzungen
 
 - **iOS:** macOS mit **Xcode** + Befehlszeilenwerkzeugen, **fastlane** (`brew install fastlane`) und ein
@@ -486,6 +482,16 @@ Launch liegt hier in der Automatisierung in Ihrem eigenen Konto mit überall den
 
 Siehe [`CONTRIBUTING.md`](./CONTRIBUTING.md) für die Entwicklungseinrichtung, das Qualitäts-Gate und wie
 man ein Backend hinzufügt.
+
+## Mitwirkende
+
+<p align="center">
+  <a href="https://github.com/YosefHayim"><img src="https://github.com/YosefHayim.png?size=120" width="120" alt="YosefHayim" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/YosefHayim/launch-store/graphs/contributors">Alle Mitwirkenden →</a>
+</p>
 
 ## Lizenz
 

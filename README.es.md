@@ -1,6 +1,15 @@
-<p align="center">
-  <img src="assets/launch-logo.png" alt="Launch" width="220" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/ios.jpg" alt="iOS" width="150" /></td>
+    <td align="center" valign="middle" width="280"><img src="assets/launch-logo.png" alt="Launch — compila, firma y publica en App Store y Google Play" width="230" /></td>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/android.jpg" alt="Android" width="150" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>✅ <strong>iOS</strong> · TestFlight</sub></td>
+    <td></td>
+    <td align="center"><sub>✅ <strong>Android</strong> · Google&nbsp;Play</sub></td>
+  </tr>
+</table>
 
 <h1 align="center">Launch</h1>
 
@@ -39,7 +48,7 @@
   <a href="./README.ru.md">Русский</a>
 </p>
 
-Publicar una app es mucho más que una compilación: configurar la firma, ajustar App Store Connect / Play Console, las compras dentro de la app, los metadatos de la ficha, la subida y las actualizaciones over-the-air posteriores. EAS compila y envía — el resto queda disperso entre los portales de Apple y Google y un puñado de herramientas. Launch reúne **toda la publicación** en un único flujo de trabajo local y declarativo: aprovisiona tu firma, reconcilia los productos de tu tienda, genera el proyecto nativo, compila y firma el binario, informa del tamaño de descarga real por dispositivo, almacena el artefacto y lo sube a la pista de pruebas — en hardware de tu propiedad, con claves que permanecen en tu keychain local. La firma de iOS requiere una Mac; si no tienes una, Launch compila en una Mac en la nube dentro de **tu propia** cuenta de AWS o delega en Expo EAS — consulta [Compilar sin una Mac](#compilar-sin-una-mac).
+Publicar una app es mucho más que una compilación: configurar la firma, ajustar [App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console), las compras dentro de la app, los metadatos de la ficha, la subida y las actualizaciones over-the-air posteriores. EAS compila y envía — el resto queda disperso entre los portales de Apple y Google y un puñado de herramientas. Launch reúne **toda la publicación** en un único flujo de trabajo local y declarativo: aprovisiona tu firma, reconcilia los productos de tu tienda, genera el proyecto nativo, compila y firma el binario, informa del tamaño de descarga real por dispositivo, almacena el artefacto y lo sube a la pista de pruebas — en hardware de tu propiedad, con claves que permanecen en tu keychain local. La firma de iOS requiere una Mac; si no tienes una, Launch compila en una Mac en la nube dentro de **tu propia** cuenta de AWS o delega en Expo EAS — consulta [Compilar sin una Mac](#compilar-sin-una-mac).
 
 > **¿Eres nuevo aquí?** Ejecuta `launch demo` para un recorrido simulado de 60 segundos de todo el pipeline — sin configuración, sin compilación, sin necesidad de cuenta. También se reproduce automáticamente la primera vez que ejecutas `launch`.
 
@@ -162,19 +171,6 @@ Launch ejecuta el mismo pipeline `eas build` → `eas submit` → `eas update` (
 | Los **artefactos** de compilación **se alojan en Expo**                                                                            | Los artefactos van a parar a **tu propio almacenamiento** (local, o S3 / R2 / Supabase)                                                                              |
 | **¿Sin Mac?** La nube de pago de EAS es el único camino                                                                            | **¿Sin Mac?** Una Mac en la nube en **tu propia cuenta de AWS**, cualquier Mac por **SSH**, o delegar en **`eas build`**                                             |
 | **SaaS cerrado** — propietario, dependencia de proveedor                                                                           | **MIT, código abierto** — APIs de `fastlane`/Gradle/plataforma, proveedores intercambiables, nada que migrar                                                         |
-
-## Compatibilidad de plataformas
-
-<table align="center">
-  <tr>
-    <td align="center" width="240"><img src="assets/platforms/ios.jpg" alt="iOS" width="200" /></td>
-    <td align="center" width="240"><img src="assets/platforms/android.jpg" alt="Android" width="200" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>iOS</strong><br />✅ En producción — compila, firma y sube a TestFlight</td>
-    <td align="center"><strong>Android</strong><br />✅ En producción — compila, firma y sube a Google Play</td>
-  </tr>
-</table>
 
 ## Requisitos
 
@@ -343,6 +339,16 @@ Las compilaciones remotas suben una copia transitoria de tus claves de firma a *
 ## Contribuir
 
 Consulta [`CONTRIBUTING.md`](./CONTRIBUTING.md) para la configuración de desarrollo, la puerta de calidad y cómo añadir un backend.
+
+## Colaboradores
+
+<p align="center">
+  <a href="https://github.com/YosefHayim"><img src="https://github.com/YosefHayim.png?size=120" width="120" alt="YosefHayim" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/YosefHayim/launch-store/graphs/contributors">Todos los colaboradores →</a>
+</p>
 
 ## Licencia
 

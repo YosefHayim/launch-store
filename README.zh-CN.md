@@ -1,6 +1,15 @@
-<p align="center">
-  <img src="assets/launch-logo.png" alt="Launch" width="220" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/ios.jpg" alt="iOS" width="150" /></td>
+    <td align="center" valign="middle" width="280"><img src="assets/launch-logo.png" alt="Launch — 构建、签名并发布到 App Store 和 Google Play" width="230" /></td>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/android.jpg" alt="Android" width="150" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>✅ <strong>iOS</strong> · TestFlight</sub></td>
+    <td></td>
+    <td align="center"><sub>✅ <strong>Android</strong> · Google&nbsp;Play</sub></td>
+  </tr>
+</table>
 
 <h1 align="center">Launch</h1>
 
@@ -39,7 +48,7 @@
   <a href="./README.ru.md">Русский</a>
 </p>
 
-发布一个应用远不止是一次构建：签名配置、App Store Connect / Play Console 配置、应用内购买、商店列表元数据、上传，以及之后的空中下发（OTA）更新。EAS 负责构建和提交——其余的部分则散落在 Apple 和 Google 的各个门户以及一堆工具之间。Launch 把**整个发布流程**收拢进一套本地的、声明式的工作流：它为你配置签名、协调你的商店产品、生成原生工程、构建并签名二进制文件、报告真实的每设备下载体积、保存构建产物，并上传到测试通道——全部运行在你自己拥有的硬件上，密钥始终留在你本地的钥匙串里。iOS 签名需要一台 Mac；如果你没有，Launch 可以在**你自己的** AWS 账户里用一台云端 Mac 构建，或者交给 Expo EAS——参见[无 Mac 构建](#无-mac-构建)。
+发布一个应用远不止是一次构建：签名配置、[App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console) 配置、应用内购买、商店列表元数据、上传，以及之后的空中下发（OTA）更新。EAS 负责构建和提交——其余的部分则散落在 Apple 和 Google 的各个门户以及一堆工具之间。Launch 把**整个发布流程**收拢进一套本地的、声明式的工作流：它为你配置签名、协调你的商店产品、生成原生工程、构建并签名二进制文件、报告真实的每设备下载体积、保存构建产物，并上传到测试通道——全部运行在你自己拥有的硬件上，密钥始终留在你本地的钥匙串里。iOS 签名需要一台 Mac；如果你没有，Launch 可以在**你自己的** AWS 账户里用一台云端 Mac 构建，或者交给 Expo EAS——参见[无 Mac 构建](#无-mac-构建)。
 
 > **第一次使用？** 运行 `launch demo`，用 60 秒看一遍整条流水线的模拟演示——无需任何配置、无需构建、无需账户。第一次运行 `launch` 时它也会自动播放。
 
@@ -162,19 +171,6 @@ Launch 在你自己拥有的硬件上运行与 `eas build` → `eas submit` → 
 | 构建**产物托管在 Expo**                                                                      | 产物落在**你自己的存储**里（本地，或 S3 / R2 / Supabase）                                                                                |
 | **没有 Mac？** EAS 的付费云端是唯一途径                                                      | **没有 Mac？** 一台在**你自己 AWS** 里的云端 Mac、任意一台通过 **SSH** 连接的 Mac，或交给 **`eas build`**                                |
 | **闭源 SaaS**——专有，供应商锁定                                                              | **MIT，开源**——`fastlane`/Gradle/平台 API，提供方可替换，无任何需要迁移的东西                                                            |
-
-## 平台支持
-
-<table align="center">
-  <tr>
-    <td align="center" width="240"><img src="assets/platforms/ios.jpg" alt="iOS" width="200" /></td>
-    <td align="center" width="240"><img src="assets/platforms/android.jpg" alt="Android" width="200" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>iOS</strong><br />✅ 已可发布——构建、签名并上传到 TestFlight</td>
-    <td align="center"><strong>Android</strong><br />✅ 已可发布——构建、签名并上传到 Google Play</td>
-  </tr>
-</table>
 
 ## 环境要求
 
@@ -342,6 +338,16 @@ launch cloud teardown                    # stop + release the host (warns about 
 ## 贡献
 
 参见 [`CONTRIBUTING.md`](./CONTRIBUTING.md)，了解开发环境配置、质量门禁，以及如何添加一个后端。
+
+## 贡献者
+
+<p align="center">
+  <a href="https://github.com/YosefHayim"><img src="https://github.com/YosefHayim.png?size=120" width="120" alt="YosefHayim" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/YosefHayim/launch-store/graphs/contributors">全部贡献者 →</a>
+</p>
 
 ## 许可证
 

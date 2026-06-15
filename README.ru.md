@@ -1,6 +1,15 @@
-<p align="center">
-  <img src="assets/launch-logo.png" alt="Launch" width="220" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/ios.jpg" alt="iOS" width="150" /></td>
+    <td align="center" valign="middle" width="280"><img src="assets/launch-logo.png" alt="Launch — сборка, подпись и публикация в App Store и Google Play" width="230" /></td>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/android.jpg" alt="Android" width="150" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>✅ <strong>iOS</strong> · TestFlight</sub></td>
+    <td></td>
+    <td align="center"><sub>✅ <strong>Android</strong> · Google&nbsp;Play</sub></td>
+  </tr>
+</table>
 
 <h1 align="center">Launch</h1>
 
@@ -39,7 +48,7 @@
   <b>Русский</b>
 </p>
 
-Выпуск приложения — это не только сборка: настройка подписи, конфигурация App Store Connect / Play Console,
+Выпуск приложения — это не только сборка: настройка подписи, конфигурация [App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console),
 встроенные покупки, метаданные карточки приложения, загрузка и последующие обновления «по воздуху» (OTA).
 EAS собирает и отправляет — всё остальное разбросано по порталам Apple и Google и нескольким инструментам.
 Launch собирает **весь релиз** в один локальный декларативный рабочий процесс: он подготавливает вашу подпись,
@@ -257,19 +266,6 @@ Launch выполняет тот же конвейер `eas build` → `eas subm
 | **Нет Mac?** Платное облако EAS — единственный путь                                                                             | **Нет Mac?** Облачный Mac в **вашем собственном AWS**, любой Mac через **SSH** или передача в **`eas build`**                                                    |
 | **Закрытый SaaS** — проприетарный, привязка к вендору                                                                           | **MIT, открытый исходный код** — `fastlane`/Gradle/API платформ, сменные провайдеры, мигрировать не с чего                                                       |
 
-## Поддержка платформ
-
-<table align="center">
-  <tr>
-    <td align="center" width="240"><img src="assets/platforms/ios.jpg" alt="iOS" width="200" /></td>
-    <td align="center" width="240"><img src="assets/platforms/android.jpg" alt="Android" width="200" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>iOS</strong><br />✅ В работе — сборка, подпись и загрузка в TestFlight</td>
-    <td align="center"><strong>Android</strong><br />✅ В работе — сборка, подпись и загрузка в Google Play</td>
-  </tr>
-</table>
-
 ## Требования
 
 - **iOS:** macOS с **Xcode** + инструменты командной строки, **fastlane** (`brew install fastlane`) и
@@ -454,6 +450,16 @@ Mac; ценность Launch здесь — автоматизация в ваш
 
 См. [`CONTRIBUTING.md`](./CONTRIBUTING.md) для настройки окружения разработки, контроля качества и того, как добавить
 бэкенд.
+
+## Участники
+
+<p align="center">
+  <a href="https://github.com/YosefHayim"><img src="https://github.com/YosefHayim.png?size=120" width="120" alt="YosefHayim" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/YosefHayim/launch-store/graphs/contributors">Все участники →</a>
+</p>
 
 ## Лицензия
 

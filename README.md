@@ -1,6 +1,15 @@
-<p align="center">
-  <img src="assets/launch-logo.png" alt="Launch" width="220" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/ios.jpg" alt="iOS" width="150" /></td>
+    <td align="center" valign="middle" width="280"><img src="assets/launch-logo.png" alt="Launch — build, sign &amp; ship to the App Store and Google Play" width="230" /></td>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/android.jpg" alt="Android" width="150" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>✅ <strong>iOS</strong> · TestFlight</sub></td>
+    <td></td>
+    <td align="center"><sub>✅ <strong>Android</strong> · Google&nbsp;Play</sub></td>
+  </tr>
+</table>
 
 <h1 align="center">Launch</h1>
 
@@ -39,7 +48,7 @@
   <a href="./README.ru.md">Русский</a>
 </p>
 
-Shipping an app is more than a build: signing setup, App Store Connect / Play Console config, in-app
+Shipping an app is more than a build: signing setup, [App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console) config, in-app
 purchases, listing metadata, the upload, and the over-the-air updates after. EAS builds and submits —
 the rest is scattered across Apple's and Google's portals and a handful of tools. Launch pulls the
 **whole release** into one local, declarative workflow: it provisions your signing, reconciles your
@@ -254,19 +263,6 @@ two differ on the same workflow:
 | **No Mac?** EAS's paid cloud is the only path                                                                       | **No Mac?** A cloud Mac in **your own AWS**, any Mac over **SSH**, or hand off to **`eas build`**                                                                |
 | **Closed SaaS** — proprietary, vendor lock-in                                                                       | **MIT, open source** — `fastlane`/Gradle/platform APIs, swappable providers, nothing to migrate                                                                  |
 
-## Platform support
-
-<table align="center">
-  <tr>
-    <td align="center" width="240"><img src="assets/platforms/ios.jpg" alt="iOS" width="200" /></td>
-    <td align="center" width="240"><img src="assets/platforms/android.jpg" alt="Android" width="200" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>iOS</strong><br />✅ Shipping — build, sign &amp; upload to TestFlight</td>
-    <td align="center"><strong>Android</strong><br />✅ Shipping — build, sign &amp; upload to Google Play</td>
-  </tr>
-</table>
-
 ## Requirements
 
 - **iOS:** macOS with **Xcode** + command-line tools, **fastlane** (`brew install fastlane`), and an
@@ -452,6 +448,16 @@ everywhere.
 ## Contributing
 
 See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for dev setup, the quality gate, and how to add a backend.
+
+## Contributors
+
+<p align="center">
+  <a href="https://github.com/YosefHayim"><img src="https://github.com/YosefHayim.png?size=120" width="120" alt="YosefHayim" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/YosefHayim/launch-store/graphs/contributors">All contributors →</a>
+</p>
 
 ## License
 

@@ -1,6 +1,15 @@
-<p align="center">
-  <img src="assets/launch-logo.png" alt="Launch" width="220" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/ios.jpg" alt="iOS" width="150" /></td>
+    <td align="center" valign="middle" width="280"><img src="assets/launch-logo.png" alt="Launch — compila, assina e publica na App Store e no Google Play" width="230" /></td>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/android.jpg" alt="Android" width="150" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>✅ <strong>iOS</strong> · TestFlight</sub></td>
+    <td></td>
+    <td align="center"><sub>✅ <strong>Android</strong> · Google&nbsp;Play</sub></td>
+  </tr>
+</table>
 
 <h1 align="center">Launch</h1>
 
@@ -39,7 +48,7 @@
   <a href="./README.ru.md">Русский</a>
 </p>
 
-Publicar um app é muito mais do que uma compilação: configuração de assinatura, configuração do App Store Connect / Play Console, compras dentro do app, metadados da listagem, o upload e as atualizações over-the-air depois. O EAS compila e envia — o resto fica espalhado pelos portais da Apple e do Google e por um punhado de ferramentas. O Launch reúne o **release inteiro** em um único fluxo de trabalho local e declarativo: ele provisiona sua assinatura, reconcilia os produtos da sua loja, gera o projeto nativo, compila e assina o binário, reporta o tamanho de download real por dispositivo, armazena o artefato e faz o upload para a faixa de testes — em hardware que é seu, com chaves que permanecem no seu keychain local. A assinatura iOS exige um Mac; se você não tem um, o Launch compila em um Mac na nuvem dentro da **sua própria** conta AWS ou delega ao Expo EAS — veja [Compilando sem um Mac](#compilando-sem-um-mac).
+Publicar um app é muito mais do que uma compilação: configuração de assinatura, configuração do [App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console), compras dentro do app, metadados da listagem, o upload e as atualizações over-the-air depois. O EAS compila e envia — o resto fica espalhado pelos portais da Apple e do Google e por um punhado de ferramentas. O Launch reúne o **release inteiro** em um único fluxo de trabalho local e declarativo: ele provisiona sua assinatura, reconcilia os produtos da sua loja, gera o projeto nativo, compila e assina o binário, reporta o tamanho de download real por dispositivo, armazena o artefato e faz o upload para a faixa de testes — em hardware que é seu, com chaves que permanecem no seu keychain local. A assinatura iOS exige um Mac; se você não tem um, o Launch compila em um Mac na nuvem dentro da **sua própria** conta AWS ou delega ao Expo EAS — veja [Compilando sem um Mac](#compilando-sem-um-mac).
 
 > **Novo por aqui?** Execute `launch demo` para um passo a passo simulado de 60 segundos de todo o pipeline — sem
 > configuração, sem build, sem necessidade de conta. Ele também roda automaticamente na primeira vez que você executa `launch`.
@@ -246,19 +255,6 @@ dois diferem no mesmo fluxo de trabalho:
 | **Sem Mac?** A nuvem paga do EAS é o único caminho                                                                      | **Sem Mac?** Um Mac na nuvem na **sua própria AWS**, qualquer Mac via **SSH**, ou delegação ao **`eas build`**                                                           |
 | **SaaS fechado** — proprietário, com lock-in de fornecedor                                                              | **MIT, open source** — APIs de `fastlane`/Gradle/plataforma, providers intercambiáveis, nada do que migrar                                                               |
 
-## Suporte de plataformas
-
-<table align="center">
-  <tr>
-    <td align="center" width="240"><img src="assets/platforms/ios.jpg" alt="iOS" width="200" /></td>
-    <td align="center" width="240"><img src="assets/platforms/android.jpg" alt="Android" width="200" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>iOS</strong><br />✅ Em produção — compila, assina e faz upload para o TestFlight</td>
-    <td align="center"><strong>Android</strong><br />✅ Em produção — compila, assina e faz upload para o Google Play</td>
-  </tr>
-</table>
-
 ## Requisitos
 
 - **iOS:** macOS com **Xcode** + ferramentas de linha de comando, **fastlane** (`brew install fastlane`) e uma
@@ -440,6 +436,16 @@ em todos os lugares.
 ## Contribuindo
 
 Veja [`CONTRIBUTING.md`](./CONTRIBUTING.md) para o setup de desenvolvimento, o gate de qualidade e como adicionar um backend.
+
+## Contribuidores
+
+<p align="center">
+  <a href="https://github.com/YosefHayim"><img src="https://github.com/YosefHayim.png?size=120" width="120" alt="YosefHayim" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/YosefHayim/launch-store/graphs/contributors">Todos os contribuidores →</a>
+</p>
 
 ## Licença
 

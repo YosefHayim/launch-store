@@ -1,6 +1,15 @@
-<p align="center">
-  <img src="assets/launch-logo.png" alt="Launch" width="220" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/ios.jpg" alt="iOS" width="150" /></td>
+    <td align="center" valign="middle" width="280"><img src="assets/launch-logo.png" alt="Launch — ビルド・署名して App Store と Google Play へ配信" width="230" /></td>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/android.jpg" alt="Android" width="150" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>✅ <strong>iOS</strong> · TestFlight</sub></td>
+    <td></td>
+    <td align="center"><sub>✅ <strong>Android</strong> · Google&nbsp;Play</sub></td>
+  </tr>
+</table>
 
 <h1 align="center">Launch</h1>
 
@@ -39,7 +48,7 @@
   <a href="./README.ru.md">Русский</a>
 </p>
 
-アプリを世に出すことは、単なるビルドにとどまりません。署名のセットアップ、App Store Connect / Play Console の設定、アプリ内課金、ストア掲載のメタデータ、アップロード、そしてその後の OTA（無線越し）アップデート。EAS はビルドとサブミットを担いますが、それ以外は Apple と Google のポータルや一握りのツールに散らばっています。Launch は **リリース全体** を一つのローカルで宣言的なワークフローに集約します。署名をプロビジョニングし、ストアの商品を整合させ、ネイティブプロジェクトを生成し、バイナリをビルド・署名し、デバイスごとの実際のダウンロードサイズを報告し、成果物を保存し、テスト用トラックへアップロードします。すべてあなた自身のハードウェア上で、鍵はローカルのキーチェーンに留めたまま行われます。iOS の署名には Mac が必要です。Mac がない場合、Launch は **あなた自身の** AWS アカウント内のクラウド Mac でビルドするか、Expo EAS に処理を引き継ぎます — [Mac なしでビルドする](#mac-なしでビルドする) を参照してください。
+アプリを世に出すことは、単なるビルドにとどまりません。署名のセットアップ、[App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console) の設定、アプリ内課金、ストア掲載のメタデータ、アップロード、そしてその後の OTA（無線越し）アップデート。EAS はビルドとサブミットを担いますが、それ以外は Apple と Google のポータルや一握りのツールに散らばっています。Launch は **リリース全体** を一つのローカルで宣言的なワークフローに集約します。署名をプロビジョニングし、ストアの商品を整合させ、ネイティブプロジェクトを生成し、バイナリをビルド・署名し、デバイスごとの実際のダウンロードサイズを報告し、成果物を保存し、テスト用トラックへアップロードします。すべてあなた自身のハードウェア上で、鍵はローカルのキーチェーンに留めたまま行われます。iOS の署名には Mac が必要です。Mac がない場合、Launch は **あなた自身の** AWS アカウント内のクラウド Mac でビルドするか、Expo EAS に処理を引き継ぎます — [Mac なしでビルドする](#mac-なしでビルドする) を参照してください。
 
 > **初めての方へ** `launch demo` を実行すると、パイプライン全体を 60 秒でシミュレーションした体験ができます — セットアップもビルドもアカウントも不要です。`launch` を初めて実行したときにも自動再生されます。
 
@@ -162,19 +171,6 @@ Launch は、`eas build` → `eas submit` → `eas update` の同じパイプラ
 | ビルドの **成果物は Expo にホストされる**                                                                          | 成果物は **あなた自身のストレージ**（ローカル、または S3 / R2 / Supabase）に着地                                                                        |
 | **Mac がない？** EAS の有料クラウドが唯一の道                                                                      | **Mac がない？** **あなた自身の AWS** 内のクラウド Mac、**SSH** 越しの任意の Mac、または **`eas build`** への引き継ぎ                                   |
 | **クローズドな SaaS** — プロプライエタリでベンダーロックイン                                                       | **MIT、オープンソース** — `fastlane`/Gradle/プラットフォーム API、差し替え可能なプロバイダー、移行すべきものは何もなし                                  |
-
-## プラットフォーム対応
-
-<table align="center">
-  <tr>
-    <td align="center" width="240"><img src="assets/platforms/ios.jpg" alt="iOS" width="200" /></td>
-    <td align="center" width="240"><img src="assets/platforms/android.jpg" alt="Android" width="200" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>iOS</strong><br />✅ 提供中 — ビルド、署名し &amp; TestFlight へアップロード</td>
-    <td align="center"><strong>Android</strong><br />✅ 提供中 — ビルド、署名し &amp; Google Play へアップロード</td>
-  </tr>
-</table>
 
 ## 必要要件
 
@@ -342,6 +338,16 @@ launch cloud teardown                    # stop + release the host (warns about 
 ## コントリビューション
 
 開発環境のセットアップ、品質ゲート、バックエンドの追加方法については [`CONTRIBUTING.md`](./CONTRIBUTING.md) を参照してください。
+
+## コントリビューター
+
+<p align="center">
+  <a href="https://github.com/YosefHayim"><img src="https://github.com/YosefHayim.png?size=120" width="120" alt="YosefHayim" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/YosefHayim/launch-store/graphs/contributors">すべてのコントリビューター →</a>
+</p>
 
 ## ライセンス
 

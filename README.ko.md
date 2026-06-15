@@ -1,6 +1,15 @@
-<p align="center">
-  <img src="assets/launch-logo.png" alt="Launch" width="220" />
-</p>
+<table align="center">
+  <tr>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/ios.jpg" alt="iOS" width="150" /></td>
+    <td align="center" valign="middle" width="280"><img src="assets/launch-logo.png" alt="Launch — App Store와 Google Play로 빌드, 서명 및 배포" width="230" /></td>
+    <td align="center" valign="middle" width="190"><img src="assets/platforms/android.jpg" alt="Android" width="150" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>✅ <strong>iOS</strong> · TestFlight</sub></td>
+    <td></td>
+    <td align="center"><sub>✅ <strong>Android</strong> · Google&nbsp;Play</sub></td>
+  </tr>
+</table>
 
 <h1 align="center">Launch</h1>
 
@@ -39,7 +48,7 @@
   <a href="./README.ru.md">Русский</a>
 </p>
 
-앱을 출시하는 일은 단순한 빌드 그 이상입니다. 서명 설정, App Store Connect / Play Console 구성, 인앱 구매, 스토어 등록 메타데이터, 업로드, 그리고 그 이후의 OTA 업데이트까지 모두 포함됩니다. EAS는 빌드와 제출을 처리하지만, 나머지는 Apple과 Google의 포털과 여러 도구에 흩어져 있습니다. Launch는 **출시 전체**를 하나의 로컬, 선언적 워크플로로 모읍니다. 서명을 프로비저닝하고, 스토어 제품을 조정하고, 네이티브 프로젝트를 생성하고, 바이너리를 빌드 및 서명하고, 실제 기기별 다운로드 크기를 보고하고, 아티팩트를 저장하고, 테스트 트랙으로 업로드합니다. 이 모든 작업이 직접 보유한 하드웨어에서, 로컬 keychain에 남아 있는 키로 이루어집니다. iOS 서명에는 Mac이 필요합니다. Mac이 없다면 Launch는 **본인 소유의** AWS 계정에 있는 클라우드 Mac에서 빌드하거나 Expo EAS로 작업을 넘깁니다 — [Mac 없이 빌드하기](#mac-없이-빌드하기)를 참고하세요.
+앱을 출시하는 일은 단순한 빌드 그 이상입니다. 서명 설정, [App Store Connect](https://developer.apple.com/app-store-connect/) / [Play Console](https://play.google.com/console) 구성, 인앱 구매, 스토어 등록 메타데이터, 업로드, 그리고 그 이후의 OTA 업데이트까지 모두 포함됩니다. EAS는 빌드와 제출을 처리하지만, 나머지는 Apple과 Google의 포털과 여러 도구에 흩어져 있습니다. Launch는 **출시 전체**를 하나의 로컬, 선언적 워크플로로 모읍니다. 서명을 프로비저닝하고, 스토어 제품을 조정하고, 네이티브 프로젝트를 생성하고, 바이너리를 빌드 및 서명하고, 실제 기기별 다운로드 크기를 보고하고, 아티팩트를 저장하고, 테스트 트랙으로 업로드합니다. 이 모든 작업이 직접 보유한 하드웨어에서, 로컬 keychain에 남아 있는 키로 이루어집니다. iOS 서명에는 Mac이 필요합니다. Mac이 없다면 Launch는 **본인 소유의** AWS 계정에 있는 클라우드 Mac에서 빌드하거나 Expo EAS로 작업을 넘깁니다 — [Mac 없이 빌드하기](#mac-없이-빌드하기)를 참고하세요.
 
 > **처음이신가요?** `launch demo`를 실행하면 전체 파이프라인을 60초 동안 시뮬레이션한 둘러보기를 볼 수 있습니다 — 설정도, 빌드도, 계정도 필요 없습니다. `launch`를 처음 실행할 때 자동으로 재생되기도 합니다.
 
@@ -162,19 +171,6 @@ Launch는 직접 보유한 하드웨어에서 동일한 `eas build` → `eas sub
 | 빌드 **아티팩트가 Expo에 호스팅됨**                                                             | 아티팩트가 **직접 보유한 스토리지**(로컬, 또는 S3 / R2 / Supabase)에 저장됨                                                                       |
 | **Mac이 없다고요?** EAS의 유료 클라우드가 유일한 경로                                           | **Mac이 없다고요?** **본인 소유의 AWS**에 있는 클라우드 Mac, **SSH**로 접근하는 아무 Mac, 또는 **`eas build`** 로 작업 넘기기                     |
 | **폐쇄형 SaaS** — 독점적, 벤더 종속                                                             | **MIT, 오픈소스** — `fastlane`/Gradle/플랫폼 API, 교체 가능한 제공자, 이전할 것 없음                                                              |
-
-## 플랫폼 지원
-
-<table align="center">
-  <tr>
-    <td align="center" width="240"><img src="assets/platforms/ios.jpg" alt="iOS" width="200" /></td>
-    <td align="center" width="240"><img src="assets/platforms/android.jpg" alt="Android" width="200" /></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>iOS</strong><br />✅ 배포 중 — 빌드, 서명 &amp; TestFlight로 업로드</td>
-    <td align="center"><strong>Android</strong><br />✅ 배포 중 — 빌드, 서명 &amp; Google Play로 업로드</td>
-  </tr>
-</table>
 
 ## 요구 사항
 
@@ -342,6 +338,16 @@ launch cloud teardown                    # stop + release the host (warns about 
 ## 기여하기
 
 개발 환경 설정, 품질 게이트, 백엔드 추가 방법은 [`CONTRIBUTING.md`](./CONTRIBUTING.md)를 참고하세요.
+
+## 기여자
+
+<p align="center">
+  <a href="https://github.com/YosefHayim"><img src="https://github.com/YosefHayim.png?size=120" width="120" alt="YosefHayim" /></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/YosefHayim/launch-store/graphs/contributors">모든 기여자 →</a>
+</p>
 
 ## 라이선스
 
