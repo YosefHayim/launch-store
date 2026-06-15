@@ -136,7 +136,7 @@ export function buildProgram(): Command {
   registerDiagnoseCommand(program);
   registerResignCommand(program);
 
-  // No subcommand → the animated rocket banner, then the interactive wizard (the Expo-style front
+  // No subcommand → the glowing LAUNCH banner, then the interactive wizard (the Expo-style front
   // door that detects the host OS and routes the build accordingly).
   program.action(async () => {
     await renderBanner();
