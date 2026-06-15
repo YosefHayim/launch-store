@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { buildId, filterBuilds, findBuild, formatBuildDetail, formatBuildsTable, toBuildRow } from "./builds.js";
-import type { BuildArtifact } from "../../core/types.js";
+import {
+  buildId,
+  filterBuilds,
+  findBuild,
+  formatBuildDetail,
+  formatBuildsTable,
+  formatPrunePreview,
+  toBuildRow,
+} from "./builds.js";
+import type { BuildArtifact, PrunedArtifact } from "../../core/types.js";
 
 const MB = 1024 * 1024;
 
@@ -134,5 +142,41 @@ describe("formatBuildDetail", () => {
     const detail = formatBuildDetail(artifact({ sizeReport: { artifactBytes: 61 * MB, entries: [] } }));
     expect(detail).not.toContain("download / install");
     expect(detail).toContain("on disk 61.0 MB (no per-device estimate)");
+  });
+});
+
+describe("pruned builds — history survives, binary is marked gone", () => {
+  it("carries prunedAt onto the row only when set", () => {
+    expect(toBuildRow(artifact()).prunedAt).toBeUndefined();
+    expect(toBuildRow(artifact({ prunedAt: "2026-06-14T00:00:00.000Z" })).prunedAt).toBe("2026-06-14T00:00:00.000Z");
+  });
+
+  it("labels a pruned row 'pruned' in the TYPE column", () => {
+    const table = formatBuildsTable([artifact({ prunedAt: "2026-06-14T00:00:00.000Z" })].map(toBuildRow));
+    expect(table).toContain("pruned");
+    expect(table).not.toContain("clean"); // pruned status overrides the build type
+  });
+
+  it("shows the removed-to-save-disk note instead of a path in the detail view", () => {
+    const detail = formatBuildDetail(artifact({ prunedAt: "2026-06-14T09:00:00.000Z" }));
+    expect(detail).toContain("pruned 2026-06-14 09:00 — binary removed to save disk; rebuild to ship");
+    expect(detail).not.toContain("/home/u/.launch/artifacts/demo-1.0.0-7-ios.ipa");
+  });
+});
+
+describe("formatPrunePreview", () => {
+  const pruned: PrunedArtifact[] = [
+    { app: "demo", platform: "ios", version: "1.0.0", buildNumber: 7, bytes: 30 * MB, path: "/a/demo-7.ipa" },
+    { app: "demo", platform: "android", version: "1.0.0", buildNumber: 4, bytes: 22 * MB, path: "/a/demo-4.aab" },
+  ];
+
+  it("renders a header plus one aligned row per removed binary", () => {
+    const [header, first, second] = formatPrunePreview(pruned).split("\n");
+    expect(header).toContain("BUILD");
+    expect(header).toContain("SIZE");
+    expect(first).toContain("ios");
+    expect(first).toContain("30.0 MB");
+    expect(second).toContain("android");
+    expect(second).toContain("22.0 MB");
   });
 });

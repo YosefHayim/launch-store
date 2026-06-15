@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **204 App Store Connect & Google Play API operations** across **44 commands**, guarded by **1000 tests**.
+> Launch wraps **204 App Store Connect & Google Play API operations** across **44 commands**, guarded by **1027 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -739,7 +739,7 @@ replay the simulated walkthrough of the build → sign → submit pipeline
 
 ## `launch builds`
 
-inspect local build history (the artifact index)
+inspect and trim local build history (the artifact index)
 
 ### `launch builds list`
 
@@ -766,6 +766,19 @@ print a past build's full native log (secrets redacted), or open it in your edit
 | Flag     | Description                                                      |
 | -------- | ---------------------------------------------------------------- |
 | `--open` | reveal the log in your editor / OS viewer instead of printing it |
+
+### `launch builds prune`
+
+delete build binaries older than the retention window (keeps the newest per app+platform)
+
+| Flag                    | Description                                                               |
+| ----------------------- | ------------------------------------------------------------------------- |
+| `--days <n>`            | retention window in days (default: config artifactRetentionDays, else 30) |
+| `-a, --app <name>`      | only prune builds for this app                                            |
+| `--platform <platform>` | only prune ios or android builds                                          |
+| `--dry-run`             | show what would be deleted without deleting                               |
+| `-y, --yes`             | skip the confirmation prompt (for CI)                                     |
+| `--json`                | output machine-readable JSON                                              |
 
 ## `launch ci`
 

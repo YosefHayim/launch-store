@@ -53,6 +53,7 @@ import {
 import { beginBuildLog, buildLogId, endBuildLog } from "./buildLog.js";
 import { getBuildEngine, getCredentialsProvider, getSubmitter } from "./registry.js";
 import { resolveStorageProvider } from "./storage.js";
+import { resolveRetentionDays } from "./artifactRetention.js";
 import { createLogger, type Logger } from "./logger.js";
 import type { GlossaryTopic } from "./glossary.js";
 import { capture, exists, run } from "./exec.js";
@@ -889,8 +890,27 @@ async function storeArtifact(
     clean: cleanBuilt,
     createdAt: new Date().toISOString(),
   };
-  const stored = await resolveStorageProvider(config).put(artifact);
+  const provider = resolveStorageProvider(config);
+  const stored = await provider.put(artifact);
   log.step("store", stored.location);
+
+  // Retention: announce the policy under the store line, then sweep. `0` disables the auto-sweep; the
+  // newest build per app+platform is always kept, so a promotable artifact never gets swept out from
+  // under `launch release`. Only the local provider implements `prune` — cloud stores no-op here.
+  const retentionDays = resolveRetentionDays(config);
+  if (retentionDays > 0) {
+    log.tip(`kept ~${retentionDays} days, then auto-pruned to save space (launch builds prune)`);
+    if (provider.prune) {
+      const swept = await provider.prune({ now: Date.now(), retentionDays });
+      if (swept.pruned.length > 0) {
+        const noun = swept.pruned.length === 1 ? "build" : "builds";
+        log.step(
+          "prune",
+          `removed ${swept.pruned.length} old ${noun} >${retentionDays}d · freed ${mb(swept.freedBytes)}`,
+        );
+      }
+    }
+  }
 }
 
 /** The one-line notice when a build runs uncached. No fabricated multiplier — we have no measured baseline. */

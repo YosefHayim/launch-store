@@ -404,6 +404,20 @@ async function resolveBuildSource(
 }
 
 /**
+ * Guard a promote that reuses a stored binary. The newest build per app+platform is never auto-pruned,
+ * so this normally passes — but a manually-deleted or pruned binary turns a deep submit failure into a
+ * clear "rebuild first" message instead.
+ */
+function ensureArtifactPresent(artifact: BuildArtifact, appName: string, platform: Platform): void {
+  if (artifact.prunedAt || !existsSync(artifact.path)) {
+    throw new Error(
+      `The latest stored ${appName} ${platform} build was pruned to reclaim disk. ` +
+        `Run \`launch build ${platform}\` to rebuild before releasing.`,
+    );
+  }
+}
+
+/**
  * Resolve the build to submit: promote an already-verified build, or upload the latest local artifact
  * and wait for it to process. Returns null when the user cancels or when `--no-wait` uploaded and
  * returned without submitting.
@@ -438,6 +452,7 @@ async function resolveIosBuild(
       `No stored iOS build for ${app.name}. Run \`launch build ios\` first, or promote one with --build.`,
     );
   }
+  ensureArtifactPresent(artifact, app.name, "ios");
 
   const size = worstDownloadBytes(artifact.sizeReport);
   log.notice(
@@ -512,6 +527,7 @@ async function runAndroidRelease(
   if (!latest) {
     throw new Error(`No stored android build for ${app.name}. Run \`launch build android\` first.`);
   }
+  ensureArtifactPresent(latest, app.name, "android");
 
   const proceed = await confirm({
     message: `Submit ${app.name} ${latest.version} (${latest.buildNumber}) to the PUBLIC Play production track?`,
