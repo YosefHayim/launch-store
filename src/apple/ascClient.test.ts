@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { generateKeyPairSync } from "node:crypto";
 import type { AscKey } from "../core/types.js";
-import { AppStoreConnectClient, describeErrors } from "./ascClient.js";
+import { AppStoreConnectClient, clockSkewHint, describeErrors } from "./ascClient.js";
 
 /** A real P-256 PKCS#8 key so `jose` can actually sign — the client mints a genuine ES256 JWT. */
 function makeKey(): AscKey {
@@ -13,9 +13,14 @@ function makeKey(): AscKey {
   };
 }
 
-/** Minimal stand-in for the parts of `Response` the client reads. */
-function fakeResponse(status: number, body: string) {
-  return { status, ok: status >= 200 && status < 300, text: () => Promise.resolve(body) };
+/** Minimal stand-in for the parts of `Response` the client reads (status, `headers`, `text`). */
+function fakeResponse(status: number, body: string, headers: Record<string, string> = {}) {
+  return {
+    status,
+    ok: status >= 200 && status < 300,
+    headers: new Headers(headers),
+    text: () => Promise.resolve(body),
+  };
 }
 
 /** Stand-in for a binary (gzip) response: the report/segment paths read `arrayBuffer`, errors read `text`. */
@@ -1349,6 +1354,77 @@ describe("describeErrors", () => {
   it("returns the raw body when it isn't JSON, and a placeholder when empty", () => {
     expect(describeErrors("plain text failure")).toBe("plain text failure");
     expect(describeErrors("")).toBe("no response body");
+  });
+});
+
+describe("clockSkewHint", () => {
+  // A fixed reference instant so the skew math is deterministic regardless of when the suite runs.
+  const APPLE_DATE = "Sun, 15 Jun 2026 12:00:00 GMT";
+  const APPLE_MS = Date.parse(APPLE_DATE);
+
+  it("flags a fast Mac clock with the drift and the resync command", () => {
+    const hint = clockSkewHint({ appleDate: APPLE_DATE, nowMs: APPLE_MS + 5 * 60_000, platform: "darwin" });
+    expect(hint).toContain("~5 minutes");
+    expect(hint).toContain("sudo sntp -sS time.apple.com");
+  });
+
+  it("flags a slow clock too (drift is absolute), in seconds under two minutes", () => {
+    const hint = clockSkewHint({ appleDate: APPLE_DATE, nowMs: APPLE_MS - 90_000, platform: "darwin" });
+    expect(hint).toContain("~90 seconds");
+  });
+
+  it("stays silent when the drift is within tolerance", () => {
+    expect(clockSkewHint({ appleDate: APPLE_DATE, nowMs: APPLE_MS + 30_000, platform: "darwin" })).toBe("");
+  });
+
+  it("stays silent off macOS, even with a wild clock — no sntp spam on other platforms", () => {
+    const wild = APPLE_MS + 60 * 60_000;
+    expect(clockSkewHint({ appleDate: APPLE_DATE, nowMs: wild, platform: "linux" })).toBe("");
+    expect(clockSkewHint({ appleDate: APPLE_DATE, nowMs: wild, platform: "win32" })).toBe("");
+  });
+
+  it("stays silent when Apple sent no usable Date header", () => {
+    expect(clockSkewHint({ appleDate: null, nowMs: APPLE_MS + 60 * 60_000, platform: "darwin" })).toBe("");
+    expect(clockSkewHint({ appleDate: "not-a-date", nowMs: APPLE_MS, platform: "darwin" })).toBe("");
+  });
+});
+
+describe("AppStoreConnectClient — 401 clock-skew enrichment", () => {
+  /** Run `fn` as if on a given OS, restoring the real `process.platform` afterward. */
+  async function onPlatform(platform: NodeJS.Platform, fn: () => Promise<void>): Promise<void> {
+    const original = Object.getOwnPropertyDescriptor(process, "platform")!;
+    Object.defineProperty(process, "platform", { value: platform, configurable: true });
+    try {
+      await fn();
+    } finally {
+      Object.defineProperty(process, "platform", original);
+    }
+  }
+
+  it("appends the resync hint when a 401 coincides with a skewed clock (on macOS)", async () => {
+    const skewedDate = new Date(Date.now() + 10 * 60_000).toUTCString();
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(401, JSON.stringify({ errors: [{ detail: "token expired" }] }), { date: skewedDate }),
+    );
+    await onPlatform("darwin", async () => {
+      await expect(client.assertReady()).rejects.toThrow(/401.*token expired.*sudo sntp -sS time\.apple\.com/);
+    });
+  });
+
+  it("surfaces only Apple's 401 detail when the clock is fine — no false alarm", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(401, JSON.stringify({ errors: [{ detail: "token expired" }] }), { date: new Date().toUTCString() }),
+    );
+    await onPlatform("darwin", async () => {
+      let message = "";
+      try {
+        await client.assertReady();
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error);
+      }
+      expect(message).toContain("token expired");
+      expect(message).not.toContain("sudo sntp");
+    });
   });
 });
 
