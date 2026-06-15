@@ -95,7 +95,12 @@ function makeCtx(api: AscCatalogApi | null, products: Record<string, AppProducts
     submit: "app-store-connect",
     ...(Object.keys(products).length > 0 ? { products } : {}),
   };
-  return { config, apps: [ALPHA], resolveAscApi: () => Promise.resolve(api) };
+  return {
+    config,
+    apps: [ALPHA],
+    resolveAscApi: () => Promise.resolve(api),
+    resolvePlayApi: () => Promise.resolve(null),
+  };
 }
 
 describe("catalogPlanner", () => {
