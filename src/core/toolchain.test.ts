@@ -11,6 +11,7 @@ import {
   ensureCcacheInstalled,
   ensureToolchain,
   fixHint,
+  missingRequiredTools,
   planInstall,
   remoteToolchainPreflight,
   type ToolchainIo,
@@ -71,6 +72,23 @@ describe("planInstall", () => {
     const { brew, guided } = planInstall(REQUIRED_TOOLS);
     expect(guided.map((tool) => tool.command)).toEqual(["xcodebuild"]);
     expect(brew.map((tool) => tool.command)).toEqual(["ruby", "fastlane", "pod", "openssl", "node", "ccache"]);
+  });
+});
+
+describe("missingRequiredTools — the wizard's 'is a Homebrew install even relevant?' signal (issue #117)", () => {
+  it("is empty when every required tool is present", async () => {
+    const { io } = makeIo({ present: ALL_COMMANDS });
+    expect(await missingRequiredTools(io)).toEqual([]);
+  });
+
+  it("ignores a missing recommended tool — ccache absent is not an install-prompt gap", async () => {
+    const { io } = makeIo({ present: ALL_COMMANDS.filter((command) => command !== "ccache") });
+    expect(await missingRequiredTools(io)).toEqual([]);
+  });
+
+  it("reports only the missing required tools, never the recommended ones", async () => {
+    const { io } = makeIo({ present: ["xcodebuild", "ruby", "pod", "openssl", "node"] }); // fastlane + ccache absent
+    expect((await missingRequiredTools(io)).map((tool) => tool.command)).toEqual(["fastlane"]);
   });
 });
 

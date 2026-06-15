@@ -100,6 +100,19 @@ export function planInstall(missing: Tool[]): { brew: Tool[]; guided: Tool[] } {
 }
 
 /**
+ * The *required* iOS build tools currently absent from `PATH` — the signal for whether a Homebrew install
+ * is even relevant. Recommended tools (ccache) are excluded: their absence only slows a build, it isn't a
+ * gap worth an install prompt. Unlike `runDoctor`'s overall pass/fail this ignores non-tool preflight state
+ * (a missing App Store Connect record, an unsigned agreement) that Homebrew can't fix, so the wizard can
+ * offer the install only when it would actually do something (issue #117). Probes through the injectable
+ * {@link ToolchainIo.exists}, so it's unit-testable with no real PATH lookups.
+ */
+export async function missingRequiredTools(io: Pick<ToolchainIo, "exists"> = { exists }): Promise<Tool[]> {
+  const missing = await detectMissing(io, REQUIRED_TOOLS);
+  return missing.filter((tool) => tool.tier === "required");
+}
+
+/**
  * Generate the bash toolchain preflight that runs ON the remote Mac before a build — the remote twin of
  * `launch doctor`, emitted from {@link REQUIRED_TOOLS} so the host and local checks never drift (issue #6).
  *
@@ -189,7 +202,7 @@ export interface EnsureToolchainOptions {
 }
 
 /** Return the tools from `tools` whose command isn't currently on `PATH`. */
-async function detectMissing(io: ToolchainIo, tools: Tool[]): Promise<Tool[]> {
+async function detectMissing(io: Pick<ToolchainIo, "exists">, tools: Tool[]): Promise<Tool[]> {
   const missing: Tool[] = [];
   for (const tool of tools) {
     if (!(await io.exists(tool.command))) missing.push(tool);
