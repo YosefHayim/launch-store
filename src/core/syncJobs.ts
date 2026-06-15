@@ -52,8 +52,12 @@ function loadListing(appDir: string): AppleStoreConfig | undefined {
   }
 }
 
-/** Whether a listing carries at least one locale with at least one field worth reconciling. */
-function hasListing(listing: AppleStoreConfig | undefined): boolean {
+/**
+ * Whether a listing carries at least one locale with at least one field worth reconciling. A type guard,
+ * so callers that filter on it (`launch plan`'s listing surface) narrow `listing` to a present
+ * {@link AppleStoreConfig} without an assertion.
+ */
+export function hasListing(listing: AppleStoreConfig | undefined): listing is AppleStoreConfig {
   return listing !== undefined && Object.values(listing.info).some((info) => Object.keys(info).length > 0);
 }
 
