@@ -9,6 +9,7 @@
 
 import type { SurfacePlanner } from "./types.js";
 import { catalogPlanner } from "./planners/catalog.js";
+import { playSubscriptionsPlanner } from "./planners/playSubscriptions.js";
 
 /** Registered planners, keyed by surface id so re-registering one replaces it (idempotent built-in wiring). */
 const PLANNERS = new Map<string, SurfacePlanner>();
@@ -25,9 +26,10 @@ export function listSurfacePlanners(): SurfacePlanner[] {
 
 /**
  * Register the v1 built-in planners. Idempotent: safe to call from the command entry and from tests
- * without duplicating. The listing, Play-products, and Play-subscriptions planners register here as they
- * land (see `docs/adr/0003-plan-drift.md`).
+ * without duplicating. The listing and Play-products planners register here as they land (see
+ * `docs/adr/0003-plan-drift.md`).
  */
 export function registerBuiltinPlanners(): void {
   registerSurfacePlanner(catalogPlanner);
+  registerSurfacePlanner(playSubscriptionsPlanner);
 }
