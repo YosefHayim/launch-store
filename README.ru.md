@@ -261,10 +261,10 @@ Launch выполняет тот же конвейер `eas build` → `eas subm
 
 ## Требования
 
-- **iOS:** macOS с **Xcode** + инструменты командной строки, **fastlane** (`brew install fastlane`) и
+- **iOS:** членство в **Apple Developer Program** ($99/год) — [зарегистрируйтесь здесь](https://developer.apple.com/programs/enroll/) — затем macOS с **Xcode** + инструменты командной строки, **fastlane** (`brew install fastlane`) и
   **ключ API App Store Connect** (`.p8` + Key ID + Issuer ID) — [сгенерируйте его здесь](https://appstoreconnect.apple.com/access/integrations/api).
   Нет Mac? См. [Сборка без Mac](#сборка-без-mac).
-- **Android:** **JDK** (любая ОС — Mac не нужен) и JSON-ключ **сервисного аккаунта Google Play**.
+- **Android:** **аккаунт разработчика Google Play** (единоразово $25) — [зарегистрируйтесь здесь](https://play.google.com/console/signup) — затем **JDK** (любая ОС — Mac не нужен) и JSON-ключ **сервисного аккаунта Google Play**.
 - **Node 20+** на каждой платформе.
 
 Запускайте `launch doctor` в любой момент, чтобы проверить всё вышеперечисленное.
