@@ -20,7 +20,7 @@
 <p align="center">
   <a href="./docs/commands.md"><img src="https://img.shields.io/badge/store%20API-204%20endpoints-8957e5?logo=apple&logoColor=white" alt="204 App Store Connect &amp; Google Play API operations" /></a>
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1104%20passing-3fb950?logo=vitest&logoColor=white" alt="1104 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1109%20passing-3fb950?logo=vitest&logoColor=white" alt="1109 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -167,8 +167,8 @@ Launch は、`eas build` → `eas submit` → `eas update` の同じパイプラ
 
 ## 必要要件
 
-- **iOS:** **Xcode** ＋コマンドラインツールが入った macOS、**fastlane**（`brew install fastlane`）、そして **App Store Connect API キー**（`.p8` ＋ Key ID ＋ Issuer ID） — [こちらで生成](https://appstoreconnect.apple.com/access/integrations/api)。Mac がない？ [Mac なしでビルドする](#mac-なしでビルドする) を参照してください。
-- **Android:** **JDK**（任意の OS — Mac は不要）と **Google Play サービスアカウント** の JSON キー。
+- **iOS:** **Apple Developer Program** への登録（年額 99 ドル） — [こちらで登録](https://developer.apple.com/programs/enroll/) — その後、**Xcode** ＋コマンドラインツールが入った macOS、**fastlane**（`brew install fastlane`）、そして **App Store Connect API キー**（`.p8` ＋ Key ID ＋ Issuer ID） — [こちらで生成](https://appstoreconnect.apple.com/access/integrations/api)。Mac がない？ [Mac なしでビルドする](#mac-なしでビルドする) を参照してください。
+- **Android:** **Google Play デベロッパー アカウント**（買い切り 25 ドル） — [こちらで登録](https://play.google.com/console/signup) — その後、**JDK**（任意の OS — Mac は不要）と **Google Play サービスアカウント** の JSON キー。
 - すべてのプラットフォームで **Node 20+**。
 
 `launch doctor` をいつでも実行すれば、上記すべてを確認できます。

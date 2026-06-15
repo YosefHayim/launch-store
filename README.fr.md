@@ -20,7 +20,7 @@
 <p align="center">
   <a href="./docs/commands.md"><img src="https://img.shields.io/badge/store%20API-204%20endpoints-8957e5?logo=apple&logoColor=white" alt="204 App Store Connect &amp; Google Play API operations" /></a>
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1104%20passing-3fb950?logo=vitest&logoColor=white" alt="1104 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1109%20passing-3fb950?logo=vitest&logoColor=white" alt="1109 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -167,8 +167,8 @@ Launch exécute le même pipeline `eas build` → `eas submit` → `eas update` 
 
 ## Prérequis
 
-- **iOS :** macOS avec **Xcode** + les outils en ligne de commande, **fastlane** (`brew install fastlane`), et une **clé d'API App Store Connect** (`.p8` + Key ID + Issuer ID) — [générez-en une ici](https://appstoreconnect.apple.com/access/integrations/api). Pas de Mac ? Voir [Compiler sans Mac](#compiler-sans-mac).
-- **Android :** un **JDK** (n'importe quel OS — pas de Mac nécessaire) et une clé JSON de **compte de service Google Play**.
+- **iOS :** une **adhésion à l'Apple Developer Program** (99 $/an) — [inscrivez-vous ici](https://developer.apple.com/programs/enroll/) — puis macOS avec **Xcode** + les outils en ligne de commande, **fastlane** (`brew install fastlane`), et une **clé d'API App Store Connect** (`.p8` + Key ID + Issuer ID) — [générez-en une ici](https://appstoreconnect.apple.com/access/integrations/api). Pas de Mac ? Voir [Compiler sans Mac](#compiler-sans-mac).
+- **Android :** un **compte Google Play Developer** (25 $, paiement unique) — [inscrivez-vous ici](https://play.google.com/console/signup) — puis un **JDK** (n'importe quel OS — pas de Mac nécessaire) et une clé JSON de **compte de service Google Play**.
 - **Node 20+** sur toutes les plateformes.
 
 Lancez `launch doctor` à tout moment pour vérifier tout ce qui précède.
