@@ -8,7 +8,7 @@
  * `src/cli/program.ts`, counts the headline stats from source, then hands the pure rendering to
  * `src/core/docs/commandDocs.ts` and prettier-formats the result so `format:check` stays green.
  */
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Command } from "commander";
@@ -20,13 +20,16 @@ import {
   type GeneratedDoc,
   countAsyncMethods,
   countTestCases,
+  renderAgentSkillsRegion,
   renderCommandReference,
   renderFaqRegion,
   renderLlmsTxt,
   renderStatsBadges,
+  spliceReadmeAgentSkills,
   spliceReadmeBadges,
   spliceReadmeFaq,
 } from "../src/core/docs/commandDocs.js";
+import { renderContributorRules } from "../src/core/agents/render.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -66,21 +69,26 @@ async function generateDocs(): Promise<GeneratedDoc[]> {
   const commands = buildProgram().commands.map((command) => toSpec(command, ""));
   const stats = computeStats(commands);
   const badges = renderStatsBadges(stats);
+  const agentSkills = renderAgentSkillsRegion();
   const faq = renderFaqRegion();
   const readmes = readdirSync(ROOT)
     .filter((file) => /^README.*\.md$/.test(file))
     .sort();
   const raw: GeneratedDoc[] = [
     ...readmes.map((path) => {
-      // The live-stats badge row is language-neutral, so the same block is spliced into every README;
-      // the FAQ source is English, so only README.md gets the generated FAQ region — the translated
-      // READMEs keep a hand-translated FAQ that the README structural-parity test holds in sync.
+      // The live-stats badge row and the agent-skills callout are language-neutral, so both blocks are
+      // spliced into every README; the FAQ source is English, so only README.md gets the generated FAQ
+      // region — the translated READMEs keep a hand-translated FAQ the structural-parity test holds in sync.
       let body = spliceReadmeBadges(readFileSync(join(ROOT, path), "utf8"), badges);
+      body = spliceReadmeAgentSkills(body, agentSkills);
       if (path === "README.md") body = spliceReadmeFaq(body, faq);
       return { path, body };
     }),
     { path: "docs/commands.md", body: renderCommandReference(commands, stats) },
     { path: "llms.txt", body: renderLlmsTxt(commands, stats) },
+    // Contributor-facing Cursor rules (`.cursor/rules/*.mdc`) for working ON launch-store — generated
+    // from the same agent registry as the consumer skills and gated here so they can't drift.
+    ...renderContributorRules().map((rule) => ({ path: rule.path, body: rule.body })),
   ];
   return Promise.all(
     raw.map(async ({ path, body }) => {
@@ -100,6 +108,7 @@ async function main(): Promise<void> {
       const current = readFileSync(absolute, "utf8");
       if (current !== body) stale.push(path);
     } else {
+      mkdirSync(dirname(absolute), { recursive: true });
       writeFileSync(absolute, body);
       process.stdout.write(`Wrote ${path}\n`);
     }
