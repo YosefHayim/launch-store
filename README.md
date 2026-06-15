@@ -125,7 +125,7 @@ an API wrapper doesn't touch. If you want a self-hosted Expo EAS — not just an
 Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconciled with a read-only **plan → your confirmation → apply** — idempotently, never touching a live or in-review version. This is the surface EAS leaves to the website.
 
 9. **Products, pricing & listing.** `launch sync` reconciles in-app purchases, subscriptions, capabilities, and pricing onto App Store Connect — plus the per-locale listing copy, screenshots, and app previews — across every app at once.
-10. **Preview & gate drift.** `launch plan` diffs `launch.config.ts` against live App Store Connect (capabilities, IAPs, subscriptions, pricing, listing) and Google Play (products, subscriptions) state read-only; `launch drift` fails CI when they've diverged.
+10. **Preview & gate drift.** `launch plan [surface]` diffs `launch.config.ts` against live App Store Connect and Google Play state read-only across every config-as-code surface — capabilities, IAPs, subscriptions, pricing and listing, plus release attributes, Game Center, App Clips, availability, accessibility, experiments, custom pages, and team-level Wallet & EU distribution; `launch drift` fails CI when they've diverged.
 11. **Subscription offers.** `launch offers` reconciles offer codes and promotional, introductory & win-back offers, plus the promoted-purchase order; `offers generate-codes`/`list`/`deactivate` drive campaigns from the CLI.
 12. **Release attributes.** `launch release-config` reconciles the age rating, categories, base price, and App Review details (contact + demo account) onto the editable version.
 13. **Store availability.** `launch availability` sets the App Store territories the app sells in.
@@ -155,47 +155,48 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 31. **Keep server vars out of the app.** An `envExclude` denylist in `launch.config.ts` (exact names or `PREFIX*` wildcards) drops backend-only environment variables before the build, so they're never injected into the shipped bundle.
 32. **Deliberate public release.** The testing track is the default; `launch release <platform>` drives the public store over the API end to end — version, compliance, notes, rollout, submit — with no portal.
 33. **Steer the rollout.** `launch status [--watch]` tracks the review with CI exit codes; `launch rollout pause`/`resume`/`complete` steers an iOS phased release.
-34. **Re-sign without rebuilding.** `launch build:resign` re-signs a stored `.ipa`/`.aab` with different credentials straight from the artifact.
-35. **Completion notifications.** A `notify` block pings a Slack/Discord webhook and/or runs a shell hook when a build or submit finishes — on success _and_ failure.
+34. **Coordinated release train.** `launch release-train` drives an app's iOS, Android, and OTA legs as one resumable record — `start`/`status`/`release`/`abort`, with `--hold` to gate every leg until all are approved and release them together, `--platform`/`--no-ota` to scope it, and `--watch` to poll until it settles.
+35. **Re-sign without rebuilding.** `launch build:resign` re-signs a stored `.ipa`/`.aab` with different credentials straight from the artifact.
+36. **Completion notifications.** A `notify` block pings a Slack/Discord webhook and/or runs a shell hook when a build or submit finishes — on success _and_ failure.
 
 **Build without a Mac**
 
-36. **Cloud Mac in your own AWS.** `launch build ios --remote aws` provisions an EC2 Mac, builds over SSH, and auto-releases it near the 24-hour billing floor; `launch cloud` manages the host lifecycle and shows running cost.
-37. **Any Mac over SSH.** `launch build ios --remote user@host` builds on a Mac you already have, with no allocation and no billing.
-38. **Hand off to EAS.** Set `buildEngine: "eas"` to delegate the build to Expo's cloud and still ship through Launch — handy for migrating incrementally.
+37. **Cloud Mac in your own AWS.** `launch build ios --remote aws` provisions an EC2 Mac, builds over SSH, and auto-releases it near the 24-hour billing floor; `launch cloud` manages the host lifecycle and shows running cost.
+38. **Any Mac over SSH.** `launch build ios --remote user@host` builds on a Mac you already have, with no allocation and no billing.
+39. **Hand off to EAS.** Set `buildEngine: "eas"` to delegate the build to Expo's cloud and still ship through Launch — handy for migrating incrementally.
 
 **Distribute & update**
 
-39. **Internal distribution.** `launch build <platform> --distribution internal` hosts an ad-hoc iOS install link / Android `.apk` on your own bucket; register testers with `launch device add <udid>`.
-40. **Over-the-air updates.** `launch update` publishes a code-signed JS/asset update via the **Expo Updates protocol** your `expo-updates` runtime already speaks, hosted on your own bucket (S3 / R2 / Supabase).
-41. **Roll back a bad update.** `launch updates list`/`view` show the per-channel history; `launch updates rollback` promotes a known-good update or drops clients back to the embedded bundle.
-42. **Pluggable storage.** Artifacts and updates live in local storage or your own S3 / R2 / Supabase bucket, served from a URL you control — no hosted service.
+40. **Internal distribution.** `launch build <platform> --distribution internal` hosts an ad-hoc iOS install link / Android `.apk` on your own bucket; register testers with `launch device add <udid>`.
+41. **Over-the-air updates.** `launch update` publishes a code-signed JS/asset update via the **Expo Updates protocol** your `expo-updates` runtime already speaks, hosted on your own bucket (S3 / R2 / Supabase).
+42. **Roll back a bad update.** `launch updates list`/`view` show the per-channel history; `launch updates rollback` promotes a known-good update or drops clients back to the embedded bundle.
+43. **Pluggable storage.** Artifacts and updates live in local storage or your own S3 / R2 / Supabase bucket, served from a URL you control — no hosted service.
 
 **Manage testers, team, reviews & reports — API-key only**
 
-43. **TestFlight from the CLI.** `launch testflight groups`/`create-group`/`testers`/`add`/`rm` manages beta groups and invites testers, and `testflight release` submits a build for Beta App Review — no Apple-ID password, no 2FA.
-44. **Reviews, read & reply.** `launch reviews list`/`reply`/`delete` reads App Store reviews (filter by rating/territory) and posts, replaces, or removes the developer response.
-45. **Sales, finance & analytics.** `launch reports sales`/`finance`/`analytics` downloads App Store Connect's reports (gzipped TSV, or `--json`) straight to your machine.
-46. **Team & access.** `launch team list`/`invite`/`remove` reads and manages App Store Connect team members and pending invitations over the same API key.
-47. **Sandbox testers.** `launch sandbox list`/`clear` lists your StoreKit sandbox testers and clears their purchase history for clean in-app-purchase re-tests.
+44. **TestFlight from the CLI.** `launch testflight groups`/`create-group`/`testers`/`add`/`rm` manages beta groups and invites testers, and `testflight release` submits a build for Beta App Review — no Apple-ID password, no 2FA.
+45. **Reviews, read & reply.** `launch reviews list`/`reply`/`delete` reads App Store reviews (filter by rating/territory) and posts, replaces, or removes the developer response.
+46. **Sales, finance & analytics.** `launch reports sales`/`finance`/`analytics` downloads App Store Connect's reports (gzipped TSV, or `--json`) straight to your machine.
+47. **Team & access.** `launch team list`/`invite`/`remove` reads and manages App Store Connect team members and pending invitations over the same API key.
+48. **Sandbox testers.** `launch sandbox list`/`clear` lists your StoreKit sandbox testers and clears their purchase history for clean in-app-purchase re-tests.
 
 **Inspect & debug**
 
-48. **Build history.** `launch builds list`/`view`/`log`/`prune` reads the local artifact index — ids, per-device sizes, paths, and redacted logs — and prunes binaries past the retention window.
-49. **Install & run.** `launch run [id|latest]` installs a built artifact onto a connected device (`adb`/`bundletool` for Android, `devicectl` for iOS).
-50. **Explain a failure.** `launch diagnose` maps an `xcodebuild`/Gradle/CocoaPods error to a plain-English cause and fix.
-51. **Why clean vs incremental.** `launch fingerprint` shows the native fingerprint and why the next build will be clean or incremental.
-52. **Tell your Apple accounts apart.** `launch creds` leads its account summary with the app names each API key can see, so you know which Apple account — and which apps — a build will use before you ship.
+49. **Build history.** `launch builds list`/`view`/`log`/`prune` reads the local artifact index — ids, per-device sizes, paths, and redacted logs — and prunes binaries past the retention window.
+50. **Install & run.** `launch run [id|latest]` installs a built artifact onto a connected device (`adb`/`bundletool` for Android, `devicectl` for iOS).
+51. **Explain a failure.** `launch diagnose` maps an `xcodebuild`/Gradle/CocoaPods error to a plain-English cause and fix.
+52. **Why clean vs incremental.** `launch fingerprint` shows the native fingerprint and why the next build will be clean or incremental.
+53. **Tell your Apple accounts apart.** `launch creds` leads its account summary with the app names each API key can see, so you know which Apple account — and which apps — a build will use before you ship.
 
 **Onboarding, teaching & maintenance**
 
-53. **Animated launch banner.** A glowing pixel-art `LAUNCH` wordmark with an aurora violet→cyan gradient greets you on startup — an adoptable banner style that still degrades to plain text under `NO_COLOR`.
-54. **Zero-setup demo.** `launch demo` replays a simulated walkthrough of the whole build → sign → submit pipeline, and auto-plays once on first run.
-55. **Teaching on demand.** `--explain` on any command and `launch explain <topic>` cover the Apple/iOS/Android terminology inline.
-56. **Interactive wizard.** Running bare `launch` opens a guided wizard that remembers your last flow and offers a one-keypress repeat.
-57. **Drive it from an AI agent.** `launch agents init`/`check` scaffolds Claude / Cursor / Codex skills so coding agents run the workflows under the same plan → confirm → apply guardrails.
-58. **CI in one command.** `launch ci init` scaffolds a GitHub Actions workflow that builds and ships unattended.
-59. **Silent self-upgrade.** Picks up a newer npm release and re-runs your command on it — throttled to once a day, and a no-op in CI, when piped, and for agents.
+54. **Animated launch banner.** A glowing pixel-art `LAUNCH` wordmark with an aurora violet→cyan gradient greets you on startup — an adoptable banner style that still degrades to plain text under `NO_COLOR`.
+55. **Zero-setup demo.** `launch demo` replays a simulated walkthrough of the whole build → sign → submit pipeline, and auto-plays once on first run.
+56. **Teaching on demand.** `--explain` on any command and `launch explain <topic>` cover the Apple/iOS/Android terminology inline.
+57. **Interactive wizard.** Running bare `launch` opens a guided wizard that remembers your last flow and offers a one-keypress repeat.
+58. **Drive it from an AI agent.** `launch agents init`/`check` scaffolds Claude / Cursor / Codex skills so coding agents run the workflows under the same plan → confirm → apply guardrails.
+59. **CI in one command.** `launch ci init` scaffolds a GitHub Actions workflow that builds and ships unattended.
+60. **Silent self-upgrade.** Picks up a newer npm release and re-runs your command on it — throttled to once a day, and a no-op in CI, when piped, and for agents.
 
 <!-- features:end -->
 
