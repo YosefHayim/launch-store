@@ -104,16 +104,34 @@ const DEFAULT_CONFIG: LaunchConfig = {
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "ios", "android", "dist", ".expo", ".launch"]);
 
-/** Read `launch.config.{ts,js,mjs}` from `root` if present, else fall back to defaults. */
-async function readLaunchConfig(root: string): Promise<LaunchConfig> {
+/** A located Launch config: the resolved `launch.config.{ts,mjs,js}` path and the config it exports. */
+export interface FoundConfig {
+  /** Absolute path to the config file that was loaded. */
+  path: string;
+  /** The config exported by that file's `export default defineConfig({ … })`. */
+  config: LaunchConfig;
+}
+
+/**
+ * Find and load the user's `launch.config.{ts,mjs,js}` under `cwd`, returning the resolved path with the
+ * loaded config — or `null` when none exists, so a caller (e.g. `launch config validate`) can tell "no
+ * config here" apart from "a config that loaded". jiti transpiles a `.ts` config in memory so it runs on
+ * plain Node. Throws when a config file exists but doesn't `export default`.
+ */
+export async function findLaunchConfig(cwd: string = process.cwd()): Promise<FoundConfig | null> {
   for (const file of ["launch.config.ts", "launch.config.mjs", "launch.config.js"]) {
-    const path = join(root, file);
+    const path = join(cwd, file);
     if (!existsSync(path)) continue;
     const loaded = await jiti.import<{ default?: LaunchConfig }>(path);
     if (!loaded.default) throw new Error(`${file} must \`export default defineConfig({ ... })\`.`);
-    return loaded.default;
+    return { path, config: loaded.default };
   }
-  return DEFAULT_CONFIG;
+  return null;
+}
+
+/** Read `launch.config.{ts,js,mjs}` from `root` if present, else fall back to defaults. */
+async function readLaunchConfig(root: string): Promise<LaunchConfig> {
+  return (await findLaunchConfig(root))?.config ?? DEFAULT_CONFIG;
 }
 
 /** The static (JSON) and dynamic (evaluated) Expo config filenames, each in Expo's precedence order. */

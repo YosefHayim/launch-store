@@ -13,7 +13,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Command } from "commander";
 import prettier from "prettier";
+import { createGenerator } from "ts-json-schema-generator";
 import { buildProgram } from "../src/cli/program.js";
+import { renderConfigDocs } from "../src/core/docs/configDocs.js";
+import type { JsonSchema } from "../src/core/jsonSchema.js";
 import {
   type CommandSpec,
   type DocStats,
@@ -66,9 +69,31 @@ function computeStats(commands: CommandSpec[]): DocStats {
   return { commands: commands.length, operations, tests: countTestCases(readTestSources()) };
 }
 
+/**
+ * Generate the JSON Schema for `launch.config.ts` from the config types — `LaunchConfigInput` in
+ * `src/core/config.ts`, which derives from the domain shapes in `src/core/types.ts`. Mirrors how
+ * `scripts/gen-asc-types.ts` generates the ASC types with `openapi-typescript`, keeping the TypeScript
+ * types the single source of truth: the committed schema (and the field reference rendered from it) can't
+ * drift from the types because `docs:check` regenerates and diffs them. `expose: "all"` names every nested
+ * type as a `$def` (so the reference can table them) and `jsDoc: "extended"` carries the TSDoc into
+ * `description`s.
+ */
+function generateConfigSchema(): JsonSchema {
+  return createGenerator({
+    path: join(ROOT, "src/core/config.ts"),
+    type: "LaunchConfigInput",
+    tsconfig: join(ROOT, "tsconfig.json"),
+    additionalProperties: false,
+    expose: "all",
+    topRef: true,
+    jsDoc: "extended",
+  }).createSchema("LaunchConfigInput");
+}
+
 /** Render both docs from the live program, prettier-formatted and ready to write or diff. */
 async function generateDocs(): Promise<GeneratedDoc[]> {
   const commands = buildProgram().commands.map((command) => toSpec(command, ""));
+  const configSchema = generateConfigSchema();
   const stats = computeStats(commands);
   const badges = renderStatsBadges(stats);
   const agentSkills = renderAgentSkillsRegion();
@@ -93,6 +118,11 @@ async function generateDocs(): Promise<GeneratedDoc[]> {
     }),
     { path: "docs/commands.md", body: renderCommandReference(commands, stats) },
     { path: "llms.txt", body: renderLlmsTxt(commands, stats) },
+    // The JSON Schema for `launch.config.ts` and its rendered field reference — both generated from the
+    // config types so `config schema`/`config validate`/`config docs` and editor autocomplete share one
+    // source the types can't drift from.
+    { path: "schema/launch.config.schema.json", body: `${JSON.stringify(configSchema, null, 2)}\n` },
+    { path: "docs/config.md", body: renderConfigDocs(configSchema) },
     // Contributor-facing Cursor rules (`.cursor/rules/*.mdc`) and Claude skills (`.claude/skills/*`) for
     // working ON launch-store — generated from the same agent registry as the consumer skills and gated
     // here so they can't drift.
@@ -102,7 +132,8 @@ async function generateDocs(): Promise<GeneratedDoc[]> {
   return Promise.all(
     raw.map(async ({ path, body }) => {
       const config = await prettier.resolveConfig(join(ROOT, path));
-      return { path, body: await prettier.format(body, { ...config, parser: "markdown" }) };
+      const parser = path.endsWith(".json") ? "json" : "markdown";
+      return { path, body: await prettier.format(body, { ...config, parser }) };
     }),
   );
 }

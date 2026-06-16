@@ -321,8 +321,10 @@ const SOURCE_LINKS = `- [Domain types & provider interfaces](./src/core/types.ts
  * Escape a markdown table cell's structural characters — backslash and pipe — in one pass. Escaping
  * both together (rather than only `|`) means a literal backslash in the text can't combine with a
  * following pipe to slip an unescaped delimiter through and split the cell; prettier handles the rest.
+ * Shared with the config reference renderer ({@link import("./configDocs.js")}) — table-cell escaping
+ * is one concern, so both generated docs escape identically.
  */
-function escapeCell(text: string): string {
+export function escapeCell(text: string): string {
   return text.replace(/[\\|]/g, (ch) => `\\${ch}`);
 }
 

@@ -15,6 +15,7 @@ import { renderBanner } from "../core/banner.js";
 import { registerInitCommand } from "./commands/init.js";
 import { registerAdoptCommand } from "./commands/adopt.js";
 import { registerMigrateCommand } from "./commands/migrate.js";
+import { registerConfigCommand } from "./commands/config.js";
 import { registerBuildCommand } from "./commands/build.js";
 import { registerReleaseCommand } from "./commands/release.js";
 import { registerStatusCommand } from "./commands/status.js";
@@ -96,6 +97,7 @@ export function buildProgram(): Command {
   registerInitCommand(program);
   registerAdoptCommand(program);
   registerMigrateCommand(program);
+  registerConfigCommand(program);
   registerBuildCommand(program);
   registerReleaseCommand(program);
   registerStatusCommand(program);
