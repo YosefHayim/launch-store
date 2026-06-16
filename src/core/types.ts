@@ -785,6 +785,34 @@ export interface SurfaceConfigFiles {
 }
 
 /**
+ * The capability tiers a tool can require, in ascending order of blast radius — the gate behind
+ * `launch mcp`. A tool is tagged with exactly one tier; the MCP server registers only the tools whose
+ * tier the user has enabled in {@link McpConfig.capabilities}, so an agent can never reach a write tool
+ * the operator didn't opt into.
+ * - `read` — pure introspection (plan, audit, doctor): no store or filesystem writes. The safe default.
+ * - `dryRun` — rehearses a mutation and reports what it *would* do, still writing nothing.
+ * - `write` — reconciles live store state (e.g. `launch sync`): visible, reversible-with-effort changes.
+ * - `dangerous` — destructive or hard-to-reverse (deletions, irreversible submissions); opt-in only.
+ */
+export type McpCapability = "read" | "dryRun" | "write" | "dangerous";
+
+/**
+ * The `mcp` block of `launch.config.ts` — how `launch mcp` exposes Launch to AI agents. Absent means
+ * least privilege: the server offers only `read`-tier tools, so wiring up an agent can never mutate a
+ * store until the operator widens {@link McpConfig.capabilities} on purpose. Declared here (not inline in
+ * the command) so #173's generator emits it into the config schema and `launch config validate/docs`
+ * cover it for free.
+ */
+export interface McpConfig {
+  /**
+   * Which capability tiers the MCP server may expose. Each enabled tier unlocks the tools tagged at that
+   * tier; omit (or `[]`) for `["read"]` — read-only. Listing a higher tier does not imply the lower ones,
+   * so `["read", "write"]` is the usual "let agents read everything and run reconciles" posture.
+   */
+  capabilities?: McpCapability[];
+}
+
+/**
  * The fully-resolved configuration for one `launch` invocation.
  *
  * Produced by {@link loadConfig} from `launch.config.ts` plus auto-discovered apps. Names here
@@ -890,6 +918,11 @@ export interface LaunchConfig {
    * `.env.example` missing-key gate (even when no layer sets it). Omit (or `[]`) to exclude nothing.
    */
   envExclude?: string[];
+  /**
+   * How `launch mcp` exposes Launch to AI agents — chiefly which capability tiers it may offer. Absent =
+   * least privilege (read-only tools). See {@link McpConfig}.
+   */
+  mcp?: McpConfig;
 }
 
 /**

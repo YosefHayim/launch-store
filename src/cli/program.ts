@@ -59,6 +59,7 @@ import { registerDemoCommand } from "./commands/demo.js";
 import { registerBuildsCommand } from "./commands/builds.js";
 import { registerCiCommand } from "./commands/ci.js";
 import { registerAgentsCommand } from "./commands/agents.js";
+import { registerMcpCommand } from "./commands/mcp.js";
 import { registerRunCommand } from "./commands/run.js";
 import { registerFingerprintCommand } from "./commands/fingerprint.js";
 import { registerDiagnoseCommand } from "./commands/diagnose.js";
@@ -143,6 +144,7 @@ export function buildProgram(): Command {
   registerBuildsCommand(program);
   registerCiCommand(program);
   registerAgentsCommand(program);
+  registerMcpCommand(program);
   registerRunCommand(program);
   registerFingerprintCommand(program);
   registerDiagnoseCommand(program);

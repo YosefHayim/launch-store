@@ -29,6 +29,7 @@ import {
 } from "../../core/agents/render.js";
 import type { AgentTarget } from "../../core/agents/types.js";
 import { findUnknownCommands } from "../../core/agents/validate.js";
+import { clientConfigPath, installServer, type McpClient } from "../../core/mcp/install.js";
 
 /** The three supported agents, in display order. */
 const ALL_TARGETS: AgentTarget[] = ["claude", "cursor", "codex"];
@@ -39,6 +40,27 @@ const TARGET_LABELS: Record<AgentTarget, string> = {
   cursor: "Cursor  (.cursor/rules)",
   codex: "Codex   (AGENTS.md)",
 };
+
+/**
+ * Which agent targets also get the `launch mcp` server wired into their project-scoped MCP client config.
+ * Claude → Claude Code's `.mcp.json`, Cursor → `.cursor/mcp.json`. Codex has no MCP surface, and Claude
+ * Desktop is a global (non-project) client, so neither is wired by `init` — both stay opt-in via
+ * `launch mcp install --client`.
+ */
+const TARGET_MCP_CLIENT: Partial<Record<AgentTarget, McpClient>> = {
+  claude: "claude-code",
+  cursor: "cursor",
+};
+
+/** The MCP clients to wire for a target set — the same merge routine `launch mcp install` uses. */
+function mcpClientsFor(targets: AgentTarget[]): McpClient[] {
+  const clients: McpClient[] = [];
+  for (const target of targets) {
+    const client = TARGET_MCP_CLIENT[target];
+    if (client) clients.push(client);
+  }
+  return clients;
+}
 
 /** One planned artifact: an `owned` file rewritten whole, or a `spliced` managed block inside a shared file. */
 type Artifact = { kind: "owned"; path: string; body: string } | { kind: "spliced"; path: string; block: string };
@@ -189,11 +211,16 @@ async function runInit(program: Command, cwd: string, options: AgentsOptions): P
   assertRegistryInSync(program);
   const targets = await resolveTargets(cwd, options);
   const artifacts = planArtifacts(targets, program.version() ?? "0.0.0");
+  const mcpClients = mcpClientsFor(targets);
   const interactive = options.yes !== true && process.stdin.isTTY;
 
   if (interactive) {
     intro("launch agents");
-    note(artifacts.map((a) => `• ${a.path}`).join("\n"), `Will write for: ${targets.join(", ")}`);
+    const preview = [
+      ...artifacts.map((a) => `• ${a.path}`),
+      ...mcpClients.map((client) => `• ${clientConfigPath(client, cwd)} (launch mcp server)`),
+    ].join("\n");
+    note(preview, `Will write for: ${targets.join(", ")}`);
     const ok = await confirm({ message: "Write these files?" });
     if (isCancel(ok) || !ok) {
       cancel("Nothing written.");
@@ -202,11 +229,13 @@ async function runInit(program: Command, cwd: string, options: AgentsOptions): P
   }
 
   writeArtifacts(cwd, artifacts);
+  const wired = mcpClients.filter((client) => installServer(client, cwd).changed);
   const summary = `Wrote ${artifacts.length} file${artifacts.length === 1 ? "" : "s"} for ${targets.join(", ")}.`;
   if (interactive) {
     outro(summary);
   } else {
     for (const artifact of artifacts) console.log(`✓ ${artifact.path}`);
+    for (const client of wired) console.log(`✓ ${clientConfigPath(client, cwd)} (launch mcp server)`);
     console.log(summary);
   }
   console.log("Verify anytime with: launch agents check");

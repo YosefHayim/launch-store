@@ -59,6 +59,7 @@ export function defineConfig(input: LaunchConfigInput): LaunchConfig {
     // `!== undefined`, not a truthy check: `0` is the meaningful "disable auto-prune" value.
     ...(input.artifactRetentionDays !== undefined ? { artifactRetentionDays: input.artifactRetentionDays } : {}),
     ...(input.envExclude ? { envExclude: input.envExclude } : {}),
+    ...(input.mcp ? { mcp: input.mcp } : {}),
   };
 }
 
