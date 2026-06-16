@@ -25,11 +25,13 @@ describe("readiness registry", () => {
     expect(account).not.toContain("apple-distribution-cert"); // signing/submit, not an onboarding check
 
     const iap = selectReadinessProbes("iap").map((probe) => probe.id);
-    expect(iap).toContain("apple-subscription-group");
+    expect(iap).toEqual(
+      expect.arrayContaining(["apple-subscription-group", "apple-iap-products", "apple-subscriptions"]),
+    );
     expect(iap).not.toContain("apple-app-record");
 
     // audit is the cross-cutting `submit` selector: it picks up blocking probes across categories,
-    // including the account/signing ones tagged `submit`, but not advisory-only checks.
+    // including the account/signing/iap ones tagged `submit`, but not advisory-only checks.
     const submit = selectReadinessProbes("submit").map((probe) => probe.id);
     expect(submit).toEqual(
       expect.arrayContaining([
@@ -37,6 +39,8 @@ describe("readiness registry", () => {
         "apple-bundle-id",
         "apple-distribution-cert",
         "apple-export-compliance",
+        "apple-iap-products",
+        "apple-subscriptions",
         "play-app-access",
       ]),
     );
