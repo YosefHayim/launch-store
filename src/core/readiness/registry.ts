@@ -9,6 +9,9 @@
 import type { ReadinessCategory, ReadinessProbe } from "./types.js";
 import { appRecordProbe } from "./probes/appRecord.js";
 import { subscriptionGroupProbe } from "./probes/subscriptionGroup.js";
+import { bundleIdProbe } from "./probes/bundleId.js";
+import { distributionCertProbe } from "./probes/distributionCert.js";
+import { exportComplianceProbe } from "./probes/exportCompliance.js";
 import { playAppProbe } from "./probes/playApp.js";
 import { playFirstUploadProbe } from "./probes/playFirstUpload.js";
 import { playInternalTrackProbe } from "./probes/playInternalTrack.js";
@@ -37,12 +40,15 @@ export function selectReadinessProbes(category: ReadinessCategory): ReadinessPro
 
 /**
  * Register the built-in probes. Idempotent: safe to call from a command entry and from tests without
- * duplicating. The trust-layer account probes wire in here; the audit and iap-doctor probes join them as
- * those commands land.
+ * duplicating. The trust-layer account probes (store doctor) and the submit-blocking probes (audit) wire in
+ * here; the iap-doctor probes join them as that command lands.
  */
 export function registerBuiltinProbes(): void {
   registerReadinessProbe(appRecordProbe);
   registerReadinessProbe(subscriptionGroupProbe);
+  registerReadinessProbe(bundleIdProbe);
+  registerReadinessProbe(distributionCertProbe);
+  registerReadinessProbe(exportComplianceProbe);
   registerReadinessProbe(playAppProbe);
   registerReadinessProbe(playFirstUploadProbe);
   registerReadinessProbe(playInternalTrackProbe);

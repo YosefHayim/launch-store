@@ -50,7 +50,9 @@ describe("glossary — the single source for --explain and docs", () => {
     expect(topics).toContain("release-train");
     // Store-account readiness teaching entry (`launch store doctor`, issue #170).
     expect(topics).toContain("store-readiness");
-    expect(topics.length).toBe(63);
+    // Pre-submit readiness teaching entry (`launch audit`, issue #168).
+    expect(topics).toContain("submission-readiness");
+    expect(topics.length).toBe(64);
     expect(new Set(topics).size).toBe(topics.length);
   });
 
