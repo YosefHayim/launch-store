@@ -141,13 +141,17 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 53 `launch` commands (205 store-API operations underneath, 1358 tests):
+All 54 `launch` commands (205 store-API operations underneath, 1381 tests):
 
 - `launch init` — scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` — onboard an app that already ships: import its App Store Connect setup into config
 - `launch migrate` — import an existing EAS or fastlane setup into a Launch config
   - `launch migrate eas` — read eas.json/app.json and emit launch.config.ts, .env.example, store.config.json + a report
   - `launch migrate fastlane` — read fastlane config (Appfile/Fastfile/Matchfile…) and emit launch.config.ts, .env.example, store.config.json + a report
+- `launch config` — work with the launch.config.ts schema — emit JSON Schema, validate a config, or print the field reference
+  - `launch config schema` — print the JSON Schema for launch.config.ts (generated from the config types)
+  - `launch config validate [file]` — validate a config against the schema, reporting each problem with its field path
+  - `launch config docs` — print the launch.config.ts field reference (the same content as docs/config.md)
 - `launch build <platform>` — run the full pipeline and upload to the testing track (--no-submit to build only)
 - `launch release <platform>` — submit the latest build to the store's PUBLIC production track (with confirmation)
 - `launch status` — show each app's App Store version, review, and phased-rollout state
@@ -260,7 +264,7 @@ All 53 `launch` commands (205 store-API operations underneath, 1358 tests):
 
 ## Reference
 
-- [Command reference](./docs/commands.md): all 53 `launch` commands and every flag, generated from the CLI.
+- [Command reference](./docs/commands.md): all 54 `launch` commands and every flag, generated from the CLI.
 
 ## Source
 

@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **205 App Store Connect & Google Play API operations** across **53 commands**, guarded by **1358 tests**.
+> Launch wraps **205 App Store Connect & Google Play API operations** across **54 commands**, guarded by **1381 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -44,6 +44,26 @@ read fastlane config (Appfile/Fastfile/Matchfile…) and emit launch.config.ts, 
 | `--force`     | overwrite files that already exist                                      |
 | `--dry-run`   | print what would be written without writing anything                    |
 | `--out <dir>` | write the migrated files to this directory (default: current directory) |
+
+## `launch config`
+
+work with the launch.config.ts schema — emit JSON Schema, validate a config, or print the field reference
+
+### `launch config schema`
+
+print the JSON Schema for launch.config.ts (generated from the config types)
+
+| Flag           | Description                                     |
+| -------------- | ----------------------------------------------- |
+| `--out <file>` | write the schema to this file instead of stdout |
+
+### `launch config validate [file]`
+
+validate a config against the schema, reporting each problem with its field path
+
+### `launch config docs`
+
+print the launch.config.ts field reference (the same content as docs/config.md)
 
 ## `launch build <platform>`
 
