@@ -52,6 +52,7 @@ your terminal.
 - **distribution certificate** — proves Apple trusts you to sign release builds. Created from a local CSR, imported into the Keychain, and reused (Apple caps you at ~2–3).
 - **provisioning profile** — ties the bundle id to a certificate + entitlements; for the store it's an "App Store" profile. Installed where Xcode looks.
 - **entitlements** — the capabilities an app may use (push, iCloud, app groups). They must match what the provisioning profile grants or signing fails; `expo prebuild` generates them from `app.json`.
+- **bundle id capability** — a service an _App ID_ is allowed to use (push, associated domains, app groups, iCloud). Set on the App ID and must match the app's entitlements or signing fails. Launch syncs them over the API from `launch.config.ts` — enabling what you added, disabling the managed ones you removed, leaving already-correct ones (and sub-settings) untouched.
 - **APNs auth key** — a `.p8` your backend uses to send push notifications. Apple has _no_ API to create one (download-once, portal-only, max 2 per account), so `launch creds push-key` only imports and vaults it in your keychain — Launch never sends push itself.
 - **UDID** — the unique hardware id of an iPhone/iPad. Ad-hoc installs only run on devices whose UDID is on the profile — register each with `launch device add`. The App Store/TestFlight don't need UDIDs.
 
@@ -65,6 +66,34 @@ your terminal.
 
 - **TestFlight** — Apple's pre-release testing track and the safe default for `launch build`. Public App Store release is the separate `launch release`.
 - **ad-hoc / internal distribution** — an install link for testers without TestFlight. iOS serves an ad-hoc `.ipa` (valid only for registered UDIDs) via an `itms-services` manifest; Android serves the `.apk` directly. Both host on _your_ own bucket — `launch build --distribution internal`.
+
+## App Store release lifecycle
+
+- **App Store version** — the per-release record on App Store Connect (one per marketing version): its review state, the attached build, the release type, and the "What's New" notes. `launch release` creates or reuses the editable one, attaches the build, and submits it. The unit Apple reviews and ships, separate from TestFlight.
+- **review submission** — Apple's container for what you send to App Review. `launch release` drives it over the API (create → add the version as an item → submit), so you never click "Submit for Review"; re-running resumes an in-progress submission instead of duplicating it.
+- **release type** — how an _approved_ build reaches the public store: `AFTER_APPROVAL` (auto-release on approval, the default), `MANUAL` (you press release), or `SCHEDULED` (a date you set). Set in `launch.config.ts` (`release.releaseType`) or per-run with `--manual` / `--scheduled <iso>`.
+- **phased release** — Apple's optional 7-day staged rollout of an approved _update_ — a growing percentage of users per day so a regression reaches few people. Opt in with `launch release --phased`, then pause/resume/finish with `launch rollout`. Applies only to updates (a first version always ships to 100%).
+- **export compliance** — Apple's encryption question every build must answer before shipping. Standard HTTPS/system crypto is exempt; Launch declares that over the API (`usesNonExemptEncryption=false`) so the build clears "Waiting for Export Compliance" with no portal trip. Set `release.usesNonExemptEncryption` true only for proprietary/non-exempt encryption.
+- **release train** — one app's whole release coordinated across iOS, Android, and OTA as a single record; each platform (and each OTA follower) is a "car". `launch release-train start` submits every car; `status` reconciles forward (each car releases on its own approval, an OTA bundle publishes once its native platform is live). `--hold` waits until all are approved, then releases together.
+
+## Store readiness & state (read-only)
+
+- **store readiness** — the account-level prerequisites a store needs before it accepts a submission (an ASC app record, a Play app the service account can reach, a first Play upload). None involve the build, so a green build can still be unshippable. `launch store doctor` grades them live (exit 2 on a blocker).
+- **submission readiness** — the full set a store checks at _submission_: a registered bundle id, a valid distribution certificate, a declared export-compliance answer, plus the account basics. `launch audit` reads every submit blocker live and grades it (exit 2 on a blocker) as a pre-release gate.
+- **IAP readiness** — whether the in-app purchases/subscriptions your config declares actually exist on App Store Connect and are submittable (not stuck in `MISSING_METADATA`). The most error-prone surface: a green build says nothing about whether buying works. `launch iap doctor` grades each declared product against its live state (exit 2 on a blocker).
+- **store snapshot** — a read-only, point-in-time copy of your live ASC + Play catalog (products, subscriptions, states), saved as a named record under `~/.launch/snapshots`. The trustworthy "before" that makes destructive store automation reversible: capture, run `launch sync`, then `launch snapshot diff` to see what moved.
+
+## In-app purchases — subscriptions & offers
+
+- **subscription group** — Apple's container for mutually-exclusive subscription tiers; a customer holds at most one active subscription per group (e.g. Monthly vs Yearly of one plan), and upgrades/downgrades move them between levels. Declared in `launch.config.ts` and reconciled onto ASC by reference name (the group's natural key).
+- **subscription offer** — a discounted/free entry price on a subscription: **introductory** (a new customer's first-time deal), **promotional** (win-back/retention for lapsed or current users), or an **offer code** (a redeemable code). Apple makes offer terms immutable once created, so `launch offers` only _adds_ missing offers — never edits or deletes (deactivating a code is the explicit `launch offers deactivate`), making it safe to re-run.
+
+## Config-as-code — the GitOps loop
+
+- **reconcile** — Launch treats `launch.config.ts` as the _desired state_ and makes the live store match it (the GitOps loop, applied to ASC and Play). Declarative and additive: each object is matched on its natural key and created/updated only where it diverges, so a reconcile is safe to re-run. `launch sync` reconciles the whole config; `offers` and others reconcile one surface.
+- **plan / drift** — the read-only half of the loop. `launch plan` diffs `launch.config.ts` (desired) against live store + signing state (actual) and prints what `sync` _would_ change, touching nothing. `launch drift` is the same read graded for CI (`plan --check`): exit `0` in sync, `2` on drift, `1` on error. See `docs/adr/0003-plan-drift.md`.
+- **adopt** — the reverse of reconcile, for an app that _already ships_. `launch adopt` reads your live ASC setup (products, capabilities, signing, listing) and writes it back into a populated, reviewable `launch.config.ts` (+ `app.json` entitlements + `store.config.json`), so a hand-built or EAS app comes under config-as-code in one command. See `docs/adr/0002-adopt-existing-app.md`.
+- **migrate** — the file-based onboarding path (vs. `adopt`, which reads a live account). `launch migrate` reads an existing EAS (`eas.json`/`app.json`) or fastlane setup off disk and emits the equivalent Launch config plus a report of what to finish by hand. Read-only against both stores.
 
 ## OTA updates & store listing
 
