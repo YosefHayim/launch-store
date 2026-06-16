@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Quelloffene, selbst gehostete Alternative zu Expo EAS — bauen, signieren &amp; veröffentlichen Sie Ihre Expo-/React-Native-Apps direkt von Ihrem eigenen Rechner aus zu TestFlight &amp; Google Play, mit Ihren eigenen Schlüsseln. Keine Abrechnung pro Build.</strong>
+  <strong>Quelloffene, selbst gehostete Alternative zu Expo EAS — bauen, signieren, Stores konfigurieren &amp; veröffentlichen Sie Ihre Expo-/React-Native-Apps aus einer einzigen typisierten launch.config.ts im App Store &amp; bei Google Play, direkt von Ihrem eigenen Rechner und mit Ihren eigenen Schlüsseln. Keine Abrechnung pro Build.</strong>
 </p>
 
 <p align="center">

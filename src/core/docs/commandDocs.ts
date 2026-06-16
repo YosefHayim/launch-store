@@ -67,7 +67,7 @@ export interface GeneratedDoc {
  * the GEO goal of issue #89. The consistency test asserts all three still match this constant.
  */
 export const CANONICAL_SENTENCE =
-  "Open-source, self-hosted alternative to Expo EAS — build, sign & ship your Expo / React Native apps to TestFlight & Google Play from your own machine, with your own keys. No per-build bill.";
+  "Open-source, self-hosted alternative to Expo EAS — build, sign, configure your stores, and ship Expo / React Native apps to the App Store & Google Play from one typed launch.config.ts — your machine, your keys. No per-build bill.";
 
 /**
  * The "what Launch is / is NOT" disambiguation, shared by the README and `llms.txt`. AI engines

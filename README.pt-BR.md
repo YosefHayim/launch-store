@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Alternativa open-source e self-hosted ao Expo EAS — compile, assine e publique seus apps Expo / React Native no TestFlight e no Google Play a partir da sua própria máquina, com suas próprias chaves. Sem cobrança por build.</strong>
+  <strong>Alternativa open-source e self-hosted ao Expo EAS — compile, assine, configure suas lojas e publique seus apps Expo / React Native na App Store e no Google Play a partir de um único launch.config.ts tipado, na sua própria máquina e com suas próprias chaves. Sem cobrança por build.</strong>
 </p>
 
 <p align="center">

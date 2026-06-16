@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Open-source, self-hosted alternative to Expo EAS — build, sign &amp; ship your Expo / React Native apps to TestFlight &amp; Google Play from your own machine, with your own keys. No per-build bill.</strong>
+  <strong>Open-source, self-hosted alternative to Expo EAS — build, sign, configure your stores, and ship Expo / React Native apps to the App Store &amp; Google Play from one typed launch.config.ts — your machine, your keys. No per-build bill.</strong>
 </p>
 
 <p align="center">
