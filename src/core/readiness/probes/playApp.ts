@@ -9,12 +9,12 @@
 import type { ProbeResult, ReadinessContext, ReadinessProbe } from "../types.js";
 import { androidApps } from "../appScopes.js";
 
-/** The Google Play app-exists / service-account-access readiness probe. */
+/** The Google Play app-exists / service-account-access readiness probe — an account and a submit blocker. */
 export const playAppProbe: ReadinessProbe = {
   id: "play-app-access",
   title: "Play app exists & service account authorized",
   store: "play",
-  categories: ["account"],
+  categories: ["account", "submit"],
   async check(ctx: ReadinessContext): Promise<ProbeResult> {
     const apps = androidApps(ctx.apps);
     if (apps.length === 0) return { state: "omitted" };

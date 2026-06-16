@@ -17,15 +17,30 @@ describe("readiness registry", () => {
     expect(listReadinessProbes().map((probe) => probe.id)).toContain("play-first-upload");
   });
 
-  it("selects probes by category — every built-in is an account check; only some are iap", () => {
+  it("selects probes by category — each command sees only its slice", () => {
     registerBuiltinProbes();
     const account = selectReadinessProbes("account").map((probe) => probe.id);
     expect(account).toContain("apple-app-record");
     expect(account).toContain("play-app-access");
+    expect(account).not.toContain("apple-distribution-cert"); // signing/submit, not an onboarding check
 
     const iap = selectReadinessProbes("iap").map((probe) => probe.id);
     expect(iap).toContain("apple-subscription-group");
     expect(iap).not.toContain("apple-app-record");
+
+    // audit is the cross-cutting `submit` selector: it picks up blocking probes across categories,
+    // including the account/signing ones tagged `submit`, but not advisory-only checks.
+    const submit = selectReadinessProbes("submit").map((probe) => probe.id);
+    expect(submit).toEqual(
+      expect.arrayContaining([
+        "apple-app-record",
+        "apple-bundle-id",
+        "apple-distribution-cert",
+        "apple-export-compliance",
+        "play-app-access",
+      ]),
+    );
+    expect(submit).not.toContain("play-internal-track"); // advisory, never a hard submit blocker
   });
 
   it("replaces a probe registered under an existing id", () => {

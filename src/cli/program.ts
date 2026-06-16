@@ -46,6 +46,7 @@ import { registerTestflightCommand } from "./commands/testflight.js";
 import { registerEventsCommand } from "./commands/events.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerStoreCommand } from "./commands/storeDoctor.js";
+import { registerAuditCommand } from "./commands/audit.js";
 import { registerExplainCommand } from "./commands/explain.js";
 import { registerUpdateCommand } from "./commands/update.js";
 import { registerUpdatesCommand } from "./commands/updates.js";
@@ -125,6 +126,7 @@ export function buildProgram(): Command {
   registerSandboxCommand(program);
   registerDoctorCommand(program);
   registerStoreCommand(program);
+  registerAuditCommand(program);
   registerExplainCommand(program);
   registerUpdateCommand(program);
   registerUpdatesCommand(program);

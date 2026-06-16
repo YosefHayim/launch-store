@@ -8,12 +8,12 @@
 import type { ProbeResult, ReadinessContext, ReadinessProbe } from "../types.js";
 import { iosApps } from "../appScopes.js";
 
-/** The App Store Connect app-record readiness probe (account onboarding). */
+/** The App Store Connect app-record readiness probe — both an account-onboarding and a submit blocker. */
 export const appRecordProbe: ReadinessProbe = {
   id: "apple-app-record",
   title: "App Store Connect app record",
   store: "appstore",
-  categories: ["account"],
+  categories: ["account", "submit"],
   async check(ctx: ReadinessContext): Promise<ProbeResult> {
     const apps = iosApps(ctx.apps);
     if (apps.length === 0) return { state: "omitted" };

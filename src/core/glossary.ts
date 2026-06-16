@@ -31,6 +31,7 @@ export type GlossaryTopic =
   | "app-record"
   | "agreements"
   | "store-readiness"
+  | "submission-readiness"
   // Apple — identity & code signing
   | "asc-api-key"
   | "bundle-id"
@@ -174,6 +175,12 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "an App Store Connect app record, a Play app the service account can reach, a first build uploaded to",
     "Play. None involve the build itself, so a green build can still be unshippable. `launch store doctor`",
     "reads these live and grades them (exit 2 on a blocker) before you waste a release attempt on them.",
+  ].join("\n"),
+  "submission-readiness": [
+    "Submission readiness: the full set of prerequisites a store checks at *submission* — a registered",
+    "Bundle ID, a valid (unexpired) distribution certificate, a declared export-compliance answer, plus the",
+    "account-level basics. A green build that passes `store doctor` can still bounce on one of these.",
+    "`launch audit` reads every submit blocker live and grades them (exit 2 on a blocker) as a pre-release gate.",
   ].join("\n"),
 
   // ── Apple — identity & code signing ───────────────────────────────────────
