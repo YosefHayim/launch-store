@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **205 App Store Connect & Google Play API operations** across **53 commands**, guarded by **1339 tests**.
+> Launch wraps **205 App Store Connect & Google Play API operations** across **53 commands**, guarded by **1358 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -23,11 +23,21 @@ onboard an app that already ships: import its App Store Connect setup into confi
 
 ## `launch migrate`
 
-import an existing EAS (or fastlane) setup into a Launch config
+import an existing EAS or fastlane setup into a Launch config
 
 ### `launch migrate eas`
 
 read eas.json/app.json and emit launch.config.ts, .env.example, store.config.json + a report
+
+| Flag          | Description                                                             |
+| ------------- | ----------------------------------------------------------------------- |
+| `--force`     | overwrite files that already exist                                      |
+| `--dry-run`   | print what would be written without writing anything                    |
+| `--out <dir>` | write the migrated files to this directory (default: current directory) |
+
+### `launch migrate fastlane`
+
+read fastlane config (Appfile/Fastfile/Matchfile…) and emit launch.config.ts, .env.example, store.config.json + a report
 
 | Flag          | Description                                                             |
 | ------------- | ----------------------------------------------------------------------- |

@@ -17,8 +17,10 @@ import { loadConfig } from "../../core/config.js";
 import { createLogger } from "../../core/logger.js";
 import type { Logger } from "../../core/logger.js";
 import { migrateEas } from "../../core/migrate/eas.js";
+import { migrateFastlane } from "../../core/migrate/fastlane.js";
 import { renderReport } from "../../core/migrate/report.js";
 import { writeArtifacts } from "../../core/migrate/write.js";
+import type { AppDescriptor } from "../../core/types.js";
 import type { MigrationNote, MigrationNoteLevel, MigrationResult } from "../../core/migrate/types.js";
 
 /** The generated report's filename, always (re)written — it's a regenerable summary, not a user file. */
@@ -45,18 +47,23 @@ function renderNotes(log: Logger, notes: MigrationNote[]): void {
   }
 }
 
+/** A source's migrate function: read its config files at `cwd` and return the artifacts + report. */
+type Migrator = (cwd: string, apps: AppDescriptor[]) => MigrationResult;
+
 /**
- * Run the EAS migration: read `eas.json`/`app.json`, print the notes, then either preview (`--dry-run`)
- * or write the artifacts + report. A missing/invalid `eas.json` exits non-zero with the parser's message.
+ * Run one migration source end to end: discover apps, run its migrator, print the notes, then either
+ * preview (`--dry-run`) or write the artifacts + report. Shared by every subcommand — `eas` and
+ * `fastlane` differ only by the `migrate` they pass in. A missing/invalid source config exits non-zero
+ * with the migrator's own message.
  */
-export async function runMigrateEas(options: MigrateOptions): Promise<void> {
+async function runMigration(migrate: Migrator, options: MigrateOptions): Promise<void> {
   const log = createLogger(false);
   const cwd = process.cwd();
   const { apps } = await loadConfig();
 
   let result: MigrationResult;
   try {
-    result = migrateEas(cwd, apps);
+    result = migrate(cwd, apps);
   } catch (error) {
     log.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
@@ -88,11 +95,11 @@ export async function runMigrateEas(options: MigrateOptions): Promise<void> {
   log.tip("Review the files, then run `launch doctor` to check your setup.");
 }
 
-/** Attach the `migrate` command group and its `eas` subcommand to the program. */
+/** Attach the `migrate` command group and its per-source subcommands (`eas`, `fastlane`) to the program. */
 export function registerMigrateCommand(program: Command): void {
   const migrate = program
     .command("migrate")
-    .description("import an existing EAS (or fastlane) setup into a Launch config");
+    .description("import an existing EAS or fastlane setup into a Launch config");
 
   migrate
     .command("eas")
@@ -101,6 +108,18 @@ export function registerMigrateCommand(program: Command): void {
     .option("--dry-run", "print what would be written without writing anything", false)
     .option("--out <dir>", "write the migrated files to this directory (default: current directory)")
     .action(async (options: MigrateOptions) => {
-      await runMigrateEas(options);
+      await runMigration(migrateEas, options);
+    });
+
+  migrate
+    .command("fastlane")
+    .description(
+      "read fastlane config (Appfile/Fastfile/Matchfile…) and emit launch.config.ts, .env.example, store.config.json + a report",
+    )
+    .option("--force", "overwrite files that already exist", false)
+    .option("--dry-run", "print what would be written without writing anything", false)
+    .option("--out <dir>", "write the migrated files to this directory (default: current directory)")
+    .action(async (options: MigrateOptions) => {
+      await runMigration(migrateFastlane, options);
     });
 }
