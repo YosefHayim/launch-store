@@ -97,12 +97,16 @@ export interface ProbeReport {
 export interface AscReadinessApi {
   /** The app's App Store Connect id for a bundle id, or `null` when no app record exists. */
   getAppId(bundleId: string): Promise<string | null>;
-  /** The app's auto-renewable subscription groups (only `id` is needed to assert presence). */
+  /** The app's auto-renewable subscription groups (only `id` is needed to assert presence / list members). */
   listSubscriptionGroups(appId: string): Promise<{ id: string }[]>;
   /** The registered Bundle ID (App ID) for an identifier, or `null` when it isn't registered yet. */
   findBundleId(identifier: string): Promise<{ id: string } | null>;
   /** The team's distribution certificates (only `id` + `expirationDate` are needed to grade validity). */
   listDistributionCertificates(): Promise<{ id: string; expirationDate?: string | undefined }[]>;
+  /** The app's one-time in-app purchases (Apple `productId` + lifecycle `state`, to match config + grade readiness). */
+  listInAppPurchases(appId: string): Promise<{ productId: string; state?: string | undefined }[]>;
+  /** A subscription group's subscriptions (Apple `productId` + lifecycle `state`). */
+  listSubscriptions(groupId: string): Promise<{ productId: string; state?: string | undefined }[]>;
 }
 
 /**
