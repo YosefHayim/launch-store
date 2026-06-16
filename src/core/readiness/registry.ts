@@ -12,6 +12,8 @@ import { subscriptionGroupProbe } from "./probes/subscriptionGroup.js";
 import { bundleIdProbe } from "./probes/bundleId.js";
 import { distributionCertProbe } from "./probes/distributionCert.js";
 import { exportComplianceProbe } from "./probes/exportCompliance.js";
+import { iapProductsProbe } from "./probes/iapProducts.js";
+import { subscriptionsProbe } from "./probes/subscriptions.js";
 import { playAppProbe } from "./probes/playApp.js";
 import { playFirstUploadProbe } from "./probes/playFirstUpload.js";
 import { playInternalTrackProbe } from "./probes/playInternalTrack.js";
@@ -40,8 +42,8 @@ export function selectReadinessProbes(category: ReadinessCategory): ReadinessPro
 
 /**
  * Register the built-in probes. Idempotent: safe to call from a command entry and from tests without
- * duplicating. The trust-layer account probes (store doctor) and the submit-blocking probes (audit) wire in
- * here; the iap-doctor probes join them as that command lands.
+ * duplicating. The whole trust-layer family wires in here — account probes (store doctor), submit-blocking
+ * probes (audit), and IAP probes (iap doctor); a command is just a selector over the category tags.
  */
 export function registerBuiltinProbes(): void {
   registerReadinessProbe(appRecordProbe);
@@ -49,6 +51,8 @@ export function registerBuiltinProbes(): void {
   registerReadinessProbe(bundleIdProbe);
   registerReadinessProbe(distributionCertProbe);
   registerReadinessProbe(exportComplianceProbe);
+  registerReadinessProbe(iapProductsProbe);
+  registerReadinessProbe(subscriptionsProbe);
   registerReadinessProbe(playAppProbe);
   registerReadinessProbe(playFirstUploadProbe);
   registerReadinessProbe(playInternalTrackProbe);

@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **205 App Store Connect & Google Play API operations** across **50 commands**, guarded by **1276 tests**.
+> Launch wraps **205 App Store Connect & Google Play API operations** across **51 commands**, guarded by **1282 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -730,6 +730,19 @@ check store-account readiness: Apple app record, Play onboarding & access (read-
 ## `launch audit`
 
 pre-submit readiness sweep: would a submission be rejected right now? (read-only)
+
+| Flag                | Description                                     |
+| ------------------- | ----------------------------------------------- |
+| `-a, --app <names>` | comma-separated app handles (default: all apps) |
+| `--json`            | machine-readable output for CI/agents           |
+
+## `launch iap`
+
+in-app-purchase readiness and operations
+
+### `launch iap doctor`
+
+check in-app-purchase readiness: products & subscriptions exist and are submittable (read-only)
 
 | Flag                | Description                                     |
 | ------------------- | ----------------------------------------------- |

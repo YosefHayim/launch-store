@@ -32,6 +32,7 @@ export type GlossaryTopic =
   | "agreements"
   | "store-readiness"
   | "submission-readiness"
+  | "iap-readiness"
   // Apple — identity & code signing
   | "asc-api-key"
   | "bundle-id"
@@ -181,6 +182,13 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "Bundle ID, a valid (unexpired) distribution certificate, a declared export-compliance answer, plus the",
     "account-level basics. A green build that passes `store doctor` can still bounce on one of these.",
     "`launch audit` reads every submit blocker live and grades them (exit 2 on a blocker) as a pre-release gate.",
+  ].join("\n"),
+  "iap-readiness": [
+    "IAP readiness: whether the in-app purchases and subscriptions your config declares actually exist on",
+    "App Store Connect and are submittable — not stuck in MISSING_METADATA (no name, price, or localization).",
+    "IAP is the most error-prone surface: a green build says nothing about whether buying the thing works, and",
+    "a product the app references but never finished fails silently in production. `launch iap doctor` grades",
+    "each declared product against its live state (exit 2 on a blocker) so you catch it before customers do.",
   ].join("\n"),
 
   // ── Apple — identity & code signing ───────────────────────────────────────

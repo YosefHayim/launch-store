@@ -4,6 +4,8 @@ import { subscriptionGroupProbe } from "./subscriptionGroup.js";
 import { bundleIdProbe } from "./bundleId.js";
 import { distributionCertProbe } from "./distributionCert.js";
 import { exportComplianceProbe } from "./exportCompliance.js";
+import { iapProductsProbe } from "./iapProducts.js";
+import { subscriptionsProbe } from "./subscriptions.js";
 import { playAppProbe } from "./playApp.js";
 import { playFirstUploadProbe } from "./playFirstUpload.js";
 import { playInternalTrackProbe } from "./playInternalTrack.js";
@@ -34,6 +36,8 @@ function ascApi(over: Partial<AscReadinessApi> = {}): AscReadinessApi {
     listSubscriptionGroups: vi.fn(async () => [{ id: "g1" }]),
     findBundleId: vi.fn(async () => ({ id: "b1" })),
     listDistributionCertificates: vi.fn(async () => [{ id: "c1", expirationDate: "2099-01-01T00:00:00Z" }]),
+    listInAppPurchases: vi.fn(async () => []),
+    listSubscriptions: vi.fn(async () => []),
     ...over,
   };
 }
@@ -117,6 +121,94 @@ describe("subscriptionGroupProbe", () => {
       ctx({ apps: [app({ bundleId: "com.x" })], asc: api, products: withSubs }),
     );
     expect(findings(result)).toEqual([{ status: "warn", identifier: "com.x" }]);
+  });
+});
+
+describe("iapProductsProbe", () => {
+  const withIap: LaunchConfig["products"] = {
+    "com.x": {
+      inAppPurchases: [{ productId: "com.x.coins", referenceName: "Coins", type: "CONSUMABLE", localizations: [] }],
+    },
+  };
+
+  it("omits when no app declares one-time IAPs, skips without an Apple account", async () => {
+    expect((await iapProductsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })] }))).state).toBe("omitted");
+    expect(
+      (await iapProductsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: null, products: withIap }))).state,
+    ).toBe("skipped");
+  });
+
+  it("passes a present product, blocks a missing one and a MISSING_METADATA one", async () => {
+    const present = ascApi({
+      listInAppPurchases: vi.fn(async () => [{ productId: "com.x.coins", state: "READY_TO_SUBMIT" }]),
+    });
+    expect(
+      findings(
+        await iapProductsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: present, products: withIap })),
+      ),
+    ).toEqual([{ status: "ok", identifier: "com.x.coins" }]);
+
+    const absent = ascApi({ listInAppPurchases: vi.fn(async () => []) });
+    expect(
+      findings(
+        await iapProductsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: absent, products: withIap })),
+      ),
+    ).toEqual([{ status: "blocker", identifier: "com.x.coins" }]);
+
+    const incomplete = ascApi({
+      listInAppPurchases: vi.fn(async () => [{ productId: "com.x.coins", state: "MISSING_METADATA" }]),
+    });
+    expect(
+      findings(
+        await iapProductsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: incomplete, products: withIap })),
+      ),
+    ).toEqual([{ status: "blocker", identifier: "com.x.coins" }]);
+  });
+
+  it("warns instead of blocking when the app record isn't there to check against", async () => {
+    const noApp = ascApi({ getAppId: vi.fn(async () => null) });
+    const result = await iapProductsProbe.check(
+      ctx({ apps: [app({ bundleId: "com.x" })], asc: noApp, products: withIap }),
+    );
+    expect(findings(result)).toEqual([{ status: "warn", identifier: "com.x" }]);
+  });
+});
+
+describe("subscriptionsProbe", () => {
+  const withSub: LaunchConfig["products"] = {
+    "com.x": {
+      subscriptionGroups: [
+        {
+          referenceName: "g",
+          localizations: [],
+          subscriptions: [
+            { productId: "com.x.pro", referenceName: "Pro", subscriptionPeriod: "ONE_MONTH", localizations: [] },
+          ],
+        },
+      ],
+    },
+  };
+
+  it("omits when no app declares subscriptions", async () => {
+    expect((await subscriptionsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })] }))).state).toBe("omitted");
+  });
+
+  it("passes a present subscription, blocks a missing one (across the app's groups)", async () => {
+    const present = ascApi({
+      listSubscriptions: vi.fn(async () => [{ productId: "com.x.pro", state: "READY_TO_SUBMIT" }]),
+    });
+    expect(
+      findings(
+        await subscriptionsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: present, products: withSub })),
+      ),
+    ).toEqual([{ status: "ok", identifier: "com.x.pro" }]);
+
+    const absent = ascApi({ listSubscriptions: vi.fn(async () => []) });
+    expect(
+      findings(
+        await subscriptionsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: absent, products: withSub })),
+      ),
+    ).toEqual([{ status: "blocker", identifier: "com.x.pro" }]);
   });
 });
 
