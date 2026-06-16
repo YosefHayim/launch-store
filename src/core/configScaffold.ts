@@ -21,16 +21,28 @@ export function detectAppRoot(apps: AppDescriptor[], cwd: string): string | null
   return segments.size === 1 && only ? `./${only}` : null;
 }
 
+/** The single `production` profile `launch init` / `launch adopt` scaffold when none is supplied. */
+const DEFAULT_PROFILES_BLOCK = `  profiles: {
+    production: {
+      name: "production",
+      envFile: ".env", // dotenv loaded for this profile (validated against .env.example)
+      sizeBudgetMB: 200, // soft-gate: confirm before uploading a build over this download size
+    },
+  },`;
+
 /**
  * The commented config Launch writes, tailored with a detected `appRoots` when there is one. `extraSections`
  * is injected verbatim just before the closing `});` — `launch adopt` passes a populated `products:` block
- * there; `launch init` passes nothing and gets the blank starter.
+ * there; `launch init` passes nothing and gets the blank starter. `profilesSection`, when given, replaces
+ * the default single-`production` profiles block — `launch migrate` passes the profiles it mapped from
+ * `eas.json` there so the migrated config carries the user's real build profiles.
  */
-export function configTemplate(appRoot: string | null, extraSections?: string): string {
+export function configTemplate(appRoot: string | null, extraSections?: string, profilesSection?: string): string {
   const appRootsLine = appRoot
     ? `  appRoots: ["${appRoot}"], // every app.json lives under here`
     : `  // appRoots: ["./apps"], // uncomment if your apps live in a subfolder`;
   const injected = extraSections ? `\n${extraSections}\n` : "";
+  const profilesBlock = profilesSection ?? DEFAULT_PROFILES_BLOCK;
   return `import { defineConfig } from "launch-store";
 
 /**
@@ -49,13 +61,7 @@ ${appRootsLine}
   // No Mac? Build remotely. Run \`launch\` (the wizard) or \`launch cloud doctor\`.
   // aws: { region: "us-east-1" }, // for \`launch build ios --remote aws\`
 
-  profiles: {
-    production: {
-      name: "production",
-      envFile: ".env", // dotenv loaded for this profile (validated against .env.example)
-      sizeBudgetMB: 200, // soft-gate: confirm before uploading a build over this download size
-    },
-  },
+${profilesBlock}
 
   // ── App Store Connect config sections ──────────────────────────────────────────────────────
   // The single-config form of the *.config.json sidecars — each reconciled to App Store Connect by
