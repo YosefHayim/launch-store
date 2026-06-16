@@ -141,7 +141,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 49 `launch` commands (205 store-API operations underneath, 1268 tests):
+All 50 `launch` commands (205 store-API operations underneath, 1276 tests):
 
 - `launch init` — scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` — onboard an app that already ships: import its App Store Connect setup into config
@@ -218,6 +218,7 @@ All 49 `launch` commands (205 store-API operations underneath, 1268 tests):
 - `launch doctor` — check that the local toolchain and store account are ready
 - `launch store` — store-account readiness and operations
   - `launch store doctor` — check store-account readiness: Apple app record, Play onboarding & access (read-only)
+- `launch audit` — pre-submit readiness sweep: would a submission be rejected right now? (read-only)
 - `launch explain [topic]` — plain-English glossary for an Apple/iOS term (csr, app-record, provisioning-profile, …)
 - `launch update` — publish an over-the-air JS update (Expo Updates protocol) to your own bucket
 - `launch updates` — inspect and roll back published OTA updates
@@ -249,7 +250,7 @@ All 49 `launch` commands (205 store-API operations underneath, 1268 tests):
 
 ## Reference
 
-- [Command reference](./docs/commands.md): all 49 `launch` commands and every flag, generated from the CLI.
+- [Command reference](./docs/commands.md): all 50 `launch` commands and every flag, generated from the CLI.
 
 ## Source
 

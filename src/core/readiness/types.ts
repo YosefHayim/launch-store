@@ -26,10 +26,14 @@ export type ReadinessStore = "appstore" | "play";
  * - `listing` — store-listing completeness (copy, screenshots, URLs).
  * - `privacy` — privacy-declaration / permissions reconciliation.
  * - `signing` — distribution certificate / profile / Play signing health.
+ * - `submit` — the cross-cutting "would this be rejected at submission?" selector behind `launch audit`. A
+ *   probe carries `submit` *in addition to* its domain tag when its failure blocks a submission, so audit
+ *   is one selector over every blocking check and grows automatically as the family adds blocking probes.
  * The union grows as the family lands; a probe may carry several tags when a check matters to more than
- * one command (e.g. "subscription group ready" is both `account` and `iap`).
+ * one command (e.g. "subscription group ready" is both `account` and `iap`; "app record exists" is both
+ * `account` and `submit`).
  */
-export type ReadinessCategory = "account" | "iap" | "listing" | "privacy" | "signing";
+export type ReadinessCategory = "account" | "iap" | "listing" | "privacy" | "signing" | "submit";
 
 /**
  * One app's finding for one probe. A probe maps an **expected** "not ready" condition (a missing app
@@ -95,6 +99,10 @@ export interface AscReadinessApi {
   getAppId(bundleId: string): Promise<string | null>;
   /** The app's auto-renewable subscription groups (only `id` is needed to assert presence). */
   listSubscriptionGroups(appId: string): Promise<{ id: string }[]>;
+  /** The registered Bundle ID (App ID) for an identifier, or `null` when it isn't registered yet. */
+  findBundleId(identifier: string): Promise<{ id: string } | null>;
+  /** The team's distribution certificates (only `id` + `expirationDate` are needed to grade validity). */
+  listDistributionCertificates(): Promise<{ id: string; expirationDate?: string | undefined }[]>;
 }
 
 /**
