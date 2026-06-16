@@ -56,7 +56,15 @@ describe("glossary — the single source for --explain and docs", () => {
     expect(topics).toContain("iap-readiness");
     // Store-snapshot teaching entry (`launch snapshot`, issue #169).
     expect(topics).toContain("store-snapshot");
-    expect(topics.length).toBe(66);
+    // In-app-purchase vocabulary the offers/iap surfaces depend on.
+    expect(topics).toContain("subscription-group");
+    expect(topics).toContain("subscription-offer");
+    // Config-as-code GitOps loop (`launch sync`/`plan`/`drift`/`adopt`/`migrate`).
+    expect(topics).toContain("config-reconcile");
+    expect(topics).toContain("plan-drift");
+    expect(topics).toContain("adopt");
+    expect(topics).toContain("migrate");
+    expect(topics.length).toBe(72);
     expect(new Set(topics).size).toBe(topics.length);
   });
 

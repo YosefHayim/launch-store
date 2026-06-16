@@ -34,6 +34,9 @@ export type GlossaryTopic =
   | "submission-readiness"
   | "iap-readiness"
   | "store-snapshot"
+  // In-app purchases — subscriptions & offers
+  | "subscription-group"
+  | "subscription-offer"
   // Apple — identity & code signing
   | "asc-api-key"
   | "bundle-id"
@@ -60,6 +63,11 @@ export type GlossaryTopic =
   | "phased-release"
   | "export-compliance"
   | "release-train"
+  // Config-as-code — the GitOps loop over store + signing state
+  | "config-reconcile"
+  | "plan-drift"
+  | "adopt"
+  | "migrate"
   // Over-the-air updates
   | "ota-update"
   | "runtime-version"
@@ -198,6 +206,21 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "then `launch snapshot diff` to see exactly what moved. `launch snapshot` captures, diffs, and exports them.",
   ].join("\n"),
 
+  // ── In-app purchases — subscriptions & offers ─────────────────────────────
+  "subscription-group": [
+    "Subscription group: Apple's container for mutually-exclusive subscription tiers — a customer holds at",
+    "most one active subscription per group (e.g. Monthly vs Yearly of the same plan), and upgrades/downgrades",
+    "move them between levels in the group. You declare groups and their subscriptions in launch.config.ts;",
+    "`launch sync` reconciles them onto App Store Connect by reference name, the group's natural key.",
+  ].join("\n"),
+  "subscription-offer": [
+    "Subscription offer: a discounted or free entry price on a subscription. Three kinds — introductory (a",
+    "new customer's first-time deal), promotional (a win-back/retention deal for lapsed or current users), and",
+    "an offer code (a redeemable code, e.g. for press or partners). Apple makes offer terms immutable once",
+    "created, so Launch only ever adds missing offers — `launch offers` reconciles them from config, never",
+    "edits or deletes (deactivating a code is the explicit `launch offers deactivate`), so it's safe to re-run.",
+  ].join("\n"),
+
   // ── Apple — identity & code signing ───────────────────────────────────────
   "asc-api-key": [
     "App Store Connect API key: a .p8 private key + Key ID + Issuer ID you generate once in",
@@ -322,6 +345,32 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "each platform (and each OTA follower) is a 'car'. `launch release-train start` submits every car, then",
     "`status` reconciles it forward: each car releases on its own approval, and an OTA bundle publishes once",
     "its native platform is live. `--hold` waits until every car is approved, then releases them together.",
+  ].join("\n"),
+
+  // ── Config-as-code — the GitOps loop over store + signing state ───────────
+  "config-reconcile": [
+    "Reconcile: Launch treats launch.config.ts as the desired state and makes the live store match it —",
+    "the GitOps loop, applied to App Store Connect and Google Play. It's declarative and additive: each",
+    "object is matched on its natural key and created/updated only where it diverges, so a reconcile is",
+    "safe to re-run. `launch sync` reconciles the whole config; `offers` and others reconcile one surface.",
+  ].join("\n"),
+  "plan-drift": [
+    "Plan / drift: the read-only half of the reconcile loop. `launch plan` diffs launch.config.ts (desired)",
+    "against live store + signing state (actual) and prints what `sync` WOULD change, touching nothing.",
+    "`launch drift` is the same read graded for CI (`plan --check`): exit 0 in sync, 2 on drift, 1 on error.",
+    "It's the GitOps preview fastlane and EAS don't offer — see what will move before you let anything move.",
+  ].join("\n"),
+  adopt: [
+    "Adopt: the reverse of reconcile — for an app that ALREADY ships. `launch adopt` reads your live App",
+    "Store Connect setup (products, capabilities, signing, listing) and writes it back into a populated,",
+    "reviewable launch.config.ts (+ app.json entitlements + store.config.json), so an app built by hand or",
+    "via EAS comes under config-as-code in one command. From there you drive everything forward with `sync`.",
+  ].join("\n"),
+  migrate: [
+    "Migrate: the file-based onboarding path (vs. adopt, which reads a live account). `launch migrate` reads",
+    "an existing EAS (eas.json/app.json) or fastlane setup off disk and emits the equivalent Launch config",
+    "plus a report of what to finish by hand. Read-only against both stores — it converts configuration, so",
+    "you can try Launch against your current project without touching the App Store or Play.",
   ].join("\n"),
 
   // ── Over-the-air updates ──────────────────────────────────────────────────
