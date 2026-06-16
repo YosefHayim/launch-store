@@ -36,30 +36,21 @@ export type LaunchConfigInput = Pick<LaunchConfig, "profiles"> & Partial<Omit<La
 /**
  * Author a typed `launch.config.ts`. Fills in the v1 defaults (`local` credentials + storage,
  * `fastlane` engine) so a minimal config only needs to declare profiles.
+ *
+ * The whole `input` is spread through first, so anything the user wrote — including a typo'd top-level
+ * key the type system can't catch in an un-compiled config — survives onto the resolved object. That lets
+ * `launch config validate` flag unknown keys on the `.ts` path the same way the schema's
+ * `additionalProperties: false` root already catches them on the `.json` path (issue #197), instead of
+ * silently dropping them. Known keys are inert noise to the pipeline; an unknown one becomes a reported
+ * violation rather than a swallowed mistake.
  */
 export function defineConfig(input: LaunchConfigInput): LaunchConfig {
   return {
+    ...input,
     credentials: input.credentials ?? "local",
     storage: input.storage ?? "local",
     buildEngine: input.buildEngine ?? "fastlane",
     submit: input.submit ?? "app-store-connect",
-    profiles: input.profiles,
-    ...(input.appRoots ? { appRoots: input.appRoots } : {}),
-    ...(input.products ? { products: input.products } : {}),
-    ...(input.notify ? { notify: input.notify } : {}),
-    ...(input.release ? { release: input.release } : {}),
-    ...(input.gameCenter ? { gameCenter: input.gameCenter } : {}),
-    ...(input.appClips ? { appClips: input.appClips } : {}),
-    ...(input.releaseAttributes ? { releaseAttributes: input.releaseAttributes } : {}),
-    ...(input.wallet ? { wallet: input.wallet } : {}),
-    ...(input.euDistribution ? { euDistribution: input.euDistribution } : {}),
-    ...(input.configFiles ? { configFiles: input.configFiles } : {}),
-    ...(input.aws ? { aws: input.aws } : {}),
-    ...(input.storageConfig ? { storageConfig: input.storageConfig } : {}),
-    // `!== undefined`, not a truthy check: `0` is the meaningful "disable auto-prune" value.
-    ...(input.artifactRetentionDays !== undefined ? { artifactRetentionDays: input.artifactRetentionDays } : {}),
-    ...(input.envExclude ? { envExclude: input.envExclude } : {}),
-    ...(input.mcp ? { mcp: input.mcp } : {}),
   };
 }
 

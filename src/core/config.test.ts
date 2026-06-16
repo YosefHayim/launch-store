@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defineConfig, loadConfig, resolveSidecarConfig, writeAppEntitlements, writeAppVersion } from "./config.js";
+import { validateConfig } from "./configSchema.js";
 import type { AppDescriptor } from "./types.js";
 
 const tempDirs: string[] = [];
@@ -82,6 +83,17 @@ describe("defineConfig", () => {
     expect(config.releaseAttributes).toBeUndefined();
     expect(config.wallet).toBeUndefined();
     expect(config.euDistribution).toBeUndefined();
+  });
+
+  it("passes an unknown top-level key through so the schema validator can flag it (issue #197)", () => {
+    // A real config can't be statically typed (it's loaded un-compiled), so a typo like `profile:` for
+    // `profiles:` reaches `defineConfig` as an extra key. It must survive onto the resolved object —
+    // not be silently dropped — for `launch config validate` to catch it on the `.ts` path.
+    const input = { profiles: { production: { name: "production" } }, profile: "oops" };
+    const violations = validateConfig(defineConfig(input));
+    expect(
+      violations.some((violation) => violation.path === "profile" && violation.message.includes("unknown property")),
+    ).toBe(true);
   });
 });
 
