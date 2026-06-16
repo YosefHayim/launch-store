@@ -54,7 +54,9 @@ describe("glossary — the single source for --explain and docs", () => {
     expect(topics).toContain("submission-readiness");
     // In-app-purchase readiness teaching entry (`launch iap doctor`, issue #174).
     expect(topics).toContain("iap-readiness");
-    expect(topics.length).toBe(65);
+    // Store-snapshot teaching entry (`launch snapshot`, issue #169).
+    expect(topics).toContain("store-snapshot");
+    expect(topics.length).toBe(66);
     expect(new Set(topics).size).toBe(topics.length);
   });
 
