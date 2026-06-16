@@ -15,9 +15,12 @@ import type { Command } from "commander";
 import { findLaunchConfig } from "../../core/config.js";
 import type { FoundConfig } from "../../core/config.js";
 import { loadConfigSchema, validateConfig } from "../../core/configSchema.js";
+import { checkConfigSemantics } from "../../core/configSemantics.js";
+import type { SemanticIssue } from "../../core/configSemantics.js";
 import { renderConfigDocs } from "../../core/docs/configDocs.js";
 import { createLogger } from "../../core/logger.js";
 import type { Logger } from "../../core/logger.js";
+import type { LaunchConfig } from "../../core/types.js";
 import type { SchemaViolation } from "../../core/jsonSchema.js";
 
 /** Options for `config schema`. */
@@ -38,6 +41,20 @@ function reportViolations(log: Logger, violations: SchemaViolation[], source: st
   process.exitCode = 1;
 }
 
+/**
+ * Print cross-field semantic findings as advisories — they never fail the command (exit stays 0), since a
+ * semantically-questionable config is still a valid one Launch can run; the schema is the gate, these are
+ * the nudge. Runs only on the typed `launch.config.ts` load (a schema-valid object), after shape validation.
+ */
+function reportSemantics(log: Logger, config: LaunchConfig): void {
+  const issues: SemanticIssue[] = checkConfigSemantics(config);
+  if (issues.length === 0) return;
+  log.gap();
+  for (const issue of issues) log.warn(`${issue.path}: ${issue.message}`);
+  log.gap();
+  log.tip(`${issues.length} semantic warning${issues.length === 1 ? "" : "s"} (not schema errors — exit 0).`);
+}
+
 /** Emit the JSON Schema: to `--out` (with a hint to wire `$schema`), or to stdout so it can be piped. */
 function runSchema(options: SchemaOptions): void {
   const json = `${JSON.stringify(loadConfigSchema(), null, 2)}\n`;
@@ -55,8 +72,9 @@ function runSchema(options: SchemaOptions): void {
 /**
  * Validate a config against the schema. With no `file`, load the project's `launch.config.ts` (post-
  * `defineConfig`, so this catches wrong types/enums/nested shapes but not already-dropped unknown
- * top-level keys); with a `.json` file, validate it verbatim — the full shape, including unknown keys —
- * which is the AI/programmatic path. A non-JSON file argument is rejected with a usage hint.
+ * top-level keys) and, when it's schema-valid, also run the cross-field semantic checks as advisories;
+ * with a `.json` file, validate it verbatim — the full shape, including unknown keys — which is the
+ * AI/programmatic path. A non-JSON file argument is rejected with a usage hint.
  */
 async function runValidate(file: string | undefined): Promise<void> {
   const log = createLogger(false);
@@ -75,7 +93,9 @@ async function runValidate(file: string | undefined): Promise<void> {
       process.exitCode = 1;
       return;
     }
-    reportViolations(log, validateConfig(found.config), found.path);
+    const violations = validateConfig(found.config);
+    reportViolations(log, violations, found.path);
+    if (violations.length === 0) reportSemantics(log, found.config);
     return;
   }
 

@@ -28,6 +28,7 @@ import { diffSnapshots } from "../snapshot/diff.js";
 import { listSnapshots, loadSnapshot, saveSnapshot } from "../snapshot/store.js";
 import type { SnapshotContext } from "../snapshot/types.js";
 import { loadConfigSchema, validateConfig } from "../configSchema.js";
+import { checkConfigSemantics } from "../configSemantics.js";
 import { renderConfigDocs } from "../docs/configDocs.js";
 import { inspectDoctor } from "../doctor/inspect.js";
 import { buildDoctorContext } from "../doctor/context.js";
@@ -181,14 +182,15 @@ export const READ_TOOLS: readonly McpTool[] = [
   {
     name: "config_validate",
     description:
-      "Validate the launch.config.ts in this directory against the schema, reporting each problem by field path.",
+      "Validate the launch.config.ts in this directory against the schema (shape errors) plus cross-field semantic checks (advisories), each reported by field path.",
     capability: "read",
     inputSchema: { type: "object", properties: {} },
     handler: async () => {
       const found = await findLaunchConfig();
       if (!found) throw new Error("No launch.config.{ts,mjs,js} in this directory. Run `launch init` first.");
       const violations = validateConfig(found.config);
-      return jsonResult({ path: found.path, valid: violations.length === 0, violations });
+      const semantic = checkConfigSemantics(found.config);
+      return jsonResult({ path: found.path, valid: violations.length === 0, violations, semantic });
     },
   },
   {
