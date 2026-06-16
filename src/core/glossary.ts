@@ -30,6 +30,7 @@ export type GlossaryTopic =
   | "keychain"
   | "app-record"
   | "agreements"
+  | "store-readiness"
   // Apple — identity & code signing
   | "asc-api-key"
   | "bundle-id"
@@ -167,6 +168,12 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "Agreements: Apple's paid-apps and developer agreements. When a new one is unsigned or expired,",
     "every signing/upload call fails with a 403. Launch probes for this in `doctor` so you fix it in",
     "the UI up front, rather than discovering it halfway through a build.",
+  ].join("\n"),
+  "store-readiness": [
+    "Store readiness: the account-level prerequisites a store needs before it will accept a submission —",
+    "an App Store Connect app record, a Play app the service account can reach, a first build uploaded to",
+    "Play. None involve the build itself, so a green build can still be unshippable. `launch store doctor`",
+    "reads these live and grades them (exit 2 on a blocker) before you waste a release attempt on them.",
   ].join("\n"),
 
   // ── Apple — identity & code signing ───────────────────────────────────────

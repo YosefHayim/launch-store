@@ -48,7 +48,9 @@ describe("glossary — the single source for --explain and docs", () => {
     expect(topics).toContain("phased-release");
     expect(topics).toContain("export-compliance");
     expect(topics).toContain("release-train");
-    expect(topics.length).toBe(62);
+    // Store-account readiness teaching entry (`launch store doctor`, issue #170).
+    expect(topics).toContain("store-readiness");
+    expect(topics.length).toBe(63);
     expect(new Set(topics).size).toBe(topics.length);
   });
 
