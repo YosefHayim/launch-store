@@ -120,6 +120,24 @@ export function releaseTrainFile(id: string): string {
   return join(RELEASE_TRAINS_DIR, `${safe || "train"}.json`);
 }
 
+/**
+ * Persisted `launch snapshot` records (`<name>.json`, one per captured point-in-time copy of live store
+ * state). A snapshot is a named save slot the user diffs/exports/restores against, so it outlives the
+ * process and lives on disk beside the other Launch state. Non-secret: store catalog state (product ids,
+ * lifecycle states, pricing, listings) and capture timestamps only — never credentials. See
+ * `core/snapshot/store.ts`.
+ */
+export const SNAPSHOTS_DIR = join(LAUNCH_HOME, "snapshots");
+
+/**
+ * Path to one snapshot's record file. The name is sanitized to filesystem-safe characters so a malformed
+ * label can never escape {@link SNAPSHOTS_DIR}.
+ */
+export function snapshotFile(name: string): string {
+  const safe = name.replace(/[^A-Za-z0-9_-]/g, "");
+  return join(SNAPSHOTS_DIR, `${safe || "snapshot"}.json`);
+}
+
 /** Create a directory (and parents) if it doesn't exist, returning the path for chaining. */
 export function ensureDir(dir: string): string {
   mkdirSync(dir, { recursive: true });
