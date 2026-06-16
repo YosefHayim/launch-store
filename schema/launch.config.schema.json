@@ -84,6 +84,10 @@
           },
           "description": "Env var names that must NEVER be injected into a build — a hard denylist applied across every layer (`.env`, `.env.<profile>`, keychain, profile `env:`, even an explicit `--env`). A matched name is dropped outright, so it can't reach the build subprocess and therefore can't be baked into the shipped app even by an `app.config.js` that forwards `process.env`.\n\nEach entry is either an exact, case-sensitive name or a `PREFIX*` wildcard: `OPENAI_*` drops every name starting with `OPENAI_` (e.g. `OPENAI_API_KEY`, `OPENAI_ORG_ID`), so a whole family of backend keys collapses to one line instead of being listed individually. Wildcards anchor at the START — there is no tail/`*_KEY` form, by design, since that would also snag a publishable `EXPO_PUBLIC_..._KEY`.\n\nThis is the home for *backend-only* values that sit in the app's `.env` for local tooling but must never ship (e.g. `OPENAI_API_KEY`, a server-side `SENTRY_AUTH_TOKEN`). It is distinct from `launch secret set`: a stored secret is still *injected* — the build needs it — it's just moved out of plaintext; `envExclude` means \"don't inject this at all\". A name matched here is exempt from the `.env.example` missing-key gate (even when no layer sets it). Omit (or `[]`) to exclude nothing."
         },
+        "mcp": {
+          "$ref": "#/definitions/McpConfig",
+          "description": "How `launch mcp` exposes Launch to AI agents — chiefly which capability tiers it may offer. Absent = least privilege (read-only tools). See  {@link  McpConfig } ."
+        },
         "profiles": {
           "$ref": "#/definitions/Record%3Cstring%2CBuildProfile%3E",
           "description": "Build profiles keyed by name."
@@ -1171,6 +1175,25 @@
       "required": ["bucket", "publicBaseUrl"],
       "additionalProperties": false,
       "description": "Non-secret settings for a cloud  {@link  StorageProvider } . Launch writes static artifacts (install plists, OTA manifests, JS bundles, IPAs/AABs) here and serves them from  {@link  StorageConfig.publicBaseUrl } , so the user owns the infra (no Launch-hosted server). Credentials are NEVER stored here — the S3 access key / Supabase service key resolve from env vars or the OS secret store at call time."
+    },
+    "McpConfig": {
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/McpCapability"
+          },
+          "description": "Which capability tiers the MCP server may expose. Each enabled tier unlocks the tools tagged at that tier; omit (or `[]`) for `[\"read\"]` — read-only. Listing a higher tier does not imply the lower ones, so `[\"read\", \"write\"]` is the usual \"let agents read everything and run reconciles\" posture."
+        }
+      },
+      "additionalProperties": false,
+      "description": "The `mcp` block of `launch.config.ts` — how `launch mcp` exposes Launch to AI agents. Absent means least privilege: the server offers only `read`-tier tools, so wiring up an agent can never mutate a store until the operator widens  {@link  McpConfig.capabilities }  on purpose. Declared here (not inline in the command) so #173's generator emits it into the config schema and `launch config validate/docs` cover it for free."
+    },
+    "McpCapability": {
+      "type": "string",
+      "enum": ["read", "dryRun", "write", "dangerous"],
+      "description": "The capability tiers a tool can require, in ascending order of blast radius — the gate behind `launch mcp`. A tool is tagged with exactly one tier; the MCP server registers only the tools whose tier the user has enabled in  {@link  McpConfig.capabilities } , so an agent can never reach a write tool the operator didn't opt into.\n- `read` — pure introspection (plan, audit, doctor): no store or filesystem writes. The safe default.\n- `dryRun` — rehearses a mutation and reports what it *would* do, still writing nothing.\n- `write` — reconciles live store state (e.g. `launch sync`): visible, reversible-with-effort changes.\n- `dangerous` — destructive or hard-to-reverse (deletions, irreversible submissions); opt-in only."
     },
     "Record<string,BuildProfile>": {
       "type": "object",

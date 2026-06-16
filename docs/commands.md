@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **205 App Store Connect & Google Play API operations** across **54 commands**, guarded by **1381 tests**.
+> Launch wraps **205 App Store Connect & Google Play API operations** across **55 commands**, guarded by **1414 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -757,6 +757,7 @@ check that the local toolchain and store account are ready
 | `--platform <p>` | ios (default) or android                                           |
 | `--fix`          | install any missing build tools (iOS only; asks for consent first) |
 | `--yes`          | skip prompts and proceed with installs (CI/agents)                 |
+| `--json`         | machine-readable output for CI/agents                              |
 
 ## `launch store`
 
@@ -974,6 +975,18 @@ verify the scaffolded agent files are in sync with the installed Launch
 | Flag             | Description                                                              |
 | ---------------- | ------------------------------------------------------------------------ |
 | `--agent <list>` | claude \| cursor \| codex \| all (comma-separated; default: auto-detect) |
+
+## `launch mcp`
+
+serve Launch's read-only tools to AI agents over MCP (stdio); `install` wires it into a client
+
+### `launch mcp install`
+
+wire `launch mcp` into an AI client's config (default: auto-detect Claude Code / Cursor)
+
+| Flag              | Description                                                    |
+| ----------------- | -------------------------------------------------------------- |
+| `--client <name>` | claude-code \| cursor \| claude-desktop (default: auto-detect) |
 
 ## `launch run [id|latest]`
 
