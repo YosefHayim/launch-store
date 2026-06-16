@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>オープンソースのセルフホスト型 Expo EAS 代替ツール — Expo / React Native アプリを、あなた自身のマシン上で、あなた自身の鍵を使って、ビルド・署名し、TestFlight と Google Play に届けます。ビルドごとの課金はありません。</strong>
+  <strong>オープンソースのセルフホスト型 Expo EAS 代替ツール — 1 つの型付き launch.config.ts から、あなた自身のマシン上で、あなた自身の鍵を使って、Expo / React Native アプリをビルド・署名し、ストアを構成して、App Store と Google Play に届けます。ビルドごとの課金はありません。</strong>
 </p>
 
 <p align="center">

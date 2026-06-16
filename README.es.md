@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Alternativa de código abierto y autoalojada a Expo EAS — compila, firma y publica tus apps de Expo / React Native en TestFlight y Google Play desde tu propia máquina, con tus propias claves. Sin factura por compilación.</strong>
+  <strong>Alternativa de código abierto y autoalojada a Expo EAS — compila, firma, configura tus tiendas y publica tus apps de Expo / React Native en App Store y Google Play desde un único launch.config.ts tipado, en tu propia máquina y con tus propias claves. Sin factura por compilación.</strong>
 </p>
 
 <p align="center">
