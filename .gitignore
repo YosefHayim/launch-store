@@ -15,11 +15,12 @@ dist/
 AuthKey_*.p8
 
 # Internal design docs — local-only working notes, not part of the public/published repo.
-# Exceptions: docs/agents/ (engineering-skills config agents/contributors read) and docs/commands.md
-# (the generated, CI-gated public command reference the README and llms.txt link to).
+# Exceptions: docs/agents/ (engineering-skills config agents/contributors read), docs/commands.md and
+# docs/config.md (the generated, CI-gated public command + config reference the README and llms.txt link to).
 docs/*
 !docs/agents/
 !docs/commands.md
+!docs/config.md
 
 # Launch's local state (artifacts, metadata cache)
 .launch/
