@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { READ_TOOLS } from "./tools.js";
+import { ALL_TOOLS, DRY_RUN_TOOLS, READ_TOOLS } from "./tools.js";
 import type { McpTool } from "./types.js";
 
 /** Look a tool up by its advertised name, failing loudly if the registry no longer has it. */
 function byName(name: string): McpTool {
-  const tool = READ_TOOLS.find((candidate) => candidate.name === name);
-  if (!tool) throw new Error(`tool ${name} missing from READ_TOOLS`);
+  const tool = ALL_TOOLS.find((candidate) => candidate.name === name);
+  if (!tool) throw new Error(`tool ${name} missing from ALL_TOOLS`);
   return tool;
 }
 
@@ -34,10 +34,22 @@ describe("READ_TOOLS registry", () => {
   });
 
   it("gives every tool a snake_case name and an object input schema", () => {
-    for (const tool of READ_TOOLS) {
+    for (const tool of ALL_TOOLS) {
       expect(tool.name).toMatch(/^[a-z][a-z0-9_]*$/);
       expect(tool.inputSchema.type).toBe("object");
     }
+  });
+});
+
+describe("DRY_RUN_TOOLS registry", () => {
+  it("exposes the build_plan rehearsal on the dryRun tier", () => {
+    expect(DRY_RUN_TOOLS.map((tool) => tool.name)).toEqual(["build_plan"]);
+    expect(DRY_RUN_TOOLS.every((tool) => tool.capability === "dryRun")).toBe(true);
+  });
+
+  it("ALL_TOOLS is the read set followed by the dry-run set, with unique names", () => {
+    expect(ALL_TOOLS).toEqual([...READ_TOOLS, ...DRY_RUN_TOOLS]);
+    expect(new Set(ALL_TOOLS.map((tool) => tool.name)).size).toBe(ALL_TOOLS.length);
   });
 });
 

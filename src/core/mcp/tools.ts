@@ -1,5 +1,6 @@
 /**
- * The Launch MCP tool registry — the v1 set, every tool read-only (`read` tier).
+ * The Launch MCP tool registry — the `read`-tier set plus the `dryRun`-tier rehearsals, each gated by the
+ * operator's enabled capability tiers.
  *
  * Each tool is a thin adapter: it builds the same context its CLI sibling builds, calls the SAME pure
  * orchestrator (`runPlanners`, `runProbes`, `captureSnapshot`, `inspectDoctor`, `validateConfig`, …), and
@@ -31,6 +32,8 @@ import { renderConfigDocs } from "../docs/configDocs.js";
 import { inspectDoctor } from "../doctor/inspect.js";
 import { buildDoctorContext } from "../doctor/context.js";
 import type { DoctorPlatform } from "../doctor/types.js";
+import { previewBuild } from "../buildPreview.js";
+import type { Platform } from "../types.js";
 import { type McpTool, jsonResult, optionalString } from "./types.js";
 
 /** The literal token meaning "capture live state now and diff against it" rather than a saved name. */
@@ -95,6 +98,32 @@ async function runDoctorTool(args: Record<string, unknown>): Promise<ReturnType<
   }
   const platform: DoctorPlatform = requested;
   return jsonResult(await inspectDoctor(await buildDoctorContext(platform)));
+}
+
+/**
+ * Rehearse a `launch build <platform>` run: resolve the engine, submitter, profile, distribution, and (on
+ * Android) track + rollout from config, writing nothing. The `dryRun` tier's first tool — it answers "what
+ * would a build actually run?" via {@link previewBuild}, which reuses the pipeline's own pure resolvers and
+ * never touches the toolchain, network, or stdout.
+ */
+async function runBuildPlanTool(args: Record<string, unknown>): Promise<ReturnType<typeof jsonResult>> {
+  const requested = optionalString(args, "platform") ?? "ios";
+  if (requested !== "ios" && requested !== "android") {
+    throw new Error(`Unknown platform "${requested}". Use "ios" or "android".`);
+  }
+  const platform: Platform = requested;
+  const { config, apps } = await loadConfig();
+  const profile = optionalString(args, "profile");
+  const distribution = optionalString(args, "distribution");
+  return jsonResult(
+    previewBuild({
+      config,
+      apps: selectApps(apps, optionalString(args, "app")),
+      platform,
+      ...(profile !== undefined ? { profile } : {}),
+      ...(distribution !== undefined ? { distribution } : {}),
+    }),
+  );
 }
 
 /**
@@ -264,3 +293,34 @@ export const READ_TOOLS: readonly McpTool[] = [
     handler: runDoctorTool,
   },
 ];
+
+/**
+ * The `dryRun` tool set: tools that *rehearse* a mutation and report what they would do, writing nothing.
+ * Gated behind the `dryRun` capability tier (operator opts in with `mcp: { capabilities: ["read", "dryRun"] }`),
+ * registered through the same {@link import("./gate.js").gateTools} as {@link READ_TOOLS}. v1 ships one: a
+ * build-plan preview — the read-only twin of the store dry-run that `plan`/`drift` already cover.
+ */
+export const DRY_RUN_TOOLS: readonly McpTool[] = [
+  {
+    name: "build_plan",
+    description:
+      "Rehearse `launch build`: resolve the engine, submitter, profile, distribution, and Android track/rollout from config. Writes nothing.",
+    capability: "dryRun",
+    inputSchema: {
+      type: "object",
+      properties: {
+        platform: { type: "string", enum: ["ios", "android"], description: "ios (default) or android" },
+        app: { type: "string", description: "comma-separated app handles (default: all apps)" },
+        profile: {
+          type: "string",
+          description: "build profile to preview (default: production, else the first profile)",
+        },
+        distribution: { type: "string", enum: ["store", "internal"], description: "store (default) or internal" },
+      },
+    },
+    handler: runBuildPlanTool,
+  },
+];
+
+/** Every tool across all capability tiers — the registry the server gates by the operator's enabled tiers. */
+export const ALL_TOOLS: readonly McpTool[] = [...READ_TOOLS, ...DRY_RUN_TOOLS];
