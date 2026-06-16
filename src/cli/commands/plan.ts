@@ -13,15 +13,12 @@
 import type { Command } from "commander";
 import { loadConfig } from "../../core/config.js";
 import { createLogger } from "../../core/logger.js";
-import { loadActiveAscKey } from "../../core/accounts.js";
-import { AppStoreConnectClient } from "../../apple/ascClient.js";
-import { GooglePlayClient, parseServiceAccount } from "../../google/playClient.js";
-import { loadServiceAccount } from "../../google/credentials.js";
+import { createAscClientResolver, createPlayClientResolver } from "../../core/storeClients.js";
 import { selectApps } from "../../core/syncJobs.js";
 import type { PlannedAction } from "../../core/ascSync.js";
 import { listSurfacePlanners, registerBuiltinPlanners } from "../../core/plan/registry.js";
 import { PLAN_EXIT, runPlanners, type PlanOutcome } from "../../core/plan/orchestrator.js";
-import type { AscSurfacesApi, PlanContext, PlanStore, PlayCatalogApi, SurfacePlan } from "../../core/plan/types.js";
+import type { PlanContext, PlanStore, SurfacePlan } from "../../core/plan/types.js";
 
 /** A successfully-read per-app surface (the usual case) — narrowed for the renderer. */
 type PlannedAppSurface = Extract<SurfacePlan, { state: "planned"; scope: "app" }>;
@@ -155,25 +152,11 @@ export async function runPlan(input: RunPlanInput): Promise<void> {
     planners = [match];
   }
 
-  let cachedApi: AscSurfacesApi | null | undefined;
-  let cachedPlayApi: PlayCatalogApi | null | undefined;
   const ctx: PlanContext = {
     config,
     apps: selected,
-    async resolveAscApi() {
-      if (cachedApi === undefined) {
-        const ascKey = await loadActiveAscKey();
-        cachedApi = ascKey ? new AppStoreConnectClient(ascKey) : null;
-      }
-      return cachedApi;
-    },
-    async resolvePlayApi() {
-      if (cachedPlayApi === undefined) {
-        const json = await loadServiceAccount();
-        cachedPlayApi = json ? new GooglePlayClient(parseServiceAccount(json)) : null;
-      }
-      return cachedPlayApi;
-    },
+    resolveAscApi: createAscClientResolver(),
+    resolvePlayApi: createPlayClientResolver(),
   };
 
   const outcome = await runPlanners(ctx, planners, { check: input.check === true });
