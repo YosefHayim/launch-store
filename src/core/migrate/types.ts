@@ -111,3 +111,66 @@ export interface EasJson {
   build: Record<string, EasBuildProfile>;
   submit: Record<string, EasSubmitProfile>;
 }
+
+/* -------------------------------------------------------------------------- */
+/*  fastlane input shapes — the subset of a fastlane setup Launch reads. Parsed */
+/*  by line-scanning the Ruby DSL (regex, not a Ruby interpreter — see          */
+/*  fastlane.ts), so every field is optional: a project with only some of the    */
+/*  files (or only some directives) still migrates what it can.                  */
+/* -------------------------------------------------------------------------- */
+
+/** The `Appfile` — the app/account identifiers fastlane shares across actions. */
+export interface AppfileData {
+  /** iOS bundle id (`app_identifier`) — Launch reads this from app.json, so it's informational. */
+  appIdentifier?: string;
+  /** Apple ID email (`apple_id`) — maps to `launch creds`, not config. */
+  appleId?: string;
+  /** Developer Portal team id (`team_id`). */
+  teamId?: string;
+  /** App Store Connect team id (`itc_team_id`), when distinct from the portal team. */
+  itcTeamId?: string;
+  /** Android application id (`package_name`) — Launch reads this from app.json, so it's informational. */
+  packageName?: string;
+}
+
+/**
+ * The `Matchfile` — fastlane `match`'s signing strategy. Launch manages its own certificates in the OS
+ * keychain, so every field here becomes a `manual` note (you don't carry match over), not config.
+ */
+export interface MatchfileData {
+  /** The git repo storing the encrypted certificates (`git_url`). */
+  gitUrl?: string;
+  /** Certificate type (`type`): `development` | `appstore` | `adhoc` | `enterprise`. */
+  type?: string;
+  /** Storage backend (`storage_mode`): `git` | `google_cloud` | `s3`. */
+  storageMode?: string;
+  /** The app id(s) the profiles cover (`app_identifier`) — the first one when several are listed. */
+  appIdentifier?: string;
+}
+
+/** The `Supplyfile` — fastlane `supply`'s Play upload defaults. */
+export interface SupplyfileData {
+  /** Android application id (`package_name`). */
+  packageName?: string;
+  /** Path to the Play service-account JSON key (`json_key`) — maps to `launch creds`. */
+  jsonKey?: string;
+  /** Default Play track (`track`) — maps onto a profile's `track`. */
+  track?: string;
+}
+
+/**
+ * A parsed fastlane setup, narrowed to what Launch reads from the standard files. Lanes and recognized
+ * actions drive the report (Launch's pipeline replaces lanes); the per-file blocks are present only when
+ * that file existed. Mirrors {@link EasJson} as the file-based input to a migration source.
+ */
+export interface FastlaneSetup {
+  appfile?: AppfileData;
+  matchfile?: MatchfileData;
+  supply?: SupplyfileData;
+  /** Lane names found in the `Fastfile` — workflows with no 1:1 Launch equivalent (Launch replaces lanes). */
+  lanes: string[];
+  /** Recognized fastlane actions present anywhere in the `Fastfile` (e.g. `gym`, `pilot`, `deliver`). */
+  actions: string[];
+  /** Whether a `Deliverfile` (App Store metadata config) is present — points the report at `launch metadata`. */
+  hasDeliverfile: boolean;
+}

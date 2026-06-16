@@ -14,8 +14,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { configTemplate, detectAppRoot, ENV_EXAMPLE_TEMPLATE } from "../configScaffold.js";
-import { serializeStoreConfig, type StoreConfig } from "../storeConfig.js";
 import type { AppDescriptor, BuildProfile, PlayTrack } from "../types.js";
+import { scaffoldStoreConfig } from "./scaffold.js";
 import type {
   EasBuildProfile,
   EasCli,
@@ -192,14 +192,8 @@ function buildEnvExample(keys: string[]): string {
   return `${header}\n${keys.map((key) => `${key}=`).join("\n")}\n`;
 }
 
-/** A fill-in-the-blanks `store.config.json` (the EAS metadata schema) emitted only when none exists. */
-const STORE_CONFIG_SKELETON: StoreConfig = {
-  configVersion: 0,
-  apple: { info: { "en-US": { title: "", subtitle: "", description: "", keywords: [] } } },
-};
-
 /** Build the report notes: what mapped automatically, what needs manual follow-up, and pure FYI. */
-function buildNotes(eas: EasJson, apps: AppDescriptor[], hasStoreConfig: boolean): MigrationNote[] {
+function buildNotes(eas: EasJson, apps: AppDescriptor[]): MigrationNote[] {
   const notes: MigrationNote[] = [];
 
   for (const [name, profile] of Object.entries(eas.build)) {
@@ -274,19 +268,6 @@ function buildNotes(eas: EasJson, apps: AppDescriptor[], hasStoreConfig: boolean
     }
   }
 
-  notes.push(
-    hasStoreConfig
-      ? {
-          level: "skipped",
-          message: "store.config.json already present — Launch uses it verbatim (same schema as EAS metadata).",
-        }
-      : {
-          level: "manual",
-          message:
-            "Scaffolded store.config.json — fill in your listing, or run `launch metadata pull` to import the live App Store listing.",
-        },
-  );
-
   return notes;
 }
 
@@ -308,10 +289,10 @@ export function migrateEas(cwd: string, apps: AppDescriptor[]): MigrationResult 
     { path: ".env.example", contents: buildEnvExample(collectEnvKeys(eas)) },
   ];
 
-  const hasStoreConfig = existsSync(join(cwd, "store.config.json"));
-  if (!hasStoreConfig) {
-    artifacts.push({ path: "store.config.json", contents: serializeStoreConfig(STORE_CONFIG_SKELETON) });
-  }
+  const notes = buildNotes(eas, apps);
+  const store = scaffoldStoreConfig(cwd);
+  if (store.artifact) artifacts.push(store.artifact);
+  notes.push(store.note);
 
-  return { source: "eas", artifacts, notes: buildNotes(eas, apps, hasStoreConfig) };
+  return { source: "eas", artifacts, notes };
 }

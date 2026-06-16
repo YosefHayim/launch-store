@@ -12,15 +12,15 @@ function subcommand(name: string) {
 }
 
 describe("registerMigrateCommand", () => {
-  it("attaches a `migrate` group with an `eas` subcommand", () => {
+  it("attaches a `migrate` group with `eas` and `fastlane` subcommands", () => {
     const program = new Command();
     registerMigrateCommand(program);
     const migrate = program.commands.find((command) => command.name() === "migrate");
-    expect(migrate?.commands.map((command) => command.name())).toEqual(["eas"]);
+    expect(migrate?.commands.map((command) => command.name())).toEqual(["eas", "fastlane"]);
   });
 
-  it("eas takes --force, --dry-run, and --out", () => {
-    const options = subcommand("eas")?.options.map((option) => option.long);
+  it.each(["eas", "fastlane"])("%s takes --force, --dry-run, and --out", (name) => {
+    const options = subcommand(name)?.options.map((option) => option.long);
     expect(options).toContain("--force");
     expect(options).toContain("--dry-run");
     expect(options).toContain("--out");

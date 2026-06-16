@@ -141,12 +141,13 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 53 `launch` commands (205 store-API operations underneath, 1339 tests):
+All 53 `launch` commands (205 store-API operations underneath, 1358 tests):
 
 - `launch init` — scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` — onboard an app that already ships: import its App Store Connect setup into config
-- `launch migrate` — import an existing EAS (or fastlane) setup into a Launch config
+- `launch migrate` — import an existing EAS or fastlane setup into a Launch config
   - `launch migrate eas` — read eas.json/app.json and emit launch.config.ts, .env.example, store.config.json + a report
+  - `launch migrate fastlane` — read fastlane config (Appfile/Fastfile/Matchfile…) and emit launch.config.ts, .env.example, store.config.json + a report
 - `launch build <platform>` — run the full pipeline and upload to the testing track (--no-submit to build only)
 - `launch release <platform>` — submit the latest build to the store's PUBLIC production track (with confirmation)
 - `launch status` — show each app's App Store version, review, and phased-rollout state
