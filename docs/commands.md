@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **205 App Store Connect & Google Play API operations** across **51 commands**, guarded by **1282 tests**.
+> Launch wraps **205 App Store Connect & Google Play API operations** across **52 commands**, guarded by **1314 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -748,6 +748,44 @@ check in-app-purchase readiness: products & subscriptions exist and are submitta
 | ------------------- | ----------------------------------------------- |
 | `-a, --app <names>` | comma-separated app handles (default: all apps) |
 | `--json`            | machine-readable output for CI/agents           |
+
+## `launch snapshot`
+
+capture, diff, and export point-in-time copies of live store state (read-only)
+
+### `launch snapshot create [name]`
+
+capture live App Store + Play state into a named snapshot
+
+| Flag                | Description                                     |
+| ------------------- | ----------------------------------------------- |
+| `-a, --app <names>` | comma-separated app handles (default: all apps) |
+| `--json`            | machine-readable output for CI/agents           |
+
+### `launch snapshot list`
+
+list saved snapshots, newest first
+
+| Flag     | Description                           |
+| -------- | ------------------------------------- |
+| `--json` | machine-readable output for CI/agents |
+
+### `launch snapshot diff <baseline> [against]`
+
+compare a saved snapshot against another saved snapshot or live state (default: live)
+
+| Flag                | Description                                     |
+| ------------------- | ----------------------------------------------- |
+| `-a, --app <names>` | comma-separated app handles (default: all apps) |
+| `--json`            | machine-readable output for CI/agents           |
+
+### `launch snapshot export <name>`
+
+print a saved snapshot as JSON, or write it to a file with --out
+
+| Flag           | Description                                            |
+| -------------- | ------------------------------------------------------ |
+| `--out <file>` | write the snapshot JSON to this file instead of stdout |
 
 ## `launch explain [topic]`
 

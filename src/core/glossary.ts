@@ -33,6 +33,7 @@ export type GlossaryTopic =
   | "store-readiness"
   | "submission-readiness"
   | "iap-readiness"
+  | "store-snapshot"
   // Apple — identity & code signing
   | "asc-api-key"
   | "bundle-id"
@@ -189,6 +190,12 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "IAP is the most error-prone surface: a green build says nothing about whether buying the thing works, and",
     "a product the app references but never finished fails silently in production. `launch iap doctor` grades",
     "each declared product against its live state (exit 2 on a blocker) so you catch it before customers do.",
+  ].join("\n"),
+  "store-snapshot": [
+    "Store snapshot: a read-only, point-in-time copy of your live App Store Connect + Google Play catalog —",
+    "products, subscriptions, and their states — saved as a named record under ~/.launch/snapshots. It's the",
+    "trustworthy 'before' that makes destructive store automation reversible: capture one, run `launch sync`,",
+    "then `launch snapshot diff` to see exactly what moved. `launch snapshot` captures, diffs, and exports them.",
   ].join("\n"),
 
   // ── Apple — identity & code signing ───────────────────────────────────────

@@ -141,7 +141,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 51 `launch` commands (205 store-API operations underneath, 1282 tests):
+All 52 `launch` commands (205 store-API operations underneath, 1314 tests):
 
 - `launch init` — scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` — onboard an app that already ships: import its App Store Connect setup into config
@@ -221,6 +221,11 @@ All 51 `launch` commands (205 store-API operations underneath, 1282 tests):
 - `launch audit` — pre-submit readiness sweep: would a submission be rejected right now? (read-only)
 - `launch iap` — in-app-purchase readiness and operations
   - `launch iap doctor` — check in-app-purchase readiness: products & subscriptions exist and are submittable (read-only)
+- `launch snapshot` — capture, diff, and export point-in-time copies of live store state (read-only)
+  - `launch snapshot create [name]` — capture live App Store + Play state into a named snapshot
+  - `launch snapshot list` — list saved snapshots, newest first
+  - `launch snapshot diff <baseline> [against]` — compare a saved snapshot against another saved snapshot or live state (default: live)
+  - `launch snapshot export <name>` — print a saved snapshot as JSON, or write it to a file with --out
 - `launch explain [topic]` — plain-English glossary for an Apple/iOS term (csr, app-record, provisioning-profile, …)
 - `launch update` — publish an over-the-air JS update (Expo Updates protocol) to your own bucket
 - `launch updates` — inspect and roll back published OTA updates
@@ -252,7 +257,7 @@ All 51 `launch` commands (205 store-API operations underneath, 1282 tests):
 
 ## Reference
 
-- [Command reference](./docs/commands.md): all 51 `launch` commands and every flag, generated from the CLI.
+- [Command reference](./docs/commands.md): all 52 `launch` commands and every flag, generated from the CLI.
 
 ## Source
 
