@@ -21,7 +21,7 @@ import { requireOptional } from "../optionalDep.js";
 import { validate } from "../jsonSchema.js";
 import { loadConfig } from "../config.js";
 import { gateTools } from "./gate.js";
-import { READ_TOOLS } from "./tools.js";
+import { ALL_TOOLS } from "./tools.js";
 import type { McpTool, McpToolResult } from "./types.js";
 
 /** The install hint shown when the optional MCP SDK isn't present. */
@@ -87,10 +87,11 @@ function serverVersion(): string {
 /**
  * Build and connect the MCP server over stdio, exposing only the tools the operator's `launch.config.ts`
  * enables (read-only by default). Resolves once the transport is connected and runs until the client
- * disconnects (the process then exits). The `tools` parameter defaults to the full read registry but is
- * injectable so a test can drive the server with a fake tool set.
+ * disconnects (the process then exits). The `tools` parameter defaults to the full registry across every
+ * tier (the gate filters it down to the enabled tiers) but is injectable so a test can drive the server
+ * with a fake tool set.
  */
-export async function startMcpServer(tools: readonly McpTool[] = READ_TOOLS): Promise<void> {
+export async function startMcpServer(tools: readonly McpTool[] = ALL_TOOLS): Promise<void> {
   const { config } = await loadConfig();
   const enabled = gateTools(tools, config);
   const byName = new Map(enabled.map((tool) => [tool.name, tool]));
