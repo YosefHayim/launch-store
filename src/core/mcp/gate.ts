@@ -27,8 +27,8 @@ export function enabledCapabilities(config: LaunchConfig): readonly McpCapabilit
 
 /**
  * Filter a tool list down to those the config enables, preserving the registry's display order. The
- * server calls this with {@link import("./tools.js").READ_TOOLS}; a future write-tier registry passes
- * through the same gate, so the opt-in stays in one place.
+ * server calls this with {@link import("./tools.js").ALL_TOOLS} — every tier's registry (read, dryRun,
+ * write, dangerous) passes through this one gate, so the capability opt-in stays in a single place.
  */
 export function gateTools(tools: readonly McpTool[], config: LaunchConfig): McpTool[] {
   const enabled = new Set(enabledCapabilities(config));

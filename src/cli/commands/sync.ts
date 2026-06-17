@@ -9,12 +9,11 @@
  * App Store listing from each app's `store.config.json` (the same file `launch metadata` uses), and
  * screenshots from each app's `screenshots/<locale>/<displayType>/` folder.
  *
- * Flow: build a per-app job list (capabilities from each app's `app.json` entitlements, products from
- * `config.products[bundleId]`, listing from `store.config.json`, screenshots from `<app>/screenshots/`),
- * run a read-only PLAN pass over all apps in parallel, print it, confirm, then run the APPLY pass. Apps
- * run behind a bounded pool sharing the one ASC key, each isolated so one app's failure never aborts the
- * batch. `--dry-run` stops after the plan; `--allow-destructive` permits capability removals; `--yes`
- * skips the prompt for CI.
+ * Flow: build a per-app job list, run a read-only PLAN pass over all apps in parallel, print it, confirm,
+ * then run the APPLY pass. The per-app reconcile itself ({@link reconcileJob}) and the concurrency bound
+ * ({@link SYNC_CONCURRENCY}) live in `core/syncRun.ts`, shared verbatim with the `sync` MCP tools — this
+ * command owns only the interactive choreography (print, confirm, summary). `--dry-run` stops after the
+ * plan; `--allow-destructive` permits capability removals; `--yes` skips the prompt for CI.
  */
 
 import { cancel, confirm, isCancel } from "@clack/prompts";
@@ -24,17 +23,8 @@ import { createLogger } from "../../core/logger.js";
 import { loadActiveAscKey } from "../../core/accounts.js";
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { runPool } from "../../core/asyncPool.js";
-import { reconcileApp, type PlannedAction, type ReconcileReport } from "../../core/ascSync.js";
-import {
-  reconcilePreviews,
-  reconcileScreenshots,
-  type SubscriptionReviewScreenshot,
-} from "../../core/ascScreenshots.js";
-import { fingerprintAsset } from "../../core/screenshotAssets.js";
-import { buildJobs, selectApps, type SyncJob } from "../../core/syncJobs.js";
-
-/** How many apps reconcile concurrently. Bounded so the single ASC key stays under Apple's rate ceiling. */
-const SYNC_CONCURRENCY = 4;
+import { buildJobs, selectApps } from "../../core/syncJobs.js";
+import { reconcileJob, summarize, SYNC_CONCURRENCY } from "../../core/syncRun.js";
 
 /** CLI options for `launch sync`. */
 interface SyncOptions {
@@ -48,132 +38,9 @@ interface SyncOptions {
   yes?: boolean;
 }
 
-/**
- * One app's reconcile outcome, carrying its own job so we never index a parallel array. A precondition
- * failure (e.g. no ASC app record) lands in `error`; otherwise `report` holds the planned/applied actions.
- */
-type JobOutcome = { job: SyncJob; report: ReconcileReport } | { job: SyncJob; error: string };
-
-/** Reconcile one job, never throwing: a thrown precondition becomes `{ error }` so the pool stays whole. */
-async function reconcileJob(
-  client: AppStoreConnectClient,
-  job: SyncJob,
-  dryRun: boolean,
-  allowDestructive: boolean,
-): Promise<JobOutcome> {
-  try {
-    const report = await reconcileApp(client, {
-      bundleId: job.bundleId,
-      capabilities: job.capabilities,
-      products: job.products,
-      ...(job.listing ? { listing: job.listing } : {}),
-      dryRun,
-      allowDestructive,
-    });
-    await appendScreenshotActions(client, job, report, dryRun, allowDestructive);
-    await appendPreviewActions(client, job, report, dryRun, allowDestructive);
-    return { job, report };
-  } catch (error) {
-    return { job, error: error instanceof Error ? error.message : String(error) };
-  }
-}
-
-/**
- * Run the screenshot/asset pass for one app and append its actions to the catalog report. Isolated in its
- * own try/catch so a screenshot failure is recorded as one failed action rather than discarding the
- * (already-applied) catalog actions. Declared subscription review screenshots are fingerprinted here
- * (the filesystem read), recording an actionable skip for any missing file before the pure reconciler runs.
- */
-async function appendScreenshotActions(
-  client: AppStoreConnectClient,
-  job: SyncJob,
-  report: ReconcileReport,
-  dryRun: boolean,
-  allowDestructive: boolean,
-): Promise<void> {
-  if (job.screenshots.length === 0 && job.subscriptionReviewScreenshots.length === 0) return;
-  try {
-    const subscriptionReviewScreenshots: SubscriptionReviewScreenshot[] = [];
-    const missing: PlannedAction[] = [];
-    for (const { productId, relPath } of job.subscriptionReviewScreenshots) {
-      const asset = fingerprintAsset(job.app.dir, relPath);
-      if (!asset) {
-        missing.push({
-          description: `subscription review screenshot ${productId}: file not found at ${relPath} — skipped`,
-          destructive: false,
-          status: "skipped",
-        });
-        continue;
-      }
-      subscriptionReviewScreenshots.push({ productId, asset });
-    }
-    const actions = await reconcileScreenshots(client, {
-      bundleId: job.bundleId,
-      screenshots: job.screenshots,
-      subscriptionReviewScreenshots,
-      dryRun,
-      allowDestructive,
-    });
-    report.actions.push(...missing, ...actions);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    report.actions.push({
-      description: `screenshots: ${message}`,
-      destructive: false,
-      status: "failed",
-      error: message,
-    });
-  }
-}
-
-/**
- * Run the app-preview-video pass for one app and append its actions to the report. Isolated in its own
- * try/catch (like {@link appendScreenshotActions}) so a preview failure is one recorded action, not a lost
- * report. Previews are fingerprinted at discovery, so this pass is a pure reconcile with no filesystem read.
- */
-async function appendPreviewActions(
-  client: AppStoreConnectClient,
-  job: SyncJob,
-  report: ReconcileReport,
-  dryRun: boolean,
-  allowDestructive: boolean,
-): Promise<void> {
-  if (job.previews.length === 0) return;
-  try {
-    const actions = await reconcilePreviews(client, {
-      bundleId: job.bundleId,
-      previews: job.previews,
-      dryRun,
-      allowDestructive,
-    });
-    report.actions.push(...actions);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    report.actions.push({
-      description: `previews: ${message}`,
-      destructive: false,
-      status: "failed",
-      error: message,
-    });
-  }
-}
-
 /** The leading glyph for an action line: `-` for destructive, `+` otherwise. */
 function glyph(destructive: boolean): string {
   return destructive ? "-" : "+";
-}
-
-/** Tally a report's action statuses for the run summary. */
-function summarize(report: ReconcileReport): { applied: number; failed: number; skipped: number } {
-  let applied = 0;
-  let failed = 0;
-  let skipped = 0;
-  for (const action of report.actions) {
-    if (action.status === "applied") applied++;
-    else if (action.status === "failed") failed++;
-    else if (action.status === "skipped") skipped++;
-  }
-  return { applied, failed, skipped };
 }
 
 /** Attach the `sync` command to the program. */
