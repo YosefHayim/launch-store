@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { generateKeyPairSync } from "node:crypto";
 import type { AscKey } from "../core/types.js";
-import { AppStoreConnectClient, clockSkewHint, describeErrors } from "./ascClient.js";
+import { AppStoreConnectClient, clockSkewHint, describeErrors, parseErrorCodes } from "./ascClient.js";
 
 /** A real P-256 PKCS#8 key so `jose` can actually sign — the client mints a genuine ES256 JWT. */
 function makeKey(): AscKey {
@@ -153,6 +153,27 @@ describe("AppStoreConnectClient — auth + request building", () => {
       ),
     );
     await expect(client.assertReady()).rejects.toThrow(/403.*A required agreement is missing\./);
+  });
+
+  it("checkRequiredAgreements: true on a clean read, false on the agreements 403, rethrows otherwise", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })));
+    expect(await client.checkRequiredAgreements()).toBe(true);
+
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        403,
+        JSON.stringify({
+          errors: [{ status: "403", code: "FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED", title: "Forbidden" }],
+        }),
+      ),
+    );
+    expect(await client.checkRequiredAgreements()).toBe(false);
+
+    // A different 403 (e.g. a permissions problem) is a real failure, not "agreements fine" — it rethrows.
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(403, JSON.stringify({ errors: [{ status: "403", code: "FORBIDDEN.ACCESS_DENIED" }] })),
+    );
+    await expect(client.checkRequiredAgreements()).rejects.toThrow(/403/);
   });
 
   it("POSTs a correctly-shaped bundle-id registration with a JSON content type", async () => {
@@ -1388,6 +1409,20 @@ describe("describeErrors", () => {
   it("returns the raw body when it isn't JSON, and a placeholder when empty", () => {
     expect(describeErrors("plain text failure")).toBe("plain text failure");
     expect(describeErrors("")).toBe("no response body");
+  });
+});
+
+describe("parseErrorCodes", () => {
+  it("extracts Apple's machine-readable error codes", () => {
+    const body = JSON.stringify({
+      errors: [{ code: "FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED" }, { code: "X" }],
+    });
+    expect(parseErrorCodes(body)).toEqual(["FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED", "X"]);
+  });
+
+  it("returns an empty list for a non-JSON or errorless body", () => {
+    expect(parseErrorCodes("not json")).toEqual([]);
+    expect(parseErrorCodes(JSON.stringify({ data: [] }))).toEqual([]);
   });
 });
 

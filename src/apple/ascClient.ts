@@ -47,6 +47,14 @@ export const DISTRIBUTION_CERT_NAME = "Apple Distribution";
 export const APP_STORE_PROFILE_TYPE = "IOS_APP_STORE";
 /** Provisioning profile type for ad-hoc (install-link) distribution to a fixed set of registered devices. */
 export const AD_HOC_PROFILE_TYPE = "IOS_APP_ADHOC";
+/**
+ * The error code App Store Connect returns on *any* authenticated request when a required legal
+ * agreement is unsigned or expired — the Apple Developer Program License Agreement, the Paid Applications
+ * Agreement, or its banking/tax forms. Apple exposes no agreements-status endpoint, so this 403 code is
+ * the only programmatic signal that the account's agreements need attention (see {@link
+ * AppStoreConnectClient.checkRequiredAgreements}). Matched as a substring of Apple's `FORBIDDEN.<code>`.
+ */
+export const REQUIRED_AGREEMENTS_ERROR_CODE = "REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED";
 /** Platform value Apple expects when registering a device for ad-hoc distribution. */
 const IOS_DEVICE_PLATFORM = "IOS";
 
@@ -87,12 +95,16 @@ interface AscError {
 /**
  * A non-2xx response from the App Store Connect API. Carries the HTTP `status` so callers can tell a
  * transient failure (429 rate-limit, 5xx) apart from a permanent 4xx, while the message preserves
- * Apple's human-readable `detail`. Extends Error, so existing `rejects.toThrow(/…/)` assertions hold.
+ * Apple's human-readable `detail`. `codes` holds Apple's machine-readable error codes (the `code` field of
+ * each entry in the `errors` array, e.g. `FORBIDDEN.REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED`) so a caller
+ * can branch on a specific failure structurally instead of string-matching the message. Extends Error, so
+ * existing `rejects.toThrow(/…/)` assertions hold.
  */
 export class AscRequestError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly codes: readonly string[] = [],
   ) {
     super(message);
     this.name = "AscRequestError";
@@ -1225,6 +1237,7 @@ export class AppStoreConnectClient {
       throw new AscRequestError(
         `App Store Connect ${method} ${pathOrUrl} failed (${response.status}): ${describeErrors(text)}${hint}`,
         response.status,
+        parseErrorCodes(text),
       );
     }
     return JSON.parse(text) as T;
@@ -1566,6 +1579,31 @@ export class AppStoreConnectClient {
   /** Cheap call that fails with a clear message when the account has an unsigned/expired agreement. */
   async assertReady(): Promise<void> {
     await this.request<ResourceList<unknown>>("GET", "/bundleIds?limit=1");
+  }
+
+  /**
+   * Report whether the account's required legal agreements are signed and in effect. App Store Connect has
+   * no agreements-status endpoint, so this makes one cheap authenticated read and classifies the outcome:
+   * a clean response means the agreements are in effect; a 403 carrying
+   * {@link REQUIRED_AGREEMENTS_ERROR_CODE} means the Developer Program License Agreement, the Paid
+   * Applications Agreement, or its banking/tax forms are missing or expired (the API can't tell those
+   * apart — all three surface as this one error). Any other failure is a real read error and is rethrown,
+   * so a readiness probe records it as `errored` rather than silently reporting "agreements fine".
+   */
+  async checkRequiredAgreements(): Promise<boolean> {
+    try {
+      await this.request<ResourceList<unknown>>("GET", "/bundleIds?limit=1");
+      return true;
+    } catch (error) {
+      if (
+        error instanceof AscRequestError &&
+        error.status === 403 &&
+        error.codes.some((code) => code.includes(REQUIRED_AGREEMENTS_ERROR_CODE))
+      ) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   /**
@@ -3354,6 +3392,7 @@ export class AppStoreConnectClient {
       throw new AscRequestError(
         `App Store Connect GET ${pathOrUrl} failed (${response.status}): ${describeErrors(text)}`,
         response.status,
+        parseErrorCodes(text),
       );
     }
     return Buffer.from(await response.arrayBuffer());
@@ -4332,4 +4371,14 @@ export function describeErrors(body: string): string {
     /* not JSON — fall through */
   }
   return body.length > 0 ? body : "no response body";
+}
+
+/** Extract Apple's machine-readable error codes from a failed-response body (empty when absent/not JSON). */
+export function parseErrorCodes(body: string): string[] {
+  try {
+    const parsed = JSON.parse(body) as { errors?: AscError[] };
+    return parsed.errors?.map((e) => e.code).filter(Boolean) ?? [];
+  } catch {
+    return [];
+  }
 }

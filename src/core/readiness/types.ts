@@ -97,6 +97,12 @@ export interface ProbeReport {
 export interface AscReadinessApi {
   /** The app's App Store Connect id for a bundle id, or `null` when no app record exists. */
   getAppId(bundleId: string): Promise<string | null>;
+  /**
+   * Whether the account's required legal agreements (Developer Program License, Paid Applications,
+   * banking/tax) are signed and in effect. `false` means one is missing/expired — a 403 blocker on every
+   * upload. Throws only on an unexpected read failure (not the agreements 403).
+   */
+  checkRequiredAgreements(): Promise<boolean>;
   /** The app's auto-renewable subscription groups (only `id` is needed to assert presence / list members). */
   listSubscriptionGroups(appId: string): Promise<{ id: string }[]>;
   /** The registered Bundle ID (App ID) for an identifier, or `null` when it isn't registered yet. */
