@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **206 App Store Connect & Google Play API operations** across **55 commands**, guarded by **1457 tests**.
+> Launch wraps **206 App Store Connect & Google Play API operations** across **56 commands**, guarded by **1481 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -271,6 +271,25 @@ deactivate an offer-code campaign (its terms can't be edited, only switched off)
 | Flag               | Description                        |
 | ------------------ | ---------------------------------- |
 | `-a, --app <name>` | app handle (default: the only app) |
+
+## `launch ai`
+
+AI-assisted authoring for your store presence
+
+### `launch ai listing`
+
+draft App Store / Play listing copy with AI into store.config.json (review with `launch plan`)
+
+| Flag               | Description                                                               |
+| ------------------ | ------------------------------------------------------------------------- |
+| `-a, --app <name>` | app handle (auto-selected if there's only one)                            |
+| `--locale <list>`  | comma-separated locales (default: existing App Store locales, else en-US) |
+| `--about <text>`   | a short description of the app to seed the copy                           |
+| `--platform <p>`   | ios (default), android, or all                                            |
+| `--model <id>`     | Anthropic model id (default: claude-sonnet-4-6 or $LAUNCH_AI_MODEL)       |
+| `--config <path>`  | path to store.config.json (default: <app>/store.config.json)              |
+| `--dry-run`        | generate and preview, but write nothing                                   |
+| `-y, --yes`        | skip the confirmation prompt (for CI)                                     |
 
 ## `launch reviews`
 
