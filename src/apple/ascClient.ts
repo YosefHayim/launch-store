@@ -1800,7 +1800,9 @@ export class AppStoreConnectClient {
   /** List the capabilities currently enabled on a bundle id (App ID), with their toggle settings. */
   async listBundleIdCapabilities(bundleIdResourceId: string): Promise<BundleIdCapabilityResource[]> {
     const data = await this.requestAll<{ capabilityType?: string; settings?: CapabilitySetting[] | null }>(
-      `/bundleIds/${bundleIdResourceId}/bundleIdCapabilities?limit=200&fields[bundleIdCapabilities]=capabilityType,settings`,
+      // Apple's bundleIdCapabilities related endpoint rejects `limit` (400 "does not support this
+      // parameter") unlike most collections; pagination still works through links.next in requestAll.
+      `/bundleIds/${bundleIdResourceId}/bundleIdCapabilities?fields[bundleIdCapabilities]=capabilityType,settings`,
     );
     return data.flatMap((entry) =>
       entry.attributes.capabilityType
@@ -1941,7 +1943,9 @@ export class AppStoreConnectClient {
 
   /** List the localizations already attached to an in-app purchase. */
   async listInAppPurchaseLocalizations(iapId: string): Promise<LocalizationResource[]> {
-    return this.localizationsFrom(`/inAppPurchasesV2/${iapId}/inAppPurchaseLocalizations?limit=200`);
+    // The relationship read lives under /v2/inAppPurchases/{id}/… — the bare /v1 inAppPurchasesV2/{id}
+    // resource path 404s ("does not match a defined resource type"); only the collection is v1.
+    return this.localizationsFrom(this.v2(`/inAppPurchases/${iapId}/inAppPurchaseLocalizations?limit=200`));
   }
 
   /** Create one locale's display copy for an in-app purchase. */
@@ -2387,7 +2391,8 @@ export class AppStoreConnectClient {
     try {
       const { data } = await this.request<{ data: { id: string } | null }>(
         "GET",
-        `/inAppPurchasesV2/${iapId}/iapPriceSchedule`,
+        // Same v2 relationship path as the localizations read — the bare /v1 inAppPurchasesV2/{id} form 404s.
+        this.v2(`/inAppPurchases/${iapId}/iapPriceSchedule`),
       );
       return data !== null;
     } catch (error) {
@@ -2416,7 +2421,9 @@ export class AppStoreConnectClient {
    * Apple's `BASE_TERRITORY_INTERVAL_REQUIRED` 409).
    */
   async createInAppPurchasePriceSchedule(iapId: string, baseTerritory: string, pricePointId: string): Promise<void> {
-    const priceRef = "launch-base-price";
+    // Apple's JSON:API inline creation requires the temp id wrapped as ${local-id} (a bare string 409s
+    // "invalid format"); the same const feeds both the relationship and the included price so they match.
+    const priceRef = "${launch-base-price}";
     await this.request<unknown>("POST", "/inAppPurchasePriceSchedules", {
       data: {
         type: "inAppPurchasePriceSchedules",
@@ -2958,7 +2965,9 @@ export class AppStoreConnectClient {
    * `included` pattern Apple requires, with the mandatory `baseTerritory` (omitting it returns a 409).
    */
   async createAppPriceSchedule(appId: string, baseTerritory: string, pricePointId: string): Promise<void> {
-    const priceRef = "launch-base-price";
+    // Apple's JSON:API inline creation requires the temp id wrapped as ${local-id} (a bare string 409s
+    // "invalid format"); the same const feeds both the relationship and the included price so they match.
+    const priceRef = "${launch-base-price}";
     await this.request<unknown>("POST", "/appPriceSchedules", {
       data: {
         type: "appPriceSchedules",
