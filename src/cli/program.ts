@@ -49,6 +49,7 @@ import { registerEventsCommand } from "./commands/events.js";
 import { registerDoctorCommand } from "./commands/doctor.js";
 import { registerStoreCommand } from "./commands/storeDoctor.js";
 import { registerAuditCommand } from "./commands/audit.js";
+import { registerPrivacyCommand } from "./commands/privacy.js";
 import { registerIapCommand } from "./commands/iapDoctor.js";
 import { registerSnapshotCommand } from "./commands/snapshot.js";
 import { registerExplainCommand } from "./commands/explain.js";
@@ -134,6 +135,7 @@ export function buildProgram(): Command {
   registerDoctorCommand(program);
   registerStoreCommand(program);
   registerAuditCommand(program);
+  registerPrivacyCommand(program);
   registerIapCommand(program);
   registerSnapshotCommand(program);
   registerExplainCommand(program);

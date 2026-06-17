@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **206 App Store Connect & Google Play API operations** across **55 commands**, guarded by **1457 tests**.
+> Launch wraps **206 App Store Connect & Google Play API operations** across **56 commands**, guarded by **1479 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -775,6 +775,19 @@ check store-account readiness: Apple app record, Play onboarding & access (read-
 ## `launch audit`
 
 pre-submit readiness sweep: would a submission be rejected right now? (read-only)
+
+| Flag                | Description                                     |
+| ------------------- | ----------------------------------------------- |
+| `-a, --app <names>` | comma-separated app handles (default: all apps) |
+| `--json`            | machine-readable output for CI/agents           |
+
+## `launch privacy`
+
+reconcile your permission/data surface against your privacy declarations
+
+### `launch privacy scan`
+
+check permissions/manifests against the privacy declarations; flags undeclared collection (read-only)
 
 | Flag                | Description                                     |
 | ------------------- | ----------------------------------------------- |
