@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { agreementsProbe } from "./agreements.js";
 import { appRecordProbe } from "./appRecord.js";
 import { subscriptionGroupProbe } from "./subscriptionGroup.js";
 import { bundleIdProbe } from "./bundleId.js";
@@ -33,6 +34,7 @@ function app(over: Partial<AppDescriptor> = {}): AppDescriptor {
 function ascApi(over: Partial<AscReadinessApi> = {}): AscReadinessApi {
   return {
     getAppId: vi.fn(async () => "app-1"),
+    checkRequiredAgreements: vi.fn(async () => true),
     listSubscriptionGroups: vi.fn(async () => [{ id: "g1" }]),
     findBundleId: vi.fn(async () => ({ id: "b1" })),
     listDistributionCertificates: vi.fn(async () => [{ id: "c1", expirationDate: "2099-01-01T00:00:00Z" }]),
@@ -91,6 +93,33 @@ describe("appRecordProbe", () => {
     const missing = await appRecordProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: api }));
     expect(findings(missing)).toEqual([{ status: "blocker", identifier: "com.x" }]);
     expect(api.getAppId).toHaveBeenCalledWith("com.x");
+  });
+});
+
+describe("agreementsProbe", () => {
+  it("omits without an iOS app and skips without an Apple account", async () => {
+    expect((await agreementsProbe.check(ctx({ apps: [app({ packageName: "com.x" })] }))).state).toBe("omitted");
+    expect((await agreementsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: null }))).state).toBe("skipped");
+  });
+
+  it("passes when agreements are in effect, blocks when one is missing/expired (one account-wide finding)", async () => {
+    const ok = await agreementsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: ascApi() }));
+    expect(findings(ok)).toEqual([{ status: "ok", identifier: "account-wide" }]);
+
+    const missing = ascApi({ checkRequiredAgreements: vi.fn(async () => false) });
+    const blocked = await agreementsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: missing }));
+    expect(findings(blocked)).toEqual([{ status: "blocker", identifier: "account-wide" }]);
+  });
+
+  it("propagates an unexpected read failure so the orchestrator records it as errored", async () => {
+    const broken = ascApi({
+      checkRequiredAgreements: vi.fn(async () => {
+        throw new Error("network down");
+      }),
+    });
+    await expect(agreementsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: broken }))).rejects.toThrow(
+      "network down",
+    );
   });
 });
 

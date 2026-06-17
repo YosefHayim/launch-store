@@ -21,6 +21,7 @@ describe("readiness registry", () => {
     registerBuiltinProbes();
     const account = selectReadinessProbes("account").map((probe) => probe.id);
     expect(account).toContain("apple-app-record");
+    expect(account).toContain("apple-agreements");
     expect(account).toContain("play-app-access");
     expect(account).not.toContain("apple-distribution-cert"); // signing/submit, not an onboarding check
 
@@ -36,6 +37,7 @@ describe("readiness registry", () => {
     expect(submit).toEqual(
       expect.arrayContaining([
         "apple-app-record",
+        "apple-agreements",
         "apple-bundle-id",
         "apple-distribution-cert",
         "apple-export-compliance",
