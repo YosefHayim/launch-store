@@ -7,6 +7,7 @@
  */
 
 import type { ReadinessCategory, ReadinessProbe } from "./types.js";
+import { agreementsProbe } from "./probes/agreements.js";
 import { appRecordProbe } from "./probes/appRecord.js";
 import { subscriptionGroupProbe } from "./probes/subscriptionGroup.js";
 import { bundleIdProbe } from "./probes/bundleId.js";
@@ -46,6 +47,7 @@ export function selectReadinessProbes(category: ReadinessCategory): ReadinessPro
  * probes (audit), and IAP probes (iap doctor); a command is just a selector over the category tags.
  */
 export function registerBuiltinProbes(): void {
+  registerReadinessProbe(agreementsProbe);
   registerReadinessProbe(appRecordProbe);
   registerReadinessProbe(subscriptionGroupProbe);
   registerReadinessProbe(bundleIdProbe);
