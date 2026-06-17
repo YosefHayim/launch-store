@@ -433,6 +433,8 @@ describe("AppStoreConnectClient — product catalog", () => {
     expect(body.data.type).toBe("inAppPurchasePriceSchedules");
     expect(body.data.relationships.baseTerritory.data).toEqual({ type: "territories", id: "USA" });
     const tempId = body.data.relationships.manualPrices.data[0].id;
+    // Apple's JSON:API inline creation rejects a bare id (409 "invalid format") — it must be ${local-id}-wrapped.
+    expect(tempId).toBe("${launch-base-price}");
     expect(body.included[0]).toMatchObject({
       type: "inAppPurchasePrices",
       id: tempId,
@@ -443,6 +445,36 @@ describe("AppStoreConnectClient — product catalog", () => {
   it("reports an unpriced in-app purchase when the price-schedule relationship is empty/404", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(404, JSON.stringify({ errors: [{ title: "Not Found" }] })));
     expect(await client.inAppPurchaseHasPrice("iap1")).toBe(false);
+    // Must hit the /v2/inAppPurchases/{id}/… relationship path — the bare /v1 inAppPurchasesV2/{id} form 404s for real.
+    expect(String(fetchMock.mock.calls[0]![0])).toBe(
+      "https://api.appstoreconnect.apple.com/v2/inAppPurchases/iap1/iapPriceSchedule",
+    );
+  });
+
+  it("reads IAP localizations from the /v2 relationship path (not the bare inAppPurchasesV2 resource)", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(200, JSON.stringify({ data: [{ id: "loc1", attributes: { locale: "en-US", name: "Lifetime" } }] })),
+    );
+    const locs = await client.listInAppPurchaseLocalizations("iap1");
+    expect(locs).toEqual([{ id: "loc1", locale: "en-US", name: "Lifetime" }]);
+    expect(String(fetchMock.mock.calls[0]![0])).toBe(
+      "https://api.appstoreconnect.apple.com/v2/inAppPurchases/iap1/inAppPurchaseLocalizations?limit=200",
+    );
+  });
+
+  it("lists bundle id capabilities without a limit param (the related endpoint rejects it)", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({ data: [{ id: "cap1", attributes: { capabilityType: "PUSH_NOTIFICATIONS" } }] }),
+      ),
+    );
+    const caps = await client.listBundleIdCapabilities("bundle1");
+    expect(caps).toEqual([{ id: "cap1", capabilityType: "PUSH_NOTIFICATIONS" }]);
+    const url = String(fetchMock.mock.calls[0]![0]);
+    expect(url).toContain("/bundleIds/bundle1/bundleIdCapabilities");
+    expect(url).not.toContain("limit");
+    expect(url).toContain("fields[bundleIdCapabilities]=capabilityType,settings");
   });
 });
 
@@ -1028,6 +1060,8 @@ describe("app-level release attributes", () => {
     expect(body.data.relationships.app.data).toEqual({ type: "apps", id: "app1" });
     expect(body.data.relationships.baseTerritory.data).toEqual({ type: "territories", id: "USA" });
     const tempId = body.data.relationships.manualPrices.data[0].id;
+    // Apple's JSON:API inline creation rejects a bare id (409 "invalid format") — it must be ${local-id}-wrapped.
+    expect(tempId).toBe("${launch-base-price}");
     expect(body.included[0]).toMatchObject({
       type: "appPrices",
       id: tempId,
