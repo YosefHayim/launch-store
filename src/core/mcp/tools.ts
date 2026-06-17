@@ -1,12 +1,14 @@
 /**
- * The Launch MCP tool registry — the `read`-tier set plus the `dryRun`-tier rehearsals, each gated by the
- * operator's enabled capability tiers.
+ * The Launch MCP tool registry — the `read`-tier reads, the `dryRun`-tier rehearsals, and the `write` /
+ * `dangerous`-tier mutations, each gated by the operator's enabled capability tiers.
  *
  * Each tool is a thin adapter: it builds the same context its CLI sibling builds, calls the SAME pure
- * orchestrator (`runPlanners`, `runProbes`, `captureSnapshot`, `inspectDoctor`, `validateConfig`, …), and
- * returns the structured outcome as JSON via {@link jsonResult}. It deliberately does NOT call the CLI's
- * `run*` wrappers — those print to stdout and set `process.exitCode`, both fatal on the stdio transport
- * (which owns stdout) — it calls the orchestrator underneath them, exactly as the command does.
+ * orchestrator (`runPlanners`, `runProbes`, `captureSnapshot`, `inspectDoctor`, `validateConfig`,
+ * `runSyncBatch`, …), and returns the structured outcome as JSON via {@link jsonResult}. It deliberately
+ * does NOT call the CLI's `run*` wrappers — those print to stdout and set `process.exitCode`, both fatal on
+ * the stdio transport (which owns stdout) — it calls the orchestrator underneath them, exactly as the
+ * command does. The write tools mutate the store the same way `launch sync` does but with no interactive
+ * confirm: opting the server into the `write` (or `dangerous`) tier IS the consent.
  *
  * Adding a tool here is the only edit needed to expose a new capability; the server filters this list by
  * the operator's enabled tiers and wires the survivors to the protocol. Tool names are snake_case (the
@@ -14,7 +16,8 @@
  */
 
 import { loadConfig, findLaunchConfig } from "../config.js";
-import { selectApps } from "../syncJobs.js";
+import { buildJobs, selectApps } from "../syncJobs.js";
+import { runSyncBatch } from "../syncRun.js";
 import { createAscClientResolver, createPlayClientResolver } from "../storeClients.js";
 import { registerBuiltinPlanners, listSurfacePlanners } from "../plan/registry.js";
 import { runPlanners } from "../plan/orchestrator.js";
@@ -125,6 +128,28 @@ async function runBuildPlanTool(args: Record<string, unknown>): Promise<ReturnTy
       ...(distribution !== undefined ? { distribution } : {}),
     }),
   );
+}
+
+/**
+ * Apply `launch sync` headlessly: reconcile App Store Connect (capabilities, IAPs, subscriptions, pricing,
+ * listing copy, screenshots, previews) to match `launch.config.ts` across the selected apps, then return
+ * the structured {@link import("../syncRun.js").SyncRunReport}. Shared by the `write`-tier `sync` tool
+ * (`allowDestructive: false` — additive only) and the `dangerous`-tier `sync_destructive` tool
+ * (`allowDestructive: true` — permits capability removals); the tier IS the consent, so there is no
+ * interactive confirm. Resolves the active Apple key once via the same memoized resolver the read tools use.
+ */
+async function runSyncTool(
+  args: Record<string, unknown>,
+  allowDestructive: boolean,
+): Promise<ReturnType<typeof jsonResult>> {
+  const { config, apps } = await loadConfig();
+  const jobs = buildJobs(selectApps(apps, optionalString(args, "app")), config);
+  if (jobs.length === 0) {
+    return jsonResult({ apps: [], summary: { apps: 0, applied: 0, failed: 0, skipped: 0, planErrors: 0 } });
+  }
+  const client = await createAscClientResolver()();
+  if (!client) throw new Error("No active Apple account. Run `launch creds set-key` first.");
+  return jsonResult(await runSyncBatch(client, jobs, allowDestructive));
 }
 
 /**
@@ -324,5 +349,41 @@ export const DRY_RUN_TOOLS: readonly McpTool[] = [
   },
 ];
 
+/**
+ * The `write` tool set: tools that mutate the store but only *additively* — they create and update, never
+ * remove. Gated behind the `write` capability tier (operator opts in with `mcp: { capabilities: ["read",
+ * "write"] }`); because tiers don't nest, granting `write` does NOT grant `dangerous`. v1 ships one: `sync`,
+ * the headless twin of `launch sync` — it applies `launch.config.ts` to App Store Connect with no
+ * interactive confirm, since opting the server into the tier IS the consent.
+ */
+export const WRITE_TOOLS: readonly McpTool[] = [
+  {
+    name: "sync",
+    description:
+      "Apply launch.config to App Store Connect (capabilities, IAPs, subscriptions, pricing, listing copy, screenshots, previews). Additive — creates and updates, never removes. Writes to the store.",
+    capability: "write",
+    inputSchema: APP_FILTER_SCHEMA,
+    handler: (args) => runSyncTool(args, false),
+  },
+];
+
+/**
+ * The `dangerous` tool set: mutations that can REMOVE store state and are not cleanly reversible. Gated
+ * behind the `dangerous` capability tier (operator opts in with `mcp: { capabilities: [..., "dangerous"]
+ * }`), a separate grant from `write`. v1 ships one: `sync_destructive` — `sync` plus destructive removals
+ * (the equivalent of `launch sync --allow-destructive`), e.g. removing a capability that config no longer
+ * declares. The tier opt-in is the consent; there is no interactive confirm on the stdio transport.
+ */
+export const DANGEROUS_TOOLS: readonly McpTool[] = [
+  {
+    name: "sync_destructive",
+    description:
+      "Like `sync`, but also performs DESTRUCTIVE removals (equivalent to `launch sync --allow-destructive`), e.g. removing a capability config no longer declares. Irreversible — use with care.",
+    capability: "dangerous",
+    inputSchema: APP_FILTER_SCHEMA,
+    handler: (args) => runSyncTool(args, true),
+  },
+];
+
 /** Every tool across all capability tiers — the registry the server gates by the operator's enabled tiers. */
-export const ALL_TOOLS: readonly McpTool[] = [...READ_TOOLS, ...DRY_RUN_TOOLS];
+export const ALL_TOOLS: readonly McpTool[] = [...READ_TOOLS, ...DRY_RUN_TOOLS, ...WRITE_TOOLS, ...DANGEROUS_TOOLS];

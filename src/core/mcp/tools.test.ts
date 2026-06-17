@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { ALL_TOOLS, DRY_RUN_TOOLS, READ_TOOLS } from "./tools.js";
+import { ALL_TOOLS, DANGEROUS_TOOLS, DRY_RUN_TOOLS, READ_TOOLS, WRITE_TOOLS } from "./tools.js";
+import { gateTools } from "./gate.js";
+import type { LaunchConfig, McpCapability } from "../types.js";
 import type { McpTool } from "./types.js";
+
+/** A bare config exposing the given MCP capability tiers — only the fields the gate reads matter here. */
+function config(capabilities: McpCapability[]): LaunchConfig {
+  return { mcp: { capabilities } } as unknown as LaunchConfig;
+}
 
 /** Look a tool up by its advertised name, failing loudly if the registry no longer has it. */
 function byName(name: string): McpTool {
@@ -46,10 +53,40 @@ describe("DRY_RUN_TOOLS registry", () => {
     expect(DRY_RUN_TOOLS.map((tool) => tool.name)).toEqual(["build_plan"]);
     expect(DRY_RUN_TOOLS.every((tool) => tool.capability === "dryRun")).toBe(true);
   });
+});
 
-  it("ALL_TOOLS is the read set followed by the dry-run set, with unique names", () => {
-    expect(ALL_TOOLS).toEqual([...READ_TOOLS, ...DRY_RUN_TOOLS]);
+describe("WRITE_TOOLS registry", () => {
+  it("exposes the additive sync tool on the write tier", () => {
+    expect(WRITE_TOOLS.map((tool) => tool.name)).toEqual(["sync"]);
+    expect(WRITE_TOOLS.every((tool) => tool.capability === "write")).toBe(true);
+  });
+});
+
+describe("DANGEROUS_TOOLS registry", () => {
+  it("exposes the destructive sync tool on the dangerous tier", () => {
+    expect(DANGEROUS_TOOLS.map((tool) => tool.name)).toEqual(["sync_destructive"]);
+    expect(DANGEROUS_TOOLS.every((tool) => tool.capability === "dangerous")).toBe(true);
+  });
+});
+
+describe("ALL_TOOLS registry", () => {
+  it("is every tier's registry in order, with unique names", () => {
+    expect(ALL_TOOLS).toEqual([...READ_TOOLS, ...DRY_RUN_TOOLS, ...WRITE_TOOLS, ...DANGEROUS_TOOLS]);
     expect(new Set(ALL_TOOLS.map((tool) => tool.name)).size).toBe(ALL_TOOLS.length);
+  });
+
+  it("gates the write and dangerous tools behind their own tiers", () => {
+    const named = (tools: McpTool[]): string[] => tools.map((tool) => tool.name);
+    expect(named(gateTools(ALL_TOOLS, config(["read"])))).not.toContain("sync");
+    expect(named(gateTools(ALL_TOOLS, config(["read"])))).not.toContain("sync_destructive");
+
+    const write = named(gateTools(ALL_TOOLS, config(["read", "write"])));
+    expect(write).toContain("sync");
+    expect(write).not.toContain("sync_destructive");
+
+    const dangerous = named(gateTools(ALL_TOOLS, config(["read", "write", "dangerous"])));
+    expect(dangerous).toContain("sync");
+    expect(dangerous).toContain("sync_destructive");
   });
 });
 
