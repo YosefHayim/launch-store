@@ -159,6 +159,21 @@ export interface SupplyfileData {
 }
 
 /**
+ * One lane parsed from a `Fastfile`: its name, the `platform` block it sits in (when any), and the
+ * recognized fastlane actions found in its body. The body is captured by line-scan (see fastlane.ts
+ * `parseFastfile`) — tolerant, not a Ruby parser — so `actions` is best-effort, and a lane with no
+ * recognized actions still appears (with an empty `actions`) so the report can flag it as custom.
+ */
+export interface FastlaneLane {
+  /** The lane name without its leading colon (`:beta` → `beta`). */
+  name: string;
+  /** The enclosing `platform :ios`/`:android` block, when the lane sits inside one. */
+  platform?: string;
+  /** Recognized fastlane actions found in this lane's body (e.g. `gym`, `pilot`). */
+  actions: string[];
+}
+
+/**
  * A parsed fastlane setup, narrowed to what Launch reads from the standard files. Lanes and recognized
  * actions drive the report (Launch's pipeline replaces lanes); the per-file blocks are present only when
  * that file existed. Mirrors {@link EasJson} as the file-based input to a migration source.
@@ -167,10 +182,12 @@ export interface FastlaneSetup {
   appfile?: AppfileData;
   matchfile?: MatchfileData;
   supply?: SupplyfileData;
-  /** Lane names found in the `Fastfile` — workflows with no 1:1 Launch equivalent (Launch replaces lanes). */
-  lanes: string[];
+  /** Lanes found in the `Fastfile`, each with its body's recognized actions so the report can map specific lanes. */
+  lanes: FastlaneLane[];
   /** Recognized fastlane actions present anywhere in the `Fastfile` (e.g. `gym`, `pilot`, `deliver`). */
   actions: string[];
   /** Whether a `Deliverfile` (App Store metadata config) is present — points the report at `launch metadata`. */
   hasDeliverfile: boolean;
+  /** Env var KEYS discovered in fastlane dotenv files (`fastlane/.env*`); values are dropped (may be secrets). */
+  envKeys: string[];
 }
