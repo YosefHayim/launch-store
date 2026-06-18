@@ -25,6 +25,9 @@ import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { runPool } from "../../core/asyncPool.js";
 import { buildJobs, selectApps } from "../../core/syncJobs.js";
 import { reconcileJob, summarize, SYNC_CONCURRENCY } from "../../core/syncRun.js";
+import { createPlayClientResolver } from "../../core/storeClients.js";
+import { captureAutoSnapshot } from "../../core/snapshot/autoSnapshot.js";
+import type { SnapshotContext } from "../../core/snapshot/types.js";
 
 /** CLI options for `launch sync`. */
 interface SyncOptions {
@@ -36,6 +39,8 @@ interface SyncOptions {
   allowDestructive?: boolean;
   /** Skip the confirmation prompt (for CI / non-interactive use). */
   yes?: boolean;
+  /** Capture a pre-sync snapshot baseline before applying. Defaults on; `--no-snapshot` sets it `false`. */
+  snapshot?: boolean;
 }
 
 /** The leading glyph for an action line: `-` for destructive, `+` otherwise. */
@@ -54,6 +59,7 @@ export function registerSyncCommand(program: Command): void {
     .option("--dry-run", "print the plan and exit, making no changes", false)
     .option("--allow-destructive", "permit destructive actions such as removing a capability", false)
     .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
+    .option("--no-snapshot", "skip the automatic pre-sync snapshot baseline")
     .action(async (options: SyncOptions) => {
       const log = createLogger(false);
       const { config, apps } = await loadConfig();
@@ -136,6 +142,23 @@ export function registerSyncCommand(program: Command): void {
         if (isCancel(proceed) || !proceed) {
           cancel("Aborted — no changes made.");
           return;
+        }
+      }
+
+      // Capture a "before" baseline so this destructive run is reversible (opt out with --no-snapshot).
+      // Reuses the already-built ASC client; a snapshot failure must never abort the sync it protects.
+      if (options.snapshot !== false) {
+        const snapshotCtx: SnapshotContext = {
+          config,
+          apps: selectApps(apps, options.app),
+          resolveAscApi: () => Promise.resolve(client),
+          resolvePlayApi: createPlayClientResolver(),
+        };
+        try {
+          const baseline = await captureAutoSnapshot(snapshotCtx, { capturedAt: new Date().toISOString() });
+          log.step("snapshot", `saved "${baseline.name}" (${baseline.entityCount} item(s)) — undo baseline`);
+        } catch {
+          log.warn("Could not capture a pre-sync snapshot; continuing.");
         }
       }
 
