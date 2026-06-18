@@ -112,6 +112,20 @@ export interface EasJson {
   submit: Record<string, EasSubmitProfile>;
 }
 
+/**
+ * A non-secret summary of an EAS `credentials.json` (present when `eas.json` sets
+ * `credentialsSource: "local"`). Only paths and the keystore alias are surfaced; the certificate/keystore
+ * PASSWORDS are never read into this shape — `hasPassword` records merely that one was present, so the
+ * report can point at `launch creds` without Launch ever touching key material (AGENTS.md: "Secrets never
+ * touch the repo").
+ */
+export interface CredentialsSummary {
+  /** iOS signing material — the distribution certificate (`.p12`) and provisioning profile, by path. */
+  ios?: { distributionCertificatePath?: string; provisioningProfilePath?: string; hasPassword: boolean };
+  /** Android signing material — the keystore path and key alias (never the passwords). */
+  android?: { keystorePath?: string; keyAlias?: string; hasPassword: boolean };
+}
+
 /* -------------------------------------------------------------------------- */
 /*  fastlane input shapes — the subset of a fastlane setup Launch reads. Parsed */
 /*  by line-scanning the Ruby DSL (regex, not a Ruby interpreter — see          */
