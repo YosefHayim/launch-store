@@ -10,13 +10,7 @@
 
 import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from "../types.js";
 import { iosApps } from "../appScopes.js";
-import { gradeDeclaredProduct } from "./iapReadiness.js";
-
-/** Apps declare subscriptions nested under groups; flatten to the product ids actually configured. */
-function declaredSubscriptionIds(ctx: ReadinessContext, bundleId: string): string[] {
-  const groups = ctx.config.products?.[bundleId]?.subscriptionGroups ?? [];
-  return groups.flatMap((group) => group.subscriptions.map((sub) => sub.productId));
-}
+import { declaredSubscriptionIds, gradeDeclaredProduct } from "./iapReadiness.js";
 
 /** The App Store Connect subscription-level readiness probe. */
 export const subscriptionsProbe: ReadinessProbe = {

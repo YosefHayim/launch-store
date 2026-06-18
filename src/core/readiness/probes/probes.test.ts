@@ -7,6 +7,9 @@ import { distributionCertProbe } from "./distributionCert.js";
 import { exportComplianceProbe } from "./exportCompliance.js";
 import { iapProductsProbe } from "./iapProducts.js";
 import { subscriptionsProbe } from "./subscriptions.js";
+import { iapPricingProbe } from "./iapPricing.js";
+import { subscriptionOffersProbe } from "./subscriptionOffers.js";
+import { sandboxTestersProbe } from "./sandboxTesters.js";
 import { playAppProbe } from "./playApp.js";
 import { playFirstUploadProbe } from "./playFirstUpload.js";
 import { playInternalTrackProbe } from "./playInternalTrack.js";
@@ -40,6 +43,10 @@ function ascApi(over: Partial<AscReadinessApi> = {}): AscReadinessApi {
     listDistributionCertificates: vi.fn(async () => [{ id: "c1", expirationDate: "2099-01-01T00:00:00Z" }]),
     listInAppPurchases: vi.fn(async () => []),
     listSubscriptions: vi.fn(async () => []),
+    listSandboxTesters: vi.fn(async () => [{ id: "t1" }]),
+    findInAppPurchasePricePoint: vi.fn(async () => ({ id: "ipp" })),
+    findSubscriptionPricePoint: vi.fn(async () => ({ id: "spp" })),
+    listSubscriptionOfferCodes: vi.fn(async () => []),
     ...over,
   };
 }
@@ -73,6 +80,52 @@ function ctx(args: {
 function findings(result: ProbeResult): { status: string; identifier: string }[] {
   return result.state === "checked" ? result.apps.map(({ status, identifier }) => ({ status, identifier })) : [];
 }
+
+/** An app selling one priced IAP — shared by the pricing and sandbox-tester probes. */
+const withPricedIap: LaunchConfig["products"] = {
+  "com.x": {
+    inAppPurchases: [
+      {
+        productId: "com.x.coins",
+        referenceName: "Coins",
+        type: "CONSUMABLE",
+        localizations: [],
+        price: { customerPrice: 9.99 },
+      },
+    ],
+  },
+};
+
+/** An app selling a subscription that declares one offer-code campaign — shared by the offers probe. */
+const withOffers: LaunchConfig["products"] = {
+  "com.x": {
+    subscriptionGroups: [
+      {
+        referenceName: "g",
+        localizations: [],
+        subscriptions: [
+          {
+            productId: "com.x.pro",
+            referenceName: "Pro",
+            subscriptionPeriod: "ONE_MONTH",
+            localizations: [],
+            offerCodes: [
+              {
+                name: "LAUNCH50",
+                duration: "ONE_MONTH",
+                offerMode: "PAY_AS_YOU_GO",
+                numberOfPeriods: 1,
+                customerEligibilities: ["NEW"],
+                offerEligibility: "REPLACE_INTRO_OFFERS",
+                prices: [{ customerPrice: 4.99 }],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+};
 
 describe("appRecordProbe", () => {
   it("omits itself when no app has a bundle id", async () => {
@@ -346,5 +399,118 @@ describe("playInternalTrackProbe", () => {
     const noTrack = playApi({ listTracks: vi.fn(async () => [{ track: "production" }]) });
     const warned = await playInternalTrackProbe.check(ctx({ apps: [app({ packageName: "com.x" })], play: noTrack }));
     expect(findings(warned)).toEqual([{ status: "warn", identifier: "com.x" }]);
+  });
+});
+
+describe("iapPricingProbe", () => {
+  it("omits when no app declares a priced product, skips without an Apple account", async () => {
+    expect((await iapPricingProbe.check(ctx({ apps: [app({ bundleId: "com.x" })] }))).state).toBe("omitted");
+    expect(
+      (await iapPricingProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: null, products: withPricedIap })))
+        .state,
+    ).toBe("skipped");
+  });
+
+  it("passes a valid price point, blocks an invalid one", async () => {
+    const live = [{ id: "iap1", productId: "com.x.coins", state: "READY_TO_SUBMIT" }];
+    const valid = ascApi({ listInAppPurchases: vi.fn(async () => live) });
+    expect(
+      findings(
+        await iapPricingProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: valid, products: withPricedIap })),
+      ),
+    ).toEqual([{ status: "ok", identifier: "com.x.coins" }]);
+
+    const invalid = ascApi({
+      listInAppPurchases: vi.fn(async () => live),
+      findInAppPurchasePricePoint: vi.fn(async () => null),
+    });
+    expect(
+      findings(
+        await iapPricingProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: invalid, products: withPricedIap })),
+      ),
+    ).toEqual([{ status: "blocker", identifier: "com.x.coins" }]);
+  });
+
+  it("warns when the product isn't on App Store Connect yet, and when there's no app record", async () => {
+    const notLive = await iapPricingProbe.check(
+      ctx({ apps: [app({ bundleId: "com.x" })], asc: ascApi(), products: withPricedIap }),
+    );
+    expect(findings(notLive)).toEqual([{ status: "warn", identifier: "com.x.coins" }]);
+
+    const noApp = ascApi({ getAppId: vi.fn(async () => null) });
+    const result = await iapPricingProbe.check(
+      ctx({ apps: [app({ bundleId: "com.x" })], asc: noApp, products: withPricedIap }),
+    );
+    expect(findings(result)).toEqual([{ status: "warn", identifier: "com.x" }]);
+  });
+});
+
+describe("subscriptionOffersProbe", () => {
+  it("omits when no subscription declares offer codes, skips without an Apple account", async () => {
+    expect((await subscriptionOffersProbe.check(ctx({ apps: [app({ bundleId: "com.x" })] }))).state).toBe("omitted");
+    expect(
+      (
+        await subscriptionOffersProbe.check(
+          ctx({ apps: [app({ bundleId: "com.x" })], asc: null, products: withOffers }),
+        )
+      ).state,
+    ).toBe("skipped");
+  });
+
+  it("passes a present offer code, warns on a missing one", async () => {
+    const live = [{ id: "s1", productId: "com.x.pro", state: "READY_TO_SUBMIT" }];
+    const present = ascApi({
+      listSubscriptions: vi.fn(async () => live),
+      listSubscriptionOfferCodes: vi.fn(async () => [{ name: "LAUNCH50" }]),
+    });
+    expect(
+      findings(
+        await subscriptionOffersProbe.check(
+          ctx({ apps: [app({ bundleId: "com.x" })], asc: present, products: withOffers }),
+        ),
+      ),
+    ).toEqual([{ status: "ok", identifier: "com.x.pro·LAUNCH50" }]);
+
+    const missing = ascApi({
+      listSubscriptions: vi.fn(async () => live),
+      listSubscriptionOfferCodes: vi.fn(async () => []),
+    });
+    expect(
+      findings(
+        await subscriptionOffersProbe.check(
+          ctx({ apps: [app({ bundleId: "com.x" })], asc: missing, products: withOffers }),
+        ),
+      ),
+    ).toEqual([{ status: "warn", identifier: "com.x.pro·LAUNCH50" }]);
+  });
+
+  it("warns (deferring to the subscriptions probe) when the subscription isn't on App Store Connect yet", async () => {
+    const result = await subscriptionOffersProbe.check(
+      ctx({ apps: [app({ bundleId: "com.x" })], asc: ascApi(), products: withOffers }),
+    );
+    expect(findings(result)).toEqual([{ status: "warn", identifier: "com.x.pro" }]);
+  });
+});
+
+describe("sandboxTestersProbe", () => {
+  it("omits when no app sells products, skips without an Apple account", async () => {
+    expect((await sandboxTestersProbe.check(ctx({ apps: [app({ bundleId: "com.x" })] }))).state).toBe("omitted");
+    expect(
+      (await sandboxTestersProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: null, products: withPricedIap })))
+        .state,
+    ).toBe("skipped");
+  });
+
+  it("passes with ≥1 tester, warns with none (one account-wide finding)", async () => {
+    const ok = await sandboxTestersProbe.check(
+      ctx({ apps: [app({ bundleId: "com.x" })], asc: ascApi(), products: withPricedIap }),
+    );
+    expect(findings(ok)).toEqual([{ status: "ok", identifier: "account-wide" }]);
+
+    const none = ascApi({ listSandboxTesters: vi.fn(async () => []) });
+    const warned = await sandboxTestersProbe.check(
+      ctx({ apps: [app({ bundleId: "com.x" })], asc: none, products: withPricedIap }),
+    );
+    expect(findings(warned)).toEqual([{ status: "warn", identifier: "account-wide" }]);
   });
 });

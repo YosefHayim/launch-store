@@ -109,10 +109,34 @@ export interface AscReadinessApi {
   findBundleId(identifier: string): Promise<{ id: string } | null>;
   /** The team's distribution certificates (only `id` + `expirationDate` are needed to grade validity). */
   listDistributionCertificates(): Promise<{ id: string; expirationDate?: string | undefined }[]>;
-  /** The app's one-time in-app purchases (Apple `productId` + lifecycle `state`, to match config + grade readiness). */
-  listInAppPurchases(appId: string): Promise<{ productId: string; state?: string | undefined }[]>;
-  /** A subscription group's subscriptions (Apple `productId` + lifecycle `state`). */
-  listSubscriptions(groupId: string): Promise<{ productId: string; state?: string | undefined }[]>;
+  /**
+   * The app's one-time in-app purchases. `productId` + lifecycle `state` match config and grade readiness;
+   * `id` (the App Store Connect resource id, always present on a live read) lets a probe make a follow-up
+   * per-product call — resolving a price point, listing offers. Optional only so the readiness fakes can
+   * omit it where a probe doesn't read it.
+   */
+  listInAppPurchases(appId: string): Promise<{ id?: string; productId: string; state?: string | undefined }[]>;
+  /** A subscription group's subscriptions — the subscription counterpart of {@link listInAppPurchases}. */
+  listSubscriptions(groupId: string): Promise<{ id?: string; productId: string; state?: string | undefined }[]>;
+  /**
+   * The account's sandbox testers (the fake Apple IDs used to exercise StoreKit purchases). Only presence
+   * matters to readiness, so just `id` is read; an empty list means no tester has been created yet.
+   */
+  listSandboxTesters(): Promise<{ id: string }[]>;
+  /**
+   * The in-app-purchase price point in `territory` whose customer price equals `customerPrice`, or `null`
+   * when the declared amount isn't a rung on Apple's fixed price ladder for the product. Used to validate a
+   * config price *before* `launch sync` would reject it at apply time.
+   */
+  findInAppPurchasePricePoint(iapId: string, territory: string, customerPrice: number): Promise<{ id: string } | null>;
+  /** The subscription counterpart of {@link findInAppPurchasePricePoint}. */
+  findSubscriptionPricePoint(
+    subscriptionId: string,
+    territory: string,
+    customerPrice: number,
+  ): Promise<{ id: string } | null>;
+  /** A subscription's offer-code campaigns, matched by `name` (the reconciler's key) to verify declared offers exist. */
+  listSubscriptionOfferCodes(subscriptionId: string): Promise<{ name: string }[]>;
 }
 
 /**
