@@ -893,6 +893,17 @@ export interface LaunchConfig {
    */
   storageConfig?: StorageConfig;
   /**
+   * Where the `local` storage provider writes build binaries and raw objects (install plists, OTA
+   * manifests). A relative path resolves against the project root (the `launch.config.ts` directory); a
+   * leading `~/` expands to the home directory; an absolute path is used as-is. Omit to use the global
+   * `~/.launch/artifacts` (the default — existing projects are unaffected). `launch init` and the no-args
+   * wizard scaffold this as the in-repo `./.launch/artifacts` and add it to `.gitignore`, so build
+   * binaries never get committed. Only the `local` provider observes it — cloud stores key off
+   * {@link StorageConfig}. The history index stays under `~/.launch`, so build history and retention span
+   * projects regardless of where the binaries land.
+   */
+  artifactDir?: string;
+  /**
    * How many days a local build binary is kept before the artifact store auto-prunes it to reclaim disk
    * (the newest build per app+platform is always kept, so a promotable artifact never disappears). Runs
    * after each successful local build. Defaults to 30 when omitted; set to `0` to disable the automatic

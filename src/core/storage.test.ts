@@ -1,7 +1,10 @@
+import { homedir } from "node:os";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { LaunchConfig, StorageConfig } from "./types.js";
-import { isCloudStorage, resolveStorageProvider } from "./storage.js";
+import { isCloudStorage, resolveArtifactDir, resolveStorageProvider } from "./storage.js";
 import { registerStorageProvider } from "./registry.js";
+import { ARTIFACTS_DIR } from "./paths.js";
 import { localStorageProvider } from "../providers/storage/local.js";
 
 /** A LaunchConfig with the given storage settings and otherwise-irrelevant defaults. */
@@ -49,6 +52,32 @@ describe("resolveStorageProvider", () => {
 
   it("throws when supabase is selected without supabaseUrl", () => {
     expect(() => resolveStorageProvider(configWith("supabase", r2Config))).toThrow(/supabaseUrl/);
+  });
+});
+
+describe("resolveArtifactDir", () => {
+  it("falls back to the global ~/.launch/artifacts when unset (back-compat)", () => {
+    expect(resolveArtifactDir(undefined)).toBe(ARTIFACTS_DIR);
+  });
+
+  it("throws on an empty string — a likely config typo", () => {
+    expect(() => resolveArtifactDir("   ")).toThrow(/must not be empty/);
+  });
+
+  it("expands a lone ~ to the home directory", () => {
+    expect(resolveArtifactDir("~")).toBe(homedir());
+  });
+
+  it("expands a leading ~/ against the home directory", () => {
+    expect(resolveArtifactDir("~/builds/out")).toBe(resolve(homedir(), "builds/out"));
+  });
+
+  it("keeps an absolute path as-is", () => {
+    expect(resolveArtifactDir("/var/launch/artifacts")).toBe("/var/launch/artifacts");
+  });
+
+  it("resolves a relative path against the project root", () => {
+    expect(resolveArtifactDir("./.launch/artifacts", "/repo")).toBe(resolve("/repo", ".launch/artifacts"));
   });
 });
 
