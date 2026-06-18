@@ -15,6 +15,7 @@
  */
 
 import type { AppDescriptor, LaunchConfig } from "../types.js";
+import type { ListingLocalization } from "../../apple/ascClient.js";
 import type { InAppProductResource, SubscriptionResource } from "../../google/playClient.js";
 
 /** Which store a source reads from — drives credential resolution and how a capture/diff is grouped. */
@@ -121,6 +122,14 @@ export interface SnapshotAscApi {
   listSubscriptions(
     groupId: string,
   ): Promise<{ productId: string; subscriptionPeriod?: string | undefined; state?: string | undefined }[]>;
+  /** The app's current editable `appInfo` id (app-level listing container), or `null` when none is editable. */
+  getEditableAppInfoId(appId: string): Promise<string | null>;
+  /** The app-level listing localizations (name / subtitle / privacy URL) under an `appInfo`. */
+  listAppInfoLocalizations(appInfoId: string): Promise<ListingLocalization[]>;
+  /** The app's current editable App Store version id, or `null` when only a live/in-review version exists. */
+  getEditableVersionId(appId: string): Promise<string | null>;
+  /** The version-level listing localizations (description / keywords / whatsNew / …) under a version. */
+  listVersionLocalizations(versionId: string): Promise<ListingLocalization[]>;
 }
 
 /**
