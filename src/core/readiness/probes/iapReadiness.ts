@@ -6,6 +6,23 @@
  * probes classify identically and a change to "what counts as not-ready" lands once.
  */
 
+import type { AppProducts } from "../../types.js";
+
+/**
+ * Every Apple product id one app declares: its one-off in-app purchases plus every subscription across all
+ * of its subscription groups. The file-based IAP probes (`apple-iap-code-reference`, `apple-storekit-config`)
+ * ask their question of the whole catalog, so they share this flattening rather than each re-walking the
+ * `inAppPurchases` + `subscriptionGroups` shape. Returns `[]` when the app declares no products.
+ */
+export function declaredAppleProductIds(products: AppProducts | undefined): string[] {
+  if (!products) return [];
+  const purchases = (products.inAppPurchases ?? []).map((purchase) => purchase.productId);
+  const subscriptions = (products.subscriptionGroups ?? []).flatMap((group) =>
+    group.subscriptions.map((subscription) => subscription.productId),
+  );
+  return [...purchases, ...subscriptions];
+}
+
 /**
  * The lifecycle state Apple reports for a product still missing required metadata (a name, a price, or a
  * localization). It's the canonical "you started this product but never finished it" signal and the one

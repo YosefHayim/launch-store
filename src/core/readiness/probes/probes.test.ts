@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { agreementsProbe } from "./agreements.js";
 import { appRecordProbe } from "./appRecord.js";
@@ -6,6 +9,8 @@ import { bundleIdProbe } from "./bundleId.js";
 import { distributionCertProbe } from "./distributionCert.js";
 import { exportComplianceProbe } from "./exportCompliance.js";
 import { iapProductsProbe } from "./iapProducts.js";
+import { iapCodeReferenceProbe } from "./iapCodeReference.js";
+import { storeKitConfigProbe } from "./storeKitConfig.js";
 import { subscriptionsProbe } from "./subscriptions.js";
 import { playAppProbe } from "./playApp.js";
 import { playFirstUploadProbe } from "./playFirstUpload.js";
@@ -346,5 +351,88 @@ describe("playInternalTrackProbe", () => {
     const noTrack = playApi({ listTracks: vi.fn(async () => [{ track: "production" }]) });
     const warned = await playInternalTrackProbe.check(ctx({ apps: [app({ packageName: "com.x" })], play: noTrack }));
     expect(findings(warned)).toEqual([{ status: "warn", identifier: "com.x" }]);
+  });
+});
+
+/** The first finding's `detail` string from a `checked` result (empty otherwise) — for asserting copy. */
+function firstDetail(result: ProbeResult): string {
+  return result.state === "checked" ? (result.apps[0]?.detail ?? "") : "";
+}
+
+/** A products catalog declaring a single one-time IAP under `com.x`. */
+const oneIap: LaunchConfig["products"] = {
+  "com.x": {
+    inAppPurchases: [{ productId: "com.x.coins", referenceName: "Coins", type: "CONSUMABLE", localizations: [] }],
+  },
+};
+
+describe("iapCodeReferenceProbe", () => {
+  it("omits when the app declares no products (no scan)", async () => {
+    const result = await iapCodeReferenceProbe.check(ctx({ apps: [app({ bundleId: "com.x" })] }));
+    expect(result.state).toBe("omitted");
+  });
+
+  it("passes when every declared id appears in source, warns (naming it) when one doesn't", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "iap-scan-"));
+    try {
+      writeFileSync(join(dir, "purchases.ts"), `await buy("com.x.coins");\n`);
+      const ok = await iapCodeReferenceProbe.check(ctx({ apps: [app({ bundleId: "com.x", dir })], products: oneIap }));
+      expect(findings(ok)).toEqual([{ status: "ok", identifier: "com.x" }]);
+
+      const twoIds: LaunchConfig["products"] = {
+        "com.x": {
+          inAppPurchases: [
+            { productId: "com.x.coins", referenceName: "Coins", type: "CONSUMABLE", localizations: [] },
+            { productId: "com.x.ghost", referenceName: "Ghost", type: "CONSUMABLE", localizations: [] },
+          ],
+        },
+      };
+      const warned = await iapCodeReferenceProbe.check(
+        ctx({ apps: [app({ bundleId: "com.x", dir })], products: twoIds }),
+      );
+      expect(findings(warned)).toEqual([{ status: "warn", identifier: "com.x" }]);
+      expect(firstDetail(warned)).toContain("com.x.ghost");
+      expect(firstDetail(warned)).not.toContain("com.x.coins");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not scan node_modules — a reference there does not count as a real one", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "iap-scan-"));
+    try {
+      mkdirSync(join(dir, "node_modules", "pkg"), { recursive: true });
+      writeFileSync(join(dir, "node_modules", "pkg", "index.js"), `const id = "com.x.coins";\n`);
+      const result = await iapCodeReferenceProbe.check(
+        ctx({ apps: [app({ bundleId: "com.x", dir })], products: oneIap }),
+      );
+      expect(findings(result)).toEqual([{ status: "warn", identifier: "com.x" }]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("storeKitConfigProbe", () => {
+  it("omits when the app declares no products", async () => {
+    const result = await storeKitConfigProbe.check(ctx({ apps: [app({ bundleId: "com.x" })] }));
+    expect(result.state).toBe("omitted");
+  });
+
+  it("warns when no .storekit file exists, passes once one is added", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "storekit-"));
+    try {
+      const warned = await storeKitConfigProbe.check(
+        ctx({ apps: [app({ bundleId: "com.x", dir })], products: oneIap }),
+      );
+      expect(findings(warned)).toEqual([{ status: "warn", identifier: "com.x" }]);
+
+      writeFileSync(join(dir, "Products.storekit"), "{}");
+      const ok = await storeKitConfigProbe.check(ctx({ apps: [app({ bundleId: "com.x", dir })], products: oneIap }));
+      expect(findings(ok)).toEqual([{ status: "ok", identifier: "com.x" }]);
+      expect(firstDetail(ok)).toContain("Products.storekit");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
