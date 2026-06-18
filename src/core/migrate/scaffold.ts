@@ -7,6 +7,7 @@
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { ENV_EXAMPLE_TEMPLATE } from "../configScaffold.js";
 import { serializeStoreConfig, type StoreConfig } from "../storeConfig.js";
 import type { MigrationArtifact, MigrationNote } from "./types.js";
 
@@ -39,4 +40,18 @@ export function scaffoldStoreConfig(cwd: string): { artifact: MigrationArtifact 
         "Scaffolded store.config.json — fill in your listing, or run `launch metadata pull` to import the live App Store listing.",
     },
   };
+}
+
+/**
+ * Build a `.env.example` body from imported env var KEYS: the configScaffold template's comment header
+ * plus a blank-valued line per key. Values are intentionally dropped (they may be secrets), matching how
+ * both migration sources treat env. Falls back to the plain starter template when no keys were found, so
+ * the artifact is always valid. Shared by `eas.ts` (EAS `env` keys) and `fastlane.ts` (dotenv keys).
+ */
+export function buildEnvExample(keys: string[]): string {
+  if (keys.length === 0) return ENV_EXAMPLE_TEMPLATE;
+  const header = ENV_EXAMPLE_TEMPLATE.split("\n")
+    .filter((line) => line.startsWith("#"))
+    .join("\n");
+  return `${header}\n${keys.map((key) => `${key}=`).join("\n")}\n`;
 }
