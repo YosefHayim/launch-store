@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { appleProductsSource } from "./appleProducts.js";
 import { appleSubscriptionsSource } from "./appleSubscriptions.js";
+import { appleListingSource } from "./appleListing.js";
 import { playProductsSource } from "./playProducts.js";
 import { playSubscriptionsSource } from "./playSubscriptions.js";
 import type { SnapshotAscApi, SnapshotContext, SnapshotPlayApi } from "../types.js";
@@ -35,6 +36,12 @@ const ascApi: SnapshotAscApi = {
   listSubscriptionGroups: () => Promise.resolve([{ id: "g1", referenceName: "Pro" }]),
   listSubscriptions: () =>
     Promise.resolve([{ productId: "com.acme.pro", subscriptionPeriod: "P1M", state: "APPROVED" }]),
+  getEditableAppInfoId: () => Promise.resolve("appinfo-1"),
+  listAppInfoLocalizations: () =>
+    Promise.resolve([{ id: "ail-1", locale: "en-US", fields: { name: "Acme", subtitle: "Do more" } }]),
+  getEditableVersionId: () => Promise.resolve("ver-1"),
+  listVersionLocalizations: () =>
+    Promise.resolve([{ id: "avl-1", locale: "en-US", fields: { description: "Great app", keywords: "acme,tools" } }]),
 };
 
 const playApi: SnapshotPlayApi = {
@@ -110,6 +117,52 @@ describe("appleSubscriptionsSource", () => {
         data: { productId: "com.acme.pro", group: "Pro", period: "P1M", state: "APPROVED" },
       },
     ]);
+  });
+});
+
+describe("appleListingSource", () => {
+  it("merges app-info and version listing fields into one entity per locale", async () => {
+    const capture = await appleListingSource.capture(
+      ctx({ apps: [app({ bundleId: "com.acme.alpha" })], resolveAscApi: () => Promise.resolve(ascApi) }),
+    );
+    if (capture.state !== "captured") throw new Error(`expected captured, got ${capture.state}`);
+    expect(capture.apps[0]?.entities).toEqual([
+      {
+        key: "en-US",
+        summary: "listing en-US (4 field(s))",
+        data: {
+          locale: "en-US",
+          fields: { name: "Acme", subtitle: "Do more", description: "Great app", keywords: "acme,tools" },
+        },
+      },
+    ]);
+  });
+
+  it("captures an empty listing when nothing is editable", async () => {
+    const capture = await appleListingSource.capture(
+      ctx({
+        apps: [app({ bundleId: "com.acme.alpha" })],
+        resolveAscApi: () =>
+          Promise.resolve({
+            ...ascApi,
+            getEditableAppInfoId: () => Promise.resolve(null),
+            getEditableVersionId: () => Promise.resolve(null),
+          }),
+      }),
+    );
+    if (capture.state !== "captured") throw new Error(`expected captured, got ${capture.state}`);
+    expect(capture.apps[0]?.entities).toEqual([]);
+  });
+
+  it("drops an app with no App Store Connect record yet", async () => {
+    const capture = await appleListingSource.capture(
+      ctx({
+        apps: [app({ bundleId: "com.acme.alpha" })],
+        resolveAscApi: () => Promise.resolve({ ...ascApi, getAppId: () => Promise.resolve(null) }),
+      }),
+    );
+    if (capture.state !== "captured") throw new Error(`expected captured, got ${capture.state}`);
+    expect(capture.apps).toEqual([]);
   });
 });
 

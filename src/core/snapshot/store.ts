@@ -8,7 +8,7 @@
  * stores and retrieves it.
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { SNAPSHOTS_DIR, snapshotFile } from "../paths.js";
 import type { Snapshot } from "./types.js";
@@ -38,6 +38,27 @@ export function listSnapshots(dir: string = SNAPSHOTS_DIR): Snapshot[] {
     if (snapshot) snapshots.push(snapshot);
   }
   return snapshots.sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
+}
+
+/**
+ * Prune the oldest snapshots whose name starts with `prefix`, keeping the `keep` newest. Used by the
+ * pre-sync auto-snapshot to bound its reserved-prefix baselines without ever touching a user's
+ * manually-named snapshot. Tolerant: a file that vanishes mid-prune is ignored. Returns the names deleted.
+ */
+export function pruneSnapshots(prefix: string, keep: number, dir: string = SNAPSHOTS_DIR): string[] {
+  const stale = listSnapshots(dir)
+    .filter((snapshot) => snapshot.name.startsWith(prefix))
+    .slice(Math.max(0, keep)); // listSnapshots is newest-first, so the tail is the oldest beyond the window
+  const deleted: string[] = [];
+  for (const snapshot of stale) {
+    try {
+      unlinkSync(snapshotFileIn(dir, snapshot.name));
+      deleted.push(snapshot.name);
+    } catch {
+      // already gone or unreadable — nothing left to prune for this entry
+    }
+  }
+  return deleted;
 }
 
 /** Read a file's text, or `null` when it can't be read (deleted between listing and reading, permissions). */

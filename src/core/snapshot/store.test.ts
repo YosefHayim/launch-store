@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { listSnapshots, loadSnapshot, saveSnapshot } from "./store.js";
+import { listSnapshots, loadSnapshot, pruneSnapshots, saveSnapshot } from "./store.js";
 import type { Snapshot } from "./types.js";
 
 /** A minimal valid snapshot, overridable per field. */
@@ -64,5 +64,25 @@ describe("snapshot store", () => {
 
   it("returns an empty list when no snapshots directory exists", () => {
     expect(listSnapshots(join(dir, "missing"))).toEqual([]);
+  });
+
+  it("prunes the oldest prefixed snapshots beyond the retention window", () => {
+    saveSnapshot(snap({ name: "pre-sync-1", capturedAt: "2026-06-10T00:00:00.000Z" }), dir);
+    saveSnapshot(snap({ name: "pre-sync-2", capturedAt: "2026-06-11T00:00:00.000Z" }), dir);
+    saveSnapshot(snap({ name: "pre-sync-3", capturedAt: "2026-06-12T00:00:00.000Z" }), dir);
+    expect(pruneSnapshots("pre-sync-", 2, dir)).toEqual(["pre-sync-1"]);
+    expect(listSnapshots(dir).map((s) => s.name)).toEqual(["pre-sync-3", "pre-sync-2"]);
+  });
+
+  it("never prunes a snapshot whose name does not match the prefix", () => {
+    saveSnapshot(snap({ name: "manual", capturedAt: "2026-06-09T00:00:00.000Z" }), dir);
+    saveSnapshot(snap({ name: "pre-sync-1", capturedAt: "2026-06-10T00:00:00.000Z" }), dir);
+    saveSnapshot(snap({ name: "pre-sync-2", capturedAt: "2026-06-11T00:00:00.000Z" }), dir);
+    expect(pruneSnapshots("pre-sync-", 1, dir)).toEqual(["pre-sync-1"]);
+    expect(
+      listSnapshots(dir)
+        .map((s) => s.name)
+        .sort(),
+    ).toEqual(["manual", "pre-sync-2"]);
   });
 });
