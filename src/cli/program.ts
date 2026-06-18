@@ -27,6 +27,7 @@ import { registerMetadataCommand } from "./commands/metadata.js";
 import { registerSyncCommand } from "./commands/sync.js";
 import { registerPlanCommand } from "./commands/plan.js";
 import { registerOffersCommand } from "./commands/offers.js";
+import { registerAiListingCommand } from "./commands/aiListing.js";
 import { registerReviewsCommand } from "./commands/reviews.js";
 import { registerReportsCommand } from "./commands/reports.js";
 import { registerInsightsCommand } from "./commands/insights.js";
@@ -111,6 +112,7 @@ export function buildProgram(): Command {
   registerSyncCommand(program);
   registerPlanCommand(program);
   registerOffersCommand(program);
+  registerAiListingCommand(program);
   registerReviewsCommand(program);
   registerReportsCommand(program);
   registerInsightsCommand(program);
