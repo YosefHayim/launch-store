@@ -21,7 +21,9 @@ import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AppDescriptor, Platform } from "./types.js";
 import { loadConfig } from "./config.js";
-import { ENV_EXAMPLE_TEMPLATE, configTemplate, detectAppRoot } from "./configScaffold.js";
+import { DEFAULT_IN_REPO_ARTIFACT_DIR, ENV_EXAMPLE_TEMPLATE, configTemplate, detectAppRoot } from "./configScaffold.js";
+import { resolveArtifactDir } from "./storage.js";
+import { ensureArtifactDirIgnored } from "./gitignore.js";
 import { createLogger } from "./logger.js";
 import { capture, exists } from "./exec.js";
 import { hostOsLabel, hostResources, isMac } from "./os.js";
@@ -286,11 +288,20 @@ export async function collectReadiness(platform: Platform, apps: AppDescriptor[]
   return { groups };
 }
 
-/** Write `launch.config.ts` (and `.env.example` when absent) into `cwd` — the non-interactive scaffold. */
-function scaffoldConfig(apps: AppDescriptor[]): void {
-  writeFileSync(join(process.cwd(), "launch.config.ts"), configTemplate(detectAppRoot(apps, process.cwd())));
-  const envExample = join(process.cwd(), ".env.example");
+/**
+ * Write `launch.config.ts` (and `.env.example` when absent) into `cwd` — the non-interactive scaffold.
+ * Scaffolds the in-repo {@link DEFAULT_IN_REPO_ARTIFACT_DIR} and auto-gitignores it, matching `launch init`
+ * so a hands-off `launch setup` never leaves build binaries staged for commit.
+ */
+async function scaffoldConfig(apps: AppDescriptor[]): Promise<void> {
+  const cwd = process.cwd();
+  writeFileSync(
+    join(cwd, "launch.config.ts"),
+    configTemplate(detectAppRoot(apps, cwd), undefined, undefined, DEFAULT_IN_REPO_ARTIFACT_DIR),
+  );
+  const envExample = join(cwd, ".env.example");
   if (!existsSync(envExample)) writeFileSync(envExample, ENV_EXAMPLE_TEMPLATE);
+  await ensureArtifactDirIgnored(resolveArtifactDir(DEFAULT_IN_REPO_ARTIFACT_DIR, cwd), cwd);
 }
 
 /** Options for {@link runSetup}. */
@@ -335,7 +346,7 @@ export async function runSetup(options: SetupOptions): Promise<void> {
   if (existsSync(join(process.cwd(), "launch.config.ts"))) {
     log.step("config", "launch.config.ts present");
   } else {
-    scaffoldConfig(apps);
+    await scaffoldConfig(apps);
     log.step("config", "scaffolded launch.config.ts + .env.example");
     ({ apps } = await loadConfig());
   }

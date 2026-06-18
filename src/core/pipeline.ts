@@ -52,7 +52,8 @@ import {
 } from "./env.js";
 import { beginBuildLog, buildLogId, endBuildLog } from "./buildLog.js";
 import { getBuildEngine, getCredentialsProvider, getSubmitter } from "./registry.js";
-import { resolveStorageProvider } from "./storage.js";
+import { resolveArtifactDir, resolveStorageProvider } from "./storage.js";
+import { ensureArtifactDirIgnored } from "./gitignore.js";
 import { resolveRetentionDays } from "./artifactRetention.js";
 import { createLogger, type Logger } from "./logger.js";
 import type { GlossaryTopic } from "./glossary.js";
@@ -904,6 +905,12 @@ async function storeArtifact(
     createdAt: new Date().toISOString(),
   };
   const provider = resolveStorageProvider(config);
+  // Keep an in-repo `artifactDir` out of version control before the first binary lands — idempotent, and
+  // a no-op for the global default or a cloud store. Guarantees "won't get committed" even if init was skipped.
+  if (config.storage === "local") {
+    const ignored = await ensureArtifactDirIgnored(resolveArtifactDir(config.artifactDir));
+    if (ignored.added) log.step("gitignore", `added ${ignored.entry ?? ""} (build artifacts stay out of git)`);
+  }
   const stored = await provider.put(artifact);
   log.step("store", stored.location);
 

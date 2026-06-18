@@ -9,9 +9,16 @@
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Command } from "commander";
-import { cancel, confirm, intro, isCancel, note, outro } from "@clack/prompts";
+import { cancel, confirm, intro, isCancel, note, outro, text } from "@clack/prompts";
 import { loadConfig } from "../../core/config.js";
-import { ENV_EXAMPLE_TEMPLATE, configTemplate, detectAppRoot } from "../../core/configScaffold.js";
+import {
+  DEFAULT_IN_REPO_ARTIFACT_DIR,
+  ENV_EXAMPLE_TEMPLATE,
+  configTemplate,
+  detectAppRoot,
+} from "../../core/configScaffold.js";
+import { resolveArtifactDir } from "../../core/storage.js";
+import { ensureArtifactDirIgnored } from "../../core/gitignore.js";
 
 /** Write a file unless it exists; returns whether it was written. */
 function writeIfAbsent(path: string, contents: string): boolean {
@@ -48,10 +55,28 @@ export async function runInit(cwd: string): Promise<void> {
     }
   }
 
-  writeFileSync(configPath, configTemplate(detectAppRoot(apps, cwd)));
-  const wroteEnv = writeIfAbsent(join(cwd, ".env.example"), ENV_EXAMPLE_TEMPLATE);
+  const dirInput = await text({
+    message: "Where should build artifacts be stored?",
+    placeholder: `${DEFAULT_IN_REPO_ARTIFACT_DIR}  (in-repo, auto-gitignored — Enter to accept)`,
+    defaultValue: DEFAULT_IN_REPO_ARTIFACT_DIR,
+  });
+  if (isCancel(dirInput)) {
+    cancel("Left your launch.config.ts untouched.");
+    process.exit(0);
+  }
+  const artifactDir = dirInput.trim() || DEFAULT_IN_REPO_ARTIFACT_DIR;
 
-  const written = ["launch.config.ts", wroteEnv ? ".env.example" : null].filter(Boolean).join(", ");
+  writeFileSync(configPath, configTemplate(detectAppRoot(apps, cwd), undefined, undefined, artifactDir));
+  const wroteEnv = writeIfAbsent(join(cwd, ".env.example"), ENV_EXAMPLE_TEMPLATE);
+  const ignored = await ensureArtifactDirIgnored(resolveArtifactDir(artifactDir, cwd), cwd);
+
+  const written = [
+    "launch.config.ts",
+    wroteEnv ? ".env.example" : null,
+    ignored.added ? `.gitignore (+ ${ignored.entry ?? ""})` : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
   note(
     [
       `Wrote: ${written}`,

@@ -21,6 +21,13 @@ export function detectAppRoot(apps: AppDescriptor[], cwd: string): string | null
   return segments.size === 1 && only ? `./${only}` : null;
 }
 
+/**
+ * The in-repo artifact directory `launch init` and the no-args wizard scaffold by default — a `.launch`
+ * folder in the project, mirroring the global `~/.launch`. Auto-added to `.gitignore` so build binaries
+ * never get committed. Users can point `artifactDir` elsewhere (or omit it for the global default).
+ */
+export const DEFAULT_IN_REPO_ARTIFACT_DIR = "./.launch/artifacts";
+
 /** The single `production` profile `launch init` / `launch adopt` scaffold when none is supplied. */
 const DEFAULT_PROFILES_BLOCK = `  profiles: {
     production: {
@@ -35,14 +42,24 @@ const DEFAULT_PROFILES_BLOCK = `  profiles: {
  * is injected verbatim just before the closing `});` — `launch adopt` passes a populated `products:` block
  * there; `launch init` passes nothing and gets the blank starter. `profilesSection`, when given, replaces
  * the default single-`production` profiles block — `launch migrate` passes the profiles it mapped from
- * `eas.json` there so the migrated config carries the user's real build profiles.
+ * `eas.json` there so the migrated config carries the user's real build profiles. `artifactDir`, when
+ * given, emits an explicit `artifactDir:` line (e.g. the in-repo {@link DEFAULT_IN_REPO_ARTIFACT_DIR});
+ * omit it to leave the config on the global `~/.launch/artifacts` default.
  */
-export function configTemplate(appRoot: string | null, extraSections?: string, profilesSection?: string): string {
+export function configTemplate(
+  appRoot: string | null,
+  extraSections?: string,
+  profilesSection?: string,
+  artifactDir?: string,
+): string {
   const appRootsLine = appRoot
     ? `  appRoots: ["${appRoot}"], // every app.json lives under here`
     : `  // appRoots: ["./apps"], // uncomment if your apps live in a subfolder`;
   const injected = extraSections ? `\n${extraSections}\n` : "";
   const profilesBlock = profilesSection ?? DEFAULT_PROFILES_BLOCK;
+  const artifactDirLine = artifactDir
+    ? `\n  artifactDir: ${JSON.stringify(artifactDir)}, // where local build binaries land (auto-added to .gitignore)`
+    : "";
   return `import { defineConfig } from "launch-store";
 
 /**
@@ -54,7 +71,7 @@ export default defineConfig({
 ${appRootsLine}
 
   credentials: "local", // macOS Keychain + ~/.launch (your own keys, cached locally)
-  storage: "local", // ~/.launch/artifacts (swap for s3/r2/supabase later)
+  storage: "local", // ~/.launch/artifacts (swap for s3/r2/supabase later)${artifactDirLine}
   // artifactRetentionDays: 30, // auto-prune local build binaries older than this (0 = keep forever; newest per app is always kept)
   buildEngine: "fastlane", // "fastlane" (local) · "remote-mac" (AWS EC2 Mac) · "eas" (Expo cloud)
 

@@ -33,4 +33,10 @@ describe("configTemplate", () => {
     expect(template).toContain("  products: { foo: {} },");
     expect(template.indexOf("products: { foo: {} },")).toBeLessThan(template.lastIndexOf("});"));
   });
+
+  it("emits an artifactDir line only when one is supplied", () => {
+    expect(configTemplate(null)).not.toContain("artifactDir:");
+    const withDir = configTemplate(null, undefined, undefined, "./.launch/artifacts");
+    expect(withDir).toContain('artifactDir: "./.launch/artifacts",');
+  });
 });
