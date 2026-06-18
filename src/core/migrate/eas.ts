@@ -13,10 +13,12 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { readResolvedConfig } from "../config.js";
 import { configTemplate, detectAppRoot, ENV_EXAMPLE_TEMPLATE } from "../configScaffold.js";
 import type { AppDescriptor, BuildProfile, PlayTrack } from "../types.js";
 import { scaffoldStoreConfig } from "./scaffold.js";
 import type {
+  CredentialsSummary,
   EasBuildProfile,
   EasCli,
   EasJson,
@@ -192,12 +194,32 @@ function buildEnvExample(keys: string[]): string {
   return `${header}\n${keys.map((key) => `${key}=`).join("\n")}\n`;
 }
 
+/**
+ * Emit a `.env.<profile>` artifact (keys only, values blanked) for each build profile that declares its
+ * own `env`. The union `.env.example` documents every key; these per-profile files let you fill in the
+ * concrete values EAS kept inline, profile by profile, without ever copying a (possibly secret) value over.
+ */
+function perProfileEnvArtifacts(eas: EasJson): MigrationArtifact[] {
+  const artifacts: MigrationArtifact[] = [];
+  for (const [name, profile] of Object.entries(eas.build)) {
+    if (!profile.env) continue;
+    artifacts.push({ path: `.env.${name}`, contents: buildEnvExample(Object.keys(profile.env).sort()) });
+  }
+  return artifacts;
+}
+
 /** Build the report notes: what mapped automatically, what needs manual follow-up, and pure FYI. */
 function buildNotes(eas: EasJson, apps: AppDescriptor[]): MigrationNote[] {
   const notes: MigrationNote[] = [];
 
   for (const [name, profile] of Object.entries(eas.build)) {
     notes.push({ level: "mapped", message: `Build profile "${name}" → Launch profile "${name}".` });
+    if (profile.env) {
+      notes.push({
+        level: "mapped",
+        message: `Profile "${name}" env keys → .env.${name} (values left blank — fill them in; they may be secrets).`,
+      });
+    }
     if (profile.channel) {
       notes.push({
         level: "manual",
@@ -271,12 +293,149 @@ function buildNotes(eas: EasJson, apps: AppDescriptor[]): MigrationNote[] {
   return notes;
 }
 
+/** Whether a record carries any password field — recorded as a boolean so the value itself is never read. */
+function hasPasswordKey(record: Record<string, unknown>): boolean {
+  return Object.keys(record).some((key) => key.toLowerCase().includes("password"));
+}
+
 /**
- * Migrate an Expo/EAS project at `cwd` into Launch artifacts. Reads `cwd/eas.json` (required) and uses
- * the already-discovered `apps` for the app facts; returns the artifacts to write and the migration
- * report notes. Never writes — `write.ts` owns persistence, so this stays trivially testable.
+ * Read a project's `credentials.json` (present when `eas.json` sets `credentialsSource: "local"`) into a
+ * non-secret {@link CredentialsSummary}: only the signing-material PATHS and the keystore alias are lifted
+ * out — the certificate/keystore passwords are never read, just recorded as present via `hasPassword`.
+ * Returns null when the file is absent, unparseable, or carries no recognized iOS/Android material, so a
+ * project without local credentials migrates cleanly. AGENTS.md: "Secrets never touch the repo."
  */
-export function migrateEas(cwd: string, apps: AppDescriptor[]): MigrationResult {
+function readCredentialsJson(cwd: string): CredentialsSummary | null {
+  const path = join(cwd, "credentials.json");
+  if (!existsSync(path)) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return null;
+  }
+  const record = asRecord(parsed);
+  if (!record) return null;
+
+  const summary: CredentialsSummary = {};
+
+  const ios = asRecord(record["ios"]);
+  if (ios) {
+    const certificate = asRecord(ios["distributionCertificate"]);
+    const distributionCertificatePath = certificate ? str(certificate, "path") : undefined;
+    const provisioningProfilePath = str(ios, "provisioningProfilePath");
+    const hasPassword = certificate ? hasPasswordKey(certificate) : false;
+    if (distributionCertificatePath || provisioningProfilePath || hasPassword) {
+      summary.ios = {
+        ...(distributionCertificatePath ? { distributionCertificatePath } : {}),
+        ...(provisioningProfilePath ? { provisioningProfilePath } : {}),
+        hasPassword,
+      };
+    }
+  }
+
+  const keystore = asRecord(asRecord(record["android"])?.["keystore"]);
+  if (keystore) {
+    const keystorePath = str(keystore, "keystorePath");
+    const keyAlias = str(keystore, "keyAlias");
+    const hasPassword = hasPasswordKey(keystore);
+    if (keystorePath || keyAlias || hasPassword) {
+      summary.android = {
+        ...(keystorePath ? { keystorePath } : {}),
+        ...(keyAlias ? { keyAlias } : {}),
+        hasPassword,
+      };
+    }
+  }
+
+  const hasMaterial = summary.ios !== undefined || summary.android !== undefined;
+  return hasMaterial ? summary : null;
+}
+
+/** Point each piece of local signing material discovered in `credentials.json` at `launch creds` (manual). */
+function credentialsNotes(summary: CredentialsSummary): MigrationNote[] {
+  const notes: MigrationNote[] = [];
+  if (summary.ios) {
+    const where = summary.ios.distributionCertificatePath ?? "your distribution certificate";
+    notes.push({
+      level: "manual",
+      message: `Local iOS signing material in credentials.json (${where}) — import it with \`launch creds\`; Launch keeps certs in the OS keychain and never reads the password from credentials.json.`,
+    });
+  }
+  if (summary.android) {
+    const where = summary.android.keystorePath ?? "your release keystore";
+    const alias = summary.android.keyAlias ? `, key alias "${summary.android.keyAlias}"` : "";
+    notes.push({
+      level: "manual",
+      message: `Local Android keystore in credentials.json (${where}${alias}) — register it with \`launch creds\`; the keystore/key passwords are never read from credentials.json.`,
+    });
+  }
+  return notes;
+}
+
+/** Render an Expo `runtimeVersion` (a literal string, or a `{ policy }` object) as a short label, or undefined. */
+function readRuntimeVersion(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  const policy = str(asRecord(value) ?? {}, "policy");
+  return policy ? `policy "${policy}"` : undefined;
+}
+
+/**
+ * Read each app's fully-resolved Expo config and surface the EAS-specific facts Launch doesn't carry on
+ * its own config — the EAS `extra.eas.projectId`, the Expo account `owner`, the OTA `runtimeVersion`, and
+ * whether `expo.updates` is configured — as `info` notes (nothing to write, just orient the developer).
+ * Async because a dynamic `app.config.{ts,js}` must be evaluated (via {@link readResolvedConfig}); a
+ * static-only or config-less project simply yields no facts.
+ */
+async function appFactsNotes(apps: AppDescriptor[]): Promise<MigrationNote[]> {
+  const notes: MigrationNote[] = [];
+  for (const app of apps) {
+    const resolved = await readResolvedConfig(app.dir);
+    if (!resolved) continue;
+    const expo = asRecord(resolved["expo"]) ?? resolved;
+
+    const eas = asRecord(asRecord(expo["extra"])?.["eas"]);
+    const projectId = eas ? str(eas, "projectId") : undefined;
+    if (projectId) {
+      notes.push({
+        level: "info",
+        message: `"${app.name}" is EAS project ${projectId} (app.json extra.eas.projectId) — Launch doesn't use an EAS project id; drop it once you've cut over.`,
+      });
+    }
+
+    const owner = str(expo, "owner");
+    if (owner) {
+      notes.push({
+        level: "info",
+        message: `"${app.name}" is owned by the Expo account "${owner}" — Launch publishes under your Apple/Play accounts, not an Expo owner.`,
+      });
+    }
+
+    const runtimeVersion = readRuntimeVersion(expo["runtimeVersion"]);
+    if (runtimeVersion) {
+      notes.push({
+        level: "info",
+        message: `"${app.name}" set runtimeVersion ${runtimeVersion} — relevant only for EAS Update; Launch ships store builds (see \`launch explain ota-update\`).`,
+      });
+    }
+
+    if (expo["updates"] !== undefined) {
+      notes.push({
+        level: "info",
+        message: `"${app.name}" configures expo.updates (EAS Update) — Launch ships store builds and doesn't run OTA by default (see \`launch explain ota-update\`).`,
+      });
+    }
+  }
+  return notes;
+}
+
+/**
+ * Migrate an Expo/EAS project at `cwd` into Launch artifacts. Reads `cwd/eas.json` (required), an optional
+ * local `credentials.json`, and each app's resolved Expo config; returns the artifacts to write and the
+ * migration report notes. Async because the app facts evaluate any dynamic `app.config.*`. Never writes —
+ * `write.ts` owns persistence, so this stays trivially testable.
+ */
+export async function migrateEas(cwd: string, apps: AppDescriptor[]): Promise<MigrationResult> {
   const easPath = join(cwd, "eas.json");
   if (!existsSync(easPath)) {
     throw new Error(`No eas.json in ${cwd}. \`launch migrate eas\` reads an existing Expo/EAS project.`);
@@ -287,9 +446,16 @@ export function migrateEas(cwd: string, apps: AppDescriptor[]): MigrationResult 
   const artifacts: MigrationArtifact[] = [
     { path: "launch.config.ts", contents: configTemplate(detectAppRoot(apps, cwd), undefined, profilesSection) },
     { path: ".env.example", contents: buildEnvExample(collectEnvKeys(eas)) },
+    ...perProfileEnvArtifacts(eas),
   ];
 
   const notes = buildNotes(eas, apps);
+
+  const credentials = readCredentialsJson(cwd);
+  if (credentials) notes.push(...credentialsNotes(credentials));
+
+  notes.push(...(await appFactsNotes(apps)));
+
   const store = scaffoldStoreConfig(cwd);
   if (store.artifact) artifacts.push(store.artifact);
   notes.push(store.note);

@@ -48,7 +48,7 @@ function renderNotes(log: Logger, notes: MigrationNote[]): void {
 }
 
 /** A source's migrate function: read its config files at `cwd` and return the artifacts + report. */
-type Migrator = (cwd: string, apps: AppDescriptor[]) => MigrationResult;
+type Migrator = (cwd: string, apps: AppDescriptor[]) => MigrationResult | Promise<MigrationResult>;
 
 /**
  * Run one migration source end to end: discover apps, run its migrator, print the notes, then either
@@ -63,7 +63,7 @@ async function runMigration(migrate: Migrator, options: MigrateOptions): Promise
 
   let result: MigrationResult;
   try {
-    result = migrate(cwd, apps);
+    result = await migrate(cwd, apps);
   } catch (error) {
     log.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
