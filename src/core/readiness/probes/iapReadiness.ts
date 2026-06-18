@@ -8,6 +8,7 @@
  * identically and a change to the config shape lands once.
  */
 
+import type { AppProducts } from "../../types.js";
 import type { ReadinessContext } from "../types.js";
 
 /** The Apple in-app-purchase product ids an app declares in `launch.config.ts` (empty when it sells none). */
@@ -24,6 +25,21 @@ export function declaredSubscriptionIds(ctx: ReadinessContext, bundleId: string)
 /** Whether an app declares any monetization (one-time IAPs or subscriptions) — the IAP probes' scope gate. */
 export function sellsProducts(ctx: ReadinessContext, bundleId: string): boolean {
   return declaredIapIds(ctx, bundleId).length > 0 || declaredSubscriptionIds(ctx, bundleId).length > 0;
+}
+
+/**
+ * Every Apple product id one app declares: its one-off in-app purchases plus every subscription across all
+ * of its subscription groups. The file-based IAP probes (`apple-iap-code-reference`, `apple-storekit-config`)
+ * ask their question of the whole catalog, so they share this flattening rather than each re-walking the
+ * `inAppPurchases` + `subscriptionGroups` shape. Returns `[]` when the app declares no products.
+ */
+export function declaredAppleProductIds(products: AppProducts | undefined): string[] {
+  if (!products) return [];
+  const purchases = (products.inAppPurchases ?? []).map((purchase) => purchase.productId);
+  const subscriptions = (products.subscriptionGroups ?? []).flatMap((group) =>
+    group.subscriptions.map((subscription) => subscription.productId),
+  );
+  return [...purchases, ...subscriptions];
 }
 
 /**

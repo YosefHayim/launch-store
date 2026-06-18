@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **206 App Store Connect & Google Play API operations** across **55 commands**, guarded by **1465 tests**.
+> Launch wraps **206 App Store Connect & Google Play API operations** across **55 commands**, guarded by **1480 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -215,6 +215,7 @@ reconcile App Store Connect products (capabilities, IAPs, subscriptions, pricing
 | `--dry-run`           | print the plan and exit, making no changes                                     |
 | `--allow-destructive` | permit destructive actions such as removing a capability                       |
 | `-y, --yes`           | skip the confirmation prompt (for CI)                                          |
+| `--no-snapshot`       | skip the automatic pre-sync snapshot baseline                                  |
 
 ## `launch plan [surface]`
 

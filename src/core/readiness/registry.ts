@@ -14,6 +14,8 @@ import { bundleIdProbe } from "./probes/bundleId.js";
 import { distributionCertProbe } from "./probes/distributionCert.js";
 import { exportComplianceProbe } from "./probes/exportCompliance.js";
 import { iapProductsProbe } from "./probes/iapProducts.js";
+import { iapCodeReferenceProbe } from "./probes/iapCodeReference.js";
+import { storeKitConfigProbe } from "./probes/storeKitConfig.js";
 import { subscriptionsProbe } from "./probes/subscriptions.js";
 import { iapPricingProbe } from "./probes/iapPricing.js";
 import { subscriptionOffersProbe } from "./probes/subscriptionOffers.js";
@@ -57,6 +59,8 @@ export function registerBuiltinProbes(): void {
   registerReadinessProbe(distributionCertProbe);
   registerReadinessProbe(exportComplianceProbe);
   registerReadinessProbe(iapProductsProbe);
+  registerReadinessProbe(iapCodeReferenceProbe);
+  registerReadinessProbe(storeKitConfigProbe);
   registerReadinessProbe(subscriptionsProbe);
   registerReadinessProbe(iapPricingProbe);
   registerReadinessProbe(subscriptionOffersProbe);
