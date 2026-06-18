@@ -29,6 +29,7 @@ import { registerPlanCommand } from "./commands/plan.js";
 import { registerOffersCommand } from "./commands/offers.js";
 import { registerReviewsCommand } from "./commands/reviews.js";
 import { registerReportsCommand } from "./commands/reports.js";
+import { registerInsightsCommand } from "./commands/insights.js";
 import { registerTeamCommand } from "./commands/team.js";
 import { registerReleaseConfigCommand } from "./commands/releaseConfig.js";
 import { registerAppClipsCommand } from "./commands/appClips.js";
@@ -112,6 +113,7 @@ export function buildProgram(): Command {
   registerOffersCommand(program);
   registerReviewsCommand(program);
   registerReportsCommand(program);
+  registerInsightsCommand(program);
   registerTeamCommand(program);
   registerReleaseConfigCommand(program);
   registerAppClipsCommand(program);
