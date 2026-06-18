@@ -31,6 +31,9 @@ describe("readiness registry", () => {
         "apple-subscription-group",
         "apple-iap-products",
         "apple-subscriptions",
+        "apple-iap-pricing",
+        "apple-subscription-offers",
+        "apple-sandbox-testers",
         "apple-iap-code-reference",
         "apple-storekit-config",
       ]),
@@ -49,10 +52,12 @@ describe("readiness registry", () => {
         "apple-export-compliance",
         "apple-iap-products",
         "apple-subscriptions",
+        "apple-iap-pricing",
         "play-app-access",
       ]),
     );
     expect(submit).not.toContain("play-internal-track"); // advisory, never a hard submit blocker
+    expect(submit).not.toContain("apple-sandbox-testers"); // advisory IAP testing prerequisite, not a blocker
     expect(submit).not.toContain("apple-iap-code-reference"); // advisory local scan, not a submit blocker
     expect(submit).not.toContain("apple-storekit-config"); // advisory local scan, not a submit blocker
   });

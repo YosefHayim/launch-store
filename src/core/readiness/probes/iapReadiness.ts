@@ -1,12 +1,31 @@
 /**
- * Shared grading for the two IAP probes (`apple-iap-products`, `apple-subscriptions`): both ask the same
- * question of a declared product — does it exist on App Store Connect, and if so is it actually submittable?
- * Apple answers the second part itself via the resource's lifecycle `state`, so this helper trusts that
- * signal rather than re-deriving readiness from localizations + price. Keeping it in one place means both
- * probes classify identically and a change to "what counts as not-ready" lands once.
+ * Shared grading + product-scoping for the IAP-family probes (`apple-iap-products`, `apple-subscriptions`,
+ * and the deferred set — pricing, offers, sandbox, code-reference, StoreKit config). The grading half asks
+ * the same question of a declared product — does it exist on App Store Connect, and if so is it actually
+ * submittable? Apple answers the second part itself via the resource's lifecycle `state`, so this helper
+ * trusts that signal rather than re-deriving readiness from localizations + price. The scoping half is the
+ * single source of "which product ids does this app declare", so every IAP probe selects its scope
+ * identically and a change to the config shape lands once.
  */
 
 import type { AppProducts } from "../../types.js";
+import type { ReadinessContext } from "../types.js";
+
+/** The Apple in-app-purchase product ids an app declares in `launch.config.ts` (empty when it sells none). */
+export function declaredIapIds(ctx: ReadinessContext, bundleId: string): string[] {
+  return (ctx.config.products?.[bundleId]?.inAppPurchases ?? []).map((iap) => iap.productId);
+}
+
+/** The Apple subscription product ids an app declares, flattened across all its subscription groups. */
+export function declaredSubscriptionIds(ctx: ReadinessContext, bundleId: string): string[] {
+  const groups = ctx.config.products?.[bundleId]?.subscriptionGroups ?? [];
+  return groups.flatMap((group) => group.subscriptions.map((sub) => sub.productId));
+}
+
+/** Whether an app declares any monetization (one-time IAPs or subscriptions) — the IAP probes' scope gate. */
+export function sellsProducts(ctx: ReadinessContext, bundleId: string): boolean {
+  return declaredIapIds(ctx, bundleId).length > 0 || declaredSubscriptionIds(ctx, bundleId).length > 0;
+}
 
 /**
  * Every Apple product id one app declares: its one-off in-app purchases plus every subscription across all
