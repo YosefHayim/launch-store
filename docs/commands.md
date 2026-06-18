@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **206 App Store Connect & Google Play API operations** across **55 commands**, guarded by **1457 tests**.
+> Launch wraps **206 App Store Connect & Google Play API operations** across **56 commands**, guarded by **1471 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -121,6 +121,16 @@ show each app's App Store version, review, and phased-rollout state
 | `-a, --app <names>` | comma-separated app handles (default: all iOS apps) |
 | `--watch`           | poll until the review reaches a terminal verdict    |
 | `--json`            | machine-readable output for CI                      |
+
+## `launch dashboard`
+
+serve a local, read-only web UI over your apps, builds, accounts, and secrets
+
+| Flag            | Description                                            |
+| --------------- | ------------------------------------------------------ |
+| `--host <host>` | interface to bind                                      |
+| `--port <port>` | port to bind                                           |
+| `--json`        | print the dashboard state as JSON and exit (no server) |
 
 ## `launch release-train [action] [id]`
 
