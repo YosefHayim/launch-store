@@ -116,7 +116,22 @@ describe("parseSupplyfile", () => {
 
 describe("parseFastfile", () => {
   it("collects lane names from both lane and private_lane", () => {
-    expect(parseFastfile(SAMPLE_FASTFILE).lanes.sort()).toEqual(["beta", "play", "prepare", "release"]);
+    const names = parseFastfile(SAMPLE_FASTFILE)
+      .lanes.map((lane) => lane.name)
+      .sort();
+    expect(names).toEqual(["beta", "play", "prepare", "release"]);
+  });
+
+  it("attributes each lane to its platform block and scopes actions to its body", () => {
+    const lanes = parseFastfile(SAMPLE_FASTFILE).lanes;
+    const beta = lanes.find((lane) => lane.name === "beta");
+    expect(beta?.platform).toBe("ios");
+    expect(beta?.actions.sort()).toEqual(["gym", "match", "pilot"]);
+    const play = lanes.find((lane) => lane.name === "play");
+    expect(play?.platform).toBe("android");
+    expect(play?.actions).toEqual(["supply"]);
+    // gym lives in :beta, not in :release — body scoping keeps them apart.
+    expect(lanes.find((lane) => lane.name === "release")?.actions).toEqual(["deliver"]);
   });
 
   it("detects the recognized actions used anywhere in the file", () => {
@@ -150,7 +165,7 @@ describe("readFastlaneSetup", () => {
     writeFileSync(join(dir, "fastlane", "Fastfile"), SAMPLE_FASTFILE);
     const setup = readFastlaneSetup(dir);
     expect(setup?.appfile?.appIdentifier).toBe("com.acme.alpha");
-    expect(setup?.lanes).toContain("beta");
+    expect(setup?.lanes.map((lane) => lane.name)).toContain("beta");
     expect(setup?.hasDeliverfile).toBe(false);
   });
 
@@ -189,10 +204,20 @@ describe("migrateFastlane", () => {
     expect(artifact(result.artifacts, "launch.config.ts").contents).toContain("defineConfig");
   });
 
-  it("reports lanes and signing as manual follow-ups", () => {
-    const manual = notesAt(migrateFastlane(dir, [app()]).notes, "manual").map((note) => note.message);
-    expect(manual.some((message) => message.includes("lanes"))).toBe(true);
+  it("maps each lane to its Launch commands and keeps signing as a manual follow-up", () => {
+    const notes = migrateFastlane(dir, [app()]).notes;
+    const mapped = notesAt(notes, "mapped").map((note) => note.message);
+    expect(mapped).toContain("lane :beta (ios) → launch build + launch release --track testing.");
+    expect(mapped).toContain("lane :release (ios) → launch release.");
+    expect(mapped).toContain("lane :play (android) → launch release (Android).");
+    const manual = notesAt(notes, "manual").map((note) => note.message);
     expect(manual.some((message) => message.includes("match/cert/sigh"))).toBe(true);
+  });
+
+  it("reports a custom lane with no recognized actions as a manual follow-up", () => {
+    writeFileSync(join(dir, "fastlane", "Fastfile"), "lane :smoke do\n  sh('echo hi')\nend\n");
+    const manual = notesAt(migrateFastlane(dir, [app()]).notes, "manual").map((note) => note.message);
+    expect(manual.some((message) => message.includes("Custom lanes (smoke)"))).toBe(true);
   });
 
   it("maps gym/pilot/deliver/supply to Launch commands", () => {
@@ -222,5 +247,44 @@ describe("migrateFastlane", () => {
     const result = migrateFastlane(dir, [app()]);
     expect(result.artifacts.map((entry) => entry.path)).not.toContain("store.config.json");
     expect(notesAt(result.notes, "skipped").some((note) => note.message.includes("store.config.json"))).toBe(true);
+  });
+
+  it("imports the fastlane/metadata folder into store.config.json and drops the Deliverfile follow-up", () => {
+    const appleLocale = join(dir, "fastlane", "metadata", "en-US");
+    mkdirSync(appleLocale, { recursive: true });
+    writeFileSync(join(appleLocale, "name.txt"), "Alpha");
+    writeFileSync(join(appleLocale, "keywords.txt"), "todo, tasks");
+    const androidLocale = join(dir, "fastlane", "metadata", "android", "en-US");
+    mkdirSync(androidLocale, { recursive: true });
+    writeFileSync(join(androidLocale, "title.txt"), "Alpha");
+    writeFileSync(join(androidLocale, "full_description.txt"), "The full description.");
+
+    const result = migrateFastlane(dir, [app()]);
+    const store = JSON.parse(artifact(result.artifacts, "store.config.json").contents) as {
+      apple?: { info: Record<string, { title?: string; keywords?: string[] }> };
+      android?: { info: Record<string, { title?: string }> };
+    };
+    expect(store.apple?.info["en-US"]?.title).toBe("Alpha");
+    expect(store.apple?.info["en-US"]?.keywords).toEqual(["todo", "tasks"]);
+    expect(store.android?.info["en-US"]?.title).toBe("Alpha");
+    expect(
+      notesAt(result.notes, "mapped").some((note) => note.message.includes("Imported your fastlane metadata")),
+    ).toBe(true);
+    expect(notesAt(result.notes, "manual").some((note) => note.message.includes("Deliverfile"))).toBe(false);
+  });
+
+  it("seeds .env.example with KEYS discovered in fastlane dotenv files (values dropped)", () => {
+    writeFileSync(join(dir, "fastlane", ".env.default"), "APP_STORE_KEY=secret\nexport SLACK_URL=https://hooks\n");
+    const env = artifact(migrateFastlane(dir, [app()]).artifacts, ".env.example").contents;
+    expect(env).toContain("APP_STORE_KEY=");
+    expect(env).toContain("SLACK_URL=");
+    expect(env).not.toContain("APP_STORE_KEY=secret");
+    expect(env).not.toContain("https://hooks");
+  });
+
+  it("surfaces a non-git match storage backend in the signing note", () => {
+    writeFileSync(join(dir, "fastlane", "Matchfile"), ['type("appstore")', 'storage_mode("google_cloud")'].join("\n"));
+    const info = notesAt(migrateFastlane(dir, [app()]).notes, "info").map((note) => note.message);
+    expect(info.some((message) => message.includes("google_cloud"))).toBe(true);
   });
 });

@@ -14,9 +14,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { readResolvedConfig } from "../config.js";
-import { configTemplate, detectAppRoot, ENV_EXAMPLE_TEMPLATE } from "../configScaffold.js";
+import { configTemplate, detectAppRoot } from "../configScaffold.js";
 import type { AppDescriptor, BuildProfile, PlayTrack } from "../types.js";
-import { scaffoldStoreConfig } from "./scaffold.js";
+import { buildEnvExample, scaffoldStoreConfig } from "./scaffold.js";
 import type {
   CredentialsSummary,
   EasBuildProfile,
@@ -183,15 +183,6 @@ function collectEnvKeys(eas: EasJson): string[] {
     if (profile.env) for (const key of Object.keys(profile.env)) keys.add(key);
   }
   return [...keys].sort();
-}
-
-/** Build the `.env.example` body: the configScaffold template's comment header + a blank line per imported key. */
-function buildEnvExample(keys: string[]): string {
-  if (keys.length === 0) return ENV_EXAMPLE_TEMPLATE;
-  const header = ENV_EXAMPLE_TEMPLATE.split("\n")
-    .filter((line) => line.startsWith("#"))
-    .join("\n");
-  return `${header}\n${keys.map((key) => `${key}=`).join("\n")}\n`;
 }
 
 /**
