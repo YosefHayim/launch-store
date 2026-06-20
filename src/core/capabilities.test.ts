@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  APP_GROUP_PORTAL_URL,
   CAPABILITY_TO_ENTITLEMENT,
+  appGroupContainers,
+  appGroupPortalNotice,
   entitlementForCapability,
   isCapabilityEntitlement,
   mapEntitlementsToCapabilities,
@@ -87,5 +90,48 @@ describe("entitlementForCapability (reverse map for `launch adopt`)", () => {
   it("distinguishes capability entitlements from signing-plumbing keys", () => {
     expect(isCapabilityEntitlement("aps-environment")).toBe(true);
     expect(isCapabilityEntitlement("application-identifier")).toBe(false);
+  });
+});
+
+describe("appGroupContainers", () => {
+  it("reads the group ids from the entitlement array", () => {
+    expect(
+      appGroupContainers({ "com.apple.security.application-groups": ["group.com.acme", "group.com.acme.shared"] }),
+    ).toEqual(["group.com.acme", "group.com.acme.shared"]);
+  });
+
+  it("tolerates a lone string value and drops non-string members of a hand-edited config", () => {
+    expect(appGroupContainers({ "com.apple.security.application-groups": "group.com.acme" })).toEqual([
+      "group.com.acme",
+    ]);
+    expect(appGroupContainers({ "com.apple.security.application-groups": ["group.com.acme", 42, "", null] })).toEqual([
+      "group.com.acme",
+    ]);
+  });
+
+  it("returns an empty list when no App Groups entitlement is present", () => {
+    expect(appGroupContainers(undefined)).toEqual([]);
+    expect(appGroupContainers({ "aps-environment": "production" })).toEqual([]);
+  });
+});
+
+describe("appGroupPortalNotice", () => {
+  it("returns null when the app declares no App Group containers", () => {
+    expect(appGroupPortalNotice([])).toBeNull();
+  });
+
+  it("names the groups, the portal URL, and the exit-65 failure for a single group", () => {
+    const notice = appGroupPortalNotice(["group.com.acme"]);
+    expect(notice).toContain('"group.com.acme"');
+    expect(notice).toContain("App Group");
+    expect(notice).toContain(APP_GROUP_PORTAL_URL);
+    expect(notice).toContain("exit 65");
+  });
+
+  it("pluralizes when several groups are declared", () => {
+    const notice = appGroupPortalNotice(["group.com.acme", "group.com.acme.shared"]);
+    expect(notice).toContain("App Groups");
+    expect(notice).toContain('"group.com.acme"');
+    expect(notice).toContain('"group.com.acme.shared"');
   });
 });

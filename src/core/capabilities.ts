@@ -178,3 +178,45 @@ export function mapEntitlementsToCapabilities(entitlements: Record<string, unkno
   }
   return { enable: [...enable].sort(), unmapped: unmapped.sort() };
 }
+
+/** The entitlement key whose value lists the `group.*` App Group container ids a bundle joins. */
+export const APP_GROUPS_ENTITLEMENT = "com.apple.security.application-groups";
+
+/**
+ * The `group.*` App Group container ids declared by one bundle's entitlements. The
+ * {@link APP_GROUPS_ENTITLEMENT} value is an array of group ids in a normal Expo config; this reads it
+ * defensively (a lone string is tolerated, non-strings dropped) so a hand-edited config can't throw.
+ * Pure — used to detect the portal-only App Group step (see {@link mapEntitlementsToCapabilities} for
+ * why the *container* itself is out of API scope).
+ */
+export function appGroupContainers(entitlements: Record<string, unknown> | undefined): string[] {
+  const value = entitlements?.[APP_GROUPS_ENTITLEMENT];
+  if (typeof value === "string") return [value];
+  if (!Array.isArray(value)) return [];
+  return value.filter((id): id is string => typeof id === "string" && id.length > 0);
+}
+
+/** The Apple Developer portal page where App Group container ids are created and assigned to bundle ids. */
+export const APP_GROUP_PORTAL_URL = "https://developer.apple.com/account/resources/identifiers/list/applicationGroup";
+
+/**
+ * The actionable message to print when an app (or one of its extensions) declares App Group containers,
+ * or `null` when it declares none. Creating a `group.*` container and assigning it to the bundle ids that
+ * share it is the one signing step Apple's JWT API can't do — it needs the portal's cookie session, which
+ * Launch deliberately doesn't automate. Surfacing this up front turns the otherwise cryptic `xcodebuild`
+ * exit 65 ("provisioning profile doesn't include the application-groups entitlement") into a precise
+ * to-do: which groups, where to create them, and which bundle ids must join. Pure — for the build path to
+ * warn before archiving and for unit tests.
+ */
+export function appGroupPortalNotice(containers: string[]): string | null {
+  if (containers.length === 0) return null;
+  const groups = containers.map((id) => `"${id}"`).join(", ");
+  const plural = containers.length === 1 ? "App Group" : "App Groups";
+  return (
+    `This app uses ${plural} (${groups}). Launch can register the App ID and enable the App Groups ` +
+    `capability, but the public Apple API can't create the group container or assign it to your bundle ` +
+    `ids — that step is portal-only. Create each ${plural.toLowerCase()} and add it to every bundle id ` +
+    `that shares it (the main app and each extension) at ${APP_GROUP_PORTAL_URL}, or xcodebuild will fail ` +
+    `to export (exit 65).`
+  );
+}
