@@ -22,7 +22,11 @@ import { createLogger } from "../../core/logger.js";
 import { type SetupOptions, runSetup } from "../../core/setup.js";
 import { interactiveConfirm, selectApp } from "../../core/pipeline.js";
 import { AppStoreConnectClient, AscRequestError } from "../../apple/ascClient.js";
-import { ensureSigningCredentials, loadCachedSigningAssets } from "../../apple/credentials.js";
+import {
+  describeStoredCredentials,
+  ensureSigningCredentials,
+  loadCachedSigningAssets,
+} from "../../apple/credentials.js";
 
 /** Flags accepted by `launch setup ios`. */
 interface SetupIosOptions {
@@ -45,6 +49,12 @@ interface DeviceLine {
   disabled: boolean;
 }
 
+/** One embedded app-extension target and whether its App Store profile is already cached locally. */
+interface ExtensionLine {
+  bundleId: string;
+  provisioned: boolean;
+}
+
 /**
  * The full provisioning picture for one app under one Apple account — the shape emitted by `--json`
  * and rendered by {@link formatReport}. The certificate + profile come from Launch's local credential
@@ -62,6 +72,12 @@ export interface ProvisioningReport {
   certificateSerial: string | null;
   /** Cached App Store provisioning-profile name, or null when none is provisioned yet. */
   profileName: string | null;
+  /**
+   * Embedded app-extension targets declared in config (`ios.extensions`), each with whether its own
+   * App Store profile is already cached. Empty for an app with no extensions. Every entry must be
+   * provisioned before a build can export, since one missing profile fails `xcodebuild` (exit 65).
+   */
+  extensions: ExtensionLine[];
   /** Devices registered for ad-hoc (internal) distribution. */
   devices: DeviceLine[];
 }
@@ -94,8 +110,17 @@ export function formatReport(report: ProvisioningReport): string {
     `  capabilities: ${report.capabilities.length ? report.capabilities.join(", ") : "none enabled"}`,
     `  certificate:  ${report.certificateSerial ?? "none cached — run 'launch creds setup'"}`,
     `  profile:      ${report.profileName ?? "none cached — run 'launch creds setup'"}`,
-    `  devices:      ${report.devices.length ? `${report.devices.length} registered` : "none (add with 'launch device add <udid>')"}`,
   ];
+  if (report.extensions.length) {
+    lines.push(`  extensions:   ${report.extensions.length} declared`);
+    for (const extension of report.extensions) {
+      const status = extension.provisioned ? "profile cached" : "not provisioned — run 'launch setup ios --provision'";
+      lines.push(`                  • ${extension.bundleId} — ${status}`);
+    }
+  }
+  lines.push(
+    `  devices:      ${report.devices.length ? `${report.devices.length} registered` : "none (add with 'launch device add <udid>')"}`,
+  );
   for (const device of report.devices) {
     lines.push(`                  • ${device.name} — ${device.udid}${device.disabled ? " (disabled)" : ""}`);
   }
@@ -143,6 +168,7 @@ async function reportSetupIos(options: SetupIosOptions): Promise<void> {
       log: createLogger(false),
       dryRun: false,
       confirmCreate: options.yes === true ? () => Promise.resolve(true) : interactiveConfirm,
+      extensions: app.iosExtensions ?? [],
     });
   }
 
@@ -154,6 +180,7 @@ async function reportSetupIos(options: SetupIosOptions): Promise<void> {
     : [];
   const devices = await withRole("registered devices", () => client.listDevices());
   const signing = loadCachedSigningAssets(account.keyId, bundleId);
+  const cachedBundleIds = new Set(describeStoredCredentials(account.keyId).bundleIds);
 
   const report: ProvisioningReport = {
     account: { label: account.label, keyId: account.keyId, teamId: account.teamId },
@@ -162,6 +189,10 @@ async function reportSetupIos(options: SetupIosOptions): Promise<void> {
     capabilities,
     certificateSerial: signing?.certSerial ?? null,
     profileName: signing?.profileName ?? null,
+    extensions: (app.iosExtensions ?? []).map((extensionBundleId) => ({
+      bundleId: extensionBundleId,
+      provisioned: cachedBundleIds.has(extensionBundleId),
+    })),
     devices: devices.map((device) => ({
       name: device.name,
       udid: device.udid,

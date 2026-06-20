@@ -114,9 +114,16 @@ export function assertDeviceArtifact(artifactPath: string, sizeBytes: number): v
 /**
  * Build the export-options plist for manual signing with the resolved profile + cert. `method` is
  * `app-store` for a store/TestFlight build or `ad-hoc` for an internal install-link build — the only
- * difference between the two export paths, since both use the same manual signing inputs.
+ * difference between the two export paths, since both use the same manual signing inputs. The
+ * `provisioningProfiles` dict maps the main bundle id and each {@link SigningAssets.extensionProfiles}
+ * target to its profile name, so `xcodebuild` signs every bundle embedded in the `.ipa` (an app with a
+ * WidgetKit/share extension fails to export when its target falls back to the main app's profile).
  */
 export function exportOptionsPlist(signing: SigningAssets, method: "app-store" | "ad-hoc" = "app-store"): string {
+  const profiles: Record<string, string> = { [signing.bundleId]: signing.profileName, ...signing.extensionProfiles };
+  const profileEntries = Object.entries(profiles).map(
+    ([bundleId, profileName]) => `<key>${bundleId}</key><string>${profileName}</string>`,
+  );
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
@@ -126,7 +133,7 @@ export function exportOptionsPlist(signing: SigningAssets, method: "app-store" |
     `<key>teamID</key><string>${signing.teamId}</string>`,
     `<key>signingCertificate</key><string>${signing.certName}</string>`,
     "<key>provisioningProfiles</key><dict>",
-    `<key>${signing.bundleId}</key><string>${signing.profileName}</string>`,
+    ...profileEntries,
     "</dict>",
     "<key>thinning</key><string>&lt;thin-for-all-variants&gt;</string>",
     "</dict></plist>",
