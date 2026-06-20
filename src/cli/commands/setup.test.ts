@@ -18,6 +18,7 @@ describe("formatReport", () => {
     capabilities: ["PUSH_NOTIFICATIONS", "ASSOCIATED_DOMAINS"],
     certificateSerial: "AABBCC",
     profileName: "Launch_com.loopi.pomedero_AppStore",
+    extensions: [],
     devices: [
       { name: "iPhone 15", udid: "000-111", disabled: false },
       { name: "Old iPad", udid: "222-333", disabled: true },
@@ -50,5 +51,22 @@ describe("formatReport", () => {
     expect(out).toContain("none enabled");
     expect(out).toContain("none cached");
     expect(out).toContain("none (add with");
+  });
+
+  it("lists declared extensions with each one's provisioning status", () => {
+    const out = formatReport({
+      ...ready,
+      extensions: [
+        { bundleId: "com.loopi.pomedero.widget", provisioned: true },
+        { bundleId: "com.loopi.pomedero.share", provisioned: false },
+      ],
+    });
+    expect(out).toContain("extensions:   2 declared");
+    expect(out).toContain("com.loopi.pomedero.widget — profile cached");
+    expect(out).toContain("com.loopi.pomedero.share — not provisioned");
+  });
+
+  it("omits the extensions section entirely when none are declared", () => {
+    expect(formatReport(ready)).not.toContain("extensions:");
   });
 });

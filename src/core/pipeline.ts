@@ -61,6 +61,7 @@ import { capture, exists, run } from "./exec.js";
 import { isInteractive, runWithProgress, withSpinner } from "./progress.js";
 import { AppStoreConnectClient } from "../apple/ascClient.js";
 import { ensureAdHocSigningCredentials, ensureSigningCredentials } from "../apple/credentials.js";
+import { appGroupContainers, appGroupPortalNotice } from "./capabilities.js";
 import { distributeArtifact } from "./distribute.js";
 import { ensureUploadKeystore } from "../google/credentials.js";
 import { GooglePlayClient, parseServiceAccount } from "../google/playClient.js";
@@ -303,6 +304,10 @@ async function resolveSigning(
 ): Promise<SigningAssets> {
   const bundleId = app.bundleId;
   if (!bundleId) throw new Error(`No iOS bundle identifier for ${app.name}. Set ios.bundleIdentifier in app.json.`);
+  // App Group containers are the one signing input the JWT API can't provision (portal-only); warn up
+  // front so the user fixes it before xcodebuild fails to export, rather than after.
+  const appGroupNotice = appGroupPortalNotice(appGroupContainers(app.iosEntitlements));
+  if (appGroupNotice) log.warn(appGroupNotice);
   // An ad-hoc (internal) build needs a device-scoped ad-hoc profile, recreated each run, so the cached
   // App Store assets don't apply — go straight to ad-hoc provisioning.
   if (distribution === "internal") {
@@ -333,6 +338,7 @@ async function resolveSigning(
     log,
     dryRun,
     confirmCreate: interactiveConfirm,
+    extensions: app.iosExtensions ?? [],
   });
 }
 

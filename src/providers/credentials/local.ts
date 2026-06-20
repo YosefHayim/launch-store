@@ -45,7 +45,9 @@ class MissingAndroidCredentialsError extends Error {
 async function resolveIos(ctx: ResolvedBuildContext): Promise<BuildCredentials> {
   const ascKey = ctx.account ? await loadAscKeyById(ctx.account) : await loadActiveAscKey();
   if (!ascKey) throw new MissingCredentialsError();
-  const cached = ctx.app.bundleId ? loadCachedSigningAssets(ascKey.keyId, ctx.app.bundleId) : null;
+  const cached = ctx.app.bundleId
+    ? loadCachedSigningAssets(ascKey.keyId, ctx.app.bundleId, ctx.app.iosExtensions)
+    : null;
   return cached ? { platform: "ios", ascKey, signing: cached } : { platform: "ios", ascKey };
 }
 
