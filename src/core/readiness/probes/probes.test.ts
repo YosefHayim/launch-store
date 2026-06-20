@@ -18,6 +18,12 @@ import { sandboxTestersProbe } from "./sandboxTesters.js";
 import { playAppProbe } from "./playApp.js";
 import { playFirstUploadProbe } from "./playFirstUpload.js";
 import { playInternalTrackProbe } from "./playInternalTrack.js";
+import { ageRatingProbe } from "./ageRating.js";
+import { listingUrlsProbe } from "./listingUrls.js";
+import { accountDeletionProbe } from "./accountDeletion.js";
+import { demoAccountProbe } from "./demoAccount.js";
+import { profileEntitlementsProbe } from "./profileEntitlements.js";
+import { screenshotsProbe } from "./screenshots.js";
 import type { AscReadinessApi, PlayReadinessApi, ProbeResult, ReadinessContext } from "../types.js";
 import type { AppDescriptor, LaunchConfig } from "../../types.js";
 
@@ -52,6 +58,15 @@ function ascApi(over: Partial<AscReadinessApi> = {}): AscReadinessApi {
     findInAppPurchasePricePoint: vi.fn(async () => ({ id: "ipp" })),
     findSubscriptionPricePoint: vi.fn(async () => ({ id: "spp" })),
     listSubscriptionOfferCodes: vi.fn(async () => []),
+    getEditableAppInfoId: vi.fn(async () => "appinfo-1"),
+    getAgeRatingDeclaration: vi.fn(async () => ({ attributes: { violenceCartoonOrFantasy: false } })),
+    listAccountDeletionUrls: vi.fn(async () => [{ locale: "en-US", url: "https://x.example/delete" }]),
+    findEditableAppStoreVersion: vi.fn(async () => ({ id: "ver-1" })),
+    getAppStoreReviewDetail: vi.fn(async () => ({ attributes: { demoAccountRequired: false } })),
+    listBundleIdCapabilities: vi.fn(async () => [{ capabilityType: "PUSH_NOTIFICATIONS" }]),
+    listAppStoreVersionLocalizations: vi.fn(async () => [{ id: "loc-1", locale: "en-US" }]),
+    listScreenshotSets: vi.fn(async () => [{ id: "set-1", screenshotDisplayType: "APP_IPHONE_67" }]),
+    listScreenshots: vi.fn(async () => [{ id: "shot-1" }]),
     ...over,
   };
 }
@@ -598,6 +613,247 @@ describe("storeKitConfigProbe", () => {
       expect(findings(ok)).toEqual([{ status: "ok", identifier: "com.x" }]);
       expect(firstDetail(ok)).toContain("Products.storekit");
     } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("ageRatingProbe", () => {
+  it("omits without an iOS app and skips without an Apple account", async () => {
+    expect((await ageRatingProbe.check(ctx({ apps: [app({ packageName: "com.x" })] }))).state).toBe("omitted");
+    expect((await ageRatingProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: null }))).state).toBe("skipped");
+  });
+
+  it("passes a completed questionnaire, blocks an empty or never-touched one", async () => {
+    const ok = await ageRatingProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: ascApi() }));
+    expect(findings(ok)).toEqual([{ status: "ok", identifier: "com.x" }]);
+
+    const empty = ascApi({ getAgeRatingDeclaration: vi.fn(async () => ({ attributes: {} })) });
+    expect(findings(await ageRatingProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: empty })))).toEqual([
+      { status: "blocker", identifier: "com.x" },
+    ]);
+
+    const untouched = ascApi({ getAgeRatingDeclaration: vi.fn(async () => null) });
+    expect(findings(await ageRatingProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: untouched })))).toEqual([
+      { status: "blocker", identifier: "com.x" },
+    ]);
+  });
+
+  it("warns instead of blocking when there's no app record or no editable version to read", async () => {
+    const noApp = ascApi({ getAppId: vi.fn(async () => null) });
+    expect(findings(await ageRatingProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: noApp })))).toEqual([
+      { status: "warn", identifier: "com.x" },
+    ]);
+
+    const noInfo = ascApi({ getEditableAppInfoId: vi.fn(async () => null) });
+    expect(findings(await ageRatingProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: noInfo })))).toEqual([
+      { status: "warn", identifier: "com.x" },
+    ]);
+  });
+});
+
+describe("accountDeletionProbe", () => {
+  it("omits without an iOS app and skips without an Apple account", async () => {
+    expect((await accountDeletionProbe.check(ctx({ apps: [app({ packageName: "com.x" })] }))).state).toBe("omitted");
+    expect((await accountDeletionProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: null }))).state).toBe(
+      "skipped",
+    );
+  });
+
+  it("passes when a URL is declared in any locale, warns when none is set", async () => {
+    const ok = await accountDeletionProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: ascApi() }));
+    expect(findings(ok)).toEqual([{ status: "ok", identifier: "com.x" }]);
+
+    const none = ascApi({ listAccountDeletionUrls: vi.fn(async () => [{ locale: "en-US", url: "" }]) });
+    expect(findings(await accountDeletionProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: none })))).toEqual([
+      { status: "warn", identifier: "com.x" },
+    ]);
+  });
+
+  it("warns when there's no app record or no editable app info to read", async () => {
+    const noApp = ascApi({ getAppId: vi.fn(async () => null) });
+    expect(findings(await accountDeletionProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: noApp })))).toEqual(
+      [{ status: "warn", identifier: "com.x" }],
+    );
+  });
+});
+
+describe("demoAccountProbe", () => {
+  it("omits without an iOS app and skips without an Apple account", async () => {
+    expect((await demoAccountProbe.check(ctx({ apps: [app({ packageName: "com.x" })] }))).state).toBe("omitted");
+    expect((await demoAccountProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: null }))).state).toBe(
+      "skipped",
+    );
+  });
+
+  it("passes when sign-in isn't required, or when it is and a demo account is provided", async () => {
+    const notRequired = await demoAccountProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: ascApi() }));
+    expect(findings(notRequired)).toEqual([{ status: "ok", identifier: "com.x" }]);
+
+    const provided = ascApi({
+      getAppStoreReviewDetail: vi.fn(async () => ({
+        attributes: { demoAccountRequired: true, demoAccountName: "review@x.example" },
+      })),
+    });
+    expect(findings(await demoAccountProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: provided })))).toEqual([
+      { status: "ok", identifier: "com.x" },
+    ]);
+  });
+
+  it("blocks when sign-in is required but no demo account name is set", async () => {
+    const missing = ascApi({
+      getAppStoreReviewDetail: vi.fn(async () => ({ attributes: { demoAccountRequired: true } })),
+    });
+    expect(findings(await demoAccountProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: missing })))).toEqual([
+      { status: "blocker", identifier: "com.x" },
+    ]);
+  });
+
+  it("warns when App Review details, the app record, or an editable version are missing", async () => {
+    const noDetail = ascApi({ getAppStoreReviewDetail: vi.fn(async () => null) });
+    expect(findings(await demoAccountProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: noDetail })))).toEqual([
+      { status: "warn", identifier: "com.x" },
+    ]);
+
+    const noVersion = ascApi({ findEditableAppStoreVersion: vi.fn(async () => null) });
+    expect(findings(await demoAccountProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: noVersion })))).toEqual(
+      [{ status: "warn", identifier: "com.x" }],
+    );
+  });
+});
+
+describe("profileEntitlementsProbe", () => {
+  /** An app whose entitlements require the Push Notifications capability on its App ID. */
+  const pushApp = app({ bundleId: "com.x", iosEntitlements: { "aps-environment": "production" } });
+
+  it("omits when no in-scope app declares capability-bearing entitlements", async () => {
+    expect((await profileEntitlementsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })] }))).state).toBe("omitted");
+  });
+
+  it("skips without an Apple account when an app does declare entitlements", async () => {
+    expect((await profileEntitlementsProbe.check(ctx({ apps: [pushApp], asc: null }))).state).toBe("skipped");
+  });
+
+  it("passes when the App ID's capabilities cover the entitlements, blocks when one is missing", async () => {
+    const ok = await profileEntitlementsProbe.check(ctx({ apps: [pushApp], asc: ascApi() }));
+    expect(findings(ok)).toEqual([{ status: "ok", identifier: "com.x" }]);
+
+    const missing = ascApi({ listBundleIdCapabilities: vi.fn(async () => []) });
+    const blocked = await profileEntitlementsProbe.check(ctx({ apps: [pushApp], asc: missing }));
+    expect(findings(blocked)).toEqual([{ status: "blocker", identifier: "com.x" }]);
+    expect(firstDetail(blocked)).toContain("PUSH_NOTIFICATIONS");
+  });
+
+  it("warns when the App ID isn't registered yet", async () => {
+    const noBundle = ascApi({ findBundleId: vi.fn(async () => null) });
+    expect(findings(await profileEntitlementsProbe.check(ctx({ apps: [pushApp], asc: noBundle })))).toEqual([
+      { status: "warn", identifier: "com.x" },
+    ]);
+  });
+});
+
+describe("screenshotsProbe", () => {
+  it("omits without an iOS app and skips without an Apple account", async () => {
+    expect((await screenshotsProbe.check(ctx({ apps: [app({ packageName: "com.x" })] }))).state).toBe("omitted");
+    expect((await screenshotsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: null }))).state).toBe(
+      "skipped",
+    );
+  });
+
+  it('passes when the required 6.7" class has a screenshot', async () => {
+    const ok = await screenshotsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: ascApi() }));
+    expect(findings(ok)).toEqual([{ status: "ok", identifier: "com.x" }]);
+  });
+
+  it("warns when iPhone screenshots exist but not for the required class, blocks when none exist", async () => {
+    const otherClass = ascApi({
+      listScreenshotSets: vi.fn(async () => [{ id: "set-1", screenshotDisplayType: "APP_IPHONE_65" }]),
+    });
+    expect(
+      findings(await screenshotsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: otherClass }))),
+    ).toEqual([{ status: "warn", identifier: "com.x" }]);
+
+    const noShots = ascApi({ listScreenshots: vi.fn(async () => []) });
+    expect(findings(await screenshotsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: noShots })))).toEqual([
+      { status: "blocker", identifier: "com.x" },
+    ]);
+
+    const noSets = ascApi({ listScreenshotSets: vi.fn(async () => []) });
+    expect(findings(await screenshotsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: noSets })))).toEqual([
+      { status: "blocker", identifier: "com.x" },
+    ]);
+  });
+
+  it("warns when there's no app record or no editable version to read", async () => {
+    const noApp = ascApi({ getAppId: vi.fn(async () => null) });
+    expect(findings(await screenshotsProbe.check(ctx({ apps: [app({ bundleId: "com.x" })], asc: noApp })))).toEqual([
+      { status: "warn", identifier: "com.x" },
+    ]);
+  });
+});
+
+describe("listingUrlsProbe", () => {
+  /** Write a minimal `store.config.json` declaring one Apple privacy-policy URL, and return its dir. */
+  function appDirWithPrivacyUrl(url: string): string {
+    const dir = mkdtempSync(join(tmpdir(), "listing-urls-"));
+    writeFileSync(
+      join(dir, "store.config.json"),
+      JSON.stringify({ apple: { info: { "en-US": { privacyPolicyUrl: url } } } }),
+    );
+    return dir;
+  }
+
+  it("omits when no in-scope app declares a listing URL", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "listing-urls-"));
+    try {
+      expect((await listingUrlsProbe.check(ctx({ apps: [app({ bundleId: "com.x", dir })] }))).state).toBe("omitted");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("passes a 2xx URL and blocks a non-2xx one", async () => {
+    const dir = appDirWithPrivacyUrl("https://x.example/privacy");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ status: 200 })),
+    );
+    try {
+      const ok = await listingUrlsProbe.check(ctx({ apps: [app({ bundleId: "com.x", dir })] }));
+      expect(findings(ok)).toEqual([{ status: "ok", identifier: "https://x.example/privacy" }]);
+    } finally {
+      vi.unstubAllGlobals();
+      rmSync(dir, { recursive: true, force: true });
+    }
+
+    const dir2 = appDirWithPrivacyUrl("https://x.example/gone");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ status: 404 })),
+    );
+    try {
+      const blocked = await listingUrlsProbe.check(ctx({ apps: [app({ bundleId: "com.x", dir: dir2 })] }));
+      expect(findings(blocked)).toEqual([{ status: "blocker", identifier: "https://x.example/gone" }]);
+    } finally {
+      vi.unstubAllGlobals();
+      rmSync(dir2, { recursive: true, force: true });
+    }
+  });
+
+  it("propagates a fetch failure so the orchestrator records it as errored", async () => {
+    const dir = appDirWithPrivacyUrl("https://x.example/privacy");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("ENOTFOUND");
+      }),
+    );
+    try {
+      await expect(listingUrlsProbe.check(ctx({ apps: [app({ bundleId: "com.x", dir })] }))).rejects.toThrow(
+        "ENOTFOUND",
+      );
+    } finally {
+      vi.unstubAllGlobals();
       rmSync(dir, { recursive: true, force: true });
     }
   });

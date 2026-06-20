@@ -40,6 +40,20 @@ describe("readiness registry", () => {
     );
     expect(iap).not.toContain("apple-app-record");
 
+    // `listing` is the store-listing-completeness slice — the deferred pre-submit probes that grade copy,
+    // URLs, age rating, demo account, and screenshots all file under it (alongside `submit`).
+    const listing = selectReadinessProbes("listing").map((probe) => probe.id);
+    expect(listing).toEqual(
+      expect.arrayContaining([
+        "apple-age-rating",
+        "apple-listing-urls",
+        "apple-account-deletion",
+        "apple-demo-account",
+        "apple-screenshots",
+      ]),
+    );
+    expect(listing).not.toContain("apple-profile-entitlements"); // signing/submit, not a listing check
+
     // audit is the cross-cutting `submit` selector: it picks up blocking probes across categories,
     // including the account/signing/iap ones tagged `submit`, but not advisory-only checks.
     const submit = selectReadinessProbes("submit").map((probe) => probe.id);
@@ -54,6 +68,12 @@ describe("readiness registry", () => {
         "apple-subscriptions",
         "apple-iap-pricing",
         "play-app-access",
+        "apple-age-rating",
+        "apple-listing-urls",
+        "apple-account-deletion",
+        "apple-demo-account",
+        "apple-profile-entitlements",
+        "apple-screenshots",
       ]),
     );
     expect(submit).not.toContain("play-internal-track"); // advisory, never a hard submit blocker
