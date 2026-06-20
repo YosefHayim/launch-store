@@ -59,6 +59,21 @@ export type SubmitTarget = "testing" | "production";
 export type PlayTrack = "internal" | "closed" | "open" | "production";
 
 /**
+ * Which web console page `launch open` deep-links to. Each value maps to a per-platform URL in
+ * `core/consoleLinks.ts` — the connective tissue between a read-only finding ("agreement unsigned")
+ * and the irreducible UI step that fixes it. `asc` / `play` are the platform consoles' home for the
+ * app; the rest target a specific section:
+ * - `asc`: the app's App Store Connect overview (Apple) — the default target.
+ * - `play`: the Google Play Console (Android's equivalent of `asc`).
+ * - `testflight`: the app's TestFlight tab (iOS only — Android testing lives on Play tracks).
+ * - `listing`: the App Store / Play store-listing page where copy and screenshots are edited.
+ * - `reviews`: the app's ratings-and-reviews page.
+ * - `agreements`: the account's agreements, tax, and banking page (no per-app id).
+ * - `app-record`: the app's record page — the one step the API can't create (see the `app-record` glossary topic).
+ */
+export type OpenTarget = "asc" | "play" | "testflight" | "listing" | "reviews" | "agreements" | "app-record";
+
+/**
  * Resolved Android release settings for one invocation, carried on {@link ResolvedBuildContext} so the
  * Google Play submitter reads a single source of truth. Resolved from `--track`/`--rollout`, then the
  * profile's defaults, then the safe fallback. Present only for Android builds; absent on iOS.

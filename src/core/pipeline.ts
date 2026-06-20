@@ -58,6 +58,7 @@ import { resolveRetentionDays } from "./artifactRetention.js";
 import { createLogger, type Logger } from "./logger.js";
 import type { GlossaryTopic } from "./glossary.js";
 import { capture, exists, run } from "./exec.js";
+import { buildConsoleUrl } from "./consoleLinks.js";
 import { isInteractive, runWithProgress, withSpinner } from "./progress.js";
 import { AppStoreConnectClient } from "../apple/ascClient.js";
 import { ensureAdHocSigningCredentials, ensureSigningCredentials } from "../apple/credentials.js";
@@ -1404,11 +1405,8 @@ export async function resolveAscBuildLink(
   bundleId: string,
   target: SubmitTarget,
 ): Promise<string> {
-  const appId = await new AppStoreConnectClient(ascKey).getAppId(bundleId).catch(() => null);
-  if (!appId) return "https://appstoreconnect.apple.com";
-  return target === "testing"
-    ? `https://appstoreconnect.apple.com/apps/${appId}/testflight/ios`
-    : `https://appstoreconnect.apple.com/apps/${appId}`;
+  const appId = (await new AppStoreConnectClient(ascKey).getAppId(bundleId).catch(() => null)) ?? undefined;
+  return buildConsoleUrl(target === "testing" ? "testflight" : "asc", "ios", appId);
 }
 
 /** Inputs for the end-of-run {@link renderReceipt} summary. */
