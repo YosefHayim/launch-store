@@ -24,12 +24,13 @@ import { formatPermissionLine, probeKeyPermissions } from "../ascPermissions.js"
 import { inspectPackageSetup, packageManagerWarnings } from "../packageManager.js";
 import { appPrivacyChecklist } from "../privacyNutritionLabel.js";
 import { ANDROID_TOOLS, REQUIRED_TOOLS, fixHint } from "../toolchain.js";
+import { buildConsoleUrl } from "../consoleLinks.js";
 import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from "./types.js";
 
 /** Where to create a missing App Store Connect app record — the one step the API can't do. */
-const APP_STORE_CONNECT_APPS_URL = "https://appstoreconnect.apple.com/apps";
+const APP_STORE_CONNECT_APPS_URL = buildConsoleUrl("app-record", "ios", undefined);
 /** Where to create a Play app and enroll in Play App Signing on first release. */
-const PLAY_CONSOLE_URL = "https://play.google.com/console";
+const PLAY_CONSOLE_URL = buildConsoleUrl("play", "android", undefined);
 
 /** The error message for a thrown value, narrowed without leaking `unknown`. */
 function errorMessage(error: unknown): string {
