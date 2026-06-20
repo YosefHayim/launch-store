@@ -58,9 +58,11 @@ import { resolveRetentionDays } from "./artifactRetention.js";
 import { createLogger, type Logger } from "./logger.js";
 import type { GlossaryTopic } from "./glossary.js";
 import { capture, exists, run } from "./exec.js";
+import { buildConsoleUrl } from "./consoleLinks.js";
 import { isInteractive, runWithProgress, withSpinner } from "./progress.js";
 import { AppStoreConnectClient } from "../apple/ascClient.js";
 import { ensureAdHocSigningCredentials, ensureSigningCredentials } from "../apple/credentials.js";
+import { appGroupContainers, appGroupPortalNotice } from "./capabilities.js";
 import { distributeArtifact } from "./distribute.js";
 import { ensureUploadKeystore } from "../google/credentials.js";
 import { GooglePlayClient, parseServiceAccount } from "../google/playClient.js";
@@ -303,6 +305,10 @@ async function resolveSigning(
 ): Promise<SigningAssets> {
   const bundleId = app.bundleId;
   if (!bundleId) throw new Error(`No iOS bundle identifier for ${app.name}. Set ios.bundleIdentifier in app.json.`);
+  // App Group containers are the one signing input the JWT API can't provision (portal-only); warn up
+  // front so the user fixes it before xcodebuild fails to export, rather than after.
+  const appGroupNotice = appGroupPortalNotice(appGroupContainers(app.iosEntitlements));
+  if (appGroupNotice) log.warn(appGroupNotice);
   // An ad-hoc (internal) build needs a device-scoped ad-hoc profile, recreated each run, so the cached
   // App Store assets don't apply — go straight to ad-hoc provisioning.
   if (distribution === "internal") {
@@ -333,6 +339,7 @@ async function resolveSigning(
     log,
     dryRun,
     confirmCreate: interactiveConfirm,
+    extensions: app.iosExtensions ?? [],
   });
 }
 
@@ -1398,11 +1405,8 @@ export async function resolveAscBuildLink(
   bundleId: string,
   target: SubmitTarget,
 ): Promise<string> {
-  const appId = await new AppStoreConnectClient(ascKey).getAppId(bundleId).catch(() => null);
-  if (!appId) return "https://appstoreconnect.apple.com";
-  return target === "testing"
-    ? `https://appstoreconnect.apple.com/apps/${appId}/testflight/ios`
-    : `https://appstoreconnect.apple.com/apps/${appId}`;
+  const appId = (await new AppStoreConnectClient(ascKey).getAppId(bundleId).catch(() => null)) ?? undefined;
+  return buildConsoleUrl(target === "testing" ? "testflight" : "asc", "ios", appId);
 }
 
 /** Inputs for the end-of-run {@link renderReceipt} summary. */
