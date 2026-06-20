@@ -137,6 +137,48 @@ export interface AscReadinessApi {
   ): Promise<{ id: string } | null>;
   /** A subscription's offer-code campaigns, matched by `name` (the reconciler's key) to verify declared offers exist. */
   listSubscriptionOfferCodes(subscriptionId: string): Promise<{ name: string }[]>;
+  /**
+   * The app's current **editable** `appInfo` id (the container for app-level listing copy — name, privacy
+   * URL — and the age-rating questionnaire), or `null` when none is in an editable state. The age-rating
+   * and account-deletion probes hang their reads off it.
+   */
+  getEditableAppInfoId(appId: string): Promise<string | null>;
+  /**
+   * The age-rating questionnaire's stored answers under an `appInfo`, or `null` when it's never been
+   * touched. A populated `attributes` map means the questionnaire is completed.
+   */
+  getAgeRatingDeclaration(appInfoId: string): Promise<{ attributes: Record<string, string | boolean> } | null>;
+  /**
+   * Each locale's account-deletion URL under an `appInfo` (Apple's `privacyChoicesUrl`), the empty string
+   * where unset. The account-deletion-URL probe asserts at least one locale declares it.
+   */
+  listAccountDeletionUrls(appInfoId: string): Promise<{ locale: string; url: string }[]>;
+  /**
+   * The app's current **editable** App Store version id for `platform`, or `null` when none is in an
+   * editable state. The demo-account probe reads its App Review detail off it.
+   */
+  findEditableAppStoreVersion(appId: string, platform: string): Promise<{ id: string } | null>;
+  /**
+   * A version's App Review details (contact info, demo-account name, notes), or `null` when unset. The
+   * demo-account password is write-only on Apple's side and never returned, so `attributes` carries only
+   * the readable fields.
+   */
+  getAppStoreReviewDetail(versionId: string): Promise<{ attributes: Record<string, string | boolean> } | null>;
+  /** The capabilities currently enabled on a bundle id (App ID) — the entitlement-matching probe's live side. */
+  listBundleIdCapabilities(bundleIdResourceId: string): Promise<{ capabilityType: string }[]>;
+  /**
+   * The editable App Store version's per-locale localizations (only `id` + `locale` are needed). The
+   * screenshot probe walks these to find each locale's screenshot sets.
+   */
+  listAppStoreVersionLocalizations(versionId: string): Promise<{ id: string; locale: string }[]>;
+  /**
+   * The screenshot sets under one version localization — one set per device class. `screenshotDisplayType`
+   * is Apple's device-target enum (e.g. `APP_IPHONE_67`); the screenshot probe matches it against the
+   * required classes. A set may exist while empty, so presence is confirmed via {@link listScreenshots}.
+   */
+  listScreenshotSets(versionLocalizationId: string): Promise<{ id: string; screenshotDisplayType: string }[]>;
+  /** The screenshots in a set (only `id` is needed to confirm a set actually holds an image, not just exists). */
+  listScreenshots(setId: string): Promise<{ id: string }[]>;
 }
 
 /**
