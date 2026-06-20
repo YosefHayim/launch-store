@@ -79,6 +79,23 @@ describe("exportOptionsPlist — manual App Store signing inputs", () => {
     expect(plist).toContain("<key>com.example.hello</key><string>Launch_com.example.hello_AppStore</string>");
     expect(plist).toContain("thin-for-all-variants");
   });
+
+  it("adds one provisioningProfiles entry per embedded extension so every bundle in the .ipa signs", () => {
+    const plist = exportOptionsPlist({
+      ...signing,
+      extensionProfiles: {
+        "com.example.hello.widget": "Launch_com.example.hello.widget_AppStore",
+        "com.example.hello.share": "Launch_com.example.hello.share_AppStore",
+      },
+    });
+    expect(plist).toContain("<key>com.example.hello</key><string>Launch_com.example.hello_AppStore</string>");
+    expect(plist).toContain(
+      "<key>com.example.hello.widget</key><string>Launch_com.example.hello.widget_AppStore</string>",
+    );
+    expect(plist).toContain(
+      "<key>com.example.hello.share</key><string>Launch_com.example.hello.share_AppStore</string>",
+    );
+  });
 });
 
 describe("assertDeviceArtifact — reject a non-submittable build before upload", () => {

@@ -174,6 +174,27 @@ describe("loadConfig — auto-discovers apps, app.json stays the source of truth
     expect(apps[0]?.usesNonExemptEncryption).toBe(false);
   });
 
+  it("reads embedded app-extension bundle ids (ios.extensions), dropping non-string entries", async () => {
+    const repo = makeRepo();
+    writeApp(repo, ".", {
+      slug: "with-widget",
+      ios: { bundleIdentifier: "com.example.app", extensions: ["com.example.app.widget", "", 42] },
+    });
+
+    const { apps } = await loadConfig(repo);
+
+    expect(apps[0]?.iosExtensions).toEqual(["com.example.app.widget"]);
+  });
+
+  it("leaves iosExtensions undefined when ios.extensions is absent", async () => {
+    const repo = makeRepo();
+    writeApp(repo, ".", { slug: "no-ext", ios: { bundleIdentifier: "com.example.plain" } });
+
+    const { apps } = await loadConfig(repo);
+
+    expect(apps[0]?.iosExtensions).toBeUndefined();
+  });
+
   it("scans nested directories but skips heavy/generated folders", async () => {
     const repo = makeRepo();
     writeApp(repo, "apps/alpha", { slug: "alpha", ios: { bundleIdentifier: "com.example.alpha" } });

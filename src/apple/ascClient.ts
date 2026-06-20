@@ -1387,6 +1387,23 @@ export class AppStoreConnectClient {
     }));
   }
 
+  /**
+   * Each locale's account-deletion URL under an `appInfo`, read from the dedicated `privacyChoicesUrl`
+   * attribute (the field App Store Connect surfaces under "App Privacy → Account Deletion"). Apple requires
+   * it for any app that lets users create an account, so the readiness layer checks its presence. Returned
+   * per locale, the empty string where the locale leaves it unset — separate from {@link listAppInfoLocalizations}
+   * so the listing-sync field set (name/subtitle/privacy policy) stays untouched.
+   */
+  async listAccountDeletionUrls(appInfoId: string): Promise<{ locale: string; url: string }[]> {
+    const data = await this.requestAll<{ locale?: string; privacyChoicesUrl?: string }>(
+      `/appInfos/${appInfoId}/appInfoLocalizations?limit=200&fields[appInfoLocalizations]=locale,privacyChoicesUrl`,
+    );
+    return data.map((entry) => ({
+      locale: entry.attributes.locale ?? "",
+      url: entry.attributes.privacyChoicesUrl ?? "",
+    }));
+  }
+
   /** Create a missing app-level listing locale. `fields` must include `name` (Apple requires it). */
   async createAppInfoLocalization(appInfoId: string, locale: string, fields: Record<string, string>): Promise<void> {
     await this.request<unknown>("POST", "/appInfoLocalizations", {

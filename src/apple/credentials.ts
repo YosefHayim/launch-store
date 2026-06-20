@@ -88,6 +88,13 @@ export interface EnsureSigningOptions {
   dryRun: boolean;
   /** Confirm before creating a real, rate-limited Apple resource. Return false to abort. */
   confirmCreate: (message: string) => Promise<boolean>;
+  /**
+   * Bundle identifiers of embedded app-extension targets (e.g. `["com.loopi.pomedero.widget"]`). Each
+   * is provisioned with its own App ID + App Store profile but signed by the SAME distribution
+   * certificate as the main bundle (one cert signs every bundle in a team). Their profile names land in
+   * the returned {@link SigningAssets.extensionProfiles}. Omit for an app with no extensions.
+   */
+  extensions?: string[];
 }
 
 /** Summarize what signing material is cached locally for one account, for `launch creds status`. */
@@ -135,14 +142,32 @@ function plistFirstArrayString(xml: string, key: string): string | null {
  * Return cached signing assets for a bundle id without any network call — the build's silent-reuse
  * path. Null if anything is missing (no cert backup, no installed profile), which tells the caller
  * to run setup. Verifies the files actually exist, not just that metadata mentions them.
+ *
+ * `extensions` are the app's embedded extension bundle ids: every one must already have its own cached,
+ * installed profile for the fast path to apply — if any is missing, this returns null so the build
+ * re-provisions the whole set rather than exporting an `.ipa` that can't sign its widget/share target.
+ * Each present extension's `bundleId → profileName` is folded into {@link SigningAssets.extensionProfiles}.
  */
-export function loadCachedSigningAssets(keyId: string, bundleId: string): SigningAssets | null {
+export function loadCachedSigningAssets(
+  keyId: string,
+  bundleId: string,
+  extensions: string[] = [],
+): SigningAssets | null {
   const index = readIndex(keyId);
   const cert = index.certificate;
   const profile = index.profiles[bundleId];
   if (!cert || !profile) return null;
   const installedProfile = join(PROVISIONING_PROFILES_DIR, `${profile.uuid}.mobileprovision`);
   if (!existsSync(cert.p12Path) || !existsSync(installedProfile)) return null;
+
+  const extensionProfiles: Record<string, string> = {};
+  for (const ext of extensions) {
+    const extProfile = index.profiles[ext];
+    if (!extProfile) return null;
+    if (!existsSync(join(PROVISIONING_PROFILES_DIR, `${extProfile.uuid}.mobileprovision`))) return null;
+    extensionProfiles[ext] = extProfile.name;
+  }
+
   return {
     bundleId,
     teamId: profile.teamId,
@@ -151,6 +176,7 @@ export function loadCachedSigningAssets(keyId: string, bundleId: string): Signin
     profileName: profile.name,
     profileUuid: profile.uuid,
     profilePath: installedProfile,
+    ...(extensions.length > 0 ? { extensionProfiles } : {}),
   };
 }
 
@@ -281,39 +307,35 @@ function dryRunAssets(bundleId: string): SigningAssets {
 /**
  * Resolve a bundle's signing assets, reusing what already exists and creating only what's missing.
  *
- * Order: ensure the App ID is registered → ensure a usable distribution certificate (reuse the
- * cached one if it still exists on Apple, else create a fresh key/CSR/cert) → ensure the App Store
- * profile (reuse by name, or recreate when a new cert was issued). Every creation is gated by
- * {@link EnsureSigningOptions.confirmCreate}. Idempotent: a second run with everything in place
+ * Order: ensure a usable distribution certificate (reuse the cached one if it still exists on Apple, else
+ * create a fresh key/CSR/cert) → for the main bundle and each {@link EnsureSigningOptions.extensions}
+ * target, ensure its App ID and App Store profile (reuse by name, or recreate when a new cert was issued),
+ * all signed by that one shared certificate. The cert is resolved first since every bundle shares it. Each
+ * extension's `bundleId → profileName` lands in {@link SigningAssets.extensionProfiles}. Every creation is
+ * gated by {@link EnsureSigningOptions.confirmCreate}. Idempotent: a second run with everything in place
  * performs no writes and no creations.
  */
 export async function ensureSigningCredentials(options: EnsureSigningOptions): Promise<SigningAssets> {
   const { bundleId, appName, ascKey, log, dryRun, confirmCreate } = options;
+  const extensions = options.extensions ?? [];
 
   if (dryRun) {
     log.info(`[dry-run] would ensure App ID, distribution certificate, and App Store profile for ${bundleId}`);
-    return dryRunAssets(bundleId);
+    for (const ext of extensions) {
+      log.info(`[dry-run] would ensure App ID + App Store profile for extension ${ext} (same cert)`);
+    }
+    const assets = dryRunAssets(bundleId);
+    return extensions.length > 0
+      ? { ...assets, extensionProfiles: Object.fromEntries(extensions.map((ext) => [ext, `Launch_${ext}_AppStore`])) }
+      : assets;
   }
 
   const keyId = ascKey.keyId;
   const client = new AppStoreConnectClient(ascKey);
   const index = readIndex(keyId);
 
-  // 1. App ID must be registered before a profile can reference it.
-  let bundle = await client.findBundleId(bundleId);
-  if (!bundle) {
-    if (!(await confirmCreate(`Register App ID "${bundleId}" in your Apple account?`))) {
-      throw new Error(
-        `App ID ${bundleId} is not registered. Re-run and confirm, or register it in the Developer portal.`,
-      );
-    }
-    bundle = await client.createBundleId(bundleId, appName);
-    log.step("app id", `registered ${bundleId}`, "bundle-id");
-  } else {
-    log.step("app id", `${bundleId} already registered`, "bundle-id");
-  }
-
-  // 2. Distribution certificate: reuse the cached one if Apple still lists it, else create one.
+  // 1. Distribution certificate: reuse the cached one if Apple still lists it, else create one. One cert
+  // signs every bundle in the team, so it's resolved once and shared by the main app and each extension.
   const liveCerts = await client.listDistributionCertificates();
   const password = await p12Password(keyId);
   const reusable = reusableCertificate(index, liveCerts);
@@ -340,7 +362,85 @@ export async function ensureSigningCredentials(options: EnsureSigningOptions): P
     log.step("certificate", `created distribution cert ${cert.serial}`, "distribution-certificate");
   }
 
-  // 3. App Store profile: reuse by name unless we just minted a new cert (then recreate to match it).
+  // 2. App ID + App Store profile for the main bundle (reuse by name unless a fresh cert was minted).
+  const main = await ensureAppStoreProfileForBundle({
+    client,
+    keyId,
+    index,
+    bundleId,
+    appName,
+    cert,
+    freshCert,
+    confirmCreate,
+    log,
+  });
+
+  // 3. Each embedded extension: its own App ID + App Store profile, signed by the SAME cert. Collected
+  // into the export-options map so xcodebuild signs every bundle in the .ipa, not just the main app.
+  const extensionProfiles: Record<string, string> = {};
+  for (const ext of extensions) {
+    const provisioned = await ensureAppStoreProfileForBundle({
+      client,
+      keyId,
+      index,
+      bundleId: ext,
+      appName: `${appName} (extension)`,
+      cert,
+      freshCert,
+      confirmCreate,
+      log,
+    });
+    extensionProfiles[ext] = provisioned.profileName;
+  }
+
+  return {
+    ...main,
+    ...(Object.keys(extensionProfiles).length > 0 ? { extensionProfiles } : {}),
+  };
+}
+
+/** Inputs for {@link ensureAppStoreProfileForBundle} — one bundle's App ID + App Store profile step. */
+interface EnsureProfileForBundleOptions {
+  client: AppStoreConnectClient;
+  keyId: string;
+  /** The account's credentials index, mutated + persisted in place as profiles are provisioned. */
+  index: CredentialsIndex;
+  bundleId: string;
+  /** App handle used to name the App ID when registering it. */
+  appName: string;
+  /** The resolved (reused or freshly created) distribution certificate every bundle shares. */
+  cert: CertRecord;
+  /** Whether the cert was just minted — forces recreating the profile so it references the new cert. */
+  freshCert: boolean;
+  confirmCreate: (message: string) => Promise<boolean>;
+  log: Logger;
+}
+
+/**
+ * Ensure one bundle id's App ID + App Store provisioning profile against a shared distribution cert,
+ * install the profile where Xcode looks, and record it in the account index. The per-bundle unit reused
+ * by {@link ensureSigningCredentials} for the main app and each embedded extension — both follow the
+ * identical App ID → App Store profile path; only the certificate (one per team) is shared between them.
+ * Returns the local {@link SigningAssets} for the bundle.
+ */
+async function ensureAppStoreProfileForBundle(options: EnsureProfileForBundleOptions): Promise<SigningAssets> {
+  const { client, keyId, index, bundleId, appName, cert, freshCert, confirmCreate, log } = options;
+
+  // App ID must be registered before a profile can reference it.
+  let bundle = await client.findBundleId(bundleId);
+  if (!bundle) {
+    if (!(await confirmCreate(`Register App ID "${bundleId}" in your Apple account?`))) {
+      throw new Error(
+        `App ID ${bundleId} is not registered. Re-run and confirm, or register it in the Developer portal.`,
+      );
+    }
+    bundle = await client.createBundleId(bundleId, appName);
+    log.step("app id", `registered ${bundleId}`, "bundle-id");
+  } else {
+    log.step("app id", `${bundleId} already registered`, "bundle-id");
+  }
+
+  // App Store profile: reuse by name unless we just minted a new cert (then recreate to match it).
   // Space-free name so it passes safely through xcodebuild's PROVISIONING_PROFILE_SPECIFIER setting.
   const profileName = `Launch_${bundleId}_AppStore`;
   const existingProfile = await client.findProfileByName(profileName);

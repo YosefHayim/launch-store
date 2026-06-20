@@ -113,6 +113,17 @@ export interface AppDescriptor {
    */
   iosEntitlements?: Record<string, unknown>;
   /**
+   * Bundle identifiers of the app's embedded iOS app-extension targets (WidgetKit widgets, share /
+   * notification extensions, …), e.g. `["com.loopi.pomedero.widget"]`. Each is provisioned exactly like
+   * the main bundle (App ID → capabilities → App Store profile, reusing the team's one distribution
+   * certificate) and added to the export-options `provisioningProfiles` map so `xcodebuild` can sign the
+   * whole `.ipa`. Declared explicitly under the app's own Expo config (`ios.extensions`) so it stays
+   * beside the bundle id it extends — read here rather than auto-discovered from the generated
+   * `.xcodeproj`, since that project may not exist yet at provisioning time and its `project.pbxproj` is
+   * a fragile, custom format to parse. Absent when the app has no extension targets.
+   */
+  iosExtensions?: string[];
+  /**
    * Android `versionCode` floor from `app.json` (`android.versionCode`). The store's latest + 1 wins
    * when higher, so an intentional local bump is never clobbered but the store stays the source of truth.
    */
@@ -1095,8 +1106,11 @@ export interface AccountsFile {
  * The signing assets a release build needs, resolved (reused or freshly created) before export.
  *
  * These map one-to-one onto Xcode's manual-signing inputs: a distribution certificate (whose
- * private key is in the Keychain) plus the provisioning profile that ties it to one bundle id.
- * The pipeline hands this to the build engine, which feeds it straight into the export options.
+ * private key is in the Keychain) plus the provisioning profile that ties it to one bundle id. An app
+ * with embedded app-extension targets also carries each extension's bundle-id → profile-name pairing in
+ * {@link SigningAssets.extensionProfiles}, since `xcodebuild` must be told the profile for every signed
+ * bundle in the `.ipa`, not just the main app. The pipeline hands this to the build engine, which feeds
+ * it straight into the export options.
  */
 export interface SigningAssets {
   /** Bundle identifier these assets sign, e.g. `com.loopi.pomedero`. */
@@ -1113,6 +1127,13 @@ export interface SigningAssets {
   profileUuid: string;
   /** Absolute path to the installed `.mobileprovision` file. */
   profilePath: string;
+  /**
+   * Per-extension `bundleId → profileName` map for each embedded app-extension target, signed by the
+   * same distribution certificate. Folded into the export-options `provisioningProfiles` dict alongside
+   * the main bundle so `xcodebuild` signs every bundle in the `.ipa`. Absent / empty for an app with no
+   * extension targets (the common case).
+   */
+  extensionProfiles?: Record<string, string>;
 }
 
 /**
