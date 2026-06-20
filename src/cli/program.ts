@@ -19,6 +19,7 @@ import { registerConfigCommand } from "./commands/config.js";
 import { registerBuildCommand } from "./commands/build.js";
 import { registerReleaseCommand } from "./commands/release.js";
 import { registerStatusCommand } from "./commands/status.js";
+import { registerOpenCommand } from "./commands/open.js";
 import { registerDashboardCommand } from "./commands/dashboard.js";
 import { registerReleaseTrainCommand } from "./commands/releaseTrain.js";
 import { registerRolloutCommand } from "./commands/rollout.js";
@@ -106,6 +107,7 @@ export function buildProgram(): Command {
   registerBuildCommand(program);
   registerReleaseCommand(program);
   registerStatusCommand(program);
+  registerOpenCommand(program);
   registerDashboardCommand(program);
   registerReleaseTrainCommand(program);
   registerRolloutCommand(program);
