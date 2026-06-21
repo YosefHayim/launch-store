@@ -21,6 +21,7 @@ import {
   countAsyncMethods,
   countTestCases,
   renderAgentSkillsRegion,
+  renderCollapsibleFeatures,
   renderCommandReference,
   renderFaqRegion,
   renderFeaturesList,
@@ -212,6 +213,33 @@ describe("renderFeaturesList (the numbered capability map)", () => {
   });
 });
 
+describe("renderCollapsibleFeatures (the README's per-group collapsible map)", () => {
+  const block = renderCollapsibleFeatures();
+
+  it("wraps every section in a default-collapsed <details> with its title as the summary", () => {
+    expect(block.match(/<details>/g)).toHaveLength(FEATURE_SECTIONS.length);
+    expect(block).not.toContain("<details open>");
+    for (const section of FEATURE_SECTIONS) {
+      const title = section.title.replace(/&/g, "&amp;");
+      expect(block).toContain(`<summary><strong>${title}</strong></summary>`);
+    }
+  });
+
+  it("restarts the ordered list at 1 inside each group, so each reads on its own", () => {
+    for (const section of FEATURE_SECTIONS) {
+      expect(block).toContain(`1. ${section.features[0]}`);
+    }
+  });
+
+  it("keeps the feature copy, so the signature survives for the consistency test", () => {
+    expect(block).toContain(FEATURES_SIGNATURE);
+  });
+
+  it("adds no `## ` heading, so it can't shift the README's section skeleton or the parity test", () => {
+    expect(block).not.toContain("\n## ");
+  });
+});
+
 describe("renderFeaturesRegion", () => {
   const block = renderFeaturesRegion();
 
@@ -220,9 +248,9 @@ describe("renderFeaturesRegion", () => {
     expect(block.endsWith(FEATURES_REGION_END)).toBe(true);
   });
 
-  it("carries the numbered list verbatim, so the README and llms.txt share one source", () => {
+  it("carries the collapsible feature groups, so the README renders them per section", () => {
     expect(block).toContain(FEATURES_SIGNATURE);
-    expect(block).toContain(renderFeaturesList());
+    expect(block).toContain(renderCollapsibleFeatures());
   });
 });
 

@@ -47,9 +47,11 @@ export const BASE_CONTEXT: BaseContext = {
   ],
   guardrail: {
     free: [
-      "**Setup & onboarding** — `init`, `adopt`, and first-time `creds set-key` / `creds setup` (provisioning is idempotent).",
+      "**Setup & onboarding** — `init`, `adopt`, `migrate eas|fastlane`, and first-time `creds set-key` / `creds setup` (provisioning is idempotent).",
       "**Builds to the testing track** — `build ios|android` uploads to TestFlight / Play internal, not the public store.",
       "**Reads & rehearsals** — `status`, `doctor`, `diagnose`, `demo`, `sync --dry-run`, `metadata pull`, and any command with `--explain`.",
+      "**Planning & readiness (read-only)** — `plan`, `drift`, `audit`, `store doctor`, `iap doctor`, `privacy scan`, `snapshot create|diff`, and `insights` only read live state.",
+      "**Local-only tooling** — `dashboard` (a read-only local web UI over CLI state) and `mcp install` (expose Launch to local AI clients) run on the developer's machine, never touching the store.",
       "**Over-the-air updates** — `update` and `updates list|view` (and `updates rollback` to reverse a bad one).",
     ],
     confirm: [
@@ -67,10 +69,12 @@ export const BASE_CONTEXT: BaseContext = {
 };
 
 /**
- * The six task-scoped consumer skills, in pipeline order. Each becomes a Claude Skill, a Cursor
- * Agent-Requested rule, and a section of the `AGENTS.md` Launch block. `launch-store-config` carries a
- * {@link ConsumerSkill.reference} (it spans the widest command surface), so Claude gets a bundled
- * `reference.md`; the rest stay self-contained.
+ * The thirteen task-scoped consumer skills, in pipeline order — the six core ship/release flows first,
+ * then the readiness, planning, snapshot, migration, insights, AI-listing, and agent-access surfaces that
+ * the wider command set unlocked. Each becomes a Claude Skill, a Cursor Agent-Requested rule, and a
+ * section of the `AGENTS.md` Launch block. `launch-store-config` carries a {@link ConsumerSkill.reference}
+ * (it spans the widest command surface), so Claude gets a bundled `reference.md`; the rest stay
+ * self-contained.
  */
 export const CONSUMER_SKILLS: ConsumerSkill[] = [
   {
@@ -137,6 +141,11 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
         note: "submit the latest build to the PUBLIC production track — preview with --dry-run first",
       },
       { path: ["rollout"], args: ["pause"], note: "steer an iOS phased release: pause | resume | complete" },
+      {
+        path: ["release-train"],
+        args: ["start"],
+        note: "coordinate iOS + Android + OTA as one resumable release record (start | status | release | abort)",
+      },
     ],
     body: [
       "`release` is the deliberate public step, distinct from `build` (which only reaches the testing track). Always preview first.",
@@ -144,6 +153,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       "- `release <platform> --dry-run` prints the release plan and touches nothing — run it, show the plan, then let a human trigger the real submit.",
       "- iOS options: `--phased` opts into Apple's 7-day phased rollout, `--build latest|<n>` promotes an existing build instead of uploading, `--manual` holds the approved build for manual release, `--scheduled <iso>` schedules go-live.",
       "- `status --watch` polls until review reaches a terminal verdict; `rollout pause|resume|complete` steers an in-progress phased release.",
+      "- Shipping iOS + Android (and an OTA leg) together? `release-train start` records the whole release as one resumable unit — `--hold` gates every leg until all are approved and releases them together, `--platform`/`--no-ota` scope it, and `status`/`release`/`abort` drive or unwind it.",
     ].join("\n"),
     cautions: [
       "`launch release` makes the app PUBLIC and is hard to reverse. Run `launch release <platform> --dry-run`, show the plan, and get explicit human confirmation before the real submit.",
@@ -182,6 +192,8 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       "Store config lives in `launch.config.ts` (catalog) and `store.config.json` (listing). One catalog drives BOTH stores. Every reconcile runs plan → confirm → apply.",
       "",
       "The safe loop: preview with `--dry-run` (or `metadata pull`), review the plan, then apply. See the bundled command reference for the full surface across both stores.",
+      "",
+      "Preview the full cross-surface diff with `launch plan` and gate drift in CI with `launch drift` (see the launch-plan skill); draft listing copy with `launch ai listing` before pushing it (see the launch-ai-listing skill).",
     ].join("\n"),
     cautions: [
       "These commands change a LIVE store. Always preview with `--dry-run` (or `metadata pull`), show the plan, and get human confirmation before applying.",
@@ -317,6 +329,219 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
     cautions: [
       "`doctor --fix` installs build tools via Homebrew. It's safe to run, but review what it proposes; pass `--yes` only in CI where unattended installs are intended.",
     ],
+  },
+  {
+    id: "launch-verify",
+    title: "Pre-submit readiness & verification",
+    description:
+      "Use when the developer wants to know whether the app would pass review right now — a pre-submit sweep, store-account readiness, in-app-purchase readiness, or a privacy / permissions reconcile. All read-only. Covers `launch audit`, `launch store doctor`, `launch iap doctor`, and `launch privacy scan`.",
+    triggers: [
+      "is the app ready to submit / would it get rejected?",
+      "run a pre-submit readiness check",
+      "verify the App Store / Play account and in-app purchases are set up",
+      "check the privacy declarations against the app's permissions",
+    ],
+    steps: [
+      { path: ["audit"], note: "one-shot pre-submit sweep — would a submission be rejected right now? (read-only)" },
+      {
+        path: ["store", "doctor"],
+        note: "store-account readiness: the Apple app record, Play onboarding & access (read-only)",
+      },
+      {
+        path: ["iap", "doctor"],
+        note: "in-app-purchase readiness: products & subscriptions exist and are submittable (read-only)",
+      },
+      {
+        path: ["privacy", "scan"],
+        note: "reconcile permissions / manifests against the privacy declarations; flags undeclared collection",
+      },
+    ],
+    body: [
+      "Run these before a `release` to catch rejections on your machine instead of in App Review. Every command here only reads — none of them changes the store.",
+      "",
+      "- `audit` is the headline sweep; the focused doctors (`store doctor`, `iap doctor`) and `privacy scan` drill into the specific area that fails.",
+      "- Pair this with `launch plan` (see the launch-plan skill) to also diff your config-as-code against live state before submitting.",
+    ].join("\n"),
+  },
+  {
+    id: "launch-plan",
+    title: "Store config as code: plan & drift",
+    description:
+      "Use when the developer wants to preview how `launch.config.ts` differs from the live App Store Connect / Google Play state, or fail CI when the store has drifted from config — the read-only half of store-config-as-code. Covers `launch plan [surface]` and `launch drift`.",
+    triggers: [
+      "preview the store config diff before syncing",
+      "what would `launch sync` change?",
+      "detect or gate configuration drift in CI",
+      "check that the live store still matches launch.config.ts",
+    ],
+    steps: [
+      {
+        path: ["plan"],
+        note: "diff launch.config against live store state across every config-as-code surface (read-only)",
+      },
+      { path: ["drift"], note: "fail when live state has drifted from config — `plan --check` for CI" },
+    ],
+    body: [
+      "`plan` is the read-only preview behind `sync` / `metadata` / the Play reconcilers: it diffs config against live state across capabilities, IAPs, subscriptions, pricing, listing, and the rest of the config-as-code surfaces. `drift` is the same diff as a CI gate (exit non-zero on any difference).",
+      "",
+      "- `plan [surface]` narrows the diff to one surface; bare `plan` covers them all.",
+      "- Use `drift` in CI to keep the store and `launch.config.ts` from silently diverging; apply changes with the launch-store-config skill once the plan looks right.",
+    ].join("\n"),
+  },
+  {
+    id: "launch-snapshot",
+    title: "Snapshot & restore live store state",
+    description:
+      "Use when the developer wants to capture the live App Store Connect / Google Play state as a named baseline, compare baselines or live state, restore a listing back to a saved snapshot, or prune old snapshots. Covers `launch snapshot create`/`diff`/`restore`/`prune`.",
+    triggers: [
+      "snapshot the current store state before a risky change",
+      "what changed in the store since the last snapshot?",
+      "restore / roll back the store listing to a saved snapshot",
+      "clean up old snapshots",
+    ],
+    steps: [
+      { path: ["snapshot", "create"], note: "capture live App Store + Play state into a named snapshot" },
+      {
+        path: ["snapshot", "diff"],
+        args: ["<name>"],
+        note: "compare a saved snapshot against another snapshot or live state (default: live)",
+      },
+      {
+        path: ["snapshot", "restore"],
+        args: ["<name>"],
+        note: "restore a snapshot's App Store listing back to live — additive; previews unless --yes",
+      },
+      {
+        path: ["snapshot", "prune"],
+        note: "delete old user snapshots by --keep <n> and/or --older-than <days> (auto baselines untouched)",
+      },
+    ],
+    body: [
+      "Take a `snapshot create` before any risky reconcile so you have a labelled baseline, then `snapshot diff` to see exactly what moved. `restore` writes the saved App Store listing back to live (other surfaces are preview-only for now).",
+      "",
+      "- `snapshot diff <name>` defaults to comparing against live state; pass a second name to compare two saved snapshots.",
+      "- `snapshot prune` requires at least one of `--keep`/`--older-than` and never touches the automatic pre-sync baselines.",
+    ].join("\n"),
+    cautions: [
+      "`snapshot restore` changes a LIVE listing (additive, never destructive). It previews the plan by default — show that plan and get human confirmation before re-running with `--yes`.",
+    ],
+  },
+  {
+    id: "launch-migrate",
+    title: "Migrate from EAS / fastlane, or adopt a live app",
+    description:
+      "Use when the developer is moving an existing project onto Launch — importing an EAS or fastlane setup into a `launch.config.ts`, onboarding an app that already ships, or validating the resulting config. Covers `launch migrate eas`/`fastlane`, `launch adopt`, and `launch config validate`.",
+    triggers: [
+      "migrate from Expo EAS / eas.json to Launch",
+      "import an existing fastlane setup",
+      "onboard an app that already ships on the store",
+      "validate my launch.config.ts against the schema",
+    ],
+    steps: [
+      {
+        path: ["migrate", "eas"],
+        note: "read eas.json/app.json and emit launch.config.ts, .env.example, store.config.json + a report",
+      },
+      {
+        path: ["migrate", "fastlane"],
+        note: "read fastlane config (Appfile/Fastfile/Matchfile…) and emit the same Launch config set + a report",
+      },
+      {
+        path: ["adopt"],
+        note: "onboard an already-shipping app: import its live App Store Connect setup into config",
+      },
+      {
+        path: ["config", "validate"],
+        note: "validate the config against the schema, reporting each problem by field path",
+      },
+    ],
+    body: [
+      "Pick the migrator that matches the current setup: `migrate eas` for an Expo EAS project, `migrate fastlane` for a fastlane one, or `adopt` to pull a live App Store Connect setup into config. Each writes a `launch.config.ts` (plus `.env.example` and `store.config.json`) and a report of what it found.",
+      "",
+      "- Migration only writes local config files — it touches no store and provisions nothing.",
+      "- Always finish with `config validate` to confirm the emitted config is schema-clean, then `launch plan` (see the launch-plan skill) to see how it compares to live state.",
+    ].join("\n"),
+  },
+  {
+    id: "launch-insights",
+    title: "Ratings, reviews, sales & analytics insights",
+    description:
+      "Use when the developer wants to read store performance — aggregated rating & review trends, individual customer reviews, or Sales & Trends / finance / analytics reports. All read-only, over the same API key. Covers `launch insights`, `launch reports`, and `launch reviews list`.",
+    triggers: [
+      "how is the app rated / how are reviews trending?",
+      "read the latest customer reviews",
+      "download a sales or finance report",
+      "pull App Store analytics",
+    ],
+    steps: [
+      { path: ["insights"], note: "aggregate rating & review trends across the App Store and Play (read-only)" },
+      { path: ["reports", "sales"], note: "download a Sales & Trends report (gzipped TSV, or --json)" },
+      { path: ["reviews", "list"], note: "list an app's customer reviews, newest first (filter by rating/territory)" },
+    ],
+    body: [
+      "`insights` is the aggregated cross-store view (ratings and review trends); drop to `reviews list` for the individual reviews and `reports` for the raw Sales & Trends / finance / analytics data.",
+      "",
+      "- Everything here only reads — safe to run unattended.",
+      "- Reply to reviews with `launch reviews reply` (App Store) or `launch play-reviews reply` (Play) once you've read them.",
+    ].join("\n"),
+  },
+  {
+    id: "launch-ai-listing",
+    title: "AI-drafted store listing copy",
+    description:
+      "Use when the developer wants AI to draft App Store / Google Play listing copy (name, subtitle, description, keywords, what's-new) into `store.config.json`, then review and ship it. Covers `launch ai listing`, previewing with `launch plan`, and `launch metadata push`.",
+    triggers: [
+      "draft / write the App Store or Play listing copy with AI",
+      "generate store description and keywords",
+      "improve the listing metadata",
+      "fill in store.config.json copy automatically",
+    ],
+    steps: [
+      {
+        path: ["ai", "listing"],
+        note: "draft App Store / Play listing copy with AI into store.config.json",
+      },
+      { path: ["plan"], note: "review the drafted listing as a read-only diff against the live store" },
+      { path: ["metadata", "push"], note: "upload store.config.json to the live listing (metadata only; no binary)" },
+    ],
+    body: [
+      "`ai listing` writes drafted copy into `store.config.json` only — it changes nothing live. Treat the draft as a starting point: read it, edit it, then preview before pushing.",
+      "",
+      "- Preview with `launch plan` (see the launch-plan skill) so you see exactly what the listing change would do before it goes out.",
+      "- `metadata push` is what actually updates the live listing — gate it behind a human review of the AI copy.",
+    ].join("\n"),
+    cautions: [
+      "AI-drafted copy is a draft — review it for accuracy and brand voice before shipping. `metadata push` changes the LIVE store listing, so preview with `launch plan` and get confirmation first.",
+    ],
+  },
+  {
+    id: "launch-agent-access",
+    title: "Expose Launch to AI agents & a local dashboard",
+    description:
+      "Use when the developer wants to drive Launch from AI tooling — wire the MCP server into an AI client, serve the read-only local dashboard, or scaffold the agent skills/rules into the repo. All local-only. Covers `launch mcp install`, `launch dashboard`, and `launch agents init`.",
+    triggers: [
+      "let Claude / Cursor drive Launch (set up MCP)",
+      "open the local Launch dashboard",
+      "scaffold the Launch agent skills / rules into this repo",
+      "give an AI agent access to Launch",
+    ],
+    steps: [
+      {
+        path: ["mcp", "install"],
+        note: "wire `launch mcp` into an AI client's config (auto-detects Claude Code / Cursor)",
+      },
+      { path: ["dashboard"], note: "serve a local, read-only web UI over apps, builds, accounts, and secrets" },
+      {
+        path: ["agents", "init"],
+        note: "write Claude skills, Cursor rules, and the AGENTS.md Launch section into this repo",
+      },
+    ],
+    body: [
+      "These are the on-ramps for agent-driven and at-a-glance use, all strictly local: `mcp install` exposes Launch's commands to an AI client, `dashboard` opens a read-only web view of your state, and `agents init` drops these very skills into the repo.",
+      "",
+      "- `dashboard` is read-only and `mcp install` only edits a local client config — neither touches the store.",
+      "- `agents check` keeps the scaffolded skills in sync after Launch upgrades.",
+    ].join("\n"),
   },
 ];
 

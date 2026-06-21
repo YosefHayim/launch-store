@@ -516,12 +516,47 @@ export function renderFeaturesList(): string {
 }
 
 /**
- * Render the README's Features region from {@link renderFeaturesList}, fenced by
+ * Escape the HTML-significant characters in a `<summary>` label. The {@link FEATURE_SECTIONS} titles are
+ * controlled constants that today only contain `&` (e.g. "Set up & verify"), but escaping `<`/`>` too keeps
+ * the helper correct if a title ever gains them. Used only for the README's collapsible feature groups.
+ */
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
+ * Render {@link FEATURE_SECTIONS} as the README's per-group collapsible feature map: each section becomes a
+ * default-collapsed `<details>` whose `<summary>` is the bold section title, with the section's features as
+ * a markdown ordered list (restarting at 1 per group, so each collapsed group reads as its own list). The
+ * blank lines around the list are required for GitHub to render markdown inside the `<details>`.
+ *
+ * README-only. {@link renderFeaturesList} stays a single flat numbered list for `llms.txt`, where the
+ * `<details>` markup would be noise a model has to strip — so the human-facing README collapses while the
+ * AI-facing surface stays plain, both from this one {@link FEATURE_SECTIONS} source.
+ */
+export function renderCollapsibleFeatures(): string {
+  return FEATURE_SECTIONS.map((section) => {
+    const lead = section.intro ? [section.intro, ""] : [];
+    const items = section.features.map((feature, index) => `${index + 1}. ${feature}`);
+    return [
+      "<details>",
+      `<summary><strong>${escapeHtml(section.title)}</strong></summary>`,
+      "",
+      ...lead,
+      ...items,
+      "",
+      "</details>",
+    ].join("\n");
+  }).join("\n\n");
+}
+
+/**
+ * Render the README's Features region from {@link renderCollapsibleFeatures}, fenced by
  * {@link FEATURES_REGION_START}/{@link FEATURES_REGION_END} so {@link spliceReadmeFeatures} can swap the
  * whole block. English only — the translated READMEs carry a hand-translated Features section.
  */
 export function renderFeaturesRegion(): string {
-  return [FEATURES_REGION_START, "", renderFeaturesList(), "", FEATURES_REGION_END].join("\n");
+  return [FEATURES_REGION_START, "", renderCollapsibleFeatures(), "", FEATURES_REGION_END].join("\n");
 }
 
 /**
