@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **207 App Store Connect & Google Play API operations** across **61 commands**, guarded by **1675 tests**.
+> Launch wraps **210 App Store Connect & Google Play API operations** across **61 commands**, guarded by **1696 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -747,6 +747,18 @@ set a build's "What to Test" notes and submit it for Beta App Review
 | `--no-review`        | set the notes only; don't submit for Beta App Review              |
 | `--dry-run`          | print the plan and exit, making no changes                        |
 | `-y, --yes`          | skip the confirmation prompt (for CI)                             |
+
+### `launch testflight feedback`
+
+list tester crash & screenshot feedback, newest first (download attachments with --out)
+
+| Flag                | Description                                         |
+| ------------------- | --------------------------------------------------- |
+| `-a, --app <name>`  | app handle (auto-selected if there's only one)      |
+| `--build <version>` | only show feedback for this build (CFBundleVersion) |
+| `--type <kind>`     | only show one kind: crash \| screenshot             |
+| `--out <dir>`       | download screenshot attachments into this directory |
+| `--json`            | output machine-readable JSON                        |
 
 ### `launch testflight help [command]`
 
