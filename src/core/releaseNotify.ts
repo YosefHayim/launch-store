@@ -12,9 +12,12 @@ import type { ReleaseStatus, ReleaseVerdict } from "./appStoreRelease.js";
 import type { NotifyEvent } from "./notify.js";
 
 /**
- * Per-app memory of what's already been notified, owned by the watch loop for its lifetime.
- * `reviewed` holds apps whose review verdict has already pinged; `lastPhasedState` is each app's last
- * seen phased-release state, so a change between polls reads as a rollout advance.
+ * Memory of what's already been notified, owned by the watch loop for its lifetime. Keyed per
+ * `(app, version)` — a developer can ship a new version of the same app mid-session (e.g. resubmit
+ * after a rejection while another app keeps the loop alive), and that fresh release must not inherit
+ * the prior version's state. `reviewed` holds the keys whose review verdict has already pinged;
+ * `lastPhasedState` is each key's last seen phased-release state, so a change between polls reads as a
+ * rollout advance.
  */
 export interface TransitionTracker {
   reviewed: Set<string>;
@@ -54,11 +57,14 @@ export function planTransitionNotifications(
 ): NotifyEvent[] {
   const events: NotifyEvent[] = [];
   const version = status.versionString ?? "";
+  // Key transition memory by app *and* version so a new release of the same app during one watch
+  // session is a fresh review/rollout, not blocked by the prior version's already-notified state.
+  const key = `${appName}@${version}`;
 
-  if (status.verdict.done && !tracker.reviewed.has(appName)) {
+  if (status.verdict.done && !tracker.reviewed.has(key)) {
     const reviewStatus = reviewStatusForVerdict(status.verdict);
     if (reviewStatus) {
-      tracker.reviewed.add(appName);
+      tracker.reviewed.add(key);
       events.push({
         event: "review",
         status: reviewStatus,
@@ -71,9 +77,9 @@ export function planTransitionNotifications(
   }
 
   const phased = status.phasedReleaseState;
-  if (phased && tracker.lastPhasedState.get(appName) !== phased) {
-    const isFirstObservation = !tracker.lastPhasedState.has(appName);
-    tracker.lastPhasedState.set(appName, phased);
+  if (phased && tracker.lastPhasedState.get(key) !== phased) {
+    const isFirstObservation = !tracker.lastPhasedState.has(key);
+    tracker.lastPhasedState.set(key, phased);
     if (!isFirstObservation) {
       events.push({ event: "rollout", status: "advanced", app: appName, platform: "ios", version, detail: phased });
     }

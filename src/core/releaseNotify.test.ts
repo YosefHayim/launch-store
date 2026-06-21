@@ -50,13 +50,13 @@ describe("planTransitionNotifications — review", () => {
     expect(planTransitionNotifications("alpha", status({ appStoreState: "PREPARE_FOR_SUBMISSION" }), tracker)).toEqual(
       [],
     );
-    expect(tracker.reviewed.has("alpha")).toBe(false);
+    expect(tracker.reviewed.size).toBe(0);
 
     const events = planTransitionNotifications("alpha", status({ appStoreState: "REJECTED" }), tracker);
     expect(events).toEqual([
       expect.objectContaining({ event: "review", status: "rejected", app: "alpha", platform: "ios", version: "1.2.0" }),
     ]);
-    expect(tracker.reviewed.has("alpha")).toBe(true);
+    expect(tracker.reviewed.size).toBe(1);
   });
 
   it("fires an approved review once, then stays silent on repeat polls", () => {
@@ -70,7 +70,23 @@ describe("planTransitionNotifications — review", () => {
   it("stays silent while the verdict is still in progress", () => {
     const tracker = createTransitionTracker();
     expect(planTransitionNotifications("alpha", status({ appStoreState: "IN_REVIEW" }), tracker)).toEqual([]);
-    expect(tracker.reviewed.has("alpha")).toBe(false);
+    expect(tracker.reviewed.size).toBe(0);
+  });
+
+  it("notifies again for a new version of the same app in one session", () => {
+    const tracker = createTransitionTracker();
+    // v1.2.0 is rejected and notified.
+    expect(planTransitionNotifications("alpha", status({ appStoreState: "REJECTED" }), tracker)).toEqual([
+      expect.objectContaining({ event: "review", status: "rejected", version: "1.2.0" }),
+    ]);
+    // A resubmitted v1.2.1 of the same app must still notify on its own verdict — the prior version's
+    // state must not leak across the version change.
+    const events = planTransitionNotifications(
+      "alpha",
+      status({ appStoreState: "READY_FOR_SALE", versionString: "1.2.1" }),
+      tracker,
+    );
+    expect(events).toEqual([expect.objectContaining({ event: "review", status: "approved", version: "1.2.1" })]);
   });
 });
 
