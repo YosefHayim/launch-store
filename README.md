@@ -20,7 +20,7 @@
 <p align="center">
   <a href="./docs/commands.md"><img src="https://img.shields.io/badge/store%20API-206%20endpoints-8957e5?logo=apple&logoColor=white" alt="206 App Store Connect &amp; Google Play API operations" /></a>
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1599%20passing-3fb950?logo=vitest&logoColor=white" alt="1599 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1608%20passing-3fb950?logo=vitest&logoColor=white" alt="1608 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -125,7 +125,7 @@ an API wrapper doesn't touch. If you want a self-hosted Expo EAS — not just an
 Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconciled with a read-only **plan → your confirmation → apply** — idempotently, never touching a live or in-review version. This is the surface EAS leaves to the website.
 
 9. **Products, pricing & listing.** `launch sync` reconciles in-app purchases, subscriptions, capabilities, and pricing onto App Store Connect — plus the per-locale listing copy, screenshots, and app previews — across every app at once.
-10. **Preview & gate drift.** `launch plan [surface]` diffs `launch.config.ts` against live App Store Connect and Google Play state read-only across every config-as-code surface — capabilities, IAPs, subscriptions, pricing and listing, plus release attributes, Game Center, App Clips, availability, accessibility, experiments, custom pages, and team-level Wallet & EU distribution; `launch drift` fails CI when they've diverged.
+10. **Preview & gate drift.** `launch plan [surface]` diffs `launch.config.ts` against live App Store Connect and Google Play state read-only across every config-as-code surface — capabilities, IAPs, subscriptions, pricing, listing and screenshots, plus release attributes, offers, Game Center, App Clips, availability, accessibility, experiments, custom pages, and team-level Wallet & EU distribution; `launch drift` fails CI when they've diverged.
 11. **Subscription offers.** `launch offers` reconciles offer codes and promotional, introductory & win-back offers, plus the promoted-purchase order; `offers generate-codes`/`list`/`deactivate` drive campaigns from the CLI.
 12. **Release attributes.** `launch release-config` reconciles the age rating, categories, base price, and App Review details (contact + demo account) onto the editable version.
 13. **Store availability.** `launch availability` sets the App Store territories the app sells in.
