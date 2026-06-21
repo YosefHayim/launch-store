@@ -38,7 +38,11 @@ import { renderContributorRules, renderContributorSkills } from "../src/core/age
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-/** Flatten one commander command (and its subcommands) into the {@link CommandSpec} the docs render. */
+/**
+ * Flatten one commander command (and its subcommands) into the {@link CommandSpec} the docs render.
+ * Hidden subcommands (e.g. the `completion __complete` shell callback) are skipped via commander's own
+ * `visibleCommands`, so an internal-only command never leaks into the public reference or `llms.txt`.
+ */
 function toSpec(command: Command, parentPath: string): CommandSpec {
   const path = parentPath ? `${parentPath} ${command.name()}` : command.name();
   const args = command.registeredArguments
@@ -50,7 +54,10 @@ function toSpec(command: Command, parentPath: string): CommandSpec {
   const options = command.options
     .filter((option) => !option.flags.includes("--help") && !option.flags.includes("--version"))
     .map((option) => ({ flags: option.flags, description: option.description }));
-  const subcommands = command.commands.map((sub) => toSpec(sub, path));
+  const subcommands = command
+    .createHelp()
+    .visibleCommands(command)
+    .map((sub) => toSpec(sub, path));
   return { path, args, description: command.description(), options, subcommands };
 }
 
