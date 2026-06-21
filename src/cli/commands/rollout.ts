@@ -12,6 +12,7 @@ import { createLogger } from "../../core/logger.js";
 import { loadActiveAscKey } from "../../core/accounts.js";
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { appRecordMissingMessage, IOS_PLATFORM, pickCurrentVersion } from "../../core/appStoreRelease.js";
+import { notify } from "../../core/notify.js";
 import { selectIosApps } from "./status.js";
 
 /** CLI options for `launch rollout`. */
@@ -34,6 +35,20 @@ export function phasedStateForAction(action: string): "PAUSE" | "ACTIVE" | "COMP
   }
 }
 
+/** Map a rollout verb to its notification status. Pure; throws on an unknown verb (mirrors {@link phasedStateForAction}). */
+export function rolloutNotifyStatus(action: string): "paused" | "resumed" | "completed" {
+  switch (action) {
+    case "pause":
+      return "paused";
+    case "resume":
+      return "resumed";
+    case "complete":
+      return "completed";
+    default:
+      throw new Error(`Unknown rollout action "${action}". Use pause | resume | complete.`);
+  }
+}
+
 /** Attach the `rollout` command to the program. */
 export function registerRolloutCommand(program: Command): void {
   program
@@ -43,7 +58,8 @@ export function registerRolloutCommand(program: Command): void {
     .option("-a, --app <names>", "comma-separated app handles (default: all iOS apps)")
     .action(async (action: string, options: RolloutOptions) => {
       const state = phasedStateForAction(action);
-      const { apps } = await loadConfig();
+      const notifyStatus = rolloutNotifyStatus(action);
+      const { config, apps } = await loadConfig();
       const ios = selectIosApps(apps, options.app);
       const log = createLogger(false);
       if (ios.length === 0) {
@@ -75,6 +91,14 @@ export function registerRolloutCommand(program: Command): void {
         }
         await client.updatePhasedRelease(phased.id, state);
         log.step(app.name, `phased release → ${state} (was ${phased.phasedReleaseState})`);
+        await notify(config, {
+          event: "rollout",
+          status: notifyStatus,
+          app: app.name,
+          platform: "ios",
+          version: version.versionString,
+          detail: state,
+        });
       }
     });
 }

@@ -9,12 +9,18 @@
  */
 
 import type { Command } from "commander";
-import type { AppDescriptor } from "../../core/types.js";
+import type { AppDescriptor, LaunchConfig } from "../../core/types.js";
 import { loadConfig } from "../../core/config.js";
 import { createLogger } from "../../core/logger.js";
 import { loadActiveAscKey } from "../../core/accounts.js";
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
-import { IOS_PLATFORM, readReleaseStatus, type ReleaseStatus } from "../../core/appStoreRelease.js";
+import {
+  IOS_PLATFORM,
+  readReleaseStatus,
+  type ReleaseStatus,
+  type ReleaseVerdict,
+} from "../../core/appStoreRelease.js";
+import { notify } from "../../core/notify.js";
 
 /** CLI options for `launch status`. */
 interface StatusOptions {
@@ -72,6 +78,18 @@ export function worstExitCode(codes: number[]): number {
   return codes.reduce((worst, code) => (rank(code) > rank(worst) ? code : worst), 0);
 }
 
+/**
+ * The review notification status for a verdict, or `null` when the transition isn't worth a ping.
+ * A rejection notifies `rejected`; a `released`/`pending-release` verdict notifies `approved`. Other
+ * settled verdicts (`preparing`, `unknown`) don't represent a review outcome, so they stay silent even
+ * though their `verdict.done` is true. Pure.
+ */
+export function reviewStatusForVerdict(verdict: ReleaseVerdict): "approved" | "rejected" | null {
+  if (verdict.state === "rejected") return "rejected";
+  if (verdict.state === "released" || verdict.state === "pending-release") return "approved";
+  return null;
+}
+
 /** Attach the `status` command to the program. */
 export function registerStatusCommand(program: Command): void {
   program
@@ -81,7 +99,7 @@ export function registerStatusCommand(program: Command): void {
     .option("--watch", "poll until the review reaches a terminal verdict", false)
     .option("--json", "machine-readable output for CI", false)
     .action(async (options: StatusOptions) => {
-      const { apps } = await loadConfig();
+      const { config, apps } = await loadConfig();
       const ios = selectIosApps(apps, options.app);
       const log = createLogger(false);
       if (ios.length === 0) {
@@ -102,7 +120,7 @@ export function registerStatusCommand(program: Command): void {
         );
 
       if (options.watch && !options.json) {
-        await watch(readAll, log);
+        await watch(readAll, log, config);
         return;
       }
 
@@ -120,20 +138,78 @@ export function registerStatusCommand(program: Command): void {
     });
 }
 
-/** Poll until every app's verdict is terminal, printing each round. */
+/**
+ * Poll until every app's verdict is terminal, printing each round and firing transition notifications.
+ * A review notification fires once per app the first time it settles to a notify-worthy verdict; a
+ * rollout `advanced` notification fires whenever an app's phased-release state changes to a new non-null
+ * value between polls. Both are best-effort (never throw). The per-app `Set`/`Map` keep each transition
+ * to at most one ping across the whole watch.
+ */
 async function watch(
   readAll: () => Promise<{ name: string; status: ReleaseStatus }[]>,
   log: ReturnType<typeof createLogger>,
+  config: LaunchConfig,
 ): Promise<void> {
   const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+  const reviewed = new Set<string>();
+  const lastPhasedState = new Map<string, string>();
   for (;;) {
     const results = await readAll();
     log.gap();
-    for (const { name, status } of results) log.step(name, formatStatusLine(status));
+    for (const { name, status } of results) {
+      log.step(name, formatStatusLine(status));
+      await notifyTransitions(config, name, status, reviewed, lastPhasedState);
+    }
     if (results.every((result) => result.status.verdict.done)) {
       process.exitCode = worstExitCode(results.map((result) => result.status.verdict.exitCode));
       return;
     }
     await sleep(WATCH_INTERVAL_MS);
+  }
+}
+
+/**
+ * Fire the review/rollout notifications for one app's poll, tracking state so each transition pings at
+ * most once. A review verdict notifies the first time the app reaches it (`reviewed` guards repeats); a
+ * phased-state change to a new non-null value notifies as a rollout `advanced` (`lastPhasedState` tracks
+ * the prior value per app). Best-effort — `notify` never throws.
+ */
+async function notifyTransitions(
+  config: LaunchConfig,
+  name: string,
+  status: ReleaseStatus,
+  reviewed: Set<string>,
+  lastPhasedState: Map<string, string>,
+): Promise<void> {
+  const version = status.versionString ?? "";
+  if (status.verdict.done && !reviewed.has(name)) {
+    reviewed.add(name);
+    const reviewStatus = reviewStatusForVerdict(status.verdict);
+    if (reviewStatus) {
+      await notify(config, {
+        event: "review",
+        status: reviewStatus,
+        app: name,
+        platform: "ios",
+        version,
+        detail: status.verdict.label,
+      });
+    }
+  }
+
+  const phased = status.phasedReleaseState;
+  if (phased && lastPhasedState.get(name) !== phased) {
+    const isFirstObservation = !lastPhasedState.has(name);
+    lastPhasedState.set(name, phased);
+    if (!isFirstObservation) {
+      await notify(config, {
+        event: "rollout",
+        status: "advanced",
+        app: name,
+        platform: "ios",
+        version,
+        detail: phased,
+      });
+    }
   }
 }

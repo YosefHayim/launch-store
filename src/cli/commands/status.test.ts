@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatStatusLine, selectIosApps, worstExitCode } from "./status.js";
+import { formatStatusLine, reviewStatusForVerdict, selectIosApps, worstExitCode } from "./status.js";
 import { classifyVerdict, type ReleaseStatus } from "../../core/appStoreRelease.js";
 import type { AppDescriptor } from "../../core/types.js";
 
@@ -54,6 +54,28 @@ describe("worstExitCode — error › rejected › in-progress › ok", () => {
     expect(worstExitCode([2, 1])).toBe(1);
     expect(worstExitCode([0, 1, 3])).toBe(1);
     expect(worstExitCode([])).toBe(0);
+  });
+});
+
+describe("reviewStatusForVerdict", () => {
+  it("notifies rejected on a rejection", () => {
+    expect(reviewStatusForVerdict(classifyVerdict("REJECTED"))).toBe("rejected");
+  });
+
+  it("notifies approved on a released verdict", () => {
+    expect(reviewStatusForVerdict(classifyVerdict("READY_FOR_SALE"))).toBe("approved");
+  });
+
+  it("notifies approved on a pending-release verdict", () => {
+    expect(reviewStatusForVerdict(classifyVerdict("PENDING_DEVELOPER_RELEASE"))).toBe("approved");
+  });
+
+  it("stays silent while in review", () => {
+    expect(reviewStatusForVerdict(classifyVerdict("IN_REVIEW"))).toBeNull();
+  });
+
+  it("stays silent on a preparing (not-yet-submitted) verdict", () => {
+    expect(reviewStatusForVerdict(classifyVerdict("PREPARE_FOR_SUBMISSION"))).toBeNull();
   });
 });
 
