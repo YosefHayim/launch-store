@@ -118,4 +118,17 @@ describe("downloadFeedbackAttachments", () => {
     expect(readFileSync(join(outDir, "s1-1.png")).toString()).toBe("imgbytes");
     expect(api.downloadBetaFeedbackScreenshot).toHaveBeenCalledTimes(2);
   });
+
+  it("sanitizes a hostile feedback id so the filename can't escape outDir", async () => {
+    const api = makeApi({ bytes: Buffer.from("x") });
+    const feedback: BetaFeedback[] = [
+      { id: "../../etc/passwd", kind: "screenshot", screenshots: [{ url: "https://a/1.png" }] },
+    ];
+    const outDir = mkdtempSync(join(tmpdir(), "launch-feedback-"));
+    const written = await downloadFeedbackAttachments(api, feedback, outDir);
+
+    // `/` and `.` are stripped, so the path stays a direct child of outDir.
+    expect(written).toEqual([{ path: join(outDir, "etcpasswd-1.png"), url: "https://a/1.png" }]);
+    expect(readdirSync(outDir)).toEqual(["etcpasswd-1.png"]);
+  });
 });

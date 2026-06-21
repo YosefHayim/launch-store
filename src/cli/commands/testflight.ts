@@ -327,7 +327,7 @@ const FEEDBACK_KINDS: readonly BetaFeedbackKind[] = ["crash", "screenshot"];
 /** Parse + validate `--type`, returning the kind or undefined (both kinds) when absent. Exported for tests. */
 export function parseFeedbackType(value: string | undefined): BetaFeedbackKind | undefined {
   if (value === undefined) return undefined;
-  const kind = FEEDBACK_KINDS.find((candidate) => candidate === value.toLowerCase());
+  const kind = FEEDBACK_KINDS.find((candidate) => candidate === value.trim().toLowerCase());
   if (!kind) throw new Error(`--type must be one of ${FEEDBACK_KINDS.join(" | ")} (got "${value}").`);
   return kind;
 }
@@ -342,21 +342,31 @@ async function resolveBundleId(appSelector: string | undefined): Promise<string>
   return app.bundleId;
 }
 
+/**
+ * Strip C0/C1 control characters (ANSI escapes, carriage returns) from tester-controllable text before
+ * it's printed to a terminal — a crafted comment or device name could otherwise inject escape sequences.
+ */
+function clean(text: string): string {
+  return text.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+}
+
 /** Render one piece of beta feedback as a copy-pasteable block: id + kind, meta line, comment, screenshot URLs. */
 export function renderFeedback(item: BetaFeedback): string {
-  const device = [item.deviceModel, item.osVersion ? `iOS ${item.osVersion}` : undefined].filter(Boolean).join(" · ");
+  const deviceModel = item.deviceModel ? clean(item.deviceModel) : undefined;
+  const osVersion = item.osVersion ? clean(item.osVersion) : undefined;
+  const device = [deviceModel, osVersion ? `iOS ${osVersion}` : undefined].filter(Boolean).join(" · ");
   const meta = [
     item.buildVersion ? `build ${item.buildVersion}` : undefined,
     device || undefined,
-    item.email,
+    item.email ? clean(item.email) : undefined,
     item.createdDate ? item.createdDate.slice(0, 10) : undefined,
   ]
     .filter(Boolean)
     .join("  ");
   const icon = item.kind === "crash" ? "✗ crash" : "▣ screenshot";
   const lines = [`${item.id}  ${icon}`, `  ${meta}`];
-  if (item.comment) lines.push(`  "${item.comment}"`);
-  for (const shot of item.screenshots ?? []) lines.push(`  ${shot.url}`);
+  if (item.comment) lines.push(`  "${clean(item.comment)}"`);
+  for (const shot of item.screenshots ?? []) lines.push(`  ${clean(shot.url)}`);
   return lines.join("\n");
 }
 

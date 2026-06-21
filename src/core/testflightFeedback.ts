@@ -94,17 +94,23 @@ export async function listBetaFeedback(
 
   const query: BetaFeedbackQuery = filters.build ? { buildId: await resolveBuildId(api, appId, filters.build) } : {};
 
+  // Fetch both kinds concurrently; skip a kind entirely when `--type` narrows to the other.
+  const [crashes, shots] = await Promise.all([
+    filters.kind !== "screenshot"
+      ? api.listBetaFeedbackCrashSubmissions(appId, query)
+      : Promise.resolve<BetaFeedbackCrashSubmissionResource[]>([]),
+    filters.kind !== "crash"
+      ? api.listBetaFeedbackScreenshotSubmissions(appId, query)
+      : Promise.resolve<BetaFeedbackScreenshotSubmissionResource[]>([]),
+  ]);
+
   const feedback: BetaFeedback[] = [];
-  if (filters.kind !== "screenshot") {
-    for (const crash of await api.listBetaFeedbackCrashSubmissions(appId, query)) {
-      feedback.push({ ...crash, kind: "crash" });
-    }
+  for (const crash of crashes) {
+    feedback.push({ ...crash, kind: "crash" });
   }
-  if (filters.kind !== "crash") {
-    for (const shot of await api.listBetaFeedbackScreenshotSubmissions(appId, query)) {
-      const { screenshots, ...base } = shot;
-      feedback.push({ ...base, kind: "screenshot", ...(screenshots.length > 0 ? { screenshots } : {}) });
-    }
+  for (const shot of shots) {
+    const { screenshots, ...base } = shot;
+    feedback.push({ ...base, kind: "screenshot", ...(screenshots.length > 0 ? { screenshots } : {}) });
   }
 
   // Both kinds come back newest-first individually; merging them needs one more sort to interleave.
@@ -125,9 +131,11 @@ export async function downloadFeedbackAttachments(
   const written: DownloadedAttachment[] = [];
   for (const item of feedback) {
     const shots = item.screenshots ?? [];
+    // Sanitize the feedback id before it reaches the filesystem so a hostile id can't escape outDir.
+    const safeId = item.id.replace(/[^A-Za-z0-9_-]/g, "");
     for (const [index, shot] of shots.entries()) {
       const bytes = await api.downloadBetaFeedbackScreenshot(shot.url);
-      const path = join(outDir, `${item.id}-${index + 1}.png`);
+      const path = join(outDir, `${safeId}-${index + 1}.png`);
       writeFileSync(path, bytes);
       written.push({ path, url: shot.url });
     }

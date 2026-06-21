@@ -66,6 +66,10 @@ describe("parseFeedbackType", () => {
     expect(parseFeedbackType("SCREENSHOT")).toBe("screenshot");
   });
 
+  it("trims surrounding whitespace before validating", () => {
+    expect(parseFeedbackType("  crash  ")).toBe("crash");
+  });
+
   it("rejects an unknown kind with an actionable message", () => {
     expect(() => parseFeedbackType("video")).toThrow(/--type must be one of/);
   });
@@ -99,5 +103,20 @@ describe("renderFeedback", () => {
     expect(block).toContain("fb-shot-1  ▣ screenshot");
     expect(block).toContain("https://apple.example/a.png");
     expect(block).toContain("https://apple.example/b.png");
+  });
+
+  it("strips terminal control sequences from tester-controllable fields", () => {
+    const esc = String.fromCharCode(27); // ESC — start of an ANSI escape a tester could inject
+    const block = renderFeedback({
+      id: "fb-1",
+      kind: "crash",
+      comment: `${esc}[31mowned${esc}[0m`,
+      deviceModel: `iPhone${esc}[2J`,
+      email: `t${esc}ester@x.com`,
+    });
+    expect(block).not.toContain(esc); // the raw escape byte is gone
+    expect(block).toContain('"[31mowned[0m"'); // visible text survives, only the control byte is removed
+    expect(block).toContain("iPhone[2J");
+    expect(block).toContain("tester@x.com");
   });
 });
