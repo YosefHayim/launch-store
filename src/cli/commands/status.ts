@@ -9,12 +9,14 @@
  */
 
 import type { Command } from "commander";
-import type { AppDescriptor } from "../../core/types.js";
+import type { AppDescriptor, LaunchConfig } from "../../core/types.js";
 import { loadConfig } from "../../core/config.js";
 import { createLogger } from "../../core/logger.js";
 import { loadActiveAscKey } from "../../core/accounts.js";
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
 import { IOS_PLATFORM, readReleaseStatus, type ReleaseStatus } from "../../core/appStoreRelease.js";
+import { notify } from "../../core/notify.js";
+import { createTransitionTracker, planTransitionNotifications } from "../../core/releaseNotify.js";
 
 /** CLI options for `launch status`. */
 interface StatusOptions {
@@ -81,7 +83,7 @@ export function registerStatusCommand(program: Command): void {
     .option("--watch", "poll until the review reaches a terminal verdict", false)
     .option("--json", "machine-readable output for CI", false)
     .action(async (options: StatusOptions) => {
-      const { apps } = await loadConfig();
+      const { config, apps } = await loadConfig();
       const ios = selectIosApps(apps, options.app);
       const log = createLogger(false);
       if (ios.length === 0) {
@@ -102,7 +104,7 @@ export function registerStatusCommand(program: Command): void {
         );
 
       if (options.watch && !options.json) {
-        await watch(readAll, log);
+        await watch(readAll, log, config);
         return;
       }
 
@@ -120,16 +122,26 @@ export function registerStatusCommand(program: Command): void {
     });
 }
 
-/** Poll until every app's verdict is terminal, printing each round. */
+/**
+ * Poll until every app's verdict is terminal, printing each round and firing transition notifications.
+ * A tracker carried across polls keeps each review/rollout transition to a single ping for the whole
+ * watch; `planTransitionNotifications` owns that domain logic (and is unit-tested in `core`).
+ * Notifications are best-effort — `notify` never throws.
+ */
 async function watch(
   readAll: () => Promise<{ name: string; status: ReleaseStatus }[]>,
   log: ReturnType<typeof createLogger>,
+  config: LaunchConfig,
 ): Promise<void> {
   const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+  const tracker = createTransitionTracker();
   for (;;) {
     const results = await readAll();
     log.gap();
-    for (const { name, status } of results) log.step(name, formatStatusLine(status));
+    for (const { name, status } of results) {
+      log.step(name, formatStatusLine(status));
+      for (const event of planTransitionNotifications(name, status, tracker)) await notify(config, event);
+    }
     if (results.every((result) => result.status.verdict.done)) {
       process.exitCode = worstExitCode(results.map((result) => result.status.verdict.exitCode));
       return;

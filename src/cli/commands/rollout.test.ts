@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { phasedStateForAction } from "./rollout.js";
+import { phasedStateForAction, rolloutNotifyStatus } from "./rollout.js";
 
 describe("phasedStateForAction", () => {
   it("maps each verb to its App Store Connect phased-release state", () => {
@@ -10,5 +10,17 @@ describe("phasedStateForAction", () => {
 
   it("throws on an unknown verb", () => {
     expect(() => phasedStateForAction("halt")).toThrow(/Unknown rollout action "halt"/);
+  });
+});
+
+describe("rolloutNotifyStatus", () => {
+  it("maps each verb to its notification status", () => {
+    expect(rolloutNotifyStatus("pause")).toBe("paused");
+    expect(rolloutNotifyStatus("resume")).toBe("resumed");
+    expect(rolloutNotifyStatus("complete")).toBe("completed");
+  });
+
+  it("throws on an unknown verb", () => {
+    expect(() => rolloutNotifyStatus("halt")).toThrow(/Unknown rollout action "halt"/);
   });
 });

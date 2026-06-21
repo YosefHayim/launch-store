@@ -35,7 +35,7 @@ import { formatAccountSummary, refreshIdentityIfStale, resolveBuildAccount, setA
 import { loadConfig, writeAppVersion } from "./config.js";
 import { checkApp, formatFinding } from "./configCheck.js";
 import { resolveBuildSecrets } from "./buildSecrets.js";
-import { notifyCompletion, type NotifyEvent } from "./notify.js";
+import { notify, type NotifyEvent } from "./notify.js";
 import { pickOne } from "./prompt.js";
 import { compareVersions, formatVersion, highestVersion, nextVersion, parseVersion, type BumpKind } from "./version.js";
 import { readLastApp, readLastBump, rememberLastRun } from "./lastRun.js";
@@ -516,9 +516,9 @@ export async function runBuild(options: BuildRunOptions): Promise<void> {
   const prepared = await prepareBuild(options);
   try {
     await dispatchBuild(prepared, options);
-    if (!options.dryRun) await notifyCompletion(prepared.config, await buildSuccessEvent(prepared, options));
+    if (!options.dryRun) await notify(prepared.config, await buildSuccessEvent(prepared, options));
   } catch (error) {
-    if (!options.dryRun) await notifyCompletion(prepared.config, buildFailureEvent(prepared, options, error));
+    if (!options.dryRun) await notify(prepared.config, buildFailureEvent(prepared, options, error));
     throw error;
   }
 }
