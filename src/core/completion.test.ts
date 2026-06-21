@@ -65,16 +65,20 @@ describe("completion scripts", () => {
     }
   });
 
-  it("bash registers a completion function for launch", () => {
+  it("bash registers a completion function for launch and slices words to the cursor", () => {
     const script = bashCompletionScript();
     expect(script).toContain("complete -o default -F _launch_complete launch");
     expect(script).toContain("compgen -W");
+    // slice to COMP_CWORD so mid-line completion resolves the word under the cursor, not the last word
+    expect(script).toContain("COMP_WORDS[@]:1:COMP_CWORD");
   });
 
-  it("zsh wires compdef and splits candidates on newlines", () => {
+  it("zsh wires compdef and passes the words up to the cursor as separate arguments", () => {
     const script = zshCompletionScript();
     expect(script).toContain("compdef _launch_complete launch");
     expect(script).toContain("compadd");
+    // (@) keeps each token a separate arg (a joined string breaks nested-command descent); slice to CURRENT
+    expect(script).toContain("(@)words[2,CURRENT]");
   });
 
   it("fish disables file completion and feeds candidates from the callback", () => {
@@ -246,6 +250,13 @@ describe("resolveCompletions (the __complete callback)", () => {
     // The surface slot is filled, so we fall through to subcommands/flags (none → flags only here).
     expect(candidates).not.toContain("listing");
     expect(candidates).toContain("--app");
+  });
+
+  it("still completes the positional after a value-taking flag and its value", async () => {
+    // `--app atlas` is a flag and its value, not a positional — the [surface] slot must stay open.
+    const candidates = await resolveCompletions(["plan", "--app", "atlas", ""], program());
+    expect(candidates).toContain("catalog");
+    expect(candidates).toContain("listing");
   });
 
   it("never throws when there is no launch.config.ts — falls back to the default profile", async () => {

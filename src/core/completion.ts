@@ -70,16 +70,17 @@ export function detectShell(env: NodeJS.ProcessEnv = process.env): Shell | undef
 /* -------------------------------------------------------------------------- */
 
 /**
- * The bash completion script. On `<Tab>` it forwards the words typed so far to
- * `launch completion __complete` and feeds the newline-separated candidates back through `compgen`, which
- * filters them by the current prefix. `COMP_WORDS[@]` drops the leading `launch` so the callback sees only
- * the arguments, matching what {@link resolveCompletions} expects.
+ * The bash completion script. On `<Tab>` it forwards the words from after `launch` up to and including the
+ * word under the cursor to `launch completion __complete`, and feeds the newline-separated candidates back
+ * through `compgen`, which filters them by the current prefix. The slice `[@]:1:COMP_CWORD` drops the
+ * leading `launch` AND everything past the cursor, so {@link resolveCompletions} always sees the in-progress
+ * word last — completing mid-line (not just at the end) resolves the correct token.
  */
 export function bashCompletionScript(): string {
   return `# launch (bash) completion — eval with: source <(launch completion bash)
 _launch_complete() {
   local words candidates
-  words=("\${COMP_WORDS[@]:1}")
+  words=("\${COMP_WORDS[@]:1:COMP_CWORD}")
   candidates="$(launch completion ${COMPLETE_SUBCOMMAND} -- "\${words[@]}" 2>/dev/null)"
   COMPREPLY=($(compgen -W "\${candidates}" -- "\${COMP_WORDS[COMP_CWORD]}"))
 }
@@ -88,14 +89,17 @@ complete -o default -F _launch_complete launch
 }
 
 /**
- * The zsh completion script. Uses zsh's native `compadd` over the same callback. `words[2,-1]` drops the
- * leading `launch`, and `${(f)...}` splits the callback output on newlines into the candidate array.
+ * The zsh completion script. Uses zsh's native `compadd` over the same callback. `words[2,CURRENT]` drops
+ * the leading `launch` and everything past the cursor; the `(@)` flag expands those words as SEPARATE
+ * arguments (a plain `"$words[2,-1]"` would join them into one space-delimited string and break command-tree
+ * descent for nested commands like `snapshot diff`). `${(@f)...}` then splits the callback output on
+ * newlines back into the candidate array.
  */
 export function zshCompletionScript(): string {
   return `# launch (zsh) completion — eval with: source <(launch completion zsh)
 _launch_complete() {
   local -a candidates
-  candidates=("\${(@f)$(launch completion ${COMPLETE_SUBCOMMAND} -- "\${words[2,-1]}" 2>/dev/null)}")
+  candidates=("\${(@f)$(launch completion ${COMPLETE_SUBCOMMAND} -- "\${(@)words[2,CURRENT]}" 2>/dev/null)}")
   compadd -- $candidates
 }
 compdef _launch_complete launch
@@ -235,20 +239,43 @@ export async function resolveCompletions(words: string[], program: Command): Pro
   }
 
   const argumentSource = ARGUMENT_SOURCES.get(path.join(" "));
-  if (argumentSource && !hasPositional(words, path.length)) return safe(argumentSource);
+  if (argumentSource && !hasPositional(words, path.length, valueTakingFlags(command))) return safe(argumentSource);
 
   return [...command.commands.map((sub) => sub.name()), ...optionFlags(command)];
 }
 
 /**
- * Whether a positional argument has already been supplied to the resolved command. `words` after the
- * command path, dropping flags and the word currently being typed, tells us if the single dynamic
- * positional slot is filled — so `snapshot diff prod <Tab>` completes against the second arg, not the
- * already-typed baseline name.
+ * Every option spelling (short + long) on the resolved command or its ancestors that takes a VALUE
+ * (declared `<x>` or `[x]`). Used to tell a flag's value apart from a real positional argument — without it,
+ * the token after `--app` would be miscounted as a positional and wrongly close the dynamic positional slot.
  */
-function hasPositional(words: string[], pathLength: number): boolean {
+function valueTakingFlags(command: Command): Set<string> {
+  const flags = new Set<string>();
+  for (let cmd: Command | null = command; cmd; cmd = cmd.parent) {
+    for (const option of cmd.options) {
+      if (!option.flags.includes("<") && !option.flags.includes("[")) continue;
+      if (option.short) flags.add(option.short);
+      if (option.long) flags.add(option.long);
+    }
+  }
+  return flags;
+}
+
+/**
+ * Whether a real positional argument has already been supplied to the resolved command. Walks the words
+ * after the command path (excluding the in-progress word), skipping flags and the VALUE that follows a
+ * value-taking flag — so `plan --app web <Tab>` still completes the `[surface]` positional, while
+ * `plan catalog <Tab>` correctly sees the slot as filled.
+ */
+function hasPositional(words: string[], pathLength: number, valueFlags: ReadonlySet<string>): boolean {
   const afterCommand = words.slice(pathLength, -1); // drop the command path and the in-progress word
-  return afterCommand.some((word) => !word.startsWith("-"));
+  for (const [i, word] of afterCommand.entries()) {
+    if (word.startsWith("-")) continue; // a flag, not a positional
+    const previous = i > 0 ? afterCommand[i - 1] : undefined;
+    if (previous !== undefined && valueFlags.has(previous)) continue; // the value of a value-taking flag
+    return true;
+  }
+  return false;
 }
 
 /** Run a dynamic source, swallowing any failure to `[]` — a completion callback must never error. */
