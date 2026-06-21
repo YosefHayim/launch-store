@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { appleProductsSource } from "./appleProducts.js";
 import { appleSubscriptionsSource } from "./appleSubscriptions.js";
 import { appleListingSource } from "./appleListing.js";
+import { appleCapabilitiesSource } from "./appleCapabilities.js";
 import { playProductsSource } from "./playProducts.js";
 import { playSubscriptionsSource } from "./playSubscriptions.js";
-import type { SnapshotAscApi, SnapshotContext, SnapshotPlayApi } from "../types.js";
+import { makeAscCatalogApiFake } from "../../ascCatalogApi.testkit.js";
+import type { AppEntities, RestoreInput, SnapshotAscApi, SnapshotContext, SnapshotPlayApi } from "../types.js";
 import type { AppDescriptor, LaunchConfig } from "../../types.js";
 
 const CONFIG: LaunchConfig = {
@@ -42,6 +44,9 @@ const ascApi: SnapshotAscApi = {
   getEditableVersionId: () => Promise.resolve("ver-1"),
   listVersionLocalizations: () =>
     Promise.resolve([{ id: "avl-1", locale: "en-US", fields: { description: "Great app", keywords: "acme,tools" } }]),
+  findBundleId: () => Promise.resolve({ id: "bundle-1", identifier: "com.acme.alpha" }),
+  listBundleIdCapabilities: () =>
+    Promise.resolve([{ capabilityType: "PUSH_NOTIFICATIONS" }, { capabilityType: "ICLOUD" }]),
 };
 
 const playApi: SnapshotPlayApi = {
@@ -210,5 +215,123 @@ describe("playSubscriptionsSource", () => {
         },
       },
     ]);
+  });
+});
+
+describe("appleCapabilitiesSource", () => {
+  it("omits when no iOS apps are in scope", async () => {
+    const capture = await appleCapabilitiesSource.capture(ctx({ apps: [app({ packageName: "com.acme.alpha" })] }));
+    expect(capture).toEqual({ state: "omitted" });
+  });
+
+  it("skips when no Apple account is active", async () => {
+    const capture = await appleCapabilitiesSource.capture(ctx({ apps: [app({ bundleId: "com.acme.alpha" })] }));
+    expect(capture.state).toBe("skipped");
+  });
+
+  it("captures enabled capabilities keyed and sorted by capability type", async () => {
+    const capture = await appleCapabilitiesSource.capture(
+      ctx({ apps: [app({ bundleId: "com.acme.alpha" })], resolveAscApi: () => Promise.resolve(ascApi) }),
+    );
+    if (capture.state !== "captured") throw new Error(`expected captured, got ${capture.state}`);
+    expect(capture.apps[0]?.entities).toEqual([
+      { key: "ICLOUD", summary: "capability ICLOUD", data: { capabilityType: "ICLOUD" } },
+      {
+        key: "PUSH_NOTIFICATIONS",
+        summary: "capability PUSH_NOTIFICATIONS",
+        data: { capabilityType: "PUSH_NOTIFICATIONS" },
+      },
+    ]);
+  });
+
+  it("captures an empty list when the App ID isn't registered yet", async () => {
+    const capture = await appleCapabilitiesSource.capture(
+      ctx({
+        apps: [app({ bundleId: "com.acme.alpha" })],
+        resolveAscApi: () => Promise.resolve({ ...ascApi, findBundleId: () => Promise.resolve(null) }),
+      }),
+    );
+    if (capture.state !== "captured") throw new Error(`expected captured, got ${capture.state}`);
+    expect(capture.apps[0]?.entities).toEqual([]);
+  });
+});
+
+describe("appleListingSource.restore", () => {
+  /** One app's captured listing, keyed by locale, with both app-level and version-level fields. */
+  const saved: AppEntities[] = [
+    {
+      app: "alpha",
+      identifier: "com.acme.alpha",
+      entities: [
+        {
+          key: "en-US",
+          summary: "listing en-US",
+          data: {
+            locale: "en-US",
+            fields: {
+              name: "Acme",
+              subtitle: "Do more",
+              description: "Great app",
+              keywords: "acme,tools",
+              whatsNew: "Bug fixes",
+            },
+          },
+        },
+      ],
+    },
+  ];
+
+  /** Narrow the optional `restore` to a callable, failing the test if the source ever drops it. */
+  function restoreOf(): NonNullable<typeof appleListingSource.restore> {
+    const restore = appleListingSource.restore;
+    if (!restore) throw new Error("expected appleListingSource to implement restore");
+    return restore;
+  }
+
+  function input(over: Partial<RestoreInput>): RestoreInput {
+    return {
+      ctx: { config: CONFIG, apps: [], resolveAscWriteClient: () => Promise.resolve(null) },
+      saved,
+      dryRun: true,
+      ...over,
+    };
+  }
+
+  it("skips with no writes when no Apple account is active", async () => {
+    const report = await restoreOf()(input({}));
+    expect(report.actions).toEqual([
+      { description: "App Store listing: skipped — no active Apple account", destructive: false, status: "skipped" },
+    ]);
+  });
+
+  it("plans the routed listing fields in a dry-run without writing", async () => {
+    const api = makeAscCatalogApiFake();
+    const report = await restoreOf()(
+      input({ ctx: { config: CONFIG, apps: [], resolveAscWriteClient: () => Promise.resolve(api) } }),
+    );
+    const descriptions = report.actions.map((action) => action.description);
+    expect(descriptions.some((line) => line.includes("App Info") && line.includes("name"))).toBe(true);
+    expect(descriptions.some((line) => line.includes("App Store version") && line.includes("description"))).toBe(true);
+    expect(report.actions.every((action) => action.status === "planned")).toBe(true);
+    expect(api.createAppInfoLocalization).toHaveBeenCalledTimes(0);
+    expect(api.createVersionLocalization).toHaveBeenCalledTimes(0);
+  });
+
+  it("applies the inverted listing, round-tripping keywords back to a comma string", async () => {
+    const api = makeAscCatalogApiFake();
+    const report = await restoreOf()(
+      input({ dryRun: false, ctx: { config: CONFIG, apps: [], resolveAscWriteClient: () => Promise.resolve(api) } }),
+    );
+    expect(api.createAppInfoLocalization).toHaveBeenCalledWith(
+      "appinfo1",
+      "en-US",
+      expect.objectContaining({ name: "Acme", subtitle: "Do more" }),
+    );
+    expect(api.createVersionLocalization).toHaveBeenCalledWith(
+      "version1",
+      "en-US",
+      expect.objectContaining({ description: "Great app", keywords: "acme,tools", whatsNew: "Bug fixes" }),
+    );
+    expect(report.actions.every((action) => action.status === "applied")).toBe(true);
   });
 });

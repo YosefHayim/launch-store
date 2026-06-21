@@ -17,6 +17,7 @@
 import type { AppDescriptor, LaunchConfig } from "../types.js";
 import type { ListingLocalization } from "../../apple/ascClient.js";
 import type { InAppProductResource, SubscriptionResource } from "../../google/playClient.js";
+import type { AscCatalogApi, PlannedAction } from "../ascSync.js";
 
 /** Which store a source reads from — drives credential resolution and how a capture/diff is grouped. */
 export type SnapshotStore = "appstore" | "play";
@@ -130,6 +131,10 @@ export interface SnapshotAscApi {
   getEditableVersionId(appId: string): Promise<string | null>;
   /** The version-level listing localizations (description / keywords / whatsNew / …) under a version. */
   listVersionLocalizations(versionId: string): Promise<ListingLocalization[]>;
+  /** The App ID (bundle id) portal resource for an identifier, or `null` when it isn't registered yet. */
+  findBundleId(identifier: string): Promise<{ id: string; identifier: string } | null>;
+  /** The capabilities enabled on an App ID resource (e.g. `PUSH_NOTIFICATIONS`, `ICLOUD`). */
+  listBundleIdCapabilities(bundleIdResourceId: string): Promise<{ capabilityType: string }[]>;
 }
 
 /**
@@ -161,9 +166,46 @@ export interface SnapshotContext {
 }
 
 /**
+ * What a {@link SnapshotSource.restore} pass is handed: the write-capable counterpart to
+ * {@link SnapshotContext}. The resolver returns the reconciler's {@link AscCatalogApi} write surface (the
+ * concrete `AppStoreConnectClient` satisfies it structurally, like {@link SnapshotAscApi} on the read side),
+ * or `null` when no Apple account is active, so a source emits a skipped action instead of throwing.
+ */
+export interface RestoreContext {
+  config: LaunchConfig;
+  apps: AppDescriptor[];
+  /** Resolve the read-write App Store Connect catalog surface, or `null` when no Apple account is active. */
+  resolveAscWriteClient(): Promise<AscCatalogApi | null>;
+}
+
+/**
+ * One source's restore request: the write context plus the per-app entities loaded from the saved snapshot
+ * (already narrowed by `-a`). `dryRun` drives the same plan-then-apply contract the reconcilers use — a
+ * dry-run produces the planned actions for the preview and performs no writes.
+ */
+export interface RestoreInput {
+  ctx: RestoreContext;
+  /** The saved per-app entities for this source, read back from the snapshot record. */
+  saved: AppEntities[];
+  /** Rehearse only: build the plan and perform no writes. */
+  dryRun: boolean;
+}
+
+/** The result of a restore pass: the actions planned (dry-run) or applied, in order. */
+export interface RestoreReport {
+  actions: PlannedAction[];
+}
+
+/**
  * One captured surface. {@link capture} is **read-only**: it resolves live state and serializes it, never
  * writing. Registered like a provider/planner (see {@link import("./registry.js")}); the orchestrator
  * resolves every registered source and never names a concrete one.
+ *
+ * {@link restore} is the optional write counterpart to {@link capture}: it pushes a saved capture back to
+ * the store. Only **config-complete** sources implement it — `apple-listing` captures the full per-locale
+ * listing, so it can be faithfully restored; the catalog sources (products/subscriptions/Play) capture a
+ * summary-grade record (price and reference names dropped), so they stay capture-only until their capture is
+ * enriched. A source without `restore` is preview-only in `snapshot restore`.
  */
 export interface SnapshotSource {
   /** Stable source key shown in the record and used to pair surfaces across two snapshots in a diff. */
@@ -174,4 +216,6 @@ export interface SnapshotSource {
   store: SnapshotStore;
   /** Read live state for the in-scope apps and return its normalized capture, performing no writes. */
   capture(ctx: SnapshotContext): Promise<SourceCapture>;
+  /** Push a saved capture back to the store. Present only on config-complete sources; absent ⇒ preview-only. */
+  restore?(input: RestoreInput): Promise<RestoreReport>;
 }

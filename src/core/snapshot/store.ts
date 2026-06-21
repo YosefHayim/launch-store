@@ -61,6 +61,48 @@ export function pruneSnapshots(prefix: string, keep: number, dir: string = SNAPS
   return deleted;
 }
 
+/** Delete one snapshot by name. Returns `true` when a file was removed, `false` when none existed. Tolerant. */
+export function deleteSnapshot(name: string, dir: string = SNAPSHOTS_DIR): boolean {
+  try {
+    unlinkSync(snapshotFileIn(dir, name));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Which snapshots a `snapshot prune` run deletes — the union of two independent rules. The command rejects
+ * an empty criteria (neither set), so a prune never silently matches everything; here an unset rule simply
+ * contributes nothing to the union.
+ */
+export interface PruneCriteria {
+  /** Keep only the `keep` newest; everything older is eligible. */
+  keep?: number;
+  /** Eligible once a snapshot is strictly older than this many days. */
+  olderThanDays?: number;
+}
+
+/** Age of a capture in fractional days relative to `now` — the `olderThanDays` rule's measure. */
+function ageInDays(capturedAt: string, now: Date): number {
+  return (now.getTime() - new Date(capturedAt).getTime()) / 86_400_000;
+}
+
+/**
+ * Pure prune planner: given the prune-eligible snapshots (the caller has already excluded auto-snapshot
+ * baselines, which `snapshot prune` must never touch), return the ones to delete. `now` is injected so the
+ * `olderThanDays` rule is deterministic in tests and identical between the dry-run preview and the apply
+ * pass. A snapshot is deleted if it matches *either* rule.
+ */
+export function planPrune(snapshots: Snapshot[], criteria: PruneCriteria, now: Date): Snapshot[] {
+  const newestFirst = [...snapshots].sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
+  return newestFirst.filter((snapshot, index) => {
+    const tooOld = criteria.olderThanDays != null && ageInDays(snapshot.capturedAt, now) > criteria.olderThanDays;
+    const beyondKeep = criteria.keep != null && index >= criteria.keep;
+    return tooOld || beyondKeep;
+  });
+}
+
 /** Read a file's text, or `null` when it can't be read (deleted between listing and reading, permissions). */
 function safeRead(file: string): string | null {
   try {

@@ -12,6 +12,9 @@
 
 import type {
   AppEntities,
+  JsonValue,
+  RestoreInput,
+  RestoreReport,
   SnapshotAscApi,
   SnapshotContext,
   SnapshotEntity,
@@ -19,6 +22,9 @@ import type {
   SourceCapture,
 } from "../types.js";
 import type { ListingLocalization } from "../../../apple/ascClient.js";
+import type { PlannedAction } from "../../ascSync.js";
+import type { AppleLocaleInfo, AppleStoreConfig } from "../../storeConfig.js";
+import { reconcileAppListing } from "../../ascSync.js";
 import { iosApps } from "../../readiness/appScopes.js";
 
 /** One locale's merged listing fields → a snapshot entity keyed by the locale (its natural, stable id). */
@@ -53,6 +59,61 @@ async function captureListing(api: SnapshotAscApi, appId: string): Promise<Snaps
     .map(([locale, fields]) => toEntity(locale, fields));
 }
 
+/** Read a string-valued field from a captured listing's `fields` map, or undefined when absent/non-string. */
+function fieldString(fields: Record<string, JsonValue>, key: string): string | undefined {
+  const value = fields[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+/**
+ * Invert one captured locale's Apple-named fields back into an {@link AppleLocaleInfo} — the mirror of
+ * `ascSync.routeListing`. Only present fields are carried, and the comma-joined `keywords` string is split
+ * back into the array shape `store.config.json` uses.
+ */
+function toLocaleInfo(fields: Record<string, JsonValue>): AppleLocaleInfo {
+  const info: AppleLocaleInfo = {};
+  const title = fieldString(fields, "name");
+  if (title !== undefined) info.title = title;
+  const subtitle = fieldString(fields, "subtitle");
+  if (subtitle !== undefined) info.subtitle = subtitle;
+  const privacyPolicyUrl = fieldString(fields, "privacyPolicyUrl");
+  if (privacyPolicyUrl !== undefined) info.privacyPolicyUrl = privacyPolicyUrl;
+  const description = fieldString(fields, "description");
+  if (description !== undefined) info.description = description;
+  const keywords = fieldString(fields, "keywords");
+  if (keywords !== undefined) {
+    const list = keywords
+      .split(",")
+      .map((keyword) => keyword.trim())
+      .filter(Boolean);
+    if (list.length > 0) info.keywords = list;
+  }
+  const releaseNotes = fieldString(fields, "whatsNew");
+  if (releaseNotes !== undefined) info.releaseNotes = releaseNotes;
+  const promotionalText = fieldString(fields, "promotionalText");
+  if (promotionalText !== undefined) info.promotionalText = promotionalText;
+  const supportUrl = fieldString(fields, "supportUrl");
+  if (supportUrl !== undefined) info.supportUrl = supportUrl;
+  const marketingUrl = fieldString(fields, "marketingUrl");
+  if (marketingUrl !== undefined) info.marketingUrl = marketingUrl;
+  return info;
+}
+
+/** Rebuild the `AppleStoreConfig` listing from one app's captured per-locale entities (skips malformed ones). */
+function toListing(saved: AppEntities): AppleStoreConfig {
+  const info: Record<string, AppleLocaleInfo> = {};
+  for (const entity of saved.entities) {
+    const { data } = entity;
+    if (typeof data !== "object" || data === null || Array.isArray(data)) continue;
+    const locale = data["locale"];
+    const fields = data["fields"];
+    if (typeof locale !== "string") continue;
+    if (typeof fields !== "object" || fields === null || Array.isArray(fields)) continue;
+    info[locale] = toLocaleInfo(fields);
+  }
+  return { info };
+}
+
 /** The App Store Connect store-listing snapshot source. */
 export const appleListingSource: SnapshotSource = {
   id: "apple-listing",
@@ -73,5 +134,43 @@ export const appleListingSource: SnapshotSource = {
       }),
     );
     return { state: "captured", apps: captured.filter((app): app is AppEntities => app !== null) };
+  },
+
+  /**
+   * Restore each app's captured listing copy back to App Store Connect, reusing the same per-locale
+   * reconciler `launch sync` / `launch plan`'s listing surface uses. Additive: `reconcileAppListing`
+   * creates/patches text and never removes it. Each app is isolated — a missing app-record precondition
+   * is recorded as a skipped action rather than aborting the rest.
+   */
+  async restore({ ctx, saved, dryRun }: RestoreInput): Promise<RestoreReport> {
+    const client = await ctx.resolveAscWriteClient();
+    if (!client) {
+      return {
+        actions: [
+          {
+            description: "App Store listing: skipped — no active Apple account",
+            destructive: false,
+            status: "skipped",
+          },
+        ],
+      };
+    }
+
+    const actions: PlannedAction[] = [];
+    for (const app of saved) {
+      const listing = toListing(app);
+      if (Object.keys(listing.info).length === 0) continue;
+      try {
+        const report = await reconcileAppListing(client, { bundleId: app.identifier, listing, dryRun });
+        actions.push(...report.actions);
+      } catch (error) {
+        actions.push({
+          description: `App Store listing ${app.identifier}: ${error instanceof Error ? error.message : String(error)}`,
+          destructive: false,
+          status: "skipped",
+        });
+      }
+    }
+    return { actions };
   },
 };
