@@ -86,6 +86,55 @@ export interface AndroidReleaseOptions {
 }
 
 /**
+ * Which kind of TestFlight beta feedback a {@link BetaFeedback} carries — Apple keeps the two on
+ * separate resources (`betaFeedbackCrashSubmissions` / `betaFeedbackScreenshotSubmissions`), which is
+ * also the discriminant `launch testflight feedback --type` filters on.
+ */
+export type BetaFeedbackKind = "crash" | "screenshot";
+
+/**
+ * One TestFlight screenshot attachment on a {@link BetaFeedback} — a presigned image URL plus its
+ * pixel dimensions. The URL expires (Apple signs it for a short window), so it's for immediate viewing
+ * or download, not long-term storage; `launch testflight feedback --out` fetches it before it lapses.
+ */
+export interface BetaFeedbackScreenshot {
+  /** Presigned image URL (short-lived). Absent rows are dropped, so this is always present here. */
+  url: string;
+  /** Image width in pixels, when Apple reports it. */
+  width?: number;
+  /** Image height in pixels, when Apple reports it. */
+  height?: number;
+}
+
+/**
+ * One piece of TestFlight beta feedback, normalized across Apple's two submission resources into the
+ * single shape `launch testflight feedback` renders. `kind` discriminates the two: a `crash` carries no
+ * `screenshots`; a `screenshot` carries one or more. The `*Resource`/wire types stay in `ascClient.ts`;
+ * this is the product-facing read model the CLI and `--json` output share, so it omits Apple ids beyond
+ * the feedback's own and keeps only the fields a developer triages from.
+ */
+export interface BetaFeedback {
+  /** Apple's resource id for this submission — stable, used as the `--json` key and in the rendered header. */
+  id: string;
+  /** Whether this is a crash report or a screenshot submission. */
+  kind: BetaFeedbackKind;
+  /** ISO-8601 instant the tester submitted the feedback, when Apple reports it. */
+  createdDate?: string;
+  /** The tester's free-text comment, when they left one (crashes often have none). */
+  comment?: string;
+  /** The tester's email, when Apple includes it on the submission. */
+  email?: string;
+  /** Device marketing model, e.g. `iPhone 15 Pro`, when reported. */
+  deviceModel?: string;
+  /** OS version the feedback came from, e.g. `17.5.1`, when reported. */
+  osVersion?: string;
+  /** The `CFBundleVersion` of the build the feedback is against, resolved from the included build, when known. */
+  buildVersion?: string;
+  /** Attached screenshots — present (and non-empty) only on the `screenshot` kind. */
+  screenshots?: BetaFeedbackScreenshot[];
+}
+
+/**
  * One app discovered in the surrounding monorepo.
  *
  * Launch auto-discovers these by scanning for `app.json`/`app.config` files, so the
