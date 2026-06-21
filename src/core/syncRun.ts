@@ -70,19 +70,18 @@ export interface SyncRunReport {
 }
 
 /**
- * Run the screenshot/asset pass for one app and append its actions to the catalog report. Isolated in its
- * own try/catch so a screenshot failure is recorded as one failed action rather than discarding the
- * (already-applied) catalog actions. Declared subscription review screenshots are fingerprinted here
- * (the filesystem read), recording an actionable skip for any missing file before the pure reconciler runs.
+ * Run the screenshot/asset pass for one app, returning its actions. Isolated in its own try/catch so a
+ * screenshot failure is one failed action rather than discarding the (already-applied) catalog actions.
+ * Declared subscription review screenshots are fingerprinted here (the filesystem read), recording an
+ * actionable skip for any missing file before the pure reconciler runs.
  */
-async function appendScreenshotActions(
+async function screenshotActions(
   client: ScreenshotsApi,
   job: SyncJob,
-  report: ReconcileReport,
   dryRun: boolean,
   allowDestructive: boolean,
-): Promise<void> {
-  if (job.screenshots.length === 0 && job.subscriptionReviewScreenshots.length === 0) return;
+): Promise<PlannedAction[]> {
+  if (job.screenshots.length === 0 && job.subscriptionReviewScreenshots.length === 0) return [];
   try {
     const subscriptionReviewScreenshots: SubscriptionReviewScreenshot[] = [];
     const missing: PlannedAction[] = [];
@@ -105,43 +104,55 @@ async function appendScreenshotActions(
       dryRun,
       allowDestructive,
     });
-    report.actions.push(...missing, ...actions);
+    return [...missing, ...actions];
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    report.actions.push({
-      description: `screenshots: ${message}`,
-      destructive: false,
-      status: "failed",
-      error: message,
-    });
+    return [{ description: `screenshots: ${message}`, destructive: false, status: "failed", error: message }];
   }
 }
 
 /**
- * Run the app-preview-video pass for one app and append its actions to the report. Isolated in its own
- * try/catch (like {@link appendScreenshotActions}) so a preview failure is one recorded action, not a lost
- * report. Previews are fingerprinted at discovery, so this pass is a pure reconcile with no filesystem read.
+ * Run the app-preview-video pass for one app, returning its actions. Isolated in its own try/catch (like
+ * {@link screenshotActions}) so a preview failure is one recorded action, not a lost report. Previews are
+ * fingerprinted at discovery, so this pass is a pure reconcile with no filesystem read.
  */
-async function appendPreviewActions(
+async function previewActions(
   client: PreviewsApi,
   job: SyncJob,
-  report: ReconcileReport,
   dryRun: boolean,
   allowDestructive: boolean,
-): Promise<void> {
-  if (job.previews.length === 0) return;
+): Promise<PlannedAction[]> {
+  if (job.previews.length === 0) return [];
   try {
-    const actions = await reconcilePreviews(client, {
+    return await reconcilePreviews(client, {
       bundleId: job.bundleId,
       previews: job.previews,
       dryRun,
       allowDestructive,
     });
-    report.actions.push(...actions);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    report.actions.push({ description: `previews: ${message}`, destructive: false, status: "failed", error: message });
+    return [{ description: `previews: ${message}`, destructive: false, status: "failed", error: message }];
   }
+}
+
+/**
+ * The screenshot + preview-video asset reconcile for one app, as a single ordered action list. This is the
+ * asset half of {@link reconcileJob}, factored out so `launch plan`'s screenshots surface can dry-run
+ * exactly the passes `launch sync` applies — including the subscription-review-screenshot fingerprinting and
+ * per-pass error isolation — without re-deriving them. Catalog and listing are intentionally excluded; each
+ * is its own plan surface. Total: a pass failure is captured as a `failed` action, never thrown.
+ */
+export async function reconcileAssetActions(
+  client: ScreenshotsApi & PreviewsApi,
+  job: SyncJob,
+  dryRun: boolean,
+  allowDestructive: boolean,
+): Promise<PlannedAction[]> {
+  return [
+    ...(await screenshotActions(client, job, dryRun, allowDestructive)),
+    ...(await previewActions(client, job, dryRun, allowDestructive)),
+  ];
 }
 
 /** Reconcile one job, never throwing: a thrown precondition becomes `{ error }` so the pool stays whole. */
@@ -160,8 +171,7 @@ export async function reconcileJob(
       dryRun,
       allowDestructive,
     });
-    await appendScreenshotActions(client, job, report, dryRun, allowDestructive);
-    await appendPreviewActions(client, job, report, dryRun, allowDestructive);
+    report.actions.push(...(await reconcileAssetActions(client, job, dryRun, allowDestructive)));
     return { job, report };
   } catch (error) {
     return { job, error: error instanceof Error ? error.message : String(error) };
