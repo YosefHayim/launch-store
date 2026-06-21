@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **210 App Store Connect & Google Play API operations** across **61 commands**, guarded by **1681 tests**.
+> Launch wraps **210 App Store Connect & Google Play API operations** across **61 commands**, guarded by **1696 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -968,6 +968,36 @@ print a saved snapshot as JSON, or write it to a file with --out
 | Flag           | Description                                            |
 | -------------- | ------------------------------------------------------ |
 | `--out <file>` | write the snapshot JSON to this file instead of stdout |
+
+### `launch snapshot delete <name>`
+
+delete a saved snapshot by name
+
+| Flag     | Description                           |
+| -------- | ------------------------------------- |
+| `--json` | machine-readable output for CI/agents |
+
+### `launch snapshot prune`
+
+delete old user snapshots by count and/or age (auto pre-sync baselines are never touched)
+
+| Flag                  | Description                                              |
+| --------------------- | -------------------------------------------------------- |
+| `--keep <n>`          | keep only the N newest snapshots                         |
+| `--older-than <days>` | delete snapshots older than N days                       |
+| `--yes`               | actually delete (without it, a dry-run preview is shown) |
+| `--json`              | machine-readable output for CI/agents                    |
+
+### `launch snapshot restore <name>`
+
+restore a saved snapshot's App Store listing back to live (additive; --yes to apply)
+
+| Flag                | Description                                                      |
+| ------------------- | ---------------------------------------------------------------- |
+| `-a, --app <names>` | comma-separated app handles (default: all apps)                  |
+| `--source <id>`     | restore only this source (e.g. apple-listing)                    |
+| `--yes`             | actually apply the restore (without it, a dry-run plan is shown) |
+| `--json`            | machine-readable output for CI/agents                            |
 
 ### `launch snapshot help [command]`
 

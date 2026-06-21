@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest";
 import { listSnapshotSources, registerBuiltinSources } from "./registry.js";
 
 describe("snapshot source registry", () => {
-  it("registers the five built-in sources", () => {
+  it("registers the six built-in sources", () => {
     registerBuiltinSources();
     const ids = listSnapshotSources()
       .map((source) => source.id)
       .sort();
     expect(ids).toEqual([
+      "apple-capabilities",
       "apple-listing",
       "apple-products",
       "apple-subscriptions",
@@ -19,6 +20,6 @@ describe("snapshot source registry", () => {
   it("is idempotent — re-registering keyed by id does not duplicate", () => {
     registerBuiltinSources();
     registerBuiltinSources();
-    expect(listSnapshotSources()).toHaveLength(5);
+    expect(listSnapshotSources()).toHaveLength(6);
   });
 });

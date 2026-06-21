@@ -1,13 +1,15 @@
 /**
- * `launch snapshot` — capture, diff, and export point-in-time copies of live store state. A snapshot is the
- * trustworthy "before" that makes destructive store automation (`launch sync` / `apply`) reversible: you
- * capture the live App Store Connect + Google Play catalog into a named save slot, then `diff` it against a
- * later capture (or live) to see exactly what moved. Read-only end to end — it never writes to either store.
+ * `launch snapshot` — capture, diff, restore, and export point-in-time copies of live store state. A
+ * snapshot is the trustworthy "before" that makes destructive store automation (`launch sync` / `apply`)
+ * reversible: you capture the live App Store Connect + Google Play catalog into a named save slot, then
+ * `diff` it against a later capture (or live) to see what moved, and `restore` it to push a saved listing
+ * back. Capture/diff/export/list are read-only; `restore` is the one writing path, gated behind `--yes`.
  *
- * Like `launch plan` / `launch store doctor`, the command owns no capture logic: it resolves credentials via
- * the shared `core/storeClients.ts` resolvers, runs every registered snapshot source, and renders. A new
- * captured surface is a new source file, never an edit here. Partial restore is a deliberate follow-up
- * (read first, write later — see #169). `--json` on every subcommand makes it scriptable.
+ * Like `launch plan` / `launch store doctor`, the command owns no capture/restore logic: it resolves
+ * credentials via the shared `core/storeClients.ts` resolvers, runs every registered snapshot source, and
+ * renders. A new captured/restorable surface is a new source file, never an edit here. Restore is wired
+ * per-source — config-complete sources (App Store listing) write; summary-grade catalog sources stay
+ * preview-only until their capture is enriched (see #191). `--json` on every subcommand makes it scriptable.
  */
 
 import { writeFileSync } from "node:fs";
@@ -22,8 +24,19 @@ import { captureSnapshot } from "../../core/snapshot/orchestrator.js";
 import type { CaptureResult } from "../../core/snapshot/orchestrator.js";
 import { diffSnapshots } from "../../core/snapshot/diff.js";
 import type { DiffChange, SnapshotDiff } from "../../core/snapshot/diff.js";
-import { listSnapshots, loadSnapshot, saveSnapshot } from "../../core/snapshot/store.js";
-import type { CaptureReport, Snapshot, SnapshotContext, SnapshotStore } from "../../core/snapshot/types.js";
+import { deleteSnapshot, listSnapshots, loadSnapshot, planPrune, saveSnapshot } from "../../core/snapshot/store.js";
+import type { PruneCriteria } from "../../core/snapshot/store.js";
+import { AUTO_SNAPSHOT_PREFIX } from "../../core/snapshot/autoSnapshot.js";
+import type {
+  AppEntities,
+  CaptureReport,
+  RestoreContext,
+  Snapshot,
+  SnapshotContext,
+  SnapshotSource,
+  SnapshotStore,
+} from "../../core/snapshot/types.js";
+import type { ActionStatus, PlannedAction } from "../../core/ascSync.js";
 
 /** The literal `against` token that means "capture live state now and diff against it" rather than a saved name. */
 const LIVE = "live";
@@ -230,6 +243,234 @@ export async function runSnapshotList(input: { json?: boolean }): Promise<void> 
   }
 }
 
+/**
+ * `snapshot delete <name>` — remove one saved snapshot. An unknown name is an operational error (exit 1);
+ * a successful delete is idempotent end state ("gone").
+ */
+export async function runSnapshotDelete(input: { name: string; json?: boolean }): Promise<void> {
+  const log = createLogger(false);
+  if (!loadSnapshot(input.name)) {
+    missingSnapshot(log, input.name);
+    return;
+  }
+  const deleted = deleteSnapshot(input.name);
+  if (input.json === true) {
+    console.log(JSON.stringify({ deleted, name: input.name }, null, 2));
+    return;
+  }
+  log.info(`Deleted snapshot "${input.name}".`);
+}
+
+/** CLI options for `snapshot prune`. Counts arrive as strings from commander and are validated here. */
+interface PruneOptions {
+  /** Keep only the N newest (string from the CLI). */
+  keep?: string;
+  /** Delete snapshots older than N days (string from the CLI). */
+  olderThan?: string;
+  /** Actually delete; without it the run is a dry-run preview. */
+  yes?: boolean;
+  /** Machine-readable output. */
+  json?: boolean;
+}
+
+/** Parse a non-negative-integer CLI count, reporting and failing the run when it's malformed. */
+function parseCount(raw: string, flag: string, log: Logger): number | null {
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 0) {
+    log.error(`${flag} must be a non-negative integer.`);
+    process.exitCode = 1;
+    return null;
+  }
+  return value;
+}
+
+/**
+ * `snapshot prune [--keep N] [--older-than DAYS]` — delete old **user** snapshots by count and/or age. The
+ * automatic pre-sync baselines (reserved `pre-sync-` prefix, self-pruned by `launch sync`) are excluded so a
+ * prune never erases a sync's safety net. Requires at least one rule, and is a dry-run preview until `--yes`.
+ */
+export async function runSnapshotPrune(input: PruneOptions): Promise<void> {
+  const log = createLogger(false);
+  if (input.keep === undefined && input.olderThan === undefined) {
+    log.error("Specify at least one of --keep or --older-than.");
+    process.exitCode = 1;
+    return;
+  }
+
+  const criteria: PruneCriteria = {};
+  if (input.keep !== undefined) {
+    const keep = parseCount(input.keep, "--keep", log);
+    if (keep === null) return;
+    criteria.keep = keep;
+  }
+  if (input.olderThan !== undefined) {
+    const days = parseCount(input.olderThan, "--older-than", log);
+    if (days === null) return;
+    criteria.olderThanDays = days;
+  }
+
+  const eligible = listSnapshots().filter((snapshot) => !snapshot.name.startsWith(AUTO_SNAPSHOT_PREFIX));
+  const doomed = planPrune(eligible, criteria, new Date());
+  const dryRun = input.yes !== true;
+  if (!dryRun) for (const snapshot of doomed) deleteSnapshot(snapshot.name);
+
+  if (input.json === true) {
+    console.log(JSON.stringify({ pruned: doomed.map((snapshot) => snapshot.name), dryRun }, null, 2));
+    return;
+  }
+  if (doomed.length === 0) {
+    log.info("Nothing to prune.");
+    return;
+  }
+  for (const snapshot of doomed) {
+    log.step(dryRun ? "would delete" : "deleted", `${snapshot.name} — ${snapshot.capturedAt}`);
+  }
+  log.gap();
+  log.info(
+    dryRun
+      ? `${doomed.length} snapshot(s) would be deleted (dry-run — re-run with --yes to delete)`
+      : `Pruned ${doomed.length} snapshot(s).`,
+  );
+}
+
+/** CLI options for `snapshot restore`. */
+interface RestoreOptions {
+  /** Comma-separated app handles; default is every captured app. */
+  app?: string;
+  /** Restore only this source id (e.g. `apple-listing`). */
+  source?: string;
+  /** Actually apply the restore; without it the run is a dry-run plan. */
+  yes?: boolean;
+  /** Machine-readable output. */
+  json?: boolean;
+}
+
+/** A source that implements `restore` — narrowed so the optional method is callable without a non-null assertion. */
+type RestorableSource = SnapshotSource & { restore: NonNullable<SnapshotSource["restore"]> };
+
+/** One source's restore outcome for rendering and `--json`. */
+interface SourceRestore {
+  source: string;
+  title: string;
+  actions: PlannedAction[];
+}
+
+/** Glyph per action status, reusing `launch plan`'s additive vocabulary plus apply/fail markers. */
+const RESTORE_GLYPH: Record<ActionStatus, string> = { planned: "+", applied: "✓", skipped: "–", failed: "✗" };
+
+/** The saved per-app entities for one source, narrowed to the `-a` selector (empty when the source isn't captured). */
+function savedEntitiesFor(snapshot: Snapshot, sourceId: string, appSelector: string | undefined): AppEntities[] {
+  const report = snapshot.reports.find((entry) => entry.id === sourceId);
+  if (report?.outcome.state !== "captured") return [];
+  if (appSelector === undefined) return report.outcome.apps;
+  const wanted = new Set(
+    appSelector
+      .split(",")
+      .map((name) => name.trim())
+      .filter(Boolean),
+  );
+  return report.outcome.apps.filter((app) => wanted.has(app.app));
+}
+
+/** Build the write-capable restore context: config + apps narrowed by `-a` + the read-write ASC resolver. */
+async function buildRestoreContext(appSelector: string | undefined): Promise<RestoreContext> {
+  const { config, apps } = await loadConfig();
+  return { config, apps: selectApps(apps, appSelector), resolveAscWriteClient: createAscClientResolver() };
+}
+
+/**
+ * `snapshot restore <name>` — push a saved snapshot's listing back to live. Additive: it only creates/patches
+ * text, never removes it. A dry-run plan is shown by default; `--yes` applies it. Only config-complete
+ * surfaces (App Store listing) write — summary-grade catalog surfaces are reported as preview-only. The
+ * cross-surface `diff` (saved → live) is included under `--json` so an agent sees drift the writer can't undo.
+ */
+export async function runSnapshotRestore(input: RestoreOptions & { name: string }): Promise<void> {
+  const log = createLogger(false);
+  const saved = loadSnapshot(input.name);
+  if (!saved) {
+    missingSnapshot(log, input.name);
+    return;
+  }
+
+  registerBuiltinSources();
+  const sources = listSnapshotSources();
+  const targets = sources
+    .filter((source): source is RestorableSource => typeof source.restore === "function")
+    .filter((source) => input.source === undefined || source.id === input.source)
+    .filter((source) => savedEntitiesFor(saved, source.id, input.app).length > 0);
+
+  const liveCtx = await buildContext(input.app);
+  const live = await captureSnapshot(liveCtx, sources, { name: LIVE, capturedAt: new Date().toISOString() });
+  const preview = diffSnapshots(saved, live.snapshot);
+
+  const dryRun = input.yes !== true;
+  const restoreCtx = await buildRestoreContext(input.app);
+  const restored: SourceRestore[] = [];
+  for (const source of targets) {
+    const report = await source.restore({
+      ctx: restoreCtx,
+      saved: savedEntitiesFor(saved, source.id, input.app),
+      dryRun,
+    });
+    restored.push({ source: source.id, title: source.title, actions: report.actions });
+  }
+
+  if (input.json === true) console.log(JSON.stringify({ preview, restored, dryRun }, null, 2));
+  else renderRestore(log, saved, input.name, restored, dryRun, input.source);
+
+  if (restored.some((entry) => entry.actions.some((action) => action.status === "failed"))) process.exitCode = 1;
+}
+
+/** Captured-but-not-restorable surfaces, surfaced so the user knows what restore skipped. */
+function previewOnlyTitles(saved: Snapshot, restored: SourceRestore[], sourceFilter: string | undefined): string[] {
+  const restorable = new Set(restored.map((entry) => entry.source));
+  return saved.reports
+    .filter((report) => report.outcome.state === "captured" && !restorable.has(report.id))
+    .filter((report) => sourceFilter === undefined || report.id === sourceFilter)
+    .map((report) => `${report.title} (${report.id})`);
+}
+
+/** Render a restore run: per-source planned/applied actions, the preview-only surfaces, then a summary. */
+function renderRestore(
+  log: Logger,
+  saved: Snapshot,
+  name: string,
+  restored: SourceRestore[],
+  dryRun: boolean,
+  sourceFilter: string | undefined,
+): void {
+  log.info(`Restore "${name}" → live`);
+
+  const actionCount = restored.reduce((total, entry) => total + entry.actions.length, 0);
+  if (actionCount === 0) {
+    log.info("Nothing to restore — the saved listing already matches live (or no restorable surface is in scope).");
+  }
+  for (const entry of restored) {
+    if (entry.actions.length === 0) continue;
+    log.info(entry.title);
+    for (const action of entry.actions) {
+      const error = action.error ? ` — ${action.error}` : "";
+      log.info(`  ${RESTORE_GLYPH[action.status]} ${action.description}${error}`);
+    }
+  }
+
+  const previewOnly = previewOnlyTitles(saved, restored, sourceFilter);
+  if (previewOnly.length > 0) {
+    log.gap();
+    log.warn(`Preview-only (no restore support yet): ${previewOnly.join(", ")}`);
+    log.tip("these surfaces capture a summary-grade record; restore is wired for the App Store listing today");
+  }
+
+  log.gap();
+  if (dryRun) {
+    if (actionCount > 0) log.info("(dry-run — re-run with --yes to apply)");
+  } else {
+    const applied = restored.reduce((n, e) => n + e.actions.filter((a) => a.status === "applied").length, 0);
+    const failed = restored.reduce((n, e) => n + e.actions.filter((a) => a.status === "failed").length, 0);
+    log.info(`Restored ${applied} change(s)${failed > 0 ? `, ${failed} failed` : ""}.`);
+  }
+}
+
 /** Report an unknown snapshot name consistently and set the failure exit code. */
 function missingSnapshot(log: Logger, name: string): void {
   log.error(`No snapshot named "${name}".`);
@@ -275,5 +516,35 @@ export function registerSnapshotCommand(program: Command): void {
     .option("--out <file>", "write the snapshot JSON to this file instead of stdout")
     .action(async (name: string, options: { out?: string }) => {
       await runSnapshotExport({ name, ...options });
+    });
+
+  snapshot
+    .command("delete <name>")
+    .description("delete a saved snapshot by name")
+    .option("--json", "machine-readable output for CI/agents", false)
+    .action(async (name: string, options: { json?: boolean }) => {
+      await runSnapshotDelete({ name, ...options });
+    });
+
+  snapshot
+    .command("prune")
+    .description("delete old user snapshots by count and/or age (auto pre-sync baselines are never touched)")
+    .option("--keep <n>", "keep only the N newest snapshots")
+    .option("--older-than <days>", "delete snapshots older than N days")
+    .option("--yes", "actually delete (without it, a dry-run preview is shown)", false)
+    .option("--json", "machine-readable output for CI/agents", false)
+    .action(async (options: PruneOptions) => {
+      await runSnapshotPrune(options);
+    });
+
+  snapshot
+    .command("restore <name>")
+    .description("restore a saved snapshot's App Store listing back to live (additive; --yes to apply)")
+    .option("-a, --app <names>", "comma-separated app handles (default: all apps)")
+    .option("--source <id>", "restore only this source (e.g. apple-listing)")
+    .option("--yes", "actually apply the restore (without it, a dry-run plan is shown)", false)
+    .option("--json", "machine-readable output for CI/agents", false)
+    .action(async (name: string, options: RestoreOptions) => {
+      await runSnapshotRestore({ name, ...options });
     });
 }
