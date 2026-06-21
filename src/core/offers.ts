@@ -302,6 +302,18 @@ function hasNoOffers(sub: SubscriptionConfig): boolean {
 }
 
 /**
+ * Whether an app's declared catalog carries anything this reconciler acts on — at least one subscription
+ * offer (of any kind) or a promoted-purchase ordering. Lets `launch plan`'s offers surface omit apps that
+ * declare only plain products, reusing {@link hasNoOffers} so "what counts as an offer" has one home.
+ */
+export function appDeclaresOffers(products: AppProducts): boolean {
+  const anySubscriptionOffer = (products.subscriptionGroups ?? [])
+    .flatMap((group) => group.subscriptions)
+    .some((sub) => !hasNoOffers(sub));
+  return anySubscriptionOffer || (products.promotedPurchases?.length ?? 0) > 0;
+}
+
+/**
  * Reconcile every promoted purchase declared on the app: create the ones Apple doesn't have yet, then
  * rewrite the order to put the declared products first (in declared order), preserving any undeclared
  * promotions after them. A `productId` that resolves to neither a subscription nor an IAP is recorded as
