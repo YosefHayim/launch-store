@@ -8,7 +8,7 @@ describe("the agent skill registry stays in sync with the CLI", () => {
     expect(findUnknownCommands(buildProgram())).toEqual([]);
   });
 
-  it("ships the six task skills, in pipeline order, with unique ids", () => {
+  it("ships the task skills, in pipeline order, with unique ids", () => {
     const ids = CONSUMER_SKILLS.map((skill) => skill.id);
     expect(ids).toEqual([
       "launch-ship",
@@ -17,6 +17,13 @@ describe("the agent skill registry stays in sync with the CLI", () => {
       "launch-ota",
       "launch-ci",
       "launch-doctor",
+      "launch-verify",
+      "launch-plan",
+      "launch-snapshot",
+      "launch-migrate",
+      "launch-insights",
+      "launch-ai-listing",
+      "launch-agent-access",
     ]);
     expect(new Set(ids).size).toBe(ids.length);
   });
