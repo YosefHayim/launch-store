@@ -361,6 +361,52 @@ export interface BetaTesterResource {
 }
 
 /**
+ * Common attributes shared by Apple's two beta-feedback submission resources
+ * (`betaFeedbackCrashSubmissions` / `betaFeedbackScreenshotSubmissions`) — the device/OS context, the
+ * tester's comment + email, and the timestamp. The screenshot resource adds `screenshots`; this base
+ * is the part {@link BetaFeedbackCrashSubmissionResource} and {@link BetaFeedbackScreenshotSubmissionResource}
+ * both expose. Optional fields are absent (not empty) when Apple omits them.
+ */
+export interface BetaFeedbackSubmissionResource {
+  id: string;
+  /** ISO-8601 instant the tester submitted the feedback. */
+  createdDate?: string;
+  /** The tester's free-text comment, when present. */
+  comment?: string;
+  /** The submitting tester's email, when present. */
+  email?: string;
+  /** Device marketing model, e.g. `iPhone 15 Pro`. */
+  deviceModel?: string;
+  /** OS version the feedback came from, e.g. `17.5.1`. */
+  osVersion?: string;
+  /** `CFBundleVersion` of the related build, resolved from the included `build` resource when present. */
+  buildVersion?: string;
+}
+
+/** A TestFlight crash-feedback submission (`betaFeedbackCrashSubmissions`) — the device/OS context plus the tester's comment. */
+export type BetaFeedbackCrashSubmissionResource = BetaFeedbackSubmissionResource;
+
+/**
+ * A TestFlight screenshot-feedback submission (`betaFeedbackScreenshotSubmissions`) — like a crash
+ * submission, plus the attached screenshots. Each screenshot carries a short-lived presigned `url`
+ * (and pixel dimensions when Apple reports them) suitable for immediate viewing or download.
+ */
+export interface BetaFeedbackScreenshotSubmissionResource extends BetaFeedbackSubmissionResource {
+  /** The attached screenshots — at least one on a screenshot submission. */
+  screenshots: { url: string; width?: number; height?: number }[];
+}
+
+/**
+ * Server-side narrowing for the beta-feedback readers — Apple's `filter[build]` takes a *build resource
+ * id* (not a version string), so the caller resolves a `--build <ver>` to its id first. Absent means
+ * "all builds". Kept as a named query type to mirror the other ASC `*Query` params in this file.
+ */
+export interface BetaFeedbackQuery {
+  /** Restrict to feedback for this build resource id (resolve from a version via {@link AppStoreConnectClient.findBuildByVersion}). */
+  buildId?: string;
+}
+
+/**
  * One customer review of an app. `answered` is derived from the `response` relationship so a caller
  * can filter unanswered reviews without a follow-up request per review. Optional text fields are absent
  * (not empty) when Apple omits them — a review can have a rating but no title or body.
@@ -1120,6 +1166,36 @@ interface CustomerReviewPage {
     relationships?: { response?: { data?: { id: string } | null } };
   }[];
   links?: { next?: string };
+}
+
+/**
+ * One page of an app's beta-feedback submissions (crash or screenshot), read with `include=build` so
+ * each row's build *version* can be resolved from the page's `included` builds without a per-row call.
+ * Kept separate from {@link PagedList} because {@link AppStoreConnectClient.requestAll} drops both the
+ * `included` sidebar and the `build` relationship linkage this needs. The `screenshots` attribute is
+ * present only on the screenshot resource; crashes simply omit it.
+ */
+interface BetaFeedbackPage {
+  data: {
+    id: string;
+    attributes?: {
+      createdDate?: string;
+      comment?: string;
+      email?: string;
+      deviceModel?: string;
+      osVersion?: string;
+      screenshots?: { url?: string; width?: number; height?: number }[];
+    };
+    relationships?: { build?: { data?: { id: string } | null } };
+  }[];
+  included?: { type: string; id: string; attributes?: { version?: string } }[];
+  links?: { next?: string };
+}
+
+/** One normalized beta-feedback row before the crash/screenshot readers split off their public shapes. */
+interface BetaFeedbackRow {
+  base: BetaFeedbackSubmissionResource;
+  screenshots: { url: string; width?: number; height?: number }[];
 }
 
 /**
@@ -3182,6 +3258,98 @@ export class AppStoreConnectClient {
     await this.request<unknown>("DELETE", `/customerReviewResponses/${responseId}`);
   }
 
+  /* ------------------------------------------------------------------------ */
+  /*  TestFlight beta feedback — read tester crash & screenshot submissions.    */
+  /*  Consumed by `launch testflight feedback` (core/testflightFeedback.ts).    */
+  /* ------------------------------------------------------------------------ */
+
+  /**
+   * List an app's TestFlight crash-feedback submissions, newest first, across all pages. Uses the
+   * `getToManyRelated` endpoint (which returns full resources, unlike the bare `relationships` linkage)
+   * with `include=build` so each row's build version resolves from the page's `included` builds.
+   * `query.buildId` narrows server-side via Apple's `filter[build]` (a build *resource id*).
+   */
+  async listBetaFeedbackCrashSubmissions(
+    appId: string,
+    query: BetaFeedbackQuery = {},
+  ): Promise<BetaFeedbackCrashSubmissionResource[]> {
+    const rows = await this.listBetaFeedback(`/apps/${appId}/betaFeedbackCrashSubmissions`, query);
+    return rows.map((row) => row.base);
+  }
+
+  /**
+   * List an app's TestFlight screenshot-feedback submissions, newest first, across all pages. Same
+   * read shape as {@link listBetaFeedbackCrashSubmissions}, plus each row's attached screenshots
+   * (presigned, short-lived image URLs); rows without a usable URL are dropped from `screenshots`.
+   */
+  async listBetaFeedbackScreenshotSubmissions(
+    appId: string,
+    query: BetaFeedbackQuery = {},
+  ): Promise<BetaFeedbackScreenshotSubmissionResource[]> {
+    const rows = await this.listBetaFeedback(`/apps/${appId}/betaFeedbackScreenshotSubmissions`, query, true);
+    return rows.map((row) => ({ ...row.base, screenshots: row.screenshots }));
+  }
+
+  /**
+   * Shared paginating read for both beta-feedback resources. Walks `links.next`, resolves each row's
+   * build version from the page's `included` builds, and (when `withScreenshots`) flattens the screenshot
+   * attachments. Returns the common base for crashes; the screenshot reader layers its attachments on top.
+   */
+  private async listBetaFeedback(
+    relatedPath: string,
+    query: BetaFeedbackQuery,
+    withScreenshots = false,
+  ): Promise<BetaFeedbackRow[]> {
+    let path = `${relatedPath}?include=build&sort=-createdDate&limit=200`;
+    if (query.buildId) path += `&filter[build]=${encodeURIComponent(query.buildId)}`;
+
+    const rows: BetaFeedbackRow[] = [];
+    let next: string | undefined = path;
+    while (next) {
+      const page: BetaFeedbackPage = await this.request<BetaFeedbackPage>("GET", next);
+      const buildVersionById = new Map<string, string>();
+      for (const entry of page.included ?? []) {
+        if (entry.type === "builds" && entry.attributes?.version)
+          buildVersionById.set(entry.id, entry.attributes.version);
+      }
+      for (const { id, attributes, relationships } of page.data) {
+        const buildId = relationships?.build?.data?.id;
+        const buildVersion = buildId ? buildVersionById.get(buildId) : undefined;
+        const base: BetaFeedbackSubmissionResource = {
+          id,
+          ...(attributes?.createdDate ? { createdDate: attributes.createdDate } : {}),
+          ...(attributes?.comment ? { comment: attributes.comment } : {}),
+          ...(attributes?.email ? { email: attributes.email } : {}),
+          ...(attributes?.deviceModel ? { deviceModel: attributes.deviceModel } : {}),
+          ...(attributes?.osVersion ? { osVersion: attributes.osVersion } : {}),
+          ...(buildVersion ? { buildVersion } : {}),
+        };
+        const screenshots = withScreenshots ? toFeedbackScreenshots(attributes?.screenshots) : [];
+        rows.push({ base, screenshots });
+      }
+      next = page.links?.next;
+    }
+    return rows;
+  }
+
+  /**
+   * Download a beta-feedback screenshot from its presigned URL. Like {@link downloadAnalyticsSegment},
+   * the URL carries its own query-string auth, so this is an UNauthenticated fetch — adding the API
+   * Bearer would make Apple's asset host reject the request for presenting two auth mechanisms.
+   */
+  async downloadBetaFeedbackScreenshot(url: string): Promise<Buffer> {
+    return withRetry(
+      async () => {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new AscRequestError(`Beta feedback screenshot download failed (${response.status}).`, response.status);
+        }
+        return Buffer.from(await response.arrayBuffer());
+      },
+      { isRetryable: isRetryableAscError },
+    );
+  }
+
   // ── App Store Connect team: users & invitations (`launch team`) ────────────────────────────────────
 
   /** List the App Store Connect team members (people who have accepted access). */
@@ -4302,6 +4470,28 @@ function matchPricePoint(
     }
   }
   return null;
+}
+
+/**
+ * Project a beta-screenshot-submission's raw `screenshots` attribute into the public shape, keeping only
+ * entries with a usable URL (Apple occasionally returns expired/empty placeholders) and dropping absent
+ * dimensions so a diff/JSON view stays clean.
+ */
+function toFeedbackScreenshots(
+  raw: { url?: string; width?: number; height?: number }[] | undefined,
+): { url: string; width?: number; height?: number }[] {
+  if (!raw) return [];
+  return raw.flatMap((shot) =>
+    shot.url
+      ? [
+          {
+            url: shot.url,
+            ...(shot.width !== undefined ? { width: shot.width } : {}),
+            ...(shot.height !== undefined ? { height: shot.height } : {}),
+          },
+        ]
+      : [],
+  );
 }
 
 /** Project an ASC `customerReviewResponses` resource object into a {@link CustomerReviewResponseResource}. */

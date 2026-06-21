@@ -23,6 +23,8 @@ import { createLogger } from "../../core/logger.js";
 import { AppStoreConnectClient, type BetaGroupResource } from "../../apple/ascClient.js";
 import type { PlannedAction } from "../../core/ascSync.js";
 import { loadBetaReviewConfig, reconcileBetaReview, summarizeBetaReview } from "../../core/betaReview.js";
+import { downloadFeedbackAttachments, listBetaFeedback, type FeedbackFilters } from "../../core/testflightFeedback.js";
+import type { BetaFeedback, BetaFeedbackKind } from "../../core/types.js";
 
 /** One tester to add, parsed from a CLI argument or a CSV row. */
 interface TesterInput {
@@ -310,6 +312,54 @@ async function removeTesters(emails: string[], options: TesterCommandOptions): P
   console.log(`✓ Removed ${matched.length} tester(s) from "${group.name}".`);
 }
 
+/** Options for `launch testflight feedback` — list tester crash/screenshot feedback and optionally download attachments. */
+interface FeedbackOptions {
+  app?: string;
+  build?: string;
+  type?: string;
+  out?: string;
+  json?: boolean;
+}
+
+/** The accepted `--type` values, also the {@link BetaFeedbackKind} union — validated before reaching the core. */
+const FEEDBACK_KINDS: readonly BetaFeedbackKind[] = ["crash", "screenshot"];
+
+/** Parse + validate `--type`, returning the kind or undefined (both kinds) when absent. Exported for tests. */
+export function parseFeedbackType(value: string | undefined): BetaFeedbackKind | undefined {
+  if (value === undefined) return undefined;
+  const kind = FEEDBACK_KINDS.find((candidate) => candidate === value.toLowerCase());
+  if (!kind) throw new Error(`--type must be one of ${FEEDBACK_KINDS.join(" | ")} (got "${value}").`);
+  return kind;
+}
+
+/** Resolve the selected app's iOS bundle id, erroring when the app has none (TestFlight is iOS-only). */
+async function resolveBundleId(appSelector: string | undefined): Promise<string> {
+  const { apps } = await loadConfig();
+  const app = await selectApp(apps, appSelector);
+  if (!app.bundleId) {
+    throw new Error(`No iOS bundle identifier for ${app.name} (set ios.bundleIdentifier in app.json).`);
+  }
+  return app.bundleId;
+}
+
+/** Render one piece of beta feedback as a copy-pasteable block: id + kind, meta line, comment, screenshot URLs. */
+export function renderFeedback(item: BetaFeedback): string {
+  const device = [item.deviceModel, item.osVersion ? `iOS ${item.osVersion}` : undefined].filter(Boolean).join(" · ");
+  const meta = [
+    item.buildVersion ? `build ${item.buildVersion}` : undefined,
+    device || undefined,
+    item.email,
+    item.createdDate ? item.createdDate.slice(0, 10) : undefined,
+  ]
+    .filter(Boolean)
+    .join("  ");
+  const icon = item.kind === "crash" ? "✗ crash" : "▣ screenshot";
+  const lines = [`${item.id}  ${icon}`, `  ${meta}`];
+  if (item.comment) lines.push(`  "${item.comment}"`);
+  for (const shot of item.screenshots ?? []) lines.push(`  ${shot.url}`);
+  return lines.join("\n");
+}
+
 /** Options for `launch testflight release` — set "What to Test" notes and submit a build for beta review. */
 interface ReleaseOptions {
   app?: string;
@@ -455,4 +505,40 @@ export function registerTestflightCommand(program: Command): void {
     .option("--dry-run", "print the plan and exit, making no changes", false)
     .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
     .action((options: ReleaseOptions) => releaseBuild(options));
+
+  testflight
+    .command("feedback")
+    .description("list tester crash & screenshot feedback, newest first (download attachments with --out)")
+    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
+    .option("--build <version>", "only show feedback for this build (CFBundleVersion)")
+    .option("--type <kind>", "only show one kind: crash | screenshot")
+    .option("--out <dir>", "download screenshot attachments into this directory")
+    .option("--json", "output machine-readable JSON", false)
+    .action(async (options: FeedbackOptions) => {
+      const kind = parseFeedbackType(options.type);
+      const filters: FeedbackFilters = {
+        ...(options.build ? { build: options.build } : {}),
+        ...(kind ? { kind } : {}),
+      };
+      const bundleId = await resolveBundleId(options.app);
+      const asc = await client();
+      const found = await listBetaFeedback(asc, bundleId, filters);
+
+      if (options.out) {
+        const written = await downloadFeedbackAttachments(asc, found, options.out);
+        if (!options.json) {
+          console.log(`Downloaded ${written.length} screenshot${written.length === 1 ? "" : "s"} to ${options.out}.`);
+        }
+      }
+      if (options.json) {
+        console.log(JSON.stringify(found, null, 2));
+        return;
+      }
+      if (found.length === 0) {
+        console.log("No TestFlight feedback yet. Testers submit it from the TestFlight app.");
+        return;
+      }
+      console.log(found.map(renderFeedback).join("\n\n"));
+      console.log(`\n${found.length} feedback item${found.length === 1 ? "" : "s"}.`);
+    });
 }

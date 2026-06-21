@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseTestersCsv, renderBetaAction } from "./testflight.js";
+import { parseFeedbackType, parseTestersCsv, renderBetaAction, renderFeedback } from "./testflight.js";
 
 describe("parseTestersCsv", () => {
   it("parses email,firstName,lastName rows and trims whitespace", () => {
@@ -53,5 +53,51 @@ describe("renderBetaAction", () => {
         error: "build is still processing",
       }),
     ).toBe("✗ submit for Beta App Review — build is still processing");
+  });
+});
+
+describe("parseFeedbackType", () => {
+  it("returns undefined (both kinds) when no --type is given", () => {
+    expect(parseFeedbackType(undefined)).toBeUndefined();
+  });
+
+  it("accepts crash/screenshot case-insensitively", () => {
+    expect(parseFeedbackType("crash")).toBe("crash");
+    expect(parseFeedbackType("SCREENSHOT")).toBe("screenshot");
+  });
+
+  it("rejects an unknown kind with an actionable message", () => {
+    expect(() => parseFeedbackType("video")).toThrow(/--type must be one of/);
+  });
+});
+
+describe("renderFeedback", () => {
+  it("renders a crash with its meta line and comment, no screenshot lines", () => {
+    const block = renderFeedback({
+      id: "fb-crash-1",
+      kind: "crash",
+      createdDate: "2026-06-20T10:30:00Z",
+      comment: "froze on launch",
+      email: "tester@x.com",
+      deviceModel: "iPhone 15 Pro",
+      osVersion: "17.5.1",
+      buildVersion: "42",
+    });
+    expect(block).toContain("fb-crash-1  ✗ crash");
+    expect(block).toContain("build 42  iPhone 15 Pro · iOS 17.5.1  tester@x.com  2026-06-20");
+    expect(block).toContain('"froze on launch"');
+    expect(block).not.toContain("http");
+  });
+
+  it("renders a screenshot with its attachment URLs", () => {
+    const block = renderFeedback({
+      id: "fb-shot-1",
+      kind: "screenshot",
+      buildVersion: "42",
+      screenshots: [{ url: "https://apple.example/a.png" }, { url: "https://apple.example/b.png" }],
+    });
+    expect(block).toContain("fb-shot-1  ▣ screenshot");
+    expect(block).toContain("https://apple.example/a.png");
+    expect(block).toContain("https://apple.example/b.png");
   });
 });
