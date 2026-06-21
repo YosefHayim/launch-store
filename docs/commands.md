@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **207 App Store Connect & Google Play API operations** across **60 commands**, guarded by **1620 tests**.
+> Launch wraps **207 App Store Connect & Google Play API operations** across **61 commands**, guarded by **1651 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -45,6 +45,10 @@ read fastlane config (Appfile/Fastfile/Matchfile…) and emit launch.config.ts, 
 | `--dry-run`   | print what would be written without writing anything                    |
 | `--out <dir>` | write the migrated files to this directory (default: current directory) |
 
+### `launch migrate help [command]`
+
+display help for command
+
 ## `launch config`
 
 work with the launch.config.ts schema — emit JSON Schema, validate a config, or print the field reference
@@ -64,6 +68,10 @@ validate a config against the schema, reporting each problem with its field path
 ### `launch config docs`
 
 print the launch.config.ts field reference (the same content as docs/config.md)
+
+### `launch config help [command]`
+
+display help for command
 
 ## `launch build <platform>`
 
@@ -224,6 +232,10 @@ upload store.config.json to the store listing (metadata only; no binary)
 | `--config <path>`  | path to store.config.json (default: <app>/store.config.json)                        |
 | `--dry-run`        | rehearse: write the fastlane metadata folders and print the command, upload nothing |
 
+### `launch metadata help [command]`
+
+display help for command
+
 ## `launch sync`
 
 reconcile App Store Connect products (capabilities, IAPs, subscriptions, pricing), store-listing copy, screenshots, and app previews from config
@@ -311,6 +323,10 @@ draft App Store / Play listing copy with AI into store.config.json (review with 
 | `--dry-run`        | generate and preview, but write nothing                                   |
 | `-y, --yes`        | skip the confirmation prompt (for CI)                                     |
 
+### `launch ai help [command]`
+
+display help for command
+
 ## `launch reviews`
 
 read App Store customer reviews and reply from the CLI
@@ -344,6 +360,10 @@ delete the developer response to a review
 | Flag        | Description                           |
 | ----------- | ------------------------------------- |
 | `-y, --yes` | skip the confirmation prompt (for CI) |
+
+### `launch reviews help [command]`
+
+display help for command
 
 ## `launch reports`
 
@@ -392,6 +412,10 @@ request + download App Store Connect Analytics reports
 | `--date <YYYY-MM-DD>` | limit to instances covering this processing date                                |
 | `--out <dir>`         | directory to write the report(s) into                                           |
 
+### `launch reports help [command]`
+
+display help for command
+
 ## `launch insights`
 
 aggregate rating & review trends across the App Store and Play (read-only)
@@ -432,6 +456,10 @@ remove a team member or cancel a pending invitation, by email
 | Flag        | Description                           |
 | ----------- | ------------------------------------- |
 | `-y, --yes` | skip the confirmation prompt (for CI) |
+
+### `launch team help [command]`
+
+display help for command
 
 ## `launch release-config`
 
@@ -589,6 +617,10 @@ post (or replace) the developer reply to a review
 | `--file <path>`        | read the reply text from a file                |
 | `-y, --yes`            | skip the confirmation prompt (for CI)          |
 
+### `launch play-reviews help [command]`
+
+display help for command
+
 ## `launch play-tracks`
 
 manage Google Play release tracks from the CLI
@@ -627,6 +659,10 @@ read or set the Google Groups allowed to test a track
 | `--groups <emails>` | comma-separated Google Group emails to set (omit to just read) |
 | `-y, --yes`         | skip the confirmation prompt (for CI)                          |
 
+### `launch play-tracks help [command]`
+
+display help for command
+
 ## `launch device`
 
 manage iOS devices for ad-hoc (internal) distribution
@@ -638,6 +674,10 @@ register a device UDID so internal builds can install on it
 ### `launch device list`
 
 list the devices registered for ad-hoc distribution
+
+### `launch device help [command]`
+
+display help for command
 
 ## `launch testflight`
 
@@ -708,6 +748,10 @@ set a build's "What to Test" notes and submit it for Beta App Review
 | `--dry-run`          | print the plan and exit, making no changes                        |
 | `-y, --yes`          | skip the confirmation prompt (for CI)                             |
 
+### `launch testflight help [command]`
+
+display help for command
+
 ## `launch events`
 
 read and manage App Store in-app events from the CLI
@@ -753,6 +797,10 @@ delete a draft in-app event
 | ----------- | ------------------------------------- |
 | `-y, --yes` | skip the confirmation prompt (for CI) |
 
+### `launch events help [command]`
+
+display help for command
+
 ## `launch setup`
 
 set Launch up automatically and verify everything's ready to ship
@@ -796,6 +844,10 @@ clear sandbox testers' StoreKit purchase history (for re-testing purchases)
 | `--all`     | clear every sandbox tester's purchase history |
 | `-y, --yes` | skip the confirmation prompt (for CI)         |
 
+### `launch sandbox help [command]`
+
+display help for command
+
 ## `launch doctor`
 
 check that the local toolchain and store account are ready
@@ -820,6 +872,10 @@ check store-account readiness: Apple app record, Play onboarding & access (read-
 | `-a, --app <names>` | comma-separated app handles (default: all apps) |
 | `--json`            | machine-readable output for CI/agents           |
 
+### `launch store help [command]`
+
+display help for command
+
 ## `launch audit`
 
 pre-submit readiness sweep: would a submission be rejected right now? (read-only)
@@ -842,6 +898,10 @@ check permissions/manifests against the privacy declarations; flags undeclared c
 | `-a, --app <names>` | comma-separated app handles (default: all apps) |
 | `--json`            | machine-readable output for CI/agents           |
 
+### `launch privacy help [command]`
+
+display help for command
+
 ## `launch iap`
 
 in-app-purchase readiness and operations
@@ -854,6 +914,10 @@ check in-app-purchase readiness: products & subscriptions exist and are submitta
 | ------------------- | ----------------------------------------------- |
 | `-a, --app <names>` | comma-separated app handles (default: all apps) |
 | `--json`            | machine-readable output for CI/agents           |
+
+### `launch iap help [command]`
+
+display help for command
 
 ## `launch snapshot`
 
@@ -893,9 +957,25 @@ print a saved snapshot as JSON, or write it to a file with --out
 | -------------- | ------------------------------------------------------ |
 | `--out <file>` | write the snapshot JSON to this file instead of stdout |
 
+### `launch snapshot help [command]`
+
+display help for command
+
 ## `launch explain [topic]`
 
 plain-English glossary for an Apple/iOS term (csr, app-record, provisioning-profile, …)
+
+## `launch completion [shell]`
+
+shell tab-completion for commands, flags, app handles, profiles, surfaces, and snapshots
+
+### `launch completion install`
+
+wire completion into your shell's rc file (idempotent), or print the manual step
+
+| Flag                  | Description                                             |
+| --------------------- | ------------------------------------------------------- |
+| `-s, --shell <shell>` | shell to wire up: bash \| zsh \| fish (default: $SHELL) |
 
 ## `launch update`
 
@@ -952,6 +1032,10 @@ republish a prior update, or roll clients back to the embedded bundle
 | `-a, --app <name>`      | app handle (used to resolve the runtime version for --to-embedded) |
 | `-y, --yes`             | skip the confirmation prompt (for CI/agents)                       |
 
+### `launch updates help [command]`
+
+display help for command
+
 ## `launch cloud [action]`
 
 manage the remote AWS EC2 Mac build host (setup | status | teardown | doctor)
@@ -1003,6 +1087,10 @@ delete build binaries older than the retention window (keeps the newest per app+
 | `-y, --yes`             | skip the confirmation prompt (for CI)                                     |
 | `--json`                | output machine-readable JSON                                              |
 
+### `launch builds help [command]`
+
+display help for command
+
 ## `launch ci`
 
 scaffold CI workflows for building & shipping Launch apps
@@ -1015,6 +1103,10 @@ write a GitHub Actions workflow that builds and ships on a hosted runner
 | ----------- | -------------------------------------------------- |
 | `--android` | also emit an Android job (Ubuntu runner)           |
 | `--force`   | overwrite an existing .github/workflows/launch.yml |
+
+### `launch ci help [command]`
+
+display help for command
 
 ## `launch agents`
 

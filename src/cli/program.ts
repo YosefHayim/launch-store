@@ -57,6 +57,7 @@ import { registerPrivacyCommand } from "./commands/privacy.js";
 import { registerIapCommand } from "./commands/iapDoctor.js";
 import { registerSnapshotCommand } from "./commands/snapshot.js";
 import { registerExplainCommand } from "./commands/explain.js";
+import { registerCompletionCommand } from "./commands/completion.js";
 import { registerUpdateCommand } from "./commands/update.js";
 import { registerUpdatesCommand } from "./commands/updates.js";
 import { registerCloudCommand } from "./commands/cloud.js";
@@ -147,6 +148,7 @@ export function buildProgram(): Command {
   registerIapCommand(program);
   registerSnapshotCommand(program);
   registerExplainCommand(program);
+  registerCompletionCommand(program);
   registerUpdateCommand(program);
   registerUpdatesCommand(program);
   registerCloudCommand(program);

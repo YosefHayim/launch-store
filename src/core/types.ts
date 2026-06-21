@@ -1434,6 +1434,17 @@ export interface Submitter {
 export type HostOs = "macos" | "windows" | "linux";
 
 /**
+ * A shell Launch can emit tab-completion for.
+ *
+ * The three POSIX-family shells with the install-base to matter for a developer CLI: `bash` and `zsh`
+ * (the macOS/Linux defaults) plus `fish`. PowerShell is intentionally out of scope — the iOS/Android
+ * toolchains Launch drives are macOS/Linux-first. Drives both `launch completion <shell>` (which prints
+ * the script) and `launch completion install` (which wires it into the shell's rc file); see
+ * `core/completion.ts`.
+ */
+export type Shell = "bash" | "zsh" | "fish";
+
+/**
  * SSH connection parameters for reaching a remote Mac.
  *
  * Filled by a {@link ComputeHost}: `aws-ec2-mac` from a freshly-provisioned instance, `byo-ssh` from
