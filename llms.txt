@@ -141,7 +141,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 61 `launch` commands (207 store-API operations underneath, 1679 tests):
+All 61 `launch` commands (210 store-API operations underneath, 1700 tests):
 
 - `launch init` — scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` — onboard an app that already ships: import its App Store Connect setup into config
@@ -227,6 +227,7 @@ All 61 `launch` commands (207 store-API operations underneath, 1679 tests):
   - `launch testflight add [emails...]` — invite/add testers to a beta group (sends a TestFlight invite to new emails)
   - `launch testflight rm <emails...>` — remove testers from a beta group
   - `launch testflight release` — set a build's "What to Test" notes and submit it for Beta App Review
+  - `launch testflight feedback` — list tester crash & screenshot feedback, newest first (download attachments with --out)
   - `launch testflight help [command]` — display help for command
 - `launch events` — read and manage App Store in-app events from the CLI
   - `launch events list` — list an app's in-app events and their localizations
