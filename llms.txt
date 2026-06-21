@@ -141,17 +141,19 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 60 `launch` commands (206 store-API operations underneath, 1608 tests):
+All 61 `launch` commands (207 store-API operations underneath, 1660 tests):
 
 - `launch init` — scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` — onboard an app that already ships: import its App Store Connect setup into config
 - `launch migrate` — import an existing EAS or fastlane setup into a Launch config
   - `launch migrate eas` — read eas.json/app.json and emit launch.config.ts, .env.example, store.config.json + a report
   - `launch migrate fastlane` — read fastlane config (Appfile/Fastfile/Matchfile…) and emit launch.config.ts, .env.example, store.config.json + a report
+  - `launch migrate help [command]` — display help for command
 - `launch config` — work with the launch.config.ts schema — emit JSON Schema, validate a config, or print the field reference
   - `launch config schema` — print the JSON Schema for launch.config.ts (generated from the config types)
   - `launch config validate [file]` — validate a config against the schema, reporting each problem with its field path
   - `launch config docs` — print the launch.config.ts field reference (the same content as docs/config.md)
+  - `launch config help [command]` — display help for command
 - `launch build <platform>` — run the full pipeline and upload to the testing track (--no-submit to build only)
 - `launch release <platform>` — submit the latest build to the store's PUBLIC production track (with confirmation)
 - `launch status` — show each app's App Store version, review, and phased-rollout state
@@ -164,6 +166,7 @@ All 60 `launch` commands (206 store-API operations underneath, 1608 tests):
 - `launch metadata` — sync the store listing (name, description, keywords, screenshots) via store.config.json
   - `launch metadata pull` — download the live store listing into store.config.json
   - `launch metadata push` — upload store.config.json to the store listing (metadata only; no binary)
+  - `launch metadata help [command]` — display help for command
 - `launch sync` — reconcile App Store Connect products (capabilities, IAPs, subscriptions, pricing), store-listing copy, screenshots, and app previews from config
 - `launch plan [surface]` — diff launch.config against live store state (read-only): capabilities, IAPs, subscriptions, pricing
 - `launch drift [surface]` — fail when live store state has drifted from launch.config (alias for `launch plan --check`)
@@ -173,19 +176,23 @@ All 60 `launch` commands (206 store-API operations underneath, 1608 tests):
   - `launch offers deactivate <productId> <offerName>` — deactivate an offer-code campaign (its terms can't be edited, only switched off)
 - `launch ai` — AI-assisted authoring for your store presence
   - `launch ai listing` — draft App Store / Play listing copy with AI into store.config.json (review with `launch plan`)
+  - `launch ai help [command]` — display help for command
 - `launch reviews` — read App Store customer reviews and reply from the CLI
   - `launch reviews list` — list an app's customer reviews, newest first
   - `launch reviews reply <reviewId>` — post (or replace) the developer response to a review
   - `launch reviews delete <reviewId>` — delete the developer response to a review
+  - `launch reviews help [command]` — display help for command
 - `launch reports` — download App Store Connect sales, finance & analytics reports
   - `launch reports sales` — download a Sales & Trends report (gzipped TSV)
   - `launch reports finance` — download a Finance report for a fiscal period (gzipped TSV)
   - `launch reports analytics` — request + download App Store Connect Analytics reports
+  - `launch reports help [command]` — display help for command
 - `launch insights` — aggregate rating & review trends across the App Store and Play (read-only)
 - `launch team` — read and manage the App Store Connect team (members & invitations) from the CLI
   - `launch team list` — list team members and pending invitations
   - `launch team invite <email>` — invite a new team member by email
   - `launch team remove <email>` — remove a team member or cancel a pending invitation, by email
+  - `launch team help [command]` — display help for command
 - `launch release-config` — reconcile App Store release attributes (age rating, categories, price, review details) from release.config.json
 - `launch app-clips` — reconcile App Clip card metadata (action, per-locale subtitle) from appclips.config.json
 - `launch eu-distribution` — authorize EU alternative-distribution domains from eu-distribution.config.json (DMA)
@@ -203,13 +210,16 @@ All 60 `launch` commands (206 store-API operations underneath, 1608 tests):
 - `launch play-reviews` — read Google Play customer reviews and reply from the CLI
   - `launch play-reviews list` — list an app's Play reviews (only reviews with text from the last ~week)
   - `launch play-reviews reply <reviewId>` — post (or replace) the developer reply to a review
+  - `launch play-reviews help [command]` — display help for command
 - `launch play-tracks` — manage Google Play release tracks from the CLI
   - `launch play-tracks status` — show each track's releases and country availability
   - `launch play-tracks promote` — ship a build to a track at a chosen status / rollout, with release notes
   - `launch play-tracks testers` — read or set the Google Groups allowed to test a track
+  - `launch play-tracks help [command]` — display help for command
 - `launch device` — manage iOS devices for ad-hoc (internal) distribution
   - `launch device add <udid> [name]` — register a device UDID so internal builds can install on it
   - `launch device list` — list the devices registered for ad-hoc distribution
+  - `launch device help [command]` — display help for command
 - `launch testflight` — manage TestFlight beta groups and testers
   - `launch testflight groups` — list the app's TestFlight beta groups
   - `launch testflight create-group <name>` — create an external beta group testers can be invited into
@@ -217,35 +227,45 @@ All 60 `launch` commands (206 store-API operations underneath, 1608 tests):
   - `launch testflight add [emails...]` — invite/add testers to a beta group (sends a TestFlight invite to new emails)
   - `launch testflight rm <emails...>` — remove testers from a beta group
   - `launch testflight release` — set a build's "What to Test" notes and submit it for Beta App Review
+  - `launch testflight help [command]` — display help for command
 - `launch events` — read and manage App Store in-app events from the CLI
   - `launch events list` — list an app's in-app events and their localizations
   - `launch events create <referenceName>` — create a draft in-app event
   - `launch events localize <eventId>` — set (or update) one locale's copy on an event
   - `launch events delete <eventId>` — delete a draft in-app event
+  - `launch events help [command]` — display help for command
 - `launch setup` — set Launch up automatically and verify everything's ready to ship
   - `launch setup ios` — report iOS signing & provisioning status (account, App ID, capabilities, cert, profile, devices)
 - `launch sandbox` — list StoreKit sandbox testers and clear their purchase history
   - `launch sandbox list` — list the account's sandbox testers
   - `launch sandbox clear [emails...]` — clear sandbox testers' StoreKit purchase history (for re-testing purchases)
+  - `launch sandbox help [command]` — display help for command
 - `launch doctor` — check that the local toolchain and store account are ready
 - `launch store` — store-account readiness and operations
   - `launch store doctor` — check store-account readiness: Apple app record, Play onboarding & access (read-only)
+  - `launch store help [command]` — display help for command
 - `launch audit` — pre-submit readiness sweep: would a submission be rejected right now? (read-only)
 - `launch privacy` — reconcile your permission/data surface against your privacy declarations
   - `launch privacy scan` — check permissions/manifests against the privacy declarations; flags undeclared collection (read-only)
+  - `launch privacy help [command]` — display help for command
 - `launch iap` — in-app-purchase readiness and operations
   - `launch iap doctor` — check in-app-purchase readiness: products & subscriptions exist and are submittable (read-only)
+  - `launch iap help [command]` — display help for command
 - `launch snapshot` — capture, diff, and export point-in-time copies of live store state (read-only)
   - `launch snapshot create [name]` — capture live App Store + Play state into a named snapshot
   - `launch snapshot list` — list saved snapshots, newest first
   - `launch snapshot diff <baseline> [against]` — compare a saved snapshot against another saved snapshot or live state (default: live)
   - `launch snapshot export <name>` — print a saved snapshot as JSON, or write it to a file with --out
+  - `launch snapshot help [command]` — display help for command
 - `launch explain [topic]` — plain-English glossary for an Apple/iOS term (csr, app-record, provisioning-profile, …)
+- `launch completion [shell]` — shell tab-completion for commands, flags, app handles, profiles, surfaces, and snapshots
+  - `launch completion install` — wire completion into your shell's rc file (idempotent), or print the manual step
 - `launch update` — publish an over-the-air JS update (Expo Updates protocol) to your own bucket
 - `launch updates` — inspect and roll back published OTA updates
   - `launch updates list` — list published updates, newest first
   - `launch updates view <id|latest>` — show full detail for one published update
   - `launch updates rollback` — republish a prior update, or roll clients back to the embedded bundle
+  - `launch updates help [command]` — display help for command
 - `launch cloud [action]` — manage the remote AWS EC2 Mac build host (setup | status | teardown | doctor)
 - `launch demo [platform]` — replay the simulated walkthrough of the build → sign → submit pipeline
 - `launch builds` — inspect and trim local build history (the artifact index)
@@ -253,8 +273,10 @@ All 60 `launch` commands (206 store-API operations underneath, 1608 tests):
   - `launch builds view <id|latest>` — show full detail for one build
   - `launch builds log <id|latest>` — print a past build's full native log (secrets redacted), or open it in your editor
   - `launch builds prune` — delete build binaries older than the retention window (keeps the newest per app+platform)
+  - `launch builds help [command]` — display help for command
 - `launch ci` — scaffold CI workflows for building & shipping Launch apps
   - `launch ci init` — write a GitHub Actions workflow that builds and ships on a hosted runner
+  - `launch ci help [command]` — display help for command
 - `launch agents` — scaffold agent skills/rules (Claude, Cursor, Codex) so coding agents can drive Launch
   - `launch agents init` — write Claude skills, Cursor rules, and the AGENTS.md Launch section into this repo
   - `launch agents check` — verify the scaffolded agent files are in sync with the installed Launch
@@ -273,7 +295,7 @@ All 60 `launch` commands (206 store-API operations underneath, 1608 tests):
 
 ## Reference
 
-- [Command reference](./docs/commands.md): all 60 `launch` commands and every flag, generated from the CLI.
+- [Command reference](./docs/commands.md): all 61 `launch` commands and every flag, generated from the CLI.
 
 ## Source
 
