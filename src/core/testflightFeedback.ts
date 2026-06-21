@@ -120,7 +120,8 @@ export async function listBetaFeedback(
 /**
  * Download every screenshot attached to the given feedback into `outDir`, returning what was written.
  * Files are named `<feedbackId>-<n>.png` (a feedback can carry several screenshots), so a re-run
- * overwrites in place rather than duplicating. Crash feedback has no attachments and is skipped.
+ * overwrites in place rather than duplicating; a non-path-safe id is base64url-encoded first (see
+ * below). Crash feedback has no attachments and is skipped.
  */
 export async function downloadFeedbackAttachments(
   api: AscFeedbackApi,
@@ -131,8 +132,10 @@ export async function downloadFeedbackAttachments(
   const written: DownloadedAttachment[] = [];
   for (const item of feedback) {
     const shots = item.screenshots ?? [];
-    // Sanitize the feedback id before it reaches the filesystem so a hostile id can't escape outDir.
-    const safeId = item.id.replace(/[^A-Za-z0-9_-]/g, "");
+    // Keep the id out of the filesystem unless it's already path-safe. Apple ids are; an unexpected
+    // one is base64url-encoded rather than stripped, so two distinct ids can't collapse to the same
+    // filename and overwrite each other's screenshots.
+    const safeId = /^[A-Za-z0-9_-]+$/.test(item.id) ? item.id : Buffer.from(item.id, "utf8").toString("base64url");
     for (const [index, shot] of shots.entries()) {
       const bytes = await api.downloadBetaFeedbackScreenshot(shot.url);
       const path = join(outDir, `${safeId}-${index + 1}.png`);

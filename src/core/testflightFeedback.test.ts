@@ -119,16 +119,19 @@ describe("downloadFeedbackAttachments", () => {
     expect(api.downloadBetaFeedbackScreenshot).toHaveBeenCalledTimes(2);
   });
 
-  it("sanitizes a hostile feedback id so the filename can't escape outDir", async () => {
+  it("encodes a non-path-safe feedback id so downloads stay in outDir without colliding", async () => {
     const api = makeApi({ bytes: Buffer.from("x") });
+    // Both ids collapse to "a" under a naive character strip — encoding must keep them distinct.
     const feedback: BetaFeedback[] = [
-      { id: "../../etc/passwd", kind: "screenshot", screenshots: [{ url: "https://a/1.png" }] },
+      { id: "../a", kind: "screenshot", screenshots: [{ url: "https://a/1.png" }] },
+      { id: "a/..", kind: "screenshot", screenshots: [{ url: "https://a/2.png" }] },
     ];
     const outDir = mkdtempSync(join(tmpdir(), "launch-feedback-"));
     const written = await downloadFeedbackAttachments(api, feedback, outDir);
 
-    // `/` and `.` are stripped, so the path stays a direct child of outDir.
-    expect(written).toEqual([{ path: join(outDir, "etcpasswd-1.png"), url: "https://a/1.png" }]);
-    expect(readdirSync(outDir)).toEqual(["etcpasswd-1.png"]);
+    const files = readdirSync(outDir).sort();
+    expect(files).toHaveLength(2); // distinct encodings → no overwrite
+    for (const name of files) expect(name).toMatch(/^[A-Za-z0-9_-]+-1\.png$/); // path-safe child of outDir
+    for (const entry of written) expect(entry.path.startsWith(`${outDir}/`)).toBe(true);
   });
 });
