@@ -10,6 +10,7 @@ import type { SnapshotSource } from "./types.js";
 import { appleProductsSource } from "./sources/appleProducts.js";
 import { appleSubscriptionsSource } from "./sources/appleSubscriptions.js";
 import { appleListingSource } from "./sources/appleListing.js";
+import { appleCapabilitiesSource } from "./sources/appleCapabilities.js";
 import { playProductsSource } from "./sources/playProducts.js";
 import { playSubscriptionsSource } from "./sources/playSubscriptions.js";
 
@@ -29,13 +30,14 @@ export function listSnapshotSources(): SnapshotSource[] {
 /**
  * Register the built-in sources. Idempotent: safe to call from a command entry and from tests without
  * duplicating. A snapshot captures the cross-store product catalog — App Store + Google Play one-time
- * products and subscriptions — plus the App Store per-locale listing copy; further surfaces (screenshots,
- * capabilities) land here as follow-up source files.
+ * products and subscriptions — plus the App Store per-locale listing copy and App ID capabilities; further
+ * surfaces (screenshots) land here as follow-up source files.
  */
 export function registerBuiltinSources(): void {
   registerSnapshotSource(appleProductsSource);
   registerSnapshotSource(appleSubscriptionsSource);
   registerSnapshotSource(appleListingSource);
+  registerSnapshotSource(appleCapabilitiesSource);
   registerSnapshotSource(playProductsSource);
   registerSnapshotSource(playSubscriptionsSource);
 }
