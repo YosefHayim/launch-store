@@ -35,7 +35,7 @@ import {
   worstDownloadBytes,
 } from "../../core/pipeline.js";
 import { formatEnvTable, type ResolvedEnv } from "../../core/env.js";
-import { notifyCompletion, type NotifyEvent } from "../../core/notify.js";
+import { notify, type NotifyEvent } from "../../core/notify.js";
 import { getCredentialsProvider, getStorageProvider, getSubmitter } from "../../core/registry.js";
 import { createLogger, type Logger } from "../../core/logger.js";
 import { loadAscKeyById } from "../../core/accounts.js";
@@ -300,7 +300,7 @@ async function runIosRelease(
   try {
     report = await releaseApp(client, input);
   } catch (error) {
-    await notifyCompletion(config, {
+    await notify(config, {
       ...event,
       status: "failure",
       error: error instanceof Error ? error.message : String(error),
@@ -311,10 +311,10 @@ async function runIosRelease(
   const failures = renderReleaseReport(report, app.name, build.version, log);
   if (failures > 0) {
     process.exitCode = 1;
-    await notifyCompletion(config, { ...event, status: "failure", error: `${failures} release step(s) failed` });
+    await notify(config, { ...event, status: "failure", error: `${failures} release step(s) failed` });
     return;
   }
-  await notifyCompletion(config, event);
+  await notify(config, event);
   log.info(`Track the review with \`launch status -a ${app.name} --watch\`.`);
 }
 
@@ -576,7 +576,7 @@ async function runAndroidRelease(
   try {
     await getSubmitter(resolveSubmitterName(config, "android")).submit(latest.path, "production", credentials, ctx);
   } catch (error) {
-    await notifyCompletion(config, {
+    await notify(config, {
       ...event,
       status: "failure",
       error: error instanceof Error ? error.message : String(error),
@@ -584,5 +584,5 @@ async function runAndroidRelease(
     throw error;
   }
   console.log(`Submitted ${app.name} ${latest.version} (${latest.buildNumber}) to the Play production track.`);
-  await notifyCompletion(config, event);
+  await notify(config, event);
 }

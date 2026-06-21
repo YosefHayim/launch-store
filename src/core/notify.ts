@@ -1,32 +1,38 @@
 /**
- * Build/submit completion notifications — the EAS-`webhook` parity hook.
+ * Transition notifications — the EAS-`webhook` parity hook, plus the post-upload milestones a dev
+ * actually waits on.
  *
- * A local Mac build can run many minutes, so a ping on completion (success or failure) is high-value.
- * When `launch.config.ts` declares a {@link NotifyConfig}, {@link notifyCompletion} POSTs a
- * Slack/Discord-compatible JSON body to the webhook and/or runs a shell command with the event in its
- * environment. It is strictly best-effort: every failure is swallowed and logged, never thrown, so a
- * flaky webhook can't fail a build that already succeeded.
+ * A local Mac build can run many minutes, and Apple's review verdict and a phased rollout's day-N
+ * advance land hours or days later, so a ping on each transition is high-value. When `launch.config.ts`
+ * declares a {@link NotifyConfig}, {@link notify} POSTs a Slack/Discord-compatible JSON body to the
+ * webhook and/or runs a shell command with the event in its environment. It is strictly best-effort:
+ * every failure is swallowed and logged, never thrown, so a flaky webhook can't fail a build that
+ * already succeeded.
  *
  * The payload builders ({@link notifyPayload}, {@link notifyMessage}, {@link notifyEnv}) are pure and
- * unit-tested; only {@link notifyCompletion} does I/O (the POST + the shell run).
+ * unit-tested; only {@link notify} does I/O (the POST + the shell run).
  */
 
 import type { LaunchConfig, NotifyConfig, Platform } from "./types.js";
 import { runQuiet } from "./exec.js";
 import { createLogger } from "./logger.js";
 
-/**
- * The completion event passed to {@link notifyCompletion} — everything a webhook payload or shell hook
- * reports about a finished run. `event` is the furthest stage reached (`submit` once an upload was
- * attempted, else `build`); `status` is its outcome. Size/buildNumber/destination are filled when
- * known (a success has them; an early failure may not).
- */
-export interface NotifyEvent {
-  event: "build" | "submit";
-  status: "success" | "failure";
+/** Fields every {@link NotifyEvent} carries, regardless of which transition fired it. */
+interface NotifyEventBase {
   app: string;
   platform: Platform;
   version: string;
+}
+
+/**
+ * A finished build or submit run — the original completion ping. `event` is the furthest stage reached
+ * (`submit` once an upload was attempted, else `build`); `status` is its outcome. Size/buildNumber/
+ * destination are filled when known (a success has them; an early failure may not). Fired from the
+ * build→submit pipeline and the `release` command.
+ */
+export interface CompletionEvent extends NotifyEventBase {
+  event: "build" | "submit";
+  status: "success" | "failure";
   /** iOS build number / Android versionCode, when the run got far enough to assign one. */
   buildNumber?: number;
   /** Worst-case store download in bytes, when a size report was produced. */
@@ -37,17 +43,57 @@ export interface NotifyEvent {
   error?: string;
 }
 
+/**
+ * An App Store review reached a verdict. Fired from `launch status --watch` the first time an app
+ * settles to a terminal verdict, so a dev who walked away learns the outcome without babysitting the
+ * poll loop.
+ */
+export interface ReviewEvent extends NotifyEventBase {
+  event: "review";
+  status: "approved" | "rejected";
+  /** The verdict's human label, e.g. `Live on the App Store` / `Rejected — open Resolution Center`. */
+  detail?: string;
+}
+
+/**
+ * A phased rollout changed state. Fired from `launch rollout` after a successful pause/resume/complete,
+ * and from `launch status --watch` when Apple advances the ramp (`advanced`) between polls.
+ */
+export interface RolloutEvent extends NotifyEventBase {
+  event: "rollout";
+  status: "paused" | "resumed" | "completed" | "advanced";
+  /** The phased-release state, e.g. `ACTIVE`, `COMPLETE`. */
+  detail?: string;
+}
+
+/** Every transition Launch can notify on — a discriminated union keyed on `event`. */
+export type NotifyEvent = CompletionEvent | ReviewEvent | RolloutEvent;
+
 /** A one-line human summary of the event, used as the Slack/Discord message text. */
 export function notifyMessage(event: NotifyEvent): string {
-  const icon = event.status === "success" ? "✅" : "❌";
-  const what = event.event === "submit" ? "submit" : "build";
-  const head = `${icon} Launch: ${event.app} ${event.version}`;
-  if (event.status === "failure") {
-    return `${head} — ${what} failed${event.error ? `: ${event.error}` : ""}`;
+  switch (event.event) {
+    case "build":
+    case "submit": {
+      const icon = event.status === "success" ? "✅" : "❌";
+      const what = event.event === "submit" ? "submit" : "build";
+      const head = `${icon} Launch: ${event.app} ${event.version}`;
+      if (event.status === "failure") {
+        return `${head} — ${what} failed${event.error ? `: ${event.error}` : ""}`;
+      }
+      const where = event.destination ? ` → ${event.destination}` : "";
+      const build = event.buildNumber !== undefined ? ` (${event.buildNumber})` : "";
+      return `${head}${build} ${what} succeeded${where}`;
+    }
+    case "review": {
+      const icon = event.status === "approved" ? "✅" : "❌";
+      const head = `${icon} Launch: ${event.app} ${event.version} — review ${event.status}`;
+      return event.detail ? `${head}: ${event.detail}` : head;
+    }
+    case "rollout": {
+      const head = `🚀 Launch: ${event.app} ${event.version} — rollout ${event.status}`;
+      return event.detail ? `${head} (${event.detail})` : head;
+    }
   }
-  const where = event.destination ? ` → ${event.destination}` : "";
-  const build = event.buildNumber !== undefined ? ` (${event.buildNumber})` : "";
-  return `${head}${build} ${what} succeeded${where}`;
 }
 
 /**
@@ -70,10 +116,14 @@ export function notifyEnv(event: NotifyEvent): Record<string, string> {
     LAUNCH_VERSION: event.version,
     LAUNCH_MESSAGE: notifyMessage(event),
   };
-  if (event.buildNumber !== undefined) env["LAUNCH_BUILD_NUMBER"] = String(event.buildNumber);
-  if (event.sizeBytes !== undefined) env["LAUNCH_SIZE_BYTES"] = String(event.sizeBytes);
-  if (event.destination) env["LAUNCH_DESTINATION"] = event.destination;
-  if (event.error) env["LAUNCH_ERROR"] = event.error;
+  if (event.event === "review" || event.event === "rollout") {
+    if (event.detail !== undefined) env["LAUNCH_DETAIL"] = event.detail;
+  } else {
+    if (event.buildNumber !== undefined) env["LAUNCH_BUILD_NUMBER"] = String(event.buildNumber);
+    if (event.sizeBytes !== undefined) env["LAUNCH_SIZE_BYTES"] = String(event.sizeBytes);
+    if (event.destination) env["LAUNCH_DESTINATION"] = event.destination;
+    if (event.error) env["LAUNCH_ERROR"] = event.error;
+  }
   return env;
 }
 
@@ -109,16 +159,18 @@ async function runHook(command: string, event: NotifyEvent, log: ReturnType<type
 }
 
 /**
- * Fire the configured completion notifications for `event`. A no-op when neither a `webhookUrl` nor a
- * `command` is set. The webhook and the shell hook run concurrently; both are best-effort, so this
- * resolves even when one (or both) fail — a notification must never break a build that already ran.
+ * Fire the configured notifications for `event`. A no-op when neither a `webhookUrl` nor a `command` is
+ * set, or when `notify.events` is declared and doesn't include this event's transition. The webhook and
+ * the shell hook run concurrently; both are best-effort, so this resolves even when one (or both) fail —
+ * a notification must never break a build, review, or rollout that already happened.
  */
-export async function notifyCompletion(config: LaunchConfig, event: NotifyEvent): Promise<void> {
-  const notify: NotifyConfig | undefined = config.notify;
-  if (!notify?.webhookUrl && !notify?.command) return;
+export async function notify(config: LaunchConfig, event: NotifyEvent): Promise<void> {
+  const notifyConfig: NotifyConfig | undefined = config.notify;
+  if (!notifyConfig?.webhookUrl && !notifyConfig?.command) return;
+  if (notifyConfig.events && !notifyConfig.events.includes(event.event)) return;
   const log = createLogger(false);
   await Promise.all([
-    notify.webhookUrl ? postWebhook(notify.webhookUrl, event, log) : Promise.resolve(),
-    notify.command ? runHook(notify.command, event, log) : Promise.resolve(),
+    notifyConfig.webhookUrl ? postWebhook(notifyConfig.webhookUrl, event, log) : Promise.resolve(),
+    notifyConfig.command ? runHook(notifyConfig.command, event, log) : Promise.resolve(),
   ]);
 }
