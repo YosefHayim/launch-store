@@ -21,6 +21,8 @@ import { experimentsPlanner } from "./planners/experiments.js";
 import { customPagesPlanner } from "./planners/customPages.js";
 import { walletPlanner } from "./planners/wallet.js";
 import { euDistributionPlanner } from "./planners/euDistribution.js";
+import { offersPlanner } from "./planners/offers.js";
+import { screenshotsPlanner } from "./planners/screenshots.js";
 
 /** Registered planners, keyed by surface id so re-registering one replaces it (idempotent built-in wiring). */
 const PLANNERS = new Map<string, SurfacePlanner>();
@@ -55,4 +57,6 @@ export function registerBuiltinPlanners(): void {
   registerSurfacePlanner(customPagesPlanner);
   registerSurfacePlanner(walletPlanner);
   registerSurfacePlanner(euDistributionPlanner);
+  registerSurfacePlanner(offersPlanner);
+  registerSurfacePlanner(screenshotsPlanner);
 }

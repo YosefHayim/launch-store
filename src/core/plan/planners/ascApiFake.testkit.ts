@@ -124,6 +124,36 @@ export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurf
     // EU distribution (team-level)
     listAlternativeDistributionDomains: vi.fn().mockResolvedValue([]),
     createAlternativeDistributionDomain: vi.fn(),
+
+    // offers reads (catalog reads above are shared)
+    listSubscriptionOfferCodes: vi.fn().mockResolvedValue([]),
+    listPromotionalOffers: vi.fn().mockResolvedValue([]),
+    listIntroductoryOffers: vi.fn().mockResolvedValue([]),
+    listWinBackOffers: vi.fn().mockResolvedValue([]),
+    listPromotedPurchases: vi.fn().mockResolvedValue([]),
+    // offers writes
+    createSubscriptionOfferCode: vi.fn(),
+    createPromotionalOffer: vi.fn(),
+    createIntroductoryOffer: vi.fn(),
+    createWinBackOffer: vi.fn(),
+    createPromotedPurchase: vi.fn(),
+    reorderPromotedPurchases: vi.fn(),
+
+    // screenshots reads (getEditableVersionId / listVersionLocalizations above are shared)
+    listScreenshotSets: vi.fn().mockResolvedValue([]),
+    listScreenshots: vi.fn().mockResolvedValue([]),
+    getSubscriptionReviewScreenshot: vi.fn().mockResolvedValue(null),
+    // screenshots writes
+    createScreenshotSet: vi.fn(),
+    uploadScreenshot: vi.fn(),
+    uploadSubscriptionReviewScreenshot: vi.fn(),
+
+    // preview videos reads
+    listPreviewSets: vi.fn().mockResolvedValue([]),
+    listPreviews: vi.fn().mockResolvedValue([]),
+    // preview videos writes
+    createPreviewSet: vi.fn(),
+    uploadPreview: vi.fn(),
   };
   return { ...base, ...overrides };
 }

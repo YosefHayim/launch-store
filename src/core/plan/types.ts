@@ -24,6 +24,8 @@ import type { AscExperimentsApi } from "../versionExperiments.js";
 import type { AscCustomPagesApi } from "../customProductPages.js";
 import type { AscWalletApi } from "../walletIds.js";
 import type { AscEuDistributionApi } from "../euDistribution.js";
+import type { AscOffersApi } from "../offers.js";
+import type { PreviewsApi, ScreenshotsApi } from "../ascScreenshots.js";
 import type { PlayProductsApi } from "../playProducts.js";
 import type { PlaySubscriptionsApi } from "../playSubscriptions.js";
 
@@ -57,7 +59,10 @@ export interface AscSurfacesApi
     AscExperimentsApi,
     AscCustomPagesApi,
     AscWalletApi,
-    AscEuDistributionApi {}
+    AscEuDistributionApi,
+    AscOffersApi,
+    ScreenshotsApi,
+    PreviewsApi {}
 
 /**
  * One app's slice of a surface's plan. `actions` is the reconciler's existing {@link PlannedAction} list
