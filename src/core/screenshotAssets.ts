@@ -115,12 +115,12 @@ function mediaFilesIn(dir: string, extensions: Set<string>): string[] {
 }
 
 /**
- * Walk `<appDir>/screenshots/<locale>/<displayType>/` and fingerprint every image, returning a flat,
- * deterministically-ordered list. Returns [] when the convention folder is absent — an app simply isn't
- * managing screenshots through Launch.
+ * Walk a screenshots **root** — any directory laid out as `<root>/<locale>/<displayType>/<image files>` —
+ * and fingerprint every image, returning a flat, deterministically-ordered list. Returns [] when the root
+ * is absent. This is the convention-tree walker: {@link discoverScreenshots} points it at an app's standard
+ * `screenshots/` folder, while `launch ai screenshots` points it at an arbitrary import or staging root.
  */
-export function discoverScreenshots(appDir: string): LocalScreenshot[] {
-  const root = join(appDir, SCREENSHOTS_DIRNAME);
+export function discoverScreenshotsAt(root: string): LocalScreenshot[] {
   const screenshots: LocalScreenshot[] = [];
   for (const locale of subdirs(root)) {
     const localeDir = join(root, locale);
@@ -134,6 +134,15 @@ export function discoverScreenshots(appDir: string): LocalScreenshot[] {
     }
   }
   return screenshots;
+}
+
+/**
+ * Walk `<appDir>/screenshots/<locale>/<displayType>/` and fingerprint every image, returning a flat,
+ * deterministically-ordered list. Returns [] when the convention folder is absent — an app simply isn't
+ * managing screenshots through Launch.
+ */
+export function discoverScreenshots(appDir: string): LocalScreenshot[] {
+  return discoverScreenshotsAt(join(appDir, SCREENSHOTS_DIRNAME));
 }
 
 /**

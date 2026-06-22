@@ -13,6 +13,8 @@
 
 import { reconcileAssetActions } from "../../syncRun.js";
 import { buildJobs, type SyncJob } from "../../syncJobs.js";
+import { checkScreenshotFile } from "../../screenshotSpecs.js";
+import type { PlannedAction } from "../../ascSync.js";
 import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from "../types.js";
 
 /** Surface id — also the value users pass as `launch plan screenshots`. */
@@ -21,6 +23,28 @@ const SURFACE = "screenshots";
 /** Whether a job carries any on-disk asset this surface reconciles (screenshots, previews, or review shots). */
 function hasAssets(job: SyncJob): boolean {
   return job.screenshots.length > 0 || job.previews.length > 0 || job.subscriptionReviewScreenshots.length > 0;
+}
+
+/**
+ * Advisory dimension checks for a job's on-disk screenshots: any file whose pixels can be measured and
+ * fall outside its display type's accepted App Store sizes becomes a `skipped` advisory line, so
+ * `launch plan` surfaces a wrong-sized screenshot before App Store Connect rejects the submission.
+ * Unmeasurable files (non-image or unreadable) are left to the upload pass — this check only warns, never
+ * blocks, mirroring the surface's other advisory `skipped` notes.
+ */
+function dimensionAdvisories(job: SyncJob): PlannedAction[] {
+  const advisories: PlannedAction[] = [];
+  for (const shot of job.screenshots) {
+    const check = checkScreenshotFile("ios", shot.displayType, shot.path);
+    if (check.measured && !check.verdict.ok) {
+      advisories.push({
+        description: `off-spec screenshot ${shot.fileName} [${shot.locale}/${shot.displayType}]: ${check.verdict.reason}`,
+        destructive: false,
+        status: "skipped",
+      });
+    }
+  }
+  return advisories;
 }
 
 export const screenshotsPlanner: SurfacePlanner = {
@@ -45,7 +69,7 @@ export const screenshotsPlanner: SurfacePlanner = {
       jobs.map(async (job) => ({
         app: job.app.name,
         identifier: job.bundleId,
-        actions: await reconcileAssetActions(api, job, true, false),
+        actions: [...dimensionAdvisories(job), ...(await reconcileAssetActions(api, job, true, false))],
       })),
     );
     return { surface: SURFACE, store: "appstore", state: "planned", scope: "app", direction: "additive", apps };
