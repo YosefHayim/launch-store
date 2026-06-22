@@ -64,7 +64,32 @@ describe("glossary — the single source for --explain and docs", () => {
     expect(topics).toContain("plan-drift");
     expect(topics).toContain("adopt");
     expect(topics).toContain("migrate");
-    expect(topics.length).toBe(72);
+    // App Store growth & merchandising (`app-clips`/`game-center`/`events`/`custom-pages`/`experiments`/`wallet`).
+    expect(topics).toContain("app-clip");
+    expect(topics).toContain("game-center");
+    expect(topics).toContain("in-app-event");
+    expect(topics).toContain("custom-product-page");
+    expect(topics).toContain("product-page-optimization");
+    expect(topics).toContain("wallet-pass");
+    // Privacy, compliance & accessibility (`privacy scan`/`accessibility`/`eu-distribution`/`availability`).
+    expect(topics).toContain("privacy-declarations");
+    expect(topics).toContain("accessibility-label");
+    expect(topics).toContain("eu-distribution");
+    expect(topics).toContain("app-availability");
+    // Reviews, reports & insights (`reviews`/`play-reviews`/`reports`/`insights`).
+    expect(topics).toContain("store-review");
+    expect(topics).toContain("store-report");
+    expect(topics).toContain("review-insights");
+    // Play monetization & post-launch (`play-products`/`play-subscriptions`/`play-pricing`/`play-reports vitals`).
+    expect(topics).toContain("play-billing");
+    expect(topics).toContain("price-localization");
+    expect(topics).toContain("android-vitals");
+    // Account, signing & AI surfaces (`team`/`sandbox`/`build:resign`/`ai listing`).
+    expect(topics).toContain("team-role");
+    expect(topics).toContain("sandbox-tester");
+    expect(topics).toContain("resign");
+    expect(topics).toContain("ai-store-assets");
+    expect(topics.length).toBe(92);
     expect(new Set(topics).size).toBe(topics.length);
   });
 

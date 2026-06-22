@@ -35,6 +35,7 @@ your terminal.
 - **App Store Connect** (ASC) — Apple's web portal + API for apps, builds, TestFlight, and your listing. Launch drives its API for everything scriptable; the few things the API can't do, it points you to the website to finish.
 - **app record** — the app's entry in App Store Connect. The one thing Apple's API can't create (no `POST /v1/apps`) — made once on the website. `launch doctor` detects when it's missing and deep-links you to it.
 - **agreements** — Apple's paid-apps/developer agreements; an unsigned/expired one fails signing & upload with a 403. `launch doctor` probes for this up front.
+- **team & roles** — the people with access to your App Store Connect account and what each may do (the "Users and Access" page) — account-wide, not app-scoped. `launch team list|invite|remove` reads members + pending invitations and manages access over the API, behind a confirm on the writes.
 
 ## iOS / Apple — toolchain
 
@@ -55,6 +56,7 @@ your terminal.
 - **bundle id capability** — a service an _App ID_ is allowed to use (push, associated domains, app groups, iCloud). Set on the App ID and must match the app's entitlements or signing fails. Launch syncs them over the API from `launch.config.ts` — enabling what you added, disabling the managed ones you removed, leaving already-correct ones (and sub-settings) untouched.
 - **APNs auth key** — a `.p8` your backend uses to send push notifications. Apple has _no_ API to create one (download-once, portal-only, max 2 per account), so `launch creds push-key` only imports and vaults it in your keychain — Launch never sends push itself.
 - **UDID** — the unique hardware id of an iPhone/iPad. Ad-hoc installs only run on devices whose UDID is on the profile — register each with `launch device add`. The App Store/TestFlight don't need UDIDs.
+- **re-signing** — swapping the signing identity on an _already-built_ artifact (a different cert/profile, or another Apple account during a migration) without paying for a full rebuild. `launch build:resign` pulls a build from local history, re-signs it with the cached credentials, and writes a new `.ipa`/`.aab`.
 
 ## iOS — versioning & download size
 
@@ -66,6 +68,7 @@ your terminal.
 
 - **TestFlight** — Apple's pre-release testing track and the safe default for `launch build`. Public App Store release is the separate `launch release`.
 - **ad-hoc / internal distribution** — an install link for testers without TestFlight. iOS serves an ad-hoc `.ipa` (valid only for registered UDIDs) via an `itms-services` manifest; Android serves the `.apk` directly. Both host on _your_ own bucket — `launch build --distribution internal`.
+- **sandbox tester** — a special Apple ID that buys your in-app purchases against StoreKit's _test_ environment (no real money), so you can verify the purchase flow before release. `launch sandbox` lists the account's testers and clears their purchase history (the local "Clear Purchase History" button).
 
 ## App Store release lifecycle
 
@@ -101,6 +104,29 @@ your terminal.
 - **runtime version** — the contract between a native build and the OTA updates it can accept. An update only loads if its runtime version matches the installed app's, so a JS change needing new native code can't ship over the air by mistake.
 - **channel** — a named stream of OTA updates (e.g. `production`, `staging`) a build subscribes to, so you can push JS to beta testers without touching production. The manifest is keyed by channel + platform + runtime version.
 - **store metadata** — your listing (name, subtitle, description, keywords, release notes, URLs). Synced from a versioned `store.config.json` (Expo's iOS schema + an `android` extension) via fastlane `deliver`/`supply`, so the listing lives in your repo.
+- **AI store assets** — store listing material drafted by a model instead of by hand: listing copy today (`launch ai listing`), with generated assets the concept extends to. It only fills the versioned files (`store.config.json`), so the plan→confirm→apply loop stays the safety rail — it never touches a store.
+
+## App Store growth & merchandising
+
+- **App Clip** — a tiny, install-free slice of your app that opens from a link, NFC tag, or QR code so a user can do one task (pay, park, order) without the full download. The "App Clip card" is the sheet shown first; `launch app-clips` reconciles its action + per-locale subtitle from `appclips.config.json`.
+- **Game Center** — Apple's gaming network (achievements, leaderboards, multiplayer) layered onto your app as a trophy case and scoreboard. Both are configured per app on ASC; `launch game-center` reconciles your achievements and leaderboards from `gamecenter.config.json` over the API.
+- **in-app event** — a timed, discoverable happening inside your app (a tournament, premiere, live stream) that Apple surfaces on your product page and in Search to pull users back. `launch events` reads and manages the event records + their localized copy; scheduling, media, and review stay on ASC.
+- **custom product page** — an alternate version of your App Store listing (its own screenshots and promotional text) reachable by a unique URL, so a campaign or audience lands on tailored copy. `launch custom-pages` reconciles each page and its promotional text from `custom-pages.config.json` over the API.
+- **product page optimization** (PPO) — Apple's built-in A/B test of your listing: up to three treatment variants of icon/screenshots/text served to a slice of App Store traffic to see which converts best. `launch experiments` reconciles the experiment and its treatment arms (Apple's v2 model) from config.
+- **Wallet pass / Apple Pay ids** — team-level identifiers that authorize signing Wallet passes and processing Apple Pay; they gate the payment/pass certificates and are otherwise hand-registered in Certificates, Identifiers & Profiles. `launch wallet` reconciles them from `wallet.config.json` over the API.
+
+## Privacy, compliance & accessibility
+
+- **privacy declarations** — what your app says it collects and why: Apple's privacy manifest / App Privacy label and Play's Data Safety form. A mismatch with the permissions your code actually uses is a common, opaque rejection; `launch privacy scan` reconciles the statically-readable surface against your manifest (the published labels are UI-only).
+- **accessibility nutrition labels** — Apple's 2025 declarations of which accessibility features your app supports (VoiceOver, larger text, captions), shown on the product page. `launch accessibility` reconciles them from `accessibility.config.json` over the API with the plan→confirm→apply flow.
+- **EU alternative distribution** — under the EU's Digital Markets Act, iOS apps may ship from your own web domains or alternative marketplaces, not only the App Store — which needs authorized domains plus a registered signing key. `launch eu-distribution` reconciles the authorized domains from config over the API.
+- **app availability** — the set of App Store territories your app sells in. Apple treats it as one atomic set — you replace the whole list, not toggle one country. `launch availability` reconciles the territories from `availability.config.json` over the API, so where you sell lives in code.
+
+## Reviews, reports & insights
+
+- **store review** — a customer's public rating + comment, plus the single developer reply you can post back. `launch reviews` (App Store) and `launch play-reviews` (Play) read them and manage that reply over the API — the local equivalent of the Ratings & Reviews / Reviews pages, which EAS doesn't touch at all.
+- **store reports** — the bulk data behind your dashboards: Sales & Trends, Finance (gzipped TSV), and the multi-step Analytics reports. `launch reports sales|finance|analytics` downloads them from ASC with the API key alone, decompresses, and writes the files — the bulk side EAS never offered.
+- **review insights** — the synthesis over raw reviews: average rating, per-star distribution, reply rate, sentiment split, and a month-by-month ratings trend, across both stores at once. `launch insights` aggregates what `reviews` / `play-reviews` already pull; no new data source, just the trends on top.
 
 ## Android / Google
 
@@ -116,6 +142,9 @@ your terminal.
 - **Play track** — where a release lands: `internal` / `closed` / `open` testing, or `production`. Launch defaults to `internal`; production is the deliberate `launch release android`.
 - **versionCode / versionName** — Android's integer build counter (`versionCode`, every upload must be higher) vs. the human version string (`versionName`). Launch reads the latest `versionCode` from the Play API and bumps it, treating `app.json`'s `android.versionCode` as a floor.
 - **bundletool** — Google's tool that turns the `.aab` into the per-device APK splits Play serves and estimates the real download — the Android twin of iOS app thinning.
+- **Play in-app products & subscriptions** — Google Play's monetization catalog: one-off managed products and auto-renewable subscriptions (product + base plan + offers). `launch play-products` / `launch play-subscriptions` publish the entries carrying a `play` override from the shared `launch.config.ts` catalog — the Play twin of `sync`.
+- **price localization** — turning one base price into a sensible local price for every market, from today's exchange rate plus each country's pricing patterns. `launch play-pricing localize` computes Google's recommendation (`convertRegionPrices`) — advisory only; feed the numbers into `play-products`/`play-subscriptions`.
+- **Android vitals** — Google Play's post-launch quality signals (crash rate and ANR rate) that gate your Play ranking and can trigger warnings. `launch play-reports vitals` reads them from the Play Developer Reporting API — the Android counterpart to the iOS reports/insights observability.
 
 ## Build speed / cache
 
