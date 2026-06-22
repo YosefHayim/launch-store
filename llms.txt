@@ -141,7 +141,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 63 `launch` commands (211 store-API operations underneath, 1760 tests):
+All 63 `launch` commands (211 store-API operations underneath, 1768 tests):
 
 - `launch init` — scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` — onboard an app that already ships: import its App Store Connect setup into config
@@ -265,7 +265,7 @@ All 63 `launch` commands (211 store-API operations underneath, 1760 tests):
   - `launch snapshot export <name>` — print a saved snapshot as JSON, or write it to a file with --out
   - `launch snapshot delete <name>` — delete a saved snapshot by name
   - `launch snapshot prune` — delete old user snapshots by count and/or age (auto pre-sync baselines are never touched)
-  - `launch snapshot restore <name>` — restore a saved snapshot's App Store listing back to live (additive; --yes to apply)
+  - `launch snapshot restore <name>` — restore a saved snapshot's App Store listing + Play catalog back to live (additive; --yes to apply)
   - `launch snapshot help [command]` — display help for command
 - `launch explain [topic]` — plain-English glossary for an Apple/iOS term (csr, app-record, provisioning-profile, …)
 - `launch completion [shell]` — shell tab-completion for commands, flags, app handles, profiles, surfaces, and snapshots
