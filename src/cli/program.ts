@@ -48,6 +48,7 @@ import { registerPlaySubscriptionsCommand } from "./commands/playSubscriptions.j
 import { registerPlayReviewsCommand } from "./commands/playReviews.js";
 import { registerPlayTracksCommand } from "./commands/playTracks.js";
 import { registerPlayReportsCommand } from "./commands/playReports.js";
+import { registerPlayPricingCommand } from "./commands/playPricing.js";
 import { registerDeviceCommand } from "./commands/device.js";
 import { registerTestflightCommand } from "./commands/testflight.js";
 import { registerEventsCommand } from "./commands/events.js";
@@ -138,6 +139,7 @@ export function buildProgram(): Command {
   registerPlayReviewsCommand(program);
   registerPlayTracksCommand(program);
   registerPlayReportsCommand(program);
+  registerPlayPricingCommand(program);
   registerDeviceCommand(program);
   registerTestflightCommand(program);
   registerEventsCommand(program);

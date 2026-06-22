@@ -161,3 +161,85 @@ describe("GooglePlayClient.withEdit (transactional writes)", () => {
     expect(routes.some((route) => route.startsWith("DELETE"))).toBe(true);
   });
 });
+
+describe("GooglePlayClient.convertRegionPrices", () => {
+  it("POSTs the base price and normalizes the response into sorted regions + fallback", async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ access_token: "tok", expires_in: 3600 })))
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            convertedRegionPrices: {
+              // Deliberately out of order to prove the client sorts by region code.
+              US: { regionCode: "US", price: { currencyCode: "USD", units: "4", nanos: 990000000 }, taxAmount: {} },
+              DE: { regionCode: "DE", price: { currencyCode: "EUR", units: "4", nanos: 490000000 } },
+              JP: { regionCode: "JP", price: { currencyCode: "JPY", units: "600", nanos: 0 } },
+            },
+            convertedOtherRegionsPrice: {
+              usdPrice: { currencyCode: "USD", units: "4", nanos: 990000000 },
+              eurPrice: { currencyCode: "EUR", units: "4", nanos: 490000000 },
+            },
+          }),
+        ),
+      );
+
+    const result = await client.convertRegionPrices("com.example.app", {
+      currencyCode: "USD",
+      units: "4",
+      nanos: 990000000,
+    });
+
+    // It's a direct (non-edit-scoped) POST to the pricing endpoint, carrying the price in the body.
+    const [url, init] = fetchMock.mock.calls[1]!;
+    expect(url).toContain("/applications/com.example.app/pricing:convertRegionPrices");
+    expect((init as { method?: string }).method).toBe("POST");
+    expect(JSON.parse((init as { body: string }).body)).toEqual({
+      price: { currencyCode: "USD", units: "4", nanos: 990000000 },
+    });
+
+    expect(result.regions.map((r) => r.regionCode)).toEqual(["DE", "JP", "US"]);
+    expect(result.regions[2]).toEqual({
+      regionCode: "US",
+      price: { currencyCode: "USD", units: "4", nanos: 990000000 },
+    });
+    expect(result.otherRegions?.usdPrice.units).toBe("4");
+    expect(result.otherRegions?.eurPrice.currencyCode).toBe("EUR");
+  });
+
+  it("drops entries without a region code, coerces missing money parts to zero, and omits an absent fallback", async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ access_token: "tok", expires_in: 3600 })))
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            convertedRegionPrices: {
+              GB: { regionCode: "GB", price: { currencyCode: "GBP" } }, // units/nanos missing on the wire
+              "": { price: { currencyCode: "USD", units: "1", nanos: 0 } }, // no regionCode → dropped
+            },
+          }),
+        ),
+      );
+
+    const result = await client.convertRegionPrices("com.example.app", {
+      currencyCode: "USD",
+      units: "1",
+      nanos: 0,
+    });
+
+    expect(result.regions).toEqual([{ regionCode: "GB", price: { currencyCode: "GBP", units: "0", nanos: 0 } }]);
+    expect(result.otherRegions).toBeUndefined();
+  });
+
+  it("includes productTaxCategoryCode in the body when given", async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ access_token: "tok", expires_in: 3600 })))
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ convertedRegionPrices: {} })));
+
+    await client.convertRegionPrices("com.example.app", { currencyCode: "USD", units: "4", nanos: 0 }, "TAX_CATEGORY");
+
+    const body = JSON.parse((fetchMock.mock.calls[1]![1] as { body: string }).body);
+    expect(body.productTaxCategoryCode).toBe("TAX_CATEGORY");
+  });
+});
