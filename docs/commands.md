@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **210 App Store Connect & Google Play API operations** across **62 commands**, guarded by **1745 tests**.
+> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1760 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -679,6 +679,24 @@ show crash-rate and ANR-rate trends for an Android app (DAILY)
 | `--json`                | output machine-readable JSON                   |
 
 ### `launch play-reports help [command]`
+
+display help for command
+
+## `launch play-pricing`
+
+compute recommended Google Play prices for every region from one base price
+
+### `launch play-pricing localize <amount>`
+
+show Google's recommended local price for every Play market, from one base price
+
+| Flag                    | Description                                    |
+| ----------------------- | ---------------------------------------------- |
+| `-a, --app <name>`      | app handle (auto-selected if there's only one) |
+| `-c, --currency <code>` | ISO-4217 currency of <amount>                  |
+| `--json`                | output machine-readable JSON                   |
+
+### `launch play-pricing help [command]`
 
 display help for command
 

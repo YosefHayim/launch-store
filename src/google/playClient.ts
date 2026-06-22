@@ -110,6 +110,40 @@ export interface PlayMoneyUnits {
   nanos: number;
 }
 
+/**
+ * One region's recommended price from {@link GooglePlayClient.convertRegionPrices} — the ISO region and
+ * the tax-inclusive local price Google suggests for it, in that region's own currency. The amount reuses
+ * Google's standard `Money` shape ({@link PlayMoneyUnits}). The conversion is advisory: this is what
+ * Google *would* recommend, never a live store price, so Launch only surfaces it for review.
+ */
+export interface ConvertedRegionPrice {
+  /** ISO 3166-1 alpha-2 region (e.g. `US`, `DE`). */
+  regionCode: string;
+  /** Recommended tax-inclusive local price for the region. */
+  price: PlayMoneyUnits;
+}
+
+/**
+ * Fallback prices Google returns for markets with **no local-currency** support — each such market is
+ * billed in either USD or EUR. Part of a {@link ConvertedPrices} result.
+ */
+export interface OtherRegionsPrice {
+  /** USD price for no-local-currency markets in the USD bloc. */
+  usdPrice: PlayMoneyUnits;
+  /** EUR price for no-local-currency markets in the EUR bloc. */
+  eurPrice: PlayMoneyUnits;
+}
+
+/**
+ * Result of converting one base price into Google's recommended prices across Play markets
+ * (`monetization.convertRegionPrices`). `regions` is sorted by region code; `otherRegions` carries the
+ * USD/EUR fallback for markets without a local currency, omitted when Google returns none.
+ */
+export interface ConvertedPrices {
+  regions: ConvertedRegionPrice[];
+  otherRegions?: OtherRegionsPrice;
+}
+
 /** One locale's store copy for a Play subscription (`languageCode` is the natural key). */
 export interface SubscriptionListing {
   languageCode: string;
@@ -290,6 +324,31 @@ function normalizeReview(raw: RawReview): PlayReview {
   if (lastModified) review.lastModified = lastModified;
   if (developer?.text) review.developerReply = developer.text;
   return review;
+}
+
+/** Google's standard `Money` as the pricing API returns it — every field optional on the wire. */
+interface RawMoney {
+  currencyCode?: string;
+  units?: string;
+  nanos?: number;
+}
+
+/** One `convertedRegionPrices` entry from the convertRegionPrices response, before normalizing. */
+interface RawConvertedRegionPrice {
+  regionCode?: string;
+  price?: RawMoney;
+  taxAmount?: RawMoney;
+}
+
+/** Raw `pricing:convertRegionPrices` response body, before normalizing into {@link ConvertedPrices}. */
+interface RawConvertRegionPricesResponse {
+  convertedRegionPrices?: Record<string, RawConvertedRegionPrice>;
+  convertedOtherRegionsPrice?: { usdPrice?: RawMoney; eurPrice?: RawMoney };
+}
+
+/** Coerce a wire {@link RawMoney} into a {@link PlayMoneyUnits}, defaulting missing parts to zero. */
+function normalizeMoney(money: RawMoney | undefined): PlayMoneyUnits {
+  return { currencyCode: money?.currencyCode ?? "", units: money?.units ?? "0", nanos: money?.nanos ?? 0 };
 }
 
 /**
@@ -534,6 +593,38 @@ export class GooglePlayClient {
       `/applications/${encodeURIComponent(packageName)}/inappproducts/${encodeURIComponent(product.sku)}`,
       { ...product, packageName },
     );
+  }
+
+  /**
+   * Convert a single base price into Google's **recommended local price for every Play market** via
+   * `pricing:convertRegionPrices` (today's exchange rate + Google's per-country pricing patterns).
+   * Advisory and read-only — it computes a recommendation and changes nothing live; callers apply the
+   * numbers through the product/subscription write paths. Regions come back sorted by code; `otherRegions`
+   * carries the USD/EUR fallback for markets without a local currency. `productTaxCategoryCode`, when
+   * given, factors the matching tax rates into the conversion.
+   */
+  async convertRegionPrices(
+    packageName: string,
+    price: PlayMoneyUnits,
+    productTaxCategoryCode?: string,
+  ): Promise<ConvertedPrices> {
+    const body = productTaxCategoryCode ? { price, productTaxCategoryCode } : { price };
+    const raw = await this.request<RawConvertRegionPricesResponse>(
+      "POST",
+      `/applications/${encodeURIComponent(packageName)}/pricing:convertRegionPrices`,
+      body,
+    );
+    const regions = Object.values(raw.convertedRegionPrices ?? {})
+      .filter((entry): entry is RawConvertedRegionPrice & { regionCode: string } => Boolean(entry.regionCode))
+      .map((entry) => ({ regionCode: entry.regionCode, price: normalizeMoney(entry.price) }))
+      .sort((a, b) => a.regionCode.localeCompare(b.regionCode));
+    const other = raw.convertedOtherRegionsPrice;
+    return {
+      regions,
+      ...(other
+        ? { otherRegions: { usdPrice: normalizeMoney(other.usdPrice), eurPrice: normalizeMoney(other.eurPrice) } }
+        : {}),
+    };
   }
 
   /** Base path for an app's subscription monetization resources. */
