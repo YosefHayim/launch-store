@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1768 tests**.
+> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1799 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -322,6 +322,24 @@ draft App Store / Play listing copy with AI into store.config.json (review with 
 | `--config <path>`  | path to store.config.json (default: <app>/store.config.json)              |
 | `--dry-run`        | generate and preview, but write nothing                                   |
 | `-y, --yes`        | skip the confirmation prompt (for CI)                                     |
+
+### `launch ai screenshots`
+
+enhance your real screenshots into store-ready ones with genshot (review with `launch plan screenshots`)
+
+| Flag                    | Description                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------- |
+| `-a, --app <name>`      | app handle (auto-selected if there's only one)                                        |
+| `--brief <text>`        | a short description of the app to steer the enhancement                               |
+| `--locale <list>`       | comma-separated locales (default: the locales of your source screenshots, else en-US) |
+| `--platform <p>`        | ios, android, or all (default)                                                        |
+| `--in <dir>`            | directory of real source screenshots to enhance (default: <app>/screenshots)          |
+| `--captions <list>`     | comma-separated captions, one per shot (omit to let genshot write them)               |
+| `--device-types <list>` | comma-separated target slots (default: the modern iPhone/iPad + Play phone set)       |
+| `--out <dir>`           | where to promote approved screenshots (default: <app>/screenshots)                    |
+| `--genshot-bin <path>`  | path to the genshot CLI (default: genshot on PATH)                                    |
+| `--dry-run`             | enhance and preview, but promote nothing                                              |
+| `-y, --yes`             | skip the confirmation prompt (for CI)                                                 |
 
 ### `launch ai help [command]`
 

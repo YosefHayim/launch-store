@@ -12,8 +12,8 @@
 
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { cancel, confirm, isCancel } from "@clack/prompts";
 import type { Command } from "commander";
+import { aiGroup, confirmWrite } from "./ai.js";
 import { asRecord } from "../../core/json.js";
 import { loadConfig, readResolvedConfig } from "../../core/config.js";
 import { selectApp } from "../../core/pipeline.js";
@@ -80,20 +80,6 @@ async function resolveDisplayName(app: AppDescriptor): Promise<string> {
   return name ?? app.name;
 }
 
-/** Confirm the local write, refusing in CI unless `--yes` was passed. */
-async function confirmWrite(message: string, yes: boolean | undefined): Promise<boolean> {
-  if (yes) return true;
-  if (!process.stdout.isTTY) {
-    throw new Error("Refusing to write without confirmation. Re-run with --yes (non-interactive).");
-  }
-  const proceed = await confirm({ message });
-  if (isCancel(proceed) || !proceed) {
-    cancel("Aborted — nothing written.");
-    return false;
-  }
-  return true;
-}
-
 /**
  * Generate listing drafts for the selected app and locales, preview them, and (on confirmation) write
  * them into `store.config.json`. The generator is injectable so tests drive it without a network; in
@@ -137,9 +123,9 @@ export async function runAiListing(input: AiListingInput, generator?: ListingGen
   log.info("Review with `launch plan`, then apply with `launch sync` (or `launch metadata push`).");
 }
 
-/** Attach the `ai` command (with its `listing` subcommand) to the program. */
+/** Attach the `ai listing` subcommand to the shared `ai` group. */
 export function registerAiListingCommand(program: Command): void {
-  const ai = program.command("ai").description("AI-assisted authoring for your store presence");
+  const ai = aiGroup(program);
 
   ai.command("listing")
     .description("draft App Store / Play listing copy with AI into store.config.json (review with `launch plan`)")
