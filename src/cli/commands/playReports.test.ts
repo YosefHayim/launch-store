@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveMetrics, resolveDays } from "./playReports.js";
-import { DEFAULT_VITALS_DAYS } from "../../google/playReporting.js";
+import { DEFAULT_VITALS_DAYS, MAX_VITALS_DAYS } from "../../google/playReporting.js";
 
 describe("resolveMetrics", () => {
   it("shows both vitals when no --metric flag is given", () => {
@@ -33,5 +33,12 @@ describe("resolveDays", () => {
     expect(() => resolveDays("-3")).toThrow(/positive whole number/);
     expect(() => resolveDays("7.5")).toThrow(/positive whole number/);
     expect(() => resolveDays("lots")).toThrow(/positive whole number/);
+  });
+
+  it("accepts the maximum but rejects anything past it (no Date overflow)", () => {
+    expect(resolveDays(String(MAX_VITALS_DAYS))).toBe(MAX_VITALS_DAYS);
+    expect(() => resolveDays(String(MAX_VITALS_DAYS + 1))).toThrow(/cannot exceed/);
+    // A digit-only but astronomically large value would overflow Date math — rejected, not crashed.
+    expect(() => resolveDays("999999999999999999999")).toThrow(/cannot exceed/);
   });
 });

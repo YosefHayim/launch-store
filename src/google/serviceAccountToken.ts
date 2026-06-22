@@ -32,6 +32,8 @@ interface CachedToken {
  */
 export class ServiceAccountTokenSource {
   private cached: CachedToken | null = null;
+  /** A token exchange already in flight, shared by concurrent callers so we mint exactly once. */
+  private inflight: Promise<string> | null = null;
 
   /**
    * @param account the parsed service-account key (issuer email, PKCS#8 private key, token endpoint)
@@ -43,11 +45,22 @@ export class ServiceAccountTokenSource {
     private readonly scope: string,
   ) {}
 
-  /** Mint (and cache) an OAuth2 access token via the JWT-bearer grant. */
+  /**
+   * Return a valid OAuth2 access token, minting one via the JWT-bearer grant only when the cache is
+   * empty or stale. Concurrent callers (e.g. `play-reports vitals` querying crash + ANR in parallel)
+   * coalesce onto a single in-flight exchange instead of each hitting Google's token endpoint.
+   */
   async token(): Promise<string> {
     const now = Math.floor(Date.now() / 1000);
     if (this.cached && this.cached.expiresAt - 60 > now) return this.cached.value;
+    this.inflight ??= this.mint(now).finally(() => {
+      this.inflight = null;
+    });
+    return this.inflight;
+  }
 
+  /** Perform the JWT-bearer exchange and populate the cache. Callers reach this only through {@link token}. */
+  private async mint(now: number): Promise<string> {
     const privateKey = await importPKCS8(this.account.privateKey, "RS256");
     const assertion = await new SignJWT({ scope: this.scope })
       .setProtectedHeader({

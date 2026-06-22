@@ -12,23 +12,23 @@
  * - **Ratings metric**: the Play Developer Reporting API has no ratings metric set; the closest signal
  *   is `launch play-reviews`, which already reads recent reviews + stars.
  *
- * Thin glue over {@link PlayReportingClient}: this file resolves the app + Play account, bounds the
- * default window by the metric set's freshness, drives the queries, and renders the timeline (mirroring
- * `reports.ts`). Read-only — no confirmations needed.
+ * Thin glue over {@link PlayReportingClient}: this file resolves the app + Play account, drives the
+ * per-metric timeline queries, and renders the result (mirroring `reports.ts`). The freshness→window→
+ * query orchestration lives in the client. Read-only — no confirmations needed.
  */
 
 import type { Command } from "commander";
 import { parseServiceAccount } from "../../google/playClient.js";
 import {
   DEFAULT_VITALS_DAYS,
+  MAX_VITALS_DAYS,
   PlayReportingClient,
-  resolveVitalsWindow,
-  type VitalsWindow,
+  type VitalsTimeline,
 } from "../../google/playReporting.js";
 import { loadServiceAccount } from "../../google/credentials.js";
 import { loadConfig } from "../../core/config.js";
 import { selectApp } from "../../core/pipeline.js";
-import type { PlayVitalsMetric, PlayVitalsRow } from "../../core/types.js";
+import type { PlayVitalsMetric } from "../../core/types.js";
 
 /** Options for `play-reports vitals`. */
 interface VitalsOptions {
@@ -72,7 +72,11 @@ export function resolveDays(flag: string | undefined): number {
   if (!/^\d+$/.test(trimmed) || Number(trimmed) < 1) {
     throw new Error(`--days must be a positive whole number (got "${flag}").`);
   }
-  return Number(trimmed);
+  const days = Number(trimmed);
+  if (days > MAX_VITALS_DAYS) {
+    throw new Error(`--days cannot exceed ${MAX_VITALS_DAYS} (got "${flag}").`);
+  }
+  return days;
 }
 
 /** Format a rate fraction as a percentage with two decimals (0.0123 → "1.23%"), or "—" when absent. */
@@ -84,7 +88,7 @@ function pct(rate: number | undefined): string {
 const METRIC_LABEL: Record<PlayVitalsMetric, string> = { crash: "Crash rate", anr: "ANR rate" };
 
 /** Render one metric's timeline as an aligned block: a header line, then one line per day. */
-function renderMetric({ metric, window, rows }: MetricResult): string {
+function renderMetric({ metric, window, rows }: VitalsTimeline): string {
   const header = `\n${METRIC_LABEL[metric]}  (${window.startDate} → ${window.endDate}, DAILY)`;
   if (rows.length === 0) {
     return `${header}\n  (no data — the app may be new, or below Play's reporting threshold)`;
@@ -94,28 +98,6 @@ function renderMetric({ metric, window, rows }: MetricResult): string {
     return `  ${row.date}  ${pct(row.rate).padStart(7)}  (user-perceived ${pct(row.userPerceivedRate)})${users}`;
   });
   return [header, ...lines].join("\n");
-}
-
-/** One metric's resolved window + its normalized timeline rows. */
-interface MetricResult {
-  metric: PlayVitalsMetric;
-  window: VitalsWindow;
-  rows: PlayVitalsRow[];
-}
-
-/** Run one metric's query: bound the window by freshness, then fetch the normalized rows. */
-async function fetchMetric(
-  client: PlayReportingClient,
-  packageName: string,
-  metric: PlayVitalsMetric,
-  days: number,
-): Promise<MetricResult> {
-  const window = resolveVitalsWindow(await client.latestDailyDate(packageName, metric), days);
-  const rows =
-    metric === "crash"
-      ? await client.queryCrashRate(packageName, window)
-      : await client.queryAnrRate(packageName, window);
-  return { metric, window, rows };
 }
 
 /** Attach the `play-reports` command (with the `vitals` subcommand) to the program. */
@@ -137,7 +119,7 @@ export function registerPlayReportsCommand(program: Command): void {
       const packageName = await resolvePackageName(options.app);
       const client = await activeClient();
 
-      const results = await Promise.all(metrics.map((metric) => fetchMetric(client, packageName, metric, days)));
+      const results = await Promise.all(metrics.map((metric) => client.vitalsTimeline(packageName, metric, days)));
 
       if (options.json) {
         const rows = results.flatMap((result) => result.rows);

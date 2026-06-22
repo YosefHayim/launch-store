@@ -64,8 +64,14 @@ describe("resolveVitalsWindow", () => {
   });
 
   it("falls back to today's date when freshness is unknown", () => {
-    const today = new Date().toISOString().slice(0, 10);
-    expect(resolveVitalsWindow(null, 1)).toEqual({ startDate: today, endDate: today });
+    // Pin the clock so the two date reads (here + inside resolveVitalsWindow) can't straddle midnight.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-15T12:00:00Z"));
+    try {
+      expect(resolveVitalsWindow(null, 1)).toEqual({ startDate: "2026-06-15", endDate: "2026-06-15" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -206,6 +212,31 @@ describe("PlayReportingClient — auth + crash-rate query", () => {
       .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({})));
 
     expect(await client.latestDailyDate("com.example.fresh", "anr")).toBeNull();
+  });
+
+  it("vitalsTimeline bounds the window by freshness, then queries exactly that window", async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ access_token: "tok", expires_in: 3600 })))
+      .mockResolvedValueOnce(fakeResponse(200, freshnessBody("2026-06-20")))
+      .mockResolvedValueOnce(
+        fakeResponse(200, JSON.stringify({ rows: [crashRow("2026-06-20", "0.01", "0.008", "1000")] })),
+      );
+
+    const timeline = await client.vitalsTimeline("com.example.app", "crash", 7);
+
+    // Window ends at the freshness date and spans `days` inclusive (Jun 14 → Jun 20).
+    expect(timeline.metric).toBe("crash");
+    expect(timeline.window).toEqual({ startDate: "2026-06-14", endDate: "2026-06-20" });
+    expect(timeline.rows).toEqual([
+      { metric: "crash", date: "2026-06-20", rate: 0.01, userPerceivedRate: 0.008, distinctUsers: 1000 },
+    ]);
+    // token (cached after) + freshness :get + :query = three fetches; the :query carried the bounded window.
+    expect(fetchMock.mock.calls).toHaveLength(3);
+    const queryBody = JSON.parse(fetchMock.mock.calls[2]![1].body as string) as {
+      timelineSpec: { startTime: object; endTime: object };
+    };
+    expect(queryBody.timelineSpec.startTime).toEqual({ year: 2026, month: 6, day: 14 });
+    expect(queryBody.timelineSpec.endTime).toEqual({ year: 2026, month: 6, day: 20 });
   });
 
   it("surfaces Google's error message on a failed query", async () => {

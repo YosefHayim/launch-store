@@ -59,6 +59,28 @@ describe("ServiceAccountTokenSource", () => {
     expect(fetchMock.mock.calls).toHaveLength(1);
   });
 
+  it("coalesces concurrent callers into a single exchange", async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ access_token: "tok", expires_in: 3600 })));
+    const source = new ServiceAccountTokenSource(makeAccount(), "scope");
+
+    const [first, second] = await Promise.all([source.token(), source.token()]);
+    expect(first).toBe("tok");
+    expect(second).toBe("tok");
+    // Both callers share the one in-flight mint instead of each hitting the token endpoint.
+    expect(fetchMock.mock.calls).toHaveLength(1);
+  });
+
+  it("re-mints after a failed exchange instead of caching the rejection", async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(500, "boom"))
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ access_token: "tok", expires_in: 3600 })));
+    const source = new ServiceAccountTokenSource(makeAccount(), "scope");
+
+    await expect(source.token()).rejects.toThrow(/500/);
+    expect(await source.token()).toBe("tok"); // the in-flight guard cleared, so a retry mints fresh
+    expect(fetchMock.mock.calls).toHaveLength(2);
+  });
+
   it("surfaces Google's error on a failed exchange", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(400, JSON.stringify({ error: "invalid_grant" })));
     const source = new ServiceAccountTokenSource(makeAccount(), "scope");

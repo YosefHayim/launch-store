@@ -97,8 +97,26 @@ export interface VitalsWindow {
   endDate: string;
 }
 
+/**
+ * One vital's resolved timeline: the metric, the window actually queried (after freshness bounding),
+ * and its normalized daily rows. The result of {@link PlayReportingClient.vitalsTimeline} — the unit
+ * the `play-reports vitals` command renders.
+ */
+export interface VitalsTimeline {
+  metric: PlayVitalsMetric;
+  window: VitalsWindow;
+  rows: PlayVitalsRow[];
+}
+
 /** How many days of history the default vitals window spans, ending at the freshest available day. */
 export const DEFAULT_VITALS_DAYS = 28;
+
+/**
+ * Upper bound on a requested window. Caps untrusted `--days` input so the date math stays well inside
+ * `Date`'s representable range (a wild value would otherwise overflow `Date.UTC` → `Invalid Date`), and
+ * keeps requests within the API's daily-metrics retention horizon.
+ */
+export const MAX_VITALS_DAYS = 365;
 
 /** UTC day-shift of an ISO `YYYY-MM-DD` date by `delta` days (negative = earlier), returned as ISO. */
 function shiftIsoDate(iso: string, delta: number): string {
@@ -176,6 +194,25 @@ export class PlayReportingClient {
     const set = await this.request<ApiMetricSetResource>("GET", `/apps/${encodeURIComponent(packageName)}/${resource}`);
     const daily = set.freshnessInfo?.freshnesses?.find((freshness) => freshness.aggregationPeriod === "DAILY");
     return dateTimeToIso(daily?.latestEndTime) ?? null;
+  }
+
+  /**
+   * Fetch one vital's full DAILY timeline: bound the window by the metric set's freshness (via `:get`,
+   * so the request never reaches past available data), then query + normalize. This is the single
+   * call `launch play-reports vitals` makes per metric — the freshness→window→query orchestration that
+   * belongs in the client, not the CLI.
+   */
+  async vitalsTimeline(
+    packageName: string,
+    metric: PlayVitalsMetric,
+    days = DEFAULT_VITALS_DAYS,
+  ): Promise<VitalsTimeline> {
+    const window = resolveVitalsWindow(await this.latestDailyDate(packageName, metric), days);
+    const rows =
+      metric === "crash"
+        ? await this.queryCrashRate(packageName, window)
+        : await this.queryAnrRate(packageName, window);
+    return { metric, window, rows };
   }
 
   /** Query the crash-rate metric set over a DAILY window, returning normalized rows. */
