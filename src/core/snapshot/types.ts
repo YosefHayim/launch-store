@@ -18,6 +18,7 @@ import type { AppDescriptor, LaunchConfig } from "../types.js";
 import type { ListingLocalization } from "../../apple/ascClient.js";
 import type { InAppProductResource, SubscriptionResource } from "../../google/playClient.js";
 import type { AscCatalogApi, PlannedAction } from "../ascSync.js";
+import type { PlayCatalogApi } from "../plan/types.js";
 
 /** Which store a source reads from — drives credential resolution and how a capture/diff is grouped. */
 export type SnapshotStore = "appstore" | "play";
@@ -167,15 +168,19 @@ export interface SnapshotContext {
 
 /**
  * What a {@link SnapshotSource.restore} pass is handed: the write-capable counterpart to
- * {@link SnapshotContext}. The resolver returns the reconciler's {@link AscCatalogApi} write surface (the
- * concrete `AppStoreConnectClient` satisfies it structurally, like {@link SnapshotAscApi} on the read side),
- * or `null` when no Apple account is active, so a source emits a skipped action instead of throwing.
+ * {@link SnapshotContext}. Each resolver returns the reconciler write surface its store's sources need —
+ * the {@link AscCatalogApi} for App Store sources, the {@link PlayCatalogApi} (products + subscriptions)
+ * for Play sources — or `null` when that account isn't configured, so a source emits a skipped action
+ * instead of throwing. The concrete clients satisfy these structurally, like the read side's
+ * {@link SnapshotAscApi} / {@link SnapshotPlayApi}.
  */
 export interface RestoreContext {
   config: LaunchConfig;
   apps: AppDescriptor[];
   /** Resolve the read-write App Store Connect catalog surface, or `null` when no Apple account is active. */
   resolveAscWriteClient(): Promise<AscCatalogApi | null>;
+  /** Resolve the read-write Google Play catalog surface, or `null` when no Play service account is configured. */
+  resolvePlayWriteClient(): Promise<PlayCatalogApi | null>;
 }
 
 /**
@@ -202,10 +207,12 @@ export interface RestoreReport {
  * resolves every registered source and never names a concrete one.
  *
  * {@link restore} is the optional write counterpart to {@link capture}: it pushes a saved capture back to
- * the store. Only **config-complete** sources implement it — `apple-listing` captures the full per-locale
- * listing, so it can be faithfully restored; the catalog sources (products/subscriptions/Play) capture a
- * summary-grade record (price and reference names dropped), so they stay capture-only until their capture is
- * enriched. A source without `restore` is preview-only in `snapshot restore`.
+ * the store. Only **config-complete** sources implement it — `apple-listing` (full per-locale listing) and
+ * the Play catalog sources (`play-products` / `play-subscriptions`, which capture price + listings and
+ * restore additively via the same reconcilers `launch sync` uses). The Apple catalog sources
+ * (`apple-products` / `apple-subscriptions`) stay capture-only: App Store Connect exposes no reader for an
+ * in-app purchase's current price/territory, so their capture is summary-grade and can't be faithfully
+ * restored. A source without `restore` is preview-only in `snapshot restore`.
  */
 export interface SnapshotSource {
   /** Stable source key shown in the record and used to pair surfaces across two snapshots in a diff. */
