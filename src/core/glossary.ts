@@ -30,6 +30,7 @@ export type GlossaryTopic =
   | "keychain"
   | "app-record"
   | "agreements"
+  | "team-role"
   | "store-readiness"
   | "submission-readiness"
   | "iap-readiness"
@@ -48,6 +49,7 @@ export type GlossaryTopic =
   | "bundle-id-capability"
   | "apns-key"
   | "code-signing"
+  | "resign"
   | "udid"
   // iOS — versioning & download size
   | "build-number"
@@ -56,6 +58,7 @@ export type GlossaryTopic =
   // Distribution & testing
   | "testflight"
   | "ad-hoc-distribution"
+  | "sandbox-tester"
   // App Store release lifecycle
   | "app-store-version"
   | "review-submission"
@@ -74,6 +77,23 @@ export type GlossaryTopic =
   | "release-channel"
   // Store listing
   | "store-metadata"
+  | "ai-store-assets"
+  // App Store growth & merchandising
+  | "app-clip"
+  | "game-center"
+  | "in-app-event"
+  | "custom-product-page"
+  | "product-page-optimization"
+  | "wallet-pass"
+  // Privacy, compliance & accessibility
+  | "privacy-declarations"
+  | "accessibility-label"
+  | "eu-distribution"
+  | "app-availability"
+  // Reviews, reports & insights
+  | "store-review"
+  | "store-report"
+  | "review-insights"
   // Build-time env
   | "env-vars"
   | "env-precedence"
@@ -95,6 +115,9 @@ export type GlossaryTopic =
   | "play-track"
   | "version-code"
   | "bundletool"
+  | "play-billing"
+  | "price-localization"
+  | "android-vitals"
   // Launch wizard — interactive build-flow steps
   | "build-platform"
   | "build-location"
@@ -179,6 +202,11 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "Agreements: Apple's paid-apps and developer agreements. When a new one is unsigned or expired,",
     "every signing/upload call fails with a 403. Launch probes for this in `doctor` so you fix it in",
     "the UI up front, rather than discovering it halfway through a build.",
+  ].join("\n"),
+  "team-role": [
+    "Team & roles: the people with access to your App Store Connect account and what each is allowed to do",
+    "(the 'Users and Access' page) — account-wide, not app-scoped. `launch team list|invite|remove` reads",
+    "members and pending invitations and manages access over the API, behind a confirm on the writes.",
   ].join("\n"),
   "store-readiness": [
     "Store readiness: the account-level prerequisites a store needs before it will accept a submission —",
@@ -274,6 +302,11 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "Code signing: stamping the app with your distribution certificate so Apple (and the device)",
     "can verify it came from you and wasn't tampered with. Launch signs during export via fastlane gym.",
   ].join("\n"),
+  resign: [
+    "Re-signing: swapping the signing identity on an ALREADY-built artifact — a different cert/profile, or",
+    "another Apple account during a migration — without paying for a full rebuild. `launch build:resign`",
+    "pulls a build from local history, re-signs it with the cached credentials, and writes a new .ipa/.aab.",
+  ].join("\n"),
   udid: [
     "UDID: the unique hardware identifier of an iPhone/iPad. Ad-hoc (TestFlight-free) installs only run",
     "on devices whose UDID is listed on the provisioning profile, so you register each tester device",
@@ -307,6 +340,11 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "Ad-hoc / internal distribution: an install link for your testers without TestFlight. iOS signs an",
     "ad-hoc .ipa valid only for devices whose UDID is on the profile (register them with `launch device add`)",
     "and serves an itms-services manifest; Android serves the .apk directly. Both host on YOUR own bucket.",
+  ].join("\n"),
+  "sandbox-tester": [
+    "Sandbox tester: a special Apple ID that buys your in-app purchases against StoreKit's TEST environment",
+    "— no real money — so you can verify the purchase flow before release. `launch sandbox` lists the",
+    "account's testers and clears their purchase history (the local 'Clear Purchase History' button).",
   ].join("\n"),
 
   // ── App Store release lifecycle ───────────────────────────────────────────
@@ -395,6 +433,82 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "Store metadata: your listing — name, subtitle, description, keywords, release notes, URLs. Launch syncs",
     "it from a versioned store.config.json (Expo's schema for iOS, plus an android extension) via fastlane",
     "deliver/supply, so the listing lives in your repo and pushes deterministically alongside the build.",
+  ].join("\n"),
+  "ai-store-assets": [
+    "AI store assets: store listing material drafted by a model instead of by hand — listing copy today",
+    "(`launch ai listing`), with generated assets the concept extends to. It only fills the versioned files",
+    "(store.config.json), so the existing plan→confirm→apply loop is the safety rail — it never touches a store.",
+  ].join("\n"),
+
+  // ── App Store growth & merchandising ──────────────────────────────────────
+  "app-clip": [
+    "App Clip: a tiny, install-free slice of your app that opens from a link, NFC tag, or QR code so a user",
+    "can do one task (pay, park, order) without the full download. The 'App Clip card' is the sheet shown",
+    "first; `launch app-clips` reconciles its action + per-locale subtitle from appclips.config.json.",
+  ].join("\n"),
+  "game-center": [
+    "Game Center: Apple's gaming network — achievements, leaderboards, and multiplayer — layered onto your",
+    "app as a trophy case and scoreboard. Both are configured per app on App Store Connect; `launch",
+    "game-center` reconciles your achievements and leaderboards from gamecenter.config.json over the API.",
+  ].join("\n"),
+  "in-app-event": [
+    "In-app event: a timed, discoverable happening inside your app — a tournament, premiere, or live stream",
+    "— that Apple surfaces on your product page and in Search to pull users back. `launch events` reads and",
+    "manages the event records and their localized copy; scheduling, media, and review stay on App Store Connect.",
+  ].join("\n"),
+  "custom-product-page": [
+    "Custom product page: an alternate version of your App Store listing — its own screenshots and",
+    "promotional text, reachable by a unique URL — so a campaign or audience lands on tailored copy. `launch",
+    "custom-pages` reconciles each page and its promotional text from custom-pages.config.json over the API.",
+  ].join("\n"),
+  "product-page-optimization": [
+    "Product page optimization (PPO): Apple's built-in A/B test of your listing — up to three treatment",
+    "variants of icon/screenshots/text served to a slice of App Store traffic to see which converts best.",
+    "`launch experiments` reconciles the experiment and its treatment arms (Apple's v2 model) from config.",
+  ].join("\n"),
+  "wallet-pass": [
+    "Wallet pass type id / Apple Pay merchant id: team-level identifiers that authorize signing Wallet passes",
+    "and processing Apple Pay; they gate the payment/pass certificates and are otherwise hand-registered in",
+    "Certificates, Identifiers & Profiles. `launch wallet` reconciles them from wallet.config.json over the API.",
+  ].join("\n"),
+
+  // ── Privacy, compliance & accessibility ───────────────────────────────────
+  "privacy-declarations": [
+    "Privacy declarations: what your app says it collects and why — Apple's privacy manifest / App Privacy",
+    "label and Play's Data Safety form. A mismatch with the permissions your code actually uses is a common,",
+    "opaque rejection; `launch privacy scan` reconciles the statically-readable surface against your manifest.",
+  ].join("\n"),
+  "accessibility-label": [
+    "Accessibility Nutrition Labels: Apple's 2025 declarations of which accessibility features your app",
+    "supports (VoiceOver, larger text, captions), shown on the product page. `launch accessibility`",
+    "reconciles them from accessibility.config.json over the API with the plan→confirm→apply flow.",
+  ].join("\n"),
+  "eu-distribution": [
+    "EU alternative distribution: under the EU's Digital Markets Act, iOS apps may ship from your own web",
+    "domains or alternative marketplaces, not only the App Store — which needs authorized domains plus a",
+    "registered signing key. `launch eu-distribution` reconciles the authorized domains from config over the API.",
+  ].join("\n"),
+  "app-availability": [
+    "App availability: the set of App Store territories your app sells in. Apple treats it as one atomic set —",
+    "you replace the whole list, not toggle one country. `launch availability` reconciles the territories from",
+    "availability.config.json over the API, so where you sell lives in code instead of a web checklist.",
+  ].join("\n"),
+
+  // ── Reviews, reports & insights ───────────────────────────────────────────
+  "store-review": [
+    "Store review: a customer's public rating and comment, plus the single developer reply you can post back.",
+    "`launch reviews` (App Store) and `launch play-reviews` (Play) read them and manage that reply over the",
+    "API — the local equivalent of the Ratings & Reviews / Reviews pages, which EAS doesn't touch at all.",
+  ].join("\n"),
+  "store-report": [
+    "Store reports: the bulk data behind your dashboards — Sales & Trends, Finance (gzipped TSV), and the",
+    "multi-step Analytics reports. `launch reports sales|finance|analytics` downloads them from App Store",
+    "Connect with the API key alone, decompresses, and writes the files — the bulk side EAS never offered.",
+  ].join("\n"),
+  "review-insights": [
+    "Review insights: the synthesis over raw reviews — average rating, per-star distribution, reply rate,",
+    "sentiment split, and a month-by-month ratings trend, across both stores at once. `launch insights`",
+    "aggregates what `reviews` / `play-reviews` already pull; no new data source, just the trends on top.",
   ].join("\n"),
 
   // ── Build-time env ────────────────────────────────────────────────────────
@@ -489,6 +603,21 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     "bundletool: Google's tool that turns your .aab into the per-device APK splits Play would serve, then",
     "estimates the real download. The .aab file size is NOT what users download, so Launch runs bundletool",
     "to report the honest worst-case download before any upload — the Android twin of iOS app thinning.",
+  ].join("\n"),
+  "play-billing": [
+    "Play in-app products & subscriptions: Google Play's monetization catalog — one-off managed products and",
+    "auto-renewable subscriptions (product + base plan + offers). `launch play-products` / `play-subscriptions`",
+    "publish the entries carrying a `play` override from the shared launch.config.ts catalog, the Play twin of sync.",
+  ].join("\n"),
+  "price-localization": [
+    "Price localization: turning one base price into a sensible local price for every market, from today's",
+    "exchange rate plus each country's pricing patterns. `launch play-pricing localize` computes Google's",
+    "recommendation (convertRegionPrices) — advisory only; feed the numbers into play-products/subscriptions.",
+  ].join("\n"),
+  "android-vitals": [
+    "Android vitals: Google Play's post-launch quality signals — crash rate and ANR (app-not-responding) rate",
+    "— that gate your Play ranking and can trigger warnings. `launch play-reports vitals` reads them from the",
+    "Play Developer Reporting API, the Android counterpart to the iOS reports/insights observability.",
   ].join("\n"),
 
   // ── Launch wizard — interactive build-flow steps ──────────────────────────
