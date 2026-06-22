@@ -57,6 +57,7 @@ function readJpegSize(bytes: Buffer): ImageSize | null {
       offset += 2; // standalone marker — no length payload
       continue;
     }
+    if (offset + 4 > bytes.length) return null; // truncated before this segment's 2-byte length field
     const length = bytes.readUInt16BE(offset + 2);
     if (isStartOfFrame(marker)) {
       if (offset + 9 > bytes.length) return null;

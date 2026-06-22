@@ -25,7 +25,7 @@ import { basename, join } from "node:path";
 import { tmpdir } from "node:os";
 import type { Command } from "commander";
 import { aiGroup, confirmWrite } from "./ai.js";
-import { run, exists } from "../../core/exec.js";
+import { run } from "../../core/exec.js";
 import { openUrl } from "../../core/consoleLinks.js";
 import { loadConfig } from "../../core/config.js";
 import { selectApp } from "../../core/pipeline.js";
@@ -40,6 +40,15 @@ import type { Platform } from "../../core/types.js";
 
 /** Default name of the genshot CLI on the PATH; overridable per-invocation with `--genshot-bin`. */
 const GENSHOT_BIN = "genshot";
+
+/**
+ * Whether a child-process failure is "the executable wasn't found" — the `ENOENT` spawn error Node raises
+ * when a binary isn't on the PATH. Used to turn a missing `genshot` into an actionable install hint without
+ * a PATH preflight (a `which`-style check is unreliable on Windows; letting the spawn fail is portable).
+ */
+function isMissingBinaryError(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
+}
 
 /** Options for `launch ai screenshots`. */
 export interface AiScreenshotsInput {
@@ -128,12 +137,6 @@ function createGenshotEnhancer(binPath: string | undefined): ScreenshotEnhancer 
   return {
     name: "genshot",
     async enhance(request: EnhanceRequest): Promise<EnhancedShot[]> {
-      if (!binPath && !(await exists(bin))) {
-        throw new Error(
-          "genshot CLI not found on PATH. Install the genshot screenshot backend (a paid hosted service) " +
-            "and sign in, or point at a local build with --genshot-bin <path>.",
-        );
-      }
       mkdirSync(request.outDir, { recursive: true });
       const args = [
         "enhance",
@@ -149,7 +152,17 @@ function createGenshotEnhancer(binPath: string | undefined): ScreenshotEnhancer 
       if (request.brief) args.push("--brief", request.brief);
       if (request.captions) args.push("--captions", request.captions.join(","));
       args.push(...request.sources);
-      await run(bin, args);
+      try {
+        await run(bin, args);
+      } catch (error) {
+        if (isMissingBinaryError(error)) {
+          throw new Error(
+            "genshot CLI not found. Install the genshot screenshot backend (a paid hosted service) and sign in, " +
+              "or point at a local build with --genshot-bin <path>.",
+          );
+        }
+        throw error;
+      }
       return discoverScreenshotsAt(request.outDir).map((shot) => ({
         path: shot.path,
         locale: shot.locale,

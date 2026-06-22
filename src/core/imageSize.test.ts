@@ -53,4 +53,8 @@ describe("readImageSize", () => {
   it("returns null for a JPEG that ends before any Start-Of-Frame", () => {
     expect(readImageSize(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x04, 0x00, 0x00]))).toBeNull();
   });
+
+  it("returns null (does not throw) for a JPEG truncated right at a marker's length field", () => {
+    expect(readImageSize(Buffer.from([0xff, 0xd8, 0xff, 0xc0]))).toBeNull();
+  });
 });
