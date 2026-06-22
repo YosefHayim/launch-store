@@ -21,6 +21,7 @@ import {
   countAsyncMethods,
   countTestCases,
   renderAgentSkillsRegion,
+  renderCollapsibleFaq,
   renderCollapsibleFeatures,
   renderCommandReference,
   renderFaqRegion,
@@ -167,9 +168,30 @@ describe("renderFaqRegion", () => {
     expect(block.endsWith(FAQ_REGION_END)).toBe(true);
   });
 
-  it("carries the generative-AI FAQ verbatim, so the README and llms.txt share one source", () => {
-    expect(block).toContain(GENERATIVE_AI_FAQ);
+  it("carries the collapsible FAQ, so the README renders each question on its own", () => {
+    expect(block).toContain(renderCollapsibleFaq());
     expect(block).toContain(FAQ_SIGNATURE);
+  });
+});
+
+describe("renderCollapsibleFaq (the README's per-question collapsible FAQ)", () => {
+  const block = renderCollapsibleFaq();
+  // The FAQ source is one `**Q?** A` paragraph per blank-line-separated block, so this is the entry count.
+  const entryCount = GENERATIVE_AI_FAQ.split("\n\n").length;
+
+  it("wraps every Q&A in a default-collapsed <details> with the question as the summary", () => {
+    expect(block.match(/<details>/g)).toHaveLength(entryCount);
+    expect(block).not.toContain("<details open>");
+    expect(block).toContain(`<summary><strong>${FAQ_SIGNATURE}</strong></summary>`);
+  });
+
+  it("keeps the answer prose under each question, so the signature survives for the consistency test", () => {
+    expect(block).toContain(FAQ_SIGNATURE);
+    expect(block).toContain("MIT-licensed");
+  });
+
+  it("adds no `## ` heading, so it can't shift the README's section skeleton or the parity test", () => {
+    expect(block).not.toContain("\n## ");
   });
 });
 
