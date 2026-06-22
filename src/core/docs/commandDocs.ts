@@ -482,12 +482,62 @@ export function spliceReadmeBadges(readme: string, badges: string): string {
 }
 
 /**
- * Render the English README's FAQ region from {@link GENERATIVE_AI_FAQ}, fenced by
+ * One question/answer pair parsed out of {@link GENERATIVE_AI_FAQ}: the bold question (without its `**`
+ * markers) and the answer prose that follows it. The intermediate shape {@link renderCollapsibleFaq}
+ * renders into the README's `<details>` groups; the flat string stays the one source for `llms.txt`.
+ */
+interface FaqEntry {
+  /** The question, stripped of the leading/trailing `**` so it can go inside `<summary><strong>`. */
+  question: string;
+  /** The answer markdown (may contain inline `code` spans), rendered as the `<details>` body. */
+  answer: string;
+}
+
+/**
+ * Split {@link GENERATIVE_AI_FAQ} into its {@link FaqEntry} pairs. Each source paragraph is a single
+ * `**Question?** Answer` block separated by a blank line, so we split on the blank line (LF or CRLF, so a
+ * Windows checkout can't collapse every Q&A into one) and peel the leading bold question off each. Throws
+ * on a paragraph that isn't in that shape rather than silently dropping it, so a malformed FAQ edit fails
+ * the build instead of vanishing from the README.
+ */
+function parseFaqEntries(): FaqEntry[] {
+  return GENERATIVE_AI_FAQ.split(/\r?\n\r?\n/).map((paragraph) => {
+    const match = /^\*\*(.+?)\*\*\s*([\s\S]+)$/.exec(paragraph.trim());
+    if (!match?.[1] || !match[2]) {
+      throw new Error(`FAQ entry is not in "**Question?** Answer" form: ${paragraph.slice(0, 60)}…`);
+    }
+    return { question: match[1], answer: match[2].trim() };
+  });
+}
+
+/**
+ * Render {@link GENERATIVE_AI_FAQ} as the README's per-question collapsible FAQ: each Q&A becomes a
+ * default-collapsed `<details>` whose `<summary>` is the bold question and whose body is the answer. The
+ * blank lines around the answer are required for GitHub to render the answer's markdown (the inline
+ * `code` spans) inside the `<details>`.
+ *
+ * README-only, exactly like {@link renderCollapsibleFeatures}: `llms.txt` keeps the flat
+ * {@link GENERATIVE_AI_FAQ} string, where `<details>` markup would be noise a model has to strip — so the
+ * human-facing README collapses while the AI-facing surface stays plain, both from this one source.
+ */
+export function renderCollapsibleFaq(): string {
+  return parseFaqEntries()
+    .map(({ question, answer }) =>
+      ["<details>", `<summary><strong>${escapeHtml(question)}</strong></summary>`, "", answer, "", "</details>"].join(
+        "\n",
+      ),
+    )
+    .join("\n\n");
+}
+
+/**
+ * Render the English README's FAQ region from {@link renderCollapsibleFaq}, fenced by
  * {@link FAQ_REGION_START}/{@link FAQ_REGION_END} so {@link spliceReadmeFaq} can swap the whole block.
- * The FAQ thus has one source and stays byte-identical to the `## FAQ` section {@link renderLlmsTxt} emits.
+ * The FAQ has one source ({@link GENERATIVE_AI_FAQ}) shared with the flat `## FAQ` section
+ * {@link renderLlmsTxt} emits, so the README and `llms.txt` can't drift question-for-question.
  */
 export function renderFaqRegion(): string {
-  return [FAQ_REGION_START, "", GENERATIVE_AI_FAQ, "", FAQ_REGION_END].join("\n");
+  return [FAQ_REGION_START, "", renderCollapsibleFaq(), "", FAQ_REGION_END].join("\n");
 }
 
 /**
