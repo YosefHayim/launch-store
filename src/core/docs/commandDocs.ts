@@ -495,12 +495,13 @@ interface FaqEntry {
 
 /**
  * Split {@link GENERATIVE_AI_FAQ} into its {@link FaqEntry} pairs. Each source paragraph is a single
- * `**Question?** Answer` block separated by blank lines, so we split on the blank lines and peel the
- * leading bold question off each. Throws on a paragraph that isn't in that shape rather than silently
- * dropping it, so a malformed FAQ edit fails the build instead of vanishing from the README.
+ * `**Question?** Answer` block separated by a blank line, so we split on the blank line (LF or CRLF, so a
+ * Windows checkout can't collapse every Q&A into one) and peel the leading bold question off each. Throws
+ * on a paragraph that isn't in that shape rather than silently dropping it, so a malformed FAQ edit fails
+ * the build instead of vanishing from the README.
  */
 function parseFaqEntries(): FaqEntry[] {
-  return GENERATIVE_AI_FAQ.split("\n\n").map((paragraph) => {
+  return GENERATIVE_AI_FAQ.split(/\r?\n\r?\n/).map((paragraph) => {
     const match = /^\*\*(.+?)\*\*\s*([\s\S]+)$/.exec(paragraph.trim());
     if (!match?.[1] || !match[2]) {
       throw new Error(`FAQ entry is not in "**Question?** Answer" form: ${paragraph.slice(0, 60)}…`);

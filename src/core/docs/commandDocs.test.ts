@@ -176,8 +176,9 @@ describe("renderFaqRegion", () => {
 
 describe("renderCollapsibleFaq (the README's per-question collapsible FAQ)", () => {
   const block = renderCollapsibleFaq();
-  // The FAQ source is one `**Q?** A` paragraph per blank-line-separated block, so this is the entry count.
-  const entryCount = GENERATIVE_AI_FAQ.split("\n\n").length;
+  // The FAQ source is one `**Q?** A` paragraph per blank-line-separated block, so this is the entry count
+  // (blank line matched LF-or-CRLF, matching the parser, so a Windows checkout can't skew the count).
+  const entryCount = GENERATIVE_AI_FAQ.split(/\r?\n\r?\n/).length;
 
   it("wraps every Q&A in a default-collapsed <details> with the question as the summary", () => {
     expect(block.match(/<details>/g)).toHaveLength(entryCount);
