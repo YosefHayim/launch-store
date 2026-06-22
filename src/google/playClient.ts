@@ -18,12 +18,10 @@
  * @see https://developers.google.com/android-publisher
  */
 
-import { SignJWT, importPKCS8 } from "jose";
+import { ServiceAccountTokenSource } from "./serviceAccountToken.js";
 
 const BASE_URL = "https://androidpublisher.googleapis.com/androidpublisher/v3";
 const OAUTH_SCOPE = "https://www.googleapis.com/auth/androidpublisher";
-/** Google rejects assertions older than an hour; 50 minutes leaves comfortable margin. */
-const ASSERTION_TTL_SECONDS = 50 * 60;
 /**
  * Region snapshot the subscriptions monetization API pins prices against — a required query parameter on
  * every subscription/offer write. `2022/02` is Google's current published version; bump it here if Google
@@ -47,12 +45,6 @@ export interface ServiceAccount {
   tokenUri: string;
   /** Key id (`private_key_id`); set as the JWT `kid` so Google can pick the right public key. */
   privateKeyId?: string;
-}
-
-/** A cached OAuth2 access token plus the epoch-seconds instant it stops being usable. */
-interface CachedToken {
-  value: string;
-  expiresAt: number;
 }
 
 /** One release within a Play track, as the API returns it (the slice Launch reads/writes). */
@@ -332,45 +324,11 @@ export function parseServiceAccount(json: string): ServiceAccount {
 
 /** Client bound to one Play service account. */
 export class GooglePlayClient {
-  private cached: CachedToken | null = null;
+  /** Shared JWT-bearer token source, pinned to the `androidpublisher` scope this client needs. */
+  private readonly tokens: ServiceAccountTokenSource;
 
-  constructor(private readonly account: ServiceAccount) {}
-
-  /** Mint (and cache) an OAuth2 access token via the JWT-bearer grant. */
-  private async accessToken(): Promise<string> {
-    const now = Math.floor(Date.now() / 1000);
-    if (this.cached && this.cached.expiresAt - 60 > now) return this.cached.value;
-
-    const privateKey = await importPKCS8(this.account.privateKey, "RS256");
-    const assertion = await new SignJWT({ scope: OAUTH_SCOPE })
-      .setProtectedHeader({
-        alg: "RS256",
-        typ: "JWT",
-        ...(this.account.privateKeyId ? { kid: this.account.privateKeyId } : {}),
-      })
-      .setIssuer(this.account.clientEmail)
-      .setSubject(this.account.clientEmail)
-      .setAudience(this.account.tokenUri)
-      .setIssuedAt(now)
-      .setExpirationTime(now + ASSERTION_TTL_SECONDS)
-      .sign(privateKey);
-
-    const response = await fetch(this.account.tokenUri, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-        assertion,
-      }),
-    });
-    const text = await response.text();
-    if (!response.ok) {
-      throw new Error(`Google token exchange failed (${response.status}): ${describePlayErrors(text)}`);
-    }
-    const token = JSON.parse(text) as { access_token?: string; expires_in?: number };
-    if (!token.access_token) throw new Error("Google token exchange returned no access_token.");
-    this.cached = { value: token.access_token, expiresAt: now + (token.expires_in ?? 3600) };
-    return token.access_token;
+  constructor(account: ServiceAccount) {
+    this.tokens = new ServiceAccountTokenSource(account, OAUTH_SCOPE);
   }
 
   /**
@@ -382,7 +340,7 @@ export class GooglePlayClient {
     const response = await fetch(`${BASE_URL}${path}`, {
       method,
       headers: {
-        Authorization: `Bearer ${await this.accessToken()}`,
+        Authorization: `Bearer ${await this.tokens.token()}`,
         ...(body === undefined ? {} : { "Content-Type": "application/json" }),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),

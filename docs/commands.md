@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **210 App Store Connect & Google Play API operations** across **61 commands**, guarded by **1721 tests**.
+> Launch wraps **210 App Store Connect & Google Play API operations** across **62 commands**, guarded by **1745 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -660,6 +660,25 @@ read or set the Google Groups allowed to test a track
 | `-y, --yes`         | skip the confirmation prompt (for CI)                          |
 
 ### `launch play-tracks help [command]`
+
+display help for command
+
+## `launch play-reports`
+
+read Android quality vitals (crash/ANR rate) from the Play Developer Reporting API
+
+### `launch play-reports vitals`
+
+show crash-rate and ANR-rate trends for an Android app (DAILY)
+
+| Flag                    | Description                                    |
+| ----------------------- | ---------------------------------------------- |
+| `-a, --app <name>`      | app handle (auto-selected if there's only one) |
+| `--metric <crash\|anr>` | show only one vital (default: both)            |
+| `--days <n>`            | how many days of history to show (default: 28) |
+| `--json`                | output machine-readable JSON                   |
+
+### `launch play-reports help [command]`
 
 display help for command
 
