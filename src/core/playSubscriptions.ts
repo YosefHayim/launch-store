@@ -51,6 +51,16 @@ const PERIOD_ISO: Record<SubscriptionPeriod, string> = {
   ONE_YEAR: "P1Y",
 };
 
+/** Inverse of {@link PERIOD_ISO}, derived from it so the two never drift, for reading a captured base plan back. */
+const PERIOD_FROM_ISO: Record<string, SubscriptionPeriod> = Object.fromEntries(
+  Object.entries(PERIOD_ISO).map(([period, iso]) => [iso, period as SubscriptionPeriod]),
+);
+
+/** Map an ISO-8601 billing duration (e.g. `P1M`) back to a config {@link SubscriptionPeriod}, or `undefined`. */
+export function periodFromIso(iso: string): SubscriptionPeriod | undefined {
+  return PERIOD_FROM_ISO[iso];
+}
+
 /**
  * The slice of {@link GooglePlayClient} the subscriptions reconciler depends on. Declared here (not the
  * concrete client) so the logic is unit-testable with a hand-rolled fake; `GooglePlayClient` satisfies it
@@ -107,6 +117,11 @@ export function microsToMoney(price: PlayPriceConfig): PlayMoneyUnits {
     units: (micros / 1_000_000n).toString(),
     nanos: Number((micros % 1_000_000n) * 1_000n),
   };
+}
+
+/** Inverse of {@link microsToMoney}: a subscriptions `units`+`nanos` money back to a micro-unit string (1.99 → 1,990,000). */
+export function unitsToMicros(money: PlayMoneyUnits): string {
+  return (BigInt(money.units) * 1_000_000n + BigInt(money.nanos) / 1_000n).toString();
 }
 
 /** Map the shared localizations to Play subscription listings (Play requires a description; fall back to the title). */

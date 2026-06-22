@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1791 tests**.
+> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1799 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -1045,7 +1045,7 @@ delete old user snapshots by count and/or age (auto pre-sync baselines are never
 
 ### `launch snapshot restore <name>`
 
-restore a saved snapshot's App Store listing back to live (additive; --yes to apply)
+restore a saved snapshot's App Store listing + Play catalog back to live (additive; --yes to apply)
 
 | Flag                | Description                                                      |
 | ------------------- | ---------------------------------------------------------------- |

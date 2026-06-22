@@ -8,8 +8,9 @@
  * Like `launch plan` / `launch store doctor`, the command owns no capture/restore logic: it resolves
  * credentials via the shared `core/storeClients.ts` resolvers, runs every registered snapshot source, and
  * renders. A new captured/restorable surface is a new source file, never an edit here. Restore is wired
- * per-source — config-complete sources (App Store listing) write; summary-grade catalog sources stay
- * preview-only until their capture is enriched (see #191). `--json` on every subcommand makes it scriptable.
+ * per-source — config-complete sources write (the App Store listing and the Play catalog: products +
+ * subscriptions); the Apple catalog sources stay preview-only, as App Store Connect exposes no reader for
+ * an in-app purchase's current price (see #191). `--json` on every subcommand makes it scriptable.
  */
 
 import { writeFileSync } from "node:fs";
@@ -372,17 +373,22 @@ function savedEntitiesFor(snapshot: Snapshot, sourceId: string, appSelector: str
   return report.outcome.apps.filter((app) => wanted.has(app.app));
 }
 
-/** Build the write-capable restore context: config + apps narrowed by `-a` + the read-write ASC resolver. */
+/** Build the write-capable restore context: config + apps narrowed by `-a` + the read-write ASC and Play resolvers. */
 async function buildRestoreContext(appSelector: string | undefined): Promise<RestoreContext> {
   const { config, apps } = await loadConfig();
-  return { config, apps: selectApps(apps, appSelector), resolveAscWriteClient: createAscClientResolver() };
+  return {
+    config,
+    apps: selectApps(apps, appSelector),
+    resolveAscWriteClient: createAscClientResolver(),
+    resolvePlayWriteClient: createPlayClientResolver(),
+  };
 }
 
 /**
- * `snapshot restore <name>` — push a saved snapshot's listing back to live. Additive: it only creates/patches
- * text, never removes it. A dry-run plan is shown by default; `--yes` applies it. Only config-complete
- * surfaces (App Store listing) write — summary-grade catalog surfaces are reported as preview-only. The
- * cross-surface `diff` (saved → live) is included under `--json` so an agent sees drift the writer can't undo.
+ * `snapshot restore <name>` — push a saved snapshot back to live. Additive: it only creates/patches, never
+ * removes. A dry-run plan is shown by default; `--yes` applies it. Only config-complete surfaces write (the
+ * App Store listing and the Play catalog) — the Apple catalog is reported as preview-only. The cross-surface
+ * `diff` (saved → live) is included under `--json` so an agent sees drift the writer can't undo.
  */
 export async function runSnapshotRestore(input: RestoreOptions & { name: string }): Promise<void> {
   const log = createLogger(false);
@@ -458,7 +464,9 @@ function renderRestore(
   if (previewOnly.length > 0) {
     log.gap();
     log.warn(`Preview-only (no restore support yet): ${previewOnly.join(", ")}`);
-    log.tip("these surfaces capture a summary-grade record; restore is wired for the App Store listing today");
+    log.tip(
+      "the Apple catalog captures a summary-grade record; restore is wired for the App Store listing + Play catalog",
+    );
   }
 
   log.gap();
@@ -539,7 +547,7 @@ export function registerSnapshotCommand(program: Command): void {
 
   snapshot
     .command("restore <name>")
-    .description("restore a saved snapshot's App Store listing back to live (additive; --yes to apply)")
+    .description("restore a saved snapshot's App Store listing + Play catalog back to live (additive; --yes to apply)")
     .option("-a, --app <names>", "comma-separated app handles (default: all apps)")
     .option("--source <id>", "restore only this source (e.g. apple-listing)")
     .option("--yes", "actually apply the restore (without it, a dry-run plan is shown)", false)
