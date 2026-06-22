@@ -1670,3 +1670,26 @@ export interface PlayVitalsRow {
   /** Distinct users observed that day (the rate denominator), or undefined when absent. */
   distinctUsers?: number;
 }
+
+/**
+ * A day window for a vitals query, as ISO `YYYY-MM-DD` strings (both ends inclusive). Produced by
+ * `resolveVitalsWindow` from a metric set's freshness and consumed by the Play Developer Reporting
+ * query methods, so a request never reaches past the data Google has finished aggregating.
+ */
+export interface VitalsWindow {
+  /** First day to include (inclusive), `YYYY-MM-DD`. */
+  startDate: string;
+  /** Last day to include (inclusive), `YYYY-MM-DD`. */
+  endDate: string;
+}
+
+/**
+ * One vital's resolved timeline: the metric, the window actually queried (after freshness bounding),
+ * and its normalized daily rows. The result of `PlayReportingClient.vitalsTimeline` — the unit the
+ * `launch play-reports vitals` command renders.
+ */
+export interface VitalsTimeline {
+  metric: PlayVitalsMetric;
+  window: VitalsWindow;
+  rows: PlayVitalsRow[];
+}

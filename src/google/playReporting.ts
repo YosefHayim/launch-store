@@ -18,7 +18,7 @@
 
 import { ServiceAccountTokenSource } from "./serviceAccountToken.js";
 import { describePlayErrors, type ServiceAccount } from "./playClient.js";
-import type { PlayVitalsMetric, PlayVitalsRow } from "../core/types.js";
+import type { PlayVitalsMetric, PlayVitalsRow, VitalsTimeline, VitalsWindow } from "../core/types.js";
 
 const BASE_URL = "https://playdeveloperreporting.googleapis.com/v1beta1";
 /** Distinct from the Play Developer API scope — the reporting API rejects an `androidpublisher` token. */
@@ -87,25 +87,6 @@ interface ApiFreshness {
 /** The `:get` response: a metric set's freshness summary (the latest available day per period). */
 interface ApiMetricSetResource {
   freshnessInfo?: { freshnesses?: ApiFreshness[] };
-}
-
-/** A half-open day window for a vitals query, as ISO `YYYY-MM-DD` strings. */
-export interface VitalsWindow {
-  /** First day to include (inclusive), `YYYY-MM-DD`. */
-  startDate: string;
-  /** Last day to include (inclusive), `YYYY-MM-DD`. */
-  endDate: string;
-}
-
-/**
- * One vital's resolved timeline: the metric, the window actually queried (after freshness bounding),
- * and its normalized daily rows. The result of {@link PlayReportingClient.vitalsTimeline} — the unit
- * the `play-reports vitals` command renders.
- */
-export interface VitalsTimeline {
-  metric: PlayVitalsMetric;
-  window: VitalsWindow;
-  rows: PlayVitalsRow[];
 }
 
 /** How many days of history the default vitals window spans, ending at the freshest available day. */

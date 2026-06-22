@@ -19,16 +19,11 @@
 
 import type { Command } from "commander";
 import { parseServiceAccount } from "../../google/playClient.js";
-import {
-  DEFAULT_VITALS_DAYS,
-  MAX_VITALS_DAYS,
-  PlayReportingClient,
-  type VitalsTimeline,
-} from "../../google/playReporting.js";
+import { DEFAULT_VITALS_DAYS, MAX_VITALS_DAYS, PlayReportingClient } from "../../google/playReporting.js";
 import { loadServiceAccount } from "../../google/credentials.js";
 import { loadConfig } from "../../core/config.js";
 import { selectApp } from "../../core/pipeline.js";
-import type { PlayVitalsMetric } from "../../core/types.js";
+import type { PlayVitalsMetric, VitalsTimeline } from "../../core/types.js";
 
 /** Options for `play-reports vitals`. */
 interface VitalsOptions {
