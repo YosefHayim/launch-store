@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { appleProductsSource } from "./appleProducts.js";
 import { appleSubscriptionsSource } from "./appleSubscriptions.js";
 import { appleListingSource } from "./appleListing.js";
@@ -6,8 +6,16 @@ import { appleCapabilitiesSource } from "./appleCapabilities.js";
 import { playProductsSource } from "./playProducts.js";
 import { playSubscriptionsSource } from "./playSubscriptions.js";
 import { makeAscCatalogApiFake } from "../../ascCatalogApi.testkit.js";
-import type { AppEntities, RestoreInput, SnapshotAscApi, SnapshotContext, SnapshotPlayApi } from "../types.js";
+import type {
+  AppEntities,
+  RestoreContext,
+  RestoreInput,
+  SnapshotAscApi,
+  SnapshotContext,
+  SnapshotPlayApi,
+} from "../types.js";
 import type { AppDescriptor, LaunchConfig } from "../../types.js";
+import type { PlayCatalogApi } from "../../plan/types.js";
 
 const CONFIG: LaunchConfig = {
   profiles: {},
@@ -65,7 +73,18 @@ const playApi: SnapshotPlayApi = {
       {
         productId: "sub.pro",
         basePlans: [
-          { basePlanId: "monthly", state: "ACTIVE", autoRenewingBasePlanType: { billingPeriodDuration: "P1M" } },
+          {
+            basePlanId: "monthly",
+            state: "ACTIVE",
+            autoRenewingBasePlanType: { billingPeriodDuration: "P1M" },
+            regionalConfigs: [
+              {
+                regionCode: "US",
+                newSubscriberAvailability: true,
+                price: { currencyCode: "USD", units: "4", nanos: 990000000 },
+              },
+            ],
+          },
         ],
         listings: [{ languageCode: "en-US", title: "Pro", description: "Pro plan" }],
       },
@@ -210,7 +229,14 @@ describe("playSubscriptionsSource", () => {
         summary: "Play subscription (1 base plan(s))",
         data: {
           productId: "sub.pro",
-          basePlans: [{ basePlanId: "monthly", state: "ACTIVE", period: "P1M" }],
+          basePlans: [
+            {
+              basePlanId: "monthly",
+              state: "ACTIVE",
+              period: "P1M",
+              prices: { US: { priceMicros: "4990000", currency: "USD" } },
+            },
+          ],
           listings: [{ languageCode: "en-US", title: "Pro" }],
         },
       },
@@ -290,7 +316,12 @@ describe("appleListingSource.restore", () => {
 
   function input(over: Partial<RestoreInput>): RestoreInput {
     return {
-      ctx: { config: CONFIG, apps: [], resolveAscWriteClient: () => Promise.resolve(null) },
+      ctx: {
+        config: CONFIG,
+        apps: [],
+        resolveAscWriteClient: () => Promise.resolve(null),
+        resolvePlayWriteClient: () => Promise.resolve(null),
+      },
       saved,
       dryRun: true,
       ...over,
@@ -307,7 +338,14 @@ describe("appleListingSource.restore", () => {
   it("plans the routed listing fields in a dry-run without writing", async () => {
     const api = makeAscCatalogApiFake();
     const report = await restoreOf()(
-      input({ ctx: { config: CONFIG, apps: [], resolveAscWriteClient: () => Promise.resolve(api) } }),
+      input({
+        ctx: {
+          config: CONFIG,
+          apps: [],
+          resolveAscWriteClient: () => Promise.resolve(api),
+          resolvePlayWriteClient: () => Promise.resolve(null),
+        },
+      }),
     );
     const descriptions = report.actions.map((action) => action.description);
     expect(descriptions.some((line) => line.includes("App Info") && line.includes("name"))).toBe(true);
@@ -320,7 +358,15 @@ describe("appleListingSource.restore", () => {
   it("applies the inverted listing, round-tripping keywords back to a comma string", async () => {
     const api = makeAscCatalogApiFake();
     const report = await restoreOf()(
-      input({ dryRun: false, ctx: { config: CONFIG, apps: [], resolveAscWriteClient: () => Promise.resolve(api) } }),
+      input({
+        dryRun: false,
+        ctx: {
+          config: CONFIG,
+          apps: [],
+          resolveAscWriteClient: () => Promise.resolve(api),
+          resolvePlayWriteClient: () => Promise.resolve(null),
+        },
+      }),
     );
     expect(api.createAppInfoLocalization).toHaveBeenCalledWith(
       "appinfo1",
@@ -333,5 +379,221 @@ describe("appleListingSource.restore", () => {
       expect.objectContaining({ description: "Great app", keywords: "acme,tools", whatsNew: "Bug fixes" }),
     );
     expect(report.actions.every((action) => action.status === "applied")).toBe(true);
+  });
+});
+
+/** A fully-stubbed {@link PlayCatalogApi}. Reads default to "nothing exists yet"; writes resolve. */
+function makePlayApi(overrides: Partial<PlayCatalogApi> = {}): PlayCatalogApi {
+  const base: PlayCatalogApi = {
+    assertAppExists: vi.fn().mockResolvedValue(undefined),
+    listInAppProducts: vi.fn().mockResolvedValue([]),
+    insertInAppProduct: vi.fn().mockResolvedValue(undefined),
+    updateInAppProduct: vi.fn().mockResolvedValue(undefined),
+    listSubscriptions: vi.fn().mockResolvedValue([]),
+    createSubscription: vi.fn().mockResolvedValue(undefined),
+    patchSubscription: vi.fn().mockResolvedValue(undefined),
+    activateBasePlan: vi.fn().mockResolvedValue(undefined),
+    listSubscriptionOffers: vi.fn().mockResolvedValue([]),
+    createSubscriptionOffer: vi.fn().mockResolvedValue(undefined),
+    activateSubscriptionOffer: vi.fn().mockResolvedValue(undefined),
+  };
+  return { ...base, ...overrides };
+}
+
+/** A restore context defaulting both write resolvers to "no account"; override the one under test. */
+function restoreCtx(over: Partial<RestoreContext> = {}): RestoreContext {
+  return {
+    config: CONFIG,
+    apps: [],
+    resolveAscWriteClient: () => Promise.resolve(null),
+    resolvePlayWriteClient: () => Promise.resolve(null),
+    ...over,
+  };
+}
+
+describe("playProductsSource.restore", () => {
+  /** One app's captured managed product — the same shape `playProductsSource.capture` records. */
+  const savedProducts: AppEntities[] = [
+    {
+      app: "alpha",
+      identifier: "com.acme.alpha",
+      entities: [
+        {
+          key: "coins",
+          summary: "Play product (active)",
+          data: {
+            sku: "coins",
+            status: "active",
+            defaultLanguage: "en-US",
+            defaultPrice: { priceMicros: "990000", currency: "USD" },
+            listings: { "en-US": { title: "Coins", description: "A pile of coins" } },
+          },
+        },
+      ],
+    },
+  ];
+
+  /** Narrow the optional `restore` to a callable, failing the test if the source ever drops it. */
+  function restoreOf(): NonNullable<typeof playProductsSource.restore> {
+    const restore = playProductsSource.restore;
+    if (!restore) throw new Error("expected playProductsSource to implement restore");
+    return restore;
+  }
+
+  function input(over: Partial<RestoreInput>): RestoreInput {
+    return { ctx: restoreCtx(), saved: savedProducts, dryRun: true, ...over };
+  }
+
+  it("skips with no writes when no Play service account is configured", async () => {
+    const report = await restoreOf()(input({}));
+    expect(report.actions).toEqual([
+      { description: "Google Play products: skipped — no Play service account", destructive: false, status: "skipped" },
+    ]);
+  });
+
+  it("plans a create in a dry-run without inserting", async () => {
+    const api = makePlayApi();
+    const report = await restoreOf()(
+      input({ ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }) }),
+    );
+    expect(report.actions).toEqual([
+      { description: "create Play product coins", destructive: false, status: "planned" },
+    ]);
+    expect(api.insertInAppProduct).toHaveBeenCalledTimes(0);
+  });
+
+  it("applies a create, inverting the captured listing and default price", async () => {
+    const api = makePlayApi();
+    const report = await restoreOf()(
+      input({ dryRun: false, ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }) }),
+    );
+    expect(api.insertInAppProduct).toHaveBeenCalledWith(
+      "com.acme.alpha",
+      expect.objectContaining({
+        sku: "coins",
+        defaultLanguage: "en-US",
+        defaultPrice: { priceMicros: "990000", currency: "USD" },
+      }),
+    );
+    expect(report.actions.every((action) => action.status === "applied")).toBe(true);
+  });
+
+  it("skips a product with no captured listing", async () => {
+    const api = makePlayApi();
+    const report = await restoreOf()(
+      input({
+        ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }),
+        saved: [
+          {
+            app: "alpha",
+            identifier: "com.acme.alpha",
+            entities: [{ key: "coins", summary: "", data: { sku: "coins" } }],
+          },
+        ],
+      }),
+    );
+    expect(report.actions).toEqual([
+      { description: "Play product coins: skipped — no listing to restore", destructive: false, status: "skipped" },
+    ]);
+    expect(api.insertInAppProduct).toHaveBeenCalledTimes(0);
+  });
+});
+
+describe("playSubscriptionsSource.restore", () => {
+  /** One app's captured subscription — the same shape `playSubscriptionsSource.capture` records. */
+  const savedSubs: AppEntities[] = [
+    {
+      app: "alpha",
+      identifier: "com.acme.alpha",
+      entities: [
+        {
+          key: "sub.pro",
+          summary: "Play subscription (1 base plan(s))",
+          data: {
+            productId: "sub.pro",
+            basePlans: [
+              {
+                basePlanId: "monthly",
+                state: "ACTIVE",
+                period: "P1M",
+                prices: { US: { priceMicros: "4990000", currency: "USD" } },
+              },
+            ],
+            listings: [{ languageCode: "en-US", title: "Pro" }],
+          },
+        },
+      ],
+    },
+  ];
+
+  /** Narrow the optional `restore` to a callable, failing the test if the source ever drops it. */
+  function restoreOf(): NonNullable<typeof playSubscriptionsSource.restore> {
+    const restore = playSubscriptionsSource.restore;
+    if (!restore) throw new Error("expected playSubscriptionsSource to implement restore");
+    return restore;
+  }
+
+  function input(over: Partial<RestoreInput>): RestoreInput {
+    return { ctx: restoreCtx(), saved: savedSubs, dryRun: true, ...over };
+  }
+
+  it("skips with no writes when no Play service account is configured", async () => {
+    const report = await restoreOf()(input({}));
+    expect(report.actions).toEqual([
+      {
+        description: "Google Play subscriptions: skipped — no Play service account",
+        destructive: false,
+        status: "skipped",
+      },
+    ]);
+  });
+
+  it("plans the create + base-plan activation in a dry-run without writing", async () => {
+    const api = makePlayApi();
+    const report = await restoreOf()(
+      input({ ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }) }),
+    );
+    const descriptions = report.actions.map((action) => action.description);
+    expect(descriptions).toEqual(["create Play subscription sub.pro", "activate base plan monthly"]);
+    expect(report.actions.every((action) => action.status === "planned")).toBe(true);
+    expect(api.createSubscription).toHaveBeenCalledTimes(0);
+  });
+
+  it("applies the create, inverting the base plan's period and prices", async () => {
+    const api = makePlayApi();
+    await restoreOf()(
+      input({ dryRun: false, ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }) }),
+    );
+    expect(api.createSubscription).toHaveBeenCalledWith(
+      "com.acme.alpha",
+      expect.objectContaining({ productId: "sub.pro" }),
+    );
+    expect(api.activateBasePlan).toHaveBeenCalledWith("com.acme.alpha", "sub.pro", "monthly");
+  });
+
+  it("skips a subscription whose base plan has no known period or prices", async () => {
+    const api = makePlayApi();
+    const report = await restoreOf()(
+      input({
+        ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }),
+        saved: [
+          {
+            app: "alpha",
+            identifier: "com.acme.alpha",
+            entities: [
+              { key: "sub.pro", summary: "", data: { productId: "sub.pro", basePlans: [{ basePlanId: "monthly" }] } },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(report.actions).toEqual([
+      {
+        description: "Play subscription sub.pro: skipped — needs a base plan with a known period and prices",
+        destructive: false,
+        status: "skipped",
+      },
+    ]);
+    expect(api.createSubscription).toHaveBeenCalledTimes(0);
   });
 });
