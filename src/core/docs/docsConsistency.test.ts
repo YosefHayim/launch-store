@@ -104,11 +104,13 @@ describe("the translated READMEs stay in structural parity with English (no sile
   it("match README.md's section count and FAQ-question count, so a translation can't fall behind", () => {
     // Heading TEXT is translated, but the markdown skeleton is not: split on `## ` and compare the section
     // count, then the FAQ section question-for-question. The FAQ section is found by English's heading,
-    // then by the SAME position in each translation (section order is identical). FAQ entries are
-    // single-line `**Question?**` paragraphs, so counting line-leading `**` inside that one section is
-    // exact and wrap-insensitive — unlike a whole-file count, which trips on prose-wrap artifacts.
+    // then by the SAME position in each translation (section order is identical). The English README renders
+    // each FAQ entry as a collapsible `<details>` whose `<summary>` holds the question, while the translations
+    // keep flat single-line `**Question?**` paragraphs — so a question is a line that starts with either
+    // `<summary` or `**`. Counting those inside that one section is exact and wrap-insensitive — unlike a
+    // whole-file count, which trips on prose-wrap artifacts.
     const sectionsOf = (md: string): string[] => md.split(/^## /m);
-    const countQuestions = (section: string): number => (section.match(/^\*\*/gm) ?? []).length;
+    const countQuestions = (section: string): number => (section.match(/^(?:<summary|\*\*)/gm) ?? []).length;
     const english = sectionsOf(read("README.md"));
     const faqIndex = english.findIndex((section) => section.startsWith("FAQ"));
     expect(faqIndex, "could not find the '## FAQ' section in README.md").toBeGreaterThan(-1);
