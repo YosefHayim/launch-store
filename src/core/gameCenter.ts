@@ -33,8 +33,8 @@ import {
   type LeaderboardSortType,
   type LeaderboardSubmissionType,
 } from "../apple/ascClient.js";
-import { skip, type ReconcileContext } from "./asc/storeSync.js";
-import type { PlannedAction } from "./ascSync.js";
+import { appRecordMissing, plan, skip, type PlannedAction, type ReconcileContext } from "./asc/storeSync.js";
+import { errorMessage } from "./errorMessage.js";
 import { asRecord } from "./json.js";
 import type { AchievementConfig, GameCenterConfig, LeaderboardConfig } from "./types.js";
 
@@ -90,21 +90,6 @@ export interface GameCenterReconcileInput {
   dryRun: boolean;
 }
 
-/** Push a planned action and return its handle, so the caller can mark it applied/failed after running. */
-function plan(ctx: ReconcileContext, description: string): PlannedAction {
-  const action: PlannedAction = { description, destructive: false, status: "planned" };
-  ctx.actions.push(action);
-  return action;
-}
-
-/** The actionable error when an app has no App Store Connect record (Apple has no API to create one). */
-function appRecordMissing(bundleId: string): Error {
-  return new Error(
-    `No App Store Connect app record for ${bundleId}. Create the app once in App Store Connect ` +
-      `(Apple has no API to create the app record), then re-run \`launch game-center\`.`,
-  );
-}
-
 /** Where the detail stands after ensuring it: its id (and whether it pre-existed) or `null` when create failed. */
 type EnsuredDetail = { detailId: string | null; existed: boolean } | null;
 
@@ -121,7 +106,7 @@ export async function reconcileGameCenter(
   const { config } = input;
 
   const appId = await api.getAppId(input.bundleId);
-  if (!appId) throw appRecordMissing(input.bundleId);
+  if (!appId) throw appRecordMissing(input.bundleId, "game-center");
 
   const detail = await ensureDetail(ctx, api, appId);
   if (!detail) {
@@ -147,7 +132,7 @@ async function ensureDetail(ctx: ReconcileContext, api: AscGameCenterApi, appId:
     return { detailId: created.id, existed: false };
   } catch (error) {
     action.status = "failed";
-    action.error = error instanceof Error ? error.message : String(error);
+    action.error = errorMessage(error);
     return null;
   }
 }
@@ -188,7 +173,7 @@ async function reconcileAchievements(
       versionId = result.versionId;
     } catch (error) {
       create.status = "failed";
-      create.error = error instanceof Error ? error.message : String(error);
+      create.error = errorMessage(error);
       locAction.status = "skipped";
       continue;
     }
@@ -239,7 +224,7 @@ async function reconcileLeaderboards(
       versionId = result.versionId;
     } catch (error) {
       create.status = "failed";
-      create.error = error instanceof Error ? error.message : String(error);
+      create.error = errorMessage(error);
       locAction.status = "skipped";
       continue;
     }
@@ -270,7 +255,7 @@ async function applyLocalization(
     action.status = "applied";
   } catch (error) {
     action.status = "failed";
-    action.error = error instanceof Error ? error.message : String(error);
+    action.error = errorMessage(error);
   }
 }
 

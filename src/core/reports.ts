@@ -26,6 +26,7 @@ import type {
   AnalyticsReportResource,
   AnalyticsReportSegmentResource,
 } from "../apple/ascClient.js";
+import { appRecordNotFound } from "./asc/storeSync.js";
 
 /** Decompress a gzipped report body to its UTF-8 text (Apple delivers reports gzip-compressed). */
 export function decompressReport(bytes: Buffer): string {
@@ -185,7 +186,7 @@ export async function collectAnalyticsSegments(
   query: AnalyticsQuery,
 ): Promise<AnalyticsCollection> {
   const appId = await api.getAppId(query.bundleId);
-  if (!appId) throw appRecordMissing(query.bundleId);
+  if (!appId) throw appRecordNotFound(query.bundleId);
   const { request, created } = await ensureAnalyticsRequest(api, appId, query.accessType);
 
   const reportFilters: { category?: string; name?: string } = {};
@@ -213,12 +214,4 @@ export async function collectAnalyticsSegments(
     }
   }
   return { requestCreated: created, reportCount: reports.length, downloads };
-}
-
-/** Actionable error when a bundle id resolves to no App Store Connect app record. */
-function appRecordMissing(bundleId: string): Error {
-  return new Error(
-    `No App Store Connect app record for ${bundleId}. Confirm the bundle id and that this account ` +
-      `can access the app (Apple has no API to create an app record — it's created once in App Store Connect).`,
-  );
 }

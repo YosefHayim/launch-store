@@ -21,6 +21,7 @@ import type {
   AppEventResource,
   NewAppEvent,
 } from "../apple/ascClient.js";
+import { appRecordNotFound } from "./asc/storeSync.js";
 
 /** The exact slice of {@link AppStoreConnectClient} the in-app-events domain depends on. */
 export interface AscAppEventsApi {
@@ -93,14 +94,6 @@ export interface LocalizeResult {
   replaced: boolean;
 }
 
-/** The "no app record" guidance shared by every events entry point that resolves a bundle id. */
-function appRecordMissing(bundleId: string): Error {
-  return new Error(
-    `No App Store Connect app record for ${bundleId}. Confirm the bundle id and that this account ` +
-      `can access the app (Apple has no API to create an app record — it's created once in App Store Connect).`,
-  );
-}
-
 /** Validate an optional enum attribute, returning the canonical (upper-cased) value or undefined when unset. */
 function validateEnum(field: string, value: string | undefined, allowed: readonly string[]): string | undefined {
   if (value === undefined) return undefined;
@@ -117,7 +110,7 @@ function validateEnum(field: string, value: string | undefined, allowed: readonl
  */
 export async function listEvents(api: AscAppEventsApi, bundleId: string): Promise<AppEventWithLocalizations[]> {
   const appId = await api.getAppId(bundleId);
-  if (!appId) throw appRecordMissing(bundleId);
+  if (!appId) throw appRecordNotFound(bundleId);
 
   const events = await api.listAppEvents(appId);
   return Promise.all(
@@ -142,7 +135,7 @@ export async function createEvent(
   const purpose = validateEnum("purpose", request.purpose, APP_EVENT_PURPOSES);
 
   const appId = await api.getAppId(bundleId);
-  if (!appId) throw appRecordMissing(bundleId);
+  if (!appId) throw appRecordNotFound(bundleId);
 
   return api.createAppEvent(appId, {
     referenceName,

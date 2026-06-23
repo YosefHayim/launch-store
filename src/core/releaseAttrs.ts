@@ -26,7 +26,7 @@ import type {
   AppStoreReviewDetailResource,
   PricePointResource,
 } from "../apple/ascClient.js";
-import { act, skip, type ReconcileContext } from "./asc/storeSync.js";
+import { act, appRecordMissing, skip, type ReconcileContext } from "./asc/storeSync.js";
 import type { ReconcileReport } from "./ascSync.js";
 import { asRecord } from "./json.js";
 import type { ReleaseAttributesConfig, ReleaseCategories, ReleasePricing, ReviewDetailsConfig } from "./types.js";
@@ -73,14 +73,6 @@ export interface ReleaseReconcileInput {
   dryRun: boolean;
 }
 
-/** The actionable error when an app has no App Store Connect record (Apple has no API to create one). */
-function appRecordMissing(bundleId: string): Error {
-  return new Error(
-    `No App Store Connect app record for ${bundleId}. Create the app once in App Store Connect ` +
-      `(Apple has no API to create the app record), then re-run \`launch release-config\`.`,
-  );
-}
-
 /**
  * Reconcile one app's declared release attributes. Throws only for a precondition the user must fix (no
  * ASC app record); everything else is captured per-action so a single failure never aborts the run.
@@ -90,7 +82,7 @@ export async function reconcileRelease(api: AscReleaseApi, input: ReleaseReconci
   const { config } = input;
 
   const appId = await api.getAppId(input.bundleId);
-  if (!appId) throw appRecordMissing(input.bundleId);
+  if (!appId) throw appRecordMissing(input.bundleId, "release-config");
 
   if (config.categories || (config.ageRating && Object.keys(config.ageRating).length > 0)) {
     const appInfo = await api.getAppInfo(appId);
