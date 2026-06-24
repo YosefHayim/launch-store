@@ -21,7 +21,8 @@ import type {
   CustomProductPageResource,
   CustomProductPageVersionResource,
 } from "../apple/ascClient.js";
-import type { PlannedAction } from "./ascSync.js";
+import { appRecordMissing, plan, skip, type PlannedAction, type ReconcileContext } from "./asc/storeSync.js";
+import { errorMessage } from "./errorMessage.js";
 
 /** Custom-product-page version states Apple still lets us edit localizations in. */
 const EDITABLE_VERSION_STATES = new Set(["PREPARE_FOR_SUBMISSION", "REJECTED"]);
@@ -61,37 +62,6 @@ export interface CustomPagesReconcileInput {
   dryRun: boolean;
 }
 
-/** Mutable per-run context threaded through the reconcile walk (mirrors `core/gameCenter.ts`). */
-interface ReconcileContext {
-  actions: PlannedAction[];
-  dryRun: boolean;
-}
-
-/** Push a planned action and return its handle, so the caller can mark it applied/failed after running. */
-function plan(ctx: ReconcileContext, description: string): PlannedAction {
-  const action: PlannedAction = { description, destructive: false, status: "planned" };
-  ctx.actions.push(action);
-  return action;
-}
-
-/** Record a sub-area we can't act on (e.g. a page that couldn't be created) as a skip with a reason. */
-function skip(ctx: ReconcileContext, description: string): void {
-  ctx.actions.push({ description, destructive: false, status: "skipped" });
-}
-
-/** A short message for a thrown value (these paths carry no secrets). */
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-/** The actionable error when an app has no App Store Connect record (Apple has no API to create one). */
-function appRecordMissing(bundleId: string): Error {
-  return new Error(
-    `No App Store Connect app record for ${bundleId}. Create the app once in App Store Connect ` +
-      `(Apple has no API to create the app record), then re-run \`launch custom-pages\`.`,
-  );
-}
-
 /**
  * Reconcile one app's custom product pages. Throws only for a precondition the user must fix (no App
  * Store Connect app record); per-action failures are captured so one never aborts the rest.
@@ -103,7 +73,7 @@ export async function reconcileCustomProductPages(
   const ctx: ReconcileContext = { actions: [], dryRun: input.dryRun };
 
   const appId = await api.getAppId(input.bundleId);
-  if (!appId) throw appRecordMissing(input.bundleId);
+  if (!appId) throw appRecordMissing(input.bundleId, "custom-pages");
 
   const existing = new Map((await api.listCustomProductPages(appId)).map((page) => [page.name, page]));
   for (const page of input.config.pages) {

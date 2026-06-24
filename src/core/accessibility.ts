@@ -28,7 +28,8 @@ import {
   type AccessibilitySupport,
   type DeviceFamily,
 } from "../apple/ascClient.js";
-import type { PlannedAction } from "./ascSync.js";
+import { appRecordMissing, plan, type PlannedAction, type ReconcileContext } from "./asc/storeSync.js";
+import { errorMessage } from "./errorMessage.js";
 
 /** One declared accessibility declaration: a device family plus the nine support flags it claims (all optional). */
 export interface AccessibilityDeclarationConfig extends AccessibilitySupport {
@@ -69,32 +70,6 @@ export interface AccessibilityReconcileInput {
   config: AccessibilityConfig;
   /** Rehearse only: read state and build the plan, perform no writes. */
   dryRun: boolean;
-}
-
-/** Mutable per-run context threaded through the reconcile walk (mirrors `core/gameCenter.ts`). */
-interface ReconcileContext {
-  actions: PlannedAction[];
-  dryRun: boolean;
-}
-
-/** Push a planned action and return its handle, so the caller can mark it applied/failed after running. */
-function plan(ctx: ReconcileContext, description: string): PlannedAction {
-  const action: PlannedAction = { description, destructive: false, status: "planned" };
-  ctx.actions.push(action);
-  return action;
-}
-
-/** The actionable error when an app has no App Store Connect record (Apple has no API to create one). */
-function appRecordMissing(bundleId: string): Error {
-  return new Error(
-    `No App Store Connect app record for ${bundleId}. Create the app once in App Store Connect ` +
-      `(Apple has no API to create the app record), then re-run \`launch accessibility\`.`,
-  );
-}
-
-/** A short message for a thrown value, kept off the secret-bearing paths (declarations carry none). */
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 /** Whether two support maps agree on all nine flags (an absent flag reads as `false`). */
@@ -141,7 +116,7 @@ export async function reconcileAccessibility(
   const publish = input.config.publish === true;
 
   const appId = await api.getAppId(input.bundleId);
-  if (!appId) throw appRecordMissing(input.bundleId);
+  if (!appId) throw appRecordMissing(input.bundleId, "accessibility");
 
   const byFamily = indexEditableByFamily(await api.listAccessibilityDeclarations(appId));
 

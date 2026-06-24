@@ -15,6 +15,7 @@
 import { chmodSync, existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AllocateRequest, AwsConfig, ComputeHost, HostHandle, HostStatus, SshTarget } from "../../core/types.js";
+import { errorMessage } from "../../core/errorMessage.js";
 import { LAUNCH_HOME, ensureDir } from "../../core/paths.js";
 import { consentMessage, costForDurationUsd, releasableAt } from "../../core/cost.js";
 import { getAmiId, setAmiId } from "../../core/cloudState.js";
@@ -239,11 +240,6 @@ export async function runCloudDoctor(aws: AwsConfig): Promise<CloudDoctorResult>
   return { ok: checks.every((check) => check.ok), checks };
 }
 
-/** Narrow an unknown thrown value to a message string. */
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /** First Availability Zone in `available` state (EC2 Mac host + subnet must share an AZ). */
 async function firstAvailableAz(ec2: Ec2Module, client: Ec2Client): Promise<string> {
   const res = await client.send(
@@ -269,7 +265,7 @@ async function allocateHost(ec2: Ec2Module, client: Ec2Client, instanceType: str
     if (!id) throw new Error("AllocateHosts returned no host id.");
     return id;
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     if (/quota|limit|exceeded|insufficient/i.test(message)) {
       throw new Error(
         `AWS won't allocate a Mac Dedicated Host: ${message}\n` +

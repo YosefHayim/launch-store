@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
-import { act, type PlannedAction, type ReconcileContext, skip, summarize } from "./storeSync.js";
+import {
+  act,
+  appRecordMissing,
+  appRecordNotFound,
+  plan,
+  type PlannedAction,
+  type ReconcileContext,
+  skip,
+  summarize,
+} from "./storeSync.js";
 
 /** A fresh apply-mode context (dryRun off) for each test. */
 function applyCtx(): ReconcileContext {
@@ -32,6 +41,36 @@ describe("act", () => {
       status: "failed",
       error: "boom",
     });
+  });
+});
+
+describe("plan", () => {
+  it("appends a planned action and returns its handle so the caller can update its status", () => {
+    const ctx = applyCtx();
+    const action = plan(ctx, "create thing");
+    expect(ctx.actions).toEqual([{ description: "create thing", destructive: false, status: "planned" }]);
+    // The returned handle is the same object that was pushed — mutating it updates the recorded plan.
+    expect(ctx.actions[0]).toBe(action);
+    action.status = "applied";
+    expect(ctx.actions[0]?.status).toBe("applied");
+  });
+});
+
+describe("appRecordMissing", () => {
+  it("names the bundle id and the exact command to re-run after creating the app", () => {
+    expect(appRecordMissing("com.acme.app", "accessibility").message).toBe(
+      "No App Store Connect app record for com.acme.app. Create the app once in App Store Connect " +
+        "(Apple has no API to create the app record), then re-run `launch accessibility`.",
+    );
+  });
+});
+
+describe("appRecordNotFound", () => {
+  it("asks the read-path caller to confirm the bundle id and access, with no create-then-retry remedy", () => {
+    expect(appRecordNotFound("com.acme.app").message).toBe(
+      "No App Store Connect app record for com.acme.app. Confirm the bundle id and that this account " +
+        "can access the app (Apple has no API to create an app record — it's created once in App Store Connect).",
+    );
   });
 });
 

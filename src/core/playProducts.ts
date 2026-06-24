@@ -25,7 +25,8 @@
 
 import type { InAppProductResource, PlayMoney } from "../google/playClient.js";
 import type { InAppPurchaseConfig, PlayPriceConfig } from "./types.js";
-import type { PlannedAction } from "./ascSync.js";
+import { plan, type PlannedAction, type ReconcileContext } from "./asc/storeSync.js";
+import { errorMessage } from "./errorMessage.js";
 
 /** Play's purchase type for a one-off managed (non-subscription) product. */
 const MANAGED_PRODUCT = "managedUser";
@@ -52,24 +53,6 @@ export interface PlayProductsReconcileInput {
   products: InAppPurchaseConfig[];
   /** Rehearse only: read state and build the plan, perform no writes. */
   dryRun: boolean;
-}
-
-/** Mutable per-run context threaded through the reconcile walk (mirrors `core/accessibility.ts`). */
-interface ReconcileContext {
-  actions: PlannedAction[];
-  dryRun: boolean;
-}
-
-/** Push a planned action and return its handle, so the caller can mark it applied/failed after running. */
-function plan(ctx: ReconcileContext, description: string): PlannedAction {
-  const action: PlannedAction = { description, destructive: false, status: "planned" };
-  ctx.actions.push(action);
-  return action;
-}
-
-/** A short message for a thrown value (Play product writes carry no secrets). */
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 /** Map a config price (micro-units + currency) to the client's wire money shape. */

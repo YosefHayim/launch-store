@@ -39,7 +39,8 @@ import type {
   SubscriptionConfig,
   SubscriptionPeriod,
 } from "./types.js";
-import type { PlannedAction } from "./ascSync.js";
+import { plan, type PlannedAction, type ReconcileContext } from "./asc/storeSync.js";
+import { errorMessage } from "./errorMessage.js";
 
 /** Apple billing period → ISO-8601 duration, the form Play's base plans and offer phases want. */
 const PERIOD_ISO: Record<SubscriptionPeriod, string> = {
@@ -89,24 +90,6 @@ export interface PlaySubscriptionsReconcileInput {
   subscriptions: SubscriptionConfig[];
   /** Rehearse only: read state and build the plan, perform no writes. */
   dryRun: boolean;
-}
-
-/** Mutable per-run context threaded through the reconcile walk (mirrors `core/accessibility.ts`). */
-interface ReconcileContext {
-  actions: PlannedAction[];
-  dryRun: boolean;
-}
-
-/** Push a planned action and return its handle, so the caller can mark it applied/failed after running. */
-function plan(ctx: ReconcileContext, description: string): PlannedAction {
-  const action: PlannedAction = { description, destructive: false, status: "planned" };
-  ctx.actions.push(action);
-  return action;
-}
-
-/** A short message for a thrown value (subscription writes carry no secrets). */
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 /** Convert a micro-unit price to the subscriptions API's `units`+`nanos` money shape (1,990,000 → 1.99). */

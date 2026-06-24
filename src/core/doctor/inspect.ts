@@ -19,6 +19,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { checkApp, formatFinding } from "../configCheck.js";
+import { errorMessage } from "../errorMessage.js";
 import { describeExportComplianceConfig } from "../exportCompliance.js";
 import { formatPermissionLine, probeKeyPermissions } from "../ascPermissions.js";
 import { inspectPackageSetup, packageManagerWarnings } from "../packageManager.js";
@@ -31,11 +32,6 @@ import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from ".
 const APP_STORE_CONNECT_APPS_URL = buildConsoleUrl("app-record", "ios", undefined);
 /** Where to create a Play app and enroll in Play App Signing on first release. */
 const PLAY_CONSOLE_URL = buildConsoleUrl("play", "android", undefined);
-
-/** The error message for a thrown value, narrowed without leaking `unknown`. */
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
 
 /**
  * Report the detected package manager + monorepo root and the known Corepack/lockfile footguns. The
