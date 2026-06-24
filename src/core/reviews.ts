@@ -18,6 +18,7 @@
  */
 
 import type { CustomerReviewResource, CustomerReviewResponseResource } from "../apple/ascClient.js";
+import { appRecordNotFound } from "./asc/storeSync.js";
 
 /** The exact slice of {@link AppStoreConnectClient} the reviews domain depends on. */
 export interface AscReviewsApi {
@@ -48,14 +49,6 @@ export interface ReplyResult {
   replaced: boolean;
 }
 
-/** The "no app record" guidance shared by every reviews/reports entry point that resolves a bundle id. */
-function appRecordMissing(bundleId: string): Error {
-  return new Error(
-    `No App Store Connect app record for ${bundleId}. Confirm the bundle id and that this account ` +
-      `can access the app (Apple has no API to create an app record — it's created once in App Store Connect).`,
-  );
-}
-
 /**
  * List an app's customer reviews (newest first), narrowed by the given filters. Resolves the ASC app
  * record from the bundle id first, throwing an actionable error when none exists. Rating and territory
@@ -67,7 +60,7 @@ export async function listReviews(
   filters: ReviewFilters = {},
 ): Promise<CustomerReviewResource[]> {
   const appId = await api.getAppId(bundleId);
-  if (!appId) throw appRecordMissing(bundleId);
+  if (!appId) throw appRecordNotFound(bundleId);
 
   const serverFilters: { rating?: number; territory?: string } = {};
   if (filters.rating !== undefined) serverFilters.rating = filters.rating;

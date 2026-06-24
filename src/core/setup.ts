@@ -21,6 +21,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AppDescriptor, Platform } from "./types.js";
 import { loadConfig } from "./config.js";
+import { errorMessage } from "./errorMessage.js";
 import { DEFAULT_IN_REPO_ARTIFACT_DIR, ENV_EXAMPLE_TEMPLATE, configTemplate, detectAppRoot } from "./configScaffold.js";
 import { resolveArtifactDir } from "./storage.js";
 import { ensureArtifactDirIgnored } from "./gitignore.js";
@@ -87,11 +88,6 @@ function mark(status: ReadinessStatus): string {
 /** A row with a detail only when one is present, so `exactOptionalPropertyTypes` stays satisfied. */
 function row(label: string, status: ReadinessStatus, detail?: string): ReadinessRow {
   return { label, status, ...(detail ? { detail } : {}) };
-}
-
-/** Narrow a thrown value to its message without leaking `unknown` past the boundary. */
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 /**

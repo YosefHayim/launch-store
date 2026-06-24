@@ -24,7 +24,8 @@ import type {
   BetaReviewState,
   BuildResource,
 } from "../apple/ascClient.js";
-import type { PlannedAction } from "./ascSync.js";
+import { plan, skip, type PlannedAction, type ReconcileContext } from "./asc/storeSync.js";
+import { errorMessage } from "./errorMessage.js";
 
 /** How many recent builds to scan when resolving the target build (newest first). */
 const BUILD_SCAN_LIMIT = 50;
@@ -61,29 +62,6 @@ export interface BetaReviewReconcileInput {
   submitForReview: boolean;
   /** Rehearse only: read state and build the plan, perform no writes. */
   dryRun: boolean;
-}
-
-/** Mutable per-run context threaded through the reconcile walk (mirrors `core/accessibility.ts`). */
-interface ReconcileContext {
-  actions: PlannedAction[];
-  dryRun: boolean;
-}
-
-/** Push a planned action and return its handle, so the caller can mark it applied/failed after running. */
-function plan(ctx: ReconcileContext, description: string): PlannedAction {
-  const action: PlannedAction = { description, destructive: false, status: "planned" };
-  ctx.actions.push(action);
-  return action;
-}
-
-/** Record something Launch deliberately won't do (e.g. a build already submitted) as a skip with a reason. */
-function skip(ctx: ReconcileContext, description: string): void {
-  ctx.actions.push({ description, destructive: false, status: "skipped" });
-}
-
-/** A short message for a thrown value (the beta-review paths carry no secrets). */
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 /** Human phrasing for a Beta App Review verdict, for the "already submitted" skip line. */

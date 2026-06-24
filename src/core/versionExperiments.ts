@@ -16,7 +16,8 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import type { ExperimentTreatmentResource, VersionExperimentResource } from "../apple/ascClient.js";
-import type { PlannedAction } from "./ascSync.js";
+import { appRecordMissing, plan, type PlannedAction, type ReconcileContext } from "./asc/storeSync.js";
+import { errorMessage } from "./errorMessage.js";
 
 /** Default platform for an experiment that doesn't name one. */
 const DEFAULT_PLATFORM = "IOS";
@@ -72,32 +73,6 @@ export interface ExperimentsReconcileInput {
   dryRun: boolean;
 }
 
-/** Mutable per-run context threaded through the reconcile walk (mirrors `core/gameCenter.ts`). */
-interface ReconcileContext {
-  actions: PlannedAction[];
-  dryRun: boolean;
-}
-
-/** Push a planned action and return its handle, so the caller can mark it applied/failed after running. */
-function plan(ctx: ReconcileContext, description: string): PlannedAction {
-  const action: PlannedAction = { description, destructive: false, status: "planned" };
-  ctx.actions.push(action);
-  return action;
-}
-
-/** A short message for a thrown value (these paths carry no secrets). */
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-/** The actionable error when an app has no App Store Connect record (Apple has no API to create one). */
-function appRecordMissing(bundleId: string): Error {
-  return new Error(
-    `No App Store Connect app record for ${bundleId}. Create the app once in App Store Connect ` +
-      `(Apple has no API to create the app record), then re-run \`launch experiments\`.`,
-  );
-}
-
 /** Where an experiment stands after ensuring it: its id (and whether it pre-existed), or null when create failed. */
 interface EnsuredExperiment {
   experimentId: string | null;
@@ -115,7 +90,7 @@ export async function reconcileVersionExperiments(
   const ctx: ReconcileContext = { actions: [], dryRun: input.dryRun };
 
   const appId = await api.getAppId(input.bundleId);
-  if (!appId) throw appRecordMissing(input.bundleId);
+  if (!appId) throw appRecordMissing(input.bundleId, "experiments");
 
   const existing = new Map(
     (await api.listVersionExperiments(appId)).map((experiment) => [experiment.name, experiment]),

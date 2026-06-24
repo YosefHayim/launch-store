@@ -26,6 +26,7 @@ import type {
   BetaFeedbackScreenshotSubmissionResource,
   BuildResource,
 } from "../apple/ascClient.js";
+import { appRecordNotFound } from "./asc/storeSync.js";
 import { ensureDir } from "./paths.js";
 import type { BetaFeedback, BetaFeedbackKind } from "./types.js";
 
@@ -60,14 +61,6 @@ export interface DownloadedAttachment {
   url: string;
 }
 
-/** The "no app record" guidance shared by every reviews/feedback entry point that resolves a bundle id. */
-function appRecordMissing(bundleId: string): Error {
-  return new Error(
-    `No App Store Connect app record for ${bundleId}. Confirm the bundle id and that this account ` +
-      `can access the app (Apple has no API to create an app record — it's created once in App Store Connect).`,
-  );
-}
-
 /** Resolve a `--build <ver>` to its build resource id, erroring when no such build exists on the app. */
 async function resolveBuildId(api: AscFeedbackApi, appId: string, version: string): Promise<string> {
   const parsed = Number.parseInt(version.trim(), 10);
@@ -90,7 +83,7 @@ export async function listBetaFeedback(
   filters: FeedbackFilters = {},
 ): Promise<BetaFeedback[]> {
   const appId = await api.getAppId(bundleId);
-  if (!appId) throw appRecordMissing(bundleId);
+  if (!appId) throw appRecordNotFound(bundleId);
 
   const query: BetaFeedbackQuery = filters.build ? { buildId: await resolveBuildId(api, appId, filters.build) } : {};
 

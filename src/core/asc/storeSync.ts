@@ -14,6 +14,7 @@
  * here so a reconciler imports the whole vocabulary from one place.
  */
 
+import { errorMessage } from "../errorMessage.js";
 import type { PlannedAction } from "../ascSync.js";
 
 export type { PlannedAction };
@@ -44,8 +45,44 @@ export async function act(ctx: ReconcileContext, description: string, run: () =>
     action.status = "applied";
   } catch (error) {
     action.status = "failed";
-    action.error = error instanceof Error ? error.message : String(error);
+    action.error = errorMessage(error);
   }
+}
+
+/**
+ * Record a planned action and return its handle so the caller marks it `applied`/`failed` after running.
+ * The manual-status twin of {@link act} (which records-then-runs in one call): use this when a single
+ * logical step writes more than once — e.g. create-then-publish — and each write needs its own status.
+ */
+export function plan(ctx: ReconcileContext, description: string): PlannedAction {
+  const action: PlannedAction = { description, destructive: false, status: "planned" };
+  ctx.actions.push(action);
+  return action;
+}
+
+/**
+ * The actionable error a **write-path** reconciler throws when an app has no App Store Connect record:
+ * Apple has no API to create the app, so the user must create it once in the portal, then re-run the
+ * command. Keyed by `command` (e.g. `"accessibility"`) so the message names the exact `launch` subcommand
+ * to retry. Read-only commands use {@link appRecordNotFound} instead.
+ */
+export function appRecordMissing(bundleId: string, command: string): Error {
+  return new Error(
+    `No App Store Connect app record for ${bundleId}. Create the app once in App Store Connect ` +
+      `(Apple has no API to create the app record), then re-run \`launch ${command}\`.`,
+  );
+}
+
+/**
+ * The error a **read-path** command throws when an app has no App Store Connect record. Unlike
+ * {@link appRecordMissing} it offers no "create then re-run" remedy — a report can't proceed without an
+ * existing app — so it asks the user to confirm the bundle id and their access instead.
+ */
+export function appRecordNotFound(bundleId: string): Error {
+  return new Error(
+    `No App Store Connect app record for ${bundleId}. Confirm the bundle id and that this account ` +
+      `can access the app (Apple has no API to create an app record — it's created once in App Store Connect).`,
+  );
 }
 
 /** Record a sub-area we can't act on yet (e.g. no editable version, or the clip's build isn't uploaded) as a skip with a reason. */

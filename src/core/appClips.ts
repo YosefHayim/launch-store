@@ -26,8 +26,9 @@ import type {
   AppClipLocalizationResource,
   AppClipResource,
 } from "../apple/ascClient.js";
-import { act, skip, type ReconcileContext } from "./asc/storeSync.js";
+import { act, appRecordMissing, skip, type ReconcileContext } from "./asc/storeSync.js";
 import type { PlannedAction, ReconcileReport } from "./ascSync.js";
+import { errorMessage } from "./errorMessage.js";
 import { asRecord } from "./json.js";
 import type { AppClipConfig, AppClipLocalizationConfig, AppClipsConfig } from "./types.js";
 
@@ -69,14 +70,6 @@ export interface AppClipsReconcileInput {
   dryRun: boolean;
 }
 
-/** The actionable error when an app has no App Store Connect record (Apple has no API to create one). */
-function appRecordMissing(bundleId: string): Error {
-  return new Error(
-    `No App Store Connect app record for ${bundleId}. Create the app once in App Store Connect ` +
-      `(Apple has no API to create the app record), then re-run \`launch app-clips\`.`,
-  );
-}
-
 /**
  * The outcome of ensuring a clip's default experience exists for the editable version: an `id` (it
  * existed or was created and we can reconcile its localizations now), `planned` (a dry-run create — its
@@ -93,7 +86,7 @@ export async function reconcileAppClips(api: AscAppClipsApi, input: AppClipsReco
   const ctx: ReconcileContext = { actions: [], dryRun: input.dryRun };
 
   const appId = await api.getAppId(input.bundleId);
-  if (!appId) throw appRecordMissing(input.bundleId);
+  if (!appId) throw appRecordMissing(input.bundleId, "app-clips");
 
   const editable = await api.findEditableAppStoreVersion(appId, input.platform ?? DEFAULT_PLATFORM);
   if (!editable) {
@@ -185,7 +178,7 @@ async function ensureExperience(
     return { id: created.id };
   } catch (error) {
     create.status = "failed";
-    create.error = error instanceof Error ? error.message : String(error);
+    create.error = errorMessage(error);
     return { failed: true };
   }
 }

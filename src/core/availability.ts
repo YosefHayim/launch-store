@@ -16,7 +16,8 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import type { AppAvailabilityResource } from "../apple/ascClient.js";
-import type { PlannedAction } from "./ascSync.js";
+import { appRecordMissing, type PlannedAction } from "./asc/storeSync.js";
+import { errorMessage } from "./errorMessage.js";
 
 /** How many territory codes to show inline before truncating the plan line. */
 const PREVIEW_LIMIT = 8;
@@ -50,14 +51,6 @@ export interface AvailabilityReconcileInput {
   config: AvailabilityConfig;
   /** Rehearse only: read state and build the plan, perform no writes. */
   dryRun: boolean;
-}
-
-/** The actionable error when an app has no App Store Connect record (Apple has no API to create one). */
-function appRecordMissing(bundleId: string): Error {
-  return new Error(
-    `No App Store Connect app record for ${bundleId}. Create the app once in App Store Connect ` +
-      `(Apple has no API to create the app record), then re-run \`launch availability\`.`,
-  );
 }
 
 /** Uppercase, trim, and de-duplicate a list of territory codes into a stable set. */
@@ -106,7 +99,7 @@ export async function reconcileAvailability(
   input: AvailabilityReconcileInput,
 ): Promise<{ bundleId: string; actions: PlannedAction[] }> {
   const appId = await api.getAppId(input.bundleId);
-  if (!appId) throw appRecordMissing(input.bundleId);
+  if (!appId) throw appRecordMissing(input.bundleId, "availability");
 
   const desired = normalizeTerritories(input.config.territories);
   const availableInNewTerritories = input.config.availableInNewTerritories === true;
@@ -142,7 +135,7 @@ export async function reconcileAvailability(
     action.status = "applied";
   } catch (error) {
     action.status = "failed";
-    action.error = error instanceof Error ? error.message : String(error);
+    action.error = errorMessage(error);
   }
   return { bundleId: input.bundleId, actions };
 }
