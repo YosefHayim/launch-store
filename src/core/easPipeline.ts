@@ -8,12 +8,12 @@
  */
 
 import type { BuildArtifact } from "./types.js";
-import { type BuildRunOptions, type PreparedBuild, confirmUpload, reportSize, renderReceipt } from "./pipeline.js";
+import { type BuildTransport, confirmUpload, reportSize, renderReceipt } from "./pipeline.js";
 import { getStorageProvider } from "./registry.js";
 import { detectEasCli, easBuildToIpa, easSubmit, ensureExpoSession } from "../providers/build/eas.js";
 
 /** Build via EAS, store the downloaded `.ipa`, and optionally submit through `eas submit`. */
-export async function runEasBuild(prepared: PreparedBuild, options: BuildRunOptions): Promise<void> {
+export const runEasBuild: BuildTransport = async (prepared, options) => {
   const { config, app, profile, ctx, log } = prepared;
 
   if (options.dryRun) {
@@ -86,4 +86,4 @@ export async function runEasBuild(prepared: PreparedBuild, options: BuildRunOpti
       : "built · not uploaded",
     log,
   });
-}
+};
