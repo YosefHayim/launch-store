@@ -71,7 +71,7 @@
         },
         "storageConfig": {
           "$ref": "#/definitions/StorageConfig",
-          "description": "Bucket/endpoint settings for a cloud  {@link  StorageProvider }  (`s3` / `supabase`). Required when `storage` names a cloud provider — it's where ad-hoc install links and OTA update manifests are hosted. Secrets stay out: access keys resolve from env / the OS secret store, never from here."
+          "description": "Bucket/endpoint settings for a cloud  {@link  StorageProvider  }  (`s3` / `supabase`). Required when `storage` names a cloud provider — it's where ad-hoc install links and OTA update manifests are hosted. Secrets stay out: access keys resolve from env / the OS secret store, never from here."
         },
         "artifactDir": {
           "type": "string",
@@ -132,7 +132,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "The declarative App Store Connect product catalog for ONE app, keyed by iOS bundle id under  {@link  LaunchConfig.products } . `launch sync` reconciles the live account to match this: it creates missing groups/subscriptions/IAPs, fills in localizations, and sets prices. `launch offers` reconciles the subscription offers nested under  {@link  SubscriptionGroupConfig }  and the  {@link  AppProducts.promotedPurchases }  ordering. All fields are optional so an app can sell only subscriptions, only one-off purchases, or (with none set) nothing."
+      "description": "The declarative App Store Connect product catalog for ONE app, keyed by iOS bundle id under  {@link  LaunchConfig.products  } . `launch sync` reconciles the live account to match this: it creates missing groups/subscriptions/IAPs, fills in localizations, and sets prices. `launch offers` reconciles the subscription offers nested under  {@link  SubscriptionGroupConfig }  and the  {@link  AppProducts.promotedPurchases }  ordering. All fields are optional so an app can sell only subscriptions, only one-off purchases, or (with none set) nothing."
     },
     "SubscriptionGroupConfig": {
       "type": "object",
@@ -699,7 +699,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "Transition notifications — the EAS-`webhook` parity hook, declared under  {@link  LaunchConfig.notify } . Fires on the milestones a dev waits on: a build/submit finishing, an App Store review reaching a verdict, and a phased rollout changing state. A local Mac build can run many minutes and Apple's verdict lands hours later; this pings on each transition. All fields are optional and independent: set a `webhookUrl`, a `command`, both, or (absent) get the silent default; restrict which transitions fire with `events`. Fired on success AND failure; never blocks or fails the run (best-effort)."
+      "description": "Transition notifications — the EAS-`webhook` parity hook, declared under  {@link  LaunchConfig.notify  } . Fires on the milestones a dev waits on: a build/submit finishing, an App Store review reaching a verdict, and a phased rollout changing state. A local Mac build can run many minutes and Apple's verdict lands hours later; this pings on each transition. All fields are optional and independent: set a `webhookUrl`, a `command`, both, or (absent) get the silent default; restrict which transitions fire with `events`. Fired on success AND failure; never blocks or fails the run (best-effort)."
     },
     "ReleaseConfig": {
       "type": "object",
@@ -737,7 +737,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "iOS public-release policy, declared under  {@link  LaunchConfig.release } . These are the defaults `launch release` applies to the App Store version it submits; every field is optional, so an absent `release` block means \"go live after approval, all at once\" — the safe, common case. Android release policy is unaffected (it rides on the Play track + `--rollout`, see  {@link  AndroidReleaseOptions } ).\n\nScope: this drives an UPDATE to an already-configured app. A brand-new app's first submission still needs portal-only steps (screenshots, age rating, signed agreements) and the app record itself — which Apple has no API to create — so `launch release` detects that and prints a one-time checklist."
+      "description": "iOS public-release policy, declared under  {@link  LaunchConfig.release  } . These are the defaults `launch release` applies to the App Store version it submits; every field is optional, so an absent `release` block means \"go live after approval, all at once\" — the safe, common case. Android release policy is unaffected (it rides on the Play track + `--rollout`, see  {@link  AndroidReleaseOptions  } ).\n\nScope: this drives an UPDATE to an already-configured app. A brand-new app's first submission still needs portal-only steps (screenshots, age rating, signed agreements) and the app record itself — which Apple has no API to create — so `launch release` detects that and prints a one-time checklist."
     },
     "ReleaseType": {
       "type": "string",
@@ -773,7 +773,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "An app's declared Game Center achievements and leaderboards — the `gamecenter.config.json` document, or one entry of  {@link  LaunchConfig.gameCenter }  (keyed by iOS bundle id). Either list may be omitted. Reconciled additively by `launch game-center`."
+      "description": "An app's declared Game Center achievements and leaderboards — the `gamecenter.config.json` document, or one entry of  {@link  LaunchConfig.gameCenter  }  (keyed by iOS bundle id). Either list may be omitted. Reconciled additively by `launch game-center`."
     },
     "AchievementConfig": {
       "type": "object",
@@ -908,7 +908,7 @@
       },
       "required": ["clips"],
       "additionalProperties": false,
-      "description": "An app's declared App Clips — the `appclips.config.json` document, or one entry of  {@link  LaunchConfig.appClips }  (keyed by the parent app's iOS bundle id). Each App Clip is keyed by its **own** bundle id (e.g. `com.acme.app.Clip`), which is how a config entry is matched to the clip the build produced. Reconciled by `launch app-clips`."
+      "description": "An app's declared App Clips — the `appclips.config.json` document, or one entry of  {@link  LaunchConfig.appClips  }  (keyed by the parent app's iOS bundle id). Each App Clip is keyed by its **own** bundle id (e.g. `com.acme.app.Clip`), which is how a config entry is matched to the clip the build produced. Reconciled by `launch app-clips`."
     },
     "Record<string,AppClipConfig>": {
       "type": "object",
@@ -977,7 +977,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "An app's declared App Store *release attributes* — age rating, App Store categories, base price, and App Review details — the `release.config.json` document, or one entry of  {@link  LaunchConfig.releaseAttributes }  (keyed by iOS bundle id). Every section is optional and reconciled independently by `launch release-config`, so a file may declare only the attribute(s) you manage as code (e.g. just `pricing`). Named to avoid colliding with  {@link  ReleaseConfig } , which is the distinct iOS *release policy* (when/how a version goes live)."
+      "description": "An app's declared App Store *release attributes* — age rating, App Store categories, base price, and App Review details — the `release.config.json` document, or one entry of  {@link  LaunchConfig.releaseAttributes  }  (keyed by iOS bundle id). Every section is optional and reconciled independently by `launch release-config`, so a file may declare only the attribute(s) you manage as code (e.g. just `pricing`). Named to avoid colliding with  {@link  ReleaseConfig } , which is the distinct iOS *release policy* (when/how a version goes live)."
     },
     "Record<string,AgeRatingValue>": {
       "type": "object",
@@ -1068,7 +1068,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "The team's Apple Pay merchant ids and Wallet pass type ids — the `wallet.config.json` document, or  {@link  LaunchConfig.wallet } . Team-level; either family may be omitted. Registered by `launch wallet`."
+      "description": "The team's Apple Pay merchant ids and Wallet pass type ids — the `wallet.config.json` document, or  {@link  LaunchConfig.wallet  } . Team-level; either family may be omitted. Registered by `launch wallet`."
     },
     "WalletIdConfig": {
       "type": "object",
@@ -1099,7 +1099,7 @@
       },
       "required": ["domains"],
       "additionalProperties": false,
-      "description": "The team's EU alternative-distribution domains — the `eu-distribution.config.json` document, or  {@link  LaunchConfig.euDistribution } . Team-level (not per-app); reconciled by `launch eu-distribution`."
+      "description": "The team's EU alternative-distribution domains — the `eu-distribution.config.json` document, or  {@link  LaunchConfig.euDistribution  } . Team-level (not per-app); reconciled by `launch eu-distribution`."
     },
     "EuDistributionDomainConfig": {
       "type": "object",
@@ -1134,7 +1134,7 @@
         }
       },
       "additionalProperties": false,
-      "description": "Where the **sidecar-only** surfaces keep their `*.config.json` desired-state files when not at the default filename. These surfaces have no typed field on  {@link  LaunchConfig } , so without this map a non-interactive caller — chiefly `launch plan` / `launch drift`, which has no per-surface `--config` flag — can only find a sidecar at its default name. Declaring a path here makes `plan` read the same file the command would (the existing `resolveSidecarConfig` consumes it). Each entry is optional; omit the whole map to use defaults (`availability.config.json`, `accessibility.config.json`, `experiments.config.json`, `custom-pages.config.json`)."
+      "description": "Where the **sidecar-only** surfaces keep their `*.config.json` desired-state files when not at the default filename. These surfaces have no typed field on  {@link  LaunchConfig  } , so without this map a non-interactive caller — chiefly `launch plan` / `launch drift`, which has no per-surface `--config` flag — can only find a sidecar at its default name. Declaring a path here makes `plan` read the same file the command would (the existing `resolveSidecarConfig` consumes it). Each entry is optional; omit the whole map to use defaults (`availability.config.json`, `accessibility.config.json`, `experiments.config.json`, `custom-pages.config.json`)."
     },
     "AwsConfig": {
       "type": "object",
@@ -1186,7 +1186,7 @@
       },
       "required": ["bucket", "publicBaseUrl"],
       "additionalProperties": false,
-      "description": "Non-secret settings for a cloud  {@link  StorageProvider } . Launch writes static artifacts (install plists, OTA manifests, JS bundles, IPAs/AABs) here and serves them from  {@link  StorageConfig.publicBaseUrl } , so the user owns the infra (no Launch-hosted server). Credentials are NEVER stored here — the S3 access key / Supabase service key resolve from env vars or the OS secret store at call time."
+      "description": "Non-secret settings for a cloud  {@link  StorageProvider  } . Launch writes static artifacts (install plists, OTA manifests, JS bundles, IPAs/AABs) here and serves them from  {@link  StorageConfig.publicBaseUrl } , so the user owns the infra (no Launch-hosted server). Credentials are NEVER stored here — the S3 access key / Supabase service key resolve from env vars or the OS secret store at call time."
     },
     "McpConfig": {
       "type": "object",
