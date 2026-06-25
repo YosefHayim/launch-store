@@ -524,25 +524,61 @@ export async function runBuild(options: BuildRunOptions): Promise<void> {
 }
 
 /**
- * Select the build path: Android always builds locally (no Mac needed); for iOS, `--remote` → the
- * remote-Mac pipeline, `buildEngine: "eas"` → the EAS handoff, otherwise the local Mac spine.
+ * The contract every build fork satisfies: take the shared {@link PreparedBuild} front half plus the run
+ * options and drive the build (and optional submit) to completion. The three adapters — the local Mac
+ * spine ({@link runLocalBuild}), the remote-Mac pipeline (`core/remotePipeline.ts`), and the EAS handoff
+ * (`core/easPipeline.ts`) — are interchangeable behind this type; {@link resolveBuildTransport} picks
+ * which one a run uses and {@link dispatchBuild} invokes it. Naming the contract is what turns fork
+ * selection into a testable seam rather than an inline branch.
+ */
+export type BuildTransport = (prepared: PreparedBuild, options: BuildRunOptions) => Promise<void>;
+
+/**
+ * Which build fork a run resolves to, plus the data that fork needs. A discriminated union so the remote
+ * {@link RemoteTarget} rides only on the `remote` variant (no optional-but-always-set field): `local`
+ * builds on this machine, `remote` on a Mac elsewhere, `eas` in Expo's cloud.
+ */
+export type BuildTransportChoice = { kind: "local" } | { kind: "remote"; remote: RemoteTarget } | { kind: "eas" };
+
+/**
+ * Pick the build fork for one run, by the same precedence the dispatch has always used — extracted as a
+ * pure function so the decision is unit-testable without driving a real (or even dry) build:
+ * - Android always builds locally; it has no off-Mac problem, so `--remote` / `eas` never apply.
+ * - For iOS, `--remote` wins (a config `buildEngine: "remote-mac"` defaults the target to AWS),
+ * - then `buildEngine: "eas"` hands off to Expo,
+ * - otherwise the local Mac spine.
+ */
+export function resolveBuildTransport(
+  platform: Platform,
+  buildEngine: string,
+  remoteFlag: RemoteTarget | undefined,
+): BuildTransportChoice {
+  if (platform === "android") return { kind: "local" };
+  const remote: RemoteTarget | undefined = remoteFlag ?? (buildEngine === "remote-mac" ? { kind: "aws" } : undefined);
+  if (remote) return { kind: "remote", remote };
+  if (buildEngine === "eas") return { kind: "eas" };
+  return { kind: "local" };
+}
+
+/**
+ * Select the build fork via {@link resolveBuildTransport}, then invoke that {@link BuildTransport}
+ * adapter. The remote / EAS modules are imported lazily so a local-only build never loads the host or
+ * Expo code paths.
  */
 async function dispatchBuild(prepared: PreparedBuild, options: BuildRunOptions): Promise<void> {
-  // Android builds on any OS — it has no off-Mac problem, so no remote/EAS off-ramp applies.
-  if (options.platform === "android") return runLocalBuild(prepared, options);
-
-  // `--remote` wins; a config `buildEngine: "remote-mac"` defaults the remote target to AWS.
-  const remote =
-    options.remote ?? (prepared.config.buildEngine === "remote-mac" ? ({ kind: "aws" } as const) : undefined);
-  if (remote) {
-    const { runRemoteBuild } = await import("./remotePipeline.js");
-    return runRemoteBuild(prepared, { ...options, remote });
+  const choice = resolveBuildTransport(options.platform, prepared.config.buildEngine, options.remote);
+  switch (choice.kind) {
+    case "local":
+      return runLocalBuild(prepared, options);
+    case "remote": {
+      const { runRemoteBuild } = await import("./remotePipeline.js");
+      return runRemoteBuild(prepared, { ...options, remote: choice.remote });
+    }
+    case "eas": {
+      const { runEasBuild } = await import("./easPipeline.js");
+      return runEasBuild(prepared, options);
+    }
   }
-  if (prepared.config.buildEngine === "eas") {
-    const { runEasBuild } = await import("./easPipeline.js");
-    return runEasBuild(prepared, options);
-  }
-  return runLocalBuild(prepared, options);
 }
 
 /**
