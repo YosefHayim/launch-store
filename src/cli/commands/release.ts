@@ -11,7 +11,6 @@
  */
 
 import { existsSync } from "node:fs";
-import { join } from "node:path";
 import type { Command } from "commander";
 import { cancel, confirm, isCancel } from "@clack/prompts";
 import type {
@@ -21,8 +20,6 @@ import type {
   BuildProfile,
   LaunchConfig,
   Platform,
-  ReleaseConfig,
-  ReleaseType,
   ResolvedBuildContext,
 } from "../../core/types.js";
 import { loadConfig } from "../../core/config.js";
@@ -41,7 +38,7 @@ import { createLogger, type Logger } from "../../core/logger.js";
 import { loadAscKeyById } from "../../core/accounts.js";
 import { isInteractive } from "../../core/progress.js";
 import { pickOne } from "../../core/prompt.js";
-import { loadStoreConfig } from "../../core/storeConfig.js";
+import { resolveReleaseType, resolveWhatsNew } from "../../core/releaseInputs.js";
 import { AppStoreConnectClient, type BuildResource } from "../../apple/ascClient.js";
 import {
   appRecordMissingMessage,
@@ -140,51 +137,6 @@ async function runRelease(platform: Platform, options: ReleaseCommandOptions): P
 
   if (platform === "ios") await runIosRelease(app, profile, options, config, resolvedEnv);
   else await runAndroidRelease(app, profile, options, config, resolvedEnv);
-}
-
-/** Resolve the per-run release type, with `--scheduled`/`--manual` overriding the config default. */
-function resolveReleaseType(
-  release: ReleaseConfig | undefined,
-  options: ReleaseCommandOptions,
-): { releaseType: ReleaseType; earliestReleaseDate?: string } {
-  if (options.scheduled) return { releaseType: "SCHEDULED", earliestReleaseDate: options.scheduled };
-  if (options.manual) return { releaseType: "MANUAL" };
-  return {
-    releaseType: release?.releaseType ?? "AFTER_APPROVAL",
-    ...(release?.earliestReleaseDate ? { earliestReleaseDate: release.earliestReleaseDate } : {}),
-  };
-}
-
-/** Normalize config release notes (a bare string targets the primary locale) into a per-locale map. */
-export function resolveReleaseNotes(release: ReleaseConfig | undefined, primaryLocale: string): Record<string, string> {
-  const notes = release?.releaseNotes;
-  if (!notes) return {};
-  return typeof notes === "string" ? { [primaryLocale]: notes } : notes;
-}
-
-/**
- * Per-locale `releaseNotes` from the app's `store.config.json` — the same listing file `launch sync`
- * and `launch metadata` read — or `{}` when the file is absent. A malformed file fails loudly via
- * {@link loadStoreConfig}, consistent with those commands (the developer fixes the typo once).
- */
-export function readStoreReleaseNotes(appDir: string): Record<string, string> {
-  const path = join(appDir, "store.config.json");
-  if (!existsSync(path)) return {};
-  const info = loadStoreConfig(path).apple?.info ?? {};
-  const notes: Record<string, string> = {};
-  for (const [locale, localeInfo] of Object.entries(info)) {
-    if (localeInfo.releaseNotes) notes[locale] = localeInfo.releaseNotes;
-  }
-  return notes;
-}
-
-/**
- * The "What's New" to write, merging both sources Launch supports: `release.releaseNotes` from
- * `launch.config.ts` as the base, with `store.config.json`'s per-locale `releaseNotes` taking precedence
- * (it's the richer, per-locale, EAS-compatible listing file). Empty leaves the version's notes untouched.
- */
-export function resolveWhatsNew(release: ReleaseConfig | undefined, appDir: string): Record<string, string> {
-  return { ...resolveReleaseNotes(release, release?.primaryLocale ?? "en-US"), ...readStoreReleaseNotes(appDir) };
 }
 
 /** The newest build that's processed and not expired — i.e. attachable to an App Store version. */
