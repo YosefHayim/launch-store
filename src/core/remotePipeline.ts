@@ -25,6 +25,7 @@ import type {
 } from "./types.js";
 import {
   type BuildRunOptions,
+  type BuildTransport,
   DRY_RUN_KEY,
   type PreparedBuild,
   interactiveConfirm,
@@ -128,7 +129,7 @@ function rehearse(prepared: PreparedBuild, options: BuildRunOptions, buildNumber
  * Build (and optionally submit) on a remote Mac. Reuses {@link PreparedBuild} from the front half.
  * Shred always runs (success or failure); the AWS host is kept alive for the already-paid window.
  */
-export async function runRemoteBuild(prepared: PreparedBuild, options: BuildRunOptions): Promise<void> {
+export const runRemoteBuild: BuildTransport = async (prepared, options) => {
   const { config, app, profile, env, log } = prepared;
   const remote = options.remote;
   if (!remote) throw new Error("runRemoteBuild called without a remote target.");
@@ -269,4 +270,4 @@ export async function runRemoteBuild(prepared: PreparedBuild, options: BuildRunO
     link,
     log,
   });
-}
+};

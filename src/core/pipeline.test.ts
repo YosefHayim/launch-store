@@ -12,6 +12,7 @@ vi.mock("node:child_process", () => ({
 
 import { registerBuiltins } from "../providers/index.js";
 import {
+  resolveBuildTransport,
   resolveBumpKind,
   runBuild,
   selectApp,
@@ -198,6 +199,44 @@ describe("uploadSizeReadout — pre-upload size lines + growth warning", () => {
     );
     expect(readout.lines).toEqual(["on disk 61.0 MB (no per-device estimate)"]);
     expect(readout.grew).toBeNull();
+  });
+});
+
+describe("resolveBuildTransport — which fork a run takes", () => {
+  it("always builds Android locally — no off-Mac fork applies, even with a stray --remote", () => {
+    expect(resolveBuildTransport("android", "gradle", undefined)).toEqual({ kind: "local" });
+    expect(resolveBuildTransport("android", "gradle", { kind: "aws" })).toEqual({ kind: "local" });
+  });
+
+  it("builds iOS locally by default", () => {
+    expect(resolveBuildTransport("ios", "fastlane", undefined)).toEqual({ kind: "local" });
+  });
+
+  it("routes iOS to the remote pipeline on --remote, carrying the target", () => {
+    expect(resolveBuildTransport("ios", "fastlane", { kind: "aws" })).toEqual({
+      kind: "remote",
+      remote: { kind: "aws" },
+    });
+    expect(resolveBuildTransport("ios", "fastlane", { kind: "ssh", target: "ec2-user@host" })).toEqual({
+      kind: "remote",
+      remote: { kind: "ssh", target: "ec2-user@host" },
+    });
+  });
+
+  it("defaults a buildEngine: 'remote-mac' config to an AWS remote when no --remote is passed", () => {
+    expect(resolveBuildTransport("ios", "remote-mac", undefined)).toEqual({ kind: "remote", remote: { kind: "aws" } });
+  });
+
+  it("hands iOS off to EAS when buildEngine is 'eas'", () => {
+    expect(resolveBuildTransport("ios", "eas", undefined)).toEqual({ kind: "eas" });
+  });
+
+  it("lets --remote win over an eas / remote-mac config (the flag is the override)", () => {
+    expect(resolveBuildTransport("ios", "eas", { kind: "aws" })).toEqual({ kind: "remote", remote: { kind: "aws" } });
+    expect(resolveBuildTransport("ios", "remote-mac", { kind: "ssh", target: "u@h" })).toEqual({
+      kind: "remote",
+      remote: { kind: "ssh", target: "u@h" },
+    });
   });
 });
 
