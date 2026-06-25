@@ -11,7 +11,7 @@ export type Platform = "ios" | "android";
  * Where an iOS build runs, as picked in the `launch` wizard. `local` is the host Mac's own Xcode;
  * `aws` and `ssh` are remote Macs; `eas` hands the build off to Expo's cloud. Android always builds
  * locally (gradle on the host), so this only varies for iOS. Persisted in a remembered wizard flow
- * (see {@link import("./lastRun.js").LastFlow}) so the next run can replay it.
+ * (see {@link import("../lastRun.js").LastFlow}) so the next run can replay it.
  */
 export type BuildLocation = "local" | "aws" | "ssh" | "eas";
 

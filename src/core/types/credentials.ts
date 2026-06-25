@@ -1,6 +1,18 @@
 /**
- * Apple & Android signing credentials and the on-disk accounts/keys records. The secret material itself
- * lives in the OS keychain — these shapes carry only non-secret paths, ids, and metadata.
+ * Apple & Android credentials, in two distinct flavours — read the per-shape docs before assuming what a
+ * field holds:
+ *
+ * - **Resolved credentials** handed to a build/submit step ({@link AscKey}, {@link AppleCredentials},
+ *   {@link KeystoreAssets}, {@link AndroidCredentials}, {@link BuildCredentials}) DO carry live secret
+ *   material in memory — the `.p8` PEM, the keystore passwords, the service-account JSON — read out of the
+ *   OS keychain / {@link SecretStore} just-in-time. These must never be logged, serialized, written to
+ *   `~/.launch`, or committed; they exist only for the duration of the engine call that consumes them.
+ * - **Persistence records** ({@link AccountRecord}, {@link ApnsKeyRecord}, {@link AccountsFile}) are the
+ *   on-disk `~/.launch/*.json` shapes and carry only non-secret ids, paths, and metadata; the secret they
+ *   reference stays in the OS secret store, namespaced by key id.
+ *
+ * {@link SigningAssets} sits between the two: non-secret references to a certificate/profile whose private
+ * key never leaves the Keychain.
  */
 
 /**

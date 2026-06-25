@@ -51,10 +51,12 @@ export function renderStatsBadges(stats: DocStats): string {
 
 /**
  * Replace everything between a start/end HTML-comment fence in `content` with `replacement` (the markers
- * are part of `replacement`, so the whole region is swapped in one slice). Throws when either fence is
- * missing rather than silently appending — a dropped marker means the README was edited in a way that
- * would lose the generated section, and the build should fail loudly so it gets fixed. Shared by the
- * badge and FAQ splices so both regions are managed exactly the same way.
+ * are part of `replacement`, so the whole region is swapped in one slice). The end fence is located *after*
+ * the start fence so a stray earlier copy of the end marker can't slice out a backwards region; for a
+ * well-formed README this is identical to a plain search since the end always follows the start. Throws
+ * when either fence is missing rather than silently appending — a dropped marker means the README was
+ * edited in a way that would lose the generated section, and the build should fail loudly so it gets fixed.
+ * Shared by the badge and FAQ splices so both regions are managed exactly the same way.
  */
 function spliceRegion(
   content: string,
@@ -64,7 +66,7 @@ function spliceRegion(
   label: string,
 ): string {
   const start = content.indexOf(startMarker);
-  const end = content.indexOf(endMarker);
+  const end = start === -1 ? -1 : content.indexOf(endMarker, start);
   if (start === -1 || end === -1) {
     throw new Error(
       `README.md is missing the ${label} markers — add the fences back so \`docs:gen\` can regenerate the ${label} region.`,
@@ -167,9 +169,11 @@ export function renderFeaturesList(): string {
 }
 
 /**
- * Escape the HTML-significant characters in a `<summary>` label. The {@link FEATURE_SECTIONS} titles are
- * controlled constants that today only contain `&` (e.g. "Set up & verify"), but escaping `<`/`>` too keeps
- * the helper correct if a title ever gains them. Used only for the README's collapsible feature groups.
+ * Escape the HTML-significant characters in a `<summary>` label. Both collapsible `<details>` renderers
+ * feed their `<summary>` text through this — the FAQ questions ({@link renderCollapsibleFaq}) and the
+ * feature-group titles ({@link renderCollapsibleFeatures}). Those sources are controlled constants that
+ * today only contain `&` (e.g. "Set up & verify"), but escaping `<`/`>` too keeps the helper correct if a
+ * question or title ever gains them.
  */
 function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
