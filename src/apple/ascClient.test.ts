@@ -1595,6 +1595,14 @@ describe("AppStoreConnectClient — App Store release lifecycle", () => {
     expect(await client.getPhasedRelease("v2")).toBeNull();
   });
 
+  it("propagates a non-404 failure on an optional read instead of swallowing it as 'absent'", async () => {
+    // The shared 404-as-absent path (getOptional) must only catch 404s — a 500 (or any other status) is a
+    // real failure that has to surface, not be misread as "no phased release". Apple retries 5xx, so prime
+    // the retry budget with repeats; the final rejection still carries the status.
+    fetchMock.mockResolvedValue(fakeResponse(500, JSON.stringify({ errors: [{ title: "Server Error" }] })));
+    await expect(client.getPhasedRelease("v3")).rejects.toThrow(/500/);
+  });
+
   it("steers a phased release with a state PATCH", async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(204, ""));
     await client.updatePhasedRelease("ph1", "PAUSE");
