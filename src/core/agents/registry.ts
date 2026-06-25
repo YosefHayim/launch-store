@@ -569,12 +569,12 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
   {
     file: "core-types",
     description: "Editing the domain shapes or provider interfaces.",
-    globs: ["src/core/types.ts"],
+    globs: ["src/core/types.ts", "src/core/types/*.ts"],
     alwaysApply: false,
     body: [
-      "`src/core/types.ts` is the single source of truth for every domain shape and the five provider interfaces (`BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`).",
+      "The types module — the `src/core/types.ts` barrel plus the `src/core/types/*.ts` modules it re-exports (split by concern: `app`, `catalog`, `storeSurface`, `config`, `credentials`, `artifacts`, `providers`, `remote`, `vitals`) — is the single source of truth for every domain shape and the five provider interfaces (`BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`).",
       "",
-      "- Add or change a shape **here**, never inline in a feature file — a change ripples through every provider and the pipeline, so plan the edit before writing code.",
+      '- Add or change a shape in the matching `src/core/types/*.ts` module, never inline in a feature file — a change ripples through every provider and the pipeline, so plan the edit before writing code. The barrel keeps `import type { … } from "../core/types.js"` working unchanged; don\'t add declarations to it.',
       "- One exception: the App Store Connect `*Resource` / `*Query` types live in `src/apple/ascClient.ts`, not here.",
     ].join("\n"),
   },

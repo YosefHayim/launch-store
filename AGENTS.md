@@ -25,10 +25,13 @@ The build→submit spine is `core/pipeline.ts`; off-Mac builds branch into `core
 
 ### Types are the single source of truth
 
-`src/core/types.ts` defines every domain shape and the provider interfaces. Add or change a shape
-**there**, not inline in a feature file. `src/core/glossary.ts` is the single source for teaching
-text — it feeds both `launch explain` and the `--explain` step expansions; never duplicate those
-strings elsewhere.
+The **types module** defines every domain shape and the provider interfaces: the `src/core/types.ts`
+barrel re-exports `src/core/types/*.ts`, split by concern (`app`, `catalog`, `storeSurface`, `config`,
+`credentials`, `artifacts`, `providers`, `remote`, `vitals`). Add or change a shape in the matching
+`types/*.ts` module, not inline in a feature file; the barrel keeps every
+`import … from "../core/types.js"` working unchanged, so don't add declarations to it. `src/core/glossary.ts`
+is the single source for teaching text — it feeds both `launch explain` and the `--explain` step
+expansions; never duplicate those strings elsewhere.
 
 ### Adding a backend = implement an interface + register it
 
