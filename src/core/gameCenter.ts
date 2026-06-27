@@ -23,7 +23,7 @@
  * requires a separate release step that this reconcile leaves to App Store Connect.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from 'node:fs';
 import {
   LEADERBOARD_FORMATTERS,
   type GameCenterAchievementResource,
@@ -32,16 +32,22 @@ import {
   type LeaderboardFormatter,
   type LeaderboardSortType,
   type LeaderboardSubmissionType,
-} from "../apple/ascClient.js";
-import { appRecordMissing, plan, skip, type PlannedAction, type ReconcileContext } from "./asc/storeSync.js";
-import { errorMessage } from "./errorMessage.js";
-import { asRecord } from "./json.js";
-import type { AchievementConfig, GameCenterConfig, LeaderboardConfig } from "./types.js";
+} from '../apple/ascClient.js';
+import {
+  appRecordMissing,
+  plan,
+  skip,
+  type PlannedAction,
+  type ReconcileContext,
+} from './asc/storeSync.js';
+import { errorMessage } from './errorMessage.js';
+import { asRecord } from './json.js';
+import type { AchievementConfig, GameCenterConfig, LeaderboardConfig } from './types.js';
 
 /** Default locale for an achievement / leaderboard localization that doesn't name one. */
-const DEFAULT_LOCALE = "en-US";
-const SUBMISSION_TYPES: readonly LeaderboardSubmissionType[] = ["BEST_SCORE", "MOST_RECENT_SCORE"];
-const SORT_TYPES: readonly LeaderboardSortType[] = ["ASC", "DESC"];
+const DEFAULT_LOCALE = 'en-US';
+const SUBMISSION_TYPES: readonly LeaderboardSubmissionType[] = ['BEST_SCORE', 'MOST_RECENT_SCORE'];
+const SORT_TYPES: readonly LeaderboardSortType[] = ['ASC', 'DESC'];
 
 /**
  * The exact slice of {@link AppStoreConnectClient} the Game Center reconciler depends on. Declared here
@@ -65,7 +71,12 @@ export interface AscGameCenterApi {
   ): Promise<{ id: string; versionId: string | null }>;
   createGameCenterAchievementLocalization(
     versionId: string,
-    fields: { locale: string; name: string; beforeEarnedDescription: string; afterEarnedDescription: string },
+    fields: {
+      locale: string;
+      name: string;
+      beforeEarnedDescription: string;
+      afterEarnedDescription: string;
+    },
   ): Promise<void>;
   listGameCenterLeaderboards(detailId: string): Promise<GameCenterLeaderboardResource[]>;
   createGameCenterLeaderboard(
@@ -78,7 +89,10 @@ export interface AscGameCenterApi {
       scoreSortType: LeaderboardSortType;
     },
   ): Promise<{ id: string; versionId: string | null }>;
-  createGameCenterLeaderboardLocalization(versionId: string, fields: { locale: string; name: string }): Promise<void>;
+  createGameCenterLeaderboardLocalization(
+    versionId: string,
+    fields: { locale: string; name: string },
+  ): Promise<void>;
 }
 
 /** Inputs to reconcile one app's Game Center config. */
@@ -106,11 +120,14 @@ export async function reconcileGameCenter(
   const { config } = input;
 
   const appId = await api.getAppId(input.bundleId);
-  if (!appId) throw appRecordMissing(input.bundleId, "game-center");
+  if (!appId) throw appRecordMissing(input.bundleId, 'game-center');
 
   const detail = await ensureDetail(ctx, api, appId);
   if (!detail) {
-    skip(ctx, "achievements / leaderboards: skipped — Game Center could not be enabled for the app");
+    skip(
+      ctx,
+      'achievements / leaderboards: skipped — Game Center could not be enabled for the app',
+    );
     return { bundleId: input.bundleId, actions: ctx.actions };
   }
 
@@ -120,18 +137,22 @@ export async function reconcileGameCenter(
 }
 
 /** Read the app's Game Center detail, creating it (enabling Game Center) when absent. */
-async function ensureDetail(ctx: ReconcileContext, api: AscGameCenterApi, appId: string): Promise<EnsuredDetail> {
+async function ensureDetail(
+  ctx: ReconcileContext,
+  api: AscGameCenterApi,
+  appId: string,
+): Promise<EnsuredDetail> {
   const existing = await api.getGameCenterDetail(appId);
   if (existing) return { detailId: existing.id, existed: true };
 
-  const action = plan(ctx, "enable Game Center for the app");
+  const action = plan(ctx, 'enable Game Center for the app');
   if (ctx.dryRun) return { detailId: null, existed: false };
   try {
     const created = await api.createGameCenterDetail(appId);
-    action.status = "applied";
+    action.status = 'applied';
     return { detailId: created.id, existed: false };
   } catch (error) {
-    action.status = "failed";
+    action.status = 'failed';
     action.error = errorMessage(error);
     return null;
   }
@@ -156,8 +177,14 @@ async function reconcileAchievements(
   for (const achievement of declared) {
     if (existing.has(achievement.vendorIdentifier)) continue;
     const locale = achievement.locale ?? DEFAULT_LOCALE;
-    const create = plan(ctx, `create achievement ${achievement.vendorIdentifier} (${achievement.points} pts)`);
-    const locAction = plan(ctx, `set achievement ${achievement.vendorIdentifier} localization (${locale})`);
+    const create = plan(
+      ctx,
+      `create achievement ${achievement.vendorIdentifier} (${achievement.points} pts)`,
+    );
+    const locAction = plan(
+      ctx,
+      `set achievement ${achievement.vendorIdentifier} localization (${locale})`,
+    );
     if (ctx.dryRun || !detail.detailId) continue;
 
     let versionId: string | null;
@@ -169,16 +196,16 @@ async function reconcileAchievements(
         showBeforeEarned: achievement.showBeforeEarned ?? false,
         repeatable: achievement.repeatable ?? false,
       });
-      create.status = "applied";
+      create.status = 'applied';
       versionId = result.versionId;
     } catch (error) {
-      create.status = "failed";
+      create.status = 'failed';
       create.error = errorMessage(error);
-      locAction.status = "skipped";
+      locAction.status = 'skipped';
       continue;
     }
     await applyLocalization(locAction, versionId, achievement.vendorIdentifier, () =>
-      api.createGameCenterAchievementLocalization(versionId ?? "", {
+      api.createGameCenterAchievementLocalization(versionId ?? '', {
         locale,
         name: achievement.name,
         beforeEarnedDescription: achievement.beforeEarnedDescription,
@@ -207,8 +234,14 @@ async function reconcileLeaderboards(
   for (const leaderboard of declared) {
     if (existing.has(leaderboard.vendorIdentifier)) continue;
     const locale = leaderboard.locale ?? DEFAULT_LOCALE;
-    const create = plan(ctx, `create leaderboard ${leaderboard.vendorIdentifier} (${leaderboard.defaultFormatter})`);
-    const locAction = plan(ctx, `set leaderboard ${leaderboard.vendorIdentifier} localization (${locale})`);
+    const create = plan(
+      ctx,
+      `create leaderboard ${leaderboard.vendorIdentifier} (${leaderboard.defaultFormatter})`,
+    );
+    const locAction = plan(
+      ctx,
+      `set leaderboard ${leaderboard.vendorIdentifier} localization (${locale})`,
+    );
     if (ctx.dryRun || !detail.detailId) continue;
 
     let versionId: string | null;
@@ -220,16 +253,19 @@ async function reconcileLeaderboards(
         submissionType: leaderboard.submissionType,
         scoreSortType: leaderboard.scoreSortType,
       });
-      create.status = "applied";
+      create.status = 'applied';
       versionId = result.versionId;
     } catch (error) {
-      create.status = "failed";
+      create.status = 'failed';
       create.error = errorMessage(error);
-      locAction.status = "skipped";
+      locAction.status = 'skipped';
       continue;
     }
     await applyLocalization(locAction, versionId, leaderboard.vendorIdentifier, () =>
-      api.createGameCenterLeaderboardLocalization(versionId ?? "", { locale, name: leaderboard.name }),
+      api.createGameCenterLeaderboardLocalization(versionId ?? '', {
+        locale,
+        name: leaderboard.name,
+      }),
     );
   }
 }
@@ -246,15 +282,15 @@ async function applyLocalization(
   run: () => Promise<void>,
 ): Promise<void> {
   if (!versionId) {
-    action.status = "skipped";
+    action.status = 'skipped';
     action.description = `localization for ${vendorIdentifier}: created the item, but no version id was returned — add it in App Store Connect`;
     return;
   }
   try {
     await run();
-    action.status = "applied";
+    action.status = 'applied';
   } catch (error) {
-    action.status = "failed";
+    action.status = 'failed';
     action.error = errorMessage(error);
   }
 }
@@ -262,17 +298,22 @@ async function applyLocalization(
 /** Read a required non-empty string field, throwing a located error when missing or the wrong type. */
 function requireString(record: Record<string, unknown>, key: string, where: string): string {
   const value = record[key];
-  if (typeof value !== "string" || value.length === 0) {
+  if (typeof value !== 'string' || value.length === 0) {
     throw new Error(`gamecenter.config.json: ${where}.${key} must be a non-empty string.`);
   }
   return value;
 }
 
 /** Read an optional boolean field, throwing a located error when present but not a boolean. */
-function optionalBoolean(record: Record<string, unknown>, key: string, where: string): boolean | undefined {
+function optionalBoolean(
+  record: Record<string, unknown>,
+  key: string,
+  where: string,
+): boolean | undefined {
   const value = record[key];
   if (value === undefined) return undefined;
-  if (typeof value !== "boolean") throw new Error(`gamecenter.config.json: ${where}.${key} must be a boolean.`);
+  if (typeof value !== 'boolean')
+    throw new Error(`gamecenter.config.json: ${where}.${key} must be a boolean.`);
   return value;
 }
 
@@ -281,23 +322,23 @@ function parseAchievement(raw: unknown, index: number): AchievementConfig {
   const record = asRecord(raw);
   const where = `achievements[${index}]`;
   if (!record) throw new Error(`gamecenter.config.json: ${where} must be an object.`);
-  const points = record["points"];
-  if (typeof points !== "number" || !Number.isInteger(points) || points < 0) {
+  const points = record['points'];
+  if (typeof points !== 'number' || !Number.isInteger(points) || points < 0) {
     throw new Error(`gamecenter.config.json: ${where}.points must be a non-negative integer.`);
   }
   const config: AchievementConfig = {
-    vendorIdentifier: requireString(record, "vendorIdentifier", where),
-    referenceName: requireString(record, "referenceName", where),
+    vendorIdentifier: requireString(record, 'vendorIdentifier', where),
+    referenceName: requireString(record, 'referenceName', where),
     points,
-    name: requireString(record, "name", where),
-    beforeEarnedDescription: requireString(record, "beforeEarnedDescription", where),
-    afterEarnedDescription: requireString(record, "afterEarnedDescription", where),
+    name: requireString(record, 'name', where),
+    beforeEarnedDescription: requireString(record, 'beforeEarnedDescription', where),
+    afterEarnedDescription: requireString(record, 'afterEarnedDescription', where),
   };
-  const showBeforeEarned = optionalBoolean(record, "showBeforeEarned", where);
+  const showBeforeEarned = optionalBoolean(record, 'showBeforeEarned', where);
   if (showBeforeEarned !== undefined) config.showBeforeEarned = showBeforeEarned;
-  const repeatable = optionalBoolean(record, "repeatable", where);
+  const repeatable = optionalBoolean(record, 'repeatable', where);
   if (repeatable !== undefined) config.repeatable = repeatable;
-  if (typeof record["locale"] === "string") config.locale = record["locale"];
+  if (typeof record['locale'] === 'string') config.locale = record['locale'];
   return config;
 }
 
@@ -322,34 +363,40 @@ function parseLeaderboard(raw: unknown, index: number): LeaderboardConfig {
   const where = `leaderboards[${index}]`;
   if (!record) throw new Error(`gamecenter.config.json: ${where} must be an object.`);
 
-  const defaultFormatter = requireString(record, "defaultFormatter", where);
+  const defaultFormatter = requireString(record, 'defaultFormatter', where);
   if (!isFormatter(defaultFormatter)) {
     throw new Error(
-      `gamecenter.config.json: ${where}.defaultFormatter must be one of ${LEADERBOARD_FORMATTERS.join(", ")}.`,
+      `gamecenter.config.json: ${where}.defaultFormatter must be one of ${LEADERBOARD_FORMATTERS.join(', ')}.`,
     );
   }
-  const submissionType = requireString(record, "submissionType", where);
+  const submissionType = requireString(record, 'submissionType', where);
   if (!isSubmissionType(submissionType)) {
-    throw new Error(`gamecenter.config.json: ${where}.submissionType must be BEST_SCORE or MOST_RECENT_SCORE.`);
+    throw new Error(
+      `gamecenter.config.json: ${where}.submissionType must be BEST_SCORE or MOST_RECENT_SCORE.`,
+    );
   }
-  const scoreSortType = requireString(record, "scoreSortType", where);
+  const scoreSortType = requireString(record, 'scoreSortType', where);
   if (!isSortType(scoreSortType)) {
     throw new Error(`gamecenter.config.json: ${where}.scoreSortType must be ASC or DESC.`);
   }
   const config: LeaderboardConfig = {
-    vendorIdentifier: requireString(record, "vendorIdentifier", where),
-    referenceName: requireString(record, "referenceName", where),
+    vendorIdentifier: requireString(record, 'vendorIdentifier', where),
+    referenceName: requireString(record, 'referenceName', where),
     defaultFormatter,
     submissionType,
     scoreSortType,
-    name: requireString(record, "name", where),
+    name: requireString(record, 'name', where),
   };
-  if (typeof record["locale"] === "string") config.locale = record["locale"];
+  if (typeof record['locale'] === 'string') config.locale = record['locale'];
   return config;
 }
 
 /** Parse one list ("achievements" / "leaderboards") via `parse`, or undefined when absent. */
-function parseList<T>(raw: unknown, key: string, parse: (entry: unknown, index: number) => T): T[] | undefined {
+function parseList<T>(
+  raw: unknown,
+  key: string,
+  parse: (entry: unknown, index: number) => T,
+): T[] | undefined {
   if (raw === undefined) return undefined;
   if (!Array.isArray(raw)) throw new Error(`gamecenter.config.json: ${key} must be an array.`);
   return raw.map(parse);
@@ -362,16 +409,18 @@ function parseList<T>(raw: unknown, key: string, parse: (entry: unknown, index: 
  */
 export function parseGameCenterConfig(raw: unknown): GameCenterConfig {
   const record = asRecord(raw);
-  if (!record) throw new Error("gamecenter.config.json must be a JSON object.");
+  if (!record) throw new Error('gamecenter.config.json must be a JSON object.');
 
   const config: GameCenterConfig = {};
-  const achievements = parseList(record["achievements"], "achievements", parseAchievement);
+  const achievements = parseList(record['achievements'], 'achievements', parseAchievement);
   if (achievements) config.achievements = achievements;
-  const leaderboards = parseList(record["leaderboards"], "leaderboards", parseLeaderboard);
+  const leaderboards = parseList(record['leaderboards'], 'leaderboards', parseLeaderboard);
   if (leaderboards) config.leaderboards = leaderboards;
 
   if ((config.achievements?.length ?? 0) === 0 && (config.leaderboards?.length ?? 0) === 0) {
-    throw new Error('gamecenter.config.json must declare at least one entry under "achievements" or "leaderboards".');
+    throw new Error(
+      'gamecenter.config.json must declare at least one entry under "achievements" or "leaderboards".',
+    );
   }
   return config;
 }
@@ -383,5 +432,5 @@ export function loadGameCenterConfig(path: string): GameCenterConfig {
       `No Game Center config at ${path}. Create one (see \`launch game-center --help\`) or pass --config.`,
     );
   }
-  return parseGameCenterConfig(JSON.parse(readFileSync(path, "utf8")));
+  return parseGameCenterConfig(JSON.parse(readFileSync(path, 'utf8')));
 }

@@ -18,23 +18,23 @@
  * the Play Console home — the same behavior `launch doctor` and the build receipt already use.
  */
 
-import type { AppDescriptor, OpenTarget, Platform } from "./types.js";
-import { isApplePlatform, parsePlatform } from "./platform.js";
-import { run } from "./exec.js";
-import { hostOs } from "./os.js";
-import { loadConfig } from "./config.js";
-import { selectApps } from "./syncJobs.js";
-import { createAscClientResolver } from "./storeClients.js";
+import type { AppDescriptor, OpenTarget, Platform } from './types.js';
+import { isApplePlatform, parsePlatform } from './platform.js';
+import { run } from './exec.js';
+import { hostOs } from './os.js';
+import { loadConfig } from './config.js';
+import { selectApps } from './syncJobs.js';
+import { createAscClientResolver } from './storeClients.js';
 
 /** The accepted `[target]` values for `launch open`, in the order help lists them; the default is the first. */
 export const OPEN_TARGETS: readonly OpenTarget[] = [
-  "asc",
-  "play",
-  "testflight",
-  "listing",
-  "reviews",
-  "agreements",
-  "app-record",
+  'asc',
+  'play',
+  'testflight',
+  'listing',
+  'reviews',
+  'agreements',
+  'app-record',
 ] as const;
 
 /**
@@ -49,9 +49,9 @@ export interface OpenUrlOptions {
 }
 
 /** App Store Connect web origin — Apple's per-app pages hang off `/apps/{id}`. */
-const ASC_ORIGIN = "https://appstoreconnect.apple.com";
+const ASC_ORIGIN = 'https://appstoreconnect.apple.com';
 /** Google Play Console home. Per-app Play URLs need the developer-account id Launch doesn't have. */
-const PLAY_CONSOLE_URL = "https://play.google.com/console";
+const PLAY_CONSOLE_URL = 'https://play.google.com/console';
 
 /**
  * The App Store Connect URL for a target, given the resolved app id (or `undefined` when it couldn't be
@@ -59,19 +59,19 @@ const PLAY_CONSOLE_URL = "https://play.google.com/console";
  * app-level targets fall back to the apps list when the id is unknown so the link is still useful.
  */
 function ascUrl(target: OpenTarget, appId: string | undefined): string {
-  if (target === "agreements") return `${ASC_ORIGIN}/agreements/`;
+  if (target === 'agreements') return `${ASC_ORIGIN}/agreements/`;
   if (!appId) return `${ASC_ORIGIN}/apps`;
   const appBase = `${ASC_ORIGIN}/apps/${appId}`;
   switch (target) {
-    case "testflight":
+    case 'testflight':
       return `${appBase}/testflight/ios`;
-    case "listing":
+    case 'listing':
       return `${appBase}/appstore`;
-    case "reviews":
+    case 'reviews':
       return `${appBase}/ratings-and-reviews/ios`;
-    case "asc":
-    case "play":
-    case "app-record":
+    case 'asc':
+    case 'play':
+    case 'app-record':
       return appBase;
   }
 }
@@ -84,17 +84,22 @@ function ascUrl(target: OpenTarget, appId: string | undefined): string {
  * @param platform which store's console to open. `play` always means Android; otherwise this decides.
  * @param appId the resolved App Store Connect app id, when known — only used for iOS deep links.
  */
-export function buildConsoleUrl(target: OpenTarget, platform: Platform, appId: string | undefined): string {
-  if (target === "play") return PLAY_CONSOLE_URL;
-  if (platform === "android") return PLAY_CONSOLE_URL;
+export function buildConsoleUrl(
+  target: OpenTarget,
+  platform: Platform,
+  appId: string | undefined,
+): string {
+  if (target === 'play') return PLAY_CONSOLE_URL;
+  if (platform === 'android') return PLAY_CONSOLE_URL;
   return ascUrl(target, appId);
 }
 
 /** Validate the optional `[target]`, defaulting to `asc`, and rejecting anything off the known list. */
 export function parseOpenTarget(value: string | undefined): OpenTarget {
-  if (value === undefined) return "asc";
+  if (value === undefined) return 'asc';
   const target = OPEN_TARGETS.find((known) => known === value);
-  if (!target) throw new Error(`Unknown target "${value}". Use one of: ${OPEN_TARGETS.join(", ")}.`);
+  if (!target)
+    throw new Error(`Unknown target "${value}". Use one of: ${OPEN_TARGETS.join(', ')}.`);
   return target;
 }
 
@@ -104,8 +109,8 @@ export function parseOpenTarget(value: string | undefined): OpenTarget {
  * every Apple platform shares one App Store Connect app page — so the Apple platforms collapse to `ios`.
  */
 export function resolveOpenPlatform(target: OpenTarget, flag: string | undefined): Platform {
-  if (flag !== undefined) return isApplePlatform(parsePlatform(flag)) ? "ios" : "android";
-  return target === "play" ? "android" : "ios";
+  if (flag !== undefined) return isApplePlatform(parsePlatform(flag)) ? 'ios' : 'android';
+  return target === 'play' ? 'android' : 'ios';
 }
 
 /**
@@ -113,14 +118,18 @@ export function resolveOpenPlatform(target: OpenTarget, flag: string | undefined
  * app that has the platform's id (a bundle id for iOS, a package name for Android). Throws a pointed error
  * when nothing qualifies so the user knows to add the id rather than landing on an empty console.
  */
-export function selectOpenApp(apps: AppDescriptor[], platform: Platform, selector: string | undefined): AppDescriptor {
+export function selectOpenApp(
+  apps: AppDescriptor[],
+  platform: Platform,
+  selector: string | undefined,
+): AppDescriptor {
   const hasId = (app: AppDescriptor): boolean =>
-    platform === "ios" ? Boolean(app.bundleId) : Boolean(app.packageName);
+    platform === 'ios' ? Boolean(app.bundleId) : Boolean(app.packageName);
   const app = selectApps(apps, selector).find(hasId);
   if (!app) {
-    const idLabel = platform === "ios" ? "ios.bundleIdentifier" : "android.package";
+    const idLabel = platform === 'ios' ? 'ios.bundleIdentifier' : 'android.package';
     throw new Error(
-      `No ${platform} app found${selector ? ` matching "${selector}"` : ""}. Add an ${idLabel} in app.json.`,
+      `No ${platform} app found${selector ? ` matching "${selector}"` : ''}. Add an ${idLabel} in app.json.`,
     );
   }
   return app;
@@ -132,14 +141,17 @@ export function selectOpenApp(apps: AppDescriptor[], platform: Platform, selecto
  * iOS best-effort resolves the App Store Connect app id (a missing id falls back to the apps list, never
  * throws). Android URLs are id-free, so the network call is skipped.
  */
-export async function resolveOpenUrl(rawTarget: string | undefined, options: OpenUrlOptions): Promise<string> {
+export async function resolveOpenUrl(
+  rawTarget: string | undefined,
+  options: OpenUrlOptions,
+): Promise<string> {
   const target = parseOpenTarget(rawTarget);
   const platform = resolveOpenPlatform(target, options.platform);
   const { apps } = await loadConfig();
   const app = selectOpenApp(apps, platform, options.app);
 
   let appId: string | undefined;
-  if (platform === "ios" && app.bundleId) {
+  if (platform === 'ios' && app.bundleId) {
     const asc = await createAscClientResolver()();
     appId = (await asc?.getAppId(app.bundleId).catch(() => null)) ?? undefined;
   }
@@ -156,11 +168,11 @@ export async function resolveOpenUrl(rawTarget: string | undefined, options: Ope
  */
 export function openUrl(url: string): Promise<void> {
   switch (hostOs()) {
-    case "macos":
-      return run("open", [url]);
-    case "linux":
-      return run("xdg-open", [url]);
-    case "windows":
-      return run("cmd", ["/c", "start", "", url]);
+    case 'macos':
+      return run('open', [url]);
+    case 'linux':
+      return run('xdg-open', [url]);
+    case 'windows':
+      return run('cmd', ['/c', 'start', '', url]);
   }
 }

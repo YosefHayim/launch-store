@@ -8,26 +8,26 @@
  * absent"). The scan is bounded and read-only and never executes anything (see {@link walkAppSource}). Tag `iap`.
  */
 
-import { readFileSync, statSync } from "node:fs";
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from "../types.js";
-import { walkAppSource } from "../sourceScan.js";
-import { declaredAppleProductIds } from "./iapReadiness.js";
+import { readFileSync, statSync } from 'node:fs';
+import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import { walkAppSource } from '../sourceScan.js';
+import { declaredAppleProductIds } from './iapReadiness.js';
 
 /** Extensions a product id can realistically be referenced from: JS/TS, native sources, and config/JSON. */
 const SCANNABLE_EXTENSIONS = new Set([
-  ".js",
-  ".jsx",
-  ".ts",
-  ".tsx",
-  ".mjs",
-  ".cjs",
-  ".json",
-  ".swift",
-  ".m",
-  ".mm",
-  ".h",
-  ".kt",
-  ".java",
+  '.js',
+  '.jsx',
+  '.ts',
+  '.tsx',
+  '.mjs',
+  '.cjs',
+  '.json',
+  '.swift',
+  '.m',
+  '.mm',
+  '.h',
+  '.kt',
+  '.java',
 ]);
 
 /** Skip an individual file larger than this (minified bundles, lockfiles) — they won't hold a hand-typed id. */
@@ -56,7 +56,7 @@ function findReferencedIds(appDir: string, productIds: string[]): Set<string> {
     if (bytesScanned + size > MAX_SCAN_BYTES) return true; // byte budget exhausted — stop the walk
     let text: string;
     try {
-      text = readFileSync(filePath, "utf8");
+      text = readFileSync(filePath, 'utf8');
     } catch {
       return false;
     }
@@ -75,10 +75,10 @@ function findReferencedIds(appDir: string, productIds: string[]): Set<string> {
 
 /** The App Store Connect "declared product ids are referenced in app code" probe (local source scan). */
 export const iapCodeReferenceProbe: ReadinessProbe = {
-  id: "apple-iap-code-reference",
-  title: "Product ids referenced in app code",
-  store: "appstore",
-  categories: ["iap"],
+  id: 'apple-iap-code-reference',
+  title: 'Product ids referenced in app code',
+  store: 'appstore',
+  categories: ['iap'],
   async check(ctx: ReadinessContext): Promise<ProbeResult> {
     const apps = ctx.apps.flatMap((app) => {
       const bundleId = app.bundleId;
@@ -86,7 +86,7 @@ export const iapCodeReferenceProbe: ReadinessProbe = {
       const ids = declaredAppleProductIds(ctx.config.products?.[bundleId]);
       return ids.length > 0 ? [{ name: app.name, identifier: bundleId, dir: app.dir, ids }] : [];
     });
-    if (apps.length === 0) return { state: "omitted" };
+    if (apps.length === 0) return { state: 'omitted' };
 
     const results: AppReadiness[] = apps.map(({ name, identifier, dir, ids }) => {
       const referenced = findReferencedIds(dir, ids);
@@ -95,18 +95,18 @@ export const iapCodeReferenceProbe: ReadinessProbe = {
         return {
           app: name,
           identifier,
-          status: "ok",
-          detail: `all ${ids.length} declared product id${ids.length === 1 ? "" : "s"} referenced in source`,
+          status: 'ok',
+          detail: `all ${ids.length} declared product id${ids.length === 1 ? '' : 's'} referenced in source`,
         };
       }
       return {
         app: name,
         identifier,
-        status: "warn",
-        detail: `${orphaned.length} declared product id${orphaned.length === 1 ? "" : "s"} not found in source: ${orphaned.join(", ")}`,
-        hint: "check for a typo or an orphaned product in launch.config.ts (native/generated dirs are skipped)",
+        status: 'warn',
+        detail: `${orphaned.length} declared product id${orphaned.length === 1 ? '' : 's'} not found in source: ${orphaned.join(', ')}`,
+        hint: 'check for a typo or an orphaned product in launch.config.ts (native/generated dirs are skipped)',
       };
     });
-    return { state: "checked", apps: results };
+    return { state: 'checked', apps: results };
   },
 };

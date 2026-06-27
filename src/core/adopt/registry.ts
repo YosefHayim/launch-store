@@ -5,11 +5,11 @@
  * plus one {@link registerAdopter} line in {@link registerBuiltinAdopters} — the orchestrator is untouched.
  */
 
-import type { Adopter } from "./types.js";
-import { productsAdopter } from "./products.js";
-import { capabilitiesAdopter } from "./capabilities.js";
-import { certsAdopter } from "./certs.js";
-import { listingAdopter } from "./listing.js";
+import type { Adopter } from './types.js';
+import { productsAdopter } from './products.js';
+import { capabilitiesAdopter } from './capabilities.js';
+import { certsAdopter } from './certs.js';
+import { listingAdopter } from './listing.js';
 
 /** Registered adopters, keyed by domain so re-registering one replaces it (idempotent built-in wiring). */
 const ADOPTERS = new Map<string, Adopter>();

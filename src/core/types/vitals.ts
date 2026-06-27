@@ -10,7 +10,7 @@
  * 1:1 to the two flagship metric sets in the Play Developer Reporting API
  * ({@link https://developers.google.com/play/developer/reporting crashRateMetricSet / anrRateMetricSet}).
  */
-export type PlayVitalsMetric = "crash" | "anr";
+export type PlayVitalsMetric = 'crash' | 'anr';
 
 /**
  * One normalized day of an Android quality vital — the clean internal shape `launch play-reports vitals`

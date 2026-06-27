@@ -20,8 +20,8 @@ import type {
   AppEventLocalizationResource,
   AppEventResource,
   NewAppEvent,
-} from "../apple/ascClient.js";
-import { appRecordNotFound } from "./asc/storeSync.js";
+} from '../apple/ascClient.js';
+import { appRecordNotFound } from './asc/storeSync.js';
 
 /** The exact slice of {@link AppStoreConnectClient} the in-app-events domain depends on. */
 export interface AscAppEventsApi {
@@ -43,24 +43,24 @@ export interface AscAppEventsApi {
 
 /** Apple's in-app-event badges (`AppEventBadge`). Validated before create so a typo fails fast. */
 export const APP_EVENT_BADGES: readonly string[] = [
-  "LIVE_EVENT",
-  "PREMIERE",
-  "CHALLENGE",
-  "COMPETITION",
-  "NEW_SEASON",
-  "MAJOR_UPDATE",
-  "SPECIAL_EVENT",
+  'LIVE_EVENT',
+  'PREMIERE',
+  'CHALLENGE',
+  'COMPETITION',
+  'NEW_SEASON',
+  'MAJOR_UPDATE',
+  'SPECIAL_EVENT',
 ];
 
 /** How prominently Apple may feature an event (`AppEventPriority`). */
-export const APP_EVENT_PRIORITIES: readonly string[] = ["HIGH", "NORMAL"];
+export const APP_EVENT_PRIORITIES: readonly string[] = ['HIGH', 'NORMAL'];
 
 /** An event's marketing purpose (`AppEventPurpose`). */
 export const APP_EVENT_PURPOSES: readonly string[] = [
-  "APPROPRIATE_FOR_ALL_USERS",
-  "ATTRACT_NEW_USERS",
-  "KEEP_ACTIVE_USERS_INFORMED",
-  "BRING_BACK_LAPSED_USERS",
+  'APPROPRIATE_FOR_ALL_USERS',
+  'ATTRACT_NEW_USERS',
+  'KEEP_ACTIVE_USERS_INFORMED',
+  'BRING_BACK_LAPSED_USERS',
 ];
 
 /** One event paired with its localizations — what `launch events list` renders. */
@@ -95,11 +95,15 @@ export interface LocalizeResult {
 }
 
 /** Validate an optional enum attribute, returning the canonical (upper-cased) value or undefined when unset. */
-function validateEnum(field: string, value: string | undefined, allowed: readonly string[]): string | undefined {
+function validateEnum(
+  field: string,
+  value: string | undefined,
+  allowed: readonly string[],
+): string | undefined {
   if (value === undefined) return undefined;
   const normalized = value.trim().toUpperCase();
   if (!allowed.includes(normalized)) {
-    throw new Error(`Invalid ${field} "${value}". Valid ${field}s: ${allowed.join(", ")}.`);
+    throw new Error(`Invalid ${field} "${value}". Valid ${field}s: ${allowed.join(', ')}.`);
   }
   return normalized;
 }
@@ -108,13 +112,19 @@ function validateEnum(field: string, value: string | undefined, allowed: readonl
  * List an app's in-app events, each paired with its localizations. Resolves the ASC app record from the
  * bundle id first, throwing an actionable error when none exists.
  */
-export async function listEvents(api: AscAppEventsApi, bundleId: string): Promise<AppEventWithLocalizations[]> {
+export async function listEvents(
+  api: AscAppEventsApi,
+  bundleId: string,
+): Promise<AppEventWithLocalizations[]> {
   const appId = await api.getAppId(bundleId);
   if (!appId) throw appRecordNotFound(bundleId);
 
   const events = await api.listAppEvents(appId);
   return Promise.all(
-    events.map(async (event) => ({ event, localizations: await api.listAppEventLocalizations(event.id) })),
+    events.map(async (event) => ({
+      event,
+      localizations: await api.listAppEventLocalizations(event.id),
+    })),
   );
 }
 
@@ -128,11 +138,11 @@ export async function createEvent(
   request: CreateEventRequest,
 ): Promise<AppEventResource> {
   const referenceName = request.referenceName.trim();
-  if (!referenceName) throw new Error("A reference name is required to create an in-app event.");
+  if (!referenceName) throw new Error('A reference name is required to create an in-app event.');
 
-  const badge = validateEnum("badge", request.badge, APP_EVENT_BADGES);
-  const priority = validateEnum("priority", request.priority, APP_EVENT_PRIORITIES);
-  const purpose = validateEnum("purpose", request.purpose, APP_EVENT_PURPOSES);
+  const badge = validateEnum('badge', request.badge, APP_EVENT_BADGES);
+  const priority = validateEnum('priority', request.priority, APP_EVENT_PRIORITIES);
+  const purpose = validateEnum('purpose', request.purpose, APP_EVENT_PURPOSES);
 
   const appId = await api.getAppId(bundleId);
   if (!appId) throw appRecordNotFound(bundleId);
@@ -158,14 +168,15 @@ export async function localizeEvent(
   request: LocalizeEventRequest,
 ): Promise<LocalizeResult> {
   const locale = request.locale.trim();
-  if (!locale) throw new Error("A locale is required to localize an in-app event.");
+  if (!locale) throw new Error('A locale is required to localize an in-app event.');
 
   const attributes: AppEventLocalizationInput = {};
   if (request.name !== undefined) attributes.name = request.name;
-  if (request.shortDescription !== undefined) attributes.shortDescription = request.shortDescription;
+  if (request.shortDescription !== undefined)
+    attributes.shortDescription = request.shortDescription;
   if (request.longDescription !== undefined) attributes.longDescription = request.longDescription;
   if (Object.keys(attributes).length === 0) {
-    throw new Error("Provide at least one of --name, --short, or --long to localize the event.");
+    throw new Error('Provide at least one of --name, --short, or --long to localize the event.');
   }
 
   const existing = (await api.listAppEventLocalizations(eventId)).find(

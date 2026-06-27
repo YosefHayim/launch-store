@@ -181,5 +181,5 @@ export interface AndroidCredentials {
  * with no `any` and no unchecked casts.
  */
 export type BuildCredentials =
-  | ({ platform: "ios" } & AppleCredentials)
-  | ({ platform: "android" } & AndroidCredentials);
+  | ({ platform: 'ios' } & AppleCredentials)
+  | ({ platform: 'android' } & AndroidCredentials);

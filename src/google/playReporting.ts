@@ -16,13 +16,18 @@
  * @see https://developers.google.com/play/developer/reporting
  */
 
-import { ServiceAccountTokenSource } from "./serviceAccountToken.js";
-import { describePlayErrors, type ServiceAccount } from "./playClient.js";
-import type { PlayVitalsMetric, PlayVitalsRow, VitalsTimeline, VitalsWindow } from "../core/types.js";
+import { ServiceAccountTokenSource } from './serviceAccountToken.js';
+import { describePlayErrors, type ServiceAccount } from './playClient.js';
+import type {
+  PlayVitalsMetric,
+  PlayVitalsRow,
+  VitalsTimeline,
+  VitalsWindow,
+} from '../core/types.js';
 
-const BASE_URL = "https://playdeveloperreporting.googleapis.com/v1beta1";
+const BASE_URL = 'https://playdeveloperreporting.googleapis.com/v1beta1';
 /** Distinct from the Play Developer API scope — the reporting API rejects an `androidpublisher` token. */
-const OAUTH_SCOPE = "https://www.googleapis.com/auth/playdeveloperreporting";
+const OAUTH_SCOPE = 'https://www.googleapis.com/auth/playdeveloperreporting';
 
 /**
  * The metric set behind each vital: its API resource segment and the three metrics Launch reads.
@@ -34,16 +39,16 @@ const METRIC_SETS: Record<
   { resource: string; rate: string; userPerceivedRate: string; distinctUsers: string }
 > = {
   crash: {
-    resource: "crashRateMetricSet",
-    rate: "crashRate",
-    userPerceivedRate: "userPerceivedCrashRate",
-    distinctUsers: "distinctUsers",
+    resource: 'crashRateMetricSet',
+    rate: 'crashRate',
+    userPerceivedRate: 'userPerceivedCrashRate',
+    distinctUsers: 'distinctUsers',
   },
   anr: {
-    resource: "anrRateMetricSet",
-    rate: "anrRate",
-    userPerceivedRate: "userPerceivedAnrRate",
-    distinctUsers: "distinctUsers",
+    resource: 'anrRateMetricSet',
+    rate: 'anrRate',
+    userPerceivedRate: 'userPerceivedAnrRate',
+    distinctUsers: 'distinctUsers',
   },
 };
 
@@ -111,7 +116,10 @@ function shiftIsoDate(iso: string, delta: number): string {
  * day, from `:get`). Falls back to ending today when freshness is unknown — the API still clamps to what
  * it has, so an over-reaching end is harmless. Returns inclusive `startDate`/`endDate`.
  */
-export function resolveVitalsWindow(latestDate: string | null, days = DEFAULT_VITALS_DAYS): VitalsWindow {
+export function resolveVitalsWindow(
+  latestDate: string | null,
+  days = DEFAULT_VITALS_DAYS,
+): VitalsWindow {
   const endDate = latestDate ?? new Date().toISOString().slice(0, 10);
   return { startDate: shiftIsoDate(endDate, -(days - 1)), endDate };
 }
@@ -119,13 +127,13 @@ export function resolveVitalsWindow(latestDate: string | null, days = DEFAULT_VI
 /** Render a Google `DateTime`'s date part as ISO `YYYY-MM-DD`, or undefined when the date is incomplete. */
 function dateTimeToIso(date: ApiDateTime | undefined): string | undefined {
   if (!date?.year || !date.month || !date.day) return undefined;
-  const pad = (n: number): string => String(n).padStart(2, "0");
+  const pad = (n: number): string => String(n).padStart(2, '0');
   return `${date.year}-${pad(date.month)}-${pad(date.day)}`;
 }
 
 /** Split an ISO `YYYY-MM-DD` string into the `{ year, month, day }` the API's `timelineSpec` wants. */
 function isoToDateParts(iso: string): { year: number; month: number; day: number } {
-  const [year, month, day] = iso.split("-").map(Number);
+  const [year, month, day] = iso.split('-').map(Number);
   return { year: year ?? 0, month: month ?? 0, day: day ?? 0 };
 }
 
@@ -152,7 +160,7 @@ export class PlayReportingClient {
       method,
       headers: {
         Authorization: `Bearer ${await this.tokens.token()}`,
-        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
@@ -172,8 +180,13 @@ export class PlayReportingClient {
    */
   async latestDailyDate(packageName: string, metric: PlayVitalsMetric): Promise<string | null> {
     const { resource } = METRIC_SETS[metric];
-    const set = await this.request<ApiMetricSetResource>("GET", `/apps/${encodeURIComponent(packageName)}/${resource}`);
-    const daily = set.freshnessInfo?.freshnesses?.find((freshness) => freshness.aggregationPeriod === "DAILY");
+    const set = await this.request<ApiMetricSetResource>(
+      'GET',
+      `/apps/${encodeURIComponent(packageName)}/${resource}`,
+    );
+    const daily = set.freshnessInfo?.freshnesses?.find(
+      (freshness) => freshness.aggregationPeriod === 'DAILY',
+    );
     return dateTimeToIso(daily?.latestEndTime) ?? null;
   }
 
@@ -190,7 +203,7 @@ export class PlayReportingClient {
   ): Promise<VitalsTimeline> {
     const window = resolveVitalsWindow(await this.latestDailyDate(packageName, metric), days);
     const rows =
-      metric === "crash"
+      metric === 'crash'
         ? await this.queryCrashRate(packageName, window)
         : await this.queryAnrRate(packageName, window);
     return { metric, window, rows };
@@ -198,12 +211,12 @@ export class PlayReportingClient {
 
   /** Query the crash-rate metric set over a DAILY window, returning normalized rows. */
   async queryCrashRate(packageName: string, window: VitalsWindow): Promise<PlayVitalsRow[]> {
-    return this.queryVitals("crash", packageName, window);
+    return this.queryVitals('crash', packageName, window);
   }
 
   /** Query the ANR-rate metric set over a DAILY window, returning normalized rows. */
   async queryAnrRate(packageName: string, window: VitalsWindow): Promise<PlayVitalsRow[]> {
-    return this.queryVitals("anr", packageName, window);
+    return this.queryVitals('anr', packageName, window);
   }
 
   /**
@@ -221,11 +234,11 @@ export class PlayReportingClient {
     let pageToken: string | undefined;
     do {
       const page = await this.request<ApiQueryResponse>(
-        "POST",
+        'POST',
         `/apps/${encodeURIComponent(packageName)}/${set.resource}:query`,
         {
           timelineSpec: {
-            aggregationPeriod: "DAILY",
+            aggregationPeriod: 'DAILY',
             startTime: isoToDateParts(window.startDate),
             endTime: isoToDateParts(window.endDate),
           },

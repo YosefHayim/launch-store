@@ -9,16 +9,20 @@
  * last ~week, and replies are limited to that window.
  */
 
-import { readFileSync } from "node:fs";
-import { cancel, confirm, isCancel } from "@clack/prompts";
-import type { Command } from "commander";
-import type { PlayReview } from "../../google/playClient.js";
-import { GooglePlayClient, parseServiceAccount } from "../../google/playClient.js";
-import { loadServiceAccount } from "../../google/credentials.js";
-import { loadConfig } from "../../core/config.js";
-import { selectApp } from "../../core/pipeline.js";
-import { createLogger } from "../../core/logger.js";
-import { listPlayReviews, replyToPlayReview, type PlayReviewFilters } from "../../core/playReviews.js";
+import { readFileSync } from 'node:fs';
+import { cancel, confirm, isCancel } from '@clack/prompts';
+import type { Command } from 'commander';
+import type { PlayReview } from '../../google/playClient.js';
+import { GooglePlayClient, parseServiceAccount } from '../../google/playClient.js';
+import { loadServiceAccount } from '../../google/credentials.js';
+import { loadConfig } from '../../core/config.js';
+import { selectApp } from '../../core/pipeline.js';
+import { createLogger } from '../../core/logger.js';
+import {
+  listPlayReviews,
+  replyToPlayReview,
+  type PlayReviewFilters,
+} from '../../core/playReviews.js';
 
 /** Options for `play-reviews list`. */
 interface PlayReviewsListOptions {
@@ -40,7 +44,10 @@ interface ReplyOptions {
 /** Build a Play client bound to the stored service account, or fail with the onboarding hint. */
 async function activeClient(): Promise<GooglePlayClient> {
   const json = await loadServiceAccount();
-  if (!json) throw new Error("No Play service account. Run `launch creds set-key --platform android` first.");
+  if (!json)
+    throw new Error(
+      'No Play service account. Run `launch creds set-key --platform android` first.',
+    );
   return new GooglePlayClient(parseServiceAccount(json));
 }
 
@@ -76,38 +83,38 @@ function toFilters(options: PlayReviewsListOptions): PlayReviewFilters {
 
 /** Render one review as a copy-pasteable block: id, stars, meta line, then text + any existing reply. */
 function renderReview(review: PlayReview): string {
-  const stars = "★".repeat(review.rating) + "☆".repeat(5 - review.rating);
+  const stars = '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating);
   const meta = [
     review.reviewerLanguage,
     review.lastModified ? review.lastModified.slice(0, 10) : undefined,
     review.appVersionName ? `v${review.appVersionName}` : undefined,
     review.authorName ? `by ${review.authorName}` : undefined,
-    review.answered ? "✓ answered" : "• unanswered",
+    review.answered ? '✓ answered' : '• unanswered',
   ]
     .filter(Boolean)
-    .join("  ");
+    .join('  ');
   const lines = [`${review.reviewId}  ${stars} (${review.rating})`, `  ${meta}`];
   if (review.text) lines.push(`  ${review.text}`);
   if (review.developerReply) lines.push(`  ↳ reply: ${review.developerReply}`);
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /** Resolve the reply body from `--message` or `--file`, erroring when neither is given. */
 function resolveBody(options: ReplyOptions): string {
-  if (options.file) return readFileSync(options.file, "utf8").trim();
+  if (options.file) return readFileSync(options.file, 'utf8').trim();
   if (options.message) return options.message;
-  throw new Error("A reply body is required. Pass -m/--message <text> or --file <path>.");
+  throw new Error('A reply body is required. Pass -m/--message <text> or --file <path>.');
 }
 
 /** Confirm an outward-facing write, refusing in CI unless `--yes` was passed. */
 async function confirmWrite(message: string, yes: boolean | undefined): Promise<boolean> {
   if (yes) return true;
   if (!process.stdout.isTTY) {
-    throw new Error("Refusing to post without confirmation. Re-run with --yes (non-interactive).");
+    throw new Error('Refusing to post without confirmation. Re-run with --yes (non-interactive).');
   }
   const proceed = await confirm({ message });
   if (isCancel(proceed) || !proceed) {
-    cancel("Aborted — nothing posted.");
+    cancel('Aborted — nothing posted.');
     return false;
   }
   return true;
@@ -116,17 +123,17 @@ async function confirmWrite(message: string, yes: boolean | undefined): Promise<
 /** Attach the `play-reviews` command (with `list` / `reply` subcommands) to the program. */
 export function registerPlayReviewsCommand(program: Command): void {
   const reviews = program
-    .command("play-reviews")
-    .description("read Google Play customer reviews and reply from the CLI");
+    .command('play-reviews')
+    .description('read Google Play customer reviews and reply from the CLI');
 
   reviews
-    .command("list")
+    .command('list')
     .description("list an app's Play reviews (only reviews with text from the last ~week)")
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("--rating <1-5>", "only show reviews with this star rating")
-    .option("--unanswered", "only show reviews without a developer reply", false)
-    .option("--lang <bcp47>", "machine-translate review text into this language (e.g. en-US)")
-    .option("--json", "output machine-readable JSON", false)
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option('--rating <1-5>', 'only show reviews with this star rating')
+    .option('--unanswered', 'only show reviews without a developer reply', false)
+    .option('--lang <bcp47>', 'machine-translate review text into this language (e.g. en-US)')
+    .option('--json', 'output machine-readable JSON', false)
     .action(async (options: PlayReviewsListOptions) => {
       const packageName = await resolvePackageName(options.app);
       const client = await activeClient();
@@ -137,21 +144,23 @@ export function registerPlayReviewsCommand(program: Command): void {
         return;
       }
       if (found.length === 0) {
-        console.log("No reviews match. Try removing a filter, or check back later (Play shows only recent reviews).");
+        console.log(
+          'No reviews match. Try removing a filter, or check back later (Play shows only recent reviews).',
+        );
         return;
       }
-      console.log(found.map(renderReview).join("\n\n"));
-      console.log(`\n${found.length} review${found.length === 1 ? "" : "s"}.`);
+      console.log(found.map(renderReview).join('\n\n'));
+      console.log(`\n${found.length} review${found.length === 1 ? '' : 's'}.`);
     });
 
   reviews
-    .command("reply")
-    .description("post (or replace) the developer reply to a review")
-    .argument("<reviewId>", "the review id from `play-reviews list`")
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("-m, --message <text>", "the reply text")
-    .option("--file <path>", "read the reply text from a file")
-    .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
+    .command('reply')
+    .description('post (or replace) the developer reply to a review')
+    .argument('<reviewId>', 'the review id from `play-reviews list`')
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option('-m, --message <text>', 'the reply text')
+    .option('--file <path>', 'read the reply text from a file')
+    .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(async (reviewId: string, options: ReplyOptions) => {
       const log = createLogger(false);
       const body = resolveBody(options);
@@ -159,12 +168,12 @@ export function registerPlayReviewsCommand(program: Command): void {
       const client = await activeClient();
 
       const existing = await client.getReview(packageName, reviewId);
-      const verb = existing?.answered ? "Replace the existing reply to" : "Post a public reply to";
+      const verb = existing?.answered ? 'Replace the existing reply to' : 'Post a public reply to';
       if (!(await confirmWrite(`${verb} review ${reviewId}?`, options.yes))) return;
 
       const { result, replaced } = await replyToPlayReview(client, packageName, reviewId, body);
       log.step(
-        replaced ? "reply replaced" : "reply posted",
+        replaced ? 'reply replaced' : 'reply posted',
         result.lastEdited ? `edited: ${result.lastEdited}` : undefined,
       );
     });

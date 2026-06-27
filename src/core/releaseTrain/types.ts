@@ -16,23 +16,30 @@
  * `launch build` / `launch release`, but are not yet cars in the multi-platform train — so this is
  * deliberately narrower than `Platform`, and the CLI rejects a `--platform` outside it.
  */
-export type TrainPlatform = "ios" | "android";
+export type TrainPlatform = 'ios' | 'android';
 
 /**
  * A native (iOS / Android) car's lifecycle. Linear happy path with two failure exits:
  * `building → submitted → in-review → approved → released`, where `in-review` can go `rejected` and any
  * non-terminal step can end `failed`. `released` / `failed` are terminal.
  */
-export type NativeCarState = "building" | "submitted" | "in-review" | "approved" | "released" | "rejected" | "failed";
+export type NativeCarState =
+  | 'building'
+  | 'submitted'
+  | 'in-review'
+  | 'approved'
+  | 'released'
+  | 'rejected'
+  | 'failed';
 
 /** An OTA car's lifecycle: it waits `pending` until its native platform is live, then `published` (D4). */
-export type OtaCarState = "pending" | "published";
+export type OtaCarState = 'pending' | 'published';
 
 /** Every car state, for code that handles both kinds uniformly. */
 export type CarState = NativeCarState | OtaCarState;
 
 /** The whole train's lifecycle: `running` until every car is terminal (`done`); `blocked` needs an operator. */
-export type TrainState = "running" | "blocked" | "done" | "aborted";
+export type TrainState = 'running' | 'blocked' | 'done' | 'aborted';
 
 /**
  * A native platform car — the iOS or Android leg of the release. Carries the build it submitted and, on a
@@ -58,7 +65,7 @@ export interface NativeCar {
  */
 export interface OtaCar {
   /** Discriminant: always `"ota"`. */
-  kind: "ota";
+  kind: 'ota';
   /** The native platform whose release opens this car's gate. */
   platform: TrainPlatform;
   /** The release channel the bundle publishes to (`launch update --channel`). */
@@ -100,23 +107,23 @@ export interface TrainRecord {
 
 /** Narrow a {@link Car} to an {@link OtaCar}. */
 export function isOtaCar(car: Car): car is OtaCar {
-  return car.kind === "ota";
+  return car.kind === 'ota';
 }
 
 /** Narrow a {@link Car} to a {@link NativeCar} (iOS / Android). */
 export function isNativeCar(car: Car): car is NativeCar {
-  return car.kind !== "ota";
+  return car.kind !== 'ota';
 }
 
 /** Whether a `--platform` value is one the train can coordinate (iOS / Android), narrowing it to {@link TrainPlatform}. */
 export function isTrainPlatform(value: string): value is TrainPlatform {
-  return value === "ios" || value === "android";
+  return value === 'ios' || value === 'android';
 }
 
 /** Native car states past which no further action is taken — the car has reached an end of its lifecycle. */
-const TERMINAL_NATIVE_STATES = new Set<NativeCarState>(["released", "failed"]);
+const TERMINAL_NATIVE_STATES = new Set<NativeCarState>(['released', 'failed']);
 
 /** Whether a car has reached a terminal state (a released/failed native car, or a published OTA car). */
 export function isCarTerminal(car: Car): boolean {
-  return isOtaCar(car) ? car.state === "published" : TERMINAL_NATIVE_STATES.has(car.state);
+  return isOtaCar(car) ? car.state === 'published' : TERMINAL_NATIVE_STATES.has(car.state);
 }

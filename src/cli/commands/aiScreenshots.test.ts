@@ -1,9 +1,13 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { generateScreenshots, type EnhancedShot, type ScreenshotEnhancer } from "./aiScreenshots.js";
-import { canonicalDimensions } from "../../core/screenshotSpecs.js";
+import { afterEach, describe, expect, it } from 'vitest';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  generateScreenshots,
+  type EnhancedShot,
+  type ScreenshotEnhancer,
+} from './aiScreenshots.js';
+import { canonicalDimensions } from '../../core/screenshotSpecs.js';
 
 const tmpDirs: string[] = [];
 afterEach(() => {
@@ -15,7 +19,7 @@ function pngBytes(width: number, height: number): Buffer {
   const head = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   const ihdr = Buffer.alloc(16);
   ihdr.writeUInt32BE(13, 0);
-  ihdr.write("IHDR", 4, "ascii");
+  ihdr.write('IHDR', 4, 'ascii');
   ihdr.writeUInt32BE(width, 8);
   ihdr.writeUInt32BE(height, 12);
   return Buffer.concat([head, ihdr]);
@@ -23,12 +27,12 @@ function pngBytes(width: number, height: number): Buffer {
 
 /** A fresh app dir seeded with one en-US APP_IPHONE_67 source screenshot (so discovery finds something to enhance). */
 function makeAppDir(withSource = true): string {
-  const dir = mkdtempSync(join(tmpdir(), "launch-aishots-"));
+  const dir = mkdtempSync(join(tmpdir(), 'launch-aishots-'));
   tmpDirs.push(dir);
   if (withSource) {
-    const srcDir = join(dir, "screenshots", "en-US", "APP_IPHONE_67");
+    const srcDir = join(dir, 'screenshots', 'en-US', 'APP_IPHONE_67');
     mkdirSync(srcDir, { recursive: true });
-    writeFileSync(join(srcDir, "source.png"), pngBytes(1290, 2796));
+    writeFileSync(join(srcDir, 'source.png'), pngBytes(1290, 2796));
   }
   return dir;
 }
@@ -40,15 +44,16 @@ function makeAppDir(withSource = true): string {
  */
 function fakeEnhancer(forcedSize?: readonly [number, number]): ScreenshotEnhancer {
   return {
-    name: "fake-genshot",
+    name: 'fake-genshot',
     enhance(request): Promise<EnhancedShot[]> {
       const shots: EnhancedShot[] = [];
       for (const locale of request.locales) {
         for (const target of request.targets) {
-          const [width, height] = forcedSize ?? canonicalDimensions(request.platform, target) ?? [1080, 1920];
+          const [width, height] = forcedSize ??
+            canonicalDimensions(request.platform, target) ?? [1080, 1920];
           const dir = join(request.outDir, locale, target);
           mkdirSync(dir, { recursive: true });
-          const path = join(dir, "enhanced.png");
+          const path = join(dir, 'enhanced.png');
           writeFileSync(path, pngBytes(width, height));
           shots.push({ path, locale, target });
         }
@@ -58,24 +63,26 @@ function fakeEnhancer(forcedSize?: readonly [number, number]): ScreenshotEnhance
   };
 }
 
-describe("generateScreenshots", () => {
-  it("promotes an in-spec enhanced screenshot into <app>/screenshots/<locale>/<target>/", async () => {
+describe('generateScreenshots', () => {
+  it('promotes an in-spec enhanced screenshot into <app>/screenshots/<locale>/<target>/', async () => {
     const appDir = makeAppDir();
     const promoted = await generateScreenshots(
       appDir,
-      { platform: "ios", locale: "en-US", deviceTypes: "APP_IPHONE_67", yes: true },
+      { platform: 'ios', locale: 'en-US', deviceTypes: 'APP_IPHONE_67', yes: true },
       fakeEnhancer(),
     );
     expect(promoted).toHaveLength(1);
-    expect(existsSync(join(appDir, "screenshots", "en-US", "APP_IPHONE_67", "enhanced.png"))).toBe(true);
+    expect(existsSync(join(appDir, 'screenshots', 'en-US', 'APP_IPHONE_67', 'enhanced.png'))).toBe(
+      true,
+    );
   });
 
-  it("hard-gates and rejects an off-spec enhanced screenshot before promoting", async () => {
+  it('hard-gates and rejects an off-spec enhanced screenshot before promoting', async () => {
     const appDir = makeAppDir();
     await expect(
       generateScreenshots(
         appDir,
-        { platform: "ios", locale: "en-US", deviceTypes: "APP_IPHONE_67", yes: true },
+        { platform: 'ios', locale: 'en-US', deviceTypes: 'APP_IPHONE_67', yes: true },
         fakeEnhancer([1080, 1920]),
       ),
     ).rejects.toThrow(/off-spec ios screenshot/);
@@ -85,29 +92,31 @@ describe("generateScreenshots", () => {
     const appDir = makeAppDir();
     const promoted = await generateScreenshots(
       appDir,
-      { platform: "android", locale: "en-US", deviceTypes: "phone", yes: true },
+      { platform: 'android', locale: 'en-US', deviceTypes: 'phone', yes: true },
       fakeEnhancer(),
     );
     expect(promoted).toHaveLength(1);
-    expect(existsSync(join(appDir, "screenshots", "en-US", "phone", "enhanced.png"))).toBe(true);
+    expect(existsSync(join(appDir, 'screenshots', 'en-US', 'phone', 'enhanced.png'))).toBe(true);
   });
 
-  it("refuses when there are no real source screenshots to enhance", async () => {
+  it('refuses when there are no real source screenshots to enhance', async () => {
     const appDir = makeAppDir(false);
-    await expect(generateScreenshots(appDir, { platform: "ios", yes: true }, fakeEnhancer())).rejects.toThrow(
-      /No source screenshots/,
-    );
+    await expect(
+      generateScreenshots(appDir, { platform: 'ios', yes: true }, fakeEnhancer()),
+    ).rejects.toThrow(/No source screenshots/);
   });
 
-  it("promotes nothing on a dry run", async () => {
+  it('promotes nothing on a dry run', async () => {
     const appDir = makeAppDir();
     const promoted = await generateScreenshots(
       appDir,
-      { platform: "ios", locale: "en-US", deviceTypes: "APP_IPHONE_67", dryRun: true, yes: true },
+      { platform: 'ios', locale: 'en-US', deviceTypes: 'APP_IPHONE_67', dryRun: true, yes: true },
       fakeEnhancer(),
     );
     expect(promoted).toHaveLength(0);
     // Only the original source remains under the slot — nothing was promoted beside it.
-    expect(readdirSync(join(appDir, "screenshots", "en-US", "APP_IPHONE_67"))).toEqual(["source.png"]);
+    expect(readdirSync(join(appDir, 'screenshots', 'en-US', 'APP_IPHONE_67'))).toEqual([
+      'source.png',
+    ]);
   });
 });

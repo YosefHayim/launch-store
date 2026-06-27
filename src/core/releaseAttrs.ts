@@ -18,26 +18,31 @@
  * concern from the product catalog it reconciles.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from 'node:fs';
 import type {
   AgeRatingDeclarationResource,
   AgeRatingValue,
   AppInfoResource,
   AppStoreReviewDetailResource,
   PricePointResource,
-} from "../apple/ascClient.js";
-import { act, appRecordMissing, skip, type ReconcileContext } from "./asc/storeSync.js";
-import type { ReconcileReport } from "./ascSync.js";
-import { asRecord } from "./json.js";
-import { resolveSecretRef } from "./secretRef.js";
-import type { ReleaseAttributesConfig, ReleaseCategories, ReleasePricing, ReviewDetailsConfig } from "./types.js";
+} from '../apple/ascClient.js';
+import { act, appRecordMissing, skip, type ReconcileContext } from './asc/storeSync.js';
+import type { ReconcileReport } from './ascSync.js';
+import { asRecord } from './json.js';
+import { resolveSecretRef } from './secretRef.js';
+import type {
+  ReleaseAttributesConfig,
+  ReleaseCategories,
+  ReleasePricing,
+  ReviewDetailsConfig,
+} from './types.js';
 
 /** Default platform whose editable version owns the App Review details. */
-const DEFAULT_PLATFORM = "IOS";
+const DEFAULT_PLATFORM = 'IOS';
 /** Default base territory for price-point resolution when the config doesn't name one. */
-const DEFAULT_TERRITORY = "USA";
+const DEFAULT_TERRITORY = 'USA';
 /** Demo-account password is write-only on Apple's side; it's diffed and rendered by name only, never value. */
-const DEMO_PASSWORD_KEY = "demoAccountPassword";
+const DEMO_PASSWORD_KEY = 'demoAccountPassword';
 
 /**
  * The exact slice of {@link AppStoreConnectClient} the release reconciler depends on. Declaring it here
@@ -52,14 +57,27 @@ export interface AscReleaseApi {
     categories: { primaryCategoryId?: string; secondaryCategoryId?: string },
   ): Promise<void>;
   getAgeRatingDeclaration(appInfoId: string): Promise<AgeRatingDeclarationResource | null>;
-  updateAgeRatingDeclaration(declarationId: string, attributes: Record<string, AgeRatingValue>): Promise<void>;
-  findAppPricePoint(appId: string, territory: string, customerPrice: number): Promise<PricePointResource | null>;
+  updateAgeRatingDeclaration(
+    declarationId: string,
+    attributes: Record<string, AgeRatingValue>,
+  ): Promise<void>;
+  findAppPricePoint(
+    appId: string,
+    territory: string,
+    customerPrice: number,
+  ): Promise<PricePointResource | null>;
   getCurrentAppPrice(appId: string, territory: string): Promise<string | null>;
   createAppPriceSchedule(appId: string, baseTerritory: string, pricePointId: string): Promise<void>;
   findEditableAppStoreVersion(appId: string, platform: string): Promise<{ id: string } | null>;
   getAppStoreReviewDetail(versionId: string): Promise<AppStoreReviewDetailResource | null>;
-  createAppStoreReviewDetail(versionId: string, attributes: Record<string, string | boolean>): Promise<{ id: string }>;
-  updateAppStoreReviewDetail(detailId: string, attributes: Record<string, string | boolean>): Promise<void>;
+  createAppStoreReviewDetail(
+    versionId: string,
+    attributes: Record<string, string | boolean>,
+  ): Promise<{ id: string }>;
+  updateAppStoreReviewDetail(
+    detailId: string,
+    attributes: Record<string, string | boolean>,
+  ): Promise<void>;
 }
 
 /** Inputs to reconcile one app's release attributes. */
@@ -78,17 +96,20 @@ export interface ReleaseReconcileInput {
  * Reconcile one app's declared release attributes. Throws only for a precondition the user must fix (no
  * ASC app record); everything else is captured per-action so a single failure never aborts the run.
  */
-export async function reconcileRelease(api: AscReleaseApi, input: ReleaseReconcileInput): Promise<ReconcileReport> {
+export async function reconcileRelease(
+  api: AscReleaseApi,
+  input: ReleaseReconcileInput,
+): Promise<ReconcileReport> {
   const ctx: ReconcileContext = { actions: [], dryRun: input.dryRun };
   const { config } = input;
 
   const appId = await api.getAppId(input.bundleId);
-  if (!appId) throw appRecordMissing(input.bundleId, "release-config");
+  if (!appId) throw appRecordMissing(input.bundleId, 'release-config');
 
   if (config.categories || (config.ageRating && Object.keys(config.ageRating).length > 0)) {
     const appInfo = await api.getAppInfo(appId);
     if (!appInfo) {
-      skip(ctx, "categories / age rating: no App Info record on the app yet");
+      skip(ctx, 'categories / age rating: no App Info record on the app yet');
     } else {
       await reconcileCategories(ctx, api, appInfo, config.categories);
       await reconcileAgeRating(ctx, api, appInfo, config.ageRating);
@@ -97,7 +118,13 @@ export async function reconcileRelease(api: AscReleaseApi, input: ReleaseReconci
 
   if (config.pricing) await reconcilePricing(ctx, api, appId, config.pricing);
   if (config.reviewDetails) {
-    await reconcileReviewDetails(ctx, api, appId, input.platform ?? DEFAULT_PLATFORM, config.reviewDetails);
+    await reconcileReviewDetails(
+      ctx,
+      api,
+      appId,
+      input.platform ?? DEFAULT_PLATFORM,
+      config.reviewDetails,
+    );
   }
 
   return { bundleId: input.bundleId, actions: ctx.actions };
@@ -123,7 +150,9 @@ async function reconcileCategories(
     change.primaryCategoryId ? `primary=${change.primaryCategoryId}` : undefined,
     change.secondaryCategoryId ? `secondary=${change.secondaryCategoryId}` : undefined,
   ].filter(Boolean);
-  await act(ctx, `set categories (${parts.join(", ")})`, () => api.updateAppInfoCategories(appInfo.id, change));
+  await act(ctx, `set categories (${parts.join(', ')})`, () =>
+    api.updateAppInfoCategories(appInfo.id, change),
+  );
 }
 
 /** PATCH the age-rating answers that differ from the live declaration (no action when already in sync). */
@@ -136,7 +165,7 @@ async function reconcileAgeRating(
   if (!answers || Object.keys(answers).length === 0) return;
   const current = await api.getAgeRatingDeclaration(appInfo.id);
   if (!current) {
-    skip(ctx, "age rating: no declaration on the app yet (create the version, then re-run)");
+    skip(ctx, 'age rating: no declaration on the app yet (create the version, then re-run)');
     return;
   }
   const changed: Record<string, AgeRatingValue> = {};
@@ -144,7 +173,7 @@ async function reconcileAgeRating(
     if (current.attributes[key] !== value) changed[key] = value;
   }
   if (Object.keys(changed).length === 0) return;
-  await act(ctx, `set age rating (${Object.keys(changed).join(", ")})`, () =>
+  await act(ctx, `set age rating (${Object.keys(changed).join(', ')})`, () =>
     api.updateAgeRatingDeclaration(current.id, changed),
   );
 }
@@ -162,7 +191,8 @@ async function reconcilePricing(
 
   await act(ctx, `set app price = ${pricing.customerPrice} (${territory})`, async () => {
     const point = await api.findAppPricePoint(appId, territory, pricing.customerPrice);
-    if (!point) throw new Error(`No ${territory} app price point matches ${pricing.customerPrice}.`);
+    if (!point)
+      throw new Error(`No ${territory} app price point matches ${pricing.customerPrice}.`);
     await api.createAppPriceSchedule(appId, territory, point.id);
   });
 }
@@ -185,7 +215,7 @@ async function reconcileReviewDetails(
 
   const version = await api.findEditableAppStoreVersion(appId, platform);
   if (!version) {
-    skip(ctx, "App Review details: no editable App Store version (create/select a version first)");
+    skip(ctx, 'App Review details: no editable App Store version (create/select a version first)');
     return;
   }
 
@@ -203,7 +233,8 @@ async function reconcileReviewDetails(
     if (current.attributes[key] !== value) changed[key] = value;
   }
   if (Object.keys(changed).length === 0) return;
-  if (desired[DEMO_PASSWORD_KEY] !== undefined) changed[DEMO_PASSWORD_KEY] = desired[DEMO_PASSWORD_KEY];
+  if (desired[DEMO_PASSWORD_KEY] !== undefined)
+    changed[DEMO_PASSWORD_KEY] = desired[DEMO_PASSWORD_KEY];
   await act(ctx, `update App Review details (${renderFields(changed)})`, async () =>
     api.updateAppStoreReviewDetail(current.id, await resolveReviewWrite(changed)),
   );
@@ -219,8 +250,11 @@ async function resolveReviewWrite(
   attributes: Record<string, string | boolean>,
 ): Promise<Record<string, string | boolean>> {
   const password = attributes[DEMO_PASSWORD_KEY];
-  if (typeof password !== "string") return attributes;
-  return { ...attributes, [DEMO_PASSWORD_KEY]: await resolveSecretRef(password, DEMO_PASSWORD_KEY) };
+  if (typeof password !== 'string') return attributes;
+  return {
+    ...attributes,
+    [DEMO_PASSWORD_KEY]: await resolveSecretRef(password, DEMO_PASSWORD_KEY),
+  };
 }
 
 /** Collapse the review config to Apple's attribute map, dropping unset fields (names match Apple's). */
@@ -228,32 +262,32 @@ function reviewAttributes(details: ReviewDetailsConfig): Record<string, string |
   const attributes: Record<string, string | boolean> = {};
   for (const [key, value] of Object.entries(details)) {
     // The typeof guard both drops unset fields and narrows `Object.entries`'s widened value to a scalar.
-    if (typeof value === "string" || typeof value === "boolean") attributes[key] = value;
+    if (typeof value === 'string' || typeof value === 'boolean') attributes[key] = value;
   }
   return attributes;
 }
 
 /** Render an attribute map as a comma-joined field-name list for the plan — names only, never values. */
 function renderFields(attributes: Record<string, string | boolean>): string {
-  return Object.keys(attributes).join(", ");
+  return Object.keys(attributes).join(', ');
 }
 
 /** Parse the `categories` section, keeping only string primary/secondary ids that are present. */
 function parseCategories(raw: Record<string, unknown>): ReleaseCategories {
   const categories: ReleaseCategories = {};
-  if (typeof raw["primary"] === "string") categories.primary = raw["primary"];
-  if (typeof raw["secondary"] === "string") categories.secondary = raw["secondary"];
+  if (typeof raw['primary'] === 'string') categories.primary = raw['primary'];
+  if (typeof raw['secondary'] === 'string') categories.secondary = raw['secondary'];
   return categories;
 }
 
 /** Parse the `pricing` section, requiring a non-negative numeric `customerPrice`. */
 function parsePricing(raw: Record<string, unknown>): ReleasePricing {
-  const customerPrice = raw["customerPrice"];
-  if (typeof customerPrice !== "number" || !Number.isFinite(customerPrice) || customerPrice < 0) {
-    throw new Error("release.config.json: pricing.customerPrice must be a non-negative number.");
+  const customerPrice = raw['customerPrice'];
+  if (typeof customerPrice !== 'number' || !Number.isFinite(customerPrice) || customerPrice < 0) {
+    throw new Error('release.config.json: pricing.customerPrice must be a non-negative number.');
   }
   const pricing: ReleasePricing = { customerPrice };
-  if (typeof raw["baseTerritory"] === "string") pricing.baseTerritory = raw["baseTerritory"];
+  if (typeof raw['baseTerritory'] === 'string') pricing.baseTerritory = raw['baseTerritory'];
   return pricing;
 }
 
@@ -261,8 +295,11 @@ function parsePricing(raw: Record<string, unknown>): ReleasePricing {
 function parseAgeRating(raw: Record<string, unknown>): Record<string, AgeRatingValue> {
   const answers: Record<string, AgeRatingValue> = {};
   for (const [key, value] of Object.entries(raw)) {
-    if (typeof value === "string" || typeof value === "boolean") answers[key] = value;
-    else throw new Error(`release.config.json: ageRating.${key} must be a string or boolean (got ${typeof value}).`);
+    if (typeof value === 'string' || typeof value === 'boolean') answers[key] = value;
+    else
+      throw new Error(
+        `release.config.json: ageRating.${key} must be a string or boolean (got ${typeof value}).`,
+      );
   }
   return answers;
 }
@@ -272,19 +309,20 @@ function parseReviewDetails(raw: Record<string, unknown>): ReviewDetailsConfig {
   const details: ReviewDetailsConfig = {};
   // `as const` keeps these to exactly the string-typed fields, so the indexed write below stays a string.
   const stringFields = [
-    "contactFirstName",
-    "contactLastName",
-    "contactPhone",
-    "contactEmail",
-    "demoAccountName",
-    "demoAccountPassword",
-    "notes",
+    'contactFirstName',
+    'contactLastName',
+    'contactPhone',
+    'contactEmail',
+    'demoAccountName',
+    'demoAccountPassword',
+    'notes',
   ] as const;
   for (const field of stringFields) {
     const value = raw[field];
-    if (typeof value === "string") details[field] = value;
+    if (typeof value === 'string') details[field] = value;
   }
-  if (typeof raw["demoAccountRequired"] === "boolean") details.demoAccountRequired = raw["demoAccountRequired"];
+  if (typeof raw['demoAccountRequired'] === 'boolean')
+    details.demoAccountRequired = raw['demoAccountRequired'];
   return details;
 }
 
@@ -295,22 +333,22 @@ function parseReviewDetails(raw: Record<string, unknown>): ReviewDetailsConfig {
  */
 export function parseReleaseConfig(raw: unknown): ReleaseAttributesConfig {
   const record = asRecord(raw);
-  if (!record) throw new Error("release.config.json must be a JSON object.");
+  if (!record) throw new Error('release.config.json must be a JSON object.');
 
   const config: ReleaseAttributesConfig = {};
-  const ageRating = asRecord(record["ageRating"]);
+  const ageRating = asRecord(record['ageRating']);
   if (ageRating) config.ageRating = parseAgeRating(ageRating);
-  const categories = asRecord(record["categories"]);
+  const categories = asRecord(record['categories']);
   if (categories) config.categories = parseCategories(categories);
-  const pricing = asRecord(record["pricing"]);
+  const pricing = asRecord(record['pricing']);
   if (pricing) config.pricing = parsePricing(pricing);
-  const reviewDetails = asRecord(record["reviewDetails"]);
+  const reviewDetails = asRecord(record['reviewDetails']);
   if (reviewDetails) config.reviewDetails = parseReviewDetails(reviewDetails);
 
   if (!config.ageRating && !config.categories && !config.pricing && !config.reviewDetails) {
     throw new Error(
-      "release.config.json has no recognized section — declare at least one of " +
-        "ageRating / categories / pricing / reviewDetails.",
+      'release.config.json has no recognized section — declare at least one of ' +
+        'ageRating / categories / pricing / reviewDetails.',
     );
   }
   return config;
@@ -323,5 +361,5 @@ export function loadReleaseConfig(path: string): ReleaseAttributesConfig {
       `No release config at ${path}. Create one (see \`launch release-config --help\`) or pass --config.`,
     );
   }
-  return parseReleaseConfig(JSON.parse(readFileSync(path, "utf8")));
+  return parseReleaseConfig(JSON.parse(readFileSync(path, 'utf8')));
 }

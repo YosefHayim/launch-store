@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { ALL_TOOLS, DANGEROUS_TOOLS, DRY_RUN_TOOLS, READ_TOOLS, WRITE_TOOLS } from "./tools.js";
-import { gateTools } from "./gate.js";
-import type { LaunchConfig, McpCapability } from "../types.js";
-import type { McpTool } from "./types.js";
+import { describe, expect, it } from 'vitest';
+import { ALL_TOOLS, DANGEROUS_TOOLS, DRY_RUN_TOOLS, READ_TOOLS, WRITE_TOOLS } from './tools.js';
+import { gateTools } from './gate.js';
+import type { LaunchConfig, McpCapability } from '../types.js';
+import type { McpTool } from './types.js';
 
 /** A bare config exposing the given MCP capability tiers — only the fields the gate reads matter here. */
 function config(capabilities: McpCapability[]): LaunchConfig {
@@ -21,107 +21,112 @@ function payload(result: { content: { text: string }[] }): unknown {
   return JSON.parse(result.content[0]!.text);
 }
 
-describe("READ_TOOLS registry", () => {
-  it("exposes the v1 read-only surface, every tool on the read tier", () => {
+describe('READ_TOOLS registry', () => {
+  it('exposes the v1 read-only surface, every tool on the read tier', () => {
     expect(READ_TOOLS.map((tool) => tool.name)).toEqual([
-      "plan",
-      "drift",
-      "audit",
-      "store_doctor",
-      "iap_doctor",
-      "config_validate",
-      "config_schema",
-      "config_docs",
-      "snapshot_list",
-      "snapshot_diff",
-      "snapshot_export",
-      "doctor",
+      'plan',
+      'drift',
+      'audit',
+      'store_doctor',
+      'iap_doctor',
+      'config_validate',
+      'config_schema',
+      'config_docs',
+      'snapshot_list',
+      'snapshot_diff',
+      'snapshot_export',
+      'doctor',
     ]);
-    expect(READ_TOOLS.every((tool) => tool.capability === "read")).toBe(true);
+    expect(READ_TOOLS.every((tool) => tool.capability === 'read')).toBe(true);
   });
 
-  it("gives every tool a snake_case name and an object input schema", () => {
+  it('gives every tool a snake_case name and an object input schema', () => {
     for (const tool of ALL_TOOLS) {
       expect(tool.name).toMatch(/^[a-z][a-z0-9_]*$/);
-      expect(tool.inputSchema.type).toBe("object");
+      expect(tool.inputSchema.type).toBe('object');
     }
   });
 });
 
-describe("DRY_RUN_TOOLS registry", () => {
-  it("exposes the build_plan rehearsal on the dryRun tier", () => {
-    expect(DRY_RUN_TOOLS.map((tool) => tool.name)).toEqual(["build_plan"]);
-    expect(DRY_RUN_TOOLS.every((tool) => tool.capability === "dryRun")).toBe(true);
+describe('DRY_RUN_TOOLS registry', () => {
+  it('exposes the build_plan rehearsal on the dryRun tier', () => {
+    expect(DRY_RUN_TOOLS.map((tool) => tool.name)).toEqual(['build_plan']);
+    expect(DRY_RUN_TOOLS.every((tool) => tool.capability === 'dryRun')).toBe(true);
   });
 });
 
-describe("WRITE_TOOLS registry", () => {
-  it("exposes the additive sync tool on the write tier", () => {
-    expect(WRITE_TOOLS.map((tool) => tool.name)).toEqual(["sync"]);
-    expect(WRITE_TOOLS.every((tool) => tool.capability === "write")).toBe(true);
+describe('WRITE_TOOLS registry', () => {
+  it('exposes the additive sync tool on the write tier', () => {
+    expect(WRITE_TOOLS.map((tool) => tool.name)).toEqual(['sync']);
+    expect(WRITE_TOOLS.every((tool) => tool.capability === 'write')).toBe(true);
   });
 });
 
-describe("DANGEROUS_TOOLS registry", () => {
-  it("exposes the destructive sync tool on the dangerous tier", () => {
-    expect(DANGEROUS_TOOLS.map((tool) => tool.name)).toEqual(["sync_destructive"]);
-    expect(DANGEROUS_TOOLS.every((tool) => tool.capability === "dangerous")).toBe(true);
+describe('DANGEROUS_TOOLS registry', () => {
+  it('exposes the destructive sync tool on the dangerous tier', () => {
+    expect(DANGEROUS_TOOLS.map((tool) => tool.name)).toEqual(['sync_destructive']);
+    expect(DANGEROUS_TOOLS.every((tool) => tool.capability === 'dangerous')).toBe(true);
   });
 });
 
-describe("ALL_TOOLS registry", () => {
+describe('ALL_TOOLS registry', () => {
   it("is every tier's registry in order, with unique names", () => {
-    expect(ALL_TOOLS).toEqual([...READ_TOOLS, ...DRY_RUN_TOOLS, ...WRITE_TOOLS, ...DANGEROUS_TOOLS]);
+    expect(ALL_TOOLS).toEqual([
+      ...READ_TOOLS,
+      ...DRY_RUN_TOOLS,
+      ...WRITE_TOOLS,
+      ...DANGEROUS_TOOLS,
+    ]);
     expect(new Set(ALL_TOOLS.map((tool) => tool.name)).size).toBe(ALL_TOOLS.length);
   });
 
-  it("gates the write and dangerous tools behind their own tiers", () => {
+  it('gates the write and dangerous tools behind their own tiers', () => {
     const named = (tools: McpTool[]): string[] => tools.map((tool) => tool.name);
-    expect(named(gateTools(ALL_TOOLS, config(["read"])))).not.toContain("sync");
-    expect(named(gateTools(ALL_TOOLS, config(["read"])))).not.toContain("sync_destructive");
+    expect(named(gateTools(ALL_TOOLS, config(['read'])))).not.toContain('sync');
+    expect(named(gateTools(ALL_TOOLS, config(['read'])))).not.toContain('sync_destructive');
 
-    const write = named(gateTools(ALL_TOOLS, config(["read", "write"])));
-    expect(write).toContain("sync");
-    expect(write).not.toContain("sync_destructive");
+    const write = named(gateTools(ALL_TOOLS, config(['read', 'write'])));
+    expect(write).toContain('sync');
+    expect(write).not.toContain('sync_destructive');
 
-    const dangerous = named(gateTools(ALL_TOOLS, config(["read", "write", "dangerous"])));
-    expect(dangerous).toContain("sync");
-    expect(dangerous).toContain("sync_destructive");
+    const dangerous = named(gateTools(ALL_TOOLS, config(['read', 'write', 'dangerous'])));
+    expect(dangerous).toContain('sync');
+    expect(dangerous).toContain('sync_destructive');
   });
 });
 
-describe("config introspection tools", () => {
-  it("config_schema returns the launch.config JSON Schema", async () => {
-    const schema = payload(await byName("config_schema").handler({})) as Record<string, unknown>;
-    expect(schema["$ref"]).toBeDefined();
-    expect(schema["definitions"]).toBeDefined();
+describe('config introspection tools', () => {
+  it('config_schema returns the launch.config JSON Schema', async () => {
+    const schema = payload(await byName('config_schema').handler({})) as Record<string, unknown>;
+    expect(schema['$ref']).toBeDefined();
+    expect(schema['definitions']).toBeDefined();
   });
 
-  it("config_docs returns the field reference as Markdown", async () => {
-    const docs = payload(await byName("config_docs").handler({})) as { markdown: string };
-    expect(typeof docs.markdown).toBe("string");
+  it('config_docs returns the field reference as Markdown', async () => {
+    const docs = payload(await byName('config_docs').handler({})) as { markdown: string };
+    expect(typeof docs.markdown).toBe('string');
     expect(docs.markdown.length).toBeGreaterThan(0);
   });
 });
 
-describe("snapshot tool argument guards", () => {
-  it("snapshot_diff requires a baseline", async () => {
-    await expect(byName("snapshot_diff").handler({})).rejects.toThrow("`baseline` is required.");
+describe('snapshot tool argument guards', () => {
+  it('snapshot_diff requires a baseline', async () => {
+    await expect(byName('snapshot_diff').handler({})).rejects.toThrow('`baseline` is required.');
   });
 
-  it("snapshot_diff throws on an unknown baseline snapshot", async () => {
-    await expect(byName("snapshot_diff").handler({ baseline: "no-such-snapshot-xyz" })).rejects.toThrow(
-      'No snapshot named "no-such-snapshot-xyz"',
-    );
+  it('snapshot_diff throws on an unknown baseline snapshot', async () => {
+    await expect(
+      byName('snapshot_diff').handler({ baseline: 'no-such-snapshot-xyz' }),
+    ).rejects.toThrow('No snapshot named "no-such-snapshot-xyz"');
   });
 
-  it("snapshot_export requires a name", async () => {
-    await expect(byName("snapshot_export").handler({})).rejects.toThrow("`name` is required.");
+  it('snapshot_export requires a name', async () => {
+    await expect(byName('snapshot_export').handler({})).rejects.toThrow('`name` is required.');
   });
 
-  it("snapshot_export throws on an unknown snapshot when not capturing", async () => {
-    await expect(byName("snapshot_export").handler({ name: "no-such-snapshot-xyz" })).rejects.toThrow(
-      'No snapshot named "no-such-snapshot-xyz"',
-    );
+  it('snapshot_export throws on an unknown snapshot when not capturing', async () => {
+    await expect(
+      byName('snapshot_export').handler({ name: 'no-such-snapshot-xyz' }),
+    ).rejects.toThrow('No snapshot named "no-such-snapshot-xyz"');
   });
 });

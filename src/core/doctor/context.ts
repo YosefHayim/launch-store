@@ -13,12 +13,12 @@
  * status as an injected thunk).
  */
 
-import { capture, exists } from "../exec.js";
-import { hostOs } from "../os.js";
-import { loadConfig } from "../config.js";
-import { createAscClientResolver, createPlayClientResolver } from "../storeClients.js";
-import { localCredentialsProvider } from "../../providers/credentials/local.js";
-import type { DoctorContext, DoctorPlatform } from "./types.js";
+import { capture, exists } from '../exec.js';
+import { hostOs } from '../os.js';
+import { loadConfig } from '../config.js';
+import { createAscClientResolver, createPlayClientResolver } from '../storeClients.js';
+import { localCredentialsProvider } from '../../providers/credentials/local.js';
+import type { DoctorContext, DoctorPlatform } from './types.js';
 
 /**
  * Build the production {@link DoctorContext} for a platform. The store resolvers' concrete clients
@@ -28,7 +28,7 @@ import type { DoctorContext, DoctorPlatform } from "./types.js";
  */
 export async function buildDoctorContext(platform: DoctorPlatform): Promise<DoctorContext> {
   const { config, apps } = await loadConfig();
-  const sdk = process.env["ANDROID_HOME"] ?? process.env["ANDROID_SDK_ROOT"];
+  const sdk = process.env['ANDROID_HOME'] ?? process.env['ANDROID_SDK_ROOT'];
   return {
     config,
     apps,
@@ -39,10 +39,10 @@ export async function buildDoctorContext(platform: DoctorPlatform): Promise<Doct
     resolveAsc: createAscClientResolver(),
     resolvePlay: createPlayClientResolver(),
     credentialsStatus: () => localCredentialsProvider.status(),
-    corepackAvailable: () => exists("corepack"),
+    corepackAvailable: () => exists('corepack'),
     codesignIdentities: async () => {
       try {
-        return await capture("security", ["find-identity", "-v", "-p", "codesigning"]);
+        return await capture('security', ['find-identity', '-v', '-p', 'codesigning']);
       } catch {
         return null;
       }

@@ -17,23 +17,33 @@ import type {
   SnapshotEntity,
   SnapshotSource,
   SourceCapture,
-} from "../types.js";
+} from '../types.js';
 import type {
   BasePlan,
   RegionalBasePlanConfig,
   SubscriptionListing,
   SubscriptionResource,
-} from "../../../google/playClient.js";
+} from '../../../google/playClient.js';
 import type {
   PlayPriceConfig,
   PlaySubscriptionOverride,
   ProductLocalization,
   SubscriptionConfig,
-} from "../../types.js";
-import type { PlannedAction } from "../../ascSync.js";
-import { periodFromIso, reconcilePlaySubscriptions, unitsToMicros } from "../../playSubscriptions.js";
-import { androidApps } from "../../readiness/appScopes.js";
-import { jsonRecord, restoreErrorMessage, skippedAction, stringField, toPriceConfig } from "./playRestore.js";
+} from '../../types.js';
+import type { PlannedAction } from '../../ascSync.js';
+import {
+  periodFromIso,
+  reconcilePlaySubscriptions,
+  unitsToMicros,
+} from '../../playSubscriptions.js';
+import { androidApps } from '../../readiness/appScopes.js';
+import {
+  jsonRecord,
+  restoreErrorMessage,
+  skippedAction,
+  stringField,
+  toPriceConfig,
+} from './playRestore.js';
 
 /**
  * A base plan's per-region prices → the snapshot's `{ priceMicros, currency }` money shape (the same form
@@ -45,7 +55,10 @@ function regionalPrices(configs: RegionalBasePlanConfig[]): Record<string, JsonV
   const prices: Record<string, JsonValue> = {};
   for (const config of [...configs].sort((a, b) => a.regionCode.localeCompare(b.regionCode))) {
     if (config.price) {
-      prices[config.regionCode] = { priceMicros: unitsToMicros(config.price), currency: config.price.currencyCode };
+      prices[config.regionCode] = {
+        priceMicros: unitsToMicros(config.price),
+        currency: config.price.currencyCode,
+      };
     }
   }
   return prices;
@@ -58,7 +71,9 @@ function basePlans(plans: BasePlan[]): JsonValue {
     return {
       basePlanId: plan.basePlanId,
       ...(plan.state ? { state: plan.state } : {}),
-      ...(plan.autoRenewingBasePlanType ? { period: plan.autoRenewingBasePlanType.billingPeriodDuration } : {}),
+      ...(plan.autoRenewingBasePlanType
+        ? { period: plan.autoRenewingBasePlanType.billingPeriodDuration }
+        : {}),
       ...(Object.keys(prices).length > 0 ? { prices } : {}),
     };
   });
@@ -66,7 +81,9 @@ function basePlans(plans: BasePlan[]): JsonValue {
 
 /** A subscription's listings, normalized to language + title pairs. */
 function listings(items: SubscriptionListing[]): JsonValue {
-  return items.map((listing): JsonValue => ({ languageCode: listing.languageCode, title: listing.title }));
+  return items.map(
+    (listing): JsonValue => ({ languageCode: listing.languageCode, title: listing.title }),
+  );
 }
 
 /** One captured subscription → a snapshot entity keyed by its product id. */
@@ -77,7 +94,11 @@ function toEntity(subscription: SubscriptionResource): SnapshotEntity {
     ...(subscription.listings ? { listings: listings(subscription.listings) } : {}),
   };
   const planCount = subscription.basePlans?.length ?? 0;
-  return { key: subscription.productId, summary: `Play subscription (${planCount} base plan(s))`, data };
+  return {
+    key: subscription.productId,
+    summary: `Play subscription (${planCount} base plan(s))`,
+    data,
+  };
 }
 
 /** One captured base plan, parsed back to the fields restore needs (the rest of a base plan isn't restorable). */
@@ -108,9 +129,9 @@ function firstBasePlan(value: JsonValue | undefined): RestorableBasePlan | null 
   if (!Array.isArray(value)) return null;
   const first = jsonRecord(value[0]);
   if (!first) return null;
-  const basePlanId = stringField(first, "basePlanId");
+  const basePlanId = stringField(first, 'basePlanId');
   if (basePlanId === undefined) return null;
-  return { basePlanId, period: stringField(first, "period"), prices: toPriceMap(first["prices"]) };
+  return { basePlanId, period: stringField(first, 'period'), prices: toPriceMap(first['prices']) };
 }
 
 /** Invert a captured `listings` array (`{ languageCode, title }`) back into the shared localization list. */
@@ -120,8 +141,8 @@ function toLocalizations(value: JsonValue | undefined): ProductLocalization[] {
   for (const item of value) {
     const record = jsonRecord(item);
     if (!record) continue;
-    const locale = stringField(record, "languageCode");
-    const name = stringField(record, "title");
+    const locale = stringField(record, 'languageCode');
+    const name = stringField(record, 'title');
     if (locale !== undefined && name !== undefined) localizations.push({ locale, name });
   }
   return localizations;
@@ -137,35 +158,43 @@ function toLocalizations(value: JsonValue | undefined): ProductLocalization[] {
 function toSubscriptionConfig(entity: SnapshotEntity): SubscriptionConfig | null {
   const data = jsonRecord(entity.data);
   if (!data) return null;
-  const productId = stringField(data, "productId") ?? entity.key;
-  const basePlan = firstBasePlan(data["basePlans"]);
+  const productId = stringField(data, 'productId') ?? entity.key;
+  const basePlan = firstBasePlan(data['basePlans']);
   if (!basePlan?.period) return null;
   const subscriptionPeriod = periodFromIso(basePlan.period);
   if (!subscriptionPeriod) return null;
   if (Object.keys(basePlan.prices).length === 0) return null;
 
-  const play: PlaySubscriptionOverride = { productId, basePlanId: basePlan.basePlanId, prices: basePlan.prices };
+  const play: PlaySubscriptionOverride = {
+    productId,
+    basePlanId: basePlan.basePlanId,
+    prices: basePlan.prices,
+  };
   return {
     productId,
     referenceName: productId,
     subscriptionPeriod,
-    localizations: toLocalizations(data["listings"]),
+    localizations: toLocalizations(data['listings']),
     play,
   };
 }
 
 /** The Google Play subscription snapshot source. */
 export const playSubscriptionsSource: SnapshotSource = {
-  id: "play-subscriptions",
-  title: "Google Play subscriptions",
-  store: "play",
+  id: 'play-subscriptions',
+  title: 'Google Play subscriptions',
+  store: 'play',
   async capture(ctx: SnapshotContext): Promise<SourceCapture> {
     const apps = androidApps(ctx.apps);
-    if (apps.length === 0) return { state: "omitted" };
+    if (apps.length === 0) return { state: 'omitted' };
 
     const api = await ctx.resolvePlayApi();
     if (!api) {
-      return { state: "skipped", reason: "no Play service account", hint: "configure Play credentials" };
+      return {
+        state: 'skipped',
+        reason: 'no Play service account',
+        hint: 'configure Play credentials',
+      };
     }
 
     const captured = await Promise.all(
@@ -174,7 +203,7 @@ export const playSubscriptionsSource: SnapshotSource = {
         return { app: name, identifier, entities };
       }),
     );
-    return { state: "captured", apps: captured };
+    return { state: 'captured', apps: captured };
   },
 
   /**
@@ -187,7 +216,9 @@ export const playSubscriptionsSource: SnapshotSource = {
   async restore({ ctx, saved, dryRun }: RestoreInput): Promise<RestoreReport> {
     const client = await ctx.resolvePlayWriteClient();
     if (!client) {
-      return { actions: [skippedAction("Google Play subscriptions: skipped — no Play service account")] };
+      return {
+        actions: [skippedAction('Google Play subscriptions: skipped — no Play service account')],
+      };
     }
 
     const actions: PlannedAction[] = [];
@@ -206,10 +237,18 @@ export const playSubscriptionsSource: SnapshotSource = {
       }
       if (subscriptions.length === 0) continue;
       try {
-        const report = await reconcilePlaySubscriptions(client, { packageName: app.identifier, subscriptions, dryRun });
+        const report = await reconcilePlaySubscriptions(client, {
+          packageName: app.identifier,
+          subscriptions,
+          dryRun,
+        });
         actions.push(...report.actions);
       } catch (error) {
-        actions.push(skippedAction(`Google Play subscriptions ${app.identifier}: ${restoreErrorMessage(error)}`));
+        actions.push(
+          skippedAction(
+            `Google Play subscriptions ${app.identifier}: ${restoreErrorMessage(error)}`,
+          ),
+        );
       }
     }
     return { actions };

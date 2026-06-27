@@ -23,15 +23,15 @@
  * product rather than replacing it.
  */
 
-import type { InAppProductResource, PlayMoney } from "../google/playClient.js";
-import type { InAppPurchaseConfig, PlayPriceConfig } from "./types.js";
-import { plan, type PlannedAction, type ReconcileContext } from "./asc/storeSync.js";
-import { errorMessage } from "./errorMessage.js";
+import type { InAppProductResource, PlayMoney } from '../google/playClient.js';
+import type { InAppPurchaseConfig, PlayPriceConfig } from './types.js';
+import { plan, type PlannedAction, type ReconcileContext } from './asc/storeSync.js';
+import { errorMessage } from './errorMessage.js';
 
 /** Play's purchase type for a one-off managed (non-subscription) product. */
-const MANAGED_PRODUCT = "managedUser";
+const MANAGED_PRODUCT = 'managedUser';
 /** Status Launch publishes products as — declaring a `play` override means "this product should be sellable". */
-const ACTIVE_STATUS = "active";
+const ACTIVE_STATUS = 'active';
 
 /**
  * The slice of {@link GooglePlayClient} the products reconciler depends on. Declared here (not the
@@ -71,7 +71,9 @@ export function toPlayProduct(config: InAppPurchaseConfig): InAppProductResource
   const sku = play.sku ?? config.productId;
   const defaultLocale = config.localizations[0]?.locale;
   if (!defaultLocale) {
-    throw new Error(`Play product ${sku} needs at least one localization (used as its default language).`);
+    throw new Error(
+      `Play product ${sku} needs at least one localization (used as its default language).`,
+    );
   }
 
   const listings: Record<string, { title: string; description?: string }> = {};
@@ -98,7 +100,9 @@ export function toPlayProduct(config: InAppPurchaseConfig): InAppProductResource
 
 /** Whether two money values agree on amount and currency (both absent counts as equal). */
 function moneyEquals(a: PlayMoney | undefined, b: PlayMoney | undefined): boolean {
-  return (a?.priceMicros ?? "") === (b?.priceMicros ?? "") && (a?.currency ?? "") === (b?.currency ?? "");
+  return (
+    (a?.priceMicros ?? '') === (b?.priceMicros ?? '') && (a?.currency ?? '') === (b?.currency ?? '')
+  );
 }
 
 /**
@@ -106,10 +110,13 @@ function moneyEquals(a: PlayMoney | undefined, b: PlayMoney | undefined): boolea
  * inspects the fields Launch writes, and for prices/listings only the entries config names — so Play's
  * auto-fanned regional prices and any console-only fields never trigger a spurious update.
  */
-export function productInSync(current: InAppProductResource, desired: InAppProductResource): boolean {
-  if ((current.status ?? "") !== (desired.status ?? "")) return false;
-  if ((current.purchaseType ?? "") !== (desired.purchaseType ?? "")) return false;
-  if ((current.defaultLanguage ?? "") !== (desired.defaultLanguage ?? "")) return false;
+export function productInSync(
+  current: InAppProductResource,
+  desired: InAppProductResource,
+): boolean {
+  if ((current.status ?? '') !== (desired.status ?? '')) return false;
+  if ((current.purchaseType ?? '') !== (desired.purchaseType ?? '')) return false;
+  if ((current.defaultLanguage ?? '') !== (desired.defaultLanguage ?? '')) return false;
   if (!moneyEquals(current.defaultPrice, desired.defaultPrice)) return false;
   for (const [region, price] of Object.entries(desired.prices ?? {})) {
     if (!moneyEquals(current.prices?.[region], price)) return false;
@@ -118,8 +125,8 @@ export function productInSync(current: InAppProductResource, desired: InAppProdu
     const live = current.listings?.[locale];
     if (
       !live ||
-      (live.title ?? "") !== (listing.title ?? "") ||
-      (live.description ?? "") !== (listing.description ?? "")
+      (live.title ?? '') !== (listing.title ?? '') ||
+      (live.description ?? '') !== (listing.description ?? '')
     ) {
       return false;
     }
@@ -132,7 +139,10 @@ export function productInSync(current: InAppProductResource, desired: InAppProdu
  * holds — most importantly the regional prices Play fans out from `defaultPrice`, which a bare replace
  * would wipe.
  */
-function mergeOntoCurrent(current: InAppProductResource, desired: InAppProductResource): InAppProductResource {
+function mergeOntoCurrent(
+  current: InAppProductResource,
+  desired: InAppProductResource,
+): InAppProductResource {
   // `desired` (from toPlayProduct) only ever carries defined fields, so spreading it over `current`
   // overrides the managed fields without clobbering Play's other state. Prices and listings are then
   // merged key-wise so Play's auto-fanned regions and any extra locales survive.
@@ -157,14 +167,17 @@ export async function reconcilePlayProducts(
 
   await api.assertAppExists(input.packageName);
   const live = new Map(
-    (await api.listInAppProducts(input.packageName)).map((product) => [product.sku, product] as const),
+    (await api.listInAppProducts(input.packageName)).map(
+      (product) => [product.sku, product] as const,
+    ),
   );
 
   for (const product of input.products) {
     const desired = toPlayProduct(product);
     const current = live.get(desired.sku);
     if (!current) await createProduct(ctx, api, input.packageName, desired);
-    else if (!productInSync(current, desired)) await updateProduct(ctx, api, input.packageName, current, desired);
+    else if (!productInSync(current, desired))
+      await updateProduct(ctx, api, input.packageName, current, desired);
   }
   return { packageName: input.packageName, actions: ctx.actions };
 }
@@ -180,9 +193,9 @@ async function createProduct(
   if (ctx.dryRun) return;
   try {
     await api.insertInAppProduct(packageName, desired);
-    action.status = "applied";
+    action.status = 'applied';
   } catch (error) {
-    action.status = "failed";
+    action.status = 'failed';
     action.error = errorMessage(error);
   }
 }
@@ -199,22 +212,26 @@ async function updateProduct(
   if (ctx.dryRun) return;
   try {
     await api.updateInAppProduct(packageName, mergeOntoCurrent(current, desired));
-    action.status = "applied";
+    action.status = 'applied';
   } catch (error) {
-    action.status = "failed";
+    action.status = 'failed';
     action.error = errorMessage(error);
   }
 }
 
 /** Tally a report's action statuses for the run summary (mirrors the other store-sync commands). */
-export function summarizePlayProducts(actions: PlannedAction[]): { applied: number; failed: number; skipped: number } {
+export function summarizePlayProducts(actions: PlannedAction[]): {
+  applied: number;
+  failed: number;
+  skipped: number;
+} {
   let applied = 0;
   let failed = 0;
   let skipped = 0;
   for (const action of actions) {
-    if (action.status === "applied") applied++;
-    else if (action.status === "failed") failed++;
-    else if (action.status === "skipped") skipped++;
+    if (action.status === 'applied') applied++;
+    else if (action.status === 'failed') failed++;
+    else if (action.status === 'skipped') skipped++;
   }
   return { applied, failed, skipped };
 }

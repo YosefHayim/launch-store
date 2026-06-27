@@ -10,24 +10,33 @@
  * here and reuses `report.ts`/`write.ts` unchanged. See issue #171.
  */
 
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
-import type { Command } from "commander";
-import { loadConfig } from "../../core/config.js";
-import { createLogger } from "../../core/logger.js";
-import type { Logger } from "../../core/logger.js";
-import { migrateEas } from "../../core/migrate/eas.js";
-import { migrateFastlane } from "../../core/migrate/fastlane.js";
-import { renderReport } from "../../core/migrate/report.js";
-import { writeArtifacts } from "../../core/migrate/write.js";
-import type { AppDescriptor } from "../../core/types.js";
-import type { MigrationNote, MigrationNoteLevel, MigrationResult } from "../../core/migrate/types.js";
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { Command } from 'commander';
+import { loadConfig } from '../../core/config.js';
+import { createLogger } from '../../core/logger.js';
+import type { Logger } from '../../core/logger.js';
+import { migrateEas } from '../../core/migrate/eas.js';
+import { migrateFastlane } from '../../core/migrate/fastlane.js';
+import { renderReport } from '../../core/migrate/report.js';
+import { writeArtifacts } from '../../core/migrate/write.js';
+import type { AppDescriptor } from '../../core/types.js';
+import type {
+  MigrationNote,
+  MigrationNoteLevel,
+  MigrationResult,
+} from '../../core/migrate/types.js';
 
 /** The generated report's filename, always (re)written — it's a regenerable summary, not a user file. */
-const REPORT_FILE = "migration-report.md";
+const REPORT_FILE = 'migration-report.md';
 
 /** Leading glyph per note level for terminal output, matching the report's vocabulary. */
-const NOTE_GLYPH: Record<MigrationNoteLevel, string> = { mapped: "✓", manual: "~", skipped: "•", info: "ⓘ" };
+const NOTE_GLYPH: Record<MigrationNoteLevel, string> = {
+  mapped: '✓',
+  manual: '~',
+  skipped: '•',
+  info: 'ⓘ',
+};
 
 /** CLI options for the migrate subcommands. */
 interface MigrateOptions {
@@ -42,7 +51,7 @@ interface MigrateOptions {
 /** Print the migration notes: manual items as warnings (they need action), everything else as info. */
 function renderNotes(log: Logger, notes: MigrationNote[]): void {
   for (const note of notes) {
-    if (note.level === "manual") log.warn(note.message);
+    if (note.level === 'manual') log.warn(note.message);
     else log.info(`${NOTE_GLYPH[note.level]} ${note.message}`);
   }
 }
@@ -77,7 +86,7 @@ async function runMigration(migrate: Migrator, options: MigrateOptions): Promise
 
   if (options.dryRun === true) {
     const { written, skipped } = writeArtifacts(result, { outDir, force, dryRun: true });
-    for (const path of written) log.step("would write", path);
+    for (const path of written) log.step('would write', path);
     for (const path of skipped) log.tip(`${path} exists — re-run with --force to overwrite`);
     log.info(`Dry run — nothing written. ${REPORT_FILE} would summarize this migration.`);
     return;
@@ -91,34 +100,42 @@ async function runMigration(migrate: Migrator, options: MigrateOptions): Promise
     ...skipped.map((path) => `• kept ${path} (exists — use --force to overwrite)`),
     `✓ wrote ${REPORT_FILE}`,
   ];
-  log.box(skipped.length > 0 ? "Migrated (some files kept)" : "Migrated", rows);
-  log.tip("Review the files, then run `launch doctor` to check your setup.");
+  log.box(skipped.length > 0 ? 'Migrated (some files kept)' : 'Migrated', rows);
+  log.tip('Review the files, then run `launch doctor` to check your setup.');
 }
 
 /** Attach the `migrate` command group and its per-source subcommands (`eas`, `fastlane`) to the program. */
 export function registerMigrateCommand(program: Command): void {
   const migrate = program
-    .command("migrate")
-    .description("import an existing EAS or fastlane setup into a Launch config");
+    .command('migrate')
+    .description('import an existing EAS or fastlane setup into a Launch config');
 
   migrate
-    .command("eas")
-    .description("read eas.json/app.json and emit launch.config.ts, .env.example, store.config.json + a report")
-    .option("--force", "overwrite files that already exist", false)
-    .option("--dry-run", "print what would be written without writing anything", false)
-    .option("--out <dir>", "write the migrated files to this directory (default: current directory)")
+    .command('eas')
+    .description(
+      'read eas.json/app.json and emit launch.config.ts, .env.example, store.config.json + a report',
+    )
+    .option('--force', 'overwrite files that already exist', false)
+    .option('--dry-run', 'print what would be written without writing anything', false)
+    .option(
+      '--out <dir>',
+      'write the migrated files to this directory (default: current directory)',
+    )
     .action(async (options: MigrateOptions) => {
       await runMigration(migrateEas, options);
     });
 
   migrate
-    .command("fastlane")
+    .command('fastlane')
     .description(
-      "read fastlane config (Appfile/Fastfile/Matchfile…) and emit launch.config.ts, .env.example, store.config.json + a report",
+      'read fastlane config (Appfile/Fastfile/Matchfile…) and emit launch.config.ts, .env.example, store.config.json + a report',
     )
-    .option("--force", "overwrite files that already exist", false)
-    .option("--dry-run", "print what would be written without writing anything", false)
-    .option("--out <dir>", "write the migrated files to this directory (default: current directory)")
+    .option('--force', 'overwrite files that already exist', false)
+    .option('--dry-run', 'print what would be written without writing anything', false)
+    .option(
+      '--out <dir>',
+      'write the migrated files to this directory (default: current directory)',
+    )
     .action(async (options: MigrateOptions) => {
       await runMigration(migrateFastlane, options);
     });

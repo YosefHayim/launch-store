@@ -16,22 +16,22 @@
  * broken probe never sinks the whole report.
  */
 
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-import { checkApp, formatFinding } from "../configCheck.js";
-import { errorMessage } from "../errorMessage.js";
-import { describeExportComplianceConfig } from "../exportCompliance.js";
-import { formatPermissionLine, probeKeyPermissions } from "../ascPermissions.js";
-import { inspectPackageSetup, packageManagerWarnings } from "../packageManager.js";
-import { appPrivacyChecklist } from "../privacyNutritionLabel.js";
-import { ANDROID_TOOLS, REQUIRED_TOOLS, fixHint } from "../toolchain.js";
-import { buildConsoleUrl } from "../consoleLinks.js";
-import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from "./types.js";
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { checkApp, formatFinding } from '../configCheck.js';
+import { errorMessage } from '../errorMessage.js';
+import { describeExportComplianceConfig } from '../exportCompliance.js';
+import { formatPermissionLine, probeKeyPermissions } from '../ascPermissions.js';
+import { inspectPackageSetup, packageManagerWarnings } from '../packageManager.js';
+import { appPrivacyChecklist } from '../privacyNutritionLabel.js';
+import { ANDROID_TOOLS, REQUIRED_TOOLS, fixHint } from '../toolchain.js';
+import { buildConsoleUrl } from '../consoleLinks.js';
+import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from './types.js';
 
 /** Where to create a missing App Store Connect app record — the one step the API can't do. */
-const APP_STORE_CONNECT_APPS_URL = buildConsoleUrl("app-record", "ios", undefined);
+const APP_STORE_CONNECT_APPS_URL = buildConsoleUrl('app-record', 'ios', undefined);
 /** Where to create a Play app and enroll in Play App Signing on first release. */
-const PLAY_CONSOLE_URL = buildConsoleUrl("play", "android", undefined);
+const PLAY_CONSOLE_URL = buildConsoleUrl('play', 'android', undefined);
 
 /**
  * Report the detected package manager + monorepo root and the known Corepack/lockfile footguns. The
@@ -40,16 +40,23 @@ const PLAY_CONSOLE_URL = buildConsoleUrl("play", "android", undefined);
  */
 async function packageManagerChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
   const setup = inspectPackageSetup(ctx.cwd);
-  const version = setup.pm.version ? `@${setup.pm.version}` : "";
+  const version = setup.pm.version ? `@${setup.pm.version}` : '';
   const checks: DoctorCheck[] = [
-    { status: "ok", title: `Package manager: ${setup.pm.name}${version} (via ${setup.pm.source})` },
+    { status: 'ok', title: `Package manager: ${setup.pm.name}${version} (via ${setup.pm.source})` },
   ];
   if (setup.workspace) {
-    checks.push({ status: "ok", title: `Monorepo workspace root: ${setup.workspace.root} (${setup.workspace.kind})` });
+    checks.push({
+      status: 'ok',
+      title: `Monorepo workspace root: ${setup.workspace.root} (${setup.workspace.kind})`,
+    });
   }
   const corepackAvailable = await ctx.corepackAvailable();
-  for (const warning of packageManagerWarnings({ info: setup.pm, lockfile: setup.lockfile, corepackAvailable })) {
-    checks.push({ status: "info", title: warning });
+  for (const warning of packageManagerWarnings({
+    info: setup.pm,
+    lockfile: setup.lockfile,
+    corepackAvailable,
+  })) {
+    checks.push({ status: 'info', title: warning });
   }
   return checks;
 }
@@ -62,16 +69,18 @@ async function iosToolchainChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
   const checks: DoctorCheck[] = [];
   for (const tool of REQUIRED_TOOLS) {
     const present = await ctx.exists(tool.command);
-    if (tool.tier === "recommended") {
+    if (tool.tier === 'recommended') {
       checks.push(
         present
-          ? { status: "ok", title: tool.label }
-          : { status: "info", title: `${tool.label} (recommended)`, hint: fixHint(tool) },
+          ? { status: 'ok', title: tool.label }
+          : { status: 'info', title: `${tool.label} (recommended)`, hint: fixHint(tool) },
       );
       continue;
     }
     checks.push(
-      present ? { status: "ok", title: tool.label } : { status: "fail", title: tool.label, hint: fixHint(tool) },
+      present
+        ? { status: 'ok', title: tool.label }
+        : { status: 'fail', title: tool.label, hint: fixHint(tool) },
     );
   }
   return checks;
@@ -87,30 +96,32 @@ async function androidToolchainChecks(ctx: DoctorContext): Promise<DoctorCheck[]
   for (const tool of ANDROID_TOOLS) {
     const present = await ctx.exists(tool.command);
     checks.push(
-      present ? { status: "ok", title: tool.label } : { status: "fail", title: tool.label, hint: fixHint(tool) },
+      present
+        ? { status: 'ok', title: tool.label }
+        : { status: 'fail', title: tool.label, hint: fixHint(tool) },
     );
   }
 
   checks.push(
     ctx.androidSdk
-      ? { status: "ok", title: `Android SDK (${ctx.androidSdk})` }
+      ? { status: 'ok', title: `Android SDK (${ctx.androidSdk})` }
       : {
-          status: "fail",
-          title: "Android SDK",
-          hint: "set ANDROID_HOME (install via Android Studio or the command-line tools)",
+          status: 'fail',
+          title: 'Android SDK',
+          hint: 'set ANDROID_HOME (install via Android Studio or the command-line tools)',
         },
   );
 
   for (const app of ctx.apps) {
     if (!app.packageName) continue;
-    const hasWrapper = existsSync(join(app.dir, "android", "gradlew"));
+    const hasWrapper = existsSync(join(app.dir, 'android', 'gradlew'));
     checks.push(
       hasWrapper
-        ? { status: "ok", title: `Gradle wrapper for ${app.name}` }
+        ? { status: 'ok', title: `Gradle wrapper for ${app.name}` }
         : {
-            status: "info",
+            status: 'info',
             title: `No android/gradlew for ${app.name} yet`,
-            detail: "`launch build android` will run `expo prebuild` to generate it",
+            detail: '`launch build android` will run `expo prebuild` to generate it',
           },
     );
   }
@@ -119,7 +130,7 @@ async function androidToolchainChecks(ctx: DoctorContext): Promise<DoctorCheck[]
 
 /** The `launch creds status` readout as one advisory check (its body can span both platforms). */
 async function credentialsCheck(ctx: DoctorContext): Promise<DoctorCheck[]> {
-  return [{ status: "info", title: "Credentials", detail: await ctx.credentialsStatus() }];
+  return [{ status: 'info', title: 'Credentials', detail: await ctx.credentialsStatus() }];
 }
 
 /**
@@ -128,19 +139,26 @@ async function credentialsCheck(ctx: DoctorContext): Promise<DoctorCheck[]> {
  * up yet — that's not-provisioned, not a fault. macOS only.
  */
 async function codesignCheck(ctx: DoctorContext): Promise<DoctorCheck[]> {
-  if (ctx.os !== "macos") return [];
+  if (ctx.os !== 'macos') return [];
   const output = await ctx.codesignIdentities();
   if (output === null) {
-    return [{ status: "info", title: "Could not query codesign identities (security CLI unavailable)" }];
+    return [
+      { status: 'info', title: 'Could not query codesign identities (security CLI unavailable)' },
+    ];
   }
   if (/Apple Distribution|iPhone Distribution/.test(output)) {
-    return [{ status: "ok", title: "Distribution identity visible to codesign (login keychain — Tahoe-safe)" }];
+    return [
+      {
+        status: 'ok',
+        title: 'Distribution identity visible to codesign (login keychain — Tahoe-safe)',
+      },
+    ];
   }
   return [
     {
-      status: "info",
-      title: "No distribution identity in the login keychain yet",
-      hint: "`launch creds setup` imports one",
+      status: 'info',
+      title: 'No distribution identity in the login keychain yet',
+      hint: '`launch creds setup` imports one',
     },
   ];
 }
@@ -154,7 +172,11 @@ async function appleAccountChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
   const asc = await ctx.resolveAsc();
   if (!asc) {
     return [
-      { status: "info", title: "No active Apple account — skipping Apple checks", hint: "`launch creds set-key`" },
+      {
+        status: 'info',
+        title: 'No active Apple account — skipping Apple checks',
+        hint: '`launch creds set-key`',
+      },
     ];
   }
 
@@ -162,12 +184,17 @@ async function appleAccountChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
   try {
     await asc.assertReady();
     checks.push({
-      status: "ok",
-      title: "Apple agreements accepted",
-      detail: "via App Store Connect API key — no password, no 2FA (immune to the Apple-ID 2FA failures EAS hits)",
+      status: 'ok',
+      title: 'Apple agreements accepted',
+      detail:
+        'via App Store Connect API key — no password, no 2FA (immune to the Apple-ID 2FA failures EAS hits)',
     });
   } catch (error) {
-    checks.push({ status: "fail", title: "Apple account check failed", detail: errorMessage(error) });
+    checks.push({
+      status: 'fail',
+      title: 'Apple account check failed',
+      detail: errorMessage(error),
+    });
     return checks;
   }
 
@@ -176,9 +203,9 @@ async function appleAccountChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
     const appId = await asc.getAppId(app.bundleId);
     checks.push(
       appId
-        ? { status: "ok", title: `App record for ${app.bundleId}` }
+        ? { status: 'ok', title: `App record for ${app.bundleId}` }
         : {
-            status: "fail",
+            status: 'fail',
             title: `No App Store Connect record for ${app.bundleId}`,
             hint: `create it (one-time) at ${APP_STORE_CONNECT_APPS_URL}`,
           },
@@ -196,9 +223,9 @@ async function playAccountChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
   if (!play) {
     return [
       {
-        status: "info",
-        title: "No service account imported — skipping Play checks",
-        hint: "`launch creds set-key --platform android`",
+        status: 'info',
+        title: 'No service account imported — skipping Play checks',
+        hint: '`launch creds set-key --platform android`',
       },
     ];
   }
@@ -208,10 +235,10 @@ async function playAccountChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
     if (!app.packageName) continue;
     try {
       await play.assertAppExists(app.packageName);
-      checks.push({ status: "ok", title: `Play app reachable for ${app.packageName}` });
+      checks.push({ status: 'ok', title: `Play app reachable for ${app.packageName}` });
     } catch (error) {
       checks.push({
-        status: "fail",
+        status: 'fail',
         title: errorMessage(error),
         hint: `Create the app + enroll in Play App Signing on first release at ${PLAY_CONSOLE_URL}`,
       });
@@ -219,13 +246,14 @@ async function playAccountChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
   }
 
   checks.push({
-    status: "info",
-    title: "A new personal Play account needs ~20 testers for 14 days on a testing track before production unlocks.",
+    status: 'info',
+    title:
+      'A new personal Play account needs ~20 testers for 14 days on a testing track before production unlocks.',
   });
   checks.push({
-    status: "info",
+    status: 'info',
     title:
-      "Sensitive/high-risk permissions can make the Publishing API reject a release until declared in Play Console.",
+      'Sensitive/high-risk permissions can make the Publishing API reject a release until declared in Play Console.',
   });
   return checks;
 }
@@ -239,12 +267,12 @@ async function configChecks(ctx: DoctorContext, platform: DoctorPlatform): Promi
   for (const app of ctx.apps) {
     const findings = await checkApp(app, platform);
     if (findings.length === 0) {
-      checks.push({ status: "ok", title: `${app.name}: app config clean` });
+      checks.push({ status: 'ok', title: `${app.name}: app config clean` });
       continue;
     }
     for (const finding of findings) {
       checks.push({
-        status: finding.severity === "error" ? "fail" : "info",
+        status: finding.severity === 'error' ? 'fail' : 'info',
         title: `${app.name}: ${formatFinding(finding)}`,
       });
     }
@@ -261,7 +289,7 @@ function exportComplianceChecks(ctx: DoctorContext): DoctorCheck[] {
   const iosApps = ctx.apps.filter((app) => app.bundleId);
   return iosApps.map((app) => {
     const status = describeExportComplianceConfig(app.usesNonExemptEncryption);
-    return { status: status.ok ? "ok" : "info", title: `${app.name}: ${status.message}` };
+    return { status: status.ok ? 'ok' : 'info', title: `${app.name}: ${status.message}` };
   });
 }
 
@@ -269,7 +297,7 @@ function exportComplianceChecks(ctx: DoctorContext): DoctorCheck[] {
 function appPrivacyChecks(ctx: DoctorContext): DoctorCheck[] {
   if (!ctx.apps.some((app) => app.bundleId)) return [];
   const [headline, ...rest] = appPrivacyChecklist();
-  return [{ status: "info", title: headline ?? "App Privacy", detail: rest.join("\n") }];
+  return [{ status: 'info', title: headline ?? 'App Privacy', detail: rest.join('\n') }];
 }
 
 /**
@@ -291,9 +319,9 @@ async function keyPermissionChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
   const results = await probeKeyPermissions(asc, appId);
   return [
     {
-      status: "info",
-      title: "API-key role access (per feature):",
-      detail: results.map((result) => `  ${formatPermissionLine(result)}`).join("\n"),
+      status: 'info',
+      title: 'API-key role access (per feature):',
+      detail: results.map((result) => `  ${formatPermissionLine(result)}`).join('\n'),
     },
   ];
 }
@@ -308,30 +336,33 @@ async function keyPermissionChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
  */
 export async function inspectDoctor(ctx: DoctorContext): Promise<DoctorReport> {
   const checks: DoctorCheck[] = [];
-  const collect = async (label: string, run: () => Promise<DoctorCheck[]> | DoctorCheck[]): Promise<void> => {
+  const collect = async (
+    label: string,
+    run: () => Promise<DoctorCheck[]> | DoctorCheck[],
+  ): Promise<void> => {
     try {
       checks.push(...(await run()));
     } catch (error) {
-      checks.push({ status: "fail", title: `${label} check failed`, detail: errorMessage(error) });
+      checks.push({ status: 'fail', title: `${label} check failed`, detail: errorMessage(error) });
     }
   };
 
-  await collect("Package manager", () => packageManagerChecks(ctx));
-  if (ctx.platform === "android") {
-    await collect("Android toolchain", () => androidToolchainChecks(ctx));
-    await collect("Credentials", () => credentialsCheck(ctx));
-    await collect("Play account", () => playAccountChecks(ctx));
-    await collect("App config", () => configChecks(ctx, "android"));
+  await collect('Package manager', () => packageManagerChecks(ctx));
+  if (ctx.platform === 'android') {
+    await collect('Android toolchain', () => androidToolchainChecks(ctx));
+    await collect('Credentials', () => credentialsCheck(ctx));
+    await collect('Play account', () => playAccountChecks(ctx));
+    await collect('App config', () => configChecks(ctx, 'android'));
   } else {
-    await collect("iOS toolchain", () => iosToolchainChecks(ctx));
-    await collect("Credentials", () => credentialsCheck(ctx));
-    await collect("Codesign identity", () => codesignCheck(ctx));
-    await collect("Apple account", () => appleAccountChecks(ctx));
-    await collect("App config", () => configChecks(ctx, "ios"));
-    await collect("Export compliance", () => exportComplianceChecks(ctx));
-    await collect("App privacy", () => appPrivacyChecks(ctx));
-    await collect("API-key permissions", () => keyPermissionChecks(ctx));
+    await collect('iOS toolchain', () => iosToolchainChecks(ctx));
+    await collect('Credentials', () => credentialsCheck(ctx));
+    await collect('Codesign identity', () => codesignCheck(ctx));
+    await collect('Apple account', () => appleAccountChecks(ctx));
+    await collect('App config', () => configChecks(ctx, 'ios'));
+    await collect('Export compliance', () => exportComplianceChecks(ctx));
+    await collect('App privacy', () => appPrivacyChecks(ctx));
+    await collect('API-key permissions', () => keyPermissionChecks(ctx));
   }
 
-  return { platform: ctx.platform, checks, ok: checks.every((check) => check.status !== "fail") };
+  return { platform: ctx.platform, checks, ok: checks.every((check) => check.status !== 'fail') };
 }

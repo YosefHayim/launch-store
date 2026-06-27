@@ -16,25 +16,36 @@
  * `launch rollout`. The exit codes mirror `launch status` (0 ok · 2 blocked/rejected · 3 in progress · 1 error).
  */
 
-import { randomUUID } from "node:crypto";
-import type { Command } from "commander";
-import type { AppDescriptor, BuildProfile, LaunchConfig } from "../../core/types.js";
-import { loadConfig } from "../../core/config.js";
-import { resolveCommandEnv, selectApp } from "../../core/pipeline.js";
-import { createLogger, type Logger } from "../../core/logger.js";
-import { addEnvFlags, envOverrides, type EnvFlags } from "../options.js";
-import { isCloudStorage } from "../../core/storage.js";
-import { resolveRuntimeVersion } from "./update.js";
-import { buildTrainRuntime, type TrainRuntime } from "../../core/releaseTrain/builder.js";
-import { resolveTrainCars } from "../../core/releaseTrain/engine.js";
-import { advanceTrain, isTrainSettled, startTrain, trainExitCode } from "../../core/releaseTrain/orchestrator.js";
+import { randomUUID } from 'node:crypto';
+import type { Command } from 'commander';
+import type { AppDescriptor, BuildProfile, LaunchConfig } from '../../core/types.js';
+import { loadConfig } from '../../core/config.js';
+import { resolveCommandEnv, selectApp } from '../../core/pipeline.js';
+import { createLogger, type Logger } from '../../core/logger.js';
+import { addEnvFlags, envOverrides, type EnvFlags } from '../options.js';
+import { isCloudStorage } from '../../core/storage.js';
+import { resolveRuntimeVersion } from './update.js';
+import { buildTrainRuntime, type TrainRuntime } from '../../core/releaseTrain/builder.js';
+import { resolveTrainCars } from '../../core/releaseTrain/engine.js';
+import {
+  advanceTrain,
+  isTrainSettled,
+  startTrain,
+  trainExitCode,
+} from '../../core/releaseTrain/orchestrator.js';
 import {
   latestTrainRecord,
   listTrainRecords,
   readTrainRecord,
   writeTrainRecord,
-} from "../../core/releaseTrain/record.js";
-import { isNativeCar, isOtaCar, isTrainPlatform, type Car, type TrainRecord } from "../../core/releaseTrain/types.js";
+} from '../../core/releaseTrain/record.js';
+import {
+  isNativeCar,
+  isOtaCar,
+  isTrainPlatform,
+  type Car,
+  type TrainRecord,
+} from '../../core/releaseTrain/types.js';
 
 /** CLI options for `launch release-train`. */
 interface ReleaseTrainOptions extends EnvFlags {
@@ -65,8 +76,8 @@ export function mintTrainId(appName: string): string {
   const slug =
     appName
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "train";
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'train';
   return `${slug}-${randomUUID().slice(0, 4)}`;
 }
 
@@ -78,15 +89,15 @@ export function carLabel(car: Car): string {
 /** One status line for a car: its label, state, and the most useful identifier or error. */
 export function carStatusLine(car: Car): string {
   if (isOtaCar(car)) {
-    return `${carLabel(car)}: ${car.state}${car.manifestId ? ` · ${car.manifestId}` : ""}`;
+    return `${carLabel(car)}: ${car.state}${car.manifestId ? ` · ${car.manifestId}` : ''}`;
   }
-  const detail = car.error ? ` — ${car.error}` : car.buildId ? ` · build ${car.buildId}` : "";
+  const detail = car.error ? ` — ${car.error}` : car.buildId ? ` · build ${car.buildId}` : '';
   return `${carLabel(car)}: ${car.state}${detail}`;
 }
 
 /** Render the train as a boxed summary: its id/app/lifecycle header, then one line per car. */
 function renderTrain(record: TrainRecord, log: Logger): void {
-  const header = `Train ${record.id} · ${record.app} · ${record.state}${record.hold ? " · hold" : ""}`;
+  const header = `Train ${record.id} · ${record.app} · ${record.state}${record.hold ? ' · hold' : ''}`;
   log.box(header, record.cars.map(carStatusLine));
 }
 
@@ -97,17 +108,21 @@ function resolveTarget(id: string | undefined): TrainRecord {
     const known = listTrainRecords().map((train) => train.id);
     throw new Error(
       id
-        ? `No release train "${id}". Known: ${known.join(", ") || "none"}.`
-        : "No release train yet. Start one with `launch release-train start`.",
+        ? `No release train "${id}". Known: ${known.join(', ') || 'none'}.`
+        : 'No release train yet. Start one with `launch release-train start`.',
     );
   }
   return record;
 }
 
 /** Load config + app + env and build the runtime — the shared head of every verb that touches the store. */
-async function prepare(
-  options: ReleaseTrainOptions,
-): Promise<{ config: LaunchConfig; app: AppDescriptor; profile: BuildProfile; runtime: TrainRuntime; log: Logger }> {
+async function prepare(options: ReleaseTrainOptions): Promise<{
+  config: LaunchConfig;
+  app: AppDescriptor;
+  profile: BuildProfile;
+  runtime: TrainRuntime;
+  log: Logger;
+}> {
   const log = createLogger(false);
   const { config, apps } = await loadConfig();
   const app = await selectApp(apps, options.app);
@@ -119,7 +134,14 @@ async function prepare(
     includeLocal: options.includeLocal,
     envExclude: config.envExclude,
   });
-  const runtime = buildTrainRuntime(config, app, profile, resolvedEnv.values, options.hold === true, log);
+  const runtime = buildTrainRuntime(
+    config,
+    app,
+    profile,
+    resolvedEnv.values,
+    options.hold === true,
+    log,
+  );
   return { config, app, profile, runtime, log };
 }
 
@@ -141,10 +163,15 @@ async function runStart(options: ReleaseTrainOptions): Promise<void> {
     noOta: !options.ota,
   });
   if (cars.platforms.length === 0) {
-    throw new Error(`${app.name} declares no iOS bundle id or Android package — nothing to release.`);
+    throw new Error(
+      `${app.name} declares no iOS bundle id or Android package — nothing to release.`,
+    );
   }
 
-  log.step("release-train", `starting ${app.name}: ${cars.platforms.join(" + ")}${cars.ota.length ? " + OTA" : ""}`);
+  log.step(
+    'release-train',
+    `starting ${app.name}: ${cars.platforms.join(' + ')}${cars.ota.length ? ' + OTA' : ''}`,
+  );
   const record = await startTrain(
     {
       id: mintTrainId(app.name),
@@ -208,7 +235,7 @@ async function runRelease(id: string | undefined, options: ReleaseTrainOptions):
 /** `abort`: stop the train. Never un-releases a live car — just marks the record terminated (D6). */
 function runAbort(id: string | undefined, options: ReleaseTrainOptions, log: Logger): void {
   const target = resolveTarget(id);
-  const record: TrainRecord = { ...target, state: "aborted", updatedAt: new Date().toISOString() };
+  const record: TrainRecord = { ...target, state: 'aborted', updatedAt: new Date().toISOString() };
   writeTrainRecord(record);
   log.info(
     `Aborted ${record.id}. Live cars are untouched — roll back explicitly with \`launch rollout pause\` / \`launch updates rollback\`.`,
@@ -226,42 +253,55 @@ function report(record: TrainRecord, options: ReleaseTrainOptions, log: Logger):
 /** Whether a car is still in flight — used only by tests/consumers reasoning about a record. */
 export function hasLiveCar(record: TrainRecord): boolean {
   return record.cars.some((car) =>
-    isNativeCar(car) ? car.state !== "released" && car.state !== "failed" : car.state !== "published",
+    isNativeCar(car)
+      ? car.state !== 'released' && car.state !== 'failed'
+      : car.state !== 'published',
   );
 }
 
 /** Attach the `release-train` command to the program. */
 export function registerReleaseTrainCommand(program: Command): void {
   const command = program
-    .command("release-train")
-    .description("coordinate an app's iOS + Android + OTA release as one resumable record (ADR 0004)")
-    .argument("[action]", "start | status | release | abort", "status")
-    .argument("[id]", "train id (default: the latest train)")
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("-p, --profile <name>", "build profile whose env feeds the Android submit + OTA export", "production")
-    .option("--platform <p>", "start: restrict to one native platform (ios or android)")
-    .option("--no-ota", "start: coordinate the native legs only (no OTA followers)")
-    .option("--hold", "start: hold every car until all are approved, then release together")
-    .option("--channel <name>", "start: OTA channel the followers publish to", "production")
-    .option("--runtime-version <v>", "start: runtime version OTA followers target (default: from app config)")
-    .option("--watch", "status: poll until the train settles", false)
-    .option("--json", "machine-readable output for CI/agents", false);
-  addEnvFlags(command).action(async (action: string, id: string | undefined, options: ReleaseTrainOptions) => {
-    switch (action) {
-      case "start":
-        await runStart(options);
-        return;
-      case "status":
-        await runStatus(id, options);
-        return;
-      case "release":
-        await runRelease(id, options);
-        return;
-      case "abort":
-        runAbort(id, options, createLogger(false));
-        return;
-      default:
-        throw new Error(`Unknown action "${action}". Use start | status | release | abort.`);
-    }
-  });
+    .command('release-train')
+    .description(
+      "coordinate an app's iOS + Android + OTA release as one resumable record (ADR 0004)",
+    )
+    .argument('[action]', 'start | status | release | abort', 'status')
+    .argument('[id]', 'train id (default: the latest train)')
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option(
+      '-p, --profile <name>',
+      'build profile whose env feeds the Android submit + OTA export',
+      'production',
+    )
+    .option('--platform <p>', 'start: restrict to one native platform (ios or android)')
+    .option('--no-ota', 'start: coordinate the native legs only (no OTA followers)')
+    .option('--hold', 'start: hold every car until all are approved, then release together')
+    .option('--channel <name>', 'start: OTA channel the followers publish to', 'production')
+    .option(
+      '--runtime-version <v>',
+      'start: runtime version OTA followers target (default: from app config)',
+    )
+    .option('--watch', 'status: poll until the train settles', false)
+    .option('--json', 'machine-readable output for CI/agents', false);
+  addEnvFlags(command).action(
+    async (action: string, id: string | undefined, options: ReleaseTrainOptions) => {
+      switch (action) {
+        case 'start':
+          await runStart(options);
+          return;
+        case 'status':
+          await runStatus(id, options);
+          return;
+        case 'release':
+          await runRelease(id, options);
+          return;
+        case 'abort':
+          runAbort(id, options, createLogger(false));
+          return;
+        default:
+          throw new Error(`Unknown action "${action}". Use start | status | release | abort.`);
+      }
+    },
+  );
 }

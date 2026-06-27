@@ -34,7 +34,9 @@ export function costForDurationUsd(ms: number): number {
 
 /** ISO-8601 instant the Dedicated Host may first be released (allocatedAt + 24h). */
 export function releasableAt(allocatedAtIso: string): string {
-  return new Date(new Date(allocatedAtIso).getTime() + MIN_ALLOCATION_HOURS * HOUR_MS).toISOString();
+  return new Date(
+    new Date(allocatedAtIso).getTime() + MIN_ALLOCATION_HOURS * HOUR_MS,
+  ).toISOString();
 }
 
 /** ISO-8601 instant Launch schedules the automatic release (allocatedAt + ~23.5h). */
@@ -57,7 +59,7 @@ export function formatAge(ms: number): string {
   const totalMinutes = Math.max(0, Math.floor(ms / 60000));
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  return `${hours}h ${minutes.toString().padStart(2, "0")}m`;
+  return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
 }
 
 /**
@@ -69,17 +71,20 @@ export function consentMessage(): string {
   return [
     `Allocating an AWS EC2 Mac costs about ${usd(MINIMUM_CHARGE_USD)} minimum:`,
     `AWS bills a Dedicated Host with a hard ${MIN_ALLOCATION_HOURS}h minimum (Apple's license), then per second.`,
-    "Stopping the instance does NOT stop the bill — only releasing the host does, and not before the 24h mark.",
-    "Launch reuses this one paid window for every build you run in it, then auto-releases near 24h.",
-    "Proceed and allocate a cloud Mac in your own AWS account?",
-  ].join("\n");
+    'Stopping the instance does NOT stop the bill — only releasing the host does, and not before the 24h mark.',
+    'Launch reuses this one paid window for every build you run in it, then auto-releases near 24h.',
+    'Proceed and allocate a cloud Mac in your own AWS account?',
+  ].join('\n');
 }
 
 /** One-line live-cost banner shown above commands while a host is up. */
-export function costBanner(handle: { instanceId?: string; allocatedAt: string }, now: number = Date.now()): string {
+export function costBanner(
+  handle: { instanceId?: string; allocatedAt: string },
+  now: number = Date.now(),
+): string {
   const ageMs = now - new Date(handle.allocatedAt).getTime();
-  const id = handle.instanceId ?? "remote host";
+  const id = handle.instanceId ?? 'remote host';
   const release = new Date(releasableAt(handle.allocatedAt));
-  const releaseLabel = `${release.getHours().toString().padStart(2, "0")}:${release.getMinutes().toString().padStart(2, "0")}`;
+  const releaseLabel = `${release.getHours().toString().padStart(2, '0')}:${release.getMinutes().toString().padStart(2, '0')}`;
   return `host ${id} up ${formatAge(ageMs)}, ~${usd(costForDurationUsd(ageMs))} so far, releasable after ${releaseLabel}`;
 }

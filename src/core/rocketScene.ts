@@ -12,7 +12,7 @@
  * (a white apple-with-leaf, a four-color play triangle) — recognizable, not the trademarked glyphs.
  */
 
-import { renderBuffer, type Cell, type ColorDepth, type Rgb } from "./halfblock.js";
+import { renderBuffer, type Cell, type ColorDepth, type Rgb } from './halfblock.js';
 
 const EMIT_THRESHOLD = 18; // summed-RGB below this reads as empty space — higher = crisper, less bloom haze
 
@@ -80,7 +80,14 @@ class Pixmap {
 }
 
 /** Additively splat a soft radial disc of `color` — the universal glow/bloom primitive. */
-function addDisc(pm: Pixmap, cx: number, cy: number, color: Rgb, intensity: number, radius: number): void {
+function addDisc(
+  pm: Pixmap,
+  cx: number,
+  cy: number,
+  color: Rgb,
+  intensity: number,
+  radius: number,
+): void {
   for (let dy = -radius; dy <= radius; dy++) {
     for (let dx = -radius; dx <= radius; dx++) {
       const d = Math.hypot(dx, dy);
@@ -98,10 +105,10 @@ function fold(pm: Pixmap): Cell[][] {
     for (let x = 0; x < pm.w; x++) {
       const top = pm.colorAt(x, cr * 2);
       const bottom = pm.colorAt(x, cr * 2 + 1);
-      if (top && bottom) row.push({ ch: "▀", fg: top, bg: bottom });
-      else if (top) row.push({ ch: "▀", fg: top });
-      else if (bottom) row.push({ ch: "▄", fg: bottom });
-      else row.push({ ch: " " });
+      if (top && bottom) row.push({ ch: '▀', fg: top, bg: bottom });
+      else if (top) row.push({ ch: '▀', fg: top });
+      else if (bottom) row.push({ ch: '▄', fg: bottom });
+      else row.push({ ch: ' ' });
     }
     rows.push(row);
   }
@@ -117,20 +124,20 @@ const SPACE_W = 3; // blank px for the word space
 
 /** The LAUNCH STORE letters as upright 4×5 bitmaps ('X' = lit). {@link SHEAR} leans them italic at render. */
 const GLYPHS: Record<string, readonly string[]> = {
-  L: ["X...", "X...", "X...", "X...", "XXXX"],
-  A: [".XX.", "X..X", "XXXX", "X..X", "X..X"],
-  U: ["X..X", "X..X", "X..X", "X..X", ".XX."],
-  N: ["X..X", "XX.X", "X.XX", "X..X", "X..X"],
-  C: [".XXX", "X...", "X...", "X...", ".XXX"],
-  H: ["X..X", "X..X", "XXXX", "X..X", "X..X"],
-  S: [".XXX", "X...", ".XX.", "...X", "XXX."],
-  T: ["XXXX", ".X..", ".X..", ".X..", ".X.."],
-  O: [".XX.", "X..X", "X..X", "X..X", ".XX."],
-  R: ["XXX.", "X..X", "XXX.", "X.X.", "X..X"],
-  E: ["XXXX", "X...", "XXX.", "X...", "XXXX"],
+  L: ['X...', 'X...', 'X...', 'X...', 'XXXX'],
+  A: ['.XX.', 'X..X', 'XXXX', 'X..X', 'X..X'],
+  U: ['X..X', 'X..X', 'X..X', 'X..X', '.XX.'],
+  N: ['X..X', 'XX.X', 'X.XX', 'X..X', 'X..X'],
+  C: ['.XXX', 'X...', 'X...', 'X...', '.XXX'],
+  H: ['X..X', 'X..X', 'XXXX', 'X..X', 'X..X'],
+  S: ['.XXX', 'X...', '.XX.', '...X', 'XXX.'],
+  T: ['XXXX', '.X..', '.X..', '.X..', '.X..'],
+  O: ['.XX.', 'X..X', 'X..X', 'X..X', '.XX.'],
+  R: ['XXX.', 'X..X', 'XXX.', 'X.X.', 'X..X'],
+  E: ['XXXX', 'X...', 'XXX.', 'X...', 'XXXX'],
 };
 
-const WORD = "LAUNCH STORE";
+const WORD = 'LAUNCH STORE';
 const FILL_TOP: Rgb = [248, 249, 255]; // letter gradient top (near-white)
 const FILL_BOTTOM: Rgb = [198, 170, 255]; // letter gradient bottom (lavender)
 const HIGHLIGHT: Rgb = [255, 255, 255]; // shimmer sweep color
@@ -160,7 +167,7 @@ function layoutWord(): WordLayout {
   let cursor = 0;
   let letter = -1;
   for (const ch of WORD) {
-    if (ch === " ") {
+    if (ch === ' ') {
       cursor += SPACE_W;
       continue;
     }
@@ -169,10 +176,15 @@ function layoutWord(): WordLayout {
     letter++;
     const glyphWidth = glyph[0]?.length ?? 0;
     for (let gy = 0; gy < LOGO_H; gy++) {
-      const glyphRow = glyph[gy] ?? "";
+      const glyphRow = glyph[gy] ?? '';
       for (let gx = 0; gx < glyphWidth; gx++) {
-        if (glyphRow.charAt(gx) !== "X") continue;
-        lean.push({ x: Math.round(cursor + gx + (LOGO_H - 1 - gy) * SHEAR), y: gy, k: gy / (LOGO_H - 1), letter });
+        if (glyphRow.charAt(gx) !== 'X') continue;
+        lean.push({
+          x: Math.round(cursor + gx + (LOGO_H - 1 - gy) * SHEAR),
+          y: gy,
+          k: gy / (LOGO_H - 1),
+          letter,
+        });
       }
     }
     cursor += glyphWidth + GAP;
@@ -200,7 +212,8 @@ function layoutWord(): WordLayout {
     xsByLetter.set(p.letter, xs);
   }
   const letterCx = new Map<number, number>();
-  for (const [li, xs] of xsByLetter) letterCx.set(li, xs.reduce((sum, x) => sum + x, 0) / xs.length);
+  for (const [li, xs] of xsByLetter)
+    letterCx.set(li, xs.reduce((sum, x) => sum + x, 0) / xs.length);
 
   return { pixels, width: maxX - minX + 1, letterCx };
 }
@@ -216,9 +229,11 @@ function buildRocket(): readonly string[] {
   const w = 15;
   const h = 7;
   const cy = 3;
-  const grid: string[][] = Array.from({ length: h }, () => Array<string>(w).fill("."));
-  const hullRadius = (x: number): number => (x === 2 ? 1 : x === 3 ? 2 : x >= 4 && x <= 10 ? 3 : -1);
-  const noseRadius = (x: number): number => (x === 11 ? 2 : x === 12 ? 2 : x === 13 ? 1 : x === 14 ? 0 : -1);
+  const grid: string[][] = Array.from({ length: h }, () => Array<string>(w).fill('.'));
+  const hullRadius = (x: number): number =>
+    x === 2 ? 1 : x === 3 ? 2 : x >= 4 && x <= 10 ? 3 : -1;
+  const noseRadius = (x: number): number =>
+    x === 11 ? 2 : x === 12 ? 2 : x === 13 ? 1 : x === 14 ? 0 : -1;
 
   const put = (y: number, x: number, ch: string): void => {
     const row = grid[y];
@@ -227,19 +242,19 @@ function buildRocket(): readonly string[] {
 
   for (let x = 2; x <= 10; x++) {
     const r = hullRadius(x);
-    for (let dy = -r; dy <= r; dy++) put(cy + dy, x, dy > 0 ? "b" : "B");
+    for (let dy = -r; dy <= r; dy++) put(cy + dy, x, dy > 0 ? 'b' : 'B');
   }
   for (let x = 11; x <= 14; x++) {
     const r = noseRadius(x);
-    for (let dy = -r; dy <= r; dy++) put(cy + dy, x, "N");
+    for (let dy = -r; dy <= r; dy++) put(cy + dy, x, 'N');
   }
   for (let dy = -3; dy <= 3; dy++) {
     const row = grid[cy + dy];
-    if (row && row[9] !== ".") row[9] = "R"; // trim ring near the nose
+    if (row && row[9] !== '.') row[9] = 'R'; // trim ring near the nose
   }
   for (let dy = -1; dy <= 1; dy++) {
-    put(cy + dy, 6, "W");
-    put(cy + dy, 7, "W"); // porthole
+    put(cy + dy, 6, 'W');
+    put(cy + dy, 7, 'W'); // porthole
   }
   const fins: readonly (readonly [number, number])[] = [
     [0, 0],
@@ -253,9 +268,9 @@ function buildRocket(): readonly string[] {
     [5, 0],
     [5, 1],
   ];
-  for (const [y, x] of fins) put(y, x, "F");
+  for (const [y, x] of fins) put(y, x, 'F');
 
-  return grid.map((row) => row.join(""));
+  return grid.map((row) => row.join(''));
 }
 
 const ROCKET = buildRocket();
@@ -273,21 +288,21 @@ const ROCKET_PALETTE: Record<string, Rgb> = {
  * top, a concave bite scooped from the right edge (shoulder above, bulge below), and split feet.
  */
 const APPLE: readonly string[] = [
-  ".........LL...",
-  "........LL....",
-  ".......L......",
-  "...AA....AA...",
-  "..AAAA..AAAA..",
-  ".AAAAAAAAAAAA.",
-  "AAAAAAAAAAAAAA",
-  "AAAAAAAAAAAA..",
-  "AAAAAAAAAA....",
-  "AAAAAAAAAA....",
-  "AAAAAAAAAAAA..",
-  "AAAAAAAAAAAAAA",
-  ".AAAAAAAAAAAA.",
-  "..AAAAAAAAAA..",
-  "...AA....AA...",
+  '.........LL...',
+  '........LL....',
+  '.......L......',
+  '...AA....AA...',
+  '..AAAA..AAAA..',
+  '.AAAAAAAAAAAA.',
+  'AAAAAAAAAAAAAA',
+  'AAAAAAAAAAAA..',
+  'AAAAAAAAAA....',
+  'AAAAAAAAAA....',
+  'AAAAAAAAAAAA..',
+  'AAAAAAAAAAAAAA',
+  '.AAAAAAAAAAAA.',
+  '..AAAAAAAAAA..',
+  '...AA....AA...',
 ];
 const APPLE_PALETTE: Record<string, Rgb> = {
   A: [244, 247, 255], // white apple body
@@ -302,7 +317,7 @@ function buildGPlay(): readonly string[] {
   const w = 13;
   const h = 15;
   const mid = 7;
-  const grid: string[][] = Array.from({ length: h }, () => Array<string>(w).fill("."));
+  const grid: string[][] = Array.from({ length: h }, () => Array<string>(w).fill('.'));
   for (let y = 0; y < h; y++) {
     const row = grid[y];
     if (!row) continue;
@@ -310,15 +325,15 @@ function buildGPlay(): readonly string[] {
     for (let x = 1; x <= rightX; x++) {
       const top = y <= mid;
       const left = x < w * 0.42;
-      row[x] = top ? (left ? "c" : "g") : left ? "r" : "o";
+      row[x] = top ? (left ? 'c' : 'g') : left ? 'r' : 'o';
     }
     if (y === mid) {
-      row[rightX] = "W"; // bright apex tip
+      row[rightX] = 'W'; // bright apex tip
       const prev = rightX - 1;
-      if (prev >= 0) row[prev] = "W";
+      if (prev >= 0) row[prev] = 'W';
     }
   }
-  return grid.map((row) => row.join(""));
+  return grid.map((row) => row.join(''));
 }
 
 const GPLAY = buildGPlay();
@@ -346,16 +361,16 @@ function stampSprite(
 ): void {
   if (glowRadius > 0) {
     for (let gy = 0; gy < grid.length; gy++) {
-      const row = grid[gy] ?? "";
+      const row = grid[gy] ?? '';
       for (let gx = 0; gx < row.length; gx++) {
         const mat = row.charAt(gx);
-        if (mat === "." || !palette[mat]) continue;
+        if (mat === '.' || !palette[mat]) continue;
         addDisc(pm, ox + gx, oy + gy, glowColor, 0.5 * intensity, glowRadius);
       }
     }
   }
   for (let gy = 0; gy < grid.length; gy++) {
-    const row = grid[gy] ?? "";
+    const row = grid[gy] ?? '';
     for (let gx = 0; gx < row.length; gx++) {
       const core = palette[row.charAt(gx)];
       if (!core) continue;
@@ -526,13 +541,40 @@ function composeScene(depth: ColorDepth, s: SceneState): string {
   drawWordmark(pm, s.noseX, s.breathe, s.sweepX);
 
   // badges render flat (glowRadius 0) so the logos stay hard-edged and precise, not haloed
-  stampSprite(pm, APPLE, APPLE_PALETTE, STAGE.appleX, BADGE_TOP, badgeIntensity(s.noseX, STAGE.appleCx), [0, 0, 0], 0);
-  stampSprite(pm, GPLAY, GPLAY_PALETTE, STAGE.gplayX, BADGE_TOP, badgeIntensity(s.noseX, STAGE.gplayCx), [0, 0, 0], 0);
+  stampSprite(
+    pm,
+    APPLE,
+    APPLE_PALETTE,
+    STAGE.appleX,
+    BADGE_TOP,
+    badgeIntensity(s.noseX, STAGE.appleCx),
+    [0, 0, 0],
+    0,
+  );
+  stampSprite(
+    pm,
+    GPLAY,
+    GPLAY_PALETTE,
+    STAGE.gplayX,
+    BADGE_TOP,
+    badgeIntensity(s.noseX, STAGE.gplayCx),
+    [0, 0, 0],
+    0,
+  );
 
   if (s.showRocket) {
     drawExhaust(pm, s.noseX, s.frame);
     const jitter = Math.round(Math.sin(s.frame * 1.7)); // tiny liftoff shake
-    stampSprite(pm, ROCKET, ROCKET_PALETTE, s.noseX - ROCKET_W, ROCKET_TOP + jitter, 1, [170, 195, 255], 1);
+    stampSprite(
+      pm,
+      ROCKET,
+      ROCKET_PALETTE,
+      s.noseX - ROCKET_W,
+      ROCKET_TOP + jitter,
+      1,
+      [170, 195, 255],
+      1,
+    );
   }
 
   return renderBuffer(fold(pm), depth);
@@ -540,18 +582,24 @@ function composeScene(depth: ColorDepth, s: SceneState): string {
 
 /** The settled lockup: rocket gone, every letter lit at full glow, badges charged, no shimmer. */
 function settledState(): SceneState {
-  return { noseX: STAGE.w + 30, breathe: 1, sweepX: null, showRocket: false, frame: FLY_FRAMES + SETTLE_FRAMES };
+  return {
+    noseX: STAGE.w + 30,
+    breathe: 1,
+    sweepX: null,
+    showRocket: false,
+    frame: FLY_FRAMES + SETTLE_FRAMES,
+  };
 }
 
 /** Plain-text fallback shown for `NO_COLOR`/piped output and CI (the scene needs color to render). */
-const PLAIN = "▸ Launch Store — Ship to the App Store + Google Play";
+const PLAIN = '▸ Launch Store — Ship to the App Store + Google Play';
 
 /**
  * The settled banner as a single frame — for static/piped output, logs, or a still header. `none` returns
  * the plain tagline (the bloom and color logos can't render without color).
  */
 export function renderRocketBanner(depth: ColorDepth): string {
-  return depth === "none" ? PLAIN : composeScene(depth, settledState());
+  return depth === 'none' ? PLAIN : composeScene(depth, settledState());
 }
 
 /**
@@ -560,17 +608,25 @@ export function renderRocketBanner(depth: ColorDepth): string {
  * can redraw in place. `none` yields a single plain-text frame since the effect needs color.
  */
 export function buildRocketFrames(depth: ColorDepth): string[] {
-  if (depth === "none") return [PLAIN];
+  if (depth === 'none') return [PLAIN];
   const frames: string[] = [];
   for (let i = 0; i < FLY_FRAMES; i++) {
     const noseX = -6 + easeInOut(i / FLY_FRAMES) * (STAGE.w + 20);
-    frames.push(composeScene(depth, { noseX, breathe: 1, sweepX: null, showRocket: true, frame: i }));
+    frames.push(
+      composeScene(depth, { noseX, breathe: 1, sweepX: null, showRocket: true, frame: i }),
+    );
   }
   for (let hRow = 0; hRow < SETTLE_FRAMES; hRow++) {
     const breathe = 0.62 + 0.38 * Math.abs(Math.sin(hRow * 0.5));
     const sweepX = STAGE.wmX - 4 + ((hRow * 5) % (STAGE.width + 8));
     frames.push(
-      composeScene(depth, { noseX: STAGE.w + 30, breathe, sweepX, showRocket: false, frame: FLY_FRAMES + hRow }),
+      composeScene(depth, {
+        noseX: STAGE.w + 30,
+        breathe,
+        sweepX,
+        showRocket: false,
+        frame: FLY_FRAMES + hRow,
+      }),
     );
   }
   frames.push(renderRocketBanner(depth)); // rest on a clean settled lockup

@@ -6,8 +6,8 @@
  * SSH) or hand off to Expo EAS. Centralized here rather than scattering `process.platform` checks.
  */
 
-import { cpus, platform, totalmem } from "node:os";
-import type { HostOs } from "./types.js";
+import { cpus, platform, totalmem } from 'node:os';
+import type { HostOs } from './types.js';
 
 /**
  * The host's compile-relevant resources: logical-core count and total RAM. Wraps Node's `cpus()` /
@@ -21,28 +21,28 @@ export function hostResources(): { cores: number; memBytes: number } {
 /** Resolve the current {@link HostOs} from Node's platform string (anything non-darwin/win32 is treated as linux). */
 export function hostOs(): HostOs {
   switch (platform()) {
-    case "darwin":
-      return "macos";
-    case "win32":
-      return "windows";
+    case 'darwin':
+      return 'macos';
+    case 'win32':
+      return 'windows';
     default:
-      return "linux";
+      return 'linux';
   }
 }
 
 /** True when Launch can sign and build iOS locally (i.e. we're on a Mac). */
 export function isMac(): boolean {
-  return hostOs() === "macos";
+  return hostOs() === 'macos';
 }
 
 /** A short, human label for the host OS, used in wizard copy and `cloud doctor`. */
 export function hostOsLabel(): string {
   switch (hostOs()) {
-    case "macos":
-      return "macOS";
-    case "windows":
-      return "Windows";
-    case "linux":
-      return "Linux";
+    case 'macos':
+      return 'macOS';
+    case 'windows':
+      return 'Windows';
+    case 'linux':
+      return 'Linux';
   }
 }

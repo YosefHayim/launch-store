@@ -10,7 +10,7 @@
  * default), so the copy source is pluggable without touching the command.
  */
 
-import type { AppleLocaleInfo } from "../storeConfig.js";
+import type { AppleLocaleInfo } from '../storeConfig.js';
 
 /**
  * Everything a generator needs to draft one locale's listing. Seeded from the app's own config so the

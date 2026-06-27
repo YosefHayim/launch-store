@@ -9,7 +9,11 @@
  * `price` and flagged with a note (set it in config, or keep managing it in the UI) rather than guessed.
  */
 
-import type { InAppPurchaseResource, LocalizationResource, SubscriptionResource } from "../../apple/ascClient.js";
+import type {
+  InAppPurchaseResource,
+  LocalizationResource,
+  SubscriptionResource,
+} from '../../apple/ascClient.js';
 import type {
   InAppPurchaseConfig,
   InAppPurchaseType,
@@ -17,20 +21,24 @@ import type {
   SubscriptionConfig,
   SubscriptionGroupConfig,
   SubscriptionPeriod,
-} from "../types.js";
-import type { Adopter, AdoptCatalogApi, AdoptTarget, PlannedWrite } from "./types.js";
+} from '../types.js';
+import type { Adopter, AdoptCatalogApi, AdoptTarget, PlannedWrite } from './types.js';
 
 /** Apple's `inAppPurchaseType` values Launch models — used to validate an imported product's kind. */
-const IN_APP_PURCHASE_TYPES = new Set<InAppPurchaseType>(["CONSUMABLE", "NON_CONSUMABLE", "NON_RENEWING_SUBSCRIPTION"]);
+const IN_APP_PURCHASE_TYPES = new Set<InAppPurchaseType>([
+  'CONSUMABLE',
+  'NON_CONSUMABLE',
+  'NON_RENEWING_SUBSCRIPTION',
+]);
 
 /** Apple's `subscriptionPeriod` values — used to validate an imported subscription's billing period. */
 const SUBSCRIPTION_PERIODS = new Set<SubscriptionPeriod>([
-  "ONE_WEEK",
-  "ONE_MONTH",
-  "TWO_MONTHS",
-  "THREE_MONTHS",
-  "SIX_MONTHS",
-  "ONE_YEAR",
+  'ONE_WEEK',
+  'ONE_MONTH',
+  'TWO_MONTHS',
+  'THREE_MONTHS',
+  'SIX_MONTHS',
+  'ONE_YEAR',
 ]);
 
 /** Narrow a raw `inAppPurchaseType` string to the modeled union, or null when Apple sent one we don't model. */
@@ -40,7 +48,9 @@ function toInAppPurchaseType(value: string): InAppPurchaseType | null {
 
 /** Narrow a raw `subscriptionPeriod` string to the modeled union, or null when it's missing/unknown. */
 function toSubscriptionPeriod(value: string | undefined): SubscriptionPeriod | null {
-  return value !== undefined && (SUBSCRIPTION_PERIODS as Set<string>).has(value) ? (value as SubscriptionPeriod) : null;
+  return value !== undefined && (SUBSCRIPTION_PERIODS as Set<string>).has(value)
+    ? (value as SubscriptionPeriod)
+    : null;
 }
 
 /** Map Apple's localizations to config localizations, keeping a description only when Apple has one. */
@@ -72,9 +82,13 @@ async function importInAppPurchase(
   };
   return {
     description: `products: import in-app purchase ${iap.productId} (${type})`,
-    fidelity: "importable",
-    ...(hasPrice ? { note: "priced on App Store Connect — add `price` in config or keep managing it in the UI" } : {}),
-    change: { home: "launch.config", bundleId, piece: { type: "iap", iap: config } },
+    fidelity: 'importable',
+    ...(hasPrice
+      ? {
+          note: 'priced on App Store Connect — add `price` in config or keep managing it in the UI',
+        }
+      : {}),
+    change: { home: 'launch.config', bundleId, piece: { type: 'iap', iap: config } },
   };
 }
 
@@ -112,36 +126,53 @@ async function importSubscriptionGroup(
   ]);
   const imported = (
     await Promise.all(subscriptions.map((subscription) => importSubscription(asc, subscription)))
-  ).filter((entry): entry is { config: SubscriptionConfig; pricedUnimported: boolean } => entry !== null);
+  ).filter(
+    (entry): entry is { config: SubscriptionConfig; pricedUnimported: boolean } => entry !== null,
+  );
   if (imported.length === 0) return null;
 
   const config: SubscriptionGroupConfig = {
     referenceName: group.referenceName,
-    localizations: groupLocalizations.map((localization) => ({ locale: localization.locale, name: localization.name })),
+    localizations: groupLocalizations.map((localization) => ({
+      locale: localization.locale,
+      name: localization.name,
+    })),
     subscriptions: imported.map((entry) => entry.config),
   };
-  const priced = imported.filter((entry) => entry.pricedUnimported).map((entry) => entry.config.productId);
+  const priced = imported
+    .filter((entry) => entry.pricedUnimported)
+    .map((entry) => entry.config.productId);
   return {
-    description: `products: import subscription group "${group.referenceName}" (${imported.length} level${imported.length === 1 ? "" : "s"})`,
-    fidelity: "importable",
+    description: `products: import subscription group "${group.referenceName}" (${imported.length} level${imported.length === 1 ? '' : 's'})`,
+    fidelity: 'importable',
     ...(priced.length > 0
-      ? { note: `priced on App Store Connect, not imported — set \`price\` for: ${priced.join(", ")}` }
+      ? {
+          note: `priced on App Store Connect, not imported — set \`price\` for: ${priced.join(', ')}`,
+        }
       : {}),
-    change: { home: "launch.config", bundleId, piece: { type: "subscriptionGroup", group: config } },
+    change: {
+      home: 'launch.config',
+      bundleId,
+      piece: { type: 'subscriptionGroup', group: config },
+    },
   };
 }
 
 /** Read an app's products from App Store Connect and plan the `launch.config.ts` writes (keyed by bundle id). */
 export const productsAdopter: Adopter = {
-  domain: "products",
-  fidelity: "importable",
+  domain: 'products',
+  fidelity: 'importable',
   async read(asc: AdoptCatalogApi, target: AdoptTarget): Promise<PlannedWrite[]> {
     const [iaps, groups] = await Promise.all([
       asc.listInAppPurchases(target.appId),
       asc.listSubscriptionGroups(target.appId),
     ]);
-    const iapWrites = await Promise.all(iaps.map((iap) => importInAppPurchase(asc, target.bundleId, iap)));
-    const groupWrites = await Promise.all(groups.map((group) => importSubscriptionGroup(asc, target.bundleId, group)));
+    const iapWrites = await Promise.all(
+      iaps.map((iap) => importInAppPurchase(asc, target.bundleId, iap)),
+    );
+    const groupWrites = await Promise.all(
+      groups.map((group) => importSubscriptionGroup(asc, target.bundleId, group)),
+    );
     return [...iapWrites, ...groupWrites].filter((write): write is PlannedWrite => write !== null);
   },
 };

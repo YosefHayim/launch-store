@@ -7,7 +7,7 @@
  * probe that throws is recorded as `errored` here rather than aborting the run.
  */
 
-import type { ProbeReport, ReadinessContext, ReadinessOutcome, ReadinessProbe } from "./types.js";
+import type { ProbeReport, ReadinessContext, ReadinessOutcome, ReadinessProbe } from './types.js';
 
 /**
  * Exit codes, mirroring the `launch plan` / `launch status` convention (worst-wins, error first):
@@ -39,9 +39,12 @@ export function readinessExitCode({ errorCount, blockerCount }: ReadinessExitInp
  * throw lands here, caught and recorded as an `errored` report so one flaky read never sinks the rest.
  * Omitted probes are dropped before tallying so an unconfigured store adds no noise and no exit pressure.
  */
-export async function runProbes(ctx: ReadinessContext, probes: ReadinessProbe[]): Promise<ReadinessOutcome> {
+export async function runProbes(
+  ctx: ReadinessContext,
+  probes: ReadinessProbe[],
+): Promise<ReadinessOutcome> {
   const reports = await Promise.all(probes.map((probe) => runProbe(ctx, probe)));
-  const visible = reports.filter((report) => report.outcome.state !== "omitted");
+  const visible = reports.filter((report) => report.outcome.state !== 'omitted');
 
   let okCount = 0;
   let warnCount = 0;
@@ -49,12 +52,12 @@ export async function runProbes(ctx: ReadinessContext, probes: ReadinessProbe[])
   let errorCount = 0;
   let skippedCount = 0;
   for (const { outcome } of visible) {
-    if (outcome.state === "skipped") skippedCount++;
-    else if (outcome.state === "errored") errorCount++;
-    else if (outcome.state === "checked") {
+    if (outcome.state === 'skipped') skippedCount++;
+    else if (outcome.state === 'errored') errorCount++;
+    else if (outcome.state === 'checked') {
       for (const app of outcome.apps) {
-        if (app.status === "blocker") blockerCount++;
-        else if (app.status === "warn") warnCount++;
+        if (app.status === 'blocker') blockerCount++;
+        else if (app.status === 'warn') warnCount++;
         else okCount++;
       }
     }
@@ -79,7 +82,7 @@ async function runProbe(ctx: ReadinessContext, probe: ReadinessProbe): Promise<P
   } catch (error) {
     return {
       ...identity,
-      outcome: { state: "errored", error: error instanceof Error ? error.message : String(error) },
+      outcome: { state: 'errored', error: error instanceof Error ? error.message : String(error) },
     };
   }
 }

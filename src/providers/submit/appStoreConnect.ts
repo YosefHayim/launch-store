@@ -10,13 +10,18 @@
  * API decides what becomes of it. Implements {@link Submitter}, the iOS twin of the Google Play one.
  */
 
-import { rmSync } from "node:fs";
-import type { BuildCredentials, ResolvedBuildContext, Submitter, SubmitTarget } from "../../core/types.js";
-import { run } from "../../core/exec.js";
-import { writeAscApiKeyFile } from "../../apple/apiKeyFile.js";
+import { rmSync } from 'node:fs';
+import type {
+  BuildCredentials,
+  ResolvedBuildContext,
+  Submitter,
+  SubmitTarget,
+} from '../../core/types.js';
+import { run } from '../../core/exec.js';
+import { writeAscApiKeyFile } from '../../apple/apiKeyFile.js';
 
 export const appStoreConnectSubmitter: Submitter = {
-  name: "app-store-connect",
+  name: 'app-store-connect',
 
   async submit(
     artifactPath: string,
@@ -24,23 +29,24 @@ export const appStoreConnectSubmitter: Submitter = {
     creds: BuildCredentials,
     ctx: ResolvedBuildContext,
   ): Promise<void> {
-    if (creds.platform !== "ios") throw new Error("The app-store-connect submitter handles iOS only.");
+    if (creds.platform !== 'ios')
+      throw new Error('The app-store-connect submitter handles iOS only.');
     const apiKeyPath = writeAscApiKeyFile(creds.ascKey);
     try {
       // `pilot upload` puts the binary into App Store Connect; `--skip_waiting_for_build_processing`
       // returns as soon as the upload lands — Launch polls processing itself (see waitForValidBuild).
       // Resolved env (profile env: / .env / keychain / --env) reaches fastlane as its process env.
       await run(
-        "fastlane",
+        'fastlane',
         [
-          "pilot",
-          "upload",
-          "--ipa",
+          'pilot',
+          'upload',
+          '--ipa',
           artifactPath,
-          "--api_key_path",
+          '--api_key_path',
           apiKeyPath,
-          "--skip_waiting_for_build_processing",
-          "true",
+          '--skip_waiting_for_build_processing',
+          'true',
         ],
         { env: ctx.env },
       );

@@ -8,25 +8,25 @@
  * that no extra domains exist in the portal.
  */
 
-import { resolveSidecarConfig } from "../../config.js";
-import { loadEuDistributionConfig, reconcileEuDistributionDomains } from "../../euDistribution.js";
-import { planTeamSurface } from "./appStoreSurface.js";
-import type { SurfacePlanner } from "../types.js";
+import { resolveSidecarConfig } from '../../config.js';
+import { loadEuDistributionConfig, reconcileEuDistributionDomains } from '../../euDistribution.js';
+import { planTeamSurface } from './appStoreSurface.js';
+import type { SurfacePlanner } from '../types.js';
 
 /** Surface id — also the value users pass as `launch plan eu-distribution`. */
-const SURFACE = "eu-distribution";
+const SURFACE = 'eu-distribution';
 
 export const euDistributionPlanner: SurfacePlanner = {
   id: SURFACE,
-  store: "appstore",
+  store: 'appstore',
   plan: (ctx) =>
     planTeamSurface(ctx, {
       surface: SURFACE,
-      direction: "additive",
+      direction: 'additive',
       config: () =>
         resolveSidecarConfig({
           typed: ctx.config.euDistribution,
-          configPath: "eu-distribution.config.json",
+          configPath: 'eu-distribution.config.json',
           explicitPath: false,
           load: loadEuDistributionConfig,
         }),

@@ -6,28 +6,29 @@
  * reconciler reads live values and reports changes, so `= in sync` means live matches config.
  */
 
-import { resolveSidecarConfig } from "../../config.js";
-import { loadReleaseConfig, reconcileRelease } from "../../releaseAttrs.js";
-import { planAppStoreSurface } from "./appStoreSurface.js";
-import type { SurfacePlanner } from "../types.js";
+import { resolveSidecarConfig } from '../../config.js';
+import { loadReleaseConfig, reconcileRelease } from '../../releaseAttrs.js';
+import { planAppStoreSurface } from './appStoreSurface.js';
+import type { SurfacePlanner } from '../types.js';
 
 /** Surface id — also the value users pass as `launch plan release-config`. */
-const SURFACE = "release-config";
+const SURFACE = 'release-config';
 
 export const releaseConfigPlanner: SurfacePlanner = {
   id: SURFACE,
-  store: "appstore",
+  store: 'appstore',
   plan: (ctx) =>
     planAppStoreSurface(ctx, {
       surface: SURFACE,
-      direction: "two-way",
+      direction: 'two-way',
       configFor: (bundleId) =>
         resolveSidecarConfig({
           typed: ctx.config.releaseAttributes?.[bundleId],
-          configPath: "release.config.json",
+          configPath: 'release.config.json',
           explicitPath: false,
           load: loadReleaseConfig,
         }),
-      reconcile: (api, bundleId, config) => reconcileRelease(api, { bundleId, config, dryRun: true }),
+      reconcile: (api, bundleId, config) =>
+        reconcileRelease(api, { bundleId, config, dryRun: true }),
     }),
 };

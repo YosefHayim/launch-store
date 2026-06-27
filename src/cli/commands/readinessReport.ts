@@ -6,9 +6,9 @@
  * the only thing a command varies is the summary label and the empty-run message (see {@link ReadinessReportLabels}).
  */
 
-import type { Logger } from "../../core/logger.js";
-import { READINESS_EXIT } from "../../core/readiness/orchestrator.js";
-import type { ProbeReport, ReadinessOutcome, ReadinessStore } from "../../core/readiness/types.js";
+import type { Logger } from '../../core/logger.js';
+import { READINESS_EXIT } from '../../core/readiness/orchestrator.js';
+import type { ProbeReport, ReadinessOutcome, ReadinessStore } from '../../core/readiness/types.js';
 
 /** The two strings a command supplies so a shared render reads in that command's voice. */
 export interface ReadinessReportLabels {
@@ -20,27 +20,27 @@ export interface ReadinessReportLabels {
 
 /** Human store name for a report header. */
 function storeLabel(store: ReadinessStore): string {
-  return store === "appstore" ? "App Store" : "Google Play";
+  return store === 'appstore' ? 'App Store' : 'Google Play';
 }
 
 /** Render one probe's report: a green step per `ok`, a warning + tip per `warn`/`skipped`, an error otherwise. */
 function renderReport(log: Logger, report: ProbeReport): void {
   const { outcome, title } = report;
-  if (outcome.state === "skipped") {
+  if (outcome.state === 'skipped') {
     log.warn(`${title}: skipped — ${outcome.reason}`);
     if (outcome.hint) log.tip(outcome.hint);
     return;
   }
-  if (outcome.state === "errored") {
+  if (outcome.state === 'errored') {
     log.error(`${title}: ${outcome.error}`);
     return;
   }
-  if (outcome.state !== "checked") return; // omitted is filtered out upstream; this narrows the union.
+  if (outcome.state !== 'checked') return; // omitted is filtered out upstream; this narrows the union.
   for (const app of outcome.apps) {
     const line = `${title} · ${app.app}: ${app.detail}`;
-    if (app.status === "ok") {
+    if (app.status === 'ok') {
       log.step(title, `${app.app}: ${app.detail}`);
-    } else if (app.status === "warn") {
+    } else if (app.status === 'warn') {
       log.warn(line);
       if (app.hint) log.tip(app.hint);
     } else {
@@ -51,13 +51,17 @@ function renderReport(log: Logger, report: ProbeReport): void {
 }
 
 /** Render the full readiness outcome grouped by store, then a one-line summary keyed to the exit code. */
-export function renderReadinessOutcome(log: Logger, outcome: ReadinessOutcome, labels: ReadinessReportLabels): void {
+export function renderReadinessOutcome(
+  log: Logger,
+  outcome: ReadinessOutcome,
+  labels: ReadinessReportLabels,
+): void {
   if (outcome.reports.length === 0) {
     log.info(labels.empty);
     return;
   }
 
-  for (const store of ["appstore", "play"] as const) {
+  for (const store of ['appstore', 'play'] as const) {
     const reports = outcome.reports.filter((report) => report.store === store);
     if (reports.length === 0) continue;
     log.info(storeLabel(store));
@@ -71,7 +75,7 @@ export function renderReadinessOutcome(log: Logger, outcome: ReadinessOutcome, l
   if (outcome.skippedCount > 0) parts.push(`${outcome.skippedCount} skipped`);
 
   log.gap();
-  const summary = `${labels.summary}: ${parts.join(" · ") || "all clear"}`;
+  const summary = `${labels.summary}: ${parts.join(' · ') || 'all clear'}`;
   if (outcome.exitCode === READINESS_EXIT.ok) log.info(summary);
   else log.error(summary);
 }

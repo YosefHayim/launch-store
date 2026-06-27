@@ -5,30 +5,49 @@
  * internal id is dropped so re-capturing an unchanged catalog yields an identical record.
  */
 
-import type { AppEntities, SnapshotContext, SnapshotEntity, SnapshotSource, SourceCapture } from "../types.js";
-import { iosApps } from "../../readiness/appScopes.js";
+import type {
+  AppEntities,
+  SnapshotContext,
+  SnapshotEntity,
+  SnapshotSource,
+  SourceCapture,
+} from '../types.js';
+import { iosApps } from '../../readiness/appScopes.js';
 
 /** One captured in-app purchase → a snapshot entity keyed by its product id. */
-function toEntity(iap: { productId: string; inAppPurchaseType: string; state?: string | undefined }): SnapshotEntity {
-  const stateSuffix = iap.state ? ` (${iap.state})` : "";
+function toEntity(iap: {
+  productId: string;
+  inAppPurchaseType: string;
+  state?: string | undefined;
+}): SnapshotEntity {
+  const stateSuffix = iap.state ? ` (${iap.state})` : '';
   return {
     key: iap.productId,
     summary: `in-app purchase ${iap.inAppPurchaseType}${stateSuffix}`,
-    data: { productId: iap.productId, type: iap.inAppPurchaseType, ...(iap.state ? { state: iap.state } : {}) },
+    data: {
+      productId: iap.productId,
+      type: iap.inAppPurchaseType,
+      ...(iap.state ? { state: iap.state } : {}),
+    },
   };
 }
 
 /** The App Store Connect one-time in-app-purchase snapshot source. */
 export const appleProductsSource: SnapshotSource = {
-  id: "apple-products",
-  title: "App Store in-app purchases",
-  store: "appstore",
+  id: 'apple-products',
+  title: 'App Store in-app purchases',
+  store: 'appstore',
   async capture(ctx: SnapshotContext): Promise<SourceCapture> {
     const apps = iosApps(ctx.apps);
-    if (apps.length === 0) return { state: "omitted" };
+    if (apps.length === 0) return { state: 'omitted' };
 
     const api = await ctx.resolveAscApi();
-    if (!api) return { state: "skipped", reason: "no active Apple account", hint: "run `launch creds set-key`" };
+    if (!api)
+      return {
+        state: 'skipped',
+        reason: 'no active Apple account',
+        hint: 'run `launch creds set-key`',
+      };
 
     const captured = await Promise.all(
       apps.map(async ({ name, identifier }): Promise<AppEntities | null> => {
@@ -38,6 +57,6 @@ export const appleProductsSource: SnapshotSource = {
         return { app: name, identifier, entities };
       }),
     );
-    return { state: "captured", apps: captured.filter((app): app is AppEntities => app !== null) };
+    return { state: 'captured', apps: captured.filter((app): app is AppEntities => app !== null) };
   },
 };

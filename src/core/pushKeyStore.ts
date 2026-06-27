@@ -11,11 +11,11 @@
  * {@link encodeP8}/{@link decodeP8} the ASC key uses, so a multi-line PEM round-trips on every OS backend.
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import type { ApnsKeyRecord } from "./types.js";
-import { LAUNCH_HOME, PUSH_KEYS_FILE, ensureDir } from "./paths.js";
-import { getSecret, setSecret } from "./keychain.js";
-import { decodeP8, encodeP8 } from "./accounts.js";
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import type { ApnsKeyRecord } from './types.js';
+import { LAUNCH_HOME, PUSH_KEYS_FILE, ensureDir } from './paths.js';
+import { getSecret, setSecret } from './keychain.js';
+import { decodeP8, encodeP8 } from './accounts.js';
 
 /** Secret-store account holding one APNs key's `.p8` PEM, namespaced by Key ID. */
 function apnsAccount(keyId: string): string {
@@ -31,7 +31,7 @@ function nowIso(): string {
 export function listPushKeys(): ApnsKeyRecord[] {
   if (!existsSync(PUSH_KEYS_FILE)) return [];
   try {
-    const parsed = JSON.parse(readFileSync(PUSH_KEYS_FILE, "utf8")) as { keys?: ApnsKeyRecord[] };
+    const parsed = JSON.parse(readFileSync(PUSH_KEYS_FILE, 'utf8')) as { keys?: ApnsKeyRecord[] };
     return Array.isArray(parsed.keys) ? parsed.keys : [];
   } catch {
     return [];
@@ -74,7 +74,9 @@ export async function importPushKey(input: ImportPushKeyInput): Promise<ApnsKeyR
     ...(input.teamId ? { teamId: input.teamId } : {}),
     ...(input.label ? { label: input.label } : {}),
   };
-  writePushKeys(existing ? keys.map((key) => (key.keyId === input.keyId ? record : key)) : [...keys, record]);
+  writePushKeys(
+    existing ? keys.map((key) => (key.keyId === input.keyId ? record : key)) : [...keys, record],
+  );
   return record;
 }
 

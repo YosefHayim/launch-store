@@ -58,9 +58,9 @@
     "docs:gen": "tsx scripts/gen-docs.ts",
     "docs:check": "tsx scripts/gen-docs.ts --check",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true .",
+    "format": "biome format --write .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -77,24 +77,20 @@
     "jose": "^5.9.6"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.1",
     "@types/node": "^20.14.0",
     "@vitest/coverage-v8": "^4.1.8",
-    "eslint": "^9.13.0",
-    "eslint-config-prettier": "^9.1.0",
     "husky": "^9.1.6",
     "lint-staged": "^15.2.10",
     "openapi-typescript": "^7.13.0",
-    "prettier": "^3.3.3",
     "ts-json-schema-generator": "^2.9.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
-    "typescript-eslint": "^8.13.0",
     "vitest": "^4.1.8"
   },
   "lint-staged": {
     "src/**/*.ts": [
-      "eslint --fix",
-      "prettier --write"
+      "biome format --write --no-errors-on-unmatched"
     ]
   },
   "optionalDependencies": {

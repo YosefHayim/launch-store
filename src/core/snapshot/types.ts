@@ -14,14 +14,14 @@
  * `core/plan/types.ts` — they live here beside the feature rather than in `core/types.ts`.
  */
 
-import type { AppDescriptor, LaunchConfig } from "../types.js";
-import type { ListingLocalization } from "../../apple/ascClient.js";
-import type { InAppProductResource, SubscriptionResource } from "../../google/playClient.js";
-import type { AscCatalogApi, PlannedAction } from "../ascSync.js";
-import type { PlayCatalogApi } from "../plan/types.js";
+import type { AppDescriptor, LaunchConfig } from '../types.js';
+import type { ListingLocalization } from '../../apple/ascClient.js';
+import type { InAppProductResource, SubscriptionResource } from '../../google/playClient.js';
+import type { AscCatalogApi, PlannedAction } from '../ascSync.js';
+import type { PlayCatalogApi } from '../plan/types.js';
 
 /** Which store a source reads from — drives credential resolution and how a capture/diff is grouped. */
-export type SnapshotStore = "appstore" | "play";
+export type SnapshotStore = 'appstore' | 'play';
 
 /**
  * A JSON-serializable value — the on-disk form of a captured entity's normalized state. A precise union
@@ -29,7 +29,13 @@ export type SnapshotStore = "appstore" | "play";
  * two captures field-by-field. Sources build this from plain object/array literals, deliberately dropping
  * volatile portal-internal ids so re-capturing an unchanged catalog produces an identical record.
  */
-export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
 
 /**
  * One captured item within a surface — e.g. a single in-app purchase or subscription.
@@ -62,16 +68,16 @@ export interface AppEntities {
  * - `captured` — the source read successfully; `apps` carries the per-app entities.
  */
 export type SourceCapture =
-  | { state: "omitted" }
-  | { state: "skipped"; reason: string; hint?: string }
-  | { state: "captured"; apps: AppEntities[] };
+  | { state: 'omitted' }
+  | { state: 'skipped'; reason: string; hint?: string }
+  | { state: 'captured'; apps: AppEntities[] };
 
 /**
  * A {@link SourceCapture} plus the `errored` state the orchestrator synthesizes when a source throws
  * unexpectedly (a real read failure, not an empty surface). Kept distinct so `snapshot create` can exit
  * non-zero when a surface couldn't be captured, rather than silently saving an incomplete record.
  */
-export type CaptureOutcome = SourceCapture | { state: "errored"; error: string };
+export type CaptureOutcome = SourceCapture | { state: 'errored'; error: string };
 
 /**
  * One source's stamped result in a saved snapshot. The orchestrator records the source's identity onto its
@@ -123,7 +129,9 @@ export interface SnapshotAscApi {
   /** A subscription group's subscriptions (product id, billing period, lifecycle `state`). */
   listSubscriptions(
     groupId: string,
-  ): Promise<{ productId: string; subscriptionPeriod?: string | undefined; state?: string | undefined }[]>;
+  ): Promise<
+    { productId: string; subscriptionPeriod?: string | undefined; state?: string | undefined }[]
+  >;
   /** The app's current editable `appInfo` id (app-level listing container), or `null` when none is editable. */
   getEditableAppInfoId(appId: string): Promise<string | null>;
   /** The app-level listing localizations (name / subtitle / privacy URL) under an `appInfo`. */

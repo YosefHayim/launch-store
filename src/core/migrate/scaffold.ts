@@ -5,16 +5,16 @@
  * existing one untouched, so the decision and the skeleton live here rather than in each source.
  */
 
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-import { ENV_EXAMPLE_TEMPLATE } from "../configScaffold.js";
-import { serializeStoreConfig, type StoreConfig } from "../storeConfig.js";
-import type { MigrationArtifact, MigrationNote } from "./types.js";
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { ENV_EXAMPLE_TEMPLATE } from '../configScaffold.js';
+import { serializeStoreConfig, type StoreConfig } from '../storeConfig.js';
+import type { MigrationArtifact, MigrationNote } from './types.js';
 
 /** A fill-in-the-blanks `store.config.json` (the EAS metadata schema Launch adopts verbatim for iOS). */
 const STORE_CONFIG_SKELETON: StoreConfig = {
   configVersion: 0,
-  apple: { info: { "en-US": { title: "", subtitle: "", description: "", keywords: [] } } },
+  apple: { info: { 'en-US': { title: '', subtitle: '', description: '', keywords: [] } } },
 };
 
 /**
@@ -22,22 +22,26 @@ const STORE_CONFIG_SKELETON: StoreConfig = {
  * (with a `manual` note to fill it in or pull the live listing), or emit no artifact and a `skipped` note
  * when one is already present (Launch uses it verbatim). Returns both so the caller appends them uniformly.
  */
-export function scaffoldStoreConfig(cwd: string): { artifact: MigrationArtifact | null; note: MigrationNote } {
-  if (existsSync(join(cwd, "store.config.json"))) {
+export function scaffoldStoreConfig(cwd: string): {
+  artifact: MigrationArtifact | null;
+  note: MigrationNote;
+} {
+  if (existsSync(join(cwd, 'store.config.json'))) {
     return {
       artifact: null,
       note: {
-        level: "skipped",
-        message: "store.config.json already present — Launch uses it verbatim (same schema as EAS metadata).",
+        level: 'skipped',
+        message:
+          'store.config.json already present — Launch uses it verbatim (same schema as EAS metadata).',
       },
     };
   }
   return {
-    artifact: { path: "store.config.json", contents: serializeStoreConfig(STORE_CONFIG_SKELETON) },
+    artifact: { path: 'store.config.json', contents: serializeStoreConfig(STORE_CONFIG_SKELETON) },
     note: {
-      level: "manual",
+      level: 'manual',
       message:
-        "Scaffolded store.config.json — fill in your listing, or run `launch metadata pull` to import the live App Store listing.",
+        'Scaffolded store.config.json — fill in your listing, or run `launch metadata pull` to import the live App Store listing.',
     },
   };
 }
@@ -50,8 +54,8 @@ export function scaffoldStoreConfig(cwd: string): { artifact: MigrationArtifact 
  */
 export function buildEnvExample(keys: string[]): string {
   if (keys.length === 0) return ENV_EXAMPLE_TEMPLATE;
-  const header = ENV_EXAMPLE_TEMPLATE.split("\n")
-    .filter((line) => line.startsWith("#"))
-    .join("\n");
-  return `${header}\n${keys.map((key) => `${key}=`).join("\n")}\n`;
+  const header = ENV_EXAMPLE_TEMPLATE.split('\n')
+    .filter((line) => line.startsWith('#'))
+    .join('\n');
+  return `${header}\n${keys.map((key) => `${key}=`).join('\n')}\n`;
 }

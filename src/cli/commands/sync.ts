@@ -16,18 +16,18 @@
  * plan; `--allow-destructive` permits capability removals; `--yes` skips the prompt for CI.
  */
 
-import { cancel, confirm, isCancel } from "@clack/prompts";
-import type { Command } from "commander";
-import { loadConfig } from "../../core/config.js";
-import { createLogger } from "../../core/logger.js";
-import { loadActiveAscKey } from "../../core/accounts.js";
-import { AppStoreConnectClient } from "../../apple/ascClient.js";
-import { runPool } from "../../core/asyncPool.js";
-import { buildJobs, selectApps } from "../../core/syncJobs.js";
-import { reconcileJob, summarize, SYNC_CONCURRENCY } from "../../core/syncRun.js";
-import { createPlayClientResolver } from "../../core/storeClients.js";
-import { captureAutoSnapshot } from "../../core/snapshot/autoSnapshot.js";
-import type { SnapshotContext } from "../../core/snapshot/types.js";
+import { cancel, confirm, isCancel } from '@clack/prompts';
+import type { Command } from 'commander';
+import { loadConfig } from '../../core/config.js';
+import { createLogger } from '../../core/logger.js';
+import { loadActiveAscKey } from '../../core/accounts.js';
+import { AppStoreConnectClient } from '../../apple/ascClient.js';
+import { runPool } from '../../core/asyncPool.js';
+import { buildJobs, selectApps } from '../../core/syncJobs.js';
+import { reconcileJob, summarize, SYNC_CONCURRENCY } from '../../core/syncRun.js';
+import { createPlayClientResolver } from '../../core/storeClients.js';
+import { captureAutoSnapshot } from '../../core/snapshot/autoSnapshot.js';
+import type { SnapshotContext } from '../../core/snapshot/types.js';
 
 /** CLI options for `launch sync`. */
 interface SyncOptions {
@@ -45,21 +45,28 @@ interface SyncOptions {
 
 /** The leading glyph for an action line: `-` for destructive, `+` otherwise. */
 function glyph(destructive: boolean): string {
-  return destructive ? "-" : "+";
+  return destructive ? '-' : '+';
 }
 
 /** Attach the `sync` command to the program. */
 export function registerSyncCommand(program: Command): void {
   program
-    .command("sync")
+    .command('sync')
     .description(
-      "reconcile App Store Connect products (capabilities, IAPs, subscriptions, pricing), store-listing copy, screenshots, and app previews from config",
+      'reconcile App Store Connect products (capabilities, IAPs, subscriptions, pricing), store-listing copy, screenshots, and app previews from config',
     )
-    .option("-a, --app <names>", "comma-separated app handles to sync (default: all apps with something to sync)")
-    .option("--dry-run", "print the plan and exit, making no changes", false)
-    .option("--allow-destructive", "permit destructive actions such as removing a capability", false)
-    .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
-    .option("--no-snapshot", "skip the automatic pre-sync snapshot baseline")
+    .option(
+      '-a, --app <names>',
+      'comma-separated app handles to sync (default: all apps with something to sync)',
+    )
+    .option('--dry-run', 'print the plan and exit, making no changes', false)
+    .option(
+      '--allow-destructive',
+      'permit destructive actions such as removing a capability',
+      false,
+    )
+    .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
+    .option('--no-snapshot', 'skip the automatic pre-sync snapshot baseline')
     .action(async (options: SyncOptions) => {
       const log = createLogger(false);
       const { config, apps } = await loadConfig();
@@ -67,18 +74,20 @@ export function registerSyncCommand(program: Command): void {
 
       if (jobs.length === 0) {
         log.info(
-          "Nothing to sync — no apps with capabilities, products, a store.config.json listing, a screenshots/ folder, or a previews/ folder. Add a `products` entry, run `launch metadata pull`, drop screenshots under `<app>/screenshots/<locale>/<displayType>/`, or app previews under `<app>/previews/<locale>/<previewType>/`.",
+          'Nothing to sync — no apps with capabilities, products, a store.config.json listing, a screenshots/ folder, or a previews/ folder. Add a `products` entry, run `launch metadata pull`, drop screenshots under `<app>/screenshots/<locale>/<displayType>/`, or app previews under `<app>/previews/<locale>/<previewType>/`.',
         );
         return;
       }
 
       const ascKey = await loadActiveAscKey();
-      if (!ascKey) throw new Error("No active Apple account. Run `launch creds set-key` first.");
+      if (!ascKey) throw new Error('No active Apple account. Run `launch creds set-key` first.');
       const client = new AppStoreConnectClient(ascKey);
 
       for (const job of jobs) {
         if (job.unmapped.length > 0) {
-          log.warn(`${job.app.name}: unrecognized entitlement(s) — handle in the portal: ${job.unmapped.join(", ")}`);
+          log.warn(
+            `${job.app.name}: unrecognized entitlement(s) — handle in the portal: ${job.unmapped.join(', ')}`,
+          );
         }
       }
 
@@ -93,21 +102,21 @@ export function registerSyncCommand(program: Command): void {
       let planErrors = 0;
       log.gap();
       for (const plan of plans) {
-        if ("error" in plan) {
+        if ('error' in plan) {
           planErrors++;
           log.error(`${plan.job.app.name} (${plan.job.bundleId}): ${plan.error}`);
           continue;
         }
         const actions = plan.report.actions;
-        mutationCount += actions.filter((action) => action.status === "planned").length;
+        mutationCount += actions.filter((action) => action.status === 'planned').length;
         if (actions.length === 0) {
-          log.step(plan.job.app.name, "already in sync");
+          log.step(plan.job.app.name, 'already in sync');
           continue;
         }
         log.notice(
           `${plan.job.app.name} (${plan.job.bundleId})`,
           ...actions.map((action) =>
-            action.status === "skipped"
+            action.status === 'skipped'
               ? `• ${action.description}`
               : `${glyph(action.destructive)} ${action.description}`,
           ),
@@ -120,7 +129,7 @@ export function registerSyncCommand(program: Command): void {
           log.error(`${planErrors} app(s) could not be planned (see above).`);
           process.exitCode = 1;
         } else {
-          log.step("sync", "everything is already in sync");
+          log.step('sync', 'everything is already in sync');
         }
         return;
       }
@@ -129,18 +138,22 @@ export function registerSyncCommand(program: Command): void {
       log.info(`${mutationCount} change(s) across ${jobs.length} app(s).`);
 
       if (options.dryRun === true) {
-        log.info("Dry run — no changes made. Re-run without --dry-run to apply.");
+        log.info('Dry run — no changes made. Re-run without --dry-run to apply.');
         if (planErrors > 0) process.exitCode = 1;
         return;
       }
 
       if (options.yes !== true) {
         if (!process.stdout.isTTY) {
-          throw new Error("Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).");
+          throw new Error(
+            'Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).',
+          );
         }
-        const proceed = await confirm({ message: `Apply ${mutationCount} change(s) to App Store Connect?` });
+        const proceed = await confirm({
+          message: `Apply ${mutationCount} change(s) to App Store Connect?`,
+        });
         if (isCancel(proceed) || !proceed) {
-          cancel("Aborted — no changes made.");
+          cancel('Aborted — no changes made.');
           return;
         }
       }
@@ -155,16 +168,23 @@ export function registerSyncCommand(program: Command): void {
           resolvePlayApi: createPlayClientResolver(),
         };
         try {
-          const baseline = await captureAutoSnapshot(snapshotCtx, { capturedAt: new Date().toISOString() });
-          log.step("snapshot", `saved "${baseline.name}" (${baseline.entityCount} item(s)) — undo baseline`);
+          const baseline = await captureAutoSnapshot(snapshotCtx, {
+            capturedAt: new Date().toISOString(),
+          });
+          log.step(
+            'snapshot',
+            `saved "${baseline.name}" (${baseline.entityCount} item(s)) — undo baseline`,
+          );
         } catch {
-          log.warn("Could not capture a pre-sync snapshot; continuing.");
+          log.warn('Could not capture a pre-sync snapshot; continuing.');
         }
       }
 
       // APPLY pass — only apps that planned OK and have real work.
       const toApply = plans.flatMap((plan) =>
-        "report" in plan && plan.report.actions.some((action) => action.status === "planned") ? [plan.job] : [],
+        'report' in plan && plan.report.actions.some((action) => action.status === 'planned')
+          ? [plan.job]
+          : [],
       );
       const applyResults = await runPool(toApply, SYNC_CONCURRENCY, (job) =>
         reconcileJob(client, job, false, allowDestructive),
@@ -174,7 +194,7 @@ export function registerSyncCommand(program: Command): void {
       let failures = planErrors;
       const rows: string[] = [];
       for (const outcome of applied) {
-        if ("error" in outcome) {
+        if ('error' in outcome) {
           failures++;
           rows.push(`✗ ${outcome.job.app.name}: ${outcome.error}`);
           continue;
@@ -182,14 +202,15 @@ export function registerSyncCommand(program: Command): void {
         const summary = summarize(outcome.report);
         failures += summary.failed;
         rows.push(
-          `${summary.failed > 0 ? "✗" : "✓"} ${outcome.job.app.name}: ${summary.applied} applied, ${summary.failed} failed, ${summary.skipped} skipped`,
+          `${summary.failed > 0 ? '✗' : '✓'} ${outcome.job.app.name}: ${summary.applied} applied, ${summary.failed} failed, ${summary.skipped} skipped`,
         );
         for (const action of outcome.report.actions) {
-          if (action.status === "failed") rows.push(`    ✗ ${action.description} — ${action.error ?? "failed"}`);
+          if (action.status === 'failed')
+            rows.push(`    ✗ ${action.description} — ${action.error ?? 'failed'}`);
         }
       }
 
-      log.box(failures > 0 ? "Synced with errors" : "Synced", rows);
+      log.box(failures > 0 ? 'Synced with errors' : 'Synced', rows);
       if (failures > 0) process.exitCode = 1;
     });
 }

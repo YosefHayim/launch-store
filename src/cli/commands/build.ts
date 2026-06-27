@@ -3,13 +3,13 @@
  * TestFlight. `--no-submit` stops after building; public release is the separate `launch release`.
  */
 
-import type { Command } from "commander";
-import type { Distribution, PlayTrack, RemoteTarget } from "../../core/types.js";
-import type { BumpKind } from "../../core/version.js";
-import { parsePlatform } from "../../core/platform.js";
-import { runBuild } from "../../core/pipeline.js";
-import { setVerboseOutput } from "../../core/progress.js";
-import { addEnvFlags, envOverrides, type EnvFlags } from "../options.js";
+import type { Command } from 'commander';
+import type { Distribution, PlayTrack, RemoteTarget } from '../../core/types.js';
+import type { BumpKind } from '../../core/version.js';
+import { parsePlatform } from '../../core/platform.js';
+import { runBuild } from '../../core/pipeline.js';
+import { setVerboseOutput } from '../../core/progress.js';
+import { addEnvFlags, envOverrides, type EnvFlags } from '../options.js';
 
 interface BuildCommandOptions extends EnvFlags {
   profile: string;
@@ -39,34 +39,34 @@ interface BuildCommandOptions extends EnvFlags {
 }
 
 /** The accepted `--bump` values: the rememberable {@link BumpKind} kinds plus `ask` (force the prompt). */
-const BUMP_SELECTORS: readonly (BumpKind | "ask")[] = ["patch", "minor", "major", "keep", "ask"];
+const BUMP_SELECTORS: readonly (BumpKind | 'ask')[] = ['patch', 'minor', 'major', 'keep', 'ask'];
 
 /**
  * Validate `--bump`. Returns undefined when omitted (→ remembered pick, else prompt). An explicit value
  * wins over a remembered one and makes the version scriptable in CI; `ask` forces the interactive prompt.
  */
-function parseBump(bump: string | undefined): BumpKind | "ask" | undefined {
+function parseBump(bump: string | undefined): BumpKind | 'ask' | undefined {
   if (bump === undefined) return undefined;
   if (!(BUMP_SELECTORS as readonly string[]).includes(bump)) {
-    throw new Error(`Unknown --bump "${bump}". Use one of: ${BUMP_SELECTORS.join(", ")}.`);
+    throw new Error(`Unknown --bump "${bump}". Use one of: ${BUMP_SELECTORS.join(', ')}.`);
   }
-  return bump as BumpKind | "ask";
+  return bump as BumpKind | 'ask';
 }
 
 /** Valid distribution modes, used to validate `--distribution` before it reaches the pipeline. */
-const DISTRIBUTIONS: readonly Distribution[] = ["store", "internal"];
+const DISTRIBUTIONS: readonly Distribution[] = ['store', 'internal'];
 
 /** Validate `--distribution`, defaulting to `store`. */
 function parseDistribution(distribution: string | undefined): Distribution {
-  const value = distribution ?? "store";
+  const value = distribution ?? 'store';
   if (!(DISTRIBUTIONS as readonly string[]).includes(value)) {
-    throw new Error(`Unknown --distribution "${value}". Use one of: ${DISTRIBUTIONS.join(", ")}.`);
+    throw new Error(`Unknown --distribution "${value}". Use one of: ${DISTRIBUTIONS.join(', ')}.`);
   }
   return value as Distribution;
 }
 
 /** Valid Play tracks, used to validate `--track` before it reaches the pipeline. */
-const PLAY_TRACKS: readonly PlayTrack[] = ["internal", "closed", "open", "production"];
+const PLAY_TRACKS: readonly PlayTrack[] = ['internal', 'closed', 'open', 'production'];
 
 /**
  * Turn the `--remote` flag into a {@link RemoteTarget}: bare `--remote` or `--remote aws` → AWS EC2 Mac;
@@ -74,15 +74,15 @@ const PLAY_TRACKS: readonly PlayTrack[] = ["internal", "closed", "open", "produc
  */
 function resolveRemote(remote: string | boolean | undefined): RemoteTarget | undefined {
   if (remote === undefined || remote === false) return undefined;
-  if (remote === true || remote === "aws") return { kind: "aws" };
-  return { kind: "ssh", target: remote };
+  if (remote === true || remote === 'aws') return { kind: 'aws' };
+  return { kind: 'ssh', target: remote };
 }
 
 /** Validate `--track` against the known Play tracks, throwing a clear error on a typo. */
 function parseTrack(track: string | undefined): PlayTrack | undefined {
   if (track === undefined) return undefined;
   if (!(PLAY_TRACKS as readonly string[]).includes(track)) {
-    throw new Error(`Unknown --track "${track}". Use one of: ${PLAY_TRACKS.join(", ")}.`);
+    throw new Error(`Unknown --track "${track}". Use one of: ${PLAY_TRACKS.join(', ')}.`);
   }
   return track as PlayTrack;
 }
@@ -100,30 +100,51 @@ function parseRollout(rollout: string | undefined): number | undefined {
 /** Attach the `build` command to the program. */
 export function registerBuildCommand(program: Command): void {
   const command = program
-    .command("build")
-    .description("run the full pipeline and upload to the testing track (--no-submit to build only)")
-    .argument("<platform>", "ios, android, tvos, macos, or visionos")
-    .option("-p, --profile <name>", "build profile", "production")
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("--account <name>", "iOS only — Apple account to build with: label or Key ID (default: active)")
-    .option("--explain", "expand each step into a plain-English teaching block", false)
-    .option("--no-submit", "build only; do not upload")
-    .option("--remote [target]", "iOS only — build on a remote Mac: 'aws' (default) or user@host over SSH")
-    .option("--distribution <mode>", "store (default, TestFlight/Play) or internal (ad-hoc install link)")
+    .command('build')
+    .description(
+      'run the full pipeline and upload to the testing track (--no-submit to build only)',
+    )
+    .argument('<platform>', 'ios, android, tvos, macos, or visionos')
+    .option('-p, --profile <name>', 'build profile', 'production')
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .option(
-      "--bump <kind>",
+      '--account <name>',
+      'iOS only — Apple account to build with: label or Key ID (default: active)',
+    )
+    .option('--explain', 'expand each step into a plain-English teaching block', false)
+    .option('--no-submit', 'build only; do not upload')
+    .option(
+      '--remote [target]',
+      "iOS only — build on a remote Mac: 'aws' (default) or user@host over SSH",
+    )
+    .option(
+      '--distribution <mode>',
+      'store (default, TestFlight/Play) or internal (ad-hoc install link)',
+    )
+    .option(
+      '--bump <kind>',
       "iOS only — version bump: patch|minor|major|keep (default: last used, else prompt) or 'ask' to force the prompt",
     )
-    .option("--track <track>", "Android only — Play track: internal|closed|open|production (default: internal)")
-    .option("--rollout <fraction>", "Android only — staged-rollout fraction for production (default: 1.0)")
     .option(
-      "--clean",
-      "force a from-scratch build (default: fast incremental, clean only when native deps change)",
+      '--track <track>',
+      'Android only — Play track: internal|closed|open|production (default: internal)',
+    )
+    .option(
+      '--rollout <fraction>',
+      'Android only — staged-rollout fraction for production (default: 1.0)',
+    )
+    .option(
+      '--clean',
+      'force a from-scratch build (default: fast incremental, clean only when native deps change)',
       false,
     )
-    .option("--dry-run", "rehearse every step and print what it would do, changing nothing", false)
-    .option("-y, --yes", "skip the pre-upload size confirmation (auto-confirm)", false)
-    .option("-v, --verbose", "stream the full xcodebuild/gradle output instead of a progress spinner", false);
+    .option('--dry-run', 'rehearse every step and print what it would do, changing nothing', false)
+    .option('-y, --yes', 'skip the pre-upload size confirmation (auto-confirm)', false)
+    .option(
+      '-v, --verbose',
+      'stream the full xcodebuild/gradle output instead of a progress spinner',
+      false,
+    );
   addEnvFlags(command).action(async (platformArg: string, options: BuildCommandOptions) => {
     const platform = parsePlatform(platformArg);
     setVerboseOutput(options.verbose);
@@ -138,7 +159,7 @@ export function registerBuildCommand(program: Command): void {
       appName: options.app,
       explain: options.explain,
       submit: options.submit,
-      target: "testing",
+      target: 'testing',
       dryRun: options.dryRun,
       yes: options.yes,
       forceClean: options.clean,

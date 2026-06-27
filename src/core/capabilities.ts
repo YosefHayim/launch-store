@@ -19,63 +19,64 @@
  * capability with no corresponding entitlement key isn't something a build needs enabled.
  */
 export type CapabilityType =
-  | "ICLOUD"
-  | "IN_APP_PURCHASE"
-  | "GAME_CENTER"
-  | "PUSH_NOTIFICATIONS"
-  | "WALLET"
-  | "INTER_APP_AUDIO"
-  | "MAPS"
-  | "ASSOCIATED_DOMAINS"
-  | "PERSONAL_VPN"
-  | "APP_GROUPS"
-  | "HEALTHKIT"
-  | "HOMEKIT"
-  | "WIRELESS_ACCESSORY_CONFIGURATION"
-  | "APPLE_PAY"
-  | "DATA_PROTECTION"
-  | "SIRIKIT"
-  | "NETWORK_EXTENSIONS"
-  | "MULTIPATH"
-  | "HOT_SPOT"
-  | "NFC_TAG_READING"
-  | "CLASSKIT"
-  | "AUTOFILL_CREDENTIAL_PROVIDER"
-  | "ACCESS_WIFI_INFORMATION"
-  | "SYSTEM_EXTENSION_INSTALL"
-  | "APPLE_ID_AUTH";
+  | 'ICLOUD'
+  | 'IN_APP_PURCHASE'
+  | 'GAME_CENTER'
+  | 'PUSH_NOTIFICATIONS'
+  | 'WALLET'
+  | 'INTER_APP_AUDIO'
+  | 'MAPS'
+  | 'ASSOCIATED_DOMAINS'
+  | 'PERSONAL_VPN'
+  | 'APP_GROUPS'
+  | 'HEALTHKIT'
+  | 'HOMEKIT'
+  | 'WIRELESS_ACCESSORY_CONFIGURATION'
+  | 'APPLE_PAY'
+  | 'DATA_PROTECTION'
+  | 'SIRIKIT'
+  | 'NETWORK_EXTENSIONS'
+  | 'MULTIPATH'
+  | 'HOT_SPOT'
+  | 'NFC_TAG_READING'
+  | 'CLASSKIT'
+  | 'AUTOFILL_CREDENTIAL_PROVIDER'
+  | 'ACCESS_WIFI_INFORMATION'
+  | 'SYSTEM_EXTENSION_INSTALL'
+  | 'APPLE_ID_AUTH';
 
 /**
  * Entitlement key → capability type. The authoritative mapping, in one place. Several distinct iCloud
  * entitlements all gate the single `ICLOUD` capability, so they collapse to the same value here.
  */
 const ENTITLEMENT_TO_CAPABILITY: Record<string, CapabilityType> = {
-  "aps-environment": "PUSH_NOTIFICATIONS",
-  "com.apple.developer.aps-environment": "PUSH_NOTIFICATIONS",
-  "com.apple.developer.applesignin": "APPLE_ID_AUTH",
-  "com.apple.developer.icloud-container-identifiers": "ICLOUD",
-  "com.apple.developer.icloud-services": "ICLOUD",
-  "com.apple.developer.ubiquity-container-identifiers": "ICLOUD",
-  "com.apple.developer.ubiquity-kvstore-identifier": "ICLOUD",
-  "com.apple.security.application-groups": "APP_GROUPS",
-  "com.apple.developer.in-app-payments": "APPLE_PAY",
-  "com.apple.developer.healthkit": "HEALTHKIT",
-  "com.apple.developer.homekit": "HOMEKIT",
-  "com.apple.developer.associated-domains": "ASSOCIATED_DOMAINS",
-  "com.apple.developer.networking.vpn.api": "PERSONAL_VPN",
-  "com.apple.developer.networking.networkextension": "NETWORK_EXTENSIONS",
-  "com.apple.developer.networking.multipath": "MULTIPATH",
-  "com.apple.developer.networking.HotspotConfiguration": "HOT_SPOT",
-  "com.apple.developer.networking.wifi-info": "ACCESS_WIFI_INFORMATION",
-  "com.apple.developer.nfc.readersession.formats": "NFC_TAG_READING",
-  "com.apple.developer.ClassKit-environment": "CLASSKIT",
-  "com.apple.developer.authentication-services.autofill-credential-provider": "AUTOFILL_CREDENTIAL_PROVIDER",
-  "com.apple.developer.siri": "SIRIKIT",
-  "com.apple.developer.pass-type-identifiers": "WALLET",
-  "com.apple.developer.maps": "MAPS",
-  "com.apple.developer.system-extension.install": "SYSTEM_EXTENSION_INSTALL",
-  "com.apple.external-accessory.wireless-configuration": "WIRELESS_ACCESSORY_CONFIGURATION",
-  "inter-app-audio": "INTER_APP_AUDIO",
+  'aps-environment': 'PUSH_NOTIFICATIONS',
+  'com.apple.developer.aps-environment': 'PUSH_NOTIFICATIONS',
+  'com.apple.developer.applesignin': 'APPLE_ID_AUTH',
+  'com.apple.developer.icloud-container-identifiers': 'ICLOUD',
+  'com.apple.developer.icloud-services': 'ICLOUD',
+  'com.apple.developer.ubiquity-container-identifiers': 'ICLOUD',
+  'com.apple.developer.ubiquity-kvstore-identifier': 'ICLOUD',
+  'com.apple.security.application-groups': 'APP_GROUPS',
+  'com.apple.developer.in-app-payments': 'APPLE_PAY',
+  'com.apple.developer.healthkit': 'HEALTHKIT',
+  'com.apple.developer.homekit': 'HOMEKIT',
+  'com.apple.developer.associated-domains': 'ASSOCIATED_DOMAINS',
+  'com.apple.developer.networking.vpn.api': 'PERSONAL_VPN',
+  'com.apple.developer.networking.networkextension': 'NETWORK_EXTENSIONS',
+  'com.apple.developer.networking.multipath': 'MULTIPATH',
+  'com.apple.developer.networking.HotspotConfiguration': 'HOT_SPOT',
+  'com.apple.developer.networking.wifi-info': 'ACCESS_WIFI_INFORMATION',
+  'com.apple.developer.nfc.readersession.formats': 'NFC_TAG_READING',
+  'com.apple.developer.ClassKit-environment': 'CLASSKIT',
+  'com.apple.developer.authentication-services.autofill-credential-provider':
+    'AUTOFILL_CREDENTIAL_PROVIDER',
+  'com.apple.developer.siri': 'SIRIKIT',
+  'com.apple.developer.pass-type-identifiers': 'WALLET',
+  'com.apple.developer.maps': 'MAPS',
+  'com.apple.developer.system-extension.install': 'SYSTEM_EXTENSION_INSTALL',
+  'com.apple.external-accessory.wireless-configuration': 'WIRELESS_ACCESSORY_CONFIGURATION',
+  'inter-app-audio': 'INTER_APP_AUDIO',
 };
 
 /**
@@ -85,13 +86,13 @@ const ENTITLEMENT_TO_CAPABILITY: Record<string, CapabilityType> = {
  * "you may need to handle this in the portal" signal) instead of being lost in the noise.
  */
 const IGNORED_ENTITLEMENTS = new Set<string>([
-  "application-identifier",
-  "com.apple.developer.team-identifier",
-  "keychain-access-groups",
-  "get-task-allow",
-  "com.apple.developer.default-data-protection",
-  "com.apple.developer.kernel.increased-memory-limit",
-  "com.apple.developer.kernel.extended-virtual-addressing",
+  'application-identifier',
+  'com.apple.developer.team-identifier',
+  'keychain-access-groups',
+  'get-task-allow',
+  'com.apple.developer.default-data-protection',
+  'com.apple.developer.kernel.increased-memory-limit',
+  'com.apple.developer.kernel.extended-virtual-addressing',
 ]);
 
 /**
@@ -107,35 +108,38 @@ const IGNORED_ENTITLEMENTS = new Set<string>([
  * Kept here, beside the forward map, so the entitlement↔capability vocabulary has one home to audit.
  */
 export const CAPABILITY_TO_ENTITLEMENT: Partial<Record<CapabilityType, string>> = {
-  PUSH_NOTIFICATIONS: "aps-environment",
-  APPLE_ID_AUTH: "com.apple.developer.applesignin",
-  ICLOUD: "com.apple.developer.icloud-container-identifiers",
-  APP_GROUPS: "com.apple.security.application-groups",
-  APPLE_PAY: "com.apple.developer.in-app-payments",
-  HEALTHKIT: "com.apple.developer.healthkit",
-  HOMEKIT: "com.apple.developer.homekit",
-  ASSOCIATED_DOMAINS: "com.apple.developer.associated-domains",
-  PERSONAL_VPN: "com.apple.developer.networking.vpn.api",
-  NETWORK_EXTENSIONS: "com.apple.developer.networking.networkextension",
-  MULTIPATH: "com.apple.developer.networking.multipath",
-  HOT_SPOT: "com.apple.developer.networking.HotspotConfiguration",
-  ACCESS_WIFI_INFORMATION: "com.apple.developer.networking.wifi-info",
-  NFC_TAG_READING: "com.apple.developer.nfc.readersession.formats",
-  CLASSKIT: "com.apple.developer.ClassKit-environment",
-  AUTOFILL_CREDENTIAL_PROVIDER: "com.apple.developer.authentication-services.autofill-credential-provider",
-  SIRIKIT: "com.apple.developer.siri",
-  WALLET: "com.apple.developer.pass-type-identifiers",
-  MAPS: "com.apple.developer.maps",
-  SYSTEM_EXTENSION_INSTALL: "com.apple.developer.system-extension.install",
-  WIRELESS_ACCESSORY_CONFIGURATION: "com.apple.external-accessory.wireless-configuration",
-  INTER_APP_AUDIO: "inter-app-audio",
+  PUSH_NOTIFICATIONS: 'aps-environment',
+  APPLE_ID_AUTH: 'com.apple.developer.applesignin',
+  ICLOUD: 'com.apple.developer.icloud-container-identifiers',
+  APP_GROUPS: 'com.apple.security.application-groups',
+  APPLE_PAY: 'com.apple.developer.in-app-payments',
+  HEALTHKIT: 'com.apple.developer.healthkit',
+  HOMEKIT: 'com.apple.developer.homekit',
+  ASSOCIATED_DOMAINS: 'com.apple.developer.associated-domains',
+  PERSONAL_VPN: 'com.apple.developer.networking.vpn.api',
+  NETWORK_EXTENSIONS: 'com.apple.developer.networking.networkextension',
+  MULTIPATH: 'com.apple.developer.networking.multipath',
+  HOT_SPOT: 'com.apple.developer.networking.HotspotConfiguration',
+  ACCESS_WIFI_INFORMATION: 'com.apple.developer.networking.wifi-info',
+  NFC_TAG_READING: 'com.apple.developer.nfc.readersession.formats',
+  CLASSKIT: 'com.apple.developer.ClassKit-environment',
+  AUTOFILL_CREDENTIAL_PROVIDER:
+    'com.apple.developer.authentication-services.autofill-credential-provider',
+  SIRIKIT: 'com.apple.developer.siri',
+  WALLET: 'com.apple.developer.pass-type-identifiers',
+  MAPS: 'com.apple.developer.maps',
+  SYSTEM_EXTENSION_INSTALL: 'com.apple.developer.system-extension.install',
+  WIRELESS_ACCESSORY_CONFIGURATION: 'com.apple.external-accessory.wireless-configuration',
+  INTER_APP_AUDIO: 'inter-app-audio',
   // DATA_PROTECTION is intentionally absent: its `com.apple.developer.default-data-protection` key is
   // signing/OS plumbing (in IGNORED_ENTITLEMENTS, not a capability toggle), and its level is set via the
   // capability's settings, so adopt surfaces it as advisory detail rather than an app.json entitlement.
 };
 
 /** Reverse map as a string-keyed lookup, so a raw `capabilityType` string resolves without a cast. */
-const CAPABILITY_TO_ENTITLEMENT_LOOKUP = new Map<string, string>(Object.entries(CAPABILITY_TO_ENTITLEMENT));
+const CAPABILITY_TO_ENTITLEMENT_LOOKUP = new Map<string, string>(
+  Object.entries(CAPABILITY_TO_ENTITLEMENT),
+);
 
 /** Whether an entitlement key is one Launch maps to an App Store Connect capability (vs. signing plumbing). */
 export function isCapabilityEntitlement(key: string): boolean {
@@ -165,7 +169,9 @@ export interface CapabilityMapping {
  * presence, and the concrete container is out of API scope). De-dupes collapsing iCloud entitlements
  * and returns the enable list sorted for a deterministic plan/diff.
  */
-export function mapEntitlementsToCapabilities(entitlements: Record<string, unknown> | undefined): CapabilityMapping {
+export function mapEntitlementsToCapabilities(
+  entitlements: Record<string, unknown> | undefined,
+): CapabilityMapping {
   const enable = new Set<CapabilityType>();
   const unmapped: string[] = [];
   for (const key of Object.keys(entitlements ?? {})) {
@@ -180,7 +186,7 @@ export function mapEntitlementsToCapabilities(entitlements: Record<string, unkno
 }
 
 /** The entitlement key whose value lists the `group.*` App Group container ids a bundle joins. */
-export const APP_GROUPS_ENTITLEMENT = "com.apple.security.application-groups";
+export const APP_GROUPS_ENTITLEMENT = 'com.apple.security.application-groups';
 
 /**
  * The `group.*` App Group container ids declared by one bundle's entitlements. The
@@ -191,13 +197,14 @@ export const APP_GROUPS_ENTITLEMENT = "com.apple.security.application-groups";
  */
 export function appGroupContainers(entitlements: Record<string, unknown> | undefined): string[] {
   const value = entitlements?.[APP_GROUPS_ENTITLEMENT];
-  if (typeof value === "string") return [value];
+  if (typeof value === 'string') return [value];
   if (!Array.isArray(value)) return [];
-  return value.filter((id): id is string => typeof id === "string" && id.length > 0);
+  return value.filter((id): id is string => typeof id === 'string' && id.length > 0);
 }
 
 /** The Apple Developer portal page where App Group container ids are created and assigned to bundle ids. */
-export const APP_GROUP_PORTAL_URL = "https://developer.apple.com/account/resources/identifiers/list/applicationGroup";
+export const APP_GROUP_PORTAL_URL =
+  'https://developer.apple.com/account/resources/identifiers/list/applicationGroup';
 
 /**
  * The actionable message to print when an app (or one of its extensions) declares App Group containers,
@@ -210,8 +217,8 @@ export const APP_GROUP_PORTAL_URL = "https://developer.apple.com/account/resourc
  */
 export function appGroupPortalNotice(containers: string[]): string | null {
   if (containers.length === 0) return null;
-  const groups = containers.map((id) => `"${id}"`).join(", ");
-  const plural = containers.length === 1 ? "App Group" : "App Groups";
+  const groups = containers.map((id) => `"${id}"`).join(', ');
+  const plural = containers.length === 1 ? 'App Group' : 'App Groups';
   return (
     `This app uses ${plural} (${groups}). Launch can register the App ID and enable the App Groups ` +
     `capability, but the public Apple API can't create the group container or assign it to your bundle ` +

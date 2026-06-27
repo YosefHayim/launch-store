@@ -15,13 +15,13 @@
  * the adopt run.
  */
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { capture } from "../exec.js";
-import { isMac } from "../os.js";
-import { asRecord } from "../json.js";
-import type { EntitlementValue } from "./types.js";
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { capture } from '../exec.js';
+import { isMac } from '../os.js';
+import { asRecord } from '../json.js';
+import type { EntitlementValue } from './types.js';
 
 /**
  * Decode `profileContent` (a base64 `.mobileprovision`) and return its `Entitlements` dict, or `null`
@@ -32,16 +32,23 @@ export async function extractProfileEntitlements(
   profileContent: string,
 ): Promise<Record<string, EntitlementValue> | null> {
   if (!isMac()) return null;
-  const work = mkdtempSync(join(tmpdir(), "launch-adopt-"));
+  const work = mkdtempSync(join(tmpdir(), 'launch-adopt-'));
   try {
-    const profilePath = join(work, "profile.mobileprovision");
-    writeFileSync(profilePath, Buffer.from(profileContent, "base64"));
+    const profilePath = join(work, 'profile.mobileprovision');
+    writeFileSync(profilePath, Buffer.from(profileContent, 'base64'));
     // `security cms -D` verifies the CMS signature and prints the decoded plist; `plutil` then lifts the
     // Entitlements sub-dict out as JSON we can parse (regex over nested plist arrays/dicts would be fragile).
-    const decodedPlist = await capture("security", ["cms", "-D", "-i", profilePath]);
-    const plistPath = join(work, "decoded.plist");
+    const decodedPlist = await capture('security', ['cms', '-D', '-i', profilePath]);
+    const plistPath = join(work, 'decoded.plist');
     writeFileSync(plistPath, decodedPlist);
-    const entitlementsJson = await capture("plutil", ["-extract", "Entitlements", "json", "-o", "-", plistPath]);
+    const entitlementsJson = await capture('plutil', [
+      '-extract',
+      'Entitlements',
+      'json',
+      '-o',
+      '-',
+      plistPath,
+    ]);
     const parsed: unknown = JSON.parse(entitlementsJson);
     return asRecord(parsed) as Record<string, EntitlementValue> | null;
   } catch {

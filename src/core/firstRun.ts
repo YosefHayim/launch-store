@@ -10,8 +10,8 @@
  * "never seen," so a corrupted state can only ever cost one extra tour, never a crash.
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { STATE_FILE, LAUNCH_HOME, ensureDir } from "./paths.js";
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { STATE_FILE, LAUNCH_HOME, ensureDir } from './paths.js';
 
 /**
  * Shape of `~/.launch/state.json` — small "offered once, remember" UX flags, each an ISO-8601 timestamp
@@ -32,7 +32,7 @@ export interface FirstRunState {
 export function readFirstRunState(): FirstRunState {
   if (!existsSync(STATE_FILE)) return {};
   try {
-    const parsed = JSON.parse(readFileSync(STATE_FILE, "utf8")) as Partial<FirstRunState>;
+    const parsed = JSON.parse(readFileSync(STATE_FILE, 'utf8')) as Partial<FirstRunState>;
     const state: FirstRunState = {};
     if (parsed.tourSeenAt) state.tourSeenAt = parsed.tourSeenAt;
     if (parsed.ccacheOfferDeclinedAt) state.ccacheOfferDeclinedAt = parsed.ccacheOfferDeclinedAt;

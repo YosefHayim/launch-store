@@ -6,8 +6,8 @@
  * exists so `import { defineConfig } from "launch-store"` resolves in a consumer's config file.
  */
 
-export { defineConfig } from "./core/config.js";
-export type { LaunchConfigInput } from "./core/config.js";
+export { defineConfig } from './core/config.js';
+export type { LaunchConfigInput } from './core/config.js';
 export type {
   LaunchConfig,
   BuildProfile,
@@ -41,4 +41,4 @@ export type {
   ReleaseCategories,
   ReleasePricing,
   ReviewDetailsConfig,
-} from "./core/types.js";
+} from './core/types.js';

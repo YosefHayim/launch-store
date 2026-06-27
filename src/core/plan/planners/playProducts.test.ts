@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
-import { playProductsPlanner } from "./playProducts.js";
-import type { PlanContext, PlayCatalogApi } from "../types.js";
-import type { AppDescriptor, AppProducts, InAppPurchaseConfig, LaunchConfig } from "../../types.js";
+import { describe, expect, it, vi } from 'vitest';
+import { playProductsPlanner } from './playProducts.js';
+import type { PlanContext, PlayCatalogApi } from '../types.js';
+import type { AppDescriptor, AppProducts, InAppPurchaseConfig, LaunchConfig } from '../../types.js';
 
 /** A fully-stubbed {@link PlayCatalogApi}: reads default to "nothing exists yet", writes resolve to void. */
 function makePlayApi(overrides: Partial<PlayCatalogApi> = {}): PlayCatalogApi {
@@ -23,27 +23,27 @@ function makePlayApi(overrides: Partial<PlayCatalogApi> = {}): PlayCatalogApi {
 
 /** A Play-published in-app product (carries a `play` override); SKU defaults to the shared product id. */
 const PLAY_IAP: InAppPurchaseConfig = {
-  productId: "com.acme.coins",
-  referenceName: "Coins",
-  type: "CONSUMABLE",
-  localizations: [{ locale: "en-US", name: "Coins" }],
+  productId: 'com.acme.coins',
+  referenceName: 'Coins',
+  type: 'CONSUMABLE',
+  localizations: [{ locale: 'en-US', name: 'Coins' }],
   play: {},
 };
 
 /** An Apple-only in-app product (no `play` override) — must never reach Play. */
 const APPLE_ONLY_IAP: InAppPurchaseConfig = {
-  productId: "com.acme.gems",
-  referenceName: "Gems",
-  type: "CONSUMABLE",
-  localizations: [{ locale: "en-US", name: "Gems" }],
+  productId: 'com.acme.gems',
+  referenceName: 'Gems',
+  type: 'CONSUMABLE',
+  localizations: [{ locale: 'en-US', name: 'Gems' }],
 };
 
 const ALPHA: AppDescriptor = {
-  name: "alpha",
-  dir: "/no/such/dir/alpha",
-  configPath: "/no/such/dir/alpha/app.json",
-  bundleId: "com.acme.alpha",
-  packageName: "com.acme.alpha",
+  name: 'alpha',
+  dir: '/no/such/dir/alpha',
+  configPath: '/no/such/dir/alpha/app.json',
+  bundleId: 'com.acme.alpha',
+  packageName: 'com.acme.alpha',
 };
 
 function makeCtx(
@@ -53,10 +53,10 @@ function makeCtx(
 ): PlanContext {
   const config: LaunchConfig = {
     profiles: {},
-    credentials: "local",
-    storage: "local",
-    buildEngine: "fastlane",
-    submit: "app-store-connect",
+    credentials: 'local',
+    storage: 'local',
+    buildEngine: 'fastlane',
+    submit: 'app-store-connect',
     ...(Object.keys(products).length > 0 ? { products } : {}),
   };
   return {
@@ -67,58 +67,68 @@ function makeCtx(
   };
 }
 
-describe("playProductsPlanner", () => {
-  it("omits itself when no app declares a Play-overridden product", async () => {
+describe('playProductsPlanner', () => {
+  it('omits itself when no app declares a Play-overridden product', async () => {
     const plan = await playProductsPlanner.plan(
-      makeCtx(makePlayApi(), { "com.acme.alpha": { inAppPurchases: [APPLE_ONLY_IAP] } }),
+      makeCtx(makePlayApi(), { 'com.acme.alpha': { inAppPurchases: [APPLE_ONLY_IAP] } }),
     );
-    expect(plan.state).toBe("omitted");
+    expect(plan.state).toBe('omitted');
   });
 
-  it("omits an app that has products but no Android package name", async () => {
+  it('omits an app that has products but no Android package name', async () => {
     const noPackage: AppDescriptor = {
-      name: "alpha",
-      dir: "/no/such/dir/alpha",
-      configPath: "/no/such/dir/alpha/app.json",
-      bundleId: "com.acme.alpha",
+      name: 'alpha',
+      dir: '/no/such/dir/alpha',
+      configPath: '/no/such/dir/alpha/app.json',
+      bundleId: 'com.acme.alpha',
     };
     const plan = await playProductsPlanner.plan(
-      makeCtx(makePlayApi(), { "com.acme.alpha": { inAppPurchases: [PLAY_IAP] } }, [noPackage]),
+      makeCtx(makePlayApi(), { 'com.acme.alpha': { inAppPurchases: [PLAY_IAP] } }, [noPackage]),
     );
-    expect(plan.state).toBe("omitted");
+    expect(plan.state).toBe('omitted');
   });
 
-  it("skips with an actionable hint when no Play service account is configured", async () => {
-    const plan = await playProductsPlanner.plan(makeCtx(null, { "com.acme.alpha": { inAppPurchases: [PLAY_IAP] } }));
-    expect(plan.state).toBe("skipped");
-    if (plan.state !== "skipped") return;
+  it('skips with an actionable hint when no Play service account is configured', async () => {
+    const plan = await playProductsPlanner.plan(
+      makeCtx(null, { 'com.acme.alpha': { inAppPurchases: [PLAY_IAP] } }),
+    );
+    expect(plan.state).toBe('skipped');
+    if (plan.state !== 'skipped') return;
     expect(plan.reason).toMatch(/Play service account/);
     expect(plan.hint).toMatch(/android/);
   });
 
-  it("reports the per-app diff a fresh Play product would create", async () => {
+  it('reports the per-app diff a fresh Play product would create', async () => {
     const plan = await playProductsPlanner.plan(
-      makeCtx(makePlayApi(), { "com.acme.alpha": { inAppPurchases: [PLAY_IAP] } }),
+      makeCtx(makePlayApi(), { 'com.acme.alpha': { inAppPurchases: [PLAY_IAP] } }),
     );
-    expect(plan.state).toBe("planned");
-    if (plan.state !== "planned" || plan.scope !== "app") return;
+    expect(plan.state).toBe('planned');
+    if (plan.state !== 'planned' || plan.scope !== 'app') return;
     expect(plan.apps).toHaveLength(1);
-    expect(plan.apps[0]?.identifier).toBe("com.acme.alpha");
-    expect(plan.apps[0]?.actions.some((a) => a.description === "create Play product com.acme.coins")).toBe(true);
+    expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
+    expect(
+      plan.apps[0]?.actions.some((a) => a.description === 'create Play product com.acme.coins'),
+    ).toBe(true);
   });
 
-  it("captures an unreachable app as a per-app error, not a thrown plan", async () => {
-    const api = makePlayApi({ assertAppExists: vi.fn().mockRejectedValue(new Error("app not found on Play")) });
-    const plan = await playProductsPlanner.plan(makeCtx(api, { "com.acme.alpha": { inAppPurchases: [PLAY_IAP] } }));
-    expect(plan.state).toBe("planned");
-    if (plan.state !== "planned" || plan.scope !== "app") return;
+  it('captures an unreachable app as a per-app error, not a thrown plan', async () => {
+    const api = makePlayApi({
+      assertAppExists: vi.fn().mockRejectedValue(new Error('app not found on Play')),
+    });
+    const plan = await playProductsPlanner.plan(
+      makeCtx(api, { 'com.acme.alpha': { inAppPurchases: [PLAY_IAP] } }),
+    );
+    expect(plan.state).toBe('planned');
+    if (plan.state !== 'planned' || plan.scope !== 'app') return;
     expect(plan.apps[0]?.error).toMatch(/app not found on Play/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
   });
 
-  it("is strictly read-only: never invokes a Play write endpoint", async () => {
+  it('is strictly read-only: never invokes a Play write endpoint', async () => {
     const api = makePlayApi();
-    await playProductsPlanner.plan(makeCtx(api, { "com.acme.alpha": { inAppPurchases: [PLAY_IAP] } }));
+    await playProductsPlanner.plan(
+      makeCtx(api, { 'com.acme.alpha': { inAppPurchases: [PLAY_IAP] } }),
+    );
     expect(api.listInAppProducts).toHaveBeenCalled();
     expect(api.insertInAppProduct).toHaveBeenCalledTimes(0);
     expect(api.updateInAppProduct).toHaveBeenCalledTimes(0);

@@ -8,21 +8,21 @@
  * `src/cli/program.ts`, counts the headline stats from source, then hands the pure rendering to
  * `src/core/docs/commandDocs.ts` and prettier-formats the result so `format:check` stays green.
  */
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import type { Command } from "commander";
-import prettier from "prettier";
-import { createGenerator } from "ts-json-schema-generator";
-import { buildProgram } from "../src/cli/program.js";
-import { renderConfigDocs } from "../src/core/docs/configDocs.js";
-import type { JsonSchema } from "../src/core/jsonSchema.js";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
+import type { Command } from 'commander';
+import prettier from 'prettier';
+import { createGenerator } from 'ts-json-schema-generator';
+import { buildProgram } from '../src/cli/program.ts';
+import { renderContributorRules, renderContributorSkills } from '../src/core/agents/render.ts';
 import {
   type CommandSpec,
-  type DocStats,
-  type GeneratedDoc,
   countAsyncMethods,
   countTestCases,
+  type DocStats,
+  type GeneratedDoc,
   renderAgentSkillsRegion,
   renderCommandReference,
   renderFaqRegion,
@@ -33,10 +33,11 @@ import {
   spliceReadmeBadges,
   spliceReadmeFaq,
   spliceReadmeFeatures,
-} from "../src/core/docs/commandDocs.js";
-import { renderContributorRules, renderContributorSkills } from "../src/core/agents/render.js";
+} from '../src/core/docs/commandDocs.ts';
+import { renderConfigDocs } from '../src/core/docs/configDocs.ts';
+import type { JsonSchema } from '../src/core/jsonSchema.ts';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
  * Flatten one commander command (and its subcommands) into the {@link CommandSpec} the docs render.
@@ -50,9 +51,9 @@ function toSpec(command: Command, parentPath: string): CommandSpec {
       const inner = argument.variadic ? `${argument.name()}...` : argument.name();
       return argument.required ? `<${inner}>` : `[${inner}]`;
     })
-    .join(" ");
+    .join(' ');
   const options = command.options
-    .filter((option) => !option.flags.includes("--help") && !option.flags.includes("--version"))
+    .filter((option) => !(option.flags.includes('--help') || option.flags.includes('--version')))
     .map((option) => ({ flags: option.flags, description: option.description }));
   const subcommands = command
     .createHelp()
@@ -63,16 +64,16 @@ function toSpec(command: Command, parentPath: string): CommandSpec {
 
 /** Read every `*.test.ts` under `src/` so the test-case count reflects the real suite. */
 function readTestSources(): string[] {
-  return readdirSync(join(ROOT, "src"), { recursive: true, encoding: "utf8" })
-    .filter((entry) => entry.endsWith(".test.ts"))
-    .map((entry) => readFileSync(join(ROOT, "src", entry), "utf8"));
+  return readdirSync(join(ROOT, 'src'), { recursive: true, encoding: 'utf8' })
+    .filter((entry) => entry.endsWith('.test.ts'))
+    .map((entry) => readFileSync(join(ROOT, 'src', entry), 'utf8'));
 }
 
 /** Compute the live headline stats: command count, store-API operations, and test cases. */
 function computeStats(commands: CommandSpec[]): DocStats {
   const operations =
-    countAsyncMethods(readFileSync(join(ROOT, "src/apple/ascClient.ts"), "utf8")) +
-    countAsyncMethods(readFileSync(join(ROOT, "src/google/playClient.ts"), "utf8"));
+    countAsyncMethods(readFileSync(join(ROOT, 'src/apple/ascClient.ts'), 'utf8')) +
+    countAsyncMethods(readFileSync(join(ROOT, 'src/google/playClient.ts'), 'utf8'));
   return { commands: commands.length, operations, tests: countTestCases(readTestSources()) };
 }
 
@@ -87,19 +88,19 @@ function computeStats(commands: CommandSpec[]): DocStats {
  */
 function generateConfigSchema(): JsonSchema {
   return createGenerator({
-    path: join(ROOT, "src/core/config.ts"),
-    type: "LaunchConfigInput",
-    tsconfig: join(ROOT, "tsconfig.json"),
+    path: join(ROOT, 'src/core/config.ts'),
+    type: 'LaunchConfigInput',
+    tsconfig: join(ROOT, 'tsconfig.json'),
     additionalProperties: false,
-    expose: "all",
+    expose: 'all',
     topRef: true,
-    jsDoc: "extended",
-  }).createSchema("LaunchConfigInput");
+    jsDoc: 'extended',
+  }).createSchema('LaunchConfigInput');
 }
 
 /** Render both docs from the live program, prettier-formatted and ready to write or diff. */
 async function generateDocs(): Promise<GeneratedDoc[]> {
-  const commands = buildProgram().commands.map((command) => toSpec(command, ""));
+  const commands = buildProgram().commands.map((command) => toSpec(command, ''));
   const configSchema = generateConfigSchema();
   const stats = computeStats(commands);
   const badges = renderStatsBadges(stats);
@@ -115,21 +116,24 @@ async function generateDocs(): Promise<GeneratedDoc[]> {
       // spliced into every README; the FAQ and numbered Features list are English sources, so only
       // README.md gets those generated regions — the translated READMEs keep hand-translated FAQ and
       // Features sections that the structural-parity test holds in sync.
-      let body = spliceReadmeBadges(readFileSync(join(ROOT, path), "utf8"), badges);
+      let body = spliceReadmeBadges(readFileSync(join(ROOT, path), 'utf8'), badges);
       body = spliceReadmeAgentSkills(body, agentSkills);
-      if (path === "README.md") {
+      if (path === 'README.md') {
         body = spliceReadmeFaq(body, faq);
         body = spliceReadmeFeatures(body, features);
       }
       return { path, body };
     }),
-    { path: "docs/commands.md", body: renderCommandReference(commands, stats) },
-    { path: "llms.txt", body: renderLlmsTxt(commands, stats) },
+    { path: 'docs/commands.md', body: renderCommandReference(commands, stats) },
+    { path: 'llms.txt', body: renderLlmsTxt(commands, stats) },
     // The JSON Schema for `launch.config.ts` and its rendered field reference — both generated from the
     // config types so `config schema`/`config validate`/`config docs` and editor autocomplete share one
     // source the types can't drift from.
-    { path: "schema/launch.config.schema.json", body: `${JSON.stringify(configSchema, null, 2)}\n` },
-    { path: "docs/config.md", body: renderConfigDocs(configSchema) },
+    {
+      path: 'schema/launch.config.schema.json',
+      body: `${JSON.stringify(configSchema, null, 2)}\n`,
+    },
+    { path: 'docs/config.md', body: renderConfigDocs(configSchema) },
     // Contributor-facing Cursor rules (`.cursor/rules/*.mdc`) and Claude skills (`.claude/skills/*`) for
     // working ON launch-store — generated from the same agent registry as the consumer skills and gated
     // here so they can't drift.
@@ -139,21 +143,23 @@ async function generateDocs(): Promise<GeneratedDoc[]> {
   return Promise.all(
     raw.map(async ({ path, body }) => {
       const config = await prettier.resolveConfig(join(ROOT, path));
-      const parser = path.endsWith(".json") ? "json" : "markdown";
+      const parser = path.endsWith('.json') ? 'json' : 'markdown';
       return { path, body: await prettier.format(body, { ...config, parser }) };
     }),
   );
 }
 
 async function main(): Promise<void> {
-  const check = process.argv.includes("--check");
+  const check = process.argv.includes('--check');
   const docs = await generateDocs();
   const stale: string[] = [];
   for (const { path, body } of docs) {
     const absolute = join(ROOT, path);
     if (check) {
-      const current = readFileSync(absolute, "utf8");
-      if (current !== body) stale.push(path);
+      const current = readFileSync(absolute, 'utf8');
+      if (current !== body) {
+        stale.push(path);
+      }
     } else {
       mkdirSync(dirname(absolute), { recursive: true });
       writeFileSync(absolute, body);
@@ -162,11 +168,13 @@ async function main(): Promise<void> {
   }
   if (check && stale.length > 0) {
     process.stderr.write(
-      `Generated docs are stale: ${stale.join(", ")}. Run \`npm run docs:gen\` and commit the result.\n`,
+      `Generated docs are stale: ${stale.join(', ')}. Run \`npm run docs:gen\` and commit the result.\n`,
     );
     process.exit(1);
   }
-  if (check) process.stdout.write("Docs are in sync with the CLI.\n");
+  if (check) {
+    process.stdout.write('Docs are in sync with the CLI.\n');
+  }
 }
 
 await main();

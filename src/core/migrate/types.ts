@@ -15,7 +15,7 @@
  */
 
 /** Which existing toolchain a migration read from — drives the report header and the artifact comment. */
-export type MigrationSource = "eas" | "fastlane";
+export type MigrationSource = 'eas' | 'fastlane';
 
 /**
  * How faithfully one piece of the source setup carried over, shown as the report's leading glyph:
@@ -24,7 +24,7 @@ export type MigrationSource = "eas" | "fastlane";
  * - `skipped` — intentionally left as-is (e.g. an existing `store.config.json` Launch reuses verbatim) (•).
  * - `info` — purely informational; nothing to write and no action needed (read from `app.json`, etc.) (ⓘ).
  */
-export type MigrationNoteLevel = "mapped" | "manual" | "skipped" | "info";
+export type MigrationNoteLevel = 'mapped' | 'manual' | 'skipped' | 'info';
 
 /** One line in the migration report: what happened to a piece of the source setup, and (when `manual`) how to finish it. */
 export interface MigrationNote {
@@ -121,7 +121,11 @@ export interface EasJson {
  */
 export interface CredentialsSummary {
   /** iOS signing material — the distribution certificate (`.p12`) and provisioning profile, by path. */
-  ios?: { distributionCertificatePath?: string; provisioningProfilePath?: string; hasPassword: boolean };
+  ios?: {
+    distributionCertificatePath?: string;
+    provisioningProfilePath?: string;
+    hasPassword: boolean;
+  };
   /** Android signing material — the keystore path and key alias (never the passwords). */
   android?: { keystorePath?: string; keyAlias?: string; hasPassword: boolean };
 }

@@ -12,12 +12,12 @@
  * old single-key layout is handled transparently by {@link migrateLegacyAccounts} on first run.
  */
 
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import type { AccountRecord, AccountsFile, AscKey } from "./types.js";
-import { ACCOUNTS_FILE, LAUNCH_HOME, accountCredentialsDir, ensureDir } from "./paths.js";
-import { deleteSecret, getSecret, setSecret } from "./keychain.js";
-import { AppStoreConnectClient } from "../apple/ascClient.js";
-import { migrateLegacySigningIndex, p12PasswordAccount } from "../apple/credentials.js";
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import type { AccountRecord, AccountsFile, AscKey } from './types.js';
+import { ACCOUNTS_FILE, LAUNCH_HOME, accountCredentialsDir, ensureDir } from './paths.js';
+import { deleteSecret, getSecret, setSecret } from './keychain.js';
+import { AppStoreConnectClient } from '../apple/ascClient.js';
+import { migrateLegacySigningIndex, p12PasswordAccount } from '../apple/credentials.js';
 
 /** Secret-store account holding one Apple account's `.p8` PEM, namespaced by Key ID. */
 function p8Account(keyId: string): string {
@@ -25,10 +25,10 @@ function p8Account(keyId: string): string {
 }
 
 /** The pre-multi-account secret-store accounts a first-run migration reads and then clears. */
-const LEGACY_KEY_ID = "asc-key-id";
-const LEGACY_ISSUER_ID = "asc-issuer-id";
-const LEGACY_P8 = "asc-p8";
-const LEGACY_P12_PASSWORD = "dist-cert-p12-password";
+const LEGACY_KEY_ID = 'asc-key-id';
+const LEGACY_ISSUER_ID = 'asc-issuer-id';
+const LEGACY_P8 = 'asc-p8';
+const LEGACY_P12_PASSWORD = 'dist-cert-p12-password';
 
 /** ISO-8601 stamp for `addedAt`/`resolvedAt`. */
 function nowIso(): string {
@@ -43,7 +43,7 @@ function nowIso(): string {
  * every backend (macOS `security`, Windows Credential Manager, Linux libsecret).
  */
 export function encodeP8(pem: string): string {
-  return Buffer.from(pem, "utf8").toString("base64");
+  return Buffer.from(pem, 'utf8').toString('base64');
 }
 
 /**
@@ -52,11 +52,11 @@ export function encodeP8(pem: string): string {
  * the oldest raw PEM that happened to survive. A value matching none of these is returned verbatim.
  */
 export function decodeP8(stored: string): string {
-  const fromBase64 = Buffer.from(stored, "base64").toString("utf8");
-  if (fromBase64.includes("PRIVATE KEY")) return fromBase64;
+  const fromBase64 = Buffer.from(stored, 'base64').toString('utf8');
+  if (fromBase64.includes('PRIVATE KEY')) return fromBase64;
   if (/^(?:[0-9a-fA-F]{2})+$/.test(stored)) {
-    const fromHex = Buffer.from(stored, "hex").toString("utf8");
-    if (fromHex.includes("PRIVATE KEY")) return fromHex;
+    const fromHex = Buffer.from(stored, 'hex').toString('utf8');
+    if (fromHex.includes('PRIVATE KEY')) return fromHex;
   }
   return stored;
 }
@@ -65,8 +65,11 @@ export function decodeP8(stored: string): string {
 function readAccounts(): AccountsFile {
   if (!existsSync(ACCOUNTS_FILE)) return { active: null, accounts: [] };
   try {
-    const parsed = JSON.parse(readFileSync(ACCOUNTS_FILE, "utf8")) as Partial<AccountsFile>;
-    return { active: parsed.active ?? null, accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [] };
+    const parsed = JSON.parse(readFileSync(ACCOUNTS_FILE, 'utf8')) as Partial<AccountsFile>;
+    return {
+      active: parsed.active ?? null,
+      accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
+    };
   } catch {
     return { active: null, accounts: [] };
   }
@@ -91,7 +94,9 @@ export function getActiveKeyId(): string | null {
 /** The active account record, or null when none is selected. */
 export function getActiveAccount(): AccountRecord | null {
   const file = readAccounts();
-  return file.active ? (file.accounts.find((account) => account.keyId === file.active) ?? null) : null;
+  return file.active
+    ? (file.accounts.find((account) => account.keyId === file.active) ?? null)
+    : null;
 }
 
 /** Find an account by exact Key ID. */
@@ -100,9 +105,14 @@ export function findAccount(keyId: string): AccountRecord | undefined {
 }
 
 /** Match an account by its label or Key ID, case-insensitively — the selector form users type. */
-export function matchAccount(accounts: AccountRecord[], selector: string): AccountRecord | undefined {
+export function matchAccount(
+  accounts: AccountRecord[],
+  selector: string,
+): AccountRecord | undefined {
   const needle = selector.trim().toLowerCase();
-  return accounts.find((account) => account.keyId.toLowerCase() === needle || account.label.toLowerCase() === needle);
+  return accounts.find(
+    (account) => account.keyId.toLowerCase() === needle || account.label.toLowerCase() === needle,
+  );
 }
 
 /** Max app names shown inline in {@link formatAccountSummary} before the remainder collapses to `+N`. */
@@ -128,18 +138,21 @@ export interface AccountSummaryOptions {
  * not-yet-resolved app list is omitted, so the line degrades cleanly to `label · team · key`. Renders
  * only what's cached on the record — never an Apple call.
  */
-export function formatAccountSummary(account: AccountRecord, options: AccountSummaryOptions = {}): string {
+export function formatAccountSummary(
+  account: AccountRecord,
+  options: AccountSummaryOptions = {},
+): string {
   const segments: string[] = [];
   if (options.includeLabel !== false) segments.push(account.label);
   const apps = account.apps ?? [];
   if (apps.length > 0) {
     const extra = apps.length - ACCOUNT_SUMMARY_APP_LIMIT;
-    const shown = apps.slice(0, ACCOUNT_SUMMARY_APP_LIMIT).join(", ");
+    const shown = apps.slice(0, ACCOUNT_SUMMARY_APP_LIMIT).join(', ');
     segments.push(extra > 0 ? `${shown} +${extra}` : shown);
   }
   if (account.teamId) segments.push(`team ${account.teamId}`);
   segments.push(`key ${account.keyId}`);
-  return segments.join(" · ");
+  return segments.join(' · ');
 }
 
 /** Inputs to {@link addAccount}: the key material plus any team/apps already resolved from Apple. */
@@ -255,26 +268,34 @@ export async function loadActiveAscKey(): Promise<AscKey | null> {
  * active account, else the sole account when there's exactly one, else a signal to prompt.
  */
 export type BuildAccountDecision =
-  | { kind: "use"; record: AccountRecord }
-  | { kind: "pick" }
-  | { kind: "error"; message: string };
+  | { kind: 'use'; record: AccountRecord }
+  | { kind: 'pick' }
+  | { kind: 'error'; message: string };
 
 /** Decide which account a build should use from the registry state + an optional selector. Pure. */
 export function decideBuildAccount(file: AccountsFile, selector?: string): BuildAccountDecision {
   if (file.accounts.length === 0) {
-    return { kind: "error", message: "No Apple account configured. Import one with: launch creds set-key" };
+    return {
+      kind: 'error',
+      message: 'No Apple account configured. Import one with: launch creds set-key',
+    };
   }
   if (selector) {
     const matched = matchAccount(file.accounts, selector);
     return matched
-      ? { kind: "use", record: matched }
-      : { kind: "error", message: `No Apple account matching "${selector}". Run \`launch creds\` to list them.` };
+      ? { kind: 'use', record: matched }
+      : {
+          kind: 'error',
+          message: `No Apple account matching "${selector}". Run \`launch creds\` to list them.`,
+        };
   }
-  const active = file.active ? file.accounts.find((account) => account.keyId === file.active) : undefined;
-  if (active) return { kind: "use", record: active };
+  const active = file.active
+    ? file.accounts.find((account) => account.keyId === file.active)
+    : undefined;
+  if (active) return { kind: 'use', record: active };
   const sole = file.accounts[0];
-  if (file.accounts.length === 1 && sole) return { kind: "use", record: sole };
-  return { kind: "pick" };
+  if (file.accounts.length === 1 && sole) return { kind: 'use', record: sole };
+  return { kind: 'pick' };
 }
 
 /** Options for {@link resolveBuildAccount}. */
@@ -291,13 +312,17 @@ export interface ResolveBuildAccountOptions {
  * Resolve the account a build should use, applying {@link decideBuildAccount} and then either using
  * the result, prompting via `pick` (interactive only), or throwing an actionable error in CI.
  */
-export async function resolveBuildAccount(options: ResolveBuildAccountOptions): Promise<AccountRecord> {
+export async function resolveBuildAccount(
+  options: ResolveBuildAccountOptions,
+): Promise<AccountRecord> {
   const file = readAccounts();
   const decision = decideBuildAccount(file, options.selector);
-  if (decision.kind === "use") return decision.record;
-  if (decision.kind === "error") throw new Error(decision.message);
+  if (decision.kind === 'use') return decision.record;
+  if (decision.kind === 'error') throw new Error(decision.message);
   if (!options.interactive) {
-    throw new Error("No active Apple account. Pick one with: launch creds use  (or pass --account / set ASC_ACCOUNT).");
+    throw new Error(
+      'No active Apple account. Pick one with: launch creds use  (or pass --account / set ASC_ACCOUNT).',
+    );
   }
   return options.pick(file.accounts);
 }
@@ -321,7 +346,10 @@ export async function resolveAccountIdentity(ascKey: AscKey): Promise<AccountIde
  * skipping accounts already resolved. Best-effort: any Apple-side failure is swallowed so it never
  * disrupts the surrounding flow.
  */
-export async function refreshIdentityIfStale(account: AccountRecord, ascKey: AscKey): Promise<void> {
+export async function refreshIdentityIfStale(
+  account: AccountRecord,
+  ascKey: AscKey,
+): Promise<void> {
   if (account.resolvedAt) return;
   try {
     const identity = await resolveAccountIdentity(ascKey);
@@ -355,7 +383,10 @@ export async function migrateLegacyAccounts(): Promise<void> {
   } catch {
     /* leave it — the account simply re-provisions its signing assets on the next build */
   }
-  writeAccounts({ active: keyId, accounts: [{ keyId, issuerId, label: "default", addedAt: nowIso() }] });
+  writeAccounts({
+    active: keyId,
+    accounts: [{ keyId, issuerId, label: 'default', addedAt: nowIso() }],
+  });
   await deleteSecret(LEGACY_KEY_ID);
   await deleteSecret(LEGACY_ISSUER_ID);
   await deleteSecret(LEGACY_P8);

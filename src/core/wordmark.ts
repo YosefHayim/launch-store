@@ -14,7 +14,7 @@
  * when piped. This module stays pure (string in, string out) so it's unit-testable without a terminal.
  */
 
-import { renderBuffer, type Cell, type ColorDepth, type Rgb } from "./halfblock.js";
+import { renderBuffer, type Cell, type ColorDepth, type Rgb } from './halfblock.js';
 
 /** Source height in pixel rows of every glyph. Kept even so each cell pairs two pixel rows cleanly. */
 const LOGO_H = 14;
@@ -25,104 +25,104 @@ const LOGO_H = 14;
  */
 const GLYPHS: Record<string, readonly string[]> = {
   L: [
-    "XX.....",
-    "XX.....",
-    "XX.....",
-    "XX.....",
-    "XX.....",
-    "XX.....",
-    "XX.....",
-    "XX.....",
-    "XX.....",
-    "XX.....",
-    "XX.....",
-    "XX.....",
-    "XXXXXX.",
-    "XXXXXXX",
+    'XX.....',
+    'XX.....',
+    'XX.....',
+    'XX.....',
+    'XX.....',
+    'XX.....',
+    'XX.....',
+    'XX.....',
+    'XX.....',
+    'XX.....',
+    'XX.....',
+    'XX.....',
+    'XXXXXX.',
+    'XXXXXXX',
   ],
   A: [
-    "...XX....",
-    "...XX....",
-    "..XXXX...",
-    "..XXXX...",
-    "..X..X...",
-    ".XX..XX..",
-    ".XX..XX..",
-    ".XXXXXX..",
-    ".XXXXXX..",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
+    '...XX....',
+    '...XX....',
+    '..XXXX...',
+    '..XXXX...',
+    '..X..X...',
+    '.XX..XX..',
+    '.XX..XX..',
+    '.XXXXXX..',
+    '.XXXXXX..',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
   ],
   U: [
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XXX..XXX.",
-    ".XXXXXX..",
-    "..XXXX...",
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XXX..XXX.',
+    '.XXXXXX..',
+    '..XXXX...',
   ],
   N: [
-    "XX....XX.",
-    "XXX...XX.",
-    "XXXX..XX.",
-    "XXXX..XX.",
-    "XX.X..XX.",
-    "XX.XX.XX.",
-    "XX.XX.XX.",
-    "XX..X.XX.",
-    "XX..XXXX.",
-    "XX..XXXX.",
-    "XX...XXX.",
-    "XX...XXX.",
-    "XX....XX.",
-    "XX....XX.",
+    'XX....XX.',
+    'XXX...XX.',
+    'XXXX..XX.',
+    'XXXX..XX.',
+    'XX.X..XX.',
+    'XX.XX.XX.',
+    'XX.XX.XX.',
+    'XX..X.XX.',
+    'XX..XXXX.',
+    'XX..XXXX.',
+    'XX...XXX.',
+    'XX...XXX.',
+    'XX....XX.',
+    'XX....XX.',
   ],
   C: [
-    ".XXXXXX.",
-    "XXXXXXXX",
-    "XX....XX",
-    "XX......",
-    "XX......",
-    "XX......",
-    "XX......",
-    "XX......",
-    "XX......",
-    "XX......",
-    "XX....XX",
-    "XXXXXXXX",
-    ".XXXXXX.",
-    "........",
+    '.XXXXXX.',
+    'XXXXXXXX',
+    'XX....XX',
+    'XX......',
+    'XX......',
+    'XX......',
+    'XX......',
+    'XX......',
+    'XX......',
+    'XX......',
+    'XX....XX',
+    'XXXXXXXX',
+    '.XXXXXX.',
+    '........',
   ],
   H: [
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XXXXXXXX.",
-    "XXXXXXXX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
-    "XX....XX.",
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XXXXXXXX.',
+    'XXXXXXXX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
+    'XX....XX.',
   ],
 };
 
-const WORD = "LAUNCH";
+const WORD = 'LAUNCH';
 const SHEAR = 0.32; // italic lean: every row is shifted right by (rowsFromBottom) * SHEAR pixels
 const GAP = 1; // blank pixel columns between letters
 const PAD_X = 4; // horizontal pixel margin so the bloom isn't clipped
@@ -136,7 +136,7 @@ const HIGHLIGHT: Rgb = [255, 255, 255]; // the sweeping shimmer color
 const GLOW: Rgb = [138, 96, 255]; // the purple bloom around the letters
 
 /** Plain-text fallback shown for `NO_COLOR`/piped output — matches the banner's spaced wordmark. */
-const PLAIN = "L A U N C H";
+const PLAIN = 'L A U N C H';
 
 /** A lit source pixel after shearing: its integer pixmap position and its gradient color. */
 interface LitPixel {
@@ -209,10 +209,14 @@ function layout(): { pixels: LitPixel[]; width: number; height: number } {
     if (!glyph) continue;
     const glyphWidth = glyph[0]?.length ?? 0;
     for (let gy = 0; gy < LOGO_H; gy++) {
-      const row = glyph[gy] ?? "";
+      const row = glyph[gy] ?? '';
       for (let gx = 0; gx < glyphWidth; gx++) {
-        if (row.charAt(gx) !== "X") continue;
-        lean.push({ x: Math.round(cursor + gx + (LOGO_H - 1 - gy) * SHEAR), y: gy, k: gy / (LOGO_H - 1) });
+        if (row.charAt(gx) !== 'X') continue;
+        lean.push({
+          x: Math.round(cursor + gx + (LOGO_H - 1 - gy) * SHEAR),
+          y: gy,
+          k: gy / (LOGO_H - 1),
+        });
       }
     }
     cursor += glyphWidth + GAP;
@@ -226,12 +230,21 @@ function layout(): { pixels: LitPixel[]; width: number; height: number } {
   }
   if (!Number.isFinite(minX)) return { pixels: [], width: 0, height: 0 };
 
-  const pixels = lean.map((p) => ({ x: p.x - minX + PAD_X, y: p.y + PAD_Y, color: lerp(FILL_TOP, FILL_BOTTOM, p.k) }));
+  const pixels = lean.map((p) => ({
+    x: p.x - minX + PAD_X,
+    y: p.y + PAD_Y,
+    color: lerp(FILL_TOP, FILL_BOTTOM, p.k),
+  }));
   return { pixels, width: maxX - minX + 1 + PAD_X * 2, height: LOGO_H + PAD_Y * 2 };
 }
 
 /** Paint the wordmark into a pixmap: additive bloom under the strokes, then the crisp gradient letters. */
-function paintWordmark(pm: Pixmap, pixels: readonly LitPixel[], glow: number, sweep: number | null): void {
+function paintWordmark(
+  pm: Pixmap,
+  pixels: readonly LitPixel[],
+  glow: number,
+  sweep: number | null,
+): void {
   for (const p of pixels) {
     for (let dy = -BLOOM_RADIUS; dy <= BLOOM_RADIUS; dy++) {
       for (let dx = -BLOOM_RADIUS; dx <= BLOOM_RADIUS; dx++) {
@@ -259,10 +272,10 @@ function fold(pm: Pixmap): Cell[][] {
     for (let x = 0; x < pm.w; x++) {
       const top = pm.colorAt(x, cr * 2);
       const bottom = pm.colorAt(x, cr * 2 + 1);
-      if (top && bottom) row.push({ ch: "▀", fg: top, bg: bottom });
-      else if (top) row.push({ ch: "▀", fg: top });
-      else if (bottom) row.push({ ch: "▄", fg: bottom });
-      else row.push({ ch: " " });
+      if (top && bottom) row.push({ ch: '▀', fg: top, bg: bottom });
+      else if (top) row.push({ ch: '▀', fg: top });
+      else if (bottom) row.push({ ch: '▄', fg: bottom });
+      else row.push({ ch: ' ' });
     }
     rows.push(row);
   }
@@ -272,7 +285,7 @@ function fold(pm: Pixmap): Cell[][] {
 /** Render one frame at a given glow level and optional shimmer column. */
 function renderFrame(depth: ColorDepth, glow: number, sweep: number | null): string {
   const { pixels, width, height } = layout();
-  if (pixels.length === 0) return "";
+  if (pixels.length === 0) return '';
   const pm = new Pixmap(width, height);
   paintWordmark(pm, pixels, glow, sweep);
   return renderBuffer(fold(pm), depth);
@@ -286,7 +299,7 @@ const FRAME_COUNT = 24;
  * `none` returns the plain spaced text (a bloom can't render without color).
  */
 export function renderGlowWordmark(depth: ColorDepth): string {
-  return depth === "none" ? PLAIN : renderFrame(depth, 0.85, null);
+  return depth === 'none' ? PLAIN : renderFrame(depth, 0.85, null);
 }
 
 /**
@@ -295,7 +308,7 @@ export function renderGlowWordmark(depth: ColorDepth): string {
  * yields a single plain-text frame since the effect needs color.
  */
 export function buildGlowFrames(depth: ColorDepth): string[] {
-  if (depth === "none") return [PLAIN];
+  if (depth === 'none') return [PLAIN];
   const { width } = layout();
   const frames: string[] = [];
   for (let i = 0; i < FRAME_COUNT; i++) {

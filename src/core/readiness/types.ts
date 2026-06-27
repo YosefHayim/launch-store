@@ -14,10 +14,10 @@
  * they live here beside the feature rather than in `core/types.ts` (which owns config + provider shapes).
  */
 
-import type { AppDescriptor, LaunchConfig } from "../types.js";
+import type { AppDescriptor, LaunchConfig } from '../types.js';
 
 /** Which store a probe reads from — drives credential resolution and how the report is grouped. */
-export type ReadinessStore = "appstore" | "play";
+export type ReadinessStore = 'appstore' | 'play';
 
 /**
  * The tag(s) a probe is filed under, so a command selects the slice it cares about without naming probes:
@@ -33,7 +33,7 @@ export type ReadinessStore = "appstore" | "play";
  * one command (e.g. "subscription group ready" is both `account` and `iap`; "app record exists" is both
  * `account` and `submit`).
  */
-export type ReadinessCategory = "account" | "iap" | "listing" | "privacy" | "signing" | "submit";
+export type ReadinessCategory = 'account' | 'iap' | 'listing' | 'privacy' | 'signing' | 'submit';
 
 /**
  * One app's finding for one probe. A probe maps an **expected** "not ready" condition (a missing app
@@ -47,7 +47,7 @@ export interface AppReadiness {
   /** The app's identifier on this store — iOS bundle id / Android package name. */
   identifier: string;
   /** `ok` shippable · `warn` advisory (recommended, not required) · `blocker` will cause rejection/failure. */
-  status: "ok" | "warn" | "blocker";
+  status: 'ok' | 'warn' | 'blocker';
   /** One-line plain-English summary of what was found, shown after the probe title. */
   detail: string;
   /** Optional actionable next step, shown dimmed under a `warn`/`blocker`. */
@@ -62,16 +62,16 @@ export interface AppReadiness {
  * - `checked` — the probe ran; `apps` carries the per-app findings.
  */
 export type ProbeResult =
-  | { state: "omitted" }
-  | { state: "skipped"; reason: string; hint?: string }
-  | { state: "checked"; apps: AppReadiness[] };
+  | { state: 'omitted' }
+  | { state: 'skipped'; reason: string; hint?: string }
+  | { state: 'checked'; apps: AppReadiness[] };
 
 /**
  * A {@link ProbeResult} plus the `errored` state the orchestrator synthesizes when a probe throws
  * unexpectedly (a real read failure, not a "not ready" finding). Kept distinct from `blocker` so the exit
  * code can separate "couldn't certify" (exit 1) from "certified: found blockers" (exit 2).
  */
-export type ProbeOutcome = ProbeResult | { state: "errored"; error: string };
+export type ProbeOutcome = ProbeResult | { state: 'errored'; error: string };
 
 /**
  * One probe's resolved report, as rendered and serialized to `--json`. The orchestrator stamps the
@@ -115,9 +115,13 @@ export interface AscReadinessApi {
    * per-product call — resolving a price point, listing offers. Optional only so the readiness fakes can
    * omit it where a probe doesn't read it.
    */
-  listInAppPurchases(appId: string): Promise<{ id?: string; productId: string; state?: string | undefined }[]>;
+  listInAppPurchases(
+    appId: string,
+  ): Promise<{ id?: string; productId: string; state?: string | undefined }[]>;
   /** A subscription group's subscriptions — the subscription counterpart of {@link listInAppPurchases}. */
-  listSubscriptions(groupId: string): Promise<{ id?: string; productId: string; state?: string | undefined }[]>;
+  listSubscriptions(
+    groupId: string,
+  ): Promise<{ id?: string; productId: string; state?: string | undefined }[]>;
   /**
    * The account's sandbox testers (the fake Apple IDs used to exercise StoreKit purchases). Only presence
    * matters to readiness, so just `id` is read; an empty list means no tester has been created yet.
@@ -128,7 +132,11 @@ export interface AscReadinessApi {
    * when the declared amount isn't a rung on Apple's fixed price ladder for the product. Used to validate a
    * config price *before* `launch sync` would reject it at apply time.
    */
-  findInAppPurchasePricePoint(iapId: string, territory: string, customerPrice: number): Promise<{ id: string } | null>;
+  findInAppPurchasePricePoint(
+    iapId: string,
+    territory: string,
+    customerPrice: number,
+  ): Promise<{ id: string } | null>;
   /** The subscription counterpart of {@link findInAppPurchasePricePoint}. */
   findSubscriptionPricePoint(
     subscriptionId: string,
@@ -147,7 +155,9 @@ export interface AscReadinessApi {
    * The age-rating questionnaire's stored answers under an `appInfo`, or `null` when it's never been
    * touched. A populated `attributes` map means the questionnaire is completed.
    */
-  getAgeRatingDeclaration(appInfoId: string): Promise<{ attributes: Record<string, string | boolean> } | null>;
+  getAgeRatingDeclaration(
+    appInfoId: string,
+  ): Promise<{ attributes: Record<string, string | boolean> } | null>;
   /**
    * Each locale's account-deletion URL under an `appInfo` (Apple's `privacyChoicesUrl`), the empty string
    * where unset. The account-deletion-URL probe asserts at least one locale declares it.
@@ -163,7 +173,9 @@ export interface AscReadinessApi {
    * demo-account password is write-only on Apple's side and never returned, so `attributes` carries only
    * the readable fields.
    */
-  getAppStoreReviewDetail(versionId: string): Promise<{ attributes: Record<string, string | boolean> } | null>;
+  getAppStoreReviewDetail(
+    versionId: string,
+  ): Promise<{ attributes: Record<string, string | boolean> } | null>;
   /** The capabilities currently enabled on a bundle id (App ID) — the entitlement-matching probe's live side. */
   listBundleIdCapabilities(bundleIdResourceId: string): Promise<{ capabilityType: string }[]>;
   /**
@@ -176,7 +188,9 @@ export interface AscReadinessApi {
    * is Apple's device-target enum (e.g. `APP_IPHONE_67`); the screenshot probe matches it against the
    * required classes. A set may exist while empty, so presence is confirmed via {@link listScreenshots}.
    */
-  listScreenshotSets(versionLocalizationId: string): Promise<{ id: string; screenshotDisplayType: string }[]>;
+  listScreenshotSets(
+    versionLocalizationId: string,
+  ): Promise<{ id: string; screenshotDisplayType: string }[]>;
   /** The screenshots in a set (only `id` is needed to confirm a set actually holds an image, not just exists). */
   listScreenshots(setId: string): Promise<{ id: string }[]>;
 }

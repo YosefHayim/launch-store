@@ -14,8 +14,8 @@
  * a known shape passes through unchanged, so the log stays useful.
  */
 
-import { homedir } from "node:os";
-import { isSecretLookingName } from "./env.js";
+import { homedir } from 'node:os';
+import { isSecretLookingName } from './env.js';
 
 /** The user's home directory, collapsed to `~` so absolute paths don't leak the account name. */
 const HOME = homedir();
@@ -32,7 +32,7 @@ const AWS_ACCESS_KEY = /\bAKIA[0-9A-Z]{16}\b/g;
 const PEM_BLOCK = /-----BEGIN [A-Z0-9 ]+-----[\s\S]*?-----END [A-Z0-9 ]+-----/g;
 
 /** The masked placeholder substituted for any redacted value. */
-const MASK = "***";
+const MASK = '***';
 
 /**
  * Redact one line of log text: collapse the home path to `~`, mask secret-looking `NAME=value`
@@ -41,13 +41,13 @@ const MASK = "***";
  */
 export function redactLine(line: string): string {
   let out = line;
-  if (HOME.length > 1) out = out.split(HOME).join("~");
+  if (HOME.length > 1) out = out.split(HOME).join('~');
   out = out.replace(ASSIGNMENT, (match, name: string, sep: string) =>
     isSecretLookingName(name) ? `${name}${sep}${MASK}` : match,
   );
-  out = out.replace(JWT, "[redacted-jwt]");
+  out = out.replace(JWT, '[redacted-jwt]');
   out = out.replace(BEARER, `$1${MASK}`);
-  out = out.replace(AWS_ACCESS_KEY, "[redacted-aws-key]");
+  out = out.replace(AWS_ACCESS_KEY, '[redacted-aws-key]');
   return out;
 }
 
@@ -57,5 +57,5 @@ export function redactLine(line: string): string {
  * a persisted log back for `launch builds log` — a second pass over what was already scrubbed on write.
  */
 export function redactText(text: string): string {
-  return text.replace(PEM_BLOCK, "[redacted-key-material]").split("\n").map(redactLine).join("\n");
+  return text.replace(PEM_BLOCK, '[redacted-key-material]').split('\n').map(redactLine).join('\n');
 }

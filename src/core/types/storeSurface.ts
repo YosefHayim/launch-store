@@ -14,7 +14,7 @@ import type {
   LeaderboardFormatter,
   LeaderboardSortType,
   LeaderboardSubmissionType,
-} from "../../apple/ascClient.js";
+} from '../../apple/ascClient.js';
 
 /**
  * How an approved iOS build reaches the public App Store — the App Store version's `releaseType`,
@@ -26,7 +26,7 @@ import type {
  *   to line the go-live up with a marketing moment.
  * - `SCHEDULED`: go live at a fixed future instant, set via {@link ReleaseConfig.earliestReleaseDate}.
  */
-export type ReleaseType = "AFTER_APPROVAL" | "MANUAL" | "SCHEDULED";
+export type ReleaseType = 'AFTER_APPROVAL' | 'MANUAL' | 'SCHEDULED';
 
 /**
  * iOS public-release policy, declared under {@link LaunchConfig.release}. These are the defaults
@@ -95,7 +95,7 @@ export interface NotifyConfig {
    */
   command?: string;
   /** Which transitions fire a notification. Absent = all. */
-  events?: ("build" | "submit" | "review" | "rollout")[];
+  events?: ('build' | 'submit' | 'review' | 'rollout')[];
 }
 
 /** One declared Game Center achievement: Apple's create attributes plus its default-locale localization. */
@@ -286,7 +286,7 @@ export interface SurfaceConfigFiles {
  * - `write` — reconciles live store state (e.g. `launch sync`): visible, reversible-with-effort changes.
  * - `dangerous` — destructive or hard-to-reverse (deletions, irreversible submissions); opt-in only.
  */
-export type McpCapability = "read" | "dryRun" | "write" | "dangerous";
+export type McpCapability = 'read' | 'dryRun' | 'write' | 'dangerous';
 
 /**
  * The `mcp` block of `launch.config.ts` — how `launch mcp` exposes Launch to AI agents. Absent means

@@ -18,8 +18,8 @@ import {
   GENERATIVE_AI_FAQ,
   STATS_BADGES_END,
   STATS_BADGES_START,
-} from "./content.js";
-import type { DocStats } from "./types.js";
+} from './content.js';
+import type { DocStats } from './types.js';
 
 /**
  * Render the README's live-stats badge row from {@link DocStats}: the store-API endpoint count, the
@@ -34,19 +34,19 @@ import type { DocStats } from "./types.js";
  */
 export function renderStatsBadges(stats: DocStats): string {
   const endpoints = `https://img.shields.io/badge/store%20API-${stats.operations}%20endpoints-8957e5?logo=apple&logoColor=white`;
-  const crud = "https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb";
+  const crud = 'https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb';
   const tests = `https://img.shields.io/badge/tests-${stats.tests}%20passing-3fb950?logo=vitest&logoColor=white`;
   return [
     STATS_BADGES_START,
-    "",
+    '',
     '<p align="center">',
     `  <a href="./docs/commands.md"><img src="${endpoints}" alt="${stats.operations} App Store Connect &amp; Google Play API operations" /></a>`,
     `  <img src="${crud}" alt="Full create / read / update / delete coverage across the store APIs" />`,
     `  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="${tests}" alt="${stats.tests} tests passing" /></a>`,
-    "</p>",
-    "",
+    '</p>',
+    '',
     STATS_BADGES_END,
-  ].join("\n");
+  ].join('\n');
 }
 
 /**
@@ -81,7 +81,7 @@ function spliceRegion(
  * URLs are language-neutral, so the same block goes into the English README and all translations.
  */
 export function spliceReadmeBadges(readme: string, badges: string): string {
-  return spliceRegion(readme, STATS_BADGES_START, STATS_BADGES_END, badges, "stats-badges");
+  return spliceRegion(readme, STATS_BADGES_START, STATS_BADGES_END, badges, 'stats-badges');
 }
 
 /**
@@ -107,7 +107,9 @@ function parseFaqEntries(): FaqEntry[] {
   return GENERATIVE_AI_FAQ.split(/\r?\n\r?\n/).map((paragraph) => {
     const match = /^\*\*(.+?)\*\*\s*([\s\S]+)$/.exec(paragraph.trim());
     if (!match?.[1] || !match[2]) {
-      throw new Error(`FAQ entry is not in "**Question?** Answer" form: ${paragraph.slice(0, 60)}…`);
+      throw new Error(
+        `FAQ entry is not in "**Question?** Answer" form: ${paragraph.slice(0, 60)}…`,
+      );
     }
     return { question: match[1], answer: match[2].trim() };
   });
@@ -126,11 +128,16 @@ function parseFaqEntries(): FaqEntry[] {
 export function renderCollapsibleFaq(): string {
   return parseFaqEntries()
     .map(({ question, answer }) =>
-      ["<details>", `<summary><strong>${escapeHtml(question)}</strong></summary>`, "", answer, "", "</details>"].join(
-        "\n",
-      ),
+      [
+        '<details>',
+        `<summary><strong>${escapeHtml(question)}</strong></summary>`,
+        '',
+        answer,
+        '',
+        '</details>',
+      ].join('\n'),
     )
-    .join("\n\n");
+    .join('\n\n');
 }
 
 /**
@@ -140,7 +147,7 @@ export function renderCollapsibleFaq(): string {
  * {@link renderLlmsTxt} emits, so the README and `llms.txt` can't drift question-for-question.
  */
 export function renderFaqRegion(): string {
-  return [FAQ_REGION_START, "", renderCollapsibleFaq(), "", FAQ_REGION_END].join("\n");
+  return [FAQ_REGION_START, '', renderCollapsibleFaq(), '', FAQ_REGION_END].join('\n');
 }
 
 /**
@@ -149,7 +156,7 @@ export function renderFaqRegion(): string {
  * translated READMEs carry a hand-translated FAQ that the README structural-parity test keeps in sync.
  */
 export function spliceReadmeFaq(readme: string, faq: string): string {
-  return spliceRegion(readme, FAQ_REGION_START, FAQ_REGION_END, faq, "faq");
+  return spliceRegion(readme, FAQ_REGION_START, FAQ_REGION_END, faq, 'faq');
 }
 
 /**
@@ -162,10 +169,10 @@ export function spliceReadmeFaq(readme: string, faq: string): string {
 export function renderFeaturesList(): string {
   let n = 0;
   return FEATURE_SECTIONS.map((section) => {
-    const lead = section.intro ? [section.intro, ""] : [];
+    const lead = section.intro ? [section.intro, ''] : [];
     const items = section.features.map((feature) => `${(n += 1)}. ${feature}`);
-    return [`**${section.title}**`, "", ...lead, ...items].join("\n");
-  }).join("\n\n");
+    return [`**${section.title}**`, '', ...lead, ...items].join('\n');
+  }).join('\n\n');
 }
 
 /**
@@ -176,7 +183,7 @@ export function renderFeaturesList(): string {
  * question or title ever gains them.
  */
 function escapeHtml(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 /**
@@ -191,18 +198,18 @@ function escapeHtml(text: string): string {
  */
 export function renderCollapsibleFeatures(): string {
   return FEATURE_SECTIONS.map((section) => {
-    const lead = section.intro ? [section.intro, ""] : [];
+    const lead = section.intro ? [section.intro, ''] : [];
     const items = section.features.map((feature, index) => `${index + 1}. ${feature}`);
     return [
-      "<details>",
+      '<details>',
       `<summary><strong>${escapeHtml(section.title)}</strong></summary>`,
-      "",
+      '',
       ...lead,
       ...items,
-      "",
-      "</details>",
-    ].join("\n");
-  }).join("\n\n");
+      '',
+      '</details>',
+    ].join('\n');
+  }).join('\n\n');
 }
 
 /**
@@ -211,7 +218,9 @@ export function renderCollapsibleFeatures(): string {
  * whole block. English only — the translated READMEs carry a hand-translated Features section.
  */
 export function renderFeaturesRegion(): string {
-  return [FEATURES_REGION_START, "", renderCollapsibleFeatures(), "", FEATURES_REGION_END].join("\n");
+  return [FEATURES_REGION_START, '', renderCollapsibleFeatures(), '', FEATURES_REGION_END].join(
+    '\n',
+  );
 }
 
 /**
@@ -220,7 +229,7 @@ export function renderFeaturesRegion(): string {
  * FAQ — the source is English and the translated READMEs keep a hand-translated Features section.
  */
 export function spliceReadmeFeatures(readme: string, region: string): string {
-  return spliceRegion(readme, FEATURES_REGION_START, FEATURES_REGION_END, region, "features");
+  return spliceRegion(readme, FEATURES_REGION_START, FEATURES_REGION_END, region, 'features');
 }
 
 /**
@@ -229,7 +238,7 @@ export function spliceReadmeFeatures(readme: string, region: string): string {
  * region. Language-neutral, so the same block is spliced into the English README and every translation.
  */
 export function renderAgentSkillsRegion(): string {
-  return [AGENT_SKILLS_START, "", AGENT_SKILLS_BLURB, "", AGENT_SKILLS_END].join("\n");
+  return [AGENT_SKILLS_START, '', AGENT_SKILLS_BLURB, '', AGENT_SKILLS_END].join('\n');
 }
 
 /**
@@ -238,5 +247,5 @@ export function renderAgentSkillsRegion(): string {
  * like the badge row — the callout is language-neutral.
  */
 export function spliceReadmeAgentSkills(readme: string, region: string): string {
-  return spliceRegion(readme, AGENT_SKILLS_START, AGENT_SKILLS_END, region, "agent-skills");
+  return spliceRegion(readme, AGENT_SKILLS_START, AGENT_SKILLS_END, region, 'agent-skills');
 }

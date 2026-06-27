@@ -11,17 +11,17 @@
  * `launch metadata`. The emitted `launch.config.ts` is the standard starter (app facts come from app.json).
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
-import { configTemplate, detectAppRoot } from "../configScaffold.js";
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { configTemplate, detectAppRoot } from '../configScaffold.js';
 import {
   readAndroidMetadataDir,
   readAppleMetadataDir,
   serializeStoreConfig,
   type StoreConfig,
-} from "../storeConfig.js";
-import type { AppDescriptor } from "../types.js";
-import { buildEnvExample, scaffoldStoreConfig } from "./scaffold.js";
+} from '../storeConfig.js';
+import type { AppDescriptor } from '../types.js';
+import { buildEnvExample, scaffoldStoreConfig } from './scaffold.js';
 import type {
   AppfileData,
   FastlaneLane,
@@ -32,30 +32,30 @@ import type {
   MigrationNoteLevel,
   MigrationResult,
   SupplyfileData,
-} from "./types.js";
+} from './types.js';
 
 /**
  * Read the first value of a fastlane directive written as `key "value"`, `key 'value'`, or `key("value")`.
  * `key` is always a fixed literal here, so the built regex is safe; an empty value reads as absent.
  */
 function rubyString(content: string, key: string): string | undefined {
-  const match = new RegExp(`^\\s*${key}\\s*\\(?\\s*["']([^"']*)["']`, "m").exec(content);
+  const match = new RegExp(`^\\s*${key}\\s*\\(?\\s*["']([^"']*)["']`, 'm').exec(content);
   const value = match?.[1];
-  return value === undefined || value === "" ? undefined : value;
+  return value === undefined || value === '' ? undefined : value;
 }
 
 /** Parse an `Appfile` into the identifiers fastlane shares across actions. */
 export function parseAppfile(content: string): AppfileData {
   const data: AppfileData = {};
-  const appIdentifier = rubyString(content, "app_identifier");
+  const appIdentifier = rubyString(content, 'app_identifier');
   if (appIdentifier) data.appIdentifier = appIdentifier;
-  const appleId = rubyString(content, "apple_id");
+  const appleId = rubyString(content, 'apple_id');
   if (appleId) data.appleId = appleId;
-  const teamId = rubyString(content, "team_id");
+  const teamId = rubyString(content, 'team_id');
   if (teamId) data.teamId = teamId;
-  const itcTeamId = rubyString(content, "itc_team_id");
+  const itcTeamId = rubyString(content, 'itc_team_id');
   if (itcTeamId) data.itcTeamId = itcTeamId;
-  const packageName = rubyString(content, "package_name");
+  const packageName = rubyString(content, 'package_name');
   if (packageName) data.packageName = packageName;
   return data;
 }
@@ -63,13 +63,13 @@ export function parseAppfile(content: string): AppfileData {
 /** Parse a `Matchfile` into `match`'s signing strategy (all of which Launch replaces with its own). */
 export function parseMatchfile(content: string): MatchfileData {
   const data: MatchfileData = {};
-  const gitUrl = rubyString(content, "git_url");
+  const gitUrl = rubyString(content, 'git_url');
   if (gitUrl) data.gitUrl = gitUrl;
-  const type = rubyString(content, "type");
+  const type = rubyString(content, 'type');
   if (type) data.type = type;
-  const storageMode = rubyString(content, "storage_mode");
+  const storageMode = rubyString(content, 'storage_mode');
   if (storageMode) data.storageMode = storageMode;
-  const appIdentifier = rubyString(content, "app_identifier");
+  const appIdentifier = rubyString(content, 'app_identifier');
   if (appIdentifier) data.appIdentifier = appIdentifier;
   return data;
 }
@@ -77,33 +77,33 @@ export function parseMatchfile(content: string): MatchfileData {
 /** Parse a `Supplyfile` into `supply`'s Play upload defaults. */
 export function parseSupplyfile(content: string): SupplyfileData {
   const data: SupplyfileData = {};
-  const packageName = rubyString(content, "package_name");
+  const packageName = rubyString(content, 'package_name');
   if (packageName) data.packageName = packageName;
-  const jsonKey = rubyString(content, "json_key");
+  const jsonKey = rubyString(content, 'json_key');
   if (jsonKey) data.jsonKey = jsonKey;
-  const track = rubyString(content, "track");
+  const track = rubyString(content, 'track');
   if (track) data.track = track;
   return data;
 }
 
 /** The fastlane actions Launch recognizes, mapped to its own commands in the report (see {@link ACTION_NOTES}). */
 const KNOWN_ACTIONS = [
-  "build_app",
-  "gym",
-  "upload_to_testflight",
-  "pilot",
-  "upload_to_app_store",
-  "deliver",
-  "supply",
-  "upload_to_play_store",
-  "match",
-  "sync_code_signing",
-  "cert",
-  "sigh",
-  "get_certificates",
-  "get_provisioning_profile",
-  "capture_screenshots",
-  "snapshot",
+  'build_app',
+  'gym',
+  'upload_to_testflight',
+  'pilot',
+  'upload_to_app_store',
+  'deliver',
+  'supply',
+  'upload_to_play_store',
+  'match',
+  'sync_code_signing',
+  'cert',
+  'sigh',
+  'get_certificates',
+  'get_provisioning_profile',
+  'capture_screenshots',
+  'snapshot',
 ];
 
 /** Whether a recognized action appears as a whole word in `text`. KNOWN_ACTIONS are `\w`-only, so the pattern is safe. */
@@ -154,14 +154,14 @@ export function parseFastfile(content: string): { lanes: FastlaneLane[]; actions
  * to avoid re-reading a scaffold. Empty when the project has no fastlane dotenv setup.
  */
 function discoverDotenvKeys(dir: string): string[] {
-  const fastlaneDir = join(dir, "fastlane");
+  const fastlaneDir = join(dir, 'fastlane');
   if (!existsSync(fastlaneDir)) return [];
   const keys = new Set<string>();
   for (const name of readdirSync(fastlaneDir)) {
-    if (!name.startsWith(".env") || name === ".env.example" || name === ".env.sample") continue;
+    if (!name.startsWith('.env') || name === '.env.example' || name === '.env.sample') continue;
     const path = join(fastlaneDir, name);
     if (!statSync(path).isFile()) continue;
-    for (const line of readFileSync(path, "utf8").split("\n")) {
+    for (const line of readFileSync(path, 'utf8').split('\n')) {
       const match = /^\s*(?:export\s+)?([A-Za-z_]\w*)\s*=/.exec(line);
       if (match?.[1]) keys.add(match[1]);
     }
@@ -171,20 +171,21 @@ function discoverDotenvKeys(dir: string): string[] {
 
 /** Read a fastlane file from `<dir>/fastlane/<name>` (the convention) or `<dir>/<name>`, or undefined. */
 function readFastlaneFile(dir: string, name: string): string | undefined {
-  for (const candidate of [join(dir, "fastlane", name), join(dir, name)]) {
-    if (existsSync(candidate)) return readFileSync(candidate, "utf8");
+  for (const candidate of [join(dir, 'fastlane', name), join(dir, name)]) {
+    if (existsSync(candidate)) return readFileSync(candidate, 'utf8');
   }
   return undefined;
 }
 
 /** Read and parse every fastlane file present under `dir`; null when the project has no fastlane setup. */
 export function readFastlaneSetup(dir: string): FastlaneSetup | null {
-  const appfileRaw = readFastlaneFile(dir, "Appfile");
-  const fastfileRaw = readFastlaneFile(dir, "Fastfile");
-  const matchfileRaw = readFastlaneFile(dir, "Matchfile");
-  const supplyfileRaw = readFastlaneFile(dir, "Supplyfile");
-  const deliverfileRaw = readFastlaneFile(dir, "Deliverfile");
-  if (!appfileRaw && !fastfileRaw && !matchfileRaw && !supplyfileRaw && !deliverfileRaw) return null;
+  const appfileRaw = readFastlaneFile(dir, 'Appfile');
+  const fastfileRaw = readFastlaneFile(dir, 'Fastfile');
+  const matchfileRaw = readFastlaneFile(dir, 'Matchfile');
+  const supplyfileRaw = readFastlaneFile(dir, 'Supplyfile');
+  const deliverfileRaw = readFastlaneFile(dir, 'Deliverfile');
+  if (!appfileRaw && !fastfileRaw && !matchfileRaw && !supplyfileRaw && !deliverfileRaw)
+    return null;
 
   const fastfile = fastfileRaw ? parseFastfile(fastfileRaw) : { lanes: [], actions: [] };
   const setup: FastlaneSetup = {
@@ -208,32 +209,45 @@ interface ActionNote {
 
 /** Map recognized fastlane actions to the Launch command that replaces them. */
 const ACTION_NOTES: ActionNote[] = [
-  { actions: ["build_app", "gym"], level: "mapped", message: "fastlane built with gym/build_app → `launch build`." },
   {
-    actions: ["upload_to_testflight", "pilot"],
-    level: "mapped",
-    message: "fastlane uploaded to TestFlight (pilot) → `launch release` on the testing track.",
+    actions: ['build_app', 'gym'],
+    level: 'mapped',
+    message: 'fastlane built with gym/build_app → `launch build`.',
   },
   {
-    actions: ["upload_to_app_store", "deliver"],
-    level: "mapped",
-    message: "fastlane released with deliver → `launch release` plus `launch metadata` for the listing.",
+    actions: ['upload_to_testflight', 'pilot'],
+    level: 'mapped',
+    message: 'fastlane uploaded to TestFlight (pilot) → `launch release` on the testing track.',
   },
   {
-    actions: ["supply", "upload_to_play_store"],
-    level: "mapped",
-    message: "fastlane uploaded to Play (supply) → `launch release` (Android) plus `launch metadata`.",
+    actions: ['upload_to_app_store', 'deliver'],
+    level: 'mapped',
+    message:
+      'fastlane released with deliver → `launch release` plus `launch metadata` for the listing.',
   },
   {
-    actions: ["match", "sync_code_signing", "cert", "sigh", "get_certificates", "get_provisioning_profile"],
-    level: "manual",
+    actions: ['supply', 'upload_to_play_store'],
+    level: 'mapped',
+    message:
+      'fastlane uploaded to Play (supply) → `launch release` (Android) plus `launch metadata`.',
+  },
+  {
+    actions: [
+      'match',
+      'sync_code_signing',
+      'cert',
+      'sigh',
+      'get_certificates',
+      'get_provisioning_profile',
+    ],
+    level: 'manual',
     message:
       "fastlane managed signing (match/cert/sigh) → Launch provisions and stores its own certificates in the OS keychain (see `launch explain code-signing`); you don't carry these over.",
   },
   {
-    actions: ["capture_screenshots", "snapshot"],
-    level: "manual",
-    message: "fastlane captured screenshots — upload them with your listing via `launch metadata`.",
+    actions: ['capture_screenshots', 'snapshot'],
+    level: 'manual',
+    message: 'fastlane captured screenshots — upload them with your listing via `launch metadata`.',
   },
 ];
 
@@ -243,14 +257,14 @@ const ACTION_NOTES: ActionNote[] = [
  * {@link ACTION_NOTES} rather than per lane, so they're deliberately absent.
  */
 const ACTION_COMMAND: Record<string, string> = {
-  build_app: "launch build",
-  gym: "launch build",
-  upload_to_testflight: "launch release --track testing",
-  pilot: "launch release --track testing",
-  upload_to_app_store: "launch release",
-  deliver: "launch release",
-  supply: "launch release (Android)",
-  upload_to_play_store: "launch release (Android)",
+  build_app: 'launch build',
+  gym: 'launch build',
+  upload_to_testflight: 'launch release --track testing',
+  pilot: 'launch release --track testing',
+  upload_to_app_store: 'launch release',
+  deliver: 'launch release',
+  supply: 'launch release (Android)',
+  upload_to_play_store: 'launch release (Android)',
 };
 
 /** The distinct Launch commands a lane's actions map to, in first-seen order (empty for a custom/signing-only lane). */
@@ -276,15 +290,15 @@ function laneNotes(lanes: FastlaneLane[]): MigrationNote[] {
     const commands = laneCommands(lane);
     if (commands.length > 0) {
       const label = lane.platform ? `lane :${lane.name} (${lane.platform})` : `lane :${lane.name}`;
-      notes.push({ level: "mapped", message: `${label} → ${commands.join(" + ")}.` });
+      notes.push({ level: 'mapped', message: `${label} → ${commands.join(' + ')}.` });
     } else if (lane.actions.length === 0) {
       custom.push(lane.name);
     }
   }
   if (custom.length > 0) {
     notes.push({
-      level: "manual",
-      message: `Custom lanes (${custom.join(", ")}) had no recognized actions — Launch replaces lanes with \`launch build\`, \`launch release\`, and \`launch metadata\`; recreate these by hand.`,
+      level: 'manual',
+      message: `Custom lanes (${custom.join(', ')}) had no recognized actions — Launch replaces lanes with \`launch build\`, \`launch release\`, and \`launch metadata\`; recreate these by hand.`,
     });
   }
   return notes;
@@ -295,7 +309,11 @@ function laneNotes(lanes: FastlaneLane[]): MigrationNote[] {
  * facts as info. When `importedMetadata` is true the listing was imported from `fastlane/metadata`, so the
  * Deliverfile follow-up (which points at `launch metadata pull`) is suppressed as already done.
  */
-function buildNotes(setup: FastlaneSetup, apps: AppDescriptor[], importedMetadata: boolean): MigrationNote[] {
+function buildNotes(
+  setup: FastlaneSetup,
+  apps: AppDescriptor[],
+  importedMetadata: boolean,
+): MigrationNote[] {
   const notes: MigrationNote[] = [...laneNotes(setup.lanes)];
 
   for (const mapping of ACTION_NOTES) {
@@ -311,12 +329,12 @@ function buildNotes(setup: FastlaneSetup, apps: AppDescriptor[], importedMetadat
     if (setup.matchfile.gitUrl) parts.push(`repo ${setup.matchfile.gitUrl}`);
     if (parts.length > 0) {
       const backend =
-        setup.matchfile.storageMode && setup.matchfile.storageMode !== "git"
+        setup.matchfile.storageMode && setup.matchfile.storageMode !== 'git'
           ? ` Your certificates live in ${setup.matchfile.storageMode}, not git — Launch doesn't read them; it provisions fresh.`
-          : "";
+          : '';
       notes.push({
-        level: "info",
-        message: `Matchfile signing config detected (${parts.join(", ")}) — informational; Launch uses its own signing.${backend}`,
+        level: 'info',
+        message: `Matchfile signing config detected (${parts.join(', ')}) — informational; Launch uses its own signing.${backend}`,
       });
     }
   }
@@ -324,14 +342,14 @@ function buildNotes(setup: FastlaneSetup, apps: AppDescriptor[], importedMetadat
   const appfile = setup.appfile;
   if (appfile?.appleId || appfile?.teamId || appfile?.itcTeamId) {
     notes.push({
-      level: "manual",
+      level: 'manual',
       message:
-        "Appfile carried Apple account details (apple_id/team_id) — configure your Apple API key with `launch creds set-key`.",
+        'Appfile carried Apple account details (apple_id/team_id) — configure your Apple API key with `launch creds set-key`.',
     });
   }
   if (appfile?.appIdentifier) {
     notes.push({
-      level: "info",
+      level: 'info',
       message: `Appfile app_identifier ${appfile.appIdentifier} — Launch reads the bundle id from app.json; nothing to write.`,
     });
   }
@@ -339,34 +357,35 @@ function buildNotes(setup: FastlaneSetup, apps: AppDescriptor[], importedMetadat
   const supply = setup.supply;
   if (supply?.jsonKey) {
     notes.push({
-      level: "manual",
+      level: 'manual',
       message: `Supplyfile referenced a Play service-account key (${supply.jsonKey}) — configure it with \`launch creds\`.`,
     });
   }
   if (supply?.track) {
     notes.push({
-      level: "manual",
+      level: 'manual',
       message: `Supplyfile default Play track "${supply.track}" — set it as \`track\` on a profile in launch.config.ts.`,
     });
   }
 
   if (setup.hasDeliverfile && !importedMetadata) {
     notes.push({
-      level: "manual",
-      message: "Deliverfile configured App Store metadata — import your live listing with `launch metadata pull`.",
+      level: 'manual',
+      message:
+        'Deliverfile configured App Store metadata — import your live listing with `launch metadata pull`.',
     });
   }
 
   for (const app of apps) {
     if (app.bundleId) {
       notes.push({
-        level: "info",
+        level: 'info',
         message: `Detected iOS bundle id ${app.bundleId} for "${app.name}" — read from app.json; nothing to write.`,
       });
     }
     if (app.packageName) {
       notes.push({
-        level: "info",
+        level: 'info',
         message: `Detected Android package ${app.packageName} for "${app.name}" — read from app.json; nothing to write.`,
       });
     }
@@ -381,9 +400,11 @@ function buildNotes(setup: FastlaneSetup, apps: AppDescriptor[], importedMetadat
  * the exact layouts `storeConfig.ts` already reads — so this reuses those readers rather than re-parsing.
  * Returns null when neither folder holds any localized text (nothing to import).
  */
-function importFastlaneMetadata(cwd: string): { artifact: MigrationArtifact; note: MigrationNote } | null {
-  const apple = readAppleMetadataDir(join(cwd, "fastlane", "metadata"));
-  const android = readAndroidMetadataDir(join(cwd, "fastlane", "metadata", "android"));
+function importFastlaneMetadata(
+  cwd: string,
+): { artifact: MigrationArtifact; note: MigrationNote } | null {
+  const apple = readAppleMetadataDir(join(cwd, 'fastlane', 'metadata'));
+  const android = readAndroidMetadataDir(join(cwd, 'fastlane', 'metadata', 'android'));
   const appleLocales = Object.keys(apple.info).length;
   const androidLocales = Object.keys(android.info).length;
   if (appleLocales === 0 && androidLocales === 0) return null;
@@ -399,10 +420,10 @@ function importFastlaneMetadata(cwd: string): { artifact: MigrationArtifact; not
     imported.push(`${androidLocales} Play locale(s)`);
   }
   return {
-    artifact: { path: "store.config.json", contents: serializeStoreConfig(config) },
+    artifact: { path: 'store.config.json', contents: serializeStoreConfig(config) },
     note: {
-      level: "mapped",
-      message: `Imported your fastlane metadata (${imported.join(", ")}) into store.config.json — review it, then push with \`launch metadata push\`.`,
+      level: 'mapped',
+      message: `Imported your fastlane metadata (${imported.join(', ')}) into store.config.json — review it, then push with \`launch metadata push\`.`,
     },
   };
 }
@@ -424,15 +445,15 @@ export function migrateFastlane(cwd: string, apps: AppDescriptor[]): MigrationRe
   }
 
   const artifacts: MigrationArtifact[] = [
-    { path: "launch.config.ts", contents: configTemplate(detectAppRoot(apps, cwd)) },
-    { path: ".env.example", contents: buildEnvExample(setup.envKeys) },
+    { path: 'launch.config.ts', contents: configTemplate(detectAppRoot(apps, cwd)) },
+    { path: '.env.example', contents: buildEnvExample(setup.envKeys) },
   ];
 
-  const imported = existsSync(join(cwd, "store.config.json")) ? null : importFastlaneMetadata(cwd);
+  const imported = existsSync(join(cwd, 'store.config.json')) ? null : importFastlaneMetadata(cwd);
   const store = imported ?? scaffoldStoreConfig(cwd);
   const notes = buildNotes(setup, apps, imported !== null);
   if (store.artifact) artifacts.push(store.artifact);
   notes.push(store.note);
 
-  return { source: "fastlane", artifacts, notes };
+  return { source: 'fastlane', artifacts, notes };
 }

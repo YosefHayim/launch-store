@@ -9,11 +9,12 @@
  * be over-engineering. Everything here is string-in / data-out, so the reconcile stays unit-testable.
  */
 
-import { asRecord } from "../json.js";
-import type { PrivacySurface } from "./types.js";
+import { asRecord } from '../json.js';
+import type { PrivacySurface } from './types.js';
 
 /** `<key>NS…UsageDescription</key>` with its `<string>` value — captures empty and self-closing values too. */
-const USAGE_DESCRIPTION_RE = /<key>(NS\w*UsageDescription)<\/key>\s*(?:<string>([^<]*)<\/string>|<string\s*\/>)/g;
+const USAGE_DESCRIPTION_RE =
+  /<key>(NS\w*UsageDescription)<\/key>\s*(?:<string>([^<]*)<\/string>|<string\s*\/>)/g;
 
 /** De-duplicate while preserving first-seen order. */
 function unique(values: string[]): string[] {
@@ -32,7 +33,7 @@ export function parseUsageDescriptions(plistXml: string): Record<string, string>
   const usage: Record<string, string> = {};
   for (const match of plistXml.matchAll(USAGE_DESCRIPTION_RE)) {
     const [, key, value] = match;
-    if (key) usage[key] = (value ?? "").trim();
+    if (key) usage[key] = (value ?? '').trim();
   }
   return usage;
 }
@@ -43,11 +44,15 @@ export function parsePrivacyManifest(xml: string): {
   tracking: boolean;
   trackingDomains: string[];
 } {
-  const collectedDataTypes = [...xml.matchAll(/<key>NSPrivacyCollectedDataType<\/key>\s*<string>([^<]+)<\/string>/g)]
+  const collectedDataTypes = [
+    ...xml.matchAll(/<key>NSPrivacyCollectedDataType<\/key>\s*<string>([^<]+)<\/string>/g),
+  ]
     .map((match) => match[1])
     .filter((v): v is string => Boolean(v));
   const tracking = /<key>NSPrivacyTracking<\/key>\s*<true\s*\/>/.test(xml);
-  const domainsBlock = /<key>NSPrivacyTrackingDomains<\/key>\s*<array>([\s\S]*?)<\/array>/.exec(xml)?.[1];
+  const domainsBlock = /<key>NSPrivacyTrackingDomains<\/key>\s*<array>([\s\S]*?)<\/array>/.exec(
+    xml,
+  )?.[1];
   return {
     collectedDataTypes: unique(collectedDataTypes),
     tracking,
@@ -66,7 +71,9 @@ export function parseAndroidPermissions(manifestXml: string): string[] {
 
 /** Read a string-array field, dropping non-strings; `[]` when absent or the wrong type. */
 function stringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === 'string')
+    : [];
 }
 
 /** Pull the `NSPrivacyCollectedDataType` id out of each entry of an `NSPrivacyCollectedDataTypes` array. */
@@ -74,8 +81,8 @@ function collectedDataTypesFrom(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   const types: string[] = [];
   for (const entry of value) {
-    const type = asRecord(entry)?.["NSPrivacyCollectedDataType"];
-    if (typeof type === "string") types.push(type);
+    const type = asRecord(entry)?.['NSPrivacyCollectedDataType'];
+    if (typeof type === 'string') types.push(type);
   }
   return unique(types);
 }
@@ -104,7 +111,8 @@ export function surfaceFromNative(files: {
   }
 
   const androidPermissions: string[] = [];
-  for (const xml of files.androidManifests) androidPermissions.push(...parseAndroidPermissions(xml));
+  for (const xml of files.androidManifests)
+    androidPermissions.push(...parseAndroidPermissions(xml));
 
   return {
     usageDescriptions,
@@ -122,22 +130,25 @@ export function surfaceFromNative(files: {
  * `ios.privacyManifests`, and permissions from `android.permissions`.
  */
 export function surfaceFromExpoConfig(config: Record<string, unknown>): PrivacySurface {
-  const expo = asRecord(config["expo"]) ?? config;
-  const ios = asRecord(expo["ios"]) ?? {};
-  const android = asRecord(expo["android"]) ?? {};
+  const expo = asRecord(config['expo']) ?? config;
+  const ios = asRecord(expo['ios']) ?? {};
+  const android = asRecord(expo['android']) ?? {};
 
   const usageDescriptions: Record<string, string> = {};
-  for (const [key, value] of Object.entries(asRecord(ios["infoPlist"]) ?? {})) {
-    if (/^NS\w*UsageDescription$/.test(key) && typeof value === "string") usageDescriptions[key] = value.trim();
+  for (const [key, value] of Object.entries(asRecord(ios['infoPlist']) ?? {})) {
+    if (/^NS\w*UsageDescription$/.test(key) && typeof value === 'string')
+      usageDescriptions[key] = value.trim();
   }
 
-  const manifests = asRecord(ios["privacyManifests"]);
+  const manifests = asRecord(ios['privacyManifests']);
   return {
     usageDescriptions,
     hasManifest: manifests !== null,
-    collectedDataTypes: manifests ? collectedDataTypesFrom(manifests["NSPrivacyCollectedDataTypes"]) : [],
-    tracking: manifests?.["NSPrivacyTracking"] === true,
-    trackingDomains: manifests ? unique(stringArray(manifests["NSPrivacyTrackingDomains"])) : [],
-    androidPermissions: unique(stringArray(android["permissions"])),
+    collectedDataTypes: manifests
+      ? collectedDataTypesFrom(manifests['NSPrivacyCollectedDataTypes'])
+      : [],
+    tracking: manifests?.['NSPrivacyTracking'] === true,
+    trackingDomains: manifests ? unique(stringArray(manifests['NSPrivacyTrackingDomains'])) : [],
+    androidPermissions: unique(stringArray(android['permissions'])),
   };
 }

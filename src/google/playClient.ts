@@ -18,16 +18,16 @@
  * @see https://developers.google.com/android-publisher
  */
 
-import { ServiceAccountTokenSource } from "./serviceAccountToken.js";
+import { ServiceAccountTokenSource } from './serviceAccountToken.js';
 
-const BASE_URL = "https://androidpublisher.googleapis.com/androidpublisher/v3";
-const OAUTH_SCOPE = "https://www.googleapis.com/auth/androidpublisher";
+const BASE_URL = 'https://androidpublisher.googleapis.com/androidpublisher/v3';
+const OAUTH_SCOPE = 'https://www.googleapis.com/auth/androidpublisher';
 /**
  * Region snapshot the subscriptions monetization API pins prices against — a required query parameter on
  * every subscription/offer write. `2022/02` is Google's current published version; bump it here if Google
  * retires it (the API rejects an unsupported value with an actionable message).
  */
-const REGIONS_VERSION = "2022/02";
+const REGIONS_VERSION = '2022/02';
 
 /**
  * The fields Launch reads out of a Play service-account JSON key.
@@ -262,7 +262,7 @@ export class PlayAppNotFoundError extends Error {
       `No reachable Play app for ${packageName} — ${detail}. Create it once in Play Console ` +
         `(the API can't), and grant the service account access under Users & Permissions.`,
     );
-    this.name = "PlayAppNotFoundError";
+    this.name = 'PlayAppNotFoundError';
   }
 }
 
@@ -348,7 +348,11 @@ interface RawConvertRegionPricesResponse {
 
 /** Coerce a wire {@link RawMoney} into a {@link PlayMoneyUnits}, defaulting missing parts to zero. */
 function normalizeMoney(money: RawMoney | undefined): PlayMoneyUnits {
-  return { currencyCode: money?.currencyCode ?? "", units: money?.units ?? "0", nanos: money?.nanos ?? 0 };
+  return {
+    currencyCode: money?.currencyCode ?? '',
+    units: money?.units ?? '0',
+    nanos: money?.nanos ?? 0,
+  };
 }
 
 /**
@@ -363,21 +367,26 @@ export function parseServiceAccount(json: string): ServiceAccount {
   try {
     raw = JSON.parse(json) as Record<string, unknown>;
   } catch {
-    throw new Error("Service-account key is not valid JSON. Pass the JSON file Google Cloud issued.");
+    throw new Error(
+      'Service-account key is not valid JSON. Pass the JSON file Google Cloud issued.',
+    );
   }
-  const clientEmail = typeof raw["client_email"] === "string" ? raw["client_email"] : "";
-  const privateKey = typeof raw["private_key"] === "string" ? raw["private_key"] : "";
+  const clientEmail = typeof raw['client_email'] === 'string' ? raw['client_email'] : '';
+  const privateKey = typeof raw['private_key'] === 'string' ? raw['private_key'] : '';
   if (!clientEmail || !privateKey) {
     throw new Error(
-      "Service-account key is missing `client_email`/`private_key`. Use a Google Cloud service-account " +
-        "JSON key (not an OAuth client or an API key).",
+      'Service-account key is missing `client_email`/`private_key`. Use a Google Cloud service-account ' +
+        'JSON key (not an OAuth client or an API key).',
     );
   }
   return {
     clientEmail,
     privateKey,
-    tokenUri: typeof raw["token_uri"] === "string" ? raw["token_uri"] : "https://oauth2.googleapis.com/token",
-    ...(typeof raw["private_key_id"] === "string" ? { privateKeyId: raw["private_key_id"] } : {}),
+    tokenUri:
+      typeof raw['token_uri'] === 'string'
+        ? raw['token_uri']
+        : 'https://oauth2.googleapis.com/token',
+    ...(typeof raw['private_key_id'] === 'string' ? { privateKeyId: raw['private_key_id'] } : {}),
   };
 }
 
@@ -400,36 +409,50 @@ export class GooglePlayClient {
       method,
       headers: {
         Authorization: `Bearer ${await this.tokens.token()}`,
-        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
     if (response.status === 204) return undefined as T;
     const text = await response.text();
     if (!response.ok) {
-      throw new Error(`Google Play ${method} ${path} failed (${response.status}): ${describePlayErrors(text)}`);
+      throw new Error(
+        `Google Play ${method} ${path} failed (${response.status}): ${describePlayErrors(text)}`,
+      );
     }
     return JSON.parse(text) as T;
   }
 
   /** Open a transactional edit (no changes committed); returns its id. A 404 means the app doesn't exist. */
   private async createEdit(packageName: string): Promise<string> {
-    const { id } = await this.request<{ id: string }>("POST", `/applications/${encodeURIComponent(packageName)}/edits`);
+    const { id } = await this.request<{ id: string }>(
+      'POST',
+      `/applications/${encodeURIComponent(packageName)}/edits`,
+    );
     return id;
   }
 
   /** Commit an edit, applying every change made inside it atomically. */
   private async commitEdit(packageName: string, editId: string): Promise<void> {
-    await this.request<unknown>("POST", `/applications/${encodeURIComponent(packageName)}/edits/${editId}:commit`);
+    await this.request<unknown>(
+      'POST',
+      `/applications/${encodeURIComponent(packageName)}/edits/${editId}:commit`,
+    );
   }
 
   /** Abandon an edit so no transaction is left dangling (best-effort; callers ignore failures). */
   private async deleteEdit(packageName: string, editId: string): Promise<void> {
-    await this.request<unknown>("DELETE", `/applications/${encodeURIComponent(packageName)}/edits/${editId}`);
+    await this.request<unknown>(
+      'DELETE',
+      `/applications/${encodeURIComponent(packageName)}/edits/${editId}`,
+    );
   }
 
   /** Open a throwaway edit for a read, run `read`, then always abandon it (reads never commit). */
-  private async withReadEdit<T>(packageName: string, read: (editId: string) => Promise<T>): Promise<T> {
+  private async withReadEdit<T>(
+    packageName: string,
+    read: (editId: string) => Promise<T>,
+  ): Promise<T> {
     const editId = await this.createEdit(packageName);
     try {
       return await read(editId);
@@ -464,7 +487,7 @@ export class GooglePlayClient {
   async getLatestVersionCode(packageName: string): Promise<number> {
     return this.withReadEdit(packageName, async (editId) => {
       const { bundles } = await this.request<{ bundles?: { versionCode?: number }[] }>(
-        "GET",
+        'GET',
         `/applications/${encodeURIComponent(packageName)}/edits/${editId}/bundles`,
       );
       const codes = (bundles ?? []).map((bundle) => bundle.versionCode ?? 0);
@@ -476,7 +499,7 @@ export class GooglePlayClient {
   async getTrackReleases(packageName: string, track: string): Promise<PlayRelease[]> {
     return this.withReadEdit(packageName, async (editId) => {
       const { releases } = await this.request<{ releases?: PlayRelease[] }>(
-        "GET",
+        'GET',
         `/applications/${encodeURIComponent(packageName)}/edits/${editId}/tracks/${encodeURIComponent(track)}`,
       );
       return releases ?? [];
@@ -487,7 +510,7 @@ export class GooglePlayClient {
   async listTracks(packageName: string): Promise<PlayTrackInfo[]> {
     return this.withReadEdit(packageName, async (editId) => {
       const { tracks } = await this.request<{ tracks?: PlayTrackInfo[] }>(
-        "GET",
+        'GET',
         `/applications/${encodeURIComponent(packageName)}/edits/${editId}/tracks`,
       );
       return tracks ?? [];
@@ -499,10 +522,14 @@ export class GooglePlayClient {
    * any prior release on the track, so a single new release is the standard payload. Transactional via
    * {@link withEdit}: a failure abandons the edit, leaving the live track untouched.
    */
-  async setTrackReleases(packageName: string, track: string, releases: PlayRelease[]): Promise<void> {
+  async setTrackReleases(
+    packageName: string,
+    track: string,
+    releases: PlayRelease[],
+  ): Promise<void> {
     await this.withEdit(packageName, async (editId) => {
       await this.request<unknown>(
-        "PUT",
+        'PUT',
         `/applications/${encodeURIComponent(packageName)}/edits/${editId}/tracks/${encodeURIComponent(track)}`,
         { track, releases },
       );
@@ -513,7 +540,7 @@ export class GooglePlayClient {
   async getTesters(packageName: string, track: string): Promise<string[]> {
     return this.withReadEdit(packageName, async (editId) => {
       const { googleGroups } = await this.request<{ googleGroups?: string[] }>(
-        "GET",
+        'GET',
         `/applications/${encodeURIComponent(packageName)}/edits/${editId}/testers/${encodeURIComponent(track)}`,
       );
       return googleGroups ?? [];
@@ -524,7 +551,7 @@ export class GooglePlayClient {
   async setTesters(packageName: string, track: string, googleGroups: string[]): Promise<void> {
     await this.withEdit(packageName, async (editId) => {
       await this.request<unknown>(
-        "PUT",
+        'PUT',
         `/applications/${encodeURIComponent(packageName)}/edits/${editId}/testers/${encodeURIComponent(track)}`,
         { googleGroups },
       );
@@ -532,14 +559,22 @@ export class GooglePlayClient {
   }
 
   /** Read a track's country availability. Read-only — Play exposes no API to change it. */
-  async getCountryAvailability(packageName: string, track: string): Promise<PlayCountryAvailability> {
+  async getCountryAvailability(
+    packageName: string,
+    track: string,
+  ): Promise<PlayCountryAvailability> {
     return this.withReadEdit(packageName, async (editId) => {
-      const availability = await this.request<{ restOfWorld?: boolean; countries?: { countryCode: string }[] }>(
-        "GET",
+      const availability = await this.request<{
+        restOfWorld?: boolean;
+        countries?: { countryCode: string }[];
+      }>(
+        'GET',
         `/applications/${encodeURIComponent(packageName)}/edits/${editId}/countryavailability/${encodeURIComponent(track)}`,
       );
       return {
-        ...(availability.restOfWorld === undefined ? {} : { restOfWorld: availability.restOfWorld }),
+        ...(availability.restOfWorld === undefined
+          ? {}
+          : { restOfWorld: availability.restOfWorld }),
         countries: availability.countries ?? [],
       };
     });
@@ -554,7 +589,10 @@ export class GooglePlayClient {
     try {
       editId = await this.createEdit(packageName);
     } catch (error) {
-      throw new PlayAppNotFoundError(packageName, error instanceof Error ? error.message : String(error));
+      throw new PlayAppNotFoundError(
+        packageName,
+        error instanceof Error ? error.message : String(error),
+      );
     }
     await this.deleteEdit(packageName, editId).catch(() => undefined);
   }
@@ -567,11 +605,11 @@ export class GooglePlayClient {
     const products: InAppProductResource[] = [];
     let token: string | undefined;
     do {
-      const query = token ? `?token=${encodeURIComponent(token)}` : "";
+      const query = token ? `?token=${encodeURIComponent(token)}` : '';
       const page = await this.request<{
         inappproduct?: InAppProductResource[];
         tokenPagination?: { nextPageToken?: string };
-      }>("GET", `/applications/${encodeURIComponent(packageName)}/inappproducts${query}`);
+      }>('GET', `/applications/${encodeURIComponent(packageName)}/inappproducts${query}`);
       products.push(...(page.inappproduct ?? []));
       token = page.tokenPagination?.nextPageToken;
     } while (token);
@@ -580,16 +618,20 @@ export class GooglePlayClient {
 
   /** Create a new in-app managed product (POST). The product's `sku` lives in the body. */
   async insertInAppProduct(packageName: string, product: InAppProductResource): Promise<void> {
-    await this.request<unknown>("POST", `/applications/${encodeURIComponent(packageName)}/inappproducts`, {
-      ...product,
-      packageName,
-    });
+    await this.request<unknown>(
+      'POST',
+      `/applications/${encodeURIComponent(packageName)}/inappproducts`,
+      {
+        ...product,
+        packageName,
+      },
+    );
   }
 
   /** Update an existing in-app managed product by SKU (PUT). */
   async updateInAppProduct(packageName: string, product: InAppProductResource): Promise<void> {
     await this.request<unknown>(
-      "PUT",
+      'PUT',
       `/applications/${encodeURIComponent(packageName)}/inappproducts/${encodeURIComponent(product.sku)}`,
       { ...product, packageName },
     );
@@ -610,19 +652,26 @@ export class GooglePlayClient {
   ): Promise<ConvertedPrices> {
     const body = productTaxCategoryCode ? { price, productTaxCategoryCode } : { price };
     const raw = await this.request<RawConvertRegionPricesResponse>(
-      "POST",
+      'POST',
       `/applications/${encodeURIComponent(packageName)}/pricing:convertRegionPrices`,
       body,
     );
     const regions = Object.values(raw.convertedRegionPrices ?? {})
-      .filter((entry): entry is RawConvertedRegionPrice & { regionCode: string } => Boolean(entry.regionCode))
+      .filter((entry): entry is RawConvertedRegionPrice & { regionCode: string } =>
+        Boolean(entry.regionCode),
+      )
       .map((entry) => ({ regionCode: entry.regionCode, price: normalizeMoney(entry.price) }))
       .sort((a, b) => a.regionCode.localeCompare(b.regionCode));
     const other = raw.convertedOtherRegionsPrice;
     return {
       regions,
       ...(other
-        ? { otherRegions: { usdPrice: normalizeMoney(other.usdPrice), eurPrice: normalizeMoney(other.eurPrice) } }
+        ? {
+            otherRegions: {
+              usdPrice: normalizeMoney(other.usdPrice),
+              eurPrice: normalizeMoney(other.eurPrice),
+            },
+          }
         : {}),
     };
   }
@@ -637,11 +686,11 @@ export class GooglePlayClient {
     const subscriptions: SubscriptionResource[] = [];
     let token: string | undefined;
     do {
-      const query = token ? `?pageToken=${encodeURIComponent(token)}` : "";
-      const page = await this.request<{ subscriptions?: SubscriptionResource[]; nextPageToken?: string }>(
-        "GET",
-        `${this.subscriptionsPath(packageName)}${query}`,
-      );
+      const query = token ? `?pageToken=${encodeURIComponent(token)}` : '';
+      const page = await this.request<{
+        subscriptions?: SubscriptionResource[];
+        nextPageToken?: string;
+      }>('GET', `${this.subscriptionsPath(packageName)}${query}`);
       subscriptions.push(...(page.subscriptions ?? []));
       token = page.nextPageToken;
     } while (token);
@@ -654,7 +703,7 @@ export class GooglePlayClient {
    */
   async createSubscription(packageName: string, subscription: SubscriptionResource): Promise<void> {
     const query = `?productId=${encodeURIComponent(subscription.productId)}&regionsVersion.version=${REGIONS_VERSION}`;
-    await this.request<unknown>("POST", `${this.subscriptionsPath(packageName)}${query}`, {
+    await this.request<unknown>('POST', `${this.subscriptionsPath(packageName)}${query}`, {
       ...subscription,
       packageName,
     });
@@ -665,19 +714,27 @@ export class GooglePlayClient {
    * The masked fields are *replaced* by what's in `subscription`, so the reconciler sends a merged value
    * (e.g. existing listings + the changed ones) to stay additive.
    */
-  async patchSubscription(packageName: string, subscription: SubscriptionResource, updateMask: string): Promise<void> {
+  async patchSubscription(
+    packageName: string,
+    subscription: SubscriptionResource,
+    updateMask: string,
+  ): Promise<void> {
     const query = `?updateMask=${encodeURIComponent(updateMask)}&regionsVersion.version=${REGIONS_VERSION}`;
     await this.request<unknown>(
-      "PATCH",
+      'PATCH',
       `${this.subscriptionsPath(packageName)}/${encodeURIComponent(subscription.productId)}${query}`,
       { ...subscription, packageName },
     );
   }
 
   /** Activate a base plan (DRAFT → ACTIVE), making it purchasable. Idempotent on an already-active plan. */
-  async activateBasePlan(packageName: string, productId: string, basePlanId: string): Promise<void> {
+  async activateBasePlan(
+    packageName: string,
+    productId: string,
+    basePlanId: string,
+  ): Promise<void> {
     await this.request<unknown>(
-      "POST",
+      'POST',
       `${this.subscriptionsPath(packageName)}/${encodeURIComponent(productId)}/basePlans/${encodeURIComponent(basePlanId)}:activate`,
       { packageName, productId, basePlanId },
     );
@@ -693,11 +750,11 @@ export class GooglePlayClient {
     const offers: SubscriptionOfferResource[] = [];
     let token: string | undefined;
     do {
-      const query = token ? `?pageToken=${encodeURIComponent(token)}` : "";
-      const page = await this.request<{ subscriptionOffers?: SubscriptionOfferResource[]; nextPageToken?: string }>(
-        "GET",
-        `${base}${query}`,
-      );
+      const query = token ? `?pageToken=${encodeURIComponent(token)}` : '';
+      const page = await this.request<{
+        subscriptionOffers?: SubscriptionOfferResource[];
+        nextPageToken?: string;
+      }>('GET', `${base}${query}`);
       offers.push(...(page.subscriptionOffers ?? []));
       token = page.nextPageToken;
     } while (token);
@@ -705,12 +762,15 @@ export class GooglePlayClient {
   }
 
   /** Create a subscription offer (in DRAFT — activate it separately). `regionsVersion.version` is required. */
-  async createSubscriptionOffer(packageName: string, offer: SubscriptionOfferResource): Promise<void> {
-    const productId = offer.productId ?? "";
-    const basePlanId = offer.basePlanId ?? "";
+  async createSubscriptionOffer(
+    packageName: string,
+    offer: SubscriptionOfferResource,
+  ): Promise<void> {
+    const productId = offer.productId ?? '';
+    const basePlanId = offer.basePlanId ?? '';
     const base = `${this.subscriptionsPath(packageName)}/${encodeURIComponent(productId)}/basePlans/${encodeURIComponent(basePlanId)}/offers`;
     const query = `?offerId=${encodeURIComponent(offer.offerId)}&regionsVersion.version=${REGIONS_VERSION}`;
-    await this.request<unknown>("POST", `${base}${query}`, { ...offer, packageName });
+    await this.request<unknown>('POST', `${base}${query}`, { ...offer, packageName });
   }
 
   /** Activate a subscription offer (DRAFT → ACTIVE), making it available. */
@@ -721,7 +781,7 @@ export class GooglePlayClient {
     offerId: string,
   ): Promise<void> {
     const base = `${this.subscriptionsPath(packageName)}/${encodeURIComponent(productId)}/basePlans/${encodeURIComponent(basePlanId)}/offers/${encodeURIComponent(offerId)}:activate`;
-    await this.request<unknown>("POST", base, { packageName, productId, basePlanId, offerId });
+    await this.request<unknown>('POST', base, { packageName, productId, basePlanId, offerId });
   }
 
   /**
@@ -729,18 +789,22 @@ export class GooglePlayClient {
    * asks Play to machine-translate review text into that BCP-47 language. Only reviews with text from the
    * last ~week are returned — a Play platform limit, not Launch's.
    */
-  async listReviews(packageName: string, options: { translationLanguage?: string } = {}): Promise<PlayReview[]> {
+  async listReviews(
+    packageName: string,
+    options: { translationLanguage?: string } = {},
+  ): Promise<PlayReview[]> {
     const reviews: PlayReview[] = [];
     let token: string | undefined;
     do {
       const params = new URLSearchParams();
-      if (options.translationLanguage) params.set("translationLanguage", options.translationLanguage);
-      if (token) params.set("token", token);
-      const query = params.toString() ? `?${params.toString()}` : "";
-      const page = await this.request<{ reviews?: RawReview[]; tokenPagination?: { nextPageToken?: string } }>(
-        "GET",
-        `/applications/${encodeURIComponent(packageName)}/reviews${query}`,
-      );
+      if (options.translationLanguage)
+        params.set('translationLanguage', options.translationLanguage);
+      if (token) params.set('token', token);
+      const query = params.toString() ? `?${params.toString()}` : '';
+      const page = await this.request<{
+        reviews?: RawReview[];
+        tokenPagination?: { nextPageToken?: string };
+      }>('GET', `/applications/${encodeURIComponent(packageName)}/reviews${query}`);
       for (const raw of page.reviews ?? []) reviews.push(normalizeReview(raw));
       token = page.tokenPagination?.nextPageToken;
     } while (token);
@@ -751,12 +815,12 @@ export class GooglePlayClient {
   async getReview(packageName: string, reviewId: string): Promise<PlayReview | null> {
     try {
       const raw = await this.request<RawReview>(
-        "GET",
+        'GET',
         `/applications/${encodeURIComponent(packageName)}/reviews/${encodeURIComponent(reviewId)}`,
       );
       return normalizeReview(raw);
     } catch (error) {
-      if (error instanceof Error && error.message.includes("(404)")) return null;
+      if (error instanceof Error && error.message.includes('(404)')) return null;
       throw error;
     }
   }
@@ -765,9 +829,15 @@ export class GooglePlayClient {
    * Post (or replace) the public developer reply to a review. Play's reply endpoint is an upsert — it
    * edits an existing reply in place — and only accepts reviews from the last ~week.
    */
-  async replyToReview(packageName: string, reviewId: string, replyText: string): Promise<PlayReplyResult> {
-    const response = await this.request<{ result?: { replyText?: string; lastEdited?: PlayTimestamp } }>(
-      "POST",
+  async replyToReview(
+    packageName: string,
+    reviewId: string,
+    replyText: string,
+  ): Promise<PlayReplyResult> {
+    const response = await this.request<{
+      result?: { replyText?: string; lastEdited?: PlayTimestamp };
+    }>(
+      'POST',
       `/applications/${encodeURIComponent(packageName)}/reviews/${encodeURIComponent(reviewId)}:reply`,
       { replyText },
     );
@@ -791,7 +861,9 @@ export function describePlayErrors(body: string): string {
     };
     const error = parsed.error;
     const message =
-      (typeof error === "string" ? error : (error?.message ?? error?.status)) ?? parsed.error_description ?? "";
+      (typeof error === 'string' ? error : (error?.message ?? error?.status)) ??
+      parsed.error_description ??
+      '';
     if (message) {
       if (/permission|sensitive|high.?risk|declaration/i.test(message)) {
         return `${message} — a sensitive/high-risk permission likely needs pre-approval (a Permissions Declaration) in Play Console before this release is accepted.`;
@@ -801,5 +873,5 @@ export function describePlayErrors(body: string): string {
   } catch {
     /* not JSON — fall through */
   }
-  return body.length > 0 ? body : "no response body";
+  return body.length > 0 ? body : 'no response body';
 }

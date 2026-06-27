@@ -1,4 +1,4 @@
-import { defineConfig } from "launch-store";
+import { defineConfig } from 'launch-store';
 
 /**
  * Launch configuration. App facts (bundle id, version) are read from each app.json — this file holds
@@ -6,19 +6,19 @@ import { defineConfig } from "launch-store";
  * are shown below as the defaults.
  */
 export default defineConfig({
-  appRoots: ["./examples"], // every app.json lives under here
+  appRoots: ['./examples'], // every app.json lives under here
 
-  credentials: "local", // macOS Keychain + ~/.launch (your own keys, cached locally)
-  storage: "local", // ~/.launch/artifacts (swap for s3/r2/supabase later)
-  buildEngine: "fastlane", // "fastlane" (local) · "remote-mac" (AWS EC2 Mac) · "eas" (Expo cloud)
+  credentials: 'local', // macOS Keychain + ~/.launch (your own keys, cached locally)
+  storage: 'local', // ~/.launch/artifacts (swap for s3/r2/supabase later)
+  buildEngine: 'fastlane', // "fastlane" (local) · "remote-mac" (AWS EC2 Mac) · "eas" (Expo cloud)
 
   // No Mac? Build remotely. Run `launch` (the wizard) or `launch cloud doctor`.
   // aws: { region: "us-east-1" }, // for `launch build ios --remote aws`
 
   profiles: {
     production: {
-      name: "production",
-      envFile: ".env", // dotenv loaded for this profile (validated against .env.example)
+      name: 'production',
+      envFile: '.env', // dotenv loaded for this profile (validated against .env.example)
       sizeBudgetMB: 200, // soft-gate: confirm before uploading a build over this download size
     },
   },

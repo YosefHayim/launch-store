@@ -19,18 +19,18 @@
  * satisfies it structurally.
  */
 
-import { gunzipSync } from "node:zlib";
+import { gunzipSync } from 'node:zlib';
 import type {
   AnalyticsReportInstanceResource,
   AnalyticsReportRequestResource,
   AnalyticsReportResource,
   AnalyticsReportSegmentResource,
-} from "../apple/ascClient.js";
-import { appRecordNotFound } from "./asc/storeSync.js";
+} from '../apple/ascClient.js';
+import { appRecordNotFound } from './asc/storeSync.js';
 
 /** Decompress a gzipped report body to its UTF-8 text (Apple delivers reports gzip-compressed). */
 export function decompressReport(bytes: Buffer): string {
-  return gunzipSync(bytes).toString("utf8");
+  return gunzipSync(bytes).toString('utf8');
 }
 
 /** A parsed tab-separated report: the header names and one object per data row keyed by header. */
@@ -46,17 +46,17 @@ export interface ParsedReport {
  */
 export function parseTsv(text: string): ParsedReport {
   const lines = text
-    .split("\n")
-    .map((line) => line.replace(/\r$/, ""))
+    .split('\n')
+    .map((line) => line.replace(/\r$/, ''))
     .filter((line) => line.length > 0);
   const headerLine = lines.shift();
   if (!headerLine) return { headers: [], rows: [] };
-  const headers = headerLine.split("\t");
+  const headers = headerLine.split('\t');
   const rows = lines.map((line) => {
-    const cells = line.split("\t");
+    const cells = line.split('\t');
     const row: Record<string, string> = {};
     headers.forEach((header, index) => {
-      row[header] = cells[index] ?? "";
+      row[header] = cells[index] ?? '';
     });
     return row;
   });
@@ -78,7 +78,11 @@ function parseYmd(date: string): number {
   const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
   const ms = Date.UTC(year, month - 1, day);
   const back = new Date(ms);
-  if (back.getUTCFullYear() !== year || back.getUTCMonth() !== month - 1 || back.getUTCDate() !== day) {
+  if (
+    back.getUTCFullYear() !== year ||
+    back.getUTCMonth() !== month - 1 ||
+    back.getUTCDate() !== day
+  ) {
     throw new Error(`Invalid calendar date "${date}".`);
   }
   return ms;
@@ -104,8 +108,14 @@ export function eachDate(from: string, to: string): string[] {
 /** The exact slice of {@link AppStoreConnectClient} the analytics walk depends on. */
 export interface AscReportsApi {
   getAppId(bundleId: string): Promise<string | null>;
-  listAnalyticsReportRequests(appId: string, accessType: string): Promise<AnalyticsReportRequestResource[]>;
-  createAnalyticsReportRequest(appId: string, accessType: string): Promise<AnalyticsReportRequestResource>;
+  listAnalyticsReportRequests(
+    appId: string,
+    accessType: string,
+  ): Promise<AnalyticsReportRequestResource[]>;
+  createAnalyticsReportRequest(
+    appId: string,
+    accessType: string,
+  ): Promise<AnalyticsReportRequestResource>;
   listAnalyticsReports(
     requestId: string,
     filters: { category?: string; name?: string },
@@ -196,7 +206,9 @@ export async function collectAnalyticsSegments(
 
   const downloads: SegmentDownload[] = [];
   for (const report of reports) {
-    const instanceFilters: { granularity?: string; processingDate?: string } = { granularity: query.granularity };
+    const instanceFilters: { granularity?: string; processingDate?: string } = {
+      granularity: query.granularity,
+    };
     if (query.processingDate) instanceFilters.processingDate = query.processingDate;
     const instances = await api.listAnalyticsReportInstances(report.id, instanceFilters);
     for (const instance of instances) {
@@ -204,9 +216,9 @@ export async function collectAnalyticsSegments(
       for (const segment of segments) {
         downloads.push({
           reportName: report.name,
-          category: report.category ?? "",
+          category: report.category ?? '',
           granularity: instance.granularity,
-          processingDate: instance.processingDate ?? "",
+          processingDate: instance.processingDate ?? '',
           url: segment.url,
           ...(segment.checksum ? { checksum: segment.checksum } : {}),
         });

@@ -9,14 +9,20 @@
  * Store Connect API expects on a `subscriptions` resource. There is no "lifetime" period; a one-off
  * unlock is an {@link InAppPurchaseConfig} of type `NON_CONSUMABLE`, not a subscription.
  */
-export type SubscriptionPeriod = "ONE_WEEK" | "ONE_MONTH" | "TWO_MONTHS" | "THREE_MONTHS" | "SIX_MONTHS" | "ONE_YEAR";
+export type SubscriptionPeriod =
+  | 'ONE_WEEK'
+  | 'ONE_MONTH'
+  | 'TWO_MONTHS'
+  | 'THREE_MONTHS'
+  | 'SIX_MONTHS'
+  | 'ONE_YEAR';
 
 /**
  * The kind of one-off in-app purchase, mirroring Apple's `inAppPurchaseType` on `inAppPurchasesV2`.
  * Auto-renewable subscriptions are deliberately NOT here — they live under {@link SubscriptionGroupConfig}
  * because Apple models them as a distinct resource with group-level mutual exclusivity.
  */
-export type InAppPurchaseType = "CONSUMABLE" | "NON_CONSUMABLE" | "NON_RENEWING_SUBSCRIPTION";
+export type InAppPurchaseType = 'CONSUMABLE' | 'NON_CONSUMABLE' | 'NON_RENEWING_SUBSCRIPTION';
 
 /**
  * One locale's customer-facing copy for a subscription or in-app purchase — the display name (and
@@ -66,34 +72,34 @@ export interface ProductPrice {
  * Who an offer is allowed to target, mirroring Apple's `customerEligibilities`: `NEW` (never
  * subscribed), `EXISTING` (currently subscribed), `EXPIRED` (previously subscribed, now lapsed).
  */
-export type OfferCustomerEligibility = "NEW" | "EXISTING" | "EXPIRED";
+export type OfferCustomerEligibility = 'NEW' | 'EXISTING' | 'EXPIRED';
 
 /**
  * Whether an offer stacks with or replaces the subscription's introductory offer
  * (Apple's `offerEligibility` on offer codes). `REPLACE_INTRO_OFFERS` is the common choice.
  */
-export type OfferEligibility = "STACK_WITH_INTRO_OFFERS" | "REPLACE_INTRO_OFFERS";
+export type OfferEligibility = 'STACK_WITH_INTRO_OFFERS' | 'REPLACE_INTRO_OFFERS';
 
 /**
  * One offer billing unit, mirroring Apple's `SubscriptionOfferDuration`. The offer lasts
  * {@link OfferConfigBase.numberOfPeriods} × this duration.
  */
 export type OfferDuration =
-  | "THREE_DAYS"
-  | "ONE_WEEK"
-  | "TWO_WEEKS"
-  | "ONE_MONTH"
-  | "TWO_MONTHS"
-  | "THREE_MONTHS"
-  | "SIX_MONTHS"
-  | "ONE_YEAR";
+  | 'THREE_DAYS'
+  | 'ONE_WEEK'
+  | 'TWO_WEEKS'
+  | 'ONE_MONTH'
+  | 'TWO_MONTHS'
+  | 'THREE_MONTHS'
+  | 'SIX_MONTHS'
+  | 'ONE_YEAR';
 
 /**
  * How an offer discounts, mirroring Apple's `SubscriptionOfferMode`: `PAY_AS_YOU_GO` (a reduced price
  * each period), `PAY_UP_FRONT` (one reduced price for the whole span), or `FREE_TRIAL` (no charge — and
  * so no {@link OfferPrice} is allowed).
  */
-export type OfferMode = "PAY_AS_YOU_GO" | "PAY_UP_FRONT" | "FREE_TRIAL";
+export type OfferMode = 'PAY_AS_YOU_GO' | 'PAY_UP_FRONT' | 'FREE_TRIAL';
 
 /**
  * One territory's discounted price for an offer, resolved to an Apple subscription price point exactly
@@ -195,9 +201,9 @@ export interface WinBackOfferConfig extends OfferConfigBase {
   /** ISO date (`YYYY-MM-DD`) the offer ends; omit for no end. */
   endDate?: string;
   /** Display priority among competing win-back offers. Defaults to `NORMAL`. */
-  priority?: "HIGH" | "NORMAL";
+  priority?: 'HIGH' | 'NORMAL';
   /** Whether Apple auto-generates promotion artwork (`USE_AUTO_GENERATED_ASSETS`) or the offer isn't promoted. */
-  promotionIntent?: "NOT_PROMOTED" | "USE_AUTO_GENERATED_ASSETS";
+  promotionIntent?: 'NOT_PROMOTED' | 'USE_AUTO_GENERATED_ASSETS';
 }
 
 /**

@@ -16,7 +16,12 @@
  * Recipes invoke `npx launch …`, which resolves the locally-installed binary after the bootstrap install.
  */
 
-import { BASE_CONTEXT, CONSUMER_SKILLS, CONTRIBUTOR_RULES, CONTRIBUTOR_SKILLS } from "./registry.js";
+import {
+  BASE_CONTEXT,
+  CONSUMER_SKILLS,
+  CONTRIBUTOR_RULES,
+  CONTRIBUTOR_SKILLS,
+} from './registry.js';
 import type {
   BaseContext,
   ConsumerSkill,
@@ -24,13 +29,13 @@ import type {
   ContributorSkill,
   GeneratedAgentFile,
   SkillStep,
-} from "./types.js";
+} from './types.js';
 
 /** The HTML-comment fences around the managed Launch section in a consumer's `AGENTS.md` / `CLAUDE.md`. */
-export const MANAGED_START = "<!-- launch:start -->";
+export const MANAGED_START = '<!-- launch:start -->';
 
 /** Closing fence for the managed Launch section; see {@link MANAGED_START}. */
-export const MANAGED_END = "<!-- launch:end -->";
+export const MANAGED_END = '<!-- launch:end -->';
 
 /** The version stamp line dropped into every consumer file so `launch agents check` can spot drift. */
 function stamp(version: string): string {
@@ -39,38 +44,38 @@ function stamp(version: string): string {
 
 /** Render one recipe step as a code-spanned `npx launch …` line plus its note. */
 function renderStep(step: SkillStep): string {
-  const command = ["npx", "launch", ...step.path, ...(step.args ?? [])].join(" ");
+  const command = ['npx', 'launch', ...step.path, ...(step.args ?? [])].join(' ');
   return `\`${command}\` — ${step.note}`;
 }
 
 /** Render a skill's reference catalog as a two-column markdown table. */
 function renderReferenceTable(commands: SkillStep[]): string {
   const rows = commands.map((step) => {
-    const command = ["npx", "launch", ...step.path, ...(step.args ?? [])].join(" ");
+    const command = ['npx', 'launch', ...step.path, ...(step.args ?? [])].join(' ');
     return `| \`${command}\` | ${step.note} |`;
   });
-  return ["| Command | What it does |", "| --- | --- |", ...rows].join("\n");
+  return ['| Command | What it does |', '| --- | --- |', ...rows].join('\n');
 }
 
 /** Render a bulleted "Use this when" list from a skill's triggers. */
 function renderTriggers(triggers: string[]): string {
-  return ["## Use this when", "", ...triggers.map((t) => `- ${t}`)].join("\n");
+  return ['## Use this when', '', ...triggers.map((t) => `- ${t}`)].join('\n');
 }
 
 /** Render a skill's numbered recipe. */
 function renderRecipe(steps: SkillStep[]): string {
-  return ["## Steps", "", ...steps.map((step, i) => `${i + 1}. ${renderStep(step)}`)].join("\n");
+  return ['## Steps', '', ...steps.map((step, i) => `${i + 1}. ${renderStep(step)}`)].join('\n');
 }
 
 /** Render a skill's cautions block, or `""` when it has none. */
 function renderCautions(cautions: string[] | undefined): string {
-  if (!cautions || cautions.length === 0) return "";
-  return ["## Cautions", "", ...cautions.map((c) => `- ${c}`)].join("\n");
+  if (!cautions || cautions.length === 0) return '';
+  return ['## Cautions', '', ...cautions.map((c) => `- ${c}`)].join('\n');
 }
 
 /** Join non-empty markdown chunks with blank lines, then end with a single trailing newline. */
 function joinSections(sections: string[]): string {
-  return `${sections.filter((s) => s.trim() !== "").join("\n\n")}\n`;
+  return `${sections.filter((s) => s.trim() !== '').join('\n\n')}\n`;
 }
 
 /**
@@ -78,11 +83,16 @@ function joinSections(sections: string[]): string {
  * the skill carries a {@link ConsumerSkill.reference} (large skills only — progressive disclosure). The
  * SKILL.md frontmatter is exactly `name` + `description`, Claude's two trigger fields.
  */
-export function renderClaudeSkillFiles(skill: ConsumerSkill, version: string): GeneratedAgentFile[] {
-  const frontmatter = ["---", `name: ${skill.id}`, `description: ${skill.description}`, "---"].join("\n");
+export function renderClaudeSkillFiles(
+  skill: ConsumerSkill,
+  version: string,
+): GeneratedAgentFile[] {
+  const frontmatter = ['---', `name: ${skill.id}`, `description: ${skill.description}`, '---'].join(
+    '\n',
+  );
   const referencePointer = skill.reference
-    ? "See [`reference.md`](./reference.md) for the full command surface across both stores."
-    : "";
+    ? 'See [`reference.md`](./reference.md) for the full command surface across both stores.'
+    : '';
   const body = joinSections([
     frontmatter,
     `# ${skill.title}`,
@@ -109,28 +119,28 @@ export function renderClaudeSkillFiles(skill: ConsumerSkill, version: string): G
 /** Render the EAS → Launch command map as a markdown table. */
 function renderCommandMap(base: BaseContext): string {
   const rows = base.commandMap.map((row) => `| \`${row.eas}\` | \`${row.launch}\` | ${row.note} |`);
-  return ["| EAS | Launch | Notes |", "| --- | --- | --- |", ...rows].join("\n");
+  return ['| EAS | Launch | Notes |', '| --- | --- | --- |', ...rows].join('\n');
 }
 
 /** Render the always-on base context as a sequence of markdown sections (shared by Cursor + AGENTS.md). */
 function renderBaseSections(base: BaseContext, headingLevel: number): string[] {
-  const h = "#".repeat(headingLevel);
+  const h = '#'.repeat(headingLevel);
   return [
     base.intro,
     `${h} EAS → Launch\n\n${renderCommandMap(base)}`,
-    `${h} Safety rails\n\n${base.rails.map((r) => `- ${r}`).join("\n")}`,
+    `${h} Safety rails\n\n${base.rails.map((r) => `- ${r}`).join('\n')}`,
     [
       `${h} What an agent may run vs must confirm`,
-      "",
-      "**Run freely (idempotent, reversible, or read-only):**",
-      "",
+      '',
+      '**Run freely (idempotent, reversible, or read-only):**',
+      '',
       ...base.guardrail.free.map((f) => `- ${f}`),
-      "",
-      "**Confirm with a human first (irreversible / public-facing):**",
-      "",
+      '',
+      '**Confirm with a human first (irreversible / public-facing):**',
+      '',
       ...base.guardrail.confirm.map((c) => `- ${c}`),
-    ].join("\n"),
-    `${h} Getting started\n\n${base.bootstrap.map((b) => `- ${b}`).join("\n")}`,
+    ].join('\n'),
+    `${h} Getting started\n\n${base.bootstrap.map((b) => `- ${b}`).join('\n')}`,
   ];
 }
 
@@ -138,15 +148,23 @@ function renderBaseSections(base: BaseContext, headingLevel: number): string[] {
  * Render the Cursor base rule (`.cursor/rules/launch.mdc`): `alwaysApply: true`, so Cursor always knows
  * this repo ships with Launch, how its commands map from EAS, and where the guardrails are.
  */
-export function renderCursorBaseRule(version: string, base: BaseContext = BASE_CONTEXT): GeneratedAgentFile {
+export function renderCursorBaseRule(
+  version: string,
+  base: BaseContext = BASE_CONTEXT,
+): GeneratedAgentFile {
   const frontmatter = [
-    "---",
-    "description: Launch — build, sign & ship this app to the App Store / Play (always-on context)",
-    "alwaysApply: true",
-    "---",
-  ].join("\n");
-  const body = joinSections([frontmatter, "# Launch", stamp(version), ...renderBaseSections(base, 2)]);
-  return { path: ".cursor/rules/launch.mdc", body };
+    '---',
+    'description: Launch — build, sign & ship this app to the App Store / Play (always-on context)',
+    'alwaysApply: true',
+    '---',
+  ].join('\n');
+  const body = joinSections([
+    frontmatter,
+    '# Launch',
+    stamp(version),
+    ...renderBaseSections(base, 2),
+  ]);
+  return { path: '.cursor/rules/launch.mdc', body };
 }
 
 /**
@@ -155,10 +173,15 @@ export function renderCursorBaseRule(version: string, base: BaseContext = BASE_C
  * large skill's reference catalog is flattened inline rather than split into a separate file.
  */
 export function renderCursorTaskRule(skill: ConsumerSkill, version: string): GeneratedAgentFile {
-  const frontmatter = ["---", `description: ${skill.description}`, "alwaysApply: false", "---"].join("\n");
+  const frontmatter = [
+    '---',
+    `description: ${skill.description}`,
+    'alwaysApply: false',
+    '---',
+  ].join('\n');
   const reference = skill.reference
     ? `## Command reference\n\n${skill.reference.intro}\n\n${renderReferenceTable(skill.reference.commands)}`
-    : "";
+    : '';
   const body = joinSections([
     frontmatter,
     `# ${skill.title}`,
@@ -176,17 +199,20 @@ export function renderCursorTaskRule(skill: ConsumerSkill, version: string): Gen
 function renderSkillSection(skill: ConsumerSkill): string {
   const parts = [
     `### ${skill.title}`,
-    `_Use when: ${skill.triggers.join("; ")}._`,
-    skill.steps.map((step, i) => `${i + 1}. ${renderStep(step)}`).join("\n"),
+    `_Use when: ${skill.triggers.join('; ')}._`,
+    skill.steps.map((step, i) => `${i + 1}. ${renderStep(step)}`).join('\n'),
     skill.body,
   ];
   if (skill.reference) {
-    parts.push(`**Command reference.** ${skill.reference.intro}`, renderReferenceTable(skill.reference.commands));
+    parts.push(
+      `**Command reference.** ${skill.reference.intro}`,
+      renderReferenceTable(skill.reference.commands),
+    );
   }
   if (skill.cautions && skill.cautions.length > 0) {
-    parts.push(`**Cautions:**\n${skill.cautions.map((c) => `- ${c}`).join("\n")}`);
+    parts.push(`**Cautions:**\n${skill.cautions.map((c) => `- ${c}`).join('\n')}`);
   }
-  return parts.filter((p) => p.trim() !== "").join("\n\n");
+  return parts.filter((p) => p.trim() !== '').join('\n\n');
 }
 
 /**
@@ -201,13 +227,13 @@ export function renderAgentsBlock(
   skills: ConsumerSkill[] = CONSUMER_SKILLS,
 ): string {
   const sections = [
-    "## Shipping this app with Launch",
+    '## Shipping this app with Launch',
     stamp(version),
     ...renderBaseSections(base, 3),
-    "### Common tasks",
-    skills.map(renderSkillSection).join("\n\n"),
+    '### Common tasks',
+    skills.map(renderSkillSection).join('\n\n'),
   ];
-  const inner = sections.filter((s) => s.trim() !== "").join("\n\n");
+  const inner = sections.filter((s) => s.trim() !== '').join('\n\n');
   return `${MANAGED_START}\n${inner}\n${MANAGED_END}`;
 }
 
@@ -216,15 +242,18 @@ export function renderAgentsBlock(
  * point at the task Skills. Always-on context for Claude lives in `CLAUDE.md` (loaded every session); the
  * task detail lives in the description-triggered Skills under `.claude/skills/`. Includes the fences.
  */
-export function renderClaudeMemoryBlock(version: string, skills: ConsumerSkill[] = CONSUMER_SKILLS): string {
-  const skillList = skills.map((s) => `\`${s.id}\``).join(", ");
+export function renderClaudeMemoryBlock(
+  version: string,
+  skills: ConsumerSkill[] = CONSUMER_SKILLS,
+): string {
+  const skillList = skills.map((s) => `\`${s.id}\``).join(', ');
   const inner = [
-    "## Launch",
+    '## Launch',
     stamp(version),
-    "This repo ships with **Launch** (build, sign & ship to the App Store / Play). The always-on context and the EAS → Launch map live in `AGENTS.md` — imported here:",
-    "@AGENTS.md",
+    'This repo ships with **Launch** (build, sign & ship to the App Store / Play). The always-on context and the EAS → Launch map live in `AGENTS.md` — imported here:',
+    '@AGENTS.md',
     `Task recipes are Claude Skills under \`.claude/skills/\` (${skillList}); reach for the one matching the request. Before any PUBLIC release (\`launch release\`), credential change, or applying a store reconcile to a live listing, confirm with the developer.`,
-  ].join("\n\n");
+  ].join('\n\n');
   return `${MANAGED_START}\n${inner}\n${MANAGED_END}`;
 }
 
@@ -240,8 +269,8 @@ export function spliceManagedBlock(existing: string, blockWithMarkers: string): 
   if (start !== -1 && end !== -1 && end > start) {
     return existing.slice(0, start) + blockWithMarkers + existing.slice(end + MANAGED_END.length);
   }
-  if (existing.trim() === "") return `${blockWithMarkers}\n`;
-  return `${existing.replace(/\n*$/, "")}\n\n${blockWithMarkers}\n`;
+  if (existing.trim() === '') return `${blockWithMarkers}\n`;
+  return `${existing.replace(/\n*$/, '')}\n\n${blockWithMarkers}\n`;
 }
 
 /**
@@ -250,15 +279,17 @@ export function spliceManagedBlock(existing: string, blockWithMarkers: string): 
  * the base rule. `AGENTS.md` stays the canonical prose these point back to.
  */
 export function renderContributorRule(rule: ContributorRule): GeneratedAgentFile {
-  const frontmatter = ["---", `description: ${rule.description}`];
-  if (rule.globs.length > 0) frontmatter.push(`globs: ${rule.globs.join(",")}`);
-  frontmatter.push(`alwaysApply: ${rule.alwaysApply}`, "---");
-  const body = `${frontmatter.join("\n")}\n\n${rule.body}\n`;
+  const frontmatter = ['---', `description: ${rule.description}`];
+  if (rule.globs.length > 0) frontmatter.push(`globs: ${rule.globs.join(',')}`);
+  frontmatter.push(`alwaysApply: ${rule.alwaysApply}`, '---');
+  const body = `${frontmatter.join('\n')}\n\n${rule.body}\n`;
   return { path: `.cursor/rules/${rule.file}.mdc`, body };
 }
 
 /** Render every committed contributor rule — the list `npm run docs:gen` writes and `docs:check` gates. */
-export function renderContributorRules(rules: ContributorRule[] = CONTRIBUTOR_RULES): GeneratedAgentFile[] {
+export function renderContributorRules(
+  rules: ContributorRule[] = CONTRIBUTOR_RULES,
+): GeneratedAgentFile[] {
   return rules.map(renderContributorRule);
 }
 
@@ -269,8 +300,10 @@ export function renderContributorRules(rules: ContributorRule[] = CONTRIBUTOR_RU
  * `npx launch …` lines a {@link ConsumerSkill} produces.
  */
 export function renderContributorSkill(skill: ContributorSkill): GeneratedAgentFile {
-  const frontmatter = ["---", `name: ${skill.id}`, `description: ${skill.description}`, "---"].join("\n");
-  const recipe = ["## Steps", "", ...skill.steps.map((step, i) => `${i + 1}. ${step}`)].join("\n");
+  const frontmatter = ['---', `name: ${skill.id}`, `description: ${skill.description}`, '---'].join(
+    '\n',
+  );
+  const recipe = ['## Steps', '', ...skill.steps.map((step, i) => `${i + 1}. ${step}`)].join('\n');
   const body = joinSections([
     frontmatter,
     `# ${skill.title}`,
@@ -283,6 +316,8 @@ export function renderContributorSkill(skill: ContributorSkill): GeneratedAgentF
 }
 
 /** Render every committed contributor skill — the list `npm run docs:gen` writes and `docs:check` gates. */
-export function renderContributorSkills(skills: ContributorSkill[] = CONTRIBUTOR_SKILLS): GeneratedAgentFile[] {
+export function renderContributorSkills(
+  skills: ContributorSkill[] = CONTRIBUTOR_SKILLS,
+): GeneratedAgentFile[] {
   return skills.map(renderContributorSkill);
 }

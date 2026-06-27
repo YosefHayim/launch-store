@@ -13,10 +13,10 @@
  * typed to the narrow slice it needs with no cast — function return-type covariance does the rest.
  */
 
-import { loadActiveAscKey } from "./accounts.js";
-import { AppStoreConnectClient } from "../apple/ascClient.js";
-import { GooglePlayClient, parseServiceAccount } from "../google/playClient.js";
-import { loadServiceAccount } from "../google/credentials.js";
+import { loadActiveAscKey } from './accounts.js';
+import { AppStoreConnectClient } from '../apple/ascClient.js';
+import { GooglePlayClient, parseServiceAccount } from '../google/playClient.js';
+import { loadServiceAccount } from '../google/credentials.js';
 
 /**
  * A memoized App Store Connect resolver: on first call it loads the active Apple key and constructs the

@@ -11,8 +11,8 @@
  * as `planned` and no write closure fires (see `docs/adr/0003-plan-drift.md`).
  */
 
-import type { PlannedAction } from "../../ascSync.js";
-import type { AppPlan, AscSurfacesApi, PlanContext, PlanDirection, SurfacePlan } from "../types.js";
+import type { PlannedAction } from '../../ascSync.js';
+import type { AppPlan, AscSurfacesApi, PlanContext, PlanDirection, SurfacePlan } from '../types.js';
 
 /**
  * How one per-app App Store surface plans itself.
@@ -26,7 +26,11 @@ export interface AppStoreSurfaceSpec<TConfig> {
   /** Resolve one app's desired-state config (typed section or sidecar), or `undefined` when none is declared. */
   configFor: (bundleId: string) => TConfig | undefined;
   /** Run the surface's reconciler in dry-run for one app. */
-  reconcile: (api: AscSurfacesApi, bundleId: string, config: TConfig) => Promise<{ actions: PlannedAction[] }>;
+  reconcile: (
+    api: AscSurfacesApi,
+    bundleId: string,
+    config: TConfig,
+  ) => Promise<{ actions: PlannedAction[] }>;
 }
 
 /**
@@ -44,16 +48,16 @@ export async function planAppStoreSurface<TConfig>(
     const config = spec.configFor(app.bundleId);
     return config === undefined ? [] : [{ app: app.name, bundleId: app.bundleId, config }];
   });
-  if (targets.length === 0) return { surface: spec.surface, store: "appstore", state: "omitted" };
+  if (targets.length === 0) return { surface: spec.surface, store: 'appstore', state: 'omitted' };
 
   const api = await ctx.resolveAscApi();
   if (!api) {
     return {
       surface: spec.surface,
-      store: "appstore",
-      state: "skipped",
-      reason: "no active Apple account",
-      hint: "run `launch creds set-key`",
+      store: 'appstore',
+      state: 'skipped',
+      reason: 'no active Apple account',
+      hint: 'run `launch creds set-key`',
     };
   }
 
@@ -72,7 +76,14 @@ export async function planAppStoreSurface<TConfig>(
       }
     }),
   );
-  return { surface: spec.surface, store: "appstore", state: "planned", scope: "app", direction: spec.direction, apps };
+  return {
+    surface: spec.surface,
+    store: 'appstore',
+    state: 'planned',
+    scope: 'app',
+    direction: spec.direction,
+    apps,
+  };
 }
 
 /**
@@ -98,18 +109,21 @@ export interface TeamSurfaceSpec<TConfig> {
  * (e.g. an API read failure) degrades to a `skipped` surface rather than aborting the whole plan run, so
  * the `--check` gate still refuses to certify it while plain `launch plan` keeps going.
  */
-export async function planTeamSurface<TConfig>(ctx: PlanContext, spec: TeamSurfaceSpec<TConfig>): Promise<SurfacePlan> {
+export async function planTeamSurface<TConfig>(
+  ctx: PlanContext,
+  spec: TeamSurfaceSpec<TConfig>,
+): Promise<SurfacePlan> {
   const config = spec.config();
-  if (config === undefined) return { surface: spec.surface, store: "appstore", state: "omitted" };
+  if (config === undefined) return { surface: spec.surface, store: 'appstore', state: 'omitted' };
 
   const api = await ctx.resolveAscApi();
   if (!api) {
     return {
       surface: spec.surface,
-      store: "appstore",
-      state: "skipped",
-      reason: "no active Apple account",
-      hint: "run `launch creds set-key`",
+      store: 'appstore',
+      state: 'skipped',
+      reason: 'no active Apple account',
+      hint: 'run `launch creds set-key`',
     };
   }
 
@@ -117,17 +131,17 @@ export async function planTeamSurface<TConfig>(ctx: PlanContext, spec: TeamSurfa
     const actions = await spec.reconcile(api, config);
     return {
       surface: spec.surface,
-      store: "appstore",
-      state: "planned",
-      scope: "team",
+      store: 'appstore',
+      state: 'planned',
+      scope: 'team',
       direction: spec.direction,
       actions,
     };
   } catch (error) {
     return {
       surface: spec.surface,
-      store: "appstore",
-      state: "skipped",
+      store: 'appstore',
+      state: 'skipped',
       reason: error instanceof Error ? error.message : String(error),
     };
   }

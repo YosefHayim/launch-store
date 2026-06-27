@@ -15,23 +15,37 @@
  * run — until `launch cloud teardown` releases the host. See `docs/plan-build-cache.md` (decision 7).
  */
 
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { randomBytes } from "node:crypto";
-import type { AscKey, SigningAssets, SizeReport, SubmitTarget, SshTarget } from "./types.js";
-import type { RemoteSigningBundle } from "../apple/credentials.js";
-import { ensureDir } from "./paths.js";
-import { rsyncUp, scpDown, scpUp, sshCapture, sshRun } from "./ssh.js";
-import { remoteToolchainPreflight } from "./toolchain.js";
-import { assertDeviceArtifact, exportOptionsPlist, parseThinningReport } from "../providers/build/fastlane.js";
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { randomBytes } from 'node:crypto';
+import type { AscKey, SigningAssets, SizeReport, SubmitTarget, SshTarget } from './types.js';
+import type { RemoteSigningBundle } from '../apple/credentials.js';
+import { ensureDir } from './paths.js';
+import { rsyncUp, scpDown, scpUp, sshCapture, sshRun } from './ssh.js';
+import { remoteToolchainPreflight } from './toolchain.js';
+import {
+  assertDeviceArtifact,
+  exportOptionsPlist,
+  parseThinningReport,
+} from '../providers/build/fastlane.js';
 
 /**
  * What never leaves your machine in the source archive (decision 9): dependencies and native build
  * dirs are reinstalled/regenerated on the host, history is irrelevant, and `.env` is a secret-bearing
  * file whose *values* are injected separately as build env vars.
  */
-export const SOURCE_EXCLUDES = ["node_modules", ".git", "ios", "android", "dist", ".expo", ".launch", ".env", ".env.*"];
+export const SOURCE_EXCLUDES = [
+  'node_modules',
+  '.git',
+  'ios',
+  'android',
+  'dist',
+  '.expo',
+  '.launch',
+  '.env',
+  '.env.*',
+];
 
 /** A live remote-build session: the persistent per-app work tree plus a per-run ephemeral secrets dir. */
 export interface RemoteSession {
@@ -74,7 +88,7 @@ function toSigningAssets(bundle: RemoteSigningBundle): SigningAssets {
     certName: bundle.certName,
     certSerial: bundle.certSerial,
     profileName: bundle.profileName,
-    profileUuid: "",
+    profileUuid: '',
     profilePath: bundle.profilePath,
   };
 }
@@ -88,22 +102,25 @@ function shellQuote(value: string): string {
 function remoteEnvPrefix(vars: Record<string, string>): string {
   return Object.entries(vars)
     .map(([key, value]) => `${key}=${shellQuote(value)}`)
-    .join(" ");
+    .join(' ');
 }
 
 /**
  * Resolve the stable per-app work tree (persists across builds) and a fresh per-run ephemeral secrets
  * dir, then create both. The work tree's `$HOME` is resolved on the host so every later path is absolute.
  */
-export async function openRemoteSession(target: SshTarget, appName: string): Promise<RemoteSession> {
-  const home = await sshCapture(target, "echo $HOME");
+export async function openRemoteSession(
+  target: SshTarget,
+  appName: string,
+): Promise<RemoteSession> {
+  const home = await sshCapture(target, 'echo $HOME');
   const workDir = `${home}/.launch-remote/${appName}`;
-  const credsDir = await sshCapture(target, "mktemp -d /tmp/launch-creds.XXXXXXXX");
+  const credsDir = await sshCapture(target, 'mktemp -d /tmp/launch-creds.XXXXXXXX');
   await sshRun(
     target,
     `mkdir -p ${shellQuote(`${workDir}/app`)} ${shellQuote(`${workDir}/out`)} ${shellQuote(credsDir)}`,
   );
-  return { target, workDir, credsDir, keychainPassword: randomBytes(18).toString("hex") };
+  return { target, workDir, credsDir, keychainPassword: randomBytes(18).toString('hex') };
 }
 
 /**
@@ -116,11 +133,14 @@ export async function syncProject(session: RemoteSession, appDir: string): Promi
 }
 
 /** Upload the transient `.p8`/`.p12`/profile + the export-options plist into the per-run ephemeral creds dir (chmod 600). */
-export async function uploadSigningMaterial(session: RemoteSession, inputs: RemoteBuildInputs): Promise<void> {
+export async function uploadSigningMaterial(
+  session: RemoteSession,
+  inputs: RemoteBuildInputs,
+): Promise<void> {
   const credsDir = session.credsDir;
-  const staging = mkdtempSync(join(tmpdir(), "launch-remote-"));
-  const p8Local = join(staging, "asc.p8");
-  const plistLocal = join(staging, "ExportOptions.plist");
+  const staging = mkdtempSync(join(tmpdir(), 'launch-remote-'));
+  const p8Local = join(staging, 'asc.p8');
+  const plistLocal = join(staging, 'ExportOptions.plist');
   writeFileSync(p8Local, inputs.ascKey.p8);
   writeFileSync(plistLocal, exportOptionsPlist(toSigningAssets(inputs.signing)));
   try {
@@ -128,7 +148,10 @@ export async function uploadSigningMaterial(session: RemoteSession, inputs: Remo
     await scpUp(session.target, inputs.signing.profilePath, `${credsDir}/profile.mobileprovision`);
     await scpUp(session.target, p8Local, `${credsDir}/asc.p8`);
     await scpUp(session.target, plistLocal, `${credsDir}/ExportOptions.plist`);
-    await sshRun(session.target, `chmod 600 ${shellQuote(`${credsDir}/dist.p12`)} ${shellQuote(`${credsDir}/asc.p8`)}`);
+    await sshRun(
+      session.target,
+      `chmod 600 ${shellQuote(`${credsDir}/dist.p12`)} ${shellQuote(`${credsDir}/asc.p8`)}`,
+    );
   } finally {
     rmSync(staging, { recursive: true, force: true });
   }
@@ -141,9 +164,12 @@ export async function uploadSigningMaterial(session: RemoteSession, inputs: Remo
  * user's machine). A missing required tool exits the preflight non-zero, so `sshRun` rejects and the
  * build fails fast with the gaps listed instead of a cryptic error deep inside fastlane.
  */
-export async function runDoctorOnHost(session: RemoteSession, mode: "install" | "assert"): Promise<void> {
-  const staging = mkdtempSync(join(tmpdir(), "launch-remote-"));
-  const scriptLocal = join(staging, "doctor.sh");
+export async function runDoctorOnHost(
+  session: RemoteSession,
+  mode: 'install' | 'assert',
+): Promise<void> {
+  const staging = mkdtempSync(join(tmpdir(), 'launch-remote-'));
+  const scriptLocal = join(staging, 'doctor.sh');
   writeFileSync(scriptLocal, remoteToolchainPreflight(mode));
   const scriptRemote = `${session.credsDir}/doctor.sh`;
   try {
@@ -164,8 +190,8 @@ export async function runBuildOnHost(
   session: RemoteSession,
   inputs: RemoteBuildInputs,
 ): Promise<{ cleanBuilt: boolean }> {
-  const staging = mkdtempSync(join(tmpdir(), "launch-remote-"));
-  const scriptLocal = join(staging, "build.sh");
+  const staging = mkdtempSync(join(tmpdir(), 'launch-remote-'));
+  const scriptLocal = join(staging, 'build.sh');
   writeFileSync(scriptLocal, REMOTE_BUILD_SCRIPT);
   const scriptRemote = `${session.credsDir}/build.sh`;
   try {
@@ -185,10 +211,10 @@ export async function runBuildOnHost(
     P12_PASSWORD: inputs.signing.p12Password,
     ASC_KEY_ID: inputs.ascKey.keyId,
     ASC_ISSUER_ID: inputs.ascKey.issuerId,
-    SUBMIT: inputs.submit ? "1" : "0",
+    SUBMIT: inputs.submit ? '1' : '0',
     SUBMIT_TARGET: inputs.submitTarget,
-    FORCE_CLEAN: inputs.forceClean ? "1" : "0",
-    USE_CCACHE: "1",
+    FORCE_CLEAN: inputs.forceClean ? '1' : '0',
+    USE_CCACHE: '1',
   };
   const command = `${remoteEnvPrefix(env)} bash ${shellQuote(scriptRemote)} ${shellQuote(session.workDir)} ${shellQuote(session.credsDir)}`;
   await sshRun(session.target, command);
@@ -196,7 +222,7 @@ export async function runBuildOnHost(
     session.target,
     `cat ${shellQuote(`${session.workDir}/.launch-clean`)} 2>/dev/null || echo 0`,
   );
-  return { cleanBuilt: marker.trim() === "1" };
+  return { cleanBuilt: marker.trim() === '1' };
 }
 
 /** Pull the built `.ipa` (and the thinning report, if any) home; returns the local path + size report. */
@@ -209,11 +235,15 @@ export async function pullArtifact(
   const ipaPath = join(destDir, `${appName}.ipa`);
   await scpDown(session.target, shellQuote(`${session.workDir}/out/${appName}.ipa`), ipaPath);
 
-  let entries: SizeReport["entries"] = [];
+  let entries: SizeReport['entries'] = [];
   try {
-    const reportPath = join(destDir, "App Thinning Size Report.txt");
-    await scpDown(session.target, shellQuote(`${session.workDir}/out/App Thinning Size Report.txt`), reportPath);
-    entries = parseThinningReport(readFileSync(reportPath, "utf8"));
+    const reportPath = join(destDir, 'App Thinning Size Report.txt');
+    await scpDown(
+      session.target,
+      shellQuote(`${session.workDir}/out/App Thinning Size Report.txt`),
+      reportPath,
+    );
+    entries = parseThinningReport(readFileSync(reportPath, 'utf8'));
   } catch {
     /* no thinning report produced — degrade to ipa size only */
   }
@@ -221,7 +251,7 @@ export async function pullArtifact(
   // The authoritative device-archive guard, shared with the local build: reject a simulator/.app/empty
   // artifact with the same actionable error rather than storing or submitting a dead one (issue #6).
   // Remote builds are iOS-only (the host bootstrap is iOS-shaped), so the platform is always iOS here.
-  assertDeviceArtifact(ipaPath, artifactBytes, "ios");
+  assertDeviceArtifact(ipaPath, artifactBytes, 'ios');
   return { ipaPath, sizeReport: { artifactBytes, entries } };
 }
 

@@ -13,9 +13,9 @@
  * are the source of truth for anything sensitive. See {@link resolveBuildSecrets}.
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { SECRETS_FILE, LAUNCH_HOME, ensureDir } from "./paths.js";
-import { deleteSecret, getSecret, setSecret } from "./keychain.js";
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { SECRETS_FILE, LAUNCH_HOME, ensureDir } from './paths.js';
+import { deleteSecret, getSecret, setSecret } from './keychain.js';
 
 /**
  * One secret's non-secret coordinates: which app and (optional) profile it's scoped to, and its env
@@ -38,7 +38,7 @@ interface SecretsIndex {
 
 /** The keychain account under which a secret's value is stored, namespaced by its scope + name. */
 function secretAccount(ref: SecretRef): string {
-  return `build-secret:${ref.app}:${ref.profile ?? "*"}:${ref.name}`;
+  return `build-secret:${ref.app}:${ref.profile ?? '*'}:${ref.name}`;
 }
 
 /** Whether two refs name the same secret (same app, profile scope, and name). */
@@ -50,7 +50,7 @@ function sameRef(a: SecretRef, b: SecretRef): boolean {
 function readIndex(): SecretsIndex {
   if (!existsSync(SECRETS_FILE)) return { secrets: [] };
   try {
-    const parsed = JSON.parse(readFileSync(SECRETS_FILE, "utf8")) as Partial<SecretsIndex>;
+    const parsed = JSON.parse(readFileSync(SECRETS_FILE, 'utf8')) as Partial<SecretsIndex>;
     return { secrets: Array.isArray(parsed.secrets) ? parsed.secrets : [] };
   } catch {
     return { secrets: [] };
@@ -99,7 +99,10 @@ export async function removeBuildSecret(ref: SecretRef): Promise<boolean> {
  */
 export function effectiveRefs(refs: SecretRef[], app: string, profile: string): SecretRef[] {
   const forApp = refs.filter((ref) => ref.app === app);
-  return [...forApp.filter((ref) => ref.profile === null), ...forApp.filter((ref) => ref.profile === profile)];
+  return [
+    ...forApp.filter((ref) => ref.profile === null),
+    ...forApp.filter((ref) => ref.profile === profile),
+  ];
 }
 
 /**
@@ -107,7 +110,10 @@ export function effectiveRefs(refs: SecretRef[], app: string, profile: string): 
  * profile, with profile-scoped values overriding app-wide ones. The pipeline merges the result over
  * `.env` (stored secrets win). A ref whose value has gone missing from the keychain is skipped.
  */
-export async function resolveBuildSecrets(app: string, profile: string): Promise<Record<string, string>> {
+export async function resolveBuildSecrets(
+  app: string,
+  profile: string,
+): Promise<Record<string, string>> {
   const env: Record<string, string> = {};
   for (const ref of effectiveRefs(listSecretRefs(), app, profile)) {
     const value = await getSecret(secretAccount(ref));

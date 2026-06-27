@@ -13,8 +13,8 @@
  * plain labelled lines otherwise (box-drawing misaligns once captured or wrapped).
  */
 
-import { AURORA, auroraPaint, mix, visibleWidth } from "./aurora.js";
-import { explainTopic, type GlossaryTopic } from "./glossary.js";
+import { AURORA, auroraPaint, mix, visibleWidth } from './aurora.js';
+import { explainTopic, type GlossaryTopic } from './glossary.js';
 
 /** A painter bound to this process's color decision (resolved once at load). */
 const paint = auroraPaint();
@@ -23,7 +23,8 @@ const paint = auroraPaint();
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Right-pad to a visible width, ANSI-aware, so the receipt box's right border stays flush. */
-const padTo = (text: string, width: number): string => text + " ".repeat(Math.max(0, width - visibleWidth(text)));
+const padTo = (text: string, width: number): string =>
+  text + ' '.repeat(Math.max(0, width - visibleWidth(text)));
 
 /**
  * A small per-step glyph keyed to what the step does, rendered between the ✦ mark and the label. Patterns
@@ -31,25 +32,26 @@ const padTo = (text: string, width: number): string => text + " ".repeat(Math.ma
  * matches nothing falls back to a neutral dot, so a new step is never glyph-less.
  */
 const STEP_ICONS: readonly (readonly [RegExp, string])[] = [
-  [/config check/i, "⊞"],
-  [/config/i, "⚙"],
-  [/account/i, "⊙"],
-  [/credential/i, "⊕"],
-  [/code signing|sign|certificate|profile|keystore/i, "✎"],
-  [/native|prebuild|project/i, "⌘"],
-  [/ccache|cache/i, "⚡"],
-  [/build/i, "⚒"],
-  [/size/i, "▦"],
-  [/version/i, "❖"],
-  [/upload|submit|distribute/i, "⬆"],
-  [/prune|reclaim/i, "♺"],
-  [/store|app id|metadata|sync/i, "▣"],
-  [/update|rollback/i, "⟳"],
-  [/process/i, "◷"],
-  [/host|remote|acquire|shred/i, "☁"],
-  [/testflight|tester|invit/i, "☉"],
+  [/config check/i, '⊞'],
+  [/config/i, '⚙'],
+  [/account/i, '⊙'],
+  [/credential/i, '⊕'],
+  [/code signing|sign|certificate|profile|keystore/i, '✎'],
+  [/native|prebuild|project/i, '⌘'],
+  [/ccache|cache/i, '⚡'],
+  [/build/i, '⚒'],
+  [/size/i, '▦'],
+  [/version/i, '❖'],
+  [/upload|submit|distribute/i, '⬆'],
+  [/prune|reclaim/i, '♺'],
+  [/store|app id|metadata|sync/i, '▣'],
+  [/update|rollback/i, '⟳'],
+  [/process/i, '◷'],
+  [/host|remote|acquire|shred/i, '☁'],
+  [/testflight|tester|invit/i, '☉'],
 ];
-const stepIcon = (label: string): string => STEP_ICONS.find(([pattern]) => pattern.test(label))?.[1] ?? "·";
+const stepIcon = (label: string): string =>
+  STEP_ICONS.find(([pattern]) => pattern.test(label))?.[1] ?? '·';
 
 /**
  * Title-case a plain lowercase-word label for display (`native project` → `Native Project`), so the step
@@ -68,15 +70,16 @@ const prettyLabel = (label: string): string =>
  * regardless of inner color spans. `prefix` leads the title — a `✦ ` marker for the generic
  * {@link Logger.box}, but empty for the "Shipped" receipt, whose sailing boat sits above the box instead.
  */
-function receiptBox(title: string, rows: string[], prefix = "✦ "): string[] {
+function receiptBox(title: string, rows: string[], prefix = '✦ '): string[] {
   const titleText = `${prefix}${title}`;
   const innerWidth = Math.max(titleText.length + 4, ...rows.map(visibleWidth));
-  const fill = "═".repeat(Math.max(1, innerWidth - 1 - titleText.length));
-  const top = `${paint.gradient("╔═ ", AURORA.violet, AURORA.cyan)}${paint.bold(paint.fg(AURORA.cyan, titleText))}${paint.gradient(` ${fill}╗`, AURORA.violet, AURORA.cyan)}`;
+  const fill = '═'.repeat(Math.max(1, innerWidth - 1 - titleText.length));
+  const top = `${paint.gradient('╔═ ', AURORA.violet, AURORA.cyan)}${paint.bold(paint.fg(AURORA.cyan, titleText))}${paint.gradient(` ${fill}╗`, AURORA.violet, AURORA.cyan)}`;
   const body = rows.map(
-    (row) => `${paint.fg(AURORA.violet, "║ ")}${padTo(row, innerWidth)}${paint.fg(AURORA.violet, " ║")}`,
+    (row) =>
+      `${paint.fg(AURORA.violet, '║ ')}${padTo(row, innerWidth)}${paint.fg(AURORA.violet, ' ║')}`,
   );
-  const bottom = paint.gradient(`╚${"═".repeat(innerWidth + 2)}╝`, AURORA.violet, AURORA.cyan);
+  const bottom = paint.gradient(`╚${'═'.repeat(innerWidth + 2)}╝`, AURORA.violet, AURORA.cyan);
   return [top, ...body, bottom];
 }
 
@@ -85,12 +88,12 @@ function receiptBox(title: string, rows: string[], prefix = "✦ "): string[] {
  * finale's hero. Plain block-art; each row is colored along the violet→cyan ramp at render time. The
  * last row is the waterline (`≈`); the boat shifts as one rigid block, so {@link padBlock} squares it.
  */
-const SHIP_SLOOP = ["   ◢▐", "  ◢█▐", " ◢██▐", "◢███▐", "▟███▐", "▔▔▔▔▔▔", "▚▄▄▄▄▟", " ≈≈≈≈ "];
+const SHIP_SLOOP = ['   ◢▐', '  ◢█▐', ' ◢██▐', '◢███▐', '▟███▐', '▔▔▔▔▔▔', '▚▄▄▄▄▟', ' ≈≈≈≈ '];
 
 /** Pad every line of a sprite to its widest width so the whole block shifts rigidly during animation. */
 function padBlock(art: string[]): string[] {
   const width = Math.max(...art.map((line) => line.length));
-  return art.map((line) => line + " ".repeat(width - line.length));
+  return art.map((line) => line + ' '.repeat(width - line.length));
 }
 
 /**
@@ -107,26 +110,28 @@ async function animateShip(width: number): Promise<void> {
 
   const colorRow = (raw: string, row: number): string =>
     Array.from(raw, (ch) =>
-      ch === " " ? ch : paint.fg(mix(AURORA.violet, AURORA.cyan, height < 2 ? 1 : row / (height - 1)), ch),
-    ).join("");
+      ch === ' '
+        ? ch
+        : paint.fg(mix(AURORA.violet, AURORA.cyan, height < 2 ? 1 : row / (height - 1)), ch),
+    ).join('');
 
   const draw = (xOffset: number, yOffset: number): void => {
     process.stdout.write(`\x1b[${reserved}A`); // back to the top of the reserved canvas
     for (let r = 0; r < reserved; r++) {
       const src = r - yOffset;
-      let line = "";
+      let line = '';
       if (src >= 0 && src < height) {
         const lead =
           src === height - 1 && xOffset > 2
-            ? `${" ".repeat(xOffset - 2)}${paint.fg(AURORA.cyan, "≈≈")}` // wake trails the waterline
-            : " ".repeat(Math.max(0, xOffset));
-        line = `${lead}${colorRow(art[src] ?? "", src)}`;
+            ? `${' '.repeat(xOffset - 2)}${paint.fg(AURORA.cyan, '≈≈')}` // wake trails the waterline
+            : ' '.repeat(Math.max(0, xOffset));
+        line = `${lead}${colorRow(art[src] ?? '', src)}`;
       }
       process.stdout.write(`\r\x1b[2K${line}\n`);
     }
   };
 
-  for (let i = 0; i < reserved; i++) process.stdout.write("\n"); // reserve the canvas below the cursor
+  for (let i = 0; i < reserved; i++) process.stdout.write('\n'); // reserve the canvas below the cursor
   const travel = 7;
   for (let f = 0; f <= travel; f++) {
     draw(Math.round(-shipWidth + (restX + shipWidth) * (f / travel)), 1);
@@ -185,29 +190,35 @@ export interface Logger {
 export function createLogger(explain: boolean): Logger {
   return {
     step(label, detail, topic) {
-      const tail = detail ? `  ${paint.fg(AURORA.dim, detail)}` : "";
+      const tail = detail ? `  ${paint.fg(AURORA.dim, detail)}` : '';
       console.log(
-        `${paint.fg(AURORA.green, "✦")} ${paint.fg(AURORA.cyan, stepIcon(label))} ${paint.bold(paint.fg(AURORA.label, prettyLabel(label)))}${tail}`,
+        `${paint.fg(AURORA.green, '✦')} ${paint.fg(AURORA.cyan, stepIcon(label))} ${paint.bold(paint.fg(AURORA.label, prettyLabel(label)))}${tail}`,
       );
       if (explain && topic) {
-        for (const line of explainTopic(topic).split("\n")) console.log(`  ${paint.fg(AURORA.dim, "│")} ${line}`);
+        for (const line of explainTopic(topic).split('\n'))
+          console.log(`  ${paint.fg(AURORA.dim, '│')} ${line}`);
       }
     },
-    chip: (value) => (paint.enabled ? paint.bold(paint.fg(AURORA.label, paint.bg(AURORA.dim, ` ${value} `))) : value),
+    chip: (value) =>
+      paint.enabled
+        ? paint.bold(paint.fg(AURORA.label, paint.bg(AURORA.dim, ` ${value} `)))
+        : value,
     info: (message) => {
-      console.log(`${paint.fg(AURORA.cyan, "→")} ${message}`);
+      console.log(`${paint.fg(AURORA.cyan, '→')} ${message}`);
     },
     warn: (message) => {
-      console.warn(`${paint.fg(AURORA.amber, "▲")} ${message}`);
+      console.warn(`${paint.fg(AURORA.amber, '▲')} ${message}`);
     },
     error: (message) => {
-      console.error(`${paint.fg(AURORA.pink, "✗")} ${message}`);
+      console.error(`${paint.fg(AURORA.pink, '✗')} ${message}`);
     },
     tip: (message) => {
-      console.log(`   ${paint.fg(AURORA.cyan, "ⓘ")} ${paint.fg(AURORA.dim, "tip")}  ${paint.fg(AURORA.dim, message)}`);
+      console.log(
+        `   ${paint.fg(AURORA.cyan, 'ⓘ')} ${paint.fg(AURORA.dim, 'tip')}  ${paint.fg(AURORA.dim, message)}`,
+      );
     },
     notice: (lead, ...details) => {
-      console.log("");
+      console.log('');
       console.log(`  ${paint.bold(paint.fg(AURORA.label, lead))}`);
       for (const detail of details) console.log(`    ${paint.fg(AURORA.dim, detail)}`);
     },
@@ -216,23 +227,23 @@ export function createLogger(explain: boolean): Logger {
         for (const line of receiptBox(title, rows)) console.log(line);
         return;
       }
-      console.log("");
+      console.log('');
       console.log(title);
       for (const row of rows) console.log(`  ${row}`);
     },
     shipped: async (rows) => {
       if (!paint.enabled) {
-        console.log("");
-        console.log("Shipped");
+        console.log('');
+        console.log('Shipped');
         for (const row of rows) console.log(`  ${row}`);
         return;
       }
-      const box = receiptBox("Shipped", rows, ""); // no ✦ — the boat is the title flourish
+      const box = receiptBox('Shipped', rows, ''); // no ✦ — the boat is the title flourish
       await animateShip(Math.max(...box.map(visibleWidth)));
       for (const line of box) console.log(line);
     },
     gap: () => {
-      console.log("");
+      console.log('');
     },
   };
 }
@@ -244,14 +255,14 @@ export function createLogger(explain: boolean): Logger {
  * bar then the `└` corner — so it sits flush beneath the wizard's prompt stream.
  */
 export async function outroDone(): Promise<void> {
-  const corner = paint.fg(AURORA.dim, "└");
-  const settled = `${corner}  ${paint.bold(paint.fg(AURORA.green, "✓"))} ${paint.fg(AURORA.label, "Done.")}`;
-  console.log(paint.fg(AURORA.dim, "│"));
+  const corner = paint.fg(AURORA.dim, '└');
+  const settled = `${corner}  ${paint.bold(paint.fg(AURORA.green, '✓'))} ${paint.fg(AURORA.label, 'Done.')}`;
+  console.log(paint.fg(AURORA.dim, '│'));
   if (!paint.enabled) {
     console.log(settled);
     return;
   }
-  for (const frame of ["▖", "▗▄", "▝▙▄", "▘▝▙▄"]) {
+  for (const frame of ['▖', '▗▄', '▝▙▄', '▘▝▙▄']) {
     process.stdout.write(`\r\x1b[2K${corner}  ${paint.fg(AURORA.cyan, frame)}`);
     await sleep(80);
   }

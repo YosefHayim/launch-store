@@ -12,8 +12,8 @@
  * (never generated here) so the orchestration stays deterministic under test.
  */
 
-import type { StorageProvider } from "./types.js";
-import type { CodeSigner } from "./codeSign.js";
+import type { StorageProvider } from './types.js';
+import type { CodeSigner } from './codeSign.js';
 import {
   type StoredRollbackDirective,
   type UpdateHistoryEntry,
@@ -24,7 +24,7 @@ import {
   manifestKey,
   manifestSignatureKey,
   rollbackDirectiveKey,
-} from "./otaManifest.js";
+} from './otaManifest.js';
 
 /** Read the per-(channel, platform) history index, newest first; `[]` when absent or unreadable. */
 export async function readHistory(
@@ -35,7 +35,7 @@ export async function readHistory(
   const raw = await storage.getObject(historyIndexKey(channel, platform));
   if (!raw) return [];
   try {
-    return JSON.parse(raw.toString("utf8")) as UpdateHistoryEntry[];
+    return JSON.parse(raw.toString('utf8')) as UpdateHistoryEntry[];
   } catch {
     return [];
   }
@@ -45,7 +45,10 @@ export async function readHistory(
  * Clear the `active` flag on every entry for `runtimeVersion` — exactly one update is active per runtime
  * version at a time (it's the one served as that rtv's `manifest.json`). Pure; other rtvs are untouched.
  */
-export function deactivateRuntimeVersion(entries: UpdateHistoryEntry[], runtimeVersion: string): UpdateHistoryEntry[] {
+export function deactivateRuntimeVersion(
+  entries: UpdateHistoryEntry[],
+  runtimeVersion: string,
+): UpdateHistoryEntry[] {
   return entries.map((entry) =>
     entry.runtimeVersion === runtimeVersion && entry.active ? { ...entry, active: false } : entry,
   );
@@ -55,9 +58,14 @@ export function deactivateRuntimeVersion(entries: UpdateHistoryEntry[], runtimeV
  * Resolve a `view`/`rollback` reference against history (newest first): `latest` → the newest entry,
  * else an exact id match, else a unique short-id prefix. Pure; undefined when nothing matches.
  */
-export function findHistoryEntry<T extends UpdateHistoryEntry>(entries: T[], ref: string): T | undefined {
-  if (ref === "latest") return entries[0];
-  return entries.find((entry) => entry.id === ref) ?? entries.find((entry) => entry.id.startsWith(ref));
+export function findHistoryEntry<T extends UpdateHistoryEntry>(
+  entries: T[],
+  ref: string,
+): T | undefined {
+  if (ref === 'latest') return entries[0];
+  return (
+    entries.find((entry) => entry.id === ref) ?? entries.find((entry) => entry.id.startsWith(ref))
+  );
 }
 
 /** Write the history index back (pretty-printed JSON). The single place the index object is persisted. */
@@ -67,7 +75,11 @@ async function writeHistory(
   platform: string,
   entries: UpdateHistoryEntry[],
 ): Promise<void> {
-  await storage.putObject(historyIndexKey(channel, platform), JSON.stringify(entries, null, 2), "application/json");
+  await storage.putObject(
+    historyIndexKey(channel, platform),
+    JSON.stringify(entries, null, 2),
+    'application/json',
+  );
 }
 
 /**
@@ -80,7 +92,10 @@ export async function recordPublish(
   platform: string,
   entry: UpdateHistoryEntry,
 ): Promise<void> {
-  const history = deactivateRuntimeVersion(await readHistory(storage, channel, platform), entry.runtimeVersion);
+  const history = deactivateRuntimeVersion(
+    await readHistory(storage, channel, platform),
+    entry.runtimeVersion,
+  );
   history.unshift(entry);
   await writeHistory(storage, channel, platform, history);
 }
@@ -100,12 +115,12 @@ export async function clearRollbackDirective(
   const raw = await storage.getObject(key);
   if (!raw) return;
   try {
-    if (!(JSON.parse(raw.toString("utf8")) as StoredRollbackDirective).active) return;
+    if (!(JSON.parse(raw.toString('utf8')) as StoredRollbackDirective).active) return;
   } catch {
     /* unreadable marker — fall through and overwrite it with a clean inactive one */
   }
-  const cleared: StoredRollbackDirective = { active: false, body: "" };
-  await storage.putObject(key, JSON.stringify(cleared, null, 2), "application/json");
+  const cleared: StoredRollbackDirective = { active: false, body: '' };
+  await storage.putObject(key, JSON.stringify(cleared, null, 2), 'application/json');
 }
 
 /**
@@ -129,16 +144,26 @@ export async function republishUpdate(args: {
 
   const snapshot = await storage.getObject(historySnapshotKey(channel, platform, rtv, target.id));
   if (!snapshot) {
-    throw new Error(`No snapshot for update ${target.id} (rtv ${rtv}) — its history record can't be rolled back to.`);
+    throw new Error(
+      `No snapshot for update ${target.id} (rtv ${rtv}) — its history record can't be rolled back to.`,
+    );
   }
-  const previous = JSON.parse(snapshot.toString("utf8")) as UpdateManifest;
+  const previous = JSON.parse(snapshot.toString('utf8')) as UpdateManifest;
   const manifest: UpdateManifest = { ...previous, id: newId, createdAt };
   const body = JSON.stringify(manifest);
 
-  await storage.putObject(manifestKey(channel, platform, rtv), body, "application/json");
-  await storage.putObject(historySnapshotKey(channel, platform, rtv, newId), body, "application/json");
+  await storage.putObject(manifestKey(channel, platform, rtv), body, 'application/json');
+  await storage.putObject(
+    historySnapshotKey(channel, platform, rtv, newId),
+    body,
+    'application/json',
+  );
   if (signer) {
-    await storage.putObject(manifestSignatureKey(channel, platform, rtv), signer.sign(body), "text/plain");
+    await storage.putObject(
+      manifestSignatureKey(channel, platform, rtv),
+      signer.sign(body),
+      'text/plain',
+    );
   }
 
   const entry: UpdateHistoryEntry = {
@@ -147,7 +172,7 @@ export async function republishUpdate(args: {
     createdAt,
     active: true,
     signed: Boolean(signer),
-    kind: "rollback",
+    kind: 'rollback',
   };
   await recordPublish(storage, channel, platform, entry);
   await clearRollbackDirective(storage, channel, platform, rtv);
@@ -178,6 +203,6 @@ export async function setRollbackToEmbedded(args: {
   await storage.putObject(
     rollbackDirectiveKey(channel, platform, runtimeVersion),
     JSON.stringify(directive, null, 2),
-    "application/json",
+    'application/json',
   );
 }

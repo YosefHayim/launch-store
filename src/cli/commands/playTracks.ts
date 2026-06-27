@@ -15,22 +15,22 @@
  * changing testers — are guarded by a confirmation.
  */
 
-import { readFileSync } from "node:fs";
-import { cancel, confirm, isCancel } from "@clack/prompts";
-import type { Command } from "commander";
-import type { PlayRelease } from "../../google/playClient.js";
-import { GooglePlayClient, parseServiceAccount } from "../../google/playClient.js";
-import { loadServiceAccount } from "../../google/credentials.js";
-import { loadConfig } from "../../core/config.js";
-import { selectApp } from "../../core/pipeline.js";
-import { createLogger } from "../../core/logger.js";
+import { readFileSync } from 'node:fs';
+import { cancel, confirm, isCancel } from '@clack/prompts';
+import type { Command } from 'commander';
+import type { PlayRelease } from '../../google/playClient.js';
+import { GooglePlayClient, parseServiceAccount } from '../../google/playClient.js';
+import { loadServiceAccount } from '../../google/credentials.js';
+import { loadConfig } from '../../core/config.js';
+import { selectApp } from '../../core/pipeline.js';
+import { createLogger } from '../../core/logger.js';
 import {
   buildRelease,
   isReleaseStatus,
   parseReleaseNotes,
   parseRollout,
   RELEASE_STATUSES,
-} from "../../core/playTracks.js";
+} from '../../core/playTracks.js';
 
 /** Options for `play-tracks status`. */
 interface StatusOptions {
@@ -61,7 +61,10 @@ interface TestersOptions {
 /** Build a Play client bound to the stored service account, or fail with the onboarding hint. */
 async function activeClient(): Promise<GooglePlayClient> {
   const json = await loadServiceAccount();
-  if (!json) throw new Error("No Play service account. Run `launch creds set-key --platform android` first.");
+  if (!json)
+    throw new Error(
+      'No Play service account. Run `launch creds set-key --platform android` first.',
+    );
   return new GooglePlayClient(parseServiceAccount(json));
 }
 
@@ -76,10 +79,10 @@ async function resolvePackageName(appSelector: string | undefined): Promise<stri
 }
 
 /** Resolve the release status from `--status`, inferring `inProgress` when only `--rollout` is given. */
-function resolveStatus(options: PromoteOptions): "draft" | "inProgress" | "halted" | "completed" {
-  const status = options.status ?? (options.rollout !== undefined ? "inProgress" : "completed");
+function resolveStatus(options: PromoteOptions): 'draft' | 'inProgress' | 'halted' | 'completed' {
+  const status = options.status ?? (options.rollout !== undefined ? 'inProgress' : 'completed');
   if (!isReleaseStatus(status)) {
-    throw new Error(`--status must be one of ${RELEASE_STATUSES.join(", ")} (got "${status}").`);
+    throw new Error(`--status must be one of ${RELEASE_STATUSES.join(', ')} (got "${status}").`);
   }
   return status;
 }
@@ -87,23 +90,24 @@ function resolveStatus(options: PromoteOptions): "draft" | "inProgress" | "halte
 /** One-line summary of a track's release for `status` output. */
 function describeRelease(release: PlayRelease): string {
   const parts = [
-    release.status ?? "unknown",
-    release.versionCodes?.length ? `v${release.versionCodes.join(", v")}` : "no builds",
+    release.status ?? 'unknown',
+    release.versionCodes?.length ? `v${release.versionCodes.join(', v')}` : 'no builds',
   ];
-  if (release.userFraction !== undefined) parts.push(`${Math.round(release.userFraction * 100)}% rollout`);
+  if (release.userFraction !== undefined)
+    parts.push(`${Math.round(release.userFraction * 100)}% rollout`);
   if (release.releaseNotes?.length) parts.push(`${release.releaseNotes.length} note(s)`);
-  return parts.join("  ");
+  return parts.join('  ');
 }
 
 /** Confirm an outward-facing write, refusing in CI unless `--yes` was passed. */
 async function confirmWrite(message: string, yes: boolean | undefined): Promise<boolean> {
   if (yes) return true;
   if (!process.stdout.isTTY) {
-    throw new Error("Refusing to write without confirmation. Re-run with --yes (non-interactive).");
+    throw new Error('Refusing to write without confirmation. Re-run with --yes (non-interactive).');
   }
   const proceed = await confirm({ message });
   if (isCancel(proceed) || !proceed) {
-    cancel("Aborted — no changes made.");
+    cancel('Aborted — no changes made.');
     return false;
   }
   return true;
@@ -111,13 +115,15 @@ async function confirmWrite(message: string, yes: boolean | undefined): Promise<
 
 /** Attach the `play-tracks` command (with `status` / `promote` / `testers` subcommands) to the program. */
 export function registerPlayTracksCommand(program: Command): void {
-  const tracks = program.command("play-tracks").description("manage Google Play release tracks from the CLI");
+  const tracks = program
+    .command('play-tracks')
+    .description('manage Google Play release tracks from the CLI');
 
   tracks
-    .command("status")
+    .command('status')
     .description("show each track's releases and country availability")
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("--json", "output machine-readable JSON", false)
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option('--json', 'output machine-readable JSON', false)
     .action(async (options: StatusOptions) => {
       const packageName = await resolvePackageName(options.app);
       const client = await activeClient();
@@ -125,7 +131,9 @@ export function registerPlayTracksCommand(program: Command): void {
       const withCountries = await Promise.all(
         trackInfos.map(async (info) => ({
           ...info,
-          countryAvailability: await client.getCountryAvailability(packageName, info.track).catch(() => null),
+          countryAvailability: await client
+            .getCountryAvailability(packageName, info.track)
+            .catch(() => null),
         })),
       );
 
@@ -134,33 +142,40 @@ export function registerPlayTracksCommand(program: Command): void {
         return;
       }
       if (withCountries.length === 0) {
-        console.log("No tracks yet. Upload a build (`launch submit --platform android`) to populate a track.");
+        console.log(
+          'No tracks yet. Upload a build (`launch submit --platform android`) to populate a track.',
+        );
         return;
       }
       for (const info of withCountries) {
         console.log(`\n${info.track}`);
-        if (info.releases.length === 0) console.log("  (no releases)");
+        if (info.releases.length === 0) console.log('  (no releases)');
         for (const release of info.releases) console.log(`  • ${describeRelease(release)}`);
         const countries = info.countryAvailability?.countries.map((c) => c.countryCode) ?? [];
-        const scope = info.countryAvailability?.restOfWorld ? "rest of world" : `${countries.length} countr(ies)`;
-        console.log(`  countries: ${countries.length ? scope : "—"}`);
+        const scope = info.countryAvailability?.restOfWorld
+          ? 'rest of world'
+          : `${countries.length} countr(ies)`;
+        console.log(`  countries: ${countries.length ? scope : '—'}`);
       }
     });
 
   tracks
-    .command("promote")
-    .description("ship a build to a track at a chosen status / rollout, with release notes")
-    .requiredOption("--track <track>", "target track (internal, alpha, beta, production, or a custom track)")
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("--version <code>", "version code to ship (defaults to the latest uploaded)")
-    .option(
-      "--status <status>",
-      `release status: ${RELEASE_STATUSES.join(", ")} (default: completed, or inProgress with --rollout)`,
+    .command('promote')
+    .description('ship a build to a track at a chosen status / rollout, with release notes')
+    .requiredOption(
+      '--track <track>',
+      'target track (internal, alpha, beta, production, or a custom track)',
     )
-    .option("--rollout <fraction>", "staged-rollout fraction 0–1 (implies --status inProgress)")
-    .option("--notes <path>", "path to a JSON file mapping language codes to release-note text")
-    .option("--name <name>", "release name (Play derives one from the version when omitted)")
-    .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option('--version <code>', 'version code to ship (defaults to the latest uploaded)')
+    .option(
+      '--status <status>',
+      `release status: ${RELEASE_STATUSES.join(', ')} (default: completed, or inProgress with --rollout)`,
+    )
+    .option('--rollout <fraction>', 'staged-rollout fraction 0–1 (implies --status inProgress)')
+    .option('--notes <path>', 'path to a JSON file mapping language codes to release-note text')
+    .option('--name <name>', 'release name (Play derives one from the version when omitted)')
+    .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(async (options: PromoteOptions) => {
       const log = createLogger(false);
       const packageName = await resolvePackageName(options.app);
@@ -171,7 +186,7 @@ export function registerPlayTracksCommand(program: Command): void {
         const latest = await client.getLatestVersionCode(packageName);
         if (latest === 0) {
           throw new Error(
-            "No uploaded build to promote. Run `launch submit --platform android` first, or pass --version.",
+            'No uploaded build to promote. Run `launch submit --platform android` first, or pass --version.',
           );
         }
         versionCode = String(latest);
@@ -183,24 +198,32 @@ export function registerPlayTracksCommand(program: Command): void {
         status,
         ...(options.rollout !== undefined ? { userFraction: parseRollout(options.rollout) } : {}),
         ...(options.name ? { name: options.name } : {}),
-        ...(options.notes ? { releaseNotes: parseReleaseNotes(JSON.parse(readFileSync(options.notes, "utf8"))) } : {}),
+        ...(options.notes
+          ? { releaseNotes: parseReleaseNotes(JSON.parse(readFileSync(options.notes, 'utf8'))) }
+          : {}),
       });
 
-      const rollout = release.userFraction !== undefined ? ` at ${Math.round(release.userFraction * 100)}%` : "";
-      if (!(await confirmWrite(`Promote v${versionCode} to "${options.track}" as ${status}${rollout}?`, options.yes))) {
+      const rollout =
+        release.userFraction !== undefined ? ` at ${Math.round(release.userFraction * 100)}%` : '';
+      if (
+        !(await confirmWrite(
+          `Promote v${versionCode} to "${options.track}" as ${status}${rollout}?`,
+          options.yes,
+        ))
+      ) {
         return;
       }
       await client.setTrackReleases(packageName, options.track, [release]);
-      log.step("promoted", `v${versionCode} → ${options.track} (${status}${rollout})`);
+      log.step('promoted', `v${versionCode} → ${options.track} (${status}${rollout})`);
     });
 
   tracks
-    .command("testers")
-    .description("read or set the Google Groups allowed to test a track")
-    .requiredOption("--track <track>", "the testing track (e.g. internal, alpha, beta)")
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("--groups <emails>", "comma-separated Google Group emails to set (omit to just read)")
-    .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
+    .command('testers')
+    .description('read or set the Google Groups allowed to test a track')
+    .requiredOption('--track <track>', 'the testing track (e.g. internal, alpha, beta)')
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option('--groups <emails>', 'comma-separated Google Group emails to set (omit to just read)')
+    .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(async (options: TestersOptions) => {
       const log = createLogger(false);
       const packageName = await resolvePackageName(options.app);
@@ -208,16 +231,26 @@ export function registerPlayTracksCommand(program: Command): void {
 
       if (options.groups === undefined) {
         const current = await client.getTesters(packageName, options.track);
-        console.log(current.length ? current.map((group) => `• ${group}`).join("\n") : "No tester groups set.");
+        console.log(
+          current.length
+            ? current.map((group) => `• ${group}`).join('\n')
+            : 'No tester groups set.',
+        );
         return;
       }
 
       const groups = options.groups
-        .split(",")
+        .split(',')
         .map((group) => group.trim())
         .filter(Boolean);
-      if (!(await confirmWrite(`Set ${groups.length} tester group(s) on "${options.track}"?`, options.yes))) return;
+      if (
+        !(await confirmWrite(
+          `Set ${groups.length} tester group(s) on "${options.track}"?`,
+          options.yes,
+        ))
+      )
+        return;
       await client.setTesters(packageName, options.track, groups);
-      log.step("testers set", `${groups.length} group(s) on ${options.track}`);
+      log.step('testers set', `${groups.length} group(s) on ${options.track}`);
     });
 }

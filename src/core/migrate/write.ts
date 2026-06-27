@@ -6,9 +6,9 @@
  * and its real run share one code path (no second copy of the overwrite logic).
  */
 
-import { existsSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import type { MigrationResult } from "./types.js";
+import { existsSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { MigrationResult } from './types.js';
 
 /** Where and how to persist artifacts. */
 export interface WriteOptions {
@@ -39,7 +39,8 @@ export function writeArtifacts(result: MigrationResult, options: WriteOptions): 
       skipped.push(artifact.path);
       continue;
     }
-    if (options.dryRun !== true) writeFileSync(join(options.outDir, artifact.path), artifact.contents);
+    if (options.dryRun !== true)
+      writeFileSync(join(options.outDir, artifact.path), artifact.contents);
     written.push(artifact.path);
   }
   return { written, skipped };

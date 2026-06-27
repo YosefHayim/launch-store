@@ -17,13 +17,19 @@ import type {
   SnapshotEntity,
   SnapshotSource,
   SourceCapture,
-} from "../types.js";
-import type { InAppProductResource, PlayMoney } from "../../../google/playClient.js";
-import type { InAppPurchaseConfig, PlayProductOverride, ProductLocalization } from "../../types.js";
-import type { PlannedAction } from "../../ascSync.js";
-import { reconcilePlayProducts } from "../../playProducts.js";
-import { androidApps } from "../../readiness/appScopes.js";
-import { jsonRecord, restoreErrorMessage, skippedAction, stringField, toPriceConfig } from "./playRestore.js";
+} from '../types.js';
+import type { InAppProductResource, PlayMoney } from '../../../google/playClient.js';
+import type { InAppPurchaseConfig, PlayProductOverride, ProductLocalization } from '../../types.js';
+import type { PlannedAction } from '../../ascSync.js';
+import { reconcilePlayProducts } from '../../playProducts.js';
+import { androidApps } from '../../readiness/appScopes.js';
+import {
+  jsonRecord,
+  restoreErrorMessage,
+  skippedAction,
+  stringField,
+  toPriceConfig,
+} from './playRestore.js';
 
 /** A Play money value as a normalized, serializable record (fields Play left unset are dropped). */
 function money(value: PlayMoney): JsonValue {
@@ -55,7 +61,7 @@ function toEntity(product: InAppProductResource): SnapshotEntity {
     ...(product.defaultPrice ? { defaultPrice: money(product.defaultPrice) } : {}),
     ...(product.listings ? { listings: listings(product.listings) } : {}),
   };
-  const statusSuffix = product.status ? ` (${product.status})` : "";
+  const statusSuffix = product.status ? ` (${product.status})` : '';
   return { key: product.sku, summary: `Play product${statusSuffix}`, data };
 }
 
@@ -66,16 +72,19 @@ function toEntity(product: InAppProductResource): SnapshotEntity {
  * from the first localization; the rest follow sorted for a deterministic restore. Listings with no title
  * are dropped — Play requires a title, so a title-less locale can't become a localization.
  */
-function toLocalizations(listings: JsonValue | undefined, defaultLanguage: string | undefined): ProductLocalization[] {
+function toLocalizations(
+  listings: JsonValue | undefined,
+  defaultLanguage: string | undefined,
+): ProductLocalization[] {
   const map = jsonRecord(listings);
   if (!map) return [];
   const localizations: ProductLocalization[] = [];
   for (const [locale, value] of Object.entries(map)) {
     const fields = jsonRecord(value);
-    const name = fields ? stringField(fields, "title") : undefined;
+    const name = fields ? stringField(fields, 'title') : undefined;
     if (name === undefined) continue;
     const localization: ProductLocalization = { locale, name };
-    const description = fields ? stringField(fields, "description") : undefined;
+    const description = fields ? stringField(fields, 'description') : undefined;
     if (description !== undefined) localization.description = description;
     localizations.push(localization);
   }
@@ -97,29 +106,33 @@ function toLocalizations(listings: JsonValue | undefined, defaultLanguage: strin
 function toProductConfig(entity: SnapshotEntity): InAppPurchaseConfig | null {
   const data = jsonRecord(entity.data);
   if (!data) return null;
-  const sku = stringField(data, "sku") ?? entity.key;
-  const localizations = toLocalizations(data["listings"], stringField(data, "defaultLanguage"));
+  const sku = stringField(data, 'sku') ?? entity.key;
+  const localizations = toLocalizations(data['listings'], stringField(data, 'defaultLanguage'));
   if (localizations.length === 0) return null;
 
   const play: PlayProductOverride = { sku };
-  const defaultPrice = toPriceConfig(data["defaultPrice"]);
+  const defaultPrice = toPriceConfig(data['defaultPrice']);
   if (defaultPrice) play.defaultPrice = defaultPrice;
 
-  return { productId: sku, referenceName: sku, type: "NON_CONSUMABLE", localizations, play };
+  return { productId: sku, referenceName: sku, type: 'NON_CONSUMABLE', localizations, play };
 }
 
 /** The Google Play managed-product snapshot source. */
 export const playProductsSource: SnapshotSource = {
-  id: "play-products",
-  title: "Google Play products",
-  store: "play",
+  id: 'play-products',
+  title: 'Google Play products',
+  store: 'play',
   async capture(ctx: SnapshotContext): Promise<SourceCapture> {
     const apps = androidApps(ctx.apps);
-    if (apps.length === 0) return { state: "omitted" };
+    if (apps.length === 0) return { state: 'omitted' };
 
     const api = await ctx.resolvePlayApi();
     if (!api) {
-      return { state: "skipped", reason: "no Play service account", hint: "configure Play credentials" };
+      return {
+        state: 'skipped',
+        reason: 'no Play service account',
+        hint: 'configure Play credentials',
+      };
     }
 
     const captured = await Promise.all(
@@ -128,7 +141,7 @@ export const playProductsSource: SnapshotSource = {
         return { app: name, identifier, entities };
       }),
     );
-    return { state: "captured", apps: captured };
+    return { state: 'captured', apps: captured };
   },
 
   /**
@@ -141,7 +154,9 @@ export const playProductsSource: SnapshotSource = {
   async restore({ ctx, saved, dryRun }: RestoreInput): Promise<RestoreReport> {
     const client = await ctx.resolvePlayWriteClient();
     if (!client) {
-      return { actions: [skippedAction("Google Play products: skipped — no Play service account")] };
+      return {
+        actions: [skippedAction('Google Play products: skipped — no Play service account')],
+      };
     }
 
     const actions: PlannedAction[] = [];
@@ -150,14 +165,23 @@ export const playProductsSource: SnapshotSource = {
       for (const entity of app.entities) {
         const config = toProductConfig(entity);
         if (config) products.push(config);
-        else actions.push(skippedAction(`Play product ${entity.key}: skipped — no listing to restore`));
+        else
+          actions.push(
+            skippedAction(`Play product ${entity.key}: skipped — no listing to restore`),
+          );
       }
       if (products.length === 0) continue;
       try {
-        const report = await reconcilePlayProducts(client, { packageName: app.identifier, products, dryRun });
+        const report = await reconcilePlayProducts(client, {
+          packageName: app.identifier,
+          products,
+          dryRun,
+        });
         actions.push(...report.actions);
       } catch (error) {
-        actions.push(skippedAction(`Google Play products ${app.identifier}: ${restoreErrorMessage(error)}`));
+        actions.push(
+          skippedAction(`Google Play products ${app.identifier}: ${restoreErrorMessage(error)}`),
+        );
       }
     }
     return { actions };

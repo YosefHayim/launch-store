@@ -12,11 +12,11 @@
  * one app's bump never clobbers another's.
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
-import { LAST_RUN_FILE, ensureDir } from "./paths.js";
-import type { BumpKind } from "./version.js";
-import type { BuildLocation, Platform } from "./types.js";
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { LAST_RUN_FILE, ensureDir } from './paths.js';
+import type { BumpKind } from './version.js';
+import type { BuildLocation, Platform } from './types.js';
 
 /** What a single app remembers between runs. Sparse — only fields the user actually chose appear. */
 interface AppMemory {
@@ -67,7 +67,7 @@ export interface LastRunState {
 export function readLastRun(file: string = LAST_RUN_FILE): LastRunState {
   if (!existsSync(file)) return { apps: {} };
   try {
-    const parsed = JSON.parse(readFileSync(file, "utf8")) as Partial<LastRunState>;
+    const parsed = JSON.parse(readFileSync(file, 'utf8')) as Partial<LastRunState>;
     const state: LastRunState = { apps: parsed.apps ?? {} };
     if (parsed.lastApp) state.lastApp = parsed.lastApp;
     if (parsed.lastFlow) state.lastFlow = parsed.lastFlow;
@@ -92,7 +92,11 @@ export function readLastBump(appName: string, file: string = LAST_RUN_FILE): Bum
  * remembered bump only when a kind was actually applied (a "Custom…" version or a non-prompting
  * `--yes`/CI run passes `undefined`, leaving any prior bump untouched). Merges over existing state.
  */
-export function rememberLastRun(appName: string, bump?: BumpKind, file: string = LAST_RUN_FILE): void {
+export function rememberLastRun(
+  appName: string,
+  bump?: BumpKind,
+  file: string = LAST_RUN_FILE,
+): void {
   const state = readLastRun(file);
   state.lastApp = appName;
   if (bump) state.apps[appName] = { ...state.apps[appName], bump };

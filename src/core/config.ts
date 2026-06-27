@@ -5,11 +5,11 @@
  * monorepo and the app's own config stays the source of truth.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { createJiti } from "jiti";
-import type { AppDescriptor, LaunchConfig } from "./types.js";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createJiti } from 'jiti';
+import type { AppDescriptor, LaunchConfig } from './types.js';
 
 /**
  * Absolute path to THIS package's own public entry (`defineConfig` + the config types), resolved
@@ -17,7 +17,7 @@ import type { AppDescriptor, LaunchConfig } from "./types.js";
  * `dist/index.js` in production, the TypeScript source under vitest. The layout `<root>/{src,dist}/core/`
  * makes `../index.js` the entry from either tree.
  */
-const SELF_ENTRY = fileURLToPath(new URL("../index.js", import.meta.url));
+const SELF_ENTRY = fileURLToPath(new URL('../index.js', import.meta.url));
 
 /**
  * On-the-fly loader for the user's config. The compiled `launch` binary runs on plain Node, which
@@ -28,10 +28,11 @@ const SELF_ENTRY = fileURLToPath(new URL("../index.js", import.meta.url));
  * it — no dual-package version skew. (jiti chosen over bundling a TS toolchain ourselves; it's the
  * same loader Nuxt/ESLint use for config files.)
  */
-const jiti = createJiti(import.meta.url, { alias: { "launch-store": SELF_ENTRY } });
+const jiti = createJiti(import.meta.url, { alias: { 'launch-store': SELF_ENTRY } });
 
 /** Input to {@link defineConfig}: `profiles` is required; provider names default sensibly. */
-export type LaunchConfigInput = Pick<LaunchConfig, "profiles"> & Partial<Omit<LaunchConfig, "profiles">>;
+export type LaunchConfigInput = Pick<LaunchConfig, 'profiles'> &
+  Partial<Omit<LaunchConfig, 'profiles'>>;
 
 /**
  * Author a typed `launch.config.ts`. Fills in the v1 defaults (`local` credentials + storage,
@@ -47,10 +48,10 @@ export type LaunchConfigInput = Pick<LaunchConfig, "profiles"> & Partial<Omit<La
 export function defineConfig(input: LaunchConfigInput): LaunchConfig {
   return {
     ...input,
-    credentials: input.credentials ?? "local",
-    storage: input.storage ?? "local",
-    buildEngine: input.buildEngine ?? "fastlane",
-    submit: input.submit ?? "app-store-connect",
+    credentials: input.credentials ?? 'local',
+    storage: input.storage ?? 'local',
+    buildEngine: input.buildEngine ?? 'fastlane',
+    submit: input.submit ?? 'app-store-connect',
   };
 }
 
@@ -87,14 +88,14 @@ export interface LoadedConfig {
 }
 
 const DEFAULT_CONFIG: LaunchConfig = {
-  credentials: "local",
-  storage: "local",
-  buildEngine: "fastlane",
-  submit: "app-store-connect",
-  profiles: { production: { name: "production", sizeBudgetMB: 200 } },
+  credentials: 'local',
+  storage: 'local',
+  buildEngine: 'fastlane',
+  submit: 'app-store-connect',
+  profiles: { production: { name: 'production', sizeBudgetMB: 200 } },
 };
 
-const SKIP_DIRS = new Set(["node_modules", ".git", "ios", "android", "dist", ".expo", ".launch"]);
+const SKIP_DIRS = new Set(['node_modules', '.git', 'ios', 'android', 'dist', '.expo', '.launch']);
 
 /** A located Launch config: the resolved `launch.config.{ts,mjs,js}` path and the config it exports. */
 export interface FoundConfig {
@@ -111,7 +112,7 @@ export interface FoundConfig {
  * plain Node. Throws when a config file exists but doesn't `export default`.
  */
 export async function findLaunchConfig(cwd: string = process.cwd()): Promise<FoundConfig | null> {
-  for (const file of ["launch.config.ts", "launch.config.mjs", "launch.config.js"]) {
+  for (const file of ['launch.config.ts', 'launch.config.mjs', 'launch.config.js']) {
     const path = join(cwd, file);
     if (!existsSync(path)) continue;
     const loaded = await jiti.import<{ default?: LaunchConfig }>(path);
@@ -127,15 +128,15 @@ async function readLaunchConfig(root: string): Promise<LaunchConfig> {
 }
 
 /** The static (JSON) and dynamic (evaluated) Expo config filenames, each in Expo's precedence order. */
-const STATIC_CONFIGS = ["app.config.json", "app.json"] as const;
-const DYNAMIC_CONFIGS = ["app.config.ts", "app.config.js", "app.config.mjs"] as const;
+const STATIC_CONFIGS = ['app.config.json', 'app.json'] as const;
+const DYNAMIC_CONFIGS = ['app.config.ts', 'app.config.js', 'app.config.mjs'] as const;
 
 /** A dynamic Expo config exported as a function — Expo hands it the static config to extend. */
 type DynamicConfigFn = (arg: { config: Record<string, unknown> }) => unknown;
 
 /** Narrow an unknown value to a plain object, or null. */
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
 }
 
 /**
@@ -143,31 +144,38 @@ function asRecord(value: unknown): Record<string, unknown> | null {
  * wrapper or a flat shape (Expo or bare React Native), and a config missing the iOS, Android, or
  * version fields. Returns null when there's no usable app handle (neither `slug` nor `name`).
  */
-function toDescriptor(raw: Record<string, unknown>, dir: string, configPath: string): AppDescriptor | null {
-  const expo = asRecord(raw["expo"]) ?? raw;
-  const slug = typeof expo["slug"] === "string" ? expo["slug"] : undefined;
-  const name = typeof expo["name"] === "string" ? expo["name"] : undefined;
+function toDescriptor(
+  raw: Record<string, unknown>,
+  dir: string,
+  configPath: string,
+): AppDescriptor | null {
+  const expo = asRecord(raw['expo']) ?? raw;
+  const slug = typeof expo['slug'] === 'string' ? expo['slug'] : undefined;
+  const name = typeof expo['name'] === 'string' ? expo['name'] : undefined;
   const handle = slug ?? name;
   if (!handle) return null;
 
   const descriptor: AppDescriptor = { name: handle.toLowerCase(), dir, configPath };
-  const ios = asRecord(expo["ios"]);
-  if (ios && typeof ios["bundleIdentifier"] === "string") descriptor.bundleId = ios["bundleIdentifier"];
-  const entitlements = ios ? asRecord(ios["entitlements"]) : null;
+  const ios = asRecord(expo['ios']);
+  if (ios && typeof ios['bundleIdentifier'] === 'string')
+    descriptor.bundleId = ios['bundleIdentifier'];
+  const entitlements = ios ? asRecord(ios['entitlements']) : null;
   if (entitlements) descriptor.iosEntitlements = entitlements;
-  const extensions = ios?.["extensions"];
+  const extensions = ios?.['extensions'];
   if (Array.isArray(extensions)) {
-    const ids = extensions.filter((id): id is string => typeof id === "string" && id.length > 0);
+    const ids = extensions.filter((id): id is string => typeof id === 'string' && id.length > 0);
     if (ids.length > 0) descriptor.iosExtensions = ids;
   }
-  const iosConfig = ios ? asRecord(ios["config"]) : null;
-  if (iosConfig && typeof iosConfig["usesNonExemptEncryption"] === "boolean") {
-    descriptor.usesNonExemptEncryption = iosConfig["usesNonExemptEncryption"];
+  const iosConfig = ios ? asRecord(ios['config']) : null;
+  if (iosConfig && typeof iosConfig['usesNonExemptEncryption'] === 'boolean') {
+    descriptor.usesNonExemptEncryption = iosConfig['usesNonExemptEncryption'];
   }
-  const android = asRecord(expo["android"]);
-  if (android && typeof android["package"] === "string") descriptor.packageName = android["package"];
-  if (android && typeof android["versionCode"] === "number") descriptor.androidVersionCode = android["versionCode"];
-  if (typeof expo["version"] === "string") descriptor.version = expo["version"];
+  const android = asRecord(expo['android']);
+  if (android && typeof android['package'] === 'string')
+    descriptor.packageName = android['package'];
+  if (android && typeof android['versionCode'] === 'number')
+    descriptor.androidVersionCode = android['versionCode'];
+  if (typeof expo['version'] === 'string') descriptor.version = expo['version'];
   return descriptor;
 }
 
@@ -177,7 +185,7 @@ function readStaticConfig(dir: string): { raw: Record<string, unknown>; path: st
     const path = join(dir, file);
     if (!existsSync(path)) continue;
     try {
-      const raw = asRecord(JSON.parse(readFileSync(path, "utf8")));
+      const raw = asRecord(JSON.parse(readFileSync(path, 'utf8')));
       if (raw) return { raw, path };
     } catch {
       // malformed JSON — try the next candidate
@@ -203,7 +211,9 @@ async function readDynamicConfig(
       const mod = await jiti.import<{ default?: unknown }>(path);
       if (mod.default === undefined) continue;
       const evaluated =
-        typeof mod.default === "function" ? (mod.default as DynamicConfigFn)({ config: staticConfig }) : mod.default;
+        typeof mod.default === 'function'
+          ? (mod.default as DynamicConfigFn)({ config: staticConfig })
+          : mod.default;
       const raw = asRecord(await evaluated);
       if (raw) return { raw, path };
     } catch {
@@ -218,7 +228,9 @@ async function readDynamicConfig(
  * precedence) and is handed the static config to extend; null when neither is present. Shared by
  * descriptor discovery ({@link readAppAt}) and the raw-config reader ({@link readResolvedConfig}).
  */
-async function resolveConfig(dir: string): Promise<{ raw: Record<string, unknown>; path: string } | null> {
+async function resolveConfig(
+  dir: string,
+): Promise<{ raw: Record<string, unknown>; path: string } | null> {
   const fromStatic = readStaticConfig(dir);
   const fromDynamic = await readDynamicConfig(dir, fromStatic?.raw ?? {});
   return fromDynamic ?? fromStatic;
@@ -254,7 +266,7 @@ async function discoverApps(root: string, maxDepth = 4): Promise<AppDescriptor[]
     const app = await readAppAt(dir);
     if (app) found.push(app);
     for (const entry of entries) {
-      if (SKIP_DIRS.has(entry) || entry.startsWith(".")) continue;
+      if (SKIP_DIRS.has(entry) || entry.startsWith('.')) continue;
       const child = join(dir, entry);
       if (statSync(child).isDirectory()) await walk(child, depth + 1);
     }
@@ -271,17 +283,17 @@ async function discoverApps(root: string, maxDepth = 4): Promise<AppDescriptor[]
  * rather than trusting the in-memory descriptor, so a concurrent edit since discovery isn't clobbered.
  */
 export function writeAppVersion(app: AppDescriptor, version: string): boolean {
-  if (!app.configPath.endsWith(".json")) return false;
+  if (!app.configPath.endsWith('.json')) return false;
   let raw: Record<string, unknown> | null;
   try {
-    raw = asRecord(JSON.parse(readFileSync(app.configPath, "utf8")));
+    raw = asRecord(JSON.parse(readFileSync(app.configPath, 'utf8')));
   } catch {
     return false;
   }
   if (!raw) return false;
-  const expo = asRecord(raw["expo"]);
-  if (expo) expo["version"] = version;
-  else raw["version"] = version;
+  const expo = asRecord(raw['expo']);
+  if (expo) expo['version'] = version;
+  else raw['version'] = version;
   writeFileSync(app.configPath, `${JSON.stringify(raw, null, 2)}\n`);
   return true;
 }
@@ -294,18 +306,21 @@ export function writeAppVersion(app: AppDescriptor, version: string): boolean {
  * to paste instead. Re-reads from disk (like {@link writeAppVersion}) so a concurrent edit isn't clobbered.
  * The value type is `unknown` so this stays decoupled from the adopt feature that calls it.
  */
-export function writeAppEntitlements(app: AppDescriptor, entitlements: Record<string, unknown>): string[] {
-  if (!app.configPath.endsWith(".json")) return [];
+export function writeAppEntitlements(
+  app: AppDescriptor,
+  entitlements: Record<string, unknown>,
+): string[] {
+  if (!app.configPath.endsWith('.json')) return [];
   let raw: Record<string, unknown> | null;
   try {
-    raw = asRecord(JSON.parse(readFileSync(app.configPath, "utf8")));
+    raw = asRecord(JSON.parse(readFileSync(app.configPath, 'utf8')));
   } catch {
     return [];
   }
   if (!raw) return [];
-  const expo = asRecord(raw["expo"]) ?? raw;
-  const ios = asRecord(expo["ios"]) ?? {};
-  const current = asRecord(ios["entitlements"]) ?? {};
+  const expo = asRecord(raw['expo']) ?? raw;
+  const ios = asRecord(expo['ios']) ?? {};
+  const current = asRecord(ios['entitlements']) ?? {};
   const added: string[] = [];
   for (const [key, value] of Object.entries(entitlements)) {
     if (key in current) continue;
@@ -313,8 +328,8 @@ export function writeAppEntitlements(app: AppDescriptor, entitlements: Record<st
     added.push(key);
   }
   if (added.length === 0) return [];
-  ios["entitlements"] = current;
-  expo["ios"] = ios;
+  ios['entitlements'] = current;
+  expo['ios'] = ios;
   writeFileSync(app.configPath, `${JSON.stringify(raw, null, 2)}\n`);
   return added;
 }

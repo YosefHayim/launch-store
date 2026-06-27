@@ -12,9 +12,9 @@
  * not yet on App Store Connect is a `warn`, not a blocker — the products probe already owns "create it first".
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from "../types.js";
-import type { ProductPrice } from "../../types.js";
-import { iosApps } from "../appScopes.js";
+import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { ProductPrice } from '../../types.js';
+import { iosApps } from '../appScopes.js';
 
 /** A declared product carrying a price — the unit this probe grades, flattened across IAPs and subscriptions. */
 interface PricedDeclaration {
@@ -23,19 +23,21 @@ interface PricedDeclaration {
   /** The declared baseline price to validate against Apple's ladder. */
   price: ProductPrice;
   /** Whether to resolve the live resource (and its price ladder) as an IAP or a subscription. */
-  kind: "iap" | "subscription";
+  kind: 'iap' | 'subscription';
 }
 
 /** Every declared product (IAP or subscription) that carries a `price`, for one app's bundle id. */
 function pricedDeclarations(ctx: ReadinessContext, bundleId: string): PricedDeclaration[] {
   const products = ctx.config.products?.[bundleId];
   const iaps = (products?.inAppPurchases ?? []).flatMap((iap) =>
-    iap.price ? [{ productId: iap.productId, price: iap.price, kind: "iap" as const }] : [],
+    iap.price ? [{ productId: iap.productId, price: iap.price, kind: 'iap' as const }] : [],
   );
   const subs = (products?.subscriptionGroups ?? [])
     .flatMap((group) => group.subscriptions)
     .flatMap((sub) =>
-      sub.price ? [{ productId: sub.productId, price: sub.price, kind: "subscription" as const }] : [],
+      sub.price
+        ? [{ productId: sub.productId, price: sub.price, kind: 'subscription' as const }]
+        : [],
     );
   return [...iaps, ...subs];
 }
@@ -52,17 +54,21 @@ async function gradePrice(
   app: string,
   declaration: PricedDeclaration,
   liveId: string | undefined,
-  resolvePoint: (liveId: string, territory: string, customerPrice: number) => Promise<{ id: string } | null>,
+  resolvePoint: (
+    liveId: string,
+    territory: string,
+    customerPrice: number,
+  ) => Promise<{ id: string } | null>,
 ): Promise<AppReadiness> {
   const { productId, price } = declaration;
-  const territory = price.baseTerritory ?? "USA";
+  const territory = price.baseTerritory ?? 'USA';
   if (!liveId) {
     return {
       app,
       identifier: productId,
-      status: "warn",
+      status: 'warn',
       detail: `${productId}: price not verified — not on App Store Connect yet`,
-      hint: "create the product first (run `launch sync`)",
+      hint: 'create the product first (run `launch sync`)',
     };
   }
   const point = await resolvePoint(liveId, territory, price.customerPrice);
@@ -70,30 +76,37 @@ async function gradePrice(
     ? {
         app,
         identifier: productId,
-        status: "ok",
+        status: 'ok',
         detail: `${productId}: price ${price.customerPrice} (${territory}) valid`,
       }
     : {
         app,
         identifier: productId,
-        status: "blocker",
+        status: 'blocker',
         detail: `${productId}: ${price.customerPrice} in ${territory} isn't an Apple price point`,
-        hint: "pick a price that matches an Apple price point (`launch sync` lists the nearby points)",
+        hint: 'pick a price that matches an Apple price point (`launch sync` lists the nearby points)',
       };
 }
 
 /** The App Store Connect price-point validation probe. */
 export const iapPricingProbe: ReadinessProbe = {
-  id: "apple-iap-pricing",
-  title: "Declared prices match Apple price points",
-  store: "appstore",
-  categories: ["iap", "submit"],
+  id: 'apple-iap-pricing',
+  title: 'Declared prices match Apple price points',
+  store: 'appstore',
+  categories: ['iap', 'submit'],
   async check(ctx: ReadinessContext): Promise<ProbeResult> {
-    const apps = iosApps(ctx.apps).filter(({ identifier }) => pricedDeclarations(ctx, identifier).length > 0);
-    if (apps.length === 0) return { state: "omitted" };
+    const apps = iosApps(ctx.apps).filter(
+      ({ identifier }) => pricedDeclarations(ctx, identifier).length > 0,
+    );
+    if (apps.length === 0) return { state: 'omitted' };
 
     const api = await ctx.resolveAscApi();
-    if (!api) return { state: "skipped", reason: "no active Apple account", hint: "run `launch creds set-key`" };
+    if (!api)
+      return {
+        state: 'skipped',
+        reason: 'no active Apple account',
+        hint: 'run `launch creds set-key`',
+      };
 
     const nested = await Promise.all(
       apps.map(async ({ name, identifier }): Promise<AppReadiness[]> => {
@@ -103,13 +116,15 @@ export const iapPricingProbe: ReadinessProbe = {
             {
               app: name,
               identifier,
-              status: "warn",
+              status: 'warn',
               detail: "can't verify — no app record yet",
-              hint: "create the app record first (see the app-record check)",
+              hint: 'create the app record first (see the app-record check)',
             },
           ];
         }
-        const liveIaps = new Map((await api.listInAppPurchases(appId)).map((iap) => [iap.productId, iap]));
+        const liveIaps = new Map(
+          (await api.listInAppPurchases(appId)).map((iap) => [iap.productId, iap]),
+        );
         const groups = await api.listSubscriptionGroups(appId);
         const liveSubs = new Map(
           (await Promise.all(groups.map((group) => api.listSubscriptions(group.id))))
@@ -118,7 +133,7 @@ export const iapPricingProbe: ReadinessProbe = {
         );
         return Promise.all(
           pricedDeclarations(ctx, identifier).map((declaration) => {
-            const isIap = declaration.kind === "iap";
+            const isIap = declaration.kind === 'iap';
             const liveId = (isIap ? liveIaps : liveSubs).get(declaration.productId)?.id;
             const resolvePoint = isIap
               ? (id: string, territory: string, customerPrice: number) =>
@@ -130,6 +145,6 @@ export const iapPricingProbe: ReadinessProbe = {
         );
       }),
     );
-    return { state: "checked", apps: nested.flat() };
+    return { state: 'checked', apps: nested.flat() };
   },
 };

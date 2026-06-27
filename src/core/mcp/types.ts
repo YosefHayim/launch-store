@@ -12,8 +12,8 @@
  * enabled in `launch.config.ts`, so an agent can never reach a mutation the operator didn't opt into.
  */
 
-import type { JsonSchema } from "../jsonSchema.js";
-import type { McpCapability } from "../types.js";
+import type { JsonSchema } from '../jsonSchema.js';
+import type { McpCapability } from '../types.js';
 
 /**
  * One block of an MCP tool result. Launch only ever emits `text` (a tool returns its structured report as
@@ -21,7 +21,7 @@ import type { McpCapability } from "../types.js";
  * content-block union and could carry other kinds later without a breaking change.
  */
 export interface McpTextContent {
-  type: "text";
+  type: 'text';
   /** The block's text — for Launch, the JSON-serialized report. */
   text: string;
 }
@@ -45,7 +45,7 @@ export interface McpToolResult {
  * hand-rolled {@link import("../jsonSchema.js").validate} — one schema, no zod, no second validator.
  */
 export interface McpInputSchema extends JsonSchema {
-  type: "object";
+  type: 'object';
 }
 
 /**
@@ -75,11 +75,11 @@ export interface McpTool {
  * call site, not here.
  */
 export function jsonResult(value: unknown): McpToolResult {
-  return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
+  return { content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] };
 }
 
 /** Read an optional string argument, returning `undefined` for any non-string (incl. missing) value. */
 export function optionalString(args: Record<string, unknown>, key: string): string | undefined {
   const value = args[key];
-  return typeof value === "string" ? value : undefined;
+  return typeof value === 'string' ? value : undefined;
 }

@@ -6,8 +6,10 @@
  * Like the other `scripts/*.ts`, this is dev I/O orchestration — not built or linted — kept
  * prettier-clean so `format:check` stays green.
  */
-import { selectColorDepth } from "../src/core/banner.js";
-import { buildGlowFrames, renderGlowWordmark } from "../src/core/wordmark.js";
+
+import process from 'node:process';
+import { selectColorDepth } from '../src/core/banner.ts';
+import { buildGlowFrames, renderGlowWordmark } from '../src/core/wordmark.ts';
 
 const depth = selectColorDepth(process.env);
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -19,18 +21,20 @@ async function main(): Promise<void> {
   }
 
   const frames = buildGlowFrames(depth);
-  const height = (frames[0] ?? "").split("\n").length;
-  process.stdout.write("\x1b[?25l"); // hide the cursor while animating
+  const height = (frames[0] ?? '').split('\n').length;
+  process.stdout.write('\x1b[?25l'); // hide the cursor while animating
   try {
     for (let loop = 0; loop < 4; loop++) {
       for (let i = 0; i < frames.length; i++) {
-        if (!(loop === 0 && i === 0)) process.stdout.write(`\x1b[${height}A`); // redraw in place
-        process.stdout.write(`${frames[i] ?? ""}\n`);
+        if (!(loop === 0 && i === 0)) {
+          process.stdout.write(`\x1b[${height}A`); // redraw in place
+        }
+        process.stdout.write(`${frames[i] ?? ''}\n`);
         await sleep(70);
       }
     }
   } finally {
-    process.stdout.write("\x1b[?25h"); // restore the cursor
+    process.stdout.write('\x1b[?25h'); // restore the cursor
   }
 }
 

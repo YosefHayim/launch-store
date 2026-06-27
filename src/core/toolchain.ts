@@ -17,9 +17,9 @@
  *   {@link ToolchainIo} so the orchestration is unit-testable with no real installs.
  */
 
-import { confirm as clackConfirm, isCancel, text } from "@clack/prompts";
-import { exists, run } from "./exec.js";
-import { isMac } from "./os.js";
+import { confirm as clackConfirm, isCancel, text } from '@clack/prompts';
+import { exists, run } from './exec.js';
+import { isMac } from './os.js';
 
 /**
  * A tool a local iOS build needs, and how to install it on macOS.
@@ -37,9 +37,9 @@ export interface Tool {
    * build still runs, just uncached. The split is what lets ccache ship on-by-default without becoming
    * a hard dependency on machines that don't have it yet.
    */
-  tier: "required" | "recommended";
+  tier: 'required' | 'recommended';
   /** How to obtain it when missing. */
-  install: { kind: "brew"; formula: string } | { kind: "guide"; how: string };
+  install: { kind: 'brew'; formula: string } | { kind: 'guide'; how: string };
 }
 
 /**
@@ -48,21 +48,41 @@ export interface Tool {
  */
 export const REQUIRED_TOOLS: Tool[] = [
   {
-    label: "Xcode (xcodebuild)",
-    command: "xcodebuild",
-    tier: "required",
+    label: 'Xcode (xcodebuild)',
+    command: 'xcodebuild',
+    tier: 'required',
     install: {
-      kind: "guide",
-      how: "Install Xcode from the App Store, then run `xcode-select --install` for the Command Line Tools.",
+      kind: 'guide',
+      how: 'Install Xcode from the App Store, then run `xcode-select --install` for the Command Line Tools.',
     },
   },
-  { label: "Ruby", command: "ruby", tier: "required", install: { kind: "brew", formula: "ruby" } },
-  { label: "fastlane", command: "fastlane", tier: "required", install: { kind: "brew", formula: "fastlane" } },
-  { label: "CocoaPods (pod)", command: "pod", tier: "required", install: { kind: "brew", formula: "cocoapods" } },
-  { label: "openssl", command: "openssl", tier: "required", install: { kind: "brew", formula: "openssl" } },
-  { label: "Node", command: "node", tier: "required", install: { kind: "brew", formula: "node" } },
+  { label: 'Ruby', command: 'ruby', tier: 'required', install: { kind: 'brew', formula: 'ruby' } },
+  {
+    label: 'fastlane',
+    command: 'fastlane',
+    tier: 'required',
+    install: { kind: 'brew', formula: 'fastlane' },
+  },
+  {
+    label: 'CocoaPods (pod)',
+    command: 'pod',
+    tier: 'required',
+    install: { kind: 'brew', formula: 'cocoapods' },
+  },
+  {
+    label: 'openssl',
+    command: 'openssl',
+    tier: 'required',
+    install: { kind: 'brew', formula: 'openssl' },
+  },
+  { label: 'Node', command: 'node', tier: 'required', install: { kind: 'brew', formula: 'node' } },
   // Recommended, not required: makes a clean build 50–70% cheaper; absent → uncached, never a hard fail.
-  { label: "ccache", command: "ccache", tier: "recommended", install: { kind: "brew", formula: "ccache" } },
+  {
+    label: 'ccache',
+    command: 'ccache',
+    tier: 'recommended',
+    install: { kind: 'brew', formula: 'ccache' },
+  },
 ];
 
 /**
@@ -73,10 +93,25 @@ export const REQUIRED_TOOLS: Tool[] = [
  * env var, also checked separately in `doctor`.
  */
 export const ANDROID_TOOLS: Tool[] = [
-  { label: "JDK (keytool)", command: "keytool", tier: "required", install: { kind: "brew", formula: "openjdk" } },
-  { label: "fastlane", command: "fastlane", tier: "required", install: { kind: "brew", formula: "fastlane" } },
-  { label: "bundletool", command: "bundletool", tier: "required", install: { kind: "brew", formula: "bundletool" } },
-  { label: "Node", command: "node", tier: "required", install: { kind: "brew", formula: "node" } },
+  {
+    label: 'JDK (keytool)',
+    command: 'keytool',
+    tier: 'required',
+    install: { kind: 'brew', formula: 'openjdk' },
+  },
+  {
+    label: 'fastlane',
+    command: 'fastlane',
+    tier: 'required',
+    install: { kind: 'brew', formula: 'fastlane' },
+  },
+  {
+    label: 'bundletool',
+    command: 'bundletool',
+    tier: 'required',
+    install: { kind: 'brew', formula: 'bundletool' },
+  },
+  { label: 'Node', command: 'node', tier: 'required', install: { kind: 'brew', formula: 'node' } },
 ];
 
 /** The official Homebrew installer one-liner, run verbatim under `bash -c` so its `$(curl …)` substitution and `/dev/tty` prompts work. */
@@ -85,7 +120,7 @@ const HOMEBREW_INSTALL_COMMAND =
 
 /** The single-line, actionable fix for a missing tool — `brew install …` or the guide text. */
 export function fixHint(tool: Tool): string {
-  return tool.install.kind === "brew" ? `brew install ${tool.install.formula}` : tool.install.how;
+  return tool.install.kind === 'brew' ? `brew install ${tool.install.formula}` : tool.install.how;
 }
 
 /**
@@ -94,8 +129,8 @@ export function fixHint(tool: Tool): string {
  */
 export function planInstall(missing: Tool[]): { brew: Tool[]; guided: Tool[] } {
   return {
-    brew: missing.filter((tool) => tool.install.kind === "brew"),
-    guided: missing.filter((tool) => tool.install.kind === "guide"),
+    brew: missing.filter((tool) => tool.install.kind === 'brew'),
+    guided: missing.filter((tool) => tool.install.kind === 'guide'),
   };
 }
 
@@ -107,9 +142,11 @@ export function planInstall(missing: Tool[]): { brew: Tool[]; guided: Tool[] } {
  * offer the install only when it would actually do something (issue #117). Probes through the injectable
  * {@link ToolchainIo.exists}, so it's unit-testable with no real PATH lookups.
  */
-export async function missingRequiredTools(io: Pick<ToolchainIo, "exists"> = { exists }): Promise<Tool[]> {
+export async function missingRequiredTools(
+  io: Pick<ToolchainIo, 'exists'> = { exists },
+): Promise<Tool[]> {
   const missing = await detectMissing(io, REQUIRED_TOOLS);
-  return missing.filter((tool) => tool.tier === "required");
+  return missing.filter((tool) => tool.tier === 'required');
 }
 
 /**
@@ -126,11 +163,11 @@ export async function missingRequiredTools(io: Pick<ToolchainIo, "exists"> = { e
  * Prints `LAUNCH_PREFLIGHT_OK` on success; on a missing required tool it lists each gap and exits
  * non-zero, so the SSH step fails fast with an actionable message instead of a cryptic mid-build error.
  */
-export function remoteToolchainPreflight(mode: "install" | "assert"): string {
-  const canInstall = mode === "install";
+export function remoteToolchainPreflight(mode: 'install' | 'assert'): string {
+  const canInstall = mode === 'install';
   // Single-quote any message embedded in `echo` so backticks in a hint (e.g. Xcode's) stay literal.
   const q = (text: string): string => `'${text.replace(/'/g, "'\\''")}'`;
-  const lines: string[] = ["set -uo pipefail", "MISSING=0"];
+  const lines: string[] = ['set -uo pipefail', 'MISSING=0'];
   if (canInstall) {
     // Put Homebrew on PATH in a non-interactive SSH shell before any install attempt.
     lines.push(
@@ -139,20 +176,22 @@ export function remoteToolchainPreflight(mode: "install" | "assert"): string {
   }
   for (const tool of REQUIRED_TOOLS) {
     const present = `command -v ${tool.command} >/dev/null 2>&1`;
-    if (canInstall && tool.install.kind === "brew") {
+    if (canInstall && tool.install.kind === 'brew') {
       lines.push(
         `${present} || { echo ${q(`→ installing ${tool.label}`)}; brew install ${tool.install.formula} || true; }`,
       );
     }
-    if (tool.tier === "required") {
-      lines.push(`${present} || { echo ${q(`✗ ${tool.label} missing — ${fixHint(tool)}`)}; MISSING=1; }`);
+    if (tool.tier === 'required') {
+      lines.push(
+        `${present} || { echo ${q(`✗ ${tool.label} missing — ${fixHint(tool)}`)}; MISSING=1; }`,
+      );
     } else {
       lines.push(`${present} || echo ${q(`• ${tool.label} (recommended) — ${fixHint(tool)}`)}`);
     }
   }
   lines.push(`if [ "$MISSING" = 1 ]; then echo LAUNCH_PREFLIGHT_FAILED; exit 1; fi`);
-  lines.push("echo LAUNCH_PREFLIGHT_OK");
-  return lines.join("\n");
+  lines.push('echo LAUNCH_PREFLIGHT_OK');
+  return lines.join('\n');
 }
 
 /**
@@ -202,7 +241,7 @@ export interface EnsureToolchainOptions {
 }
 
 /** Return the tools from `tools` whose command isn't currently on `PATH`. */
-async function detectMissing(io: Pick<ToolchainIo, "exists">, tools: Tool[]): Promise<Tool[]> {
+async function detectMissing(io: Pick<ToolchainIo, 'exists'>, tools: Tool[]): Promise<Tool[]> {
   const missing: Tool[] = [];
   for (const tool of tools) {
     if (!(await io.exists(tool.command))) missing.push(tool);
@@ -222,17 +261,17 @@ async function detectMissing(io: Pick<ToolchainIo, "exists">, tools: Tool[]): Pr
  */
 export async function ensureToolchain(options: EnsureToolchainOptions = {}): Promise<boolean> {
   const io = options.io ?? realIo();
-  const onMac = options.platform ? options.platform === "darwin" : isMac();
+  const onMac = options.platform ? options.platform === 'darwin' : isMac();
   const assumeYes = options.assumeYes ?? false;
 
   if (!onMac) {
-    io.log("Toolchain auto-install is macOS-only — on this host, build remotely or via EAS.");
+    io.log('Toolchain auto-install is macOS-only — on this host, build remotely or via EAS.');
     return true;
   }
 
   const missing = await detectMissing(io, REQUIRED_TOOLS);
   if (missing.length === 0) {
-    io.log("✓ All build tools are installed.");
+    io.log('✓ All build tools are installed.');
     return true;
   }
 
@@ -244,27 +283,29 @@ export async function ensureToolchain(options: EnsureToolchainOptions = {}): Pro
   }
 
   // If ccache was among the freshly installed tools, configure it once (size + Xcode-friendly sloppiness).
-  if (missing.some((tool) => tool.command === "ccache") && (await io.exists("ccache"))) {
+  if (missing.some((tool) => tool.command === 'ccache') && (await io.exists('ccache'))) {
     await configureCcache(io);
   }
 
   const stillMissing = await detectMissing(io, REQUIRED_TOOLS);
-  for (const tool of stillMissing.filter((t) => t.tier === "recommended")) {
+  for (const tool of stillMissing.filter((t) => t.tier === 'recommended')) {
     io.log(`• ${tool.label} (recommended, skipped) — ${fixHint(tool)}`);
   }
-  const requiredMissing = stillMissing.filter((tool) => tool.tier === "required");
+  const requiredMissing = stillMissing.filter((tool) => tool.tier === 'required');
   if (requiredMissing.length === 0) {
-    io.log("✓ Toolchain ready.");
+    io.log('✓ Toolchain ready.');
     return true;
   }
-  io.log(`Still missing: ${requiredMissing.map((tool) => tool.label).join(", ")}. See the hints above.`);
+  io.log(
+    `Still missing: ${requiredMissing.map((tool) => tool.label).join(', ')}. See the hints above.`,
+  );
   return false;
 }
 
 /** ccache cap and the sloppiness flags that make caching reliable for Xcode/CocoaPods ObjC/C++ builds. */
-const CCACHE_MAX_SIZE = "10G";
+const CCACHE_MAX_SIZE = '10G';
 const CCACHE_SLOPPINESS =
-  "clang_index_store,file_stat_matches,include_file_ctime,include_file_mtime,ivfsoverlay,pch_defines,modules,system_headers,time_macros";
+  'clang_index_store,file_stat_matches,include_file_ctime,include_file_mtime,ivfsoverlay,pch_defines,modules,system_headers,time_macros';
 
 /**
  * Configure ccache once, right after installing it: a generous size cap so warm objects survive between
@@ -273,12 +314,16 @@ const CCACHE_SLOPPINESS =
  */
 async function configureCcache(io: ToolchainIo): Promise<void> {
   io.log(`→ configuring ccache (max-size ${CCACHE_MAX_SIZE}, Xcode-friendly sloppiness)…`);
-  await io.run("ccache", ["--max-size", CCACHE_MAX_SIZE]);
-  await io.run("ccache", ["--set-config", `sloppiness=${CCACHE_SLOPPINESS}`]);
+  await io.run('ccache', ['--max-size', CCACHE_MAX_SIZE]);
+  await io.run('ccache', ['--set-config', `sloppiness=${CCACHE_SLOPPINESS}`]);
 }
 
 /** The outcome of the inline ccache offer, so a build can log it and persist a decline correctly. */
-export type CcacheOfferResult = "installed" | "declined" | "skipped-no-brew" | "skipped-noninteractive";
+export type CcacheOfferResult =
+  | 'installed'
+  | 'declined'
+  | 'skipped-no-brew'
+  | 'skipped-noninteractive';
 
 /**
  * Offer to install + configure ccache inline during a build when it's missing — the convenience twin of
@@ -297,42 +342,49 @@ export async function ensureCcacheInstalled(options: {
   io?: ToolchainIo;
 }): Promise<CcacheOfferResult> {
   const io = options.io ?? realIo();
-  if (!options.interactive) return "skipped-noninteractive";
-  if (!(await io.exists("brew"))) return "skipped-no-brew";
+  if (!options.interactive) return 'skipped-noninteractive';
+  if (!(await io.exists('brew'))) return 'skipped-no-brew';
   const proceed = await io.confirm(
     "ccache isn't installed — install it via Homebrew now? It makes repeat builds much faster (this build stays uncached).",
   );
-  if (!proceed) return "declined";
-  io.log("→ brew install ccache…");
-  await io.run("brew", ["install", "ccache"]);
-  if (!(await io.exists("ccache"))) return "skipped-no-brew";
+  if (!proceed) return 'declined';
+  io.log('→ brew install ccache…');
+  await io.run('brew', ['install', 'ccache']);
+  if (!(await io.exists('ccache'))) return 'skipped-no-brew';
   await configureCcache(io);
-  return "installed";
+  return 'installed';
 }
 
 /**
  * Ensure Homebrew exists (guided/consented), then install the brew-able tools in one batch.
  * Extracted from {@link ensureToolchain} to keep that function's flow legible.
  */
-async function installBrewTools(io: ToolchainIo, brewTools: Tool[], assumeYes: boolean): Promise<void> {
+async function installBrewTools(
+  io: ToolchainIo,
+  brewTools: Tool[],
+  assumeYes: boolean,
+): Promise<void> {
   if (!(await ensureHomebrew(io, assumeYes))) {
     io.log("Homebrew isn't available — install it, then re-run `launch doctor --fix`:");
     for (const tool of brewTools) io.log(`  ${fixHint(tool)}`);
     return;
   }
 
-  const labels = brewTools.map((tool) => tool.label).join(", ");
+  const labels = brewTools.map((tool) => tool.label).join(', ');
   const proceed =
-    assumeYes || (await io.confirm(`Install ${brewTools.length} missing tool(s) via Homebrew? (${labels})`));
+    assumeYes ||
+    (await io.confirm(`Install ${brewTools.length} missing tool(s) via Homebrew? (${labels})`));
   if (!proceed) {
-    io.log("Skipped. Install them yourself with:");
+    io.log('Skipped. Install them yourself with:');
     for (const tool of brewTools) io.log(`  ${fixHint(tool)}`);
     return;
   }
 
-  const formulas = brewTools.map((tool) => (tool.install.kind === "brew" ? tool.install.formula : tool.command));
-  io.log(`→ brew install ${formulas.join(" ")}`);
-  await io.run("brew", ["install", ...formulas]);
+  const formulas = brewTools.map((tool) =>
+    tool.install.kind === 'brew' ? tool.install.formula : tool.command,
+  );
+  io.log(`→ brew install ${formulas.join(' ')}`);
+  await io.run('brew', ['install', ...formulas]);
 }
 
 /**
@@ -341,17 +393,17 @@ async function installBrewTools(io: ToolchainIo, brewTools: Tool[], assumeYes: b
  * usable afterward.
  */
 async function ensureHomebrew(io: ToolchainIo, assumeYes: boolean): Promise<boolean> {
-  if (await io.exists("brew")) return true;
+  if (await io.exists('brew')) return true;
 
   const consent =
     assumeYes ||
     (await io.confirmText(
-      "Homebrew is required to install the rest. Run the official installer? It pipes a remote script to bash and may prompt for your password.",
-      "yes",
+      'Homebrew is required to install the rest. Run the official installer? It pipes a remote script to bash and may prompt for your password.',
+      'yes',
     ));
   if (!consent) return false;
 
-  io.log("→ installing Homebrew (official installer)…");
-  await io.run("/bin/bash", ["-c", HOMEBREW_INSTALL_COMMAND]);
-  return io.exists("brew");
+  io.log('→ installing Homebrew (official installer)…');
+  await io.run('/bin/bash', ['-c', HOMEBREW_INSTALL_COMMAND]);
+  return io.exists('brew');
 }

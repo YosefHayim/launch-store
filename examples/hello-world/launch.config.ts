@@ -1,4 +1,4 @@
-import { defineConfig } from "launch-store";
+import { defineConfig } from 'launch-store';
 
 /**
  * Kitchen-sink Launch config for one dual-platform (iOS + Android) Expo app.
@@ -32,14 +32,14 @@ export default defineConfig({
   // Swappable backends, resolved by name from the registry (src/providers). The iOS defaults below
   // auto-swap to their Android twins on `launch build android`: `fastlane` → `gradle`, and
   // `app-store-connect` → `google-play`. So a dual-platform app names the iOS side and gets Android free.
-  credentials: "local", // your own Apple/Play keys, kept in the OS keychain — never in this repo
-  storage: "s3", // artifacts + OTA manifests on your own bucket (configured in `storageConfig`)
-  buildEngine: "fastlane", // iOS archives via fastlane `gym`; Android auto-uses `gradle`
-  submit: "app-store-connect", // iOS → TestFlight/App Store; Android auto-uses `google-play`
+  credentials: 'local', // your own Apple/Play keys, kept in the OS keychain — never in this repo
+  storage: 's3', // artifacts + OTA manifests on your own bucket (configured in `storageConfig`)
+  buildEngine: 'fastlane', // iOS archives via fastlane `gym`; Android auto-uses `gradle`
+  submit: 'app-store-connect', // iOS → TestFlight/App Store; Android auto-uses `google-play`
 
   // Where to scan for apps (each app is a folder with an `app.json`). Defaults to the repo root; a
   // monorepo would use `["apps/*"]`. Here the single app sits beside this config.
-  appRoots: ["."],
+  appRoots: ['.'],
 
   // ── Backend-only env (never injected into a build) ──────────────────────────────────────────────────
   // A hard denylist over the resolved env, enforced across every layer (`.env`, `.env.<profile>`,
@@ -50,26 +50,26 @@ export default defineConfig({
   // start, so a publishable `EXPO_PUBLIC_..._KEY` is never caught). Different from `launch secret set`,
   // which still INJECTS the value (the build needs it) and only moves it out of plaintext. A name matched
   // here is also exempt from the `.env.example` missing-key gate.
-  envExclude: ["OPENAI_*", "GEMINI_*", "STRIPE_SECRET_KEY", "SENTRY_AUTH_TOKEN"],
+  envExclude: ['OPENAI_*', 'GEMINI_*', 'STRIPE_SECRET_KEY', 'SENTRY_AUTH_TOKEN'],
 
   // ── Build profiles ───────────────────────────────────────────────────────────────────────────────
   // A profile bundles the env + size budget + Android release defaults for one kind of build.
   // Select one with `launch build ios --profile <name>`.
   profiles: {
     production: {
-      name: "production",
-      envFile: ".env.production", // committed, non-secret build-time config
+      name: 'production',
+      envFile: '.env.production', // committed, non-secret build-time config
       sizeBudgetMB: 200, // soft-gate (confirm) if a device download would exceed this
-      track: "production", // Android: default Play track for `launch build android`
+      track: 'production', // Android: default Play track for `launch build android`
       rollout: 0.25, // Android: staged rollout to 25% of users on a production release
     },
     preview: {
-      name: "preview",
-      envFile: ".env.preview",
-      env: { EXPO_PUBLIC_DEBUG_OVERLAY: "true" }, // inline env layers ON TOP of the dotenv file
+      name: 'preview',
+      envFile: '.env.preview',
+      env: { EXPO_PUBLIC_DEBUG_OVERLAY: 'true' }, // inline env layers ON TOP of the dotenv file
       ssl: true, // enable SSL pinning for this profile
       sizeBudgetMB: 150,
-      track: "internal", // Android: ship previews to the internal testing track
+      track: 'internal', // Android: ship previews to the internal testing track
     },
   },
 
@@ -79,108 +79,122 @@ export default defineConfig({
   // offers` reconciles the subscription offers and the promoted-purchase ordering. The gap EAS leaves.
   // Each subscription/IAP can add a `play` override to also publish to Google Play (see those fields).
   products: {
-    "com.example.helloworld": {
+    'com.example.helloworld': {
       subscriptionGroups: [
         {
-          referenceName: "Hello Pro",
-          localizations: [{ locale: "en-US", name: "Hello Pro" }],
+          referenceName: 'Hello Pro',
+          localizations: [{ locale: 'en-US', name: 'Hello Pro' }],
           subscriptions: [
             {
-              productId: "com.example.helloworld.pro.monthly",
-              referenceName: "Pro Monthly",
-              subscriptionPeriod: "ONE_MONTH",
-              localizations: [{ locale: "en-US", name: "Pro Monthly", description: "Unlimited taps, billed monthly." }],
+              productId: 'com.example.helloworld.pro.monthly',
+              referenceName: 'Pro Monthly',
+              subscriptionPeriod: 'ONE_MONTH',
+              localizations: [
+                {
+                  locale: 'en-US',
+                  name: 'Pro Monthly',
+                  description: 'Unlimited taps, billed monthly.',
+                },
+              ],
               price: { customerPrice: 4.99 },
               // App Review screenshot Apple requires before a subscription can be submitted. Path is
               // relative to the app dir; `launch sync` uploads it idempotently (skipped if unchanged, and
               // reported as a skip — not an error — when the file is absent). Drop your PNG at this path.
-              reviewScreenshot: "store/review/pro-monthly.png",
+              reviewScreenshot: 'store/review/pro-monthly.png',
               // First-time auto-applied 1-week free trial (a FREE_TRIAL offer carries no price).
-              introductoryOffers: [{ duration: "ONE_WEEK", offerMode: "FREE_TRIAL", numberOfPeriods: 1 }],
+              introductoryOffers: [
+                { duration: 'ONE_WEEK', offerMode: 'FREE_TRIAL', numberOfPeriods: 1 },
+              ],
               // Developer-presented in-app discount (referenced from StoreKit by `offerCode`).
               promotionalOffers: [
                 {
-                  name: "Win-back 50% off",
-                  offerCode: "promo-halfoff",
-                  duration: "ONE_MONTH",
-                  offerMode: "PAY_AS_YOU_GO",
+                  name: 'Win-back 50% off',
+                  offerCode: 'promo-halfoff',
+                  duration: 'ONE_MONTH',
+                  offerMode: 'PAY_AS_YOU_GO',
                   numberOfPeriods: 3,
-                  prices: [{ territory: "USA", customerPrice: 2.49 }],
+                  prices: [{ territory: 'USA', customerPrice: 2.49 }],
                 },
               ],
               // Google Play twin: publish this same subscription to Play via `launch play-subscriptions`.
               // Apple's price points can't express Play's per-region micro-unit money, so Play pricing is
               // declared here. Launch maps this to one auto-renewing base plan (period from above).
               play: {
-                basePlanId: "p1m", // defaults to a slug of the billing period when omitted
+                basePlanId: 'p1m', // defaults to a slug of the billing period when omitted
                 prices: {
-                  US: { priceMicros: "4990000", currency: "USD" }, // $4.99
-                  DE: { priceMicros: "4990000", currency: "EUR" }, // €4.99
+                  US: { priceMicros: '4990000', currency: 'USD' }, // $4.99
+                  DE: { priceMicros: '4990000', currency: 'EUR' }, // €4.99
                 },
                 offers: [
-                  { offerId: "monthly-free-trial", freeTrialDuration: "P1W" }, // matches the Apple intro offer
+                  { offerId: 'monthly-free-trial', freeTrialDuration: 'P1W' }, // matches the Apple intro offer
                   {
-                    offerId: "monthly-intro-50",
-                    introPrices: { US: { priceMicros: "2490000", currency: "USD" } }, // $2.49 intro phase
+                    offerId: 'monthly-intro-50',
+                    introPrices: { US: { priceMicros: '2490000', currency: 'USD' } }, // $2.49 intro phase
                     introRecurrenceCount: 3, // repeats for the first 3 billing periods
                   },
                 ],
               },
             },
             {
-              productId: "com.example.helloworld.pro.yearly",
-              referenceName: "Pro Yearly",
-              subscriptionPeriod: "ONE_YEAR",
-              localizations: [{ locale: "en-US", name: "Pro Yearly", description: "Unlimited taps, billed yearly." }],
+              productId: 'com.example.helloworld.pro.yearly',
+              referenceName: 'Pro Yearly',
+              subscriptionPeriod: 'ONE_YEAR',
+              localizations: [
+                {
+                  locale: 'en-US',
+                  name: 'Pro Yearly',
+                  description: 'Unlimited taps, billed yearly.',
+                },
+              ],
               price: { customerPrice: 39.99 },
               // Territory-scoped intro offer with a real price + date window (the FREE_TRIAL shorthand
               // above omits both). At most one intro offer applies per (subscription, territory).
               introductoryOffers: [
                 {
-                  territory: "USA",
-                  duration: "THREE_MONTHS",
-                  offerMode: "PAY_AS_YOU_GO",
+                  territory: 'USA',
+                  duration: 'THREE_MONTHS',
+                  offerMode: 'PAY_AS_YOU_GO',
                   numberOfPeriods: 1,
-                  price: { territory: "USA", customerPrice: 29.99 },
-                  startDate: "2026-01-01",
-                  endDate: "2026-12-31",
+                  price: { territory: 'USA', customerPrice: 29.99 },
+                  startDate: '2026-01-01',
+                  endDate: '2026-12-31',
                 },
               ],
               // Redeemable promo-code campaign granting a 1-month free trial to new customers.
               offerCodes: [
                 {
-                  name: "Launch week",
-                  customerEligibilities: ["NEW"],
-                  offerEligibility: "REPLACE_INTRO_OFFERS",
-                  duration: "ONE_MONTH",
-                  offerMode: "FREE_TRIAL",
+                  name: 'Launch week',
+                  customerEligibilities: ['NEW'],
+                  offerEligibility: 'REPLACE_INTRO_OFFERS',
+                  duration: 'ONE_MONTH',
+                  offerMode: 'FREE_TRIAL',
                   numberOfPeriods: 1,
                 },
               ],
               // App Store offer shown to lapsed subscribers, with auto-generated promo artwork.
               winBackOffers: [
                 {
-                  offerId: "comeback-2026",
-                  referenceName: "Come back 2026",
-                  duration: "THREE_MONTHS",
-                  offerMode: "PAY_AS_YOU_GO",
+                  offerId: 'comeback-2026',
+                  referenceName: 'Come back 2026',
+                  duration: 'THREE_MONTHS',
+                  offerMode: 'PAY_AS_YOU_GO',
                   numberOfPeriods: 1,
-                  prices: [{ territory: "USA", customerPrice: 19.99 }],
+                  prices: [{ territory: 'USA', customerPrice: 19.99 }],
                   eligiblePaidMonths: 3,
                   monthsSinceLastSubscribed: { min: 1, max: 6 },
                   waitBetweenOffersMonths: 6, // don't show another win-back within 6 months
-                  startDate: "2026-01-01",
-                  endDate: "2026-12-31",
-                  priority: "NORMAL",
-                  promotionIntent: "USE_AUTO_GENERATED_ASSETS",
+                  startDate: '2026-01-01',
+                  endDate: '2026-12-31',
+                  priority: 'NORMAL',
+                  promotionIntent: 'USE_AUTO_GENERATED_ASSETS',
                 },
               ],
               // Google Play twin for the yearly level.
               play: {
-                basePlanId: "p1y",
+                basePlanId: 'p1y',
                 prices: {
-                  US: { priceMicros: "39990000", currency: "USD" }, // $39.99
-                  DE: { priceMicros: "39990000", currency: "EUR" }, // €39.99
+                  US: { priceMicros: '39990000', currency: 'USD' }, // $39.99
+                  DE: { priceMicros: '39990000', currency: 'EUR' }, // €39.99
                 },
               },
             },
@@ -189,41 +203,47 @@ export default defineConfig({
       ],
       inAppPurchases: [
         {
-          productId: "com.example.helloworld.removeads",
-          referenceName: "Remove Ads",
-          type: "NON_CONSUMABLE",
-          localizations: [{ locale: "en-US", name: "Remove Ads", description: "Hide all ads forever." }],
+          productId: 'com.example.helloworld.removeads',
+          referenceName: 'Remove Ads',
+          type: 'NON_CONSUMABLE',
+          localizations: [
+            { locale: 'en-US', name: 'Remove Ads', description: 'Hide all ads forever.' },
+          ],
           price: { customerPrice: 0.99 },
           // Google Play twin: publish as an active managed product via `launch play-products`.
           play: {
-            defaultPrice: { priceMicros: "990000", currency: "USD" }, // $0.99 in every region without an override
-            prices: { DE: { priceMicros: "990000", currency: "EUR" } }, // per-region override
+            defaultPrice: { priceMicros: '990000', currency: 'USD' }, // $0.99 in every region without an override
+            prices: { DE: { priceMicros: '990000', currency: 'EUR' } }, // per-region override
           },
         },
         {
-          productId: "com.example.helloworld.coins.100",
-          referenceName: "100 Coins",
-          type: "CONSUMABLE",
-          localizations: [{ locale: "en-US", name: "100 Coins", description: "A pile of 100 in-game coins." }],
+          productId: 'com.example.helloworld.coins.100',
+          referenceName: '100 Coins',
+          type: 'CONSUMABLE',
+          localizations: [
+            { locale: 'en-US', name: '100 Coins', description: 'A pile of 100 in-game coins.' },
+          ],
           price: { customerPrice: 1.99 },
           play: {
-            sku: "coins_100", // Play SKU; defaults to the Apple product id when omitted
-            defaultPrice: { priceMicros: "1990000", currency: "USD" }, // $1.99
+            sku: 'coins_100', // Play SKU; defaults to the Apple product id when omitted
+            defaultPrice: { priceMicros: '1990000', currency: 'USD' }, // $1.99
           },
         },
         {
           // A one-off, time-boxed unlock that does NOT auto-renew — Apple's third IAP kind.
-          productId: "com.example.helloworld.seasonpass",
-          referenceName: "Season Pass",
-          type: "NON_RENEWING_SUBSCRIPTION",
-          localizations: [{ locale: "en-US", name: "Season Pass", description: "All content for one season." }],
+          productId: 'com.example.helloworld.seasonpass',
+          referenceName: 'Season Pass',
+          type: 'NON_RENEWING_SUBSCRIPTION',
+          localizations: [
+            { locale: 'en-US', name: 'Season Pass', description: 'All content for one season.' },
+          ],
           price: { customerPrice: 9.99 },
         },
       ],
       // Surfaced on the App Store product page, in this display order (`launch offers` reorders to match).
       promotedPurchases: [
-        { productId: "com.example.helloworld.pro.yearly" },
-        { productId: "com.example.helloworld.removeads", visibleForAllUsers: true, enabled: true },
+        { productId: 'com.example.helloworld.pro.yearly' },
+        { productId: 'com.example.helloworld.removeads', visibleForAllUsers: true, enabled: true },
       ],
     },
   },
@@ -232,8 +252,8 @@ export default defineConfig({
   // Fired on success AND failure, best-effort (never blocks/fails the build). Set a webhook, a shell
   // command, or both. The command sees the event as LAUNCH_* env vars.
   notify: {
-    webhookUrl: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
-    command: "echo Launch: $LAUNCH_APP $LAUNCH_VERSION finished $LAUNCH_STATUS",
+    webhookUrl: 'https://hooks.slack.com/services/YOUR/WEBHOOK/URL',
+    command: 'echo Launch: $LAUNCH_APP $LAUNCH_VERSION finished $LAUNCH_STATUS',
   },
 
   // ── iOS public-release policy (`launch release`, `launch rollout`) ──────────────────────────────────
@@ -241,48 +261,48 @@ export default defineConfig({
   // *behavior* (when/how it goes live). The release *attributes* (age rating, categories, price, review
   // contact) are the `releaseAttributes` field below, applied by `launch release-config`.
   release: {
-    releaseType: "AFTER_APPROVAL", // go live automatically once Apple approves
+    releaseType: 'AFTER_APPROVAL', // go live automatically once Apple approves
     // With `releaseType: "SCHEDULED"`, set `earliestReleaseDate` to the ISO-8601 instant to go live at:
     // earliestReleaseDate: "2026-07-01T09:00:00Z",
     phasedRelease: true, // Apple's 7-day gradual rollout for the update
     usesNonExemptEncryption: false, // standard HTTPS only → Launch clears export compliance over the API
-    primaryLocale: "en-US",
-    releaseNotes: { "en-US": "Faster taps, fewer bugs, and a brand-new Pro tier." },
+    primaryLocale: 'en-US',
+    releaseNotes: { 'en-US': 'Faster taps, fewer bugs, and a brand-new Pro tier.' },
   },
 
   // ── Game Center achievements & leaderboards (`launch game-center`) ──────────────────────────────────
   // Per-app (keyed by iOS bundle id). Reconciled additively to App Store Connect — re-runs only create
   // what's missing. Single-config form of the old gamecenter.config.json.
   gameCenter: {
-    "com.example.helloworld": {
+    'com.example.helloworld': {
       achievements: [
         {
-          vendorIdentifier: "first_tap",
-          referenceName: "First Tap",
+          vendorIdentifier: 'first_tap',
+          referenceName: 'First Tap',
           points: 10,
           showBeforeEarned: true,
           repeatable: false,
-          name: "First Tap",
-          beforeEarnedDescription: "Tap the button for the very first time.",
-          afterEarnedDescription: "You tapped the button. A journey of a thousand taps begins.",
+          name: 'First Tap',
+          beforeEarnedDescription: 'Tap the button for the very first time.',
+          afterEarnedDescription: 'You tapped the button. A journey of a thousand taps begins.',
         },
         {
-          vendorIdentifier: "hundred_taps",
-          referenceName: "Century",
+          vendorIdentifier: 'hundred_taps',
+          referenceName: 'Century',
           points: 50,
-          name: "Century",
-          beforeEarnedDescription: "Reach 100 taps in a single session.",
-          afterEarnedDescription: "100 taps. Your finger is now a machine.",
+          name: 'Century',
+          beforeEarnedDescription: 'Reach 100 taps in a single session.',
+          afterEarnedDescription: '100 taps. Your finger is now a machine.',
         },
       ],
       leaderboards: [
         {
-          vendorIdentifier: "top_tappers",
-          referenceName: "Top Tappers",
-          defaultFormatter: "INTEGER",
-          submissionType: "BEST_SCORE",
-          scoreSortType: "DESC",
-          name: "Top Tappers",
+          vendorIdentifier: 'top_tappers',
+          referenceName: 'Top Tappers',
+          defaultFormatter: 'INTEGER',
+          submissionType: 'BEST_SCORE',
+          scoreSortType: 'DESC',
+          name: 'Top Tappers',
         },
       ],
     },
@@ -292,11 +312,11 @@ export default defineConfig({
   // Per-app (keyed by the parent app's bundle id); each clip keyed by its OWN bundle id. The clip binary
   // comes from a build target — this configures the card's action + subtitle.
   appClips: {
-    "com.example.helloworld": {
+    'com.example.helloworld': {
       clips: {
-        "com.example.helloworld.Clip": {
-          action: "OPEN",
-          localizations: { "en-US": { subtitle: "Play instantly, no install" } },
+        'com.example.helloworld.Clip': {
+          action: 'OPEN',
+          localizations: { 'en-US': { subtitle: 'Play instantly, no install' } },
         },
       },
     },
@@ -306,25 +326,25 @@ export default defineConfig({
   // Per-app (keyed by iOS bundle id): age rating, store categories, base price, and App Review details.
   // Distinct from `release` above (that's the release *policy*). Single-config form of release.config.json.
   releaseAttributes: {
-    "com.example.helloworld": {
+    'com.example.helloworld': {
       ageRating: {
-        violenceCartoonOrFantasy: "NONE",
-        profanityOrCrudeHumor: "NONE",
-        matureOrSuggestiveThemes: "NONE",
+        violenceCartoonOrFantasy: 'NONE',
+        profanityOrCrudeHumor: 'NONE',
+        matureOrSuggestiveThemes: 'NONE',
         gambling: false,
         unrestrictedWebAccess: false,
       },
-      categories: { primary: "GAMES", secondary: "ENTERTAINMENT" },
-      pricing: { baseTerritory: "USA", customerPrice: 0 }, // free
+      categories: { primary: 'GAMES', secondary: 'ENTERTAINMENT' },
+      pricing: { baseTerritory: 'USA', customerPrice: 0 }, // free
       reviewDetails: {
-        contactFirstName: "Ada",
-        contactLastName: "Lovelace",
-        contactPhone: "+1-555-0100",
-        contactEmail: "review@helloworld.example",
+        contactFirstName: 'Ada',
+        contactLastName: 'Lovelace',
+        contactPhone: '+1-555-0100',
+        contactEmail: 'review@helloworld.example',
         // No login → demoAccountRequired stays false; set it true plus demoAccountName/demoAccountPassword
         // when a reviewer must sign in to reach gated content (the password is never read back or logged).
         demoAccountRequired: false,
-        notes: "Tap the big button to raise the score. No account or login required.",
+        notes: 'Tap the big button to raise the score. No account or login required.',
       },
     },
   },
@@ -332,15 +352,15 @@ export default defineConfig({
   // ── Apple Pay merchant ids & Wallet pass type ids (`launch wallet`) ─────────────────────────────────
   // Team-level (not per-app) — these Identifiers are shared across the team. Registered additively.
   wallet: {
-    merchantIds: [{ identifier: "merchant.com.example.helloworld", name: "Hello World Payments" }],
-    passTypeIds: [{ identifier: "pass.com.example.helloworld.coupon", name: "Hello World Coupon" }],
+    merchantIds: [{ identifier: 'merchant.com.example.helloworld', name: 'Hello World Payments' }],
+    passTypeIds: [{ identifier: 'pass.com.example.helloworld.coupon', name: 'Hello World Coupon' }],
   },
 
   // ── EU alternative-distribution domains, DMA (`launch eu-distribution`) ─────────────────────────────
   // Team-level. Authorizes the domains you host distribution packages from. The signing key is a
   // register-once action (`launch eu-distribution set-key`), not declared here.
   euDistribution: {
-    domains: [{ domain: "downloads.example.com", referenceName: "Hello World EU downloads" }],
+    domains: [{ domain: 'downloads.example.com', referenceName: 'Hello World EU downloads' }],
   },
 
   // ── Sidecar locations for the four file-only surfaces (`launch plan`, `launch drift`) ────────────────
@@ -349,19 +369,19 @@ export default defineConfig({
   // (`availability.config.json`, …); this map relocates them so all store-config files sit together under
   // `store/`. `launch plan` reads every one of them in dry-run; an absent file just omits that surface.
   configFiles: {
-    availability: "store/availability.config.json",
-    accessibility: "store/accessibility.config.json",
-    experiments: "store/experiments.config.json",
-    customPages: "store/custom-pages.config.json",
+    availability: 'store/availability.config.json',
+    accessibility: 'store/accessibility.config.json',
+    experiments: 'store/experiments.config.json',
+    customPages: 'store/custom-pages.config.json',
   },
 
   // ── AWS EC2 Mac settings for off-Mac builds (`launch build ios --remote aws`, `launch cloud`) ────────
   // Launch stores NO AWS secrets — credentials resolve through the standard SDK chain (env, ~/.aws, SSO).
   aws: {
-    region: "us-east-1",
-    profile: "default", // named profile in ~/.aws; omit to use the default credential chain
-    instanceType: "mac2.metal", // cheapest M-series EC2 Mac in most regions
-    amiId: "ami-0abcd1234example0", // BYO golden AMI; omit to bootstrap + snapshot one on first use
+    region: 'us-east-1',
+    profile: 'default', // named profile in ~/.aws; omit to use the default credential chain
+    instanceType: 'mac2.metal', // cheapest M-series EC2 Mac in most regions
+    amiId: 'ami-0abcd1234example0', // BYO golden AMI; omit to bootstrap + snapshot one on first use
   },
 
   // ── Cloud artifact storage (used because `storage: "s3"` above) ─────────────────────────────────────
@@ -369,10 +389,10 @@ export default defineConfig({
   // domain. This example targets Cloudflare R2 (S3-compatible). Access keys are NOT here — they resolve
   // from env vars / the OS secret store at call time. (`supabaseUrl` is the Supabase-only field, unused by s3.)
   storageConfig: {
-    endpoint: "https://<account-id>.r2.cloudflarestorage.com",
-    bucket: "helloworld-artifacts",
-    region: "auto", // correct for R2
-    publicBaseUrl: "https://cdn.helloworld.example",
+    endpoint: 'https://<account-id>.r2.cloudflarestorage.com',
+    bucket: 'helloworld-artifacts',
+    region: 'auto', // correct for R2
+    publicBaseUrl: 'https://cdn.helloworld.example',
   },
 
   // ── Local artifact retention (`launch builds prune`) ────────────────────────────────────────────────

@@ -5,16 +5,22 @@
  * entity so a diff reads naturally, but the natural key stays the product id.
  */
 
-import type { AppEntities, SnapshotContext, SnapshotEntity, SnapshotSource, SourceCapture } from "../types.js";
-import { iosApps } from "../../readiness/appScopes.js";
+import type {
+  AppEntities,
+  SnapshotContext,
+  SnapshotEntity,
+  SnapshotSource,
+  SourceCapture,
+} from '../types.js';
+import { iosApps } from '../../readiness/appScopes.js';
 
 /** One captured subscription → a snapshot entity keyed by its product id. */
 function toEntity(
   group: string,
   sub: { productId: string; subscriptionPeriod?: string | undefined; state?: string | undefined },
 ): SnapshotEntity {
-  const periodSuffix = sub.subscriptionPeriod ? ` ${sub.subscriptionPeriod}` : "";
-  const stateSuffix = sub.state ? ` (${sub.state})` : "";
+  const periodSuffix = sub.subscriptionPeriod ? ` ${sub.subscriptionPeriod}` : '';
+  const stateSuffix = sub.state ? ` (${sub.state})` : '';
   return {
     key: sub.productId,
     summary: `subscription${periodSuffix} in ${group}${stateSuffix}`,
@@ -29,15 +35,20 @@ function toEntity(
 
 /** The App Store Connect subscription snapshot source. */
 export const appleSubscriptionsSource: SnapshotSource = {
-  id: "apple-subscriptions",
-  title: "App Store subscriptions",
-  store: "appstore",
+  id: 'apple-subscriptions',
+  title: 'App Store subscriptions',
+  store: 'appstore',
   async capture(ctx: SnapshotContext): Promise<SourceCapture> {
     const apps = iosApps(ctx.apps);
-    if (apps.length === 0) return { state: "omitted" };
+    if (apps.length === 0) return { state: 'omitted' };
 
     const api = await ctx.resolveAscApi();
-    if (!api) return { state: "skipped", reason: "no active Apple account", hint: "run `launch creds set-key`" };
+    if (!api)
+      return {
+        state: 'skipped',
+        reason: 'no active Apple account',
+        hint: 'run `launch creds set-key`',
+      };
 
     const captured = await Promise.all(
       apps.map(async ({ name, identifier }): Promise<AppEntities | null> => {
@@ -53,6 +64,6 @@ export const appleSubscriptionsSource: SnapshotSource = {
         return { app: name, identifier, entities: nested.flat() };
       }),
     );
-    return { state: "captured", apps: captured.filter((app): app is AppEntities => app !== null) };
+    return { state: 'captured', apps: captured.filter((app): app is AppEntities => app !== null) };
   },
 };

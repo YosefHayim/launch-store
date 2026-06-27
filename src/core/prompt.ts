@@ -6,7 +6,7 @@
  * because the safe default differs: refusing to guess which app to BUILD vs. taking the newest key.
  */
 
-import { autocomplete, cancel, isCancel, select } from "@clack/prompts";
+import { autocomplete, cancel, isCancel, select } from '@clack/prompts';
 
 /** Above this many options, the flat list becomes a fuzzy type-to-search prompt. */
 export const PICK_SEARCH_THRESHOLD = 8;
@@ -45,8 +45,8 @@ export interface PickOption<T> {
  *   `note` is printed so the user knows a choice was made for them and how to override it.
  */
 export type NonInteractivePolicy<T> =
-  | { kind: "require"; flagHint: string }
-  | { kind: "fallback"; value: T; note?: string };
+  | { kind: 'require'; flagHint: string }
+  | { kind: 'fallback'; value: T; note?: string };
 
 /** Arguments to {@link pickOne}. Callers resolve the 0- and 1-option cases before calling. */
 export interface PickOneArgs<T> {
@@ -74,7 +74,7 @@ export interface PickOneArgs<T> {
  */
 export async function pickOne<T>(args: PickOneArgs<T>): Promise<T> {
   if (!args.canPrompt) {
-    if (args.nonInteractive.kind === "fallback") {
+    if (args.nonInteractive.kind === 'fallback') {
       if (args.nonInteractive.note) console.log(args.nonInteractive.note);
       return args.nonInteractive.value;
     }
@@ -93,15 +93,17 @@ export async function pickOne<T>(args: PickOneArgs<T>): Promise<T> {
   const threshold = args.searchThreshold ?? PICK_SEARCH_THRESHOLD;
   // Pre-select the remembered option by its string index (clack's value), when it's still in the list.
   const initialIndex =
-    args.initialValue !== undefined ? args.options.findIndex((option) => option.value === args.initialValue) : -1;
+    args.initialValue !== undefined
+      ? args.options.findIndex((option) => option.value === args.initialValue)
+      : -1;
   const choice =
     args.options.length > threshold
       ? await autocomplete({
           message: args.message,
           options,
-          placeholder: "Type to search…",
+          placeholder: 'Type to search…',
           maxItems: 10,
-          filter: (search, option) => fuzzyMatch(search, `${option.label} ${option.hint ?? ""}`),
+          filter: (search, option) => fuzzyMatch(search, `${option.label} ${option.hint ?? ''}`),
         })
       : await select({
           message: args.message,
@@ -109,10 +111,10 @@ export async function pickOne<T>(args: PickOneArgs<T>): Promise<T> {
           ...(initialIndex >= 0 ? { initialValue: String(initialIndex) } : {}),
         });
   if (isCancel(choice)) {
-    cancel("Cancelled.");
+    cancel('Cancelled.');
     process.exit(0);
   }
   const picked = args.options[Number(choice)];
-  if (!picked) throw new Error("pickOne: the selection did not match a provided option.");
+  if (!picked) throw new Error('pickOne: the selection did not match a provided option.');
   return picked.value;
 }

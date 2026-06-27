@@ -6,7 +6,7 @@
  * best answer is "on", so these ship as defaults, not `launch.config.ts` fields (YAGNI).
  */
 
-import type { SigningAssets } from "./types.js";
+import type { SigningAssets } from './types.js';
 
 /**
  * RAM-aware compile-parallelism cap. `xcodebuild` spawns one compile per logical core by default, which
@@ -27,7 +27,7 @@ export function computeBuildJobs(cores: number, memBytes: number): number | unde
  * `launch doctor` — so Launch sets only the wiring flag and never overrides `CCACHE_DIR`.
  */
 export function ccacheEnv(): { USE_CCACHE: string } {
-  return { USE_CCACHE: "1" };
+  return { USE_CCACHE: '1' };
 }
 
 /**
@@ -36,16 +36,19 @@ export function ccacheEnv(): { USE_CCACHE: string } {
  * one. Shared verbatim with the remote build via env, where the bash script appends it to its own xcargs.
  */
 export function xcargsExtra(jobs: number | undefined): string {
-  const parts = ["COMPILER_INDEX_STORE_ENABLE=NO"];
+  const parts = ['COMPILER_INDEX_STORE_ENABLE=NO'];
   if (jobs !== undefined) parts.push(`-jobs ${jobs}`);
-  return parts.join(" ");
+  return parts.join(' ');
 }
 
 /**
  * Assemble the full local `gym --xcargs` string: the manual-signing settings (so the resolved cert +
  * profile sign the archive, no surprises) followed by the shared {@link xcargsExtra}.
  */
-export function buildXcargs(signing: Pick<SigningAssets, "teamId" | "profileName">, jobs: number | undefined): string {
+export function buildXcargs(
+  signing: Pick<SigningAssets, 'teamId' | 'profileName'>,
+  jobs: number | undefined,
+): string {
   const signingArgs = `DEVELOPMENT_TEAM=${signing.teamId} CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER=${signing.profileName}`;
   return `${signingArgs} ${xcargsExtra(jobs)}`;
 }
@@ -67,7 +70,7 @@ export interface GymArgsInput {
   /** Absolute path to the manual-signing `ExportOptions.plist`. */
   exportOptionsPath: string;
   /** Resolved signing assets — the codesigning identity and the manual-signing xcargs come from here. */
-  signing: Pick<SigningAssets, "teamId" | "profileName" | "certName">;
+  signing: Pick<SigningAssets, 'teamId' | 'profileName' | 'certName'>;
   /** RAM-aware parallelism cap from {@link computeBuildJobs}, or `undefined` to let xcodebuild decide. */
   jobs: number | undefined;
   /** Whether to pass `--clean` (clean vs incremental, decided by the build fingerprint). */
@@ -88,22 +91,22 @@ export interface GymArgsInput {
  */
 export function gymArgs(input: GymArgsInput): string[] {
   return [
-    "gym",
-    "--workspace",
+    'gym',
+    '--workspace',
     input.workspace,
-    "--scheme",
+    '--scheme',
     input.scheme,
-    "--output_directory",
+    '--output_directory',
     input.outputDir,
-    "--output_name",
+    '--output_name',
     input.outputName,
-    "--export_options",
+    '--export_options',
     input.exportOptionsPath,
-    "--codesigning_identity",
+    '--codesigning_identity',
     input.signing.certName,
-    "--xcargs",
+    '--xcargs',
     buildXcargs(input.signing, input.jobs),
-    ...(input.destination !== undefined ? ["--destination", input.destination] : []),
-    ...(input.clean ? ["--clean"] : []),
+    ...(input.destination !== undefined ? ['--destination', input.destination] : []),
+    ...(input.clean ? ['--clean'] : []),
   ];
 }

@@ -11,12 +11,12 @@
  * submit credentials) becomes a {@link MigrationNote} rather than silently vanishing.
  */
 
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { readResolvedConfig } from "../config.js";
-import { configTemplate, detectAppRoot } from "../configScaffold.js";
-import type { AppDescriptor, BuildProfile, PlayTrack } from "../types.js";
-import { buildEnvExample, scaffoldStoreConfig } from "./scaffold.js";
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { readResolvedConfig } from '../config.js';
+import { configTemplate, detectAppRoot } from '../configScaffold.js';
+import type { AppDescriptor, BuildProfile, PlayTrack } from '../types.js';
+import { buildEnvExample, scaffoldStoreConfig } from './scaffold.js';
 import type {
   CredentialsSummary,
   EasBuildProfile,
@@ -26,16 +26,16 @@ import type {
   MigrationArtifact,
   MigrationNote,
   MigrationResult,
-} from "./types.js";
+} from './types.js';
 
 /** Narrow an unknown value to a plain object, or null. Mirrors `config.ts`/`storeConfig.ts` (no zod). */
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
 }
 
 /** Read a string field, or undefined when absent/non-string. */
 function str(record: Record<string, unknown>, key: string): string | undefined {
-  return typeof record[key] === "string" ? record[key] : undefined;
+  return typeof record[key] === 'string' ? record[key] : undefined;
 }
 
 /** Collect a record's string-valued entries (e.g. EAS `env`), dropping non-string values; undefined when empty. */
@@ -44,7 +44,7 @@ function stringRecord(value: unknown): Record<string, string> | undefined {
   if (!record) return undefined;
   const out: Record<string, string> = {};
   for (const [key, entry] of Object.entries(record)) {
-    if (typeof entry === "string") out[key] = entry;
+    if (typeof entry === 'string') out[key] = entry;
   }
   return Object.keys(out).length > 0 ? out : undefined;
 }
@@ -52,26 +52,28 @@ function stringRecord(value: unknown): Record<string, string> | undefined {
 /** Parse one `build.<profile>` block, keeping only the fields Launch maps or reports on. */
 function parseBuildProfile(block: Record<string, unknown>): EasBuildProfile {
   const profile: EasBuildProfile = {};
-  const channel = str(block, "channel");
+  const channel = str(block, 'channel');
   if (channel) profile.channel = channel;
-  const distribution = str(block, "distribution");
+  const distribution = str(block, 'distribution');
   if (distribution) profile.distribution = distribution;
-  const env = stringRecord(block["env"]);
+  const env = stringRecord(block['env']);
   if (env) profile.env = env;
-  if (typeof block["developmentClient"] === "boolean") profile.developmentClient = block["developmentClient"];
-  const autoIncrement = block["autoIncrement"];
-  if (typeof autoIncrement === "boolean" || typeof autoIncrement === "string") profile.autoIncrement = autoIncrement;
+  if (typeof block['developmentClient'] === 'boolean')
+    profile.developmentClient = block['developmentClient'];
+  const autoIncrement = block['autoIncrement'];
+  if (typeof autoIncrement === 'boolean' || typeof autoIncrement === 'string')
+    profile.autoIncrement = autoIncrement;
   return profile;
 }
 
 /** Parse one `submit.<profile>` block's iOS + Android halves, dropping empty halves. */
 function parseSubmitProfile(block: Record<string, unknown>): EasSubmitProfile {
   const profile: EasSubmitProfile = {};
-  const ios = asRecord(block["ios"]);
+  const ios = asRecord(block['ios']);
   if (ios) {
-    const appleId = str(ios, "appleId");
-    const ascAppId = str(ios, "ascAppId");
-    const appleTeamId = str(ios, "appleTeamId");
+    const appleId = str(ios, 'appleId');
+    const ascAppId = str(ios, 'ascAppId');
+    const appleTeamId = str(ios, 'appleTeamId');
     if (appleId || ascAppId || appleTeamId) {
       profile.ios = {
         ...(appleId ? { appleId } : {}),
@@ -80,19 +82,25 @@ function parseSubmitProfile(block: Record<string, unknown>): EasSubmitProfile {
       };
     }
   }
-  const android = asRecord(block["android"]);
+  const android = asRecord(block['android']);
   if (android) {
-    const serviceAccountKeyPath = str(android, "serviceAccountKeyPath");
-    const track = str(android, "track");
+    const serviceAccountKeyPath = str(android, 'serviceAccountKeyPath');
+    const track = str(android, 'track');
     if (serviceAccountKeyPath || track) {
-      profile.android = { ...(serviceAccountKeyPath ? { serviceAccountKeyPath } : {}), ...(track ? { track } : {}) };
+      profile.android = {
+        ...(serviceAccountKeyPath ? { serviceAccountKeyPath } : {}),
+        ...(track ? { track } : {}),
+      };
     }
   }
   return profile;
 }
 
 /** Parse a map of named profile blocks (`build` or `submit`), skipping non-object entries. */
-function parseProfileMap<T>(value: unknown, parse: (block: Record<string, unknown>) => T): Record<string, T> {
+function parseProfileMap<T>(
+  value: unknown,
+  parse: (block: Record<string, unknown>) => T,
+): Record<string, T> {
   const record = asRecord(value);
   if (!record) return {};
   const profiles: Record<string, T> = {};
@@ -107,7 +115,7 @@ function parseProfileMap<T>(value: unknown, parse: (block: Record<string, unknow
 function parseCli(value: unknown): EasCli | undefined {
   const record = asRecord(value);
   if (!record) return undefined;
-  const appVersionSource = str(record, "appVersionSource");
+  const appVersionSource = str(record, 'appVersionSource');
   return appVersionSource ? { appVersionSource } : undefined;
 }
 
@@ -121,22 +129,24 @@ export function parseEasJson(raw: string): EasJson {
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new Error(`eas.json is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `eas.json is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
   const record = asRecord(parsed);
-  if (!record) throw new Error("eas.json must be a JSON object.");
+  if (!record) throw new Error('eas.json must be a JSON object.');
 
   const eas: EasJson = {
-    build: parseProfileMap(record["build"], parseBuildProfile),
-    submit: parseProfileMap(record["submit"], parseSubmitProfile),
+    build: parseProfileMap(record['build'], parseBuildProfile),
+    submit: parseProfileMap(record['submit'], parseSubmitProfile),
   };
-  const cli = parseCli(record["cli"]);
+  const cli = parseCli(record['cli']);
   if (cli) eas.cli = cli;
   return eas;
 }
 
 /** Google Play's four release tracks — anything else in a submit profile is reported as needing a fix. */
-const PLAY_TRACKS: readonly PlayTrack[] = ["internal", "closed", "open", "production"];
+const PLAY_TRACKS: readonly PlayTrack[] = ['internal', 'closed', 'open', 'production'];
 
 /** Whether a raw EAS track string is one Launch can carry onto a profile verbatim. */
 function isPlayTrack(value: string): value is PlayTrack {
@@ -156,7 +166,8 @@ function mapProfiles(eas: EasJson): Record<string, BuildProfile> {
     if (track && isPlayTrack(track)) profile.track = track;
     profiles[name] = profile;
   }
-  if (Object.keys(profiles).length === 0) profiles["production"] = { name: "production", sizeBudgetMB: 200 };
+  if (Object.keys(profiles).length === 0)
+    profiles['production'] = { name: 'production', sizeBudgetMB: 200 };
   return profiles;
 }
 
@@ -167,13 +178,13 @@ function mapProfiles(eas: EasJson): Record<string, BuildProfile> {
  */
 function serializeProfilesSection(profiles: Record<string, BuildProfile>): string {
   const indented = JSON.stringify(profiles, null, 2)
-    .split("\n")
+    .split('\n')
     .map((line, index) => (index === 0 ? line : `  ${line}`))
-    .join("\n");
+    .join('\n');
   return [
-    "  // Imported from eas.json by `launch migrate eas` — review, then commit.",
+    '  // Imported from eas.json by `launch migrate eas` — review, then commit.',
     `  profiles: ${indented},`,
-  ].join("\n");
+  ].join('\n');
 }
 
 /** The union of env KEYS declared across all EAS build profiles, sorted; values are dropped (may be secrets). */
@@ -194,7 +205,10 @@ function perProfileEnvArtifacts(eas: EasJson): MigrationArtifact[] {
   const artifacts: MigrationArtifact[] = [];
   for (const [name, profile] of Object.entries(eas.build)) {
     if (!profile.env) continue;
-    artifacts.push({ path: `.env.${name}`, contents: buildEnvExample(Object.keys(profile.env).sort()) });
+    artifacts.push({
+      path: `.env.${name}`,
+      contents: buildEnvExample(Object.keys(profile.env).sort()),
+    });
   }
   return artifacts;
 }
@@ -204,28 +218,28 @@ function buildNotes(eas: EasJson, apps: AppDescriptor[]): MigrationNote[] {
   const notes: MigrationNote[] = [];
 
   for (const [name, profile] of Object.entries(eas.build)) {
-    notes.push({ level: "mapped", message: `Build profile "${name}" → Launch profile "${name}".` });
+    notes.push({ level: 'mapped', message: `Build profile "${name}" → Launch profile "${name}".` });
     if (profile.env) {
       notes.push({
-        level: "mapped",
+        level: 'mapped',
         message: `Profile "${name}" env keys → .env.${name} (values left blank — fill them in; they may be secrets).`,
       });
     }
     if (profile.channel) {
       notes.push({
-        level: "manual",
+        level: 'manual',
         message: `Profile "${name}" published to EAS Update channel "${profile.channel}" — set up OTA with \`launch update --channel ${profile.channel}\` (see \`launch explain ota-update\`).`,
       });
     }
-    if (profile.distribution === "internal") {
+    if (profile.distribution === 'internal') {
       notes.push({
-        level: "manual",
+        level: 'manual',
         message: `Profile "${name}" used internal (ad-hoc) distribution — register tester devices with \`launch device add\` (see \`launch explain ad-hoc-distribution\`).`,
       });
     }
     if (profile.developmentClient === true) {
       notes.push({
-        level: "manual",
+        level: 'manual',
         message: `Profile "${name}" built a development client — that's a dev tool, not a store build; Launch ships store and TestFlight builds.`,
       });
     }
@@ -234,34 +248,35 @@ function buildNotes(eas: EasJson, apps: AppDescriptor[]): MigrationNote[] {
   for (const [name, submit] of Object.entries(eas.submit)) {
     if (submit.ios) {
       notes.push({
-        level: "manual",
+        level: 'manual',
         message: `Submit profile "${name}" carried Apple account details (appleId/ascAppId/appleTeamId) — configure your Apple API key with \`launch creds set-key\`.`,
       });
     }
     if (submit.android?.serviceAccountKeyPath) {
       notes.push({
-        level: "manual",
+        level: 'manual',
         message: `Submit profile "${name}" referenced a Play service account key (${submit.android.serviceAccountKeyPath}) — configure it with \`launch creds\`.`,
       });
     }
     const track = submit.android?.track;
     if (track && !isPlayTrack(track)) {
       notes.push({
-        level: "manual",
+        level: 'manual',
         message: `Submit profile "${name}" had an unrecognized Play track "${track}" — set a valid track (internal/closed/open/production) on the profile.`,
       });
     }
   }
 
-  if (eas.cli?.appVersionSource === "remote") {
+  if (eas.cli?.appVersionSource === 'remote') {
     notes.push({
-      level: "mapped",
-      message: "`cli.appVersionSource: remote` → Launch already bumps build numbers from the store, matching remote.",
+      level: 'mapped',
+      message:
+        '`cli.appVersionSource: remote` → Launch already bumps build numbers from the store, matching remote.',
     });
   }
 
   notes.push({
-    level: "manual",
+    level: 'manual',
     message:
       'EAS built in the cloud; Launch builds locally by default (`buildEngine: "fastlane"`). No Mac? Set `buildEngine: "eas"` or run `launch build --remote` (see `launch explain eas-handoff`).',
   });
@@ -269,13 +284,13 @@ function buildNotes(eas: EasJson, apps: AppDescriptor[]): MigrationNote[] {
   for (const app of apps) {
     if (app.bundleId) {
       notes.push({
-        level: "info",
+        level: 'info',
         message: `Detected iOS bundle id ${app.bundleId} for "${app.name}" — read from app.json; nothing to write.`,
       });
     }
     if (app.packageName) {
       notes.push({
-        level: "info",
+        level: 'info',
         message: `Detected Android package ${app.packageName} for "${app.name}" — read from app.json; nothing to write.`,
       });
     }
@@ -286,7 +301,7 @@ function buildNotes(eas: EasJson, apps: AppDescriptor[]): MigrationNote[] {
 
 /** Whether a record carries any password field — recorded as a boolean so the value itself is never read. */
 function hasPasswordKey(record: Record<string, unknown>): boolean {
-  return Object.keys(record).some((key) => key.toLowerCase().includes("password"));
+  return Object.keys(record).some((key) => key.toLowerCase().includes('password'));
 }
 
 /**
@@ -297,11 +312,11 @@ function hasPasswordKey(record: Record<string, unknown>): boolean {
  * project without local credentials migrates cleanly. AGENTS.md: "Secrets never touch the repo."
  */
 function readCredentialsJson(cwd: string): CredentialsSummary | null {
-  const path = join(cwd, "credentials.json");
+  const path = join(cwd, 'credentials.json');
   if (!existsSync(path)) return null;
   let parsed: unknown;
   try {
-    parsed = JSON.parse(readFileSync(path, "utf8"));
+    parsed = JSON.parse(readFileSync(path, 'utf8'));
   } catch {
     return null;
   }
@@ -310,11 +325,11 @@ function readCredentialsJson(cwd: string): CredentialsSummary | null {
 
   const summary: CredentialsSummary = {};
 
-  const ios = asRecord(record["ios"]);
+  const ios = asRecord(record['ios']);
   if (ios) {
-    const certificate = asRecord(ios["distributionCertificate"]);
-    const distributionCertificatePath = certificate ? str(certificate, "path") : undefined;
-    const provisioningProfilePath = str(ios, "provisioningProfilePath");
+    const certificate = asRecord(ios['distributionCertificate']);
+    const distributionCertificatePath = certificate ? str(certificate, 'path') : undefined;
+    const provisioningProfilePath = str(ios, 'provisioningProfilePath');
     const hasPassword = certificate ? hasPasswordKey(certificate) : false;
     if (distributionCertificatePath || provisioningProfilePath || hasPassword) {
       summary.ios = {
@@ -325,10 +340,10 @@ function readCredentialsJson(cwd: string): CredentialsSummary | null {
     }
   }
 
-  const keystore = asRecord(asRecord(record["android"])?.["keystore"]);
+  const keystore = asRecord(asRecord(record['android'])?.['keystore']);
   if (keystore) {
-    const keystorePath = str(keystore, "keystorePath");
-    const keyAlias = str(keystore, "keyAlias");
+    const keystorePath = str(keystore, 'keystorePath');
+    const keyAlias = str(keystore, 'keyAlias');
     const hasPassword = hasPasswordKey(keystore);
     if (keystorePath || keyAlias || hasPassword) {
       summary.android = {
@@ -347,17 +362,17 @@ function readCredentialsJson(cwd: string): CredentialsSummary | null {
 function credentialsNotes(summary: CredentialsSummary): MigrationNote[] {
   const notes: MigrationNote[] = [];
   if (summary.ios) {
-    const where = summary.ios.distributionCertificatePath ?? "your distribution certificate";
+    const where = summary.ios.distributionCertificatePath ?? 'your distribution certificate';
     notes.push({
-      level: "manual",
+      level: 'manual',
       message: `Local iOS signing material in credentials.json (${where}) — import it with \`launch creds\`; Launch keeps certs in the OS keychain and never reads the password from credentials.json.`,
     });
   }
   if (summary.android) {
-    const where = summary.android.keystorePath ?? "your release keystore";
-    const alias = summary.android.keyAlias ? `, key alias "${summary.android.keyAlias}"` : "";
+    const where = summary.android.keystorePath ?? 'your release keystore';
+    const alias = summary.android.keyAlias ? `, key alias "${summary.android.keyAlias}"` : '';
     notes.push({
-      level: "manual",
+      level: 'manual',
       message: `Local Android keystore in credentials.json (${where}${alias}) — register it with \`launch creds\`; the keystore/key passwords are never read from credentials.json.`,
     });
   }
@@ -366,8 +381,8 @@ function credentialsNotes(summary: CredentialsSummary): MigrationNote[] {
 
 /** Render an Expo `runtimeVersion` (a literal string, or a `{ policy }` object) as a short label, or undefined. */
 function readRuntimeVersion(value: unknown): string | undefined {
-  if (typeof value === "string") return value;
-  const policy = str(asRecord(value) ?? {}, "policy");
+  if (typeof value === 'string') return value;
+  const policy = str(asRecord(value) ?? {}, 'policy');
   return policy ? `policy "${policy}"` : undefined;
 }
 
@@ -383,36 +398,36 @@ async function appFactsNotes(apps: AppDescriptor[]): Promise<MigrationNote[]> {
   for (const app of apps) {
     const resolved = await readResolvedConfig(app.dir);
     if (!resolved) continue;
-    const expo = asRecord(resolved["expo"]) ?? resolved;
+    const expo = asRecord(resolved['expo']) ?? resolved;
 
-    const eas = asRecord(asRecord(expo["extra"])?.["eas"]);
-    const projectId = eas ? str(eas, "projectId") : undefined;
+    const eas = asRecord(asRecord(expo['extra'])?.['eas']);
+    const projectId = eas ? str(eas, 'projectId') : undefined;
     if (projectId) {
       notes.push({
-        level: "info",
+        level: 'info',
         message: `"${app.name}" is EAS project ${projectId} (app.json extra.eas.projectId) — Launch doesn't use an EAS project id; drop it once you've cut over.`,
       });
     }
 
-    const owner = str(expo, "owner");
+    const owner = str(expo, 'owner');
     if (owner) {
       notes.push({
-        level: "info",
+        level: 'info',
         message: `"${app.name}" is owned by the Expo account "${owner}" — Launch publishes under your Apple/Play accounts, not an Expo owner.`,
       });
     }
 
-    const runtimeVersion = readRuntimeVersion(expo["runtimeVersion"]);
+    const runtimeVersion = readRuntimeVersion(expo['runtimeVersion']);
     if (runtimeVersion) {
       notes.push({
-        level: "info",
+        level: 'info',
         message: `"${app.name}" set runtimeVersion ${runtimeVersion} — relevant only for EAS Update; Launch ships store builds (see \`launch explain ota-update\`).`,
       });
     }
 
-    if (expo["updates"] !== undefined) {
+    if (expo['updates'] !== undefined) {
       notes.push({
-        level: "info",
+        level: 'info',
         message: `"${app.name}" configures expo.updates (EAS Update) — Launch ships store builds and doesn't run OTA by default (see \`launch explain ota-update\`).`,
       });
     }
@@ -427,16 +442,21 @@ async function appFactsNotes(apps: AppDescriptor[]): Promise<MigrationNote[]> {
  * `write.ts` owns persistence, so this stays trivially testable.
  */
 export async function migrateEas(cwd: string, apps: AppDescriptor[]): Promise<MigrationResult> {
-  const easPath = join(cwd, "eas.json");
+  const easPath = join(cwd, 'eas.json');
   if (!existsSync(easPath)) {
-    throw new Error(`No eas.json in ${cwd}. \`launch migrate eas\` reads an existing Expo/EAS project.`);
+    throw new Error(
+      `No eas.json in ${cwd}. \`launch migrate eas\` reads an existing Expo/EAS project.`,
+    );
   }
-  const eas = parseEasJson(readFileSync(easPath, "utf8"));
+  const eas = parseEasJson(readFileSync(easPath, 'utf8'));
 
   const profilesSection = serializeProfilesSection(mapProfiles(eas));
   const artifacts: MigrationArtifact[] = [
-    { path: "launch.config.ts", contents: configTemplate(detectAppRoot(apps, cwd), undefined, profilesSection) },
-    { path: ".env.example", contents: buildEnvExample(collectEnvKeys(eas)) },
+    {
+      path: 'launch.config.ts',
+      contents: configTemplate(detectAppRoot(apps, cwd), undefined, profilesSection),
+    },
+    { path: '.env.example', contents: buildEnvExample(collectEnvKeys(eas)) },
     ...perProfileEnvArtifacts(eas),
   ];
 
@@ -451,5 +471,5 @@ export async function migrateEas(cwd: string, apps: AppDescriptor[]): Promise<Mi
   if (store.artifact) artifacts.push(store.artifact);
   notes.push(store.note);
 
-  return { source: "eas", artifacts, notes };
+  return { source: 'eas', artifacts, notes };
 }

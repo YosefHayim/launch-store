@@ -18,13 +18,19 @@ const NOT_INSTALLED = /Cannot find (module|package)|ERR_MODULE_NOT_FOUND|MODULE_
  * @param installHint  The exact command to install the missing package(s).
  * @param load  A thunk performing the dynamic `import()` (kept as a thunk so the import is lazy).
  */
-export async function requireOptional<T>(feature: string, installHint: string, load: () => Promise<T>): Promise<T> {
+export async function requireOptional<T>(
+  feature: string,
+  installHint: string,
+  load: () => Promise<T>,
+): Promise<T> {
   try {
     return await load();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (NOT_INSTALLED.test(message)) {
-      throw new Error(`${feature} need an optional package that isn't installed. Install it with:\n  ${installHint}`);
+      throw new Error(
+        `${feature} need an optional package that isn't installed. Install it with:\n  ${installHint}`,
+      );
     }
     throw error instanceof Error ? error : new Error(message);
   }

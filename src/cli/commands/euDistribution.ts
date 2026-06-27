@@ -13,16 +13,19 @@
  * team. The public key is the *public* half (not a secret), so it's read from a plain PEM file.
  */
 
-import { readFileSync } from "node:fs";
-import { cancel, confirm, isCancel } from "@clack/prompts";
-import type { Command } from "commander";
-import type { PlannedAction } from "../../core/ascSync.js";
-import { AppStoreConnectClient } from "../../apple/ascClient.js";
-import { loadActiveAscKey } from "../../core/accounts.js";
-import { loadConfig, resolveSidecarConfig } from "../../core/config.js";
-import { createLogger } from "../../core/logger.js";
-import { summarize } from "../../core/asc/storeSync.js";
-import { loadEuDistributionConfig, reconcileEuDistributionDomains } from "../../core/euDistribution.js";
+import { readFileSync } from 'node:fs';
+import { cancel, confirm, isCancel } from '@clack/prompts';
+import type { Command } from 'commander';
+import type { PlannedAction } from '../../core/ascSync.js';
+import { AppStoreConnectClient } from '../../apple/ascClient.js';
+import { loadActiveAscKey } from '../../core/accounts.js';
+import { loadConfig, resolveSidecarConfig } from '../../core/config.js';
+import { createLogger } from '../../core/logger.js';
+import { summarize } from '../../core/asc/storeSync.js';
+import {
+  loadEuDistributionConfig,
+  reconcileEuDistributionDomains,
+} from '../../core/euDistribution.js';
 
 /** CLI options for the default `launch eu-distribution` domain reconcile. */
 interface EuDistributionOptions {
@@ -34,7 +37,7 @@ interface EuDistributionOptions {
 /** Build a client bound to the active Apple account, or fail with the onboarding hint. */
 async function activeClient(): Promise<AppStoreConnectClient> {
   const ascKey = await loadActiveAscKey();
-  if (!ascKey) throw new Error("No active Apple account. Run `launch creds set-key` first.");
+  if (!ascKey) throw new Error('No active Apple account. Run `launch creds set-key` first.');
   return new AppStoreConnectClient(ascKey);
 }
 
@@ -43,7 +46,8 @@ async function activeClient(): Promise<AppStoreConnectClient> {
  * (Domain reconcile never skips, but the failed branch keeps the summary honest.) Exported for tests.
  */
 export function renderAction(action: PlannedAction): string {
-  if (action.status === "failed") return `✗ ${action.description}${action.error ? ` — ${action.error}` : ""}`;
+  if (action.status === 'failed')
+    return `✗ ${action.description}${action.error ? ` — ${action.error}` : ''}`;
   return `+ ${action.description}`;
 }
 
@@ -54,7 +58,7 @@ async function runReconcile(options: EuDistributionOptions, command: Command): P
   const config = resolveSidecarConfig({
     typed: launchConfig.euDistribution,
     configPath: options.config,
-    explicitPath: command.getOptionValueSource("config") === "cli",
+    explicitPath: command.getOptionValueSource('config') === 'cli',
     load: loadEuDistributionConfig,
   });
   if (!config) {
@@ -68,25 +72,27 @@ async function runReconcile(options: EuDistributionOptions, command: Command): P
 
   log.gap();
   if (plan.length === 0) {
-    log.step("eu-distribution", "distribution domains already authorized");
+    log.step('eu-distribution', 'distribution domains already authorized');
     return;
   }
-  log.notice("EU alternative distribution", ...plan.map(renderAction));
+  log.notice('EU alternative distribution', ...plan.map(renderAction));
 
   log.gap();
   log.info(`${plan.length} domain(s) to authorize.`);
   if (options.dryRun === true) {
-    log.info("Dry run — no changes made. Re-run without --dry-run to apply.");
+    log.info('Dry run — no changes made. Re-run without --dry-run to apply.');
     return;
   }
 
   if (options.yes !== true) {
     if (!process.stdout.isTTY) {
-      throw new Error("Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).");
+      throw new Error(
+        'Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).',
+      );
     }
     const proceed = await confirm({ message: `Authorize ${plan.length} distribution domain(s)?` });
     if (isCancel(proceed) || !proceed) {
-      cancel("Aborted — no changes made.");
+      cancel('Aborted — no changes made.');
       return;
     }
   }
@@ -94,27 +100,37 @@ async function runReconcile(options: EuDistributionOptions, command: Command): P
   const applied = await reconcileEuDistributionDomains(client, config, false);
   const summary = summarize(applied);
   const rows = applied.map((action) =>
-    action.status === "failed" ? `✗ ${action.description} — ${action.error ?? "failed"}` : `✓ ${action.description}`,
+    action.status === 'failed'
+      ? `✗ ${action.description} — ${action.error ?? 'failed'}`
+      : `✓ ${action.description}`,
   );
-  log.box(summary.failed > 0 ? "Authorized with errors" : "Domains authorized", rows);
+  log.box(summary.failed > 0 ? 'Authorized with errors' : 'Domains authorized', rows);
   if (summary.failed > 0) process.exitCode = 1;
 }
 
 /** Attach the `eu-distribution` command (domain reconcile) and its imperative subcommands to the program. */
 export function registerEuDistributionCommand(program: Command): void {
   const eu = program
-    .command("eu-distribution")
-    .description("authorize EU alternative-distribution domains from eu-distribution.config.json (DMA)")
-    .option("--config <path>", "path to the EU distribution config file", "eu-distribution.config.json")
-    .option("--dry-run", "print the plan and exit, making no changes", false)
-    .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
+    .command('eu-distribution')
+    .description(
+      'authorize EU alternative-distribution domains from eu-distribution.config.json (DMA)',
+    )
+    .option(
+      '--config <path>',
+      'path to the EU distribution config file',
+      'eu-distribution.config.json',
+    )
+    .option('--dry-run', 'print the plan and exit, making no changes', false)
+    .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action((options: EuDistributionOptions, command: Command) => runReconcile(options, command));
 
-  eu.command("set-key <pemPath>")
-    .description("register the team's package-signing public key (the public half — a plain .pem file)")
+  eu.command('set-key <pemPath>')
+    .description(
+      "register the team's package-signing public key (the public half — a plain .pem file)",
+    )
     .action(async (pemPath: string) => {
       const log = createLogger(false);
-      const publicKey = readFileSync(pemPath, "utf8").trim();
+      const publicKey = readFileSync(pemPath, 'utf8').trim();
       if (!publicKey) throw new Error(`${pemPath} is empty — expected a PEM public key.`);
       const client = await activeClient();
       const existing = await client.listAlternativeDistributionKeys();
@@ -125,10 +141,10 @@ export function registerEuDistributionCommand(program: Command): void {
         return;
       }
       await client.createAlternativeDistributionKey(publicKey);
-      log.step("eu-distribution", "registered the alternative-distribution public key");
+      log.step('eu-distribution', 'registered the alternative-distribution public key');
     });
 
-  eu.command("list")
+  eu.command('list')
     .description("show the team's authorized distribution domains and whether a key is registered")
     .action(async () => {
       const log = createLogger(false);
@@ -138,10 +154,13 @@ export function registerEuDistributionCommand(program: Command): void {
         client.listAlternativeDistributionKeys(),
       ]);
       log.notice(
-        `EU alternative distribution — key ${keys.length > 0 ? "registered" : "not registered"}`,
+        `EU alternative distribution — key ${keys.length > 0 ? 'registered' : 'not registered'}`,
         ...(domains.length > 0
-          ? domains.map((entry) => `• ${entry.domain ?? "?"}${entry.referenceName ? ` (${entry.referenceName})` : ""}`)
-          : ["• no domains authorized"]),
+          ? domains.map(
+              (entry) =>
+                `• ${entry.domain ?? '?'}${entry.referenceName ? ` (${entry.referenceName})` : ''}`,
+            )
+          : ['• no domains authorized']),
       );
     });
 }

@@ -1,23 +1,23 @@
-import { describe, expect, it } from "vitest";
-import { listSnapshotSources, registerBuiltinSources } from "./registry.js";
+import { describe, expect, it } from 'vitest';
+import { listSnapshotSources, registerBuiltinSources } from './registry.js';
 
-describe("snapshot source registry", () => {
-  it("registers the six built-in sources", () => {
+describe('snapshot source registry', () => {
+  it('registers the six built-in sources', () => {
     registerBuiltinSources();
     const ids = listSnapshotSources()
       .map((source) => source.id)
       .sort();
     expect(ids).toEqual([
-      "apple-capabilities",
-      "apple-listing",
-      "apple-products",
-      "apple-subscriptions",
-      "play-products",
-      "play-subscriptions",
+      'apple-capabilities',
+      'apple-listing',
+      'apple-products',
+      'apple-subscriptions',
+      'play-products',
+      'play-subscriptions',
     ]);
   });
 
-  it("is idempotent — re-registering keyed by id does not duplicate", () => {
+  it('is idempotent — re-registering keyed by id does not duplicate', () => {
     registerBuiltinSources();
     registerBuiltinSources();
     expect(listSnapshotSources()).toHaveLength(6);

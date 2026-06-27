@@ -9,10 +9,10 @@
  * release-status / rollout combinations in one place, and it's unit-testable without touching the network.
  */
 
-import type { PlayRelease } from "../google/playClient.js";
+import type { PlayRelease } from '../google/playClient.js';
 
 /** The Play release statuses, mirroring the `status` field on a track release. */
-export const RELEASE_STATUSES = ["draft", "inProgress", "halted", "completed"] as const;
+export const RELEASE_STATUSES = ['draft', 'inProgress', 'halted', 'completed'] as const;
 
 /** A Play release status: `draft` (saved, not live), `inProgress` (staged rollout), `halted`, `completed` (full). */
 export type PlayReleaseStatus = (typeof RELEASE_STATUSES)[number];
@@ -49,23 +49,30 @@ export interface ReleaseInput {
  */
 export function buildRelease(input: ReleaseInput): PlayRelease {
   if (input.versionCodes.length === 0) {
-    throw new Error("A release needs at least one version code.");
+    throw new Error('A release needs at least one version code.');
   }
-  const allowsFraction = input.status === "inProgress" || input.status === "halted";
-  if (input.status === "inProgress" && input.userFraction === undefined) {
-    throw new Error('An "inProgress" staged rollout needs a rollout fraction (--rollout, 0–1 exclusive).');
+  const allowsFraction = input.status === 'inProgress' || input.status === 'halted';
+  if (input.status === 'inProgress' && input.userFraction === undefined) {
+    throw new Error(
+      'An "inProgress" staged rollout needs a rollout fraction (--rollout, 0–1 exclusive).',
+    );
   }
   if (!allowsFraction && input.userFraction !== undefined) {
-    throw new Error(`A "${input.status}" release can't carry a rollout fraction (only "inProgress" or "halted" can).`);
+    throw new Error(
+      `A "${input.status}" release can't carry a rollout fraction (only "inProgress" or "halted" can).`,
+    );
   }
   if (input.userFraction !== undefined && (input.userFraction <= 0 || input.userFraction >= 1)) {
-    throw new Error(`The rollout fraction must be between 0 and 1 (exclusive); got ${input.userFraction}.`);
+    throw new Error(
+      `The rollout fraction must be between 0 and 1 (exclusive); got ${input.userFraction}.`,
+    );
   }
 
   const release: PlayRelease = { status: input.status, versionCodes: input.versionCodes };
   if (input.name) release.name = input.name;
   if (input.userFraction !== undefined) release.userFraction = input.userFraction;
-  if (input.releaseNotes && input.releaseNotes.length > 0) release.releaseNotes = input.releaseNotes;
+  if (input.releaseNotes && input.releaseNotes.length > 0)
+    release.releaseNotes = input.releaseNotes;
   return release;
 }
 
@@ -83,12 +90,14 @@ export function parseRollout(value: string): number {
  * (e.g. `{ "en-US": "Bug fixes", "de-DE": "Fehlerbehebungen" }`) into the API's array shape.
  */
 export function parseReleaseNotes(raw: unknown): ReleaseNote[] {
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-    throw new Error('Release notes must be a JSON object mapping language codes to text, e.g. { "en-US": "…" }.');
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    throw new Error(
+      'Release notes must be a JSON object mapping language codes to text, e.g. { "en-US": "…" }.',
+    );
   }
   const notes: ReleaseNote[] = [];
   for (const [language, text] of Object.entries(raw)) {
-    if (typeof text !== "string") throw new Error(`Release note for ${language} must be a string.`);
+    if (typeof text !== 'string') throw new Error(`Release note for ${language} must be a string.`);
     notes.push({ language, text });
   }
   return notes;

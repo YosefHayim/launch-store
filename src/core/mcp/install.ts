@@ -13,13 +13,13 @@
  * so pulling in a JSON-merge dependency would cost more than it saves.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir, platform } from "node:os";
-import { dirname, join } from "node:path";
-import { asRecord } from "../json.js";
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir, platform } from 'node:os';
+import { dirname, join } from 'node:path';
+import { asRecord } from '../json.js';
 
 /** The MCP clients `launch mcp install` knows how to wire, by their config-file convention. */
-export type McpClient = "claude-code" | "cursor" | "claude-desktop";
+export type McpClient = 'claude-code' | 'cursor' | 'claude-desktop';
 
 /** The server entry written under `mcpServers.launch` — how a client spawns the stdio server. */
 export interface McpServerEntry {
@@ -28,7 +28,7 @@ export interface McpServerEntry {
 }
 
 /** The default Launch entry: run the installed `launch mcp` over stdio. */
-export const LAUNCH_SERVER_ENTRY: McpServerEntry = { command: "launch", args: ["mcp"] };
+export const LAUNCH_SERVER_ENTRY: McpServerEntry = { command: 'launch', args: ['mcp'] };
 
 /**
  * Resolve a client's MCP config file path. Claude Code and Cursor use a project-local file (so the server
@@ -36,16 +36,20 @@ export const LAUNCH_SERVER_ENTRY: McpServerEntry = { command: "launch", args: ["
  * file, since the desktop app has no project scope). `cwd`/`home` are injected so a test can point them at
  * a temp dir, and so the path logic is exercised without touching the real home directory.
  */
-export function clientConfigPath(client: McpClient, cwd: string = process.cwd(), home: string = homedir()): string {
+export function clientConfigPath(
+  client: McpClient,
+  cwd: string = process.cwd(),
+  home: string = homedir(),
+): string {
   switch (client) {
-    case "claude-code":
-      return join(cwd, ".mcp.json");
-    case "cursor":
-      return join(cwd, ".cursor", "mcp.json");
-    case "claude-desktop":
-      return platform() === "win32"
-        ? join(home, "AppData", "Roaming", "Claude", "claude_desktop_config.json")
-        : join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json");
+    case 'claude-code':
+      return join(cwd, '.mcp.json');
+    case 'cursor':
+      return join(cwd, '.cursor', 'mcp.json');
+    case 'claude-desktop':
+      return platform() === 'win32'
+        ? join(home, 'AppData', 'Roaming', 'Claude', 'claude_desktop_config.json')
+        : join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
   }
 }
 
@@ -63,14 +67,24 @@ export interface MergeResult {
  * a no-op, so re-running install never rewrites the file). A non-object existing `mcpServers` is replaced
  * with a fresh map rather than trusted — a malformed field shouldn't wedge the install.
  */
-export function mergeServerEntry(existing: Record<string, unknown>, name: string, entry: McpServerEntry): MergeResult {
-  const servers = asRecord(existing["mcpServers"]) ?? {};
+export function mergeServerEntry(
+  existing: Record<string, unknown>,
+  name: string,
+  entry: McpServerEntry,
+): MergeResult {
+  const servers = asRecord(existing['mcpServers']) ?? {};
   const current = asRecord(servers[name]);
-  if (current?.["command"] === entry.command && JSON.stringify(current["args"]) === JSON.stringify(entry.args)) {
+  if (
+    current?.['command'] === entry.command &&
+    JSON.stringify(current['args']) === JSON.stringify(entry.args)
+  ) {
     return { config: existing, changed: false };
   }
   return {
-    config: { ...existing, mcpServers: { ...servers, [name]: { command: entry.command, args: [...entry.args] } } },
+    config: {
+      ...existing,
+      mcpServers: { ...servers, [name]: { command: entry.command, args: [...entry.args] } },
+    },
     changed: true,
   };
 }
@@ -89,7 +103,7 @@ export function installServer(
 ): { path: string; changed: boolean } {
   const path = clientConfigPath(client, cwd);
   const existing = readJsonObject(path);
-  const { config, changed } = mergeServerEntry(existing, "launch", entry);
+  const { config, changed } = mergeServerEntry(existing, 'launch', entry);
   if (changed) {
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`);
@@ -100,7 +114,7 @@ export function installServer(
 /** Read and parse a JSON object from `path`; a missing file or non-object content yields an empty object. */
 function readJsonObject(path: string): Record<string, unknown> {
   try {
-    return asRecord(JSON.parse(readFileSync(path, "utf8"))) ?? {};
+    return asRecord(JSON.parse(readFileSync(path, 'utf8'))) ?? {};
   } catch {
     return {};
   }

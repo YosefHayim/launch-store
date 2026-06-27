@@ -11,26 +11,26 @@
  * See `docs/adr/0002-adopt-existing-app.md`.
  */
 
-import { existsSync } from "node:fs";
-import { join, relative } from "node:path";
-import { cancel, confirm, isCancel } from "@clack/prompts";
-import type { Command } from "commander";
-import type { AppDescriptor } from "../../core/types.js";
-import { loadConfig } from "../../core/config.js";
-import { createLogger } from "../../core/logger.js";
-import { detectAppRoot } from "../../core/configScaffold.js";
-import { loadActiveAscKey } from "../../core/accounts.js";
-import { AppStoreConnectClient } from "../../apple/ascClient.js";
-import { registerBuiltinAdopters, listAdopters } from "../../core/adopt/registry.js";
+import { existsSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import { cancel, confirm, isCancel } from '@clack/prompts';
+import type { Command } from 'commander';
+import type { AppDescriptor } from '../../core/types.js';
+import { loadConfig } from '../../core/config.js';
+import { createLogger } from '../../core/logger.js';
+import { detectAppRoot } from '../../core/configScaffold.js';
+import { loadActiveAscKey } from '../../core/accounts.js';
+import { AppStoreConnectClient } from '../../apple/ascClient.js';
+import { registerBuiltinAdopters, listAdopters } from '../../core/adopt/registry.js';
 import {
   applyAdopt,
   detectTargets,
   planTargets,
   type AdoptApplyResult,
   type TargetPlan,
-} from "../../core/adopt/orchestrator.js";
-import type { Fidelity } from "../../core/adopt/types.js";
-import { pullAppleListing } from "./metadata.js";
+} from '../../core/adopt/orchestrator.js';
+import type { Fidelity } from '../../core/adopt/types.js';
+import { pullAppleListing } from './metadata.js';
 
 /** CLI options for `launch adopt`. */
 interface AdoptOptions {
@@ -47,12 +47,12 @@ interface AdoptOptions {
 /** The leading glyph for a planned write, by fidelity: import / advisory / detect-only. */
 function glyph(fidelity: Fidelity): string {
   switch (fidelity) {
-    case "importable":
-      return "+";
-    case "advisory":
-      return "~";
-    case "detect":
-      return "•";
+    case 'importable':
+      return '+';
+    case 'advisory':
+      return '~';
+    case 'detect':
+      return '•';
   }
 }
 
@@ -60,14 +60,16 @@ function glyph(fidelity: Fidelity): string {
 function selectApps(apps: AppDescriptor[], selector: string | undefined): AppDescriptor[] {
   if (!selector) return apps;
   const wanted = selector
-    .split(",")
+    .split(',')
     .map((name) => name.trim())
     .filter(Boolean);
   const byName = new Map(apps.map((app) => [app.name, app]));
   return wanted.map((name) => {
     const app = byName.get(name);
     if (!app)
-      throw new Error(`Unknown app "${name}". Discovered apps: ${apps.map((a) => a.name).join(", ") || "none"}.`);
+      throw new Error(
+        `Unknown app "${name}". Discovered apps: ${apps.map((a) => a.name).join(', ') || 'none'}.`,
+      );
     return app;
   });
 }
@@ -75,7 +77,7 @@ function selectApps(apps: AppDescriptor[], selector: string | undefined): AppDes
 /** How many of a plan's writes actually change a file (detect-only `keychain` reports don't). */
 function mutationCount(plans: TargetPlan[]): number {
   return plans.reduce(
-    (total, plan) => total + plan.writes.filter((write) => write.change.home !== "keychain").length,
+    (total, plan) => total + plan.writes.filter((write) => write.change.home !== 'keychain').length,
     0,
   );
 }
@@ -88,24 +90,37 @@ function renderPlan(log: ReturnType<typeof createLogger>, plan: TargetPlan): voi
     if (write.note) lines.push(`    ↳ ${write.note}`);
   }
   for (const error of plan.errors) lines.push(`✗ ${error.domain}: ${error.message}`);
-  if (lines.length === 0) lines.push("nothing to adopt");
-  log.notice(`${plan.detected.target.app.name} (${plan.detected.target.bundleId}) · ${plan.detected.signal}`, ...lines);
+  if (lines.length === 0) lines.push('nothing to adopt');
+  log.notice(
+    `${plan.detected.target.app.name} (${plan.detected.target.bundleId}) · ${plan.detected.signal}`,
+    ...lines,
+  );
 }
 
 /** Render what `applyAdopt` changed, as a summary box plus paste-blocks for files we won't splice. */
-function renderResult(log: ReturnType<typeof createLogger>, cwd: string, result: AdoptApplyResult): void {
+function renderResult(
+  log: ReturnType<typeof createLogger>,
+  cwd: string,
+  result: AdoptApplyResult,
+): void {
   const rows: string[] = [];
-  if (result.configWritten) rows.push(`✓ wrote ${relative(cwd, result.configWritten)} (review the imported products)`);
+  if (result.configWritten)
+    rows.push(`✓ wrote ${relative(cwd, result.configWritten)} (review the imported products)`);
   for (const patched of result.appJsonPatched) {
-    rows.push(`✓ ${patched.app}: added ${patched.added.length} entitlement(s) to ${relative(cwd, patched.configPath)}`);
+    rows.push(
+      `✓ ${patched.app}: added ${patched.added.length} entitlement(s) to ${relative(cwd, patched.configPath)}`,
+    );
   }
-  for (const pulled of result.listingsPulled) rows.push(`✓ ${pulled}: pulled App Store listing → store.config.json`);
-  for (const failed of result.listingErrors) rows.push(`✗ ${failed.app}: listing pull failed — ${failed.message}`);
-  if (rows.length > 0) log.box(result.listingErrors.length > 0 ? "Adopted with errors" : "Adopted", rows);
+  for (const pulled of result.listingsPulled)
+    rows.push(`✓ ${pulled}: pulled App Store listing → store.config.json`);
+  for (const failed of result.listingErrors)
+    rows.push(`✗ ${failed.app}: listing pull failed — ${failed.message}`);
+  if (rows.length > 0)
+    log.box(result.listingErrors.length > 0 ? 'Adopted with errors' : 'Adopted', rows);
 
   if (result.configBlock) {
     log.notice(
-      "launch.config.ts already exists — add this `products` block, then run `launch sync`:",
+      'launch.config.ts already exists — add this `products` block, then run `launch sync`:',
       result.configBlock,
     );
   }
@@ -127,24 +142,30 @@ export async function runAdopt(options: AdoptOptions): Promise<void> {
   const { apps } = await loadConfig();
   const selected = selectApps(apps, options.app);
   if (selected.length === 0) {
-    log.info("No apps discovered. Run `launch init` (or check your appRoots) first.");
+    log.info('No apps discovered. Run `launch init` (or check your appRoots) first.');
     return;
   }
 
   const ascKey = await loadActiveAscKey();
-  if (!ascKey) throw new Error("No active Apple account. Run `launch creds set-key` first.");
+  if (!ascKey) throw new Error('No active Apple account. Run `launch creds set-key` first.');
   const client = new AppStoreConnectClient(ascKey);
 
   const cwd = process.cwd();
-  const hasLaunchConfig = existsSync(join(cwd, "launch.config.ts"));
+  const hasLaunchConfig = existsSync(join(cwd, 'launch.config.ts'));
   registerBuiltinAdopters();
 
-  const detection = await detectTargets(client, selected, { keyId: ascKey.keyId, cwd, hasLaunchConfig });
+  const detection = await detectTargets(client, selected, {
+    keyId: ascKey.keyId,
+    cwd,
+    hasLaunchConfig,
+  });
   if (detection.skipped.length > 0) {
-    log.notice("Skipped", ...detection.skipped.map((skip) => `• ${skip.app.name}: ${skip.reason}`));
+    log.notice('Skipped', ...detection.skipped.map((skip) => `• ${skip.app.name}: ${skip.reason}`));
   }
   if (detection.detected.length === 0) {
-    log.info("No adoptable apps — none of the discovered apps have an App Store Connect record yet.");
+    log.info(
+      'No adoptable apps — none of the discovered apps have an App Store Connect record yet.',
+    );
     return;
   }
 
@@ -155,23 +176,27 @@ export async function runAdopt(options: AdoptOptions): Promise<void> {
   const changes = mutationCount(plans);
   log.gap();
   if (changes === 0) {
-    log.info("Nothing to import — the detect-only findings above need no config changes.");
+    log.info('Nothing to import — the detect-only findings above need no config changes.');
     return;
   }
   log.info(`${changes} import(s) across ${plans.length} app(s).`);
 
   if (options.dryRun === true) {
-    log.info("Dry run — nothing imported. Re-run without --dry-run to apply.");
+    log.info('Dry run — nothing imported. Re-run without --dry-run to apply.');
     return;
   }
 
   if (options.yes !== true) {
     if (!process.stdout.isTTY) {
-      throw new Error("Refusing to import without confirmation. Re-run with --yes (or --dry-run to preview).");
+      throw new Error(
+        'Refusing to import without confirmation. Re-run with --yes (or --dry-run to preview).',
+      );
     }
-    const proceed = await confirm({ message: `Import ${changes} change(s) into your local config?` });
+    const proceed = await confirm({
+      message: `Import ${changes} change(s) into your local config?`,
+    });
     if (isCancel(proceed) || !proceed) {
-      cancel("Aborted — nothing imported.");
+      cancel('Aborted — nothing imported.');
       return;
     }
   }
@@ -189,12 +214,17 @@ export async function runAdopt(options: AdoptOptions): Promise<void> {
 /** Attach the `adopt` command to the program. */
 export function registerAdoptCommand(program: Command): void {
   program
-    .command("adopt")
-    .description("onboard an app that already ships: import its App Store Connect setup into config")
-    .option("--all", "adopt every discovered app (the default when --app is omitted)", false)
-    .option("-a, --app <names>", "comma-separated app handles to adopt (default: all discovered apps)")
-    .option("--dry-run", "print the plan and exit, importing nothing", false)
-    .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
+    .command('adopt')
+    .description(
+      'onboard an app that already ships: import its App Store Connect setup into config',
+    )
+    .option('--all', 'adopt every discovered app (the default when --app is omitted)', false)
+    .option(
+      '-a, --app <names>',
+      'comma-separated app handles to adopt (default: all discovered apps)',
+    )
+    .option('--dry-run', 'print the plan and exit, importing nothing', false)
+    .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(async (options: AdoptOptions) => {
       await runAdopt(options);
     });

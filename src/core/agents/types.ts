@@ -15,7 +15,7 @@
  */
 
 /** Which coding agent a generated artifact targets. */
-export type AgentTarget = "claude" | "cursor" | "codex";
+export type AgentTarget = 'claude' | 'cursor' | 'codex';
 
 /**
  * One command in a skill's recipe, split so the validator can tell a real (sub)command from its

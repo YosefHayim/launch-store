@@ -7,7 +7,7 @@
  * throws is recorded as `errored` here rather than aborting the capture.
  */
 
-import type { CaptureReport, Snapshot, SnapshotContext, SnapshotSource } from "./types.js";
+import type { CaptureReport, Snapshot, SnapshotContext, SnapshotSource } from './types.js';
 
 /**
  * Exit codes for `snapshot create`, mirroring the `launch plan` convention (error-or-clean):
@@ -57,21 +57,26 @@ export async function captureSnapshot(
   meta: CaptureMeta,
 ): Promise<CaptureResult> {
   const reports = await Promise.all(sources.map((source) => captureSource(ctx, source)));
-  const visible = reports.filter((report) => report.outcome.state !== "omitted");
+  const visible = reports.filter((report) => report.outcome.state !== 'omitted');
 
   let entityCount = 0;
   let skippedCount = 0;
   let errorCount = 0;
   for (const { outcome } of visible) {
-    if (outcome.state === "skipped") skippedCount++;
-    else if (outcome.state === "errored") errorCount++;
-    else if (outcome.state === "captured") {
+    if (outcome.state === 'skipped') skippedCount++;
+    else if (outcome.state === 'errored') errorCount++;
+    else if (outcome.state === 'captured') {
       for (const app of outcome.apps) entityCount += app.entities.length;
     }
   }
 
   return {
-    snapshot: { version: SNAPSHOT_VERSION, name: meta.name, capturedAt: meta.capturedAt, reports: visible },
+    snapshot: {
+      version: SNAPSHOT_VERSION,
+      name: meta.name,
+      capturedAt: meta.capturedAt,
+      reports: visible,
+    },
     entityCount,
     skippedCount,
     errorCount,
@@ -87,7 +92,7 @@ async function captureSource(ctx: SnapshotContext, source: SnapshotSource): Prom
   } catch (error) {
     return {
       ...identity,
-      outcome: { state: "errored", error: error instanceof Error ? error.message : String(error) },
+      outcome: { state: 'errored', error: error instanceof Error ? error.message : String(error) },
     };
   }
 }

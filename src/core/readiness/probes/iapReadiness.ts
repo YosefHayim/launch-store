@@ -8,8 +8,8 @@
  * identically and a change to the config shape lands once.
  */
 
-import type { AppProducts } from "../../types.js";
-import type { ReadinessContext } from "../types.js";
+import type { AppProducts } from '../../types.js';
+import type { ReadinessContext } from '../types.js';
 
 /** The Apple in-app-purchase product ids an app declares in `launch.config.ts` (empty when it sells none). */
 export function declaredIapIds(ctx: ReadinessContext, bundleId: string): string[] {
@@ -24,7 +24,9 @@ export function declaredSubscriptionIds(ctx: ReadinessContext, bundleId: string)
 
 /** Whether an app declares any monetization (one-time IAPs or subscriptions) — the IAP probes' scope gate. */
 export function sellsProducts(ctx: ReadinessContext, bundleId: string): boolean {
-  return declaredIapIds(ctx, bundleId).length > 0 || declaredSubscriptionIds(ctx, bundleId).length > 0;
+  return (
+    declaredIapIds(ctx, bundleId).length > 0 || declaredSubscriptionIds(ctx, bundleId).length > 0
+  );
 }
 
 /**
@@ -49,11 +51,11 @@ export function declaredAppleProductIds(products: AppProducts | undefined): stri
  * states (`READY_TO_SUBMIT`, `WAITING_FOR_REVIEW`, `APPROVED`, …) mean the product is at least submittable
  * and pass through informationally.
  */
-const MISSING_METADATA = "MISSING_METADATA";
+const MISSING_METADATA = 'MISSING_METADATA';
 
 /** A `checked` finding's status + copy, without the per-app fields the probe stamps on. */
 export interface ProductGrade {
-  status: "ok" | "blocker";
+  status: 'ok' | 'blocker';
   detail: string;
   hint?: string;
 }
@@ -68,21 +70,21 @@ export interface ProductGrade {
 export function gradeDeclaredProduct(
   productId: string,
   live: { state?: string | undefined } | undefined,
-  kind: "in-app purchase" | "subscription",
+  kind: 'in-app purchase' | 'subscription',
 ): ProductGrade {
   if (!live) {
     return {
-      status: "blocker",
+      status: 'blocker',
       detail: `${productId}: declared but not on App Store Connect`,
       hint: `run \`launch sync\` to create the ${kind}`,
     };
   }
   if (live.state === MISSING_METADATA) {
     return {
-      status: "blocker",
+      status: 'blocker',
       detail: `${productId}: missing metadata (name, price, or localization)`,
-      hint: "run `launch sync` to fill it in, or complete it in App Store Connect",
+      hint: 'run `launch sync` to fill it in, or complete it in App Store Connect',
     };
   }
-  return { status: "ok", detail: `${productId}: ${live.state ?? "present"}` };
+  return { status: 'ok', detail: `${productId}: ${live.state ?? 'present'}` };
 }

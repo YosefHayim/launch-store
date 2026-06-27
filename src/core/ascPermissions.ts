@@ -15,7 +15,7 @@
  * it structurally. Every probe is a **read** — the preflight never mutates the account.
  */
 
-import { AscRequestError } from "../apple/ascClient.js";
+import { AscRequestError } from '../apple/ascClient.js';
 
 /**
  * The exact read-only slice of {@link AppStoreConnectClient} the role preflight probes. Each method is
@@ -33,7 +33,10 @@ export interface AscPermissionProbeApi {
   /** In-app purchases & subscriptions. */
   listSubscriptionGroups(appId: string): Promise<unknown>;
   /** Customer reviews — read & respond. */
-  listCustomerReviews(appId: string, filters?: { rating?: number; territory?: string }): Promise<unknown>;
+  listCustomerReviews(
+    appId: string,
+    filters?: { rating?: number; territory?: string },
+  ): Promise<unknown>;
   /** Analytics reports. */
   listAnalyticsReportRequests(appId: string, accessType: string): Promise<unknown>;
 }
@@ -45,7 +48,7 @@ export interface AscPermissionProbeApi {
  * - `unauthorized` — `401`; the key/issuer/expiry is wrong (an auth problem, not a role one).
  * - `inconclusive` — no app record to probe against, or an unexpected (e.g. network) error.
  */
-export type AscPermissionStatus = "available" | "forbidden" | "unauthorized" | "inconclusive";
+export type AscPermissionStatus = 'available' | 'forbidden' | 'unauthorized' | 'inconclusive';
 
 /** One row of the key-role preflight: a feature, the roles that unlock it, and the probe verdict. */
 export interface AscPermissionResult {
@@ -72,52 +75,52 @@ interface FeatureProbe {
 }
 
 /** Apple's platform filter for the App Store version probe — iOS is all `launch` targets today. */
-const IOS_PLATFORM = "IOS";
+const IOS_PLATFORM = 'IOS';
 
 /** Analytics report requests are filtered by access type; `ONGOING` is the standard recurring set. */
-const ANALYTICS_ACCESS_TYPE = "ONGOING";
+const ANALYTICS_ACCESS_TYPE = 'ONGOING';
 
 /** The role-gated clusters `launch doctor` probes, each via one cheap existing client read. */
 const FEATURE_PROBES: readonly FeatureProbe[] = [
   {
-    feature: "provisioning",
-    label: "Provisioning & signing (certificates, identifiers, profiles)",
-    roles: ["Admin", "App Manager", "Developer"],
+    feature: 'provisioning',
+    label: 'Provisioning & signing (certificates, identifiers, profiles)',
+    roles: ['Admin', 'App Manager', 'Developer'],
     needsApp: false,
     run: (api) => api.listDistributionCertificates(),
   },
   {
-    feature: "testflight",
-    label: "TestFlight (beta groups & testers)",
-    roles: ["Admin", "App Manager"],
+    feature: 'testflight',
+    label: 'TestFlight (beta groups & testers)',
+    roles: ['Admin', 'App Manager'],
     needsApp: true,
     run: (api, appId) => api.listBetaGroups(appId),
   },
   {
-    feature: "app-store-release",
-    label: "App Store release (versions, submission, rollout)",
-    roles: ["Admin", "App Manager"],
+    feature: 'app-store-release',
+    label: 'App Store release (versions, submission, rollout)',
+    roles: ['Admin', 'App Manager'],
     needsApp: true,
     run: (api, appId) => api.listAppStoreVersions(appId, IOS_PLATFORM),
   },
   {
-    feature: "monetization",
-    label: "In-app purchases & subscriptions",
-    roles: ["Admin", "App Manager"],
+    feature: 'monetization',
+    label: 'In-app purchases & subscriptions',
+    roles: ['Admin', 'App Manager'],
     needsApp: true,
     run: (api, appId) => api.listSubscriptionGroups(appId),
   },
   {
-    feature: "customer-reviews",
-    label: "Customer reviews (read & respond)",
-    roles: ["Admin", "App Manager", "Customer Support"],
+    feature: 'customer-reviews',
+    label: 'Customer reviews (read & respond)',
+    roles: ['Admin', 'App Manager', 'Customer Support'],
     needsApp: true,
     run: (api, appId) => api.listCustomerReviews(appId),
   },
   {
-    feature: "analytics-reports",
-    label: "Analytics reports",
-    roles: ["Admin", "App Manager", "Developer", "Marketing"],
+    feature: 'analytics-reports',
+    label: 'Analytics reports',
+    roles: ['Admin', 'App Manager', 'Developer', 'Marketing'],
     needsApp: true,
     run: (api, appId) => api.listAnalyticsReportRequests(appId, ANALYTICS_ACCESS_TYPE),
   },
@@ -137,12 +140,16 @@ async function classifyProbe(
   const row = { feature: probe.feature, label: probe.label, roles: probe.roles };
   try {
     await probe.run(api, appId);
-    return { ...row, status: "available" };
+    return { ...row, status: 'available' };
   } catch (error) {
     const status = ascStatus(error);
-    if (status === 403) return { ...row, status: "forbidden" };
-    if (status === 401) return { ...row, status: "unauthorized" };
-    return { ...row, status: "inconclusive", detail: error instanceof Error ? error.message : String(error) };
+    if (status === 403) return { ...row, status: 'forbidden' };
+    if (status === 401) return { ...row, status: 'unauthorized' };
+    return {
+      ...row,
+      status: 'inconclusive',
+      detail: error instanceof Error ? error.message : String(error),
+    };
   }
 }
 
@@ -163,11 +170,11 @@ export async function probeKeyPermissions(
           feature: probe.feature,
           label: probe.label,
           roles: probe.roles,
-          status: "inconclusive",
-          detail: "no app record to probe",
+          status: 'inconclusive',
+          detail: 'no app record to probe',
         });
       }
-      return classifyProbe(probe, api, appId ?? "");
+      return classifyProbe(probe, api, appId ?? '');
     }),
   );
 }
@@ -175,13 +182,13 @@ export async function probeKeyPermissions(
 /** Render one preflight row as a `launch doctor` line (✓ available / ✗ blocked / • can't tell). */
 export function formatPermissionLine(result: AscPermissionResult): string {
   switch (result.status) {
-    case "available":
+    case 'available':
       return `✓ ${result.label}`;
-    case "forbidden":
-      return `✗ ${result.label} — key lacks the role (needs one of: ${result.roles.join(", ")})`;
-    case "unauthorized":
+    case 'forbidden':
+      return `✗ ${result.label} — key lacks the role (needs one of: ${result.roles.join(', ')})`;
+    case 'unauthorized':
       return `✗ ${result.label} — key unauthorized (401); re-check the key id, issuer id, and expiry`;
-    case "inconclusive":
-      return `• ${result.label} — couldn't determine${result.detail ? ` (${result.detail})` : ""}`;
+    case 'inconclusive':
+      return `• ${result.label} — couldn't determine${result.detail ? ` (${result.detail})` : ''}`;
   }
 }

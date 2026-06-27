@@ -19,23 +19,23 @@
  * a reason, exactly as release-attrs does for App Review details.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from 'node:fs';
 import type {
   AppClipActionValue,
   AppClipDefaultExperienceResource,
   AppClipLocalizationResource,
   AppClipResource,
-} from "../apple/ascClient.js";
-import { act, appRecordMissing, skip, type ReconcileContext } from "./asc/storeSync.js";
-import type { PlannedAction, ReconcileReport } from "./ascSync.js";
-import { errorMessage } from "./errorMessage.js";
-import { asRecord } from "./json.js";
-import type { AppClipConfig, AppClipLocalizationConfig, AppClipsConfig } from "./types.js";
+} from '../apple/ascClient.js';
+import { act, appRecordMissing, skip, type ReconcileContext } from './asc/storeSync.js';
+import type { PlannedAction, ReconcileReport } from './ascSync.js';
+import { errorMessage } from './errorMessage.js';
+import { asRecord } from './json.js';
+import type { AppClipConfig, AppClipLocalizationConfig, AppClipsConfig } from './types.js';
 
 /** Platform whose editable App Store version the default experience releases with. */
-const DEFAULT_PLATFORM = "IOS";
+const DEFAULT_PLATFORM = 'IOS';
 /** The valid App Clip card actions (Apple's `AppClipAction` enum) — used to validate parsed config. */
-const APP_CLIP_ACTIONS: readonly AppClipActionValue[] = ["OPEN", "VIEW", "PLAY"];
+const APP_CLIP_ACTIONS: readonly AppClipActionValue[] = ['OPEN', 'VIEW', 'PLAY'];
 
 /**
  * The exact slice of {@link AppStoreConnectClient} the App Clips reconciler depends on. Declaring it here
@@ -52,10 +52,22 @@ export interface AscAppClipsApi {
     versionId: string,
     action?: AppClipActionValue,
   ): Promise<{ id: string }>;
-  updateAppClipDefaultExperienceAction(experienceId: string, action: AppClipActionValue): Promise<void>;
-  listAppClipDefaultExperienceLocalizations(experienceId: string): Promise<AppClipLocalizationResource[]>;
-  createAppClipDefaultExperienceLocalization(experienceId: string, locale: string, subtitle: string): Promise<void>;
-  updateAppClipDefaultExperienceLocalization(localizationId: string, subtitle: string): Promise<void>;
+  updateAppClipDefaultExperienceAction(
+    experienceId: string,
+    action: AppClipActionValue,
+  ): Promise<void>;
+  listAppClipDefaultExperienceLocalizations(
+    experienceId: string,
+  ): Promise<AppClipLocalizationResource[]>;
+  createAppClipDefaultExperienceLocalization(
+    experienceId: string,
+    locale: string,
+    subtitle: string,
+  ): Promise<void>;
+  updateAppClipDefaultExperienceLocalization(
+    localizationId: string,
+    subtitle: string,
+  ): Promise<void>;
 }
 
 /** Inputs to reconcile one app's App Clip cards. */
@@ -82,26 +94,34 @@ type EnsuredExperience = { id: string } | { planned: true } | { failed: true };
  * app record); everything else is captured per-action so a single failure never aborts the run. A clip
  * with no matching `appClip` (build not uploaded yet) or no editable version is skipped with a reason.
  */
-export async function reconcileAppClips(api: AscAppClipsApi, input: AppClipsReconcileInput): Promise<ReconcileReport> {
+export async function reconcileAppClips(
+  api: AscAppClipsApi,
+  input: AppClipsReconcileInput,
+): Promise<ReconcileReport> {
   const ctx: ReconcileContext = { actions: [], dryRun: input.dryRun };
 
   const appId = await api.getAppId(input.bundleId);
-  if (!appId) throw appRecordMissing(input.bundleId, "app-clips");
+  if (!appId) throw appRecordMissing(input.bundleId, 'app-clips');
 
   const editable = await api.findEditableAppStoreVersion(appId, input.platform ?? DEFAULT_PLATFORM);
   if (!editable) {
-    skip(ctx, "App Clips: no editable App Store version (create/select a version first)");
+    skip(ctx, 'App Clips: no editable App Store version (create/select a version first)');
     return { bundleId: input.bundleId, actions: ctx.actions };
   }
 
   const clipsByBundleId = new Map(
-    (await api.listAppClips(appId)).flatMap((clip) => (clip.bundleId ? [[clip.bundleId, clip] as const] : [])),
+    (await api.listAppClips(appId)).flatMap((clip) =>
+      clip.bundleId ? [[clip.bundleId, clip] as const] : [],
+    ),
   );
 
   for (const [clipBundleId, declared] of Object.entries(input.config.clips)) {
     const clip = clipsByBundleId.get(clipBundleId);
     if (!clip) {
-      skip(ctx, `App Clip ${clipBundleId}: no clip record yet — upload a build with this App Clip target first`);
+      skip(
+        ctx,
+        `App Clip ${clipBundleId}: no clip record yet — upload a build with this App Clip target first`,
+      );
       continue;
     }
     await reconcileClip(ctx, api, clip, clipBundleId, editable.id, declared);
@@ -121,23 +141,34 @@ async function reconcileClip(
 ): Promise<void> {
   const experiences = await api.listAppClipDefaultExperiences(clip.id);
   const existing = experiences.find((experience) => experience.versionId === versionId);
-  const ensured = await ensureExperience(ctx, api, clip, clipBundleId, versionId, existing, declared.action);
+  const ensured = await ensureExperience(
+    ctx,
+    api,
+    clip,
+    clipBundleId,
+    versionId,
+    existing,
+    declared.action,
+  );
 
   const localizations = declared.localizations ?? {};
-  if ("id" in ensured) {
+  if ('id' in ensured) {
     await reconcileLocalizations(ctx, api, ensured.id, clipBundleId, localizations);
-  } else if ("planned" in ensured) {
+  } else if ('planned' in ensured) {
     // The experience is only planned (dry-run), so there's no id to diff against — show each declared
     // subtitle as a planned create so the plan is complete; the apply pass diffs them for real.
     for (const locale of Object.keys(localizations)) {
       ctx.actions.push({
         description: `set ${clipBundleId} card subtitle (${locale})`,
         destructive: false,
-        status: "planned",
+        status: 'planned',
       });
     }
   } else if (Object.keys(localizations).length > 0) {
-    skip(ctx, `App Clip ${clipBundleId}: skipped card subtitles — its default experience could not be created`);
+    skip(
+      ctx,
+      `App Clip ${clipBundleId}: skipped card subtitles — its default experience could not be created`,
+    );
   }
 }
 
@@ -164,20 +195,20 @@ async function ensureExperience(
     return { id: existing.id };
   }
 
-  const detail = action ? ` (action=${action})` : "";
+  const detail = action ? ` (action=${action})` : '';
   const create: PlannedAction = {
     description: `create ${clipBundleId} App Clip default experience${detail}`,
     destructive: false,
-    status: "planned",
+    status: 'planned',
   };
   ctx.actions.push(create);
   if (ctx.dryRun) return { planned: true };
   try {
     const created = await api.createAppClipDefaultExperience(clip.id, versionId, action);
-    create.status = "applied";
+    create.status = 'applied';
     return { id: created.id };
   } catch (error) {
-    create.status = "failed";
+    create.status = 'failed';
     create.error = errorMessage(error);
     return { failed: true };
   }
@@ -192,7 +223,10 @@ async function reconcileLocalizations(
   declared: Record<string, AppClipLocalizationConfig>,
 ): Promise<void> {
   const existing = new Map(
-    (await api.listAppClipDefaultExperienceLocalizations(experienceId)).map((loc) => [loc.locale, loc]),
+    (await api.listAppClipDefaultExperienceLocalizations(experienceId)).map((loc) => [
+      loc.locale,
+      loc,
+    ]),
   );
   for (const [locale, localization] of Object.entries(declared)) {
     const current = existing.get(locale);
@@ -217,21 +251,23 @@ function isAppClipAction(value: string): value is AppClipActionValue {
 function parseClip(clipBundleId: string, raw: Record<string, unknown>): AppClipConfig {
   const config: AppClipConfig = {};
 
-  const action = raw["action"];
+  const action = raw['action'];
   if (action !== undefined) {
-    if (typeof action !== "string" || !isAppClipAction(action)) {
-      throw new Error(`appclips.config.json: clips["${clipBundleId}"].action must be one of OPEN / VIEW / PLAY.`);
+    if (typeof action !== 'string' || !isAppClipAction(action)) {
+      throw new Error(
+        `appclips.config.json: clips["${clipBundleId}"].action must be one of OPEN / VIEW / PLAY.`,
+      );
     }
     config.action = action;
   }
 
-  const localizationsRaw = asRecord(raw["localizations"]);
+  const localizationsRaw = asRecord(raw['localizations']);
   if (localizationsRaw) {
     const localizations: Record<string, AppClipLocalizationConfig> = {};
     for (const [locale, value] of Object.entries(localizationsRaw)) {
       const localeRecord = asRecord(value);
-      const subtitle = localeRecord?.["subtitle"];
-      if (typeof subtitle !== "string") {
+      const subtitle = localeRecord?.['subtitle'];
+      if (typeof subtitle !== 'string') {
         throw new Error(
           `appclips.config.json: clips["${clipBundleId}"].localizations["${locale}"].subtitle must be a string.`,
         );
@@ -256,17 +292,20 @@ function parseClip(clipBundleId: string, raw: Record<string, unknown>): AppClipC
  */
 export function parseAppClipsConfig(raw: unknown): AppClipsConfig {
   const record = asRecord(raw);
-  if (!record) throw new Error("appclips.config.json must be a JSON object.");
+  if (!record) throw new Error('appclips.config.json must be a JSON object.');
 
-  const clipsRaw = asRecord(record["clips"]);
+  const clipsRaw = asRecord(record['clips']);
   if (!clipsRaw || Object.keys(clipsRaw).length === 0) {
-    throw new Error('appclips.config.json must declare at least one App Clip under "clips" (keyed by clip bundle id).');
+    throw new Error(
+      'appclips.config.json must declare at least one App Clip under "clips" (keyed by clip bundle id).',
+    );
   }
 
   const clips: Record<string, AppClipConfig> = {};
   for (const [clipBundleId, value] of Object.entries(clipsRaw)) {
     const clipRecord = asRecord(value);
-    if (!clipRecord) throw new Error(`appclips.config.json: clips["${clipBundleId}"] must be an object.`);
+    if (!clipRecord)
+      throw new Error(`appclips.config.json: clips["${clipBundleId}"] must be an object.`);
     clips[clipBundleId] = parseClip(clipBundleId, clipRecord);
   }
   return { clips };
@@ -275,7 +314,9 @@ export function parseAppClipsConfig(raw: unknown): AppClipsConfig {
 /** Read and parse an `appclips.config.json` from disk. */
 export function loadAppClipsConfig(path: string): AppClipsConfig {
   if (!existsSync(path)) {
-    throw new Error(`No App Clips config at ${path}. Create one (see \`launch app-clips --help\`) or pass --config.`);
+    throw new Error(
+      `No App Clips config at ${path}. Create one (see \`launch app-clips --help\`) or pass --config.`,
+    );
   }
-  return parseAppClipsConfig(JSON.parse(readFileSync(path, "utf8")));
+  return parseAppClipsConfig(JSON.parse(readFileSync(path, 'utf8')));
 }

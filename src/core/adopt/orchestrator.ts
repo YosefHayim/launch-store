@@ -10,17 +10,24 @@
  * listing pull so one domain's error never discards the rest, mirroring the reconciler's per-action isolation.
  */
 
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
-import type { AppDescriptor, AppProducts } from "../types.js";
-import { writeAppEntitlements } from "../config.js";
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { AppDescriptor, AppProducts } from '../types.js';
+import { writeAppEntitlements } from '../config.js';
 import {
   aggregateProductPieces,
   buildAdoptedConfig,
   renderEntitlementsBlock,
   serializeProductsSection,
-} from "./configWriter.js";
-import type { Adopter, AdoptCatalogApi, AdoptTarget, EntitlementValue, PlannedWrite, ProductPiece } from "./types.js";
+} from './configWriter.js';
+import type {
+  Adopter,
+  AdoptCatalogApi,
+  AdoptTarget,
+  EntitlementValue,
+  PlannedWrite,
+  ProductPiece,
+} from './types.js';
 
 /** One discovered app that can't be adopted, with the human reason it was skipped. */
 export interface SkippedApp {
@@ -68,8 +75,8 @@ export interface TargetPlan {
 function describeSignal(version: string | null, builds: number): string {
   const parts: string[] = [];
   if (version) parts.push(`v${version} live`);
-  if (builds > 0) parts.push(`${builds} build${builds === 1 ? "" : "s"}`);
-  return parts.length > 0 ? parts.join(" · ") : "registered, no builds yet";
+  if (builds > 0) parts.push(`${builds} build${builds === 1 ? '' : 's'}`);
+  return parts.length > 0 ? parts.join(' · ') : 'registered, no builds yet';
 }
 
 /**
@@ -88,12 +95,15 @@ export async function detectTargets(
   await Promise.all(
     apps.map(async (app) => {
       if (!app.bundleId) {
-        skipped.push({ app, reason: "no iOS bundle id" });
+        skipped.push({ app, reason: 'no iOS bundle id' });
         return;
       }
       const appId = await asc.getAppId(app.bundleId);
       if (!appId) {
-        skipped.push({ app, reason: "no App Store Connect record (create the app once in App Store Connect)" });
+        skipped.push({
+          app,
+          reason: 'no App Store Connect record (create the app once in App Store Connect)',
+        });
         return;
       }
       const [version, builds] = await Promise.all([
@@ -137,7 +147,10 @@ export async function planTargets(
         try {
           writes.push(...(await adopter.read(asc, detected.target)));
         } catch (error) {
-          errors.push({ domain: adopter.domain, message: error instanceof Error ? error.message : String(error) });
+          errors.push({
+            domain: adopter.domain,
+            message: error instanceof Error ? error.message : String(error),
+          });
         }
       }
       return { detected, writes, errors };
@@ -177,9 +190,10 @@ function collectProducts(plans: TargetPlan[]): Record<string, AppProducts> {
   for (const plan of plans) {
     const pieces: ProductPiece[] = [];
     for (const write of plan.writes) {
-      if (write.change.home === "launch.config") pieces.push(write.change.piece);
+      if (write.change.home === 'launch.config') pieces.push(write.change.piece);
     }
-    if (pieces.length > 0) productsByBundleId[plan.detected.target.bundleId] = aggregateProductPieces(pieces);
+    if (pieces.length > 0)
+      productsByBundleId[plan.detected.target.bundleId] = aggregateProductPieces(pieces);
   }
   return productsByBundleId;
 }
@@ -190,15 +204,23 @@ function collectProducts(plans: TargetPlan[]): Record<string, AppProducts> {
  * splices a hand-edited file — a present `launch.config.ts` and a dynamic `app.config.js` get a
  * paste-ready block instead of a blind rewrite. Returns exactly what changed for the command to render.
  */
-export async function applyAdopt(plans: TargetPlan[], ctx: ApplyContext): Promise<AdoptApplyResult> {
-  const result: AdoptApplyResult = { appJsonPatched: [], appJsonBlocks: [], listingsPulled: [], listingErrors: [] };
+export async function applyAdopt(
+  plans: TargetPlan[],
+  ctx: ApplyContext,
+): Promise<AdoptApplyResult> {
+  const result: AdoptApplyResult = {
+    appJsonPatched: [],
+    appJsonBlocks: [],
+    listingsPulled: [],
+    listingErrors: [],
+  };
 
   const productsByBundleId = collectProducts(plans);
   if (Object.keys(productsByBundleId).length > 0) {
     if (ctx.hasLaunchConfig) {
       result.configBlock = serializeProductsSection(productsByBundleId);
     } else {
-      const path = join(ctx.cwd, "launch.config.ts");
+      const path = join(ctx.cwd, 'launch.config.ts');
       writeFileSync(path, buildAdoptedConfig(ctx.appRoot, productsByBundleId));
       result.configWritten = path;
     }
@@ -208,12 +230,13 @@ export async function applyAdopt(plans: TargetPlan[], ctx: ApplyContext): Promis
     const app = plan.detected.target.app;
     const entitlements: Record<string, EntitlementValue> = {};
     for (const write of plan.writes) {
-      if (write.change.home === "app.json") entitlements[write.change.key] = write.change.value;
+      if (write.change.home === 'app.json') entitlements[write.change.key] = write.change.value;
     }
     if (Object.keys(entitlements).length === 0) continue;
-    if (app.configPath.endsWith(".json")) {
+    if (app.configPath.endsWith('.json')) {
       const added = writeAppEntitlements(app, entitlements);
-      if (added.length > 0) result.appJsonPatched.push({ app: app.name, configPath: app.configPath, added });
+      if (added.length > 0)
+        result.appJsonPatched.push({ app: app.name, configPath: app.configPath, added });
     } else {
       result.appJsonBlocks.push({
         app: app.name,
@@ -225,7 +248,7 @@ export async function applyAdopt(plans: TargetPlan[], ctx: ApplyContext): Promis
 
   for (const plan of plans) {
     for (const write of plan.writes) {
-      if (write.change.home !== "store.config") continue;
+      if (write.change.home !== 'store.config') continue;
       try {
         await ctx.pullListing(write.change.bundleId, write.change.configPath);
         result.listingsPulled.push(write.change.appName);

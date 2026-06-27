@@ -3,9 +3,15 @@
  * {@link ResolvedBuildContext} the build→submit pipeline threads through every stage.
  */
 
-import type { AndroidReleaseOptions, AppDescriptor, BuildProfile, Distribution, Platform } from "./app.js";
-import type { AppProducts } from "./catalog.js";
-import type { AwsConfig } from "./remote.js";
+import type {
+  AndroidReleaseOptions,
+  AppDescriptor,
+  BuildProfile,
+  Distribution,
+  Platform,
+} from './app.js';
+import type { AppProducts } from './catalog.js';
+import type { AwsConfig } from './remote.js';
 import type {
   AppClipsConfig,
   EuDistributionConfig,
@@ -16,7 +22,7 @@ import type {
   ReleaseConfig,
   SurfaceConfigFiles,
   WalletConfig,
-} from "./storeSurface.js";
+} from './storeSurface.js';
 
 /**
  * The multi-store form of {@link LaunchConfig.submit}: a per-platform list of registered `Submitter`

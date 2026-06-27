@@ -10,28 +10,32 @@
  * absent file ⇒ the surface is omitted.
  */
 
-import { resolveSidecarConfig } from "../../config.js";
-import { loadVersionExperimentsConfig, reconcileVersionExperiments } from "../../versionExperiments.js";
-import { planAppStoreSurface } from "./appStoreSurface.js";
-import type { SurfacePlanner } from "../types.js";
+import { resolveSidecarConfig } from '../../config.js';
+import {
+  loadVersionExperimentsConfig,
+  reconcileVersionExperiments,
+} from '../../versionExperiments.js';
+import { planAppStoreSurface } from './appStoreSurface.js';
+import type { SurfacePlanner } from '../types.js';
 
 /** Surface id — also the value users pass as `launch plan experiments`. */
-const SURFACE = "experiments";
+const SURFACE = 'experiments';
 
 export const experimentsPlanner: SurfacePlanner = {
   id: SURFACE,
-  store: "appstore",
+  store: 'appstore',
   plan: (ctx) =>
     planAppStoreSurface(ctx, {
       surface: SURFACE,
-      direction: "additive",
+      direction: 'additive',
       configFor: () =>
         resolveSidecarConfig({
           typed: undefined,
-          configPath: ctx.config.configFiles?.experiments ?? "experiments.config.json",
+          configPath: ctx.config.configFiles?.experiments ?? 'experiments.config.json',
           explicitPath: false,
           load: loadVersionExperimentsConfig,
         }),
-      reconcile: (api, bundleId, config) => reconcileVersionExperiments(api, { bundleId, config, dryRun: true }),
+      reconcile: (api, bundleId, config) =>
+        reconcileVersionExperiments(api, { bundleId, config, dryRun: true }),
     }),
 };

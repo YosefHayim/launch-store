@@ -19,7 +19,11 @@
  * `AppStoreConnectClient` satisfies it structurally.
  */
 
-import type { NewUserInvitation, UserInvitationResource, UserResource } from "../apple/ascClient.js";
+import type {
+  NewUserInvitation,
+  UserInvitationResource,
+  UserResource,
+} from '../apple/ascClient.js';
 
 /** The exact slice of {@link AppStoreConnectClient} the team domain depends on. */
 export interface AscTeamApi {
@@ -37,19 +41,19 @@ export interface AscTeamApi {
  * enum; an unknown role here means the schema moved and this list should be regenerated.
  */
 export const KNOWN_USER_ROLES: readonly string[] = [
-  "ADMIN",
-  "FINANCE",
-  "ACCOUNT_HOLDER",
-  "SALES",
-  "MARKETING",
-  "APP_MANAGER",
-  "DEVELOPER",
-  "ACCESS_TO_REPORTS",
-  "CUSTOMER_SUPPORT",
-  "CREATE_APPS",
-  "CLOUD_MANAGED_DEVELOPER_ID",
-  "CLOUD_MANAGED_APP_DISTRIBUTION",
-  "GENERATE_INDIVIDUAL_KEYS",
+  'ADMIN',
+  'FINANCE',
+  'ACCOUNT_HOLDER',
+  'SALES',
+  'MARKETING',
+  'APP_MANAGER',
+  'DEVELOPER',
+  'ACCESS_TO_REPORTS',
+  'CUSTOMER_SUPPORT',
+  'CREATE_APPS',
+  'CLOUD_MANAGED_DEVELOPER_ID',
+  'CLOUD_MANAGED_APP_DISTRIBUTION',
+  'GENERATE_INDIVIDUAL_KEYS',
 ];
 
 /** The whole team in one shot: accepted members and still-pending invitations. */
@@ -78,9 +82,9 @@ export interface InviteRequest {
  * pending invitation, or nothing), carrying the matched record so the command can report it.
  */
 export type RemoveOutcome =
-  | { kind: "member"; user: UserResource }
-  | { kind: "invitation"; invitation: UserInvitationResource }
-  | { kind: "none" };
+  | { kind: 'member'; user: UserResource }
+  | { kind: 'invitation'; invitation: UserInvitationResource }
+  | { kind: 'none' };
 
 /** Read the whole team — members and pending invitations — in parallel. */
 export async function getTeam(api: AscTeamApi): Promise<Team> {
@@ -103,17 +107,22 @@ function normalizeRoles(roles: string[]): string[] {
  * list), and pre-checks that the person isn't already a member or already invited so the failure is clear
  * rather than Apple's generic duplicate error. Defaults: visible to all apps, provisioning off.
  */
-export async function inviteTeamMember(api: AscTeamApi, request: InviteRequest): Promise<UserInvitationResource> {
+export async function inviteTeamMember(
+  api: AscTeamApi,
+  request: InviteRequest,
+): Promise<UserInvitationResource> {
   const email = request.email.trim();
-  if (!email) throw new Error("An email is required to invite a team member.");
+  if (!email) throw new Error('An email is required to invite a team member.');
 
   const roles = normalizeRoles(request.roles);
   if (roles.length === 0) {
-    throw new Error(`At least one role is required. Valid roles: ${KNOWN_USER_ROLES.join(", ")}.`);
+    throw new Error(`At least one role is required. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`);
   }
   const unknown = roles.filter((role) => !KNOWN_USER_ROLES.includes(role));
   if (unknown.length > 0) {
-    throw new Error(`Unknown role(s): ${unknown.join(", ")}. Valid roles: ${KNOWN_USER_ROLES.join(", ")}.`);
+    throw new Error(
+      `Unknown role(s): ${unknown.join(', ')}. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`,
+    );
   }
 
   const { members, invitations } = await getTeam(api);
@@ -147,14 +156,14 @@ export async function removeTeamMember(api: AscTeamApi, email: string): Promise<
   const member = members.find((candidate) => candidate.username.toLowerCase() === target);
   if (member) {
     await api.deleteUser(member.id);
-    return { kind: "member", user: member };
+    return { kind: 'member', user: member };
   }
 
   const invitation = invitations.find((candidate) => candidate.email.toLowerCase() === target);
   if (invitation) {
     await api.cancelUserInvitation(invitation.id);
-    return { kind: "invitation", invitation };
+    return { kind: 'invitation', invitation };
   }
 
-  return { kind: "none" };
+  return { kind: 'none' };
 }

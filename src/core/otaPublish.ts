@@ -9,12 +9,12 @@
  * resolved storage provider.
  */
 
-import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import type { StorageProvider } from "./types.js";
-import type { Logger } from "./logger.js";
-import type { CodeSigner } from "./codeSign.js";
+import { randomUUID } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { StorageProvider } from './types.js';
+import type { Logger } from './logger.js';
+import type { CodeSigner } from './codeSign.js';
 import {
   assembleManifest,
   contentTypeFor,
@@ -22,8 +22,8 @@ import {
   manifestKey,
   manifestSignatureKey,
   type ManifestAsset,
-} from "./otaManifest.js";
-import { clearRollbackDirective, recordPublish } from "./updateHistory.js";
+} from './otaManifest.js';
+import { clearRollbackDirective, recordPublish } from './updateHistory.js';
 
 /** The subset of `expo export`'s `metadata.json` Launch reads: per-platform bundle + asset paths. */
 export interface ExportMetadata {
@@ -32,9 +32,10 @@ export interface ExportMetadata {
 
 /** Read and parse `metadata.json` from an `expo export` output directory. */
 export function readExportMetadata(distDir: string): ExportMetadata {
-  const path = join(distDir, "metadata.json");
-  if (!existsSync(path)) throw new Error(`No metadata.json in ${distDir} — did \`expo export\` run?`);
-  return JSON.parse(readFileSync(path, "utf8")) as ExportMetadata;
+  const path = join(distDir, 'metadata.json');
+  if (!existsSync(path))
+    throw new Error(`No metadata.json in ${distDir} — did \`expo export\` run?`);
+  return JSON.parse(readFileSync(path, 'utf8')) as ExportMetadata;
 }
 
 /** Everything {@link publishOtaPlatform} needs to publish one platform's manifest. */
@@ -46,7 +47,7 @@ export interface OtaPublishInput {
   /** The parsed `metadata.json` from that export. */
   metadata: ExportMetadata;
   /** Which platform's bundle to publish. */
-  platform: "ios" | "android";
+  platform: 'ios' | 'android';
   /** The release channel to publish under. */
   channel: string;
   /** The runtime version this update targets. */
@@ -75,7 +76,10 @@ export interface OtaPublishResult {
  * for this runtime version. A no-op (returns `published: false`) when the export has no bundle for the
  * platform, matching the command's original skip-with-warning.
  */
-export async function publishOtaPlatform(input: OtaPublishInput, log: Logger): Promise<OtaPublishResult> {
+export async function publishOtaPlatform(
+  input: OtaPublishInput,
+  log: Logger,
+): Promise<OtaPublishResult> {
   const { storage, distDir, metadata, platform, channel, runtimeVersion, signer } = input;
   const prefix = `updates/${channel}/${platform}/${runtimeVersion}`;
 
@@ -88,7 +92,11 @@ export async function publishOtaPlatform(input: OtaPublishInput, log: Logger): P
   /** Upload one exported file and return its manifest asset entry. */
   const upload = async (relativePath: string, ext?: string): Promise<ManifestAsset> => {
     const key = `${prefix}/${relativePath}`;
-    await storage.putObject(key, readFileSync(join(distDir, relativePath)), contentTypeFor(relativePath));
+    await storage.putObject(
+      key,
+      readFileSync(join(distDir, relativePath)),
+      contentTypeFor(relativePath),
+    );
     const base: ManifestAsset = {
       key: relativePath,
       contentType: contentTypeFor(relativePath),
@@ -98,7 +106,9 @@ export async function publishOtaPlatform(input: OtaPublishInput, log: Logger): P
   };
 
   const launchAsset = await upload(platformMeta.bundle);
-  const assets = await Promise.all(platformMeta.assets.map((asset) => upload(asset.path, asset.ext)));
+  const assets = await Promise.all(
+    platformMeta.assets.map((asset) => upload(asset.path, asset.ext)),
+  );
 
   const manifest = assembleManifest({
     id: randomUUID(),
@@ -108,12 +118,20 @@ export async function publishOtaPlatform(input: OtaPublishInput, log: Logger): P
     assets,
   });
   const body = JSON.stringify(manifest);
-  await storage.putObject(manifestKey(channel, platform, runtimeVersion), body, "application/json");
+  await storage.putObject(manifestKey(channel, platform, runtimeVersion), body, 'application/json');
   // Immutable snapshot so `launch updates view`/`rollback` can read this exact manifest back later.
-  await storage.putObject(historySnapshotKey(channel, platform, runtimeVersion, manifest.id), body, "application/json");
+  await storage.putObject(
+    historySnapshotKey(channel, platform, runtimeVersion, manifest.id),
+    body,
+    'application/json',
+  );
 
   if (signer) {
-    await storage.putObject(manifestSignatureKey(channel, platform, runtimeVersion), signer.sign(body), "text/plain");
+    await storage.putObject(
+      manifestSignatureKey(channel, platform, runtimeVersion),
+      signer.sign(body),
+      'text/plain',
+    );
   }
 
   await recordPublish(storage, channel, platform, {
@@ -122,11 +140,17 @@ export async function publishOtaPlatform(input: OtaPublishInput, log: Logger): P
     createdAt: manifest.createdAt,
     active: true,
     signed: signer !== null,
-    kind: "publish",
+    kind: 'publish',
   });
   // A fresh publish supersedes any prior `--to-embedded` rollback for this runtime version.
   await clearRollbackDirective(storage, channel, platform, runtimeVersion);
-  log.step("update", `${platform} · ${assets.length} asset(s) → ${prefix}/`, "ota-update");
+  log.step('update', `${platform} · ${assets.length} asset(s) → ${prefix}/`, 'ota-update');
 
-  return { published: true, manifestId: manifest.id, createdAt: manifest.createdAt, assetCount: assets.length, prefix };
+  return {
+    published: true,
+    manifestId: manifest.id,
+    createdAt: manifest.createdAt,
+    assetCount: assets.length,
+    prefix,
+  };
 }

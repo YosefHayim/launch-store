@@ -9,15 +9,15 @@
  * and scripts keep the complete, unbuffered record.
  */
 
-import { spinner } from "@clack/prompts";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { run, runQuiet, type ExecOptions } from "./exec.js";
-import { ensureDir, LOGS_DIR } from "./paths.js";
-import { diagnoseBuildLog, formatDiagnoses } from "./buildDiagnostics.js";
-import { currentBuildLog } from "./buildLog.js";
-import type { BuildEstimate } from "./buildFingerprint.js";
-import { AURORA, auroraPaint, mix } from "./aurora.js";
+import { spinner } from '@clack/prompts';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { run, runQuiet, type ExecOptions } from './exec.js';
+import { ensureDir, LOGS_DIR } from './paths.js';
+import { diagnoseBuildLog, formatDiagnoses } from './buildDiagnostics.js';
+import { currentBuildLog } from './buildLog.js';
+import type { BuildEstimate } from './buildFingerprint.js';
+import { AURORA, auroraPaint, mix } from './aurora.js';
 
 /** A painter bound to this process's color decision — drives the candy progress bar's violet→cyan fill. */
 const paint = auroraPaint();
@@ -35,9 +35,13 @@ export function setVerboseOutput(verbose: boolean): void {
  * needs a real interactive TTY that isn't CI and hasn't asked for verbose output; everything else
  * gets the raw stream so the full log survives in transcripts.
  */
-export function selectProgressMode(isTTY: boolean, env: NodeJS.ProcessEnv, verbose: boolean): "spinner" | "stream" {
-  if (verbose || !isTTY || env["CI"]) return "stream";
-  return "spinner";
+export function selectProgressMode(
+  isTTY: boolean,
+  env: NodeJS.ProcessEnv,
+  verbose: boolean,
+): 'spinner' | 'stream' {
+  if (verbose || !isTTY || env['CI']) return 'stream';
+  return 'spinner';
 }
 
 /** Options for {@link runWithProgress}. */
@@ -76,7 +80,7 @@ export function formatElapsed(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  return minutes > 0 ? `${minutes}m ${String(seconds).padStart(2, "0")}s` : `${seconds}s`;
+  return minutes > 0 ? `${minutes}m ${String(seconds).padStart(2, '0')}s` : `${seconds}s`;
 }
 
 /**
@@ -92,11 +96,11 @@ export function renderBar(fraction: number, width = 14): string {
   const filled = Math.floor(clamped * width);
   const fill = paint.enabled
     ? Array.from({ length: filled }, (_, i) =>
-        paint.fg(mix(AURORA.violet, AURORA.cyan, width <= 1 ? 0 : i / (width - 1)), "━"),
-      ).join("")
-    : "━".repeat(filled);
-  const track = paint.fg(AURORA.dim, "─".repeat(width - filled));
-  return `${paint.fg(AURORA.violet, "╶")}${fill}${track}${paint.fg(AURORA.cyan, "╴")}`;
+        paint.fg(mix(AURORA.violet, AURORA.cyan, width <= 1 ? 0 : i / (width - 1)), '━'),
+      ).join('')
+    : '━'.repeat(filled);
+  const track = paint.fg(AURORA.dim, '─'.repeat(width - filled));
+  return `${paint.fg(AURORA.violet, '╶')}${fill}${track}${paint.fg(AURORA.cyan, '╴')}`;
 }
 
 /**
@@ -114,7 +118,7 @@ export function formatProgressLine(parts: {
   estimate?: BuildEstimate;
 }): string {
   const { label, step, elapsedMs, steps, estimate } = parts;
-  const head = `${label}${step ? ` · ${step}` : ""}`;
+  const head = `${label}${step ? ` · ${step}` : ''}`;
   const elapsed = formatElapsed(elapsedMs);
   if (!estimate || estimate.ms <= 0) return `${head}   ${elapsed}`;
 
@@ -123,7 +127,7 @@ export function formatProgressLine(parts: {
   const fraction = Math.min(bySteps ? steps / estimate.steps : elapsedMs / estimate.ms, 0.99);
   const bar = renderBar(fraction);
   const pct = paint.gradient(`${Math.round(fraction * 100)}%`, AURORA.violet, AURORA.cyan);
-  const counter = bySteps ? ` ${steps}/~${estimate.steps}` : "";
+  const counter = bySteps ? ` ${steps}/~${estimate.steps}` : '';
   return `${head}   ${bar} ${pct}${counter} · ${elapsed} / ~${formatElapsed(estimate.ms)}`;
 }
 
@@ -150,14 +154,14 @@ function logSlug(label: string): string {
   return (
     label
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "run"
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'run'
   );
 }
 
 /** A filesystem-safe timestamp, e.g. `2026-06-14T02-56-32`. */
 function logStamp(): string {
-  return new Date().toISOString().replace(/:/g, "-").replace(/\..+$/, "");
+  return new Date().toISOString().replace(/:/g, '-').replace(/\..+$/, '');
 }
 
 /**
@@ -171,9 +175,9 @@ function reportFailure(label: string, tail: string[], logFile: string): void {
   for (const line of tail) console.error(`  ${line}`);
   console.error(`\nFull log: ${logFile}`);
 
-  let logText = tail.join("\n");
+  let logText = tail.join('\n');
   try {
-    logText = readFileSync(logFile, "utf8");
+    logText = readFileSync(logFile, 'utf8');
   } catch {
     /* log unreadable (e.g. tee never opened) — diagnose the in-memory tail instead */
   }
@@ -195,7 +199,7 @@ export async function runWithProgress(
 ): Promise<RunProgressResult> {
   const { label, parseStep, estimate, ...exec } = options;
 
-  if (selectProgressMode(process.stdout.isTTY, process.env, streamRawOutput) === "stream") {
+  if (selectProgressMode(process.stdout.isTTY, process.env, streamRawOutput) === 'stream') {
     // Raw streaming (CI / piped / --verbose): no bar, but still time the run so the duration EMA learns.
     // Output isn't parsed here, so step count is 0 — the caller carries the prior step total forward.
     const startedAt = Date.now();
@@ -209,13 +213,19 @@ export async function runWithProgress(
   const logFile = buildLog ?? join(ensureDir(LOGS_DIR), `${logSlug(label)}-${logStamp()}.log`);
   const startedAt = Date.now();
   const tail: string[] = [];
-  let step = "";
+  let step = '';
   let steps = 0;
 
   const progress = spinner();
   const render = (): void => {
     progress.message(
-      formatProgressLine({ label, step, elapsedMs: Date.now() - startedAt, steps, ...(estimate ? { estimate } : {}) }),
+      formatProgressLine({
+        label,
+        step,
+        elapsedMs: Date.now() - startedAt,
+        steps,
+        ...(estimate ? { estimate } : {}),
+      }),
     );
   };
   const clock = setInterval(render, 1000);
@@ -255,8 +265,11 @@ export async function runWithProgress(
  * default to the live process but are injectable so the decision is unit-testable (like
  * {@link selectProgressMode}).
  */
-export function isInteractive(isTTY = process.stdout.isTTY, env: NodeJS.ProcessEnv = process.env): boolean {
-  return isTTY && !env["CI"];
+export function isInteractive(
+  isTTY = process.stdout.isTTY,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return isTTY && !env['CI'];
 }
 
 /**
@@ -267,7 +280,7 @@ export function isInteractive(isTTY = process.stdout.isTTY, env: NodeJS.ProcessE
  * process; it just awaits `task` while telling the user what's happening.
  */
 export async function withSpinner<T>(label: string, task: () => Promise<T>): Promise<T> {
-  if (selectProgressMode(process.stdout.isTTY, process.env, streamRawOutput) === "stream") {
+  if (selectProgressMode(process.stdout.isTTY, process.env, streamRawOutput) === 'stream') {
     return task();
   }
 

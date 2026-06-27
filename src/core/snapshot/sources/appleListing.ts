@@ -20,12 +20,12 @@ import type {
   SnapshotEntity,
   SnapshotSource,
   SourceCapture,
-} from "../types.js";
-import type { ListingLocalization } from "../../../apple/ascClient.js";
-import type { PlannedAction } from "../../ascSync.js";
-import type { AppleLocaleInfo, AppleStoreConfig } from "../../storeConfig.js";
-import { reconcileAppListing } from "../../ascSync.js";
-import { iosApps } from "../../readiness/appScopes.js";
+} from '../types.js';
+import type { ListingLocalization } from '../../../apple/ascClient.js';
+import type { PlannedAction } from '../../ascSync.js';
+import type { AppleLocaleInfo, AppleStoreConfig } from '../../storeConfig.js';
+import { reconcileAppListing } from '../../ascSync.js';
+import { iosApps } from '../../readiness/appScopes.js';
 
 /** One locale's merged listing fields → a snapshot entity keyed by the locale (its natural, stable id). */
 function toEntity(locale: string, fields: Record<string, string>): SnapshotEntity {
@@ -45,7 +45,10 @@ async function captureListing(api: SnapshotAscApi, appId: string): Promise<Snaps
   const byLocale = new Map<string, Record<string, string>>();
   const merge = (localizations: ListingLocalization[]): void => {
     for (const localization of localizations) {
-      byLocale.set(localization.locale, { ...byLocale.get(localization.locale), ...localization.fields });
+      byLocale.set(localization.locale, {
+        ...byLocale.get(localization.locale),
+        ...localization.fields,
+      });
     }
   };
 
@@ -62,7 +65,7 @@ async function captureListing(api: SnapshotAscApi, appId: string): Promise<Snaps
 /** Read a string-valued field from a captured listing's `fields` map, or undefined when absent/non-string. */
 function fieldString(fields: Record<string, JsonValue>, key: string): string | undefined {
   const value = fields[key];
-  return typeof value === "string" ? value : undefined;
+  return typeof value === 'string' ? value : undefined;
 }
 
 /**
@@ -72,29 +75,29 @@ function fieldString(fields: Record<string, JsonValue>, key: string): string | u
  */
 function toLocaleInfo(fields: Record<string, JsonValue>): AppleLocaleInfo {
   const info: AppleLocaleInfo = {};
-  const title = fieldString(fields, "name");
+  const title = fieldString(fields, 'name');
   if (title !== undefined) info.title = title;
-  const subtitle = fieldString(fields, "subtitle");
+  const subtitle = fieldString(fields, 'subtitle');
   if (subtitle !== undefined) info.subtitle = subtitle;
-  const privacyPolicyUrl = fieldString(fields, "privacyPolicyUrl");
+  const privacyPolicyUrl = fieldString(fields, 'privacyPolicyUrl');
   if (privacyPolicyUrl !== undefined) info.privacyPolicyUrl = privacyPolicyUrl;
-  const description = fieldString(fields, "description");
+  const description = fieldString(fields, 'description');
   if (description !== undefined) info.description = description;
-  const keywords = fieldString(fields, "keywords");
+  const keywords = fieldString(fields, 'keywords');
   if (keywords !== undefined) {
     const list = keywords
-      .split(",")
+      .split(',')
       .map((keyword) => keyword.trim())
       .filter(Boolean);
     if (list.length > 0) info.keywords = list;
   }
-  const releaseNotes = fieldString(fields, "whatsNew");
+  const releaseNotes = fieldString(fields, 'whatsNew');
   if (releaseNotes !== undefined) info.releaseNotes = releaseNotes;
-  const promotionalText = fieldString(fields, "promotionalText");
+  const promotionalText = fieldString(fields, 'promotionalText');
   if (promotionalText !== undefined) info.promotionalText = promotionalText;
-  const supportUrl = fieldString(fields, "supportUrl");
+  const supportUrl = fieldString(fields, 'supportUrl');
   if (supportUrl !== undefined) info.supportUrl = supportUrl;
-  const marketingUrl = fieldString(fields, "marketingUrl");
+  const marketingUrl = fieldString(fields, 'marketingUrl');
   if (marketingUrl !== undefined) info.marketingUrl = marketingUrl;
   return info;
 }
@@ -104,11 +107,11 @@ function toListing(saved: AppEntities): AppleStoreConfig {
   const info: Record<string, AppleLocaleInfo> = {};
   for (const entity of saved.entities) {
     const { data } = entity;
-    if (typeof data !== "object" || data === null || Array.isArray(data)) continue;
-    const locale = data["locale"];
-    const fields = data["fields"];
-    if (typeof locale !== "string") continue;
-    if (typeof fields !== "object" || fields === null || Array.isArray(fields)) continue;
+    if (typeof data !== 'object' || data === null || Array.isArray(data)) continue;
+    const locale = data['locale'];
+    const fields = data['fields'];
+    if (typeof locale !== 'string') continue;
+    if (typeof fields !== 'object' || fields === null || Array.isArray(fields)) continue;
     info[locale] = toLocaleInfo(fields);
   }
   return { info };
@@ -116,15 +119,20 @@ function toListing(saved: AppEntities): AppleStoreConfig {
 
 /** The App Store Connect store-listing snapshot source. */
 export const appleListingSource: SnapshotSource = {
-  id: "apple-listing",
-  title: "App Store listing",
-  store: "appstore",
+  id: 'apple-listing',
+  title: 'App Store listing',
+  store: 'appstore',
   async capture(ctx: SnapshotContext): Promise<SourceCapture> {
     const apps = iosApps(ctx.apps);
-    if (apps.length === 0) return { state: "omitted" };
+    if (apps.length === 0) return { state: 'omitted' };
 
     const api = await ctx.resolveAscApi();
-    if (!api) return { state: "skipped", reason: "no active Apple account", hint: "run `launch creds set-key`" };
+    if (!api)
+      return {
+        state: 'skipped',
+        reason: 'no active Apple account',
+        hint: 'run `launch creds set-key`',
+      };
 
     const captured = await Promise.all(
       apps.map(async ({ name, identifier }): Promise<AppEntities | null> => {
@@ -133,7 +141,7 @@ export const appleListingSource: SnapshotSource = {
         return { app: name, identifier, entities: await captureListing(api, appId) };
       }),
     );
-    return { state: "captured", apps: captured.filter((app): app is AppEntities => app !== null) };
+    return { state: 'captured', apps: captured.filter((app): app is AppEntities => app !== null) };
   },
 
   /**
@@ -148,9 +156,9 @@ export const appleListingSource: SnapshotSource = {
       return {
         actions: [
           {
-            description: "App Store listing: skipped — no active Apple account",
+            description: 'App Store listing: skipped — no active Apple account',
             destructive: false,
-            status: "skipped",
+            status: 'skipped',
           },
         ],
       };
@@ -161,13 +169,17 @@ export const appleListingSource: SnapshotSource = {
       const listing = toListing(app);
       if (Object.keys(listing.info).length === 0) continue;
       try {
-        const report = await reconcileAppListing(client, { bundleId: app.identifier, listing, dryRun });
+        const report = await reconcileAppListing(client, {
+          bundleId: app.identifier,
+          listing,
+          dryRun,
+        });
         actions.push(...report.actions);
       } catch (error) {
         actions.push({
           description: `App Store listing ${app.identifier}: ${error instanceof Error ? error.message : String(error)}`,
           destructive: false,
-          status: "skipped",
+          status: 'skipped',
         });
       }
     }

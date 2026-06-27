@@ -8,10 +8,10 @@
  * train, so both derive the same submission inputs from one place rather than each re-deriving them.
  */
 
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-import type { ReleaseConfig, ReleaseType } from "./types.js";
-import { loadStoreConfig } from "./storeConfig.js";
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import type { ReleaseConfig, ReleaseType } from './types.js';
+import { loadStoreConfig } from './storeConfig.js';
 
 /**
  * The per-run CLI flags that override the configured release type for a single `launch release`.
@@ -29,19 +29,23 @@ export function resolveReleaseType(
   release: ReleaseConfig | undefined,
   overrides: ReleaseTypeOverrides,
 ): { releaseType: ReleaseType; earliestReleaseDate?: string } {
-  if (overrides.scheduled) return { releaseType: "SCHEDULED", earliestReleaseDate: overrides.scheduled };
-  if (overrides.manual) return { releaseType: "MANUAL" };
+  if (overrides.scheduled)
+    return { releaseType: 'SCHEDULED', earliestReleaseDate: overrides.scheduled };
+  if (overrides.manual) return { releaseType: 'MANUAL' };
   return {
-    releaseType: release?.releaseType ?? "AFTER_APPROVAL",
+    releaseType: release?.releaseType ?? 'AFTER_APPROVAL',
     ...(release?.earliestReleaseDate ? { earliestReleaseDate: release.earliestReleaseDate } : {}),
   };
 }
 
 /** Normalize config release notes (a bare string targets the primary locale) into a per-locale map. */
-export function resolveReleaseNotes(release: ReleaseConfig | undefined, primaryLocale: string): Record<string, string> {
+export function resolveReleaseNotes(
+  release: ReleaseConfig | undefined,
+  primaryLocale: string,
+): Record<string, string> {
   const notes = release?.releaseNotes;
   if (!notes) return {};
-  return typeof notes === "string" ? { [primaryLocale]: notes } : notes;
+  return typeof notes === 'string' ? { [primaryLocale]: notes } : notes;
 }
 
 /**
@@ -50,7 +54,7 @@ export function resolveReleaseNotes(release: ReleaseConfig | undefined, primaryL
  * {@link loadStoreConfig}, consistent with those commands (the developer fixes the typo once).
  */
 export function readStoreReleaseNotes(appDir: string): Record<string, string> {
-  const path = join(appDir, "store.config.json");
+  const path = join(appDir, 'store.config.json');
   if (!existsSync(path)) return {};
   const info = loadStoreConfig(path).apple?.info ?? {};
   const notes: Record<string, string> = {};
@@ -65,6 +69,12 @@ export function readStoreReleaseNotes(appDir: string): Record<string, string> {
  * `launch.config.ts` as the base, with `store.config.json`'s per-locale `releaseNotes` taking precedence
  * (it's the richer, per-locale, EAS-compatible listing file). Empty leaves the version's notes untouched.
  */
-export function resolveWhatsNew(release: ReleaseConfig | undefined, appDir: string): Record<string, string> {
-  return { ...resolveReleaseNotes(release, release?.primaryLocale ?? "en-US"), ...readStoreReleaseNotes(appDir) };
+export function resolveWhatsNew(
+  release: ReleaseConfig | undefined,
+  appDir: string,
+): Record<string, string> {
+  return {
+    ...resolveReleaseNotes(release, release?.primaryLocale ?? 'en-US'),
+    ...readStoreReleaseNotes(appDir),
+  };
 }

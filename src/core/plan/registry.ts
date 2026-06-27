@@ -7,22 +7,22 @@
  * in {@link registerBuiltinPlanners} — the orchestrator is untouched.
  */
 
-import type { SurfacePlanner } from "./types.js";
-import { catalogPlanner } from "./planners/catalog.js";
-import { listingPlanner } from "./planners/listing.js";
-import { playProductsPlanner } from "./planners/playProducts.js";
-import { playSubscriptionsPlanner } from "./planners/playSubscriptions.js";
-import { releaseConfigPlanner } from "./planners/releaseConfig.js";
-import { gameCenterPlanner } from "./planners/gameCenter.js";
-import { appClipsPlanner } from "./planners/appClips.js";
-import { availabilityPlanner } from "./planners/availability.js";
-import { accessibilityPlanner } from "./planners/accessibility.js";
-import { experimentsPlanner } from "./planners/experiments.js";
-import { customPagesPlanner } from "./planners/customPages.js";
-import { walletPlanner } from "./planners/wallet.js";
-import { euDistributionPlanner } from "./planners/euDistribution.js";
-import { offersPlanner } from "./planners/offers.js";
-import { screenshotsPlanner } from "./planners/screenshots.js";
+import type { SurfacePlanner } from './types.js';
+import { catalogPlanner } from './planners/catalog.js';
+import { listingPlanner } from './planners/listing.js';
+import { playProductsPlanner } from './planners/playProducts.js';
+import { playSubscriptionsPlanner } from './planners/playSubscriptions.js';
+import { releaseConfigPlanner } from './planners/releaseConfig.js';
+import { gameCenterPlanner } from './planners/gameCenter.js';
+import { appClipsPlanner } from './planners/appClips.js';
+import { availabilityPlanner } from './planners/availability.js';
+import { accessibilityPlanner } from './planners/accessibility.js';
+import { experimentsPlanner } from './planners/experiments.js';
+import { customPagesPlanner } from './planners/customPages.js';
+import { walletPlanner } from './planners/wallet.js';
+import { euDistributionPlanner } from './planners/euDistribution.js';
+import { offersPlanner } from './planners/offers.js';
+import { screenshotsPlanner } from './planners/screenshots.js';
 
 /** Registered planners, keyed by surface id so re-registering one replaces it (idempotent built-in wiring). */
 const PLANNERS = new Map<string, SurfacePlanner>();

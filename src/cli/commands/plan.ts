@@ -10,20 +10,20 @@
  * 1 error, error wins) make it scriptable. See `docs/adr/0003-plan-drift.md`.
  */
 
-import type { Command } from "commander";
-import { loadConfig } from "../../core/config.js";
-import { createLogger } from "../../core/logger.js";
-import { createAscClientResolver, createPlayClientResolver } from "../../core/storeClients.js";
-import { selectApps } from "../../core/syncJobs.js";
-import type { PlannedAction } from "../../core/ascSync.js";
-import { listSurfacePlanners, registerBuiltinPlanners } from "../../core/plan/registry.js";
-import { PLAN_EXIT, runPlanners, type PlanOutcome } from "../../core/plan/orchestrator.js";
-import type { PlanContext, PlanStore, SurfacePlan } from "../../core/plan/types.js";
+import type { Command } from 'commander';
+import { loadConfig } from '../../core/config.js';
+import { createLogger } from '../../core/logger.js';
+import { createAscClientResolver, createPlayClientResolver } from '../../core/storeClients.js';
+import { selectApps } from '../../core/syncJobs.js';
+import type { PlannedAction } from '../../core/ascSync.js';
+import { listSurfacePlanners, registerBuiltinPlanners } from '../../core/plan/registry.js';
+import { PLAN_EXIT, runPlanners, type PlanOutcome } from '../../core/plan/orchestrator.js';
+import type { PlanContext, PlanStore, SurfacePlan } from '../../core/plan/types.js';
 
 /** A successfully-read per-app surface (the usual case) — narrowed for the renderer. */
-type PlannedAppSurface = Extract<SurfacePlan, { state: "planned"; scope: "app" }>;
+type PlannedAppSurface = Extract<SurfacePlan, { state: 'planned'; scope: 'app' }>;
 /** A successfully-read team-level surface (wallet / EU distribution) — no per-app grouping. */
-type PlannedTeamSurface = Extract<SurfacePlan, { state: "planned"; scope: "team" }>;
+type PlannedTeamSurface = Extract<SurfacePlan, { state: 'planned'; scope: 'team' }>;
 
 /** CLI options shared by `plan` and `drift` (the positional `<surface>` arrives as the action's first arg). */
 interface PlanOptions {
@@ -43,14 +43,14 @@ interface RunPlanInput extends PlanOptions {
 
 /** The leading glyph for a plan line: skipped advisory `•`, destructive `-`, change `~`, otherwise add `+`. */
 export function planGlyph(action: PlannedAction): string {
-  if (action.status === "skipped") return "•";
-  if (action.destructive) return "-";
-  return /^update\b/i.test(action.description) ? "~" : "+";
+  if (action.status === 'skipped') return '•';
+  if (action.destructive) return '-';
+  return /^update\b/i.test(action.description) ? '~' : '+';
 }
 
 /** Human store name for a plan header. */
 function storeLabel(store: PlanStore): string {
-  return store === "appstore" ? "App Store" : "Google Play";
+  return store === 'appstore' ? 'App Store' : 'Google Play';
 }
 
 /** One rendered diff line for an action. */
@@ -71,37 +71,47 @@ function renderAppSurface(log: ReturnType<typeof createLogger>, surface: Planned
   for (const app of surface.apps) {
     const head = `${app.app} · ${surface.surface} (${app.identifier})`;
     if (app.error !== undefined) log.error(`${head}: ${app.error}`);
-    else if (app.actions.length === 0) log.step(`${app.app} · ${surface.surface}`, "in sync");
+    else if (app.actions.length === 0) log.step(`${app.app} · ${surface.surface}`, 'in sync');
     else log.notice(head, ...app.actions.map(renderActionLine));
   }
 }
 
 /** Render a team-level surface's diff (wallet / EU distribution): no bundle id, so grouped store → Team → surface. */
-function renderTeamSurface(log: ReturnType<typeof createLogger>, surface: PlannedTeamSurface): void {
+function renderTeamSurface(
+  log: ReturnType<typeof createLogger>,
+  surface: PlannedTeamSurface,
+): void {
   if (surface.actions.length === 0) {
-    log.step(`Team · ${surface.surface}`, "in sync");
+    log.step(`Team · ${surface.surface}`, 'in sync');
     return;
   }
-  log.notice(`${storeLabel(surface.store)} · Team · ${surface.surface}`, ...surface.actions.map(renderActionLine));
+  log.notice(
+    `${storeLabel(surface.store)} · Team · ${surface.surface}`,
+    ...surface.actions.map(renderActionLine),
+  );
 }
 
 /** Print the human diff, grouped store → app → surface, then a one-line summary + next step. */
 function renderOutcome(log: ReturnType<typeof createLogger>, outcome: PlanOutcome): void {
   log.gap();
   if (outcome.surfaces.length === 0) {
-    log.info("Nothing declared to plan — add products, capabilities, or a store.config.json listing, then re-run.");
+    log.info(
+      'Nothing declared to plan — add products, capabilities, or a store.config.json listing, then re-run.',
+    );
     return;
   }
 
   for (const surface of outcome.surfaces) {
-    if (surface.state === "skipped") {
-      const hint = surface.hint ? ` (${surface.hint})` : "";
-      log.warn(`${storeLabel(surface.store)} · ${surface.surface}: skipped — ${surface.reason}${hint}`);
+    if (surface.state === 'skipped') {
+      const hint = surface.hint ? ` (${surface.hint})` : '';
+      log.warn(
+        `${storeLabel(surface.store)} · ${surface.surface}: skipped — ${surface.reason}${hint}`,
+      );
       continue;
     }
-    if (surface.scope === "team") renderTeamSurface(log, surface);
+    if (surface.scope === 'team') renderTeamSurface(log, surface);
     else renderAppSurface(log, surface);
-    if (surface.direction === "additive") log.info(additiveNote(surface.surface));
+    if (surface.direction === 'additive') log.info(additiveNote(surface.surface));
   }
 
   log.gap();
@@ -112,7 +122,7 @@ function renderOutcome(log: ReturnType<typeof createLogger>, outcome: PlanOutcom
 function renderSummary(log: ReturnType<typeof createLogger>, outcome: PlanOutcome): void {
   const { changeCount, appErrorCount, skippedSurfaceCount } = outcome;
   if (changeCount === 0 && appErrorCount === 0 && skippedSurfaceCount === 0) {
-    log.step("plan", "everything matches — no drift");
+    log.step('plan', 'everything matches — no drift');
     return;
   }
 
@@ -120,14 +130,17 @@ function renderSummary(log: ReturnType<typeof createLogger>, outcome: PlanOutcom
   if (changeCount > 0) parts.push(`${changeCount} change(s)`);
   if (appErrorCount > 0) parts.push(`${appErrorCount} error(s)`);
   if (skippedSurfaceCount > 0) parts.push(`${skippedSurfaceCount} skipped`);
-  log.info(parts.join(" · "));
+  log.info(parts.join(' · '));
 
   if (outcome.check) {
     if (outcome.exitCode === PLAN_EXIT.error)
-      log.error("Drift check could not certify — resolve the errors/credentials above, then re-run.");
-    else if (outcome.exitCode === PLAN_EXIT.drift) log.info("Drift detected. Run `launch sync` to reconcile.");
+      log.error(
+        'Drift check could not certify — resolve the errors/credentials above, then re-run.',
+      );
+    else if (outcome.exitCode === PLAN_EXIT.drift)
+      log.info('Drift detected. Run `launch sync` to reconcile.');
   } else {
-    log.info("Run `launch sync` to apply, or `launch drift` to gate this in CI.");
+    log.info('Run `launch sync` to apply, or `launch drift` to gate this in CI.');
   }
 }
 
@@ -146,7 +159,7 @@ export async function runPlan(input: RunPlanInput): Promise<void> {
   if (input.surface !== undefined) {
     const match = planners.find((planner) => planner.id === input.surface);
     if (!match) {
-      const available = planners.map((planner) => planner.id).join(", ") || "none";
+      const available = planners.map((planner) => planner.id).join(', ') || 'none';
       throw new Error(`Unknown surface "${input.surface}". Available: ${available}.`);
     }
     planners = [match];
@@ -167,7 +180,11 @@ export async function runPlan(input: RunPlanInput): Promise<void> {
 }
 
 /** Build the {@link RunPlanInput} from commander's parsed option bag, honoring exact-optional types. */
-function toRunInput(surface: string | undefined, options: PlanOptions, forceCheck: boolean): RunPlanInput {
+function toRunInput(
+  surface: string | undefined,
+  options: PlanOptions,
+  forceCheck: boolean,
+): RunPlanInput {
   return {
     ...(options.app !== undefined ? { app: options.app } : {}),
     ...(surface !== undefined ? { surface } : {}),
@@ -179,20 +196,24 @@ function toRunInput(surface: string | undefined, options: PlanOptions, forceChec
 /** Attach the `plan` and its `drift` alias to the program. */
 export function registerPlanCommand(program: Command): void {
   program
-    .command("plan [surface]")
-    .description("diff launch.config against live store state (read-only): capabilities, IAPs, subscriptions, pricing")
-    .option("-a, --app <names>", "comma-separated app handles (default: all apps)")
-    .option("--check", "exit 2 when drift is present (CI gate); same as `launch drift`", false)
-    .option("--json", "machine-readable output for CI/agents", false)
+    .command('plan [surface]')
+    .description(
+      'diff launch.config against live store state (read-only): capabilities, IAPs, subscriptions, pricing',
+    )
+    .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
+    .option('--check', 'exit 2 when drift is present (CI gate); same as `launch drift`', false)
+    .option('--json', 'machine-readable output for CI/agents', false)
     .action(async (surface: string | undefined, options: PlanOptions) => {
       await runPlan(toRunInput(surface, options, false));
     });
 
   program
-    .command("drift [surface]")
-    .description("fail when live store state has drifted from launch.config (alias for `launch plan --check`)")
-    .option("-a, --app <names>", "comma-separated app handles (default: all apps)")
-    .option("--json", "machine-readable output for CI/agents", false)
+    .command('drift [surface]')
+    .description(
+      'fail when live store state has drifted from launch.config (alias for `launch plan --check`)',
+    )
+    .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
+    .option('--json', 'machine-readable output for CI/agents', false)
     .action(async (surface: string | undefined, options: PlanOptions) => {
       await runPlan(toRunInput(surface, options, true));
     });

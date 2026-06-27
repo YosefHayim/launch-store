@@ -5,15 +5,15 @@
  * pull reference one template rather than each carrying its own copy that could drift.
  */
 
-import { relative } from "node:path";
-import type { AppDescriptor } from "./types.js";
+import { relative } from 'node:path';
+import type { AppDescriptor } from './types.js';
 
 /** Derive a single `appRoots` subdir when every discovered app lives under one (e.g. an `apps/` monorepo). */
 export function detectAppRoot(apps: AppDescriptor[], cwd: string): string | null {
   const segments = new Set<string>();
   for (const app of apps) {
     const rel = relative(cwd, app.dir);
-    if (rel === "") return null; // an app sits at the repo root → scan the root
+    if (rel === '') return null; // an app sits at the repo root → scan the root
     const [first] = rel.split(/[/\\]/);
     if (first) segments.add(first);
   }
@@ -26,7 +26,7 @@ export function detectAppRoot(apps: AppDescriptor[], cwd: string): string | null
  * folder in the project, mirroring the global `~/.launch`. Auto-added to `.gitignore` so build binaries
  * never get committed. Users can point `artifactDir` elsewhere (or omit it for the global default).
  */
-export const DEFAULT_IN_REPO_ARTIFACT_DIR = "./.launch/artifacts";
+export const DEFAULT_IN_REPO_ARTIFACT_DIR = './.launch/artifacts';
 
 /** The single `production` profile `launch init` / `launch adopt` scaffold when none is supplied. */
 const DEFAULT_PROFILES_BLOCK = `  profiles: {
@@ -55,11 +55,11 @@ export function configTemplate(
   const appRootsLine = appRoot
     ? `  appRoots: ["${appRoot}"], // every app.json lives under here`
     : `  // appRoots: ["./apps"], // uncomment if your apps live in a subfolder`;
-  const injected = extraSections ? `\n${extraSections}\n` : "";
+  const injected = extraSections ? `\n${extraSections}\n` : '';
   const profilesBlock = profilesSection ?? DEFAULT_PROFILES_BLOCK;
   const artifactDirLine = artifactDir
     ? `\n  artifactDir: ${JSON.stringify(artifactDir)}, // where local build binaries land (auto-added to .gitignore)`
-    : "";
+    : '';
   return `import { defineConfig } from "launch-store";
 
 /**

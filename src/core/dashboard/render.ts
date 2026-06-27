@@ -9,29 +9,37 @@
  * script (inert in browsers) with `<` additionally escaped, so it can't break out into executable code.
  */
 
-import type { DashboardAccount, DashboardApp, DashboardArtifact, DashboardSecret, DashboardState } from "./types.js";
+import type {
+  DashboardAccount,
+  DashboardApp,
+  DashboardArtifact,
+  DashboardSecret,
+  DashboardState,
+} from './types.js';
 
 /** Escape the five HTML/XML special characters so interpolated values can't inject markup. */
 function escapeHtml(value: string): string {
   return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 /** Render a value, escaped, falling back to a muted em-dash when it's null/empty. */
 function cell(value: string | number | null): string {
-  if (value === null || value === "") return '<span class="muted">—</span>';
+  if (value === null || value === '') return '<span class="muted">—</span>';
   return escapeHtml(String(value));
 }
 
 /** A `<table>` with a header row and body rows, or a muted "none" line when there are no rows. */
 function table(headers: string[], rows: string[][], emptyNote: string): string {
   if (rows.length === 0) return `<p class="muted">${escapeHtml(emptyNote)}</p>`;
-  const head = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
-  const body = rows.map((row) => `<tr>${row.map((value) => `<td>${value}</td>`).join("")}</tr>`).join("");
+  const head = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('');
+  const body = rows
+    .map((row) => `<tr>${row.map((value) => `<td>${value}</td>`).join('')}</tr>`)
+    .join('');
   return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
@@ -46,8 +54,13 @@ function chip(label: string, value: string): string {
 }
 
 function appsTable(apps: DashboardApp[]): string {
-  const rows = apps.map((app) => [cell(app.name), cell(app.version), cell(app.bundleId), cell(app.packageName)]);
-  return table(["App", "Version", "Bundle id", "Package"], rows, "No apps discovered.");
+  const rows = apps.map((app) => [
+    cell(app.name),
+    cell(app.version),
+    cell(app.bundleId),
+    cell(app.packageName),
+  ]);
+  return table(['App', 'Version', 'Bundle id', 'Package'], rows, 'No apps discovered.');
 }
 
 function accountsTable(accounts: DashboardAccount[]): string {
@@ -58,7 +71,7 @@ function accountsTable(accounts: DashboardAccount[]): string {
     cell(account.appCount),
     account.active ? '<span class="ok">active</span>' : cell(null),
   ]);
-  return table(["Account", "Key id", "Team id", "Apps", ""], rows, "No Apple accounts onboarded.");
+  return table(['Account', 'Key id', 'Team id', 'Apps', ''], rows, 'No Apple accounts onboarded.');
 }
 
 function artifactsTable(artifacts: DashboardArtifact[]): string {
@@ -71,21 +84,38 @@ function artifactsTable(artifacts: DashboardArtifact[]): string {
     cell(artifact.createdAt),
     artifact.pruned ? '<span class="muted">pruned</span>' : '<span class="ok">on disk</span>',
   ]);
-  return table(["App", "Platform", "Version", "Build", "Size", "Built", "Binary"], rows, "No builds recorded yet.");
+  return table(
+    ['App', 'Platform', 'Version', 'Build', 'Size', 'Built', 'Binary'],
+    rows,
+    'No builds recorded yet.',
+  );
 }
 
 function secretsTable(secrets: DashboardSecret[]): string {
-  const rows = secrets.map((secret) => [cell(secret.app), cell(secret.profile ?? "all profiles"), cell(secret.name)]);
-  return table(["App", "Scope", "Env var"], rows, "No build secrets stored.");
+  const rows = secrets.map((secret) => [
+    cell(secret.app),
+    cell(secret.profile ?? 'all profiles'),
+    cell(secret.name),
+  ]);
+  return table(['App', 'Scope', 'Env var'], rows, 'No build secrets stored.');
 }
 
 function cloudHostSection(state: DashboardState): string {
   const host = state.cloudHost;
-  if (!host) return section("Remote build host", '<p class="muted">No remote host allocated.</p>');
+  if (!host) return section('Remote build host', '<p class="muted">No remote host allocated.</p>');
   const rows = [
-    [cell(host.provider), cell(host.region), cell(host.instanceType), cell(host.instanceId), cell(host.allocatedAt)],
+    [
+      cell(host.provider),
+      cell(host.region),
+      cell(host.instanceType),
+      cell(host.instanceId),
+      cell(host.allocatedAt),
+    ],
   ];
-  return section("Remote build host", table(["Provider", "Region", "Type", "Instance", "Allocated"], rows, ""));
+  return section(
+    'Remote build host',
+    table(['Provider', 'Region', 'Type', 'Instance', 'Allocated'], rows, ''),
+  );
 }
 
 /** Inline stylesheet — small, system-font, dark-on-light; no external assets. */
@@ -113,31 +143,31 @@ th{color:#666;font-weight:600}
 export function renderDashboardHtml(state: DashboardState): string {
   const { providers } = state.project;
   const providerChips = [
-    chip("credentials", providers.credentials),
-    chip("storage", providers.storage),
-    chip("build", providers.buildEngine),
-    chip("submit", providers.submit),
-  ].join("");
-  const profiles = state.project.profiles.length > 0 ? state.project.profiles.join(", ") : "none";
+    chip('credentials', providers.credentials),
+    chip('storage', providers.storage),
+    chip('build', providers.buildEngine),
+    chip('submit', providers.submit),
+  ].join('');
+  const profiles = state.project.profiles.length > 0 ? state.project.profiles.join(', ') : 'none';
 
   // Inert (`type="application/json"`) and `<`-escaped so an injected `</script>` can't break out.
-  const embeddedState = JSON.stringify(state).replace(/</g, "\\u003c");
+  const embeddedState = JSON.stringify(state).replace(/</g, '\\u003c');
 
   return [
-    "<!doctype html>",
+    '<!doctype html>',
     '<html lang="en"><head><meta charset="utf-8" />',
     '<meta name="viewport" content="width=device-width, initial-scale=1" />',
-    "<title>launch dashboard</title>",
+    '<title>launch dashboard</title>',
     `<style>${STYLE}</style></head><body>`,
-    "<h1>launch dashboard</h1>",
+    '<h1>launch dashboard</h1>',
     `<p class="sub">Local state as of ${cell(state.generatedAt)} · ${cell(state.launchHome)}</p>`,
-    section("Project", `<p>${providerChips}</p><p><b>Profiles:</b> ${escapeHtml(profiles)}</p>`),
-    section("Apps", appsTable(state.project.apps)),
-    section("Apple accounts", accountsTable(state.accounts)),
-    section("Recent builds", artifactsTable(state.artifacts)),
-    section("Build secrets", secretsTable(state.secrets)),
+    section('Project', `<p>${providerChips}</p><p><b>Profiles:</b> ${escapeHtml(profiles)}</p>`),
+    section('Apps', appsTable(state.project.apps)),
+    section('Apple accounts', accountsTable(state.accounts)),
+    section('Recent builds', artifactsTable(state.artifacts)),
+    section('Build secrets', secretsTable(state.secrets)),
     cloudHostSection(state),
     `<script id="launch-dashboard-state" type="application/json">${embeddedState}</script>`,
-    "</body></html>",
-  ].join("\n");
+    '</body></html>',
+  ].join('\n');
 }

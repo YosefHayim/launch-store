@@ -14,11 +14,11 @@
  * fails — not the earlier prebuild (whose id isn't known yet); those steps keep their own stamped logs.
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import type { Platform } from "./types.js";
-import { LOGS_DIR, ensureDir } from "./paths.js";
-import { redactText } from "./redact.js";
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { Platform } from './types.js';
+import { LOGS_DIR, ensureDir } from './paths.js';
+import { redactText } from './redact.js';
 
 /**
  * The natural-key parts that identify a build independently of where its artifact is stored. A
@@ -39,7 +39,7 @@ export function buildLogId(key: BuildLogKey): string {
 
 /** Absolute path to a build's persisted, redacted native log (`~/.launch/logs/<id>.log`). */
 export function buildLogPath(id: string): string {
-  const safe = id.replace(/[^A-Za-z0-9._-]/g, "-");
+  const safe = id.replace(/[^A-Za-z0-9._-]/g, '-');
   return join(LOGS_DIR, `${safe}.log`);
 }
 
@@ -51,7 +51,7 @@ export function buildLogPath(id: string): string {
 export function readBuildLog(id: string): string | null {
   const path = buildLogPath(id);
   if (!existsSync(path)) return null;
-  return redactText(readFileSync(path, "utf8"));
+  return redactText(readFileSync(path, 'utf8'));
 }
 
 /** Process-wide handle to the log the in-progress build's tool output is being tee'd into. */
@@ -64,7 +64,7 @@ let activeBuildLog: string | null = null;
 export function beginBuildLog(id: string): string {
   ensureDir(LOGS_DIR);
   const path = buildLogPath(id);
-  writeFileSync(path, "");
+  writeFileSync(path, '');
   activeBuildLog = path;
   return path;
 }

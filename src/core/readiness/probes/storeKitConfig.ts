@@ -7,16 +7,16 @@
  * submission blocker. The lookup is the same bounded, read-only walk the code-reference probe uses. Tag `iap`.
  */
 
-import { relative } from "node:path";
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from "../types.js";
-import { walkAppSource } from "../sourceScan.js";
-import { declaredAppleProductIds } from "./iapReadiness.js";
+import { relative } from 'node:path';
+import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import { walkAppSource } from '../sourceScan.js';
+import { declaredAppleProductIds } from './iapReadiness.js';
 
 /** The first `.storekit` configuration file under `appDir` (as a path relative to it), or null when none. */
 function findStoreKitConfig(appDir: string): string | null {
   let match: string | null = null;
   walkAppSource(appDir, (filePath, ext) => {
-    if (ext !== ".storekit") return false;
+    if (ext !== '.storekit') return false;
     match = relative(appDir, filePath);
     return true;
   });
@@ -25,10 +25,10 @@ function findStoreKitConfig(appDir: string): string | null {
 
 /** The App Store Connect "StoreKit config file present for local testing" probe (local file scan). */
 export const storeKitConfigProbe: ReadinessProbe = {
-  id: "apple-storekit-config",
-  title: "StoreKit config file present",
-  store: "appstore",
-  categories: ["iap"],
+  id: 'apple-storekit-config',
+  title: 'StoreKit config file present',
+  store: 'appstore',
+  categories: ['iap'],
   async check(ctx: ReadinessContext): Promise<ProbeResult> {
     const apps = ctx.apps.flatMap((app) => {
       const bundleId = app.bundleId;
@@ -36,21 +36,21 @@ export const storeKitConfigProbe: ReadinessProbe = {
       const declaresProducts = declaredAppleProductIds(ctx.config.products?.[bundleId]).length > 0;
       return declaresProducts ? [{ name: app.name, identifier: bundleId, dir: app.dir }] : [];
     });
-    if (apps.length === 0) return { state: "omitted" };
+    if (apps.length === 0) return { state: 'omitted' };
 
     const results: AppReadiness[] = apps.map(({ name, identifier, dir }) => {
       const file = findStoreKitConfig(dir);
       if (file) {
-        return { app: name, identifier, status: "ok", detail: `StoreKit config present (${file})` };
+        return { app: name, identifier, status: 'ok', detail: `StoreKit config present (${file})` };
       }
       return {
         app: name,
         identifier,
-        status: "warn",
-        detail: "no .storekit configuration file found",
-        hint: "add a StoreKit configuration file in Xcode to test purchases on the simulator before submitting",
+        status: 'warn',
+        detail: 'no .storekit configuration file found',
+        hint: 'add a StoreKit configuration file in Xcode to test purchases on the simulator before submitting',
       };
     });
-    return { state: "checked", apps: results };
+    return { state: 'checked', apps: results };
   },
 };

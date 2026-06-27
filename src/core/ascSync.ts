@@ -29,10 +29,10 @@ import type {
   PricePointResource,
   SubscriptionGroupResource,
   SubscriptionResource,
-} from "../apple/ascClient.js";
-import type { CapabilityType } from "./capabilities.js";
-import type { AppleLocaleInfo, AppleStoreConfig } from "./storeConfig.js";
-import type { AppProducts, InAppPurchaseConfig, SubscriptionConfig } from "./types.js";
+} from '../apple/ascClient.js';
+import type { CapabilityType } from './capabilities.js';
+import type { AppleLocaleInfo, AppleStoreConfig } from './storeConfig.js';
+import type { AppProducts, InAppPurchaseConfig, SubscriptionConfig } from './types.js';
 
 /**
  * The exact slice of {@link AppStoreConnectClient} the reconciler depends on. Declaring it here (rather
@@ -43,7 +43,10 @@ export interface AscCatalogApi {
   getAppId(bundleId: string): Promise<string | null>;
   findBundleId(identifier: string): Promise<BundleIdResource | null>;
   listBundleIdCapabilities(bundleIdResourceId: string): Promise<BundleIdCapabilityResource[]>;
-  enableCapability(bundleIdResourceId: string, capabilityType: string): Promise<BundleIdCapabilityResource>;
+  enableCapability(
+    bundleIdResourceId: string,
+    capabilityType: string,
+  ): Promise<BundleIdCapabilityResource>;
   disableCapability(capabilityId: string): Promise<void>;
   listInAppPurchases(appId: string): Promise<InAppPurchaseResource[]>;
   createInAppPurchase(
@@ -61,7 +64,11 @@ export interface AscCatalogApi {
     territory: string,
     customerPrice: number,
   ): Promise<PricePointResource | null>;
-  createInAppPurchasePriceSchedule(iapId: string, baseTerritory: string, pricePointId: string): Promise<void>;
+  createInAppPurchasePriceSchedule(
+    iapId: string,
+    baseTerritory: string,
+    pricePointId: string,
+  ): Promise<void>;
   listSubscriptionGroups(appId: string): Promise<SubscriptionGroupResource[]>;
   createSubscriptionGroup(appId: string, referenceName: string): Promise<SubscriptionGroupResource>;
   listSubscriptionGroupLocalizations(groupId: string): Promise<LocalizationResource[]>;
@@ -88,16 +95,24 @@ export interface AscCatalogApi {
   createSubscriptionPrice(subscriptionId: string, pricePointId: string): Promise<void>;
   getEditableAppInfoId(appId: string): Promise<string | null>;
   listAppInfoLocalizations(appInfoId: string): Promise<ListingLocalization[]>;
-  createAppInfoLocalization(appInfoId: string, locale: string, fields: Record<string, string>): Promise<void>;
+  createAppInfoLocalization(
+    appInfoId: string,
+    locale: string,
+    fields: Record<string, string>,
+  ): Promise<void>;
   updateAppInfoLocalization(localizationId: string, fields: Record<string, string>): Promise<void>;
   getEditableVersionId(appId: string): Promise<string | null>;
   listVersionLocalizations(versionId: string): Promise<ListingLocalization[]>;
-  createVersionLocalization(versionId: string, locale: string, fields: Record<string, string>): Promise<void>;
+  createVersionLocalization(
+    versionId: string,
+    locale: string,
+    fields: Record<string, string>,
+  ): Promise<void>;
   updateVersionLocalization(localizationId: string, fields: Record<string, string>): Promise<void>;
 }
 
 /** Where an action ended up: planned (dry-run), or applied / skipped / failed after a real run. */
-export type ActionStatus = "planned" | "applied" | "skipped" | "failed";
+export type ActionStatus = 'planned' | 'applied' | 'skipped' | 'failed';
 
 /** One unit of reconcile work — created, then displayed in the plan and (after apply) in the summary. */
 export interface PlannedAction {
@@ -138,16 +153,16 @@ export interface ReconcileReport {
 }
 
 /** Default base territory for price-point resolution when a {@link ProductPrice} doesn't name one. */
-const DEFAULT_TERRITORY = "USA";
+const DEFAULT_TERRITORY = 'USA';
 
 /** Placeholder id for a resource that doesn't exist yet during a dry-run (its create closures never run). */
-export const DRY_RUN_ID = "(dry-run)";
+export const DRY_RUN_ID = '(dry-run)';
 
 /**
  * Capabilities Apple enables on every App ID and won't let you remove. We must never propose disabling
  * them just because they aren't declared, or every sync would surface a no-op destructive action.
  */
-const ALWAYS_ENABLED_CAPABILITIES = new Set<string>(["IN_APP_PURCHASE", "GAME_CENTER"]);
+const ALWAYS_ENABLED_CAPABILITIES = new Set<string>(['IN_APP_PURCHASE', 'GAME_CENTER']);
 
 /**
  * The mutable action log a reconcile pass appends to: the actions collected so far plus the two run
@@ -172,7 +187,7 @@ interface ReconcileContext extends ActionLog {
 
 /** True once an action reached a terminal "this work happened (or was meant to)" state we can build on. */
 export function succeededOrPlanned(status: ActionStatus): boolean {
-  return status === "applied" || status === "planned";
+  return status === 'applied' || status === 'planned';
 }
 
 /**
@@ -188,21 +203,21 @@ export async function act<T>(
   destructive: boolean,
   run: () => Promise<T>,
 ): Promise<{ status: ActionStatus; value?: T }> {
-  const action: PlannedAction = { description, destructive, status: "planned" };
+  const action: PlannedAction = { description, destructive, status: 'planned' };
   log.actions.push(action);
   if (log.dryRun) return { status: action.status };
   if (destructive && !log.allowDestructive) {
-    action.status = "skipped";
-    return { status: "skipped" };
+    action.status = 'skipped';
+    return { status: 'skipped' };
   }
   try {
     const value = await run();
-    action.status = "applied";
-    return { status: "applied", value };
+    action.status = 'applied';
+    return { status: 'applied', value };
   } catch (error) {
-    action.status = "failed";
+    action.status = 'failed';
     action.error = error instanceof Error ? error.message : String(error);
-    return { status: "failed" };
+    return { status: 'failed' };
   }
 }
 
@@ -228,7 +243,10 @@ async function resolveAppId(api: AscCatalogApi, bundleId: string): Promise<strin
  * in-app purchases, then subscription groups and their subscriptions, then the textual listing. Throws
  * only for a precondition the user must fix (no ASC app record); everything else is captured per-action.
  */
-export async function reconcileApp(api: AscCatalogApi, input: ReconcileInput): Promise<ReconcileReport> {
+export async function reconcileApp(
+  api: AscCatalogApi,
+  input: ReconcileInput,
+): Promise<ReconcileReport> {
   const ctx: ReconcileContext = {
     api,
     actions: [],
@@ -263,7 +281,10 @@ export interface ListingReconcileInput {
  * action), so it always runs with `allowDestructive: false`. Throws the same missing-app-record
  * precondition as {@link reconcileApp}; every listing change is captured per-action.
  */
-export async function reconcileAppListing(api: AscCatalogApi, input: ListingReconcileInput): Promise<ReconcileReport> {
+export async function reconcileAppListing(
+  api: AscCatalogApi,
+  input: ListingReconcileInput,
+): Promise<ReconcileReport> {
   const ctx: ReconcileContext = { api, actions: [], dryRun: input.dryRun, allowDestructive: false };
   const appId = await resolveAppId(api, input.bundleId);
   await reconcileListing(ctx, appId, input.listing);
@@ -280,9 +301,9 @@ async function reconcileCapabilities(
   if (!resource) {
     if (desired.length > 0) {
       ctx.actions.push({
-        description: `bundle id ${bundleId} is not registered yet — run a build (or \`launch creds\`) to register it before syncing ${desired.length} capabilit${desired.length === 1 ? "y" : "ies"}`,
+        description: `bundle id ${bundleId} is not registered yet — run a build (or \`launch creds\`) to register it before syncing ${desired.length} capabilit${desired.length === 1 ? 'y' : 'ies'}`,
         destructive: false,
-        status: "skipped",
+        status: 'skipped',
       });
     }
     return;
@@ -292,12 +313,17 @@ async function reconcileCapabilities(
   const currentTypes = new Set(current.map((capability) => capability.capabilityType));
   for (const capability of desired) {
     if (currentTypes.has(capability)) continue;
-    await act(ctx, `enable capability ${capability}`, false, () => ctx.api.enableCapability(resource.id, capability));
+    await act(ctx, `enable capability ${capability}`, false, () =>
+      ctx.api.enableCapability(resource.id, capability),
+    );
   }
 
   const desiredTypes = new Set<string>(desired);
   for (const capability of current) {
-    if (desiredTypes.has(capability.capabilityType) || ALWAYS_ENABLED_CAPABILITIES.has(capability.capabilityType)) {
+    if (
+      desiredTypes.has(capability.capabilityType) ||
+      ALWAYS_ENABLED_CAPABILITIES.has(capability.capabilityType)
+    ) {
       continue;
     }
     await act(ctx, `disable capability ${capability.capabilityType}`, true, () =>
@@ -327,12 +353,16 @@ async function reconcileInAppPurchases(
       existingLocales = new Set(locales.map((localization) => localization.locale));
       priced = await ctx.api.inAppPurchaseHasPrice(iapId);
     } else {
-      const created = await act(ctx, `create in-app purchase ${iap.productId} (${iap.type})`, false, () =>
-        ctx.api.createInAppPurchase(appId, {
-          productId: iap.productId,
-          name: iap.referenceName,
-          inAppPurchaseType: iap.type,
-        }),
+      const created = await act(
+        ctx,
+        `create in-app purchase ${iap.productId} (${iap.type})`,
+        false,
+        () =>
+          ctx.api.createInAppPurchase(appId, {
+            productId: iap.productId,
+            name: iap.referenceName,
+            inAppPurchaseType: iap.type,
+          }),
       );
       if (!succeededOrPlanned(created.status)) continue;
       iapId = created.value?.id ?? DRY_RUN_ID;
@@ -350,11 +380,19 @@ async function reconcileInAppPurchases(
     if (iap.price && !priced) {
       const territory = iap.price.baseTerritory ?? DEFAULT_TERRITORY;
       const customerPrice = iap.price.customerPrice;
-      await act(ctx, `set IAP price ${iap.productId} = ${customerPrice} (${territory})`, false, async () => {
-        const point = await ctx.api.findInAppPurchasePricePoint(iapId, territory, customerPrice);
-        if (!point) throw new Error(`No ${territory} price point matches ${customerPrice} for ${iap.productId}.`);
-        await ctx.api.createInAppPurchasePriceSchedule(iapId, territory, point.id);
-      });
+      await act(
+        ctx,
+        `set IAP price ${iap.productId} = ${customerPrice} (${territory})`,
+        false,
+        async () => {
+          const point = await ctx.api.findInAppPurchasePricePoint(iapId, territory, customerPrice);
+          if (!point)
+            throw new Error(
+              `No ${territory} price point matches ${customerPrice} for ${iap.productId}.`,
+            );
+          await ctx.api.createInAppPurchasePriceSchedule(iapId, territory, point.id);
+        },
+      );
     }
   }
 }
@@ -363,7 +401,7 @@ async function reconcileInAppPurchases(
 async function reconcileSubscriptionGroups(
   ctx: ReconcileContext,
   appId: string,
-  desired: AppProducts["subscriptionGroups"] = [],
+  desired: AppProducts['subscriptionGroups'] = [],
 ): Promise<void> {
   if (desired.length === 0) return;
   const current = await ctx.api.listSubscriptionGroups(appId);
@@ -380,8 +418,11 @@ async function reconcileSubscriptionGroups(
       existingGroupLocales = new Set(locales.map((localization) => localization.locale));
       existingSubs = await ctx.api.listSubscriptions(groupId);
     } else {
-      const created = await act(ctx, `create subscription group "${group.referenceName}"`, false, () =>
-        ctx.api.createSubscriptionGroup(appId, group.referenceName),
+      const created = await act(
+        ctx,
+        `create subscription group "${group.referenceName}"`,
+        false,
+        () => ctx.api.createSubscriptionGroup(appId, group.referenceName),
       );
       if (!succeededOrPlanned(created.status)) continue;
       groupId = created.value?.id ?? DRY_RUN_ID;
@@ -391,8 +432,11 @@ async function reconcileSubscriptionGroups(
 
     for (const localization of group.localizations) {
       if (existingGroupLocales.has(localization.locale)) continue;
-      await act(ctx, `add group name "${group.referenceName}" [${localization.locale}]`, false, () =>
-        ctx.api.createSubscriptionGroupLocalization(groupId, localization),
+      await act(
+        ctx,
+        `add group name "${group.referenceName}" [${localization.locale}]`,
+        false,
+        () => ctx.api.createSubscriptionGroupLocalization(groupId, localization),
       );
     }
 
@@ -442,8 +486,11 @@ async function reconcileSubscription(
 
   for (const localization of subscription.localizations) {
     if (existingLocales.has(localization.locale)) continue;
-    await act(ctx, `add subscription copy ${subscription.productId} [${localization.locale}]`, false, () =>
-      ctx.api.createSubscriptionLocalization(subscriptionId, localization),
+    await act(
+      ctx,
+      `add subscription copy ${subscription.productId} [${localization.locale}]`,
+      false,
+      () => ctx.api.createSubscriptionLocalization(subscriptionId, localization),
     );
   }
 
@@ -455,9 +502,15 @@ async function reconcileSubscription(
       `set subscription price ${subscription.productId} = ${customerPrice} (${territory})`,
       false,
       async () => {
-        const point = await ctx.api.findSubscriptionPricePoint(subscriptionId, territory, customerPrice);
+        const point = await ctx.api.findSubscriptionPricePoint(
+          subscriptionId,
+          territory,
+          customerPrice,
+        );
         if (!point)
-          throw new Error(`No ${territory} price point matches ${customerPrice} for ${subscription.productId}.`);
+          throw new Error(
+            `No ${territory} price point matches ${customerPrice} for ${subscription.productId}.`,
+          );
         await ctx.api.createSubscriptionPrice(subscriptionId, point.id);
       },
     );
@@ -478,7 +531,7 @@ const LISTING_LIMITS: Record<string, number> = {
 };
 
 /** Which localization level a set of fields belongs to — used only for readable plan lines. */
-type ListingLevel = "appInfo" | "version";
+type ListingLevel = 'appInfo' | 'version';
 
 /** The result of routing one locale's config into the two App Store Connect localization levels. */
 interface RoutedListing {
@@ -495,23 +548,26 @@ interface RoutedListing {
  */
 function routeListing(info: AppleLocaleInfo): RoutedListing {
   const appInfo: Record<string, string> = {};
-  if (info.title) appInfo["name"] = info.title;
-  if (info.subtitle) appInfo["subtitle"] = info.subtitle;
-  if (info.privacyPolicyUrl) appInfo["privacyPolicyUrl"] = info.privacyPolicyUrl;
+  if (info.title) appInfo['name'] = info.title;
+  if (info.subtitle) appInfo['subtitle'] = info.subtitle;
+  if (info.privacyPolicyUrl) appInfo['privacyPolicyUrl'] = info.privacyPolicyUrl;
 
   const version: Record<string, string> = {};
-  if (info.description) version["description"] = info.description;
-  if (info.keywords && info.keywords.length > 0) version["keywords"] = info.keywords.join(",");
-  if (info.releaseNotes) version["whatsNew"] = info.releaseNotes;
-  if (info.promotionalText) version["promotionalText"] = info.promotionalText;
-  if (info.supportUrl) version["supportUrl"] = info.supportUrl;
-  if (info.marketingUrl) version["marketingUrl"] = info.marketingUrl;
+  if (info.description) version['description'] = info.description;
+  if (info.keywords && info.keywords.length > 0) version['keywords'] = info.keywords.join(',');
+  if (info.releaseNotes) version['whatsNew'] = info.releaseNotes;
+  if (info.promotionalText) version['promotionalText'] = info.promotionalText;
+  if (info.supportUrl) version['supportUrl'] = info.supportUrl;
+  if (info.marketingUrl) version['marketingUrl'] = info.marketingUrl;
 
   return { appInfo, version };
 }
 
 /** Split a field set into the ones within Apple's length limits and human errors for the rest. */
-function validateListing(fields: Record<string, string>): { valid: Record<string, string>; errors: string[] } {
+function validateListing(fields: Record<string, string>): {
+  valid: Record<string, string>;
+  errors: string[];
+} {
   const valid: Record<string, string> = {};
   const errors: string[] = [];
   for (const [key, value] of Object.entries(fields)) {
@@ -526,7 +582,10 @@ function validateListing(fields: Record<string, string>): { valid: Record<string
 }
 
 /** The subset of `desired` whose value differs from what's already stored — i.e. what a PATCH must send. */
-function changedFields(desired: Record<string, string>, current: Record<string, string>): Record<string, string> {
+function changedFields(
+  desired: Record<string, string>,
+  current: Record<string, string>,
+): Record<string, string> {
   const changed: Record<string, string> = {};
   for (const [key, value] of Object.entries(desired)) {
     if (current[key] !== value) changed[key] = value;
@@ -536,7 +595,7 @@ function changedFields(desired: Record<string, string>, current: Record<string, 
 
 /** Render a field as a short quoted preview for the plan, or `∅` when previously unset. */
 function preview(value: string | undefined): string {
-  if (value === undefined) return "∅";
+  if (value === undefined) return '∅';
   return `"${value.length > 24 ? `${value.slice(0, 24)}…` : value}"`;
 }
 
@@ -544,12 +603,12 @@ function preview(value: string | undefined): string {
 function describeChanges(changed: Record<string, string>, current: Record<string, string>): string {
   return Object.keys(changed)
     .map((key) => `${key} ${preview(current[key])}→${preview(changed[key])}`)
-    .join(", ");
+    .join(', ');
 }
 
 /** Human label for a localization level in plan lines. */
 function levelLabel(level: ListingLevel): string {
-  return level === "appInfo" ? "App Info" : "App Store version";
+  return level === 'appInfo' ? 'App Info' : 'App Store version';
 }
 
 /** Operations + current state for reconciling one locale at one localization level. */
@@ -575,7 +634,7 @@ async function reconcileLevel(ctx: ReconcileContext, ops: LevelReconcile): Promi
     ctx.actions.push({
       description: `listing [${ops.locale}] ${levelLabel(ops.level)}: ${error} — skipped`,
       destructive: false,
-      status: "skipped",
+      status: 'skipped',
     });
   }
   if (Object.keys(valid).length === 0) return;
@@ -585,7 +644,7 @@ async function reconcileLevel(ctx: ReconcileContext, ops: LevelReconcile): Promi
     ctx.actions.push({
       description: `listing [${ops.locale}] ${levelLabel(ops.level)}: no editable ${levelLabel(ops.level)} to update — prepare one in App Store Connect`,
       destructive: false,
-      status: "skipped",
+      status: 'skipped',
     });
     return;
   }
@@ -607,13 +666,13 @@ async function reconcileLevel(ctx: ReconcileContext, ops: LevelReconcile): Promi
     ctx.actions.push({
       description: `listing [${ops.locale}] ${levelLabel(ops.level)}: needs ${ops.requiredKey} to create the locale — skipped`,
       destructive: false,
-      status: "skipped",
+      status: 'skipped',
     });
     return;
   }
   await act(
     ctx,
-    `create listing [${ops.locale}] ${levelLabel(ops.level)}: ${Object.keys(valid).join(", ")}`,
+    `create listing [${ops.locale}] ${levelLabel(ops.level)}: ${Object.keys(valid).join(', ')}`,
     false,
     () => ops.create(parentId, valid),
   );
@@ -626,7 +685,11 @@ async function reconcileLevel(ctx: ReconcileContext, ops: LevelReconcile): Promi
  * declared locale patches only the fields that differ (or creates the locale when Apple lacks it). When
  * no editable target exists, the affected fields are recorded as skipped with guidance.
  */
-async function reconcileListing(ctx: ReconcileContext, appId: string, listing: AppleStoreConfig): Promise<void> {
+async function reconcileListing(
+  ctx: ReconcileContext,
+  appId: string,
+  listing: AppleStoreConfig,
+): Promise<void> {
   const locales = Object.entries(listing.info);
   if (locales.length === 0) return;
 
@@ -634,23 +697,27 @@ async function reconcileListing(ctx: ReconcileContext, appId: string, listing: A
   const versionId = await ctx.api.getEditableVersionId(appId);
   const appInfoLocales = appInfoId ? await ctx.api.listAppInfoLocalizations(appInfoId) : [];
   const versionLocales = versionId ? await ctx.api.listVersionLocalizations(versionId) : [];
-  const appInfoByLocale = new Map(appInfoLocales.map((localization) => [localization.locale, localization]));
-  const versionByLocale = new Map(versionLocales.map((localization) => [localization.locale, localization]));
+  const appInfoByLocale = new Map(
+    appInfoLocales.map((localization) => [localization.locale, localization]),
+  );
+  const versionByLocale = new Map(
+    versionLocales.map((localization) => [localization.locale, localization]),
+  );
 
   for (const [locale, info] of locales) {
     const routed = routeListing(info);
     await reconcileLevel(ctx, {
-      level: "appInfo",
+      level: 'appInfo',
       locale,
       desired: routed.appInfo,
       parentId: appInfoId,
       current: appInfoByLocale.get(locale),
-      requiredKey: "name",
+      requiredKey: 'name',
       create: (parentId, fields) => ctx.api.createAppInfoLocalization(parentId, locale, fields),
       update: (id, fields) => ctx.api.updateAppInfoLocalization(id, fields),
     });
     await reconcileLevel(ctx, {
-      level: "version",
+      level: 'version',
       locale,
       desired: routed.version,
       parentId: versionId,

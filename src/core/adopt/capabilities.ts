@@ -15,9 +15,9 @@
  * without a Mac or a real profile; the adopter just wires the ASC reads and the profile decode to it.
  */
 
-import type { CapabilitySetting } from "../../apple/ascClient.js";
-import { entitlementForCapability, isCapabilityEntitlement } from "../capabilities.js";
-import { extractProfileEntitlements } from "./profileEntitlements.js";
+import type { CapabilitySetting } from '../../apple/ascClient.js';
+import { entitlementForCapability, isCapabilityEntitlement } from '../capabilities.js';
+import { extractProfileEntitlements } from './profileEntitlements.js';
 import {
   NEEDS_VALUE,
   type Adopter,
@@ -25,7 +25,7 @@ import {
   type AdoptTarget,
   type EntitlementValue,
   type PlannedWrite,
-} from "./types.js";
+} from './types.js';
 
 /** One planned entitlement to add to `app.json`: its key, the value (real or {@link NEEDS_VALUE}), and any caveat. */
 export interface PlannedEntitlement {
@@ -55,7 +55,7 @@ function describeSettings(settings: CapabilitySetting[] | undefined): string | u
       return option ? `${setting.key}=${option}` : setting.key;
     })
     .filter(Boolean);
-  return parts.length > 0 ? parts.join(", ") : undefined;
+  return parts.length > 0 ? parts.join(', ') : undefined;
 }
 
 /**
@@ -80,9 +80,13 @@ export function planCapabilityEntitlements(input: CapabilityPlanInput): PlannedE
     if (!key || key in input.existing || planned.has(key)) continue;
     const settings = describeSettings(input.settingsByType[type]);
     const reason = profileMissing
-      ? "provisioning profile unavailable (off-Mac or none) — value not recovered"
-      : "enabled on App Store Connect but no value in the provisioning profile";
-    planned.set(key, { key, value: NEEDS_VALUE, note: settings ? `${reason}; settings: ${settings}` : reason });
+      ? 'provisioning profile unavailable (off-Mac or none) — value not recovered'
+      : 'enabled on App Store Connect but no value in the provisioning profile';
+    planned.set(key, {
+      key,
+      value: NEEDS_VALUE,
+      note: settings ? `${reason}; settings: ${settings}` : reason,
+    });
   }
 
   return [...planned.values()].sort((a, b) => a.key.localeCompare(b.key));
@@ -98,8 +102,8 @@ function chooseProfileContent(profiles: { name: string; profileContent: string }
 
 /** Read a bundle id's enabled capabilities + profile entitlements and plan the `app.json` writes. */
 export const capabilitiesAdopter: Adopter = {
-  domain: "capabilities",
-  fidelity: "advisory",
+  domain: 'capabilities',
+  fidelity: 'advisory',
   async read(asc: AdoptCatalogApi, target: AdoptTarget): Promise<PlannedWrite[]> {
     const bundle = await asc.findBundleId(target.bundleId);
     if (!bundle) return [];
@@ -109,7 +113,9 @@ export const capabilitiesAdopter: Adopter = {
       asc.listProfilesForBundleId(bundle.id),
     ]);
     const profileContent = chooseProfileContent(profiles);
-    const profileEntitlements = profileContent ? await extractProfileEntitlements(profileContent) : null;
+    const profileEntitlements = profileContent
+      ? await extractProfileEntitlements(profileContent)
+      : null;
 
     const settingsByType: Record<string, CapabilitySetting[]> = {};
     for (const capability of capabilities) {
@@ -124,10 +130,15 @@ export const capabilitiesAdopter: Adopter = {
     });
 
     return planned.map((entitlement) => ({
-      description: `capabilities: add entitlement ${entitlement.key}${entitlement.value === NEEDS_VALUE ? ` = ${NEEDS_VALUE}` : ""}`,
-      fidelity: "advisory",
+      description: `capabilities: add entitlement ${entitlement.key}${entitlement.value === NEEDS_VALUE ? ` = ${NEEDS_VALUE}` : ''}`,
+      fidelity: 'advisory',
       ...(entitlement.note ? { note: entitlement.note } : {}),
-      change: { home: "app.json", configPath: target.app.configPath, key: entitlement.key, value: entitlement.value },
+      change: {
+        home: 'app.json',
+        configPath: target.app.configPath,
+        key: entitlement.key,
+        value: entitlement.value,
+      },
     }));
   },
 };
