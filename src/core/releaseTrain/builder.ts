@@ -18,7 +18,7 @@ import type {
   LaunchConfig,
   ResolvedBuildContext,
 } from "../types.js";
-import { resolveSubmitterName } from "../pipeline.js";
+import { submitToStores } from "../pipeline.js";
 import type { Logger } from "../logger.js";
 import { loadActiveAscKey } from "../accounts.js";
 import { AppStoreConnectClient } from "../../apple/ascClient.js";
@@ -32,7 +32,7 @@ import {
 } from "../appStoreRelease.js";
 import { GooglePlayClient, parseServiceAccount } from "../../google/playClient.js";
 import { loadServiceAccount } from "../../google/credentials.js";
-import { getCredentialsProvider, getSubmitter } from "../registry.js";
+import { getCredentialsProvider } from "../registry.js";
 import { ensureArtifactPresent, isCloudStorage, resolveStorageProvider } from "../storage.js";
 import { ensureCodeSigner, type CodeSigner } from "../codeSign.js";
 import { runWithProgress } from "../progress.js";
@@ -142,7 +142,7 @@ export function buildTrainRuntime(
       android,
     };
     const credentials = await getCredentialsProvider(config.credentials).resolve(ctx);
-    await getSubmitter(resolveSubmitterName(config, "android")).submit(latest.path, "production", credentials, ctx);
+    await submitToStores(config, "android", latest.path, "production", credentials, ctx);
     return { buildId: String(latest.buildNumber) };
   };
 
