@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { summarize } from "./asc/storeSync.js";
 import { parseReleaseConfig, reconcileRelease, type AscReleaseApi } from "./releaseAttrs.js";
 import type { ReleaseAttributesConfig } from "./types.js";
@@ -24,6 +24,10 @@ function makeApi(overrides: Partial<AscReleaseApi> = {}): AscReleaseApi {
 
 const reconcile = (api: AscReleaseApi, config: ReleaseAttributesConfig, dryRun = false) =>
   reconcileRelease(api, { bundleId: "com.acme.app", config, dryRun });
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("parseReleaseConfig", () => {
   it("rejects a non-object, an empty document, and an array-shaped section", () => {
@@ -189,6 +193,37 @@ describe("reconcileRelease — App Review details", () => {
     // The plan line names the changed fields (incl. the password by name) but never its value.
     expect(report.actions[0]?.description).toContain("demoAccountPassword");
     expect(report.actions[0]?.description).not.toContain(demoPassword);
+  });
+
+  it("resolves an `env:` demoAccountPassword reference to its real value at submit time", async () => {
+    const envVar = "LAUNCH_TEST_REVIEW_PW";
+    const secret = ["env", "review", "pw"].join("-");
+    vi.stubEnv(envVar, secret);
+    const api = makeApi();
+    const report = await reconcile(api, {
+      reviewDetails: { contactEmail: "a@b.co", demoAccountPassword: `env:${envVar}` },
+    });
+    // The write receives the RESOLVED secret, not the reference — the password lived in the environment.
+    expect(api.createAppStoreReviewDetail).toHaveBeenCalledWith("v1", {
+      contactEmail: "a@b.co",
+      demoAccountPassword: secret,
+    });
+    // The plan line names the field but leaks neither the reference nor the resolved secret.
+    expect(report.actions[0]?.description).toContain("demoAccountPassword");
+    expect(report.actions[0]?.description).not.toContain(secret);
+    expect(report.actions[0]?.description).not.toContain(envVar);
+  });
+
+  it("never resolves the reference on a dry run, so planning needs no secret present", async () => {
+    const api = makeApi();
+    // The env var is intentionally unset: a dry-run plan must still succeed because resolution is apply-only.
+    const report = await reconcile(
+      api,
+      { reviewDetails: { contactEmail: "a@b.co", demoAccountPassword: "env:LAUNCH_TEST_UNSET_PW" } },
+      true,
+    );
+    expect(report.actions[0]).toMatchObject({ status: "planned" });
+    expect(api.createAppStoreReviewDetail).not.toHaveBeenCalled();
   });
 
   it("does nothing when readable fields already match", async () => {
