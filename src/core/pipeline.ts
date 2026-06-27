@@ -147,10 +147,55 @@ export function resolveBuildEngineName(config: LaunchConfig, platform: Platform)
   return config.buildEngine;
 }
 
-/** The submitter name for a platform, swapping the iOS baseline default (`app-store-connect`) for `google-play` on Android. */
+/** The standard store for a platform: Play for Android, App Store Connect for every Apple platform. */
+function defaultSubmitter(platform: Platform): string {
+  return platform === "android" ? ANDROID_SUBMITTER : IOS_SUBMITTER;
+}
+
+/**
+ * The store(s) a build for `platform` is submitted to — the seam that decouples the build target from the
+ * store, so one build can reach several. Two `config.submit` shapes resolve here:
+ *
+ * - a **string** (the original shape) yields exactly one store: the configured submitter, mapped to
+ *   `google-play` for an Android build under the iOS default — so every existing config is unchanged; or
+ * - a **per-platform map** (`SubmitByPlatform`) yields its configured list for the platform, defaulting to
+ *   the platform's standard store when that platform is omitted.
+ *
+ * See `docs/adr/0006-platform-store-split.md`.
+ */
+export function resolveSubmitters(config: LaunchConfig, platform: Platform): string[] {
+  if (typeof config.submit === "string") {
+    if (platform === "android" && config.submit === IOS_SUBMITTER) return [ANDROID_SUBMITTER];
+    return [config.submit];
+  }
+  const configured = config.submit[platform];
+  return configured && configured.length > 0 ? configured : [defaultSubmitter(platform)];
+}
+
+/** The primary store for a platform — the first of {@link resolveSubmitters}; used where one name is wanted (e.g. the build preview). */
 export function resolveSubmitterName(config: LaunchConfig, platform: Platform): string {
-  if (platform === "android" && config.submit === IOS_SUBMITTER) return ANDROID_SUBMITTER;
-  return config.submit;
+  return resolveSubmitters(config, platform)[0] ?? defaultSubmitter(platform);
+}
+
+/**
+ * Upload `artifactPath` to every store {@link resolveSubmitters configured} for `platform`, in order, and
+ * return the store names. A single-store config submits to exactly one (so an iOS / Play-only setup
+ * behaves as before); a per-platform `submit` map fans an Android build out to Play plus alternative
+ * stores. Each store is a registered `Submitter` resolved by name, so adding a store never changes this loop.
+ */
+export async function submitToStores(
+  config: LaunchConfig,
+  platform: Platform,
+  artifactPath: string,
+  target: SubmitTarget,
+  credentials: BuildCredentials,
+  ctx: ResolvedBuildContext,
+): Promise<string[]> {
+  const stores = resolveSubmitters(config, platform);
+  for (const store of stores) {
+    await getSubmitter(store).submit(artifactPath, target, credentials, ctx);
+  }
+  return stores;
 }
 
 /**
@@ -737,7 +782,7 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
         yes: options.yes ?? false,
         log,
       });
-      await getSubmitter(resolveSubmitterName(config, "ios")).submit(artifactPath, options.target, credentials, ctx);
+      await submitToStores(config, "ios", artifactPath, options.target, credentials, ctx);
       log.step(
         "submit",
         options.target === "testing" ? "uploaded to TestFlight" : "submitted for App Store review",
@@ -865,13 +910,14 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
         yes: options.yes ?? false,
         log,
       });
-      await getSubmitter(resolveSubmitterName(config, "android")).submit(
-        artifactPath,
-        options.target,
-        credentials,
-        ctx,
+      const stores = await submitToStores(config, "android", artifactPath, options.target, credentials, ctx);
+      log.step(
+        "submit",
+        stores.length > 1
+          ? `uploaded to the ${track} track and ${stores.length - 1} more store(s)`
+          : `uploaded to the ${track} track`,
+        "play-track",
       );
-      log.step("submit", `uploaded to the ${track} track`, "play-track");
     }
   }
 

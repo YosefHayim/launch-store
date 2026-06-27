@@ -19,6 +19,18 @@ import type {
 } from "./storeSurface.js";
 
 /**
+ * The multi-store form of {@link LaunchConfig.submit}: a per-platform list of registered `Submitter`
+ * names a build for that {@link Platform} is uploaded to, in order.
+ *
+ * This is what decouples the **build target** (the platform you compile) from the **store** (where you
+ * submit). One Android `.aab` can reach Google Play *and* alternative stores from a single
+ * `launch.config.ts`; an Apple platform normally lists just `app-store-connect`. Omit a platform to fall
+ * back to its standard store (Play for Android, App Store Connect for the Apple platforms). Each name
+ * must resolve to a registered submitter — `launch config validate` flags an unknown one.
+ */
+export type SubmitByPlatform = Partial<Record<Platform, string[]>>;
+
+/**
  * The fully-resolved configuration for one `launch` invocation.
  *
  * Produced by {@link loadConfig} from `launch.config.ts` plus auto-discovered apps. Names here
@@ -37,10 +49,18 @@ export interface LaunchConfig {
    */
   buildEngine: string;
   /**
-   * Registered name of the submitter. Carries the iOS default `app-store-connect` (or `eas`); an
-   * Android build swaps that iOS baseline for its twin `google-play` unless overridden here.
+   * Where built artifacts are submitted, in one of two forms:
+   *
+   * - a **single** registered submitter name (the iOS default `app-store-connect`, which an Android build
+   *   swaps for its twin `google-play`; or `eas`) — the original, unchanged shape; or
+   * - a **per-platform** {@link SubmitByPlatform} map, to fan one build out to several stores from this one
+   *   config (e.g. an Android `.aab` to `google-play` **and** `amazon-appstore`).
+   *
+   * The pipeline resolves this to a store **list** per platform (see `resolveSubmitters`), so the build
+   * target (what you compile) and the store (where you submit) are no longer welded 1:1. See
+   * `docs/adr/0006-platform-store-split.md`.
    */
-  submit: string;
+  submit: string | SubmitByPlatform;
   /** Glob roots to scan for apps. Defaults to the repo root. */
   appRoots?: string[];
   /**
