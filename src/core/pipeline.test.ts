@@ -248,6 +248,18 @@ describe("resolveBuildTransport — which fork a run takes", () => {
       remote: { kind: "ssh", target: "u@h" },
     });
   });
+
+  it("builds tvOS/macOS/visionOS locally (off-Mac forks are iOS-only in v1)", () => {
+    expect(resolveBuildTransport("tvos", "fastlane", undefined)).toEqual({ kind: "local" });
+    expect(resolveBuildTransport("macos", "fastlane", undefined)).toEqual({ kind: "local" });
+    expect(resolveBuildTransport("visionos", "fastlane", undefined)).toEqual({ kind: "local" });
+  });
+
+  it("fails fast when an off-Mac fork is explicitly requested for a non-iOS Apple platform", () => {
+    expect(() => resolveBuildTransport("tvos", "fastlane", { kind: "aws" })).toThrow(/Remote builds are iOS-only/);
+    expect(() => resolveBuildTransport("macos", "remote-mac", undefined)).toThrow(/Remote builds are iOS-only/);
+    expect(() => resolveBuildTransport("visionos", "eas", undefined)).toThrow(/EAS does not build visionOS/);
+  });
 });
 
 describe("resolveBumpKind — flag > remembered > prompt precedence", () => {
@@ -314,6 +326,19 @@ describe("resolveSubmitters — the platform↔store seam (ADR 0006)", () => {
     expect(resolveSubmitters(cfg({ android: ["amazon-appstore"] }), "ios")).toEqual(["app-store-connect"]);
     expect(resolveSubmitters(cfg({ ios: [] }), "ios")).toEqual(["app-store-connect"]);
     expect(resolveSubmitters(cfg({ ios: ["app-store-connect"] }), "android")).toEqual(["google-play"]);
+  });
+
+  it("tvOS/macOS/visionOS default to App Store Connect with no config change (ADR 0006 'grows for free')", () => {
+    for (const platform of ["tvos", "macos", "visionos"] as const) {
+      expect(resolveSubmitters(cfg("app-store-connect"), platform)).toEqual(["app-store-connect"]);
+      expect(resolveSubmitters(cfg({ android: ["google-play"] }), platform)).toEqual(["app-store-connect"]);
+    }
+  });
+
+  it("a per-platform map can target the new Apple platforms explicitly", () => {
+    const config = cfg({ tvos: ["app-store-connect"], macos: ["app-store-connect"] });
+    expect(resolveSubmitters(config, "tvos")).toEqual(["app-store-connect"]);
+    expect(resolveSubmitters(config, "macos")).toEqual(["app-store-connect"]);
   });
 });
 

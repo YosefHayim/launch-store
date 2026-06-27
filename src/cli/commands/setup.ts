@@ -20,6 +20,7 @@ import { getActiveAccount, listAccounts, loadAscKeyById, matchAccount } from "..
 import { loadConfig } from "../../core/config.js";
 import { createLogger } from "../../core/logger.js";
 import { type SetupOptions, runSetup } from "../../core/setup.js";
+import { parsePlatform } from "../../core/platform.js";
 import { interactiveConfirm, selectApp } from "../../core/pipeline.js";
 import { AppStoreConnectClient, AscRequestError } from "../../apple/ascClient.js";
 import {
@@ -162,6 +163,7 @@ async function reportSetupIos(options: SetupIosOptions): Promise<void> {
 
   if (options.provision) {
     await ensureSigningCredentials({
+      platform: "ios",
       bundleId,
       appName: app.name,
       ascKey: account.ascKey,
@@ -215,11 +217,11 @@ interface SetupCommandOptions {
 
 /** Validate the platform flag and normalize the command flags into {@link SetupOptions}. */
 function toSetupOptions(options: SetupCommandOptions): SetupOptions {
-  const platform = options.platform ?? "ios";
-  if (platform !== "ios" && platform !== "android") {
-    throw new Error(`Unknown platform "${platform}". Use "ios" or "android".`);
-  }
-  return { platform, yes: options.yes === true, rehearse: options.rehearse !== false };
+  return {
+    platform: parsePlatform(options.platform ?? "ios"),
+    yes: options.yes === true,
+    rehearse: options.rehearse !== false,
+  };
 }
 
 /**
@@ -231,7 +233,7 @@ export function registerSetupCommand(program: Command): void {
   const setup = program
     .command("setup")
     .description("set Launch up automatically and verify everything's ready to ship")
-    .option("--platform <p>", "ios (default) or android")
+    .option("--platform <p>", "ios (default), android, tvos, macos, or visionos")
     .option("--yes", "non-interactive: install missing tools without asking (CI/agents)", false)
     .option("--no-rehearse", "skip the dry-run pipeline rehearsal at the end")
     .action((options: SetupCommandOptions) => runSetup(toSetupOptions(options)));

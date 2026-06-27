@@ -23,7 +23,8 @@ import { copyFileSync, existsSync, mkdtempSync, readdirSync, rmSync, writeFileSy
 import { tmpdir } from "node:os";
 import { basename, extname, join } from "node:path";
 import type { Command } from "commander";
-import type { BuildArtifact, KeystoreAssets, SigningAssets } from "../../core/types.js";
+import type { BuildArtifact, KeystoreAssets, Platform, SigningAssets } from "../../core/types.js";
+import { isApplePlatform, platformLabel } from "../../core/platform.js";
 import { loadConfig } from "../../core/config.js";
 import { resolveStorageProvider } from "../../core/storage.js";
 import { capture, run } from "../../core/exec.js";
@@ -35,6 +36,21 @@ import { findBuild } from "./builds.js";
 /** Env var names the keystore passwords are passed through, so they never appear in a process's argv. */
 const KS_STOREPASS_ENV = "LAUNCH_KS_STOREPASS";
 const KS_KEYPASS_ENV = "LAUNCH_KS_KEYPASS";
+
+/**
+ * Guard `build:resign` against a platform it can't re-sign. The iOS resign flow rewrites an `.ipa`
+ * (`Payload/*.app`) — iOS, tvOS, and visionOS all archive to `.ipa`, and Android `.aab`/`.apk` re-sign
+ * through their own path. A macOS build is a `.pkg` installer with no `Payload`, so it has no path here
+ * yet; reject it with an actionable message instead of feeding a `.pkg` to the iOS resign flow.
+ */
+export function assertResignablePlatform(platform: Platform): void {
+  if (platform === "macos") {
+    throw new Error(
+      `${platformLabel(platform)} builds are \`.pkg\` installers — \`launch build:resign\` re-signs ` +
+        `\`.ipa\` (iOS/tvOS/visionOS) and \`.aab\`/\`.apk\` (Android) artifacts only.`,
+    );
+  }
+}
 
 /** Where the resigned artifact is written: `<app>-<version>-<build>-resigned<ext>` in the given dir. */
 export function resignOutputPath(artifact: BuildArtifact, dir: string): string {
@@ -219,10 +235,10 @@ export function registerResignCommand(program: Command): void {
         const outputPath =
           options.output && extname(options.output) ? options.output : resignOutputPath(artifact, outputDir);
 
-        if (artifact.platform === "ios") {
+        assertResignablePlatform(artifact.platform);
+        if (isApplePlatform(artifact.platform)) {
           const bundleId = apps.find((app) => app.name === artifact.appName)?.bundleId;
-          if (!bundleId)
-            throw new Error(`No iOS bundle id for ${artifact.appName} in app config — can't resolve signing.`);
+          if (!bundleId) throw new Error(`No bundle id for ${artifact.appName} in app config — can't resolve signing.`);
           const keyId = resolveAccountKeyId(options.account);
           const signing = loadCachedSigningAssets(keyId, bundleId);
           if (!signing) {

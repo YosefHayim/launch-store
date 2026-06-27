@@ -19,6 +19,7 @@
  */
 
 import type { AppDescriptor, OpenTarget, Platform } from "./types.js";
+import { isApplePlatform, parsePlatform } from "./platform.js";
 import { run } from "./exec.js";
 import { hostOs } from "./os.js";
 import { loadConfig } from "./config.js";
@@ -98,14 +99,12 @@ export function parseOpenTarget(value: string | undefined): OpenTarget {
 }
 
 /**
- * Resolve the platform for an open: the explicit `--platform` flag wins (validated to `ios`/`android`);
- * a `play` target implies `android`; otherwise iOS is the default, matching the rest of the CLI.
+ * Resolve the platform for an open: the explicit `--platform` flag wins; a `play` target implies
+ * `android`; otherwise iOS is the default, matching the rest of the CLI. The web console is family-level —
+ * every Apple platform shares one App Store Connect app page — so the Apple platforms collapse to `ios`.
  */
 export function resolveOpenPlatform(target: OpenTarget, flag: string | undefined): Platform {
-  if (flag !== undefined) {
-    if (flag !== "ios" && flag !== "android") throw new Error(`Unknown --platform "${flag}". Use "ios" or "android".`);
-    return flag;
-  }
+  if (flag !== undefined) return isApplePlatform(parsePlatform(flag)) ? "ios" : "android";
   return target === "play" ? "android" : "ios";
 }
 

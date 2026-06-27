@@ -17,6 +17,7 @@
 import type { GlossaryTopic } from "./glossary.js";
 import { createLogger } from "./logger.js";
 import type { PipelinePhase } from "./phases.js";
+import { isApplePlatform, platformLabel } from "./platform.js";
 import type { Platform } from "./types.js";
 
 /** Color helpers for the tour's own chrome (step counter, key prompt); the step bodies use the logger. */
@@ -32,16 +33,18 @@ const SAMPLE = { name: "DemoApp", bundleId: "com.example.demo", version: "1.0.0"
 /**
  * One narrated step of the tour.
  *
- * `phase` ties the step to the canonical pipeline spine (so coverage is testable). `detail` is the
- * canned, per-platform "what this would do" line shown beside the step. `topic`, when present, is the
- * glossary term whose teaching block prints under the step — omitted for phases the live pipeline also
- * prints without one (e.g. `store`), so the tour mirrors a real `--explain` run.
+ * `phase` ties the step to the canonical pipeline spine (so coverage is testable). `detail` is the canned
+ * "what this would do" line, keyed by **build track** — every Apple platform (iOS/tvOS/macOS/visionOS)
+ * shares the Xcode/App Store journey, so the Apple line is a function of the chosen platform (it names the
+ * platform where it matters); Android has its own. `topic`, when present, is the glossary term whose
+ * teaching block prints under the step — omitted for phases the live pipeline also prints without one
+ * (e.g. `store`), so the tour mirrors a real `--explain` run.
  */
 interface TourStep {
   phase: PipelinePhase;
   title: string;
-  detail: Record<Platform, string>;
-  topic?: Record<Platform, GlossaryTopic>;
+  detail: { apple: (platform: Platform) => string; android: string };
+  topic?: { apple: GlossaryTopic; android: GlossaryTopic };
 }
 
 /** The narration, one entry per {@link PIPELINE_PHASES} phase, in pipeline order. */
@@ -50,52 +53,52 @@ const TOUR_STEPS: readonly TourStep[] = [
     phase: "resolve",
     title: "Resolve app, profile & env",
     detail: {
-      ios: `${SAMPLE.name} ${SAMPLE.version} · production · ios — .env validated`,
+      apple: (platform) => `${SAMPLE.name} ${SAMPLE.version} · production · ${platform} — .env validated`,
       android: `${SAMPLE.name} ${SAMPLE.version} · production · android — .env validated`,
     },
-    topic: { ios: "app-config", android: "app-config" },
+    topic: { apple: "app-config", android: "app-config" },
   },
   {
     phase: "prebuild",
     title: "Prebuild the native project",
     detail: {
-      ios: "would run `expo prebuild --platform ios` → ios/",
+      apple: (platform) => `would run \`expo prebuild --platform ${platform}\` → ${platform}/`,
       android: "would run `expo prebuild --platform android` → android/",
     },
-    topic: { ios: "prebuild", android: "prebuild" },
+    topic: { apple: "prebuild", android: "prebuild" },
   },
   {
     phase: "credentials",
     title: "Resolve signing credentials",
     detail: {
-      ios: "ASC API key from the Keychain · reuse distribution cert + provisioning profile",
+      apple: () => "ASC API key from the Keychain · reuse distribution cert + provisioning profile",
       android: "service account + upload keystore from the OS secret store",
     },
-    topic: { ios: "provisioning-profile", android: "upload-key" },
+    topic: { apple: "provisioning-profile", android: "upload-key" },
   },
   {
     phase: "build",
     title: "Build & sign",
     detail: {
-      ios: `fastlane gym → signed ${SAMPLE.name}.ipa (caches warm — incremental)`,
+      apple: () => `fastlane gym → signed ${SAMPLE.name}.ipa (caches warm — incremental)`,
       android: `gradle :app:bundleRelease → signed ${SAMPLE.name}.aab`,
     },
-    topic: { ios: "fastlane", android: "gradle" },
+    topic: { apple: "fastlane", android: "gradle" },
   },
   {
     phase: "size",
     title: "Real download-size check",
     detail: {
-      ios: "App Thinning Size Report → per-device download · gated by sizeBudgetMB",
+      apple: () => "App Thinning Size Report → per-device download · gated by sizeBudgetMB",
       android: "bundletool → per-device download · gated by sizeBudgetMB",
     },
-    topic: { ios: "app-thinning", android: "bundletool" },
+    topic: { apple: "app-thinning", android: "bundletool" },
   },
   {
     phase: "store",
     title: "Store the artifact",
     detail: {
-      ios: `${SAMPLE.name}.ipa → ~/.launch/artifacts (newest-first index)`,
+      apple: () => `${SAMPLE.name}.ipa → ~/.launch/artifacts (newest-first index)`,
       android: `${SAMPLE.name}.aab → ~/.launch/artifacts (newest-first index)`,
     },
   },
@@ -103,23 +106,18 @@ const TOUR_STEPS: readonly TourStep[] = [
     phase: "submit",
     title: "Submit to the testing track",
     detail: {
-      ios: "upload to TestFlight — the safe default (public release is `launch release`)",
+      apple: () => "upload to TestFlight — the safe default (public release is `launch release`)",
       android: "upload to the Play internal track",
     },
-    topic: { ios: "testflight", android: "play-track" },
+    topic: { apple: "testflight", android: "play-track" },
   },
 ];
-
-/** Human label for a platform, for the tour's intro line. */
-function platformLabel(platform: Platform): string {
-  return platform === "ios" ? "iOS" : "Android";
-}
 
 /** The glossary topics the tour relies on — exported so a test can assert they're all real terms. */
 export function tourTopics(): GlossaryTopic[] {
   const topics: GlossaryTopic[] = [];
   for (const step of TOUR_STEPS) {
-    if (step.topic) topics.push(step.topic.ios, step.topic.android);
+    if (step.topic) topics.push(step.topic.apple, step.topic.android);
   }
   return topics;
 }
@@ -172,10 +170,13 @@ export async function runTour(platform: Platform, interactive: boolean): Promise
   );
   log.gap();
 
+  const apple = isApplePlatform(platform);
   const total = TOUR_STEPS.length;
   for (const [i, step] of TOUR_STEPS.entries()) {
     console.log(dim(`Step ${i + 1}/${total}`));
-    log.step(step.title, step.detail[platform], step.topic?.[platform]);
+    const detail = apple ? step.detail.apple(platform) : step.detail.android;
+    const topic = step.topic ? (apple ? step.topic.apple : step.topic.android) : undefined;
+    log.step(step.title, detail, topic);
 
     if (interactive && i < total - 1) {
       process.stdout.write(dim(`  [↵] continue   [s] skip            (${i + 1}/${total})`));

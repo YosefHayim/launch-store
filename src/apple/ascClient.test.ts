@@ -192,6 +192,32 @@ describe("AppStoreConnectClient — auth + request building", () => {
     });
   });
 
+  it("registers a macOS bundle id under MAC_OS when the platform is passed", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        201,
+        JSON.stringify({ data: { id: "b2", attributes: { identifier: "com.x.mac", seedId: "SEED" } } }),
+      ),
+    );
+    await client.createBundleId("com.x.mac", "X Mac", "MAC_OS");
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body as string)).toMatchObject({
+      data: { type: "bundleIds", attributes: { platform: "MAC_OS" } },
+    });
+  });
+
+  it("creates an App Store profile with the platform's profile type (tvOS)", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        201,
+        JSON.stringify({ data: { id: "pf2", attributes: { name: "TV", uuid: "U2", profileContent: "B64" } } }),
+      ),
+    );
+    await client.createAppStoreProfile("TV", "bundle1", "cert1", "TVOS_APP_STORE");
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body as string);
+    expect(body.data.attributes.profileType).toBe("TVOS_APP_STORE");
+    expect(body.data.relationships.bundleId.data).toEqual({ type: "bundleIds", id: "bundle1" });
+  });
+
   it("resolves the Team ID from the first bundle id's seedId", async () => {
     fetchMock.mockResolvedValueOnce(
       fakeResponse(200, JSON.stringify({ data: [{ id: "b1", attributes: { seedId: "5NS9ZUMYCS" } }] })),
@@ -301,6 +327,17 @@ describe("AppStoreConnectClient — device registration + ad-hoc profile", () =>
       { type: "devices", id: "d1" },
       { type: "devices", id: "d2" },
     ]);
+  });
+
+  it("creates a tvOS ad-hoc profile with the TVOS_APP_ADHOC type when passed", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        201,
+        JSON.stringify({ data: { id: "pf3", attributes: { name: "TVAdHoc", uuid: "U3", profileContent: "B64" } } }),
+      ),
+    );
+    await client.createAdHocProfile("TVAdHoc", "bundle1", "cert1", ["d1"], "TVOS_APP_ADHOC");
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body as string).data.attributes.profileType).toBe("TVOS_APP_ADHOC");
   });
 });
 

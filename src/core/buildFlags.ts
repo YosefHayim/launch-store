@@ -49,3 +49,61 @@ export function buildXcargs(signing: Pick<SigningAssets, "teamId" | "profileName
   const signingArgs = `DEVELOPMENT_TEAM=${signing.teamId} CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER=${signing.profileName}`;
   return `${signingArgs} ${xcargsExtra(jobs)}`;
 }
+
+/**
+ * The inputs to one `fastlane gym` invocation, already resolved by the build engine. Kept as a flat record
+ * (not the whole {@link import("./types.js").ResolvedBuildContext}) so {@link gymArgs} stays a pure,
+ * unit-testable mapping from values to an argv array.
+ */
+export interface GymArgsInput {
+  /** Absolute path to the `.xcworkspace`. */
+  workspace: string;
+  /** Scheme to archive (derived from the workspace name). */
+  scheme: string;
+  /** Directory gym writes the export + thinning report into. */
+  outputDir: string;
+  /** Output filename gym gives the exported archive (e.g. `MyApp.ipa`, `MyApp.pkg`). */
+  outputName: string;
+  /** Absolute path to the manual-signing `ExportOptions.plist`. */
+  exportOptionsPath: string;
+  /** Resolved signing assets — the codesigning identity and the manual-signing xcargs come from here. */
+  signing: Pick<SigningAssets, "teamId" | "profileName" | "certName">;
+  /** RAM-aware parallelism cap from {@link computeBuildJobs}, or `undefined` to let xcodebuild decide. */
+  jobs: number | undefined;
+  /** Whether to pass `--clean` (clean vs incremental, decided by the build fingerprint). */
+  clean: boolean;
+  /**
+   * Xcode build destination from {@link import("./platform.js").gymDestination}. `undefined` for iOS
+   * (xcodebuild's default) so the `--destination` flag is omitted and the iOS argv stays byte-identical
+   * to before cross-platform builds existed; tvOS/macOS/visionOS pass their `generic/platform=…`.
+   */
+  destination: string | undefined;
+}
+
+/**
+ * Build the full `fastlane gym` argv. The single source of the gym command for the local build engine,
+ * extracted so the iOS arg vector is pinned by a test and the only cross-platform difference — the
+ * `--destination` flag — is appended **only when defined**. Order is fixed (config flags, then signing,
+ * then `--destination`, then `--clean` last) so the iOS output is identical with `destination: undefined`.
+ */
+export function gymArgs(input: GymArgsInput): string[] {
+  return [
+    "gym",
+    "--workspace",
+    input.workspace,
+    "--scheme",
+    input.scheme,
+    "--output_directory",
+    input.outputDir,
+    "--output_name",
+    input.outputName,
+    "--export_options",
+    input.exportOptionsPath,
+    "--codesigning_identity",
+    input.signing.certName,
+    "--xcargs",
+    buildXcargs(input.signing, input.jobs),
+    ...(input.destination !== undefined ? ["--destination", input.destination] : []),
+    ...(input.clean ? ["--clean"] : []),
+  ];
+}

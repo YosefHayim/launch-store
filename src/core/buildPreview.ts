@@ -14,6 +14,7 @@
  * `resolveAndroidRelease`) so the preview can never disagree with the real run's selection logic.
  */
 
+import { isApplePlatform } from "./platform.js";
 import type { AppDescriptor, LaunchConfig, Platform, PlayTrack } from "./types.js";
 import { resolveAndroidRelease, resolveBuildEngineName, resolveSubmitterName } from "./pipeline.js";
 
@@ -68,9 +69,9 @@ export interface BuildPreviewInput {
   rollout?: number;
 }
 
-/** The id an app exposes on a given platform — bundle id for iOS, package name for Android. */
+/** The id an app exposes on a given platform — bundle id for any Apple platform, package name for Android. */
 function identifierFor(app: AppDescriptor, platform: Platform): string | undefined {
-  return platform === "ios" ? app.bundleId : app.packageName;
+  return isApplePlatform(platform) ? app.bundleId : app.packageName;
 }
 
 /**
