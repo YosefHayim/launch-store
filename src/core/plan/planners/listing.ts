@@ -8,13 +8,13 @@
  * records each change as `planned` and never invokes a write closure.
  */
 
-import { reconcileAppListing, type AscCatalogApi } from "../../ascSync.js";
-import { buildJobs, hasListing } from "../../syncJobs.js";
-import type { AppleStoreConfig } from "../../storeConfig.js";
-import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from "../types.js";
+import { reconcileAppListing, type AscCatalogApi } from '../../ascSync.js';
+import { buildJobs, hasListing } from '../../syncJobs.js';
+import type { AppleStoreConfig } from '../../storeConfig.js';
+import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../types.js';
 
 /** Surface id — also the value users pass as `launch plan listing`. */
-const SURFACE = "listing";
+const SURFACE = 'listing';
 
 /** One app's listing-plan target: the job's bundle id paired with its present (non-empty) listing. */
 interface ListingTarget {
@@ -50,25 +50,34 @@ async function planTarget(api: AscCatalogApi, target: ListingTarget): Promise<Ap
  */
 export const listingPlanner: SurfacePlanner = {
   id: SURFACE,
-  store: "appstore",
+  store: 'appstore',
   async plan(ctx: PlanContext): Promise<SurfacePlan> {
     const targets = buildJobs(ctx.apps, ctx.config).flatMap((job) =>
-      hasListing(job.listing) ? [{ app: job.app.name, bundleId: job.bundleId, listing: job.listing }] : [],
+      hasListing(job.listing)
+        ? [{ app: job.app.name, bundleId: job.bundleId, listing: job.listing }]
+        : [],
     );
-    if (targets.length === 0) return { surface: SURFACE, store: "appstore", state: "omitted" };
+    if (targets.length === 0) return { surface: SURFACE, store: 'appstore', state: 'omitted' };
 
     const api = await ctx.resolveAscApi();
     if (!api) {
       return {
         surface: SURFACE,
-        store: "appstore",
-        state: "skipped",
-        reason: "no active Apple account",
-        hint: "run `launch creds set-key`",
+        store: 'appstore',
+        state: 'skipped',
+        reason: 'no active Apple account',
+        hint: 'run `launch creds set-key`',
       };
     }
 
     const apps = await Promise.all(targets.map((target) => planTarget(api, target)));
-    return { surface: SURFACE, store: "appstore", state: "planned", scope: "app", direction: "two-way", apps };
+    return {
+      surface: SURFACE,
+      store: 'appstore',
+      state: 'planned',
+      scope: 'app',
+      direction: 'two-way',
+      apps,
+    };
   },
 };

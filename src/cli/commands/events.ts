@@ -9,20 +9,20 @@
  * the core module and the ASC client.
  */
 
-import { cancel, confirm, isCancel } from "@clack/prompts";
-import type { Command } from "commander";
-import { AppStoreConnectClient } from "../../apple/ascClient.js";
-import { loadConfig } from "../../core/config.js";
-import { selectApp } from "../../core/pipeline.js";
-import { loadActiveAscKey } from "../../core/accounts.js";
-import { createLogger } from "../../core/logger.js";
+import { cancel, confirm, isCancel } from '@clack/prompts';
+import type { Command } from 'commander';
+import { AppStoreConnectClient } from '../../apple/ascClient.js';
+import { loadConfig } from '../../core/config.js';
+import { selectApp } from '../../core/pipeline.js';
+import { loadActiveAscKey } from '../../core/accounts.js';
+import { createLogger } from '../../core/logger.js';
 import {
   createEvent,
   deleteEvent,
   listEvents,
   localizeEvent,
   type AppEventWithLocalizations,
-} from "../../core/appEvents.js";
+} from '../../core/appEvents.js';
 
 /** Options for `events create`: the app + the event's attributes, plus the CI bypass. */
 interface CreateOptions {
@@ -45,7 +45,7 @@ interface LocalizeOptions {
 /** Build a client bound to the active Apple account, or fail with the onboarding hint. */
 async function activeClient(): Promise<AppStoreConnectClient> {
   const ascKey = await loadActiveAscKey();
-  if (!ascKey) throw new Error("No active Apple account. Run `launch creds set-key` first.");
+  if (!ascKey) throw new Error('No active Apple account. Run `launch creds set-key` first.');
   return new AppStoreConnectClient(ascKey);
 }
 
@@ -54,34 +54,42 @@ async function resolveBundleId(appSelector: string | undefined): Promise<string>
   const { apps } = await loadConfig();
   const app = await selectApp(apps, appSelector);
   if (!app.bundleId) {
-    throw new Error(`No iOS bundle identifier for ${app.name} (set ios.bundleIdentifier in app.json).`);
+    throw new Error(
+      `No iOS bundle identifier for ${app.name} (set ios.bundleIdentifier in app.json).`,
+    );
   }
   return app.bundleId;
 }
 
 /** Render one event with its localizations as a readable block. */
 function renderEvent({ event, localizations }: AppEventWithLocalizations): string {
-  const meta = [event.badge, event.eventState, event.primaryLocale ? `primary ${event.primaryLocale}` : undefined]
+  const meta = [
+    event.badge,
+    event.eventState,
+    event.primaryLocale ? `primary ${event.primaryLocale}` : undefined,
+  ]
     .filter(Boolean)
-    .join("  ");
+    .join('  ');
   const lines = [`${event.id}  ${event.referenceName}`];
   if (meta) lines.push(`  ${meta}`);
   if (event.deepLink) lines.push(`  ↳ ${event.deepLink}`);
   for (const localization of localizations) {
-    lines.push(`  [${localization.locale}] ${localization.name ?? "(no name)"}`);
+    lines.push(`  [${localization.locale}] ${localization.name ?? '(no name)'}`);
   }
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /** Confirm a destructive write, refusing in CI unless `--yes` was passed. */
 async function confirmWrite(message: string, yes: boolean | undefined): Promise<boolean> {
   if (yes) return true;
   if (!process.stdout.isTTY) {
-    throw new Error("Refusing to delete without confirmation. Re-run with --yes (non-interactive).");
+    throw new Error(
+      'Refusing to delete without confirmation. Re-run with --yes (non-interactive).',
+    );
   }
   const proceed = await confirm({ message });
   if (isCancel(proceed) || !proceed) {
-    cancel("Aborted — nothing deleted.");
+    cancel('Aborted — nothing deleted.');
     return false;
   }
   return true;
@@ -89,13 +97,15 @@ async function confirmWrite(message: string, yes: boolean | undefined): Promise<
 
 /** Attach the `events` command (with `list` / `create` / `localize` / `delete` subcommands) to the program. */
 export function registerEventsCommand(program: Command): void {
-  const events = program.command("events").description("read and manage App Store in-app events from the CLI");
+  const events = program
+    .command('events')
+    .description('read and manage App Store in-app events from the CLI');
 
   events
-    .command("list")
+    .command('list')
     .description("list an app's in-app events and their localizations")
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("--json", "output machine-readable JSON", false)
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option('--json', 'output machine-readable JSON', false)
     .action(async (options: { app?: string; json?: boolean }) => {
       const bundleId = await resolveBundleId(options.app);
       const client = await activeClient();
@@ -106,23 +116,25 @@ export function registerEventsCommand(program: Command): void {
         return;
       }
       if (found.length === 0) {
-        console.log("No in-app events yet. Create one with `launch events create <referenceName> --badge ...`.");
+        console.log(
+          'No in-app events yet. Create one with `launch events create <referenceName> --badge ...`.',
+        );
         return;
       }
-      console.log(found.map(renderEvent).join("\n\n"));
-      console.log(`\n${found.length} event${found.length === 1 ? "" : "s"}.`);
+      console.log(found.map(renderEvent).join('\n\n'));
+      console.log(`\n${found.length} event${found.length === 1 ? '' : 's'}.`);
     });
 
   events
-    .command("create")
-    .description("create a draft in-app event")
-    .argument("<referenceName>", "internal reference name for the event")
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("--badge <badge>", "event badge (e.g. LIVE_EVENT, PREMIERE, CHALLENGE)")
-    .option("--locale <code>", "primary locale (e.g. en-US)")
-    .option("--deep-link <url>", "deep link opened when a user taps the event")
-    .option("--priority <priority>", "HIGH or NORMAL")
-    .option("--purpose <purpose>", "marketing purpose (e.g. ATTRACT_NEW_USERS)")
+    .command('create')
+    .description('create a draft in-app event')
+    .argument('<referenceName>', 'internal reference name for the event')
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option('--badge <badge>', 'event badge (e.g. LIVE_EVENT, PREMIERE, CHALLENGE)')
+    .option('--locale <code>', 'primary locale (e.g. en-US)')
+    .option('--deep-link <url>', 'deep link opened when a user taps the event')
+    .option('--priority <priority>', 'HIGH or NORMAL')
+    .option('--purpose <purpose>', 'marketing purpose (e.g. ATTRACT_NEW_USERS)')
     .action(async (referenceName: string, options: CreateOptions) => {
       const log = createLogger(false);
       const bundleId = await resolveBundleId(options.app);
@@ -135,17 +147,20 @@ export function registerEventsCommand(program: Command): void {
         ...(options.priority !== undefined ? { priority: options.priority } : {}),
         ...(options.purpose !== undefined ? { purpose: options.purpose } : {}),
       });
-      log.step("event created", `${event.id} — ${event.referenceName} (${event.eventState ?? "DRAFT"})`);
+      log.step(
+        'event created',
+        `${event.id} — ${event.referenceName} (${event.eventState ?? 'DRAFT'})`,
+      );
     });
 
   events
-    .command("localize")
+    .command('localize')
     .description("set (or update) one locale's copy on an event")
-    .argument("<eventId>", "the event id from `events list`")
-    .requiredOption("--locale <code>", "the locale to set (e.g. en-US)")
-    .option("--name <text>", "the event name shown to users")
-    .option("--short <text>", "the short description")
-    .option("--long <text>", "the long description")
+    .argument('<eventId>', 'the event id from `events list`')
+    .requiredOption('--locale <code>', 'the locale to set (e.g. en-US)')
+    .option('--name <text>', 'the event name shown to users')
+    .option('--short <text>', 'the short description')
+    .option('--long <text>', 'the long description')
     .action(async (eventId: string, options: LocalizeOptions) => {
       const log = createLogger(false);
       const client = await activeClient();
@@ -155,19 +170,22 @@ export function registerEventsCommand(program: Command): void {
         ...(options.short !== undefined ? { shortDescription: options.short } : {}),
         ...(options.long !== undefined ? { longDescription: options.long } : {}),
       });
-      log.step(replaced ? "localization updated" : "localization created", `[${localization.locale}] ${eventId}`);
+      log.step(
+        replaced ? 'localization updated' : 'localization created',
+        `[${localization.locale}] ${eventId}`,
+      );
     });
 
   events
-    .command("delete")
-    .description("delete a draft in-app event")
-    .argument("<eventId>", "the event id from `events list`")
-    .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
+    .command('delete')
+    .description('delete a draft in-app event')
+    .argument('<eventId>', 'the event id from `events list`')
+    .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(async (eventId: string, options: { yes?: boolean }) => {
       const log = createLogger(false);
       if (!(await confirmWrite(`Delete in-app event ${eventId}?`, options.yes))) return;
       const client = await activeClient();
       await deleteEvent(client, eventId);
-      log.step("event deleted", eventId);
+      log.step('event deleted', eventId);
     });
 }

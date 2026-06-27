@@ -4,11 +4,17 @@
  * one as a named object and register it; the pipeline resolves it by name from `launch.config.ts`.
  */
 
-import type { SubmitTarget } from "./app.js";
-import type { BuildArtifact, PruneOptions, PruneResult, SizeReport, StoredArtifact } from "./artifacts.js";
-import type { ResolvedBuildContext } from "./config.js";
-import type { BuildCredentials } from "./credentials.js";
-import type { AllocateRequest, HostHandle, HostStatus } from "./remote.js";
+import type { SubmitTarget } from './app.js';
+import type {
+  BuildArtifact,
+  PruneOptions,
+  PruneResult,
+  SizeReport,
+  StoredArtifact,
+} from './artifacts.js';
+import type { ResolvedBuildContext } from './config.js';
+import type { BuildCredentials } from './credentials.js';
+import type { AllocateRequest, HostHandle, HostStatus } from './remote.js';
 
 /**
  * Resolves and persists the credentials a build needs, for whichever platform the context names.
@@ -108,7 +114,12 @@ export interface Submitter {
   /** Registry name, e.g. `app-store-connect` or `google-play`. */
   readonly name: string;
   /** Upload `artifactPath` to `target`, authenticating with `creds`. */
-  submit(artifactPath: string, target: SubmitTarget, creds: BuildCredentials, ctx: ResolvedBuildContext): Promise<void>;
+  submit(
+    artifactPath: string,
+    target: SubmitTarget,
+    creds: BuildCredentials,
+    ctx: ResolvedBuildContext,
+  ): Promise<void>;
 }
 
 /**

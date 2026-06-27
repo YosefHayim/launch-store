@@ -19,7 +19,7 @@
  * single source of truth for the hues; chalk is only the renderer.
  */
 
-import { Chalk } from "chalk";
+import { Chalk } from 'chalk';
 
 /** A truecolor chalk instance pinned to 24-bit so {@link colorEnabled}, not chalk autodetection, gates color. */
 const chalk = new Chalk({ level: 3 });
@@ -42,8 +42,11 @@ export const AURORA = {
 } as const satisfies Record<string, Rgb>;
 
 /** Whether truecolor should be emitted: an interactive stdout that hasn't opted out via `NO_COLOR`. */
-export function colorEnabled(env: NodeJS.ProcessEnv = process.env, isTTY = process.stdout.isTTY): boolean {
-  return isTTY && env["NO_COLOR"] == null;
+export function colorEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+  isTTY = process.stdout.isTTY,
+): boolean {
+  return isTTY && env['NO_COLOR'] == null;
 }
 
 /** Linear interpolation between two colors — used for per-character gradients and the bar fill ramp. */
@@ -57,7 +60,7 @@ export function mix(a: Rgb, b: Rgb, t: number): Rgb {
 
 /** Visible width of a string, ignoring ANSI SGR escapes — so colored text still pads/aligns correctly. */
 export function visibleWidth(text: string): number {
-  return text.replace(/\x1b\[[0-9;]*m/g, "").length;
+  return text.replace(/\x1b\[[0-9;]*m/g, '').length;
 }
 
 /**
@@ -96,7 +99,7 @@ export function auroraPaint(enabled: boolean = colorEnabled()): AuroraPaint {
     bold: (text) => chalk.bold(text),
     gradient: (text, from, to) =>
       Array.from(text, (ch, i) =>
-        ch === " " ? ch : fg(mix(from, to, text.length < 2 ? 0 : i / (text.length - 1)), ch),
-      ).join(""),
+        ch === ' ' ? ch : fg(mix(from, to, text.length < 2 ? 0 : i / (text.length - 1)), ch),
+      ).join(''),
   };
 }

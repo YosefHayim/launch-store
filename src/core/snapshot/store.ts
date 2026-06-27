@@ -8,10 +8,17 @@
  * stores and retrieves it.
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { SNAPSHOTS_DIR, snapshotFile } from "../paths.js";
-import type { Snapshot } from "./types.js";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join } from 'node:path';
+import { SNAPSHOTS_DIR, snapshotFile } from '../paths.js';
+import type { Snapshot } from './types.js';
 
 /** Persist a snapshot, creating the snapshots directory on first write. Returns the file path written. */
 export function saveSnapshot(snapshot: Snapshot, dir: string = SNAPSHOTS_DIR): string {
@@ -33,7 +40,7 @@ export function listSnapshots(dir: string = SNAPSHOTS_DIR): Snapshot[] {
   if (!existsSync(dir)) return [];
   const snapshots: Snapshot[] = [];
   for (const entry of readdirSync(dir)) {
-    if (!entry.endsWith(".json")) continue;
+    if (!entry.endsWith('.json')) continue;
     const snapshot = parseSnapshot(safeRead(join(dir, entry)));
     if (snapshot) snapshots.push(snapshot);
   }
@@ -45,7 +52,11 @@ export function listSnapshots(dir: string = SNAPSHOTS_DIR): Snapshot[] {
  * pre-sync auto-snapshot to bound its reserved-prefix baselines without ever touching a user's
  * manually-named snapshot. Tolerant: a file that vanishes mid-prune is ignored. Returns the names deleted.
  */
-export function pruneSnapshots(prefix: string, keep: number, dir: string = SNAPSHOTS_DIR): string[] {
+export function pruneSnapshots(
+  prefix: string,
+  keep: number,
+  dir: string = SNAPSHOTS_DIR,
+): string[] {
   const stale = listSnapshots(dir)
     .filter((snapshot) => snapshot.name.startsWith(prefix))
     .slice(Math.max(0, keep)); // listSnapshots is newest-first, so the tail is the oldest beyond the window
@@ -97,7 +108,9 @@ function ageInDays(capturedAt: string, now: Date): number {
 export function planPrune(snapshots: Snapshot[], criteria: PruneCriteria, now: Date): Snapshot[] {
   const newestFirst = [...snapshots].sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
   return newestFirst.filter((snapshot, index) => {
-    const tooOld = criteria.olderThanDays != null && ageInDays(snapshot.capturedAt, now) > criteria.olderThanDays;
+    const tooOld =
+      criteria.olderThanDays != null &&
+      ageInDays(snapshot.capturedAt, now) > criteria.olderThanDays;
     const beyondKeep = criteria.keep != null && index >= criteria.keep;
     return tooOld || beyondKeep;
   });
@@ -106,7 +119,7 @@ export function planPrune(snapshots: Snapshot[], criteria: PruneCriteria, now: D
 /** Read a file's text, or `null` when it can't be read (deleted between listing and reading, permissions). */
 function safeRead(file: string): string | null {
   try {
-    return readFileSync(file, "utf8");
+    return readFileSync(file, 'utf8');
   } catch {
     return null;
   }
@@ -118,11 +131,11 @@ function parseSnapshot(raw: string | null): Snapshot | null {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (
-      typeof parsed === "object" &&
+      typeof parsed === 'object' &&
       parsed !== null &&
-      "name" in parsed &&
-      typeof parsed.name === "string" &&
-      "reports" in parsed &&
+      'name' in parsed &&
+      typeof parsed.name === 'string' &&
+      'reports' in parsed &&
       Array.isArray(parsed.reports)
     ) {
       return parsed as Snapshot;
@@ -136,6 +149,6 @@ function parseSnapshot(raw: string | null): Snapshot | null {
 /** Resolve a snapshot's path inside `dir` — honoring an overridden dir (tests) while sanitizing the name. */
 function snapshotFileIn(dir: string, name: string): string {
   if (dir === SNAPSHOTS_DIR) return snapshotFile(name);
-  const safe = name.replace(/[^A-Za-z0-9_-]/g, "");
-  return join(dir, `${safe || "snapshot"}.json`);
+  const safe = name.replace(/[^A-Za-z0-9_-]/g, '');
+  return join(dir, `${safe || 'snapshot'}.json`);
 }

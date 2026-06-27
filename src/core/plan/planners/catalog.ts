@@ -6,12 +6,12 @@
  * runs with `dryRun: true`, so `act()` records each change as `planned` and never invokes a write closure.
  */
 
-import { reconcileApp, type AscCatalogApi } from "../../ascSync.js";
-import { buildJobs, type SyncJob } from "../../syncJobs.js";
-import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from "../types.js";
+import { reconcileApp, type AscCatalogApi } from '../../ascSync.js';
+import { buildJobs, type SyncJob } from '../../syncJobs.js';
+import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../types.js';
 
 /** Surface id — also the value users pass as `launch plan catalog`. */
-const SURFACE = "catalog";
+const SURFACE = 'catalog';
 
 /** Plan one app's catalog in dry-run, capturing a precondition failure (e.g. no ASC record) as `error`. */
 async function planJob(api: AscCatalogApi, job: SyncJob): Promise<AppPlan> {
@@ -42,23 +42,30 @@ async function planJob(api: AscCatalogApi, job: SyncJob): Promise<AppPlan> {
  */
 export const catalogPlanner: SurfacePlanner = {
   id: SURFACE,
-  store: "appstore",
+  store: 'appstore',
   async plan(ctx: PlanContext): Promise<SurfacePlan> {
     const jobs = buildJobs(ctx.apps, ctx.config);
-    if (jobs.length === 0) return { surface: SURFACE, store: "appstore", state: "omitted" };
+    if (jobs.length === 0) return { surface: SURFACE, store: 'appstore', state: 'omitted' };
 
     const api = await ctx.resolveAscApi();
     if (!api) {
       return {
         surface: SURFACE,
-        store: "appstore",
-        state: "skipped",
-        reason: "no active Apple account",
-        hint: "run `launch creds set-key`",
+        store: 'appstore',
+        state: 'skipped',
+        reason: 'no active Apple account',
+        hint: 'run `launch creds set-key`',
       };
     }
 
     const apps = await Promise.all(jobs.map((job) => planJob(api, job)));
-    return { surface: SURFACE, store: "appstore", state: "planned", scope: "app", direction: "two-way", apps };
+    return {
+      surface: SURFACE,
+      store: 'appstore',
+      state: 'planned',
+      scope: 'app',
+      direction: 'two-way',
+      apps,
+    };
   },
 };

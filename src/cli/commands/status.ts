@@ -8,15 +8,15 @@
  * API doesn't expose the rejection text, so Launch links rather than scrapes.
  */
 
-import type { Command } from "commander";
-import type { AppDescriptor, LaunchConfig } from "../../core/types.js";
-import { loadConfig } from "../../core/config.js";
-import { createLogger } from "../../core/logger.js";
-import { loadActiveAscKey } from "../../core/accounts.js";
-import { AppStoreConnectClient } from "../../apple/ascClient.js";
-import { IOS_PLATFORM, readReleaseStatus, type ReleaseStatus } from "../../core/appStoreRelease.js";
-import { notify } from "../../core/notify.js";
-import { createTransitionTracker, planTransitionNotifications } from "../../core/releaseNotify.js";
+import type { Command } from 'commander';
+import type { AppDescriptor, LaunchConfig } from '../../core/types.js';
+import { loadConfig } from '../../core/config.js';
+import { createLogger } from '../../core/logger.js';
+import { loadActiveAscKey } from '../../core/accounts.js';
+import { AppStoreConnectClient } from '../../apple/ascClient.js';
+import { IOS_PLATFORM, readReleaseStatus, type ReleaseStatus } from '../../core/appStoreRelease.js';
+import { notify } from '../../core/notify.js';
+import { createTransitionTracker, planTransitionNotifications } from '../../core/releaseNotify.js';
 
 /** CLI options for `launch status`. */
 interface StatusOptions {
@@ -39,30 +39,40 @@ const WATCH_INTERVAL_MS = 30_000;
 
 /** Resolve the iOS apps to report on from discovery + the optional `--app` selector. */
 export function selectIosApps(apps: AppDescriptor[], selector: string | undefined): IosApp[] {
-  const ios = apps.flatMap((app) => (app.bundleId ? [{ name: app.name, bundleId: app.bundleId }] : []));
+  const ios = apps.flatMap((app) =>
+    app.bundleId ? [{ name: app.name, bundleId: app.bundleId }] : [],
+  );
   if (!selector) return ios;
   const wanted = selector
-    .split(",")
+    .split(',')
     .map((name) => name.trim())
     .filter(Boolean);
   const byName = new Map(ios.map((app) => [app.name, app]));
   return wanted.map((name) => {
     const app = byName.get(name);
-    if (!app) throw new Error(`Unknown iOS app "${name}". iOS apps: ${ios.map((a) => a.name).join(", ") || "none"}.`);
+    if (!app)
+      throw new Error(
+        `Unknown iOS app "${name}". iOS apps: ${ios.map((a) => a.name).join(', ') || 'none'}.`,
+      );
     return app;
   });
 }
 
 /** One human status line, e.g. `v1.2.0 · In review · build 42 · phased: ACTIVE`. */
 export function formatStatusLine(status: ReleaseStatus): string {
-  const parts = [status.versionString ? `v${status.versionString}` : "no App Store version", status.verdict.label];
+  const parts = [
+    status.versionString ? `v${status.versionString}` : 'no App Store version',
+    status.verdict.label,
+  ];
   if (status.buildNumber) {
     const processing =
-      status.buildProcessingState && status.buildProcessingState !== "VALID" ? ` (${status.buildProcessingState})` : "";
+      status.buildProcessingState && status.buildProcessingState !== 'VALID'
+        ? ` (${status.buildProcessingState})`
+        : '';
     parts.push(`build ${status.buildNumber}${processing}`);
   }
   if (status.phasedReleaseState) parts.push(`phased: ${status.phasedReleaseState}`);
-  return parts.join(" · ");
+  return parts.join(' · ');
 }
 
 /**
@@ -77,22 +87,22 @@ export function worstExitCode(codes: number[]): number {
 /** Attach the `status` command to the program. */
 export function registerStatusCommand(program: Command): void {
   program
-    .command("status")
+    .command('status')
     .description("show each app's App Store version, review, and phased-rollout state")
-    .option("-a, --app <names>", "comma-separated app handles (default: all iOS apps)")
-    .option("--watch", "poll until the review reaches a terminal verdict", false)
-    .option("--json", "machine-readable output for CI", false)
+    .option('-a, --app <names>', 'comma-separated app handles (default: all iOS apps)')
+    .option('--watch', 'poll until the review reaches a terminal verdict', false)
+    .option('--json', 'machine-readable output for CI', false)
     .action(async (options: StatusOptions) => {
       const { config, apps } = await loadConfig();
       const ios = selectIosApps(apps, options.app);
       const log = createLogger(false);
       if (ios.length === 0) {
-        log.info("No iOS apps discovered. Add an app with an ios.bundleIdentifier in app.json.");
+        log.info('No iOS apps discovered. Add an app with an ios.bundleIdentifier in app.json.');
         return;
       }
 
       const ascKey = await loadActiveAscKey();
-      if (!ascKey) throw new Error("No active Apple account. Run `launch creds set-key` first.");
+      if (!ascKey) throw new Error('No active Apple account. Run `launch creds set-key` first.');
       const client = new AppStoreConnectClient(ascKey);
 
       const readAll = (): Promise<{ name: string; status: ReleaseStatus }[]> =>
@@ -140,7 +150,8 @@ async function watch(
     log.gap();
     for (const { name, status } of results) {
       log.step(name, formatStatusLine(status));
-      for (const event of planTransitionNotifications(name, status, tracker)) await notify(config, event);
+      for (const event of planTransitionNotifications(name, status, tracker))
+        await notify(config, event);
     }
     if (results.every((result) => result.status.verdict.done)) {
       process.exitCode = worstExitCode(results.map((result) => result.status.verdict.exitCode));

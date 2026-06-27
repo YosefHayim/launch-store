@@ -10,10 +10,10 @@
  * order — important when the snapshots were written by different Launch versions.
  */
 
-import type { JsonValue, Snapshot, SnapshotEntity, SnapshotStore } from "./types.js";
+import type { JsonValue, Snapshot, SnapshotEntity, SnapshotStore } from './types.js';
 
 /** How one entity differs between the two snapshots. */
-export type DiffChange = "added" | "removed" | "changed";
+export type DiffChange = 'added' | 'removed' | 'changed';
 
 /** One entity-level difference, carrying enough identity to render it grouped by store → app → surface. */
 export interface EntityDiff {
@@ -54,7 +54,12 @@ interface FlatEntity {
  * gives a collision-free key (quoting escapes any character a part might contain) without picking a
  * separator that could appear in an app handle or product id.
  */
-function compositeKey(store: SnapshotStore, sourceId: string, app: string, entityKey: string): string {
+function compositeKey(
+  store: SnapshotStore,
+  sourceId: string,
+  app: string,
+  entityKey: string,
+): string {
   return JSON.stringify([store, sourceId, app, entityKey]);
 }
 
@@ -62,7 +67,7 @@ function compositeKey(store: SnapshotStore, sourceId: string, app: string, entit
 function flatten(snapshot: Snapshot): Map<string, FlatEntity> {
   const flat = new Map<string, FlatEntity>();
   for (const report of snapshot.reports) {
-    if (report.outcome.state !== "captured") continue;
+    if (report.outcome.state !== 'captured') continue;
     for (const app of report.outcome.apps) {
       for (const entity of app.entities) {
         flat.set(compositeKey(report.store, report.id, app.app, entity.key), {
@@ -80,12 +85,12 @@ function flatten(snapshot: Snapshot): Map<string, FlatEntity> {
 
 /** Canonical JSON with recursively sorted object keys, so field order never registers as a change. */
 export function stableStringify(value: JsonValue): string {
-  if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
   const body = Object.keys(value)
     .sort()
     .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key] as JsonValue)}`)
-    .join(",");
+    .join(',');
   return `{${body}}`;
 }
 
@@ -102,19 +107,23 @@ export function diffSnapshots(a: Snapshot, b: Snapshot): SnapshotDiff {
     const prev = before.get(key);
     const next = after.get(key);
     if (prev && !next) {
-      entries.push(toEntry(prev, "removed"));
+      entries.push(toEntry(prev, 'removed'));
     } else if (!prev && next) {
-      entries.push(toEntry(next, "added"));
-    } else if (prev && next && stableStringify(prev.entity.data) !== stableStringify(next.entity.data)) {
-      entries.push(toEntry(next, "changed"));
+      entries.push(toEntry(next, 'added'));
+    } else if (
+      prev &&
+      next &&
+      stableStringify(prev.entity.data) !== stableStringify(next.entity.data)
+    ) {
+      entries.push(toEntry(next, 'changed'));
     }
   }
 
   return {
     entries,
-    addedCount: entries.filter((entry) => entry.change === "added").length,
-    removedCount: entries.filter((entry) => entry.change === "removed").length,
-    changedCount: entries.filter((entry) => entry.change === "changed").length,
+    addedCount: entries.filter((entry) => entry.change === 'added').length,
+    removedCount: entries.filter((entry) => entry.change === 'removed').length,
+    changedCount: entries.filter((entry) => entry.change === 'changed').length,
   };
 }
 

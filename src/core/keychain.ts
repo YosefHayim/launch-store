@@ -11,7 +11,7 @@
  * `apple/credentials.ts`) is a different concern and is not secret storage — it stays there.
  */
 
-import { getSecretStore } from "./secretStore.js";
+import { getSecretStore } from './secretStore.js';
 
 /** Store (or overwrite) a secret for `account` in the host's native secret store. */
 export async function setSecret(account: string, value: string): Promise<void> {

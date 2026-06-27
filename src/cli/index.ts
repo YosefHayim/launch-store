@@ -7,10 +7,10 @@
  * docs generator can introspect it without launching the CLI; this file owns only the runtime boot.
  */
 
-import { registerBuiltins } from "../providers/index.js";
-import { migrateLegacyAccounts } from "../core/accounts.js";
-import { runAutoUpgrade } from "../core/updateCheck.js";
-import { buildProgram, readVersion } from "./program.js";
+import { registerBuiltins } from '../providers/index.js';
+import { migrateLegacyAccounts } from '../core/accounts.js';
+import { runAutoUpgrade } from '../core/updateCheck.js';
+import { buildProgram, readVersion } from './program.js';
 
 /**
  * Boot the CLI: register providers, silently self-upgrade (guarded/throttled — usually an instant

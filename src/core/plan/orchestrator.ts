@@ -6,7 +6,7 @@
  * network. See `docs/adr/0003-plan-drift.md`.
  */
 
-import type { PlanContext, SurfacePlan, SurfacePlanner } from "./types.js";
+import type { PlanContext, SurfacePlan, SurfacePlanner } from './types.js';
 
 /**
  * Exit codes, mirroring the `launch status` convention (worst-wins, error first):
@@ -18,7 +18,7 @@ import type { PlanContext, SurfacePlan, SurfacePlanner } from "./types.js";
 export const PLAN_EXIT = { inSync: 0, error: 1, drift: 2 } as const;
 
 /** A surface that actually produced output — omitted surfaces (nothing declared) are dropped upstream. */
-type RenderableSurface = Exclude<SurfacePlan, { state: "omitted" }>;
+type RenderableSurface = Exclude<SurfacePlan, { state: 'omitted' }>;
 
 /** Options for one plan run. `check` selects the `launch drift` gate semantics over the informational default. */
 export interface PlanRunOptions {
@@ -59,7 +59,12 @@ export interface ExitCodeInputs {
  * missing-credentials skip is benign; only an app-level error (a precondition the user must fix) fails it.
  * `--check` is the gate: an error or an unreadable surface wins (1), then drift (2), then in-sync (0).
  */
-export function planExitCode({ check, changeCount, appErrorCount, skippedSurfaceCount }: ExitCodeInputs): number {
+export function planExitCode({
+  check,
+  changeCount,
+  appErrorCount,
+  skippedSurfaceCount,
+}: ExitCodeInputs): number {
   if (check) {
     if (appErrorCount > 0 || skippedSurfaceCount > 0) return PLAN_EXIT.error;
     if (changeCount > 0) return PLAN_EXIT.drift;
@@ -80,23 +85,25 @@ export async function runPlanners(
   options: PlanRunOptions,
 ): Promise<PlanOutcome> {
   const planned = await Promise.all(planners.map((planner) => planner.plan(ctx)));
-  const surfaces = planned.filter((surface): surface is RenderableSurface => surface.state !== "omitted");
+  const surfaces = planned.filter(
+    (surface): surface is RenderableSurface => surface.state !== 'omitted',
+  );
 
   let changeCount = 0;
   let appErrorCount = 0;
   let skippedSurfaceCount = 0;
   for (const surface of surfaces) {
-    if (surface.state === "skipped") {
+    if (surface.state === 'skipped') {
       skippedSurfaceCount++;
       continue;
     }
-    if (surface.scope === "team") {
-      changeCount += surface.actions.filter((action) => action.status === "planned").length;
+    if (surface.scope === 'team') {
+      changeCount += surface.actions.filter((action) => action.status === 'planned').length;
       continue;
     }
     for (const app of surface.apps) {
       if (app.error !== undefined) appErrorCount++;
-      changeCount += app.actions.filter((action) => action.status === "planned").length;
+      changeCount += app.actions.filter((action) => action.status === 'planned').length;
     }
   }
 

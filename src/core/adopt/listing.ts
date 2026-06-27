@@ -9,20 +9,25 @@
  * same file `launch metadata` and `launch sync`'s listing reconciler read, so the loop closes cleanly.
  */
 
-import { join } from "node:path";
-import type { Adopter, AdoptCatalogApi, AdoptTarget, PlannedWrite } from "./types.js";
+import { join } from 'node:path';
+import type { Adopter, AdoptCatalogApi, AdoptTarget, PlannedWrite } from './types.js';
 
 /** Plan the single `store.config.json` listing-pull write for an app (applied via the metadata-pull delegate). */
 export const listingAdopter: Adopter = {
-  domain: "listing",
-  fidelity: "importable",
+  domain: 'listing',
+  fidelity: 'importable',
   read(_asc: AdoptCatalogApi, target: AdoptTarget): Promise<PlannedWrite[]> {
-    const configPath = join(target.app.dir, "store.config.json");
+    const configPath = join(target.app.dir, 'store.config.json');
     return Promise.resolve([
       {
         description: `listing: pull App Store copy into ${target.app.name}/store.config.json (via metadata pull)`,
-        fidelity: "importable",
-        change: { home: "store.config", bundleId: target.bundleId, configPath, appName: target.app.name },
+        fidelity: 'importable',
+        change: {
+          home: 'store.config',
+          bundleId: target.bundleId,
+          configPath,
+          appName: target.app.name,
+        },
       },
     ]);
   },

@@ -19,7 +19,7 @@
  * - `info` — an advisory the tool can't verify locally (the Play Data Safety reminders), shown but
  *   never failing the scan.
  */
-export type PrivacySeverity = "blocker" | "warning" | "info";
+export type PrivacySeverity = 'blocker' | 'warning' | 'info';
 
 /**
  * One reconciled finding, tagged with the app and platform it concerns. `code` is a stable,
@@ -30,7 +30,7 @@ export interface PrivacyFinding {
   /** App handle the finding belongs to. */
   app: string;
   /** Platform the finding concerns. */
-  platform: "ios" | "android";
+  platform: 'ios' | 'android';
   /** How hard this bites — drives both the exit code and the rendered glyph. */
   severity: PrivacySeverity;
   /** Stable machine code, e.g. `ios.collection.undeclared`. */

@@ -27,4 +27,4 @@ The five canonical triage roles, mapped to their label strings (defaults, unchan
 
 ### Domain docs
 
-Single-context — `CONTEXT.md` + `language.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single-context — `CONTEXT.md` + `TECH-GLOSSARY.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.

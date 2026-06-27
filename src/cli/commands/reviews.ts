@@ -8,16 +8,21 @@
  * logic and request shaping live in the core module and the ASC client.
  */
 
-import { readFileSync } from "node:fs";
-import { cancel, confirm, isCancel } from "@clack/prompts";
-import type { Command } from "commander";
-import type { CustomerReviewResource } from "../../apple/ascClient.js";
-import { AppStoreConnectClient } from "../../apple/ascClient.js";
-import { loadConfig } from "../../core/config.js";
-import { selectApp } from "../../core/pipeline.js";
-import { loadActiveAscKey } from "../../core/accounts.js";
-import { createLogger } from "../../core/logger.js";
-import { deleteReviewResponse, listReviews, replyToReview, type ReviewFilters } from "../../core/reviews.js";
+import { readFileSync } from 'node:fs';
+import { cancel, confirm, isCancel } from '@clack/prompts';
+import type { Command } from 'commander';
+import type { CustomerReviewResource } from '../../apple/ascClient.js';
+import { AppStoreConnectClient } from '../../apple/ascClient.js';
+import { loadConfig } from '../../core/config.js';
+import { selectApp } from '../../core/pipeline.js';
+import { loadActiveAscKey } from '../../core/accounts.js';
+import { createLogger } from '../../core/logger.js';
+import {
+  deleteReviewResponse,
+  listReviews,
+  replyToReview,
+  type ReviewFilters,
+} from '../../core/reviews.js';
 
 /** Options shared by every subcommand that targets an app's reviews. */
 interface ReviewsListOptions {
@@ -38,7 +43,7 @@ interface ReplyOptions {
 /** Build a client bound to the active Apple account, or fail with the onboarding hint. */
 async function activeClient(): Promise<AppStoreConnectClient> {
   const ascKey = await loadActiveAscKey();
-  if (!ascKey) throw new Error("No active Apple account. Run `launch creds set-key` first.");
+  if (!ascKey) throw new Error('No active Apple account. Run `launch creds set-key` first.');
   return new AppStoreConnectClient(ascKey);
 }
 
@@ -47,7 +52,9 @@ async function resolveBundleId(appSelector: string | undefined): Promise<string>
   const { apps } = await loadConfig();
   const app = await selectApp(apps, appSelector);
   if (!app.bundleId) {
-    throw new Error(`No iOS bundle identifier for ${app.name} (set ios.bundleIdentifier in app.json).`);
+    throw new Error(
+      `No iOS bundle identifier for ${app.name} (set ios.bundleIdentifier in app.json).`,
+    );
   }
   return app.bundleId;
 }
@@ -80,37 +87,37 @@ function formatDate(iso: string): string {
 
 /** Render one review as a copy-pasteable block: id, stars, meta line, then title + body. */
 function renderReview(review: CustomerReviewResource): string {
-  const stars = "★".repeat(review.rating) + "☆".repeat(5 - review.rating);
+  const stars = '★'.repeat(review.rating) + '☆'.repeat(5 - review.rating);
   const meta = [
     review.territory,
     review.createdDate ? formatDate(review.createdDate) : undefined,
     review.reviewerNickname ? `by ${review.reviewerNickname}` : undefined,
-    review.answered ? "✓ answered" : "• unanswered",
+    review.answered ? '✓ answered' : '• unanswered',
   ]
     .filter(Boolean)
-    .join("  ");
+    .join('  ');
   const lines = [`${review.id}  ${stars} (${review.rating})`, `  ${meta}`];
   if (review.title) lines.push(`  "${review.title}"`);
   if (review.body) lines.push(`  ${review.body}`);
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /** Resolve the reply body from `--message` or `--file`, erroring when neither is given. */
 function resolveBody(options: ReplyOptions): string {
-  if (options.file) return readFileSync(options.file, "utf8").trim();
+  if (options.file) return readFileSync(options.file, 'utf8').trim();
   if (options.message) return options.message;
-  throw new Error("A reply body is required. Pass -m/--message <text> or --file <path>.");
+  throw new Error('A reply body is required. Pass -m/--message <text> or --file <path>.');
 }
 
 /** Confirm an outward-facing write, refusing in CI unless `--yes` was passed. */
 async function confirmWrite(message: string, yes: boolean | undefined): Promise<boolean> {
   if (yes) return true;
   if (!process.stdout.isTTY) {
-    throw new Error("Refusing to post without confirmation. Re-run with --yes (non-interactive).");
+    throw new Error('Refusing to post without confirmation. Re-run with --yes (non-interactive).');
   }
   const proceed = await confirm({ message });
   if (isCancel(proceed) || !proceed) {
-    cancel("Aborted — nothing posted.");
+    cancel('Aborted — nothing posted.');
     return false;
   }
   return true;
@@ -118,16 +125,18 @@ async function confirmWrite(message: string, yes: boolean | undefined): Promise<
 
 /** Attach the `reviews` command (with `list` / `reply` / `delete` subcommands) to the program. */
 export function registerReviewsCommand(program: Command): void {
-  const reviews = program.command("reviews").description("read App Store customer reviews and reply from the CLI");
+  const reviews = program
+    .command('reviews')
+    .description('read App Store customer reviews and reply from the CLI');
 
   reviews
-    .command("list")
+    .command('list')
     .description("list an app's customer reviews, newest first")
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("--rating <1-5>", "only show reviews with this star rating")
-    .option("--territory <code>", "only show reviews from this territory (e.g. USA)")
-    .option("--unanswered", "only show reviews without a developer response", false)
-    .option("--json", "output machine-readable JSON", false)
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option('--rating <1-5>', 'only show reviews with this star rating')
+    .option('--territory <code>', 'only show reviews from this territory (e.g. USA)')
+    .option('--unanswered', 'only show reviews without a developer response', false)
+    .option('--json', 'output machine-readable JSON', false)
     .action(async (options: ReviewsListOptions) => {
       const bundleId = await resolveBundleId(options.app);
       const client = await activeClient();
@@ -138,45 +147,51 @@ export function registerReviewsCommand(program: Command): void {
         return;
       }
       if (found.length === 0) {
-        console.log("No reviews match. Try removing a filter, or check back later.");
+        console.log('No reviews match. Try removing a filter, or check back later.');
         return;
       }
-      console.log(found.map(renderReview).join("\n\n"));
-      console.log(`\n${found.length} review${found.length === 1 ? "" : "s"}.`);
+      console.log(found.map(renderReview).join('\n\n'));
+      console.log(`\n${found.length} review${found.length === 1 ? '' : 's'}.`);
     });
 
   reviews
-    .command("reply")
-    .description("post (or replace) the developer response to a review")
-    .argument("<reviewId>", "the review id from `reviews list`")
-    .option("-m, --message <text>", "the reply text")
-    .option("--file <path>", "read the reply text from a file")
-    .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
+    .command('reply')
+    .description('post (or replace) the developer response to a review')
+    .argument('<reviewId>', 'the review id from `reviews list`')
+    .option('-m, --message <text>', 'the reply text')
+    .option('--file <path>', 'read the reply text from a file')
+    .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(async (reviewId: string, options: ReplyOptions) => {
       const log = createLogger(false);
       const body = resolveBody(options);
       const client = await activeClient();
 
       const existing = await client.getCustomerReviewResponse(reviewId);
-      const verb = existing ? "Replace the existing reply to" : "Post a public reply to";
+      const verb = existing ? 'Replace the existing reply to' : 'Post a public reply to';
       if (!(await confirmWrite(`${verb} review ${reviewId}?`, options.yes))) return;
 
       const { response, replaced } = await replyToReview(client, reviewId, body);
-      log.step(replaced ? "reply replaced" : "reply posted", response.state ? `state: ${response.state}` : undefined);
+      log.step(
+        replaced ? 'reply replaced' : 'reply posted',
+        response.state ? `state: ${response.state}` : undefined,
+      );
     });
 
   reviews
-    .command("delete")
-    .description("delete the developer response to a review")
-    .argument("<reviewId>", "the review id from `reviews list`")
-    .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
+    .command('delete')
+    .description('delete the developer response to a review')
+    .argument('<reviewId>', 'the review id from `reviews list`')
+    .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(async (reviewId: string, options: { yes?: boolean }) => {
       const log = createLogger(false);
       const client = await activeClient();
-      if (!(await confirmWrite(`Delete the developer response to review ${reviewId}?`, options.yes))) return;
+      if (
+        !(await confirmWrite(`Delete the developer response to review ${reviewId}?`, options.yes))
+      )
+        return;
 
       const deleted = await deleteReviewResponse(client, reviewId);
-      if (deleted) log.step("reply deleted", reviewId);
+      if (deleted) log.step('reply deleted', reviewId);
       else log.info(`No developer response on review ${reviewId} — nothing to delete.`);
     });
 }

@@ -7,21 +7,28 @@
  * into an Android `else`). Pure and dependency-free — the imports are type-only, so leaf modules
  * (`screenshotSpecs`, CLI commands) can import it without pulling in the heavy ASC client.
  */
-import type { components } from "./asc/schema.js";
-import type { Platform } from "./types.js";
+import type { components } from './asc/schema.js';
+import type { Platform } from './types.js';
 
 /** App Store Connect platform attribute on app-store versions, builds, and review submissions. */
-type AscPlatform = components["schemas"]["Platform"];
+type AscPlatform = components['schemas']['Platform'];
 /** App Store Connect bundle-id platform — narrower than {@link AscPlatform}: tvOS/visionOS register as iOS-family, so there is no `TV_OS`/`VISION_OS` here. */
-type AscBundleIdPlatform = components["schemas"]["BundleIdPlatform"];
+type AscBundleIdPlatform = components['schemas']['BundleIdPlatform'];
 /** App Store Connect signing-profile type (e.g. `IOS_APP_STORE`, `TVOS_APP_STORE`, `MAC_APP_STORE`). */
-type AscProfileType = NonNullable<NonNullable<components["schemas"]["Profile"]["attributes"]>["profileType"]>;
+type AscProfileType = NonNullable<
+  NonNullable<components['schemas']['Profile']['attributes']>['profileType']
+>;
 
 /** The four Apple build platforms — all built with Xcode on macOS, signed with one team, submitted to App Store Connect. */
-export const APPLE_PLATFORMS: ReadonlySet<Platform> = new Set<Platform>(["ios", "tvos", "macos", "visionos"]);
+export const APPLE_PLATFORMS: ReadonlySet<Platform> = new Set<Platform>([
+  'ios',
+  'tvos',
+  'macos',
+  'visionos',
+]);
 
 /** Every build platform Launch accepts, in CLI-help order. The single source for the `<platform>` argument across commands. */
-export const PLATFORMS: readonly Platform[] = ["ios", "android", "tvos", "macos", "visionos"];
+export const PLATFORMS: readonly Platform[] = ['ios', 'android', 'tvos', 'macos', 'visionos'];
 
 /**
  * Whether `platform` is one of the Apple build platforms (vs Android). Use this — not `platform === "ios"`
@@ -35,16 +42,16 @@ export function isApplePlatform(platform: Platform): boolean {
 /** Human-facing label for a build platform, for CLI prose and headers (e.g. `iOS`, `Android`, `tvOS`, `macOS`, `visionOS`). */
 export function platformLabel(platform: Platform): string {
   switch (platform) {
-    case "ios":
-      return "iOS";
-    case "android":
-      return "Android";
-    case "tvos":
-      return "tvOS";
-    case "macos":
-      return "macOS";
-    case "visionos":
-      return "visionOS";
+    case 'ios':
+      return 'iOS';
+    case 'android':
+      return 'Android';
+    case 'tvos':
+      return 'tvOS';
+    case 'macos':
+      return 'macOS';
+    case 'visionos':
+      return 'visionOS';
   }
 }
 
@@ -54,7 +61,7 @@ export function platformLabel(platform: Platform): string {
  */
 export function parsePlatform(value: string): Platform {
   const match = PLATFORMS.find((platform) => platform === value);
-  if (!match) throw new Error(`Unknown platform "${value}". Use one of: ${PLATFORMS.join(", ")}.`);
+  if (!match) throw new Error(`Unknown platform "${value}". Use one of: ${PLATFORMS.join(', ')}.`);
   return match;
 }
 
@@ -65,16 +72,16 @@ export function parsePlatform(value: string): Platform {
  */
 export function toAscPlatform(platform: Platform): AscPlatform {
   switch (platform) {
-    case "ios":
-      return "IOS";
-    case "tvos":
-      return "TV_OS";
-    case "macos":
-      return "MAC_OS";
-    case "visionos":
-      return "VISION_OS";
-    case "android":
-      throw new Error("Android has no App Store Connect platform.");
+    case 'ios':
+      return 'IOS';
+    case 'tvos':
+      return 'TV_OS';
+    case 'macos':
+      return 'MAC_OS';
+    case 'visionos':
+      return 'VISION_OS';
+    case 'android':
+      throw new Error('Android has no App Store Connect platform.');
   }
 }
 
@@ -85,14 +92,14 @@ export function toAscPlatform(platform: Platform): AscPlatform {
  */
 export function toBundleIdPlatform(platform: Platform): AscBundleIdPlatform {
   switch (platform) {
-    case "ios":
-    case "tvos":
-    case "visionos":
-      return "IOS";
-    case "macos":
-      return "MAC_OS";
-    case "android":
-      throw new Error("Android has no App Store Connect bundle-id platform.");
+    case 'ios':
+    case 'tvos':
+    case 'visionos':
+      return 'IOS';
+    case 'macos':
+      return 'MAC_OS';
+    case 'android':
+      throw new Error('Android has no App Store Connect bundle-id platform.');
   }
 }
 
@@ -103,15 +110,15 @@ export function toBundleIdPlatform(platform: Platform): AscBundleIdPlatform {
  */
 export function appStoreProfileType(platform: Platform): AscProfileType {
   switch (platform) {
-    case "ios":
-    case "visionos":
-      return "IOS_APP_STORE";
-    case "tvos":
-      return "TVOS_APP_STORE";
-    case "macos":
-      return "MAC_APP_STORE";
-    case "android":
-      throw new Error("Android has no App Store provisioning profile.");
+    case 'ios':
+    case 'visionos':
+      return 'IOS_APP_STORE';
+    case 'tvos':
+      return 'TVOS_APP_STORE';
+    case 'macos':
+      return 'MAC_APP_STORE';
+    case 'android':
+      throw new Error('Android has no App Store provisioning profile.');
   }
 }
 
@@ -122,15 +129,15 @@ export function appStoreProfileType(platform: Platform): AscProfileType {
  */
 export function adHocProfileType(platform: Platform): AscProfileType | undefined {
   switch (platform) {
-    case "ios":
-    case "visionos":
-      return "IOS_APP_ADHOC";
-    case "tvos":
-      return "TVOS_APP_ADHOC";
-    case "macos":
+    case 'ios':
+    case 'visionos':
+      return 'IOS_APP_ADHOC';
+    case 'tvos':
+      return 'TVOS_APP_ADHOC';
+    case 'macos':
       return undefined;
-    case "android":
-      throw new Error("Android has no ad-hoc provisioning profile.");
+    case 'android':
+      throw new Error('Android has no ad-hoc provisioning profile.');
   }
 }
 
@@ -141,16 +148,16 @@ export function adHocProfileType(platform: Platform): AscProfileType | undefined
  */
 export function gymDestination(platform: Platform): string | undefined {
   switch (platform) {
-    case "ios":
+    case 'ios':
       return undefined;
-    case "tvos":
-      return "generic/platform=tvOS";
-    case "macos":
-      return "generic/platform=macOS";
-    case "visionos":
-      return "generic/platform=visionOS";
-    case "android":
-      throw new Error("Android does not build with Xcode.");
+    case 'tvos':
+      return 'generic/platform=tvOS';
+    case 'macos':
+      return 'generic/platform=macOS';
+    case 'visionos':
+      return 'generic/platform=visionOS';
+    case 'android':
+      throw new Error('Android does not build with Xcode.');
   }
 }
 
@@ -163,15 +170,15 @@ export function gymDestination(platform: Platform): string | undefined {
  */
 export function nativeProjectDirName(platform: Platform): string {
   switch (platform) {
-    case "ios":
-    case "tvos":
-      return "ios";
-    case "macos":
-      return "macos";
-    case "visionos":
-      return "visionos";
-    case "android":
-      throw new Error("Android does not build with Xcode; its native project is android/.");
+    case 'ios':
+    case 'tvos':
+      return 'ios';
+    case 'macos':
+      return 'macos';
+    case 'visionos':
+      return 'visionos';
+    case 'android':
+      throw new Error('Android does not build with Xcode; its native project is android/.');
   }
 }
 
@@ -182,16 +189,16 @@ export function nativeProjectDirName(platform: Platform): string {
  */
 export function nativeTargetHint(platform: Platform): string {
   switch (platform) {
-    case "ios":
-      return "expo prebuild";
-    case "tvos":
-      return "react-native-tvos";
-    case "macos":
-      return "react-native-macos";
-    case "visionos":
-      return "@callstack/react-native-visionos";
-    case "android":
-      throw new Error("Android does not use an Xcode native target.");
+    case 'ios':
+      return 'expo prebuild';
+    case 'tvos':
+      return 'react-native-tvos';
+    case 'macos':
+      return 'react-native-macos';
+    case 'visionos':
+      return '@callstack/react-native-visionos';
+    case 'android':
+      throw new Error('Android does not use an Xcode native target.');
   }
 }
 
@@ -200,15 +207,15 @@ export function nativeTargetHint(platform: Platform): string {
  * platforms (iOS, tvOS, visionOS), `pkg` for a macOS App Store build (Apple wraps a Mac app in an installer
  * package). Drives both gym's `--output_name` and the post-build artifact discovery. Throws for Android.
  */
-export function appleArtifactExtension(platform: Platform): "ipa" | "pkg" {
+export function appleArtifactExtension(platform: Platform): 'ipa' | 'pkg' {
   switch (platform) {
-    case "ios":
-    case "tvos":
-    case "visionos":
-      return "ipa";
-    case "macos":
-      return "pkg";
-    case "android":
-      throw new Error("Android does not produce an Apple build artifact.");
+    case 'ios':
+    case 'tvos':
+    case 'visionos':
+      return 'ipa';
+    case 'macos':
+      return 'pkg';
+    case 'android':
+      throw new Error('Android does not produce an Apple build artifact.');
   }
 }

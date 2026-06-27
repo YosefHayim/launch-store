@@ -13,18 +13,24 @@
  * @see https://developer.apple.com/documentation/appstoreconnectapi
  */
 
-import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { SignJWT, importPKCS8 } from "jose";
-import type { AscKey, OfferCustomerEligibility, OfferDuration, OfferEligibility, OfferMode } from "../core/types.js";
-import type { components } from "../core/asc/schema.js";
-import { highestVersion } from "../core/version.js";
-import { withRetry } from "../core/asyncPool.js";
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { SignJWT, importPKCS8 } from 'jose';
+import type {
+  AscKey,
+  OfferCustomerEligibility,
+  OfferDuration,
+  OfferEligibility,
+  OfferMode,
+} from '../core/types.js';
+import type { components } from '../core/asc/schema.js';
+import { highestVersion } from '../core/version.js';
+import { withRetry } from '../core/asyncPool.js';
 
 /** Scheme + host of the App Store Connect API; most resources hang off `/v1`, a few newer ones off `/v2`. */
-const API_ORIGIN = "https://api.appstoreconnect.apple.com";
+const API_ORIGIN = 'https://api.appstoreconnect.apple.com';
 const BASE_URL = `${API_ORIGIN}/v1`;
-const AUDIENCE = "appstoreconnect-v1";
+const AUDIENCE = 'appstoreconnect-v1';
 /** Apple rejects tokens whose lifetime exceeds 20 minutes; stay safely under it. */
 const TOKEN_TTL_SECONDS = 19 * 60;
 /**
@@ -40,20 +46,22 @@ const CLOCK_SKEW_TOLERANCE_SECONDS = 60;
  * Certificate type to create/reuse. `DISTRIBUTION` is Apple's modern unified "Apple Distribution"
  * identity, valid for App Store submission; its codesign identity is named `Apple Distribution`.
  */
-export const DISTRIBUTION_CERT_TYPE = "DISTRIBUTION";
+export const DISTRIBUTION_CERT_TYPE = 'DISTRIBUTION';
 /** Codesign identity name that pairs with {@link DISTRIBUTION_CERT_TYPE}. */
-export const DISTRIBUTION_CERT_NAME = "Apple Distribution";
+export const DISTRIBUTION_CERT_NAME = 'Apple Distribution';
 /**
  * Provisioning profile type for App Store / TestFlight distribution — the **iOS default**. tvOS, macOS,
  * and visionOS resolve their own profile type via `appStoreProfileType()` in `core/platform.ts` and pass
  * it to {@link AppStoreConnectClient.createAppStoreProfile}; this constant is the default that keeps the
  * iOS path unchanged.
  */
-export const APP_STORE_PROFILE_TYPE = "IOS_APP_STORE";
+export const APP_STORE_PROFILE_TYPE = 'IOS_APP_STORE';
 /** Provisioning profile type for ad-hoc (install-link) distribution — the iOS default; tvOS/visionOS map their own via `core/platform.ts` (macOS has no ad-hoc type). */
-export const AD_HOC_PROFILE_TYPE = "IOS_APP_ADHOC";
+export const AD_HOC_PROFILE_TYPE = 'IOS_APP_ADHOC';
 /** The App Store Connect signing-profile type written when creating a profile (e.g. `IOS_APP_STORE`, `TVOS_APP_STORE`, `MAC_APP_STORE`). */
-type ProvisioningProfileType = NonNullable<NonNullable<components["schemas"]["Profile"]["attributes"]>["profileType"]>;
+type ProvisioningProfileType = NonNullable<
+  NonNullable<components['schemas']['Profile']['attributes']>['profileType']
+>;
 /**
  * The error code App Store Connect returns on *any* authenticated request when a required legal
  * agreement is unsigned or expired — the Apple Developer Program License Agreement, the Paid Applications
@@ -61,9 +69,9 @@ type ProvisioningProfileType = NonNullable<NonNullable<components["schemas"]["Pr
  * the only programmatic signal that the account's agreements need attention (see {@link
  * AppStoreConnectClient.checkRequiredAgreements}). Matched as a substring of Apple's `FORBIDDEN.<code>`.
  */
-export const REQUIRED_AGREEMENTS_ERROR_CODE = "REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED";
+export const REQUIRED_AGREEMENTS_ERROR_CODE = 'REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED';
 /** Platform value Apple expects when registering a device for ad-hoc distribution. */
-const IOS_DEVICE_PLATFORM = "IOS";
+const IOS_DEVICE_PLATFORM = 'IOS';
 
 /**
  * App Store version states in which listing metadata is still editable, so `launch sync` may write
@@ -71,24 +79,28 @@ const IOS_DEVICE_PLATFORM = "IOS";
  * alone. See {@link AppStoreConnectClient.getEditableVersionId}.
  */
 const EDITABLE_VERSION_STATES = new Set<string>([
-  "PREPARE_FOR_SUBMISSION",
-  "METADATA_REJECTED",
-  "DEVELOPER_REJECTED",
-  "REJECTED",
-  "INVALID_BINARY",
+  'PREPARE_FOR_SUBMISSION',
+  'METADATA_REJECTED',
+  'DEVELOPER_REJECTED',
+  'REJECTED',
+  'INVALID_BINARY',
 ]);
 /** App-info states in which the app-level listing (name/subtitle/privacy URL) is still editable. */
-const EDITABLE_APPINFO_STATES = new Set<string>(["PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED", "REJECTED"]);
+const EDITABLE_APPINFO_STATES = new Set<string>([
+  'PREPARE_FOR_SUBMISSION',
+  'DEVELOPER_REJECTED',
+  'REJECTED',
+]);
 /** ASC `appInfoLocalizations` attribute keys Launch manages (app-level — persists across versions). */
-const APP_INFO_LISTING_FIELDS = ["name", "subtitle", "privacyPolicyUrl"] as const;
+const APP_INFO_LISTING_FIELDS = ['name', 'subtitle', 'privacyPolicyUrl'] as const;
 /** ASC `appStoreVersionLocalizations` attribute keys Launch manages (version-level — per release). */
 const VERSION_LISTING_FIELDS = [
-  "description",
-  "keywords",
-  "whatsNew",
-  "promotionalText",
-  "supportUrl",
-  "marketingUrl",
+  'description',
+  'keywords',
+  'whatsNew',
+  'promotionalText',
+  'supportUrl',
+  'marketingUrl',
 ] as const;
 
 /** One App Store Connect API error, as returned in the `errors` array of a failed response. */
@@ -114,7 +126,7 @@ export class AscRequestError extends Error {
     readonly codes: readonly string[] = [],
   ) {
     super(message);
-    this.name = "AscRequestError";
+    this.name = 'AscRequestError';
   }
 }
 
@@ -634,7 +646,7 @@ export interface BetaBuildLocalizationResource {
 }
 
 /** Apple's Beta App Review verdict for a build's submission. */
-export type BetaReviewState = "WAITING_FOR_REVIEW" | "IN_REVIEW" | "REJECTED" | "APPROVED";
+export type BetaReviewState = 'WAITING_FOR_REVIEW' | 'IN_REVIEW' | 'REJECTED' | 'APPROVED';
 
 /**
  * A build's Beta App Review submission (`betaAppReviewSubmissions`) — the request that lets *external*
@@ -796,8 +808,8 @@ export interface WinBackOfferCreate {
   waitBetweenOffersMonths?: number;
   startDate: string;
   endDate?: string;
-  priority: "HIGH" | "NORMAL";
-  promotionIntent?: "NOT_PROMOTED" | "USE_AUTO_GENERATED_ASSETS";
+  priority: 'HIGH' | 'NORMAL';
+  promotionIntent?: 'NOT_PROMOTED' | 'USE_AUTO_GENERATED_ASSETS';
   prices: ResolvedOfferPrice[];
 }
 
@@ -840,10 +852,17 @@ export interface AgeRatingDeclarationResource {
 }
 
 /** The device families an accessibility declaration can target — Apple's `DeviceFamily` enum, restated for public signatures. */
-export type DeviceFamily = "IPHONE" | "IPAD" | "APPLE_TV" | "APPLE_WATCH" | "MAC" | "VISION";
+export type DeviceFamily = 'IPHONE' | 'IPAD' | 'APPLE_TV' | 'APPLE_WATCH' | 'MAC' | 'VISION';
 
 /** The ordered list of `DeviceFamily` values, for validating config and iterating. */
-export const DEVICE_FAMILIES: readonly DeviceFamily[] = ["IPHONE", "IPAD", "APPLE_TV", "APPLE_WATCH", "MAC", "VISION"];
+export const DEVICE_FAMILIES: readonly DeviceFamily[] = [
+  'IPHONE',
+  'IPAD',
+  'APPLE_TV',
+  'APPLE_WATCH',
+  'MAC',
+  'VISION',
+];
 
 /**
  * The accessibility-support flags an accessibility declaration carries — the answers behind Apple's 2025
@@ -867,15 +886,15 @@ export interface AccessibilitySupport {
 
 /** The nine `AccessibilitySupport` keys, used to diff a declaration against config and to build requests. */
 export const ACCESSIBILITY_SUPPORT_KEYS: readonly (keyof AccessibilitySupport)[] = [
-  "supportsAudioDescriptions",
-  "supportsCaptions",
-  "supportsDarkInterface",
-  "supportsDifferentiateWithoutColorAlone",
-  "supportsLargerText",
-  "supportsReducedMotion",
-  "supportsSufficientContrast",
-  "supportsVoiceControl",
-  "supportsVoiceover",
+  'supportsAudioDescriptions',
+  'supportsCaptions',
+  'supportsDarkInterface',
+  'supportsDifferentiateWithoutColorAlone',
+  'supportsLargerText',
+  'supportsReducedMotion',
+  'supportsSufficientContrast',
+  'supportsVoiceControl',
+  'supportsVoiceover',
 ];
 
 /**
@@ -886,14 +905,14 @@ export const ACCESSIBILITY_SUPPORT_KEYS: readonly (keyof AccessibilitySupport)[]
 export interface AccessibilityDeclarationResource {
   id: string;
   deviceFamily: DeviceFamily;
-  state: "DRAFT" | "PUBLISHED" | "REPLACED";
+  state: 'DRAFT' | 'PUBLISHED' | 'REPLACED';
   support: AccessibilitySupport;
 }
 
 /** Apple's raw `accessibilityDeclarations` attribute bag — the support flags plus the family/state metadata. Internal to the read path. */
 interface AccessibilityDeclarationAttributes extends AccessibilitySupport {
   deviceFamily?: DeviceFamily;
-  state?: AccessibilityDeclarationResource["state"];
+  state?: AccessibilityDeclarationResource['state'];
 }
 
 /**
@@ -952,7 +971,7 @@ export interface AppStoreReviewDetailResource {
 }
 
 /** The App Clip card's call-to-action button — Apple's `AppClipAction` enum, restated for public signatures. */
-export type AppClipActionValue = "OPEN" | "VIEW" | "PLAY";
+export type AppClipActionValue = 'OPEN' | 'VIEW' | 'PLAY';
 
 /**
  * An app's App Clip — the install-free slice launched from a link / NFC / App Clip Code. Created by
@@ -1029,32 +1048,32 @@ export interface PassTypeIdResource {
  * `satisfies` keeps this runtime list in lockstep with the generated OpenAPI enum: drift fails the build.
  */
 export const LEADERBOARD_FORMATTERS = [
-  "INTEGER",
-  "DECIMAL_POINT_1_PLACE",
-  "DECIMAL_POINT_2_PLACE",
-  "DECIMAL_POINT_3_PLACE",
-  "ELAPSED_TIME_CENTISECOND",
-  "ELAPSED_TIME_MINUTE",
-  "ELAPSED_TIME_SECOND",
-  "MONEY_POUND_DECIMAL",
-  "MONEY_POUND",
-  "MONEY_DOLLAR_DECIMAL",
-  "MONEY_DOLLAR",
-  "MONEY_EURO_DECIMAL",
-  "MONEY_EURO",
-  "MONEY_FRANC_DECIMAL",
-  "MONEY_FRANC",
-  "MONEY_KRONER_DECIMAL",
-  "MONEY_KRONER",
-  "MONEY_YEN",
-] as const satisfies readonly components["schemas"]["GameCenterLeaderboardFormatter"][];
+  'INTEGER',
+  'DECIMAL_POINT_1_PLACE',
+  'DECIMAL_POINT_2_PLACE',
+  'DECIMAL_POINT_3_PLACE',
+  'ELAPSED_TIME_CENTISECOND',
+  'ELAPSED_TIME_MINUTE',
+  'ELAPSED_TIME_SECOND',
+  'MONEY_POUND_DECIMAL',
+  'MONEY_POUND',
+  'MONEY_DOLLAR_DECIMAL',
+  'MONEY_DOLLAR',
+  'MONEY_EURO_DECIMAL',
+  'MONEY_EURO',
+  'MONEY_FRANC_DECIMAL',
+  'MONEY_FRANC',
+  'MONEY_KRONER_DECIMAL',
+  'MONEY_KRONER',
+  'MONEY_YEN',
+] as const satisfies readonly components['schemas']['GameCenterLeaderboardFormatter'][];
 
 /** One of Apple's leaderboard score formatters. */
 export type LeaderboardFormatter = (typeof LEADERBOARD_FORMATTERS)[number];
 
 /** How a leaderboard score is aggregated and sorted — Apple's two closed enums, restated for config. */
-export type LeaderboardSubmissionType = "BEST_SCORE" | "MOST_RECENT_SCORE";
-export type LeaderboardSortType = "ASC" | "DESC";
+export type LeaderboardSubmissionType = 'BEST_SCORE' | 'MOST_RECENT_SCORE';
+export type LeaderboardSortType = 'ASC' | 'DESC';
 
 /** An app's Game Center configuration container (read-only attributes; created to enable Game Center). */
 export interface GameCenterDetailResource {
@@ -1127,18 +1146,21 @@ interface AssetReservation {
 
 /** Lowercase-hex MD5 of an asset's bytes — the `sourceFileChecksum` Apple verifies at commit time. */
 function md5Hex(bytes: Buffer): string {
-  return createHash("md5").update(bytes).digest("hex");
+  return createHash('md5').update(bytes).digest('hex');
 }
 
 /**
  * Pick the given keys out of a localization's raw attributes, keeping only present, non-empty strings.
  * Apple returns empty fields as `null` or `""`; both are dropped so a diff treats "unset" uniformly.
  */
-function pickListingFields(attributes: Record<string, unknown>, keys: readonly string[]): Record<string, string> {
+function pickListingFields(
+  attributes: Record<string, unknown>,
+  keys: readonly string[],
+): Record<string, string> {
   const fields: Record<string, string> = {};
   for (const key of keys) {
     const value = attributes[key];
-    if (typeof value === "string" && value.length > 0) fields[key] = value;
+    if (typeof value === 'string' && value.length > 0) fields[key] = value;
   }
   return fields;
 }
@@ -1148,7 +1170,7 @@ function pickAccessibilitySupport(attributes: Partial<AccessibilitySupport>): Ac
   const support: AccessibilitySupport = {};
   for (const key of ACCESSIBILITY_SUPPORT_KEYS) {
     const value = attributes[key];
-    if (typeof value === "boolean") support[key] = value;
+    if (typeof value === 'boolean') support[key] = value;
   }
   return support;
 }
@@ -1257,11 +1279,11 @@ interface AppClipExperiencePage {
  * those fields are frozen, so the reconciler picks the editable record and errors loudly when none exists.
  */
 const EDITABLE_METADATA_STATES = new Set<string>([
-  "PREPARE_FOR_SUBMISSION",
-  "DEVELOPER_REJECTED",
-  "REJECTED",
-  "METADATA_REJECTED",
-  "INVALID_BINARY",
+  'PREPARE_FOR_SUBMISSION',
+  'DEVELOPER_REJECTED',
+  'REJECTED',
+  'METADATA_REJECTED',
+  'INVALID_BINARY',
 ]);
 
 /** Client bound to one App Store Connect API key. */
@@ -1270,10 +1292,10 @@ export class AppStoreConnectClient {
 
   /** Mint a short-lived bearer token for the API. */
   private async token(): Promise<string> {
-    const privateKey = await importPKCS8(this.key.p8, "ES256");
+    const privateKey = await importPKCS8(this.key.p8, 'ES256');
     const issuedAt = Math.floor(Date.now() / 1000);
     return new SignJWT({})
-      .setProtectedHeader({ alg: "ES256", kid: this.key.keyId, typ: "JWT" })
+      .setProtectedHeader({ alg: 'ES256', kid: this.key.keyId, typ: 'JWT' })
       .setIssuer(this.key.issuerId)
       .setIssuedAt(issuedAt)
       .setExpirationTime(issuedAt + TOKEN_TTL_SECONDS)
@@ -1294,17 +1316,19 @@ export class AppStoreConnectClient {
   private async request<T>(method: string, pathOrUrl: string, body?: unknown): Promise<T> {
     // Transparent backoff on Apple's transient failures (429 rate-limit / 5xx). A fresh token is
     // minted per attempt, so a retry that straddles the 19-minute TTL re-signs rather than 401s.
-    return withRetry(() => this.requestOnce<T>(method, pathOrUrl, body), { isRetryable: isRetryableAscError });
+    return withRetry(() => this.requestOnce<T>(method, pathOrUrl, body), {
+      isRetryable: isRetryableAscError,
+    });
   }
 
   /** A single (un-retried) authenticated request — the retry wrapper lives in {@link request}. */
   private async requestOnce<T>(method: string, pathOrUrl: string, body?: unknown): Promise<T> {
-    const url = pathOrUrl.startsWith("http") ? pathOrUrl : `${BASE_URL}${pathOrUrl}`;
+    const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${BASE_URL}${pathOrUrl}`;
     const response = await fetch(url, {
       method,
       headers: {
         Authorization: `Bearer ${await this.token()}`,
-        ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
@@ -1315,8 +1339,12 @@ export class AppStoreConnectClient {
       // since `exp`/`iat` are signed off it. Apple's `Date` header is the authoritative reference.
       const hint =
         response.status === 401
-          ? clockSkewHint({ appleDate: response.headers.get("date"), nowMs: Date.now(), platform: process.platform })
-          : "";
+          ? clockSkewHint({
+              appleDate: response.headers.get('date'),
+              nowMs: Date.now(),
+              platform: process.platform,
+            })
+          : '';
       throw new AscRequestError(
         `App Store Connect ${method} ${pathOrUrl} failed (${response.status}): ${describeErrors(text)}${hint}`,
         response.status,
@@ -1343,7 +1371,7 @@ export class AppStoreConnectClient {
     const all: { id: string; attributes: A }[] = [];
     let next: string | undefined = path;
     while (next) {
-      const page: PagedList<A> = await this.request<PagedList<A>>("GET", next);
+      const page: PagedList<A> = await this.request<PagedList<A>>('GET', next);
       all.push(...page.data);
       next = page.links?.next;
     }
@@ -1379,7 +1407,7 @@ export class AppStoreConnectClient {
     path: string,
     member: { type: string; attributes?: object; relationships?: object },
   ): Promise<{ id: string; attributes: A }> {
-    const { data } = await this.request<ResourceSingle<A>>("POST", path, { data: member });
+    const { data } = await this.request<ResourceSingle<A>>('POST', path, { data: member });
     return data;
   }
 
@@ -1387,19 +1415,22 @@ export class AppStoreConnectClient {
    * PATCH a JSON:API resource. Owns the `{ data: { type, id, attributes } }` envelope every update
    * shares; Apple's update responses are ignored here (callers re-read when they need the new state).
    */
-  private async updateResource(path: string, member: { type: string; id: string; attributes: object }): Promise<void> {
-    await this.request<unknown>("PATCH", path, { data: member });
+  private async updateResource(
+    path: string,
+    member: { type: string; id: string; attributes: object },
+  ): Promise<void> {
+    await this.request<unknown>('PATCH', path, { data: member });
   }
 
   /** DELETE a JSON:API resource at `path` — the no-body counterpart of {@link createResource}. */
   private async deleteResource(path: string): Promise<void> {
-    await this.request<unknown>("DELETE", path);
+    await this.request<unknown>('DELETE', path);
   }
 
   /** Resolve the internal App Store Connect app id for a bundle identifier, or null if no record exists. */
   async getAppId(bundleId: string): Promise<string | null> {
     const { data } = await this.request<ResourceList<{ bundleId: string }>>(
-      "GET",
+      'GET',
       `/apps?filter[bundleId]=${encodeURIComponent(bundleId)}&limit=1`,
     );
     return data[0]?.id ?? null;
@@ -1413,7 +1444,7 @@ export class AppStoreConnectClient {
     const appId = await this.getAppId(bundleId);
     if (!appId) return 0;
     const { data } = await this.request<ResourceList<{ version: string }>>(
-      "GET",
+      'GET',
       `/builds?filter[app]=${appId}&sort=-version&limit=1&fields[builds]=version`,
     );
     const latest = data[0]?.attributes.version;
@@ -1450,7 +1481,7 @@ export class AppStoreConnectClient {
     const appId = await this.getAppId(bundleId);
     if (!appId) return null;
     const { data } = await this.request<ResourceList<{ processingState: string }>>(
-      "GET",
+      'GET',
       `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1&fields[builds]=processingState`,
     );
     return data[0]?.attributes.processingState ?? null;
@@ -1469,11 +1500,13 @@ export class AppStoreConnectClient {
     const appId = await this.getAppId(bundleId);
     if (!appId) return null;
     const { data } = await this.request<ResourceList<{ usesNonExemptEncryption: boolean | null }>>(
-      "GET",
+      'GET',
       `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1&fields[builds]=usesNonExemptEncryption`,
     );
     const build = data[0];
-    return build ? { id: build.id, usesNonExemptEncryption: build.attributes.usesNonExemptEncryption ?? null } : null;
+    return build
+      ? { id: build.id, usesNonExemptEncryption: build.attributes.usesNonExemptEncryption ?? null }
+      : null;
   }
 
   /**
@@ -1483,7 +1516,7 @@ export class AppStoreConnectClient {
    */
   async setBuildUsesNonExemptEncryption(buildId: string, value: boolean): Promise<void> {
     await this.updateResource(`/builds/${buildId}`, {
-      type: "builds",
+      type: 'builds',
       id: buildId,
       attributes: { usesNonExemptEncryption: value },
     });
@@ -1496,7 +1529,7 @@ export class AppStoreConnectClient {
    */
   async getEditableAppInfoId(appId: string): Promise<string | null> {
     const { data } = await this.request<ResourceList<{ state?: string; appStoreState?: string }>>(
-      "GET",
+      'GET',
       `/apps/${appId}/appInfos?fields[appInfos]=state,appStoreState&limit=20`,
     );
     const editable = data.find((info) => {
@@ -1513,7 +1546,7 @@ export class AppStoreConnectClient {
     );
     return data.map((entry) => ({
       id: entry.id,
-      locale: typeof entry.attributes["locale"] === "string" ? entry.attributes["locale"] : "",
+      locale: typeof entry.attributes['locale'] === 'string' ? entry.attributes['locale'] : '',
       fields: pickListingFields(entry.attributes, APP_INFO_LISTING_FIELDS),
     }));
   }
@@ -1530,24 +1563,31 @@ export class AppStoreConnectClient {
       `/appInfos/${appInfoId}/appInfoLocalizations?limit=200&fields[appInfoLocalizations]=locale,privacyChoicesUrl`,
     );
     return data.map((entry) => ({
-      locale: entry.attributes.locale ?? "",
-      url: entry.attributes.privacyChoicesUrl ?? "",
+      locale: entry.attributes.locale ?? '',
+      url: entry.attributes.privacyChoicesUrl ?? '',
     }));
   }
 
   /** Create a missing app-level listing locale. `fields` must include `name` (Apple requires it). */
-  async createAppInfoLocalization(appInfoId: string, locale: string, fields: Record<string, string>): Promise<void> {
-    await this.createResource("/appInfoLocalizations", {
-      type: "appInfoLocalizations",
+  async createAppInfoLocalization(
+    appInfoId: string,
+    locale: string,
+    fields: Record<string, string>,
+  ): Promise<void> {
+    await this.createResource('/appInfoLocalizations', {
+      type: 'appInfoLocalizations',
       attributes: { locale, ...fields },
-      relationships: { appInfo: { data: { type: "appInfos", id: appInfoId } } },
+      relationships: { appInfo: { data: { type: 'appInfos', id: appInfoId } } },
     });
   }
 
   /** Patch changed fields on an existing app-level listing locale (locale itself is immutable). */
-  async updateAppInfoLocalization(localizationId: string, fields: Record<string, string>): Promise<void> {
+  async updateAppInfoLocalization(
+    localizationId: string,
+    fields: Record<string, string>,
+  ): Promise<void> {
     await this.updateResource(`/appInfoLocalizations/${localizationId}`, {
-      type: "appInfoLocalizations",
+      type: 'appInfoLocalizations',
       id: localizationId,
       attributes: fields,
     });
@@ -1563,7 +1603,10 @@ export class AppStoreConnectClient {
     const data = await this.requestAll<{ appEncryptionDeclarationState: string }>(
       `/apps/${appId}/appEncryptionDeclarations?fields[appEncryptionDeclarations]=appEncryptionDeclarationState&limit=200`,
     );
-    return data.map((entry) => ({ id: entry.id, state: entry.attributes.appEncryptionDeclarationState }));
+    return data.map((entry) => ({
+      id: entry.id,
+      state: entry.attributes.appEncryptionDeclarationState,
+    }));
   }
 
   /**
@@ -1571,9 +1614,13 @@ export class AppStoreConnectClient {
    * answer instead of submitting a fresh declaration per build (Apple returns `204 No Content`).
    */
   async linkBuildToDeclaration(declarationId: string, buildId: string): Promise<void> {
-    await this.request<unknown>("POST", `/appEncryptionDeclarations/${declarationId}/relationships/builds`, {
-      data: [{ type: "builds", id: buildId }],
-    });
+    await this.request<unknown>(
+      'POST',
+      `/appEncryptionDeclarations/${declarationId}/relationships/builds`,
+      {
+        data: [{ type: 'builds', id: buildId }],
+      },
+    );
   }
 
   /**
@@ -1582,10 +1629,12 @@ export class AppStoreConnectClient {
    */
   async getEditableVersionId(appId: string): Promise<string | null> {
     const { data } = await this.request<ResourceList<{ appStoreState: string }>>(
-      "GET",
+      'GET',
       `/apps/${appId}/appStoreVersions?fields[appStoreVersions]=appStoreState&limit=20`,
     );
-    const editable = data.find((version) => EDITABLE_VERSION_STATES.has(version.attributes.appStoreState));
+    const editable = data.find((version) =>
+      EDITABLE_VERSION_STATES.has(version.attributes.appStoreState),
+    );
     return editable?.id ?? null;
   }
 
@@ -1596,24 +1645,31 @@ export class AppStoreConnectClient {
     );
     return data.map((entry) => ({
       id: entry.id,
-      locale: typeof entry.attributes["locale"] === "string" ? entry.attributes["locale"] : "",
+      locale: typeof entry.attributes['locale'] === 'string' ? entry.attributes['locale'] : '',
       fields: pickListingFields(entry.attributes, VERSION_LISTING_FIELDS),
     }));
   }
 
   /** Create a missing version-level listing locale (Apple requires only `locale`). */
-  async createVersionLocalization(versionId: string, locale: string, fields: Record<string, string>): Promise<void> {
-    await this.createResource("/appStoreVersionLocalizations", {
-      type: "appStoreVersionLocalizations",
+  async createVersionLocalization(
+    versionId: string,
+    locale: string,
+    fields: Record<string, string>,
+  ): Promise<void> {
+    await this.createResource('/appStoreVersionLocalizations', {
+      type: 'appStoreVersionLocalizations',
       attributes: { locale, ...fields },
-      relationships: { appStoreVersion: { data: { type: "appStoreVersions", id: versionId } } },
+      relationships: { appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } } },
     });
   }
 
   /** Patch changed fields on an existing version-level listing locale (locale itself is immutable). */
-  async updateVersionLocalization(localizationId: string, fields: Record<string, string>): Promise<void> {
+  async updateVersionLocalization(
+    localizationId: string,
+    fields: Record<string, string>,
+  ): Promise<void> {
     await this.updateResource(`/appStoreVersionLocalizations/${localizationId}`, {
-      type: "appStoreVersionLocalizations",
+      type: 'appStoreVersionLocalizations',
       id: localizationId,
       attributes: fields,
     });
@@ -1635,13 +1691,15 @@ export class AppStoreConnectClient {
    * List a clip's default experiences with each one's card `action` and the App Store version it releases
    * with — the version linkage lets the reconciler pick the experience for the version being prepared.
    */
-  async listAppClipDefaultExperiences(appClipId: string): Promise<AppClipDefaultExperienceResource[]> {
+  async listAppClipDefaultExperiences(
+    appClipId: string,
+  ): Promise<AppClipDefaultExperienceResource[]> {
     const all: AppClipDefaultExperienceResource[] = [];
     let next: string | undefined =
       `/appClips/${appClipId}/appClipDefaultExperiences` +
       `?include=releaseWithAppStoreVersion&fields[appClipDefaultExperiences]=action,releaseWithAppStoreVersion&limit=200`;
     while (next) {
-      const page: AppClipExperiencePage = await this.request<AppClipExperiencePage>("GET", next);
+      const page: AppClipExperiencePage = await this.request<AppClipExperiencePage>('GET', next);
       for (const entry of page.data) {
         all.push({
           id: entry.id,
@@ -1662,40 +1720,45 @@ export class AppStoreConnectClient {
     versionId: string,
     action?: AppClipActionValue,
   ): Promise<{ id: string }> {
-    const body: components["schemas"]["AppClipDefaultExperienceCreateRequest"] = {
+    const body: components['schemas']['AppClipDefaultExperienceCreateRequest'] = {
       data: {
-        type: "appClipDefaultExperiences",
+        type: 'appClipDefaultExperiences',
         ...(action ? { attributes: { action } } : {}),
         relationships: {
-          appClip: { data: { type: "appClips", id: appClipId } },
-          releaseWithAppStoreVersion: { data: { type: "appStoreVersions", id: versionId } },
+          appClip: { data: { type: 'appClips', id: appClipId } },
+          releaseWithAppStoreVersion: { data: { type: 'appStoreVersions', id: versionId } },
         },
       },
     };
     const { data } = await this.request<ResourceSingle<{ action?: string }>>(
-      "POST",
-      "/appClipDefaultExperiences",
+      'POST',
+      '/appClipDefaultExperiences',
       body,
     );
     return { id: data.id };
   }
 
   /** PATCH a default experience's card call-to-action (`OPEN` / `VIEW` / `PLAY`). */
-  async updateAppClipDefaultExperienceAction(experienceId: string, action: AppClipActionValue): Promise<void> {
-    const body: components["schemas"]["AppClipDefaultExperienceUpdateRequest"] = {
-      data: { type: "appClipDefaultExperiences", id: experienceId, attributes: { action } },
+  async updateAppClipDefaultExperienceAction(
+    experienceId: string,
+    action: AppClipActionValue,
+  ): Promise<void> {
+    const body: components['schemas']['AppClipDefaultExperienceUpdateRequest'] = {
+      data: { type: 'appClipDefaultExperiences', id: experienceId, attributes: { action } },
     };
-    await this.request<unknown>("PATCH", `/appClipDefaultExperiences/${experienceId}`, body);
+    await this.request<unknown>('PATCH', `/appClipDefaultExperiences/${experienceId}`, body);
   }
 
   /** List a default experience's per-locale card localizations (locale + subtitle). */
-  async listAppClipDefaultExperienceLocalizations(experienceId: string): Promise<AppClipLocalizationResource[]> {
+  async listAppClipDefaultExperienceLocalizations(
+    experienceId: string,
+  ): Promise<AppClipLocalizationResource[]> {
     const data = await this.requestAll<{ locale?: string; subtitle?: string }>(
       `/appClipDefaultExperiences/${experienceId}/appClipDefaultExperienceLocalizations?limit=200`,
     );
     return data.map((entry) => ({
       id: entry.id,
-      locale: entry.attributes.locale ?? "",
+      locale: entry.attributes.locale ?? '',
       ...(entry.attributes.subtitle ? { subtitle: entry.attributes.subtitle } : {}),
     }));
   }
@@ -1706,27 +1769,42 @@ export class AppStoreConnectClient {
     locale: string,
     subtitle: string,
   ): Promise<void> {
-    const body: components["schemas"]["AppClipDefaultExperienceLocalizationCreateRequest"] = {
+    const body: components['schemas']['AppClipDefaultExperienceLocalizationCreateRequest'] = {
       data: {
-        type: "appClipDefaultExperienceLocalizations",
+        type: 'appClipDefaultExperienceLocalizations',
         attributes: { locale, subtitle },
-        relationships: { appClipDefaultExperience: { data: { type: "appClipDefaultExperiences", id: experienceId } } },
+        relationships: {
+          appClipDefaultExperience: {
+            data: { type: 'appClipDefaultExperiences', id: experienceId },
+          },
+        },
       },
     };
-    await this.request<unknown>("POST", "/appClipDefaultExperienceLocalizations", body);
+    await this.request<unknown>('POST', '/appClipDefaultExperienceLocalizations', body);
   }
 
   /** PATCH a card localization's subtitle (the locale itself is immutable). */
-  async updateAppClipDefaultExperienceLocalization(localizationId: string, subtitle: string): Promise<void> {
-    const body: components["schemas"]["AppClipDefaultExperienceLocalizationUpdateRequest"] = {
-      data: { type: "appClipDefaultExperienceLocalizations", id: localizationId, attributes: { subtitle } },
+  async updateAppClipDefaultExperienceLocalization(
+    localizationId: string,
+    subtitle: string,
+  ): Promise<void> {
+    const body: components['schemas']['AppClipDefaultExperienceLocalizationUpdateRequest'] = {
+      data: {
+        type: 'appClipDefaultExperienceLocalizations',
+        id: localizationId,
+        attributes: { subtitle },
+      },
     };
-    await this.request<unknown>("PATCH", `/appClipDefaultExperienceLocalizations/${localizationId}`, body);
+    await this.request<unknown>(
+      'PATCH',
+      `/appClipDefaultExperienceLocalizations/${localizationId}`,
+      body,
+    );
   }
 
   /** Cheap call that fails with a clear message when the account has an unsigned/expired agreement. */
   async assertReady(): Promise<void> {
-    await this.request<ResourceList<unknown>>("GET", "/bundleIds?limit=1");
+    await this.request<ResourceList<unknown>>('GET', '/bundleIds?limit=1');
   }
 
   /**
@@ -1740,7 +1818,7 @@ export class AppStoreConnectClient {
    */
   async checkRequiredAgreements(): Promise<boolean> {
     try {
-      await this.request<ResourceList<unknown>>("GET", "/bundleIds?limit=1");
+      await this.request<ResourceList<unknown>>('GET', '/bundleIds?limit=1');
       return true;
     } catch (error) {
       if (
@@ -1760,8 +1838,8 @@ export class AppStoreConnectClient {
    */
   async resolveTeamId(): Promise<string | null> {
     const { data } = await this.request<ResourceList<{ seedId?: string }>>(
-      "GET",
-      "/bundleIds?limit=1&fields[bundleIds]=seedId",
+      'GET',
+      '/bundleIds?limit=1&fields[bundleIds]=seedId',
     );
     return data[0]?.attributes.seedId ?? null;
   }
@@ -1771,19 +1849,25 @@ export class AppStoreConnectClient {
    * apart in the picker (an opaque Team ID alone isn't memorable). All pages, names only.
    */
   async listAppNames(): Promise<string[]> {
-    const data = await this.requestAll<{ name?: string }>("/apps?fields[apps]=name&limit=200");
-    return data.map((entry) => entry.attributes.name).filter((name): name is string => Boolean(name));
+    const data = await this.requestAll<{ name?: string }>('/apps?fields[apps]=name&limit=200');
+    return data
+      .map((entry) => entry.attributes.name)
+      .filter((name): name is string => Boolean(name));
   }
 
   /** Find a registered Bundle ID by its identifier, or null if it isn't registered yet. */
   async findBundleId(identifier: string): Promise<BundleIdResource | null> {
     const { data } = await this.request<ResourceList<{ identifier: string; seedId?: string }>>(
-      "GET",
+      'GET',
       `/bundleIds?filter[identifier]=${encodeURIComponent(identifier)}&limit=1`,
     );
     const first = data[0];
     if (!first) return null;
-    return { id: first.id, identifier: first.attributes.identifier, seedId: first.attributes.seedId };
+    return {
+      id: first.id,
+      identifier: first.attributes.identifier,
+      seedId: first.attributes.seedId,
+    };
   }
 
   /**
@@ -1794,10 +1878,10 @@ export class AppStoreConnectClient {
   async createBundleId(
     identifier: string,
     name: string,
-    bundleIdPlatform: components["schemas"]["BundleIdPlatform"] = "IOS",
+    bundleIdPlatform: components['schemas']['BundleIdPlatform'] = 'IOS',
   ): Promise<BundleIdResource> {
-    const data = await this.createResource<{ identifier: string; seedId?: string }>("/bundleIds", {
-      type: "bundleIds",
+    const data = await this.createResource<{ identifier: string; seedId?: string }>('/bundleIds', {
+      type: 'bundleIds',
       attributes: { identifier, name, platform: bundleIdPlatform },
     });
     return { id: data.id, identifier: data.attributes.identifier, seedId: data.attributes.seedId };
@@ -1805,9 +1889,11 @@ export class AppStoreConnectClient {
 
   /** List distribution certificates, newest expiry first, for reuse before creating a new one. */
   async listDistributionCertificates(): Promise<CertificateResource[]> {
-    const data = await this.requestAll<{ serialNumber: string; certificateContent: string; expirationDate?: string }>(
-      `/certificates?filter[certificateType]=${DISTRIBUTION_CERT_TYPE}&limit=200`,
-    );
+    const data = await this.requestAll<{
+      serialNumber: string;
+      certificateContent: string;
+      expirationDate?: string;
+    }>(`/certificates?filter[certificateType]=${DISTRIBUTION_CERT_TYPE}&limit=200`);
     return data.map((entry) => ({
       id: entry.id,
       serialNumber: entry.attributes.serialNumber,
@@ -1822,8 +1908,8 @@ export class AppStoreConnectClient {
       serialNumber: string;
       certificateContent: string;
       expirationDate?: string;
-    }>("/certificates", {
-      type: "certificates",
+    }>('/certificates', {
+      type: 'certificates',
       attributes: { csrContent, certificateType: DISTRIBUTION_CERT_TYPE },
     });
     return {
@@ -1836,10 +1922,9 @@ export class AppStoreConnectClient {
 
   /** Find a provisioning profile by exact name (Launch names its profiles deterministically). */
   async findProfileByName(name: string): Promise<ProfileResource | null> {
-    const { data } = await this.request<ResourceList<{ name: string; uuid: string; profileContent: string }>>(
-      "GET",
-      `/profiles?filter[name]=${encodeURIComponent(name)}&limit=1`,
-    );
+    const { data } = await this.request<
+      ResourceList<{ name: string; uuid: string; profileContent: string }>
+    >('GET', `/profiles?filter[name]=${encodeURIComponent(name)}&limit=1`);
     const first = data[0];
     if (!first) return null;
     return {
@@ -1861,14 +1946,17 @@ export class AppStoreConnectClient {
     certificateId: string,
     profileType: ProvisioningProfileType = APP_STORE_PROFILE_TYPE,
   ): Promise<ProfileResource> {
-    const data = await this.createResource<{ name: string; uuid: string; profileContent: string }>("/profiles", {
-      type: "profiles",
-      attributes: { name, profileType },
-      relationships: {
-        bundleId: { data: { type: "bundleIds", id: bundleIdResourceId } },
-        certificates: { data: [{ type: "certificates", id: certificateId }] },
+    const data = await this.createResource<{ name: string; uuid: string; profileContent: string }>(
+      '/profiles',
+      {
+        type: 'profiles',
+        attributes: { name, profileType },
+        relationships: {
+          bundleId: { data: { type: 'bundleIds', id: bundleIdResourceId } },
+          certificates: { data: [{ type: 'certificates', id: certificateId }] },
+        },
       },
-    });
+    );
     return {
       id: data.id,
       name: data.attributes.name,
@@ -1888,7 +1976,9 @@ export class AppStoreConnectClient {
    * collection via {@link requestAll} rather than reading one page (the silent-truncation trap).
    */
   async listDevices(): Promise<DeviceResource[]> {
-    const data = await this.requestAll<{ udid: string; name: string; status?: string }>("/devices?limit=200");
+    const data = await this.requestAll<{ udid: string; name: string; status?: string }>(
+      '/devices?limit=200',
+    );
     return data.map((entry) => ({
       id: entry.id,
       udid: entry.attributes.udid,
@@ -1900,7 +1990,9 @@ export class AppStoreConnectClient {
   /** Find a registered device by UDID (case-insensitive — Apple stores UDIDs lower-case), or null. */
   async findDeviceByUdid(udid: string): Promise<DeviceResource | null> {
     const wanted = udid.toLowerCase();
-    return (await this.listDevices()).find((device) => device.udid.toLowerCase() === wanted) ?? null;
+    return (
+      (await this.listDevices()).find((device) => device.udid.toLowerCase() === wanted) ?? null
+    );
   }
 
   /**
@@ -1908,11 +2000,19 @@ export class AppStoreConnectClient {
    * returns the existing entry rather than erroring), so callers can register-then-include safely.
    */
   async registerDevice(udid: string, name: string): Promise<DeviceResource> {
-    const data = await this.createResource<{ udid: string; name: string; status?: string }>("/devices", {
-      type: "devices",
-      attributes: { udid, name, platform: IOS_DEVICE_PLATFORM },
-    });
-    return { id: data.id, udid: data.attributes.udid, name: data.attributes.name, status: data.attributes.status };
+    const data = await this.createResource<{ udid: string; name: string; status?: string }>(
+      '/devices',
+      {
+        type: 'devices',
+        attributes: { udid, name, platform: IOS_DEVICE_PLATFORM },
+      },
+    );
+    return {
+      id: data.id,
+      udid: data.attributes.udid,
+      name: data.attributes.name,
+      status: data.attributes.status,
+    };
   }
 
   /**
@@ -1927,15 +2027,18 @@ export class AppStoreConnectClient {
     deviceIds: string[],
     profileType: ProvisioningProfileType = AD_HOC_PROFILE_TYPE,
   ): Promise<ProfileResource> {
-    const data = await this.createResource<{ name: string; uuid: string; profileContent: string }>("/profiles", {
-      type: "profiles",
-      attributes: { name, profileType },
-      relationships: {
-        bundleId: { data: { type: "bundleIds", id: bundleIdResourceId } },
-        certificates: { data: [{ type: "certificates", id: certificateId }] },
-        devices: { data: deviceIds.map((id) => ({ type: "devices", id })) },
+    const data = await this.createResource<{ name: string; uuid: string; profileContent: string }>(
+      '/profiles',
+      {
+        type: 'profiles',
+        attributes: { name, profileType },
+        relationships: {
+          bundleId: { data: { type: 'bundleIds', id: bundleIdResourceId } },
+          certificates: { data: [{ type: 'certificates', id: certificateId }] },
+          devices: { data: deviceIds.map((id) => ({ type: 'devices', id })) },
+        },
       },
-    });
+    );
     return {
       id: data.id,
       name: data.attributes.name,
@@ -1951,8 +2054,13 @@ export class AppStoreConnectClient {
   /* ------------------------------------------------------------------------ */
 
   /** List the capabilities currently enabled on a bundle id (App ID), with their toggle settings. */
-  async listBundleIdCapabilities(bundleIdResourceId: string): Promise<BundleIdCapabilityResource[]> {
-    const data = await this.requestAll<{ capabilityType?: string; settings?: CapabilitySetting[] | null }>(
+  async listBundleIdCapabilities(
+    bundleIdResourceId: string,
+  ): Promise<BundleIdCapabilityResource[]> {
+    const data = await this.requestAll<{
+      capabilityType?: string;
+      settings?: CapabilitySetting[] | null;
+    }>(
       // Apple's bundleIdCapabilities related endpoint rejects `limit` (400 "does not support this
       // parameter") unlike most collections; pagination still works through links.next in requestAll.
       `/bundleIds/${bundleIdResourceId}/bundleIdCapabilities?fields[bundleIdCapabilities]=capabilityType,settings`,
@@ -1996,11 +2104,14 @@ export class AppStoreConnectClient {
   }
 
   /** Enable a capability on a bundle id. The reconciler only calls this for a capability not already on. */
-  async enableCapability(bundleIdResourceId: string, capabilityType: string): Promise<BundleIdCapabilityResource> {
-    const data = await this.createResource<{ capabilityType?: string }>("/bundleIdCapabilities", {
-      type: "bundleIdCapabilities",
+  async enableCapability(
+    bundleIdResourceId: string,
+    capabilityType: string,
+  ): Promise<BundleIdCapabilityResource> {
+    const data = await this.createResource<{ capabilityType?: string }>('/bundleIdCapabilities', {
+      type: 'bundleIdCapabilities',
       attributes: { capabilityType },
-      relationships: { bundleId: { data: { type: "bundleIds", id: bundleIdResourceId } } },
+      relationships: { bundleId: { data: { type: 'bundleIds', id: bundleIdResourceId } } },
     });
     return { id: data.id, capabilityType: data.attributes.capabilityType ?? capabilityType };
   }
@@ -2022,10 +2133,10 @@ export class AppStoreConnectClient {
       applePayCompatible?: boolean;
       interruptPurchases?: boolean;
       subscriptionRenewalRate?: string;
-    }>(this.v2("/sandboxTesters?limit=200"));
+    }>(this.v2('/sandboxTesters?limit=200'));
     return data.map((entry) => ({
       id: entry.id,
-      acAccountName: entry.attributes.acAccountName ?? "",
+      acAccountName: entry.attributes.acAccountName ?? '',
       ...(entry.attributes.firstName ? { firstName: entry.attributes.firstName } : {}),
       ...(entry.attributes.lastName ? { lastName: entry.attributes.lastName } : {}),
       ...(entry.attributes.territory ? { territory: entry.attributes.territory } : {}),
@@ -2043,10 +2154,10 @@ export class AppStoreConnectClient {
 
   /** Clear the StoreKit purchase history for one or more sandbox testers (a single batched request). */
   async clearSandboxTesterPurchaseHistory(testerIds: string[]): Promise<void> {
-    await this.createResource(this.v2("/sandboxTestersClearPurchaseHistoryRequest"), {
-      type: "sandboxTestersClearPurchaseHistoryRequest",
+    await this.createResource(this.v2('/sandboxTestersClearPurchaseHistoryRequest'), {
+      type: 'sandboxTestersClearPurchaseHistoryRequest',
       relationships: {
-        sandboxTesters: { data: testerIds.map((id) => ({ type: "sandboxTesters", id })) },
+        sandboxTesters: { data: testerIds.map((id) => ({ type: 'sandboxTesters', id })) },
       },
     });
   }
@@ -2058,12 +2169,14 @@ export class AppStoreConnectClient {
       name?: string;
       inAppPurchaseType?: string;
       state?: string;
-    }>(`/apps/${appId}/inAppPurchasesV2?limit=200&fields[inAppPurchases]=productId,name,inAppPurchaseType,state`);
+    }>(
+      `/apps/${appId}/inAppPurchasesV2?limit=200&fields[inAppPurchases]=productId,name,inAppPurchaseType,state`,
+    );
     return data.map((entry) => ({
       id: entry.id,
-      productId: entry.attributes.productId ?? "",
-      name: entry.attributes.name ?? "",
-      inAppPurchaseType: entry.attributes.inAppPurchaseType ?? "",
+      productId: entry.attributes.productId ?? '',
+      name: entry.attributes.name ?? '',
+      inAppPurchaseType: entry.attributes.inAppPurchaseType ?? '',
       ...(entry.attributes.state ? { state: entry.attributes.state } : {}),
     }));
   }
@@ -2073,14 +2186,19 @@ export class AppStoreConnectClient {
     appId: string,
     input: { productId: string; name: string; inAppPurchaseType: string },
   ): Promise<InAppPurchaseResource> {
-    const data = await this.createResource<{ productId?: string; name?: string; inAppPurchaseType?: string }>(
-      this.v2("/inAppPurchases"),
-      {
-        type: "inAppPurchases",
-        attributes: { productId: input.productId, name: input.name, inAppPurchaseType: input.inAppPurchaseType },
-        relationships: { app: { data: { type: "apps", id: appId } } },
+    const data = await this.createResource<{
+      productId?: string;
+      name?: string;
+      inAppPurchaseType?: string;
+    }>(this.v2('/inAppPurchases'), {
+      type: 'inAppPurchases',
+      attributes: {
+        productId: input.productId,
+        name: input.name,
+        inAppPurchaseType: input.inAppPurchaseType,
       },
-    );
+      relationships: { app: { data: { type: 'apps', id: appId } } },
+    });
     return {
       id: data.id,
       productId: data.attributes.productId ?? input.productId,
@@ -2093,7 +2211,9 @@ export class AppStoreConnectClient {
   async listInAppPurchaseLocalizations(iapId: string): Promise<LocalizationResource[]> {
     // The relationship read lives under /v2/inAppPurchases/{id}/… — the bare /v1 inAppPurchasesV2/{id}
     // resource path 404s ("does not match a defined resource type"); only the collection is v1.
-    return this.localizationsFrom(this.v2(`/inAppPurchases/${iapId}/inAppPurchaseLocalizations?limit=200`));
+    return this.localizationsFrom(
+      this.v2(`/inAppPurchases/${iapId}/inAppPurchaseLocalizations?limit=200`),
+    );
   }
 
   /** Create one locale's display copy for an in-app purchase. */
@@ -2101,7 +2221,13 @@ export class AppStoreConnectClient {
     iapId: string,
     input: { locale: string; name: string; description?: string },
   ): Promise<LocalizationResource> {
-    return this.createLocalization("inAppPurchaseLocalizations", "inAppPurchaseV2", "inAppPurchases", iapId, input);
+    return this.createLocalization(
+      'inAppPurchaseLocalizations',
+      'inAppPurchaseV2',
+      'inAppPurchases',
+      iapId,
+      input,
+    );
   }
 
   /** List an app's subscription groups. */
@@ -2110,23 +2236,30 @@ export class AppStoreConnectClient {
       `/apps/${appId}/subscriptionGroups?limit=200&fields[subscriptionGroups]=referenceName`,
     );
     return data.flatMap((entry) =>
-      entry.attributes.referenceName ? [{ id: entry.id, referenceName: entry.attributes.referenceName }] : [],
+      entry.attributes.referenceName
+        ? [{ id: entry.id, referenceName: entry.attributes.referenceName }]
+        : [],
     );
   }
 
   /** Create a subscription group on an app. */
-  async createSubscriptionGroup(appId: string, referenceName: string): Promise<SubscriptionGroupResource> {
-    const data = await this.createResource<{ referenceName?: string }>("/subscriptionGroups", {
-      type: "subscriptionGroups",
+  async createSubscriptionGroup(
+    appId: string,
+    referenceName: string,
+  ): Promise<SubscriptionGroupResource> {
+    const data = await this.createResource<{ referenceName?: string }>('/subscriptionGroups', {
+      type: 'subscriptionGroups',
       attributes: { referenceName },
-      relationships: { app: { data: { type: "apps", id: appId } } },
+      relationships: { app: { data: { type: 'apps', id: appId } } },
     });
     return { id: data.id, referenceName: data.attributes.referenceName ?? referenceName };
   }
 
   /** List a subscription group's display-name localizations. */
   async listSubscriptionGroupLocalizations(groupId: string): Promise<LocalizationResource[]> {
-    return this.localizationsFrom(`/subscriptionGroups/${groupId}/subscriptionGroupLocalizations?limit=200`);
+    return this.localizationsFrom(
+      `/subscriptionGroups/${groupId}/subscriptionGroupLocalizations?limit=200`,
+    );
   }
 
   /** Create one locale's display name for a subscription group (groups carry a name only, no description). */
@@ -2135,9 +2268,9 @@ export class AppStoreConnectClient {
     input: { locale: string; name: string },
   ): Promise<LocalizationResource> {
     return this.createLocalization(
-      "subscriptionGroupLocalizations",
-      "subscriptionGroup",
-      "subscriptionGroups",
+      'subscriptionGroupLocalizations',
+      'subscriptionGroup',
+      'subscriptionGroups',
       groupId,
       input,
     );
@@ -2155,9 +2288,11 @@ export class AppStoreConnectClient {
     );
     return data.map((entry) => ({
       id: entry.id,
-      productId: entry.attributes.productId ?? "",
-      name: entry.attributes.name ?? "",
-      ...(entry.attributes.subscriptionPeriod ? { subscriptionPeriod: entry.attributes.subscriptionPeriod } : {}),
+      productId: entry.attributes.productId ?? '',
+      name: entry.attributes.name ?? '',
+      ...(entry.attributes.subscriptionPeriod
+        ? { subscriptionPeriod: entry.attributes.subscriptionPeriod }
+        : {}),
       ...(entry.attributes.state ? { state: entry.attributes.state } : {}),
     }));
   }
@@ -2167,16 +2302,19 @@ export class AppStoreConnectClient {
     groupId: string,
     input: { productId: string; name: string; subscriptionPeriod: string; groupLevel: number },
   ): Promise<SubscriptionResource> {
-    const data = await this.createResource<{ productId?: string; name?: string }>("/subscriptions", {
-      type: "subscriptions",
-      attributes: {
-        productId: input.productId,
-        name: input.name,
-        subscriptionPeriod: input.subscriptionPeriod,
-        groupLevel: input.groupLevel,
+    const data = await this.createResource<{ productId?: string; name?: string }>(
+      '/subscriptions',
+      {
+        type: 'subscriptions',
+        attributes: {
+          productId: input.productId,
+          name: input.name,
+          subscriptionPeriod: input.subscriptionPeriod,
+          groupLevel: input.groupLevel,
+        },
+        relationships: { group: { data: { type: 'subscriptionGroups', id: groupId } } },
       },
-      relationships: { group: { data: { type: "subscriptionGroups", id: groupId } } },
-    });
+    );
     return {
       id: data.id,
       productId: data.attributes.productId ?? input.productId,
@@ -2186,7 +2324,9 @@ export class AppStoreConnectClient {
 
   /** List a subscription's display-copy localizations. */
   async listSubscriptionLocalizations(subscriptionId: string): Promise<LocalizationResource[]> {
-    return this.localizationsFrom(`/subscriptions/${subscriptionId}/subscriptionLocalizations?limit=200`);
+    return this.localizationsFrom(
+      `/subscriptions/${subscriptionId}/subscriptionLocalizations?limit=200`,
+    );
   }
 
   /** Create one locale's display copy for a subscription. */
@@ -2194,13 +2334,19 @@ export class AppStoreConnectClient {
     subscriptionId: string,
     input: { locale: string; name: string; description?: string },
   ): Promise<LocalizationResource> {
-    return this.createLocalization("subscriptionLocalizations", "subscription", "subscriptions", subscriptionId, input);
+    return this.createLocalization(
+      'subscriptionLocalizations',
+      'subscription',
+      'subscriptions',
+      subscriptionId,
+      input,
+    );
   }
 
   /** Whether a subscription already has at least one price set (so the reconciler skips re-pricing it). */
   async subscriptionHasPrice(subscriptionId: string): Promise<boolean> {
     const { data } = await this.request<ResourceList<unknown>>(
-      "GET",
+      'GET',
       `/subscriptions/${subscriptionId}/prices?limit=1`,
     );
     return data.length > 0;
@@ -2220,12 +2366,12 @@ export class AppStoreConnectClient {
 
   /** Set a subscription's price by linking it to a resolved price point (effective immediately). */
   async createSubscriptionPrice(subscriptionId: string, pricePointId: string): Promise<void> {
-    await this.createResource("/subscriptionPrices", {
-      type: "subscriptionPrices",
+    await this.createResource('/subscriptionPrices', {
+      type: 'subscriptionPrices',
       attributes: { preserveCurrentPrice: false },
       relationships: {
-        subscription: { data: { type: "subscriptions", id: subscriptionId } },
-        subscriptionPricePoint: { data: { type: "subscriptionPricePoints", id: pricePointId } },
+        subscription: { data: { type: 'subscriptions', id: subscriptionId } },
+        subscriptionPricePoint: { data: { type: 'subscriptionPricePoints', id: pricePointId } },
       },
     });
   }
@@ -2244,16 +2390,16 @@ export class AppStoreConnectClient {
     );
     return data.map((entry) => ({
       id: entry.id,
-      name: entry.attributes.name ?? "",
+      name: entry.attributes.name ?? '',
       active: entry.attributes.active ?? false,
     }));
   }
 
   /** Create an offer-code campaign with its per-territory prices (temp-id + `included` inline pattern). */
   async createSubscriptionOfferCode(input: OfferCodeCreate): Promise<OfferCodeResource> {
-    const body: components["schemas"]["SubscriptionOfferCodeCreateRequest"] = {
+    const body: components['schemas']['SubscriptionOfferCodeCreateRequest'] = {
       data: {
-        type: "subscriptionOfferCodes",
+        type: 'subscriptionOfferCodes',
         attributes: {
           name: input.name,
           customerEligibilities: input.customerEligibilities,
@@ -2263,35 +2409,44 @@ export class AppStoreConnectClient {
           numberOfPeriods: input.numberOfPeriods,
         },
         relationships: {
-          subscription: { data: { type: "subscriptions", id: input.subscriptionId } },
+          subscription: { data: { type: 'subscriptions', id: input.subscriptionId } },
           prices: {
-            data: input.prices.map((_, index) => ({ type: "subscriptionOfferCodePrices", id: `price-${index}` })),
+            data: input.prices.map((_, index) => ({
+              type: 'subscriptionOfferCodePrices',
+              id: `price-${index}`,
+            })),
           },
         },
       },
       included: input.prices.map((price, index) => ({
-        type: "subscriptionOfferCodePrices",
+        type: 'subscriptionOfferCodePrices',
         id: `price-${index}`,
         relationships: {
-          territory: { data: { type: "territories", id: price.territory } },
-          subscriptionPricePoint: { data: { type: "subscriptionPricePoints", id: price.pricePointId } },
+          territory: { data: { type: 'territories', id: price.territory } },
+          subscriptionPricePoint: {
+            data: { type: 'subscriptionPricePoints', id: price.pricePointId },
+          },
         },
       })),
     };
     const { data } = await this.request<ResourceSingle<{ name?: string; active?: boolean }>>(
-      "POST",
-      "/subscriptionOfferCodes",
+      'POST',
+      '/subscriptionOfferCodes',
       body,
     );
-    return { id: data.id, name: data.attributes.name ?? input.name, active: data.attributes.active ?? true };
+    return {
+      id: data.id,
+      name: data.attributes.name ?? input.name,
+      active: data.attributes.active ?? true,
+    };
   }
 
   /** Deactivate an offer-code campaign (Apple only lets you toggle `active`, never edit the terms). */
   async deactivateOfferCode(offerCodeId: string): Promise<void> {
-    const body: components["schemas"]["SubscriptionOfferCodeUpdateRequest"] = {
-      data: { type: "subscriptionOfferCodes", id: offerCodeId, attributes: { active: false } },
+    const body: components['schemas']['SubscriptionOfferCodeUpdateRequest'] = {
+      data: { type: 'subscriptionOfferCodes', id: offerCodeId, attributes: { active: false } },
     };
-    await this.request<unknown>("PATCH", `/subscriptionOfferCodes/${offerCodeId}`, body);
+    await this.request<unknown>('PATCH', `/subscriptionOfferCodes/${offerCodeId}`, body);
   }
 
   /** Generate a batch of one-time-use codes under an offer-code campaign. */
@@ -2300,14 +2455,14 @@ export class AppStoreConnectClient {
     numberOfCodes: number,
     expirationDate: string,
   ): Promise<void> {
-    const body: components["schemas"]["SubscriptionOfferCodeOneTimeUseCodeCreateRequest"] = {
+    const body: components['schemas']['SubscriptionOfferCodeOneTimeUseCodeCreateRequest'] = {
       data: {
-        type: "subscriptionOfferCodeOneTimeUseCodes",
+        type: 'subscriptionOfferCodeOneTimeUseCodes',
         attributes: { numberOfCodes, expirationDate },
-        relationships: { offerCode: { data: { type: "subscriptionOfferCodes", id: offerCodeId } } },
+        relationships: { offerCode: { data: { type: 'subscriptionOfferCodes', id: offerCodeId } } },
       },
     };
-    await this.request<unknown>("POST", "/subscriptionOfferCodeOneTimeUseCodes", body);
+    await this.request<unknown>('POST', '/subscriptionOfferCodeOneTimeUseCodes', body);
   }
 
   /** Create a custom (shareable) code under an offer-code campaign, redeemable `numberOfCodes` times. */
@@ -2317,14 +2472,14 @@ export class AppStoreConnectClient {
     numberOfCodes: number,
     expirationDate?: string,
   ): Promise<void> {
-    const body: components["schemas"]["SubscriptionOfferCodeCustomCodeCreateRequest"] = {
+    const body: components['schemas']['SubscriptionOfferCodeCustomCodeCreateRequest'] = {
       data: {
-        type: "subscriptionOfferCodeCustomCodes",
+        type: 'subscriptionOfferCodeCustomCodes',
         attributes: { customCode, numberOfCodes, ...(expirationDate ? { expirationDate } : {}) },
-        relationships: { offerCode: { data: { type: "subscriptionOfferCodes", id: offerCodeId } } },
+        relationships: { offerCode: { data: { type: 'subscriptionOfferCodes', id: offerCodeId } } },
       },
     };
-    await this.request<unknown>("POST", "/subscriptionOfferCodeCustomCodes", body);
+    await this.request<unknown>('POST', '/subscriptionOfferCodeCustomCodes', body);
   }
 
   /** List a subscription's promotional offers (keyed by the StoreKit-facing `offerCode`). */
@@ -2334,16 +2489,16 @@ export class AppStoreConnectClient {
     );
     return data.map((entry) => ({
       id: entry.id,
-      name: entry.attributes.name ?? "",
-      offerCode: entry.attributes.offerCode ?? "",
+      name: entry.attributes.name ?? '',
+      offerCode: entry.attributes.offerCode ?? '',
     }));
   }
 
   /** Create a promotional offer with its per-territory prices. */
   async createPromotionalOffer(input: PromotionalOfferCreate): Promise<PromotionalOfferResource> {
-    const body: components["schemas"]["SubscriptionPromotionalOfferCreateRequest"] = {
+    const body: components['schemas']['SubscriptionPromotionalOfferCreateRequest'] = {
       data: {
-        type: "subscriptionPromotionalOffers",
+        type: 'subscriptionPromotionalOffers',
         attributes: {
           duration: input.duration,
           name: input.name,
@@ -2352,27 +2507,29 @@ export class AppStoreConnectClient {
           offerMode: input.offerMode,
         },
         relationships: {
-          subscription: { data: { type: "subscriptions", id: input.subscriptionId } },
+          subscription: { data: { type: 'subscriptions', id: input.subscriptionId } },
           prices: {
             data: input.prices.map((_, index) => ({
-              type: "subscriptionPromotionalOfferPrices",
+              type: 'subscriptionPromotionalOfferPrices',
               id: `price-${index}`,
             })),
           },
         },
       },
       included: input.prices.map((price, index) => ({
-        type: "subscriptionPromotionalOfferPrices",
+        type: 'subscriptionPromotionalOfferPrices',
         id: `price-${index}`,
         relationships: {
-          territory: { data: { type: "territories", id: price.territory } },
-          subscriptionPricePoint: { data: { type: "subscriptionPricePoints", id: price.pricePointId } },
+          territory: { data: { type: 'territories', id: price.territory } },
+          subscriptionPricePoint: {
+            data: { type: 'subscriptionPricePoints', id: price.pricePointId },
+          },
         },
       })),
     };
     const { data } = await this.request<ResourceSingle<{ name?: string; offerCode?: string }>>(
-      "POST",
-      "/subscriptionPromotionalOffers",
+      'POST',
+      '/subscriptionPromotionalOffers',
       body,
     );
     return {
@@ -2386,15 +2543,18 @@ export class AppStoreConnectClient {
   async listIntroductoryOffers(subscriptionId: string): Promise<IntroductoryOfferResource[]> {
     const { data } = await this.request<{
       data: { id: string; relationships?: { territory?: { data?: { id: string } | null } } }[];
-    }>("GET", `/subscriptions/${subscriptionId}/introductoryOffers?include=territory&limit=200`);
-    return data.map((entry) => ({ id: entry.id, territory: entry.relationships?.territory?.data?.id ?? null }));
+    }>('GET', `/subscriptions/${subscriptionId}/introductoryOffers?include=territory&limit=200`);
+    return data.map((entry) => ({
+      id: entry.id,
+      territory: entry.relationships?.territory?.data?.id ?? null,
+    }));
   }
 
   /** Create an introductory offer for one territory (or all territories when `territory`/`price` are null). */
   async createIntroductoryOffer(input: IntroductoryOfferCreate): Promise<void> {
-    const body: components["schemas"]["SubscriptionIntroductoryOfferCreateRequest"] = {
+    const body: components['schemas']['SubscriptionIntroductoryOfferCreateRequest'] = {
       data: {
-        type: "subscriptionIntroductoryOffers",
+        type: 'subscriptionIntroductoryOffers',
         attributes: {
           duration: input.duration,
           offerMode: input.offerMode,
@@ -2403,15 +2563,21 @@ export class AppStoreConnectClient {
           ...(input.endDate ? { endDate: input.endDate } : {}),
         },
         relationships: {
-          subscription: { data: { type: "subscriptions", id: input.subscriptionId } },
-          ...(input.territory ? { territory: { data: { type: "territories", id: input.territory } } } : {}),
+          subscription: { data: { type: 'subscriptions', id: input.subscriptionId } },
+          ...(input.territory
+            ? { territory: { data: { type: 'territories', id: input.territory } } }
+            : {}),
           ...(input.price
-            ? { subscriptionPricePoint: { data: { type: "subscriptionPricePoints", id: input.price.pricePointId } } }
+            ? {
+                subscriptionPricePoint: {
+                  data: { type: 'subscriptionPricePoints', id: input.price.pricePointId },
+                },
+              }
             : {}),
         },
       },
     };
-    await this.request<unknown>("POST", "/subscriptionIntroductoryOffers", body);
+    await this.request<unknown>('POST', '/subscriptionIntroductoryOffers', body);
   }
 
   /** List a subscription's win-back offers, keyed by the stable `offerId`. */
@@ -2419,14 +2585,14 @@ export class AppStoreConnectClient {
     const data = await this.requestAll<{ offerId?: string }>(
       `/subscriptions/${subscriptionId}/winBackOffers?limit=200`,
     );
-    return data.map((entry) => ({ id: entry.id, offerId: entry.attributes.offerId ?? "" }));
+    return data.map((entry) => ({ id: entry.id, offerId: entry.attributes.offerId ?? '' }));
   }
 
   /** Create a win-back offer with its lapsed-customer eligibility windows and per-territory prices. */
   async createWinBackOffer(input: WinBackOfferCreate): Promise<void> {
-    const body: components["schemas"]["WinBackOfferCreateRequest"] = {
+    const body: components['schemas']['WinBackOfferCreateRequest'] = {
       data: {
-        type: "winBackOffers",
+        type: 'winBackOffers',
         attributes: {
           referenceName: input.referenceName,
           offerId: input.offerId,
@@ -2447,22 +2613,27 @@ export class AppStoreConnectClient {
           ...(input.promotionIntent ? { promotionIntent: input.promotionIntent } : {}),
         },
         relationships: {
-          subscription: { data: { type: "subscriptions", id: input.subscriptionId } },
+          subscription: { data: { type: 'subscriptions', id: input.subscriptionId } },
           prices: {
-            data: input.prices.map((_, index) => ({ type: "winBackOfferPrices", id: `price-${index}` })),
+            data: input.prices.map((_, index) => ({
+              type: 'winBackOfferPrices',
+              id: `price-${index}`,
+            })),
           },
         },
       },
       included: input.prices.map((price, index) => ({
-        type: "winBackOfferPrices",
+        type: 'winBackOfferPrices',
         id: `price-${index}`,
         relationships: {
-          territory: { data: { type: "territories", id: price.territory } },
-          subscriptionPricePoint: { data: { type: "subscriptionPricePoints", id: price.pricePointId } },
+          territory: { data: { type: 'territories', id: price.territory } },
+          subscriptionPricePoint: {
+            data: { type: 'subscriptionPricePoints', id: price.pricePointId },
+          },
         },
       })),
     };
-    await this.request<unknown>("POST", "/winBackOffers", body);
+    await this.request<unknown>('POST', '/winBackOffers', body);
   }
 
   /** List an app's promoted purchases in their current product-page order, with each one's product linkage. */
@@ -2470,7 +2641,7 @@ export class AppStoreConnectClient {
     const all: PromotedPurchaseResource[] = [];
     let next: string | undefined = `/apps/${appId}/promotedPurchases?limit=200`;
     while (next) {
-      const page: PromotedPurchasePage = await this.request<PromotedPurchasePage>("GET", next);
+      const page: PromotedPurchasePage = await this.request<PromotedPurchasePage>('GET', next);
       for (const entry of page.data) {
         all.push({
           id: entry.id,
@@ -2487,26 +2658,24 @@ export class AppStoreConnectClient {
 
   /** Register a promoted purchase for one product (subscription or IAP) on an app. */
   async createPromotedPurchase(input: PromotedPurchaseCreate): Promise<PromotedPurchaseResource> {
-    const body: components["schemas"]["PromotedPurchaseCreateRequest"] = {
+    const body: components['schemas']['PromotedPurchaseCreateRequest'] = {
       data: {
-        type: "promotedPurchases",
+        type: 'promotedPurchases',
         attributes: { visibleForAllUsers: input.visibleForAllUsers, enabled: input.enabled },
         relationships: {
-          app: { data: { type: "apps", id: input.appId } },
+          app: { data: { type: 'apps', id: input.appId } },
           ...(input.inAppPurchaseId
-            ? { inAppPurchaseV2: { data: { type: "inAppPurchases", id: input.inAppPurchaseId } } }
+            ? { inAppPurchaseV2: { data: { type: 'inAppPurchases', id: input.inAppPurchaseId } } }
             : {}),
           ...(input.subscriptionId
-            ? { subscription: { data: { type: "subscriptions", id: input.subscriptionId } } }
+            ? { subscription: { data: { type: 'subscriptions', id: input.subscriptionId } } }
             : {}),
         },
       },
     };
-    const { data } = await this.request<ResourceSingle<{ enabled?: boolean; visibleForAllUsers?: boolean }>>(
-      "POST",
-      "/promotedPurchases",
-      body,
-    );
+    const { data } = await this.request<
+      ResourceSingle<{ enabled?: boolean; visibleForAllUsers?: boolean }>
+    >('POST', '/promotedPurchases', body);
     return {
       id: data.id,
       inAppPurchaseId: input.inAppPurchaseId ?? null,
@@ -2518,10 +2687,10 @@ export class AppStoreConnectClient {
 
   /** Replace the app's promoted-purchase ordering with `orderedIds` (the product-page display order). */
   async reorderPromotedPurchases(appId: string, orderedIds: string[]): Promise<void> {
-    const body: components["schemas"]["AppPromotedPurchasesLinkagesRequest"] = {
-      data: orderedIds.map((id) => ({ type: "promotedPurchases", id })),
+    const body: components['schemas']['AppPromotedPurchasesLinkagesRequest'] = {
+      data: orderedIds.map((id) => ({ type: 'promotedPurchases', id })),
     };
-    await this.request<unknown>("PATCH", `/apps/${appId}/relationships/promotedPurchases`, body);
+    await this.request<unknown>('PATCH', `/apps/${appId}/relationships/promotedPurchases`, body);
   }
 
   /** Whether an in-app purchase already has a price schedule (so the reconciler skips re-pricing it). */
@@ -2529,7 +2698,10 @@ export class AppStoreConnectClient {
     // No schedule yet reads as a 404 on some accounts — {@link getOptional} maps that to "unpriced".
     const schedule = await this.getOptional(() =>
       // Same v2 relationship path as the localizations read — the bare /v1 inAppPurchasesV2/{id} form 404s.
-      this.request<{ data: { id: string } | null }>("GET", this.v2(`/inAppPurchases/${iapId}/iapPriceSchedule`)),
+      this.request<{ data: { id: string } | null }>(
+        'GET',
+        this.v2(`/inAppPurchases/${iapId}/iapPriceSchedule`),
+      ),
     );
     return schedule?.data != null;
   }
@@ -2541,7 +2713,9 @@ export class AppStoreConnectClient {
     customerPrice: number,
   ): Promise<PricePointResource | null> {
     const points = await this.requestAll<{ customerPrice?: string; territory?: string }>(
-      this.v2(`/inAppPurchases/${iapId}/pricePoints?filter[territory]=${encodeURIComponent(territory)}&limit=8000`),
+      this.v2(
+        `/inAppPurchases/${iapId}/pricePoints?filter[territory]=${encodeURIComponent(territory)}&limit=8000`,
+      ),
     );
     return matchPricePoint(points, territory, customerPrice);
   }
@@ -2552,27 +2726,33 @@ export class AppStoreConnectClient {
    * the JSON:API pattern Apple requires here — and a `baseTerritory` is mandatory (omitting it returns
    * Apple's `BASE_TERRITORY_INTERVAL_REQUIRED` 409).
    */
-  async createInAppPurchasePriceSchedule(iapId: string, baseTerritory: string, pricePointId: string): Promise<void> {
+  async createInAppPurchasePriceSchedule(
+    iapId: string,
+    baseTerritory: string,
+    pricePointId: string,
+  ): Promise<void> {
     // Apple's JSON:API inline creation requires the temp id wrapped as ${local-id} (a bare string 409s
     // "invalid format"); the same const feeds both the relationship and the included price so they match.
-    const priceRef = "${launch-base-price}";
-    await this.request<unknown>("POST", "/inAppPurchasePriceSchedules", {
+    const priceRef = '${launch-base-price}';
+    await this.request<unknown>('POST', '/inAppPurchasePriceSchedules', {
       data: {
-        type: "inAppPurchasePriceSchedules",
+        type: 'inAppPurchasePriceSchedules',
         relationships: {
-          inAppPurchase: { data: { type: "inAppPurchases", id: iapId } },
-          baseTerritory: { data: { type: "territories", id: baseTerritory } },
-          manualPrices: { data: [{ type: "inAppPurchasePrices", id: priceRef }] },
+          inAppPurchase: { data: { type: 'inAppPurchases', id: iapId } },
+          baseTerritory: { data: { type: 'territories', id: baseTerritory } },
+          manualPrices: { data: [{ type: 'inAppPurchasePrices', id: priceRef }] },
         },
       },
       included: [
         {
-          type: "inAppPurchasePrices",
+          type: 'inAppPurchasePrices',
           id: priceRef,
           attributes: { startDate: null },
           relationships: {
-            inAppPurchaseV2: { data: { type: "inAppPurchases", id: iapId } },
-            inAppPurchasePricePoint: { data: { type: "inAppPurchasePricePoints", id: pricePointId } },
+            inAppPurchaseV2: { data: { type: 'inAppPurchases', id: iapId } },
+            inAppPurchasePricePoint: {
+              data: { type: 'inAppPurchasePricePoints', id: pricePointId },
+            },
           },
         },
       ],
@@ -2587,9 +2767,11 @@ export class AppStoreConnectClient {
 
   /** List an app's TestFlight beta groups (internal + external), across all pages. */
   async listBetaGroups(appId: string): Promise<BetaGroupResource[]> {
-    const data = await this.requestAll<{ name?: string; isInternalGroup?: boolean; publicLink?: string | null }>(
-      `/apps/${appId}/betaGroups?limit=200&fields[betaGroups]=name,isInternalGroup,publicLink`,
-    );
+    const data = await this.requestAll<{
+      name?: string;
+      isInternalGroup?: boolean;
+      publicLink?: string | null;
+    }>(`/apps/${appId}/betaGroups?limit=200&fields[betaGroups]=name,isInternalGroup,publicLink`);
     return data.flatMap((entry) =>
       entry.attributes.name
         ? [
@@ -2609,15 +2791,18 @@ export class AppStoreConnectClient {
   /** Find an app's beta group by exact, case-insensitive name, or null when there's no such group. */
   async findBetaGroupByName(appId: string, name: string): Promise<BetaGroupResource | null> {
     const wanted = name.toLowerCase();
-    return (await this.listBetaGroups(appId)).find((group) => group.name.toLowerCase() === wanted) ?? null;
+    return (
+      (await this.listBetaGroups(appId)).find((group) => group.name.toLowerCase() === wanted) ??
+      null
+    );
   }
 
   /** Create an external beta group on an app — the bucket external testers are invited into. */
   async createBetaGroup(appId: string, name: string): Promise<BetaGroupResource> {
-    const data = await this.createResource<{ name?: string }>("/betaGroups", {
-      type: "betaGroups",
+    const data = await this.createResource<{ name?: string }>('/betaGroups', {
+      type: 'betaGroups',
       attributes: { name },
-      relationships: { app: { data: { type: "apps", id: appId } } },
+      relationships: { app: { data: { type: 'apps', id: appId } } },
     });
     return { id: data.id, name: data.attributes.name ?? name };
   }
@@ -2655,14 +2840,14 @@ export class AppStoreConnectClient {
       firstName?: string;
       lastName?: string;
       state?: string;
-    }>("/betaTesters", {
-      type: "betaTesters",
+    }>('/betaTesters', {
+      type: 'betaTesters',
       attributes: {
         email: input.email,
         ...(input.firstName === undefined ? {} : { firstName: input.firstName }),
         ...(input.lastName === undefined ? {} : { lastName: input.lastName }),
       },
-      relationships: { betaGroups: { data: [{ type: "betaGroups", id: groupId }] } },
+      relationships: { betaGroups: { data: [{ type: 'betaGroups', id: groupId }] } },
     });
     return {
       id: data.id,
@@ -2675,21 +2860,26 @@ export class AppStoreConnectClient {
 
   /** Add existing testers to a beta group in one relationship call (invites external testers). */
   async addTestersToGroup(groupId: string, testerIds: string[]): Promise<void> {
-    await this.request<unknown>("POST", `/betaGroups/${groupId}/relationships/betaTesters`, {
-      data: testerIds.map((id) => ({ type: "betaTesters", id })),
+    await this.request<unknown>('POST', `/betaGroups/${groupId}/relationships/betaTesters`, {
+      data: testerIds.map((id) => ({ type: 'betaTesters', id })),
     });
   }
 
   /** Remove testers from a beta group; they keep app access through any other group they're in. */
   async removeTestersFromGroup(groupId: string, testerIds: string[]): Promise<void> {
-    await this.request<unknown>("DELETE", `/betaGroups/${groupId}/relationships/betaTesters`, {
-      data: testerIds.map((id) => ({ type: "betaTesters", id })),
+    await this.request<unknown>('DELETE', `/betaGroups/${groupId}/relationships/betaTesters`, {
+      data: testerIds.map((id) => ({ type: 'betaTesters', id })),
     });
   }
 
   /** Shared GET → {@link BetaTesterResource}[] for any beta-tester collection (group members or a lookup). */
   private async betaTestersFrom(path: string): Promise<BetaTesterResource[]> {
-    const data = await this.requestAll<{ email?: string; firstName?: string; lastName?: string; state?: string }>(path);
+    const data = await this.requestAll<{
+      email?: string;
+      firstName?: string;
+      lastName?: string;
+      state?: string;
+    }>(path);
     return data.flatMap((entry) =>
       entry.attributes.email
         ? [
@@ -2722,10 +2912,10 @@ export class AppStoreConnectClient {
           secondaryCategory?: { data?: { id: string } | null };
         };
       }[];
-    }>("GET", `/apps/${appId}/appInfos?include=primaryCategory,secondaryCategory&limit=200`);
+    }>('GET', `/apps/${appId}/appInfos?include=primaryCategory,secondaryCategory&limit=200`);
     if (data.length === 0) return null;
     const editable = data.find((info) =>
-      EDITABLE_METADATA_STATES.has(info.attributes?.state ?? info.attributes?.appStoreState ?? ""),
+      EDITABLE_METADATA_STATES.has(info.attributes?.state ?? info.attributes?.appStoreState ?? ''),
     );
     const target = editable ?? data[0];
     if (!target) return null;
@@ -2749,15 +2939,19 @@ export class AppStoreConnectClient {
     appInfoId: string,
     categories: { primaryCategoryId?: string; secondaryCategoryId?: string },
   ): Promise<void> {
-    const relationships: Record<string, { data: { type: "appCategories"; id: string } }> = {};
+    const relationships: Record<string, { data: { type: 'appCategories'; id: string } }> = {};
     if (categories.primaryCategoryId) {
-      relationships["primaryCategory"] = { data: { type: "appCategories", id: categories.primaryCategoryId } };
+      relationships['primaryCategory'] = {
+        data: { type: 'appCategories', id: categories.primaryCategoryId },
+      };
     }
     if (categories.secondaryCategoryId) {
-      relationships["secondaryCategory"] = { data: { type: "appCategories", id: categories.secondaryCategoryId } };
+      relationships['secondaryCategory'] = {
+        data: { type: 'appCategories', id: categories.secondaryCategoryId },
+      };
     }
-    await this.request<unknown>("PATCH", `/appInfos/${appInfoId}`, {
-      data: { type: "appInfos", id: appInfoId, relationships },
+    await this.request<unknown>('PATCH', `/appInfos/${appInfoId}`, {
+      data: { type: 'appInfos', id: appInfoId, relationships },
     });
   }
 
@@ -2766,15 +2960,18 @@ export class AppStoreConnectClient {
     return this.getOptional(async () => {
       const { data } = await this.request<{
         data: { id: string; attributes?: Record<string, AgeRatingValue> } | null;
-      }>("GET", `/appInfos/${appInfoId}/ageRatingDeclaration`);
+      }>('GET', `/appInfos/${appInfoId}/ageRatingDeclaration`);
       return data ? { id: data.id, attributes: data.attributes ?? {} } : null;
     });
   }
 
   /** Update an age-rating declaration with the given answers (only the supplied keys are changed). */
-  async updateAgeRatingDeclaration(declarationId: string, attributes: Record<string, AgeRatingValue>): Promise<void> {
+  async updateAgeRatingDeclaration(
+    declarationId: string,
+    attributes: Record<string, AgeRatingValue>,
+  ): Promise<void> {
     await this.updateResource(`/ageRatingDeclarations/${declarationId}`, {
-      type: "ageRatingDeclarations",
+      type: 'ageRatingDeclarations',
       id: declarationId,
       attributes,
     });
@@ -2795,7 +2992,7 @@ export class AppStoreConnectClient {
             {
               id: row.id,
               deviceFamily: row.attributes.deviceFamily,
-              state: row.attributes.state ?? "DRAFT",
+              state: row.attributes.state ?? 'DRAFT',
               support: pickAccessibilitySupport(row.attributes),
             },
           ]
@@ -2809,21 +3006,19 @@ export class AppStoreConnectClient {
     deviceFamily: DeviceFamily,
     support: AccessibilitySupport,
   ): Promise<AccessibilityDeclarationResource> {
-    const { data } = await this.request<{ data: { id: string; attributes?: AccessibilityDeclarationAttributes } }>(
-      "POST",
-      "/accessibilityDeclarations",
-      {
-        data: {
-          type: "accessibilityDeclarations",
-          attributes: { deviceFamily, ...support },
-          relationships: { app: { data: { type: "apps", id: appId } } },
-        },
+    const { data } = await this.request<{
+      data: { id: string; attributes?: AccessibilityDeclarationAttributes };
+    }>('POST', '/accessibilityDeclarations', {
+      data: {
+        type: 'accessibilityDeclarations',
+        attributes: { deviceFamily, ...support },
+        relationships: { app: { data: { type: 'apps', id: appId } } },
       },
-    );
+    });
     return {
       id: data.id,
       deviceFamily,
-      state: data.attributes?.state ?? "DRAFT",
+      state: data.attributes?.state ?? 'DRAFT',
       support: pickAccessibilitySupport(data.attributes ?? {}),
     };
   }
@@ -2838,7 +3033,7 @@ export class AppStoreConnectClient {
     changes: AccessibilitySupport & { publish?: boolean },
   ): Promise<void> {
     await this.updateResource(`/accessibilityDeclarations/${declarationId}`, {
-      type: "accessibilityDeclarations",
+      type: 'accessibilityDeclarations',
       id: declarationId,
       attributes: changes,
     });
@@ -2853,14 +3048,14 @@ export class AppStoreConnectClient {
   async getAppAvailability(appId: string): Promise<AppAvailabilityResource | null> {
     const head = await this.getOptional<{
       data: { id: string; attributes?: { availableInNewTerritories?: boolean } } | null;
-    }>(() => this.request("GET", `/apps/${appId}/appAvailabilityV2`));
+    }>(() => this.request('GET', `/apps/${appId}/appAvailabilityV2`));
     if (!head?.data) return null;
 
     const availableTerritories: string[] = [];
     let next: string | undefined =
       `${this.v2(`/appAvailabilities/${head.data.id}/territoryAvailabilities`)}?fields[territoryAvailabilities]=available,territory&limit=200`;
     while (next) {
-      const page: TerritoryAvailabilityPage = await this.request("GET", next);
+      const page: TerritoryAvailabilityPage = await this.request('GET', next);
       for (const row of page.data) {
         const code = row.relationships?.territory?.data?.id;
         if (row.attributes?.available && code) availableTerritories.push(code);
@@ -2885,19 +3080,19 @@ export class AppStoreConnectClient {
     input: { availableInNewTerritories: boolean; territories: string[] },
   ): Promise<void> {
     const included = input.territories.map((code) => ({
-      type: "territoryAvailabilities",
+      type: 'territoryAvailabilities',
       id: code,
       attributes: { available: true },
-      relationships: { territory: { data: { type: "territories", id: code } } },
+      relationships: { territory: { data: { type: 'territories', id: code } } },
     }));
-    await this.request<unknown>("POST", this.v2("/appAvailabilities"), {
+    await this.request<unknown>('POST', this.v2('/appAvailabilities'), {
       data: {
-        type: "appAvailabilities",
+        type: 'appAvailabilities',
         attributes: { availableInNewTerritories: input.availableInNewTerritories },
         relationships: {
-          app: { data: { type: "apps", id: appId } },
+          app: { data: { type: 'apps', id: appId } },
           territoryAvailabilities: {
-            data: included.map((entry) => ({ type: "territoryAvailabilities", id: entry.id })),
+            data: included.map((entry) => ({ type: 'territoryAvailabilities', id: entry.id })),
           },
         },
       },
@@ -2910,15 +3105,17 @@ export class AppStoreConnectClient {
     const data = await this.requestAll<{ name?: string }>(
       `/apps/${appId}/appCustomProductPages?limit=200&fields[appCustomProductPages]=name`,
     );
-    return data.flatMap((entry) => (entry.attributes.name ? [{ id: entry.id, name: entry.attributes.name }] : []));
+    return data.flatMap((entry) =>
+      entry.attributes.name ? [{ id: entry.id, name: entry.attributes.name }] : [],
+    );
   }
 
   /** Create a custom product page by name; Apple seeds it with an editable version cloned from the default listing. */
   async createCustomProductPage(appId: string, name: string): Promise<CustomProductPageResource> {
-    const data = await this.createResource<Record<string, never>>("/appCustomProductPages", {
-      type: "appCustomProductPages",
+    const data = await this.createResource<Record<string, never>>('/appCustomProductPages', {
+      type: 'appCustomProductPages',
       attributes: { name },
-      relationships: { app: { data: { type: "apps", id: appId } } },
+      relationships: { app: { data: { type: 'apps', id: appId } } },
     });
     return { id: data.id, name };
   }
@@ -2928,11 +3125,13 @@ export class AppStoreConnectClient {
     const data = await this.requestAll<{ state?: string }>(
       `/appCustomProductPages/${pageId}/appCustomProductPageVersions?limit=200&fields[appCustomProductPageVersions]=state`,
     );
-    return data.map((entry) => ({ id: entry.id, state: entry.attributes.state ?? "" }));
+    return data.map((entry) => ({ id: entry.id, state: entry.attributes.state ?? '' }));
   }
 
   /** List a custom product page version's per-locale copy (Launch reads/writes `promotionalText`). */
-  async listCustomProductPageLocalizations(versionId: string): Promise<CustomProductPageLocalizationResource[]> {
+  async listCustomProductPageLocalizations(
+    versionId: string,
+  ): Promise<CustomProductPageLocalizationResource[]> {
     const data = await this.requestAll<{ locale?: string; promotionalText?: string }>(
       `/appCustomProductPageVersions/${versionId}/appCustomProductPageLocalizations?limit=200&fields[appCustomProductPageLocalizations]=locale,promotionalText`,
     );
@@ -2942,7 +3141,9 @@ export class AppStoreConnectClient {
             {
               id: entry.id,
               locale: entry.attributes.locale,
-              ...(entry.attributes.promotionalText ? { promotionalText: entry.attributes.promotionalText } : {}),
+              ...(entry.attributes.promotionalText
+                ? { promotionalText: entry.attributes.promotionalText }
+                : {}),
             },
           ]
         : [],
@@ -2950,20 +3151,29 @@ export class AppStoreConnectClient {
   }
 
   /** Create one locale's custom-product-page localization with its promotional text. */
-  async createCustomProductPageLocalization(versionId: string, locale: string, promotionalText: string): Promise<void> {
-    await this.createResource("/appCustomProductPageLocalizations", {
-      type: "appCustomProductPageLocalizations",
+  async createCustomProductPageLocalization(
+    versionId: string,
+    locale: string,
+    promotionalText: string,
+  ): Promise<void> {
+    await this.createResource('/appCustomProductPageLocalizations', {
+      type: 'appCustomProductPageLocalizations',
       attributes: { locale, promotionalText },
       relationships: {
-        appCustomProductPageVersion: { data: { type: "appCustomProductPageVersions", id: versionId } },
+        appCustomProductPageVersion: {
+          data: { type: 'appCustomProductPageVersions', id: versionId },
+        },
       },
     });
   }
 
   /** Update one custom-product-page localization's promotional text. */
-  async updateCustomProductPageLocalization(localizationId: string, promotionalText: string): Promise<void> {
+  async updateCustomProductPageLocalization(
+    localizationId: string,
+    promotionalText: string,
+  ): Promise<void> {
     await this.updateResource(`/appCustomProductPageLocalizations/${localizationId}`, {
-      type: "appCustomProductPageLocalizations",
+      type: 'appCustomProductPageLocalizations',
       id: localizationId,
       attributes: { promotionalText },
     });
@@ -2971,7 +3181,11 @@ export class AppStoreConnectClient {
 
   /** List an app's product-page A/B experiments (v2), matched by name. */
   async listVersionExperiments(appId: string): Promise<VersionExperimentResource[]> {
-    const data = await this.requestAll<{ name?: string; state?: string; trafficProportion?: number }>(
+    const data = await this.requestAll<{
+      name?: string;
+      state?: string;
+      trafficProportion?: number;
+    }>(
       `/apps/${appId}/appStoreVersionExperimentsV2?limit=200&fields[appStoreVersionExperiments]=name,state,trafficProportion`,
     );
     return data.flatMap((entry) =>
@@ -2980,7 +3194,7 @@ export class AppStoreConnectClient {
             {
               id: entry.id,
               name: entry.attributes.name,
-              state: entry.attributes.state ?? "",
+              state: entry.attributes.state ?? '',
               ...(entry.attributes.trafficProportion !== undefined
                 ? { trafficProportion: entry.attributes.trafficProportion }
                 : {}),
@@ -2995,15 +3209,19 @@ export class AppStoreConnectClient {
     appId: string,
     input: { name: string; platform: string; trafficProportion: number },
   ): Promise<VersionExperimentResource> {
-    const data = await this.createResource<Record<string, never>>("/appStoreVersionExperiments", {
-      type: "appStoreVersionExperiments",
-      attributes: { name: input.name, platform: input.platform, trafficProportion: input.trafficProportion },
-      relationships: { app: { data: { type: "apps", id: appId } } },
+    const data = await this.createResource<Record<string, never>>('/appStoreVersionExperiments', {
+      type: 'appStoreVersionExperiments',
+      attributes: {
+        name: input.name,
+        platform: input.platform,
+        trafficProportion: input.trafficProportion,
+      },
+      relationships: { app: { data: { type: 'apps', id: appId } } },
     });
     return {
       id: data.id,
       name: input.name,
-      state: "PREPARE_FOR_SUBMISSION",
+      state: 'PREPARE_FOR_SUBMISSION',
       trafficProportion: input.trafficProportion,
     };
   }
@@ -3013,7 +3231,9 @@ export class AppStoreConnectClient {
     const data = await this.requestAll<{ name?: string }>(
       `/appStoreVersionExperiments/${experimentId}/appStoreVersionExperimentTreatments?limit=200&fields[appStoreVersionExperimentTreatments]=name`,
     );
-    return data.flatMap((entry) => (entry.attributes.name ? [{ id: entry.id, name: entry.attributes.name }] : []));
+    return data.flatMap((entry) =>
+      entry.attributes.name ? [{ id: entry.id, name: entry.attributes.name }] : [],
+    );
   }
 
   /** Create one treatment (variant arm) on a version experiment. */
@@ -3023,18 +3243,27 @@ export class AppStoreConnectClient {
   ): Promise<ExperimentTreatmentResource> {
     const attributes: { name: string; appIconName?: string } = { name: input.name };
     if (input.appIconName) attributes.appIconName = input.appIconName;
-    const data = await this.createResource<Record<string, never>>("/appStoreVersionExperimentTreatments", {
-      type: "appStoreVersionExperimentTreatments",
-      attributes,
-      relationships: {
-        appStoreVersionExperimentV2: { data: { type: "appStoreVersionExperiments", id: experimentId } },
+    const data = await this.createResource<Record<string, never>>(
+      '/appStoreVersionExperimentTreatments',
+      {
+        type: 'appStoreVersionExperimentTreatments',
+        attributes,
+        relationships: {
+          appStoreVersionExperimentV2: {
+            data: { type: 'appStoreVersionExperiments', id: experimentId },
+          },
+        },
       },
-    });
+    );
     return { id: data.id, name: input.name };
   }
 
   /** Find the app price point in `territory` whose customer price equals `customerPrice`, or null. */
-  async findAppPricePoint(appId: string, territory: string, customerPrice: number): Promise<PricePointResource | null> {
+  async findAppPricePoint(
+    appId: string,
+    territory: string,
+    customerPrice: number,
+  ): Promise<PricePointResource | null> {
     const points = await this.requestAll<{ customerPrice?: string; territory?: string }>(
       `/apps/${appId}/appPricePoints?filter[territory]=${encodeURIComponent(territory)}&limit=8000`,
     );
@@ -3058,12 +3287,21 @@ export class AppStoreConnectClient {
         attributes?: { startDate?: string | null; endDate?: string | null };
         relationships?: { appPricePoint?: { data?: { id: string } | null } };
       }[];
-      included?: { type: string; id: string; attributes?: { customerPrice?: string; territory?: string } }[];
-    }>(() => this.request("GET", `/apps/${appId}/appPriceSchedule/manualPrices?include=appPricePoint&limit=200`));
+      included?: {
+        type: string;
+        id: string;
+        attributes?: { customerPrice?: string; territory?: string };
+      }[];
+    }>(() =>
+      this.request(
+        'GET',
+        `/apps/${appId}/appPriceSchedule/manualPrices?include=appPricePoint&limit=200`,
+      ),
+    );
     if (!body) return null;
     const pointsById = new Map(
       (body.included ?? [])
-        .filter((entry) => entry.type === "appPricePoints")
+        .filter((entry) => entry.type === 'appPricePoints')
         .map((entry) => [entry.id, entry.attributes] as const),
     );
     for (const price of body.data) {
@@ -3071,7 +3309,8 @@ export class AppStoreConnectClient {
       if (price.attributes?.startDate != null || price.attributes?.endDate != null) continue;
       const pointId = price.relationships?.appPricePoint?.data?.id;
       const point = pointId ? pointsById.get(pointId) : undefined;
-      if (point?.territory === territory && point.customerPrice !== undefined) return point.customerPrice;
+      if (point?.territory === territory && point.customerPrice !== undefined)
+        return point.customerPrice;
     }
     return null;
   }
@@ -3081,27 +3320,31 @@ export class AppStoreConnectClient {
    * app-level twin of {@link createInAppPurchasePriceSchedule}, using the same JSON:API temp-id +
    * `included` pattern Apple requires, with the mandatory `baseTerritory` (omitting it returns a 409).
    */
-  async createAppPriceSchedule(appId: string, baseTerritory: string, pricePointId: string): Promise<void> {
+  async createAppPriceSchedule(
+    appId: string,
+    baseTerritory: string,
+    pricePointId: string,
+  ): Promise<void> {
     // Apple's JSON:API inline creation requires the temp id wrapped as ${local-id} (a bare string 409s
     // "invalid format"); the same const feeds both the relationship and the included price so they match.
-    const priceRef = "${launch-base-price}";
-    await this.request<unknown>("POST", "/appPriceSchedules", {
+    const priceRef = '${launch-base-price}';
+    await this.request<unknown>('POST', '/appPriceSchedules', {
       data: {
-        type: "appPriceSchedules",
+        type: 'appPriceSchedules',
         relationships: {
-          app: { data: { type: "apps", id: appId } },
-          baseTerritory: { data: { type: "territories", id: baseTerritory } },
-          manualPrices: { data: [{ type: "appPrices", id: priceRef }] },
+          app: { data: { type: 'apps', id: appId } },
+          baseTerritory: { data: { type: 'territories', id: baseTerritory } },
+          manualPrices: { data: [{ type: 'appPrices', id: priceRef }] },
         },
       },
       included: [
         {
-          type: "appPrices",
+          type: 'appPrices',
           id: priceRef,
           attributes: { startDate: null },
           relationships: {
-            app: { data: { type: "apps", id: appId } },
-            appPricePoint: { data: { type: "appPricePoints", id: pricePointId } },
+            app: { data: { type: 'apps', id: appId } },
+            appPricePoint: { data: { type: 'appPricePoints', id: pricePointId } },
           },
         },
       ],
@@ -3112,12 +3355,17 @@ export class AppStoreConnectClient {
    * Find the app's editable App Store version for a platform (the one whose App Review details can still
    * be changed), or null when none is in an {@link EDITABLE_METADATA_STATES editable state}.
    */
-  async findEditableAppStoreVersion(appId: string, platform: string): Promise<{ id: string } | null> {
+  async findEditableAppStoreVersion(
+    appId: string,
+    platform: string,
+  ): Promise<{ id: string } | null> {
     const data = await this.requestAll<{ appVersionState?: string; appStoreState?: string }>(
       `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=50&fields[appStoreVersions]=appVersionState,appStoreState`,
     );
     const editable = data.find((version) =>
-      EDITABLE_METADATA_STATES.has(version.attributes.appVersionState ?? version.attributes.appStoreState ?? ""),
+      EDITABLE_METADATA_STATES.has(
+        version.attributes.appVersionState ?? version.attributes.appStoreState ?? '',
+      ),
     );
     return editable ? { id: editable.id } : null;
   }
@@ -3127,7 +3375,7 @@ export class AppStoreConnectClient {
     return this.getOptional(async () => {
       const { data } = await this.request<{
         data: { id: string; attributes?: Record<string, string | boolean> } | null;
-      }>("GET", `/appStoreVersions/${versionId}/appStoreReviewDetail`);
+      }>('GET', `/appStoreVersions/${versionId}/appStoreReviewDetail`);
       return data ? { id: data.id, attributes: data.attributes ?? {} } : null;
     });
   }
@@ -3137,18 +3385,21 @@ export class AppStoreConnectClient {
     versionId: string,
     attributes: Record<string, string | boolean>,
   ): Promise<{ id: string }> {
-    const data = await this.createResource("/appStoreReviewDetails", {
-      type: "appStoreReviewDetails",
+    const data = await this.createResource('/appStoreReviewDetails', {
+      type: 'appStoreReviewDetails',
       attributes,
-      relationships: { appStoreVersion: { data: { type: "appStoreVersions", id: versionId } } },
+      relationships: { appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } } },
     });
     return { id: data.id };
   }
 
   /** Update a version's existing App Review details (only the supplied attributes change). */
-  async updateAppStoreReviewDetail(detailId: string, attributes: Record<string, string | boolean>): Promise<void> {
+  async updateAppStoreReviewDetail(
+    detailId: string,
+    attributes: Record<string, string | boolean>,
+  ): Promise<void> {
     await this.updateResource(`/appStoreReviewDetails/${detailId}`, {
-      type: "appStoreReviewDetails",
+      type: 'appStoreReviewDetails',
       id: detailId,
       attributes,
     });
@@ -3156,7 +3407,9 @@ export class AppStoreConnectClient {
 
   /** Shared GET → {@link LocalizationResource}[] for any product/subscription/group localization collection. */
   private async localizationsFrom(path: string): Promise<LocalizationResource[]> {
-    const data = await this.requestAll<{ locale?: string; name?: string; description?: string }>(path);
+    const data = await this.requestAll<{ locale?: string; name?: string; description?: string }>(
+      path,
+    );
     return data.flatMap((entry) =>
       entry.attributes.locale && entry.attributes.name
         ? [
@@ -3164,7 +3417,9 @@ export class AppStoreConnectClient {
               id: entry.id,
               locale: entry.attributes.locale,
               name: entry.attributes.name,
-              ...(entry.attributes.description ? { description: entry.attributes.description } : {}),
+              ...(entry.attributes.description
+                ? { description: entry.attributes.description }
+                : {}),
             },
           ]
         : [],
@@ -3179,18 +3434,19 @@ export class AppStoreConnectClient {
     parentId: string,
     input: { locale: string; name: string; description?: string },
   ): Promise<LocalizationResource> {
-    const data = await this.createResource<{ locale?: string; name?: string; description?: string }>(
-      `/${resourceType}`,
-      {
-        type: resourceType,
-        attributes: {
-          locale: input.locale,
-          name: input.name,
-          ...(input.description === undefined ? {} : { description: input.description }),
-        },
-        relationships: { [relationshipName]: { data: { type: parentType, id: parentId } } },
+    const data = await this.createResource<{
+      locale?: string;
+      name?: string;
+      description?: string;
+    }>(`/${resourceType}`, {
+      type: resourceType,
+      attributes: {
+        locale: input.locale,
+        name: input.name,
+        ...(input.description === undefined ? {} : { description: input.description }),
       },
-    );
+      relationships: { [relationshipName]: { data: { type: parentType, id: parentId } } },
+    });
     return {
       id: data.id,
       locale: data.attributes.locale ?? input.locale,
@@ -3220,11 +3476,11 @@ export class AppStoreConnectClient {
     const reviews: CustomerReviewResource[] = [];
     let next: string | undefined = path;
     while (next) {
-      const page: CustomerReviewPage = await this.request<CustomerReviewPage>("GET", next);
+      const page: CustomerReviewPage = await this.request<CustomerReviewPage>('GET', next);
       for (const { id, attributes, relationships } of page.data) {
         reviews.push({
           id,
-          rating: typeof attributes.rating === "number" ? attributes.rating : 0,
+          rating: typeof attributes.rating === 'number' ? attributes.rating : 0,
           ...(attributes.title ? { title: attributes.title } : {}),
           ...(attributes.body ? { body: attributes.body } : {}),
           ...(attributes.reviewerNickname ? { reviewerNickname: attributes.reviewerNickname } : {}),
@@ -3239,14 +3495,16 @@ export class AppStoreConnectClient {
   }
 
   /** Read the developer response attached to a review, or null when none exists yet (Apple 404s on none). */
-  async getCustomerReviewResponse(reviewId: string): Promise<CustomerReviewResponseResource | null> {
+  async getCustomerReviewResponse(
+    reviewId: string,
+  ): Promise<CustomerReviewResponseResource | null> {
     return this.getOptional(async () => {
       const { data } = await this.request<{
         data: {
           id: string;
           attributes: { responseBody?: string; state?: string; lastModifiedDate?: string };
         } | null;
-      }>("GET", `/customerReviews/${reviewId}/response`);
+      }>('GET', `/customerReviews/${reviewId}/response`);
       return data ? toReviewResponse(data) : null;
     });
   }
@@ -3255,15 +3513,19 @@ export class AppStoreConnectClient {
    * Create or replace the developer response to a review. Apple's `POST /v1/customerReviewResponses`
    * is an upsert — it replaces an existing response in place — so callers never delete-then-recreate.
    */
-  async createCustomerReviewResponse(reviewId: string, responseBody: string): Promise<CustomerReviewResponseResource> {
-    const data = await this.createResource<{ responseBody?: string; state?: string; lastModifiedDate?: string }>(
-      "/customerReviewResponses",
-      {
-        type: "customerReviewResponses",
-        attributes: { responseBody },
-        relationships: { review: { data: { type: "customerReviews", id: reviewId } } },
-      },
-    );
+  async createCustomerReviewResponse(
+    reviewId: string,
+    responseBody: string,
+  ): Promise<CustomerReviewResponseResource> {
+    const data = await this.createResource<{
+      responseBody?: string;
+      state?: string;
+      lastModifiedDate?: string;
+    }>('/customerReviewResponses', {
+      type: 'customerReviewResponses',
+      attributes: { responseBody },
+      relationships: { review: { data: { type: 'customerReviews', id: reviewId } } },
+    });
     return toReviewResponse(data);
   }
 
@@ -3300,7 +3562,11 @@ export class AppStoreConnectClient {
     appId: string,
     query: BetaFeedbackQuery = {},
   ): Promise<BetaFeedbackScreenshotSubmissionResource[]> {
-    const rows = await this.listBetaFeedback(`/apps/${appId}/betaFeedbackScreenshotSubmissions`, query, true);
+    const rows = await this.listBetaFeedback(
+      `/apps/${appId}/betaFeedbackScreenshotSubmissions`,
+      query,
+      true,
+    );
     return rows.map((row) => ({ ...row.base, screenshots: row.screenshots }));
   }
 
@@ -3320,10 +3586,10 @@ export class AppStoreConnectClient {
     const rows: BetaFeedbackRow[] = [];
     let next: string | undefined = path;
     while (next) {
-      const page: BetaFeedbackPage = await this.request<BetaFeedbackPage>("GET", next);
+      const page: BetaFeedbackPage = await this.request<BetaFeedbackPage>('GET', next);
       const buildVersionById = new Map<string, string>();
       for (const entry of page.included ?? []) {
-        if (entry.type === "builds" && entry.attributes?.version)
+        if (entry.type === 'builds' && entry.attributes?.version)
           buildVersionById.set(entry.id, entry.attributes.version);
       }
       for (const { id, attributes, relationships } of page.data) {
@@ -3356,7 +3622,10 @@ export class AppStoreConnectClient {
       async () => {
         const response = await fetch(url);
         if (!response.ok) {
-          throw new AscRequestError(`Beta feedback screenshot download failed (${response.status}).`, response.status);
+          throw new AscRequestError(
+            `Beta feedback screenshot download failed (${response.status}).`,
+            response.status,
+          );
         }
         return Buffer.from(await response.arrayBuffer());
       },
@@ -3373,10 +3642,10 @@ export class AppStoreConnectClient {
       firstName?: string;
       lastName?: string;
       roles?: string[];
-    }>("/users?limit=200&fields[users]=username,firstName,lastName,roles");
+    }>('/users?limit=200&fields[users]=username,firstName,lastName,roles');
     return data.map((entry) => ({
       id: entry.id,
-      username: entry.attributes.username ?? "",
+      username: entry.attributes.username ?? '',
       ...(entry.attributes.firstName ? { firstName: entry.attributes.firstName } : {}),
       ...(entry.attributes.lastName ? { lastName: entry.attributes.lastName } : {}),
       roles: entry.attributes.roles ?? [],
@@ -3391,14 +3660,18 @@ export class AppStoreConnectClient {
       lastName?: string;
       roles?: string[];
       expirationDate?: string;
-    }>("/userInvitations?limit=200&fields[userInvitations]=email,firstName,lastName,roles,expirationDate");
+    }>(
+      '/userInvitations?limit=200&fields[userInvitations]=email,firstName,lastName,roles,expirationDate',
+    );
     return data.map((entry) => ({
       id: entry.id,
-      email: entry.attributes.email ?? "",
+      email: entry.attributes.email ?? '',
       ...(entry.attributes.firstName ? { firstName: entry.attributes.firstName } : {}),
       ...(entry.attributes.lastName ? { lastName: entry.attributes.lastName } : {}),
       roles: entry.attributes.roles ?? [],
-      ...(entry.attributes.expirationDate ? { expirationDate: entry.attributes.expirationDate } : {}),
+      ...(entry.attributes.expirationDate
+        ? { expirationDate: entry.attributes.expirationDate }
+        : {}),
     }));
   }
 
@@ -3410,8 +3683,8 @@ export class AppStoreConnectClient {
       lastName?: string;
       roles?: string[];
       expirationDate?: string;
-    }>("/userInvitations", {
-      type: "userInvitations",
+    }>('/userInvitations', {
+      type: 'userInvitations',
       attributes: {
         email: invite.email,
         firstName: invite.firstName,
@@ -3456,7 +3729,7 @@ export class AppStoreConnectClient {
       `filter[reportDate]=${query.reportDate}`,
       ...(query.version ? [`filter[version]=${query.version}`] : []),
     ];
-    return this.getReportBytes(`/salesReports?${params.join("&")}`);
+    return this.getReportBytes(`/salesReports?${params.join('&')}`);
   }
 
   /** Download a Finance report as raw gzip bytes (the caller decompresses + parses the TSV). */
@@ -3464,14 +3737,17 @@ export class AppStoreConnectClient {
     const params = [
       `filter[regionCode]=${query.regionCode}`,
       `filter[reportDate]=${query.reportDate}`,
-      `filter[reportType]=${query.reportType ?? "FINANCE_DETAIL"}`,
+      `filter[reportType]=${query.reportType ?? 'FINANCE_DETAIL'}`,
       `filter[vendorNumber]=${encodeURIComponent(query.vendorNumber)}`,
     ];
-    return this.getReportBytes(`/financeReports?${params.join("&")}`);
+    return this.getReportBytes(`/financeReports?${params.join('&')}`);
   }
 
   /** List an app's analytics report requests of one access type (`ONGOING` / `ONE_TIME_SNAPSHOT`). */
-  async listAnalyticsReportRequests(appId: string, accessType: string): Promise<AnalyticsReportRequestResource[]> {
+  async listAnalyticsReportRequests(
+    appId: string,
+    accessType: string,
+  ): Promise<AnalyticsReportRequestResource[]> {
     const data = await this.requestAll<{ accessType?: string; stoppedDueToInactivity?: boolean }>(
       `/apps/${appId}/analyticsReportRequests?filter[accessType]=${accessType}&limit=200`,
     );
@@ -3482,15 +3758,18 @@ export class AppStoreConnectClient {
    * Create an analytics report request for an app. Creating a brand-new report type for the first time
    * needs the Admin role — a non-Admin key returns 403, which `launch reports` surfaces actionably.
    */
-  async createAnalyticsReportRequest(appId: string, accessType: string): Promise<AnalyticsReportRequestResource> {
-    const data = await this.createResource<{ accessType?: string; stoppedDueToInactivity?: boolean }>(
-      "/analyticsReportRequests",
-      {
-        type: "analyticsReportRequests",
-        attributes: { accessType },
-        relationships: { app: { data: { type: "apps", id: appId } } },
-      },
-    );
+  async createAnalyticsReportRequest(
+    appId: string,
+    accessType: string,
+  ): Promise<AnalyticsReportRequestResource> {
+    const data = await this.createResource<{
+      accessType?: string;
+      stoppedDueToInactivity?: boolean;
+    }>('/analyticsReportRequests', {
+      type: 'analyticsReportRequests',
+      attributes: { accessType },
+      relationships: { app: { data: { type: 'apps', id: appId } } },
+    });
     return toReportRequest(data, accessType);
   }
 
@@ -3505,7 +3784,7 @@ export class AppStoreConnectClient {
     const data = await this.requestAll<{ name?: string; category?: string }>(path);
     return data.map((entry) => ({
       id: entry.id,
-      name: entry.attributes.name ?? "",
+      name: entry.attributes.name ?? '',
       ...(entry.attributes.category ? { category: entry.attributes.category } : {}),
     }));
   }
@@ -3521,8 +3800,10 @@ export class AppStoreConnectClient {
     const data = await this.requestAll<{ granularity?: string; processingDate?: string }>(path);
     return data.map((entry) => ({
       id: entry.id,
-      granularity: entry.attributes.granularity ?? "",
-      ...(entry.attributes.processingDate ? { processingDate: entry.attributes.processingDate } : {}),
+      granularity: entry.attributes.granularity ?? '',
+      ...(entry.attributes.processingDate
+        ? { processingDate: entry.attributes.processingDate }
+        : {}),
     }));
   }
 
@@ -3538,7 +3819,9 @@ export class AppStoreConnectClient {
               id: entry.id,
               url: entry.attributes.url,
               ...(entry.attributes.checksum ? { checksum: entry.attributes.checksum } : {}),
-              ...(entry.attributes.sizeInBytes !== undefined ? { sizeInBytes: entry.attributes.sizeInBytes } : {}),
+              ...(entry.attributes.sizeInBytes !== undefined
+                ? { sizeInBytes: entry.attributes.sizeInBytes }
+                : {}),
             },
           ]
         : [],
@@ -3555,7 +3838,10 @@ export class AppStoreConnectClient {
       async () => {
         const response = await fetch(url);
         if (!response.ok) {
-          throw new AscRequestError(`Analytics segment download failed (${response.status}).`, response.status);
+          throw new AscRequestError(
+            `Analytics segment download failed (${response.status}).`,
+            response.status,
+          );
         }
         return Buffer.from(await response.arrayBuffer());
       },
@@ -3569,15 +3855,20 @@ export class AppStoreConnectClient {
    * on a 4xx instead of a bare status, so the command can show an actionable message.
    */
   private async getReportBytes(pathOrUrl: string): Promise<Buffer> {
-    return withRetry(() => this.getReportBytesOnce(pathOrUrl), { isRetryable: isRetryableAscError });
+    return withRetry(() => this.getReportBytesOnce(pathOrUrl), {
+      isRetryable: isRetryableAscError,
+    });
   }
 
   /** A single (un-retried) gzipped-report fetch — the retry wrapper lives in {@link getReportBytes}. */
   private async getReportBytesOnce(pathOrUrl: string): Promise<Buffer> {
-    const url = pathOrUrl.startsWith("http") ? pathOrUrl : `${BASE_URL}${pathOrUrl}`;
+    const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${BASE_URL}${pathOrUrl}`;
     const response = await fetch(url, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${await this.token()}`, Accept: "application/a-gzip, application/json" },
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${await this.token()}`,
+        Accept: 'application/a-gzip, application/json',
+      },
     });
     if (!response.ok) {
       const text = await response.text();
@@ -3598,9 +3889,14 @@ export class AppStoreConnectClient {
   /** List an app's most recent builds (one page, newest upload first) for the release build picker. */
   async listBuilds(appId: string, limit = 25): Promise<BuildResource[]> {
     const { data } = await this.request<
-      ResourceList<{ version?: string; processingState?: string; uploadedDate?: string; expired?: boolean }>
+      ResourceList<{
+        version?: string;
+        processingState?: string;
+        uploadedDate?: string;
+        expired?: boolean;
+      }>
     >(
-      "GET",
+      'GET',
       `/builds?filter[app]=${appId}&sort=-uploadedDate&limit=${limit}&fields[builds]=version,processingState,uploadedDate,expired`,
     );
     return data.map((entry) => toBuildResource(entry));
@@ -3609,9 +3905,14 @@ export class AppStoreConnectClient {
   /** Find one build by its `CFBundleVersion` number (the resource id is needed to attach / PATCH it), or null. */
   async findBuildByVersion(appId: string, buildNumber: number): Promise<BuildResource | null> {
     const { data } = await this.request<
-      ResourceList<{ version?: string; processingState?: string; uploadedDate?: string; expired?: boolean }>
+      ResourceList<{
+        version?: string;
+        processingState?: string;
+        uploadedDate?: string;
+        expired?: boolean;
+      }>
     >(
-      "GET",
+      'GET',
       `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1&fields[builds]=version,processingState,uploadedDate,expired`,
     );
     const first = data[0];
@@ -3637,46 +3938,59 @@ export class AppStoreConnectClient {
   }
 
   /** Create a build's "What to Test" note for one locale. */
-  async createBetaBuildLocalization(buildId: string, locale: string, whatsNew: string): Promise<void> {
-    await this.createResource("/betaBuildLocalizations", {
-      type: "betaBuildLocalizations",
+  async createBetaBuildLocalization(
+    buildId: string,
+    locale: string,
+    whatsNew: string,
+  ): Promise<void> {
+    await this.createResource('/betaBuildLocalizations', {
+      type: 'betaBuildLocalizations',
       attributes: { locale, whatsNew },
-      relationships: { build: { data: { type: "builds", id: buildId } } },
+      relationships: { build: { data: { type: 'builds', id: buildId } } },
     });
   }
 
   /** Update one locale's "What to Test" note. */
   async updateBetaBuildLocalization(localizationId: string, whatsNew: string): Promise<void> {
     await this.updateResource(`/betaBuildLocalizations/${localizationId}`, {
-      type: "betaBuildLocalizations",
+      type: 'betaBuildLocalizations',
       id: localizationId,
       attributes: { whatsNew },
     });
   }
 
   /** Read a build's Beta App Review submission (its current verdict), or null when it hasn't been submitted. */
-  async getBetaAppReviewSubmission(buildId: string): Promise<BetaAppReviewSubmissionResource | null> {
+  async getBetaAppReviewSubmission(
+    buildId: string,
+  ): Promise<BetaAppReviewSubmissionResource | null> {
     return this.getOptional(async () => {
       const { data } = await this.request<{
         data: { id: string; attributes?: { betaReviewState?: BetaReviewState } } | null;
-      }>("GET", `/builds/${buildId}/betaAppReviewSubmission`);
+      }>('GET', `/builds/${buildId}/betaAppReviewSubmission`);
       return data
-        ? { id: data.id, ...(data.attributes?.betaReviewState ? { state: data.attributes.betaReviewState } : {}) }
+        ? {
+            id: data.id,
+            ...(data.attributes?.betaReviewState ? { state: data.attributes.betaReviewState } : {}),
+          }
         : null;
     });
   }
 
   /** Submit a build for Beta App Review (required before external testers can install it). */
   async createBetaAppReviewSubmission(buildId: string): Promise<void> {
-    await this.createResource("/betaAppReviewSubmissions", {
-      type: "betaAppReviewSubmissions",
-      relationships: { build: { data: { type: "builds", id: buildId } } },
+    await this.createResource('/betaAppReviewSubmissions', {
+      type: 'betaAppReviewSubmissions',
+      relationships: { build: { data: { type: 'builds', id: buildId } } },
     });
   }
 
   /** List an app's App Store versions for a platform (e.g. `IOS`), across all pages. */
   async listAppStoreVersions(appId: string, platform: string): Promise<AppStoreVersionResource[]> {
-    const data = await this.requestAll<{ versionString?: string; appStoreState?: string; releaseType?: string }>(
+    const data = await this.requestAll<{
+      versionString?: string;
+      appStoreState?: string;
+      releaseType?: string;
+    }>(
       `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=200&fields[appStoreVersions]=versionString,appStoreState,releaseType`,
     );
     return data.map((entry) => toVersionResource(entry));
@@ -3685,15 +3999,28 @@ export class AppStoreConnectClient {
   /** Create a new App Store version for a marketing version string on a platform. */
   async createAppStoreVersion(
     appId: string,
-    input: { versionString: string; platform: string; releaseType?: string; earliestReleaseDate?: string },
+    input: {
+      versionString: string;
+      platform: string;
+      releaseType?: string;
+      earliestReleaseDate?: string;
+    },
   ): Promise<AppStoreVersionResource> {
-    const attributes: Record<string, string> = { platform: input.platform, versionString: input.versionString };
-    if (input.releaseType) attributes["releaseType"] = input.releaseType;
-    if (input.earliestReleaseDate) attributes["earliestReleaseDate"] = input.earliestReleaseDate;
-    const data = await this.createResource<{ versionString?: string; appStoreState?: string; releaseType?: string }>(
-      "/appStoreVersions",
-      { type: "appStoreVersions", attributes, relationships: { app: { data: { type: "apps", id: appId } } } },
-    );
+    const attributes: Record<string, string> = {
+      platform: input.platform,
+      versionString: input.versionString,
+    };
+    if (input.releaseType) attributes['releaseType'] = input.releaseType;
+    if (input.earliestReleaseDate) attributes['earliestReleaseDate'] = input.earliestReleaseDate;
+    const data = await this.createResource<{
+      versionString?: string;
+      appStoreState?: string;
+      releaseType?: string;
+    }>('/appStoreVersions', {
+      type: 'appStoreVersions',
+      attributes,
+      relationships: { app: { data: { type: 'apps', id: appId } } },
+    });
     return toVersionResource({ id: data.id, attributes: data.attributes }, input.versionString);
   }
 
@@ -3703,11 +4030,11 @@ export class AppStoreConnectClient {
     input: { releaseType?: string; earliestReleaseDate?: string; versionString?: string },
   ): Promise<void> {
     const attributes: Record<string, string> = {};
-    if (input.releaseType) attributes["releaseType"] = input.releaseType;
-    if (input.earliestReleaseDate) attributes["earliestReleaseDate"] = input.earliestReleaseDate;
-    if (input.versionString) attributes["versionString"] = input.versionString;
+    if (input.releaseType) attributes['releaseType'] = input.releaseType;
+    if (input.earliestReleaseDate) attributes['earliestReleaseDate'] = input.earliestReleaseDate;
+    if (input.versionString) attributes['versionString'] = input.versionString;
     await this.updateResource(`/appStoreVersions/${versionId}`, {
-      type: "appStoreVersions",
+      type: 'appStoreVersions',
       id: versionId,
       attributes,
     });
@@ -3715,13 +4042,15 @@ export class AppStoreConnectClient {
 
   /** Attach a (processed, VALID) build to a version — the `relationships/build` PATCH. */
   async selectBuildForVersion(versionId: string, buildId: string): Promise<void> {
-    await this.request<unknown>("PATCH", `/appStoreVersions/${versionId}/relationships/build`, {
-      data: { type: "builds", id: buildId },
+    await this.request<unknown>('PATCH', `/appStoreVersions/${versionId}/relationships/build`, {
+      data: { type: 'builds', id: buildId },
     });
   }
 
   /** List a version's per-locale copy (Launch reads only `whatsNew`). */
-  async listAppStoreVersionLocalizations(versionId: string): Promise<AppStoreVersionLocalizationResource[]> {
+  async listAppStoreVersionLocalizations(
+    versionId: string,
+  ): Promise<AppStoreVersionLocalizationResource[]> {
     const data = await this.requestAll<{ locale?: string; whatsNew?: string }>(
       `/appStoreVersions/${versionId}/appStoreVersionLocalizations?limit=200&fields[appStoreVersionLocalizations]=locale,whatsNew`,
     );
@@ -3743,11 +4072,14 @@ export class AppStoreConnectClient {
     versionId: string,
     input: { locale: string; whatsNew: string },
   ): Promise<AppStoreVersionLocalizationResource> {
-    const data = await this.createResource<{ locale?: string; whatsNew?: string }>("/appStoreVersionLocalizations", {
-      type: "appStoreVersionLocalizations",
-      attributes: { locale: input.locale, whatsNew: input.whatsNew },
-      relationships: { appStoreVersion: { data: { type: "appStoreVersions", id: versionId } } },
-    });
+    const data = await this.createResource<{ locale?: string; whatsNew?: string }>(
+      '/appStoreVersionLocalizations',
+      {
+        type: 'appStoreVersionLocalizations',
+        attributes: { locale: input.locale, whatsNew: input.whatsNew },
+        relationships: { appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } } },
+      },
+    );
     return {
       id: data.id,
       locale: data.attributes.locale ?? input.locale,
@@ -3758,7 +4090,7 @@ export class AppStoreConnectClient {
   /** Update one locale's release notes (`whatsNew`). */
   async updateAppStoreVersionLocalization(localizationId: string, whatsNew: string): Promise<void> {
     await this.updateResource(`/appStoreVersionLocalizations/${localizationId}`, {
-      type: "appStoreVersionLocalizations",
+      type: 'appStoreVersionLocalizations',
       id: localizationId,
       attributes: { whatsNew },
     });
@@ -3768,29 +4100,32 @@ export class AppStoreConnectClient {
   async getPhasedRelease(versionId: string): Promise<PhasedReleaseResource | null> {
     return this.getOptional(async () => {
       const { data } = await this.request<{
-        data: { id: string; attributes: { phasedReleaseState?: string; currentDayNumber?: number } } | null;
-      }>("GET", `/appStoreVersions/${versionId}/appStoreVersionPhasedRelease`);
+        data: {
+          id: string;
+          attributes: { phasedReleaseState?: string; currentDayNumber?: number };
+        } | null;
+      }>('GET', `/appStoreVersions/${versionId}/appStoreVersionPhasedRelease`);
       return data ? toPhasedRelease(data) : null;
     });
   }
 
   /** Create a phased release on a version (starts `ACTIVE`; takes effect once the version goes live). */
   async createPhasedRelease(versionId: string): Promise<PhasedReleaseResource> {
-    const data = await this.createResource<{ phasedReleaseState?: string; currentDayNumber?: number }>(
-      "/appStoreVersionPhasedReleases",
-      {
-        type: "appStoreVersionPhasedReleases",
-        attributes: { phasedReleaseState: "ACTIVE" },
-        relationships: { appStoreVersion: { data: { type: "appStoreVersions", id: versionId } } },
-      },
-    );
+    const data = await this.createResource<{
+      phasedReleaseState?: string;
+      currentDayNumber?: number;
+    }>('/appStoreVersionPhasedReleases', {
+      type: 'appStoreVersionPhasedReleases',
+      attributes: { phasedReleaseState: 'ACTIVE' },
+      relationships: { appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } } },
+    });
     return toPhasedRelease({ id: data.id, attributes: data.attributes });
   }
 
   /** Steer a phased release: `PAUSE`, `ACTIVE` (resume), or `COMPLETE` (finish the ramp now). */
   async updatePhasedRelease(phasedReleaseId: string, phasedReleaseState: string): Promise<void> {
     await this.updateResource(`/appStoreVersionPhasedReleases/${phasedReleaseId}`, {
-      type: "appStoreVersionPhasedReleases",
+      type: 'appStoreVersionPhasedReleases',
       id: phasedReleaseId,
       attributes: { phasedReleaseState },
     });
@@ -3802,30 +4137,33 @@ export class AppStoreConnectClient {
   }
 
   /** List an app's review submissions for a platform (to reuse an addable `READY_FOR_REVIEW` draft). */
-  async listReviewSubmissions(appId: string, platform: string): Promise<ReviewSubmissionResource[]> {
+  async listReviewSubmissions(
+    appId: string,
+    platform: string,
+  ): Promise<ReviewSubmissionResource[]> {
     const data = await this.requestAll<{ state?: string }>(
       `/apps/${appId}/reviewSubmissions?filter[platform]=${platform}&limit=200&fields[reviewSubmissions]=state`,
     );
-    return data.map((entry) => ({ id: entry.id, state: entry.attributes.state ?? "" }));
+    return data.map((entry) => ({ id: entry.id, state: entry.attributes.state ?? '' }));
   }
 
   /** Open a new review submission container for a platform. */
   async createReviewSubmission(appId: string, platform: string): Promise<ReviewSubmissionResource> {
-    const data = await this.createResource<{ state?: string }>("/reviewSubmissions", {
-      type: "reviewSubmissions",
+    const data = await this.createResource<{ state?: string }>('/reviewSubmissions', {
+      type: 'reviewSubmissions',
       attributes: { platform },
-      relationships: { app: { data: { type: "apps", id: appId } } },
+      relationships: { app: { data: { type: 'apps', id: appId } } },
     });
-    return { id: data.id, state: data.attributes.state ?? "" };
+    return { id: data.id, state: data.attributes.state ?? '' };
   }
 
   /** Add a version to a review submission as an item (required before the submission can be submitted). */
   async addReviewSubmissionItem(submissionId: string, versionId: string): Promise<void> {
-    await this.createResource("/reviewSubmissionItems", {
-      type: "reviewSubmissionItems",
+    await this.createResource('/reviewSubmissionItems', {
+      type: 'reviewSubmissionItems',
       relationships: {
-        reviewSubmission: { data: { type: "reviewSubmissions", id: submissionId } },
-        appStoreVersion: { data: { type: "appStoreVersions", id: versionId } },
+        reviewSubmission: { data: { type: 'reviewSubmissions', id: submissionId } },
+        appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } },
       },
     });
   }
@@ -3833,7 +4171,7 @@ export class AppStoreConnectClient {
   /** Submit a review submission to Apple (the `submitted: true` PATCH). */
   async submitReviewSubmission(submissionId: string): Promise<void> {
     await this.updateResource(`/reviewSubmissions/${submissionId}`, {
-      type: "reviewSubmissions",
+      type: 'reviewSubmissions',
       id: submissionId,
       attributes: { submitted: true },
     });
@@ -3846,16 +4184,16 @@ export class AppStoreConnectClient {
    * isn't pending developer release (Apple rejects it, surfaced as an {@link AscRequestError}).
    */
   async createAppStoreVersionReleaseRequest(versionId: string): Promise<void> {
-    await this.createResource("/appStoreVersionReleaseRequests", {
-      type: "appStoreVersionReleaseRequests",
-      relationships: { appStoreVersion: { data: { type: "appStoreVersions", id: versionId } } },
+    await this.createResource('/appStoreVersionReleaseRequests', {
+      type: 'appStoreVersionReleaseRequests',
+      relationships: { appStoreVersion: { data: { type: 'appStoreVersions', id: versionId } } },
     });
   }
 
   /** Cancel a review submission — the hotfix-loop withdraw that frees the version to be edited again. */
   async cancelReviewSubmission(submissionId: string): Promise<void> {
     await this.updateResource(`/reviewSubmissions/${submissionId}`, {
-      type: "reviewSubmissions",
+      type: 'reviewSubmissions',
       id: submissionId,
       attributes: { canceled: true },
     });
@@ -3864,10 +4202,10 @@ export class AppStoreConnectClient {
   /** Read one review submission's current state (for `launch status`). */
   async getReviewSubmission(submissionId: string): Promise<ReviewSubmissionResource> {
     const { data } = await this.request<ResourceSingle<{ state?: string }>>(
-      "GET",
+      'GET',
       `/reviewSubmissions/${submissionId}?fields[reviewSubmissions]=state`,
     );
-    return { id: data.id, state: data.attributes.state ?? "" };
+    return { id: data.id, state: data.attributes.state ?? '' };
   }
 
   // ── In-app events: events & their localizations (`launch events`) ──────────────────────────────────
@@ -3887,7 +4225,7 @@ export class AppStoreConnectClient {
     );
     return data.map((entry) => ({
       id: entry.id,
-      referenceName: entry.attributes.referenceName ?? "",
+      referenceName: entry.attributes.referenceName ?? '',
       ...(entry.attributes.badge ? { badge: entry.attributes.badge } : {}),
       ...(entry.attributes.eventState ? { eventState: entry.attributes.eventState } : {}),
       ...(entry.attributes.primaryLocale ? { primaryLocale: entry.attributes.primaryLocale } : {}),
@@ -3909,10 +4247,14 @@ export class AppStoreConnectClient {
     );
     return data.map((entry) => ({
       id: entry.id,
-      locale: entry.attributes.locale ?? "",
+      locale: entry.attributes.locale ?? '',
       ...(entry.attributes.name ? { name: entry.attributes.name } : {}),
-      ...(entry.attributes.shortDescription ? { shortDescription: entry.attributes.shortDescription } : {}),
-      ...(entry.attributes.longDescription ? { longDescription: entry.attributes.longDescription } : {}),
+      ...(entry.attributes.shortDescription
+        ? { shortDescription: entry.attributes.shortDescription }
+        : {}),
+      ...(entry.attributes.longDescription
+        ? { longDescription: entry.attributes.longDescription }
+        : {}),
     }));
   }
 
@@ -3926,8 +4268,8 @@ export class AppStoreConnectClient {
       deepLink?: string;
       priority?: string;
       purpose?: string;
-    }>("/appEvents", {
-      type: "appEvents",
+    }>('/appEvents', {
+      type: 'appEvents',
       attributes: {
         referenceName: attributes.referenceName,
         ...(attributes.badge ? { badge: attributes.badge } : {}),
@@ -3936,7 +4278,7 @@ export class AppStoreConnectClient {
         ...(attributes.priority ? { priority: attributes.priority } : {}),
         ...(attributes.purpose ? { purpose: attributes.purpose } : {}),
       },
-      relationships: { app: { data: { type: "apps", id: appId } } },
+      relationships: { app: { data: { type: 'apps', id: appId } } },
     });
     return {
       id: data.id,
@@ -3966,15 +4308,19 @@ export class AppStoreConnectClient {
       name?: string;
       shortDescription?: string;
       longDescription?: string;
-    }>("/appEventLocalizations", {
-      type: "appEventLocalizations",
+    }>('/appEventLocalizations', {
+      type: 'appEventLocalizations',
       attributes: {
         locale,
         ...(attributes.name !== undefined ? { name: attributes.name } : {}),
-        ...(attributes.shortDescription !== undefined ? { shortDescription: attributes.shortDescription } : {}),
-        ...(attributes.longDescription !== undefined ? { longDescription: attributes.longDescription } : {}),
+        ...(attributes.shortDescription !== undefined
+          ? { shortDescription: attributes.shortDescription }
+          : {}),
+        ...(attributes.longDescription !== undefined
+          ? { longDescription: attributes.longDescription }
+          : {}),
       },
-      relationships: { appEvent: { data: { type: "appEvents", id: eventId } } },
+      relationships: { appEvent: { data: { type: 'appEvents', id: eventId } } },
     });
     return toAppEventLocalization(data, locale);
   }
@@ -3985,19 +4331,28 @@ export class AppStoreConnectClient {
     attributes: AppEventLocalizationInput,
   ): Promise<AppEventLocalizationResource> {
     const { data } = await this.request<
-      ResourceSingle<{ locale?: string; name?: string; shortDescription?: string; longDescription?: string }>
-    >("PATCH", `/appEventLocalizations/${localizationId}`, {
+      ResourceSingle<{
+        locale?: string;
+        name?: string;
+        shortDescription?: string;
+        longDescription?: string;
+      }>
+    >('PATCH', `/appEventLocalizations/${localizationId}`, {
       data: {
-        type: "appEventLocalizations",
+        type: 'appEventLocalizations',
         id: localizationId,
         attributes: {
           ...(attributes.name !== undefined ? { name: attributes.name } : {}),
-          ...(attributes.shortDescription !== undefined ? { shortDescription: attributes.shortDescription } : {}),
-          ...(attributes.longDescription !== undefined ? { longDescription: attributes.longDescription } : {}),
+          ...(attributes.shortDescription !== undefined
+            ? { shortDescription: attributes.shortDescription }
+            : {}),
+          ...(attributes.longDescription !== undefined
+            ? { longDescription: attributes.longDescription }
+            : {}),
         },
       },
     });
-    return toAppEventLocalization(data, "");
+    return toAppEventLocalization(data, '');
   }
 
   // ── App Store assets: screenshots & subscription review screenshots (`launch sync`) ────────────────
@@ -4007,19 +4362,33 @@ export class AppStoreConnectClient {
     const data = await this.requestAll<{ screenshotDisplayType?: string }>(
       `/appStoreVersionLocalizations/${versionLocalizationId}/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType&limit=200`,
     );
-    return data.map((entry) => ({ id: entry.id, screenshotDisplayType: entry.attributes.screenshotDisplayType ?? "" }));
+    return data.map((entry) => ({
+      id: entry.id,
+      screenshotDisplayType: entry.attributes.screenshotDisplayType ?? '',
+    }));
   }
 
   /** Create a screenshot set for one display type under a version localization, returning the new set. */
-  async createScreenshotSet(versionLocalizationId: string, displayType: string): Promise<ScreenshotSetResource> {
-    const data = await this.createResource<{ screenshotDisplayType?: string }>("/appScreenshotSets", {
-      type: "appScreenshotSets",
-      attributes: { screenshotDisplayType: displayType },
-      relationships: {
-        appStoreVersionLocalization: { data: { type: "appStoreVersionLocalizations", id: versionLocalizationId } },
+  async createScreenshotSet(
+    versionLocalizationId: string,
+    displayType: string,
+  ): Promise<ScreenshotSetResource> {
+    const data = await this.createResource<{ screenshotDisplayType?: string }>(
+      '/appScreenshotSets',
+      {
+        type: 'appScreenshotSets',
+        attributes: { screenshotDisplayType: displayType },
+        relationships: {
+          appStoreVersionLocalization: {
+            data: { type: 'appStoreVersionLocalizations', id: versionLocalizationId },
+          },
+        },
       },
-    });
-    return { id: data.id, screenshotDisplayType: data.attributes.screenshotDisplayType ?? displayType };
+    );
+    return {
+      id: data.id,
+      screenshotDisplayType: data.attributes.screenshotDisplayType ?? displayType,
+    };
   }
 
   /** List the screenshots already in a set, with their stored checksums (the reconciler's skip key). */
@@ -4033,8 +4402,10 @@ export class AppStoreConnectClient {
     );
     return data.map((entry) => ({
       id: entry.id,
-      fileName: entry.attributes.fileName ?? "",
-      ...(entry.attributes.sourceFileChecksum ? { sourceFileChecksum: entry.attributes.sourceFileChecksum } : {}),
+      fileName: entry.attributes.fileName ?? '',
+      ...(entry.attributes.sourceFileChecksum
+        ? { sourceFileChecksum: entry.attributes.sourceFileChecksum }
+        : {}),
       ...(entry.attributes.assetDeliveryState?.state
         ? { assetDeliveryState: entry.attributes.assetDeliveryState.state }
         : {}),
@@ -4045,27 +4416,34 @@ export class AppStoreConnectClient {
   async uploadScreenshot(setId: string, fileName: string, filePath: string): Promise<void> {
     const bytes = await readFile(filePath);
     const { id, operations } = await this.reserveAsset(
-      "appScreenshots",
-      { relationship: "appScreenshotSet", type: "appScreenshotSets", id: setId },
+      'appScreenshots',
+      { relationship: 'appScreenshotSet', type: 'appScreenshotSets', id: setId },
       fileName,
       bytes.byteLength,
     );
     await this.putAssetBytes(operations, bytes);
-    await this.commitAsset("appScreenshots", id, bytes);
+    await this.commitAsset('appScreenshots', id, bytes);
   }
 
   /** The subscription's current App Review screenshot, or null when it has none. */
-  async getSubscriptionReviewScreenshot(subscriptionId: string): Promise<ReviewScreenshotResource | null> {
+  async getSubscriptionReviewScreenshot(
+    subscriptionId: string,
+  ): Promise<ReviewScreenshotResource | null> {
     const { data } = await this.request<{
-      data: { id: string; attributes: { sourceFileChecksum?: string; assetDeliveryState?: { state?: string } } } | null;
+      data: {
+        id: string;
+        attributes: { sourceFileChecksum?: string; assetDeliveryState?: { state?: string } };
+      } | null;
     }>(
-      "GET",
+      'GET',
       `/subscriptions/${subscriptionId}/appStoreReviewScreenshot?fields[subscriptionAppStoreReviewScreenshots]=sourceFileChecksum,assetDeliveryState`,
     );
     if (!data) return null;
     return {
       id: data.id,
-      ...(data.attributes.sourceFileChecksum ? { sourceFileChecksum: data.attributes.sourceFileChecksum } : {}),
+      ...(data.attributes.sourceFileChecksum
+        ? { sourceFileChecksum: data.attributes.sourceFileChecksum }
+        : {}),
       ...(data.attributes.assetDeliveryState?.state
         ? { assetDeliveryState: data.attributes.assetDeliveryState.state }
         : {}),
@@ -4073,16 +4451,20 @@ export class AppStoreConnectClient {
   }
 
   /** Upload a subscription's App Review screenshot via the reserve→PUT→commit flow. */
-  async uploadSubscriptionReviewScreenshot(subscriptionId: string, fileName: string, filePath: string): Promise<void> {
+  async uploadSubscriptionReviewScreenshot(
+    subscriptionId: string,
+    fileName: string,
+    filePath: string,
+  ): Promise<void> {
     const bytes = await readFile(filePath);
     const { id, operations } = await this.reserveAsset(
-      "subscriptionAppStoreReviewScreenshots",
-      { relationship: "subscription", type: "subscriptions", id: subscriptionId },
+      'subscriptionAppStoreReviewScreenshots',
+      { relationship: 'subscription', type: 'subscriptions', id: subscriptionId },
       fileName,
       bytes.byteLength,
     );
     await this.putAssetBytes(operations, bytes);
-    await this.commitAsset("subscriptionAppStoreReviewScreenshots", id, bytes);
+    await this.commitAsset('subscriptionAppStoreReviewScreenshots', id, bytes);
   }
 
   // ── App Store assets: app preview videos (`launch sync`) ───────────────────────────────────────────
@@ -4092,16 +4474,21 @@ export class AppStoreConnectClient {
     const data = await this.requestAll<{ previewType?: string }>(
       `/appStoreVersionLocalizations/${versionLocalizationId}/appPreviewSets?fields[appPreviewSets]=previewType&limit=200`,
     );
-    return data.map((entry) => ({ id: entry.id, previewType: entry.attributes.previewType ?? "" }));
+    return data.map((entry) => ({ id: entry.id, previewType: entry.attributes.previewType ?? '' }));
   }
 
   /** Create an app-preview-video set for one device target under a version localization, returning the new set. */
-  async createPreviewSet(versionLocalizationId: string, previewType: string): Promise<PreviewSetResource> {
-    const data = await this.createResource<{ previewType?: string }>("/appPreviewSets", {
-      type: "appPreviewSets",
+  async createPreviewSet(
+    versionLocalizationId: string,
+    previewType: string,
+  ): Promise<PreviewSetResource> {
+    const data = await this.createResource<{ previewType?: string }>('/appPreviewSets', {
+      type: 'appPreviewSets',
       attributes: { previewType },
       relationships: {
-        appStoreVersionLocalization: { data: { type: "appStoreVersionLocalizations", id: versionLocalizationId } },
+        appStoreVersionLocalization: {
+          data: { type: 'appStoreVersionLocalizations', id: versionLocalizationId },
+        },
       },
     });
     return { id: data.id, previewType: data.attributes.previewType ?? previewType };
@@ -4118,8 +4505,10 @@ export class AppStoreConnectClient {
     );
     return data.map((entry) => ({
       id: entry.id,
-      fileName: entry.attributes.fileName ?? "",
-      ...(entry.attributes.sourceFileChecksum ? { sourceFileChecksum: entry.attributes.sourceFileChecksum } : {}),
+      fileName: entry.attributes.fileName ?? '',
+      ...(entry.attributes.sourceFileChecksum
+        ? { sourceFileChecksum: entry.attributes.sourceFileChecksum }
+        : {}),
       ...(entry.attributes.assetDeliveryState?.state
         ? { assetDeliveryState: entry.attributes.assetDeliveryState.state }
         : {}),
@@ -4135,13 +4524,13 @@ export class AppStoreConnectClient {
   async uploadPreview(setId: string, fileName: string, filePath: string): Promise<void> {
     const bytes = await readFile(filePath);
     const { id, operations } = await this.reserveAsset(
-      "appPreviews",
-      { relationship: "appPreviewSet", type: "appPreviewSets", id: setId },
+      'appPreviews',
+      { relationship: 'appPreviewSet', type: 'appPreviewSets', id: setId },
       fileName,
       bytes.byteLength,
     );
     await this.putAssetBytes(operations, bytes);
-    await this.commitAsset("appPreviews", id, bytes);
+    await this.commitAsset('appPreviews', id, bytes);
   }
 
   /**
@@ -4150,7 +4539,7 @@ export class AppStoreConnectClient {
    */
   async listAlternativeDistributionDomains(): Promise<AlternativeDistributionDomainResource[]> {
     const data = await this.requestAll<{ domain?: string; referenceName?: string }>(
-      "/alternativeDistributionDomains?limit=200",
+      '/alternativeDistributionDomains?limit=200',
     );
     return data.map((entry) => ({
       id: entry.id,
@@ -4161,15 +4550,17 @@ export class AppStoreConnectClient {
 
   /** Authorize a new alternative-distribution domain for the team. */
   async createAlternativeDistributionDomain(domain: string, referenceName: string): Promise<void> {
-    const body: components["schemas"]["AlternativeDistributionDomainCreateRequest"] = {
-      data: { type: "alternativeDistributionDomains", attributes: { domain, referenceName } },
+    const body: components['schemas']['AlternativeDistributionDomainCreateRequest'] = {
+      data: { type: 'alternativeDistributionDomains', attributes: { domain, referenceName } },
     };
-    await this.request<unknown>("POST", "/alternativeDistributionDomains", body);
+    await this.request<unknown>('POST', '/alternativeDistributionDomains', body);
   }
 
   /** List the team's registered alternative-distribution public keys (usually zero or one). */
   async listAlternativeDistributionKeys(): Promise<AlternativeDistributionKeyResource[]> {
-    const data = await this.requestAll<{ publicKey?: string }>("/alternativeDistributionKeys?limit=200");
+    const data = await this.requestAll<{ publicKey?: string }>(
+      '/alternativeDistributionKeys?limit=200',
+    );
     return data.map((entry) => ({
       id: entry.id,
       ...(entry.attributes.publicKey ? { publicKey: entry.attributes.publicKey } : {}),
@@ -4178,12 +4569,12 @@ export class AppStoreConnectClient {
 
   /** Register the team's alternative-distribution package-signing public key (the PEM `publicKey`). */
   async createAlternativeDistributionKey(publicKey: string): Promise<{ id: string }> {
-    const body: components["schemas"]["AlternativeDistributionKeyCreateRequest"] = {
-      data: { type: "alternativeDistributionKeys", attributes: { publicKey } },
+    const body: components['schemas']['AlternativeDistributionKeyCreateRequest'] = {
+      data: { type: 'alternativeDistributionKeys', attributes: { publicKey } },
     };
     const { data } = await this.request<ResourceSingle<{ publicKey?: string }>>(
-      "POST",
-      "/alternativeDistributionKeys",
+      'POST',
+      '/alternativeDistributionKeys',
       body,
     );
     return { id: data.id };
@@ -4191,7 +4582,9 @@ export class AppStoreConnectClient {
 
   /** List the team's registered Apple Pay merchant ids (matched to config on `identifier`). */
   async listMerchantIds(): Promise<MerchantIdResource[]> {
-    const data = await this.requestAll<{ identifier?: string; name?: string }>("/merchantIds?limit=200");
+    const data = await this.requestAll<{ identifier?: string; name?: string }>(
+      '/merchantIds?limit=200',
+    );
     return data.map((entry) => ({
       id: entry.id,
       ...(entry.attributes.identifier ? { identifier: entry.attributes.identifier } : {}),
@@ -4201,15 +4594,17 @@ export class AppStoreConnectClient {
 
   /** Register an Apple Pay merchant id (`merchant.…`) on the team. */
   async createMerchantId(identifier: string, name: string): Promise<void> {
-    const body: components["schemas"]["MerchantIdCreateRequest"] = {
-      data: { type: "merchantIds", attributes: { name, identifier } },
+    const body: components['schemas']['MerchantIdCreateRequest'] = {
+      data: { type: 'merchantIds', attributes: { name, identifier } },
     };
-    await this.request<unknown>("POST", "/merchantIds", body);
+    await this.request<unknown>('POST', '/merchantIds', body);
   }
 
   /** List the team's registered Wallet pass type ids (matched to config on `identifier`). */
   async listPassTypeIds(): Promise<PassTypeIdResource[]> {
-    const data = await this.requestAll<{ identifier?: string; name?: string }>("/passTypeIds?limit=200");
+    const data = await this.requestAll<{ identifier?: string; name?: string }>(
+      '/passTypeIds?limit=200',
+    );
     return data.map((entry) => ({
       id: entry.id,
       ...(entry.attributes.identifier ? { identifier: entry.attributes.identifier } : {}),
@@ -4219,10 +4614,10 @@ export class AppStoreConnectClient {
 
   /** Register a Wallet pass type id (`pass.…`) on the team. */
   async createPassTypeId(identifier: string, name: string): Promise<void> {
-    const body: components["schemas"]["PassTypeIdCreateRequest"] = {
-      data: { type: "passTypeIds", attributes: { name, identifier } },
+    const body: components['schemas']['PassTypeIdCreateRequest'] = {
+      data: { type: 'passTypeIds', attributes: { name, identifier } },
     };
-    await this.request<unknown>("POST", "/passTypeIds", body);
+    await this.request<unknown>('POST', '/passTypeIds', body);
   }
 
   // ── Game Center: detail container + achievements / leaderboards (`launch game-center`) ───────────────
@@ -4230,17 +4625,27 @@ export class AppStoreConnectClient {
   /** Read an app's Game Center detail (the container enabling Game Center), or null when not yet enabled. */
   async getGameCenterDetail(appId: string): Promise<GameCenterDetailResource | null> {
     return this.getOptional(async () => {
-      const { data } = await this.request<{ data: { id: string } | null }>("GET", `/apps/${appId}/gameCenterDetail`);
+      const { data } = await this.request<{ data: { id: string } | null }>(
+        'GET',
+        `/apps/${appId}/gameCenterDetail`,
+      );
       return data ? { id: data.id } : null;
     });
   }
 
   /** Enable Game Center for an app by creating its detail container, returning the new detail. */
   async createGameCenterDetail(appId: string): Promise<GameCenterDetailResource> {
-    const body: components["schemas"]["GameCenterDetailCreateRequest"] = {
-      data: { type: "gameCenterDetails", relationships: { app: { data: { type: "apps", id: appId } } } },
+    const body: components['schemas']['GameCenterDetailCreateRequest'] = {
+      data: {
+        type: 'gameCenterDetails',
+        relationships: { app: { data: { type: 'apps', id: appId } } },
+      },
     };
-    const { data } = await this.request<ResourceSingle<Record<string, never>>>("POST", "/gameCenterDetails", body);
+    const { data } = await this.request<ResourceSingle<Record<string, never>>>(
+      'POST',
+      '/gameCenterDetails',
+      body,
+    );
     return { id: data.id };
   }
 
@@ -4251,7 +4656,9 @@ export class AppStoreConnectClient {
     );
     return data.map((entry) => ({
       id: entry.id,
-      ...(entry.attributes.vendorIdentifier ? { vendorIdentifier: entry.attributes.vendorIdentifier } : {}),
+      ...(entry.attributes.vendorIdentifier
+        ? { vendorIdentifier: entry.attributes.vendorIdentifier }
+        : {}),
     }));
   }
 
@@ -4266,36 +4673,43 @@ export class AppStoreConnectClient {
     detailId: string,
     attributes: GameCenterAchievementCreate,
   ): Promise<{ id: string; versionId: string | null }> {
-    const body: components["schemas"]["GameCenterAchievementV2CreateRequest"] = {
+    const body: components['schemas']['GameCenterAchievementV2CreateRequest'] = {
       data: {
-        type: "gameCenterAchievements",
+        type: 'gameCenterAchievements',
         attributes,
         relationships: {
-          gameCenterDetail: { data: { type: "gameCenterDetails", id: detailId } },
-          versions: { data: [{ type: "gameCenterAchievementVersions", id: "version-0" }] },
+          gameCenterDetail: { data: { type: 'gameCenterDetails', id: detailId } },
+          versions: { data: [{ type: 'gameCenterAchievementVersions', id: 'version-0' }] },
         },
       },
-      included: [{ type: "gameCenterAchievementVersions", id: "version-0" }],
+      included: [{ type: 'gameCenterAchievementVersions', id: 'version-0' }],
     };
     const { data } = await this.request<{
       data: { id: string; relationships?: { versions?: { data?: { id: string }[] } } };
-    }>("POST", this.v2("/gameCenterAchievements"), body);
+    }>('POST', this.v2('/gameCenterAchievements'), body);
     return { id: data.id, versionId: data.relationships?.versions?.data?.[0]?.id ?? null };
   }
 
   /** Create the default-locale localization for an achievement version (name + before/after descriptions). */
   async createGameCenterAchievementLocalization(
     versionId: string,
-    fields: { locale: string; name: string; beforeEarnedDescription: string; afterEarnedDescription: string },
+    fields: {
+      locale: string;
+      name: string;
+      beforeEarnedDescription: string;
+      afterEarnedDescription: string;
+    },
   ): Promise<void> {
-    const body: components["schemas"]["GameCenterAchievementLocalizationV2CreateRequest"] = {
+    const body: components['schemas']['GameCenterAchievementLocalizationV2CreateRequest'] = {
       data: {
-        type: "gameCenterAchievementLocalizations",
+        type: 'gameCenterAchievementLocalizations',
         attributes: fields,
-        relationships: { version: { data: { type: "gameCenterAchievementVersions", id: versionId } } },
+        relationships: {
+          version: { data: { type: 'gameCenterAchievementVersions', id: versionId } },
+        },
       },
     };
-    await this.request<unknown>("POST", this.v2("/gameCenterAchievementLocalizations"), body);
+    await this.request<unknown>('POST', this.v2('/gameCenterAchievementLocalizations'), body);
   }
 
   /** List a detail's leaderboards (just their `vendorIdentifier`s — the reconciler's idempotency key). */
@@ -4305,7 +4719,9 @@ export class AppStoreConnectClient {
     );
     return data.map((entry) => ({
       id: entry.id,
-      ...(entry.attributes.vendorIdentifier ? { vendorIdentifier: entry.attributes.vendorIdentifier } : {}),
+      ...(entry.attributes.vendorIdentifier
+        ? { vendorIdentifier: entry.attributes.vendorIdentifier }
+        : {}),
     }));
   }
 
@@ -4314,20 +4730,20 @@ export class AppStoreConnectClient {
     detailId: string,
     attributes: GameCenterLeaderboardCreate,
   ): Promise<{ id: string; versionId: string | null }> {
-    const body: components["schemas"]["GameCenterLeaderboardV2CreateRequest"] = {
+    const body: components['schemas']['GameCenterLeaderboardV2CreateRequest'] = {
       data: {
-        type: "gameCenterLeaderboards",
+        type: 'gameCenterLeaderboards',
         attributes,
         relationships: {
-          gameCenterDetail: { data: { type: "gameCenterDetails", id: detailId } },
-          versions: { data: [{ type: "gameCenterLeaderboardVersions", id: "version-0" }] },
+          gameCenterDetail: { data: { type: 'gameCenterDetails', id: detailId } },
+          versions: { data: [{ type: 'gameCenterLeaderboardVersions', id: 'version-0' }] },
         },
       },
-      included: [{ type: "gameCenterLeaderboardVersions", id: "version-0" }],
+      included: [{ type: 'gameCenterLeaderboardVersions', id: 'version-0' }],
     };
     const { data } = await this.request<{
       data: { id: string; relationships?: { versions?: { data?: { id: string }[] } } };
-    }>("POST", this.v2("/gameCenterLeaderboards"), body);
+    }>('POST', this.v2('/gameCenterLeaderboards'), body);
     return { id: data.id, versionId: data.relationships?.versions?.data?.[0]?.id ?? null };
   }
 
@@ -4336,14 +4752,16 @@ export class AppStoreConnectClient {
     versionId: string,
     fields: { locale: string; name: string; formatterOverride?: LeaderboardFormatter },
   ): Promise<void> {
-    const body: components["schemas"]["GameCenterLeaderboardLocalizationV2CreateRequest"] = {
+    const body: components['schemas']['GameCenterLeaderboardLocalizationV2CreateRequest'] = {
       data: {
-        type: "gameCenterLeaderboardLocalizations",
+        type: 'gameCenterLeaderboardLocalizations',
         attributes: fields,
-        relationships: { version: { data: { type: "gameCenterLeaderboardVersions", id: versionId } } },
+        relationships: {
+          version: { data: { type: 'gameCenterLeaderboardVersions', id: versionId } },
+        },
       },
     };
-    await this.request<unknown>("POST", this.v2("/gameCenterLeaderboardLocalizations"), body);
+    await this.request<unknown>('POST', this.v2('/gameCenterLeaderboardLocalizations'), body);
   }
 
   /** Reserve an asset: POST the resource with `fileName`/`fileSize`, returning its id + upload operations. */
@@ -4353,14 +4771,17 @@ export class AppStoreConnectClient {
     fileName: string,
     fileSize: number,
   ): Promise<{ id: string; operations: UploadOperation[] }> {
-    const reservation = await this.request<AssetReservation>("POST", `/${type}`, {
+    const reservation = await this.request<AssetReservation>('POST', `/${type}`, {
       data: {
         type,
         attributes: { fileName, fileSize },
         relationships: { [parent.relationship]: { data: { type: parent.type, id: parent.id } } },
       },
     });
-    return { id: reservation.data.id, operations: reservation.data.attributes.uploadOperations ?? [] };
+    return {
+      id: reservation.data.id,
+      operations: reservation.data.attributes.uploadOperations ?? [],
+    };
   }
 
   /** PUT a reserved asset's bytes to Apple's CDN, one operation (chunk) at a time, with transient-retry. */
@@ -4374,9 +4795,16 @@ export class AppStoreConnectClient {
       }
       await withRetry(
         async () => {
-          const response = await fetch(operation.url, { method: operation.method ?? "PUT", headers, body: chunk });
+          const response = await fetch(operation.url, {
+            method: operation.method ?? 'PUT',
+            headers,
+            body: chunk,
+          });
           if (!response.ok) {
-            throw new AscRequestError(`asset upload chunk failed (${response.status})`, response.status);
+            throw new AscRequestError(
+              `asset upload chunk failed (${response.status})`,
+              response.status,
+            );
           }
         },
         { isRetryable: isRetryableAscError },
@@ -4386,7 +4814,7 @@ export class AppStoreConnectClient {
 
   /** Commit a reserved asset once its bytes are uploaded: PATCH `uploaded:true` + the MD5 Apple verifies. */
   private async commitAsset(type: string, id: string, bytes: Buffer): Promise<void> {
-    await this.request<unknown>("PATCH", `/${type}/${id}`, {
+    await this.request<unknown>('PATCH', `/${type}/${id}`, {
       data: { type, id, attributes: { uploaded: true, sourceFileChecksum: md5Hex(bytes) } },
     });
   }
@@ -4395,12 +4823,17 @@ export class AppStoreConnectClient {
 /** Map a raw build row onto a {@link BuildResource}, defaulting the optional/absent attributes. */
 function toBuildResource(entry: {
   id: string;
-  attributes: { version?: string; processingState?: string; uploadedDate?: string; expired?: boolean };
+  attributes: {
+    version?: string;
+    processingState?: string;
+    uploadedDate?: string;
+    expired?: boolean;
+  };
 }): BuildResource {
   return {
     id: entry.id,
-    version: entry.attributes.version ?? "",
-    processingState: entry.attributes.processingState ?? "",
+    version: entry.attributes.version ?? '',
+    processingState: entry.attributes.processingState ?? '',
     ...(entry.attributes.uploadedDate ? { uploadedDate: entry.attributes.uploadedDate } : {}),
     expired: entry.attributes.expired ?? false,
   };
@@ -4408,13 +4841,16 @@ function toBuildResource(entry: {
 
 /** Map a raw version row onto an {@link AppStoreVersionResource}, keeping a known versionString fallback. */
 function toVersionResource(
-  entry: { id: string; attributes: { versionString?: string; appStoreState?: string; releaseType?: string } },
-  fallbackVersion = "",
+  entry: {
+    id: string;
+    attributes: { versionString?: string; appStoreState?: string; releaseType?: string };
+  },
+  fallbackVersion = '',
 ): AppStoreVersionResource {
   return {
     id: entry.id,
     versionString: entry.attributes.versionString ?? fallbackVersion,
-    appStoreState: entry.attributes.appStoreState ?? "",
+    appStoreState: entry.attributes.appStoreState ?? '',
     ...(entry.attributes.releaseType ? { releaseType: entry.attributes.releaseType } : {}),
   };
 }
@@ -4426,8 +4862,10 @@ function toPhasedRelease(entry: {
 }): PhasedReleaseResource {
   return {
     id: entry.id,
-    phasedReleaseState: entry.attributes.phasedReleaseState ?? "",
-    ...(entry.attributes.currentDayNumber !== undefined ? { currentDayNumber: entry.attributes.currentDayNumber } : {}),
+    phasedReleaseState: entry.attributes.phasedReleaseState ?? '',
+    ...(entry.attributes.currentDayNumber !== undefined
+      ? { currentDayNumber: entry.attributes.currentDayNumber }
+      : {}),
   };
 }
 
@@ -4445,7 +4883,11 @@ function matchPricePoint(
   for (const point of points) {
     const price = point.attributes.customerPrice;
     if (price !== undefined && Number.parseFloat(price) === customerPrice) {
-      return { id: point.id, customerPrice: price, territory: point.attributes.territory ?? territory };
+      return {
+        id: point.id,
+        customerPrice: price,
+        territory: point.attributes.territory ?? territory,
+      };
     }
   }
   return null;
@@ -4480,9 +4922,11 @@ function toReviewResponse(data: {
 }): CustomerReviewResponseResource {
   return {
     id: data.id,
-    responseBody: data.attributes.responseBody ?? "",
+    responseBody: data.attributes.responseBody ?? '',
     ...(data.attributes.state ? { state: data.attributes.state } : {}),
-    ...(data.attributes.lastModifiedDate ? { lastModifiedDate: data.attributes.lastModifiedDate } : {}),
+    ...(data.attributes.lastModifiedDate
+      ? { lastModifiedDate: data.attributes.lastModifiedDate }
+      : {}),
   };
 }
 
@@ -4494,7 +4938,12 @@ function toReviewResponse(data: {
 function toAppEventLocalization(
   data: {
     id: string;
-    attributes: { locale?: string; name?: string; shortDescription?: string; longDescription?: string };
+    attributes: {
+      locale?: string;
+      name?: string;
+      shortDescription?: string;
+      longDescription?: string;
+    };
   },
   fallbackLocale: string,
 ): AppEventLocalizationResource {
@@ -4502,8 +4951,12 @@ function toAppEventLocalization(
     id: data.id,
     locale: data.attributes.locale ?? fallbackLocale,
     ...(data.attributes.name ? { name: data.attributes.name } : {}),
-    ...(data.attributes.shortDescription ? { shortDescription: data.attributes.shortDescription } : {}),
-    ...(data.attributes.longDescription ? { longDescription: data.attributes.longDescription } : {}),
+    ...(data.attributes.shortDescription
+      ? { shortDescription: data.attributes.shortDescription }
+      : {}),
+    ...(data.attributes.longDescription
+      ? { longDescription: data.attributes.longDescription }
+      : {}),
   };
 }
 
@@ -4536,13 +4989,20 @@ function toReportRequest(
  * `appleDate` is the raw `Date` response header (null when absent); `nowMs` and `platform` are injected
  * so the check is a pure function — unit-testable without a real clock or host OS.
  */
-export function clockSkewHint(args: { appleDate: string | null; nowMs: number; platform: NodeJS.Platform }): string {
-  if (args.platform !== "darwin" || args.appleDate === null) return "";
+export function clockSkewHint(args: {
+  appleDate: string | null;
+  nowMs: number;
+  platform: NodeJS.Platform;
+}): string {
+  if (args.platform !== 'darwin' || args.appleDate === null) return '';
   const appleMs = Date.parse(args.appleDate);
-  if (Number.isNaN(appleMs)) return "";
+  if (Number.isNaN(appleMs)) return '';
   const skewSeconds = Math.abs(args.nowMs - appleMs) / 1000;
-  if (skewSeconds < CLOCK_SKEW_TOLERANCE_SECONDS) return "";
-  const drift = skewSeconds < 120 ? `~${Math.round(skewSeconds)} seconds` : `~${Math.round(skewSeconds / 60)} minutes`;
+  if (skewSeconds < CLOCK_SKEW_TOLERANCE_SECONDS) return '';
+  const drift =
+    skewSeconds < 120
+      ? `~${Math.round(skewSeconds)} seconds`
+      : `~${Math.round(skewSeconds / 60)} minutes`;
   return ` Your Mac's clock is off by ${drift} from Apple's, which makes the signed token read as expired — run \`sudo sntp -sS time.apple.com\` to resync, then retry.`;
 }
 
@@ -4551,12 +5011,12 @@ export function describeErrors(body: string): string {
   try {
     const parsed = JSON.parse(body) as { errors?: AscError[] };
     if (parsed.errors?.length) {
-      return parsed.errors.map((e) => e.detail ?? e.title).join("; ");
+      return parsed.errors.map((e) => e.detail ?? e.title).join('; ');
     }
   } catch {
     /* not JSON — fall through */
   }
-  return body.length > 0 ? body : "no response body";
+  return body.length > 0 ? body : 'no response body';
 }
 
 /** Extract Apple's machine-readable error codes from a failed-response body (empty when absent/not JSON). */

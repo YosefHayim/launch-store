@@ -15,17 +15,23 @@
  * page visibility, and publishing a version live are out of scope (a deliberate follow-up).
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from 'node:fs';
 import type {
   CustomProductPageLocalizationResource,
   CustomProductPageResource,
   CustomProductPageVersionResource,
-} from "../apple/ascClient.js";
-import { appRecordMissing, plan, skip, type PlannedAction, type ReconcileContext } from "./asc/storeSync.js";
-import { errorMessage } from "./errorMessage.js";
+} from '../apple/ascClient.js';
+import {
+  appRecordMissing,
+  plan,
+  skip,
+  type PlannedAction,
+  type ReconcileContext,
+} from './asc/storeSync.js';
+import { errorMessage } from './errorMessage.js';
 
 /** Custom-product-page version states Apple still lets us edit localizations in. */
-const EDITABLE_VERSION_STATES = new Set(["PREPARE_FOR_SUBMISSION", "REJECTED"]);
+const EDITABLE_VERSION_STATES = new Set(['PREPARE_FOR_SUBMISSION', 'REJECTED']);
 
 /** One declared custom product page: a name plus optional per-locale promotional text. */
 export interface CustomProductPageConfig {
@@ -50,9 +56,18 @@ export interface AscCustomPagesApi {
   listCustomProductPages(appId: string): Promise<CustomProductPageResource[]>;
   createCustomProductPage(appId: string, name: string): Promise<CustomProductPageResource>;
   listCustomProductPageVersions(pageId: string): Promise<CustomProductPageVersionResource[]>;
-  listCustomProductPageLocalizations(versionId: string): Promise<CustomProductPageLocalizationResource[]>;
-  createCustomProductPageLocalization(versionId: string, locale: string, promotionalText: string): Promise<void>;
-  updateCustomProductPageLocalization(localizationId: string, promotionalText: string): Promise<void>;
+  listCustomProductPageLocalizations(
+    versionId: string,
+  ): Promise<CustomProductPageLocalizationResource[]>;
+  createCustomProductPageLocalization(
+    versionId: string,
+    locale: string,
+    promotionalText: string,
+  ): Promise<void>;
+  updateCustomProductPageLocalization(
+    localizationId: string,
+    promotionalText: string,
+  ): Promise<void>;
 }
 
 /** Inputs to reconcile one app's custom product pages. */
@@ -73,9 +88,11 @@ export async function reconcileCustomProductPages(
   const ctx: ReconcileContext = { actions: [], dryRun: input.dryRun };
 
   const appId = await api.getAppId(input.bundleId);
-  if (!appId) throw appRecordMissing(input.bundleId, "custom-pages");
+  if (!appId) throw appRecordMissing(input.bundleId, 'custom-pages');
 
-  const existing = new Map((await api.listCustomProductPages(appId)).map((page) => [page.name, page]));
+  const existing = new Map(
+    (await api.listCustomProductPages(appId)).map((page) => [page.name, page]),
+  );
   for (const page of input.config.pages) {
     const pageId = await ensurePage(ctx, api, appId, page.name, existing.get(page.name));
     await reconcilePromoText(ctx, api, page, pageId);
@@ -97,10 +114,10 @@ async function ensurePage(
   if (ctx.dryRun) return null;
   try {
     const created = await api.createCustomProductPage(appId, name);
-    action.status = "applied";
+    action.status = 'applied';
     return created.id;
   } catch (error) {
-    action.status = "failed";
+    action.status = 'failed';
     action.error = errorMessage(error);
     return null;
   }
@@ -120,7 +137,8 @@ async function reconcilePromoText(
   if (!pageId) {
     for (const [locale] of locales) {
       if (ctx.dryRun) plan(ctx, `set promotional text on "${page.name}" (${locale})`);
-      else skip(ctx, `promotional text on "${page.name}" (${locale}): skipped — page create failed`);
+      else
+        skip(ctx, `promotional text on "${page.name}" (${locale}): skipped — page create failed`);
     }
     return;
   }
@@ -141,7 +159,7 @@ async function reconcilePromoText(
   );
   for (const [locale, text] of locales) {
     const existing = current.get(locale);
-    if (existing && (existing.promotionalText ?? "") === text) continue; // already in sync
+    if (existing && (existing.promotionalText ?? '') === text) continue; // already in sync
 
     const action = plan(
       ctx,
@@ -153,9 +171,9 @@ async function reconcilePromoText(
     try {
       if (existing) await api.updateCustomProductPageLocalization(existing.id, text);
       else await api.createCustomProductPageLocalization(version.id, locale, text);
-      action.status = "applied";
+      action.status = 'applied';
     } catch (error) {
-      action.status = "failed";
+      action.status = 'failed';
       action.error = errorMessage(error);
     }
   }
@@ -163,7 +181,7 @@ async function reconcilePromoText(
 
 /** Narrow an unknown value to a plain object, or null. Arrays are rejected so a malformed section fails loudly. */
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
 }
@@ -174,19 +192,24 @@ function parsePage(raw: unknown, index: number): CustomProductPageConfig {
   const where = `pages[${index}]`;
   if (!record) throw new Error(`custom-pages.config.json: ${where} must be an object.`);
 
-  const name = record["name"];
-  if (typeof name !== "string" || name.length === 0) {
+  const name = record['name'];
+  if (typeof name !== 'string' || name.length === 0) {
     throw new Error(`custom-pages.config.json: ${where}.name must be a non-empty string.`);
   }
 
   const config: CustomProductPageConfig = { name };
-  if (record["promotionalText"] !== undefined) {
-    const promo = asRecord(record["promotionalText"]);
-    if (!promo) throw new Error(`custom-pages.config.json: ${where}.promotionalText must be a locale → text object.`);
+  if (record['promotionalText'] !== undefined) {
+    const promo = asRecord(record['promotionalText']);
+    if (!promo)
+      throw new Error(
+        `custom-pages.config.json: ${where}.promotionalText must be a locale → text object.`,
+      );
     const text: Record<string, string> = {};
     for (const [locale, value] of Object.entries(promo)) {
-      if (typeof value !== "string" || value.length === 0) {
-        throw new Error(`custom-pages.config.json: ${where}.promotionalText["${locale}"] must be a non-empty string.`);
+      if (typeof value !== 'string' || value.length === 0) {
+        throw new Error(
+          `custom-pages.config.json: ${where}.promotionalText["${locale}"] must be a non-empty string.`,
+        );
       }
       text[locale] = value;
     }
@@ -202,10 +225,11 @@ function parsePage(raw: unknown, index: number): CustomProductPageConfig {
  */
 export function parseCustomProductPagesConfig(raw: unknown): CustomProductPagesConfig {
   const record = asRecord(raw);
-  if (!record) throw new Error("custom-pages.config.json must be a JSON object.");
+  if (!record) throw new Error('custom-pages.config.json must be a JSON object.');
 
-  const rawPages = record["pages"];
-  if (!Array.isArray(rawPages)) throw new Error('custom-pages.config.json: "pages" must be an array.');
+  const rawPages = record['pages'];
+  if (!Array.isArray(rawPages))
+    throw new Error('custom-pages.config.json: "pages" must be an array.');
   if (rawPages.length === 0) {
     throw new Error('custom-pages.config.json must declare at least one entry under "pages".');
   }
@@ -213,7 +237,8 @@ export function parseCustomProductPagesConfig(raw: unknown): CustomProductPagesC
 
   const seen = new Set<string>();
   for (const page of pages) {
-    if (seen.has(page.name)) throw new Error(`custom-pages.config.json: duplicate page name "${page.name}".`);
+    if (seen.has(page.name))
+      throw new Error(`custom-pages.config.json: duplicate page name "${page.name}".`);
     seen.add(page.name);
   }
   return { pages };
@@ -226,18 +251,22 @@ export function loadCustomProductPagesConfig(path: string): CustomProductPagesCo
       `No custom-pages config at ${path}. Create one (see \`launch custom-pages --help\`) or pass --config.`,
     );
   }
-  return parseCustomProductPagesConfig(JSON.parse(readFileSync(path, "utf8")));
+  return parseCustomProductPagesConfig(JSON.parse(readFileSync(path, 'utf8')));
 }
 
 /** Tally a report's action statuses for the run summary (mirrors the other store-sync commands). */
-export function summarizeCustomPages(actions: PlannedAction[]): { applied: number; failed: number; skipped: number } {
+export function summarizeCustomPages(actions: PlannedAction[]): {
+  applied: number;
+  failed: number;
+  skipped: number;
+} {
   let applied = 0;
   let failed = 0;
   let skipped = 0;
   for (const action of actions) {
-    if (action.status === "applied") applied++;
-    else if (action.status === "failed") failed++;
-    else if (action.status === "skipped") skipped++;
+    if (action.status === 'applied') applied++;
+    else if (action.status === 'failed') failed++;
+    else if (action.status === 'skipped') skipped++;
   }
   return { applied, failed, skipped };
 }

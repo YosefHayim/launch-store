@@ -8,8 +8,8 @@
  * Everything here is iOS-only: the App Store review verdict and phased rollout are iOS concepts.
  */
 
-import type { ReleaseStatus, ReleaseVerdict } from "./appStoreRelease.js";
-import type { NotifyEvent } from "./notify.js";
+import type { ReleaseStatus, ReleaseVerdict } from './appStoreRelease.js';
+import type { NotifyEvent } from './notify.js';
 
 /**
  * Memory of what's already been notified, owned by the watch loop for its lifetime. Keyed per
@@ -35,9 +35,9 @@ export function createTransitionTracker(): TransitionTracker {
  * settled verdicts (`preparing`, `unknown`) don't represent a review outcome, so they stay silent even
  * though their `verdict.done` is true. Pure.
  */
-export function reviewStatusForVerdict(verdict: ReleaseVerdict): "approved" | "rejected" | null {
-  if (verdict.state === "rejected") return "rejected";
-  if (verdict.state === "released" || verdict.state === "pending-release") return "approved";
+export function reviewStatusForVerdict(verdict: ReleaseVerdict): 'approved' | 'rejected' | null {
+  if (verdict.state === 'rejected') return 'rejected';
+  if (verdict.state === 'released' || verdict.state === 'pending-release') return 'approved';
   return null;
 }
 
@@ -56,7 +56,7 @@ export function planTransitionNotifications(
   tracker: TransitionTracker,
 ): NotifyEvent[] {
   const events: NotifyEvent[] = [];
-  const version = status.versionString ?? "";
+  const version = status.versionString ?? '';
   // Key transition memory by app *and* version so a new release of the same app during one watch
   // session is a fresh review/rollout, not blocked by the prior version's already-notified state.
   const key = `${appName}@${version}`;
@@ -66,10 +66,10 @@ export function planTransitionNotifications(
     if (reviewStatus) {
       tracker.reviewed.add(key);
       events.push({
-        event: "review",
+        event: 'review',
         status: reviewStatus,
         app: appName,
-        platform: "ios",
+        platform: 'ios',
         version,
         detail: status.verdict.label,
       });
@@ -81,7 +81,14 @@ export function planTransitionNotifications(
     const isFirstObservation = !tracker.lastPhasedState.has(key);
     tracker.lastPhasedState.set(key, phased);
     if (!isFirstObservation) {
-      events.push({ event: "rollout", status: "advanced", app: appName, platform: "ios", version, detail: phased });
+      events.push({
+        event: 'rollout',
+        status: 'advanced',
+        app: appName,
+        platform: 'ios',
+        version,
+        detail: phased,
+      });
     }
   }
 

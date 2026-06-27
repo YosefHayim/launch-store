@@ -12,16 +12,16 @@ import {
   registerCredentialsProvider,
   registerStorageProvider,
   registerSubmitter,
-} from "../core/registry.js";
-import { localCredentialsProvider } from "./credentials/local.js";
-import { localStorageProvider } from "./storage/local.js";
-import { fastlaneBuildEngine } from "./build/fastlane.js";
-import { gradleBuildEngine } from "./build/gradle.js";
-import { appStoreConnectSubmitter } from "./submit/appStoreConnect.js";
-import { googlePlaySubmitter } from "./submit/googlePlay.js";
-import { easSubmitter } from "./submit/eas.js";
-import { awsEc2MacComputeHost } from "./compute/awsEc2Mac.js";
-import { byoSshComputeHost } from "./compute/byoSsh.js";
+} from '../core/registry.js';
+import { localCredentialsProvider } from './credentials/local.js';
+import { localStorageProvider } from './storage/local.js';
+import { fastlaneBuildEngine } from './build/fastlane.js';
+import { gradleBuildEngine } from './build/gradle.js';
+import { appStoreConnectSubmitter } from './submit/appStoreConnect.js';
+import { googlePlaySubmitter } from './submit/googlePlay.js';
+import { easSubmitter } from './submit/eas.js';
+import { awsEc2MacComputeHost } from './compute/awsEc2Mac.js';
+import { byoSshComputeHost } from './compute/byoSsh.js';
 
 /**
  * Register every provider that ships with Launch.

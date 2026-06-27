@@ -14,10 +14,10 @@
  * pass builds the {@link PlannedAction}, the command prints it, then an APPLY pass performs it.
  */
 
-import { existsSync, readFileSync } from "node:fs";
-import type { AppAvailabilityResource } from "../apple/ascClient.js";
-import { appRecordMissing, type PlannedAction } from "./asc/storeSync.js";
-import { errorMessage } from "./errorMessage.js";
+import { existsSync, readFileSync } from 'node:fs';
+import type { AppAvailabilityResource } from '../apple/ascClient.js';
+import { appRecordMissing, type PlannedAction } from './asc/storeSync.js';
+import { errorMessage } from './errorMessage.js';
 
 /** How many territory codes to show inline before truncating the plan line. */
 const PREVIEW_LIMIT = 8;
@@ -65,8 +65,8 @@ function difference(a: Set<string>, b: Set<string>): string[] {
 
 /** A compact, truncated preview of territory codes for the plan line. */
 function preview(codes: string[]): string {
-  if (codes.length <= PREVIEW_LIMIT) return codes.join(", ");
-  return `${codes.slice(0, PREVIEW_LIMIT).join(", ")}, …`;
+  if (codes.length <= PREVIEW_LIMIT) return codes.join(', ');
+  return `${codes.slice(0, PREVIEW_LIMIT).join(', ')}, …`;
 }
 
 /**
@@ -81,12 +81,15 @@ function describeChange(input: {
   availableInNewTerritories: boolean;
   firstTime: boolean;
 }): string {
-  const parts: string[] = [`set store availability → ${input.total} territor${input.total === 1 ? "y" : "ies"}`];
-  if (input.firstTime) parts.push("(first time)");
+  const parts: string[] = [
+    `set store availability → ${input.total} territor${input.total === 1 ? 'y' : 'ies'}`,
+  ];
+  if (input.firstTime) parts.push('(first time)');
   if (input.added.length) parts.push(`+${input.added.length} (${preview(input.added)})`);
   if (input.removed.length) parts.push(`−${input.removed.length} (${preview(input.removed)})`);
-  if (input.flagChanged) parts.push(`auto-add new territories: ${input.availableInNewTerritories ? "on" : "off"}`);
-  return parts.join(" · ");
+  if (input.flagChanged)
+    parts.push(`auto-add new territories: ${input.availableInNewTerritories ? 'on' : 'off'}`);
+  return parts.join(' · ');
 }
 
 /**
@@ -99,13 +102,15 @@ export async function reconcileAvailability(
   input: AvailabilityReconcileInput,
 ): Promise<{ bundleId: string; actions: PlannedAction[] }> {
   const appId = await api.getAppId(input.bundleId);
-  if (!appId) throw appRecordMissing(input.bundleId, "availability");
+  if (!appId) throw appRecordMissing(input.bundleId, 'availability');
 
   const desired = normalizeTerritories(input.config.territories);
   const availableInNewTerritories = input.config.availableInNewTerritories === true;
 
   const current = await api.getAppAvailability(appId);
-  const currentSet = current ? normalizeTerritories(current.availableTerritories) : new Set<string>();
+  const currentSet = current
+    ? normalizeTerritories(current.availableTerritories)
+    : new Set<string>();
   const added = difference(desired, currentSet);
   const removed = difference(currentSet, desired);
   const flagChanged = (current?.availableInNewTerritories ?? false) !== availableInNewTerritories;
@@ -124,17 +129,20 @@ export async function reconcileAvailability(
       firstTime: !current,
     }),
     destructive: removed.length > 0,
-    status: "planned",
+    status: 'planned',
   };
   const actions = [action];
 
   if (input.dryRun) return { bundleId: input.bundleId, actions };
 
   try {
-    await api.setAppAvailability(appId, { availableInNewTerritories, territories: [...desired].sort() });
-    action.status = "applied";
+    await api.setAppAvailability(appId, {
+      availableInNewTerritories,
+      territories: [...desired].sort(),
+    });
+    action.status = 'applied';
   } catch (error) {
-    action.status = "failed";
+    action.status = 'failed';
     action.error = errorMessage(error);
   }
   return { bundleId: input.bundleId, actions };
@@ -142,7 +150,7 @@ export async function reconcileAvailability(
 
 /** Narrow an unknown value to a plain object, or null. Arrays are rejected so a malformed section fails loudly. */
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
 }
@@ -154,27 +162,33 @@ function asRecord(value: unknown): Record<string, unknown> | null {
  */
 export function parseAvailabilityConfig(raw: unknown): AvailabilityConfig {
   const record = asRecord(raw);
-  if (!record) throw new Error("availability.config.json must be a JSON object.");
+  if (!record) throw new Error('availability.config.json must be a JSON object.');
 
-  const rawTerritories = record["territories"];
+  const rawTerritories = record['territories'];
   if (!Array.isArray(rawTerritories)) {
-    throw new Error('availability.config.json: "territories" must be an array of Apple territory codes.');
+    throw new Error(
+      'availability.config.json: "territories" must be an array of Apple territory codes.',
+    );
   }
   const territories: string[] = [];
   for (const [index, code] of rawTerritories.entries()) {
-    if (typeof code !== "string" || code.trim().length === 0) {
-      throw new Error(`availability.config.json: territories[${index}] must be a non-empty string (e.g. "USA").`);
+    if (typeof code !== 'string' || code.trim().length === 0) {
+      throw new Error(
+        `availability.config.json: territories[${index}] must be a non-empty string (e.g. "USA").`,
+      );
     }
     territories.push(code.trim().toUpperCase());
   }
   if (territories.length === 0) {
-    throw new Error('availability.config.json: "territories" must list at least one territory code.');
+    throw new Error(
+      'availability.config.json: "territories" must list at least one territory code.',
+    );
   }
 
   const config: AvailabilityConfig = { territories };
-  const flag = record["availableInNewTerritories"];
+  const flag = record['availableInNewTerritories'];
   if (flag !== undefined) {
-    if (typeof flag !== "boolean") {
+    if (typeof flag !== 'boolean') {
       throw new Error('availability.config.json: "availableInNewTerritories" must be a boolean.');
     }
     config.availableInNewTerritories = flag;
@@ -189,5 +203,5 @@ export function loadAvailabilityConfig(path: string): AvailabilityConfig {
       `No availability config at ${path}. Create one with a "territories" list (see \`launch availability --help\`).`,
     );
   }
-  return parseAvailabilityConfig(JSON.parse(readFileSync(path, "utf8")));
+  return parseAvailabilityConfig(JSON.parse(readFileSync(path, 'utf8')));
 }

@@ -10,8 +10,14 @@
  * App ID via `findBundleId`, independent of whether an App Store Connect app record exists yet.
  */
 
-import type { AppEntities, SnapshotContext, SnapshotEntity, SnapshotSource, SourceCapture } from "../types.js";
-import { iosApps } from "../../readiness/appScopes.js";
+import type {
+  AppEntities,
+  SnapshotContext,
+  SnapshotEntity,
+  SnapshotSource,
+  SourceCapture,
+} from '../types.js';
+import { iosApps } from '../../readiness/appScopes.js';
 
 /** One enabled capability → a snapshot entity keyed by its capability type. */
 function toEntity(capabilityType: string): SnapshotEntity {
@@ -20,15 +26,20 @@ function toEntity(capabilityType: string): SnapshotEntity {
 
 /** The App ID (bundle id) capabilities snapshot source. */
 export const appleCapabilitiesSource: SnapshotSource = {
-  id: "apple-capabilities",
-  title: "App ID capabilities",
-  store: "appstore",
+  id: 'apple-capabilities',
+  title: 'App ID capabilities',
+  store: 'appstore',
   async capture(ctx: SnapshotContext): Promise<SourceCapture> {
     const apps = iosApps(ctx.apps);
-    if (apps.length === 0) return { state: "omitted" };
+    if (apps.length === 0) return { state: 'omitted' };
 
     const api = await ctx.resolveAscApi();
-    if (!api) return { state: "skipped", reason: "no active Apple account", hint: "run `launch creds set-key`" };
+    if (!api)
+      return {
+        state: 'skipped',
+        reason: 'no active Apple account',
+        hint: 'run `launch creds set-key`',
+      };
 
     const captured = await Promise.all(
       apps.map(async ({ name, identifier }): Promise<AppEntities> => {
@@ -40,6 +51,6 @@ export const appleCapabilitiesSource: SnapshotSource = {
         return { app: name, identifier, entities };
       }),
     );
-    return { state: "captured", apps: captured };
+    return { state: 'captured', apps: captured };
   },
 };

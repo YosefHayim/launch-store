@@ -11,16 +11,16 @@
  * no bespoke code-emitter to maintain, and the developer reviews/commits the result like any other config.
  */
 
-import { configTemplate } from "../configScaffold.js";
-import type { AppProducts, InAppPurchaseConfig, SubscriptionGroupConfig } from "../types.js";
-import type { EntitlementValue, ProductPiece } from "./types.js";
+import { configTemplate } from '../configScaffold.js';
+import type { AppProducts, InAppPurchaseConfig, SubscriptionGroupConfig } from '../types.js';
+import type { EntitlementValue, ProductPiece } from './types.js';
 
 /** Fold one bundle's imported product pieces into a single {@link AppProducts}, dropping empty arms. */
 export function aggregateProductPieces(pieces: ProductPiece[]): AppProducts {
   const inAppPurchases: InAppPurchaseConfig[] = [];
   const subscriptionGroups: SubscriptionGroupConfig[] = [];
   for (const piece of pieces) {
-    if (piece.type === "iap") inAppPurchases.push(piece.iap);
+    if (piece.type === 'iap') inAppPurchases.push(piece.iap);
     else subscriptionGroups.push(piece.group);
   }
   const products: AppProducts = {};
@@ -34,17 +34,20 @@ export function serializeProductsSection(productsByBundleId: Record<string, AppP
   const json = JSON.stringify(productsByBundleId, null, 2);
   // Shift every line but the first right by two spaces so the block nests under `products:` cleanly.
   const indented = json
-    .split("\n")
+    .split('\n')
     .map((line, index) => (index === 0 ? line : `  ${line}`))
-    .join("\n");
+    .join('\n');
   return [
-    "  // Imported from App Store Connect by `launch adopt` — review, then commit.",
+    '  // Imported from App Store Connect by `launch adopt` — review, then commit.',
     `  products: ${indented},`,
-  ].join("\n");
+  ].join('\n');
 }
 
 /** Build a complete fresh `launch.config.ts` with the imported products pre-filled (extends `init`'s template). */
-export function buildAdoptedConfig(appRoot: string | null, productsByBundleId: Record<string, AppProducts>): string {
+export function buildAdoptedConfig(
+  appRoot: string | null,
+  productsByBundleId: Record<string, AppProducts>,
+): string {
   return configTemplate(appRoot, serializeProductsSection(productsByBundleId));
 }
 

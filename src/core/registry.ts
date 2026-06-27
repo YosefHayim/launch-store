@@ -7,7 +7,13 @@
  * install never imports their SDKs.
  */
 
-import type { BuildEngine, ComputeHost, CredentialsProvider, StorageProvider, Submitter } from "./types.js";
+import type {
+  BuildEngine,
+  ComputeHost,
+  CredentialsProvider,
+  StorageProvider,
+  Submitter,
+} from './types.js';
 
 const credentialsProviders = new Map<string, CredentialsProvider>();
 const buildEngines = new Map<string, BuildEngine>();
@@ -45,19 +51,22 @@ function lookup<T>(kind: string, name: string, registry: Map<string, T>): T {
   const found = registry.get(name);
   if (!found) {
     const names = [...registry.keys()];
-    const available = names.length > 0 ? names.join(", ") : "(none registered)";
+    const available = names.length > 0 ? names.join(', ') : '(none registered)';
     throw new Error(`Unknown ${kind} "${name}". Available: ${available}.`);
   }
   return found;
 }
 
 export const getCredentialsProvider = (name: string): CredentialsProvider =>
-  lookup("credentials provider", name, credentialsProviders);
+  lookup('credentials provider', name, credentialsProviders);
 
-export const getBuildEngine = (name: string): BuildEngine => lookup("build engine", name, buildEngines);
+export const getBuildEngine = (name: string): BuildEngine =>
+  lookup('build engine', name, buildEngines);
 
-export const getStorageProvider = (name: string): StorageProvider => lookup("storage provider", name, storageProviders);
+export const getStorageProvider = (name: string): StorageProvider =>
+  lookup('storage provider', name, storageProviders);
 
-export const getSubmitter = (name: string): Submitter => lookup("submitter", name, submitters);
+export const getSubmitter = (name: string): Submitter => lookup('submitter', name, submitters);
 
-export const getComputeHost = (name: string): ComputeHost => lookup("compute host", name, computeHosts);
+export const getComputeHost = (name: string): ComputeHost =>
+  lookup('compute host', name, computeHosts);

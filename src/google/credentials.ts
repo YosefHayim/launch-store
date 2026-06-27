@@ -13,25 +13,25 @@
  * (base64 at rest, so the macOS `security -w` backend can't hex-corrupt its multi-line PEM).
  */
 
-import { chmodSync, copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
-import { randomBytes } from "node:crypto";
-import type { KeystoreAssets } from "../core/types.js";
-import type { Logger } from "../core/logger.js";
-import { capture } from "../core/exec.js";
-import { getSecret, setSecret } from "../core/keychain.js";
-import { ANDROID_CREDENTIALS_INDEX, CREDENTIALS_DIR, ensureDir } from "../core/paths.js";
-import { join } from "node:path";
-import { parseServiceAccount } from "./playClient.js";
+import { chmodSync, copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import type { KeystoreAssets } from '../core/types.js';
+import type { Logger } from '../core/logger.js';
+import { capture } from '../core/exec.js';
+import { getSecret, setSecret } from '../core/keychain.js';
+import { ANDROID_CREDENTIALS_INDEX, CREDENTIALS_DIR, ensureDir } from '../core/paths.js';
+import { join } from 'node:path';
+import { parseServiceAccount } from './playClient.js';
 
 /** Secret-store account holding the Play service-account JSON (base64-encoded — see {@link encodeJson}). */
-const SERVICE_ACCOUNT_SECRET = "play-service-account";
+const SERVICE_ACCOUNT_SECRET = 'play-service-account';
 /** Secret-store accounts for the upload keystore's store/key passwords. */
-const KEYSTORE_STORE_PASSWORD = "android-keystore-store-password";
-const KEYSTORE_KEY_PASSWORD = "android-keystore-key-password";
+const KEYSTORE_STORE_PASSWORD = 'android-keystore-store-password';
+const KEYSTORE_KEY_PASSWORD = 'android-keystore-key-password';
 /** Default key alias for a Launch-generated keystore. */
-const DEFAULT_ALIAS = "upload";
+const DEFAULT_ALIAS = 'upload';
 /** Canonical on-disk location of the (generated or imported) upload keystore backup. */
-const KEYSTORE_BACKUP = join(CREDENTIALS_DIR, "upload.keystore");
+const KEYSTORE_BACKUP = join(CREDENTIALS_DIR, 'upload.keystore');
 
 /** Persisted, non-secret record of the upload keystore (`~/.launch/credentials/android.json`). */
 interface KeystoreRecord {
@@ -73,20 +73,20 @@ export interface EnsureKeystoreOptions {
 
 /** Base64-encode a multi-line secret so the macOS `security -w` backend stores it without hex-corruption. */
 function encodeJson(json: string): string {
-  return Buffer.from(json, "utf8").toString("base64");
+  return Buffer.from(json, 'utf8').toString('base64');
 }
 
 /** Decode a stored service-account JSON; tolerate a legacy verbatim value written before base64 encoding. */
 function decodeJson(stored: string): string {
-  const decoded = Buffer.from(stored, "base64").toString("utf8");
-  return decoded.trimStart().startsWith("{") ? decoded : stored;
+  const decoded = Buffer.from(stored, 'base64').toString('utf8');
+  return decoded.trimStart().startsWith('{') ? decoded : stored;
 }
 
 /** Read the Android credentials index, tolerating a missing or malformed file. */
 function readAndroidIndex(): AndroidCredentialsIndex {
   if (!existsSync(ANDROID_CREDENTIALS_INDEX)) return {};
   try {
-    return JSON.parse(readFileSync(ANDROID_CREDENTIALS_INDEX, "utf8")) as AndroidCredentialsIndex;
+    return JSON.parse(readFileSync(ANDROID_CREDENTIALS_INDEX, 'utf8')) as AndroidCredentialsIndex;
   } catch {
     return {};
   }
@@ -141,10 +141,10 @@ export async function describeStoredAndroidCredentials(): Promise<{
 /** A keystore stand-in for `--dry-run`, so the rest of the pipeline runs unchanged. */
 function dryRunKeystore(): KeystoreAssets {
   return {
-    path: join(CREDENTIALS_DIR, "dry-run-upload.keystore"),
+    path: join(CREDENTIALS_DIR, 'dry-run-upload.keystore'),
     alias: DEFAULT_ALIAS,
-    storePassword: "dry-run",
-    keyPassword: "dry-run",
+    storePassword: 'dry-run',
+    keyPassword: 'dry-run',
   };
 }
 
@@ -156,25 +156,33 @@ function dryRunKeystore(): KeystoreAssets {
  * passwords in the secret store, and back it up chmod-600. Idempotent: a second run with a keystore in
  * place performs no writes. Reuse-first throughout, exactly like the iOS distribution certificate.
  */
-export async function ensureUploadKeystore(options: EnsureKeystoreOptions): Promise<KeystoreAssets> {
+export async function ensureUploadKeystore(
+  options: EnsureKeystoreOptions,
+): Promise<KeystoreAssets> {
   const { log, dryRun, confirmCreate } = options;
   if (dryRun) {
     log.info(
-      "[dry-run] would generate (or import) an upload keystore with keytool, backed up under ~/.launch/credentials",
+      '[dry-run] would generate (or import) an upload keystore with keytool, backed up under ~/.launch/credentials',
     );
     return dryRunKeystore();
   }
 
   const cached = await loadCachedKeystore();
   if (cached) {
-    log.step("keystore", `reusing upload keystore (alias ${cached.alias})`, "upload-key");
+    log.step('keystore', `reusing upload keystore (alias ${cached.alias})`, 'upload-key');
     return cached;
   }
 
   if (options.import) return importKeystore(options.import, log);
 
-  if (!(await confirmCreate("Generate a new upload keystore (a fresh key on this machine; backed up locally)?"))) {
-    throw new Error("No upload keystore. Re-run and confirm to generate one, or import an existing one with --import.");
+  if (
+    !(await confirmCreate(
+      'Generate a new upload keystore (a fresh key on this machine; backed up locally)?',
+    ))
+  ) {
+    throw new Error(
+      'No upload keystore. Re-run and confirm to generate one, or import an existing one with --import.',
+    );
   }
   return generateKeystore(options.appName, log);
 }
@@ -182,40 +190,53 @@ export async function ensureUploadKeystore(options: EnsureKeystoreOptions): Prom
 /** Generate a fresh upload keystore with keytool, store its passwords, and back it up (chmod 600). */
 async function generateKeystore(appName: string, log: Logger): Promise<KeystoreAssets> {
   ensureDir(CREDENTIALS_DIR);
-  const password = randomBytes(24).toString("hex");
-  await capture("keytool", [
-    "-genkeypair",
-    "-noprompt",
-    "-keystore",
+  const password = randomBytes(24).toString('hex');
+  await capture('keytool', [
+    '-genkeypair',
+    '-noprompt',
+    '-keystore',
     KEYSTORE_BACKUP,
-    "-alias",
+    '-alias',
     DEFAULT_ALIAS,
-    "-keyalg",
-    "RSA",
-    "-keysize",
-    "2048",
-    "-validity",
-    "10000",
-    "-storepass",
+    '-keyalg',
+    'RSA',
+    '-keysize',
+    '2048',
+    '-validity',
+    '10000',
+    '-storepass',
     password,
-    "-keypass",
+    '-keypass',
     password,
-    "-dname",
+    '-dname',
     `CN=Launch Upload (${appName}), O=Launch, C=US`,
   ]);
   chmodSync(KEYSTORE_BACKUP, 0o600);
   await setSecret(KEYSTORE_STORE_PASSWORD, password);
   await setSecret(KEYSTORE_KEY_PASSWORD, password);
   writeAndroidIndex({ keystore: { path: KEYSTORE_BACKUP, alias: DEFAULT_ALIAS } });
-  log.step("keystore", `generated upload keystore (alias ${DEFAULT_ALIAS})`, "upload-key");
-  return { path: KEYSTORE_BACKUP, alias: DEFAULT_ALIAS, storePassword: password, keyPassword: password };
+  log.step('keystore', `generated upload keystore (alias ${DEFAULT_ALIAS})`, 'upload-key');
+  return {
+    path: KEYSTORE_BACKUP,
+    alias: DEFAULT_ALIAS,
+    storePassword: password,
+    keyPassword: password,
+  };
 }
 
 /** Adopt an existing keystore: verify its alias + password open it, back it up, and store its passwords. */
 async function importKeystore(imp: KeystoreImport, log: Logger): Promise<KeystoreAssets> {
   if (!existsSync(imp.path)) throw new Error(`No keystore at ${imp.path}.`);
   try {
-    await capture("keytool", ["-list", "-keystore", imp.path, "-storepass", imp.storePassword, "-alias", imp.alias]);
+    await capture('keytool', [
+      '-list',
+      '-keystore',
+      imp.path,
+      '-storepass',
+      imp.storePassword,
+      '-alias',
+      imp.alias,
+    ]);
   } catch (error) {
     throw new Error(
       `Could not open keystore ${imp.path} with alias "${imp.alias}" and the given password: ` +
@@ -228,6 +249,11 @@ async function importKeystore(imp: KeystoreImport, log: Logger): Promise<Keystor
   await setSecret(KEYSTORE_STORE_PASSWORD, imp.storePassword);
   await setSecret(KEYSTORE_KEY_PASSWORD, imp.keyPassword);
   writeAndroidIndex({ keystore: { path: KEYSTORE_BACKUP, alias: imp.alias } });
-  log.step("keystore", `imported upload keystore (alias ${imp.alias})`, "upload-key");
-  return { path: KEYSTORE_BACKUP, alias: imp.alias, storePassword: imp.storePassword, keyPassword: imp.keyPassword };
+  log.step('keystore', `imported upload keystore (alias ${imp.alias})`, 'upload-key');
+  return {
+    path: KEYSTORE_BACKUP,
+    alias: imp.alias,
+    storePassword: imp.storePassword,
+    keyPassword: imp.keyPassword,
+  };
 }

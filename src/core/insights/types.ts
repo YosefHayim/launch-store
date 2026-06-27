@@ -14,14 +14,14 @@
 export type StarRating = 1 | 2 | 3 | 4 | 5;
 
 /** Which store a normalized review came from. */
-export type InsightsStore = "appstore" | "play";
+export type InsightsStore = 'appstore' | 'play';
 
 /**
  * Sentiment bucket derived purely from the star rating: 4–5 positive, 3 neutral, 1–2 negative. A
  * coarse proxy (Launch reads no review text into the model), but enough to surface ratings movement —
  * the dimension issue #178 calls out — without a new data source.
  */
-export type Sentiment = "positive" | "neutral" | "negative";
+export type Sentiment = 'positive' | 'neutral' | 'negative';
 
 /**
  * A review from either store reduced to exactly the fields insights aggregates over. The full review

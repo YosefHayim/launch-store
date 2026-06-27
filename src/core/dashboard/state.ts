@@ -9,15 +9,27 @@
  * happens here; this reads only `launch.config.ts` and `~/.launch`.
  */
 
-import type { AccountRecord, AppDescriptor, BuildArtifact, HostHandle, LaunchConfig } from "../types.js";
-import type { SecretRef } from "../buildSecrets.js";
-import type { DashboardAccount, DashboardApp, DashboardArtifact, DashboardCloudHost, DashboardState } from "./types.js";
-import { loadConfig } from "../config.js";
-import { getActiveAccount, listAccounts } from "../accounts.js";
-import { readArtifactIndex } from "../artifactRetention.js";
-import { getLiveHost } from "../cloudState.js";
-import { listSecretRefs } from "../buildSecrets.js";
-import { LAUNCH_HOME } from "../paths.js";
+import type {
+  AccountRecord,
+  AppDescriptor,
+  BuildArtifact,
+  HostHandle,
+  LaunchConfig,
+} from '../types.js';
+import type { SecretRef } from '../buildSecrets.js';
+import type {
+  DashboardAccount,
+  DashboardApp,
+  DashboardArtifact,
+  DashboardCloudHost,
+  DashboardState,
+} from './types.js';
+import { loadConfig } from '../config.js';
+import { getActiveAccount, listAccounts } from '../accounts.js';
+import { readArtifactIndex } from '../artifactRetention.js';
+import { getLiveHost } from '../cloudState.js';
+import { listSecretRefs } from '../buildSecrets.js';
+import { LAUNCH_HOME } from '../paths.js';
 
 /** How many of the newest build artifacts the dashboard lists — enough to be useful, not a full history. */
 export const RECENT_ARTIFACT_LIMIT = 12;
@@ -92,9 +104,9 @@ function toDashboardCloudHost(host: HostHandle | null): DashboardCloudHost | nul
 }
 
 /** Collapse the `submit` config (a single submitter, or a per-platform store map) to a display string. */
-function formatSubmit(submit: LaunchConfig["submit"]): string {
-  if (typeof submit === "string") return submit;
-  return [...new Set(Object.values(submit).flat())].join(", ");
+function formatSubmit(submit: LaunchConfig['submit']): string {
+  if (typeof submit === 'string') return submit;
+  return [...new Set(Object.values(submit).flat())].join(', ');
 }
 
 /** Pure projection of the read local state into the flat snapshot the dashboard renders. */

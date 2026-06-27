@@ -11,30 +11,30 @@
  * with no real TTY or timers in tests.
  */
 
-import { type ColorDepth } from "./halfblock.js";
-import { buildRocketFrames, renderRocketBanner } from "./rocketScene.js";
+import { type ColorDepth } from './halfblock.js';
+import { buildRocketFrames, renderRocketBanner } from './rocketScene.js';
 
 /** The single static banner — the settled scene's plain-text tagline, for piped output, logs, and CI. */
 export function staticBanner(): string {
-  return renderRocketBanner("none");
+  return renderRocketBanner('none');
 }
 
 /** Whether to animate. Pure so the decision is testable. */
-export type BannerMode = "animate" | "static";
+export type BannerMode = 'animate' | 'static';
 
 /** Animate only on a real interactive TTY that isn't CI and hasn't opted out via `LAUNCH_NO_ANIMATION`. */
 export function selectBannerMode(isTTY: boolean, env: NodeJS.ProcessEnv): BannerMode {
-  if (!isTTY) return "static";
-  if (env["CI"] || env["LAUNCH_NO_ANIMATION"]) return "static";
-  return "animate";
+  if (!isTTY) return 'static';
+  if (env['CI'] || env['LAUNCH_NO_ANIMATION']) return 'static';
+  return 'animate';
 }
 
 /** Pick the color depth from the environment: `NO_COLOR` off, truecolor when advertised, else 256-color. */
 export function selectColorDepth(env: NodeJS.ProcessEnv): ColorDepth {
-  if (env["NO_COLOR"]) return "none";
-  const colorterm = (env["COLORTERM"] ?? "").toLowerCase();
-  if (colorterm.includes("truecolor") || colorterm.includes("24bit")) return "truecolor";
-  return "ansi256";
+  if (env['NO_COLOR']) return 'none';
+  const colorterm = (env['COLORTERM'] ?? '').toLowerCase();
+  if (colorterm.includes('truecolor') || colorterm.includes('24bit')) return 'truecolor';
+  return 'ansi256';
 }
 
 /** The minimal writable surface the banner needs — lets tests pass a tiny capture stub. */
@@ -63,18 +63,19 @@ export async function renderBanner(options: RenderBannerOptions = {}): Promise<v
   const isTTY = options.isTTY ?? process.stdout.isTTY;
   const env = options.env ?? process.env;
 
-  if (selectBannerMode(isTTY, env) === "static") {
+  if (selectBannerMode(isTTY, env) === 'static') {
     stream.write(`${staticBanner()}\n`);
     return;
   }
 
   const frames = buildRocketFrames(selectColorDepth(env));
-  const height = (frames[0] ?? "").split("\n").length;
+  const height = (frames[0] ?? '').split('\n').length;
   const frameMs = options.frameMs ?? 70;
-  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const sleep =
+    options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   for (let i = 0; i < frames.length; i++) {
     if (i > 0) stream.write(`\x1b[${height}A`); // move the cursor up to redraw the wordmark in place
-    stream.write(`${frames[i] ?? ""}\n`);
+    stream.write(`${frames[i] ?? ''}\n`);
     if (i < frames.length - 1) await sleep(frameMs);
   }
 }

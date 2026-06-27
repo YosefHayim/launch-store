@@ -13,9 +13,9 @@
  * wires the ASC reads and the local keychain index to it.
  */
 
-import type { CertificateResource, ProfileResource } from "../../apple/ascClient.js";
-import { describeStoredCredentials } from "../../apple/credentials.js";
-import type { Adopter, AdoptCatalogApi, AdoptTarget, PlannedWrite } from "./types.js";
+import type { CertificateResource, ProfileResource } from '../../apple/ascClient.js';
+import { describeStoredCredentials } from '../../apple/credentials.js';
+import type { Adopter, AdoptCatalogApi, AdoptTarget, PlannedWrite } from './types.js';
 
 /** What's cached locally for the active account — the keychain-backup view the verdict compares against. */
 export interface LocalSigningView {
@@ -35,12 +35,17 @@ export interface CertPlanInput {
 
 /** One detect-only report write (no mutation) — its `change.home` is always `keychain`. */
 function report(description: string, note?: string): PlannedWrite {
-  return { description, fidelity: "detect", ...(note ? { note } : {}), change: { home: "keychain" } };
+  return {
+    description,
+    fidelity: 'detect',
+    ...(note ? { note } : {}),
+    change: { home: 'keychain' },
+  };
 }
 
 /** The delegation hint shown when a usable local key/profile is missing — keeps signing single-sourced. */
 const DELEGATE_HINT =
-  "Apple never returns the private key — run `launch creds setup` to issue or reuse a usable cert + profile";
+  'Apple never returns the private key — run `launch creds setup` to issue or reuse a usable cert + profile';
 
 /**
  * Build the detect-only report for one app's signing assets. Pure and deterministic: it reports every
@@ -51,12 +56,14 @@ export function planCertReports(input: CertPlanInput): PlannedWrite[] {
   const writes: PlannedWrite[] = [];
 
   if (input.certs.length === 0) {
-    writes.push(report("certs: no distribution certificates on this account", DELEGATE_HINT));
+    writes.push(report('certs: no distribution certificates on this account', DELEGATE_HINT));
   }
   for (const cert of input.certs) {
     const local = cert.serialNumber === input.local.certSerial;
-    const expiry = cert.expirationDate ? ` (expires ${cert.expirationDate.slice(0, 10)})` : "";
-    const verdict = local ? "private key present in this keychain" : "private key not in this keychain";
+    const expiry = cert.expirationDate ? ` (expires ${cert.expirationDate.slice(0, 10)})` : '';
+    const verdict = local
+      ? 'private key present in this keychain'
+      : 'private key not in this keychain';
     writes.push(
       report(
         `certs: distribution certificate ${cert.serialNumber}${expiry} — ${verdict}`,
@@ -67,7 +74,7 @@ export function planCertReports(input: CertPlanInput): PlannedWrite[] {
 
   const localBundle = input.local.bundleIds.includes(input.bundleId);
   for (const profile of input.profiles) {
-    const verdict = localBundle ? "installed locally" : "not installed locally";
+    const verdict = localBundle ? 'installed locally' : 'not installed locally';
     writes.push(
       report(
         `certs: profile "${profile.name}" (${profile.uuid}) — ${verdict}`,
@@ -81,8 +88,8 @@ export function planCertReports(input: CertPlanInput): PlannedWrite[] {
 
 /** Read an app's certs/profiles and the local keychain index, and plan detect-only reports. */
 export const certsAdopter: Adopter = {
-  domain: "certs",
-  fidelity: "detect",
+  domain: 'certs',
+  fidelity: 'detect',
   async read(asc: AdoptCatalogApi, target: AdoptTarget): Promise<PlannedWrite[]> {
     const bundle = await asc.findBundleId(target.bundleId);
     const [certs, profiles] = await Promise.all([

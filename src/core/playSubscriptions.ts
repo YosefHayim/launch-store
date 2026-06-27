@@ -31,25 +31,25 @@ import type {
   SubscriptionOfferPhase,
   SubscriptionOfferResource,
   SubscriptionResource,
-} from "../google/playClient.js";
+} from '../google/playClient.js';
 import type {
   PlaySubscriptionOfferConfig,
   PlayPriceConfig,
   ProductLocalization,
   SubscriptionConfig,
   SubscriptionPeriod,
-} from "./types.js";
-import { plan, type PlannedAction, type ReconcileContext } from "./asc/storeSync.js";
-import { errorMessage } from "./errorMessage.js";
+} from './types.js';
+import { plan, type PlannedAction, type ReconcileContext } from './asc/storeSync.js';
+import { errorMessage } from './errorMessage.js';
 
 /** Apple billing period → ISO-8601 duration, the form Play's base plans and offer phases want. */
 const PERIOD_ISO: Record<SubscriptionPeriod, string> = {
-  ONE_WEEK: "P1W",
-  ONE_MONTH: "P1M",
-  TWO_MONTHS: "P2M",
-  THREE_MONTHS: "P3M",
-  SIX_MONTHS: "P6M",
-  ONE_YEAR: "P1Y",
+  ONE_WEEK: 'P1W',
+  ONE_MONTH: 'P1M',
+  TWO_MONTHS: 'P2M',
+  THREE_MONTHS: 'P3M',
+  SIX_MONTHS: 'P6M',
+  ONE_YEAR: 'P1Y',
 };
 
 /** Inverse of {@link PERIOD_ISO}, derived from it so the two never drift, for reading a captured base plan back. */
@@ -71,7 +71,11 @@ export interface PlaySubscriptionsApi {
   assertAppExists(packageName: string): Promise<void>;
   listSubscriptions(packageName: string): Promise<SubscriptionResource[]>;
   createSubscription(packageName: string, subscription: SubscriptionResource): Promise<void>;
-  patchSubscription(packageName: string, subscription: SubscriptionResource, updateMask: string): Promise<void>;
+  patchSubscription(
+    packageName: string,
+    subscription: SubscriptionResource,
+    updateMask: string,
+  ): Promise<void>;
   activateBasePlan(packageName: string, productId: string, basePlanId: string): Promise<void>;
   listSubscriptionOffers(
     packageName: string,
@@ -79,7 +83,12 @@ export interface PlaySubscriptionsApi {
     basePlanId: string,
   ): Promise<SubscriptionOfferResource[]>;
   createSubscriptionOffer(packageName: string, offer: SubscriptionOfferResource): Promise<void>;
-  activateSubscriptionOffer(packageName: string, productId: string, basePlanId: string, offerId: string): Promise<void>;
+  activateSubscriptionOffer(
+    packageName: string,
+    productId: string,
+    basePlanId: string,
+    offerId: string,
+  ): Promise<void>;
 }
 
 /** Inputs to reconcile one app's Play subscriptions. */
@@ -127,7 +136,10 @@ function listingsInSync(existing: SubscriptionListing[], desired: SubscriptionLi
 }
 
 /** Merge desired listings over the live ones (by language) so a patch never drops locales Launch doesn't manage. */
-function mergeListings(existing: SubscriptionListing[], desired: SubscriptionListing[]): SubscriptionListing[] {
+function mergeListings(
+  existing: SubscriptionListing[],
+  desired: SubscriptionListing[],
+): SubscriptionListing[] {
   const byLanguage = new Map(existing.map((listing) => [listing.languageCode, listing]));
   for (const listing of desired) {
     const live = byLanguage.get(listing.languageCode);
@@ -157,7 +169,9 @@ function buildBasePlan(
 function resendableBasePlan(basePlan: BasePlan): BasePlan {
   return {
     basePlanId: basePlan.basePlanId,
-    ...(basePlan.autoRenewingBasePlanType ? { autoRenewingBasePlanType: basePlan.autoRenewingBasePlanType } : {}),
+    ...(basePlan.autoRenewingBasePlanType
+      ? { autoRenewingBasePlanType: basePlan.autoRenewingBasePlanType }
+      : {}),
     ...(basePlan.regionalConfigs ? { regionalConfigs: basePlan.regionalConfigs } : {}),
     ...(basePlan.offerTags ? { offerTags: basePlan.offerTags } : {}),
   };
@@ -202,7 +216,9 @@ export function buildOffer(
     .map((phase) => phase.regionalConfigs.map((regional) => regional.regionCode))
     .reduce((shared, set) => shared.filter((region) => set.includes(region)));
   if (regions.length === 0) {
-    throw new Error(`Play offer ${config.offerId} has no region common to its trial and intro-price phases.`);
+    throw new Error(
+      `Play offer ${config.offerId} has no region common to its trial and intro-price phases.`,
+    );
   }
 
   return {
@@ -211,7 +227,9 @@ export function buildOffer(
     offerId: config.offerId,
     phases: phases.map((phase) => ({
       ...phase,
-      regionalConfigs: phase.regionalConfigs.filter((regional) => regions.includes(regional.regionCode)),
+      regionalConfigs: phase.regionalConfigs.filter((regional) =>
+        regions.includes(regional.regionCode),
+      ),
     })),
     regionalConfigs: regions.map((regionCode) => ({ regionCode, newSubscriberAvailability: true })),
   };
@@ -231,7 +249,7 @@ function resolveOffers(
       offers.push(buildOffer(productId, basePlanId, basePlanRegions, config));
     } catch (error) {
       const action = plan(ctx, `create offer ${config.offerId} on base plan ${basePlanId}`);
-      action.status = "failed";
+      action.status = 'failed';
       action.error = errorMessage(error);
     }
   }
@@ -262,18 +280,18 @@ async function ensureOffer(
   if (ctx.dryRun) return;
   try {
     await api.createSubscriptionOffer(packageName, offer);
-    createAction.status = "applied";
+    createAction.status = 'applied';
   } catch (error) {
-    createAction.status = "failed";
+    createAction.status = 'failed';
     createAction.error = errorMessage(error);
-    activateAction.status = "skipped";
+    activateAction.status = 'skipped';
     return;
   }
   try {
     await api.activateSubscriptionOffer(packageName, productId, basePlanId, offer.offerId);
-    activateAction.status = "applied";
+    activateAction.status = 'applied';
   } catch (error) {
-    activateAction.status = "failed";
+    activateAction.status = 'failed';
     activateAction.error = errorMessage(error);
   }
 }
@@ -308,18 +326,18 @@ async function createNewSubscription(
       listings: desired.listings,
       basePlans: [desired.basePlan],
     });
-    createAction.status = "applied";
+    createAction.status = 'applied';
   } catch (error) {
-    createAction.status = "failed";
+    createAction.status = 'failed';
     createAction.error = errorMessage(error);
-    activateAction.status = "skipped";
+    activateAction.status = 'skipped';
     return;
   }
   try {
     await api.activateBasePlan(packageName, desired.productId, desired.basePlanId);
-    activateAction.status = "applied";
+    activateAction.status = 'applied';
   } catch (error) {
-    activateAction.status = "failed";
+    activateAction.status = 'failed';
     activateAction.error = errorMessage(error);
   }
   for (const offer of offers) {
@@ -340,47 +358,60 @@ async function reconcileExistingSubscription(
     const action = plan(ctx, `update listings on subscription ${desired.productId}`);
     if (!ctx.dryRun) {
       try {
-        await api.patchSubscription(packageName, { productId: desired.productId, listings: merged }, "listings");
-        action.status = "applied";
+        await api.patchSubscription(
+          packageName,
+          { productId: desired.productId, listings: merged },
+          'listings',
+        );
+        action.status = 'applied';
       } catch (error) {
-        action.status = "failed";
+        action.status = 'failed';
         action.error = errorMessage(error);
       }
     }
   }
 
-  const liveBasePlan = (existing.basePlans ?? []).find((basePlan) => basePlan.basePlanId === desired.basePlanId);
+  const liveBasePlan = (existing.basePlans ?? []).find(
+    (basePlan) => basePlan.basePlanId === desired.basePlanId,
+  );
   if (!liveBasePlan) {
     const merged = [...(existing.basePlans ?? []).map(resendableBasePlan), desired.basePlan];
-    const addAction = plan(ctx, `add base plan ${desired.basePlanId} to subscription ${desired.productId}`);
+    const addAction = plan(
+      ctx,
+      `add base plan ${desired.basePlanId} to subscription ${desired.productId}`,
+    );
     const activateAction = plan(ctx, `activate base plan ${desired.basePlanId}`);
     if (!ctx.dryRun) {
       try {
-        await api.patchSubscription(packageName, { productId: desired.productId, basePlans: merged }, "basePlans");
-        addAction.status = "applied";
+        await api.patchSubscription(
+          packageName,
+          { productId: desired.productId, basePlans: merged },
+          'basePlans',
+        );
+        addAction.status = 'applied';
       } catch (error) {
-        addAction.status = "failed";
+        addAction.status = 'failed';
         addAction.error = errorMessage(error);
-        activateAction.status = "skipped";
+        activateAction.status = 'skipped';
       }
-      if (addAction.status === "applied") {
+      if (addAction.status === 'applied') {
         try {
           await api.activateBasePlan(packageName, desired.productId, desired.basePlanId);
-          activateAction.status = "applied";
+          activateAction.status = 'applied';
         } catch (error) {
-          activateAction.status = "failed";
+          activateAction.status = 'failed';
           activateAction.error = errorMessage(error);
         }
       }
     }
-  } else if (liveBasePlan.state !== "ACTIVE") {
+  } else if (liveBasePlan.state !== 'ACTIVE') {
     const action = plan(ctx, `activate base plan ${desired.basePlanId}`);
     if (!ctx.dryRun) {
       try {
         await api.activateBasePlan(packageName, desired.productId, desired.basePlanId);
-        action.status = "applied";
+        action.status = 'applied';
       } catch (error) {
-        action.status = "failed";
+        action.status = 'failed';
         action.error = errorMessage(error);
       }
     }
@@ -396,7 +427,11 @@ async function reconcileExistingSubscription(
   const liveOfferIds = new Set<string>();
   if (liveBasePlan) {
     try {
-      const live = await api.listSubscriptionOffers(packageName, desired.productId, desired.basePlanId);
+      const live = await api.listSubscriptionOffers(
+        packageName,
+        desired.productId,
+        desired.basePlanId,
+      );
       for (const offer of live) liveOfferIds.add(offer.offerId);
     } catch {
       // A brand-new or unreadable base plan simply has no offers yet — treat the list as empty.
@@ -440,7 +475,8 @@ export async function reconcilePlaySubscriptions(
     };
 
     const existing = live.get(productId);
-    if (existing) await reconcileExistingSubscription(ctx, api, input.packageName, existing, desired);
+    if (existing)
+      await reconcileExistingSubscription(ctx, api, input.packageName, existing, desired);
     else await createNewSubscription(ctx, api, input.packageName, desired);
   }
   return { packageName: input.packageName, actions: ctx.actions };
@@ -456,9 +492,9 @@ export function summarizePlaySubscriptions(actions: PlannedAction[]): {
   let failed = 0;
   let skipped = 0;
   for (const action of actions) {
-    if (action.status === "applied") applied++;
-    else if (action.status === "failed") failed++;
-    else if (action.status === "skipped") skipped++;
+    if (action.status === 'applied') applied++;
+    else if (action.status === 'failed') failed++;
+    else if (action.status === 'skipped') skipped++;
   }
   return { applied, failed, skipped };
 }

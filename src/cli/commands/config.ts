@@ -10,18 +10,18 @@
  * `core/docs/configDocs.ts`, so this only wires the commander surface and the output. See issue #173.
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
-import type { Command } from "commander";
-import { findLaunchConfig } from "../../core/config.js";
-import type { FoundConfig } from "../../core/config.js";
-import { loadConfigSchema, validateConfig } from "../../core/configSchema.js";
-import { checkConfigSemantics } from "../../core/configSemantics.js";
-import type { SemanticIssue } from "../../core/configSemantics.js";
-import { renderConfigDocs } from "../../core/docs/configDocs.js";
-import { createLogger } from "../../core/logger.js";
-import type { Logger } from "../../core/logger.js";
-import type { LaunchConfig } from "../../core/types.js";
-import type { SchemaViolation } from "../../core/jsonSchema.js";
+import { readFileSync, writeFileSync } from 'node:fs';
+import type { Command } from 'commander';
+import { findLaunchConfig } from '../../core/config.js';
+import type { FoundConfig } from '../../core/config.js';
+import { loadConfigSchema, validateConfig } from '../../core/configSchema.js';
+import { checkConfigSemantics } from '../../core/configSemantics.js';
+import type { SemanticIssue } from '../../core/configSemantics.js';
+import { renderConfigDocs } from '../../core/docs/configDocs.js';
+import { createLogger } from '../../core/logger.js';
+import type { Logger } from '../../core/logger.js';
+import type { LaunchConfig } from '../../core/types.js';
+import type { SchemaViolation } from '../../core/jsonSchema.js';
 
 /** Options for `config schema`. */
 interface SchemaOptions {
@@ -32,12 +32,13 @@ interface SchemaOptions {
 /** Print a config's validation result — a success box, or each violation as `path: message` with a non-zero exit. */
 function reportViolations(log: Logger, violations: SchemaViolation[], source: string): void {
   if (violations.length === 0) {
-    log.box("Config valid", [`✓ ${source} matches the schema`]);
+    log.box('Config valid', [`✓ ${source} matches the schema`]);
     return;
   }
-  for (const violation of violations) log.warn(`${violation.path || "(root)"}: ${violation.message}`);
+  for (const violation of violations)
+    log.warn(`${violation.path || '(root)'}: ${violation.message}`);
   log.gap();
-  log.error(`${violations.length} problem${violations.length === 1 ? "" : "s"} in ${source}.`);
+  log.error(`${violations.length} problem${violations.length === 1 ? '' : 's'} in ${source}.`);
   process.exitCode = 1;
 }
 
@@ -52,7 +53,9 @@ function reportSemantics(log: Logger, config: LaunchConfig): void {
   log.gap();
   for (const issue of issues) log.warn(`${issue.path}: ${issue.message}`);
   log.gap();
-  log.tip(`${issues.length} semantic warning${issues.length === 1 ? "" : "s"} (not schema errors — exit 0).`);
+  log.tip(
+    `${issues.length} semantic warning${issues.length === 1 ? '' : 's'} (not schema errors — exit 0).`,
+  );
 }
 
 /** Emit the JSON Schema: to `--out` (with a hint to wire `$schema`), or to stdout so it can be piped. */
@@ -63,9 +66,9 @@ function runSchema(options: SchemaOptions): void {
     return;
   }
   writeFileSync(options.out, json);
-  createLogger(false).box("Schema written", [
+  createLogger(false).box('Schema written', [
     `✓ wrote ${options.out}`,
-    "Reference it via a `$schema` key (in a JSON config) or your editor for autocomplete + validation.",
+    'Reference it via a `$schema` key (in a JSON config) or your editor for autocomplete + validation.',
   ]);
 }
 
@@ -89,7 +92,9 @@ async function runValidate(file: string | undefined): Promise<void> {
       return;
     }
     if (!found) {
-      log.error("No launch.config.{ts,mjs,js} in this directory. Pass a .json file, or run `launch init` first.");
+      log.error(
+        'No launch.config.{ts,mjs,js} in this directory. Pass a .json file, or run `launch init` first.',
+      );
       process.exitCode = 1;
       return;
     }
@@ -99,15 +104,17 @@ async function runValidate(file: string | undefined): Promise<void> {
     return;
   }
 
-  if (!file.endsWith(".json")) {
-    log.error("`launch config validate` takes a .json file, or no argument to validate launch.config.ts.");
+  if (!file.endsWith('.json')) {
+    log.error(
+      '`launch config validate` takes a .json file, or no argument to validate launch.config.ts.',
+    );
     process.exitCode = 1;
     return;
   }
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(readFileSync(file, "utf8"));
+    parsed = JSON.parse(readFileSync(file, 'utf8'));
   } catch (error) {
     log.error(`Could not read ${file}: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
@@ -119,30 +126,33 @@ async function runValidate(file: string | undefined): Promise<void> {
 /** Attach the `config` command group and its `schema`/`validate`/`docs` subcommands to the program. */
 export function registerConfigCommand(program: Command): void {
   const config = program
-    .command("config")
+    .command('config')
     .description(
-      "work with the launch.config.ts schema — emit JSON Schema, validate a config, or print the field reference",
+      'work with the launch.config.ts schema — emit JSON Schema, validate a config, or print the field reference',
     );
 
   config
-    .command("schema")
-    .description("print the JSON Schema for launch.config.ts (generated from the config types)")
-    .option("--out <file>", "write the schema to this file instead of stdout")
+    .command('schema')
+    .description('print the JSON Schema for launch.config.ts (generated from the config types)')
+    .option('--out <file>', 'write the schema to this file instead of stdout')
     .action((options: SchemaOptions) => {
       runSchema(options);
     });
 
   config
-    .command("validate")
-    .argument("[file]", "a .json config to validate (default: the launch.config.ts in the current directory)")
-    .description("validate a config against the schema, reporting each problem with its field path")
+    .command('validate')
+    .argument(
+      '[file]',
+      'a .json config to validate (default: the launch.config.ts in the current directory)',
+    )
+    .description('validate a config against the schema, reporting each problem with its field path')
     .action(async (file: string | undefined) => {
       await runValidate(file);
     });
 
   config
-    .command("docs")
-    .description("print the launch.config.ts field reference (the same content as docs/config.md)")
+    .command('docs')
+    .description('print the launch.config.ts field reference (the same content as docs/config.md)')
     .action(() => {
       process.stdout.write(renderConfigDocs(loadConfigSchema()));
     });

@@ -12,24 +12,24 @@
  * non-zero exit code; a store that can't be read is a warning, not a failure.
  */
 
-import type { Command } from "commander";
-import { loadConfig } from "../../core/config.js";
-import { createLogger, type Logger } from "../../core/logger.js";
-import { selectApps } from "../../core/syncJobs.js";
-import { createAscClientResolver, createPlayClientResolver } from "../../core/storeClients.js";
-import { listReviews } from "../../core/reviews.js";
-import { listPlayReviews } from "../../core/playReviews.js";
-import { buildInsightsReport, STARS } from "../../core/insights/aggregate.js";
-import type { AppDescriptor } from "../../core/types.js";
-import type { AscReviewsApi } from "../../core/reviews.js";
-import type { PlayReviewsApi } from "../../core/playReviews.js";
+import type { Command } from 'commander';
+import { loadConfig } from '../../core/config.js';
+import { createLogger, type Logger } from '../../core/logger.js';
+import { selectApps } from '../../core/syncJobs.js';
+import { createAscClientResolver, createPlayClientResolver } from '../../core/storeClients.js';
+import { listReviews } from '../../core/reviews.js';
+import { listPlayReviews } from '../../core/playReviews.js';
+import { buildInsightsReport, STARS } from '../../core/insights/aggregate.js';
+import type { AppDescriptor } from '../../core/types.js';
+import type { AscReviewsApi } from '../../core/reviews.js';
+import type { PlayReviewsApi } from '../../core/playReviews.js';
 import type {
   InsightsReport,
   InsightsStore,
   RatingSummary,
   ReviewDatum,
   StarRating,
-} from "../../core/insights/types.js";
+} from '../../core/insights/types.js';
 
 /** CLI options for `launch insights`. */
 interface InsightsOptions {
@@ -72,7 +72,7 @@ async function gatherReviews(
       for (const review of await listReviews(asc, app.bundleId)) {
         const star = toStar(review.rating);
         if (!star) continue;
-        const datum: ReviewDatum = { store: "appstore", rating: star, answered: review.answered };
+        const datum: ReviewDatum = { store: 'appstore', rating: star, answered: review.answered };
         if (review.createdDate) datum.date = review.createdDate;
         data.push(datum);
       }
@@ -86,7 +86,7 @@ async function gatherReviews(
       for (const review of await listPlayReviews(play, app.packageName)) {
         const star = toStar(review.rating);
         if (!star) continue;
-        const datum: ReviewDatum = { store: "play", rating: star, answered: review.answered };
+        const datum: ReviewDatum = { store: 'play', rating: star, answered: review.answered };
         if (review.lastModified) datum.date = review.lastModified;
         data.push(datum);
       }
@@ -100,19 +100,19 @@ async function gatherReviews(
 
 /** Human label for a store key. */
 function storeLabel(store: InsightsStore): string {
-  return store === "appstore" ? "App Store" : "Play";
+  return store === 'appstore' ? 'App Store' : 'Play';
 }
 
 /** A fixed-width bar for a distribution count, scaled against the largest bucket in the set. */
 function bar(count: number, max: number, width = 12): string {
   const filled = max === 0 ? 0 : Math.round((count / max) * width);
-  return "█".repeat(filled) + "░".repeat(width - filled);
+  return '█'.repeat(filled) + '░'.repeat(width - filled);
 }
 
 /** The one-line headline for a rating summary: average, volume, answered rate. */
 function summaryLine(summary: RatingSummary): string {
   const answeredPct = Math.round(summary.answeredRate * 100);
-  const noun = summary.total === 1 ? "review" : "reviews";
+  const noun = summary.total === 1 ? 'review' : 'reviews';
   return `★ ${summary.average.toFixed(1)} avg · ${summary.total} ${noun} · ${answeredPct}% answered`;
 }
 
@@ -123,16 +123,18 @@ function summaryLine(summary: RatingSummary): string {
  */
 export function renderInsights(report: InsightsReport): string {
   if (report.apps.length === 0) {
-    return "No review data — no selected app returned reviews from the App Store or Play.";
+    return 'No review data — no selected app returned reviews from the App Store or Play.';
   }
 
-  const appNoun = report.apps.length === 1 ? "app" : "apps";
-  const reviewNoun = report.overall.total === 1 ? "review" : "reviews";
-  const lines: string[] = [`Insights · ${report.apps.length} ${appNoun} · ${report.overall.total} ${reviewNoun}`];
+  const appNoun = report.apps.length === 1 ? 'app' : 'apps';
+  const reviewNoun = report.overall.total === 1 ? 'review' : 'reviews';
+  const lines: string[] = [
+    `Insights · ${report.apps.length} ${appNoun} · ${report.overall.total} ${reviewNoun}`,
+  ];
 
   for (const app of report.apps) {
     const max = Math.max(...STARS.map((star) => app.ratings.distribution[star]));
-    lines.push("", app.app, `  ${summaryLine(app.ratings)}`);
+    lines.push('', app.app, `  ${summaryLine(app.ratings)}`);
     for (let star = 5; star >= 1; star--) {
       const count = app.ratings.distribution[star as StarRating];
       lines.push(`  ${star} ${bar(count, max)} ${count}`);
@@ -142,7 +144,7 @@ export function renderInsights(report: InsightsReport): string {
         `${app.ratings.sentiment.neutral} neutral · ${app.ratings.sentiment.negative} negative`,
     );
 
-    const stores: InsightsStore[] = ["appstore", "play"];
+    const stores: InsightsStore[] = ['appstore', 'play'];
     const present = stores.filter((store) => app.byStore[store]);
     if (present.length > 1) {
       for (const store of present) {
@@ -152,12 +154,14 @@ export function renderInsights(report: InsightsReport): string {
     }
 
     if (app.trend.length > 0) {
-      const points = app.trend.map((point) => `${point.month} ${point.average.toFixed(1)} (${point.count})`);
-      lines.push(`  trend: ${points.join(" · ")}`);
+      const points = app.trend.map(
+        (point) => `${point.month} ${point.average.toFixed(1)} (${point.count})`,
+      );
+      lines.push(`  trend: ${points.join(' · ')}`);
     }
   }
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /**
@@ -174,7 +178,10 @@ export async function runInsights(input: InsightsOptions): Promise<void> {
   const play = await createPlayClientResolver()();
 
   const perApp = await Promise.all(
-    selected.map(async (app) => ({ app: app.name, reviews: await gatherReviews(app, asc, play, log) })),
+    selected.map(async (app) => ({
+      app: app.name,
+      reviews: await gatherReviews(app, asc, play, log),
+    })),
   );
   const report = buildInsightsReport(perApp.filter(({ reviews }) => reviews.length > 0));
 
@@ -185,10 +192,10 @@ export async function runInsights(input: InsightsOptions): Promise<void> {
 /** Attach the top-level `insights` command to the program. */
 export function registerInsightsCommand(program: Command): void {
   program
-    .command("insights")
-    .description("aggregate rating & review trends across the App Store and Play (read-only)")
-    .option("-a, --app <names>", "comma-separated app handles (default: all apps)")
-    .option("--json", "machine-readable output for CI/agents", false)
+    .command('insights')
+    .description('aggregate rating & review trends across the App Store and Play (read-only)')
+    .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
+    .option('--json', 'machine-readable output for CI/agents', false)
     .action(async (options: InsightsOptions) => {
       await runInsights(options);
     });

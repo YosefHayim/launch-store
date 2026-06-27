@@ -11,7 +11,7 @@
  * distinguish "absent" from "null".
  */
 
-import type { Platform } from "../types.js";
+import type { Platform } from '../types.js';
 
 /** One discovered app, reduced to the identity fields the dashboard shows. */
 export interface DashboardApp {

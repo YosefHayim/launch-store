@@ -11,9 +11,9 @@
  * App ID isn't registered yet can't be graded, so it degrades to a `warn` pointing at `launch setup ios`.
  */
 
-import type { AppDescriptor } from "../../types.js";
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from "../types.js";
-import { mapEntitlementsToCapabilities } from "../../capabilities.js";
+import type { AppDescriptor } from '../../types.js';
+import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import { mapEntitlementsToCapabilities } from '../../capabilities.js';
 
 /** An in-scope app: declares a bundle id and at least one entitlement that maps to a portal capability. */
 interface EntitledApp {
@@ -36,16 +36,21 @@ function entitledApps(apps: AppDescriptor[]): EntitledApp[] {
 
 /** The App Store Connect entitlement↔capability readiness probe — a signing-readiness check and submit blocker. */
 export const profileEntitlementsProbe: ReadinessProbe = {
-  id: "apple-profile-entitlements",
-  title: "App ID capabilities match entitlements",
-  store: "appstore",
-  categories: ["signing", "submit"],
+  id: 'apple-profile-entitlements',
+  title: 'App ID capabilities match entitlements',
+  store: 'appstore',
+  categories: ['signing', 'submit'],
   async check(ctx: ReadinessContext): Promise<ProbeResult> {
     const apps = entitledApps(ctx.apps);
-    if (apps.length === 0) return { state: "omitted" };
+    if (apps.length === 0) return { state: 'omitted' };
 
     const api = await ctx.resolveAscApi();
-    if (!api) return { state: "skipped", reason: "no active Apple account", hint: "run `launch creds set-key`" };
+    if (!api)
+      return {
+        state: 'skipped',
+        reason: 'no active Apple account',
+        hint: 'run `launch creds set-key`',
+      };
 
     const results: AppReadiness[] = await Promise.all(
       apps.map(async ({ name, identifier, required }) => {
@@ -54,24 +59,31 @@ export const profileEntitlementsProbe: ReadinessProbe = {
           return {
             app: name,
             identifier,
-            status: "warn" as const,
+            status: 'warn' as const,
             detail: "can't verify — App ID not registered",
-            hint: "run `launch setup ios --provision` to register the App ID and its capabilities",
+            hint: 'run `launch setup ios --provision` to register the App ID and its capabilities',
           };
         }
-        const enabled = new Set((await api.listBundleIdCapabilities(bundle.id)).map((cap) => cap.capabilityType));
+        const enabled = new Set(
+          (await api.listBundleIdCapabilities(bundle.id)).map((cap) => cap.capabilityType),
+        );
         const missing = required.filter((capability) => !enabled.has(capability));
         return missing.length === 0
-          ? { app: name, identifier, status: "ok" as const, detail: "App ID capabilities cover all entitlements" }
+          ? {
+              app: name,
+              identifier,
+              status: 'ok' as const,
+              detail: 'App ID capabilities cover all entitlements',
+            }
           : {
               app: name,
               identifier,
-              status: "blocker" as const,
-              detail: `App ID missing capabilities: ${missing.join(", ")}`,
-              hint: "run `launch setup ios --provision` to enable them, then regenerate the profile",
+              status: 'blocker' as const,
+              detail: `App ID missing capabilities: ${missing.join(', ')}`,
+              hint: 'run `launch setup ios --provision` to enable them, then regenerate the profile',
             };
       }),
     );
-    return { state: "checked", apps: results };
+    return { state: 'checked', apps: results };
   },
 };

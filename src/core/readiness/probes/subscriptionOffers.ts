@@ -11,12 +11,15 @@
  * Connect is a `warn` deferring to the subscriptions probe, which owns "create it first".
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from "../types.js";
-import type { SubscriptionConfig } from "../../types.js";
-import { iosApps } from "../appScopes.js";
+import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { SubscriptionConfig } from '../../types.js';
+import { iosApps } from '../appScopes.js';
 
 /** The declared subscriptions, for one app's bundle id, that carry at least one offer-code campaign. */
-function subscriptionsWithOfferCodes(ctx: ReadinessContext, bundleId: string): SubscriptionConfig[] {
+function subscriptionsWithOfferCodes(
+  ctx: ReadinessContext,
+  bundleId: string,
+): SubscriptionConfig[] {
   return (ctx.config.products?.[bundleId]?.subscriptionGroups ?? [])
     .flatMap((group) => group.subscriptions)
     .filter((sub) => (sub.offerCodes?.length ?? 0) > 0);
@@ -24,16 +27,23 @@ function subscriptionsWithOfferCodes(ctx: ReadinessContext, bundleId: string): S
 
 /** The App Store Connect subscription offer-code readiness probe. */
 export const subscriptionOffersProbe: ReadinessProbe = {
-  id: "apple-subscription-offers",
-  title: "Declared subscription offer codes exist",
-  store: "appstore",
-  categories: ["iap"],
+  id: 'apple-subscription-offers',
+  title: 'Declared subscription offer codes exist',
+  store: 'appstore',
+  categories: ['iap'],
   async check(ctx: ReadinessContext): Promise<ProbeResult> {
-    const apps = iosApps(ctx.apps).filter(({ identifier }) => subscriptionsWithOfferCodes(ctx, identifier).length > 0);
-    if (apps.length === 0) return { state: "omitted" };
+    const apps = iosApps(ctx.apps).filter(
+      ({ identifier }) => subscriptionsWithOfferCodes(ctx, identifier).length > 0,
+    );
+    if (apps.length === 0) return { state: 'omitted' };
 
     const api = await ctx.resolveAscApi();
-    if (!api) return { state: "skipped", reason: "no active Apple account", hint: "run `launch creds set-key`" };
+    if (!api)
+      return {
+        state: 'skipped',
+        reason: 'no active Apple account',
+        hint: 'run `launch creds set-key`',
+      };
 
     const nested = await Promise.all(
       apps.map(async ({ name, identifier }): Promise<AppReadiness[]> => {
@@ -43,9 +53,9 @@ export const subscriptionOffersProbe: ReadinessProbe = {
             {
               app: name,
               identifier,
-              status: "warn",
+              status: 'warn',
               detail: "can't verify — no app record yet",
-              hint: "create the app record first (see the app-record check)",
+              hint: 'create the app record first (see the app-record check)',
             },
           ];
         }
@@ -63,22 +73,28 @@ export const subscriptionOffersProbe: ReadinessProbe = {
                 {
                   app: name,
                   identifier: sub.productId,
-                  status: "warn",
+                  status: 'warn',
                   detail: `${sub.productId}: offers not verified — subscription not on App Store Connect yet`,
-                  hint: "create the subscription first (run `launch sync`)",
+                  hint: 'create the subscription first (run `launch sync`)',
                 },
               ];
             }
-            const liveNames = new Set((await api.listSubscriptionOfferCodes(live.id)).map((offer) => offer.name));
+            const liveNames = new Set(
+              (await api.listSubscriptionOfferCodes(live.id)).map((offer) => offer.name),
+            );
             return (sub.offerCodes ?? []).map((offer): AppReadiness => {
               const subject = { app: name, identifier: `${sub.productId}·${offer.name}` };
               return liveNames.has(offer.name)
-                ? { ...subject, status: "ok", detail: `${sub.productId} · ${offer.name}: offer code present` }
+                ? {
+                    ...subject,
+                    status: 'ok',
+                    detail: `${sub.productId} · ${offer.name}: offer code present`,
+                  }
                 : {
                     ...subject,
-                    status: "warn",
+                    status: 'warn',
                     detail: `${sub.productId} · ${offer.name}: declared offer code missing`,
-                    hint: "run `launch offers` to create it",
+                    hint: 'run `launch offers` to create it',
                   };
             });
           }),
@@ -86,6 +102,6 @@ export const subscriptionOffersProbe: ReadinessProbe = {
         return perSub.flat();
       }),
     );
-    return { state: "checked", apps: nested.flat() };
+    return { state: 'checked', apps: nested.flat() };
   },
 };

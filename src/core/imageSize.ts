@@ -10,7 +10,7 @@
  * than throwing, letting callers degrade to "couldn't measure this one" instead of failing a whole pass.
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync } from 'node:fs';
 
 /** Intrinsic pixel size of an image, as read from its header. */
 export interface ImageSize {
@@ -30,7 +30,7 @@ const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0
  */
 function readPngSize(bytes: Buffer): ImageSize | null {
   if (bytes.length < 24 || !bytes.subarray(0, 8).equals(PNG_SIGNATURE)) return null;
-  if (bytes.toString("ascii", 12, 16) !== "IHDR") return null;
+  if (bytes.toString('ascii', 12, 16) !== 'IHDR') return null;
   return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
 }
 
@@ -53,7 +53,12 @@ function readJpegSize(bytes: Buffer): ImageSize | null {
     if (bytes[offset] !== 0xff) return null; // lost segment alignment — not a JPEG we can read
     const marker = bytes[offset + 1];
     if (marker === undefined) return null; // ran off the end mid-marker
-    if (marker === 0xd8 || marker === 0xd9 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+    if (
+      marker === 0xd8 ||
+      marker === 0xd9 ||
+      marker === 0x01 ||
+      (marker >= 0xd0 && marker <= 0xd7)
+    ) {
       offset += 2; // standalone marker — no length payload
       continue;
     }

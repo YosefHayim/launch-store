@@ -16,26 +16,30 @@
  * export compliance over the network — both mutate state, so they're not part of the pure read.
  */
 
-import type { Command } from "commander";
-import { loadConfig } from "../../core/config.js";
-import { ensureToolchain } from "../../core/toolchain.js";
-import { AppStoreConnectClient } from "../../apple/ascClient.js";
-import { loadActiveAscKey } from "../../core/accounts.js";
-import { reconcileExportCompliance, summarizeExportComplianceResult } from "../../core/exportCompliance.js";
-import { inspectDoctor } from "../../core/doctor/inspect.js";
-import { buildDoctorContext } from "../../core/doctor/context.js";
-import { isApplePlatform, parsePlatform } from "../../core/platform.js";
-import type { DoctorCheck, DoctorPlatform, DoctorReport } from "../../core/doctor/types.js";
+import type { Command } from 'commander';
+import { loadConfig } from '../../core/config.js';
+import { ensureToolchain } from '../../core/toolchain.js';
+import { AppStoreConnectClient } from '../../apple/ascClient.js';
+import { loadActiveAscKey } from '../../core/accounts.js';
+import {
+  reconcileExportCompliance,
+  summarizeExportComplianceResult,
+} from '../../core/exportCompliance.js';
+import { inspectDoctor } from '../../core/doctor/inspect.js';
+import { buildDoctorContext } from '../../core/doctor/context.js';
+import { isApplePlatform, parsePlatform } from '../../core/platform.js';
+import type { DoctorCheck, DoctorPlatform, DoctorReport } from '../../core/doctor/types.js';
 
 /** Map a check status to its leading glyph. */
-const STATUS_GLYPH: Record<DoctorCheck["status"], string> = { ok: "✓", fail: "✗", info: "•" };
+const STATUS_GLYPH: Record<DoctorCheck['status'], string> = { ok: '✓', fail: '✗', info: '•' };
 
 /** Print one check: glyph + title, then any indented detail, then the actionable hint. */
 function renderCheck(check: DoctorCheck): void {
-  const hint = check.status === "ok" || !check.hint ? "" : `  — ${check.hint}`;
+  const hint = check.status === 'ok' || !check.hint ? '' : `  — ${check.hint}`;
   console.log(`${STATUS_GLYPH[check.status]} ${check.title}${hint}`);
   if (check.detail) {
-    for (const line of check.detail.split("\n")) console.log(line.startsWith(" ") ? line : `  ${line}`);
+    for (const line of check.detail.split('\n'))
+      console.log(line.startsWith(' ') ? line : `  ${line}`);
   }
 }
 
@@ -65,7 +69,9 @@ async function fixExportCompliance(): Promise<void> {
         buildNumber,
         usesNonExemptEncryption: app.usesNonExemptEncryption,
       });
-      console.log(`  ↳ ${app.name} build ${buildNumber}: ${summarizeExportComplianceResult(result)}`);
+      console.log(
+        `  ↳ ${app.name} build ${buildNumber}: ${summarizeExportComplianceResult(result)}`,
+      );
     } catch (error) {
       console.log(
         `  ↳ ${app.name}: could not reconcile export compliance — ${error instanceof Error ? error.message : String(error)}`,
@@ -83,13 +89,17 @@ async function fixExportCompliance(): Promise<void> {
  * then the export-compliance network reconcile — the install can flip a `fail` to a pass before the
  * report is graded.
  */
-export async function runDoctor(options: { platform: DoctorPlatform; fix?: boolean; yes?: boolean }): Promise<boolean> {
-  if (options.platform === "ios" && options.fix) {
+export async function runDoctor(options: {
+  platform: DoctorPlatform;
+  fix?: boolean;
+  yes?: boolean;
+}): Promise<boolean> {
+  if (options.platform === 'ios' && options.fix) {
     await ensureToolchain({ assumeYes: options.yes === true });
   }
   const report = await inspectDoctor(await buildDoctorContext(options.platform));
   renderDoctorReport(report);
-  if (options.platform === "ios" && options.fix) {
+  if (options.platform === 'ios' && options.fix) {
     await fixExportCompliance();
   }
   return report.ok;
@@ -98,22 +108,33 @@ export async function runDoctor(options: { platform: DoctorPlatform; fix?: boole
 /** Attach the `doctor` command to the program. */
 export function registerDoctorCommand(program: Command): void {
   program
-    .command("doctor")
-    .description("check that the local toolchain and store account are ready")
-    .option("--platform <p>", "ios (default), android, tvos, macos, or visionos")
-    .option("--fix", "install any missing build tools (Apple platforms only; asks for consent first)")
-    .option("--yes", "skip prompts and proceed with installs (CI/agents)")
-    .option("--json", "machine-readable output for CI/agents")
-    .action(async (options: { platform?: string; fix?: boolean; yes?: boolean; json?: boolean }) => {
-      // doctor's toolchain/account checks are family-level, so every Apple platform reuses the iOS readiness path.
-      const platform: DoctorPlatform = isApplePlatform(parsePlatform(options.platform ?? "ios")) ? "ios" : "android";
-      if (options.json === true) {
-        const report = await inspectDoctor(await buildDoctorContext(platform));
-        console.log(JSON.stringify(report, null, 2));
-        if (!report.ok) process.exitCode = 1;
-        return;
-      }
-      const ok = await runDoctor({ platform, fix: options.fix === true, yes: options.yes === true });
-      if (!ok) process.exitCode = 1;
-    });
+    .command('doctor')
+    .description('check that the local toolchain and store account are ready')
+    .option('--platform <p>', 'ios (default), android, tvos, macos, or visionos')
+    .option(
+      '--fix',
+      'install any missing build tools (Apple platforms only; asks for consent first)',
+    )
+    .option('--yes', 'skip prompts and proceed with installs (CI/agents)')
+    .option('--json', 'machine-readable output for CI/agents')
+    .action(
+      async (options: { platform?: string; fix?: boolean; yes?: boolean; json?: boolean }) => {
+        // doctor's toolchain/account checks are family-level, so every Apple platform reuses the iOS readiness path.
+        const platform: DoctorPlatform = isApplePlatform(parsePlatform(options.platform ?? 'ios'))
+          ? 'ios'
+          : 'android';
+        if (options.json === true) {
+          const report = await inspectDoctor(await buildDoctorContext(platform));
+          console.log(JSON.stringify(report, null, 2));
+          if (!report.ok) process.exitCode = 1;
+          return;
+        }
+        const ok = await runDoctor({
+          platform,
+          fix: options.fix === true,
+          yes: options.yes === true,
+        });
+        if (!ok) process.exitCode = 1;
+      },
+    );
 }

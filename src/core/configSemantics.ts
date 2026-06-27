@@ -13,7 +13,7 @@
  * re-checking their base types — a semantic issue is never a shape issue in disguise.
  */
 
-import type { LaunchConfig } from "./types.js";
+import type { LaunchConfig } from './types.js';
 
 /**
  * One semantic finding: the dotted config path it concerns (matching the schema validator's path style,
@@ -27,7 +27,7 @@ export interface SemanticIssue {
 }
 
 /** The cloud storage providers whose `storageConfig` (bucket/endpoint) is mandatory — `local` needs none. */
-const CLOUD_STORAGE = new Set(["s3", "supabase"]);
+const CLOUD_STORAGE = new Set(['s3', 'supabase']);
 
 /** Whether a string parses as a real calendar instant (not just any string the schema accepted). */
 function isValidInstant(value: string): boolean {
@@ -39,7 +39,7 @@ function checkStorage(config: LaunchConfig): SemanticIssue[] {
   if (!CLOUD_STORAGE.has(config.storage) || config.storageConfig !== undefined) return [];
   return [
     {
-      path: "storageConfig",
+      path: 'storageConfig',
       message: `storage is "${config.storage}" but no storageConfig is set — a cloud store needs its bucket/endpoint. Add storageConfig, or use storage: "local".`,
     },
   ];
@@ -55,26 +55,26 @@ function checkRelease(config: LaunchConfig): SemanticIssue[] {
   if (release === undefined) return [];
   const issues: SemanticIssue[] = [];
 
-  if (release.releaseType === "SCHEDULED" && release.earliestReleaseDate === undefined) {
+  if (release.releaseType === 'SCHEDULED' && release.earliestReleaseDate === undefined) {
     issues.push({
-      path: "release.earliestReleaseDate",
+      path: 'release.earliestReleaseDate',
       message:
         'releaseType is "SCHEDULED" but earliestReleaseDate is missing — set the ISO-8601 instant to go live at.',
     });
   }
   if (release.earliestReleaseDate !== undefined && !isValidInstant(release.earliestReleaseDate)) {
     issues.push({
-      path: "release.earliestReleaseDate",
+      path: 'release.earliestReleaseDate',
       message: `earliestReleaseDate "${release.earliestReleaseDate}" is not a valid ISO-8601 instant (e.g. 2026-01-31T09:00:00Z).`,
     });
   }
 
   const notes = release.releaseNotes;
-  if (notes !== undefined && typeof notes !== "string") {
-    const primary = release.primaryLocale ?? "en-US";
+  if (notes !== undefined && typeof notes !== 'string') {
+    const primary = release.primaryLocale ?? 'en-US';
     if (!(primary in notes)) {
       issues.push({
-        path: "release.releaseNotes",
+        path: 'release.releaseNotes',
         message: `releaseNotes is per-locale but has no entry for the primary locale "${primary}" — that locale would ship with no release notes.`,
       });
     }
@@ -101,7 +101,7 @@ function checkRetention(config: LaunchConfig): SemanticIssue[] {
   if (config.artifactRetentionDays === undefined || config.artifactRetentionDays >= 0) return [];
   return [
     {
-      path: "artifactRetentionDays",
+      path: 'artifactRetentionDays',
       message: `artifactRetentionDays ${config.artifactRetentionDays} is negative — use 0 to disable auto-prune, or a positive day count.`,
     },
   ];
@@ -114,5 +114,10 @@ function checkRetention(config: LaunchConfig): SemanticIssue[] {
  * that fails the schema shouldn't reach here, but each check tolerates a missing field regardless.
  */
 export function checkConfigSemantics(config: LaunchConfig): SemanticIssue[] {
-  return [...checkStorage(config), ...checkRelease(config), ...checkProfiles(config), ...checkRetention(config)];
+  return [
+    ...checkStorage(config),
+    ...checkRelease(config),
+    ...checkProfiles(config),
+    ...checkRetention(config),
+  ];
 }

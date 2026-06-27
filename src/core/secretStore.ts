@@ -12,13 +12,13 @@
  * so a local-only Mac install never pulls it (it uses the `security` CLI instead).
  */
 
-import type { SecretStore } from "./types.js";
-import { capture } from "./exec.js";
-import { hostOs } from "./os.js";
-import { requireOptional } from "./optionalDep.js";
+import type { SecretStore } from './types.js';
+import { capture } from './exec.js';
+import { hostOs } from './os.js';
+import { requireOptional } from './optionalDep.js';
 
 /** Keychain service all Launch secrets are filed under, so they're easy to find/audit/remove. */
-const SERVICE = "launch";
+const SERVICE = 'launch';
 
 /**
  * macOS Keychain via the built-in `security` CLI — the no-dependency store on a Mac.
@@ -27,20 +27,36 @@ const SERVICE = "launch";
  * Xcode/fastlane behave and is an accepted tradeoff for a local developer tool.
  */
 const macosSecuritySecretStore: SecretStore = {
-  name: "macos-security",
+  name: 'macos-security',
   async get(account) {
     try {
-      return await capture("security", ["find-generic-password", "-s", SERVICE, "-a", account, "-w"]);
+      return await capture('security', [
+        'find-generic-password',
+        '-s',
+        SERVICE,
+        '-a',
+        account,
+        '-w',
+      ]);
     } catch {
       return null;
     }
   },
   async set(account, value) {
-    await capture("security", ["add-generic-password", "-U", "-s", SERVICE, "-a", account, "-w", value]);
+    await capture('security', [
+      'add-generic-password',
+      '-U',
+      '-s',
+      SERVICE,
+      '-a',
+      account,
+      '-w',
+      value,
+    ]);
   },
   async delete(account) {
     try {
-      await capture("security", ["delete-generic-password", "-s", SERVICE, "-a", account]);
+      await capture('security', ['delete-generic-password', '-s', SERVICE, '-a', account]);
     } catch {
       /* already absent — deletion is idempotent */
     }
@@ -48,16 +64,16 @@ const macosSecuritySecretStore: SecretStore = {
 };
 
 /** Module type of the optional native keyring; type-only so importing it stays erased + lazy. */
-type KeyringModule = typeof import("@napi-rs/keyring");
+type KeyringModule = typeof import('@napi-rs/keyring');
 
 let cachedKeyring: KeyringModule | null = null;
 
 /** Lazy-load the native keyring once, with an actionable message if the optional package is absent. */
 async function loadKeyring(): Promise<KeyringModule> {
   cachedKeyring ??= await requireOptional(
-    "Secure credential storage on Windows/Linux",
-    "npm install @napi-rs/keyring",
-    () => import("@napi-rs/keyring"),
+    'Secure credential storage on Windows/Linux',
+    'npm install @napi-rs/keyring',
+    () => import('@napi-rs/keyring'),
   );
   return cachedKeyring;
 }
@@ -69,7 +85,7 @@ async function loadKeyring(): Promise<KeyringModule> {
  * normalize "no such entry" (a thrown error on some platforms) into `null`/no-op.
  */
 const nativeKeyringSecretStore: SecretStore = {
-  name: "native-keyring",
+  name: 'native-keyring',
   async get(account) {
     const { Entry } = await loadKeyring();
     try {
@@ -94,5 +110,5 @@ const nativeKeyringSecretStore: SecretStore = {
 
 /** Resolve the secret store for the current host: the `security` CLI on macOS, the native keyring elsewhere. */
 export function getSecretStore(): SecretStore {
-  return hostOs() === "macos" ? macosSecuritySecretStore : nativeKeyringSecretStore;
+  return hostOs() === 'macos' ? macosSecuritySecretStore : nativeKeyringSecretStore;
 }

@@ -8,16 +8,18 @@
  * matter. {@link confirmWrite} is the one local gate both subcommands pass before touching disk.
  */
 
-import { cancel, confirm, isCancel } from "@clack/prompts";
-import type { Command } from "commander";
+import { cancel, confirm, isCancel } from '@clack/prompts';
+import type { Command } from 'commander';
 
 /**
  * Find-or-create the shared `ai` parent command. Each `ai <sub>` registrar calls this so every subcommand
  * lands under one group regardless of which registrar runs first.
  */
 export function aiGroup(program: Command): Command {
-  const existing = program.commands.find((command) => command.name() === "ai");
-  return existing ?? program.command("ai").description("AI-assisted authoring for your store presence");
+  const existing = program.commands.find((command) => command.name() === 'ai');
+  return (
+    existing ?? program.command('ai').description('AI-assisted authoring for your store presence')
+  );
 }
 
 /**
@@ -28,11 +30,11 @@ export function aiGroup(program: Command): Command {
 export async function confirmWrite(message: string, yes: boolean | undefined): Promise<boolean> {
   if (yes) return true;
   if (!process.stdout.isTTY) {
-    throw new Error("Refusing to write without confirmation. Re-run with --yes (non-interactive).");
+    throw new Error('Refusing to write without confirmation. Re-run with --yes (non-interactive).');
   }
   const proceed = await confirm({ message });
   if (isCancel(proceed) || !proceed) {
-    cancel("Aborted — nothing written.");
+    cancel('Aborted — nothing written.');
     return false;
   }
   return true;

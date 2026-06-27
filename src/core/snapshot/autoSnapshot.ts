@@ -9,20 +9,20 @@
  * resolvers and letting `sync` reuse the App Store Connect client it already created.
  */
 
-import { captureSnapshot } from "./orchestrator.js";
-import { listSnapshotSources, registerBuiltinSources } from "./registry.js";
-import { pruneSnapshots, saveSnapshot } from "./store.js";
-import type { SnapshotContext } from "./types.js";
+import { captureSnapshot } from './orchestrator.js';
+import { listSnapshotSources, registerBuiltinSources } from './registry.js';
+import { pruneSnapshots, saveSnapshot } from './store.js';
+import type { SnapshotContext } from './types.js';
 
 /** Name prefix marking a snapshot as an automatic pre-sync baseline — also the scope pruning retains. */
-export const AUTO_SNAPSHOT_PREFIX = "pre-sync-";
+export const AUTO_SNAPSHOT_PREFIX = 'pre-sync-';
 
 /** How many automatic pre-sync baselines to keep; older ones are pruned after each capture. */
 export const AUTO_SNAPSHOT_KEEP = 10;
 
 /** A filesystem-safe auto-snapshot name from an ISO capture time (`pre-sync-2026-06-17T08-00-00-000Z`). */
 export function autoSnapshotName(capturedAt: string): string {
-  return `${AUTO_SNAPSHOT_PREFIX}${capturedAt.replace(/[:.]/g, "-")}`;
+  return `${AUTO_SNAPSHOT_PREFIX}${capturedAt.replace(/[:.]/g, '-')}`;
 }
 
 /** What {@link captureAutoSnapshot} hands back for the caller's one-line "saved baseline" log. */
@@ -51,7 +51,10 @@ export async function captureAutoSnapshot(
 ): Promise<AutoSnapshotResult> {
   registerBuiltinSources();
   const name = autoSnapshotName(opts.capturedAt);
-  const result = await captureSnapshot(ctx, listSnapshotSources(), { name, capturedAt: opts.capturedAt });
+  const result = await captureSnapshot(ctx, listSnapshotSources(), {
+    name,
+    capturedAt: opts.capturedAt,
+  });
   const file = saveSnapshot(result.snapshot, opts.dir);
   const pruned = pruneSnapshots(AUTO_SNAPSHOT_PREFIX, opts.keep ?? AUTO_SNAPSHOT_KEEP, opts.dir);
   return { name, file, entityCount: result.entityCount, skippedCount: result.skippedCount, pruned };

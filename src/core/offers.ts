@@ -37,8 +37,8 @@ import type {
   SubscriptionResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from "../apple/ascClient.js";
-import type { ActionStatus, PlannedAction, ReconcileReport } from "./ascSync.js";
+} from '../apple/ascClient.js';
+import type { ActionStatus, PlannedAction, ReconcileReport } from './ascSync.js';
 import type {
   AppProducts,
   IntroductoryOfferConfig,
@@ -47,7 +47,7 @@ import type {
   PromotionalOfferConfig,
   SubscriptionConfig,
   WinBackOfferConfig,
-} from "./types.js";
+} from './types.js';
 
 /**
  * The exact slice of {@link AppStoreConnectClient} the offers reconciler depends on. Declared here (not
@@ -78,7 +78,7 @@ export interface AscOffersApi {
 }
 
 /** Default territory for an {@link OfferPrice} that doesn't name one — matches the rest of the catalog. */
-const DEFAULT_TERRITORY = "USA";
+const DEFAULT_TERRITORY = 'USA';
 
 /** Inputs to reconcile one app's offers. */
 export interface ReconcileOffersInput {
@@ -102,15 +102,19 @@ interface OffersContext {
  * (status `failed`) rather than propagated, so one bad offer never aborts the rest of the walk. Mirrors
  * the `act` helper in `core/ascSync.ts` (kept local — that one is private to its reconciler).
  */
-async function act(ctx: OffersContext, description: string, run: () => Promise<void>): Promise<ActionStatus> {
-  const action: PlannedAction = { description, destructive: false, status: "planned" };
+async function act(
+  ctx: OffersContext,
+  description: string,
+  run: () => Promise<void>,
+): Promise<ActionStatus> {
+  const action: PlannedAction = { description, destructive: false, status: 'planned' };
   ctx.actions.push(action);
   if (ctx.dryRun) return action.status;
   try {
     await run();
-    action.status = "applied";
+    action.status = 'applied';
   } catch (error) {
-    action.status = "failed";
+    action.status = 'failed';
     action.error = error instanceof Error ? error.message : String(error);
   }
   return action.status;
@@ -118,7 +122,7 @@ async function act(ctx: OffersContext, description: string, run: () => Promise<v
 
 /** Record an already-decided non-write outcome (skipped, with a reason) on the plan. */
 function note(ctx: OffersContext, description: string): void {
-  ctx.actions.push({ description, destructive: false, status: "skipped" });
+  ctx.actions.push({ description, destructive: false, status: 'skipped' });
 }
 
 /** Resolve declared per-territory prices to Apple price-point ids; throws on the first non-matching amount. */
@@ -130,7 +134,11 @@ async function resolvePrices(
   const resolved: ResolvedOfferPrice[] = [];
   for (const price of prices) {
     const territory = price.territory ?? DEFAULT_TERRITORY;
-    const point = await api.findSubscriptionPricePoint(subscriptionId, territory, price.customerPrice);
+    const point = await api.findSubscriptionPricePoint(
+      subscriptionId,
+      territory,
+      price.customerPrice,
+    );
     if (!point) throw new Error(`no ${territory} price point matches ${price.customerPrice}`);
     resolved.push({ territory, pricePointId: point.id });
   }
@@ -143,7 +151,7 @@ async function resolvePrices(
  */
 function priceModeError(offerMode: string, prices: OfferPrice[] | undefined): string | null {
   const count = prices?.length ?? 0;
-  if (offerMode === "FREE_TRIAL") return count > 0 ? "FREE_TRIAL offers take no price" : null;
+  if (offerMode === 'FREE_TRIAL') return count > 0 ? 'FREE_TRIAL offers take no price' : null;
   return count === 0 ? `${offerMode} offers need at least one price` : null;
 }
 
@@ -154,7 +162,9 @@ async function reconcileOfferCodes(
   productId: string,
   desired: OfferCodeConfig[],
 ): Promise<void> {
-  const existing = new Set((await ctx.api.listSubscriptionOfferCodes(subscriptionId)).map((code) => code.name));
+  const existing = new Set(
+    (await ctx.api.listSubscriptionOfferCodes(subscriptionId)).map((code) => code.name),
+  );
   for (const offer of desired) {
     if (existing.has(offer.name)) continue;
     const invalid = priceModeError(offer.offerMode, offer.prices);
@@ -162,20 +172,24 @@ async function reconcileOfferCodes(
       note(ctx, `offer code "${offer.name}" on ${productId}: ${invalid} — skipped`);
       continue;
     }
-    await act(ctx, `create offer code "${offer.name}" on ${productId} (${offer.offerMode})`, async () => {
-      const prices = await resolvePrices(ctx.api, subscriptionId, offer.prices ?? []);
-      const create: OfferCodeCreate = {
-        subscriptionId,
-        name: offer.name,
-        customerEligibilities: offer.customerEligibilities,
-        offerEligibility: offer.offerEligibility,
-        duration: offer.duration,
-        offerMode: offer.offerMode,
-        numberOfPeriods: offer.numberOfPeriods,
-        prices,
-      };
-      await ctx.api.createSubscriptionOfferCode(create);
-    });
+    await act(
+      ctx,
+      `create offer code "${offer.name}" on ${productId} (${offer.offerMode})`,
+      async () => {
+        const prices = await resolvePrices(ctx.api, subscriptionId, offer.prices ?? []);
+        const create: OfferCodeCreate = {
+          subscriptionId,
+          name: offer.name,
+          customerEligibilities: offer.customerEligibilities,
+          offerEligibility: offer.offerEligibility,
+          duration: offer.duration,
+          offerMode: offer.offerMode,
+          numberOfPeriods: offer.numberOfPeriods,
+          prices,
+        };
+        await ctx.api.createSubscriptionOfferCode(create);
+      },
+    );
   }
 }
 
@@ -186,7 +200,9 @@ async function reconcilePromotionalOffers(
   productId: string,
   desired: PromotionalOfferConfig[],
 ): Promise<void> {
-  const existing = new Set((await ctx.api.listPromotionalOffers(subscriptionId)).map((offer) => offer.offerCode));
+  const existing = new Set(
+    (await ctx.api.listPromotionalOffers(subscriptionId)).map((offer) => offer.offerCode),
+  );
   for (const offer of desired) {
     if (existing.has(offer.offerCode)) continue;
     const invalid = priceModeError(offer.offerMode, offer.prices);
@@ -194,19 +210,23 @@ async function reconcilePromotionalOffers(
       note(ctx, `promotional offer "${offer.offerCode}" on ${productId}: ${invalid} — skipped`);
       continue;
     }
-    await act(ctx, `create promotional offer "${offer.offerCode}" on ${productId} (${offer.offerMode})`, async () => {
-      const prices = await resolvePrices(ctx.api, subscriptionId, offer.prices ?? []);
-      const create: PromotionalOfferCreate = {
-        subscriptionId,
-        name: offer.name,
-        offerCode: offer.offerCode,
-        duration: offer.duration,
-        offerMode: offer.offerMode,
-        numberOfPeriods: offer.numberOfPeriods,
-        prices,
-      };
-      await ctx.api.createPromotionalOffer(create);
-    });
+    await act(
+      ctx,
+      `create promotional offer "${offer.offerCode}" on ${productId} (${offer.offerMode})`,
+      async () => {
+        const prices = await resolvePrices(ctx.api, subscriptionId, offer.prices ?? []);
+        const create: PromotionalOfferCreate = {
+          subscriptionId,
+          name: offer.name,
+          offerCode: offer.offerCode,
+          duration: offer.duration,
+          offerMode: offer.offerMode,
+          numberOfPeriods: offer.numberOfPeriods,
+          prices,
+        };
+        await ctx.api.createPromotionalOffer(create);
+      },
+    );
   }
 }
 
@@ -217,33 +237,44 @@ async function reconcileIntroductoryOffers(
   productId: string,
   desired: IntroductoryOfferConfig[],
 ): Promise<void> {
-  const existing = new Set((await ctx.api.listIntroductoryOffers(subscriptionId)).map((offer) => offer.territory));
+  const existing = new Set(
+    (await ctx.api.listIntroductoryOffers(subscriptionId)).map((offer) => offer.territory),
+  );
   for (const offer of desired) {
     const territory = offer.territory ?? null;
     if (existing.has(territory)) continue;
-    const isFreeTrial = offer.offerMode === "FREE_TRIAL";
+    const isFreeTrial = offer.offerMode === 'FREE_TRIAL';
     if (isFreeTrial && offer.price) {
       note(ctx, `introductory offer on ${productId}: FREE_TRIAL offers take no price — skipped`);
       continue;
     }
     if (!isFreeTrial && !offer.price) {
-      note(ctx, `introductory offer on ${productId}: ${offer.offerMode} offers need a price — skipped`);
+      note(
+        ctx,
+        `introductory offer on ${productId}: ${offer.offerMode} offers need a price — skipped`,
+      );
       continue;
     }
-    const scope = territory ?? "all territories";
-    await act(ctx, `create introductory offer on ${productId} (${offer.offerMode}, ${scope})`, async () => {
-      const [resolved] = offer.price ? await resolvePrices(ctx.api, subscriptionId, [offer.price]) : [null];
-      await ctx.api.createIntroductoryOffer({
-        subscriptionId,
-        duration: offer.duration,
-        offerMode: offer.offerMode,
-        numberOfPeriods: offer.numberOfPeriods,
-        price: resolved ?? null,
-        territory,
-        ...(offer.startDate ? { startDate: offer.startDate } : {}),
-        ...(offer.endDate ? { endDate: offer.endDate } : {}),
-      });
-    });
+    const scope = territory ?? 'all territories';
+    await act(
+      ctx,
+      `create introductory offer on ${productId} (${offer.offerMode}, ${scope})`,
+      async () => {
+        const [resolved] = offer.price
+          ? await resolvePrices(ctx.api, subscriptionId, [offer.price])
+          : [null];
+        await ctx.api.createIntroductoryOffer({
+          subscriptionId,
+          duration: offer.duration,
+          offerMode: offer.offerMode,
+          numberOfPeriods: offer.numberOfPeriods,
+          price: resolved ?? null,
+          territory,
+          ...(offer.startDate ? { startDate: offer.startDate } : {}),
+          ...(offer.endDate ? { endDate: offer.endDate } : {}),
+        });
+      },
+    );
   }
 }
 
@@ -254,7 +285,9 @@ async function reconcileWinBackOffers(
   productId: string,
   desired: WinBackOfferConfig[],
 ): Promise<void> {
-  const existing = new Set((await ctx.api.listWinBackOffers(subscriptionId)).map((offer) => offer.offerId));
+  const existing = new Set(
+    (await ctx.api.listWinBackOffers(subscriptionId)).map((offer) => offer.offerId),
+  );
   for (const offer of desired) {
     if (existing.has(offer.offerId)) continue;
     const invalid = priceModeError(offer.offerMode, offer.prices);
@@ -263,31 +296,38 @@ async function reconcileWinBackOffers(
       continue;
     }
     if (offer.monthsSinceLastSubscribed.min > offer.monthsSinceLastSubscribed.max) {
-      note(ctx, `win-back offer "${offer.offerId}" on ${productId}: monthsSinceLastSubscribed min > max — skipped`);
+      note(
+        ctx,
+        `win-back offer "${offer.offerId}" on ${productId}: monthsSinceLastSubscribed min > max — skipped`,
+      );
       continue;
     }
-    await act(ctx, `create win-back offer "${offer.offerId}" on ${productId} (${offer.offerMode})`, async () => {
-      const prices = await resolvePrices(ctx.api, subscriptionId, offer.prices ?? []);
-      const create: WinBackOfferCreate = {
-        subscriptionId,
-        offerId: offer.offerId,
-        referenceName: offer.referenceName,
-        duration: offer.duration,
-        offerMode: offer.offerMode,
-        numberOfPeriods: offer.numberOfPeriods,
-        eligiblePaidMonths: offer.eligiblePaidMonths,
-        monthsSinceLastSubscribed: offer.monthsSinceLastSubscribed,
-        startDate: offer.startDate,
-        priority: offer.priority ?? "NORMAL",
-        prices,
-        ...(offer.waitBetweenOffersMonths !== undefined
-          ? { waitBetweenOffersMonths: offer.waitBetweenOffersMonths }
-          : {}),
-        ...(offer.endDate ? { endDate: offer.endDate } : {}),
-        ...(offer.promotionIntent ? { promotionIntent: offer.promotionIntent } : {}),
-      };
-      await ctx.api.createWinBackOffer(create);
-    });
+    await act(
+      ctx,
+      `create win-back offer "${offer.offerId}" on ${productId} (${offer.offerMode})`,
+      async () => {
+        const prices = await resolvePrices(ctx.api, subscriptionId, offer.prices ?? []);
+        const create: WinBackOfferCreate = {
+          subscriptionId,
+          offerId: offer.offerId,
+          referenceName: offer.referenceName,
+          duration: offer.duration,
+          offerMode: offer.offerMode,
+          numberOfPeriods: offer.numberOfPeriods,
+          eligiblePaidMonths: offer.eligiblePaidMonths,
+          monthsSinceLastSubscribed: offer.monthsSinceLastSubscribed,
+          startDate: offer.startDate,
+          priority: offer.priority ?? 'NORMAL',
+          prices,
+          ...(offer.waitBetweenOffersMonths !== undefined
+            ? { waitBetweenOffersMonths: offer.waitBetweenOffersMonths }
+            : {}),
+          ...(offer.endDate ? { endDate: offer.endDate } : {}),
+          ...(offer.promotionIntent ? { promotionIntent: offer.promotionIntent } : {}),
+        };
+        await ctx.api.createWinBackOffer(create);
+      },
+    );
   }
 }
 
@@ -322,14 +362,18 @@ export function appDeclaresOffers(products: AppProducts): boolean {
 async function reconcilePromotedPurchases(
   ctx: OffersContext,
   appId: string,
-  desired: AppProducts["promotedPurchases"] = [],
+  desired: AppProducts['promotedPurchases'] = [],
   subscriptionIdByProduct: Map<string, string>,
   iapIdByProduct: Map<string, string>,
 ): Promise<void> {
   if (desired.length === 0) return;
   const live = await ctx.api.listPromotedPurchases(appId);
-  const promotionIdBySubscription = new Map(live.flatMap((p) => (p.subscriptionId ? [[p.subscriptionId, p.id]] : [])));
-  const promotionIdByIap = new Map(live.flatMap((p) => (p.inAppPurchaseId ? [[p.inAppPurchaseId, p.id]] : [])));
+  const promotionIdBySubscription = new Map(
+    live.flatMap((p) => (p.subscriptionId ? [[p.subscriptionId, p.id]] : [])),
+  );
+  const promotionIdByIap = new Map(
+    live.flatMap((p) => (p.inAppPurchaseId ? [[p.inAppPurchaseId, p.id]] : [])),
+  );
 
   const declaredOrder: string[] = [];
   for (const promoted of desired) {
@@ -344,7 +388,7 @@ async function reconcilePromotedPurchases(
     }
     const existingId = subscriptionId
       ? promotionIdBySubscription.get(subscriptionId)
-      : promotionIdByIap.get(iapId ?? "");
+      : promotionIdByIap.get(iapId ?? '');
     if (existingId) {
       declaredOrder.push(existingId);
       continue;
@@ -353,13 +397,13 @@ async function reconcilePromotedPurchases(
       appId,
       visibleForAllUsers: promoted.visibleForAllUsers ?? true,
       enabled: promoted.enabled ?? true,
-      ...(subscriptionId ? { subscriptionId } : { inAppPurchaseId: iapId ?? "" }),
+      ...(subscriptionId ? { subscriptionId } : { inAppPurchaseId: iapId ?? '' }),
     };
     const status = await act(ctx, `promote ${promoted.productId}`, async () => {
       await ctx.api.createPromotedPurchase(create);
     });
     // On a dry-run the id doesn't exist yet; the reorder plan below is best-effort and re-runs next pass.
-    if (status === "applied" || status === "planned") declaredOrder.push(`(${promoted.productId})`);
+    if (status === 'applied' || status === 'planned') declaredOrder.push(`(${promoted.productId})`);
   }
 
   const undeclared = live.map((p) => p.id).filter((id) => !declaredOrder.includes(id));
@@ -368,7 +412,7 @@ async function reconcilePromotedPurchases(
   const orderChanged = targetOrder.some((id, index) => liveOrder[index] !== id);
   if (orderChanged && !ctx.dryRun) {
     // Only reorder with real ids — a plan pass (or one with newly-created placeholders) defers to next run.
-    const realIds = targetOrder.filter((id) => !id.startsWith("("));
+    const realIds = targetOrder.filter((id) => !id.startsWith('('));
     await act(ctx, `reorder promoted purchases (${realIds.length})`, () =>
       ctx.api.reorderPromotedPurchases(appId, realIds),
     );
@@ -383,7 +427,10 @@ async function reconcilePromotedPurchases(
  * never aborts the run. Subscriptions are matched to Apple by `productId`, so a subscription that isn't
  * created yet is reported as skipped with a pointer to `launch sync`.
  */
-export async function reconcileOffers(api: AscOffersApi, input: ReconcileOffersInput): Promise<ReconcileReport> {
+export async function reconcileOffers(
+  api: AscOffersApi,
+  input: ReconcileOffersInput,
+): Promise<ReconcileReport> {
   const ctx: OffersContext = { api, actions: [], dryRun: input.dryRun };
 
   const appId = await api.getAppId(input.bundleId);
@@ -405,12 +452,25 @@ export async function reconcileOffers(api: AscOffersApi, input: ReconcileOffersI
       if (hasNoOffers(sub)) continue;
       const subscriptionId = subscriptionIdByProduct.get(sub.productId);
       if (!subscriptionId) {
-        note(ctx, `subscription ${sub.productId}: not in App Store Connect yet — run \`launch sync\` first`);
+        note(
+          ctx,
+          `subscription ${sub.productId}: not in App Store Connect yet — run \`launch sync\` first`,
+        );
         continue;
       }
       await reconcileOfferCodes(ctx, subscriptionId, sub.productId, sub.offerCodes ?? []);
-      await reconcilePromotionalOffers(ctx, subscriptionId, sub.productId, sub.promotionalOffers ?? []);
-      await reconcileIntroductoryOffers(ctx, subscriptionId, sub.productId, sub.introductoryOffers ?? []);
+      await reconcilePromotionalOffers(
+        ctx,
+        subscriptionId,
+        sub.productId,
+        sub.promotionalOffers ?? [],
+      );
+      await reconcileIntroductoryOffers(
+        ctx,
+        subscriptionId,
+        sub.productId,
+        sub.introductoryOffers ?? [],
+      );
       await reconcileWinBackOffers(ctx, subscriptionId, sub.productId, sub.winBackOffers ?? []);
     }
   }

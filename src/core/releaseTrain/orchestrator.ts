@@ -27,7 +27,7 @@ import {
   type TrainPlatform,
   type TrainRecord,
   type TrainState,
-} from "./types.js";
+} from './types.js';
 
 /**
  * The live operations the orchestrator drives — one method per car action, each wrapping an existing core
@@ -93,7 +93,7 @@ function message(error: unknown): string {
 
 /** Whether a native car has stopped at a failure the train must surface (rejected or failed). */
 function isNativeFailure(car: NativeCar): boolean {
-  return car.state === "rejected" || car.state === "failed";
+  return car.state === 'rejected' || car.state === 'failed';
 }
 
 /**
@@ -102,9 +102,9 @@ function isNativeFailure(car: NativeCar): boolean {
  * `release`, which is the operator acting; otherwise `running`.
  */
 export function deriveTrainState(cars: Car[], hold: boolean, forced: boolean): TrainState {
-  if (cars.every(isCarTerminal)) return "done";
-  if (hold && !forced && cars.filter(isNativeCar).some(isNativeFailure)) return "blocked";
-  return "running";
+  if (cars.every(isCarTerminal)) return 'done';
+  if (hold && !forced && cars.filter(isNativeCar).some(isNativeFailure)) return 'blocked';
+  return 'running';
 }
 
 /**
@@ -113,27 +113,30 @@ export function deriveTrainState(cars: Car[], hold: boolean, forced: boolean): T
  * recorded `failed` with the reason rather than aborting the others — the same per-car isolation the rest
  * of the release flow uses, so one platform's problem never strands the train.
  */
-export async function startTrain(input: StartTrainInput, engine: TrainEngine): Promise<TrainRecord> {
+export async function startTrain(
+  input: StartTrainInput,
+  engine: TrainEngine,
+): Promise<TrainRecord> {
   const cars: Car[] = [];
   for (const platform of input.platforms) {
-    const car: NativeCar = { kind: platform, state: "building", updatedAt: input.now };
+    const car: NativeCar = { kind: platform, state: 'building', updatedAt: input.now };
     try {
       const { buildId } = await engine.submitNative(car);
-      car.state = "submitted";
+      car.state = 'submitted';
       if (buildId !== undefined) car.buildId = buildId;
     } catch (error) {
-      car.state = "failed";
+      car.state = 'failed';
       car.error = message(error);
     }
     cars.push(car);
   }
   for (const ota of input.ota) {
     cars.push({
-      kind: "ota",
+      kind: 'ota',
       platform: ota.platform,
       channel: ota.channel,
       runtimeVersion: ota.runtimeVersion,
-      state: "pending",
+      state: 'pending',
       updatedAt: input.now,
     });
   }
@@ -167,7 +170,7 @@ export async function advanceTrain(
   engine: TrainEngine,
   options: AdvanceOptions,
 ): Promise<TrainRecord> {
-  if (record.state === "done" || record.state === "aborted") return record;
+  if (record.state === 'done' || record.state === 'aborted') return record;
 
   const { now } = options;
   const forced = options.force === true;
@@ -187,20 +190,20 @@ export async function advanceTrain(
   // 2. Decide whether the release gate is open this reconcile.
   const natives = cars.filter(isNativeCar);
   const blocked = record.hold && !forced && natives.some(isNativeFailure);
-  const allApproved = natives.every((car) => car.state === "approved" || car.state === "released");
+  const allApproved = natives.every((car) => car.state === 'approved' || car.state === 'released');
   const gateOpen = forced || (!blocked && (!record.hold || allApproved));
 
   // 3. Fire the release for every approved car once the gate is open.
   if (gateOpen) {
     for (const car of natives) {
-      if (car.state !== "approved") continue;
+      if (car.state !== 'approved') continue;
       try {
         await engine.releaseNative(car);
-        car.state = "released";
+        car.state = 'released';
         car.updatedAt = now;
         delete car.error;
       } catch (error) {
-        car.state = "failed";
+        car.state = 'failed';
         car.error = message(error);
         car.updatedAt = now;
       }
@@ -209,17 +212,19 @@ export async function advanceTrain(
 
   // 4. Publish each pending OTA follower whose native platform just went live (per-platform gate, D4).
   for (const car of cars) {
-    if (!isOtaCar(car) || car.state !== "pending") continue;
+    if (!isOtaCar(car) || car.state !== 'pending') continue;
     const native = natives.find((candidate) => candidate.kind === car.platform);
-    if (native?.state !== "released") continue;
+    if (native?.state !== 'released') continue;
     try {
       const { manifestId } = await engine.publishOta(car);
-      car.state = "published";
+      car.state = 'published';
       if (manifestId !== undefined) car.manifestId = manifestId;
       car.updatedAt = now;
     } catch (error) {
       // Non-fatal: leave it pending so the next reconcile retries; never abort the other cars.
-      options.onWarn?.(`OTA ${car.platform} (${car.channel}/${car.runtimeVersion}) publish failed: ${message(error)}`);
+      options.onWarn?.(
+        `OTA ${car.platform} (${car.channel}/${car.runtimeVersion}) publish failed: ${message(error)}`,
+      );
     }
   }
 
@@ -234,7 +239,7 @@ export async function advanceTrain(
  */
 export function trainExitCode(record: TrainRecord): number {
   const failed = record.cars.filter(isNativeCar).some(isNativeFailure);
-  if (record.state === "blocked" || failed) return TRAIN_EXIT.blocked;
+  if (record.state === 'blocked' || failed) return TRAIN_EXIT.blocked;
   if (record.cars.some((car) => !isCarTerminal(car))) return TRAIN_EXIT.inProgress;
   return TRAIN_EXIT.ok;
 }
@@ -244,5 +249,5 @@ export function trainExitCode(record: TrainRecord): number {
  * `aborted`, and on `blocked` (which needs an operator decision, not more polling).
  */
 export function isTrainSettled(record: TrainRecord): boolean {
-  return record.state === "done" || record.state === "aborted" || record.state === "blocked";
+  return record.state === 'done' || record.state === 'aborted' || record.state === 'blocked';
 }

@@ -6,13 +6,13 @@
  * {@link registerBuiltinSources} — the orchestrator and the `snapshot` command are untouched.
  */
 
-import type { SnapshotSource } from "./types.js";
-import { appleProductsSource } from "./sources/appleProducts.js";
-import { appleSubscriptionsSource } from "./sources/appleSubscriptions.js";
-import { appleListingSource } from "./sources/appleListing.js";
-import { appleCapabilitiesSource } from "./sources/appleCapabilities.js";
-import { playProductsSource } from "./sources/playProducts.js";
-import { playSubscriptionsSource } from "./sources/playSubscriptions.js";
+import type { SnapshotSource } from './types.js';
+import { appleProductsSource } from './sources/appleProducts.js';
+import { appleSubscriptionsSource } from './sources/appleSubscriptions.js';
+import { appleListingSource } from './sources/appleListing.js';
+import { appleCapabilitiesSource } from './sources/appleCapabilities.js';
+import { playProductsSource } from './sources/playProducts.js';
+import { playSubscriptionsSource } from './sources/playSubscriptions.js';
 
 /** Registered sources, keyed by id so re-registering one replaces it (idempotent built-in wiring). */
 const SOURCES = new Map<string, SnapshotSource>();

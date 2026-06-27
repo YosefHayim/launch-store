@@ -12,12 +12,17 @@
  * Read-only: building a job reads the filesystem and config but never touches App Store Connect.
  */
 
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-import type { AppDescriptor, AppProducts, LaunchConfig } from "./types.js";
-import { mapEntitlementsToCapabilities, type CapabilityType } from "./capabilities.js";
-import { discoverPreviews, discoverScreenshots, type LocalPreview, type LocalScreenshot } from "./screenshotAssets.js";
-import { loadStoreConfig, type AppleStoreConfig } from "./storeConfig.js";
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import type { AppDescriptor, AppProducts, LaunchConfig } from './types.js';
+import { mapEntitlementsToCapabilities, type CapabilityType } from './capabilities.js';
+import {
+  discoverPreviews,
+  discoverScreenshots,
+  type LocalPreview,
+  type LocalScreenshot,
+} from './screenshotAssets.js';
+import { loadStoreConfig, type AppleStoreConfig } from './storeConfig.js';
 
 /** One app's reconcile work: the resolved capabilities + products plus any entitlements we couldn't map. */
 export interface SyncJob {
@@ -43,7 +48,7 @@ export interface SyncJob {
  * dedicated `launch metadata` command is where it's loudly validated.
  */
 function loadListing(appDir: string): AppleStoreConfig | undefined {
-  const path = join(appDir, "store.config.json");
+  const path = join(appDir, 'store.config.json');
   if (!existsSync(path)) return undefined;
   try {
     return loadStoreConfig(path).apple;
@@ -58,28 +63,37 @@ function loadListing(appDir: string): AppleStoreConfig | undefined {
  * {@link AppleStoreConfig} without an assertion.
  */
 export function hasListing(listing: AppleStoreConfig | undefined): listing is AppleStoreConfig {
-  return listing !== undefined && Object.values(listing.info).some((info) => Object.keys(info).length > 0);
+  return (
+    listing !== undefined &&
+    Object.values(listing.info).some((info) => Object.keys(info).length > 0)
+  );
 }
 
 /** The subscriptions that declare a review screenshot, paired with the relative path to upload. */
-function collectSubscriptionReviewScreenshots(products: AppProducts): { productId: string; relPath: string }[] {
+function collectSubscriptionReviewScreenshots(
+  products: AppProducts,
+): { productId: string; relPath: string }[] {
   return (products.subscriptionGroups ?? [])
     .flatMap((group) => group.subscriptions)
-    .flatMap((sub) => (sub.reviewScreenshot ? [{ productId: sub.productId, relPath: sub.reviewScreenshot }] : []));
+    .flatMap((sub) =>
+      sub.reviewScreenshot ? [{ productId: sub.productId, relPath: sub.reviewScreenshot }] : [],
+    );
 }
 
 /** Resolve the apps to act on from discovery + the optional `--app` selector, erroring on an unknown name. */
 export function selectApps(apps: AppDescriptor[], selector: string | undefined): AppDescriptor[] {
   if (!selector) return apps;
   const wanted = selector
-    .split(",")
+    .split(',')
     .map((name) => name.trim())
     .filter(Boolean);
   const byName = new Map(apps.map((app) => [app.name, app]));
   return wanted.map((name) => {
     const app = byName.get(name);
     if (!app)
-      throw new Error(`Unknown app "${name}". Discovered apps: ${apps.map((a) => a.name).join(", ") || "none"}.`);
+      throw new Error(
+        `Unknown app "${name}". Discovered apps: ${apps.map((a) => a.name).join(', ') || 'none'}.`,
+      );
     return app;
   });
 }
@@ -91,12 +105,14 @@ export function buildJobs(apps: AppDescriptor[], config: LaunchConfig): SyncJob[
     if (!app.bundleId) continue;
     const { enable, unmapped } = mapEntitlementsToCapabilities(app.iosEntitlements);
     const products = config.products?.[app.bundleId] ?? {};
-    const productCount = (products.inAppPurchases?.length ?? 0) + (products.subscriptionGroups?.length ?? 0);
+    const productCount =
+      (products.inAppPurchases?.length ?? 0) + (products.subscriptionGroups?.length ?? 0);
     const listing = loadListing(app.dir);
     const screenshots = discoverScreenshots(app.dir);
     const previews = discoverPreviews(app.dir);
     const subscriptionReviewScreenshots = collectSubscriptionReviewScreenshots(products);
-    const hasAssets = screenshots.length > 0 || previews.length > 0 || subscriptionReviewScreenshots.length > 0;
+    const hasAssets =
+      screenshots.length > 0 || previews.length > 0 || subscriptionReviewScreenshots.length > 0;
     if (enable.length === 0 && productCount === 0 && !hasListing(listing) && !hasAssets) continue;
     jobs.push({
       app,

@@ -8,22 +8,29 @@
  * a broken subscription surfaces in `launch audit` for any app that sells one.
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from "../types.js";
-import { iosApps } from "../appScopes.js";
-import { declaredSubscriptionIds, gradeDeclaredProduct } from "./iapReadiness.js";
+import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import { iosApps } from '../appScopes.js';
+import { declaredSubscriptionIds, gradeDeclaredProduct } from './iapReadiness.js';
 
 /** The App Store Connect subscription-level readiness probe. */
 export const subscriptionsProbe: ReadinessProbe = {
-  id: "apple-subscriptions",
-  title: "Subscriptions shippable",
-  store: "appstore",
-  categories: ["iap", "submit"],
+  id: 'apple-subscriptions',
+  title: 'Subscriptions shippable',
+  store: 'appstore',
+  categories: ['iap', 'submit'],
   async check(ctx: ReadinessContext): Promise<ProbeResult> {
-    const apps = iosApps(ctx.apps).filter(({ identifier }) => declaredSubscriptionIds(ctx, identifier).length > 0);
-    if (apps.length === 0) return { state: "omitted" };
+    const apps = iosApps(ctx.apps).filter(
+      ({ identifier }) => declaredSubscriptionIds(ctx, identifier).length > 0,
+    );
+    if (apps.length === 0) return { state: 'omitted' };
 
     const api = await ctx.resolveAscApi();
-    if (!api) return { state: "skipped", reason: "no active Apple account", hint: "run `launch creds set-key`" };
+    if (!api)
+      return {
+        state: 'skipped',
+        reason: 'no active Apple account',
+        hint: 'run `launch creds set-key`',
+      };
 
     const nested = await Promise.all(
       apps.map(async ({ name, identifier }): Promise<AppReadiness[]> => {
@@ -33,21 +40,23 @@ export const subscriptionsProbe: ReadinessProbe = {
             {
               app: name,
               identifier,
-              status: "warn",
+              status: 'warn',
               detail: "can't verify — no app record yet",
-              hint: "create the app record first (see the app-record check)",
+              hint: 'create the app record first (see the app-record check)',
             },
           ];
         }
         const groups = await api.listSubscriptionGroups(appId);
-        const liveSubs = (await Promise.all(groups.map((group) => api.listSubscriptions(group.id)))).flat();
+        const liveSubs = (
+          await Promise.all(groups.map((group) => api.listSubscriptions(group.id)))
+        ).flat();
         const live = new Map(liveSubs.map((sub) => [sub.productId, sub]));
         return declaredSubscriptionIds(ctx, identifier).map((productId) => {
-          const grade = gradeDeclaredProduct(productId, live.get(productId), "subscription");
+          const grade = gradeDeclaredProduct(productId, live.get(productId), 'subscription');
           return { app: name, identifier: productId, ...grade };
         });
       }),
     );
-    return { state: "checked", apps: nested.flat() };
+    return { state: 'checked', apps: nested.flat() };
   },
 };

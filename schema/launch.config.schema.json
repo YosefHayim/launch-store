@@ -369,7 +369,14 @@
           "description": "Whether the code stacks with or replaces the intro offer."
         }
       },
-      "required": ["customerEligibilities", "duration", "name", "numberOfPeriods", "offerEligibility", "offerMode"],
+      "required": [
+        "customerEligibilities",
+        "duration",
+        "name",
+        "numberOfPeriods",
+        "offerEligibility",
+        "offerMode"
+      ],
       "additionalProperties": false,
       "description": "A subscription offer-code campaign (Apple's `subscriptionOfferCodes`) — a redeemable promo that grants an introductory price. `name` is the reconciler's natural key (unique per subscription); offer-code terms are immutable once created, so the reconciler only ever creates a missing code, never edits one (deactivation is the explicit `launch offers deactivate` action). One-time-use and custom code batches are generated separately (the imperative `launch offers codes` subcommands), not declared here."
     },
@@ -903,7 +910,14 @@
           "description": "Locale for the localization above (default `en-US`)."
         }
       },
-      "required": ["vendorIdentifier", "referenceName", "defaultFormatter", "submissionType", "scoreSortType", "name"],
+      "required": [
+        "vendorIdentifier",
+        "referenceName",
+        "defaultFormatter",
+        "submissionType",
+        "scoreSortType",
+        "name"
+      ],
       "additionalProperties": false,
       "description": "One declared Game Center leaderboard: Apple's create attributes plus its default-locale localization name."
     },

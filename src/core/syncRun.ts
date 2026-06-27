@@ -14,17 +14,22 @@
  * lands in both surfaces at once; only the human-in-the-loop differs.
  */
 
-import { reconcileApp, type PlannedAction, type ReconcileReport, type AscCatalogApi } from "./ascSync.js";
+import {
+  reconcileApp,
+  type PlannedAction,
+  type ReconcileReport,
+  type AscCatalogApi,
+} from './ascSync.js';
 import {
   reconcilePreviews,
   reconcileScreenshots,
   type PreviewsApi,
   type ScreenshotsApi,
   type SubscriptionReviewScreenshot,
-} from "./ascScreenshots.js";
-import { fingerprintAsset } from "./screenshotAssets.js";
-import { runPool, type PoolResult } from "./asyncPool.js";
-import type { SyncJob } from "./syncJobs.js";
+} from './ascScreenshots.js';
+import { fingerprintAsset } from './screenshotAssets.js';
+import { runPool, type PoolResult } from './asyncPool.js';
+import type { SyncJob } from './syncJobs.js';
 
 /** How many apps reconcile concurrently. Bounded so the single ASC key stays under Apple's rate ceiling. */
 export const SYNC_CONCURRENCY = 4;
@@ -41,7 +46,9 @@ export type SyncCatalogClient = AscCatalogApi & ScreenshotsApi & PreviewsApi;
  * One app's reconcile outcome, carrying its own job so we never index a parallel array. A precondition
  * failure (e.g. no ASC app record) lands in `error`; otherwise `report` holds the planned/applied actions.
  */
-export type JobOutcome = { job: SyncJob; report: ReconcileReport } | { job: SyncJob; error: string };
+export type JobOutcome =
+  | { job: SyncJob; report: ReconcileReport }
+  | { job: SyncJob; error: string };
 
 /** Per-app entry in a {@link SyncRunReport}: the app's handle and bundle id, plus its outcome. */
 export interface SyncAppReport {
@@ -91,7 +98,7 @@ async function screenshotActions(
         missing.push({
           description: `subscription review screenshot ${productId}: file not found at ${relPath} — skipped`,
           destructive: false,
-          status: "skipped",
+          status: 'skipped',
         });
         continue;
       }
@@ -107,7 +114,14 @@ async function screenshotActions(
     return [...missing, ...actions];
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return [{ description: `screenshots: ${message}`, destructive: false, status: "failed", error: message }];
+    return [
+      {
+        description: `screenshots: ${message}`,
+        destructive: false,
+        status: 'failed',
+        error: message,
+      },
+    ];
   }
 }
 
@@ -132,7 +146,9 @@ async function previewActions(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return [{ description: `previews: ${message}`, destructive: false, status: "failed", error: message }];
+    return [
+      { description: `previews: ${message}`, destructive: false, status: 'failed', error: message },
+    ];
   }
 }
 
@@ -179,14 +195,18 @@ export async function reconcileJob(
 }
 
 /** Tally a report's action statuses for the run summary. */
-export function summarize(report: ReconcileReport): { applied: number; failed: number; skipped: number } {
+export function summarize(report: ReconcileReport): {
+  applied: number;
+  failed: number;
+  skipped: number;
+} {
   let applied = 0;
   let failed = 0;
   let skipped = 0;
   for (const action of report.actions) {
-    if (action.status === "applied") applied++;
-    else if (action.status === "failed") failed++;
-    else if (action.status === "skipped") skipped++;
+    if (action.status === 'applied') applied++;
+    else if (action.status === 'failed') failed++;
+    else if (action.status === 'skipped') skipped++;
   }
   return { applied, failed, skipped };
 }
@@ -197,7 +217,7 @@ export function summarizeRun(outcomes: readonly JobOutcome[]): SyncRunReport {
   const roll = { apps: outcomes.length, applied: 0, failed: 0, skipped: 0, planErrors: 0 };
   for (const outcome of outcomes) {
     const head = { app: outcome.job.app.name, bundleId: outcome.job.bundleId };
-    if ("error" in outcome) {
+    if ('error' in outcome) {
       roll.planErrors++;
       apps.push({ ...head, error: outcome.error });
       continue;
@@ -213,7 +233,9 @@ export function summarizeRun(outcomes: readonly JobOutcome[]): SyncRunReport {
 
 /** Whether a plan outcome found real work — at least one `planned` action to apply. */
 function hasPlannedAction(outcome: JobOutcome): boolean {
-  return "report" in outcome && outcome.report.actions.some((action) => action.status === "planned");
+  return (
+    'report' in outcome && outcome.report.actions.some((action) => action.status === 'planned')
+  );
 }
 
 /** Unwrap a pool's results, dropping any non-`ok` entry (reconcileJob is total, so this never fires today). */
@@ -222,7 +244,10 @@ function poolValues(results: readonly PoolResult<JobOutcome>[]): JobOutcome[] {
 }
 
 /** Overlay each plan outcome with its apply-pass result (matched by job), leaving already-in-sync apps as planned. */
-export function mergeOutcomes(plans: readonly JobOutcome[], applied: readonly JobOutcome[]): JobOutcome[] {
+export function mergeOutcomes(
+  plans: readonly JobOutcome[],
+  applied: readonly JobOutcome[],
+): JobOutcome[] {
   const byJob = new Map<SyncJob, JobOutcome>(applied.map((outcome) => [outcome.job, outcome]));
   return plans.map((plan) => byJob.get(plan.job) ?? plan);
 }
@@ -240,11 +265,15 @@ export async function runSyncBatch(
   allowDestructive: boolean,
 ): Promise<SyncRunReport> {
   const plans = poolValues(
-    await runPool(jobs, SYNC_CONCURRENCY, (job) => reconcileJob(client, job, true, allowDestructive)),
+    await runPool(jobs, SYNC_CONCURRENCY, (job) =>
+      reconcileJob(client, job, true, allowDestructive),
+    ),
   );
   const toApply = plans.flatMap((outcome) => (hasPlannedAction(outcome) ? [outcome.job] : []));
   const applied = poolValues(
-    await runPool(toApply, SYNC_CONCURRENCY, (job) => reconcileJob(client, job, false, allowDestructive)),
+    await runPool(toApply, SYNC_CONCURRENCY, (job) =>
+      reconcileJob(client, job, false, allowDestructive),
+    ),
   );
   return summarizeRun(mergeOutcomes(plans, applied));
 }

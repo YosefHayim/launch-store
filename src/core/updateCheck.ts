@@ -10,15 +10,15 @@
  * npm, or process replacement.
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { join } from "node:path";
-import { spinner } from "@clack/prompts";
-import { LAUNCH_HOME, ensureDir } from "./paths.js";
-import { capture } from "./exec.js";
+import { readFileSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { join } from 'node:path';
+import { spinner } from '@clack/prompts';
+import { LAUNCH_HOME, ensureDir } from './paths.js';
+import { capture } from './exec.js';
 
 /** The published package name (the `launch` bin's npm package). */
-const PACKAGE_NAME = "launch-store";
+const PACKAGE_NAME = 'launch-store';
 
 /** Poll the registry at most this often. */
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -35,16 +35,16 @@ export interface UpdateState {
 }
 
 /** Outcome of attempting the global upgrade. */
-export type UpgradeResult = "upgraded" | "eacces" | "failed";
+export type UpgradeResult = 'upgraded' | 'eacces' | 'failed';
 
 /** Narrow an unknown (parsed JSON) to a plain object, mirroring `core/config.ts`. */
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
 }
 
 /** Parse a dotted version into a `[major, minor, patch]` tuple, ignoring any pre-release/build suffix. */
 function versionParts(version: string): [number, number, number] {
-  const nums = version.replace(/^v/, "").split(/[.+-]/);
+  const nums = version.replace(/^v/, '').split(/[.+-]/);
   return [Number(nums[0]) || 0, Number(nums[1]) || 0, Number(nums[2]) || 0];
 }
 
@@ -58,7 +58,11 @@ export function isNewer(latest: string, current: string): boolean {
 }
 
 /** Whether enough time has passed (or there's no prior state) to poll the registry again. */
-export function shouldCheck(now: number, state: UpdateState | null, intervalMs: number = CHECK_INTERVAL_MS): boolean {
+export function shouldCheck(
+  now: number,
+  state: UpdateState | null,
+  intervalMs: number = CHECK_INTERVAL_MS,
+): boolean {
   return !state || now - state.lastCheckedAt >= intervalMs;
 }
 
@@ -71,11 +75,12 @@ export function autoUpgradeBlockedReason(input: {
   isTTY: boolean;
   scriptPath: string;
 }): string | null {
-  if (input.env["LAUNCH_UPGRADED"] === "1") return "already re-executed after an upgrade (loop guard)";
-  if (input.env["LAUNCH_NO_UPGRADE"]) return "LAUNCH_NO_UPGRADE is set";
-  if (input.env["CI"]) return "running in CI";
-  if (!input.isTTY) return "not an interactive terminal (piped, agent, or background)";
-  if (input.scriptPath.endsWith(".ts")) return "running from source (dev)";
+  if (input.env['LAUNCH_UPGRADED'] === '1')
+    return 'already re-executed after an upgrade (loop guard)';
+  if (input.env['LAUNCH_NO_UPGRADE']) return 'LAUNCH_NO_UPGRADE is set';
+  if (input.env['CI']) return 'running in CI';
+  if (!input.isTTY) return 'not an interactive terminal (piped, agent, or background)';
+  if (input.scriptPath.endsWith('.ts')) return 'running from source (dev)';
   return null;
 }
 
@@ -101,7 +106,8 @@ export interface UpdateCheckDeps {
  * when the global install isn't writable.
  */
 export async function maybeAutoUpgrade(deps: UpdateCheckDeps): Promise<void> {
-  if (autoUpgradeBlockedReason({ env: deps.env, isTTY: deps.isTTY, scriptPath: deps.scriptPath })) return;
+  if (autoUpgradeBlockedReason({ env: deps.env, isTTY: deps.isTTY, scriptPath: deps.scriptPath }))
+    return;
   if (!shouldCheck(deps.now(), deps.readState())) return;
 
   const latest = await deps.fetchLatest();
@@ -110,15 +116,15 @@ export async function maybeAutoUpgrade(deps: UpdateCheckDeps): Promise<void> {
 
   const result = await deps.upgrade(deps.currentVersion, latest);
   switch (result) {
-    case "upgraded":
+    case 'upgraded':
       deps.reexec();
       return;
-    case "eacces":
+    case 'eacces':
       deps.notify(
         `launch ${latest} is available but the global install isn't writable — sudo npm i -g ${PACKAGE_NAME}@latest`,
       );
       return;
-    case "failed":
+    case 'failed':
       deps.notify(`launch ${latest} is available — npm i -g ${PACKAGE_NAME}@latest`);
       return;
   }
@@ -128,16 +134,16 @@ export async function maybeAutoUpgrade(deps: UpdateCheckDeps): Promise<void> {
 
 /** Path of the throttle-state cache. */
 function statePath(): string {
-  return join(LAUNCH_HOME, "update.json");
+  return join(LAUNCH_HOME, 'update.json');
 }
 
 /** Read the throttle state, or null if absent/corrupt. */
 function readState(): UpdateState | null {
   try {
-    const raw = asRecord(JSON.parse(readFileSync(statePath(), "utf8")));
-    if (!raw || typeof raw["lastCheckedAt"] !== "number") return null;
-    const state: UpdateState = { lastCheckedAt: raw["lastCheckedAt"] };
-    if (typeof raw["latestSeen"] === "string") state.latestSeen = raw["latestSeen"];
+    const raw = asRecord(JSON.parse(readFileSync(statePath(), 'utf8')));
+    if (!raw || typeof raw['lastCheckedAt'] !== 'number') return null;
+    const state: UpdateState = { lastCheckedAt: raw['lastCheckedAt'] };
+    if (typeof raw['latestSeen'] === 'string') state.latestSeen = raw['latestSeen'];
     return state;
   } catch {
     return null;
@@ -161,10 +167,12 @@ async function fetchLatestVersion(pkg: string): Promise<string | null> {
     controller.abort();
   }, FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(`https://registry.npmjs.org/${pkg}/latest`, { signal: controller.signal });
+    const response = await fetch(`https://registry.npmjs.org/${pkg}/latest`, {
+      signal: controller.signal,
+    });
     if (!response.ok) return null;
-    const version = asRecord(await response.json())?.["version"];
-    return typeof version === "string" ? version : null;
+    const version = asRecord(await response.json())?.['version'];
+    return typeof version === 'string' ? version : null;
   } catch {
     return null;
   } finally {
@@ -183,21 +191,21 @@ async function performUpgrade(current: string, latest: string): Promise<UpgradeR
   const progress = spinner();
   progress.start(`Upgrading launch ${current} → ${latest}`);
   try {
-    await capture("npm", ["install", "-g", `${PACKAGE_NAME}@latest`]);
+    await capture('npm', ['install', '-g', `${PACKAGE_NAME}@latest`]);
     progress.stop(`launch upgraded to ${latest} — relaunching`);
-    return "upgraded";
+    return 'upgraded';
   } catch (error) {
     progress.error(`launch ${latest} available — automatic upgrade failed`);
     const message = error instanceof Error ? error.message : String(error);
-    return /EACCES|permission denied/i.test(message) ? "eacces" : "failed";
+    return /EACCES|permission denied/i.test(message) ? 'eacces' : 'failed';
   }
 }
 
 /** Re-run the original command on the now-upgraded binary, tagging the child to prevent an upgrade loop. */
 function reexecLaunch(): void {
   const result = spawnSync(process.execPath, process.argv.slice(1), {
-    stdio: "inherit",
-    env: { ...process.env, LAUNCH_UPGRADED: "1" },
+    stdio: 'inherit',
+    env: { ...process.env, LAUNCH_UPGRADED: '1' },
   });
   process.exit(result.status ?? 0);
 }
@@ -213,7 +221,7 @@ export async function runAutoUpgrade(currentVersion: string): Promise<void> {
       currentVersion,
       env: process.env,
       isTTY: process.stdout.isTTY,
-      scriptPath: process.argv[1] ?? "",
+      scriptPath: process.argv[1] ?? '',
       readState,
       writeState,
       fetchLatest: () => fetchLatestVersion(PACKAGE_NAME),

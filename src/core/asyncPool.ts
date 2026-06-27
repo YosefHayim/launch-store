@@ -37,7 +37,10 @@ export async function runPool<T, R>(
       try {
         results[index] = { ok: true, value: await worker(item, index) };
       } catch (error) {
-        results[index] = { ok: false, error: error instanceof Error ? error : new Error(String(error)) };
+        results[index] = {
+          ok: false,
+          error: error instanceof Error ? error : new Error(String(error)),
+        };
       }
     }
   };

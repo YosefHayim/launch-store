@@ -10,21 +10,26 @@
  * app with no record or no editable version can't be graded — those degrade to a `warn`, not a false finding.
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from "../types.js";
-import { iosApps } from "../appScopes.js";
+import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import { iosApps } from '../appScopes.js';
 
 /** The App Store Connect account-deletion-URL readiness probe — a listing-completeness, conditionally-submit check. */
 export const accountDeletionProbe: ReadinessProbe = {
-  id: "apple-account-deletion",
-  title: "Account-deletion URL declared",
-  store: "appstore",
-  categories: ["listing", "submit"],
+  id: 'apple-account-deletion',
+  title: 'Account-deletion URL declared',
+  store: 'appstore',
+  categories: ['listing', 'submit'],
   async check(ctx: ReadinessContext): Promise<ProbeResult> {
     const apps = iosApps(ctx.apps);
-    if (apps.length === 0) return { state: "omitted" };
+    if (apps.length === 0) return { state: 'omitted' };
 
     const api = await ctx.resolveAscApi();
-    if (!api) return { state: "skipped", reason: "no active Apple account", hint: "run `launch creds set-key`" };
+    if (!api)
+      return {
+        state: 'skipped',
+        reason: 'no active Apple account',
+        hint: 'run `launch creds set-key`',
+      };
 
     const results: AppReadiness[] = await Promise.all(
       apps.map(async ({ name, identifier }) => {
@@ -33,9 +38,9 @@ export const accountDeletionProbe: ReadinessProbe = {
           return {
             app: name,
             identifier,
-            status: "warn" as const,
+            status: 'warn' as const,
             detail: "can't verify — no app record yet",
-            hint: "create the app record first (see the app-record check)",
+            hint: 'create the app record first (see the app-record check)',
           };
         }
         const appInfoId = await api.getEditableAppInfoId(appId);
@@ -43,9 +48,9 @@ export const accountDeletionProbe: ReadinessProbe = {
           return {
             app: name,
             identifier,
-            status: "warn" as const,
+            status: 'warn' as const,
             detail: "can't verify — no editable app version",
-            hint: "create a new version in App Store Connect, then re-run",
+            hint: 'create a new version in App Store Connect, then re-run',
           };
         }
         const urls = await api.listAccountDeletionUrls(appInfoId);
@@ -54,18 +59,18 @@ export const accountDeletionProbe: ReadinessProbe = {
           ? {
               app: name,
               identifier,
-              status: "ok" as const,
+              status: 'ok' as const,
               detail: `account-deletion URL set in ${declared.length} locale(s)`,
             }
           : {
               app: name,
               identifier,
-              status: "warn" as const,
-              detail: "no account-deletion URL set",
-              hint: "Apple requires it if your app lets users create an account — add it under App Store Connect → App Privacy → Account Deletion",
+              status: 'warn' as const,
+              detail: 'no account-deletion URL set',
+              hint: 'Apple requires it if your app lets users create an account — add it under App Store Connect → App Privacy → Account Deletion',
             };
       }),
     );
-    return { state: "checked", apps: results };
+    return { state: 'checked', apps: results };
   },
 };

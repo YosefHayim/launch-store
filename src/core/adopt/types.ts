@@ -20,8 +20,8 @@ import type {
   ProfileResource,
   SubscriptionGroupResource,
   SubscriptionResource,
-} from "../../apple/ascClient.js";
-import type { AppDescriptor, InAppPurchaseConfig, SubscriptionGroupConfig } from "../types.js";
+} from '../../apple/ascClient.js';
+import type { AppDescriptor, InAppPurchaseConfig, SubscriptionGroupConfig } from '../types.js';
 
 /**
  * How faithfully a domain reverse-maps from App Store Connect into config, which drives plan rendering
@@ -32,7 +32,7 @@ import type { AppDescriptor, InAppPurchaseConfig, SubscriptionGroupConfig } from
  * - `detect` — read-only; we report what exists and delegate the "add" elsewhere (certs/profiles, whose
  *   private key Apple never returns).
  */
-export type Fidelity = "importable" | "advisory" | "detect";
+export type Fidelity = 'importable' | 'advisory' | 'detect';
 
 /**
  * The deliberately-invalid placeholder written for a value adopt couldn't recover (e.g. an app-group id
@@ -40,7 +40,7 @@ export type Fidelity = "importable" | "advisory" | "detect";
  * invalid on purpose: a build fails loudly on it rather than silently shipping a broken entitlement, so
  * the developer is forced to fill it in. A clean `launch doctor` follow-up can flag it (see the ADR).
  */
-export const NEEDS_VALUE = "NEEDS_VALUE";
+export const NEEDS_VALUE = 'NEEDS_VALUE';
 
 /** A JSON-compatible iOS entitlement value (string toggle, identifier array, boolean flag, nested dict). */
 export type EntitlementValue =
@@ -100,8 +100,8 @@ export interface AdoptTarget {
 
 /** One imported product piece destined for `products[bundleId]` in `launch.config.ts`. */
 export type ProductPiece =
-  | { type: "iap"; iap: InAppPurchaseConfig }
-  | { type: "subscriptionGroup"; group: SubscriptionGroupConfig };
+  | { type: 'iap'; iap: InAppPurchaseConfig }
+  | { type: 'subscriptionGroup'; group: SubscriptionGroupConfig };
 
 /**
  * The concrete change a {@link PlannedWrite} carries, discriminated by its `home` (which file/store it
@@ -110,10 +110,10 @@ export type ProductPiece =
  * structured data rather than ascSync's apply-closure: a closure can't be aggregated across adopters.
  */
 export type AdoptChange =
-  | { home: "launch.config"; bundleId: string; piece: ProductPiece }
-  | { home: "app.json"; configPath: string; key: string; value: EntitlementValue }
-  | { home: "store.config"; bundleId: string; configPath: string; appName: string }
-  | { home: "keychain" };
+  | { home: 'launch.config'; bundleId: string; piece: ProductPiece }
+  | { home: 'app.json'; configPath: string; key: string; value: EntitlementValue }
+  | { home: 'store.config'; bundleId: string; configPath: string; appName: string }
+  | { home: 'keychain' };
 
 /**
  * One proposed change surfaced in the plan and (after confirm) applied. `description` is the plan line;

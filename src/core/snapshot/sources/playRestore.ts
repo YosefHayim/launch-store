@@ -9,9 +9,9 @@
  * snapshot layer works in {@link JsonValue}, not `unknown`.
  */
 
-import type { JsonValue } from "../types.js";
-import type { PlannedAction } from "../../ascSync.js";
-import type { PlayPriceConfig } from "../../types.js";
+import type { JsonValue } from '../types.js';
+import type { PlannedAction } from '../../ascSync.js';
+import type { PlayPriceConfig } from '../../types.js';
 
 /**
  * Narrow a captured {@link JsonValue} to a plain object (rejecting arrays and null), or `null`. The
@@ -19,13 +19,13 @@ import type { PlayPriceConfig } from "../../types.js";
  * rather than slipping through as an empty record.
  */
 export function jsonRecord(value: JsonValue | undefined): Record<string, JsonValue> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value) ? value : null;
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value : null;
 }
 
 /** Read a string-valued field from a captured record, or `undefined` when absent/non-string. */
 export function stringField(record: Record<string, JsonValue>, key: string): string | undefined {
   const value = record[key];
-  return typeof value === "string" ? value : undefined;
+  return typeof value === 'string' ? value : undefined;
 }
 
 /**
@@ -36,14 +36,14 @@ export function stringField(record: Record<string, JsonValue>, key: string): str
 export function toPriceConfig(value: JsonValue | undefined): PlayPriceConfig | null {
   const record = jsonRecord(value);
   if (!record) return null;
-  const priceMicros = stringField(record, "priceMicros");
-  const currency = stringField(record, "currency");
+  const priceMicros = stringField(record, 'priceMicros');
+  const currency = stringField(record, 'currency');
   return priceMicros !== undefined && currency !== undefined ? { priceMicros, currency } : null;
 }
 
 /** A skipped {@link PlannedAction} — the restore couldn't act (no account / unrestorable entity) but didn't fail. */
 export function skippedAction(description: string): PlannedAction {
-  return { description, destructive: false, status: "skipped" };
+  return { description, destructive: false, status: 'skipped' };
 }
 
 /** A short message for a thrown value (Play catalog writes carry no secrets). */

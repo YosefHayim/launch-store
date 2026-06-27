@@ -9,9 +9,9 @@
  * copy to keep in sync. Heavy SDK-free: it reads one JSON file, no generator at runtime.
  */
 
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { type JsonSchema, type SchemaViolation, validate } from "./jsonSchema.js";
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { type JsonSchema, type SchemaViolation, validate } from './jsonSchema.js';
 
 /**
  * Absolute path to the committed schema, resolved relative to THIS module so it points at the copy that
@@ -19,14 +19,16 @@ import { type JsonSchema, type SchemaViolation, validate } from "./jsonSchema.js
  * in the published tarball (`dist/core/configSchema.js`) — the `../../` lands on the package root from
  * either tree, the same trick {@link import("./config.js")}'s `SELF_ENTRY` uses for the public entry.
  */
-const SCHEMA_PATH = fileURLToPath(new URL("../../schema/launch.config.schema.json", import.meta.url));
+const SCHEMA_PATH = fileURLToPath(
+  new URL('../../schema/launch.config.schema.json', import.meta.url),
+);
 
 /** Memoized parse of the committed schema — it's immutable at runtime, so read and parse it once. */
 let cached: JsonSchema | undefined;
 
 /** Load (and cache) the committed JSON Schema for `launch.config.ts`. */
 export function loadConfigSchema(): JsonSchema {
-  cached ??= JSON.parse(readFileSync(SCHEMA_PATH, "utf8")) as JsonSchema;
+  cached ??= JSON.parse(readFileSync(SCHEMA_PATH, 'utf8')) as JsonSchema;
   return cached;
 }
 

@@ -13,7 +13,7 @@
  */
 
 /** Which component of a {@link SemVer} a bump advances (resetting the lower components to 0). */
-export type VersionBump = "major" | "minor" | "patch";
+export type VersionBump = 'major' | 'minor' | 'patch';
 
 /**
  * A user-facing version-bump choice: a semver {@link VersionBump} or `"keep"` (reuse the current version).
@@ -21,7 +21,7 @@ export type VersionBump = "major" | "minor" | "patch";
  * accepted values of `launch build --bump` (alongside the CLI-only `"ask"`, which forces the prompt). A
  * "Custom…" typed version has no kind, so it's never remembered.
  */
-export type BumpKind = VersionBump | "keep";
+export type BumpKind = VersionBump | 'keep';
 
 /** A parsed marketing version. Pre-release / build metadata is dropped — only the numeric core is kept. */
 export interface SemVer {
@@ -36,10 +36,12 @@ export interface SemVer {
  * is ignored); missing minor/patch default to 0. Non-string input (malformed store data) yields null.
  */
 export function parseVersion(input: string): SemVer | null {
-  if (typeof input !== "string") return null;
-  const core = input.trim().replace(/^v/i, "").split(/[-+]/)[0] ?? "";
+  if (typeof input !== 'string') return null;
+  const core = input.trim().replace(/^v/i, '').split(/[-+]/)[0] ?? '';
   if (!/^\d+(\.\d+){0,2}$/.test(core)) return null;
-  const [major = 0, minor = 0, patch = 0] = core.split(".").map((part) => Number.parseInt(part, 10));
+  const [major = 0, minor = 0, patch = 0] = core
+    .split('.')
+    .map((part) => Number.parseInt(part, 10));
   return { major, minor, patch };
 }
 
@@ -51,11 +53,11 @@ export function formatVersion(version: SemVer): string {
 /** Advance one component, zeroing the lower ones (`1.4.2` →  major `2.0.0`, minor `1.5.0`, patch `1.4.3`). */
 export function bumpVersion(version: SemVer, bump: VersionBump): SemVer {
   switch (bump) {
-    case "major":
+    case 'major':
       return { major: version.major + 1, minor: 0, patch: 0 };
-    case "minor":
+    case 'minor':
       return { major: version.major, minor: version.minor + 1, patch: 0 };
-    case "patch":
+    case 'patch':
       return { major: version.major, minor: version.minor, patch: version.patch + 1 };
   }
 }
@@ -76,7 +78,7 @@ export function nextVersion(current: string, bump: VersionBump): string {
 export function compareVersions(a: string, b: string): number {
   const left = parseVersion(a) ?? { major: 0, minor: 0, patch: 0 };
   const right = parseVersion(b) ?? { major: 0, minor: 0, patch: 0 };
-  for (const key of ["major", "minor", "patch"] as const) {
+  for (const key of ['major', 'minor', 'patch'] as const) {
     if (left[key] !== right[key]) return left[key] < right[key] ? -1 : 1;
   }
   return 0;
@@ -90,5 +92,7 @@ export function compareVersions(a: string, b: string): number {
 export function highestVersion(versions: string[]): string | null {
   const parseable = versions.filter((version) => parseVersion(version) !== null);
   if (parseable.length === 0) return null;
-  return parseable.reduce((highest, version) => (compareVersions(version, highest) > 0 ? version : highest));
+  return parseable.reduce((highest, version) =>
+    compareVersions(version, highest) > 0 ? version : highest,
+  );
 }

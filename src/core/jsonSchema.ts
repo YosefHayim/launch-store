@@ -48,25 +48,25 @@ export interface SchemaViolation {
 
 /** The JSON type name of a runtime value, using `"null"`/`"array"` rather than the bare `typeof`. */
 function jsonTypeOf(value: unknown): string {
-  if (value === null) return "null";
-  if (Array.isArray(value)) return "array";
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array';
   return typeof value;
 }
 
 /** Whether `value` satisfies a single schema `type` name (`integer` narrows `number` to whole values). */
 function matchesType(value: unknown, type: string): boolean {
-  if (type === "integer") return typeof value === "number" && Number.isInteger(value);
-  if (type === "number") return typeof value === "number";
+  if (type === 'integer') return typeof value === 'number' && Number.isInteger(value);
+  if (type === 'number') return typeof value === 'number';
   return jsonTypeOf(value) === type;
 }
 
 /** Resolve a percent-encoded JSON pointer (`#/definitions/Foo`) against the root document, or undefined. */
 function resolveRef(ref: string, root: JsonSchema): JsonSchema | undefined {
-  if (!ref.startsWith("#/")) return undefined;
+  if (!ref.startsWith('#/')) return undefined;
   let node: unknown = root;
-  for (const rawSegment of ref.slice(2).split("/")) {
+  for (const rawSegment of ref.slice(2).split('/')) {
     const segment = decodeURIComponent(rawSegment);
-    if (typeof node !== "object" || node === null) return undefined;
+    if (typeof node !== 'object' || node === null) return undefined;
     node = (node as Record<string, unknown>)[segment];
   }
   return node as JsonSchema | undefined;
@@ -80,10 +80,10 @@ function joinPath(path: string, key: string): string {
 
 /** Render a schema's accepted types/enum for an error message, e.g. `string` or `"a" | "b"`. */
 function describeExpected(schema: JsonSchema): string {
-  if (schema.enum) return schema.enum.map((entry) => JSON.stringify(entry)).join(" | ");
-  if (schema.type) return Array.isArray(schema.type) ? schema.type.join(" | ") : schema.type;
-  if (schema.$ref) return decodeURIComponent(schema.$ref.split("/").pop() ?? "value");
-  return "the expected shape";
+  if (schema.enum) return schema.enum.map((entry) => JSON.stringify(entry)).join(' | ');
+  if (schema.type) return Array.isArray(schema.type) ? schema.type.join(' | ') : schema.type;
+  if (schema.$ref) return decodeURIComponent(schema.$ref.split('/').pop() ?? 'value');
+  return 'the expected shape';
 }
 
 /**
@@ -91,15 +91,20 @@ function describeExpected(schema: JsonSchema): string {
  * `launch config validate` can report all problems at once. `root` carries the `definitions` that
  * `$ref`s resolve against — defaults to `schema`, so a self-contained document validates with one arg.
  */
-export function validate(value: unknown, schema: JsonSchema, root: JsonSchema = schema, path = ""): SchemaViolation[] {
+export function validate(
+  value: unknown,
+  schema: JsonSchema,
+  root: JsonSchema = schema,
+  path = '',
+): SchemaViolation[] {
   if (schema.$ref) {
     const resolved = resolveRef(schema.$ref, root);
     if (!resolved) return [{ path, message: `unresolved schema reference ${schema.$ref}` }];
     return validate(value, resolved, root, path);
   }
 
-  if (schema.anyOf) return validateCombinator(value, schema.anyOf, root, path, "anyOf");
-  if (schema.oneOf) return validateCombinator(value, schema.oneOf, root, path, "oneOf");
+  if (schema.anyOf) return validateCombinator(value, schema.anyOf, root, path, 'anyOf');
+  if (schema.oneOf) return validateCombinator(value, schema.oneOf, root, path, 'oneOf');
   if (schema.allOf) return schema.allOf.flatMap((sub) => validate(value, sub, root, path));
 
   const violations: SchemaViolation[] = [];
@@ -107,24 +112,32 @@ export function validate(value: unknown, schema: JsonSchema, root: JsonSchema = 
   if (schema.type) {
     const types = Array.isArray(schema.type) ? schema.type : [schema.type];
     if (!types.some((type) => matchesType(value, type))) {
-      violations.push({ path, message: `expected ${types.join(" | ")}, got ${jsonTypeOf(value)}` });
+      violations.push({ path, message: `expected ${types.join(' | ')}, got ${jsonTypeOf(value)}` });
       return violations; // a wrong base type makes every nested check noise
     }
   }
 
   if (schema.enum && !schema.enum.some((allowed) => allowed === value)) {
-    violations.push({ path, message: `expected one of ${describeExpected(schema)}, got ${JSON.stringify(value)}` });
+    violations.push({
+      path,
+      message: `expected one of ${describeExpected(schema)}, got ${JSON.stringify(value)}`,
+    });
   }
-  if ("const" in schema && schema.const !== value) {
-    violations.push({ path, message: `expected ${JSON.stringify(schema.const)}, got ${JSON.stringify(value)}` });
+  if ('const' in schema && schema.const !== value) {
+    violations.push({
+      path,
+      message: `expected ${JSON.stringify(schema.const)}, got ${JSON.stringify(value)}`,
+    });
   }
 
-  if (jsonTypeOf(value) === "object")
+  if (jsonTypeOf(value) === 'object')
     violations.push(...validateObject(value as Record<string, unknown>, schema, root, path));
   const { items } = schema;
   if (items && Array.isArray(value)) {
     // Array elements use bare numeric index notation (`profiles[0]`), not quoted-key notation.
-    violations.push(...value.flatMap((entry, index) => validate(entry, items, root, `${path}[${index}]`)));
+    violations.push(
+      ...value.flatMap((entry, index) => validate(entry, items, root, `${path}[${index}]`)),
+    );
   }
 
   return violations;
@@ -139,15 +152,16 @@ function validateObject(
 ): SchemaViolation[] {
   const violations: SchemaViolation[] = [];
   for (const key of schema.required ?? []) {
-    if (!(key in value)) violations.push({ path: joinPath(path, key), message: "missing required property" });
+    if (!(key in value))
+      violations.push({ path: joinPath(path, key), message: 'missing required property' });
   }
   for (const [key, entry] of Object.entries(value)) {
     const propertySchema = schema.properties?.[key];
     if (propertySchema) {
       violations.push(...validate(entry, propertySchema, root, joinPath(path, key)));
     } else if (schema.additionalProperties === false) {
-      violations.push({ path: joinPath(path, key), message: "unknown property" });
-    } else if (typeof schema.additionalProperties === "object") {
+      violations.push({ path: joinPath(path, key), message: 'unknown property' });
+    } else if (typeof schema.additionalProperties === 'object') {
       violations.push(...validate(entry, schema.additionalProperties, root, joinPath(path, key)));
     }
   }
@@ -160,11 +174,13 @@ function validateCombinator(
   branches: JsonSchema[],
   root: JsonSchema,
   path: string,
-  kind: "anyOf" | "oneOf",
+  kind: 'anyOf' | 'oneOf',
 ): SchemaViolation[] {
-  const matches = branches.filter((branch) => validate(value, branch, root, path).length === 0).length;
-  const ok = kind === "anyOf" ? matches >= 1 : matches === 1;
+  const matches = branches.filter(
+    (branch) => validate(value, branch, root, path).length === 0,
+  ).length;
+  const ok = kind === 'anyOf' ? matches >= 1 : matches === 1;
   if (ok) return [];
-  const expected = branches.map((branch) => describeExpected(branch)).join(" | ");
+  const expected = branches.map((branch) => describeExpected(branch)).join(' | ');
   return [{ path, message: `expected ${expected}, got ${jsonTypeOf(value)}` }];
 }

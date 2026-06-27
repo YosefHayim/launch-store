@@ -10,8 +10,8 @@
  * as new surfaces extend that interface.
  */
 
-import { vi } from "vitest";
-import type { AscSurfacesApi } from "../types.js";
+import { vi } from 'vitest';
+import type { AscSurfacesApi } from '../types.js';
 
 /**
  * A fully-stubbed {@link AscSurfacesApi}. Reads resolve to "the app exists, nothing is configured" so a
@@ -22,7 +22,7 @@ import type { AscSurfacesApi } from "../types.js";
 export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurfacesApi {
   const base: AscSurfacesApi = {
     // shared
-    getAppId: vi.fn().mockResolvedValue("app1"),
+    getAppId: vi.fn().mockResolvedValue('app1'),
 
     // catalog reads
     findBundleId: vi.fn().mockResolvedValue(null),
@@ -37,9 +37,9 @@ export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurf
     listSubscriptionLocalizations: vi.fn().mockResolvedValue([]),
     subscriptionHasPrice: vi.fn().mockResolvedValue(false),
     findSubscriptionPricePoint: vi.fn().mockResolvedValue(null),
-    getEditableAppInfoId: vi.fn().mockResolvedValue("appinfo1"),
+    getEditableAppInfoId: vi.fn().mockResolvedValue('appinfo1'),
     listAppInfoLocalizations: vi.fn().mockResolvedValue([]),
-    getEditableVersionId: vi.fn().mockResolvedValue("version1"),
+    getEditableVersionId: vi.fn().mockResolvedValue('version1'),
     listVersionLocalizations: vi.fn().mockResolvedValue([]),
     // catalog writes (never called in dry-run)
     enableCapability: vi.fn(),

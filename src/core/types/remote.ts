@@ -10,7 +10,7 @@
  * a remote Mac (AWS EC2 Mac or a reachable Mac over SSH) or hand off to Expo EAS. The no-args wizard
  * branches on this value.
  */
-export type HostOs = "macos" | "windows" | "linux";
+export type HostOs = 'macos' | 'windows' | 'linux';
 
 /**
  * A shell Launch can emit tab-completion for.
@@ -21,7 +21,7 @@ export type HostOs = "macos" | "windows" | "linux";
  * the script) and `launch completion install` (which wires it into the shell's rc file); see
  * `core/completion.ts`.
  */
-export type Shell = "bash" | "zsh" | "fish";
+export type Shell = 'bash' | 'zsh' | 'fish';
 
 /**
  * SSH connection parameters for reaching a remote Mac.
@@ -104,7 +104,7 @@ export interface AwsConfig {
  * - `aws`: provision an EC2 Mac via the `aws-ec2-mac` {@link ComputeHost}.
  * - `ssh`: connect to an already-reachable Mac via the `byo-ssh` {@link ComputeHost}.
  */
-export type RemoteTarget = { kind: "aws" } | { kind: "ssh"; target: string };
+export type RemoteTarget = { kind: 'aws' } | { kind: 'ssh'; target: string };
 
 /**
  * Request passed to {@link ComputeHost.allocate}.

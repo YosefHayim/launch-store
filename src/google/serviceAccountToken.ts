@@ -11,8 +11,8 @@
  * @see https://developers.google.com/identity/protocols/oauth2/service-account
  */
 
-import { SignJWT, importPKCS8 } from "jose";
-import type { ServiceAccount } from "./playClient.js";
+import { SignJWT, importPKCS8 } from 'jose';
+import type { ServiceAccount } from './playClient.js';
 
 /** Google rejects assertions older than an hour; 50 minutes leaves comfortable margin. */
 const ASSERTION_TTL_SECONDS = 50 * 60;
@@ -61,11 +61,11 @@ export class ServiceAccountTokenSource {
 
   /** Perform the JWT-bearer exchange and populate the cache. Callers reach this only through {@link token}. */
   private async mint(now: number): Promise<string> {
-    const privateKey = await importPKCS8(this.account.privateKey, "RS256");
+    const privateKey = await importPKCS8(this.account.privateKey, 'RS256');
     const assertion = await new SignJWT({ scope: this.scope })
       .setProtectedHeader({
-        alg: "RS256",
-        typ: "JWT",
+        alg: 'RS256',
+        typ: 'JWT',
         ...(this.account.privateKeyId ? { kid: this.account.privateKeyId } : {}),
       })
       .setIssuer(this.account.clientEmail)
@@ -76,19 +76,21 @@ export class ServiceAccountTokenSource {
       .sign(privateKey);
 
     const response = await fetch(this.account.tokenUri, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
         assertion,
       }),
     });
     const text = await response.text();
     if (!response.ok) {
-      throw new Error(`Google token exchange failed (${response.status}): ${describeTokenError(text)}`);
+      throw new Error(
+        `Google token exchange failed (${response.status}): ${describeTokenError(text)}`,
+      );
     }
     const token = JSON.parse(text) as { access_token?: string; expires_in?: number };
-    if (!token.access_token) throw new Error("Google token exchange returned no access_token.");
+    if (!token.access_token) throw new Error('Google token exchange returned no access_token.');
     this.cached = { value: token.access_token, expiresAt: now + (token.expires_in ?? 3600) };
     return token.access_token;
   }
@@ -100,6 +102,6 @@ function describeTokenError(body: string): string {
     const parsed = JSON.parse(body) as { error?: string; error_description?: string };
     return parsed.error_description ?? parsed.error ?? body;
   } catch {
-    return body.length > 0 ? body : "no response body";
+    return body.length > 0 ? body : 'no response body';
   }
 }

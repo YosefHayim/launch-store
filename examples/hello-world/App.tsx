@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { StatusBar } from "expo-status-bar";
+import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 /**
  * Hello World — a one-screen tap game. The point of this example is the Launch config wrapped around it
@@ -23,9 +23,20 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#0b1020", gap: 16 },
-  title: { color: "#9bb4ff", fontSize: 28, fontWeight: "600" },
-  score: { color: "#ffffff", fontSize: 72, fontWeight: "800", fontVariant: ["tabular-nums"] },
-  button: { backgroundColor: "#3a5bff", paddingHorizontal: 32, paddingVertical: 14, borderRadius: 12 },
-  buttonText: { color: "#ffffff", fontSize: 18, fontWeight: "600" },
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0b1020',
+    gap: 16,
+  },
+  title: { color: '#9bb4ff', fontSize: 28, fontWeight: '600' },
+  score: { color: '#ffffff', fontSize: 72, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  button: {
+    backgroundColor: '#3a5bff',
+    paddingHorizontal: 32,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  buttonText: { color: '#ffffff', fontSize: 18, fontWeight: '600' },
 });

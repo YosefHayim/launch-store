@@ -11,15 +11,15 @@
  * a CI/pre-release gate. New IAP checks are new probe files, never edits here. See issue #174.
  */
 
-import type { Command } from "commander";
-import { loadConfig } from "../../core/config.js";
-import { createLogger } from "../../core/logger.js";
-import { createAscClientResolver, createPlayClientResolver } from "../../core/storeClients.js";
-import { selectApps } from "../../core/syncJobs.js";
-import { registerBuiltinProbes, selectReadinessProbes } from "../../core/readiness/registry.js";
-import { runProbes } from "../../core/readiness/orchestrator.js";
-import type { ReadinessContext } from "../../core/readiness/types.js";
-import { renderReadinessOutcome } from "./readinessReport.js";
+import type { Command } from 'commander';
+import { loadConfig } from '../../core/config.js';
+import { createLogger } from '../../core/logger.js';
+import { createAscClientResolver, createPlayClientResolver } from '../../core/storeClients.js';
+import { selectApps } from '../../core/syncJobs.js';
+import { registerBuiltinProbes, selectReadinessProbes } from '../../core/readiness/registry.js';
+import { runProbes } from '../../core/readiness/orchestrator.js';
+import type { ReadinessContext } from '../../core/readiness/types.js';
+import { renderReadinessOutcome } from './readinessReport.js';
 
 /** CLI options for `launch iap doctor`. */
 interface IapDoctorOptions {
@@ -45,13 +45,13 @@ export async function runIapDoctor(input: IapDoctorOptions): Promise<void> {
     resolvePlayApi: createPlayClientResolver(),
   };
 
-  const outcome = await runProbes(ctx, selectReadinessProbes("iap"));
+  const outcome = await runProbes(ctx, selectReadinessProbes('iap'));
 
   if (input.json === true) console.log(JSON.stringify(outcome, null, 2));
   else {
     renderReadinessOutcome(log, outcome, {
-      summary: "IAP readiness",
-      empty: "No IAP checks ran — no apps declare in-app purchases or subscriptions.",
+      summary: 'IAP readiness',
+      empty: 'No IAP checks ran — no apps declare in-app purchases or subscriptions.',
     });
   }
   process.exitCode = outcome.exitCode;
@@ -63,12 +63,14 @@ export async function runIapDoctor(input: IapDoctorOptions): Promise<void> {
  * the top-level surface.
  */
 export function registerIapCommand(program: Command): void {
-  const iap = program.command("iap").description("in-app-purchase readiness and operations");
+  const iap = program.command('iap').description('in-app-purchase readiness and operations');
   iap
-    .command("doctor")
-    .description("check in-app-purchase readiness: products & subscriptions exist and are submittable (read-only)")
-    .option("-a, --app <names>", "comma-separated app handles (default: all apps)")
-    .option("--json", "machine-readable output for CI/agents", false)
+    .command('doctor')
+    .description(
+      'check in-app-purchase readiness: products & subscriptions exist and are submittable (read-only)',
+    )
+    .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
+    .option('--json', 'machine-readable output for CI/agents', false)
     .action(async (options: IapDoctorOptions) => {
       await runIapDoctor(options);
     });

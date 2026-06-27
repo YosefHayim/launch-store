@@ -13,8 +13,8 @@
  * (`resolveCommandEnv`) is the one place that pairs it with the keychain.
  */
 
-import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 /**
  * Parse dotenv text into key→value pairs.
@@ -25,15 +25,18 @@ import { join } from "node:path";
  */
 export function parseDotenv(content: string): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const raw of content.split("\n")) {
+  for (const raw of content.split('\n')) {
     const line = raw.trim();
-    if (line === "" || line.startsWith("#")) continue;
-    const withoutExport = line.startsWith("export ") ? line.slice("export ".length) : line;
-    const eq = withoutExport.indexOf("=");
+    if (line === '' || line.startsWith('#')) continue;
+    const withoutExport = line.startsWith('export ') ? line.slice('export '.length) : line;
+    const eq = withoutExport.indexOf('=');
     if (eq === -1) continue;
     const key = withoutExport.slice(0, eq).trim();
     let value = withoutExport.slice(eq + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1);
     }
     if (key) out[key] = value;
@@ -44,7 +47,7 @@ export function parseDotenv(content: string): Record<string, string> {
 /** Read and parse a dotenv file. Returns an empty object if the file does not exist. */
 export function loadDotenvFile(filePath: string): Record<string, string> {
   if (!existsSync(filePath)) return {};
-  return parseDotenv(readFileSync(filePath, "utf8"));
+  return parseDotenv(readFileSync(filePath, 'utf8'));
 }
 
 /**
@@ -57,7 +60,7 @@ export function loadDotenvFile(filePath: string): Record<string, string> {
  */
 export function isEnvExcluded(name: string, patterns: string[]): boolean {
   for (const pattern of patterns) {
-    if (pattern.endsWith("*")) {
+    if (pattern.endsWith('*')) {
       if (name.startsWith(pattern.slice(0, -1))) return true;
     } else if (name === pattern) {
       return true;
@@ -74,12 +77,16 @@ export function isEnvExcluded(name: string, patterns: string[]): boolean {
  * backend-only secret isn't "missing", so documenting it in `.env.example` doesn't trip the gate — even
  * when no layer sets it.
  */
-export function missingKeys(appDir: string, env: Record<string, string>, exclude: string[] = []): string[] {
-  const examplePath = join(appDir, ".env.example");
+export function missingKeys(
+  appDir: string,
+  env: Record<string, string>,
+  exclude: string[] = [],
+): string[] {
+  const examplePath = join(appDir, '.env.example');
   if (!existsSync(examplePath)) return [];
   const example = loadDotenvFile(examplePath);
   return Object.keys(example).filter(
-    (key) => !isEnvExcluded(key, exclude) && (env[key] === undefined || env[key] === ""),
+    (key) => !isEnvExcluded(key, exclude) && (env[key] === undefined || env[key] === ''),
   );
 }
 
@@ -115,10 +122,10 @@ export function secretLookingKeys(env: Record<string, string>): string[] {
  * vocabulary. File layers carry their actual filename (`.env`, `.env.production`, `.env.local`).
  */
 export const ENV_SOURCE = {
-  flag: "--env (flag)",
-  secret: "keychain secret",
-  profile: "profile env:",
-  local: ".env.local",
+  flag: '--env (flag)',
+  secret: 'keychain secret',
+  profile: 'profile env:',
+  local: '.env.local',
 } as const;
 
 /**
@@ -165,13 +172,19 @@ export interface ResolveEnvInput {
  * such a name you drop it from the list.
  */
 export function resolveEnv(input: ResolveEnvInput): ResolvedEnv {
-  const baseFile = input.envFile ?? ".env";
+  const baseFile = input.envFile ?? '.env';
   const layers: { source: string; vars: Record<string, string> }[] = [
     { source: baseFile, vars: loadDotenvFile(join(input.appDir, baseFile)) },
-    { source: `.env.${input.profileName}`, vars: loadDotenvFile(join(input.appDir, `.env.${input.profileName}`)) },
+    {
+      source: `.env.${input.profileName}`,
+      vars: loadDotenvFile(join(input.appDir, `.env.${input.profileName}`)),
+    },
   ];
   if (input.includeLocal) {
-    layers.push({ source: ENV_SOURCE.local, vars: loadDotenvFile(join(input.appDir, ".env.local")) });
+    layers.push({
+      source: ENV_SOURCE.local,
+      vars: loadDotenvFile(join(input.appDir, '.env.local')),
+    });
   }
   layers.push({ source: ENV_SOURCE.profile, vars: input.profileEnv ?? {} });
   layers.push({ source: ENV_SOURCE.secret, vars: input.secrets ?? {} });
@@ -205,10 +218,10 @@ export function resolveEnv(input: ResolveEnvInput): ResolvedEnv {
 export function parseCliEnv(pairs: string[]): Record<string, string> {
   const out: Record<string, string> = {};
   for (const pair of pairs) {
-    const eq = pair.indexOf("=");
+    const eq = pair.indexOf('=');
     if (eq === -1) throw new Error(`Invalid --env "${pair}". Use --env KEY=VALUE.`);
     const key = pair.slice(0, eq).trim();
-    if (key === "") throw new Error(`Invalid --env "${pair}". The key is empty.`);
+    if (key === '') throw new Error(`Invalid --env "${pair}". The key is empty.`);
     out[key] = pair.slice(eq + 1);
   }
   return out;
@@ -221,16 +234,22 @@ export function parseCliEnv(pairs: string[]): Record<string, string> {
  */
 export function formatEnvTable(resolved: ResolvedEnv): string {
   const keys = Object.keys(resolved.values).sort();
-  if (keys.length === 0) return "(no env vars resolved)";
+  if (keys.length === 0) return '(no env vars resolved)';
   const rows = keys.map((key) => {
     const masked = isSecretLookingName(key) || resolved.sources[key] === ENV_SOURCE.secret;
-    return { key, value: masked ? "••••••" : (resolved.values[key] ?? ""), source: resolved.sources[key] ?? "" };
+    return {
+      key,
+      value: masked ? '••••••' : (resolved.values[key] ?? ''),
+      source: resolved.sources[key] ?? '',
+    };
   });
-  const keyWidth = Math.max("KEY".length, ...rows.map((row) => row.key.length));
-  const valueWidth = Math.max("VALUE".length, ...rows.map((row) => row.value.length));
-  const header = `${"KEY".padEnd(keyWidth)}  ${"VALUE".padEnd(valueWidth)}  SOURCE`;
-  const lines = rows.map((row) => `${row.key.padEnd(keyWidth)}  ${row.value.padEnd(valueWidth)}  ${row.source}`);
-  return [header, "─".repeat(header.length), ...lines].join("\n");
+  const keyWidth = Math.max('KEY'.length, ...rows.map((row) => row.key.length));
+  const valueWidth = Math.max('VALUE'.length, ...rows.map((row) => row.value.length));
+  const header = `${'KEY'.padEnd(keyWidth)}  ${'VALUE'.padEnd(valueWidth)}  SOURCE`;
+  const lines = rows.map(
+    (row) => `${row.key.padEnd(keyWidth)}  ${row.value.padEnd(valueWidth)}  ${row.source}`,
+  );
+  return [header, '─'.repeat(header.length), ...lines].join('\n');
 }
 
 /**
@@ -246,5 +265,5 @@ export function envInjectionRows(resolved: ResolvedEnv): string[] {
   const keys = Object.keys(resolved.values).sort();
   if (keys.length === 0) return [];
   const keyWidth = Math.max(...keys.map((key) => key.length));
-  return keys.map((key) => `${key.padEnd(keyWidth)}  ${resolved.sources[key] ?? ""}`);
+  return keys.map((key) => `${key.padEnd(keyWidth)}  ${resolved.sources[key] ?? ''}`);
 }

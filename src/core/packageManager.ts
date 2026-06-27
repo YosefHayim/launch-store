@@ -14,18 +14,18 @@
  * composes them over the filesystem.
  */
 
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 /** The package managers Launch recognizes. */
-export type PackageManagerName = "npm" | "yarn" | "pnpm" | "bun";
+export type PackageManagerName = 'npm' | 'yarn' | 'pnpm' | 'bun';
 
 /** The canonical lockfile each manager writes (bun also accepts the newer text `bun.lock`). */
 const LOCKFILES: Record<PackageManagerName, string> = {
-  npm: "package-lock.json",
-  yarn: "yarn.lock",
-  pnpm: "pnpm-lock.yaml",
-  bun: "bun.lockb",
+  npm: 'package-lock.json',
+  yarn: 'yarn.lock',
+  pnpm: 'pnpm-lock.yaml',
+  bun: 'bun.lockb',
 };
 
 /**
@@ -38,7 +38,7 @@ export interface PackageManagerInfo {
   /** Version pinned via the `packageManager` field (Corepack), when declared. */
   version?: string;
   /** Which signal decided the manager. */
-  source: "packageManager" | "lockfile" | "yarnrc" | "default";
+  source: 'packageManager' | 'lockfile' | 'yarnrc' | 'default';
   /** Whether a Corepack `packageManager` pin was present (so Corepack must be enabled to honor it). */
   corepackPinned: boolean;
 }
@@ -48,7 +48,7 @@ export interface WorkspaceInfo {
   /** Absolute path to the root (the package.json with `workspaces`, or the dir with `pnpm-workspace.yaml`). */
   root: string;
   /** How the workspace was declared. */
-  kind: "npm/yarn" | "pnpm";
+  kind: 'npm/yarn' | 'pnpm';
 }
 
 /** The full package-setup picture for one app dir, assembled by {@link inspectPackageSetup}. */
@@ -63,8 +63,10 @@ export interface PackageSetup {
  * Parse a `packageManager` field (`"yarn@4.1.0"`, `"pnpm@9.1.0+sha512.…"`) into a manager + version.
  * Pure. Returns null for an absent/unrecognized value, so the caller falls through to lockfile detection.
  */
-export function parsePackageManagerField(field: unknown): { name: PackageManagerName; version?: string } | null {
-  if (typeof field !== "string") return null;
+export function parsePackageManagerField(
+  field: unknown,
+): { name: PackageManagerName; version?: string } | null {
+  if (typeof field !== 'string') return null;
   const match = /^(npm|yarn|pnpm|bun)@?([0-9][^+\s]*)?/.exec(field.trim());
   if (!match) return null;
   const name = match[1] as PackageManagerName;
@@ -76,10 +78,10 @@ export function parsePackageManagerField(field: unknown): { name: PackageManager
  * signal than `package-lock.json`, which some tools write incidentally). Pure over the set of filenames.
  */
 export function detectFromLockfiles(present: ReadonlySet<string>): PackageManagerName | null {
-  if (present.has("pnpm-lock.yaml")) return "pnpm";
-  if (present.has("yarn.lock")) return "yarn";
-  if (present.has("bun.lockb") || present.has("bun.lock")) return "bun";
-  if (present.has("package-lock.json")) return "npm";
+  if (present.has('pnpm-lock.yaml')) return 'pnpm';
+  if (present.has('yarn.lock')) return 'yarn';
+  if (present.has('bun.lockb') || present.has('bun.lock')) return 'bun';
+  if (present.has('package-lock.json')) return 'npm';
   return null;
 }
 
@@ -101,7 +103,7 @@ export function packageManagerWarnings(input: PackageManagerWarningInput): strin
   const { info, lockfile, corepackAvailable } = input;
   const warnings: string[] = [];
 
-  if (info.corepackPinned && info.name !== "npm" && !corepackAvailable) {
+  if (info.corepackPinned && info.name !== 'npm' && !corepackAvailable) {
     const pin = info.version ? `${info.name}@${info.version}` : info.name;
     warnings.push(
       `package.json pins ${pin} via "packageManager", but Corepack isn't enabled — run \`corepack enable\` ` +
@@ -109,9 +111,9 @@ export function packageManagerWarnings(input: PackageManagerWarningInput): strin
     );
   }
 
-  if (lockfile && info.source === "packageManager") {
+  if (lockfile && info.source === 'packageManager') {
     const expected = LOCKFILES[info.name];
-    const bunOk = info.name === "bun" && (lockfile === "bun.lockb" || lockfile === "bun.lock");
+    const bunOk = info.name === 'bun' && (lockfile === 'bun.lockb' || lockfile === 'bun.lock');
     if (lockfile !== expected && !bunOk) {
       warnings.push(
         `"packageManager" declares ${info.name} but the lockfile is ${lockfile} — they disagree. ` +
@@ -125,11 +127,13 @@ export function packageManagerWarnings(input: PackageManagerWarningInput): strin
 
 /** Read and JSON-parse a directory's package.json, or null when absent/malformed. */
 function readPackageJson(dir: string): Record<string, unknown> | null {
-  const path = join(dir, "package.json");
+  const path = join(dir, 'package.json');
   if (!existsSync(path)) return null;
   try {
-    const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
-    return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : null;
+    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
+    return typeof parsed === 'object' && parsed !== null
+      ? (parsed as Record<string, unknown>)
+      : null;
   } catch {
     return null;
   }
@@ -137,7 +141,13 @@ function readPackageJson(dir: string): Record<string, unknown> | null {
 
 /** The lockfile present in a directory, if any (first match in detection-priority order). */
 function lockfileIn(dir: string): string | null {
-  for (const name of ["pnpm-lock.yaml", "yarn.lock", "bun.lockb", "bun.lock", "package-lock.json"]) {
+  for (const name of [
+    'pnpm-lock.yaml',
+    'yarn.lock',
+    'bun.lockb',
+    'bun.lock',
+    'package-lock.json',
+  ]) {
     if (existsSync(join(dir, name))) return name;
   }
   return null;
@@ -151,9 +161,9 @@ function lockfileIn(dir: string): string | null {
 export function findWorkspaceRoot(appDir: string): WorkspaceInfo | null {
   let dir = appDir;
   for (;;) {
-    if (existsSync(join(dir, "pnpm-workspace.yaml"))) return { root: dir, kind: "pnpm" };
+    if (existsSync(join(dir, 'pnpm-workspace.yaml'))) return { root: dir, kind: 'pnpm' };
     const pkg = readPackageJson(dir);
-    if (pkg && "workspaces" in pkg) return { root: dir, kind: "npm/yarn" };
+    if (pkg && 'workspaces' in pkg) return { root: dir, kind: 'npm/yarn' };
     const parent = dirname(dir);
     if (parent === dir) return null;
     dir = parent;
@@ -165,20 +175,21 @@ export function findWorkspaceRoot(appDir: string): WorkspaceInfo | null {
  * `packageManager` field wins, then the lockfile, then `.yarnrc.yml` (Yarn Berry), then npm by default.
  */
 export function detectPackageManager(dir: string): PackageManagerInfo {
-  const pinned = parsePackageManagerField(readPackageJson(dir)?.["packageManager"]);
+  const pinned = parsePackageManagerField(readPackageJson(dir)?.['packageManager']);
   if (pinned) {
     return {
       name: pinned.name,
       ...(pinned.version ? { version: pinned.version } : {}),
-      source: "packageManager",
+      source: 'packageManager',
       corepackPinned: true,
     };
   }
   const lockfile = lockfileIn(dir);
   const fromLock = lockfile ? detectFromLockfiles(new Set([lockfile])) : null;
-  if (fromLock) return { name: fromLock, source: "lockfile", corepackPinned: false };
-  if (existsSync(join(dir, ".yarnrc.yml"))) return { name: "yarn", source: "yarnrc", corepackPinned: false };
-  return { name: "npm", source: "default", corepackPinned: false };
+  if (fromLock) return { name: fromLock, source: 'lockfile', corepackPinned: false };
+  if (existsSync(join(dir, '.yarnrc.yml')))
+    return { name: 'yarn', source: 'yarnrc', corepackPinned: false };
+  return { name: 'npm', source: 'default', corepackPinned: false };
 }
 
 /**

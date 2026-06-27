@@ -17,12 +17,12 @@
  * All git calls go through {@link import("./exec.js")} (`shell: false`), never a shell string.
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { isAbsolute, join, relative, sep } from "node:path";
-import { capture } from "./exec.js";
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { isAbsolute, join, relative, sep } from 'node:path';
+import { capture } from './exec.js';
 
 /** Marker comment that headers Launch's auto-added ignore entry, so it's recognizable and removable by hand. */
-const IGNORE_MARKER = "# launch build artifacts";
+const IGNORE_MARKER = '# launch build artifacts';
 
 /** Outcome of an {@link ensureArtifactDirIgnored} attempt. */
 export interface GitignoreResult {
@@ -35,7 +35,7 @@ export interface GitignoreResult {
 /** The git work-tree root containing `dir`, or null when `dir` isn't inside a repo (or git is absent). */
 async function repoRoot(dir: string): Promise<string | null> {
   try {
-    return await capture("git", ["-C", dir, "rev-parse", "--show-toplevel"]);
+    return await capture('git', ['-C', dir, 'rev-parse', '--show-toplevel']);
   } catch {
     return null;
   }
@@ -44,7 +44,7 @@ async function repoRoot(dir: string): Promise<string | null> {
 /** Whether git already ignores `dir` (by any pattern). `check-ignore -q` exits 0 when ignored, 1 otherwise. */
 async function alreadyIgnored(root: string, dir: string): Promise<boolean> {
   try {
-    await capture("git", ["-C", root, "check-ignore", "-q", "--", dir]);
+    await capture('git', ['-C', root, 'check-ignore', '-q', '--', dir]);
     return true;
   } catch {
     return false;
@@ -65,7 +65,7 @@ export async function ensureArtifactDirIgnored(
 
   const rel = relative(root, resolvedDir);
   // Empty → the dir IS the repo root; `..`/absolute → outside the work tree. Never ignore either.
-  if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) return { added: false };
+  if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) return { added: false };
 
   if (await alreadyIgnored(root, resolvedDir)) return { added: false };
 
@@ -73,11 +73,11 @@ export async function ensureArtifactDirIgnored(
   // the directory exists on disk, so it would re-append every run before the first build creates the dir.
   // The anchored form matches whether the dir exists yet or not — keeping this idempotent — and still
   // ignores the directory and everything under it (binaries + `objects/`).
-  const entry = `/${rel.split(sep).join("/")}`;
-  const gitignorePath = join(root, ".gitignore");
-  const existing = existsSync(gitignorePath) ? readFileSync(gitignorePath, "utf8") : "";
-  const base = existing.length === 0 || existing.endsWith("\n") ? existing : `${existing}\n`;
-  const gap = base.length === 0 || base.endsWith("\n\n") ? "" : "\n";
+  const entry = `/${rel.split(sep).join('/')}`;
+  const gitignorePath = join(root, '.gitignore');
+  const existing = existsSync(gitignorePath) ? readFileSync(gitignorePath, 'utf8') : '';
+  const base = existing.length === 0 || existing.endsWith('\n') ? existing : `${existing}\n`;
+  const gap = base.length === 0 || base.endsWith('\n\n') ? '' : '\n';
   writeFileSync(gitignorePath, `${base}${gap}${IGNORE_MARKER}\n${entry}\n`);
   return { added: true, entry };
 }

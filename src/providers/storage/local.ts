@@ -15,12 +15,22 @@
  * `prune` here is the only provider that implements it (cloud stores trim via their own bucket lifecycle).
  */
 
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
-import { basename, dirname, extname, join } from "node:path";
-import type { BuildArtifact, PruneOptions, PruneResult, StorageProvider, StoredArtifact } from "../../core/types.js";
-import { ARTIFACTS_DIR, ensureDir } from "../../core/paths.js";
-import { readArtifactIndex, runArtifactPrune, writeArtifactIndex } from "../../core/artifactRetention.js";
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
+import { basename, dirname, extname, join } from 'node:path';
+import type {
+  BuildArtifact,
+  PruneOptions,
+  PruneResult,
+  StorageProvider,
+  StoredArtifact,
+} from '../../core/types.js';
+import { ARTIFACTS_DIR, ensureDir } from '../../core/paths.js';
+import {
+  readArtifactIndex,
+  runArtifactPrune,
+  writeArtifactIndex,
+} from '../../core/artifactRetention.js';
 
 /**
  * Build a `local` {@link StorageProvider} that writes binaries (and raw objects under `<baseDir>/objects`)
@@ -29,12 +39,12 @@ import { readArtifactIndex, runArtifactPrune, writeArtifactIndex } from "../../c
  * the bytes into the project. The index is global regardless, so `list`/`prune` are unaffected by `baseDir`.
  */
 export function createLocalStorageProvider(baseDir: string = ARTIFACTS_DIR): StorageProvider {
-  const objectsDir = join(baseDir, "objects");
+  const objectsDir = join(baseDir, 'objects');
   /** Resolve a forward-slash object key to an absolute path under this provider's objects dir. */
-  const objectPath = (key: string): string => join(objectsDir, ...key.split("/"));
+  const objectPath = (key: string): string => join(objectsDir, ...key.split('/'));
 
   return {
-    name: "local",
+    name: 'local',
 
     async put(artifact: BuildArtifact): Promise<StoredArtifact> {
       ensureDir(baseDir);
@@ -62,7 +72,11 @@ export function createLocalStorageProvider(baseDir: string = ARTIFACTS_DIR): Sto
       return path;
     },
 
-    async putObject(key: string, body: Buffer | string, _contentType: string): Promise<StoredArtifact> {
+    async putObject(
+      key: string,
+      body: Buffer | string,
+      _contentType: string,
+    ): Promise<StoredArtifact> {
       const dest = objectPath(key);
       ensureDir(dirname(dest));
       writeFileSync(dest, body);

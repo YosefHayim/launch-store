@@ -18,17 +18,17 @@
  * `AppStoreConnectClient` satisfies it structurally.
  */
 
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type {
   BetaFeedbackCrashSubmissionResource,
   BetaFeedbackQuery,
   BetaFeedbackScreenshotSubmissionResource,
   BuildResource,
-} from "../apple/ascClient.js";
-import { appRecordNotFound } from "./asc/storeSync.js";
-import { ensureDir } from "./paths.js";
-import type { BetaFeedback, BetaFeedbackKind } from "./types.js";
+} from '../apple/ascClient.js';
+import { appRecordNotFound } from './asc/storeSync.js';
+import { ensureDir } from './paths.js';
+import type { BetaFeedback, BetaFeedbackKind } from './types.js';
 
 /** The exact slice of {@link AppStoreConnectClient} the testflight-feedback domain depends on. */
 export interface AscFeedbackApi {
@@ -62,13 +62,20 @@ export interface DownloadedAttachment {
 }
 
 /** Resolve a `--build <ver>` to its build resource id, erroring when no such build exists on the app. */
-async function resolveBuildId(api: AscFeedbackApi, appId: string, version: string): Promise<string> {
+async function resolveBuildId(
+  api: AscFeedbackApi,
+  appId: string,
+  version: string,
+): Promise<string> {
   const parsed = Number.parseInt(version.trim(), 10);
   if (!/^\d+$/.test(version.trim()) || Number.isNaN(parsed)) {
     throw new Error(`--build must be a CFBundleVersion (a whole number), got "${version}".`);
   }
   const build = await api.findBuildByVersion(appId, parsed);
-  if (!build) throw new Error(`No build ${version} for this app. Check the build number with \`launch status\`.`);
+  if (!build)
+    throw new Error(
+      `No build ${version} for this app. Check the build number with \`launch status\`.`,
+    );
   return build.id;
 }
 
@@ -85,29 +92,35 @@ export async function listBetaFeedback(
   const appId = await api.getAppId(bundleId);
   if (!appId) throw appRecordNotFound(bundleId);
 
-  const query: BetaFeedbackQuery = filters.build ? { buildId: await resolveBuildId(api, appId, filters.build) } : {};
+  const query: BetaFeedbackQuery = filters.build
+    ? { buildId: await resolveBuildId(api, appId, filters.build) }
+    : {};
 
   // Fetch both kinds concurrently; skip a kind entirely when `--type` narrows to the other.
   const [crashes, shots] = await Promise.all([
-    filters.kind !== "screenshot"
+    filters.kind !== 'screenshot'
       ? api.listBetaFeedbackCrashSubmissions(appId, query)
       : Promise.resolve<BetaFeedbackCrashSubmissionResource[]>([]),
-    filters.kind !== "crash"
+    filters.kind !== 'crash'
       ? api.listBetaFeedbackScreenshotSubmissions(appId, query)
       : Promise.resolve<BetaFeedbackScreenshotSubmissionResource[]>([]),
   ]);
 
   const feedback: BetaFeedback[] = [];
   for (const crash of crashes) {
-    feedback.push({ ...crash, kind: "crash" });
+    feedback.push({ ...crash, kind: 'crash' });
   }
   for (const shot of shots) {
     const { screenshots, ...base } = shot;
-    feedback.push({ ...base, kind: "screenshot", ...(screenshots.length > 0 ? { screenshots } : {}) });
+    feedback.push({
+      ...base,
+      kind: 'screenshot',
+      ...(screenshots.length > 0 ? { screenshots } : {}),
+    });
   }
 
   // Both kinds come back newest-first individually; merging them needs one more sort to interleave.
-  return feedback.sort((a, b) => (b.createdDate ?? "").localeCompare(a.createdDate ?? ""));
+  return feedback.sort((a, b) => (b.createdDate ?? '').localeCompare(a.createdDate ?? ''));
 }
 
 /**
@@ -128,7 +141,9 @@ export async function downloadFeedbackAttachments(
     // Keep the id out of the filesystem unless it's already path-safe. Apple ids are; an unexpected
     // one is base64url-encoded rather than stripped, so two distinct ids can't collapse to the same
     // filename and overwrite each other's screenshots.
-    const safeId = /^[A-Za-z0-9_-]+$/.test(item.id) ? item.id : Buffer.from(item.id, "utf8").toString("base64url");
+    const safeId = /^[A-Za-z0-9_-]+$/.test(item.id)
+      ? item.id
+      : Buffer.from(item.id, 'utf8').toString('base64url');
     for (const [index, shot] of shots.entries()) {
       const bytes = await api.downloadBetaFeedbackScreenshot(shot.url);
       const path = join(outDir, `${safeId}-${index + 1}.png`);

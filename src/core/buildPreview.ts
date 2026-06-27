@@ -14,9 +14,9 @@
  * `resolveAndroidRelease`) so the preview can never disagree with the real run's selection logic.
  */
 
-import { isApplePlatform } from "./platform.js";
-import type { AppDescriptor, LaunchConfig, Platform, PlayTrack } from "./types.js";
-import { resolveAndroidRelease, resolveBuildEngineName, resolveSubmitterName } from "./pipeline.js";
+import { isApplePlatform } from './platform.js';
+import type { AppDescriptor, LaunchConfig, Platform, PlayTrack } from './types.js';
+import { resolveAndroidRelease, resolveBuildEngineName, resolveSubmitterName } from './pipeline.js';
 
 /**
  * One app's resolved build plan — every decision `launch build` would make for it before any expensive
@@ -83,12 +83,14 @@ function resolveProfileName(config: LaunchConfig, requested: string | undefined)
   const names = Object.keys(config.profiles);
   if (requested !== undefined) {
     if (!(requested in config.profiles)) {
-      throw new Error(`Unknown profile "${requested}". Declared profiles: ${names.join(", ") || "none"}.`);
+      throw new Error(
+        `Unknown profile "${requested}". Declared profiles: ${names.join(', ') || 'none'}.`,
+      );
     }
     return requested;
   }
-  if ("production" in config.profiles) return "production";
-  return names[0] ?? "production";
+  if ('production' in config.profiles) return 'production';
+  return names[0] ?? 'production';
 }
 
 /**
@@ -100,7 +102,7 @@ export function previewBuild(input: BuildPreviewInput): BuildPreview {
   const { config, apps, platform } = input;
   const profileName = resolveProfileName(config, input.profile);
   const profile = config.profiles[profileName] ?? { name: profileName, sizeBudgetMB: 200 };
-  const distribution = input.distribution ?? "store";
+  const distribution = input.distribution ?? 'store';
 
   const planned = apps.map((app): AppBuildPlan => {
     const identifier = identifierFor(app, platform);
@@ -110,9 +112,9 @@ export function previewBuild(input: BuildPreviewInput): BuildPreview {
       submitter: resolveSubmitterName(config, platform),
       ...(identifier !== undefined ? { identifier } : {}),
     };
-    if (platform !== "android") return base;
+    if (platform !== 'android') return base;
     // `internal` distribution rehearses an internal-testing upload; `store` rehearses a production release.
-    const target = distribution === "internal" ? "testing" : "production";
+    const target = distribution === 'internal' ? 'testing' : 'production';
     const { track, rollout } = resolveAndroidRelease(
       {
         target,

@@ -10,28 +10,29 @@
  * absent file ⇒ the surface is omitted.
  */
 
-import { resolveSidecarConfig } from "../../config.js";
-import { loadAccessibilityConfig, reconcileAccessibility } from "../../accessibility.js";
-import { planAppStoreSurface } from "./appStoreSurface.js";
-import type { SurfacePlanner } from "../types.js";
+import { resolveSidecarConfig } from '../../config.js';
+import { loadAccessibilityConfig, reconcileAccessibility } from '../../accessibility.js';
+import { planAppStoreSurface } from './appStoreSurface.js';
+import type { SurfacePlanner } from '../types.js';
 
 /** Surface id — also the value users pass as `launch plan accessibility`. */
-const SURFACE = "accessibility";
+const SURFACE = 'accessibility';
 
 export const accessibilityPlanner: SurfacePlanner = {
   id: SURFACE,
-  store: "appstore",
+  store: 'appstore',
   plan: (ctx) =>
     planAppStoreSurface(ctx, {
       surface: SURFACE,
-      direction: "additive",
+      direction: 'additive',
       configFor: () =>
         resolveSidecarConfig({
           typed: undefined,
-          configPath: ctx.config.configFiles?.accessibility ?? "accessibility.config.json",
+          configPath: ctx.config.configFiles?.accessibility ?? 'accessibility.config.json',
           explicitPath: false,
           load: loadAccessibilityConfig,
         }),
-      reconcile: (api, bundleId, config) => reconcileAccessibility(api, { bundleId, config, dryRun: true }),
+      reconcile: (api, bundleId, config) =>
+        reconcileAccessibility(api, { bundleId, config, dryRun: true }),
     }),
 };

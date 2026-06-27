@@ -12,19 +12,27 @@
  * reports exactly what would change and touches no tester.
  */
 
-import { existsSync, readFileSync } from "node:fs";
-import type { Command } from "commander";
-import { cancel, confirm, isCancel } from "@clack/prompts";
-import { loadConfig } from "../../core/config.js";
-import { selectApp } from "../../core/pipeline.js";
-import { loadActiveAscKey } from "../../core/accounts.js";
-import { pickOne } from "../../core/prompt.js";
-import { createLogger } from "../../core/logger.js";
-import { AppStoreConnectClient, type BetaGroupResource } from "../../apple/ascClient.js";
-import type { PlannedAction } from "../../core/ascSync.js";
-import { loadBetaReviewConfig, reconcileBetaReview, summarizeBetaReview } from "../../core/betaReview.js";
-import { downloadFeedbackAttachments, listBetaFeedback, type FeedbackFilters } from "../../core/testflightFeedback.js";
-import type { BetaFeedback, BetaFeedbackKind } from "../../core/types.js";
+import { existsSync, readFileSync } from 'node:fs';
+import type { Command } from 'commander';
+import { cancel, confirm, isCancel } from '@clack/prompts';
+import { loadConfig } from '../../core/config.js';
+import { selectApp } from '../../core/pipeline.js';
+import { loadActiveAscKey } from '../../core/accounts.js';
+import { pickOne } from '../../core/prompt.js';
+import { createLogger } from '../../core/logger.js';
+import { AppStoreConnectClient, type BetaGroupResource } from '../../apple/ascClient.js';
+import type { PlannedAction } from '../../core/ascSync.js';
+import {
+  loadBetaReviewConfig,
+  reconcileBetaReview,
+  summarizeBetaReview,
+} from '../../core/betaReview.js';
+import {
+  downloadFeedbackAttachments,
+  listBetaFeedback,
+  type FeedbackFilters,
+} from '../../core/testflightFeedback.js';
+import type { BetaFeedback, BetaFeedbackKind } from '../../core/types.js';
 
 /** One tester to add, parsed from a CLI argument or a CSV row. */
 interface TesterInput {
@@ -47,7 +55,7 @@ interface TesterCommandOptions {
 /** Resolve the App Store Connect client for the active account, or fail with the fix. */
 async function client(): Promise<AppStoreConnectClient> {
   const ascKey = await loadActiveAscKey();
-  if (!ascKey) throw new Error("No active Apple account. Run `launch creds set-key` first.");
+  if (!ascKey) throw new Error('No active Apple account. Run `launch creds set-key` first.');
   return new AppStoreConnectClient(ascKey);
 }
 
@@ -58,7 +66,8 @@ async function resolveAppId(
 ): Promise<{ appId: string; name: string }> {
   const { apps } = await loadConfig();
   const app = await selectApp(apps, appName);
-  if (!app.bundleId) throw new Error(`App "${app.name}" has no iOS bundle identifier (set ios.bundleIdentifier).`);
+  if (!app.bundleId)
+    throw new Error(`App "${app.name}" has no iOS bundle identifier (set ios.bundleIdentifier).`);
   const appId = await asc.getAppId(app.bundleId);
   if (!appId) {
     throw new Error(
@@ -79,8 +88,10 @@ async function resolveGroup(
   options: { group?: string; externalOnly: boolean; canPrompt: boolean },
 ): Promise<BetaGroupResource> {
   const groups = await asc.listBetaGroups(appId);
-  const eligible = options.externalOnly ? groups.filter((group) => group.isInternal !== true) : groups;
-  const kind = options.externalOnly ? "external " : "";
+  const eligible = options.externalOnly
+    ? groups.filter((group) => group.isInternal !== true)
+    : groups;
+  const kind = options.externalOnly ? 'external ' : '';
 
   const groupName = options.group;
   if (groupName) {
@@ -92,20 +103,22 @@ async function resolveGroup(
   }
 
   if (eligible.length === 0) {
-    throw new Error(`No ${kind}beta groups for this app. Create one with \`launch testflight create-group <name>\`.`);
+    throw new Error(
+      `No ${kind}beta groups for this app. Create one with \`launch testflight create-group <name>\`.`,
+    );
   }
   const [sole, ...rest] = eligible;
   if (sole && rest.length === 0) return sole;
 
   return pickOne<BetaGroupResource>({
-    message: "Which beta group?",
+    message: 'Which beta group?',
     options: eligible.map((group) => ({
       value: group,
       label: group.name,
-      hint: group.isInternal ? "internal" : "external",
+      hint: group.isInternal ? 'internal' : 'external',
     })),
     canPrompt: options.canPrompt,
-    nonInteractive: { kind: "require", flagHint: "Pass --group <name>." },
+    nonInteractive: { kind: 'require', flagHint: 'Pass --group <name>.' },
   });
 }
 
@@ -117,8 +130,8 @@ async function resolveGroup(
 export function parseTestersCsv(text: string): TesterInput[] {
   const rows: TesterInput[] = [];
   for (const line of text.split(/\r?\n/)) {
-    const [email, firstName, lastName] = line.split(",").map((cell) => cell.trim());
-    if (!email?.includes("@")) continue; // header row, blank line, or junk — skip
+    const [email, firstName, lastName] = line.split(',').map((cell) => cell.trim());
+    if (!email?.includes('@')) continue; // header row, blank line, or junk — skip
     rows.push({ email, ...(firstName ? { firstName } : {}), ...(lastName ? { lastName } : {}) });
   }
   return rows;
@@ -135,7 +148,7 @@ function collectTesters(emails: string[], options: TesterCommandOptions): Tester
 
   const byEmail = new Map<string, TesterInput>();
   for (const tester of [...fromArgs, ...fromCsv]) {
-    if (!tester.email.includes("@")) throw new Error(`"${tester.email}" is not a valid email.`);
+    if (!tester.email.includes('@')) throw new Error(`"${tester.email}" is not a valid email.`);
     byEmail.set(tester.email.toLowerCase(), tester);
   }
   return [...byEmail.values()];
@@ -144,16 +157,20 @@ function collectTesters(emails: string[], options: TesterCommandOptions): Tester
 /** Read a CSV file, failing clearly when the path is wrong. */
 function readCsv(path: string): string {
   if (!existsSync(path)) throw new Error(`CSV file not found: ${path}`);
-  return readFileSync(path, "utf8");
+  return readFileSync(path, 'utf8');
 }
 
 /** Confirm an outward-facing/destructive action, honoring `--yes` and refusing to guess without a TTY. */
-async function confirmAction(message: string, assumeYes: boolean, canPrompt: boolean): Promise<boolean> {
+async function confirmAction(
+  message: string,
+  assumeYes: boolean,
+  canPrompt: boolean,
+): Promise<boolean> {
   if (assumeYes) return true;
   if (!canPrompt) throw new Error(`${message} Re-run with --yes to proceed non-interactively.`);
   const ok = await confirm({ message });
   if (isCancel(ok)) {
-    cancel("Cancelled.");
+    cancel('Cancelled.');
     process.exit(0);
   }
   return ok;
@@ -165,14 +182,16 @@ async function listGroups(options: { app?: string }): Promise<void> {
   const { appId, name } = await resolveAppId(asc, options.app);
   const groups = await asc.listBetaGroups(appId);
   if (groups.length === 0) {
-    console.log(`No beta groups for ${name}. Create one with \`launch testflight create-group <name>\`.`);
+    console.log(
+      `No beta groups for ${name}. Create one with \`launch testflight create-group <name>\`.`,
+    );
     return;
   }
   for (const group of groups) {
     const count = (await asc.listBetaTestersInGroup(group.id)).length;
-    const kind = group.isInternal ? "internal" : "external";
-    const link = group.publicLink ? ` — ${group.publicLink}` : "";
-    console.log(`• ${group.name} (${kind}, ${count} tester${count === 1 ? "" : "s"})${link}`);
+    const kind = group.isInternal ? 'internal' : 'external';
+    const link = group.publicLink ? ` — ${group.publicLink}` : '';
+    console.log(`• ${group.name} (${kind}, ${count} tester${count === 1 ? '' : 's'})${link}`);
   }
   console.log(`\n${groups.length} group(s) for ${name}.`);
 }
@@ -208,9 +227,9 @@ async function listTesters(options: { app?: string; group?: string }): Promise<v
     return;
   }
   for (const tester of testers) {
-    const fullName = [tester.firstName, tester.lastName].filter(Boolean).join(" ");
-    const state = tester.state ? ` [${tester.state.toLowerCase()}]` : "";
-    console.log(`• ${tester.email}${fullName ? ` — ${fullName}` : ""}${state}`);
+    const fullName = [tester.firstName, tester.lastName].filter(Boolean).join(' ');
+    const state = tester.state ? ` [${tester.state.toLowerCase()}]` : '';
+    console.log(`• ${tester.email}${fullName ? ` — ${fullName}` : ''}${state}`);
   }
   console.log(`\n${testers.length} tester(s) in "${group.name}".`);
 }
@@ -220,7 +239,8 @@ async function addTesters(emails: string[], options: TesterCommandOptions): Prom
   const assumeYes = options.yes === true;
   const canPrompt = !assumeYes && process.stdin.isTTY;
   const testers = collectTesters(emails, options);
-  if (testers.length === 0) throw new Error("No testers to add. Pass one or more emails, or --csv <path>.");
+  if (testers.length === 0)
+    throw new Error('No testers to add. Pass one or more emails, or --csv <path>.');
 
   const asc = await client();
   const { appId, name } = await resolveAppId(asc, options.app);
@@ -231,7 +251,9 @@ async function addTesters(emails: string[], options: TesterCommandOptions): Prom
   });
 
   // Skip anyone already in the group so re-running the command is a no-op.
-  const present = new Set((await asc.listBetaTestersInGroup(group.id)).map((tester) => tester.email.toLowerCase()));
+  const present = new Set(
+    (await asc.listBetaTestersInGroup(group.id)).map((tester) => tester.email.toLowerCase()),
+  );
   const pending = testers.filter((tester) => !present.has(tester.email.toLowerCase()));
   const skipped = testers.length - pending.length;
 
@@ -252,7 +274,7 @@ async function addTesters(emails: string[], options: TesterCommandOptions): Prom
     canPrompt,
   );
   if (!proceed) {
-    console.log("Aborted; no testers added.");
+    console.log('Aborted; no testers added.');
     return;
   }
 
@@ -270,12 +292,14 @@ async function addTesters(emails: string[], options: TesterCommandOptions): Prom
       console.log(`✓ Invited ${tester.email}`);
     }
   }
-  console.log(`\nDone: ${invited} invited, ${linked} existing added, ${skipped} already present → "${group.name}".`);
+  console.log(
+    `\nDone: ${invited} invited, ${linked} existing added, ${skipped} already present → "${group.name}".`,
+  );
 }
 
 /** `launch testflight rm <emails...>` — remove testers from a beta group (the inverse of `add`). */
 async function removeTesters(emails: string[], options: TesterCommandOptions): Promise<void> {
-  if (emails.length === 0) throw new Error("Pass one or more tester emails to remove.");
+  if (emails.length === 0) throw new Error('Pass one or more tester emails to remove.');
   const assumeYes = options.yes === true;
   const canPrompt = !assumeYes && process.stdin.isTTY;
   const wanted = new Set(emails.map((email) => email.toLowerCase()));
@@ -300,9 +324,13 @@ async function removeTesters(emails: string[], options: TesterCommandOptions): P
     for (const tester of matched) console.log(`  • ${tester.email}`);
     return;
   }
-  const proceed = await confirmAction(`Remove ${matched.length} tester(s) from "${group.name}"?`, assumeYes, canPrompt);
+  const proceed = await confirmAction(
+    `Remove ${matched.length} tester(s) from "${group.name}"?`,
+    assumeYes,
+    canPrompt,
+  );
   if (!proceed) {
-    console.log("Aborted; no testers removed.");
+    console.log('Aborted; no testers removed.');
     return;
   }
   await asc.removeTestersFromGroup(
@@ -322,13 +350,14 @@ interface FeedbackOptions {
 }
 
 /** The accepted `--type` values, also the {@link BetaFeedbackKind} union — validated before reaching the core. */
-const FEEDBACK_KINDS: readonly BetaFeedbackKind[] = ["crash", "screenshot"];
+const FEEDBACK_KINDS: readonly BetaFeedbackKind[] = ['crash', 'screenshot'];
 
 /** Parse + validate `--type`, returning the kind or undefined (both kinds) when absent. Exported for tests. */
 export function parseFeedbackType(value: string | undefined): BetaFeedbackKind | undefined {
   if (value === undefined) return undefined;
   const kind = FEEDBACK_KINDS.find((candidate) => candidate === value.trim().toLowerCase());
-  if (!kind) throw new Error(`--type must be one of ${FEEDBACK_KINDS.join(" | ")} (got "${value}").`);
+  if (!kind)
+    throw new Error(`--type must be one of ${FEEDBACK_KINDS.join(' | ')} (got "${value}").`);
   return kind;
 }
 
@@ -337,7 +366,9 @@ async function resolveBundleId(appSelector: string | undefined): Promise<string>
   const { apps } = await loadConfig();
   const app = await selectApp(apps, appSelector);
   if (!app.bundleId) {
-    throw new Error(`No iOS bundle identifier for ${app.name} (set ios.bundleIdentifier in app.json).`);
+    throw new Error(
+      `No iOS bundle identifier for ${app.name} (set ios.bundleIdentifier in app.json).`,
+    );
   }
   return app.bundleId;
 }
@@ -347,14 +378,16 @@ async function resolveBundleId(appSelector: string | undefined): Promise<string>
  * it's printed to a terminal — a crafted comment or device name could otherwise inject escape sequences.
  */
 function clean(text: string): string {
-  return text.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+  return text.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
 }
 
 /** Render one piece of beta feedback as a copy-pasteable block: id + kind, meta line, comment, screenshot URLs. */
 export function renderFeedback(item: BetaFeedback): string {
   const deviceModel = item.deviceModel ? clean(item.deviceModel) : undefined;
   const osVersion = item.osVersion ? clean(item.osVersion) : undefined;
-  const device = [deviceModel, osVersion ? `iOS ${osVersion}` : undefined].filter(Boolean).join(" · ");
+  const device = [deviceModel, osVersion ? `iOS ${osVersion}` : undefined]
+    .filter(Boolean)
+    .join(' · ');
   const meta = [
     item.buildVersion ? `build ${item.buildVersion}` : undefined,
     device || undefined,
@@ -362,12 +395,12 @@ export function renderFeedback(item: BetaFeedback): string {
     item.createdDate ? item.createdDate.slice(0, 10) : undefined,
   ]
     .filter(Boolean)
-    .join("  ");
-  const icon = item.kind === "crash" ? "✗ crash" : "▣ screenshot";
+    .join('  ');
+  const icon = item.kind === 'crash' ? '✗ crash' : '▣ screenshot';
   const lines = [`${item.id}  ${icon}`, `  ${meta}`];
   if (item.comment) lines.push(`  "${clean(item.comment)}"`);
   for (const shot of item.screenshots ?? []) lines.push(`  ${clean(shot.url)}`);
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /** Options for `launch testflight release` — set "What to Test" notes and submit a build for beta review. */
@@ -387,8 +420,9 @@ interface ReleaseOptions {
  * `+` for a planned/applied change. Exported for tests.
  */
 export function renderBetaAction(action: PlannedAction): string {
-  if (action.status === "failed") return `✗ ${action.description}${action.error ? ` — ${action.error}` : ""}`;
-  if (action.status === "skipped") return `• ${action.description}`;
+  if (action.status === 'failed')
+    return `✗ ${action.description}${action.error ? ` — ${action.error}` : ''}`;
+  if (action.status === 'skipped') return `• ${action.description}`;
   return `+ ${action.description}`;
 }
 
@@ -400,8 +434,8 @@ export function renderBetaAction(action: PlannedAction): string {
 async function releaseBuild(options: ReleaseOptions): Promise<void> {
   const log = createLogger(false);
   const whatToTest = options.whatsNew
-    ? { [options.locale ?? "en-US"]: options.whatsNew }
-    : loadBetaReviewConfig(options.config ?? "testflight.config.json").whatToTest;
+    ? { [options.locale ?? 'en-US']: options.whatsNew }
+    : loadBetaReviewConfig(options.config ?? 'testflight.config.json').whatToTest;
 
   const asc = await client();
   const { appId, name } = await resolveAppId(asc, options.app);
@@ -414,12 +448,12 @@ async function releaseBuild(options: ReleaseOptions): Promise<void> {
   };
 
   const plan = await reconcileBetaReview(asc, { ...input, dryRun: true });
-  const planned = plan.actions.filter((action) => action.status === "planned");
+  const planned = plan.actions.filter((action) => action.status === 'planned');
   const label = `${name} build ${plan.buildVersion}`;
 
   log.gap();
   if (plan.actions.length === 0) {
-    log.step(label, "TestFlight release prep already in sync");
+    log.step(label, 'TestFlight release prep already in sync');
     return;
   }
   log.notice(label, ...plan.actions.map(renderBetaAction));
@@ -427,21 +461,23 @@ async function releaseBuild(options: ReleaseOptions): Promise<void> {
   log.gap();
   log.info(`${planned.length} change(s) for ${label}.`);
   if (options.dryRun === true) {
-    log.info("Dry run — no changes made. Re-run without --dry-run to apply.");
+    log.info('Dry run — no changes made. Re-run without --dry-run to apply.');
     return;
   }
   if (planned.length === 0) {
-    log.step("testflight", "nothing to apply (everything already in sync)");
+    log.step('testflight', 'nothing to apply (everything already in sync)');
     return;
   }
 
   if (options.yes !== true) {
     if (!process.stdout.isTTY) {
-      throw new Error("Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).");
+      throw new Error(
+        'Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).',
+      );
     }
     const proceed = await confirm({ message: `Apply ${planned.length} change(s) to ${label}?` });
     if (isCancel(proceed) || !proceed) {
-      cancel("Aborted — no changes made.");
+      cancel('Aborted — no changes made.');
       return;
     }
   }
@@ -449,81 +485,95 @@ async function releaseBuild(options: ReleaseOptions): Promise<void> {
   const applied = await reconcileBetaReview(asc, { ...input, dryRun: false });
   const summary = summarizeBetaReview(applied.actions);
   const rows = applied.actions.map((action) => {
-    if (action.status === "failed") return `✗ ${action.description} — ${action.error ?? "failed"}`;
-    return `${action.status === "skipped" ? "•" : "✓"} ${action.description}`;
+    if (action.status === 'failed') return `✗ ${action.description} — ${action.error ?? 'failed'}`;
+    return `${action.status === 'skipped' ? '•' : '✓'} ${action.description}`;
   });
-  log.box(summary.failed > 0 ? "Applied with errors" : "Applied", rows);
+  log.box(summary.failed > 0 ? 'Applied with errors' : 'Applied', rows);
   if (summary.failed > 0) process.exitCode = 1;
 }
 
 /** Attach the `testflight` command (with its tester/group subcommands) to the program. */
 export function registerTestflightCommand(program: Command): void {
-  const testflight = program.command("testflight").description("manage TestFlight beta groups and testers");
+  const testflight = program
+    .command('testflight')
+    .description('manage TestFlight beta groups and testers');
 
   testflight
-    .command("groups")
+    .command('groups')
     .description("list the app's TestFlight beta groups")
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .action((options: { app?: string }) => listGroups(options));
 
   testflight
-    .command("create-group")
-    .description("create an external beta group testers can be invited into")
-    .argument("<name>", 'the group name, e.g. "External Testers"')
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
+    .command('create-group')
+    .description('create an external beta group testers can be invited into')
+    .argument('<name>', 'the group name, e.g. "External Testers"')
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .action((groupName: string, options: { app?: string }) => createGroup(groupName, options));
 
   testflight
-    .command("testers")
-    .description("list the testers in a beta group")
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("-g, --group <name>", "beta group (auto-selected if there's only one)")
+    .command('testers')
+    .description('list the testers in a beta group')
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option('-g, --group <name>', "beta group (auto-selected if there's only one)")
     .action((options: { app?: string; group?: string }) => listTesters(options));
 
   testflight
-    .command("add")
-    .description("invite/add testers to a beta group (sends a TestFlight invite to new emails)")
-    .argument("[emails...]", "tester emails to add")
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("-g, --group <name>", "external beta group to add into (auto-selected if there's only one)")
-    .option("--first <name>", "first name applied to bare emails")
-    .option("--last <name>", "last name applied to bare emails")
-    .option("--csv <path>", "import testers from a CSV (email,firstName,lastName per line)")
-    .option("--dry-run", "report what would change without inviting anyone", false)
-    .option("-y, --yes", "skip the confirmation prompt", false)
+    .command('add')
+    .description('invite/add testers to a beta group (sends a TestFlight invite to new emails)')
+    .argument('[emails...]', 'tester emails to add')
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option(
+      '-g, --group <name>',
+      "external beta group to add into (auto-selected if there's only one)",
+    )
+    .option('--first <name>', 'first name applied to bare emails')
+    .option('--last <name>', 'last name applied to bare emails')
+    .option('--csv <path>', 'import testers from a CSV (email,firstName,lastName per line)')
+    .option('--dry-run', 'report what would change without inviting anyone', false)
+    .option('-y, --yes', 'skip the confirmation prompt', false)
     .action((emails: string[], options: TesterCommandOptions) => addTesters(emails, options));
 
   testflight
-    .command("rm")
-    .description("remove testers from a beta group")
-    .argument("<emails...>", "tester emails to remove")
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("-g, --group <name>", "beta group to remove from (auto-selected if there's only one)")
-    .option("--dry-run", "report what would change without removing anyone", false)
-    .option("-y, --yes", "skip the confirmation prompt", false)
+    .command('rm')
+    .description('remove testers from a beta group')
+    .argument('<emails...>', 'tester emails to remove')
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option('-g, --group <name>', "beta group to remove from (auto-selected if there's only one)")
+    .option('--dry-run', 'report what would change without removing anyone', false)
+    .option('-y, --yes', 'skip the confirmation prompt', false)
     .action((emails: string[], options: TesterCommandOptions) => removeTesters(emails, options));
 
   testflight
-    .command("release")
+    .command('release')
     .description('set a build\'s "What to Test" notes and submit it for Beta App Review')
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("--build <version>", "target build by CFBundleVersion (default: the latest valid build)")
-    .option("--whats-new <text>", "What to Test notes (for --locale); overrides the config file")
-    .option("--locale <locale>", "locale for --whats-new", "en-US")
-    .option("--config <path>", "path to testflight.config.json (localized whatToTest)", "testflight.config.json")
-    .option("--no-review", "set the notes only; don't submit for Beta App Review")
-    .option("--dry-run", "print the plan and exit, making no changes", false)
-    .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option(
+      '--build <version>',
+      'target build by CFBundleVersion (default: the latest valid build)',
+    )
+    .option('--whats-new <text>', 'What to Test notes (for --locale); overrides the config file')
+    .option('--locale <locale>', 'locale for --whats-new', 'en-US')
+    .option(
+      '--config <path>',
+      'path to testflight.config.json (localized whatToTest)',
+      'testflight.config.json',
+    )
+    .option('--no-review', "set the notes only; don't submit for Beta App Review")
+    .option('--dry-run', 'print the plan and exit, making no changes', false)
+    .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action((options: ReleaseOptions) => releaseBuild(options));
 
   testflight
-    .command("feedback")
-    .description("list tester crash & screenshot feedback, newest first (download attachments with --out)")
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("--build <version>", "only show feedback for this build (CFBundleVersion)")
-    .option("--type <kind>", "only show one kind: crash | screenshot")
-    .option("--out <dir>", "download screenshot attachments into this directory")
-    .option("--json", "output machine-readable JSON", false)
+    .command('feedback')
+    .description(
+      'list tester crash & screenshot feedback, newest first (download attachments with --out)',
+    )
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option('--build <version>', 'only show feedback for this build (CFBundleVersion)')
+    .option('--type <kind>', 'only show one kind: crash | screenshot')
+    .option('--out <dir>', 'download screenshot attachments into this directory')
+    .option('--json', 'output machine-readable JSON', false)
     .action(async (options: FeedbackOptions) => {
       const kind = parseFeedbackType(options.type);
       const filters: FeedbackFilters = {
@@ -537,7 +587,9 @@ export function registerTestflightCommand(program: Command): void {
       if (options.out) {
         const written = await downloadFeedbackAttachments(asc, found, options.out);
         if (!options.json) {
-          console.log(`Downloaded ${written.length} screenshot${written.length === 1 ? "" : "s"} to ${options.out}.`);
+          console.log(
+            `Downloaded ${written.length} screenshot${written.length === 1 ? '' : 's'} to ${options.out}.`,
+          );
         }
       }
       if (options.json) {
@@ -545,10 +597,10 @@ export function registerTestflightCommand(program: Command): void {
         return;
       }
       if (found.length === 0) {
-        console.log("No TestFlight feedback yet. Testers submit it from the TestFlight app.");
+        console.log('No TestFlight feedback yet. Testers submit it from the TestFlight app.');
         return;
       }
-      console.log(found.map(renderFeedback).join("\n\n"));
-      console.log(`\n${found.length} feedback item${found.length === 1 ? "" : "s"}.`);
+      console.log(found.map(renderFeedback).join('\n\n'));
+      console.log(`\n${found.length} feedback item${found.length === 1 ? '' : 's'}.`);
     });
 }

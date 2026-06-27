@@ -7,22 +7,22 @@
  * drift between them. No glob/ignore dependency is pulled in — AGENTS.md keeps the local-only install lean.
  */
 
-import { existsSync, readFileSync, readdirSync } from "node:fs";
-import type { Dirent } from "node:fs";
-import { extname, join } from "node:path";
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import type { Dirent } from 'node:fs';
+import { extname, join } from 'node:path';
 
 /** Always-skip directories: generated, vendored, or native build output that can't hold hand-written source. */
 const BASE_SKIP_DIRS = new Set([
-  "node_modules",
-  ".git",
-  ".expo",
-  ".launch",
-  "dist",
-  "build",
-  ".next",
-  "coverage",
-  "vendor",
-  "Pods",
+  'node_modules',
+  '.git',
+  '.expo',
+  '.launch',
+  'dist',
+  'build',
+  '.next',
+  'coverage',
+  'vendor',
+  'Pods',
 ]);
 
 /** Depth and file-count caps so the walk stays bounded regardless of repo size (a backstop, not the budget). */
@@ -37,14 +37,14 @@ const MAX_FILES = 5000;
  */
 function gitignoredDirs(rootDir: string): Set<string> {
   const dirs = new Set<string>();
-  const path = join(rootDir, ".gitignore");
+  const path = join(rootDir, '.gitignore');
   if (!existsSync(path)) return dirs;
-  for (const raw of readFileSync(path, "utf8").split("\n")) {
+  for (const raw of readFileSync(path, 'utf8').split('\n')) {
     let line = raw.trim();
-    if (!line || line.startsWith("#") || line.startsWith("!") || line.includes("*")) continue;
-    if (line.startsWith("/")) line = line.slice(1);
-    if (line.endsWith("/")) line = line.slice(0, -1);
-    if (line && !line.includes("/")) dirs.add(line);
+    if (!line || line.startsWith('#') || line.startsWith('!') || line.includes('*')) continue;
+    if (line.startsWith('/')) line = line.slice(1);
+    if (line.endsWith('/')) line = line.slice(0, -1);
+    if (line && !line.includes('/')) dirs.add(line);
   }
   return dirs;
 }
@@ -56,7 +56,10 @@ function gitignoredDirs(rootDir: string): Set<string> {
  * walker reads no file contents itself — a content-scanning visitor opens (and size-limits) only the files
  * it cares about — so the cost of reading is paid only where a probe actually needs it.
  */
-export function walkAppSource(rootDir: string, onFile: (filePath: string, ext: string) => boolean): void {
+export function walkAppSource(
+  rootDir: string,
+  onFile: (filePath: string, ext: string) => boolean,
+): void {
   const skip = new Set([...BASE_SKIP_DIRS, ...gitignoredDirs(rootDir)]);
   let files = 0;
 
@@ -74,7 +77,12 @@ export function walkAppSource(rootDir: string, onFile: (filePath: string, ext: s
       if (files >= MAX_FILES) return true;
       if (entry.isSymbolicLink()) continue;
       if (entry.isDirectory()) {
-        if (!skip.has(entry.name) && !entry.name.startsWith(".") && walk(join(dir, entry.name), depth + 1)) return true;
+        if (
+          !skip.has(entry.name) &&
+          !entry.name.startsWith('.') &&
+          walk(join(dir, entry.name), depth + 1)
+        )
+          return true;
         continue;
       }
       if (!entry.isFile()) continue;

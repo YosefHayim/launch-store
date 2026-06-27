@@ -9,10 +9,10 @@
  * decision to these functions.
  */
 
-import type { ReleaseVerdict } from "../appStoreRelease.js";
-import type { PlayRelease } from "../../google/playClient.js";
-import type { NativeCarState, TrainPlatform } from "./types.js";
-import type { OtaCarSpec } from "./orchestrator.js";
+import type { ReleaseVerdict } from '../appStoreRelease.js';
+import type { PlayRelease } from '../../google/playClient.js';
+import type { NativeCarState, TrainPlatform } from './types.js';
+import type { OtaCarSpec } from './orchestrator.js';
 
 /**
  * Map an App Store release verdict to a native car state. Returns `null` when the verdict carries no
@@ -21,17 +21,17 @@ import type { OtaCarSpec } from "./orchestrator.js";
  */
 export function iosCarState(verdict: ReleaseVerdict): NativeCarState | null {
   switch (verdict.state) {
-    case "released":
-      return "released";
-    case "pending-release":
-      return "approved"; // approved, held at PENDING_DEVELOPER_RELEASE — the gate fires the release
-    case "in-review":
-      return "in-review";
-    case "rejected":
-      return "rejected";
-    case "preparing":
-      return "submitted";
-    case "unknown":
+    case 'released':
+      return 'released';
+    case 'pending-release':
+      return 'approved'; // approved, held at PENDING_DEVELOPER_RELEASE — the gate fires the release
+    case 'in-review':
+      return 'in-review';
+    case 'rejected':
+      return 'rejected';
+    case 'preparing':
+      return 'submitted';
+    case 'unknown':
       return null;
   }
 }
@@ -46,12 +46,12 @@ export function androidCarState(releases: PlayRelease[]): NativeCarState | null 
   const release = releases[0];
   if (!release) return null;
   switch (release.status) {
-    case "completed":
-    case "inProgress":
-    case "halted":
-      return "released";
-    case "draft":
-      return "submitted";
+    case 'completed':
+    case 'inProgress':
+    case 'halted':
+      return 'released';
+    case 'draft':
+      return 'submitted';
     default:
       return null;
   }
@@ -88,13 +88,17 @@ export interface ResolveCarsInput {
  */
 export function resolveTrainCars(input: ResolveCarsInput): TrainCarPlan {
   const platforms: TrainPlatform[] = [];
-  if (input.hasBundleId && input.platformFilter !== "android") platforms.push("ios");
-  if (input.hasPackageName && input.platformFilter !== "ios") platforms.push("android");
+  if (input.hasBundleId && input.platformFilter !== 'android') platforms.push('ios');
+  if (input.hasPackageName && input.platformFilter !== 'ios') platforms.push('android');
 
   const ota: OtaCarSpec[] =
     input.noOta || !input.hasCloudStorage
       ? []
-      : platforms.map((platform) => ({ platform, channel: input.channel, runtimeVersion: input.runtimeVersion }));
+      : platforms.map((platform) => ({
+          platform,
+          channel: input.channel,
+          runtimeVersion: input.runtimeVersion,
+        }));
 
   return { platforms, ota };
 }

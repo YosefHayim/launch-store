@@ -8,12 +8,12 @@
  * provider interfaces) · remote (off-Mac builds) · vitals (Play Android vitals).
  */
 
-export type * from "./types/app.js";
-export type * from "./types/catalog.js";
-export type * from "./types/storeSurface.js";
-export type * from "./types/config.js";
-export type * from "./types/credentials.js";
-export type * from "./types/artifacts.js";
-export type * from "./types/providers.js";
-export type * from "./types/remote.js";
-export type * from "./types/vitals.js";
+export type * from './types/app.js';
+export type * from './types/catalog.js';
+export type * from './types/storeSurface.js';
+export type * from './types/config.js';
+export type * from './types/credentials.js';
+export type * from './types/artifacts.js';
+export type * from './types/providers.js';
+export type * from './types/remote.js';
+export type * from './types/vitals.js';

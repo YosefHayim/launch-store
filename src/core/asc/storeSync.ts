@@ -14,8 +14,8 @@
  * here so a reconciler imports the whole vocabulary from one place.
  */
 
-import { errorMessage } from "../errorMessage.js";
-import type { PlannedAction } from "../ascSync.js";
+import { errorMessage } from '../errorMessage.js';
+import type { PlannedAction } from '../ascSync.js';
 
 export type { PlannedAction };
 
@@ -36,15 +36,19 @@ export interface ReconcileContext {
  * reconcilers are never destructive, so — unlike `ascSync`'s generic `act<T>` — there's no
  * `destructive` / `allowDestructive` gate and no return value.
  */
-export async function act(ctx: ReconcileContext, description: string, run: () => Promise<void>): Promise<void> {
-  const action: PlannedAction = { description, destructive: false, status: "planned" };
+export async function act(
+  ctx: ReconcileContext,
+  description: string,
+  run: () => Promise<void>,
+): Promise<void> {
+  const action: PlannedAction = { description, destructive: false, status: 'planned' };
   ctx.actions.push(action);
   if (ctx.dryRun) return;
   try {
     await run();
-    action.status = "applied";
+    action.status = 'applied';
   } catch (error) {
-    action.status = "failed";
+    action.status = 'failed';
     action.error = errorMessage(error);
   }
 }
@@ -55,7 +59,7 @@ export async function act(ctx: ReconcileContext, description: string, run: () =>
  * logical step writes more than once — e.g. create-then-publish — and each write needs its own status.
  */
 export function plan(ctx: ReconcileContext, description: string): PlannedAction {
-  const action: PlannedAction = { description, destructive: false, status: "planned" };
+  const action: PlannedAction = { description, destructive: false, status: 'planned' };
   ctx.actions.push(action);
   return action;
 }
@@ -87,18 +91,22 @@ export function appRecordNotFound(bundleId: string): Error {
 
 /** Record a sub-area we can't act on yet (e.g. no editable version, or the clip's build isn't uploaded) as a skip with a reason. */
 export function skip(ctx: ReconcileContext, description: string): void {
-  ctx.actions.push({ description, destructive: false, status: "skipped" });
+  ctx.actions.push({ description, destructive: false, status: 'skipped' });
 }
 
 /** Tally a reconcile report's action statuses for the run-summary footer (applied / failed / skipped). */
-export function summarize(actions: PlannedAction[]): { applied: number; failed: number; skipped: number } {
+export function summarize(actions: PlannedAction[]): {
+  applied: number;
+  failed: number;
+  skipped: number;
+} {
   let applied = 0;
   let failed = 0;
   let skipped = 0;
   for (const action of actions) {
-    if (action.status === "applied") applied++;
-    else if (action.status === "failed") failed++;
-    else if (action.status === "skipped") skipped++;
+    if (action.status === 'applied') applied++;
+    else if (action.status === 'failed') failed++;
+    else if (action.status === 'skipped') skipped++;
   }
   return { applied, failed, skipped };
 }

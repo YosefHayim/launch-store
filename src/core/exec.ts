@@ -7,9 +7,9 @@
  * `runQuiet` pipes output to a log file + a per-line callback so a spinner can hide the noise.
  */
 
-import { spawn } from "node:child_process";
-import { createWriteStream } from "node:fs";
-import { redactLine } from "./redact.js";
+import { spawn } from 'node:child_process';
+import { createWriteStream } from 'node:fs';
+import { redactLine } from './redact.js';
 
 /** Options shared by {@link run} and {@link capture}. */
 export interface ExecOptions {
@@ -42,13 +42,13 @@ export function run(command: string, args: string[], options: ExecOptions = {}):
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: { ...process.env, ...options.env },
-      stdio: "inherit",
+      stdio: 'inherit',
       shell: false,
     });
-    child.on("error", reject);
-    child.on("close", (code) => {
+    child.on('error', reject);
+    child.on('close', (code) => {
       if (code === 0) resolve();
-      else reject(new Error(`${command} exited with code ${code ?? "unknown"}`));
+      else reject(new Error(`${command} exited with code ${code ?? 'unknown'}`));
     });
   });
 }
@@ -59,13 +59,19 @@ export function run(command: string, args: string[], options: ExecOptions = {}):
  * over the top and keep the complete log on disk for debugging. Resolves on exit 0, rejects with the
  * exit code otherwise (the caller owns surfacing the captured tail).
  */
-export function runQuiet(command: string, args: string[], options: QuietExecOptions = {}): Promise<void> {
+export function runQuiet(
+  command: string,
+  args: string[],
+  options: QuietExecOptions = {},
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const logStream = options.logFile ? createWriteStream(options.logFile, { flags: "a" }) : undefined;
+    const logStream = options.logFile
+      ? createWriteStream(options.logFile, { flags: 'a' })
+      : undefined;
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: { ...process.env, ...options.env },
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
     });
 
@@ -73,55 +79,59 @@ export function runQuiet(command: string, args: string[], options: QuietExecOpti
     // redacting we tee whole (scrubbed) lines instead of raw chunks, so a secret can never straddle a
     // chunk boundary and slip through un-redacted.
     const { redact } = options;
-    let pending = "";
+    let pending = '';
     const consume = (chunk: Buffer): void => {
       if (logStream && !redact) logStream.write(chunk);
       pending += chunk.toString();
-      let newline = pending.indexOf("\n");
+      let newline = pending.indexOf('\n');
       while (newline !== -1) {
         const line = pending.slice(0, newline);
         if (logStream && redact) logStream.write(`${redactLine(line)}\n`);
         options.onLine?.(line);
         pending = pending.slice(newline + 1);
-        newline = pending.indexOf("\n");
+        newline = pending.indexOf('\n');
       }
     };
-    child.stdout.on("data", consume);
-    child.stderr.on("data", consume);
+    child.stdout.on('data', consume);
+    child.stderr.on('data', consume);
 
-    child.on("error", (error) => {
+    child.on('error', (error) => {
       logStream?.end();
       reject(error);
     });
-    child.on("close", (code) => {
+    child.on('close', (code) => {
       if (pending) {
         if (logStream && redact) logStream.write(redactLine(pending));
         options.onLine?.(pending);
       }
       logStream?.end();
       if (code === 0) resolve();
-      else reject(new Error(`${command} exited with code ${code ?? "unknown"}`));
+      else reject(new Error(`${command} exited with code ${code ?? 'unknown'}`));
     });
   });
 }
 
 /** Run a command and return its trimmed stdout. Rejects on a non-zero exit. */
-export function capture(command: string, args: string[], options: ExecOptions = {}): Promise<string> {
+export function capture(
+  command: string,
+  args: string[],
+  options: ExecOptions = {},
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: { ...process.env, ...options.env },
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
     });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk: Buffer) => (stdout += chunk.toString()));
-    child.stderr.on("data", (chunk: Buffer) => (stderr += chunk.toString()));
-    child.on("error", reject);
-    child.on("close", (code) => {
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
+    child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
+    child.on('error', reject);
+    child.on('close', (code) => {
       if (code === 0) resolve(stdout.trim());
-      else reject(new Error(stderr.trim() || `${command} exited with code ${code ?? "unknown"}`));
+      else reject(new Error(stderr.trim() || `${command} exited with code ${code ?? 'unknown'}`));
     });
   });
 }
@@ -129,7 +139,7 @@ export function capture(command: string, args: string[], options: ExecOptions = 
 /** Return whether an executable is on the PATH — used by `launch doctor` preflight checks. */
 export async function exists(command: string): Promise<boolean> {
   try {
-    await capture("which", [command], {});
+    await capture('which', [command], {});
     return true;
   } catch {
     return false;

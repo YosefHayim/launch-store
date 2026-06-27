@@ -8,9 +8,9 @@
  * network call, a build, or any change to your account, so it runs on a machine with no API key.
  */
 
-import { join } from "node:path";
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { cancel, confirm, isCancel, select, text } from "@clack/prompts";
+import { join } from 'node:path';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { cancel, confirm, isCancel, select, text } from '@clack/prompts';
 import type {
   AccountRecord,
   AndroidCredentials,
@@ -30,17 +30,29 @@ import type {
   SigningAssets,
   SizeReport,
   SubmitTarget,
-} from "./types.js";
-import { formatAccountSummary, refreshIdentityIfStale, resolveBuildAccount, setActiveKeyId } from "./accounts.js";
-import { loadConfig, writeAppVersion } from "./config.js";
-import { checkApp, formatFinding } from "./configCheck.js";
-import { resolveBuildSecrets } from "./buildSecrets.js";
-import { notify, type NotifyEvent } from "./notify.js";
-import { pickOne } from "./prompt.js";
-import { compareVersions, formatVersion, highestVersion, nextVersion, parseVersion, type BumpKind } from "./version.js";
-import { readLastApp, readLastBump, rememberLastRun } from "./lastRun.js";
-import { ccacheOfferDeclined, markCcacheOfferDeclined } from "./firstRun.js";
-import { ensureCcacheInstalled } from "./toolchain.js";
+} from './types.js';
+import {
+  formatAccountSummary,
+  refreshIdentityIfStale,
+  resolveBuildAccount,
+  setActiveKeyId,
+} from './accounts.js';
+import { loadConfig, writeAppVersion } from './config.js';
+import { checkApp, formatFinding } from './configCheck.js';
+import { resolveBuildSecrets } from './buildSecrets.js';
+import { notify, type NotifyEvent } from './notify.js';
+import { pickOne } from './prompt.js';
+import {
+  compareVersions,
+  formatVersion,
+  highestVersion,
+  nextVersion,
+  parseVersion,
+  type BumpKind,
+} from './version.js';
+import { readLastApp, readLastBump, rememberLastRun } from './lastRun.js';
+import { ccacheOfferDeclined, markCcacheOfferDeclined } from './firstRun.js';
+import { ensureCcacheInstalled } from './toolchain.js';
 import {
   ENV_SOURCE,
   envInjectionRows,
@@ -49,24 +61,24 @@ import {
   resolveEnv,
   secretLookingKeys,
   type ResolvedEnv,
-} from "./env.js";
-import { beginBuildLog, buildLogId, endBuildLog } from "./buildLog.js";
-import { getBuildEngine, getCredentialsProvider, getSubmitter } from "./registry.js";
-import { resolveArtifactDir, resolveStorageProvider } from "./storage.js";
-import { ensureArtifactDirIgnored } from "./gitignore.js";
-import { resolveRetentionDays } from "./artifactRetention.js";
-import { createLogger, type Logger } from "./logger.js";
-import type { GlossaryTopic } from "./glossary.js";
-import { capture, exists, run } from "./exec.js";
-import { buildConsoleUrl } from "./consoleLinks.js";
-import { nativeProjectDirName, nativeTargetHint, platformLabel } from "./platform.js";
-import { isInteractive, runWithProgress, withSpinner } from "./progress.js";
-import { AppStoreConnectClient } from "../apple/ascClient.js";
-import { ensureAdHocSigningCredentials, ensureSigningCredentials } from "../apple/credentials.js";
-import { appGroupContainers, appGroupPortalNotice } from "./capabilities.js";
-import { distributeArtifact } from "./distribute.js";
-import { ensureUploadKeystore } from "../google/credentials.js";
-import { GooglePlayClient, parseServiceAccount } from "../google/playClient.js";
+} from './env.js';
+import { beginBuildLog, buildLogId, endBuildLog } from './buildLog.js';
+import { getBuildEngine, getCredentialsProvider, getSubmitter } from './registry.js';
+import { resolveArtifactDir, resolveStorageProvider } from './storage.js';
+import { ensureArtifactDirIgnored } from './gitignore.js';
+import { resolveRetentionDays } from './artifactRetention.js';
+import { createLogger, type Logger } from './logger.js';
+import type { GlossaryTopic } from './glossary.js';
+import { capture, exists, run } from './exec.js';
+import { buildConsoleUrl } from './consoleLinks.js';
+import { nativeProjectDirName, nativeTargetHint, platformLabel } from './platform.js';
+import { isInteractive, runWithProgress, withSpinner } from './progress.js';
+import { AppStoreConnectClient } from '../apple/ascClient.js';
+import { ensureAdHocSigningCredentials, ensureSigningCredentials } from '../apple/credentials.js';
+import { appGroupContainers, appGroupPortalNotice } from './capabilities.js';
+import { distributeArtifact } from './distribute.js';
+import { ensureUploadKeystore } from '../google/credentials.js';
+import { GooglePlayClient, parseServiceAccount } from '../google/playClient.js';
 
 /** Options for one `launch build` invocation. */
 export interface BuildRunOptions {
@@ -108,7 +120,7 @@ export interface BuildRunOptions {
    * over a remembered pick); `"ask"` forces the prompt; omitted falls back to the remembered pick, then the
    * prompt. See {@link resolveBumpKind}.
    */
-  bump?: BumpKind | "ask";
+  bump?: BumpKind | 'ask';
 }
 
 /**
@@ -121,14 +133,14 @@ export interface BuildRunOptions {
 export interface PreparedBuild {
   config: LaunchConfig;
   app: AppDescriptor;
-  profile: ResolvedBuildContext["profile"];
+  profile: ResolvedBuildContext['profile'];
   env: Record<string, string>;
   ctx: ResolvedBuildContext;
   log: Logger;
 }
 
 /** Placeholder API key used in `--dry-run`, so the flow runs without an imported credential. */
-export const DRY_RUN_KEY = { keyId: "DRYRUN", issuerId: "DRYRUN", p8: "" };
+export const DRY_RUN_KEY = { keyId: 'DRYRUN', issuerId: 'DRYRUN', p8: '' };
 
 /**
  * The built-in iOS provider defaults that `config` carries by default, and their Android twins.
@@ -137,20 +149,21 @@ export const DRY_RUN_KEY = { keyId: "DRYRUN", issuerId: "DRYRUN", p8: "" };
  * nothing, and an Android build swaps the *iOS baseline default* for its Android twin. Any non-default
  * override (e.g. `eas`) is honored as-is on both platforms — see {@link resolveBuildEngineName}.
  */
-const IOS_BUILD_ENGINE = "fastlane";
-const IOS_SUBMITTER = "app-store-connect";
-const ANDROID_BUILD_ENGINE = "gradle";
-const ANDROID_SUBMITTER = "google-play";
+const IOS_BUILD_ENGINE = 'fastlane';
+const IOS_SUBMITTER = 'app-store-connect';
+const ANDROID_BUILD_ENGINE = 'gradle';
+const ANDROID_SUBMITTER = 'google-play';
 
 /** The build engine name for a platform, swapping the iOS baseline default (`fastlane`) for `gradle` on Android. */
 export function resolveBuildEngineName(config: LaunchConfig, platform: Platform): string {
-  if (platform === "android" && config.buildEngine === IOS_BUILD_ENGINE) return ANDROID_BUILD_ENGINE;
+  if (platform === 'android' && config.buildEngine === IOS_BUILD_ENGINE)
+    return ANDROID_BUILD_ENGINE;
   return config.buildEngine;
 }
 
 /** The standard store for a platform: Play for Android, App Store Connect for every Apple platform. */
 function defaultSubmitter(platform: Platform): string {
-  return platform === "android" ? ANDROID_SUBMITTER : IOS_SUBMITTER;
+  return platform === 'android' ? ANDROID_SUBMITTER : IOS_SUBMITTER;
 }
 
 /**
@@ -165,8 +178,8 @@ function defaultSubmitter(platform: Platform): string {
  * See `docs/adr/0006-platform-store-split.md`.
  */
 export function resolveSubmitters(config: LaunchConfig, platform: Platform): string[] {
-  if (typeof config.submit === "string") {
-    if (platform === "android" && config.submit === IOS_SUBMITTER) return [ANDROID_SUBMITTER];
+  if (typeof config.submit === 'string') {
+    if (platform === 'android' && config.submit === IOS_SUBMITTER) return [ANDROID_SUBMITTER];
     return [config.submit];
   }
   const configured = config.submit[platform];
@@ -206,10 +219,10 @@ export async function submitToStores(
  * so the Google Play submitter reads one source of truth.
  */
 export function resolveAndroidRelease(
-  options: Pick<BuildRunOptions, "target" | "track" | "rollout">,
+  options: Pick<BuildRunOptions, 'target' | 'track' | 'rollout'>,
   profile: BuildProfile,
 ): AndroidReleaseOptions {
-  const fallback: PlayTrack = options.target === "production" ? "production" : "internal";
+  const fallback: PlayTrack = options.target === 'production' ? 'production' : 'internal';
   return {
     track: options.track ?? profile.track ?? fallback,
     rollout: options.rollout ?? profile.rollout ?? 1.0,
@@ -228,11 +241,18 @@ const delay = (ms: number): Promise<void> =>
  * to a fuzzy type-to-search over the name and bundle/package id. With no TTY and more than one app it
  * refuses to guess and tells the user to pass `--app`, rather than silently building the wrong one.
  */
-export async function selectApp(apps: AppDescriptor[], appName: string | undefined): Promise<AppDescriptor> {
-  if (apps.length === 0) throw new Error("No apps found. Run Launch from a repo containing at least one app.json.");
+export async function selectApp(
+  apps: AppDescriptor[],
+  appName: string | undefined,
+): Promise<AppDescriptor> {
+  if (apps.length === 0)
+    throw new Error('No apps found. Run Launch from a repo containing at least one app.json.');
   if (appName) {
     const match = apps.find((app) => app.name === appName);
-    if (!match) throw new Error(`App "${appName}" not found. Available: ${apps.map((a) => a.name).join(", ")}.`);
+    if (!match)
+      throw new Error(
+        `App "${appName}" not found. Available: ${apps.map((a) => a.name).join(', ')}.`,
+      );
     return match;
   }
   const sole = apps[0];
@@ -248,7 +268,10 @@ export async function selectApp(apps: AppDescriptor[], appName: string | undefin
       return hint ? { value: app, label: app.name, hint } : { value: app, label: app.name };
     }),
     canPrompt: process.stdin.isTTY,
-    nonInteractive: { kind: "require", flagHint: "— pass --app <name> to choose one non-interactively." },
+    nonInteractive: {
+      kind: 'require',
+      flagHint: '— pass --app <name> to choose one non-interactively.',
+    },
     ...(lastApp ? { initialValue: lastApp } : {}),
   });
 }
@@ -256,7 +279,7 @@ export async function selectApp(apps: AppDescriptor[], appName: string | undefin
 /** The interactive build-time account picker: choose among onboarded accounts and make the pick active. */
 async function pickAccount(accounts: AccountRecord[]): Promise<AccountRecord> {
   const choice = await select({
-    message: "Which Apple account?",
+    message: 'Which Apple account?',
     options: accounts.map((account) => ({
       value: account.keyId,
       label: account.label,
@@ -264,11 +287,11 @@ async function pickAccount(accounts: AccountRecord[]): Promise<AccountRecord> {
     })),
   });
   if (isCancel(choice)) {
-    cancel("Cancelled.");
+    cancel('Cancelled.');
     process.exit(0);
   }
   const picked = accounts.find((account) => account.keyId === choice);
-  if (!picked) throw new Error("Could not match the selected account.");
+  if (!picked) throw new Error('Could not match the selected account.');
   setActiveKeyId(picked.keyId);
   return picked;
 }
@@ -279,15 +302,15 @@ async function pickAccount(accounts: AccountRecord[]): Promise<AccountRecord> {
  * pipeline so both select the account identically. Logs the chosen account as a build step.
  */
 export async function resolveIosAccount(
-  options: Pick<BuildRunOptions, "account">,
+  options: Pick<BuildRunOptions, 'account'>,
   log: Logger,
 ): Promise<AccountRecord> {
   const account = await resolveBuildAccount({
-    selector: options.account ?? process.env["ASC_ACCOUNT"],
+    selector: options.account ?? process.env['ASC_ACCOUNT'],
     interactive: isInteractive(),
     pick: pickAccount,
   });
-  log.step("account", formatAccountSummary(account));
+  log.step('account', formatAccountSummary(account));
   return account;
 }
 
@@ -306,20 +329,34 @@ async function setNativePlistValue(
 ): Promise<boolean> {
   const nativeDir = join(appDir, nativeProjectDirName(platform));
   if (!existsSync(nativeDir)) return false;
-  const targetDir = readdirSync(nativeDir).find((entry) => existsSync(join(nativeDir, entry, "Info.plist")));
+  const targetDir = readdirSync(nativeDir).find((entry) =>
+    existsSync(join(nativeDir, entry, 'Info.plist')),
+  );
   if (!targetDir) return false;
-  await run("/usr/libexec/PlistBuddy", ["-c", `Set :${key} ${value}`, join(nativeDir, targetDir, "Info.plist")]);
+  await run('/usr/libexec/PlistBuddy', [
+    '-c',
+    `Set :${key} ${value}`,
+    join(nativeDir, targetDir, 'Info.plist'),
+  ]);
   return true;
 }
 
 /** Set the build number (`CFBundleVersion`) into the platform's generated Info.plist. */
-function setIosBuildNumber(appDir: string, platform: Platform, buildNumber: number): Promise<boolean> {
-  return setNativePlistValue(appDir, platform, "CFBundleVersion", buildNumber);
+function setIosBuildNumber(
+  appDir: string,
+  platform: Platform,
+  buildNumber: number,
+): Promise<boolean> {
+  return setNativePlistValue(appDir, platform, 'CFBundleVersion', buildNumber);
 }
 
 /** Set the marketing version (`CFBundleShortVersionString`) into the platform's generated Info.plist. */
-function setIosMarketingVersion(appDir: string, platform: Platform, version: string): Promise<boolean> {
-  return setNativePlistValue(appDir, platform, "CFBundleShortVersionString", version);
+function setIosMarketingVersion(
+  appDir: string,
+  platform: Platform,
+  version: string,
+): Promise<boolean> {
+  return setNativePlistValue(appDir, platform, 'CFBundleShortVersionString', version);
 }
 
 /**
@@ -329,7 +366,7 @@ function setIosMarketingVersion(appDir: string, platform: Platform, version: str
 export function interactiveConfirm(message: string): Promise<boolean> {
   return confirm({ message }).then((answer) => {
     if (isCancel(answer)) {
-      cancel("Cancelled.");
+      cancel('Cancelled.');
       process.exit(0);
     }
     return answer;
@@ -349,15 +386,19 @@ async function resolveSigning(
   distribution: Distribution | undefined,
 ): Promise<SigningAssets> {
   const bundleId = app.bundleId;
-  if (!bundleId) throw new Error(`No iOS bundle identifier for ${app.name}. Set ios.bundleIdentifier in app.json.`);
+  if (!bundleId)
+    throw new Error(
+      `No iOS bundle identifier for ${app.name}. Set ios.bundleIdentifier in app.json.`,
+    );
   // App Group containers are the one signing input the JWT API can't provision (portal-only); warn up
   // front so the user fixes it before xcodebuild fails to export, rather than after.
   const appGroupNotice = appGroupPortalNotice(appGroupContainers(app.iosEntitlements));
   if (appGroupNotice) log.warn(appGroupNotice);
   // An ad-hoc (internal) build needs a device-scoped ad-hoc profile, recreated each run, so the cached
   // App Store assets don't apply — go straight to ad-hoc provisioning.
-  if (distribution === "internal") {
-    if (!dryRun) log.info(`Provisioning an ad-hoc profile for ${bundleId} over your registered devices.`);
+  if (distribution === 'internal') {
+    if (!dryRun)
+      log.info(`Provisioning an ad-hoc profile for ${bundleId} over your registered devices.`);
     return ensureAdHocSigningCredentials({
       platform,
       bundleId,
@@ -370,14 +411,16 @@ async function resolveSigning(
   }
   if (credentials.signing) {
     log.step(
-      "signing",
+      'signing',
       `reusing cert ${credentials.signing.certSerial} · ${credentials.signing.profileName}`,
-      "code-signing",
+      'code-signing',
     );
     return credentials.signing;
   }
   if (!dryRun)
-    log.info(`No cached signing assets for ${bundleId} — provisioning now (you'll confirm each Apple resource).`);
+    log.info(
+      `No cached signing assets for ${bundleId} — provisioning now (you'll confirm each Apple resource).`,
+    );
   return ensureSigningCredentials({
     platform,
     bundleId,
@@ -401,11 +444,20 @@ async function resolveKeystore(
   dryRun: boolean,
 ): Promise<KeystoreAssets> {
   if (credentials.keystore) {
-    log.step("keystore", `reusing upload keystore (alias ${credentials.keystore.alias})`, "upload-key");
+    log.step(
+      'keystore',
+      `reusing upload keystore (alias ${credentials.keystore.alias})`,
+      'upload-key',
+    );
     return credentials.keystore;
   }
   if (!dryRun) log.info(`No cached upload keystore for ${app.name} — provisioning one now.`);
-  return ensureUploadKeystore({ appName: app.name, log, dryRun, confirmCreate: interactiveConfirm });
+  return ensureUploadKeystore({
+    appName: app.name,
+    log,
+    dryRun,
+    confirmCreate: interactiveConfirm,
+  });
 }
 
 /**
@@ -443,10 +495,17 @@ export async function resolveCommandEnv(input: {
  * `envExclude` is already gone from `resolved.values`, so it never reaches this warning. Release does NOT
  * call this: it promotes a prebuilt artifact, so its env never bakes into the app.
  */
-export function validateResolvedEnv(appDir: string, resolved: ResolvedEnv, log: Logger, exclude: string[] = []): void {
+export function validateResolvedEnv(
+  appDir: string,
+  resolved: ResolvedEnv,
+  log: Logger,
+  exclude: string[] = [],
+): void {
   const missing = missingKeys(appDir, resolved.values, exclude);
   if (missing.length > 0) {
-    throw new Error(`Missing env keys (in .env.example, absent from your env): ${missing.join(", ")}`);
+    throw new Error(
+      `Missing env keys (in .env.example, absent from your env): ${missing.join(', ')}`,
+    );
   }
   for (const name of secretLookingKeys(resolved.values)) {
     const source = resolved.sources[name];
@@ -464,7 +523,10 @@ export function validateResolvedEnv(appDir: string, resolved: ResolvedEnv, log: 
 async function previewEnv(options: BuildRunOptions): Promise<void> {
   const { config, apps } = await loadConfig();
   const app = await selectApp(apps, options.appName);
-  const profile = config.profiles[options.profileName] ?? { name: options.profileName, sizeBudgetMB: 200 };
+  const profile = config.profiles[options.profileName] ?? {
+    name: options.profileName,
+    sizeBudgetMB: 200,
+  };
   const resolved = await resolveCommandEnv({
     app,
     profile,
@@ -487,11 +549,18 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
 
   const { config, apps } = await loadConfig();
   const app = await selectApp(apps, options.appName);
-  const profile = config.profiles[options.profileName] ?? { name: options.profileName, sizeBudgetMB: 200 };
-  const remoteSuffix = options.remote ? (options.remote.kind === "aws" ? " · remote(aws)" : " · remote(ssh)") : "";
+  const profile = config.profiles[options.profileName] ?? {
+    name: options.profileName,
+    sizeBudgetMB: 200,
+  };
+  const remoteSuffix = options.remote
+    ? options.remote.kind === 'aws'
+      ? ' · remote(aws)'
+      : ' · remote(ssh)'
+    : '';
   log.step(
-    "config",
-    `${log.chip(app.name)} · ${profile.name} · ${platform}${dryRun ? " · dry-run" : ""}${remoteSuffix}`,
+    'config',
+    `${log.chip(app.name)} · ${profile.name} · ${platform}${dryRun ? ' · dry-run' : ''}${remoteSuffix}`,
   );
 
   // Resolve + validate env before any expensive work, so a missing/secret-looking key fails fast.
@@ -504,19 +573,21 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
   });
   const env = resolved.values;
   validateResolvedEnv(app.dir, resolved, log, config.envExclude);
-  const secretCount = Object.values(resolved.sources).filter((source) => source === ENV_SOURCE.secret).length;
+  const secretCount = Object.values(resolved.sources).filter(
+    (source) => source === ENV_SOURCE.secret,
+  ).length;
   const varCount = Object.keys(env).length;
-  const keychainNote = secretCount > 0 ? ` (${secretCount} from keychain)` : "";
+  const keychainNote = secretCount > 0 ? ` (${secretCount} from keychain)` : '';
   // The count summary, then one provenance row per var (KEY → source, no values) so a run visibly
   // confirms every layer reaches the bundle step — local iOS used to drop everything above `.env`.
   log.step(
-    "env",
-    `${varCount} vars validated${keychainNote}${varCount > 0 ? " → injecting into bundle:" : ""}`,
-    "env-vars",
+    'env',
+    `${varCount} vars validated${keychainNote}${varCount > 0 ? ' → injecting into bundle:' : ''}`,
+    'env-vars',
   );
   for (const row of envInjectionRows(resolved)) log.info(row);
   if (resolved.excluded.length > 0) {
-    log.tip(`excluded (envExclude, not injected): ${resolved.excluded.join(", ")}`);
+    log.tip(`excluded (envExclude, not injected): ${resolved.excluded.join(', ')}`);
   }
 
   // Preflight the app config against known native-config footguns, before any expensive native work.
@@ -524,18 +595,18 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
   // backgroundColor) hard-stops here rather than failing deep inside xcodebuild/gradle minutes later.
   const findings = await checkApp(app, platform);
   for (const finding of findings) {
-    if (finding.severity === "warn") log.warn(formatFinding(finding));
+    if (finding.severity === 'warn') log.warn(formatFinding(finding));
   }
-  const configErrors = findings.filter((finding) => finding.severity === "error");
+  const configErrors = findings.filter((finding) => finding.severity === 'error');
   if (configErrors.length > 0) {
     throw new Error(
       `App config preflight failed for ${app.name}:\n` +
-        configErrors.map((finding) => `  ✗ ${formatFinding(finding)}`).join("\n"),
+        configErrors.map((finding) => `  ✗ ${formatFinding(finding)}`).join('\n'),
     );
   }
-  log.step("config check", findings.length > 0 ? `${findings.length} warning(s)` : "no footguns");
+  log.step('config check', findings.length > 0 ? `${findings.length} warning(s)` : 'no footguns');
 
-  const android = platform === "android" ? resolveAndroidRelease(options, profile) : undefined;
+  const android = platform === 'android' ? resolveAndroidRelease(options, profile) : undefined;
   const ctx: ResolvedBuildContext = {
     platform,
     app,
@@ -585,7 +656,10 @@ export type BuildTransport = (prepared: PreparedBuild, options: BuildRunOptions)
  * {@link RemoteTarget} rides only on the `remote` variant (no optional-but-always-set field): `local`
  * builds on this machine, `remote` on a Mac elsewhere, `eas` in Expo's cloud.
  */
-export type BuildTransportChoice = { kind: "local" } | { kind: "remote"; remote: RemoteTarget } | { kind: "eas" };
+export type BuildTransportChoice =
+  | { kind: 'local' }
+  | { kind: 'remote'; remote: RemoteTarget }
+  | { kind: 'eas' };
 
 /**
  * Pick the build fork for one run, by the same precedence the dispatch has always used — extracted as a
@@ -602,24 +676,25 @@ export function resolveBuildTransport(
   buildEngine: string,
   remoteFlag: RemoteTarget | undefined,
 ): BuildTransportChoice {
-  if (platform === "android") return { kind: "local" };
-  const remote: RemoteTarget | undefined = remoteFlag ?? (buildEngine === "remote-mac" ? { kind: "aws" } : undefined);
-  if (platform !== "ios") {
+  if (platform === 'android') return { kind: 'local' };
+  const remote: RemoteTarget | undefined =
+    remoteFlag ?? (buildEngine === 'remote-mac' ? { kind: 'aws' } : undefined);
+  if (platform !== 'ios') {
     if (remote) {
       throw new Error(
         `Remote builds are iOS-only — build ${platformLabel(platform)} on a local Mac (drop \`--remote\` / \`buildEngine: "remote-mac"\`).`,
       );
     }
-    if (buildEngine === "eas") {
+    if (buildEngine === 'eas') {
       throw new Error(
         `EAS does not build ${platformLabel(platform)} — build it on a local Mac (drop \`buildEngine: "eas"\`).`,
       );
     }
-    return { kind: "local" };
+    return { kind: 'local' };
   }
-  if (remote) return { kind: "remote", remote };
-  if (buildEngine === "eas") return { kind: "eas" };
-  return { kind: "local" };
+  if (remote) return { kind: 'remote', remote };
+  if (buildEngine === 'eas') return { kind: 'eas' };
+  return { kind: 'local' };
 }
 
 /**
@@ -628,16 +703,20 @@ export function resolveBuildTransport(
  * Expo code paths.
  */
 async function dispatchBuild(prepared: PreparedBuild, options: BuildRunOptions): Promise<void> {
-  const choice = resolveBuildTransport(options.platform, prepared.config.buildEngine, options.remote);
+  const choice = resolveBuildTransport(
+    options.platform,
+    prepared.config.buildEngine,
+    options.remote,
+  );
   switch (choice.kind) {
-    case "local":
+    case 'local':
       return runLocalBuild(prepared, options);
-    case "remote": {
-      const { runRemoteBuild } = await import("./remotePipeline.js");
+    case 'remote': {
+      const { runRemoteBuild } = await import('./remotePipeline.js');
       return runRemoteBuild(prepared, { ...options, remote: choice.remote });
     }
-    case "eas": {
-      const { runEasBuild } = await import("./easPipeline.js");
+    case 'eas': {
+      const { runEasBuild } = await import('./easPipeline.js');
       return runEasBuild(prepared, options);
     }
   }
@@ -649,19 +728,24 @@ async function dispatchBuild(prepared: PreparedBuild, options: BuildRunOptions):
  * `build` (a `--no-submit` or internal install-link run). Falls back to the app's config version when
  * no stored artifact is found (e.g. a remote/EAS path that stores elsewhere).
  */
-async function buildSuccessEvent(prepared: PreparedBuild, options: BuildRunOptions): Promise<NotifyEvent> {
+async function buildSuccessEvent(
+  prepared: PreparedBuild,
+  options: BuildRunOptions,
+): Promise<NotifyEvent> {
   const { config, app, ctx } = prepared;
-  const internal = ctx.distribution === "internal";
+  const internal = ctx.distribution === 'internal';
   const latest = (await resolveStorageProvider(config).list()).find(
     (artifact) => artifact.appName === app.name && artifact.platform === options.platform,
   );
   const event: NotifyEvent = {
-    event: options.submit && !internal ? "submit" : "build",
-    status: "success",
+    event: options.submit && !internal ? 'submit' : 'build',
+    status: 'success',
     app: app.name,
     platform: options.platform,
-    version: latest?.version ?? app.version ?? "0.0.0",
-    destination: internal ? "internal install link" : receiptDestination(options.platform, options, ctx.android?.track),
+    version: latest?.version ?? app.version ?? '0.0.0',
+    destination: internal
+      ? 'internal install link'
+      : receiptDestination(options.platform, options, ctx.android?.track),
   };
   if (latest) {
     event.buildNumber = latest.buildNumber;
@@ -672,21 +756,27 @@ async function buildSuccessEvent(prepared: PreparedBuild, options: BuildRunOptio
 }
 
 /** The failure {@link NotifyEvent} for a run that threw, carrying the error message and what's known. */
-function buildFailureEvent(prepared: PreparedBuild, options: BuildRunOptions, error: unknown): NotifyEvent {
-  const internal = prepared.ctx.distribution === "internal";
+function buildFailureEvent(
+  prepared: PreparedBuild,
+  options: BuildRunOptions,
+  error: unknown,
+): NotifyEvent {
+  const internal = prepared.ctx.distribution === 'internal';
   return {
-    event: options.submit && !internal ? "submit" : "build",
-    status: "failure",
+    event: options.submit && !internal ? 'submit' : 'build',
+    status: 'failure',
     app: prepared.app.name,
     platform: options.platform,
-    version: prepared.app.version ?? "0.0.0",
+    version: prepared.app.version ?? '0.0.0',
     error: error instanceof Error ? error.message : String(error),
   };
 }
 
 /** The local spine: fork by platform after the shared front (prepareBuild) and before the shared tail. */
 async function runLocalBuild(prepared: PreparedBuild, options: BuildRunOptions): Promise<void> {
-  return prepared.ctx.platform === "android" ? runAndroidBuild(prepared, options) : runIosBuild(prepared, options);
+  return prepared.ctx.platform === 'android'
+    ? runAndroidBuild(prepared, options)
+    : runIosBuild(prepared, options);
 }
 
 /** The iOS spine: prebuild → resolve creds/signing → build number → gym → size → store → submit. */
@@ -706,52 +796,63 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
 
   // 3. Resolve the API key, then reuse-or-provision the distribution cert + profile.
   const resolved: BuildCredentials = dryRun
-    ? { platform: "ios", ascKey: DRY_RUN_KEY }
+    ? { platform: 'ios', ascKey: DRY_RUN_KEY }
     : await getCredentialsProvider(config.credentials).resolve(ctx);
-  if (resolved.platform !== "ios")
-    throw new Error("Expected Apple (App Store Connect) credentials for an Apple build.");
-  log.step("credentials", dryRun ? "dry-run (no key needed)" : `key ${resolved.ascKey.keyId}`, "asc-api-key");
+  if (resolved.platform !== 'ios')
+    throw new Error('Expected Apple (App Store Connect) credentials for an Apple build.');
+  log.step(
+    'credentials',
+    dryRun ? 'dry-run (no key needed)' : `key ${resolved.ascKey.keyId}`,
+    'asc-api-key',
+  );
   const signing = await resolveSigning(resolved, app, ctx.platform, log, dryRun, ctx.distribution);
-  const credentials: BuildCredentials = { platform: "ios", ascKey: resolved.ascKey, signing };
-  const bundleId = app.bundleId ?? "";
-  const internal = ctx.distribution === "internal";
+  const credentials: BuildCredentials = { platform: 'ios', ascKey: resolved.ascKey, signing };
+  const bundleId = app.bundleId ?? '';
+  const internal = ctx.distribution === 'internal';
 
   // 3b. Suggest the next marketing version from what's already on the store (interactive store uploads only —
   // an internal install-link build doesn't touch the store, so the store-version prompt is skipped). The
   // applied bump kind is remembered after a successful build (see the rememberLastRun calls below).
   let resolvedBump: BumpKind | undefined;
   if (options.submit && !internal) {
-    resolvedBump = await resolveMarketingVersion(resolved.ascKey, bundleId, app, ctx.platform, options, log);
+    resolvedBump = await resolveMarketingVersion(
+      resolved.ascKey,
+      bundleId,
+      app,
+      ctx.platform,
+      options,
+      log,
+    );
   }
 
   // 4. Auto-bump the build number from the last one Apple has on record.
   const buildNumber = dryRun
     ? await nextBuildNumber(resolved.ascKey, bundleId, dryRun)
-    : await withSpinner("Checking last build number on App Store Connect", () =>
+    : await withSpinner('Checking last build number on App Store Connect', () =>
         nextBuildNumber(resolved.ascKey, bundleId, dryRun),
       );
   const stamped = dryRun ? false : await setIosBuildNumber(app.dir, ctx.platform, buildNumber);
   log.step(
-    "build number",
+    'build number',
     dryRun
       ? `would set next build number (≈${buildNumber})`
       : stamped
         ? `set to ${buildNumber}`
         : `${buildNumber} (could not stamp Info.plist)`,
-    "build-number",
+    'build-number',
   );
 
   // 5. Compile, sign, export, and analyze size — clean or incremental per the build fingerprint.
   if (!dryRun) await nudgeIfNoCcache(log);
   const { artifactPath, sizeReport, cleanBuilt } = await runBuildStep(prepared, buildNumber, () =>
-    getBuildEngine(resolveBuildEngineName(config, "ios")).build(ctx, credentials),
+    getBuildEngine(resolveBuildEngineName(config, 'ios')).build(ctx, credentials),
   );
   log.step(
-    "build",
+    'build',
     dryRun
-      ? "skipped (dry-run)"
-      : `${cleanBuilt ? "clean (from scratch)" : "incremental (cache warm)"} · ${artifactPath}`,
-    "incremental-build",
+      ? 'skipped (dry-run)'
+      : `${cleanBuilt ? 'clean (from scratch)' : 'incremental (cache warm)'} · ${artifactPath}`,
+    'incremental-build',
   );
   if (!dryRun) await reportCcacheStats(log);
 
@@ -766,9 +867,9 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
     await distributeArtifact({
       config,
       app,
-      platform: "ios",
+      platform: 'ios',
       artifactPath,
-      version: app.version ?? "0.0.0",
+      version: app.version ?? '0.0.0',
       buildNumber,
       bundleId,
       dryRun,
@@ -776,7 +877,9 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
     });
     if (dryRun) {
       log.gap();
-      log.info(`Done. ${app.name} ${app.version ?? "0.0.0"} (${buildNumber}) · dry-run, nothing changed`);
+      log.info(
+        `Done. ${app.name} ${app.version ?? '0.0.0'} (${buildNumber}) · dry-run, nothing changed`,
+      );
     } else {
       rememberLastRun(app.name, resolvedBump);
     }
@@ -784,29 +887,29 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
   }
 
   // 8. Confirm the upload (size shown; budget enforced here), submit, then report processing status.
-  const destination = options.target === "testing" ? "TestFlight" : "App Store review";
+  const destination = options.target === 'testing' ? 'TestFlight' : 'App Store review';
   if (options.submit) {
     if (dryRun) {
-      log.step("submit", `would upload to ${destination}`, "testflight");
+      log.step('submit', `would upload to ${destination}`, 'testflight');
     } else {
       await confirmUpload({
         report: sizeReport,
         budgetMB: prepared.profile.sizeBudgetMB ?? 200,
         destination,
         app,
-        version: app.version ?? "0.0.0",
+        version: app.version ?? '0.0.0',
         buildNumber,
-        previous: await previousBuild(config, app, "ios", buildNumber),
+        previous: await previousBuild(config, app, 'ios', buildNumber),
         yes: options.yes ?? false,
         log,
       });
-      await submitToStores(config, "ios", artifactPath, options.target, credentials, ctx);
+      await submitToStores(config, 'ios', artifactPath, options.target, credentials, ctx);
       log.step(
-        "submit",
-        options.target === "testing" ? "uploaded to TestFlight" : "submitted for App Store review",
-        "testflight",
+        'submit',
+        options.target === 'testing' ? 'uploaded to TestFlight' : 'submitted for App Store review',
+        'testflight',
       );
-      if (options.target === "testing" && bundleId) {
+      if (options.target === 'testing' && bundleId) {
         await reportProcessing(resolved.ascKey, bundleId, buildNumber, log);
       }
     }
@@ -814,19 +917,23 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
 
   if (dryRun) {
     log.gap();
-    log.info(`Done. ${app.name} ${app.version ?? "0.0.0"} (${buildNumber}) · dry-run, nothing changed`);
+    log.info(
+      `Done. ${app.name} ${app.version ?? '0.0.0'} (${buildNumber}) · dry-run, nothing changed`,
+    );
     return;
   }
   // Backfill this account's Team ID + app names from Apple the first time we have a live key in hand.
   if (account) await refreshIdentityIfStale(account, resolved.ascKey);
   const link =
-    options.submit && bundleId ? await resolveAscBuildLink(resolved.ascKey, bundleId, options.target) : undefined;
+    options.submit && bundleId
+      ? await resolveAscBuildLink(resolved.ascKey, bundleId, options.target)
+      : undefined;
   await renderReceipt({
     app,
-    version: app.version ?? "0.0.0",
+    version: app.version ?? '0.0.0',
     buildNumber,
     report: sizeReport,
-    destination: receiptDestination("ios", options),
+    destination: receiptDestination('ios', options),
     link,
     log,
   });
@@ -839,72 +946,92 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
   const { config, app, ctx, log } = prepared;
   const { dryRun } = options;
   const packageName = app.packageName;
-  if (!packageName) throw new Error(`No Android application id for ${app.name}. Set android.package in app.json.`);
+  if (!packageName)
+    throw new Error(`No Android application id for ${app.name}. Set android.package in app.json.`);
 
   // 2. Generate the native project only when it's missing (committed android/ is used as-is).
   await ensureAndroidProject(ctx, log);
 
   // 3. Resolve the Play service account, then reuse-or-provision the upload keystore.
   const resolved: BuildCredentials = dryRun
-    ? { platform: "android", serviceAccountJson: "" }
+    ? { platform: 'android', serviceAccountJson: '' }
     : await getCredentialsProvider(config.credentials).resolve(ctx);
-  if (resolved.platform !== "android") throw new Error("Expected Android credentials for an Android build.");
-  log.step("credentials", dryRun ? "dry-run (no service account needed)" : "service account loaded", "service-account");
+  if (resolved.platform !== 'android')
+    throw new Error('Expected Android credentials for an Android build.');
+  log.step(
+    'credentials',
+    dryRun ? 'dry-run (no service account needed)' : 'service account loaded',
+    'service-account',
+  );
   const keystore = await resolveKeystore(resolved, app, log, dryRun);
   const credentials: BuildCredentials = {
-    platform: "android",
+    platform: 'android',
     serviceAccountJson: resolved.serviceAccountJson,
     keystore,
   };
 
   // 4. Auto-bump the versionCode from the latest Google Play has on record (app.json as a floor).
   const versionCode = dryRun
-    ? await nextVersionCode(resolved.serviceAccountJson, packageName, app.androidVersionCode ?? 0, dryRun)
-    : await withSpinner("Checking latest versionCode on Google Play", () =>
-        nextVersionCode(resolved.serviceAccountJson, packageName, app.androidVersionCode ?? 0, dryRun),
+    ? await nextVersionCode(
+        resolved.serviceAccountJson,
+        packageName,
+        app.androidVersionCode ?? 0,
+        dryRun,
+      )
+    : await withSpinner('Checking latest versionCode on Google Play', () =>
+        nextVersionCode(
+          resolved.serviceAccountJson,
+          packageName,
+          app.androidVersionCode ?? 0,
+          dryRun,
+        ),
       );
   const stamped = dryRun ? false : setAndroidVersionCode(app.dir, versionCode);
   log.step(
-    "version code",
+    'version code',
     dryRun
       ? `would set next versionCode (≈${versionCode})`
       : stamped
         ? `set to ${versionCode}`
         : `${versionCode} (could not stamp build.gradle)`,
-    "version-code",
+    'version-code',
   );
 
   // 5. Compile, sign (upload key), export the .aab, and estimate the download with bundletool.
   const { artifactPath, sizeReport, cleanBuilt } = await runBuildStep(prepared, versionCode, () =>
-    getBuildEngine(resolveBuildEngineName(config, "android")).build(ctx, credentials),
+    getBuildEngine(resolveBuildEngineName(config, 'android')).build(ctx, credentials),
   );
   log.step(
-    "build",
-    dryRun ? "skipped (dry-run)" : `${cleanBuilt ? "clean (from scratch)" : "incremental (Gradle)"} · ${artifactPath}`,
-    "incremental-build",
+    'build',
+    dryRun
+      ? 'skipped (dry-run)'
+      : `${cleanBuilt ? 'clean (from scratch)' : 'incremental (Gradle)'} · ${artifactPath}`,
+    'incremental-build',
   );
 
   // 6. Show the size readout (bundletool estimate; the budget decision happens at the upload boundary).
-  reportSize(sizeReport, log, "bundletool");
+  reportSize(sizeReport, log, 'bundletool');
 
   // 7. Store the artifact (shared with iOS).
   await storeArtifact(prepared, artifactPath, versionCode, sizeReport, cleanBuilt);
 
   // 8a. Internal distribution: skip the Play track — upload the .apk as a direct install link.
-  if (ctx.distribution === "internal") {
+  if (ctx.distribution === 'internal') {
     await distributeArtifact({
       config,
       app,
-      platform: "android",
+      platform: 'android',
       artifactPath,
-      version: app.version ?? "0.0.0",
+      version: app.version ?? '0.0.0',
       buildNumber: versionCode,
       dryRun,
       log,
     });
     if (dryRun) {
       log.gap();
-      log.info(`Done. ${app.name} ${app.version ?? "0.0.0"} (${versionCode}) · dry-run, nothing changed`);
+      log.info(
+        `Done. ${app.name} ${app.version ?? '0.0.0'} (${versionCode}) · dry-run, nothing changed`,
+      );
     } else {
       rememberLastRun(app.name);
     }
@@ -912,45 +1039,54 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
   }
 
   // 8. Confirm the upload (size shown; budget enforced here), then submit via fastlane supply.
-  const track = ctx.android?.track ?? "internal";
+  const track = ctx.android?.track ?? 'internal';
   if (options.submit) {
     if (dryRun) {
-      log.step("submit", `would upload to the ${track} track via fastlane supply`, "play-track");
+      log.step('submit', `would upload to the ${track} track via fastlane supply`, 'play-track');
     } else {
       await confirmUpload({
         report: sizeReport,
         budgetMB: prepared.profile.sizeBudgetMB ?? 200,
         destination: `Google Play (${track} track)`,
         app,
-        version: app.version ?? "0.0.0",
+        version: app.version ?? '0.0.0',
         buildNumber: versionCode,
-        previous: await previousBuild(config, app, "android", versionCode),
+        previous: await previousBuild(config, app, 'android', versionCode),
         yes: options.yes ?? false,
         log,
       });
-      const stores = await submitToStores(config, "android", artifactPath, options.target, credentials, ctx);
+      const stores = await submitToStores(
+        config,
+        'android',
+        artifactPath,
+        options.target,
+        credentials,
+        ctx,
+      );
       log.step(
-        "submit",
+        'submit',
         stores.length > 1
           ? `uploaded to the ${track} track and ${stores.length - 1} more store(s)`
           : `uploaded to the ${track} track`,
-        "play-track",
+        'play-track',
       );
     }
   }
 
   if (dryRun) {
     log.gap();
-    log.info(`Done. ${app.name} ${app.version ?? "0.0.0"} (${versionCode}) · dry-run, nothing changed`);
+    log.info(
+      `Done. ${app.name} ${app.version ?? '0.0.0'} (${versionCode}) · dry-run, nothing changed`,
+    );
     return;
   }
   await renderReceipt({
     app,
-    version: app.version ?? "0.0.0",
+    version: app.version ?? '0.0.0',
     buildNumber: versionCode,
     report: sizeReport,
-    destination: receiptDestination("android", options, track),
-    link: options.submit ? "https://play.google.com/console" : undefined,
+    destination: receiptDestination('android', options, track),
+    link: options.submit ? 'https://play.google.com/console' : undefined,
     log,
   });
   // Remember the app built so the next run's picker pre-selects it (Android has no marketing-bump prompt).
@@ -978,7 +1114,12 @@ async function runBuildStep(
   const { ctx, app } = prepared;
   if (ctx.dryRun) return build();
   beginBuildLog(
-    buildLogId({ appName: app.name, version: app.version ?? "0.0.0", buildNumber, platform: ctx.platform }),
+    buildLogId({
+      appName: app.name,
+      version: app.version ?? '0.0.0',
+      buildNumber,
+      platform: ctx.platform,
+    }),
   );
   try {
     return await build();
@@ -997,7 +1138,7 @@ async function storeArtifact(
 ): Promise<void> {
   const { config, app, profile, ctx, log } = prepared;
   if (ctx.dryRun) {
-    log.step("store", "skipped (dry-run)");
+    log.step('store', 'skipped (dry-run)');
     return;
   }
   const artifact: BuildArtifact = {
@@ -1005,7 +1146,7 @@ async function storeArtifact(
     platform: ctx.platform,
     appName: app.name,
     profile: profile.name,
-    version: app.version ?? "0.0.0",
+    version: app.version ?? '0.0.0',
     buildNumber,
     sizeReport,
     clean: cleanBuilt,
@@ -1014,12 +1155,13 @@ async function storeArtifact(
   const provider = resolveStorageProvider(config);
   // Keep an in-repo `artifactDir` out of version control before the first binary lands — idempotent, and
   // a no-op for the global default or a cloud store. Guarantees "won't get committed" even if init was skipped.
-  if (config.storage === "local") {
+  if (config.storage === 'local') {
     const ignored = await ensureArtifactDirIgnored(resolveArtifactDir(config.artifactDir));
-    if (ignored.added) log.step("gitignore", `added ${ignored.entry ?? ""} (build artifacts stay out of git)`);
+    if (ignored.added)
+      log.step('gitignore', `added ${ignored.entry ?? ''} (build artifacts stay out of git)`);
   }
   const stored = await provider.put(artifact);
-  log.step("store", stored.location);
+  log.step('store', stored.location);
 
   // Retention: announce the policy under the store line, then sweep. `0` disables the auto-sweep; the
   // newest build per app+platform is always kept, so a promotable artifact never gets swept out from
@@ -1030,9 +1172,9 @@ async function storeArtifact(
     if (provider.prune) {
       const swept = await provider.prune({ now: Date.now(), retentionDays });
       if (swept.pruned.length > 0) {
-        const noun = swept.pruned.length === 1 ? "build" : "builds";
+        const noun = swept.pruned.length === 1 ? 'build' : 'builds';
         log.step(
-          "prune",
+          'prune',
           `removed ${swept.pruned.length} old ${noun} >${retentionDays}d · freed ${mb(swept.freedBytes)}`,
         );
       }
@@ -1051,21 +1193,21 @@ const CCACHE_NOTICE =
  * install+configure path via {@link ensureCcacheInstalled}, and never blocks or fails the build.
  */
 async function nudgeIfNoCcache(log: Logger): Promise<void> {
-  if (await exists("ccache")) return;
+  if (await exists('ccache')) return;
   if (ccacheOfferDeclined()) {
     log.warn(CCACHE_NOTICE);
     return;
   }
   switch (await ensureCcacheInstalled({ interactive: isInteractive() })) {
-    case "installed":
-      log.step("ccache", "installed + configured — this build is now cached", "ccache");
+    case 'installed':
+      log.step('ccache', 'installed + configured — this build is now cached', 'ccache');
       return;
-    case "declined":
+    case 'declined':
       markCcacheOfferDeclined();
       log.warn(CCACHE_NOTICE);
       return;
-    case "skipped-no-brew":
-    case "skipped-noninteractive":
+    case 'skipped-no-brew':
+    case 'skipped-noninteractive':
       log.warn(CCACHE_NOTICE);
       return;
   }
@@ -1073,11 +1215,11 @@ async function nudgeIfNoCcache(log: Logger): Promise<void> {
 
 /** After an iOS build, surface a one-line ccache hit summary when ccache is present. Best-effort. */
 async function reportCcacheStats(log: Logger): Promise<void> {
-  if (!(await exists("ccache"))) return;
+  if (!(await exists('ccache'))) return;
   try {
-    const stats = await capture("ccache", ["-s"]);
-    const hitLine = stats.split("\n").find((line) => /hit/i.test(line));
-    if (hitLine) log.step("cache", hitLine.trim(), "ccache");
+    const stats = await capture('ccache', ['-s']);
+    const hitLine = stats.split('\n').find((line) => /hit/i.test(line));
+    if (hitLine) log.step('cache', hitLine.trim(), 'ccache');
   } catch {
     /* ccache -s unavailable — skip the summary */
   }
@@ -1095,12 +1237,12 @@ async function ensureNativeProject(ctx: ResolvedBuildContext, log: Logger): Prom
   const dirName = nativeProjectDirName(platform);
   const nativeDir = join(ctx.app.dir, dirName);
   if (existsSync(nativeDir)) {
-    log.step("native project", `using existing ${dirName}/ (no prebuild needed)`, "prebuild");
+    log.step('native project', `using existing ${dirName}/ (no prebuild needed)`, 'prebuild');
     return;
   }
   // Only iOS (and tvOS, which shares ios/) is generated by Expo prebuild. macOS/visionOS need a committed
   // native project — prebuild does not emit their target, so fail loud with the fix instead of mis-building.
-  if (platform !== "ios" && platform !== "tvos") {
+  if (platform !== 'ios' && platform !== 'tvos') {
     throw new Error(
       `${platformLabel(platform)} native target not configured — Expo prebuild does not emit a ${platformLabel(platform)} ` +
         `target. Commit a native project (${nativeTargetHint(platform)}) at ${dirName}/, then re-run.`,
@@ -1108,46 +1250,50 @@ async function ensureNativeProject(ctx: ResolvedBuildContext, log: Logger): Prom
   }
   // tvOS reuses ios/; if even that is missing, prebuild generates an iOS project but no tvOS target, so the
   // archive will fail later. Gate it here with the same actionable message rather than mis-building.
-  if (platform === "tvos") {
+  if (platform === 'tvos') {
     throw new Error(
       `tvOS native target not configured — no ios/ project found. Commit a react-native-tvos project (its ` +
         `tvOS target lives in ios/), then re-run \`launch build tvos\`.`,
     );
   }
   if (ctx.dryRun) {
-    log.step("prebuild", "would run `expo prebuild --platform ios` (no ios/ found)", "prebuild");
+    log.step('prebuild', 'would run `expo prebuild --platform ios` (no ios/ found)', 'prebuild');
     return;
   }
-  await runWithProgress("npx", ["expo", "prebuild", "--platform", "ios", "--clean"], {
-    label: "Generating ios/ (expo prebuild)",
+  await runWithProgress('npx', ['expo', 'prebuild', '--platform', 'ios', '--clean'], {
+    label: 'Generating ios/ (expo prebuild)',
     cwd: ctx.app.dir,
     env: ctx.env,
   });
-  log.step("prebuild", "ios/ generated from app.json", "prebuild");
+  log.step('prebuild', 'ios/ generated from app.json', 'prebuild');
 }
 
 /** Run `expo prebuild` only when there's no native `android/` yet; otherwise use what's committed. */
 async function ensureAndroidProject(ctx: ResolvedBuildContext, log: Logger): Promise<void> {
-  const androidDir = join(ctx.app.dir, "android");
+  const androidDir = join(ctx.app.dir, 'android');
   if (existsSync(androidDir)) {
-    log.step("native project", "using existing android/ (no prebuild needed)", "prebuild");
+    log.step('native project', 'using existing android/ (no prebuild needed)', 'prebuild');
     return;
   }
   if (ctx.dryRun) {
-    log.step("prebuild", "would run `expo prebuild --platform android` (no android/ found)", "prebuild");
+    log.step(
+      'prebuild',
+      'would run `expo prebuild --platform android` (no android/ found)',
+      'prebuild',
+    );
     return;
   }
-  await runWithProgress("npx", ["expo", "prebuild", "--platform", "android", "--clean"], {
-    label: "Generating android/ (expo prebuild)",
+  await runWithProgress('npx', ['expo', 'prebuild', '--platform', 'android', '--clean'], {
+    label: 'Generating android/ (expo prebuild)',
     cwd: ctx.app.dir,
     env: ctx.env,
   });
-  log.step("prebuild", "android/ generated from app.json", "prebuild");
+  log.step('prebuild', 'android/ generated from app.json', 'prebuild');
 }
 
 /** Resolve the next build number from App Store Connect, or a placeholder in dry-run. */
 export async function nextBuildNumber(
-  ascKey: AppleCredentials["ascKey"],
+  ascKey: AppleCredentials['ascKey'],
   bundleId: string,
   dryRun: boolean,
 ): Promise<number> {
@@ -1161,9 +1307,9 @@ export async function nextBuildNumber(
  * and where it came from; `prompt` runs the interactive picker; `leave` keeps the app-config version as-is.
  */
 export type BumpResolution =
-  | { mode: "apply"; kind: BumpKind; source: "flag" | "remembered" }
-  | { mode: "prompt" }
-  | { mode: "leave" };
+  | { mode: 'apply'; kind: BumpKind; source: 'flag' | 'remembered' }
+  | { mode: 'prompt' }
+  | { mode: 'leave' };
 
 /**
  * Decide how to pick the version bump, by precedence: an explicit `--bump` kind wins and applies even
@@ -1172,15 +1318,15 @@ export type BumpResolution =
  * no flag was given, the app-config version is left untouched. Pure → testable with no store round-trip.
  */
 export function resolveBumpKind(args: {
-  flag: BumpKind | "ask" | undefined;
+  flag: BumpKind | 'ask' | undefined;
   remembered: BumpKind | undefined;
   canPrompt: boolean;
 }): BumpResolution {
-  if (args.flag && args.flag !== "ask") return { mode: "apply", kind: args.flag, source: "flag" };
-  if (!args.canPrompt) return { mode: "leave" };
-  if (args.flag === "ask") return { mode: "prompt" };
-  if (args.remembered) return { mode: "apply", kind: args.remembered, source: "remembered" };
-  return { mode: "prompt" };
+  if (args.flag && args.flag !== 'ask') return { mode: 'apply', kind: args.flag, source: 'flag' };
+  if (!args.canPrompt) return { mode: 'leave' };
+  if (args.flag === 'ask') return { mode: 'prompt' };
+  if (args.remembered) return { mode: 'apply', kind: args.remembered, source: 'remembered' };
+  return { mode: 'prompt' };
 }
 
 /**
@@ -1193,40 +1339,40 @@ async function promptVersion(
   current: string,
   latest: string | null,
 ): Promise<{ chosen: string; kind: BumpKind | undefined }> {
-  const patch = nextVersion(baseline, "patch");
-  const minor = nextVersion(baseline, "minor");
-  const major = nextVersion(baseline, "major");
-  const choice = await select<BumpKind | "custom">({
+  const patch = nextVersion(baseline, 'patch');
+  const minor = nextVersion(baseline, 'minor');
+  const major = nextVersion(baseline, 'major');
+  const choice = await select<BumpKind | 'custom'>({
     message: latest
       ? `App Store Connect's latest is ${latest}. Which version ships next?`
-      : "No versions on App Store Connect yet. Which version ships?",
-    initialValue: latest ? "patch" : "keep",
+      : 'No versions on App Store Connect yet. Which version ships?',
+    initialValue: latest ? 'patch' : 'keep',
     options: [
-      { value: "patch", label: `Patch  → ${patch}`, hint: "bug fixes" },
-      { value: "minor", label: `Minor  → ${minor}`, hint: "new features" },
-      { value: "major", label: `Major  → ${major}`, hint: "breaking changes" },
-      { value: "keep", label: `Keep   → ${current}`, hint: "reuse the app config version" },
-      { value: "custom", label: "Custom…", hint: "type a version" },
+      { value: 'patch', label: `Patch  → ${patch}`, hint: 'bug fixes' },
+      { value: 'minor', label: `Minor  → ${minor}`, hint: 'new features' },
+      { value: 'major', label: `Major  → ${major}`, hint: 'breaking changes' },
+      { value: 'keep', label: `Keep   → ${current}`, hint: 'reuse the app config version' },
+      { value: 'custom', label: 'Custom…', hint: 'type a version' },
     ],
   });
   if (isCancel(choice)) {
-    cancel("Cancelled.");
+    cancel('Cancelled.');
     process.exit(0);
   }
-  if (choice === "custom") {
+  if (choice === 'custom') {
     const typed = await text({
-      message: "Version (MAJOR.MINOR.PATCH):",
+      message: 'Version (MAJOR.MINOR.PATCH):',
       initialValue: patch,
-      validate: (value) => (value && parseVersion(value) ? undefined : "Use a version like 1.2.3."),
+      validate: (value) => (value && parseVersion(value) ? undefined : 'Use a version like 1.2.3.'),
     });
     if (isCancel(typed)) {
-      cancel("Cancelled.");
+      cancel('Cancelled.');
       process.exit(0);
     }
     const parsed = parseVersion(typed);
     return { chosen: parsed ? formatVersion(parsed) : typed.trim(), kind: undefined };
   }
-  if (choice === "keep") return { chosen: current, kind: "keep" };
+  if (choice === 'keep') return { chosen: current, kind: 'keep' };
   return { chosen: nextVersion(baseline, choice), kind: choice };
 }
 
@@ -1251,9 +1397,9 @@ async function applyChosenVersion(
   const stamped = await setIosMarketingVersion(app.dir, platform, chosen);
   const persisted = writeAppVersion(app, chosen);
   app.version = chosen;
-  const notes = [persisted ? "app config updated" : "app config not written (dynamic config)"];
-  if (!stamped) notes.push("Info.plist not stamped");
-  log.step("version", `${log.chip(chosen)} (${note}; ${notes.join("; ")})`, "marketing-version");
+  const notes = [persisted ? 'app config updated' : 'app config not written (dynamic config)'];
+  if (!stamped) notes.push('Info.plist not stamped');
+  log.step('version', `${log.chip(chosen)} (${note}; ${notes.join('; ')})`, 'marketing-version');
 }
 
 /**
@@ -1266,20 +1412,20 @@ async function applyChosenVersion(
  * applied or a one-off Custom version was typed.
  */
 async function resolveMarketingVersion(
-  ascKey: AppleCredentials["ascKey"],
+  ascKey: AppleCredentials['ascKey'],
   bundleId: string,
   app: AppDescriptor,
   platform: Platform,
   options: BuildRunOptions,
   log: Logger,
 ): Promise<BumpKind | undefined> {
-  const current = app.version ?? "0.0.0";
+  const current = app.version ?? '0.0.0';
 
   if (options.dryRun) {
     log.step(
-      "version",
+      'version',
       `would suggest the next version above the store's latest (config has ${current})`,
-      "marketing-version",
+      'marketing-version',
     );
     return undefined;
   }
@@ -1289,32 +1435,33 @@ async function resolveMarketingVersion(
     remembered: readLastBump(app.name),
     canPrompt: isInteractive() && options.yes !== true,
   });
-  if (decision.mode === "leave") {
+  if (decision.mode === 'leave') {
     log.step(
-      "version",
+      'version',
       `${current} (from app config; not prompting under --yes / non-interactive)`,
-      "marketing-version",
+      'marketing-version',
     );
     return undefined;
   }
 
   const latest = bundleId
-    ? await withSpinner("Checking versions already on App Store Connect", () =>
+    ? await withSpinner('Checking versions already on App Store Connect', () =>
         new AppStoreConnectClient(ascKey).getLatestMarketingVersion(bundleId),
       )
     : null;
   // Never propose at or below what's already on the store or what the app config already declares.
-  const baseline = highestVersion([latest, current].filter((v): v is string => v !== null)) ?? current;
+  const baseline =
+    highestVersion([latest, current].filter((v): v is string => v !== null)) ?? current;
 
-  if (decision.mode === "prompt") {
+  if (decision.mode === 'prompt') {
     const { chosen, kind } = await promptVersion(baseline, current, latest);
-    await applyChosenVersion(app, platform, chosen, latest, kind ?? "custom", log);
+    await applyChosenVersion(app, platform, chosen, latest, kind ?? 'custom', log);
     return kind;
   }
 
   // apply (flag or remembered): compute the version from the kind.
-  const chosen = decision.kind === "keep" ? current : nextVersion(baseline, decision.kind);
-  const source = decision.source === "flag" ? "--bump" : "remembered";
+  const chosen = decision.kind === 'keep' ? current : nextVersion(baseline, decision.kind);
+  const source = decision.source === 'flag' ? '--bump' : 'remembered';
   await applyChosenVersion(app, platform, chosen, latest, `${decision.kind}, ${source}`, log);
   return decision.kind;
 }
@@ -1341,9 +1488,9 @@ export async function nextVersionCode(
  * PlistBuddy analog on Android); returns whether a `versionCode <n>` line was found and updated.
  */
 function setAndroidVersionCode(appDir: string, versionCode: number): boolean {
-  const gradlePath = join(appDir, "android", "app", "build.gradle");
+  const gradlePath = join(appDir, 'android', 'app', 'build.gradle');
   if (!existsSync(gradlePath)) return false;
-  const original = readFileSync(gradlePath, "utf8");
+  const original = readFileSync(gradlePath, 'utf8');
   const updated = original.replace(/versionCode\s+\d+/, `versionCode ${versionCode}`);
   if (updated === original) return false;
   writeFileSync(gradlePath, updated);
@@ -1355,26 +1502,29 @@ function setAndroidVersionCode(appDir: string, versionCode: number): boolean {
  * status instead of dead air between polls. Safe to Ctrl-C — Apple keeps processing regardless.
  */
 export async function reportProcessing(
-  ascKey: AppleCredentials["ascKey"],
+  ascKey: AppleCredentials['ascKey'],
   bundleId: string,
   buildNumber: number,
   log: Logger,
 ): Promise<void> {
   const asc = new AppStoreConnectClient(ascKey);
-  const state = await withSpinner("Processing on Apple's side (safe to Ctrl-C; it keeps processing)", async () => {
-    for (let attempt = 0; attempt < 6; attempt++) {
-      await delay(10_000);
-      try {
-        const current = await asc.getBuildProcessingState(bundleId, buildNumber);
-        if (current && current !== "PROCESSING") return current;
-      } catch {
-        /* transient; keep polling */
+  const state = await withSpinner(
+    "Processing on Apple's side (safe to Ctrl-C; it keeps processing)",
+    async () => {
+      for (let attempt = 0; attempt < 6; attempt++) {
+        await delay(10_000);
+        try {
+          const current = await asc.getBuildProcessingState(bundleId, buildNumber);
+          if (current && current !== 'PROCESSING') return current;
+        } catch {
+          /* transient; keep polling */
+        }
       }
-    }
-    return null;
-  });
+      return null;
+    },
+  );
   if (state) {
-    log.step("processing", state === "VALID" ? "ready to test on TestFlight" : `state: ${state}`);
+    log.step('processing', state === 'VALID' ? 'ready to test on TestFlight' : `state: ${state}`);
   } else {
     log.info("Still processing — it'll appear in TestFlight shortly.");
   }
@@ -1393,8 +1543,12 @@ export function worstDownloadBytes(report: SizeReport): number {
  * value — the receipt passes {@link Logger.chip} to pill the numbers — and defaults to identity so
  * existing plain callers are unchanged.
  */
-export function sizeSummary(report: SizeReport, wrap: (size: string) => string = (size) => size): string {
-  if (report.entries.length === 0) return `on disk ${wrap(mb(report.artifactBytes))} (no per-device estimate)`;
+export function sizeSummary(
+  report: SizeReport,
+  wrap: (size: string) => string = (size) => size,
+): string {
+  if (report.entries.length === 0)
+    return `on disk ${wrap(mb(report.artifactBytes))} (no per-device estimate)`;
   return `download ${wrap(mb(worstDownloadBytes(report)))} · on disk ${wrap(mb(report.artifactBytes))}`;
 }
 
@@ -1420,8 +1574,9 @@ export function uploadSizeReadout(
   if (previous && previous.downloadBytes > 0) {
     const delta = worst - previous.downloadBytes;
     const ratio = delta / previous.downloadBytes;
-    downloadLine += ` (${delta >= 0 ? "+" : "-"}${mb(Math.abs(delta))} since build ${previous.buildNumber})`;
-    if (ratio > GROWTH_WARN_RATIO) grew = { pct: Math.round(ratio * 100), buildNumber: previous.buildNumber };
+    downloadLine += ` (${delta >= 0 ? '+' : '-'}${mb(Math.abs(delta))} since build ${previous.buildNumber})`;
+    if (ratio > GROWTH_WARN_RATIO)
+      grew = { pct: Math.round(ratio * 100), buildNumber: previous.buildNumber };
   }
   return { lines: [downloadLine, `on disk ${mb(report.artifactBytes)}`], grew };
 }
@@ -1440,9 +1595,13 @@ export async function previousBuild(
   const history = await resolveStorageProvider(config).list();
   const prior = history.find(
     (artifact) =>
-      artifact.appName === app.name && artifact.platform === platform && artifact.buildNumber !== currentBuildNumber,
+      artifact.appName === app.name &&
+      artifact.platform === platform &&
+      artifact.buildNumber !== currentBuildNumber,
   );
-  return prior ? { downloadBytes: worstDownloadBytes(prior.sizeReport), buildNumber: prior.buildNumber } : undefined;
+  return prior
+    ? { downloadBytes: worstDownloadBytes(prior.sizeReport), buildNumber: prior.buildNumber }
+    : undefined;
 }
 
 /**
@@ -1451,14 +1610,26 @@ export async function previousBuild(
  * in {@link confirmUpload}, so this runs on every build, including `--no-submit`. `sizeTopic` selects
  * the matching `--explain` block.
  */
-export function reportSize(report: SizeReport, log: Logger, sizeTopic: GlossaryTopic = "app-thinning"): void {
+export function reportSize(
+  report: SizeReport,
+  log: Logger,
+  sizeTopic: GlossaryTopic = 'app-thinning',
+): void {
   if (report.entries.length === 0) {
-    log.step("size", `${log.chip(mb(report.artifactBytes))} on disk (no per-device report)`, sizeTopic);
+    log.step(
+      'size',
+      `${log.chip(mb(report.artifactBytes))} on disk (no per-device report)`,
+      sizeTopic,
+    );
     return;
   }
   for (const entry of report.entries) {
-    const installSuffix = entry.installBytes > 0 ? ` · install ${mb(entry.installBytes)}` : "";
-    log.step("size", `${entry.device}: download ${log.chip(mb(entry.downloadBytes))}${installSuffix}`, sizeTopic);
+    const installSuffix = entry.installBytes > 0 ? ` · install ${mb(entry.installBytes)}` : '';
+    log.step(
+      'size',
+      `${entry.device}: download ${log.chip(mb(entry.downloadBytes))}${installSuffix}`,
+      sizeTopic,
+    );
   }
 }
 
@@ -1496,30 +1667,40 @@ export async function confirmUpload(options: ConfirmUploadOptions): Promise<void
   const overBudget = worstDownloadBytes(report) > budgetMB * 1024 * 1024;
   const { lines, grew } = uploadSizeReadout(report, previous);
 
-  log.notice(`⬆ Upload to ${destination}`, `${app.name} ${version} (build ${buildNumber})`, ...lines);
+  log.notice(
+    `⬆ Upload to ${destination}`,
+    `${app.name} ${version} (build ${buildNumber})`,
+    ...lines,
+  );
   if (grew) {
     log.warn(`Grew ${grew.pct}% since build ${grew.buildNumber}.`);
   }
   if (overBudget) {
-    log.warn(`Worst-case download ${mb(worstDownloadBytes(report))} is over the ${budgetMB} MB budget.`);
+    log.warn(
+      `Worst-case download ${mb(worstDownloadBytes(report))} is over the ${budgetMB} MB budget.`,
+    );
   }
 
   if (yes || !isInteractive()) {
-    if (overBudget) log.info("Proceeding anyway (non-interactive or --yes).");
+    if (overBudget) log.info('Proceeding anyway (non-interactive or --yes).');
     return;
   }
-  const proceed = await confirm({ message: "Continue?" });
+  const proceed = await confirm({ message: 'Continue?' });
   if (isCancel(proceed) || !proceed) {
-    cancel(overBudget ? "Stopped before upload (over size budget)." : "Stopped before upload.");
+    cancel(overBudget ? 'Stopped before upload (over size budget).' : 'Stopped before upload.');
     process.exit(0);
   }
 }
 
 /** The receipt's destination line: where the build actually went (or that it wasn't uploaded). */
-export function receiptDestination(platform: Platform, options: BuildRunOptions, track?: PlayTrack): string {
-  if (!options.submit) return "built · not uploaded";
-  if (platform === "android") return `Play · ${track ?? "internal"} track`;
-  return options.target === "testing" ? "TestFlight" : "App Store · in review";
+export function receiptDestination(
+  platform: Platform,
+  options: BuildRunOptions,
+  track?: PlayTrack,
+): string {
+  if (!options.submit) return 'built · not uploaded';
+  if (platform === 'android') return `Play · ${track ?? 'internal'} track`;
+  return options.target === 'testing' ? 'TestFlight' : 'App Store · in review';
 }
 
 /**
@@ -1527,12 +1708,13 @@ export function receiptDestination(platform: Platform, options: BuildRunOptions,
  * URL when the app id resolves, else the console home. Never throws — a link is a nicety, not a gate.
  */
 export async function resolveAscBuildLink(
-  ascKey: AppleCredentials["ascKey"],
+  ascKey: AppleCredentials['ascKey'],
   bundleId: string,
   target: SubmitTarget,
 ): Promise<string> {
-  const appId = (await new AppStoreConnectClient(ascKey).getAppId(bundleId).catch(() => null)) ?? undefined;
-  return buildConsoleUrl(target === "testing" ? "testflight" : "asc", "ios", appId);
+  const appId =
+    (await new AppStoreConnectClient(ascKey).getAppId(bundleId).catch(() => null)) ?? undefined;
+  return buildConsoleUrl(target === 'testing' ? 'testflight' : 'asc', 'ios', appId);
 }
 
 /** Inputs for the end-of-run {@link renderReceipt} summary. */

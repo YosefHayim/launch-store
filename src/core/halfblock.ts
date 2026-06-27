@@ -30,7 +30,7 @@ export interface Cell {
 export type Grid = Cell[][];
 
 /** How much color to emit. `truecolor` for exact brand hex, `ansi256` for the downsampled fallback. */
-export type ColorDepth = "none" | "ansi256" | "truecolor";
+export type ColorDepth = 'none' | 'ansi256' | 'truecolor';
 
 /** Value-equality for optional colors, so same-color cell runs coalesce into one ANSI span. */
 function sameColor(a?: Rgb, b?: Rgb): boolean {
@@ -52,29 +52,31 @@ function to256([r, g, b]: Rgb): number {
 
 /** Build one SGR color parameter for the 38 (foreground) or 48 (background) channel at a given depth. */
 function colorParam(channel: 38 | 48, rgb: Rgb, depth: ColorDepth): string {
-  return depth === "truecolor" ? `${channel};2;${rgb[0]};${rgb[1]};${rgb[2]}` : `${channel};5;${to256(rgb)}`;
+  return depth === 'truecolor'
+    ? `${channel};2;${rgb[0]};${rgb[1]};${rgb[2]}`
+    : `${channel};5;${to256(rgb)}`;
 }
 
 /** Wrap text in an SGR sequence for the given fg/bg. Built with `\x1b` (no raw byte) to stay greppable. */
 function paint(text: string, fg: Rgb | undefined, bg: Rgb | undefined, depth: ColorDepth): string {
-  if (depth === "none" || (!fg && !bg)) return text;
+  if (depth === 'none' || (!fg && !bg)) return text;
   const params: string[] = [];
   if (fg) params.push(colorParam(38, fg, depth));
   if (bg) params.push(colorParam(48, bg, depth));
-  return `\x1b[${params.join(";")}m${text}\x1b[0m`;
+  return `\x1b[${params.join(';')}m${text}\x1b[0m`;
 }
 
 /** Render a row to a string, coalescing runs of same-color cells into one ANSI span (or plain text). */
 function renderRow(row: Cell[], depth: ColorDepth): string {
-  if (depth === "none") return row.map((cell) => cell.ch).join("");
-  let out = "";
+  if (depth === 'none') return row.map((cell) => cell.ch).join('');
+  let out = '';
   let i = 0;
   while (i < row.length) {
     const fg = row[i]?.fg;
     const bg = row[i]?.bg;
-    let text = "";
+    let text = '';
     while (i < row.length && sameColor(row[i]?.fg, fg) && sameColor(row[i]?.bg, bg)) {
-      text += row[i]?.ch ?? " ";
+      text += row[i]?.ch ?? ' ';
       i++;
     }
     out += paint(text, fg, bg, depth);
@@ -84,5 +86,5 @@ function renderRow(row: Cell[], depth: ColorDepth): string {
 
 /** Render a whole grid to a frame string: one line per row, same-color cell runs coalesced. */
 export function renderBuffer(grid: Grid, depth: ColorDepth): string {
-  return grid.map((row) => renderRow(row, depth)).join("\n");
+  return grid.map((row) => renderRow(row, depth)).join('\n');
 }

@@ -8,9 +8,9 @@
  * instead of a recipe that silently tells an agent to run a command that doesn't exist.
  */
 
-import type { Command } from "commander";
-import { CONSUMER_SKILLS } from "./registry.js";
-import type { ConsumerSkill } from "./types.js";
+import type { Command } from 'commander';
+import { CONSUMER_SKILLS } from './registry.js';
+import type { ConsumerSkill } from './types.js';
 
 /**
  * Whether a command path (subcommand names only, no args) resolves in the program tree. Descends one
@@ -32,12 +32,16 @@ function pathResolves(program: Command, path: string[]): boolean {
  * Empty means the registry is in sync with the CLI. Checks both each skill's happy-path `steps` and its
  * `reference.commands`, so the bundled reference can't rot either.
  */
-export function findUnknownCommands(program: Command, skills: ConsumerSkill[] = CONSUMER_SKILLS): string[] {
+export function findUnknownCommands(
+  program: Command,
+  skills: ConsumerSkill[] = CONSUMER_SKILLS,
+): string[] {
   const unknown: string[] = [];
   for (const skill of skills) {
     const steps = [...skill.steps, ...(skill.reference?.commands ?? [])];
     for (const step of steps) {
-      if (!pathResolves(program, step.path)) unknown.push(`${skill.id}: launch ${step.path.join(" ")}`);
+      if (!pathResolves(program, step.path))
+        unknown.push(`${skill.id}: launch ${step.path.join(' ')}`);
     }
   }
   return unknown;

@@ -13,7 +13,7 @@ import type {
   ReviewDatum,
   Sentiment,
   StarRating,
-} from "./types.js";
+} from './types.js';
 
 /** The star levels, fixed so the distribution always has all five keys (even at zero). */
 const STARS: readonly StarRating[] = [1, 2, 3, 4, 5];
@@ -25,9 +25,9 @@ function round1(value: number): number {
 
 /** Map a star rating to its sentiment bucket: 4–5 positive, 3 neutral, 1–2 negative. */
 export function sentimentOf(rating: StarRating): Sentiment {
-  if (rating >= 4) return "positive";
-  if (rating === 3) return "neutral";
-  return "negative";
+  if (rating >= 4) return 'positive';
+  if (rating === 3) return 'neutral';
+  return 'negative';
 }
 
 /**
@@ -86,8 +86,8 @@ export function monthlyTrend(reviews: readonly ReviewDatum[]): MonthlyRatingPoin
  * for each store that returned at least one review, and the monthly trend across all of them.
  */
 export function buildAppInsights(app: string, reviews: readonly ReviewDatum[]): AppInsights {
-  const byStore: AppInsights["byStore"] = {};
-  for (const store of ["appstore", "play"] as const) {
+  const byStore: AppInsights['byStore'] = {};
+  for (const store of ['appstore', 'play'] as const) {
     const subset = reviews.filter((review) => review.store === store);
     if (subset.length > 0) byStore[store] = summarizeRatings(subset);
   }

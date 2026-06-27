@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import type { BuildArtifact, KeystoreAssets } from "../../core/types.js";
+import { describe, expect, it } from 'vitest';
+import type { BuildArtifact, KeystoreAssets } from '../../core/types.js';
 import {
   androidResignSpec,
   assertResignablePlatform,
@@ -9,95 +9,105 @@ import {
   securityCmsArgs,
   unzipArgs,
   zipArgs,
-} from "./resign.js";
+} from './resign.js';
 
 const ipa: BuildArtifact = {
-  path: "/store/looopi-1.2.0-42-ios.ipa",
-  platform: "ios",
-  appName: "looopi",
-  profile: "production",
-  version: "1.2.0",
+  path: '/store/looopi-1.2.0-42-ios.ipa',
+  platform: 'ios',
+  appName: 'looopi',
+  profile: 'production',
+  version: '1.2.0',
   buildNumber: 42,
   sizeReport: { artifactBytes: 1, entries: [] },
   clean: true,
-  createdAt: "2026-06-14T00:00:00.000Z",
+  createdAt: '2026-06-14T00:00:00.000Z',
 };
 
 // Synthetic keystore secrets, assembled at runtime so no hardcoded `password: "…"` literal — which a
 // secret scanner reads as a credential regardless of the value — sits in the source.
-const storePassword = ["test", "store", "pw"].join("-");
-const keyPassword = ["test", "key", "pw"].join("-");
+const storePassword = ['test', 'store', 'pw'].join('-');
+const keyPassword = ['test', 'key', 'pw'].join('-');
 
 const keystore: KeystoreAssets = {
-  path: "/ks/upload.jks",
-  alias: "upload",
+  path: '/ks/upload.jks',
+  alias: 'upload',
   storePassword,
   keyPassword,
 };
 
-describe("assertResignablePlatform", () => {
-  it("allows the `.ipa` Apple platforms and Android, rejects only macOS `.pkg`", () => {
-    for (const platform of ["ios", "tvos", "visionos", "android"] as const) {
+describe('assertResignablePlatform', () => {
+  it('allows the `.ipa` Apple platforms and Android, rejects only macOS `.pkg`', () => {
+    for (const platform of ['ios', 'tvos', 'visionos', 'android'] as const) {
       expect(() => {
         assertResignablePlatform(platform);
       }).not.toThrow();
     }
     expect(() => {
-      assertResignablePlatform("macos");
+      assertResignablePlatform('macos');
     }).toThrow(/macOS builds are `\.pkg` installers/);
   });
 });
 
-describe("resignOutputPath", () => {
-  it("names the output by natural keys with a -resigned suffix and the source extension", () => {
-    expect(resignOutputPath(ipa, "/out")).toBe("/out/looopi-1.2.0-42-resigned.ipa");
+describe('resignOutputPath', () => {
+  it('names the output by natural keys with a -resigned suffix and the source extension', () => {
+    expect(resignOutputPath(ipa, '/out')).toBe('/out/looopi-1.2.0-42-resigned.ipa');
   });
 });
 
-describe("iOS arg builders", () => {
-  it("produce the expected unzip/zip/cms/PlistBuddy/codesign vectors", () => {
-    expect(unzipArgs("/a.ipa", "/w")).toEqual(["-oq", "/a.ipa", "-d", "/w"]);
-    expect(zipArgs("/out.ipa")).toEqual(["-qr", "/out.ipa", "Payload"]);
-    expect(securityCmsArgs("/p.mobileprovision")).toEqual(["cms", "-D", "-i", "/p.mobileprovision"]);
-    expect(plistBuddyEntitlementsArgs("/p.plist")).toEqual(["-x", "-c", "Print :Entitlements", "/p.plist"]);
-    expect(iosCodesignArgs("/w/Payload/App.app", "Apple Distribution", "/w/ent.plist")).toEqual([
-      "-f",
-      "-s",
-      "Apple Distribution",
-      "--entitlements",
-      "/w/ent.plist",
-      "/w/Payload/App.app",
+describe('iOS arg builders', () => {
+  it('produce the expected unzip/zip/cms/PlistBuddy/codesign vectors', () => {
+    expect(unzipArgs('/a.ipa', '/w')).toEqual(['-oq', '/a.ipa', '-d', '/w']);
+    expect(zipArgs('/out.ipa')).toEqual(['-qr', '/out.ipa', 'Payload']);
+    expect(securityCmsArgs('/p.mobileprovision')).toEqual([
+      'cms',
+      '-D',
+      '-i',
+      '/p.mobileprovision',
+    ]);
+    expect(plistBuddyEntitlementsArgs('/p.plist')).toEqual([
+      '-x',
+      '-c',
+      'Print :Entitlements',
+      '/p.plist',
+    ]);
+    expect(iosCodesignArgs('/w/Payload/App.app', 'Apple Distribution', '/w/ent.plist')).toEqual([
+      '-f',
+      '-s',
+      'Apple Distribution',
+      '--entitlements',
+      '/w/ent.plist',
+      '/w/Payload/App.app',
     ]);
   });
 });
 
-describe("androidResignSpec", () => {
-  it("uses apksigner for an .apk, passing passwords via env (never argv)", () => {
-    const spec = androidResignSpec("/out.apk", keystore);
-    expect(spec.command).toBe("apksigner");
+describe('androidResignSpec', () => {
+  it('uses apksigner for an .apk, passing passwords via env (never argv)', () => {
+    const spec = androidResignSpec('/out.apk', keystore);
+    expect(spec.command).toBe('apksigner');
     expect(spec.args).toEqual([
-      "sign",
-      "--ks",
-      "/ks/upload.jks",
-      "--ks-pass",
-      "env:LAUNCH_KS_STOREPASS",
-      "--ks-key-alias",
-      "upload",
-      "--key-pass",
-      "env:LAUNCH_KS_KEYPASS",
-      "/out.apk",
+      'sign',
+      '--ks',
+      '/ks/upload.jks',
+      '--ks-pass',
+      'env:LAUNCH_KS_STOREPASS',
+      '--ks-key-alias',
+      'upload',
+      '--key-pass',
+      'env:LAUNCH_KS_KEYPASS',
+      '/out.apk',
     ]);
     expect(spec.args).not.toContain(storePassword);
-    expect(spec.env["LAUNCH_KS_STOREPASS"]).toBe(storePassword);
+    expect(spec.env['LAUNCH_KS_STOREPASS']).toBe(storePassword);
   });
 
-  it("uses jarsigner for an .aab, alias last, passwords via :env", () => {
-    const spec = androidResignSpec("/out.aab", keystore);
-    expect(spec.command).toBe("jarsigner");
-    expect(spec.args).toContain("-storepass:env");
-    expect(spec.args).toContain("LAUNCH_KS_STOREPASS");
-    expect(spec.args[spec.args.length - 1]).toBe("upload");
+  it('uses jarsigner for an .aab, alias last, passwords via :env', () => {
+    const spec = androidResignSpec('/out.aab', keystore);
+    expect(spec.command).toBe('jarsigner');
+    expect(spec.args).toContain('-storepass:env');
+    expect(spec.args).toContain('LAUNCH_KS_STOREPASS');
+    expect(spec.args[spec.args.length - 1]).toBe('upload');
     expect(spec.args).not.toContain(storePassword);
-    expect(spec.env["LAUNCH_KS_KEYPASS"]).toBe(keyPassword);
+    expect(spec.env['LAUNCH_KS_KEYPASS']).toBe(keyPassword);
   });
 });

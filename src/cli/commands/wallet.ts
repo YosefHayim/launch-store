@@ -9,15 +9,15 @@
  * `list` shows what's currently registered. There's no `--app`: these belong to the team, not an app.
  */
 
-import { cancel, confirm, isCancel } from "@clack/prompts";
-import type { Command } from "commander";
-import type { PlannedAction } from "../../core/ascSync.js";
-import { AppStoreConnectClient } from "../../apple/ascClient.js";
-import { loadActiveAscKey } from "../../core/accounts.js";
-import { loadConfig, resolveSidecarConfig } from "../../core/config.js";
-import { createLogger } from "../../core/logger.js";
-import { summarize } from "../../core/asc/storeSync.js";
-import { loadWalletConfig, reconcileWalletIds } from "../../core/walletIds.js";
+import { cancel, confirm, isCancel } from '@clack/prompts';
+import type { Command } from 'commander';
+import type { PlannedAction } from '../../core/ascSync.js';
+import { AppStoreConnectClient } from '../../apple/ascClient.js';
+import { loadActiveAscKey } from '../../core/accounts.js';
+import { loadConfig, resolveSidecarConfig } from '../../core/config.js';
+import { createLogger } from '../../core/logger.js';
+import { summarize } from '../../core/asc/storeSync.js';
+import { loadWalletConfig, reconcileWalletIds } from '../../core/walletIds.js';
 
 /** CLI options for the default `launch wallet` reconcile. */
 interface WalletOptions {
@@ -29,7 +29,7 @@ interface WalletOptions {
 /** Build a client bound to the active Apple account, or fail with the onboarding hint. */
 async function activeClient(): Promise<AppStoreConnectClient> {
   const ascKey = await loadActiveAscKey();
-  if (!ascKey) throw new Error("No active Apple account. Run `launch creds set-key` first.");
+  if (!ascKey) throw new Error('No active Apple account. Run `launch creds set-key` first.');
   return new AppStoreConnectClient(ascKey);
 }
 
@@ -38,7 +38,8 @@ async function activeClient(): Promise<AppStoreConnectClient> {
  * registration. (Identifier reconcile never skips.) Exported for tests.
  */
 export function renderAction(action: PlannedAction): string {
-  if (action.status === "failed") return `✗ ${action.description}${action.error ? ` — ${action.error}` : ""}`;
+  if (action.status === 'failed')
+    return `✗ ${action.description}${action.error ? ` — ${action.error}` : ''}`;
   return `+ ${action.description}`;
 }
 
@@ -49,11 +50,13 @@ async function runReconcile(options: WalletOptions, command: Command): Promise<v
   const config = resolveSidecarConfig({
     typed: launchConfig.wallet,
     configPath: options.config,
-    explicitPath: command.getOptionValueSource("config") === "cli",
+    explicitPath: command.getOptionValueSource('config') === 'cli',
     load: loadWalletConfig,
   });
   if (!config) {
-    throw new Error(`No wallet config. Add a \`wallet\` field to launch.config.ts or create ${options.config}.`);
+    throw new Error(
+      `No wallet config. Add a \`wallet\` field to launch.config.ts or create ${options.config}.`,
+    );
   }
   const client = await activeClient();
 
@@ -61,25 +64,27 @@ async function runReconcile(options: WalletOptions, command: Command): Promise<v
 
   log.gap();
   if (plan.length === 0) {
-    log.step("wallet", "merchant ids & pass type ids already registered");
+    log.step('wallet', 'merchant ids & pass type ids already registered');
     return;
   }
-  log.notice("Apple Pay / Wallet identifiers", ...plan.map(renderAction));
+  log.notice('Apple Pay / Wallet identifiers', ...plan.map(renderAction));
 
   log.gap();
   log.info(`${plan.length} identifier(s) to register.`);
   if (options.dryRun === true) {
-    log.info("Dry run — no changes made. Re-run without --dry-run to apply.");
+    log.info('Dry run — no changes made. Re-run without --dry-run to apply.');
     return;
   }
 
   if (options.yes !== true) {
     if (!process.stdout.isTTY) {
-      throw new Error("Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).");
+      throw new Error(
+        'Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).',
+      );
     }
     const proceed = await confirm({ message: `Register ${plan.length} identifier(s)?` });
     if (isCancel(proceed) || !proceed) {
-      cancel("Aborted — no changes made.");
+      cancel('Aborted — no changes made.');
       return;
     }
   }
@@ -87,40 +92,49 @@ async function runReconcile(options: WalletOptions, command: Command): Promise<v
   const applied = await reconcileWalletIds(client, config, false);
   const summary = summarize(applied);
   const rows = applied.map((action) =>
-    action.status === "failed" ? `✗ ${action.description} — ${action.error ?? "failed"}` : `✓ ${action.description}`,
+    action.status === 'failed'
+      ? `✗ ${action.description} — ${action.error ?? 'failed'}`
+      : `✓ ${action.description}`,
   );
-  log.box(summary.failed > 0 ? "Registered with errors" : "Identifiers registered", rows);
+  log.box(summary.failed > 0 ? 'Registered with errors' : 'Identifiers registered', rows);
   if (summary.failed > 0) process.exitCode = 1;
 }
 
 /** Attach the `wallet` command (identifier reconcile) and its `list` subcommand to the program. */
 export function registerWalletCommand(program: Command): void {
   const wallet = program
-    .command("wallet")
-    .description("register Apple Pay merchant ids & Wallet pass type ids from wallet.config.json")
-    .option("--config <path>", "path to the wallet config file", "wallet.config.json")
-    .option("--dry-run", "print the plan and exit, making no changes", false)
-    .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
+    .command('wallet')
+    .description('register Apple Pay merchant ids & Wallet pass type ids from wallet.config.json')
+    .option('--config <path>', 'path to the wallet config file', 'wallet.config.json')
+    .option('--dry-run', 'print the plan and exit, making no changes', false)
+    .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action((options: WalletOptions, command: Command) => runReconcile(options, command));
 
   wallet
-    .command("list")
+    .command('list')
     .description("show the team's registered Apple Pay merchant ids and Wallet pass type ids")
     .action(async () => {
       const log = createLogger(false);
       const client = await activeClient();
-      const [merchantIds, passTypeIds] = await Promise.all([client.listMerchantIds(), client.listPassTypeIds()]);
+      const [merchantIds, passTypeIds] = await Promise.all([
+        client.listMerchantIds(),
+        client.listPassTypeIds(),
+      ]);
       log.notice(
-        "Apple Pay merchant ids",
+        'Apple Pay merchant ids',
         ...(merchantIds.length > 0
-          ? merchantIds.map((entry) => `• ${entry.identifier ?? "?"}${entry.name ? ` (${entry.name})` : ""}`)
-          : ["• none registered"]),
+          ? merchantIds.map(
+              (entry) => `• ${entry.identifier ?? '?'}${entry.name ? ` (${entry.name})` : ''}`,
+            )
+          : ['• none registered']),
       );
       log.notice(
-        "Wallet pass type ids",
+        'Wallet pass type ids',
         ...(passTypeIds.length > 0
-          ? passTypeIds.map((entry) => `• ${entry.identifier ?? "?"}${entry.name ? ` (${entry.name})` : ""}`)
-          : ["• none registered"]),
+          ? passTypeIds.map(
+              (entry) => `• ${entry.identifier ?? '?'}${entry.name ? ` (${entry.name})` : ''}`,
+            )
+          : ['• none registered']),
       );
     });
 }

@@ -13,9 +13,9 @@
  * commandReference (`docs/commands.md`) · llmsTxt (`llms.txt`) · readme (the generated README regions).
  */
 
-export * from "./commandDocs/types.js";
-export * from "./commandDocs/content.js";
-export * from "./commandDocs/common.js";
-export * from "./commandDocs/commandReference.js";
-export * from "./commandDocs/llmsTxt.js";
-export * from "./commandDocs/readme.js";
+export * from './commandDocs/types.js';
+export * from './commandDocs/content.js';
+export * from './commandDocs/common.js';
+export * from './commandDocs/commandReference.js';
+export * from './commandDocs/llmsTxt.js';
+export * from './commandDocs/readme.js';

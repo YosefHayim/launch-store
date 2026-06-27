@@ -20,16 +20,21 @@
  * over the live `PUBLISHED` declaration when both exist for a family.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from 'node:fs';
 import {
   ACCESSIBILITY_SUPPORT_KEYS,
   DEVICE_FAMILIES,
   type AccessibilityDeclarationResource,
   type AccessibilitySupport,
   type DeviceFamily,
-} from "../apple/ascClient.js";
-import { appRecordMissing, plan, type PlannedAction, type ReconcileContext } from "./asc/storeSync.js";
-import { errorMessage } from "./errorMessage.js";
+} from '../apple/ascClient.js';
+import {
+  appRecordMissing,
+  plan,
+  type PlannedAction,
+  type ReconcileContext,
+} from './asc/storeSync.js';
+import { errorMessage } from './errorMessage.js';
 
 /** One declared accessibility declaration: a device family plus the nine support flags it claims (all optional). */
 export interface AccessibilityDeclarationConfig extends AccessibilitySupport {
@@ -94,9 +99,9 @@ function indexEditableByFamily(
 ): Map<DeviceFamily, AccessibilityDeclarationResource> {
   const byFamily = new Map<DeviceFamily, AccessibilityDeclarationResource>();
   for (const declaration of declarations) {
-    if (declaration.state === "REPLACED") continue;
+    if (declaration.state === 'REPLACED') continue;
     const existing = byFamily.get(declaration.deviceFamily);
-    if (!existing || (existing.state === "PUBLISHED" && declaration.state === "DRAFT")) {
+    if (!existing || (existing.state === 'PUBLISHED' && declaration.state === 'DRAFT')) {
       byFamily.set(declaration.deviceFamily, declaration);
     }
   }
@@ -116,7 +121,7 @@ export async function reconcileAccessibility(
   const publish = input.config.publish === true;
 
   const appId = await api.getAppId(input.bundleId);
-  if (!appId) throw appRecordMissing(input.bundleId, "accessibility");
+  if (!appId) throw appRecordMissing(input.bundleId, 'accessibility');
 
   const byFamily = indexEditableByFamily(await api.listAccessibilityDeclarations(appId));
 
@@ -139,25 +144,27 @@ async function createDeclaration(
   publish: boolean,
 ): Promise<void> {
   const create = plan(ctx, `create accessibility declaration (${deviceFamily})`);
-  const publishAction = publish ? plan(ctx, `publish accessibility declaration (${deviceFamily})`) : null;
+  const publishAction = publish
+    ? plan(ctx, `publish accessibility declaration (${deviceFamily})`)
+    : null;
   if (ctx.dryRun) return;
 
   let created: AccessibilityDeclarationResource;
   try {
     created = await api.createAccessibilityDeclaration(appId, deviceFamily, desired);
-    create.status = "applied";
+    create.status = 'applied';
   } catch (error) {
-    create.status = "failed";
+    create.status = 'failed';
     create.error = errorMessage(error);
-    if (publishAction) publishAction.status = "skipped";
+    if (publishAction) publishAction.status = 'skipped';
     return;
   }
   if (publishAction) {
     try {
       await api.updateAccessibilityDeclaration(created.id, { publish: true });
-      publishAction.status = "applied";
+      publishAction.status = 'applied';
     } catch (error) {
-      publishAction.status = "failed";
+      publishAction.status = 'failed';
       publishAction.error = errorMessage(error);
     }
   }
@@ -174,13 +181,13 @@ async function updateDeclaration(
   const changed = !supportEquals(current.support, desired);
   // Publish when asked AND the change isn't already live: an edit must be re-published, and a standing
   // draft must be promoted. An unchanged, already-PUBLISHED declaration needs nothing.
-  const shouldPublish = publish && (changed || current.state !== "PUBLISHED");
+  const shouldPublish = publish && (changed || current.state !== 'PUBLISHED');
   if (!changed && !shouldPublish) return;
 
   const action = plan(
     ctx,
     changed
-      ? `update accessibility declaration (${current.deviceFamily})${shouldPublish ? " + publish" : ""}`
+      ? `update accessibility declaration (${current.deviceFamily})${shouldPublish ? ' + publish' : ''}`
       : `publish accessibility declaration (${current.deviceFamily})`,
   );
   if (ctx.dryRun) return;
@@ -189,25 +196,30 @@ async function updateDeclaration(
   if (shouldPublish) changes.publish = true;
   try {
     await api.updateAccessibilityDeclaration(current.id, changes);
-    action.status = "applied";
+    action.status = 'applied';
   } catch (error) {
-    action.status = "failed";
+    action.status = 'failed';
     action.error = errorMessage(error);
   }
 }
 
 /** Narrow an unknown value to a plain object, or null. Arrays are rejected so a malformed section fails loudly. */
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
 }
 
 /** Read an optional boolean field, throwing a located error when present but not a boolean. */
-function optionalBoolean(record: Record<string, unknown>, key: string, where: string): boolean | undefined {
+function optionalBoolean(
+  record: Record<string, unknown>,
+  key: string,
+  where: string,
+): boolean | undefined {
   const value = record[key];
   if (value === undefined) return undefined;
-  if (typeof value !== "boolean") throw new Error(`accessibility.config.json: ${where}.${key} must be a boolean.`);
+  if (typeof value !== 'boolean')
+    throw new Error(`accessibility.config.json: ${where}.${key} must be a boolean.`);
   return value;
 }
 
@@ -222,9 +234,11 @@ function parseDeclaration(raw: unknown, index: number): AccessibilityDeclaration
   const where = `declarations[${index}]`;
   if (!record) throw new Error(`accessibility.config.json: ${where} must be an object.`);
 
-  const deviceFamily = record["deviceFamily"];
-  if (typeof deviceFamily !== "string" || !isDeviceFamily(deviceFamily)) {
-    throw new Error(`accessibility.config.json: ${where}.deviceFamily must be one of ${DEVICE_FAMILIES.join(", ")}.`);
+  const deviceFamily = record['deviceFamily'];
+  if (typeof deviceFamily !== 'string' || !isDeviceFamily(deviceFamily)) {
+    throw new Error(
+      `accessibility.config.json: ${where}.deviceFamily must be one of ${DEVICE_FAMILIES.join(', ')}.`,
+    );
   }
 
   const config: AccessibilityDeclarationConfig = { deviceFamily };
@@ -242,14 +256,16 @@ function parseDeclaration(raw: unknown, index: number): AccessibilityDeclaration
  */
 export function parseAccessibilityConfig(raw: unknown): AccessibilityConfig {
   const record = asRecord(raw);
-  if (!record) throw new Error("accessibility.config.json must be a JSON object.");
+  if (!record) throw new Error('accessibility.config.json must be a JSON object.');
 
-  const rawDeclarations = record["declarations"];
+  const rawDeclarations = record['declarations'];
   if (!Array.isArray(rawDeclarations)) {
     throw new Error('accessibility.config.json: "declarations" must be an array.');
   }
   if (rawDeclarations.length === 0) {
-    throw new Error('accessibility.config.json must declare at least one entry under "declarations".');
+    throw new Error(
+      'accessibility.config.json must declare at least one entry under "declarations".',
+    );
   }
   const declarations = rawDeclarations.map(parseDeclaration);
 
@@ -264,9 +280,10 @@ export function parseAccessibilityConfig(raw: unknown): AccessibilityConfig {
   }
 
   const config: AccessibilityConfig = { declarations };
-  const publish = record["publish"];
+  const publish = record['publish'];
   if (publish !== undefined) {
-    if (typeof publish !== "boolean") throw new Error('accessibility.config.json: "publish" must be a boolean.');
+    if (typeof publish !== 'boolean')
+      throw new Error('accessibility.config.json: "publish" must be a boolean.');
     config.publish = publish;
   }
   return config;
@@ -279,18 +296,22 @@ export function loadAccessibilityConfig(path: string): AccessibilityConfig {
       `No accessibility config at ${path}. Create one (see \`launch accessibility --help\`) or pass --config.`,
     );
   }
-  return parseAccessibilityConfig(JSON.parse(readFileSync(path, "utf8")));
+  return parseAccessibilityConfig(JSON.parse(readFileSync(path, 'utf8')));
 }
 
 /** Tally a report's action statuses for the run summary (mirrors the other store-sync commands). */
-export function summarizeAccessibility(actions: PlannedAction[]): { applied: number; failed: number; skipped: number } {
+export function summarizeAccessibility(actions: PlannedAction[]): {
+  applied: number;
+  failed: number;
+  skipped: number;
+} {
   let applied = 0;
   let failed = 0;
   let skipped = 0;
   for (const action of actions) {
-    if (action.status === "applied") applied++;
-    else if (action.status === "failed") failed++;
-    else if (action.status === "skipped") skipped++;
+    if (action.status === 'applied') applied++;
+    else if (action.status === 'failed') failed++;
+    else if (action.status === 'skipped') skipped++;
   }
   return { applied, failed, skipped };
 }

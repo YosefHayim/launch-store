@@ -12,7 +12,7 @@
  * Play. Use {@link import("../platform.js").isApplePlatform} rather than `=== "ios"` to branch the
  * Apple-vs-Android toolchain, so the three newer Apple platforms aren't silently routed to Android.
  */
-export type Platform = "ios" | "android" | "tvos" | "macos" | "visionos";
+export type Platform = 'ios' | 'android' | 'tvos' | 'macos' | 'visionos';
 
 /**
  * Where an iOS build runs, as picked in the `launch` wizard. `local` is the host Mac's own Xcode;
@@ -20,7 +20,7 @@ export type Platform = "ios" | "android" | "tvos" | "macos" | "visionos";
  * locally (gradle on the host), so this only varies for iOS. Persisted in a remembered wizard flow
  * (see {@link import("../lastRun.js").LastFlow}) so the next run can replay it.
  */
-export type BuildLocation = "local" | "aws" | "ssh" | "eas";
+export type BuildLocation = 'local' | 'aws' | 'ssh' | 'eas';
 
 /**
  * How a build is distributed.
@@ -30,7 +30,7 @@ export type BuildLocation = "local" | "aws" | "ssh" | "eas";
  *   user's own bucket with an `itms-services` manifest + landing page. The EAS "internal distribution"
  *   equivalent, with no shared cloud queue.
  */
-export type Distribution = "store" | "internal";
+export type Distribution = 'store' | 'internal';
 
 /**
  * Where a submission lands, neutrally named and mapped to each store by the platform's submitter.
@@ -39,14 +39,14 @@ export type Distribution = "store" | "internal";
  * - `production`: the store's public release queue (iOS App Store review / Android production track).
  *   Reached only by the deliberate `launch release` command.
  */
-export type SubmitTarget = "testing" | "production";
+export type SubmitTarget = 'testing' | 'production';
 
 /**
  * A Google Play release track. `internal` is the safe default: a new personal Play account must run
  * ~20 testers for 14 days on a testing track before production is unlocked, so defaulting anywhere
  * else would fail for fresh accounts. Has no iOS equivalent.
  */
-export type PlayTrack = "internal" | "closed" | "open" | "production";
+export type PlayTrack = 'internal' | 'closed' | 'open' | 'production';
 
 /**
  * Which web console page `launch open` deep-links to. Each value maps to a per-platform URL in
@@ -61,7 +61,14 @@ export type PlayTrack = "internal" | "closed" | "open" | "production";
  * - `agreements`: the account's agreements, tax, and banking page (no per-app id).
  * - `app-record`: the app's record page — the one step the API can't create (see the `app-record` glossary topic).
  */
-export type OpenTarget = "asc" | "play" | "testflight" | "listing" | "reviews" | "agreements" | "app-record";
+export type OpenTarget =
+  | 'asc'
+  | 'play'
+  | 'testflight'
+  | 'listing'
+  | 'reviews'
+  | 'agreements'
+  | 'app-record';
 
 /**
  * Resolved Android release settings for one invocation, carried on {@link ResolvedBuildContext} so the
@@ -80,7 +87,7 @@ export interface AndroidReleaseOptions {
  * separate resources (`betaFeedbackCrashSubmissions` / `betaFeedbackScreenshotSubmissions`), which is
  * also the discriminant `launch testflight feedback --type` filters on.
  */
-export type BetaFeedbackKind = "crash" | "screenshot";
+export type BetaFeedbackKind = 'crash' | 'screenshot';
 
 /**
  * One TestFlight screenshot attachment on a {@link BetaFeedback} — a presigned image URL plus its

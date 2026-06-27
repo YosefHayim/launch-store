@@ -14,11 +14,11 @@
  * they live here beside the feature rather than in `core/types.ts`.
  */
 
-import type { AscPermissionProbeApi } from "../ascPermissions.js";
-import type { AppDescriptor, HostOs, LaunchConfig } from "../types.js";
+import type { AscPermissionProbeApi } from '../ascPermissions.js';
+import type { AppDescriptor, HostOs, LaunchConfig } from '../types.js';
 
 /** The platform a doctor run targets — the same `ios` (default) / `android` split the build pipeline uses. */
-export type DoctorPlatform = "ios" | "android";
+export type DoctorPlatform = 'ios' | 'android';
 
 /**
  * The status of one doctor check, mapped to a glyph by the CLI renderer:
@@ -28,7 +28,7 @@ export type DoctorPlatform = "ios" | "android";
  * - `info` (•) — advisory or not-yet-provisioned state that does NOT fail the run (a recommended-only
  *   tool, a one-time manual step, a key-role gap).
  */
-export type DoctorStatus = "ok" | "fail" | "info";
+export type DoctorStatus = 'ok' | 'fail' | 'info';
 
 /**
  * One line of the doctor report. `title` is the headline shown after the glyph; `detail` carries extra

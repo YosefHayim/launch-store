@@ -12,11 +12,11 @@
  * version, so the scaffolded files always match the Launch the user actually has.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import type { Command } from "commander";
-import { cancel, confirm, intro, isCancel, multiselect, note, outro } from "@clack/prompts";
-import { CONSUMER_SKILLS } from "../../core/agents/registry.js";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import type { Command } from 'commander';
+import { cancel, confirm, intro, isCancel, multiselect, note, outro } from '@clack/prompts';
+import { CONSUMER_SKILLS } from '../../core/agents/registry.js';
 import {
   MANAGED_END,
   MANAGED_START,
@@ -26,19 +26,19 @@ import {
   renderCursorBaseRule,
   renderCursorTaskRule,
   spliceManagedBlock,
-} from "../../core/agents/render.js";
-import type { AgentTarget } from "../../core/agents/types.js";
-import { findUnknownCommands } from "../../core/agents/validate.js";
-import { clientConfigPath, installServer, type McpClient } from "../../core/mcp/install.js";
+} from '../../core/agents/render.js';
+import type { AgentTarget } from '../../core/agents/types.js';
+import { findUnknownCommands } from '../../core/agents/validate.js';
+import { clientConfigPath, installServer, type McpClient } from '../../core/mcp/install.js';
 
 /** The three supported agents, in display order. */
-const ALL_TARGETS: AgentTarget[] = ["claude", "cursor", "codex"];
+const ALL_TARGETS: AgentTarget[] = ['claude', 'cursor', 'codex'];
 
 /** Short label per agent for the interactive picker. */
 const TARGET_LABELS: Record<AgentTarget, string> = {
-  claude: "Claude  (.claude/skills + CLAUDE.md)",
-  cursor: "Cursor  (.cursor/rules)",
-  codex: "Codex   (AGENTS.md)",
+  claude: 'Claude  (.claude/skills + CLAUDE.md)',
+  cursor: 'Cursor  (.cursor/rules)',
+  codex: 'Codex   (AGENTS.md)',
 };
 
 /**
@@ -48,8 +48,8 @@ const TARGET_LABELS: Record<AgentTarget, string> = {
  * `launch mcp install --client`.
  */
 const TARGET_MCP_CLIENT: Partial<Record<AgentTarget, McpClient>> = {
-  claude: "claude-code",
-  cursor: "cursor",
+  claude: 'claude-code',
+  cursor: 'cursor',
 };
 
 /** The MCP clients to wire for a target set — the same merge routine `launch mcp install` uses. */
@@ -63,7 +63,9 @@ function mcpClientsFor(targets: AgentTarget[]): McpClient[] {
 }
 
 /** One planned artifact: an `owned` file rewritten whole, or a `spliced` managed block inside a shared file. */
-type Artifact = { kind: "owned"; path: string; body: string } | { kind: "spliced"; path: string; block: string };
+type Artifact =
+  | { kind: 'owned'; path: string; body: string }
+  | { kind: 'spliced'; path: string; block: string };
 
 /** Flags shared by `init` and `check`. */
 interface AgentsOptions {
@@ -81,19 +83,19 @@ interface AgentsOptions {
 export function detectTargets(cwd: string): AgentTarget[] {
   const has = (relative: string): boolean => existsSync(join(cwd, relative));
   const targets: AgentTarget[] = [];
-  if (has(".claude") || has("CLAUDE.md")) targets.push("claude");
-  if (has(".cursor") || has(".cursorrules")) targets.push("cursor");
-  if (has("AGENTS.md") || has(".codex")) targets.push("codex");
+  if (has('.claude') || has('CLAUDE.md')) targets.push('claude');
+  if (has('.cursor') || has('.cursorrules')) targets.push('cursor');
+  if (has('AGENTS.md') || has('.codex')) targets.push('codex');
   return targets;
 }
 
 /** Parse an explicit `--agent` value into a deduped, validated target list (`all` expands to everything). */
 export function parseAgentFlag(value: string): AgentTarget[] {
   const tokens = value
-    .split(",")
+    .split(',')
     .map((t) => t.trim().toLowerCase())
-    .filter((t) => t !== "");
-  if (tokens.includes("all")) return [...ALL_TARGETS];
+    .filter((t) => t !== '');
+  if (tokens.includes('all')) return [...ALL_TARGETS];
   const targets: AgentTarget[] = [];
   for (const token of tokens) {
     if (!ALL_TARGETS.includes(token as AgentTarget)) {
@@ -110,28 +112,28 @@ export function parseAgentFlag(value: string): AgentTarget[] {
  * `CLAUDE.md` block and the Skills, Cursor gets the base rule + one task rule per skill.
  */
 export function planArtifacts(targets: AgentTarget[], version: string): Artifact[] {
-  const wantClaude = targets.includes("claude");
-  const wantCursor = targets.includes("cursor");
-  const wantCodex = targets.includes("codex");
+  const wantClaude = targets.includes('claude');
+  const wantCursor = targets.includes('cursor');
+  const wantCodex = targets.includes('codex');
   const artifacts: Artifact[] = [];
 
   if (wantClaude || wantCodex) {
-    artifacts.push({ kind: "spliced", path: "AGENTS.md", block: renderAgentsBlock(version) });
+    artifacts.push({ kind: 'spliced', path: 'AGENTS.md', block: renderAgentsBlock(version) });
   }
   if (wantClaude) {
-    artifacts.push({ kind: "spliced", path: "CLAUDE.md", block: renderClaudeMemoryBlock(version) });
+    artifacts.push({ kind: 'spliced', path: 'CLAUDE.md', block: renderClaudeMemoryBlock(version) });
     for (const skill of CONSUMER_SKILLS) {
       for (const file of renderClaudeSkillFiles(skill, version)) {
-        artifacts.push({ kind: "owned", path: file.path, body: file.body });
+        artifacts.push({ kind: 'owned', path: file.path, body: file.body });
       }
     }
   }
   if (wantCursor) {
     const base = renderCursorBaseRule(version);
-    artifacts.push({ kind: "owned", path: base.path, body: base.body });
+    artifacts.push({ kind: 'owned', path: base.path, body: base.body });
     for (const skill of CONSUMER_SKILLS) {
       const rule = renderCursorTaskRule(skill, version);
-      artifacts.push({ kind: "owned", path: rule.path, body: rule.body });
+      artifacts.push({ kind: 'owned', path: rule.path, body: rule.body });
     }
   }
   return artifacts;
@@ -142,10 +144,10 @@ export function writeArtifacts(cwd: string, artifacts: Artifact[]): void {
   for (const artifact of artifacts) {
     const absolute = join(cwd, artifact.path);
     mkdirSync(dirname(absolute), { recursive: true });
-    if (artifact.kind === "owned") {
+    if (artifact.kind === 'owned') {
       writeFileSync(absolute, artifact.body);
     } else {
-      const existing = existsSync(absolute) ? readFileSync(absolute, "utf8") : "";
+      const existing = existsSync(absolute) ? readFileSync(absolute, 'utf8') : '';
       writeFileSync(absolute, spliceManagedBlock(existing, artifact.block));
     }
   }
@@ -160,8 +162,8 @@ export function findStaleArtifacts(cwd: string, artifacts: Artifact[]): string[]
       stale.push(`${artifact.path} (missing)`);
       continue;
     }
-    const current = readFileSync(absolute, "utf8");
-    if (artifact.kind === "owned") {
+    const current = readFileSync(absolute, 'utf8');
+    if (artifact.kind === 'owned') {
       if (current !== artifact.body) stale.push(artifact.path);
       continue;
     }
@@ -180,7 +182,9 @@ export function findStaleArtifacts(cwd: string, artifacts: Artifact[]): string[]
 function assertRegistryInSync(program: Command): void {
   const unknown = findUnknownCommands(program);
   if (unknown.length > 0) {
-    throw new Error(`Launch's agent registry is out of date with the CLI:\n  ${unknown.join("\n  ")}`);
+    throw new Error(
+      `Launch's agent registry is out of date with the CLI:\n  ${unknown.join('\n  ')}`,
+    );
   }
 }
 
@@ -195,12 +199,12 @@ async function resolveTargets(cwd: string, options: AgentsOptions): Promise<Agen
   if (options.yes === true || !process.stdin.isTTY) return [...ALL_TARGETS];
 
   const picked = await multiselect({
-    message: "No agent config detected — which agents should Launch set up?",
+    message: 'No agent config detected — which agents should Launch set up?',
     options: ALL_TARGETS.map((target) => ({ value: target, label: TARGET_LABELS[target] })),
     initialValues: ALL_TARGETS,
   });
   if (isCancel(picked)) {
-    cancel("Cancelled.");
+    cancel('Cancelled.');
     process.exit(0);
   }
   return picked;
@@ -210,35 +214,36 @@ async function resolveTargets(cwd: string, options: AgentsOptions): Promise<Agen
 async function runInit(program: Command, cwd: string, options: AgentsOptions): Promise<void> {
   assertRegistryInSync(program);
   const targets = await resolveTargets(cwd, options);
-  const artifacts = planArtifacts(targets, program.version() ?? "0.0.0");
+  const artifacts = planArtifacts(targets, program.version() ?? '0.0.0');
   const mcpClients = mcpClientsFor(targets);
   const interactive = options.yes !== true && process.stdin.isTTY;
 
   if (interactive) {
-    intro("launch agents");
+    intro('launch agents');
     const preview = [
       ...artifacts.map((a) => `• ${a.path}`),
       ...mcpClients.map((client) => `• ${clientConfigPath(client, cwd)} (launch mcp server)`),
-    ].join("\n");
-    note(preview, `Will write for: ${targets.join(", ")}`);
-    const ok = await confirm({ message: "Write these files?" });
+    ].join('\n');
+    note(preview, `Will write for: ${targets.join(', ')}`);
+    const ok = await confirm({ message: 'Write these files?' });
     if (isCancel(ok) || !ok) {
-      cancel("Nothing written.");
+      cancel('Nothing written.');
       process.exit(0);
     }
   }
 
   writeArtifacts(cwd, artifacts);
   const wired = mcpClients.filter((client) => installServer(client, cwd).changed);
-  const summary = `Wrote ${artifacts.length} file${artifacts.length === 1 ? "" : "s"} for ${targets.join(", ")}.`;
+  const summary = `Wrote ${artifacts.length} file${artifacts.length === 1 ? '' : 's'} for ${targets.join(', ')}.`;
   if (interactive) {
     outro(summary);
   } else {
     for (const artifact of artifacts) console.log(`✓ ${artifact.path}`);
-    for (const client of wired) console.log(`✓ ${clientConfigPath(client, cwd)} (launch mcp server)`);
+    for (const client of wired)
+      console.log(`✓ ${clientConfigPath(client, cwd)} (launch mcp server)`);
     console.log(summary);
   }
-  console.log("Verify anytime with: launch agents check");
+  console.log('Verify anytime with: launch agents check');
 }
 
 /** `launch agents check` — report any scaffolded file that drifted or predates the installed Launch. */
@@ -246,39 +251,51 @@ function runCheck(program: Command, cwd: string, options: AgentsOptions): void {
   assertRegistryInSync(program);
   const targets = options.agent ? parseAgentFlag(options.agent) : detectTargets(cwd);
   if (targets.length === 0) {
-    console.log("No agent files found. Scaffold them with: launch agents init");
+    console.log('No agent files found. Scaffold them with: launch agents init');
     return;
   }
-  const version = program.version() ?? "0.0.0";
+  const version = program.version() ?? '0.0.0';
   const stale = findStaleArtifacts(cwd, planArtifacts(targets, version));
   if (stale.length === 0) {
-    console.log(`Agent files are in sync with launch v${version} (${targets.join(", ")}).`);
+    console.log(`Agent files are in sync with launch v${version} (${targets.join(', ')}).`);
     return;
   }
-  console.error(`These agent files are out of date — re-run \`launch agents init\`:\n  ${stale.join("\n  ")}`);
+  console.error(
+    `These agent files are out of date — re-run \`launch agents init\`:\n  ${stale.join('\n  ')}`,
+  );
   process.exit(1);
 }
 
 /** Attach the `agents` command (with `init` and `check`) to the program. */
 export function registerAgentsCommand(program: Command): void {
   const agents = program
-    .command("agents")
-    .description("scaffold agent skills/rules (Claude, Cursor, Codex) so coding agents can drive Launch")
+    .command('agents')
+    .description(
+      'scaffold agent skills/rules (Claude, Cursor, Codex) so coding agents can drive Launch',
+    )
     .action(() => {
       agents.help();
     });
 
   agents
-    .command("init")
-    .description("write Claude skills, Cursor rules, and the AGENTS.md Launch section into this repo")
-    .option("--agent <list>", "claude | cursor | codex | all (comma-separated; default: auto-detect)")
-    .option("-y, --yes", "non-interactive: skip the confirmation prompt (CI, agents)", false)
+    .command('init')
+    .description(
+      'write Claude skills, Cursor rules, and the AGENTS.md Launch section into this repo',
+    )
+    .option(
+      '--agent <list>',
+      'claude | cursor | codex | all (comma-separated; default: auto-detect)',
+    )
+    .option('-y, --yes', 'non-interactive: skip the confirmation prompt (CI, agents)', false)
     .action((options: AgentsOptions) => runInit(program, process.cwd(), options));
 
   agents
-    .command("check")
-    .description("verify the scaffolded agent files are in sync with the installed Launch")
-    .option("--agent <list>", "claude | cursor | codex | all (comma-separated; default: auto-detect)")
+    .command('check')
+    .description('verify the scaffolded agent files are in sync with the installed Launch')
+    .option(
+      '--agent <list>',
+      'claude | cursor | codex | all (comma-separated; default: auto-detect)',
+    )
     .action((options: AgentsOptions) => {
       runCheck(program, process.cwd(), options);
     });

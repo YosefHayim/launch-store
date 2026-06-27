@@ -13,8 +13,8 @@
  * the command (`cli/commands/metadata.ts`) drives the actual fastlane runs.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 /**
  * The full `store.config.json` document. `apple` matches Expo/EAS's schema (a subset of the fields
@@ -64,42 +64,42 @@ export interface AndroidLocaleInfo {
 }
 
 /** Map each Apple listing field to fastlane `deliver`'s per-locale filename. The single source of the mapping. */
-const APPLE_FILES: Record<keyof Omit<AppleLocaleInfo, "keywords">, string> = {
-  title: "name.txt",
-  subtitle: "subtitle.txt",
-  description: "description.txt",
-  releaseNotes: "release_notes.txt",
-  promotionalText: "promotional_text.txt",
-  marketingUrl: "marketing_url.txt",
-  supportUrl: "support_url.txt",
-  privacyPolicyUrl: "privacy_url.txt",
+const APPLE_FILES: Record<keyof Omit<AppleLocaleInfo, 'keywords'>, string> = {
+  title: 'name.txt',
+  subtitle: 'subtitle.txt',
+  description: 'description.txt',
+  releaseNotes: 'release_notes.txt',
+  promotionalText: 'promotional_text.txt',
+  marketingUrl: 'marketing_url.txt',
+  supportUrl: 'support_url.txt',
+  privacyPolicyUrl: 'privacy_url.txt',
 };
 /** `deliver` stores keywords comma-joined in their own file. */
-const APPLE_KEYWORDS_FILE = "keywords.txt";
+const APPLE_KEYWORDS_FILE = 'keywords.txt';
 
 /** Map each Play listing field to fastlane `supply`'s per-locale filename. */
 const ANDROID_FILES: Record<keyof AndroidLocaleInfo, string> = {
-  title: "title.txt",
-  shortDescription: "short_description.txt",
-  fullDescription: "full_description.txt",
-  video: "video.txt",
+  title: 'title.txt',
+  shortDescription: 'short_description.txt',
+  fullDescription: 'full_description.txt',
+  video: 'video.txt',
 };
 
 /** Narrow an unknown value to a plain object, or null. Mirrors `config.ts` (no zod dependency). */
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
 }
 
 /** Read a string field, or undefined when absent/non-string. */
 function str(record: Record<string, unknown>, key: string): string | undefined {
-  return typeof record[key] === "string" ? record[key] : undefined;
+  return typeof record[key] === 'string' ? record[key] : undefined;
 }
 
 /** Read a string-array field (e.g. keywords/categories), dropping non-string entries. */
 function strArray(record: Record<string, unknown>, key: string): string[] | undefined {
   const value = record[key];
   if (!Array.isArray(value)) return undefined;
-  const items = value.filter((entry): entry is string => typeof entry === "string");
+  const items = value.filter((entry): entry is string => typeof entry === 'string');
   return items.length > 0 ? items : undefined;
 }
 
@@ -109,7 +109,9 @@ function strArray(record: Record<string, unknown>, key: string): string[] | unde
  * (an absent key, never a `key: undefined`). The cast is the unavoidable cost of `Object.fromEntries`
  * losing the key types; it's sound because we only remove entries.
  */
-function compact<T extends Record<string, unknown>>(object: T): { [K in keyof T]?: Exclude<T[K], undefined> } {
+function compact<T extends Record<string, unknown>>(
+  object: T,
+): { [K in keyof T]?: Exclude<T[K], undefined> } {
   return Object.fromEntries(Object.entries(object).filter(([, value]) => value !== undefined)) as {
     [K in keyof T]?: Exclude<T[K], undefined>;
   };
@@ -118,30 +120,33 @@ function compact<T extends Record<string, unknown>>(object: T): { [K in keyof T]
 /** Parse one Apple locale block from raw JSON into a typed {@link AppleLocaleInfo}. */
 function parseAppleLocale(raw: Record<string, unknown>): AppleLocaleInfo {
   return compact({
-    title: str(raw, "title"),
-    subtitle: str(raw, "subtitle"),
-    description: str(raw, "description"),
-    keywords: strArray(raw, "keywords"),
-    releaseNotes: str(raw, "releaseNotes"),
-    promotionalText: str(raw, "promotionalText"),
-    marketingUrl: str(raw, "marketingUrl"),
-    supportUrl: str(raw, "supportUrl"),
-    privacyPolicyUrl: str(raw, "privacyPolicyUrl"),
+    title: str(raw, 'title'),
+    subtitle: str(raw, 'subtitle'),
+    description: str(raw, 'description'),
+    keywords: strArray(raw, 'keywords'),
+    releaseNotes: str(raw, 'releaseNotes'),
+    promotionalText: str(raw, 'promotionalText'),
+    marketingUrl: str(raw, 'marketingUrl'),
+    supportUrl: str(raw, 'supportUrl'),
+    privacyPolicyUrl: str(raw, 'privacyPolicyUrl'),
   });
 }
 
 /** Parse one Android locale block from raw JSON into a typed {@link AndroidLocaleInfo}. */
 function parseAndroidLocale(raw: Record<string, unknown>): AndroidLocaleInfo {
   return compact({
-    title: str(raw, "title"),
-    shortDescription: str(raw, "shortDescription"),
-    fullDescription: str(raw, "fullDescription"),
-    video: str(raw, "video"),
+    title: str(raw, 'title'),
+    shortDescription: str(raw, 'shortDescription'),
+    fullDescription: str(raw, 'fullDescription'),
+    video: str(raw, 'video'),
   });
 }
 
 /** Parse a per-locale `info` map, applying `parseLocale` to each locale's block. */
-function parseInfo<T>(infoRaw: unknown, parseLocale: (raw: Record<string, unknown>) => T): Record<string, T> {
+function parseInfo<T>(
+  infoRaw: unknown,
+  parseLocale: (raw: Record<string, unknown>) => T,
+): Record<string, T> {
   const record = asRecord(infoRaw);
   if (!record) return {};
   const info: Record<string, T> = {};
@@ -159,26 +164,28 @@ function parseInfo<T>(infoRaw: unknown, parseLocale: (raw: Record<string, unknow
  */
 export function parseStoreConfig(raw: unknown): StoreConfig {
   const record = asRecord(raw);
-  if (!record) throw new Error("store.config.json must be a JSON object.");
+  if (!record) throw new Error('store.config.json must be a JSON object.');
 
   const config: StoreConfig = {};
-  if (typeof record["configVersion"] === "number") config.configVersion = record["configVersion"];
+  if (typeof record['configVersion'] === 'number') config.configVersion = record['configVersion'];
 
-  const appleRaw = asRecord(record["apple"]);
+  const appleRaw = asRecord(record['apple']);
   if (appleRaw) {
-    const apple: AppleStoreConfig = { info: parseInfo(appleRaw["info"], parseAppleLocale) };
-    const categories = strArray(appleRaw, "categories");
+    const apple: AppleStoreConfig = { info: parseInfo(appleRaw['info'], parseAppleLocale) };
+    const categories = strArray(appleRaw, 'categories');
     if (categories) apple.categories = categories;
     config.apple = apple;
   }
 
-  const android = asRecord(record["android"]);
+  const android = asRecord(record['android']);
   if (android) {
-    config.android = { info: parseInfo(android["info"], parseAndroidLocale) };
+    config.android = { info: parseInfo(android['info'], parseAndroidLocale) };
   }
 
   if (!config.apple && !config.android) {
-    throw new Error('store.config.json has neither an "apple" nor an "android" section — nothing to push.');
+    throw new Error(
+      'store.config.json has neither an "apple" nor an "android" section — nothing to push.',
+    );
   }
   return config;
 }
@@ -187,7 +194,7 @@ export function parseStoreConfig(raw: unknown): StoreConfig {
 export function loadStoreConfig(path: string): StoreConfig {
   if (!existsSync(path))
     throw new Error(`No store.config.json at ${path}. Run \`launch metadata pull\` to create one.`);
-  return parseStoreConfig(JSON.parse(readFileSync(path, "utf8")));
+  return parseStoreConfig(JSON.parse(readFileSync(path, 'utf8')));
 }
 
 /**
@@ -207,7 +214,7 @@ export function writeAppleMetadataDir(apple: AppleStoreConfig, dir: string): str
       written.push(join(locale, file));
     }
     if (info.keywords?.length) {
-      writeFileSync(join(localeDir, APPLE_KEYWORDS_FILE), info.keywords.join(", "));
+      writeFileSync(join(localeDir, APPLE_KEYWORDS_FILE), info.keywords.join(', '));
       written.push(join(locale, APPLE_KEYWORDS_FILE));
     }
   }
@@ -237,7 +244,7 @@ export function writeAndroidMetadataDir(android: AndroidStoreConfig, dir: string
 function readField(localeDir: string, file: string): string | undefined {
   const path = join(localeDir, file);
   if (!existsSync(path)) return undefined;
-  const value = readFileSync(path, "utf8").trim();
+  const value = readFileSync(path, 'utf8').trim();
   return value.length > 0 ? value : undefined;
 }
 
@@ -265,7 +272,7 @@ export function readAppleMetadataDir(dir: string): AppleStoreConfig {
       description: readField(localeDir, APPLE_FILES.description),
       keywords: keywords
         ? keywords
-            .split(",")
+            .split(',')
             .map((keyword) => keyword.trim())
             .filter(Boolean)
         : undefined,

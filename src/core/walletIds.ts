@@ -14,11 +14,11 @@
  * Mirrors the plan/apply vocabulary (`PlannedAction`) the rest of the store-sync commands share.
  */
 
-import { existsSync, readFileSync } from "node:fs";
-import type { MerchantIdResource, PassTypeIdResource } from "../apple/ascClient.js";
-import { act, type PlannedAction, type ReconcileContext } from "./asc/storeSync.js";
-import { asRecord } from "./json.js";
-import type { WalletConfig, WalletIdConfig } from "./types.js";
+import { existsSync, readFileSync } from 'node:fs';
+import type { MerchantIdResource, PassTypeIdResource } from '../apple/ascClient.js';
+import { act, type PlannedAction, type ReconcileContext } from './asc/storeSync.js';
+import { asRecord } from './json.js';
+import type { WalletConfig, WalletIdConfig } from './types.js';
 
 /**
  * The exact slice of {@link AppStoreConnectClient} the wallet reconciler depends on. Declaring it here
@@ -65,13 +65,13 @@ export async function reconcileWalletIds(
 
   if (config.merchantIds && config.merchantIds.length > 0) {
     const existing = identifiersOf(await api.listMerchantIds());
-    await reconcileFamily(ctx, "Apple Pay merchant id", existing, config.merchantIds, (id, name) =>
+    await reconcileFamily(ctx, 'Apple Pay merchant id', existing, config.merchantIds, (id, name) =>
       api.createMerchantId(id, name),
     );
   }
   if (config.passTypeIds && config.passTypeIds.length > 0) {
     const existing = identifiersOf(await api.listPassTypeIds());
-    await reconcileFamily(ctx, "Wallet pass type id", existing, config.passTypeIds, (id, name) =>
+    await reconcileFamily(ctx, 'Wallet pass type id', existing, config.passTypeIds, (id, name) =>
       api.createPassTypeId(id, name),
     );
   }
@@ -82,12 +82,14 @@ export async function reconcileWalletIds(
 function parseId(raw: unknown, family: string, index: number): WalletIdConfig {
   const record = asRecord(raw);
   if (!record) throw new Error(`wallet.config.json: ${family}[${index}] must be an object.`);
-  const identifier = record["identifier"];
-  const name = record["name"];
-  if (typeof identifier !== "string" || identifier.length === 0) {
-    throw new Error(`wallet.config.json: ${family}[${index}].identifier must be a non-empty string.`);
+  const identifier = record['identifier'];
+  const name = record['name'];
+  if (typeof identifier !== 'string' || identifier.length === 0) {
+    throw new Error(
+      `wallet.config.json: ${family}[${index}].identifier must be a non-empty string.`,
+    );
   }
-  if (typeof name !== "string" || name.length === 0) {
+  if (typeof name !== 'string' || name.length === 0) {
     throw new Error(`wallet.config.json: ${family}[${index}].name must be a non-empty string.`);
   }
   return { identifier, name };
@@ -107,16 +109,18 @@ function parseFamily(raw: unknown, family: string): WalletIdConfig[] | undefined
  */
 export function parseWalletConfig(raw: unknown): WalletConfig {
   const record = asRecord(raw);
-  if (!record) throw new Error("wallet.config.json must be a JSON object.");
+  if (!record) throw new Error('wallet.config.json must be a JSON object.');
 
   const config: WalletConfig = {};
-  const merchantIds = parseFamily(record["merchantIds"], "merchantIds");
+  const merchantIds = parseFamily(record['merchantIds'], 'merchantIds');
   if (merchantIds) config.merchantIds = merchantIds;
-  const passTypeIds = parseFamily(record["passTypeIds"], "passTypeIds");
+  const passTypeIds = parseFamily(record['passTypeIds'], 'passTypeIds');
   if (passTypeIds) config.passTypeIds = passTypeIds;
 
   if ((config.merchantIds?.length ?? 0) === 0 && (config.passTypeIds?.length ?? 0) === 0) {
-    throw new Error('wallet.config.json must declare at least one entry under "merchantIds" or "passTypeIds".');
+    throw new Error(
+      'wallet.config.json must declare at least one entry under "merchantIds" or "passTypeIds".',
+    );
   }
   return config;
 }
@@ -124,7 +128,9 @@ export function parseWalletConfig(raw: unknown): WalletConfig {
 /** Read and parse a `wallet.config.json` from disk. */
 export function loadWalletConfig(path: string): WalletConfig {
   if (!existsSync(path)) {
-    throw new Error(`No wallet config at ${path}. Create one (see \`launch wallet --help\`) or pass --config.`);
+    throw new Error(
+      `No wallet config at ${path}. Create one (see \`launch wallet --help\`) or pass --config.`,
+    );
   }
-  return parseWalletConfig(JSON.parse(readFileSync(path, "utf8")));
+  return parseWalletConfig(JSON.parse(readFileSync(path, 'utf8')));
 }

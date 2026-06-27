@@ -14,21 +14,21 @@
  * ordinary command and prints normally.
  */
 
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-import type { Command } from "commander";
-import { createLogger } from "../../core/logger.js";
-import { startMcpServer } from "../../core/mcp/server.js";
-import { installServer, type McpClient } from "../../core/mcp/install.js";
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import type { Command } from 'commander';
+import { createLogger } from '../../core/logger.js';
+import { startMcpServer } from '../../core/mcp/server.js';
+import { installServer, type McpClient } from '../../core/mcp/install.js';
 
 /** The clients `install` understands, in display order. */
-const ALL_CLIENTS: McpClient[] = ["claude-code", "cursor", "claude-desktop"];
+const ALL_CLIENTS: McpClient[] = ['claude-code', 'cursor', 'claude-desktop'];
 
 /** Human label per client for install output. */
 const CLIENT_LABELS: Record<McpClient, string> = {
-  "claude-code": "Claude Code",
-  cursor: "Cursor",
-  "claude-desktop": "Claude Desktop",
+  'claude-code': 'Claude Code',
+  cursor: 'Cursor',
+  'claude-desktop': 'Claude Desktop',
 };
 
 /**
@@ -38,15 +38,16 @@ const CLIENT_LABELS: Record<McpClient, string> = {
  */
 function detectClients(cwd: string): McpClient[] {
   const clients: McpClient[] = [];
-  if (existsSync(join(cwd, ".mcp.json")) || existsSync(join(cwd, ".claude"))) clients.push("claude-code");
-  if (existsSync(join(cwd, ".cursor"))) clients.push("cursor");
+  if (existsSync(join(cwd, '.mcp.json')) || existsSync(join(cwd, '.claude')))
+    clients.push('claude-code');
+  if (existsSync(join(cwd, '.cursor'))) clients.push('cursor');
   return clients;
 }
 
 /** Validate a `--client` value into the {@link McpClient} union, or throw a usage error. */
 function parseClient(value: string): McpClient {
   if (!ALL_CLIENTS.includes(value as McpClient)) {
-    throw new Error(`Unknown client "${value}". Use ${ALL_CLIENTS.join(", ")}.`);
+    throw new Error(`Unknown client "${value}". Use ${ALL_CLIENTS.join(', ')}.`);
   }
   return value as McpClient;
 }
@@ -58,7 +59,9 @@ function runInstall(options: { client?: string }): void {
   const targets = options.client ? [parseClient(options.client)] : detectClients(cwd);
 
   if (targets.length === 0) {
-    log.info("No MCP client detected here. Pass --client claude-code|cursor|claude-desktop to install explicitly.");
+    log.info(
+      'No MCP client detected here. Pass --client claude-code|cursor|claude-desktop to install explicitly.',
+    );
     return;
   }
 
@@ -68,22 +71,28 @@ function runInstall(options: { client?: string }): void {
     else log.step(CLIENT_LABELS[client], `already configured (${path})`);
   }
   log.gap();
-  log.info("Restart the client to pick up the server, then ask its agent to run a Launch tool (e.g. `plan`).");
+  log.info(
+    'Restart the client to pick up the server, then ask its agent to run a Launch tool (e.g. `plan`).',
+  );
 }
 
 /** Attach the `mcp` command (default action serves; `install` subcommand wires clients) to the program. */
 export function registerMcpCommand(program: Command): void {
   const mcp = program
-    .command("mcp")
-    .description("serve Launch's read-only tools to AI agents over MCP (stdio); `install` wires it into a client")
+    .command('mcp')
+    .description(
+      "serve Launch's read-only tools to AI agents over MCP (stdio); `install` wires it into a client",
+    )
     .action(async () => {
       await startMcpServer();
     });
 
   mcp
-    .command("install")
-    .description("wire `launch mcp` into an AI client's config (default: auto-detect Claude Code / Cursor)")
-    .option("--client <name>", "claude-code | cursor | claude-desktop (default: auto-detect)")
+    .command('install')
+    .description(
+      "wire `launch mcp` into an AI client's config (default: auto-detect Claude Code / Cursor)",
+    )
+    .option('--client <name>', 'claude-code | cursor | claude-desktop (default: auto-detect)')
     .action((options: { client?: string }) => {
       runInstall(options);
     });

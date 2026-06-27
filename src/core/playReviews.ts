@@ -17,11 +17,14 @@
  * unit-testable with a hand-rolled fake and `GooglePlayClient` satisfies it structurally.
  */
 
-import type { PlayReplyResult, PlayReview } from "../google/playClient.js";
+import type { PlayReplyResult, PlayReview } from '../google/playClient.js';
 
 /** The exact slice of {@link GooglePlayClient} the reviews domain depends on. */
 export interface PlayReviewsApi {
-  listReviews(packageName: string, options: { translationLanguage?: string }): Promise<PlayReview[]>;
+  listReviews(
+    packageName: string,
+    options: { translationLanguage?: string },
+  ): Promise<PlayReview[]>;
   getReview(packageName: string, reviewId: string): Promise<PlayReview | null>;
   replyToReview(packageName: string, reviewId: string, replyText: string): Promise<PlayReplyResult>;
 }

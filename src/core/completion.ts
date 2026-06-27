@@ -16,17 +16,17 @@
  * touches disk, and only the user's own shell rc file (never a secret, never `~/.launch`).
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import type { Command } from "commander";
-import type { Shell } from "./types.js";
-import { loadConfig } from "./config.js";
-import { listSurfacePlanners, registerBuiltinPlanners } from "./plan/registry.js";
-import { listSnapshots } from "./snapshot/store.js";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import type { Command } from 'commander';
+import type { Shell } from './types.js';
+import { loadConfig } from './config.js';
+import { listSurfacePlanners, registerBuiltinPlanners } from './plan/registry.js';
+import { listSnapshots } from './snapshot/store.js';
 
 /** The shells `launch completion` supports, in the order help lists them; the first is the default fallback. */
-export const SHELLS: readonly Shell[] = ["bash", "zsh", "fish"] as const;
+export const SHELLS: readonly Shell[] = ['bash', 'zsh', 'fish'] as const;
 
 /**
  * The marker comments that fence Launch's managed block inside a shell rc file. {@link installCompletion}
@@ -34,21 +34,21 @@ export const SHELLS: readonly Shell[] = ["bash", "zsh", "fish"] as const;
  * instead of appending a duplicate — the same managed-region pattern `core/gitignore.ts` uses for
  * `.gitignore`. Editing or deleting the block by hand stays safe; the next install regenerates it.
  */
-const BLOCK_START = "# launch-completion start";
+const BLOCK_START = '# launch-completion start';
 /** Closing fence of Launch's managed completion block; see {@link BLOCK_START}. */
-const BLOCK_END = "# launch-completion end";
+const BLOCK_END = '# launch-completion end';
 
 /**
  * The hidden subcommand the generated scripts invoke on `<Tab>`. Kept here (not in the command file) so the
  * script generators and the command wiring share one token and can't drift. The leading `__` keeps it out
  * of the user-facing help and the docs.
  */
-export const COMPLETE_SUBCOMMAND = "__complete";
+export const COMPLETE_SUBCOMMAND = '__complete';
 
 /** Validate a raw `--shell`/positional value against {@link SHELLS}, with a pointed error listing the valid set. */
 export function parseShell(value: string): Shell {
   const shell = SHELLS.find((known) => known === value);
-  if (!shell) throw new Error(`Unsupported shell "${value}". Use one of: ${SHELLS.join(", ")}.`);
+  if (!shell) throw new Error(`Unsupported shell "${value}". Use one of: ${SHELLS.join(', ')}.`);
   return shell;
 }
 
@@ -59,9 +59,9 @@ export function parseShell(value: string): Shell {
  * `$SHELL` is the login shell every installer (rustup, nvm, brew) keys off.
  */
 export function detectShell(env: NodeJS.ProcessEnv = process.env): Shell | undefined {
-  const path = env["SHELL"];
+  const path = env['SHELL'];
   if (!path) return undefined;
-  const base = path.slice(path.lastIndexOf("/") + 1);
+  const base = path.slice(path.lastIndexOf('/') + 1);
   return SHELLS.find((shell) => base === shell);
 }
 
@@ -124,11 +124,11 @@ complete -c launch -f -a '(__launch_complete)'
 /** Map a shell to its script generator — the one place that fans `launch completion <shell>` out per shell. */
 export function completionScript(shell: Shell): string {
   switch (shell) {
-    case "bash":
+    case 'bash':
       return bashCompletionScript();
-    case "zsh":
+    case 'zsh':
       return zshCompletionScript();
-    case "fish":
+    case 'fish':
       return fishCompletionScript();
   }
 }
@@ -172,10 +172,10 @@ const snapshotNames: DynamicSource = async () => listSnapshots().map((snapshot) 
  * single entry rather than a branch in the resolver.
  */
 const FLAG_SOURCES: ReadonlyMap<string, DynamicSource> = new Map([
-  ["-a", appHandles],
-  ["--app", appHandles],
-  ["-p", profileNames],
-  ["--profile", profileNames],
+  ['-a', appHandles],
+  ['--app', appHandles],
+  ['-p', profileNames],
+  ['--profile', profileNames],
 ]);
 
 /**
@@ -184,15 +184,17 @@ const FLAG_SOURCES: ReadonlyMap<string, DynamicSource> = new Map([
  * flag-value completion stay declarative and centralized.
  */
 const ARGUMENT_SOURCES: ReadonlyMap<string, DynamicSource> = new Map([
-  ["plan", planSurfaceIds],
-  ["drift", planSurfaceIds],
-  ["snapshot diff", snapshotNames],
-  ["snapshot export", snapshotNames],
+  ['plan', planSurfaceIds],
+  ['drift', planSurfaceIds],
+  ['snapshot diff', snapshotNames],
+  ['snapshot export', snapshotNames],
 ]);
 
 /** Every option spelling a command accepts (short and long, e.g. `-a`, `--app`), for flag-name completion. */
 function optionFlags(command: Command): string[] {
-  return command.options.flatMap((option) => [option.short, option.long].filter((flag): flag is string => !!flag));
+  return command.options.flatMap((option) =>
+    [option.short, option.long].filter((flag): flag is string => !!flag),
+  );
 }
 
 /**
@@ -228,18 +230,19 @@ function descend(program: Command, words: string[]): { command: Command; path: s
  */
 export async function resolveCompletions(words: string[], program: Command): Promise<string[]> {
   const { command, path } = descend(program, words);
-  const current = words[words.length - 1] ?? "";
+  const current = words[words.length - 1] ?? '';
   const previous = words.length >= 2 ? words[words.length - 2] : undefined;
 
-  if (current.startsWith("-")) return optionFlags(command);
+  if (current.startsWith('-')) return optionFlags(command);
 
   if (previous !== undefined) {
     const flagSource = FLAG_SOURCES.get(previous);
     if (flagSource) return safe(flagSource);
   }
 
-  const argumentSource = ARGUMENT_SOURCES.get(path.join(" "));
-  if (argumentSource && !hasPositional(words, path.length, valueTakingFlags(command))) return safe(argumentSource);
+  const argumentSource = ARGUMENT_SOURCES.get(path.join(' '));
+  if (argumentSource && !hasPositional(words, path.length, valueTakingFlags(command)))
+    return safe(argumentSource);
 
   return [...command.commands.map((sub) => sub.name()), ...optionFlags(command)];
 }
@@ -253,7 +256,7 @@ function valueTakingFlags(command: Command): Set<string> {
   const flags = new Set<string>();
   for (let cmd: Command | null = command; cmd; cmd = cmd.parent) {
     for (const option of cmd.options) {
-      if (!option.flags.includes("<") && !option.flags.includes("[")) continue;
+      if (!option.flags.includes('<') && !option.flags.includes('[')) continue;
       if (option.short) flags.add(option.short);
       if (option.long) flags.add(option.long);
     }
@@ -267,10 +270,14 @@ function valueTakingFlags(command: Command): Set<string> {
  * value-taking flag — so `plan --app web <Tab>` still completes the `[surface]` positional, while
  * `plan catalog <Tab>` correctly sees the slot as filled.
  */
-function hasPositional(words: string[], pathLength: number, valueFlags: ReadonlySet<string>): boolean {
+function hasPositional(
+  words: string[],
+  pathLength: number,
+  valueFlags: ReadonlySet<string>,
+): boolean {
   const afterCommand = words.slice(pathLength, -1); // drop the command path and the in-progress word
   for (const [i, word] of afterCommand.entries()) {
-    if (word.startsWith("-")) continue; // a flag, not a positional
+    if (word.startsWith('-')) continue; // a flag, not a positional
     const previous = i > 0 ? afterCommand[i - 1] : undefined;
     if (previous !== undefined && valueFlags.has(previous)) continue; // the value of a value-taking flag
     return true;
@@ -293,14 +300,16 @@ async function safe(source: DynamicSource): Promise<string[]> {
 
 /** The default rc file each shell sources on login, relative to the user's home directory. */
 const RC_FILE: Record<Shell, string> = {
-  bash: ".bashrc",
-  zsh: ".zshrc",
-  fish: ".config/fish/config.fish",
+  bash: '.bashrc',
+  zsh: '.zshrc',
+  fish: '.config/fish/config.fish',
 };
 
 /** The single line, per shell, that sources Launch's completion script when the rc file loads. */
 function sourceLine(shell: Shell): string {
-  return shell === "fish" ? "launch completion fish | source" : `source <(launch completion ${shell})`;
+  return shell === 'fish'
+    ? 'launch completion fish | source'
+    : `source <(launch completion ${shell})`;
 }
 
 /**
@@ -312,7 +321,7 @@ function sourceLine(shell: Shell): string {
 export type InstallResult =
   | {
       /** Launch wrote the managed block into the rc file. */
-      readonly status: "installed";
+      readonly status: 'installed';
       /** The shell that was wired up. */
       readonly shell: Shell;
       /** Absolute path to the rc file that was written. */
@@ -322,7 +331,7 @@ export type InstallResult =
     }
   | {
       /** Launch could not safely edit the rc file; the user should add {@link line} by hand. */
-      readonly status: "manual";
+      readonly status: 'manual';
       /** The shell the steps are for. */
       readonly shell: Shell;
       /** Absolute path to the rc file the line belongs in. */
@@ -353,7 +362,10 @@ export function managedBlock(shell: Shell): string {
  * whether a block was replaced. Pure string surgery — the disk I/O lives in {@link installCompletion} — so
  * the idempotency (running twice yields the same file) is unit-testable without a filesystem.
  */
-export function spliceManagedBlock(existing: string, block: string): { contents: string; updated: boolean } {
+export function spliceManagedBlock(
+  existing: string,
+  block: string,
+): { contents: string; updated: boolean } {
   const start = existing.indexOf(BLOCK_START);
   const end = existing.indexOf(BLOCK_END);
   if (start !== -1 && end !== -1 && end > start) {
@@ -361,8 +373,8 @@ export function spliceManagedBlock(existing: string, block: string): { contents:
     const after = existing.slice(end + BLOCK_END.length);
     return { contents: `${before}${block}${after}`, updated: true };
   }
-  const base = existing.length === 0 || existing.endsWith("\n") ? existing : `${existing}\n`;
-  const gap = base.length === 0 || base.endsWith("\n\n") ? "" : "\n";
+  const base = existing.length === 0 || existing.endsWith('\n') ? existing : `${existing}\n`;
+  const gap = base.length === 0 || base.endsWith('\n\n') ? '' : '\n';
   return { contents: `${base}${gap}${block}\n`, updated: false };
 }
 
@@ -377,20 +389,20 @@ export function spliceManagedBlock(existing: string, block: string): { contents:
 export function installCompletion(options: InstallOptions = {}): InstallResult {
   const shell = options.shell ?? detectShell();
   if (!shell) {
-    throw new Error("Could not detect your shell. Re-run with --shell bash|zsh|fish.");
+    throw new Error('Could not detect your shell. Re-run with --shell bash|zsh|fish.');
   }
   const home = options.home ?? homedir();
   const rcFile = join(home, RC_FILE[shell]);
   const block = managedBlock(shell);
 
-  const rcDir = join(rcFile, "..");
+  const rcDir = join(rcFile, '..');
   if (!existsSync(rcFile) && !existsSync(rcDir)) {
-    return { status: "manual", shell, rcFile, line: sourceLine(shell) };
+    return { status: 'manual', shell, rcFile, line: sourceLine(shell) };
   }
 
-  const existing = existsSync(rcFile) ? readFileSync(rcFile, "utf8") : "";
+  const existing = existsSync(rcFile) ? readFileSync(rcFile, 'utf8') : '';
   const { contents, updated } = spliceManagedBlock(existing, block);
   mkdirSync(rcDir, { recursive: true });
   writeFileSync(rcFile, contents);
-  return { status: "installed", shell, rcFile, updated };
+  return { status: 'installed', shell, rcFile, updated };
 }

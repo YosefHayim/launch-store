@@ -8,17 +8,25 @@
  * Connect id lookup, URL building, and the cross-platform opener. No domain logic lives here.
  */
 
-import type { Command } from "commander";
-import { OPEN_TARGETS, openUrl, resolveOpenUrl, type OpenUrlOptions } from "../../core/consoleLinks.js";
+import type { Command } from 'commander';
+import {
+  OPEN_TARGETS,
+  openUrl,
+  resolveOpenUrl,
+  type OpenUrlOptions,
+} from '../../core/consoleLinks.js';
 
 /** Attach the top-level `open` command to the program. */
 export function registerOpenCommand(program: Command): void {
   program
-    .command("open")
+    .command('open')
     .description("deep-link the app's App Store Connect / Play Console page in your browser")
-    .argument("[target]", `what to open: ${OPEN_TARGETS.join(" | ")} (default: asc)`)
-    .option("--platform <platform>", "ios/tvos/macos/visionos (App Store Connect) or android (Play Console)")
-    .option("-a, --app <name>", "app handle to open (default: the first app for the platform)")
+    .argument('[target]', `what to open: ${OPEN_TARGETS.join(' | ')} (default: asc)`)
+    .option(
+      '--platform <platform>',
+      'ios/tvos/macos/visionos (App Store Connect) or android (Play Console)',
+    )
+    .option('-a, --app <name>', 'app handle to open (default: the first app for the platform)')
     .action(async (target: string | undefined, options: OpenUrlOptions) => {
       const url = await resolveOpenUrl(target, options);
       console.log(`Opening ${url}`);

@@ -20,7 +20,7 @@ vitest.config.*
 
 # Local notes & generated noise.
 CONTEXT.md
-language.md
+TECH-GLOSSARY.md
 AGENTS.md
 CLAUDE.md
 llms.txt

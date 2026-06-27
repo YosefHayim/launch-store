@@ -7,8 +7,8 @@
  * so they're unit-testable and reusable by the first-run wizard.
  */
 
-import { readdirSync } from "node:fs";
-import { basename, join } from "node:path";
+import { readdirSync } from 'node:fs';
+import { basename, join } from 'node:path';
 
 /** Apple's key filename: `AuthKey_` + the Key ID (10-char alphanumeric) + `.p8`. */
 const AUTH_KEY_FILENAME = /^AuthKey_([A-Z0-9]{8,})\.p8$/i;
@@ -39,7 +39,10 @@ export function findAuthKeyFiles(dir: string): string[] {
  * `--key-id` was passed, and silently trusting either would store a key that can't authenticate.
  * Returns the chosen Key ID (upper-cased), or undefined when neither source has one.
  */
-export function reconcileKeyId(explicit: string | undefined, fromFilename: string | null): string | undefined {
+export function reconcileKeyId(
+  explicit: string | undefined,
+  fromFilename: string | null,
+): string | undefined {
   const normalizedExplicit = explicit?.trim().toUpperCase();
   if (normalizedExplicit && fromFilename && normalizedExplicit !== fromFilename) {
     throw new Error(

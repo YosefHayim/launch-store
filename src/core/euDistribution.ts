@@ -16,11 +16,11 @@
  * vocabulary (`PlannedAction`) the rest of the store-sync commands share.
  */
 
-import { existsSync, readFileSync } from "node:fs";
-import type { AlternativeDistributionDomainResource } from "../apple/ascClient.js";
-import { act, type PlannedAction, type ReconcileContext } from "./asc/storeSync.js";
-import { asRecord } from "./json.js";
-import type { EuDistributionConfig, EuDistributionDomainConfig } from "./types.js";
+import { existsSync, readFileSync } from 'node:fs';
+import type { AlternativeDistributionDomainResource } from '../apple/ascClient.js';
+import { act, type PlannedAction, type ReconcileContext } from './asc/storeSync.js';
+import { asRecord } from './json.js';
+import type { EuDistributionConfig, EuDistributionDomainConfig } from './types.js';
 
 /**
  * The exact slice of {@link AppStoreConnectClient} the domain reconciler depends on. Declaring it here
@@ -44,7 +44,9 @@ export async function reconcileEuDistributionDomains(
 ): Promise<PlannedAction[]> {
   const ctx: ReconcileContext = { actions: [], dryRun };
   const existing = new Set(
-    (await api.listAlternativeDistributionDomains()).flatMap((entry) => (entry.domain ? [entry.domain] : [])),
+    (await api.listAlternativeDistributionDomains()).flatMap((entry) =>
+      entry.domain ? [entry.domain] : [],
+    ),
   );
   for (const { domain, referenceName } of config.domains) {
     if (existing.has(domain)) continue;
@@ -59,13 +61,17 @@ export async function reconcileEuDistributionDomains(
 function parseDomain(raw: unknown, index: number): EuDistributionDomainConfig {
   const record = asRecord(raw);
   if (!record) throw new Error(`eu-distribution.config.json: domains[${index}] must be an object.`);
-  const domain = record["domain"];
-  const referenceName = record["referenceName"];
-  if (typeof domain !== "string" || domain.length === 0) {
-    throw new Error(`eu-distribution.config.json: domains[${index}].domain must be a non-empty string.`);
+  const domain = record['domain'];
+  const referenceName = record['referenceName'];
+  if (typeof domain !== 'string' || domain.length === 0) {
+    throw new Error(
+      `eu-distribution.config.json: domains[${index}].domain must be a non-empty string.`,
+    );
   }
-  if (typeof referenceName !== "string" || referenceName.length === 0) {
-    throw new Error(`eu-distribution.config.json: domains[${index}].referenceName must be a non-empty string.`);
+  if (typeof referenceName !== 'string' || referenceName.length === 0) {
+    throw new Error(
+      `eu-distribution.config.json: domains[${index}].referenceName must be a non-empty string.`,
+    );
   }
   return { domain, referenceName };
 }
@@ -77,9 +83,9 @@ function parseDomain(raw: unknown, index: number): EuDistributionDomainConfig {
  */
 export function parseEuDistributionConfig(raw: unknown): EuDistributionConfig {
   const record = asRecord(raw);
-  if (!record) throw new Error("eu-distribution.config.json must be a JSON object.");
+  if (!record) throw new Error('eu-distribution.config.json must be a JSON object.');
 
-  const domainsRaw = record["domains"];
+  const domainsRaw = record['domains'];
   if (!Array.isArray(domainsRaw) || domainsRaw.length === 0) {
     throw new Error('eu-distribution.config.json must declare a non-empty "domains" array.');
   }
@@ -93,5 +99,5 @@ export function loadEuDistributionConfig(path: string): EuDistributionConfig {
       `No EU distribution config at ${path}. Create one (see \`launch eu-distribution --help\`) or pass --config.`,
     );
   }
-  return parseEuDistributionConfig(JSON.parse(readFileSync(path, "utf8")));
+  return parseEuDistributionConfig(JSON.parse(readFileSync(path, 'utf8')));
 }

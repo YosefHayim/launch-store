@@ -33,8 +33,14 @@ import type {
   SubscriptionGroupResource,
   SubscriptionResource,
   ListingLocalization,
-} from "../apple/ascClient.js";
-import { act, DRY_RUN_ID, succeededOrPlanned, type ActionLog, type PlannedAction } from "./ascSync.js";
+} from '../apple/ascClient.js';
+import {
+  act,
+  DRY_RUN_ID,
+  succeededOrPlanned,
+  type ActionLog,
+  type PlannedAction,
+} from './ascSync.js';
 import {
   displayTypeLabel,
   MAX_PREVIEWS_PER_SET,
@@ -43,7 +49,7 @@ import {
   type LocalAsset,
   type LocalPreview,
   type LocalScreenshot,
-} from "./screenshotAssets.js";
+} from './screenshotAssets.js';
 
 /**
  * The slice of {@link AppStoreConnectClient} the screenshot reconciler depends on. Declared here (rather
@@ -57,13 +63,20 @@ export interface ScreenshotsApi {
   /** Reused from the listing reconciler to map each declared locale to its version-localization id. */
   listVersionLocalizations(versionId: string): Promise<ListingLocalization[]>;
   listScreenshotSets(versionLocalizationId: string): Promise<ScreenshotSetResource[]>;
-  createScreenshotSet(versionLocalizationId: string, displayType: string): Promise<ScreenshotSetResource>;
+  createScreenshotSet(
+    versionLocalizationId: string,
+    displayType: string,
+  ): Promise<ScreenshotSetResource>;
   listScreenshots(setId: string): Promise<ScreenshotResource[]>;
   uploadScreenshot(setId: string, fileName: string, filePath: string): Promise<void>;
   listSubscriptionGroups(appId: string): Promise<SubscriptionGroupResource[]>;
   listSubscriptions(groupId: string): Promise<SubscriptionResource[]>;
   getSubscriptionReviewScreenshot(subscriptionId: string): Promise<ReviewScreenshotResource | null>;
-  uploadSubscriptionReviewScreenshot(subscriptionId: string, fileName: string, filePath: string): Promise<void>;
+  uploadSubscriptionReviewScreenshot(
+    subscriptionId: string,
+    fileName: string,
+    filePath: string,
+  ): Promise<void>;
 }
 
 /** One subscription's declared review screenshot, paired with its product id for live subscription resolution. */
@@ -101,7 +114,7 @@ function groupBy<T>(items: T[], key: (item: T) => string): Map<string, T[]> {
 
 /** A skipped action with guidance — the plan still shows the work that couldn't run and why. */
 function skip(log: ActionLog, description: string): void {
-  log.actions.push({ description, destructive: false, status: "skipped" });
+  log.actions.push({ description, destructive: false, status: 'skipped' });
 }
 
 /**
@@ -114,18 +127,32 @@ export async function reconcileScreenshots(
   api: ScreenshotsApi,
   input: ScreenshotReconcileInput,
 ): Promise<PlannedAction[]> {
-  const log: ActionLog = { actions: [], dryRun: input.dryRun, allowDestructive: input.allowDestructive };
-  if (input.screenshots.length === 0 && input.subscriptionReviewScreenshots.length === 0) return log.actions;
+  const log: ActionLog = {
+    actions: [],
+    dryRun: input.dryRun,
+    allowDestructive: input.allowDestructive,
+  };
+  if (input.screenshots.length === 0 && input.subscriptionReviewScreenshots.length === 0)
+    return log.actions;
 
   const appId = await api.getAppId(input.bundleId);
   if (!appId) {
-    skip(log, `screenshots: no App Store Connect app record for ${input.bundleId} — create the app, then re-run`);
+    skip(
+      log,
+      `screenshots: no App Store Connect app record for ${input.bundleId} — create the app, then re-run`,
+    );
     return log.actions;
   }
 
-  if (input.screenshots.length > 0) await reconcileAppScreenshots(api, log, appId, input.screenshots);
+  if (input.screenshots.length > 0)
+    await reconcileAppScreenshots(api, log, appId, input.screenshots);
   if (input.subscriptionReviewScreenshots.length > 0) {
-    await reconcileSubscriptionReviewScreenshots(api, log, appId, input.subscriptionReviewScreenshots);
+    await reconcileSubscriptionReviewScreenshots(
+      api,
+      log,
+      appId,
+      input.subscriptionReviewScreenshots,
+    );
   }
   return log.actions;
 }
@@ -139,12 +166,17 @@ async function reconcileAppScreenshots(
 ): Promise<void> {
   const versionId = await api.getEditableVersionId(appId);
   if (!versionId) {
-    skip(log, "screenshots: no editable App Store version — prepare a version in App Store Connect, then re-run");
+    skip(
+      log,
+      'screenshots: no editable App Store version — prepare a version in App Store Connect, then re-run',
+    );
     return;
   }
 
   const localizations = await api.listVersionLocalizations(versionId);
-  const localizationIdByLocale = new Map(localizations.map((localization) => [localization.locale, localization.id]));
+  const localizationIdByLocale = new Map(
+    localizations.map((localization) => [localization.locale, localization.id]),
+  );
 
   for (const [locale, localeShots] of groupBy(screenshots, (shot) => shot.locale)) {
     const localizationId = localizationIdByLocale.get(locale);
@@ -203,7 +235,7 @@ async function reconcileScreenshotSet(
   // A FAILED delivery never finished, so don't treat its checksum as "already uploaded" — let it re-send.
   const uploadedChecksums = new Set(
     existing
-      .filter((shot) => shot.assetDeliveryState !== "FAILED")
+      .filter((shot) => shot.assetDeliveryState !== 'FAILED')
       .map((shot) => shot.sourceFileChecksum)
       .filter((sum): sum is string => !!sum),
   );
@@ -251,9 +283,21 @@ async function reconcileSubscriptionReviewScreenshots(
     }
     const current = await api.getSubscriptionReviewScreenshot(subscriptionId);
     // Skip only a finished upload that matches byte-for-byte; a FAILED one re-sends.
-    if (current?.sourceFileChecksum === item.asset.checksum && current.assetDeliveryState !== "FAILED") continue;
-    await act(log, `upload subscription review screenshot ${item.productId} (${item.asset.fileName})`, false, () =>
-      api.uploadSubscriptionReviewScreenshot(subscriptionId, item.asset.fileName, item.asset.path),
+    if (
+      current?.sourceFileChecksum === item.asset.checksum &&
+      current.assetDeliveryState !== 'FAILED'
+    )
+      continue;
+    await act(
+      log,
+      `upload subscription review screenshot ${item.productId} (${item.asset.fileName})`,
+      false,
+      () =>
+        api.uploadSubscriptionReviewScreenshot(
+          subscriptionId,
+          item.asset.fileName,
+          item.asset.path,
+        ),
     );
   }
 }
@@ -298,24 +342,39 @@ export interface PreviewReconcileInput {
  * the video asynchronously — a re-run mid-processing re-uploads nothing. Never throws for a per-asset
  * failure; those are captured on their action by {@link act}.
  */
-export async function reconcilePreviews(api: PreviewsApi, input: PreviewReconcileInput): Promise<PlannedAction[]> {
-  const log: ActionLog = { actions: [], dryRun: input.dryRun, allowDestructive: input.allowDestructive };
+export async function reconcilePreviews(
+  api: PreviewsApi,
+  input: PreviewReconcileInput,
+): Promise<PlannedAction[]> {
+  const log: ActionLog = {
+    actions: [],
+    dryRun: input.dryRun,
+    allowDestructive: input.allowDestructive,
+  };
   if (input.previews.length === 0) return log.actions;
 
   const appId = await api.getAppId(input.bundleId);
   if (!appId) {
-    skip(log, `previews: no App Store Connect app record for ${input.bundleId} — create the app, then re-run`);
+    skip(
+      log,
+      `previews: no App Store Connect app record for ${input.bundleId} — create the app, then re-run`,
+    );
     return log.actions;
   }
 
   const versionId = await api.getEditableVersionId(appId);
   if (!versionId) {
-    skip(log, "previews: no editable App Store version — prepare a version in App Store Connect, then re-run");
+    skip(
+      log,
+      'previews: no editable App Store version — prepare a version in App Store Connect, then re-run',
+    );
     return log.actions;
   }
 
   const localizations = await api.listVersionLocalizations(versionId);
-  const localizationIdByLocale = new Map(localizations.map((localization) => [localization.locale, localization.id]));
+  const localizationIdByLocale = new Map(
+    localizations.map((localization) => [localization.locale, localization.id]),
+  );
 
   for (const [locale, localePreviews] of groupBy(input.previews, (preview) => preview.locale)) {
     const localizationId = localizationIdByLocale.get(locale);
@@ -328,8 +387,13 @@ export async function reconcilePreviews(api: PreviewsApi, input: PreviewReconcil
       continue;
     }
 
-    const setByType = new Map((await api.listPreviewSets(localizationId)).map((set) => [set.previewType, set]));
-    for (const [previewType, typePreviews] of groupBy(localePreviews, (preview) => preview.previewType)) {
+    const setByType = new Map(
+      (await api.listPreviewSets(localizationId)).map((set) => [set.previewType, set]),
+    );
+    for (const [previewType, typePreviews] of groupBy(
+      localePreviews,
+      (preview) => preview.previewType,
+    )) {
       await reconcilePreviewSet(
         api,
         log,
@@ -373,7 +437,7 @@ async function reconcilePreviewSet(
   // A FAILED delivery never finished, so don't treat its checksum as "already uploaded" — let it re-send.
   const uploadedChecksums = new Set(
     existing
-      .filter((preview) => preview.assetDeliveryState !== "FAILED")
+      .filter((preview) => preview.assetDeliveryState !== 'FAILED')
       .map((preview) => preview.sourceFileChecksum)
       .filter((sum): sum is string => !!sum),
   );

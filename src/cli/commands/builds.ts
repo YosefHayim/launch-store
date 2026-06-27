@@ -9,18 +9,18 @@
  * They go through the configured storage provider, so whichever backend stored a build reports/trims it.
  */
 
-import { existsSync } from "node:fs";
-import type { Command } from "commander";
-import { cancel, confirm, isCancel } from "@clack/prompts";
-import type { BuildArtifact, Platform, PrunedArtifact } from "../../core/types.js";
-import { parsePlatform } from "../../core/platform.js";
-import { loadConfig } from "../../core/config.js";
-import { resolveStorageProvider } from "../../core/storage.js";
-import { resolveCommandRetentionDays } from "../../core/artifactRetention.js";
-import { mb, sizeSummary, worstDownloadBytes } from "../../core/pipeline.js";
-import { buildLogId, buildLogPath, readBuildLog } from "../../core/buildLog.js";
-import { run } from "../../core/exec.js";
-import { hostOs } from "../../core/os.js";
+import { existsSync } from 'node:fs';
+import type { Command } from 'commander';
+import { cancel, confirm, isCancel } from '@clack/prompts';
+import type { BuildArtifact, Platform, PrunedArtifact } from '../../core/types.js';
+import { parsePlatform } from '../../core/platform.js';
+import { loadConfig } from '../../core/config.js';
+import { resolveStorageProvider } from '../../core/storage.js';
+import { resolveCommandRetentionDays } from '../../core/artifactRetention.js';
+import { mb, sizeSummary, worstDownloadBytes } from '../../core/pipeline.js';
+import { buildLogId, buildLogPath, readBuildLog } from '../../core/buildLog.js';
+import { run } from '../../core/exec.js';
+import { hostOs } from '../../core/os.js';
 
 /**
  * A flat, presentation-ready view of one stored build — the shape `builds list --json` emits and the
@@ -72,7 +72,10 @@ export function toBuildRow(artifact: BuildArtifact): BuildRow {
 }
 
 /** Narrow the build history to an app and/or platform; an absent filter matches everything. */
-export function filterBuilds(builds: BuildArtifact[], filters: { app?: string; platform?: Platform }): BuildArtifact[] {
+export function filterBuilds(
+  builds: BuildArtifact[],
+  filters: { app?: string; platform?: Platform },
+): BuildArtifact[] {
   return builds.filter(
     (build) =>
       (filters.app === undefined || build.appName === filters.app) &&
@@ -85,7 +88,7 @@ export function filterBuilds(builds: BuildArtifact[], filters: { app?: string; p
  * otherwise the first match on the build id or the bare build number. Undefined when nothing matches.
  */
 export function findBuild(builds: BuildArtifact[], ref: string): BuildArtifact | undefined {
-  if (ref === "latest") return builds[0];
+  if (ref === 'latest') return builds[0];
   return builds.find((build) => buildId(build) === ref || String(build.buildNumber) === ref);
 }
 
@@ -102,27 +105,32 @@ interface Column<T> {
 
 /** Render rows as a left-aligned, column-padded table (header first). Assumes a non-empty `rows`. */
 function formatTable<T>(columns: Column<T>[], rows: T[]): string {
-  const widths = columns.map((column) => Math.max(column.header.length, ...rows.map((row) => column.cell(row).length)));
+  const widths = columns.map((column) =>
+    Math.max(column.header.length, ...rows.map((row) => column.cell(row).length)),
+  );
   const render = (cells: string[]): string =>
     cells
       .map((cell, i) => cell.padEnd(widths[i] ?? 0))
-      .join("  ")
+      .join('  ')
       .trimEnd();
   return [
     render(columns.map((column) => column.header)),
     ...rows.map((row) => render(columns.map((column) => column.cell(row)))),
-  ].join("\n");
+  ].join('\n');
 }
 
 /** Column definitions for the `builds list` table — one source for headers and per-row cell values. */
 const COLUMNS: Column<BuildRow>[] = [
-  { header: "BUILD", cell: (row) => String(row.buildNumber) },
-  { header: "APP", cell: (row) => row.app },
-  { header: "VERSION", cell: (row) => row.version },
-  { header: "PLATFORM", cell: (row) => row.platform },
-  { header: "DOWNLOAD", cell: (row) => mb(row.downloadBytes) },
-  { header: "CREATED", cell: (row) => formatDate(row.createdAt) },
-  { header: "TYPE", cell: (row) => (row.prunedAt ? "pruned" : row.clean ? "clean" : "incremental") },
+  { header: 'BUILD', cell: (row) => String(row.buildNumber) },
+  { header: 'APP', cell: (row) => row.app },
+  { header: 'VERSION', cell: (row) => row.version },
+  { header: 'PLATFORM', cell: (row) => row.platform },
+  { header: 'DOWNLOAD', cell: (row) => mb(row.downloadBytes) },
+  { header: 'CREATED', cell: (row) => formatDate(row.createdAt) },
+  {
+    header: 'TYPE',
+    cell: (row) => (row.prunedAt ? 'pruned' : row.clean ? 'clean' : 'incremental'),
+  },
 ];
 
 /** Render the build rows as a left-aligned, column-padded table (header first). Assumes a non-empty list. */
@@ -132,11 +140,11 @@ export function formatBuildsTable(rows: BuildRow[]): string {
 
 /** Columns for the `builds prune` preview — what each removed binary is and the disk it reclaims. */
 const PRUNE_COLUMNS: Column<PrunedArtifact>[] = [
-  { header: "BUILD", cell: (row) => String(row.buildNumber) },
-  { header: "APP", cell: (row) => row.app },
-  { header: "VERSION", cell: (row) => row.version },
-  { header: "PLATFORM", cell: (row) => row.platform },
-  { header: "SIZE", cell: (row) => mb(row.bytes) },
+  { header: 'BUILD', cell: (row) => String(row.buildNumber) },
+  { header: 'APP', cell: (row) => row.app },
+  { header: 'VERSION', cell: (row) => row.version },
+  { header: 'PLATFORM', cell: (row) => row.platform },
+  { header: 'SIZE', cell: (row) => mb(row.bytes) },
 ];
 
 /** Render the set of binaries a prune would remove as a table (header first). Assumes a non-empty list. */
@@ -150,19 +158,21 @@ export function formatBuildDetail(artifact: BuildArtifact): string {
     `${artifact.appName} ${artifact.version} (build ${artifact.buildNumber}) · ${artifact.platform}`,
     `  ${sizeSummary(artifact.sizeReport)}`,
     `  profile:  ${artifact.profile}`,
-    `  built:    ${formatDate(artifact.createdAt)}  (${artifact.clean ? "clean" : "incremental"})`,
+    `  built:    ${formatDate(artifact.createdAt)}  (${artifact.clean ? 'clean' : 'incremental'})`,
     `  id:       ${buildId(artifact)}`,
     artifact.prunedAt
       ? `  artifact: pruned ${formatDate(artifact.prunedAt)} — binary removed to save disk; rebuild to ship`
       : `  artifact: ${artifact.path}`,
   ];
   if (artifact.sizeReport.entries.length > 0) {
-    lines.push("  per-device download / install:");
+    lines.push('  per-device download / install:');
     for (const entry of artifact.sizeReport.entries) {
-      lines.push(`    ${entry.device}  download ${mb(entry.downloadBytes)}  install ${mb(entry.installBytes)}`);
+      lines.push(
+        `    ${entry.device}  download ${mb(entry.downloadBytes)}  install ${mb(entry.installBytes)}`,
+      );
     }
   }
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 /** Validate the `--platform` filter, throwing on an unknown platform; `undefined` means "all platforms". */
@@ -178,7 +188,7 @@ async function loadHistory(): Promise<BuildArtifact[]> {
 
 /** `N build` / `N builds` — the count phrase shared across the prune messages. */
 function buildsLabel(count: number): string {
-  return `${count} build${count === 1 ? "" : "s"}`;
+  return `${count} build${count === 1 ? '' : 's'}`;
 }
 
 /** Validate `--days`: a positive whole number, or undefined when the flag is absent (use the configured window). */
@@ -274,14 +284,16 @@ export async function runPrune(options: PruneCommandOptions): Promise<void> {
 
   if (!options.yes) {
     if (!process.stdout.isTTY || options.json) {
-      throw new Error("Refusing to delete without confirmation. Re-run with --yes (or --dry-run to preview).");
+      throw new Error(
+        'Refusing to delete without confirmation. Re-run with --yes (or --dry-run to preview).',
+      );
     }
     console.log(formatPrunePreview(preview.pruned));
     const proceed = await confirm({
       message: `Delete ${buildsLabel(preview.pruned.length)}, freeing ${mb(preview.freedBytes)}?`,
     });
     if (isCancel(proceed) || !proceed) {
-      cancel("Nothing deleted.");
+      cancel('Nothing deleted.');
       return;
     }
   }
@@ -301,24 +313,29 @@ export async function runPrune(options: PruneCommandOptions): Promise<void> {
  * `$EDITOR` there's no shell-free opener, so we print the path for the user to open. Best-effort UX.
  */
 async function openLog(path: string): Promise<void> {
-  const editor = process.env["EDITOR"];
+  const editor = process.env['EDITOR'];
   if (editor) return run(editor, [path]);
   const os = hostOs();
-  if (os === "macos") return run("open", [path]);
-  if (os === "linux") return run("xdg-open", [path]);
+  if (os === 'macos') return run('open', [path]);
+  if (os === 'linux') return run('xdg-open', [path]);
   console.log(`Log file: ${path}  (set $EDITOR to open it automatically)`);
 }
 
 /** Attach the `builds` command (with `list` / `view` / `log` / `prune` subcommands) to the program. */
 export function registerBuildsCommand(program: Command): void {
-  const builds = program.command("builds").description("inspect and trim local build history (the artifact index)");
+  const builds = program
+    .command('builds')
+    .description('inspect and trim local build history (the artifact index)');
 
   builds
-    .command("list")
-    .description("list past builds, newest first")
-    .option("-a, --app <name>", "only show builds for this app")
-    .option("--platform <platform>", "only show builds for one platform (ios/android/tvos/macos/visionos)")
-    .option("--json", "output machine-readable JSON", false)
+    .command('list')
+    .description('list past builds, newest first')
+    .option('-a, --app <name>', 'only show builds for this app')
+    .option(
+      '--platform <platform>',
+      'only show builds for one platform (ios/android/tvos/macos/visionos)',
+    )
+    .option('--json', 'output machine-readable JSON', false)
     .action(async (options: { app?: string; platform?: string; json: boolean }) => {
       const platform = parsePlatformFilter(options.platform);
       const matched = filterBuilds(await loadHistory(), {
@@ -331,35 +348,43 @@ export function registerBuildsCommand(program: Command): void {
         return;
       }
       if (rows.length === 0) {
-        console.log("No builds yet. Run `launch build ios` (or android) to create one.");
+        console.log('No builds yet. Run `launch build ios` (or android) to create one.');
         return;
       }
       console.log(formatBuildsTable(rows));
-      console.log(`\n${rows.length} build${rows.length === 1 ? "" : "s"}.`);
+      console.log(`\n${rows.length} build${rows.length === 1 ? '' : 's'}.`);
     });
 
   builds
-    .command("view")
-    .description("show full detail for one build")
-    .argument("<id|latest>", "a build id from `builds list`, a build number, or `latest`")
-    .option("--json", "output machine-readable JSON", false)
+    .command('view')
+    .description('show full detail for one build')
+    .argument('<id|latest>', 'a build id from `builds list`, a build number, or `latest`')
+    .option('--json', 'output machine-readable JSON', false)
     .action(async (ref: string, options: { json: boolean }) => {
       const found = findBuild(await loadHistory(), ref);
       if (!found) {
-        throw new Error(`No build matches "${ref}". Run \`launch builds list\` to see what's available.`);
+        throw new Error(
+          `No build matches "${ref}". Run \`launch builds list\` to see what's available.`,
+        );
       }
-      console.log(options.json ? JSON.stringify(toBuildRow(found), null, 2) : formatBuildDetail(found));
+      console.log(
+        options.json ? JSON.stringify(toBuildRow(found), null, 2) : formatBuildDetail(found),
+      );
     });
 
   builds
-    .command("log")
-    .description("print a past build's full native log (secrets redacted), or open it in your editor")
-    .argument("<id|latest>", "a build id from `builds list`, a build number, or `latest`")
-    .option("--open", "reveal the log in your editor / OS viewer instead of printing it", false)
+    .command('log')
+    .description(
+      "print a past build's full native log (secrets redacted), or open it in your editor",
+    )
+    .argument('<id|latest>', 'a build id from `builds list`, a build number, or `latest`')
+    .option('--open', 'reveal the log in your editor / OS viewer instead of printing it', false)
     .action(async (ref: string, options: { open: boolean }) => {
       const found = findBuild(await loadHistory(), ref);
       if (!found) {
-        throw new Error(`No build matches "${ref}". Run \`launch builds list\` to see what's available.`);
+        throw new Error(
+          `No build matches "${ref}". Run \`launch builds list\` to see what's available.`,
+        );
       }
       const id = buildId(found);
       if (!existsSync(buildLogPath(id))) {
@@ -373,18 +398,26 @@ export function registerBuildsCommand(program: Command): void {
         return;
       }
       const text = readBuildLog(id);
-      console.log(text?.trim() ? text : "(log is empty)");
+      console.log(text?.trim() ? text : '(log is empty)');
     });
 
   builds
-    .command("prune")
-    .description("delete build binaries older than the retention window (keeps the newest per app+platform)")
-    .option("--days <n>", "retention window in days (default: config artifactRetentionDays, else 30)")
-    .option("-a, --app <name>", "only prune builds for this app")
-    .option("--platform <platform>", "only prune builds for one platform (ios/android/tvos/macos/visionos)")
-    .option("--dry-run", "show what would be deleted without deleting", false)
-    .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
-    .option("--json", "output machine-readable JSON", false)
+    .command('prune')
+    .description(
+      'delete build binaries older than the retention window (keeps the newest per app+platform)',
+    )
+    .option(
+      '--days <n>',
+      'retention window in days (default: config artifactRetentionDays, else 30)',
+    )
+    .option('-a, --app <name>', 'only prune builds for this app')
+    .option(
+      '--platform <platform>',
+      'only prune builds for one platform (ios/android/tvos/macos/visionos)',
+    )
+    .option('--dry-run', 'show what would be deleted without deleting', false)
+    .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
+    .option('--json', 'output machine-readable JSON', false)
     .action(async (options: PruneCommandOptions) => {
       await runPrune(options);
     });

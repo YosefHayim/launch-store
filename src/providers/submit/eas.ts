@@ -7,11 +7,16 @@
  * handoff makes for no-Mac, no-AWS developers.
  */
 
-import type { BuildCredentials, ResolvedBuildContext, Submitter, SubmitTarget } from "../../core/types.js";
-import { easSubmit } from "../build/eas.js";
+import type {
+  BuildCredentials,
+  ResolvedBuildContext,
+  Submitter,
+  SubmitTarget,
+} from '../../core/types.js';
+import { easSubmit } from '../build/eas.js';
 
 export const easSubmitter: Submitter = {
-  name: "eas",
+  name: 'eas',
 
   async submit(
     artifactPath: string,

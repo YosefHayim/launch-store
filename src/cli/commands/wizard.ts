@@ -15,33 +15,38 @@
  * there's no second copy of the build, setup, or account logic.
  */
 
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-import { cancel, confirm, intro, isCancel, note, select, text } from "@clack/prompts";
-import type { AppDescriptor, BuildLocation, LaunchConfig, Platform } from "../../core/types.js";
-import { type GlossaryTopic, explainTopic } from "../../core/glossary.js";
-import { hostOsLabel, isMac } from "../../core/os.js";
-import { isInteractive } from "../../core/progress.js";
-import { outroDone } from "../../core/logger.js";
-import { hasSeenTour, markTourSeen } from "../../core/firstRun.js";
-import { runTour } from "../../core/tour.js";
-import { formatAccountSummary, getActiveAccount, listAccounts, setActiveKeyId } from "../../core/accounts.js";
-import { type LastFlow, readLastFlow, rememberLastFlow } from "../../core/lastRun.js";
-import { loadConfig } from "../../core/config.js";
-import { missingRequiredTools } from "../../core/toolchain.js";
-import { type BuildRunOptions, prepareBuild, runBuild } from "../../core/pipeline.js";
-import { runEasBuild } from "../../core/easPipeline.js";
-import { chooseAccountInteractive, setupIos } from "./creds.js";
-import { runInit } from "./init.js";
-import { runAdopt } from "./adopt.js";
-import { countPrunableBuilds, runPrune } from "./builds.js";
-import { runDoctor } from "./doctor.js";
-import { parseSshTarget } from "../../providers/compute/byoSsh.js";
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { cancel, confirm, intro, isCancel, note, select, text } from '@clack/prompts';
+import type { AppDescriptor, BuildLocation, LaunchConfig, Platform } from '../../core/types.js';
+import { type GlossaryTopic, explainTopic } from '../../core/glossary.js';
+import { hostOsLabel, isMac } from '../../core/os.js';
+import { isInteractive } from '../../core/progress.js';
+import { outroDone } from '../../core/logger.js';
+import { hasSeenTour, markTourSeen } from '../../core/firstRun.js';
+import { runTour } from '../../core/tour.js';
+import {
+  formatAccountSummary,
+  getActiveAccount,
+  listAccounts,
+  setActiveKeyId,
+} from '../../core/accounts.js';
+import { type LastFlow, readLastFlow, rememberLastFlow } from '../../core/lastRun.js';
+import { loadConfig } from '../../core/config.js';
+import { missingRequiredTools } from '../../core/toolchain.js';
+import { type BuildRunOptions, prepareBuild, runBuild } from '../../core/pipeline.js';
+import { runEasBuild } from '../../core/easPipeline.js';
+import { chooseAccountInteractive, setupIos } from './creds.js';
+import { runInit } from './init.js';
+import { runAdopt } from './adopt.js';
+import { countPrunableBuilds, runPrune } from './builds.js';
+import { runDoctor } from './doctor.js';
+import { parseSshTarget } from '../../providers/compute/byoSsh.js';
 
 /** Resolve a Clack prompt, exiting cleanly on cancel and narrowing the cancel symbol away. */
 function resolvePrompt<T>(value: T | symbol): T {
   if (isCancel(value)) {
-    cancel("Cancelled.");
+    cancel('Cancelled.');
     process.exit(0);
   }
   return value;
@@ -54,22 +59,22 @@ function teach(topic: GlossaryTopic, title: string): void {
 
 /** Yes/no "Build now?", treating a cancel as no. */
 async function confirmBuildNow(): Promise<boolean> {
-  const answer = await confirm({ message: "Build now?" });
+  const answer = await confirm({ message: 'Build now?' });
   return !isCancel(answer) && answer;
 }
 
 /** Prompt for an SSH `user@host[:port]`, validating it before we try to use it. */
 async function promptSshTarget(): Promise<string> {
   const target = await text({
-    message: "SSH target for your Mac",
-    placeholder: "ec2-user@host or user@host:port",
+    message: 'SSH target for your Mac',
+    placeholder: 'ec2-user@host or user@host:port',
     validate: (value) => {
-      if (!value) return "Enter an SSH target.";
+      if (!value) return 'Enter an SSH target.';
       try {
         parseSshTarget(value);
         return undefined;
       } catch (error) {
-        return error instanceof Error ? error.message : "Invalid target.";
+        return error instanceof Error ? error.message : 'Invalid target.';
       }
     },
   });
@@ -78,7 +83,15 @@ async function promptSshTarget(): Promise<string> {
 
 /** Build the base options every wizard build shares — production-ish defaults, real (non-dry) run. */
 function buildOptions(platform: Platform, profileName: string, submit: boolean): BuildRunOptions {
-  return { platform, profileName, appName: undefined, explain: false, submit, target: "testing", dryRun: false };
+  return {
+    platform,
+    profileName,
+    appName: undefined,
+    explain: false,
+    submit,
+    target: 'testing',
+    dryRun: false,
+  };
 }
 
 /** Step 1: platform. Always shown; an option with no configured app is hinted so the choice is honest. */
@@ -87,17 +100,17 @@ async function selectPlatform(apps: AppDescriptor[]): Promise<Platform> {
   const hasAndroid = apps.some((app) => app.packageName);
   return resolvePrompt(
     await select<Platform>({
-      message: "Which platform?",
+      message: 'Which platform?',
       options: [
         {
-          value: "ios",
-          label: "iOS",
-          hint: hasIos ? "build & sign on macOS, a remote Mac, or EAS" : "no iOS app configured",
+          value: 'ios',
+          label: 'iOS',
+          hint: hasIos ? 'build & sign on macOS, a remote Mac, or EAS' : 'no iOS app configured',
         },
         {
-          value: "android",
-          label: "Android",
-          hint: hasAndroid ? "build locally on any OS" : "no Android app configured",
+          value: 'android',
+          label: 'Android',
+          hint: hasAndroid ? 'build locally on any OS' : 'no Android app configured',
         },
       ],
     }),
@@ -107,66 +120,70 @@ async function selectPlatform(apps: AppDescriptor[]): Promise<Platform> {
 /** Step 2 (iOS): where to build. `This Mac` appears only on a Mac; the rest cover the off-Mac paths. */
 async function selectLocation(): Promise<BuildLocation> {
   const options: { value: BuildLocation; label: string; hint: string }[] = [
-    ...(isMac() ? [{ value: "local" as const, label: "This Mac", hint: "fastest; your local Xcode" }] : []),
-    { value: "aws", label: "AWS cloud Mac", hint: "your own AWS; ~$16 min / 24h" },
-    { value: "ssh", label: "A Mac over SSH", hint: "a Mac you already reach" },
-    { value: "eas", label: "Expo EAS", hint: "Expo's cloud; free-tier caps" },
+    ...(isMac()
+      ? [{ value: 'local' as const, label: 'This Mac', hint: 'fastest; your local Xcode' }]
+      : []),
+    { value: 'aws', label: 'AWS cloud Mac', hint: 'your own AWS; ~$16 min / 24h' },
+    { value: 'ssh', label: 'A Mac over SSH', hint: 'a Mac you already reach' },
+    { value: 'eas', label: 'Expo EAS', hint: "Expo's cloud; free-tier caps" },
   ];
-  return resolvePrompt(await select<BuildLocation>({ message: "Where should we build?", options }));
+  return resolvePrompt(await select<BuildLocation>({ message: 'Where should we build?', options }));
 }
 
 /** Step (both): which profile. Always shown; each option hints its size budget when set. */
 async function selectProfile(config: LaunchConfig): Promise<string> {
   const names = Object.keys(config.profiles);
-  if (names.length === 0) return "production"; // the pipeline applies a 200 MB default profile under this name
+  if (names.length === 0) return 'production'; // the pipeline applies a 200 MB default profile under this name
   const options = names.map((name) => {
     const budget = config.profiles[name]?.sizeBudgetMB;
-    return budget ? { value: name, label: name, hint: `budget ${budget} MB` } : { value: name, label: name };
+    return budget
+      ? { value: name, label: name, hint: `budget ${budget} MB` }
+      : { value: name, label: name };
   });
-  const initialValue = names.includes("production") ? "production" : (names[0] ?? "production");
-  return resolvePrompt(await select<string>({ message: "Which profile?", options, initialValue }));
+  const initialValue = names.includes('production') ? 'production' : (names[0] ?? 'production');
+  return resolvePrompt(await select<string>({ message: 'Which profile?', options, initialValue }));
 }
 
 /** Step (both): upload or stop after building. Returns whether to submit. */
 async function selectAfterBuild(uploadLabel: string): Promise<boolean> {
   const choice = resolvePrompt(
-    await select<"upload" | "build">({
-      message: "After building?",
+    await select<'upload' | 'build'>({
+      message: 'After building?',
       options: [
-        { value: "upload", label: `Upload to ${uploadLabel}`, hint: "build, then submit" },
-        { value: "build", label: "Build only", hint: "stop after building; don't upload" },
+        { value: 'upload', label: `Upload to ${uploadLabel}`, hint: 'build, then submit' },
+        { value: 'build', label: 'Build only', hint: "stop after building; don't upload" },
       ],
     }),
   );
-  return choice === "upload";
+  return choice === 'upload';
 }
 
 /** The iOS journey: location → Apple account → profile → upload choice → run the matching build path. */
 async function runIosJourney(config: LaunchConfig): Promise<void> {
-  teach("build-location", "Where to build");
+  teach('build-location', 'Where to build');
   const location = await selectLocation();
 
-  teach("apple-account", "Apple account");
+  teach('apple-account', 'Apple account');
   const account = await chooseAccountInteractive();
-  if (location === "eas") {
+  if (location === 'eas') {
     note(
       "EAS signs in Expo's cloud, so this account isn't used to sign — it just stays your active account for other Launch commands.",
-      "Note",
+      'Note',
     );
   }
 
-  teach("build-profile", "Profile");
+  teach('build-profile', 'Profile');
   const profileName = await selectProfile(config);
 
-  teach("testflight", "After build");
-  const submit = await selectAfterBuild("TestFlight");
+  teach('testflight', 'After build');
+  const submit = await selectAfterBuild('TestFlight');
 
-  const sshTarget = location === "ssh" ? await promptSshTarget() : undefined;
-  await dispatchIosBuild(location, buildOptions("ios", profileName, submit), sshTarget);
+  const sshTarget = location === 'ssh' ? await promptSshTarget() : undefined;
+  await dispatchIosBuild(location, buildOptions('ios', profileName, submit), sshTarget);
 
   // Record only after the build succeeds (a throw above skips this), so a repeat never replays a failure.
   rememberLastFlow({
-    platform: "ios",
+    platform: 'ios',
     location,
     profile: profileName,
     submit,
@@ -176,20 +193,24 @@ async function runIosJourney(config: LaunchConfig): Promise<void> {
 }
 
 /** Run the build path for an iOS {@link BuildLocation}. Shared by the interactive journey and replay. */
-async function dispatchIosBuild(location: BuildLocation, options: BuildRunOptions, sshTarget?: string): Promise<void> {
+async function dispatchIosBuild(
+  location: BuildLocation,
+  options: BuildRunOptions,
+  sshTarget?: string,
+): Promise<void> {
   switch (location) {
-    case "local":
+    case 'local':
       await runBuild(options);
       return;
-    case "aws":
-      await runBuild({ ...options, remote: { kind: "aws" } });
+    case 'aws':
+      await runBuild({ ...options, remote: { kind: 'aws' } });
       return;
-    case "ssh": {
-      if (!sshTarget) throw new Error("An SSH build needs a target (user@host).");
-      await runBuild({ ...options, remote: { kind: "ssh", target: sshTarget } });
+    case 'ssh': {
+      if (!sshTarget) throw new Error('An SSH build needs a target (user@host).');
+      await runBuild({ ...options, remote: { kind: 'ssh', target: sshTarget } });
       return;
     }
-    case "eas": {
+    case 'eas': {
       const prepared = await prepareBuild(options);
       await runEasBuild(prepared, options);
       return;
@@ -199,36 +220,36 @@ async function dispatchIosBuild(location: BuildLocation, options: BuildRunOption
 
 /** The Android journey: profile → upload choice → run. No Apple account or build-location applies. */
 async function runAndroidJourney(config: LaunchConfig): Promise<void> {
-  teach("build-profile", "Profile");
+  teach('build-profile', 'Profile');
   const profileName = await selectProfile(config);
 
-  teach("play-track", "After build");
-  const submit = await selectAfterBuild("Google Play (internal track)");
+  teach('play-track', 'After build');
+  const submit = await selectAfterBuild('Google Play (internal track)');
 
-  await runBuild(buildOptions("android", profileName, submit));
+  await runBuild(buildOptions('android', profileName, submit));
   // Android always builds locally; record after success so the next run can offer to repeat it.
-  rememberLastFlow({ platform: "android", location: "local", profile: profileName, submit });
+  rememberLastFlow({ platform: 'android', location: 'local', profile: profileName, submit });
 }
 
 /** The build journey: platform first, then the platform-specific steps. */
 async function runBuildJourney(): Promise<void> {
   const { config, apps } = await loadConfig();
-  teach("build-platform", "Platform");
+  teach('build-platform', 'Platform');
   const platform = await selectPlatform(apps);
-  return platform === "ios" ? runIosJourney(config) : runAndroidJourney(config);
+  return platform === 'ios' ? runIosJourney(config) : runAndroidJourney(config);
 }
 
 /** The short wizard label for an iOS build location, used in the repeat-build summary line. */
 function locationLabel(location: BuildLocation): string {
   switch (location) {
-    case "local":
-      return "This Mac";
-    case "aws":
-      return "AWS cloud Mac";
-    case "ssh":
-      return "Mac over SSH";
-    case "eas":
-      return "Expo EAS";
+    case 'local':
+      return 'This Mac';
+    case 'aws':
+      return 'AWS cloud Mac';
+    case 'ssh':
+      return 'Mac over SSH';
+    case 'eas':
+      return 'Expo EAS';
   }
 }
 
@@ -240,11 +261,11 @@ function locationLabel(location: BuildLocation): string {
 export function formatFlowSummary(flow: LastFlow): string {
   const parts = [
     flow.platform,
-    ...(flow.platform === "ios" ? [locationLabel(flow.location)] : []),
+    ...(flow.platform === 'ios' ? [locationLabel(flow.location)] : []),
     flow.profile,
-    flow.submit ? "upload" : "build only",
+    flow.submit ? 'upload' : 'build only',
   ];
-  return parts.join(" · ");
+  return parts.join(' · ');
 }
 
 /**
@@ -262,7 +283,9 @@ export function flowInvalidReason(
   accountKeyIds: Set<string>,
 ): string | null {
   const platformConfigured =
-    flow.platform === "ios" ? apps.some((app) => app.bundleId) : apps.some((app) => app.packageName);
+    flow.platform === 'ios'
+      ? apps.some((app) => app.bundleId)
+      : apps.some((app) => app.packageName);
   if (!platformConfigured) return `no ${flow.platform} app configured`;
 
   const profileNames = Object.keys(config.profiles);
@@ -270,9 +293,10 @@ export function flowInvalidReason(
     return `profile "${flow.profile}" no longer exists`;
   }
 
-  if (flow.platform === "ios") {
-    if (flow.account && !accountKeyIds.has(flow.account)) return "the Apple account it used is no longer registered";
-    if (flow.location === "ssh" && !flow.sshTarget) return "the remembered SSH flow has no target";
+  if (flow.platform === 'ios') {
+    if (flow.account && !accountKeyIds.has(flow.account))
+      return 'the Apple account it used is no longer registered';
+    if (flow.location === 'ssh' && !flow.sshTarget) return 'the remembered SSH flow has no target';
   }
   return null;
 }
@@ -286,7 +310,7 @@ export function flowInvalidReason(
 async function replayFlow(flow: LastFlow): Promise<void> {
   if (flow.account) setActiveKeyId(flow.account);
   const options = buildOptions(flow.platform, flow.profile, flow.submit);
-  if (flow.platform === "android") {
+  if (flow.platform === 'android') {
     await runBuild(options);
   } else {
     await dispatchIosBuild(flow.location, options, flow.sshTarget);
@@ -305,9 +329,15 @@ async function maybeRepeatLastBuild(): Promise<boolean> {
   const flow = readLastFlow();
   if (!flow) return false;
   const { config, apps } = await loadConfig();
-  if (flowInvalidReason(flow, config, apps, new Set(listAccounts().map((account) => account.keyId)))) return false;
+  if (
+    flowInvalidReason(flow, config, apps, new Set(listAccounts().map((account) => account.keyId)))
+  )
+    return false;
 
-  const repeat = await confirm({ message: `Repeat last build?  ${formatFlowSummary(flow)}`, initialValue: true });
+  const repeat = await confirm({
+    message: `Repeat last build?  ${formatFlowSummary(flow)}`,
+    initialValue: true,
+  });
   if (isCancel(repeat) || !repeat) return false;
   await replayFlow(flow);
   return true;
@@ -323,14 +353,14 @@ async function runGuidedSetup(): Promise<void> {
   note(
     [
       "Four quick steps — each is skipped when it's already done:",
-      "  1) Config  2) Apple account  3) Toolchain  4) Signing",
-    ].join("\n"),
-    "Set up Launch",
+      '  1) Config  2) Apple account  3) Toolchain  4) Signing',
+    ].join('\n'),
+    'Set up Launch',
   );
 
   // 1 · Config
-  if (existsSync(join(process.cwd(), "launch.config.ts"))) {
-    note("launch.config.ts is already present.", "1 · Config ✓");
+  if (existsSync(join(process.cwd(), 'launch.config.ts'))) {
+    note('launch.config.ts is already present.', '1 · Config ✓');
   } else {
     await runInit(process.cwd());
   }
@@ -338,45 +368,51 @@ async function runGuidedSetup(): Promise<void> {
   // 2 · Apple account
   const active = getActiveAccount();
   if (active) {
-    note(`Active account: ${formatAccountSummary(active)}.`, "2 · Apple account ✓");
+    note(`Active account: ${formatAccountSummary(active)}.`, '2 · Apple account ✓');
   } else {
-    const add = await confirm({ message: "Add an Apple account now? (skip if you only ship Android)" });
+    const add = await confirm({
+      message: 'Add an Apple account now? (skip if you only ship Android)',
+    });
     if (!isCancel(add) && add) await chooseAccountInteractive();
   }
 
   // 3 · Toolchain
   if (isMac()) {
-    note("Checking your iOS build toolchain…", "3 · Toolchain");
-    await runDoctor({ platform: "ios" });
+    note('Checking your iOS build toolchain…', '3 · Toolchain');
+    await runDoctor({ platform: 'ios' });
     // Offer the Homebrew install only when a required build tool is genuinely missing. `runDoctor`'s overall
     // result also goes false for non-tool gaps (no App Store Connect record, an unsigned agreement) that
     // Homebrew can't fix and the account/signing steps handle — gating on those misled users (issue #117).
     const missingTools = await missingRequiredTools();
     if (missingTools.length > 0) {
-      const labels = missingTools.map((tool) => tool.label).join(", ");
-      const fix = await confirm({ message: `Missing build tool(s): ${labels}. Install them now (Homebrew)?` });
-      if (!isCancel(fix) && fix) await runDoctor({ platform: "ios", fix: true });
+      const labels = missingTools.map((tool) => tool.label).join(', ');
+      const fix = await confirm({
+        message: `Missing build tool(s): ${labels}. Install them now (Homebrew)?`,
+      });
+      if (!isCancel(fix) && fix) await runDoctor({ platform: 'ios', fix: true });
     }
   } else {
     note(
-      "No local Mac — iOS builds run on a remote Mac, so no local Xcode is needed. Use `launch cloud doctor` to check a remote host.",
-      "3 · Toolchain (remote)",
+      'No local Mac — iOS builds run on a remote Mac, so no local Xcode is needed. Use `launch cloud doctor` to check a remote host.',
+      '3 · Toolchain (remote)',
     );
   }
 
   // 4 · Signing — provisioning uses the macOS Keychain, so it's Mac-only and needs an account.
   if (isMac() && getActiveAccount()) {
-    const provision = await confirm({ message: "Provision (or reuse) your iOS signing cert + profile now?" });
+    const provision = await confirm({
+      message: 'Provision (or reuse) your iOS signing cert + profile now?',
+    });
     if (!isCancel(provision) && provision) {
       try {
         await setupIos({});
       } catch (error) {
-        note(error instanceof Error ? error.message : String(error), "Signing — skipped");
+        note(error instanceof Error ? error.message : String(error), 'Signing — skipped');
       }
     }
   }
 
-  note("Setup complete.", "Done");
+  note('Setup complete.', 'Done');
 }
 
 /**
@@ -385,12 +421,12 @@ async function runGuidedSetup(): Promise<void> {
  */
 export async function promptTourPlatform(): Promise<Platform | null> {
   const choice = await select<Platform>({
-    message: "Take the 60-second tour? Pick a platform to walk through (Esc to skip)",
+    message: 'Take the 60-second tour? Pick a platform to walk through (Esc to skip)',
     options: [
-      { value: "ios", label: "iOS → TestFlight" },
-      { value: "android", label: "Android → Google Play" },
+      { value: 'ios', label: 'iOS → TestFlight' },
+      { value: 'android', label: 'Android → Google Play' },
     ],
-    initialValue: "ios",
+    initialValue: 'ios',
   });
   return isCancel(choice) ? null : choice;
 }
@@ -411,12 +447,12 @@ async function maybeRunFirstRunTour(): Promise<void> {
 /** Run the interactive front door. */
 export async function runWizard(): Promise<void> {
   await maybeRunFirstRunTour();
-  intro("Launch");
-  note(`Detected ${hostOsLabel()}.`, "Environment");
+  intro('Launch');
+  note(`Detected ${hostOsLabel()}.`, 'Environment');
 
   // Fresh checkout (no launch.config.ts) → guide setup, then offer to build straight away.
-  if (!existsSync(join(process.cwd(), "launch.config.ts"))) {
-    note("Looks like a fresh checkout — let's get Launch ready first.", "First run");
+  if (!existsSync(join(process.cwd(), 'launch.config.ts'))) {
+    note("Looks like a fresh checkout — let's get Launch ready first.", 'First run');
     await runGuidedSetup();
     if (await confirmBuildNow()) await runBuildJourney();
     await outroDone();
@@ -432,47 +468,51 @@ export async function runWizard(): Promise<void> {
   // Offer cleanup only when there's something to reclaim, so the menu stays a build-first front door
   // (Decision: don't show a dead "Clean up" entry on a fresh or already-tidy store).
   const prunableCount = await countPrunableBuilds();
-  const menuOptions: { value: "build" | "adopt" | "setup" | "prune"; label: string; hint: string }[] = [
-    { value: "build", label: "Build an app", hint: "compile, check size, upload" },
+  const menuOptions: {
+    value: 'build' | 'adopt' | 'setup' | 'prune';
+    label: string;
+    hint: string;
+  }[] = [
+    { value: 'build', label: 'Build an app', hint: 'compile, check size, upload' },
     {
-      value: "adopt",
-      label: "Adopt an existing app",
+      value: 'adopt',
+      label: 'Adopt an existing app',
       hint: "import an already-shipping app's setup from App Store Connect",
     },
     {
-      value: "setup",
-      label: "Set up Launch (credentials & checks)",
-      hint: "config · account · toolchain · signing",
+      value: 'setup',
+      label: 'Set up Launch (credentials & checks)',
+      hint: 'config · account · toolchain · signing',
     },
   ];
   if (prunableCount > 0) {
     menuOptions.push({
-      value: "prune",
-      label: "Clean up old builds",
-      hint: `${prunableCount} build${prunableCount === 1 ? "" : "s"} past the retention window · reclaim disk`,
+      value: 'prune',
+      label: 'Clean up old builds',
+      hint: `${prunableCount} build${prunableCount === 1 ? '' : 's'} past the retention window · reclaim disk`,
     });
   }
 
   const action = resolvePrompt(
-    await select<"build" | "setup" | "adopt" | "prune">({
-      message: "What would you like to do?",
+    await select<'build' | 'setup' | 'adopt' | 'prune'>({
+      message: 'What would you like to do?',
       options: menuOptions,
     }),
   );
 
-  if (action === "prune") {
+  if (action === 'prune') {
     await runPrune({});
     await outroDone();
     return;
   }
 
-  if (action === "adopt") {
+  if (action === 'adopt') {
     await runAdopt({});
     await outroDone();
     return;
   }
 
-  if (action === "setup") {
+  if (action === 'setup') {
     await runGuidedSetup();
     if (!(await confirmBuildNow())) {
       await outroDone();

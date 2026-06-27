@@ -11,15 +11,19 @@
  * sets `process.exitCode` (0 clear · 2 blockers · 1 nothing-to-scan) so it gates a release script.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
-import type { Command } from "commander";
-import { loadConfig, readResolvedConfig } from "../../core/config.js";
-import { selectApps } from "../../core/syncJobs.js";
-import { surfaceFromExpoConfig, surfaceFromNative } from "../../core/privacy/parse.js";
-import { buildPrivacyReport, reconcilePrivacy, renderPrivacyReport } from "../../core/privacy/reconcile.js";
-import type { PrivacyFinding, PrivacySurface } from "../../core/privacy/types.js";
-import type { AppDescriptor } from "../../core/types.js";
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import type { Command } from 'commander';
+import { loadConfig, readResolvedConfig } from '../../core/config.js';
+import { selectApps } from '../../core/syncJobs.js';
+import { surfaceFromExpoConfig, surfaceFromNative } from '../../core/privacy/parse.js';
+import {
+  buildPrivacyReport,
+  reconcilePrivacy,
+  renderPrivacyReport,
+} from '../../core/privacy/reconcile.js';
+import type { PrivacyFinding, PrivacySurface } from '../../core/privacy/types.js';
+import type { AppDescriptor } from '../../core/types.js';
 
 /** CLI options for `launch privacy scan`. */
 interface PrivacyScanOptions {
@@ -30,7 +34,7 @@ interface PrivacyScanOptions {
 }
 
 /** Generated/heavy directories the file walk skips — they never hold the source-of-truth manifests. */
-const SKIP_DIRS = new Set(["node_modules", "Pods", "build", "DerivedData", "dist"]);
+const SKIP_DIRS = new Set(['node_modules', 'Pods', 'build', 'DerivedData', 'dist']);
 
 /** Collect files whose basename satisfies `match`, walking `root` to a bounded depth and skipping build dirs. */
 function findFiles(root: string, match: (name: string) => boolean, maxDepth = 6): string[] {
@@ -45,7 +49,7 @@ function findFiles(root: string, match: (name: string) => boolean, maxDepth = 6)
       return;
     }
     for (const entry of entries) {
-      if (SKIP_DIRS.has(entry) || entry.startsWith(".")) continue;
+      if (SKIP_DIRS.has(entry) || entry.startsWith('.')) continue;
       const path = join(dir, entry);
       let isDirectory = false;
       try {
@@ -66,7 +70,7 @@ function readAll(paths: string[]): string[] {
   const contents: string[] = [];
   for (const path of paths) {
     try {
-      contents.push(readFileSync(path, "utf8"));
+      contents.push(readFileSync(path, 'utf8'));
     } catch {
       // unreadable file — better a partial surface than aborting the whole scan
     }
@@ -79,11 +83,11 @@ function readAll(paths: string[]): string[] {
  * Expo config (managed workflow, before `expo prebuild` has generated native files).
  */
 async function surfaceForApp(app: AppDescriptor): Promise<PrivacySurface> {
-  const iosDir = join(app.dir, "ios");
-  const androidDir = join(app.dir, "android");
-  const infoPlists = readAll(findFiles(iosDir, (name) => name === "Info.plist"));
-  const privacyManifests = readAll(findFiles(iosDir, (name) => name.endsWith(".xcprivacy")));
-  const androidManifests = readAll(findFiles(androidDir, (name) => name === "AndroidManifest.xml"));
+  const iosDir = join(app.dir, 'ios');
+  const androidDir = join(app.dir, 'android');
+  const infoPlists = readAll(findFiles(iosDir, (name) => name === 'Info.plist'));
+  const privacyManifests = readAll(findFiles(iosDir, (name) => name.endsWith('.xcprivacy')));
+  const androidManifests = readAll(findFiles(androidDir, (name) => name === 'AndroidManifest.xml'));
 
   if (infoPlists.length > 0 || privacyManifests.length > 0 || androidManifests.length > 0) {
     return surfaceFromNative({ infoPlists, privacyManifests, androidManifests });
@@ -114,16 +118,16 @@ export async function runPrivacyScan(input: PrivacyScanOptions): Promise<void> {
 /** Attach the `privacy` command (with its `scan` subcommand) to the program. */
 export function registerPrivacyCommand(program: Command): void {
   const privacy = program
-    .command("privacy")
-    .description("reconcile your permission/data surface against your privacy declarations");
+    .command('privacy')
+    .description('reconcile your permission/data surface against your privacy declarations');
 
   privacy
-    .command("scan")
+    .command('scan')
     .description(
-      "check permissions/manifests against the privacy declarations; flags undeclared collection (read-only)",
+      'check permissions/manifests against the privacy declarations; flags undeclared collection (read-only)',
     )
-    .option("-a, --app <names>", "comma-separated app handles (default: all apps)")
-    .option("--json", "machine-readable output for CI/agents", false)
+    .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
+    .option('--json', 'machine-readable output for CI/agents', false)
     .action(async (options: PrivacyScanOptions) => {
       await runPrivacyScan(options);
     });

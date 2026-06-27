@@ -8,32 +8,32 @@
  * with actionable guidance rather than silently producing nothing. `eas-cli` is NEVER bundled.
  */
 
-import { mkdtempSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import type { ResolvedBuildContext, SizeReport, SubmitTarget } from "../../core/types.js";
-import { capture, exists, run } from "../../core/exec.js";
+import { mkdtempSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import type { ResolvedBuildContext, SizeReport, SubmitTarget } from '../../core/types.js';
+import { capture, exists, run } from '../../core/exec.js';
 
 /** Where the `eas` binary comes from: the global install if present, else `npx eas-cli`. */
 async function easCommand(): Promise<{ cmd: string; prefix: string[] }> {
-  if (await exists("eas")) return { cmd: "eas", prefix: [] };
-  return { cmd: "npx", prefix: ["--yes", "eas-cli"] };
+  if (await exists('eas')) return { cmd: 'eas', prefix: [] };
+  return { cmd: 'npx', prefix: ['--yes', 'eas-cli'] };
 }
 
 /** Human label of how `eas` will be invoked, for the run header. Also surfaces a missing toolchain early. */
 export async function detectEasCli(): Promise<string> {
   const { cmd } = await easCommand();
-  return cmd === "eas" ? "eas (global install)" : "npx eas-cli (not globally installed)";
+  return cmd === 'eas' ? 'eas (global install)' : 'npx eas-cli (not globally installed)';
 }
 
 /** Ensure an Expo login, prompting `eas login` interactively if needed. Launch stores no Expo credentials. */
 export async function ensureExpoSession(): Promise<string> {
   const { cmd, prefix } = await easCommand();
   try {
-    return await capture(cmd, [...prefix, "whoami"]);
+    return await capture(cmd, [...prefix, 'whoami']);
   } catch {
-    await run(cmd, [...prefix, "login"]);
-    return capture(cmd, [...prefix, "whoami"]);
+    await run(cmd, [...prefix, 'login']);
+    return capture(cmd, [...prefix, 'whoami']);
   }
 }
 
@@ -54,14 +54,14 @@ export function parseArtifactUrl(jsonText: string): string | null {
 export function parseBuildNumber(jsonText: string): number {
   const entry = firstBuildEntry(jsonText);
   const raw = entry?.appBuildVersion ?? entry?.buildNumber;
-  const parsed = typeof raw === "number" ? raw : raw ? Number.parseInt(raw, 10) : 0;
+  const parsed = typeof raw === 'number' ? raw : raw ? Number.parseInt(raw, 10) : 0;
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
 /** Parse the first build object out of `eas build --json` (an array, possibly after progress log lines). */
 function firstBuildEntry(jsonText: string): EasBuildEntry | null {
-  const start = jsonText.indexOf("[");
-  const end = jsonText.lastIndexOf("]");
+  const start = jsonText.indexOf('[');
+  const end = jsonText.lastIndexOf(']');
   if (start === -1 || end === -1 || end < start) return null;
   try {
     const builds = JSON.parse(jsonText.slice(start, end + 1)) as EasBuildEntry[];
@@ -79,7 +79,17 @@ export async function easBuildToIpa(
   const { cmd, prefix } = await easCommand();
   const json = await capture(
     cmd,
-    [...prefix, "build", "--platform", "ios", "--profile", profileName, "--non-interactive", "--json", "--wait"],
+    [
+      ...prefix,
+      'build',
+      '--platform',
+      'ios',
+      '--profile',
+      profileName,
+      '--non-interactive',
+      '--json',
+      '--wait',
+    ],
     { cwd: ctx.app.dir, env: ctx.env },
   );
   const url = parseArtifactUrl(json);
@@ -88,7 +98,7 @@ export async function easBuildToIpa(
       "No artifact URL in `eas build --json` output — Expo's CLI shape may have changed (see providers/build/eas.ts).",
     );
   }
-  const ipaPath = join(mkdtempSync(join(tmpdir(), "launch-eas-")), `${ctx.app.name}.ipa`);
+  const ipaPath = join(mkdtempSync(join(tmpdir(), 'launch-eas-')), `${ctx.app.name}.ipa`);
   await downloadFile(url, ipaPath);
   return {
     ipaPath,
@@ -98,11 +108,25 @@ export async function easBuildToIpa(
 }
 
 /** Submit an already-built `.ipa` to App Store Connect via `eas submit`. */
-export async function easSubmit(ctx: ResolvedBuildContext, ipaPath: string, profileName: string): Promise<void> {
+export async function easSubmit(
+  ctx: ResolvedBuildContext,
+  ipaPath: string,
+  profileName: string,
+): Promise<void> {
   const { cmd, prefix } = await easCommand();
   await run(
     cmd,
-    [...prefix, "submit", "--platform", "ios", "--path", ipaPath, "--profile", profileName, "--non-interactive"],
+    [
+      ...prefix,
+      'submit',
+      '--platform',
+      'ios',
+      '--path',
+      ipaPath,
+      '--profile',
+      profileName,
+      '--non-interactive',
+    ],
     {
       cwd: ctx.app.dir,
     },

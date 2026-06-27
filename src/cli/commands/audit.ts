@@ -10,15 +10,15 @@
  * shared exit codes (0 clear · 2 blockers · 1 unreadable, error wins) make it a CI/pre-release gate. See #168.
  */
 
-import type { Command } from "commander";
-import { loadConfig } from "../../core/config.js";
-import { createLogger } from "../../core/logger.js";
-import { createAscClientResolver, createPlayClientResolver } from "../../core/storeClients.js";
-import { selectApps } from "../../core/syncJobs.js";
-import { registerBuiltinProbes, selectReadinessProbes } from "../../core/readiness/registry.js";
-import { runProbes } from "../../core/readiness/orchestrator.js";
-import type { ReadinessContext } from "../../core/readiness/types.js";
-import { renderReadinessOutcome } from "./readinessReport.js";
+import type { Command } from 'commander';
+import { loadConfig } from '../../core/config.js';
+import { createLogger } from '../../core/logger.js';
+import { createAscClientResolver, createPlayClientResolver } from '../../core/storeClients.js';
+import { selectApps } from '../../core/syncJobs.js';
+import { registerBuiltinProbes, selectReadinessProbes } from '../../core/readiness/registry.js';
+import { runProbes } from '../../core/readiness/orchestrator.js';
+import type { ReadinessContext } from '../../core/readiness/types.js';
+import { renderReadinessOutcome } from './readinessReport.js';
 
 /** CLI options for `launch audit`. */
 interface AuditOptions {
@@ -44,13 +44,13 @@ export async function runAudit(input: AuditOptions): Promise<void> {
     resolvePlayApi: createPlayClientResolver(),
   };
 
-  const outcome = await runProbes(ctx, selectReadinessProbes("submit"));
+  const outcome = await runProbes(ctx, selectReadinessProbes('submit'));
 
   if (input.json === true) console.log(JSON.stringify(outcome, null, 2));
   else {
     renderReadinessOutcome(log, outcome, {
-      summary: "Pre-submit audit",
-      empty: "No audit checks ran — no apps with a bundle id or package name were found.",
+      summary: 'Pre-submit audit',
+      empty: 'No audit checks ran — no apps with a bundle id or package name were found.',
     });
   }
   process.exitCode = outcome.exitCode;
@@ -59,10 +59,12 @@ export async function runAudit(input: AuditOptions): Promise<void> {
 /** Attach the top-level `audit` command to the program. */
 export function registerAuditCommand(program: Command): void {
   program
-    .command("audit")
-    .description("pre-submit readiness sweep: would a submission be rejected right now? (read-only)")
-    .option("-a, --app <names>", "comma-separated app handles (default: all apps)")
-    .option("--json", "machine-readable output for CI/agents", false)
+    .command('audit')
+    .description(
+      'pre-submit readiness sweep: would a submission be rejected right now? (read-only)',
+    )
+    .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
+    .option('--json', 'machine-readable output for CI/agents', false)
     .action(async (options: AuditOptions) => {
       await runAudit(options);
     });

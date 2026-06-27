@@ -13,24 +13,24 @@
  * `core/types.ts` — the same reason `ascSync.ts` keeps `AscCatalogApi`/`PlannedAction` local.
  */
 
-import type { AppDescriptor, LaunchConfig } from "../types.js";
-import type { AscCatalogApi, PlannedAction } from "../ascSync.js";
-import type { AscReleaseApi } from "../releaseAttrs.js";
-import type { AscGameCenterApi } from "../gameCenter.js";
-import type { AscAppClipsApi } from "../appClips.js";
-import type { AscAvailabilityApi } from "../availability.js";
-import type { AscAccessibilityApi } from "../accessibility.js";
-import type { AscExperimentsApi } from "../versionExperiments.js";
-import type { AscCustomPagesApi } from "../customProductPages.js";
-import type { AscWalletApi } from "../walletIds.js";
-import type { AscEuDistributionApi } from "../euDistribution.js";
-import type { AscOffersApi } from "../offers.js";
-import type { PreviewsApi, ScreenshotsApi } from "../ascScreenshots.js";
-import type { PlayProductsApi } from "../playProducts.js";
-import type { PlaySubscriptionsApi } from "../playSubscriptions.js";
+import type { AppDescriptor, LaunchConfig } from '../types.js';
+import type { AscCatalogApi, PlannedAction } from '../ascSync.js';
+import type { AscReleaseApi } from '../releaseAttrs.js';
+import type { AscGameCenterApi } from '../gameCenter.js';
+import type { AscAppClipsApi } from '../appClips.js';
+import type { AscAvailabilityApi } from '../availability.js';
+import type { AscAccessibilityApi } from '../accessibility.js';
+import type { AscExperimentsApi } from '../versionExperiments.js';
+import type { AscCustomPagesApi } from '../customProductPages.js';
+import type { AscWalletApi } from '../walletIds.js';
+import type { AscEuDistributionApi } from '../euDistribution.js';
+import type { AscOffersApi } from '../offers.js';
+import type { PreviewsApi, ScreenshotsApi } from '../ascScreenshots.js';
+import type { PlayProductsApi } from '../playProducts.js';
+import type { PlaySubscriptionsApi } from '../playSubscriptions.js';
 
 /** Which store a surface belongs to — drives credential resolution and how the diff is grouped. */
-export type PlanStore = "appstore" | "play";
+export type PlanStore = 'appstore' | 'play';
 
 /**
  * The read surface of the Google Play catalog the Play planners share — the union of the products and
@@ -49,8 +49,7 @@ export interface PlayCatalogApi extends PlayProductsApi, PlaySubscriptionsApi {}
  * required, only of the resolver's declared type. Grows by one `extends` as each surface is wired.
  */
 export interface AscSurfacesApi
-  extends
-    AscCatalogApi,
+  extends AscCatalogApi,
     AscReleaseApi,
     AscGameCenterApi,
     AscAppClipsApi,
@@ -90,7 +89,7 @@ export interface AppPlan {
  *   `config → live` gaps but is **blind to portal-side additions**; `= in sync` means "config is fully
  *   applied," not "live == config." Genuine bidirectional drift for these surfaces is a v2 depth pass.
  */
-export type PlanDirection = "two-way" | "additive";
+export type PlanDirection = 'two-way' | 'additive';
 
 /**
  * The outcome of running one surface's planner, as a discriminated union on `state` (and, for a read
@@ -105,14 +104,21 @@ export type PlanDirection = "two-way" | "additive";
  * Every `planned` variant carries its {@link PlanDirection} so the renderer can flag additive surfaces.
  */
 export type SurfacePlan =
-  | { surface: string; store: PlanStore; state: "omitted" }
-  | { surface: string; store: PlanStore; state: "skipped"; reason: string; hint?: string }
-  | { surface: string; store: PlanStore; state: "planned"; scope: "app"; direction: PlanDirection; apps: AppPlan[] }
+  | { surface: string; store: PlanStore; state: 'omitted' }
+  | { surface: string; store: PlanStore; state: 'skipped'; reason: string; hint?: string }
   | {
       surface: string;
       store: PlanStore;
-      state: "planned";
-      scope: "team";
+      state: 'planned';
+      scope: 'app';
+      direction: PlanDirection;
+      apps: AppPlan[];
+    }
+  | {
+      surface: string;
+      store: PlanStore;
+      state: 'planned';
+      scope: 'team';
       direction: PlanDirection;
       actions: PlannedAction[];
     };

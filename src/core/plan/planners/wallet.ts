@@ -7,25 +7,25 @@
  * "config is fully applied," not that no extra ids exist in the portal.
  */
 
-import { resolveSidecarConfig } from "../../config.js";
-import { loadWalletConfig, reconcileWalletIds } from "../../walletIds.js";
-import { planTeamSurface } from "./appStoreSurface.js";
-import type { SurfacePlanner } from "../types.js";
+import { resolveSidecarConfig } from '../../config.js';
+import { loadWalletConfig, reconcileWalletIds } from '../../walletIds.js';
+import { planTeamSurface } from './appStoreSurface.js';
+import type { SurfacePlanner } from '../types.js';
 
 /** Surface id — also the value users pass as `launch plan wallet`. */
-const SURFACE = "wallet";
+const SURFACE = 'wallet';
 
 export const walletPlanner: SurfacePlanner = {
   id: SURFACE,
-  store: "appstore",
+  store: 'appstore',
   plan: (ctx) =>
     planTeamSurface(ctx, {
       surface: SURFACE,
-      direction: "additive",
+      direction: 'additive',
       config: () =>
         resolveSidecarConfig({
           typed: ctx.config.wallet,
-          configPath: "wallet.config.json",
+          configPath: 'wallet.config.json',
           explicitPath: false,
           load: loadWalletConfig,
         }),

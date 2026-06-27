@@ -10,9 +10,9 @@
  * same call.
  */
 
-import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type {
   BuildCredentials,
   BuildEngine,
@@ -20,38 +20,45 @@ import type {
   ResolvedBuildContext,
   SizeReport,
   SizeReportEntry,
-} from "../../core/types.js";
-import { capture, run } from "../../core/exec.js";
-import { runWithProgress, gradleProgressStep } from "../../core/progress.js";
-import { estimateFor, readBuildState, updateEstimate, writeBuildState } from "../../core/buildFingerprint.js";
+} from '../../core/types.js';
+import { capture, run } from '../../core/exec.js';
+import { runWithProgress, gradleProgressStep } from '../../core/progress.js';
+import {
+  estimateFor,
+  readBuildState,
+  updateEstimate,
+  writeBuildState,
+} from '../../core/buildFingerprint.js';
 
 /**
  * The single ETA baseline key for Android. Unlike iOS there's no clean/incremental split — Gradle tracks
  * its own task inputs/outputs, so every build learns one "default" estimate (see {@link BuildEstimate}).
  */
-const ANDROID_ESTIMATE_KIND = "default";
+const ANDROID_ESTIMATE_KIND = 'default';
 
 /** Locate the Gradle wrapper for the platform; absolute path so `spawn` needs no shell to resolve it. */
 function gradleWrapper(androidDir: string): string {
-  const wrapper = join(androidDir, process.platform === "win32" ? "gradlew.bat" : "gradlew");
+  const wrapper = join(androidDir, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew');
   if (!existsSync(wrapper)) throw new Error(`No Gradle wrapper at ${wrapper} — did prebuild run?`);
   return wrapper;
 }
 
 /** Find the single release `.aab` Gradle emitted under `app/build/outputs/bundle/release/`. */
 function findBundle(androidDir: string): string {
-  const releaseDir = join(androidDir, "app", "build", "outputs", "bundle", "release");
-  if (!existsSync(releaseDir)) throw new Error(`Gradle produced no release bundle dir (${releaseDir}).`);
-  const aab = readdirSync(releaseDir).find((entry) => entry.endsWith(".aab"));
+  const releaseDir = join(androidDir, 'app', 'build', 'outputs', 'bundle', 'release');
+  if (!existsSync(releaseDir))
+    throw new Error(`Gradle produced no release bundle dir (${releaseDir}).`);
+  const aab = readdirSync(releaseDir).find((entry) => entry.endsWith('.aab'));
   if (!aab) throw new Error(`No .aab found in ${releaseDir} after bundleRelease.`);
   return join(releaseDir, aab);
 }
 
 /** Find the single release `.apk` Gradle emitted under `app/build/outputs/apk/release/` (internal distribution). */
 function findApk(androidDir: string): string {
-  const releaseDir = join(androidDir, "app", "build", "outputs", "apk", "release");
-  if (!existsSync(releaseDir)) throw new Error(`Gradle produced no release apk dir (${releaseDir}).`);
-  const apk = readdirSync(releaseDir).find((entry) => entry.endsWith(".apk"));
+  const releaseDir = join(androidDir, 'app', 'build', 'outputs', 'apk', 'release');
+  if (!existsSync(releaseDir))
+    throw new Error(`Gradle produced no release apk dir (${releaseDir}).`);
+  const apk = readdirSync(releaseDir).find((entry) => entry.endsWith('.apk'));
   if (!apk) throw new Error(`No .apk found in ${releaseDir} after assembleRelease.`);
   return join(releaseDir, apk);
 }
@@ -69,17 +76,17 @@ export function parseBundletoolSize(csv: string): { minBytes: number; maxBytes: 
     .trim()
     .split(/\r?\n/)
     .filter((line) => line.trim().length > 0);
-  const header = (lines[0] ?? "").split(",").map((cell) => cell.trim().toUpperCase());
-  const minCol = header.indexOf("MIN");
-  const maxCol = header.indexOf("MAX");
+  const header = (lines[0] ?? '').split(',').map((cell) => cell.trim().toUpperCase());
+  const minCol = header.indexOf('MIN');
+  const maxCol = header.indexOf('MAX');
   if (lines.length < 2 || minCol === -1 || maxCol === -1) return { minBytes: 0, maxBytes: 0 };
 
   let minBytes = Number.POSITIVE_INFINITY;
   let maxBytes = 0;
   for (const line of lines.slice(1)) {
-    const cells = line.split(",");
-    const min = Number.parseInt(cells[minCol] ?? "", 10);
-    const max = Number.parseInt(cells[maxCol] ?? "", 10);
+    const cells = line.split(',');
+    const min = Number.parseInt(cells[minCol] ?? '', 10);
+    const max = Number.parseInt(cells[maxCol] ?? '', 10);
     if (!Number.isNaN(min)) minBytes = Math.min(minBytes, min);
     if (!Number.isNaN(max)) maxBytes = Math.max(maxBytes, max);
   }
@@ -92,43 +99,61 @@ export function parseBundletoolSize(csv: string): { minBytes: number; maxBytes: 
  * Returns one {@link SizeReportEntry} (`installBytes` 0 — Play exposes no honest install figure), or an
  * empty array if the estimate couldn't be produced, so the build still completes with the `.aab` size.
  */
-async function estimateDownload(aabPath: string, keystore: KeystoreAssets): Promise<SizeReportEntry[]> {
-  const work = mkdtempSync(join(tmpdir(), "launch-aab-"));
-  const apksPath = join(work, "app.apks");
+async function estimateDownload(
+  aabPath: string,
+  keystore: KeystoreAssets,
+): Promise<SizeReportEntry[]> {
+  const work = mkdtempSync(join(tmpdir(), 'launch-aab-'));
+  const apksPath = join(work, 'app.apks');
   try {
-    await run("bundletool", [
-      "build-apks",
+    await run('bundletool', [
+      'build-apks',
       `--bundle=${aabPath}`,
       `--output=${apksPath}`,
-      "--mode=default",
+      '--mode=default',
       `--ks=${keystore.path}`,
       `--ks-pass=pass:${keystore.storePassword}`,
       `--ks-key-alias=${keystore.alias}`,
       `--key-pass=pass:${keystore.keyPassword}`,
     ]);
-    const csv = await capture("bundletool", ["get-size", "total", `--apks=${apksPath}`, "--dimensions=ALL"]);
+    const csv = await capture('bundletool', [
+      'get-size',
+      'total',
+      `--apks=${apksPath}`,
+      '--dimensions=ALL',
+    ]);
     const { maxBytes } = parseBundletoolSize(csv);
-    return maxBytes > 0 ? [{ device: "worst-case device", downloadBytes: maxBytes, installBytes: 0 }] : [];
+    return maxBytes > 0
+      ? [{ device: 'worst-case device', downloadBytes: maxBytes, installBytes: 0 }]
+      : [];
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
 }
 
 export const gradleBuildEngine: BuildEngine = {
-  name: "gradle",
+  name: 'gradle',
 
   async build(
     ctx: ResolvedBuildContext,
     creds: BuildCredentials,
   ): Promise<{ artifactPath: string; sizeReport: SizeReport; cleanBuilt: boolean }> {
     if (ctx.dryRun) {
-      return { artifactPath: "(dry-run, not built)", sizeReport: { artifactBytes: 0, entries: [] }, cleanBuilt: false };
+      return {
+        artifactPath: '(dry-run, not built)',
+        sizeReport: { artifactBytes: 0, entries: [] },
+        cleanBuilt: false,
+      };
     }
-    if (creds.platform !== "android") throw new Error("The gradle build engine builds Android only.");
+    if (creds.platform !== 'android')
+      throw new Error('The gradle build engine builds Android only.');
     const keystore = creds.keystore;
-    if (!keystore) throw new Error("No upload keystore resolved — run `launch creds setup --platform android` first.");
+    if (!keystore)
+      throw new Error(
+        'No upload keystore resolved — run `launch creds setup --platform android` first.',
+      );
 
-    const androidDir = join(ctx.app.dir, "android");
+    const androidDir = join(ctx.app.dir, 'android');
     const wrapper = gradleWrapper(androidDir);
 
     // Gradle is incrementally correct by default; `--clean` prepends the clean task for a from-scratch build.
@@ -136,17 +161,17 @@ export const gradleBuildEngine: BuildEngine = {
     const cleanBuilt = ctx.forceClean;
 
     // Internal distribution needs a directly-installable .apk; the store path produces an .aab.
-    const internal = ctx.distribution === "internal";
-    const assembleTask = internal ? ":app:assembleRelease" : ":app:bundleRelease";
+    const internal = ctx.distribution === 'internal';
+    const assembleTask = internal ? ':app:assembleRelease' : ':app:bundleRelease';
 
-    const stored = readBuildState(ctx.app.name, "android");
+    const stored = readBuildState(ctx.app.name, 'android');
     const estimate = estimateFor(stored, ANDROID_ESTIMATE_KIND);
 
     // Sign the artifact with the resolved upload key via AGP's injected-signing properties (no build.gradle edit).
     const buildRun = await runWithProgress(
       wrapper,
       [
-        ...(cleanBuilt ? [":app:clean"] : []),
+        ...(cleanBuilt ? [':app:clean'] : []),
         assembleTask,
         `-Pandroid.injected.signing.store.file=${keystore.path}`,
         `-Pandroid.injected.signing.store.password=${keystore.storePassword}`,
@@ -166,12 +191,18 @@ export const gradleBuildEngine: BuildEngine = {
     // Android has no native fingerprint (Gradle owns incrementality), so it's stored empty; stream mode
     // reports 0 steps (output unparsed), so carry the prior step total forward.
     const prior = stored?.estimates?.[ANDROID_ESTIMATE_KIND];
-    const sample = { ms: buildRun.elapsedMs, steps: buildRun.steps > 0 ? buildRun.steps : (prior?.steps ?? 0) };
-    writeBuildState(ctx.app.name, "android", {
-      fingerprint: "",
+    const sample = {
+      ms: buildRun.elapsedMs,
+      steps: buildRun.steps > 0 ? buildRun.steps : (prior?.steps ?? 0),
+    };
+    writeBuildState(ctx.app.name, 'android', {
+      fingerprint: '',
       builtAt: new Date().toISOString(),
       cleanBuilt,
-      estimates: { ...(stored?.estimates ?? {}), [ANDROID_ESTIMATE_KIND]: updateEstimate(prior, sample) },
+      estimates: {
+        ...(stored?.estimates ?? {}),
+        [ANDROID_ESTIMATE_KIND]: updateEstimate(prior, sample),
+      },
     });
 
     // An .apk's on-disk size is essentially the download (no Play splits), so report it directly;
@@ -181,7 +212,10 @@ export const gradleBuildEngine: BuildEngine = {
       const apkBytes = statSync(apkPath).size;
       return {
         artifactPath: apkPath,
-        sizeReport: { artifactBytes: apkBytes, entries: [{ device: "apk", downloadBytes: apkBytes, installBytes: 0 }] },
+        sizeReport: {
+          artifactBytes: apkBytes,
+          entries: [{ device: 'apk', downloadBytes: apkBytes, installBytes: 0 }],
+        },
         cleanBuilt,
       };
     }

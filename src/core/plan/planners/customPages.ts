@@ -10,28 +10,32 @@
  * absent file ⇒ the surface is omitted.
  */
 
-import { resolveSidecarConfig } from "../../config.js";
-import { loadCustomProductPagesConfig, reconcileCustomProductPages } from "../../customProductPages.js";
-import { planAppStoreSurface } from "./appStoreSurface.js";
-import type { SurfacePlanner } from "../types.js";
+import { resolveSidecarConfig } from '../../config.js';
+import {
+  loadCustomProductPagesConfig,
+  reconcileCustomProductPages,
+} from '../../customProductPages.js';
+import { planAppStoreSurface } from './appStoreSurface.js';
+import type { SurfacePlanner } from '../types.js';
 
 /** Surface id — also the value users pass as `launch plan custom-pages`. */
-const SURFACE = "custom-pages";
+const SURFACE = 'custom-pages';
 
 export const customPagesPlanner: SurfacePlanner = {
   id: SURFACE,
-  store: "appstore",
+  store: 'appstore',
   plan: (ctx) =>
     planAppStoreSurface(ctx, {
       surface: SURFACE,
-      direction: "two-way",
+      direction: 'two-way',
       configFor: () =>
         resolveSidecarConfig({
           typed: undefined,
-          configPath: ctx.config.configFiles?.customPages ?? "custom-pages.config.json",
+          configPath: ctx.config.configFiles?.customPages ?? 'custom-pages.config.json',
           explicitPath: false,
           load: loadCustomProductPagesConfig,
         }),
-      reconcile: (api, bundleId, config) => reconcileCustomProductPages(api, { bundleId, config, dryRun: true }),
+      reconcile: (api, bundleId, config) =>
+        reconcileCustomProductPages(api, { bundleId, config, dryRun: true }),
     }),
 };

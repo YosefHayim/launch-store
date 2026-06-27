@@ -17,8 +17,8 @@
  * `AppStoreConnectClient` satisfies it structurally.
  */
 
-import type { CustomerReviewResource, CustomerReviewResponseResource } from "../apple/ascClient.js";
-import { appRecordNotFound } from "./asc/storeSync.js";
+import type { CustomerReviewResource, CustomerReviewResponseResource } from '../apple/ascClient.js';
+import { appRecordNotFound } from './asc/storeSync.js';
 
 /** The exact slice of {@link AppStoreConnectClient} the reviews domain depends on. */
 export interface AscReviewsApi {
@@ -28,7 +28,10 @@ export interface AscReviewsApi {
     filters: { rating?: number; territory?: string },
   ): Promise<CustomerReviewResource[]>;
   getCustomerReviewResponse(reviewId: string): Promise<CustomerReviewResponseResource | null>;
-  createCustomerReviewResponse(reviewId: string, responseBody: string): Promise<CustomerReviewResponseResource>;
+  createCustomerReviewResponse(
+    reviewId: string,
+    responseBody: string,
+  ): Promise<CustomerReviewResponseResource>;
   deleteCustomerReviewResponse(responseId: string): Promise<void>;
 }
 
@@ -74,7 +77,11 @@ export async function listReviews(
  * Post (or replace) the developer response to a review. Checks for an existing reply first only to
  * report `replaced` so the command can warn before overwriting; the write itself is one upsert POST.
  */
-export async function replyToReview(api: AscReviewsApi, reviewId: string, responseBody: string): Promise<ReplyResult> {
+export async function replyToReview(
+  api: AscReviewsApi,
+  reviewId: string,
+  responseBody: string,
+): Promise<ReplyResult> {
   const existing = await api.getCustomerReviewResponse(reviewId);
   const response = await api.createCustomerReviewResponse(reviewId, responseBody);
   return { response, replaced: existing !== null };

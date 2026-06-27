@@ -14,11 +14,11 @@
  * and `launch demo [platform]` replays it on demand.
  */
 
-import type { GlossaryTopic } from "./glossary.js";
-import { createLogger } from "./logger.js";
-import type { PipelinePhase } from "./phases.js";
-import { isApplePlatform, platformLabel } from "./platform.js";
-import type { Platform } from "./types.js";
+import type { GlossaryTopic } from './glossary.js';
+import { createLogger } from './logger.js';
+import type { PipelinePhase } from './phases.js';
+import { isApplePlatform, platformLabel } from './platform.js';
+import type { Platform } from './types.js';
 
 /** Color helpers for the tour's own chrome (step counter, key prompt); the step bodies use the logger. */
 const dim = (t: string): string => (process.stdout.isTTY ? `\x1b[2m${t}\x1b[0m` : t);
@@ -28,7 +28,7 @@ const dim = (t: string): string => (process.stdout.isTTY ? `\x1b[2m${t}\x1b[0m` 
  * output is stable for docs/screenshots and easy to assert in tests. It is never read from disk and
  * never built; it only supplies names for the "what this step would do" lines.
  */
-const SAMPLE = { name: "DemoApp", bundleId: "com.example.demo", version: "1.0.0" } as const;
+const SAMPLE = { name: 'DemoApp', bundleId: 'com.example.demo', version: '1.0.0' } as const;
 
 /**
  * One narrated step of the tour.
@@ -50,66 +50,67 @@ interface TourStep {
 /** The narration, one entry per {@link PIPELINE_PHASES} phase, in pipeline order. */
 const TOUR_STEPS: readonly TourStep[] = [
   {
-    phase: "resolve",
-    title: "Resolve app, profile & env",
+    phase: 'resolve',
+    title: 'Resolve app, profile & env',
     detail: {
-      apple: (platform) => `${SAMPLE.name} ${SAMPLE.version} · production · ${platform} — .env validated`,
+      apple: (platform) =>
+        `${SAMPLE.name} ${SAMPLE.version} · production · ${platform} — .env validated`,
       android: `${SAMPLE.name} ${SAMPLE.version} · production · android — .env validated`,
     },
-    topic: { apple: "app-config", android: "app-config" },
+    topic: { apple: 'app-config', android: 'app-config' },
   },
   {
-    phase: "prebuild",
-    title: "Prebuild the native project",
+    phase: 'prebuild',
+    title: 'Prebuild the native project',
     detail: {
       apple: (platform) => `would run \`expo prebuild --platform ${platform}\` → ${platform}/`,
-      android: "would run `expo prebuild --platform android` → android/",
+      android: 'would run `expo prebuild --platform android` → android/',
     },
-    topic: { apple: "prebuild", android: "prebuild" },
+    topic: { apple: 'prebuild', android: 'prebuild' },
   },
   {
-    phase: "credentials",
-    title: "Resolve signing credentials",
+    phase: 'credentials',
+    title: 'Resolve signing credentials',
     detail: {
-      apple: () => "ASC API key from the Keychain · reuse distribution cert + provisioning profile",
-      android: "service account + upload keystore from the OS secret store",
+      apple: () => 'ASC API key from the Keychain · reuse distribution cert + provisioning profile',
+      android: 'service account + upload keystore from the OS secret store',
     },
-    topic: { apple: "provisioning-profile", android: "upload-key" },
+    topic: { apple: 'provisioning-profile', android: 'upload-key' },
   },
   {
-    phase: "build",
-    title: "Build & sign",
+    phase: 'build',
+    title: 'Build & sign',
     detail: {
       apple: () => `fastlane gym → signed ${SAMPLE.name}.ipa (caches warm — incremental)`,
       android: `gradle :app:bundleRelease → signed ${SAMPLE.name}.aab`,
     },
-    topic: { apple: "fastlane", android: "gradle" },
+    topic: { apple: 'fastlane', android: 'gradle' },
   },
   {
-    phase: "size",
-    title: "Real download-size check",
+    phase: 'size',
+    title: 'Real download-size check',
     detail: {
-      apple: () => "App Thinning Size Report → per-device download · gated by sizeBudgetMB",
-      android: "bundletool → per-device download · gated by sizeBudgetMB",
+      apple: () => 'App Thinning Size Report → per-device download · gated by sizeBudgetMB',
+      android: 'bundletool → per-device download · gated by sizeBudgetMB',
     },
-    topic: { apple: "app-thinning", android: "bundletool" },
+    topic: { apple: 'app-thinning', android: 'bundletool' },
   },
   {
-    phase: "store",
-    title: "Store the artifact",
+    phase: 'store',
+    title: 'Store the artifact',
     detail: {
       apple: () => `${SAMPLE.name}.ipa → ~/.launch/artifacts (newest-first index)`,
       android: `${SAMPLE.name}.aab → ~/.launch/artifacts (newest-first index)`,
     },
   },
   {
-    phase: "submit",
-    title: "Submit to the testing track",
+    phase: 'submit',
+    title: 'Submit to the testing track',
     detail: {
-      apple: () => "upload to TestFlight — the safe default (public release is `launch release`)",
-      android: "upload to the Play internal track",
+      apple: () => 'upload to TestFlight — the safe default (public release is `launch release`)',
+      android: 'upload to the Play internal track',
     },
-    topic: { apple: "testflight", android: "play-track" },
+    topic: { apple: 'testflight', android: 'play-track' },
   },
 ];
 
@@ -133,23 +134,23 @@ export function tourPhases(): PipelinePhase[] {
  * it). Restores the prior stdin state before resolving, so the wizard's prompts that follow behave
  * normally.
  */
-function readContinueOrSkip(): Promise<"continue" | "skip"> {
+function readContinueOrSkip(): Promise<'continue' | 'skip'> {
   return new Promise((resolve) => {
     const { stdin } = process;
     const wasRaw = stdin.isRaw;
     stdin.setRawMode(true);
     stdin.resume();
-    stdin.once("data", (data: Buffer) => {
-      const key = data.toString("utf8");
+    stdin.once('data', (data: Buffer) => {
+      const key = data.toString('utf8');
       stdin.setRawMode(wasRaw);
       stdin.pause();
-      if (key === "\x03") {
+      if (key === '\x03') {
         // Ctrl-C: leave a clean line and bail like any other cancel.
-        process.stdout.write("\n");
+        process.stdout.write('\n');
         process.exit(0);
       }
-      process.stdout.write("\n");
-      resolve(key.toLowerCase() === "s" ? "skip" : "continue");
+      process.stdout.write('\n');
+      resolve(key.toLowerCase() === 's' ? 'skip' : 'continue');
     });
   });
 }
@@ -166,7 +167,7 @@ export async function runTour(platform: Platform, interactive: boolean): Promise
   log.gap();
   log.notice(
     `Launch tour — how an ${platformLabel(platform)} app ships, end to end`,
-    "Simulated: no build, no network, no account changes. Press s to skip.",
+    'Simulated: no build, no network, no account changes. Press s to skip.',
   );
   log.gap();
 
@@ -180,7 +181,7 @@ export async function runTour(platform: Platform, interactive: boolean): Promise
 
     if (interactive && i < total - 1) {
       process.stdout.write(dim(`  [↵] continue   [s] skip            (${i + 1}/${total})`));
-      if ((await readContinueOrSkip()) === "skip") break;
+      if ((await readContinueOrSkip()) === 'skip') break;
     }
   }
 

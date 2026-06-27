@@ -10,15 +10,15 @@
  * it scriptable. New account checks are new probe files, never edits here. See issue #170.
  */
 
-import type { Command } from "commander";
-import { loadConfig } from "../../core/config.js";
-import { createLogger } from "../../core/logger.js";
-import { createAscClientResolver, createPlayClientResolver } from "../../core/storeClients.js";
-import { selectApps } from "../../core/syncJobs.js";
-import { registerBuiltinProbes, selectReadinessProbes } from "../../core/readiness/registry.js";
-import { runProbes } from "../../core/readiness/orchestrator.js";
-import type { ReadinessContext } from "../../core/readiness/types.js";
-import { renderReadinessOutcome } from "./readinessReport.js";
+import type { Command } from 'commander';
+import { loadConfig } from '../../core/config.js';
+import { createLogger } from '../../core/logger.js';
+import { createAscClientResolver, createPlayClientResolver } from '../../core/storeClients.js';
+import { selectApps } from '../../core/syncJobs.js';
+import { registerBuiltinProbes, selectReadinessProbes } from '../../core/readiness/registry.js';
+import { runProbes } from '../../core/readiness/orchestrator.js';
+import type { ReadinessContext } from '../../core/readiness/types.js';
+import { renderReadinessOutcome } from './readinessReport.js';
 
 /** CLI options for `launch store doctor`. */
 interface StoreDoctorOptions {
@@ -44,13 +44,13 @@ export async function runStoreDoctor(input: StoreDoctorOptions): Promise<void> {
     resolvePlayApi: createPlayClientResolver(),
   };
 
-  const outcome = await runProbes(ctx, selectReadinessProbes("account"));
+  const outcome = await runProbes(ctx, selectReadinessProbes('account'));
 
   if (input.json === true) console.log(JSON.stringify(outcome, null, 2));
   else {
     renderReadinessOutcome(log, outcome, {
-      summary: "Store readiness",
-      empty: "No store-readiness checks ran — no apps with a bundle id or package name were found.",
+      summary: 'Store readiness',
+      empty: 'No store-readiness checks ran — no apps with a bundle id or package name were found.',
     });
   }
   process.exitCode = outcome.exitCode;
@@ -62,12 +62,14 @@ export async function runStoreDoctor(input: StoreDoctorOptions): Promise<void> {
  * top-level surface, and keeps `launch store doctor` unmistakably separate from `launch doctor`.
  */
 export function registerStoreCommand(program: Command): void {
-  const store = program.command("store").description("store-account readiness and operations");
+  const store = program.command('store').description('store-account readiness and operations');
   store
-    .command("doctor")
-    .description("check store-account readiness: Apple app record, Play onboarding & access (read-only)")
-    .option("-a, --app <names>", "comma-separated app handles (default: all apps)")
-    .option("--json", "machine-readable output for CI/agents", false)
+    .command('doctor')
+    .description(
+      'check store-account readiness: Apple app record, Play onboarding & access (read-only)',
+    )
+    .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
+    .option('--json', 'machine-readable output for CI/agents', false)
     .action(async (options: StoreDoctorOptions) => {
       await runStoreDoctor(options);
     });

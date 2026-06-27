@@ -16,18 +16,18 @@
  * `launch sync` after no change uploads nothing.
  */
 
-import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { basename, extname, isAbsolute, join } from "node:path";
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { basename, extname, isAbsolute, join } from 'node:path';
 
 /** Folder, relative to an app's directory, that holds the per-locale screenshot tree. */
-export const SCREENSHOTS_DIRNAME = "screenshots";
+export const SCREENSHOTS_DIRNAME = 'screenshots';
 
 /** Apple's hard cap on screenshots per (localization × display type) set; extras are skipped, not silently dropped. */
 export const MAX_SCREENSHOTS_PER_SET = 10;
 
 /** Image extensions Apple accepts for App Store screenshots (lowercased). */
-const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg"]);
+const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg']);
 
 /**
  * Apple's documented `screenshotDisplayType` constants → a human label, by device family. This is a
@@ -50,13 +50,13 @@ export const KNOWN_DISPLAY_TYPES: Record<string, string> = {
   APP_IPAD_PRO_129: 'iPad Pro 12.9"',
   APP_IPAD_105: 'iPad 10.5"',
   APP_IPAD_97: 'iPad 9.7"',
-  APP_DESKTOP: "Mac",
-  APP_WATCH_ULTRA: "Apple Watch Ultra",
-  APP_WATCH_SERIES_7: "Apple Watch Series 7",
-  APP_WATCH_SERIES_4: "Apple Watch Series 4",
-  APP_WATCH_SERIES_3: "Apple Watch Series 3",
-  APP_APPLE_TV: "Apple TV",
-  APP_APPLE_VISION_PRO: "Apple Vision Pro",
+  APP_DESKTOP: 'Mac',
+  APP_WATCH_ULTRA: 'Apple Watch Ultra',
+  APP_WATCH_SERIES_7: 'Apple Watch Series 7',
+  APP_WATCH_SERIES_4: 'Apple Watch Series 4',
+  APP_WATCH_SERIES_3: 'Apple Watch Series 3',
+  APP_APPLE_TV: 'Apple TV',
+  APP_APPLE_VISION_PRO: 'Apple Vision Pro',
   IMESSAGE_APP_IPHONE_67: 'iMessage iPhone 6.7"',
   IMESSAGE_APP_IPHONE_65: 'iMessage iPhone 6.5"',
   IMESSAGE_APP_IPHONE_58: 'iMessage iPhone 5.8"',
@@ -94,7 +94,7 @@ export function displayTypeLabel(displayType: string): string {
 /** MD5 a file as lowercase hex, alongside its byte length — the two values Apple's asset flow needs. */
 export function hashFile(path: string): { checksum: string; size: number } {
   const bytes = readFileSync(path);
-  return { checksum: createHash("md5").update(bytes).digest("hex"), size: bytes.byteLength };
+  return { checksum: createHash('md5').update(bytes).digest('hex'), size: bytes.byteLength };
 }
 
 /** Immediate subdirectory names of `dir` (sorted for a stable walk), or [] when `dir` is absent. */
@@ -160,13 +160,13 @@ export function fingerprintAsset(appDir: string, relPath: string): LocalAsset | 
 // ── App preview videos (`previews/<locale>/<previewType>/`) ──────────────────────────────────────────
 
 /** Folder, relative to an app's directory, that holds the per-locale app-preview-video tree. */
-export const PREVIEWS_DIRNAME = "previews";
+export const PREVIEWS_DIRNAME = 'previews';
 
 /** Apple's cap on app preview videos per (localization × preview type) set; extras are skipped, not silently dropped. */
 export const MAX_PREVIEWS_PER_SET = 3;
 
 /** Video container extensions Apple accepts for App Store app previews (lowercased). */
-const VIDEO_EXTENSIONS = new Set([".mov", ".mp4", ".m4v"]);
+const VIDEO_EXTENSIONS = new Set(['.mov', '.mp4', '.m4v']);
 
 /**
  * Apple's `previewType` constants → a human label. Like {@link KNOWN_DISPLAY_TYPES} this is a
@@ -189,9 +189,9 @@ export const KNOWN_PREVIEW_TYPES: Record<string, string> = {
   IPAD_PRO_129: 'iPad Pro 12.9"',
   IPAD_105: 'iPad 10.5"',
   IPAD_97: 'iPad 9.7"',
-  DESKTOP: "Mac",
-  APPLE_TV: "Apple TV",
-  APPLE_VISION_PRO: "Apple Vision Pro",
+  DESKTOP: 'Mac',
+  APPLE_TV: 'Apple TV',
+  APPLE_VISION_PRO: 'Apple Vision Pro',
 };
 
 /** One discovered app preview video: a {@link LocalAsset} tagged with the locale + preview type its folder named. */

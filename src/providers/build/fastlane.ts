@@ -8,9 +8,16 @@
  * Implements {@link BuildEngine}; a raw-`xcodebuild` engine could replace it behind the same call.
  */
 
-import { mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync, existsSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+  existsSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import type {
   BuildCredentials,
   BuildEngine,
@@ -19,18 +26,18 @@ import type {
   SigningAssets,
   SizeReport,
   SizeReportEntry,
-} from "../../core/types.js";
-import { runWithProgress, xcodeProgressStep } from "../../core/progress.js";
-import { exists } from "../../core/exec.js";
-import { hostResources } from "../../core/os.js";
-import { gymArgs, ccacheEnv, computeBuildJobs } from "../../core/buildFlags.js";
+} from '../../core/types.js';
+import { runWithProgress, xcodeProgressStep } from '../../core/progress.js';
+import { exists } from '../../core/exec.js';
+import { hostResources } from '../../core/os.js';
+import { gymArgs, ccacheEnv, computeBuildJobs } from '../../core/buildFlags.js';
 import {
   appleArtifactExtension,
   gymDestination,
   isApplePlatform,
   nativeProjectDirName,
   platformLabel,
-} from "../../core/platform.js";
+} from '../../core/platform.js';
 import {
   estimateFor,
   gatherIosFingerprint,
@@ -38,7 +45,7 @@ import {
   resolveClean,
   updateEstimate,
   writeBuildState,
-} from "../../core/buildFingerprint.js";
+} from '../../core/buildFingerprint.js';
 
 /**
  * Resolve an app's native Xcode project directory to an ABSOLUTE path, for the given Apple platform
@@ -57,10 +64,11 @@ export function resolveNativeDir(appDir: string, platform: Platform): string {
 
 /** Locate the generated Xcode workspace in a native project directory and derive its scheme from the workspace name. */
 function findWorkspace(nativeDir: string): { workspace: string; scheme: string } {
-  if (!existsSync(nativeDir)) throw new Error(`No native project directory at ${nativeDir} — did prebuild run?`);
-  const workspace = readdirSync(nativeDir).find((entry) => entry.endsWith(".xcworkspace"));
+  if (!existsSync(nativeDir))
+    throw new Error(`No native project directory at ${nativeDir} — did prebuild run?`);
+  const workspace = readdirSync(nativeDir).find((entry) => entry.endsWith('.xcworkspace'));
   if (!workspace) throw new Error(`No .xcworkspace found in ${nativeDir}.`);
-  return { workspace: join(nativeDir, workspace), scheme: workspace.replace(/\.xcworkspace$/, "") };
+  return { workspace: join(nativeDir, workspace), scheme: workspace.replace(/\.xcworkspace$/, '') };
 }
 
 /** Convert a size like `46.1` + `MB` into bytes. */
@@ -78,8 +86,11 @@ export function parseThinningReport(text: string): SizeReportEntry[] {
   const entries: SizeReportEntry[] = [];
   const blocks = text.split(/Variant:/).slice(1);
   for (const block of blocks) {
-    const device = /(iPhone[\d,]+|iPad[\d,]+|Universal)/.exec(block)?.[1] ?? "Universal";
-    const size = /App size:\s*([\d.]+)\s*(KB|MB|GB)\s*compressed,\s*([\d.]+)\s*(KB|MB|GB)\s*uncompressed/i.exec(block);
+    const device = /(iPhone[\d,]+|iPad[\d,]+|Universal)/.exec(block)?.[1] ?? 'Universal';
+    const size =
+      /App size:\s*([\d.]+)\s*(KB|MB|GB)\s*compressed,\s*([\d.]+)\s*(KB|MB|GB)\s*uncompressed/i.exec(
+        block,
+      );
     if (!size) continue;
     const [, downloadValue, downloadUnit, installValue, installUnit] = size;
     if (!downloadValue || !downloadUnit || !installValue || !installUnit) continue;
@@ -107,10 +118,14 @@ export function parseThinningReport(text: string): SizeReportEntry[] {
  * @param sizeBytes the artifact's size on disk (a 0-byte file means the export failed silently)
  * @param platform the Apple build platform, selecting the expected extension and simulator rules
  */
-export function assertDeviceArtifact(artifactPath: string, sizeBytes: number, platform: Platform): void {
+export function assertDeviceArtifact(
+  artifactPath: string,
+  sizeBytes: number,
+  platform: Platform,
+): void {
   const expectedExt = `.${appleArtifactExtension(platform)}`;
   // macOS builds for the Mac directly — no simulator SDK — so the simulator-misbuild check is iOS-family only.
-  if (platform !== "macos" && /-(?:iphone|appletv|xr)simulator/i.test(artifactPath)) {
+  if (platform !== 'macos' && /-(?:iphone|appletv|xr)simulator/i.test(artifactPath)) {
     throw new Error(
       `Build produced a simulator artifact (${artifactPath}). The store needs a device archive — ` +
         `build for a generic ${platformLabel(platform)} device, not a simulator, then re-run \`launch build ${platform}\`.`,
@@ -123,7 +138,9 @@ export function assertDeviceArtifact(artifactPath: string, sizeBytes: number, pl
     );
   }
   if (sizeBytes <= 0) {
-    throw new Error(`Build artifact ${artifactPath} is empty (0 bytes) — the export failed silently.`);
+    throw new Error(
+      `Build artifact ${artifactPath} is empty (0 bytes) — the export failed silently.`,
+    );
   }
 }
 
@@ -135,8 +152,14 @@ export function assertDeviceArtifact(artifactPath: string, sizeBytes: number, pl
  * target to its profile name, so `xcodebuild` signs every bundle embedded in the `.ipa` (an app with a
  * WidgetKit/share extension fails to export when its target falls back to the main app's profile).
  */
-export function exportOptionsPlist(signing: SigningAssets, method: "app-store" | "ad-hoc" = "app-store"): string {
-  const profiles: Record<string, string> = { [signing.bundleId]: signing.profileName, ...signing.extensionProfiles };
+export function exportOptionsPlist(
+  signing: SigningAssets,
+  method: 'app-store' | 'ad-hoc' = 'app-store',
+): string {
+  const profiles: Record<string, string> = {
+    [signing.bundleId]: signing.profileName,
+    ...signing.extensionProfiles,
+  };
   const profileEntries = Object.entries(profiles).map(
     ([bundleId, profileName]) => `<key>${bundleId}</key><string>${profileName}</string>`,
   );
@@ -145,15 +168,15 @@ export function exportOptionsPlist(signing: SigningAssets, method: "app-store" |
     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
     '<plist version="1.0"><dict>',
     `<key>method</key><string>${method}</string>`,
-    "<key>signingStyle</key><string>manual</string>",
+    '<key>signingStyle</key><string>manual</string>',
     `<key>teamID</key><string>${signing.teamId}</string>`,
     `<key>signingCertificate</key><string>${signing.certName}</string>`,
-    "<key>provisioningProfiles</key><dict>",
+    '<key>provisioningProfiles</key><dict>',
     ...profileEntries,
-    "</dict>",
-    "<key>thinning</key><string>&lt;thin-for-all-variants&gt;</string>",
-    "</dict></plist>",
-  ].join("\n");
+    '</dict>',
+    '<key>thinning</key><string>&lt;thin-for-all-variants&gt;</string>',
+    '</dict></plist>',
+  ].join('\n');
 }
 
 /**
@@ -180,22 +203,28 @@ export function gymEnv(
 }
 
 export const fastlaneBuildEngine: BuildEngine = {
-  name: "fastlane",
+  name: 'fastlane',
 
   async build(
     ctx: ResolvedBuildContext,
     creds: BuildCredentials,
   ): Promise<{ artifactPath: string; sizeReport: SizeReport; cleanBuilt: boolean }> {
     if (ctx.dryRun) {
-      return { artifactPath: "(dry-run, not built)", sizeReport: { artifactBytes: 0, entries: [] }, cleanBuilt: false };
+      return {
+        artifactPath: '(dry-run, not built)',
+        sizeReport: { artifactBytes: 0, entries: [] },
+        cleanBuilt: false,
+      };
     }
     // `creds.platform` is the credential *shape* (always `ios` for Apple builds — resolveIos returns it
     // for every Apple platform), not the build platform; this guard rejects Android credentials reaching
     // the Apple engine. The actual platform built is `ctx.platform` (iOS/tvOS/macOS/visionOS).
-    if (creds.platform !== "ios") throw new Error("The fastlane build engine builds Apple platforms only.");
-    if (!isApplePlatform(ctx.platform)) throw new Error(`The fastlane build engine cannot build ${ctx.platform}.`);
+    if (creds.platform !== 'ios')
+      throw new Error('The fastlane build engine builds Apple platforms only.');
+    if (!isApplePlatform(ctx.platform))
+      throw new Error(`The fastlane build engine cannot build ${ctx.platform}.`);
     const signing = creds.signing;
-    if (!signing) throw new Error("No signing assets resolved — run `launch creds setup` first.");
+    if (!signing) throw new Error('No signing assets resolved — run `launch creds setup` first.');
 
     const nativeDir = resolveNativeDir(ctx.app.dir, ctx.platform);
     const { workspace, scheme } = findWorkspace(nativeDir);
@@ -205,11 +234,11 @@ export const fastlaneBuildEngine: BuildEngine = {
     const stored = readBuildState(ctx.app.name, ctx.platform);
     const decision = resolveClean(ctx.forceClean, stored, fingerprint);
     // A clean and an incremental build take wildly different times, so the ETA is keyed on the verdict.
-    const kind = decision.clean ? "clean" : "incremental";
+    const kind = decision.clean ? 'clean' : 'incremental';
     const estimate = estimateFor(stored, kind);
 
     // ccache wires in only when it's installed; otherwise the build runs uncached (doctor recommends it).
-    const ccacheVars = (await exists("ccache")) ? ccacheEnv() : {};
+    const ccacheVars = (await exists('ccache')) ? ccacheEnv() : {};
 
     // Re-resolve Pods only when the native graph changed (or they're absent) — baking ccache in then.
     // Under a spinner (clean `◇ Pods · 12s`), with the CocoaPods output tee'd to the build log like gym.
@@ -217,22 +246,22 @@ export const fastlaneBuildEngine: BuildEngine = {
     // banner: Launch drives CocoaPods itself to archive an exportable, store-bound `.ipa` via gym, so the
     // banner's suggested `expo run:ios` / `yarn ios` (which build-to-run on a device, not an exportable
     // artifact) don't apply here. See react-native's react_native_pods.rb for the env-var contract.
-    if (decision.nativeChanged || !existsSync(join(nativeDir, "Pods"))) {
-      await runWithProgress("pod", ["install"], {
-        label: "Pods",
+    if (decision.nativeChanged || !existsSync(join(nativeDir, 'Pods'))) {
+      await runWithProgress('pod', ['install'], {
+        label: 'Pods',
         cwd: nativeDir,
-        env: { ...ctx.env, ...ccacheVars, RCT_IGNORE_PODS_DEPRECATION: "1" },
+        env: { ...ctx.env, ...ccacheVars, RCT_IGNORE_PODS_DEPRECATION: '1' },
       });
     }
 
     const { cores, memBytes } = hostResources();
     const jobs = computeBuildJobs(cores, memBytes);
 
-    const outputDir = mkdtempSync(join(tmpdir(), "launch-build-"));
-    const plistPath = join(outputDir, "ExportOptions.plist");
+    const outputDir = mkdtempSync(join(tmpdir(), 'launch-build-'));
+    const plistPath = join(outputDir, 'ExportOptions.plist');
     // Internal distribution exports an ad-hoc archive (installs on the profile's registered devices);
     // everything else exports for the store. Same manual-signing inputs either way.
-    const exportMethod = ctx.distribution === "internal" ? "ad-hoc" : "app-store";
+    const exportMethod = ctx.distribution === 'internal' ? 'ad-hoc' : 'app-store';
     writeFileSync(plistPath, exportOptionsPlist(signing, exportMethod));
 
     // gym argv is built by the pure `gymArgs`: identical to the iOS command of old, plus a `--destination`
@@ -240,7 +269,7 @@ export const fastlaneBuildEngine: BuildEngine = {
     // platform's archive extension (`.ipa` for iOS-family, `.pkg` for macOS).
     const archiveExt = appleArtifactExtension(ctx.platform);
     const buildRun = await runWithProgress(
-      "fastlane",
+      'fastlane',
       gymArgs({
         workspace,
         scheme,
@@ -273,7 +302,10 @@ export const fastlaneBuildEngine: BuildEngine = {
     // this build's duration/step-count folded into the kind's EMA so the next build's ETA learns. In
     // stream mode steps come back 0 (output unparsed), so carry the prior step total forward.
     const prior = stored?.estimates?.[kind];
-    const sample = { ms: buildRun.elapsedMs, steps: buildRun.steps > 0 ? buildRun.steps : (prior?.steps ?? 0) };
+    const sample = {
+      ms: buildRun.elapsedMs,
+      steps: buildRun.steps > 0 ? buildRun.steps : (prior?.steps ?? 0),
+    };
     writeBuildState(ctx.app.name, ctx.platform, {
       fingerprint,
       builtAt: new Date().toISOString(),
@@ -281,8 +313,14 @@ export const fastlaneBuildEngine: BuildEngine = {
       estimates: { ...(stored?.estimates ?? {}), [kind]: updateEstimate(prior, sample) },
     });
 
-    const reportPath = join(outputDir, "App Thinning Size Report.txt");
-    const entries = existsSync(reportPath) ? parseThinningReport(readFileSync(reportPath, "utf8")) : [];
-    return { artifactPath, sizeReport: { artifactBytes: archiveBytes, entries }, cleanBuilt: decision.clean };
+    const reportPath = join(outputDir, 'App Thinning Size Report.txt');
+    const entries = existsSync(reportPath)
+      ? parseThinningReport(readFileSync(reportPath, 'utf8'))
+      : [];
+    return {
+      artifactPath,
+      sizeReport: { artifactBytes: archiveBytes, entries },
+      cleanBuilt: decision.clean,
+    };
   },
 };

@@ -3,7 +3,7 @@
  * and the prune shapes for cleaning up stored artifacts under `~/.launch`.
  */
 
-import type { Platform } from "./app.js";
+import type { Platform } from './app.js';
 
 /**
  * One row in a {@link SizeReport}: a device variant's estimated store download/install size.

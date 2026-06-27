@@ -10,12 +10,12 @@
  * nothing to this surface.
  */
 
-import { reconcilePlayProducts, type PlayProductsApi } from "../../playProducts.js";
-import type { AppDescriptor, InAppPurchaseConfig, LaunchConfig } from "../../types.js";
-import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from "../types.js";
+import { reconcilePlayProducts, type PlayProductsApi } from '../../playProducts.js';
+import type { AppDescriptor, InAppPurchaseConfig, LaunchConfig } from '../../types.js';
+import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../types.js';
 
 /** Surface id — also the value users pass as `launch plan play-products`. */
-const SURFACE = "play-products";
+const SURFACE = 'play-products';
 
 /** One app's Play-products plan target: its package name paired with the declared Play-overridden products. */
 interface PlayProductsTarget {
@@ -29,7 +29,9 @@ function targetsFor(apps: AppDescriptor[], config: LaunchConfig): PlayProductsTa
   const targets: PlayProductsTarget[] = [];
   for (const app of apps) {
     if (!app.packageName || !app.bundleId) continue;
-    const products = (config.products?.[app.bundleId]?.inAppPurchases ?? []).filter((product) => product.play);
+    const products = (config.products?.[app.bundleId]?.inAppPurchases ?? []).filter(
+      (product) => product.play,
+    );
     if (products.length === 0) continue;
     targets.push({ app: app.name, packageName: app.packageName, products });
   }
@@ -63,23 +65,30 @@ async function planTarget(api: PlayProductsApi, target: PlayProductsTarget): Pro
  */
 export const playProductsPlanner: SurfacePlanner = {
   id: SURFACE,
-  store: "play",
+  store: 'play',
   async plan(ctx: PlanContext): Promise<SurfacePlan> {
     const targets = targetsFor(ctx.apps, ctx.config);
-    if (targets.length === 0) return { surface: SURFACE, store: "play", state: "omitted" };
+    if (targets.length === 0) return { surface: SURFACE, store: 'play', state: 'omitted' };
 
     const api = await ctx.resolvePlayApi();
     if (!api) {
       return {
         surface: SURFACE,
-        store: "play",
-        state: "skipped",
-        reason: "no Play service account",
-        hint: "run `launch creds set-key --platform android`",
+        store: 'play',
+        state: 'skipped',
+        reason: 'no Play service account',
+        hint: 'run `launch creds set-key --platform android`',
       };
     }
 
     const apps = await Promise.all(targets.map((target) => planTarget(api, target)));
-    return { surface: SURFACE, store: "play", state: "planned", scope: "app", direction: "two-way", apps };
+    return {
+      surface: SURFACE,
+      store: 'play',
+      state: 'planned',
+      scope: 'app',
+      direction: 'two-way',
+      apps,
+    };
   },
 };

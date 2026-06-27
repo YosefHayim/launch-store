@@ -20,26 +20,30 @@
  * command is fully testable without the binary and stays decoupled from genshot's wire protocol.
  */
 
-import { copyFileSync, mkdirSync, mkdtempSync } from "node:fs";
-import { basename, join } from "node:path";
-import { tmpdir } from "node:os";
-import type { Command } from "commander";
-import { aiGroup, confirmWrite } from "./ai.js";
-import { run } from "../../core/exec.js";
-import { openUrl } from "../../core/consoleLinks.js";
-import { loadConfig } from "../../core/config.js";
-import { selectApp } from "../../core/pipeline.js";
-import { createLogger } from "../../core/logger.js";
-import { discoverScreenshotsAt, SCREENSHOTS_DIRNAME, type LocalScreenshot } from "../../core/screenshotAssets.js";
+import { copyFileSync, mkdirSync, mkdtempSync } from 'node:fs';
+import { basename, join } from 'node:path';
+import { tmpdir } from 'node:os';
+import type { Command } from 'commander';
+import { aiGroup, confirmWrite } from './ai.js';
+import { run } from '../../core/exec.js';
+import { openUrl } from '../../core/consoleLinks.js';
+import { loadConfig } from '../../core/config.js';
+import { selectApp } from '../../core/pipeline.js';
+import { createLogger } from '../../core/logger.js';
+import {
+  discoverScreenshotsAt,
+  SCREENSHOTS_DIRNAME,
+  type LocalScreenshot,
+} from '../../core/screenshotAssets.js';
 import {
   checkScreenshotFile,
   DEFAULT_APPLE_DISPLAY_TYPES,
   DEFAULT_PLAY_FORM_FACTORS,
-} from "../../core/screenshotSpecs.js";
-import type { Platform } from "../../core/types.js";
+} from '../../core/screenshotSpecs.js';
+import type { Platform } from '../../core/types.js';
 
 /** Default name of the genshot CLI on the PATH; overridable per-invocation with `--genshot-bin`. */
-const GENSHOT_BIN = "genshot";
+const GENSHOT_BIN = 'genshot';
 
 /**
  * Whether a child-process failure is "the executable wasn't found" — the `ENOENT` spawn error Node raises
@@ -47,7 +51,7 @@ const GENSHOT_BIN = "genshot";
  * a PATH preflight (a `which`-style check is unreliable on Windows; letting the spawn fail is portable).
  */
 function isMissingBinaryError(error: unknown): boolean {
-  return error instanceof Error && "code" in error && error.code === "ENOENT";
+  return error instanceof Error && 'code' in error && error.code === 'ENOENT';
 }
 
 /** Options for `launch ai screenshots`. */
@@ -135,30 +139,30 @@ export interface ScreenshotEnhancer {
 function createGenshotEnhancer(binPath: string | undefined): ScreenshotEnhancer {
   const bin = binPath ?? GENSHOT_BIN;
   return {
-    name: "genshot",
+    name: 'genshot',
     async enhance(request: EnhanceRequest): Promise<EnhancedShot[]> {
       mkdirSync(request.outDir, { recursive: true });
       const args = [
-        "enhance",
-        "--platform",
+        'enhance',
+        '--platform',
         request.platform,
-        "--out",
+        '--out',
         request.outDir,
-        "--locales",
-        request.locales.join(","),
-        "--targets",
-        request.targets.join(","),
+        '--locales',
+        request.locales.join(','),
+        '--targets',
+        request.targets.join(','),
       ];
-      if (request.brief) args.push("--brief", request.brief);
-      if (request.captions) args.push("--captions", request.captions.join(","));
+      if (request.brief) args.push('--brief', request.brief);
+      if (request.captions) args.push('--captions', request.captions.join(','));
       args.push(...request.sources);
       try {
         await run(bin, args);
       } catch (error) {
         if (isMissingBinaryError(error)) {
           throw new Error(
-            "genshot CLI not found. Install the genshot screenshot backend (a paid hosted service) and sign in, " +
-              "or point at a local build with --genshot-bin <path>.",
+            'genshot CLI not found. Install the genshot screenshot backend (a paid hosted service) and sign in, ' +
+              'or point at a local build with --genshot-bin <path>.',
           );
         }
         throw error;
@@ -174,13 +178,13 @@ function createGenshotEnhancer(binPath: string | undefined): ScreenshotEnhancer 
 
 /** Resolve `--platform` into the stores it targets; defaults to both. */
 function parsePlatforms(platform: string | undefined): Platform[] {
-  switch (platform ?? "all") {
-    case "ios":
-      return ["ios"];
-    case "android":
-      return ["android"];
-    case "all":
-      return ["ios", "android"];
+  switch (platform ?? 'all') {
+    case 'ios':
+      return ['ios'];
+    case 'android':
+      return ['android'];
+    case 'all':
+      return ['ios', 'android'];
     default:
       throw new Error(`Unknown platform "${platform}". Use ios, android, or all.`);
   }
@@ -190,35 +194,36 @@ function parsePlatforms(platform: string | undefined): Platform[] {
 function resolveLocales(csv: string | undefined, sources: LocalScreenshot[]): string[] {
   if (csv !== undefined) {
     const locales = csv
-      .split(",")
+      .split(',')
       .map((locale) => locale.trim())
       .filter(Boolean);
-    if (locales.length === 0) throw new Error("--locale was empty. Pass locales like --locale en-US,fr-FR.");
+    if (locales.length === 0)
+      throw new Error('--locale was empty. Pass locales like --locale en-US,fr-FR.');
     return locales;
   }
   const present = [...new Set(sources.map((shot) => shot.locale))];
-  return present.length > 0 ? present : ["en-US"];
+  return present.length > 0 ? present : ['en-US'];
 }
 
 /** Target slots to generate for a platform: an explicit `--device-types` CSV, else the platform's default base set. */
 function resolveTargets(platform: Platform, csv: string | undefined): string[] {
   if (csv !== undefined) {
     const targets = csv
-      .split(",")
+      .split(',')
       .map((target) => target.trim())
       .filter(Boolean);
     if (targets.length === 0)
-      throw new Error("--device-types was empty. Pass slots like --device-types APP_IPHONE_67.");
+      throw new Error('--device-types was empty. Pass slots like --device-types APP_IPHONE_67.');
     return targets;
   }
-  return platform === "ios" ? [...DEFAULT_APPLE_DISPLAY_TYPES] : [...DEFAULT_PLAY_FORM_FACTORS];
+  return platform === 'ios' ? [...DEFAULT_APPLE_DISPLAY_TYPES] : [...DEFAULT_PLAY_FORM_FACTORS];
 }
 
 /** Parse the optional `--captions` CSV; `undefined` (omitted) signals genshot to auto-write captions. */
 function parseCaptions(csv: string | undefined): string[] | undefined {
   if (csv === undefined) return undefined;
   return csv
-    .split(",")
+    .split(',')
     .map((caption) => caption.trim())
     .filter(Boolean);
 }
@@ -232,7 +237,9 @@ function hardGate(platform: Platform, shots: EnhancedShot[]): void {
   for (const shot of shots) {
     const check = checkScreenshotFile(platform, shot.target, shot.path);
     if (!check.measured) {
-      throw new Error(`genshot produced an unreadable ${platform} file (${basename(shot.path)}) for ${shot.target}.`);
+      throw new Error(
+        `genshot produced an unreadable ${platform} file (${basename(shot.path)}) for ${shot.target}.`,
+      );
     }
     if (!check.verdict.ok) {
       throw new Error(
@@ -278,12 +285,14 @@ export async function generateScreenshots(
   const locales = resolveLocales(input.locale, sources);
   const captions = parseCaptions(input.captions);
   const sourcePaths = sources.map((shot) => shot.path);
-  const staging = mkdtempSync(join(tmpdir(), "launch-genshot-"));
+  const staging = mkdtempSync(join(tmpdir(), 'launch-genshot-'));
 
   const enhanced: EnhancedShot[] = [];
   for (const platform of platforms) {
     const targets = resolveTargets(platform, input.deviceTypes);
-    log.info(`Enhancing ${sources.length} screenshot(s) → ${platform} (${targets.join(", ")}) with ${enhancer.name}…`);
+    log.info(
+      `Enhancing ${sources.length} screenshot(s) → ${platform} (${targets.join(', ')}) with ${enhancer.name}…`,
+    );
     const request: EnhanceRequest = {
       platform,
       locales,
@@ -302,7 +311,7 @@ export async function generateScreenshots(
   for (const shot of enhanced) log.info(`  ${shot.locale}/${shot.target} — ${basename(shot.path)}`);
 
   if (input.dryRun) {
-    log.info("Dry run — nothing promoted. Drop --dry-run to stage and promote.");
+    log.info('Dry run — nothing promoted. Drop --dry-run to stage and promote.');
     return [];
   }
 
@@ -311,11 +320,12 @@ export async function generateScreenshots(
   if (!input.yes && process.stdout.isTTY) {
     await openUrl(staging).catch(() => undefined);
   }
-  if (!(await confirmWrite(`Promote ${enhanced.length} screenshot(s) into ${outDir}?`, input.yes))) return [];
+  if (!(await confirmWrite(`Promote ${enhanced.length} screenshot(s) into ${outDir}?`, input.yes)))
+    return [];
 
   for (const shot of enhanced) promoteShot(outDir, shot);
-  log.step("ai screenshots", `promoted ${enhanced.length} screenshot(s) → ${outDir}`);
-  log.info("Review with `launch plan screenshots`, then upload with `launch sync`.");
+  log.step('ai screenshots', `promoted ${enhanced.length} screenshot(s) → ${outDir}`);
+  log.info('Review with `launch plan screenshots`, then upload with `launch sync`.');
   return enhanced;
 }
 
@@ -323,7 +333,10 @@ export async function generateScreenshots(
  * Resolve the app, then enhance and promote its screenshots. The enhancer is injectable so tests drive it
  * without the genshot binary; in normal use it defaults to the `genshot`-CLI-backed one.
  */
-export async function runAiScreenshots(input: AiScreenshotsInput, enhancer?: ScreenshotEnhancer): Promise<void> {
+export async function runAiScreenshots(
+  input: AiScreenshotsInput,
+  enhancer?: ScreenshotEnhancer,
+): Promise<void> {
   const { apps } = await loadConfig();
   const app = await selectApp(apps, input.app);
   await generateScreenshots(app.dir, input, enhancer ?? createGenshotEnhancer(input.genshotBin));
@@ -333,21 +346,33 @@ export async function runAiScreenshots(input: AiScreenshotsInput, enhancer?: Scr
 export function registerAiScreenshotsCommand(program: Command): void {
   const ai = aiGroup(program);
 
-  ai.command("screenshots")
+  ai.command('screenshots')
     .description(
-      "enhance your real screenshots into store-ready ones with genshot (review with `launch plan screenshots`)",
+      'enhance your real screenshots into store-ready ones with genshot (review with `launch plan screenshots`)',
     )
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("--brief <text>", "a short description of the app to steer the enhancement")
-    .option("--locale <list>", "comma-separated locales (default: the locales of your source screenshots, else en-US)")
-    .option("--platform <p>", "ios, android, or all (default)", "all")
-    .option("--in <dir>", "directory of real source screenshots to enhance (default: <app>/screenshots)")
-    .option("--captions <list>", "comma-separated captions, one per shot (omit to let genshot write them)")
-    .option("--device-types <list>", "comma-separated target slots (default: the modern iPhone/iPad + Play phone set)")
-    .option("--out <dir>", "where to promote approved screenshots (default: <app>/screenshots)")
-    .option("--genshot-bin <path>", "path to the genshot CLI (default: genshot on PATH)")
-    .option("--dry-run", "enhance and preview, but promote nothing", false)
-    .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option('--brief <text>', 'a short description of the app to steer the enhancement')
+    .option(
+      '--locale <list>',
+      'comma-separated locales (default: the locales of your source screenshots, else en-US)',
+    )
+    .option('--platform <p>', 'ios, android, or all (default)', 'all')
+    .option(
+      '--in <dir>',
+      'directory of real source screenshots to enhance (default: <app>/screenshots)',
+    )
+    .option(
+      '--captions <list>',
+      'comma-separated captions, one per shot (omit to let genshot write them)',
+    )
+    .option(
+      '--device-types <list>',
+      'comma-separated target slots (default: the modern iPhone/iPad + Play phone set)',
+    )
+    .option('--out <dir>', 'where to promote approved screenshots (default: <app>/screenshots)')
+    .option('--genshot-bin <path>', 'path to the genshot CLI (default: genshot on PATH)')
+    .option('--dry-run', 'enhance and preview, but promote nothing', false)
+    .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action(async (options: AiScreenshotsInput) => {
       await runAiScreenshots(options);
     });

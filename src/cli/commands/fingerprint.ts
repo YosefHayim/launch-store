@@ -10,18 +10,18 @@
  * its own task inputs, so Android needs no separate fingerprint. Read-only: it computes, never builds.
  */
 
-import { join } from "node:path";
-import type { Command } from "commander";
-import type { Platform } from "../../core/types.js";
-import { loadConfig } from "../../core/config.js";
-import { selectApp } from "../../core/pipeline.js";
+import { join } from 'node:path';
+import type { Command } from 'commander';
+import type { Platform } from '../../core/types.js';
+import { loadConfig } from '../../core/config.js';
+import { selectApp } from '../../core/pipeline.js';
 import {
   type BuildState,
   type CleanDecision,
   gatherIosFingerprint,
   readBuildState,
   resolveClean,
-} from "../../core/buildFingerprint.js";
+} from '../../core/buildFingerprint.js';
 
 /**
  * The fingerprint picture for one app: the freshly-computed hash, the last build's stored state (or
@@ -46,24 +46,26 @@ function shortHash(hash: string): string {
 /** Render a {@link FingerprintReport} as a human-readable block. */
 export function formatFingerprintReport(report: FingerprintReport): string {
   const lastBuild = report.stored
-    ? `${shortHash(report.stored.fingerprint)}  (${report.stored.builtAt}, ${report.stored.cleanBuilt ? "clean" : "incremental"})`
-    : "none on this host yet";
-  const verdict = report.decision.clean ? "clean (from scratch)" : "incremental (reuses warm caches)";
+    ? `${shortHash(report.stored.fingerprint)}  (${report.stored.builtAt}, ${report.stored.cleanBuilt ? 'clean' : 'incremental'})`
+    : 'none on this host yet';
+  const verdict = report.decision.clean
+    ? 'clean (from scratch)'
+    : 'incremental (reuses warm caches)';
   return [
     `App:                 ${report.app} (${report.platform})`,
     `Current fingerprint: ${shortHash(report.current)}`,
     `Last build:          ${lastBuild}`,
     `Next build:          ${verdict} — ${report.decision.reason}`,
-  ].join("\n");
+  ].join('\n');
 }
 
 /** Attach the `fingerprint` command to the program. */
 export function registerFingerprintCommand(program: Command): void {
   program
-    .command("fingerprint")
-    .description("show the native fingerprint and why the next build is clean or incremental (iOS)")
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("--json", "output machine-readable JSON", false)
+    .command('fingerprint')
+    .description('show the native fingerprint and why the next build is clean or incremental (iOS)')
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option('--json', 'output machine-readable JSON', false)
     .action(async (options: { app?: string; json: boolean }) => {
       const { apps } = await loadConfig();
       const app = await selectApp(apps, options.app);
@@ -74,11 +76,11 @@ export function registerFingerprintCommand(program: Command): void {
         return;
       }
 
-      const current = await gatherIosFingerprint(join(app.dir, "ios"), app.configPath);
-      const stored = readBuildState(app.name, "ios");
+      const current = await gatherIosFingerprint(join(app.dir, 'ios'), app.configPath);
+      const stored = readBuildState(app.name, 'ios');
       const report: FingerprintReport = {
         app: app.name,
-        platform: "ios",
+        platform: 'ios',
         current,
         stored,
         decision: resolveClean(false, stored, current),

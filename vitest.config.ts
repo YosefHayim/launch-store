@@ -8,17 +8,23 @@
  * run summary.
  */
 
-import { defineConfig } from "vitest/config";
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ["src/**/*.test.ts"],
-    environment: "node",
+    include: ['src/**/*.test.ts'],
+    environment: 'node',
     coverage: {
-      provider: "v8",
-      include: ["src/**/*.ts"],
-      exclude: ["src/**/*.test.ts", "src/**/*.testkit.ts", "src/cli/**", "src/index.ts", "src/core/types.ts"],
-      reporter: ["text", "text-summary"],
+      provider: 'v8',
+      include: ['src/**/*.ts'],
+      exclude: [
+        'src/**/*.test.ts',
+        'src/**/*.testkit.ts',
+        'src/cli/**',
+        'src/index.ts',
+        'src/core/types.ts',
+      ],
+      reporter: ['text', 'text-summary'],
     },
   },
 });

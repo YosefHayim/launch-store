@@ -7,26 +7,28 @@
  * every registered device. Android needs none of this — its APK installs directly.
  */
 
-import type { Command } from "commander";
-import { loadActiveAscKey } from "../../core/accounts.js";
-import { AppStoreConnectClient } from "../../apple/ascClient.js";
+import type { Command } from 'commander';
+import { loadActiveAscKey } from '../../core/accounts.js';
+import { AppStoreConnectClient } from '../../apple/ascClient.js';
 
 /** Resolve the App Store Connect client for the active account, or fail with the fix. */
 async function client(): Promise<AppStoreConnectClient> {
   const ascKey = await loadActiveAscKey();
-  if (!ascKey) throw new Error("No active Apple account. Run `launch creds set-key` first.");
+  if (!ascKey) throw new Error('No active Apple account. Run `launch creds set-key` first.');
   return new AppStoreConnectClient(ascKey);
 }
 
 /** Attach the `device` command (with `add` / `list` subcommands) to the program. */
 export function registerDeviceCommand(program: Command): void {
-  const device = program.command("device").description("manage iOS devices for ad-hoc (internal) distribution");
+  const device = program
+    .command('device')
+    .description('manage iOS devices for ad-hoc (internal) distribution');
 
   device
-    .command("add")
-    .description("register a device UDID so internal builds can install on it")
-    .argument("<udid>", "the device UDID (Settings → General → About, or Xcode → Devices)")
-    .argument("[name]", "a label for the device (default: the UDID)")
+    .command('add')
+    .description('register a device UDID so internal builds can install on it')
+    .argument('<udid>', 'the device UDID (Settings → General → About, or Xcode → Devices)')
+    .argument('[name]', 'a label for the device (default: the UDID)')
     .action(async (udid: string, name: string | undefined) => {
       const registered = await (await client()).registerDevice(udid, name ?? udid);
       console.log(`✓ Registered ${registered.name} (${registered.udid})`);
@@ -34,16 +36,16 @@ export function registerDeviceCommand(program: Command): void {
     });
 
   device
-    .command("list")
-    .description("list the devices registered for ad-hoc distribution")
+    .command('list')
+    .description('list the devices registered for ad-hoc distribution')
     .action(async () => {
       const devices = await (await client()).listDevices();
       if (devices.length === 0) {
-        console.log("No registered devices. Add one with `launch device add <udid> [name]`.");
+        console.log('No registered devices. Add one with `launch device add <udid> [name]`.');
         return;
       }
       for (const entry of devices) {
-        const disabled = entry.status === "DISABLED" ? " (disabled)" : "";
+        const disabled = entry.status === 'DISABLED' ? ' (disabled)' : '';
         console.log(`• ${entry.name} — ${entry.udid}${disabled}`);
       }
       console.log(`\n${devices.length} device(s).`);

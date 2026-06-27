@@ -1,0 +1,101 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.1/schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": ["**", "!!src/core/asc/schema.ts"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "trailingCommas": "all",
+      "semicolons": "always"
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "useSortedKeys": "off",
+        "useSortedPackageJson": "off",
+        "useSortedAttributes": "off",
+        "organizeImports": "off"
+      }
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "all",
+      "nursery": {
+        "useSortedClasses": "warn"
+      },
+      "style": {
+        "noDefaultExport": "off",
+        "noNonNullAssertion": "warn",
+        "useDestructuring": "warn",
+        "noJsxLiterals": "off",
+        "useComponentExportOnlyModules": "off",
+        "noTernary": "off",
+        "useNamingConvention": "off",
+        "noMagicNumbers": "off",
+        "noCommonJs": "off",
+        "useExportsLast": "warn",
+        "noIncrementDecrement": "off",
+        "noProcessEnv": "off",
+        "noExcessiveLinesPerFile": "warn"
+      },
+      "correctness": {
+        "noNodejsModules": "off",
+        "noUndeclaredDependencies": "warn",
+        "noUndeclaredVariables": "warn",
+        "noUnresolvedImports": "off",
+        "useQwikValidLexicalScope": "off",
+        "useHookAtTopLevel": "off"
+      },
+      "performance": {
+        "useSolidForComponent": "off",
+        "noJsxPropsBind": "warn",
+        "noAwaitInLoops": "warn",
+        "useTopLevelRegex": "warn"
+      },
+      "suspicious": {
+        "noUnknownAttribute": "off",
+        "noUnnecessaryConditions": "warn",
+        "noControlCharactersInRegex": "off",
+        "noNonNullAssertedOptionalChain": "warn",
+        "noAssignInExpressions": "off",
+        "noReturnAssign": "off"
+      },
+      "security": {
+        "noSecrets": "warn"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "warn",
+        "noExcessiveLinesPerFunction": "warn",
+        "noVoid": "off"
+      }
+    },
+    "domains": {
+      "test": "all",
+      "project": "all"
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["examples/**"],
+      "linter": { "enabled": false }
+    }
+  ]
+}

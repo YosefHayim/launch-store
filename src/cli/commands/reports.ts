@@ -8,21 +8,26 @@
  * parsing, and the analytics resource walk live in the core module and the ASC client.
  */
 
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
-import type { Command } from "commander";
-import { AppStoreConnectClient } from "../../apple/ascClient.js";
-import { loadConfig } from "../../core/config.js";
-import { selectApp } from "../../core/pipeline.js";
-import { loadActiveAscKey } from "../../core/accounts.js";
-import { createLogger, type Logger } from "../../core/logger.js";
-import { ensureDir } from "../../core/paths.js";
-import { collectAnalyticsSegments, decompressReport, eachDate, parseTsv } from "../../core/reports.js";
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { Command } from 'commander';
+import { AppStoreConnectClient } from '../../apple/ascClient.js';
+import { loadConfig } from '../../core/config.js';
+import { selectApp } from '../../core/pipeline.js';
+import { loadActiveAscKey } from '../../core/accounts.js';
+import { createLogger, type Logger } from '../../core/logger.js';
+import { ensureDir } from '../../core/paths.js';
+import {
+  collectAnalyticsSegments,
+  decompressReport,
+  eachDate,
+  parseTsv,
+} from '../../core/reports.js';
 
 /** Build a client bound to the active Apple account, or fail with the onboarding hint. */
 async function activeClient(): Promise<AppStoreConnectClient> {
   const ascKey = await loadActiveAscKey();
-  if (!ascKey) throw new Error("No active Apple account. Run `launch creds set-key` first.");
+  if (!ascKey) throw new Error('No active Apple account. Run `launch creds set-key` first.');
   return new AppStoreConnectClient(ascKey);
 }
 
@@ -32,11 +37,11 @@ async function activeClient(): Promise<AppStoreConnectClient> {
  * so sales/finance downloads require it explicitly.
  */
 function resolveVendorNumber(flag: string | undefined): string {
-  const value = flag ?? process.env["ASC_VENDOR_NUMBER"];
+  const value = flag ?? process.env['ASC_VENDOR_NUMBER'];
   if (!value) {
     throw new Error(
-      "Vendor number required. Pass --vendor-number <N> or set ASC_VENDOR_NUMBER " +
-        "(find it in App Store Connect → Payments and Financial Reports).",
+      'Vendor number required. Pass --vendor-number <N> or set ASC_VENDOR_NUMBER ' +
+        '(find it in App Store Connect → Payments and Financial Reports).',
     );
   }
   return value;
@@ -47,7 +52,9 @@ async function resolveBundleId(appSelector: string | undefined): Promise<string>
   const { apps } = await loadConfig();
   const app = await selectApp(apps, appSelector);
   if (!app.bundleId) {
-    throw new Error(`No iOS bundle identifier for ${app.name} (set ios.bundleIdentifier in app.json).`);
+    throw new Error(
+      `No iOS bundle identifier for ${app.name} (set ios.bundleIdentifier in app.json).`,
+    );
   }
   return app.bundleId;
 }
@@ -57,8 +64,8 @@ function slug(name: string): string {
   return (
     name
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "report"
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'report'
   );
 }
 
@@ -66,7 +73,12 @@ function slug(name: string): string {
  * Write a decompressed report to `outDir` as `<baseName>.tsv`, or `<baseName>.json` (parsed rows) when
  * `asJson`. Returns the written path and the row count for the summary line.
  */
-function writeReport(outDir: string, baseName: string, text: string, asJson: boolean): { path: string; rows: number } {
+function writeReport(
+  outDir: string,
+  baseName: string,
+  text: string,
+  asJson: boolean,
+): { path: string; rows: number } {
   ensureDir(outDir);
   const parsed = parseTsv(text);
   if (asJson) {
@@ -75,7 +87,7 @@ function writeReport(outDir: string, baseName: string, text: string, asJson: boo
     return { path, rows: parsed.rows.length };
   }
   const path = join(outDir, `${baseName}.tsv`);
-  writeFileSync(path, text.endsWith("\n") ? text : `${text}\n`);
+  writeFileSync(path, text.endsWith('\n') ? text : `${text}\n`);
   return { path, rows: parsed.rows.length };
 }
 
@@ -96,10 +108,10 @@ async function downloadOne(
   try {
     const text = decompressReport(await fetchBytes());
     const { path, rows } = writeReport(outDir, baseName, text, asJson);
-    log.step(baseName, `${rows} row${rows === 1 ? "" : "s"} → ${path}`);
+    log.step(baseName, `${rows} row${rows === 1 ? '' : 's'} → ${path}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (noDataOn404 && message.includes("(404)")) {
+    if (noDataOn404 && message.includes('(404)')) {
       log.info(`${baseName}: no data for this period.`);
       return;
     }
@@ -146,28 +158,30 @@ interface AnalyticsOptions {
 function resolveSalesDates(options: SalesOptions): string[] {
   if (options.from && options.to) return eachDate(options.from, options.to);
   if (options.date) return [options.date];
-  throw new Error("A date is required. Pass --date <YYYY-MM-DD> (or --from/--to for a DAILY span).");
+  throw new Error(
+    'A date is required. Pass --date <YYYY-MM-DD> (or --from/--to for a DAILY span).',
+  );
 }
 
 /** Attach the `reports` command (with `sales` / `finance` / `analytics` subcommands) to the program. */
 export function registerReportsCommand(program: Command): void {
   const reports = program
-    .command("reports")
-    .description("download App Store Connect sales, finance & analytics reports");
+    .command('reports')
+    .description('download App Store Connect sales, finance & analytics reports');
 
   reports
-    .command("sales")
-    .description("download a Sales & Trends report (gzipped TSV)")
-    .option("--vendor-number <n>", "vendor number (or set ASC_VENDOR_NUMBER)")
-    .option("--date <date>", "report date; format follows --frequency (e.g. 2026-06-01 for DAILY)")
-    .option("--from <date>", "start of a DAILY date range (with --to)")
-    .option("--to <date>", "end of a DAILY date range (with --from)")
-    .option("--frequency <f>", "DAILY | WEEKLY | MONTHLY | YEARLY", "DAILY")
-    .option("--report-type <t>", "SALES | SUBSCRIPTION | SUBSCRIBER | …", "SALES")
-    .option("--sub-type <s>", "SUMMARY | DETAILED", "SUMMARY")
-    .option("--version <v>", "report schema version, e.g. 1_0")
-    .option("--out <dir>", "directory to write the report(s) into", ".")
-    .option("--json", "parse the TSV and write JSON instead of the raw .tsv", false)
+    .command('sales')
+    .description('download a Sales & Trends report (gzipped TSV)')
+    .option('--vendor-number <n>', 'vendor number (or set ASC_VENDOR_NUMBER)')
+    .option('--date <date>', 'report date; format follows --frequency (e.g. 2026-06-01 for DAILY)')
+    .option('--from <date>', 'start of a DAILY date range (with --to)')
+    .option('--to <date>', 'end of a DAILY date range (with --from)')
+    .option('--frequency <f>', 'DAILY | WEEKLY | MONTHLY | YEARLY', 'DAILY')
+    .option('--report-type <t>', 'SALES | SUBSCRIPTION | SUBSCRIBER | …', 'SALES')
+    .option('--sub-type <s>', 'SUMMARY | DETAILED', 'SUMMARY')
+    .option('--version <v>', 'report schema version, e.g. 1_0')
+    .option('--out <dir>', 'directory to write the report(s) into', '.')
+    .option('--json', 'parse the TSV and write JSON instead of the raw .tsv', false)
     .action(async (options: SalesOptions) => {
       const log = createLogger(false);
       const vendorNumber = resolveVendorNumber(options.vendorNumber);
@@ -194,19 +208,19 @@ export function registerReportsCommand(program: Command): void {
     });
 
   reports
-    .command("finance")
-    .description("download a Finance report for a fiscal period (gzipped TSV)")
-    .option("--vendor-number <n>", "vendor number (or set ASC_VENDOR_NUMBER)")
-    .option("--date <YYYY-MM>", "fiscal period, e.g. 2026-05")
-    .option("--region <code>", "region code: ZZ (all) or a specific one like US", "ZZ")
-    .option("--report-type <t>", "FINANCE_DETAIL | FINANCIAL", "FINANCE_DETAIL")
-    .option("--out <dir>", "directory to write the report into", ".")
-    .option("--json", "parse the TSV and write JSON instead of the raw .tsv", false)
+    .command('finance')
+    .description('download a Finance report for a fiscal period (gzipped TSV)')
+    .option('--vendor-number <n>', 'vendor number (or set ASC_VENDOR_NUMBER)')
+    .option('--date <YYYY-MM>', 'fiscal period, e.g. 2026-05')
+    .option('--region <code>', 'region code: ZZ (all) or a specific one like US', 'ZZ')
+    .option('--report-type <t>', 'FINANCE_DETAIL | FINANCIAL', 'FINANCE_DETAIL')
+    .option('--out <dir>', 'directory to write the report into', '.')
+    .option('--json', 'parse the TSV and write JSON instead of the raw .tsv', false)
     .action(async (options: FinanceOptions) => {
       const log = createLogger(false);
       const vendorNumber = resolveVendorNumber(options.vendorNumber);
       const { date } = options;
-      if (!date) throw new Error("A fiscal period is required. Pass --date <YYYY-MM>.");
+      if (!date) throw new Error('A fiscal period is required. Pass --date <YYYY-MM>.');
       const client = await activeClient();
       await downloadOne(
         log,
@@ -225,15 +239,18 @@ export function registerReportsCommand(program: Command): void {
     });
 
   reports
-    .command("analytics")
-    .description("request + download App Store Connect Analytics reports")
-    .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
-    .option("--access-type <t>", "ONGOING | ONE_TIME_SNAPSHOT", "ONGOING")
-    .option("--category <c>", "APP_USAGE | APP_STORE_ENGAGEMENT | COMMERCE | FRAMEWORK_USAGE | PERFORMANCE")
-    .option("--name <name>", "filter to one report by exact name")
-    .option("--granularity <g>", "DAILY | WEEKLY | MONTHLY", "DAILY")
-    .option("--date <YYYY-MM-DD>", "limit to instances covering this processing date")
-    .option("--out <dir>", "directory to write the report(s) into", ".")
+    .command('analytics')
+    .description('request + download App Store Connect Analytics reports')
+    .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
+    .option('--access-type <t>', 'ONGOING | ONE_TIME_SNAPSHOT', 'ONGOING')
+    .option(
+      '--category <c>',
+      'APP_USAGE | APP_STORE_ENGAGEMENT | COMMERCE | FRAMEWORK_USAGE | PERFORMANCE',
+    )
+    .option('--name <name>', 'filter to one report by exact name')
+    .option('--granularity <g>', 'DAILY | WEEKLY | MONTHLY', 'DAILY')
+    .option('--date <YYYY-MM-DD>', 'limit to instances covering this processing date')
+    .option('--out <dir>', 'directory to write the report(s) into', '.')
     .action(async (options: AnalyticsOptions) => {
       const log = createLogger(false);
       const bundleId = await resolveBundleId(options.app);
@@ -250,18 +267,20 @@ export function registerReportsCommand(program: Command): void {
       if (collection.downloads.length === 0) {
         if (collection.requestCreated) {
           log.info(
-            "Analytics report requested. Apple generates the data over the next ~1–2 days — " +
-              "re-run `launch reports analytics` then to download it.",
+            'Analytics report requested. Apple generates the data over the next ~1–2 days — ' +
+              're-run `launch reports analytics` then to download it.',
           );
         } else {
-          log.info("No analytics segments matched these filters (try a different date, granularity, or category).");
+          log.info(
+            'No analytics segments matched these filters (try a different date, granularity, or category).',
+          );
         }
         return;
       }
 
       let index = 0;
       for (const download of collection.downloads) {
-        const datePart = download.processingDate || "all";
+        const datePart = download.processingDate || 'all';
         const baseName = `analytics-${slug(download.reportName)}-${datePart}-${index++}`;
         await downloadOne(
           log,
@@ -273,7 +292,7 @@ export function registerReportsCommand(program: Command): void {
         );
       }
       log.step(
-        "analytics",
+        'analytics',
         `downloaded ${collection.downloads.length} segment(s) from ${collection.reportCount} report(s)`,
       );
     });

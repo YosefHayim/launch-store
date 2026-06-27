@@ -23,7 +23,7 @@
 
 /** Apple's help page for the App Privacy questionnaire — the authoritative reference for the steps below. */
 export const APP_PRIVACY_HELP_URL =
-  "https://developer.apple.com/help/app-store-connect/manage-app-information/manage-app-privacy/";
+  'https://developer.apple.com/help/app-store-connect/manage-app-information/manage-app-privacy/';
 
 /**
  * The ordered manual steps to complete the App Privacy "nutrition label" in App Store Connect. UI-only:
@@ -32,13 +32,13 @@ export const APP_PRIVACY_HELP_URL =
  * → identity linkage → cross-app tracking → publish.
  */
 export const APP_PRIVACY_STEPS: readonly string[] = [
-  "Open App Store Connect → your app → App Privacy.",
-  "Under Data Collection, declare whether your app or its third-party SDKs collect any data.",
-  "For each data type collected, choose its category (Contact Info, Identifiers, Usage Data, Location, …).",
-  "For each data type, declare every purpose it serves (Analytics, App Functionality, Advertising, …).",
+  'Open App Store Connect → your app → App Privacy.',
+  'Under Data Collection, declare whether your app or its third-party SDKs collect any data.',
+  'For each data type collected, choose its category (Contact Info, Identifiers, Usage Data, Location, …).',
+  'For each data type, declare every purpose it serves (Analytics, App Functionality, Advertising, …).',
   "Declare whether each data type is linked to the user's identity.",
   "Declare whether any data type is used to track the user across other companies' apps and websites.",
-  "Save, then Publish the App Privacy details so they appear on the App Store product page.",
+  'Save, then Publish the App Privacy details so they appear on the App Store product page.',
 ];
 
 /**

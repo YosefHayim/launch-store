@@ -12,7 +12,7 @@
  * it structurally. Testers are account-wide, so nothing here is app-scoped.
  */
 
-import type { SandboxTesterResource } from "../apple/ascClient.js";
+import type { SandboxTesterResource } from '../apple/ascClient.js';
 
 /** The exact slice of {@link AppStoreConnectClient} the sandbox domain depends on. */
 export interface AscSandboxApi {
@@ -46,17 +46,21 @@ export async function listSandboxTesters(api: AscSandboxApi): Promise<SandboxTes
  * issues a single batched clear request, and reports both what was cleared and which emails matched nothing.
  * Throws when neither emails nor `all` are given.
  */
-export async function clearPurchaseHistory(api: AscSandboxApi, request: ClearRequest): Promise<ClearResult> {
+export async function clearPurchaseHistory(
+  api: AscSandboxApi,
+  request: ClearRequest,
+): Promise<ClearResult> {
   const testers = await api.listSandboxTesters();
 
   if (request.all) {
-    if (testers.length > 0) await api.clearSandboxTesterPurchaseHistory(testers.map((tester) => tester.id));
+    if (testers.length > 0)
+      await api.clearSandboxTesterPurchaseHistory(testers.map((tester) => tester.id));
     return { cleared: testers, notFound: [] };
   }
 
   const emails = request.emails.map((email) => email.trim()).filter(Boolean);
   if (emails.length === 0) {
-    throw new Error("Provide at least one sandbox tester email, or pass --all.");
+    throw new Error('Provide at least one sandbox tester email, or pass --all.');
   }
 
   const byEmail = new Map(testers.map((tester) => [tester.acAccountName.toLowerCase(), tester]));
@@ -75,6 +79,7 @@ export async function clearPurchaseHistory(api: AscSandboxApi, request: ClearReq
     }
   }
 
-  if (cleared.length > 0) await api.clearSandboxTesterPurchaseHistory(cleared.map((tester) => tester.id));
+  if (cleared.length > 0)
+    await api.clearSandboxTesterPurchaseHistory(cleared.map((tester) => tester.id));
   return { cleared, notFound };
 }

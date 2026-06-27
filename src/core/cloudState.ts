@@ -9,9 +9,9 @@
  * and never secrets (the `.p8`/`.p12` stay in the OS keychain). The file is chmod-600 regardless.
  */
 
-import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
-import type { HostHandle } from "./types.js";
-import { CLOUD_STATE, LAUNCH_HOME, ensureDir } from "./paths.js";
+import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import type { HostHandle } from './types.js';
+import { CLOUD_STATE, LAUNCH_HOME, ensureDir } from './paths.js';
 
 /**
  * Shape of `~/.launch/cloud.json`.
@@ -30,7 +30,7 @@ export interface CloudState {
 export function readCloudState(): CloudState {
   if (!existsSync(CLOUD_STATE)) return {};
   try {
-    const parsed = JSON.parse(readFileSync(CLOUD_STATE, "utf8")) as Partial<CloudState>;
+    const parsed = JSON.parse(readFileSync(CLOUD_STATE, 'utf8')) as Partial<CloudState>;
     return {
       ...(parsed.host ? { host: parsed.host } : {}),
       ...(parsed.amiId ? { amiId: parsed.amiId } : {}),
