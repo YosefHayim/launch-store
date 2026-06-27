@@ -26,9 +26,10 @@ import {
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { randomBytes } from "node:crypto";
-import type { AscKey, SigningAssets } from "../core/types.js";
+import type { AscKey, Platform, SigningAssets } from "../core/types.js";
 import type { Logger } from "../core/logger.js";
 import { capture } from "../core/exec.js";
+import { adHocProfileType, appStoreProfileType, platformLabel, toBundleIdPlatform } from "../core/platform.js";
 import { getSecret, setSecret } from "../core/keychain.js";
 import { CREDENTIALS_INDEX, PROVISIONING_PROFILES_DIR, accountCredentialsDir, ensureDir } from "../core/paths.js";
 import {
@@ -77,6 +78,13 @@ interface CredentialsIndex {
 
 /** Inputs for {@link ensureSigningCredentials}. */
 export interface EnsureSigningOptions {
+  /**
+   * The Apple build platform being signed. Selects the App ID platform (`toBundleIdPlatform`) and the
+   * provisioning profile type (`appStoreProfileType` / `adHocProfileType`): `ios`/`tvos`/`visionos`
+   * register their App ID as `IOS` while `macos` registers as `MAC_OS`, and each gets its matching
+   * profile type. Defaults are iOS so the existing iOS path is byte-identical.
+   */
+  platform: Platform;
   /** Bundle identifier to provision (e.g. `com.loopi.pomedero`). */
   bundleId: string;
   /** App handle, used to name the App ID when registering it. */
@@ -316,7 +324,7 @@ function dryRunAssets(bundleId: string): SigningAssets {
  * performs no writes and no creations.
  */
 export async function ensureSigningCredentials(options: EnsureSigningOptions): Promise<SigningAssets> {
-  const { bundleId, appName, ascKey, log, dryRun, confirmCreate } = options;
+  const { platform, bundleId, appName, ascKey, log, dryRun, confirmCreate } = options;
   const extensions = options.extensions ?? [];
 
   if (dryRun) {
@@ -367,6 +375,7 @@ export async function ensureSigningCredentials(options: EnsureSigningOptions): P
     client,
     keyId,
     index,
+    platform,
     bundleId,
     appName,
     cert,
@@ -383,6 +392,7 @@ export async function ensureSigningCredentials(options: EnsureSigningOptions): P
       client,
       keyId,
       index,
+      platform,
       bundleId: ext,
       appName: `${appName} (extension)`,
       cert,
@@ -405,6 +415,8 @@ interface EnsureProfileForBundleOptions {
   keyId: string;
   /** The account's credentials index, mutated + persisted in place as profiles are provisioned. */
   index: CredentialsIndex;
+  /** The Apple build platform — selects the App ID platform and App Store profile type. */
+  platform: Platform;
   bundleId: string;
   /** App handle used to name the App ID when registering it. */
   appName: string;
@@ -424,7 +436,7 @@ interface EnsureProfileForBundleOptions {
  * Returns the local {@link SigningAssets} for the bundle.
  */
 async function ensureAppStoreProfileForBundle(options: EnsureProfileForBundleOptions): Promise<SigningAssets> {
-  const { client, keyId, index, bundleId, appName, cert, freshCert, confirmCreate, log } = options;
+  const { client, keyId, index, platform, bundleId, appName, cert, freshCert, confirmCreate, log } = options;
 
   // App ID must be registered before a profile can reference it.
   let bundle = await client.findBundleId(bundleId);
@@ -434,7 +446,7 @@ async function ensureAppStoreProfileForBundle(options: EnsureProfileForBundleOpt
         `App ID ${bundleId} is not registered. Re-run and confirm, or register it in the Developer portal.`,
       );
     }
-    bundle = await client.createBundleId(bundleId, appName);
+    bundle = await client.createBundleId(bundleId, appName, toBundleIdPlatform(platform));
     log.step("app id", `registered ${bundleId}`, "bundle-id");
   } else {
     log.step("app id", `${bundleId} already registered`, "bundle-id");
@@ -450,7 +462,7 @@ async function ensureAppStoreProfileForBundle(options: EnsureProfileForBundleOpt
     log.step("profile", `reusing ${profileName}`, "provisioning-profile");
   } else {
     if (existingProfile) await client.deleteProfile(existingProfile.id);
-    profile = await client.createAppStoreProfile(profileName, bundle.id, cert.id);
+    profile = await client.createAppStoreProfile(profileName, bundle.id, cert.id, appStoreProfileType(platform));
     log.step("profile", `created ${profileName}`, "provisioning-profile");
   }
 
@@ -487,7 +499,18 @@ async function ensureAppStoreProfileForBundle(options: EnsureProfileForBundleOpt
  * choice. Throws with an actionable message when no devices are registered (`launch device add`).
  */
 export async function ensureAdHocSigningCredentials(options: EnsureSigningOptions): Promise<SigningAssets> {
-  const { bundleId, appName, ascKey, log, dryRun, confirmCreate } = options;
+  const { platform, bundleId, appName, ascKey, log, dryRun, confirmCreate } = options;
+
+  // macOS has no ad-hoc provisioning profile type in App Store Connect, so internal (install-link)
+  // distribution doesn't apply to it. Fail loud and early — even in dry-run — rather than minting an
+  // App Store profile that can't sign an ad-hoc build.
+  const profileType = adHocProfileType(platform);
+  if (profileType === undefined) {
+    throw new Error(
+      `${platformLabel(platform)} has no ad-hoc provisioning profile, so \`--distribution internal\` isn't ` +
+        `supported for it. Submit to the store instead, or build a different platform for an install link.`,
+    );
+  }
 
   if (dryRun) {
     log.info(
@@ -506,7 +529,7 @@ export async function ensureAdHocSigningCredentials(options: EnsureSigningOption
     if (!(await confirmCreate(`Register App ID "${bundleId}" in your Apple account?`))) {
       throw new Error(`App ID ${bundleId} is not registered. Re-run and confirm, or register it in the portal.`);
     }
-    bundle = await client.createBundleId(bundleId, appName);
+    bundle = await client.createBundleId(bundleId, appName, toBundleIdPlatform(platform));
     log.step("app id", `registered ${bundleId}`, "bundle-id");
   } else {
     log.step("app id", `${bundleId} already registered`, "bundle-id");
@@ -549,6 +572,7 @@ export async function ensureAdHocSigningCredentials(options: EnsureSigningOption
     bundle.id,
     cert.id,
     devices.map((device) => device.id),
+    profileType,
   );
   const installed = await installProfile(keyId, `${bundleId}.adhoc`, profile.profileContent);
   log.step("profile", `created ${profileName} (ad-hoc)`, "provisioning-profile");
@@ -601,7 +625,7 @@ export interface RemoteSigningBundle {
  * and openssl, so it runs on Windows/Linux.
  */
 export async function ensureRemoteSigningAssets(options: EnsureSigningOptions): Promise<RemoteSigningBundle> {
-  const { bundleId, appName, ascKey, log, dryRun, confirmCreate } = options;
+  const { platform, bundleId, appName, ascKey, log, dryRun, confirmCreate } = options;
 
   if (dryRun) {
     log.info(`[dry-run] would ensure App ID + distribution .p12 + App Store profile for ${bundleId}, ready to upload`);
@@ -627,7 +651,7 @@ export async function ensureRemoteSigningAssets(options: EnsureSigningOptions): 
     if (!(await confirmCreate(`Register App ID "${bundleId}" in your Apple account?`))) {
       throw new Error(`App ID ${bundleId} is not registered. Re-run and confirm, or register it in the portal.`);
     }
-    bundle = await client.createBundleId(bundleId, appName);
+    bundle = await client.createBundleId(bundleId, appName, toBundleIdPlatform(platform));
     log.step("app id", `registered ${bundleId}`, "bundle-id");
   } else {
     log.step("app id", `${bundleId} already registered`, "bundle-id");
@@ -668,7 +692,7 @@ export async function ensureRemoteSigningAssets(options: EnsureSigningOptions): 
     log.step("profile", `reusing ${profileName}`, "provisioning-profile");
   } else {
     if (existingProfile) await client.deleteProfile(existingProfile.id);
-    profile = await client.createAppStoreProfile(profileName, bundle.id, cert.id);
+    profile = await client.createAppStoreProfile(profileName, bundle.id, cert.id, appStoreProfileType(platform));
     log.step("profile", `created ${profileName}`, "provisioning-profile");
   }
   const profilePath = join(ensureDir(accountCredentialsDir(keyId)), `${bundleId}.mobileprovision`);

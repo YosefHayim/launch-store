@@ -11,6 +11,7 @@
  */
 
 import { basename } from "node:path";
+import { isApplePlatform } from "./platform.js";
 import type { AppDescriptor, Platform } from "./types.js";
 import { readResolvedConfig } from "./config.js";
 
@@ -78,7 +79,7 @@ export function checkAppConfig(raw: Record<string, unknown>, file: string, platf
   const android = asRecord(expo["android"]);
   const findings: ConfigFinding[] = [];
 
-  if (platform === "ios") {
+  if (isApplePlatform(platform)) {
     const bundleId = ios?.["bundleIdentifier"];
     if (typeof bundleId === "string" && !BUNDLE_ID.test(bundleId)) {
       findings.push({

@@ -16,7 +16,6 @@
  * rollback`). A spy test asserts no such call is ever made.
  */
 
-import type { Platform } from "../types.js";
 import {
   isCarTerminal,
   isNativeCar,
@@ -25,6 +24,7 @@ import {
   type NativeCar,
   type NativeCarState,
   type OtaCar,
+  type TrainPlatform,
   type TrainRecord,
   type TrainState,
 } from "./types.js";
@@ -50,7 +50,7 @@ export interface TrainEngine {
 /** An OTA follower to coordinate, resolved from config by the command (one per native platform with a channel). */
 export interface OtaCarSpec {
   /** The native platform whose release opens this follower's gate. */
-  platform: Platform;
+  platform: TrainPlatform;
   /** The channel the bundle publishes to. */
   channel: string;
   /** The runtime version this update targets. */
@@ -66,7 +66,7 @@ export interface StartTrainInput {
   /** Hold-until-all-approved (ADR D1): no car releases until every native car is approved. */
   hold: boolean;
   /** The native platforms to coordinate, in display order. */
-  platforms: Platform[];
+  platforms: TrainPlatform[];
   /** OTA followers to coordinate; empty under `--no-ota` or with no cloud storage. */
   ota: OtaCarSpec[];
   /** ISO-8601 "now" — injected so the record's timestamps are deterministic in tests. */

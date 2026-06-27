@@ -18,7 +18,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { Command } from "commander";
-import type { AppDescriptor, BuildProfile, LaunchConfig, Platform } from "../../core/types.js";
+import type { AppDescriptor, BuildProfile, LaunchConfig } from "../../core/types.js";
 import { loadConfig } from "../../core/config.js";
 import { resolveCommandEnv, selectApp } from "../../core/pipeline.js";
 import { createLogger, type Logger } from "../../core/logger.js";
@@ -34,7 +34,7 @@ import {
   readTrainRecord,
   writeTrainRecord,
 } from "../../core/releaseTrain/record.js";
-import { isNativeCar, isOtaCar, type Car, type TrainRecord } from "../../core/releaseTrain/types.js";
+import { isNativeCar, isOtaCar, isTrainPlatform, type Car, type TrainRecord } from "../../core/releaseTrain/types.js";
 
 /** CLI options for `launch release-train`. */
 interface ReleaseTrainOptions extends EnvFlags {
@@ -125,8 +125,9 @@ async function prepare(
 
 /** `start`: resolve the cars from config, kick each native submit, and write the new record. */
 async function runStart(options: ReleaseTrainOptions): Promise<void> {
-  if (options.platform && options.platform !== "ios" && options.platform !== "android") {
-    throw new Error(`Unknown --platform "${options.platform}". Use "ios" or "android".`);
+  const platformFilter = options.platform;
+  if (platformFilter !== undefined && !isTrainPlatform(platformFilter)) {
+    throw new Error(`Unknown --platform "${platformFilter}". Use "ios" or "android".`);
   }
   const { config, app, runtime, log } = await prepare(options);
   const runtimeVersion = resolveRuntimeVersion(app, options.runtimeVersion);
@@ -136,7 +137,7 @@ async function runStart(options: ReleaseTrainOptions): Promise<void> {
     hasCloudStorage: isCloudStorage(config),
     runtimeVersion,
     channel: options.channel,
-    ...(options.platform ? { platformFilter: options.platform as Platform } : {}),
+    ...(platformFilter ? { platformFilter } : {}),
     noOta: !options.ota,
   });
   if (cars.platforms.length === 0) {

@@ -9,10 +9,9 @@
  * decision to these functions.
  */
 
-import type { Platform } from "../types.js";
 import type { ReleaseVerdict } from "../appStoreRelease.js";
 import type { PlayRelease } from "../../google/playClient.js";
-import type { NativeCarState } from "./types.js";
+import type { NativeCarState, TrainPlatform } from "./types.js";
 import type { OtaCarSpec } from "./orchestrator.js";
 
 /**
@@ -60,7 +59,7 @@ export function androidCarState(releases: PlayRelease[]): NativeCarState | null 
 
 /** Which cars a train coordinates: the native platform legs plus their OTA followers. */
 export interface TrainCarPlan {
-  platforms: Platform[];
+  platforms: TrainPlatform[];
   ota: OtaCarSpec[];
 }
 
@@ -77,7 +76,7 @@ export interface ResolveCarsInput {
   /** The channel every OTA follower publishes to. */
   channel: string;
   /** `--platform ios|android` — restrict the train to one native platform. */
-  platformFilter?: Platform;
+  platformFilter?: TrainPlatform;
   /** `--no-ota` — coordinate the native legs only. */
   noOta: boolean;
 }
@@ -88,7 +87,7 @@ export interface ResolveCarsInput {
  * configured. `--platform` narrows to a single native leg; `--no-ota` drops the followers.
  */
 export function resolveTrainCars(input: ResolveCarsInput): TrainCarPlan {
-  const platforms: Platform[] = [];
+  const platforms: TrainPlatform[] = [];
   if (input.hasBundleId && input.platformFilter !== "android") platforms.push("ios");
   if (input.hasPackageName && input.platformFilter !== "ios") platforms.push("android");
 

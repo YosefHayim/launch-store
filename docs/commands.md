@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1846 tests**.
+> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1882 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -134,10 +134,10 @@ show each app's App Store version, review, and phased-rollout state
 
 deep-link the app's App Store Connect / Play Console page in your browser
 
-| Flag                    | Description                                                  |
-| ----------------------- | ------------------------------------------------------------ |
-| `--platform <platform>` | ios (App Store Connect) or android (Play Console)            |
-| `-a, --app <name>`      | app handle to open (default: the first app for the platform) |
+| Flag                    | Description                                                           |
+| ----------------------- | --------------------------------------------------------------------- |
+| `--platform <platform>` | ios/tvos/macos/visionos (App Store Connect) or android (Play Console) |
+| `-a, --app <name>`      | app handle to open (default: the first app for the platform)          |
 
 ## `launch dashboard`
 
@@ -182,7 +182,7 @@ inspect credentials, onboard/switch Apple accounts, or provision signing assets
 
 | Flag                  | Description                                                                       |
 | --------------------- | --------------------------------------------------------------------------------- |
-| `--platform <p>`      | ios (default) or android                                                          |
+| `--platform <p>`      | ios (default), android, tvos, macos, or visionos                                  |
 | `--key-id <id>`       | iOS: App Store Connect Key ID (else read from the AuthKey\_\*.p8 filename)        |
 | `--issuer-id <id>`    | iOS: Issuer ID UUID (else ASC_ISSUER_ID, else prompted)                           |
 | `--p8 <path>`         | iOS: path to the .p8 (else auto-discovered in ~/Downloads, else ASC_API_KEY_PATH) |
@@ -216,7 +216,7 @@ download the live store listing into store.config.json
 
 | Flag               | Description                                                  |
 | ------------------ | ------------------------------------------------------------ |
-| `--platform <p>`   | ios (default) or android                                     |
+| `--platform <p>`   | ios (default), android, tvos, macos, or visionos             |
 | `-a, --app <name>` | app handle (auto-selected if there's only one)               |
 | `--config <path>`  | path to store.config.json (default: <app>/store.config.json) |
 | `--dry-run`        | rehearse without contacting the store                        |
@@ -227,7 +227,7 @@ upload store.config.json to the store listing (metadata only; no binary)
 
 | Flag               | Description                                                                         |
 | ------------------ | ----------------------------------------------------------------------------------- |
-| `--platform <p>`   | ios (default) or android                                                            |
+| `--platform <p>`   | ios (default), android, tvos, macos, or visionos                                    |
 | `-a, --app <name>` | app handle (auto-selected if there's only one)                                      |
 | `--config <path>`  | path to store.config.json (default: <app>/store.config.json)                        |
 | `--dry-run`        | rehearse: write the fastlane metadata folders and print the command, upload nothing |
@@ -874,7 +874,7 @@ set Launch up automatically and verify everything's ready to ship
 
 | Flag             | Description                                                       |
 | ---------------- | ----------------------------------------------------------------- |
-| `--platform <p>` | ios (default) or android                                          |
+| `--platform <p>` | ios (default), android, tvos, macos, or visionos                  |
 | `--yes`          | non-interactive: install missing tools without asking (CI/agents) |
 | `--no-rehearse`  | skip the dry-run pipeline rehearsal at the end                    |
 
@@ -919,12 +919,12 @@ display help for command
 
 check that the local toolchain and store account are ready
 
-| Flag             | Description                                                        |
-| ---------------- | ------------------------------------------------------------------ |
-| `--platform <p>` | ios (default) or android                                           |
-| `--fix`          | install any missing build tools (iOS only; asks for consent first) |
-| `--yes`          | skip prompts and proceed with installs (CI/agents)                 |
-| `--json`         | machine-readable output for CI/agents                              |
+| Flag             | Description                                                                    |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `--platform <p>` | ios (default), android, tvos, macos, or visionos                               |
+| `--fix`          | install any missing build tools (Apple platforms only; asks for consent first) |
+| `--yes`          | skip prompts and proceed with installs (CI/agents)                             |
+| `--json`         | machine-readable output for CI/agents                                          |
 
 ## `launch store`
 
@@ -1149,11 +1149,11 @@ inspect and trim local build history (the artifact index)
 
 list past builds, newest first
 
-| Flag                    | Description                     |
-| ----------------------- | ------------------------------- |
-| `-a, --app <name>`      | only show builds for this app   |
-| `--platform <platform>` | only show ios or android builds |
-| `--json`                | output machine-readable JSON    |
+| Flag                    | Description                                                         |
+| ----------------------- | ------------------------------------------------------------------- |
+| `-a, --app <name>`      | only show builds for this app                                       |
+| `--platform <platform>` | only show builds for one platform (ios/android/tvos/macos/visionos) |
+| `--json`                | output machine-readable JSON                                        |
 
 ### `launch builds view <id|latest>`
 
@@ -1179,7 +1179,7 @@ delete build binaries older than the retention window (keeps the newest per app+
 | ----------------------- | ------------------------------------------------------------------------- |
 | `--days <n>`            | retention window in days (default: config artifactRetentionDays, else 30) |
 | `-a, --app <name>`      | only prune builds for this app                                            |
-| `--platform <platform>` | only prune ios or android builds                                          |
+| `--platform <platform>` | only prune builds for one platform (ios/android/tvos/macos/visionos)      |
 | `--dry-run`             | show what would be deleted without deleting                               |
 | `-y, --yes`             | skip the confirmation prompt (for CI)                                     |
 | `--json`                | output machine-readable JSON                                              |

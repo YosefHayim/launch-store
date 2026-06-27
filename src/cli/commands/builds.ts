@@ -13,6 +13,7 @@ import { existsSync } from "node:fs";
 import type { Command } from "commander";
 import { cancel, confirm, isCancel } from "@clack/prompts";
 import type { BuildArtifact, Platform, PrunedArtifact } from "../../core/types.js";
+import { parsePlatform } from "../../core/platform.js";
 import { loadConfig } from "../../core/config.js";
 import { resolveStorageProvider } from "../../core/storage.js";
 import { resolveCommandRetentionDays } from "../../core/artifactRetention.js";
@@ -164,13 +165,9 @@ export function formatBuildDetail(artifact: BuildArtifact): string {
   return lines.join("\n");
 }
 
-/** Validate the `--platform` filter, throwing on anything but the two platforms. */
+/** Validate the `--platform` filter, throwing on an unknown platform; `undefined` means "all platforms". */
 function parsePlatformFilter(value: string | undefined): Platform | undefined {
-  if (value === undefined) return undefined;
-  if (value !== "ios" && value !== "android") {
-    throw new Error(`Unknown --platform "${value}". Use "ios" or "android".`);
-  }
-  return value;
+  return value === undefined ? undefined : parsePlatform(value);
 }
 
 /** Load the build history via the configured storage provider (newest-first). */
@@ -320,7 +317,7 @@ export function registerBuildsCommand(program: Command): void {
     .command("list")
     .description("list past builds, newest first")
     .option("-a, --app <name>", "only show builds for this app")
-    .option("--platform <platform>", "only show ios or android builds")
+    .option("--platform <platform>", "only show builds for one platform (ios/android/tvos/macos/visionos)")
     .option("--json", "output machine-readable JSON", false)
     .action(async (options: { app?: string; platform?: string; json: boolean }) => {
       const platform = parsePlatformFilter(options.platform);
@@ -384,7 +381,7 @@ export function registerBuildsCommand(program: Command): void {
     .description("delete build binaries older than the retention window (keeps the newest per app+platform)")
     .option("--days <n>", "retention window in days (default: config artifactRetentionDays, else 30)")
     .option("-a, --app <name>", "only prune builds for this app")
-    .option("--platform <platform>", "only prune ios or android builds")
+    .option("--platform <platform>", "only prune builds for one platform (ios/android/tvos/macos/visionos)")
     .option("--dry-run", "show what would be deleted without deleting", false)
     .option("-y, --yes", "skip the confirmation prompt (for CI)", false)
     .option("--json", "output machine-readable JSON", false)

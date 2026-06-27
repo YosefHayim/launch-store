@@ -21,11 +21,14 @@ const home = vi.hoisted(() => {
 });
 
 import { accountCredentialsDir, PROVISIONING_PROFILES_DIR } from "../core/paths.js";
-import { loadCachedSigningAssets } from "./credentials.js";
+import { createLogger } from "../core/logger.js";
+import { ensureAdHocSigningCredentials, loadCachedSigningAssets } from "./credentials.js";
+import type { AscKey } from "../core/types.js";
 
 const KEY_ID = "ABC123";
 const MAIN = "com.loopi.pomedero";
 const WIDGET = "com.loopi.pomedero.widget";
+const DUMMY_KEY: AscKey = { keyId: KEY_ID, issuerId: "issuer-uuid", p8: "not-a-real-key" };
 
 /** A profile record as written to `index.json`; `path` is the per-account backup, unused by the loader. */
 function profileRecord(bundleId: string, uuid: string) {
@@ -83,5 +86,21 @@ describe("loadCachedSigningAssets — multi-bundle (app + extensions) fast path 
     // The widget is recorded but its `.mobileprovision` was never installed (uuid-widget omitted below).
     seedCredentials({ [MAIN]: { uuid: "uuid-main" }, [WIDGET]: { uuid: "uuid-widget" } }, ["uuid-main"]);
     expect(loadCachedSigningAssets(KEY_ID, MAIN, [WIDGET])).toBeNull();
+  });
+});
+
+describe("ensureAdHocSigningCredentials — macOS has no ad-hoc distribution", () => {
+  it("rejects macOS up front (even in dry-run) before touching the network or keychain", async () => {
+    await expect(
+      ensureAdHocSigningCredentials({
+        platform: "macos",
+        bundleId: MAIN,
+        appName: "Pomedero",
+        ascKey: DUMMY_KEY,
+        log: createLogger(false),
+        dryRun: true,
+        confirmCreate: () => Promise.resolve(true),
+      }),
+    ).rejects.toThrow(/macOS has no ad-hoc/i);
   });
 });

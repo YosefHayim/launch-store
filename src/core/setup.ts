@@ -19,6 +19,7 @@
 
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { isApplePlatform, platformLabel } from "./platform.js";
 import type { AppDescriptor, Platform } from "./types.js";
 import { loadConfig } from "./config.js";
 import { errorMessage } from "./errorMessage.js";
@@ -266,7 +267,7 @@ export async function collectReadiness(platform: Platform, apps: AppDescriptor[]
     { title: "Toolchain", rows: toolchainReadinessRows(tools, present) },
   ];
 
-  if (platform === "ios") {
+  if (isApplePlatform(platform)) {
     groups.push({
       title: "Apple account",
       rows: await withSpinner("Checking your Apple account", () => appleAccountRows(apps)),
@@ -332,10 +333,7 @@ async function rehearsePipeline(platform: Platform, app: AppDescriptor): Promise
 export async function runSetup(options: SetupOptions): Promise<void> {
   const { platform, yes, rehearse } = options;
   const log = createLogger(false);
-  log.notice(
-    "Launch setup",
-    `Getting your ${platform === "ios" ? "iOS" : "Android"} app ready to ship — hands-off where it's safe.`,
-  );
+  log.notice("Launch setup", `Getting your ${platformLabel(platform)} app ready to ship — hands-off where it's safe.`);
 
   // 1 · Config — scaffold it the first time, no questions asked.
   let { apps } = await loadConfig();
@@ -350,7 +348,7 @@ export async function runSetup(options: SetupOptions): Promise<void> {
   // 2 · Toolchain — auto-install missing iOS build tools (Mac only). Install only when we can ask (a TTY)
   // or were told to (`--yes`); a non-interactive run without `--yes` just lets the board report the gaps,
   // so it never blocks on a prompt that can't be answered (CI/agents).
-  if (platform === "ios" && isMac() && (isInteractive() || yes) && (await missingRequiredTools()).length > 0) {
+  if (isApplePlatform(platform) && isMac() && (isInteractive() || yes) && (await missingRequiredTools()).length > 0) {
     await ensureToolchain({ assumeYes: yes || !isInteractive() });
   }
 

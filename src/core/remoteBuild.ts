@@ -220,7 +220,8 @@ export async function pullArtifact(
   const artifactBytes = statSync(ipaPath).size;
   // The authoritative device-archive guard, shared with the local build: reject a simulator/.app/empty
   // artifact with the same actionable error rather than storing or submitting a dead one (issue #6).
-  assertDeviceArtifact(ipaPath, artifactBytes);
+  // Remote builds are iOS-only (the host bootstrap is iOS-shaped), so the platform is always iOS here.
+  assertDeviceArtifact(ipaPath, artifactBytes, "ios");
   return { ipaPath, sizeReport: { artifactBytes, entries } };
 }
 

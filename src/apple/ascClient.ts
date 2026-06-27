@@ -43,10 +43,17 @@ const CLOCK_SKEW_TOLERANCE_SECONDS = 60;
 export const DISTRIBUTION_CERT_TYPE = "DISTRIBUTION";
 /** Codesign identity name that pairs with {@link DISTRIBUTION_CERT_TYPE}. */
 export const DISTRIBUTION_CERT_NAME = "Apple Distribution";
-/** Provisioning profile type for App Store / TestFlight distribution. */
+/**
+ * Provisioning profile type for App Store / TestFlight distribution — the **iOS default**. tvOS, macOS,
+ * and visionOS resolve their own profile type via `appStoreProfileType()` in `core/platform.ts` and pass
+ * it to {@link AppStoreConnectClient.createAppStoreProfile}; this constant is the default that keeps the
+ * iOS path unchanged.
+ */
 export const APP_STORE_PROFILE_TYPE = "IOS_APP_STORE";
-/** Provisioning profile type for ad-hoc (install-link) distribution to a fixed set of registered devices. */
+/** Provisioning profile type for ad-hoc (install-link) distribution — the iOS default; tvOS/visionOS map their own via `core/platform.ts` (macOS has no ad-hoc type). */
 export const AD_HOC_PROFILE_TYPE = "IOS_APP_ADHOC";
+/** The App Store Connect signing-profile type written when creating a profile (e.g. `IOS_APP_STORE`, `TVOS_APP_STORE`, `MAC_APP_STORE`). */
+type ProvisioningProfileType = NonNullable<NonNullable<components["schemas"]["Profile"]["attributes"]>["profileType"]>;
 /**
  * The error code App Store Connect returns on *any* authenticated request when a required legal
  * agreement is unsigned or expired — the Apple Developer Program License Agreement, the Paid Applications
@@ -1779,11 +1786,19 @@ export class AppStoreConnectClient {
     return { id: first.id, identifier: first.attributes.identifier, seedId: first.attributes.seedId };
   }
 
-  /** Register a new Bundle ID (App ID) so a build can be signed against it. */
-  async createBundleId(identifier: string, name: string): Promise<BundleIdResource> {
+  /**
+   * Register a new Bundle ID (App ID) so a build can be signed against it. The bundle-id platform defaults
+   * to iOS — the value tvOS/visionOS also register under (their bundle ids are iOS-family); macOS callers
+   * pass `MAC_OS` (computed by `toBundleIdPlatform` in `core/platform.ts`).
+   */
+  async createBundleId(
+    identifier: string,
+    name: string,
+    bundleIdPlatform: components["schemas"]["BundleIdPlatform"] = "IOS",
+  ): Promise<BundleIdResource> {
     const data = await this.createResource<{ identifier: string; seedId?: string }>("/bundleIds", {
       type: "bundleIds",
-      attributes: { identifier, name, platform: "IOS" },
+      attributes: { identifier, name, platform: bundleIdPlatform },
     });
     return { id: data.id, identifier: data.attributes.identifier, seedId: data.attributes.seedId };
   }
@@ -1835,15 +1850,20 @@ export class AppStoreConnectClient {
     };
   }
 
-  /** Create an App Store provisioning profile linking a bundle id to a distribution certificate. */
+  /**
+   * Create an App Store provisioning profile linking a bundle id to a distribution certificate. `profileType`
+   * defaults to the iOS App Store profile; tvOS/macOS callers pass their own (`appStoreProfileType` in
+   * `core/platform.ts`), so the type matches the platform the build targets.
+   */
   async createAppStoreProfile(
     name: string,
     bundleIdResourceId: string,
     certificateId: string,
+    profileType: ProvisioningProfileType = APP_STORE_PROFILE_TYPE,
   ): Promise<ProfileResource> {
     const data = await this.createResource<{ name: string; uuid: string; profileContent: string }>("/profiles", {
       type: "profiles",
-      attributes: { name, profileType: APP_STORE_PROFILE_TYPE },
+      attributes: { name, profileType },
       relationships: {
         bundleId: { data: { type: "bundleIds", id: bundleIdResourceId } },
         certificates: { data: [{ type: "certificates", id: certificateId }] },
@@ -1905,10 +1925,11 @@ export class AppStoreConnectClient {
     bundleIdResourceId: string,
     certificateId: string,
     deviceIds: string[],
+    profileType: ProvisioningProfileType = AD_HOC_PROFILE_TYPE,
   ): Promise<ProfileResource> {
     const data = await this.createResource<{ name: string; uuid: string; profileContent: string }>("/profiles", {
       type: "profiles",
-      attributes: { name, profileType: AD_HOC_PROFILE_TYPE },
+      attributes: { name, profileType },
       relationships: {
         bundleId: { data: { type: "bundleIds", id: bundleIdResourceId } },
         certificates: { data: [{ type: "certificates", id: certificateId }] },

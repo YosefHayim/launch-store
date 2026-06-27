@@ -1,13 +1,13 @@
 import { isAbsolute } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { SigningAssets } from "../../core/types.js";
-import { assertDeviceArtifact, exportOptionsPlist, gymEnv, parseThinningReport, resolveIosDir } from "./fastlane.js";
+import { assertDeviceArtifact, exportOptionsPlist, gymEnv, parseThinningReport, resolveNativeDir } from "./fastlane.js";
 
 const MB = 1024 ** 2;
 
-describe("resolveIosDir — absolute ios path so gym can't double the subpath in a monorepo", () => {
+describe("resolveNativeDir — absolute native-project path so gym can't double the subpath in a monorepo", () => {
   it("returns an absolute path for a relative app dir (the monorepo `appRoots` case)", () => {
-    const iosDir = resolveIosDir("apps/pomedero");
+    const iosDir = resolveNativeDir("apps/pomedero", "ios");
     expect(isAbsolute(iosDir)).toBe(true);
     expect(iosDir.endsWith("/apps/pomedero/ios")).toBe(true);
     // The reported failure: gym re-resolved a relative workspace against its app-dir cwd.
@@ -15,7 +15,13 @@ describe("resolveIosDir — absolute ios path so gym can't double the subpath in
   });
 
   it("leaves an already-absolute app dir untouched", () => {
-    expect(resolveIosDir("/Users/x/zaatar/apps/pomedero")).toBe("/Users/x/zaatar/apps/pomedero/ios");
+    expect(resolveNativeDir("/Users/x/zaatar/apps/pomedero", "ios")).toBe("/Users/x/zaatar/apps/pomedero/ios");
+  });
+
+  it("maps each Apple platform to its native-project directory (tvOS shares ios/)", () => {
+    expect(resolveNativeDir("/a", "tvos").endsWith("/a/ios")).toBe(true);
+    expect(resolveNativeDir("/a", "macos").endsWith("/a/macos")).toBe(true);
+    expect(resolveNativeDir("/a", "visionos").endsWith("/a/visionos")).toBe(true);
   });
 });
 
@@ -101,27 +107,43 @@ describe("exportOptionsPlist — manual App Store signing inputs", () => {
 describe("assertDeviceArtifact — reject a non-submittable build before upload", () => {
   it("accepts a real device .ipa with a positive size", () => {
     expect(() => {
-      assertDeviceArtifact("/tmp/launch-build-x/Looopi.ipa", 12 * MB);
+      assertDeviceArtifact("/tmp/launch-build-x/Looopi.ipa", 12 * MB, "ios");
     }).not.toThrow();
   });
 
   it("rejects a simulator artifact (the reported xcrun simctl failure mode)", () => {
     const simPath = "/path/ios/build/Build/Products/Release-iphonesimulator/Looopi.app";
     expect(() => {
-      assertDeviceArtifact(simPath, 8 * MB);
+      assertDeviceArtifact(simPath, 8 * MB, "ios");
     }).toThrow(/simulator/i);
   });
 
   it("rejects a .app bundle that isn't a packaged .ipa", () => {
     expect(() => {
-      assertDeviceArtifact("/tmp/Looopi.app", 8 * MB);
+      assertDeviceArtifact("/tmp/Looopi.app", 8 * MB, "ios");
     }).toThrow(/\.ipa/);
   });
 
   it("rejects a 0-byte artifact from a silently-failed export", () => {
     expect(() => {
-      assertDeviceArtifact("/tmp/Looopi.ipa", 0);
+      assertDeviceArtifact("/tmp/Looopi.ipa", 0, "ios");
     }).toThrow(/empty/i);
+  });
+
+  it("catches a tvOS simulator artifact built for -appletvsimulator", () => {
+    const simPath = "/path/ios/build/Build/Products/Release-appletvsimulator/Looopi.app";
+    expect(() => {
+      assertDeviceArtifact(simPath, 8 * MB, "tvos");
+    }).toThrow(/simulator/i);
+  });
+
+  it("accepts a macOS .pkg (no simulator rule) but rejects a macOS .ipa", () => {
+    expect(() => {
+      assertDeviceArtifact("/tmp/Looopi.pkg", 20 * MB, "macos");
+    }).not.toThrow();
+    expect(() => {
+      assertDeviceArtifact("/tmp/Looopi.ipa", 20 * MB, "macos");
+    }).toThrow(/\.pkg/);
   });
 });
 

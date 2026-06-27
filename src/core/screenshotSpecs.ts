@@ -25,6 +25,7 @@
  * never reject what we can't authoritatively check).
  */
 
+import { isApplePlatform } from "./platform.js";
 import type { Platform } from "./types.js";
 import { imageSize } from "./imageSize.js";
 
@@ -293,11 +294,11 @@ export function validatePlayDimensions(width: number, height: number): Dimension
 }
 
 /**
- * The canonical size to request/hard-gate for one target, or `undefined` for an unknown Apple slot. For
- * iOS the target is the `screenshotDisplayType`; for Android it's a {@link PlayFormFactor}.
+ * The canonical size to request/hard-gate for one target, or `undefined` for an unknown Apple slot. For an
+ * Apple platform the target is the `screenshotDisplayType`; for Android it's a {@link PlayFormFactor}.
  */
 export function canonicalDimensions(platform: Platform, target: string): readonly [number, number] | undefined {
-  if (platform === "ios") return APPLE_SCREENSHOT_SPECS[target]?.canonical;
+  if (isApplePlatform(platform)) return APPLE_SCREENSHOT_SPECS[target]?.canonical;
   return PLAY_FORM_FACTOR_DIMENSIONS[target as PlayFormFactor];
 }
 
@@ -313,15 +314,14 @@ export type FileDimensionCheck =
 /**
  * Measure a screenshot file and validate it for the given platform/target in one step — the bridge from
  * the on-disk file to the pure validators, used by both the `plan` advisory pass and the genshot
- * hard-gate. iOS validates against the Apple slot; Android validates against Play's constraint
- * (the `target` form factor doesn't change Play's rule, so it's not consulted).
+ * hard-gate. An Apple platform validates against the Apple slot; Android validates against Play's
+ * constraint (the `target` form factor doesn't change Play's rule, so it's not consulted).
  */
 export function checkScreenshotFile(platform: Platform, target: string, path: string): FileDimensionCheck {
   const size = imageSize(path);
   if (!size) return { measured: false };
-  const verdict =
-    platform === "ios"
-      ? validateAppleDimensions(target, size.width, size.height)
-      : validatePlayDimensions(size.width, size.height);
+  const verdict = isApplePlatform(platform)
+    ? validateAppleDimensions(target, size.width, size.height)
+    : validatePlayDimensions(size.width, size.height);
   return { measured: true, width: size.width, height: size.height, verdict };
 }

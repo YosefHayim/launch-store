@@ -4,8 +4,15 @@
  * vocabulary the rest of the types modules build on; depends on nothing else.
  */
 
-/** Target mobile platform. iOS can only be built (signed) on macOS; Android builds on any OS. */
-export type Platform = "ios" | "android";
+/**
+ * Target build platform. The Apple family — `ios`, `tvos`, `macos`, `visionos` — can only be built
+ * (signed) on macOS through Xcode and shares one App Store Connect account, certs, and submitter; they
+ * differ only in the Xcode build destination, the App Store Connect platform attribute, and the signing
+ * profile type (see `core/platform.ts`). `android` builds with gradle on any OS and submits to Google
+ * Play. Use {@link import("../platform.js").isApplePlatform} rather than `=== "ios"` to branch the
+ * Apple-vs-Android toolchain, so the three newer Apple platforms aren't silently routed to Android.
+ */
+export type Platform = "ios" | "android" | "tvos" | "macos" | "visionos";
 
 /**
  * Where an iOS build runs, as picked in the `launch` wizard. `local` is the host Mac's own Xcode;

@@ -227,10 +227,13 @@ One territory's discounted price for an offer, resolved to an Apple subscription
 
 ### `Partial<Record<Platform,string[]>>`
 
-| Field     | Type       | Required | Description |
-| --------- | ---------- | -------- | ----------- |
-| `ios`     | `string[]` | No       |             |
-| `android` | `string[]` | No       |             |
+| Field      | Type       | Required | Description |
+| ---------- | ---------- | -------- | ----------- |
+| `ios`      | `string[]` | No       |             |
+| `android`  | `string[]` | No       |             |
+| `tvos`     | `string[]` | No       |             |
+| `macos`    | `string[]` | No       |             |
+| `visionos` | `string[]` | No       |             |
 
 ### `PlayPriceConfig`
 

@@ -24,6 +24,7 @@ import { tmpdir } from "node:os";
 import { basename, extname, join } from "node:path";
 import type { Command } from "commander";
 import type { BuildArtifact, KeystoreAssets, SigningAssets } from "../../core/types.js";
+import { isApplePlatform } from "../../core/platform.js";
 import { loadConfig } from "../../core/config.js";
 import { resolveStorageProvider } from "../../core/storage.js";
 import { capture, run } from "../../core/exec.js";
@@ -219,10 +220,9 @@ export function registerResignCommand(program: Command): void {
         const outputPath =
           options.output && extname(options.output) ? options.output : resignOutputPath(artifact, outputDir);
 
-        if (artifact.platform === "ios") {
+        if (isApplePlatform(artifact.platform)) {
           const bundleId = apps.find((app) => app.name === artifact.appName)?.bundleId;
-          if (!bundleId)
-            throw new Error(`No iOS bundle id for ${artifact.appName} in app config — can't resolve signing.`);
+          if (!bundleId) throw new Error(`No bundle id for ${artifact.appName} in app config — can't resolve signing.`);
           const keyId = resolveAccountKeyId(options.account);
           const signing = loadCachedSigningAssets(keyId, bundleId);
           if (!signing) {

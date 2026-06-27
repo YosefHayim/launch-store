@@ -7,6 +7,7 @@
  * pipeline uploads whatever they return to the user's bucket; nothing here touches the network.
  */
 
+import { isApplePlatform } from "./platform.js";
 import type { Platform } from "./types.js";
 
 /** Escape the five XML special characters so app titles/ids can't break the plist or the HTML. */
@@ -69,20 +70,29 @@ export interface LandingPageOptions {
   version: string;
   buildNumber: number;
   platform: Platform;
-  /** The tap-to-install target: an `itms-services://` URL (iOS) or the direct `.apk` URL (Android). */
+  /** The tap-to-install target: an `itms-services://` URL (iOS/tvOS/visionOS) or the direct artifact URL (Android `.apk`, macOS `.pkg`/`.app`/`.dmg`). */
   installUrl: string;
+}
+
+/** The platform-specific footnote under the Install button (device registration vs Gatekeeper vs unknown-sources). */
+function installNote(platform: Platform): string {
+  if (platform === "macos") {
+    return "<p>macOS: if Gatekeeper blocks the app, right-click it and choose Open, or allow it in System Settings → Privacy &amp; Security.</p>";
+  }
+  if (isApplePlatform(platform)) {
+    return "<p>Apple: your device must be registered for this build. After installing, trust the developer in Settings → General → VPN &amp; Device Management.</p>";
+  }
+  return "<p>Android: you may need to allow installs from this browser/source.</p>";
 }
 
 /**
  * Build the tester-facing install landing page: app name, version/build, and one Install button
- * wired to {@link LandingPageOptions.installUrl}. iOS also gets the standard reminder that ad-hoc
- * installs only work on a device whose UDID is registered on the profile.
+ * wired to {@link LandingPageOptions.installUrl}. iOS/tvOS/visionOS also get the standard reminder that
+ * ad-hoc installs only work on a device whose UDID is registered on the profile; macOS gets the Gatekeeper
+ * note.
  */
 export function installLandingPage(options: LandingPageOptions): string {
-  const note =
-    options.platform === "ios"
-      ? "<p>iOS: your device must be registered for this build. After installing, trust the developer in Settings → General → VPN &amp; Device Management.</p>"
-      : "<p>Android: you may need to allow installs from this browser/source.</p>";
+  const note = installNote(options.platform);
   return [
     "<!doctype html>",
     '<html lang="en"><head><meta charset="utf-8" />',

@@ -16,7 +16,7 @@ import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Command } from "commander";
-import type { Platform } from "../../core/types.js";
+import { isApplePlatform, parsePlatform } from "../../core/platform.js";
 import { loadConfig } from "../../core/config.js";
 import { selectApp } from "../../core/pipeline.js";
 import { createLogger } from "../../core/logger.js";
@@ -41,13 +41,6 @@ interface MetadataOptions {
   /** Path to `store.config.json`; defaults to the file in the app directory. */
   config?: string;
   dryRun?: boolean;
-}
-
-/** Validate `--platform`, defaulting to iOS (matching `doctor`/`build`). */
-function parsePlatform(platform: string | undefined): Platform {
-  const value = platform ?? "ios";
-  if (value !== "ios" && value !== "android") throw new Error(`Unknown platform "${value}". Use "ios" or "android".`);
-  return value;
 }
 
 /** Resolve the app and the store.config.json path for a metadata run. */
@@ -230,15 +223,15 @@ export function registerMetadataCommand(program: Command): void {
   metadata
     .command("pull")
     .description("download the live store listing into store.config.json")
-    .option("--platform <p>", "ios (default) or android")
+    .option("--platform <p>", "ios (default), android, tvos, macos, or visionos")
     .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
     .option("--config <path>", "path to store.config.json (default: <app>/store.config.json)")
     .option("--dry-run", "rehearse without contacting the store", false)
     .action(async (options: MetadataOptions) => {
-      const platform = parsePlatform(options.platform);
+      const platform = parsePlatform(options.platform ?? "ios");
       const target = await resolveTarget(options);
-      if (platform === "ios") {
-        if (!target.bundleId) throw new Error("No iOS bundle identifier for this app (set ios.bundleIdentifier).");
+      if (isApplePlatform(platform)) {
+        if (!target.bundleId) throw new Error("No bundle identifier for this app (set ios.bundleIdentifier).");
         await pullAppleListing(target.bundleId, target.configPath, options.dryRun === true);
       } else {
         if (!target.packageName) throw new Error("No Android application id for this app (set android.package).");
@@ -249,15 +242,15 @@ export function registerMetadataCommand(program: Command): void {
   metadata
     .command("push")
     .description("upload store.config.json to the store listing (metadata only; no binary)")
-    .option("--platform <p>", "ios (default) or android")
+    .option("--platform <p>", "ios (default), android, tvos, macos, or visionos")
     .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
     .option("--config <path>", "path to store.config.json (default: <app>/store.config.json)")
     .option("--dry-run", "rehearse: write the fastlane metadata folders and print the command, upload nothing", false)
     .action(async (options: MetadataOptions) => {
-      const platform = parsePlatform(options.platform);
+      const platform = parsePlatform(options.platform ?? "ios");
       const target = await resolveTarget(options);
-      if (platform === "ios") {
-        if (!target.bundleId) throw new Error("No iOS bundle identifier for this app (set ios.bundleIdentifier).");
+      if (isApplePlatform(platform)) {
+        if (!target.bundleId) throw new Error("No bundle identifier for this app (set ios.bundleIdentifier).");
         await pushApple(target.bundleId, target.configPath, options.dryRun === true);
       } else {
         if (!target.packageName) throw new Error("No Android application id for this app (set android.package).");
