@@ -6,6 +6,7 @@
 import type { Command } from "commander";
 import type { Distribution, PlayTrack, RemoteTarget } from "../../core/types.js";
 import type { BumpKind } from "../../core/version.js";
+import { parsePlatform } from "../../core/platform.js";
 import { runBuild } from "../../core/pipeline.js";
 import { setVerboseOutput } from "../../core/progress.js";
 import { addEnvFlags, envOverrides, type EnvFlags } from "../options.js";
@@ -101,7 +102,7 @@ export function registerBuildCommand(program: Command): void {
   const command = program
     .command("build")
     .description("run the full pipeline and upload to the testing track (--no-submit to build only)")
-    .argument("<platform>", "ios or android")
+    .argument("<platform>", "ios, android, tvos, macos, or visionos")
     .option("-p, --profile <name>", "build profile", "production")
     .option("-a, --app <name>", "app handle (auto-selected if there's only one)")
     .option("--account <name>", "iOS only — Apple account to build with: label or Key ID (default: active)")
@@ -123,10 +124,8 @@ export function registerBuildCommand(program: Command): void {
     .option("--dry-run", "rehearse every step and print what it would do, changing nothing", false)
     .option("-y, --yes", "skip the pre-upload size confirmation (auto-confirm)", false)
     .option("-v, --verbose", "stream the full xcodebuild/gradle output instead of a progress spinner", false);
-  addEnvFlags(command).action(async (platform: string, options: BuildCommandOptions) => {
-    if (platform !== "ios" && platform !== "android") {
-      throw new Error(`Unknown platform "${platform}". Use "ios" or "android".`);
-    }
+  addEnvFlags(command).action(async (platformArg: string, options: BuildCommandOptions) => {
+    const platform = parsePlatform(platformArg);
     setVerboseOutput(options.verbose);
     const remote = resolveRemote(options.remote);
     const track = parseTrack(options.track);

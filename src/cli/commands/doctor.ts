@@ -24,6 +24,7 @@ import { loadActiveAscKey } from "../../core/accounts.js";
 import { reconcileExportCompliance, summarizeExportComplianceResult } from "../../core/exportCompliance.js";
 import { inspectDoctor } from "../../core/doctor/inspect.js";
 import { buildDoctorContext } from "../../core/doctor/context.js";
+import { isApplePlatform, parsePlatform } from "../../core/platform.js";
 import type { DoctorCheck, DoctorPlatform, DoctorReport } from "../../core/doctor/types.js";
 
 /** Map a check status to its leading glyph. */
@@ -99,15 +100,13 @@ export function registerDoctorCommand(program: Command): void {
   program
     .command("doctor")
     .description("check that the local toolchain and store account are ready")
-    .option("--platform <p>", "ios (default) or android")
-    .option("--fix", "install any missing build tools (iOS only; asks for consent first)")
+    .option("--platform <p>", "ios (default), android, tvos, macos, or visionos")
+    .option("--fix", "install any missing build tools (Apple platforms only; asks for consent first)")
     .option("--yes", "skip prompts and proceed with installs (CI/agents)")
     .option("--json", "machine-readable output for CI/agents")
     .action(async (options: { platform?: string; fix?: boolean; yes?: boolean; json?: boolean }) => {
-      const platform = options.platform ?? "ios";
-      if (platform !== "ios" && platform !== "android") {
-        throw new Error(`Unknown platform "${platform}". Use "ios" or "android".`);
-      }
+      // doctor's toolchain/account checks are family-level, so every Apple platform reuses the iOS readiness path.
+      const platform: DoctorPlatform = isApplePlatform(parsePlatform(options.platform ?? "ios")) ? "ios" : "android";
       if (options.json === true) {
         const report = await inspectDoctor(await buildDoctorContext(platform));
         console.log(JSON.stringify(report, null, 2));

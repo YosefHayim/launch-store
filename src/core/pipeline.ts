@@ -59,6 +59,7 @@ import { createLogger, type Logger } from "./logger.js";
 import type { GlossaryTopic } from "./glossary.js";
 import { capture, exists, run } from "./exec.js";
 import { buildConsoleUrl } from "./consoleLinks.js";
+import { nativeProjectDirName, nativeTargetHint, platformLabel } from "./platform.js";
 import { isInteractive, runWithProgress, withSpinner } from "./progress.js";
 import { AppStoreConnectClient } from "../apple/ascClient.js";
 import { ensureAdHocSigningCredentials, ensureSigningCredentials } from "../apple/credentials.js";
@@ -290,37 +291,35 @@ export async function resolveIosAccount(
   return account;
 }
 
-/** Set the iOS build number into the generated Info.plist so the binary carries the bumped value. */
-async function setIosBuildNumber(appDir: string, buildNumber: number): Promise<boolean> {
-  const iosDir = join(appDir, "ios");
-  if (!existsSync(iosDir)) return false;
-  const targetDir = readdirSync(iosDir).find((entry) => existsSync(join(iosDir, entry, "Info.plist")));
+/**
+ * Stamp a single key into the build platform's generated `Info.plist`. Stamping the plist directly —
+ * rather than only writing `app.json` — is what makes a version/build choice take effect even when the
+ * native project is committed (so prebuild, which would otherwise read `app.json`, never runs). The
+ * native directory is the platform's ({@link nativeProjectDirName}: `ios/` for iOS & tvOS, `macos/`,
+ * `visionos/`). Returns whether a target Info.plist was found.
+ */
+async function setNativePlistValue(
+  appDir: string,
+  platform: Platform,
+  key: string,
+  value: string | number,
+): Promise<boolean> {
+  const nativeDir = join(appDir, nativeProjectDirName(platform));
+  if (!existsSync(nativeDir)) return false;
+  const targetDir = readdirSync(nativeDir).find((entry) => existsSync(join(nativeDir, entry, "Info.plist")));
   if (!targetDir) return false;
-  await run("/usr/libexec/PlistBuddy", [
-    "-c",
-    `Set :CFBundleVersion ${buildNumber}`,
-    join(iosDir, targetDir, "Info.plist"),
-  ]);
+  await run("/usr/libexec/PlistBuddy", ["-c", `Set :${key} ${value}`, join(nativeDir, targetDir, "Info.plist")]);
   return true;
 }
 
-/**
- * Stamp the chosen marketing version into the generated `Info.plist` (`CFBundleShortVersionString`),
- * the iOS twin of {@link setIosBuildNumber}. Stamping the plist directly — rather than only writing
- * `app.json` — is what makes the choice take effect even when `ios/` is committed (so prebuild, which
- * would otherwise read `app.json`, never runs). Returns whether a target Info.plist was found.
- */
-async function setIosMarketingVersion(appDir: string, version: string): Promise<boolean> {
-  const iosDir = join(appDir, "ios");
-  if (!existsSync(iosDir)) return false;
-  const targetDir = readdirSync(iosDir).find((entry) => existsSync(join(iosDir, entry, "Info.plist")));
-  if (!targetDir) return false;
-  await run("/usr/libexec/PlistBuddy", [
-    "-c",
-    `Set :CFBundleShortVersionString ${version}`,
-    join(iosDir, targetDir, "Info.plist"),
-  ]);
-  return true;
+/** Set the build number (`CFBundleVersion`) into the platform's generated Info.plist. */
+function setIosBuildNumber(appDir: string, platform: Platform, buildNumber: number): Promise<boolean> {
+  return setNativePlistValue(appDir, platform, "CFBundleVersion", buildNumber);
+}
+
+/** Set the marketing version (`CFBundleShortVersionString`) into the platform's generated Info.plist. */
+function setIosMarketingVersion(appDir: string, platform: Platform, version: string): Promise<boolean> {
+  return setNativePlistValue(appDir, platform, "CFBundleShortVersionString", version);
 }
 
 /**
@@ -344,6 +343,7 @@ export function interactiveConfirm(message: string): Promise<boolean> {
 async function resolveSigning(
   credentials: AppleCredentials,
   app: AppDescriptor,
+  platform: Platform,
   log: Logger,
   dryRun: boolean,
   distribution: Distribution | undefined,
@@ -359,6 +359,7 @@ async function resolveSigning(
   if (distribution === "internal") {
     if (!dryRun) log.info(`Provisioning an ad-hoc profile for ${bundleId} over your registered devices.`);
     return ensureAdHocSigningCredentials({
+      platform,
       bundleId,
       appName: app.name,
       ascKey: credentials.ascKey,
@@ -378,6 +379,7 @@ async function resolveSigning(
   if (!dryRun)
     log.info(`No cached signing assets for ${bundleId} — provisioning now (you'll confirm each Apple resource).`);
   return ensureSigningCredentials({
+    platform,
     bundleId,
     appName: app.name,
     ascKey: credentials.ascKey,
@@ -592,6 +594,8 @@ export type BuildTransportChoice = { kind: "local" } | { kind: "remote"; remote:
  * - For iOS, `--remote` wins (a config `buildEngine: "remote-mac"` defaults the target to AWS),
  * - then `buildEngine: "eas"` hands off to Expo,
  * - otherwise the local Mac spine.
+ * - tvOS / macOS / visionOS build locally only: the off-Mac forks are iOS-only in v1 (the remote host
+ *   bootstrap is iOS-shaped and EAS has no profile for them), so an explicit off-Mac request fails fast.
  */
 export function resolveBuildTransport(
   platform: Platform,
@@ -600,6 +604,19 @@ export function resolveBuildTransport(
 ): BuildTransportChoice {
   if (platform === "android") return { kind: "local" };
   const remote: RemoteTarget | undefined = remoteFlag ?? (buildEngine === "remote-mac" ? { kind: "aws" } : undefined);
+  if (platform !== "ios") {
+    if (remote) {
+      throw new Error(
+        `Remote builds are iOS-only — build ${platformLabel(platform)} on a local Mac (drop \`--remote\` / \`buildEngine: "remote-mac"\`).`,
+      );
+    }
+    if (buildEngine === "eas") {
+      throw new Error(
+        `EAS does not build ${platformLabel(platform)} — build it on a local Mac (drop \`buildEngine: "eas"\`).`,
+      );
+    }
+    return { kind: "local" };
+  }
   if (remote) return { kind: "remote", remote };
   if (buildEngine === "eas") return { kind: "eas" };
   return { kind: "local" };
@@ -691,9 +708,10 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
   const resolved: BuildCredentials = dryRun
     ? { platform: "ios", ascKey: DRY_RUN_KEY }
     : await getCredentialsProvider(config.credentials).resolve(ctx);
-  if (resolved.platform !== "ios") throw new Error("Expected iOS credentials for an iOS build.");
+  if (resolved.platform !== "ios")
+    throw new Error("Expected Apple (App Store Connect) credentials for an Apple build.");
   log.step("credentials", dryRun ? "dry-run (no key needed)" : `key ${resolved.ascKey.keyId}`, "asc-api-key");
-  const signing = await resolveSigning(resolved, app, log, dryRun, ctx.distribution);
+  const signing = await resolveSigning(resolved, app, ctx.platform, log, dryRun, ctx.distribution);
   const credentials: BuildCredentials = { platform: "ios", ascKey: resolved.ascKey, signing };
   const bundleId = app.bundleId ?? "";
   const internal = ctx.distribution === "internal";
@@ -703,7 +721,7 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
   // applied bump kind is remembered after a successful build (see the rememberLastRun calls below).
   let resolvedBump: BumpKind | undefined;
   if (options.submit && !internal) {
-    resolvedBump = await resolveMarketingVersion(resolved.ascKey, bundleId, app, options, log);
+    resolvedBump = await resolveMarketingVersion(resolved.ascKey, bundleId, app, ctx.platform, options, log);
   }
 
   // 4. Auto-bump the build number from the last one Apple has on record.
@@ -712,7 +730,7 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
     : await withSpinner("Checking last build number on App Store Connect", () =>
         nextBuildNumber(resolved.ascKey, bundleId, dryRun),
       );
-  const stamped = dryRun ? false : await setIosBuildNumber(app.dir, buildNumber);
+  const stamped = dryRun ? false : await setIosBuildNumber(app.dir, ctx.platform, buildNumber);
   log.step(
     "build number",
     dryRun
@@ -1065,12 +1083,36 @@ async function reportCcacheStats(log: Logger): Promise<void> {
   }
 }
 
-/** Run `expo prebuild` only when there's no native `ios/` yet; otherwise use what's committed. */
+/**
+ * Ensure the Apple native Xcode project exists for `ctx.platform` before the build. iOS is generated by
+ * Expo prebuild when absent (tvOS reuses the same `ios/` project — react-native-tvos targets it via the
+ * build destination). macOS and visionOS have **no** prebuild generator, so a missing native project is a
+ * hard, actionable gate: the user must commit one (react-native-macos / react-native-visionos) and re-run,
+ * rather than have Launch silently prebuild an iOS-only project that can't archive their platform.
+ */
 async function ensureNativeProject(ctx: ResolvedBuildContext, log: Logger): Promise<void> {
-  const iosDir = join(ctx.app.dir, "ios");
-  if (existsSync(iosDir)) {
-    log.step("native project", "using existing ios/ (no prebuild needed)", "prebuild");
+  const platform = ctx.platform;
+  const dirName = nativeProjectDirName(platform);
+  const nativeDir = join(ctx.app.dir, dirName);
+  if (existsSync(nativeDir)) {
+    log.step("native project", `using existing ${dirName}/ (no prebuild needed)`, "prebuild");
     return;
+  }
+  // Only iOS (and tvOS, which shares ios/) is generated by Expo prebuild. macOS/visionOS need a committed
+  // native project — prebuild does not emit their target, so fail loud with the fix instead of mis-building.
+  if (platform !== "ios" && platform !== "tvos") {
+    throw new Error(
+      `${platformLabel(platform)} native target not configured — Expo prebuild does not emit a ${platformLabel(platform)} ` +
+        `target. Commit a native project (${nativeTargetHint(platform)}) at ${dirName}/, then re-run.`,
+    );
+  }
+  // tvOS reuses ios/; if even that is missing, prebuild generates an iOS project but no tvOS target, so the
+  // archive will fail later. Gate it here with the same actionable message rather than mis-building.
+  if (platform === "tvos") {
+    throw new Error(
+      `tvOS native target not configured — no ios/ project found. Commit a react-native-tvos project (its ` +
+        `tvOS target lives in ios/), then re-run \`launch build tvos\`.`,
+    );
   }
   if (ctx.dryRun) {
     log.step("prebuild", "would run `expo prebuild --platform ios` (no ios/ found)", "prebuild");
@@ -1195,6 +1237,7 @@ async function promptVersion(
  */
 async function applyChosenVersion(
   app: AppDescriptor,
+  platform: Platform,
   chosen: string,
   latest: string | null,
   note: string,
@@ -1205,7 +1248,7 @@ async function applyChosenVersion(
       `${chosen} doesn't increment the store's ${latest} — fine for another TestFlight build, but the App Store rejects a release that reuses a version.`,
     );
   }
-  const stamped = await setIosMarketingVersion(app.dir, chosen);
+  const stamped = await setIosMarketingVersion(app.dir, platform, chosen);
   const persisted = writeAppVersion(app, chosen);
   app.version = chosen;
   const notes = [persisted ? "app config updated" : "app config not written (dynamic config)"];
@@ -1226,6 +1269,7 @@ async function resolveMarketingVersion(
   ascKey: AppleCredentials["ascKey"],
   bundleId: string,
   app: AppDescriptor,
+  platform: Platform,
   options: BuildRunOptions,
   log: Logger,
 ): Promise<BumpKind | undefined> {
@@ -1264,14 +1308,14 @@ async function resolveMarketingVersion(
 
   if (decision.mode === "prompt") {
     const { chosen, kind } = await promptVersion(baseline, current, latest);
-    await applyChosenVersion(app, chosen, latest, kind ?? "custom", log);
+    await applyChosenVersion(app, platform, chosen, latest, kind ?? "custom", log);
     return kind;
   }
 
   // apply (flag or remembered): compute the version from the kind.
   const chosen = decision.kind === "keep" ? current : nextVersion(baseline, decision.kind);
   const source = decision.source === "flag" ? "--bump" : "remembered";
-  await applyChosenVersion(app, chosen, latest, `${decision.kind}, ${source}`, log);
+  await applyChosenVersion(app, platform, chosen, latest, `${decision.kind}, ${source}`, log);
   return decision.kind;
 }
 

@@ -12,18 +12,11 @@
 
 import type { Command } from "commander";
 import { createLogger } from "../../core/logger.js";
+import { parsePlatform } from "../../core/platform.js";
 import { isInteractive } from "../../core/progress.js";
 import { runTour } from "../../core/tour.js";
 import type { Platform } from "../../core/types.js";
 import { promptTourPlatform } from "./wizard.js";
-
-/** Validate a platform argument, mirroring `launch build`'s error for an unknown value. */
-function parsePlatform(value: string): Platform {
-  if (value !== "ios" && value !== "android") {
-    throw new Error(`Unknown platform "${value}". Use "ios" or "android".`);
-  }
-  return value;
-}
 
 /**
  * Resolve which platform to tour: an explicit argument wins; otherwise prompt on a TTY, or fall back to
@@ -50,7 +43,7 @@ export function registerDemoCommand(program: Command): void {
   program
     .command("demo")
     .description("replay the simulated walkthrough of the build → sign → submit pipeline")
-    .argument("[platform]", "ios or android (prompts if omitted, defaults to ios)")
+    .argument("[platform]", "ios, android, tvos, macos, or visionos (prompts if omitted, defaults to ios)")
     .action(async (platform?: string) => {
       const resolved = await resolveDemoPlatform(platform);
       if (resolved === null) return; // user skipped the pick

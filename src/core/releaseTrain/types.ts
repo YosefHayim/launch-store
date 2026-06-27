@@ -10,7 +10,13 @@
  * command stays a thin caller.
  */
 
-import type { Platform } from "../types.js";
+/**
+ * The native platforms a release train coordinates. The train orchestrates iOS + Android only; the newer
+ * Apple platforms (`tvos`/`macos`/`visionos` of the `Platform` union) build and submit directly via
+ * `launch build` / `launch release`, but are not yet cars in the multi-platform train — so this is
+ * deliberately narrower than `Platform`, and the CLI rejects a `--platform` outside it.
+ */
+export type TrainPlatform = "ios" | "android";
 
 /**
  * A native (iOS / Android) car's lifecycle. Linear happy path with two failure exits:
@@ -34,7 +40,7 @@ export type TrainState = "running" | "blocked" | "done" | "aborted";
  */
 export interface NativeCar {
   /** The native platform; also discriminates this from an {@link OtaCar} (whose `kind` is `"ota"`). */
-  kind: Platform;
+  kind: TrainPlatform;
   /** Where this car is in its review→release lifecycle. */
   state: NativeCarState;
   /** The build this car submitted, once known — the artifact id `launch builds` tracks. */
@@ -54,7 +60,7 @@ export interface OtaCar {
   /** Discriminant: always `"ota"`. */
   kind: "ota";
   /** The native platform whose release opens this car's gate. */
-  platform: Platform;
+  platform: TrainPlatform;
   /** The release channel the bundle publishes to (`launch update --channel`). */
   channel: string;
   /** The runtime version this update targets — the gate matches on it. */
@@ -100,6 +106,11 @@ export function isOtaCar(car: Car): car is OtaCar {
 /** Narrow a {@link Car} to a {@link NativeCar} (iOS / Android). */
 export function isNativeCar(car: Car): car is NativeCar {
   return car.kind !== "ota";
+}
+
+/** Whether a `--platform` value is one the train can coordinate (iOS / Android), narrowing it to {@link TrainPlatform}. */
+export function isTrainPlatform(value: string): value is TrainPlatform {
+  return value === "ios" || value === "android";
 }
 
 /** Native car states past which no further action is taken — the car has reached an end of its lifecycle. */

@@ -39,10 +39,10 @@ import { loadAscKeyById } from "../../core/accounts.js";
 import { isInteractive } from "../../core/progress.js";
 import { pickOne } from "../../core/prompt.js";
 import { resolveReleaseType, resolveWhatsNew } from "../../core/releaseInputs.js";
+import { isApplePlatform, parsePlatform, platformLabel, toAscPlatform } from "../../core/platform.js";
 import { AppStoreConnectClient, type BuildResource } from "../../apple/ascClient.js";
 import {
   appRecordMissingMessage,
-  IOS_PLATFORM,
   releaseApp,
   waitForValidBuild,
   type ReleaseInput,
@@ -90,7 +90,7 @@ export function registerReleaseCommand(program: Command): void {
   const command = program
     .command("release")
     .description("submit the latest build to the store's PUBLIC production track (with confirmation)")
-    .argument("<platform>", "ios or android")
+    .argument("<platform>", "ios, android, tvos, macos, or visionos")
     .option("-a, --app <name>", "app handle")
     .option("-p, --profile <name>", "build profile", "production")
     .option(
@@ -108,10 +108,7 @@ export function registerReleaseCommand(program: Command): void {
     .option("--create-app", "iOS only — show the one-time App Store Connect setup checklist and exit", false)
     .option("--explain", "expand each step", false);
   addEnvFlags(command).action(async (platform: string, options: ReleaseCommandOptions) => {
-    if (platform !== "ios" && platform !== "android") {
-      throw new Error(`Unknown platform "${platform}". Use "ios" or "android".`);
-    }
-    await runRelease(platform, options);
+    await runRelease(parsePlatform(platform), options);
   });
 }
 
@@ -135,7 +132,7 @@ async function runRelease(platform: Platform, options: ReleaseCommandOptions): P
     return;
   }
 
-  if (platform === "ios") await runIosRelease(app, profile, options, config, resolvedEnv);
+  if (isApplePlatform(platform)) await runIosRelease(platform, app, profile, options, config, resolvedEnv);
   else await runAndroidRelease(app, profile, options, config, resolvedEnv);
 }
 
@@ -166,8 +163,9 @@ async function askConfirm(message: string): Promise<boolean> {
 /** The release-input fields that don't depend on the chosen build — shared by the dry-run and real paths. */
 type ReleaseInputCommon = Omit<ReleaseInput, "versionString" | "build" | "dryRun">;
 
-/** iOS public release — API-driven submit (see module header). */
+/** Apple public release (iOS / tvOS / macOS / visionOS) — API-driven submit (see module header). */
 async function runIosRelease(
+  platform: Platform,
   app: AppDescriptor,
   profile: BuildProfile,
   options: ReleaseCommandOptions,
@@ -176,7 +174,7 @@ async function runIosRelease(
 ): Promise<void> {
   const log = createLogger(options.explain);
   const bundleId = app.bundleId;
-  if (!bundleId) throw new Error(`${app.name} has no iOS bundle id (ios.bundleIdentifier in app.json).`);
+  if (!bundleId) throw new Error(`${app.name} has no bundle id (ios.bundleIdentifier in app.json).`);
 
   const account = await resolveIosAccount(options, log);
   const ascKey = await loadAscKeyById(account.keyId);
@@ -201,7 +199,7 @@ async function runIosRelease(
   }
   const common: ReleaseInputCommon = {
     bundleId,
-    platform: IOS_PLATFORM,
+    platform: toAscPlatform(platform),
     releaseType,
     ...(earliestReleaseDate ? { earliestReleaseDate } : {}),
     phasedRelease: options.phased === true || config.release?.phasedRelease === true,
@@ -223,7 +221,7 @@ async function runIosRelease(
   }
 
   const ctx: ResolvedBuildContext = {
-    platform: "ios",
+    platform,
     app,
     profile,
     env: resolvedEnv.values,
@@ -242,7 +240,7 @@ async function runIosRelease(
     event: "submit",
     status: "success",
     app: app.name,
-    platform: "ios",
+    platform,
     version: versionString,
     destination: "App Store review",
     ...(Number.isNaN(buildNumber) ? {} : { buildNumber }),
@@ -384,14 +382,14 @@ async function resolveIosBuild(
   }
 
   const artifact = (await resolveStorageProvider(config).list()).find(
-    (stored) => stored.appName === app.name && stored.platform === "ios",
+    (stored) => stored.appName === app.name && stored.platform === ctx.platform,
   );
   if (!artifact) {
     throw new Error(
-      `No stored iOS build for ${app.name}. Run \`launch build ios\` first, or promote one with --build.`,
+      `No stored ${platformLabel(ctx.platform)} build for ${app.name}. Run \`launch build ${ctx.platform}\` first, or promote one with --build.`,
     );
   }
-  ensureArtifactPresent(artifact, app.name, "ios");
+  ensureArtifactPresent(artifact, app.name, ctx.platform);
 
   const size = worstDownloadBytes(artifact.sizeReport);
   log.notice(
@@ -405,7 +403,7 @@ async function resolveIosBuild(
   if (
     shouldNudgeRelease(artifact) &&
     !(await askConfirm(
-      "This build was incremental, not clean — promote anyway? (`launch build ios --clean` for a fresh one)",
+      `This build was incremental, not clean — promote anyway? (\`launch build ${ctx.platform} --clean\` for a fresh one)`,
     ))
   ) {
     cancel("Cancelled — nothing submitted.");
@@ -414,12 +412,12 @@ async function resolveIosBuild(
 
   const credentials = await getCredentialsProvider(config.credentials).resolve(ctx);
   log.step("upload", `uploading build ${artifact.buildNumber} to App Store Connect`, "testflight");
-  await submitToStores(config, "ios", artifact.path, "production", credentials, ctx);
+  await submitToStores(config, ctx.platform, artifact.path, "production", credentials, ctx);
 
   if (!options.wait) {
     log.info(
       `Uploaded build ${artifact.buildNumber}; Apple is processing it. Once \`launch status -a ${app.name}\` shows it VALID, ` +
-        `submit with \`launch release ios -a ${app.name} --build ${artifact.buildNumber}\`.`,
+        `submit with \`launch release ${ctx.platform} -a ${app.name} --build ${artifact.buildNumber}\`.`,
     );
     return null;
   }

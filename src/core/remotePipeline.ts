@@ -150,6 +150,9 @@ export const runRemoteBuild: BuildTransport = async (prepared, options) => {
   }
   log.step("credentials", dryRun ? "dry-run (no key needed)" : `key ${ascKey.keyId}`, "asc-api-key");
   const signing = await ensureRemoteSigningAssets({
+    // Remote builds are iOS-only in v1: the host bootstrap script is iOS-shaped and a guard rejects
+    // `--remote` for the other Apple platforms before reaching here, so signing is always iOS.
+    platform: "ios",
     bundleId,
     appName: app.name,
     ascKey,

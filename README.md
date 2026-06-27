@@ -20,7 +20,7 @@
 <p align="center">
   <a href="./docs/commands.md"><img src="https://img.shields.io/badge/store%20API-211%20endpoints-8957e5?logo=apple&logoColor=white" alt="211 App Store Connect &amp; Google Play API operations" /></a>
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1846%20passing-3fb950?logo=vitest&logoColor=white" alt="1846 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1885%20passing-3fb950?logo=vitest&logoColor=white" alt="1885 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -158,16 +158,17 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 <summary><strong>Build &amp; ship — iOS and Android</strong></summary>
 
 1. **One command per platform.** `launch build ios` / `launch build android` runs prebuild → sign → size-check → upload to the testing track (TestFlight / Play internal) — the same flow EAS runs.
-2. **Fast by default.** ccache wires in at `pod install`, DerivedData stays warm, and a native-graph fingerprint forces a clean build only when your native deps actually change; `--clean` forces from scratch.
-3. **Build-time ETA & progress bar.** A learned per-build estimate drives a live progress bar; `--verbose` streams the raw `xcodebuild`/Gradle output instead.
-4. **Real download-size check.** Reports the actual per-device size (App Thinning report / bundletool) and gates on the `sizeBudgetMB` you configured.
-5. **Safety nets.** Refuses to upload a simulator build, a `.app`, or an empty artifact; `--dry-run` rehearses the whole pipeline with no network, build, or account changes.
-6. **Keep server vars out of the app.** An `envExclude` denylist in `launch.config.ts` (exact names or `PREFIX*` wildcards) drops backend-only environment variables before the build, so they're never injected into the shipped bundle.
-7. **Deliberate public release.** The testing track is the default; `launch release <platform>` drives the public store over the API end to end — version, compliance, notes, rollout, submit — with no portal.
-8. **Steer the rollout.** `launch status [--watch]` tracks the review with CI exit codes; `launch rollout pause`/`resume`/`complete` steers an iOS phased release.
-9. **Coordinated release train.** `launch release-train` drives an app's iOS, Android, and OTA legs as one resumable record — `start`/`status`/`release`/`abort`, with `--hold` to gate every leg until all are approved and release them together, `--platform`/`--no-ota` to scope it, and `--watch` to poll until it settles.
-10. **Re-sign without rebuilding.** `launch build:resign` re-signs a stored `.ipa`/`.aab` with different credentials straight from the artifact.
-11. **Completion notifications.** A `notify` block pings a Slack/Discord webhook and/or runs a shell hook when a build or submit finishes — on success _and_ failure.
+2. **The full Apple platform family.** `launch build tvos`, `launch build macos`, and `launch build visionos` join `ios` as first-class build targets — each archived with the right Xcode destination and signed with the matching App Store Connect profile type, on the same Apple Developer account and distribution certificate as iOS. Every non-iOS Apple target builds from its committed native project (react-native-tvos / react-native-macos / react-native-visionos).
+3. **Fast by default.** ccache wires in at `pod install`, DerivedData stays warm, and a native-graph fingerprint forces a clean build only when your native deps actually change; `--clean` forces from scratch.
+4. **Build-time ETA & progress bar.** A learned per-build estimate drives a live progress bar; `--verbose` streams the raw `xcodebuild`/Gradle output instead.
+5. **Real download-size check.** Reports the actual per-device size (App Thinning report / bundletool) and gates on the `sizeBudgetMB` you configured.
+6. **Safety nets.** Refuses to upload a simulator build, a `.app`, or an empty artifact; `--dry-run` rehearses the whole pipeline with no network, build, or account changes.
+7. **Keep server vars out of the app.** An `envExclude` denylist in `launch.config.ts` (exact names or `PREFIX*` wildcards) drops backend-only environment variables before the build, so they're never injected into the shipped bundle.
+8. **Deliberate public release.** The testing track is the default; `launch release <platform>` drives the public store over the API end to end — version, compliance, notes, rollout, submit — with no portal.
+9. **Steer the rollout.** `launch status [--watch]` tracks the review with CI exit codes; `launch rollout pause`/`resume`/`complete` steers an iOS phased release.
+10. **Coordinated release train.** `launch release-train` drives an app's iOS, Android, and OTA legs as one resumable record — `start`/`status`/`release`/`abort`, with `--hold` to gate every leg until all are approved and release them together, `--platform`/`--no-ota` to scope it, and `--watch` to poll until it settles.
+11. **Re-sign without rebuilding.** `launch build:resign` re-signs a stored `.ipa`/`.aab` with different credentials straight from the artifact.
+12. **Completion notifications.** A `notify` block pings a Slack/Discord webhook and/or runs a shell hook when a build or submit finishes — on success _and_ failure.
 
 </details>
 

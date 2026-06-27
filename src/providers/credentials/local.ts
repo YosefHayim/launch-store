@@ -15,6 +15,7 @@
  */
 
 import type { BuildCredentials, CredentialsProvider, ResolvedBuildContext } from "../../core/types.js";
+import { isApplePlatform } from "../../core/platform.js";
 import {
   formatAccountSummary,
   getActiveKeyId,
@@ -88,12 +89,8 @@ export const localCredentialsProvider: CredentialsProvider = {
   name: "local",
 
   resolve(ctx: ResolvedBuildContext): Promise<BuildCredentials> {
-    switch (ctx.platform) {
-      case "ios":
-        return resolveIos(ctx);
-      case "android":
-        return resolveAndroid();
-    }
+    // Every Apple platform (iOS/tvOS/macOS/visionOS) signs through the same App Store Connect credentials.
+    return isApplePlatform(ctx.platform) ? resolveIos(ctx) : resolveAndroid();
   },
 
   async status(): Promise<string> {

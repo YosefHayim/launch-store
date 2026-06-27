@@ -17,6 +17,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Command } from "commander";
 import type { Platform } from "../../core/types.js";
+import { isApplePlatform, parsePlatform, platformLabel } from "../../core/platform.js";
 import { loadConfig } from "../../core/config.js";
 import { selectApp } from "../../core/pipeline.js";
 import { createLogger } from "../../core/logger.js";
@@ -41,13 +42,6 @@ interface MetadataOptions {
   /** Path to `store.config.json`; defaults to the file in the app directory. */
   config?: string;
   dryRun?: boolean;
-}
-
-/** Validate `--platform`, defaulting to iOS (matching `doctor`/`build`). */
-function parsePlatform(platform: string | undefined): Platform {
-  const value = platform ?? "ios";
-  if (value !== "ios" && value !== "android") throw new Error(`Unknown platform "${value}". Use "ios" or "android".`);
-  return value;
 }
 
 /** Resolve the app and the store.config.json path for a metadata run. */
@@ -222,6 +216,21 @@ async function pushAndroid(packageName: string, configPath: string, dryRun: bool
 }
 
 /** Attach the `metadata` command (with `pull` / `push` subcommands) to the program. */
+/**
+ * `launch metadata` syncs the listing through fastlane `deliver` (App Store) and `supply` (Play), which
+ * Launch drives for iOS and Android only: `deliver` exposes no platform value for visionOS, and Launch
+ * does not yet thread the tvOS / macOS listing through it. tvOS, macOS, and visionOS are build and release
+ * targets in v1 (`launch build` / `launch release`) — their listing lives on the iOS app record or in App
+ * Store Connect for now. Reject them up front rather than silently syncing the iOS listing instead.
+ */
+export function assertListingPlatform(platform: Platform): void {
+  if (platform === "ios" || platform === "android") return;
+  throw new Error(
+    `\`launch metadata\` syncs the iOS and Android store listing only — ${platformLabel(platform)} isn't supported yet. ` +
+      `Build and ship it with \`launch build ${platform}\` / \`launch release ${platform}\`, and manage its listing in App Store Connect for now.`,
+  );
+}
+
 export function registerMetadataCommand(program: Command): void {
   const metadata = program
     .command("metadata")
@@ -235,10 +244,11 @@ export function registerMetadataCommand(program: Command): void {
     .option("--config <path>", "path to store.config.json (default: <app>/store.config.json)")
     .option("--dry-run", "rehearse without contacting the store", false)
     .action(async (options: MetadataOptions) => {
-      const platform = parsePlatform(options.platform);
+      const platform = parsePlatform(options.platform ?? "ios");
+      assertListingPlatform(platform);
       const target = await resolveTarget(options);
-      if (platform === "ios") {
-        if (!target.bundleId) throw new Error("No iOS bundle identifier for this app (set ios.bundleIdentifier).");
+      if (isApplePlatform(platform)) {
+        if (!target.bundleId) throw new Error("No bundle identifier for this app (set ios.bundleIdentifier).");
         await pullAppleListing(target.bundleId, target.configPath, options.dryRun === true);
       } else {
         if (!target.packageName) throw new Error("No Android application id for this app (set android.package).");
@@ -254,10 +264,11 @@ export function registerMetadataCommand(program: Command): void {
     .option("--config <path>", "path to store.config.json (default: <app>/store.config.json)")
     .option("--dry-run", "rehearse: write the fastlane metadata folders and print the command, upload nothing", false)
     .action(async (options: MetadataOptions) => {
-      const platform = parsePlatform(options.platform);
+      const platform = parsePlatform(options.platform ?? "ios");
+      assertListingPlatform(platform);
       const target = await resolveTarget(options);
-      if (platform === "ios") {
-        if (!target.bundleId) throw new Error("No iOS bundle identifier for this app (set ios.bundleIdentifier).");
+      if (isApplePlatform(platform)) {
+        if (!target.bundleId) throw new Error("No bundle identifier for this app (set ios.bundleIdentifier).");
         await pushApple(target.bundleId, target.configPath, options.dryRun === true);
       } else {
         if (!target.packageName) throw new Error("No Android application id for this app (set android.package).");

@@ -84,7 +84,7 @@ describe("resolveOpenPlatform", () => {
   });
 
   it("rejects an invalid --platform", () => {
-    expect(() => resolveOpenPlatform("asc", "web")).toThrow(/Unknown --platform "web"/);
+    expect(() => resolveOpenPlatform("asc", "web")).toThrow(/Unknown platform "web"/);
   });
 });
 

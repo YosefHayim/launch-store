@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { buildXcargs, ccacheEnv, computeBuildJobs, xcargsExtra } from "./buildFlags.js";
+import { buildXcargs, ccacheEnv, computeBuildJobs, gymArgs, xcargsExtra } from "./buildFlags.js";
+import type { GymArgsInput } from "./buildFlags.js";
 
 const GB = 1024 ** 3;
+
+/** A fixed gym input so a test can assert the exact argv. The signing/jobs feed `buildXcargs`. */
+const BASE_GYM: Omit<GymArgsInput, "destination"> = {
+  workspace: "/app/ios/MyApp.xcworkspace",
+  scheme: "MyApp",
+  outputDir: "/tmp/out",
+  outputName: "MyApp.ipa",
+  exportOptionsPath: "/tmp/out/ExportOptions.plist",
+  signing: { teamId: "ABCDE12345", profileName: "Launch_AppStore", certName: "Apple Distribution" },
+  jobs: 6,
+  clean: false,
+};
 
 describe("computeBuildJobs — RAM-aware parallelism cap", () => {
   it("returns undefined (no cap) when floor(GB/2) meets or exceeds the core count", () => {
@@ -44,5 +57,48 @@ describe("buildXcargs — manual signing + the shared extras", () => {
     expect(xcargs).toContain("PROVISIONING_PROFILE_SPECIFIER=Launch_AppStore");
     expect(xcargs).toContain("COMPILER_INDEX_STORE_ENABLE=NO");
     expect(xcargs).toContain("-jobs 6");
+  });
+});
+
+describe("gymArgs — one source for the gym argv; iOS stays byte-identical", () => {
+  it("emits the EXACT historical iOS vector when destination is undefined (no --destination)", () => {
+    // This is the pinned iOS command from before cross-platform builds existed. If this array changes,
+    // an iOS build changed — the regression this whole feature must NOT introduce.
+    expect(gymArgs({ ...BASE_GYM, destination: undefined })).toEqual([
+      "gym",
+      "--workspace",
+      "/app/ios/MyApp.xcworkspace",
+      "--scheme",
+      "MyApp",
+      "--output_directory",
+      "/tmp/out",
+      "--output_name",
+      "MyApp.ipa",
+      "--export_options",
+      "/tmp/out/ExportOptions.plist",
+      "--codesigning_identity",
+      "Apple Distribution",
+      "--xcargs",
+      "DEVELOPMENT_TEAM=ABCDE12345 CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER=Launch_AppStore COMPILER_INDEX_STORE_ENABLE=NO -jobs 6",
+    ]);
+  });
+
+  it("never inserts a --destination flag for iOS, with or without --clean", () => {
+    expect(gymArgs({ ...BASE_GYM, destination: undefined })).not.toContain("--destination");
+    expect(gymArgs({ ...BASE_GYM, clean: true, destination: undefined })).not.toContain("--destination");
+  });
+
+  it("injects --destination right after --xcargs for the other Apple platforms", () => {
+    const args = gymArgs({ ...BASE_GYM, destination: "generic/platform=tvOS" });
+    const i = args.indexOf("--destination");
+    expect(i).toBeGreaterThan(-1);
+    expect(args[i + 1]).toBe("generic/platform=tvOS");
+    expect(args[i - 2]).toBe("--xcargs"); // sits immediately after the xcargs pair
+  });
+
+  it("keeps --clean last so the iOS prefix is identical whether or not a destination is present", () => {
+    const args = gymArgs({ ...BASE_GYM, clean: true, destination: "generic/platform=macOS" });
+    expect(args[args.length - 1]).toBe("--clean");
+    expect(args).toContain("--destination");
   });
 });

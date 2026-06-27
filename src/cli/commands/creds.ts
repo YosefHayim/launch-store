@@ -19,7 +19,8 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import type { Command } from "commander";
 import { cancel, confirm, isCancel, password, select, text } from "@clack/prompts";
-import type { AccountRecord, AscKey } from "../../core/types.js";
+import type { AccountRecord, AscKey, Platform } from "../../core/types.js";
+import { parsePlatform } from "../../core/platform.js";
 import {
   type AccountIdentity,
   addAccount,
@@ -433,7 +434,7 @@ async function refreshAccounts(selector: string | undefined): Promise<void> {
 }
 
 /** Provision (or reuse) the distribution certificate + provisioning profile for the chosen iOS account/app. */
-export async function setupIos(options: CredsOptions): Promise<void> {
+export async function setupIos(options: CredsOptions, platform: Platform = "ios"): Promise<void> {
   const selector = options.account ?? process.env["ASC_ACCOUNT"];
   const account = selector ? matchAccount(listAccounts(), selector) : getActiveAccount();
   if (!account) {
@@ -449,6 +450,7 @@ export async function setupIos(options: CredsOptions): Promise<void> {
   const app = await selectApp(apps, undefined);
   if (!app.bundleId) throw new Error(`No iOS bundle identifier for ${app.name}. Set ios.bundleIdentifier in app.json.`);
   const signing = await ensureSigningCredentials({
+    platform,
     bundleId: app.bundleId,
     appName: app.name,
     ascKey,
@@ -603,7 +605,7 @@ export function registerCredsCommand(program: Command): void {
     .argument("[action]", "status | set-key | setup | use | rename | remove | refresh | push-key", "status")
     .argument("[value]", "account selector / Android set-key path / push-key sub-action (import|status|export)")
     .argument("[value2]", "rename: new label · push-key: import .p8 path or export Key ID")
-    .option("--platform <p>", "ios (default) or android")
+    .option("--platform <p>", "ios (default), android, tvos, macos, or visionos")
     .option("--key-id <id>", "iOS: App Store Connect Key ID (else read from the AuthKey_*.p8 filename)")
     .option("--issuer-id <id>", "iOS: Issuer ID UUID (else ASC_ISSUER_ID, else prompted)")
     .option("--p8 <path>", "iOS: path to the .p8 (else auto-discovered in ~/Downloads, else ASC_API_KEY_PATH)")
@@ -616,10 +618,7 @@ export function registerCredsCommand(program: Command): void {
     .option("--force", "push-key export: overwrite the output file if it already exists")
     .option("--yes", "non-interactive: fail instead of prompting (CI, remote, agents)")
     .action(async (action: string, value: string | undefined, value2: string | undefined, options: CredsOptions) => {
-      const platform = options.platform ?? "ios";
-      if (platform !== "ios" && platform !== "android") {
-        throw new Error(`Unknown --platform "${platform}". Use "ios" or "android".`);
-      }
+      const platform = parsePlatform(options.platform ?? "ios");
       switch (action) {
         case "status":
         case "accounts":
@@ -629,7 +628,7 @@ export function registerCredsCommand(program: Command): void {
           await (platform === "android" ? setAndroidKey(value, options) : setKey(options));
           return;
         case "setup":
-          await (platform === "android" ? setupAndroid(options) : setupIos(options));
+          await (platform === "android" ? setupAndroid(options) : setupIos(options, platform));
           return;
         case "use":
           await useAccount(value, options);
