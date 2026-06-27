@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BuildArtifact, KeystoreAssets } from "../../core/types.js";
 import {
   androidResignSpec,
+  assertResignablePlatform,
   iosCodesignArgs,
   plistBuddyEntitlementsArgs,
   resignOutputPath,
@@ -33,6 +34,19 @@ const keystore: KeystoreAssets = {
   storePassword,
   keyPassword,
 };
+
+describe("assertResignablePlatform", () => {
+  it("allows the `.ipa` Apple platforms and Android, rejects only macOS `.pkg`", () => {
+    for (const platform of ["ios", "tvos", "visionos", "android"] as const) {
+      expect(() => {
+        assertResignablePlatform(platform);
+      }).not.toThrow();
+    }
+    expect(() => {
+      assertResignablePlatform("macos");
+    }).toThrow(/macOS builds are `\.pkg` installers/);
+  });
+});
 
 describe("resignOutputPath", () => {
   it("names the output by natural keys with a -resigned suffix and the source extension", () => {

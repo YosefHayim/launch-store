@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1882 tests**.
+> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1885 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -216,7 +216,7 @@ download the live store listing into store.config.json
 
 | Flag               | Description                                                  |
 | ------------------ | ------------------------------------------------------------ |
-| `--platform <p>`   | ios (default), android, tvos, macos, or visionos             |
+| `--platform <p>`   | ios (default) or android                                     |
 | `-a, --app <name>` | app handle (auto-selected if there's only one)               |
 | `--config <path>`  | path to store.config.json (default: <app>/store.config.json) |
 | `--dry-run`        | rehearse without contacting the store                        |
@@ -227,7 +227,7 @@ upload store.config.json to the store listing (metadata only; no binary)
 
 | Flag               | Description                                                                         |
 | ------------------ | ----------------------------------------------------------------------------------- |
-| `--platform <p>`   | ios (default), android, tvos, macos, or visionos                                    |
+| `--platform <p>`   | ios (default) or android                                                            |
 | `-a, --app <name>` | app handle (auto-selected if there's only one)                                      |
 | `--config <path>`  | path to store.config.json (default: <app>/store.config.json)                        |
 | `--dry-run`        | rehearse: write the fastlane metadata folders and print the command, upload nothing |
