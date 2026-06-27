@@ -19,8 +19,15 @@
           "description": "Registered name of the build engine. Carries the iOS default `fastlane` (or `eas` for the cloud handoff); an Android build swaps that iOS baseline for its twin `gradle` unless overridden here."
         },
         "submit": {
-          "type": "string",
-          "description": "Registered name of the submitter. Carries the iOS default `app-store-connect` (or `eas`); an Android build swaps that iOS baseline for its twin `google-play` unless overridden here."
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/definitions/SubmitByPlatform"
+            }
+          ],
+          "description": "Where built artifacts are submitted, in one of two forms:\n\n- a **single** registered submitter name (the iOS default `app-store-connect`, which an Android build   swaps for its twin `google-play`; or `eas`) — the original, unchanged shape; or\n- a **per-platform**  {@link  SubmitByPlatform }  map, to fan one build out to several stores from this one   config (e.g. an Android `.aab` to `google-play` **and** `amazon-appstore`).\n\nThe pipeline resolves this to a store **list** per platform (see `resolveSubmitters`), so the build target (what you compile) and the store (where you submit) are no longer welded 1:1. See `docs/adr/0006-platform-store-split.md`."
         },
         "appRoots": {
           "type": "array",
@@ -99,6 +106,28 @@
       },
       "required": ["profiles"],
       "description": "Input to  {@link  defineConfig } : `profiles` is required; provider names default sensibly."
+    },
+    "SubmitByPlatform": {
+      "$ref": "#/definitions/Partial%3CRecord%3CPlatform%2Cstring%5B%5D%3E%3E",
+      "description": "The multi-store form of  {@link  LaunchConfig.submit } : a per-platform list of registered `Submitter` names a build for that  {@link  Platform }  is uploaded to, in order.\n\nThis is what decouples the **build target** (the platform you compile) from the **store** (where you submit). One Android `.aab` can reach Google Play *and* alternative stores from a single `launch.config.ts`; an Apple platform normally lists just `app-store-connect`. Omit a platform to fall back to its standard store (Play for Android, App Store Connect for the Apple platforms). Each name must resolve to a registered submitter — `launch config validate` flags an unknown one."
+    },
+    "Partial<Record<Platform,string[]>>": {
+      "type": "object",
+      "properties": {
+        "ios": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "android": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
     },
     "Record<string,AppProducts>": {
       "type": "object",

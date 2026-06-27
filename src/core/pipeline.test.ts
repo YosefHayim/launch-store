@@ -11,16 +11,26 @@ vi.mock("node:child_process", () => ({
 }));
 
 import { registerBuiltins } from "../providers/index.js";
+import { registerSubmitter } from "./registry.js";
 import {
   resolveBuildTransport,
   resolveBumpKind,
+  resolveSubmitters,
   runBuild,
   selectApp,
   sizeSummary,
+  submitToStores,
   uploadSizeReadout,
   worstDownloadBytes,
 } from "./pipeline.js";
-import type { AppDescriptor, SizeReport } from "./types.js";
+import type {
+  AppDescriptor,
+  BuildCredentials,
+  LaunchConfig,
+  ResolvedBuildContext,
+  SizeReport,
+  Submitter,
+} from "./types.js";
 
 registerBuiltins();
 
@@ -272,5 +282,75 @@ describe("resolveBumpKind — flag > remembered > prompt precedence", () => {
 
   it("leaves the config version untouched under --yes/CI with no flag", () => {
     expect(resolveBumpKind({ flag: undefined, remembered: "patch", canPrompt: false })).toEqual({ mode: "leave" });
+  });
+});
+
+describe("resolveSubmitters — the platform↔store seam (ADR 0006)", () => {
+  const cfg = (submit: LaunchConfig["submit"]): LaunchConfig => ({
+    profiles: {},
+    credentials: "local",
+    storage: "local",
+    buildEngine: "fastlane",
+    submit,
+  });
+
+  it("string form yields one store, mapping the iOS default to Play on Android", () => {
+    expect(resolveSubmitters(cfg("app-store-connect"), "ios")).toEqual(["app-store-connect"]);
+    expect(resolveSubmitters(cfg("app-store-connect"), "android")).toEqual(["google-play"]);
+  });
+
+  it("a non-default string (e.g. eas) is used as-is on both platforms", () => {
+    expect(resolveSubmitters(cfg("eas"), "ios")).toEqual(["eas"]);
+    expect(resolveSubmitters(cfg("eas"), "android")).toEqual(["eas"]);
+  });
+
+  it("map form returns the configured store list per platform", () => {
+    const config = cfg({ ios: ["app-store-connect"], android: ["google-play", "amazon-appstore"] });
+    expect(resolveSubmitters(config, "android")).toEqual(["google-play", "amazon-appstore"]);
+    expect(resolveSubmitters(config, "ios")).toEqual(["app-store-connect"]);
+  });
+
+  it("map form defaults to the platform's standard store when it's omitted or empty", () => {
+    expect(resolveSubmitters(cfg({ android: ["amazon-appstore"] }), "ios")).toEqual(["app-store-connect"]);
+    expect(resolveSubmitters(cfg({ ios: [] }), "ios")).toEqual(["app-store-connect"]);
+    expect(resolveSubmitters(cfg({ ios: ["app-store-connect"] }), "android")).toEqual(["google-play"]);
+  });
+});
+
+describe("submitToStores — fans one build out to every configured store", () => {
+  const ctx: ResolvedBuildContext = {
+    platform: "android",
+    app: { name: "Demo", dir: "/tmp/demo", configPath: "/tmp/demo/app.json" },
+    profile: { name: "production" },
+    env: {},
+    explain: false,
+    dryRun: false,
+    forceClean: false,
+  };
+  const creds: BuildCredentials = { platform: "android", serviceAccountJson: "{}" };
+
+  it("submits to each store in order and returns their names", async () => {
+    const calls: string[] = [];
+    const fakeStore = (name: string): Submitter => ({
+      name,
+      submit: (artifactPath) => {
+        calls.push(`${name}:${artifactPath}`);
+        return Promise.resolve();
+      },
+    });
+    registerSubmitter(fakeStore("alt-store-a"));
+    registerSubmitter(fakeStore("alt-store-b"));
+
+    const config: LaunchConfig = {
+      profiles: {},
+      credentials: "local",
+      storage: "local",
+      buildEngine: "gradle",
+      submit: { android: ["alt-store-a", "alt-store-b"] },
+    };
+    const stores = await submitToStores(config, "android", "/tmp/app.aab", "production", creds, ctx);
+
+    expect(stores).toEqual(["alt-store-a", "alt-store-b"]);
+    expect(calls).toEqual(["alt-store-a:/tmp/app.aab", "alt-store-b:/tmp/app.aab"]);
   });
 });

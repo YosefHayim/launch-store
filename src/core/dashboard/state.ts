@@ -91,6 +91,12 @@ function toDashboardCloudHost(host: HostHandle | null): DashboardCloudHost | nul
   };
 }
 
+/** Collapse the `submit` config (a single submitter, or a per-platform store map) to a display string. */
+function formatSubmit(submit: LaunchConfig["submit"]): string {
+  if (typeof submit === "string") return submit;
+  return [...new Set(Object.values(submit).flat())].join(", ");
+}
+
 /** Pure projection of the read local state into the flat snapshot the dashboard renders. */
 export function buildDashboardState(inputs: DashboardInputs): DashboardState {
   return {
@@ -101,7 +107,7 @@ export function buildDashboardState(inputs: DashboardInputs): DashboardState {
         credentials: inputs.config.credentials,
         storage: inputs.config.storage,
         buildEngine: inputs.config.buildEngine,
-        submit: inputs.config.submit,
+        submit: formatSubmit(inputs.config.submit),
       },
       profiles: Object.keys(inputs.config.profiles),
       apps: inputs.apps.map(toDashboardApp),

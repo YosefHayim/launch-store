@@ -85,6 +85,12 @@ backend by the `name` in the user's `launch.config.ts`, so adding or swapping in
 touches `pipeline.ts`. Built-ins today: build `fastlane` / `gradle` / `eas`; storage `local`;
 submit App Store Connect / Google Play; compute AWS EC2 Mac / BYO-SSH.
 
+The **build platform** (what you compile — `ios`/`android`) and the **store** (where you submit — a
+`Submitter`) are deliberately decoupled: `config.submit` is either one submitter name or a per-platform
+map, and `resolveSubmitters(config, platform)` returns the store **list** a build fans out to (one Android
+`.aab` → Google Play + Amazon, etc.). This is the seam new stores and new Apple platforms extend; see
+`docs/adr/0006-platform-store-split.md`.
+
 ## State, secrets, and platforms
 
 - **Secrets never touch the repo.** The `.p8` / `.p12` / private keys live in the OS keychain;

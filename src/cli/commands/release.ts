@@ -26,13 +26,13 @@ import {
   mb,
   resolveCommandEnv,
   resolveIosAccount,
-  resolveSubmitterName,
+  submitToStores,
   selectApp,
   worstDownloadBytes,
 } from "../../core/pipeline.js";
 import { formatEnvTable, type ResolvedEnv } from "../../core/env.js";
 import { notify, type NotifyEvent } from "../../core/notify.js";
-import { getCredentialsProvider, getSubmitter } from "../../core/registry.js";
+import { getCredentialsProvider } from "../../core/registry.js";
 import { ensureArtifactPresent, resolveStorageProvider } from "../../core/storage.js";
 import { createLogger, type Logger } from "../../core/logger.js";
 import { loadAscKeyById } from "../../core/accounts.js";
@@ -414,7 +414,7 @@ async function resolveIosBuild(
 
   const credentials = await getCredentialsProvider(config.credentials).resolve(ctx);
   log.step("upload", `uploading build ${artifact.buildNumber} to App Store Connect`, "testflight");
-  await getSubmitter(resolveSubmitterName(config, "ios")).submit(artifact.path, "production", credentials, ctx);
+  await submitToStores(config, "ios", artifact.path, "production", credentials, ctx);
 
   if (!options.wait) {
     log.info(
@@ -512,7 +512,7 @@ async function runAndroidRelease(
   if (size > 0) event.sizeBytes = size;
 
   try {
-    await getSubmitter(resolveSubmitterName(config, "android")).submit(latest.path, "production", credentials, ctx);
+    await submitToStores(config, "android", latest.path, "production", credentials, ctx);
   } catch (error) {
     await notify(config, {
       ...event,
