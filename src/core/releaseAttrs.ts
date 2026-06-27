@@ -29,6 +29,7 @@ import type {
 import { act, appRecordMissing, skip, type ReconcileContext } from "./asc/storeSync.js";
 import type { ReconcileReport } from "./ascSync.js";
 import { asRecord } from "./json.js";
+import { resolveSecretRef } from "./secretRef.js";
 import type { ReleaseAttributesConfig, ReleaseCategories, ReleasePricing, ReviewDetailsConfig } from "./types.js";
 
 /** Default platform whose editable version owns the App Review details. */
@@ -191,7 +192,7 @@ async function reconcileReviewDetails(
   const current = await api.getAppStoreReviewDetail(version.id);
   if (!current) {
     await act(ctx, `set App Review details (${renderFields(desired)})`, async () => {
-      await api.createAppStoreReviewDetail(version.id, desired);
+      await api.createAppStoreReviewDetail(version.id, await resolveReviewWrite(desired));
     });
     return;
   }
@@ -203,9 +204,23 @@ async function reconcileReviewDetails(
   }
   if (Object.keys(changed).length === 0) return;
   if (desired[DEMO_PASSWORD_KEY] !== undefined) changed[DEMO_PASSWORD_KEY] = desired[DEMO_PASSWORD_KEY];
-  await act(ctx, `update App Review details (${renderFields(changed)})`, () =>
-    api.updateAppStoreReviewDetail(current.id, changed),
+  await act(ctx, `update App Review details (${renderFields(changed)})`, async () =>
+    api.updateAppStoreReviewDetail(current.id, await resolveReviewWrite(changed)),
   );
+}
+
+/**
+ * Resolve a `demoAccountPassword` reference (`env:` / `keychain:`) to its real value at the moment of the
+ * write, so the secret reaches Apple but never sits in the repo-committed config — a plain string still
+ * works unchanged. Returns a copy; the original attribute map (used only for name-only plan rendering and
+ * the readable-field diff) is left untouched, so the plan never reads or holds the secret.
+ */
+async function resolveReviewWrite(
+  attributes: Record<string, string | boolean>,
+): Promise<Record<string, string | boolean>> {
+  const password = attributes[DEMO_PASSWORD_KEY];
+  if (typeof password !== "string") return attributes;
+  return { ...attributes, [DEMO_PASSWORD_KEY]: await resolveSecretRef(password, DEMO_PASSWORD_KEY) };
 }
 
 /** Collapse the review config to Apple's attribute map, dropping unset fields (names match Apple's). */
