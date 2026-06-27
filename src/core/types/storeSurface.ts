@@ -234,6 +234,12 @@ export interface ReviewDetailsConfig {
   contactEmail?: string;
   demoAccountRequired?: boolean;
   demoAccountName?: string;
+  /**
+   * The reviewer demo-account password. Prefer an indirection over a plaintext literal so the secret
+   * needn't sit in a repo-committed config (per "secrets never touch the repo"): `env:VAR_NAME` reads it
+   * from the environment, `keychain:ACCOUNT` from the OS keychain — both resolved only at submit time, so
+   * a plan never reads or holds it. Any other value is used as a literal (backward compatible).
+   */
   demoAccountPassword?: string;
   notes?: string;
 }
