@@ -16,7 +16,6 @@ import type {
   AppDescriptor,
   BuildProfile,
   LaunchConfig,
-  ReleaseType,
   ResolvedBuildContext,
 } from "../types.js";
 import { resolveSubmitterName } from "../pipeline.js";
@@ -33,12 +32,12 @@ import {
 } from "../appStoreRelease.js";
 import { GooglePlayClient, parseServiceAccount } from "../../google/playClient.js";
 import { loadServiceAccount } from "../../google/credentials.js";
-import { getCredentialsProvider, getStorageProvider, getSubmitter } from "../registry.js";
-import { isCloudStorage, resolveStorageProvider } from "../storage.js";
+import { getCredentialsProvider, getSubmitter } from "../registry.js";
+import { ensureArtifactPresent, isCloudStorage, resolveStorageProvider } from "../storage.js";
 import { ensureCodeSigner, type CodeSigner } from "../codeSign.js";
 import { runWithProgress } from "../progress.js";
 import { publishOtaPlatform, readExportMetadata } from "../otaPublish.js";
-import { resolveWhatsNew } from "../releaseInputs.js";
+import { resolveReleaseType, resolveWhatsNew } from "../releaseInputs.js";
 import { androidCarState, iosCarState } from "./engine.js";
 import type { TrainEngine } from "./orchestrator.js";
 import type { Car } from "./types.js";
@@ -104,12 +103,15 @@ export function buildTrainRuntime(
     const versionString = app.version ?? (await client.getLatestMarketingVersion(bundleId));
     if (!versionString)
       throw new Error(`Could not determine a marketing version for ${app.name}. Set "version" in app.json.`);
-    const releaseType: ReleaseType = hold ? "MANUAL" : (config.release?.releaseType ?? "AFTER_APPROVAL");
+    // A holding train forces MANUAL (it releases every car together later); otherwise honor the configured
+    // type — and when that's SCHEDULED, `resolveReleaseType` carries the `earliestReleaseDate` the submit needs.
+    const { releaseType, earliestReleaseDate } = resolveReleaseType(config.release, { manual: hold });
     const input: ReleaseInput = {
       bundleId,
       platform: IOS_PLATFORM,
       versionString,
       releaseType,
+      ...(earliestReleaseDate ? { earliestReleaseDate } : {}),
       phasedRelease: config.release?.phasedRelease === true,
       usesNonExemptEncryption: config.release?.usesNonExemptEncryption ?? false,
       whatsNew: resolveWhatsNew(config.release, app.dir),
@@ -123,10 +125,11 @@ export function buildTrainRuntime(
   /** Promote the latest stored Android artifact to the Play production track. */
   const submitAndroid = async (): Promise<{ buildId?: string }> => {
     if (!packageName) throw new Error(`${app.name} has no Android package (android.package in app.json).`);
-    const latest = (await getStorageProvider(config.storage).list()).find(
+    const latest = (await resolveStorageProvider(config).list()).find(
       (artifact) => artifact.appName === app.name && artifact.platform === "android",
     );
     if (!latest) throw new Error(`No stored Android build for ${app.name}. Run \`launch build android\` first.`);
+    ensureArtifactPresent(latest, app.name, "android");
     const android: AndroidReleaseOptions = { track: "production", rollout: profile.rollout ?? 1.0 };
     const ctx: ResolvedBuildContext = {
       platform: "android",

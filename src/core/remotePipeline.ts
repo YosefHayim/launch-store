@@ -39,7 +39,8 @@ import {
 } from "./pipeline.js";
 import { loadAscKeyById, refreshIdentityIfStale } from "./accounts.js";
 import { withSpinner } from "./progress.js";
-import { getComputeHost, getStorageProvider } from "./registry.js";
+import { getComputeHost } from "./registry.js";
+import { resolveStorageProvider } from "./storage.js";
 import { type Logger } from "./logger.js";
 import { ARTIFACTS_DIR } from "./paths.js";
 import { autoReleaseAt, costBanner } from "./cost.js";
@@ -227,7 +228,7 @@ export const runRemoteBuild: BuildTransport = async (prepared, options) => {
       clean: cleanBuilt,
       createdAt: new Date().toISOString(),
     };
-    const stored = await getStorageProvider(config.storage).put(artifact);
+    const stored = await resolveStorageProvider(config).put(artifact);
     log.step("store", stored.location);
     if (options.submit && options.target === "testing") {
       log.step("submit", "uploaded to TestFlight from the host", "testflight");

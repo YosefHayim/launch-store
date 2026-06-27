@@ -1,9 +1,10 @@
 import { homedir } from "node:os";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { LaunchConfig, StorageConfig } from "./types.js";
-import { isCloudStorage, resolveArtifactDir, resolveStorageProvider } from "./storage.js";
-import { registerStorageProvider } from "./registry.js";
+import type { BuildArtifact, LaunchConfig, StorageConfig } from "./types.js";
+import { ensureArtifactPresent, isCloudStorage, resolveArtifactDir, resolveStorageProvider } from "./storage.js";
+import { getStorageProvider, registerStorageProvider } from "./registry.js";
 import { ARTIFACTS_DIR } from "./paths.js";
 import { localStorageProvider } from "../providers/storage/local.js";
 
@@ -53,6 +54,15 @@ describe("resolveStorageProvider", () => {
   it("throws when supabase is selected without supabaseUrl", () => {
     expect(() => resolveStorageProvider(configWith("supabase", r2Config))).toThrow(/supabaseUrl/);
   });
+
+  it("resolves a cloud provider the registry cannot — the submit-path regression guard", () => {
+    // The release-train and `launch release` submit/store paths once looked storage up via the registry
+    // (`getStorageProvider(config.storage)`), where only `local` is ever registered — so `s3`/`supabase`
+    // threw "Unknown storage provider". The resolver must build a cloud backend from `storageConfig`
+    // instead; this pins the contrast so a regression back to the registry would fail here.
+    expect(() => getStorageProvider("s3")).toThrow();
+    expect(resolveStorageProvider(configWith("s3", r2Config)).name).toBe("s3");
+  });
 });
 
 describe("resolveArtifactDir", () => {
@@ -93,5 +103,41 @@ describe("s3 publicUrl", () => {
     const provider = resolveStorageProvider(configWith("s3", r2Config));
     expect(provider.publicUrl("apps/hello/manifest.json")).toBe("https://cdn.example.com/apps/hello/manifest.json");
     expect(provider.publicUrl("/leading")).toBe("https://cdn.example.com/leading");
+  });
+});
+
+describe("ensureArtifactPresent", () => {
+  /** A stored artifact whose binary is this very test file — a path guaranteed to exist on disk. */
+  function storedBuild(overrides: Partial<BuildArtifact> = {}): BuildArtifact {
+    return {
+      path: fileURLToPath(import.meta.url),
+      platform: "android",
+      appName: "Hello",
+      profile: "production",
+      version: "1.0.0",
+      buildNumber: 7,
+      sizeReport: { artifactBytes: 0, entries: [] },
+      clean: true,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      ...overrides,
+    };
+  }
+
+  it("passes when the artifact's binary is still on disk", () => {
+    expect(() => {
+      ensureArtifactPresent(storedBuild(), "Hello", "android");
+    }).not.toThrow();
+  });
+
+  it("throws when the artifact was pruned to reclaim disk", () => {
+    expect(() => {
+      ensureArtifactPresent(storedBuild({ prunedAt: "2026-01-02T00:00:00.000Z" }), "Hello", "android");
+    }).toThrow(/rebuild before releasing/);
+  });
+
+  it("throws when the recorded binary is missing from disk", () => {
+    expect(() => {
+      ensureArtifactPresent(storedBuild({ path: "/no/such/build.aab" }), "Hello", "android");
+    }).toThrow(/pruned to reclaim disk/);
   });
 });
