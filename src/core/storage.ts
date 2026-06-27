@@ -11,9 +11,10 @@
  * lives in exactly one place.
  */
 
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, resolve } from "node:path";
-import type { LaunchConfig, StorageProvider } from "./types.js";
+import type { BuildArtifact, LaunchConfig, Platform, StorageProvider } from "./types.js";
 import { getStorageProvider } from "./registry.js";
 import { ARTIFACTS_DIR } from "./paths.js";
 import { createLocalStorageProvider } from "../providers/storage/local.js";
@@ -72,4 +73,19 @@ export function resolveStorageProvider(config: LaunchConfig, projectRoot: string
  */
 export function isCloudStorage(config: LaunchConfig): boolean {
   return config.storage !== "local";
+}
+
+/**
+ * Guard a promote/submit that reuses a stored binary. The newest build per app+platform is never
+ * auto-pruned, so this normally passes — but a manually-deleted or pruned binary turns a deep submit
+ * failure (an opaque fastlane/Play file error) into a clear "rebuild first" precondition message instead.
+ * Shared by `launch release` and the release train so every promote path guards the artifact identically.
+ */
+export function ensureArtifactPresent(artifact: BuildArtifact, appName: string, platform: Platform): void {
+  if (artifact.prunedAt || !existsSync(artifact.path)) {
+    throw new Error(
+      `The latest stored ${appName} ${platform} build was pruned to reclaim disk. ` +
+        `Run \`launch build ${platform}\` to rebuild before releasing.`,
+    );
+  }
 }
