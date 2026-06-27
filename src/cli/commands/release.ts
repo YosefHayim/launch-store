@@ -10,7 +10,6 @@
  * accidental public release impossible.
  */
 
-import { existsSync } from "node:fs";
 import type { Command } from "commander";
 import { cancel, confirm, isCancel } from "@clack/prompts";
 import type {
@@ -33,7 +32,8 @@ import {
 } from "../../core/pipeline.js";
 import { formatEnvTable, type ResolvedEnv } from "../../core/env.js";
 import { notify, type NotifyEvent } from "../../core/notify.js";
-import { getCredentialsProvider, getStorageProvider, getSubmitter } from "../../core/registry.js";
+import { getCredentialsProvider, getSubmitter } from "../../core/registry.js";
+import { ensureArtifactPresent, resolveStorageProvider } from "../../core/storage.js";
 import { createLogger, type Logger } from "../../core/logger.js";
 import { loadAscKeyById } from "../../core/accounts.js";
 import { isInteractive } from "../../core/progress.js";
@@ -357,20 +357,6 @@ async function resolveBuildSource(
 }
 
 /**
- * Guard a promote that reuses a stored binary. The newest build per app+platform is never auto-pruned,
- * so this normally passes — but a manually-deleted or pruned binary turns a deep submit failure into a
- * clear "rebuild first" message instead.
- */
-function ensureArtifactPresent(artifact: BuildArtifact, appName: string, platform: Platform): void {
-  if (artifact.prunedAt || !existsSync(artifact.path)) {
-    throw new Error(
-      `The latest stored ${appName} ${platform} build was pruned to reclaim disk. ` +
-        `Run \`launch build ${platform}\` to rebuild before releasing.`,
-    );
-  }
-}
-
-/**
  * Resolve the build to submit: promote an already-verified build, or upload the latest local artifact
  * and wait for it to process. Returns null when the user cancels or when `--no-wait` uploaded and
  * returned without submitting.
@@ -397,7 +383,7 @@ async function resolveIosBuild(
     return { build, versionString };
   }
 
-  const artifact = (await getStorageProvider(config.storage).list()).find(
+  const artifact = (await resolveStorageProvider(config).list()).find(
     (stored) => stored.appName === app.name && stored.platform === "ios",
   );
   if (!artifact) {
@@ -474,7 +460,7 @@ async function runAndroidRelease(
   config: LaunchConfig,
   resolvedEnv: ResolvedEnv,
 ): Promise<void> {
-  const latest = (await getStorageProvider(config.storage).list()).find(
+  const latest = (await resolveStorageProvider(config).list()).find(
     (artifact) => artifact.appName === app.name && artifact.platform === "android",
   );
   if (!latest) {

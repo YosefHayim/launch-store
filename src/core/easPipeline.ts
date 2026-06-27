@@ -9,7 +9,7 @@
 
 import type { BuildArtifact } from "./types.js";
 import { type BuildTransport, confirmUpload, reportSize, renderReceipt } from "./pipeline.js";
-import { getStorageProvider } from "./registry.js";
+import { resolveStorageProvider } from "./storage.js";
 import { detectEasCli, easBuildToIpa, easSubmit, ensureExpoSession } from "../providers/build/eas.js";
 
 /** Build via EAS, store the downloaded `.ipa`, and optionally submit through `eas submit`. */
@@ -51,7 +51,7 @@ export const runEasBuild: BuildTransport = async (prepared, options) => {
     clean: true,
     createdAt: new Date().toISOString(),
   };
-  const stored = await getStorageProvider(config.storage).put(artifact);
+  const stored = await resolveStorageProvider(config).put(artifact);
   log.step("store", stored.location);
 
   if (options.submit) {
