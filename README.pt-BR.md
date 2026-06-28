@@ -20,7 +20,7 @@
 <p align="center">
   <a href="./docs/commands.md"><img src="https://img.shields.io/badge/store%20API-211%20endpoints-8957e5?logo=apple&logoColor=white" alt="211 App Store Connect &amp; Google Play API operations" /></a>
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1899%20passing-3fb950?logo=vitest&logoColor=white" alt="1899 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1923%20passing-3fb950?logo=vitest&logoColor=white" alt="1923 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -329,7 +329,12 @@ export default defineConfig({
   profiles: {
     // `env` is inline per-profile vars; `envFile` renames the base dotenv. Precedence, highest first:
     // --env flags › keychain secrets › profile `env:` › .env.local (--include-local) › .env.<profile> › .env
-    production: { name: "production", envFile: ".env", env: {}, sizeBudgetMB: 200 },
+    production: {
+      name: "production",
+      envFile: ".env",
+      env: {},
+      sizeBudgetMB: 200,
+    },
   },
 
   // Ping a Slack/Discord webhook and/or run a shell hook when a build or submit finishes (success or
