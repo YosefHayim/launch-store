@@ -71,6 +71,10 @@ export interface DoctorAscApi extends AscPermissionProbeApi {
   assertReady(): Promise<void>;
   /** The app's App Store Connect id for a bundle id, or `null` when no app record exists yet. */
   getAppId(bundleId: string): Promise<string | null>;
+  /** Look up a bundle id's App ID resource, or `null` when it isn't registered yet. */
+  findBundleId(identifier: string): Promise<{ id: string } | null>;
+  /** The capabilities currently enabled on an App ID resource. */
+  listBundleIdCapabilities(bundleIdResourceId: string): Promise<{ capabilityType: string }[]>;
 }
 
 /** The read-only Google Play surface the doctor uses: prove the service account can reach an app. */

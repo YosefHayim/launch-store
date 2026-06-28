@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1927 tests**.
+> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1936 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
