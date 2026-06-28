@@ -44,7 +44,6 @@ jobs:
         run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm run format:check
       # docs/commands.md and llms.txt are generated from the commander tree in src/cli/ by
       # `npm run docs:gen`. This fails the PR if they're stale, so the AI-facing and human-facing
       # docs can't drift from the real command surface (issue #89). Offline + deterministic,

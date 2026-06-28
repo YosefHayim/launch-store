@@ -107,8 +107,8 @@ ids only (e.g. `cloud.json`). Don't log, write, or commit key material, and hono
 
 ## Style is enforced, not documented
 
-`tsconfig.json` (max-strict), `eslint.config.js` (`typescript-eslint` strict + stylistic),
-`.prettierrc`, and `.husky/pre-commit` are the only source of truth for formatting and type rules —
+`tsconfig.json` (max-strict), `biome.json` (Biome's linter + formatter, `all` rule preset), and
+`.husky/pre-commit` are the only source of truth for formatting and type rules —
 no `any`, no needless `as`, JSDoc on exports. Don't re-describe those rules; just run them.
 
 ## Before you call a change done

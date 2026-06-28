@@ -691,15 +691,14 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
     id: 'run-the-gate',
     title: 'Run the validation gate',
     description:
-      'Use when finishing or verifying a change to launch-store — run the full typecheck, lint, test, build, format, and docs gate that must be green before a change is done or a PR merges.',
+      'Use when finishing or verifying a change to launch-store — run the full typecheck, lint, test, build, and docs gate that must be green before a change is done or a PR merges.',
     triggers: [
       "you finished a change and need to confirm it's green before calling it done",
       'CI failed and you want to reproduce the gate locally',
       'before opening or squash-merging a PR',
     ],
     steps: [
-      '`npm run typecheck && npm run lint && npm run test && npm run build` — the four core gates.',
-      '`npm run format:check` — prettier; CI enforces it even though the husky pre-commit hook formats on commit, so run it yourself before pushing.',
+      '`npm run typecheck && npm run lint && npm run test && npm run build` — the four core gates (`lint` is Biome, which enforces formatting too).',
       '`npm run docs:check` — fails if the generated docs (`docs/commands.md`, `llms.txt`, `.cursor/rules/*`, `.claude/skills/*`, README badges) drifted from the CLI; run `npm run docs:gen` and commit the result if it does.',
     ],
     body: [
