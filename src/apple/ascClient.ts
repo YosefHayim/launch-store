@@ -16,16 +16,99 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { SignJWT, importPKCS8 } from 'jose';
-import type {
-  AscKey,
-  OfferCustomerEligibility,
-  OfferDuration,
-  OfferEligibility,
-  OfferMode,
-} from '../core/types.js';
+import type { AscKey } from '../core/types.js';
 import type { components } from '../core/asc/schema.js';
 import { highestVersion } from '../core/version.js';
 import { withRetry } from '../core/asyncPool.js';
+import type {
+  AccessibilityDeclarationResource,
+  AccessibilitySupport,
+  AgeRatingDeclarationResource,
+  AgeRatingValue,
+  AlternativeDistributionDomainResource,
+  AlternativeDistributionKeyResource,
+  AnalyticsReportInstanceResource,
+  AnalyticsReportRequestResource,
+  AnalyticsReportResource,
+  AnalyticsReportSegmentResource,
+  AppAvailabilityResource,
+  AppClipActionValue,
+  AppClipDefaultExperienceResource,
+  AppClipLocalizationResource,
+  AppClipResource,
+  AppEventLocalizationInput,
+  AppEventLocalizationResource,
+  AppEventResource,
+  AppInfoResource,
+  AppStoreReviewDetailResource,
+  AppStoreVersionLocalizationResource,
+  AppStoreVersionResource,
+  BetaAppReviewSubmissionResource,
+  BetaBuildLocalizationResource,
+  BetaFeedbackCrashSubmissionResource,
+  BetaFeedbackQuery,
+  BetaFeedbackScreenshotSubmissionResource,
+  BetaFeedbackSubmissionResource,
+  BetaGroupResource,
+  BetaReviewState,
+  BetaTesterResource,
+  BuildResource,
+  BundleIdCapabilityResource,
+  BundleIdResource,
+  CapabilitySetting,
+  CertificateResource,
+  CustomerReviewResource,
+  CustomerReviewResponseResource,
+  CustomProductPageLocalizationResource,
+  CustomProductPageResource,
+  CustomProductPageVersionResource,
+  DeviceFamily,
+  DeviceResource,
+  EncryptionDeclarationResource,
+  ExperimentTreatmentResource,
+  FinanceReportQuery,
+  GameCenterAchievementCreate,
+  GameCenterAchievementResource,
+  GameCenterDetailResource,
+  GameCenterLeaderboardCreate,
+  GameCenterLeaderboardResource,
+  InAppPurchaseResource,
+  IntroductoryOfferCreate,
+  IntroductoryOfferResource,
+  LeaderboardFormatter,
+  ListingLocalization,
+  LocalizationResource,
+  MerchantIdResource,
+  NewAppEvent,
+  NewUserInvitation,
+  OfferCodeCreate,
+  OfferCodeResource,
+  PassTypeIdResource,
+  PhasedReleaseResource,
+  PreviewResource,
+  PreviewSetResource,
+  PricePointResource,
+  ProfileResource,
+  PromotedPurchaseCreate,
+  PromotedPurchaseResource,
+  PromotionalOfferCreate,
+  PromotionalOfferResource,
+  ReviewScreenshotResource,
+  ReviewSubmissionResource,
+  SalesReportQuery,
+  SandboxTesterResource,
+  ScreenshotResource,
+  ScreenshotSetResource,
+  SubscriptionGroupResource,
+  SubscriptionResource,
+  UserInvitationResource,
+  UserResource,
+  VersionExperimentResource,
+  WinBackOfferCreate,
+  WinBackOfferResource,
+} from './ascResources.js';
+import { ACCESSIBILITY_SUPPORT_KEYS } from './ascResources.js';
+export * from './ascResources.js';
 
 /** Scheme + host of the App Store Connect API; most resources hang off `/v1`, a few newer ones off `/v2`. */
 const API_ORIGIN = 'https://api.appstoreconnect.apple.com';
@@ -135,979 +218,10 @@ export function isRetryableAscError(error: unknown): boolean {
   return error instanceof AscRequestError && (error.status === 429 || error.status >= 500);
 }
 
-/** A registered Bundle ID resource (an App ID in the Developer portal). */
-export interface BundleIdResource {
-  id: string;
-  identifier: string;
-  /** The team's seed/prefix id (e.g. `5NS9ZUMYCS`), which doubles as the Team ID. May be absent. */
-  seedId?: string | undefined;
-}
-
-/** A signing certificate resource, with the bytes needed to package a `.p12`. */
-export interface CertificateResource {
-  id: string;
-  serialNumber: string;
-  /** Base64-encoded DER of the certificate (the `.cer` content). */
-  certificateContent: string;
-  /** ISO-8601 expiry; used to skip an expired cert when reusing. May be absent. */
-  expirationDate?: string | undefined;
-}
-
-/** A device registered in the Developer portal, eligible to receive ad-hoc builds. */
-export interface DeviceResource {
-  id: string;
-  /** The device's 40-char (or 25-char, newer) UDID. */
-  udid: string;
-  /** Human label shown in the portal, e.g. `Dana's iPhone`. */
-  name: string;
-  /** Apple's status, e.g. `ENABLED` / `DISABLED`. Disabled devices don't count toward an ad-hoc profile. */
-  status?: string | undefined;
-}
-
-/** A provisioning profile resource, with the bytes needed to install it locally. */
-export interface ProfileResource {
-  id: string;
-  name: string;
-  uuid: string;
-  /** Base64-encoded `.mobileprovision` contents. */
-  profileContent: string;
-}
-
-/**
- * One configured key on a capability's `settings` — Apple's per-capability toggle list (e.g. the
- * iCloud version or the data-protection permission level). The `key` is Apple's setting enum value
- * (`ICLOUD_VERSION`, `DATA_PROTECTION_PERMISSION_LEVEL`, …) and `options` carries the chosen option
- * key(s). Toggles only: a capability's `settings` never carry the concrete identifier values (app
- * group ids, container ids) — those live in the provisioning profile, which is why `launch adopt`
- * reads capability *values* from the profile and uses these settings only as advisory detail.
- */
-export interface CapabilitySetting {
-  key: string;
-  options?: { key: string }[];
-}
-
-/** A capability enabled on a bundle id (App ID), e.g. `PUSH_NOTIFICATIONS`. */
-export interface BundleIdCapabilityResource {
-  id: string;
-  capabilityType: string;
-  /** Apple's per-capability toggle settings (e.g. data-protection level, iCloud version). Absent unless requested. */
-  settings?: CapabilitySetting[];
-}
-
-/** An in-app purchase (the `inAppPurchasesV2` resource) on an app. */
-export interface InAppPurchaseResource {
-  id: string;
-  /** Apple product id, the catalog's natural key. */
-  productId: string;
-  /** Internal reference name. */
-  name: string;
-  /** `CONSUMABLE` / `NON_CONSUMABLE` / `NON_RENEWING_SUBSCRIPTION`. */
-  inAppPurchaseType: string;
-  /** Apple's lifecycle state, e.g. `MISSING_METADATA` / `READY_TO_SUBMIT`. Absent unless requested. */
-  state?: string;
-}
-
-/**
- * One **sandbox tester** (`sandboxTesters`) — a fake Apple ID for StoreKit testing of purchases and
- * subscriptions, created in App Store Connect (Apple exposes no API to create one). `acAccountName` is the
- * tester's sandbox email — the key `launch sandbox clear` matches on. `subscriptionRenewalRate` is the
- * accelerated renewal interval Apple uses for sandbox subscriptions.
- */
-export interface SandboxTesterResource {
-  id: string;
-  acAccountName: string;
-  firstName?: string;
-  lastName?: string;
-  /** App Store territory the tester shops in (e.g. `USA`). */
-  territory?: string;
-  applePayCompatible?: boolean;
-  /** Whether Apple injects interruptions (e.g. price-consent prompts) into the tester's purchases. */
-  interruptPurchases?: boolean;
-  /** Accelerated sandbox renewal interval, e.g. `MONTHLY_RENEWAL_EVERY_ONE_HOUR`. */
-  subscriptionRenewalRate?: string;
-}
-
-/** A subscription group — the container for mutually-exclusive subscription levels. */
-export interface SubscriptionGroupResource {
-  id: string;
-  referenceName: string;
-}
-
-/** One auto-renewable subscription within a group. */
-export interface SubscriptionResource {
-  id: string;
-  productId: string;
-  name: string;
-  /** Apple's billing-period enum, e.g. `ONE_MONTH`. Absent unless requested — `launch adopt` needs it to import. */
-  subscriptionPeriod?: string;
-  /** Apple's lifecycle state, e.g. `MISSING_METADATA`. Absent unless requested. */
-  state?: string;
-}
-
-/**
- * One locale's stored copy for a product, group, or subscription. The same shape serves in-app-purchase,
- * subscription, and subscription-group localizations — Apple keys them all on `locale`, with `name`
- * always present and `description` only on the product/subscription variants.
- */
-export interface LocalizationResource {
-  id: string;
-  locale: string;
-  name: string;
-  description?: string;
-}
-
-/**
- * A price point — one rung of Apple's fixed price ladder for a product in a territory. `customerPrice`
- * is the amount the buyer pays (e.g. `"9.99"`); a price is set by linking the product to one of these.
- */
-export interface PricePointResource {
-  id: string;
-  customerPrice: string;
-  territory: string;
-}
-
-/**
- * An existing App Encryption Declaration on an app — the reusable, one-time export-compliance answer
- * for builds that use non-exempt encryption. Only an `APPROVED` declaration clears a build without a
- * fresh, document-backed submission, so `state` is what gates reuse. See
- * {@link AppStoreConnectClient.listEncryptionDeclarations}.
- */
-export interface EncryptionDeclarationResource {
-  id: string;
-  /** Apple's review state: `CREATED` | `IN_REVIEW` | `APPROVED` | `REJECTED` | `INVALID` | `EXPIRED`. */
-  state: string;
-}
-
-/**
- * One locale's stored App Store listing copy, normalized to the present (non-empty) fields only. The
- * same shape serves both the app-level `appInfoLocalizations` (name/subtitle/privacy URL — persists
- * across versions) and the version-level `appStoreVersionLocalizations` (description/keywords/whatsNew/…
- * — per release); the caller picks which level. `fields` is keyed by Apple's attribute name, so a diff
- * against desired config is a plain key-by-key comparison.
- */
-export interface ListingLocalization {
-  id: string;
-  locale: string;
-  fields: Record<string, string>;
-}
-
-/**
- * One App Store screenshot **set** — the per-(version localization × device target) bucket screenshots
- * hang off. `screenshotDisplayType` is Apple's device-target enum (e.g. `APP_IPHONE_67`); the reconciler
- * matches a local folder's target to the set with the same type, creating the set when none exists.
- */
-export interface ScreenshotSetResource {
-  id: string;
-  screenshotDisplayType: string;
-}
-
-/**
- * One uploaded App Store screenshot. `sourceFileChecksum` is the MD5 Apple stored at commit time — the
- * reconciler's idempotency key: a local file whose MD5 already appears here is skipped. `assetDeliveryState`
- * (`UPLOAD_COMPLETE` / `COMPLETE` / `FAILED`) flags a half-finished upload worth re-sending. Both are
- * absent until requested/committed.
- */
-export interface ScreenshotResource {
-  id: string;
-  fileName: string;
-  sourceFileChecksum?: string;
-  assetDeliveryState?: string;
-}
-
-/**
- * A subscription's App Review screenshot (`subscriptionAppStoreReviewScreenshots`) — the single image
- * Apple requires to submit a subscription. Same idempotency key as {@link ScreenshotResource}: re-upload
- * only when the stored MD5 differs from the local file's.
- */
-export interface ReviewScreenshotResource {
-  id: string;
-  sourceFileChecksum?: string;
-  assetDeliveryState?: string;
-}
-
-/**
- * One App Store app-preview-video **set** — the per-(version localization × device target) bucket previews
- * hang off, the video counterpart of {@link ScreenshotSetResource}. `previewType` is Apple's device-target
- * enum (e.g. `IPHONE_67`); the reconciler matches a local folder's target to the set with the same type,
- * creating the set when none exists.
- */
-export interface PreviewSetResource {
-  id: string;
-  previewType: string;
-}
-
-/**
- * One uploaded App Store app preview video. Same idempotency contract as {@link ScreenshotResource}:
- * `sourceFileChecksum` is the MD5 Apple stored at commit time (the reconciler's skip key), and
- * `assetDeliveryState` flags a half-finished upload worth re-sending. Apple processes the video
- * asynchronously after commit, but the checksum is recorded at commit — so a re-run while processing is
- * still in flight matches by checksum and re-uploads nothing.
- */
-export interface PreviewResource {
-  id: string;
-  fileName: string;
-  sourceFileChecksum?: string;
-  assetDeliveryState?: string;
-}
-
-/**
- * A TestFlight beta group — a named tester bucket that belongs to exactly one app. External groups
- * invite testers by email (and can gate distribution on Beta App Review); the internal group holds
- * App Store Connect team users. A tester reaches an app's TestFlight by being in one of its groups,
- * which is why every `launch testflight` tester operation goes through a group.
- */
-export interface BetaGroupResource {
-  id: string;
-  name: string;
-  /** True for the team-user internal group; external groups are the ones you invite by email. Absent unless requested. */
-  isInternal?: boolean;
-  /** Public TestFlight invite link, when the group has one enabled. Absent otherwise. */
-  publicLink?: string;
-}
-
-/**
- * A TestFlight tester. Apple keys testers on `email` and scopes them to the team — the same person is
- * one tester resource reused across apps/groups — so adding an existing email to a new group links
- * rather than duplicates. `firstName`/`lastName` are optional and shown in the invite.
- */
-export interface BetaTesterResource {
-  id: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-  /** Apple's invite state, e.g. `INVITED` / `ACCEPTED` / `INSTALLED`. Absent unless requested. */
-  state?: string;
-}
-
-/**
- * Common attributes shared by Apple's two beta-feedback submission resources
- * (`betaFeedbackCrashSubmissions` / `betaFeedbackScreenshotSubmissions`) — the device/OS context, the
- * tester's comment + email, and the timestamp. The screenshot resource adds `screenshots`; this base
- * is the part {@link BetaFeedbackCrashSubmissionResource} and {@link BetaFeedbackScreenshotSubmissionResource}
- * both expose. Optional fields are absent (not empty) when Apple omits them.
- */
-export interface BetaFeedbackSubmissionResource {
-  id: string;
-  /** ISO-8601 instant the tester submitted the feedback. */
-  createdDate?: string;
-  /** The tester's free-text comment, when present. */
-  comment?: string;
-  /** The submitting tester's email, when present. */
-  email?: string;
-  /** Device marketing model, e.g. `iPhone 15 Pro`. */
-  deviceModel?: string;
-  /** OS version the feedback came from, e.g. `17.5.1`. */
-  osVersion?: string;
-  /** `CFBundleVersion` of the related build, resolved from the included `build` resource when present. */
-  buildVersion?: string;
-}
-
-/** A TestFlight crash-feedback submission (`betaFeedbackCrashSubmissions`) — the device/OS context plus the tester's comment. */
-export type BetaFeedbackCrashSubmissionResource = BetaFeedbackSubmissionResource;
-
-/**
- * A TestFlight screenshot-feedback submission (`betaFeedbackScreenshotSubmissions`) — like a crash
- * submission, plus the attached screenshots. Each screenshot carries a short-lived presigned `url`
- * (and pixel dimensions when Apple reports them) suitable for immediate viewing or download.
- */
-export interface BetaFeedbackScreenshotSubmissionResource extends BetaFeedbackSubmissionResource {
-  /** The attached screenshots — at least one on a screenshot submission. */
-  screenshots: { url: string; width?: number; height?: number }[];
-}
-
-/**
- * Server-side narrowing for the beta-feedback readers — Apple's `filter[build]` takes a *build resource
- * id* (not a version string), so the caller resolves a `--build <ver>` to its id first. Absent means
- * "all builds". Kept as a named query type to mirror the other ASC `*Query` params in this file.
- */
-export interface BetaFeedbackQuery {
-  /** Restrict to feedback for this build resource id (resolve from a version via {@link AppStoreConnectClient.findBuildByVersion}). */
-  buildId?: string;
-}
-
-/**
- * One customer review of an app. `answered` is derived from the `response` relationship so a caller
- * can filter unanswered reviews without a follow-up request per review. Optional text fields are absent
- * (not empty) when Apple omits them — a review can have a rating but no title or body.
- */
-export interface CustomerReviewResource {
-  id: string;
-  /** Star rating, 1–5. */
-  rating: number;
-  title?: string | undefined;
-  body?: string | undefined;
-  /** The reviewer's display name, e.g. `appfan99`. */
-  reviewerNickname?: string | undefined;
-  /** Two/three-letter territory the review was left in (e.g. `USA`). */
-  territory?: string | undefined;
-  /** ISO-8601 timestamp Apple recorded the review. */
-  createdDate?: string | undefined;
-  /** True when a developer response is already attached (published or pending moderation). */
-  answered: boolean;
-}
-
-/** A developer's response to a customer review — the editable, moderated reply shown under the review. */
-export interface CustomerReviewResponseResource {
-  id: string;
-  responseBody: string;
-  /** Apple's moderation state, e.g. `PUBLISHED` / `PENDING_PUBLISH`. Absent unless Apple returns it. */
-  state?: string | undefined;
-  lastModifiedDate?: string | undefined;
-}
-
-/**
- * One App Store Connect **team member** (`users`) — a person who has accepted access to the account.
- * `username` is their Apple ID email (the key `launch team remove` matches on); `roles` is Apple's
- * permission set (`ADMIN`, `APP_MANAGER`, `DEVELOPER`, …). Contrast {@link UserInvitationResource}, which
- * is a member who's been invited but hasn't accepted yet.
- */
-export interface UserResource {
-  id: string;
-  username: string;
-  firstName?: string;
-  lastName?: string;
-  roles: string[];
-}
-
-/**
- * One **pending** team invitation (`userInvitations`) — an invited member who hasn't accepted. Mirrors
- * {@link UserResource} but keyed by `email` and carrying the invite's `expirationDate`. Removing one cancels
- * the invitation rather than revoking access.
- */
-export interface UserInvitationResource {
-  id: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-  roles: string[];
-  /** ISO-8601 instant the invitation lapses if unaccepted. */
-  expirationDate?: string;
-}
-
-/**
- * The attributes required to invite a new team member, passed straight to `POST /v1/userInvitations`.
- * `allAppsVisible` grants visibility to every app (the default for a CLI invite); `provisioningAllowed`
- * lets the member create signing assets. Per-app visibility scoping (the `visibleApps` relationship) is a
- * portal/follow-up concern and intentionally not modeled here.
- */
-export interface NewUserInvitation {
-  email: string;
-  firstName: string;
-  lastName: string;
-  roles: string[];
-  allAppsVisible: boolean;
-  provisioningAllowed: boolean;
-}
-
-/**
- * An analytics report request — the subscription that makes reports available for an app. `ONGOING`
- * keeps producing daily/weekly/monthly instances; `ONE_TIME_SNAPSHOT` is a single historical pull.
- */
-export interface AnalyticsReportRequestResource {
-  id: string;
-  /** `ONGOING` | `ONE_TIME_SNAPSHOT`. */
-  accessType: string;
-  /** True when Apple stopped an `ONGOING` request because nothing consumed it for ~12 months. */
-  stoppedDueToInactivity?: boolean | undefined;
-}
-
-/** One report available within a request (e.g. "App Store Installations"), grouped by category. */
-export interface AnalyticsReportResource {
-  id: string;
-  name: string;
-  /** `APP_USAGE` | `APP_STORE_ENGAGEMENT` | `COMMERCE` | `FRAMEWORK_USAGE` | `PERFORMANCE`. */
-  category?: string | undefined;
-}
-
-/** One time-period instance of a report — a single day/week/month of generated data. */
-export interface AnalyticsReportInstanceResource {
-  id: string;
-  /** `DAILY` | `WEEKLY` | `MONTHLY`. */
-  granularity: string;
-  /** The date this instance covers (`YYYY-MM-DD`). */
-  processingDate?: string | undefined;
-}
-
-/**
- * One downloadable segment of a report instance: a presigned `url` to a gzipped TSV plus its
- * `checksum`. A large instance is split across several segments that the caller concatenates.
- */
-export interface AnalyticsReportSegmentResource {
-  id: string;
-  url: string;
-  /** Apple's checksum of the decompressed segment, for integrity verification. */
-  checksum?: string | undefined;
-  sizeInBytes?: number | undefined;
-}
-
-/**
- * One **in-app event** (`appEvents`) — a time-bounded happening (a live event, premiere, challenge, …)
- * surfaced on the App Store product page. `eventState` is Apple's lifecycle (`DRAFT` → `READY_FOR_REVIEW`
- * → … → `PUBLISHED` → `PAST`/`ARCHIVED`); `referenceName` is the internal label. Localized copy and
- * territory schedules hang off it separately.
- */
-export interface AppEventResource {
-  id: string;
-  referenceName: string;
-  /** The event badge, e.g. `LIVE_EVENT` / `PREMIERE` / `CHALLENGE`. */
-  badge?: string;
-  /** Apple's lifecycle state, e.g. `DRAFT` / `IN_REVIEW` / `PUBLISHED`. */
-  eventState?: string;
-  /** The event's primary locale (e.g. `en-US`) — the fallback for unlocalized territories. */
-  primaryLocale?: string;
-  /** Deep link opened when a user taps the event. */
-  deepLink?: string;
-  /** `HIGH` | `NORMAL` — how prominently Apple may feature it. */
-  priority?: string;
-  /** Marketing purpose, e.g. `ATTRACT_NEW_USERS`. */
-  purpose?: string;
-}
-
-/** One locale's copy for an in-app event (`appEventLocalizations`) — name + short/long descriptions. */
-export interface AppEventLocalizationResource {
-  id: string;
-  locale: string;
-  name?: string;
-  shortDescription?: string;
-  longDescription?: string;
-}
-
-/** Attributes to create an in-app event, passed to `POST /v1/appEvents` (alongside the app relationship). */
-export interface NewAppEvent {
-  referenceName: string;
-  badge?: string;
-  primaryLocale?: string;
-  deepLink?: string;
-  priority?: string;
-  purpose?: string;
-}
-
-/** The editable copy fields of an in-app event localization (create or update). */
-export interface AppEventLocalizationInput {
-  name?: string;
-  shortDescription?: string;
-  longDescription?: string;
-}
-
-/**
- * Parameters for a Sales & Trends report download — Apple's `filter[...]` query for `/v1/salesReports`.
- * `reportDate`'s format follows `frequency` (a day `2026-06-01` for DAILY, a year `2026` for YEARLY).
- * A disallowed `reportType`/`reportSubType` combination surfaces as a misleading "invalid vendor number".
- */
-export interface SalesReportQuery {
-  vendorNumber: string;
-  /** `DAILY` | `WEEKLY` | `MONTHLY` | `YEARLY`. */
-  frequency: string;
-  /** `SALES` | `SUBSCRIPTION` | `SUBSCRIPTION_EVENT` | `SUBSCRIBER` | `PREORDER` | … */
-  reportType: string;
-  /** `SUMMARY` | `DETAILED` | … (valid set depends on `reportType`). */
-  reportSubType: string;
-  reportDate: string;
-  /** Report schema version, e.g. `1_0`; Apple now requires it for several report types. */
-  version?: string | undefined;
-}
-
-/** Parameters for a Finance report download — Apple's `filter[...]` query for `/v1/financeReports`. */
-export interface FinanceReportQuery {
-  vendorNumber: string;
-  /** Fiscal period `YYYY-MM` (Apple's fiscal calendar, not the Gregorian month). */
-  reportDate: string;
-  /** Region code, e.g. `ZZ` (all regions) or `US`. */
-  regionCode: string;
-  /** `FINANCE_DETAIL` (default) | `FINANCIAL`. */
-  reportType?: string | undefined;
-}
-
-/* -------------------------------------------------------------------------- */
-/*  App Store release-lifecycle resources — consumed by core/appStoreRelease.ts  */
-/*  (the version → build → review → rollout state machine). Untouched by the      */
-/*  build/sign path and the `launch sync` catalog reconciler.                     */
-/* -------------------------------------------------------------------------- */
-
-/** A build (one uploaded binary) on App Store Connect, with the fields the release flow reads. */
-export interface BuildResource {
-  id: string;
-  /** `CFBundleVersion` (the build number) as Apple's string, e.g. `"42"`. */
-  version: string;
-  /** Apple's processing state, e.g. `PROCESSING` / `VALID` / `INVALID`. Only a `VALID` build is attachable. */
-  processingState: string;
-  /** ISO-8601 upload instant, when requested in the field set. */
-  uploadedDate?: string;
-  /** Whether Apple expired the build (TestFlight's 90-day limit); an expired build can't be submitted. */
-  expired: boolean;
-}
-
-/** One locale's TestFlight "What to Test" note for a build (`betaBuildLocalizations`). */
-export interface BetaBuildLocalizationResource {
-  id: string;
-  locale: string;
-  /** The "What to Test" text testers see for this build; absent until set. */
-  whatsNew?: string;
-}
-
-/** Apple's Beta App Review verdict for a build's submission. */
-export type BetaReviewState = 'WAITING_FOR_REVIEW' | 'IN_REVIEW' | 'REJECTED' | 'APPROVED';
-
-/**
- * A build's Beta App Review submission (`betaAppReviewSubmissions`) — the request that lets *external*
- * TestFlight testers install it. One per build; `state` is Apple's verdict. Absent until the build is
- * submitted for beta review.
- */
-export interface BetaAppReviewSubmissionResource {
-  id: string;
-  state?: BetaReviewState;
-}
-
-/**
- * An App Store version — the per-release container carrying lifecycle state, release type, and the
- * attached build. One per marketing version + platform; `launch release` reuses an editable one or
- * creates the next.
- */
-export interface AppStoreVersionResource {
-  id: string;
-  /** Marketing version (`CFBundleShortVersionString`), e.g. `1.2.0`. */
-  versionString: string;
-  /** Apple's lifecycle state, e.g. `PREPARE_FOR_SUBMISSION` / `WAITING_FOR_REVIEW` / `READY_FOR_SALE`. */
-  appStoreState: string;
-  /** How the approved version goes live (`AFTER_APPROVAL` / `MANUAL` / `SCHEDULED`), when requested. */
-  releaseType?: string;
-}
-
-/** One locale's editable version copy. Launch only ever writes `whatsNew` (the release notes). */
-export interface AppStoreVersionLocalizationResource {
-  id: string;
-  locale: string;
-  /** "What's New in This Version" text; absent until set. */
-  whatsNew?: string;
-}
-
-/** A version's phased-release schedule (Apple's 7-day staged rollout), present only once one exists. */
-export interface PhasedReleaseResource {
-  id: string;
-  /** `ACTIVE` / `PAUSED` / `COMPLETE` / `INACTIVE`. */
-  phasedReleaseState: string;
-  /** Which day (1–7) of the ramp the rollout is on, when Apple reports it. */
-  currentDayNumber?: number;
-}
-
-/**
- * An App Store review submission — Apple's current submission model: a per-app container the version is
- * added to as an item, then submitted as a unit. `state` distinguishes an addable draft
- * (`READY_FOR_REVIEW`) from one already in Apple's queue.
- */
-export interface ReviewSubmissionResource {
-  id: string;
-  /** `READY_FOR_REVIEW` / `WAITING_FOR_REVIEW` / `IN_REVIEW` / `COMPLETING` / `COMPLETE` / `CANCELING` / `UNRESOLVED_ISSUES`. */
-  state: string;
-}
-
-/**
- * One territory's resolved offer price: the territory code plus the Apple `subscriptionPricePoints` id
- * the customer-facing amount maps to. The reconciler resolves each {@link OfferPrice} to one of these
- * (via {@link AppStoreConnectClient.findSubscriptionPricePoint}) before any offer is created, so the
- * client only ever builds wire bodies from already-validated price points.
- */
-export interface ResolvedOfferPrice {
-  /** Apple territory code, e.g. `USA` — used directly as the `territories` resource id. */
-  territory: string;
-  /** Resolved `subscriptionPricePoints` id for the customer price in this territory. */
-  pricePointId: string;
-}
-
-/** An offer-code campaign on a subscription, as listed for idempotent reconcile. `name` is the key. */
-export interface OfferCodeResource {
-  id: string;
-  name: string;
-  /** Whether the campaign is currently active; deactivating sets this false. */
-  active: boolean;
-}
-
-/** A promotional offer on a subscription. `offerCode` (the StoreKit-facing id) is the reconciler's key. */
-export interface PromotionalOfferResource {
-  id: string;
-  name: string;
-  offerCode: string;
-}
-
-/**
- * An introductory offer on a subscription. `territory` is the territory code it applies to, or null for
- * an all-territories offer — the reconciler's key (Apple permits at most one intro offer per territory).
- */
-export interface IntroductoryOfferResource {
-  id: string;
-  territory: string | null;
-}
-
-/** A win-back offer on a subscription, keyed by its stable `offerId`. */
-export interface WinBackOfferResource {
-  id: string;
-  offerId: string;
-}
-
-/**
- * A promoted purchase on an app's product page. Exactly one of `inAppPurchaseId` / `subscriptionId` is
- * set — the live *resource* id of the promoted product (not its `productId`); the reconciler maps config
- * `productId`s onto these via the subscription/IAP listings to find what's already promoted.
- */
-export interface PromotedPurchaseResource {
-  id: string;
-  inAppPurchaseId: string | null;
-  subscriptionId: string | null;
-  enabled: boolean;
-  visibleForAllUsers: boolean;
-}
-
-/** Create input for an offer-code campaign — prices already resolved to {@link ResolvedOfferPrice}s. */
-export interface OfferCodeCreate {
-  subscriptionId: string;
-  name: string;
-  customerEligibilities: OfferCustomerEligibility[];
-  offerEligibility: OfferEligibility;
-  duration: OfferDuration;
-  offerMode: OfferMode;
-  numberOfPeriods: number;
-  /** Empty for a `FREE_TRIAL` offer; otherwise one entry per declared territory. */
-  prices: ResolvedOfferPrice[];
-}
-
-/** Create input for a promotional offer — `offerCode` is the StoreKit-facing id; prices pre-resolved. */
-export interface PromotionalOfferCreate {
-  subscriptionId: string;
-  name: string;
-  offerCode: string;
-  duration: OfferDuration;
-  offerMode: OfferMode;
-  numberOfPeriods: number;
-  prices: ResolvedOfferPrice[];
-}
-
-/** Create input for an introductory offer — at most one per territory (null = all territories). */
-export interface IntroductoryOfferCreate {
-  subscriptionId: string;
-  duration: OfferDuration;
-  offerMode: OfferMode;
-  numberOfPeriods: number;
-  /** Resolved single-territory price, or null for a `FREE_TRIAL` (no price). */
-  price: ResolvedOfferPrice | null;
-  /** Territory the offer applies to, or null for all territories. */
-  territory: string | null;
-  startDate?: string;
-  endDate?: string;
-}
-
-/** Create input for a win-back offer — carries Apple's lapsed-customer eligibility windows. */
-export interface WinBackOfferCreate {
-  subscriptionId: string;
-  offerId: string;
-  referenceName: string;
-  duration: OfferDuration;
-  offerMode: OfferMode;
-  numberOfPeriods: number;
-  eligiblePaidMonths: number;
-  monthsSinceLastSubscribed: { min: number; max: number };
-  waitBetweenOffersMonths?: number;
-  startDate: string;
-  endDate?: string;
-  priority: 'HIGH' | 'NORMAL';
-  promotionIntent?: 'NOT_PROMOTED' | 'USE_AUTO_GENERATED_ASSETS';
-  prices: ResolvedOfferPrice[];
-}
-
-/** A promoted product to register — exactly one of the two ids is set (resolved from a config `productId`). */
-export interface PromotedPurchaseCreate {
-  appId: string;
-  inAppPurchaseId?: string;
-  subscriptionId?: string;
-  visibleForAllUsers: boolean;
-  enabled: boolean;
-}
-
-/**
- * An app's App Info record — the container that owns the App Store category relationships and the
- * age-rating declaration. An app can have more than one (a live one plus an editable one); the
- * reconciler edits the editable one, falling back to the first when no state is reported.
- */
-export interface AppInfoResource {
-  id: string;
-  /** Apple's editable-state hint (e.g. `PREPARE_FOR_SUBMISSION`), when the response carries one. */
-  state?: string;
-  /** Current primary App Store category id (an `appCategories` id such as `PRODUCTIVITY`), if set. */
-  primaryCategoryId?: string;
-  /** Current secondary App Store category id, if set. */
-  secondaryCategoryId?: string;
-}
-
-/** One age-rating answer: a content-descriptor enum string (`NONE` / `INFREQUENT_OR_MILD` / …) or a boolean flag. */
-export type AgeRatingValue = string | boolean;
-
-/**
- * An app's age-rating declaration. Apple's attribute set (content-descriptor enums like
- * `violenceCartoonOrFantasy`, plus booleans and age bands) changes over time, so the attributes are
- * carried as an open `name → value` map rather than a fixed shape: config supplies the answers verbatim
- * and the reconciler PATCHes only the ones that differ, so a new descriptor needs no code change here.
- */
-export interface AgeRatingDeclarationResource {
-  id: string;
-  attributes: Record<string, AgeRatingValue>;
-}
-
-/** The device families an accessibility declaration can target — Apple's `DeviceFamily` enum, restated for public signatures. */
-export type DeviceFamily = 'IPHONE' | 'IPAD' | 'APPLE_TV' | 'APPLE_WATCH' | 'MAC' | 'VISION';
-
-/** The ordered list of `DeviceFamily` values, for validating config and iterating. */
-export const DEVICE_FAMILIES: readonly DeviceFamily[] = [
-  'IPHONE',
-  'IPAD',
-  'APPLE_TV',
-  'APPLE_WATCH',
-  'MAC',
-  'VISION',
-];
-
-/**
- * The accessibility-support flags an accessibility declaration carries — the answers behind Apple's 2025
- * "Accessibility Nutrition Labels". Unlike the age-rating declaration's open map, Apple's accessibility
- * attribute set is a *fixed, enumerable* list of nine `supports*` booleans, so a typed shape is both safe
- * and honest here (a new flag is a deliberate Apple change, not silent config drift). Every flag is
- * optional: an omitted flag means "the app does not support this feature" — the reconciler normalizes
- * absent to `false` so diffs are deterministic.
- */
-export interface AccessibilitySupport {
-  supportsAudioDescriptions?: boolean;
-  supportsCaptions?: boolean;
-  supportsDarkInterface?: boolean;
-  supportsDifferentiateWithoutColorAlone?: boolean;
-  supportsLargerText?: boolean;
-  supportsReducedMotion?: boolean;
-  supportsSufficientContrast?: boolean;
-  supportsVoiceControl?: boolean;
-  supportsVoiceover?: boolean;
-}
-
-/** The nine `AccessibilitySupport` keys, used to diff a declaration against config and to build requests. */
-export const ACCESSIBILITY_SUPPORT_KEYS: readonly (keyof AccessibilitySupport)[] = [
-  'supportsAudioDescriptions',
-  'supportsCaptions',
-  'supportsDarkInterface',
-  'supportsDifferentiateWithoutColorAlone',
-  'supportsLargerText',
-  'supportsReducedMotion',
-  'supportsSufficientContrast',
-  'supportsVoiceControl',
-  'supportsVoiceover',
-];
-
-/**
- * One app's accessibility declaration for a single {@link DeviceFamily}. Apple keeps at most one live
- * declaration per family; `state` distinguishes a `DRAFT` (editable, not yet shown to users) from the
- * live `PUBLISHED` one and the `REPLACED` history a publish leaves behind.
- */
-export interface AccessibilityDeclarationResource {
-  id: string;
-  deviceFamily: DeviceFamily;
-  state: 'DRAFT' | 'PUBLISHED' | 'REPLACED';
-  support: AccessibilitySupport;
-}
-
 /** Apple's raw `accessibilityDeclarations` attribute bag — the support flags plus the family/state metadata. Internal to the read path. */
 interface AccessibilityDeclarationAttributes extends AccessibilitySupport {
   deviceFamily?: DeviceFamily;
   state?: AccessibilityDeclarationResource['state'];
-}
-
-/**
- * An app's store availability (Apple's v2 model): whether it auto-enables in territories Apple adds later,
- * plus the territory codes it's currently for sale in. `availableTerritories` holds Apple territory codes
- * (e.g. `USA`, `GBR`) — the `territories` resource ids, used directly when setting availability.
- */
-export interface AppAvailabilityResource {
-  id: string;
-  availableInNewTerritories: boolean;
-  availableTerritories: string[];
-}
-
-/** A custom product page — an alternate App Store listing (marketing variant), matched by its `name`. */
-export interface CustomProductPageResource {
-  id: string;
-  name: string;
-}
-
-/** One version of a custom product page; its localizations hang off it. `state` decides whether it's editable. */
-export interface CustomProductPageVersionResource {
-  id: string;
-  state: string;
-}
-
-/** One locale's custom-product-page copy. Launch writes the `promotionalText`; screenshots are out of scope. */
-export interface CustomProductPageLocalizationResource {
-  id: string;
-  locale: string;
-  promotionalText?: string;
-}
-
-/** A product-page A/B experiment (Apple's v2 model), matched by its `name`. */
-export interface VersionExperimentResource {
-  id: string;
-  name: string;
-  state: string;
-  trafficProportion?: number;
-}
-
-/** One treatment (variant arm) of a version experiment, matched by its `name`. */
-export interface ExperimentTreatmentResource {
-  id: string;
-  name: string;
-}
-
-/**
- * An app version's App Review details — the contact info and demo-account credentials Apple's reviewer
- * uses. Carried as an open attribute map for the same forward-compat reason as the age-rating
- * declaration. Note `demoAccountPassword` is write-only on Apple's side: it is never returned on a read
- * (so a change to the password alone can't be diffed) and Launch never logs it.
- */
-export interface AppStoreReviewDetailResource {
-  id: string;
-  attributes: Record<string, string | boolean>;
-}
-
-/** The App Clip card's call-to-action button — Apple's `AppClipAction` enum, restated for public signatures. */
-export type AppClipActionValue = 'OPEN' | 'VIEW' | 'PLAY';
-
-/**
- * An app's App Clip — the install-free slice launched from a link / NFC / App Clip Code. Created by
- * uploading a build with an App Clip target (Apple has no API to create one), so this is read-only; the
- * reconciler matches a config entry to a clip by its own `bundleId` and skips clips no build produced yet.
- */
-export interface AppClipResource {
-  id: string;
-  /** The clip's own bundle id (e.g. `com.acme.app.Clip`) — the key config entries are matched on. */
-  bundleId?: string;
-}
-
-/**
- * One default App Clip experience — the App Clip card configuration for a specific App Store version.
- * `action` is the card's call-to-action; `versionId` is the editable version it releases with (from the
- * `releaseWithAppStoreVersion` relationship), used to pick the experience for the version being prepared.
- */
-export interface AppClipDefaultExperienceResource {
-  id: string;
-  action?: string;
-  versionId?: string;
-}
-
-/** One locale of an App Clip's default experience — the card subtitle shown to users in that locale. */
-export interface AppClipLocalizationResource {
-  id: string;
-  locale: string;
-  subtitle?: string;
-}
-
-/**
- * One alternative-distribution domain — a domain the team is authorized to distribute apps from under
- * the EU DMA (web distribution / alternative marketplaces). Team-level, not per-app; matched to config
- * on `domain`.
- */
-export interface AlternativeDistributionDomainResource {
-  id: string;
-  domain?: string;
-  referenceName?: string;
-}
-
-/**
- * The team's alternative-distribution **public** key — the package-signing key Apple verifies EU
- * distribution packages against (the developer keeps the private half). Not a secret; registered once
- * at the team level.
- */
-export interface AlternativeDistributionKeyResource {
-  id: string;
-  publicKey?: string;
-}
-
-/**
- * An Apple Pay **merchant id** (e.g. `merchant.com.acme.app`) registered on the team. Team-level, like a
- * bundle id; matched to config on `identifier`. (Its payment-processing certificate is a separate flow.)
- */
-export interface MerchantIdResource {
-  id: string;
-  identifier?: string;
-  name?: string;
-}
-
-/**
- * A Wallet **pass type id** (e.g. `pass.com.acme.coupon`) registered on the team — the identifier a
- * `.pkpass` is signed against. Team-level; matched to config on `identifier`.
- */
-export interface PassTypeIdResource {
-  id: string;
-  identifier?: string;
-  name?: string;
-}
-
-/**
- * Apple's leaderboard score formatters — the closed enum a leaderboard's `defaultFormatter` must be.
- * `satisfies` keeps this runtime list in lockstep with the generated OpenAPI enum: drift fails the build.
- */
-export const LEADERBOARD_FORMATTERS = [
-  'INTEGER',
-  'DECIMAL_POINT_1_PLACE',
-  'DECIMAL_POINT_2_PLACE',
-  'DECIMAL_POINT_3_PLACE',
-  'ELAPSED_TIME_CENTISECOND',
-  'ELAPSED_TIME_MINUTE',
-  'ELAPSED_TIME_SECOND',
-  'MONEY_POUND_DECIMAL',
-  'MONEY_POUND',
-  'MONEY_DOLLAR_DECIMAL',
-  'MONEY_DOLLAR',
-  'MONEY_EURO_DECIMAL',
-  'MONEY_EURO',
-  'MONEY_FRANC_DECIMAL',
-  'MONEY_FRANC',
-  'MONEY_KRONER_DECIMAL',
-  'MONEY_KRONER',
-  'MONEY_YEN',
-] as const satisfies readonly components['schemas']['GameCenterLeaderboardFormatter'][];
-
-/** One of Apple's leaderboard score formatters. */
-export type LeaderboardFormatter = (typeof LEADERBOARD_FORMATTERS)[number];
-
-/** How a leaderboard score is aggregated and sorted — Apple's two closed enums, restated for config. */
-export type LeaderboardSubmissionType = 'BEST_SCORE' | 'MOST_RECENT_SCORE';
-export type LeaderboardSortType = 'ASC' | 'DESC';
-
-/** An app's Game Center configuration container (read-only attributes; created to enable Game Center). */
-export interface GameCenterDetailResource {
-  id: string;
-}
-
-/** A Game Center achievement, identified for config matching by its developer-chosen `vendorIdentifier`. */
-export interface GameCenterAchievementResource {
-  id: string;
-  vendorIdentifier?: string;
-}
-
-/** A Game Center leaderboard, identified for config matching by its developer-chosen `vendorIdentifier`. */
-export interface GameCenterLeaderboardResource {
-  id: string;
-  vendorIdentifier?: string;
-}
-
-/** Attributes for creating a Game Center achievement (mirrors Apple's `GameCenterAchievementV2CreateRequest`). */
-export interface GameCenterAchievementCreate {
-  referenceName: string;
-  vendorIdentifier: string;
-  points: number;
-  showBeforeEarned: boolean;
-  repeatable: boolean;
-}
-
-/** Attributes for creating a Game Center leaderboard (mirrors Apple's `GameCenterLeaderboardV2CreateRequest`). */
-export interface GameCenterLeaderboardCreate {
-  referenceName: string;
-  vendorIdentifier: string;
-  defaultFormatter: LeaderboardFormatter;
-  submissionType: LeaderboardSubmissionType;
-  scoreSortType: LeaderboardSortType;
 }
 
 interface ResourceList<A> {
