@@ -29,7 +29,13 @@ The **types module** defines every domain shape and the provider interfaces: the
 barrel re-exports `src/core/types/*.ts`, split by concern (`app`, `catalog`, `storeSurface`, `config`,
 `credentials`, `artifacts`, `providers`, `remote`, `vitals`). Add or change a shape in the matching
 `types/*.ts` module, not inline in a feature file; the barrel keeps every
-`import … from "../core/types.js"` working unchanged, so don't add declarations to it. `src/core/glossary.ts`
+`import … from "../core/types.js"` working unchanged, so don't add declarations to it. The same
+barrel pattern governs the **App Store Connect wire types** — the `*Resource` / `*Query` shapes the
+client reads and writes live in `src/apple/ascResources.ts`, and `src/apple/ascClient.ts` re-exports
+them with `export *`, so `import … from "../apple/ascClient.js"` keeps resolving every ASC type
+unchanged. Add a new ASC shape to `ascResources.ts`; keep `ascClient.ts` to its transport core and the
+`AppStoreConnectClient` class. (Older ADRs say "ASC wire types in `ascClient.ts`" — that predates the
+split and means the import surface, which is unchanged.) `src/core/glossary.ts`
 is the single source for teaching text — it feeds both `launch explain` and the `--explain` step
 expansions; never duplicate those strings elsewhere.
 
