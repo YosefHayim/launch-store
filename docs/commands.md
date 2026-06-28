@@ -14,12 +14,12 @@ scaffold launch.config.ts (and .env.example) into the current repo
 
 onboard an app that already ships: import its App Store Connect setup into config
 
-| Flag                | Description                                                         |
-| ------------------- | ------------------------------------------------------------------- |
-| `--all`             | adopt every discovered app (the default when --app is omitted)      |
+| Flag | Description |
+| --- | --- |
+| `--all` | adopt every discovered app (the default when --app is omitted) |
 | `-a, --app <names>` | comma-separated app handles to adopt (default: all discovered apps) |
-| `--dry-run`         | print the plan and exit, importing nothing                          |
-| `-y, --yes`         | skip the confirmation prompt (for CI)                               |
+| `--dry-run` | print the plan and exit, importing nothing |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ## `launch migrate`
 
@@ -29,20 +29,20 @@ import an existing EAS or fastlane setup into a Launch config
 
 read eas.json/app.json and emit launch.config.ts, .env.example, store.config.json + a report
 
-| Flag          | Description                                                             |
-| ------------- | ----------------------------------------------------------------------- |
-| `--force`     | overwrite files that already exist                                      |
-| `--dry-run`   | print what would be written without writing anything                    |
+| Flag | Description |
+| --- | --- |
+| `--force` | overwrite files that already exist |
+| `--dry-run` | print what would be written without writing anything |
 | `--out <dir>` | write the migrated files to this directory (default: current directory) |
 
 ### `launch migrate fastlane`
 
 read fastlane config (Appfile/Fastfile/Matchfile…) and emit launch.config.ts, .env.example, store.config.json + a report
 
-| Flag          | Description                                                             |
-| ------------- | ----------------------------------------------------------------------- |
-| `--force`     | overwrite files that already exist                                      |
-| `--dry-run`   | print what would be written without writing anything                    |
+| Flag | Description |
+| --- | --- |
+| `--force` | overwrite files that already exist |
+| `--dry-run` | print what would be written without writing anything |
 | `--out <dir>` | write the migrated files to this directory (default: current directory) |
 
 ### `launch migrate help [command]`
@@ -57,8 +57,8 @@ work with the launch.config.ts schema — emit JSON Schema, validate a config, o
 
 print the JSON Schema for launch.config.ts (generated from the config types)
 
-| Flag           | Description                                     |
-| -------------- | ----------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `--out <file>` | write the schema to this file instead of stdout |
 
 ### `launch config validate [file]`
@@ -77,136 +77,136 @@ display help for command
 
 run the full pipeline and upload to the testing track (--no-submit to build only)
 
-| Flag                    | Description                                                                                                       |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `-p, --profile <name>`  | build profile                                                                                                     |
-| `-a, --app <name>`      | app handle (auto-selected if there's only one)                                                                    |
-| `--account <name>`      | iOS only — Apple account to build with: label or Key ID (default: active)                                         |
-| `--explain`             | expand each step into a plain-English teaching block                                                              |
-| `--no-submit`           | build only; do not upload                                                                                         |
-| `--remote [target]`     | iOS only — build on a remote Mac: 'aws' (default) or user@host over SSH                                           |
-| `--distribution <mode>` | store (default, TestFlight/Play) or internal (ad-hoc install link)                                                |
-| `--bump <kind>`         | iOS only — version bump: patch\|minor\|major\|keep (default: last used, else prompt) or 'ask' to force the prompt |
-| `--track <track>`       | Android only — Play track: internal\|closed\|open\|production (default: internal)                                 |
-| `--rollout <fraction>`  | Android only — staged-rollout fraction for production (default: 1.0)                                              |
-| `--size-budget <MB>`    | override the profile soft size budget for this build only (MB, e.g. 250)                                          |
-| `--budget <MB>`         | alias of --size-budget                                                                                            |
-| `--clean`               | force a from-scratch build (default: fast incremental, clean only when native deps change)                        |
-| `--dry-run`             | rehearse every step and print what it would do, changing nothing                                                  |
-| `-y, --yes`             | skip the pre-upload size confirmation (auto-confirm)                                                              |
-| `-v, --verbose`         | stream the full xcodebuild/gradle output instead of a progress spinner                                            |
-| `--env <KEY=VALUE>`     | inline env override (repeatable); highest precedence                                                              |
-| `--include-local`       | also load .env.local (off by default to avoid surprise local env)                                                 |
-| `--print-env`           | print the resolved env (masked) with its sources, then exit without running                                       |
+| Flag | Description |
+| --- | --- |
+| `-p, --profile <name>` | build profile |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
+| `--account <name>` | iOS only — Apple account to build with: label or Key ID (default: active) |
+| `--explain` | expand each step into a plain-English teaching block |
+| `--no-submit` | build only; do not upload |
+| `--remote [target]` | iOS only — build on a remote Mac: 'aws' (default) or user@host over SSH |
+| `--distribution <mode>` | store (default, TestFlight/Play) or internal (ad-hoc install link) |
+| `--bump <kind>` | iOS only — version bump: patch\|minor\|major\|keep (default: last used, else prompt) or 'ask' to force the prompt |
+| `--track <track>` | Android only — Play track: internal\|closed\|open\|production (default: internal) |
+| `--rollout <fraction>` | Android only — staged-rollout fraction for production (default: 1.0) |
+| `--size-budget <MB>` | override the profile soft size budget for this build only (MB, e.g. 250) |
+| `--budget <MB>` | alias of --size-budget |
+| `--clean` | force a from-scratch build (default: fast incremental, clean only when native deps change) |
+| `--dry-run` | rehearse every step and print what it would do, changing nothing |
+| `-y, --yes` | skip the pre-upload size confirmation (auto-confirm) |
+| `-v, --verbose` | stream the full xcodebuild/gradle output instead of a progress spinner |
+| `--env <KEY=VALUE>` | inline env override (repeatable); highest precedence |
+| `--include-local` | also load .env.local (off by default to avoid surprise local env) |
+| `--print-env` | print the resolved env (masked) with its sources, then exit without running |
 
 ## `launch release <platform>`
 
 submit the latest build to the store's PUBLIC production track (with confirmation)
 
-| Flag                   | Description                                                                              |
-| ---------------------- | ---------------------------------------------------------------------------------------- |
-| `-a, --app <name>`     | app handle                                                                               |
-| `-p, --profile <name>` | build profile                                                                            |
-| `--account <id>`       | iOS only — Apple account label or Key ID (default: ASC_ACCOUNT, then the active account) |
-| `--rollout <fraction>` | Android only — staged-rollout fraction (default: 1.0)                                    |
-| `--build <n>`          | iOS only — promote an existing build number, or "latest", instead of uploading           |
-| `--upload`             | iOS only — upload the latest local build (skip the upload-vs-promote picker)             |
-| `--no-wait`            | iOS only — after uploading, return without waiting for processing/submit                 |
-| `--manual`             | iOS only — hold the approved build for manual release                                    |
-| `--scheduled <iso>`    | iOS only — schedule the go-live at an ISO-8601 instant                                   |
-| `--phased`             | iOS only — opt into Apple's 7-day phased rollout                                         |
-| `--dry-run`            | iOS only — print the release plan (touches nothing) and exit                             |
-| `--create-app`         | iOS only — show the one-time App Store Connect setup checklist and exit                  |
-| `--explain`            | expand each step                                                                         |
-| `--env <KEY=VALUE>`    | inline env override (repeatable); highest precedence                                     |
-| `--include-local`      | also load .env.local (off by default to avoid surprise local env)                        |
-| `--print-env`          | print the resolved env (masked) with its sources, then exit without running              |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app handle |
+| `-p, --profile <name>` | build profile |
+| `--account <id>` | iOS only — Apple account label or Key ID (default: ASC_ACCOUNT, then the active account) |
+| `--rollout <fraction>` | Android only — staged-rollout fraction (default: 1.0) |
+| `--build <n>` | iOS only — promote an existing build number, or "latest", instead of uploading |
+| `--upload` | iOS only — upload the latest local build (skip the upload-vs-promote picker) |
+| `--no-wait` | iOS only — after uploading, return without waiting for processing/submit |
+| `--manual` | iOS only — hold the approved build for manual release |
+| `--scheduled <iso>` | iOS only — schedule the go-live at an ISO-8601 instant |
+| `--phased` | iOS only — opt into Apple's 7-day phased rollout |
+| `--dry-run` | iOS only — print the release plan (touches nothing) and exit |
+| `--create-app` | iOS only — show the one-time App Store Connect setup checklist and exit |
+| `--explain` | expand each step |
+| `--env <KEY=VALUE>` | inline env override (repeatable); highest precedence |
+| `--include-local` | also load .env.local (off by default to avoid surprise local env) |
+| `--print-env` | print the resolved env (masked) with its sources, then exit without running |
 
 ## `launch status`
 
 show each app's App Store version, review, and phased-rollout state
 
-| Flag                | Description                                         |
-| ------------------- | --------------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <names>` | comma-separated app handles (default: all iOS apps) |
-| `--watch`           | poll until the review reaches a terminal verdict    |
-| `--json`            | machine-readable output for CI                      |
+| `--watch` | poll until the review reaches a terminal verdict |
+| `--json` | machine-readable output for CI |
 
 ## `launch open [target]`
 
 deep-link the app's App Store Connect / Play Console page in your browser
 
-| Flag                    | Description                                                           |
-| ----------------------- | --------------------------------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `--platform <platform>` | ios/tvos/macos/visionos (App Store Connect) or android (Play Console) |
-| `-a, --app <name>`      | app handle to open (default: the first app for the platform)          |
+| `-a, --app <name>` | app handle to open (default: the first app for the platform) |
 
 ## `launch dashboard`
 
 serve a local, read-only web UI over your apps, builds, accounts, and secrets
 
-| Flag            | Description                                            |
-| --------------- | ------------------------------------------------------ |
-| `--host <host>` | interface to bind                                      |
-| `--port <port>` | port to bind                                           |
-| `--json`        | print the dashboard state as JSON and exit (no server) |
+| Flag | Description |
+| --- | --- |
+| `--host <host>` | interface to bind |
+| `--port <port>` | port to bind |
+| `--json` | print the dashboard state as JSON and exit (no server) |
 
 ## `launch release-train [action] [id]`
 
 coordinate an app's iOS + Android + OTA release as one resumable record (ADR 0004)
 
-| Flag                    | Description                                                                 |
-| ----------------------- | --------------------------------------------------------------------------- |
-| `-a, --app <name>`      | app handle (auto-selected if there's only one)                              |
-| `-p, --profile <name>`  | build profile whose env feeds the Android submit + OTA export               |
-| `--platform <p>`        | start: restrict to one native platform (ios or android)                     |
-| `--no-ota`              | start: coordinate the native legs only (no OTA followers)                   |
-| `--hold`                | start: hold every car until all are approved, then release together         |
-| `--channel <name>`      | start: OTA channel the followers publish to                                 |
-| `--runtime-version <v>` | start: runtime version OTA followers target (default: from app config)      |
-| `--watch`               | status: poll until the train settles                                        |
-| `--json`                | machine-readable output for CI/agents                                       |
-| `--env <KEY=VALUE>`     | inline env override (repeatable); highest precedence                        |
-| `--include-local`       | also load .env.local (off by default to avoid surprise local env)           |
-| `--print-env`           | print the resolved env (masked) with its sources, then exit without running |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
+| `-p, --profile <name>` | build profile whose env feeds the Android submit + OTA export |
+| `--platform <p>` | start: restrict to one native platform (ios or android) |
+| `--no-ota` | start: coordinate the native legs only (no OTA followers) |
+| `--hold` | start: hold every car until all are approved, then release together |
+| `--channel <name>` | start: OTA channel the followers publish to |
+| `--runtime-version <v>` | start: runtime version OTA followers target (default: from app config) |
+| `--watch` | status: poll until the train settles |
+| `--json` | machine-readable output for CI/agents |
+| `--env <KEY=VALUE>` | inline env override (repeatable); highest precedence |
+| `--include-local` | also load .env.local (off by default to avoid surprise local env) |
+| `--print-env` | print the resolved env (masked) with its sources, then exit without running |
 
 ## `launch rollout <action>`
 
 steer an iOS phased release: pause | resume | complete
 
-| Flag                | Description                                         |
-| ------------------- | --------------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <names>` | comma-separated app handles (default: all iOS apps) |
 
 ## `launch creds [action] [value] [value2]`
 
 inspect credentials, onboard/switch Apple accounts, or provision signing assets
 
-| Flag                  | Description                                                                       |
-| --------------------- | --------------------------------------------------------------------------------- |
-| `--platform <p>`      | ios (default), android, tvos, macos, or visionos                                  |
-| `--key-id <id>`       | iOS: App Store Connect Key ID (else read from the AuthKey\_\*.p8 filename)        |
-| `--issuer-id <id>`    | iOS: Issuer ID UUID (else ASC_ISSUER_ID, else prompted)                           |
-| `--p8 <path>`         | iOS: path to the .p8 (else auto-discovered in ~/Downloads, else ASC_API_KEY_PATH) |
-| `--label <name>`      | iOS set-key: human label for the account (else prompted, else the Key ID)         |
-| `--account <name>`    | iOS setup: account to provision against (label or Key ID; default: active)        |
-| `--import <keystore>` | Android setup: import an existing upload keystore instead of generating one       |
-| `--alias <alias>`     | Android setup: key alias inside the imported keystore                             |
-| `--team-id <id>`      | push-key import: Apple Team ID for the APNs key (default: active account's team)  |
-| `--out <path>`        | push-key export: file path to write the .p8 to                                    |
-| `--force`             | push-key export: overwrite the output file if it already exists                   |
-| `--yes`               | non-interactive: fail instead of prompting (CI, remote, agents)                   |
+| Flag | Description |
+| --- | --- |
+| `--platform <p>` | ios (default), android, tvos, macos, or visionos |
+| `--key-id <id>` | iOS: App Store Connect Key ID (else read from the AuthKey_*.p8 filename) |
+| `--issuer-id <id>` | iOS: Issuer ID UUID (else ASC_ISSUER_ID, else prompted) |
+| `--p8 <path>` | iOS: path to the .p8 (else auto-discovered in ~/Downloads, else ASC_API_KEY_PATH) |
+| `--label <name>` | iOS set-key: human label for the account (else prompted, else the Key ID) |
+| `--account <name>` | iOS setup: account to provision against (label or Key ID; default: active) |
+| `--import <keystore>` | Android setup: import an existing upload keystore instead of generating one |
+| `--alias <alias>` | Android setup: key alias inside the imported keystore |
+| `--team-id <id>` | push-key import: Apple Team ID for the APNs key (default: active account's team) |
+| `--out <path>` | push-key export: file path to write the .p8 to |
+| `--force` | push-key export: overwrite the output file if it already exists |
+| `--yes` | non-interactive: fail instead of prompting (CI, remote, agents) |
 
 ## `launch secret [action] [name]`
 
 manage keychain-backed build secrets (set/list/rm) instead of plaintext .env
 
-| Flag                   | Description                                                          |
-| ---------------------- | -------------------------------------------------------------------- |
-| `-a, --app <name>`     | app to scope the secret to (default: the sole app, or prompt)        |
-| `-p, --profile <name>` | profile to scope to (default: all profiles)                          |
-| `--value <value>`      | set: the secret value (else prompted; required when non-interactive) |
-| `--yes`                | non-interactive: fail instead of prompting (CI, remote, agents)      |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app to scope the secret to (default: the sole app, or prompt) |
+| `-p, --profile <name>` | profile to scope to (default: all profiles) |
+| `--value <value>` | set: the secret value (else prompted; required when non-interactive) |
+| `--yes` | non-interactive: fail instead of prompting (CI, remote, agents) |
 
 ## `launch metadata`
 
@@ -216,23 +216,23 @@ sync the store listing (name, description, keywords, screenshots) via store.conf
 
 download the live store listing into store.config.json
 
-| Flag               | Description                                                  |
-| ------------------ | ------------------------------------------------------------ |
-| `--platform <p>`   | ios (default) or android                                     |
-| `-a, --app <name>` | app handle (auto-selected if there's only one)               |
-| `--config <path>`  | path to store.config.json (default: <app>/store.config.json) |
-| `--dry-run`        | rehearse without contacting the store                        |
+| Flag | Description |
+| --- | --- |
+| `--platform <p>` | ios (default) or android |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
+| `--config <path>` | path to store.config.json (default: <app>/store.config.json) |
+| `--dry-run` | rehearse without contacting the store |
 
 ### `launch metadata push`
 
 upload store.config.json to the store listing (metadata only; no binary)
 
-| Flag               | Description                                                                         |
-| ------------------ | ----------------------------------------------------------------------------------- |
-| `--platform <p>`   | ios (default) or android                                                            |
-| `-a, --app <name>` | app handle (auto-selected if there's only one)                                      |
-| `--config <path>`  | path to store.config.json (default: <app>/store.config.json)                        |
-| `--dry-run`        | rehearse: write the fastlane metadata folders and print the command, upload nothing |
+| Flag | Description |
+| --- | --- |
+| `--platform <p>` | ios (default) or android |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
+| `--config <path>` | path to store.config.json (default: <app>/store.config.json) |
+| `--dry-run` | rehearse: write the fastlane metadata folders and print the command, upload nothing |
 
 ### `launch metadata help [command]`
 
@@ -242,68 +242,68 @@ display help for command
 
 reconcile App Store Connect products (capabilities, IAPs, subscriptions, pricing), store-listing copy, screenshots, and app previews from config
 
-| Flag                  | Description                                                                    |
-| --------------------- | ------------------------------------------------------------------------------ |
-| `-a, --app <names>`   | comma-separated app handles to sync (default: all apps with something to sync) |
-| `--dry-run`           | print the plan and exit, making no changes                                     |
-| `--allow-destructive` | permit destructive actions such as removing a capability                       |
-| `-y, --yes`           | skip the confirmation prompt (for CI)                                          |
-| `--no-snapshot`       | skip the automatic pre-sync snapshot baseline                                  |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <names>` | comma-separated app handles to sync (default: all apps with something to sync) |
+| `--dry-run` | print the plan and exit, making no changes |
+| `--allow-destructive` | permit destructive actions such as removing a capability |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
+| `--no-snapshot` | skip the automatic pre-sync snapshot baseline |
 
 ## `launch plan [surface]`
 
 diff launch.config against live store state (read-only): capabilities, IAPs, subscriptions, pricing
 
-| Flag                | Description                                                    |
-| ------------------- | -------------------------------------------------------------- |
-| `-a, --app <names>` | comma-separated app handles (default: all apps)                |
-| `--check`           | exit 2 when drift is present (CI gate); same as `launch drift` |
-| `--json`            | machine-readable output for CI/agents                          |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <names>` | comma-separated app handles (default: all apps) |
+| `--check` | exit 2 when drift is present (CI gate); same as `launch drift` |
+| `--json` | machine-readable output for CI/agents |
 
 ## `launch drift [surface]`
 
 fail when live store state has drifted from launch.config (alias for `launch plan --check`)
 
-| Flag                | Description                                     |
-| ------------------- | ----------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <names>` | comma-separated app handles (default: all apps) |
-| `--json`            | machine-readable output for CI/agents           |
+| `--json` | machine-readable output for CI/agents |
 
 ## `launch offers`
 
 reconcile subscription offers (codes, promo/intro/win-back) and promoted-purchase order from config
 
-| Flag                | Description                                                          |
-| ------------------- | -------------------------------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <names>` | comma-separated app handles (default: all apps with offers declared) |
-| `--dry-run`         | print the plan and exit, making no changes                           |
-| `-y, --yes`         | skip the confirmation prompt (for CI)                                |
+| `--dry-run` | print the plan and exit, making no changes |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ### `launch offers generate-codes <productId> <offerName>`
 
 generate redeemable codes under an existing offer-code campaign
 
-| Flag                   | Description                                                                    |
-| ---------------------- | ------------------------------------------------------------------------------ |
-| `-a, --app <name>`     | app handle (default: the only app)                                             |
-| `-n, --count <number>` | how many codes to generate                                                     |
-| `-e, --expires <date>` | expiration date (YYYY-MM-DD); required for one-time-use codes                  |
-| `--custom <code>`      | create one shareable custom code with this value instead of one-time-use codes |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app handle (default: the only app) |
+| `-n, --count <number>` | how many codes to generate |
+| `-e, --expires <date>` | expiration date (YYYY-MM-DD); required for one-time-use codes |
+| `--custom <code>` | create one shareable custom code with this value instead of one-time-use codes |
 
 ### `launch offers list <productId>`
 
 list a subscription's offer-code campaigns and their states
 
-| Flag               | Description                        |
-| ------------------ | ---------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <name>` | app handle (default: the only app) |
 
 ### `launch offers deactivate <productId> <offerName>`
 
 deactivate an offer-code campaign (its terms can't be edited, only switched off)
 
-| Flag               | Description                        |
-| ------------------ | ---------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <name>` | app handle (default: the only app) |
 
 ## `launch ai`
@@ -314,34 +314,34 @@ AI-assisted authoring for your store presence
 
 draft App Store / Play listing copy with AI into store.config.json (review with `launch plan`)
 
-| Flag               | Description                                                               |
-| ------------------ | ------------------------------------------------------------------------- |
-| `-a, --app <name>` | app handle (auto-selected if there's only one)                            |
-| `--locale <list>`  | comma-separated locales (default: existing App Store locales, else en-US) |
-| `--about <text>`   | a short description of the app to seed the copy                           |
-| `--platform <p>`   | ios (default), android, or all                                            |
-| `--model <id>`     | Anthropic model id (default: claude-sonnet-4-6 or $LAUNCH_AI_MODEL)       |
-| `--config <path>`  | path to store.config.json (default: <app>/store.config.json)              |
-| `--dry-run`        | generate and preview, but write nothing                                   |
-| `-y, --yes`        | skip the confirmation prompt (for CI)                                     |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
+| `--locale <list>` | comma-separated locales (default: existing App Store locales, else en-US) |
+| `--about <text>` | a short description of the app to seed the copy |
+| `--platform <p>` | ios (default), android, or all |
+| `--model <id>` | Anthropic model id (default: claude-sonnet-4-6 or $LAUNCH_AI_MODEL) |
+| `--config <path>` | path to store.config.json (default: <app>/store.config.json) |
+| `--dry-run` | generate and preview, but write nothing |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ### `launch ai screenshots`
 
 enhance your real screenshots into store-ready ones with genshot (review with `launch plan screenshots`)
 
-| Flag                    | Description                                                                           |
-| ----------------------- | ------------------------------------------------------------------------------------- |
-| `-a, --app <name>`      | app handle (auto-selected if there's only one)                                        |
-| `--brief <text>`        | a short description of the app to steer the enhancement                               |
-| `--locale <list>`       | comma-separated locales (default: the locales of your source screenshots, else en-US) |
-| `--platform <p>`        | ios, android, or all (default)                                                        |
-| `--in <dir>`            | directory of real source screenshots to enhance (default: <app>/screenshots)          |
-| `--captions <list>`     | comma-separated captions, one per shot (omit to let genshot write them)               |
-| `--device-types <list>` | comma-separated target slots (default: the modern iPhone/iPad + Play phone set)       |
-| `--out <dir>`           | where to promote approved screenshots (default: <app>/screenshots)                    |
-| `--genshot-bin <path>`  | path to the genshot CLI (default: genshot on PATH)                                    |
-| `--dry-run`             | enhance and preview, but promote nothing                                              |
-| `-y, --yes`             | skip the confirmation prompt (for CI)                                                 |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
+| `--brief <text>` | a short description of the app to steer the enhancement |
+| `--locale <list>` | comma-separated locales (default: the locales of your source screenshots, else en-US) |
+| `--platform <p>` | ios, android, or all (default) |
+| `--in <dir>` | directory of real source screenshots to enhance (default: <app>/screenshots) |
+| `--captions <list>` | comma-separated captions, one per shot (omit to let genshot write them) |
+| `--device-types <list>` | comma-separated target slots (default: the modern iPhone/iPad + Play phone set) |
+| `--out <dir>` | where to promote approved screenshots (default: <app>/screenshots) |
+| `--genshot-bin <path>` | path to the genshot CLI (default: genshot on PATH) |
+| `--dry-run` | enhance and preview, but promote nothing |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ### `launch ai help [command]`
 
@@ -355,30 +355,30 @@ read App Store customer reviews and reply from the CLI
 
 list an app's customer reviews, newest first
 
-| Flag                 | Description                                      |
-| -------------------- | ------------------------------------------------ |
-| `-a, --app <name>`   | app handle (auto-selected if there's only one)   |
-| `--rating <1-5>`     | only show reviews with this star rating          |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
+| `--rating <1-5>` | only show reviews with this star rating |
 | `--territory <code>` | only show reviews from this territory (e.g. USA) |
-| `--unanswered`       | only show reviews without a developer response   |
-| `--json`             | output machine-readable JSON                     |
+| `--unanswered` | only show reviews without a developer response |
+| `--json` | output machine-readable JSON |
 
 ### `launch reviews reply <reviewId>`
 
 post (or replace) the developer response to a review
 
-| Flag                   | Description                           |
-| ---------------------- | ------------------------------------- |
-| `-m, --message <text>` | the reply text                        |
-| `--file <path>`        | read the reply text from a file       |
-| `-y, --yes`            | skip the confirmation prompt (for CI) |
+| Flag | Description |
+| --- | --- |
+| `-m, --message <text>` | the reply text |
+| `--file <path>` | read the reply text from a file |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ### `launch reviews delete <reviewId>`
 
 delete the developer response to a review
 
-| Flag        | Description                           |
-| ----------- | ------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ### `launch reviews help [command]`
@@ -393,44 +393,44 @@ download App Store Connect sales, finance & analytics reports
 
 download a Sales & Trends report (gzipped TSV)
 
-| Flag                  | Description                                                         |
-| --------------------- | ------------------------------------------------------------------- |
-| `--vendor-number <n>` | vendor number (or set ASC_VENDOR_NUMBER)                            |
-| `--date <date>`       | report date; format follows --frequency (e.g. 2026-06-01 for DAILY) |
-| `--from <date>`       | start of a DAILY date range (with --to)                             |
-| `--to <date>`         | end of a DAILY date range (with --from)                             |
-| `--frequency <f>`     | DAILY \| WEEKLY \| MONTHLY \| YEARLY                                |
-| `--report-type <t>`   | SALES \| SUBSCRIPTION \| SUBSCRIBER \| …                            |
-| `--sub-type <s>`      | SUMMARY \| DETAILED                                                 |
-| `--out <dir>`         | directory to write the report(s) into                               |
-| `--json`              | parse the TSV and write JSON instead of the raw .tsv                |
+| Flag | Description |
+| --- | --- |
+| `--vendor-number <n>` | vendor number (or set ASC_VENDOR_NUMBER) |
+| `--date <date>` | report date; format follows --frequency (e.g. 2026-06-01 for DAILY) |
+| `--from <date>` | start of a DAILY date range (with --to) |
+| `--to <date>` | end of a DAILY date range (with --from) |
+| `--frequency <f>` | DAILY \| WEEKLY \| MONTHLY \| YEARLY |
+| `--report-type <t>` | SALES \| SUBSCRIPTION \| SUBSCRIBER \| … |
+| `--sub-type <s>` | SUMMARY \| DETAILED |
+| `--out <dir>` | directory to write the report(s) into |
+| `--json` | parse the TSV and write JSON instead of the raw .tsv |
 
 ### `launch reports finance`
 
 download a Finance report for a fiscal period (gzipped TSV)
 
-| Flag                  | Description                                          |
-| --------------------- | ---------------------------------------------------- |
-| `--vendor-number <n>` | vendor number (or set ASC_VENDOR_NUMBER)             |
-| `--date <YYYY-MM>`    | fiscal period, e.g. 2026-05                          |
-| `--region <code>`     | region code: ZZ (all) or a specific one like US      |
-| `--report-type <t>`   | FINANCE_DETAIL \| FINANCIAL                          |
-| `--out <dir>`         | directory to write the report into                   |
-| `--json`              | parse the TSV and write JSON instead of the raw .tsv |
+| Flag | Description |
+| --- | --- |
+| `--vendor-number <n>` | vendor number (or set ASC_VENDOR_NUMBER) |
+| `--date <YYYY-MM>` | fiscal period, e.g. 2026-05 |
+| `--region <code>` | region code: ZZ (all) or a specific one like US |
+| `--report-type <t>` | FINANCE_DETAIL \| FINANCIAL |
+| `--out <dir>` | directory to write the report into |
+| `--json` | parse the TSV and write JSON instead of the raw .tsv |
 
 ### `launch reports analytics`
 
 request + download App Store Connect Analytics reports
 
-| Flag                  | Description                                                                     |
-| --------------------- | ------------------------------------------------------------------------------- |
-| `-a, --app <name>`    | app handle (auto-selected if there's only one)                                  |
-| `--access-type <t>`   | ONGOING \| ONE_TIME_SNAPSHOT                                                    |
-| `--category <c>`      | APP_USAGE \| APP_STORE_ENGAGEMENT \| COMMERCE \| FRAMEWORK_USAGE \| PERFORMANCE |
-| `--name <name>`       | filter to one report by exact name                                              |
-| `--granularity <g>`   | DAILY \| WEEKLY \| MONTHLY                                                      |
-| `--date <YYYY-MM-DD>` | limit to instances covering this processing date                                |
-| `--out <dir>`         | directory to write the report(s) into                                           |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
+| `--access-type <t>` | ONGOING \| ONE_TIME_SNAPSHOT |
+| `--category <c>` | APP_USAGE \| APP_STORE_ENGAGEMENT \| COMMERCE \| FRAMEWORK_USAGE \| PERFORMANCE |
+| `--name <name>` | filter to one report by exact name |
+| `--granularity <g>` | DAILY \| WEEKLY \| MONTHLY |
+| `--date <YYYY-MM-DD>` | limit to instances covering this processing date |
+| `--out <dir>` | directory to write the report(s) into |
 
 ### `launch reports help [command]`
 
@@ -440,10 +440,10 @@ display help for command
 
 aggregate rating & review trends across the App Store and Play (read-only)
 
-| Flag                | Description                                     |
-| ------------------- | ----------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <names>` | comma-separated app handles (default: all apps) |
-| `--json`            | machine-readable output for CI/agents           |
+| `--json` | machine-readable output for CI/agents |
 
 ## `launch team`
 
@@ -453,28 +453,28 @@ read and manage the App Store Connect team (members & invitations) from the CLI
 
 list team members and pending invitations
 
-| Flag     | Description                  |
-| -------- | ---------------------------- |
+| Flag | Description |
+| --- | --- |
 | `--json` | output machine-readable JSON |
 
 ### `launch team invite <email>`
 
 invite a new team member by email
 
-| Flag             | Description                                        |
-| ---------------- | -------------------------------------------------- |
-| `--first <name>` | the invitee's first name                           |
-| `--last <name>`  | the invitee's last name                            |
+| Flag | Description |
+| --- | --- |
+| `--first <name>` | the invitee's first name |
+| `--last <name>` | the invitee's last name |
 | `--role <roles>` | comma-separated roles (e.g. DEVELOPER,APP_MANAGER) |
-| `--provisioning` | allow the member to create signing assets          |
-| `-y, --yes`      | skip the confirmation prompt (for CI)              |
+| `--provisioning` | allow the member to create signing assets |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ### `launch team remove <email>`
 
 remove a team member or cancel a pending invitation, by email
 
-| Flag        | Description                           |
-| ----------- | ------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ### `launch team help [command]`
@@ -485,33 +485,33 @@ display help for command
 
 reconcile App Store release attributes (age rating, categories, price, review details) from release.config.json
 
-| Flag               | Description                                    |
-| ------------------ | ---------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <name>` | app handle (auto-selected if there's only one) |
-| `--config <path>`  | path to the release config file                |
-| `--dry-run`        | print the plan and exit, making no changes     |
-| `-y, --yes`        | skip the confirmation prompt (for CI)          |
+| `--config <path>` | path to the release config file |
+| `--dry-run` | print the plan and exit, making no changes |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ## `launch app-clips`
 
 reconcile App Clip card metadata (action, per-locale subtitle) from appclips.config.json
 
-| Flag               | Description                                    |
-| ------------------ | ---------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <name>` | app handle (auto-selected if there's only one) |
-| `--config <path>`  | path to the App Clips config file              |
-| `--dry-run`        | print the plan and exit, making no changes     |
-| `-y, --yes`        | skip the confirmation prompt (for CI)          |
+| `--config <path>` | path to the App Clips config file |
+| `--dry-run` | print the plan and exit, making no changes |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ## `launch eu-distribution`
 
 authorize EU alternative-distribution domains from eu-distribution.config.json (DMA)
 
-| Flag              | Description                                |
-| ----------------- | ------------------------------------------ |
-| `--config <path>` | path to the EU distribution config file    |
-| `--dry-run`       | print the plan and exit, making no changes |
-| `-y, --yes`       | skip the confirmation prompt (for CI)      |
+| Flag | Description |
+| --- | --- |
+| `--config <path>` | path to the EU distribution config file |
+| `--dry-run` | print the plan and exit, making no changes |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ### `launch eu-distribution set-key <pemPath>`
 
@@ -525,11 +525,11 @@ show the team's authorized distribution domains and whether a key is registered
 
 register Apple Pay merchant ids & Wallet pass type ids from wallet.config.json
 
-| Flag              | Description                                |
-| ----------------- | ------------------------------------------ |
-| `--config <path>` | path to the wallet config file             |
-| `--dry-run`       | print the plan and exit, making no changes |
-| `-y, --yes`       | skip the confirmation prompt (for CI)      |
+| Flag | Description |
+| --- | --- |
+| `--config <path>` | path to the wallet config file |
+| `--dry-run` | print the plan and exit, making no changes |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ### `launch wallet list`
 
@@ -539,76 +539,76 @@ show the team's registered Apple Pay merchant ids and Wallet pass type ids
 
 reconcile Game Center achievements & leaderboards from gamecenter.config.json
 
-| Flag               | Description                                    |
-| ------------------ | ---------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <name>` | app handle (auto-selected if there's only one) |
-| `--config <path>`  | path to the Game Center config file            |
-| `--dry-run`        | print the plan and exit, making no changes     |
-| `-y, --yes`        | skip the confirmation prompt (for CI)          |
+| `--config <path>` | path to the Game Center config file |
+| `--dry-run` | print the plan and exit, making no changes |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ## `launch accessibility`
 
 reconcile accessibility declarations (nutrition labels) from accessibility.config.json
 
-| Flag               | Description                                    |
-| ------------------ | ---------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <name>` | app handle (auto-selected if there's only one) |
-| `--config <path>`  | path to the accessibility config file          |
-| `--dry-run`        | print the plan and exit, making no changes     |
-| `-y, --yes`        | skip the confirmation prompt (for CI)          |
+| `--config <path>` | path to the accessibility config file |
+| `--dry-run` | print the plan and exit, making no changes |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ## `launch availability`
 
 set the App Store territories the app sells in, from availability.config.json
 
-| Flag               | Description                                    |
-| ------------------ | ---------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <name>` | app handle (auto-selected if there's only one) |
-| `--config <path>`  | path to the availability config file           |
-| `--dry-run`        | print the plan and exit, making no changes     |
-| `-y, --yes`        | skip the confirmation prompt (for CI)          |
+| `--config <path>` | path to the availability config file |
+| `--dry-run` | print the plan and exit, making no changes |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ## `launch custom-pages`
 
 reconcile custom product pages (alternate listings) from custom-pages.config.json
 
-| Flag               | Description                                    |
-| ------------------ | ---------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <name>` | app handle (auto-selected if there's only one) |
-| `--config <path>`  | path to the custom pages config file           |
-| `--dry-run`        | print the plan and exit, making no changes     |
-| `-y, --yes`        | skip the confirmation prompt (for CI)          |
+| `--config <path>` | path to the custom pages config file |
+| `--dry-run` | print the plan and exit, making no changes |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ## `launch experiments`
 
 reconcile product-page A/B experiments from experiments.config.json
 
-| Flag               | Description                                    |
-| ------------------ | ---------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <name>` | app handle (auto-selected if there's only one) |
-| `--config <path>`  | path to the experiments config file            |
-| `--dry-run`        | print the plan and exit, making no changes     |
-| `-y, --yes`        | skip the confirmation prompt (for CI)          |
+| `--config <path>` | path to the experiments config file |
+| `--dry-run` | print the plan and exit, making no changes |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ## `launch play-products`
 
 reconcile Google Play in-app products from the launch.config.ts product catalog
 
-| Flag               | Description                                    |
-| ------------------ | ---------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <name>` | app handle (auto-selected if there's only one) |
-| `--dry-run`        | print the plan and exit, making no changes     |
-| `-y, --yes`        | skip the confirmation prompt (for CI)          |
+| `--dry-run` | print the plan and exit, making no changes |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ## `launch play-subscriptions`
 
 reconcile Google Play subscriptions (base plans + offers) from the launch.config.ts catalog
 
-| Flag               | Description                                    |
-| ------------------ | ---------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <name>` | app handle (auto-selected if there's only one) |
-| `--dry-run`        | print the plan and exit, making no changes     |
-| `-y, --yes`        | skip the confirmation prompt (for CI)          |
+| `--dry-run` | print the plan and exit, making no changes |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ## `launch play-reviews`
 
@@ -618,24 +618,24 @@ read Google Play customer reviews and reply from the CLI
 
 list an app's Play reviews (only reviews with text from the last ~week)
 
-| Flag               | Description                                                   |
-| ------------------ | ------------------------------------------------------------- |
-| `-a, --app <name>` | app handle (auto-selected if there's only one)                |
-| `--rating <1-5>`   | only show reviews with this star rating                       |
-| `--unanswered`     | only show reviews without a developer reply                   |
-| `--lang <bcp47>`   | machine-translate review text into this language (e.g. en-US) |
-| `--json`           | output machine-readable JSON                                  |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
+| `--rating <1-5>` | only show reviews with this star rating |
+| `--unanswered` | only show reviews without a developer reply |
+| `--lang <bcp47>` | machine-translate review text into this language (e.g. en-US) |
+| `--json` | output machine-readable JSON |
 
 ### `launch play-reviews reply <reviewId>`
 
 post (or replace) the developer reply to a review
 
-| Flag                   | Description                                    |
-| ---------------------- | ---------------------------------------------- |
-| `-a, --app <name>`     | app handle (auto-selected if there's only one) |
-| `-m, --message <text>` | the reply text                                 |
-| `--file <path>`        | read the reply text from a file                |
-| `-y, --yes`            | skip the confirmation prompt (for CI)          |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
+| `-m, --message <text>` | the reply text |
+| `--file <path>` | read the reply text from a file |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ### `launch play-reviews help [command]`
 
@@ -649,35 +649,35 @@ manage Google Play release tracks from the CLI
 
 show each track's releases and country availability
 
-| Flag               | Description                                    |
-| ------------------ | ---------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <name>` | app handle (auto-selected if there's only one) |
-| `--json`           | output machine-readable JSON                   |
+| `--json` | output machine-readable JSON |
 
 ### `launch play-tracks promote`
 
 ship a build to a track at a chosen status / rollout, with release notes
 
-| Flag                   | Description                                                                                             |
-| ---------------------- | ------------------------------------------------------------------------------------------------------- |
-| `--track <track>`      | target track (internal, alpha, beta, production, or a custom track)                                     |
-| `-a, --app <name>`     | app handle (auto-selected if there's only one)                                                          |
-| `--status <status>`    | release status: draft, inProgress, halted, completed (default: completed, or inProgress with --rollout) |
-| `--rollout <fraction>` | staged-rollout fraction 0–1 (implies --status inProgress)                                               |
-| `--notes <path>`       | path to a JSON file mapping language codes to release-note text                                         |
-| `--name <name>`        | release name (Play derives one from the version when omitted)                                           |
-| `-y, --yes`            | skip the confirmation prompt (for CI)                                                                   |
+| Flag | Description |
+| --- | --- |
+| `--track <track>` | target track (internal, alpha, beta, production, or a custom track) |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
+| `--status <status>` | release status: draft, inProgress, halted, completed (default: completed, or inProgress with --rollout) |
+| `--rollout <fraction>` | staged-rollout fraction 0–1 (implies --status inProgress) |
+| `--notes <path>` | path to a JSON file mapping language codes to release-note text |
+| `--name <name>` | release name (Play derives one from the version when omitted) |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ### `launch play-tracks testers`
 
 read or set the Google Groups allowed to test a track
 
-| Flag                | Description                                                    |
-| ------------------- | -------------------------------------------------------------- |
-| `--track <track>`   | the testing track (e.g. internal, alpha, beta)                 |
-| `-a, --app <name>`  | app handle (auto-selected if there's only one)                 |
+| Flag | Description |
+| --- | --- |
+| `--track <track>` | the testing track (e.g. internal, alpha, beta) |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
 | `--groups <emails>` | comma-separated Google Group emails to set (omit to just read) |
-| `-y, --yes`         | skip the confirmation prompt (for CI)                          |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ### `launch play-tracks help [command]`
 
@@ -691,12 +691,12 @@ read Android quality vitals (crash/ANR rate) from the Play Developer Reporting A
 
 show crash-rate and ANR-rate trends for an Android app (DAILY)
 
-| Flag                    | Description                                    |
-| ----------------------- | ---------------------------------------------- |
-| `-a, --app <name>`      | app handle (auto-selected if there's only one) |
-| `--metric <crash\|anr>` | show only one vital (default: both)            |
-| `--days <n>`            | how many days of history to show (default: 28) |
-| `--json`                | output machine-readable JSON                   |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
+| `--metric <crash\|anr>` | show only one vital (default: both) |
+| `--days <n>` | how many days of history to show (default: 28) |
+| `--json` | output machine-readable JSON |
 
 ### `launch play-reports help [command]`
 
@@ -710,11 +710,11 @@ compute recommended Google Play prices for every region from one base price
 
 show Google's recommended local price for every Play market, from one base price
 
-| Flag                    | Description                                    |
-| ----------------------- | ---------------------------------------------- |
-| `-a, --app <name>`      | app handle (auto-selected if there's only one) |
-| `-c, --currency <code>` | ISO-4217 currency of <amount>                  |
-| `--json`                | output machine-readable JSON                   |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
+| `-c, --currency <code>` | ISO-4217 currency of <amount> |
+| `--json` | output machine-readable JSON |
 
 ### `launch play-pricing help [command]`
 
@@ -744,78 +744,78 @@ manage TestFlight beta groups and testers
 
 list the app's TestFlight beta groups
 
-| Flag               | Description                                    |
-| ------------------ | ---------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <name>` | app handle (auto-selected if there's only one) |
 
 ### `launch testflight create-group <name>`
 
 create an external beta group testers can be invited into
 
-| Flag               | Description                                    |
-| ------------------ | ---------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <name>` | app handle (auto-selected if there's only one) |
 
 ### `launch testflight testers`
 
 list the testers in a beta group
 
-| Flag                 | Description                                    |
-| -------------------- | ---------------------------------------------- |
-| `-a, --app <name>`   | app handle (auto-selected if there's only one) |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
 | `-g, --group <name>` | beta group (auto-selected if there's only one) |
 
 ### `launch testflight add [emails...]`
 
 invite/add testers to a beta group (sends a TestFlight invite to new emails)
 
-| Flag                 | Description                                                         |
-| -------------------- | ------------------------------------------------------------------- |
-| `-a, --app <name>`   | app handle (auto-selected if there's only one)                      |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
 | `-g, --group <name>` | external beta group to add into (auto-selected if there's only one) |
-| `--first <name>`     | first name applied to bare emails                                   |
-| `--last <name>`      | last name applied to bare emails                                    |
-| `--csv <path>`       | import testers from a CSV (email,firstName,lastName per line)       |
-| `--dry-run`          | report what would change without inviting anyone                    |
-| `-y, --yes`          | skip the confirmation prompt                                        |
+| `--first <name>` | first name applied to bare emails |
+| `--last <name>` | last name applied to bare emails |
+| `--csv <path>` | import testers from a CSV (email,firstName,lastName per line) |
+| `--dry-run` | report what would change without inviting anyone |
+| `-y, --yes` | skip the confirmation prompt |
 
 ### `launch testflight rm <emails...>`
 
 remove testers from a beta group
 
-| Flag                 | Description                                                   |
-| -------------------- | ------------------------------------------------------------- |
-| `-a, --app <name>`   | app handle (auto-selected if there's only one)                |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
 | `-g, --group <name>` | beta group to remove from (auto-selected if there's only one) |
-| `--dry-run`          | report what would change without removing anyone              |
-| `-y, --yes`          | skip the confirmation prompt                                  |
+| `--dry-run` | report what would change without removing anyone |
+| `-y, --yes` | skip the confirmation prompt |
 
 ### `launch testflight release`
 
 set a build's "What to Test" notes and submit it for Beta App Review
 
-| Flag                 | Description                                                       |
-| -------------------- | ----------------------------------------------------------------- |
-| `-a, --app <name>`   | app handle (auto-selected if there's only one)                    |
-| `--build <version>`  | target build by CFBundleVersion (default: the latest valid build) |
-| `--whats-new <text>` | What to Test notes (for --locale); overrides the config file      |
-| `--locale <locale>`  | locale for --whats-new                                            |
-| `--config <path>`    | path to testflight.config.json (localized whatToTest)             |
-| `--no-review`        | set the notes only; don't submit for Beta App Review              |
-| `--dry-run`          | print the plan and exit, making no changes                        |
-| `-y, --yes`          | skip the confirmation prompt (for CI)                             |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
+| `--build <version>` | target build by CFBundleVersion (default: the latest valid build) |
+| `--whats-new <text>` | What to Test notes (for --locale); overrides the config file |
+| `--locale <locale>` | locale for --whats-new |
+| `--config <path>` | path to testflight.config.json (localized whatToTest) |
+| `--no-review` | set the notes only; don't submit for Beta App Review |
+| `--dry-run` | print the plan and exit, making no changes |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ### `launch testflight feedback`
 
 list tester crash & screenshot feedback, newest first (download attachments with --out)
 
-| Flag                | Description                                         |
-| ------------------- | --------------------------------------------------- |
-| `-a, --app <name>`  | app handle (auto-selected if there's only one)      |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
 | `--build <version>` | only show feedback for this build (CFBundleVersion) |
-| `--type <kind>`     | only show one kind: crash \| screenshot             |
-| `--out <dir>`       | download screenshot attachments into this directory |
-| `--json`            | output machine-readable JSON                        |
+| `--type <kind>` | only show one kind: crash \| screenshot |
+| `--out <dir>` | download screenshot attachments into this directory |
+| `--json` | output machine-readable JSON |
 
 ### `launch testflight help [command]`
 
@@ -829,41 +829,41 @@ read and manage App Store in-app events from the CLI
 
 list an app's in-app events and their localizations
 
-| Flag               | Description                                    |
-| ------------------ | ---------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <name>` | app handle (auto-selected if there's only one) |
-| `--json`           | output machine-readable JSON                   |
+| `--json` | output machine-readable JSON |
 
 ### `launch events create <referenceName>`
 
 create a draft in-app event
 
-| Flag                    | Description                                        |
-| ----------------------- | -------------------------------------------------- |
-| `-a, --app <name>`      | app handle (auto-selected if there's only one)     |
-| `--badge <badge>`       | event badge (e.g. LIVE_EVENT, PREMIERE, CHALLENGE) |
-| `--locale <code>`       | primary locale (e.g. en-US)                        |
-| `--deep-link <url>`     | deep link opened when a user taps the event        |
-| `--priority <priority>` | HIGH or NORMAL                                     |
-| `--purpose <purpose>`   | marketing purpose (e.g. ATTRACT_NEW_USERS)         |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
+| `--badge <badge>` | event badge (e.g. LIVE_EVENT, PREMIERE, CHALLENGE) |
+| `--locale <code>` | primary locale (e.g. en-US) |
+| `--deep-link <url>` | deep link opened when a user taps the event |
+| `--priority <priority>` | HIGH or NORMAL |
+| `--purpose <purpose>` | marketing purpose (e.g. ATTRACT_NEW_USERS) |
 
 ### `launch events localize <eventId>`
 
 set (or update) one locale's copy on an event
 
-| Flag              | Description                    |
-| ----------------- | ------------------------------ |
+| Flag | Description |
+| --- | --- |
 | `--locale <code>` | the locale to set (e.g. en-US) |
-| `--name <text>`   | the event name shown to users  |
-| `--short <text>`  | the short description          |
-| `--long <text>`   | the long description           |
+| `--name <text>` | the event name shown to users |
+| `--short <text>` | the short description |
+| `--long <text>` | the long description |
 
 ### `launch events delete <eventId>`
 
 delete a draft in-app event
 
-| Flag        | Description                           |
-| ----------- | ------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ### `launch events help [command]`
@@ -874,23 +874,23 @@ display help for command
 
 set Launch up automatically and verify everything's ready to ship
 
-| Flag             | Description                                                       |
-| ---------------- | ----------------------------------------------------------------- |
-| `--platform <p>` | ios (default), android, tvos, macos, or visionos                  |
-| `--yes`          | non-interactive: install missing tools without asking (CI/agents) |
-| `--no-rehearse`  | skip the dry-run pipeline rehearsal at the end                    |
+| Flag | Description |
+| --- | --- |
+| `--platform <p>` | ios (default), android, tvos, macos, or visionos |
+| `--yes` | non-interactive: install missing tools without asking (CI/agents) |
+| `--no-rehearse` | skip the dry-run pipeline rehearsal at the end |
 
 ### `launch setup ios`
 
 report iOS signing & provisioning status (account, App ID, capabilities, cert, profile, devices)
 
-| Flag               | Description                                                                       |
-| ------------------ | --------------------------------------------------------------------------------- |
-| `--account <name>` | Apple account to inspect (label or Key ID; default: active)                       |
-| `-a, --app <name>` | which app to inspect (default: the only app, or prompt)                           |
-| `--provision`      | also ensure the distribution cert + App Store profile (like 'launch creds setup') |
-| `--json`           | emit the report as JSON (for agents/scripts)                                      |
-| `--yes`            | non-interactive: auto-confirm Apple resource creation under --provision           |
+| Flag | Description |
+| --- | --- |
+| `--account <name>` | Apple account to inspect (label or Key ID; default: active) |
+| `-a, --app <name>` | which app to inspect (default: the only app, or prompt) |
+| `--provision` | also ensure the distribution cert + App Store profile (like 'launch creds setup') |
+| `--json` | emit the report as JSON (for agents/scripts) |
+| `--yes` | non-interactive: auto-confirm Apple resource creation under --provision |
 
 ## `launch sandbox`
 
@@ -900,18 +900,18 @@ list StoreKit sandbox testers and clear their purchase history
 
 list the account's sandbox testers
 
-| Flag     | Description                  |
-| -------- | ---------------------------- |
+| Flag | Description |
+| --- | --- |
 | `--json` | output machine-readable JSON |
 
 ### `launch sandbox clear [emails...]`
 
 clear sandbox testers' StoreKit purchase history (for re-testing purchases)
 
-| Flag        | Description                                   |
-| ----------- | --------------------------------------------- |
-| `--all`     | clear every sandbox tester's purchase history |
-| `-y, --yes` | skip the confirmation prompt (for CI)         |
+| Flag | Description |
+| --- | --- |
+| `--all` | clear every sandbox tester's purchase history |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
 
 ### `launch sandbox help [command]`
 
@@ -921,12 +921,12 @@ display help for command
 
 check that the local toolchain and store account are ready
 
-| Flag             | Description                                                                    |
-| ---------------- | ------------------------------------------------------------------------------ |
-| `--platform <p>` | ios (default), android, tvos, macos, or visionos                               |
-| `--fix`          | install any missing build tools (Apple platforms only; asks for consent first) |
-| `--yes`          | skip prompts and proceed with installs (CI/agents)                             |
-| `--json`         | machine-readable output for CI/agents                                          |
+| Flag | Description |
+| --- | --- |
+| `--platform <p>` | ios (default), android, tvos, macos, or visionos |
+| `--fix` | install any missing build tools (Apple platforms only; asks for consent first) |
+| `--yes` | skip prompts and proceed with installs (CI/agents) |
+| `--json` | machine-readable output for CI/agents |
 
 ## `launch store`
 
@@ -936,10 +936,10 @@ store-account readiness and operations
 
 check store-account readiness: Apple app record, Play onboarding & access (read-only)
 
-| Flag                | Description                                     |
-| ------------------- | ----------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <names>` | comma-separated app handles (default: all apps) |
-| `--json`            | machine-readable output for CI/agents           |
+| `--json` | machine-readable output for CI/agents |
 
 ### `launch store help [command]`
 
@@ -949,10 +949,10 @@ display help for command
 
 pre-submit readiness sweep: would a submission be rejected right now? (read-only)
 
-| Flag                | Description                                     |
-| ------------------- | ----------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <names>` | comma-separated app handles (default: all apps) |
-| `--json`            | machine-readable output for CI/agents           |
+| `--json` | machine-readable output for CI/agents |
 
 ## `launch privacy`
 
@@ -962,10 +962,10 @@ reconcile your permission/data surface against your privacy declarations
 
 check permissions/manifests against the privacy declarations; flags undeclared collection (read-only)
 
-| Flag                | Description                                     |
-| ------------------- | ----------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <names>` | comma-separated app handles (default: all apps) |
-| `--json`            | machine-readable output for CI/agents           |
+| `--json` | machine-readable output for CI/agents |
 
 ### `launch privacy help [command]`
 
@@ -979,10 +979,10 @@ in-app-purchase readiness and operations
 
 check in-app-purchase readiness: products & subscriptions exist and are submittable (read-only)
 
-| Flag                | Description                                     |
-| ------------------- | ----------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <names>` | comma-separated app handles (default: all apps) |
-| `--json`            | machine-readable output for CI/agents           |
+| `--json` | machine-readable output for CI/agents |
 
 ### `launch iap help [command]`
 
@@ -996,65 +996,65 @@ capture, diff, and export point-in-time copies of live store state (read-only)
 
 capture live App Store + Play state into a named snapshot
 
-| Flag                | Description                                     |
-| ------------------- | ----------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <names>` | comma-separated app handles (default: all apps) |
-| `--json`            | machine-readable output for CI/agents           |
+| `--json` | machine-readable output for CI/agents |
 
 ### `launch snapshot list`
 
 list saved snapshots, newest first
 
-| Flag     | Description                           |
-| -------- | ------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `--json` | machine-readable output for CI/agents |
 
 ### `launch snapshot diff <baseline> [against]`
 
 compare a saved snapshot against another saved snapshot or live state (default: live)
 
-| Flag                | Description                                     |
-| ------------------- | ----------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <names>` | comma-separated app handles (default: all apps) |
-| `--json`            | machine-readable output for CI/agents           |
+| `--json` | machine-readable output for CI/agents |
 
 ### `launch snapshot export <name>`
 
 print a saved snapshot as JSON, or write it to a file with --out
 
-| Flag           | Description                                            |
-| -------------- | ------------------------------------------------------ |
+| Flag | Description |
+| --- | --- |
 | `--out <file>` | write the snapshot JSON to this file instead of stdout |
 
 ### `launch snapshot delete <name>`
 
 delete a saved snapshot by name
 
-| Flag     | Description                           |
-| -------- | ------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `--json` | machine-readable output for CI/agents |
 
 ### `launch snapshot prune`
 
 delete old user snapshots by count and/or age (auto pre-sync baselines are never touched)
 
-| Flag                  | Description                                              |
-| --------------------- | -------------------------------------------------------- |
-| `--keep <n>`          | keep only the N newest snapshots                         |
-| `--older-than <days>` | delete snapshots older than N days                       |
-| `--yes`               | actually delete (without it, a dry-run preview is shown) |
-| `--json`              | machine-readable output for CI/agents                    |
+| Flag | Description |
+| --- | --- |
+| `--keep <n>` | keep only the N newest snapshots |
+| `--older-than <days>` | delete snapshots older than N days |
+| `--yes` | actually delete (without it, a dry-run preview is shown) |
+| `--json` | machine-readable output for CI/agents |
 
 ### `launch snapshot restore <name>`
 
 restore a saved snapshot's App Store listing + Play catalog back to live (additive; --yes to apply)
 
-| Flag                | Description                                                      |
-| ------------------- | ---------------------------------------------------------------- |
-| `-a, --app <names>` | comma-separated app handles (default: all apps)                  |
-| `--source <id>`     | restore only this source (e.g. apple-listing)                    |
-| `--yes`             | actually apply the restore (without it, a dry-run plan is shown) |
-| `--json`            | machine-readable output for CI/agents                            |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <names>` | comma-separated app handles (default: all apps) |
+| `--source <id>` | restore only this source (e.g. apple-listing) |
+| `--yes` | actually apply the restore (without it, a dry-run plan is shown) |
+| `--json` | machine-readable output for CI/agents |
 
 ### `launch snapshot help [command]`
 
@@ -1072,26 +1072,26 @@ shell tab-completion for commands, flags, app handles, profiles, surfaces, and s
 
 wire completion into your shell's rc file (idempotent), or print the manual step
 
-| Flag                  | Description                                             |
-| --------------------- | ------------------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-s, --shell <shell>` | shell to wire up: bash \| zsh \| fish (default: $SHELL) |
 
 ## `launch update`
 
 publish an over-the-air JS update (Expo Updates protocol) to your own bucket
 
-| Flag                    | Description                                                                           |
-| ----------------------- | ------------------------------------------------------------------------------------- |
-| `--channel <name>`      | release channel testers/builds map to                                                 |
-| `--platform <p>`        | ios, android, or all                                                                  |
-| `-a, --app <name>`      | app handle (auto-selected if there's only one)                                        |
-| `-p, --profile <name>`  | build profile whose env is baked into the bundle                                      |
-| `--runtime-version <v>` | runtime version this update targets (default: from app config)                        |
-| `--no-sign`             | publish unsigned (lower security floor — anyone who can write the bucket can push JS) |
-| `--dry-run`             | rehearse: print the layout, worker, and app config without exporting or uploading     |
-| `--env <KEY=VALUE>`     | inline env override (repeatable); highest precedence                                  |
-| `--include-local`       | also load .env.local (off by default to avoid surprise local env)                     |
-| `--print-env`           | print the resolved env (masked) with its sources, then exit without running           |
+| Flag | Description |
+| --- | --- |
+| `--channel <name>` | release channel testers/builds map to |
+| `--platform <p>` | ios, android, or all |
+| `-a, --app <name>` | app handle (auto-selected if there's only one) |
+| `-p, --profile <name>` | build profile whose env is baked into the bundle |
+| `--runtime-version <v>` | runtime version this update targets (default: from app config) |
+| `--no-sign` | publish unsigned (lower security floor — anyone who can write the bucket can push JS) |
+| `--dry-run` | rehearse: print the layout, worker, and app config without exporting or uploading |
+| `--env <KEY=VALUE>` | inline env override (repeatable); highest precedence |
+| `--include-local` | also load .env.local (off by default to avoid surprise local env) |
+| `--print-env` | print the resolved env (masked) with its sources, then exit without running |
 
 ## `launch updates`
 
@@ -1101,35 +1101,35 @@ inspect and roll back published OTA updates
 
 list published updates, newest first
 
-| Flag                    | Description                                |
-| ----------------------- | ------------------------------------------ |
-| `--channel <name>`      | release channel to read                    |
-| `--platform <platform>` | only show ios or android updates           |
+| Flag | Description |
+| --- | --- |
+| `--channel <name>` | release channel to read |
+| `--platform <platform>` | only show ios or android updates |
 | `--runtime-version <v>` | only show updates for this runtime version |
-| `--json`                | output machine-readable JSON               |
+| `--json` | output machine-readable JSON |
 
 ### `launch updates view <id|latest>`
 
 show full detail for one published update
 
-| Flag               | Description                  |
-| ------------------ | ---------------------------- |
-| `--channel <name>` | release channel to read      |
-| `--json`           | output machine-readable JSON |
+| Flag | Description |
+| --- | --- |
+| `--channel <name>` | release channel to read |
+| `--json` | output machine-readable JSON |
 
 ### `launch updates rollback`
 
 republish a prior update, or roll clients back to the embedded bundle
 
-| Flag                    | Description                                                        |
-| ----------------------- | ------------------------------------------------------------------ |
-| `--channel <name>`      | release channel to roll back                                       |
-| `--platform <platform>` | limit to ios or android (default: both)                            |
-| `--to <id>`             | republish a specific update id (skips the picker)                  |
-| `--to-embedded`         | roll clients back to the bundle embedded in the binary             |
-| `--runtime-version <v>` | runtime version for --to-embedded (default: from app config)       |
-| `-a, --app <name>`      | app handle (used to resolve the runtime version for --to-embedded) |
-| `-y, --yes`             | skip the confirmation prompt (for CI/agents)                       |
+| Flag | Description |
+| --- | --- |
+| `--channel <name>` | release channel to roll back |
+| `--platform <platform>` | limit to ios or android (default: both) |
+| `--to <id>` | republish a specific update id (skips the picker) |
+| `--to-embedded` | roll clients back to the bundle embedded in the binary |
+| `--runtime-version <v>` | runtime version for --to-embedded (default: from app config) |
+| `-a, --app <name>` | app handle (used to resolve the runtime version for --to-embedded) |
+| `-y, --yes` | skip the confirmation prompt (for CI/agents) |
 
 ### `launch updates help [command]`
 
@@ -1151,40 +1151,40 @@ inspect and trim local build history (the artifact index)
 
 list past builds, newest first
 
-| Flag                    | Description                                                         |
-| ----------------------- | ------------------------------------------------------------------- |
-| `-a, --app <name>`      | only show builds for this app                                       |
+| Flag | Description |
+| --- | --- |
+| `-a, --app <name>` | only show builds for this app |
 | `--platform <platform>` | only show builds for one platform (ios/android/tvos/macos/visionos) |
-| `--json`                | output machine-readable JSON                                        |
+| `--json` | output machine-readable JSON |
 
 ### `launch builds view <id|latest>`
 
 show full detail for one build
 
-| Flag     | Description                  |
-| -------- | ---------------------------- |
+| Flag | Description |
+| --- | --- |
 | `--json` | output machine-readable JSON |
 
 ### `launch builds log <id|latest>`
 
 print a past build's full native log (secrets redacted), or open it in your editor
 
-| Flag     | Description                                                      |
-| -------- | ---------------------------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `--open` | reveal the log in your editor / OS viewer instead of printing it |
 
 ### `launch builds prune`
 
 delete build binaries older than the retention window (keeps the newest per app+platform)
 
-| Flag                    | Description                                                               |
-| ----------------------- | ------------------------------------------------------------------------- |
-| `--days <n>`            | retention window in days (default: config artifactRetentionDays, else 30) |
-| `-a, --app <name>`      | only prune builds for this app                                            |
-| `--platform <platform>` | only prune builds for one platform (ios/android/tvos/macos/visionos)      |
-| `--dry-run`             | show what would be deleted without deleting                               |
-| `-y, --yes`             | skip the confirmation prompt (for CI)                                     |
-| `--json`                | output machine-readable JSON                                              |
+| Flag | Description |
+| --- | --- |
+| `--days <n>` | retention window in days (default: config artifactRetentionDays, else 30) |
+| `-a, --app <name>` | only prune builds for this app |
+| `--platform <platform>` | only prune builds for one platform (ios/android/tvos/macos/visionos) |
+| `--dry-run` | show what would be deleted without deleting |
+| `-y, --yes` | skip the confirmation prompt (for CI) |
+| `--json` | output machine-readable JSON |
 
 ### `launch builds help [command]`
 
@@ -1198,10 +1198,10 @@ scaffold CI workflows for building & shipping Launch apps
 
 write a GitHub Actions workflow that builds and ships on a hosted runner
 
-| Flag        | Description                                        |
-| ----------- | -------------------------------------------------- |
-| `--android` | also emit an Android job (Ubuntu runner)           |
-| `--force`   | overwrite an existing .github/workflows/launch.yml |
+| Flag | Description |
+| --- | --- |
+| `--android` | also emit an Android job (Ubuntu runner) |
+| `--force` | overwrite an existing .github/workflows/launch.yml |
 
 ### `launch ci help [command]`
 
@@ -1215,17 +1215,17 @@ scaffold agent skills/rules (Claude, Cursor, Codex) so coding agents can drive L
 
 write Claude skills, Cursor rules, and the AGENTS.md Launch section into this repo
 
-| Flag             | Description                                                              |
-| ---------------- | ------------------------------------------------------------------------ |
+| Flag | Description |
+| --- | --- |
 | `--agent <list>` | claude \| cursor \| codex \| all (comma-separated; default: auto-detect) |
-| `-y, --yes`      | non-interactive: skip the confirmation prompt (CI, agents)               |
+| `-y, --yes` | non-interactive: skip the confirmation prompt (CI, agents) |
 
 ### `launch agents check`
 
 verify the scaffolded agent files are in sync with the installed Launch
 
-| Flag             | Description                                                              |
-| ---------------- | ------------------------------------------------------------------------ |
+| Flag | Description |
+| --- | --- |
 | `--agent <list>` | claude \| cursor \| codex \| all (comma-separated; default: auto-detect) |
 
 ## `launch mcp`
@@ -1236,26 +1236,26 @@ serve Launch's read-only tools to AI agents over MCP (stdio); `install` wires it
 
 wire `launch mcp` into an AI client's config (default: auto-detect Claude Code / Cursor)
 
-| Flag              | Description                                                    |
-| ----------------- | -------------------------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `--client <name>` | claude-code \| cursor \| claude-desktop (default: auto-detect) |
 
 ## `launch run [id|latest]`
 
 install a built artifact on a connected device (iOS device or Android device/emulator)
 
-| Flag                | Description                                                            |
-| ------------------- | ---------------------------------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-d, --device <id>` | target device: an Android serial (adb) or an iOS device id (devicectl) |
 
 ## `launch fingerprint`
 
 show the native fingerprint and why the next build is clean or incremental (iOS)
 
-| Flag               | Description                                    |
-| ------------------ | ---------------------------------------------- |
+| Flag | Description |
+| --- | --- |
 | `-a, --app <name>` | app handle (auto-selected if there's only one) |
-| `--json`           | output machine-readable JSON                   |
+| `--json` | output machine-readable JSON |
 
 ## `launch diagnose [logfile]`
 
@@ -1265,11 +1265,11 @@ explain a failed native build — parse the cause + fix from a build log
 
 re-sign a stored build with different credentials, without rebuilding
 
-| Flag                       | Description                                                              |
-| -------------------------- | ------------------------------------------------------------------------ |
-| `--id <id>`                | a build id from `launch builds list` (defaults to the latest)            |
-| `--latest`                 | re-sign the most recent build (the default)                              |
-| `-a, --app <name>`         | only consider builds for this app                                        |
-| `--account <keyId\|label>` | iOS: the Apple account whose signing assets to use (defaults to active)  |
-| `-o, --output <path>`      | where to write the resigned artifact (defaults to the current directory) |
-| `--dry-run`                | print the resign plan and change nothing                                 |
+| Flag | Description |
+| --- | --- |
+| `--id <id>` | a build id from `launch builds list` (defaults to the latest) |
+| `--latest` | re-sign the most recent build (the default) |
+| `-a, --app <name>` | only consider builds for this app |
+| `--account <keyId\|label>` | iOS: the Apple account whose signing assets to use (defaults to active) |
+| `-o, --output <path>` | where to write the resigned artifact (defaults to the current directory) |
+| `--dry-run` | print the resign plan and change nothing |

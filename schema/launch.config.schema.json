@@ -104,7 +104,9 @@
           "description": "Build profiles keyed by name."
         }
       },
-      "required": ["profiles"],
+      "required": [
+        "profiles"
+      ],
       "description": "Input to  {@link  defineConfig } : `profiles` is required; provider names default sensibly."
     },
     "SubmitByPlatform": {
@@ -203,7 +205,11 @@
           "description": "The subscription levels in this group."
         }
       },
-      "required": ["referenceName", "localizations", "subscriptions"],
+      "required": [
+        "referenceName",
+        "localizations",
+        "subscriptions"
+      ],
       "additionalProperties": false,
       "description": "A subscription group — Apple's container for mutually-exclusive subscription levels (a customer holds at most one active subscription per group). `referenceName` is unique within the app and is the reconciler's natural key for the group."
     },
@@ -219,7 +225,10 @@
           "description": "Customer-facing group name."
         }
       },
-      "required": ["locale", "name"],
+      "required": [
+        "locale",
+        "name"
+      ],
       "additionalProperties": false,
       "description": "One locale's display name for a subscription GROUP. Groups carry only a name (no description); it's shown at the point of purchase grouping the subscription levels. Without one, every subscription in the group is stuck in \"Missing Metadata\", so at least one is required per group."
     },
@@ -286,13 +295,25 @@
           "description": "Google Play overrides; present this to also publish the subscription to Play (see  {@link  PlaySubscriptionOverride } )."
         }
       },
-      "required": ["productId", "referenceName", "subscriptionPeriod", "localizations"],
+      "required": [
+        "productId",
+        "referenceName",
+        "subscriptionPeriod",
+        "localizations"
+      ],
       "additionalProperties": false,
       "description": "One auto-renewable subscription product inside a  {@link  SubscriptionGroupConfig } . `productId` is the globally-unique Apple product id the app references at runtime and the reconciler's natural key. Add a  {@link  PlaySubscriptionOverride }  under `play` to also publish it to Google Play."
     },
     "SubscriptionPeriod": {
       "type": "string",
-      "enum": ["ONE_WEEK", "ONE_MONTH", "TWO_MONTHS", "THREE_MONTHS", "SIX_MONTHS", "ONE_YEAR"],
+      "enum": [
+        "ONE_WEEK",
+        "ONE_MONTH",
+        "TWO_MONTHS",
+        "THREE_MONTHS",
+        "SIX_MONTHS",
+        "ONE_YEAR"
+      ],
       "description": "Apple's billing period for an auto-renewable subscription — the `subscriptionPeriod` enum the App Store Connect API expects on a `subscriptions` resource. There is no \"lifetime\" period; a one-off unlock is an  {@link  InAppPurchaseConfig }  of type `NON_CONSUMABLE`, not a subscription."
     },
     "ProductLocalization": {
@@ -311,7 +332,10 @@
           "description": "Customer-facing description (Apple limit: 45 characters). Omitted when not provided."
         }
       },
-      "required": ["locale", "name"],
+      "required": [
+        "locale",
+        "name"
+      ],
       "additionalProperties": false,
       "description": "One locale's customer-facing copy for a subscription or in-app purchase — the display name (and optional description) shown on the product page. Apple keeps a product in \"Missing Metadata\" until it has at least one localization, so the reconciler rejects an empty list rather than silently creating an unsubmittable product. The `locale` is the natural key the reconciler matches on."
     },
@@ -327,7 +351,9 @@
           "description": "Exact customer-facing price in the base territory's currency, e.g. `9.99`. Must equal an Apple price point."
         }
       },
-      "required": ["customerPrice"],
+      "required": [
+        "customerPrice"
+      ],
       "additionalProperties": false,
       "description": "A product's baseline price, expressed as the customer-facing amount in a base territory.\n\nApple does not accept arbitrary numbers — every price is one of a fixed ladder of *price points*. The reconciler resolves this declaration to the price point whose `customerPrice` equals  {@link  ProductPrice.customerPrice }  in  {@link  ProductPrice.baseTerritory } , erroring (with the nearby points listed) when none matches exactly, then anchors the other territories off it — the same model the App Store Connect UI uses. A product with no price can never be submitted, so omit this only when you intend to set the price by hand in the UI."
     },
@@ -396,7 +422,11 @@
     },
     "OfferMode": {
       "type": "string",
-      "enum": ["PAY_AS_YOU_GO", "PAY_UP_FRONT", "FREE_TRIAL"],
+      "enum": [
+        "PAY_AS_YOU_GO",
+        "PAY_UP_FRONT",
+        "FREE_TRIAL"
+      ],
       "description": "How an offer discounts, mirroring Apple's `SubscriptionOfferMode`: `PAY_AS_YOU_GO` (a reduced price each period), `PAY_UP_FRONT` (one reduced price for the whole span), or `FREE_TRIAL` (no charge — and so no  {@link  OfferPrice }  is allowed)."
     },
     "OfferPrice": {
@@ -411,18 +441,27 @@
           "description": "Exact customer-facing price in the territory's currency, e.g. `4.99`. Must equal an Apple price point."
         }
       },
-      "required": ["customerPrice"],
+      "required": [
+        "customerPrice"
+      ],
       "additionalProperties": false,
       "description": "One territory's discounted price for an offer, resolved to an Apple subscription price point exactly like  {@link  ProductPrice }  (the customer-facing amount must equal a point on Apple's fixed ladder). Omit prices entirely for a `FREE_TRIAL` offer."
     },
     "OfferCustomerEligibility": {
       "type": "string",
-      "enum": ["NEW", "EXISTING", "EXPIRED"],
+      "enum": [
+        "NEW",
+        "EXISTING",
+        "EXPIRED"
+      ],
       "description": "Who an offer is allowed to target, mirroring Apple's `customerEligibilities`: `NEW` (never subscribed), `EXISTING` (currently subscribed), `EXPIRED` (previously subscribed, now lapsed)."
     },
     "OfferEligibility": {
       "type": "string",
-      "enum": ["STACK_WITH_INTRO_OFFERS", "REPLACE_INTRO_OFFERS"],
+      "enum": [
+        "STACK_WITH_INTRO_OFFERS",
+        "REPLACE_INTRO_OFFERS"
+      ],
       "description": "Whether an offer stacks with or replaces the subscription's introductory offer (Apple's `offerEligibility` on offer codes). `REPLACE_INTRO_OFFERS` is the common choice."
     },
     "PromotionalOfferConfig": {
@@ -456,7 +495,13 @@
           "description": "Product-level offer identifier the app references in StoreKit — the reconciler's key."
         }
       },
-      "required": ["duration", "name", "numberOfPeriods", "offerCode", "offerMode"],
+      "required": [
+        "duration",
+        "name",
+        "numberOfPeriods",
+        "offerCode",
+        "offerMode"
+      ],
       "additionalProperties": false,
       "description": "A promotional offer (Apple's `subscriptionPromotionalOffers`) — a developer-presented discount surfaced in-app to existing/lapsed subscribers. `offerCode` is the product-level identifier the app passes to StoreKit at redemption; it is the reconciler's natural key (unique per subscription)."
     },
@@ -492,7 +537,11 @@
           "description": "ISO date (`YYYY-MM-DD`) the offer ends; omit for no end."
         }
       },
-      "required": ["duration", "offerMode", "numberOfPeriods"],
+      "required": [
+        "duration",
+        "offerMode",
+        "numberOfPeriods"
+      ],
       "additionalProperties": false,
       "description": "An introductory offer (Apple's `subscriptionIntroductoryOffers`) — the one auto-applied first-time discount. Apple allows at most one per (subscription, territory); when `territory` is omitted it applies to all territories the subscription is sold in. `territory` is the reconciler's natural key."
     },
@@ -540,7 +589,10 @@
               "type": "number"
             }
           },
-          "required": ["min", "max"],
+          "required": [
+            "min",
+            "max"
+          ],
           "additionalProperties": false,
           "description": "Eligible window since the customer last subscribed, in months (inclusive `[min, max]`)."
         },
@@ -558,12 +610,18 @@
         },
         "priority": {
           "type": "string",
-          "enum": ["HIGH", "NORMAL"],
+          "enum": [
+            "HIGH",
+            "NORMAL"
+          ],
           "description": "Display priority among competing win-back offers. Defaults to `NORMAL`."
         },
         "promotionIntent": {
           "type": "string",
-          "enum": ["NOT_PROMOTED", "USE_AUTO_GENERATED_ASSETS"],
+          "enum": [
+            "NOT_PROMOTED",
+            "USE_AUTO_GENERATED_ASSETS"
+          ],
           "description": "Whether Apple auto-generates promotion artwork (`USE_AUTO_GENERATED_ASSETS`) or the offer isn't promoted."
         }
       },
@@ -603,7 +661,9 @@
           "description": "Offers (free trials / introductory pricing) to ensure exist on the base plan."
         }
       },
-      "required": ["prices"],
+      "required": [
+        "prices"
+      ],
       "additionalProperties": false,
       "description": "Google Play overrides for a  {@link  SubscriptionConfig } , so one subscription declaration can drive both stores. Apple models each billing period as a separate product, so Launch maps one config to one Play subscription with a single auto-renewing **base plan** whose billing period is derived from  {@link  SubscriptionConfig.subscriptionPeriod } . Listings come from the shared localizations; pricing is declared HERE (Play's per-region `units`+`nanos` money diverges from Apple's price points — see  {@link  PlayPriceConfig } ). Present this object to publish the subscription to Play via `launch play-subscriptions`; omit it to keep the subscription Apple-only."
     },
@@ -625,7 +685,10 @@
           "description": "ISO 4217 currency code, e.g. `USD`."
         }
       },
-      "required": ["priceMicros", "currency"],
+      "required": [
+        "priceMicros",
+        "currency"
+      ],
       "additionalProperties": false,
       "description": "A Google Play price: an exact amount in a currency's micro-units (millionths) plus the ISO currency code. Play has no price-point ladder — `\"1990000\"` with currency `\"USD\"` is $1.99. Used for both a product's default price and any per-region overrides. Kept distinct from  {@link  ProductPrice }  because the two stores model money differently (Apple resolves a fixed price point; Play takes a literal micro-unit amount), so a single shared price field can't serve both."
     },
@@ -649,7 +712,9 @@
           "description": "How many billing periods the introductory price repeats for. Defaults to 1."
         }
       },
-      "required": ["offerId"],
+      "required": [
+        "offerId"
+      ],
       "additionalProperties": false,
       "description": "One Google Play offer on a subscription's base plan — a free trial, an introductory price, or both (Play allows up to two offer phases). `offerId` is the natural key the reconciler matches on. Set  {@link  PlaySubscriptionOfferConfig.freeTrialDuration }  for a free phase and/or  {@link  PlaySubscriptionOfferConfig.introPrices }  for a discounted phase; an offer with neither is rejected (it would discount nothing)."
     },
@@ -684,13 +749,22 @@
           "description": "Google Play overrides; present this to also publish the product to Play (see  {@link  PlayProductOverride } )."
         }
       },
-      "required": ["productId", "referenceName", "type", "localizations"],
+      "required": [
+        "productId",
+        "referenceName",
+        "type",
+        "localizations"
+      ],
       "additionalProperties": false,
       "description": "One non-subscription in-app purchase (consumable, non-consumable, or non-renewing subscription). `productId` is the globally-unique Apple product id and the reconciler's natural key. Add a  {@link  PlayProductOverride }  under `play` to also publish it to Google Play."
     },
     "InAppPurchaseType": {
       "type": "string",
-      "enum": ["CONSUMABLE", "NON_CONSUMABLE", "NON_RENEWING_SUBSCRIPTION"],
+      "enum": [
+        "CONSUMABLE",
+        "NON_CONSUMABLE",
+        "NON_RENEWING_SUBSCRIPTION"
+      ],
       "description": "The kind of one-off in-app purchase, mirroring Apple's `inAppPurchaseType` on `inAppPurchasesV2`. Auto-renewable subscriptions are deliberately NOT here — they live under  {@link  SubscriptionGroupConfig }  because Apple models them as a distinct resource with group-level mutual exclusivity."
     },
     "PlayProductOverride": {
@@ -728,7 +802,9 @@
           "description": "Whether the promotion is enabled. Defaults to `true`."
         }
       },
-      "required": ["productId"],
+      "required": [
+        "productId"
+      ],
       "additionalProperties": false,
       "description": "One promoted purchase (Apple's `promotedPurchases`) — an IAP or subscription surfaced on the app's App Store product page. Declaration order in  {@link  AppProducts.promotedPurchases }  is the display order Apple shows; `launch offers` reorders the live list to match. `productId` references an existing subscription or in-app purchase; the reconciler resolves it to the live resource."
     },
@@ -747,7 +823,12 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["build", "submit", "review", "rollout"]
+            "enum": [
+              "build",
+              "submit",
+              "review",
+              "rollout"
+            ]
           },
           "description": "Which transitions fire a notification. Absent = all."
         }
@@ -795,7 +876,11 @@
     },
     "ReleaseType": {
       "type": "string",
-      "enum": ["AFTER_APPROVAL", "MANUAL", "SCHEDULED"],
+      "enum": [
+        "AFTER_APPROVAL",
+        "MANUAL",
+        "SCHEDULED"
+      ],
       "description": "How an approved iOS build reaches the public App Store — the App Store version's `releaseType`, mirroring Apple's enum on the `appStoreVersions` resource. Read by `launch release`, overridable per-run with `--manual` / `--scheduled <iso>`.\n- `AFTER_APPROVAL`: go live automatically the moment Apple approves. Launch's default — the   hands-off path most solo developers want.\n- `MANUAL`: hold after approval until you press release (`launch status` shows it's pending). Use   to line the go-live up with a marketing moment.\n- `SCHEDULED`: go live at a fixed future instant, set via  {@link  ReleaseConfig.earliestReleaseDate } ."
     },
     "Record<string,string>": {
@@ -947,12 +1032,18 @@
     },
     "LeaderboardSubmissionType": {
       "type": "string",
-      "enum": ["BEST_SCORE", "MOST_RECENT_SCORE"],
+      "enum": [
+        "BEST_SCORE",
+        "MOST_RECENT_SCORE"
+      ],
       "description": "How a leaderboard score is aggregated and sorted — Apple's two closed enums, restated for config."
     },
     "LeaderboardSortType": {
       "type": "string",
-      "enum": ["ASC", "DESC"]
+      "enum": [
+        "ASC",
+        "DESC"
+      ]
     },
     "Record<string,AppClipsConfig>": {
       "type": "object",
@@ -967,7 +1058,9 @@
           "$ref": "#/definitions/Record%3Cstring%2CAppClipConfig%3E"
         }
       },
-      "required": ["clips"],
+      "required": [
+        "clips"
+      ],
       "additionalProperties": false,
       "description": "An app's declared App Clips — the `appclips.config.json` document, or one entry of  {@link  LaunchConfig.appClips  }  (keyed by the parent app's iOS bundle id). Each App Clip is keyed by its **own** bundle id (e.g. `com.acme.app.Clip`), which is how a config entry is matched to the clip the build produced. Reconciled by `launch app-clips`."
     },
@@ -994,7 +1087,11 @@
     },
     "AppClipActionValue": {
       "type": "string",
-      "enum": ["OPEN", "VIEW", "PLAY"],
+      "enum": [
+        "OPEN",
+        "VIEW",
+        "PLAY"
+      ],
       "description": "The App Clip card's call-to-action button — Apple's `AppClipAction` enum, restated for public signatures."
     },
     "Record<string,AppClipLocalizationConfig>": {
@@ -1010,7 +1107,9 @@
           "type": "string"
         }
       },
-      "required": ["subtitle"],
+      "required": [
+        "subtitle"
+      ],
       "additionalProperties": false,
       "description": "One locale of an App Clip card: the subtitle shown under the app name in that locale."
     },
@@ -1047,7 +1146,10 @@
       }
     },
     "AgeRatingValue": {
-      "type": ["string", "boolean"],
+      "type": [
+        "string",
+        "boolean"
+      ],
       "description": "One age-rating answer: a content-descriptor enum string (`NONE` / `INFREQUENT_OR_MILD` / …) or a boolean flag."
     },
     "ReleaseCategories": {
@@ -1075,7 +1177,9 @@
           "description": "The customer-facing price in the base territory; must match one of Apple's price-ladder rungs."
         }
       },
-      "required": ["customerPrice"],
+      "required": [
+        "customerPrice"
+      ],
       "additionalProperties": false,
       "description": "Declared base price: a customer price (e.g. `9.99`) in a base territory Apple equalizes from."
     },
@@ -1144,7 +1248,10 @@
           "description": "A label shown in App Store Connect / the developer portal."
         }
       },
-      "required": ["identifier", "name"],
+      "required": [
+        "identifier",
+        "name"
+      ],
       "additionalProperties": false,
       "description": "One declared Apple identifier: the reverse-DNS id plus a human-readable name shown in the portal."
     },
@@ -1159,7 +1266,9 @@
           "description": "Domains to authorize for EU alternative distribution."
         }
       },
-      "required": ["domains"],
+      "required": [
+        "domains"
+      ],
       "additionalProperties": false,
       "description": "The team's EU alternative-distribution domains — the `eu-distribution.config.json` document, or  {@link  LaunchConfig.euDistribution  } . Team-level (not per-app); reconciled by `launch eu-distribution`."
     },
@@ -1175,7 +1284,10 @@
           "description": "A label shown in App Store Connect to identify the domain."
         }
       },
-      "required": ["domain", "referenceName"],
+      "required": [
+        "domain",
+        "referenceName"
+      ],
       "additionalProperties": false,
       "description": "One authorized EU distribution domain: the host plus a human-readable reference name."
     },
@@ -1218,7 +1330,9 @@
           "description": "EC2 Mac instance type. Defaults to `mac2.metal` (cheapest M-series in most regions)."
         }
       },
-      "required": ["region"],
+      "required": [
+        "region"
+      ],
       "additionalProperties": false,
       "description": "AWS settings for the EC2 Mac compute host, declared in `launch.config.ts` under `aws`.\n\nLaunch stores NO AWS secrets: credentials resolve through the standard SDK chain (env → `~/.aws` profiles → SSO → IMDS). `amiId` is an optional BYO golden image; omit it to let Launch bootstrap one and persist its id to `~/.launch/cloud.json`."
     },
@@ -1246,7 +1360,10 @@
           "description": "Supabase project URL (`https://<project>.supabase.co`). Required by `supabase`, unused by `s3`."
         }
       },
-      "required": ["bucket", "publicBaseUrl"],
+      "required": [
+        "bucket",
+        "publicBaseUrl"
+      ],
       "additionalProperties": false,
       "description": "Non-secret settings for a cloud  {@link  StorageProvider  } . Launch writes static artifacts (install plists, OTA manifests, JS bundles, IPAs/AABs) here and serves them from  {@link  StorageConfig.publicBaseUrl } , so the user owns the infra (no Launch-hosted server). Credentials are NEVER stored here — the S3 access key / Supabase service key resolve from env vars or the OS secret store at call time."
     },
@@ -1266,7 +1383,12 @@
     },
     "McpCapability": {
       "type": "string",
-      "enum": ["read", "dryRun", "write", "dangerous"],
+      "enum": [
+        "read",
+        "dryRun",
+        "write",
+        "dangerous"
+      ],
       "description": "The capability tiers a tool can require, in ascending order of blast radius — the gate behind `launch mcp`. A tool is tagged with exactly one tier; the MCP server registers only the tools whose tier the user has enabled in  {@link  McpConfig.capabilities } , so an agent can never reach a write tool the operator didn't opt into.\n- `read` — pure introspection (plan, audit, doctor): no store or filesystem writes. The safe default.\n- `dryRun` — rehearses a mutation and reports what it *would* do, still writing nothing.\n- `write` — reconciles live store state (e.g. `launch sync`): visible, reversible-with-effort changes.\n- `dangerous` — destructive or hard-to-reverse (deletions, irreversible submissions); opt-in only."
     },
     "Record<string,BuildProfile>": {
@@ -1307,13 +1429,20 @@
           "description": "Android-only: default staged-rollout fraction (0–1) for production releases when `--rollout` is omitted. Defaults to `1.0` (full rollout). Ignored on iOS."
         }
       },
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "additionalProperties": false,
       "description": "A named build profile from `launch.config.ts` (e.g. `production`, `preview`).\n\nHolds only Launch-specific settings; app facts stay in `app.json`. A profile maps to a `.env` file whose values are injected into the build and gates the artifact on size."
     },
     "PlayTrack": {
       "type": "string",
-      "enum": ["internal", "closed", "open", "production"],
+      "enum": [
+        "internal",
+        "closed",
+        "open",
+        "production"
+      ],
       "description": "A Google Play release track. `internal` is the safe default: a new personal Play account must run ~20 testers for 14 days on a testing track before production is unlocked, so defaulting anywhere else would fail for fresh accounts. Has no iOS equivalent."
     }
   }
