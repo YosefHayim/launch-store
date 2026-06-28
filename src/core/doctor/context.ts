@@ -17,6 +17,7 @@ import { capture, exists } from '../exec.js';
 import { hostOs } from '../os.js';
 import { loadConfig } from '../config.js';
 import { createAscClientResolver, createPlayClientResolver } from '../storeClients.js';
+import { selectApps } from '../syncJobs.js';
 import { localCredentialsProvider } from '../../providers/credentials/local.js';
 import type { DoctorContext, DoctorPlatform } from './types.js';
 
@@ -26,12 +27,15 @@ import type { DoctorContext, DoctorPlatform } from './types.js';
  * they assign with no cast (return-type covariance). `androidSdk` is added only when one of the SDK env
  * vars is set, to honor the exact-optional-property contract.
  */
-export async function buildDoctorContext(platform: DoctorPlatform): Promise<DoctorContext> {
+export async function buildDoctorContext(
+  platform: DoctorPlatform,
+  app?: string,
+): Promise<DoctorContext> {
   const { config, apps } = await loadConfig();
   const sdk = process.env['ANDROID_HOME'] ?? process.env['ANDROID_SDK_ROOT'];
   return {
     config,
-    apps,
+    apps: selectApps(apps, app),
     platform,
     os: hostOs(),
     cwd: process.cwd(),
