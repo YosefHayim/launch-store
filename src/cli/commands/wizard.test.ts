@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { AppDescriptor, LaunchConfig } from '../../core/types.js';
 import type { LastFlow } from '../../core/lastRun.js';
-import { flowInvalidReason, formatFlowSummary } from './wizard.js';
+import {
+  flowInvalidReason,
+  formatFlowSummary,
+  profileBudgetMB,
+  validateCustomBudget,
+} from './wizard.js';
+import { DEFAULT_SIZE_BUDGET_MB } from '../../core/pipeline.js';
 
 /** A minimal valid {@link LaunchConfig} with the given profile names (each a bare profile). */
 function configWith(profileNames: string[]): LaunchConfig {
@@ -106,5 +112,44 @@ describe('flowInvalidReason — gates whether a repeat is offered', () => {
     expect(flowInvalidReason(flow, configWith(['production']), [IOS_APP], accounts)).toBe(
       'the remembered SSH flow has no target',
     );
+  });
+});
+
+describe('profileBudgetMB — the budget shown as the wizard default', () => {
+  /** A config whose `production` profile declares the given size budget. */
+  function configWithBudget(sizeBudgetMB: number): LaunchConfig {
+    return {
+      ...configWith(['production']),
+      profiles: { production: { name: 'production', sizeBudgetMB } },
+    };
+  }
+
+  it("returns the profile's declared budget", () => {
+    expect(profileBudgetMB(configWithBudget(150), 'production')).toBe(150);
+  });
+
+  it('falls back to the default when the profile sets none', () => {
+    expect(profileBudgetMB(configWith(['production']), 'production')).toBe(DEFAULT_SIZE_BUDGET_MB);
+  });
+
+  it('falls back to the default for an unknown profile', () => {
+    expect(profileBudgetMB(configWith(['production']), 'staging')).toBe(DEFAULT_SIZE_BUDGET_MB);
+  });
+});
+
+describe('validateCustomBudget — the wizard custom-budget input gate', () => {
+  it('accepts a positive MB number (no error)', () => {
+    expect(validateCustomBudget('250')).toBeUndefined();
+    expect(validateCustomBudget('199.5')).toBeUndefined();
+  });
+
+  it('rejects non-numeric input', () => {
+    expect(validateCustomBudget('big')).toBe('Enter a number of megabytes.');
+    expect(validateCustomBudget('')).toBe('Enter a number of megabytes.');
+  });
+
+  it('rejects zero and negative budgets', () => {
+    expect(validateCustomBudget('0')).toBe('Enter a budget greater than 0 MB.');
+    expect(validateCustomBudget('-5')).toBe('Enter a budget greater than 0 MB.');
   });
 });

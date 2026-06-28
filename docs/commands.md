@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1885 tests**.
+> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1899 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -89,6 +89,8 @@ run the full pipeline and upload to the testing track (--no-submit to build only
 | `--bump <kind>`         | iOS only — version bump: patch\|minor\|major\|keep (default: last used, else prompt) or 'ask' to force the prompt |
 | `--track <track>`       | Android only — Play track: internal\|closed\|open\|production (default: internal)                                 |
 | `--rollout <fraction>`  | Android only — staged-rollout fraction for production (default: 1.0)                                              |
+| `--size-budget <MB>`    | override the profile soft size budget for this build only (MB, e.g. 250)                                          |
+| `--budget <MB>`         | alias of --size-budget                                                                                            |
 | `--clean`               | force a from-scratch build (default: fast incremental, clean only when native deps change)                        |
 | `--dry-run`             | rehearse every step and print what it would do, changing nothing                                                  |
 | `-y, --yes`             | skip the pre-upload size confirmation (auto-confirm)                                                              |
