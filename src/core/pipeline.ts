@@ -72,10 +72,15 @@ import type { GlossaryTopic } from './glossary.js';
 import { capture, exists, run } from './exec.js';
 import { buildConsoleUrl } from './consoleLinks.js';
 import { nativeProjectDirName, nativeTargetHint, platformLabel } from './platform.js';
+import { discoverExtensionBundleIds, multiTargetSigningWarnings } from './appleTargets.js';
 import { isInteractive, runWithProgress, withSpinner } from './progress.js';
 import { AppStoreConnectClient } from '../apple/ascClient.js';
 import { ensureAdHocSigningCredentials, ensureSigningCredentials } from '../apple/credentials.js';
-import { appGroupContainers, appGroupPortalNotice } from './capabilities.js';
+import {
+  appGroupContainers,
+  appGroupPortalNotice,
+  mapEntitlementsToCapabilities,
+} from './capabilities.js';
 import { distributeArtifact } from './distribute.js';
 import { ensureUploadKeystore } from '../google/credentials.js';
 import { GooglePlayClient, parseServiceAccount } from '../google/playClient.js';
@@ -374,6 +379,64 @@ export function interactiveConfirm(message: string): Promise<boolean> {
 }
 
 /**
+ * Resolve the full set of embedded-extension bundle ids to provision: the union of those declared in
+ * config (`ios.extensions`) and those discovered in the generated `*.xcodeproj/project.pbxproj` (the
+ * authoritative source — `@bacons/apple-targets` derives an extension's bundle id from its folder name,
+ * not its target `name`, so only the pbxproj's `PRODUCT_BUNDLE_IDENTIFIER` is reliable). Discovery runs
+ * after `ensureNativeProject`, so the project exists; when it finds no extra targets (single-target app)
+ * the result is exactly `app.iosExtensions ?? []`, keeping the no-extension path byte-identical. The
+ * main bundle id is excluded so it's never mistaken for one of its own extensions.
+ */
+function resolveExtensionBundleIds(app: AppDescriptor, platform: Platform): string[] {
+  const configured = app.iosExtensions ?? [];
+  const nativeDir = join(app.dir, nativeProjectDirName(platform));
+  const discovered = discoverExtensionBundleIds(nativeDir, app.bundleId);
+  return [...new Set([...configured, ...discovered])].filter((id) => id !== app.bundleId);
+}
+
+/**
+ * Warn — BEFORE the ~15-minute archive, not at exit 65 — when a build target's App ID isn't registered or
+ * is missing a capability its entitlements require (issue #261, the preflight). Reads each bundle id's
+ * registration + live capabilities from App Store Connect, computes the gap with the same pure mapping the
+ * provisioner uses, and hands {@link multiTargetSigningWarnings} the facts to phrase. Best-effort: any read
+ * failure is swallowed (a flaky preflight must never block a build that would otherwise succeed). The main
+ * bundle is checked for missing capabilities (we know its entitlements); extensions are checked for
+ * registration (App Group coverage is already surfaced by {@link appGroupPortalNotice}).
+ */
+async function warnUnreadySigningTargets(
+  ascKey: AppleCredentials['ascKey'],
+  app: AppDescriptor,
+  bundleId: string,
+  extensions: string[],
+  log: Logger,
+): Promise<void> {
+  try {
+    const client = new AppStoreConnectClient(ascKey);
+    const required = mapEntitlementsToCapabilities(app.iosEntitlements).enable;
+    const readiness = await Promise.all(
+      [
+        { id: bundleId, required },
+        ...extensions.map((id) => ({ id, required: [] as string[] })),
+      ].map(async ({ id, required: needed }) => {
+        const bundle = await client.findBundleId(id);
+        if (!bundle) return { bundleId: id, registered: false, missingCapabilities: [] };
+        const enabled = new Set(
+          (await client.listBundleIdCapabilities(bundle.id)).map((cap) => cap.capabilityType),
+        );
+        return {
+          bundleId: id,
+          registered: true,
+          missingCapabilities: needed.filter((cap) => !enabled.has(cap)),
+        };
+      }),
+    );
+    for (const warning of multiTargetSigningWarnings(readiness)) log.warn(warning);
+  } catch {
+    // A preflight read shouldn't sink the build — provisioning below still surfaces a real failure.
+  }
+}
+
+/**
  * Resolve signing assets: reuse silently when cached, otherwise (interactively) provision them now.
  * Mirrors the locked decision — the build never hard-blocks; it offers to run setup inline.
  */
@@ -409,6 +472,10 @@ async function resolveSigning(
       confirmCreate: interactiveConfirm,
     });
   }
+  const extensions = resolveExtensionBundleIds(app, platform);
+  // Preflight BEFORE the long archive: surface an unregistered App ID or a missing capability on any
+  // target now, while the fix is one command, instead of after a ~15-minute compile fails at exit 65.
+  if (!dryRun) await warnUnreadySigningTargets(credentials.ascKey, app, bundleId, extensions, log);
   if (credentials.signing) {
     log.step(
       'signing',
@@ -429,7 +496,7 @@ async function resolveSigning(
     log,
     dryRun,
     confirmCreate: interactiveConfirm,
-    extensions: app.iosExtensions ?? [],
+    extensions,
   });
 }
 

@@ -36,6 +36,8 @@ import {
   toBundleIdPlatform,
 } from '../core/platform.js';
 import { getSecret, setSecret } from '../core/keychain.js';
+import { staleProfileCapabilities } from '../core/capabilities.js';
+import { extractProfileEntitlements } from '../core/adopt/profileEntitlements.js';
 import {
   CREDENTIALS_INDEX,
   PROVISIONING_PROFILES_DIR,
@@ -462,6 +464,30 @@ interface EnsureProfileForBundleOptions {
 }
 
 /**
+ * Whether a cached App Store profile is stale against the App ID's CURRENT capabilities — i.e. a
+ * capability (e.g. App Groups) was enabled after the profile was minted, so the profile omits the
+ * entitlement and reusing it would fail the archive with exit 65 (issue #261, sub-problem #1).
+ *
+ * Reads the App ID's live capabilities (`listBundleIdCapabilities`) and the profile's own embedded
+ * entitlements, then defers the pure decision to {@link staleProfileCapabilities}. Best-effort: if the
+ * profile's entitlements can't be read (off-Mac, decode failure), that helper returns `[]` and the
+ * existing safe reuse path stands — staleness only ever *forces* a regenerate, never blocks one.
+ *
+ * @returns The enabled, entitlement-bearing capabilities the profile is missing; `[]` when it's current.
+ */
+export async function profileStaleAgainstCapabilities(
+  client: Pick<AppStoreConnectClient, 'listBundleIdCapabilities'>,
+  bundleIdResourceId: string,
+  profile: ProfileResource,
+): Promise<string[]> {
+  const enabled = (await client.listBundleIdCapabilities(bundleIdResourceId)).map(
+    (capability) => capability.capabilityType,
+  );
+  const profileEntitlements = await extractProfileEntitlements(profile.profileContent);
+  return staleProfileCapabilities(enabled, profileEntitlements);
+}
+
+/**
  * Ensure one bundle id's App ID + App Store provisioning profile against a shared distribution cert,
  * install the profile where Xcode looks, and record it in the account index. The per-bundle unit reused
  * by {@link ensureSigningCredentials} for the main app and each embedded extension — both follow the
@@ -488,12 +514,18 @@ async function ensureAppStoreProfileForBundle(
     log.step('app id', `${bundleId} already registered`, 'bundle-id');
   }
 
-  // App Store profile: reuse by name unless we just minted a new cert (then recreate to match it).
+  // App Store profile: reuse by name unless we just minted a new cert (then recreate to match it) OR the
+  // cached profile predates a capability now enabled on the App ID (issue #261 — App Groups was turned on
+  // after the profile was minted, so the reused profile omits the entitlement and xcodebuild exits 65).
   // Space-free name so it passes safely through xcodebuild's PROVISIONING_PROFILE_SPECIFIER setting.
   const profileName = `Launch_${bundleId}_AppStore`;
   const existingProfile = await client.findProfileByName(profileName);
+  const staleCapabilities =
+    existingProfile && !freshCert
+      ? await profileStaleAgainstCapabilities(client, bundle.id, existingProfile)
+      : [];
   let profile: ProfileResource;
-  if (existingProfile && !freshCert) {
+  if (existingProfile && !freshCert && staleCapabilities.length === 0) {
     profile = existingProfile;
     log.step('profile', `reusing ${profileName}`, 'provisioning-profile');
   } else {
@@ -504,7 +536,10 @@ async function ensureAppStoreProfileForBundle(
       cert.id,
       appStoreProfileType(platform),
     );
-    log.step('profile', `created ${profileName}`, 'provisioning-profile');
+    const reason = staleCapabilities.length
+      ? `regenerated ${profileName} (was missing ${staleCapabilities.join(', ')})`
+      : `created ${profileName}`;
+    log.step('profile', reason, 'provisioning-profile');
   }
 
   const installed = await installProfile(keyId, bundleId, profile.profileContent);

@@ -141,6 +141,14 @@ const CAPABILITY_TO_ENTITLEMENT_LOOKUP = new Map<string, string>(
   Object.entries(CAPABILITY_TO_ENTITLEMENT),
 );
 
+/** The full set of {@link CapabilityType}s Launch maps, for narrowing a raw `capabilityType` wire string. */
+const CAPABILITY_TYPES = new Set<string>(Object.values(ENTITLEMENT_TO_CAPABILITY));
+
+/** Narrow a raw App Store Connect `capabilityType` string to a {@link CapabilityType} Launch recognizes. */
+export function isCapabilityType(value: string): value is CapabilityType {
+  return CAPABILITY_TYPES.has(value);
+}
+
 /** Whether an entitlement key is one Launch maps to an App Store Connect capability (vs. signing plumbing). */
 export function isCapabilityEntitlement(key: string): boolean {
   return key in ENTITLEMENT_TO_CAPABILITY;
@@ -183,6 +191,43 @@ export function mapEntitlementsToCapabilities(
     }
   }
   return { enable: [...enable].sort(), unmapped: unmapped.sort() };
+}
+
+/**
+ * Decide whether a cached provisioning profile is **stale** against the App ID's current capabilities —
+ * the fix for the build-breaking reuse in issue #261, sub-problem #1.
+ *
+ * A profile embeds the entitlements (and thus the capabilities) that were enabled on the App ID at the
+ * moment it was minted. Enable a new capability afterwards (e.g. App Groups) and the cached profile no
+ * longer carries it, yet Launch reused it by name — so `xcodebuild` failed with exit 65 ("profile doesn't
+ * include the App Groups capability"). This returns the capabilities that are enabled on the App ID *now*
+ * but absent from the profile; a non-empty result means the profile predates a capability change and must
+ * be regenerated rather than reused.
+ *
+ * Only **entitlement-bearing** capabilities are compared (those with a {@link CAPABILITY_TO_ENTITLEMENT}
+ * key): always-on, value-less capabilities like `IN_APP_PURCHASE` / `GAME_CENTER` never appear in a
+ * profile's entitlements, so including them would force a needless regenerate on every build. Pure — the
+ * I/O (reading the App ID's capabilities and the profile's entitlements) happens in the caller.
+ *
+ * @param enabledOnAppId The `capabilityType`s currently live on the App ID (from `listBundleIdCapabilities`).
+ * @param profileEntitlements The cached profile's embedded entitlements, or `null` when unreadable (off-Mac
+ *   or a decode failure) — `null` means "can't tell", so this returns `[]` and the safe reuse path stands.
+ * @returns The enabled, entitlement-bearing capabilities the profile is missing, sorted; `[]` when current.
+ */
+export function staleProfileCapabilities(
+  enabledOnAppId: string[],
+  profileEntitlements: Record<string, unknown> | null,
+): CapabilityType[] {
+  if (!profileEntitlements) return [];
+  const profileCapabilities = new Set(mapEntitlementsToCapabilities(profileEntitlements).enable);
+  const missing = new Set<CapabilityType>();
+  for (const capabilityType of enabledOnAppId) {
+    // Skip always-on / value-less capabilities — they carry no entitlement, so they never live in a
+    // profile and would otherwise force a needless regenerate. `isCapabilityType` narrows the wire string.
+    if (!isCapabilityType(capabilityType) || !entitlementForCapability(capabilityType)) continue;
+    if (!profileCapabilities.has(capabilityType)) missing.add(capabilityType);
+  }
+  return [...missing].sort();
 }
 
 /** The entitlement key whose value lists the `group.*` App Group container ids a bundle joins. */

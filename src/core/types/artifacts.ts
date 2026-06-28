@@ -35,6 +35,26 @@ export interface SizeReport {
 }
 
 /**
+ * One build target discovered in a generated Xcode project's `project.pbxproj` — a target name paired
+ * with its authoritative `PRODUCT_BUNDLE_IDENTIFIER`.
+ *
+ * The pbxproj is the source of truth for what a multi-target app actually signs: `@bacons/apple-targets`
+ * derives an extension's bundle id from the target FOLDER name (`targets/widget/` ⇒ `…​.widget`), NOT
+ * the `name:` field, so neither the config nor the target name can be trusted to reconstruct it — only
+ * the `PRODUCT_BUNDLE_IDENTIFIER` Xcode wrote into the project is. Used by signing preflight + discovery
+ * to feed every embedded extension's bundle id into provisioning. `productType` distinguishes the main
+ * app (`com.apple.product-type.application`) from its app-extension targets.
+ */
+export interface DiscoveredTarget {
+  /** The target's `name` as written in the pbxproj (e.g. `Looopi`, `widget`). For display only. */
+  name: string;
+  /** The target's `PRODUCT_BUNDLE_IDENTIFIER` — the authoritative bundle id Launch must provision/sign. */
+  bundleId: string;
+  /** The Xcode product type, e.g. `com.apple.product-type.application` or `…​.app-extension`. */
+  productType: string;
+}
+
+/**
  * A built, signed artifact plus the metadata Launch records about it.
  *
  * Stored by a {@link StorageProvider} and used to build the run summary and the local index.

@@ -286,13 +286,25 @@
           "description": "Google Play overrides; present this to also publish the subscription to Play (see  {@link  PlaySubscriptionOverride } )."
         }
       },
-      "required": ["productId", "referenceName", "subscriptionPeriod", "localizations"],
+      "required": [
+        "productId",
+        "referenceName",
+        "subscriptionPeriod",
+        "localizations"
+      ],
       "additionalProperties": false,
       "description": "One auto-renewable subscription product inside a  {@link  SubscriptionGroupConfig } . `productId` is the globally-unique Apple product id the app references at runtime and the reconciler's natural key. Add a  {@link  PlaySubscriptionOverride }  under `play` to also publish it to Google Play."
     },
     "SubscriptionPeriod": {
       "type": "string",
-      "enum": ["ONE_WEEK", "ONE_MONTH", "TWO_MONTHS", "THREE_MONTHS", "SIX_MONTHS", "ONE_YEAR"],
+      "enum": [
+        "ONE_WEEK",
+        "ONE_MONTH",
+        "TWO_MONTHS",
+        "THREE_MONTHS",
+        "SIX_MONTHS",
+        "ONE_YEAR"
+      ],
       "description": "Apple's billing period for an auto-renewable subscription — the `subscriptionPeriod` enum the App Store Connect API expects on a `subscriptions` resource. There is no \"lifetime\" period; a one-off unlock is an  {@link  InAppPurchaseConfig }  of type `NON_CONSUMABLE`, not a subscription."
     },
     "ProductLocalization": {
@@ -456,7 +468,13 @@
           "description": "Product-level offer identifier the app references in StoreKit — the reconciler's key."
         }
       },
-      "required": ["duration", "name", "numberOfPeriods", "offerCode", "offerMode"],
+      "required": [
+        "duration",
+        "name",
+        "numberOfPeriods",
+        "offerCode",
+        "offerMode"
+      ],
       "additionalProperties": false,
       "description": "A promotional offer (Apple's `subscriptionPromotionalOffers`) — a developer-presented discount surfaced in-app to existing/lapsed subscribers. `offerCode` is the product-level identifier the app passes to StoreKit at redemption; it is the reconciler's natural key (unique per subscription)."
     },

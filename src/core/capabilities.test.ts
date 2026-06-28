@@ -6,7 +6,9 @@ import {
   appGroupPortalNotice,
   entitlementForCapability,
   isCapabilityEntitlement,
+  isCapabilityType,
   mapEntitlementsToCapabilities,
+  staleProfileCapabilities,
 } from './capabilities.js';
 
 describe('mapEntitlementsToCapabilities', () => {
@@ -137,5 +139,41 @@ describe('appGroupPortalNotice', () => {
     expect(notice).toContain('App Groups');
     expect(notice).toContain('"group.com.acme"');
     expect(notice).toContain('"group.com.acme.shared"');
+  });
+});
+
+describe('isCapabilityType', () => {
+  it('recognizes a known capability wire string and rejects an unknown one', () => {
+    expect(isCapabilityType('APP_GROUPS')).toBe(true);
+    expect(isCapabilityType('PUSH_NOTIFICATIONS')).toBe(true);
+    expect(isCapabilityType('NOT_A_REAL_CAPABILITY')).toBe(false);
+  });
+});
+
+describe('staleProfileCapabilities — regenerate vs reuse decision (#261)', () => {
+  it('flags a profile minted before App Groups was enabled (regenerate)', () => {
+    // App ID now has Push + App Groups; the cached profile predates App Groups (only Push entitlement).
+    const missing = staleProfileCapabilities(['PUSH_NOTIFICATIONS', 'APP_GROUPS'], {
+      'aps-environment': 'production',
+    });
+    expect(missing).toEqual(['APP_GROUPS']);
+  });
+
+  it('reuses when the profile already covers every enabled capability (no change)', () => {
+    expect(
+      staleProfileCapabilities(['PUSH_NOTIFICATIONS', 'APP_GROUPS'], {
+        'aps-environment': 'production',
+        'com.apple.security.application-groups': ['group.com.acme'],
+      }),
+    ).toEqual([]);
+  });
+
+  it('ignores always-on, value-less capabilities that never live in a profile', () => {
+    // IN_APP_PURCHASE / GAME_CENTER carry no entitlement, so an empty profile is NOT stale against them.
+    expect(staleProfileCapabilities(['IN_APP_PURCHASE', 'GAME_CENTER'], {})).toEqual([]);
+  });
+
+  it('cannot judge staleness when the profile entitlements are unreadable (reuse stands)', () => {
+    expect(staleProfileCapabilities(['APP_GROUPS'], null)).toEqual([]);
   });
 });

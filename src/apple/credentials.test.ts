@@ -22,8 +22,20 @@ const home = vi.hoisted(() => {
 
 import { accountCredentialsDir, PROVISIONING_PROFILES_DIR } from '../core/paths.js';
 import { createLogger } from '../core/logger.js';
-import { ensureAdHocSigningCredentials, loadCachedSigningAssets } from './credentials.js';
+import {
+  ensureAdHocSigningCredentials,
+  loadCachedSigningAssets,
+  profileStaleAgainstCapabilities,
+} from './credentials.js';
+import { extractProfileEntitlements } from '../core/adopt/profileEntitlements.js';
 import type { AscKey } from '../core/types.js';
+import type { BundleIdCapabilityResource, ProfileResource } from './ascClient.js';
+
+// The profile-entitlements reader shells out to `security cms`/`plutil` (Mac-only). Mock it so the
+// stale-profile decision test stays a pure, in-process unit with no exec and no network.
+vi.mock('../core/adopt/profileEntitlements.js', () => ({
+  extractProfileEntitlements: vi.fn(),
+}));
 
 const KEY_ID = 'ABC123';
 const MAIN = 'com.loopi.pomedero';
@@ -119,5 +131,45 @@ describe('ensureAdHocSigningCredentials — macOS has no ad-hoc distribution', (
         confirmCreate: () => Promise.resolve(true),
       }),
     ).rejects.toThrow(/macOS has no ad-hoc/i);
+  });
+});
+
+describe('profileStaleAgainstCapabilities — regenerate-vs-reuse decision (#261)', () => {
+  const PROFILE: ProfileResource = {
+    id: 'prof-1',
+    name: `Launch_${MAIN}_AppStore`,
+    uuid: 'uuid-main',
+    profileContent: 'base64-bytes',
+  };
+  /** A client stub exposing only the one read this decision makes — no network. */
+  function clientWithCapabilities(types: string[]) {
+    return {
+      listBundleIdCapabilities: vi
+        .fn<() => Promise<BundleIdCapabilityResource[]>>()
+        .mockResolvedValue(types.map((capabilityType, i) => ({ id: `c${i}`, capabilityType }))),
+    };
+  }
+
+  it('regenerates when App Groups was enabled after the profile was minted', async () => {
+    vi.mocked(extractProfileEntitlements).mockResolvedValue({ 'aps-environment': 'production' });
+    const stale = await profileStaleAgainstCapabilities(
+      clientWithCapabilities(['PUSH_NOTIFICATIONS', 'APP_GROUPS']),
+      'bundle-resource-id',
+      PROFILE,
+    );
+    expect(stale).toEqual(['APP_GROUPS']);
+  });
+
+  it('reuses when the profile already covers every enabled capability', async () => {
+    vi.mocked(extractProfileEntitlements).mockResolvedValue({
+      'aps-environment': 'production',
+      'com.apple.security.application-groups': ['group.com.acme'],
+    });
+    const stale = await profileStaleAgainstCapabilities(
+      clientWithCapabilities(['PUSH_NOTIFICATIONS', 'APP_GROUPS']),
+      'bundle-resource-id',
+      PROFILE,
+    );
+    expect(stale).toEqual([]);
   });
 });
