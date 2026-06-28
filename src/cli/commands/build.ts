@@ -36,6 +36,10 @@ interface BuildCommandOptions extends EnvFlags {
   distribution?: string;
   /** iOS-only version bump (`--bump`): patch|minor|major|keep, or `ask` to force the prompt. */
   bump?: string;
+  /** Per-run soft size-budget override in MB (`--size-budget`); overrides the profile's. */
+  sizeBudget?: string;
+  /** Alias of `--size-budget` (`--budget`); `--size-budget` wins if both are passed. */
+  budget?: string;
 }
 
 /** The accepted `--bump` values: the rememberable {@link BumpKind} kinds plus `ask` (force the prompt). */
@@ -97,6 +101,20 @@ function parseRollout(rollout: string | undefined): number | undefined {
   return value;
 }
 
+/**
+ * Parse `--size-budget`/`--budget` into a positive MB number, rejecting `≤ 0` and non-numeric input at the
+ * CLI boundary. Returns undefined when omitted, so the pipeline falls back to the profile's `sizeBudgetMB`
+ * then the default — see {@link resolveSizeBudgetMB}. Exported so the same rejection is unit-tested directly.
+ */
+export function parseSizeBudget(sizeBudget: string | undefined): number | undefined {
+  if (sizeBudget === undefined) return undefined;
+  const value = Number.parseFloat(sizeBudget);
+  if (Number.isNaN(value) || value <= 0) {
+    throw new Error(`Invalid --size-budget "${sizeBudget}". Pass a size in MB greater than 0.`);
+  }
+  return value;
+}
+
 /** Attach the `build` command to the program. */
 export function registerBuildCommand(program: Command): void {
   const command = program
@@ -134,6 +152,11 @@ export function registerBuildCommand(program: Command): void {
       'Android only — staged-rollout fraction for production (default: 1.0)',
     )
     .option(
+      '--size-budget <MB>',
+      'override the profile soft size budget for this build only (MB, e.g. 250)',
+    )
+    .option('--budget <MB>', 'alias of --size-budget')
+    .option(
       '--clean',
       'force a from-scratch build (default: fast incremental, clean only when native deps change)',
       false,
@@ -153,6 +176,7 @@ export function registerBuildCommand(program: Command): void {
     const rollout = parseRollout(options.rollout);
     const distribution = parseDistribution(options.distribution);
     const bump = parseBump(options.bump);
+    const sizeBudgetMB = parseSizeBudget(options.sizeBudget ?? options.budget);
     await runBuild({
       platform,
       profileName: options.profile,
@@ -172,6 +196,7 @@ export function registerBuildCommand(program: Command): void {
       ...(rollout !== undefined ? { rollout } : {}),
       ...(options.account ? { account: options.account } : {}),
       ...(bump ? { bump } : {}),
+      ...(sizeBudgetMB !== undefined ? { sizeBudgetMB } : {}),
     });
   });
 }

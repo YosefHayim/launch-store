@@ -104,6 +104,12 @@ export interface BuildRunOptions {
   rollout?: number;
   /** Rehearse the flow with no real changes (`--dry-run`). */
   dryRun: boolean;
+  /**
+   * Per-run soft size-budget override in MB (`--size-budget`, or the wizard's custom-budget prompt). When
+   * set it wins over the profile's `sizeBudgetMB` for this build only — `launch.config.ts` is untouched.
+   * See {@link resolveSizeBudgetMB}.
+   */
+  sizeBudgetMB?: number;
   /** Skip the interactive pre-upload confirmation (`--yes`); always implied in CI / non-TTY. */
   yes?: boolean;
   /** Force a from-scratch build (`--clean`); omitted/false lets the fingerprint decide. iOS-gated; Android cleans too. */
@@ -232,6 +238,22 @@ export function resolveAndroidRelease(
     track: options.track ?? profile.track ?? fallback,
     rollout: options.rollout ?? profile.rollout ?? 1.0,
   };
+}
+
+/** The soft size budget (MB) applied when neither the run nor the profile sets one. */
+export const DEFAULT_SIZE_BUDGET_MB = 200;
+
+/**
+ * The soft size budget (MB) the pre-upload gate enforces for one run: a per-run override
+ * (`--size-budget` / the wizard's custom-budget prompt) wins, then the profile's `sizeBudgetMB`, then
+ * {@link DEFAULT_SIZE_BUDGET_MB}. One source of truth for the three `confirmUpload` call sites (local
+ * iOS, local Android, and the EAS handoff) so the precedence can't drift between them.
+ */
+export function resolveSizeBudgetMB(
+  options: Pick<BuildRunOptions, 'sizeBudgetMB'>,
+  profile: Pick<BuildProfile, 'sizeBudgetMB'>,
+): number {
+  return options.sizeBudgetMB ?? profile.sizeBudgetMB ?? DEFAULT_SIZE_BUDGET_MB;
 }
 
 export const mb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -961,7 +983,7 @@ async function runIosBuild(prepared: PreparedBuild, options: BuildRunOptions): P
     } else {
       await confirmUpload({
         report: sizeReport,
-        budgetMB: prepared.profile.sizeBudgetMB ?? 200,
+        budgetMB: resolveSizeBudgetMB(options, prepared.profile),
         destination,
         app,
         version: app.version ?? '0.0.0',
@@ -1113,7 +1135,7 @@ async function runAndroidBuild(prepared: PreparedBuild, options: BuildRunOptions
     } else {
       await confirmUpload({
         report: sizeReport,
-        budgetMB: prepared.profile.sizeBudgetMB ?? 200,
+        budgetMB: resolveSizeBudgetMB(options, prepared.profile),
         destination: `Google Play (${track} track)`,
         app,
         version: app.version ?? '0.0.0',
