@@ -113,7 +113,9 @@ async function runDoctorTool(
     throw new Error(`Unknown platform "${requested}". Use "ios" or "android".`);
   }
   const platform: DoctorPlatform = requested;
-  return jsonResult(await inspectDoctor(await buildDoctorContext(platform)));
+  return jsonResult(
+    await inspectDoctor(await buildDoctorContext(platform, optionalString(args, 'app'))),
+  );
 }
 
 /**
@@ -358,6 +360,7 @@ export const READ_TOOLS: readonly McpTool[] = [
           enum: ['ios', 'android'],
           description: 'ios (default) or android',
         },
+        app: { type: 'string', description: 'comma-separated app handles (default: all apps)' },
       },
     },
     handler: runDoctorTool,

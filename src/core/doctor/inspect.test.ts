@@ -87,4 +87,22 @@ describe('inspectDoctor', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('runs app-scoped checks only for apps in the context', async () => {
+    const report = await inspectDoctor(
+      context({
+        platform: 'ios',
+        apps: [
+          {
+            name: 'alpha',
+            dir: '/apps/alpha',
+            configPath: '/apps/alpha/app.json',
+            bundleId: 'com.example.alpha',
+          },
+        ],
+      }),
+    );
+    expect(report.checks.some((c) => c.title.startsWith('alpha:'))).toBe(true);
+    expect(report.checks.some((c) => c.title.startsWith('beta:'))).toBe(false);
+  });
 });

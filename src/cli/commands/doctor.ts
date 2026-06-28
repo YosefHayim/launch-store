@@ -28,6 +28,7 @@ import {
 import { inspectDoctor } from '../../core/doctor/inspect.js';
 import { buildDoctorContext } from '../../core/doctor/context.js';
 import { isApplePlatform, parsePlatform } from '../../core/platform.js';
+import { selectApps } from '../../core/syncJobs.js';
 import type { DoctorCheck, DoctorPlatform, DoctorReport } from '../../core/doctor/types.js';
 
 /** Map a check status to its leading glyph. */
@@ -54,12 +55,12 @@ function renderDoctorReport(report: DoctorReport): void {
  * encryption question, or reusing an approved declaration). Best-effort and advisory — never fails the
  * doctor. The toolchain install is handled separately in {@link runDoctor} via {@link ensureToolchain}.
  */
-async function fixExportCompliance(): Promise<void> {
+async function fixExportCompliance(appSelector?: string): Promise<void> {
   const ascKey = await loadActiveAscKey();
   if (!ascKey) return;
   const client = new AppStoreConnectClient(ascKey);
   const { apps } = await loadConfig();
-  for (const app of apps) {
+  for (const app of selectApps(apps, appSelector)) {
     if (!app.bundleId || app.usesNonExemptEncryption === undefined) continue;
     try {
       const buildNumber = await client.getLatestBuildNumber(app.bundleId);
@@ -91,16 +92,17 @@ async function fixExportCompliance(): Promise<void> {
  */
 export async function runDoctor(options: {
   platform: DoctorPlatform;
+  app?: string;
   fix?: boolean;
   yes?: boolean;
 }): Promise<boolean> {
   if (options.platform === 'ios' && options.fix) {
     await ensureToolchain({ assumeYes: options.yes === true });
   }
-  const report = await inspectDoctor(await buildDoctorContext(options.platform));
+  const report = await inspectDoctor(await buildDoctorContext(options.platform, options.app));
   renderDoctorReport(report);
   if (options.platform === 'ios' && options.fix) {
-    await fixExportCompliance();
+    await fixExportCompliance(options.app);
   }
   return report.ok;
 }
@@ -111,6 +113,7 @@ export function registerDoctorCommand(program: Command): void {
     .command('doctor')
     .description('check that the local toolchain and store account are ready')
     .option('--platform <p>', 'ios (default), android, tvos, macos, or visionos')
+    .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option(
       '--fix',
       'install any missing build tools (Apple platforms only; asks for consent first)',
@@ -118,19 +121,26 @@ export function registerDoctorCommand(program: Command): void {
     .option('--yes', 'skip prompts and proceed with installs (CI/agents)')
     .option('--json', 'machine-readable output for CI/agents')
     .action(
-      async (options: { platform?: string; fix?: boolean; yes?: boolean; json?: boolean }) => {
+      async (options: {
+        platform?: string;
+        app?: string;
+        fix?: boolean;
+        yes?: boolean;
+        json?: boolean;
+      }) => {
         // doctor's toolchain/account checks are family-level, so every Apple platform reuses the iOS readiness path.
         const platform: DoctorPlatform = isApplePlatform(parsePlatform(options.platform ?? 'ios'))
           ? 'ios'
           : 'android';
         if (options.json === true) {
-          const report = await inspectDoctor(await buildDoctorContext(platform));
+          const report = await inspectDoctor(await buildDoctorContext(platform, options.app));
           console.log(JSON.stringify(report, null, 2));
           if (!report.ok) process.exitCode = 1;
           return;
         }
         const ok = await runDoctor({
           platform,
+          ...(options.app !== undefined ? { app: options.app } : {}),
           fix: options.fix === true,
           yes: options.yes === true,
         });
