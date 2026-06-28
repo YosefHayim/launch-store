@@ -8,7 +8,13 @@
  */
 
 import type { BuildArtifact } from './types.js';
-import { type BuildTransport, confirmUpload, reportSize, renderReceipt } from './pipeline.js';
+import {
+  type BuildTransport,
+  confirmUpload,
+  reportSize,
+  renderReceipt,
+  resolveSizeBudgetMB,
+} from './pipeline.js';
 import { resolveStorageProvider } from './storage.js';
 import {
   detectEasCli,
@@ -64,7 +70,7 @@ export const runEasBuild: BuildTransport = async (prepared, options) => {
   if (options.submit) {
     await confirmUpload({
       report: sizeReport,
-      budgetMB: profile.sizeBudgetMB ?? 200,
+      budgetMB: resolveSizeBudgetMB(options, profile),
       destination:
         options.target === 'testing' ? 'TestFlight (via EAS)' : 'App Store review (via EAS)',
       app,

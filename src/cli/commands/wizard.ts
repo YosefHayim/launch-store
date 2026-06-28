@@ -34,7 +34,12 @@ import {
 import { type LastFlow, readLastFlow, rememberLastFlow } from '../../core/lastRun.js';
 import { loadConfig } from '../../core/config.js';
 import { missingRequiredTools } from '../../core/toolchain.js';
-import { type BuildRunOptions, prepareBuild, runBuild } from '../../core/pipeline.js';
+import {
+  type BuildRunOptions,
+  DEFAULT_SIZE_BUDGET_MB,
+  prepareBuild,
+  runBuild,
+} from '../../core/pipeline.js';
 import { runEasBuild } from '../../core/easPipeline.js';
 import { chooseAccountInteractive, setupIos } from './creds.js';
 import { runInit } from './init.js';
@@ -81,8 +86,17 @@ async function promptSshTarget(): Promise<string> {
   return resolvePrompt(target).trim();
 }
 
-/** Build the base options every wizard build shares — production-ish defaults, real (non-dry) run. */
-function buildOptions(platform: Platform, profileName: string, submit: boolean): BuildRunOptions {
+/**
+ * Build the base options every wizard build shares — production-ish defaults, real (non-dry) run. A
+ * `sizeBudgetMB` from the custom-budget step (see {@link selectSizeBudget}) is carried only when set, so
+ * an unset budget falls back to the profile's then the default at the gate.
+ */
+function buildOptions(
+  platform: Platform,
+  profileName: string,
+  submit: boolean,
+  sizeBudgetMB?: number,
+): BuildRunOptions {
   return {
     platform,
     profileName,
@@ -91,6 +105,7 @@ function buildOptions(platform: Platform, profileName: string, submit: boolean):
     submit,
     target: 'testing',
     dryRun: false,
+    ...(sizeBudgetMB !== undefined ? { sizeBudgetMB } : {}),
   };
 }
 
@@ -144,6 +159,55 @@ async function selectProfile(config: LaunchConfig): Promise<string> {
   return resolvePrompt(await select<string>({ message: 'Which profile?', options, initialValue }));
 }
 
+/** The soft size budget (MB) the chosen profile declares, or the pipeline default when it sets none. */
+export function profileBudgetMB(config: LaunchConfig, profileName: string): number {
+  return config.profiles[profileName]?.sizeBudgetMB ?? DEFAULT_SIZE_BUDGET_MB;
+}
+
+/**
+ * Validate a typed custom-budget string for the wizard prompt, returning a Clack error message when it's
+ * rejected (empty, non-numeric, or `≤ 0`) or undefined when it's a positive MB number. Pure → the
+ * rejection wording is unit-testable without driving a prompt.
+ */
+export function validateCustomBudget(input: string): string | undefined {
+  const value = Number.parseFloat(input);
+  if (Number.isNaN(value)) return 'Enter a number of megabytes.';
+  if (value <= 0) return 'Enter a budget greater than 0 MB.';
+  return undefined;
+}
+
+/**
+ * Step (both, after the profile): let the user keep the profile's size budget (default — just press
+ * Enter) or type a per-run override that wins at the upload gate for this build only. Returns the custom
+ * MB number, or undefined to leave the profile's budget in force. Reuses the same Clack `select`/`text`
+ * primitives the rest of the wizard uses, so it degrades and cancels identically.
+ */
+async function selectSizeBudget(
+  config: LaunchConfig,
+  profileName: string,
+): Promise<number | undefined> {
+  const budget = profileBudgetMB(config, profileName);
+  const choice = resolvePrompt(
+    await select<'profile' | 'custom'>({
+      message: 'Size budget for this build?',
+      options: [
+        { value: 'profile', label: `Use profile budget (${budget} MB)`, hint: 'no change' },
+        { value: 'custom', label: 'Enter a custom budget…', hint: 'this build only' },
+      ],
+      initialValue: 'profile',
+    }),
+  );
+  if (choice === 'profile') return undefined;
+  const entered = resolvePrompt(
+    await text({
+      message: 'Custom size budget (MB)',
+      placeholder: String(budget),
+      validate: (value) => validateCustomBudget(value ?? ''),
+    }),
+  );
+  return Number.parseFloat(entered);
+}
+
 /** Step (both): upload or stop after building. Returns whether to submit. */
 async function selectAfterBuild(uploadLabel: string): Promise<boolean> {
   const choice = resolvePrompt(
@@ -174,12 +238,17 @@ async function runIosJourney(config: LaunchConfig): Promise<void> {
 
   teach('build-profile', 'Profile');
   const profileName = await selectProfile(config);
+  const sizeBudgetMB = await selectSizeBudget(config, profileName);
 
   teach('testflight', 'After build');
   const submit = await selectAfterBuild('TestFlight');
 
   const sshTarget = location === 'ssh' ? await promptSshTarget() : undefined;
-  await dispatchIosBuild(location, buildOptions('ios', profileName, submit), sshTarget);
+  await dispatchIosBuild(
+    location,
+    buildOptions('ios', profileName, submit, sizeBudgetMB),
+    sshTarget,
+  );
 
   // Record only after the build succeeds (a throw above skips this), so a repeat never replays a failure.
   rememberLastFlow({
@@ -222,11 +291,12 @@ async function dispatchIosBuild(
 async function runAndroidJourney(config: LaunchConfig): Promise<void> {
   teach('build-profile', 'Profile');
   const profileName = await selectProfile(config);
+  const sizeBudgetMB = await selectSizeBudget(config, profileName);
 
   teach('play-track', 'After build');
   const submit = await selectAfterBuild('Google Play (internal track)');
 
-  await runBuild(buildOptions('android', profileName, submit));
+  await runBuild(buildOptions('android', profileName, submit, sizeBudgetMB));
   // Android always builds locally; record after success so the next run can offer to repeat it.
   rememberLastFlow({ platform: 'android', location: 'local', profile: profileName, submit });
 }

@@ -13,8 +13,10 @@ vi.mock('node:child_process', () => ({
 import { registerBuiltins } from '../providers/index.js';
 import { registerSubmitter } from './registry.js';
 import {
+  DEFAULT_SIZE_BUDGET_MB,
   resolveBuildTransport,
   resolveBumpKind,
+  resolveSizeBudgetMB,
   resolveSubmitters,
   runBuild,
   selectApp,
@@ -26,6 +28,7 @@ import {
 import type {
   AppDescriptor,
   BuildCredentials,
+  BuildProfile,
   LaunchConfig,
   ResolvedBuildContext,
   SizeReport,
@@ -324,6 +327,23 @@ describe('resolveBumpKind — flag > remembered > prompt precedence', () => {
     expect(resolveBumpKind({ flag: undefined, remembered: 'patch', canPrompt: false })).toEqual({
       mode: 'leave',
     });
+  });
+});
+
+describe('resolveSizeBudgetMB — per-run override > profile > default precedence', () => {
+  const profile = (sizeBudgetMB?: number): Pick<BuildProfile, 'sizeBudgetMB'> =>
+    sizeBudgetMB === undefined ? {} : { sizeBudgetMB };
+
+  it('uses the per-run override over both the profile and the default', () => {
+    expect(resolveSizeBudgetMB({ sizeBudgetMB: 250 }, profile(150))).toBe(250);
+  });
+
+  it('falls back to the profile budget when no per-run override is given', () => {
+    expect(resolveSizeBudgetMB({}, profile(150))).toBe(150);
+  });
+
+  it('falls back to the default when neither the run nor the profile sets one', () => {
+    expect(resolveSizeBudgetMB({}, profile())).toBe(DEFAULT_SIZE_BUDGET_MB);
   });
 });
 
