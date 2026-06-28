@@ -12,14 +12,7 @@
  */
 
 import type { Command } from 'commander';
-import { loadConfig } from '../../core/config.js';
-import { createLogger } from '../../core/logger.js';
-import { createAscClientResolver, createPlayClientResolver } from '../../core/storeClients.js';
-import { selectApps } from '../../core/syncJobs.js';
-import { registerBuiltinProbes, selectReadinessProbes } from '../../core/readiness/registry.js';
-import { runProbes } from '../../core/readiness/orchestrator.js';
-import type { ReadinessContext } from '../../core/readiness/types.js';
-import { renderReadinessOutcome } from './readinessReport.js';
+import { runReadinessCommand } from './readinessReport.js';
 
 /** CLI options for `launch iap doctor`. */
 interface IapDoctorOptions {
@@ -30,31 +23,18 @@ interface IapDoctorOptions {
 }
 
 /**
- * Run the iap-doctor flow. Exported so a test (or a future caller) can drive it directly: it loads the
- * config, resolves the read-only clients once via the shared resolvers, runs the `iap` probes, and renders.
- * Sets `process.exitCode` per the readiness contract.
+ * Run the iap-doctor flow over the `iap` probe slice — the family's shared run, voiced for in-app-purchase
+ * readiness. Exported so a test (or a future caller) can drive it directly.
  */
 export async function runIapDoctor(input: IapDoctorOptions): Promise<void> {
-  registerBuiltinProbes();
-  const log = createLogger(false);
-  const { config, apps } = await loadConfig();
-  const ctx: ReadinessContext = {
-    config,
-    apps: selectApps(apps, input.app),
-    resolveAscApi: createAscClientResolver(),
-    resolvePlayApi: createPlayClientResolver(),
-  };
-
-  const outcome = await runProbes(ctx, selectReadinessProbes('iap'));
-
-  if (input.json === true) console.log(JSON.stringify(outcome, null, 2));
-  else {
-    renderReadinessOutcome(log, outcome, {
+  await runReadinessCommand({
+    category: 'iap',
+    labels: {
       summary: 'IAP readiness',
       empty: 'No IAP checks ran — no apps declare in-app purchases or subscriptions.',
-    });
-  }
-  process.exitCode = outcome.exitCode;
+    },
+    ...input,
+  });
 }
 
 /**
