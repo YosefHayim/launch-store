@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1933 tests**.
+> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1936 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -925,6 +925,7 @@ check that the local toolchain and store account are ready
 | Flag | Description |
 | --- | --- |
 | `--platform <p>` | ios (default), android, tvos, macos, or visionos |
+| `-a, --app <names>` | comma-separated app handles (default: all apps) |
 | `--fix` | install any missing build tools (Apple platforms only; asks for consent first) |
 | `--yes` | skip prompts and proceed with installs (CI/agents) |
 | `--json` | machine-readable output for CI/agents |
