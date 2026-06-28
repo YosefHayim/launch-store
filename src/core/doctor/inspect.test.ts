@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { LaunchConfig } from '../types.js';
 import { inspectDoctor } from './inspect.js';
-import type { DoctorContext, DoctorPlatform } from './types.js';
+import type { DoctorAscApi, DoctorContext, DoctorPlatform } from './types.js';
 
 /**
  * A fully-faked {@link DoctorContext} — no network, no keychain. Defaults to a healthy macOS-free machine
@@ -86,5 +86,72 @@ describe('inspectDoctor', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it('fails the iOS run when an extension App ID is unregistered (#261 doctor preflight)', async () => {
+    const report = await inspectDoctor(
+      context({
+        apps: [
+          {
+            name: 'pomedero',
+            dir: '/apps/pomedero',
+            configPath: '/apps/pomedero/app.json',
+            bundleId: 'com.loopi.pomedero',
+            iosExtensions: ['com.loopi.pomedero.widget'],
+          },
+        ],
+        resolveAsc: async () =>
+          ({
+            assertReady: async () => {},
+            getAppId: async () => 'app-1',
+            findBundleId: async (id: string) =>
+              id === 'com.loopi.pomedero' ? { id: 'bid-main' } : null,
+            listBundleIdCapabilities: async () => [{ capabilityType: 'APP_GROUPS' }],
+          }) as unknown as DoctorAscApi,
+      }),
+    );
+    expect(report.ok).toBe(false);
+    expect(
+      report.checks.some(
+        (check) =>
+          check.status === 'fail' &&
+          check.detail?.includes('com.loopi.pomedero.widget') &&
+          check.detail?.includes('not registered'),
+      ),
+    ).toBe(true);
+  });
+
+  it('surfaces App Groups portal setup as advisory info in doctor', async () => {
+    const report = await inspectDoctor(
+      context({
+        apps: [
+          {
+            name: 'pomedero',
+            dir: '/apps/pomedero',
+            configPath: '/apps/pomedero/app.json',
+            bundleId: 'com.loopi.pomedero',
+            iosEntitlements: {
+              'com.apple.security.application-groups': ['group.com.loopi.pomedero'],
+            },
+          },
+        ],
+        resolveAsc: async () =>
+          ({
+            assertReady: async () => {},
+            getAppId: async () => 'app-1',
+            findBundleId: async () => ({ id: 'bid-main' }),
+            listBundleIdCapabilities: async () => [{ capabilityType: 'APP_GROUPS' }],
+          }) as unknown as DoctorAscApi,
+      }),
+    );
+    expect(report.ok).toBe(true);
+    expect(
+      report.checks.some(
+        (check) =>
+          check.status === 'info' &&
+          check.title === 'App Groups require portal setup' &&
+          check.detail?.includes('group.com.loopi.pomedero'),
+      ),
+    ).toBe(true);
   });
 });

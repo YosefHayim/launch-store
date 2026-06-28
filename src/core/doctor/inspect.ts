@@ -26,6 +26,12 @@ import { inspectPackageSetup, packageManagerWarnings } from '../packageManager.j
 import { appPrivacyChecklist } from '../privacyNutritionLabel.js';
 import { ANDROID_TOOLS, REQUIRED_TOOLS, fixHint } from '../toolchain.js';
 import { buildConsoleUrl } from '../consoleLinks.js';
+import {
+  appGroupPreflightNotice,
+  gatherTargetSigningReadiness,
+  resolveExtensionBundleIdsForApp,
+  signingPreflightDoctorChecks,
+} from '../signingPreflight.js';
 import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from './types.js';
 
 /** Where to create a missing App Store Connect app record — the one step the API can't do. */
@@ -293,6 +299,39 @@ function exportComplianceChecks(ctx: DoctorContext): DoctorCheck[] {
   });
 }
 
+/**
+ * Grade each iOS app's signing targets BEFORE a build: App Group portal notice (advisory) plus App ID
+ * registration and capability coverage for the main bundle and any extensions (fail when not ready).
+ * Best-effort when the ASC read throws — one advisory skip, not a sunk run.
+ */
+async function signingPreflightChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
+  const asc = await ctx.resolveAsc();
+  if (!asc) return [];
+
+  const checks: DoctorCheck[] = [];
+  for (const app of ctx.apps) {
+    if (!app.bundleId) continue;
+    const appGroupNotice = appGroupPreflightNotice(app.iosEntitlements);
+    const extensions = resolveExtensionBundleIdsForApp(app);
+    try {
+      const readiness = await gatherTargetSigningReadiness(
+        asc,
+        app.bundleId,
+        extensions,
+        app.iosEntitlements,
+      );
+      checks.push(...signingPreflightDoctorChecks(readiness, appGroupNotice));
+    } catch (error) {
+      checks.push({
+        status: 'info',
+        title: `${app.name}: signing preflight skipped`,
+        detail: errorMessage(error),
+      });
+    }
+  }
+  return checks;
+}
+
 /** Remind that the App Privacy "nutrition label" is a one-time manual step (no API). iOS apps only. */
 function appPrivacyChecks(ctx: DoctorContext): DoctorCheck[] {
   if (!ctx.apps.some((app) => app.bundleId)) return [];
@@ -358,6 +397,7 @@ export async function inspectDoctor(ctx: DoctorContext): Promise<DoctorReport> {
     await collect('Credentials', () => credentialsCheck(ctx));
     await collect('Codesign identity', () => codesignCheck(ctx));
     await collect('Apple account', () => appleAccountChecks(ctx));
+    await collect('Signing preflight', () => signingPreflightChecks(ctx));
     await collect('App config', () => configChecks(ctx, 'ios'));
     await collect('Export compliance', () => exportComplianceChecks(ctx));
     await collect('App privacy', () => appPrivacyChecks(ctx));

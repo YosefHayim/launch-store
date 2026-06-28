@@ -72,15 +72,15 @@ import type { GlossaryTopic } from './glossary.js';
 import { capture, exists, run } from './exec.js';
 import { buildConsoleUrl } from './consoleLinks.js';
 import { nativeProjectDirName, nativeTargetHint, platformLabel } from './platform.js';
-import { discoverExtensionBundleIds, multiTargetSigningWarnings } from './appleTargets.js';
+import { discoverExtensionBundleIds } from './appleTargets.js';
 import { isInteractive, runWithProgress, withSpinner } from './progress.js';
 import { AppStoreConnectClient } from '../apple/ascClient.js';
 import { ensureAdHocSigningCredentials, ensureSigningCredentials } from '../apple/credentials.js';
 import {
-  appGroupContainers,
-  appGroupPortalNotice,
-  mapEntitlementsToCapabilities,
-} from './capabilities.js';
+  appGroupPreflightNotice,
+  gatherTargetSigningReadiness,
+  signingPreflightWarnings,
+} from './signingPreflight.js';
 import { distributeArtifact } from './distribute.js';
 import { ensureUploadKeystore } from '../google/credentials.js';
 import { GooglePlayClient, parseServiceAccount } from '../google/playClient.js';
@@ -434,25 +434,13 @@ async function warnUnreadySigningTargets(
 ): Promise<void> {
   try {
     const client = new AppStoreConnectClient(ascKey);
-    const required = mapEntitlementsToCapabilities(app.iosEntitlements).enable;
-    const readiness = await Promise.all(
-      [
-        { id: bundleId, required },
-        ...extensions.map((id) => ({ id, required: [] as string[] })),
-      ].map(async ({ id, required: needed }) => {
-        const bundle = await client.findBundleId(id);
-        if (!bundle) return { bundleId: id, registered: false, missingCapabilities: [] };
-        const enabled = new Set(
-          (await client.listBundleIdCapabilities(bundle.id)).map((cap) => cap.capabilityType),
-        );
-        return {
-          bundleId: id,
-          registered: true,
-          missingCapabilities: needed.filter((cap) => !enabled.has(cap)),
-        };
-      }),
+    const readiness = await gatherTargetSigningReadiness(
+      client,
+      bundleId,
+      extensions,
+      app.iosEntitlements,
     );
-    for (const warning of multiTargetSigningWarnings(readiness)) log.warn(warning);
+    for (const warning of signingPreflightWarnings(readiness)) log.warn(warning);
   } catch {
     // A preflight read shouldn't sink the build — provisioning below still surfaces a real failure.
   }
@@ -477,7 +465,7 @@ async function resolveSigning(
     );
   // App Group containers are the one signing input the JWT API can't provision (portal-only); warn up
   // front so the user fixes it before xcodebuild fails to export, rather than after.
-  const appGroupNotice = appGroupPortalNotice(appGroupContainers(app.iosEntitlements));
+  const appGroupNotice = appGroupPreflightNotice(app.iosEntitlements);
   if (appGroupNotice) log.warn(appGroupNotice);
   // An ad-hoc (internal) build needs a device-scoped ad-hoc profile, recreated each run, so the cached
   // App Store assets don't apply — go straight to ad-hoc provisioning.
