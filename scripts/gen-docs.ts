@@ -6,14 +6,14 @@
  *
  * This file is just I/O orchestration (not built or linted): it introspects the commander tree from
  * `src/cli/program.ts`, counts the headline stats from source, then hands the pure rendering to
- * `src/core/docs/commandDocs.ts` and prettier-formats the result so `format:check` stays green.
+ * `src/core/docs/commandDocs.ts`. The renderers emit canonical output, so the docs are written and
+ * diffed verbatim — Biome owns source formatting and never touches these generated files.
  */
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import type { Command } from 'commander';
-import prettier from 'prettier';
 import { createGenerator } from 'ts-json-schema-generator';
 import { buildProgram } from '../src/cli/program.ts';
 import { renderContributorRules, renderContributorSkills } from '../src/core/agents/render.ts';
@@ -98,8 +98,8 @@ function generateConfigSchema(): JsonSchema {
   }).createSchema('LaunchConfigInput');
 }
 
-/** Render both docs from the live program, prettier-formatted and ready to write or diff. */
-async function generateDocs(): Promise<GeneratedDoc[]> {
+/** Render every generated doc from the live program, ready to write or diff verbatim. */
+function generateDocs(): GeneratedDoc[] {
   const commands = buildProgram().commands.map((command) => toSpec(command, ''));
   const configSchema = generateConfigSchema();
   const stats = computeStats(commands);
@@ -140,18 +140,12 @@ async function generateDocs(): Promise<GeneratedDoc[]> {
     ...renderContributorRules().map((rule) => ({ path: rule.path, body: rule.body })),
     ...renderContributorSkills().map((skill) => ({ path: skill.path, body: skill.body })),
   ];
-  return Promise.all(
-    raw.map(async ({ path, body }) => {
-      const config = await prettier.resolveConfig(join(ROOT, path));
-      const parser = path.endsWith('.json') ? 'json' : 'markdown';
-      return { path, body: await prettier.format(body, { ...config, parser }) };
-    }),
-  );
+  return raw;
 }
 
-async function main(): Promise<void> {
+function main(): void {
   const check = process.argv.includes('--check');
-  const docs = await generateDocs();
+  const docs = generateDocs();
   const stale: string[] = [];
   for (const { path, body } of docs) {
     const absolute = join(ROOT, path);
@@ -177,4 +171,4 @@ async function main(): Promise<void> {
   }
 }
 
-await main();
+main();

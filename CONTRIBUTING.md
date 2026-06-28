@@ -35,13 +35,12 @@ Run the same checks before you push:
 
 ```bash
 npm run typecheck     # tsc --noEmit, max-strict
-npm run lint          # eslint, strict-type-checked
-npm run format:check  # prettier
+npm run lint          # biome check (lint + format)
 npm run test          # vitest
 npm run build         # emits dist/ (production code only)
 ```
 
-Style and types are owned entirely by `tsconfig.json`, `eslint.config.js`, and `.prettierrc` — fix
+Style and types are owned entirely by `tsconfig.json` and `biome.json` — fix
 what they flag rather than working around it.
 
 ## Tests
