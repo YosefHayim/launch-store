@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1899 tests**.
+> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1923 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -190,6 +190,7 @@ inspect credentials, onboard/switch Apple accounts, or provision signing assets
 | `--p8 <path>` | iOS: path to the .p8 (else auto-discovered in ~/Downloads, else ASC_API_KEY_PATH) |
 | `--label <name>` | iOS set-key: human label for the account (else prompted, else the Key ID) |
 | `--account <name>` | iOS setup: account to provision against (label or Key ID; default: active) |
+| `-a, --app <name>` | setup: app handle to provision for (default: the only app, or prompt) |
 | `--import <keystore>` | Android setup: import an existing upload keystore instead of generating one |
 | `--alias <alias>` | Android setup: key alias inside the imported keystore |
 | `--team-id <id>` | push-key import: Apple Team ID for the APNs key (default: active account's team) |

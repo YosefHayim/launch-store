@@ -69,6 +69,12 @@ export interface CredsOptions {
   label?: string;
   /** Account selector (label or Key ID) for `setup` — which Apple account to provision against. */
   account?: string;
+  /**
+   * App handle to provision for `setup` (by `name`), so a specific app is (re)provisioned without a
+   * prompt — what the shared app selector's "pass --app <name>" hint refers to. Defaults to the sole
+   * discovered app, or (interactively) a picker.
+   */
+  app?: string;
   /** Android: path to an existing keystore to import (BYO) instead of generating a fresh one. */
   import?: string;
   /** Android: key alias inside the imported keystore. */
@@ -497,7 +503,7 @@ export async function setupIos(options: CredsOptions, platform: Platform = 'ios'
       `Account "${account.label}" has no stored key. Re-import: launch creds set-key`,
     );
   const { apps } = await loadConfig();
-  const app = await selectApp(apps, undefined);
+  const app = await selectApp(apps, options.app);
   if (!app.bundleId)
     throw new Error(
       `No iOS bundle identifier for ${app.name}. Set ios.bundleIdentifier in app.json.`,
@@ -539,7 +545,7 @@ async function resolveKeystoreImport(options: CredsOptions): Promise<KeystoreImp
 /** Generate (or import) the upload keystore for an Android app (the Android `setup`). */
 async function setupAndroid(options: CredsOptions): Promise<void> {
   const { apps } = await loadConfig();
-  const app = await selectApp(apps, undefined);
+  const app = await selectApp(apps, options.app);
   const keystoreImport = await resolveKeystoreImport(options);
   const keystore = await ensureUploadKeystore({
     appName: app.name,
@@ -701,6 +707,10 @@ export function registerCredsCommand(program: Command): void {
     .option(
       '--account <name>',
       'iOS setup: account to provision against (label or Key ID; default: active)',
+    )
+    .option(
+      '-a, --app <name>',
+      'setup: app handle to provision for (default: the only app, or prompt)',
     )
     .option(
       '--import <keystore>',
