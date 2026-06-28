@@ -11,14 +11,7 @@
  */
 
 import type { Command } from 'commander';
-import { loadConfig } from '../../core/config.js';
-import { createLogger } from '../../core/logger.js';
-import { createAscClientResolver, createPlayClientResolver } from '../../core/storeClients.js';
-import { selectApps } from '../../core/syncJobs.js';
-import { registerBuiltinProbes, selectReadinessProbes } from '../../core/readiness/registry.js';
-import { runProbes } from '../../core/readiness/orchestrator.js';
-import type { ReadinessContext } from '../../core/readiness/types.js';
-import { renderReadinessOutcome } from './readinessReport.js';
+import { runReadinessCommand } from './readinessReport.js';
 
 /** CLI options for `launch audit`. */
 interface AuditOptions {
@@ -29,31 +22,18 @@ interface AuditOptions {
 }
 
 /**
- * Run the audit flow. Exported so a test (or a future caller) can drive it directly: it loads the config,
- * resolves the read-only clients once via the shared resolvers, runs the `submit` probes, and renders. Sets
- * `process.exitCode` per the readiness contract so it gates a release script.
+ * Run the audit flow over the `submit` probe slice — the family's shared run, voiced for pre-submit. Exported
+ * so a test (or a future caller) can drive it directly.
  */
 export async function runAudit(input: AuditOptions): Promise<void> {
-  registerBuiltinProbes();
-  const log = createLogger(false);
-  const { config, apps } = await loadConfig();
-  const ctx: ReadinessContext = {
-    config,
-    apps: selectApps(apps, input.app),
-    resolveAscApi: createAscClientResolver(),
-    resolvePlayApi: createPlayClientResolver(),
-  };
-
-  const outcome = await runProbes(ctx, selectReadinessProbes('submit'));
-
-  if (input.json === true) console.log(JSON.stringify(outcome, null, 2));
-  else {
-    renderReadinessOutcome(log, outcome, {
+  await runReadinessCommand({
+    category: 'submit',
+    labels: {
       summary: 'Pre-submit audit',
       empty: 'No audit checks ran — no apps with a bundle id or package name were found.',
-    });
-  }
-  process.exitCode = outcome.exitCode;
+    },
+    ...input,
+  });
 }
 
 /** Attach the top-level `audit` command to the program. */
