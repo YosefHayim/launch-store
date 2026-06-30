@@ -32,6 +32,7 @@ import {
   resolveExtensionBundleIdsForApp,
   signingPreflightDoctorChecks,
 } from '../signingPreflight.js';
+import { shellLocaleDoctorCheck } from '../locale.js';
 import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from './types.js';
 
 /** Where to create a missing App Store Connect app record — the one step the API can't do. */
@@ -72,7 +73,7 @@ async function packageManagerChecks(ctx: DoctorContext): Promise<DoctorCheck[]> 
  * (ccache) is `info` — the build still runs, just uncached.
  */
 async function iosToolchainChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
-  const checks: DoctorCheck[] = [];
+  const checks: DoctorCheck[] = [shellLocaleDoctorCheck(ctx.shellLocale)];
   for (const tool of REQUIRED_TOOLS) {
     const present = await ctx.exists(tool.command);
     if (tool.tier === 'recommended') {
