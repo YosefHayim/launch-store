@@ -112,4 +112,6 @@ export interface DoctorContext {
   corepackAvailable(): Promise<boolean>;
   /** `ANDROID_HOME` / `ANDROID_SDK_ROOT`, when set — the Android SDK location. */
   androidSdk?: string;
+  /** Locale env for the shell-locale doctor line; defaults to `process.env` when omitted. */
+  shellLocale?: Partial<Pick<NodeJS.ProcessEnv, 'LANG' | 'LC_ALL' | 'LANGUAGE'>>;
 }

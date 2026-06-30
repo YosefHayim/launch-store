@@ -9,6 +9,7 @@
 
 import { spawn } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
+import { mergeChildEnv } from './locale.js';
 import { redactLine } from './redact.js';
 
 /** Options shared by {@link run} and {@link capture}. */
@@ -41,7 +42,7 @@ export function run(command: string, args: string[], options: ExecOptions = {}):
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
-      env: { ...process.env, ...options.env },
+      env: mergeChildEnv(options.env),
       stdio: 'inherit',
       shell: false,
     });
@@ -70,7 +71,7 @@ export function runQuiet(
       : undefined;
     const child = spawn(command, args, {
       cwd: options.cwd,
-      env: { ...process.env, ...options.env },
+      env: mergeChildEnv(options.env),
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
     });
@@ -120,7 +121,7 @@ export function capture(
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
-      env: { ...process.env, ...options.env },
+      env: mergeChildEnv(options.env),
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
     });

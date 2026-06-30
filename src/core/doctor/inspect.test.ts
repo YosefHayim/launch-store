@@ -88,6 +88,20 @@ describe('inspectDoctor', () => {
     }
   });
 
+  it('reports shell locale in the iOS toolchain section', async () => {
+    const report = await inspectDoctor(
+      context({ platform: 'ios', shellLocale: { LANG: 'en_US.UTF-8' } }),
+    );
+    expect(report.checks.some((c) => c.title === 'Shell locale (en_US.UTF-8)')).toBe(true);
+  });
+
+  it('advises when the shell locale is not UTF-8', async () => {
+    const report = await inspectDoctor(context({ platform: 'ios', shellLocale: { LANG: 'C' } }));
+    const locale = report.checks.find((c) => c.title.startsWith('Shell locale'));
+    expect(locale?.status).toBe('info');
+    expect(locale?.hint).toContain('Launch sets UTF-8');
+  });
+
   it('fails the iOS run when an extension App ID is unregistered (#261 doctor preflight)', async () => {
     const report = await inspectDoctor(
       context({
