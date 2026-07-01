@@ -21,6 +21,9 @@ import { mb, sizeSummary, worstDownloadBytes } from '../../core/pipeline.js';
 import { buildLogId, buildLogPath, readBuildLog } from '../../core/buildLog.js';
 import { run } from '../../core/exec.js';
 import { hostOs } from '../../core/os.js';
+import { createLogger } from '../../core/logger.js';
+
+const log = createLogger(false);
 
 /**
  * A flat, presentation-ready view of one stored build — the shape `builds list --json` emits and the
@@ -262,9 +265,9 @@ export async function runPrune(options: PruneCommandOptions): Promise<void> {
 
   const preview = await provider.prune({ ...filter, dryRun: true });
   if (preview.pruned.length === 0) {
-    if (options.json) console.log(JSON.stringify(preview, null, 2));
+    if (options.json) log.line(JSON.stringify(preview, null, 2));
     else
-      console.log(
+      log.line(
         `Nothing to prune — no builds older than ${retentionDays}d (the newest per app+platform is always kept).`,
       );
     return;
@@ -272,11 +275,11 @@ export async function runPrune(options: PruneCommandOptions): Promise<void> {
 
   if (options.dryRun) {
     if (options.json) {
-      console.log(JSON.stringify(preview, null, 2));
+      log.line(JSON.stringify(preview, null, 2));
       return;
     }
-    console.log(formatPrunePreview(preview.pruned));
-    console.log(
+    log.line(formatPrunePreview(preview.pruned));
+    log.line(
       `\nDry run — would remove ${buildsLabel(preview.pruned.length)}, freeing ${mb(preview.freedBytes)}. Nothing deleted.`,
     );
     return;
@@ -288,7 +291,7 @@ export async function runPrune(options: PruneCommandOptions): Promise<void> {
         'Refusing to delete without confirmation. Re-run with --yes (or --dry-run to preview).',
       );
     }
-    console.log(formatPrunePreview(preview.pruned));
+    log.line(formatPrunePreview(preview.pruned));
     const proceed = await confirm({
       message: `Delete ${buildsLabel(preview.pruned.length)}, freeing ${mb(preview.freedBytes)}?`,
     });
@@ -300,10 +303,10 @@ export async function runPrune(options: PruneCommandOptions): Promise<void> {
 
   const result = await provider.prune({ ...filter, dryRun: false });
   if (options.json) {
-    console.log(JSON.stringify(result, null, 2));
+    log.line(JSON.stringify(result, null, 2));
     return;
   }
-  console.log(
+  log.line(
     `Pruned ${buildsLabel(result.pruned.length)}, freed ${mb(result.freedBytes)}. History kept (shown as "pruned" in \`builds list\`).`,
   );
 }
@@ -318,7 +321,7 @@ async function openLog(path: string): Promise<void> {
   const os = hostOs();
   if (os === 'macos') return run('open', [path]);
   if (os === 'linux') return run('xdg-open', [path]);
-  console.log(`Log file: ${path}  (set $EDITOR to open it automatically)`);
+  log.line(`Log file: ${path}  (set $EDITOR to open it automatically)`);
 }
 
 /** Attach the `builds` command (with `list` / `view` / `log` / `prune` subcommands) to the program. */
@@ -344,15 +347,15 @@ export function registerBuildsCommand(program: Command): void {
       });
       const rows = matched.map(toBuildRow);
       if (options.json) {
-        console.log(JSON.stringify(rows, null, 2));
+        log.line(JSON.stringify(rows, null, 2));
         return;
       }
       if (rows.length === 0) {
-        console.log('No builds yet. Run `launch build ios` (or android) to create one.');
+        log.line('No builds yet. Run `launch build ios` (or android) to create one.');
         return;
       }
-      console.log(formatBuildsTable(rows));
-      console.log(`\n${rows.length} build${rows.length === 1 ? '' : 's'}.`);
+      log.line(formatBuildsTable(rows));
+      log.line(`\n${rows.length} build${rows.length === 1 ? '' : 's'}.`);
     });
 
   builds
@@ -367,7 +370,7 @@ export function registerBuildsCommand(program: Command): void {
           `No build matches "${ref}". Run \`launch builds list\` to see what's available.`,
         );
       }
-      console.log(
+      log.line(
         options.json ? JSON.stringify(toBuildRow(found), null, 2) : formatBuildDetail(found),
       );
     });
@@ -398,7 +401,7 @@ export function registerBuildsCommand(program: Command): void {
         return;
       }
       const text = readBuildLog(id);
-      console.log(text?.trim() ? text : '(log is empty)');
+      log.line(text?.trim() ? text : '(log is empty)');
     });
 
   builds

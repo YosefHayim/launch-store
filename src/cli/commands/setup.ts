@@ -34,6 +34,8 @@ import {
   loadCachedSigningAssets,
 } from '../../apple/credentials.js';
 
+const log = createLogger(false);
+
 /** Flags accepted by `launch setup ios`. */
 interface SetupIosOptions {
   /** Apple account to inspect (label or Key ID); defaults to the active account. */
@@ -220,7 +222,7 @@ async function reportSetupIos(options: SetupIosOptions): Promise<void> {
     })),
   };
 
-  console.log(options.json ? JSON.stringify(report, null, 2) : formatReport(report));
+  log.line(options.json ? JSON.stringify(report, null, 2) : formatReport(report));
 }
 
 /** Flags accepted by the bare `launch setup` auto-setup action (the parent command). */

@@ -22,6 +22,9 @@ import {
   readBuildState,
   resolveClean,
 } from '../../core/buildFingerprint.js';
+import { createLogger } from '../../core/logger.js';
+
+const log = createLogger(false);
 
 /**
  * The fingerprint picture for one app: the freshly-computed hash, the last build's stored state (or
@@ -70,7 +73,7 @@ export function registerFingerprintCommand(program: Command): void {
       const { apps } = await loadConfig();
       const app = await selectApp(apps, options.app);
       if (!app.bundleId) {
-        console.log(
+        log.line(
           `${app.name} has no iOS bundle id — fingerprints are iOS-only (Gradle tracks Android build inputs itself).`,
         );
         return;
@@ -85,6 +88,6 @@ export function registerFingerprintCommand(program: Command): void {
         stored,
         decision: resolveClean(false, stored, current),
       };
-      console.log(options.json ? JSON.stringify(report, null, 2) : formatFingerprintReport(report));
+      log.line(options.json ? JSON.stringify(report, null, 2) : formatFingerprintReport(report));
     });
 }

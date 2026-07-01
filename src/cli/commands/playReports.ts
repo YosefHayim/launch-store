@@ -28,6 +28,9 @@ import { loadServiceAccount } from '../../google/credentials.js';
 import { loadConfig } from '../../core/config.js';
 import { selectApp } from '../../core/pipeline.js';
 import type { PlayVitalsMetric, VitalsTimeline } from '../../core/types.js';
+import { createLogger } from '../../core/logger.js';
+
+const log = createLogger(false);
 
 /** Options for `play-reports vitals`. */
 interface VitalsOptions {
@@ -129,9 +132,9 @@ export function registerPlayReportsCommand(program: Command): void {
 
       if (options.json) {
         const rows = results.flatMap((result) => result.rows);
-        console.log(JSON.stringify(rows, null, 2));
+        log.line(JSON.stringify(rows, null, 2));
         return;
       }
-      console.log(results.map(renderMetric).join('\n'));
+      log.line(results.map(renderMetric).join('\n'));
     });
 }

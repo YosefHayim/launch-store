@@ -34,6 +34,8 @@ import {
 } from '../../core/testflightFeedback.js';
 import type { BetaFeedback, BetaFeedbackKind } from '../../core/types.js';
 
+const log = createLogger(false);
+
 /** One tester to add, parsed from a CLI argument or a CSV row. */
 interface TesterInput {
   email: string;
@@ -182,7 +184,7 @@ async function listGroups(options: { app?: string }): Promise<void> {
   const { appId, name } = await resolveAppId(asc, options.app);
   const groups = await asc.listBetaGroups(appId);
   if (groups.length === 0) {
-    console.log(
+    log.line(
       `No beta groups for ${name}. Create one with \`launch testflight create-group <name>\`.`,
     );
     return;
@@ -191,9 +193,9 @@ async function listGroups(options: { app?: string }): Promise<void> {
     const count = (await asc.listBetaTestersInGroup(group.id)).length;
     const kind = group.isInternal ? 'internal' : 'external';
     const link = group.publicLink ? ` — ${group.publicLink}` : '';
-    console.log(`• ${group.name} (${kind}, ${count} tester${count === 1 ? '' : 's'})${link}`);
+    log.line(`• ${group.name} (${kind}, ${count} tester${count === 1 ? '' : 's'})${link}`);
   }
-  console.log(`\n${groups.length} group(s) for ${name}.`);
+  log.line(`\n${groups.length} group(s) for ${name}.`);
 }
 
 /** `launch testflight create-group <name>` — create an external beta group (idempotent on name). */
@@ -202,12 +204,12 @@ async function createGroup(groupName: string, options: { app?: string }): Promis
   const { appId, name } = await resolveAppId(asc, options.app);
   const existing = await asc.findBetaGroupByName(appId, groupName);
   if (existing) {
-    console.log(`Beta group "${existing.name}" already exists for ${name}.`);
+    log.line(`Beta group "${existing.name}" already exists for ${name}.`);
     return;
   }
   const created = await asc.createBetaGroup(appId, groupName);
-  console.log(`✓ Created external beta group "${created.name}" for ${name}.`);
-  console.log(`• Add testers with \`launch testflight add <email> --group "${created.name}"\`.`);
+  log.line(`✓ Created external beta group "${created.name}" for ${name}.`);
+  log.line(`• Add testers with \`launch testflight add <email> --group "${created.name}"\`.`);
 }
 
 /** `launch testflight testers` — list the testers in a beta group. */
@@ -221,7 +223,7 @@ async function listTesters(options: { app?: string; group?: string }): Promise<v
   });
   const testers = await asc.listBetaTestersInGroup(group.id);
   if (testers.length === 0) {
-    console.log(
+    log.line(
       `No testers in "${group.name}". Add one with \`launch testflight add <email> --group "${group.name}"\`.`,
     );
     return;
@@ -229,9 +231,9 @@ async function listTesters(options: { app?: string; group?: string }): Promise<v
   for (const tester of testers) {
     const fullName = [tester.firstName, tester.lastName].filter(Boolean).join(' ');
     const state = tester.state ? ` [${tester.state.toLowerCase()}]` : '';
-    console.log(`• ${tester.email}${fullName ? ` — ${fullName}` : ''}${state}`);
+    log.line(`• ${tester.email}${fullName ? ` — ${fullName}` : ''}${state}`);
   }
-  console.log(`\n${testers.length} tester(s) in "${group.name}".`);
+  log.line(`\n${testers.length} tester(s) in "${group.name}".`);
 }
 
 /** `launch testflight add <emails...>` — invite/add testers to a beta group, idempotently. */
@@ -258,14 +260,14 @@ async function addTesters(emails: string[], options: TesterCommandOptions): Prom
   const skipped = testers.length - pending.length;
 
   if (pending.length === 0) {
-    console.log(`All ${testers.length} tester(s) are already in "${group.name}". Nothing to do.`);
+    log.line(`All ${testers.length} tester(s) are already in "${group.name}". Nothing to do.`);
     return;
   }
   if (options.dryRun === true) {
-    console.log(
+    log.line(
       `[dry-run] would add ${pending.length} tester(s) to "${group.name}" (${name}); ${skipped} already present:`,
     );
-    for (const tester of pending) console.log(`  • ${tester.email}`);
+    for (const tester of pending) log.line(`  • ${tester.email}`);
     return;
   }
   const proceed = await confirmAction(
@@ -274,7 +276,7 @@ async function addTesters(emails: string[], options: TesterCommandOptions): Prom
     canPrompt,
   );
   if (!proceed) {
-    console.log('Aborted; no testers added.');
+    log.line('Aborted; no testers added.');
     return;
   }
 
@@ -285,14 +287,14 @@ async function addTesters(emails: string[], options: TesterCommandOptions): Prom
     if (existing) {
       await asc.addTestersToGroup(group.id, [existing.id]);
       linked++;
-      console.log(`✓ Added existing tester ${tester.email}`);
+      log.line(`✓ Added existing tester ${tester.email}`);
     } else {
       await asc.createBetaTester(group.id, tester);
       invited++;
-      console.log(`✓ Invited ${tester.email}`);
+      log.line(`✓ Invited ${tester.email}`);
     }
   }
-  console.log(
+  log.line(
     `\nDone: ${invited} invited, ${linked} existing added, ${skipped} already present → "${group.name}".`,
   );
 }
@@ -316,12 +318,12 @@ async function removeTesters(emails: string[], options: TesterCommandOptions): P
     wanted.has(tester.email.toLowerCase()),
   );
   if (matched.length === 0) {
-    console.log(`No matching testers in "${group.name}".`);
+    log.line(`No matching testers in "${group.name}".`);
     return;
   }
   if (options.dryRun === true) {
-    console.log(`[dry-run] would remove ${matched.length} tester(s) from "${group.name}":`);
-    for (const tester of matched) console.log(`  • ${tester.email}`);
+    log.line(`[dry-run] would remove ${matched.length} tester(s) from "${group.name}":`);
+    for (const tester of matched) log.line(`  • ${tester.email}`);
     return;
   }
   const proceed = await confirmAction(
@@ -330,14 +332,14 @@ async function removeTesters(emails: string[], options: TesterCommandOptions): P
     canPrompt,
   );
   if (!proceed) {
-    console.log('Aborted; no testers removed.');
+    log.line('Aborted; no testers removed.');
     return;
   }
   await asc.removeTestersFromGroup(
     group.id,
     matched.map((tester) => tester.id),
   );
-  console.log(`✓ Removed ${matched.length} tester(s) from "${group.name}".`);
+  log.line(`✓ Removed ${matched.length} tester(s) from "${group.name}".`);
 }
 
 /** Options for `launch testflight feedback` — list tester crash/screenshot feedback and optionally download attachments. */
@@ -587,20 +589,20 @@ export function registerTestflightCommand(program: Command): void {
       if (options.out) {
         const written = await downloadFeedbackAttachments(asc, found, options.out);
         if (!options.json) {
-          console.log(
+          log.line(
             `Downloaded ${written.length} screenshot${written.length === 1 ? '' : 's'} to ${options.out}.`,
           );
         }
       }
       if (options.json) {
-        console.log(JSON.stringify(found, null, 2));
+        log.line(JSON.stringify(found, null, 2));
         return;
       }
       if (found.length === 0) {
-        console.log('No TestFlight feedback yet. Testers submit it from the TestFlight app.');
+        log.line('No TestFlight feedback yet. Testers submit it from the TestFlight app.');
         return;
       }
-      console.log(found.map(renderFeedback).join('\n\n'));
-      console.log(`\n${found.length} feedback item${found.length === 1 ? '' : 's'}.`);
+      log.line(found.map(renderFeedback).join('\n\n'));
+      log.line(`\n${found.length} feedback item${found.length === 1 ? '' : 's'}.`);
     });
 }

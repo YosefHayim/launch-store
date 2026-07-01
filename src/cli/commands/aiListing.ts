@@ -112,7 +112,7 @@ export async function runAiListing(
     drafts.push({ locale, draft, warnings });
   }
 
-  console.log(renderDraftPreview(drafts, targets));
+  log.line(renderDraftPreview(drafts, targets));
 
   if (input.dryRun) {
     log.info('Dry run — nothing written. Drop --dry-run to save into store.config.json.');

@@ -15,6 +15,9 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { Command } from 'commander';
+import { createLogger } from '../../core/logger.js';
+
+const log = createLogger(false);
 
 /** Repo-relative path of the scaffolded workflow. */
 const WORKFLOW_PATH = join('.github', 'workflows', 'launch.yml');
@@ -131,15 +134,15 @@ export function workflowYaml(options: { android: boolean }): string {
 
 /** Print the secrets the user still has to set, so the workflow isn't a silent dead end. */
 function printNextSteps(android: boolean): void {
-  console.log(`✓ Wrote ${WORKFLOW_PATH}`);
-  console.log('\nSet these repository secrets (Settings -> Secrets and variables -> Actions):');
-  console.log('  • ASC_KEY_ID, ASC_ISSUER_ID');
-  console.log('  • ASC_API_KEY_BASE64    base64 -i AuthKey_XXXX.p8 | pbcopy');
+  log.line(`✓ Wrote ${WORKFLOW_PATH}`);
+  log.line('\nSet these repository secrets (Settings -> Secrets and variables -> Actions):');
+  log.line('  • ASC_KEY_ID, ASC_ISSUER_ID');
+  log.line('  • ASC_API_KEY_BASE64    base64 -i AuthKey_XXXX.p8 | pbcopy');
   if (android) {
-    console.log('  • PLAY_SERVICE_ACCOUNT_BASE64, ANDROID_KEYSTORE_BASE64');
-    console.log('  • ANDROID_KEY_ALIAS, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_PASSWORD');
+    log.line('  • PLAY_SERVICE_ACCOUNT_BASE64, ANDROID_KEYSTORE_BASE64');
+    log.line('  • ANDROID_KEY_ALIAS, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_PASSWORD');
   }
-  console.log('\nThen push a v* tag (or use Run workflow) to build and ship.');
+  log.line('\nThen push a v* tag (or use Run workflow) to build and ship.');
 }
 
 /** Attach the `ci` command (with the `init` subcommand) to the program. */

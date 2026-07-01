@@ -174,7 +174,7 @@ export async function runPlan(input: RunPlanInput): Promise<void> {
 
   const outcome = await runPlanners(ctx, planners, { check: input.check === true });
 
-  if (input.json === true) console.log(JSON.stringify(outcome, null, 2));
+  if (input.json === true) log.line(JSON.stringify(outcome, null, 2));
   else renderOutcome(log, outcome);
   process.exitCode = outcome.exitCode;
 }

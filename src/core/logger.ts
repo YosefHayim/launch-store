@@ -182,6 +182,12 @@ export interface Logger {
    * as {@link box}. Distinct from {@link box} so only this receipt gets the boat (and drops the `✦` title).
    */
   shipped(rows: string[]): Promise<void>;
+  /**
+   * A plain content line printed verbatim to stdout — the seam's `console.log` passthrough, no glyph.
+   * The single owner of raw content output, so a command renders through the logger without gaining a
+   * step mark; use {@link step}/{@link box}/{@link notice} when the line wants the Aurora styling.
+   */
+  line(message: string): void;
   /** A blank line / visual break. */
   gap(): void;
 }
@@ -241,6 +247,9 @@ export function createLogger(explain: boolean): Logger {
       const box = receiptBox('Shipped', rows, ''); // no ✦ — the boat is the title flourish
       await animateShip(Math.max(...box.map(visibleWidth)));
       for (const line of box) console.log(line);
+    },
+    line: (message) => {
+      console.log(message);
     },
     gap: () => {
       console.log('');

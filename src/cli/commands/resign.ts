@@ -32,6 +32,9 @@ import { getActiveKeyId, listAccounts } from '../../core/accounts.js';
 import { loadCachedSigningAssets } from '../../apple/credentials.js';
 import { loadCachedKeystore } from '../../google/credentials.js';
 import { findBuild } from './builds.js';
+import { createLogger } from '../../core/logger.js';
+
+const log = createLogger(false);
 
 /** Env var names the keystore passwords are passed through, so they never appear in a process's argv. */
 const KS_STOREPASS_ENV = 'LAUNCH_KS_STOREPASS';
@@ -211,11 +214,11 @@ async function resignAndroid(
 
 /** Print the resign plan (no codesign, no writes) — the body of `--dry-run`. */
 function printIosPlan(artifact: BuildArtifact, signing: SigningAssets, outputPath: string): void {
-  console.log(`Would re-sign ${basename(artifact.path)} (iOS) with:`);
-  console.log(`  identity: ${signing.certName} (team ${signing.teamId})`);
-  console.log(`  profile:  ${signing.profileName} → embedded.mobileprovision`);
-  console.log(`  steps:    unzip → swap profile → extract entitlements → codesign -f → zip`);
-  console.log(`  output:   ${outputPath}`);
+  log.line(`Would re-sign ${basename(artifact.path)} (iOS) with:`);
+  log.line(`  identity: ${signing.certName} (team ${signing.teamId})`);
+  log.line(`  profile:  ${signing.profileName} → embedded.mobileprovision`);
+  log.line(`  steps:    unzip → swap profile → extract entitlements → codesign -f → zip`);
+  log.line(`  output:   ${outputPath}`);
 }
 
 /** Print the Android resign plan (no signing, no writes) — the body of `--dry-run`. */
@@ -225,12 +228,12 @@ function printAndroidPlan(
   outputPath: string,
 ): void {
   const spec = androidResignSpec(resignOutputPath(artifact, '.'), keystore);
-  console.log(`Would re-sign ${basename(artifact.path)} (Android) with:`);
-  console.log(`  keystore: ${keystore.path} (alias ${keystore.alias})`);
-  console.log(
+  log.line(`Would re-sign ${basename(artifact.path)} (Android) with:`);
+  log.line(`  keystore: ${keystore.path} (alias ${keystore.alias})`);
+  log.line(
     `  tool:     ${spec.command} (passwords via ${KS_STOREPASS_ENV}/${KS_KEYPASS_ENV}, never argv)`,
   );
-  console.log(`  output:   ${outputPath}`);
+  log.line(`  output:   ${outputPath}`);
 }
 
 /** Attach the `build:resign` command to the program. */
@@ -316,7 +319,7 @@ export function registerResignCommand(program: Command): void {
           await resignAndroid(artifact, keystore, outputPath);
         }
 
-        console.log(`✓ Re-signed → ${outputPath}`);
+        log.line(`✓ Re-signed → ${outputPath}`);
       },
     );
 }

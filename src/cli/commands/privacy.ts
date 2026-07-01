@@ -23,6 +23,9 @@ import {
   renderPrivacyReport,
 } from '../../core/privacy/reconcile.js';
 import type { PrivacyFinding, PrivacySurface, AppDescriptor } from '../../core/types.js';
+import { createLogger } from '../../core/logger.js';
+
+const log = createLogger(false);
 
 /** CLI options for `launch privacy scan`. */
 interface PrivacyScanOptions {
@@ -110,7 +113,7 @@ export async function runPrivacyScan(input: PrivacyScanOptions): Promise<void> {
   }
 
   const report = buildPrivacyReport(findings, scanned);
-  console.log(input.json === true ? JSON.stringify(report, null, 2) : renderPrivacyReport(report));
+  log.line(input.json === true ? JSON.stringify(report, null, 2) : renderPrivacyReport(report));
   process.exitCode = report.exitCode;
 }
 

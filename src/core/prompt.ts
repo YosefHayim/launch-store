@@ -7,6 +7,7 @@
  */
 
 import { autocomplete, cancel, isCancel, select } from '@clack/prompts';
+import { createLogger } from './logger.js';
 
 /** Above this many options, the flat list becomes a fuzzy type-to-search prompt. */
 export const PICK_SEARCH_THRESHOLD = 8;
@@ -75,7 +76,7 @@ export interface PickOneArgs<T> {
 export async function pickOne<T>(args: PickOneArgs<T>): Promise<T> {
   if (!args.canPrompt) {
     if (args.nonInteractive.kind === 'fallback') {
-      if (args.nonInteractive.note) console.log(args.nonInteractive.note);
+      if (args.nonInteractive.note) createLogger(false).line(args.nonInteractive.note);
       return args.nonInteractive.value;
     }
     throw new Error(`${args.message} ${args.nonInteractive.flagHint}`);

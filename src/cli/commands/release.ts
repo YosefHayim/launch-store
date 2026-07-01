@@ -55,6 +55,8 @@ import {
 } from '../../core/appStoreRelease.js';
 import { addEnvFlags, envOverrides, type EnvFlags } from '../options.js';
 
+const log = createLogger(false);
+
 interface ReleaseCommandOptions extends EnvFlags {
   app?: string;
   profile: string;
@@ -146,7 +148,7 @@ async function runRelease(platform: Platform, options: ReleaseCommandOptions): P
     envExclude: config.envExclude,
   });
   if (options.printEnv) {
-    console.log(formatEnvTable(resolvedEnv));
+    log.line(formatEnvTable(resolvedEnv));
     return;
   }
 
@@ -582,7 +584,7 @@ async function runAndroidRelease(
     });
     throw error;
   }
-  console.log(
+  log.line(
     `Submitted ${app.name} ${latest.version} (${latest.buildNumber}) to the Play production track.`,
   );
   await notify(config, event);
