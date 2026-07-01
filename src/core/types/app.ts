@@ -1,8 +1,11 @@
 /**
  * Core app-shape vocabulary: target platform, distribution/release targets, the user-authored
  * {@link AppDescriptor} and {@link BuildProfile}, and the TestFlight beta-feedback shapes. The base
- * vocabulary the rest of the types modules build on; depends on nothing else.
+ * vocabulary the rest of the types modules build on; depends only on zod (the config SSOT — see
+ * [ADR 0008](../../../docs/adr/0008-adopt-zod-config-ssot.md)).
  */
+
+import { z } from 'zod';
 
 /**
  * Target build platform. The Apple family — `ios`, `tvos`, `macos`, `visionos` — can only be built
@@ -11,8 +14,15 @@
  * profile type (see `core/platform.ts`). `android` builds with gradle on any OS and submits to Google
  * Play. Use {@link import("../platform.js").isApplePlatform} rather than `=== "ios"` to branch the
  * Apple-vs-Android toolchain, so the three newer Apple platforms aren't silently routed to Android.
+ *
+ * The runtime array is the SSOT: {@link Platform} is inferred from it, and the config schema reuses it as
+ * a zod enum (`SubmitByPlatform`'s keys) — the same array-first pattern `ascResources.ts` uses for
+ * Apple's closed enums, so a new platform is one edit here.
  */
-export type Platform = 'ios' | 'android' | 'tvos' | 'macos' | 'visionos';
+export const PLATFORMS = ['ios', 'android', 'tvos', 'macos', 'visionos'] as const;
+
+/** Target build platform — one of {@link PLATFORMS}. */
+export type Platform = (typeof PLATFORMS)[number];
 
 /**
  * Where an iOS build runs, as picked in the `launch` wizard. `local` is the host Mac's own Xcode;
@@ -44,9 +54,13 @@ export type SubmitTarget = 'testing' | 'production';
 /**
  * A Google Play release track. `internal` is the safe default: a new personal Play account must run
  * ~20 testers for 14 days on a testing track before production is unlocked, so defaulting anywhere
- * else would fail for fresh accounts. Has no iOS equivalent.
+ * else would fail for fresh accounts. Has no iOS equivalent. Array-first (SSOT) so the config schema
+ * ({@link BuildProfile}'s `track`) reuses it as a zod enum.
  */
-export type PlayTrack = 'internal' | 'closed' | 'open' | 'production';
+export const PLAY_TRACKS = ['internal', 'closed', 'open', 'production'] as const;
+
+/** A Google Play release track — one of {@link PLAY_TRACKS}. */
+export type PlayTrack = (typeof PLAY_TRACKS)[number];
 
 /**
  * Which web console page `launch open` deep-links to. Each value maps to a per-platform URL in
@@ -193,38 +207,54 @@ export interface AppDescriptor {
 }
 
 /**
- * A named build profile from `launch.config.ts` (e.g. `production`, `preview`).
- *
- * Holds only Launch-specific settings; app facts stay in `app.json`. A profile maps to a
- * `.env` file whose values are injected into the build and gates the artifact on size.
+ * A named build profile from `launch.config.ts` (e.g. `production`, `preview`) — see
+ * {@link BuildProfileSchema}. Holds only Launch-specific settings; app facts stay in `app.json`.
  */
-export interface BuildProfile {
-  /** Profile name as referenced by `--profile`. */
-  name: string;
-  /** Dotenv file to load for this profile, relative to the app dir. Defaults to `.env`. */
-  envFile?: string;
-  /**
-   * Inline env vars for this profile, merged into the build/update/release environment. They sit
-   * above the dotenv files (`.env.local`, `.env.<profile>`, `.env`) but below keychain secrets and
-   * `--env` flags in the precedence ladder — see `core/env.ts` `resolveEnv`. Use for non-secret,
-   * committed config that should travel with the profile; keep real secrets in `launch secret`.
-   */
-  env?: Record<string, string>;
-  /** Enable SSL pinning for this profile (mirrors the existing build.ts toggle). Defaults to false. */
-  ssl?: boolean;
-  /**
-   * Per-device download-size budget in megabytes. When the size report exceeds it, the build
-   * soft-gates (asks for confirmation) rather than failing. Defaults to 200 (Apple's cellular line).
-   */
-  sizeBudgetMB?: number;
-  /**
-   * Android-only: default Play track for `launch build android` when `--track` is omitted. Defaults
-   * to `internal` (the only safe target for a fresh account). Ignored on iOS.
-   */
-  track?: PlayTrack;
-  /**
-   * Android-only: default staged-rollout fraction (0–1) for production releases when `--rollout` is
-   * omitted. Defaults to `1.0` (full rollout). Ignored on iOS.
-   */
-  rollout?: number;
-}
+export const BuildProfileSchema = z
+  .strictObject({
+    name: z.string().describe('Profile name as referenced by `--profile`.'),
+    envFile: z
+      .string()
+      .describe(
+        'Dotenv file to load for this profile, relative to the app dir. Defaults to `.env`.',
+      )
+      .optional(),
+    env: z
+      .record(z.string(), z.string())
+      .describe(
+        'Inline env vars for this profile, merged into the build/update/release environment. They sit above the dotenv files (`.env.local`, `.env.<profile>`, `.env`) but below keychain secrets and `--env` flags in the precedence ladder — see `core/env.ts` `resolveEnv`. Use for non-secret, committed config that should travel with the profile; keep real secrets in `launch secret`.',
+      )
+      .optional(),
+    ssl: z
+      .boolean()
+      .describe(
+        'Enable SSL pinning for this profile (mirrors the existing build.ts toggle). Defaults to false.',
+      )
+      .optional(),
+    sizeBudgetMB: z
+      .number()
+      .describe(
+        "Per-device download-size budget in megabytes. When the size report exceeds it, the build soft-gates (asks for confirmation) rather than failing. Defaults to 200 (Apple's cellular line).",
+      )
+      .optional(),
+    track: z
+      .enum(PLAY_TRACKS)
+      .describe(
+        'Android-only: default Play track for `launch build android` when `--track` is omitted. Defaults to `internal` (the only safe target for a fresh account). Ignored on iOS.',
+      )
+      .optional(),
+    rollout: z
+      .number()
+      .describe(
+        'Android-only: default staged-rollout fraction (0–1) for production releases when `--rollout` is omitted. Defaults to `1.0` (full rollout). Ignored on iOS.',
+      )
+      .optional(),
+  })
+  .meta({
+    id: 'BuildProfile',
+    description:
+      'A named build profile from `launch.config.ts` (e.g. `production`, `preview`). Holds only Launch-specific settings; app facts stay in `app.json`. A profile maps to a `.env` file whose values are injected into the build and gates the artifact on size.',
+  });
+
+/** A named build profile from `launch.config.ts` — the inferred shape of {@link BuildProfileSchema}. */
+export type BuildProfile = z.infer<typeof BuildProfileSchema>;

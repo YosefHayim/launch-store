@@ -1,34 +1,41 @@
 /**
- * A tiny, dependency-free JSON Schema validator — just the draft-07 subset that
- * `ts-json-schema-generator` emits for Launch's config types (see `scripts/gen-docs.ts` and
- * {@link import("./configSchema.js").loadConfigSchema}). It deliberately is NOT a general-purpose
- * validator: we own the schema (it's generated from `src/core/types.ts`), so it only handles the
- * keywords that generator produces — `$ref`/`definitions`, `type` (string or array), `enum`, `const`,
+ * A tiny, dependency-free JSON Schema validator — the draft-07 subset Launch needs to validate a value
+ * against a JSON Schema it doesn't own a zod schema for. Its one live use is the **MCP server**
+ * (`mcp/server.ts`): each tool advertises a raw JSON Schema for its args, and {@link validate} checks the
+ * incoming `args` against it. It deliberately is NOT a general-purpose validator — it handles only the
+ * keywords those schemas use: `$ref`/`definitions`, `type` (string or array), `enum`, `const`,
  * `properties`/`required`/`additionalProperties`, `items`, and `anyOf`/`allOf`/`oneOf`.
  *
- * Why hand-rolled instead of `ajv`: it keeps Launch's runtime dependency list lean (the same reason the
- * config loaders in `config.ts`/`storeConfig.ts` hand-parse rather than pull in zod), and the schema's
- * shape is fixed and tested, so the small surface here is enough. Errors carry a dotted JSON path so
- * `launch config validate` can point the user straight at the offending field.
+ * Config validation does **not** run through here any more: `launch.config.ts` is validated directly by
+ * its zod SSOT (`configSchema.ts` → `LaunchConfigSchema.safeParse`), so the interface + validator +
+ * generated schema are one source that can't drift — see
+ * [ADR 0008](../../docs/adr/0008-adopt-zod-config-ssot.md). {@link JsonSchema} still doubles as the shape
+ * the committed `schema/launch.config.schema.json` (emitted by `z.toJSONSchema`, target `draft-7`)
+ * deserializes to, which `configDocs.ts` renders. Errors carry a dotted JSON path so a caller can point
+ * the user straight at the offending field.
  */
 
 /**
- * A JSON Schema node — the draft-07 subset the generator emits. Recursive: `properties`, `items`,
- * `additionalProperties`, and the `*Of` combinators all nest further {@link JsonSchema}s, and `$ref`
- * points (by percent-encoded JSON pointer) into the root document's {@link JsonSchema.definitions}.
+ * A JSON Schema node — the draft-07 subset. Recursive: `properties`, `items`, `additionalProperties`,
+ * `propertyNames`, and the `*Of` combinators all nest further {@link JsonSchema}s, and `$ref` points (by
+ * percent-encoded JSON pointer) into the root document's {@link JsonSchema.definitions}.
  */
 export interface JsonSchema {
   $schema?: string;
-  /** A JSON pointer into `definitions`, percent-encoded (e.g. `#/definitions/Record%3Cstring%2CBuildProfile%3E`). */
+  /** A JSON pointer into `definitions`, e.g. `#/definitions/BuildProfile`. */
   $ref?: string;
   /** One JSON type, or several when the value may be any of them (e.g. `["string", "boolean"]`). */
   type?: string | string[];
   enum?: unknown[];
   const?: unknown;
+  /** The default zod fills for an omitted field (documented in the generated config schema, not enforced here). */
+  default?: unknown;
   properties?: Record<string, JsonSchema>;
   required?: string[];
   /** `false` forbids unknown keys; a schema validates every key not named in `properties`. */
   additionalProperties?: boolean | JsonSchema;
+  /** Constrains a record's keys (e.g. an enum of platforms) — emitted by `z.record`/`z.partialRecord`. */
+  propertyNames?: JsonSchema;
   items?: JsonSchema;
   anyOf?: JsonSchema[];
   allOf?: JsonSchema[];
@@ -87,9 +94,9 @@ function describeExpected(schema: JsonSchema): string {
 }
 
 /**
- * Validate `value` against `schema`, collecting every violation (rather than failing on the first) so
- * `launch config validate` can report all problems at once. `root` carries the `definitions` that
- * `$ref`s resolve against — defaults to `schema`, so a self-contained document validates with one arg.
+ * Validate `value` against `schema`, collecting every violation (rather than failing on the first) so a
+ * caller can report all problems at once. `root` carries the `definitions` that `$ref`s resolve against —
+ * defaults to `schema`, so a self-contained document validates with one arg.
  */
 export function validate(
   value: unknown,

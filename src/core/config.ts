@@ -9,7 +9,13 @@ import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from '
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createJiti } from 'jiti';
-import type { AppDescriptor, LaunchConfig } from './types.js';
+import type { AppDescriptor, LaunchConfig, LaunchConfigInput } from './types.js';
+import {
+  DEFAULT_BUILD_ENGINE,
+  DEFAULT_CREDENTIALS_PROVIDER,
+  DEFAULT_STORAGE_PROVIDER,
+  DEFAULT_SUBMITTER,
+} from './types/config.js';
 
 /**
  * Absolute path to THIS package's own public entry (`defineConfig` + the config types), resolved
@@ -30,9 +36,9 @@ const SELF_ENTRY = fileURLToPath(new URL('../index.js', import.meta.url));
  */
 const jiti = createJiti(import.meta.url, { alias: { 'launch-store': SELF_ENTRY } });
 
-/** Input to {@link defineConfig}: `profiles` is required; provider names default sensibly. */
-export type LaunchConfigInput = Pick<LaunchConfig, 'profiles'> &
-  Partial<Omit<LaunchConfig, 'profiles'>>;
+// Re-exported so `import { LaunchConfigInput } from "launch-store"` (via src/index.ts → here) still
+// resolves; the type itself is now `z.input<typeof LaunchConfigSchema>`, owned by `types/config.ts`.
+export type { LaunchConfigInput };
 
 /**
  * Author a typed `launch.config.ts`. Fills in the v1 defaults (`local` credentials + storage,
@@ -44,14 +50,19 @@ export type LaunchConfigInput = Pick<LaunchConfig, 'profiles'> &
  * `additionalProperties: false` root already catches them on the `.json` path (issue #197), instead of
  * silently dropping them. Known keys are inert noise to the pipeline; an unknown one becomes a reported
  * violation rather than a swallowed mistake.
+ *
+ * Deliberately fills defaults by hand rather than `LaunchConfigSchema.parse` — parsing would strip those
+ * unknown top-level keys (defeating #197) and throw on a not-yet-valid field at load time, whereas
+ * `launch config validate` is the explicit gate. The defaults come from the same `DEFAULT_*` constants
+ * the schema's `.default(...)` uses, so the two paths can't disagree.
  */
 export function defineConfig(input: LaunchConfigInput): LaunchConfig {
   return {
     ...input,
-    credentials: input.credentials ?? 'local',
-    storage: input.storage ?? 'local',
-    buildEngine: input.buildEngine ?? 'fastlane',
-    submit: input.submit ?? 'app-store-connect',
+    credentials: input.credentials ?? DEFAULT_CREDENTIALS_PROVIDER,
+    storage: input.storage ?? DEFAULT_STORAGE_PROVIDER,
+    buildEngine: input.buildEngine ?? DEFAULT_BUILD_ENGINE,
+    submit: input.submit ?? DEFAULT_SUBMITTER,
   };
 }
 
