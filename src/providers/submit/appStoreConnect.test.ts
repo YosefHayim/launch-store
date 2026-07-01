@@ -49,7 +49,7 @@ describe('app-store-connect submitter — binary upload via fastlane pilot', () 
       iosCtx({ FOO: 'bar' }),
     );
 
-    const [cmd, args, options] = runMock.mock.calls[0]!;
+    const [cmd, args = [], options] = runMock.mock.calls[0] ?? [];
     expect(cmd).toBe('fastlane');
     expect(args[0]).toBe('pilot');
     expect(args[args.indexOf('--ipa') + 1]).toBe('/tmp/app.ipa');

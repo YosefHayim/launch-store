@@ -252,6 +252,7 @@ async function resolveSubscription(
   const appId = await client.getAppId(app.bundleId ?? '');
   if (!appId) throw new Error(`No App Store Connect app record for ${app.bundleId ?? app.name}.`);
   for (const group of await client.listSubscriptionGroups(appId)) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential search with early return — stops at the first group holding the product, doesn't fetch the rest.
     const sub = (await client.listSubscriptions(group.id)).find(
       (entry) => entry.productId === productId,
     );

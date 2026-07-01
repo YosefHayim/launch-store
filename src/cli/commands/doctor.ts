@@ -63,6 +63,7 @@ async function fixExportCompliance(appSelector?: string): Promise<void> {
   for (const app of selectApps(apps, appSelector)) {
     if (!app.bundleId || app.usesNonExemptEncryption === undefined) continue;
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: sequential — best-effort per-app reconcile with per-app try/catch and ordered output.
       const buildNumber = await client.getLatestBuildNumber(app.bundleId);
       if (buildNumber === 0) continue;
       const result = await reconcileExportCompliance(client, {

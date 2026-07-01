@@ -39,7 +39,7 @@ describe('google-play submitter — package_name (EAS #3563 regression)', () => 
     const creds: BuildCredentials = { platform: 'android', serviceAccountJson: '{}' };
     await googlePlaySubmitter.submit('/tmp/app.aab', 'testing', creds, androidCtx());
 
-    const [, args] = runMock.mock.calls[0]!;
+    const [, args = []] = runMock.mock.calls[0] ?? [];
     const packageNameIndex = args.indexOf('--package_name');
     expect(args[packageNameIndex + 1]).toBe('com.example.hello.android');
     expect(args).not.toContain('com.example.hello.ios');
@@ -54,7 +54,7 @@ describe('google-play submitter — package_name (EAS #3563 regression)', () => 
       androidCtx({ APP_VARIANT: 'prod' }),
     );
 
-    const [, , options] = runMock.mock.calls[0]!;
+    const [, , options] = runMock.mock.calls[0] ?? [];
     expect(options?.env).toEqual({ APP_VARIANT: 'prod' });
   });
 });

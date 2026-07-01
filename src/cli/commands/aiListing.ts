@@ -107,6 +107,7 @@ export async function runAiListing(
   const drafts: LocaleDraft[] = [];
   for (const locale of locales) {
     const current = config.apple?.info[locale];
+    // biome-ignore lint/performance/noAwaitInLoops: sequential — one AI draft per locale; serial bounds LLM API concurrency and keeps drafts in locale order.
     const generated = await gen.generate(briefFor(locale, appName, current, input.about));
     const { draft, warnings } = clampDraft(generated);
     drafts.push({ locale, draft, warnings });

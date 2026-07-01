@@ -423,6 +423,7 @@ export async function ensureSigningCredentials(
   // into the export-options map so xcodebuild signs every bundle in the .ipa, not just the main app.
   const extensionProfiles: Record<string, string> = {};
   for (const ext of extensions) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential — one ASC App ID + profile per extension against Apple's write API; serial avoids concurrent-write races on the shared cert.
     const provisioned = await ensureAppStoreProfileForBundle({
       client,
       keyId,

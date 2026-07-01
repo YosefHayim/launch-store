@@ -30,6 +30,7 @@ async function main(): Promise<void> {
           process.stdout.write(`\x1b[${height}A`); // redraw in place
         }
         process.stdout.write(`${frames[i] ?? ''}\n`);
+        // biome-ignore lint/performance/noAwaitInLoops: sequential animation — frames must render in order with a delay between them.
         await sleep(70);
       }
     }
