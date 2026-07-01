@@ -10,12 +10,15 @@
  * read-only inspection, three consumers. The impure inputs (PATH probes, store clients, the keychain
  * query) are injected via {@link DoctorContext} so the inspection is faked in tests with no network.
  *
- * These types describe the doctor *mechanism*, not a config shape, so — like `core/readiness/types.ts` —
- * they live here beside the feature rather than in `core/types.ts`.
+ * These types describe the doctor *mechanism* and its report. Like every domain shape they live in the
+ * `core/types/` barrel (imported via `core/types.js`); the checks and `inspectDoctor` that produce a
+ * report stay in `core/doctor/`.
  */
 
 import type { AscPermissionProbeApi } from '../ascPermissions.js';
-import type { AppDescriptor, HostOs, LaunchConfig } from '../types.js';
+import type { AppDescriptor } from './app.js';
+import type { LaunchConfig } from './config.js';
+import type { HostOs } from './remote.js';
 
 /** The platform a doctor run targets — the same `ios` (default) / `android` split the build pipeline uses. */
 export type DoctorPlatform = 'ios' | 'android';

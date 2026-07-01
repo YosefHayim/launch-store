@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ReadinessProbe, ProbeResult } from '../../core/readiness/types.js';
+import type { ReadinessProbe, ProbeResult } from '../../core/types.js';
 import { READINESS_EXIT } from '../../core/readiness/orchestrator.js';
 
 /**

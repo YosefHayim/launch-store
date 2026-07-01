@@ -15,6 +15,7 @@ import type {
   AndroidReleaseOptions,
   AppDescriptor,
   BuildProfile,
+  Car,
   LaunchConfig,
   ResolvedBuildContext,
 } from '../types.js';
@@ -40,7 +41,6 @@ import { publishOtaPlatform, readExportMetadata } from '../otaPublish.js';
 import { resolveReleaseType, resolveWhatsNew } from '../releaseInputs.js';
 import { androidCarState, iosCarState } from './engine.js';
 import type { TrainEngine } from './orchestrator.js';
-import type { Car } from './types.js';
 
 /** Memoized, lazy resolvers + the live {@link TrainEngine} for one run — clients are resolved only as a car needs them. */
 export interface TrainRuntime {

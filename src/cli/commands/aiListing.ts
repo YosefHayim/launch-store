@@ -21,8 +21,7 @@ import { createLogger } from '../../core/logger.js';
 import { loadStoreConfig, serializeStoreConfig, type StoreConfig } from '../../core/storeConfig.js';
 import { applyDraft, briefFor, clampDraft, renderDraftPreview } from '../../core/listing/apply.js';
 import { createAnthropicListingGenerator } from '../../core/listing/generator.js';
-import type { AppDescriptor } from '../../core/types.js';
-import type { ListingGenerator, LocaleDraft } from '../../core/listing/types.js';
+import type { AppDescriptor, ListingGenerator, LocaleDraft } from '../../core/types.js';
 
 /** Options for `launch ai listing`. */
 export interface AiListingInput {

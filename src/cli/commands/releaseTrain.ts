@@ -18,7 +18,13 @@
 
 import { randomUUID } from 'node:crypto';
 import type { Command } from 'commander';
-import type { AppDescriptor, BuildProfile, LaunchConfig } from '../../core/types.js';
+import type {
+  AppDescriptor,
+  BuildProfile,
+  Car,
+  LaunchConfig,
+  TrainRecord,
+} from '../../core/types.js';
 import { loadConfig } from '../../core/config.js';
 import { resolveCommandEnv, selectApp } from '../../core/pipeline.js';
 import { createLogger, type Logger } from '../../core/logger.js';
@@ -39,13 +45,7 @@ import {
   readTrainRecord,
   writeTrainRecord,
 } from '../../core/releaseTrain/record.js';
-import {
-  isNativeCar,
-  isOtaCar,
-  isTrainPlatform,
-  type Car,
-  type TrainRecord,
-} from '../../core/releaseTrain/types.js';
+import { isNativeCar, isOtaCar, isTrainPlatform } from '../../core/releaseTrain/guards.js';
 
 /** CLI options for `launch release-train`. */
 interface ReleaseTrainOptions extends EnvFlags {

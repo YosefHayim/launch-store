@@ -8,7 +8,7 @@
  * a broken subscription surfaces in `launch audit` for any app that sells one.
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
 import { iosApps } from '../appScopes.js';
 import { declaredSubscriptionIds, gradeDeclaredProduct } from './iapReadiness.js';
 

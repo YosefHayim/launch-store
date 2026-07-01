@@ -11,25 +11,23 @@
 import type {
   AppEntities,
   JsonValue,
+  PlayPriceConfig,
+  PlaySubscriptionOverride,
+  ProductLocalization,
   RestoreInput,
   RestoreReport,
   SnapshotContext,
   SnapshotEntity,
   SnapshotSource,
   SourceCapture,
-} from '../types.js';
+  SubscriptionConfig,
+} from '../../types.js';
 import type {
   BasePlan,
   RegionalBasePlanConfig,
   SubscriptionListing,
   SubscriptionResource,
 } from '../../../google/playClient.js';
-import type {
-  PlayPriceConfig,
-  PlaySubscriptionOverride,
-  ProductLocalization,
-  SubscriptionConfig,
-} from '../../types.js';
 import type { PlannedAction } from '../../ascSync.js';
 import {
   periodFromIso,

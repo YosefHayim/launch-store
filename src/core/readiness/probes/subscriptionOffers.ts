@@ -11,8 +11,13 @@
  * Connect is a `warn` deferring to the subscriptions probe, which owns "create it first".
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
-import type { SubscriptionConfig } from '../../types.js';
+import type {
+  AppReadiness,
+  ProbeResult,
+  ReadinessContext,
+  ReadinessProbe,
+  SubscriptionConfig,
+} from '../../types.js';
 import { iosApps } from '../appScopes.js';
 
 /** The declared subscriptions, for one app's bundle id, that carry at least one offer-code campaign. */

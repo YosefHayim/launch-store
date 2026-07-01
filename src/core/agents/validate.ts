@@ -10,7 +10,7 @@
 
 import type { Command } from 'commander';
 import { CONSUMER_SKILLS } from './registry.js';
-import type { ConsumerSkill } from './types.js';
+import type { ConsumerSkill } from '../types.js';
 
 /**
  * Whether a command path (subcommand names only, no args) resolves in the program tree. Descends one

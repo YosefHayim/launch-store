@@ -7,7 +7,7 @@
  * per declared product. Tagged `submit` too, so an app selling IAP surfaces a broken product in `launch audit`.
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
 import { iosApps } from '../appScopes.js';
 import { gradeDeclaredProduct } from './iapReadiness.js';
 

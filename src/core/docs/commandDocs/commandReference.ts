@@ -5,7 +5,7 @@
  */
 
 import { escapeCell } from './common.js';
-import type { CommandSpec, DocStats, OptionSpec } from './types.js';
+import type { CommandSpec, DocStats, OptionSpec } from '../../types.js';
 
 /** Render a command's flag table, or `""` when it has no options. */
 function renderOptionsTable(options: OptionSpec[]): string {

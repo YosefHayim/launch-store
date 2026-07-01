@@ -29,7 +29,7 @@ import type {
   ContributorSkill,
   GeneratedAgentFile,
   SkillStep,
-} from './types.js';
+} from '../types.js';
 
 /** The HTML-comment fences around the managed Launch section in a consumer's `AGENTS.md` / `CLAUDE.md`. */
 export const MANAGED_START = '<!-- launch:start -->';

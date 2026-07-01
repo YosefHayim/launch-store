@@ -5,7 +5,7 @@
  * cryptic mid-build failure into one actionable line.
  */
 
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
 import { iosApps } from '../appScopes.js';
 
 /** The App Store Connect app-record readiness probe — both an account-onboarding and a submit blocker. */

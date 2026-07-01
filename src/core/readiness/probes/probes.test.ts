@@ -24,8 +24,14 @@ import { accountDeletionProbe } from './accountDeletion.js';
 import { demoAccountProbe } from './demoAccount.js';
 import { profileEntitlementsProbe } from './profileEntitlements.js';
 import { screenshotsProbe } from './screenshots.js';
-import type { AscReadinessApi, PlayReadinessApi, ProbeResult, ReadinessContext } from '../types.js';
-import type { AppDescriptor, LaunchConfig } from '../../types.js';
+import type {
+  AscReadinessApi,
+  PlayReadinessApi,
+  ProbeResult,
+  ReadinessContext,
+  AppDescriptor,
+  LaunchConfig,
+} from '../../types.js';
 
 /** A minimal valid config; pass `products` to exercise the subscription-group scope. */
 function config(products?: LaunchConfig['products']): LaunchConfig {

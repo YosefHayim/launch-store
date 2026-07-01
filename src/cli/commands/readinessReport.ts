@@ -19,7 +19,7 @@ import type {
   ReadinessContext,
   ReadinessOutcome,
   ReadinessStore,
-} from '../../core/readiness/types.js';
+} from '../../core/types.js';
 import { selectApps } from '../../core/syncJobs.js';
 
 /** The two strings a command supplies so a shared render reads in that command's voice. */

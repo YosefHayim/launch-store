@@ -16,7 +16,7 @@ import type {
   SnapshotEntity,
   SnapshotSource,
   SourceCapture,
-} from '../types.js';
+} from '../../types.js';
 import { iosApps } from '../../readiness/appScopes.js';
 
 /** One enabled capability → a snapshot entity keyed by its capability type. */

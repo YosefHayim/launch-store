@@ -15,7 +15,7 @@ import { reconcileAssetActions } from '../../syncRun.js';
 import { buildJobs, type SyncJob } from '../../syncJobs.js';
 import { checkScreenshotFile } from '../../screenshotSpecs.js';
 import type { PlannedAction } from '../../ascSync.js';
-import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../types.js';
+import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../../types.js';
 
 /** Surface id — also the value users pass as `launch plan screenshots`. */
 const SURFACE = 'screenshots';

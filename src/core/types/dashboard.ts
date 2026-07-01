@@ -1,7 +1,7 @@
 /**
  * The shapes the local `launch dashboard` renders — one glanceable snapshot of the project's *local*
- * state (config + `~/.launch`), assembled by {@link import("./state.js").gatherDashboardState} and drawn
- * by {@link import("./render.js").renderDashboardHtml}.
+ * state (config + `~/.launch`), assembled by {@link import("../dashboard/state.js").gatherDashboardState}
+ * and drawn by {@link import("../dashboard/render.js").renderDashboardHtml}.
  *
  * These are deliberately a flat, presentation-ready projection of the richer domain shapes in
  * `core/types.ts` (apps, accounts, artifacts, secrets, cloud host) rather than those shapes verbatim:
@@ -11,7 +11,7 @@
  * distinguish "absent" from "null".
  */
 
-import type { Platform } from '../types.js';
+import type { Platform } from './app.js';
 
 /** One discovered app, reduced to the identity fields the dashboard shows. */
 export interface DashboardApp {

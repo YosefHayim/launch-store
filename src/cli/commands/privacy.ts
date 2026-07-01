@@ -22,14 +22,13 @@ import {
   reconcilePrivacy,
   renderPrivacyReport,
 } from '../../core/privacy/reconcile.js';
-import type { PrivacyFinding, PrivacySurface } from '../../core/privacy/types.js';
-import type { AppDescriptor } from '../../core/types.js';
+import type { PrivacyFinding, PrivacySurface, AppDescriptor } from '../../core/types.js';
 
 /** CLI options for `launch privacy scan`. */
 interface PrivacyScanOptions {
   /** Comma-separated app handles; default is every discovered app. */
   app?: string;
-  /** Machine-readable output (the full {@link import("../../core/privacy/types.js").PrivacyReport}) for CI/agents. */
+  /** Machine-readable output (the full {@link import("../../core/types.js").PrivacyReport}) for CI/agents. */
   json?: boolean;
 }
 

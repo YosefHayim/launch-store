@@ -7,7 +7,8 @@ import {
   trainExitCode,
   type TrainEngine,
 } from './orchestrator.js';
-import { isNativeCar, isOtaCar, type Car, type NativeCarState, type TrainRecord } from './types.js';
+import { isNativeCar, isOtaCar } from './guards.js';
+import type { Car, NativeCarState, TrainRecord } from '../types.js';
 
 const NOW = '2026-06-16T00:00:00.000Z';
 const LATER = '2026-06-16T01:00:00.000Z';

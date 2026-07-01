@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { READINESS_EXIT, readinessExitCode, runProbes } from './orchestrator.js';
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from './types.js';
+import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
 
 /** A context whose resolvers are never reached — the fake probes below don't call them. */
 const ctx = {} as ReadinessContext;

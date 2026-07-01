@@ -5,7 +5,7 @@ import {
   registerReadinessProbe,
   selectReadinessProbes,
 } from './registry.js';
-import type { ReadinessProbe } from './types.js';
+import type { ReadinessProbe } from '../types.js';
 
 describe('readiness registry', () => {
   it('registers the built-in probes idempotently (re-registering replaces, never duplicates)', () => {

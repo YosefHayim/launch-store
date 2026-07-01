@@ -13,7 +13,7 @@
 import { resolveSidecarConfig } from '../../config.js';
 import { loadAccessibilityConfig, reconcileAccessibility } from '../../accessibility.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '../types.js';
+import type { SurfacePlanner } from '../../types.js';
 
 /** Surface id — also the value users pass as `launch plan accessibility`. */
 const SURFACE = 'accessibility';

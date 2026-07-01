@@ -7,7 +7,7 @@
  */
 
 import type { AndroidLocaleInfo, AppleLocaleInfo, StoreConfig } from '../storeConfig.js';
-import type { DraftListing, ListingBrief, LocaleDraft } from './types.js';
+import type { DraftListing, ListingBrief, LocaleDraft } from '../types.js';
 
 /**
  * App Store field limits, in characters. `keywords` is the limit on the *comma-joined* string (Apple

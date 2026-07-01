@@ -10,7 +10,7 @@
  * version, or no App Review detail yet can't be graded — those degrade to a `warn`, not a false blocker.
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
 import { iosApps } from '../appScopes.js';
 
 /** The App Store Connect demo-account readiness probe — a listing-completeness check and submit blocker. */

@@ -10,7 +10,7 @@
  */
 
 import { asRecord } from '../json.js';
-import type { PrivacySurface } from './types.js';
+import type { PrivacySurface } from '../types.js';
 
 /** `<key>NS…UsageDescription</key>` with its `<string>` value — captures empty and self-closing values too. */
 const USAGE_DESCRIPTION_RE =

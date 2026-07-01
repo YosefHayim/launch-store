@@ -10,7 +10,7 @@
 import { resolveSidecarConfig } from '../../config.js';
 import { loadWalletConfig, reconcileWalletIds } from '../../walletIds.js';
 import { planTeamSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '../types.js';
+import type { SurfacePlanner } from '../../types.js';
 
 /** Surface id — also the value users pass as `launch plan wallet`. */
 const SURFACE = 'wallet';

@@ -19,7 +19,7 @@ import {
   STATS_BADGES_END,
   STATS_BADGES_START,
 } from './content.js';
-import type { DocStats } from './types.js';
+import type { DocStats } from '../../types.js';
 
 /**
  * Render the README's live-stats badge row from {@link DocStats}: the store-API endpoint count, the

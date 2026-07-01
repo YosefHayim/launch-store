@@ -7,7 +7,7 @@
  * throws is recorded as `errored` here rather than aborting the capture.
  */
 
-import type { CaptureReport, Snapshot, SnapshotContext, SnapshotSource } from './types.js';
+import type { CaptureReport, Snapshot, SnapshotContext, SnapshotSource } from '../types.js';
 
 /**
  * Exit codes for `snapshot create`, mirroring the `launch plan` convention (error-or-clean):

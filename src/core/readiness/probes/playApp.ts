@@ -6,7 +6,7 @@
  * "not ready" signal, mapped to a blocker rather than allowed to error the run.
  */
 
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
 import { androidApps } from '../appScopes.js';
 
 /** The Google Play app-exists / service-account-access readiness probe — an account and a submit blocker. */

@@ -17,15 +17,22 @@
 
 import type { CapabilitySetting } from '../../apple/ascClient.js';
 import { entitlementForCapability, isCapabilityEntitlement } from '../capabilities.js';
+import type {
+  Adopter,
+  AdoptCatalogApi,
+  AdoptTarget,
+  EntitlementValue,
+  PlannedWrite,
+} from '../types.js';
 import { extractProfileEntitlements } from './profileEntitlements.js';
-import {
-  NEEDS_VALUE,
-  type Adopter,
-  type AdoptCatalogApi,
-  type AdoptTarget,
-  type EntitlementValue,
-  type PlannedWrite,
-} from './types.js';
+
+/**
+ * The deliberately-invalid placeholder written for a value adopt couldn't recover (e.g. an app-group id
+ * when the bundle has the capability enabled but no profile carried the concrete identifier). It is
+ * invalid on purpose: a build fails loudly on it rather than silently shipping a broken entitlement, so
+ * the developer is forced to fill it in. A clean `launch doctor` follow-up can flag it (see the ADR).
+ */
+export const NEEDS_VALUE = 'NEEDS_VALUE';
 
 /** One planned entitlement to add to `app.json`: its key, the value (real or {@link NEEDS_VALUE}), and any caveat. */
 export interface PlannedEntitlement {

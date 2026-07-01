@@ -11,7 +11,7 @@
  */
 
 import { READINESS_EXIT } from '../readiness/orchestrator.js';
-import type { PrivacyFinding, PrivacyReport, PrivacySurface } from './types.js';
+import type { PrivacyFinding, PrivacyReport, PrivacySurface } from '../types.js';
 
 /**
  * iOS permission usage-description key → the privacy-manifest `NSPrivacyCollectedDataType` it implies.

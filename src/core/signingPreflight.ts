@@ -20,8 +20,7 @@ import {
   appGroupPortalNotice,
   mapEntitlementsToCapabilities,
 } from './capabilities.js';
-import type { AppDescriptor } from './types.js';
-import type { DoctorCheck } from './doctor/types.js';
+import type { AppDescriptor, DoctorCheck } from './types.js';
 
 /** The read-only App Store Connect surface the signing preflight needs. */
 export interface SigningPreflightAscApi {

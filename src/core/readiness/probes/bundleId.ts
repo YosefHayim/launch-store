@@ -6,7 +6,7 @@
  * mid-archive. A `null` lookup is the expected "not ready" signal, mapped to a blocker.
  */
 
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
 import { iosApps } from '../appScopes.js';
 
 /** The Apple Bundle ID (App ID) registration readiness probe. */

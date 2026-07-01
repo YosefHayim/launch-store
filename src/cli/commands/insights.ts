@@ -29,7 +29,7 @@ import type {
   RatingSummary,
   ReviewDatum,
   StarRating,
-} from '../../core/insights/types.js';
+} from '../../core/types.js';
 
 /** CLI options for `launch insights`. */
 interface InsightsOptions {

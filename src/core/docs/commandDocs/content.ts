@@ -6,7 +6,7 @@
  * drift. Edit a constant here, then run `npm run docs:gen`.
  */
 
-import type { FeatureSection } from './types.js';
+import type { FeatureSection } from '../../types.js';
 
 /**
  * The single canonical category sentence. Kept byte-identical in `package.json` `description`, the

@@ -11,7 +11,7 @@
  */
 
 import { vi } from 'vitest';
-import type { AscSurfacesApi } from '../core/plan/types.js';
+import type { AscSurfacesApi } from '../core/types.js';
 
 /**
  * A fully-stubbed {@link AscSurfacesApi}. Reads resolve to "the app exists, nothing is configured" so a

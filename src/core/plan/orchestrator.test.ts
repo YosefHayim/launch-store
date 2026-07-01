@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PLAN_EXIT, planExitCode, runPlanners } from './orchestrator.js';
-import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from './types.js';
+import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner, LaunchConfig } from '../types.js';
 import type { PlannedAction } from '../ascSync.js';
-import type { LaunchConfig } from '../types.js';
 
 /** A minimal context — fake planners ignore it, but the types must be honored without casts. */
 function makeCtx(): PlanContext {

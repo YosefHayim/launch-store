@@ -29,7 +29,7 @@ import { inspectDoctor } from '../../core/doctor/inspect.js';
 import { buildDoctorContext } from '../../core/doctor/context.js';
 import { isApplePlatform, parsePlatform } from '../../core/platform.js';
 import { selectApps } from '../../core/syncJobs.js';
-import type { DoctorCheck, DoctorPlatform, DoctorReport } from '../../core/doctor/types.js';
+import type { DoctorCheck, DoctorPlatform, DoctorReport } from '../../core/types.js';
 
 /** Map a check status to its leading glyph. */
 const STATUS_GLYPH: Record<DoctorCheck['status'], string> = { ok: '✓', fail: '✗', info: '•' };

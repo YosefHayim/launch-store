@@ -18,7 +18,7 @@ import { selectApps } from '../../core/syncJobs.js';
 import type { PlannedAction } from '../../core/ascSync.js';
 import { listSurfacePlanners, registerBuiltinPlanners } from '../../core/plan/registry.js';
 import { PLAN_EXIT, runPlanners, type PlanOutcome } from '../../core/plan/orchestrator.js';
-import type { PlanContext, PlanStore, SurfacePlan } from '../../core/plan/types.js';
+import type { PlanContext, PlanStore, SurfacePlan } from '../../core/types.js';
 
 /** A successfully-read per-app surface (the usual case) — narrowed for the renderer. */
 type PlannedAppSurface = Extract<SurfacePlan, { state: 'planned'; scope: 'app' }>;

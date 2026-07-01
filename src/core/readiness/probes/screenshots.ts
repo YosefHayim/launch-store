@@ -11,8 +11,13 @@
  * app with no record or no editable version can't be graded — those degrade to a `warn`, not a false blocker.
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
-import type { AscReadinessApi } from '../types.js';
+import type {
+  AppReadiness,
+  ProbeResult,
+  ReadinessContext,
+  ReadinessProbe,
+  AscReadinessApi,
+} from '../../types.js';
 import { iosApps } from '../appScopes.js';
 
 /** Apple's display-type prefix for every iPhone screenshot class (e.g. `APP_IPHONE_67`, `APP_IPHONE_65`). */

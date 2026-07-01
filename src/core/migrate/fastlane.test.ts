@@ -2,7 +2,12 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { AppDescriptor } from '../types.js';
+import type {
+  AppDescriptor,
+  MigrationArtifact,
+  MigrationNote,
+  MigrationNoteLevel,
+} from '../types.js';
 import {
   migrateFastlane,
   parseAppfile,
@@ -11,7 +16,6 @@ import {
   parseSupplyfile,
   readFastlaneSetup,
 } from './fastlane.js';
-import type { MigrationArtifact, MigrationNote, MigrationNoteLevel } from './types.js';
 
 /** A realistic Appfile carrying both team ids, the Apple ID, and both platform identifiers. */
 const SAMPLE_APPFILE = [

@@ -7,7 +7,7 @@
  * in {@link registerBuiltinPlanners} — the orchestrator is untouched.
  */
 
-import type { SurfacePlanner } from './types.js';
+import type { SurfacePlanner } from '../types.js';
 import { catalogPlanner } from './planners/catalog.js';
 import { listingPlanner } from './planners/listing.js';
 import { playProductsPlanner } from './planners/playProducts.js';

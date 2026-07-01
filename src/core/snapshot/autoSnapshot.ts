@@ -12,7 +12,7 @@
 import { captureSnapshot } from './orchestrator.js';
 import { listSnapshotSources, registerBuiltinSources } from './registry.js';
 import { pruneSnapshots, saveSnapshot } from './store.js';
-import type { SnapshotContext } from './types.js';
+import type { SnapshotContext } from '../types.js';
 
 /** Name prefix marking a snapshot as an automatic pre-sync baseline — also the scope pruning retains. */
 export const AUTO_SNAPSHOT_PREFIX = 'pre-sync-';

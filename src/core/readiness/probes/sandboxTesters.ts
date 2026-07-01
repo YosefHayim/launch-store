@@ -10,7 +10,7 @@
  * and only when some app is actually selling something. Tagged `iap` only.
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
 import { iosApps } from '../appScopes.js';
 import { sellsProducts } from './iapReadiness.js';
 

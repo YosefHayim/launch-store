@@ -98,7 +98,7 @@ const IGNORED_ENTITLEMENTS = new Set<string>([
 /**
  * Capability type → the one **canonical** entitlement key `launch adopt` emits for it when a shipping
  * app's provisioning profile didn't supply a concrete value (so the entitlement is written with the
- * build-breaking {@link import("./adopt/types.js").NEEDS_VALUE} sentinel for the developer to fill in).
+ * build-breaking {@link import("./adopt/capabilities.js").NEEDS_VALUE} sentinel for the developer to fill in).
  *
  * This is the curated inverse of {@link ENTITLEMENT_TO_CAPABILITY}: that map is many-to-one (several
  * iCloud entitlements collapse to `ICLOUD`), so the inverse must pick a single representative key per

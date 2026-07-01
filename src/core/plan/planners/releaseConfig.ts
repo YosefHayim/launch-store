@@ -9,7 +9,7 @@
 import { resolveSidecarConfig } from '../../config.js';
 import { loadReleaseConfig, reconcileRelease } from '../../releaseAttrs.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '../types.js';
+import type { SurfacePlanner } from '../../types.js';
 
 /** Surface id — also the value users pass as `launch plan release-config`. */
 const SURFACE = 'release-config';

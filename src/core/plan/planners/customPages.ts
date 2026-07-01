@@ -16,7 +16,7 @@ import {
   reconcileCustomProductPages,
 } from '../../customProductPages.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '../types.js';
+import type { SurfacePlanner } from '../../types.js';
 
 /** Surface id — also the value users pass as `launch plan custom-pages`. */
 const SURFACE = 'custom-pages';

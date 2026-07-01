@@ -11,7 +11,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { RELEASE_TRAINS_DIR, releaseTrainFile } from '../paths.js';
-import type { TrainRecord } from './types.js';
+import type { TrainRecord } from '../types.js';
 
 /** Persist a train record, creating the release-trains directory on first write. */
 export function writeTrainRecord(record: TrainRecord, dir: string = RELEASE_TRAINS_DIR): void {

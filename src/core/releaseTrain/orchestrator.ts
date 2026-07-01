@@ -16,18 +16,16 @@
  * rollback`). A spy test asserts no such call is ever made.
  */
 
-import {
-  isCarTerminal,
-  isNativeCar,
-  isOtaCar,
-  type Car,
-  type NativeCar,
-  type NativeCarState,
-  type OtaCar,
-  type TrainPlatform,
-  type TrainRecord,
-  type TrainState,
-} from './types.js';
+import { isCarTerminal, isNativeCar, isOtaCar } from './guards.js';
+import type {
+  Car,
+  NativeCar,
+  NativeCarState,
+  OtaCar,
+  TrainPlatform,
+  TrainRecord,
+  TrainState,
+} from '../types.js';
 
 /**
  * The live operations the orchestrator drives — one method per car action, each wrapping an existing core

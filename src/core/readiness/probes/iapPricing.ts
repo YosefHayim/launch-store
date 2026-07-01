@@ -12,8 +12,13 @@
  * not yet on App Store Connect is a `warn`, not a blocker — the products probe already owns "create it first".
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
-import type { ProductPrice } from '../../types.js';
+import type {
+  AppReadiness,
+  ProbeResult,
+  ReadinessContext,
+  ReadinessProbe,
+  ProductPrice,
+} from '../../types.js';
 import { iosApps } from '../appScopes.js';
 
 /** A declared product carrying a price — the unit this probe grades, flattened across IAPs and subscriptions. */

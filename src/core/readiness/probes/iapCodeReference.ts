@@ -9,7 +9,7 @@
  */
 
 import { readFileSync, statSync } from 'node:fs';
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
 import { walkAppSource } from '../sourceScan.js';
 import { declaredAppleProductIds } from './iapReadiness.js';
 

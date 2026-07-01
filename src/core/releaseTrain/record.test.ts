@@ -9,7 +9,7 @@ import {
   removeTrainRecord,
   writeTrainRecord,
 } from './record.js';
-import type { TrainRecord } from './types.js';
+import type { TrainRecord } from '../types.js';
 
 /** Build a minimal valid train record, overridable per field. */
 function train(over: Partial<TrainRecord> = {}): TrainRecord {

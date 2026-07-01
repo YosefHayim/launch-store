@@ -2,9 +2,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { LaunchConfig } from '../types.js';
+import type { LaunchConfig, DoctorAscApi, DoctorContext, DoctorPlatform } from '../types.js';
 import { inspectDoctor } from './inspect.js';
-import type { DoctorAscApi, DoctorContext, DoctorPlatform } from './types.js';
 
 /**
  * A fully-faked {@link DoctorContext} — no network, no keychain. Defaults to a healthy macOS-free machine

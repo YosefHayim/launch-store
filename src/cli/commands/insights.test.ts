@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderInsights } from './insights.js';
 import { buildInsightsReport } from '../../core/insights/aggregate.js';
-import type { ReviewDatum } from '../../core/insights/types.js';
+import type { ReviewDatum } from '../../core/types.js';
 
 /** Build a review datum with sensible defaults so tests state only what they exercise. */
 function review(over: Partial<ReviewDatum> = {}): ReviewDatum {

@@ -12,8 +12,13 @@
  */
 
 import { configTemplate } from '../configScaffold.js';
-import type { AppProducts, InAppPurchaseConfig, SubscriptionGroupConfig } from '../types.js';
-import type { EntitlementValue, ProductPiece } from './types.js';
+import type {
+  AppProducts,
+  InAppPurchaseConfig,
+  SubscriptionGroupConfig,
+  EntitlementValue,
+  ProductPiece,
+} from '../types.js';
 
 /** Fold one bundle's imported product pieces into a single {@link AppProducts}, dropping empty arms. */
 export function aggregateProductPieces(pieces: ProductPiece[]): AppProducts {

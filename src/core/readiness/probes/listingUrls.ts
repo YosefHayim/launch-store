@@ -13,8 +13,13 @@
 
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
-import type { AppDescriptor } from '../../types.js';
+import type {
+  AppReadiness,
+  ProbeResult,
+  ReadinessContext,
+  ReadinessProbe,
+  AppDescriptor,
+} from '../../types.js';
 import { loadStoreConfig, type AppleStoreConfig } from '../../storeConfig.js';
 
 /** How long to wait for a listing URL before treating the fetch as failed. Bounded so audit never hangs. */

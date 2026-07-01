@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { AppDescriptor, BuildProfile, LaunchConfig } from '../types.js';
+import type { AppDescriptor, BuildProfile, LaunchConfig, NativeCar, OtaCar } from '../types.js';
 import { createLogger } from '../logger.js';
 import { buildTrainRuntime } from './builder.js';
-import type { NativeCar, OtaCar } from './types.js';
 
 /** A minimal config — `storage: "local"` so OTA is gated off; the engine never reaches a store client. */
 function config(overrides: Partial<LaunchConfig> = {}): LaunchConfig {

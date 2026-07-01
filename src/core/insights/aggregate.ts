@@ -13,7 +13,7 @@ import type {
   ReviewDatum,
   Sentiment,
   StarRating,
-} from './types.js';
+} from '../types.js';
 
 /** The star levels, fixed so the distribution always has all five keys (even at zero). */
 const STARS: readonly StarRating[] = [1, 2, 3, 4, 5];

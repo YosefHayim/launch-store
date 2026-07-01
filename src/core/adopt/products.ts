@@ -15,14 +15,17 @@ import type {
   SubscriptionResource,
 } from '../../apple/ascClient.js';
 import type {
+  Adopter,
+  AdoptCatalogApi,
+  AdoptTarget,
   InAppPurchaseConfig,
   InAppPurchaseType,
+  PlannedWrite,
   ProductLocalization,
   SubscriptionConfig,
   SubscriptionGroupConfig,
   SubscriptionPeriod,
 } from '../types.js';
-import type { Adopter, AdoptCatalogApi, AdoptTarget, PlannedWrite } from './types.js';
 
 /** Apple's `inAppPurchaseType` values Launch models — used to validate an imported product's kind. */
 const IN_APP_PURCHASE_TYPES = new Set<InAppPurchaseType>([

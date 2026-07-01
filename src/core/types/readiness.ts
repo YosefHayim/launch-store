@@ -4,17 +4,19 @@
  * and `launch iap doctor` (in-app-purchase verification).
  *
  * Where `core/plan` *diffs* config against live state, readiness *grades* live state against the store's
- * submission prerequisites. The mechanism mirrors the {@link import("../plan/types.js").SurfacePlanner}
+ * submission prerequisites. The mechanism mirrors the {@link import("./plan.js").SurfacePlanner}
  * registry exactly: each check is one {@link ReadinessProbe}, registered by id and tagged with the
  * {@link ReadinessCategory categories} it belongs to; a command is a thin **selector** over those tags
  * (store doctor = `account`, iap doctor = `iap`, audit = every submit-blocking probe). Adding a check is a
  * new probe file + one `registerReadinessProbe()` line — the orchestrator never names a concrete probe.
  *
- * These types describe the readiness *mechanism*, not a config shape, so — like `core/plan/types.ts` —
- * they live here beside the feature rather than in `core/types.ts` (which owns config + provider shapes).
+ * These types describe the readiness *mechanism* and its report. Like every domain shape they live in
+ * the `core/types/` barrel (imported via `core/types.js`); the probes, registry, and orchestrator that
+ * act on them stay in `core/readiness/`.
  */
 
-import type { AppDescriptor, LaunchConfig } from '../types.js';
+import type { AppDescriptor } from './app.js';
+import type { LaunchConfig } from './config.js';
 
 /** Which store a probe reads from — drives credential resolution and how the report is grouped. */
 export type ReadinessStore = 'appstore' | 'play';
@@ -55,7 +57,7 @@ export interface AppReadiness {
 }
 
 /**
- * What a probe returns. A discriminated union mirroring {@link import("../plan/types.js").SurfacePlan}:
+ * What a probe returns. A discriminated union mirroring {@link import("./plan.js").SurfacePlan}:
  * - `omitted` — nothing in scope for this probe (e.g. no subscriptions declared); dropped from output.
  * - `skipped` — the store's credentials aren't configured, so the check couldn't run; benign (exit 0)
  *   but surfaced with a hint, since a doctor that can't reach an account should say so.
@@ -224,7 +226,7 @@ export interface ReadinessContext {
 
 /**
  * One readiness check. {@link check} is **read-only**: it resolves live state and classifies it, never
- * writing. Registered like a provider/planner (see {@link import("./registry.js")}); the orchestrator
+ * writing. Registered like a provider/planner (see {@link import("../readiness/registry.js")}); the orchestrator
  * resolves every selected probe and never names a concrete one.
  */
 export interface ReadinessProbe {
@@ -243,7 +245,7 @@ export interface ReadinessProbe {
 /**
  * The aggregate result of a readiness run, structured so the command can render it and `--json` can
  * serialize it verbatim. `reports` excludes omitted probes; the counts drive both the summary line and
- * the exit code (see {@link import("./orchestrator.js").readinessExitCode}).
+ * the exit code (see {@link import("../readiness/orchestrator.js").readinessExitCode}).
  */
 export interface ReadinessOutcome {
   /** Every probe that produced output (omitted probes dropped). */
