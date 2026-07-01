@@ -56,7 +56,7 @@ export interface AscCatalogApi {
   listInAppPurchaseLocalizations(iapId: string): Promise<LocalizationResource[]>;
   createInAppPurchaseLocalization(
     iapId: string,
-    input: { locale: string; name: string; description?: string },
+    input: { locale: string; name: string; description?: string | undefined },
   ): Promise<LocalizationResource>;
   inAppPurchaseHasPrice(iapId: string): Promise<boolean>;
   findInAppPurchasePricePoint(
@@ -84,7 +84,7 @@ export interface AscCatalogApi {
   listSubscriptionLocalizations(subscriptionId: string): Promise<LocalizationResource[]>;
   createSubscriptionLocalization(
     subscriptionId: string,
-    input: { locale: string; name: string; description?: string },
+    input: { locale: string; name: string; description?: string | undefined },
   ): Promise<LocalizationResource>;
   subscriptionHasPrice(subscriptionId: string): Promise<boolean>;
   findSubscriptionPricePoint(

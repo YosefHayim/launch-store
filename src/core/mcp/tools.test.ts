@@ -97,7 +97,8 @@ describe('ALL_TOOLS registry', () => {
 describe('config introspection tools', () => {
   it('config_schema returns the launch.config JSON Schema', async () => {
     const schema = payload(await byName('config_schema').handler({})) as Record<string, unknown>;
-    expect(schema['$ref']).toBeDefined();
+    // z.toJSONSchema inlines the root object (no top-level `$ref`) and names nested objects under `definitions`.
+    expect(schema['type']).toBe('object');
     expect(schema['definitions']).toBeDefined();
   });
 

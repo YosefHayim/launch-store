@@ -14,7 +14,7 @@ import { dirname, join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import type { Command } from 'commander';
-import { createGenerator } from 'ts-json-schema-generator';
+import { z } from 'zod';
 import { buildProgram } from '../src/cli/program.ts';
 import { renderContributorRules, renderContributorSkills } from '../src/core/agents/render.ts';
 import {
@@ -36,6 +36,7 @@ import {
 } from '../src/core/docs/commandDocs.ts';
 import { renderConfigDocs } from '../src/core/docs/configDocs.ts';
 import type { JsonSchema } from '../src/core/jsonSchema.ts';
+import { LaunchConfigSchema } from '../src/core/types/config.ts';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -78,24 +79,16 @@ function computeStats(commands: CommandSpec[]): DocStats {
 }
 
 /**
- * Generate the JSON Schema for `launch.config.ts` from the config types — `LaunchConfigInput` in
- * `src/core/config.ts`, which derives from the domain shapes in `src/core/types.ts`. Mirrors how
- * `scripts/gen-asc-types.ts` generates the ASC types with `openapi-typescript`, keeping the TypeScript
- * types the single source of truth: the committed schema (and the field reference rendered from it) can't
- * drift from the types because `docs:check` regenerates and diffs them. `expose: "all"` names every nested
- * type as a `$def` (so the reference can table them) and `jsDoc: "extended"` carries the TSDoc into
- * `description`s.
+ * Generate the JSON Schema for `launch.config.ts` straight from the config SSOT — the zod
+ * {@link LaunchConfigSchema} (ADR 0008). `io: 'input'` emits the authoring shape (provider names optional,
+ * so only `profiles` is required, matching what `defineConfig` accepts); `target: 'draft-7'` keeps the
+ * committed schema in the dialect it has always shipped, so editors and the `configDocs` renderer are
+ * unaffected. Every `.meta({ id })` on a nested object becomes a named `definitions` entry the reference
+ * tables, and every `.describe(...)` becomes a `description` — so the schema, the field reference, and
+ * runtime validation are one source `docs:check` keeps honest.
  */
 function generateConfigSchema(): JsonSchema {
-  return createGenerator({
-    path: join(ROOT, 'src/core/config.ts'),
-    type: 'LaunchConfigInput',
-    tsconfig: join(ROOT, 'tsconfig.json'),
-    additionalProperties: false,
-    expose: 'all',
-    topRef: true,
-    jsDoc: 'extended',
-  }).createSchema('LaunchConfigInput');
+  return z.toJSONSchema(LaunchConfigSchema, { target: 'draft-7', io: 'input' }) as JsonSchema;
 }
 
 /** Render every generated doc from the live program, ready to write or diff verbatim. */

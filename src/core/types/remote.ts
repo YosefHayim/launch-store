@@ -3,6 +3,8 @@
  * tracks, and the {@link AllocateRequest} it fulfils when standing a builder up.
  */
 
+import { z } from 'zod';
+
 /**
  * The operating-system family Launch is running on.
  *
@@ -82,22 +84,40 @@ export interface HostStatus {
 }
 
 /**
- * AWS settings for the EC2 Mac compute host, declared in `launch.config.ts` under `aws`.
- *
- * Launch stores NO AWS secrets: credentials resolve through the standard SDK chain (env → `~/.aws`
- * profiles → SSO → IMDS). `amiId` is an optional BYO golden image; omit it to let Launch bootstrap
- * one and persist its id to `~/.launch/cloud.json`.
+ * AWS settings for the EC2 Mac compute host, declared in `launch.config.ts` under `aws` — see
+ * {@link AwsConfigSchema}. Launch stores NO AWS secrets: credentials resolve through the standard SDK
+ * chain (env → `~/.aws` profiles → SSO → IMDS).
  */
-export interface AwsConfig {
-  /** AWS region to allocate the Dedicated Host in (e.g. `us-east-1`). */
-  region: string;
-  /** Named profile in `~/.aws` to resolve via the credential chain. Omit to use the default chain. */
-  profile?: string;
-  /** BYO golden AMI id. Omit to bootstrap + snapshot one into your own account on first use. */
-  amiId?: string;
-  /** EC2 Mac instance type. Defaults to `mac2.metal` (cheapest M-series in most regions). */
-  instanceType?: string;
-}
+export const AwsConfigSchema = z
+  .strictObject({
+    region: z.string().describe('AWS region to allocate the Dedicated Host in (e.g. `us-east-1`).'),
+    profile: z
+      .string()
+      .describe(
+        'Named profile in `~/.aws` to resolve via the credential chain. Omit to use the default chain.',
+      )
+      .optional(),
+    amiId: z
+      .string()
+      .describe(
+        'BYO golden AMI id. Omit to bootstrap + snapshot one into your own account on first use.',
+      )
+      .optional(),
+    instanceType: z
+      .string()
+      .describe(
+        'EC2 Mac instance type. Defaults to `mac2.metal` (cheapest M-series in most regions).',
+      )
+      .optional(),
+  })
+  .meta({
+    id: 'AwsConfig',
+    description:
+      'AWS settings for the EC2 Mac compute host, declared in `launch.config.ts` under `aws`. Launch stores NO AWS secrets: credentials resolve through the standard SDK chain (env → `~/.aws` profiles → SSO → IMDS). `amiId` is an optional BYO golden image; omit it to let Launch bootstrap one and persist its id to `~/.launch/cloud.json`.',
+  });
+
+/** AWS settings for the EC2 Mac compute host — the inferred shape of {@link AwsConfigSchema}. */
+export type AwsConfig = z.infer<typeof AwsConfigSchema>;
 
 /**
  * Where a remote build should run, resolved from `--remote [aws|user@host]` or the wizard.
