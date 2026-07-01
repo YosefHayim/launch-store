@@ -44,13 +44,31 @@ export function xcargsExtra(jobs: number | undefined): string {
 /**
  * Assemble the full local `gym --xcargs` string: the manual-signing settings (so the resolved cert +
  * profile sign the archive, no surprises) followed by the shared {@link xcargsExtra}.
+ *
+ * `DEVELOPMENT_TEAM` and `CODE_SIGN_STYLE=Manual` are legitimately global — one team signs the whole
+ * archive, manually, for every target. `PROVISIONING_PROFILE_SPECIFIER` is the subtle one: a value
+ * passed on the command line applies to **every** target (xcodebuild has no per-target `--xcargs` form),
+ * which is exactly right for a single-target app — pin the one resolved profile — but WRONG once the app
+ * embeds an extension target. The main app's profile can't sign the widget/extension bundle (its app-id
+ * differs), so one global specifier makes the whole archive fail with exit 65 *before* export. For a
+ * multi-target app each target's profile is supplied instead by the project's own manual-signing settings
+ * and mapped per-bundle at export ({@link import("../providers/build/fastlane.js").exportOptionsPlist}
+ * folds {@link SigningAssets.extensionProfiles}), so the global specifier is **dropped** when
+ * {@link SigningAssets.extensionProfiles} is present. Whether a real multi-target archive additionally
+ * needs each target's profile written into the pbxproj is project-dependent and operator-verified on a
+ * live widget-app build (issue #262); removing the clobbering global specifier is the piece that has to be
+ * right here, and the single-target string stays byte-identical.
  */
 export function buildXcargs(
-  signing: Pick<SigningAssets, 'teamId' | 'profileName'>,
+  signing: Pick<SigningAssets, 'teamId' | 'profileName' | 'extensionProfiles'>,
   jobs: number | undefined,
 ): string {
-  const signingArgs = `DEVELOPMENT_TEAM=${signing.teamId} CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER=${signing.profileName}`;
-  return `${signingArgs} ${xcargsExtra(jobs)}`;
+  const parts = [`DEVELOPMENT_TEAM=${signing.teamId}`, 'CODE_SIGN_STYLE=Manual'];
+  // Pin the one global profile only when there's no extension target for it to clobber (the common case).
+  const multiTarget =
+    signing.extensionProfiles !== undefined && Object.keys(signing.extensionProfiles).length > 0;
+  if (!multiTarget) parts.push(`PROVISIONING_PROFILE_SPECIFIER=${signing.profileName}`);
+  return `${parts.join(' ')} ${xcargsExtra(jobs)}`;
 }
 
 /**
@@ -69,8 +87,12 @@ export interface GymArgsInput {
   outputName: string;
   /** Absolute path to the manual-signing `ExportOptions.plist`. */
   exportOptionsPath: string;
-  /** Resolved signing assets — the codesigning identity and the manual-signing xcargs come from here. */
-  signing: Pick<SigningAssets, 'teamId' | 'profileName' | 'certName'>;
+  /**
+   * Resolved signing assets — the codesigning identity and the manual-signing xcargs come from here.
+   * Carrying {@link SigningAssets.extensionProfiles} lets {@link buildXcargs} tell a single-target app
+   * (pin the global profile) from a multi-target one (drop it so an extension isn't clobbered at archive).
+   */
+  signing: Pick<SigningAssets, 'teamId' | 'profileName' | 'certName' | 'extensionProfiles'>;
   /** RAM-aware parallelism cap from {@link computeBuildJobs}, or `undefined` to let xcodebuild decide. */
   jobs: number | undefined;
   /** Whether to pass `--clean` (clean vs incremental, decided by the build fingerprint). */
