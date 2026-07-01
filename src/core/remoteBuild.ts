@@ -80,7 +80,17 @@ export interface RemoteBuildInputs {
   env: Record<string, string>;
 }
 
-/** Adapt a {@link RemoteSigningBundle} to the {@link SigningAssets} shape {@link exportOptionsPlist} reads. */
+/**
+ * Adapt a {@link RemoteSigningBundle} to the {@link SigningAssets} shape {@link exportOptionsPlist} reads.
+ *
+ * `extensionProfiles` is intentionally absent: the remote path uploads and installs exactly one profile
+ * (see {@link uploadSigningMaterial} and the build script's step 2), so it is single-target-only by
+ * construction — the per-target archive-signing fix (issue #262) lands on the LOCAL engine
+ * ({@link import("./buildFlags.js").buildXcargs}), where the clobbering global specifier lives. The
+ * remote script's hardcoded `PROVISIONING_PROFILE_SPECIFIER` is therefore correct for every build it can
+ * do today. Extending remote to multi-target (upload + install each extension profile, thread the map
+ * into the export plist and drop the global specifier) is a larger, separately-verified follow-up.
+ */
 function toSigningAssets(bundle: RemoteSigningBundle): SigningAssets {
   return {
     bundleId: bundle.bundleId,
