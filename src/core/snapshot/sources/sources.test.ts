@@ -5,7 +5,7 @@ import { appleListingSource } from './appleListing.js';
 import { appleCapabilitiesSource } from './appleCapabilities.js';
 import { playProductsSource } from './playProducts.js';
 import { playSubscriptionsSource } from './playSubscriptions.js';
-import { makeAscCatalogApiFake } from '../../ascCatalogApi.testkit.js';
+import { makeAscCatalogApiFake } from '../../../testkit/ascCatalogApi.testkit.js';
 import type {
   AppDescriptor,
   AppEntities,

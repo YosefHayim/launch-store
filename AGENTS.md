@@ -28,8 +28,11 @@ The build→submit spine is `core/pipeline.ts`; off-Mac builds branch into `core
 The **types module** defines every domain shape and the provider interfaces: the `src/core/types.ts`
 barrel re-exports `src/core/types/*.ts`, split by concern (`app`, `catalog`, `storeSurface`, `config`,
 `credentials`, `artifacts`, `providers`, `remote`, `vitals`). Add or change a shape in the matching
-`types/*.ts` module, not inline in a feature file; the barrel keeps every
-`import … from "../core/types.js"` working unchanged, so don't add declarations to it. The same
+`types/*.ts` module — not inline in a feature file, and not in a per-feature `types.ts` (fold those into
+the barrel); the barrel keeps every
+`import … from "../core/types.js"` working unchanged, so don't add declarations to it. (The **config** surface is the one exception to
+hand-written shapes — it's a zod schema with its type inferred; see
+[ADR 0008](./docs/adr/0008-adopt-zod-config-ssot.md).) The same
 barrel pattern governs the **App Store Connect wire types** — the `*Resource` / `*Query` shapes the
 client reads and writes live in `src/apple/ascResources.ts`, and `src/apple/ascClient.ts` re-exports
 them with `export *`, so `import … from "../apple/ascClient.js"` keeps resolving every ASC type
@@ -110,6 +113,34 @@ types) is re-exported from `src/index.ts`, which is the package `exports` entry.
 
 The `.p8` / `.p12` / private keys live in the OS keychain; `~/.launch` holds non-secret paths and
 ids only (e.g. `cloud.json`). Don't log, write, or commit key material, and honor `.gitignore`.
+
+### Rules digest
+
+<!-- rules digest — full guide in CODE-STYLE.md; edit there -->
+
+The full style guide (with before/after from real files) is [`CODE-STYLE.md`](./CODE-STYLE.md); `deslop`
+enforces it per-diff. Four rules below are **in-flight migrations** — write new code the new way; existing
+code converts opportunistically. Beyond the subsections above:
+
+- **File size is tiered, not capped.** The linear spine (`pipeline.ts`) and the API-mirroring wire clients
+  (`ascClient` / `ascResources` / `playClient`) are exempt and mirror the vendor API **1:1** — never
+  collapse their per-endpoint methods. Logic/orchestration aims **≤ 200 LOC**; split by _purpose_ (shapes →
+  the barrel) before size.
+- **One types home** _(migration)_ — every exported shape in `src/core/types/*`, imported as
+  `../core/types.js`; no per-feature `types.ts`, no exported shape inline in a logic file.
+- **One output seam** _(migration)_ — domain core returns data and never prints; rendering goes through the
+  logger/output module, never raw `console.*` (except `cli/index.ts`'s fatal catch and the MCP **stderr**
+  stream).
+- **Errors: throw a plain `Error` with an actionable message;** subclass only where a caller catches and
+  branches; graded exits return an `exitCode` in data.
+- **Config is a zod schema** _(migration)_ — type inferred, `.parse` at the boundary, JSON Schema generated
+  from it; see [ADR 0008](./docs/adr/0008-adopt-zod-config-ssot.md).
+- **`interface` for shapes, `type` for unions/functions;** module constants at the top, after imports.
+- **Comments explain WHY,** cross-linked with `{@link}`; a file-level why-doc opens every module.
+- **Tests co-located;** hand-written fakes + `vi.fn` over `vi.mock` (boundary modules only); shared fixtures
+  in one testkit root _(migration:_ `src/testkit/`, `*.testkit.ts`_)_; no snapshots.
+- **Never** a non-null `!` assertion, `await` in a loop (use `Promise.all`; deliberate order gets a
+  `// why`), or `export default` (named exports only).
 
 ## Style is enforced, not documented
 

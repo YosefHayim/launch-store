@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { walletPlanner } from './wallet.js';
-import { makeAscApiFake } from './ascApiFake.testkit.js';
+import { makeAscApiFake } from '../../../testkit/ascApiFake.testkit.js';
 import type { AscSurfacesApi, PlanContext, LaunchConfig, WalletConfig } from '../../types.js';
 
 const DECLARED: WalletConfig = {
