@@ -1,0 +1,22 @@
+name: Lint
+
+# Single-purpose, reusable (workflow_call): Biome's linter + formatter in one pass (`biome check .`).
+# Biome does both, so there is no separate format workflow. Results are deterministic across OS/Node,
+# so this runs single-leg (ubuntu, one Node) — no matrix (see ADR 0009).
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint & format (biome check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-node-cached
+        with:
+          node-version: 22
+      - run: npm run lint

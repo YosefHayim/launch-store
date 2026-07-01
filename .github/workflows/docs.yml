@@ -1,0 +1,24 @@
+name: Docs in sync
+
+# Single-purpose, reusable (workflow_call): `docs:check` regenerates docs/commands.md, llms.txt, the
+# config schema + field reference, and the contributor rules/skills from the live commander tree and the
+# config types, then fails if any committed file is stale (issue #89). Offline + deterministic, so it's
+# part of the per-PR gate — unlike schema-drift.yml, which makes a live download and runs on its own
+# schedule. Single-leg — the output can't vary by OS/Node (see ADR 0009).
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    name: Docs are in sync with the CLI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-node-cached
+        with:
+          node-version: 22
+      - run: npm run docs:check

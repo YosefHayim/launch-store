@@ -1,0 +1,37 @@
+name: Test
+
+# Single-purpose, reusable (workflow_call): the unit suite with coverage, across the supported matrix
+# (Node 20/22 — package.json `engines: node >=20`) where cross-environment bugs actually surface. Unit
+# tests mock the Mac-specific bits (openssl/security/fastlane), so they run on Linux; a real iOS build
+# needs a physical Mac and isn't attempted here. The coverage tail is surfaced in the run summary.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: node-${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-node-cached
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Test (with coverage)
+        run: npm run test:coverage | tee coverage.txt
+      - name: Coverage summary
+        if: always()
+        run: |
+          {
+            echo '### Coverage (node ${{ matrix.node }})'
+            echo '```'
+            tail -n 20 coverage.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
