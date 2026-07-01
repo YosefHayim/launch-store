@@ -472,6 +472,7 @@ async function refreshAccounts(selector: string | undefined): Promise<void> {
     );
   }
   for (const account of targets) {
+    // biome-ignore lint/performance/noAwaitInLoops: serial per-app store call — one request per app; kept sequential to respect the store API rate limit
     const ascKey = await loadAscKeyById(account.keyId);
     if (!ascKey) {
       log.warn(`Skipped "${account.label}": no stored key (re-import with launch creds set-key).`);

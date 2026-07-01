@@ -124,6 +124,7 @@ export async function reconcileAppClips(
       );
       continue;
     }
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     await reconcileClip(ctx, api, clip, clipBundleId, editable.id, declared);
   }
 
@@ -231,6 +232,7 @@ async function reconcileLocalizations(
   for (const [locale, localization] of Object.entries(declared)) {
     const current = existing.get(locale);
     if (!current) {
+      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       await act(ctx, `set ${clipBundleId} card subtitle (${locale})`, () =>
         api.createAppClipDefaultExperienceLocalization(experienceId, locale, localization.subtitle),
       );

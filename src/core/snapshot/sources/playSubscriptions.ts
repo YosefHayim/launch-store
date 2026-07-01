@@ -235,6 +235,7 @@ export const playSubscriptionsSource: SnapshotSource = {
       }
       if (subscriptions.length === 0) continue;
       try {
+        // biome-ignore lint/performance/noAwaitInLoops: serial Google Play writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
         const report = await reconcilePlaySubscriptions(client, {
           packageName: app.identifier,
           subscriptions,

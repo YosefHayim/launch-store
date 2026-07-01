@@ -116,6 +116,7 @@ export async function resolveBuildSecrets(
 ): Promise<Record<string, string>> {
   const env: Record<string, string> = {};
   for (const ref of effectiveRefs(listSecretRefs(), app, profile)) {
+    // biome-ignore lint/performance/noAwaitInLoops: serial secret reads — each value is fetched from the OS keychain in turn
     const value = await getSecret(secretAccount(ref));
     if (value !== null) env[ref.name] = value;
   }

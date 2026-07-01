@@ -135,10 +135,12 @@ async function animateShip(width: number): Promise<void> {
   const travel = 7;
   for (let f = 0; f <= travel; f++) {
     draw(Math.round(-shipWidth + (restX + shipWidth) * (f / travel)), 1);
+    // biome-ignore lint/performance/noAwaitInLoops: animation loop — frames render in order with a delay between them
     await sleep(70);
   }
   for (const yOffset of [0, 1, 0, 1]) {
     draw(restX, yOffset);
+    // biome-ignore lint/performance/noAwaitInLoops: animation loop — frames render in order with a delay between them
     await sleep(130);
   }
 }
@@ -273,6 +275,7 @@ export async function outroDone(): Promise<void> {
   }
   for (const frame of ['▖', '▗▄', '▝▙▄', '▘▝▙▄']) {
     process.stdout.write(`\r\x1b[2K${corner}  ${paint.fg(AURORA.cyan, frame)}`);
+    // biome-ignore lint/performance/noAwaitInLoops: animation loop — frames render in order with a delay between them
     await sleep(80);
   }
   process.stdout.write(`\r\x1b[2K${settled}\n`);

@@ -146,6 +146,7 @@ export async function planTargets(
       const errors: AdopterError[] = [];
       for (const adopter of adopters) {
         try {
+          // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
           writes.push(...(await adopter.read(asc, detected.target)));
         } catch (error) {
           errors.push({
@@ -251,6 +252,7 @@ export async function applyAdopt(
     for (const write of plan.writes) {
       if (write.change.home !== 'store.config') continue;
       try {
+        // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
         await ctx.pullListing(write.change.bundleId, write.change.configPath);
         result.listingsPulled.push(write.change.appName);
       } catch (error) {

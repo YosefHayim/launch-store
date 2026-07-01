@@ -246,6 +246,7 @@ export interface EnsureToolchainOptions {
 async function detectMissing(io: Pick<ToolchainIo, 'exists'>, tools: Tool[]): Promise<Tool[]> {
   const missing: Tool[] = [];
   for (const tool of tools) {
+    // biome-ignore lint/performance/noAwaitInLoops: serial toolchain probes — each shells out to check one tool; kept sequential to bound subprocess load and keep output ordered
     if (!(await io.exists(tool.command))) missing.push(tool);
   }
   return missing;

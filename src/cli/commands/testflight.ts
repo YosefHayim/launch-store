@@ -190,6 +190,7 @@ async function listGroups(options: { app?: string }): Promise<void> {
     return;
   }
   for (const group of groups) {
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     const count = (await asc.listBetaTestersInGroup(group.id)).length;
     const kind = group.isInternal ? 'internal' : 'external';
     const link = group.publicLink ? ` — ${group.publicLink}` : '';
@@ -283,6 +284,7 @@ async function addTesters(emails: string[], options: TesterCommandOptions): Prom
   let invited = 0;
   let linked = 0;
   for (const tester of pending) {
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     const existing = await asc.findBetaTesterByEmail(tester.email);
     if (existing) {
       await asc.addTestersToGroup(group.id, [existing.id]);

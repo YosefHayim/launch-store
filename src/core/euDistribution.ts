@@ -50,6 +50,7 @@ export async function reconcileEuDistributionDomains(
   );
   for (const { domain, referenceName } of config.domains) {
     if (existing.has(domain)) continue;
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     await act(ctx, `authorize distribution domain ${domain} (${referenceName})`, () =>
       api.createAlternativeDistributionDomain(domain, referenceName),
     );

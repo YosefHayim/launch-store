@@ -128,6 +128,7 @@ export async function reconcileAccessibility(
   for (const declared of input.config.declarations) {
     const desired = normalizeSupport(declared);
     const current = byFamily.get(declared.deviceFamily);
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     if (current) await updateDeclaration(ctx, api, current, desired, publish);
     else await createDeclaration(ctx, api, appId, declared.deviceFamily, desired, publish);
   }

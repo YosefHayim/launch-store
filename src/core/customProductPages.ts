@@ -94,6 +94,7 @@ export async function reconcileCustomProductPages(
     (await api.listCustomProductPages(appId)).map((page) => [page.name, page]),
   );
   for (const page of input.config.pages) {
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     const pageId = await ensurePage(ctx, api, appId, page.name, existing.get(page.name));
     await reconcilePromoText(ctx, api, page, pageId);
   }
@@ -169,6 +170,7 @@ async function reconcilePromoText(
     );
     if (ctx.dryRun) continue;
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       if (existing) await api.updateCustomProductPageLocalization(existing.id, text);
       else await api.createCustomProductPageLocalization(version.id, locale, text);
       action.status = 'applied';

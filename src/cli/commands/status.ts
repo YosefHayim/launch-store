@@ -146,12 +146,15 @@ async function watch(
   const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
   const tracker = createTransitionTracker();
   for (;;) {
+    // biome-ignore lint/performance/noAwaitInLoops: poll loop — each pass re-reads remote state after a fixed delay, so the iterations are inherently sequential
     const results = await readAll();
     log.gap();
     for (const { name, status } of results) {
       log.step(name, formatStatusLine(status));
-      for (const event of planTransitionNotifications(name, status, tracker))
+      for (const event of planTransitionNotifications(name, status, tracker)) {
+        // biome-ignore lint/performance/noAwaitInLoops: notifications fire in transition order — one webhook/shell hook per event
         await notify(config, event);
+      }
     }
     if (results.every((result) => result.status.verdict.done)) {
       process.exitCode = worstExitCode(results.map((result) => result.status.verdict.exitCode));

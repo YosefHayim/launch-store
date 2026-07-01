@@ -465,6 +465,7 @@ async function applyReleaseNotes(
   for (const [locale, text] of locales) {
     const match = existing.find((localization) => localization.locale === locale);
     if (match)
+      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       await act(ctx, `set release notes [${locale}]`, () =>
         ctx.api.updateAppStoreVersionLocalization(match.id, text),
       );
@@ -619,6 +620,7 @@ export async function waitForValidBuild(
 
   let waited = 0;
   for (;;) {
+    // biome-ignore lint/performance/noAwaitInLoops: poll loop — each pass re-reads remote state after a fixed delay, so the iterations are inherently sequential
     const build = await api.findBuildByVersion(appId, buildNumber);
     const state = build?.processingState ?? 'PROCESSING';
     options.onTick?.(state);

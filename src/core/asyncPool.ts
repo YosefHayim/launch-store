@@ -35,6 +35,7 @@ export async function runPool<T, R>(
   const lane = async (): Promise<void> => {
     for (const [index, item] of entries) {
       try {
+        // biome-ignore lint/performance/noAwaitInLoops: worker-pool lane — the await here IS one lane pulling items off the shared iterator; concurrency comes from running several lanes at once
         results[index] = { ok: true, value: await worker(item, index) };
       } catch (error) {
         results[index] = {
@@ -82,6 +83,7 @@ export async function withRetry<R>(fn: () => Promise<R>, options: RetryOptions):
   let lastError: unknown;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: retry backoff — each attempt runs only after the previous one fails, so the loop is inherently sequential
       return await fn();
     } catch (error) {
       lastError = error;

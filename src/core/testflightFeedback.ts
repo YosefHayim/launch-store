@@ -145,6 +145,7 @@ export async function downloadFeedbackAttachments(
       ? item.id
       : Buffer.from(item.id, 'utf8').toString('base64url');
     for (const [index, shot] of shots.entries()) {
+      // biome-ignore lint/performance/noAwaitInLoops: serial downloads — the store endpoint rate-limits, so files/attachments are fetched one at a time
       const bytes = await api.downloadBetaFeedbackScreenshot(shot.url);
       const path = join(outDir, `${safeId}-${index + 1}.png`);
       writeFileSync(path, bytes);

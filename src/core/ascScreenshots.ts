@@ -190,9 +190,11 @@ async function reconcileAppScreenshots(
     }
 
     const setByType = new Map(
+      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       (await api.listScreenshotSets(localizationId)).map((set) => [set.screenshotDisplayType, set]),
     );
     for (const [displayType, typeShots] of groupBy(localeShots, (shot) => shot.displayType)) {
+      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       await reconcileScreenshotSet(
         api,
         log,
@@ -249,6 +251,7 @@ async function reconcileScreenshotSet(
       );
       continue;
     }
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     await act(log, `upload screenshot ${label} [${locale}] ${shot.fileName}`, false, () =>
       api.uploadScreenshot(setId, shot.fileName, shot.path),
     );
@@ -281,6 +284,7 @@ async function reconcileSubscriptionReviewScreenshots(
       );
       continue;
     }
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     const current = await api.getSubscriptionReviewScreenshot(subscriptionId);
     // Skip only a finished upload that matches byte-for-byte; a FAILED one re-sends.
     if (
@@ -388,12 +392,14 @@ export async function reconcilePreviews(
     }
 
     const setByType = new Map(
+      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       (await api.listPreviewSets(localizationId)).map((set) => [set.previewType, set]),
     );
     for (const [previewType, typePreviews] of groupBy(
       localePreviews,
       (preview) => preview.previewType,
     )) {
+      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       await reconcilePreviewSet(
         api,
         log,
@@ -451,6 +457,7 @@ async function reconcilePreviewSet(
       );
       continue;
     }
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     await act(log, `upload preview ${label} [${locale}] ${preview.fileName}`, false, () =>
       api.uploadPreview(setId, preview.fileName, preview.path),
     );
