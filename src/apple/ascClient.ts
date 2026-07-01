@@ -1335,7 +1335,7 @@ export class AppStoreConnectClient {
   /** Create one locale's display copy for an in-app purchase. */
   async createInAppPurchaseLocalization(
     iapId: string,
-    input: { locale: string; name: string; description?: string },
+    input: { locale: string; name: string; description?: string | undefined },
   ): Promise<LocalizationResource> {
     return this.createLocalization(
       'inAppPurchaseLocalizations',
@@ -1448,7 +1448,7 @@ export class AppStoreConnectClient {
   /** Create one locale's display copy for a subscription. */
   async createSubscriptionLocalization(
     subscriptionId: string,
-    input: { locale: string; name: string; description?: string },
+    input: { locale: string; name: string; description?: string | undefined },
   ): Promise<LocalizationResource> {
     return this.createLocalization(
       'subscriptionLocalizations',
@@ -2550,7 +2550,7 @@ export class AppStoreConnectClient {
     relationshipName: string,
     parentType: string,
     parentId: string,
-    input: { locale: string; name: string; description?: string },
+    input: { locale: string; name: string; description?: string | undefined },
   ): Promise<LocalizationResource> {
     const data = await this.createResource<{
       locale?: string;

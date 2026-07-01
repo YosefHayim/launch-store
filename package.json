@@ -75,7 +75,8 @@
     "chalk": "^5.6.2",
     "commander": "^12.1.0",
     "jiti": "^2.4.0",
-    "jose": "^5.9.6"
+    "jose": "^5.9.6",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.1",
@@ -84,7 +85,6 @@
     "husky": "^9.1.6",
     "lint-staged": "^15.2.10",
     "openapi-typescript": "^7.13.0",
-    "ts-json-schema-generator": "^2.9.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "vitest": "^4.1.8"
