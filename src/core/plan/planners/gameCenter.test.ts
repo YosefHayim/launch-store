@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { gameCenterPlanner } from './gameCenter.js';
-import { makeAscApiFake } from './ascApiFake.testkit.js';
+import { makeAscApiFake } from '../../../testkit/ascApiFake.testkit.js';
 import type { AscSurfacesApi, PlanContext } from '../types.js';
 import type { AppDescriptor, GameCenterConfig, LaunchConfig } from '../../types.js';
 
