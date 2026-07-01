@@ -115,6 +115,7 @@ export async function findLaunchConfig(cwd: string = process.cwd()): Promise<Fou
   for (const file of ['launch.config.ts', 'launch.config.mjs', 'launch.config.js']) {
     const path = join(cwd, file);
     if (!existsSync(path)) continue;
+    // biome-ignore lint/performance/noAwaitInLoops: find-first over candidate files — returns on the first that loads, so later candidates must not be imported
     const loaded = await jiti.import<{ default?: LaunchConfig }>(path);
     if (!loaded.default) throw new Error(`${file} must \`export default defineConfig({ ... })\`.`);
     return { path, config: loaded.default };
@@ -208,6 +209,7 @@ async function readDynamicConfig(
     const path = join(dir, file);
     if (!existsSync(path)) continue;
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: find-first over candidate files — returns on the first that loads, so later candidates must not be imported
       const mod = await jiti.import<{ default?: unknown }>(path);
       if (mod.default === undefined) continue;
       const evaluated =
@@ -268,6 +270,7 @@ async function discoverApps(root: string, maxDepth = 4): Promise<AppDescriptor[]
     for (const entry of entries) {
       if (SKIP_DIRS.has(entry) || entry.startsWith('.')) continue;
       const child = join(dir, entry);
+      // biome-ignore lint/performance/noAwaitInLoops: sequential bounded-depth directory walk — a parallel fanout would explode the open-file-handle count
       if (statSync(child).isDirectory()) await walk(child, depth + 1);
     }
   };

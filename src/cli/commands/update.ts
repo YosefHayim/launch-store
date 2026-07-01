@@ -151,6 +151,7 @@ export function registerUpdateCommand(program: Command): void {
     // Resolve the signer once for the whole run (idempotent; `--no-sign` publishes unsigned).
     const signer = options.sign ? await ensureCodeSigner(false, log) : null;
     for (const platform of platforms) {
+      // biome-ignore lint/performance/noAwaitInLoops: sequential per-platform publish — the platforms share one storage target and an intentional order
       await publishOtaPlatform(
         { storage, distDir, metadata, platform, channel: options.channel, runtimeVersion, signer },
         log,

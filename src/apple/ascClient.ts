@@ -485,6 +485,7 @@ export class AppStoreConnectClient {
     const all: { id: string; attributes: A }[] = [];
     let next: string | undefined = path;
     while (next) {
+      // biome-ignore lint/performance/noAwaitInLoops: cursor pagination — each page’s `next` link comes from the prior response, so the reads are inherently sequential
       const page: PagedList<A> = await this.request<PagedList<A>>('GET', next);
       all.push(...page.data);
       next = page.links?.next;
@@ -813,6 +814,7 @@ export class AppStoreConnectClient {
       `/appClips/${appClipId}/appClipDefaultExperiences` +
       `?include=releaseWithAppStoreVersion&fields[appClipDefaultExperiences]=action,releaseWithAppStoreVersion&limit=200`;
     while (next) {
+      // biome-ignore lint/performance/noAwaitInLoops: cursor pagination — each page’s `next` link comes from the prior response, so the reads are inherently sequential
       const page: AppClipExperiencePage = await this.request<AppClipExperiencePage>('GET', next);
       for (const entry of page.data) {
         all.push({
@@ -1755,6 +1757,7 @@ export class AppStoreConnectClient {
     const all: PromotedPurchaseResource[] = [];
     let next: string | undefined = `/apps/${appId}/promotedPurchases?limit=200`;
     while (next) {
+      // biome-ignore lint/performance/noAwaitInLoops: cursor pagination — each page’s `next` link comes from the prior response, so the reads are inherently sequential
       const page: PromotedPurchasePage = await this.request<PromotedPurchasePage>('GET', next);
       for (const entry of page.data) {
         all.push({
@@ -2169,6 +2172,7 @@ export class AppStoreConnectClient {
     let next: string | undefined =
       `${this.v2(`/appAvailabilities/${head.data.id}/territoryAvailabilities`)}?fields[territoryAvailabilities]=available,territory&limit=200`;
     while (next) {
+      // biome-ignore lint/performance/noAwaitInLoops: cursor pagination — each page’s `next` link comes from the prior response, so the reads are inherently sequential
       const page: TerritoryAvailabilityPage = await this.request('GET', next);
       for (const row of page.data) {
         const code = row.relationships?.territory?.data?.id;
@@ -2590,6 +2594,7 @@ export class AppStoreConnectClient {
     const reviews: CustomerReviewResource[] = [];
     let next: string | undefined = path;
     while (next) {
+      // biome-ignore lint/performance/noAwaitInLoops: cursor pagination — each page’s `next` link comes from the prior response, so the reads are inherently sequential
       const page: CustomerReviewPage = await this.request<CustomerReviewPage>('GET', next);
       for (const { id, attributes, relationships } of page.data) {
         reviews.push({
@@ -2700,6 +2705,7 @@ export class AppStoreConnectClient {
     const rows: BetaFeedbackRow[] = [];
     let next: string | undefined = path;
     while (next) {
+      // biome-ignore lint/performance/noAwaitInLoops: cursor pagination — each page’s `next` link comes from the prior response, so the reads are inherently sequential
       const page: BetaFeedbackPage = await this.request<BetaFeedbackPage>('GET', next);
       const buildVersionById = new Map<string, string>();
       for (const entry of page.included ?? []) {
@@ -3907,6 +3913,7 @@ export class AppStoreConnectClient {
       for (const header of operation.requestHeaders ?? []) {
         if (header.name && header.value !== undefined) headers[header.name] = header.value;
       }
+      // biome-ignore lint/performance/noAwaitInLoops: sequential chunked upload — each PUT sends the next ordered byte-range (with transient retry); the chunks are one stream
       await withRetry(
         async () => {
           const response = await fetch(operation.url, {

@@ -76,6 +76,7 @@ export function registerRolloutCommand(program: Command): void {
       const client = new AppStoreConnectClient(ascKey);
 
       for (const app of ios) {
+        // biome-ignore lint/performance/noAwaitInLoops: serial per-app store call — one request per app; kept sequential to respect the store API rate limit
         const appId = await client.getAppId(app.bundleId);
         if (!appId) {
           log.error(`${app.name}: ${appRecordMissingMessage(app.bundleId, 'launch rollout')}`);

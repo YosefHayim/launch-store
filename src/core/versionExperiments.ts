@@ -101,6 +101,7 @@ export async function reconcileVersionExperiments(
     (await api.listVersionExperiments(appId)).map((experiment) => [experiment.name, experiment]),
   );
   for (const experiment of input.config.experiments) {
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     const ensured = await ensureExperiment(
       ctx,
       api,
@@ -173,6 +174,7 @@ async function reconcileTreatments(
       continue;
     }
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       await api.createExperimentTreatment(ensured.experimentId, {
         name: treatment.name,
         ...(treatment.appIconName ? { appIconName: treatment.appIconName } : {}),

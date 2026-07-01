@@ -341,6 +341,7 @@ async function createNewSubscription(
     activateAction.error = errorMessage(error);
   }
   for (const offer of offers) {
+    // biome-ignore lint/performance/noAwaitInLoops: serial Google Play writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     await ensureOffer(ctx, api, packageName, desired.productId, desired.basePlanId, offer);
   }
 }
@@ -439,6 +440,7 @@ async function reconcileExistingSubscription(
   }
   for (const offer of offers) {
     if (liveOfferIds.has(offer.offerId)) continue;
+    // biome-ignore lint/performance/noAwaitInLoops: serial Google Play writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     await ensureOffer(ctx, api, packageName, desired.productId, desired.basePlanId, offer);
   }
 }
@@ -476,6 +478,7 @@ export async function reconcilePlaySubscriptions(
 
     const existing = live.get(productId);
     if (existing)
+      // biome-ignore lint/performance/noAwaitInLoops: serial Google Play writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       await reconcileExistingSubscription(ctx, api, input.packageName, existing, desired);
     else await createNewSubscription(ctx, api, input.packageName, desired);
   }

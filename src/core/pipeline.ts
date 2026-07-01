@@ -218,6 +218,7 @@ export async function submitToStores(
 ): Promise<string[]> {
   const stores = resolveSubmitters(config, platform);
   for (const store of stores) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential per-store submit — one upload per store, in the configured order
     await getSubmitter(store).submit(artifactPath, target, credentials, ctx);
   }
   return stores;
@@ -1589,6 +1590,7 @@ export async function reportProcessing(
     "Processing on Apple's side (safe to Ctrl-C; it keeps processing)",
     async () => {
       for (let attempt = 0; attempt < 6; attempt++) {
+        // biome-ignore lint/performance/noAwaitInLoops: poll loop — each pass re-reads remote state after a fixed delay, so the iterations are inherently sequential
         await delay(10_000);
         try {
           const current = await asc.getBuildProcessingState(bundleId, buildNumber);

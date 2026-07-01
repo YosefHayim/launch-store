@@ -134,6 +134,7 @@ async function resolvePrices(
   const resolved: ResolvedOfferPrice[] = [];
   for (const price of prices) {
     const territory = price.territory ?? DEFAULT_TERRITORY;
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     const point = await api.findSubscriptionPricePoint(
       subscriptionId,
       territory,
@@ -172,6 +173,7 @@ async function reconcileOfferCodes(
       note(ctx, `offer code "${offer.name}" on ${productId}: ${invalid} — skipped`);
       continue;
     }
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     await act(
       ctx,
       `create offer code "${offer.name}" on ${productId} (${offer.offerMode})`,
@@ -210,6 +212,7 @@ async function reconcilePromotionalOffers(
       note(ctx, `promotional offer "${offer.offerCode}" on ${productId}: ${invalid} — skipped`);
       continue;
     }
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     await act(
       ctx,
       `create promotional offer "${offer.offerCode}" on ${productId} (${offer.offerMode})`,
@@ -256,6 +259,7 @@ async function reconcileIntroductoryOffers(
       continue;
     }
     const scope = territory ?? 'all territories';
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     await act(
       ctx,
       `create introductory offer on ${productId} (${offer.offerMode}, ${scope})`,
@@ -302,6 +306,7 @@ async function reconcileWinBackOffers(
       );
       continue;
     }
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     await act(
       ctx,
       `create win-back offer "${offer.offerId}" on ${productId} (${offer.offerMode})`,
@@ -399,6 +404,7 @@ async function reconcilePromotedPurchases(
       enabled: promoted.enabled ?? true,
       ...(subscriptionId ? { subscriptionId } : { inAppPurchaseId: iapId ?? '' }),
     };
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     const status = await act(ctx, `promote ${promoted.productId}`, async () => {
       await ctx.api.createPromotedPurchase(create);
     });
@@ -458,6 +464,7 @@ export async function reconcileOffers(
         );
         continue;
       }
+      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       await reconcileOfferCodes(ctx, subscriptionId, sub.productId, sub.offerCodes ?? []);
       await reconcilePromotionalOffers(
         ctx,

@@ -606,6 +606,7 @@ export class GooglePlayClient {
     let token: string | undefined;
     do {
       const query = token ? `?token=${encodeURIComponent(token)}` : '';
+      // biome-ignore lint/performance/noAwaitInLoops: cursor pagination — each page’s `next` link comes from the prior response, so the reads are inherently sequential
       const page = await this.request<{
         inappproduct?: InAppProductResource[];
         tokenPagination?: { nextPageToken?: string };
@@ -687,6 +688,7 @@ export class GooglePlayClient {
     let token: string | undefined;
     do {
       const query = token ? `?pageToken=${encodeURIComponent(token)}` : '';
+      // biome-ignore lint/performance/noAwaitInLoops: cursor pagination — each page’s `next` link comes from the prior response, so the reads are inherently sequential
       const page = await this.request<{
         subscriptions?: SubscriptionResource[];
         nextPageToken?: string;
@@ -751,6 +753,7 @@ export class GooglePlayClient {
     let token: string | undefined;
     do {
       const query = token ? `?pageToken=${encodeURIComponent(token)}` : '';
+      // biome-ignore lint/performance/noAwaitInLoops: cursor pagination — each page’s `next` link comes from the prior response, so the reads are inherently sequential
       const page = await this.request<{
         subscriptionOffers?: SubscriptionOfferResource[];
         nextPageToken?: string;
@@ -801,6 +804,7 @@ export class GooglePlayClient {
         params.set('translationLanguage', options.translationLanguage);
       if (token) params.set('token', token);
       const query = params.toString() ? `?${params.toString()}` : '';
+      // biome-ignore lint/performance/noAwaitInLoops: cursor pagination — each page’s `next` link comes from the prior response, so the reads are inherently sequential
       const page = await this.request<{
         reviews?: RawReview[];
         tokenPagination?: { nextPageToken?: string };

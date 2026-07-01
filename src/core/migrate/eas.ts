@@ -398,6 +398,7 @@ function readRuntimeVersion(value: unknown): string | undefined {
 async function appFactsNotes(apps: AppDescriptor[]): Promise<MigrationNote[]> {
   const notes: MigrationNote[] = [];
   for (const app of apps) {
+    // biome-ignore lint/performance/noAwaitInLoops: serial per-app config pass — each reads/inspects one app’s config in turn
     const resolved = await readResolvedConfig(app.dir);
     if (!resolved) continue;
     const expo = asRecord(resolved['expo']) ?? resolved;

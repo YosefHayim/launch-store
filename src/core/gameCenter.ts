@@ -189,6 +189,7 @@ async function reconcileAchievements(
 
     let versionId: string | null;
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       const result = await api.createGameCenterAchievement(detail.detailId, {
         referenceName: achievement.referenceName,
         vendorIdentifier: achievement.vendorIdentifier,
@@ -246,6 +247,7 @@ async function reconcileLeaderboards(
 
     let versionId: string | null;
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       const result = await api.createGameCenterLeaderboard(detail.detailId, {
         referenceName: leaderboard.referenceName,
         vendorIdentifier: leaderboard.vendorIdentifier,

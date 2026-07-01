@@ -42,6 +42,7 @@ async function reconcileFamily(
 ): Promise<void> {
   for (const { identifier, name } of declared) {
     if (existing.has(identifier)) continue;
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     await act(ctx, `register ${label} ${identifier} (${name})`, () => create(identifier, name));
   }
 }

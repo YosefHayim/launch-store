@@ -181,6 +181,7 @@ export async function runTour(platform: Platform, interactive: boolean): Promise
 
     if (interactive && i < total - 1) {
       process.stdout.write(dim(`  [↵] continue   [s] skip            (${i + 1}/${total})`));
+      // biome-ignore lint/performance/noAwaitInLoops: animation loop — frames render in order with a delay between them
       if ((await readContinueOrSkip()) === 'skip') break;
     }
   }

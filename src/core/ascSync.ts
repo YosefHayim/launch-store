@@ -313,6 +313,7 @@ async function reconcileCapabilities(
   const currentTypes = new Set(current.map((capability) => capability.capabilityType));
   for (const capability of desired) {
     if (currentTypes.has(capability)) continue;
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     await act(ctx, `enable capability ${capability}`, false, () =>
       ctx.api.enableCapability(resource.id, capability),
     );
@@ -326,6 +327,7 @@ async function reconcileCapabilities(
     ) {
       continue;
     }
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     await act(ctx, `disable capability ${capability.capabilityType}`, true, () =>
       ctx.api.disableCapability(capability.id),
     );
@@ -349,6 +351,7 @@ async function reconcileInAppPurchases(
 
     if (match) {
       iapId = match.id;
+      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       const locales = await ctx.api.listInAppPurchaseLocalizations(iapId);
       existingLocales = new Set(locales.map((localization) => localization.locale));
       priced = await ctx.api.inAppPurchaseHasPrice(iapId);
@@ -372,6 +375,7 @@ async function reconcileInAppPurchases(
 
     for (const localization of iap.localizations) {
       if (existingLocales.has(localization.locale)) continue;
+      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       await act(ctx, `add IAP copy ${iap.productId} [${localization.locale}]`, false, () =>
         ctx.api.createInAppPurchaseLocalization(iapId, localization),
       );
@@ -414,6 +418,7 @@ async function reconcileSubscriptionGroups(
 
     if (match) {
       groupId = match.id;
+      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       const locales = await ctx.api.listSubscriptionGroupLocalizations(groupId);
       existingGroupLocales = new Set(locales.map((localization) => localization.locale));
       existingSubs = await ctx.api.listSubscriptions(groupId);
@@ -432,6 +437,7 @@ async function reconcileSubscriptionGroups(
 
     for (const localization of group.localizations) {
       if (existingGroupLocales.has(localization.locale)) continue;
+      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       await act(
         ctx,
         `add group name "${group.referenceName}" [${localization.locale}]`,
@@ -442,6 +448,7 @@ async function reconcileSubscriptionGroups(
 
     // Config order is the level ranking: the first subscription is the top level (1), the next is 2…
     for (const [index, subscription] of group.subscriptions.entries()) {
+      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       await reconcileSubscription(ctx, groupId, existingSubs, subscription, index + 1);
     }
   }
@@ -486,6 +493,7 @@ async function reconcileSubscription(
 
   for (const localization of subscription.localizations) {
     if (existingLocales.has(localization.locale)) continue;
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     await act(
       ctx,
       `add subscription copy ${subscription.productId} [${localization.locale}]`,
@@ -706,6 +714,7 @@ async function reconcileListing(
 
   for (const [locale, info] of locales) {
     const routed = routeListing(info);
+    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     await reconcileLevel(ctx, {
       level: 'appInfo',
       locale,

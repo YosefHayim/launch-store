@@ -233,6 +233,7 @@ export class PlayReportingClient {
     const rows: PlayVitalsRow[] = [];
     let pageToken: string | undefined;
     do {
+      // biome-ignore lint/performance/noAwaitInLoops: cursor pagination — each page’s `next` link comes from the prior response, so the reads are inherently sequential
       const page = await this.request<ApiQueryResponse>(
         'POST',
         `/apps/${encodeURIComponent(packageName)}/${set.resource}:query`,

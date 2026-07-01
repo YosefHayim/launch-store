@@ -253,6 +253,7 @@ export function registerUpdatesCommand(program: Command): void {
         );
         const commitTime = new Date().toISOString();
         for (const platform of platforms) {
+          // biome-ignore lint/performance/noAwaitInLoops: sequential per-platform publish — the platforms share one storage target and an intentional order
           const history = await readHistory(storage, options.channel, platform);
           // Match the channel's signing posture: sign the directive iff prior updates here were signed.
           const signed =

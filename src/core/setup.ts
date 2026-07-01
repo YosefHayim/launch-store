@@ -195,6 +195,7 @@ async function appleAccountRows(apps: AppDescriptor[]): Promise<ReadinessRow[]> 
   }
   for (const app of apps) {
     if (!app.bundleId) continue;
+    // biome-ignore lint/performance/noAwaitInLoops: serial per-app store call — one request per app; kept sequential to respect the store API rate limit
     const appId = await client.getAppId(app.bundleId).catch(() => null);
     rows.push(
       appId
@@ -226,6 +227,7 @@ async function playAccountRows(apps: AppDescriptor[]): Promise<ReadinessRow[]> {
   for (const app of apps) {
     if (!app.packageName) continue;
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: serial per-app store call — one request per app; kept sequential to respect the store API rate limit
       await client.assertAppExists(app.packageName);
       rows.push(row(`Play app · ${app.packageName}`, 'ok'));
     } catch {
@@ -268,6 +270,7 @@ async function signingRows(): Promise<ReadinessRow[]> {
 async function appConfigRows(apps: AppDescriptor[], platform: Platform): Promise<ReadinessRow[]> {
   const rows: ReadinessRow[] = [];
   for (const app of apps) {
+    // biome-ignore lint/performance/noAwaitInLoops: serial per-app config pass — each reads/inspects one app’s config in turn
     const findings = await checkApp(app, platform);
     if (findings.length === 0) {
       rows.push(row(app.name, 'ok', 'app config clean'));
@@ -295,6 +298,7 @@ export async function collectReadiness(
   const tools = platform === 'android' ? ANDROID_TOOLS : REQUIRED_TOOLS;
   const present = new Set<string>();
   for (const tool of tools) {
+    // biome-ignore lint/performance/noAwaitInLoops: serial toolchain probes — each shells out to check one tool; kept sequential to bound subprocess load and keep output ordered
     if (await exists(tool.command)) present.add(tool.command);
   }
 
