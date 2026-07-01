@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderDashboardHtml } from './render.js';
-import type { DashboardState } from './types.js';
+import type { DashboardState } from '../types.js';
 
 const GENERATED_AT = '2026-06-18T12:00:00.000Z';
 

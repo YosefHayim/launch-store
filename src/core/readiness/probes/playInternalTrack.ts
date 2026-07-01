@@ -5,7 +5,7 @@
  * `warn`, not a `blocker`. Read-only via the same `listTracks` reader `launch play-tracks status` uses.
  */
 
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
 import { androidApps } from '../appScopes.js';
 
 /** The track id Google Play always provisions for internal testing. */

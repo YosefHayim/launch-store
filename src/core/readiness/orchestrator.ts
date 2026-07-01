@@ -7,7 +7,7 @@
  * probe that throws is recorded as `errored` here rather than aborting the run.
  */
 
-import type { ProbeReport, ReadinessContext, ReadinessOutcome, ReadinessProbe } from './types.js';
+import type { ProbeReport, ReadinessContext, ReadinessOutcome, ReadinessProbe } from '../types.js';
 
 /**
  * Exit codes, mirroring the `launch plan` / `launch status` convention (worst-wins, error first):

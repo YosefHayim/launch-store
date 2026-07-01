@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { productsAdopter } from './products.js';
-import type { AdoptCatalogApi, AdoptTarget } from './types.js';
-import type { AppDescriptor } from '../types.js';
+import type { AdoptCatalogApi, AdoptTarget, AppDescriptor } from '../types.js';
 
 /** A fully-stubbed {@link AdoptCatalogApi} whose reads default to "the account is empty". */
 function makeApi(overrides: Partial<AdoptCatalogApi> = {}): AdoptCatalogApi {

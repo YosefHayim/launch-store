@@ -12,7 +12,13 @@
  */
 
 import type { PlannedAction } from '../../ascSync.js';
-import type { AppPlan, AscSurfacesApi, PlanContext, PlanDirection, SurfacePlan } from '../types.js';
+import type {
+  AppPlan,
+  AscSurfacesApi,
+  PlanContext,
+  PlanDirection,
+  SurfacePlan,
+} from '../../types.js';
 
 /**
  * How one per-app App Store surface plans itself.

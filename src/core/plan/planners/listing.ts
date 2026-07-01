@@ -11,7 +11,7 @@
 import { reconcileAppListing, type AscCatalogApi } from '../../ascSync.js';
 import { buildJobs, hasListing } from '../../syncJobs.js';
 import type { AppleStoreConfig } from '../../storeConfig.js';
-import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../types.js';
+import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../../types.js';
 
 /** Surface id — also the value users pass as `launch plan listing`. */
 const SURFACE = 'listing';

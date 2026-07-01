@@ -8,7 +8,7 @@
 
 import { reconcileApp, type AscCatalogApi } from '../../ascSync.js';
 import { buildJobs, type SyncJob } from '../../syncJobs.js';
-import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../types.js';
+import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../../types.js';
 
 /** Surface id — also the value users pass as `launch plan catalog`. */
 const SURFACE = 'catalog';

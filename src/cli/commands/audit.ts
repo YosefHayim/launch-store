@@ -17,7 +17,7 @@ import { runReadinessCommand } from './readinessReport.js';
 interface AuditOptions {
   /** Comma-separated app handles; default is every discovered app. */
   app?: string;
-  /** Machine-readable output (the full {@link import("../../core/readiness/types.js").ReadinessOutcome}) for CI/agents. */
+  /** Machine-readable output (the full {@link import("../../core/types.js").ReadinessOutcome}) for CI/agents. */
   json?: boolean;
 }
 

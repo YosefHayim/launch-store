@@ -11,8 +11,15 @@
  */
 
 import { reconcilePlayProducts, type PlayProductsApi } from '../../playProducts.js';
-import type { AppDescriptor, InAppPurchaseConfig, LaunchConfig } from '../../types.js';
-import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../types.js';
+import type {
+  AppDescriptor,
+  InAppPurchaseConfig,
+  LaunchConfig,
+  AppPlan,
+  PlanContext,
+  SurfacePlan,
+  SurfacePlanner,
+} from '../../types.js';
 
 /** Surface id — also the value users pass as `launch plan play-products`. */
 const SURFACE = 'play-products';

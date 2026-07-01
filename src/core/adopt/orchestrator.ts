@@ -12,7 +12,6 @@
 
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { AppDescriptor, AppProducts } from '../types.js';
 import { writeAppEntitlements } from '../config.js';
 import {
   aggregateProductPieces,
@@ -24,10 +23,12 @@ import type {
   Adopter,
   AdoptCatalogApi,
   AdoptTarget,
+  AppDescriptor,
+  AppProducts,
   EntitlementValue,
   PlannedWrite,
   ProductPiece,
-} from './types.js';
+} from '../types.js';
 
 /** One discovered app that can't be adopted, with the human reason it was skipped. */
 export interface SkippedApp {

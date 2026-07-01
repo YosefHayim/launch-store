@@ -7,7 +7,7 @@
  * the "app missing" blocker) so it never double-reports or errors the run.
  */
 
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
 import { androidApps } from '../appScopes.js';
 
 /** The Google Play first-upload readiness probe. */

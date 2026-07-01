@@ -5,20 +5,22 @@
  *
  * Where `core/plan` *diffs* config against live state and `core/readiness` *grades* it, snapshot just
  * *records* it: it runs every registered {@link SnapshotSource} against the live read-only clients and
- * serializes what each returns. The mechanism mirrors the {@link import("../plan/types.js").SurfacePlanner}
- * and {@link import("../readiness/types.js").ReadinessProbe} registries — each source owns one surface,
+ * serializes what each returns. The mechanism mirrors the {@link import("./plan.js").SurfacePlanner}
+ * and {@link import("./readiness.js").ReadinessProbe} registries — each source owns one surface,
  * the orchestrator never names a concrete one, so adding a captured surface is a new source file + one
  * `registerSnapshotSource()` line.
  *
- * These types describe the snapshot *mechanism* and its on-disk record, not a config shape, so — like
- * `core/plan/types.ts` — they live here beside the feature rather than in `core/types.ts`.
+ * These types describe the snapshot *mechanism* and its on-disk record. Like every domain shape they
+ * live in the `core/types/` barrel (imported via `core/types.js`); the sources, orchestrator, and
+ * record I/O that act on them stay in `core/snapshot/`.
  */
 
-import type { AppDescriptor, LaunchConfig } from '../types.js';
 import type { ListingLocalization } from '../../apple/ascClient.js';
 import type { InAppProductResource, SubscriptionResource } from '../../google/playClient.js';
 import type { AscCatalogApi, PlannedAction } from '../ascSync.js';
-import type { PlayCatalogApi } from '../plan/types.js';
+import type { AppDescriptor } from './app.js';
+import type { LaunchConfig } from './config.js';
+import type { PlayCatalogApi } from './plan.js';
 
 /** Which store a source reads from — drives credential resolution and how a capture/diff is grouped. */
 export type SnapshotStore = 'appstore' | 'play';
@@ -61,7 +63,7 @@ export interface AppEntities {
 }
 
 /**
- * What a source returns, as a discriminated union mirroring {@link import("../plan/types.js").SurfacePlan}:
+ * What a source returns, as a discriminated union mirroring {@link import("./plan.js").SurfacePlan}:
  * - `omitted` — nothing in scope (e.g. no iOS apps); dropped from the record entirely.
  * - `skipped` — the store's credentials aren't configured, so live state couldn't be read; benign, but
  *   recorded with a reason so a partial snapshot never masquerades as complete.
@@ -115,7 +117,7 @@ export interface Snapshot {
  * The read-only App Store Connect surface the snapshot sources share — exactly the methods they call,
  * nothing more. `AppStoreConnectClient` satisfies it structurally (every method already exists on it), so
  * the resolver from `core/storeClients.ts` is assignable here with no cast. Mirrors
- * {@link import("../readiness/types.js").AscReadinessApi}; grows by one method as each Apple source lands.
+ * {@link import("./readiness.js").AscReadinessApi}; grows by one method as each Apple source lands.
  */
 export interface SnapshotAscApi {
   /** The app's App Store Connect id for a bundle id, or `null` when no app record exists. */

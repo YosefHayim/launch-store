@@ -6,7 +6,7 @@ import {
   sentimentOf,
   summarizeRatings,
 } from './aggregate.js';
-import type { ReviewDatum } from './types.js';
+import type { ReviewDatum } from '../types.js';
 
 /** Build a review datum with sensible defaults so tests state only what they exercise. */
 function review(over: Partial<ReviewDatum> = {}): ReviewDatum {

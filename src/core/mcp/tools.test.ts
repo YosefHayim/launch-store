@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ALL_TOOLS, DANGEROUS_TOOLS, DRY_RUN_TOOLS, READ_TOOLS, WRITE_TOOLS } from './tools.js';
 import { gateTools } from './gate.js';
-import type { LaunchConfig, McpCapability } from '../types.js';
-import type { McpTool } from './types.js';
+import type { LaunchConfig, McpCapability, McpTool } from '../types.js';
 
 /** A bare config exposing the given MCP capability tiers — only the fields the gate reads matter here. */
 function config(capabilities: McpCapability[]): LaunchConfig {

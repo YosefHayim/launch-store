@@ -12,7 +12,7 @@
  * probe, it's a team/account-wide prerequisite (one finding, not per-app) and runs whenever an iOS app is in scope.
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
 import { iosApps } from '../appScopes.js';
 
 /** Synthetic subject for the account-wide finding (agreements aren't scoped to a single app). */

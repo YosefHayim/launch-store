@@ -33,7 +33,7 @@ import {
   signingPreflightDoctorChecks,
 } from '../signingPreflight.js';
 import { shellLocaleDoctorCheck } from '../locale.js';
-import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from './types.js';
+import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from '../types.js';
 
 /** Where to create a missing App Store Connect app record — the one step the API can't do. */
 const APP_STORE_CONNECT_APPS_URL = buildConsoleUrl('app-record', 'ios', undefined);

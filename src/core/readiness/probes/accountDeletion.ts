@@ -10,7 +10,7 @@
  * app with no record or no editable version can't be graded — those degrade to a `warn`, not a false finding.
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
 import { iosApps } from '../appScopes.js';
 
 /** The App Store Connect account-deletion-URL readiness probe — a listing-completeness, conditionally-submit check. */

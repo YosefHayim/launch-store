@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { walletPlanner } from './wallet.js';
 import { makeAscApiFake } from '../../../testkit/ascApiFake.testkit.js';
-import type { AscSurfacesApi, PlanContext } from '../types.js';
-import type { LaunchConfig, WalletConfig } from '../../types.js';
+import type { AscSurfacesApi, PlanContext, LaunchConfig, WalletConfig } from '../../types.js';
 
 const DECLARED: WalletConfig = {
   merchantIds: [{ identifier: 'merchant.com.acme.app', name: 'Acme Pay' }],

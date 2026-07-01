@@ -15,7 +15,7 @@ import type {
   DashboardArtifact,
   DashboardSecret,
   DashboardState,
-} from './types.js';
+} from '../types.js';
 
 /** Escape the five HTML/XML special characters so interpolated values can't inject markup. */
 function escapeHtml(value: string): string {

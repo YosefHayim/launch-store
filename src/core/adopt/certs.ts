@@ -15,7 +15,7 @@
 
 import type { CertificateResource, ProfileResource } from '../../apple/ascClient.js';
 import { describeStoredCredentials } from '../../apple/credentials.js';
-import type { Adopter, AdoptCatalogApi, AdoptTarget, PlannedWrite } from './types.js';
+import type { Adopter, AdoptCatalogApi, AdoptTarget, PlannedWrite } from '../types.js';
 
 /** What's cached locally for the active account — the keychain-backup view the verdict compares against. */
 export interface LocalSigningView {

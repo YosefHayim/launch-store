@@ -12,7 +12,7 @@
  * assert it still resolves in the live `launch` program — a renamed or removed command fails the build.
  */
 
-import type { BaseContext, ConsumerSkill, ContributorRule, ContributorSkill } from './types.js';
+import type { BaseContext, ConsumerSkill, ContributorRule, ContributorSkill } from '../types.js';
 
 /**
  * The always-on context every agent gets in a Launch repo. Derived from `AGENTS.md`, the README, and
