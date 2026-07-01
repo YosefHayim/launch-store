@@ -5,7 +5,7 @@
  * first so a reader sees what they must still do before the informational noise.
  */
 
-import type { MigrationNoteLevel, MigrationResult, MigrationSource } from './types.js';
+import type { MigrationNoteLevel, MigrationResult, MigrationSource } from '../types.js';
 
 /** Leading glyph per note level, shared with the terminal output for a consistent vocabulary. */
 const LEVEL_GLYPH: Record<MigrationNoteLevel, string> = {

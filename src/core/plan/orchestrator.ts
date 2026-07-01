@@ -6,7 +6,7 @@
  * network. See `docs/adr/0003-plan-drift.md`.
  */
 
-import type { PlanContext, SurfacePlan, SurfacePlanner } from './types.js';
+import type { PlanContext, SurfacePlan, SurfacePlanner } from '../types.js';
 
 /**
  * Exit codes, mirroring the `launch status` convention (worst-wins, error first):

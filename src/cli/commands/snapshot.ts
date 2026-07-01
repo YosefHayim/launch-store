@@ -42,7 +42,7 @@ import type {
   SnapshotContext,
   SnapshotSource,
   SnapshotStore,
-} from '../../core/snapshot/types.js';
+} from '../../core/types.js';
 import type { ActionStatus, PlannedAction } from '../../core/ascSync.js';
 
 /** The literal `against` token that means "capture live state now and diff against it" rather than a saved name. */

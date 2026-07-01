@@ -6,8 +6,8 @@
  * account *down* into config. Each domain (products, capabilities, certs, listing) is a small
  * {@link Adopter} registered like a provider; the orchestrator walks the registry and runs one shared
  * plan→confirm→write. These types are the seam between the adopters, the registry, and the
- * orchestrator — kept here (not in `core/types.ts`) for the same reason `ascSync.ts` keeps its
- * `AscCatalogApi`/`PlannedAction` local: they describe the *adopt mechanism*, not a config shape.
+ * orchestrator; like every domain shape they live in the `core/types/` barrel, while the adopters and
+ * the `NEEDS_VALUE` placeholder they write stay in `core/adopt/`.
  */
 
 import type {
@@ -21,26 +21,20 @@ import type {
   SubscriptionGroupResource,
   SubscriptionResource,
 } from '../../apple/ascClient.js';
-import type { AppDescriptor, InAppPurchaseConfig, SubscriptionGroupConfig } from '../types.js';
+import type { AppDescriptor } from './app.js';
+import type { InAppPurchaseConfig, SubscriptionGroupConfig } from './catalog.js';
 
 /**
  * How faithfully a domain reverse-maps from App Store Connect into config, which drives plan rendering
  * and how loudly the orchestrator flags gaps:
  * - `importable` — a high-fidelity 1:1 import (products, listing copy).
- * - `advisory` — recoverable but lossy; some values can't be read and surface as {@link NEEDS_VALUE}
- *   (capabilities, whose identifier values come from the provisioning profile, not the API).
+ * - `advisory` — recoverable but lossy; some values can't be read and surface as
+ *   {@link import("../adopt/capabilities.js").NEEDS_VALUE} (capabilities, whose identifier values come
+ *   from the provisioning profile, not the API).
  * - `detect` — read-only; we report what exists and delegate the "add" elsewhere (certs/profiles, whose
  *   private key Apple never returns).
  */
 export type Fidelity = 'importable' | 'advisory' | 'detect';
-
-/**
- * The deliberately-invalid placeholder written for a value adopt couldn't recover (e.g. an app-group id
- * when the bundle has the capability enabled but no profile carried the concrete identifier). It is
- * invalid on purpose: a build fails loudly on it rather than silently shipping a broken entitlement, so
- * the developer is forced to fill it in. A clean `launch doctor` follow-up can flag it (see the ADR).
- */
-export const NEEDS_VALUE = 'NEEDS_VALUE';
 
 /** A JSON-compatible iOS entitlement value (string toggle, identifier array, boolean flag, nested dict). */
 export type EntitlementValue =
@@ -117,9 +111,10 @@ export type AdoptChange =
 
 /**
  * One proposed change surfaced in the plan and (after confirm) applied. `description` is the plan line;
- * `note` is an advisory caveat shown beneath it (a {@link NEEDS_VALUE} gap, an un-imported price, an
- * off-Mac degrade). A write whose `change.home` is `keychain` is detect-only: it's reported, never
- * applied. Mirrors `ascSync.ts`'s `PlannedAction`, adapted from "write to ASC" to "write to local config".
+ * `note` is an advisory caveat shown beneath it (a {@link import("../adopt/capabilities.js").NEEDS_VALUE}
+ * gap, an un-imported price, an off-Mac degrade). A write whose `change.home` is `keychain` is
+ * detect-only: it's reported, never applied. Mirrors `ascSync.ts`'s `PlannedAction`, adapted from
+ * "write to ASC" to "write to local config".
  */
 export interface PlannedWrite {
   description: string;
@@ -129,11 +124,12 @@ export interface PlannedWrite {
 }
 
 /**
- * One domain's importer. Registered like a provider (see {@link import("./registry.js").registerAdopter});
- * the orchestrator resolves every registered adopter and calls {@link Adopter.read}, which is **read-only**
- * — it returns the writes it *would* make without touching disk, so the same call produces both the
- * dry-run plan and the apply work list. Adding `gameCenter` / `appClips` later is a new file + one
- * `registerAdopter()` line; the orchestrator is never touched.
+ * One domain's importer. Registered like a provider (see
+ * {@link import("../adopt/registry.js").registerAdopter}); the orchestrator resolves every registered
+ * adopter and calls {@link Adopter.read}, which is **read-only** — it returns the writes it *would* make
+ * without touching disk, so the same call produces both the dry-run plan and the apply work list. Adding
+ * `gameCenter` / `appClips` later is a new file + one `registerAdopter()` line; the orchestrator is never
+ * touched.
  */
 export interface Adopter {
   /** Stable domain key shown in the plan, e.g. `products`. */

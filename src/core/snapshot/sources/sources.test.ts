@@ -7,15 +7,16 @@ import { playProductsSource } from './playProducts.js';
 import { playSubscriptionsSource } from './playSubscriptions.js';
 import { makeAscCatalogApiFake } from '../../ascCatalogApi.testkit.js';
 import type {
+  AppDescriptor,
   AppEntities,
+  LaunchConfig,
+  PlayCatalogApi,
   RestoreContext,
   RestoreInput,
   SnapshotAscApi,
   SnapshotContext,
   SnapshotPlayApi,
-} from '../types.js';
-import type { AppDescriptor, LaunchConfig } from '../../types.js';
-import type { PlayCatalogApi } from '../../plan/types.js';
+} from '../../types.js';
 
 const CONFIG: LaunchConfig = {
   profiles: {},

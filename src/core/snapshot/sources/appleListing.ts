@@ -20,7 +20,7 @@ import type {
   SnapshotEntity,
   SnapshotSource,
   SourceCapture,
-} from '../types.js';
+} from '../../types.js';
 import type { ListingLocalization } from '../../../apple/ascClient.js';
 import type { PlannedAction } from '../../ascSync.js';
 import type { AppleLocaleInfo, AppleStoreConfig } from '../../storeConfig.js';

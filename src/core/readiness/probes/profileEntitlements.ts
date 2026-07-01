@@ -11,8 +11,13 @@
  * App ID isn't registered yet can't be graded, so it degrades to a `warn` pointing at `launch setup ios`.
  */
 
-import type { AppDescriptor } from '../../types.js';
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type {
+  AppDescriptor,
+  AppReadiness,
+  ProbeResult,
+  ReadinessContext,
+  ReadinessProbe,
+} from '../../types.js';
 import { mapEntitlementsToCapabilities } from '../../capabilities.js';
 
 /** An in-scope app: declares a bundle id and at least one entitlement that maps to a portal capability. */

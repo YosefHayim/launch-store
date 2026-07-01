@@ -3,11 +3,9 @@
  *
  * A **train** is one app's whole release; each platform (and each OTA follower) is a **car**. The record
  * is the single source of truth, advanced by reconcile (`status`) the same way `~/.launch/build-state/`
- * is — never a daemon. These types mirror `plan/types.ts`: a discriminated union the orchestrator walks
- * without naming concrete states inline.
- *
- * Lives in `core` (not `cli`) because both the orchestrator and the `--json` surface read it; the CLI
- * command stays a thin caller.
+ * is — never a daemon. These shapes mirror the plan surface types: a discriminated union the
+ * orchestrator walks without naming concrete states inline. The car classifiers that read them
+ * (`isOtaCar`, `isCarTerminal`, …) are runtime logic, so they live in `core/releaseTrain/guards.ts`.
  */
 
 /**
@@ -103,27 +101,4 @@ export interface TrainRecord {
   updatedAt: string;
   /** Every car: the native platform legs plus their OTA followers. */
   cars: Car[];
-}
-
-/** Narrow a {@link Car} to an {@link OtaCar}. */
-export function isOtaCar(car: Car): car is OtaCar {
-  return car.kind === 'ota';
-}
-
-/** Narrow a {@link Car} to a {@link NativeCar} (iOS / Android). */
-export function isNativeCar(car: Car): car is NativeCar {
-  return car.kind !== 'ota';
-}
-
-/** Whether a `--platform` value is one the train can coordinate (iOS / Android), narrowing it to {@link TrainPlatform}. */
-export function isTrainPlatform(value: string): value is TrainPlatform {
-  return value === 'ios' || value === 'android';
-}
-
-/** Native car states past which no further action is taken — the car has reached an end of its lifecycle. */
-const TERMINAL_NATIVE_STATES = new Set<NativeCarState>(['released', 'failed']);
-
-/** Whether a car has reached a terminal state (a released/failed native car, or a published OTA car). */
-export function isCarTerminal(car: Car): boolean {
-  return isOtaCar(car) ? car.state === 'published' : TERMINAL_NATIVE_STATES.has(car.state);
 }

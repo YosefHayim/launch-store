@@ -15,7 +15,7 @@ import { existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { cancel, confirm, isCancel } from '@clack/prompts';
 import type { Command } from 'commander';
-import type { AppDescriptor } from '../../core/types.js';
+import type { AppDescriptor, Fidelity } from '../../core/types.js';
 import { loadConfig } from '../../core/config.js';
 import { createLogger } from '../../core/logger.js';
 import { detectAppRoot } from '../../core/configScaffold.js';
@@ -29,7 +29,6 @@ import {
   type AdoptApplyResult,
   type TargetPlan,
 } from '../../core/adopt/orchestrator.js';
-import type { Fidelity } from '../../core/adopt/types.js';
 import { pullAppleListing } from './metadata.js';
 
 /** CLI options for `launch adopt`. */

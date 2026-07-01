@@ -9,7 +9,7 @@
 import { resolveSidecarConfig } from '../../config.js';
 import { loadGameCenterConfig, reconcileGameCenter } from '../../gameCenter.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '../types.js';
+import type { SurfacePlanner } from '../../types.js';
 
 /** Surface id — also the value users pass as `launch plan game-center`. */
 const SURFACE = 'game-center';

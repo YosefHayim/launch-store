@@ -27,7 +27,7 @@ import { buildJobs, selectApps } from '../../core/syncJobs.js';
 import { reconcileJob, summarize, SYNC_CONCURRENCY } from '../../core/syncRun.js';
 import { createPlayClientResolver } from '../../core/storeClients.js';
 import { captureAutoSnapshot } from '../../core/snapshot/autoSnapshot.js';
-import type { SnapshotContext } from '../../core/snapshot/types.js';
+import type { SnapshotContext } from '../../core/types.js';
 
 /** CLI options for `launch sync`. */
 interface SyncOptions {

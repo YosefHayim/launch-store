@@ -13,17 +13,15 @@ import type {
   AccountRecord,
   AppDescriptor,
   BuildArtifact,
-  HostHandle,
-  LaunchConfig,
-} from '../types.js';
-import type { SecretRef } from '../buildSecrets.js';
-import type {
   DashboardAccount,
   DashboardApp,
   DashboardArtifact,
   DashboardCloudHost,
   DashboardState,
-} from './types.js';
+  HostHandle,
+  LaunchConfig,
+} from '../types.js';
+import type { SecretRef } from '../buildSecrets.js';
 import { loadConfig } from '../config.js';
 import { getActiveAccount, listAccounts } from '../accounts.js';
 import { readArtifactIndex } from '../artifactRetention.js';

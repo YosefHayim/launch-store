@@ -10,7 +10,7 @@
  * order — important when the snapshots were written by different Launch versions.
  */
 
-import type { JsonValue, Snapshot, SnapshotEntity, SnapshotStore } from './types.js';
+import type { JsonValue, Snapshot, SnapshotEntity, SnapshotStore } from '../types.js';
 
 /** How one entity differs between the two snapshots. */
 export type DiffChange = 'added' | 'removed' | 'changed';

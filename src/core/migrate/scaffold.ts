@@ -9,7 +9,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { ENV_EXAMPLE_TEMPLATE } from '../configScaffold.js';
 import { serializeStoreConfig, type StoreConfig } from '../storeConfig.js';
-import type { MigrationArtifact, MigrationNote } from './types.js';
+import type { MigrationArtifact, MigrationNote } from '../types.js';
 
 /** A fill-in-the-blanks `store.config.json` (the EAS metadata schema Launch adopts verbatim for iOS). */
 const STORE_CONFIG_SKELETON: StoreConfig = {

@@ -1,8 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { releaseConfigPlanner } from './releaseConfig.js';
 import { makeAscApiFake } from './ascApiFake.testkit.js';
-import type { AscSurfacesApi, PlanContext } from '../types.js';
-import type { AppDescriptor, LaunchConfig, ReleaseAttributesConfig } from '../../types.js';
+import type {
+  AscSurfacesApi,
+  PlanContext,
+  AppDescriptor,
+  LaunchConfig,
+  ReleaseAttributesConfig,
+} from '../../types.js';
 
 const ALPHA: AppDescriptor = {
   name: 'alpha',

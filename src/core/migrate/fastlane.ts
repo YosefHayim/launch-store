@@ -20,9 +20,9 @@ import {
   serializeStoreConfig,
   type StoreConfig,
 } from '../storeConfig.js';
-import type { AppDescriptor } from '../types.js';
 import { buildEnvExample, scaffoldStoreConfig } from './scaffold.js';
 import type {
+  AppDescriptor,
   AppfileData,
   FastlaneLane,
   FastlaneSetup,
@@ -32,7 +32,7 @@ import type {
   MigrationNoteLevel,
   MigrationResult,
   SupplyfileData,
-} from './types.js';
+} from '../types.js';
 
 /**
  * Read the first value of a fastlane directive written as `key "value"`, `key 'value'`, or `key("value")`.

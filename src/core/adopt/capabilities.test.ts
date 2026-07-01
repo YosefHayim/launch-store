@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { capabilitiesAdopter, planCapabilityEntitlements } from './capabilities.js';
-import { NEEDS_VALUE, type AdoptCatalogApi, type AdoptTarget } from './types.js';
-import type { AppDescriptor } from '../types.js';
+import { NEEDS_VALUE } from './capabilities.js';
+import type { AdoptCatalogApi, AdoptTarget, AppDescriptor } from '../types.js';
 
 describe('planCapabilityEntitlements', () => {
   it('recovers a real identifier value from the provisioning profile', () => {

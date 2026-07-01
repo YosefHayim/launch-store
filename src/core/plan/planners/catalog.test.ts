@@ -2,8 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { catalogPlanner } from './catalog.js';
 import { makeAscApiFake } from './ascApiFake.testkit.js';
 import type { AscCatalogApi } from '../../ascSync.js';
-import type { PlanContext } from '../types.js';
-import type { AppDescriptor, AppProducts, LaunchConfig } from '../../types.js';
+import type { PlanContext, AppDescriptor, AppProducts, LaunchConfig } from '../../types.js';
 
 /** A fully-stubbed {@link AscCatalogApi}: reads default to "nothing exists yet", writes resolve to a created resource. */
 function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {

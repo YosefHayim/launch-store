@@ -2,9 +2,13 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { AppDescriptor } from '../types.js';
+import type {
+  AppDescriptor,
+  MigrationArtifact,
+  MigrationNote,
+  MigrationNoteLevel,
+} from '../types.js';
 import { migrateEas, parseEasJson } from './eas.js';
-import type { MigrationArtifact, MigrationNote, MigrationNoteLevel } from './types.js';
 
 /** A realistic eas.json covering build profiles, env, submit credentials, and the cli block. */
 const SAMPLE_EAS = JSON.stringify({

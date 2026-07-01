@@ -8,8 +8,7 @@
  * identically and a change to the config shape lands once.
  */
 
-import type { AppProducts } from '../../types.js';
-import type { ReadinessContext } from '../types.js';
+import type { AppProducts, ReadinessContext } from '../../types.js';
 
 /** The Apple in-app-purchase product ids an app declares in `launch.config.ts` (empty when it sells none). */
 export function declaredIapIds(ctx: ReadinessContext, bundleId: string): string[] {

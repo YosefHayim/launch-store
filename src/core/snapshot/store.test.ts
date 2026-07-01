@@ -10,7 +10,7 @@ import {
   pruneSnapshots,
   saveSnapshot,
 } from './store.js';
-import type { Snapshot } from './types.js';
+import type { Snapshot } from '../types.js';
 
 /** A minimal valid snapshot, overridable per field. */
 function snap(over: Partial<Snapshot> = {}): Snapshot {

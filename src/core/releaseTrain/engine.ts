@@ -11,7 +11,7 @@
 
 import type { ReleaseVerdict } from '../appStoreRelease.js';
 import type { PlayRelease } from '../../google/playClient.js';
-import type { NativeCarState, TrainPlatform } from './types.js';
+import type { NativeCarState, TrainPlatform } from '../types.js';
 import type { OtaCarSpec } from './orchestrator.js';
 
 /**

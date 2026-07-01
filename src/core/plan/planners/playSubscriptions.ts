@@ -11,8 +11,15 @@
  */
 
 import { reconcilePlaySubscriptions, type PlaySubscriptionsApi } from '../../playSubscriptions.js';
-import type { AppDescriptor, LaunchConfig, SubscriptionConfig } from '../../types.js';
-import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../types.js';
+import type {
+  AppDescriptor,
+  LaunchConfig,
+  SubscriptionConfig,
+  AppPlan,
+  PlanContext,
+  SurfacePlan,
+  SurfacePlanner,
+} from '../../types.js';
 
 /** Surface id — also the value users pass as `launch plan play-subscriptions`. */
 const SURFACE = 'play-subscriptions';

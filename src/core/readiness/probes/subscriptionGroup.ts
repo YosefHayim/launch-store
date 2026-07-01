@@ -8,7 +8,7 @@
  * declare no subscriptions are out of scope (the probe omits itself when none do).
  */
 
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
 import { iosApps } from '../appScopes.js';
 
 /** The App Store Connect subscription-group readiness probe. */

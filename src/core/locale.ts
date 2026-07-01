@@ -7,7 +7,7 @@
  * interactive shell is already UTF-8.
  */
 
-import type { DoctorCheck } from './doctor/types.js';
+import type { DoctorCheck } from './types.js';
 
 /** Locale variables fastlane documents as required for a healthy iOS build. */
 export const UTF8_LOCALE = {

@@ -1,8 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { gameCenterPlanner } from './gameCenter.js';
 import { makeAscApiFake } from './ascApiFake.testkit.js';
-import type { AscSurfacesApi, PlanContext } from '../types.js';
-import type { AppDescriptor, GameCenterConfig, LaunchConfig } from '../../types.js';
+import type {
+  AscSurfacesApi,
+  PlanContext,
+  AppDescriptor,
+  GameCenterConfig,
+  LaunchConfig,
+} from '../../types.js';
 
 const ALPHA: AppDescriptor = {
   name: 'alpha',

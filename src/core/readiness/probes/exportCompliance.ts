@@ -6,7 +6,7 @@
  * never skips); an undeclared answer is advisory (`warn`), not a hard rejection.
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
 
 /** The iOS export-compliance declaration readiness probe (config-only). */
 export const exportComplianceProbe: ReadinessProbe = {

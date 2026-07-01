@@ -9,7 +9,7 @@
  * omits it only for entries it can't date, which we don't want to false-flag).
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
 import { iosApps } from '../appScopes.js';
 
 /** Synthetic subject for the team-wide finding (this prerequisite isn't scoped to a single app). */
