@@ -75,6 +75,7 @@ async function packageManagerChecks(ctx: DoctorContext): Promise<DoctorCheck[]> 
 async function iosToolchainChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
   const checks: DoctorCheck[] = [shellLocaleDoctorCheck(ctx.shellLocale)];
   for (const tool of REQUIRED_TOOLS) {
+    // biome-ignore lint/performance/noAwaitInLoops: serial toolchain probes — each shells out to check one tool; kept sequential to bound subprocess load and keep output ordered
     const present = await ctx.exists(tool.command);
     if (tool.tier === 'recommended') {
       checks.push(
@@ -101,6 +102,7 @@ async function iosToolchainChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
 async function androidToolchainChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
   const checks: DoctorCheck[] = [];
   for (const tool of ANDROID_TOOLS) {
+    // biome-ignore lint/performance/noAwaitInLoops: serial toolchain probes — each shells out to check one tool; kept sequential to bound subprocess load and keep output ordered
     const present = await ctx.exists(tool.command);
     checks.push(
       present
@@ -207,6 +209,7 @@ async function appleAccountChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
 
   for (const app of ctx.apps) {
     if (!app.bundleId) continue;
+    // biome-ignore lint/performance/noAwaitInLoops: serial per-app store call — one request per app; kept sequential to respect the store API rate limit
     const appId = await asc.getAppId(app.bundleId);
     checks.push(
       appId
@@ -241,6 +244,7 @@ async function playAccountChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
   for (const app of ctx.apps) {
     if (!app.packageName) continue;
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: serial per-app store call — one request per app; kept sequential to respect the store API rate limit
       await play.assertAppExists(app.packageName);
       checks.push({ status: 'ok', title: `Play app reachable for ${app.packageName}` });
     } catch (error) {
@@ -272,6 +276,7 @@ async function playAccountChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
 async function configChecks(ctx: DoctorContext, platform: DoctorPlatform): Promise<DoctorCheck[]> {
   const checks: DoctorCheck[] = [];
   for (const app of ctx.apps) {
+    // biome-ignore lint/performance/noAwaitInLoops: serial per-app config pass — each reads/inspects one app’s config in turn
     const findings = await checkApp(app, platform);
     if (findings.length === 0) {
       checks.push({ status: 'ok', title: `${app.name}: app config clean` });
@@ -315,6 +320,7 @@ async function signingPreflightChecks(ctx: DoctorContext): Promise<DoctorCheck[]
     const appGroupNotice = appGroupPreflightNotice(app.iosEntitlements);
     const extensions = resolveExtensionBundleIdsForApp(app);
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: serial per-app store call — one request per app; kept sequential to respect the store API rate limit
       const readiness = await gatherTargetSigningReadiness(
         asc,
         app.bundleId,

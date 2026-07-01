@@ -153,6 +153,7 @@ async function reconcileNotes(
     );
     if (ctx.dryRun) continue;
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
       if (current) await api.updateBetaBuildLocalization(current.id, text);
       else await api.createBetaBuildLocalization(buildId, locale, text);
       action.status = 'applied';

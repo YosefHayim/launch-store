@@ -119,6 +119,7 @@ export async function startTrain(
   for (const platform of input.platforms) {
     const car: NativeCar = { kind: platform, state: 'building', updatedAt: input.now };
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: serial per-car reconcile — each drives the store/engine for one platform; kept sequential to respect rate limits and preserve the record order
       const { buildId } = await engine.submitNative(car);
       car.state = 'submitted';
       if (buildId !== undefined) car.buildId = buildId;
@@ -177,6 +178,7 @@ export async function advanceTrain(
   // 1. Read live state for every native car still in flight.
   for (const car of cars) {
     if (!isNativeCar(car) || isCarTerminal(car)) continue;
+    // biome-ignore lint/performance/noAwaitInLoops: serial per-car reconcile — each drives the store/engine for one platform; kept sequential to respect rate limits and preserve the record order
     const next = await engine.readNative(car);
     if (next !== car.state) {
       car.state = next;
@@ -196,6 +198,7 @@ export async function advanceTrain(
     for (const car of natives) {
       if (car.state !== 'approved') continue;
       try {
+        // biome-ignore lint/performance/noAwaitInLoops: serial per-car reconcile — each drives the store/engine for one platform; kept sequential to respect rate limits and preserve the record order
         await engine.releaseNative(car);
         car.state = 'released';
         car.updatedAt = now;
@@ -214,6 +217,7 @@ export async function advanceTrain(
     const native = natives.find((candidate) => candidate.kind === car.platform);
     if (native?.state !== 'released') continue;
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: serial per-car reconcile — each drives the store/engine for one platform; kept sequential to respect rate limits and preserve the record order
       const { manifestId } = await engine.publishOta(car);
       car.state = 'published';
       if (manifestId !== undefined) car.manifestId = manifestId;

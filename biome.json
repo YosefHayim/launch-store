@@ -43,7 +43,7 @@
       },
       "style": {
         "noDefaultExport": "error",
-        "noNonNullAssertion": "warn",
+        "noNonNullAssertion": "error",
         "useDestructuring": "warn",
         "noJsxLiterals": "off",
         "useComponentExportOnlyModules": "off",
@@ -68,7 +68,7 @@
       "performance": {
         "useSolidForComponent": "off",
         "noJsxPropsBind": "warn",
-        "noAwaitInLoops": "warn",
+        "noAwaitInLoops": "error",
         "useTopLevelRegex": "warn"
       },
       "suspicious": {
@@ -101,6 +101,10 @@
     {
       "includes": ["**/*.config.ts", "launch.config.example.ts"],
       "linter": { "rules": { "style": { "noDefaultExport": "off" } } }
+    },
+    {
+      "includes": ["**/*.test.ts", "**/*.testkit.ts", "**/*.e2e.ts"],
+      "linter": { "rules": { "style": { "noNonNullAssertion": "warn" } } }
     }
   ]
 }

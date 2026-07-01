@@ -215,6 +215,7 @@ async function runStatus(id: string | undefined, options: ReleaseTrainOptions): 
   if (options.watch && !options.json) {
     const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
     while (!isTrainSettled(record)) {
+      // biome-ignore lint/performance/noAwaitInLoops: poll loop — each pass re-reads remote state after a fixed delay, so the iterations are inherently sequential
       await sleep(WATCH_INTERVAL_MS);
       record = await reconcileOnce(record, runtime, false, log);
       log.gap();

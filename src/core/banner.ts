@@ -76,6 +76,7 @@ export async function renderBanner(options: RenderBannerOptions = {}): Promise<v
   for (let i = 0; i < frames.length; i++) {
     if (i > 0) stream.write(`\x1b[${height}A`); // move the cursor up to redraw the wordmark in place
     stream.write(`${frames[i] ?? ''}\n`);
+    // biome-ignore lint/performance/noAwaitInLoops: animation loop — frames render in order with a delay between them
     if (i < frames.length - 1) await sleep(frameMs);
   }
 }

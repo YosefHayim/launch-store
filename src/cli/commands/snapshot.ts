@@ -447,6 +447,7 @@ export async function runSnapshotRestore(input: RestoreOptions & { name: string 
   const restoreCtx = await buildRestoreContext(input.app);
   const restored: SourceRestore[] = [];
   for (const source of targets) {
+    // biome-ignore lint/performance/noAwaitInLoops: serial per-source restore — each source applies its ordered side effects in turn
     const report = await source.restore({
       ctx: restoreCtx,
       saved: savedEntitiesFor(saved, source.id, input.app),

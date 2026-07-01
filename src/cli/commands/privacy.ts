@@ -108,6 +108,7 @@ export async function runPrivacyScan(input: PrivacyScanOptions): Promise<void> {
   const findings: PrivacyFinding[] = [];
   const scanned: string[] = [];
   for (const app of selected) {
+    // biome-ignore lint/performance/noAwaitInLoops: serial per-app store call — one request per app; kept sequential to respect the store API rate limit
     findings.push(...reconcilePrivacy(app.name, await surfaceForApp(app)));
     scanned.push(app.name);
   }

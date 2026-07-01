@@ -175,6 +175,7 @@ export async function reconcilePlayProducts(
   for (const product of input.products) {
     const desired = toPlayProduct(product);
     const current = live.get(desired.sku);
+    // biome-ignore lint/performance/noAwaitInLoops: serial Google Play writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
     if (!current) await createProduct(ctx, api, input.packageName, desired);
     else if (!productInSync(current, desired))
       await updateProduct(ctx, api, input.packageName, current, desired);

@@ -188,6 +188,7 @@ export function registerReportsCommand(program: Command): void {
       const dates = resolveSalesDates(options);
       const client = await activeClient();
       for (const date of dates) {
+        // biome-ignore lint/performance/noAwaitInLoops: serial downloads — the store endpoint rate-limits, so files/attachments are fetched one at a time
         await downloadOne(
           log,
           `sales-${options.frequency}-${date}`,
@@ -282,6 +283,7 @@ export function registerReportsCommand(program: Command): void {
       for (const download of collection.downloads) {
         const datePart = download.processingDate || 'all';
         const baseName = `analytics-${slug(download.reportName)}-${datePart}-${index++}`;
+        // biome-ignore lint/performance/noAwaitInLoops: serial downloads — the store endpoint rate-limits, so files/attachments are fetched one at a time
         await downloadOne(
           log,
           baseName,

@@ -210,8 +210,10 @@ export async function collectAnalyticsSegments(
       granularity: query.granularity,
     };
     if (query.processingDate) instanceFilters.processingDate = query.processingDate;
+    // biome-ignore lint/performance/noAwaitInLoops: serial analytics reads — the reporting API rate-limits; report instances and their segments are fetched in turn
     const instances = await api.listAnalyticsReportInstances(report.id, instanceFilters);
     for (const instance of instances) {
+      // biome-ignore lint/performance/noAwaitInLoops: serial analytics reads — the reporting API rate-limits; report instances and their segments are fetched in turn
       const segments = await api.listAnalyticsReportSegments(instance.id);
       for (const segment of segments) {
         downloads.push({
