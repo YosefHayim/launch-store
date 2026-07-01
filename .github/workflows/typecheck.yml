@@ -1,0 +1,21 @@
+name: Typecheck
+
+# Single-purpose, reusable (workflow_call): `tsc --noEmit`. Type results are deterministic across
+# OS/Node, so this runs single-leg (ubuntu, one Node) — no matrix (see ADR 0009).
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck:
+    name: Type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-node-cached
+        with:
+          node-version: 22
+      - run: npm run typecheck
