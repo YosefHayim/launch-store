@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { catalogPlanner } from './catalog.js';
-import { makeAscApiFake } from './ascApiFake.testkit.js';
+import { makeAscApiFake } from '../../../testkit/ascApiFake.testkit.js';
 import type { AscCatalogApi } from '../../ascSync.js';
 import type { PlanContext } from '../types.js';
 import type { AppDescriptor, AppProducts, LaunchConfig } from '../../types.js';

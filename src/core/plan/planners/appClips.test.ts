@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { appClipsPlanner } from './appClips.js';
-import { makeAscApiFake } from './ascApiFake.testkit.js';
+import { makeAscApiFake } from '../../../testkit/ascApiFake.testkit.js';
 import type { AscSurfacesApi, PlanContext } from '../types.js';
 import type { AppClipsConfig, AppDescriptor, LaunchConfig } from '../../types.js';
 

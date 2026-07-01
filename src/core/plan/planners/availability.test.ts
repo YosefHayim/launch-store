@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { availabilityPlanner } from './availability.js';
-import { makeAscApiFake } from './ascApiFake.testkit.js';
+import { makeAscApiFake } from '../../../testkit/ascApiFake.testkit.js';
 import type { AscSurfacesApi, PlanContext } from '../types.js';
 import type { AppDescriptor, LaunchConfig } from '../../types.js';
 

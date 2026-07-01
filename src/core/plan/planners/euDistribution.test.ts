@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { euDistributionPlanner } from './euDistribution.js';
-import { makeAscApiFake } from './ascApiFake.testkit.js';
+import { makeAscApiFake } from '../../../testkit/ascApiFake.testkit.js';
 import type { AscSurfacesApi, PlanContext } from '../types.js';
 import type { EuDistributionConfig, LaunchConfig } from '../../types.js';
 
