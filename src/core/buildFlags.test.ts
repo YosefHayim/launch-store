@@ -58,6 +58,34 @@ describe('buildXcargs — manual signing + the shared extras', () => {
     expect(xcargs).toContain('COMPILER_INDEX_STORE_ENABLE=NO');
     expect(xcargs).toContain('-jobs 6');
   });
+
+  it('drops the global provisioning-profile specifier when the app has extension targets', () => {
+    // A command-line PROVISIONING_PROFILE_SPECIFIER applies to EVERY target, so pinning the main app's
+    // profile would clobber the widget/extension bundle and fail the archive (exit 65). With extensions
+    // present it's dropped — per-target profiles come from the project + the export plist (issue #262) —
+    // while the team + manual style stay global.
+    const xcargs = buildXcargs(
+      {
+        teamId: 'ABCDE12345',
+        profileName: 'Launch_AppStore',
+        extensionProfiles: { 'com.acme.app.widget': 'Launch_Widget_AppStore' },
+      },
+      6,
+    );
+    expect(xcargs).not.toContain('PROVISIONING_PROFILE_SPECIFIER');
+    expect(xcargs).toContain('DEVELOPMENT_TEAM=ABCDE12345');
+    expect(xcargs).toContain('CODE_SIGN_STYLE=Manual');
+    expect(xcargs).toContain('COMPILER_INDEX_STORE_ENABLE=NO');
+    expect(xcargs).toContain('-jobs 6');
+  });
+
+  it('still pins the profile when extensionProfiles is present but empty (no real extensions)', () => {
+    const xcargs = buildXcargs(
+      { teamId: 'ABCDE12345', profileName: 'Launch_AppStore', extensionProfiles: {} },
+      6,
+    );
+    expect(xcargs).toContain('PROVISIONING_PROFILE_SPECIFIER=Launch_AppStore');
+  });
 });
 
 describe('gymArgs — one source for the gym argv; iOS stays byte-identical', () => {
@@ -102,5 +130,22 @@ describe('gymArgs — one source for the gym argv; iOS stays byte-identical', ()
     const args = gymArgs({ ...BASE_GYM, clean: true, destination: 'generic/platform=macOS' });
     expect(args[args.length - 1]).toBe('--clean');
     expect(args).toContain('--destination');
+  });
+
+  it('threads extension profiles so the multi-target argv omits the global specifier', () => {
+    // The only difference from the single-target vector: the --xcargs value loses PROVISIONING_PROFILE_
+    // SPECIFIER (the byte-identical test above proves single-target is untouched). Everything else stays.
+    const args = gymArgs({
+      ...BASE_GYM,
+      destination: undefined,
+      signing: {
+        ...BASE_GYM.signing,
+        extensionProfiles: { 'com.acme.app.widget': 'Launch_Widget_AppStore' },
+      },
+    });
+    const xcargs = args[args.indexOf('--xcargs') + 1];
+    expect(xcargs).not.toContain('PROVISIONING_PROFILE_SPECIFIER');
+    expect(xcargs).toContain('DEVELOPMENT_TEAM=ABCDE12345');
+    expect(xcargs).toContain('CODE_SIGN_STYLE=Manual');
   });
 });
