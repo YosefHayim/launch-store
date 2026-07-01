@@ -1,71 +1,62 @@
 name: CI
 
-# The full quality gate, re-run on every push to main and every PR. The local husky hook runs the
-# same checks but can be bypassed (`--no-verify`), so CI is the authoritative gate. Unit tests mock
-# the Mac-specific bits (openssl/security/fastlane), so they run on Linux; a real iOS build needs a
-# physical Mac and isn't attempted here.
+# The full quality gate, re-run on every push to main and every PR. The local husky hook runs the same
+# checks but can be bypassed (`--no-verify`), so CI is the authoritative gate.
+#
+# Composed from single-purpose, reusable workflows (lint / typecheck / docs / test / build / e2e), each
+# `on: workflow_call` — so a red leg is isolated and named, and the shared cached-install lives in one
+# composite action (.github/actions/setup-node-cached). See ADR 0009.
+#
+# - `CI Gate` is the single aggregated status check: require IT in branch protection, and a red leg
+#   blocks the merge without pinning branch protection to each leg's name.
+# - `report-failure` opens/updates a ci-failure issue when main goes red (never for PRs).
+
 on:
   push:
     branches: [main]
   pull_request:
 
-# Least-privilege GITHUB_TOKEN: this gate only reads the repo (and writes the run's step summary,
-# which needs no token scope), so it gets read-only `contents` and nothing else.
+# Least-privilege GITHUB_TOKEN: the checks only read the repo (and write the run's step summary, which
+# needs no token scope). The report-failure job re-grants issues:write for itself, below.
 permissions:
   contents: read
 
 jobs:
-  check:
+  lint:
+    uses: ./.github/workflows/lint.yml
+  typecheck:
+    uses: ./.github/workflows/typecheck.yml
+  docs:
+    uses: ./.github/workflows/docs.yml
+  test:
+    uses: ./.github/workflows/test.yml
+  build:
+    uses: ./.github/workflows/build.yml
+  e2e:
+    uses: ./.github/workflows/e2e.yml
+
+  gate:
+    name: CI Gate
+    needs: [lint, typecheck, docs, test, build, e2e]
+    if: always()
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [20, 22]
-    name: node-${{ matrix.node }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: ${{ matrix.node }}
-          cache: npm
-      # Cache the installed dependency tree so an unchanged lockfile skips `npm ci` entirely. The key
-      # binds OS + Node major + lockfile hash; any dependency change flips the hash and forces a clean
-      # reinstall. Deliberately NO restore-keys — a partial node_modules carried over from a different
-      # lockfile is a silent correctness hazard, so we reuse an EXACT match or reinstall from scratch.
-      # `cache: npm` above still warms ~/.npm, so the reinstall on a miss stays fast.
-      - name: Cache node_modules
-        id: node-modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-node${{ matrix.node }}-${{ hashFiles('package-lock.json') }}
-      - name: Install dependencies
-        if: steps.node-modules.outputs.cache-hit != 'true'
-        run: npm ci
-      - run: npm run typecheck
-      - run: npm run lint
-      # docs/commands.md and llms.txt are generated from the commander tree in src/cli/ by
-      # `npm run docs:gen`. This fails the PR if they're stale, so the AI-facing and human-facing
-      # docs can't drift from the real command surface (issue #89). Offline + deterministic,
-      # so it lives in the per-PR gate rather than a separate workflow like schema-drift.yml.
-      - name: Docs are in sync with the CLI
-        run: npm run docs:check
-      - name: Test (with coverage)
-        run: npm run test:coverage | tee coverage.txt
-      - run: npm run build
-      - name: Smoke-test the built CLI
-        # The unit tests run against src/ via tsx; this proves the COMPILED artifact we publish
-        # actually boots on each supported Node version (catches a broken dist before release).
+      - name: Require every gate to pass
         run: |
-          node dist/cli/index.js --version
-          node dist/cli/index.js --help
-          node dist/cli/index.js explain csr
-      - name: Coverage summary
-        if: always()
-        run: |
-          {
-            echo '### Coverage (node ${{ matrix.node }})'
-            echo '```'
-            tail -n 20 coverage.txt
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "lint=${{ needs.lint.result }} typecheck=${{ needs.typecheck.result }} docs=${{ needs.docs.result }} test=${{ needs.test.result }} build=${{ needs.build.result }} e2e=${{ needs.e2e.result }}"
+          test "${{ needs.lint.result }}" = "success" \
+            && test "${{ needs.typecheck.result }}" = "success" \
+            && test "${{ needs.docs.result }}" = "success" \
+            && test "${{ needs.test.result }}" = "success" \
+            && test "${{ needs.build.result }}" = "success" \
+            && test "${{ needs.e2e.result }}" = "success"
+
+  report-failure:
+    name: Open issue on main failure
+    needs: [lint, typecheck, docs, test, build, e2e]
+    if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      issues: write
+      actions: read
+    uses: ./.github/workflows/report-failure.yml

@@ -1,0 +1,32 @@
+name: Build
+
+# Single-purpose, reusable (workflow_call): compile to dist across the supported matrix (Node 20/22),
+# then smoke-test the COMPILED artifact we publish. The unit tests run against src/ via tsx; this proves
+# the built `dist/cli/index.js` actually boots on each supported Node version (catches a broken dist
+# before release).
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: node-${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-node-cached
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm run build
+      - name: Smoke-test the built CLI
+        run: |
+          node dist/cli/index.js --version
+          node dist/cli/index.js --help
+          node dist/cli/index.js explain csr

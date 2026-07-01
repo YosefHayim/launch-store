@@ -1,0 +1,35 @@
+name: Setup Node + cached install
+description: >-
+  setup-node with the npm cache, restore node_modules by an EXACT lockfile hash, and run `npm ci` only
+  on a miss. The single source of the install step every CI leg shares, so the cache rule lives in one
+  place instead of being copy-pasted into each reusable workflow.
+
+inputs:
+  node-version:
+    description: Node major version to set up (e.g. "20" or "22").
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v5
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+
+    # Cache the installed dependency tree so an unchanged lockfile skips `npm ci` entirely. The key binds
+    # OS + Node major + lockfile hash; any dependency change flips the hash and forces a clean reinstall.
+    # Deliberately NO restore-keys — a partial node_modules carried over from a different lockfile is a
+    # silent correctness hazard, so we reuse an EXACT match or reinstall from scratch. `cache: npm` above
+    # still warms ~/.npm, so the reinstall on a miss stays fast.
+    - name: Cache node_modules
+      id: node-modules
+      uses: actions/cache@v4
+      with:
+        path: node_modules
+        key: node-modules-${{ runner.os }}-node${{ inputs.node-version }}-${{ hashFiles('package-lock.json') }}
+
+    - name: Install dependencies
+      if: steps.node-modules.outputs.cache-hit != 'true'
+      shell: bash
+      run: npm ci

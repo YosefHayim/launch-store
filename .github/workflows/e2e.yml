@@ -1,0 +1,27 @@
+name: E2E
+
+# Single-purpose, reusable (workflow_call): the end-to-end suite. It builds dist, then drives the
+# COMPILED `launch` binary as a real subprocess against fixture configs (see test/e2e/), asserting exit
+# codes and output on the offline surface (--version/--help/explain, config schema/validate/docs). This
+# is the black-box complement to the unit tests, which cover src/ in-process; it needs a built dist, so
+# it lives in its own leg rather than the unit `test.yml`. Single-leg — the CLI's offline behavior can't
+# vary by OS/Node (see ADR 0010).
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: E2E (built CLI)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-node-cached
+        with:
+          node-version: 22
+      - run: npm run build
+      - name: Run E2E tests
+        run: npm run test:e2e
