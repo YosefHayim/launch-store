@@ -20,6 +20,8 @@ import { READINESS_EXIT } from '../../core/readiness/orchestrator.js';
 import { gatherDashboardState } from '../../core/dashboard/state.js';
 import { renderDashboardHtml } from '../../core/dashboard/render.js';
 
+const log = createLogger(false);
+
 /** Loopback by default — the dashboard exposes local state and must not be reachable off the machine. */
 const DEFAULT_HOST = '127.0.0.1';
 /** A memorable, rarely-claimed default port ("launch" on a phone keypad). */
@@ -90,11 +92,10 @@ function serve(host: string, port: number, log: Logger): Promise<void> {
  */
 export async function runDashboard(input: DashboardInput): Promise<void> {
   if (input.json) {
-    console.log(JSON.stringify(await gatherDashboardState(), null, 2));
+    log.line(JSON.stringify(await gatherDashboardState(), null, 2));
     process.exitCode = READINESS_EXIT.ok;
     return;
   }
-  const log = createLogger(false);
   await gatherDashboardState(); // fail fast on an unreadable config, before we bind a port
   await serve(input.host, input.port, log);
 }

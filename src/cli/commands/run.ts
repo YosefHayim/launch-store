@@ -19,6 +19,9 @@ import { loadConfig } from '../../core/config.js';
 import { resolveStorageProvider } from '../../core/storage.js';
 import { run } from '../../core/exec.js';
 import { findBuild } from './builds.js';
+import { createLogger } from '../../core/logger.js';
+
+const log = createLogger(false);
 
 /** `adb install` args, scoped to a specific device serial when given. `-r` reinstalls over an existing copy. */
 export function adbInstallArgs(apkPath: string, serial?: string): string[] {
@@ -75,7 +78,7 @@ async function installIos(artifactPath: string, device?: string): Promise<void> 
     : undefined;
   if (!appBundle) throw new Error(`No .app inside ${artifactPath} (expected Payload/<App>.app).`);
   if (!device) {
-    console.log(
+    log.line(
       '• No --device given; devicectl will use the connected device (or error if there are several).',
     );
   }
@@ -113,7 +116,7 @@ export function registerRunCommand(program: Command): void {
         );
       }
 
-      console.log(
+      log.line(
         `Installing ${artifact.appName} ${artifact.version} (build ${artifact.buildNumber})…`,
       );
       if (artifact.platform === 'android') {
@@ -121,6 +124,6 @@ export function registerRunCommand(program: Command): void {
       } else {
         await installIos(artifact.path, options.device);
       }
-      console.log("✓ Installed. Launch it from the device's home screen.");
+      log.line("✓ Installed. Launch it from the device's home screen.");
     });
 }

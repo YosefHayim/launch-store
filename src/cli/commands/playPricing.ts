@@ -17,6 +17,9 @@ import type { ConvertedPrices, PlayMoneyUnits } from '../../google/playClient.js
 import { loadServiceAccount } from '../../google/credentials.js';
 import { loadConfig } from '../../core/config.js';
 import { selectApp } from '../../core/pipeline.js';
+import { createLogger } from '../../core/logger.js';
+
+const log = createLogger(false);
 
 /** Options for `play-pricing localize`. */
 interface PricingOptions {
@@ -126,9 +129,9 @@ export function registerPlayPricingCommand(program: Command): void {
       const converted = await client.convertRegionPrices(packageName, price);
 
       if (options.json) {
-        console.log(JSON.stringify(converted, null, 2));
+        log.line(JSON.stringify(converted, null, 2));
         return;
       }
-      console.log(renderPrices(price, converted));
+      log.line(renderPrices(price, converted));
     });
 }

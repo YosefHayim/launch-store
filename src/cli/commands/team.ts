@@ -16,6 +16,8 @@ import { loadActiveAscKey } from '../../core/accounts.js';
 import { createLogger } from '../../core/logger.js';
 import { getTeam, inviteTeamMember, removeTeamMember, type Team } from '../../core/team.js';
 
+const log = createLogger(false);
+
 /** Options for `team invite`: the required identity + roles, plus provisioning and the CI bypass. */
 interface InviteOptions {
   first: string;
@@ -100,10 +102,10 @@ export function registerTeamCommand(program: Command): void {
       const client = await activeClient();
       const current = await getTeam(client);
       if (options.json) {
-        console.log(JSON.stringify(current, null, 2));
+        log.line(JSON.stringify(current, null, 2));
         return;
       }
-      console.log(renderTeam(current));
+      log.line(renderTeam(current));
     });
 
   team

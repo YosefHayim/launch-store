@@ -227,6 +227,8 @@ export async function runAutoUpgrade(currentVersion: string): Promise<void> {
       fetchLatest: () => fetchLatestVersion(PACKAGE_NAME),
       upgrade: performUpgrade,
       reexec: reexecLaunch,
+      // Deliberate stderr write, not the logger seam: the update banner is a notice (not an error, so
+      // not log.error's ✗) that must stay off stdout so `launch --version` and piped output are clean.
       notify: (message) => {
         console.error(message);
       },

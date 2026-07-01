@@ -18,6 +18,9 @@ import {
   setBuildSecret,
   type SecretRef,
 } from '../../core/buildSecrets.js';
+import { createLogger } from '../../core/logger.js';
+
+const log = createLogger(false);
 
 /** Options for the `secret` subcommands, from flags and/or env. */
 interface SecretOptions {
@@ -72,7 +75,7 @@ async function setSecretValue(name: string | undefined, options: SecretOptions):
   }
   const ref: SecretRef = { app, profile: options.profile ?? null, name };
   await setBuildSecret(ref, value);
-  console.log(
+  log.line(
     `Stored ${name} for ${app}${ref.profile ? ` · profile ${ref.profile}` : ' (all profiles)'} in the keychain.`,
   );
 }
@@ -83,7 +86,7 @@ async function removeSecretValue(name: string | undefined, options: SecretOption
   const app = await resolveApp(options);
   const ref: SecretRef = { app, profile: options.profile ?? null, name };
   const existed = await removeBuildSecret(ref);
-  console.log(
+  log.line(
     existed
       ? `Removed ${name} for ${app}${ref.profile ? ` · profile ${ref.profile}` : ' (all profiles)'}.`
       : `No secret ${name} for ${app}${ref.profile ? ` · profile ${ref.profile}` : ' (all profiles)'}.`,
@@ -99,7 +102,7 @@ function scopeLabel(ref: SecretRef): string {
 function listSecrets(options: SecretOptions): void {
   const refs = listSecretRefs(options.app);
   if (refs.length === 0) {
-    console.log(
+    log.line(
       options.app
         ? `No build secrets for ${options.app}. Add one with: launch secret set <NAME> --app ${options.app}`
         : 'No build secrets stored. Add one with: launch secret set <NAME>',
@@ -107,7 +110,7 @@ function listSecrets(options: SecretOptions): void {
     return;
   }
   for (const ref of refs) {
-    console.log(`• ${ref.app} · ${ref.name}  ••••••  (${scopeLabel(ref)})`);
+    log.line(`• ${ref.app} · ${ref.name}  ••••••  (${scopeLabel(ref)})`);
   }
 }
 

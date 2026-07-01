@@ -13,6 +13,9 @@ import { join } from 'node:path';
 import type { Command } from 'commander';
 import { LOGS_DIR } from '../../core/paths.js';
 import { diagnoseBuildLog, formatDiagnoses } from '../../core/buildDiagnostics.js';
+import { createLogger } from '../../core/logger.js';
+
+const log = createLogger(false);
 
 /** The most recently modified `*.log` under {@link LOGS_DIR}, or null when there are none. */
 function mostRecentLog(): string | null {
@@ -35,7 +38,7 @@ export function registerDiagnoseCommand(program: Command): void {
     .action((logfile: string | undefined) => {
       const path = logfile ?? mostRecentLog();
       if (!path) {
-        console.log(
+        log.line(
           'No build log found. Run a build first, or pass a log path: `launch diagnose <file>`.',
         );
         return;
@@ -43,11 +46,11 @@ export function registerDiagnoseCommand(program: Command): void {
       if (!existsSync(path)) throw new Error(`No log file at ${path}.`);
       const diagnoses = diagnoseBuildLog(readFileSync(path, 'utf8'));
       if (diagnoses.length === 0) {
-        console.log(`No known issues recognized in ${path}.`);
-        console.log('Open the log to inspect the failure directly.');
+        log.line(`No known issues recognized in ${path}.`);
+        log.line('Open the log to inspect the failure directly.');
         return;
       }
-      console.log(`Diagnosing ${path}\n`);
-      console.log(formatDiagnoses(diagnoses));
+      log.line(`Diagnosing ${path}\n`);
+      log.line(formatDiagnoses(diagnoses));
     });
 }

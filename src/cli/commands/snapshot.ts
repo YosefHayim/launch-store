@@ -107,7 +107,7 @@ export async function runSnapshotCreate(
   const result = await captureSnapshot(ctx, listSnapshotSources(), { name, capturedAt });
   const file = saveSnapshot(result.snapshot);
 
-  if (input.json === true) console.log(JSON.stringify({ ...result, file }, null, 2));
+  if (input.json === true) log.line(JSON.stringify({ ...result, file }, null, 2));
   else renderCapture(log, result, file);
   process.exitCode = result.exitCode;
 }
@@ -181,7 +181,7 @@ export async function runSnapshotDiff(
   }
 
   const diff = diffSnapshots(baseline, against);
-  if (input.json === true) console.log(JSON.stringify(diff, null, 2));
+  if (input.json === true) log.line(JSON.stringify(diff, null, 2));
   else renderDiff(log, diff, input.baseline, input.against);
 }
 
@@ -230,7 +230,7 @@ export async function runSnapshotExport(input: { name: string; out?: string }): 
     writeFileSync(input.out, json);
     log.info(`Exported "${input.name}" to ${input.out}`);
   } else {
-    console.log(json);
+    log.line(json);
   }
 }
 
@@ -239,7 +239,7 @@ export async function runSnapshotList(input: { json?: boolean }): Promise<void> 
   const log = createLogger(false);
   const snapshots = listSnapshots();
   if (input.json === true) {
-    console.log(
+    log.line(
       JSON.stringify(
         snapshots.map((snapshot) => ({
           name: snapshot.name,
@@ -276,7 +276,7 @@ export async function runSnapshotDelete(input: { name: string; json?: boolean })
   }
   const deleted = deleteSnapshot(input.name);
   if (input.json === true) {
-    console.log(JSON.stringify({ deleted, name: input.name }, null, 2));
+    log.line(JSON.stringify({ deleted, name: input.name }, null, 2));
     return;
   }
   log.info(`Deleted snapshot "${input.name}".`);
@@ -338,9 +338,7 @@ export async function runSnapshotPrune(input: PruneOptions): Promise<void> {
   if (!dryRun) for (const snapshot of doomed) deleteSnapshot(snapshot.name);
 
   if (input.json === true) {
-    console.log(
-      JSON.stringify({ pruned: doomed.map((snapshot) => snapshot.name), dryRun }, null, 2),
-    );
+    log.line(JSON.stringify({ pruned: doomed.map((snapshot) => snapshot.name), dryRun }, null, 2));
     return;
   }
   if (doomed.length === 0) {
@@ -457,7 +455,7 @@ export async function runSnapshotRestore(input: RestoreOptions & { name: string 
     restored.push({ source: source.id, title: source.title, actions: report.actions });
   }
 
-  if (input.json === true) console.log(JSON.stringify({ preview, restored, dryRun }, null, 2));
+  if (input.json === true) log.line(JSON.stringify({ preview, restored, dryRun }, null, 2));
   else renderRestore(log, saved, input.name, restored, dryRun, input.source);
 
   if (restored.some((entry) => entry.actions.some((action) => action.status === 'failed')))

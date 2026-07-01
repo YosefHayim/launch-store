@@ -110,7 +110,7 @@ export function registerUpdateCommand(program: Command): void {
       envExclude: config.envExclude,
     });
     if (options.printEnv) {
-      console.log(formatEnvTable(resolvedEnv));
+      log.line(formatEnvTable(resolvedEnv));
       return;
     }
     validateResolvedEnv(app.dir, resolvedEnv, log, config.envExclude);
@@ -181,7 +181,5 @@ function printAfterPublish(
   log.info(`Worker source: ${workerUrl}`);
   log.gap();
   log.info('One-time app config (app.json):');
-  console.log(
-    updatesAppConfigSnippet({ updateUrl: '<your-worker-route>', runtimeVersion, signed }),
-  );
+  log.line(updatesAppConfigSnippet({ updateUrl: '<your-worker-route>', runtimeVersion, signed }));
 }

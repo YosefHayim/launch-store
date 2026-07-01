@@ -245,7 +245,7 @@ function runAbort(id: string | undefined, options: ReleaseTrainOptions, log: Log
 
 /** Emit the train as JSON (CI/agents) or the boxed human view, and set the process exit code. */
 function report(record: TrainRecord, options: ReleaseTrainOptions, log: Logger): void {
-  if (options.json) console.log(JSON.stringify(record, null, 2));
+  if (options.json) log.line(JSON.stringify(record, null, 2));
   else renderTrain(record, log);
   process.exitCode = trainExitCode(record);
 }

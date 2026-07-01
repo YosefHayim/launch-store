@@ -51,6 +51,8 @@ import {
 } from '../../google/credentials.js';
 import { localCredentialsProvider } from '../../providers/credentials/local.js';
 
+const log = createLogger(false);
+
 /**
  * Inputs for the `creds` subcommands, from flags and/or env. Any field left unset is inferred (Key ID
  * from the filename), discovered (the `.p8` in `~/Downloads`), or prompted for — unless `yes` forces
@@ -128,7 +130,7 @@ async function offerToRemoveImportedSecret(
 ): Promise<void> {
   if (!isInDiscoveryDir(file)) return;
   if (!canPrompt) {
-    console.log(
+    log.line(
       `The plaintext ${label} is still at ${tildify(file)} — it's in your keychain now, so you can delete it.`,
     );
     return;
@@ -142,11 +144,11 @@ async function offerToRemoveImportedSecret(
     process.exit(0);
   }
   if (!remove) {
-    console.log(`Kept ${tildify(file)}.`);
+    log.line(`Kept ${tildify(file)}.`);
     return;
   }
   rmSync(file, { force: true });
-  console.log(`Removed ${tildify(file)}.`);
+  log.line(`Removed ${tildify(file)}.`);
 }
 
 /** Prompt for a required value, exiting cleanly if the user cancels. */
@@ -207,7 +209,7 @@ async function resolveP8Path(options: CredsOptions, canPrompt: boolean): Promise
   const found = SEARCH_DIRS.flatMap(findAuthKeyFiles);
   const [first, ...rest] = found;
   if (first && rest.length === 0) {
-    console.log(`Found API key ${tildify(first)}.`);
+    log.line(`Found API key ${tildify(first)}.`);
     return first;
   }
   if (first) {
@@ -265,7 +267,7 @@ async function validateAndResolve(ascKey: AscKey): Promise<AccountIdentity> {
         `That key was rejected by Apple (${message}). Check the Key ID, Issuer ID, and .p8 all match.`,
       );
     }
-    console.warn(
+    log.warn(
       `Could not verify the key with Apple (${message}). Saving it unresolved — run \`launch creds refresh\` later.`,
     );
     return { teamId: null, apps: [] };
@@ -301,7 +303,7 @@ async function importIosKeyFromPath(
   const appsLine = identity.apps.length
     ? ` · sees ${identity.apps.slice(0, 3).join(', ')}${identity.apps.length > 3 ? '…' : ''}`
     : '';
-  console.log(
+  log.line(
     `Added Apple account "${label}" (key ${keyId}${teamLine}) and set it active.${appsLine}`,
   );
 
@@ -333,7 +335,7 @@ async function setAndroidKey(value: string | undefined, options: CredsOptions): 
   const path = expandHome(given);
   if (!existsSync(path)) throw new Error(`No service-account JSON at ${given}.`);
   await storeServiceAccount(readFileSync(path, 'utf8'));
-  console.log(`Stored Play service account (${tildify(path)}) in the secret store.`);
+  log.line(`Stored Play service account (${tildify(path)}) in the secret store.`);
   // The JSON is re-downloadable from the Google Cloud console, so no verification gate is needed here.
   await offerToRemoveImportedSecret(path, 'Play service-account key', canPrompt);
 }
@@ -395,7 +397,7 @@ export async function chooseAccountInteractive(options: CredsOptions = {}): Prom
     const keyId = choice.slice('acct:'.length);
     setActiveKeyId(keyId);
     const account = accounts.find((a) => a.keyId === keyId);
-    console.log(`Active Apple account: ${account?.label ?? keyId} (key ${keyId}).`);
+    log.line(`Active Apple account: ${account?.label ?? keyId} (key ${keyId}).`);
   } else if (choice === ADD_NEW) {
     await setKey(options);
   } else {
@@ -415,7 +417,7 @@ async function useAccount(selector: string | undefined, options: CredsOptions): 
         `No Apple account matching "${selector}". Run \`launch creds\` to list them.`,
       );
     setActiveKeyId(matched.keyId);
-    console.log(`Active Apple account: ${matched.label} (key ${matched.keyId}).`);
+    log.line(`Active Apple account: ${matched.label} (key ${matched.keyId}).`);
     return;
   }
   if (options.yes === true || !process.stdin.isTTY) {
@@ -435,7 +437,7 @@ function renameAccountCommand(selector: string | undefined, newLabel: string | u
   );
   if (clash) throw new Error(`Label "${label}" is already used by key ${clash.keyId}.`);
   renameAccount(matched.keyId, label);
-  console.log(`Renamed account ${matched.keyId} to "${label}".`);
+  log.line(`Renamed account ${matched.keyId} to "${label}".`);
 }
 
 /** Remove an account (key + signing assets + registry entry), confirming first in an interactive run. */
@@ -452,12 +454,12 @@ async function removeAccountCommand(
       `Remove account "${matched.label}" (key ${matched.keyId})? This deletes its stored key and signing assets.`,
     );
     if (!ok) {
-      console.log('Left unchanged.');
+      log.line('Left unchanged.');
       return;
     }
   }
   await removeAccount(matched.keyId);
-  console.log(`Removed Apple account "${matched.label}".`);
+  log.line(`Removed Apple account "${matched.label}".`);
 }
 
 /** Re-fetch Team ID + app names from Apple for one account (by selector) or all of them. */
@@ -472,17 +474,13 @@ async function refreshAccounts(selector: string | undefined): Promise<void> {
   for (const account of targets) {
     const ascKey = await loadAscKeyById(account.keyId);
     if (!ascKey) {
-      console.warn(
-        `Skipped "${account.label}": no stored key (re-import with launch creds set-key).`,
-      );
+      log.warn(`Skipped "${account.label}": no stored key (re-import with launch creds set-key).`);
       continue;
     }
     const identity = await resolveAccountIdentity(ascKey);
     updateAccountIdentity(account.keyId, identity.teamId, identity.apps);
     const appsLine = identity.apps.length ? ` · ${identity.apps.length} app(s)` : '';
-    console.log(
-      `Refreshed "${account.label}": ${identity.teamId ?? 'team unresolved'}${appsLine}.`,
-    );
+    log.line(`Refreshed "${account.label}": ${identity.teamId ?? 'team unresolved'}${appsLine}.`);
   }
 }
 
@@ -517,7 +515,7 @@ export async function setupIos(options: CredsOptions, platform: Platform = 'ios'
     dryRun: false,
     confirmCreate: interactiveConfirm,
   });
-  console.log(
+  log.line(
     `Ready (${account.label}): distribution cert ${signing.certSerial}, profile ${signing.profileName} (team ${signing.teamId}).`,
   );
 }
@@ -554,7 +552,7 @@ async function setupAndroid(options: CredsOptions): Promise<void> {
     confirmCreate: interactiveConfirm,
     ...(keystoreImport ? { import: keystoreImport } : {}),
   });
-  console.log(`Ready: upload keystore at ${tildify(keystore.path)} (alias ${keystore.alias}).`);
+  log.line(`Ready: upload keystore at ${tildify(keystore.path)} (alias ${keystore.alias}).`);
 }
 
 /** `launch creds push-key [import|status|export]` — the APNs push-key vault (import-only; Apple has no create API). */
@@ -613,8 +611,8 @@ async function importPushKeyCommand(
     label,
     ...(teamId ? { teamId } : {}),
   });
-  console.log(`Imported APNs key ${keyId}${teamId ? ` (team ${teamId})` : ''} into the vault.`);
-  console.log(
+  log.line(`Imported APNs key ${keyId}${teamId ? ` (team ${teamId})` : ''} into the vault.`);
+  log.line(
     `The .p8 stays in your keychain. Keep ${tildify(path)} too — Apple lets you download it only once.`,
   );
 }
@@ -623,7 +621,7 @@ async function importPushKeyCommand(
 function statusPushKeys(): void {
   const keys = listPushKeys();
   if (keys.length === 0) {
-    console.log(
+    log.line(
       'No APNs keys in the vault. Import one with `launch creds push-key import <path-to-.p8>`.',
     );
     return;
@@ -633,9 +631,9 @@ function statusPushKeys(): void {
       key.label && key.label !== key.keyId ? key.label : undefined,
       key.teamId ? `team ${key.teamId}` : undefined,
     ].filter((part): part is string => Boolean(part));
-    console.log(`• ${key.keyId}${parts.length ? ` — ${parts.join(' · ')}` : ''}`);
+    log.line(`• ${key.keyId}${parts.length ? ` — ${parts.join(' · ')}` : ''}`);
   }
-  console.log(`\n${keys.length} APNs key(s).`);
+  log.line(`\n${keys.length} APNs key(s).`);
 }
 
 /** Export a vaulted APNs `.p8` back to disk (chmod 600), with a consent prompt and an overwrite guard. */
@@ -667,12 +665,12 @@ async function exportPushKeyCommand(
       `Write the secret APNs key ${record.keyId} to ${tildify(path)}? Treat the file like a password.`,
     );
     if (!ok) {
-      console.log('Left unchanged.');
+      log.line('Left unchanged.');
       return;
     }
   }
   writeFileSync(path, pem, { mode: 0o600 });
-  console.log(`Wrote APNs key ${record.keyId} to ${tildify(path)} (chmod 600). Keep it secret.`);
+  log.line(`Wrote APNs key ${record.keyId} to ${tildify(path)} (chmod 600). Keep it secret.`);
 }
 
 /** Attach the `creds` command to the program. */
@@ -735,7 +733,7 @@ export function registerCredsCommand(program: Command): void {
         switch (action) {
           case 'status':
           case 'accounts':
-            console.log(await localCredentialsProvider.status());
+            log.line(await localCredentialsProvider.status());
             return;
           case 'set-key':
             await (platform === 'android' ? setAndroidKey(value, options) : setKey(options));

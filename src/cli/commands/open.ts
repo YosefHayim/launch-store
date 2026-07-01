@@ -15,6 +15,9 @@ import {
   resolveOpenUrl,
   type OpenUrlOptions,
 } from '../../core/consoleLinks.js';
+import { createLogger } from '../../core/logger.js';
+
+const log = createLogger(false);
 
 /** Attach the top-level `open` command to the program. */
 export function registerOpenCommand(program: Command): void {
@@ -29,7 +32,7 @@ export function registerOpenCommand(program: Command): void {
     .option('-a, --app <name>', 'app handle to open (default: the first app for the platform)')
     .action(async (target: string | undefined, options: OpenUrlOptions) => {
       const url = await resolveOpenUrl(target, options);
-      console.log(`Opening ${url}`);
+      log.line(`Opening ${url}`);
       await openUrl(url);
     });
 }

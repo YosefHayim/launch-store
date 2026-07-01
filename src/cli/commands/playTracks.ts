@@ -32,6 +32,8 @@ import {
   RELEASE_STATUSES,
 } from '../../core/playTracks.js';
 
+const log = createLogger(false);
+
 /** Options for `play-tracks status`. */
 interface StatusOptions {
   app?: string;
@@ -138,24 +140,24 @@ export function registerPlayTracksCommand(program: Command): void {
       );
 
       if (options.json) {
-        console.log(JSON.stringify(withCountries, null, 2));
+        log.line(JSON.stringify(withCountries, null, 2));
         return;
       }
       if (withCountries.length === 0) {
-        console.log(
+        log.line(
           'No tracks yet. Upload a build (`launch submit --platform android`) to populate a track.',
         );
         return;
       }
       for (const info of withCountries) {
-        console.log(`\n${info.track}`);
-        if (info.releases.length === 0) console.log('  (no releases)');
-        for (const release of info.releases) console.log(`  • ${describeRelease(release)}`);
+        log.line(`\n${info.track}`);
+        if (info.releases.length === 0) log.line('  (no releases)');
+        for (const release of info.releases) log.line(`  • ${describeRelease(release)}`);
         const countries = info.countryAvailability?.countries.map((c) => c.countryCode) ?? [];
         const scope = info.countryAvailability?.restOfWorld
           ? 'rest of world'
           : `${countries.length} countr(ies)`;
-        console.log(`  countries: ${countries.length ? scope : '—'}`);
+        log.line(`  countries: ${countries.length ? scope : '—'}`);
       }
     });
 
@@ -231,7 +233,7 @@ export function registerPlayTracksCommand(program: Command): void {
 
       if (options.groups === undefined) {
         const current = await client.getTesters(packageName, options.track);
-        console.log(
+        log.line(
           current.length
             ? current.map((group) => `• ${group}`).join('\n')
             : 'No tester groups set.',

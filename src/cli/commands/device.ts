@@ -10,6 +10,9 @@
 import type { Command } from 'commander';
 import { loadActiveAscKey } from '../../core/accounts.js';
 import { AppStoreConnectClient } from '../../apple/ascClient.js';
+import { createLogger } from '../../core/logger.js';
+
+const log = createLogger(false);
 
 /** Resolve the App Store Connect client for the active account, or fail with the fix. */
 async function client(): Promise<AppStoreConnectClient> {
@@ -31,8 +34,8 @@ export function registerDeviceCommand(program: Command): void {
     .argument('[name]', 'a label for the device (default: the UDID)')
     .action(async (udid: string, name: string | undefined) => {
       const registered = await (await client()).registerDevice(udid, name ?? udid);
-      console.log(`✓ Registered ${registered.name} (${registered.udid})`);
-      console.log("• It'll be included on the next `launch build ios --distribution internal`.");
+      log.line(`✓ Registered ${registered.name} (${registered.udid})`);
+      log.line("• It'll be included on the next `launch build ios --distribution internal`.");
     });
 
   device
@@ -41,13 +44,13 @@ export function registerDeviceCommand(program: Command): void {
     .action(async () => {
       const devices = await (await client()).listDevices();
       if (devices.length === 0) {
-        console.log('No registered devices. Add one with `launch device add <udid> [name]`.');
+        log.line('No registered devices. Add one with `launch device add <udid> [name]`.');
         return;
       }
       for (const entry of devices) {
         const disabled = entry.status === 'DISABLED' ? ' (disabled)' : '';
-        console.log(`• ${entry.name} — ${entry.udid}${disabled}`);
+        log.line(`• ${entry.name} — ${entry.udid}${disabled}`);
       }
-      console.log(`\n${devices.length} device(s).`);
+      log.line(`\n${devices.length} device(s).`);
     });
 }

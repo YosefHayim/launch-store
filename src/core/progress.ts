@@ -18,6 +18,7 @@ import { diagnoseBuildLog, formatDiagnoses } from './buildDiagnostics.js';
 import { currentBuildLog } from './buildLog.js';
 import type { BuildEstimate } from './buildFingerprint.js';
 import { AURORA, auroraPaint, mix } from './aurora.js';
+import { createLogger } from './logger.js';
 
 /** A painter bound to this process's color decision — drives the candy progress bar's violet→cyan fill. */
 const paint = auroraPaint();
@@ -171,9 +172,12 @@ function logStamp(): string {
  * sometimes precedes the trailing lines.
  */
 function reportFailure(label: string, tail: string[], logFile: string): void {
-  console.error(`\n${label} failed. Last lines:`);
-  for (const line of tail) console.error(`  ${line}`);
-  console.error(`\nFull log: ${logFile}`);
+  const lines = [
+    `${label} failed. Last lines:`,
+    ...tail.map((line) => `  ${line}`),
+    '',
+    `Full log: ${logFile}`,
+  ];
 
   let logText = tail.join('\n');
   try {
@@ -182,7 +186,9 @@ function reportFailure(label: string, tail: string[], logFile: string): void {
     /* log unreadable (e.g. tee never opened) — diagnose the in-memory tail instead */
   }
   const diagnosis = formatDiagnoses(diagnoseBuildLog(logText));
-  if (diagnosis) console.error(`\n${diagnosis}`);
+  if (diagnosis) lines.push('', diagnosis);
+  // The whole failure report goes through the logger seam as one ✗-led stderr block.
+  createLogger(false).error(lines.join('\n'));
 }
 
 /**

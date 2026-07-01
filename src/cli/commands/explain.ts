@@ -7,6 +7,9 @@
 
 import type { Command } from 'commander';
 import { explainTopic, isGlossaryTopic, listTopics } from '../../core/glossary.js';
+import { createLogger } from '../../core/logger.js';
+
+const log = createLogger(false);
 
 /** Attach the `explain` command to the program. */
 export function registerExplainCommand(program: Command): void {
@@ -18,12 +21,12 @@ export function registerExplainCommand(program: Command): void {
     .argument('[topic]', 'a term to explain, e.g. provisioning-profile')
     .action((topic?: string) => {
       if (!topic) {
-        console.log(`Topics: ${listTopics().join(', ')}`);
+        log.line(`Topics: ${listTopics().join(', ')}`);
         return;
       }
       if (!isGlossaryTopic(topic)) {
         throw new Error(`Unknown topic "${topic}". Known topics: ${listTopics().join(', ')}`);
       }
-      console.log(explainTopic(topic));
+      log.line(explainTopic(topic));
     });
 }

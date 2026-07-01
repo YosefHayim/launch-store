@@ -120,7 +120,7 @@ export function registerStatusCommand(program: Command): void {
 
       const results = await readAll();
       if (options.json)
-        console.log(
+        log.line(
           JSON.stringify(
             results.map((result) => result.status),
             null,

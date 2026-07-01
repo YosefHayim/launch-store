@@ -24,6 +24,8 @@ import {
   type AppEventWithLocalizations,
 } from '../../core/appEvents.js';
 
+const log = createLogger(false);
+
 /** Options for `events create`: the app + the event's attributes, plus the CI bypass. */
 interface CreateOptions {
   app?: string;
@@ -112,17 +114,17 @@ export function registerEventsCommand(program: Command): void {
       const found = await listEvents(client, bundleId);
 
       if (options.json) {
-        console.log(JSON.stringify(found, null, 2));
+        log.line(JSON.stringify(found, null, 2));
         return;
       }
       if (found.length === 0) {
-        console.log(
+        log.line(
           'No in-app events yet. Create one with `launch events create <referenceName> --badge ...`.',
         );
         return;
       }
-      console.log(found.map(renderEvent).join('\n\n'));
-      console.log(`\n${found.length} event${found.length === 1 ? '' : 's'}.`);
+      log.line(found.map(renderEvent).join('\n\n'));
+      log.line(`\n${found.length} event${found.length === 1 ? '' : 's'}.`);
     });
 
   events

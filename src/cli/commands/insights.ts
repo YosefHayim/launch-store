@@ -185,8 +185,8 @@ export async function runInsights(input: InsightsOptions): Promise<void> {
   );
   const report = buildInsightsReport(perApp.filter(({ reviews }) => reviews.length > 0));
 
-  if (input.json === true) console.log(JSON.stringify(report, null, 2));
-  else console.log(renderInsights(report));
+  if (input.json === true) log.line(JSON.stringify(report, null, 2));
+  else log.line(renderInsights(report));
 }
 
 /** Attach the top-level `insights` command to the program. */

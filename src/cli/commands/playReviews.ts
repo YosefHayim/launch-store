@@ -24,6 +24,8 @@ import {
   type PlayReviewFilters,
 } from '../../core/playReviews.js';
 
+const log = createLogger(false);
+
 /** Options for `play-reviews list`. */
 interface PlayReviewsListOptions {
   app?: string;
@@ -140,17 +142,17 @@ export function registerPlayReviewsCommand(program: Command): void {
       const found = await listPlayReviews(client, packageName, toFilters(options));
 
       if (options.json) {
-        console.log(JSON.stringify(found, null, 2));
+        log.line(JSON.stringify(found, null, 2));
         return;
       }
       if (found.length === 0) {
-        console.log(
+        log.line(
           'No reviews match. Try removing a filter, or check back later (Play shows only recent reviews).',
         );
         return;
       }
-      console.log(found.map(renderReview).join('\n\n'));
-      console.log(`\n${found.length} review${found.length === 1 ? '' : 's'}.`);
+      log.line(found.map(renderReview).join('\n\n'));
+      log.line(`\n${found.length} review${found.length === 1 ? '' : 's'}.`);
     });
 
   reviews

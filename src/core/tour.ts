@@ -174,7 +174,7 @@ export async function runTour(platform: Platform, interactive: boolean): Promise
   const apple = isApplePlatform(platform);
   const total = TOUR_STEPS.length;
   for (const [i, step] of TOUR_STEPS.entries()) {
-    console.log(dim(`Step ${i + 1}/${total}`));
+    log.line(dim(`Step ${i + 1}/${total}`));
     const detail = apple ? step.detail.apple(platform) : step.detail.android;
     const topic = step.topic ? (apple ? step.topic.apple : step.topic.android) : undefined;
     log.step(step.title, detail, topic);

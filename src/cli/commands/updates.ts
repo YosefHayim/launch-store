@@ -34,6 +34,8 @@ import {
 } from '../../core/updateHistory.js';
 import { resolveRuntimeVersion } from './update.js';
 
+const log = createLogger(false);
+
 /** A history entry tagged with the platform whose per-platform index it came from — the list/picker row. */
 export interface UpdateRow extends UpdateHistoryEntry {
   /** Which platform's per-(channel, platform) index this entry was read from. */
@@ -180,19 +182,17 @@ export function registerUpdatesCommand(program: Command): void {
       if (options.runtimeVersion)
         rows = rows.filter((row) => row.runtimeVersion === options.runtimeVersion);
       if (options.json) {
-        console.log(JSON.stringify(rows, null, 2));
+        log.line(JSON.stringify(rows, null, 2));
         return;
       }
       if (rows.length === 0) {
-        console.log(
+        log.line(
           `No updates on channel "${options.channel}". Run \`launch update\` to publish one.`,
         );
         return;
       }
-      console.log(formatUpdatesTable(rows));
-      console.log(
-        `\n${rows.length} update${rows.length === 1 ? '' : 's'} on "${options.channel}".`,
-      );
+      log.line(formatUpdatesTable(rows));
+      log.line(`\n${rows.length} update${rows.length === 1 ? '' : 's'} on "${options.channel}".`);
     });
 
   updates
@@ -215,7 +215,7 @@ export function registerUpdatesCommand(program: Command): void {
         historySnapshotKey(options.channel, row.platform, row.runtimeVersion, row.id),
       );
       const manifest = snapshot ? (JSON.parse(snapshot.toString('utf8')) as UpdateManifest) : null;
-      console.log(
+      log.line(
         options.json
           ? JSON.stringify({ ...row, manifest }, null, 2)
           : formatUpdateDetail(row, manifest),
