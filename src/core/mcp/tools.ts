@@ -43,6 +43,18 @@ import { renderConfigDocs } from '../docs/configDocs.js';
 import { inspectDoctor } from '../doctor/inspect.js';
 import { buildDoctorContext } from '../doctor/context.js';
 import { previewBuild } from '../buildPreview.js';
+
+/** The literal token meaning "capture live state now and diff against it" rather than a saved name. */
+const LIVE = 'live';
+
+/** A reusable `{ app?: string }` input schema — the comma-separated handle filter every store tool takes. */
+const APP_FILTER_SCHEMA = {
+  type: 'object',
+  properties: {
+    app: { type: 'string', description: 'comma-separated app handles (default: all apps)' },
+  },
+} as const;
+
 /**
  * Build the standard success result for a tool: its structured report (a `PlanOutcome`, a `DoctorReport`,
  * …), pretty-printed as JSON text. `value` is `unknown` because callers pass whatever their orchestrator
@@ -58,17 +70,6 @@ function optionalString(args: Record<string, unknown>, key: string): string | un
   const value = args[key];
   return typeof value === 'string' ? value : undefined;
 }
-
-/** The literal token meaning "capture live state now and diff against it" rather than a saved name. */
-const LIVE = 'live';
-
-/** A reusable `{ app?: string }` input schema — the comma-separated handle filter every store tool takes. */
-const APP_FILTER_SCHEMA = {
-  type: 'object',
-  properties: {
-    app: { type: 'string', description: 'comma-separated app handles (default: all apps)' },
-  },
-} as const;
 
 /** Build the plan/audit/snapshot store context: config + apps narrowed by `app`, plus the memoized resolvers. */
 async function buildStoreContext(
