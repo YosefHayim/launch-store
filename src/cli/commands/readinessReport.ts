@@ -124,7 +124,7 @@ export async function runReadinessCommand(input: RunReadinessCommandInput): Prom
 
   const outcome = await runProbes(ctx, selectReadinessProbes(input.category));
 
-  if (input.json === true) console.log(JSON.stringify(outcome, null, 2));
+  if (input.json === true) log.line(JSON.stringify(outcome, null, 2));
   else renderReadinessOutcome(log, outcome, input.labels);
   process.exitCode = outcome.exitCode;
 }

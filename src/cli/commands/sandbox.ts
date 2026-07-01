@@ -16,6 +16,8 @@ import { loadActiveAscKey } from '../../core/accounts.js';
 import { createLogger } from '../../core/logger.js';
 import { clearPurchaseHistory, listSandboxTesters } from '../../core/sandbox.js';
 
+const log = createLogger(false);
+
 /** Build a client bound to the active Apple account, or fail with the onboarding hint. */
 async function activeClient(): Promise<AppStoreConnectClient> {
   const ascKey = await loadActiveAscKey();
@@ -63,17 +65,17 @@ export function registerSandboxCommand(program: Command): void {
       const testers = await listSandboxTesters(client);
 
       if (options.json) {
-        console.log(JSON.stringify(testers, null, 2));
+        log.line(JSON.stringify(testers, null, 2));
         return;
       }
       if (testers.length === 0) {
-        console.log(
+        log.line(
           'No sandbox testers. Create them in App Store Connect → Users and Access → Sandbox Testers.',
         );
         return;
       }
-      console.log(testers.map(renderTester).join('\n'));
-      console.log(`\n${testers.length} sandbox tester${testers.length === 1 ? '' : 's'}.`);
+      log.line(testers.map(renderTester).join('\n'));
+      log.line(`\n${testers.length} sandbox tester${testers.length === 1 ? '' : 's'}.`);
     });
 
   sandbox

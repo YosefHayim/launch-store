@@ -30,6 +30,9 @@ import { buildDoctorContext } from '../../core/doctor/context.js';
 import { isApplePlatform, parsePlatform } from '../../core/platform.js';
 import { selectApps } from '../../core/syncJobs.js';
 import type { DoctorCheck, DoctorPlatform, DoctorReport } from '../../core/doctor/types.js';
+import { createLogger } from '../../core/logger.js';
+
+const log = createLogger(false);
 
 /** Map a check status to its leading glyph. */
 const STATUS_GLYPH: Record<DoctorCheck['status'], string> = { ok: '✓', fail: '✗', info: '•' };
@@ -37,10 +40,10 @@ const STATUS_GLYPH: Record<DoctorCheck['status'], string> = { ok: '✓', fail: '
 /** Print one check: glyph + title, then any indented detail, then the actionable hint. */
 function renderCheck(check: DoctorCheck): void {
   const hint = check.status === 'ok' || !check.hint ? '' : `  — ${check.hint}`;
-  console.log(`${STATUS_GLYPH[check.status]} ${check.title}${hint}`);
+  log.line(`${STATUS_GLYPH[check.status]} ${check.title}${hint}`);
   if (check.detail) {
     for (const line of check.detail.split('\n'))
-      console.log(line.startsWith(' ') ? line : `  ${line}`);
+      log.line(line.startsWith(' ') ? line : `  ${line}`);
   }
 }
 
@@ -70,11 +73,9 @@ async function fixExportCompliance(appSelector?: string): Promise<void> {
         buildNumber,
         usesNonExemptEncryption: app.usesNonExemptEncryption,
       });
-      console.log(
-        `  ↳ ${app.name} build ${buildNumber}: ${summarizeExportComplianceResult(result)}`,
-      );
+      log.line(`  ↳ ${app.name} build ${buildNumber}: ${summarizeExportComplianceResult(result)}`);
     } catch (error) {
-      console.log(
+      log.line(
         `  ↳ ${app.name}: could not reconcile export compliance — ${error instanceof Error ? error.message : String(error)}`,
       );
     }
@@ -134,7 +135,7 @@ export function registerDoctorCommand(program: Command): void {
           : 'android';
         if (options.json === true) {
           const report = await inspectDoctor(await buildDoctorContext(platform, options.app));
-          console.log(JSON.stringify(report, null, 2));
+          log.line(JSON.stringify(report, null, 2));
           if (!report.ok) process.exitCode = 1;
           return;
         }

@@ -24,6 +24,8 @@ import {
   type ReviewFilters,
 } from '../../core/reviews.js';
 
+const log = createLogger(false);
+
 /** Options shared by every subcommand that targets an app's reviews. */
 interface ReviewsListOptions {
   app?: string;
@@ -143,15 +145,15 @@ export function registerReviewsCommand(program: Command): void {
       const found = await listReviews(client, bundleId, toFilters(options));
 
       if (options.json) {
-        console.log(JSON.stringify(found, null, 2));
+        log.line(JSON.stringify(found, null, 2));
         return;
       }
       if (found.length === 0) {
-        console.log('No reviews match. Try removing a filter, or check back later.');
+        log.line('No reviews match. Try removing a filter, or check back later.');
         return;
       }
-      console.log(found.map(renderReview).join('\n\n'));
-      console.log(`\n${found.length} review${found.length === 1 ? '' : 's'}.`);
+      log.line(found.map(renderReview).join('\n\n'));
+      log.line(`\n${found.length} review${found.length === 1 ? '' : 's'}.`);
     });
 
   reviews

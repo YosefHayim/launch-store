@@ -611,7 +611,7 @@ async function previewEnv(options: BuildRunOptions): Promise<void> {
     includeLocal: options.includeLocal,
     envExclude: config.envExclude,
   });
-  console.log(formatEnvTable(resolved));
+  createLogger(false).line(formatEnvTable(resolved));
 }
 
 /**

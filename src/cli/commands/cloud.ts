@@ -14,34 +14,37 @@ import { getComputeHost } from '../../core/registry.js';
 import { clearLiveHost, getAmiId, getLiveHost } from '../../core/cloudState.js';
 import { costBanner, formatAge, isReleasable, releasableAt, usd } from '../../core/cost.js';
 import { runCloudDoctor } from '../../providers/compute/awsEc2Mac.js';
+import { createLogger } from '../../core/logger.js';
+
+const log = createLogger(false);
 
 /** Show the live host's age, accrued cost, and when AWS will let it be released. */
 async function status(): Promise<void> {
   const handle = getLiveHost();
   if (!handle) {
-    console.log('No live cloud host. A remote build allocates one on demand.');
+    log.line('No live cloud host. A remote build allocates one on demand.');
     return;
   }
   const host = getComputeHost(handle.provider);
   const live = await host.status(handle);
   if (!live) {
-    console.log(
+    log.line(
       `Recorded host ${handle.instanceId ?? handle.ssh.host} is no longer live (it was released). Clearing state.`,
     );
     clearLiveHost();
     return;
   }
   if (handle.provider === 'byo-ssh') {
-    console.log(
+    log.line(
       `Connected to your Mac at ${handle.ssh.user}@${handle.ssh.host} (up ${formatAge(live.ageMs)}; not billed by Launch).`,
     );
     return;
   }
-  console.log(costBanner(handle));
-  console.log(
+  log.line(costBanner(handle));
+  log.line(
     `  region ${handle.region ?? '?'} · host ${handle.hostId ?? '?'} · ~${usd(live.estimatedCostUsd)} so far`,
   );
-  console.log(
+  log.line(
     `  releasable after ${new Date(live.releasableAt).toLocaleString()} (24h Apple-license minimum).`,
   );
 }
@@ -50,11 +53,11 @@ async function status(): Promise<void> {
 async function teardown(): Promise<void> {
   const handle = getLiveHost();
   if (!handle) {
-    console.log('No live cloud host to tear down.');
+    log.line('No live cloud host to tear down.');
     return;
   }
   if (handle.provider === 'aws-ec2-mac' && !isReleasable(handle.allocatedAt)) {
-    console.log(
+    log.line(
       `Heads up: AWS won't release the Dedicated Host until the 24h minimum elapses ` +
         `(${new Date(releasableAt(handle.allocatedAt)).toLocaleString()}). It keeps billing until then either way.`,
     );
@@ -67,21 +70,21 @@ async function teardown(): Promise<void> {
   const host = getComputeHost(handle.provider);
   await host.teardown(handle);
   clearLiveHost();
-  console.log('Host released. No further charges accrue once AWS reports it released.');
+  log.line('Host released. No further charges accrue once AWS reports it released.');
 }
 
 /** Preflight the AWS account: credentials, region, instance-type availability, quota hint, IAM actions. */
 async function doctor(): Promise<void> {
   const { config } = await loadConfig();
   if (!config.aws) {
-    console.log('No `aws` block in launch.config.ts. Add one and re-run:');
-    console.log('  aws: { region: "us-east-1" }');
+    log.line('No `aws` block in launch.config.ts. Add one and re-run:');
+    log.line('  aws: { region: "us-east-1" }');
     process.exitCode = 1;
     return;
   }
   const result = await runCloudDoctor(config.aws);
   for (const check of result.checks) {
-    console.log(`${check.ok ? '✓' : '✗'} ${check.label} — ${check.detail}`);
+    log.line(`${check.ok ? '✓' : '✗'} ${check.label} — ${check.detail}`);
   }
   if (!result.ok) process.exitCode = 1;
 }
@@ -90,24 +93,24 @@ async function doctor(): Promise<void> {
 async function setup(): Promise<void> {
   const { config } = await loadConfig();
   if (!config.aws) {
-    console.log('Add an AWS block to launch.config.ts, then run `launch cloud doctor`:');
-    console.log('  aws: {');
-    console.log('    region: "us-east-1",');
-    console.log('    // profile: "default",        // a named ~/.aws profile (optional)');
-    console.log('    // amiId: "ami-…",             // BYO golden AMI with Xcode (optional)');
-    console.log('    // instanceType: "mac2.metal", // default');
-    console.log('  }');
+    log.line('Add an AWS block to launch.config.ts, then run `launch cloud doctor`:');
+    log.line('  aws: {');
+    log.line('    region: "us-east-1",');
+    log.line('    // profile: "default",        // a named ~/.aws profile (optional)');
+    log.line('    // amiId: "ami-…",             // BYO golden AMI with Xcode (optional)');
+    log.line('    // instanceType: "mac2.metal", // default');
+    log.line('  }');
     return;
   }
-  console.log(
+  log.line(
     `AWS region: ${config.aws.region}${config.aws.profile ? ` · profile ${config.aws.profile}` : ''}`,
   );
-  console.log(
+  log.line(
     `Golden AMI: ${config.aws.amiId ?? getAmiId() ?? '(none yet — bootstrapped + snapshotted on first remote build)'}`,
   );
   const handle = getLiveHost();
-  console.log(handle ? `Live host: ${handle.instanceId ?? handle.ssh.host}` : 'Live host: none');
-  console.log('');
+  log.line(handle ? `Live host: ${handle.instanceId ?? handle.ssh.host}` : 'Live host: none');
+  log.line('');
   await doctor();
 }
 

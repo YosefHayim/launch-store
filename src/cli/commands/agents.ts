@@ -30,6 +30,9 @@ import {
 import type { AgentTarget } from '../../core/agents/types.js';
 import { findUnknownCommands } from '../../core/agents/validate.js';
 import { clientConfigPath, installServer, type McpClient } from '../../core/mcp/install.js';
+import { createLogger } from '../../core/logger.js';
+
+const log = createLogger(false);
 
 /** The three supported agents, in display order. */
 const ALL_TARGETS: AgentTarget[] = ['claude', 'cursor', 'codex'];
@@ -238,12 +241,11 @@ async function runInit(program: Command, cwd: string, options: AgentsOptions): P
   if (interactive) {
     outro(summary);
   } else {
-    for (const artifact of artifacts) console.log(`✓ ${artifact.path}`);
-    for (const client of wired)
-      console.log(`✓ ${clientConfigPath(client, cwd)} (launch mcp server)`);
-    console.log(summary);
+    for (const artifact of artifacts) log.line(`✓ ${artifact.path}`);
+    for (const client of wired) log.line(`✓ ${clientConfigPath(client, cwd)} (launch mcp server)`);
+    log.line(summary);
   }
-  console.log('Verify anytime with: launch agents check');
+  log.line('Verify anytime with: launch agents check');
 }
 
 /** `launch agents check` — report any scaffolded file that drifted or predates the installed Launch. */
@@ -251,16 +253,16 @@ function runCheck(program: Command, cwd: string, options: AgentsOptions): void {
   assertRegistryInSync(program);
   const targets = options.agent ? parseAgentFlag(options.agent) : detectTargets(cwd);
   if (targets.length === 0) {
-    console.log('No agent files found. Scaffold them with: launch agents init');
+    log.line('No agent files found. Scaffold them with: launch agents init');
     return;
   }
   const version = program.version() ?? '0.0.0';
   const stale = findStaleArtifacts(cwd, planArtifacts(targets, version));
   if (stale.length === 0) {
-    console.log(`Agent files are in sync with launch v${version} (${targets.join(', ')}).`);
+    log.line(`Agent files are in sync with launch v${version} (${targets.join(', ')}).`);
     return;
   }
-  console.error(
+  log.error(
     `These agent files are out of date — re-run \`launch agents init\`:\n  ${stale.join('\n  ')}`,
   );
   process.exit(1);

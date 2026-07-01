@@ -19,6 +19,7 @@
 
 import { confirm as clackConfirm, isCancel, text } from '@clack/prompts';
 import { exists, run } from './exec.js';
+import { createLogger } from './logger.js';
 import { isMac } from './os.js';
 
 /**
@@ -211,13 +212,14 @@ export interface ToolchainIo {
   log(message: string): void;
 }
 
-/** Production {@link ToolchainIo}: real PATH/exec, clack prompts, console output. */
+/** Production {@link ToolchainIo}: real PATH/exec, clack prompts, logger-seam output. */
 function realIo(): ToolchainIo {
+  const log = createLogger(false);
   return {
     exists,
     run,
     log: (message) => {
-      console.log(message);
+      log.line(message);
     },
     async confirm(message) {
       const answer = await clackConfirm({ message });
