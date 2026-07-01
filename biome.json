@@ -42,7 +42,7 @@
         "useSortedClasses": "warn"
       },
       "style": {
-        "noDefaultExport": "off",
+        "noDefaultExport": "error",
         "noNonNullAssertion": "warn",
         "useDestructuring": "warn",
         "noJsxLiterals": "off",
@@ -96,6 +96,10 @@
     {
       "includes": ["examples/**"],
       "linter": { "enabled": false }
+    },
+    {
+      "includes": ["**/*.config.ts", "launch.config.example.ts"],
+      "linter": { "rules": { "style": { "noDefaultExport": "off" } } }
     }
   ]
 }

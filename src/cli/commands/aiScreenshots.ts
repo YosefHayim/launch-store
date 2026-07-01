@@ -302,6 +302,7 @@ export async function generateScreenshots(
       ...(input.brief !== undefined ? { brief: input.brief } : {}),
       ...(captions !== undefined ? { captions } : {}),
     };
+    // biome-ignore lint/performance/noAwaitInLoops: sequential — one enhancement batch per platform; serial bounds the genshot AI load and preserves platform order.
     const shots = await enhancer.enhance(request);
     hardGate(platform, shots);
     enhanced.push(...shots);
