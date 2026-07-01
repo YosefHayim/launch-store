@@ -6,7 +6,7 @@
  * {@link registerBuiltinSources} — the orchestrator and the `snapshot` command are untouched.
  */
 
-import type { SnapshotSource } from './types.js';
+import type { SnapshotSource } from '../types.js';
 import { appleProductsSource } from './sources/appleProducts.js';
 import { appleSubscriptionsSource } from './sources/appleSubscriptions.js';
 import { appleListingSource } from './sources/appleListing.js';

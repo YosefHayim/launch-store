@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { captureSnapshot, SNAPSHOT_EXIT, SNAPSHOT_VERSION } from './orchestrator.js';
-import type { SnapshotContext, SnapshotSource, SnapshotStore, SourceCapture } from './types.js';
-import type { LaunchConfig } from '../types.js';
+import type {
+  SnapshotContext,
+  SnapshotSource,
+  SnapshotStore,
+  SourceCapture,
+  LaunchConfig,
+} from '../types.js';
 
 /** A minimal context — fake sources ignore it, but the type must be honored without casts. */
 function makeCtx(): SnapshotContext {

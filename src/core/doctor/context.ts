@@ -19,7 +19,7 @@ import { loadConfig } from '../config.js';
 import { createAscClientResolver, createPlayClientResolver } from '../storeClients.js';
 import { selectApps } from '../syncJobs.js';
 import { localCredentialsProvider } from '../../providers/credentials/local.js';
-import type { DoctorContext, DoctorPlatform } from './types.js';
+import type { DoctorContext, DoctorPlatform } from '../types.js';
 
 /**
  * Build the production {@link DoctorContext} for a platform. The store resolvers' concrete clients

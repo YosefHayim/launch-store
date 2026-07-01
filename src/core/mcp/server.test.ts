@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dispatch } from './server.js';
-import type { McpTool } from './types.js';
+import type { McpTool } from '../types.js';
 
 /** A tool whose handler echoes a fixed payload — or throws — so `dispatch`'s boundary is graded in isolation. */
 function tool(overrides: Partial<McpTool> = {}): McpTool {

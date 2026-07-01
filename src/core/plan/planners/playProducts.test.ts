@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { playProductsPlanner } from './playProducts.js';
-import type { PlanContext, PlayCatalogApi } from '../types.js';
-import type { AppDescriptor, AppProducts, InAppPurchaseConfig, LaunchConfig } from '../../types.js';
+import type {
+  PlanContext,
+  PlayCatalogApi,
+  AppDescriptor,
+  AppProducts,
+  InAppPurchaseConfig,
+  LaunchConfig,
+} from '../../types.js';
 
 /** A fully-stubbed {@link PlayCatalogApi}: reads default to "nothing exists yet", writes resolve to void. */
 function makePlayApi(overrides: Partial<PlayCatalogApi> = {}): PlayCatalogApi {

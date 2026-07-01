@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { reconcileApp, type AscCatalogApi, type ReconcileInput } from './ascSync.js';
-import { makeAscCatalogApiFake } from './ascCatalogApi.testkit.js';
+import { makeAscCatalogApiFake } from '../testkit/ascCatalogApi.testkit.js';
 import type { AppleStoreConfig } from './storeConfig.js';
 import type { AppProducts, InAppPurchaseConfig, SubscriptionGroupConfig } from './types.js';
 

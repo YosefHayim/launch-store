@@ -21,7 +21,7 @@ import { join } from 'node:path';
 import { capture } from '../exec.js';
 import { isMac } from '../os.js';
 import { asRecord } from '../json.js';
-import type { EntitlementValue } from './types.js';
+import type { EntitlementValue } from '../types.js';
 
 /**
  * Decode `profileContent` (a base64 `.mobileprovision`) and return its `Entitlements` dict, or `null`

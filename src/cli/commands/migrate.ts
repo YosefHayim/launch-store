@@ -21,11 +21,7 @@ import { migrateFastlane } from '../../core/migrate/fastlane.js';
 import { renderReport } from '../../core/migrate/report.js';
 import { writeArtifacts } from '../../core/migrate/write.js';
 import type { AppDescriptor } from '../../core/types.js';
-import type {
-  MigrationNote,
-  MigrationNoteLevel,
-  MigrationResult,
-} from '../../core/migrate/types.js';
+import type { MigrationNote, MigrationNoteLevel, MigrationResult } from '../../core/types.js';
 
 /** The generated report's filename, always (re)written — it's a regenerable summary, not a user file. */
 const REPORT_FILE = 'migration-report.md';

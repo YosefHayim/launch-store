@@ -22,7 +22,7 @@ import { validate } from '../jsonSchema.js';
 import { loadConfig } from '../config.js';
 import { gateTools } from './gate.js';
 import { ALL_TOOLS } from './tools.js';
-import type { McpTool, McpToolResult } from './types.js';
+import type { McpTool, McpToolResult } from '../types.js';
 
 /** The install hint shown when the optional MCP SDK isn't present. */
 const SDK_INSTALL_HINT = 'npm i @modelcontextprotocol/sdk';

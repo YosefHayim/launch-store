@@ -21,24 +21,28 @@ import { runSyncBatch } from '../syncRun.js';
 import { createAscClientResolver, createPlayClientResolver } from '../storeClients.js';
 import { registerBuiltinPlanners, listSurfacePlanners } from '../plan/registry.js';
 import { runPlanners } from '../plan/orchestrator.js';
-import type { PlanContext } from '../plan/types.js';
+import type {
+  PlanContext,
+  ReadinessContext,
+  ReadinessCategory,
+  SnapshotContext,
+  DoctorPlatform,
+  McpTool,
+  McpToolResult,
+  Platform,
+} from '../types.js';
 import { registerBuiltinProbes, selectReadinessProbes } from '../readiness/registry.js';
 import { runProbes } from '../readiness/orchestrator.js';
-import type { ReadinessContext, ReadinessCategory } from '../readiness/types.js';
 import { registerBuiltinSources, listSnapshotSources } from '../snapshot/registry.js';
 import { captureSnapshot } from '../snapshot/orchestrator.js';
 import { diffSnapshots } from '../snapshot/diff.js';
 import { listSnapshots, loadSnapshot, saveSnapshot } from '../snapshot/store.js';
-import type { SnapshotContext } from '../snapshot/types.js';
 import { loadConfigSchema, validateConfig } from '../configSchema.js';
 import { checkConfigSemantics } from '../configSemantics.js';
 import { renderConfigDocs } from '../docs/configDocs.js';
 import { inspectDoctor } from '../doctor/inspect.js';
 import { buildDoctorContext } from '../doctor/context.js';
-import type { DoctorPlatform } from '../doctor/types.js';
 import { previewBuild } from '../buildPreview.js';
-import type { Platform } from '../types.js';
-import { type McpTool, jsonResult, optionalString } from './types.js';
 
 /** The literal token meaning "capture live state now and diff against it" rather than a saved name. */
 const LIVE = 'live';
@@ -50,6 +54,22 @@ const APP_FILTER_SCHEMA = {
     app: { type: 'string', description: 'comma-separated app handles (default: all apps)' },
   },
 } as const;
+
+/**
+ * Build the standard success result for a tool: its structured report (a `PlanOutcome`, a `DoctorReport`,
+ * …), pretty-printed as JSON text. `value` is `unknown` because callers pass whatever their orchestrator
+ * returns and `JSON.stringify` accepts it directly — no cast, and the concrete type is enforced at the
+ * call site, not here.
+ */
+function jsonResult(value: unknown): McpToolResult {
+  return { content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] };
+}
+
+/** Read an optional string argument, returning `undefined` for any non-string (incl. missing) value. */
+function optionalString(args: Record<string, unknown>, key: string): string | undefined {
+  const value = args[key];
+  return typeof value === 'string' ? value : undefined;
+}
 
 /** Build the plan/audit/snapshot store context: config + apps narrowed by `app`, plus the memoized resolvers. */
 async function buildStoreContext(
@@ -94,7 +114,7 @@ async function runReadinessTool(
   return jsonResult(await runProbes(ctx, selectReadinessProbes(category)));
 }
 
-/** Capture live state into a {@link import("../snapshot/types.js").Snapshot}, for the `live` diff arm. */
+/** Capture live state into a {@link import("../types.js").Snapshot}, for the `live` diff arm. */
 async function captureLive(app: string | undefined): Promise<ReturnType<typeof captureSnapshot>> {
   registerBuiltinSources();
   const ctx = await buildStoreContext(app);

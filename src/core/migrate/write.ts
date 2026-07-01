@@ -8,7 +8,7 @@
 
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { MigrationResult } from './types.js';
+import type { MigrationResult } from '../types.js';
 
 /** Where and how to persist artifacts. */
 export interface WriteOptions {

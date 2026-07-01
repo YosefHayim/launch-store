@@ -3,8 +3,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyAdopt, detectTargets, planTargets, type TargetPlan } from './orchestrator.js';
-import type { Adopter, AdoptCatalogApi, AdoptTarget, PlannedWrite } from './types.js';
-import type { AppDescriptor, InAppPurchaseConfig } from '../types.js';
+import type {
+  Adopter,
+  AdoptCatalogApi,
+  AdoptTarget,
+  PlannedWrite,
+  AppDescriptor,
+  InAppPurchaseConfig,
+} from '../types.js';
 
 function makeApi(overrides: Partial<AdoptCatalogApi> = {}): AdoptCatalogApi {
   const base: AdoptCatalogApi = {

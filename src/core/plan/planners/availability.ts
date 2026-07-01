@@ -12,7 +12,7 @@
 import { resolveSidecarConfig } from '../../config.js';
 import { loadAvailabilityConfig, reconcileAvailability } from '../../availability.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '../types.js';
+import type { SurfacePlanner } from '../../types.js';
 
 /** Surface id — also the value users pass as `launch plan availability`. */
 const SURFACE = 'availability';

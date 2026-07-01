@@ -10,7 +10,7 @@
  * blocker. Per-app over the iOS scope; omits itself when no iOS app is in scope.
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
 import { iosApps } from '../appScopes.js';
 
 /** The App Store Connect age-rating-declaration readiness probe — a listing-completeness and submit blocker. */

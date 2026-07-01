@@ -29,7 +29,7 @@ import { inspectDoctor } from '../../core/doctor/inspect.js';
 import { buildDoctorContext } from '../../core/doctor/context.js';
 import { isApplePlatform, parsePlatform } from '../../core/platform.js';
 import { selectApps } from '../../core/syncJobs.js';
-import type { DoctorCheck, DoctorPlatform, DoctorReport } from '../../core/doctor/types.js';
+import type { DoctorCheck, DoctorPlatform, DoctorReport } from '../../core/types.js';
 import { createLogger } from '../../core/logger.js';
 
 const log = createLogger(false);
@@ -66,6 +66,7 @@ async function fixExportCompliance(appSelector?: string): Promise<void> {
   for (const app of selectApps(apps, appSelector)) {
     if (!app.bundleId || app.usesNonExemptEncryption === undefined) continue;
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: sequential — best-effort per-app reconcile with per-app try/catch and ordered output.
       const buildNumber = await client.getLatestBuildNumber(app.bundleId);
       if (buildNumber === 0) continue;
       const result = await reconcileExportCompliance(client, {

@@ -10,16 +10,18 @@
 
 import type {
   AppEntities,
+  InAppPurchaseConfig,
   JsonValue,
+  PlayProductOverride,
+  ProductLocalization,
   RestoreInput,
   RestoreReport,
   SnapshotContext,
   SnapshotEntity,
   SnapshotSource,
   SourceCapture,
-} from '../types.js';
+} from '../../types.js';
 import type { InAppProductResource, PlayMoney } from '../../../google/playClient.js';
-import type { InAppPurchaseConfig, PlayProductOverride, ProductLocalization } from '../../types.js';
 import type { PlannedAction } from '../../ascSync.js';
 import { reconcilePlayProducts } from '../../playProducts.js';
 import { androidApps } from '../../readiness/appScopes.js';

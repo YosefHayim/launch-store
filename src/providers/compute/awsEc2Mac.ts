@@ -492,6 +492,7 @@ async function waitForSsh(
   const deadline = Date.now() + SSH_BOOT_TIMEOUT_MS;
   let host: string | undefined;
   while (Date.now() < deadline) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential poll — re-reads the instance's AWS state each tick before delaying.
     const res = await client.send(new ec2.DescribeInstancesCommand({ InstanceIds: [instanceId] }));
     const instance = res.Reservations?.[0]?.Instances?.[0];
     host = publicAddress(instance?.PublicDnsName, instance?.PublicIpAddress);
@@ -503,6 +504,7 @@ async function waitForSsh(
 
   const target: SshTarget = { host, user: 'ec2-user', port: 22, identityFile: KEY_PATH };
   while (Date.now() < deadline) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential poll — probes SSH each tick until the Mac's slow boot finishes.
     if (await sshReachable(target)) return target;
     report('Instance running; waiting for SSH to come up (EC2 Macs boot slowly)…');
     await delay(15000);
@@ -558,6 +560,7 @@ async function snapshotGoldenAmi(
   if (!amiId) throw new Error('CreateImage returned no AMI id.');
   const deadline = Date.now() + AMI_AVAILABLE_TIMEOUT_MS;
   while (Date.now() < deadline) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential poll — waits for the AMI to finish baking before returning it.
     const described = await client.send(new ec2.DescribeImagesCommand({ ImageIds: [amiId] }));
     if (described.Images?.[0]?.State === 'available') return amiId;
     await delay(20000);
@@ -574,6 +577,7 @@ async function waitForTerminated(
 ): Promise<void> {
   const deadline = Date.now() + 5 * 60 * 1000;
   while (Date.now() < deadline) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential poll — waits for full instance termination before releasing the host.
     const res = await client.send(new ec2.DescribeInstancesCommand({ InstanceIds: [instanceId] }));
     if (res.Reservations?.[0]?.Instances?.[0]?.State?.Name === 'terminated') return;
     await delay(10000);

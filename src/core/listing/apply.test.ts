@@ -7,7 +7,7 @@ import {
   deriveAndroidLocale,
   renderDraftPreview,
 } from './apply.js';
-import type { DraftListing } from './types.js';
+import type { DraftListing } from '../types.js';
 
 describe('clampDraft', () => {
   it('passes through fields within their limits and reports no warnings', () => {

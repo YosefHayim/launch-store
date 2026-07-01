@@ -5,15 +5,15 @@
  * The design mirrors the rest of the read family (plan / audit / snapshot / doctor): a tool owns no
  * logic, it just calls the same pure core orchestrator the CLI calls and returns the structured object —
  * in-process, never by self-shelling. These types describe the MCP *mechanism* (a tool's identity, its
- * capability tier, its hand-written input schema, and its handler's result), so — like
- * `core/readiness/types.ts` and `core/doctor/types.ts` — they live here beside the feature rather than in
- * `core/types.ts`. The capability tier (`McpCapability`, declared in `core/types.ts` because the config
- * schema generator must see it) is the gate: the server registers only tools whose tier the operator
- * enabled in `launch.config.ts`, so an agent can never reach a mutation the operator didn't opt into.
+ * capability tier, its hand-written input schema, and its handler's result). The capability tier
+ * ({@link McpCapability}, in `./storeSurface.js` because the config schema generator must see it) is the
+ * gate: the server registers only tools whose tier the operator enabled in `launch.config.ts`, so an
+ * agent can never reach a mutation the operator didn't opt into. The result/argument helpers that build
+ * these shapes (`jsonResult`, `optionalString`) are runtime logic and live in `core/mcp/tools.ts`.
  */
 
 import type { JsonSchema } from '../jsonSchema.js';
-import type { McpCapability } from '../types.js';
+import type { McpCapability } from './storeSurface.js';
 
 /**
  * One block of an MCP tool result. Launch only ever emits `text` (a tool returns its structured report as
@@ -66,20 +66,4 @@ export interface McpTool {
   inputSchema: McpInputSchema;
   /** Run the tool against already-validated `args`; resolve with the structured result. */
   handler(args: Record<string, unknown>): Promise<McpToolResult>;
-}
-
-/**
- * Build the standard success result for a tool: its structured report (a `PlanOutcome`, a `DoctorReport`,
- * …), pretty-printed as JSON text. `value` is `unknown` because callers pass whatever their orchestrator
- * returns and `JSON.stringify` accepts it directly — no cast, and the concrete type is enforced at the
- * call site, not here.
- */
-export function jsonResult(value: unknown): McpToolResult {
-  return { content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] };
-}
-
-/** Read an optional string argument, returning `undefined` for any non-string (incl. missing) value. */
-export function optionalString(args: Record<string, unknown>, key: string): string | undefined {
-  const value = args[key];
-  return typeof value === 'string' ? value : undefined;
 }

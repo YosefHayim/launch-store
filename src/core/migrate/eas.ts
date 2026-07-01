@@ -15,9 +15,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readResolvedConfig } from '../config.js';
 import { configTemplate, detectAppRoot } from '../configScaffold.js';
-import type { AppDescriptor, BuildProfile, PlayTrack } from '../types.js';
 import { buildEnvExample, scaffoldStoreConfig } from './scaffold.js';
 import type {
+  AppDescriptor,
+  BuildProfile,
   CredentialsSummary,
   EasBuildProfile,
   EasCli,
@@ -26,7 +27,8 @@ import type {
   MigrationArtifact,
   MigrationNote,
   MigrationResult,
-} from './types.js';
+  PlayTrack,
+} from '../types.js';
 
 /** Narrow an unknown value to a plain object, or null. Mirrors `config.ts`/`storeConfig.ts` (no zod). */
 function asRecord(value: unknown): Record<string, unknown> | null {

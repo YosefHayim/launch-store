@@ -12,7 +12,7 @@
 
 import { asRecord } from '../json.js';
 import { APPLE_LIMITS, serializeKeywords } from './apply.js';
-import type { DraftListing, ListingBrief, ListingGenerator } from './types.js';
+import type { DraftListing, ListingBrief, ListingGenerator } from '../types.js';
 
 /** Anthropic Messages API endpoint. Centralized here per the repo's "no scattered URL strings" rule. */
 const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com/v1/messages';

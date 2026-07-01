@@ -5,8 +5,7 @@ import {
   renderEntitlementsBlock,
   serializeProductsSection,
 } from './configWriter.js';
-import type { ProductPiece } from './types.js';
-import type { InAppPurchaseConfig, SubscriptionGroupConfig } from '../types.js';
+import type { ProductPiece, InAppPurchaseConfig, SubscriptionGroupConfig } from '../types.js';
 
 const IAP: InAppPurchaseConfig = {
   productId: 'com.acme.coins',

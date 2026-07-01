@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { diffSnapshots, stableStringify } from './diff.js';
-import type { JsonValue, Snapshot, SnapshotEntity } from './types.js';
+import type { JsonValue, Snapshot, SnapshotEntity } from '../types.js';
 
 /** A snapshot with one captured Apple-products surface holding the given entities. */
 function snap(entities: SnapshotEntity[]): Snapshot {

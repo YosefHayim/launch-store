@@ -27,7 +27,7 @@ import {
   renderCursorTaskRule,
   spliceManagedBlock,
 } from '../../core/agents/render.js';
-import type { AgentTarget } from '../../core/agents/types.js';
+import type { AgentTarget } from '../../core/types.js';
 import { findUnknownCommands } from '../../core/agents/validate.js';
 import { clientConfigPath, installServer, type McpClient } from '../../core/mcp/install.js';
 import { createLogger } from '../../core/logger.js';

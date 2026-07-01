@@ -21,8 +21,7 @@ import { createLogger } from '../../core/logger.js';
 import { loadStoreConfig, serializeStoreConfig, type StoreConfig } from '../../core/storeConfig.js';
 import { applyDraft, briefFor, clampDraft, renderDraftPreview } from '../../core/listing/apply.js';
 import { createAnthropicListingGenerator } from '../../core/listing/generator.js';
-import type { AppDescriptor } from '../../core/types.js';
-import type { ListingGenerator, LocaleDraft } from '../../core/listing/types.js';
+import type { AppDescriptor, ListingGenerator, LocaleDraft } from '../../core/types.js';
 
 /** Options for `launch ai listing`. */
 export interface AiListingInput {
@@ -107,6 +106,7 @@ export async function runAiListing(
   const drafts: LocaleDraft[] = [];
   for (const locale of locales) {
     const current = config.apple?.info[locale];
+    // biome-ignore lint/performance/noAwaitInLoops: sequential — one AI draft per locale; serial bounds LLM API concurrency and keeps drafts in locale order.
     const generated = await gen.generate(briefFor(locale, appName, current, input.about));
     const { draft, warnings } = clampDraft(generated);
     drafts.push({ locale, draft, warnings });

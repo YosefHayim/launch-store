@@ -16,7 +16,7 @@ import {
   reconcileVersionExperiments,
 } from '../../versionExperiments.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '../types.js';
+import type { SurfacePlanner } from '../../types.js';
 
 /** Surface id — also the value users pass as `launch plan experiments`. */
 const SURFACE = 'experiments';

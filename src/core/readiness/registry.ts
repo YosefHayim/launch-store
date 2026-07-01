@@ -6,7 +6,7 @@
  * {@link registerBuiltinProbes} — the orchestrator and every existing command are untouched.
  */
 
-import type { ReadinessCategory, ReadinessProbe } from './types.js';
+import type { ReadinessCategory, ReadinessProbe } from '../types.js';
 import { agreementsProbe } from './probes/agreements.js';
 import { appRecordProbe } from './probes/appRecord.js';
 import { subscriptionGroupProbe } from './probes/subscriptionGroup.js';
