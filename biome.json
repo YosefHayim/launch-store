@@ -61,6 +61,7 @@
         "noUndeclaredDependencies": "warn",
         "noUndeclaredVariables": "warn",
         "noUnresolvedImports": "off",
+        "useImportExtensions": "off",
         "useQwikValidLexicalScope": "off",
         "useHookAtTopLevel": "off"
       },
