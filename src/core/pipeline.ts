@@ -75,7 +75,11 @@ import { nativeProjectDirName, nativeTargetHint, platformLabel } from './platfor
 import { discoverExtensionBundleIds } from './appleTargets.js';
 import { isInteractive, runWithProgress, withSpinner } from './progress.js';
 import { AppStoreConnectClient } from '../apple/ascClient.js';
-import { ensureAdHocSigningCredentials, ensureSigningCredentials } from '../apple/credentials.js';
+import {
+  ensureAdHocSigningCredentials,
+  ensureSigningCredentials,
+  staleCachedSigningTargets,
+} from '../apple/credentials.js';
 import {
   appGroupPreflightNotice,
   gatherTargetSigningReadiness,
@@ -448,6 +452,38 @@ async function warnUnreadySigningTargets(
 }
 
 /**
+ * The cached-reuse arm of {@link resolveSigning}: return the cached assets to reuse, or null to fall
+ * through to (re)provisioning. Silent reuse is correct only when no cached profile predates a capability
+ * change — `loadCachedSigningAssets` reuses by uuid with no network check, so this grades each target
+ * against its App ID's live capabilities via {@link staleCachedSigningTargets} and regenerates a stale set
+ * rather than letting the archive die at exit 65 (issue #292). Skipped under `--dry-run` (no network).
+ */
+async function reuseCachedSigning(
+  signing: SigningAssets,
+  ascKey: AppleCredentials['ascKey'],
+  log: Logger,
+  dryRun: boolean,
+): Promise<SigningAssets | null> {
+  const stale = dryRun
+    ? []
+    : await staleCachedSigningTargets(new AppStoreConnectClient(ascKey), signing);
+  if (stale.length > 0) {
+    log.info(
+      `Regenerating signing — cached profile(s) predate a capability change: ${stale
+        .map((target) => `${target.bundleId} (missing ${target.missing.join(', ')})`)
+        .join('; ')}.`,
+    );
+    return null;
+  }
+  log.step(
+    'signing',
+    `reusing cert ${signing.certSerial} · ${signing.profileName}`,
+    'code-signing',
+  );
+  return signing;
+}
+
+/**
  * Resolve signing assets: reuse silently when cached, otherwise (interactively) provision them now.
  * Mirrors the locked decision — the build never hard-blocks; it offers to run setup inline.
  */
@@ -488,14 +524,10 @@ async function resolveSigning(
   // target now, while the fix is one command, instead of after a ~15-minute compile fails at exit 65.
   if (!dryRun) await warnUnreadySigningTargets(credentials.ascKey, app, bundleId, extensions, log);
   if (credentials.signing) {
-    log.step(
-      'signing',
-      `reusing cert ${credentials.signing.certSerial} · ${credentials.signing.profileName}`,
-      'code-signing',
-    );
-    return credentials.signing;
+    const reused = await reuseCachedSigning(credentials.signing, credentials.ascKey, log, dryRun);
+    if (reused) return reused;
   }
-  if (!dryRun)
+  if (!dryRun && !credentials.signing)
     log.info(
       `No cached signing assets for ${bundleId} — provisioning now (you'll confirm each Apple resource).`,
     );

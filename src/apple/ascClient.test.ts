@@ -2119,3 +2119,39 @@ describe('AppStoreConnectClient — TestFlight beta feedback', () => {
     expect(init).toBeUndefined();
   });
 });
+
+describe('findBundleId — exact identifier, not substring (#291)', () => {
+  it('selects the exact identifier when the substring filter also returns child bundle ids', async () => {
+    // Apple's filter[identifier] is a substring match, so a query for the main bundle also returns its
+    // widget — and it can come back first. The exact row must win, never data[0].
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: 'widget-res', attributes: { identifier: 'com.loopi.pomedero.widget' } },
+            { id: 'main-res', attributes: { identifier: 'com.loopi.pomedero', seedId: 'TEAM01' } },
+          ],
+        }),
+      ),
+    );
+    const bundle = await client.findBundleId('com.loopi.pomedero');
+    expect(bundle).toEqual({ id: 'main-res', identifier: 'com.loopi.pomedero', seedId: 'TEAM01' });
+    // Drops the limit=1 that could paginate the exact row away behind its substring siblings.
+    const url = String(fetchMock.mock.calls[0]?.[0]);
+    expect(url).toContain('filter[identifier]=com.loopi.pomedero');
+    expect(url).toContain('limit=200');
+  });
+
+  it('returns null when only substring siblings match (the bundle itself is unregistered)', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [{ id: 'widget-res', attributes: { identifier: 'com.loopi.pomedero.widget' } }],
+        }),
+      ),
+    );
+    expect(await client.findBundleId('com.loopi.pomedero')).toBeNull();
+  });
+});

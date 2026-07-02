@@ -26,10 +26,15 @@ import {
   ensureAdHocSigningCredentials,
   loadCachedSigningAssets,
   profileStaleAgainstCapabilities,
+  staleCachedSigningTargets,
 } from './credentials.js';
 import { extractProfileEntitlements } from '../core/adopt/profileEntitlements.js';
-import type { AscKey } from '../core/types.js';
-import type { BundleIdCapabilityResource, ProfileResource } from './ascClient.js';
+import type { AscKey, SigningAssets } from '../core/types.js';
+import type {
+  AppStoreConnectClient,
+  BundleIdCapabilityResource,
+  ProfileResource,
+} from './ascClient.js';
 
 // The profile-entitlements reader shells out to `security cms`/`plutil` (Mac-only). Mock it so the
 // stale-profile decision test stays a pure, in-process unit with no exec and no network.
@@ -169,6 +174,111 @@ describe('profileStaleAgainstCapabilities — regenerate-vs-reuse decision (#261
       clientWithCapabilities(['PUSH_NOTIFICATIONS', 'APP_GROUPS']),
       'bundle-resource-id',
       PROFILE,
+    );
+    expect(stale).toEqual([]);
+  });
+});
+
+describe('staleCachedSigningTargets — build-path reuse guard (#292)', () => {
+  const MAIN_ONLY: SigningAssets = {
+    bundleId: MAIN,
+    teamId: 'TEAM01',
+    certName: 'Apple Distribution',
+    certSerial: 'SERIAL',
+    profileName: `Launch_${MAIN}_AppStore`,
+    profileUuid: 'uuid-main',
+    profilePath: '/tmp/main.mobileprovision',
+  };
+  const SIGNING: SigningAssets = {
+    ...MAIN_ONLY,
+    extensionProfiles: { [WIDGET]: `Launch_${WIDGET}_AppStore` },
+  };
+
+  type Guarded = Pick<
+    AppStoreConnectClient,
+    'findBundleId' | 'findProfileByName' | 'listBundleIdCapabilities'
+  >;
+
+  /** A client stub over the three reads the guard makes; capabilities keyed by App ID resource id. */
+  function stubClient(
+    capsByResource: Record<string, string[]>,
+    overrides: Partial<Guarded> = {},
+  ): Guarded {
+    return {
+      findBundleId: vi.fn((identifier: string) =>
+        Promise.resolve({ id: `${identifier}-res`, identifier, seedId: 'TEAM01' }),
+      ),
+      findProfileByName: vi.fn((name: string) =>
+        Promise.resolve({
+          id: `prof-${name}`,
+          name,
+          uuid: `uuid-${name}`,
+          profileContent: 'bytes',
+        }),
+      ),
+      listBundleIdCapabilities: vi.fn((resourceId: string) =>
+        Promise.resolve(
+          (capsByResource[resourceId] ?? []).map((capabilityType, i) => ({
+            id: `c${i}`,
+            capabilityType,
+          })),
+        ),
+      ),
+      ...overrides,
+    };
+  }
+
+  it('flags every target whose profile predates an enabled capability (App Groups)', async () => {
+    // Both App IDs have APP_GROUPS enabled but neither profile carries the entitlement → both stale.
+    vi.mocked(extractProfileEntitlements).mockResolvedValue({ 'aps-environment': 'production' });
+    const stale = await staleCachedSigningTargets(
+      stubClient({ [`${MAIN}-res`]: ['APP_GROUPS'], [`${WIDGET}-res`]: ['APP_GROUPS'] }),
+      SIGNING,
+    );
+    expect(stale).toEqual([
+      { bundleId: MAIN, missing: ['APP_GROUPS'] },
+      { bundleId: WIDGET, missing: ['APP_GROUPS'] },
+    ]);
+  });
+
+  it('returns [] when every cached profile already covers the enabled capabilities', async () => {
+    vi.mocked(extractProfileEntitlements).mockResolvedValue({
+      'com.apple.security.application-groups': ['group.com.loopi.pomeder'],
+    });
+    const stale = await staleCachedSigningTargets(
+      stubClient({ [`${MAIN}-res`]: ['APP_GROUPS'], [`${WIDGET}-res`]: ['APP_GROUPS'] }),
+      SIGNING,
+    );
+    expect(stale).toEqual([]);
+  });
+
+  it('treats an unreadable profile as current — best-effort, never a needless regenerate', async () => {
+    // Off-Mac or a decode failure → extractProfileEntitlements returns null → graded current.
+    vi.mocked(extractProfileEntitlements).mockResolvedValue(null);
+    const stale = await staleCachedSigningTargets(
+      stubClient({ [`${MAIN}-res`]: ['APP_GROUPS'], [`${WIDGET}-res`]: ['APP_GROUPS'] }),
+      SIGNING,
+    );
+    expect(stale).toEqual([]);
+  });
+
+  it('grades the main bundle alone when the app has no extension profiles', async () => {
+    vi.mocked(extractProfileEntitlements).mockResolvedValue({ 'aps-environment': 'production' });
+    const stale = await staleCachedSigningTargets(
+      stubClient({ [`${MAIN}-res`]: ['APP_GROUPS'] }),
+      MAIN_ONLY,
+    );
+    expect(stale).toEqual([{ bundleId: MAIN, missing: ['APP_GROUPS'] }]);
+  });
+
+  it('skips an unregistered target (findBundleId → null)', async () => {
+    vi.mocked(extractProfileEntitlements).mockResolvedValue({ 'aps-environment': 'production' });
+    const stale = await staleCachedSigningTargets(
+      stubClient(
+        { [`${MAIN}-res`]: ['APP_GROUPS'] },
+        { findBundleId: vi.fn(() => Promise.resolve(null)) },
+      ),
+      MAIN_ONLY,
     );
     expect(stale).toEqual([]);
   });
