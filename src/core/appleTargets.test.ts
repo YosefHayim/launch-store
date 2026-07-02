@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -16,6 +16,8 @@ import {
   multiTargetSigningWarnings,
   parsePbxprojTargets,
   splitMainAndExtensions,
+  stampManualSigningIntoPbxproj,
+  writeManualSigningToProject,
 } from './appleTargets.js';
 
 /** A minimal but realistic pbxproj for a main app plus one `@bacons/apple-targets` widget extension. */
@@ -296,6 +298,108 @@ describe('findPbxproj — locate the project file in a native dir', () => {
       mkdirSync(projectDir, { recursive: true });
       writeFileSync(join(projectDir, 'project.pbxproj'), SINGLE_TARGET);
       expect(findPbxproj(join(root, 'ios'))).toBe(join(projectDir, 'project.pbxproj'));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+const TEAM = '5NS9ZUMYCS';
+const MAIN_PROFILE = 'Launch_com.loopi.pomedero_AppStore';
+const WIDGET_PROFILE = 'Launch_com.loopi.pomedero.widget_AppStore';
+const SIGNING = {
+  teamId: TEAM,
+  profileByBundleId: {
+    'com.loopi.pomedero': MAIN_PROFILE,
+    'com.loopi.pomedero.widget': WIDGET_PROFILE,
+  },
+};
+
+/** Count non-overlapping occurrences of a literal substring. */
+function occurrences(haystack: string, needle: string): number {
+  return haystack.split(needle).length - 1;
+}
+
+describe('stampManualSigningIntoPbxproj — per-target manual signing for a multi-target archive (#289)', () => {
+  it('stamps the main and widget Release configs with Manual signing and their own profiles', () => {
+    const stamped = stampManualSigningIntoPbxproj(APP_WITH_WIDGET, SIGNING);
+    expect(stamped).toContain(`PROVISIONING_PROFILE_SPECIFIER = "${MAIN_PROFILE}";`);
+    expect(stamped).toContain(`PROVISIONING_PROFILE_SPECIFIER = "${WIDGET_PROFILE}";`);
+    expect(stamped).toContain(`DEVELOPMENT_TEAM = ${TEAM};`);
+    // Exactly the two Release configs are touched — never the two Debug configs.
+    expect(occurrences(stamped, 'CODE_SIGN_STYLE = Manual;')).toBe(2);
+    expect(occurrences(stamped, 'PROVISIONING_PROFILE_SPECIFIER = ')).toBe(2);
+  });
+
+  it('leaves the target structure (bundle ids) intact after rewriting', () => {
+    const stamped = stampManualSigningIntoPbxproj(APP_WITH_WIDGET, SIGNING);
+    expect(parsePbxprojTargets(stamped)).toEqual(parsePbxprojTargets(APP_WITH_WIDGET));
+  });
+
+  it('is idempotent — a second stamp changes nothing (managed keys replaced, not appended)', () => {
+    const once = stampManualSigningIntoPbxproj(APP_WITH_WIDGET, SIGNING);
+    expect(stampManualSigningIntoPbxproj(once, SIGNING)).toBe(once);
+  });
+
+  it('touches only targets it has a profile for (widget left alone when its profile is absent)', () => {
+    const mainOnly = stampManualSigningIntoPbxproj(APP_WITH_WIDGET, {
+      teamId: TEAM,
+      profileByBundleId: { 'com.loopi.pomedero': MAIN_PROFILE },
+    });
+    expect(occurrences(mainOnly, 'CODE_SIGN_STYLE = Manual;')).toBe(1);
+    expect(mainOnly).toContain(MAIN_PROFILE);
+    expect(mainOnly).not.toContain(WIDGET_PROFILE);
+  });
+
+  it('returns the input unchanged when no bundle id matches a profile', () => {
+    const untouched = stampManualSigningIntoPbxproj(APP_WITH_WIDGET, {
+      teamId: TEAM,
+      profileByBundleId: {},
+    });
+    expect(untouched).toBe(APP_WITH_WIDGET);
+  });
+
+  it('inserts the managed keys inside buildSettings, before its close and the config name', () => {
+    const stamped = stampManualSigningIntoPbxproj(APP_WITH_WIDGET, SIGNING);
+    // In the widget Release config, the specifier sits inside buildSettings (before its `};`), which in
+    // turn sits before `name = Release;` — proving we edited the dict, not appended after the object.
+    const widgetRelease = stamped.slice(stamped.indexOf('BBBB2222'));
+    const specifierAt = widgetRelease.indexOf(
+      `PROVISIONING_PROFILE_SPECIFIER = "${WIDGET_PROFILE}";`,
+    );
+    const buildSettingsCloseAt = widgetRelease.indexOf('};');
+    const nameAt = widgetRelease.indexOf('name = Release;');
+    expect(specifierAt).toBeGreaterThan(-1);
+    expect(specifierAt).toBeLessThan(buildSettingsCloseAt);
+    expect(buildSettingsCloseAt).toBeLessThan(nameAt);
+  });
+});
+
+describe('writeManualSigningToProject — stamp the generated project on disk', () => {
+  it('rewrites the pbxproj and reports the change, then no-ops on a second run', () => {
+    const root = mkdtempSync(join(tmpdir(), 'launch-targets-'));
+    try {
+      const nativeDir = join(root, 'ios');
+      const projectDir = join(nativeDir, 'Looopi.xcodeproj');
+      mkdirSync(projectDir, { recursive: true });
+      const pbxproj = join(projectDir, 'project.pbxproj');
+      writeFileSync(pbxproj, APP_WITH_WIDGET);
+
+      expect(writeManualSigningToProject(nativeDir, SIGNING)).toBe(true);
+      expect(readFileSync(pbxproj, 'utf8')).toContain(
+        `PROVISIONING_PROFILE_SPECIFIER = "${WIDGET_PROFILE}";`,
+      );
+      // Idempotent on disk: the second run finds nothing to change.
+      expect(writeManualSigningToProject(nativeDir, SIGNING)).toBe(false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('returns false when the native project has not been generated yet', () => {
+    const root = mkdtempSync(join(tmpdir(), 'launch-targets-'));
+    try {
+      expect(writeManualSigningToProject(join(root, 'ios'), SIGNING)).toBe(false);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
