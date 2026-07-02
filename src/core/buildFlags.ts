@@ -54,10 +54,11 @@ export function xcargsExtra(jobs: number | undefined): string {
  * multi-target app each target's profile is supplied instead by the project's own manual-signing settings
  * and mapped per-bundle at export ({@link import("../providers/build/fastlane.js").exportOptionsPlist}
  * folds {@link SigningAssets.extensionProfiles}), so the global specifier is **dropped** when
- * {@link SigningAssets.extensionProfiles} is present. Whether a real multi-target archive additionally
- * needs each target's profile written into the pbxproj is project-dependent and operator-verified on a
- * live widget-app build (issue #262); removing the clobbering global specifier is the piece that has to be
- * right here, and the single-target string stays byte-identical.
+ * {@link SigningAssets.extensionProfiles} is present. Dropping it leaves each target needing its own
+ * profile in the project itself; the build engine writes those in with
+ * {@link import("./appleTargets.js").writeManualSigningToProject} right after `pod install` regenerates the
+ * pbxproj and before the archive (issue #289, confirmed on a live widget-app build). Removing the clobbering
+ * global specifier is the piece that has to be right *here*, and the single-target string stays byte-identical.
  */
 export function buildXcargs(
   signing: Pick<SigningAssets, 'teamId' | 'profileName' | 'extensionProfiles'>,

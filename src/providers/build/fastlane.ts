@@ -31,6 +31,7 @@ import { runWithProgress, xcodeProgressStep } from '../../core/progress.js';
 import { exists } from '../../core/exec.js';
 import { hostResources } from '../../core/os.js';
 import { gymArgs, ccacheEnv, computeBuildJobs } from '../../core/buildFlags.js';
+import { writeManualSigningToProject } from '../../core/appleTargets.js';
 import {
   appleArtifactExtension,
   gymDestination,
@@ -69,6 +70,23 @@ function findWorkspace(nativeDir: string): { workspace: string; scheme: string }
   const workspace = readdirSync(nativeDir).find((entry) => entry.endsWith('.xcworkspace'));
   if (!workspace) throw new Error(`No .xcworkspace found in ${nativeDir}.`);
   return { workspace: join(nativeDir, workspace), scheme: workspace.replace(/\.xcworkspace$/, '') };
+}
+
+/**
+ * Stamp each target's own provisioning profile into the project's Release configs for a multi-target app
+ * (one with embedded extensions) — see {@link writeManualSigningToProject}. `buildXcargs` drops the global
+ * PROVISIONING_PROFILE_SPECIFIER for these apps (it can't sign an extension's bundle), and `pod install` /
+ * @bacons/apple-targets reset the project to Automatic signing, so this runs AFTER Pods are (re)installed
+ * and before the archive — otherwise `xcodebuild` dies at exit 65 with "requires a provisioning profile …
+ * Select a provisioning profile" for every target (issue #289). A single-target app carries no extension
+ * profiles, so this is a no-op and its archive stays byte-identical.
+ */
+function stampMultiTargetSigning(nativeDir: string, signing: SigningAssets): void {
+  if (!signing.extensionProfiles || Object.keys(signing.extensionProfiles).length === 0) return;
+  writeManualSigningToProject(nativeDir, {
+    teamId: signing.teamId,
+    profileByBundleId: { [signing.bundleId]: signing.profileName, ...signing.extensionProfiles },
+  });
 }
 
 /** Convert a size like `46.1` + `MB` into bytes. */
@@ -253,6 +271,11 @@ export const fastlaneBuildEngine: BuildEngine = {
         env: { ...ctx.env, ...ccacheVars, RCT_IGNORE_PODS_DEPRECATION: '1' },
       });
     }
+
+    // A multi-target app needs each target's own profile in the pbxproj before the archive; runs right
+    // after `pod install` regenerates the project and is a no-op for a single-target app (see
+    // {@link stampMultiTargetSigning}).
+    stampMultiTargetSigning(nativeDir, signing);
 
     const { cores, memBytes } = hostResources();
     const jobs = computeBuildJobs(cores, memBytes);
