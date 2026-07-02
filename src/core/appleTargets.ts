@@ -19,9 +19,17 @@
  * BYTE-IDENTICAL GUARANTEE: a single-target app yields exactly one target (the main app) and an empty
  * extension list, so discovery changes nothing about how today's no-extension iOS build is provisioned
  * or signed. Discovery only ever ADDS extension bundle ids; it never alters the main bundle's path.
+ *
+ * This module also owns the one WRITE back into the project: {@link stampManualSigningIntoPbxproj} /
+ * {@link writeManualSigningToProject} stamp per-target manual signing into a multi-target app's Release
+ * configs right before the archive. A multi-target build drops the global provisioning-profile specifier
+ * (it would clobber an extension's own bundle — see {@link import("./buildFlags.js").buildXcargs}), so each
+ * target has to carry its own profile in the project or the archive dies at exit 65 (issue #289). The write
+ * touches only the Release config of targets it has a profile for, so a single-target build — which never
+ * calls it — stays byte-identical.
  */
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { DiscoveredTarget } from './types.js';
 
@@ -258,4 +266,168 @@ export function multiTargetSigningWarnings(readiness: TargetSigningReadiness[]):
     }
   }
   return warnings;
+}
+
+/**
+ * The per-target manual-signing inputs stamped into a multi-target project before archiving: the one team
+ * that signs every target, and each target's `bundleId → profileName` (the main app plus every embedded
+ * extension). Mirrors the {@link import("../providers/build/fastlane.js").exportOptionsPlist} profile map so
+ * the archive and the export agree on which profile signs which bundle.
+ */
+export interface ManualSigningTargets {
+  /** Apple Developer Team ID that signs every target, e.g. `ABCDE12345`. */
+  teamId: string;
+  /** `bundleId → profileName` for the main app and each embedded extension. */
+  profileByBundleId: Record<string, string>;
+}
+
+/** The three build settings the pbxproj writer owns inside a target's Release `buildSettings`. */
+const MANAGED_SIGNING_KEY =
+  /^\s*(?:CODE_SIGN_STYLE|DEVELOPMENT_TEAM|PROVISIONING_PROFILE_SPECIFIER)\s*=/;
+
+/** Count the net brace balance a line contributes (`{` opens minus `}` closes) — the pbxproj is brace-nested. */
+function braceDelta(line: string): number {
+  return (line.match(/\{/g)?.length ?? 0) - (line.match(/\}/g)?.length ?? 0);
+}
+
+/**
+ * Map each `XCBuildConfiguration` object id to its `name` (`Debug` / `Release` / …). Brace-depth-counted so
+ * the name is read at the object's own scope and never confused with a key inside its nested `buildSettings`
+ * dict — Expo writes `name = Release;` AFTER that dict, so a naive "stop at the first `};`" scan misses it.
+ */
+function parseConfigNames(lines: string[]): Map<string, string> {
+  const names = new Map<string, string>();
+  for (let i = 0; i < lines.length; i++) {
+    const header = /^\s*([0-9A-Fa-f]+)\b.*=\s*\{/.exec(lines[i] ?? '');
+    if (!(header?.[1] && /isa\s*=\s*XCBuildConfiguration;/.test(lines[i + 1] ?? ''))) continue;
+    let depth = 1;
+    for (let j = i + 1; j < lines.length && depth > 0; j++) {
+      const line = lines[j] ?? '';
+      const name = depth === 1 ? stringValue(line, 'name') : null;
+      if (name) {
+        names.set(header[1], name);
+        break;
+      }
+      depth += braceDelta(line);
+    }
+  }
+  return names;
+}
+
+/**
+ * For every target that has a resolved profile, map its **Release** `XCBuildConfiguration` object id to that
+ * profile name — the exact configs {@link stampManualSigningIntoPbxproj} rewrites. Only Release is touched,
+ * so a target's Debug config (used by dev-client runs) stays byte-identical. Pure.
+ */
+function releaseConfigProfiles(
+  lines: string[],
+  profileByBundleId: Record<string, string>,
+): Map<string, string> {
+  const configLists = parseConfigurationLists(lines);
+  const configNames = parseConfigNames(lines);
+  const bundleIdsByConfig = parseBundleIdsByConfig(lines);
+  const result = new Map<string, string>();
+  for (const target of parseNativeTargets(lines)) {
+    const configIds = configLists.get(target.buildConfigurationListId) ?? [];
+    const releaseConfigId = configIds.find((id) => configNames.get(id) === 'Release');
+    const bundleId = configIds
+      .map((id) => bundleIdsByConfig.get(id))
+      .find((id) => id !== undefined);
+    const profileName = bundleId ? profileByBundleId[bundleId] : undefined;
+    if (releaseConfigId && profileName) result.set(releaseConfigId, profileName);
+  }
+  return result;
+}
+
+/**
+ * Stamp per-target manual signing into a project's `project.pbxproj` and return the rewritten text
+ * (the input unchanged when no target matched a profile). For a multi-target app the global
+ * `PROVISIONING_PROFILE_SPECIFIER` is deliberately dropped from `--xcargs` — it would clobber an
+ * extension's bundle (see {@link import("./buildFlags.js").buildXcargs}) — so each target's profile has to
+ * live in the project, or `xcodebuild` fails the archive at exit 65 with "requires a provisioning profile …
+ * Select a provisioning profile in the Signing & Capabilities editor" for every target (issue #289).
+ *
+ * Each target's **Release** `buildSettings` gets `CODE_SIGN_STYLE = Manual`, the team, and its own
+ * `PROVISIONING_PROFILE_SPECIFIER`; the three managed keys are replaced rather than appended, so re-running
+ * across rebuilds is idempotent. Pure — the file I/O is {@link writeManualSigningToProject}.
+ */
+export function stampManualSigningIntoPbxproj(
+  pbxproj: string,
+  signing: ManualSigningTargets,
+): string {
+  const lines = pbxproj.split('\n');
+  const releaseProfiles = releaseConfigProfiles(lines, signing.profileByBundleId);
+  if (releaseProfiles.size === 0) return pbxproj;
+
+  const out: string[] = [];
+  /** Profile of the wanted Release config we're currently inside, or null when outside any. */
+  let profile: string | null = null;
+  /** Brace depth relative to that config object's opening `{` (1 = object body, 2 = its buildSettings). */
+  let depth = 0;
+  let inBuildSettings = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? '';
+    if (profile === null) {
+      const id = /^\s*([0-9A-Fa-f]+)\b.*=\s*\{\s*$/.exec(line)?.[1];
+      if (
+        id &&
+        releaseProfiles.has(id) &&
+        /isa\s*=\s*XCBuildConfiguration;/.test(lines[i + 1] ?? '')
+      ) {
+        profile = releaseProfiles.get(id) ?? null;
+        depth = 1;
+        inBuildSettings = false;
+      }
+      out.push(line);
+      continue;
+    }
+    const delta = braceDelta(line);
+    if (!inBuildSettings && /^\s*buildSettings\s*=\s*\{\s*$/.test(line)) {
+      inBuildSettings = true;
+      depth += delta;
+      out.push(line);
+      continue;
+    }
+    if (inBuildSettings && depth + delta === 1) {
+      // This line closes buildSettings — insert the managed keys just inside it, then emit the `};`.
+      const indent = `${/^(\s*)/.exec(line)?.[1] ?? ''}\t`;
+      out.push(`${indent}CODE_SIGN_STYLE = Manual;`);
+      out.push(`${indent}DEVELOPMENT_TEAM = ${signing.teamId};`);
+      out.push(`${indent}PROVISIONING_PROFILE_SPECIFIER = "${profile}";`);
+      out.push(line);
+      inBuildSettings = false;
+      depth = 1;
+      continue;
+    }
+    if (inBuildSettings) {
+      depth += delta;
+      if (!MANAGED_SIGNING_KEY.test(line)) out.push(line); // drop the old managed keys; re-added at close
+      continue;
+    }
+    out.push(line);
+    depth += delta;
+    if (depth === 0) profile = null; // the config object closed
+  }
+  return out.join('\n');
+}
+
+/**
+ * Write per-target manual signing into a generated Apple project's `project.pbxproj` — the multi-target
+ * archive path (see {@link stampManualSigningIntoPbxproj}). Returns `false` (a no-op) when the project
+ * isn't generated yet or no target matched a profile; `true` when the file was rewritten.
+ *
+ * @param nativeDir The platform's native project dir (`ios/`).
+ * @param signing The team and per-bundle profile map to stamp.
+ */
+export function writeManualSigningToProject(
+  nativeDir: string,
+  signing: ManualSigningTargets,
+): boolean {
+  const pbxproj = findPbxproj(nativeDir);
+  if (!pbxproj) return false;
+  const original = readFileSync(pbxproj, 'utf8');
+  const stamped = stampManualSigningIntoPbxproj(original, signing);
+  if (stamped === original) return false;
+  writeFileSync(pbxproj, stamped);
+  return true;
 }
