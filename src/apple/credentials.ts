@@ -489,6 +489,55 @@ export async function profileStaleAgainstCapabilities(
 }
 
 /**
+ * Which targets in a set of cached signing assets carry a profile that's stale against its App ID's
+ * current capabilities — the build-path counterpart to the reuse guard inside
+ * {@link ensureAppStoreProfileForBundle}. `loadCachedSigningAssets` reuses profiles by uuid with no
+ * network call, so a build on its own can't tell a profile was minted before a capability (e.g. App
+ * Groups) was enabled; this lets the pipeline regenerate instead of failing the archive at exit 65
+ * (issue #292). Grades the main bundle and every {@link SigningAssets.extensionProfiles} entry.
+ *
+ * Best-effort and network-bound: a lookup or off-Mac decode failure grades that target as current, so the
+ * safe reuse path stands — like {@link profileStaleAgainstCapabilities}, staleness only ever forces a
+ * regenerate, never blocks one.
+ *
+ * @returns One entry per stale target — its bundle id and the enabled capabilities its profile is missing;
+ *   `[]` when every cached profile is current (or unreadable).
+ */
+export async function staleCachedSigningTargets(
+  client: Pick<
+    AppStoreConnectClient,
+    'findBundleId' | 'findProfileByName' | 'listBundleIdCapabilities'
+  >,
+  signing: SigningAssets,
+): Promise<{ bundleId: string; missing: string[] }[]> {
+  const targets = [
+    { bundleId: signing.bundleId, profileName: signing.profileName },
+    ...Object.entries(signing.extensionProfiles ?? {}).map(([bundleId, profileName]) => ({
+      bundleId,
+      profileName,
+    })),
+  ];
+  const graded = await Promise.all(
+    targets.map(async ({ bundleId, profileName }) => {
+      try {
+        const bundle = await client.findBundleId(bundleId);
+        if (!bundle) return null;
+        const profile = await client.findProfileByName(profileName);
+        if (!profile) return null;
+        const missing = await profileStaleAgainstCapabilities(client, bundle.id, profile);
+        return missing.length > 0 ? { bundleId, missing } : null;
+      } catch {
+        // A flaky read or off-Mac decode must never force a needless regenerate — treat as current.
+        return null;
+      }
+    }),
+  );
+  return graded.filter(
+    (target): target is { bundleId: string; missing: string[] } => target !== null,
+  );
+}
+
+/**
  * Ensure one bundle id's App ID + App Store provisioning profile against a shared distribution cert,
  * install the profile where Xcode looks, and record it in the account index. The per-bundle unit reused
  * by {@link ensureSigningCredentials} for the main app and each embedded extension — both follow the

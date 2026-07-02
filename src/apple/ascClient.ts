@@ -971,18 +971,24 @@ export class AppStoreConnectClient {
       .filter((name): name is string => Boolean(name));
   }
 
-  /** Find a registered Bundle ID by its identifier, or null if it isn't registered yet. */
+  /**
+   * Find a registered Bundle ID by its identifier, or null if it isn't registered yet. Apple's
+   * `filter[identifier]` is a SUBSTRING match, so a query for `com.acme.app` also returns
+   * `com.acme.app.widget` — never trust `data[0]`; select the row whose identifier matches exactly
+   * (issue #291). The raised limit keeps that exact row from being paginated away behind its
+   * multi-target siblings.
+   */
   async findBundleId(identifier: string): Promise<BundleIdResource | null> {
     const { data } = await this.request<ResourceList<{ identifier: string; seedId?: string }>>(
       'GET',
-      `/bundleIds?filter[identifier]=${encodeURIComponent(identifier)}&limit=1`,
+      `/bundleIds?filter[identifier]=${encodeURIComponent(identifier)}&limit=200`,
     );
-    const first = data[0];
-    if (!first) return null;
+    const exact = data.find((entry) => entry.attributes.identifier === identifier);
+    if (!exact) return null;
     return {
-      id: first.id,
-      identifier: first.attributes.identifier,
-      seedId: first.attributes.seedId,
+      id: exact.id,
+      identifier: exact.attributes.identifier,
+      seedId: exact.attributes.seedId,
     };
   }
 
