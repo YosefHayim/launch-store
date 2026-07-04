@@ -41,3 +41,12 @@ android/
 
 # TUI style preview — throwaway scratch played via `npx tsx .tui-preview/preview.ts`, never shipped.
 .tui-preview/
+
+# Kiro CLI agent config (local)
+.kiro
+
+# Kimi Code CLI local config + skills
+.kimi-code/
+
+# Local dev scripts (not committed)
+scripts/dev/

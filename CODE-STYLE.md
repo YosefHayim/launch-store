@@ -247,6 +247,20 @@ Write new code like these:
 - `src/core/adopt/orchestrator.ts` — UI-free domain: detect → plan (read-only) → apply, per-item error isolation.
 - `src/apple/ascClient.ts` / `src/apple/ascResources.ts` — the API-mirroring 1:1 transport + wire types.
 
+## Scripts layout
+
+```txt
+scripts/
+├── gen-docs.ts          # Committed — CI freshness gate checks these
+├── gen-asc-types.ts     # Committed — CI schema-drift workflow
+└── dev/                 # Local dev-only scripts (gitignored)
+    └── preview-wordmark.ts
+```
+
+**Rule:** scripts that CI or the release pipeline depends on stay at the `scripts/` root (committed). Scripts for local preview, debugging, or one-off experimentation go in `scripts/dev/`. This folder is **gitignored** — it never reaches the remote.
+
+When creating a new script, ask: _"Would CI break without this, or does another developer need it to build/release?"_ If **no** → `scripts/dev/`.
+
 ## Never
 
 - **Raw `console.*` for output** — route through the logger/output seam (except `cli/index.ts`'s fatal catch and the MCP stderr stream).
