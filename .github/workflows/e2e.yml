@@ -22,6 +22,6 @@ jobs:
       - uses: ./.github/actions/setup-node-cached
         with:
           node-version: 22
-      - run: npm run build
+      - run: pnpm build
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: pnpm test:e2e

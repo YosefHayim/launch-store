@@ -25,7 +25,7 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - name: Test (with coverage)
-        run: npm run test:coverage | tee coverage.txt
+        run: pnpm test:coverage | tee coverage.txt
       - name: Coverage summary
         if: always()
         run: |

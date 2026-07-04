@@ -61,7 +61,7 @@ jobs:
         with:
           node-version: 24 # bundles npm >= 11.5.1, required for OIDC trusted publishing
           registry-url: https://registry.npmjs.org
-          cache: npm
+          cache: pnpm
 
       - name: Verify npm supports OIDC trusted publishing
         run: |
@@ -70,7 +70,7 @@ jobs:
             exit 1
           }
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
       - name: Verify the release tag matches package.json version
         if: github.event_name == 'release'
@@ -84,10 +84,10 @@ jobs:
           fi
 
       # The same gate CI runs on every push, re-run here so a tag can never publish a broken build.
-      - run: npm run typecheck
-      - run: npm run lint
-      - run: npm run test
-      - run: npm run build
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
 
       - name: Publish to npm (OIDC trusted publishing + provenance)
         run: npm publish --access public --provenance

@@ -1,9 +1,9 @@
 name: ASC schema drift
 
 # Our typed App Store Connect client is generated from a COMMITTED snapshot of Apple's OpenAPI spec
-# (src/core/asc/schema.ts, produced by `npm run gen:asc`). Apple revises that spec out-of-band, so this
+# (src/core/asc/schema.ts, produced by `pnpm gen:asc`). Apple revises that spec out-of-band, so this
 # job re-vendors it and fails when the committed types are stale — a maintainer then just re-runs
-# `npm run gen:asc` and commits the result.
+# `pnpm gen:asc` and commits the result.
 #
 # It is intentionally NOT part of ci.yml's per-PR gate: that gate must stay deterministic and offline,
 # whereas this job makes a live download from developer.apple.com. Instead it runs:
@@ -34,14 +34,14 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - name: Regenerate types from Apple's current spec
-        run: npm run gen:asc
+        run: pnpm gen:asc
       - name: Fail if the committed types are stale
         run: |
           if ! git diff --quiet -- src/core/asc/schema.ts; then
-            echo "::error file=src/core/asc/schema.ts::Generated ASC types are out of date with Apple's published OpenAPI spec. Run 'npm run gen:asc' and commit the result."
+            echo "::error file=src/core/asc/schema.ts::Generated ASC types are out of date with Apple's published OpenAPI spec. Run 'pnpm gen:asc' and commit the result."
             git diff --stat -- src/core/asc/schema.ts
             exit 1
           fi

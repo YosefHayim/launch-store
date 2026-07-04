@@ -24,7 +24,7 @@ jobs:
       - uses: ./.github/actions/setup-node-cached
         with:
           node-version: ${{ matrix.node }}
-      - run: npm run build
+      - run: pnpm build
       - name: Smoke-test the built CLI
         run: |
           node dist/cli/index.js --version

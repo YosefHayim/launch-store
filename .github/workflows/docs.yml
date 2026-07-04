@@ -21,4 +21,4 @@ jobs:
       - uses: ./.github/actions/setup-node-cached
         with:
           node-version: 22
-      - run: npm run docs:check
+      - run: pnpm docs:check
