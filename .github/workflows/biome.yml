@@ -1,0 +1,32 @@
+name: Biome
+
+# Single-purpose, reusable (workflow_call): lint + format in one pass. Biome does
+# both, so there is no separate lint/format workflow. Deterministic across OS/Node,
+# so it runs single-leg (ubuntu, one Node) — no matrix.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  biome:
+    name: Lint & format (biome ci)
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint & format (biome ci)
+        run: npm run check:ci
