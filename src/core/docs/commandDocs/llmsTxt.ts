@@ -17,7 +17,7 @@ const SOURCE_LINKS = `- [Domain types & provider interfaces](./src/core/types/in
 - [Remote pipeline](./src/core/remotePipeline.ts): the C1–C7 host lifecycle for off-Mac builds; [EAS pipeline](./src/core/easPipeline.ts): the Expo handoff.
 - [AWS EC2 Mac host](./src/providers/compute/awsEc2Mac.ts): allocate/status/teardown + golden-AMI + \`cloud doctor\`; [SSH transport](./src/core/ssh.ts) and [remote build ops](./src/core/remoteBuild.ts).
 - [Glossary](./src/core/glossary.ts): plain-English term definitions shared by \`launch explain\` and the docs.
-- [App Store Connect client](./src/apple/ascClient.ts): the Apple API integration (JWT auth, bundle ids, certs, profiles, builds).
+- [App Store Connect resources](./src/apple/ascResources.ts): the App Store Connect \`*Resource\` / \`*Query\` wire types; [client](./src/apple/ascClient.ts): the Apple API transport (JWT auth, bundle ids, certs, profiles, builds).
 - [ASC product sync](./src/core/ascSync.ts): the declarative reconciler behind \`launch sync\` (capabilities, IAPs, subscriptions, pricing).
 - [Config preflight](./src/core/configCheck.ts): the app-config footgun validator run by \`launch doctor\` and at the head of \`launch build\`.
 - [Build secrets](./src/core/buildSecrets.ts): keychain-backed \`launch secret\` storage, injected through the [env-precedence ladder](./src/core/env.ts) shared by \`build\`, \`release\`, and \`update\`.

@@ -36,7 +36,7 @@ A "boring, traceable" path from source to store that one developer can run and u
 ## Current state (v0.32)
 
 - 211 App Store Connect + Google Play API operations covered.
-- 45 commands, 1974 tests passing.
+- 63 commands, 2006 test cases tracked by the generated docs gate.
 - Build engine: fastlane (local Mac), remote SSH, AWS EC2 Mac, EAS handoff.
 - Storage: local, S3, R2, Supabase.
 - OTA updates via Expo Updates protocol on your own bucket.
