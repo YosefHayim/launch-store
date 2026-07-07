@@ -635,7 +635,8 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
     body: [
       'You are working **on** launch-store (the `launch` CLI), not using it. The canonical working rules live in [AGENTS.md](../../AGENTS.md) and [CLAUDE.md](../../CLAUDE.md) — read them first.',
       '',
-      '- One Node ESM / TypeScript package. `src/cli` is thin commander wiring (no domain logic), `src/core` is the domain (types, the build→submit pipeline, the provider registry), `src/providers` are the swappable backends, `src/apple` is the App Store Connect integration.',
+      '- One Node ESM / TypeScript package. `src/cli` is thin Commander wiring, `src/core` is purpose-grouped domain code, `src/providers` are swappable backends, `src/apple` and `src/google` are store API mirrors, and `src/testkit` holds shared fakes/layers.',
+      '- Do not create flat `src/core/*.ts` files. Put new core work under the owning purpose folder such as `build/`, `config/`, `credentials/`, `release/`, `store/`, `services/`, `terminal/`, or `types/`.',
       '- Before calling a change done, run `npm run typecheck && npm run lint && npm run lint:style && npm run docs:check && npm run test && npm run build` (the generated docs + these rules are gated).',
       '- Keep it KISS / YAGNI / DRY: extend the nearest sibling file rather than inventing a new file, util, or abstraction. Add a test (`*.test.ts`) beside any new logic.',
       '- Never log, write, or commit secrets; `~/.launch` holds non-secret paths and ids only.',
@@ -647,10 +648,11 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
     globs: ['src/core/types/*.ts', 'src/core/types/index.ts'],
     alwaysApply: false,
     body: [
-      'The types module — the `src/core/types/index.ts` barrel plus the `src/core/types/*.ts` modules it re-exports (split by concern: `app`, `catalog`, `storeSurface`, `config`, `credentials`, `artifacts`, `providers`, `remote`, `vitals`) — is the single source of truth for every domain shape and the five provider interfaces (`BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`).',
+      'The types module — the `src/core/types/index.ts` barrel plus the `src/core/types/*.ts` modules it re-exports — is the single source of truth for every domain shape and the five provider interfaces (`BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`).',
       '',
       '- Add or change a shape in the matching `src/core/types/*.ts` module, never inline in a feature file — a change ripples through every provider and the pipeline, so plan the edit before writing code. `src/core/types/index.ts` is the wildcard barrel; do not add declarations to the barrel.',
       '- One exception: the App Store Connect `*Resource` / `*Query` wire types live in `src/apple/ascResources.ts` and are re-exported by `src/apple/ascClient.ts` for compatibility.',
+      '- Google Play wire/resource DTOs currently live beside the transport in `src/google/playClient.ts` and `src/google/playReporting.ts`; move them into a resource module only as part of that API mirror cleanup.',
     ].join('\n'),
   },
   {
@@ -660,7 +662,7 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
     globs: ['src/providers/**'],
     alwaysApply: false,
     body: [
-      'Adding a backend = implement one of the five interfaces from `src/core/types/index.ts` as a named object and register it in `src/providers/index.ts`.',
+      'Adding a backend = implement one of the five interfaces from `src/core/types/index.ts` as a named object and register it in `src/providers/index.ts`, which wires into `src/core/services/registry.ts`.',
       '',
       '- The pipeline resolves a provider by its `name` (the value users put in `launch.config.ts`), so you **never** edit `src/core/build/pipeline.ts` to add a backend.',
       '- Lazy-load heavy / optional SDKs (AWS, the native keyring) through `requireOptional` in `src/core/services/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
@@ -703,8 +705,8 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
       'before opening or squash-merging a PR',
     ],
     steps: [
-      '`npm run typecheck && npm run lint && npm run test && npm run build` — the four core gates (`lint` is Biome, which enforces formatting too).',
-      '`npm run docs:check` — fails if the generated docs (`docs/commands.md`, `llms.txt`, `.cursor/rules/*`, `.claude/skills/*`, README badges) drifted from the CLI; run `npm run docs:gen` and commit the result if it does.',
+      '`npm run typecheck && npm run lint && npm run lint:style && npm run docs:check && npm run test && npm run build` — the six-part gate from `AGENTS.md` (`lint` is Biome, `lint:style` is Launch-specific, and `docs:check` guards generated docs).',
+      'If `docs:check` fails, run `npm run docs:gen` and commit the generated docs (`docs/commands.md`, `llms.txt`, `.cursor/rules/*`, `.claude/skills/*`, README badges, and config docs).',
     ],
     body: [
       'All gates must be green before a change is done. The husky pre-commit hook runs lint + format + typecheck but **not** the tests and **can** be bypassed, so run the full line yourself. Add a `*.test.ts` beside any new logic.',
@@ -724,7 +726,7 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
     steps: [
       'Pick one of the five interfaces in `src/core/types/index.ts`: `BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`.',
       'Implement it as a named object in `src/providers/<kind>/<name>.ts`, setting `name` to the value users put in `launch.config.ts`.',
-      'Register it in `src/providers/index.ts` (`registerBuiltins()`). The pipeline resolves a provider by its `name`, so you never edit `src/core/build/pipeline.ts` to add one.',
+      'Register it in `src/providers/index.ts` (`registerBuiltins()`), which wires into `src/core/services/registry.ts`. The pipeline resolves a provider by its `name`, so you never edit `src/core/build/pipeline.ts` to add one.',
       'Lazy-load any heavy or optional SDK through `requireOptional` in `src/core/services/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
       'Add a `*.test.ts` beside the provider, then run the gate (see the `run-the-gate` skill).',
     ],

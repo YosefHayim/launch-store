@@ -84,7 +84,7 @@ export const parsePlatform = (rawPlatform: string) =>
     return matchingPlatform;
   });
 
-// not this (src/core/platform.ts:parsePlatform incumbent)
+// not this (src/core/services/platform.ts:parsePlatform incumbent)
 if (!match) throw new Error(`Unknown platform "${value}". Use one of: ${PLATFORMS.join(', ')}.`);
 ```
 
@@ -113,7 +113,7 @@ export class ProviderRegistry extends Context.Tag('ProviderRegistry')<
   }
 >() {}
 
-// not this (src/core/registry.ts incumbent)
+// not this (src/core/services/registry.ts incumbent)
 const credentialsProviders = new Map<string, CredentialsProvider>();
 export const getCredentialsProvider = (name: string): CredentialsProvider =>
   lookup('credentials provider', name, credentialsProviders);
@@ -244,25 +244,26 @@ import { z } from 'zod';
 
 _Why:_ Config parsing should compose with the same error and Effect runtime as the rest of Launch.
 
-### Vendor Wire Types Stay In Resource Files · [taste]
+### Vendor Wire Types Stay Out Of Domain Types · [taste]
 
-`src/apple/ascResources.ts` and `src/google/playResources.ts` hold vendor resource/query DTOs. Clients transport requests and may re-export resource files for compatibility. Domain-normalized shapes stay in `src/core/types/*`.
+`src/apple/ascResources.ts` holds App Store Connect resource/query DTOs. Google Play wire DTOs currently live beside their API mirrors in `src/google/playClient.ts` and `src/google/playReporting.ts`; when that mirror is split, move them to `src/google/playResources.ts` and re-export them from the client for compatibility. Domain-normalized shapes stay in `src/core/types/*`.
 
 ```ts
-// chosen
-// src/google/playResources.ts
+// chosen today
+// src/google/playClient.ts
 export interface PlayTrackResource {
   readonly track: string;
 }
 
+// chosen when the Play mirror is split
 // src/google/playClient.ts
 export type * from './playResources.js';
 
 // not this
-// hundreds of vendor DTOs mixed into playClient transport methods
+// PlayTrackResource moved into src/core/types/storeSurface.ts
 ```
 
-_Why:_ API mirrors can be large, but transport and wire shape ownership are separate jobs.
+_Why:_ API mirrors can be large, but vendor wire shapes and domain-normalized shapes are separate jobs.
 
 ### File Size Is Tiered By Job · [taste]
 

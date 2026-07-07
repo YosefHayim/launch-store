@@ -46,7 +46,7 @@ A "boring, traceable" path from source to store that one developer can run and u
 ## Direction
 
 1. **Full Effect migration** — rewrite the codebase in Effect (typed errors, services/layers, structured concurrency). See [CODE-STYLE.md](./CODE-STYLE.md) for the target style.
-2. **Reorganize src/core/** — group flat files into domain sub-directories (build/, store/, release/).
-3. **Finish declared migrations** — types barrel, zod config, testkit centralization.
+2. **Deepen the purpose-grouped core** — keep new work in the existing `src/core/<job>/` folders and move touched legacy seams toward their owning group.
+3. **Finish declared migrations** — Effect Schema config, Effect services/layers, typed errors, and testkit centralization.
 4. **Expand Apple coverage** — after cleanup, add new ASC endpoints (Analytics, Marketplace/DMA).
 5. **Integration test layer** — real commands against fixture repos.

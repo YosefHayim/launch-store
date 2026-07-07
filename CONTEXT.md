@@ -87,7 +87,7 @@ Adding a backend = implement the provider contract in `src/providers/<role>/<nam
 
 The **build platform** and the **store** are decoupled: one Android build can fan out to multiple stores.
 The four Apple platforms share one ASC account, cert, and submitter — they differ only in Xcode
-destination and signing profile type (centralized in `src/core/platform.ts`).
+destination and signing profile type (centralized in `src/core/services/platform.ts`).
 
 ## State and secrets
 

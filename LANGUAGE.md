@@ -1,7 +1,7 @@
 # LANGUAGE.md
 
 The ubiquitous language of **Launch** — use these terms (not synonyms) in code, issues, commits,
-and docs. The **runtime** source of truth is [`src/core/glossary.ts`](./src/core/glossary.ts), which
+and docs. The **runtime** source of truth is [`src/core/terminal/glossary.ts`](./src/core/terminal/glossary.ts), which
 powers `launch explain <topic>` and the `--explain` step expansions. Keep the two aligned.
 
 For the React Native / Expo / Apple / Google stack terms, see [`TECH-GLOSSARY.md`](./TECH-GLOSSARY.md).

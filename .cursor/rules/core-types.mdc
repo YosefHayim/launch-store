@@ -4,7 +4,8 @@ globs: src/core/types/*.ts,src/core/types/index.ts
 alwaysApply: false
 ---
 
-The types module — the `src/core/types/index.ts` barrel plus the `src/core/types/*.ts` modules it re-exports (split by concern: `app`, `catalog`, `storeSurface`, `config`, `credentials`, `artifacts`, `providers`, `remote`, `vitals`) — is the single source of truth for every domain shape and the five provider interfaces (`BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`).
+The types module — the `src/core/types/index.ts` barrel plus the `src/core/types/*.ts` modules it re-exports — is the single source of truth for every domain shape and the five provider interfaces (`BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`).
 
 - Add or change a shape in the matching `src/core/types/*.ts` module, never inline in a feature file — a change ripples through every provider and the pipeline, so plan the edit before writing code. `src/core/types/index.ts` is the wildcard barrel; do not add declarations to the barrel.
 - One exception: the App Store Connect `*Resource` / `*Query` wire types live in `src/apple/ascResources.ts` and are re-exported by `src/apple/ascClient.ts` for compatibility.
+- Google Play wire/resource DTOs currently live beside the transport in `src/google/playClient.ts` and `src/google/playReporting.ts`; move them into a resource module only as part of that API mirror cleanup.

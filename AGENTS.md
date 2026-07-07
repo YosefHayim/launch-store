@@ -17,7 +17,7 @@ One TypeScript / Node ESM package. Top-level `src/` ownership:
 | `src/google` | Google Play transport and Play wire/resource DTOs. API mirror only. |
 | `src/testkit` | Shared test fakes and Effect test layers. |
 
-Target `src/core` layout:
+Current `src/core` layout:
 
 ```text
 src/core/
@@ -71,7 +71,7 @@ src/google    -> src/core/types only, never src/core logic
 
 ### Types And Barrels
 
-`index.ts` is the wildcard barrel. A file named `types.ts` contains actual declarations, not wildcard exports. Exported domain shapes live in `src/core/types/*.ts` and are re-exported from `src/core/types/index.ts`. App Store Connect wire shapes live in `src/apple/ascResources.ts`; Google Play wire shapes live in `src/google/playResources.ts` once split.
+`index.ts` is the wildcard barrel. A file named `types.ts` contains actual declarations, not wildcard exports. Exported domain shapes live in `src/core/types/*.ts` and are re-exported from `src/core/types/index.ts`. App Store Connect wire shapes live in `src/apple/ascResources.ts`; Google Play wire shapes currently live in `src/google/playClient.ts` and `src/google/playReporting.ts` until the API mirror split gets its own resources module.
 
 ### Providers
 
@@ -108,7 +108,7 @@ Formatting and generic TypeScript rules live in `tsconfig.json`, `biome.json`, a
 ## Before You Call A Change Done
 
 ```bash
-npm run typecheck && npm run lint && npm run lint:style && npm run test && npm run build
+npm run typecheck && npm run lint && npm run lint:style && npm run docs:check && npm run test && npm run build
 ```
 
-All five must be green for migrated slices. Add or update colocated tests for any new behavior.
+All six must be green for migrated slices. Add or update colocated tests for any new behavior.

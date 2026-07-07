@@ -248,7 +248,7 @@ two differ on the same workflow:
   **App Store Connect API key** (`.p8` + Key ID + Issuer ID) — [generate one here](https://appstoreconnect.apple.com/access/integrations/api).
   No Mac? See [Building without a Mac](#building-without-a-mac).
 - **Android:** a **Google Play Developer account** (one-time $25) — [register here](https://play.google.com/console/signup) — then a **[JDK](https://openjdk.org/)** (any OS — no Mac needed) and a **Google Play service account** JSON key.
-- **Node 20+** on every platform.
+- **[Node.js](https://nodejs.org/en) 20+** on every platform.
 
 Run `launch doctor` any time to check all of the above.
 
@@ -261,23 +261,26 @@ npm install --save-dev launch-store     # per-project (recommended; resolves the
 npm install --global launch-store       # or global, for just the `launch` command
 ```
 
+The quick start below uses `npx launch`, which resolves the per-project install. If you installed
+globally, drop `npx`.
+
 ## Quick start
 
 Try the whole pipeline first, with no Apple or Google setup:
 
 ```bash
-launch demo
+npx launch demo
 ```
 
 When you're ready to run against a real app, go from config to the testing track in five commands
 (swap `ios` → `android` for Google Play):
 
 ```bash
-launch init                 # scaffold launch.config.ts + .env.example, tailored to your repo
-launch creds set-key        # import your store API key into the OS keychain
-launch creds setup          # register the app id + create/reuse signing assets
-launch build ios --dry-run  # rehearse the whole flow — no network, no build, no account changes
-launch build ios            # build, sign, size-check, and upload to the testing track
+npx launch init                 # scaffold launch.config.ts + .env.example, tailored to your repo
+npx launch creds set-key        # import your store API key into the OS keychain
+npx launch creds setup          # register the app id + create/reuse signing assets
+npx launch build ios --dry-run  # rehearse the whole flow — no network, no build, no account changes
+npx launch build ios            # build, sign, size-check, and upload to the testing track
 ```
 
 `launch build` reuses your cached credentials silently; if they're missing it offers to provision them
@@ -310,6 +313,15 @@ The everyday ones:
 > **Driving Launch from an AI agent?** `launch agents init` scaffolds ready-made skills into your repo — [Claude Code](https://code.claude.com/docs/en/overview) Skills (`.claude/skills/`), [Cursor rules](https://cursor.com/docs/rules) (`.cursor/rules/`), and a Launch section in `AGENTS.md` for [Codex](https://developers.openai.com/codex/guides/agents-md) — so Claude Code, Cursor, and Codex can run the workflows above (ship, release, store-config-as-code, OTA updates, CI, and `launch doctor`) with the same plan → confirm → apply guardrails Launch uses, and never publish without your say-so. `launch agents check` keeps them in sync.
 
 <!-- agent-skills:end -->
+
+**Read next:**
+
+- [`docs/commands.md`](./docs/commands.md) — the full generated command and flag reference.
+- [`docs/config.md`](./docs/config.md) — the generated `launch.config.ts` field reference.
+- [`examples/hello-world`](./examples/hello-world) — a worked Expo / React Native app config.
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — local development, tests, CI, and provider contribution flow.
+- [`AGENTS.md`](./AGENTS.md), [`CLAUDE.md`](./CLAUDE.md), and [`CODE-STYLE.md`](./CODE-STYLE.md) — rules for coding agents and contributors editing this repo.
+- [`PROJECT.md`](./PROJECT.md), [`CONTEXT.md`](./CONTEXT.md), [`LANGUAGE.md`](./LANGUAGE.md), and [`docs/adr/`](./docs/adr/) — product direction, architecture context, domain language, and decisions.
 
 ## Configuration
 

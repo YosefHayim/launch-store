@@ -70,12 +70,14 @@ ${everyCommand}
 ## Docs
 
 - [README](./README.md): install, quick start, the command surface, configuration, and how credentials are handled.
+- [Command reference](./docs/commands.md): all ${stats.commands} \`launch\` commands and every flag, generated from the CLI.
+- [Config reference](./docs/config.md): the generated \`launch.config.ts\` field reference.
+- [Example app](./examples/hello-world): a worked Expo / React Native \`app.json\` + \`launch.config.ts\`.
 - [CONTRIBUTING](./CONTRIBUTING.md): dev setup, the quality gate, adding a provider, tests, and CI.
 - [AGENTS](./AGENTS.md): working rules for AI agents and contributors.
-
-## Reference
-
-- [Command reference](./docs/commands.md): all ${stats.commands} \`launch\` commands and every flag, generated from the CLI.
+- [CLAUDE](./CLAUDE.md): Claude Code memory that imports AGENTS.md and links the doc family.
+- [CODE-STYLE](./CODE-STYLE.md): the Launch-specific code style and migration rules.
+- [PROJECT](./PROJECT.md), [CONTEXT](./CONTEXT.md), [LANGUAGE](./LANGUAGE.md), and [ADRs](./docs/adr/): product direction, architecture context, domain language, and decisions.
 
 ## Source
 
@@ -83,7 +85,6 @@ ${SOURCE_LINKS}
 
 ## Optional
 
-- [Example app](./examples/hello-world): a worked \`app.json\` + \`launch.config.ts\`.
 - [LICENSE](./LICENSE): MIT.
 `;
 }
