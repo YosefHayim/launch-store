@@ -17,8 +17,12 @@ import {
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const read = (relative: string): string => readFileSync(join(ROOT, relative), 'utf8');
 
-/** Decode the one HTML entity the README hero uses so its prose can be compared to the plain canonical sentence. */
-const decodeHtml = (html: string): string => html.replace(/&amp;/g, '&');
+/** Strip README hero links and decode HTML entities so linked prose still matches the plain canonical sentence. */
+const decodeHtml = (html: string): string =>
+  html
+    .replace(/<a\b[^>]*>/g, '')
+    .replace(/<\/a>/g, '')
+    .replace(/&amp;/g, '&');
 
 /** Pull every repo-relative markdown link target (`](./…)`) out of a doc, for link-validity checks. */
 function relativeLinks(markdown: string): string[] {

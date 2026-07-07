@@ -155,7 +155,7 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
     title: 'Build & ship — iOS and Android',
     features: [
       '**One command per platform.** `launch build ios` / `launch build android` runs prebuild → sign → size-check → upload to the testing track (TestFlight / Play internal) — the same flow EAS runs.',
-      '**The full Apple platform family.** `launch build tvos`, `launch build macos`, and `launch build visionos` join `ios` as first-class build targets — each archived with the right Xcode destination and signed with the matching App Store Connect profile type, on the same Apple Developer account and distribution certificate as iOS. Every non-iOS Apple target builds from its committed native project (react-native-tvos / react-native-macos / react-native-visionos).',
+      '**The full Apple platform family.** `launch build tvos`, `launch build macos`, and `launch build visionos` join `ios` as first-class build targets — each archived with the right [Xcode](https://developer.apple.com/xcode/) destination and signed with the matching App Store Connect profile type, on the same Apple Developer account and distribution certificate as iOS. Every non-iOS Apple target builds from its committed native project (react-native-tvos / react-native-macos / react-native-visionos).',
       '**Fast by default.** ccache wires in at `pod install`, DerivedData stays warm, and a native-graph fingerprint forces a clean build only when your native deps actually change; `--clean` forces from scratch.',
       '**Build-time ETA & progress bar.** A learned per-build estimate drives a live progress bar; `--verbose` streams the raw `xcodebuild`/Gradle output instead.',
       '**Real download-size check.** Reports the actual per-device size (App Thinning report / bundletool) and gates on the `sizeBudgetMB` you configured.',
@@ -180,7 +180,7 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
     title: 'Distribute & update',
     features: [
       '**Internal distribution.** `launch build <platform> --distribution internal` hosts an ad-hoc iOS install link / Android `.apk` on your own bucket; register testers with `launch device add <udid>`.',
-      '**Over-the-air updates.** `launch update` publishes a code-signed JS/asset update via the **Expo Updates protocol** your `expo-updates` runtime already speaks, hosted on your own bucket (S3 / R2 / Supabase).',
+      '**Over-the-air updates.** `launch update` publishes a code-signed JS/asset update via the **[Expo Updates](https://docs.expo.dev/versions/latest/sdk/updates/) protocol** your `expo-updates` runtime already speaks, hosted on your own bucket ([S3](https://aws.amazon.com/s3/) / [R2](https://developers.cloudflare.com/r2/) / [Supabase](https://supabase.com/docs/guides/storage)).',
       '**Roll back a bad update.** `launch updates list`/`view` show the per-channel history; `launch updates rollback` promotes a known-good update or drops clients back to the embedded bundle.',
       '**Pluggable storage.** Artifacts and updates live in local storage or your own S3 / R2 / Supabase bucket, served from a URL you control — no hosted service.',
     ],
@@ -212,8 +212,8 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
       '**Zero-setup demo.** `launch demo` replays a simulated walkthrough of the whole build → sign → submit pipeline, and auto-plays once on first run.',
       '**Teaching on demand.** `--explain` on any command and `launch explain <topic>` cover the Apple/iOS/Android terminology inline.',
       '**Interactive wizard.** Running bare `launch` opens a guided wizard that remembers your last flow and offers a one-keypress repeat.',
-      '**Drive it from an AI agent.** `launch agents init`/`check` scaffolds Claude / Cursor / Codex skills so coding agents run the workflows under the same plan → confirm → apply guardrails.',
-      '**CI in one command.** `launch ci init` scaffolds a GitHub Actions workflow that builds and ships unattended.',
+      '**Drive it from an AI agent.** `launch agents init`/`check` scaffolds [Claude Code](https://code.claude.com/docs/en/overview) / [Cursor](https://cursor.com/docs/rules) / [Codex](https://developers.openai.com/codex/guides/agents-md) skills so coding agents run the workflows under the same plan → confirm → apply guardrails.',
+      '**CI in one command.** `launch ci init` scaffolds a [GitHub Actions](https://docs.github.com/actions) workflow that builds and ships unattended.',
       '**Silent self-upgrade.** Picks up a newer npm release and re-runs your command on it — throttled to once a day, and a no-op in CI, when piped, and for agents.',
     ],
   },
@@ -244,7 +244,7 @@ export const FEATURES_REGION_END = '<!-- features:end -->';
  * `findUnknownCommands`); this is a prose summary, not the authoritative list.
  */
 export const AGENT_SKILLS_BLURB =
-  '> **Driving Launch from an AI agent?** `launch agents init` scaffolds ready-made skills into your repo — Claude Skills (`.claude/skills/`), Cursor rules (`.cursor/rules/`), and a Launch section in `AGENTS.md` for Codex — so Claude Code, Cursor, and Codex can run the workflows above (ship, release, store-config-as-code, OTA updates, CI, and `launch doctor`) with the same plan → confirm → apply guardrails Launch uses, and never publish without your say-so. `launch agents check` keeps them in sync.';
+  '> **Driving Launch from an AI agent?** `launch agents init` scaffolds ready-made skills into your repo — [Claude Code](https://code.claude.com/docs/en/overview) Skills (`.claude/skills/`), [Cursor rules](https://cursor.com/docs/rules) (`.cursor/rules/`), and a Launch section in `AGENTS.md` for [Codex](https://developers.openai.com/codex/guides/agents-md) — so Claude Code, Cursor, and Codex can run the workflows above (ship, release, store-config-as-code, OTA updates, CI, and `launch doctor`) with the same plan → confirm → apply guardrails Launch uses, and never publish without your say-so. `launch agents check` keeps them in sync.';
 
 /** A stable phrase from {@link AGENT_SKILLS_BLURB} the consistency test greps for in every README. */
 export const AGENT_SKILLS_SIGNATURE = 'Driving Launch from an AI agent?';

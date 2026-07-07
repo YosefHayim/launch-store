@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Open-source, self-hosted alternative to Expo EAS — build, sign, configure your stores, and ship Expo / React Native apps to the App Store &amp; Google Play from one typed launch.config.ts — your machine, your keys. No per-build bill.</strong>
+  <strong>Open-source, self-hosted alternative to <a href="https://docs.expo.dev/eas/">Expo EAS</a> — build, sign, configure your stores, and ship Expo / <a href="https://reactnative.dev/">React Native</a> apps to the <a href="https://developer.apple.com/app-store/">App Store</a> &amp; <a href="https://play.google.com/console/about/">Google Play</a> from one typed launch.config.ts — your machine, your keys. No per-build bill.</strong>
 </p>
 
 <p align="center">
@@ -49,7 +49,7 @@ provisions your signing, reconciles your App Store Connect and Google Play catal
 offers, capabilities, and listing), generates the native project, builds and signs the binary, reports
 the real per-device download size, stores the artifact, and uploads to the testing track — on hardware
 you own, with keys that stay in your local keychain. iOS signing needs a Mac; if you don't have one,
-Launch builds on a cloud Mac in **your own** AWS account or hands off to Expo EAS — see [Building without a Mac](#building-without-a-mac).
+Launch builds on a cloud Mac in **your own** [AWS EC2 Mac](https://aws.amazon.com/ec2/instance-types/mac/) account or hands off to Expo EAS — see [Building without a Mac](#building-without-a-mac).
 
 > **New here?** Run `launch demo` for a 60-second simulated walkthrough of the whole pipeline — no
 > setup, no build, no account needed. It also auto-plays the first time you run `launch`.
@@ -77,7 +77,7 @@ and open source:
 - **Your keys stay local.** Your distribution certificate, App Store Connect API key, and Android upload
   key stay in your OS keychain; Launch only ever sends a CSR to Apple. (Building without a Mac is the one
   exception — see below.)
-- **No lock-in, ever.** MIT-licensed, built on `fastlane`, Gradle, and the platforms' own APIs, with
+- **No lock-in, ever.** MIT-licensed, built on [fastlane](https://fastlane.tools/), [Gradle](https://gradle.org/), and the platforms' own APIs, with
   pluggable storage/credentials/build/submit providers. Nothing proprietary to migrate off later.
 - **It teaches as it runs.** Add `--explain` to any command — or run `launch demo` — to expand each step
   (CSR, provisioning profile, TestFlight, Play track, subscription group) into plain English.
@@ -145,7 +145,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 <summary><strong>Build &amp; ship — iOS and Android</strong></summary>
 
 1. **One command per platform.** `launch build ios` / `launch build android` runs prebuild → sign → size-check → upload to the testing track (TestFlight / Play internal) — the same flow EAS runs.
-2. **The full Apple platform family.** `launch build tvos`, `launch build macos`, and `launch build visionos` join `ios` as first-class build targets — each archived with the right Xcode destination and signed with the matching App Store Connect profile type, on the same Apple Developer account and distribution certificate as iOS. Every non-iOS Apple target builds from its committed native project (react-native-tvos / react-native-macos / react-native-visionos).
+2. **The full Apple platform family.** `launch build tvos`, `launch build macos`, and `launch build visionos` join `ios` as first-class build targets — each archived with the right [Xcode](https://developer.apple.com/xcode/) destination and signed with the matching App Store Connect profile type, on the same Apple Developer account and distribution certificate as iOS. Every non-iOS Apple target builds from its committed native project (react-native-tvos / react-native-macos / react-native-visionos).
 3. **Fast by default.** ccache wires in at `pod install`, DerivedData stays warm, and a native-graph fingerprint forces a clean build only when your native deps actually change; `--clean` forces from scratch.
 4. **Build-time ETA & progress bar.** A learned per-build estimate drives a live progress bar; `--verbose` streams the raw `xcodebuild`/Gradle output instead.
 5. **Real download-size check.** Reports the actual per-device size (App Thinning report / bundletool) and gates on the `sizeBudgetMB` you configured.
@@ -172,7 +172,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 <summary><strong>Distribute &amp; update</strong></summary>
 
 1. **Internal distribution.** `launch build <platform> --distribution internal` hosts an ad-hoc iOS install link / Android `.apk` on your own bucket; register testers with `launch device add <udid>`.
-2. **Over-the-air updates.** `launch update` publishes a code-signed JS/asset update via the **Expo Updates protocol** your `expo-updates` runtime already speaks, hosted on your own bucket (S3 / R2 / Supabase).
+2. **Over-the-air updates.** `launch update` publishes a code-signed JS/asset update via the **[Expo Updates](https://docs.expo.dev/versions/latest/sdk/updates/) protocol** your `expo-updates` runtime already speaks, hosted on your own bucket ([S3](https://aws.amazon.com/s3/) / [R2](https://developers.cloudflare.com/r2/) / [Supabase](https://supabase.com/docs/guides/storage)).
 3. **Roll back a bad update.** `launch updates list`/`view` show the per-channel history; `launch updates rollback` promotes a known-good update or drops clients back to the embedded bundle.
 4. **Pluggable storage.** Artifacts and updates live in local storage or your own S3 / R2 / Supabase bucket, served from a URL you control — no hosted service.
 
@@ -207,8 +207,8 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 2. **Zero-setup demo.** `launch demo` replays a simulated walkthrough of the whole build → sign → submit pipeline, and auto-plays once on first run.
 3. **Teaching on demand.** `--explain` on any command and `launch explain <topic>` cover the Apple/iOS/Android terminology inline.
 4. **Interactive wizard.** Running bare `launch` opens a guided wizard that remembers your last flow and offers a one-keypress repeat.
-5. **Drive it from an AI agent.** `launch agents init`/`check` scaffolds Claude / Cursor / Codex skills so coding agents run the workflows under the same plan → confirm → apply guardrails.
-6. **CI in one command.** `launch ci init` scaffolds a GitHub Actions workflow that builds and ships unattended.
+5. **Drive it from an AI agent.** `launch agents init`/`check` scaffolds [Claude Code](https://code.claude.com/docs/en/overview) / [Cursor](https://cursor.com/docs/rules) / [Codex](https://developers.openai.com/codex/guides/agents-md) skills so coding agents run the workflows under the same plan → confirm → apply guardrails.
+6. **CI in one command.** `launch ci init` scaffolds a [GitHub Actions](https://docs.github.com/actions) workflow that builds and ships unattended.
 7. **Silent self-upgrade.** Picks up a newer npm release and re-runs your command on it — throttled to once a day, and a no-op in CI, when piped, and for agents.
 
 </details>
@@ -227,7 +227,7 @@ two differ on the same workflow:
 | Builds **queue** in a shared cloud, sometimes for hours                                                             | Builds **start immediately** on your hardware — no queue                                                                                                         |
 | Free-tier builds are **capped at a 45-minute timeout**                                                              | **No timeout** — a build runs as long as it needs                                                                                                                |
 | Apple-ID **2FA** prompts / expired codes interrupt builds                                                           | Authenticates with an **App Store Connect API key (JWT)** — no password, no 2FA                                                                                  |
-| Toolchain/Node **pinned by the build image**; local `.env` not resolved                                             | Your own Xcode/Node/toolchain and a documented **env-precedence ladder** (`--print-env` to audit)                                                                |
+| Toolchain/[Node.js](https://nodejs.org/en) **pinned by the build image**; local `.env` not resolved                | Your own Xcode/Node/toolchain and a documented **env-precedence ladder** (`--print-env` to audit)                                                                |
 | **In-app purchases & subscriptions** are hand-work in the ASC UI                                                    | `launch sync` reconciles **IAPs, subscriptions & capabilities** from `launch.config.ts`                                                                          |
 | EAS **rewrites bundle-id capabilities every build** (clobbers toggles)                                              | `launch sync` applies a **minimal safe-diff** — capabilities it doesn't manage stay untouched                                                                    |
 | `eas metadata` is **iOS-only**                                                                                      | `launch metadata` syncs the listing for **iOS _and_ Android**                                                                                                    |
@@ -244,15 +244,17 @@ two differ on the same workflow:
 
 ## Requirements
 
-- **iOS:** an **Apple Developer Program** membership ($99/yr) — [enroll here](https://developer.apple.com/programs/enroll/) — then macOS with **Xcode** + command-line tools, **fastlane** (`brew install fastlane`), and an
+- **iOS:** an **Apple Developer Program** membership ($99/yr) — [enroll here](https://developer.apple.com/programs/enroll/) — then macOS with **[Xcode](https://developer.apple.com/xcode/)** + command-line tools, **fastlane** (`brew install fastlane`), and an
   **App Store Connect API key** (`.p8` + Key ID + Issuer ID) — [generate one here](https://appstoreconnect.apple.com/access/integrations/api).
   No Mac? See [Building without a Mac](#building-without-a-mac).
-- **Android:** a **Google Play Developer account** (one-time $25) — [register here](https://play.google.com/console/signup) — then a **JDK** (any OS — no Mac needed) and a **Google Play service account** JSON key.
+- **Android:** a **Google Play Developer account** (one-time $25) — [register here](https://play.google.com/console/signup) — then a **[JDK](https://openjdk.org/)** (any OS — no Mac needed) and a **Google Play service account** JSON key.
 - **Node 20+** on every platform.
 
 Run `launch doctor` any time to check all of the above.
 
 ## Install
+
+Install from [npm](https://www.npmjs.com/package/launch-store):
 
 ```bash
 npm install --save-dev launch-store     # per-project (recommended; resolves the typed launch.config.ts)
@@ -305,7 +307,7 @@ The everyday ones:
 
 <!-- agent-skills:start — generated by `npm run docs:gen` from AGENT_SKILLS_BLURB; edit the source, then regenerate. -->
 
-> **Driving Launch from an AI agent?** `launch agents init` scaffolds ready-made skills into your repo — Claude Skills (`.claude/skills/`), Cursor rules (`.cursor/rules/`), and a Launch section in `AGENTS.md` for Codex — so Claude Code, Cursor, and Codex can run the workflows above (ship, release, store-config-as-code, OTA updates, CI, and `launch doctor`) with the same plan → confirm → apply guardrails Launch uses, and never publish without your say-so. `launch agents check` keeps them in sync.
+> **Driving Launch from an AI agent?** `launch agents init` scaffolds ready-made skills into your repo — [Claude Code](https://code.claude.com/docs/en/overview) Skills (`.claude/skills/`), [Cursor rules](https://cursor.com/docs/rules) (`.cursor/rules/`), and a Launch section in `AGENTS.md` for [Codex](https://developers.openai.com/codex/guides/agents-md) — so Claude Code, Cursor, and Codex can run the workflows above (ship, release, store-config-as-code, OTA updates, CI, and `launch doctor`) with the same plan → confirm → apply guardrails Launch uses, and never publish without your say-so. `launch agents check` keeps them in sync.
 
 <!-- agent-skills:end -->
 
