@@ -2,15 +2,25 @@
 
 @AGENTS.md
 
-The line above imports [`AGENTS.md`](./AGENTS.md) — the working rules, module ownership, the code
-patterns for adding a backend, and the validation gate. That file is the source of truth for editing
-this repo; the notes below are Claude-specific.
+The line above imports [`AGENTS.md`](./AGENTS.md) — the working rules, module ownership, and the
+validation gate. The doc family:
+
+| Doc | Role |
+|-----|------|
+| [`PROJECT.md`](./PROJECT.md) | Purpose, direction, non-goals |
+| [`CONTEXT.md`](./CONTEXT.md) | Architecture and orientation map |
+| [`LANGUAGE.md`](./LANGUAGE.md) | Domain glossary — the only terms to use |
+| [`CODE-STYLE.md`](./CODE-STYLE.md) | How code is written (Effect, prose naming, patterns) |
+| [`AGENTS.md`](./AGENTS.md) | Working rules for contributors and agents |
+| [`TECH-GLOSSARY.md`](./TECH-GLOSSARY.md) | React Native / Expo / Apple / Google stack terms |
 
 ## Claude-specific notes
 
-- The provider interfaces in `src/core/types.ts` ripple through every provider and the pipeline. For
+- The service interfaces in `src/core/types/` ripple through every provider and the pipeline. For
   a change that touches them, plan the edit first (plan mode) before writing code.
 - `README.md` owns user-facing usage and onboarding — keep agent rules out of it.
+- **All new code must follow CODE-STYLE.md** — full Effect, prose naming, typed errors.
+- Rewrite existing code on contact to the new style.
 
 ## Agent skills
 
@@ -27,4 +37,4 @@ The five canonical triage roles, mapped to their label strings (defaults, unchan
 
 ### Domain docs
 
-Single-context — `CONTEXT.md` + `TECH-GLOSSARY.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single-context — `CONTEXT.md` + `LANGUAGE.md` + `TECH-GLOSSARY.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.

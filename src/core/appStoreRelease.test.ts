@@ -16,6 +16,7 @@ function makeApi(overrides: Partial<AscReleaseApi> = {}): AscReleaseApi {
   const base: AscReleaseApi = {
     getAppId: vi.fn().mockResolvedValue('app1'),
     listBuilds: vi.fn().mockResolvedValue([]),
+    findBuild: vi.fn().mockResolvedValue({ id: 'b-1', usesNonExemptEncryption: null }),
     findBuildByVersion: vi.fn().mockResolvedValue(null),
     setBuildUsesNonExemptEncryption: vi.fn().mockResolvedValue(undefined),
     listAppStoreVersions: vi.fn().mockResolvedValue([]),
@@ -185,6 +186,21 @@ describe('releaseApp — submit an update over the API', () => {
       appStoreState: 'WAITING_FOR_REVIEW',
     });
     expect(api.submitReviewSubmission).not.toHaveBeenCalled();
+  });
+
+  it('skips export-compliance writes when the build already has the desired answer', async () => {
+    const api = makeApi({
+      findBuild: vi.fn().mockResolvedValue({ id: 'b-1', usesNonExemptEncryption: false }),
+    });
+    const report = await releaseApp(api, input());
+    expect(api.setBuildUsesNonExemptEncryption).not.toHaveBeenCalled();
+    expect(report.actions).toContainEqual(
+      expect.objectContaining({
+        description: 'declare export compliance (usesNonExemptEncryption=false)',
+        status: 'skipped',
+        note: 'already answered on this build',
+      }),
+    );
   });
 
   it('enables a phased release when opted in', async () => {

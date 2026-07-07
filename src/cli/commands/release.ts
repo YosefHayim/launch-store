@@ -12,6 +12,7 @@
 
 import type { Command } from 'commander';
 import { cancel, confirm, isCancel } from '@clack/prompts';
+import { Effect } from 'effect';
 import type {
   AndroidReleaseOptions,
   AppDescriptor,
@@ -39,6 +40,7 @@ import { loadAscKeyById } from '../../core/accounts.js';
 import { isInteractive } from '../../core/progress.js';
 import { pickOne } from '../../core/prompt.js';
 import { resolveReleaseType, resolveWhatsNew } from '../../core/releaseInputs.js';
+import { resolveReleaseConfirmationMode } from '../../core/release/confirmation.js';
 import {
   isApplePlatform,
   parsePlatform,
@@ -81,6 +83,8 @@ interface ReleaseCommandOptions extends EnvFlags {
   dryRun?: boolean;
   /** iOS-only: show the one-time App Store Connect setup checklist and exit. */
   createApp?: boolean;
+  /** Skip public-release confirmation after an operator has approved the release out of band. */
+  yes: boolean;
 }
 
 /**
@@ -126,6 +130,7 @@ export function registerReleaseCommand(program: Command): void {
       'iOS only — show the one-time App Store Connect setup checklist and exit',
       false,
     )
+    .option('-y, --yes', 'skip the confirmation prompt (for CI/agents after approval)', false)
     .option('--explain', 'expand each step', false);
   addEnvFlags(command).action(async (platform: string, options: ReleaseCommandOptions) => {
     await runRelease(parsePlatform(platform), options);
@@ -181,6 +186,24 @@ async function resolveVersionString(
 async function askConfirm(message: string): Promise<boolean> {
   const proceed = await confirm({ message });
   return !isCancel(proceed) && proceed;
+}
+
+/**
+ * Gate a public release with either `--yes` or an interactive prompt.
+ *
+ * @param message - Prompt text shown when the process can interact with the operator.
+ * @param options - Parsed release command options, including the `--yes` confirmation bypass.
+ * @returns True when the release should proceed; false when the operator cancelled the prompt.
+ */
+async function confirmPublicRelease(
+  message: string,
+  options: ReleaseCommandOptions,
+): Promise<boolean> {
+  const mode = await Effect.runPromise(
+    resolveReleaseConfirmationMode({ yes: options.yes === true, canPrompt: isInteractive() }),
+  );
+  if (mode === 'confirmed') return true;
+  return askConfirm(message);
 }
 
 /** The release-input fields that don't depend on the chosen build — shared by the dry-run and real paths. */
@@ -429,8 +452,9 @@ async function resolveIosBuild(
     const { build } = source;
     const versionString = await resolveVersionString(client, app, bundleId);
     if (
-      !(await askConfirm(
+      !(await confirmPublicRelease(
         `Submit ${app.name} ${versionString} (build ${build.version}) for App Store review?`,
+        options,
       ))
     ) {
       cancel('Cancelled — nothing submitted.');
@@ -455,8 +479,9 @@ async function resolveIosBuild(
     ...(size > 0 ? [`download size ~${mb(size)} (size budget already checked at build)`] : []),
   );
   if (
-    !(await askConfirm(
+    !(await confirmPublicRelease(
       `Upload and submit ${app.name} ${artifact.version} (${artifact.buildNumber}) for review?`,
+      options,
     ))
   ) {
     cancel('Cancelled — nothing submitted.');
@@ -464,8 +489,9 @@ async function resolveIosBuild(
   }
   if (
     shouldNudgeRelease(artifact) &&
-    !(await askConfirm(
+    !(await confirmPublicRelease(
       `This build was incremental, not clean — promote anyway? (\`launch build ${ctx.platform} --clean\` for a fresh one)`,
+      options,
     ))
   ) {
     cancel('Cancelled — nothing submitted.');
@@ -530,19 +556,23 @@ async function runAndroidRelease(
   }
   ensureArtifactPresent(latest, app.name, 'android');
 
-  const proceed = await confirm({
-    message: `Submit ${app.name} ${latest.version} (${latest.buildNumber}) to the PUBLIC Play production track?`,
-  });
-  if (isCancel(proceed) || !proceed) {
+  if (
+    !(await confirmPublicRelease(
+      `Submit ${app.name} ${latest.version} (${latest.buildNumber}) to the PUBLIC Play production track?`,
+      options,
+    ))
+  ) {
     cancel('Cancelled — nothing submitted.');
     return;
   }
 
   if (shouldNudgeRelease(latest)) {
-    const proceedIncremental = await confirm({
-      message: `This build was incremental, not clean — promote anyway? Run \`launch build android --clean\` first for a from-scratch artifact.`,
-    });
-    if (isCancel(proceedIncremental) || !proceedIncremental) {
+    if (
+      !(await confirmPublicRelease(
+        `This build was incremental, not clean — promote anyway? Run \`launch build android --clean\` first for a from-scratch artifact.`,
+        options,
+      ))
+    ) {
       cancel('Cancelled — nothing submitted.');
       return;
     }

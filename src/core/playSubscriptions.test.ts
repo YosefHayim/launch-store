@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SubscriptionOfferResource, SubscriptionResource } from '../google/playClient.js';
 import type { SubscriptionConfig } from './types.js';
+import { expectArrayElement } from '../testkit/assertions.testkit.js';
 import {
   type PlaySubscriptionsApi,
   buildOffer,
@@ -182,7 +183,7 @@ describe('reconcilePlaySubscriptions', () => {
     });
 
     expect(calls.created).toHaveLength(1);
-    const created = calls.created[0]!;
+    const created = expectArrayElement(calls.created, 0, 'calls.created');
     expect(created.productId).toBe('com.acme.pro.monthly');
     expect(created.basePlans?.[0]).toEqual({
       basePlanId: 'p1m',

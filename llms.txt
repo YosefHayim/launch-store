@@ -142,7 +142,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 63 `launch` commands (211 store-API operations underneath, 1974 tests):
+All 63 `launch` commands (211 store-API operations underneath, 2006 tests):
 
 - `launch init` — scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` — onboard an app that already ships: import its App Store Connect setup into config
@@ -289,8 +289,8 @@ All 63 `launch` commands (211 store-API operations underneath, 1974 tests):
 - `launch ci` — scaffold CI workflows for building & shipping Launch apps
   - `launch ci init` — write a GitHub Actions workflow that builds and ships on a hosted runner
   - `launch ci help [command]` — display help for command
-- `launch agents` — scaffold agent skills/rules (Claude, Cursor, Codex) so coding agents can drive Launch
-  - `launch agents init` — write Claude skills, Cursor rules, and the AGENTS.md Launch section into this repo
+- `launch agents` — scaffold agent skills/rules (Claude, Cursor, Codex, Windsurf, Copilot, Kiro, Cline, Amazon Q) so coding agents can drive Launch
+  - `launch agents init` — write agent skills/rules for all detected coding agents into this repo
   - `launch agents check` — verify the scaffolded agent files are in sync with the installed Launch
 - `launch mcp` — serve Launch's read-only tools to AI agents over MCP (stdio); `install` wires it into a client
   - `launch mcp install` — wire `launch mcp` into an AI client's config (default: auto-detect Claude Code / Cursor)
@@ -311,7 +311,7 @@ All 63 `launch` commands (211 store-API operations underneath, 1974 tests):
 
 ## Source
 
-- [Domain types & provider interfaces](./src/core/types.ts): the single source of truth for Launch's vocabulary (incl. SecretStore, ComputeHost).
+- [Domain types & provider interfaces](./src/core/types/index.ts): the single source of truth for Launch's vocabulary (incl. SecretStore, ComputeHost).
 - [Pipeline](./src/core/pipeline.ts): the build → submit spine, the shared `prepareBuild` front half, and the `--dry-run` rehearsal.
 - [Remote pipeline](./src/core/remotePipeline.ts): the C1–C7 host lifecycle for off-Mac builds; [EAS pipeline](./src/core/easPipeline.ts): the Expo handoff.
 - [AWS EC2 Mac host](./src/providers/compute/awsEc2Mac.ts): allocate/status/teardown + golden-AMI + `cloud doctor`; [SSH transport](./src/core/ssh.ts) and [remote build ops](./src/core/remoteBuild.ts).

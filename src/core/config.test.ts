@@ -11,6 +11,7 @@ import {
 } from './config.js';
 import { validateConfig } from './configSchema.js';
 import type { AppDescriptor } from './types.js';
+import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.js';
 
 const tempDirs: string[] = [];
 function makeRepo(): string {
@@ -31,7 +32,9 @@ function writeConfigFile(repo: string, relDir: string, filename: string, content
   writeFileSync(join(dir, filename), contents);
 }
 afterEach(() => {
-  while (tempDirs.length > 0) rmSync(tempDirs.pop()!, { recursive: true, force: true });
+  while (tempDirs.length > 0) {
+    rmSync(expectDefined(tempDirs.pop(), 'temp dir'), { recursive: true, force: true });
+  }
 });
 
 describe('defineConfig', () => {
@@ -364,7 +367,8 @@ describe('writeAppVersion — persist the bump back to a static app.json', () =>
       version: '1.0.0',
       ios: { bundleIdentifier: 'com.x' },
     });
-    const app = (await loadConfig(repo)).apps[0]!;
+    const loadedConfig = await loadConfig(repo);
+    const app = expectArrayElement(loadedConfig.apps, 0, 'apps');
 
     expect(writeAppVersion(app, '1.0.1')).toBe(true);
 

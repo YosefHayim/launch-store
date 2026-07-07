@@ -1,280 +1,595 @@
 # CODE-STYLE.md
 
-How code is written in **Launch**. Prescriptive (how to write), not descriptive (what exists — that's
-[`AGENTS.md`](./AGENTS.md)). The rules digest is mirrored into `AGENTS.md`; **this file is the source —
-edit here.** Records the _desired_ end-state; where the code hasn't caught up, the rule is marked
-**_migration_** and the before/after shows current → target. `deslop` reads this file to enforce style
-per-diff.
+How code is written in **Launch**. Prescriptive: this is the desired migrated state, not a census of the current tree. The rules digest is mirrored into `AGENTS.md`; this file is the source of truth. When an existing module is touched, move it toward this guide instead of preserving old async/Promise-era style.
 
-## Stack & framework practices
+## Stack & Framework Practices
 
-One TypeScript / Node ESM package (a `commander` CLI). Style is **enforced, not documented** —
-`tsconfig.json` (max-strict), `biome.json` (`all` preset), and `.husky/pre-commit` own formatting and
-type rules (no `any`, no needless `as`, 2-space, single quotes, trailing commas, `.js` ESM imports).
-Don't restate them here; run `npm run lint`.
+Launch is a TypeScript / Node ESM CLI. The runtime backbone is **Effect**: Effect programs, typed errors, services via `Context.Tag`, live/test `Layer` implementations, and Effect Schema for config and external boundary schemas.
 
-For the recurring how-to tasks, follow the project's own skills instead of duplicating steps here:
+Use these repo skills instead of restating their whole playbooks here:
 
-- Add a `launch` command → **`add-a-command`**
-- Add a build/storage/credentials/submit/compute backend → **`add-a-provider`**
-- Add teaching text for a concept/step → **`add-a-glossary-topic`**
-- Finish/verify a change (the gate) → **`run-the-gate`**
+- CLI journey and interactive/non-interactive behavior -> `interactive-cli-reviewer`
+- Per-diff readability cleanup -> `deslop`
+- Code-style review gates -> `grill-me-code-style-with-docs`
 
-This file covers only what's specific to Launch on top of those.
+This file covers only Launch-specific decisions on top of TypeScript, Node, Commander, Clack, Effect, Vitest, and Biome.
 
 ## Rules
 
-Load-bearing, project-specific decisions. Each: the rule + a real before/after.
+Each rule records the pick from the code-style grill. `[lint: ...]` means Biome or `npm run lint:style` should catch the migrated slice; `[taste]` means reviewer/deslop judgment still matters.
 
-### Files: mirror the API, cap the logic, split by purpose
+### Desired State, Not Current Census · [taste]
 
-Three tiers govern file size — **never a flat line limit**:
-
-1. **Exempt — deliberate linear spines and API-mirroring transport.** `core/pipeline.ts` (the single
-   build→submit spine) reads top-to-bottom; splitting it hurts more than it helps. The wire clients
-   (`apple/ascClient.ts`, `apple/ascResources.ts`, `google/playClient.ts`) mirror the vendor API **1:1** —
-   one named method/type per endpoint/resource, each with its own quirk JSDoc. **Do not collapse
-   per-endpoint methods into a generic**, even when a cluster is near-identical: 1:1 mapping to Apple/Google
-   docs is the navigation win. Keep the _transport_ DRY (the shared private `request` / `requestAll` /
-   `createResource` helpers already do this) — repeat only the thin, individually-documented public method.
-
-2. **Logic / orchestration: aim ≤ 200 LOC.** When one grows past, split by _purpose_ first — move type
-   declarations to the barrel, extract pure helpers — before splitting by size.
-
-3. **Non-API pure-data repetition → a descriptor table + one generic.** N near-identical blocks differing
-   only by constants (a config table, a registry) collapse; this is the _only_ place the "map it" rule
-   applies (tier 1 overrides it for the wire clients).
+Write new and touched production code in the target style even while old modules still contain async, Promise, throw, and flat-core structure.
 
 ```ts
-// before  (src/core/adopt/orchestrator.ts — 265 LOC: 8 exported interfaces inline + 3 logic fns)
-export interface TargetPlan { detected: DetectedApp; writes: PlannedWrite[]; errors: AdopterError[]; }
-export interface ApplyContext { /* … */ }
-export async function planTargets(/* … */) { /* logic */ }
+// chosen (target style)
+export const prepareBuild = (buildOptions: BuildRunOptions) =>
+  Effect.gen(function* () {
+    const launchConfig = yield* loadLaunchConfig;
+    const selectedApp = yield* selectConfiguredApp(launchConfig.apps, buildOptions.appName);
+    return yield* prepareSelectedAppBuild(buildOptions, selectedApp);
+  });
 
-// after  (shapes move to the barrel; the logic file drops to ~180 LOC, logic-only)
-// src/core/types/adopt.ts
-export interface TargetPlan { detected: DetectedApp; writes: PlannedWrite[]; errors: AdopterError[]; }
-// src/core/adopt/orchestrator.ts
-import type { ApplyContext, TargetPlan } from '../types.js';
-export async function planTargets(/* … */) { /* logic only */ }
+// not this (src/core/pipeline.ts:prepareBuild incumbent)
+export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBuild> {
+  const { config, apps } = await loadConfig();
+  const app = await selectApp(apps, options.appName);
+}
 ```
 
-_Why:_ big is fine when the shape mirrors an official API (easy to follow/navigate); logic that mixes
-shapes + branching past ~200 lines is where a purpose-split pays off.
+_Why:_ Mixed style is migration debt; this guide describes the destination so agents do not copy the debt.
 
-### Types live in one home: `src/core/types/`
+### Effect Everywhere In Production · [lint: launch/no-production-promise-style]
 
-**_migration._** Every exported shape lives in `src/core/types/*.ts` (split by concern: `app`, `catalog`,
-`storeSurface`, `config`, `credentials`, `artifacts`, `providers`, `remote`, `vitals`, …), re-exported by
-the `src/core/types.ts` barrel and imported as `from '../core/types.js'`. The five provider interfaces
-(`BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`) live there too.
-No per-feature `types.ts`, and **no exported shape declared inline in a logic file** — inline is only for
-non-exported, file-private helper types. Promote a feature-local shape only on a real second consumer.
-(The ASC wire types are the one deliberate exception — they mirror Apple's API in `apple/ascResources.ts`,
-re-exported via `apple/ascClient.ts`; see tier 1 above.)
+Every exported production behavior returns `Effect`. Pure logic uses `Effect.sync`; I/O and sequential work use `Effect.gen(function* () { ... })`. `async/await` is allowed only in tests, scripts, generated fixtures, tiny process entrypoints, and temporary vendor adapter shims.
 
 ```ts
-// before  (src/core/plan/types.ts — a per-feature types module)
-export interface PlanResult { /* … */ }
-// after   (src/core/types/plan.ts, re-exported by the barrel)
-export interface PlanResult { /* … */ }   // import { PlanResult } from '../types.js'
+// chosen (src/core/asyncPool.ts:runPooledWorkers target style)
+export const runPooledWorkers = <TItem, TValue, TError>(
+  itemsToProcess: readonly TItem[],
+  concurrencyLimit: number,
+  processItem: (currentItem: TItem) => Effect.Effect<TValue, TError>,
+): Effect.Effect<readonly WorkerResult<TValue>[]> =>
+  Effect.forEach(itemsToProcess, processItem, { concurrency: concurrencyLimit });
+
+// not this (src/core/pipeline.ts:runBuild incumbent)
+export async function runBuild(options: BuildRunOptions): Promise<void> {
+  const prepared = await prepareBuild(options);
+  await dispatchBuild(prepared, options);
+}
 ```
 
-_Why:_ one place to find any shape; the barrel keeps every `../core/types.js` import stable.
+_Why:_ Effects make errors, dependency injection, cancellation, retries, cleanup, and test layers explicit.
 
-### All output flows through one seam — never raw `console.*`
+### Typed Errors Only · [lint: launch/no-raw-throw]
 
-**_migration._** Domain core (`adopt`, `ascSync`, `plan`, reconcilers) stays **UI-free**: it returns
-structured data and never prints. Rendering belongs to the CLI commands and the presentation modules
-(`tour`, `progress`, `prompt`, `banner`, `logger`), and it goes through the **output/logger seam**, not
-`console.log`. The only sanctioned raw writes are the top-level fatal catch in `cli/index.ts` and the MCP
-server (stdout is its protocol — it logs to **stderr** only).
+Expected failures are `Data.TaggedError` classes. Vendor/unknown thrown errors are converted to tagged errors at the boundary. Callers recover with `Effect.catchTag` / `Effect.catchTags`.
 
 ```ts
-// before  (src/core/pipeline.ts:614 — a domain module printing raw)
-console.log(formatEnvTable(resolved));
-// after   (through the Logger already threaded down the pipeline)
-log.info(formatEnvTable(resolved));
+// chosen
+export class UnknownPlatformError extends Data.TaggedError('UnknownPlatformError')<{
+  readonly receivedPlatform: string;
+  readonly allowedPlatforms: readonly Platform[];
+}> {}
+
+export const parsePlatform = (rawPlatform: string) =>
+  Effect.gen(function* () {
+    const matchingPlatform = PLATFORMS.find((platform) => platform === rawPlatform);
+    if (!matchingPlatform) {
+      return yield* Effect.fail(
+        new UnknownPlatformError({ receivedPlatform: rawPlatform, allowedPlatforms: PLATFORMS }),
+      );
+    }
+    return matchingPlatform;
+  });
+
+// not this (src/core/platform.ts:parsePlatform incumbent)
+if (!match) throw new Error(`Unknown platform "${value}". Use one of: ${PLATFORMS.join(', ')}.`);
 ```
 
-_Why:_ one formatting seam, testable output, and domain modules you can call without side effects.
+_Why:_ Error tags are part of the API contract; string errors are not.
 
-### Errors: throw a plain `Error` with an actionable message; subclass only at a catch-and-branch boundary
+### Services And Providers Are Effect Contracts · [taste]
 
-Throw — don't return `{ ok, error }` (reserved for the rare hot path). Default to
-`throw new Error(msg)` where `msg` states the _fix_. Add a custom `Error` subclass **only** when a caller
-must distinguish and handle it (the API/creds boundaries). Expected graded exits return an `exitCode` in
-data, applied centrally; the top-level catch in `cli/index.ts` prints `.message` and exits 1.
+Infrastructure is modeled as `Context.Tag` services with `Live` and `Test` layers. The five provider roles stay, but provider methods return `Effect`; registry lookup is itself a service, not global mutable maps.
 
 ```ts
-// good — actionable, plain Error  (src/providers/storage/local.ts:71)
-if (!existsSync(path)) throw new Error(`No stored artifact with id "${id}".`);
-// boundary subclass — a caller catches THIS type  (src/apple/ascClient.ts:205)
-export class AscRequestError extends Error { /* status, detail — callers branch on it */ }
+// chosen
+export interface CredentialsProvider {
+  readonly name: string;
+  readonly resolveCredentials: (
+    buildContext: ResolvedBuildContext,
+  ) => Effect.Effect<BuildCredentials, MissingCredentialsError | KeychainError>;
+  readonly describeCredentialStatus: Effect.Effect<string, CredentialStatusError>;
+}
+
+export class ProviderRegistry extends Context.Tag('ProviderRegistry')<
+  ProviderRegistry,
+  {
+    readonly getCredentialsProvider: (
+      providerName: string,
+    ) => Effect.Effect<CredentialsProvider, UnknownProviderError>;
+  }
+>() {}
+
+// not this (src/core/registry.ts incumbent)
+const credentialsProviders = new Map<string, CredentialsProvider>();
+export const getCredentialsProvider = (name: string): CredentialsProvider =>
+  lookup('credentials provider', name, credentialsProviders);
 ```
 
-_Why:_ a CLI's job on failure is a clear message + the right exit code; typed errors only where control
-flow needs them.
+_Why:_ Tests can provide `ProviderRegistryTest` without mutating process-global state.
 
-### Config is a zod schema; types are inferred from it
+### CLI Files Are Commander Wiring Only · [taste]
 
-**_migration — see [ADR 0008](./docs/adr/0008-adopt-zod-config-ssot.md)._** The user's `launch.config.ts`
-surface is defined once as a **zod v4** schema; the TS type is `z.infer`'d from it; validation at the
-boundary is `.parse()` (structural) plus the existing `configSemantics` cross-field checks. The shipped
-`schema/launch.config.schema.json` (editor autocomplete) is generated **from** zod. zod is the SSOT for
-_config only_ — every other domain shape stays a hand-written `interface` in the barrel.
+`src/cli/commands/*` owns command names, arguments, flags, help text, and `runCliProgram(...)`. Parsing into domain inputs, confirmation policy, rendering decisions, and orchestration live in `src/core/<domain>/...` Effect programs.
 
 ```ts
-// before  (hand-written interface + hand-rolled validator)
-// src/core/types/config.ts
-export interface LaunchConfig { app: string; submit: string | SubmitByPlatform; /* … */ }
-// src/core/configSchema.ts
-export function validateConfig(value: unknown): SchemaViolation[] { /* hand-rolled */ }
+// chosen
+export const registerBuildCommand = (program: Command): void => {
+  program
+    .command('build')
+    .argument('<platform>')
+    .option('--profile <name>', 'build profile', 'production')
+    .option('--yes')
+    .action((platformArgument, commandOptions) =>
+      runCliProgram(buildCommandProgram(platformArgument, commandOptions)),
+    );
+};
 
-// after   (zod schema is the SSOT; type inferred; parse at the edge)
-// src/core/types/config.ts
-export const LaunchConfigSchema = z.object({ app: z.string(), submit: SubmitSchema, /* … */ });
-export type LaunchConfig = z.infer<typeof LaunchConfigSchema>;
-// loader
-const config = LaunchConfigSchema.parse(loaded);   // structural; then configSemantics(config)
+// not this (src/cli/commands/build.ts incumbent)
+addEnvFlags(command).action(async (platformArg, options) => {
+  const platform = parsePlatform(platformArg);
+  const rollout = parseRollout(options.rollout);
+  await runBuild({ platform, rollout });
+});
 ```
 
-_Why:_ one source for the config's type, its validation, and its JSON schema — no hand-kept drift between
-the three. Prefer `zod/mini` where tree-shaking matters, to blunt the install-size cost this trades for.
+_Why:_ The CLI and any future MCP/agent surface should call the same domain program.
 
-### `interface` for shapes, `type` for the rest; constants at the top
+### Prompting Is A Service · [lint: launch/no-clack-in-core]
 
-`interface` for object shapes — the official TS heuristic ("use `interface` until you need features from
-`type`"), and it matches the provider-interface model. Reach for `type` for unions, tuples, function
-types, and mapped/conditional/utility types. **Module constants (especially reused ones) go at the top of
-the file, after imports and before any function** — one home for a value that's referenced more than once.
+Clack is only the live implementation of `PromptService`. Core may depend on `PromptService`; it must not import `@clack/prompts` directly. TTY flows may prompt; flags/non-TTY never hang.
 
 ```ts
-// good  (src/apple/ascClient.ts:114–118 — constants at top, after imports, before the class)
-const API_ORIGIN = 'https://api.appstoreconnect.apple.com';
-const TOKEN_TTL_SECONDS = 19 * 60;
+// chosen
+const prompt = yield* PromptService;
+yield* prompt.confirmOrFail({ message: buildPlan.confirmationMessage });
+
+// not this
+import { confirm } from '@clack/prompts';
+const accepted = await confirm({ message: 'Upload this build?' });
 ```
 
-_Why:_ predictable shapes and a single, greppable home for every tunable.
+_Why:_ Scriptability, tests, and agent runs need one non-hanging prompt boundary.
 
-### Child processes only through `core/exec.ts`
+### Core Is Grouped By Job · [taste]
 
-`run` streams (builds, fastlane), `runQuiet` tees to a log + per-line callback, `capture` collects stdout.
-All use `shell: false` + an explicit arg array — never a shell string, never `spawn`/`exec` directly. The
-one exception is `updateCheck.ts` re-spawning the CLI itself.
+`src/core` is organized by purpose/job, not by generic utilities and not by platform. API mirror clients stay top-level in `src/apple` and `src/google`.
+
+```text
+// chosen target
+src/core/
+  build/ credentials/ config/ distribution/ readiness/ release/ store/
+  agents/ dashboard/ docs/ mcp/ services/ types/
+
+// not this (current migration debt)
+src/core/pipeline.ts
+src/core/buildFlags.ts
+src/core/buildFingerprint.ts
+src/core/buildLog.ts
+src/core/buildPreview.ts
+```
+
+_Why:_ A reader should know where a feature lives by the job it performs.
+
+### Imports Follow Ownership Direction · [lint: launch/import-boundaries]
+
+```text
+// chosen
+src/cli       -> src/core only
+src/providers -> src/core/types + src/core/services only, plus vendor SDKs
+src/core      -> src/apple and src/google through service adapters only
+src/apple     -> src/core/types only, never src/core logic
+src/google    -> src/core/types only, never src/core logic
+
+// not this (scan found drift)
+cli -> apple/google/providers
+core -> providers outside composition/registry wiring
+apple/google -> core logic
+```
+
+_Why:_ Directional imports keep the CLI thin, providers swappable, and vendor clients boring.
+
+### `index.ts` Is The Barrel; `types.ts` Holds Types · [lint: launch/index-barrels]
+
+Wildcard barrels are named `index.ts`. A file named `types.ts` contains actual type declarations, not wildcard re-exports.
 
 ```ts
-import { run, capture } from '../../core/exec.js';
-await run('xcodebuild', ['-scheme', scheme, 'archive']);        // arg array
-// ✗ run(`xcodebuild -scheme ${scheme}`)                        // no shell strings, ever
+// chosen target (src/core/types/index.ts)
+export type * from './app.js';
+export type * from './config.js';
+export type * from './providers.js';
+
+// not this (src/core/types.ts incumbent)
+export type * from './types/app.js';
+export type * from './types/config.js';
+export type * from './types/providers.js';
 ```
 
-_Why:_ closes the shell-injection class of bug at one seam. Exemplar: `src/core/exec.ts`.
+_Why:_ `index.ts` means import surface; `types.ts` means declarations live here.
 
-### Lazy-load heavy/optional SDKs through `requireOptional`
+### Effect Schema Owns Config And Boundary Schemas · [taste]
 
-AWS SDK, native keyring, `eas-cli` are `optionalDependencies`, imported only on the remote / non-Mac
-paths. Load them via `core/optionalDep.ts` so a _missing_ package is an actionable "install this" message,
-and a local-only install stays lean. Providers that pull heavy SDKs register the import inside their own
-methods (see `providers/index.ts`), so a local run never loads them. Exemplar: the `requireOptional`
-block in [`AGENTS.md`](./AGENTS.md).
-
-### A backend = a named provider object + one registration
-
-Implement one of the five interfaces as `export const <name><Role>: Role = { name: '<id>', … }` in
-`src/providers/<role>/<name>.ts`, then register it in `src/providers/index.ts`. **Never touch
-`pipeline.ts`** — it resolves the backend by the `name` in `launch.config.ts`. Exemplars:
-`src/providers/storage/local.ts`, `src/providers/index.ts`.
-
-### Comments explain WHY, cross-linked with `{@link}`
-
-Every module opens with a file-level doc stating its _purpose and the non-obvious tradeoff_; every export
-carries JSDoc; `{@link}` stitches related modules together. A comment never restates the signature or
-narrates WHAT the next line does.
+`launch.config.ts`, imported JSON, and external payload boundaries use Effect Schema. Zod is migration debt; ADR 0008 is superseded.
 
 ```ts
-// before  (narrates WHAT — noise)
-// copy the file to the destination
-copyFileSync(artifact.path, dest);
-// after   (states WHY — the design decision)  cf. src/providers/storage/local.ts
-/** A factory (not a singleton) because the base directory is per-project — mirrors the future s3 provider. */
+// chosen
+export const LaunchConfigSchema = Schema.Struct({
+  apps: Schema.Array(AppConfigSchema),
+  profiles: Schema.Record({ key: Schema.String, value: ProfileConfigSchema }),
+});
+export type LaunchConfig = Schema.Schema.Type<typeof LaunchConfigSchema>;
+
+export const parseLaunchConfig = (unknownConfig: unknown) =>
+  Schema.decodeUnknown(LaunchConfigSchema)(unknownConfig).pipe(
+    Effect.mapError((parseError) => new ConfigParseError({ parseError })),
+  );
+
+// not this (target no longer uses zod)
+import { z } from 'zod';
 ```
 
-_Why:_ Launch is a teaching tool (`--explain`, the glossary); the prose is a feature, not overhead.
-Exemplars: `src/core/exec.ts`, `src/providers/storage/local.ts`, `src/core/adopt/orchestrator.ts`.
+_Why:_ Config parsing should compose with the same error and Effect runtime as the rest of Launch.
 
-### Tests: co-located, hand-written fakes, shared fixtures in one testkit
+### Vendor Wire Types Stay In Resource Files · [taste]
 
-Tests live beside the code (`foo.ts` + `foo.test.ts`), `describe`/`it`, explicit `toBe`/`toEqual`/`toThrow`
-— **no snapshots**. Prefer hand-written in-memory fakes + `vi.fn`; reserve `vi.mock` for true I/O boundary
-modules (`exec`, `keychain`, `child_process`, `fs`, `paths`). **_migration:_** shared fakes/fixtures live
-in one central testkit root (`src/testkit/`), file-named `*.testkit.ts` (already build-excluded by
-`tsconfig.build.json`), imported across tests — not re-hand-rolled per file.
+`src/apple/ascResources.ts` and `src/google/playResources.ts` hold vendor resource/query DTOs. Clients transport requests and may re-export resource files for compatibility. Domain-normalized shapes stay in `src/core/types/*`.
 
 ```ts
-// before  (a fake ASC catalog API rebuilt inline in 7 test files)
-const asc: AdoptCatalogApi = { getAppId: vi.fn().mockResolvedValue('123'), /* … */ };
-// after   (one home, imported)
-import { fakeAscCatalogApi } from '../../testkit/ascCatalogApi.testkit.js';
-const asc = fakeAscCatalogApi({ getAppId: '123' });
+// chosen
+// src/google/playResources.ts
+export interface PlayTrackResource {
+  readonly track: string;
+}
+
+// src/google/playClient.ts
+export type * from './playResources.js';
+
+// not this
+// hundreds of vendor DTOs mixed into playClient transport methods
 ```
 
-_Why:_ the fake ASC client and the temp-dir dance are written once; tests read as behavior, not setup.
+_Why:_ API mirrors can be large, but transport and wire shape ownership are separate jobs.
+
+### File Size Is Tiered By Job · [taste]
+
+```text
+// chosen
+- Linear orchestration spines may be long when top-to-bottom flow is clearer.
+- Vendor API mirrors may be long and repetitive when one endpoint maps to one method/resource.
+- Normal domain logic aims around 200 LOC and splits when the smaller job has a real name.
+
+// not this
+Split or merge files only to satisfy a flat line count.
+```
+
+_Why:_ Depth comes from coherent purpose, not arbitrary file length.
+
+### Concurrency Is Effect Concurrency · [lint: launch/no-promise-all]
+
+```ts
+// chosen
+const importedSubscriptions = yield* Effect.forEach(
+  subscriptions,
+  (subscription) => importSubscription(subscription),
+  { concurrency: 8 },
+);
+
+// not this (src/core/adopt/products.ts incumbent)
+const imported = (
+  await Promise.all(subscriptions.map((subscription) => importSubscription(asc, subscription)))
+).filter(Boolean);
+```
+
+_Why:_ Effect concurrency preserves typed errors, interruption, backpressure, and testability.
+
+### Cleanup Uses Scopes · [lint: launch/no-try-finally-cleanup]
+
+```ts
+// chosen
+const withMetadataWorkspace = Effect.acquireRelease(
+  createMetadataWorkspace,
+  (metadataWorkspace) => removeDirectory(metadataWorkspace.path, { recursive: true, force: true }),
+);
+
+export const pullMetadata = Effect.scoped(
+  Effect.gen(function* () {
+    const metadataWorkspace = yield* withMetadataWorkspace;
+    yield* writeStoreConfig(metadataWorkspace.configPath);
+  }),
+);
+
+// not this (src/cli/commands/metadata.ts incumbent)
+try {
+  writeFileSync(configPath, serializeStoreConfig(merged));
+} finally {
+  rmSync(apiKeyPath, { force: true });
+  rmSync(workDir, { recursive: true, force: true });
+}
+```
+
+_Why:_ Resource lifetime belongs in the Effect graph, not hidden in imperative cleanup.
+
+### I/O Goes Through Services · [lint: launch/io-boundaries]
+
+Direct `fs`, `fetch`, `spawn`, `process.env`, `console.*`, keychain, time, random, and prompts are allowed only in live service layers, tiny process entrypoints, tests, scripts, and generated fixtures.
+
+```ts
+// chosen
+const fileSystem = yield* FileSystem;
+const commandExecutor = yield* CommandExecutor;
+yield* commandExecutor.streamCommand('xcodebuild', ['-scheme', scheme, 'archive']);
+
+// not this
+const child = spawn(command, args, { shell: false });
+const response = await fetch(objectEndpoint(key));
+console.log(renderedReport);
+```
+
+_Why:_ I/O is where cancellation, retries, redaction, tests, and operator output need a contract.
+
+### Prose Naming Is Strict · [lint: launch/prose-names]
+
+Ban single-letter variables and ritual abbreviations: `ctx`, `cfg`, `res`, `req`, `opts`, `acc`, `curr`. Generic names like `data`, `result`, `info`, `item`, `value` are allowed only when the domain is genuinely generic.
+
+```ts
+// chosen
+const availabilityZonesResponse = yield* ec2Client.send(describeAvailabilityZonesCommand);
+const firstAvailableZoneName = (availabilityZonesResponse.AvailabilityZones ?? []).find(
+  (availabilityZone) => availabilityZone.ZoneName,
+)?.ZoneName;
+
+// not this (src/providers/compute/awsEc2Mac.ts:firstAvailableAz incumbent)
+const res = await client.send(...);
+const zone = (res.AvailabilityZones ?? []).find((z) => z.ZoneName)?.ZoneName;
+```
+
+_Why:_ The sentence test is the fastest way to spot code an agent wrote without understanding it.
+
+### Control Flow Is Boring And Named · [lint: launch/no-nested-ternary]
+
+No nested ternaries. Use guard clauses for one or two branches. Use `switch` for three or more repeated alternatives over the same discriminant. Named lookup tables are allowed only for pure static mappings.
+
+```ts
+// chosen
+switch (releaseState) {
+  case 'waiting_for_review':
+    return 'review';
+  case 'ready_for_sale':
+    return 'live';
+  case 'developer_rejected':
+    return 'blocked';
+  default:
+    return 'unknown';
+}
+
+// not this (src/cli/commands/status.ts:rank incumbent)
+const rank = (code: number): number => (code === 1 ? 3 : code === 2 ? 2 : code === 3 ? 1 : 0);
+```
+
+_Why:_ Replacing a nested ternary with an unlabeled object literal is still unreadable.
+
+### Domain Data Is Explicit And Immutable · [taste]
+
+Use discriminated unions over boolean flag clusters. Exported shapes use `readonly` fields and readonly arrays. Use `Option` for absence inside domain flows; reserve `undefined` for optional object fields and option bags. Normalize external `null` at decode boundaries.
+
+```ts
+// chosen
+type ReadinessFinding =
+  | { readonly state: 'passing'; readonly message: string }
+  | { readonly state: 'warning'; readonly message: string; readonly fix: string }
+  | { readonly state: 'blocking'; readonly message: string; readonly fix: string };
+
+// not this
+interface ReadinessFinding {
+  readonly isPassing: boolean;
+  readonly isWarning: boolean;
+  readonly isBlocking: boolean;
+}
+```
+
+_Why:_ The type should make invalid states unrepresentable.
+
+### Functions Carry Complete TSDoc · [lint: launch/function-tsdoc]
+
+Every module-scope function, exported function value, provider method, and service method gets TSDoc. It must include a purpose sentence, one `@param` for every runtime parameter, and `@returns` for the returned value or returned `Effect`. Add `@example` when the call shape is not obvious from the signature. Tiny inline callbacks and short local lambdas are exempt; if a local helper needs explanation, promote it or give it the same TSDoc.
+
+```ts
+// chosen
+/**
+ * Builds the release plan for one configured app without mutating store state.
+ *
+ * @param launchConfig - Parsed Launch config from {@link parseLaunchConfig}.
+ * @param appName - Optional app selector from the CLI.
+ * @returns An Effect that succeeds with a read-only release plan or fails with a typed planning error.
+ *
+ * @example
+ * ```ts
+ * const releasePlan = yield* buildReleasePlan(launchConfig, 'ios-app');
+ * ```
+ */
+export const buildReleasePlan = (launchConfig: LaunchConfig, appName?: string) => undefined;
+
+// not this
+/** Validate `--distribution`, defaulting to `store`. */
+function parseDistribution(distribution: string | undefined): Distribution { return 'store'; }
+```
+
+_Why:_ Function docs are the contract agents and contributors read before opening implementation; `@param` and `@returns` keep the contract searchable and mechanically checkable.
+
+### Tests Use Effects And Test Layers · [taste]
+
+Tests are colocated Vitest files. No snapshots. Use hand fakes over broad module mocks. Shared fakes live in `src/testkit/*.testkit.ts`. Effect services get `*Test` layers.
+
+```ts
+// chosen
+const AppStoreConnectTest = Layer.succeed(AppStoreConnect, {
+  getAppId: () => Effect.succeed('app1'),
+  findBundleId: () => Effect.succeed(Option.none()),
+});
+
+// not this (src/testkit/ascApiFake.testkit.ts incumbent style to migrate)
+export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurfacesApi {
+  return { getAppId: vi.fn().mockResolvedValue('app1'), ...overrides };
+}
+```
+
+_Why:_ Test layers exercise the same dependency shape production uses.
+
+### Generated And Vendor-Mirror Code Is Boring · [taste]
+
+Do not hand-deslop generated files. Vendor API mirrors may keep vendor names and repetitive one-endpoint methods. If generated output is bad, fix the generator or wrap it in a service.
+
+```text
+// chosen
+src/core/asc/schema.ts is generated; fix scripts/gen-asc-types.ts or add a wrapper.
+
+// not this
+Manually rename generated vendor fields because they offend prose naming.
+```
+
+_Why:_ The taste rules apply to authored Launch code, not machine-owned API snapshots.
+
+## Canonical Example
+
+The canonical target slice is `launch build <platform>` input parsing. It shows thin CLI wiring, Effect Schema boundary parsing, typed errors, service-ready Effect programs, and colocated tests. Illustrative documentation, not a claim that these files already exist.
+
+```ts
+// src/cli/commands/build.ts
+export const registerBuildCommand = (program: Command): void => {
+  program
+    .command('build')
+    .description('run the full pipeline and upload to the testing track')
+    .argument('<platform>', 'ios, android, tvos, macos, or visionos')
+    .option('-p, --profile <name>', 'build profile', 'production')
+    .option('-a, --app <name>', 'app handle')
+    .option('--track <track>', 'Android Play track')
+    .option('--rollout <fraction>', 'Android production rollout fraction')
+    .option('--size-budget <MB>', 'soft size budget override')
+    .option('--budget <MB>', 'alias of --size-budget')
+    .option('-y, --yes', 'confirm non-interactively', false)
+    .action((platformArgument, commandOptions) =>
+      runCliProgram(buildCommandProgram(platformArgument, commandOptions)),
+    );
+};
+
+// src/core/build/buildCommandInput.ts
+export class InvalidBuildCommandInputError extends Data.TaggedError('InvalidBuildCommandInputError')<{
+  readonly reason: string;
+}> {}
+
+export const BuildCommandOptionsSchema = Schema.Struct({
+  profile: Schema.optionalWith(Schema.String, { default: () => 'production' }),
+  app: Schema.optional(Schema.String),
+  track: Schema.optional(Schema.Literal('internal', 'closed', 'open', 'production')),
+  rollout: Schema.optional(Schema.NumberFromString.pipe(Schema.between(0, 1))),
+  sizeBudget: Schema.optional(Schema.NumberFromString.pipe(Schema.positive())),
+  budget: Schema.optional(Schema.NumberFromString.pipe(Schema.positive())),
+  yes: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+});
+
+export const parseBuildCommandInput = (platformArgument: string, rawCommandOptions: unknown) =>
+  Effect.gen(function* () {
+    const platform = yield* parsePlatform(platformArgument);
+    const commandOptions = yield* Schema.decodeUnknown(BuildCommandOptionsSchema)(rawCommandOptions).pipe(
+      Effect.mapError((parseError) => new InvalidBuildCommandInputError({ reason: String(parseError) })),
+    );
+
+    return {
+      platform,
+      profileName: commandOptions.profile,
+      appName: Option.fromNullable(commandOptions.app),
+      target: 'testing' as const,
+      yes: commandOptions.yes,
+      sizeBudgetMB: Option.fromNullable(commandOptions.sizeBudget ?? commandOptions.budget),
+      playTrack: Option.fromNullable(commandOptions.track),
+      rollout: Option.fromNullable(commandOptions.rollout),
+    } satisfies BuildCommandInput;
+  });
+
+// src/core/build/buildCommandProgram.ts
+export const buildCommandProgram = (platformArgument: string, rawCommandOptions: unknown) =>
+  Effect.gen(function* () {
+    const buildCommandInput = yield* parseBuildCommandInput(platformArgument, rawCommandOptions);
+    const prompt = yield* PromptService;
+
+    if (!buildCommandInput.yes) {
+      yield* prompt.confirmOrFail({
+        message: 'Build and upload this app to the testing track?',
+        nonInteractiveExitCode: 3,
+      });
+    }
+
+    return yield* runBuild(buildCommandInput);
+  });
+```
 
 ## Recipes
 
-Prefer the skills — they own the exact steps and the doc regeneration.
+### Add a CLI command
 
-- **Add a `launch` command** → `add-a-command`. Thin `src/cli/commands/<name>.ts` exporting
-  `register<Name>Command(program: Command): void`; wire in `src/cli/program.ts`; parse args → call `core`
-  → render through the output seam; regenerate docs.
-- **Add a provider (backend)** → `add-a-provider`. Named object implementing one interface + one line in
-  `providers/index.ts`; lazy-load heavy SDKs; never touch `pipeline.ts`.
-- **Add a domain feature** (a reconcile/plan/adopt surface) → a folder `src/core/<feature>/` with the house
-  triplet: `orchestrator.ts` (UI-free, returns data) + `registry.ts` (sub-parts) + shapes in the
-  `core/types/` barrel; co-located `*.test.ts`; shared fakes in `src/testkit/`.
-- **Add a domain term / teaching text** → `add-a-glossary-topic`. `core/glossary.ts` only (feeds
-  `launch explain` + `--explain`); mirror the term in `CONTEXT.md`.
-- **Finish a change** → `run-the-gate`: `npm run typecheck && npm run lint && npm run test && npm run build`.
+1. Add thin Commander wiring in `src/cli/commands/<name>.ts`.
+2. Put parsing/orchestration in `src/core/<domain>/<name>CommandProgram.ts`.
+3. Decode command input with Effect Schema and fail with tagged errors.
+4. Use `PromptService` for confirmations and non-TTY behavior.
+5. Add complete TSDoc to every new module-scope function and service/provider method.
+6. Add colocated tests for parser/program plus a command registration test.
+
+### Add a provider backend
+
+1. Implement the relevant provider interface with Effect-returning methods.
+2. Register it through the ProviderRegistry live layer.
+3. Keep heavy SDK imports lazy inside the live layer.
+4. Add TSDoc to each provider method, including `@param` and `@returns`.
+5. Provide a `*Test` layer or testkit fake for behavior tests.
+
+### Add a domain feature
+
+1. Choose the job folder under `src/core/<domain>/`.
+2. Add exported shapes to `src/core/types/<domain>.ts` and export them from `src/core/types/index.ts`.
+3. Keep service interfaces beside their `Context.Tag` in `src/core/services/`.
+4. Return structured domain results; render in CLI/renderer code.
+5. Document every module-scope function with purpose, `@param`, and `@returns`.
+
+### Migrate an old module on contact
+
+1. Move it to the accepted purpose folder if the structure capstone approved that move.
+2. Convert exported behavior to Effect.
+3. Replace raw throws with tagged errors.
+4. Replace raw I/O with services or isolate the I/O in a live layer.
+5. Add complete TSDoc to migrated module-scope functions and service/provider methods.
+6. Add/update colocated tests with test layers.
 
 ## Exemplars
 
-Write new code like these:
+Current positive exemplar:
 
-- `src/core/exec.ts` — the child-process seam; three focused wrappers, `shell:false`, why-docs.
-- `src/providers/storage/local.ts` — provider shape: factory + registered const, actionable throws, `{@link}`.
-- `src/providers/index.ts` — the one registration seam.
-- `src/core/adopt/orchestrator.ts` — UI-free domain: detect → plan (read-only) → apply, per-item error isolation.
-- `src/apple/ascClient.ts` / `src/apple/ascResources.ts` — the API-mirroring 1:1 transport + wire types.
+- `src/core/exec.ts` — closest existing service/layer boundary for child processes.
 
-## Scripts layout
-
-```txt
-scripts/
-├── gen-docs.ts          # Committed — CI freshness gate checks these
-├── gen-asc-types.ts     # Committed — CI schema-drift workflow
-└── dev/                 # Local dev-only scripts (gitignored)
-    └── preview-wordmark.ts
-```
-
-**Rule:** scripts that CI or the release pipeline depends on stay at the `scripts/` root (committed). Scripts for local preview, debugging, or one-off experimentation go in `scripts/dev/`. This folder is **gitignored** — it never reaches the remote.
-
-When creating a new script, ask: _"Would CI break without this, or does another developer need it to build/release?"_ If **no** → `scripts/dev/`.
+Finding: there is not yet a complete golden file that demonstrates the full target style. Until the first migration slice lands, the canonical example above is the target exemplar for `deslop`.
 
 ## Never
 
-- **Raw `console.*` for output** — route through the logger/output seam (except `cli/index.ts`'s fatal catch and the MCP stderr stream).
-- **`spawn`/`exec`/`execSync` or a shell string** — every child process goes through `core/exec.ts`.
-- **Touch `core/pipeline.ts` to add a backend** — implement an interface + register it in `providers/index.ts`.
-- **An exported shape inline in a logic file, or a per-feature `types.ts`** — shapes live in the `core/types/` barrel.
-- **Collapse the wire-client per-endpoint methods** — `ascClient`/`ascResources`/`playClient` mirror the vendor API 1:1.
-- **A non-null `!` assertion** — narrow with a real check or throw. _(Biome `noNonNullAssertion`.)_
-- **`await` inside a loop** — use `Promise.all`; deliberate sequential order (e.g. `adopt` running adopters in registry order) needs a one-line `// why`. _(Biome `noAwaitInLoops`.)_
-- **`export default`** — named exports only.
-- **Eagerly import a heavy/optional SDK** — lazy-load via `requireOptional`.
-- **Log, write, or commit secrets** — `.p8`/`.p12`/keys live in the OS keychain; `~/.launch` holds non-secret paths/ids only.
-- **Logic in `src/index.ts`** — re-exports only (the package `exports` entry).
-- **Duplicate glossary/teaching strings** — `core/glossary.ts` is the single source.
-- **A comment that restates the signature or narrates WHAT** — comments explain WHY / the tradeoff.
-- **Snapshot tests, or `vi.mock` where a hand-written fake + `vi.fn` fits** — `vi.mock` is for true I/O boundary modules only.
-- **A reused constant declared mid-file** — module constants go at the top, after imports, before functions.
+The repo-specific AI-slop fingerprint. Killed tells become lint/style-check targets as migrated slices land.
+
+- `asRecord` / `isObject` micro-parser helpers — use Effect Schema at boundaries · `src/core/accessibility.ts:asRecord`, `src/core/json.ts:asRecord` · [lint: launch/no-micro-parsers]
+- Defensive over-guards in typed domain code — trust decoded domain types · `src/core/snapshot/sources/appleListing.ts`, `src/core/storeConfig.ts:strArray` · [lint: launch/no-defensive-overguards]
+- Nested ternaries or clever replacement tables without domain names · `src/core/rocketScene.ts`, `src/cli/commands/status.ts:rank` · [lint: launch/no-nested-ternary]
+- Mechanical one-use wrappers — inline unless the name carries a domain step or boundary · `src/cli/options.ts:collectEnv`, `src/cli/commands/doctor.ts:renderDoctorReport` · [taste]
+- Repeated CLI boilerplate such as `activeClient`, `renderAction`, `resolveBundleId` — move into core programs/services · `src/cli/commands/accessibility.ts`, `src/cli/commands/appClips.ts` · [taste]
+- Generic names and abbreviations: `ctx`, `cfg`, `res`, `req`, `opts`, `data`, `result`, `info`, `item`, `value` unless genuinely generic · `src/core/appClips.ts:reconcileClip`, `src/providers/compute/awsEc2Mac.ts:firstAvailableAz` · [lint: launch/prose-names]
+- Single-letter callback params · `src/cli/commands/creds.ts:askRequired`, `src/core/agents/render.ts` · [lint: launch/prose-names]
+- Raw production `throw new Error`, `Promise.all`, `try/finally`, direct `@clack/prompts` in core, direct I/O APIs outside live layers · [lint: launch/effect-boundaries]
+- `export default`, non-null `!`, raw `console.*`, snapshot tests, and logic in any `index.ts` barrel · [lint: biome/custom]

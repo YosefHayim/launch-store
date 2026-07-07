@@ -127,6 +127,28 @@ describe('reconcileRelease — categories', () => {
     expect(report.actions).toHaveLength(0);
   });
 
+  it('clears a stale secondary category when desired config omits it', async () => {
+    const api = makeApi({
+      getAppInfo: vi.fn(() =>
+        Promise.resolve({
+          id: 'info1',
+          primaryCategoryId: 'PRODUCTIVITY',
+          secondaryCategoryId: 'HEALTH_AND_FITNESS',
+        }),
+      ),
+    });
+    const report = await reconcile(api, {
+      categories: { primary: 'PRODUCTIVITY' },
+    });
+    expect(api.updateAppInfoCategories).toHaveBeenCalledWith('info1', {
+      secondaryCategoryId: null,
+    });
+    expect(report.actions[0]).toMatchObject({
+      status: 'applied',
+      description: 'set categories (secondary=unset)',
+    });
+  });
+
   it('skips when the app has no App Info record', async () => {
     const api = makeApi({ getAppInfo: vi.fn(() => Promise.resolve(null)) });
     const report = await reconcile(api, { categories: { primary: 'GAMES' } });

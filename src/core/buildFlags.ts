@@ -2,134 +2,136 @@
  * The single source of the compile-tuning flags Launch adds on top of a stock `gym` build, shared by
  * the local engine (`providers/build/fastlane.ts`) and the remote script (`core/remoteBuild.ts`) so the
  * two never drift. Three independent knobs: a RAM-aware parallelism cap, the ccache wiring env, and the
- * always-on xcargs (kill the index store, plus the cap when set). None are user-configurable — caching's
- * best answer is "on", so these ship as defaults, not `launch.config.ts` fields (YAGNI).
+ * always-on xcargs (kill the index store, plus the cap when set). Ccache is on by default but can be
+ * disabled per run when a native target cannot use React Native's ccache shim.
  */
 
+import { Effect } from 'effect';
 import type { SigningAssets } from './types.js';
+import process from 'node:process';
 
 /**
  * RAM-aware compile-parallelism cap. `xcodebuild` spawns one compile per logical core by default, which
- * over-subscribes RAM on memory-constrained machines and pages to swap. Cap at `floor(totalGB / 2)`,
- * floored at 2 and never above the core count. Returns `undefined` when the cap equals the core count
- * (no benefit to passing `-jobs` — let `xcodebuild` use its default).
+ * over-subscribes RAM on memory-constrained machines. Cap at `floor(totalGB / 2)`, floored at 2 and
+ * never above the core count. Returns `undefined` when the cap equals the core count (no benefit to
+ * passing `-jobs`).
+ *
+ * @param availableCores - Logical CPU count available to xcodebuild.
+ * @param totalMemoryBytes - Total host memory in bytes.
+ * @returns An Effect that succeeds with the `-jobs` cap, or undefined when xcodebuild's default is fine.
  */
-export function computeBuildJobs(cores: number, memBytes: number): number | undefined {
-  const totalGB = memBytes / 1024 ** 3;
-  const cap = Math.min(Math.max(Math.floor(totalGB / 2), 2), cores);
-  return cap < cores ? cap : undefined;
-}
+export const computeParallelJobLimit = (availableCores: number, totalMemoryBytes: number) =>
+  Effect.sync(() => {
+    const totalMemoryGB = totalMemoryBytes / 1024 ** 3;
+    const ramBasedCap = Math.floor(totalMemoryGB / 2);
+    const clampedJobLimit = Math.min(Math.max(ramBasedCap, 2), availableCores);
+    return clampedJobLimit < availableCores ? clampedJobLimit : undefined;
+  });
 
 /**
  * The environment that wires ccache into a build. ccache's compiler shim is baked into the Pods xcconfig
- * at `pod install` time (RN's `react_native_post_install(:ccache_enabled)`, gated on `USE_CCACHE`). The
- * cache itself lives at ccache's own default directory — shared cross-tool and sized/cleared by
- * `launch doctor` — so Launch sets only the wiring flag and never overrides `CCACHE_DIR`.
+ * at `pod install` time. Opt-out: if `USE_CCACHE` is already set to `'0'` in the environment, the
+ * caller's value wins — this lets builds that break under ccache disable it without patching Podfiles.
+ * The `disabled` parameter also disables it (from `--no-ccache` / config).
+ *
+ * @param disabled - Whether this build explicitly disabled ccache.
+ * @returns An Effect that succeeds with ccache env vars, or an empty object when ccache is disabled.
  */
-export function ccacheEnv(): { USE_CCACHE: string } {
-  return { USE_CCACHE: '1' };
-}
+export const resolveCcacheEnvironment = (disabled?: boolean) =>
+  Effect.sync((): Record<string, string> => {
+    if (disabled || process.env['USE_CCACHE'] === '0') return {};
+    return { USE_CCACHE: '1' };
+  });
 
 /**
  * The non-signing xcargs Launch always appends: disable the compiler index store (it only powers Xcode
- * autocomplete; a headless build never reads it) and cap parallelism when {@link computeBuildJobs} set
- * one. Shared verbatim with the remote build via env, where the bash script appends it to its own xcargs.
- */
-export function xcargsExtra(jobs: number | undefined): string {
-  const parts = ['COMPILER_INDEX_STORE_ENABLE=NO'];
-  if (jobs !== undefined) parts.push(`-jobs ${jobs}`);
-  return parts.join(' ');
-}
-
-/**
- * Assemble the full local `gym --xcargs` string: the manual-signing settings (so the resolved cert +
- * profile sign the archive, no surprises) followed by the shared {@link xcargsExtra}.
+ * autocomplete; a headless build never reads it) and cap parallelism when set.
  *
- * `DEVELOPMENT_TEAM` and `CODE_SIGN_STYLE=Manual` are legitimately global — one team signs the whole
- * archive, manually, for every target. `PROVISIONING_PROFILE_SPECIFIER` is the subtle one: a value
- * passed on the command line applies to **every** target (xcodebuild has no per-target `--xcargs` form),
- * which is exactly right for a single-target app — pin the one resolved profile — but WRONG once the app
- * embeds an extension target. The main app's profile can't sign the widget/extension bundle (its app-id
- * differs), so one global specifier makes the whole archive fail with exit 65 *before* export. For a
- * multi-target app each target's profile is supplied instead by the project's own manual-signing settings
- * and mapped per-bundle at export ({@link import("../providers/build/fastlane.js").exportOptionsPlist}
- * folds {@link SigningAssets.extensionProfiles}), so the global specifier is **dropped** when
- * {@link SigningAssets.extensionProfiles} is present. Dropping it leaves each target needing its own
- * profile in the project itself; the build engine writes those in with
- * {@link import("./appleTargets.js").writeManualSigningToProject} right after `pod install` regenerates the
- * pbxproj and before the archive (issue #289, confirmed on a live widget-app build). Removing the clobbering
- * global specifier is the piece that has to be right *here*, and the single-target string stays byte-identical.
+ * @param parallelJobLimit - Optional `xcodebuild -jobs` cap.
+ * @returns An Effect that succeeds with the shared non-signing xcargs string.
  */
-export function buildXcargs(
-  signing: Pick<SigningAssets, 'teamId' | 'profileName' | 'extensionProfiles'>,
-  jobs: number | undefined,
-): string {
-  const parts = [`DEVELOPMENT_TEAM=${signing.teamId}`, 'CODE_SIGN_STYLE=Manual'];
-  // Pin the one global profile only when there's no extension target for it to clobber (the common case).
-  const multiTarget =
-    signing.extensionProfiles !== undefined && Object.keys(signing.extensionProfiles).length > 0;
-  if (!multiTarget) parts.push(`PROVISIONING_PROFILE_SPECIFIER=${signing.profileName}`);
-  return `${parts.join(' ')} ${xcargsExtra(jobs)}`;
-}
+export const buildExtraXcargs = (parallelJobLimit: number | undefined) =>
+  Effect.sync(() => {
+    const parts = ['COMPILER_INDEX_STORE_ENABLE=NO'];
+    if (parallelJobLimit !== undefined) parts.push(`-jobs ${parallelJobLimit}`);
+    return parts.join(' ');
+  });
 
 /**
- * The inputs to one `fastlane gym` invocation, already resolved by the build engine. Kept as a flat record
- * (not the whole {@link import("./types.js").ResolvedBuildContext}) so {@link gymArgs} stays a pure,
- * unit-testable mapping from values to an argv array.
+ * Assemble the full local `gym --xcargs` string: manual-signing settings (so the resolved cert +
+ * profile sign the archive) followed by the shared extra xcargs.
+ *
+ * `PROVISIONING_PROFILE_SPECIFIER` is pinned globally only for single-target apps. Multi-target apps
+ * (with extension profiles) drop it so the per-target profiles in the project's signing settings aren't
+ * clobbered at archive time. See {@link import("./appleTargets.js").writeManualSigningToProject}.
+ *
+ * @param signing - Resolved signing values that feed the `gym --xcargs` string.
+ * @param parallelJobLimit - Optional `xcodebuild -jobs` cap.
+ * @returns An Effect that succeeds with the manual-signing xcargs string.
  */
+export const buildSigningXcargs = (
+  signing: Pick<SigningAssets, 'teamId' | 'profileName' | 'extensionProfiles'>,
+  parallelJobLimit: number | undefined,
+) =>
+  Effect.gen(function* () {
+    const parts = [`DEVELOPMENT_TEAM=${signing.teamId}`, 'CODE_SIGN_STYLE=Manual'];
+    const hasExtensionTargets =
+      signing.extensionProfiles !== undefined && Object.keys(signing.extensionProfiles).length > 0;
+    if (!hasExtensionTargets) parts.push(`PROVISIONING_PROFILE_SPECIFIER=${signing.profileName}`);
+    const extraXcargs = yield* buildExtraXcargs(parallelJobLimit);
+    return `${parts.join(' ')} ${extraXcargs}`;
+  });
+
+/** Inputs to one `fastlane gym` invocation, already resolved by the build engine. */
 export interface GymArgsInput {
   /** Absolute path to the `.xcworkspace`. */
   workspace: string;
-  /** Scheme to archive (derived from the workspace name). */
+  /** Scheme to archive. */
   scheme: string;
   /** Directory gym writes the export + thinning report into. */
   outputDir: string;
-  /** Output filename gym gives the exported archive (e.g. `MyApp.ipa`, `MyApp.pkg`). */
+  /** Output filename gym gives the exported archive. */
   outputName: string;
   /** Absolute path to the manual-signing `ExportOptions.plist`. */
   exportOptionsPath: string;
-  /**
-   * Resolved signing assets — the codesigning identity and the manual-signing xcargs come from here.
-   * Carrying {@link SigningAssets.extensionProfiles} lets {@link buildXcargs} tell a single-target app
-   * (pin the global profile) from a multi-target one (drop it so an extension isn't clobbered at archive).
-   */
+  /** Resolved signing assets for codesigning identity and manual-signing xcargs. */
   signing: Pick<SigningAssets, 'teamId' | 'profileName' | 'certName' | 'extensionProfiles'>;
-  /** RAM-aware parallelism cap from {@link computeBuildJobs}, or `undefined` to let xcodebuild decide. */
-  jobs: number | undefined;
-  /** Whether to pass `--clean` (clean vs incremental, decided by the build fingerprint). */
-  clean: boolean;
-  /**
-   * Xcode build destination from {@link import("./platform.js").gymDestination}. `undefined` for iOS
-   * (xcodebuild's default) so the `--destination` flag is omitted and the iOS argv stays byte-identical
-   * to before cross-platform builds existed; tvOS/macOS/visionOS pass their `generic/platform=…`.
-   */
-  destination: string | undefined;
+  /** RAM-aware parallelism cap, or `undefined` to let xcodebuild decide. */
+  parallelJobLimit: number | undefined;
+  /** Whether to pass `--clean`. */
+  shouldCleanBuild: boolean;
+  /** Xcode build destination (`undefined` for iOS — the default). */
+  buildDestination: string | undefined;
 }
 
 /**
- * Build the full `fastlane gym` argv. The single source of the gym command for the local build engine,
- * extracted so the iOS arg vector is pinned by a test and the only cross-platform difference — the
- * `--destination` flag — is appended **only when defined**. Order is fixed (config flags, then signing,
- * then `--destination`, then `--clean` last) so the iOS output is identical with `destination: undefined`.
+ * Build the full `fastlane gym` argv. The single source of the gym command for the local build engine.
+ * Order is fixed (config flags → signing → destination → clean) so iOS output is byte-identical with
+ * `buildDestination: undefined`.
+ *
+ * @param input - Resolved values for one `fastlane gym` invocation.
+ * @returns An Effect that succeeds with the complete `fastlane` argv.
  */
-export function gymArgs(input: GymArgsInput): string[] {
-  return [
-    'gym',
-    '--workspace',
-    input.workspace,
-    '--scheme',
-    input.scheme,
-    '--output_directory',
-    input.outputDir,
-    '--output_name',
-    input.outputName,
-    '--export_options',
-    input.exportOptionsPath,
-    '--codesigning_identity',
-    input.signing.certName,
-    '--xcargs',
-    buildXcargs(input.signing, input.jobs),
-    ...(input.destination !== undefined ? ['--destination', input.destination] : []),
-    ...(input.clean ? ['--clean'] : []),
-  ];
-}
+export const assembleGymArguments = (input: GymArgsInput) =>
+  Effect.gen(function* () {
+    const signingXcargs = yield* buildSigningXcargs(input.signing, input.parallelJobLimit);
+    return [
+      'gym',
+      '--workspace',
+      input.workspace,
+      '--scheme',
+      input.scheme,
+      '--output_directory',
+      input.outputDir,
+      '--output_name',
+      input.outputName,
+      '--export_options',
+      input.exportOptionsPath,
+      '--codesigning_identity',
+      input.signing.certName,
+      '--xcargs',
+      signingXcargs,
+      ...(input.buildDestination === undefined ? [] : ['--destination', input.buildDestination]),
+      ...(input.shouldCleanBuild ? ['--clean'] : []),
+    ];
+  });

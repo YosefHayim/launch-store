@@ -17,6 +17,7 @@ import {
   republishUpdate,
   setRollbackToEmbedded,
 } from './updateHistory.js';
+import { expectDefined } from '../testkit/assertions.testkit.js';
 
 /** An in-memory {@link StorageProvider} so the history orchestration is testable without a real bucket. */
 function fakeStorage(): StorageProvider & { objects: Map<string, string> } {
@@ -164,7 +165,10 @@ describe('republishUpdate', () => {
     expect(republished.launchAsset.url).toBe('https://cdn/bundle.hbc'); // assets carried over from the snapshot
 
     const active = JSON.parse(
-      storage.objects.get(manifestKey(channel, platform, '1.0.0'))!,
+      expectDefined(
+        storage.objects.get(manifestKey(channel, platform, '1.0.0')),
+        'active manifest',
+      ),
     ) as UpdateManifest;
     expect(active.id).toBe('rollback-id');
     expect(storage.objects.has(historySnapshotKey(channel, platform, '1.0.0', 'rollback-id'))).toBe(
@@ -209,7 +213,10 @@ describe('rollback directive', () => {
       signer: fakeSigner,
     });
     const stored = JSON.parse(
-      storage.objects.get(rollbackDirectiveKey('production', 'ios', '1.0.0'))!,
+      expectDefined(
+        storage.objects.get(rollbackDirectiveKey('production', 'ios', '1.0.0')),
+        'rollback directive',
+      ),
     );
     expect(stored.active).toBe(true);
     expect(stored.signature).toContain('sig="FAKE"');
@@ -234,7 +241,10 @@ describe('rollback directive', () => {
     });
     await clearRollbackDirective(storage, 'production', 'ios', '1.0.0');
     const cleared = JSON.parse(
-      storage.objects.get(rollbackDirectiveKey('production', 'ios', '1.0.0'))!,
+      expectDefined(
+        storage.objects.get(rollbackDirectiveKey('production', 'ios', '1.0.0')),
+        'cleared rollback directive',
+      ),
     );
     expect(cleared.active).toBe(false);
   });

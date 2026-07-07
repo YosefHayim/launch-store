@@ -850,7 +850,7 @@ export interface AppStoreReviewDetailResource {
 
 /**
  * The App Clip card's call-to-action button — Apple's `AppClipAction` enum. Array-first (SSOT) so the
- * config schema (`AppClipConfig.action` in `core/types`) reuses it as a zod enum without duplicating
+ * config schemas (`AppClipConfig.action` in `core/types`) reuse it without duplicating
  * Apple's list; `satisfies` keeps it in lockstep with the generated OpenAPI enum (drift fails the build).
  */
 export const APP_CLIP_ACTIONS = [
@@ -963,7 +963,7 @@ export type LeaderboardFormatter = (typeof LEADERBOARD_FORMATTERS)[number];
 /**
  * How a leaderboard score is aggregated and sorted — Apple's two closed enums (inline in the OpenAPI, so
  * there's no named component to `satisfies` against). Array-first (SSOT) so the config schema
- * (`LeaderboardConfig` in `core/types`) reuses them as zod enums without duplicating Apple's lists.
+ * (`LeaderboardConfig` in `core/types`) reuse them without duplicating Apple's lists.
  */
 export const LEADERBOARD_SUBMISSION_TYPES = ['BEST_SCORE', 'MOST_RECENT_SCORE'] as const;
 export type LeaderboardSubmissionType = (typeof LEADERBOARD_SUBMISSION_TYPES)[number];

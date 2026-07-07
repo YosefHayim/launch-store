@@ -14,6 +14,7 @@ import {
   resolveEnv,
   secretLookingKeys,
 } from './env.js';
+import { expectDefined } from '../testkit/assertions.testkit.js';
 
 const tempDirs: string[] = [];
 function makeTempDir(): string {
@@ -22,7 +23,9 @@ function makeTempDir(): string {
   return dir;
 }
 afterEach(() => {
-  while (tempDirs.length > 0) rmSync(tempDirs.pop()!, { recursive: true, force: true });
+  while (tempDirs.length > 0) {
+    rmSync(expectDefined(tempDirs.pop(), 'temp dir'), { recursive: true, force: true });
+  }
 });
 
 describe('parseDotenv', () => {

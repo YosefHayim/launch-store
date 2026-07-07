@@ -79,13 +79,11 @@ function computeStats(commands: CommandSpec[]): DocStats {
 }
 
 /**
- * Generate the JSON Schema for `launch.config.ts` straight from the config SSOT — the zod
- * {@link LaunchConfigSchema} (ADR 0008). `io: 'input'` emits the authoring shape (provider names optional,
- * so only `profiles` is required, matching what `defineConfig` accepts); `target: 'draft-7'` keeps the
- * committed schema in the dialect it has always shipped, so editors and the `configDocs` renderer are
- * unaffected. Every `.meta({ id })` on a nested object becomes a named `definitions` entry the reference
- * tables, and every `.describe(...)` becomes a `description` — so the schema, the field reference, and
- * runtime validation are one source `docs:check` keeps honest.
+ * Generate the JSON Schema for `launch.config.ts` from the temporary zod compatibility schema. Runtime
+ * validation now uses the Effect Schema boundary in `src/core/config/schema.ts` (ADR 0013); this
+ * generator stays on zod until the committed JSON Schema output is moved over without editor-schema
+ * churn. `io: 'input'` emits the authoring shape (provider names optional, so only `profiles` is
+ * required), and `target: 'draft-7'` keeps the shipped dialect unchanged.
  */
 function generateConfigSchema(): JsonSchema {
   return z.toJSONSchema(LaunchConfigSchema, { target: 'draft-7', io: 'input' }) as JsonSchema;

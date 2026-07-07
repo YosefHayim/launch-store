@@ -2,11 +2,9 @@
  * The top-level {@link LaunchConfig} the user authors, the {@link StorageConfig} backend union, and the
  * {@link ResolvedBuildContext} the build→submit pipeline threads through every stage.
  *
- * `LaunchConfig` is the config SSOT: a single zod schema ({@link LaunchConfigSchema}) whose inferred
- * *output* type is `LaunchConfig` (provider defaults filled) and whose *input* type is
- * {@link LaunchConfigInput} (providers optional) — see
- * [ADR 0008](../../../docs/adr/0008-adopt-zod-config-ssot.md). The schema also generates
- * `schema/launch.config.schema.json` and validates configs, so the three artifacts can't drift.
+ * `LaunchConfigSchema` is the temporary zod compatibility schema that still generates
+ * `schema/launch.config.schema.json`. Runtime config validation is owned by the Effect Schema boundary in
+ * `src/core/config/schema.ts` (see [ADR 0013](../../../docs/adr/0013-effect-schema-config-ssot.md)).
  */
 
 import { z } from 'zod';
@@ -235,6 +233,8 @@ export interface ResolvedBuildContext {
    * build engine decides clean-vs-incremental from the build fingerprint (see `core/buildFingerprint.ts`).
    */
   forceClean: boolean;
+  /** Whether ccache is allowed for this build. `false` comes from `launch build --no-ccache`. */
+  ccache?: boolean;
   /** Resolved Android track + rollout. Present only for Android builds; the submitter reads it. */
   android?: AndroidReleaseOptions;
   /**

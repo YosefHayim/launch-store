@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createVerify, generateKeyPairSync } from 'node:crypto';
+import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.js';
 import { signatureHeader } from './codeSign.js';
 
 describe('signatureHeader', () => {
@@ -16,7 +17,11 @@ describe('signatureHeader', () => {
     expect(header).toMatch(/^sig="[^"]+", keyid="main", alg="rsa-v1_5-sha256"$/);
 
     // The embedded signature must actually verify over the exact manifest body.
-    const signature = Buffer.from(/sig="([^"]+)"/.exec(header)![1]!, 'base64');
+    const signatureMatch = expectDefined(/sig="([^"]+)"/.exec(header), 'signature match');
+    const signature = Buffer.from(
+      expectArrayElement(signatureMatch, 1, 'signature match'),
+      'base64',
+    );
     const verifier = createVerify('RSA-SHA256');
     verifier.update(body);
     verifier.end();

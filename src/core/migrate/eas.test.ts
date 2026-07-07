@@ -8,6 +8,7 @@ import type {
   MigrationNote,
   MigrationNoteLevel,
 } from '../types.js';
+import { expectDefined } from '../../testkit/assertions.testkit.js';
 import { migrateEas, parseEasJson } from './eas.js';
 
 /** A realistic eas.json covering build profiles, env, submit credentials, and the cli block. */
@@ -49,7 +50,7 @@ function app(over: Partial<AppDescriptor> = {}): AppDescriptor {
 function artifact(artifacts: MigrationArtifact[], path: string): MigrationArtifact {
   const found = artifacts.find((entry) => entry.path === path);
   expect(found, `expected artifact ${path}`).toBeDefined();
-  return found!;
+  return expectDefined(found, `artifact ${path}`);
 }
 
 /** Notes at a given level. */

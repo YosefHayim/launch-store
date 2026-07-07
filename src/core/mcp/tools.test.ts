@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ALL_TOOLS, DANGEROUS_TOOLS, DRY_RUN_TOOLS, READ_TOOLS, WRITE_TOOLS } from './tools.js';
 import { gateTools } from './gate.js';
 import type { LaunchConfig, McpCapability, McpTool } from '../types.js';
+import { expectArrayElement } from '../../testkit/assertions.testkit.js';
 
 /** A bare config exposing the given MCP capability tiers — only the fields the gate reads matter here. */
 function config(capabilities: McpCapability[]): LaunchConfig {
@@ -17,7 +18,7 @@ function byName(name: string): McpTool {
 
 /** Parse the JSON a successful read tool emits as its single text block. */
 function payload(result: { content: { text: string }[] }): unknown {
-  return JSON.parse(result.content[0]!.text);
+  return JSON.parse(expectArrayElement(result.content, 0, 'result.content').text);
 }
 
 describe('READ_TOOLS registry', () => {

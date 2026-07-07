@@ -639,12 +639,12 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
   {
     file: 'core-types',
     description: 'Editing the domain shapes or provider interfaces.',
-    globs: ['src/core/types.ts', 'src/core/types/*.ts'],
+    globs: ['src/core/types.ts', 'src/core/types/*.ts', 'src/core/types/index.ts'],
     alwaysApply: false,
     body: [
-      'The types module — the `src/core/types.ts` barrel plus the `src/core/types/*.ts` modules it re-exports (split by concern: `app`, `catalog`, `storeSurface`, `config`, `credentials`, `artifacts`, `providers`, `remote`, `vitals`) — is the single source of truth for every domain shape and the five provider interfaces (`BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`).',
+      'The types module — the `src/core/types/index.ts` barrel plus the `src/core/types/*.ts` modules it re-exports (split by concern: `app`, `catalog`, `storeSurface`, `config`, `credentials`, `artifacts`, `providers`, `remote`, `vitals`) — is the single source of truth for every domain shape and the five provider interfaces (`BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`).',
       '',
-      '- Add or change a shape in the matching `src/core/types/*.ts` module, never inline in a feature file — a change ripples through every provider and the pipeline, so plan the edit before writing code. The barrel keeps `import type { … } from "../core/types.js"` working unchanged; don\'t add declarations to it.',
+      '- Add or change a shape in the matching `src/core/types/*.ts` module, never inline in a feature file — a change ripples through every provider and the pipeline, so plan the edit before writing code. The compatibility shim keeps `import type { … } from "../core/types.js"` working unchanged; don\'t add declarations to the barrel or shim.',
       '- One exception: the App Store Connect `*Resource` / `*Query` types live in `src/apple/ascClient.ts`, not here.',
     ].join('\n'),
   },
@@ -655,7 +655,7 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
     globs: ['src/providers/**'],
     alwaysApply: false,
     body: [
-      'Adding a backend = implement one of the five interfaces from `src/core/types.ts` as a named object and register it in `src/providers/index.ts`.',
+      'Adding a backend = implement one of the five interfaces from `src/core/types/index.ts` as a named object and register it in `src/providers/index.ts`.',
       '',
       '- The pipeline resolves a provider by its `name` (the value users put in `launch.config.ts`), so you **never** edit `src/core/pipeline.ts` to add a backend.',
       '- Lazy-load heavy / optional SDKs (AWS, the native keyring) through `requireOptional` in `src/core/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
@@ -717,7 +717,7 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
       "wiring a new SDK behind one of Launch's provider interfaces",
     ],
     steps: [
-      'Pick one of the five interfaces in `src/core/types.ts`: `BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`.',
+      'Pick one of the five interfaces in `src/core/types/index.ts`: `BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`.',
       'Implement it as a named object in `src/providers/<kind>/<name>.ts`, setting `name` to the value users put in `launch.config.ts`.',
       'Register it in `src/providers/index.ts` (`registerBuiltins()`). The pipeline resolves a provider by its `name`, so you never edit `src/core/pipeline.ts` to add one.',
       'Lazy-load any heavy or optional SDK through `requireOptional` in `src/core/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',

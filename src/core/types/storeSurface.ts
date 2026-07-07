@@ -1,8 +1,9 @@
 /**
  * Store-surface config sections folded in from their JSON sidecars (issue #101): release attributes,
- * Game Center, App Clips, EU distribution, Wallet, and the MCP capability set. Authored config surface,
- * so every shape is a zod schema (the SSOT — see
- * [ADR 0008](../../../docs/adr/0008-adopt-zod-config-ssot.md)) with its type inferred.
+ * Game Center, App Clips, EU distribution, Wallet, and the MCP capability set. These are legacy zod
+ * config-schema fragments kept for JSON Schema generation while the runtime boundary moves to Effect
+ * Schema in `src/core/config/schema.ts` (see
+ * [ADR 0013](../../../docs/adr/0013-effect-schema-config-ssot.md)).
  *
  * Apple's closed enums (leaderboard formatter/sort/submission, App Clip action) are reused from their
  * runtime arrays in `apple/ascResources.ts` — a **value** import of that module, which is a runtime leaf

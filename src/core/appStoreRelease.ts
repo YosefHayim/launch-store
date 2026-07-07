@@ -39,6 +39,10 @@ import type {
 export interface AscReleaseApi {
   getAppId(bundleId: string): Promise<string | null>;
   listBuilds(appId: string, limit?: number): Promise<BuildResource[]>;
+  findBuild(
+    bundleId: string,
+    buildNumber: number,
+  ): Promise<{ id: string; usesNonExemptEncryption: boolean | null } | null>;
   findBuildByVersion(appId: string, buildNumber: number): Promise<BuildResource | null>;
   setBuildUsesNonExemptEncryption(buildId: string, usesNonExemptEncryption: boolean): Promise<void>;
   listAppStoreVersions(appId: string, platform: string): Promise<AppStoreVersionResource[]>;
@@ -359,11 +363,7 @@ export async function releaseApp(api: AscReleaseApi, input: ReleaseInput): Promi
     await act(ctx, `attach build ${build.version}`, () =>
       api.selectBuildForVersion(versionId, build.id),
     );
-    await act(
-      ctx,
-      `declare export compliance (usesNonExemptEncryption=${String(input.usesNonExemptEncryption)})`,
-      () => api.setBuildUsesNonExemptEncryption(build.id, input.usesNonExemptEncryption),
-    );
+    await applyExportCompliance(ctx, input.bundleId, build, input.usesNonExemptEncryption);
   }
 
   await applyReleaseNotes(ctx, versionId, input.whatsNew);
@@ -390,6 +390,31 @@ export async function releaseApp(api: AscReleaseApi, input: ReleaseInput): Promi
     alreadyInReview: false,
     actions: ctx.actions,
   };
+}
+
+/** Declare export compliance only when App Store Connect has not already stored the desired answer. */
+async function applyExportCompliance(
+  ctx: ReleaseContext,
+  bundleId: string,
+  build: BuildResource,
+  usesNonExemptEncryption: boolean,
+): Promise<void> {
+  const description = `declare export compliance (usesNonExemptEncryption=${String(usesNonExemptEncryption)})`;
+  const buildNumber = Number.parseInt(build.version, 10);
+  if (!Number.isNaN(buildNumber)) {
+    const current = await ctx.api.findBuild(bundleId, buildNumber);
+    if (current?.usesNonExemptEncryption === usesNonExemptEncryption) {
+      ctx.actions.push({
+        description,
+        status: 'skipped',
+        note: 'already answered on this build',
+      });
+      return;
+    }
+  }
+  await act(ctx, description, () =>
+    ctx.api.setBuildUsesNonExemptEncryption(build.id, usesNonExemptEncryption),
+  );
 }
 
 /**

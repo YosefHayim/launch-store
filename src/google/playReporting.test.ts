@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateKeyPairSync } from 'node:crypto';
 import { parseServiceAccount } from './playClient.js';
 import { PlayReportingClient, resolveVitalsWindow, DEFAULT_VITALS_DAYS } from './playReporting.js';
+import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.js';
 
 /** A real RSA PKCS#8 key so `jose` can actually sign — the client mints a genuine RS256 assertion. */
 function makeServiceAccountJson(): string {
@@ -23,7 +24,7 @@ function fakeResponse(status: number, body: string) {
 /** Decode a JWT payload (no verification needed — we only assert the claims we set). */
 function decodeJwtPayload(token: string): Record<string, unknown> {
   const payload = token.split('.')[1];
-  return JSON.parse(Buffer.from(payload!, 'base64url').toString());
+  return JSON.parse(Buffer.from(expectDefined(payload, 'JWT payload'), 'base64url').toString());
 }
 
 /** A freshness `:get` body with a DAILY latest end of the given ISO date. */
@@ -119,15 +120,18 @@ describe('PlayReportingClient — auth + crash-rate query', () => {
     });
 
     // First call: token exchange carrying the reporting scope (NOT androidpublisher).
-    const [tokenUrl, tokenInit] = fetchMock.mock.calls[0]!;
+    const [tokenUrl, tokenInit] = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expect(tokenUrl).toBe('https://oauth2.googleapis.com/token');
-    const assertion = (tokenInit.body as URLSearchParams).get('assertion')!;
+    const assertion = expectDefined(
+      (tokenInit.body as URLSearchParams).get('assertion'),
+      'JWT assertion',
+    );
     expect(decodeJwtPayload(assertion)['scope']).toBe(
       'https://www.googleapis.com/auth/playdeveloperreporting',
     );
 
     // Second call: the :query POST against the crash metric set with the bearer token + timelineSpec.
-    const [queryUrl, queryInit] = fetchMock.mock.calls[1]!;
+    const [queryUrl, queryInit] = expectArrayElement(fetchMock.mock.calls, 1, 'mock call');
     expect(queryUrl).toBe(
       'https://playdeveloperreporting.googleapis.com/v1beta1/apps/com.example.app/crashRateMetricSet:query',
     );
@@ -187,7 +191,9 @@ describe('PlayReportingClient — auth + crash-rate query', () => {
     expect(rows.map((row) => row.date)).toEqual(['2026-06-01', '2026-06-02']);
     // One token exchange + two query pages = three fetches; the second page carries the pageToken.
     expect(fetchMock.mock.calls).toHaveLength(3);
-    const secondPage = JSON.parse(fetchMock.mock.calls[2]![1].body as string) as {
+    const secondPage = JSON.parse(
+      expectArrayElement(fetchMock.mock.calls, 2, 'mock call')[1].body as string,
+    ) as {
       pageToken?: string;
     };
     expect(secondPage.pageToken).toBe('p2');
@@ -221,8 +227,12 @@ describe('PlayReportingClient — auth + crash-rate query', () => {
       endDate: '2026-06-01',
     });
 
-    expect(fetchMock.mock.calls[1]![0]).toContain('/anrRateMetricSet:query');
-    const anrBody = JSON.parse(fetchMock.mock.calls[1]![1].body as string) as { metrics: string[] };
+    expect(expectArrayElement(fetchMock.mock.calls, 1, 'mock call')[0]).toContain(
+      '/anrRateMetricSet:query',
+    );
+    const anrBody = JSON.parse(
+      expectArrayElement(fetchMock.mock.calls, 1, 'mock call')[1].body as string,
+    ) as { metrics: string[] };
     expect(anrBody.metrics).toEqual(['anrRate', 'userPerceivedAnrRate', 'distinctUsers']);
     expect(rows).toEqual([
       {
@@ -262,7 +272,7 @@ describe('PlayReportingClient — auth + crash-rate query', () => {
       .mockResolvedValueOnce(fakeResponse(200, freshnessBody('2026-06-20')));
 
     expect(await client.latestDailyDate('com.example.app', 'crash')).toBe('2026-06-20');
-    expect(fetchMock.mock.calls[1]![0]).toBe(
+    expect(expectArrayElement(fetchMock.mock.calls, 1, 'mock call')[0]).toBe(
       'https://playdeveloperreporting.googleapis.com/v1beta1/apps/com.example.app/crashRateMetricSet',
     );
   });
@@ -306,7 +316,9 @@ describe('PlayReportingClient — auth + crash-rate query', () => {
     ]);
     // token (cached after) + freshness :get + :query = three fetches; the :query carried the bounded window.
     expect(fetchMock.mock.calls).toHaveLength(3);
-    const queryBody = JSON.parse(fetchMock.mock.calls[2]![1].body as string) as {
+    const queryBody = JSON.parse(
+      expectArrayElement(fetchMock.mock.calls, 2, 'mock call')[1].body as string,
+    ) as {
       timelineSpec: { startTime: object; endTime: object };
     };
     expect(queryBody.timelineSpec.startTime).toEqual({ year: 2026, month: 6, day: 14 });

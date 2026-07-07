@@ -118,6 +118,8 @@ export interface BuildRunOptions {
   yes?: boolean;
   /** Force a from-scratch build (`--clean`); omitted/false lets the fingerprint decide. iOS-gated; Android cleans too. */
   forceClean?: boolean;
+  /** Disable ccache for this build (`--no-ccache`), useful for monorepo extension targets with broken RN shim paths. */
+  ccache?: boolean;
   /** Build on a remote Mac (AWS EC2 Mac / a Mac over SSH) instead of locally. iOS-only. */
   remote?: RemoteTarget;
   /** Apple account to build with (`--account`): a label or Key ID. Defaults to the active account. iOS-only. */
@@ -725,6 +727,7 @@ export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBu
     explain: options.explain,
     dryRun,
     forceClean: options.forceClean ?? false,
+    ...(options.ccache === undefined ? {} : { ccache: options.ccache }),
     ...(android ? { android } : {}),
     ...(options.distribution ? { distribution: options.distribution } : {}),
   };

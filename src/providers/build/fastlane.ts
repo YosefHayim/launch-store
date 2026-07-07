@@ -18,6 +18,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { Effect } from 'effect';
 import type {
   BuildCredentials,
   BuildEngine,
@@ -30,7 +31,11 @@ import type {
 import { runWithProgress, xcodeProgressStep } from '../../core/progress.js';
 import { exists } from '../../core/exec.js';
 import { hostResources } from '../../core/os.js';
-import { gymArgs, ccacheEnv, computeBuildJobs } from '../../core/buildFlags.js';
+import {
+  assembleGymArguments,
+  computeParallelJobLimit,
+  resolveCcacheEnvironment,
+} from '../../core/buildFlags.js';
 import { writeManualSigningToProject } from '../../core/appleTargets.js';
 import {
   appleArtifactExtension,
@@ -111,7 +116,7 @@ export function parseThinningReport(text: string): SizeReportEntry[] {
       );
     if (!size) continue;
     const [, downloadValue, downloadUnit, installValue, installUnit] = size;
-    if (!downloadValue || !downloadUnit || !installValue || !installUnit) continue;
+    if (!(downloadValue && downloadUnit && installValue && installUnit)) continue;
     entries.push({
       device,
       downloadBytes: toBytes(Number.parseFloat(downloadValue), downloadUnit),
@@ -256,7 +261,9 @@ export const fastlaneBuildEngine: BuildEngine = {
     const estimate = estimateFor(stored, kind);
 
     // ccache wires in only when it's installed; otherwise the build runs uncached (doctor recommends it).
-    const ccacheVars = (await exists('ccache')) ? ccacheEnv() : {};
+    const ccacheVars = (await exists('ccache'))
+      ? Effect.runSync(resolveCcacheEnvironment(ctx.ccache === false))
+      : {};
 
     // Re-resolve Pods only when the native graph changed (or they're absent) — baking ccache in then.
     // Under a spinner (clean `◇ Pods · 12s`), with the CocoaPods output tee'd to the build log like gym.
@@ -278,7 +285,7 @@ export const fastlaneBuildEngine: BuildEngine = {
     stampMultiTargetSigning(nativeDir, signing);
 
     const { cores, memBytes } = hostResources();
-    const jobs = computeBuildJobs(cores, memBytes);
+    const parallelJobLimit = Effect.runSync(computeParallelJobLimit(cores, memBytes));
 
     const outputDir = mkdtempSync(join(tmpdir(), 'launch-build-'));
     const plistPath = join(outputDir, 'ExportOptions.plist');
@@ -287,23 +294,26 @@ export const fastlaneBuildEngine: BuildEngine = {
     const exportMethod = ctx.distribution === 'internal' ? 'ad-hoc' : 'app-store';
     writeFileSync(plistPath, exportOptionsPlist(signing, exportMethod));
 
-    // gym argv is built by the pure `gymArgs`: identical to the iOS command of old, plus a `--destination`
-    // only for the non-iOS Apple platforms (iOS omits it → xcodebuild default). The output keeps each
+    // gym argv is built by the shared buildFlags Effect: identical to the iOS command of old, plus a
+    // `--destination` only for the non-iOS Apple platforms (iOS omits it -> xcodebuild default). The output keeps each
     // platform's archive extension (`.ipa` for iOS-family, `.pkg` for macOS).
     const archiveExt = appleArtifactExtension(ctx.platform);
-    const buildRun = await runWithProgress(
-      'fastlane',
-      gymArgs({
+    const gymArguments = await Effect.runPromise(
+      assembleGymArguments({
         workspace,
         scheme,
         outputDir,
         outputName: `${ctx.app.name}.${archiveExt}`,
         exportOptionsPath: plistPath,
         signing,
-        jobs,
-        clean: decision.clean,
-        destination: gymDestination(ctx.platform),
+        parallelJobLimit,
+        shouldCleanBuild: decision.clean,
+        buildDestination: gymDestination(ctx.platform),
       }),
+    );
+    const buildRun = await runWithProgress(
+      'fastlane',
+      gymArguments,
       // gym env = Launch's resolved env (EXPO_PUBLIC_* for the bundle) + ccache tuning + the ASC API
       // key (so gym's signing/upload helpers reach Apple without a 2FA prompt). See {@link gymEnv}.
       {

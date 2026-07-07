@@ -10,6 +10,7 @@ import {
   packageManagerWarnings,
   parsePackageManagerField,
 } from './packageManager.js';
+import { expectDefined } from '../testkit/assertions.testkit.js';
 
 const tmpDirs: string[] = [];
 function scratch(): string {
@@ -18,7 +19,9 @@ function scratch(): string {
   return dir;
 }
 afterEach(() => {
-  while (tmpDirs.length) rmSync(tmpDirs.pop()!, { recursive: true, force: true });
+  while (tmpDirs.length) {
+    rmSync(expectDefined(tmpDirs.pop(), 'temp dir'), { recursive: true, force: true });
+  }
 });
 
 describe('parsePackageManagerField', () => {

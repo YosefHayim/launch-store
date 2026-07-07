@@ -11,10 +11,13 @@ import {
   LAUNCH_HOME,
   ensureDir,
 } from './paths.js';
+import { expectDefined } from '../testkit/assertions.testkit.js';
 
 const tempDirs: string[] = [];
 afterEach(() => {
-  while (tempDirs.length > 0) rmSync(tempDirs.pop()!, { recursive: true, force: true });
+  while (tempDirs.length > 0) {
+    rmSync(expectDefined(tempDirs.pop(), 'temp dir'), { recursive: true, force: true });
+  }
 });
 
 describe('paths — one canonical layout for ~/.launch', () => {

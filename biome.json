@@ -101,10 +101,6 @@
     {
       "includes": ["**/*.config.ts", "launch.config.example.ts"],
       "linter": { "rules": { "style": { "noDefaultExport": "off" } } }
-    },
-    {
-      "includes": ["**/*.test.ts", "**/*.testkit.ts", "**/*.e2e.ts"],
-      "linter": { "rules": { "style": { "noNonNullAssertion": "warn" } } }
     }
   ]
 }

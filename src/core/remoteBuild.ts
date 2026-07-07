@@ -76,6 +76,8 @@ export interface RemoteBuildInputs {
   submitTarget: SubmitTarget;
   /** Force a from-scratch build on the host (`--clean`); otherwise the host's own fingerprint decides. */
   forceClean: boolean;
+  /** Whether ccache may be enabled on the remote host. */
+  ccacheEnabled: boolean;
   /** Client-facing build-time env vars (the profile's `.env` values), injected on the host. */
   env: Record<string, string>;
 }
@@ -224,7 +226,7 @@ export async function runBuildOnHost(
     SUBMIT: inputs.submit ? '1' : '0',
     SUBMIT_TARGET: inputs.submitTarget,
     FORCE_CLEAN: inputs.forceClean ? '1' : '0',
-    USE_CCACHE: '1',
+    ...(inputs.ccacheEnabled ? { USE_CCACHE: '1' } : {}),
   };
   const command = `${remoteEnvPrefix(env)} bash ${shellQuote(scriptRemote)} ${shellQuote(session.workDir)} ${shellQuote(session.credsDir)}`;
   await sshRun(session.target, command);

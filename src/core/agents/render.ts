@@ -321,3 +321,162 @@ export function renderContributorSkills(
 ): GeneratedAgentFile[] {
   return skills.map(renderContributorSkill);
 }
+
+// ─── Windsurf (.windsurf/rules/*.md) ────────────────────────────────────────────
+
+/**
+ * Render the Windsurf base rule (`.windsurf/rules/launch.md`): `trigger: always`, so Windsurf always
+ * knows this repo ships with Launch. Format uses YAML frontmatter with `trigger` field.
+ */
+export function renderWindsurfBaseRule(
+  version: string,
+  base: BaseContext = BASE_CONTEXT,
+): GeneratedAgentFile {
+  const frontmatter = ['---', 'trigger: always', '---'].join('\n');
+  const body = joinSections([
+    frontmatter,
+    '# Launch',
+    stamp(version),
+    ...renderBaseSections(base, 2),
+  ]);
+  return { path: '.windsurf/rules/launch.md', body };
+}
+
+/**
+ * Render one Windsurf task rule (`.windsurf/rules/launch-<id>.md`): `trigger: auto` with a catch-all
+ * glob, so Windsurf pulls it in when the developer's intent matches. Large skills have their reference
+ * catalog flattened inline.
+ */
+export function renderWindsurfTaskRule(skill: ConsumerSkill, version: string): GeneratedAgentFile {
+  const frontmatter = ['---', 'trigger: auto', 'globs: "**/*"', '---'].join('\n');
+  const reference = skill.reference
+    ? `## Command reference\n\n${skill.reference.intro}\n\n${renderReferenceTable(skill.reference.commands)}`
+    : '';
+  const body = joinSections([
+    frontmatter,
+    `# ${skill.title}`,
+    stamp(version),
+    renderTriggers(skill.triggers),
+    renderRecipe(skill.steps),
+    skill.body,
+    reference,
+    renderCautions(skill.cautions),
+  ]);
+  return { path: `.windsurf/rules/${skill.id}.md`, body };
+}
+
+// ─── Copilot (.github/copilot-instructions.md) ─────────────────────────────────
+
+/**
+ * Render the managed Launch block for a consumer's `.github/copilot-instructions.md`. Copilot uses a
+ * single file, so the Launch context (base + condensed skills overview) is emitted as a spliced managed
+ * block — the same pattern as `AGENTS.md` — to preserve any user content around it.
+ */
+export function renderCopilotBlock(
+  version: string,
+  base: BaseContext = BASE_CONTEXT,
+  skills: ConsumerSkill[] = CONSUMER_SKILLS,
+): string {
+  const skillSummaries = skills.map((s) => `- **${s.title}**: ${s.description}`).join('\n');
+  const sections = [
+    '## Shipping this app with Launch',
+    stamp(version),
+    ...renderBaseSections(base, 3),
+    '### Available workflows',
+    skillSummaries,
+    ...skills.map(renderSkillSection),
+  ];
+  const inner = sections.filter((s) => s.trim() !== '').join('\n\n');
+  return `${MANAGED_START}\n${inner}\n${MANAGED_END}`;
+}
+
+// ─── Kiro (.kiro/steering/launch.md) ────────────────────────────────────────────
+
+/**
+ * Render the Kiro steering hook (`.kiro/steering/launch.md`): a single file that provides all Launch
+ * context. Kiro steering hooks are plain markdown that fire on events — this one contains the base
+ * context plus all task workflows so Kiro has the full picture in one file.
+ */
+export function renderKiroSteering(
+  version: string,
+  base: BaseContext = BASE_CONTEXT,
+  skills: ConsumerSkill[] = CONSUMER_SKILLS,
+): GeneratedAgentFile {
+  const body = joinSections([
+    '# Launch — build, sign & ship to the App Store / Play',
+    stamp(version),
+    ...renderBaseSections(base, 2),
+    '## Common tasks',
+    skills.map(renderSkillSection).join('\n\n'),
+  ]);
+  return { path: '.kiro/steering/launch.md', body };
+}
+
+// ─── Cline (.cline/rules/*.md) ──────────────────────────────────────────────────
+
+/**
+ * Render the Cline base rule (`.cline/rules/launch.md`): plain markdown (no frontmatter), always
+ * loaded by Cline. Contains the base context so Cline always knows Launch is present.
+ */
+export function renderClineBaseRule(
+  version: string,
+  base: BaseContext = BASE_CONTEXT,
+): GeneratedAgentFile {
+  const body = joinSections(['# Launch', stamp(version), ...renderBaseSections(base, 2)]);
+  return { path: '.cline/rules/launch.md', body };
+}
+
+/**
+ * Render one Cline task rule (`.cline/rules/launch-<id>.md`): plain markdown, auto-loaded by Cline
+ * when files in the `.cline/rules/` directory are present. Large skills have their reference catalog
+ * flattened inline.
+ */
+export function renderClineTaskRule(skill: ConsumerSkill, version: string): GeneratedAgentFile {
+  const reference = skill.reference
+    ? `## Command reference\n\n${skill.reference.intro}\n\n${renderReferenceTable(skill.reference.commands)}`
+    : '';
+  const body = joinSections([
+    `# ${skill.title}`,
+    stamp(version),
+    renderTriggers(skill.triggers),
+    renderRecipe(skill.steps),
+    skill.body,
+    reference,
+    renderCautions(skill.cautions),
+  ]);
+  return { path: `.cline/rules/${skill.id}.md`, body };
+}
+
+// ─── Amazon Q (.amazonq/rules/*.md) ─────────────────────────────────────────────
+
+/**
+ * Render the Amazon Q base rule (`.amazonq/rules/launch.md`): plain markdown, auto-loaded. Contains
+ * the base context so Amazon Q always knows Launch is present.
+ */
+export function renderAmazonQBaseRule(
+  version: string,
+  base: BaseContext = BASE_CONTEXT,
+): GeneratedAgentFile {
+  const body = joinSections(['# Launch', stamp(version), ...renderBaseSections(base, 2)]);
+  return { path: '.amazonq/rules/launch.md', body };
+}
+
+/**
+ * Render one Amazon Q task rule (`.amazonq/rules/launch-<id>.md`): plain markdown, auto-loaded.
+ * Large skills have their reference catalog flattened inline.
+ */
+export function renderAmazonQTaskRule(skill: ConsumerSkill, version: string): GeneratedAgentFile {
+  const reference = skill.reference
+    ? `## Command reference\n\n${skill.reference.intro}\n\n${renderReferenceTable(skill.reference.commands)}`
+    : '';
+  const body = joinSections([
+    `# ${skill.title}`,
+    stamp(version),
+    renderTriggers(skill.triggers),
+    renderRecipe(skill.steps),
+    skill.body,
+    reference,
+    renderCautions(skill.cautions),
+  ]);
+  return { path: `.amazonq/rules/${skill.id}.md`, body };
+}

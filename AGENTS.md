@@ -1,160 +1,103 @@
 # AGENTS.md
 
-Working rules for AI agents and contributors editing **Launch**. This file holds only what you
-**can't infer** from the code and configs: module ownership, the conventions a linter can't catch,
-and the gate every change must pass. It does **not** restate style rules (those live in the tooling)
-or usage (that's [`README.md`](./README.md)).
+Working rules for AI agents and contributors editing **Launch**. This file holds only what you **can't infer** from the code and configs: module ownership, conventions a linter can't catch, and the validation gate every change must pass. Usage lives in [README.md](./README.md); style depth lives in [CODE-STYLE.md](./CODE-STYLE.md).
 
-> Claude Code reads this via [`CLAUDE.md`](./CLAUDE.md), which imports it with `@AGENTS.md`.
+> Claude Code reads this through [CLAUDE.md](./CLAUDE.md), which imports this file with `@AGENTS.md`.
 
-## Repo layout — who owns what
+## Repo Layout - Who Owns What
 
-One TypeScript / Node ESM package. Four areas under `src/`:
+One TypeScript / Node ESM package. Top-level `src/` ownership:
 
-| Path            | Owns                                                                                      |
-| --------------- | ----------------------------------------------------------------------------------------- |
-| `src/cli`       | Thin `commander` wiring — parse args, call into `core`. No domain logic here.             |
-| `src/core`      | The domain: types, the build→submit pipeline, the provider registry, exec/paths/glossary. |
-| `src/providers` | The swappable backends (build, storage, credentials, submit, compute).                    |
-| `src/apple`     | The App Store Connect integration (JWT auth, bundle ids, certs, profiles).                |
+| Path | Owns |
+| --- | --- |
+| `src/cli` | Thin Commander wiring: command names, flags, help text, `runCliProgram(...)`. No domain orchestration. |
+| `src/core` | Domain programs, Effect services, config/schema, build/release/store/readiness logic, generated docs, and type homes. |
+| `src/providers` | Swappable backend implementations for build, storage, credentials, submit, and compute providers. |
+| `src/apple` | App Store Connect transport and ASC wire/resource DTOs. API mirror only. |
+| `src/google` | Google Play transport and Play wire/resource DTOs. API mirror only. |
+| `src/testkit` | Shared test fakes and Effect test layers. |
 
-The build→submit spine is `core/pipeline.ts`; off-Mac builds branch into `core/remotePipeline.ts`
-(remote-host lifecycle) and `core/easPipeline.ts` (Expo handoff) beside it.
+Target `src/core` layout after the structure migration:
 
-## Conventions a linter can't enforce
-
-### Types are the single source of truth
-
-The **types module** defines every domain shape and the provider interfaces: the `src/core/types.ts`
-barrel re-exports `src/core/types/*.ts`, split by concern (`app`, `catalog`, `storeSurface`, `config`,
-`credentials`, `artifacts`, `providers`, `remote`, `vitals`). Add or change a shape in the matching
-`types/*.ts` module — not inline in a feature file, and not in a per-feature `types.ts` (fold those into
-the barrel); the barrel keeps every
-`import … from "../core/types.js"` working unchanged, so don't add declarations to it. (The **config** surface is the one exception to
-hand-written shapes — it's a zod schema with its type inferred; see
-[ADR 0008](./docs/adr/0008-adopt-zod-config-ssot.md).) The same
-barrel pattern governs the **App Store Connect wire types** — the `*Resource` / `*Query` shapes the
-client reads and writes live in `src/apple/ascResources.ts`, and `src/apple/ascClient.ts` re-exports
-them with `export *`, so `import … from "../apple/ascClient.js"` keeps resolving every ASC type
-unchanged. Add a new ASC shape to `ascResources.ts`; keep `ascClient.ts` to its transport core and the
-`AppStoreConnectClient` class. (Older ADRs say "ASC wire types in `ascClient.ts`" — that predates the
-split and means the import surface, which is unchanged.) `src/core/glossary.ts`
-is the single source for teaching text — it feeds both `launch explain` and the `--explain` step
-expansions; never duplicate those strings elsewhere.
-
-### Adding a backend = implement an interface + register it
-
-Pick one of the five provider interfaces — `BuildEngine` / `StorageProvider` /
-`CredentialsProvider` / `Submitter` / `ComputeHost` — from `types.ts`, implement it as a named
-object, and register it in `src/providers/index.ts`. The pipeline resolves it by the `name` in the
-user's `launch.config.ts`, so **you never touch `core/pipeline.ts` to add a backend.**
-
-```ts
-// src/providers/storage/s3.ts
-import type { BuildArtifact, StorageProvider, StoredArtifact } from "../../core/types.js";
-
-export const s3StorageProvider: StorageProvider = {
-  name: "s3", // ← the value users put in launch.config.ts (`storage: "s3"`)
-  async put(artifact: BuildArtifact): Promise<StoredArtifact> {
-    const { S3Client } = await import("@aws-sdk/client-s3"); // lazy — see below
-    /* …upload, then return { id, location } */
-  },
-  async list() {
-    /* … */
-  },
-  async url(id) {
-    /* … */
-  },
-};
+```text
+src/core/
+├── build/          # pipeline, build flags, fingerprint, logs, diagnostics, remote/eas handoff
+├── release/        # release, rollout, release train, TestFlight/public release
+├── store/          # store sync, catalog/product/offers/pricing/reviews/reports across stores
+├── readiness/      # doctor/readiness/probes/preflight
+├── config/         # config schema/load/scaffold/semantics/docs
+├── credentials/    # accounts, secrets, keychain, signing assets
+├── distribution/   # install manifests, OTA updates, storage-facing distribution helpers
+├── agents/         # agent skill scaffolding
+├── mcp/            # MCP server/tools
+├── dashboard/      # terminal dashboard state/rendering
+├── docs/           # generated command/config docs
+├── services/       # Effect service tags + Live/Test layers
+└── types/          # exported domain shapes + index.ts barrel
 ```
 
-```ts
-// src/providers/index.ts — registerBuiltins() wires every provider in by name
-registerStorageProvider(s3StorageProvider);
+Current flat `src/core/*.ts` files are migration debt. Do not create new flat-core files.
+
+## Conventions A Linter Can't Infer
+
+### Source Of Truth Files
+
+- Style: [CODE-STYLE.md](./CODE-STYLE.md). Edit there first; this file mirrors only the digest.
+- Product direction: [PROJECT.md](./PROJECT.md).
+- Architecture orientation: [CONTEXT.md](./CONTEXT.md).
+- Domain language: [LANGUAGE.md](./LANGUAGE.md) and runtime teaching text in `src/core/glossary.ts`.
+- Config schema: Effect Schema in `src/core/config/`; zod is migration debt. ADR 0008 is superseded.
+
+### Imports Follow Ownership
+
+```text
+src/cli       -> src/core only
+src/providers -> src/core/types + src/core/services only, plus vendor SDKs
+src/core      -> src/apple and src/google through service adapters only
+src/apple     -> src/core/types only, never src/core logic
+src/google    -> src/core/types only, never src/core logic
 ```
 
-### Lazy-load heavy SDKs through `requireOptional`
+### Types And Barrels
 
-The AWS SDK and the native keyring are `optionalDependencies`, imported only on the remote / non-Mac
-paths so a local-only install stays lean. Load them through `core/optionalDep.ts` so a _missing_
-package becomes an actionable "install this" message instead of a stack trace:
+`index.ts` is the wildcard barrel. A file named `types.ts` contains actual declarations, not wildcard exports. Exported domain shapes live in `src/core/types/*.ts` and are re-exported from `src/core/types/index.ts`. App Store Connect wire shapes live in `src/apple/ascResources.ts`; Google Play wire shapes live in `src/google/playResources.ts` once split.
 
-```ts
-import { requireOptional } from "../../core/optionalDep.js";
+### Providers
 
-const { EC2Client } = await requireOptional(
-  "AWS EC2 Mac builds", // what needs it
-  "npm i @aws-sdk/client-ec2 @aws-sdk/credential-providers", // the exact install hint
-  () => import("@aws-sdk/client-ec2"), // the lazy import, as a thunk
-);
-```
+Adding a backend means implementing one of the five provider roles as Effect-returning methods and registering it through the ProviderRegistry live layer. Do not edit the pipeline to add a backend. Heavy SDKs stay lazy inside live layers or optional dependency helpers.
 
-### All child processes go through `core/exec.ts`
+### Secrets
 
-`run` streams output (builds, fastlane); `capture` collects stdout for parsing. Both use
-`shell: false` with an explicit argument array, which closes the shell-injection class of bug. Never
-build a shell string or call `spawn` / `exec` directly.
+Key material never touches the repo or `~/.launch`. `.p8`, `.p12`, private keys, service-account JSON, and passwords live in the OS keychain/secret store or environment. Do not log, write, or commit secrets.
 
-```ts
-import { run, capture } from "../../core/exec.js";
-
-await run("xcodebuild", ["-scheme", scheme, "archive"]); // arg array, never a string
-const identities = await capture("security", ["find-identity", "-v", "-p", "codesigning"]);
-// ✗ run(`xcodebuild -scheme ${scheme}`) — no shell strings, ever
-```
-
-### The config seam stays logic-free
-
-The user's `launch.config.ts` is loaded with jiti; the public API (`defineConfig` + the config
-types) is re-exported from `src/index.ts`, which is the package `exports` entry. Keep `src/index.ts`
-**re-exports only** — no logic.
-
-### Secrets never touch the repo or `~/.launch`
-
-The `.p8` / `.p12` / private keys live in the OS keychain; `~/.launch` holds non-secret paths and
-ids only (e.g. `cloud.json`). Don't log, write, or commit key material, and honor `.gitignore`.
-
-### Rules digest
+### Rules Digest
 
 <!-- rules digest — full guide in CODE-STYLE.md; edit there -->
 
-The full style guide (with before/after from real files) is [`CODE-STYLE.md`](./CODE-STYLE.md); `deslop`
-enforces it per-diff. Four rules below are **in-flight migrations** — write new code the new way; existing
-code converts opportunistically. Beyond the subsections above:
+The full style guide is [CODE-STYLE.md](./CODE-STYLE.md); `deslop` enforces it per diff. The codebase is migrating to the desired state; write all new code in that state and rewrite touched code on contact.
 
-- **File size is tiered, not capped.** The linear spine (`pipeline.ts`) and the API-mirroring wire clients
-  (`ascClient` / `ascResources` / `playClient`) are exempt and mirror the vendor API **1:1** — never
-  collapse their per-endpoint methods. Logic/orchestration aims **≤ 200 LOC**; split by _purpose_ (shapes →
-  the barrel) before size.
-- **One types home** _(migration)_ — every exported shape in `src/core/types/*`, imported as
-  `../core/types.js`; no per-feature `types.ts`, no exported shape inline in a logic file.
-- **One output seam** _(migration)_ — domain core returns data and never prints; rendering goes through the
-  logger/output module, never raw `console.*` (except `cli/index.ts`'s fatal catch and the MCP **stderr**
-  stream).
-- **Errors: throw a plain `Error` with an actionable message;** subclass only where a caller catches and
-  branches; graded exits return an `exitCode` in data.
-- **Config is a zod schema** _(migration)_ — type inferred, `.parse` at the boundary, JSON Schema generated
-  from it; see [ADR 0008](./docs/adr/0008-adopt-zod-config-ssot.md).
-- **`interface` for shapes, `type` for unions/functions;** module constants at the top, after imports.
-- **Comments explain WHY,** cross-linked with `{@link}`; a file-level why-doc opens every module.
-- **Tests co-located;** hand-written fakes + `vi.fn` over `vi.mock` (boundary modules only); shared fixtures
-  in one testkit root _(migration:_ `src/testkit/`, `*.testkit.ts`_)_; no snapshots.
-- **Never** a non-null `!` assertion, `await` in a loop (use `Promise.all`; deliberate order gets a
-  `// why`), or `export default` (named exports only).
+- **Effect everywhere in production.** Exported behavior returns `Effect`; pure logic -> `Effect.sync`, I/O -> `Effect.gen`.
+- **Typed errors only.** `Data.TaggedError`; catch by tag. No raw production `throw new Error`.
+- **Services, not classes.** `Context.Tag` + `Layer`; live implementations in `*Live`, tests provide `*Test` layers.
+- **Prompting and I/O behind services.** No direct `@clack/prompts`, `fetch`, `fs`, `spawn`, `console.*`, or `process.env` outside live layers/entrypoints/tests/scripts.
+- **CLI is thin.** Commander files parse names/flags and call a core Effect program; both interactive and non-interactive paths share that program.
+- **Non-TTY never hangs.** Prompts require TTY or explicit flags/`--yes`; `--json` emits machine-clean output.
+- **Effect Schema is config SSOT.** zod is temporary migration debt.
+- **Purpose-grouped core.** New code goes under `src/core/<job>/`; no new flat-core files.
+- **`index.ts` barrels only.** Wildcard exports live in `index.ts`; `types.ts` means real type declarations.
+- **Prose naming.** No single-letter params or ritual abbreviations like `ctx`, `cfg`, `res`, `opts`.
+- **Complete TSDoc on functions.** Module-scope functions, exported function values, and service/provider methods need purpose, `@param`, and `@returns`; examples when call shape is not obvious.
+- **Boring control flow.** No nested ternaries; use guard clauses for one/two branches and `switch` for 3+ alternatives over one discriminant.
+- **Tests are colocated.** Vitest, no snapshots, hand fakes, Effect `*Test` layers, shared testkit in `src/testkit/`.
 
-## Style is enforced, not documented
+## Style Is Enforced, Not Re-Explained
 
-`tsconfig.json` (max-strict), `biome.json` (Biome's linter + formatter, `all` rule preset), and
-`.husky/pre-commit` are the only source of truth for formatting and type rules —
-no `any`, no needless `as`, JSDoc on exports. Don't re-describe those rules; just run them.
+Formatting and generic TypeScript rules live in `tsconfig.json`, `biome.json`, and the Husky hook. Launch-specific migration rules live in `CODE-STYLE.md` and `scripts/check-style.mjs`; expand the migrated-slice allowlist as old modules are converted.
 
-## Before you call a change done
+## Before You Call A Change Done
 
 ```bash
-npm run typecheck && npm run lint && npm run test && npm run build
+npm run typecheck && npm run lint && npm run lint:style && npm run test && npm run build
 ```
 
-All four must be green. The husky pre-commit hook runs lint + format + typecheck, but it can be
-bypassed and it **doesn't run the tests** — so run the line above yourself, and add a test
-(`*.test.ts` beside the code) for any new logic. Keep changes KISS / YAGNI / DRY: extend the nearest
-sibling file rather than inventing a new file, util, or abstraction.
+All five must be green for migrated slices. Add or update colocated tests for any new behavior.

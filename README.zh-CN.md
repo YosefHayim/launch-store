@@ -20,7 +20,7 @@
 <p align="center">
   <a href="./docs/commands.md"><img src="https://img.shields.io/badge/store%20API-211%20endpoints-8957e5?logo=apple&logoColor=white" alt="211 App Store Connect &amp; Google Play API operations" /></a>
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-1974%20passing-3fb950?logo=vitest&logoColor=white" alt="1974 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2006%20passing-3fb950?logo=vitest&logoColor=white" alt="2006 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -45,23 +45,10 @@
 
 > **第一次使用？** 运行 `launch demo`，用 60 秒看一遍整条流水线的模拟演示——无需任何配置、无需构建、无需账户。第一次运行 `launch` 时它也会自动播放。
 
-<!-- Feature map — one badge per stage of the release, in pipeline order. Mirrors the Features section below. -->
-<table align="center">
-  <tr>
-    <td align="center"><img src="assets/badges/feature-setup-verify.jpg" alt="Set up & verify — one-step config, keys in your OS keychain, secrets, and a smart preflight" width="150" /></td>
-    <td align="center"><img src="assets/badges/feature-app-store-connect.jpg" alt="Configure App Store Connect — products, pricing, listing, offers, and metadata as code, not clicks" width="150" /></td>
-    <td align="center"><img src="assets/badges/feature-google-play.jpg" alt="Configure Google Play — products, subscriptions, offers, tracks & reviews as code" width="150" /></td>
-    <td align="center"><img src="assets/badges/feature-build-ship.jpg" alt="Build & ship iOS & Android — one command, fast builds, size checks, safe uploads to test tracks" width="150" /></td>
-    <td align="center"><img src="assets/badges/feature-public-release.jpg" alt="Deliberate public release — submit, track & roll out from the CLI, no portal needed" width="150" /></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="assets/badges/feature-resign.jpg" alt="Re-sign without rebuilding — re-sign IPAs/AABs with new credentials from stored artifacts" width="150" /></td>
-    <td align="center"><img src="assets/badges/feature-notifications.jpg" alt="Completion notifications — Slack, Discord or shell hooks on build success and failure" width="150" /></td>
-    <td align="center"><img src="assets/badges/feature-distribute-update.jpg" alt="Distribute & update — internal distribution, over-the-air updates, and instant rollback" width="150" /></td>
-    <td align="center"><img src="assets/badges/feature-team-testers.jpg" alt="Manage testers, team & reviews — TestFlight groups, reviews, team access, and sandbox testers, all via API" width="150" /></td>
-    <td align="center"><img src="assets/badges/feature-reports.jpg" alt="Sales, finance & analytics reports — download App Store Connect reports for analysis and automation" width="150" /></td>
-  </tr>
-</table>
+<!-- Feature map — one visual overview of the release surface. Mirrors the Features section below. -->
+<p align="center">
+  <img src="assets/launchFeatureMap.png" alt="Launch feature map — setup, store configuration, build, release, re-sign, notifications, distribution, team management, and reports" width="900" />
+</p>
 
 ## 为什么选择 Launch
 

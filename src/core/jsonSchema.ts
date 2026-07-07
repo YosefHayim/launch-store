@@ -1,16 +1,15 @@
 /**
  * A tiny, dependency-free JSON Schema validator — the draft-07 subset Launch needs to validate a value
- * against a JSON Schema it doesn't own a zod schema for. Its one live use is the **MCP server**
+ * against a JSON Schema it doesn't own an Effect Schema for. Its one live use is the **MCP server**
  * (`mcp/server.ts`): each tool advertises a raw JSON Schema for its args, and {@link validate} checks the
  * incoming `args` against it. It deliberately is NOT a general-purpose validator — it handles only the
  * keywords those schemas use: `$ref`/`definitions`, `type` (string or array), `enum`, `const`,
  * `properties`/`required`/`additionalProperties`, `items`, and `anyOf`/`allOf`/`oneOf`.
  *
  * Config validation does **not** run through here any more: `launch.config.ts` is validated directly by
- * its zod SSOT (`configSchema.ts` → `LaunchConfigSchema.safeParse`), so the interface + validator +
- * generated schema are one source that can't drift — see
- * [ADR 0008](../../docs/adr/0008-adopt-zod-config-ssot.md). {@link JsonSchema} still doubles as the shape
- * the committed `schema/launch.config.schema.json` (emitted by `z.toJSONSchema`, target `draft-7`)
+ * the Effect Schema boundary in `config/schema.ts` — see
+ * [ADR 0013](../../docs/adr/0013-effect-schema-config-ssot.md). {@link JsonSchema} still doubles as the shape
+ * the committed `schema/launch.config.schema.json` (emitted by the temporary zod compatibility generator)
  * deserializes to, which `configDocs.ts` renders. Errors carry a dotted JSON path so a caller can point
  * the user straight at the offending field.
  */

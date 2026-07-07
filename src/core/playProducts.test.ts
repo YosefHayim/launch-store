@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { InAppProductResource } from '../google/playClient.js';
 import type { InAppPurchaseConfig } from './types.js';
+import { expectArrayElement } from '../testkit/assertions.testkit.js';
 import {
   type PlayProductsApi,
   productInSync,
@@ -177,7 +178,7 @@ describe('reconcilePlayProducts', () => {
     expect(result.actions.map((a) => `${a.status} ${a.description}`)).toEqual([
       'applied update Play product com.acme.coins.100',
     ]);
-    const sent = calls.updates[0]!;
+    const sent = expectArrayElement(calls.updates, 0, 'calls.updates');
     expect(sent.defaultPrice).toEqual({ priceMicros: '1990000', currency: 'USD' });
     expect(sent.listings?.['en-US']?.title).toBe('100 Coins');
     expect(sent.prices?.['JP']).toEqual({ priceMicros: '150000000', currency: 'JPY' });

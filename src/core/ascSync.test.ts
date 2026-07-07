@@ -3,6 +3,7 @@ import { reconcileApp, type AscCatalogApi, type ReconcileInput } from './ascSync
 import { makeAscCatalogApiFake } from '../testkit/ascCatalogApi.testkit.js';
 import type { AppleStoreConfig } from './storeConfig.js';
 import type { AppProducts, InAppPurchaseConfig, SubscriptionGroupConfig } from './types.js';
+import { expectArrayElement } from '../testkit/assertions.testkit.js';
 
 /** Local alias for the shared {@link AscCatalogApi} fake — keeps the existing `makeApi(...)` call sites intact. */
 function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {
@@ -178,7 +179,9 @@ describe('reconcileApp', () => {
     const report = await reconcileApp(api, input({ products: {} }));
     expect(report.actions).toHaveLength(1);
     expect(report.actions[0]).toMatchObject({ status: 'skipped' });
-    expect(report.actions[0]!.description).toContain('not registered yet');
+    expect(expectArrayElement(report.actions, 0, 'report.actions').description).toContain(
+      'not registered yet',
+    );
     expect(api.enableCapability).not.toHaveBeenCalled();
   });
 

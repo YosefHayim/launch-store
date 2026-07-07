@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **1974 tests**.
+> Launch wraps **211 App Store Connect & Google Play API operations** across **63 commands**, guarded by **2006 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `npm run docs:gen` — edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -81,17 +81,18 @@ run the full pipeline and upload to the testing track (--no-submit to build only
 | --- | --- |
 | `-p, --profile <name>` | build profile |
 | `-a, --app <name>` | app handle (auto-selected if there's only one) |
-| `--account <name>` | iOS only — Apple account to build with: label or Key ID (default: active) |
 | `--explain` | expand each step into a plain-English teaching block |
 | `--no-submit` | build only; do not upload |
-| `--remote [target]` | iOS only — build on a remote Mac: 'aws' (default) or user@host over SSH |
+| `--account <name>` | iOS only - Apple account to build with: label or Key ID (default: active) |
+| `--remote [target]` | iOS only - build on a remote Mac: 'aws' (default) or user@host over SSH |
+| `--bump <kind>` | iOS only - version bump: patch\|minor\|major\|keep (default: last used, else prompt) or 'ask' to force the prompt |
+| `--track <track>` | Android only - Play track: internal\|closed\|open\|production (default: internal) |
+| `--rollout <fraction>` | Android only - staged-rollout fraction for production (default: 1.0) |
 | `--distribution <mode>` | store (default, TestFlight/Play) or internal (ad-hoc install link) |
-| `--bump <kind>` | iOS only — version bump: patch\|minor\|major\|keep (default: last used, else prompt) or 'ask' to force the prompt |
-| `--track <track>` | Android only — Play track: internal\|closed\|open\|production (default: internal) |
-| `--rollout <fraction>` | Android only — staged-rollout fraction for production (default: 1.0) |
 | `--size-budget <MB>` | override the profile soft size budget for this build only (MB, e.g. 250) |
 | `--budget <MB>` | alias of --size-budget |
 | `--clean` | force a from-scratch build (default: fast incremental, clean only when native deps change) |
+| `--no-ccache` | disable ccache for this build |
 | `--dry-run` | rehearse every step and print what it would do, changing nothing |
 | `-y, --yes` | skip the pre-upload size confirmation (auto-confirm) |
 | `-v, --verbose` | stream the full xcodebuild/gradle output instead of a progress spinner |
@@ -117,6 +118,7 @@ submit the latest build to the store's PUBLIC production track (with confirmatio
 | `--phased` | iOS only — opt into Apple's 7-day phased rollout |
 | `--dry-run` | iOS only — print the release plan (touches nothing) and exit |
 | `--create-app` | iOS only — show the one-time App Store Connect setup checklist and exit |
+| `-y, --yes` | skip the confirmation prompt (for CI/agents after approval) |
 | `--explain` | expand each step |
 | `--env <KEY=VALUE>` | inline env override (repeatable); highest precedence |
 | `--include-local` | also load .env.local (off by default to avoid surprise local env) |
@@ -1211,15 +1213,15 @@ display help for command
 
 ## `launch agents`
 
-scaffold agent skills/rules (Claude, Cursor, Codex) so coding agents can drive Launch
+scaffold agent skills/rules (Claude, Cursor, Codex, Windsurf, Copilot, Kiro, Cline, Amazon Q) so coding agents can drive Launch
 
 ### `launch agents init`
 
-write Claude skills, Cursor rules, and the AGENTS.md Launch section into this repo
+write agent skills/rules for all detected coding agents into this repo
 
 | Flag | Description |
 | --- | --- |
-| `--agent <list>` | claude \| cursor \| codex \| all (comma-separated; default: auto-detect) |
+| `--agent <list>` | claude \| cursor \| codex \| windsurf \| copilot \| kiro \| cline \| amazonq \| all (comma-separated; default: auto-detect) |
 | `-y, --yes` | non-interactive: skip the confirmation prompt (CI, agents) |
 
 ### `launch agents check`
@@ -1228,7 +1230,7 @@ verify the scaffolded agent files are in sync with the installed Launch
 
 | Flag | Description |
 | --- | --- |
-| `--agent <list>` | claude \| cursor \| codex \| all (comma-separated; default: auto-detect) |
+| `--agent <list>` | claude \| cursor \| codex \| windsurf \| copilot \| kiro \| cline \| amazonq \| all (comma-separated; default: auto-detect) |
 
 ## `launch mcp`
 

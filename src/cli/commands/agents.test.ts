@@ -20,8 +20,22 @@ afterEach(() => {
 
 describe('parseAgentFlag', () => {
   it('expands `all` and dedupes an explicit subset', () => {
-    expect(parseAgentFlag('all')).toEqual(['claude', 'cursor', 'codex']);
+    expect(parseAgentFlag('all')).toEqual([
+      'claude',
+      'cursor',
+      'codex',
+      'windsurf',
+      'copilot',
+      'kiro',
+      'cline',
+      'amazonq',
+    ]);
     expect(parseAgentFlag('cursor, claude ,cursor')).toEqual(['cursor', 'claude']);
+  });
+
+  it('parses the new agents correctly', () => {
+    expect(parseAgentFlag('windsurf,copilot,kiro')).toEqual(['windsurf', 'copilot', 'kiro']);
+    expect(parseAgentFlag('cline,amazonq')).toEqual(['cline', 'amazonq']);
   });
 
   it('rejects an unknown agent', () => {
@@ -39,6 +53,37 @@ describe('detectTargets', () => {
     mkdirSync(join(cwd, '.cursor'));
     writeFileSync(join(cwd, 'AGENTS.md'), '# rules\n');
     expect(detectTargets(cwd)).toEqual(['claude', 'cursor', 'codex']);
+  });
+
+  it('detects windsurf from .windsurf directory', () => {
+    mkdirSync(join(cwd, '.windsurf'));
+    expect(detectTargets(cwd)).toContain('windsurf');
+  });
+
+  it('detects copilot from .github/copilot-instructions.md', () => {
+    mkdirSync(join(cwd, '.github'));
+    writeFileSync(join(cwd, '.github/copilot-instructions.md'), '# copilot\n');
+    expect(detectTargets(cwd)).toContain('copilot');
+  });
+
+  it('detects kiro from .kiro directory', () => {
+    mkdirSync(join(cwd, '.kiro'));
+    expect(detectTargets(cwd)).toContain('kiro');
+  });
+
+  it('detects cline from .cline directory', () => {
+    mkdirSync(join(cwd, '.cline'));
+    expect(detectTargets(cwd)).toContain('cline');
+  });
+
+  it('detects cline from .clinerules file', () => {
+    writeFileSync(join(cwd, '.clinerules'), '# rules\n');
+    expect(detectTargets(cwd)).toContain('cline');
+  });
+
+  it('detects amazonq from .amazonq directory', () => {
+    mkdirSync(join(cwd, '.amazonq'));
+    expect(detectTargets(cwd)).toContain('amazonq');
   });
 });
 
@@ -62,6 +107,41 @@ describe('planArtifacts', () => {
     expect(paths).toContain('CLAUDE.md');
     expect(paths).toContain('.claude/skills/launch-ship/SKILL.md');
     expect(paths).toContain('.claude/skills/launch-store-config/reference.md');
+  });
+
+  it('writes Windsurf base rule + one task rule per skill for windsurf', () => {
+    const paths = planArtifacts(['windsurf'], '1.0.0').map((a) => a.path);
+    expect(paths).toContain('.windsurf/rules/launch.md');
+    expect(paths).toContain('.windsurf/rules/launch-ship.md');
+    expect(paths).not.toContain('AGENTS.md');
+  });
+
+  it('writes a spliced copilot-instructions block for copilot', () => {
+    const artifacts = planArtifacts(['copilot'], '1.0.0');
+    expect(artifacts).toEqual([
+      { kind: 'spliced', path: '.github/copilot-instructions.md', block: expect.any(String) },
+    ]);
+  });
+
+  it('writes a single Kiro steering hook for kiro', () => {
+    const artifacts = planArtifacts(['kiro'], '1.0.0');
+    expect(artifacts).toEqual([
+      { kind: 'owned', path: '.kiro/steering/launch.md', body: expect.any(String) },
+    ]);
+  });
+
+  it('writes Cline base rule + one task rule per skill for cline', () => {
+    const paths = planArtifacts(['cline'], '1.0.0').map((a) => a.path);
+    expect(paths).toContain('.cline/rules/launch.md');
+    expect(paths).toContain('.cline/rules/launch-ship.md');
+    expect(paths).not.toContain('AGENTS.md');
+  });
+
+  it('writes Amazon Q base rule + one task rule per skill for amazonq', () => {
+    const paths = planArtifacts(['amazonq'], '1.0.0').map((a) => a.path);
+    expect(paths).toContain('.amazonq/rules/launch.md');
+    expect(paths).toContain('.amazonq/rules/launch-ship.md');
+    expect(paths).not.toContain('AGENTS.md');
   });
 });
 

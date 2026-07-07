@@ -9,6 +9,7 @@ import {
   writeAndroidMetadataDir,
   writeAppleMetadataDir,
 } from './storeConfig.js';
+import { expectDefined } from '../testkit/assertions.testkit.js';
 
 const tmpDirs: string[] = [];
 function workDir(): string {
@@ -54,7 +55,9 @@ describe('parseStoreConfig', () => {
       apple: { info: { 'en-US': { title: 'Hello', subtitle: 42 } } },
     });
     expect(config.apple?.info['en-US']).toEqual({ title: 'Hello' });
-    expect('subtitle' in config.apple!.info['en-US']!).toBe(false);
+    const apple = expectDefined(config.apple, 'apple store config');
+    const englishInfo = expectDefined(apple.info['en-US'], 'English Apple info');
+    expect('subtitle' in englishInfo).toBe(false);
   });
 });
 

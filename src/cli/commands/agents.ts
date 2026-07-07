@@ -21,10 +21,18 @@ import {
   MANAGED_END,
   MANAGED_START,
   renderAgentsBlock,
+  renderAmazonQBaseRule,
+  renderAmazonQTaskRule,
   renderClaudeMemoryBlock,
   renderClaudeSkillFiles,
+  renderClineBaseRule,
+  renderClineTaskRule,
+  renderCopilotBlock,
   renderCursorBaseRule,
   renderCursorTaskRule,
+  renderKiroSteering,
+  renderWindsurfBaseRule,
+  renderWindsurfTaskRule,
   spliceManagedBlock,
 } from '../../core/agents/render.js';
 import type { AgentTarget } from '../../core/types.js';
@@ -34,14 +42,28 @@ import { createLogger } from '../../core/logger.js';
 
 const log = createLogger(false);
 
-/** The three supported agents, in display order. */
-const ALL_TARGETS: AgentTarget[] = ['claude', 'cursor', 'codex'];
+/** The eight supported agents, in display order. */
+const ALL_TARGETS: AgentTarget[] = [
+  'claude',
+  'cursor',
+  'codex',
+  'windsurf',
+  'copilot',
+  'kiro',
+  'cline',
+  'amazonq',
+];
 
 /** Short label per agent for the interactive picker. */
 const TARGET_LABELS: Record<AgentTarget, string> = {
-  claude: 'Claude  (.claude/skills + CLAUDE.md)',
-  cursor: 'Cursor  (.cursor/rules)',
-  codex: 'Codex   (AGENTS.md)',
+  claude: 'Claude    (.claude/skills + CLAUDE.md)',
+  cursor: 'Cursor    (.cursor/rules)',
+  codex: 'Codex     (AGENTS.md)',
+  windsurf: 'Windsurf  (.windsurf/rules)',
+  copilot: 'Copilot   (.github/copilot-instructions.md)',
+  kiro: 'Kiro      (.kiro/steering)',
+  cline: 'Cline     (.cline/rules)',
+  amazonq: 'Amazon Q  (.amazonq/rules)',
 };
 
 /**
@@ -89,6 +111,11 @@ export function detectTargets(cwd: string): AgentTarget[] {
   if (has('.claude') || has('CLAUDE.md')) targets.push('claude');
   if (has('.cursor') || has('.cursorrules')) targets.push('cursor');
   if (has('AGENTS.md') || has('.codex')) targets.push('codex');
+  if (has('.windsurf') || has('.windsurfrules')) targets.push('windsurf');
+  if (has('.github/copilot-instructions.md')) targets.push('copilot');
+  if (has('.kiro')) targets.push('kiro');
+  if (has('.cline') || has('.clinerules')) targets.push('cline');
+  if (has('.amazonq')) targets.push('amazonq');
   return targets;
 }
 
@@ -102,7 +129,9 @@ export function parseAgentFlag(value: string): AgentTarget[] {
   const targets: AgentTarget[] = [];
   for (const token of tokens) {
     if (!ALL_TARGETS.includes(token as AgentTarget)) {
-      throw new Error(`Unknown agent "${token}". Use claude, cursor, codex, or all.`);
+      throw new Error(
+        `Unknown agent "${token}". Use claude, cursor, codex, windsurf, copilot, kiro, cline, amazonq, or all.`,
+      );
     }
     if (!targets.includes(token as AgentTarget)) targets.push(token as AgentTarget);
   }
@@ -118,6 +147,11 @@ export function planArtifacts(targets: AgentTarget[], version: string): Artifact
   const wantClaude = targets.includes('claude');
   const wantCursor = targets.includes('cursor');
   const wantCodex = targets.includes('codex');
+  const wantWindsurf = targets.includes('windsurf');
+  const wantCopilot = targets.includes('copilot');
+  const wantKiro = targets.includes('kiro');
+  const wantCline = targets.includes('cline');
+  const wantAmazonQ = targets.includes('amazonq');
   const artifacts: Artifact[] = [];
 
   if (wantClaude || wantCodex) {
@@ -136,6 +170,41 @@ export function planArtifacts(targets: AgentTarget[], version: string): Artifact
     artifacts.push({ kind: 'owned', path: base.path, body: base.body });
     for (const skill of CONSUMER_SKILLS) {
       const rule = renderCursorTaskRule(skill, version);
+      artifacts.push({ kind: 'owned', path: rule.path, body: rule.body });
+    }
+  }
+  if (wantWindsurf) {
+    const base = renderWindsurfBaseRule(version);
+    artifacts.push({ kind: 'owned', path: base.path, body: base.body });
+    for (const skill of CONSUMER_SKILLS) {
+      const rule = renderWindsurfTaskRule(skill, version);
+      artifacts.push({ kind: 'owned', path: rule.path, body: rule.body });
+    }
+  }
+  if (wantCopilot) {
+    artifacts.push({
+      kind: 'spliced',
+      path: '.github/copilot-instructions.md',
+      block: renderCopilotBlock(version),
+    });
+  }
+  if (wantKiro) {
+    const steering = renderKiroSteering(version);
+    artifacts.push({ kind: 'owned', path: steering.path, body: steering.body });
+  }
+  if (wantCline) {
+    const base = renderClineBaseRule(version);
+    artifacts.push({ kind: 'owned', path: base.path, body: base.body });
+    for (const skill of CONSUMER_SKILLS) {
+      const rule = renderClineTaskRule(skill, version);
+      artifacts.push({ kind: 'owned', path: rule.path, body: rule.body });
+    }
+  }
+  if (wantAmazonQ) {
+    const base = renderAmazonQBaseRule(version);
+    artifacts.push({ kind: 'owned', path: base.path, body: base.body });
+    for (const skill of CONSUMER_SKILLS) {
+      const rule = renderAmazonQTaskRule(skill, version);
       artifacts.push({ kind: 'owned', path: rule.path, body: rule.body });
     }
   }
@@ -273,7 +342,7 @@ export function registerAgentsCommand(program: Command): void {
   const agents = program
     .command('agents')
     .description(
-      'scaffold agent skills/rules (Claude, Cursor, Codex) so coding agents can drive Launch',
+      'scaffold agent skills/rules (Claude, Cursor, Codex, Windsurf, Copilot, Kiro, Cline, Amazon Q) so coding agents can drive Launch',
     )
     .action(() => {
       agents.help();
@@ -281,12 +350,10 @@ export function registerAgentsCommand(program: Command): void {
 
   agents
     .command('init')
-    .description(
-      'write Claude skills, Cursor rules, and the AGENTS.md Launch section into this repo',
-    )
+    .description('write agent skills/rules for all detected coding agents into this repo')
     .option(
       '--agent <list>',
-      'claude | cursor | codex | all (comma-separated; default: auto-detect)',
+      'claude | cursor | codex | windsurf | copilot | kiro | cline | amazonq | all (comma-separated; default: auto-detect)',
     )
     .option('-y, --yes', 'non-interactive: skip the confirmation prompt (CI, agents)', false)
     .action((options: AgentsOptions) => runInit(program, process.cwd(), options));
@@ -296,7 +363,7 @@ export function registerAgentsCommand(program: Command): void {
     .description('verify the scaffolded agent files are in sync with the installed Launch')
     .option(
       '--agent <list>',
-      'claude | cursor | codex | all (comma-separated; default: auto-detect)',
+      'claude | cursor | codex | windsurf | copilot | kiro | cline | amazonq | all (comma-separated; default: auto-detect)',
     )
     .action((options: AgentsOptions) => {
       runCheck(program, process.cwd(), options);

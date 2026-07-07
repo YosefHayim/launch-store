@@ -1,9 +1,9 @@
 /**
  * In-app purchase & subscription catalog: products, prices, the offer family
  * (intro / promotional / win-back / offer-code), subscription groups, and the Google Play overrides —
- * everything reachable from {@link AppProducts}. Authored config surface, so every shape is a zod schema
- * (the SSOT — see [ADR 0008](../../../docs/adr/0008-adopt-zod-config-ssot.md)) with its TypeScript type
- * inferred; the barrel re-exports the inferred types, `config.ts` composes the schemas.
+ * everything reachable from {@link AppProducts}. These are legacy zod config-schema fragments kept for
+ * JSON Schema generation while the runtime boundary moves to Effect Schema in `src/core/config/schema.ts`
+ * (see [ADR 0013](../../../docs/adr/0013-effect-schema-config-ssot.md)).
  */
 
 import { z } from 'zod';

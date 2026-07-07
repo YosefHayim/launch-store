@@ -17,6 +17,7 @@ import {
   spliceManagedBlock,
   zshCompletionScript,
 } from './completion.js';
+import { expectDefined } from '../testkit/assertions.testkit.js';
 
 const tempDirs: string[] = [];
 /** A throwaway directory cleaned up after each test. */
@@ -26,7 +27,9 @@ function makeDir(prefix: string): string {
   return dir;
 }
 afterEach(() => {
-  while (tempDirs.length > 0) rmSync(tempDirs.pop()!, { recursive: true, force: true });
+  while (tempDirs.length > 0) {
+    rmSync(expectDefined(tempDirs.pop(), 'temp dir'), { recursive: true, force: true });
+  }
 });
 
 describe('parseShell', () => {

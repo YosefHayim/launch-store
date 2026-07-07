@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildProgram } from '../../cli/program.js';
 import { CONSUMER_SKILLS, CONTRIBUTOR_RULES } from './registry.js';
 import { findUnknownCommands } from './validate.js';
+import { expectArrayElement } from '../../testkit/assertions.testkit.js';
 
 describe('the agent skill registry stays in sync with the CLI', () => {
   it('names only commands that exist in the live program', () => {
@@ -44,9 +45,10 @@ describe('the agent skill registry stays in sync with the CLI', () => {
   });
 
   it('starts the contributor rules with an always-on base rule and then glob-scoped rules', () => {
-    const [base, ...scoped] = CONTRIBUTOR_RULES;
-    expect(base!.alwaysApply).toBe(true);
-    expect(base!.globs).toEqual([]);
+    const base = expectArrayElement(CONTRIBUTOR_RULES, 0, 'CONTRIBUTOR_RULES');
+    const scoped = CONTRIBUTOR_RULES.slice(1);
+    expect(base.alwaysApply).toBe(true);
+    expect(base.globs).toEqual([]);
     for (const rule of scoped) {
       expect(rule.alwaysApply, `${rule.file} alwaysApply`).toBe(false);
       expect(rule.globs.length, `${rule.file} globs`).toBeGreaterThan(0);
@@ -55,7 +57,10 @@ describe('the agent skill registry stays in sync with the CLI', () => {
 
   it('flags a renamed or removed command instead of silently passing', () => {
     const broken = [
-      { ...CONSUMER_SKILLS[0]!, steps: [{ path: ['not-a-real-command'], note: 'x' }] },
+      {
+        ...expectArrayElement(CONSUMER_SKILLS, 0, 'CONSUMER_SKILLS'),
+        steps: [{ path: ['not-a-real-command'], note: 'x' }],
+      },
     ];
     expect(findUnknownCommands(buildProgram(), broken)).toHaveLength(1);
   });

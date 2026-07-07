@@ -222,6 +222,7 @@ export const runRemoteBuild: BuildTransport = async (prepared, options) => {
     submit: options.submit,
     submitTarget: options.target,
     forceClean: options.forceClean ?? false,
+    ccacheEnabled: options.ccache !== false,
     env,
   };
 

@@ -54,7 +54,7 @@ export interface AscReleaseApi {
   getAppInfo(appId: string): Promise<AppInfoResource | null>;
   updateAppInfoCategories(
     appInfoId: string,
-    categories: { primaryCategoryId?: string; secondaryCategoryId?: string },
+    categories: { primaryCategoryId?: string; secondaryCategoryId?: string | null },
   ): Promise<void>;
   getAgeRatingDeclaration(appInfoId: string): Promise<AgeRatingDeclarationResource | null>;
   updateAgeRatingDeclaration(
@@ -138,17 +138,21 @@ async function reconcileCategories(
   categories: ReleaseCategories | undefined,
 ): Promise<void> {
   if (!categories) return;
-  const change: { primaryCategoryId?: string; secondaryCategoryId?: string } = {};
+  const change: { primaryCategoryId?: string; secondaryCategoryId?: string | null } = {};
   if (categories.primary && categories.primary !== appInfo.primaryCategoryId)
     change.primaryCategoryId = categories.primary;
-  if (categories.secondary && categories.secondary !== appInfo.secondaryCategoryId) {
+  if (categories.secondary !== undefined && categories.secondary !== appInfo.secondaryCategoryId) {
     change.secondaryCategoryId = categories.secondary;
+  } else if (categories.secondary === undefined && appInfo.secondaryCategoryId) {
+    change.secondaryCategoryId = null;
   }
   if (Object.keys(change).length === 0) return;
 
   const parts = [
     change.primaryCategoryId ? `primary=${change.primaryCategoryId}` : undefined,
-    change.secondaryCategoryId ? `secondary=${change.secondaryCategoryId}` : undefined,
+    change.secondaryCategoryId !== undefined
+      ? `secondary=${change.secondaryCategoryId ?? 'unset'}`
+      : undefined,
   ].filter(Boolean);
   await act(ctx, `set categories (${parts.join(', ')})`, () =>
     api.updateAppInfoCategories(appInfo.id, change),

@@ -2,7 +2,7 @@
 
 # Launch config reference
 
-Generated from the config types in `src/core/types.ts` by `npm run docs:gen` — edit the types, then regenerate. For editor autocomplete and validation, run `launch config schema --out launch.config.schema.json`, then point your config at it: a JSON config adds a `"$schema": "./launch.config.schema.json"` key, while a `.ts` config (which can't carry `$schema`) is wired through VS Code's `json.schemas` setting or your editor's equivalent. Run `launch config validate` to check a config against this schema (it also reports cross-field semantic warnings, which never fail the command); pass a `.json` file to validate it verbatim, including unknown top-level keys.
+Generated from the config schema in `src/core/config/` and config types in `src/core/types/config.ts` by `npm run docs:gen` — edit the source, then regenerate. For editor autocomplete and validation, run `launch config schema --out launch.config.schema.json`, then point your config at it: a JSON config adds a `"$schema": "./launch.config.schema.json"` key, while a `.ts` config (which can't carry `$schema`) is wired through VS Code's `json.schemas` setting or your editor's equivalent. Run `launch config validate` to check a config against this schema (it also reports cross-field semantic warnings, which never fail the command); pass a `.json` file to validate it verbatim, including unknown top-level keys.
 
 ## Top-level fields
 

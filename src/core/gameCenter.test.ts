@@ -6,6 +6,7 @@ import type {
 import { summarize } from './asc/storeSync.js';
 import { type AscGameCenterApi, parseGameCenterConfig, reconcileGameCenter } from './gameCenter.js';
 import type { GameCenterConfig } from './types.js';
+import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.js';
 
 /** Records every write the reconciler makes, so a test can assert what was (and wasn't) sent. */
 interface Calls {
@@ -114,22 +115,40 @@ describe('parseGameCenterConfig', () => {
 
   it('rejects bad points and bad enum values', () => {
     expect(() =>
-      parseGameCenterConfig({ achievements: [{ ...CONFIG.achievements![0], points: -1 }] }),
+      parseGameCenterConfig({
+        achievements: [
+          {
+            ...expectArrayElement(expectDefined(CONFIG.achievements, 'achievements'), 0),
+            points: -1,
+          },
+        ],
+      }),
     ).toThrow(/points must be a non-negative integer/);
     expect(() =>
       parseGameCenterConfig({
-        leaderboards: [{ ...CONFIG.leaderboards![0], defaultFormatter: 'BOGUS' }],
+        leaderboards: [
+          {
+            ...expectArrayElement(expectDefined(CONFIG.leaderboards, 'leaderboards'), 0),
+            defaultFormatter: 'BOGUS',
+          },
+        ],
       }),
     ).toThrow(/defaultFormatter must be one of/);
     expect(() =>
       parseGameCenterConfig({
-        leaderboards: [{ ...CONFIG.leaderboards![0], scoreSortType: 'SIDEWAYS' }],
+        leaderboards: [
+          {
+            ...expectArrayElement(expectDefined(CONFIG.leaderboards, 'leaderboards'), 0),
+            scoreSortType: 'SIDEWAYS',
+          },
+        ],
       }),
     ).toThrow(/scoreSortType must be ASC or DESC/);
   });
 
   it('rejects an achievement missing required localization text', () => {
-    const { afterEarnedDescription: _omit, ...partial } = CONFIG.achievements![0]!;
+    const achievement = expectArrayElement(expectDefined(CONFIG.achievements, 'achievements'), 0);
+    const { afterEarnedDescription: _omit, ...partial } = achievement;
     expect(() => parseGameCenterConfig({ achievements: [partial] })).toThrow(
       /afterEarnedDescription must be a non-empty/,
     );

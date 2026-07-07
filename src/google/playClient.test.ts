@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateKeyPairSync } from 'node:crypto';
+import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.js';
 import {
   GooglePlayClient,
   PlayAppNotFoundError,
@@ -27,7 +28,7 @@ function fakeResponse(status: number, body: string) {
 /** Decode a JWT payload (no verification needed — we only assert the claims we set). */
 function decodeJwtPayload(token: string): Record<string, unknown> {
   const payload = token.split('.')[1];
-  return JSON.parse(Buffer.from(payload!, 'base64url').toString());
+  return JSON.parse(Buffer.from(expectDefined(payload, 'JWT payload'), 'base64url').toString());
 }
 
 describe('parseServiceAccount', () => {
@@ -102,9 +103,12 @@ describe('GooglePlayClient — auth + reads', () => {
     expect(await client.getLatestVersionCode('com.example.hello')).toBe(7);
 
     // The first call is the token exchange, carrying a JWT-bearer assertion bound to the account.
-    const [tokenUrl, tokenInit] = fetchMock.mock.calls[0]!;
+    const [tokenUrl, tokenInit] = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expect(tokenUrl).toBe('https://oauth2.googleapis.com/token');
-    const assertion = (tokenInit.body as URLSearchParams).get('assertion')!;
+    const assertion = expectDefined(
+      (tokenInit.body as URLSearchParams).get('assertion'),
+      'JWT assertion',
+    );
     expect((tokenInit.body as URLSearchParams).get('grant_type')).toBe(
       'urn:ietf:params:oauth:grant-type:jwt-bearer',
     );
@@ -114,7 +118,7 @@ describe('GooglePlayClient — auth + reads', () => {
     expect(payload['aud']).toBe('https://oauth2.googleapis.com/token');
 
     // The edit call carries the resolved bearer token.
-    const [editUrl, editInit] = fetchMock.mock.calls[1]!;
+    const [editUrl, editInit] = expectArrayElement(fetchMock.mock.calls, 1, 'mock call');
     expect(editUrl).toContain('/applications/com.example.hello/edits');
     expect((editInit.headers as Record<string, string>)['Authorization']).toBe('Bearer tok');
   });
@@ -228,7 +232,7 @@ describe('GooglePlayClient.convertRegionPrices', () => {
     });
 
     // It's a direct (non-edit-scoped) POST to the pricing endpoint, carrying the price in the body.
-    const [url, init] = fetchMock.mock.calls[1]!;
+    const [url, init] = expectArrayElement(fetchMock.mock.calls, 1, 'mock call');
     expect(url).toContain('/applications/com.example.app/pricing:convertRegionPrices');
     expect((init as { method?: string }).method).toBe('POST');
     expect(JSON.parse((init as { body: string }).body)).toEqual({
@@ -286,7 +290,9 @@ describe('GooglePlayClient.convertRegionPrices', () => {
       'TAX_CATEGORY',
     );
 
-    const body = JSON.parse((fetchMock.mock.calls[1]![1] as { body: string }).body);
+    const body = JSON.parse(
+      (expectArrayElement(fetchMock.mock.calls, 1, 'mock call')[1] as { body: string }).body,
+    );
     expect(body.productTaxCategoryCode).toBe('TAX_CATEGORY');
   });
 });

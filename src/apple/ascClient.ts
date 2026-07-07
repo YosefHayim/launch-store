@@ -188,10 +188,12 @@ const VERSION_LISTING_FIELDS = [
 
 /** One App Store Connect API error, as returned in the `errors` array of a failed response. */
 interface AscError {
-  status: string;
-  code: string;
-  title: string;
+  status?: string;
+  code?: string;
+  title?: string;
   detail?: string;
+  source?: { pointer?: string; parameter?: string };
+  meta?: { associatedErrors?: Record<string, AscError[]> };
 }
 
 /**
@@ -2060,17 +2062,21 @@ export class AppStoreConnectClient {
    */
   async updateAppInfoCategories(
     appInfoId: string,
-    categories: { primaryCategoryId?: string; secondaryCategoryId?: string },
+    categories: { primaryCategoryId?: string; secondaryCategoryId?: string | null },
   ): Promise<void> {
-    const relationships: Record<string, { data: { type: 'appCategories'; id: string } }> = {};
+    const relationships: Record<string, { data: { type: 'appCategories'; id: string } | null }> =
+      {};
     if (categories.primaryCategoryId) {
       relationships['primaryCategory'] = {
         data: { type: 'appCategories', id: categories.primaryCategoryId },
       };
     }
-    if (categories.secondaryCategoryId) {
+    if (categories.secondaryCategoryId !== undefined) {
       relationships['secondaryCategory'] = {
-        data: { type: 'appCategories', id: categories.secondaryCategoryId },
+        data:
+          categories.secondaryCategoryId === null
+            ? null
+            : { type: 'appCategories', id: categories.secondaryCategoryId },
       };
     }
     await this.request<unknown>('PATCH', `/appInfos/${appInfoId}`, {
@@ -4138,7 +4144,7 @@ export function describeErrors(body: string): string {
   try {
     const parsed = JSON.parse(body) as { errors?: AscError[] };
     if (parsed.errors?.length) {
-      return parsed.errors.map((e) => e.detail ?? e.title).join('; ');
+      return parsed.errors.map(describeAscError).join('; ');
     }
   } catch {
     /* not JSON — fall through */
@@ -4146,11 +4152,39 @@ export function describeErrors(body: string): string {
   return body.length > 0 ? body : 'no response body';
 }
 
+/**
+ * Render one App Store Connect error, including nested associated validation errors when Apple provides
+ * them under `meta.associatedErrors`.
+ *
+ * @param error - One error object from App Store Connect's top-level or associated `errors` array.
+ * @returns Human-readable detail with any associated resource errors appended.
+ */
+function describeAscError(error: AscError): string {
+  const message = error.detail ?? error.title ?? error.code ?? 'unknown App Store Connect error';
+  const associated = describeAssociatedErrors(error.meta?.associatedErrors);
+  return associated.length > 0 ? `${message}; ${associated.join('; ')}` : message;
+}
+
+/**
+ * Render Apple's `meta.associatedErrors` map as `associated <resource>: <detail>` entries.
+ *
+ * @param associatedErrors - Resource-path keyed map from Apple's error metadata.
+ * @returns One rendered line per associated validation error.
+ */
+function describeAssociatedErrors(
+  associatedErrors: Record<string, AscError[]> | undefined,
+): string[] {
+  if (!associatedErrors) return [];
+  return Object.entries(associatedErrors).flatMap(([resource, errors]) =>
+    errors.map((error) => `associated ${resource}: ${describeAscError(error)}`),
+  );
+}
+
 /** Extract Apple's machine-readable error codes from a failed-response body (empty when absent/not JSON). */
 export function parseErrorCodes(body: string): string[] {
   try {
     const parsed = JSON.parse(body) as { errors?: AscError[] };
-    return parsed.errors?.map((e) => e.code).filter(Boolean) ?? [];
+    return parsed.errors?.map((error) => error.code).filter((code): code is string => !!code) ?? [];
   } catch {
     return [];
   }

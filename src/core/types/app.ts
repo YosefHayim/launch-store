@@ -1,8 +1,8 @@
 /**
  * Core app-shape vocabulary: target platform, distribution/release targets, the user-authored
- * {@link AppDescriptor} and {@link BuildProfile}, and the TestFlight beta-feedback shapes. The base
- * vocabulary the rest of the types modules build on; depends only on zod (the config SSOT — see
- * [ADR 0008](../../../docs/adr/0008-adopt-zod-config-ssot.md)).
+ * {@link AppDescriptor} and {@link BuildProfile}, and the TestFlight beta-feedback shapes. This module
+ * still hosts legacy zod config-schema fragments while the Effect Schema boundary moves to
+ * `src/core/config/schema.ts` (see [ADR 0013](../../../docs/adr/0013-effect-schema-config-ssot.md)).
  */
 
 import { z } from 'zod';
@@ -15,9 +15,9 @@ import { z } from 'zod';
  * Play. Use {@link import("../platform.js").isApplePlatform} rather than `=== "ios"` to branch the
  * Apple-vs-Android toolchain, so the three newer Apple platforms aren't silently routed to Android.
  *
- * The runtime array is the SSOT: {@link Platform} is inferred from it, and the config schema reuses it as
- * a zod enum (`SubmitByPlatform`'s keys) — the same array-first pattern `ascResources.ts` uses for
- * Apple's closed enums, so a new platform is one edit here.
+ * The runtime array is the SSOT: {@link Platform} is inferred from it, and config schemas reuse it for
+ * `SubmitByPlatform` keys — the same array-first pattern `ascResources.ts` uses for Apple's closed
+ * enums, so a new platform is one edit here.
  */
 export const PLATFORMS = ['ios', 'android', 'tvos', 'macos', 'visionos'] as const;
 
@@ -54,8 +54,8 @@ export type SubmitTarget = 'testing' | 'production';
 /**
  * A Google Play release track. `internal` is the safe default: a new personal Play account must run
  * ~20 testers for 14 days on a testing track before production is unlocked, so defaulting anywhere
- * else would fail for fresh accounts. Has no iOS equivalent. Array-first (SSOT) so the config schema
- * ({@link BuildProfile}'s `track`) reuses it as a zod enum.
+ * else would fail for fresh accounts. Has no iOS equivalent. Array-first (SSOT) so config schemas reuse
+ * it for {@link BuildProfile}'s `track`.
  */
 export const PLAY_TRACKS = ['internal', 'closed', 'open', 'production'] as const;
 

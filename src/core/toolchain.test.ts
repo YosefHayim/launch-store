@@ -16,6 +16,7 @@ import {
   remoteToolchainPreflight,
   type ToolchainIo,
 } from './toolchain.js';
+import { expectDefined } from '../testkit/assertions.testkit.js';
 
 /** Map each brew formula back to the command it provides, so the fake can mark it present after install. */
 const FORMULA_TO_COMMAND = new Map(
@@ -57,12 +58,18 @@ const ALL_COMMANDS = REQUIRED_TOOLS.map((tool) => tool.command);
 
 describe('fixHint', () => {
   it('renders a brew tool as `brew install <formula>`', () => {
-    const fastlane = REQUIRED_TOOLS.find((tool) => tool.command === 'fastlane')!;
+    const fastlane = expectDefined(
+      REQUIRED_TOOLS.find((tool) => tool.command === 'fastlane'),
+      'fastlane tool',
+    );
     expect(fixHint(fastlane)).toBe('brew install fastlane');
   });
 
   it('renders a guided tool as its guide text', () => {
-    const xcode = REQUIRED_TOOLS.find((tool) => tool.command === 'xcodebuild')!;
+    const xcode = expectDefined(
+      REQUIRED_TOOLS.find((tool) => tool.command === 'xcodebuild'),
+      'xcodebuild tool',
+    );
     expect(fixHint(xcode)).toMatch(/App Store/);
   });
 });

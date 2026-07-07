@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateKeyPairSync } from 'node:crypto';
 import { parseServiceAccount } from './playClient.js';
 import { ServiceAccountTokenSource } from './serviceAccountToken.js';
+import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.js';
 
 /** A real RSA PKCS#8 key so `jose` can actually sign the assertion. */
 function makeAccount() {
@@ -22,7 +23,7 @@ function fakeResponse(status: number, body: string) {
 
 function decodeJwtPayload(token: string): Record<string, unknown> {
   const payload = token.split('.')[1];
-  return JSON.parse(Buffer.from(payload!, 'base64url').toString());
+  return JSON.parse(Buffer.from(expectDefined(payload, 'JWT payload'), 'base64url').toString());
 }
 
 const fetchMock = vi.fn();
@@ -46,9 +47,12 @@ describe('ServiceAccountTokenSource', () => {
     );
 
     expect(await source.token()).toBe('tok');
-    const [url, init] = fetchMock.mock.calls[0]!;
+    const [url, init] = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expect(url).toBe('https://oauth2.googleapis.com/token');
-    const assertion = (init.body as URLSearchParams).get('assertion')!;
+    const assertion = expectDefined(
+      (init.body as URLSearchParams).get('assertion'),
+      'JWT assertion',
+    );
     const payload = decodeJwtPayload(assertion);
     expect(payload['scope']).toBe('https://www.googleapis.com/auth/somescope');
     expect(payload['iss']).toBe('launch@proj.iam.gserviceaccount.com');

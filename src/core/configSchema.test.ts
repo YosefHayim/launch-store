@@ -4,8 +4,8 @@ import { loadConfigSchema, validateConfig } from './configSchema.js';
 describe('loadConfigSchema', () => {
   it('loads the committed schema as an inline-root object with only `profiles` required', () => {
     const schema = loadConfigSchema();
-    // z.toJSONSchema (target draft-7, io input) inlines the root object — no top-level `$ref` — and names
-    // every nested object under `definitions`, so the reference can table them.
+    // The temporary zod compatibility generator inlines the root object and names every nested object
+    // under `definitions`, so the reference can table them while the runtime boundary is Effect Schema.
     expect(schema.type).toBe('object');
     expect(schema.required).toEqual(['profiles']);
     expect(schema.properties?.['profiles']).toBeDefined();
