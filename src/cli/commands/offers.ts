@@ -13,14 +13,14 @@
 
 import { cancel, confirm, isCancel } from '@clack/prompts';
 import type { Command } from 'commander';
-import type { AppDescriptor, AppProducts } from '../../core/types.js';
-import { loadConfig } from '../../core/config.js';
-import { createLogger } from '../../core/logger.js';
-import { loadActiveAscKey } from '../../core/accounts.js';
-import { runPool } from '../../core/asyncPool.js';
+import type { AppDescriptor, AppProducts } from '../../core/types/index.js';
+import { loadConfig } from '../../core/config/config.js';
+import { createLogger } from '../../core/services/logger.js';
+import { loadActiveAscKey } from '../../core/credentials/accounts.js';
+import { runPool } from '../../core/build/asyncPool.js';
 import { AppStoreConnectClient } from '../../apple/ascClient.js';
-import { reconcileOffers, type ReconcileOffersInput } from '../../core/offers.js';
-import type { ReconcileReport } from '../../core/ascSync.js';
+import { reconcileOffers, type ReconcileOffersInput } from '../../core/store/offers.js';
+import type { ReconcileReport } from '../../core/store/ascSync.js';
 
 /** How many apps reconcile concurrently — bounded so the single ASC key stays under Apple's rate ceiling. */
 const OFFERS_CONCURRENCY = 4;

@@ -11,7 +11,7 @@ import type {
   SnapshotEntity,
   SnapshotSource,
   SourceCapture,
-} from '../../types.js';
+} from '../../types/index.js';
 import { iosApps } from '../../readiness/appScopes.js';
 
 /** One captured subscription → a snapshot entity keyed by its product id. */

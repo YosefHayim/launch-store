@@ -12,7 +12,7 @@
  * these shapes (`jsonResult`, `optionalString`) are runtime logic and live in `core/mcp/tools.ts`.
  */
 
-import type { JsonSchema } from '../jsonSchema.js';
+import type { JsonSchema } from '../config/jsonSchema.js';
 import type { McpCapability } from './storeSurface.js';
 
 /**
@@ -42,7 +42,7 @@ export interface McpToolResult {
  * The raw input schema a tool advertises. It is the draft-07 object subset the protocol requires
  * (`{ type: "object", properties?, required? }`) expressed as our own {@link JsonSchema}, so the SAME
  * value both advertises the tool (via `tools/list`) and validates incoming arguments through the
- * hand-rolled {@link import("../jsonSchema.js").validate} — one schema, no zod, no second validator.
+ * hand-rolled {@link import("../config/jsonSchema.js").validate} — one schema, no zod, no second validator.
  */
 export interface McpInputSchema extends JsonSchema {
   type: 'object';
@@ -51,7 +51,7 @@ export interface McpInputSchema extends JsonSchema {
 /**
  * One MCP tool: a stable name, a one-line description the agent reads, the capability tier that gates it,
  * the input schema, and the handler. The handler receives the already-validated argument object (the
- * server runs {@link import("../jsonSchema.js").validate} against {@link inputSchema} first) and returns a
+ * server runs {@link import("../config/jsonSchema.js").validate} against {@link inputSchema} first) and returns a
  * structured {@link McpToolResult}. A handler may throw on a real failure — the server catches it and
  * surfaces an `isError` result — but returns normally for any valid read, even a negative one.
  */

@@ -15,10 +15,11 @@
  * MCP convention) and mirror the CLI surface (`store doctor` → `store_doctor`).
  */
 
-import { loadConfig, findLaunchConfig } from '../config.js';
-import { buildJobs, selectApps } from '../syncJobs.js';
-import { runSyncBatch } from '../syncRun.js';
-import { createAscClientResolver, createPlayClientResolver } from '../storeClients.js';
+import { loadConfig, findLaunchConfig } from '../config/config.js';
+import { Effect } from 'effect';
+import { buildJobs, selectApps } from '../store/syncJobs.js';
+import { runSyncBatch } from '../store/syncRun.js';
+import { createAscClientResolver, createPlayClientResolver } from '../store/storeClients.js';
 import { registerBuiltinPlanners, listSurfacePlanners } from '../plan/registry.js';
 import { runPlanners } from '../plan/orchestrator.js';
 import type {
@@ -30,19 +31,19 @@ import type {
   McpTool,
   McpToolResult,
   Platform,
-} from '../types.js';
+} from '../types/index.js';
 import { registerBuiltinProbes, selectReadinessProbes } from '../readiness/registry.js';
 import { runProbes } from '../readiness/orchestrator.js';
 import { registerBuiltinSources, listSnapshotSources } from '../snapshot/registry.js';
 import { captureSnapshot } from '../snapshot/orchestrator.js';
 import { diffSnapshots } from '../snapshot/diff.js';
 import { listSnapshots, loadSnapshot, saveSnapshot } from '../snapshot/store.js';
-import { loadConfigSchema, validateConfig } from '../configSchema.js';
-import { checkConfigSemantics } from '../configSemantics.js';
+import { loadConfigSchema, validateConfig } from '../config/configSchema.js';
+import { checkConfigSemantics } from '../config/configSemantics.js';
 import { renderConfigDocs } from '../docs/configDocs.js';
 import { inspectDoctor } from '../doctor/inspect.js';
 import { buildDoctorContext } from '../doctor/context.js';
-import { previewBuild } from '../buildPreview.js';
+import { previewBuild } from '../build/buildPreview.js';
 
 /** The literal token meaning "capture live state now and diff against it" rather than a saved name. */
 const LIVE = 'live';
@@ -111,10 +112,10 @@ async function runReadinessTool(
 ): Promise<ReturnType<typeof jsonResult>> {
   registerBuiltinProbes();
   const ctx = await buildStoreContext(optionalString(args, 'app'));
-  return jsonResult(await runProbes(ctx, selectReadinessProbes(category)));
+  return jsonResult(await Effect.runPromise(runProbes(ctx, selectReadinessProbes(category))));
 }
 
-/** Capture live state into a {@link import("../types.js").Snapshot}, for the `live` diff arm. */
+/** Capture live state into a {@link import("../types/index.js").Snapshot}, for the `live` diff arm. */
 async function captureLive(app: string | undefined): Promise<ReturnType<typeof captureSnapshot>> {
   registerBuiltinSources();
   const ctx = await buildStoreContext(app);
@@ -169,7 +170,7 @@ async function runBuildPlanTool(
 /**
  * Apply `launch sync` headlessly: reconcile App Store Connect (capabilities, IAPs, subscriptions, pricing,
  * listing copy, screenshots, previews) to match `launch.config.ts` across the selected apps, then return
- * the structured {@link import("../syncRun.js").SyncRunReport}. Shared by the `write`-tier `sync` tool
+ * the structured {@link import("../store/syncRun.js").SyncRunReport}. Shared by the `write`-tier `sync` tool
  * (`allowDestructive: false` — additive only) and the `dangerous`-tier `sync_destructive` tool
  * (`allowDestructive: true` — permits capability removals); the tier IS the consent, so there is no
  * interactive confirm. Resolves the active Apple key once via the same memoized resolver the read tools use.

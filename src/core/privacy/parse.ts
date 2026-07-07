@@ -9,8 +9,8 @@
  * be over-engineering. Everything here is string-in / data-out, so the reconcile stays unit-testable.
  */
 
-import { asRecord } from '../json.js';
-import type { PrivacySurface } from '../types.js';
+import { asRecord } from '../services/json.js';
+import type { PrivacySurface } from '../types/index.js';
 
 /** `<key>NS…UsageDescription</key>` with its `<string>` value — captures empty and self-closing values too. */
 const USAGE_DESCRIPTION_RE =

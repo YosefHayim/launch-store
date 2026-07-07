@@ -12,15 +12,15 @@
 
 import { cancel, confirm, isCancel } from '@clack/prompts';
 import type { Command } from 'commander';
-import type { PlannedAction } from '../../core/ascSync.js';
-import type { LaunchConfig } from '../../core/types.js';
+import type { PlannedAction } from '../../core/store/ascSync.js';
+import type { LaunchConfig } from '../../core/types/index.js';
 import { AppStoreConnectClient } from '../../apple/ascClient.js';
-import { loadConfig, resolveSidecarConfig } from '../../core/config.js';
-import { selectApp } from '../../core/pipeline.js';
-import { loadActiveAscKey } from '../../core/accounts.js';
-import { createLogger } from '../../core/logger.js';
+import { loadConfig, resolveSidecarConfig } from '../../core/config/config.js';
+import { selectApp } from '../../core/build/pipeline.js';
+import { loadActiveAscKey } from '../../core/credentials/accounts.js';
+import { createLogger } from '../../core/services/logger.js';
 import { summarize } from '../../core/asc/storeSync.js';
-import { loadGameCenterConfig, reconcileGameCenter } from '../../core/gameCenter.js';
+import { loadGameCenterConfig, reconcileGameCenter } from '../../core/store/gameCenter.js';
 
 /** CLI options for `launch game-center`. */
 interface GameCenterOptions {

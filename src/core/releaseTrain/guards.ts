@@ -5,7 +5,7 @@
  * `core/types/releaseTrain.ts`.
  */
 
-import type { Car, NativeCar, NativeCarState, OtaCar, TrainPlatform } from '../types.js';
+import type { Car, NativeCar, NativeCarState, OtaCar, TrainPlatform } from '../types/index.js';
 
 /** Narrow a {@link Car} to an {@link OtaCar}. */
 export function isOtaCar(car: Car): car is OtaCar {

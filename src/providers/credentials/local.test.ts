@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { AccountRecord, AscKey, ResolvedBuildContext } from '../../core/types.js';
+import type { AccountRecord, AscKey, ResolvedBuildContext } from '../../core/types/index.js';
 
 const accounts = vi.hoisted(() => ({
   records: [] as AccountRecord[],
@@ -14,11 +14,12 @@ const accounts = vi.hoisted(() => ({
   keys: new Map<string, AscKey>(),
 }));
 
-vi.mock('../../core/accounts.js', async () => {
+vi.mock('../../core/credentials/accounts.js', async () => {
   // Keep the real, pure formatAccountSummary so the status lines exercise the actual renderer; the
   // stateful registry reads stay stubbed against the in-memory fixtures above.
-  const actual =
-    await vi.importActual<typeof import('../../core/accounts.js')>('../../core/accounts.js');
+  const actual = await vi.importActual<typeof import('../../core/credentials/accounts.js')>(
+    '../../core/credentials/accounts.js',
+  );
   return {
     formatAccountSummary: actual.formatAccountSummary,
     listAccounts: () => accounts.records,

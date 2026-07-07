@@ -26,24 +26,25 @@ import {
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import type { AscKey, Platform, SigningAssets } from '../core/types.js';
-import type { Logger } from '../core/logger.js';
-import { capture } from '../core/exec.js';
+import { Effect } from 'effect';
+import type { AscKey, Platform, SigningAssets } from '../core/types/index.js';
+import type { Logger } from '../core/services/logger.js';
+import { capture } from '../core/services/exec.js';
 import {
   adHocProfileType,
   appStoreProfileType,
   platformLabel,
   toBundleIdPlatform,
-} from '../core/platform.js';
-import { getSecret, setSecret } from '../core/keychain.js';
-import { staleProfileCapabilities } from '../core/capabilities.js';
+} from '../core/services/platform.js';
+import { getSecret, setSecret } from '../core/credentials/keychain.js';
+import { staleProfileCapabilities } from '../core/credentials/capabilities.js';
 import { extractProfileEntitlements } from '../core/adopt/profileEntitlements.js';
 import {
   CREDENTIALS_INDEX,
   PROVISIONING_PROFILES_DIR,
   accountCredentialsDir,
   ensureDir,
-} from '../core/paths.js';
+} from '../core/services/paths.js';
 import {
   AppStoreConnectClient,
   DISTRIBUTION_CERT_NAME,
@@ -484,7 +485,9 @@ export async function profileStaleAgainstCapabilities(
   const enabled = (await client.listBundleIdCapabilities(bundleIdResourceId)).map(
     (capability) => capability.capabilityType,
   );
-  const profileEntitlements = await extractProfileEntitlements(profile.profileContent);
+  const profileEntitlements = await Effect.runPromise(
+    extractProfileEntitlements(profile.profileContent),
+  );
   return staleProfileCapabilities(enabled, profileEntitlements);
 }
 

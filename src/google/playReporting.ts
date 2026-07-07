@@ -23,7 +23,7 @@ import type {
   PlayVitalsRow,
   VitalsTimeline,
   VitalsWindow,
-} from '../core/types.js';
+} from '../core/types/index.js';
 
 const BASE_URL = 'https://playdeveloperreporting.googleapis.com/v1beta1';
 /** Distinct from the Play Developer API scope — the reporting API rejects an `androidpublisher` token. */

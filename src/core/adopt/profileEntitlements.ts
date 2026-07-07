@@ -24,10 +24,16 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { capture } from '../exec.js';
-import { isMac } from '../os.js';
-import { asRecord } from '../json.js';
-import type { EntitlementValue } from '../types.js';
+import { Effect } from 'effect';
+import { capture } from '../services/exec.js';
+import { isMac } from '../services/os.js';
+import { asRecord } from '../services/json.js';
+import type { EntitlementValue } from '../types/index.js';
+
+const profileEntitlementsWorkspace = Effect.acquireRelease(
+  Effect.sync(() => mkdtempSync(join(tmpdir(), 'launch-adopt-'))),
+  (workspacePath) => Effect.sync(() => rmSync(workspacePath, { recursive: true, force: true })),
+);
 
 /**
  * Decode `profileContent` (a base64 `.mobileprovision`) and return its `Entitlements` dict, or `null`
@@ -35,32 +41,60 @@ import type { EntitlementValue } from '../types.js';
  * key (e.g. `com.apple.security.application-groups`) with the concrete value Apple provisioned.
  *
  * @param profileContent - Base64-encoded `.mobileprovision` bytes from App Store Connect.
- * @returns The decoded entitlements record, or null when the profile cannot be read on this host.
+ * @returns An Effect that succeeds with the decoded entitlements record, or null when it cannot be read.
  */
-export async function extractProfileEntitlements(
+export function extractProfileEntitlements(
   profileContent: string,
-): Promise<Record<string, EntitlementValue> | null> {
-  if (!isMac()) return null;
-  const work = mkdtempSync(join(tmpdir(), 'launch-adopt-'));
-  try {
-    const profilePath = join(work, 'profile.mobileprovision');
-    writeFileSync(profilePath, Buffer.from(profileContent, 'base64'));
-    // `security cms -D` verifies the CMS signature and prints the decoded plist.
-    const decodedPlist = await capture('security', ['cms', '-D', '-i', profilePath]);
-    const plistPath = join(work, 'decoded.plist');
-    writeFileSync(plistPath, decodedPlist);
+): Effect.Effect<Record<string, EntitlementValue> | null> {
+  return Effect.gen(function* () {
+    const runningOnMac = yield* Effect.sync(isMac);
+    if (!runningOnMac) return null;
 
-    // Two-step extraction: extract Entitlements as xml1 first (works even when the top-level plist has
-    // <data> values that trip `plutil -extract ... json`), then convert the sub-plist to JSON.
-    const entPlistPath = join(work, 'entitlements.plist');
-    await capture('plutil', ['-extract', 'Entitlements', 'xml1', '-o', entPlistPath, plistPath]);
-    const entitlementsJson = await capture('plutil', ['-convert', 'json', '-o', '-', entPlistPath]);
+    return yield* Effect.scoped(
+      Effect.gen(function* () {
+        const workspacePath = yield* profileEntitlementsWorkspace;
+        const profilePath = join(workspacePath, 'profile.mobileprovision');
+        yield* Effect.try({
+          try: () => writeFileSync(profilePath, Buffer.from(profileContent, 'base64')),
+          catch: (writeFailure) => writeFailure,
+        });
+        // `security cms -D` verifies the CMS signature and prints the decoded plist.
+        const decodedPlist = yield* Effect.tryPromise({
+          try: () => capture('security', ['cms', '-D', '-i', profilePath]),
+          catch: (decodeFailure) => decodeFailure,
+        });
+        const plistPath = join(workspacePath, 'decoded.plist');
+        yield* Effect.try({
+          try: () => writeFileSync(plistPath, decodedPlist),
+          catch: (writeFailure) => writeFailure,
+        });
 
-    const parsed: unknown = JSON.parse(entitlementsJson);
-    return asRecord(parsed) as Record<string, EntitlementValue> | null;
-  } catch {
-    return null;
-  } finally {
-    rmSync(work, { recursive: true, force: true });
-  }
+        // Two-step extraction: extract Entitlements as xml1 first (works even when the top-level plist has
+        // <data> values that trip `plutil -extract ... json`), then convert the sub-plist to JSON.
+        const entitlementsPlistPath = join(workspacePath, 'entitlements.plist');
+        yield* Effect.tryPromise({
+          try: () =>
+            capture('plutil', [
+              '-extract',
+              'Entitlements',
+              'xml1',
+              '-o',
+              entitlementsPlistPath,
+              plistPath,
+            ]),
+          catch: (extractFailure) => extractFailure,
+        });
+        const entitlementsJson = yield* Effect.tryPromise({
+          try: () => capture('plutil', ['-convert', 'json', '-o', '-', entitlementsPlistPath]),
+          catch: (convertFailure) => convertFailure,
+        });
+
+        const parsed: unknown = yield* Effect.try({
+          try: () => JSON.parse(entitlementsJson),
+          catch: (parseFailure) => parseFailure,
+        });
+        return asRecord(parsed) as Record<string, EntitlementValue> | null;
+      }).pipe(Effect.catchAll(() => Effect.succeed(null))),
+    );
+  });
 }

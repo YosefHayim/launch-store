@@ -7,8 +7,8 @@
  */
 
 import { Data, Effect } from 'effect';
-import { runBuild } from '../pipeline.js';
-import { setVerboseOutput } from '../progress.js';
+import { runBuild } from './pipeline.js';
+import { setVerboseOutput } from '../services/progress.js';
 import {
   type BuildCommandInputError,
   type BuildCommandOptions,

@@ -1,17 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AppDescriptor } from '../types/app.js';
-import type { LaunchConfig } from '../types.js';
+import type { LaunchConfig } from '../types/index.js';
 
-vi.mock('../config.js', () => ({
+vi.mock('../config/config.js', () => ({
   loadConfig: vi.fn(),
 }));
 
-vi.mock('../exec.js', () => ({
+vi.mock('../services/exec.js', () => ({
   capture: vi.fn(),
   exists: vi.fn(async () => true),
 }));
 
-vi.mock('../storeClients.js', () => ({
+vi.mock('../store/storeClients.js', () => ({
   createAscClientResolver: () => async () => null,
   createPlayClientResolver: () => async () => null,
 }));
@@ -20,7 +20,7 @@ vi.mock('../../providers/credentials/local.js', () => ({
   localCredentialsProvider: { status: async () => 'no credentials' },
 }));
 
-import { loadConfig } from '../config.js';
+import { loadConfig } from '../config/config.js';
 import { buildDoctorContext } from './context.js';
 
 const apps: AppDescriptor[] = [

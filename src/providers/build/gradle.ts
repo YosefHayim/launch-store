@@ -20,15 +20,15 @@ import type {
   ResolvedBuildContext,
   SizeReport,
   SizeReportEntry,
-} from '../../core/types.js';
-import { capture, run } from '../../core/exec.js';
-import { runWithProgress, gradleProgressStep } from '../../core/progress.js';
+} from '../../core/types/index.js';
+import { capture, run } from '../../core/services/exec.js';
+import { runWithProgress, gradleProgressStep } from '../../core/services/progress.js';
 import {
   estimateFor,
   readBuildState,
   updateEstimate,
   writeBuildState,
-} from '../../core/buildFingerprint.js';
+} from '../../core/build/buildFingerprint.js';
 
 /**
  * The single ETA baseline key for Android. Unlike iOS there's no clean/incremental split — Gradle tracks

@@ -16,7 +16,7 @@ import type {
   SnapshotAscApi,
   SnapshotContext,
   SnapshotPlayApi,
-} from '../../types.js';
+} from '../../types/index.js';
 
 const CONFIG: LaunchConfig = {
   profiles: {},

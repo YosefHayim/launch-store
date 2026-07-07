@@ -11,13 +11,13 @@
 
 import { cancel, confirm, isCancel } from '@clack/prompts';
 import type { Command } from 'commander';
-import type { PlannedAction } from '../../core/ascSync.js';
+import type { PlannedAction } from '../../core/store/ascSync.js';
 import { AppStoreConnectClient } from '../../apple/ascClient.js';
-import { loadActiveAscKey } from '../../core/accounts.js';
-import { loadConfig, resolveSidecarConfig } from '../../core/config.js';
-import { createLogger } from '../../core/logger.js';
+import { loadActiveAscKey } from '../../core/credentials/accounts.js';
+import { loadConfig, resolveSidecarConfig } from '../../core/config/config.js';
+import { createLogger } from '../../core/services/logger.js';
 import { summarize } from '../../core/asc/storeSync.js';
-import { loadWalletConfig, reconcileWalletIds } from '../../core/walletIds.js';
+import { loadWalletConfig, reconcileWalletIds } from '../../core/store/walletIds.js';
 
 /** CLI options for the default `launch wallet` reconcile. */
 interface WalletOptions {

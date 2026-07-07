@@ -14,14 +14,18 @@ import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Command } from 'commander';
 import { aiGroup, confirmWrite } from './ai.js';
-import { asRecord } from '../../core/json.js';
-import { loadConfig, readResolvedConfig } from '../../core/config.js';
-import { selectApp } from '../../core/pipeline.js';
-import { createLogger } from '../../core/logger.js';
-import { loadStoreConfig, serializeStoreConfig, type StoreConfig } from '../../core/storeConfig.js';
+import { asRecord } from '../../core/services/json.js';
+import { loadConfig, readResolvedConfig } from '../../core/config/config.js';
+import { selectApp } from '../../core/build/pipeline.js';
+import { createLogger } from '../../core/services/logger.js';
+import {
+  loadStoreConfig,
+  serializeStoreConfig,
+  type StoreConfig,
+} from '../../core/store/storeConfig.js';
 import { applyDraft, briefFor, clampDraft, renderDraftPreview } from '../../core/listing/apply.js';
 import { createAnthropicListingGenerator } from '../../core/listing/generator.js';
-import type { AppDescriptor, ListingGenerator, LocaleDraft } from '../../core/types.js';
+import type { AppDescriptor, ListingGenerator, LocaleDraft } from '../../core/types/index.js';
 
 /** Options for `launch ai listing`. */
 export interface AiListingInput {

@@ -18,10 +18,10 @@ import type {
   Car,
   LaunchConfig,
   ResolvedBuildContext,
-} from '../types.js';
-import { submitToStores } from '../pipeline.js';
-import type { Logger } from '../logger.js';
-import { loadActiveAscKey } from '../accounts.js';
+} from '../types/index.js';
+import { submitToStores } from '../build/pipeline.js';
+import type { Logger } from '../services/logger.js';
+import { loadActiveAscKey } from '../credentials/accounts.js';
 import { AppStoreConnectClient } from '../../apple/ascClient.js';
 import {
   appRecordMissingMessage,
@@ -30,15 +30,19 @@ import {
   readReleaseStatus,
   releaseApp,
   type ReleaseInput,
-} from '../appStoreRelease.js';
+} from '../release/appStoreRelease.js';
 import { GooglePlayClient, parseServiceAccount } from '../../google/playClient.js';
 import { loadServiceAccount } from '../../google/credentials.js';
-import { getCredentialsProvider } from '../registry.js';
-import { ensureArtifactPresent, isCloudStorage, resolveStorageProvider } from '../storage.js';
-import { ensureCodeSigner, type CodeSigner } from '../codeSign.js';
-import { runWithProgress } from '../progress.js';
-import { publishOtaPlatform, readExportMetadata } from '../otaPublish.js';
-import { resolveReleaseType, resolveWhatsNew } from '../releaseInputs.js';
+import { getCredentialsProvider } from '../services/registry.js';
+import {
+  ensureArtifactPresent,
+  isCloudStorage,
+  resolveStorageProvider,
+} from '../distribution/storage.js';
+import { ensureCodeSigner, type CodeSigner } from '../credentials/codeSign.js';
+import { runWithProgress } from '../services/progress.js';
+import { publishOtaPlatform, readExportMetadata } from '../distribution/otaPublish.js';
+import { resolveReleaseType, resolveWhatsNew } from '../release/releaseInputs.js';
 import { androidCarState, iosCarState } from './engine.js';
 import type { TrainEngine } from './orchestrator.js';
 

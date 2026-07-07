@@ -9,8 +9,8 @@
  * snapshot layer works in {@link JsonValue}, not `unknown`.
  */
 
-import type { JsonValue, PlayPriceConfig } from '../../types.js';
-import type { PlannedAction } from '../../ascSync.js';
+import type { JsonValue, PlayPriceConfig } from '../../types/index.js';
+import type { PlannedAction } from '../../store/ascSync.js';
 
 /**
  * Narrow a captured {@link JsonValue} to a plain object (rejecting arrays and null), or `null`. The

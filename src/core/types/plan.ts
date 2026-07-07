@@ -13,21 +13,22 @@
  * `core/types.ts` — the same reason `ascSync.ts` keeps `AscCatalogApi`/`PlannedAction` local.
  */
 
-import type { AppDescriptor, LaunchConfig } from '../types.js';
-import type { AscCatalogApi, PlannedAction } from '../ascSync.js';
-import type { AscReleaseApi } from '../releaseAttrs.js';
-import type { AscGameCenterApi } from '../gameCenter.js';
-import type { AscAppClipsApi } from '../appClips.js';
-import type { AscAvailabilityApi } from '../availability.js';
-import type { AscAccessibilityApi } from '../accessibility.js';
-import type { AscExperimentsApi } from '../versionExperiments.js';
-import type { AscCustomPagesApi } from '../customProductPages.js';
-import type { AscWalletApi } from '../walletIds.js';
-import type { AscEuDistributionApi } from '../euDistribution.js';
-import type { AscOffersApi } from '../offers.js';
-import type { PreviewsApi, ScreenshotsApi } from '../ascScreenshots.js';
-import type { PlayProductsApi } from '../playProducts.js';
-import type { PlaySubscriptionsApi } from '../playSubscriptions.js';
+import type { AppDescriptor } from './app.js';
+import type { LaunchConfig } from './config.js';
+import type { AscCatalogApi, PlannedAction } from '../store/ascSync.js';
+import type { AscReleaseApi } from '../release/releaseAttrs.js';
+import type { AscGameCenterApi } from '../store/gameCenter.js';
+import type { AscAppClipsApi } from '../store/appClips.js';
+import type { AscAvailabilityApi } from '../store/availability.js';
+import type { AscAccessibilityApi } from '../store/accessibility.js';
+import type { AscExperimentsApi } from '../release/versionExperiments.js';
+import type { AscCustomPagesApi } from '../store/customProductPages.js';
+import type { AscWalletApi } from '../store/walletIds.js';
+import type { AscEuDistributionApi } from '../store/euDistribution.js';
+import type { AscOffersApi } from '../store/offers.js';
+import type { PreviewsApi, ScreenshotsApi } from '../store/ascScreenshots.js';
+import type { PlayProductsApi } from '../store/playProducts.js';
+import type { PlaySubscriptionsApi } from '../store/playSubscriptions.js';
 
 /** Which store a surface belongs to — drives credential resolution and how the diff is grouped. */
 export type PlanStore = 'appstore' | 'play';

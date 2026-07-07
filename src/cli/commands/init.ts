@@ -10,15 +10,15 @@ import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Command } from 'commander';
 import { cancel, confirm, intro, isCancel, note, outro, text } from '@clack/prompts';
-import { loadConfig } from '../../core/config.js';
+import { loadConfig } from '../../core/config/config.js';
 import {
   DEFAULT_IN_REPO_ARTIFACT_DIR,
   ENV_EXAMPLE_TEMPLATE,
   configTemplate,
   detectAppRoot,
-} from '../../core/configScaffold.js';
-import { resolveArtifactDir } from '../../core/storage.js';
-import { ensureArtifactDirIgnored } from '../../core/gitignore.js';
+} from '../../core/config/configScaffold.js';
+import { resolveArtifactDir } from '../../core/distribution/storage.js';
+import { ensureArtifactDirIgnored } from '../../core/config/gitignore.js';
 
 /** Write a file unless it exists; returns whether it was written. */
 function writeIfAbsent(path: string, contents: string): boolean {

@@ -6,10 +6,10 @@
  * `= in sync` result means "config is fully applied," not that no extra items exist in the portal.
  */
 
-import { resolveSidecarConfig } from '../../config.js';
-import { loadGameCenterConfig, reconcileGameCenter } from '../../gameCenter.js';
+import { resolveSidecarConfig } from '../../config/config.js';
+import { loadGameCenterConfig, reconcileGameCenter } from '../../store/gameCenter.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '../../types.js';
+import type { SurfacePlanner } from '../../types/index.js';
 
 /** Surface id — also the value users pass as `launch plan game-center`. */
 const SURFACE = 'game-center';

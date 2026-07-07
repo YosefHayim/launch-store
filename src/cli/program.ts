@@ -11,7 +11,7 @@
 
 import { readFileSync } from 'node:fs';
 import { Command } from 'commander';
-import { renderBanner } from '../core/banner.js';
+import { renderBanner } from '../core/terminal/banner.js';
 import { registerInitCommand } from './commands/init.js';
 import { registerAdoptCommand } from './commands/adopt.js';
 import { registerMigrateCommand } from './commands/migrate.js';

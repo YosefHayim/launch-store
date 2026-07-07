@@ -15,18 +15,18 @@
  */
 
 import type { Command } from 'commander';
-import type { AscKey } from '../../core/types.js';
+import type { AscKey } from '../../core/types/index.js';
 import {
   getActiveAccount,
   listAccounts,
   loadAscKeyById,
   matchAccount,
-} from '../../core/accounts.js';
-import { loadConfig } from '../../core/config.js';
-import { createLogger } from '../../core/logger.js';
-import { type SetupOptions, runSetup } from '../../core/setup.js';
-import { parsePlatform } from '../../core/platform.js';
-import { interactiveConfirm, selectApp } from '../../core/pipeline.js';
+} from '../../core/credentials/accounts.js';
+import { loadConfig } from '../../core/config/config.js';
+import { createLogger } from '../../core/services/logger.js';
+import { type SetupOptions, runSetup } from '../../core/config/setup.js';
+import { parsePlatform } from '../../core/services/platform.js';
+import { interactiveConfirm, selectApp } from '../../core/build/pipeline.js';
 import { AppStoreConnectClient, AscRequestError } from '../../apple/ascClient.js';
 import {
   describeStoredCredentials,

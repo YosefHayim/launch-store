@@ -14,12 +14,12 @@ import { existsSync, mkdtempSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Command } from 'commander';
-import type { BuildArtifact } from '../../core/types.js';
-import { loadConfig } from '../../core/config.js';
-import { resolveStorageProvider } from '../../core/storage.js';
-import { run } from '../../core/exec.js';
+import type { BuildArtifact } from '../../core/types/index.js';
+import { loadConfig } from '../../core/config/config.js';
+import { resolveStorageProvider } from '../../core/distribution/storage.js';
+import { run } from '../../core/services/exec.js';
 import { findBuild } from './builds.js';
-import { createLogger } from '../../core/logger.js';
+import { createLogger } from '../../core/services/logger.js';
 
 const log = createLogger(false);
 

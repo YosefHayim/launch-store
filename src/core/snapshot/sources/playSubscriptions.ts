@@ -21,19 +21,19 @@ import type {
   SnapshotSource,
   SourceCapture,
   SubscriptionConfig,
-} from '../../types.js';
+} from '../../types/index.js';
 import type {
   BasePlan,
   RegionalBasePlanConfig,
   SubscriptionListing,
   SubscriptionResource,
 } from '../../../google/playClient.js';
-import type { PlannedAction } from '../../ascSync.js';
+import type { PlannedAction } from '../../store/ascSync.js';
 import {
   periodFromIso,
   reconcilePlaySubscriptions,
   unitsToMicros,
-} from '../../playSubscriptions.js';
+} from '../../store/playSubscriptions.js';
 import { androidApps } from '../../readiness/appScopes.js';
 import {
   jsonRecord,

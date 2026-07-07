@@ -24,12 +24,12 @@ import type {
   Car,
   LaunchConfig,
   TrainRecord,
-} from '../../core/types.js';
-import { loadConfig } from '../../core/config.js';
-import { resolveCommandEnv, selectApp } from '../../core/pipeline.js';
-import { createLogger, type Logger } from '../../core/logger.js';
+} from '../../core/types/index.js';
+import { loadConfig } from '../../core/config/config.js';
+import { resolveCommandEnv, selectApp } from '../../core/build/pipeline.js';
+import { createLogger, type Logger } from '../../core/services/logger.js';
 import { addEnvFlags, envOverrides, type EnvFlags } from '../options.js';
-import { isCloudStorage } from '../../core/storage.js';
+import { isCloudStorage } from '../../core/distribution/storage.js';
 import { resolveRuntimeVersion } from './update.js';
 import { buildTrainRuntime, type TrainRuntime } from '../../core/releaseTrain/builder.js';
 import { resolveTrainCars } from '../../core/releaseTrain/engine.js';

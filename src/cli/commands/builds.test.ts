@@ -8,7 +8,7 @@ import {
   formatPrunePreview,
   toBuildRow,
 } from './builds.js';
-import type { BuildArtifact, PrunedArtifact } from '../../core/types.js';
+import type { BuildArtifact, PrunedArtifact } from '../../core/types/index.js';
 
 const MB = 1024 * 1024;
 

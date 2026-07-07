@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { BuildArtifact, KeystoreAssets } from '../../core/types.js';
+import type { BuildArtifact, KeystoreAssets } from '../../core/types/index.js';
 import {
   androidResignSpec,
   assertResignablePlatform,

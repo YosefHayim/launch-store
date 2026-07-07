@@ -17,12 +17,12 @@
 
 import { readFileSync } from 'node:fs';
 import type { CallToolResult, ListToolsResult } from '@modelcontextprotocol/sdk/types.js';
-import { requireOptional } from '../optionalDep.js';
-import { validate } from '../jsonSchema.js';
-import { loadConfig } from '../config.js';
+import { requireOptional } from '../services/optionalDep.js';
+import { validate } from '../config/jsonSchema.js';
+import { loadConfig } from '../config/config.js';
 import { gateTools } from './gate.js';
 import { ALL_TOOLS } from './tools.js';
-import type { McpTool, McpToolResult } from '../types.js';
+import type { McpTool, McpToolResult } from '../types/index.js';
 
 /** The install hint shown when the optional MCP SDK isn't present. */
 const SDK_INSTALL_HINT = 'npm i @modelcontextprotocol/sdk';

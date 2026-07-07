@@ -6,9 +6,9 @@
  * runs with `dryRun: true`, so `act()` records each change as `planned` and never invokes a write closure.
  */
 
-import { reconcileApp, type AscCatalogApi } from '../../ascSync.js';
-import { buildJobs, type SyncJob } from '../../syncJobs.js';
-import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../../types.js';
+import { reconcileApp, type AscCatalogApi } from '../../store/ascSync.js';
+import { buildJobs, type SyncJob } from '../../store/syncJobs.js';
+import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../../types/index.js';
 
 /** Surface id — also the value users pass as `launch plan catalog`. */
 const SURFACE = 'catalog';

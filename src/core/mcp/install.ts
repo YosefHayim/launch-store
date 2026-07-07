@@ -16,7 +16,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir, platform } from 'node:os';
 import { dirname, join } from 'node:path';
-import { asRecord } from '../json.js';
+import { asRecord } from '../services/json.js';
 
 /** The MCP clients `launch mcp install` knows how to wire, by their config-file convention. */
 export type McpClient = 'claude-code' | 'cursor' | 'claude-desktop';

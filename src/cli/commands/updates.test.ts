@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { UpdateManifest } from '../../core/otaManifest.js';
+import type { UpdateManifest } from '../../core/distribution/otaManifest.js';
 import { formatUpdateDetail, formatUpdatesTable, shortId, type UpdateRow } from './updates.js';
 
 function row(over: Partial<UpdateRow> = {}): UpdateRow {

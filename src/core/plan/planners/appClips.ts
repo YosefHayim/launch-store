@@ -6,10 +6,10 @@
  * `= in sync` result means "config is fully applied," not that no extra cards exist in the portal.
  */
 
-import { resolveSidecarConfig } from '../../config.js';
-import { loadAppClipsConfig, reconcileAppClips } from '../../appClips.js';
+import { resolveSidecarConfig } from '../../config/config.js';
+import { loadAppClipsConfig, reconcileAppClips } from '../../store/appClips.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '../../types.js';
+import type { SurfacePlanner } from '../../types/index.js';
 
 /** Surface id — also the value users pass as `launch plan app-clips`. */
 const SURFACE = 'app-clips';

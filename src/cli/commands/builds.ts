@@ -12,16 +12,16 @@
 import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
 import { cancel, confirm, isCancel } from '@clack/prompts';
-import type { BuildArtifact, Platform, PrunedArtifact } from '../../core/types.js';
-import { parsePlatform } from '../../core/platform.js';
-import { loadConfig } from '../../core/config.js';
-import { resolveStorageProvider } from '../../core/storage.js';
-import { resolveCommandRetentionDays } from '../../core/artifactRetention.js';
-import { mb, sizeSummary, worstDownloadBytes } from '../../core/pipeline.js';
-import { buildLogId, buildLogPath, readBuildLog } from '../../core/buildLog.js';
-import { run } from '../../core/exec.js';
-import { hostOs } from '../../core/os.js';
-import { createLogger } from '../../core/logger.js';
+import type { BuildArtifact, Platform, PrunedArtifact } from '../../core/types/index.js';
+import { parsePlatform } from '../../core/services/platform.js';
+import { loadConfig } from '../../core/config/config.js';
+import { resolveStorageProvider } from '../../core/distribution/storage.js';
+import { resolveCommandRetentionDays } from '../../core/build/artifactRetention.js';
+import { mb, sizeSummary, worstDownloadBytes } from '../../core/build/pipeline.js';
+import { buildLogId, buildLogPath, readBuildLog } from '../../core/build/buildLog.js';
+import { run } from '../../core/services/exec.js';
+import { hostOs } from '../../core/services/os.js';
+import { createLogger } from '../../core/services/logger.js';
 
 const log = createLogger(false);
 

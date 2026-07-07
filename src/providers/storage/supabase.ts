@@ -18,8 +18,8 @@ import type {
   StorageConfig,
   StorageProvider,
   StoredArtifact,
-} from '../../core/types.js';
-import { getSecret } from '../../core/keychain.js';
+} from '../../core/types/index.js';
+import { getSecret } from '../../core/credentials/keychain.js';
 
 /** Object key under which the build-artifact history index is kept, mirroring the local `index.json`. */
 const INDEX_KEY = 'artifacts/index.json';

@@ -21,8 +21,8 @@ import type {
   LaunchConfig,
   Platform,
   ResolvedBuildContext,
-} from '../../core/types.js';
-import { loadConfig } from '../../core/config.js';
+} from '../../core/types/index.js';
+import { loadConfig } from '../../core/config/config.js';
 import {
   mb,
   resolveCommandEnv,
@@ -30,23 +30,23 @@ import {
   submitToStores,
   selectApp,
   worstDownloadBytes,
-} from '../../core/pipeline.js';
-import { formatEnvTable, type ResolvedEnv } from '../../core/env.js';
-import { notify, type NotifyEvent } from '../../core/notify.js';
-import { getCredentialsProvider } from '../../core/registry.js';
-import { ensureArtifactPresent, resolveStorageProvider } from '../../core/storage.js';
-import { createLogger, type Logger } from '../../core/logger.js';
-import { loadAscKeyById } from '../../core/accounts.js';
-import { isInteractive } from '../../core/progress.js';
-import { pickOne } from '../../core/prompt.js';
-import { resolveReleaseType, resolveWhatsNew } from '../../core/releaseInputs.js';
+} from '../../core/build/pipeline.js';
+import { formatEnvTable, type ResolvedEnv } from '../../core/config/env.js';
+import { notify, type NotifyEvent } from '../../core/services/notify.js';
+import { getCredentialsProvider } from '../../core/services/registry.js';
+import { ensureArtifactPresent, resolveStorageProvider } from '../../core/distribution/storage.js';
+import { createLogger, type Logger } from '../../core/services/logger.js';
+import { loadAscKeyById } from '../../core/credentials/accounts.js';
+import { isInteractive } from '../../core/services/progress.js';
+import { pickOne } from '../../core/services/prompt.js';
+import { resolveReleaseType, resolveWhatsNew } from '../../core/release/releaseInputs.js';
 import { resolveReleaseConfirmationMode } from '../../core/release/confirmation.js';
 import {
   isApplePlatform,
   parsePlatform,
   platformLabel,
   toAscPlatform,
-} from '../../core/platform.js';
+} from '../../core/services/platform.js';
 import { AppStoreConnectClient, type BuildResource } from '../../apple/ascClient.js';
 import {
   appRecordMissingMessage,
@@ -54,7 +54,7 @@ import {
   waitForValidBuild,
   type ReleaseInput,
   type ReleaseReport,
-} from '../../core/appStoreRelease.js';
+} from '../../core/release/appStoreRelease.js';
 import { addEnvFlags, envOverrides, type EnvFlags } from '../options.js';
 
 const log = createLogger(false);

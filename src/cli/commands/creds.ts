@@ -19,8 +19,8 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import type { Command } from 'commander';
 import { cancel, confirm, isCancel, password, select, text } from '@clack/prompts';
-import type { AccountRecord, AscKey, Platform } from '../../core/types.js';
-import { parsePlatform } from '../../core/platform.js';
+import type { AccountRecord, AscKey, Platform } from '../../core/types/index.js';
+import { parsePlatform } from '../../core/services/platform.js';
 import {
   type AccountIdentity,
   addAccount,
@@ -35,12 +35,17 @@ import {
   resolveAccountIdentity,
   setActiveKeyId,
   updateAccountIdentity,
-} from '../../core/accounts.js';
-import { loadConfig } from '../../core/config.js';
-import { createLogger } from '../../core/logger.js';
-import { pickOne } from '../../core/prompt.js';
-import { findPushKey, importPushKey, listPushKeys, loadPushKey } from '../../core/pushKeyStore.js';
-import { interactiveConfirm, selectApp } from '../../core/pipeline.js';
+} from '../../core/credentials/accounts.js';
+import { loadConfig } from '../../core/config/config.js';
+import { createLogger } from '../../core/services/logger.js';
+import { pickOne } from '../../core/services/prompt.js';
+import {
+  findPushKey,
+  importPushKey,
+  listPushKeys,
+  loadPushKey,
+} from '../../core/credentials/pushKeyStore.js';
+import { interactiveConfirm, selectApp } from '../../core/build/pipeline.js';
 import { AppStoreConnectClient } from '../../apple/ascClient.js';
 import { ensureSigningCredentials } from '../../apple/credentials.js';
 import { extractKeyId, findAuthKeyFiles, reconcileKeyId } from '../../apple/keyfile.js';

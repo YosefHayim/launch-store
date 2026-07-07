@@ -13,23 +13,26 @@
  */
 
 import type { Command } from 'commander';
-import { loadConfig } from '../../core/config.js';
-import { createLogger, type Logger } from '../../core/logger.js';
-import { selectApps } from '../../core/syncJobs.js';
-import { createAscClientResolver, createPlayClientResolver } from '../../core/storeClients.js';
-import { listReviews } from '../../core/reviews.js';
-import { listPlayReviews } from '../../core/playReviews.js';
+import { loadConfig } from '../../core/config/config.js';
+import { createLogger, type Logger } from '../../core/services/logger.js';
+import { selectApps } from '../../core/store/syncJobs.js';
+import {
+  createAscClientResolver,
+  createPlayClientResolver,
+} from '../../core/store/storeClients.js';
+import { listReviews } from '../../core/store/reviews.js';
+import { listPlayReviews } from '../../core/store/playReviews.js';
 import { buildInsightsReport, STARS } from '../../core/insights/aggregate.js';
-import type { AppDescriptor } from '../../core/types.js';
-import type { AscReviewsApi } from '../../core/reviews.js';
-import type { PlayReviewsApi } from '../../core/playReviews.js';
+import type { AppDescriptor } from '../../core/types/index.js';
+import type { AscReviewsApi } from '../../core/store/reviews.js';
+import type { PlayReviewsApi } from '../../core/store/playReviews.js';
 import type {
   InsightsReport,
   InsightsStore,
   RatingSummary,
   ReviewDatum,
   StarRating,
-} from '../../core/types.js';
+} from '../../core/types/index.js';
 
 /** CLI options for `launch insights`. */
 interface InsightsOptions {

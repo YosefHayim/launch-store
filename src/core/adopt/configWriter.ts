@@ -11,14 +11,14 @@
  * no bespoke code-emitter to maintain, and the developer reviews/commits the result like any other config.
  */
 
-import { configTemplate } from '../configScaffold.js';
+import { configTemplate } from '../config/configScaffold.js';
 import type {
   AppProducts,
   InAppPurchaseConfig,
   SubscriptionGroupConfig,
   EntitlementValue,
   ProductPiece,
-} from '../types.js';
+} from '../types/index.js';
 
 /** Fold one bundle's imported product pieces into a single {@link AppProducts}, dropping empty arms. */
 export function aggregateProductPieces(pieces: ProductPiece[]): AppProducts {

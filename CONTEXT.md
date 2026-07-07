@@ -35,24 +35,35 @@ EAS (Expo Application Services) is the paid cloud Launch replaces — same pipel
 
 ## Architecture / module map
 
-Launch is moving from a flat `src/core/*.ts` tree to a purpose/job layout. Treat this as target architecture: current flat files are migration debt, not precedent.
+Launch uses a purpose/job layout under `src/core`. Do not add flat `src/core/*.ts` files; pick the folder that owns the job.
 
 ```text
 src/
 ├── cli/              Thin Commander wiring — command names, flags, help, runCliProgram
 ├── core/
-│   ├── build/        Pipeline, build flags, fingerprint, logs, diagnostics, remote/eas handoff
-│   ├── release/      Release, rollout, release train, TestFlight/public release
-│   ├── store/        Store sync, catalog/product/offers/pricing/reviews/reports across stores
-│   ├── readiness/    Doctor/readiness/probes/preflight
-│   ├── config/       Effect Schema config/load/scaffold/semantics/docs
-│   ├── credentials/  Accounts, secrets, keychain, signing assets
-│   ├── distribution/ Install manifests, OTA updates, storage-facing helpers
+│   ├── adopt/        Import live store state into config
 │   ├── agents/       Agent skills scaffolding
-│   ├── mcp/          MCP server + tools
+│   ├── asc/          Generated/derived ASC schema helpers
+│   ├── build/        Pipeline, build flags, fingerprint, logs, diagnostics, remote/eas handoff
+│   ├── config/       Effect Schema config/load/scaffold/semantics/project setup
+│   ├── credentials/  Accounts, secrets, keychain, signing assets
 │   ├── dashboard/    Terminal dashboard state/rendering
+│   ├── distribution/ Install manifests, OTA updates, storage-facing helpers
 │   ├── docs/         Generated command/config docs
-│   ├── services/     Effect service Tags + Live/Test layers
+│   ├── doctor/       Doctor context/inspection
+│   ├── insights/     Review/vitals aggregation
+│   ├── listing/      Generated listing draft/apply logic
+│   ├── mcp/          MCP server + tools
+│   ├── migrate/      EAS/fastlane migration helpers
+│   ├── plan/         Config-vs-store planning/drift
+│   ├── privacy/      Privacy parsing/reconciliation/nutrition labels
+│   ├── readiness/    Store readiness/probes/preflight
+│   ├── release/      Release, rollout, TestFlight/public release
+│   ├── releaseTrain/ Release-train records/guards/orchestration
+│   ├── services/     Effect service Tags + Live/Test layers and runtime adapters
+│   ├── snapshot/     Live store snapshot/diff/source capture
+│   ├── store/        Store sync, catalog/product/offers/pricing/reviews/reports across stores
+│   ├── terminal/     CLI presentation helpers, glossary, completion, wordmark
 │   └── types/        Exported domain shapes + index.ts barrel
 ├── providers/        Swappable backend implementations
 ├── apple/            ASC transport + wire/resource DTOs
@@ -92,6 +103,6 @@ destination and signing profile type (centralized in `src/core/platform.ts`).
 | New command | `src/cli/commands/` + `src/cli/program.ts` |
 | End-to-end flow | `src/core/build/pipeline.ts` |
 | New backend | `src/core/types/providers.ts` + `src/providers/<role>/` |
-| Domain terms | `src/core/glossary.ts` (runtime) + `LANGUAGE.md` |
+| Domain terms | `src/core/terminal/glossary.ts` (runtime) + `LANGUAGE.md` |
 | Code style | `CODE-STYLE.md` |
-| Teaching text | `src/core/glossary.ts` |
+| Teaching text | `src/core/terminal/glossary.ts` |

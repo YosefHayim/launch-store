@@ -18,15 +18,15 @@ import type {
   BuildCredentials,
   CredentialsProvider,
   ResolvedBuildContext,
-} from '../../core/types.js';
-import { isApplePlatform } from '../../core/platform.js';
+} from '../../core/types/index.js';
+import { isApplePlatform } from '../../core/services/platform.js';
 import {
   formatAccountSummary,
   getActiveKeyId,
   listAccounts,
   loadActiveAscKey,
   loadAscKeyById,
-} from '../../core/accounts.js';
+} from '../../core/credentials/accounts.js';
 import { describeStoredCredentials, loadCachedSigningAssets } from '../../apple/credentials.js';
 import {
   describeStoredAndroidCredentials,

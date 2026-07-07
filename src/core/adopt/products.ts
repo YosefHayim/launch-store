@@ -25,7 +25,7 @@ import type {
   SubscriptionConfig,
   SubscriptionGroupConfig,
   SubscriptionPeriod,
-} from '../types.js';
+} from '../types/index.js';
 
 /** Apple's `inAppPurchaseType` values Launch models — used to validate an imported product's kind. */
 const IN_APP_PURCHASE_TYPES = new Set<InAppPurchaseType>([

@@ -8,8 +8,8 @@
  */
 
 import { registerBuiltins } from '../providers/index.js';
-import { migrateLegacyAccounts } from '../core/accounts.js';
-import { runAutoUpgrade } from '../core/updateCheck.js';
+import { migrateLegacyAccounts } from '../core/credentials/accounts.js';
+import { runAutoUpgrade } from '../core/config/updateCheck.js';
 import { buildProgram, readVersion } from './program.js';
 
 /**

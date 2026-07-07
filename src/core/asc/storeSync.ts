@@ -14,8 +14,8 @@
  * here so a reconciler imports the whole vocabulary from one place.
  */
 
-import { errorMessage } from '../errorMessage.js';
-import type { PlannedAction } from '../ascSync.js';
+import { errorMessage } from '../services/errorMessage.js';
+import type { PlannedAction } from '../store/ascSync.js';
 
 export type { PlannedAction };
 

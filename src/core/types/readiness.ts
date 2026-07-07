@@ -11,12 +11,13 @@
  * new probe file + one `registerReadinessProbe()` line — the orchestrator never names a concrete probe.
  *
  * These types describe the readiness *mechanism* and its report. Like every domain shape they live in
- * the `core/types/` barrel (imported via `core/types.js`); the probes, registry, and orchestrator that
- * act on them stay in `core/readiness/`.
+ * the `core/types/` barrel (imported via `core/types/index.js`); the probes, registry, and orchestrator
+ * that act on them stay in `core/readiness/`.
  */
 
 import type { AppDescriptor } from './app.js';
 import type { LaunchConfig } from './config.js';
+import type { Effect } from 'effect';
 
 /** Which store a probe reads from — drives credential resolution and how the report is grouped. */
 export type ReadinessStore = 'appstore' | 'play';
@@ -67,6 +68,16 @@ export type ProbeResult =
   | { state: 'omitted' }
   | { state: 'skipped'; reason: string; hint?: string }
   | { state: 'checked'; apps: AppReadiness[] };
+
+/**
+ * Temporary readiness-check return surface while the probe family migrates from Promise to Effect.
+ * New and touched probes should return `Effect.Effect<ProbeResult, unknown>`; the Promise arm stays only
+ * so old probes keep compiling until their files are converted.
+ */
+export type ProbeCheckResult =
+  | ProbeResult
+  | Promise<ProbeResult>
+  | Effect.Effect<ProbeResult, unknown>;
 
 /**
  * A {@link ProbeResult} plus the `errored` state the orchestrator synthesizes when a probe throws
@@ -239,7 +250,7 @@ export interface ReadinessProbe {
   /** The category tags this probe is filed under, used by a command to select it. */
   categories: readonly ReadinessCategory[];
   /** Read live state for the in-scope apps and classify it, performing no writes. */
-  check(ctx: ReadinessContext): Promise<ProbeResult>;
+  check(readinessContext: ReadinessContext): ProbeCheckResult;
 }
 
 /**

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ReadinessProbe, ProbeResult } from '../../core/types.js';
+import type { ReadinessProbe, ProbeResult } from '../../core/types/index.js';
 import { READINESS_EXIT } from '../../core/readiness/orchestrator.js';
 
 /**
@@ -16,11 +16,11 @@ function probe(id: string, result: ProbeResult): ReadinessProbe {
 /** The probe slice the mocked registry hands back; swapped per test to drive the outcome. */
 let probes: ReadinessProbe[] = [];
 
-vi.mock('../../core/config.js', () => ({
+vi.mock('../../core/config/config.js', () => ({
   loadConfig: async () => ({ config: {}, apps: [] }),
 }));
 
-vi.mock('../../core/storeClients.js', () => ({
+vi.mock('../../core/store/storeClients.js', () => ({
   createAscClientResolver: () => async () => undefined,
   createPlayClientResolver: () => async () => undefined,
 }));

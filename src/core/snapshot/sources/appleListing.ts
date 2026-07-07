@@ -20,11 +20,11 @@ import type {
   SnapshotEntity,
   SnapshotSource,
   SourceCapture,
-} from '../../types.js';
+} from '../../types/index.js';
 import type { ListingLocalization } from '../../../apple/ascClient.js';
-import type { PlannedAction } from '../../ascSync.js';
-import type { AppleLocaleInfo, AppleStoreConfig } from '../../storeConfig.js';
-import { reconcileAppListing } from '../../ascSync.js';
+import type { PlannedAction } from '../../store/ascSync.js';
+import type { AppleLocaleInfo, AppleStoreConfig } from '../../store/storeConfig.js';
+import { reconcileAppListing } from '../../store/ascSync.js';
 import { iosApps } from '../../readiness/appScopes.js';
 
 /** One locale's merged listing fields → a snapshot entity keyed by the locale (its natural, stable id). */

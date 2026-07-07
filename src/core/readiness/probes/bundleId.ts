@@ -6,46 +6,64 @@
  * mid-archive. A `null` lookup is the expected "not ready" signal, mapped to a blocker.
  */
 
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
+import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../../types/index.js';
+import { Effect } from 'effect';
 import { iosApps } from '../appScopes.js';
 
 /** The Apple Bundle ID (App ID) registration readiness probe. */
-export const bundleIdProbe: ReadinessProbe = {
+export const bundleIdProbe = {
   id: 'apple-bundle-id',
   title: 'Apple Bundle ID registered',
   store: 'appstore',
   categories: ['signing', 'submit'],
-  async check(ctx: ReadinessContext): Promise<ProbeResult> {
-    const apps = iosApps(ctx.apps);
-    if (apps.length === 0) return { state: 'omitted' };
+  /**
+   * Verify that every selected iOS app has a registered Apple Bundle ID.
+   *
+   * @param readinessContext - Loaded config, selected apps, and App Store Connect resolver.
+   * @returns An Effect that succeeds with one Bundle ID finding per selected app.
+   */
+  check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
+    return Effect.gen(function* () {
+      const apps = iosApps(readinessContext.apps);
+      if (apps.length === 0) return { state: 'omitted' };
 
-    const api = await ctx.resolveAscApi();
-    if (!api)
-      return {
-        state: 'skipped',
-        reason: 'no active Apple account',
-        hint: 'run `launch creds set-key`',
-      };
+      const api = yield* Effect.tryPromise({
+        try: () => readinessContext.resolveAscApi(),
+        catch: (resolverFailure) => resolverFailure,
+      });
+      if (!api)
+        return {
+          state: 'skipped',
+          reason: 'no active Apple account',
+          hint: 'run `launch creds set-key`',
+        };
 
-    const results = await Promise.all(
-      apps.map(async ({ name, identifier }) => {
-        const bundleId = await api.findBundleId(identifier);
-        return bundleId
-          ? {
-              app: name,
-              identifier,
-              status: 'ok' as const,
-              detail: 'registered in the Developer portal',
-            }
-          : {
-              app: name,
-              identifier,
-              status: 'blocker' as const,
-              detail: 'Bundle ID not registered in the Developer portal',
-              hint: 'run `launch sync` to register the App ID before building for distribution',
-            };
-      }),
-    );
-    return { state: 'checked', apps: results };
+      const results = yield* Effect.forEach(
+        apps,
+        ({ name, identifier }) =>
+          Effect.gen(function* () {
+            const bundleId = yield* Effect.tryPromise({
+              try: () => api.findBundleId(identifier),
+              catch: (apiFailure) => apiFailure,
+            });
+            return bundleId
+              ? {
+                  app: name,
+                  identifier,
+                  status: 'ok' as const,
+                  detail: 'registered in the Developer portal',
+                }
+              : {
+                  app: name,
+                  identifier,
+                  status: 'blocker' as const,
+                  detail: 'Bundle ID not registered in the Developer portal',
+                  hint: 'run `launch sync` to register the App ID before building for distribution',
+                };
+          }),
+        { concurrency: 'unbounded' },
+      );
+      return { state: 'checked', apps: results };
+    });
   },
-};
+} satisfies ReadinessProbe;

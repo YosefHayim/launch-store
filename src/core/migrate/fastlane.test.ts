@@ -7,7 +7,7 @@ import type {
   MigrationArtifact,
   MigrationNote,
   MigrationNoteLevel,
-} from '../types.js';
+} from '../types/index.js';
 import { expectDefined } from '../../testkit/assertions.testkit.js';
 import {
   migrateFastlane,

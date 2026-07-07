@@ -10,13 +10,13 @@
  * absent file ⇒ the surface is omitted.
  */
 
-import { resolveSidecarConfig } from '../../config.js';
+import { resolveSidecarConfig } from '../../config/config.js';
 import {
   loadVersionExperimentsConfig,
   reconcileVersionExperiments,
-} from '../../versionExperiments.js';
+} from '../../release/versionExperiments.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '../../types.js';
+import type { SurfacePlanner } from '../../types/index.js';
 
 /** Surface id — also the value users pass as `launch plan experiments`. */
 const SURFACE = 'experiments';

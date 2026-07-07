@@ -12,17 +12,17 @@
 
 import { join } from 'node:path';
 import type { Command } from 'commander';
-import type { Platform } from '../../core/types.js';
-import { loadConfig } from '../../core/config.js';
-import { selectApp } from '../../core/pipeline.js';
+import type { Platform } from '../../core/types/index.js';
+import { loadConfig } from '../../core/config/config.js';
+import { selectApp } from '../../core/build/pipeline.js';
 import {
   type BuildState,
   type CleanDecision,
   gatherIosFingerprint,
   readBuildState,
   resolveClean,
-} from '../../core/buildFingerprint.js';
-import { createLogger } from '../../core/logger.js';
+} from '../../core/build/buildFingerprint.js';
+import { createLogger } from '../../core/services/logger.js';
 
 const log = createLogger(false);
 

@@ -14,24 +14,24 @@
 import { randomUUID } from 'node:crypto';
 import { cancel, confirm, isCancel } from '@clack/prompts';
 import type { Command } from 'commander';
-import type { LaunchConfig, Platform, StorageProvider } from '../../core/types.js';
-import { loadConfig } from '../../core/config.js';
-import { selectApp } from '../../core/pipeline.js';
-import { createLogger } from '../../core/logger.js';
-import { isCloudStorage, resolveStorageProvider } from '../../core/storage.js';
-import { ensureCodeSigner } from '../../core/codeSign.js';
-import { pickOne } from '../../core/prompt.js';
+import type { LaunchConfig, Platform, StorageProvider } from '../../core/types/index.js';
+import { loadConfig } from '../../core/config/config.js';
+import { selectApp } from '../../core/build/pipeline.js';
+import { createLogger } from '../../core/services/logger.js';
+import { isCloudStorage, resolveStorageProvider } from '../../core/distribution/storage.js';
+import { ensureCodeSigner } from '../../core/credentials/codeSign.js';
+import { pickOne } from '../../core/services/prompt.js';
 import {
   historySnapshotKey,
   type UpdateHistoryEntry,
   type UpdateManifest,
-} from '../../core/otaManifest.js';
+} from '../../core/distribution/otaManifest.js';
 import {
   findHistoryEntry,
   readHistory,
   republishUpdate,
   setRollbackToEmbedded,
-} from '../../core/updateHistory.js';
+} from '../../core/distribution/updateHistory.js';
 import { resolveRuntimeVersion } from './update.js';
 
 const log = createLogger(false);

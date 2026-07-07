@@ -17,20 +17,20 @@
  */
 
 import type { Command } from 'commander';
-import { loadConfig } from '../../core/config.js';
-import { ensureToolchain } from '../../core/toolchain.js';
+import { loadConfig } from '../../core/config/config.js';
+import { ensureToolchain } from '../../core/config/toolchain.js';
 import { AppStoreConnectClient } from '../../apple/ascClient.js';
-import { loadActiveAscKey } from '../../core/accounts.js';
+import { loadActiveAscKey } from '../../core/credentials/accounts.js';
 import {
   reconcileExportCompliance,
   summarizeExportComplianceResult,
-} from '../../core/exportCompliance.js';
+} from '../../core/store/exportCompliance.js';
 import { inspectDoctor } from '../../core/doctor/inspect.js';
 import { buildDoctorContext } from '../../core/doctor/context.js';
-import { isApplePlatform, parsePlatform } from '../../core/platform.js';
-import { selectApps } from '../../core/syncJobs.js';
-import type { DoctorCheck, DoctorPlatform, DoctorReport } from '../../core/types.js';
-import { createLogger } from '../../core/logger.js';
+import { isApplePlatform, parsePlatform } from '../../core/services/platform.js';
+import { selectApps } from '../../core/store/syncJobs.js';
+import type { DoctorCheck, DoctorPlatform, DoctorReport } from '../../core/types/index.js';
+import { createLogger } from '../../core/services/logger.js';
 
 const log = createLogger(false);
 

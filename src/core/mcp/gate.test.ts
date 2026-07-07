@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { LaunchConfig, McpCapability, McpTool } from '../types.js';
+import type { LaunchConfig, McpCapability, McpTool } from '../types/index.js';
 import { enabledCapabilities, gateTools } from './gate.js';
 
 /** A bare config with an optional `mcp` block — only the fields the gate reads matter here. */

@@ -9,9 +9,9 @@
  * decision to these functions.
  */
 
-import type { ReleaseVerdict } from '../appStoreRelease.js';
+import type { ReleaseVerdict } from '../release/appStoreRelease.js';
 import type { PlayRelease } from '../../google/playClient.js';
-import type { NativeCarState, TrainPlatform } from '../types.js';
+import type { NativeCarState, TrainPlatform } from '../types/index.js';
 import type { OtaCarSpec } from './orchestrator.js';
 
 /**

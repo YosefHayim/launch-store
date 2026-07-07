@@ -12,7 +12,7 @@ import { z } from 'zod';
  * (signed) on macOS through Xcode and shares one App Store Connect account, certs, and submitter; they
  * differ only in the Xcode build destination, the App Store Connect platform attribute, and the signing
  * profile type (see `core/platform.ts`). `android` builds with gradle on any OS and submits to Google
- * Play. Use {@link import("../platform.js").isApplePlatform} rather than `=== "ios"` to branch the
+ * Play. Use {@link import("../services/platform.js").isApplePlatform} rather than `=== "ios"` to branch the
  * Apple-vs-Android toolchain, so the three newer Apple platforms aren't silently routed to Android.
  *
  * The runtime array is the SSOT: {@link Platform} is inferred from it, and config schemas reuse it for
@@ -28,7 +28,7 @@ export type Platform = (typeof PLATFORMS)[number];
  * Where an iOS build runs, as picked in the `launch` wizard. `local` is the host Mac's own Xcode;
  * `aws` and `ssh` are remote Macs; `eas` hands the build off to Expo's cloud. Android always builds
  * locally (gradle on the host), so this only varies for iOS. Persisted in a remembered wizard flow
- * (see {@link import("../lastRun.js").LastFlow}) so the next run can replay it.
+ * (see {@link import("../distribution/lastRun.js").LastFlow}) so the next run can replay it.
  */
 export type BuildLocation = 'local' | 'aws' | 'ssh' | 'eas';
 

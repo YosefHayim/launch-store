@@ -9,7 +9,7 @@
  */
 
 import type { Command } from 'commander';
-import { createLogger } from '../../core/logger.js';
+import { createLogger } from '../../core/services/logger.js';
 import {
   COMPLETE_SUBCOMMAND,
   SHELLS,
@@ -18,7 +18,7 @@ import {
   installCompletion,
   parseShell,
   resolveCompletions,
-} from '../../core/completion.js';
+} from '../../core/terminal/completion.js';
 
 /** Attach the `completion` command group (print, install, and the hidden `__complete` callback) to the program. */
 export function registerCompletionCommand(program: Command): void {

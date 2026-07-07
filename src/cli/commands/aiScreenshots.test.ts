@@ -7,7 +7,7 @@ import {
   type EnhancedShot,
   type ScreenshotEnhancer,
 } from './aiScreenshots.js';
-import { canonicalDimensions } from '../../core/screenshotSpecs.js';
+import { canonicalDimensions } from '../../core/services/screenshotSpecs.js';
 
 const tmpDirs: string[] = [];
 afterEach(() => {

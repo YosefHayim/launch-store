@@ -6,7 +6,7 @@
  */
 
 import type { Command } from 'commander';
-import { parseCliEnv } from '../core/env.js';
+import { parseCliEnv } from '../core/config/env.js';
 
 /**
  * The parsed env flags shared by build/release/update. `env` is the raw repeated `--env KEY=VAL`

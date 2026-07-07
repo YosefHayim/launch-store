@@ -25,7 +25,7 @@ import type {
   TrainPlatform,
   TrainRecord,
   TrainState,
-} from '../types.js';
+} from '../types/index.js';
 
 /**
  * The live operations the orchestrator drives — one method per car action, each wrapping an existing core

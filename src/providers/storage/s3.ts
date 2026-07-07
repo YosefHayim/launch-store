@@ -22,9 +22,9 @@ import type {
   StorageConfig,
   StorageProvider,
   StoredArtifact,
-} from '../../core/types.js';
-import { requireOptional } from '../../core/optionalDep.js';
-import { getSecret } from '../../core/keychain.js';
+} from '../../core/types/index.js';
+import { requireOptional } from '../../core/services/optionalDep.js';
+import { getSecret } from '../../core/credentials/keychain.js';
 
 /** The optional AWS S3 SDK module shape; type-only so the import stays erased + lazy. */
 type S3Module = typeof import('@aws-sdk/client-s3');

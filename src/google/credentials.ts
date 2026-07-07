@@ -15,11 +15,11 @@
 
 import { chmodSync, copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
-import type { KeystoreAssets } from '../core/types.js';
-import type { Logger } from '../core/logger.js';
-import { capture } from '../core/exec.js';
-import { getSecret, setSecret } from '../core/keychain.js';
-import { ANDROID_CREDENTIALS_INDEX, CREDENTIALS_DIR, ensureDir } from '../core/paths.js';
+import type { KeystoreAssets } from '../core/types/index.js';
+import type { Logger } from '../core/services/logger.js';
+import { capture } from '../core/services/exec.js';
+import { getSecret, setSecret } from '../core/credentials/keychain.js';
+import { ANDROID_CREDENTIALS_INDEX, CREDENTIALS_DIR, ensureDir } from '../core/services/paths.js';
 import { join } from 'node:path';
 import { parseServiceAccount } from './playClient.js';
 

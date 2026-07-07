@@ -12,7 +12,7 @@ import {
   registerCredentialsProvider,
   registerStorageProvider,
   registerSubmitter,
-} from '../core/registry.js';
+} from '../core/services/registry.js';
 import { localCredentialsProvider } from './credentials/local.js';
 import { localStorageProvider } from './storage/local.js';
 import { fastlaneBuildEngine } from './build/fastlane.js';

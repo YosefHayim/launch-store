@@ -6,8 +6,8 @@
  * effects; everything decision-shaped lives here so it's unit-testable without a model.
  */
 
-import type { AndroidLocaleInfo, AppleLocaleInfo, StoreConfig } from '../storeConfig.js';
-import type { DraftListing, ListingBrief, LocaleDraft } from '../types.js';
+import type { AndroidLocaleInfo, AppleLocaleInfo, StoreConfig } from '../store/storeConfig.js';
+import type { DraftListing, ListingBrief, LocaleDraft } from '../types/index.js';
 
 /**
  * App Store field limits, in characters. `keywords` is the limit on the *comma-joined* string (Apple

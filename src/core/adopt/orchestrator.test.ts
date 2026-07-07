@@ -10,7 +10,7 @@ import type {
   PlannedWrite,
   AppDescriptor,
   InAppPurchaseConfig,
-} from '../types.js';
+} from '../types/index.js';
 
 function makeApi(overrides: Partial<AdoptCatalogApi> = {}): AdoptCatalogApi {
   const base: AdoptCatalogApi = {

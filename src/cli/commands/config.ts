@@ -12,16 +12,16 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import type { Command } from 'commander';
-import { findLaunchConfig } from '../../core/config.js';
-import type { FoundConfig } from '../../core/config.js';
-import { loadConfigSchema, validateConfig } from '../../core/configSchema.js';
-import { checkConfigSemantics } from '../../core/configSemantics.js';
-import type { SemanticIssue } from '../../core/configSemantics.js';
+import { findLaunchConfig } from '../../core/config/config.js';
+import type { FoundConfig } from '../../core/config/config.js';
+import { loadConfigSchema, validateConfig } from '../../core/config/configSchema.js';
+import { checkConfigSemantics } from '../../core/config/configSemantics.js';
+import type { SemanticIssue } from '../../core/config/configSemantics.js';
 import { renderConfigDocs } from '../../core/docs/configDocs.js';
-import { createLogger } from '../../core/logger.js';
-import type { Logger } from '../../core/logger.js';
-import type { LaunchConfig } from '../../core/types.js';
-import type { SchemaViolation } from '../../core/jsonSchema.js';
+import { createLogger } from '../../core/services/logger.js';
+import type { Logger } from '../../core/services/logger.js';
+import type { LaunchConfig } from '../../core/types/index.js';
+import type { SchemaViolation } from '../../core/config/jsonSchema.js';
 
 /** Options for `config schema`. */
 interface SchemaOptions {

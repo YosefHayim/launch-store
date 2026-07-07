@@ -10,7 +10,10 @@
  * contribute nothing to this surface.
  */
 
-import { reconcilePlaySubscriptions, type PlaySubscriptionsApi } from '../../playSubscriptions.js';
+import {
+  reconcilePlaySubscriptions,
+  type PlaySubscriptionsApi,
+} from '../../store/playSubscriptions.js';
 import type {
   AppDescriptor,
   LaunchConfig,
@@ -19,7 +22,7 @@ import type {
   PlanContext,
   SurfacePlan,
   SurfacePlanner,
-} from '../../types.js';
+} from '../../types/index.js';
 
 /** Surface id — also the value users pass as `launch plan play-subscriptions`. */
 const SURFACE = 'play-subscriptions';

@@ -2,15 +2,15 @@
  * Build-command input decoding.
  *
  * Commander owns the flag names and help text. This module owns turning the raw command values into
- * the {@link import("../pipeline.js").BuildRunOptions} shape the build pipeline consumes.
+ * the {@link import("./pipeline.js").BuildRunOptions} shape the build pipeline consumes.
  */
 
 import { Data, Effect } from 'effect';
-import { parseCliEnv } from '../env.js';
-import { parsePlatform, PLATFORMS } from '../platform.js';
-import type { BuildRunOptions } from '../pipeline.js';
-import type { Distribution, PlayTrack, RemoteTarget } from '../types.js';
-import type { BumpKind } from '../version.js';
+import { parseCliEnv } from '../config/env.js';
+import { parsePlatform, PLATFORMS } from '../services/platform.js';
+import type { BuildRunOptions } from './pipeline.js';
+import type { Distribution, PlayTrack, RemoteTarget } from '../types/index.js';
+import type { BumpKind } from '../release/version.js';
 
 /** Raw `launch build` options as Commander hands them to the action callback. */
 export interface BuildCommandOptions {

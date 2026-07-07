@@ -18,29 +18,34 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { cancel, confirm, intro, isCancel, note, select, text } from '@clack/prompts';
-import type { AppDescriptor, BuildLocation, LaunchConfig, Platform } from '../../core/types.js';
-import { type GlossaryTopic, explainTopic } from '../../core/glossary.js';
-import { hostOsLabel, isMac } from '../../core/os.js';
-import { isInteractive } from '../../core/progress.js';
-import { outroDone } from '../../core/logger.js';
-import { hasSeenTour, markTourSeen } from '../../core/firstRun.js';
-import { runTour } from '../../core/tour.js';
+import type {
+  AppDescriptor,
+  BuildLocation,
+  LaunchConfig,
+  Platform,
+} from '../../core/types/index.js';
+import { type GlossaryTopic, explainTopic } from '../../core/terminal/glossary.js';
+import { hostOsLabel, isMac } from '../../core/services/os.js';
+import { isInteractive } from '../../core/services/progress.js';
+import { outroDone } from '../../core/services/logger.js';
+import { hasSeenTour, markTourSeen } from '../../core/config/firstRun.js';
+import { runTour } from '../../core/terminal/tour.js';
 import {
   formatAccountSummary,
   getActiveAccount,
   listAccounts,
   setActiveKeyId,
-} from '../../core/accounts.js';
-import { type LastFlow, readLastFlow, rememberLastFlow } from '../../core/lastRun.js';
-import { loadConfig } from '../../core/config.js';
-import { missingRequiredTools } from '../../core/toolchain.js';
+} from '../../core/credentials/accounts.js';
+import { type LastFlow, readLastFlow, rememberLastFlow } from '../../core/distribution/lastRun.js';
+import { loadConfig } from '../../core/config/config.js';
+import { missingRequiredTools } from '../../core/config/toolchain.js';
 import {
   type BuildRunOptions,
   DEFAULT_SIZE_BUDGET_MB,
   prepareBuild,
   runBuild,
-} from '../../core/pipeline.js';
-import { runEasBuild } from '../../core/easPipeline.js';
+} from '../../core/build/pipeline.js';
+import { runEasBuild } from '../../core/build/easPipeline.js';
 import { chooseAccountInteractive, setupIos } from './creds.js';
 import { runInit } from './init.js';
 import { runAdopt } from './adopt.js';

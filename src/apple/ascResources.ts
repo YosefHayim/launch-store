@@ -8,7 +8,7 @@
  *
  * Extracted verbatim from `ascClient.ts` so the client file is its transport core + the one class; the
  * client re-exports everything here via `export * from './ascResources.js'`, so every existing
- * `import … from '../apple/ascClient.js'` keeps resolving unchanged.
+ * `import … from './ascClient.js'` keeps resolving unchanged.
  */
 
 import type {
@@ -16,7 +16,7 @@ import type {
   OfferDuration,
   OfferEligibility,
   OfferMode,
-} from '../core/types.js';
+} from '../core/types/index.js';
 import type { components } from '../core/asc/schema.js';
 
 /** A registered Bundle ID resource (an App ID in the Developer portal). */

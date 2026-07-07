@@ -20,10 +20,10 @@ import type {
   SnapshotEntity,
   SnapshotSource,
   SourceCapture,
-} from '../../types.js';
+} from '../../types/index.js';
 import type { InAppProductResource, PlayMoney } from '../../../google/playClient.js';
-import type { PlannedAction } from '../../ascSync.js';
-import { reconcilePlayProducts } from '../../playProducts.js';
+import type { PlannedAction } from '../../store/ascSync.js';
+import { reconcilePlayProducts } from '../../store/playProducts.js';
 import { androidApps } from '../../readiness/appScopes.js';
 import {
   jsonRecord,
@@ -70,7 +70,7 @@ function toEntity(product: InAppProductResource): SnapshotEntity {
 /**
  * Invert a captured product's `listings` map back into the shared {@link ProductLocalization} list the
  * reconciler reads (title → name, description → description). The captured `defaultLanguage` is placed
- * first because {@link import("../../playProducts.js").toPlayProduct} derives the Play default language
+ * first because {@link import("../../store/playProducts.js").toPlayProduct} derives the Play default language
  * from the first localization; the rest follow sorted for a deterministic restore. Listings with no title
  * are dropped — Play requires a title, so a title-less locale can't become a localization.
  */

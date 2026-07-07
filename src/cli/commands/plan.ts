@@ -11,14 +11,17 @@
  */
 
 import type { Command } from 'commander';
-import { loadConfig } from '../../core/config.js';
-import { createLogger } from '../../core/logger.js';
-import { createAscClientResolver, createPlayClientResolver } from '../../core/storeClients.js';
-import { selectApps } from '../../core/syncJobs.js';
-import type { PlannedAction } from '../../core/ascSync.js';
+import { loadConfig } from '../../core/config/config.js';
+import { createLogger } from '../../core/services/logger.js';
+import {
+  createAscClientResolver,
+  createPlayClientResolver,
+} from '../../core/store/storeClients.js';
+import { selectApps } from '../../core/store/syncJobs.js';
+import type { PlannedAction } from '../../core/store/ascSync.js';
 import { listSurfacePlanners, registerBuiltinPlanners } from '../../core/plan/registry.js';
 import { PLAN_EXIT, runPlanners, type PlanOutcome } from '../../core/plan/orchestrator.js';
-import type { PlanContext, PlanStore, SurfacePlan } from '../../core/types.js';
+import type { PlanContext, PlanStore, SurfacePlan } from '../../core/types/index.js';
 
 /** A successfully-read per-app surface (the usual case) — narrowed for the renderer. */
 type PlannedAppSurface = Extract<SurfacePlan, { state: 'planned'; scope: 'app' }>;

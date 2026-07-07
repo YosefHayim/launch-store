@@ -13,7 +13,7 @@ import {
   LEADERBOARD_SORT_TYPES,
   LEADERBOARD_SUBMISSION_TYPES,
 } from '../../apple/ascResources.js';
-import type { SchemaViolation } from '../jsonSchema.js';
+import type { SchemaViolation } from './jsonSchema.js';
 import {
   DEFAULT_BUILD_ENGINE,
   DEFAULT_CREDENTIALS_PROVIDER,

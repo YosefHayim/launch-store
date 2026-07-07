@@ -7,7 +7,7 @@ import type {
   AppProducts,
   InAppPurchaseConfig,
   LaunchConfig,
-} from '../../types.js';
+} from '../../types/index.js';
 
 /** A fully-stubbed {@link PlayCatalogApi}: reads default to "nothing exists yet", writes resolve to void. */
 function makePlayApi(overrides: Partial<PlayCatalogApi> = {}): PlayCatalogApi {

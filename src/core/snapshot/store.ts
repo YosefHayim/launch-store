@@ -17,8 +17,8 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { SNAPSHOTS_DIR, snapshotFile } from '../paths.js';
-import type { Snapshot } from '../types.js';
+import { SNAPSHOTS_DIR, snapshotFile } from '../services/paths.js';
+import type { Snapshot } from '../types/index.js';
 
 /** Persist a snapshot, creating the snapshots directory on first write. Returns the file path written. */
 export function saveSnapshot(snapshot: Snapshot, dir: string = SNAPSHOTS_DIR): string {

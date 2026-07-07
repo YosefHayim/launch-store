@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { Effect } from 'effect';
 import { READINESS_EXIT, readinessExitCode, runProbes } from './orchestrator.js';
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../types.js';
+import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../types/index.js';
 
 /** A context whose resolvers are never reached — the fake probes below don't call them. */
 const ctx = {} as ReadinessContext;
@@ -32,19 +33,21 @@ describe('readinessExitCode', () => {
 
 describe('runProbes', () => {
   it('tallies per-app findings and exits 2 on a blocker', async () => {
-    const outcome = await runProbes(ctx, [
-      probe('a', {
-        state: 'checked',
-        apps: [{ app: 'x', identifier: 'com.x', status: 'ok', detail: '' }],
-      }),
-      probe('b', {
-        state: 'checked',
-        apps: [
-          { app: 'y', identifier: 'com.y', status: 'warn', detail: '' },
-          { app: 'z', identifier: 'com.z', status: 'blocker', detail: '' },
-        ],
-      }),
-    ]);
+    const outcome = await Effect.runPromise(
+      runProbes(ctx, [
+        probe('a', {
+          state: 'checked',
+          apps: [{ app: 'x', identifier: 'com.x', status: 'ok', detail: '' }],
+        }),
+        probe('b', {
+          state: 'checked',
+          apps: [
+            { app: 'y', identifier: 'com.y', status: 'warn', detail: '' },
+            { app: 'z', identifier: 'com.z', status: 'blocker', detail: '' },
+          ],
+        }),
+      ]),
+    );
     expect(outcome.okCount).toBe(1);
     expect(outcome.warnCount).toBe(1);
     expect(outcome.blockerCount).toBe(1);
@@ -52,25 +55,29 @@ describe('runProbes', () => {
   });
 
   it('drops omitted probes from the report and counts skipped ones', async () => {
-    const outcome = await runProbes(ctx, [
-      probe('omitted', { state: 'omitted' }),
-      probe('skipped', { state: 'skipped', reason: 'no account' }),
-    ]);
+    const outcome = await Effect.runPromise(
+      runProbes(ctx, [
+        probe('omitted', { state: 'omitted' }),
+        probe('skipped', { state: 'skipped', reason: 'no account' }),
+      ]),
+    );
     expect(outcome.reports.map((report) => report.id)).toEqual(['skipped']);
     expect(outcome.skippedCount).toBe(1);
     expect(outcome.exitCode).toBe(READINESS_EXIT.ok);
   });
 
   it('isolates a thrown probe as errored (exit 1) without sinking its siblings', async () => {
-    const outcome = await runProbes(ctx, [
-      probe('ok', {
-        state: 'checked',
-        apps: [{ app: 'x', identifier: 'com.x', status: 'ok', detail: '' }],
-      }),
-      probe('boom', () => {
-        throw new Error('network down');
-      }),
-    ]);
+    const outcome = await Effect.runPromise(
+      runProbes(ctx, [
+        probe('ok', {
+          state: 'checked',
+          apps: [{ app: 'x', identifier: 'com.x', status: 'ok', detail: '' }],
+        }),
+        probe('boom', () => {
+          throw new Error('network down');
+        }),
+      ]),
+    );
     expect(outcome.okCount).toBe(1);
     expect(outcome.errorCount).toBe(1);
     expect(outcome.exitCode).toBe(READINESS_EXIT.error);

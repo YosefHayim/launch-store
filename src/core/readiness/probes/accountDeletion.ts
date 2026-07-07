@@ -10,67 +10,96 @@
  * app with no record or no editable version can't be graded — those degrade to a `warn`, not a false finding.
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
+import type {
+  AppReadiness,
+  ProbeResult,
+  ReadinessContext,
+  ReadinessProbe,
+} from '../../types/index.js';
+import { Effect } from 'effect';
 import { iosApps } from '../appScopes.js';
 
 /** The App Store Connect account-deletion-URL readiness probe — a listing-completeness, conditionally-submit check. */
-export const accountDeletionProbe: ReadinessProbe = {
+export const accountDeletionProbe = {
   id: 'apple-account-deletion',
   title: 'Account-deletion URL declared',
   store: 'appstore',
   categories: ['listing', 'submit'],
-  async check(ctx: ReadinessContext): Promise<ProbeResult> {
-    const apps = iosApps(ctx.apps);
-    if (apps.length === 0) return { state: 'omitted' };
+  /**
+   * Verify that each selected iOS app has an account-deletion URL on editable App Store info.
+   *
+   * @param readinessContext - Loaded config, selected apps, and App Store Connect resolver.
+   * @returns An Effect that succeeds with one account-deletion finding per selected app.
+   */
+  check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
+    return Effect.gen(function* () {
+      const apps = iosApps(readinessContext.apps);
+      if (apps.length === 0) return { state: 'omitted' };
 
-    const api = await ctx.resolveAscApi();
-    if (!api)
-      return {
-        state: 'skipped',
-        reason: 'no active Apple account',
-        hint: 'run `launch creds set-key`',
-      };
+      const api = yield* Effect.tryPromise({
+        try: () => readinessContext.resolveAscApi(),
+        catch: (resolverFailure) => resolverFailure,
+      });
+      if (!api)
+        return {
+          state: 'skipped',
+          reason: 'no active Apple account',
+          hint: 'run `launch creds set-key`',
+        };
 
-    const results: AppReadiness[] = await Promise.all(
-      apps.map(async ({ name, identifier }) => {
-        const appId = await api.getAppId(identifier);
-        if (!appId) {
-          return {
-            app: name,
-            identifier,
-            status: 'warn' as const,
-            detail: "can't verify — no app record yet",
-            hint: 'create the app record first (see the app-record check)',
-          };
-        }
-        const appInfoId = await api.getEditableAppInfoId(appId);
-        if (!appInfoId) {
-          return {
-            app: name,
-            identifier,
-            status: 'warn' as const,
-            detail: "can't verify — no editable app version",
-            hint: 'create a new version in App Store Connect, then re-run',
-          };
-        }
-        const urls = await api.listAccountDeletionUrls(appInfoId);
-        const declared = urls.filter((entry) => entry.url.length > 0);
-        return declared.length > 0
-          ? {
-              app: name,
-              identifier,
-              status: 'ok' as const,
-              detail: `account-deletion URL set in ${declared.length} locale(s)`,
+      const results: AppReadiness[] = yield* Effect.forEach(
+        apps,
+        ({ name, identifier }) =>
+          Effect.gen(function* () {
+            const appId = yield* Effect.tryPromise({
+              try: () => api.getAppId(identifier),
+              catch: (apiFailure) => apiFailure,
+            });
+            if (!appId) {
+              return {
+                app: name,
+                identifier,
+                status: 'warn' as const,
+                detail: "can't verify — no app record yet",
+                hint: 'create the app record first (see the app-record check)',
+              };
             }
-          : {
-              app: name,
-              identifier,
-              status: 'warn' as const,
-              detail: 'no account-deletion URL set',
-              hint: 'Apple requires it if your app lets users create an account — add it under App Store Connect → App Privacy → Account Deletion',
-            };
-      }),
-    );
-    return { state: 'checked', apps: results };
+            const appInfoId = yield* Effect.tryPromise({
+              try: () => api.getEditableAppInfoId(appId),
+              catch: (apiFailure) => apiFailure,
+            });
+            if (!appInfoId) {
+              return {
+                app: name,
+                identifier,
+                status: 'warn' as const,
+                detail: "can't verify — no editable app version",
+                hint: 'create a new version in App Store Connect, then re-run',
+              };
+            }
+            const urls = yield* Effect.tryPromise({
+              try: () => api.listAccountDeletionUrls(appInfoId),
+              catch: (apiFailure) => apiFailure,
+            });
+            const declared = urls.filter((entry) => entry.url.length > 0);
+            return declared.length > 0
+              ? {
+                  app: name,
+                  identifier,
+                  status: 'ok' as const,
+                  detail: `account-deletion URL set in ${declared.length} locale(s)`,
+                }
+              : {
+                  app: name,
+                  identifier,
+                  status: 'warn' as const,
+                  detail: 'no account-deletion URL set',
+                  hint: 'Apple requires it if your app lets users create an account — add it under App Store Connect → App Privacy → Account Deletion',
+                };
+          }),
+        { concurrency: 'unbounded' },
+      );
+      return { state: 'checked', apps: results };
+    });
   },
-};
+} satisfies ReadinessProbe;

@@ -11,13 +11,13 @@
  * `registerSnapshotSource()` line.
  *
  * These types describe the snapshot *mechanism* and its on-disk record. Like every domain shape they
- * live in the `core/types/` barrel (imported via `core/types.js`); the sources, orchestrator, and
+ * live in the `core/types/` barrel (imported via `core/types/index.js`); the sources, orchestrator, and
  * record I/O that act on them stay in `core/snapshot/`.
  */
 
 import type { ListingLocalization } from '../../apple/ascClient.js';
 import type { InAppProductResource, SubscriptionResource } from '../../google/playClient.js';
-import type { AscCatalogApi, PlannedAction } from '../ascSync.js';
+import type { AscCatalogApi, PlannedAction } from '../store/ascSync.js';
 import type { AppDescriptor } from './app.js';
 import type { LaunchConfig } from './config.js';
 import type { PlayCatalogApi } from './plan.js';

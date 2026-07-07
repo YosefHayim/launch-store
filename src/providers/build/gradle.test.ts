@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { BuildCredentials, ResolvedBuildContext } from '../../core/types.js';
+import type { BuildCredentials, ResolvedBuildContext } from '../../core/types/index.js';
 import { gradleBuildEngine, parseBundletoolSize } from './gradle.js';
 
 describe('parseBundletoolSize — honest worst-case download from get-size total', () => {

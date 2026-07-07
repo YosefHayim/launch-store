@@ -6,7 +6,7 @@ import type {
   PlanContext,
   EuDistributionConfig,
   LaunchConfig,
-} from '../../types.js';
+} from '../../types/index.js';
 
 const DECLARED: EuDistributionConfig = {
   domains: [{ domain: 'downloads.acme.com', referenceName: 'Acme Downloads' }],

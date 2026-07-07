@@ -10,7 +10,13 @@
  * and only when some app is actually selling something. Tagged `iap` only.
  */
 
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
+import type {
+  AppReadiness,
+  ProbeResult,
+  ReadinessContext,
+  ReadinessProbe,
+} from '../../types/index.js';
+import { Effect } from 'effect';
 import { iosApps } from '../appScopes.js';
 import { sellsProducts } from './iapReadiness.js';
 
@@ -18,39 +24,53 @@ import { sellsProducts } from './iapReadiness.js';
 const ACCOUNT_SUBJECT = { app: 'Apple account', identifier: 'account-wide' } as const;
 
 /** The App Store Connect sandbox-tester readiness probe — advisory IAP testing prerequisite. */
-export const sandboxTestersProbe: ReadinessProbe = {
+export const sandboxTestersProbe = {
   id: 'apple-sandbox-testers',
   title: 'Sandbox testers for StoreKit testing',
   store: 'appstore',
   categories: ['iap'],
-  async check(ctx: ReadinessContext): Promise<ProbeResult> {
-    const sellsAnything = iosApps(ctx.apps).some(({ identifier }) =>
-      sellsProducts(ctx, identifier),
-    );
-    if (!sellsAnything) return { state: 'omitted' };
+  /**
+   * Verify that the Apple account has at least one sandbox tester when selected apps sell products.
+   *
+   * @param readinessContext - Loaded config, selected apps, and App Store Connect resolver.
+   * @returns An Effect that succeeds with the account-wide sandbox-tester finding.
+   */
+  check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
+    return Effect.gen(function* () {
+      const sellsAnything = iosApps(readinessContext.apps).some(({ identifier }) =>
+        sellsProducts(readinessContext, identifier),
+      );
+      if (!sellsAnything) return { state: 'omitted' };
 
-    const api = await ctx.resolveAscApi();
-    if (!api)
-      return {
-        state: 'skipped',
-        reason: 'no active Apple account',
-        hint: 'run `launch creds set-key`',
-      };
+      const api = yield* Effect.tryPromise({
+        try: () => readinessContext.resolveAscApi(),
+        catch: (resolverFailure) => resolverFailure,
+      });
+      if (!api)
+        return {
+          state: 'skipped',
+          reason: 'no active Apple account',
+          hint: 'run `launch creds set-key`',
+        };
 
-    const testers = await api.listSandboxTesters();
-    const finding: AppReadiness =
-      testers.length > 0
-        ? {
-            ...ACCOUNT_SUBJECT,
-            status: 'ok',
-            detail: `${testers.length} sandbox tester(s) configured`,
-          }
-        : {
-            ...ACCOUNT_SUBJECT,
-            status: 'warn',
-            detail: "no sandbox testers — StoreKit purchases can't be test-bought before release",
-            hint: 'add one in App Store Connect → Users and Access → Sandbox → Testers',
-          };
-    return { state: 'checked', apps: [finding] };
+      const testers = yield* Effect.tryPromise({
+        try: () => api.listSandboxTesters(),
+        catch: (apiFailure) => apiFailure,
+      });
+      const finding: AppReadiness =
+        testers.length > 0
+          ? {
+              ...ACCOUNT_SUBJECT,
+              status: 'ok',
+              detail: `${testers.length} sandbox tester(s) configured`,
+            }
+          : {
+              ...ACCOUNT_SUBJECT,
+              status: 'warn',
+              detail: "no sandbox testers — StoreKit purchases can't be test-bought before release",
+              hint: 'add one in App Store Connect → Users and Access → Sandbox → Testers',
+            };
+      return { state: 'checked', apps: [finding] };
+    });
   },
-};
+} satisfies ReadinessProbe;

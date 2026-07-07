@@ -16,14 +16,15 @@
  */
 
 import type { CapabilitySetting } from '../../apple/ascClient.js';
-import { entitlementForCapability, isCapabilityEntitlement } from '../capabilities.js';
+import { Effect } from 'effect';
+import { entitlementForCapability, isCapabilityEntitlement } from '../credentials/capabilities.js';
 import type {
   Adopter,
   AdoptCatalogApi,
   AdoptTarget,
   EntitlementValue,
   PlannedWrite,
-} from '../types.js';
+} from '../types/index.js';
 import { extractProfileEntitlements } from './profileEntitlements.js';
 
 /**
@@ -121,7 +122,7 @@ export const capabilitiesAdopter: Adopter = {
     ]);
     const profileContent = chooseProfileContent(profiles);
     const profileEntitlements = profileContent
-      ? await extractProfileEntitlements(profileContent)
+      ? await Effect.runPromise(extractProfileEntitlements(profileContent))
       : null;
 
     const settingsByType: Record<string, CapabilitySetting[]> = {};

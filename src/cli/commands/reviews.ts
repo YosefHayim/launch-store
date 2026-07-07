@@ -13,16 +13,16 @@ import { cancel, confirm, isCancel } from '@clack/prompts';
 import type { Command } from 'commander';
 import type { CustomerReviewResource } from '../../apple/ascClient.js';
 import { AppStoreConnectClient } from '../../apple/ascClient.js';
-import { loadConfig } from '../../core/config.js';
-import { selectApp } from '../../core/pipeline.js';
-import { loadActiveAscKey } from '../../core/accounts.js';
-import { createLogger } from '../../core/logger.js';
+import { loadConfig } from '../../core/config/config.js';
+import { selectApp } from '../../core/build/pipeline.js';
+import { loadActiveAscKey } from '../../core/credentials/accounts.js';
+import { createLogger } from '../../core/services/logger.js';
 import {
   deleteReviewResponse,
   listReviews,
   replyToReview,
   type ReviewFilters,
-} from '../../core/reviews.js';
+} from '../../core/store/reviews.js';
 
 const log = createLogger(false);
 

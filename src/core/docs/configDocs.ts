@@ -8,11 +8,11 @@
  * and `docs:check` gates it, exactly like the command reference.
  *
  * Deliberately free of `fs`/prettier (the script owns I/O) so it stays trivially unit-testable, and it only
- * reads the draft-07 subset {@link import("../jsonSchema.js").JsonSchema} the generator emits.
+ * reads the draft-07 subset {@link import("../config/jsonSchema.js").JsonSchema} the generator emits.
  */
 
 import { escapeCell } from './commandDocs.js';
-import type { JsonSchema } from '../jsonSchema.js';
+import type { JsonSchema } from '../config/jsonSchema.js';
 
 /** Decode the trailing segment of a `$ref` into the definition name, e.g. `#/definitions/BuildProfile` → `BuildProfile`. */
 function refName(ref: string): string {

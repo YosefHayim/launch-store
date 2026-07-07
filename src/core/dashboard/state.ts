@@ -20,14 +20,14 @@ import type {
   DashboardState,
   HostHandle,
   LaunchConfig,
-} from '../types.js';
-import type { SecretRef } from '../buildSecrets.js';
-import { loadConfig } from '../config.js';
-import { getActiveAccount, listAccounts } from '../accounts.js';
-import { readArtifactIndex } from '../artifactRetention.js';
-import { getLiveHost } from '../cloudState.js';
-import { listSecretRefs } from '../buildSecrets.js';
-import { LAUNCH_HOME } from '../paths.js';
+} from '../types/index.js';
+import type { SecretRef } from '../build/buildSecrets.js';
+import { loadConfig } from '../config/config.js';
+import { getActiveAccount, listAccounts } from '../credentials/accounts.js';
+import { readArtifactIndex } from '../build/artifactRetention.js';
+import { getLiveHost } from '../distribution/cloudState.js';
+import { listSecretRefs } from '../build/buildSecrets.js';
+import { LAUNCH_HOME } from '../services/paths.js';
 
 /** How many of the newest build artifacts the dashboard lists — enough to be useful, not a full history. */
 export const RECENT_ARTIFACT_LIMIT = 12;

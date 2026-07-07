@@ -6,7 +6,7 @@ import type {
   SnapshotStore,
   SourceCapture,
   LaunchConfig,
-} from '../types.js';
+} from '../types/index.js';
 
 /** A minimal context — fake sources ignore it, but the type must be honored without casts. */
 function makeCtx(): SnapshotContext {

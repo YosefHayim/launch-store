@@ -21,14 +21,14 @@ import type {
   HostHandle,
   HostStatus,
   SshTarget,
-} from '../../core/types.js';
-import { errorMessage } from '../../core/errorMessage.js';
-import { LAUNCH_HOME, ensureDir } from '../../core/paths.js';
-import { consentMessage, costForDurationUsd, releasableAt } from '../../core/cost.js';
-import { getAmiId, setAmiId } from '../../core/cloudState.js';
-import { requireOptional } from '../../core/optionalDep.js';
-import { REQUIRED_TOOLS } from '../../core/toolchain.js';
-import { sshCapture, sshReachable } from '../../core/ssh.js';
+} from '../../core/types/index.js';
+import { errorMessage } from '../../core/services/errorMessage.js';
+import { LAUNCH_HOME, ensureDir } from '../../core/services/paths.js';
+import { consentMessage, costForDurationUsd, releasableAt } from '../../core/build/cost.js';
+import { getAmiId, setAmiId } from '../../core/distribution/cloudState.js';
+import { requireOptional } from '../../core/services/optionalDep.js';
+import { REQUIRED_TOOLS } from '../../core/config/toolchain.js';
+import { sshCapture, sshReachable } from '../../core/services/ssh.js';
 
 import type { _InstanceType } from '@aws-sdk/client-ec2';
 

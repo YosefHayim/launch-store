@@ -7,7 +7,7 @@ import type {
   AppClipsConfig,
   AppDescriptor,
   LaunchConfig,
-} from '../../types.js';
+} from '../../types/index.js';
 
 const ALPHA: AppDescriptor = {
   name: 'alpha',

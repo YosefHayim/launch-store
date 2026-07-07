@@ -12,9 +12,9 @@ import { cancel, confirm, isCancel } from '@clack/prompts';
 import type { Command } from 'commander';
 import type { SandboxTesterResource } from '../../apple/ascClient.js';
 import { AppStoreConnectClient } from '../../apple/ascClient.js';
-import { loadActiveAscKey } from '../../core/accounts.js';
-import { createLogger } from '../../core/logger.js';
-import { clearPurchaseHistory, listSandboxTesters } from '../../core/sandbox.js';
+import { loadActiveAscKey } from '../../core/credentials/accounts.js';
+import { createLogger } from '../../core/services/logger.js';
+import { clearPurchaseHistory, listSandboxTesters } from '../../core/services/sandbox.js';
 
 const log = createLogger(false);
 

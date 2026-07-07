@@ -27,23 +27,23 @@ import type {
   SigningAssets,
   SizeReport,
   SizeReportEntry,
-} from '../../core/types.js';
-import { runWithProgress, xcodeProgressStep } from '../../core/progress.js';
-import { exists } from '../../core/exec.js';
-import { hostResources } from '../../core/os.js';
+} from '../../core/types/index.js';
+import { runWithProgress, xcodeProgressStep } from '../../core/services/progress.js';
+import { exists } from '../../core/services/exec.js';
+import { hostResources } from '../../core/services/os.js';
 import {
   assembleGymArguments,
   computeParallelJobLimit,
   resolveCcacheEnvironment,
-} from '../../core/buildFlags.js';
-import { writeManualSigningToProject } from '../../core/appleTargets.js';
+} from '../../core/build/buildFlags.js';
+import { writeManualSigningToProject } from '../../core/build/appleTargets.js';
 import {
   appleArtifactExtension,
   gymDestination,
   isApplePlatform,
   nativeProjectDirName,
   platformLabel,
-} from '../../core/platform.js';
+} from '../../core/services/platform.js';
 import {
   estimateFor,
   gatherIosFingerprint,
@@ -51,7 +51,7 @@ import {
   resolveClean,
   updateEstimate,
   writeBuildState,
-} from '../../core/buildFingerprint.js';
+} from '../../core/build/buildFingerprint.js';
 
 /**
  * Resolve an app's native Xcode project directory to an ABSOLUTE path, for the given Apple platform

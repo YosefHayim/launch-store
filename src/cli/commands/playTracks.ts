@@ -21,16 +21,16 @@ import type { Command } from 'commander';
 import type { PlayRelease } from '../../google/playClient.js';
 import { GooglePlayClient, parseServiceAccount } from '../../google/playClient.js';
 import { loadServiceAccount } from '../../google/credentials.js';
-import { loadConfig } from '../../core/config.js';
-import { selectApp } from '../../core/pipeline.js';
-import { createLogger } from '../../core/logger.js';
+import { loadConfig } from '../../core/config/config.js';
+import { selectApp } from '../../core/build/pipeline.js';
+import { createLogger } from '../../core/services/logger.js';
 import {
   buildRelease,
   isReleaseStatus,
   parseReleaseNotes,
   parseRollout,
   RELEASE_STATUSES,
-} from '../../core/playTracks.js';
+} from '../../core/store/playTracks.js';
 
 const log = createLogger(false);
 

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateKeyPairSync } from 'node:crypto';
-import type { AscKey } from '../core/types.js';
+import type { AscKey } from '../core/types/index.js';
 import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.js';
 import {
   AppStoreConnectClient,

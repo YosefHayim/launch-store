@@ -18,22 +18,22 @@
 
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { checkApp, formatFinding } from '../configCheck.js';
-import { errorMessage } from '../errorMessage.js';
-import { describeExportComplianceConfig } from '../exportCompliance.js';
-import { formatPermissionLine, probeKeyPermissions } from '../ascPermissions.js';
-import { inspectPackageSetup, packageManagerWarnings } from '../packageManager.js';
-import { appPrivacyChecklist } from '../privacyNutritionLabel.js';
-import { ANDROID_TOOLS, REQUIRED_TOOLS, fixHint } from '../toolchain.js';
-import { buildConsoleUrl } from '../consoleLinks.js';
+import { checkApp, formatFinding } from '../config/configCheck.js';
+import { errorMessage } from '../services/errorMessage.js';
+import { describeExportComplianceConfig } from '../store/exportCompliance.js';
+import { formatPermissionLine, probeKeyPermissions } from '../store/ascPermissions.js';
+import { inspectPackageSetup, packageManagerWarnings } from '../config/packageManager.js';
+import { appPrivacyChecklist } from '../privacy/privacyNutritionLabel.js';
+import { ANDROID_TOOLS, REQUIRED_TOOLS, fixHint } from '../config/toolchain.js';
+import { buildConsoleUrl } from '../terminal/consoleLinks.js';
 import {
   appGroupPreflightNotice,
   gatherTargetSigningReadiness,
   resolveExtensionBundleIdsForApp,
   signingPreflightDoctorChecks,
-} from '../signingPreflight.js';
-import { shellLocaleDoctorCheck } from '../locale.js';
-import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from '../types.js';
+} from '../credentials/signingPreflight.js';
+import { shellLocaleDoctorCheck } from '../terminal/locale.js';
+import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from '../types/index.js';
 
 /** Where to create a missing App Store Connect app record — the one step the API can't do. */
 const APP_STORE_CONNECT_APPS_URL = buildConsoleUrl('app-record', 'ios', undefined);

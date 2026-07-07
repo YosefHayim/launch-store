@@ -8,7 +8,7 @@
  */
 
 import { vi } from 'vitest';
-import type { AscCatalogApi } from '../core/ascSync.js';
+import type { AscCatalogApi } from '../core/store/ascSync.js';
 
 /** A fully-stubbed {@link AscCatalogApi}. Reads default to "nothing exists yet"; writes resolve to a created resource. */
 export function makeAscCatalogApiFake(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {

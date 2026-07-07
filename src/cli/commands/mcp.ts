@@ -17,7 +17,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Command } from 'commander';
-import { createLogger } from '../../core/logger.js';
+import { createLogger } from '../../core/services/logger.js';
 import { startMcpServer } from '../../core/mcp/server.js';
 import { installServer, type McpClient } from '../../core/mcp/install.js';
 

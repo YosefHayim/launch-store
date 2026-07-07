@@ -14,16 +14,16 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Command } from 'commander';
-import { loadConfig, readResolvedConfig } from '../../core/config.js';
-import { selectApps } from '../../core/syncJobs.js';
+import { loadConfig, readResolvedConfig } from '../../core/config/config.js';
+import { selectApps } from '../../core/store/syncJobs.js';
 import { surfaceFromExpoConfig, surfaceFromNative } from '../../core/privacy/parse.js';
 import {
   buildPrivacyReport,
   reconcilePrivacy,
   renderPrivacyReport,
 } from '../../core/privacy/reconcile.js';
-import type { PrivacyFinding, PrivacySurface, AppDescriptor } from '../../core/types.js';
-import { createLogger } from '../../core/logger.js';
+import type { PrivacyFinding, PrivacySurface, AppDescriptor } from '../../core/types/index.js';
+import { createLogger } from '../../core/services/logger.js';
 
 const log = createLogger(false);
 
@@ -31,7 +31,7 @@ const log = createLogger(false);
 interface PrivacyScanOptions {
   /** Comma-separated app handles; default is every discovered app. */
   app?: string;
-  /** Machine-readable output (the full {@link import("../../core/types.js").PrivacyReport}) for CI/agents. */
+  /** Machine-readable output (the full {@link import("../../core/types/index.js").PrivacyReport}) for CI/agents. */
   json?: boolean;
 }
 

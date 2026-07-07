@@ -11,11 +11,11 @@
  * so no per-app `error` arm is needed (unlike the catalog surface, whose reconciler throws on a missing record).
  */
 
-import { reconcileAssetActions } from '../../syncRun.js';
-import { buildJobs, type SyncJob } from '../../syncJobs.js';
-import { checkScreenshotFile } from '../../screenshotSpecs.js';
-import type { PlannedAction } from '../../ascSync.js';
-import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../../types.js';
+import { reconcileAssetActions } from '../../store/syncRun.js';
+import { buildJobs, type SyncJob } from '../../store/syncJobs.js';
+import { checkScreenshotFile } from '../../services/screenshotSpecs.js';
+import type { PlannedAction } from '../../store/ascSync.js';
+import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../../types/index.js';
 
 /** Surface id — also the value users pass as `launch plan screenshots`. */
 const SURFACE = 'screenshots';

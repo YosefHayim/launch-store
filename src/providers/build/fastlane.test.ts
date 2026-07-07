@@ -1,6 +1,6 @@
 import { isAbsolute } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { SigningAssets } from '../../core/types.js';
+import type { SigningAssets } from '../../core/types/index.js';
 import {
   assertDeviceArtifact,
   exportOptionsPlist,

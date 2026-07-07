@@ -8,10 +8,10 @@
  * records each change as `planned` and never invokes a write closure.
  */
 
-import { reconcileAppListing, type AscCatalogApi } from '../../ascSync.js';
-import { buildJobs, hasListing } from '../../syncJobs.js';
-import type { AppleStoreConfig } from '../../storeConfig.js';
-import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../../types.js';
+import { reconcileAppListing, type AscCatalogApi } from '../../store/ascSync.js';
+import { buildJobs, hasListing } from '../../store/syncJobs.js';
+import type { AppleStoreConfig } from '../../store/storeConfig.js';
+import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../../types/index.js';
 
 /** Surface id — also the value users pass as `launch plan listing`. */
 const SURFACE = 'listing';

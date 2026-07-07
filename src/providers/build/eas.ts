@@ -11,8 +11,8 @@
 import { mkdtempSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ResolvedBuildContext, SizeReport, SubmitTarget } from '../../core/types.js';
-import { capture, exists, run } from '../../core/exec.js';
+import type { ResolvedBuildContext, SizeReport, SubmitTarget } from '../../core/types/index.js';
+import { capture, exists, run } from '../../core/services/exec.js';
 
 /** Where the `eas` binary comes from: the global install if present, else `npx eas-cli`. */
 async function easCommand(): Promise<{ cmd: string; prefix: string[] }> {

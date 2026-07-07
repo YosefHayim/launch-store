@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { carLabel, carStatusLine, hasLiveCar, mintTrainId } from './releaseTrain.js';
-import type { Car, TrainRecord } from '../../core/types.js';
+import type { Car, TrainRecord } from '../../core/types/index.js';
 
 const NOW = '2026-06-16T00:00:00.000Z';
 

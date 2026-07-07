@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { BuildCredentials, ResolvedBuildContext } from '../../core/types.js';
+import type { BuildCredentials, ResolvedBuildContext } from '../../core/types/index.js';
 
 // Capture the fastlane invocation instead of running it, and stub the temp-key file write.
 const runMock = vi.fn<
   (cmd: string, args: string[], options?: { env?: Record<string, string> }) => Promise<void>
 >(() => Promise.resolve());
-vi.mock('../../core/exec.js', () => ({
+vi.mock('../../core/services/exec.js', () => ({
   run: (cmd: string, args: string[], options?: { env?: Record<string, string> }) =>
     runMock(cmd, args, options),
 }));

@@ -9,14 +9,21 @@
  */
 
 import type { Command } from 'commander';
-import type { AppDescriptor, LaunchConfig } from '../../core/types.js';
-import { loadConfig } from '../../core/config.js';
-import { createLogger } from '../../core/logger.js';
-import { loadActiveAscKey } from '../../core/accounts.js';
+import type { AppDescriptor, LaunchConfig } from '../../core/types/index.js';
+import { loadConfig } from '../../core/config/config.js';
+import { createLogger } from '../../core/services/logger.js';
+import { loadActiveAscKey } from '../../core/credentials/accounts.js';
 import { AppStoreConnectClient } from '../../apple/ascClient.js';
-import { IOS_PLATFORM, readReleaseStatus, type ReleaseStatus } from '../../core/appStoreRelease.js';
-import { notify } from '../../core/notify.js';
-import { createTransitionTracker, planTransitionNotifications } from '../../core/releaseNotify.js';
+import {
+  IOS_PLATFORM,
+  readReleaseStatus,
+  type ReleaseStatus,
+} from '../../core/release/appStoreRelease.js';
+import { notify } from '../../core/services/notify.js';
+import {
+  createTransitionTracker,
+  planTransitionNotifications,
+} from '../../core/release/releaseNotify.js';
 
 /** CLI options for `launch status`. */
 interface StatusOptions {

@@ -15,24 +15,24 @@
 import { existsSync, readFileSync } from 'node:fs';
 import type { Command } from 'commander';
 import { cancel, confirm, isCancel } from '@clack/prompts';
-import { loadConfig } from '../../core/config.js';
-import { selectApp } from '../../core/pipeline.js';
-import { loadActiveAscKey } from '../../core/accounts.js';
-import { pickOne } from '../../core/prompt.js';
-import { createLogger } from '../../core/logger.js';
+import { loadConfig } from '../../core/config/config.js';
+import { selectApp } from '../../core/build/pipeline.js';
+import { loadActiveAscKey } from '../../core/credentials/accounts.js';
+import { pickOne } from '../../core/services/prompt.js';
+import { createLogger } from '../../core/services/logger.js';
 import { AppStoreConnectClient, type BetaGroupResource } from '../../apple/ascClient.js';
-import type { PlannedAction } from '../../core/ascSync.js';
+import type { PlannedAction } from '../../core/store/ascSync.js';
 import {
   loadBetaReviewConfig,
   reconcileBetaReview,
   summarizeBetaReview,
-} from '../../core/betaReview.js';
+} from '../../core/release/betaReview.js';
 import {
   downloadFeedbackAttachments,
   listBetaFeedback,
   type FeedbackFilters,
-} from '../../core/testflightFeedback.js';
-import type { BetaFeedback, BetaFeedbackKind } from '../../core/types.js';
+} from '../../core/release/testflightFeedback.js';
+import type { BetaFeedback, BetaFeedbackKind } from '../../core/types/index.js';
 
 const log = createLogger(false);
 

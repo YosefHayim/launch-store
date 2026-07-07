@@ -25,22 +25,22 @@ import { basename, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { Command } from 'commander';
 import { aiGroup, confirmWrite } from './ai.js';
-import { run } from '../../core/exec.js';
-import { openUrl } from '../../core/consoleLinks.js';
-import { loadConfig } from '../../core/config.js';
-import { selectApp } from '../../core/pipeline.js';
-import { createLogger } from '../../core/logger.js';
+import { run } from '../../core/services/exec.js';
+import { openUrl } from '../../core/terminal/consoleLinks.js';
+import { loadConfig } from '../../core/config/config.js';
+import { selectApp } from '../../core/build/pipeline.js';
+import { createLogger } from '../../core/services/logger.js';
 import {
   discoverScreenshotsAt,
   SCREENSHOTS_DIRNAME,
   type LocalScreenshot,
-} from '../../core/screenshotAssets.js';
+} from '../../core/services/screenshotAssets.js';
 import {
   checkScreenshotFile,
   DEFAULT_APPLE_DISPLAY_TYPES,
   DEFAULT_PLAY_FORM_FACTORS,
-} from '../../core/screenshotSpecs.js';
-import type { Platform } from '../../core/types.js';
+} from '../../core/services/screenshotSpecs.js';
+import type { Platform } from '../../core/types/index.js';
 
 /** Default name of the genshot CLI on the PATH; overridable per-invocation with `--genshot-bin`. */
 const GENSHOT_BIN = 'genshot';

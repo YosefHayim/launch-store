@@ -15,14 +15,14 @@ import type { Command } from 'commander';
 import type { PlayReview } from '../../google/playClient.js';
 import { GooglePlayClient, parseServiceAccount } from '../../google/playClient.js';
 import { loadServiceAccount } from '../../google/credentials.js';
-import { loadConfig } from '../../core/config.js';
-import { selectApp } from '../../core/pipeline.js';
-import { createLogger } from '../../core/logger.js';
+import { loadConfig } from '../../core/config/config.js';
+import { selectApp } from '../../core/build/pipeline.js';
+import { createLogger } from '../../core/services/logger.js';
 import {
   listPlayReviews,
   replyToPlayReview,
   type PlayReviewFilters,
-} from '../../core/playReviews.js';
+} from '../../core/store/playReviews.js';
 
 const log = createLogger(false);
 

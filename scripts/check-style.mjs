@@ -15,20 +15,30 @@ import process from 'node:process';
 const repoRoot = process.cwd();
 const MIGRATED_PATTERNS = [
   'src/cli/commands/build.ts',
-  'src/core/build',
-  'src/core/release',
-  'src/core/buildFlags.ts',
+  'src/core/build/buildCommandInput.ts',
+  'src/core/build/buildCommandProgram.ts',
   'src/core/adopt/profileEntitlements.ts',
-  'src/core/config',
-  'src/core/services',
+  'src/core/config/schema.ts',
+  'src/core/release/confirmation.ts',
   'src/core/types/index.ts',
+  'src/core/readiness',
 ];
 
 const CHECKS = [
   {
+    name: 'no async/await in migrated production code',
+    pattern: /\basync\b|\bawait\b/,
+    message: 'Return Effect values and compose them with Effect.gen / Effect.forEach.',
+  },
+  {
     name: 'no Promise.all in migrated production code',
     pattern: /\bPromise\.all\s*\(/,
     message: 'Use Effect.all or Effect.forEach(..., { concurrency }).',
+  },
+  {
+    name: 'no try/catch/finally in migrated production code',
+    pattern: /\btry\s*\{|\bcatch\s*\(|\bfinally\s*\{/,
+    message: 'Use Effect.try, Effect.catchAll, and Effect.acquireRelease.',
   },
   {
     name: 'no raw throw new Error in migrated production code',

@@ -13,7 +13,7 @@ import type {
   HostHandle,
   HostStatus,
   SshTarget,
-} from '../../core/types.js';
+} from '../../core/types/index.js';
 
 /** Default SSH login user for the common EC2 Mac case; overridden by `user@` in the target string. */
 const DEFAULT_USER = 'ec2-user';

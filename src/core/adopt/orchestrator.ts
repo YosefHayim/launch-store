@@ -12,7 +12,7 @@
 
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { writeAppEntitlements } from '../config.js';
+import { writeAppEntitlements } from '../config/config.js';
 import {
   aggregateProductPieces,
   buildAdoptedConfig,
@@ -28,7 +28,7 @@ import type {
   EntitlementValue,
   PlannedWrite,
   ProductPiece,
-} from '../types.js';
+} from '../types/index.js';
 
 /** One discovered app that can't be adopted, with the human reason it was skipped. */
 export interface SkippedApp {

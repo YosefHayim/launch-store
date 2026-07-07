@@ -17,26 +17,37 @@ One TypeScript / Node ESM package. Top-level `src/` ownership:
 | `src/google` | Google Play transport and Play wire/resource DTOs. API mirror only. |
 | `src/testkit` | Shared test fakes and Effect test layers. |
 
-Target `src/core` layout after the structure migration:
+Target `src/core` layout:
 
 ```text
 src/core/
-├── build/          # pipeline, build flags, fingerprint, logs, diagnostics, remote/eas handoff
-├── release/        # release, rollout, release train, TestFlight/public release
-├── store/          # store sync, catalog/product/offers/pricing/reviews/reports across stores
-├── readiness/      # doctor/readiness/probes/preflight
-├── config/         # config schema/load/scaffold/semantics/docs
-├── credentials/    # accounts, secrets, keychain, signing assets
-├── distribution/   # install manifests, OTA updates, storage-facing distribution helpers
+├── adopt/          # importing live store state into config
 ├── agents/         # agent skill scaffolding
-├── mcp/            # MCP server/tools
+├── asc/            # generated/derived ASC schema helpers
+├── build/          # pipeline, build flags, fingerprint, logs, diagnostics, remote/eas handoff
+├── config/         # config schema/load/scaffold/semantics/project setup
+├── credentials/    # accounts, secrets, keychain, signing assets
 ├── dashboard/      # terminal dashboard state/rendering
+├── distribution/   # install manifests, OTA updates, storage-facing distribution helpers
 ├── docs/           # generated command/config docs
-├── services/       # Effect service tags + Live/Test layers
+├── doctor/         # doctor context/inspection
+├── insights/       # review/vitals aggregation
+├── listing/        # generated listing draft/apply logic
+├── mcp/            # MCP server/tools
+├── migrate/        # EAS/fastlane migration helpers
+├── plan/           # config-vs-store planning/drift
+├── privacy/        # privacy parsing/reconciliation/nutrition labels
+├── readiness/      # store readiness/probes/preflight
+├── release/        # release, rollout, TestFlight/public release
+├── releaseTrain/   # release-train records/guards/orchestration
+├── services/       # Effect service tags + Live/Test layers and runtime adapters
+├── snapshot/       # live store snapshot/diff/source capture
+├── store/          # store sync, catalog/product/offers/pricing/reviews/reports across stores
+├── terminal/       # CLI presentation helpers, glossary, completion, wordmark
 └── types/          # exported domain shapes + index.ts barrel
 ```
 
-Current flat `src/core/*.ts` files are migration debt. Do not create new flat-core files.
+Do not create flat `src/core/*.ts` files. Pick the purpose folder that owns the job.
 
 ## Conventions A Linter Can't Infer
 
@@ -45,7 +56,7 @@ Current flat `src/core/*.ts` files are migration debt. Do not create new flat-co
 - Style: [CODE-STYLE.md](./CODE-STYLE.md). Edit there first; this file mirrors only the digest.
 - Product direction: [PROJECT.md](./PROJECT.md).
 - Architecture orientation: [CONTEXT.md](./CONTEXT.md).
-- Domain language: [LANGUAGE.md](./LANGUAGE.md) and runtime teaching text in `src/core/glossary.ts`.
+- Domain language: [LANGUAGE.md](./LANGUAGE.md) and runtime teaching text in `src/core/terminal/glossary.ts`.
 - Config schema: Effect Schema in `src/core/config/`; zod is migration debt. ADR 0008 is superseded.
 
 ### Imports Follow Ownership

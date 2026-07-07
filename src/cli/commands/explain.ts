@@ -6,8 +6,8 @@
  */
 
 import type { Command } from 'commander';
-import { explainTopic, isGlossaryTopic, listTopics } from '../../core/glossary.js';
-import { createLogger } from '../../core/logger.js';
+import { explainTopic, isGlossaryTopic, listTopics } from '../../core/terminal/glossary.js';
+import { createLogger } from '../../core/services/logger.js';
 
 const log = createLogger(false);
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AppleLocaleInfo, StoreConfig } from '../storeConfig.js';
+import type { AppleLocaleInfo, StoreConfig } from '../store/storeConfig.js';
 import {
   applyDraft,
   briefFor,
@@ -7,7 +7,7 @@ import {
   deriveAndroidLocale,
   renderDraftPreview,
 } from './apply.js';
-import type { DraftListing } from '../types.js';
+import type { DraftListing } from '../types/index.js';
 
 describe('clampDraft', () => {
   it('passes through fields within their limits and reports no warnings', () => {

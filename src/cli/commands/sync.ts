@@ -18,16 +18,16 @@
 
 import { cancel, confirm, isCancel } from '@clack/prompts';
 import type { Command } from 'commander';
-import { loadConfig } from '../../core/config.js';
-import { createLogger } from '../../core/logger.js';
-import { loadActiveAscKey } from '../../core/accounts.js';
+import { loadConfig } from '../../core/config/config.js';
+import { createLogger } from '../../core/services/logger.js';
+import { loadActiveAscKey } from '../../core/credentials/accounts.js';
 import { AppStoreConnectClient } from '../../apple/ascClient.js';
-import { runPool } from '../../core/asyncPool.js';
-import { buildJobs, selectApps } from '../../core/syncJobs.js';
-import { reconcileJob, summarize, SYNC_CONCURRENCY } from '../../core/syncRun.js';
-import { createPlayClientResolver } from '../../core/storeClients.js';
+import { runPool } from '../../core/build/asyncPool.js';
+import { buildJobs, selectApps } from '../../core/store/syncJobs.js';
+import { reconcileJob, summarize, SYNC_CONCURRENCY } from '../../core/store/syncRun.js';
+import { createPlayClientResolver } from '../../core/store/storeClients.js';
 import { captureAutoSnapshot } from '../../core/snapshot/autoSnapshot.js';
-import type { SnapshotContext } from '../../core/types.js';
+import type { SnapshotContext } from '../../core/types/index.js';
 
 /** CLI options for `launch sync`. */
 interface SyncOptions {

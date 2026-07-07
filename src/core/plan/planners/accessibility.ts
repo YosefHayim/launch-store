@@ -10,10 +10,10 @@
  * absent file ⇒ the surface is omitted.
  */
 
-import { resolveSidecarConfig } from '../../config.js';
-import { loadAccessibilityConfig, reconcileAccessibility } from '../../accessibility.js';
+import { resolveSidecarConfig } from '../../config/config.js';
+import { loadAccessibilityConfig, reconcileAccessibility } from '../../store/accessibility.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '../../types.js';
+import type { SurfacePlanner } from '../../types/index.js';
 
 /** Surface id — also the value users pass as `launch plan accessibility`. */
 const SURFACE = 'accessibility';

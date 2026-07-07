@@ -9,9 +9,9 @@
  * {@link appDeclaresOffers}, so a catalog-only project never sees an empty offers diff.
  */
 
-import { appDeclaresOffers, reconcileOffers } from '../../offers.js';
+import { appDeclaresOffers, reconcileOffers } from '../../store/offers.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '../../types.js';
+import type { SurfacePlanner } from '../../types/index.js';
 
 /** Surface id — also the value users pass as `launch plan offers`. */
 const SURFACE = 'offers';

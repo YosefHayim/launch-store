@@ -23,16 +23,21 @@ import { copyFileSync, existsSync, mkdtempSync, readdirSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { basename, extname, join } from 'node:path';
 import type { Command } from 'commander';
-import type { BuildArtifact, KeystoreAssets, Platform, SigningAssets } from '../../core/types.js';
-import { isApplePlatform, platformLabel } from '../../core/platform.js';
-import { loadConfig } from '../../core/config.js';
-import { resolveStorageProvider } from '../../core/storage.js';
-import { capture, run } from '../../core/exec.js';
-import { getActiveKeyId, listAccounts } from '../../core/accounts.js';
+import type {
+  BuildArtifact,
+  KeystoreAssets,
+  Platform,
+  SigningAssets,
+} from '../../core/types/index.js';
+import { isApplePlatform, platformLabel } from '../../core/services/platform.js';
+import { loadConfig } from '../../core/config/config.js';
+import { resolveStorageProvider } from '../../core/distribution/storage.js';
+import { capture, run } from '../../core/services/exec.js';
+import { getActiveKeyId, listAccounts } from '../../core/credentials/accounts.js';
 import { loadCachedSigningAssets } from '../../apple/credentials.js';
 import { loadCachedKeystore } from '../../google/credentials.js';
 import { findBuild } from './builds.js';
-import { createLogger } from '../../core/logger.js';
+import { createLogger } from '../../core/services/logger.js';
 
 const log = createLogger(false);
 

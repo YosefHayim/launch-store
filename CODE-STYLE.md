@@ -20,7 +20,7 @@ Each rule records the pick from the code-style grill. `[lint: ...]` means Biome 
 
 ### Desired State, Not Current Census · [taste]
 
-Write new and touched production code in the target style even while old modules still contain async, Promise, throw, and flat-core structure.
+Write new and touched production code in the target style even while old modules still contain async, Promise, throw, or other pre-Effect structure.
 
 ```ts
 // chosen (target style)
@@ -31,7 +31,7 @@ export const prepareBuild = (buildOptions: BuildRunOptions) =>
     return yield* prepareSelectedAppBuild(buildOptions, selectedApp);
   });
 
-// not this (src/core/pipeline.ts:prepareBuild incumbent)
+// not this (src/core/build/pipeline.ts:prepareBuild incumbent)
 export async function prepareBuild(options: BuildRunOptions): Promise<PreparedBuild> {
   const { config, apps } = await loadConfig();
   const app = await selectApp(apps, options.appName);
@@ -45,7 +45,7 @@ _Why:_ Mixed style is migration debt; this guide describes the destination so ag
 Every exported production behavior returns `Effect`. Pure logic uses `Effect.sync`; I/O and sequential work use `Effect.gen(function* () { ... })`. `async/await` is allowed only in tests, scripts, generated fixtures, tiny process entrypoints, and temporary vendor adapter shims.
 
 ```ts
-// chosen (src/core/asyncPool.ts:runPooledWorkers target style)
+// chosen (src/core/build/asyncPool.ts:runPooledWorkers target style)
 export const runPooledWorkers = <TItem, TValue, TError>(
   itemsToProcess: readonly TItem[],
   concurrencyLimit: number,
@@ -53,7 +53,7 @@ export const runPooledWorkers = <TItem, TValue, TError>(
 ): Effect.Effect<readonly WorkerResult<TValue>[]> =>
   Effect.forEach(itemsToProcess, processItem, { concurrency: concurrencyLimit });
 
-// not this (src/core/pipeline.ts:runBuild incumbent)
+// not this (src/core/build/pipeline.ts:runBuild incumbent)
 export async function runBuild(options: BuildRunOptions): Promise<void> {
   const prepared = await prepareBuild(options);
   await dispatchBuild(prepared, options);
@@ -171,10 +171,11 @@ _Why:_ Scriptability, tests, and agent runs need one non-hanging prompt boundary
 ```text
 // chosen target
 src/core/
-  build/ credentials/ config/ distribution/ readiness/ release/ store/
-  agents/ dashboard/ docs/ mcp/ services/ types/
+  adopt/ agents/ asc/ build/ config/ credentials/ dashboard/ distribution/
+  docs/ doctor/ insights/ listing/ mcp/ migrate/ plan/ privacy/
+  readiness/ release/ releaseTrain/ services/ snapshot/ store/ terminal/ types/
 
-// not this (current migration debt)
+// not this
 src/core/pipeline.ts
 src/core/buildFlags.ts
 src/core/buildFingerprint.ts
@@ -212,7 +213,7 @@ export type * from './app.js';
 export type * from './config.js';
 export type * from './providers.js';
 
-// not this (src/core/types.ts incumbent)
+// not this
 export type * from './types/app.js';
 export type * from './types/config.js';
 export type * from './types/providers.js';
@@ -576,7 +577,7 @@ export const buildCommandProgram = (platformArgument: string, rawCommandOptions:
 
 Current positive exemplar:
 
-- `src/core/exec.ts` — closest existing service/layer boundary for child processes.
+- `src/core/services/exec.ts` — closest existing service/layer boundary for child processes.
 
 Finding: there is not yet a complete golden file that demonstrates the full target style. Until the first migration slice lands, the canonical example above is the target exemplar for `deslop`.
 

@@ -13,15 +13,15 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Command } from 'commander';
-import { loadConfig } from '../../core/config.js';
-import { createLogger } from '../../core/logger.js';
-import type { Logger } from '../../core/logger.js';
+import { loadConfig } from '../../core/config/config.js';
+import { createLogger } from '../../core/services/logger.js';
+import type { Logger } from '../../core/services/logger.js';
 import { migrateEas } from '../../core/migrate/eas.js';
 import { migrateFastlane } from '../../core/migrate/fastlane.js';
 import { renderReport } from '../../core/migrate/report.js';
 import { writeArtifacts } from '../../core/migrate/write.js';
-import type { AppDescriptor } from '../../core/types.js';
-import type { MigrationNote, MigrationNoteLevel, MigrationResult } from '../../core/types.js';
+import type { AppDescriptor } from '../../core/types/index.js';
+import type { MigrationNote, MigrationNoteLevel, MigrationResult } from '../../core/types/index.js';
 
 /** The generated report's filename, always (re)written — it's a regenerable summary, not a user file. */
 const REPORT_FILE = 'migration-report.md';

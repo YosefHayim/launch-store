@@ -13,13 +13,13 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { configTemplate, detectAppRoot } from '../configScaffold.js';
+import { configTemplate, detectAppRoot } from '../config/configScaffold.js';
 import {
   readAndroidMetadataDir,
   readAppleMetadataDir,
   serializeStoreConfig,
   type StoreConfig,
-} from '../storeConfig.js';
+} from '../store/storeConfig.js';
 import { buildEnvExample, scaffoldStoreConfig } from './scaffold.js';
 import type {
   AppDescriptor,
@@ -32,7 +32,7 @@ import type {
   MigrationNoteLevel,
   MigrationResult,
   SupplyfileData,
-} from '../types.js';
+} from '../types/index.js';
 
 /**
  * Read the first value of a fastlane directive written as `key "value"`, `key 'value'`, or `key("value")`.

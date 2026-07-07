@@ -6,10 +6,10 @@
  * reconciler reads live values and reports changes, so `= in sync` means live matches config.
  */
 
-import { resolveSidecarConfig } from '../../config.js';
-import { loadReleaseConfig, reconcileRelease } from '../../releaseAttrs.js';
+import { resolveSidecarConfig } from '../../config/config.js';
+import { loadReleaseConfig, reconcileRelease } from '../../release/releaseAttrs.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '../../types.js';
+import type { SurfacePlanner } from '../../types/index.js';
 
 /** Surface id — also the value users pass as `launch plan release-config`. */
 const SURFACE = 'release-config';

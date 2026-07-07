@@ -12,17 +12,17 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Command } from 'commander';
 import { AppStoreConnectClient } from '../../apple/ascClient.js';
-import { loadConfig } from '../../core/config.js';
-import { selectApp } from '../../core/pipeline.js';
-import { loadActiveAscKey } from '../../core/accounts.js';
-import { createLogger, type Logger } from '../../core/logger.js';
-import { ensureDir } from '../../core/paths.js';
+import { loadConfig } from '../../core/config/config.js';
+import { selectApp } from '../../core/build/pipeline.js';
+import { loadActiveAscKey } from '../../core/credentials/accounts.js';
+import { createLogger, type Logger } from '../../core/services/logger.js';
+import { ensureDir } from '../../core/services/paths.js';
 import {
   collectAnalyticsSegments,
   decompressReport,
   eachDate,
   parseTsv,
-} from '../../core/reports.js';
+} from '../../core/store/reports.js';
 
 /** Build a client bound to the active Apple account, or fail with the onboarding hint. */
 async function activeClient(): Promise<AppStoreConnectClient> {

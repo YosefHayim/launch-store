@@ -10,6 +10,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { Effect } from 'effect';
 
 // Redirect HOME before `core/paths.js` evaluates, so `~/.launch/credentials` and the installed-profile
 // dir resolve under a throwaway path. Must run before the static imports below.
@@ -20,8 +21,8 @@ const home = vi.hoisted(() => {
   return { dir };
 });
 
-import { accountCredentialsDir, PROVISIONING_PROFILES_DIR } from '../core/paths.js';
-import { createLogger } from '../core/logger.js';
+import { accountCredentialsDir, PROVISIONING_PROFILES_DIR } from '../core/services/paths.js';
+import { createLogger } from '../core/services/logger.js';
 import {
   ensureAdHocSigningCredentials,
   loadCachedSigningAssets,
@@ -29,7 +30,7 @@ import {
   staleCachedSigningTargets,
 } from './credentials.js';
 import { extractProfileEntitlements } from '../core/adopt/profileEntitlements.js';
-import type { AscKey, SigningAssets } from '../core/types.js';
+import type { AscKey, SigningAssets } from '../core/types/index.js';
 import type {
   AppStoreConnectClient,
   BundleIdCapabilityResource,
@@ -156,7 +157,9 @@ describe('profileStaleAgainstCapabilities — regenerate-vs-reuse decision (#261
   }
 
   it('regenerates when App Groups was enabled after the profile was minted', async () => {
-    vi.mocked(extractProfileEntitlements).mockResolvedValue({ 'aps-environment': 'production' });
+    vi.mocked(extractProfileEntitlements).mockReturnValue(
+      Effect.succeed({ 'aps-environment': 'production' }),
+    );
     const stale = await profileStaleAgainstCapabilities(
       clientWithCapabilities(['PUSH_NOTIFICATIONS', 'APP_GROUPS']),
       'bundle-resource-id',
@@ -166,10 +169,12 @@ describe('profileStaleAgainstCapabilities — regenerate-vs-reuse decision (#261
   });
 
   it('reuses when the profile already covers every enabled capability', async () => {
-    vi.mocked(extractProfileEntitlements).mockResolvedValue({
-      'aps-environment': 'production',
-      'com.apple.security.application-groups': ['group.com.acme'],
-    });
+    vi.mocked(extractProfileEntitlements).mockReturnValue(
+      Effect.succeed({
+        'aps-environment': 'production',
+        'com.apple.security.application-groups': ['group.com.acme'],
+      }),
+    );
     const stale = await profileStaleAgainstCapabilities(
       clientWithCapabilities(['PUSH_NOTIFICATIONS', 'APP_GROUPS']),
       'bundle-resource-id',
@@ -230,7 +235,9 @@ describe('staleCachedSigningTargets — build-path reuse guard (#292)', () => {
 
   it('flags every target whose profile predates an enabled capability (App Groups)', async () => {
     // Both App IDs have APP_GROUPS enabled but neither profile carries the entitlement → both stale.
-    vi.mocked(extractProfileEntitlements).mockResolvedValue({ 'aps-environment': 'production' });
+    vi.mocked(extractProfileEntitlements).mockReturnValue(
+      Effect.succeed({ 'aps-environment': 'production' }),
+    );
     const stale = await staleCachedSigningTargets(
       stubClient({ [`${MAIN}-res`]: ['APP_GROUPS'], [`${WIDGET}-res`]: ['APP_GROUPS'] }),
       SIGNING,
@@ -242,9 +249,11 @@ describe('staleCachedSigningTargets — build-path reuse guard (#292)', () => {
   });
 
   it('returns [] when every cached profile already covers the enabled capabilities', async () => {
-    vi.mocked(extractProfileEntitlements).mockResolvedValue({
-      'com.apple.security.application-groups': ['group.com.example.sampleapp'],
-    });
+    vi.mocked(extractProfileEntitlements).mockReturnValue(
+      Effect.succeed({
+        'com.apple.security.application-groups': ['group.com.example.sampleapp'],
+      }),
+    );
     const stale = await staleCachedSigningTargets(
       stubClient({ [`${MAIN}-res`]: ['APP_GROUPS'], [`${WIDGET}-res`]: ['APP_GROUPS'] }),
       SIGNING,
@@ -254,7 +263,7 @@ describe('staleCachedSigningTargets — build-path reuse guard (#292)', () => {
 
   it('treats an unreadable profile as current — best-effort, never a needless regenerate', async () => {
     // Off-Mac or a decode failure → extractProfileEntitlements returns null → graded current.
-    vi.mocked(extractProfileEntitlements).mockResolvedValue(null);
+    vi.mocked(extractProfileEntitlements).mockReturnValue(Effect.succeed(null));
     const stale = await staleCachedSigningTargets(
       stubClient({ [`${MAIN}-res`]: ['APP_GROUPS'], [`${WIDGET}-res`]: ['APP_GROUPS'] }),
       SIGNING,
@@ -263,7 +272,9 @@ describe('staleCachedSigningTargets — build-path reuse guard (#292)', () => {
   });
 
   it('grades the main bundle alone when the app has no extension profiles', async () => {
-    vi.mocked(extractProfileEntitlements).mockResolvedValue({ 'aps-environment': 'production' });
+    vi.mocked(extractProfileEntitlements).mockReturnValue(
+      Effect.succeed({ 'aps-environment': 'production' }),
+    );
     const stale = await staleCachedSigningTargets(
       stubClient({ [`${MAIN}-res`]: ['APP_GROUPS'] }),
       MAIN_ONLY,
@@ -272,7 +283,9 @@ describe('staleCachedSigningTargets — build-path reuse guard (#292)', () => {
   });
 
   it('skips an unregistered target (findBundleId → null)', async () => {
-    vi.mocked(extractProfileEntitlements).mockResolvedValue({ 'aps-environment': 'production' });
+    vi.mocked(extractProfileEntitlements).mockReturnValue(
+      Effect.succeed({ 'aps-environment': 'production' }),
+    );
     const stale = await staleCachedSigningTargets(
       stubClient(
         { [`${MAIN}-res`]: ['APP_GROUPS'] },

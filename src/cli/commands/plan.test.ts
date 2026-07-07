@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { additiveNote, planGlyph } from './plan.js';
-import type { PlannedAction } from '../../core/ascSync.js';
+import type { PlannedAction } from '../../core/store/ascSync.js';
 
 function action(over: Partial<PlannedAction> = {}): PlannedAction {
   return {

@@ -12,9 +12,9 @@ import { cancel, confirm, isCancel } from '@clack/prompts';
 import type { Command } from 'commander';
 import type { UserInvitationResource, UserResource } from '../../apple/ascClient.js';
 import { AppStoreConnectClient } from '../../apple/ascClient.js';
-import { loadActiveAscKey } from '../../core/accounts.js';
-import { createLogger } from '../../core/logger.js';
-import { getTeam, inviteTeamMember, removeTeamMember, type Team } from '../../core/team.js';
+import { loadActiveAscKey } from '../../core/credentials/accounts.js';
+import { createLogger } from '../../core/services/logger.js';
+import { getTeam, inviteTeamMember, removeTeamMember, type Team } from '../../core/store/team.js';
 
 const log = createLogger(false);
 

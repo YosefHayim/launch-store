@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ReleaseVerdict } from '../appStoreRelease.js';
+import type { ReleaseVerdict } from '../release/appStoreRelease.js';
 import { androidCarState, iosCarState, resolveTrainCars } from './engine.js';
 
 function verdict(state: ReleaseVerdict['state']): ReleaseVerdict {

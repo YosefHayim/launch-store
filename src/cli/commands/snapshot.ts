@@ -15,11 +15,14 @@
 
 import { writeFileSync } from 'node:fs';
 import type { Command } from 'commander';
-import { loadConfig } from '../../core/config.js';
-import { createLogger } from '../../core/logger.js';
-import type { Logger } from '../../core/logger.js';
-import { createAscClientResolver, createPlayClientResolver } from '../../core/storeClients.js';
-import { selectApps } from '../../core/syncJobs.js';
+import { loadConfig } from '../../core/config/config.js';
+import { createLogger } from '../../core/services/logger.js';
+import type { Logger } from '../../core/services/logger.js';
+import {
+  createAscClientResolver,
+  createPlayClientResolver,
+} from '../../core/store/storeClients.js';
+import { selectApps } from '../../core/store/syncJobs.js';
 import { listSnapshotSources, registerBuiltinSources } from '../../core/snapshot/registry.js';
 import { captureSnapshot } from '../../core/snapshot/orchestrator.js';
 import type { CaptureResult } from '../../core/snapshot/orchestrator.js';
@@ -42,8 +45,8 @@ import type {
   SnapshotContext,
   SnapshotSource,
   SnapshotStore,
-} from '../../core/types.js';
-import type { ActionStatus, PlannedAction } from '../../core/ascSync.js';
+} from '../../core/types/index.js';
+import type { ActionStatus, PlannedAction } from '../../core/store/ascSync.js';
 
 /** The literal `against` token that means "capture live state now and diff against it" rather than a saved name. */
 const LIVE = 'live';

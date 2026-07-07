@@ -4,9 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { listingPlanner } from './listing.js';
 import { makeAscApiFake } from '../../../testkit/ascApiFake.testkit.js';
-import type { AscCatalogApi } from '../../ascSync.js';
-import type { PlanContext, AppDescriptor, LaunchConfig } from '../../types.js';
-import type { AppleLocaleInfo } from '../../storeConfig.js';
+import type { AscCatalogApi } from '../../store/ascSync.js';
+import type { PlanContext, AppDescriptor, LaunchConfig } from '../../types/index.js';
+import type { AppleLocaleInfo } from '../../store/storeConfig.js';
 
 /** A fully-stubbed {@link AscCatalogApi}: reads default to "nothing exists yet", writes resolve to a created resource. */
 function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {

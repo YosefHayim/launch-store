@@ -4,7 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { customPagesPlanner } from './customPages.js';
 import { makeAscApiFake } from '../../../testkit/ascApiFake.testkit.js';
-import type { AscSurfacesApi, PlanContext, AppDescriptor, LaunchConfig } from '../../types.js';
+import type {
+  AscSurfacesApi,
+  PlanContext,
+  AppDescriptor,
+  LaunchConfig,
+} from '../../types/index.js';
 
 const ALPHA: AppDescriptor = {
   name: 'alpha',

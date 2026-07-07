@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { buildDashboardState, RECENT_ARTIFACT_LIMIT, type DashboardInputs } from './state.js';
-import { LAUNCH_HOME } from '../paths.js';
+import { LAUNCH_HOME } from '../services/paths.js';
 import type {
   AccountRecord,
   AppDescriptor,
   BuildArtifact,
   HostHandle,
   LaunchConfig,
-} from '../types.js';
+} from '../types/index.js';
 
 const NOW = new Date('2026-06-18T12:00:00.000Z');
 

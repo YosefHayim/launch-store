@@ -12,7 +12,12 @@
  * assert it still resolves in the live `launch` program — a renamed or removed command fails the build.
  */
 
-import type { BaseContext, ConsumerSkill, ContributorRule, ContributorSkill } from '../types.js';
+import type {
+  BaseContext,
+  ConsumerSkill,
+  ContributorRule,
+  ContributorSkill,
+} from '../types/index.js';
 
 /**
  * The always-on context every agent gets in a Launch repo. Derived from `AGENTS.md`, the README, and
@@ -639,12 +644,12 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
   {
     file: 'core-types',
     description: 'Editing the domain shapes or provider interfaces.',
-    globs: ['src/core/types.ts', 'src/core/types/*.ts', 'src/core/types/index.ts'],
+    globs: ['src/core/types/*.ts', 'src/core/types/index.ts'],
     alwaysApply: false,
     body: [
       'The types module — the `src/core/types/index.ts` barrel plus the `src/core/types/*.ts` modules it re-exports (split by concern: `app`, `catalog`, `storeSurface`, `config`, `credentials`, `artifacts`, `providers`, `remote`, `vitals`) — is the single source of truth for every domain shape and the five provider interfaces (`BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`).',
       '',
-      '- Add or change a shape in the matching `src/core/types/*.ts` module, never inline in a feature file — a change ripples through every provider and the pipeline, so plan the edit before writing code. The compatibility shim keeps `import type { … } from "../core/types.js"` working unchanged; don\'t add declarations to the barrel or shim.',
+      '- Add or change a shape in the matching `src/core/types/*.ts` module, never inline in a feature file — a change ripples through every provider and the pipeline, so plan the edit before writing code. `src/core/types/index.ts` is the wildcard barrel; do not add declarations to the barrel.',
       '- One exception: the App Store Connect `*Resource` / `*Query` wire types live in `src/apple/ascResources.ts` and are re-exported by `src/apple/ascClient.ts` for compatibility.',
     ].join('\n'),
   },
@@ -657,22 +662,22 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
     body: [
       'Adding a backend = implement one of the five interfaces from `src/core/types/index.ts` as a named object and register it in `src/providers/index.ts`.',
       '',
-      '- The pipeline resolves a provider by its `name` (the value users put in `launch.config.ts`), so you **never** edit `src/core/pipeline.ts` to add a backend.',
-      '- Lazy-load heavy / optional SDKs (AWS, the native keyring) through `requireOptional` in `src/core/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
+      '- The pipeline resolves a provider by its `name` (the value users put in `launch.config.ts`), so you **never** edit `src/core/build/pipeline.ts` to add a backend.',
+      '- Lazy-load heavy / optional SDKs (AWS, the native keyring) through `requireOptional` in `src/core/services/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
     ].join('\n'),
   },
   {
     file: 'exec-secrets',
     description: 'Running child processes or handling credentials / secrets.',
     globs: [
-      'src/core/exec.ts',
-      'src/core/keychain.ts',
-      'src/core/secretStore.ts',
-      'src/core/buildSecrets.ts',
+      'src/core/services/exec.ts',
+      'src/core/credentials/keychain.ts',
+      'src/core/credentials/secretStore.ts',
+      'src/core/build/buildSecrets.ts',
     ],
     alwaysApply: false,
     body: [
-      'All child processes go through `src/core/exec.ts` — `run` streams output, `capture` collects stdout — both with `shell: false` and an explicit argv array. Never build a shell string or call `spawn` / `exec` directly.',
+      'All child processes go through `src/core/services/exec.ts` — `run` streams output, `capture` collects stdout — both with `shell: false` and an explicit argv array. Never build a shell string or call `spawn` / `exec` directly.',
       '',
       "- Secrets (`.p8` / `.p12` / keystore / private keys) live in the OS keychain via the secret store; `~/.launch` holds non-secret paths and ids only. Don't log, write, or commit key material.",
     ].join('\n'),
@@ -719,8 +724,8 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
     steps: [
       'Pick one of the five interfaces in `src/core/types/index.ts`: `BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`.',
       'Implement it as a named object in `src/providers/<kind>/<name>.ts`, setting `name` to the value users put in `launch.config.ts`.',
-      'Register it in `src/providers/index.ts` (`registerBuiltins()`). The pipeline resolves a provider by its `name`, so you never edit `src/core/pipeline.ts` to add one.',
-      'Lazy-load any heavy or optional SDK through `requireOptional` in `src/core/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
+      'Register it in `src/providers/index.ts` (`registerBuiltins()`). The pipeline resolves a provider by its `name`, so you never edit `src/core/build/pipeline.ts` to add one.',
+      'Lazy-load any heavy or optional SDK through `requireOptional` in `src/core/services/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
       'Add a `*.test.ts` beside the provider, then run the gate (see the `run-the-gate` skill).',
     ],
     body: [
@@ -729,7 +734,7 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
       'See [AGENTS.md](../../../AGENTS.md) → “Adding a backend = implement an interface + register it” for the worked S3 example.',
     ].join('\n'),
     cautions: [
-      'All child processes go through `src/core/exec.ts` (`run` / `capture`, `shell: false`, explicit argv) — never build a shell string or call `spawn` / `exec` directly.',
+      'All child processes go through `src/core/services/exec.ts` (`run` / `capture`, `shell: false`, explicit argv) — never build a shell string or call `spawn` / `exec` directly.',
       "Secrets stay in the OS keychain; `~/.launch` holds non-secret paths and ids only. Don't log, write, or commit key material.",
     ],
   },
@@ -764,8 +769,8 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
       'adding teaching text for a new concept, step, or store term',
     ],
     steps: [
-      'Add the topic to `src/core/glossary.ts` — the single source for teaching text. It feeds both `launch explain` and the `--explain` step expansions; never duplicate the strings elsewhere.',
-      'Bump the topic count in `src/core/glossary.test.ts` (`expect(topics.length).toBe(N)`) by the number of topics you added, and add a `toContain(...)` assertion per new topic.',
+      'Add the topic to `src/core/terminal/glossary.ts` — the single source for teaching text. It feeds both `launch explain` and the `--explain` step expansions; never duplicate the strings elsewhere.',
+      'Bump the topic count in `src/core/terminal/glossary.test.ts` (`expect(topics.length).toBe(N)`) by the number of topics you added, and add a `toContain(...)` assertion per new topic.',
       'Run the gate.',
     ],
     body: [

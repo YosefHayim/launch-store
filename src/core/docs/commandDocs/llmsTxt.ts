@@ -6,22 +6,22 @@
 
 import { CANONICAL_SENTENCE, GENERATIVE_AI_FAQ, WHAT_LAUNCH_IS_BLOCK } from './content.js';
 import { renderFeaturesList } from './readme.js';
-import type { CommandSpec, DocStats } from '../../types.js';
+import type { CommandSpec, DocStats } from '../../types/index.js';
 
 /** Curated prose describing the EAS-parity pipeline, lifted verbatim into both llms files. */
 const PIPELINE_PROSE = `Launch runs the EAS pipeline locally: prebuild → resolve credentials → compile & sign → size-check → store → submit to the testing track (TestFlight / Play internal); \`launch release\` is the separate, confirmed public release. EAS → Launch mapping: \`eas build\` → \`launch build\`, \`eas submit\` → \`launch release\`, \`eas update\` → \`launch update\` (Expo Updates protocol, hosted on your own S3/R2/Supabase bucket, with \`launch updates rollback\`), \`eas metadata\` → \`launch metadata\` (iOS _and_ Android), \`eas credentials\` → \`launch creds\` (multi-account, keychain-stored, with an APNs push-key vault). Beyond parity it adds store config as code (\`launch sync\` reconciles IAPs, subscriptions, and capabilities onto App Store Connect), keychain-backed build secrets with a documented env-precedence ladder (\`launch secret\`), internal/ad-hoc distribution, build history and re-signing (\`launch builds\`, \`launch build:resign\`), native-failure diagnosis (\`launch diagnose\`), and no-Mac builds on your own AWS EC2 Mac or any Mac over SSH. Signing keys stay in the OS keychain (macOS Keychain, or the platform secret store elsewhere); storage, credentials, build engine, and submission are pluggable behind small interfaces. App facts come from each \`app.json\`, so nothing is duplicated. \`launch demo\` walks the whole flow as a zero-setup simulation.`;
 
 /** Curated "Source" link list, shared by both llms files; every link is asserted to resolve on disk. */
 const SOURCE_LINKS = `- [Domain types & provider interfaces](./src/core/types/index.ts): the single source of truth for Launch's vocabulary (incl. SecretStore, ComputeHost).
-- [Pipeline](./src/core/pipeline.ts): the build → submit spine, the shared \`prepareBuild\` front half, and the \`--dry-run\` rehearsal.
-- [Remote pipeline](./src/core/remotePipeline.ts): the C1–C7 host lifecycle for off-Mac builds; [EAS pipeline](./src/core/easPipeline.ts): the Expo handoff.
-- [AWS EC2 Mac host](./src/providers/compute/awsEc2Mac.ts): allocate/status/teardown + golden-AMI + \`cloud doctor\`; [SSH transport](./src/core/ssh.ts) and [remote build ops](./src/core/remoteBuild.ts).
-- [Glossary](./src/core/glossary.ts): plain-English term definitions shared by \`launch explain\` and the docs.
+- [Pipeline](./src/core/build/pipeline.ts): the build → submit spine, the shared \`prepareBuild\` front half, and the \`--dry-run\` rehearsal.
+- [Remote pipeline](./src/core/build/remotePipeline.ts): the C1–C7 host lifecycle for off-Mac builds; [EAS pipeline](./src/core/build/easPipeline.ts): the Expo handoff.
+- [AWS EC2 Mac host](./src/providers/compute/awsEc2Mac.ts): allocate/status/teardown + golden-AMI + \`cloud doctor\`; [SSH transport](./src/core/services/ssh.ts) and [remote build ops](./src/core/build/remoteBuild.ts).
+- [Glossary](./src/core/terminal/glossary.ts): plain-English term definitions shared by \`launch explain\` and the docs.
 - [App Store Connect resources](./src/apple/ascResources.ts): the App Store Connect \`*Resource\` / \`*Query\` wire types; [client](./src/apple/ascClient.ts): the Apple API transport (JWT auth, bundle ids, certs, profiles, builds).
-- [ASC product sync](./src/core/ascSync.ts): the declarative reconciler behind \`launch sync\` (capabilities, IAPs, subscriptions, pricing).
-- [Config preflight](./src/core/configCheck.ts): the app-config footgun validator run by \`launch doctor\` and at the head of \`launch build\`.
-- [Build secrets](./src/core/buildSecrets.ts): keychain-backed \`launch secret\` storage, injected through the [env-precedence ladder](./src/core/env.ts) shared by \`build\`, \`release\`, and \`update\`.
-- [Completion notifications](./src/core/notify.ts): the \`notify\` webhook + shell hook fired on build/submit completion.
+- [ASC product sync](./src/core/store/ascSync.ts): the declarative reconciler behind \`launch sync\` (capabilities, IAPs, subscriptions, pricing).
+- [Config preflight](./src/core/config/configCheck.ts): the app-config footgun validator run by \`launch doctor\` and at the head of \`launch build\`.
+- [Build secrets](./src/core/build/buildSecrets.ts): keychain-backed \`launch secret\` storage, injected through the [env-precedence ladder](./src/core/config/env.ts) shared by \`build\`, \`release\`, and \`update\`.
+- [Completion notifications](./src/core/services/notify.ts): the \`notify\` webhook + shell hook fired on build/submit completion.
 - [Public API](./src/index.ts): what a user's \`launch.config.ts\` imports (\`defineConfig\`, the \`products\` catalog, the \`notify\` config).`;
 
 /** Render one command as an `llms.txt` bullet (and its subcommands as nested bullets). */

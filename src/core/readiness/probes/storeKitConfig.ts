@@ -8,49 +8,80 @@
  */
 
 import { relative } from 'node:path';
-import type { AppReadiness, ProbeResult, ReadinessContext, ReadinessProbe } from '../../types.js';
+import { Effect } from 'effect';
+import type {
+  AppReadiness,
+  ProbeResult,
+  ReadinessContext,
+  ReadinessProbe,
+} from '../../types/index.js';
 import { walkAppSource } from '../sourceScan.js';
 import { declaredAppleProductIds } from './iapReadiness.js';
 
-/** The first `.storekit` configuration file under `appDir` (as a path relative to it), or null when none. */
-function findStoreKitConfig(appDir: string): string | null {
+/**
+ * Find the first `.storekit` configuration file under an app root.
+ *
+ * @param appDir - App source root to scan.
+ * @returns An Effect that succeeds with the first relative `.storekit` path, or null when none exists.
+ */
+function findStoreKitConfig(appDir: string): Effect.Effect<string | null> {
   let match: string | null = null;
-  walkAppSource(appDir, (filePath, ext) => {
-    if (ext !== '.storekit') return false;
-    match = relative(appDir, filePath);
-    return true;
-  });
-  return match;
+  return walkAppSource(appDir, (filePath, ext) =>
+    Effect.sync(() => {
+      if (ext !== '.storekit') return false;
+      match = relative(appDir, filePath);
+      return true;
+    }),
+  ).pipe(Effect.map(() => match));
 }
 
 /** The App Store Connect "StoreKit config file present for local testing" probe (local file scan). */
-export const storeKitConfigProbe: ReadinessProbe = {
+export const storeKitConfigProbe = {
   id: 'apple-storekit-config',
   title: 'StoreKit config file present',
   store: 'appstore',
   categories: ['iap'],
-  async check(ctx: ReadinessContext): Promise<ProbeResult> {
-    const apps = ctx.apps.flatMap((app) => {
-      const bundleId = app.bundleId;
-      if (!bundleId) return [];
-      const declaresProducts = declaredAppleProductIds(ctx.config.products?.[bundleId]).length > 0;
-      return declaresProducts ? [{ name: app.name, identifier: bundleId, dir: app.dir }] : [];
-    });
-    if (apps.length === 0) return { state: 'omitted' };
+  /**
+   * Verify that each product-selling iOS app has a local StoreKit config file.
+   *
+   * @param readinessContext - Loaded config and selected apps for the readiness run.
+   * @returns An Effect that succeeds with one StoreKit-config finding per in-scope app.
+   */
+  check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult> {
+    return Effect.gen(function* () {
+      const apps = readinessContext.apps.flatMap((app) => {
+        const bundleId = app.bundleId;
+        if (!bundleId) return [];
+        const declaresProducts =
+          declaredAppleProductIds(readinessContext.config.products?.[bundleId]).length > 0;
+        return declaresProducts ? [{ name: app.name, identifier: bundleId, dir: app.dir }] : [];
+      });
+      if (apps.length === 0) return { state: 'omitted' };
 
-    const results: AppReadiness[] = apps.map(({ name, identifier, dir }) => {
-      const file = findStoreKitConfig(dir);
-      if (file) {
-        return { app: name, identifier, status: 'ok', detail: `StoreKit config present (${file})` };
-      }
-      return {
-        app: name,
-        identifier,
-        status: 'warn',
-        detail: 'no .storekit configuration file found',
-        hint: 'add a StoreKit configuration file in Xcode to test purchases on the simulator before submitting',
-      };
+      const results: AppReadiness[] = yield* Effect.forEach(
+        apps,
+        ({ name, identifier, dir }) =>
+          Effect.gen(function* () {
+            const file = yield* findStoreKitConfig(dir);
+            if (file) {
+              return {
+                app: name,
+                identifier,
+                status: 'ok' as const,
+                detail: `StoreKit config present (${file})`,
+              };
+            }
+            return {
+              app: name,
+              identifier,
+              status: 'warn' as const,
+              detail: 'no .storekit configuration file found',
+              hint: 'add a StoreKit configuration file in Xcode to test purchases on the simulator before submitting',
+            };
+          }),
+        { concurrency: 'unbounded' },
+      );
+      return { state: 'checked', apps: results };
     });
-    return { state: 'checked', apps: results };
   },
-};
+} satisfies ReadinessProbe;

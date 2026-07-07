@@ -35,10 +35,10 @@ import {
   renderWindsurfTaskRule,
   spliceManagedBlock,
 } from '../../core/agents/render.js';
-import type { AgentTarget } from '../../core/types.js';
+import type { AgentTarget } from '../../core/types/index.js';
 import { findUnknownCommands } from '../../core/agents/validate.js';
 import { clientConfigPath, installServer, type McpClient } from '../../core/mcp/install.js';
-import { createLogger } from '../../core/logger.js';
+import { createLogger } from '../../core/services/logger.js';
 
 const log = createLogger(false);
 

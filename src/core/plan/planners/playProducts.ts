@@ -10,7 +10,7 @@
  * nothing to this surface.
  */
 
-import { reconcilePlayProducts, type PlayProductsApi } from '../../playProducts.js';
+import { reconcilePlayProducts, type PlayProductsApi } from '../../store/playProducts.js';
 import type {
   AppDescriptor,
   InAppPurchaseConfig,
@@ -19,7 +19,7 @@ import type {
   PlanContext,
   SurfacePlan,
   SurfacePlanner,
-} from '../../types.js';
+} from '../../types/index.js';
 
 /** Surface id — also the value users pass as `launch plan play-products`. */
 const SURFACE = 'play-products';

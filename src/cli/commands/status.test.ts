@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formatStatusLine, selectIosApps, worstExitCode } from './status.js';
-import { classifyVerdict, type ReleaseStatus } from '../../core/appStoreRelease.js';
-import type { AppDescriptor } from '../../core/types.js';
+import { classifyVerdict, type ReleaseStatus } from '../../core/release/appStoreRelease.js';
+import type { AppDescriptor } from '../../core/types/index.js';
 
 function status(over: Partial<ReleaseStatus> = {}): ReleaseStatus {
   const base: ReleaseStatus = {

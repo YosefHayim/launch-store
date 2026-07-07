@@ -7,16 +7,16 @@
  */
 
 import type { Command } from 'commander';
-import { loadConfig } from '../../core/config.js';
-import { createLogger } from '../../core/logger.js';
-import { loadActiveAscKey } from '../../core/accounts.js';
+import { loadConfig } from '../../core/config/config.js';
+import { createLogger } from '../../core/services/logger.js';
+import { loadActiveAscKey } from '../../core/credentials/accounts.js';
 import { AppStoreConnectClient } from '../../apple/ascClient.js';
 import {
   appRecordMissingMessage,
   IOS_PLATFORM,
   pickCurrentVersion,
-} from '../../core/appStoreRelease.js';
-import { notify } from '../../core/notify.js';
+} from '../../core/release/appStoreRelease.js';
+import { notify } from '../../core/services/notify.js';
 import { selectIosApps } from './status.js';
 
 /** CLI options for `launch rollout`. */

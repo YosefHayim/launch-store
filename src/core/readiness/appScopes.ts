@@ -7,7 +7,7 @@
  * guards and non-null assertions.
  */
 
-import type { AppDescriptor } from '../types.js';
+import type { AppDescriptor } from '../types/index.js';
 
 /** An app scoped to one store, with the relevant identifier guaranteed present. */
 export interface ScopedApp {
@@ -17,14 +17,24 @@ export interface ScopedApp {
   identifier: string;
 }
 
-/** The apps that declare an iOS bundle id, paired with it (the App Store probes' scope). */
+/**
+ * Select apps that declare an iOS bundle id, paired with that store identifier.
+ *
+ * @param apps - Discovered app descriptors from the loaded Launch config.
+ * @returns App Store-scoped descriptors with a guaranteed identifier.
+ */
 export function iosApps(apps: AppDescriptor[]): ScopedApp[] {
   return apps.flatMap((app) =>
     app.bundleId ? [{ name: app.name, identifier: app.bundleId }] : [],
   );
 }
 
-/** The apps that declare an Android package name, paired with it (the Google Play probes' scope). */
+/**
+ * Select apps that declare an Android package name, paired with that store identifier.
+ *
+ * @param apps - Discovered app descriptors from the loaded Launch config.
+ * @returns Google Play-scoped descriptors with a guaranteed identifier.
+ */
 export function androidApps(apps: AppDescriptor[]): ScopedApp[] {
   return apps.flatMap((app) =>
     app.packageName ? [{ name: app.name, identifier: app.packageName }] : [],

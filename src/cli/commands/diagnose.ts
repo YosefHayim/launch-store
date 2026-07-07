@@ -11,9 +11,9 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Command } from 'commander';
-import { LOGS_DIR } from '../../core/paths.js';
-import { diagnoseBuildLog, formatDiagnoses } from '../../core/buildDiagnostics.js';
-import { createLogger } from '../../core/logger.js';
+import { LOGS_DIR } from '../../core/services/paths.js';
+import { diagnoseBuildLog, formatDiagnoses } from '../../core/build/buildDiagnostics.js';
+import { createLogger } from '../../core/services/logger.js';
 
 const log = createLogger(false);
 

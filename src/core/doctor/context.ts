@@ -13,13 +13,13 @@
  * status as an injected thunk).
  */
 
-import { capture, exists } from '../exec.js';
-import { hostOs } from '../os.js';
-import { loadConfig } from '../config.js';
-import { createAscClientResolver, createPlayClientResolver } from '../storeClients.js';
-import { selectApps } from '../syncJobs.js';
+import { capture, exists } from '../services/exec.js';
+import { hostOs } from '../services/os.js';
+import { loadConfig } from '../config/config.js';
+import { createAscClientResolver, createPlayClientResolver } from '../store/storeClients.js';
+import { selectApps } from '../store/syncJobs.js';
 import { localCredentialsProvider } from '../../providers/credentials/local.js';
-import type { DoctorContext, DoctorPlatform } from '../types.js';
+import type { DoctorContext, DoctorPlatform } from '../types/index.js';
 
 /**
  * Build the production {@link DoctorContext} for a platform. The store resolvers' concrete clients

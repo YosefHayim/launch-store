@@ -16,13 +16,13 @@ import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Command } from 'commander';
-import type { Platform } from '../../core/types.js';
-import { isApplePlatform, parsePlatform, platformLabel } from '../../core/platform.js';
-import { loadConfig } from '../../core/config.js';
-import { selectApp } from '../../core/pipeline.js';
-import { createLogger } from '../../core/logger.js';
-import { run } from '../../core/exec.js';
-import { loadActiveAscKey } from '../../core/accounts.js';
+import type { Platform } from '../../core/types/index.js';
+import { isApplePlatform, parsePlatform, platformLabel } from '../../core/services/platform.js';
+import { loadConfig } from '../../core/config/config.js';
+import { selectApp } from '../../core/build/pipeline.js';
+import { createLogger } from '../../core/services/logger.js';
+import { run } from '../../core/services/exec.js';
+import { loadActiveAscKey } from '../../core/credentials/accounts.js';
 import { loadServiceAccount } from '../../google/credentials.js';
 import { writeAscApiKeyFile } from '../../apple/apiKeyFile.js';
 import {
@@ -33,7 +33,7 @@ import {
   writeAndroidMetadataDir,
   writeAppleMetadataDir,
   type StoreConfig,
-} from '../../core/storeConfig.js';
+} from '../../core/store/storeConfig.js';
 
 /** Shared options for both `pull` and `push`. */
 interface MetadataOptions {

@@ -9,7 +9,7 @@
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { AscKey } from '../core/types.js';
+import type { AscKey } from '../core/types/index.js';
 
 /** Write `ascKey` in fastlane's `--api_key_path` JSON shape to a fresh temp file; returns its path. */
 export function writeAscApiKeyFile(ascKey: AscKey): string {

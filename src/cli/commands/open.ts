@@ -14,8 +14,8 @@ import {
   openUrl,
   resolveOpenUrl,
   type OpenUrlOptions,
-} from '../../core/consoleLinks.js';
-import { createLogger } from '../../core/logger.js';
+} from '../../core/terminal/consoleLinks.js';
+import { createLogger } from '../../core/services/logger.js';
 
 const log = createLogger(false);
 

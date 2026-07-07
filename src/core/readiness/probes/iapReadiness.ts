@@ -8,23 +8,47 @@
  * identically and a change to the config shape lands once.
  */
 
-import type { AppProducts, ReadinessContext } from '../../types.js';
+import type { AppProducts, ReadinessContext } from '../../types/index.js';
 
-/** The Apple in-app-purchase product ids an app declares in `launch.config.ts` (empty when it sells none). */
-export function declaredIapIds(ctx: ReadinessContext, bundleId: string): string[] {
-  return (ctx.config.products?.[bundleId]?.inAppPurchases ?? []).map((iap) => iap.productId);
+/**
+ * Read the Apple in-app-purchase product ids an app declares in `launch.config.ts`.
+ *
+ * @param readinessContext - Loaded config and selected app scope for the readiness run.
+ * @param bundleId - iOS bundle id whose product declarations should be read.
+ * @returns Declared one-time in-app-purchase product ids, or an empty array when none exist.
+ */
+export function declaredIapIds(readinessContext: ReadinessContext, bundleId: string): string[] {
+  return (readinessContext.config.products?.[bundleId]?.inAppPurchases ?? []).map(
+    (inAppPurchase) => inAppPurchase.productId,
+  );
 }
 
-/** The Apple subscription product ids an app declares, flattened across all its subscription groups. */
-export function declaredSubscriptionIds(ctx: ReadinessContext, bundleId: string): string[] {
-  const groups = ctx.config.products?.[bundleId]?.subscriptionGroups ?? [];
+/**
+ * Read the Apple subscription product ids an app declares across all subscription groups.
+ *
+ * @param readinessContext - Loaded config and selected app scope for the readiness run.
+ * @param bundleId - iOS bundle id whose subscription declarations should be read.
+ * @returns Declared subscription product ids, flattened across groups.
+ */
+export function declaredSubscriptionIds(
+  readinessContext: ReadinessContext,
+  bundleId: string,
+): string[] {
+  const groups = readinessContext.config.products?.[bundleId]?.subscriptionGroups ?? [];
   return groups.flatMap((group) => group.subscriptions.map((sub) => sub.productId));
 }
 
-/** Whether an app declares any monetization (one-time IAPs or subscriptions) — the IAP probes' scope gate. */
-export function sellsProducts(ctx: ReadinessContext, bundleId: string): boolean {
+/**
+ * Check whether an app declares any Apple monetization.
+ *
+ * @param readinessContext - Loaded config and selected app scope for the readiness run.
+ * @param bundleId - iOS bundle id whose catalog declarations should be inspected.
+ * @returns True when the app declares at least one in-app purchase or subscription.
+ */
+export function sellsProducts(readinessContext: ReadinessContext, bundleId: string): boolean {
   return (
-    declaredIapIds(ctx, bundleId).length > 0 || declaredSubscriptionIds(ctx, bundleId).length > 0
+    declaredIapIds(readinessContext, bundleId).length > 0 ||
+    declaredSubscriptionIds(readinessContext, bundleId).length > 0
   );
 }
 
@@ -33,6 +57,9 @@ export function sellsProducts(ctx: ReadinessContext, bundleId: string): boolean 
  * of its subscription groups. The file-based IAP probes (`apple-iap-code-reference`, `apple-storekit-config`)
  * ask their question of the whole catalog, so they share this flattening rather than each re-walking the
  * `inAppPurchases` + `subscriptionGroups` shape. Returns `[]` when the app declares no products.
+ *
+ * @param products - Product catalog for one app from `launch.config.ts`.
+ * @returns Every declared Apple product id in that catalog.
  */
 export function declaredAppleProductIds(products: AppProducts | undefined): string[] {
   if (!products) return [];
@@ -65,6 +92,7 @@ export interface ProductGrade {
  * @param productId Apple product id the config declares — used verbatim in the human-readable detail.
  * @param live      The matching live product (by `productId`), or `undefined` when it doesn't exist yet.
  * @param kind      Whether this is an in-app purchase or a subscription, for accurate copy.
+ * @returns The readiness status and operator-facing detail for the declared product.
  */
 export function gradeDeclaredProduct(
   productId: string,

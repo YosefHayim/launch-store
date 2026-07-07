@@ -10,15 +10,15 @@
 
 import type { Command } from 'commander';
 import { cancel, isCancel, password } from '@clack/prompts';
-import { loadConfig } from '../../core/config.js';
-import { selectApp } from '../../core/pipeline.js';
+import { loadConfig } from '../../core/config/config.js';
+import { selectApp } from '../../core/build/pipeline.js';
 import {
   listSecretRefs,
   removeBuildSecret,
   setBuildSecret,
   type SecretRef,
-} from '../../core/buildSecrets.js';
-import { createLogger } from '../../core/logger.js';
+} from '../../core/build/buildSecrets.js';
+import { createLogger } from '../../core/services/logger.js';
 
 const log = createLogger(false);
 

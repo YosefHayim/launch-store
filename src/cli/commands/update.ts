@@ -14,17 +14,20 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Command } from 'commander';
-import type { AppDescriptor } from '../../core/types.js';
-import { loadConfig } from '../../core/config.js';
-import { resolveCommandEnv, selectApp, validateResolvedEnv } from '../../core/pipeline.js';
-import { formatEnvTable } from '../../core/env.js';
+import type { AppDescriptor } from '../../core/types/index.js';
+import { loadConfig } from '../../core/config/config.js';
+import { resolveCommandEnv, selectApp, validateResolvedEnv } from '../../core/build/pipeline.js';
+import { formatEnvTable } from '../../core/config/env.js';
 import { addEnvFlags, envOverrides, type EnvFlags } from '../options.js';
-import { createLogger, type Logger } from '../../core/logger.js';
-import { runWithProgress } from '../../core/progress.js';
-import { isCloudStorage, resolveStorageProvider } from '../../core/storage.js';
-import { ensureCodeSigner } from '../../core/codeSign.js';
-import { updatesAppConfigSnippet, updatesWorkerScript } from '../../core/otaManifest.js';
-import { publishOtaPlatform, readExportMetadata } from '../../core/otaPublish.js';
+import { createLogger, type Logger } from '../../core/services/logger.js';
+import { runWithProgress } from '../../core/services/progress.js';
+import { isCloudStorage, resolveStorageProvider } from '../../core/distribution/storage.js';
+import { ensureCodeSigner } from '../../core/credentials/codeSign.js';
+import {
+  updatesAppConfigSnippet,
+  updatesWorkerScript,
+} from '../../core/distribution/otaManifest.js';
+import { publishOtaPlatform, readExportMetadata } from '../../core/distribution/otaPublish.js';
 
 interface UpdateOptions extends EnvFlags {
   channel: string;

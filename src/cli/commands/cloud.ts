@@ -9,12 +9,12 @@
 
 import type { Command } from 'commander';
 import { cancel, confirm, isCancel } from '@clack/prompts';
-import { loadConfig } from '../../core/config.js';
-import { getComputeHost } from '../../core/registry.js';
-import { clearLiveHost, getAmiId, getLiveHost } from '../../core/cloudState.js';
-import { costBanner, formatAge, isReleasable, releasableAt, usd } from '../../core/cost.js';
+import { loadConfig } from '../../core/config/config.js';
+import { getComputeHost } from '../../core/services/registry.js';
+import { clearLiveHost, getAmiId, getLiveHost } from '../../core/distribution/cloudState.js';
+import { costBanner, formatAge, isReleasable, releasableAt, usd } from '../../core/build/cost.js';
 import { runCloudDoctor } from '../../providers/compute/awsEc2Mac.js';
-import { createLogger } from '../../core/logger.js';
+import { createLogger } from '../../core/services/logger.js';
 
 const log = createLogger(false);
 

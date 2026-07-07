@@ -7,10 +7,13 @@
  * it speak in its own voice; {@link renderReadinessOutcome} owns the terminal rendering it shares.
  */
 
-import { loadConfig } from '../../core/config.js';
-import { createLogger } from '../../core/logger.js';
-import type { Logger } from '../../core/logger.js';
-import { createAscClientResolver, createPlayClientResolver } from '../../core/storeClients.js';
+import { loadConfig } from '../../core/config/config.js';
+import { createLogger } from '../../core/services/logger.js';
+import type { Logger } from '../../core/services/logger.js';
+import {
+  createAscClientResolver,
+  createPlayClientResolver,
+} from '../../core/store/storeClients.js';
 import { READINESS_EXIT, runProbes } from '../../core/readiness/orchestrator.js';
 import { registerBuiltinProbes, selectReadinessProbes } from '../../core/readiness/registry.js';
 import type {
@@ -19,8 +22,9 @@ import type {
   ReadinessContext,
   ReadinessOutcome,
   ReadinessStore,
-} from '../../core/types.js';
-import { selectApps } from '../../core/syncJobs.js';
+} from '../../core/types/index.js';
+import { selectApps } from '../../core/store/syncJobs.js';
+import { Effect } from 'effect';
 
 /** The two strings a command supplies so a shared render reads in that command's voice. */
 export interface ReadinessReportLabels {
@@ -122,7 +126,7 @@ export async function runReadinessCommand(input: RunReadinessCommandInput): Prom
     resolvePlayApi: createPlayClientResolver(),
   };
 
-  const outcome = await runProbes(ctx, selectReadinessProbes(input.category));
+  const outcome = await Effect.runPromise(runProbes(ctx, selectReadinessProbes(input.category)));
 
   if (input.json === true) log.line(JSON.stringify(outcome, null, 2));
   else renderReadinessOutcome(log, outcome, input.labels);

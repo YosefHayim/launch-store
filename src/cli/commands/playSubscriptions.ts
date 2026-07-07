@@ -12,17 +12,17 @@
 
 import { cancel, confirm, isCancel } from '@clack/prompts';
 import type { Command } from 'commander';
-import type { SubscriptionConfig } from '../../core/types.js';
-import type { PlannedAction } from '../../core/ascSync.js';
+import type { SubscriptionConfig } from '../../core/types/index.js';
+import type { PlannedAction } from '../../core/store/ascSync.js';
 import { GooglePlayClient, parseServiceAccount } from '../../google/playClient.js';
 import { loadServiceAccount } from '../../google/credentials.js';
-import { loadConfig } from '../../core/config.js';
-import { selectApp } from '../../core/pipeline.js';
-import { createLogger } from '../../core/logger.js';
+import { loadConfig } from '../../core/config/config.js';
+import { selectApp } from '../../core/build/pipeline.js';
+import { createLogger } from '../../core/services/logger.js';
 import {
   reconcilePlaySubscriptions,
   summarizePlaySubscriptions,
-} from '../../core/playSubscriptions.js';
+} from '../../core/store/playSubscriptions.js';
 
 /** CLI options for `launch play-subscriptions`. */
 interface PlaySubscriptionsOptions {

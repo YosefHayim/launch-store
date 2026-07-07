@@ -15,11 +15,11 @@ import { existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { cancel, confirm, isCancel } from '@clack/prompts';
 import type { Command } from 'commander';
-import type { AppDescriptor, Fidelity } from '../../core/types.js';
-import { loadConfig } from '../../core/config.js';
-import { createLogger } from '../../core/logger.js';
-import { detectAppRoot } from '../../core/configScaffold.js';
-import { loadActiveAscKey } from '../../core/accounts.js';
+import type { AppDescriptor, Fidelity } from '../../core/types/index.js';
+import { loadConfig } from '../../core/config/config.js';
+import { createLogger } from '../../core/services/logger.js';
+import { detectAppRoot } from '../../core/config/configScaffold.js';
+import { loadActiveAscKey } from '../../core/credentials/accounts.js';
 import { AppStoreConnectClient } from '../../apple/ascClient.js';
 import { registerBuiltinAdopters, listAdopters } from '../../core/adopt/registry.js';
 import {

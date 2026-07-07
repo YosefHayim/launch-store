@@ -12,7 +12,7 @@ import type {
   ResolvedBuildContext,
   Submitter,
   SubmitTarget,
-} from '../../core/types.js';
+} from '../../core/types/index.js';
 import { easSubmit } from '../build/eas.js';
 
 export const easSubmitter: Submitter = {

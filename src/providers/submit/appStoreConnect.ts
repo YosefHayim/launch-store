@@ -16,8 +16,8 @@ import type {
   ResolvedBuildContext,
   Submitter,
   SubmitTarget,
-} from '../../core/types.js';
-import { run } from '../../core/exec.js';
+} from '../../core/types/index.js';
+import { run } from '../../core/services/exec.js';
 import { writeAscApiKeyFile } from '../../apple/apiKeyFile.js';
 
 export const appStoreConnectSubmitter: Submitter = {

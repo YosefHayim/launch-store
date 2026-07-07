@@ -10,7 +10,7 @@
  * A factory (not a singleton) because the base directory is per-project: `core/storage.ts` resolves
  * `artifactDir` and builds the provider bound to it, mirroring the `s3` factory. The history index stays
  * GLOBAL (`~/.launch/artifacts/index.json`, absolute paths) — read/written via
- * {@link import("../../core/artifactRetention.js")}, shared with the retention sweep so both agree on the
+ * {@link import("../../core/build/artifactRetention.js")}, shared with the retention sweep so both agree on the
  * on-disk format — so `dashboard`/list/retention work across projects no matter where the binaries land.
  * `prune` here is the only provider that implements it (cloud stores trim via their own bucket lifecycle).
  */
@@ -24,13 +24,13 @@ import type {
   PruneResult,
   StorageProvider,
   StoredArtifact,
-} from '../../core/types.js';
-import { ARTIFACTS_DIR, ensureDir } from '../../core/paths.js';
+} from '../../core/types/index.js';
+import { ARTIFACTS_DIR, ensureDir } from '../../core/services/paths.js';
 import {
   readArtifactIndex,
   runArtifactPrune,
   writeArtifactIndex,
-} from '../../core/artifactRetention.js';
+} from '../../core/build/artifactRetention.js';
 
 /**
  * Build a `local` {@link StorageProvider} that writes binaries (and raw objects under `<baseDir>/objects`)

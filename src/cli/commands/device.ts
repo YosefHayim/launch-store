@@ -8,9 +8,9 @@
  */
 
 import type { Command } from 'commander';
-import { loadActiveAscKey } from '../../core/accounts.js';
+import { loadActiveAscKey } from '../../core/credentials/accounts.js';
 import { AppStoreConnectClient } from '../../apple/ascClient.js';
-import { createLogger } from '../../core/logger.js';
+import { createLogger } from '../../core/services/logger.js';
 
 const log = createLogger(false);
 

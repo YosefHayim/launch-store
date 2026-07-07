@@ -16,10 +16,10 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { SignJWT, importPKCS8 } from 'jose';
-import type { AscKey } from '../core/types.js';
+import type { AscKey } from '../core/types/index.js';
 import type { components } from '../core/asc/schema.js';
-import { highestVersion } from '../core/version.js';
-import { withRetry } from '../core/asyncPool.js';
+import { highestVersion } from '../core/release/version.js';
+import { withRetry } from '../core/build/asyncPool.js';
 import type {
   AccessibilityDeclarationResource,
   AccessibilitySupport,

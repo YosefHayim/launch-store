@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { capture } from '../core/exec.js';
+import { capture } from '../core/services/exec.js';
 
 /** Absolute path to the built CLI this suite exercises — `<root>/dist/cli/index.js`. */
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'dist', 'cli', 'index.js');

@@ -15,7 +15,7 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { Command } from 'commander';
-import { createLogger, type Logger } from '../../core/logger.js';
+import { createLogger, type Logger } from '../../core/services/logger.js';
 import { READINESS_EXIT } from '../../core/readiness/orchestrator.js';
 import { gatherDashboardState } from '../../core/dashboard/state.js';
 import { renderDashboardHtml } from '../../core/dashboard/render.js';

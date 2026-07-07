@@ -11,14 +11,14 @@
  * as `planned` and no write closure fires (see `docs/adr/0003-plan-drift.md`).
  */
 
-import type { PlannedAction } from '../../ascSync.js';
+import type { PlannedAction } from '../../store/ascSync.js';
 import type {
   AppPlan,
   AscSurfacesApi,
   PlanContext,
   PlanDirection,
   SurfacePlan,
-} from '../../types.js';
+} from '../../types/index.js';
 
 /**
  * How one per-app App Store surface plans itself.

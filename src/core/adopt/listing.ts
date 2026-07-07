@@ -10,7 +10,7 @@
  */
 
 import { join } from 'node:path';
-import type { Adopter, AdoptCatalogApi, AdoptTarget, PlannedWrite } from '../types.js';
+import type { Adopter, AdoptCatalogApi, AdoptTarget, PlannedWrite } from '../types/index.js';
 
 /** Plan the single `store.config.json` listing-pull write for an app (applied via the metadata-pull delegate). */
 export const listingAdopter: Adopter = {

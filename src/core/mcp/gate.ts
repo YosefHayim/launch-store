@@ -9,7 +9,7 @@
  * place that decision is made, so both the server and a test grade it identically.
  */
 
-import type { LaunchConfig, McpCapability, McpTool } from '../types.js';
+import type { LaunchConfig, McpCapability, McpTool } from '../types/index.js';
 
 /** The default when `mcp.capabilities` is absent or empty: read-only, the safest exposure. */
 const DEFAULT_CAPABILITIES: readonly McpCapability[] = ['read'];

@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { capture } from '../exec.js';
+import { Effect } from 'effect';
+import { capture } from '../services/exec.js';
 import { extractProfileEntitlements } from './profileEntitlements.js';
 
-vi.mock('../os.js', () => ({ isMac: () => true }));
-vi.mock('../exec.js', () => ({ capture: vi.fn() }));
+vi.mock('../services/os.js', () => ({ isMac: () => true }));
+vi.mock('../services/exec.js', () => ({ capture: vi.fn() }));
 
 const captureMock = vi.mocked(capture);
 
@@ -30,7 +31,7 @@ describe('extractProfileEntitlements', () => {
   it("returns null for content that isn't a decodable provisioning profile (or off-Mac)", async () => {
     captureMock.mockRejectedValueOnce(new Error('security cms failed'));
 
-    expect(await extractProfileEntitlements('bm90LWEtcHJvZmlsZQ==')).toBeNull();
+    expect(await Effect.runPromise(extractProfileEntitlements('bm90LWEtcHJvZmlsZQ=='))).toBeNull();
   });
 
   it('extracts Entitlements as xml1 before converting the sub-plist to JSON', async () => {
@@ -43,7 +44,7 @@ describe('extractProfileEntitlements', () => {
         JSON.stringify({ 'com.apple.security.application-groups': ['group.com.acme.app'] }),
       );
 
-    await expect(extractProfileEntitlements('cHJvZmlsZQ==')).resolves.toEqual({
+    await expect(Effect.runPromise(extractProfileEntitlements('cHJvZmlsZQ=='))).resolves.toEqual({
       'com.apple.security.application-groups': ['group.com.acme.app'],
     });
 

@@ -11,11 +11,11 @@
  */
 
 import type { Command } from 'commander';
-import { createLogger } from '../../core/logger.js';
-import { parsePlatform } from '../../core/platform.js';
-import { isInteractive } from '../../core/progress.js';
-import { runTour } from '../../core/tour.js';
-import type { Platform } from '../../core/types.js';
+import { createLogger } from '../../core/services/logger.js';
+import { parsePlatform } from '../../core/services/platform.js';
+import { isInteractive } from '../../core/services/progress.js';
+import { runTour } from '../../core/terminal/tour.js';
+import type { Platform } from '../../core/types/index.js';
 import { promptTourPlatform } from './wizard.js';
 
 /**

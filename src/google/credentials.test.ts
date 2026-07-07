@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { store } = vi.hoisted(() => ({ store: new Map<string, string>() }));
 
-vi.mock('../core/keychain.js', () => ({
+vi.mock('../core/credentials/keychain.js', () => ({
   setSecret: async (account: string, value: string): Promise<void> => {
     store.set(account, value);
   },

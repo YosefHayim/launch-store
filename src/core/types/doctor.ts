@@ -11,11 +11,11 @@
  * query) are injected via {@link DoctorContext} so the inspection is faked in tests with no network.
  *
  * These types describe the doctor *mechanism* and its report. Like every domain shape they live in the
- * `core/types/` barrel (imported via `core/types.js`); the checks and `inspectDoctor` that produce a
- * report stay in `core/doctor/`.
+ * `core/types/` barrel (imported via `core/types/index.js`); the checks and `inspectDoctor` that
+ * produce a report stay in `core/doctor/`.
  */
 
-import type { AscPermissionProbeApi } from '../ascPermissions.js';
+import type { AscPermissionProbeApi } from '../store/ascPermissions.js';
 import type { AppDescriptor } from './app.js';
 import type { LaunchConfig } from './config.js';
 import type { HostOs } from './remote.js';

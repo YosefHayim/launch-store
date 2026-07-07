@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { AppDescriptor, LaunchConfig } from '../../core/types.js';
-import type { LastFlow } from '../../core/lastRun.js';
+import type { AppDescriptor, LaunchConfig } from '../../core/types/index.js';
+import type { LastFlow } from '../../core/distribution/lastRun.js';
 import {
   flowInvalidReason,
   formatFlowSummary,
   profileBudgetMB,
   validateCustomBudget,
 } from './wizard.js';
-import { DEFAULT_SIZE_BUDGET_MB } from '../../core/pipeline.js';
+import { DEFAULT_SIZE_BUDGET_MB } from '../../core/build/pipeline.js';
 
 /** A minimal valid {@link LaunchConfig} with the given profile names (each a bare profile). */
 function configWith(profileNames: string[]): LaunchConfig {
