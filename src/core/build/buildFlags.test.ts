@@ -19,7 +19,7 @@ const BASE_GYM: Omit<GymArgsInput, 'buildDestination'> = {
   outputDir: '/tmp/out',
   outputName: 'MyApp.ipa',
   exportOptionsPath: '/tmp/out/ExportOptions.plist',
-  signing: { teamId: 'ABCDE12345', profileName: 'Launch_AppStore', certName: 'Apple Distribution' },
+  signing: { teamId: 'ABCDE12345', certName: 'Apple Distribution' },
   parallelJobLimit: 6,
   shouldCleanBuild: false,
 };
@@ -72,55 +72,32 @@ describe('buildExtraXcargs — always-on headless tuning', () => {
   });
 });
 
-describe('buildSigningXcargs — manual signing + the shared extras', () => {
-  it('carries the resolved team/profile and the headless tuning', () => {
-    const xcargs = Effect.runSync(
-      buildSigningXcargs({ teamId: 'ABCDE12345', profileName: 'Launch_AppStore' }, 6),
-    );
+describe('buildSigningXcargs — workspace-safe signing + the shared extras', () => {
+  it('carries the team and manual style plus the headless tuning', () => {
+    const xcargs = Effect.runSync(buildSigningXcargs({ teamId: 'ABCDE12345' }, 6));
     expect(xcargs).toContain('DEVELOPMENT_TEAM=ABCDE12345');
     expect(xcargs).toContain('CODE_SIGN_STYLE=Manual');
-    expect(xcargs).toContain('PROVISIONING_PROFILE_SPECIFIER=Launch_AppStore');
     expect(xcargs).toContain('COMPILER_INDEX_STORE_ENABLE=NO');
     expect(xcargs).toContain('-jobs 6');
   });
 
-  it('drops the global provisioning-profile specifier when the app has extension targets', () => {
-    // A command-line PROVISIONING_PROFILE_SPECIFIER applies to EVERY target, so pinning the main app's
-    // profile would clobber the widget/extension bundle and fail the archive (exit 65). With extensions
-    // present it's dropped — per-target profiles come from the project + the export plist (issue #262) —
-    // while the team + manual style stay global.
-    const xcargs = Effect.runSync(
-      buildSigningXcargs(
-        {
-          teamId: 'ABCDE12345',
-          profileName: 'Launch_AppStore',
-          extensionProfiles: { 'com.acme.app.widget': 'Launch_Widget_AppStore' },
-        },
-        6,
-      ),
-    );
+  it('never emits a global PROVISIONING_PROFILE_SPECIFIER — it leaks onto Pods and fails Xcode 26 (#301)', () => {
+    // A command-line specifier applies to EVERY workspace target, including the CocoaPods library targets
+    // that can't carry a profile — on Xcode 26 that's a hard "does not support provisioning profiles"
+    // archive failure (exit 65), and it would also clobber an extension's own bundle. The app's profile is
+    // stamped into the app target's pbxproj instead (see appleTargets.writeManualSigningToProject), so the
+    // specifier must never appear in the shared xcargs, single-target or not.
+    const xcargs = Effect.runSync(buildSigningXcargs({ teamId: 'ABCDE12345' }, 6));
     expect(xcargs).not.toContain('PROVISIONING_PROFILE_SPECIFIER');
-    expect(xcargs).toContain('DEVELOPMENT_TEAM=ABCDE12345');
-    expect(xcargs).toContain('CODE_SIGN_STYLE=Manual');
-    expect(xcargs).toContain('COMPILER_INDEX_STORE_ENABLE=NO');
-    expect(xcargs).toContain('-jobs 6');
-  });
-
-  it('still pins the profile when extensionProfiles is present but empty (no real extensions)', () => {
-    const xcargs = Effect.runSync(
-      buildSigningXcargs(
-        { teamId: 'ABCDE12345', profileName: 'Launch_AppStore', extensionProfiles: {} },
-        6,
-      ),
-    );
-    expect(xcargs).toContain('PROVISIONING_PROFILE_SPECIFIER=Launch_AppStore');
   });
 });
 
-describe('assembleGymArguments — one source for the gym argv; iOS stays byte-identical', () => {
-  it('emits the EXACT historical iOS vector when destination is undefined (no --destination)', () => {
-    // This is the pinned iOS command from before cross-platform builds existed. If this array changes,
-    // an iOS build changed — the regression this whole feature must NOT introduce.
+describe('assembleGymArguments — one source for the gym argv; the cross-platform path never touches iOS', () => {
+  it('emits the canonical iOS vector when destination is undefined (no --destination)', () => {
+    // The pinned iOS command. It no longer carries a global PROVISIONING_PROFILE_SPECIFIER: that moved
+    // into the app target's pbxproj (issue #301) so it can't leak onto the Pods targets. If this array
+    // changes for any OTHER reason, an iOS build changed — the regression the cross-platform work must
+    // NOT introduce.
     expect(
       Effect.runSync(assembleGymArguments({ ...BASE_GYM, buildDestination: undefined })),
     ).toEqual([
@@ -138,7 +115,7 @@ describe('assembleGymArguments — one source for the gym argv; iOS stays byte-i
       '--codesigning_identity',
       'Apple Distribution',
       '--xcargs',
-      'DEVELOPMENT_TEAM=ABCDE12345 CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER=Launch_AppStore COMPILER_INDEX_STORE_ENABLE=NO -jobs 6',
+      'DEVELOPMENT_TEAM=ABCDE12345 CODE_SIGN_STYLE=Manual COMPILER_INDEX_STORE_ENABLE=NO -jobs 6',
     ]);
   });
 
@@ -179,22 +156,13 @@ describe('assembleGymArguments — one source for the gym argv; iOS stays byte-i
     expect(args).toContain('--destination');
   });
 
-  it('threads extension profiles so the multi-target argv omits the global specifier', () => {
-    // The only difference from the single-target vector: the --xcargs value loses PROVISIONING_PROFILE_
-    // SPECIFIER (the byte-identical test above proves single-target is untouched). Everything else stays.
-    const args = Effect.runSync(
-      assembleGymArguments({
-        ...BASE_GYM,
-        buildDestination: undefined,
-        signing: {
-          ...BASE_GYM.signing,
-          extensionProfiles: { 'com.acme.app.widget': 'Launch_Widget_AppStore' },
-        },
-      }),
-    );
-    const xcargs = args[args.indexOf('--xcargs') + 1];
-    expect(xcargs).not.toContain('PROVISIONING_PROFILE_SPECIFIER');
-    expect(xcargs).toContain('DEVELOPMENT_TEAM=ABCDE12345');
-    expect(xcargs).toContain('CODE_SIGN_STYLE=Manual');
+  it('never carries a global provisioning-profile specifier in the gym argv (any platform)', () => {
+    // The profile lives in the app target's pbxproj, not the gym argv, so no build variant may pin it on
+    // the command line where it would reach the Pods targets (issue #301).
+    for (const buildDestination of [undefined, 'generic/platform=tvOS', 'generic/platform=macOS']) {
+      const args = Effect.runSync(assembleGymArguments({ ...BASE_GYM, buildDestination }));
+      const xcargs = args[args.indexOf('--xcargs') + 1];
+      expect(xcargs).not.toContain('PROVISIONING_PROFILE_SPECIFIER');
+    }
   });
 });

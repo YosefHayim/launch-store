@@ -133,7 +133,15 @@ describe('formatAccountSummary', () => {
   });
 
   it('collapses the apps beyond the third into a +N count', () => {
-    const apps = ['Larkspur', 'Beacon', 'Cypress', 'Mapleleaf', 'SampleApp', 'Dockyard', 'Everglade'];
+    const apps = [
+      'Larkspur',
+      'Beacon',
+      'Cypress',
+      'Mapleleaf',
+      'SampleApp',
+      'Dockyard',
+      'Everglade',
+    ];
     expect(formatAccountSummary({ ...base, teamId: 'ABCDE12345', apps })).toBe(
       'default · Larkspur, Beacon, Cypress +4 · team ABCDE12345 · key KEYABC1234',
     );

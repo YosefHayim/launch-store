@@ -102,6 +102,53 @@ const APP_WITH_WIDGET = `// !$*UTF8*$!
 }
 `;
 
+/**
+ * A single-target Expo app WITH a real Release config — the plain #301 archive path. The stamp writes the
+ * app's own profile into this Release config so gym reads it from the app target instead of a global xcarg
+ * that would leak onto the (separate) Pods project.
+ */
+const SINGLE_TARGET_WITH_RELEASE = `// !$*UTF8*$!
+{
+	objects = {
+/* Begin PBXNativeTarget section */
+		13B07F861A680F5B00A75B9A /* SampleApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "SampleApp" */;
+			name = SampleApp;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin XCBuildConfiguration section */
+		13B07F941A680F5B00A75B9A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.sampleapp;
+			};
+			name = Debug;
+		};
+		13B07F951A680F5B00A75B9A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.sampleapp;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "SampleApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				13B07F941A680F5B00A75B9A /* Debug */,
+				13B07F951A680F5B00A75B9A /* Release */,
+			);
+		};
+/* End XCConfigurationList section */
+	};
+}
+`;
+
 /** The same project shape with only the main app target — a single-target Expo app. */
 const SINGLE_TARGET = `// !$*UTF8*$!
 {
@@ -334,6 +381,21 @@ describe('stampManualSigningIntoPbxproj — per-target manual signing for a mult
   it('leaves the target structure (bundle ids) intact after rewriting', () => {
     const stamped = stampManualSigningIntoPbxproj(APP_WITH_WIDGET, SIGNING);
     expect(parsePbxprojTargets(stamped)).toEqual(parsePbxprojTargets(APP_WITH_WIDGET));
+  });
+
+  it('stamps just the main app Release config for a single-target app (#301)', () => {
+    // The plain single-target archive path: the app's own profile lands in its Release config, so gym
+    // reads it from the app target and no profile is ever forced onto the (separate) Pods project.
+    const profile = 'Launch_com.example.sampleapp_AppStore';
+    const stamped = stampManualSigningIntoPbxproj(SINGLE_TARGET_WITH_RELEASE, {
+      teamId: 'ABCDE12345',
+      profileByBundleId: { 'com.example.sampleapp': profile },
+    });
+    expect(stamped).toContain(`PROVISIONING_PROFILE_SPECIFIER = "${profile}";`);
+    expect(stamped).toContain('DEVELOPMENT_TEAM = ABCDE12345;');
+    // Exactly one config touched (Release) — the Debug config keeps automatic signing for dev-client runs.
+    expect(occurrences(stamped, 'CODE_SIGN_STYLE = Manual;')).toBe(1);
+    expect(parsePbxprojTargets(stamped)).toEqual(parsePbxprojTargets(SINGLE_TARGET_WITH_RELEASE));
   });
 
   it('is idempotent — a second stamp changes nothing (managed keys replaced, not appended)', () => {

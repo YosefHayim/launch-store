@@ -21,12 +21,14 @@
  * or signed. Discovery only ever ADDS extension bundle ids; it never alters the main bundle's path.
  *
  * This module also owns the one WRITE back into the project: {@link stampManualSigningIntoPbxproj} /
- * {@link writeManualSigningToProject} stamp per-target manual signing into a multi-target app's Release
- * configs right before the archive. A multi-target build drops the global provisioning-profile specifier
- * (it would clobber an extension's own bundle — see {@link import("./buildFlags.js").buildXcargs}), so each
- * target has to carry its own profile in the project or the archive dies at exit 65 (issue #289). The write
- * touches only the Release config of targets it has a profile for, so a single-target build — which never
- * calls it — stays byte-identical.
+ * {@link writeManualSigningToProject} stamp per-target manual signing into the app's Release configs right
+ * before the archive. Launch never passes the provisioning-profile specifier as a global `gym --xcargs` —
+ * a workspace-wide specifier leaks the app's profile onto every Pods library target and fails the Xcode 26
+ * archive (issue #301), and would clobber an extension's own bundle (issue #262); see
+ * {@link import("./buildFlags.js").buildSigningXcargs}. So each signed target has to carry its own profile
+ * in the project or the archive dies at exit 65 (issue #289). The write touches only the Release config of
+ * targets it has a profile for (the main app, plus any extensions); the Pods targets live in a separate
+ * `Pods.xcodeproj` and are never given a profile.
  */
 
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -341,11 +343,12 @@ function releaseConfigProfiles(
 
 /**
  * Stamp per-target manual signing into a project's `project.pbxproj` and return the rewritten text
- * (the input unchanged when no target matched a profile). For a multi-target app the global
- * `PROVISIONING_PROFILE_SPECIFIER` is deliberately dropped from `--xcargs` — it would clobber an
- * extension's bundle (see {@link import("./buildFlags.js").buildXcargs}) — so each target's profile has to
- * live in the project, or `xcodebuild` fails the archive at exit 65 with "requires a provisioning profile …
- * Select a provisioning profile in the Signing & Capabilities editor" for every target (issue #289).
+ * (the input unchanged when no target matched a profile). Launch drops `PROVISIONING_PROFILE_SPECIFIER`
+ * from the global `gym --xcargs` — a workspace-wide specifier leaks onto the Pods library targets and
+ * fails the Xcode 26 archive (issue #301), and would clobber an extension's bundle (issue #262); see
+ * {@link import("./buildFlags.js").buildSigningXcargs} — so each target's profile has to live in the
+ * project, or `xcodebuild` fails the archive at exit 65 with "requires a provisioning profile … Select a
+ * provisioning profile in the Signing & Capabilities editor" for every target (issue #289).
  *
  * Each target's **Release** `buildSettings` gets `CODE_SIGN_STYLE = Manual`, the team, and its own
  * `PROVISIONING_PROFILE_SPECIFIER`; the three managed keys are replaced rather than appended, so re-running

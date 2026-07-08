@@ -2240,13 +2240,20 @@ describe('findBundleId — exact identifier, not substring (#291)', () => {
         JSON.stringify({
           data: [
             { id: 'widget-res', attributes: { identifier: 'com.example.sampleapp.widget' } },
-            { id: 'main-res', attributes: { identifier: 'com.example.sampleapp', seedId: 'TEAM01' } },
+            {
+              id: 'main-res',
+              attributes: { identifier: 'com.example.sampleapp', seedId: 'TEAM01' },
+            },
           ],
         }),
       ),
     );
     const bundle = await client.findBundleId('com.example.sampleapp');
-    expect(bundle).toEqual({ id: 'main-res', identifier: 'com.example.sampleapp', seedId: 'TEAM01' });
+    expect(bundle).toEqual({
+      id: 'main-res',
+      identifier: 'com.example.sampleapp',
+      seedId: 'TEAM01',
+    });
     // Drops the limit=1 that could paginate the exact row away behind its substring siblings.
     const url = String(fetchMock.mock.calls[0]?.[0]);
     expect(url).toContain('filter[identifier]=com.example.sampleapp');

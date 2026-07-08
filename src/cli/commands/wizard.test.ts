@@ -22,7 +22,12 @@ function configWith(profileNames: string[]): LaunchConfig {
 
 /** A discovered app declaring the given platform ids. */
 function app(ids: { bundleId?: string; packageName?: string }): AppDescriptor {
-  return { name: 'sampleapp', dir: '/tmp/sampleapp', configPath: '/tmp/sampleapp/app.json', ...ids };
+  return {
+    name: 'sampleapp',
+    dir: '/tmp/sampleapp',
+    configPath: '/tmp/sampleapp/app.json',
+    ...ids,
+  };
 }
 
 const IOS_APP = app({ bundleId: 'com.example.sampleapp' });

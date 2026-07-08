@@ -171,7 +171,11 @@ describe('signingPreflightDoctorChecks', () => {
   it('emits an info check for App Groups and fail checks for not-ready targets', () => {
     const checks = signingPreflightDoctorChecks(
       [
-        { bundleId: 'com.example.sampleapp', registered: true, missingCapabilities: ['APP_GROUPS'] },
+        {
+          bundleId: 'com.example.sampleapp',
+          registered: true,
+          missingCapabilities: ['APP_GROUPS'],
+        },
         { bundleId: 'com.example.sampleapp.widget', registered: false, missingCapabilities: [] },
       ],
       'Create group.com.example.sampleapp in the portal.',

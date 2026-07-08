@@ -17,7 +17,9 @@ function state(overrides: Partial<DashboardState> = {}): DashboardState {
         submit: 'app-store-connect',
       },
       profiles: ['production', 'preview'],
-      apps: [{ name: 'sampleapp', version: '1.0.0', bundleId: 'com.x.sampleapp', packageName: null }],
+      apps: [
+        { name: 'sampleapp', version: '1.0.0', bundleId: 'com.x.sampleapp', packageName: null },
+      ],
     },
     accounts: [{ label: 'Personal', keyId: 'KEY1', teamId: 'TEAM1', appCount: 2, active: true }],
     artifacts: [

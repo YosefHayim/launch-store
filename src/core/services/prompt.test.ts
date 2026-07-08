@@ -9,13 +9,13 @@ import { fuzzyMatch, pickOne } from './prompt.js';
 
 describe("fuzzyMatch — the picker's subsequence filter", () => {
   it('matches an in-order subsequence, case-insensitively', () => {
-    expect(fuzzyMatch('pmd', 'sampleapp')).toBe(true);
-    expect(fuzzyMatch('PMD', 'Mapleleaf')).toBe(true);
+    expect(fuzzyMatch('sml', 'sampleapp')).toBe(true);
+    expect(fuzzyMatch('MPL', 'Mapleleaf')).toBe(true);
     expect(fuzzyMatch('sampleapp', 'sampleapp')).toBe(true);
   });
 
   it("rejects characters that aren't a subsequence", () => {
-    expect(fuzzyMatch('dmp', 'sampleapp')).toBe(false);
+    expect(fuzzyMatch('pms', 'sampleapp')).toBe(false); // all present, wrong order
     expect(fuzzyMatch('xyz', 'sampleapp')).toBe(false);
   });
 

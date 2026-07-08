@@ -58,26 +58,29 @@ export const buildExtraXcargs = (parallelJobLimit: number | undefined) =>
   });
 
 /**
- * Assemble the full local `gym --xcargs` string: manual-signing settings (so the resolved cert +
- * profile sign the archive) followed by the shared extra xcargs.
+ * Assemble the full local `gym --xcargs` string: the workspace-wide signing settings that are safe on
+ * EVERY target, followed by the shared extra xcargs.
  *
- * `PROVISIONING_PROFILE_SPECIFIER` is pinned globally only for single-target apps. Multi-target apps
- * (with extension profiles) drop it so the per-target profiles in the project's signing settings aren't
- * clobbered at archive time. See {@link import("./appleTargets.js").writeManualSigningToProject}.
+ * Only the team and the manual-signing STYLE go here — never `PROVISIONING_PROFILE_SPECIFIER`. A
+ * command-line xcarg applies to the whole workspace, so a global profile specifier lands on every
+ * CocoaPods library target too. Xcode 26 rejects a manual profile on a target that can't be provisioned
+ * and fails the archive with 39× "… does not support provisioning profiles" (exit 65), even for a plain
+ * single-target app — and because command-line settings outrank per-target ones, a Podfile `post_install`
+ * can't override it (issue #301). The app's profile is instead written into the app target's own Release
+ * build settings in the pbxproj before the archive (see
+ * {@link import("./appleTargets.js").writeManualSigningToProject}), so gym reads it from the app target
+ * while the Pods keep their default signing.
  *
  * @param signing - Resolved signing values that feed the `gym --xcargs` string.
  * @param parallelJobLimit - Optional `xcodebuild -jobs` cap.
  * @returns An Effect that succeeds with the manual-signing xcargs string.
  */
 export const buildSigningXcargs = (
-  signing: Pick<SigningAssets, 'teamId' | 'profileName' | 'extensionProfiles'>,
+  signing: Pick<SigningAssets, 'teamId'>,
   parallelJobLimit: number | undefined,
 ) =>
   Effect.gen(function* () {
     const parts = [`DEVELOPMENT_TEAM=${signing.teamId}`, 'CODE_SIGN_STYLE=Manual'];
-    const hasExtensionTargets =
-      signing.extensionProfiles !== undefined && Object.keys(signing.extensionProfiles).length > 0;
-    if (!hasExtensionTargets) parts.push(`PROVISIONING_PROFILE_SPECIFIER=${signing.profileName}`);
     const extraXcargs = yield* buildExtraXcargs(parallelJobLimit);
     return `${parts.join(' ')} ${extraXcargs}`;
   });
@@ -94,8 +97,12 @@ export interface GymArgsInput {
   outputName: string;
   /** Absolute path to the manual-signing `ExportOptions.plist`. */
   exportOptionsPath: string;
-  /** Resolved signing assets for codesigning identity and manual-signing xcargs. */
-  signing: Pick<SigningAssets, 'teamId' | 'profileName' | 'certName' | 'extensionProfiles'>;
+  /**
+   * Resolved signing values the gym argv needs: the codesigning identity (`--codesigning_identity`) and
+   * the team for the shared xcargs. The per-target provisioning profile is stamped into the app target's
+   * pbxproj (see {@link import("./appleTargets.js").writeManualSigningToProject}), never passed here.
+   */
+  signing: Pick<SigningAssets, 'teamId' | 'certName'>;
   /** RAM-aware parallelism cap, or `undefined` to let xcodebuild decide. */
   parallelJobLimit: number | undefined;
   /** Whether to pass `--clean`. */

@@ -87,11 +87,13 @@ export interface RemoteBuildInputs {
  *
  * `extensionProfiles` is intentionally absent: the remote path uploads and installs exactly one profile
  * (see {@link uploadSigningMaterial} and the build script's step 2), so it is single-target-only by
- * construction — the per-target archive-signing fix (issue #262) lands on the LOCAL engine
- * ({@link import("./buildFlags.js").buildXcargs}), where the clobbering global specifier lives. The
- * remote script's hardcoded `PROVISIONING_PROFILE_SPECIFIER` is therefore correct for every build it can
- * do today. Extending remote to multi-target (upload + install each extension profile, thread the map
- * into the export plist and drop the global specifier) is a larger, separately-verified follow-up.
+ * construction. The per-target archive-signing fixes (issues #262 / #301) landed on the LOCAL engine — see
+ * {@link import("./buildFlags.js").buildSigningXcargs} and
+ * {@link import("./appleTargets.js").writeManualSigningToProject} — which moved the app's profile out of
+ * the global `gym --xcargs` and into the app target's pbxproj. The remote build script below still pins the
+ * profile in its own global `--xcargs`, so it shares the Xcode 26 "does not support provisioning profiles"
+ * exposure on the Pods library targets; porting the pbxproj-stamping fix onto the host (the stamper has to
+ * run on the remote Mac, not just in the local CLI) is a larger, separately-verified follow-up.
  */
 function toSigningAssets(bundle: RemoteSigningBundle): SigningAssets {
   return {

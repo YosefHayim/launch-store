@@ -78,16 +78,21 @@ function findWorkspace(nativeDir: string): { workspace: string; scheme: string }
 }
 
 /**
- * Stamp each target's own provisioning profile into the project's Release configs for a multi-target app
- * (one with embedded extensions) — see {@link writeManualSigningToProject}. `buildXcargs` drops the global
- * PROVISIONING_PROFILE_SPECIFIER for these apps (it can't sign an extension's bundle), and `pod install` /
- * @bacons/apple-targets reset the project to Automatic signing, so this runs AFTER Pods are (re)installed
- * and before the archive — otherwise `xcodebuild` dies at exit 65 with "requires a provisioning profile …
- * Select a provisioning profile" for every target (issue #289). A single-target app carries no extension
- * profiles, so this is a no-op and its archive stays byte-identical.
+ * Stamp each signed target's own provisioning profile into the project's Release configs before the
+ * archive — see {@link writeManualSigningToProject}. Launch never passes `PROVISIONING_PROFILE_SPECIFIER`
+ * as a global `gym --xcargs`: a command-line specifier applies to the whole workspace, so it would leak
+ * the app's profile onto every Pods library target and fail the Xcode 26 archive with "… does not support
+ * provisioning profiles" (issue #301), and it would clobber an extension's own bundle (issue #262). Each
+ * signed target therefore carries its profile in the pbxproj instead. `pod install` /
+ * `@bacons/apple-targets` reset the project to Automatic signing, so this runs AFTER Pods are
+ * (re)installed and before the archive — otherwise `xcodebuild` dies at exit 65 with "requires a
+ * provisioning profile … Select a provisioning profile" (issue #289).
+ *
+ * The map is the main app plus any embedded extensions, so a single-target app stamps just the main app.
+ * The Pods library targets live in the separate `Pods.xcodeproj` (never in the app's pbxproj), so they
+ * are left with their default signing and no profile is ever forced on them.
  */
-function stampMultiTargetSigning(nativeDir: string, signing: SigningAssets): void {
-  if (!signing.extensionProfiles || Object.keys(signing.extensionProfiles).length === 0) return;
+function stampManualSigning(nativeDir: string, signing: SigningAssets): void {
   writeManualSigningToProject(nativeDir, {
     teamId: signing.teamId,
     profileByBundleId: { [signing.bundleId]: signing.profileName, ...signing.extensionProfiles },
@@ -279,10 +284,11 @@ export const fastlaneBuildEngine: BuildEngine = {
       });
     }
 
-    // A multi-target app needs each target's own profile in the pbxproj before the archive; runs right
-    // after `pod install` regenerates the project and is a no-op for a single-target app (see
-    // {@link stampMultiTargetSigning}).
-    stampMultiTargetSigning(nativeDir, signing);
+    // Every signed target needs its own profile in the app's pbxproj before the archive (the main app,
+    // plus any embedded extensions), because Launch never pins a profile in the global gym xcargs where
+    // it would leak onto the Pods targets (issue #301). Runs right after `pod install` regenerates the
+    // project (see {@link stampManualSigning}).
+    stampManualSigning(nativeDir, signing);
 
     const { cores, memBytes } = hostResources();
     const parallelJobLimit = Effect.runSync(computeParallelJobLimit(cores, memBytes));

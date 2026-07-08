@@ -8,6 +8,18 @@ describe('diagnoseBuildLog — maps native errors to a cause + fix', () => {
     expect(diagnosis?.fix).toContain('launch creds setup');
   });
 
+  it('recognizes the Xcode 26 CocoaPods provisioning-profile archive failure (issue #301)', () => {
+    const log = [
+      'Pods.xcodeproj: error: SomeLibraryPod does not support provisioning profiles. SomeLibraryPod does',
+      'not support provisioning profiles, but provisioning profile',
+      'Launch_com.example.app_AppStore has been manually specified.',
+      'Exit status: 65',
+    ].join('\n');
+    const [diagnosis] = diagnoseBuildLog(log);
+    expect(diagnosis?.title).toContain('leaked onto CocoaPods');
+    expect(diagnosis?.fix).toContain('app target');
+  });
+
   it('recognizes the CocoaPods sandbox-out-of-sync error', () => {
     const [diagnosis] = diagnoseBuildLog('The sandbox is not in sync with the Podfile.lock.');
     expect(diagnosis?.title).toContain('sandbox out of sync');

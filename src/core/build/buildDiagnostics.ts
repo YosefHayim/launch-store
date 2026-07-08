@@ -38,6 +38,13 @@ interface DiagnosticSignature extends BuildDiagnosis {
  */
 const SIGNATURES: DiagnosticSignature[] = [
   {
+    title: 'Code signing — app profile leaked onto CocoaPods targets (Xcode 26)',
+    cause:
+      "The app's manual provisioning profile was applied workspace-wide, so it landed on CocoaPods library targets that can't carry one. Xcode 26 makes this a hard error (older Xcode silently ignored it), failing the archive at exit 65 with one error per Pods target.",
+    fix: 'Update Launch and rebuild — it now stamps the profile into the app target only, never as a global `gym --xcargs`. If you invoke gym yourself, drop `PROVISIONING_PROFILE_SPECIFIER` from the workspace-wide `--xcargs`.',
+    match: [/does not support provisioning profiles/i],
+  },
+  {
     title: 'Code signing — no usable certificate or profile',
     cause:
       "Xcode couldn't find a distribution certificate and provisioning profile matching this app.",
