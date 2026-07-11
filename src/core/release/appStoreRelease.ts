@@ -392,6 +392,25 @@ export async function releaseApp(api: AscReleaseApi, input: ReleaseInput): Promi
   };
 }
 
+/**
+ * Whether a failed export-compliance PATCH means the desired value is already stored.
+ * Apple returns HTTP 409 with detail like "You cannot update when the value is already set." —
+ * that is idempotent success for Launch, not a release failure (issue #299).
+ *
+ * @param error - The error thrown by {@link AscReleaseApi.setBuildUsesNonExemptEncryption}.
+ * @returns True when the error is Apple's "already set" conflict (or a message that matches it).
+ */
+function isExportComplianceAlreadySetError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  const alreadySet =
+    message.includes('cannot update when the value is already set') ||
+    (message.includes('already set') && message.includes('409'));
+  if (!alreadySet) return false;
+  if (!('status' in error)) return true;
+  return (error as { status: unknown }).status === 409;
+}
+
 /** Declare export compliance only when App Store Connect has not already stored the desired answer. */
 async function applyExportCompliance(
   ctx: ReleaseContext,
@@ -412,9 +431,31 @@ async function applyExportCompliance(
       return;
     }
   }
-  await act(ctx, description, () =>
-    ctx.api.setBuildUsesNonExemptEncryption(build.id, usesNonExemptEncryption),
-  );
+
+  // Pre-check can miss (findBuild null, race, or a sparse build payload). Treat Apple's 409
+  // "already set" as skipped success so release does not look failed for a true desired state.
+  if (ctx.dryRun) {
+    ctx.actions.push({ description, status: 'planned' });
+    return;
+  }
+  try {
+    await ctx.api.setBuildUsesNonExemptEncryption(build.id, usesNonExemptEncryption);
+    ctx.actions.push({ description, status: 'applied' });
+  } catch (error) {
+    if (isExportComplianceAlreadySetError(error)) {
+      ctx.actions.push({
+        description,
+        status: 'skipped',
+        note: 'already answered on this build',
+      });
+      return;
+    }
+    ctx.actions.push({
+      description,
+      status: 'failed',
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 /**

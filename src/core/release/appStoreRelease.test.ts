@@ -203,6 +203,29 @@ describe('releaseApp — submit an update over the API', () => {
     );
   });
 
+  it('treats Apple 409 "already set" export-compliance as skipped success', async () => {
+    const alreadySetError = Object.assign(
+      new Error('PATCH /builds/b-1 failed (409): You cannot update when the value is already set.'),
+      { status: 409 },
+    );
+    const api = makeApi({
+      // Pre-check misses (null), then the PATCH races into Apple's already-set 409.
+      findBuild: vi.fn().mockResolvedValue({ id: 'b-1', usesNonExemptEncryption: null }),
+      setBuildUsesNonExemptEncryption: vi.fn().mockRejectedValue(alreadySetError),
+    });
+    const report = await releaseApp(api, input());
+    expect(api.setBuildUsesNonExemptEncryption).toHaveBeenCalledWith('b-1', false);
+    expect(report.actions).toContainEqual(
+      expect.objectContaining({
+        description: 'declare export compliance (usesNonExemptEncryption=false)',
+        status: 'skipped',
+        note: 'already answered on this build',
+      }),
+    );
+    // Other release steps still proceed (review submit is the terminal write).
+    expect(api.submitReviewSubmission).toHaveBeenCalled();
+  });
+
   it('enables a phased release when opted in', async () => {
     const api = makeApi();
     await releaseApp(api, input({ phasedRelease: true }));
