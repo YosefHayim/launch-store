@@ -57,6 +57,9 @@ jobs:
           ref: ${{ steps.ref.outputs.ref }}
           fetch-depth: 0
 
+      # pnpm must be on PATH before setup-node's `cache: pnpm` (it shells out to `pnpm store path`).
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v5
         with:
           node-version: 24 # bundles npm >= 11.5.1, required for OIDC trusted publishing
