@@ -29,9 +29,6 @@ importers:
       jose:
         specifier: ^5.9.6
         version: 5.10.0
-      zod:
-        specifier: ^4.4.3
-        version: 4.4.3
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.5.1
@@ -3692,4 +3689,5 @@ snapshots:
       zod: 4.4.3
     optional: true
 
-  zod@4.4.3: {}
+  zod@4.4.3:
+    optional: true

@@ -12,23 +12,23 @@ Generated from the config schema in `src/core/config/` and config types in `src/
 | `credentials` | `string` | No | Registered name of the credentials provider to use. Defaults to `local` (serves both platforms). |
 | `storage` | `string` | No | Registered name of the artifact storage provider to use. Defaults to `local`. |
 | `buildEngine` | `string` | No | Registered name of the build engine. Carries the iOS default `fastlane` (or `eas` for the cloud handoff); an Android build swaps that iOS baseline for its twin `gradle` unless overridden here. |
-| `submit` | `string \| Record<string, string[]>` | No | Where built artifacts are submitted, in one of two forms: a single registered submitter name (the iOS default `app-store-connect`, which an Android build swaps for its twin `google-play`; or `eas`) — the original, unchanged shape; or a per-platform SubmitByPlatform map, to fan one build out to several stores from this one config (e.g. an Android `.aab` to `google-play` and `amazon-appstore`). The pipeline resolves this to a store list per platform (see `resolveSubmitters`), so the build target and the store are no longer welded 1:1. See `docs/adr/0006-platform-store-split.md`. |
+| `submit` | `string \| SubmitByPlatform` | No | Where built artifacts are submitted, in one of two forms: a single registered submitter name (the iOS default `app-store-connect`, which an Android build swaps for its twin `google-play`; or `eas`) — the original, unchanged shape; or a per-platform SubmitByPlatform map, to fan one build out to several stores from this one config (e.g. an Android `.aab` to `google-play` and `amazon-appstore`). The pipeline resolves this to a store list per platform (see `resolveSubmitters`), so the build target and the store are no longer welded 1:1. See `docs/adr/0006-platform-store-split.md`. |
 | `appRoots` | `string[]` | No | Glob roots to scan for apps. Defaults to the repo root. |
 | `products` | `Record<string, AppProducts>` | No | Declarative App Store Connect product catalog, keyed by iOS bundle id. Drives `launch sync`, which reconciles each app's subscriptions, in-app purchases, and pricing on App Store Connect to match this. Absent for apps that sell nothing. See AppProducts. |
-| `notify` | `NotifyConfig` | No | Build/submit completion notifications (webhook + shell hook). Absent = no notifications. See NotifyConfig. |
-| `release` | `ReleaseConfig` | No | iOS public-release policy for `launch release` (release type, scheduled date, phased rollout, export compliance, release notes). Absent = the safe defaults (go live after approval, all at once). See ReleaseConfig. |
+| `notify` | `object` | No | Build/submit completion notifications (webhook + shell hook). Absent = no notifications. See NotifyConfig. |
+| `release` | `object` | No | iOS public-release policy for `launch release` (release type, scheduled date, phased rollout, export compliance, release notes). Absent = the safe defaults (go live after approval, all at once). See ReleaseConfig. |
 | `gameCenter` | `Record<string, GameCenterConfig>` | No | Game Center achievements & leaderboards, keyed by iOS bundle id. Drives `launch game-center`. The single-config form of `gamecenter.config.json` (still accepted for back-compat). See GameCenterConfig. |
 | `appClips` | `Record<string, AppClipsConfig>` | No | App Clip card metadata, keyed by the parent app's iOS bundle id. Drives `launch app-clips`. The single-config form of `appclips.config.json` (still accepted for back-compat). See AppClipsConfig. |
 | `releaseAttributes` | `Record<string, ReleaseAttributesConfig>` | No | App Store release attributes (age rating, categories, price, review details), keyed by iOS bundle id. Drives `launch release-config`. The single-config form of `release.config.json` (still accepted for back-compat). Distinct from release (the release policy). See ReleaseAttributesConfig. |
-| `wallet` | `WalletConfig` | No | Team-level Apple Pay merchant ids & Wallet pass type ids. Drives `launch wallet`. The single-config form of `wallet.config.json` (still accepted for back-compat). See WalletConfig. |
-| `euDistribution` | `EuDistributionConfig` | No | Team-level EU alternative-distribution domains (DMA). Drives `launch eu-distribution`. The single-config form of `eu-distribution.config.json` (still accepted for back-compat). See EuDistributionConfig. |
-| `configFiles` | `SurfaceConfigFiles` | No | Optional non-default paths for the sidecar-only surfaces' `*.config.json` files (availability, accessibility, experiments, custom pages). Lets `launch plan` / `launch drift` find a sidecar that isn't at its default filename, since those surfaces have no typed field here. Omit to use defaults. See SurfaceConfigFiles. |
-| `aws` | `AwsConfig` | No | AWS EC2 Mac settings for remote (off-Mac) builds. Only needed when building via `--remote aws`. |
-| `storageConfig` | `StorageConfig` | No | Bucket/endpoint settings for a cloud StorageProvider (`s3` / `supabase`). Required when `storage` names a cloud provider — it's where ad-hoc install links and OTA update manifests are hosted. Secrets stay out: access keys resolve from env / the OS secret store, never from here. |
+| `wallet` | `object` | No | Team-level Apple Pay merchant ids & Wallet pass type ids. Drives `launch wallet`. The single-config form of `wallet.config.json` (still accepted for back-compat). See WalletConfig. |
+| `euDistribution` | `object` | No | Team-level EU alternative-distribution domains (DMA). Drives `launch eu-distribution`. The single-config form of `eu-distribution.config.json` (still accepted for back-compat). See EuDistributionConfig. |
+| `configFiles` | `object` | No | Optional non-default paths for the sidecar-only surfaces' `*.config.json` files (availability, accessibility, experiments, custom pages). Lets `launch plan` / `launch drift` find a sidecar that isn't at its default filename, since those surfaces have no typed field here. Omit to use defaults. See SurfaceConfigFiles. |
+| `aws` | `object` | No | AWS EC2 Mac settings for remote (off-Mac) builds. Only needed when building via `--remote aws`. |
+| `storageConfig` | `object` | No | Bucket/endpoint settings for a cloud StorageProvider (`s3` / `supabase`). Required when `storage` names a cloud provider — it's where ad-hoc install links and OTA update manifests are hosted. Secrets stay out: access keys resolve from env / the OS secret store, never from here. |
 | `artifactDir` | `string` | No | Where the `local` storage provider writes build binaries and raw objects (install plists, OTA manifests). A relative path resolves against the project root (the `launch.config.ts` directory); a leading `~/` expands to the home directory; an absolute path is used as-is. Omit to use the global `~/.launch/artifacts` (the default — existing projects are unaffected). `launch init` and the no-args wizard scaffold this as the in-repo `./.launch/artifacts` and add it to `.gitignore`, so build binaries never get committed. Only the `local` provider observes it — cloud stores key off StorageConfig. The history index stays under `~/.launch`, so build history and retention span projects regardless of where the binaries land. |
 | `artifactRetentionDays` | `number` | No | How many days a local build binary is kept before the artifact store auto-prunes it to reclaim disk (the newest build per app+platform is always kept, so a promotable artifact never disappears). Runs after each successful local build. Defaults to 30 when omitted; set to `0` to disable the automatic sweep entirely (`launch builds prune` still works on demand). Only the `local` provider observes this — cloud stores manage retention through their own bucket lifecycle rules. |
 | `envExclude` | `string[]` | No | Env var names that must NEVER be injected into a build — a hard denylist applied across every layer (`.env`, `.env.<profile>`, keychain, profile `env:`, even an explicit `--env`). A matched name is dropped outright, so it can't reach the build subprocess and therefore can't be baked into the shipped app even by an `app.config.js` that forwards `process.env`. Each entry is either an exact, case-sensitive name or a `PREFIX*` wildcard: `OPENAI_*` drops every name starting with `OPENAI_` (e.g. `OPENAI_API_KEY`, `OPENAI_ORG_ID`), so a whole family of backend keys collapses to one line instead of being listed individually. Wildcards anchor at the START — there is no tail/`*_KEY` form, by design, since that would also snag a publishable `EXPO_PUBLIC_..._KEY`. This is the home for *backend-only* values that sit in the app's `.env` for local tooling but must never ship (e.g. `OPENAI_API_KEY`, a server-side `SENTRY_AUTH_TOKEN`). It is distinct from `launch secret set`: a stored secret is still *injected* — the build needs it — it's just moved out of plaintext; `envExclude` means "don't inject this at all". A name matched here is exempt from the `.env.example` missing-key gate (even when no layer sets it). Omit (or `[]`) to exclude nothing. |
-| `mcp` | `McpConfig` | No | How `launch mcp` exposes Launch to AI agents — chiefly which capability tiers it may offer. Absent = least privilege (read-only tools). See McpConfig. |
+| `mcp` | `object` | No | How `launch mcp` exposes Launch to AI agents — chiefly which capability tiers it may offer. Absent = least privilege (read-only tools). See McpConfig. |
 
 ## Types
 
@@ -83,17 +83,6 @@ The declarative App Store Connect product catalog for ONE app, keyed by iOS bund
 | `inAppPurchases` | `InAppPurchaseConfig[]` | No | One-off in-app purchases. |
 | `promotedPurchases` | `PromotedPurchaseConfig[]` | No | Promoted purchases in product-page display order (`launch offers` reorders the live list to match). |
 
-### `AwsConfig`
-
-AWS settings for the EC2 Mac compute host, declared in `launch.config.ts` under `aws`. Launch stores NO AWS secrets: credentials resolve through the standard SDK chain (env → `~/.aws` profiles → SSO → IMDS). `amiId` is an optional BYO golden image; omit it to let Launch bootstrap one and persist its id to `~/.launch/cloud.json`.
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `region` | `string` | Yes | AWS region to allocate the Dedicated Host in (e.g. `us-east-1`). |
-| `profile` | `string` | No | Named profile in `~/.aws` to resolve via the credential chain. Omit to use the default chain. |
-| `amiId` | `string` | No | BYO golden AMI id. Omit to bootstrap + snapshot one into your own account on first use. |
-| `instanceType` | `string` | No | EC2 Mac instance type. Defaults to `mac2.metal` (cheapest M-series in most regions). |
-
 ### `BuildProfile`
 
 A named build profile from `launch.config.ts` (e.g. `production`, `preview`). Holds only Launch-specific settings; app facts stay in `app.json`. A profile maps to a `.env` file whose values are injected into the build and gates the artifact on size.
@@ -107,14 +96,6 @@ A named build profile from `launch.config.ts` (e.g. `production`, `preview`). Ho
 | `sizeBudgetMB` | `number` | No | Per-device download-size budget in megabytes. When the size report exceeds it, the build soft-gates (asks for confirmation) rather than failing. Defaults to 200 (Apple's cellular line). |
 | `track` | `"internal" \| "closed" \| "open" \| "production"` | No | Android-only: default Play track for `launch build android` when `--track` is omitted. Defaults to `internal` (the only safe target for a fresh account). Ignored on iOS. |
 | `rollout` | `number` | No | Android-only: default staged-rollout fraction (0–1) for production releases when `--rollout` is omitted. Defaults to `1.0` (full rollout). Ignored on iOS. |
-
-### `EuDistributionConfig`
-
-The team's EU alternative-distribution domains — the `eu-distribution.config.json` document, or euDistribution. Team-level (not per-app); reconciled by `launch eu-distribution`.
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `domains` | `EuDistributionDomainConfig[]` | Yes | Domains to authorize for EU alternative distribution. |
 
 ### `EuDistributionDomainConfig`
 
@@ -153,8 +134,8 @@ One non-subscription in-app purchase (consumable, non-consumable, or non-renewin
 | `referenceName` | `string` | Yes | Internal reference name shown only in App Store Connect. |
 | `type` | `"CONSUMABLE" \| "NON_CONSUMABLE" \| "NON_RENEWING_SUBSCRIPTION"` | Yes | The purchase kind. |
 | `localizations` | `ProductLocalization[]` | Yes | Per-locale display copy; at least one entry is required for a submittable product. |
-| `price` | `ProductPrice` | No | Baseline price. Omit only to price manually in the UI. |
-| `play` | `PlayProductOverride` | No | Google Play overrides; present this to also publish the product to Play (see PlayProductOverride). |
+| `price` | `object` | No | Baseline price. Omit only to price manually in the UI. |
+| `play` | `object` | No | Google Play overrides; present this to also publish the product to Play (see PlayProductOverride). |
 
 ### `IntroductoryOfferConfig`
 
@@ -166,7 +147,7 @@ An introductory offer (Apple's `subscriptionIntroductoryOffers`) — the one aut
 | `offerMode` | `"PAY_AS_YOU_GO" \| "PAY_UP_FRONT" \| "FREE_TRIAL"` | Yes | How the offer discounts. `FREE_TRIAL` must omit price. |
 | `numberOfPeriods` | `number` | Yes | How many `duration` units the offer spans. |
 | `territory` | `string` | No | Territory this intro offer applies to (the reconciler's key); omit for all territories. |
-| `price` | `OfferPrice` | No | The discounted price in territory. Required unless `FREE_TRIAL`. |
+| `price` | `object` | No | The discounted price in territory. Required unless `FREE_TRIAL`. |
 | `startDate` | `string` | No | ISO date (`YYYY-MM-DD`) the offer starts; omit to start immediately. |
 | `endDate` | `string` | No | ISO date (`YYYY-MM-DD`) the offer ends; omit for no end. |
 
@@ -183,24 +164,6 @@ One declared Game Center leaderboard: Apple's create attributes plus its default
 | `scoreSortType` | `"ASC" \| "DESC"` | Yes | Whether higher (`DESC`) or lower (`ASC`) scores rank first. |
 | `name` | `string` | Yes | Player-facing title in the localization. |
 | `locale` | `string` | No | Locale for the localization above (default `en-US`). |
-
-### `McpConfig`
-
-The `mcp` block of `launch.config.ts` — how `launch mcp` exposes Launch to AI agents. Absent means least privilege: the server offers only `read`-tier tools, so wiring up an agent can never mutate a store until the operator widens capabilities on purpose. Declared here (not inline in the command) so #173's generator emits it into the config schema and `launch config validate/docs` cover it for free.
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `capabilities` | `"read" \| "dryRun" \| "write" \| "dangerous"[]` | No | Which capability tiers the MCP server may expose. Each enabled tier unlocks the tools tagged at that tier; omit (or `[]`) for `["read"]` — read-only. Listing a higher tier does not imply the lower ones, so `["read", "write"]` is the usual "let agents read everything and run reconciles" posture. |
-
-### `NotifyConfig`
-
-Transition notifications — the EAS-`webhook` parity hook, declared under notify. Fires on the milestones a dev waits on: a build/submit finishing, an App Store review reaching a verdict, and a phased rollout changing state. A local Mac build can run many minutes and Apple's verdict lands hours later; this pings on each transition. All fields are optional and independent: set a `webhookUrl`, a `command`, both, or (absent) get the silent default; restrict which transitions fire with `events`. Fired on success AND failure; never blocks or fails the run (best-effort).
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `webhookUrl` | `string` | No | Incoming-webhook URL posted a JSON body on each transition. The payload carries both `text` (Slack) and `content` (Discord) set to a human summary, plus the structured event fields, so a Slack or Discord webhook renders it directly and a custom endpoint can read the typed data. |
-| `command` | `string` | No | Shell command run on each transition with the event in its environment as `LAUNCH_*` vars (`LAUNCH_EVENT`, `LAUNCH_STATUS`, `LAUNCH_APP`, `LAUNCH_VERSION`; plus `LAUNCH_BUILD_NUMBER`, `LAUNCH_DESTINATION`, `LAUNCH_ERROR` on build/submit, or `LAUNCH_DETAIL` on review/rollout). Runs under `/bin/sh -c`, like a git hook. |
-| `events` | `"build" \| "submit" \| "review" \| "rollout"[]` | No | Which transitions fire a notification. Absent = all. |
 
 ### `OfferCodeConfig`
 
@@ -234,16 +197,6 @@ A Google Play price: an exact amount in a currency's micro-units (millionths) pl
 | `priceMicros` | `string` | Yes | Amount in micro-units: 1,000,000 = one whole unit of `currency`. |
 | `currency` | `string` | Yes | ISO 4217 currency code, e.g. `USD`. |
 
-### `PlayProductOverride`
-
-Google Play overrides for an InAppPurchaseConfig, so one product declaration can drive both stores. The shared fields are reused for Play — `productId` becomes the Play SKU (override via `sku`) and each ProductLocalization becomes a Play listing (`name` → title, `description` → description), with the first localization's locale as the product's default language. Pricing is declared HERE rather than reused from price because the two stores' money models don't line up (see PlayPriceConfig). Present this object to publish the product to Play via `launch play-products` as an active managed product; omit it to keep the product Apple-only.
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `sku` | `string` | No | Play SKU; defaults to the shared productId when omitted. |
-| `defaultPrice` | `PlayPriceConfig` | No | Default price applied to every region without an explicit prices entry. |
-| `prices` | `Record<string, PlayPriceConfig>` | No | Per-region price overrides keyed by ISO region code (e.g. `US`). |
-
 ### `PlaySubscriptionOfferConfig`
 
 One Google Play offer on a subscription's base plan — a free trial, an introductory price, or both (Play allows up to two offer phases). `offerId` is the natural key the reconciler matches on. Set `freeTrialDuration` for a free phase and/or `introPrices` for a discounted phase; an offer with neither is rejected (it would discount nothing).
@@ -255,17 +208,6 @@ One Google Play offer on a subscription's base plan — a free trial, an introdu
 | `introPrices` | `Record<string, PlayPriceConfig>` | No | Introductory per-region prices (region code → micro-units + currency). Omit for no intro phase. |
 | `introRecurrenceCount` | `number` | No | How many billing periods the introductory price repeats for. Defaults to 1. |
 
-### `PlaySubscriptionOverride`
-
-Google Play overrides for a SubscriptionConfig, so one subscription declaration can drive both stores. Apple models each billing period as a separate product, so Launch maps one config to one Play subscription with a single auto-renewing base plan whose billing period is derived from `subscriptionPeriod`. Listings come from the shared localizations; pricing is declared HERE (Play's per-region `units`+`nanos` money diverges from Apple's price points — see PlayPriceConfig). Present this object to publish the subscription to Play via `launch play-subscriptions`; omit it to keep the subscription Apple-only.
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `productId` | `string` | No | Play subscription product id; defaults to the shared productId. |
-| `basePlanId` | `string` | No | Base-plan id; defaults to a slug of the billing period (e.g. `p1m`). |
-| `prices` | `Record<string, PlayPriceConfig>` | Yes | Per-region base-plan prices (region code → micro-units + currency). At least one region required. |
-| `offers` | `PlaySubscriptionOfferConfig[]` | No | Offers (free trials / introductory pricing) to ensure exist on the base plan. |
-
 ### `ProductLocalization`
 
 One locale's customer-facing copy for a subscription or in-app purchase — the display name (and optional description) shown on the product page. Apple keeps a product in "Missing Metadata" until it has at least one localization, so the reconciler rejects an empty list rather than silently creating an unsubmittable product. The `locale` is the natural key the reconciler matches on.
@@ -275,15 +217,6 @@ One locale's customer-facing copy for a subscription or in-app purchase — the 
 | `locale` | `string` | Yes | App Store locale code, e.g. `en-US`. |
 | `name` | `string` | Yes | Customer-facing display name (Apple limit: 30 characters). |
 | `description` | `string` | No | Customer-facing description (Apple limit: 45 characters). Omitted when not provided. |
-
-### `ProductPrice`
-
-A product's baseline price, expressed as the customer-facing amount in a base territory. Apple does not accept arbitrary numbers — every price is one of a fixed ladder of price points. The reconciler resolves this declaration to the price point whose `customerPrice` equals `customerPrice` in `baseTerritory`, erroring (with the nearby points listed) when none matches exactly, then anchors the other territories off it — the same model the App Store Connect UI uses. A product with no price can never be submitted, so omit this only when you intend to set the price by hand in the UI.
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `baseTerritory` | `string` | No | Base territory whose price point is matched, e.g. `USA`. Defaults to `USA`. |
-| `customerPrice` | `number` | Yes | Exact customer-facing price in the base territory's currency, e.g. `9.99`. Must equal an Apple price point. |
 
 ### `PromotedPurchaseConfig`
 
@@ -328,19 +261,6 @@ Declared primary/secondary App Store categories (`appCategories` ids such as `PR
 | `primary` | `string` | No |  |
 | `secondary` | `string` | No |  |
 
-### `ReleaseConfig`
-
-iOS public-release policy, declared under release. These are the defaults `launch release` applies to the App Store version it submits; every field is optional, so an absent `release` block means "go live after approval, all at once" — the safe, common case. Android release policy is unaffected (it rides on the Play track + `--rollout`, see AndroidReleaseOptions). Scope: this drives an UPDATE to an already-configured app. A brand-new app's first submission still needs portal-only steps (screenshots, age rating, signed agreements) and the app record itself — which Apple has no API to create — so `launch release` detects that and prints a one-time checklist.
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `releaseType` | `"AFTER_APPROVAL" \| "MANUAL" \| "SCHEDULED"` | No | How an approved build reaches the store. Defaults to `AFTER_APPROVAL`. Overridable with `--manual`/`--scheduled`. |
-| `earliestReleaseDate` | `string` | No | ISO-8601 instant to go live at — only meaningful with `releaseType: "SCHEDULED"` (ignored otherwise). A `--scheduled <iso>` flag sets both this and the release type for one run. |
-| `phasedRelease` | `boolean` | No | Opt into Apple's 7-day phased release (a gradual percentage rollout) for an approved update. Defaults to `false` — an immediate 100% release. Overridable per-run with `--phased`, and steerable afterward with `launch rollout <pause\|resume\|complete>`. Ignored for a first version (Apple only phases updates). |
-| `usesNonExemptEncryption` | `boolean` | No | Whether the binary contains non-exempt encryption (Apple's export-compliance question). `false` — the common case for apps using only standard HTTPS/system crypto — lets Launch declare compliance over the API so the build clears `WAITING_FOR_EXPORT_COMPLIANCE` without a portal trip. Set `true` only if you ship proprietary/non-exempt encryption; Launch then stops and points you to the portal, since genuine non-exempt encryption requires documentation Apple's API can't accept. Defaults to `false`. |
-| `releaseNotes` | `string \| Record<string, string>` | No | Release notes ("What's New in This Version"), per App Store locale (e.g. `{ "en-US": "Bug fixes." }`) or a single string applied to primaryLocale. When absent, Launch reuses the previous version's notes so a release never ships an empty "What's New". Apple stores these on the version's localization, not the version itself. |
-| `primaryLocale` | `string` | No | Primary App Store locale for a bare-string releaseNotes. Defaults to `en-US`. |
-
 ### `ReleasePricing`
 
 Declared base price: a customer price (e.g. `9.99`) in a base territory Apple equalizes from.
@@ -365,17 +285,15 @@ Declared App Review details: the contact Apple reaches and the demo account its 
 | `demoAccountPassword` | `string` | No | The reviewer demo-account password. Prefer an indirection over a plaintext literal so the secret needn't sit in a repo-committed config (per "secrets never touch the repo"): `env:VAR_NAME` reads it from the environment, `keychain:ACCOUNT` from the OS keychain — both resolved only at submit time, so a plan never reads or holds it. Any other value is used as a literal (backward compatible). |
 | `notes` | `string` | No |  |
 
-### `StorageConfig`
-
-Non-secret settings for a cloud StorageProvider. Launch writes static artifacts (install plists, OTA manifests, JS bundles, IPAs/AABs) here and serves them from publicBaseUrl, so the user owns the infra (no Launch-hosted server). Credentials are NEVER stored here — the S3 access key / Supabase service key resolve from env vars or the OS secret store at call time.
+### `SubmitByPlatform`
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `endpoint` | `string` | No | S3-compatible endpoint, e.g. `https://<account>.r2.cloudflarestorage.com` (Cloudflare R2), a Backblaze B2 / MinIO endpoint, etc. Omit for AWS S3 (the SDK derives it from the region). Unused by the `supabase` provider. |
-| `bucket` | `string` | Yes | Bucket name (S3-compatible) or storage bucket id (Supabase). |
-| `region` | `string` | No | Region for an S3-compatible provider. Defaults to `auto` (correct for R2) when omitted; unused by Supabase. |
-| `publicBaseUrl` | `string` | Yes | Public base URL that maps to the bucket root — used to build install links and OTA manifest URLs. e.g. an R2 custom domain `https://cdn.example.com`, or a Supabase public object URL prefix `https://<project>.supabase.co/storage/v1/object/public/<bucket>`. No trailing slash required. |
-| `supabaseUrl` | `string` | No | Supabase project URL (`https://<project>.supabase.co`). Required by `supabase`, unused by `s3`. |
+| `ios` | `string[]` | No |  |
+| `android` | `string[]` | No |  |
+| `tvos` | `string[]` | No |  |
+| `macos` | `string[]` | No |  |
+| `visionos` | `string[]` | No |  |
 
 ### `SubscriptionConfig`
 
@@ -387,13 +305,13 @@ One auto-renewable subscription product inside a SubscriptionGroupConfig. `produ
 | `referenceName` | `string` | Yes | Internal reference name shown only in App Store Connect (Apple limit: 64 characters). |
 | `subscriptionPeriod` | `"ONE_WEEK" \| "ONE_MONTH" \| "TWO_MONTHS" \| "THREE_MONTHS" \| "SIX_MONTHS" \| "ONE_YEAR"` | Yes | Billing period for this level. |
 | `localizations` | `ProductLocalization[]` | Yes | Per-locale display copy; at least one entry is required for a submittable product. |
-| `price` | `ProductPrice` | No | Baseline price. Omit only to price manually in the UI. |
+| `price` | `object` | No | Baseline price. Omit only to price manually in the UI. |
 | `offerCodes` | `OfferCodeConfig[]` | No | Offer-code campaigns to ensure exist on this subscription (`launch offers`). |
 | `promotionalOffers` | `PromotionalOfferConfig[]` | No | Promotional offers to ensure exist on this subscription. |
 | `introductoryOffers` | `IntroductoryOfferConfig[]` | No | Introductory offers (at most one per territory) to ensure exist on this subscription. |
 | `winBackOffers` | `WinBackOfferConfig[]` | No | Win-back offers to ensure exist on this subscription. |
 | `reviewScreenshot` | `string` | No | Path (relative to the app directory) to this subscription's App Review screenshot — the image Apple requires before a subscription can be submitted. `launch sync` uploads it via the reservation flow, idempotently: it's skipped when the live screenshot's MD5 already matches the local file. Omit to attach it by hand in App Store Connect. Reconciled in `core/ascScreenshots.ts`, not here. |
-| `play` | `PlaySubscriptionOverride` | No | Google Play overrides; present this to also publish the subscription to Play (see PlaySubscriptionOverride). |
+| `play` | `object` | No | Google Play overrides; present this to also publish the subscription to Play (see PlaySubscriptionOverride). |
 
 ### `SubscriptionGroupConfig`
 
@@ -404,26 +322,6 @@ A subscription group — Apple's container for mutually-exclusive subscription l
 | `referenceName` | `string` | Yes | Internal reference name (unique within the app) — the reconciler's natural key for the group. |
 | `localizations` | `GroupLocalization[]` | Yes | Per-locale group display name; at least one entry is required (else the group's subs stay unsubmittable). |
 | `subscriptions` | `SubscriptionConfig[]` | Yes | The subscription levels in this group. |
-
-### `SurfaceConfigFiles`
-
-Where the sidecar-only surfaces keep their `*.config.json` desired-state files when not at the default filename. These surfaces have no typed field on LaunchConfig, so without this map a non-interactive caller — chiefly `launch plan` / `launch drift`, which has no per-surface `--config` flag — can only find a sidecar at its default name. Declaring a path here makes `plan` read the same file the command would (the existing `resolveSidecarConfig` consumes it). Each entry is optional; omit the whole map to use defaults (`availability.config.json`, `accessibility.config.json`, `experiments.config.json`, `custom-pages.config.json`).
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `availability` | `string` | No |  |
-| `accessibility` | `string` | No |  |
-| `experiments` | `string` | No |  |
-| `customPages` | `string` | No |  |
-
-### `WalletConfig`
-
-The team's Apple Pay merchant ids and Wallet pass type ids — the `wallet.config.json` document, or wallet. Team-level; either family may be omitted. Registered by `launch wallet`.
-
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `merchantIds` | `WalletIdConfig[]` | No | Apple Pay merchant ids to register. |
-| `passTypeIds` | `WalletIdConfig[]` | No | Wallet pass type ids to register. |
 
 ### `WalletIdConfig`
 

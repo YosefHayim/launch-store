@@ -6,7 +6,7 @@ links to that rather than repeat it.
 
 ## Prerequisites
 
-- **Node 20+** and npm.
+- **Node 20+** and **pnpm** (see `packageManager` in `package.json`; Corepack `corepack enable` is enough).
 
 That's all you need to work on the CLI and its tests. A real iOS build additionally needs a Mac with
 Xcode + fastlane and an App Store Connect API key — but the test suite mocks those, so you can
@@ -16,9 +16,9 @@ contribute to most of Launch on any OS.
 
 ```bash
 git clone <your-fork>
-cd launch
-npm install          # also installs the husky pre-commit hook
-npm run dev -- --help # run the CLI from source (tsx), no build needed
+cd launch-store
+pnpm install           # also installs the husky pre-commit hook
+pnpm dev -- --help     # run the CLI from source (tsx), no build needed
 ```
 
 ## The quality gate
@@ -26,18 +26,18 @@ npm run dev -- --help # run the CLI from source (tsx), no build needed
 Launch's codebase is the product's reference implementation, so it's kept provably clean. Two layers
 enforce that:
 
-- **Locally**, the husky pre-commit hook runs `lint-staged` (ESLint `--fix` + Prettier on staged
-  files) then a full `typecheck`.
+- **Locally**, the husky pre-commit hook runs `lint-staged` (Biome on staged files) then a full
+  `typecheck`.
 - **In CI** ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)), every push and PR re-runs the
   whole gate on Node 20 and 22 — because the local hook can be bypassed with `--no-verify`.
 
 Run the same checks before you push:
 
 ```bash
-npm run typecheck     # tsc --noEmit, max-strict
-npm run lint          # biome check (lint + format)
-npm run test          # vitest
-npm run build         # emits dist/ (production code only)
+pnpm typecheck     # tsc --noEmit, max-strict
+pnpm lint          # biome check (lint + format)
+pnpm test          # vitest
+pnpm build         # emits dist/ (production code only)
 ```
 
 Style and types are owned entirely by `tsconfig.json` and `biome.json` — fix

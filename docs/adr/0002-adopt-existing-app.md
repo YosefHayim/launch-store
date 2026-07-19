@@ -1,8 +1,8 @@
 # ADR 0002 — `launch adopt`: onboard an app that already ships
 
-- **Status:** Proposed (awaiting sign-off) — 2026-06-15
-- **Context:** converged in a `/grill-me` session; this ADR is the decision record. Per-slice work
-  becomes GitHub issues once signed off.
+- **Status:** Accepted — v1 shipped (2026-07-19 audit). `launch adopt` + `src/core/adopt/` registry
+  (products, capabilities, certs, listing) with plan → confirm → write. Future adopters remain YAGNI.
+- **Context:** converged in a `/grill-me` session; this ADR is the decision record.
 
 ## Context
 

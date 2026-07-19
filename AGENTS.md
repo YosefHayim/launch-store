@@ -108,7 +108,8 @@ Formatting and generic TypeScript rules live in `tsconfig.json`, `biome.json`, a
 ## Before You Call A Change Done
 
 ```bash
-npm run typecheck && npm run lint && npm run lint:style && npm run docs:check && npm run test && npm run build
+pnpm typecheck && pnpm lint && pnpm lint:style && pnpm docs:check && pnpm test && pnpm build
 ```
 
 All six must be green for migrated slices. Add or update colocated tests for any new behavior.
+(`npm run <script>` still works once dependencies are installed with **pnpm**; do not use `npm install` — this repo is `packageManager: pnpm@10` and only has `pnpm-lock.yaml`.)

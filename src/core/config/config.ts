@@ -37,7 +37,7 @@ const SELF_ENTRY = fileURLToPath(new URL('../../index.js', import.meta.url));
 const jiti = createJiti(import.meta.url, { alias: { 'launch-store': SELF_ENTRY } });
 
 // Re-exported so `import { LaunchConfigInput } from "launch-store"` (via src/index.ts → here) still
-// resolves; the type itself is now `z.input<typeof LaunchConfigSchema>`, owned by `types/config.ts`.
+// resolves; the type itself is `LaunchConfigInput`, owned by `types/config.ts`.
 export type { LaunchConfigInput };
 
 /**
@@ -51,7 +51,7 @@ export type { LaunchConfigInput };
  * silently dropping them. Known keys are inert noise to the pipeline; an unknown one becomes a reported
  * violation rather than a swallowed mistake.
  *
- * Deliberately fills defaults by hand rather than `LaunchConfigSchema.parse` — parsing would strip those
+ * Deliberately fills defaults by hand rather than Effect Schema parse — parsing would strip those
  * unknown top-level keys (defeating #197) and throw on a not-yet-valid field at load time, whereas
  * `launch config validate` is the explicit gate. The defaults come from the same `DEFAULT_*` constants
  * the schema's `.default(...)` uses, so the two paths can't disagree.

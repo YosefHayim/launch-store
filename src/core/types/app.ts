@@ -1,11 +1,7 @@
 /**
  * Core app-shape vocabulary: target platform, distribution/release targets, the user-authored
- * {@link AppDescriptor} and {@link BuildProfile}, and the TestFlight beta-feedback shapes. This module
- * still hosts legacy zod config-schema fragments while the Effect Schema boundary moves to
- * `src/core/config/schema.ts` (see [ADR 0013](../../../docs/adr/0013-effect-schema-config-ssot.md)).
+ * {@link AppDescriptor} and {@link BuildProfile}, and the TestFlight beta-feedback shapes.
  */
-
-import { z } from 'zod';
 
 /**
  * Target build platform. The Apple family — `ios`, `tvos`, `macos`, `visionos` — can only be built
@@ -207,54 +203,22 @@ export interface AppDescriptor {
 }
 
 /**
- * A named build profile from `launch.config.ts` (e.g. `production`, `preview`) — see
- * {@link BuildProfileSchema}. Holds only Launch-specific settings; app facts stay in `app.json`.
+ * A named build profile from `launch.config.ts` (e.g. `production`, `preview`).
+ * Holds only Launch-specific settings; app facts stay in `app.json`.
  */
-export const BuildProfileSchema = z
-  .strictObject({
-    name: z.string().describe('Profile name as referenced by `--profile`.'),
-    envFile: z
-      .string()
-      .describe(
-        'Dotenv file to load for this profile, relative to the app dir. Defaults to `.env`.',
-      )
-      .optional(),
-    env: z
-      .record(z.string(), z.string())
-      .describe(
-        'Inline env vars for this profile, merged into the build/update/release environment. They sit above the dotenv files (`.env.local`, `.env.<profile>`, `.env`) but below keychain secrets and `--env` flags in the precedence ladder — see `core/env.ts` `resolveEnv`. Use for non-secret, committed config that should travel with the profile; keep real secrets in `launch secret`.',
-      )
-      .optional(),
-    ssl: z
-      .boolean()
-      .describe(
-        'Enable SSL pinning for this profile (mirrors the existing build.ts toggle). Defaults to false.',
-      )
-      .optional(),
-    sizeBudgetMB: z
-      .number()
-      .describe(
-        "Per-device download-size budget in megabytes. When the size report exceeds it, the build soft-gates (asks for confirmation) rather than failing. Defaults to 200 (Apple's cellular line).",
-      )
-      .optional(),
-    track: z
-      .enum(PLAY_TRACKS)
-      .describe(
-        'Android-only: default Play track for `launch build android` when `--track` is omitted. Defaults to `internal` (the only safe target for a fresh account). Ignored on iOS.',
-      )
-      .optional(),
-    rollout: z
-      .number()
-      .describe(
-        'Android-only: default staged-rollout fraction (0–1) for production releases when `--rollout` is omitted. Defaults to `1.0` (full rollout). Ignored on iOS.',
-      )
-      .optional(),
-  })
-  .meta({
-    id: 'BuildProfile',
-    description:
-      'A named build profile from `launch.config.ts` (e.g. `production`, `preview`). Holds only Launch-specific settings; app facts stay in `app.json`. A profile maps to a `.env` file whose values are injected into the build and gates the artifact on size.',
-  });
-
-/** A named build profile from `launch.config.ts` — the inferred shape of {@link BuildProfileSchema}. */
-export type BuildProfile = z.infer<typeof BuildProfileSchema>;
+export interface BuildProfile {
+  /** Profile name as referenced by `--profile`. */
+  name: string;
+  /** Dotenv file relative to the app dir. Defaults to `.env`. */
+  envFile?: string;
+  /** Inline env vars for this profile (non-secret committed config). */
+  env?: Record<string, string>;
+  /** Enable SSL pinning for this profile. Defaults to false. */
+  ssl?: boolean;
+  /** Per-device download-size budget in MB (soft gate). Defaults to 200. */
+  sizeBudgetMB?: number;
+  /** Android-only: default Play track when `--track` is omitted. */
+  track?: PlayTrack;
+  /** Android-only: default staged-rollout fraction (0–1) when `--rollout` is omitted. */
+  rollout?: number;
+}

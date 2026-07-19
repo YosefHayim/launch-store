@@ -98,9 +98,14 @@ describe('ALL_TOOLS registry', () => {
 describe('config introspection tools', () => {
   it('config_schema returns the launch.config JSON Schema', async () => {
     const schema = payload(await byName('config_schema').handler({})) as Record<string, unknown>;
-    // z.toJSONSchema inlines the root object (no top-level `$ref`) and names nested objects under `definitions`.
-    expect(schema['type']).toBe('object');
+    // Effect Schema SSOT: nested types under `definitions` (normalized from `$defs`); root may be
+    // an inline object or a `$ref` into `definitions.LaunchConfig`.
     expect(schema['definitions']).toBeDefined();
+    const rootName =
+      typeof schema['$ref'] === 'string' ? schema['$ref'].split('/').pop() : undefined;
+    const definitions = schema['definitions'] as Record<string, { type?: string }> | undefined;
+    const root = (rootName && definitions?.[rootName]) || schema;
+    expect(root['type']).toBe('object');
   });
 
   it('config_docs returns the field reference as Markdown', async () => {

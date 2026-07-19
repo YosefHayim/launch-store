@@ -9,7 +9,7 @@
  * Config validation does **not** run through here any more: `launch.config.ts` is validated directly by
  * the Effect Schema boundary in `config/schema.ts` — see
  * [ADR 0013](../../docs/adr/0013-effect-schema-config-ssot.md). {@link JsonSchema} still doubles as the shape
- * the committed `schema/launch.config.schema.json` (emitted by the temporary zod compatibility generator)
+ * the committed `schema/launch.config.schema.json` (emitted from Effect Schema by `pnpm docs:gen`)
  * deserializes to, which `configDocs.ts` renders. Errors carry a dotted JSON path so a caller can point
  * the user straight at the offending field.
  */

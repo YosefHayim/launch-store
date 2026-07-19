@@ -2,11 +2,22 @@
  * Tests for Android credential storage — the base64-at-rest encoding of the service-account JSON
  * (the same macOS `security -w` hex-corruption fix as the iOS `.p8`) and the status summary. The
  * secret store is mocked with an in-memory map so these run anywhere with no real keychain calls.
+ * HOME is redirected before paths resolve so a developer machine's real upload keystore never leaks
+ * into "fresh machine" assertions.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { rmSync } from 'node:fs';
 
-const { store } = vi.hoisted(() => ({ store: new Map<string, string>() }));
+// Redirect HOME before `core/services/paths.js` evaluates so `~/.launch/credentials/android.json`
+// resolves under a throwaway path. Must run via vi.hoisted before the static imports below; use the
+// global `process` (not a node:process import) so hoisting does not hit a TDZ on the import binding.
+const { store, homeDir } = vi.hoisted(() => {
+  const homeDir = `${process.env['TMPDIR'] ?? '/tmp'}/launch-android-credentials-test-${process.pid}`;
+  process.env['HOME'] = homeDir;
+  process.env['USERPROFILE'] = homeDir;
+  return { store: new Map<string, string>(), homeDir };
+});
 
 vi.mock('../core/credentials/keychain.js', () => ({
   setSecret: async (account: string, value: string): Promise<void> => {
@@ -35,9 +46,13 @@ const SERVICE_ACCOUNT = JSON.stringify({
 
 beforeEach(() => {
   store.clear();
+  rmSync(homeDir, { recursive: true, force: true });
 });
 afterEach(() => {
   vi.restoreAllMocks();
+});
+afterAll(() => {
+  rmSync(homeDir, { recursive: true, force: true });
 });
 
 describe('storeServiceAccount / loadServiceAccount', () => {
@@ -76,7 +91,8 @@ describe('describeStoredAndroidCredentials', () => {
 
   it('reports the service account once imported', async () => {
     await storeServiceAccount(SERVICE_ACCOUNT);
-    const { hasServiceAccount } = await describeStoredAndroidCredentials();
+    const { hasServiceAccount, keystoreAlias } = await describeStoredAndroidCredentials();
     expect(hasServiceAccount).toBe(true);
+    expect(keystoreAlias).toBeNull();
   });
 });

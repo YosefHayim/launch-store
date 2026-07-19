@@ -34,6 +34,7 @@ import type {
   SizeReport,
   Submitter,
 } from '../types/index.js';
+import process from 'node:process';
 
 registerBuiltins();
 

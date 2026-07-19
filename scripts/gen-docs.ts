@@ -14,9 +14,10 @@ import { dirname, join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import type { Command } from 'commander';
-import { z } from 'zod';
+import { JSONSchema } from 'effect';
 import { buildProgram } from '../src/cli/program.ts';
 import { renderContributorRules, renderContributorSkills } from '../src/core/agents/render.ts';
+import { LaunchConfigEffectSchema } from '../src/core/config/schema.ts';
 import {
   type CommandSpec,
   countAsyncMethods,
@@ -36,7 +37,6 @@ import {
 } from '../src/core/docs/commandDocs.ts';
 import { renderConfigDocs } from '../src/core/docs/configDocs.ts';
 import type { JsonSchema } from '../src/core/jsonSchema.ts';
-import { LaunchConfigSchema } from '../src/core/types/config.ts';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -79,14 +79,30 @@ function computeStats(commands: CommandSpec[]): DocStats {
 }
 
 /**
- * Generate the JSON Schema for `launch.config.ts` from the temporary zod compatibility schema. Runtime
- * validation now uses the Effect Schema boundary in `src/core/config/schema.ts` (ADR 0013); this
- * generator stays on zod until the committed JSON Schema output is moved over without editor-schema
- * churn. `io: 'input'` emits the authoring shape (provider names optional, so only `profiles` is
- * required), and `target: 'draft-7'` keeps the shipped dialect unchanged.
+ * Effect's JSON Schema emitter uses draft-2020-style `$defs` and `#/$defs/…` refs. Launch's docs
+ * renderer and hand-rolled JSON Schema subset speak draft-07 `definitions` / `#/definitions/…`.
+ * Normalize once so editor schema, `config docs`, and MCP `config_schema` stay on one shape.
+ */
+function normalizeEffectJsonSchema(
+  schema: JsonSchema & { $defs?: Record<string, JsonSchema> },
+): JsonSchema {
+  const raw = JSON.stringify(schema);
+  const withDefinitionsKey = raw
+    .replaceAll('"$defs"', '"definitions"')
+    .replaceAll('#/$defs/', '#/definitions/');
+  return JSON.parse(withDefinitionsKey) as JsonSchema;
+}
+
+/**
+ * Generate the JSON Schema for `launch.config.ts` from the Effect Schema SSOT (ADR 0013).
+ * Field prose comes from Schema annotations on `LaunchConfigEffectSchema` — no merge bridge.
  */
 function generateConfigSchema(): JsonSchema {
-  return z.toJSONSchema(LaunchConfigSchema, { target: 'draft-7', io: 'input' }) as JsonSchema;
+  return normalizeEffectJsonSchema(
+    JSONSchema.make(LaunchConfigEffectSchema) as JsonSchema & {
+      $defs?: Record<string, JsonSchema>;
+    },
+  );
 }
 
 /** Render every generated doc from the live program, ready to write or diff verbatim. */

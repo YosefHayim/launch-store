@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import { Effect } from 'effect';
+import { parseLaunchConfig, validateLaunchConfig } from '../config/schema.js';
 import {
   DEFAULT_BUILD_ENGINE,
   DEFAULT_CREDENTIALS_PROVIDER,
   DEFAULT_STORAGE_PROVIDER,
   DEFAULT_SUBMITTER,
-  LaunchConfigSchema,
-  SubmitByPlatformSchema,
 } from './config.js';
 
-describe('LaunchConfigSchema', () => {
-  it('fills the four provider defaults on parse, so a minimal config only declares profiles', () => {
-    const parsed = LaunchConfigSchema.parse({ profiles: {} });
+describe('LaunchConfig Effect Schema boundary', () => {
+  it('fills the four provider defaults on parse, so a minimal config only declares profiles', async () => {
+    const parsed = await Effect.runPromise(parseLaunchConfig({ profiles: {} }));
     expect(parsed).toMatchObject({
       credentials: DEFAULT_CREDENTIALS_PROVIDER,
       storage: DEFAULT_STORAGE_PROVIDER,
@@ -19,27 +19,40 @@ describe('LaunchConfigSchema', () => {
     });
   });
 
-  it('keeps a caller-set provider name over the default', () => {
-    expect(LaunchConfigSchema.parse({ profiles: {}, storage: 's3' }).storage).toBe('s3');
+  it('keeps a caller-set provider name over the default', async () => {
+    const parsed = await Effect.runPromise(parseLaunchConfig({ profiles: {}, storage: 's3' }));
+    expect(parsed.storage).toBe('s3');
   });
 
   it('rejects an unknown top-level key (strict root — the #197 gate)', () => {
-    expect(LaunchConfigSchema.safeParse({ profiles: {}, nope: 1 }).success).toBe(false);
+    expect(validateLaunchConfig({ profiles: {}, nope: 1 }).length).toBeGreaterThan(0);
   });
 
-  it('accepts the per-platform submit form for a subset of platforms', () => {
-    const parsed = LaunchConfigSchema.parse({
-      profiles: {},
-      submit: { android: ['google-play', 'amazon-appstore'] },
-    });
+  it('accepts the per-platform submit form for a subset of platforms', async () => {
+    const parsed = await Effect.runPromise(
+      parseLaunchConfig({
+        profiles: {},
+        submit: { android: ['google-play', 'amazon-appstore'] },
+      }),
+    );
     expect(parsed.submit).toEqual({ android: ['google-play', 'amazon-appstore'] });
   });
 });
 
-describe('SubmitByPlatformSchema', () => {
-  it('is a partial record — a single platform key is valid, unknown keys are not', () => {
-    expect(SubmitByPlatformSchema.safeParse({ ios: ['app-store-connect'] }).success).toBe(true);
-    expect(SubmitByPlatformSchema.safeParse({}).success).toBe(true);
-    expect(SubmitByPlatformSchema.safeParse({ windows: ['x'] }).success).toBe(false);
+describe('SubmitByPlatform validation via LaunchConfig schema', () => {
+  it('accepts a single platform key and rejects unknown platform keys', () => {
+    expect(
+      validateLaunchConfig({
+        profiles: {},
+        submit: { ios: ['app-store-connect'] },
+      }),
+    ).toEqual([]);
+    expect(validateLaunchConfig({ profiles: {}, submit: {} })).toEqual([]);
+    expect(
+      validateLaunchConfig({
+        profiles: {},
+        submit: { windows: ['x'] },
+      }).length,
+    ).toBeGreaterThan(0);
   });
 });

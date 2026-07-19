@@ -18,4 +18,8 @@ ADR 0008 adopted zod as the config source of truth. The broader migration now ma
 
 - Config parsing composes with the same runtime as the rest of Launch.
 - ADR 0008 remains historical context but no longer describes the old decision as target architecture.
-- Schema migration should be done in focused slices with compatibility shims until all zod uses are gone.
+- **2026-07-19:** zod removed from the package. Domain types are plain TypeScript interfaces under
+  `src/core/types/`; runtime validation and JSON Schema generation both use `LaunchConfigEffectSchema`
+  (`scripts/gen-docs.ts` → `JSONSchema.make`, with `$defs` normalized to draft-07 `definitions`).
+  Field and type descriptions live as Effect Schema annotations and emit into the committed JSON Schema
+  with no description-merge bridge.

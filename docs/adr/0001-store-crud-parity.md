@@ -1,7 +1,10 @@
 # ADR 0001 — Store CRUD parity: close the Apple gap tail + full Google Play CRUD
 
-- **Status:** Proposed (awaiting sign-off) — 2026-06-14
-- **Supersedes:** [`plan-android.md`](../plan-android.md) decision 7 (partial — see below)
+- **Status:** Accepted — largely implemented (2026-07-19 audit). Apple slices A1–A4 and Google catalog /
+  reviews / tracks land under `src/core/store/*`, matching CLI commands (`availability`, `customPages`,
+  `accessibility`, `playProducts`, `playSubscriptions`, `playTracks`, `playReviews`, …). Residual work is
+  ordinary product backlog, not design sign-off.
+- **Supersedes:** archived `docs/archive/plan-android.md` decision 7 (partial — see below)
 - **Context:** converged in a `/grill-me` session; this ADR is the decision record, the GitHub epics
   (Apple tail + Google parity) are the per-slice PRD.
 

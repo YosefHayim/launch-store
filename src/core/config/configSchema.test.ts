@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { loadConfigSchema, validateConfig } from './configSchema.js';
 
 describe('loadConfigSchema', () => {
-  it('loads the committed schema as an inline-root object with only `profiles` required', () => {
+  it('loads the committed schema with only `profiles` required and named nested definitions', () => {
     const schema = loadConfigSchema();
-    // The temporary zod compatibility generator inlines the root object and names every nested object
-    // under `definitions`, so the reference can table them while the runtime boundary is Effect Schema.
-    expect(schema.type).toBe('object');
-    expect(schema.required).toEqual(['profiles']);
-    expect(schema.properties?.['profiles']).toBeDefined();
+    // Effect Schema is the SSOT (ADR 0013); gen-docs normalizes `$defs` → `definitions` and roots
+    // via `$ref` → `#/definitions/LaunchConfig` when the root carries an identifier.
+    const rootName = schema.$ref?.split('/').pop();
+    const root = (rootName && schema.definitions?.[rootName]) || schema;
+    expect(root.type).toBe('object');
+    expect(root.required).toEqual(['profiles']);
+    expect(root.properties?.['profiles']).toBeDefined();
     expect(schema.definitions?.['BuildProfile']?.properties?.['name']).toBeDefined();
   });
 });

@@ -1,7 +1,10 @@
 # ADR 0005 — `launch compliance`: Compliance Autopilot (generate legal docs + store declarations from real capabilities)
 
-- **Status:** Proposed — designed 2026-06-22 (`/grill-me`). **Not yet authorized to build**; this ADR
-  records the converged design so it survives across sessions.
+- **Status:** Proposed — designed 2026-06-22 (`/grill-me`). **Not built** (2026-07-19 audit): no
+  `src/core/compliance/`, no `launch compliance` command. Substrate exists only as partial inputs
+  (`src/core/privacy/*`, readiness probes for age rating / export compliance / listing URLs, store
+  export-compliance helpers). Do not treat privacy reconcile as this ADR shipping.
+- **Context:** this ADR records the converged design so it survives across sessions.
 - **Context:** a fifth differentiation axis beyond the four in ADR 0003/0004 (GitOps plan/drift ·
   cross-store release · AI listing · local insights): **fear-removal nobody else can do.** It reuses the
   substrate those ADRs established (the readiness-probe and `SurfacePlanner` registries, the `*.config.json`
