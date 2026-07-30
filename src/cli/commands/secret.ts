@@ -35,6 +35,7 @@ interface SecretOptions {
 }
 
 /** A valid environment variable name: a letter/underscore, then letters, digits, or underscores. */
+// Raw row example: "Jane Doe" name should match.
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /** Resolve the app handle to scope a secret to: an explicit `--app`, the sole app, or a prompt. */

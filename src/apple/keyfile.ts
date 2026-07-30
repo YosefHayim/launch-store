@@ -11,6 +11,7 @@ import { readdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
 /** Apple's key filename: `AuthKey_` + the Key ID (10-char alphanumeric) + `.p8`. */
+// Raw row example: ".png" / "photo.jpg" should match a file name/ext.
 const AUTH_KEY_FILENAME = /^AuthKey_([A-Z0-9]{8,})\.p8$/i;
 
 /** Extract the Key ID from an `AuthKey_<KEYID>.p8` path, upper-cased, or null if the name doesn't match. */

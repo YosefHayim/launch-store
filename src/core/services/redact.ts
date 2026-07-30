@@ -21,14 +21,19 @@ import { isSecretLookingName } from '../config/env.js';
 const HOME = homedir();
 
 /** `NAME=value` / `NAME: value` — the value is masked when NAME looks secret (e.g. `API_TOKEN=…`). */
+// Raw row example: "assignment"-like input should match.
 const ASSIGNMENT = /\b([A-Za-z][A-Za-z0-9_]*)(\s*[:=]\s*)("[^"]*"|'[^']*'|\S+)/g;
 /** A JWT (`eyJ…header.payload.signature`) — App Store Connect / service-account tokens take this form. */
+// Raw row example: JWT token segments should match.
 const JWT = /\beyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}/g;
 /** An `Authorization: Bearer <token>` value. */
+// Raw row example: "Bearer eyJ..." auth header should match.
 const BEARER = /(Bearer\s+)[A-Za-z0-9._~+/-]+=*/gi;
 /** An AWS access key id. */
+// Raw row example: "aws access key"-like input should match.
 const AWS_ACCESS_KEY = /\bAKIA[0-9A-Z]{16}\b/g;
 /** A PEM-encoded key/cert block, including its body — only matchable with the whole document in hand. */
+// Raw row example: PEM block should match.
 const PEM_BLOCK = /-----BEGIN [A-Z0-9 ]+-----[\s\S]*?-----END [A-Z0-9 ]+-----/g;
 
 /** The masked placeholder substituted for any redacted value. */

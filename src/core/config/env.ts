@@ -91,10 +91,13 @@ export function missingKeys(
 }
 
 /** Names containing one of these are always treated as secret (case-insensitive). */
+// Raw row example: secret pattern should match.
 const OBVIOUSLY_SECRET = /(SECRET|PRIVATE|PASSWORD|PASSWD|TOKEN)/i;
 /** A trailing `_KEY` is secret-ish unless qualified as publishable. */
+// Raw row example: "keyish"-like input should match.
 const KEYISH = /_KEY$/i;
 /** Qualifiers that mark a `_KEY` as safe to ship (publishable/anon keys). */
+// Raw row example: SHA hash should match.
 const PUBLISHABLE = /(PUBLISHABLE|PUBLIC|CLIENT|WEB|ANON)/i;
 
 /**

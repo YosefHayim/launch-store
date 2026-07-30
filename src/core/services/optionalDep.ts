@@ -9,6 +9,7 @@
  */
 
 /** Matches the module-resolution errors Node/the loader throw when a package isn't installed. */
+// Raw row example: "not installed"-like input should match.
 const NOT_INSTALLED = /Cannot find (module|package)|ERR_MODULE_NOT_FOUND|MODULE_NOT_FOUND/;
 
 /**
