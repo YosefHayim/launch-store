@@ -60,6 +60,7 @@ const stepIcon = (label: string): string =>
  * or an app name the user cased themselves — is returned verbatim, since title-casing those would corrupt
  * them. `stepIcon` still keys off the original label (its patterns are case-insensitive).
  */
+// Raw row example: "plain label"-like input should match.
 const PLAIN_LABEL = /^[a-z]+( [a-z]+)*$/;
 const prettyLabel = (label: string): string =>
   PLAIN_LABEL.test(label) ? label.replace(/\b[a-z]/g, (c) => c.toUpperCase()) : label;

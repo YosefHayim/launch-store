@@ -29,8 +29,10 @@ interface PricingOptions {
 }
 
 /** ISO-4217 currency code: exactly three ASCII letters. */
+// Raw row example: "$19.99" / "€10" currency should match.
 const CURRENCY_PATTERN = /^[A-Za-z]{3}$/;
 /** A non-negative decimal with at most 9 fractional digits (the `nanos` precision Money allows). */
+// Raw row example: "amount"-like input should match.
 const AMOUNT_PATTERN = /^\d+(\.\d{1,9})?$/;
 
 /** Build a Play client bound to the stored service account, or fail with the onboarding hint. */

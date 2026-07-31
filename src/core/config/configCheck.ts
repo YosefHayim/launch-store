@@ -50,6 +50,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
  * segments. The build-breakers this rejects are the common ones — an underscore or a space, which
  * Xcode/Apple flat-out refuse — so an invalid match is a real `error`, not a style nit.
  */
+// Raw row example: "bundle id"-like input should match.
 const BUNDLE_ID = /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
 
 /**
@@ -57,9 +58,11 @@ const BUNDLE_ID = /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
  * with a letter, then letters/digits/underscores. Hyphens and digit-led segments are rejected because
  * Gradle/AAPT reject them, so an invalid match is build-breaking.
  */
+// Raw row example: age number should match.
 const ANDROID_PACKAGE = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/;
 
 /** A plausible marketing version: 1–3 dot-separated numbers (`1`, `1.2`, `1.2.3`). */
+// Raw row example: "1.2.3" should match a version string.
 const MARKETING_VERSION = /^\d+(\.\d+){0,2}$/;
 
 /** True when a splash block is configured (a non-empty object) but carries no `backgroundColor`. */
