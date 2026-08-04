@@ -1,7 +1,7 @@
 {
   "name": "launch-store",
   "version": "0.32.8",
-  "description": "Open-source, self-hosted alternative to Expo EAS — build, sign, configure your stores, and ship Expo / React Native apps to the App Store & Google Play from one typed launch.config.ts — your machine, your keys. No per-build bill.",
+  "description": "Open-source, self-hosted alternative to Expo EAS - build, sign, configure your stores, and ship Expo / React Native apps to the App Store & Google Play from one typed launch.config.ts - your machine, your keys. No per-build bill.",
   "keywords": [
     "cli",
     "mobile",
@@ -52,11 +52,11 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json && chmod +x dist/cli/index.js",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json && chmod +x dist/cli/index.js",
     "dev": "tsx src/cli/index.ts",
-    "gen:asc": "tsx scripts/gen-asc-types.ts",
-    "docs:gen": "tsx scripts/gen-docs.ts",
-    "docs:check": "tsx scripts/gen-docs.ts --check",
+    "gen:asc": "tsx scripts/dev/generate-apple-types.ts",
+    "docs:gen": "tsx scripts/dev/generate-docs.ts",
+    "docs:check": "tsx scripts/dev/generate-docs.ts --check",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true .",
@@ -66,14 +66,18 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "launch": "tsx src/cli/index.ts",
-    "wordmark:preview": "tsx scripts/preview-wordmark.ts",
     "prepare": "husky",
     "prepublishOnly": "pnpm build",
-    "lint:style": "node scripts/check-style.mjs"
+    "lint:style": "node scripts/dev/check-code-style.mjs",
+    "lint:style:self-test": "node scripts/dev/check-code-style.mjs --self-test && node scripts/dev/check-grit-rules.mjs && node scripts/dev/migrate-code-style.mjs --self-test",
+    "style:migrate": "node scripts/dev/replace-type-barrel-imports.mjs && node scripts/dev/migrate-code-style.mjs"
   },
   "dependencies": {
     "@clack/prompts": "^1.5.1",
     "@effect/platform": "^0.96.2",
+    "@effect/platform-node": "0.107.0",
+    "@googleapis/androidpublisher": "^37.0.0",
+    "@googleapis/playdeveloperreporting": "^11.0.0",
     "chalk": "^5.6.2",
     "commander": "^12.1.0",
     "effect": "^3.21.4",
@@ -87,12 +91,13 @@
     "husky": "^9.1.6",
     "lint-staged": "^15.2.10",
     "openapi-typescript": "^7.13.0",
+    "tsc-alias": "^1.9.1",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
     "vitest": "^4.1.8"
   },
   "lint-staged": {
-    "src/**/*.ts": [
+    "**/*.{js,mjs,cjs,ts,mts,cts,json,jsonc}": [
       "biome format --write --no-errors-on-unmatched"
     ]
   },

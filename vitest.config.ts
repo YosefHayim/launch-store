@@ -1,16 +1,17 @@
-/**
- * Vitest configuration.
- *
- * Tests live beside the code they cover (`src/**\/*.test.ts`) and run in a Node environment, since
- * Launch is a CLI that shells out and talks to the filesystem/network. Coverage excludes the test
- * files themselves and the thin `src/cli` commander wiring (exercised end-to-end via the dry-run
- * pipeline test rather than unit-tested). The text-summary reporter is what CI surfaces in its
- * run summary.
- */
-
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@apple': fileURLToPath(new URL('./src/apple', import.meta.url)),
+      '@cli': fileURLToPath(new URL('./src/cli', import.meta.url)),
+      '@core': fileURLToPath(new URL('./src/core', import.meta.url)),
+      '@google': fileURLToPath(new URL('./src/google', import.meta.url)),
+      '@providers': fileURLToPath(new URL('./src/providers', import.meta.url)),
+      '@testkit': fileURLToPath(new URL('./src/testkit', import.meta.url)),
+    },
+  },
   test: {
     include: ['src/**/*.test.ts'],
     environment: 'node',

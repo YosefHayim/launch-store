@@ -1,0 +1,183 @@
+{
+  "version": 3,
+  "guide": "CODE-STYLE.md",
+  "scope": [
+    "src/**/*.{ts,tsx}",
+    "scripts/**/*.{ts,mjs}",
+    "examples/**/*.{ts,tsx}",
+    "launch.config.example.ts"
+  ],
+  "exclude": ["src/apple/generated/**", "schema/**", "dist/**", "coverage/**", "node_modules/**"],
+  "forbiddenBindings": [
+    "acc",
+    "body",
+    "cfg",
+    "ctx",
+    "curr",
+    "data",
+    "fallbackCandidate",
+    "info",
+    "item",
+    "opts",
+    "payload",
+    "req",
+    "res",
+    "resolve",
+    "response",
+    "result",
+    "row",
+    "toMap",
+    "value"
+  ],
+  "domainScopedBindings": {
+    "build": [
+      "src/cli/commands/builds.ts",
+      "src/core/build/**",
+      "src/core/types/providers.ts",
+      "src/providers/build/**"
+    ]
+  },
+  "publicEntrypoints": ["src/index.ts"],
+  "rules": [
+    {
+      "id": "function.arrow-only",
+      "statement": "Authored module functions are named arrow constants declared before first use.",
+      "verify": "pnpm lint:style"
+    },
+    {
+      "id": "function.one-job",
+      "statement": "Each function performs one cohesive domain job that its name fully describes.",
+      "verify": "judgment"
+    },
+    {
+      "id": "effect.production",
+      "statement": "Production behavior returns Effect while Promise syntax stays in tests, development scripts, generated code, the runtime entrypoint, Commander's callback contract, and Apple's HTTP/JWT transport boundary. The handwritten Apple client keeps the vendor-native Promise/fetch contract; src/core/services/appleStoreClient.ts converts it to typed Effects before any core program can use it.",
+      "verify": "pnpm lint:style"
+    },
+    {
+      "id": "effect.platform",
+      "statement": "Filesystem, path, process, command, and terminal work uses official Effect platform services from live layers.",
+      "verify": "judgment"
+    },
+    {
+      "id": "effect.concurrency",
+      "statement": "Effectful collections use Effect.forEach or Effect.all with explicit concurrency instead of Promise coordination.",
+      "verify": "pnpm lint:style"
+    },
+    {
+      "id": "failure.tagged-data",
+      "statement": "Expected production failures are readonly tagged data in the Effect error channel and never thrown Error instances or error classes.",
+      "verify": "pnpm lint:style"
+    },
+    {
+      "id": "schema.boundary",
+      "statement": "Each external input boundary decodes once through its owning Effect Schema and downstream code trusts the decoded type.",
+      "verify": "judgment"
+    },
+    {
+      "id": "schema.environment",
+      "statement": "LaunchEnvironmentSchema decodes process.env once and exposes secrets as Redacted values to live layers.",
+      "verify": "pnpm lint:style"
+    },
+    {
+      "id": "type.alias-only",
+      "statement": "Authored declarations use type aliases while interfaces remain limited to required third-party declaration augmentation.",
+      "verify": "pnpm lint:style"
+    },
+    {
+      "id": "type.safe",
+      "statement": "Authored code uses unknown at trust boundaries and avoids any, unchecked assertions, non-null assertions, and suppression comments.",
+      "verify": "pnpm lint:style"
+    },
+    {
+      "id": "type.boundary-immutable",
+      "statement": "Exported and domain boundary shapes are readonly while mutation stays local to an owning implementation.",
+      "verify": "judgment"
+    },
+    {
+      "id": "name.domain-prose",
+      "statement": "Launch-owned bindings use domain prose and contain none of the forbidden generic names recorded in code-style.rules.json.",
+      "verify": "pnpm lint:style"
+    },
+    {
+      "id": "control.explicit",
+      "statement": "Authored code uses guard clauses, exhaustive switches, or named lookups and never uses ternary, nullish-coalescing, logical-or fallback operators, or immediately invoked functions that hide branches inside expressions.",
+      "verify": "pnpm lint:style"
+    },
+    {
+      "id": "collection.intent",
+      "statement": "Synchronous iteration uses native for-of and effectful iteration uses Effect.forEach without repository-owned loop wrappers.",
+      "verify": "judgment"
+    },
+    {
+      "id": "import.ownership",
+      "statement": "Imports follow the CLI, core, provider, Apple, and Google ownership directions documented in AGENTS.md.",
+      "verify": "pnpm lint:style"
+    },
+    {
+      "id": "import.alias-depth",
+      "statement": "Same-directory and one-parent imports are relative while deeper internal imports use the approved at-sign aliases.",
+      "verify": "pnpm lint:style"
+    },
+    {
+      "id": "module.public-entrypoint",
+      "statement": "src/index.ts is the only passive barrel and every internal module exports the capability it owns directly.",
+      "verify": "pnpm lint:style"
+    },
+    {
+      "id": "module.cohesion",
+      "statement": "A module exists only when it owns a domain concept, owns a side-effect boundary, or serves more than one caller.",
+      "verify": "judgment"
+    },
+    {
+      "id": "service.domain-only",
+      "statement": "src/core/services contains readonly Effect service types with Context.GenericTag and Layer values while domain logic lives in its purpose directory.",
+      "verify": "judgment"
+    },
+    {
+      "id": "cli.thin",
+      "statement": "Commander modules define names, flags, and help before calling one core Effect program shared with interactive flows.",
+      "verify": "judgment"
+    },
+    {
+      "id": "cli.non-tty",
+      "statement": "Bare TTY execution may open the wizard while non-TTY execution prints help and never prompts.",
+      "verify": "pnpm test"
+    },
+    {
+      "id": "presentation.ascii",
+      "statement": "Production output uses Effect logging with ASCII status labels and keeps JSON output free of human presentation.",
+      "verify": "pnpm lint:style"
+    },
+    {
+      "id": "comment.hidden-intent",
+      "statement": "Comments explain only non-obvious intent, constraints, or vendor behavior that names and types cannot express.",
+      "verify": "judgment"
+    },
+    {
+      "id": "generated.vendor-source",
+      "statement": "Generated store API artifacts record their official source URL and reproduction command while adapters expose only Launch-owned domain fields.",
+      "verify": "pnpm docs:check"
+    },
+    {
+      "id": "screenshot.registry",
+      "statement": "One Apple screenshot asset-target registry owns every screenshot key, label, display specification, and optional preview type.",
+      "verify": "pnpm test"
+    },
+    {
+      "id": "test.layers",
+      "statement": "Tests are colocated by behavior and use hand-written Effect Test layers plus shared testkit fakes for reusable boundaries.",
+      "verify": "judgment"
+    },
+    {
+      "id": "tooling.script-location",
+      "statement": "Development generators and migration helpers live under scripts/dev while scripts/production contains only runtime operational tools.",
+      "verify": "pnpm lint:style"
+    },
+    {
+      "id": "docs.same-change",
+      "statement": "A behavior or architecture change updates its owning generated docs, TECH.md, LANGUAGE.md, CONTEXT.md, or ADR in the same change.",
+      "verify": "pnpm docs:check"
+    }
+  ]
+}

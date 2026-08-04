@@ -1,15 +1,17 @@
-/**
- * Vitest config for the end-to-end suite (`npm run test:e2e`).
- *
- * Separate from the default unit config so the e2e specs — which drive the COMPILED `dist/cli/index.js`
- * as a subprocess — never run in the fast `vitest run` unit pass, and so this suite can assume a built
- * dist (the `e2e.yml` workflow, and the local gate, build first). Node environment; a longer per-test
- * timeout because each case spawns the CLI as a child process.
- */
-
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@apple': fileURLToPath(new URL('./src/apple', import.meta.url)),
+      '@cli': fileURLToPath(new URL('./src/cli', import.meta.url)),
+      '@core': fileURLToPath(new URL('./src/core', import.meta.url)),
+      '@google': fileURLToPath(new URL('./src/google', import.meta.url)),
+      '@providers': fileURLToPath(new URL('./src/providers', import.meta.url)),
+      '@testkit': fileURLToPath(new URL('./src/testkit', import.meta.url)),
+    },
+  },
   test: {
     include: ['src/**/*.e2e.ts'],
     environment: 'node',

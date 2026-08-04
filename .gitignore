@@ -49,6 +49,3 @@ android/
 
 # Kimi Code CLI local config + skills
 .kimi-code/
-
-# Local dev scripts (not committed)
-scripts/dev/
