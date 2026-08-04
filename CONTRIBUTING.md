@@ -86,10 +86,14 @@ The same five steps apply to a `BuildEngine`, `CredentialsProvider`, or `Submitt
 
 ## Pull requests
 
-- Branch off `main`; keep the gate green.
+Full branching rules live in [`BRANCHING.md`](./BRANCHING.md). Short version:
+
+- **Do not push commits to `main`.** Branch off `main` as `feat|fix|refactor|chore|docs/<domain>/<slug>`.
+- Label the PR with the matching `domain:*` label (see BRANCHING.md).
+- Keep the gate green.
 - Write clear, imperative commit messages (`add s3 storage provider`, not `wip`).
 - When you add a dependency or a non-obvious pattern, note the rationale (what, why over alternatives,
   the tradeoff) in the PR description - see Global development principles in the project standards.
-- Keep changes within the **scope boundary** so they land in the right milestone (v1 is iOS ->
-  TestFlight; Android and cloud backends are designed-for but deferred).
+- Keep each PR to one reviewable intent; split mixed work.
 - Never commit secrets. `.p8` / `.p12` / `.env` are git-ignored and belong in the Keychain.
+- Delete the branch after merge.
