@@ -1,28 +1,16 @@
 name: ASC schema drift
 
-# Our typed App Store Connect client is generated from a COMMITTED snapshot of Apple's OpenAPI spec
-# (src/core/asc/schema.ts, produced by `pnpm gen:asc`). Apple revises that spec out-of-band, so this
-# job re-vendors it and fails when the committed types are stale — a maintainer then just re-runs
-# `pnpm gen:asc` and commits the result.
-#
-# It is intentionally NOT part of ci.yml's per-PR gate: that gate must stay deterministic and offline,
-# whereas this job makes a live download from developer.apple.com. Instead it runs:
-#   - weekly (catches an upstream spec bump without blocking unrelated PRs on Apple's release cadence),
-#   - on demand (workflow_dispatch),
-#   - on PRs that touch the generator or the generated types (catches a hand-edit or tooling change
-#     immediately — the generated file is marked "do not edit by hand").
+# Keep live Apple schema checks separate from the deterministic pull-request gate.
 on:
   schedule:
     - cron: "0 7 * * 1" # Mondays 07:00 UTC
   workflow_dispatch:
   pull_request:
     paths:
-      - "src/core/asc/**"
-      - "scripts/gen-asc-types.ts"
+      - "src/apple/generated/**"
+      - "scripts/dev/generate-apple-types.ts"
       - ".github/workflows/schema-drift.yml"
 
-# Least-privilege GITHUB_TOKEN: this job only checks out the repo and regenerates types to diff them;
-# it never writes back, so read-only `contents` is all it needs.
 permissions:
   contents: read
 
@@ -31,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -40,9 +29,9 @@ jobs:
         run: pnpm gen:asc
       - name: Fail if the committed types are stale
         run: |
-          if ! git diff --quiet -- src/core/asc/schema.ts; then
-            echo "::error file=src/core/asc/schema.ts::Generated ASC types are out of date with Apple's published OpenAPI spec. Run 'pnpm gen:asc' and commit the result."
-            git diff --stat -- src/core/asc/schema.ts
+          if ! git diff --quiet -- src/apple/generated/schema.ts; then
+            echo "::error file=src/apple/generated/schema.ts::Generated ASC types are out of date with Apple's published OpenAPI spec. Run 'pnpm gen:asc' and commit the result."
+            git diff --stat -- src/apple/generated/schema.ts
             exit 1
           fi
           echo "ASC types are in sync with Apple's current spec."

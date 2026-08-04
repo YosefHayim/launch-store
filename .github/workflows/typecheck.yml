@@ -1,7 +1,7 @@
 name: Typecheck
 
 # Single-purpose, reusable (workflow_call): `tsc --noEmit`. Type results are deterministic across
-# OS/Node, so this runs single-leg (ubuntu, one Node) — no matrix (see ADR 0009).
+# OS/Node, so this runs single-leg (ubuntu, one Node) - no matrix (see ADR 0009).
 
 on:
   workflow_call:

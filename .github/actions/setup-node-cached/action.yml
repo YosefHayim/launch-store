@@ -22,7 +22,7 @@ runs:
 
     # Cache the installed dependency tree so an unchanged lockfile skips `pnpm install` entirely. The key
     # binds OS + Node major + lockfile hash; any dependency change flips the hash and forces a clean
-    # reinstall. Deliberately NO restore-keys — a partial node_modules carried over from a different
+    # reinstall. Deliberately NO restore-keys - a partial node_modules carried over from a different
     # lockfile is a silent correctness hazard, so we reuse an EXACT match or reinstall from scratch.
     # `cache: pnpm` above still warms the pnpm store, so the reinstall on a miss stays fast.
     - name: Cache node_modules

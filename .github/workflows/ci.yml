@@ -1,23 +1,12 @@
 name: CI
 
-# The full quality gate, re-run on every push to main and every PR. The local husky hook runs the same
-# checks but can be bypassed (`--no-verify`), so CI is the authoritative gate.
-#
-# Composed from single-purpose, reusable workflows (lint / typecheck / docs / test / build / e2e), each
-# `on: workflow_call` — so a red leg is isolated and named, and the shared cached-install lives in one
-# composite action (.github/actions/setup-node-cached). See ADR 0009.
-#
-# - `CI Gate` is the single aggregated status check: require IT in branch protection, and a red leg
-#   blocks the merge without pinning branch protection to each leg's name.
-# - `report-failure` opens/updates a ci-failure issue when main goes red (never for PRs).
+# `CI Gate` is the stable branch-protection check across the reusable workflow legs. See ADR 0009.
 
 on:
   push:
     branches: [main]
   pull_request:
 
-# Least-privilege GITHUB_TOKEN: the checks only read the repo (and write the run's step summary, which
-# needs no token scope). The report-failure job re-grants issues:write for itself, below.
 permissions:
   contents: read
 

@@ -1,8 +1,6 @@
 name: Lint
 
-# Single-purpose, reusable (workflow_call): Biome's linter + formatter in one pass (`biome check .`).
-# Biome does both, so there is no separate format workflow. Results are deterministic across OS/Node,
-# so this runs single-leg (ubuntu, one Node) — no matrix (see ADR 0009).
+# Biome handles mechanical rules; Launch's AST and Grit checks enforce repository conventions.
 
 on:
   workflow_call:
@@ -20,3 +18,5 @@ jobs:
         with:
           node-version: 22
       - run: pnpm lint
+      - run: pnpm lint:style:self-test
+      - run: pnpm lint:style

@@ -1,8 +1,6 @@
 name: Report failure
 
-# Reusable (workflow_call): open (or comment on) a `ci-failure` issue with the failing job's captured
-# log tail, so the error is readable straight from the issue — no Actions-log spelunking (see ADR 0009).
-# The orchestrator calls this ONLY on a `main` failure (never for PRs — a red PR is the author's to fix).
+# The CI orchestrator calls this only for failures on main. See ADR 0009.
 
 on:
   workflow_call:
@@ -33,7 +31,7 @@ jobs:
             const failed = jobs.filter((j) => j.conclusion && !['success', 'skipped'].includes(j.conclusion));
 
             // Pull the tail of each failed job's log so the exact error is readable straight from the
-            // issue. A few truncated tails are enough — the matrix legs usually share one root cause.
+            // issue. A few truncated tails are enough - the matrix legs usually share one root cause.
             const MAX_JOBS = 3, TAIL_LINES = 60, MAX_CHARS = 3000;
             const tailOf = async (job) => {
               try {
@@ -71,13 +69,13 @@ jobs:
 
             const title = `CI failed on main @ ${shortSha}`;
             const body = [
-              '**Main CI failed** after a push to `main`. The captured error output is below —',
+              '**Main CI failed** after a push to `main`. The captured error output is below -',
               'fix straight from here; the run link has exit codes + full context if needed.',
               '',
               `- Commit: \`${context.sha}\``,
               `- Run: ${runUrl}`,
               '',
-              failed.length ? sections.join('\n\n') : '_Could not enumerate jobs — open the run above._',
+              failed.length ? sections.join('\n\n') : '_Could not enumerate jobs - open the run above._',
               overflow,
               '',
               'Close this issue once `main` is green again.',
@@ -91,7 +89,7 @@ jobs:
             if (existing) {
               await github.rest.issues.createComment({
                 owner, repo, issue_number: existing.number,
-                body: `Still failing — re-run: ${runUrl}\n\n${sections.join('\n\n')}`,
+                body: `Still failing - re-run: ${runUrl}\n\n${sections.join('\n\n')}`,
               });
             } else {
               await github.rest.issues.create({ owner, repo, title, body, labels: [label] });

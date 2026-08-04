@@ -1,10 +1,6 @@
 name: Docs in sync
 
-# Single-purpose, reusable (workflow_call): `docs:check` regenerates docs/commands.md, llms.txt, the
-# config schema + field reference, and the contributor rules/skills from the live commander tree and the
-# config types, then fails if any committed file is stale (issue #89). Offline + deterministic, so it's
-# part of the per-PR gate — unlike schema-drift.yml, which makes a live download and runs on its own
-# schedule. Single-leg — the output can't vary by OS/Node (see ADR 0009).
+# `docs:check` is offline; live Apple schema drift has its own scheduled workflow.
 
 on:
   workflow_call:

@@ -1,19 +1,11 @@
 name: Publish
 
-# Publishes launch-store to npm via OIDC Trusted Publishing — there is NO NPM_TOKEN secret.
-# npm verifies this workflow's GitHub OIDC identity, mints a short-lived token, and attaches a
-# provenance attestation to the release (the npm page shows it was built here, from this commit).
+# OIDC Trusted Publishing matches this exact `publish.yml` filename; renaming it breaks publishing.
 #
-# IMPORTANT: the workflow filename `publish.yml` must match the Trusted Publisher configured for
-# the `launch-store` package on npmjs.com (Settings → Trusted Publisher: owner YosefHayim,
-# repo launch-store, workflow publish.yml). Renaming this file invalidates the OIDC match and
-# publishing will start failing.
-#
-# Release flow (you do this; a bot can't — a GITHUB_TOKEN-created release won't fire `release`):
-#   1. npm version <patch|minor|major>      # bumps package.json, commits, tags vX.Y.Z
+# A GITHUB_TOKEN-created release does not fire the `release` event:
+#   1. pnpm version <patch|minor|major>
 #   2. git push origin main --follow-tags
-#   3. gh release create vX.Y.Z --generate-notes   # the notes are the changelog
-# Publishing that release triggers the job below. `workflow_dispatch` is the manual recovery path.
+#   3. gh release create vX.Y.Z --generate-notes
 
 on:
   release:
