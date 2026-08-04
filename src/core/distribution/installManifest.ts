@@ -1,0 +1,90 @@
+import { isApplePlatform } from '../services/platform.js';
+import type { Platform } from '../types/app.js';
+/** Escape the five XML special characters so app titles/ids can't break the plist or the HTML. */
+const escapeXml = (xmlText: string): string => {
+  return xmlText
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+};
+/** Inputs for the iOS install manifest plist. */
+export type IosManifestOptions = {
+  ipaUrl: string;
+  bundleId: string;
+  version: string;
+  title: string;
+};
+/**
+ * Build the iOS OTA-install manifest plist (the document an `itms-services://...&url=` link fetches).
+ * iOS requires this exact `items -> assets[kind=software-package] + metadata` shape to install an
+ * ad-hoc `.ipa` straight from a web link.
+ */
+export const iosInstallManifestPlist = (options: IosManifestOptions): string => {
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+    '<plist version="1.0"><dict>',
+    '<key>items</key><array><dict>',
+    '<key>assets</key><array><dict>',
+    '<key>kind</key><string>software-package</string>',
+    `<key>url</key><string>${escapeXml(options.ipaUrl)}</string>`,
+    '</dict></array>',
+    '<key>metadata</key><dict>',
+    `<key>bundle-identifier</key><string>${escapeXml(options.bundleId)}</string>`,
+    `<key>bundle-version</key><string>${escapeXml(options.version)}</string>`,
+    '<key>kind</key><string>software</string>',
+    `<key>title</key><string>${escapeXml(options.title)}</string>`,
+    '</dict></dict></array>',
+    '</dict></plist>',
+  ].join('\n');
+};
+/**
+ * Wrap a manifest URL in the `itms-services://` scheme iOS recognizes as "install this app". The
+ * manifest URL must be HTTPS and is URL-encoded so its query string survives intact.
+ */
+export const itmsServicesUrl = (manifestUrl: string): string => {
+  return `itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}`;
+};
+/** Inputs for the install landing page. */
+export type LandingPageOptions = {
+  title: string;
+  version: string;
+  buildNumber: number;
+  platform: Platform;
+  installUrl: string;
+};
+/** The platform-specific footnote under the Install button (device registration vs Gatekeeper vs unknown-sources). */
+const installNote = (platform: Platform): string => {
+  if (platform === 'macos') {
+    return '<p>macOS: if Gatekeeper blocks the app, right-click it and choose Open, or allow it in System Settings -> Privacy &amp; Security.</p>';
+  }
+  if (isApplePlatform(platform)) {
+    return '<p>Apple: your device must be registered for this build. After installing, trust the developer in Settings -> General -> VPN &amp; Device Management.</p>';
+  }
+  return '<p>Android: you may need to allow installs from this browser/source.</p>';
+};
+/**
+ * Build the tester-facing install landing page: app name, version/build, and one Install button
+ * wired to {@link LandingPageOptions.installUrl}. iOS/tvOS/visionOS also get the standard reminder that
+ * ad-hoc installs only work on a device whose UDID is registered on the profile; macOS gets the Gatekeeper
+ * note.
+ */
+export const installLandingPage = (options: LandingPageOptions): string => {
+  const note = installNote(options.platform);
+  return [
+    '<!doctype html>',
+    '<html lang="en"><head><meta charset="utf-8" />',
+    '<meta name="viewport" content="width=device-width, initial-scale=1" />',
+    `<title>Install ${escapeXml(options.title)}</title>`,
+    '<style>body{font-family:-apple-system,system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;text-align:center}',
+    '.btn{display:inline-block;margin:1.5rem 0;padding:.85rem 2rem;background:#111;color:#fff;border-radius:.6rem;text-decoration:none;font-weight:600}',
+    'p{color:#555;line-height:1.5}</style></head><body>',
+    `<h1>${escapeXml(options.title)}</h1>`,
+    `<p>Version ${escapeXml(options.version)} (build ${options.buildNumber})</p>`,
+    `<a class="btn" href="${escapeXml(options.installUrl)}">Install</a>`,
+    note,
+    '</body></html>',
+  ].join('\n');
+};
