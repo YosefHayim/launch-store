@@ -138,7 +138,7 @@ export const reconcilePrivacy = (app: string, surface: PrivacySurface): PrivacyF
  */
 export const buildPrivacyReport = (
   findings: PrivacyFinding[],
-  scanned: string[],
+  scanned: readonly string[],
 ): PrivacyReport => {
   let exitCode: PrivacyReport['exitCode'] = READINESS_EXIT.ok;
   if (findings.some((finding) => finding.severity === 'blocker')) exitCode = READINESS_EXIT.blocker;

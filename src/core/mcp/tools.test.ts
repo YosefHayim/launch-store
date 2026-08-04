@@ -20,7 +20,7 @@ import { GoogleStoreClientLive } from '../services/googleStoreClient.js';
 import { makeLaunchPathsTest } from '../services/paths.js';
 import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
 /** A bare config exposing the given MCP capability tiers - only the fields the gate reads matter here. */
-const config = (capabilities: McpCapability[]): LaunchConfig => {
+const config = (capabilities: readonly McpCapability[]): LaunchConfig => {
   return {
     profiles: {},
     credentials: 'local',
@@ -38,7 +38,7 @@ const byName = (name: string): McpTool<McpToolRequirements> => {
 };
 /** Parse the JSON a successful read tool emits as its single text block. */
 const parseToolOutput = <DecodedOutput>(
-  toolOutput: { content: { text: string }[] },
+  toolOutput: { content: readonly { readonly text: string }[] },
   outputSchema: Schema.Schema<DecodedOutput>,
 ): DecodedOutput =>
   Schema.decodeUnknownSync(outputSchema)(

@@ -14,6 +14,7 @@ import type {
   MigrationResult,
 } from '../types/migrate.js';
 import { buildEnvExample, scaffoldStoreConfig } from './scaffold.js';
+import type { MutableDeep } from '../types/mutable.js';
 
 export type EasMigrationFailure = Readonly<{
   readonly _tag: 'EasMigrationFailure';
@@ -116,7 +117,7 @@ const EasSubmitProfilesSchema = Schema.transform(
       for (const [profileName, unknownProfile] of Object.entries(unknownProfiles)) {
         const decodedProfile = Schema.decodeUnknownOption(EasSubmitProfileSchema)(unknownProfile);
         if (Option.isNone(decodedProfile)) continue;
-        const submitProfile: EasSubmitProfile = {};
+        const submitProfile: MutableDeep<EasSubmitProfile> = {};
         const iosSubmission = decodedProfile.value.ios;
         if (iosSubmission !== undefined && hasIosSubmitFields(iosSubmission)) {
           submitProfile.ios = iosSubmission;
@@ -161,7 +162,7 @@ const isPlayTrack = (trackName: string): trackName is PlayTrack =>
 const mapProfiles = (easConfiguration: EasJson): Record<string, BuildProfile> => {
   const launchProfiles: Record<string, BuildProfile> = {};
   for (const profileName of Object.keys(easConfiguration.build)) {
-    const launchProfile: BuildProfile = { name: profileName, sizeBudgetMB: 200 };
+    const launchProfile: MutableDeep<BuildProfile> = { name: profileName, sizeBudgetMB: 200 };
     const submitProfile = easConfiguration.submit[profileName];
     const androidSubmission = submitProfile?.android;
     const trackName = androidSubmission?.track;
@@ -210,7 +211,10 @@ const makeProfileEnvironmentArtifacts = (easConfiguration: EasJson): MigrationAr
   return environmentArtifacts;
 };
 
-const buildMigrationNotes = (easConfiguration: EasJson, apps: AppDescriptor[]): MigrationNote[] => {
+const buildMigrationNotes = (
+  easConfiguration: EasJson,
+  apps: readonly AppDescriptor[],
+): MigrationNote[] => {
   const migrationNotes: MigrationNote[] = [];
   for (const [profileName, buildProfile] of Object.entries(easConfiguration.build)) {
     migrationNotes.push({
@@ -332,7 +336,7 @@ const CredentialsDocumentSchema = Schema.mutable(
 const summarizeCredentialsDocument = (
   credentialsDocument: Schema.Schema.Type<typeof CredentialsDocumentSchema>,
 ): CredentialsSummary | null => {
-  const credentialsSummary: CredentialsSummary = {};
+  const credentialsSummary: MutableDeep<CredentialsSummary> = {};
   const iosCredentials = credentialsDocument.ios;
   if (iosCredentials !== undefined) {
     const distributionCertificatePath = iosCredentials.distributionCertificate?.path;
@@ -468,7 +472,7 @@ const describeRuntimeVersion = (
   return undefined;
 };
 
-const buildAppFactNotes = (apps: AppDescriptor[]) =>
+const buildAppFactNotes = (apps: readonly AppDescriptor[]) =>
   Effect.gen(function* () {
     const migrationNotes: MigrationNote[] = [];
     for (const app of apps) {
@@ -511,7 +515,7 @@ const buildAppFactNotes = (apps: AppDescriptor[]) =>
 /** Read an EAS project and return the Launch artifacts and follow-up notes without writing them. */
 export const migrateEas = (
   workingDirectory: string,
-  apps: AppDescriptor[],
+  apps: readonly AppDescriptor[],
 ): Effect.Effect<
   MigrationResult,
   EasMigrationFailure | PlatformError,

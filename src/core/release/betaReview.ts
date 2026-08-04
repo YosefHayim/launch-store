@@ -9,6 +9,7 @@ import type {
 import { errorMessage } from '../services/errorMessage.js';
 import { plan, skip, type ReconcileContext } from '../store/reconcile.js';
 import type { PlannedAction } from '../types/reconcile.js';
+import type { MutableDeep } from '../types/mutable.js';
 
 const BUILD_SCAN_LIMIT = 50;
 
@@ -128,7 +129,7 @@ const selectBuild = (
 
 /** Apply one note write while retaining per-action failures in the reconciliation report. */
 const applyNote = (
-  action: PlannedAction,
+  action: MutableDeep<PlannedAction>,
   noteWrite: Effect.Effect<void, unknown>,
 ): Effect.Effect<void> =>
   noteWrite.pipe(

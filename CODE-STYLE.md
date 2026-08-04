@@ -93,11 +93,13 @@ Why: Launch services own Launch policy instead of duplicating Effect platform me
 Effectful collections use Effect.forEach or Effect.all with explicit concurrency instead of Promise coordination.
 
 ```ts
-// [GOOD] src/core/build/asyncPool.ts
-const completedBuilds = yield* Effect.forEach(buildRequests, submitBuild, { concurrency: 3 });
+// [GOOD] src/core/plan/orchestrator.ts
+const planned = yield* Effect.forEach(planners, (planner) => planner.plan(planContext), {
+  concurrency: 'unbounded',
+});
 
 // [AVOID] parallel Promise channel
-const completedBuilds = await Promise.all(buildRequests.map(submitBuild));
+const planned = await Promise.all(planners.map((planner) => planner.plan(planContext)));
 ```
 
 Why: Effect owns interruption, failure aggregation, and resource safety.

@@ -2,6 +2,7 @@ import { resolveSidecarConfig } from '@core/config/config.js';
 import { loadGameCenterConfig, reconcileGameCenter } from '@core/store/gameCenter.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
 import type { SurfacePlanner } from '@core/types/plan.js';
+import type { GameCenterConfig } from '@core/types/storeSurface.js';
 /** Surface id - also the value users pass as `launch plan game-center`. */
 const SURFACE = 'game-center';
 export const gameCenterPlanner: SurfacePlanner = {
@@ -12,7 +13,7 @@ export const gameCenterPlanner: SurfacePlanner = {
       surface: SURFACE,
       direction: 'additive',
       configFor: (bundleId) =>
-        resolveSidecarConfig({
+        resolveSidecarConfig<GameCenterConfig>({
           typed: planContext.config.gameCenter?.[bundleId],
           configPath: 'gamecenter.config.json',
           explicitPath: false,

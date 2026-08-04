@@ -1,77 +1,77 @@
 import type { PlayMoneyUnits } from './playPricing.js';
 
-export type PlayRelease = {
+export type PlayRelease = Readonly<{
   name?: string;
-  versionCodes?: string[];
+  versionCodes?: readonly string[];
   status?: string;
   userFraction?: number;
-  releaseNotes?: { language: string; text: string }[];
-};
-export type PlayTrackInfo = { track: string; releases: PlayRelease[] };
-export type PlayCountryAvailability = {
+  releaseNotes?: Readonly<{ language: string; text: string }>[];
+}>;
+export type PlayTrackInfo = Readonly<{ track: string; releases: readonly PlayRelease[] }>;
+export type PlayCountryAvailability = Readonly<{
   restOfWorld?: boolean;
-  countries: { countryCode: string }[];
-};
-export type PlayMoney = { priceMicros?: string; currency?: string };
-export type InAppProductResource = {
+  countries: Readonly<{ countryCode: string }>[];
+}>;
+export type PlayMoney = Readonly<{ priceMicros?: string; currency?: string }>;
+export type InAppProductResource = Readonly<{
   sku: string;
   status?: string;
   purchaseType?: string;
   defaultLanguage?: string;
   defaultPrice?: PlayMoney;
   prices?: Record<string, PlayMoney>;
-  listings?: Record<string, { title?: string; description?: string }>;
-};
-export type SubscriptionListing = {
+  listings?: Record<string, Readonly<{ title?: string; description?: string }>>;
+}>;
+export type SubscriptionListing = Readonly<{
   languageCode: string;
   title: string;
   description: string;
-  benefits?: string[];
-};
-export type RegionalBasePlanConfig = {
+  benefits?: readonly string[];
+}>;
+export type RegionalBasePlanConfig = Readonly<{
   regionCode: string;
   newSubscriberAvailability?: boolean;
   price?: PlayMoneyUnits;
-};
-export type AutoRenewingBasePlanType = { billingPeriodDuration: string };
-export type BasePlan = {
+}>;
+export type AutoRenewingBasePlanType = Readonly<{ billingPeriodDuration: string }>;
+export type BasePlan = Readonly<{
   basePlanId: string;
   state?: string;
   autoRenewingBasePlanType?: AutoRenewingBasePlanType;
-  regionalConfigs?: RegionalBasePlanConfig[];
-  offerTags?: { tag: string }[];
-};
-export type SubscriptionResource = {
+  regionalConfigs?: readonly RegionalBasePlanConfig[];
+  offerTags?: Readonly<{ tag: string }>[];
+}>;
+export type SubscriptionResource = Readonly<{
   packageName?: string;
   productId: string;
-  basePlans?: BasePlan[];
-  listings?: SubscriptionListing[];
-};
-export type RegionalSubscriptionOfferConfig = {
+  basePlans?: readonly BasePlan[];
+  listings?: readonly SubscriptionListing[];
+}>;
+export type RegionalSubscriptionOfferConfig = Readonly<{
   regionCode: string;
   newSubscriberAvailability?: boolean;
-};
-export type OfferPhaseRegionalConfig = {
+}>;
+export type OfferPhaseRegionalConfig = Readonly<{
   regionCode: string;
   price?: PlayMoneyUnits;
   free?: Record<string, never>;
-};
-export type SubscriptionOfferPhase = {
+}>;
+export type SubscriptionOfferPhase = Readonly<{
   recurrenceCount: number;
   duration?: string;
-  regionalConfigs: OfferPhaseRegionalConfig[];
-};
-export type SubscriptionOfferResource = {
+  regionalConfigs: readonly OfferPhaseRegionalConfig[];
+}>;
+export type SubscriptionOfferResource = Readonly<{
   packageName?: string;
   productId?: string;
   basePlanId?: string;
   offerId: string;
   state?: string;
-  phases: SubscriptionOfferPhase[];
-  regionalConfigs: RegionalSubscriptionOfferConfig[];
-  offerTags?: { tag: string }[];
-};
-export type PlayReview = {
+  phases: readonly SubscriptionOfferPhase[];
+  regionalConfigs: readonly RegionalSubscriptionOfferConfig[];
+  offerTags?: Readonly<{ tag: string }>[];
+}>;
+export type PlayReview = Readonly<{
   reviewId: string;
   authorName?: string;
   rating: number;
@@ -82,5 +82,5 @@ export type PlayReview = {
   lastModified?: string;
   answered: boolean;
   developerReply?: string;
-};
-export type PlayReplyResult = { replyText: string; lastEdited?: string };
+}>;
+export type PlayReplyResult = Readonly<{ replyText: string; lastEdited?: string }>;

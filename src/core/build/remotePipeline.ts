@@ -25,6 +25,7 @@ import { ARTIFACTS_DIR } from '../services/paths.js';
 import { autoReleaseAt, costBanner } from './cost.js';
 import { clearLiveHost, getLiveHost, setLiveHost } from '../distribution/cloudState.js';
 import { ensureRemoteSigningAssets } from '../credentials/appleSigning.js';
+import type { MutableDeep } from '../types/mutable.js';
 import {
   type RemoteBuildInputs,
   openRemoteSession,
@@ -76,7 +77,7 @@ const acquireHost = (
         }),
       );
     }
-    const request: AllocateRequest = {
+    const request: MutableDeep<AllocateRequest> = {
       confirm: (message) => interactiveConfirm(launchPrompt, message),
       onProgress: (message) => {
         Effect.runFork(log.note(message));

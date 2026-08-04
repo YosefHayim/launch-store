@@ -1,7 +1,7 @@
 import { escapeCell } from './common.js';
 import type { CommandSpec, DocStats, OptionSpec } from '@core/types/commandDocs.js';
 /** Render a command's flag table, or `""` when it has no options. */
-const renderOptionsTable = (options: OptionSpec[]): string => {
+const renderOptionsTable = (options: readonly OptionSpec[]): string => {
   if (options.length === 0) return '';
   const rows = options.map((o) => `| \`${escapeCell(o.flags)}\` | ${escapeCell(o.description)} |`);
   return ['', '| Flag | Description |', '| --- | --- |', ...rows].join('\n');

@@ -5,32 +5,32 @@ import type {
   OfferMode,
 } from './catalog.js';
 /** A registered Bundle ID resource (an App ID in the Developer portal). */
-export type BundleIdResource = {
+export type BundleIdResource = Readonly<{
   id: string;
   identifier: string;
   seedId?: string | undefined;
-};
+}>;
 /** A signing certificate resource, with the bytes needed to package a `.p12`. */
-export type CertificateResource = {
+export type CertificateResource = Readonly<{
   id: string;
   serialNumber: string;
   certificateContent: string;
   expirationDate?: string | undefined;
-};
+}>;
 /** A device registered in the Developer portal, eligible to receive ad-hoc builds. */
-export type DeviceResource = {
+export type DeviceResource = Readonly<{
   id: string;
   udid: string;
   name: string;
   status?: string | undefined;
-};
+}>;
 /** A provisioning profile resource, with the bytes needed to install it locally. */
-export type ProfileResource = {
+export type ProfileResource = Readonly<{
   id: string;
   name: string;
   uuid: string;
   profileContent: string;
-};
+}>;
 /**
  * One configured key on a capability's `settings` - Apple's per-capability toggle list (e.g. the
  * iCloud version or the data-protection permission level). The `key` is Apple's setting enum value
@@ -39,33 +39,33 @@ export type ProfileResource = {
  * group ids, container ids) - those live in the provisioning profile, which is why `launch adopt`
  * reads capability *values* from the profile and uses these settings only as advisory detail.
  */
-export type CapabilitySetting = {
+export type CapabilitySetting = Readonly<{
   key: string;
-  options?: {
+  options?: Readonly<{
     key: string;
-  }[];
-};
+  }>[];
+}>;
 /** A capability enabled on a bundle id (App ID), e.g. `PUSH_NOTIFICATIONS`. */
-export type BundleIdCapabilityResource = {
+export type BundleIdCapabilityResource = Readonly<{
   id: string;
   capabilityType: string;
-  settings?: CapabilitySetting[];
-};
+  settings?: readonly CapabilitySetting[];
+}>;
 /** An in-app purchase (the `inAppPurchasesV2` resource) on an app. */
-export type InAppPurchaseResource = {
+export type InAppPurchaseResource = Readonly<{
   id: string;
   productId: string;
   name: string;
   inAppPurchaseType: string;
   state?: string;
-};
+}>;
 /**
  * One **sandbox tester** (`sandboxTesters`) - a fake Apple ID for StoreKit testing of purchases and
  * subscriptions, created in App Store Connect (Apple exposes no API to create one). `acAccountName` is the
  * tester's sandbox email - the key `launch sandbox clear` matches on. `subscriptionRenewalRate` is the
  * accelerated renewal interval Apple uses for sandbox subscriptions.
  */
-export type SandboxTesterResource = {
+export type SandboxTesterResource = Readonly<{
   id: string;
   acAccountName: string;
   firstName?: string;
@@ -74,50 +74,50 @@ export type SandboxTesterResource = {
   applePayCompatible?: boolean;
   interruptPurchases?: boolean;
   subscriptionRenewalRate?: string;
-};
+}>;
 /** A subscription group - the container for mutually-exclusive subscription levels. */
-export type SubscriptionGroupResource = {
+export type SubscriptionGroupResource = Readonly<{
   id: string;
   referenceName: string;
-};
+}>;
 /** One auto-renewable subscription within a group. */
-export type SubscriptionResource = {
+export type SubscriptionResource = Readonly<{
   id: string;
   productId: string;
   name: string;
   subscriptionPeriod?: string;
   state?: string;
-};
+}>;
 /**
  * One locale's stored copy for a product, group, or subscription. The same shape serves in-app-purchase,
  * subscription, and subscription-group localizations - Apple keys them all on `locale`, with `name`
  * always present and `description` only on the product/subscription variants.
  */
-export type LocalizationResource = {
+export type LocalizationResource = Readonly<{
   id: string;
   locale: string;
   name: string;
   description?: string;
-};
+}>;
 /**
  * A price point - one rung of Apple's fixed price ladder for a product in a territory. `customerPrice`
  * is the amount the buyer pays (e.g. `"9.99"`); a price is set by linking the product to one of these.
  */
-export type PricePointResource = {
+export type PricePointResource = Readonly<{
   id: string;
   customerPrice: string;
   territory: string;
-};
+}>;
 /**
  * An existing App Encryption Declaration on an app - the reusable, one-time export-compliance answer
  * for builds that use non-exempt encryption. Only an `APPROVED` declaration clears a build without a
  * fresh, document-backed submission, so `state` is what gates reuse. See
  * {@link AppStoreConnectClient.listEncryptionDeclarations}.
  */
-export type EncryptionDeclarationResource = {
+export type EncryptionDeclarationResource = Readonly<{
   id: string;
   state: string;
-};
+}>;
 /**
  * One locale's stored App Store listing copy, normalized to the present (non-empty) fields only. The
  * same shape serves both the app-level `appInfoLocalizations` (name/subtitle/privacy URL - persists
@@ -125,52 +125,52 @@ export type EncryptionDeclarationResource = {
  * - per release); the caller picks which level. `fields` is keyed by Apple's attribute name, so a diff
  * against desired config is a plain key-by-key comparison.
  */
-export type ListingLocalization = {
+export type ListingLocalization = Readonly<{
   id: string;
   locale: string;
   fields: Record<string, string>;
-};
+}>;
 /**
  * One App Store screenshot **set** - the per-(version localization x device target) bucket screenshots
  * hang off. `screenshotDisplayType` is Apple's device-target enum (e.g. `APP_IPHONE_67`); the reconciler
  * matches a local folder's target to the set with the same type, creating the set when none exists.
  */
-export type ScreenshotSetResource = {
+export type ScreenshotSetResource = Readonly<{
   id: string;
   screenshotDisplayType: string;
-};
+}>;
 /**
  * One uploaded App Store screenshot. `sourceFileChecksum` is the MD5 Apple stored at commit time - the
  * reconciler's idempotency key: a local file whose MD5 already appears here is skipped. `assetDeliveryState`
  * (`UPLOAD_COMPLETE` / `COMPLETE` / `FAILED`) flags a half-finished upload worth re-sending. Both are
  * absent until requested/committed.
  */
-export type ScreenshotResource = {
+export type ScreenshotResource = Readonly<{
   id: string;
   fileName: string;
   sourceFileChecksum?: string;
   assetDeliveryState?: string;
-};
+}>;
 /**
  * A subscription's App Review screenshot (`subscriptionAppStoreReviewScreenshots`) - the single image
  * Apple requires to submit a subscription. Same idempotency key as {@link ScreenshotResource}: re-upload
  * only when the stored MD5 differs from the local file's.
  */
-export type ReviewScreenshotResource = {
+export type ReviewScreenshotResource = Readonly<{
   id: string;
   sourceFileChecksum?: string;
   assetDeliveryState?: string;
-};
+}>;
 /**
  * One App Store app-preview-video **set** - the per-(version localization x device target) bucket previews
  * hang off, the video counterpart of {@link ScreenshotSetResource}. `previewType` is Apple's device-target
  * enum (e.g. `IPHONE_67`); the reconciler matches a local folder's target to the set with the same type,
  * creating the set when none exists.
  */
-export type PreviewSetResource = {
+export type PreviewSetResource = Readonly<{
   id: string;
   previewType: string;
-};
+}>;
 /**
  * One uploaded App Store app preview video. Same idempotency contract as {@link ScreenshotResource}:
  * `sourceFileChecksum` is the MD5 Apple stored at commit time (the reconciler's skip key), and
@@ -178,36 +178,36 @@ export type PreviewSetResource = {
  * asynchronously after commit, but the checksum is recorded at commit - so a re-run while processing is
  * still in flight matches by checksum and re-uploads nothing.
  */
-export type PreviewResource = {
+export type PreviewResource = Readonly<{
   id: string;
   fileName: string;
   sourceFileChecksum?: string;
   assetDeliveryState?: string;
-};
+}>;
 /**
  * A TestFlight beta group - a named tester bucket that belongs to exactly one app. External groups
  * invite testers by email (and can gate distribution on Beta App Review); the internal group holds
  * App Store Connect team users. A tester reaches an app's TestFlight by being in one of its groups,
  * which is why every `launch testflight` tester operation goes through a group.
  */
-export type BetaGroupResource = {
+export type BetaGroupResource = Readonly<{
   id: string;
   name: string;
   isInternal?: boolean;
   publicLink?: string;
-};
+}>;
 /**
  * A TestFlight tester. Apple keys testers on `email` and scopes them to the team - the same person is
  * one tester resource reused across apps/groups - so adding an existing email to a new group links
  * rather than duplicates. `firstName`/`lastName` are optional and shown in the invite.
  */
-export type BetaTesterResource = {
+export type BetaTesterResource = Readonly<{
   id: string;
   email: string;
   firstName?: string;
   lastName?: string;
   state?: string;
-};
+}>;
 /**
  * Common attributes shared by Apple's two beta-feedback submission resources
  * (`betaFeedbackCrashSubmissions` / `betaFeedbackScreenshotSubmissions`) - the device/OS context, the
@@ -215,7 +215,7 @@ export type BetaTesterResource = {
  * is the part {@link BetaFeedbackCrashSubmissionResource} and {@link BetaFeedbackScreenshotSubmissionResource}
  * both expose. Optional fields are absent (not empty) when Apple omits them.
  */
-export type BetaFeedbackSubmissionResource = {
+export type BetaFeedbackSubmissionResource = Readonly<{
   id: string;
   createdDate?: string;
   comment?: string;
@@ -223,7 +223,7 @@ export type BetaFeedbackSubmissionResource = {
   deviceModel?: string;
   osVersion?: string;
   buildVersion?: string;
-};
+}>;
 /** A TestFlight crash-feedback submission (`betaFeedbackCrashSubmissions`) - the device/OS context plus the tester's comment. */
 export type BetaFeedbackCrashSubmissionResource = BetaFeedbackSubmissionResource;
 /**
@@ -231,27 +231,28 @@ export type BetaFeedbackCrashSubmissionResource = BetaFeedbackSubmissionResource
  * submission, plus the attached screenshots. Each screenshot carries a short-lived presigned `url`
  * (and pixel dimensions when Apple reports them) suitable for immediate viewing or download.
  */
-export type BetaFeedbackScreenshotSubmissionResource = BetaFeedbackSubmissionResource & {
-  screenshots: {
-    url: string;
-    width?: number;
-    height?: number;
-  }[];
-};
+export type BetaFeedbackScreenshotSubmissionResource = BetaFeedbackSubmissionResource &
+  Readonly<{
+    screenshots: Readonly<{
+      url: string;
+      width?: number;
+      height?: number;
+    }>[];
+  }>;
 /**
  * Server-side narrowing for the beta-feedback readers - Apple's `filter[build]` takes a *build resource
  * id* (not a version string), so the caller resolves a `--build <ver>` to its id first. Absent means
  * "all builds". Kept as a named query type to mirror the other ASC `*Query` params in this file.
  */
-export type BetaFeedbackQuery = {
+export type BetaFeedbackQuery = Readonly<{
   buildId?: string;
-};
+}>;
 /**
  * One customer review of an app. `answered` is derived from the `response` relationship so a caller
  * can filter unanswered reviews without a follow-up request per review. Optional text fields are absent
  * (not empty) when Apple omits them - a review can have a rating but no title or body.
  */
-export type CustomerReviewResource = {
+export type CustomerReviewResource = Readonly<{
   id: string;
   rating: number;
   title?: string | undefined;
@@ -260,92 +261,92 @@ export type CustomerReviewResource = {
   territory?: string | undefined;
   createdDate?: string | undefined;
   answered: boolean;
-};
+}>;
 /** A developer's response to a customer review - the editable, moderated reply shown under the review. */
-export type CustomerReviewResponseResource = {
+export type CustomerReviewResponseResource = Readonly<{
   id: string;
   responseBody: string;
   state?: string | undefined;
   lastModifiedDate?: string | undefined;
-};
+}>;
 /**
  * One App Store Connect **team member** (`users`) - a person who has accepted access to the account.
  * `username` is their Apple ID email (the key `launch team remove` matches on); `roles` is Apple's
  * permission set (`ADMIN`, `APP_MANAGER`, `DEVELOPER`, ...). Contrast {@link UserInvitationResource}, which
  * is a member who's been invited but hasn't accepted yet.
  */
-export type UserResource = {
+export type UserResource = Readonly<{
   id: string;
   username: string;
   firstName?: string;
   lastName?: string;
-  roles: string[];
-};
+  roles: readonly string[];
+}>;
 /**
  * One **pending** team invitation (`userInvitations`) - an invited member who hasn't accepted. Mirrors
  * {@link UserResource} but keyed by `email` and carrying the invite's `expirationDate`. Removing one cancels
  * the invitation rather than revoking access.
  */
-export type UserInvitationResource = {
+export type UserInvitationResource = Readonly<{
   id: string;
   email: string;
   firstName?: string;
   lastName?: string;
-  roles: string[];
+  roles: readonly string[];
   expirationDate?: string;
-};
+}>;
 /**
  * The attributes required to invite a new team member, passed straight to `POST /v1/userInvitations`.
  * `allAppsVisible` grants visibility to every app (the default for a CLI invite); `provisioningAllowed`
  * lets the member create signing assets. Per-app visibility scoping (the `visibleApps` relationship) is a
  * portal/follow-up concern and intentionally not modeled here.
  */
-export type NewUserInvitation = {
+export type NewUserInvitation = Readonly<{
   email: string;
   firstName: string;
   lastName: string;
-  roles: string[];
+  roles: readonly string[];
   allAppsVisible: boolean;
   provisioningAllowed: boolean;
-};
+}>;
 /**
  * An analytics report request - the subscription that makes reports available for an app. `ONGOING`
  * keeps producing daily/weekly/monthly instances; `ONE_TIME_SNAPSHOT` is a single historical pull.
  */
-export type AnalyticsReportRequestResource = {
+export type AnalyticsReportRequestResource = Readonly<{
   id: string;
   accessType: string;
   stoppedDueToInactivity?: boolean | undefined;
-};
+}>;
 /** One report available within a request (e.g. "App Store Installations"), grouped by category. */
-export type AnalyticsReportResource = {
+export type AnalyticsReportResource = Readonly<{
   id: string;
   name: string;
   category?: string | undefined;
-};
+}>;
 /** One time-period instance of a report - a single day/week/month of generated data. */
-export type AnalyticsReportInstanceResource = {
+export type AnalyticsReportInstanceResource = Readonly<{
   id: string;
   granularity: string;
   processingDate?: string | undefined;
-};
+}>;
 /**
  * One downloadable segment of a report instance: a presigned `url` to a gzipped TSV plus its
  * `checksum`. A large instance is split across several segments that the caller concatenates.
  */
-export type AnalyticsReportSegmentResource = {
+export type AnalyticsReportSegmentResource = Readonly<{
   id: string;
   url: string;
   checksum?: string | undefined;
   sizeInBytes?: number | undefined;
-};
+}>;
 /**
  * One **in-app event** (`appEvents`) - a time-bounded happening (a live event, premiere, challenge, ...)
  * surfaced on the App Store product page. `eventState` is Apple's lifecycle (`DRAFT` -> `READY_FOR_REVIEW`
  * -> ... -> `PUBLISHED` -> `PAST`/`ARCHIVED`); `referenceName` is the internal label. Localized copy and
  * territory schedules hang off it separately.
  */
-export type AppEventResource = {
+export type AppEventResource = Readonly<{
   id: string;
   referenceName: string;
   badge?: string;
@@ -354,69 +355,69 @@ export type AppEventResource = {
   deepLink?: string;
   priority?: string;
   purpose?: string;
-};
+}>;
 /** One locale's copy for an in-app event (`appEventLocalizations`) - name + short/long descriptions. */
-export type AppEventLocalizationResource = {
+export type AppEventLocalizationResource = Readonly<{
   id: string;
   locale: string;
   name?: string;
   shortDescription?: string;
   longDescription?: string;
-};
+}>;
 /** Attributes to create an in-app event, passed to `POST /v1/appEvents` (alongside the app relationship). */
-export type NewAppEvent = {
+export type NewAppEvent = Readonly<{
   referenceName: string;
   badge?: string;
   primaryLocale?: string;
   deepLink?: string;
   priority?: string;
   purpose?: string;
-};
+}>;
 /** The editable copy fields of an in-app event localization (create or update). */
-export type AppEventLocalizationInput = {
+export type AppEventLocalizationInput = Readonly<{
   name?: string;
   shortDescription?: string;
   longDescription?: string;
-};
+}>;
 /**
  * Parameters for a Sales & Trends report download - Apple's `filter[...]` query for `/v1/salesReports`.
  * `reportDate`'s format follows `frequency` (a day `2026-06-01` for DAILY, a year `2026` for YEARLY).
  * A disallowed `reportType`/`reportSubType` combination surfaces as a misleading "invalid vendor number".
  */
-export type SalesReportQuery = {
+export type SalesReportQuery = Readonly<{
   vendorNumber: string;
   frequency: string;
   reportType: string;
   reportSubType: string;
   reportDate: string;
   version?: string | undefined;
-};
+}>;
 /** Parameters for a Finance report download - Apple's `filter[...]` query for `/v1/financeReports`. */
-export type FinanceReportQuery = {
+export type FinanceReportQuery = Readonly<{
   vendorNumber: string;
   reportDate: string;
   regionCode: string;
   reportType?: string | undefined;
-};
+}>;
 /* -------------------------------------------------------------------------- */
 /*  App Store release-lifecycle resources - consumed by core/appStoreRelease.ts  */
 /*  (the version -> build -> review -> rollout state machine). Untouched by the      */
 /*  build/sign path and the `launch sync` catalog reconciler.                     */
 /* -------------------------------------------------------------------------- */
 /** A build (one uploaded binary) on App Store Connect, with the fields the release flow reads. */
-export type BuildResource = {
+export type BuildResource = Readonly<{
   id: string;
   version: string;
   processingState: string;
   uploadedDate?: string;
   expired: boolean;
-};
+}>;
 /** One locale's TestFlight "What to Test" note for a build (`betaBuildLocalizations`). */
-export type BetaBuildLocalizationResource = {
+export type BetaBuildLocalizationResource = Readonly<{
   id: string;
   locale: string;
   whatsNew?: string;
-};
+}>;
 /** Apple's Beta App Review verdict for a build's submission. */
 export type BetaReviewState = 'WAITING_FOR_REVIEW' | 'IN_REVIEW' | 'REJECTED' | 'APPROVED';
 /**
@@ -424,112 +425,112 @@ export type BetaReviewState = 'WAITING_FOR_REVIEW' | 'IN_REVIEW' | 'REJECTED' | 
  * TestFlight testers install it. One per build; `state` is Apple's verdict. Absent until the build is
  * submitted for beta review.
  */
-export type BetaAppReviewSubmissionResource = {
+export type BetaAppReviewSubmissionResource = Readonly<{
   id: string;
   state?: BetaReviewState;
-};
+}>;
 /**
  * An App Store version - the per-release container carrying lifecycle state, release type, and the
  * attached build. One per marketing version + platform; `launch release` reuses an editable one or
  * creates the next.
  */
-export type AppStoreVersionResource = {
+export type AppStoreVersionResource = Readonly<{
   id: string;
   versionString: string;
   appStoreState: string;
   releaseType?: string;
-};
+}>;
 /** One locale's editable version copy. Launch only ever writes `whatsNew` (the release notes). */
-export type AppStoreVersionLocalizationResource = {
+export type AppStoreVersionLocalizationResource = Readonly<{
   id: string;
   locale: string;
   whatsNew?: string;
-};
+}>;
 /** A version's phased-release schedule (Apple's 7-day staged rollout), present only once one exists. */
-export type PhasedReleaseResource = {
+export type PhasedReleaseResource = Readonly<{
   id: string;
   phasedReleaseState: string;
   currentDayNumber?: number;
-};
+}>;
 /**
  * An App Store review submission - Apple's current submission model: a per-app container the version is
  * added to as an item, then submitted as a unit. `state` distinguishes an addable draft
  * (`READY_FOR_REVIEW`) from one already in Apple's queue.
  */
-export type ReviewSubmissionResource = {
+export type ReviewSubmissionResource = Readonly<{
   id: string;
   state: string;
-};
+}>;
 /**
  * One territory's resolved offer price: the territory code plus the Apple `subscriptionPricePoints` id
  * the customer-facing amount maps to. The reconciler resolves each {@link OfferPrice} to one of these
  * (via {@link AppStoreConnectClient.findSubscriptionPricePoint}) before any offer is created, so the
  * client only ever builds wire bodies from already-validated price points.
  */
-export type ResolvedOfferPrice = {
+export type ResolvedOfferPrice = Readonly<{
   territory: string;
   pricePointId: string;
-};
+}>;
 /** An offer-code campaign on a subscription, as listed for idempotent reconcile. `name` is the key. */
-export type OfferCodeResource = {
+export type OfferCodeResource = Readonly<{
   id: string;
   name: string;
   active: boolean;
-};
+}>;
 /** A promotional offer on a subscription. `offerCode` (the StoreKit-facing id) is the reconciler's key. */
-export type PromotionalOfferResource = {
+export type PromotionalOfferResource = Readonly<{
   id: string;
   name: string;
   offerCode: string;
-};
+}>;
 /**
  * An introductory offer on a subscription. `territory` is the territory code it applies to, or null for
  * an all-territories offer - the reconciler's key (Apple permits at most one intro offer per territory).
  */
-export type IntroductoryOfferResource = {
+export type IntroductoryOfferResource = Readonly<{
   id: string;
   territory: string | null;
-};
+}>;
 /** A win-back offer on a subscription, keyed by its stable `offerId`. */
-export type WinBackOfferResource = {
+export type WinBackOfferResource = Readonly<{
   id: string;
   offerId: string;
-};
+}>;
 /**
  * A promoted purchase on an app's product page. Exactly one of `inAppPurchaseId` / `subscriptionId` is
  * set - the live *resource* id of the promoted product (not its `productId`); the reconciler maps config
  * `productId`s onto these via the subscription/IAP listings to find what's already promoted.
  */
-export type PromotedPurchaseResource = {
+export type PromotedPurchaseResource = Readonly<{
   id: string;
   inAppPurchaseId: string | null;
   subscriptionId: string | null;
   enabled: boolean;
   visibleForAllUsers: boolean;
-};
+}>;
 /** Create input for an offer-code campaign - prices already resolved to {@link ResolvedOfferPrice}s. */
-export type OfferCodeCreate = {
+export type OfferCodeCreate = Readonly<{
   subscriptionId: string;
   name: string;
-  customerEligibilities: OfferCustomerEligibility[];
+  customerEligibilities: readonly OfferCustomerEligibility[];
   offerEligibility: OfferEligibility;
   duration: OfferDuration;
   offerMode: OfferMode;
   numberOfPeriods: number;
-  prices: ResolvedOfferPrice[];
-};
+  prices: readonly ResolvedOfferPrice[];
+}>;
 /** Create input for a promotional offer - `offerCode` is the StoreKit-facing id; prices pre-resolved. */
-export type PromotionalOfferCreate = {
+export type PromotionalOfferCreate = Readonly<{
   subscriptionId: string;
   name: string;
   offerCode: string;
   duration: OfferDuration;
   offerMode: OfferMode;
   numberOfPeriods: number;
-  prices: ResolvedOfferPrice[];
-};
+  prices: readonly ResolvedOfferPrice[];
+}>;
 /** Create input for an introductory offer - at most one per territory (null = all territories). */
-export type IntroductoryOfferCreate = {
+export type IntroductoryOfferCreate = Readonly<{
   subscriptionId: string;
   duration: OfferDuration;
   offerMode: OfferMode;
@@ -538,9 +539,9 @@ export type IntroductoryOfferCreate = {
   territory: string | null;
   startDate?: string;
   endDate?: string;
-};
+}>;
 /** Create input for a win-back offer - carries Apple's lapsed-customer eligibility windows. */
-export type WinBackOfferCreate = {
+export type WinBackOfferCreate = Readonly<{
   subscriptionId: string;
   offerId: string;
   referenceName: string;
@@ -548,36 +549,36 @@ export type WinBackOfferCreate = {
   offerMode: OfferMode;
   numberOfPeriods: number;
   eligiblePaidMonths: number;
-  monthsSinceLastSubscribed: {
+  monthsSinceLastSubscribed: Readonly<{
     min: number;
     max: number;
-  };
+  }>;
   waitBetweenOffersMonths?: number;
   startDate: string;
   endDate?: string;
   priority: 'HIGH' | 'NORMAL';
   promotionIntent?: 'NOT_PROMOTED' | 'USE_AUTO_GENERATED_ASSETS';
-  prices: ResolvedOfferPrice[];
-};
+  prices: readonly ResolvedOfferPrice[];
+}>;
 /** A promoted product to register - exactly one of the two ids is set (resolved from a config `productId`). */
-export type PromotedPurchaseCreate = {
+export type PromotedPurchaseCreate = Readonly<{
   appId: string;
   inAppPurchaseId?: string;
   subscriptionId?: string;
   visibleForAllUsers: boolean;
   enabled: boolean;
-};
+}>;
 /**
  * An app's App Info record - the container that owns the App Store category relationships and the
  * age-rating declaration. An app can have more than one (a live one plus an editable one); the
  * reconciler edits the editable one, falling back to the first when no state is reported.
  */
-export type AppInfoResource = {
+export type AppInfoResource = Readonly<{
   id: string;
   state?: string;
   primaryCategoryId?: string;
   secondaryCategoryId?: string;
-};
+}>;
 /** One age-rating answer: a content-descriptor enum string (`NONE` / `INFREQUENT_OR_MILD` / ...) or a boolean flag. */
 export type AgeRatingValue = string | boolean;
 /**
@@ -586,10 +587,10 @@ export type AgeRatingValue = string | boolean;
  * carried as an open `name -> value` map rather than a fixed shape: config supplies the answers verbatim
  * and the reconciler PATCHes only the ones that differ, so a new descriptor needs no code change here.
  */
-export type AgeRatingDeclarationResource = {
+export type AgeRatingDeclarationResource = Readonly<{
   id: string;
   attributes: Record<string, AgeRatingValue>;
-};
+}>;
 /** The device families an accessibility declaration can target - Apple's `DeviceFamily` enum, restated for public signatures. */
 export type DeviceFamily = 'IPHONE' | 'IPAD' | 'APPLE_TV' | 'APPLE_WATCH' | 'MAC' | 'VISION';
 /** The ordered list of `DeviceFamily` values, for validating config and iterating. */
@@ -609,7 +610,7 @@ export const DEVICE_FAMILIES: readonly DeviceFamily[] = [
  * optional: an omitted flag means "the app does not support this feature" - the reconciler normalizes
  * absent to `false` so diffs are deterministic.
  */
-export type AccessibilitySupport = {
+export type AccessibilitySupport = Readonly<{
   supportsAudioDescriptions?: boolean;
   supportsCaptions?: boolean;
   supportsDarkInterface?: boolean;
@@ -619,7 +620,7 @@ export type AccessibilitySupport = {
   supportsSufficientContrast?: boolean;
   supportsVoiceControl?: boolean;
   supportsVoiceover?: boolean;
-};
+}>;
 /** The nine `AccessibilitySupport` keys, used to diff a declaration against config and to build requests. */
 export const ACCESSIBILITY_SUPPORT_KEYS: readonly (keyof AccessibilitySupport)[] = [
   'supportsAudioDescriptions',
@@ -637,60 +638,60 @@ export const ACCESSIBILITY_SUPPORT_KEYS: readonly (keyof AccessibilitySupport)[]
  * declaration per family; `state` distinguishes a `DRAFT` (editable, not yet shown to users) from the
  * live `PUBLISHED` one and the `REPLACED` history a publish leaves behind.
  */
-export type AccessibilityDeclarationResource = {
+export type AccessibilityDeclarationResource = Readonly<{
   id: string;
   deviceFamily: DeviceFamily;
   state: 'DRAFT' | 'PUBLISHED' | 'REPLACED';
   support: AccessibilitySupport;
-};
+}>;
 /**
  * An app's store availability (Apple's v2 model): whether it auto-enables in territories Apple adds later,
  * plus the territory codes it's currently for sale in. `availableTerritories` holds Apple territory codes
  * (e.g. `USA`, `GBR`) - the `territories` resource ids, used directly when setting availability.
  */
-export type AppAvailabilityResource = {
+export type AppAvailabilityResource = Readonly<{
   id: string;
   availableInNewTerritories: boolean;
-  availableTerritories: string[];
-};
+  availableTerritories: readonly string[];
+}>;
 /** A custom product page - an alternate App Store listing (marketing variant), matched by its `name`. */
-export type CustomProductPageResource = {
+export type CustomProductPageResource = Readonly<{
   id: string;
   name: string;
-};
+}>;
 /** One version of a custom product page; its localizations hang off it. `state` decides whether it's editable. */
-export type CustomProductPageVersionResource = {
+export type CustomProductPageVersionResource = Readonly<{
   id: string;
   state: string;
-};
+}>;
 /** One locale's custom-product-page copy. Launch writes the `promotionalText`; screenshots are out of scope. */
-export type CustomProductPageLocalizationResource = {
+export type CustomProductPageLocalizationResource = Readonly<{
   id: string;
   locale: string;
   promotionalText?: string;
-};
+}>;
 /** A product-page A/B experiment (Apple's v2 model), matched by its `name`. */
-export type VersionExperimentResource = {
+export type VersionExperimentResource = Readonly<{
   id: string;
   name: string;
   state: string;
   trafficProportion?: number;
-};
+}>;
 /** One treatment (variant arm) of a version experiment, matched by its `name`. */
-export type ExperimentTreatmentResource = {
+export type ExperimentTreatmentResource = Readonly<{
   id: string;
   name: string;
-};
+}>;
 /**
  * An app version's App Review details - the contact info and demo-account credentials Apple's reviewer
  * uses. Carried as an open attribute map for the same forward-compat reason as the age-rating
  * declaration. Note `demoAccountPassword` is write-only on Apple's side: it is never returned on a read
  * (so a change to the password alone can't be diffed) and Launch never logs it.
  */
-export type AppStoreReviewDetailResource = {
+export type AppStoreReviewDetailResource = Readonly<{
   id: string;
   attributes: Record<string, string | boolean>;
-};
+}>;
 /**
  * The App Clip card's call-to-action button - Apple's `AppClipAction` enum. Array-first (SSOT) so the
  * config schemas (`AppClipConfig.action` in `core/types`) reuse it without duplicating
@@ -704,63 +705,63 @@ export type AppClipActionValue = (typeof APP_CLIP_ACTIONS)[number];
  * uploading a build with an App Clip target (Apple has no API to create one), so this is read-only; the
  * reconciler matches a config entry to a clip by its own `bundleId` and skips clips no build produced yet.
  */
-export type AppClipResource = {
+export type AppClipResource = Readonly<{
   id: string;
   bundleId?: string;
-};
+}>;
 /**
  * One default App Clip experience - the App Clip card configuration for a specific App Store version.
  * `action` is the card's call-to-action; `versionId` is the editable version it releases with (from the
  * `releaseWithAppStoreVersion` relationship), used to pick the experience for the version being prepared.
  */
-export type AppClipDefaultExperienceResource = {
+export type AppClipDefaultExperienceResource = Readonly<{
   id: string;
   action?: string;
   versionId?: string;
-};
+}>;
 /** One locale of an App Clip's default experience - the card subtitle shown to users in that locale. */
-export type AppClipLocalizationResource = {
+export type AppClipLocalizationResource = Readonly<{
   id: string;
   locale: string;
   subtitle?: string;
-};
+}>;
 /**
  * One alternative-distribution domain - a domain the team is authorized to distribute apps from under
  * the EU DMA (web distribution / alternative marketplaces). Team-level, not per-app; matched to config
  * on `domain`.
  */
-export type AlternativeDistributionDomainResource = {
+export type AlternativeDistributionDomainResource = Readonly<{
   id: string;
   domain?: string;
   referenceName?: string;
-};
+}>;
 /**
  * The team's alternative-distribution **public** key - the package-signing key Apple verifies EU
  * distribution packages against (the developer keeps the private half). Not a secret; registered once
  * at the team level.
  */
-export type AlternativeDistributionKeyResource = {
+export type AlternativeDistributionKeyResource = Readonly<{
   id: string;
   publicKey?: string;
-};
+}>;
 /**
  * An Apple Pay **merchant id** (e.g. `merchant.com.acme.app`) registered on the team. Team-level, like a
  * bundle id; matched to config on `identifier`. (Its payment-processing certificate is a separate flow.)
  */
-export type MerchantIdResource = {
+export type MerchantIdResource = Readonly<{
   id: string;
   identifier?: string;
   name?: string;
-};
+}>;
 /**
  * A Wallet **pass type id** (e.g. `pass.com.acme.coupon`) registered on the team - the identifier a
  * `.pkpass` is signed against. Team-level; matched to config on `identifier`.
  */
-export type PassTypeIdResource = {
+export type PassTypeIdResource = Readonly<{
   id: string;
   identifier?: string;
   name?: string;
-};
+}>;
 /**
  * Apple's leaderboard score formatters - the closed enum a leaderboard's `defaultFormatter` must be.
  * `satisfies` keeps this runtime list in lockstep with the generated OpenAPI enum: drift fails the build.
@@ -797,32 +798,32 @@ export type LeaderboardSubmissionType = (typeof LEADERBOARD_SUBMISSION_TYPES)[nu
 export const LEADERBOARD_SORT_TYPES = ['ASC', 'DESC'] as const;
 export type LeaderboardSortType = (typeof LEADERBOARD_SORT_TYPES)[number];
 /** An app's Game Center configuration container (read-only attributes; created to enable Game Center). */
-export type GameCenterDetailResource = {
+export type GameCenterDetailResource = Readonly<{
   id: string;
-};
+}>;
 /** A Game Center achievement, identified for config matching by its developer-chosen `vendorIdentifier`. */
-export type GameCenterAchievementResource = {
+export type GameCenterAchievementResource = Readonly<{
   id: string;
   vendorIdentifier?: string;
-};
+}>;
 /** A Game Center leaderboard, identified for config matching by its developer-chosen `vendorIdentifier`. */
-export type GameCenterLeaderboardResource = {
+export type GameCenterLeaderboardResource = Readonly<{
   id: string;
   vendorIdentifier?: string;
-};
+}>;
 /** Attributes for creating a Game Center achievement (mirrors Apple's `GameCenterAchievementV2CreateRequest`). */
-export type GameCenterAchievementCreate = {
+export type GameCenterAchievementCreate = Readonly<{
   referenceName: string;
   vendorIdentifier: string;
   points: number;
   showBeforeEarned: boolean;
   repeatable: boolean;
-};
+}>;
 /** Attributes for creating a Game Center leaderboard (mirrors Apple's `GameCenterLeaderboardV2CreateRequest`). */
-export type GameCenterLeaderboardCreate = {
+export type GameCenterLeaderboardCreate = Readonly<{
   referenceName: string;
   vendorIdentifier: string;
   defaultFormatter: LeaderboardFormatter;
   submissionType: LeaderboardSubmissionType;
   scoreSortType: LeaderboardSortType;
-};
+}>;

@@ -130,7 +130,7 @@ const reconcileDoctorExportCompliance = (
 
 /** Best-effort export-compliance repair for selected iOS apps. */
 const fixExportCompliance = (
-  selectedApps: AppDescriptor[],
+  selectedApps: readonly AppDescriptor[],
 ): Effect.Effect<void, unknown, DoctorCommandRequirements> =>
   Effect.gen(function* () {
     const resolveAppleStore = createAscClientResolver();

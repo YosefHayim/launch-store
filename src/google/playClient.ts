@@ -5,6 +5,13 @@ import {
 } from '@googleapis/androidpublisher';
 import { Data, Effect, Option, Schema } from 'effect';
 import type { ServiceAccount } from '../core/types/credentials.js';
+import type { MutableDeep } from '../core/types/mutable.js';
+
+/** Deep-clone a Launch boundary value into a mutable plain object for Google's generated client. */
+const mutableGoogleRequest = <GoogleRequest>(requestShape: unknown): GoogleRequest => {
+  const clonedRequest: GoogleRequest = JSON.parse(JSON.stringify(requestShape));
+  return clonedRequest;
+};
 import type {
   BasePlan,
   InAppProductResource,
@@ -91,7 +98,7 @@ const normalizeReview = (
   )?.developerComment;
   let rating = 0;
   if (typeof userComment?.starRating === 'number') rating = userComment.starRating;
-  const review: PlayReview = {
+  const review: MutableDeep<PlayReview> = {
     reviewId: googleReview.reviewId,
     rating,
     answered: developerComment !== undefined,
@@ -128,7 +135,7 @@ const normalizeMoney = (money: androidpublisher_v3.Schema$Money | undefined): Pl
 const normalizeTrackRelease = (
   googleRelease: androidpublisher_v3.Schema$TrackRelease,
 ): PlayRelease => {
-  const release: PlayRelease = {};
+  const release: MutableDeep<PlayRelease> = {};
   if (typeof googleRelease.name === 'string') release.name = googleRelease.name;
   if (Array.isArray(googleRelease.versionCodes)) release.versionCodes = googleRelease.versionCodes;
   if (typeof googleRelease.status === 'string') release.status = googleRelease.status;
@@ -160,7 +167,7 @@ const normalizeProductMoney = (
   googlePrice: androidpublisher_v3.Schema$Price | undefined,
 ): PlayMoney | undefined => {
   if (googlePrice === undefined) return;
-  const price: PlayMoney = {};
+  const price: MutableDeep<PlayMoney> = {};
   if (typeof googlePrice.priceMicros === 'string') price.priceMicros = googlePrice.priceMicros;
   if (typeof googlePrice.currency === 'string') price.currency = googlePrice.currency;
   return price;
@@ -170,7 +177,7 @@ const normalizeInAppProduct = (
   googleProduct: androidpublisher_v3.Schema$InAppProduct,
 ): InAppProductResource | undefined => {
   if (typeof googleProduct.sku !== 'string') return;
-  const product: InAppProductResource = { sku: googleProduct.sku };
+  const product: MutableDeep<InAppProductResource> = { sku: googleProduct.sku };
   if (typeof googleProduct.status === 'string') product.status = googleProduct.status;
   if (typeof googleProduct.purchaseType === 'string') {
     product.purchaseType = googleProduct.purchaseType;
@@ -214,19 +221,21 @@ const normalizeInAppProduct = (
 /** Normalize one generated subscription base plan to the fields Launch reconciles. */
 const normalizeBasePlan = (
   googlePlan: androidpublisher_v3.Schema$BasePlan,
-): BasePlan | undefined => {
+): MutableDeep<BasePlan> | undefined => {
   if (typeof googlePlan.basePlanId !== 'string') return;
-  const basePlan: BasePlan = { basePlanId: googlePlan.basePlanId };
+  const basePlan: MutableDeep<BasePlan> = { basePlanId: googlePlan.basePlanId };
   if (typeof googlePlan.state === 'string') basePlan.state = googlePlan.state;
   const billingPeriod = googlePlan.autoRenewingBasePlanType?.billingPeriodDuration;
   if (typeof billingPeriod === 'string') {
     basePlan.autoRenewingBasePlanType = { billingPeriodDuration: billingPeriod };
   }
   if (Array.isArray(googlePlan.regionalConfigs)) {
-    const regionalConfigs: RegionalBasePlanConfig[] = [];
+    const regionalConfigs: MutableDeep<RegionalBasePlanConfig>[] = [];
     for (const googleRegion of googlePlan.regionalConfigs) {
       if (typeof googleRegion.regionCode !== 'string') continue;
-      const regionalConfig: RegionalBasePlanConfig = { regionCode: googleRegion.regionCode };
+      const regionalConfig: MutableDeep<RegionalBasePlanConfig> = {
+        regionCode: googleRegion.regionCode,
+      };
       if (typeof googleRegion.newSubscriberAvailability === 'boolean') {
         regionalConfig.newSubscriberAvailability = googleRegion.newSubscriberAvailability;
       }
@@ -252,12 +261,14 @@ const normalizeSubscription = (
   googleSubscription: androidpublisher_v3.Schema$Subscription,
 ): SubscriptionResource | undefined => {
   if (typeof googleSubscription.productId !== 'string') return;
-  const subscription: SubscriptionResource = { productId: googleSubscription.productId };
+  const subscription: MutableDeep<SubscriptionResource> = {
+    productId: googleSubscription.productId,
+  };
   if (typeof googleSubscription.packageName === 'string') {
     subscription.packageName = googleSubscription.packageName;
   }
   if (Array.isArray(googleSubscription.basePlans)) {
-    const basePlans: BasePlan[] = [];
+    const basePlans: MutableDeep<BasePlan>[] = [];
     for (const googlePlan of googleSubscription.basePlans) {
       const basePlan = normalizeBasePlan(googlePlan);
       if (basePlan !== undefined) basePlans.push(basePlan);
@@ -265,12 +276,12 @@ const normalizeSubscription = (
     subscription.basePlans = basePlans;
   }
   if (Array.isArray(googleSubscription.listings)) {
-    const listings: SubscriptionListing[] = [];
+    const listings: MutableDeep<SubscriptionListing>[] = [];
     for (const googleListing of googleSubscription.listings) {
       if (typeof googleListing.languageCode !== 'string') continue;
       if (typeof googleListing.title !== 'string') continue;
       if (typeof googleListing.description !== 'string') continue;
-      const listing: SubscriptionListing = {
+      const listing: MutableDeep<SubscriptionListing> = {
         languageCode: googleListing.languageCode,
         title: googleListing.title,
         description: googleListing.description,
@@ -287,7 +298,7 @@ const normalizeSubscriptionOffer = (
   googleOffer: androidpublisher_v3.Schema$SubscriptionOffer,
 ): SubscriptionOfferResource | undefined => {
   if (typeof googleOffer.offerId !== 'string') return;
-  const offer: SubscriptionOfferResource = {
+  const offer: MutableDeep<SubscriptionOfferResource> = {
     offerId: googleOffer.offerId,
     phases: [],
     regionalConfigs: [],
@@ -299,7 +310,7 @@ const normalizeSubscriptionOffer = (
   if (Array.isArray(googleOffer.regionalConfigs)) {
     for (const googleRegion of googleOffer.regionalConfigs) {
       if (typeof googleRegion.regionCode !== 'string') continue;
-      const regionalConfig: RegionalSubscriptionOfferConfig = {
+      const regionalConfig: MutableDeep<RegionalSubscriptionOfferConfig> = {
         regionCode: googleRegion.regionCode,
       };
       if (typeof googleRegion.newSubscriberAvailability === 'boolean') {
@@ -311,7 +322,7 @@ const normalizeSubscriptionOffer = (
   if (Array.isArray(googleOffer.phases)) {
     for (const googlePhase of googleOffer.phases) {
       if (typeof googlePhase.recurrenceCount !== 'number') continue;
-      const phase: SubscriptionOfferPhase = {
+      const phase: MutableDeep<SubscriptionOfferPhase> = {
         recurrenceCount: googlePhase.recurrenceCount,
         regionalConfigs: [],
       };
@@ -319,7 +330,9 @@ const normalizeSubscriptionOffer = (
       if (Array.isArray(googlePhase.regionalConfigs)) {
         for (const googleRegion of googlePhase.regionalConfigs) {
           if (typeof googleRegion.regionCode !== 'string') continue;
-          const regionalConfig: OfferPhaseRegionalConfig = { regionCode: googleRegion.regionCode };
+          const regionalConfig: MutableDeep<OfferPhaseRegionalConfig> = {
+            regionCode: googleRegion.regionCode,
+          };
           if (googleRegion.price !== undefined)
             regionalConfig.price = normalizeMoney(googleRegion.price);
           if (googleRegion.free !== undefined) regionalConfig.free = {};
@@ -385,7 +398,7 @@ export const parseServiceAccount = (
     Effect.map((serviceAccountKey) => {
       let tokenUri = 'https://oauth2.googleapis.com/token';
       if (serviceAccountKey.token_uri !== undefined) tokenUri = serviceAccountKey.token_uri;
-      const serviceAccount: ServiceAccount = {
+      const serviceAccount: MutableDeep<ServiceAccount> = {
         clientEmail: serviceAccountKey.client_email,
         privateKey: serviceAccountKey.private_key,
         tokenUri,
@@ -615,7 +628,7 @@ export class GooglePlayClient {
           packageName,
           editId,
           track,
-          requestBody: { track, releases: [...releases] },
+          requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Track>({ track, releases }),
         }),
       ).pipe(Effect.asVoid),
     );
@@ -668,7 +681,7 @@ export class GooglePlayClient {
             countries.push({ countryCode: googleCountry.countryCode });
           }
         }
-        const availability: PlayCountryAvailability = { countries };
+        const availability: MutableDeep<PlayCountryAvailability> = { countries };
         if (typeof countryAvailability.restOfWorld === 'boolean') {
           availability.restOfWorld = countryAvailability.restOfWorld;
         }
@@ -788,7 +801,7 @@ export class GooglePlayClient {
         regions.sort((leftPrice, rightPrice) =>
           leftPrice.regionCode.localeCompare(rightPrice.regionCode),
         );
-        const convertedPrices: ConvertedPrices = { regions };
+        const convertedPrices: MutableDeep<ConvertedPrices> = { regions };
         const fallbackPrice = priceConversion.convertedOtherRegionsPrice;
         if (fallbackPrice !== undefined) {
           convertedPrices.otherRegions = {
@@ -840,7 +853,10 @@ export class GooglePlayClient {
         packageName,
         productId: subscription.productId,
         'regionsVersion.version': REGIONS_VERSION,
-        requestBody: { ...subscription, packageName },
+        requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Subscription>({
+          ...subscription,
+          packageName,
+        }),
       }),
     ).pipe(Effect.asVoid);
   }
@@ -860,7 +876,10 @@ export class GooglePlayClient {
         productId: subscription.productId,
         updateMask,
         'regionsVersion.version': REGIONS_VERSION,
-        requestBody: { ...subscription, packageName },
+        requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Subscription>({
+          ...subscription,
+          packageName,
+        }),
       }),
     ).pipe(Effect.asVoid);
   }
@@ -922,7 +941,10 @@ export class GooglePlayClient {
         basePlanId,
         offerId: offer.offerId,
         'regionsVersion.version': REGIONS_VERSION,
-        requestBody: { ...offer, packageName },
+        requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$SubscriptionOffer>({
+          ...offer,
+          packageName,
+        }),
       }),
     ).pipe(Effect.asVoid);
   }
@@ -1017,7 +1039,7 @@ export class GooglePlayClient {
         if (typeof replyConfirmation.result?.replyText === 'string') {
           storedReplyText = replyConfirmation.result.replyText;
         }
-        const reply: PlayReplyResult = { replyText: storedReplyText };
+        const reply: MutableDeep<PlayReplyResult> = { replyText: storedReplyText };
         const lastEdited = timestampToIso(replyConfirmation.result?.lastEdited);
         if (lastEdited !== undefined) reply.lastEdited = lastEdited;
         return reply;

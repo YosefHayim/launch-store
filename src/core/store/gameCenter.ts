@@ -13,6 +13,7 @@ import {
 import { appRecordMissing, plan, skip, type ReconcileContext } from './reconcile.js';
 import { errorMessage } from '../services/errorMessage.js';
 import type { PlannedAction } from '../types/reconcile.js';
+import type { MutableDeep } from '../types/mutable.js';
 import type {
   AchievementConfig,
   GameCenterConfig,
@@ -202,9 +203,9 @@ export const reconcileGameCenter = (
       );
       return { bundleId: input.bundleId, actions: reconcileContext.actions };
     }
-    let achievements: AchievementConfig[] = [];
+    let achievements: readonly AchievementConfig[] = [];
     if (config.achievements !== undefined) achievements = config.achievements;
-    let leaderboards: LeaderboardConfig[] = [];
+    let leaderboards: readonly LeaderboardConfig[] = [];
     if (config.leaderboards !== undefined) leaderboards = config.leaderboards;
     yield* reconcileAchievements(reconcileContext, api, detail, achievements);
     yield* reconcileLeaderboards(reconcileContext, api, detail, leaderboards);
@@ -240,7 +241,7 @@ const reconcileAchievements = (
   reconcileContext: ReconcileContext,
   api: AscGameCenterApi,
   detail: NonNullable<EnsuredDetail>,
-  declared: AchievementConfig[],
+  declared: readonly AchievementConfig[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     let existingIdentifiers = new Set<string>();
@@ -309,7 +310,7 @@ const reconcileLeaderboards = (
   reconcileContext: ReconcileContext,
   api: AscGameCenterApi,
   detail: NonNullable<EnsuredDetail>,
-  declared: LeaderboardConfig[],
+  declared: readonly LeaderboardConfig[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     let existingIdentifiers = new Set<string>();
@@ -377,7 +378,7 @@ const reconcileLeaderboards = (
  * Connect) rather than failed.
  */
 const applyLocalization = (
-  action: PlannedAction,
+  action: MutableDeep<PlannedAction>,
   versionId: string | null,
   vendorIdentifier: string,
   createLocalization: (confirmedVersionId: string) => Effect.Effect<void, unknown>,

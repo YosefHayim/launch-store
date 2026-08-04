@@ -29,7 +29,7 @@ export const iosCarState = (verdict: ReleaseVerdict): NativeCarState | null => {
  * fraction - steer it with `launch rollout`). Returns `null` while nothing is on the track yet (still
  * processing / in Google's opaque review) so the car holds its current state.
  */
-export const androidCarState = (releases: PlayRelease[]): NativeCarState | null => {
+export const androidCarState = (releases: readonly PlayRelease[]): NativeCarState | null => {
   const release = releases[0];
   if (!release) return null;
   switch (release.status) {

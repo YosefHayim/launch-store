@@ -27,6 +27,7 @@ import type {
   WinBackOfferConfig,
 } from '../types/catalog.js';
 import { errorMessage } from '../services/errorMessage.js';
+import type { MutableDeep } from '../types/mutable.js';
 /**
  * The exact slice of {@link AppStoreConnectClient} the offers reconciler depends on. Declared here (not
  * the concrete client) so the diff logic is unit-testable with a hand-rolled fake, mirroring
@@ -58,7 +59,10 @@ export type AscOffersApi = {
   createPromotedPurchase(
     input: PromotedPurchaseCreate,
   ): Effect.Effect<PromotedPurchaseResource, unknown>;
-  reorderPromotedPurchases(appId: string, orderedIds: string[]): Effect.Effect<void, unknown>;
+  reorderPromotedPurchases(
+    appId: string,
+    orderedIds: readonly string[],
+  ): Effect.Effect<void, unknown>;
 };
 /** Default territory for an {@link OfferPrice} that doesn't name one - matches the rest of the catalog. */
 const DEFAULT_TERRITORY = 'USA';
@@ -71,7 +75,7 @@ export type ReconcileOffersInput = {
 /** Mutable per-run context threaded through the reconcile walk (mirrors `core/store/ascSync.ts`). */
 type OffersContext = {
   api: AscOffersApi;
-  actions: PlannedAction[];
+  actions: MutableDeep<PlannedAction>[];
   dryRun: boolean;
 };
 /**
@@ -84,7 +88,7 @@ const act = (
   description: string,
   run: () => Effect.Effect<void, unknown>,
 ): Effect.Effect<ActionStatus> => {
-  const action: PlannedAction = { description, destructive: false, status: 'planned' };
+  const action: MutableDeep<PlannedAction> = { description, destructive: false, status: 'planned' };
   offersContext.actions.push(action);
   if (offersContext.dryRun) return Effect.succeed(action.status);
   return run().pipe(
@@ -114,7 +118,7 @@ const makeOfferPricePointFailure = Data.tagged<OfferPricePointFailure>('OfferPri
 const resolvePrices = (
   api: AscOffersApi,
   subscriptionId: string,
-  prices: OfferPrice[],
+  prices: readonly OfferPrice[],
 ): Effect.Effect<ResolvedOfferPrice[], OfferPricePointFailure | unknown> =>
   Effect.gen(function* () {
     const resolved: ResolvedOfferPrice[] = [];
@@ -140,7 +144,10 @@ const resolvePrices = (
  * Validate a price-bearing offer (offer code, promotional, win-back) at the boundary: `FREE_TRIAL` must
  * carry no prices; any other mode needs at least one. Returns a human reason when invalid, else null.
  */
-const priceModeError = (offerMode: string, prices: OfferPrice[] | undefined): string | null => {
+const priceModeError = (
+  offerMode: string,
+  prices: readonly OfferPrice[] | undefined,
+): string | null => {
   let priceCount = 0;
   if (prices !== undefined) priceCount = prices.length;
   if (offerMode === 'FREE_TRIAL') {
@@ -155,7 +162,7 @@ const reconcileOfferCodes = (
   offersContext: OffersContext,
   subscriptionId: string,
   productId: string,
-  desired: OfferCodeConfig[],
+  desired: readonly OfferCodeConfig[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     const codes = yield* offersContext.api.listSubscriptionOfferCodes(subscriptionId);
@@ -172,7 +179,7 @@ const reconcileOfferCodes = (
         `create offer code "${offer.name}" on ${productId} (${offer.offerMode})`,
         () =>
           Effect.gen(function* () {
-            let offerPrices: OfferPrice[] = [];
+            let offerPrices: readonly OfferPrice[] = [];
             if (offer.prices !== undefined) offerPrices = offer.prices;
             const prices = yield* resolvePrices(offersContext.api, subscriptionId, offerPrices);
             const create: OfferCodeCreate = {
@@ -195,7 +202,7 @@ const reconcilePromotionalOffers = (
   offersContext: OffersContext,
   subscriptionId: string,
   productId: string,
-  desired: PromotionalOfferConfig[],
+  desired: readonly PromotionalOfferConfig[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     const offers = yield* offersContext.api.listPromotionalOffers(subscriptionId);
@@ -215,7 +222,7 @@ const reconcilePromotionalOffers = (
         `create promotional offer "${offer.offerCode}" on ${productId} (${offer.offerMode})`,
         () =>
           Effect.gen(function* () {
-            let offerPrices: OfferPrice[] = [];
+            let offerPrices: readonly OfferPrice[] = [];
             if (offer.prices !== undefined) offerPrices = offer.prices;
             const prices = yield* resolvePrices(offersContext.api, subscriptionId, offerPrices);
             const create: PromotionalOfferCreate = {
@@ -237,7 +244,7 @@ const reconcileIntroductoryOffers = (
   offersContext: OffersContext,
   subscriptionId: string,
   productId: string,
-  desired: IntroductoryOfferConfig[],
+  desired: readonly IntroductoryOfferConfig[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     const introductoryOffers = yield* offersContext.api.listIntroductoryOffers(subscriptionId);
@@ -275,7 +282,7 @@ const reconcileIntroductoryOffers = (
               ]);
               if (resolvedPrices[0] !== undefined) resolvedPrice = resolvedPrices[0];
             }
-            const introductoryOffer: IntroductoryOfferCreate = {
+            const introductoryOffer: MutableDeep<IntroductoryOfferCreate> = {
               subscriptionId,
               duration: offer.duration,
               offerMode: offer.offerMode,
@@ -295,7 +302,7 @@ const reconcileWinBackOffers = (
   offersContext: OffersContext,
   subscriptionId: string,
   productId: string,
-  desired: WinBackOfferConfig[],
+  desired: readonly WinBackOfferConfig[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     const winBackOffers = yield* offersContext.api.listWinBackOffers(subscriptionId);
@@ -322,12 +329,12 @@ const reconcileWinBackOffers = (
         `create win-back offer "${offer.offerId}" on ${productId} (${offer.offerMode})`,
         () =>
           Effect.gen(function* () {
-            let offerPrices: OfferPrice[] = [];
+            let offerPrices: readonly OfferPrice[] = [];
             if (offer.prices !== undefined) offerPrices = offer.prices;
             const prices = yield* resolvePrices(offersContext.api, subscriptionId, offerPrices);
             let priority: WinBackOfferCreate['priority'] = 'NORMAL';
             if (offer.priority !== undefined) priority = offer.priority;
-            const create: WinBackOfferCreate = {
+            const create: MutableDeep<WinBackOfferCreate> = {
               subscriptionId,
               offerId: offer.offerId,
               referenceName: offer.referenceName,
@@ -335,7 +342,7 @@ const reconcileWinBackOffers = (
               offerMode: offer.offerMode,
               numberOfPeriods: offer.numberOfPeriods,
               eligiblePaidMonths: offer.eligiblePaidMonths,
-              monthsSinceLastSubscribed: offer.monthsSinceLastSubscribed,
+              monthsSinceLastSubscribed: { ...offer.monthsSinceLastSubscribed },
               startDate: offer.startDate,
               priority,
               prices,
@@ -423,7 +430,7 @@ const reconcilePromotedPurchases = (
         declaredOrder.push(existingPromotionId);
         continue;
       }
-      const create: PromotedPurchaseCreate = {
+      const create: MutableDeep<PromotedPurchaseCreate> = {
         appId,
         visibleForAllUsers: true,
         enabled: true,
@@ -498,17 +505,17 @@ export const reconcileOffers = (
           );
           continue;
         }
-        let offerCodes: OfferCodeConfig[] = [];
+        let offerCodes: readonly OfferCodeConfig[] = [];
         if (subscription.offerCodes !== undefined) offerCodes = subscription.offerCodes;
-        let promotionalOffers: PromotionalOfferConfig[] = [];
+        let promotionalOffers: readonly PromotionalOfferConfig[] = [];
         if (subscription.promotionalOffers !== undefined) {
           promotionalOffers = subscription.promotionalOffers;
         }
-        let introductoryOffers: IntroductoryOfferConfig[] = [];
+        let introductoryOffers: readonly IntroductoryOfferConfig[] = [];
         if (subscription.introductoryOffers !== undefined) {
           introductoryOffers = subscription.introductoryOffers;
         }
-        let winBackOffers: WinBackOfferConfig[] = [];
+        let winBackOffers: readonly WinBackOfferConfig[] = [];
         if (subscription.winBackOffers !== undefined) {
           winBackOffers = subscription.winBackOffers;
         }

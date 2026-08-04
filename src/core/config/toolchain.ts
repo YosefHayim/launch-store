@@ -197,7 +197,7 @@ export const remoteToolchainPreflight = (mode: 'install' | 'assert'): string => 
  */
 export type ToolchainIo = {
   exists(command: string): Effect.Effect<boolean, unknown>;
-  run(command: string, args: string[]): Effect.Effect<void, unknown>;
+  run(command: string, args: readonly string[]): Effect.Effect<void, unknown>;
   confirm(message: string): Effect.Effect<boolean, unknown>;
   confirmText(message: string, expected: string): Effect.Effect<boolean, unknown>;
   log(message: string): Effect.Effect<void, unknown>;
@@ -226,7 +226,7 @@ export type EnsureToolchainOptions = {
 /** Return the tools from `tools` whose command isn't currently on `PATH`. */
 const detectMissing = (
   io: Pick<ToolchainIo, 'exists'>,
-  tools: Tool[],
+  tools: readonly Tool[],
 ): Effect.Effect<Tool[], unknown> =>
   Effect.filter(tools, (tool) => io.exists(tool.command).pipe(Effect.map((exists) => !exists)), {
     concurrency: 1,
@@ -343,7 +343,7 @@ export const ensureCcacheInstalled = (options: {
  */
 const installBrewTools = (
   io: ToolchainIo,
-  brewTools: Tool[],
+  brewTools: readonly Tool[],
   assumeYes: boolean,
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {

@@ -72,7 +72,7 @@ const app = (overrides: Partial<AppDescriptor> = {}): AppDescriptor => {
 };
 /** The artifact at `path`, asserting it was emitted. */
 const artifact = (
-  migrationArtifacts: MigrationArtifact[],
+  migrationArtifacts: readonly MigrationArtifact[],
   artifactPath: string,
 ): MigrationArtifact => {
   const matchingArtifact = migrationArtifacts.find((entry) => entry.path === artifactPath);
@@ -80,12 +80,15 @@ const artifact = (
   return expectDefined(matchingArtifact, `artifact ${artifactPath}`);
 };
 /** Notes at a given level. */
-const notesAt = (migrationNotes: MigrationNote[], level: MigrationNoteLevel): MigrationNote[] => {
+const notesAt = (
+  migrationNotes: readonly MigrationNote[],
+  level: MigrationNoteLevel,
+): MigrationNote[] => {
   return migrationNotes.filter((note) => note.level === level);
 };
 const runReadFastlaneSetup = (workingDirectory: string) =>
   Effect.runPromise(readFastlaneSetup(workingDirectory).pipe(Effect.provide(NodeContext.layer)));
-const runMigrateFastlane = (workingDirectory: string, apps: AppDescriptor[]) =>
+const runMigrateFastlane = (workingDirectory: string, apps: readonly AppDescriptor[]) =>
   Effect.runPromise(
     migrateFastlane(workingDirectory, apps).pipe(Effect.provide(NodeContext.layer)),
   );
@@ -125,16 +128,16 @@ describe('parseSupplyfile', () => {
 });
 describe('parseFastfile', () => {
   it('collects lane names from both lane and private_lane', () => {
-    const names = parseFastfile(SAMPLE_FASTFILE)
-      .lanes.map((lane) => lane.name)
-      .sort();
+    const names = [...parseFastfile(SAMPLE_FASTFILE).lanes.map((lane) => lane.name)].sort();
     expect(names).toEqual(['beta', 'play', 'prepare', 'release']);
   });
   it('attributes each lane to its platform block and scopes actions to its body', () => {
     const lanes = parseFastfile(SAMPLE_FASTFILE).lanes;
     const beta = lanes.find((lane) => lane.name === 'beta');
     expect(beta?.platform).toBe('ios');
-    expect(beta?.actions.sort()).toEqual(['gym', 'match', 'pilot']);
+    let betaActions: readonly string[] = [];
+    if (beta !== undefined) betaActions = beta.actions;
+    expect([...betaActions].sort()).toEqual(['gym', 'match', 'pilot']);
     const play = lanes.find((lane) => lane.name === 'play');
     expect(play?.platform).toBe('android');
     expect(play?.actions).toEqual(['supply']);

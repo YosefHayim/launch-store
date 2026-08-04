@@ -22,19 +22,19 @@ export type TrainState = 'running' | 'blocked' | 'done' | 'aborted';
  * A native platform car - the iOS or Android leg of the release. Carries the build it submitted and, on a
  * `rejected` / `failed` car, the reason, so a reconcile can report why the train is holding.
  */
-export type NativeCar = {
+export type NativeCar = Readonly<{
   kind: TrainPlatform;
   state: NativeCarState;
   buildId?: string;
   error?: string;
   updatedAt: string;
-};
+}>;
 /**
  * An OTA car - a JS bundle that follows its native platform live. Gated per-platform (D4): it publishes
  * only once the native build carrying its `runtimeVersion` is released in that platform's store, so JS is
  * never pushed to a runtime version users don't have yet.
  */
-export type OtaCar = {
+export type OtaCar = Readonly<{
   kind: 'ota';
   platform: TrainPlatform;
   channel: string;
@@ -42,7 +42,7 @@ export type OtaCar = {
   state: OtaCarState;
   manifestId?: string;
   updatedAt: string;
-};
+}>;
 /** One car of a train - a native platform leg or an OTA follower. */
 export type Car = NativeCar | OtaCar;
 /**
@@ -50,12 +50,12 @@ export type Car = NativeCar | OtaCar;
  * `release-train start`, advanced by `release-train status`. Holds every car plus the train-wide gate
  * (`hold`) and lifecycle (`state`).
  */
-export type TrainRecord = {
+export type TrainRecord = Readonly<{
   id: string;
   app: string;
   hold: boolean;
   state: TrainState;
   createdAt: string;
   updatedAt: string;
-  cars: Car[];
-};
+  cars: readonly Car[];
+}>;

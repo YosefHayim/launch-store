@@ -256,7 +256,7 @@ const reconcileOffersJob = (
 
 /** Count action outcomes for one app receipt. */
 const summarizeOfferActions = (
-  actions: PlannedAction[],
+  actions: readonly PlannedAction[],
 ): Readonly<{ applied: number; failed: number; skipped: number }> => {
   let applied = 0;
   let failed = 0;

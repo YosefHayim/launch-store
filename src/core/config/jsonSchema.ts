@@ -194,7 +194,7 @@ const validateObject = (
 /** Validate an `anyOf`/`oneOf`: report a single, concise violation when the right number of branches don't match. */
 const validateCombinator = (
   candidateValue: unknown,
-  branches: JsonSchema[],
+  branches: readonly JsonSchema[],
   root: JsonSchema,
   path: string,
   kind: 'anyOf' | 'oneOf',

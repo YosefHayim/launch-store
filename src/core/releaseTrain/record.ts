@@ -7,47 +7,41 @@ import {
 } from '../services/paths.js';
 import type { TrainRecord } from '../types/releaseTrain.js';
 
-const NativeCarSchema = Schema.mutable(
-  Schema.Struct({
-    kind: Schema.Literal('ios', 'android'),
-    state: Schema.Literal(
-      'building',
-      'submitted',
-      'in-review',
-      'approved',
-      'released',
-      'rejected',
-      'failed',
-    ),
-    buildId: Schema.optionalWith(Schema.String, { exact: true }),
-    error: Schema.optionalWith(Schema.String, { exact: true }),
-    updatedAt: Schema.String,
-  }),
-);
+const NativeCarSchema = Schema.Struct({
+  kind: Schema.Literal('ios', 'android'),
+  state: Schema.Literal(
+    'building',
+    'submitted',
+    'in-review',
+    'approved',
+    'released',
+    'rejected',
+    'failed',
+  ),
+  buildId: Schema.optionalWith(Schema.String, { exact: true }),
+  error: Schema.optionalWith(Schema.String, { exact: true }),
+  updatedAt: Schema.String,
+});
 
-const OtaCarSchema = Schema.mutable(
-  Schema.Struct({
-    kind: Schema.Literal('ota'),
-    platform: Schema.Literal('ios', 'android'),
-    channel: Schema.String,
-    runtimeVersion: Schema.String,
-    state: Schema.Literal('pending', 'published'),
-    manifestId: Schema.optionalWith(Schema.String, { exact: true }),
-    updatedAt: Schema.String,
-  }),
-);
+const OtaCarSchema = Schema.Struct({
+  kind: Schema.Literal('ota'),
+  platform: Schema.Literal('ios', 'android'),
+  channel: Schema.String,
+  runtimeVersion: Schema.String,
+  state: Schema.Literal('pending', 'published'),
+  manifestId: Schema.optionalWith(Schema.String, { exact: true }),
+  updatedAt: Schema.String,
+});
 
-const TrainRecordSchema: Schema.Schema<TrainRecord> = Schema.mutable(
-  Schema.Struct({
-    id: Schema.String,
-    app: Schema.String,
-    hold: Schema.Boolean,
-    state: Schema.Literal('running', 'blocked', 'done', 'aborted'),
-    createdAt: Schema.String,
-    updatedAt: Schema.String,
-    cars: Schema.mutable(Schema.Array(Schema.Union(NativeCarSchema, OtaCarSchema))),
-  }),
-);
+const TrainRecordSchema: Schema.Schema<TrainRecord> = Schema.Struct({
+  id: Schema.String,
+  app: Schema.String,
+  hold: Schema.Boolean,
+  state: Schema.Literal('running', 'blocked', 'done', 'aborted'),
+  createdAt: Schema.String,
+  updatedAt: Schema.String,
+  cars: Schema.Array(Schema.Union(NativeCarSchema, OtaCarSchema)),
+});
 
 /** A persisted release-train record could not be read or written. */
 export type TrainRecordFailure = Readonly<{

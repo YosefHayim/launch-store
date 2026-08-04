@@ -7,6 +7,7 @@ import type {
 } from '../types/app.js';
 import type { SizeReport } from '../types/artifacts.js';
 import type { LaunchConfig, ResolvedBuildContext } from '../types/config.js';
+import type { MutableDeep } from '../types/mutable.js';
 import type { RemoteTarget } from '../types/remote.js';
 import type { Logger } from '../services/logger.js';
 import type { BumpKind } from '../release/version.js';
@@ -43,10 +44,10 @@ export type BuildRunOptions = {
  */
 export type PreparedBuild = {
   config: LaunchConfig;
-  app: AppDescriptor;
+  app: MutableDeep<AppDescriptor>;
   profile: ResolvedBuildContext['profile'];
   env: Record<string, string>;
-  buildContext: ResolvedBuildContext;
+  buildContext: MutableDeep<ResolvedBuildContext>;
   log: Logger;
 };
 /** Placeholder API key used in `--dry-run`, so the flow runs without an imported credential. */

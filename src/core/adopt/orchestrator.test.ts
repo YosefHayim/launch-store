@@ -14,6 +14,7 @@ import {
 import type { AdoptCatalogApi, AdoptTarget, Adopter, PlannedWrite } from '../types/adopt.js';
 import type { AppDescriptor } from '../types/app.js';
 import type { InAppPurchaseConfig } from '../types/catalog.js';
+import type { MutableDeep } from '../types/mutable.js';
 const makeApi = (overrides: Partial<AdoptCatalogApi> = {}): AdoptCatalogApi => {
   const base: AdoptCatalogApi = {
     getAppId: () => Effect.succeed('app1'),
@@ -40,12 +41,12 @@ const app = (
   bundleId?: string,
   configPath = `/repo/${name}/app.json`,
 ): AppDescriptor => {
-  const appDescriptor: AppDescriptor = { name, dir: `/repo/${name}`, configPath };
+  const appDescriptor: MutableDeep<AppDescriptor> = { name, dir: `/repo/${name}`, configPath };
   if (bundleId) appDescriptor.bundleId = bundleId;
   return appDescriptor;
 };
 /** Run local adopt writes with Effect Platform's Node filesystem and path services. */
-const runApplyAdopt = (plans: TargetPlan[], applyContext: ApplyContext) =>
+const runApplyAdopt = (plans: readonly TargetPlan[], applyContext: ApplyContext) =>
   Effect.runPromise(applyAdopt(plans, applyContext).pipe(Effect.provide(NodeContext.layer)));
 describe('detectTargets', () => {
   it('separates apps with a live record from those skipped, with a confirming signal', async () => {

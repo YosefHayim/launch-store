@@ -178,7 +178,7 @@ const optionFlags = (command: Command): string[] => {
  */
 const descendCommandTree = (
   program: Command,
-  words: string[],
+  words: readonly string[],
 ): {
   command: Command;
   commandPath: string[];

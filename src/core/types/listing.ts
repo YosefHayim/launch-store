@@ -5,25 +5,25 @@ import type { AppleLocaleInfo } from '../store/storeConfig.js';
  * model refines what's there rather than inventing from nothing: `about` and `keywords` carry the
  * existing pitch/keywords (or a `--about` override), and `current` is the locale's existing listing.
  */
-export type ListingBrief = {
+export type ListingBrief = Readonly<{
   locale: string;
   appName: string;
   about?: string;
-  keywords?: string[];
+  keywords?: readonly string[];
   current?: AppleLocaleInfo;
-};
+}>;
 /**
  * A drafted listing for one locale - the App Store copy fields a generator produces. This is the
  * superset; the Play (`android`) fields are derived from it when the user targets Android. Every field
  * is optional so a generator (or a length clamp) can omit what it can't produce within store limits.
  */
-export type DraftListing = {
+export type DraftListing = Readonly<{
   title?: string;
   subtitle?: string;
   description?: string;
-  keywords?: string[];
+  keywords?: readonly string[];
   promotionalText?: string;
-};
+}>;
 /**
  * The generation seam: turn a {@link ListingBrief} into a {@link DraftListing}. Implemented by the
  * default Anthropic-backed generator and trivially by a test fake, so the command and the applier are
@@ -38,8 +38,8 @@ export type ListingGenerator<Requirements = never> = {
  * records what the length clamp had to trim, so the user sees it in the preview before anything is
  * written. Produced by the command, consumed by `renderDraftPreview` and `applyDraft`.
  */
-export type LocaleDraft = {
+export type LocaleDraft = Readonly<{
   locale: string;
   draft: DraftListing;
-  warnings: string[];
-};
+  warnings: readonly string[];
+}>;

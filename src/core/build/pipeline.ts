@@ -1,5 +1,7 @@
 import { Data, Effect } from 'effect';
+import type { AppDescriptor } from '../types/app.js';
 import type { ResolvedBuildContext } from '../types/config.js';
+import type { MutableDeep } from '../types/mutable.js';
 import type { NotifyEvent } from '../services/notify.js';
 import { notify } from '../services/notify.js';
 import { loadConfig } from '../config/config.js';
@@ -99,11 +101,25 @@ export const prepareBuild = (options: BuildRunOptions) =>
     let configCheckDescription = 'no footguns';
     if (findings.length > 0) configCheckDescription = `${findings.length} warning(s)`;
     yield* log.step('config check', configCheckDescription);
-    let buildContext: ResolvedBuildContext = {
+    const draftApp: MutableDeep<AppDescriptor> = {
+      name: app.name,
+      dir: app.dir,
+      configPath: app.configPath,
+    };
+    if (app.bundleId !== undefined) draftApp.bundleId = app.bundleId;
+    if (app.packageName !== undefined) draftApp.packageName = app.packageName;
+    if (app.version !== undefined) draftApp.version = app.version;
+    if (app.iosEntitlements !== undefined) draftApp.iosEntitlements = { ...app.iosEntitlements };
+    if (app.iosExtensions !== undefined) draftApp.iosExtensions = [...app.iosExtensions];
+    if (app.androidVersionCode !== undefined) draftApp.androidVersionCode = app.androidVersionCode;
+    if (app.usesNonExemptEncryption !== undefined) {
+      draftApp.usesNonExemptEncryption = app.usesNonExemptEncryption;
+    }
+    let buildContext: MutableDeep<ResolvedBuildContext> = {
       platform,
-      app,
+      app: draftApp,
       profile,
-      env,
+      env: { ...env },
       explain: options.explain,
       dryRun,
       forceClean: options.forceClean === true,
@@ -113,7 +129,7 @@ export const prepareBuild = (options: BuildRunOptions) =>
       buildContext = { ...buildContext, android: resolveAndroidRelease(options, profile) };
     if (options.distribution !== undefined)
       buildContext = { ...buildContext, distribution: options.distribution };
-    return { config, app, profile, env, buildContext, log };
+    return { config, app: draftApp, profile, env, buildContext, log };
   });
 /**
  * Run a build, then fire any configured completion notification. Throws with a clear message on any

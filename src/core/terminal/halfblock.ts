@@ -46,7 +46,7 @@ const paint = (
   return `\x1b[${params.join(';')}m${text}\x1b[0m`;
 };
 /** Render a row to a string, coalescing runs of same-color cells into one ANSI span (or plain text). */
-const renderRow = (cellRow: Cell[], depth: ColorDepth): string => {
+const renderRow = (cellRow: readonly Cell[], depth: ColorDepth): string => {
   if (depth === 'none') return cellRow.map((cell) => cell.ch).join('');
   let out = '';
   let i = 0;

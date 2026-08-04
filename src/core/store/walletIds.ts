@@ -68,7 +68,7 @@ const reconcileFamily = (
   reconcileContext: ReconcileContext,
   label: string,
   existing: Set<string>,
-  declared: WalletIdConfig[],
+  declared: readonly WalletIdConfig[],
   create: (identifier: string, name: string) => Effect.Effect<void, unknown>,
 ): Effect.Effect<void> =>
   Effect.gen(function* () {

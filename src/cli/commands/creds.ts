@@ -1,14 +1,11 @@
 import type { Command } from 'commander';
 import { Effect } from 'effect';
 import {
-  chooseAccountInteractive as chooseAccountInteractiveProgram,
   credentialsCommandProgram,
-  setupIos as setupIosProgram,
   type CredentialsCommandOptions,
 } from '@core/credentials/command.js';
 import { AppStoreIdentityLive } from '@core/services/appStoreIdentity.js';
 import { AppleCredentialsClientLive } from '@core/services/appleCredentialsClient.js';
-import type { Platform } from '@core/types/app.js';
 import { runCliProgram } from '../runCliProgram.js';
 
 export type CredsOptions = CredentialsCommandOptions;
@@ -18,24 +15,6 @@ const provideCredentialAdapters = (commandInput: Parameters<typeof credentialsCo
   credentialsCommandProgram(commandInput).pipe(
     Effect.provide(AppStoreIdentityLive),
     Effect.provide(AppleCredentialsClientLive),
-  );
-
-/** Compatibility boundary used by the existing interactive wizard account step. */
-export const chooseAccountInteractive = (commandOptions: CredsOptions = {}) =>
-  runCliProgram(
-    chooseAccountInteractiveProgram(commandOptions).pipe(
-      Effect.provide(AppStoreIdentityLive),
-      Effect.provide(AppleCredentialsClientLive),
-    ),
-  );
-
-/** Compatibility boundary used by the existing interactive wizard signing step. */
-export const setupIos = (commandOptions: CredsOptions, platform: Platform = 'ios') =>
-  runCliProgram(
-    setupIosProgram(commandOptions, platform).pipe(
-      Effect.provide(AppStoreIdentityLive),
-      Effect.provide(AppleCredentialsClientLive),
-    ),
   );
 
 /** Attach the credentials command and pass raw Commander input to the core schema boundary. */

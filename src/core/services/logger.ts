@@ -24,8 +24,8 @@ export type Logger = Readonly<{
   readonly note: (message: string) => LogWrite;
   readonly tip: (message: string) => LogWrite;
   readonly notice: (lead: string, ...details: string[]) => LogWrite;
-  readonly box: (title: string, receiptLines: string[]) => LogWrite;
-  readonly shipped: (receiptLines: string[]) => LogWrite;
+  readonly box: (title: string, receiptLines: readonly string[]) => LogWrite;
+  readonly shipped: (receiptLines: readonly string[]) => LogWrite;
   readonly line: (message: string) => LogWrite;
   readonly gap: () => LogWrite;
 }>;

@@ -37,7 +37,7 @@ export const resolveExtensionBundleIdsForApp = (
 ): Effect.Effect<string[], unknown, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const pathService = yield* Path.Path;
-    let configured: string[] = [];
+    let configured: readonly string[] = [];
     if (app.iosExtensions !== undefined) configured = app.iosExtensions;
     const nativeDirectory = pathService.join(app.dir, 'ios');
     const discovered = yield* discoverExtensionBundleIds(nativeDirectory, app.bundleId);
@@ -59,7 +59,7 @@ export const appGroupPreflightNotice = (
 export const gatherTargetSigningReadiness = (
   asc: SigningPreflightAscApi,
   bundleId: string,
-  extensions: string[],
+  extensions: readonly string[],
   entitlements: Record<string, unknown> | undefined,
 ): Effect.Effect<TargetSigningReadiness[], unknown> => {
   const required = mapEntitlementsToCapabilities(entitlements).enable;
@@ -85,7 +85,9 @@ export const gatherTargetSigningReadiness = (
   );
 };
 /** Turn readiness facts into build-time warning strings (best-effort - never throws). */
-export const signingPreflightWarnings = (readiness: TargetSigningReadiness[]): string[] => {
+export const signingPreflightWarnings = (
+  readiness: readonly TargetSigningReadiness[],
+): string[] => {
   return multiTargetSigningWarnings(readiness);
 };
 /** Turn readiness facts into doctor checks - unregistered/missing-capability targets fail the run. */

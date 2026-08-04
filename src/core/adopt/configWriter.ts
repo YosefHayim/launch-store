@@ -6,17 +6,17 @@ import type {
   SubscriptionGroupConfig,
 } from '../types/catalog.js';
 /** Fold one bundle's imported product pieces into a single {@link AppProducts}, dropping empty arms. */
-export const aggregateProductPieces = (pieces: ProductPiece[]): AppProducts => {
+export const aggregateProductPieces = (pieces: readonly ProductPiece[]): AppProducts => {
   const inAppPurchases: InAppPurchaseConfig[] = [];
   const subscriptionGroups: SubscriptionGroupConfig[] = [];
   for (const piece of pieces) {
     if (piece.type === 'iap') inAppPurchases.push(piece.iap);
     else subscriptionGroups.push(piece.group);
   }
-  const products: AppProducts = {};
-  if (inAppPurchases.length > 0) products.inAppPurchases = inAppPurchases;
-  if (subscriptionGroups.length > 0) products.subscriptionGroups = subscriptionGroups;
-  return products;
+  if (inAppPurchases.length === 0 && subscriptionGroups.length === 0) return {};
+  if (inAppPurchases.length === 0) return { subscriptionGroups };
+  if (subscriptionGroups.length === 0) return { inAppPurchases };
+  return { inAppPurchases, subscriptionGroups };
 };
 /** Serialize a `products` block (keyed by bundle id) as an indented, paste-ready TypeScript section. */
 export const serializeProductsSection = (

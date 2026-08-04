@@ -52,7 +52,7 @@ export const scaffoldStoreConfig = (
  * both migration sources treat env. Falls back to the plain starter template when no keys were found, so
  * the artifact is always valid. Shared by `eas.ts` (EAS `env` keys) and `fastlane.ts` (dotenv keys).
  */
-export const buildEnvExample = (keys: string[]): string => {
+export const buildEnvExample = (keys: readonly string[]): string => {
   if (keys.length === 0) return ENV_EXAMPLE_TEMPLATE;
   const header = ENV_EXAMPLE_TEMPLATE.split('\n')
     .filter((line) => line.startsWith('#'))

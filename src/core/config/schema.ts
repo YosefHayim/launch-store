@@ -1016,7 +1016,7 @@ export const validateLaunchConfig = (candidateConfig: unknown): SchemaViolation[
 };
 const parseIssueToViolations = (
   parseIssue: ParseResult.ParseIssue,
-  parentPath: PropertyKey[],
+  parentPath: readonly PropertyKey[],
 ): SchemaViolation[] => {
   switch (parseIssue._tag) {
     case 'Composite':
@@ -1053,7 +1053,7 @@ const pathSegments = (path: ParseResult.Path): PropertyKey[] => {
 };
 const parseIssuesToViolations = (
   parseIssues: ParseResult.SingleOrNonEmpty<ParseResult.ParseIssue>,
-  parentPath: PropertyKey[],
+  parentPath: readonly PropertyKey[],
 ): SchemaViolation[] => {
   let issueList: readonly ParseResult.ParseIssue[];
   if ('_tag' in parseIssues) issueList = [parseIssues];
