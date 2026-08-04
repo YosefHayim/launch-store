@@ -1,24 +1,28 @@
+import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
+import type { AppDescriptor, OpenTarget } from '../types/app.js';
 import {
   buildConsoleUrl,
   parseOpenTarget,
   resolveOpenPlatform,
   selectOpenApp,
 } from './consoleLinks.js';
-import type { AppDescriptor, OpenTarget } from '../types/index.js';
 
 const APP_ID = '1490000000';
 
-/** Build a minimal {@link AppDescriptor} for the selection tests; ids reuse the domain shape's fields. */
-function app(
+/** Build a minimal app descriptor for console-link selection. */
+const appDescriptor = (
   name: string,
-  ids: Pick<AppDescriptor, 'bundleId' | 'packageName'> = {},
-): AppDescriptor {
-  return { name, dir: `/repo/${name}`, configPath: `/repo/${name}/app.json`, ...ids };
-}
+  identifierFields: Pick<AppDescriptor, 'bundleId' | 'packageName'> = {},
+): AppDescriptor => ({
+  name,
+  dir: `/repo/${name}`,
+  configPath: `/repo/${name}/app.json`,
+  ...identifierFields,
+});
 
-describe('buildConsoleUrl — iOS deep links with a resolved app id', () => {
-  const cases: readonly [OpenTarget, string][] = [
+describe('buildConsoleUrl - iOS deep links with a resolved app id', () => {
+  const targetCases: readonly [OpenTarget, string][] = [
     ['asc', `https://appstoreconnect.apple.com/apps/${APP_ID}`],
     ['app-record', `https://appstoreconnect.apple.com/apps/${APP_ID}`],
     ['testflight', `https://appstoreconnect.apple.com/apps/${APP_ID}/testflight/ios`],
@@ -27,30 +31,27 @@ describe('buildConsoleUrl — iOS deep links with a resolved app id', () => {
     ['agreements', 'https://appstoreconnect.apple.com/agreements/'],
     ['play', 'https://play.google.com/console'],
   ];
-
-  it.each(cases)('%s → %s', (target, expected) => {
-    expect(buildConsoleUrl(target, 'ios', APP_ID)).toBe(expected);
+  it.each(targetCases)('%s -> %s', (target, expectedUrl) => {
+    expect(buildConsoleUrl(target, 'ios', APP_ID)).toBe(expectedUrl);
   });
 });
 
-describe('buildConsoleUrl — iOS without a resolved app id falls back, never throws', () => {
-  const appLevel: OpenTarget[] = ['asc', 'app-record', 'testflight', 'listing', 'reviews'];
-
-  it.each(appLevel)('%s falls back to the apps list', (target) => {
+describe('buildConsoleUrl - iOS without a resolved app id', () => {
+  const appTargets: OpenTarget[] = ['asc', 'app-record', 'testflight', 'listing', 'reviews'];
+  it.each(appTargets)('%s falls back to the apps list', (target) => {
     expect(buildConsoleUrl(target, 'ios', undefined)).toBe(
       'https://appstoreconnect.apple.com/apps',
     );
   });
-
-  it('agreements is account-level and ignores the missing app id', () => {
+  it('keeps agreements at account level', () => {
     expect(buildConsoleUrl('agreements', 'ios', undefined)).toBe(
       'https://appstoreconnect.apple.com/agreements/',
     );
   });
 });
 
-describe('buildConsoleUrl — Android always lands on the Play Console', () => {
-  const targets: OpenTarget[] = [
+describe('buildConsoleUrl - Android', () => {
+  const targetCases: OpenTarget[] = [
     'asc',
     'play',
     'testflight',
@@ -59,24 +60,16 @@ describe('buildConsoleUrl — Android always lands on the Play Console', () => {
     'agreements',
     'app-record',
   ];
-
-  it.each(targets)('%s → Play Console (no app id needed)', (target) => {
+  it.each(targetCases)('%s -> Play Console', (target) => {
     expect(buildConsoleUrl(target, 'android', APP_ID)).toBe('https://play.google.com/console');
     expect(buildConsoleUrl(target, 'android', undefined)).toBe('https://play.google.com/console');
   });
 });
 
-describe('buildConsoleUrl — the play target forces the Play Console even on iOS', () => {
-  it('ignores the iOS platform and app id', () => {
-    expect(buildConsoleUrl('play', 'ios', APP_ID)).toBe('https://play.google.com/console');
-  });
-});
-
 describe('parseOpenTarget', () => {
   it('defaults to asc when no target is given', () => {
-    expect(parseOpenTarget(undefined)).toBe('asc');
+    expect(Effect.runSync(parseOpenTarget(undefined))).toBe('asc');
   });
-
   it('accepts every documented target', () => {
     for (const target of [
       'asc',
@@ -87,61 +80,75 @@ describe('parseOpenTarget', () => {
       'agreements',
       'app-record',
     ]) {
-      expect(parseOpenTarget(target)).toBe(target);
+      expect(Effect.runSync(parseOpenTarget(target))).toBe(target);
     }
   });
-
   it('rejects an unknown target with the valid list', () => {
-    expect(() => parseOpenTarget('dashboard')).toThrow(/Unknown target "dashboard"/);
+    const targetAttempt = Effect.runSync(Effect.either(parseOpenTarget('dashboard')));
+    expect(targetAttempt._tag).toBe('Left');
+    if (targetAttempt._tag === 'Left') {
+      expect(targetAttempt.left.message).toMatch(/Unknown target "dashboard"/);
+    }
   });
 });
 
 describe('resolveOpenPlatform', () => {
-  it('honors an explicit --platform flag', () => {
-    expect(resolveOpenPlatform('asc', 'android')).toBe('android');
-    expect(resolveOpenPlatform('play', 'ios')).toBe('ios');
+  it('honors an explicit platform flag', () => {
+    expect(Effect.runSync(resolveOpenPlatform('asc', 'android'))).toBe('android');
+    expect(Effect.runSync(resolveOpenPlatform('play', 'ios'))).toBe('ios');
   });
-
   it('infers android for the play target', () => {
-    expect(resolveOpenPlatform('play', undefined)).toBe('android');
+    expect(Effect.runSync(resolveOpenPlatform('play', undefined))).toBe('android');
   });
-
   it('defaults to ios for every other target', () => {
-    expect(resolveOpenPlatform('asc', undefined)).toBe('ios');
-    expect(resolveOpenPlatform('testflight', undefined)).toBe('ios');
+    expect(Effect.runSync(resolveOpenPlatform('asc', undefined))).toBe('ios');
+    expect(Effect.runSync(resolveOpenPlatform('testflight', undefined))).toBe('ios');
   });
-
-  it('rejects an invalid --platform', () => {
-    expect(() => resolveOpenPlatform('asc', 'web')).toThrow(/Unknown platform "web"/);
+  it('rejects an invalid platform', () => {
+    const platformAttempt = Effect.runSync(Effect.either(resolveOpenPlatform('asc', 'web')));
+    expect(platformAttempt._tag).toBe('Left');
+    if (platformAttempt._tag === 'Left') {
+      expect(platformAttempt.left.message).toMatch(/Unknown platform "web"/);
+    }
   });
 });
 
 describe('selectOpenApp', () => {
-  const apps = [
-    app('alpha', { bundleId: 'com.acme.alpha' }),
-    app('beta', { packageName: 'com.acme.beta' }),
-    app('gamma', { bundleId: 'com.acme.gamma', packageName: 'com.acme.gamma' }),
+  const discoveredApps = [
+    appDescriptor('alpha', { bundleId: 'com.acme.alpha' }),
+    appDescriptor('beta', { packageName: 'com.acme.beta' }),
+    appDescriptor('gamma', {
+      bundleId: 'com.acme.gamma',
+      packageName: 'com.acme.gamma',
+    }),
   ];
-
   it('picks the first iOS app with a bundle id', () => {
-    expect(selectOpenApp(apps, 'ios', undefined).name).toBe('alpha');
+    expect(Effect.runSync(selectOpenApp(discoveredApps, 'ios', undefined)).name).toBe('alpha');
   });
-
   it('picks the first Android app with a package name', () => {
-    expect(selectOpenApp(apps, 'android', undefined).name).toBe('beta');
+    expect(Effect.runSync(selectOpenApp(discoveredApps, 'android', undefined)).name).toBe('beta');
   });
-
   it('narrows to the named app', () => {
-    expect(selectOpenApp(apps, 'ios', 'gamma').name).toBe('gamma');
+    expect(Effect.runSync(selectOpenApp(discoveredApps, 'ios', 'gamma')).name).toBe('gamma');
   });
-
-  it('throws when the named app lacks the platform id', () => {
-    expect(() => selectOpenApp(apps, 'ios', 'beta')).toThrow(/No ios app found matching "beta"/);
+  it('rejects a named app without the platform id', () => {
+    const selectionAttempt = Effect.runSync(
+      Effect.either(selectOpenApp(discoveredApps, 'ios', 'beta')),
+    );
+    expect(selectionAttempt._tag).toBe('Left');
+    if (selectionAttempt._tag === 'Left') {
+      expect(selectionAttempt.left.message).toMatch(/No ios app found matching "beta"/);
+    }
   });
-
-  it('throws when no app qualifies for the platform', () => {
-    expect(() =>
-      selectOpenApp([app('solo', { bundleId: 'com.acme.solo' })], 'android', undefined),
-    ).toThrow(/android\.package/);
+  it('rejects a catalog without a qualifying app', () => {
+    const selectionAttempt = Effect.runSync(
+      Effect.either(
+        selectOpenApp([appDescriptor('solo', { bundleId: 'com.acme.solo' })], 'android', undefined),
+      ),
+    );
+    expect(selectionAttempt._tag).toBe('Left');
+    if (selectionAttempt._tag === 'Left') {
+      expect(selectionAttempt.left.message).toMatch(/android\.package/);
+    }
   });
 });

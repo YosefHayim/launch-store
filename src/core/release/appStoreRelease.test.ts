@@ -1,4 +1,6 @@
+import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
+import type { AppStoreVersionResource, BuildResource } from '../types/appleCatalog.js';
 import {
   classifyVerdict,
   IOS_PLATFORM,
@@ -9,54 +11,61 @@ import {
   type AscReleaseApi,
   type ReleaseInput,
 } from './appStoreRelease.js';
-import type { AppStoreVersionResource, BuildResource } from '../../apple/ascClient.js';
 
 /** A fully-stubbed {@link AscReleaseApi}. Reads default to "an empty app"; writes resolve to a created resource. */
-function makeApi(overrides: Partial<AscReleaseApi> = {}): AscReleaseApi {
+const makeApi = (overrides: Partial<AscReleaseApi> = {}): AscReleaseApi => {
   const base: AscReleaseApi = {
-    getAppId: vi.fn().mockResolvedValue('app1'),
-    listBuilds: vi.fn().mockResolvedValue([]),
-    findBuild: vi.fn().mockResolvedValue({ id: 'b-1', usesNonExemptEncryption: null }),
-    findBuildByVersion: vi.fn().mockResolvedValue(null),
-    setBuildUsesNonExemptEncryption: vi.fn().mockResolvedValue(undefined),
-    listAppStoreVersions: vi.fn().mockResolvedValue([]),
-    createAppStoreVersion: vi
-      .fn()
-      .mockImplementation((_appId: string, input: { versionString: string }) =>
-        Promise.resolve({
+    getAppId: vi.fn(() => Effect.succeed('app1')),
+    getLatestMarketingVersion: vi.fn(() => Effect.succeed(null)),
+    listBuilds: vi.fn(() => Effect.succeed([])),
+    findBuild: vi.fn(() => Effect.succeed({ id: 'b-1', usesNonExemptEncryption: null })),
+    findBuildByVersion: vi.fn(() => Effect.succeed(null)),
+    setBuildUsesNonExemptEncryption: vi.fn(() => Effect.void),
+    listAppStoreVersions: vi.fn(() => Effect.succeed([])),
+    createAppStoreVersion: vi.fn().mockImplementation(
+      (
+        _appId: string,
+        input: {
+          versionString: string;
+        },
+      ) =>
+        Effect.succeed({
           id: 'v-new',
           versionString: input.versionString,
           appStoreState: 'PREPARE_FOR_SUBMISSION',
         }),
-      ),
-    updateAppStoreVersion: vi.fn().mockResolvedValue(undefined),
-    selectBuildForVersion: vi.fn().mockResolvedValue(undefined),
-    listAppStoreVersionLocalizations: vi.fn().mockResolvedValue([]),
+    ),
+    updateAppStoreVersion: vi.fn(() => Effect.void),
+    selectBuildForVersion: vi.fn(() => Effect.void),
+    listAppStoreVersionLocalizations: vi.fn(() => Effect.succeed([])),
     createAppStoreVersionLocalization: vi
       .fn()
-      .mockResolvedValue({ id: 'loc-new', locale: 'en-US' }),
-    updateAppStoreVersionLocalization: vi.fn().mockResolvedValue(undefined),
-    getPhasedRelease: vi.fn().mockResolvedValue(null),
-    createPhasedRelease: vi.fn().mockResolvedValue({ id: 'ph-new', phasedReleaseState: 'ACTIVE' }),
-    deletePhasedRelease: vi.fn().mockResolvedValue(undefined),
-    listReviewSubmissions: vi.fn().mockResolvedValue([]),
-    createReviewSubmission: vi.fn().mockResolvedValue({ id: 'rs1', state: 'READY_FOR_REVIEW' }),
-    addReviewSubmissionItem: vi.fn().mockResolvedValue(undefined),
-    submitReviewSubmission: vi.fn().mockResolvedValue(undefined),
-    getReviewSubmission: vi.fn().mockResolvedValue({ id: 'rs1', state: 'WAITING_FOR_REVIEW' }),
-    createAppStoreVersionReleaseRequest: vi.fn().mockResolvedValue(undefined),
+      .mockReturnValue(Effect.succeed({ id: 'loc-new', locale: 'en-US' })),
+    updateAppStoreVersionLocalization: vi.fn(() => Effect.void),
+    getPhasedRelease: vi.fn(() => Effect.succeed(null)),
+    createPhasedRelease: vi.fn(() =>
+      Effect.succeed({ id: 'ph-new', phasedReleaseState: 'ACTIVE' }),
+    ),
+    deletePhasedRelease: vi.fn(() => Effect.void),
+    listReviewSubmissions: vi.fn(() => Effect.succeed([])),
+    createReviewSubmission: vi.fn(() => Effect.succeed({ id: 'rs1', state: 'READY_FOR_REVIEW' })),
+    addReviewSubmissionItem: vi.fn(() => Effect.void),
+    submitReviewSubmission: vi.fn(() => Effect.void),
+    getReviewSubmission: vi.fn(() => Effect.succeed({ id: 'rs1', state: 'WAITING_FOR_REVIEW' })),
+    createAppStoreVersionReleaseRequest: vi.fn(() => Effect.void),
   };
   return { ...base, ...overrides };
-}
+};
 
+const runRelease = (api: AscReleaseApi, releaseInput: ReleaseInput) =>
+  Effect.runPromise(releaseApp(api, releaseInput));
 const VALID_BUILD: BuildResource = {
   id: 'b-1',
   version: '42',
   processingState: 'VALID',
   expired: false,
 };
-
-function input(overrides: Partial<ReleaseInput> = {}): ReleaseInput {
+const input = (overrides: Partial<ReleaseInput> = {}): ReleaseInput => {
   return {
     bundleId: 'com.acme.app',
     platform: IOS_PLATFORM,
@@ -69,9 +78,8 @@ function input(overrides: Partial<ReleaseInput> = {}): ReleaseInput {
     dryRun: false,
     ...overrides,
   };
-}
-
-describe('nextReleaseAction — the appStoreState transition table', () => {
+};
+describe('nextReleaseAction - the appStoreState transition table', () => {
   it('classifies each lifecycle state into the action it permits', () => {
     expect(nextReleaseAction('PREPARE_FOR_SUBMISSION')).toBe('editable');
     expect(nextReleaseAction('DEVELOPER_REJECTED')).toBe('editable');
@@ -83,8 +91,7 @@ describe('nextReleaseAction — the appStoreState transition table', () => {
     expect(nextReleaseAction('SOME_FUTURE_STATE')).toBe('blocked');
   });
 });
-
-describe('classifyVerdict — the --watch / exit-code contract', () => {
+describe('classifyVerdict - the --watch / exit-code contract', () => {
   it('maps states to verdicts with the documented exit codes', () => {
     expect(classifyVerdict('READY_FOR_SALE')).toMatchObject({
       state: 'released',
@@ -110,12 +117,10 @@ describe('classifyVerdict — the --watch / exit-code contract', () => {
     expect(classifyVerdict('SOMETHING_ELSE')).toMatchObject({ state: 'unknown', exitCode: 1 });
   });
 });
-
-describe('releaseApp — submit an update over the API', () => {
+describe('releaseApp - submit an update over the API', () => {
   it('creates the version, attaches the build, declares compliance, writes notes, and submits', async () => {
     const api = makeApi();
-    const report = await releaseApp(api, input());
-
+    const report = await runRelease(api, input());
     expect(api.createAppStoreVersion).toHaveBeenCalledWith(
       'app1',
       expect.objectContaining({
@@ -141,45 +146,48 @@ describe('releaseApp — submit an update over the API', () => {
       appStoreState: 'WAITING_FOR_REVIEW',
     });
   });
-
   it("updates an existing localization's notes instead of creating a duplicate", async () => {
     const api = makeApi({
       listAppStoreVersions: vi
         .fn()
-        .mockResolvedValue([
-          { id: 'v5', versionString: '1.2.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
-        ]),
+        .mockReturnValue(
+          Effect.succeed([
+            { id: 'v5', versionString: '1.2.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
+          ]),
+        ),
       listAppStoreVersionLocalizations: vi
         .fn()
-        .mockResolvedValue([{ id: 'loc-1', locale: 'en-US', whatsNew: 'old' }]),
+        .mockReturnValue(Effect.succeed([{ id: 'loc-1', locale: 'en-US', whatsNew: 'old' }])),
     });
-    await releaseApp(api, input());
+    await runRelease(api, input());
     expect(api.updateAppStoreVersionLocalization).toHaveBeenCalledWith('loc-1', 'Bug fixes.');
     expect(api.createAppStoreVersionLocalization).not.toHaveBeenCalled();
   });
-
   it('retargets the open editable version when its version string differs (one editable allowed at a time)', async () => {
     const api = makeApi({
       listAppStoreVersions: vi
         .fn()
-        .mockResolvedValue([
-          { id: 'v5', versionString: '1.1.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
-        ]),
+        .mockReturnValue(
+          Effect.succeed([
+            { id: 'v5', versionString: '1.1.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
+          ]),
+        ),
     });
-    await releaseApp(api, input({ versionString: '1.2.0' }));
+    await runRelease(api, input({ versionString: '1.2.0' }));
     expect(api.updateAppStoreVersion).toHaveBeenCalledWith('v5', { versionString: '1.2.0' });
     expect(api.createAppStoreVersion).not.toHaveBeenCalled();
   });
-
   it('is an idempotent no-op when the version is already in review', async () => {
     const api = makeApi({
       listAppStoreVersions: vi
         .fn()
-        .mockResolvedValue([
-          { id: 'v9', versionString: '1.2.0', appStoreState: 'WAITING_FOR_REVIEW' },
-        ]),
+        .mockReturnValue(
+          Effect.succeed([
+            { id: 'v9', versionString: '1.2.0', appStoreState: 'WAITING_FOR_REVIEW' },
+          ]),
+        ),
     });
-    const report = await releaseApp(api, input());
+    const report = await runRelease(api, input());
     expect(report).toMatchObject({
       submitted: false,
       alreadyInReview: true,
@@ -187,12 +195,11 @@ describe('releaseApp — submit an update over the API', () => {
     });
     expect(api.submitReviewSubmission).not.toHaveBeenCalled();
   });
-
   it('skips export-compliance writes when the build already has the desired answer', async () => {
     const api = makeApi({
-      findBuild: vi.fn().mockResolvedValue({ id: 'b-1', usesNonExemptEncryption: false }),
+      findBuild: vi.fn(() => Effect.succeed({ id: 'b-1', usesNonExemptEncryption: false })),
     });
-    const report = await releaseApp(api, input());
+    const report = await runRelease(api, input());
     expect(api.setBuildUsesNonExemptEncryption).not.toHaveBeenCalled();
     expect(report.actions).toContainEqual(
       expect.objectContaining({
@@ -202,7 +209,6 @@ describe('releaseApp — submit an update over the API', () => {
       }),
     );
   });
-
   it('treats Apple 409 "already set" export-compliance as skipped success', async () => {
     const alreadySetError = Object.assign(
       new Error('PATCH /builds/b-1 failed (409): You cannot update when the value is already set.'),
@@ -210,10 +216,10 @@ describe('releaseApp — submit an update over the API', () => {
     );
     const api = makeApi({
       // Pre-check misses (null), then the PATCH races into Apple's already-set 409.
-      findBuild: vi.fn().mockResolvedValue({ id: 'b-1', usesNonExemptEncryption: null }),
-      setBuildUsesNonExemptEncryption: vi.fn().mockRejectedValue(alreadySetError),
+      findBuild: vi.fn(() => Effect.succeed({ id: 'b-1', usesNonExemptEncryption: null })),
+      setBuildUsesNonExemptEncryption: vi.fn(() => Effect.fail(alreadySetError)),
     });
-    const report = await releaseApp(api, input());
+    const report = await runRelease(api, input());
     expect(api.setBuildUsesNonExemptEncryption).toHaveBeenCalledWith('b-1', false);
     expect(report.actions).toContainEqual(
       expect.objectContaining({
@@ -225,29 +231,27 @@ describe('releaseApp — submit an update over the API', () => {
     // Other release steps still proceed (review submit is the terminal write).
     expect(api.submitReviewSubmission).toHaveBeenCalled();
   });
-
   it('enables a phased release when opted in', async () => {
     const api = makeApi();
-    await releaseApp(api, input({ phasedRelease: true }));
+    await runRelease(api, input({ phasedRelease: true }));
     expect(api.createPhasedRelease).toHaveBeenCalledWith('v-new');
   });
-
   it('errors when the exact version is already live (you must bump)', async () => {
     const api = makeApi({
       listAppStoreVersions: vi
         .fn()
-        .mockResolvedValue([{ id: 'v1', versionString: '1.2.0', appStoreState: 'READY_FOR_SALE' }]),
+        .mockReturnValue(
+          Effect.succeed([{ id: 'v1', versionString: '1.2.0', appStoreState: 'READY_FOR_SALE' }]),
+        ),
     });
-    await expect(releaseApp(api, input())).rejects.toThrow(/already on the App Store/);
+    await expect(runRelease(api, input())).rejects.toThrow(/already on the App Store/);
   });
-
   it('errors with the portal checklist when the app has no App Store Connect record', async () => {
-    const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
-    await expect(releaseApp(api, input())).rejects.toThrow(
+    const api = makeApi({ getAppId: vi.fn(() => Effect.succeed(null)) });
+    await expect(runRelease(api, input())).rejects.toThrow(
       /No App Store Connect app record.*Apple has no API/s,
     );
   });
-
   it("refuses a build that hasn't finished processing", async () => {
     const api = makeApi();
     const processing: BuildResource = {
@@ -256,16 +260,14 @@ describe('releaseApp — submit an update over the API', () => {
       processingState: 'PROCESSING',
       expired: false,
     };
-    await expect(releaseApp(api, input({ build: processing }))).rejects.toThrow(
+    await expect(runRelease(api, input({ build: processing }))).rejects.toThrow(
       /still processing|PROCESSING/,
     );
     expect(api.selectBuildForVersion).not.toHaveBeenCalled();
   });
-
   it('plans every step in a dry-run without performing any write', async () => {
     const api = makeApi();
-    const report = await releaseApp(api, input({ dryRun: true }));
-
+    const report = await runRelease(api, input({ dryRun: true }));
     for (const write of [
       api.createAppStoreVersion,
       api.selectBuildForVersion,
@@ -284,25 +286,24 @@ describe('releaseApp — submit an update over the API', () => {
       'create App Store version 1.2.0',
     );
   });
-
   it('captures a failed step and keeps going (one failure no longer aborts the rest)', async () => {
     const api = makeApi({
       listAppStoreVersions: vi
         .fn()
-        .mockResolvedValue([
-          { id: 'v5', versionString: '1.2.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
-        ]),
-      selectBuildForVersion: vi.fn().mockRejectedValue(new Error('build attach boom')),
+        .mockReturnValue(
+          Effect.succeed([
+            { id: 'v5', versionString: '1.2.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
+          ]),
+        ),
+      selectBuildForVersion: vi.fn(() => Effect.fail(new Error('build attach boom'))),
     });
-    const report = await releaseApp(api, input());
-
+    const report = await runRelease(api, input());
     const attach = report.actions.find((action) => action.description.startsWith('attach build'));
     expect(attach).toMatchObject({ status: 'failed', error: expect.stringContaining('boom') });
     // The walk continued past the failure all the way to submit.
     expect(api.submitReviewSubmission).toHaveBeenCalled();
   });
 });
-
 describe('pickCurrentVersion', () => {
   it('prefers an in-flight version over a live one', () => {
     const versions: AppStoreVersionResource[] = [
@@ -311,59 +312,66 @@ describe('pickCurrentVersion', () => {
     ];
     expect(pickCurrentVersion(versions)?.id).toBe('v2');
   });
-
   it('returns null for an app with no versions', () => {
     expect(pickCurrentVersion([])).toBeNull();
   });
 });
-
 describe('waitForValidBuild', () => {
-  const noSleep = (): Promise<void> => Promise.resolve();
-
+  const noSleep = (): Effect.Effect<void> => Effect.void;
   it('returns the build once it reaches VALID', async () => {
-    const api = makeApi({ findBuildByVersion: vi.fn().mockResolvedValue(VALID_BUILD) });
-    await expect(waitForValidBuild(api, 'app1', 42, { sleep: noSleep })).resolves.toEqual(
-      VALID_BUILD,
-    );
+    const api = makeApi({ findBuildByVersion: vi.fn(() => Effect.succeed(VALID_BUILD)) });
+    await expect(
+      Effect.runPromise(waitForValidBuild(api, 'app1', 42, { sleep: noSleep })),
+    ).resolves.toEqual(VALID_BUILD);
   });
-
   it('polls until VALID, sleeping between attempts', async () => {
     const findBuildByVersion = vi
       .fn()
-      .mockResolvedValueOnce({
-        id: 'b',
-        version: '42',
-        processingState: 'PROCESSING',
-        expired: false,
-      })
-      .mockResolvedValueOnce(VALID_BUILD);
+      .mockReturnValueOnce(
+        Effect.succeed({
+          id: 'b',
+          version: '42',
+          processingState: 'PROCESSING',
+          expired: false,
+        }),
+      )
+      .mockReturnValueOnce(Effect.succeed(VALID_BUILD));
     const api = makeApi({ findBuildByVersion });
-    const sleep = vi.fn().mockResolvedValue(undefined);
-    const build = await waitForValidBuild(api, 'app1', 42, { sleep, intervalMs: 1 });
-    expect(build).toEqual(VALID_BUILD);
-    expect(sleep).toHaveBeenCalledTimes(1);
+    const sleepBetweenPolls = vi.fn(() => Effect.void);
+    const storeBuild = await Effect.runPromise(
+      waitForValidBuild(api, 'app1', 42, { sleep: sleepBetweenPolls, intervalMs: 1 }),
+    );
+    expect(storeBuild).toEqual(VALID_BUILD);
+    expect(sleepBetweenPolls).toHaveBeenCalledTimes(1);
   });
-
   it('throws on INVALID processing', async () => {
     const api = makeApi({
-      findBuildByVersion: vi
-        .fn()
-        .mockResolvedValue({ id: 'b', version: '42', processingState: 'INVALID', expired: false }),
-    });
-    await expect(waitForValidBuild(api, 'app1', 42, { sleep: noSleep })).rejects.toThrow(/INVALID/);
-  });
-
-  it('throws on timeout', async () => {
-    const api = makeApi({
-      findBuildByVersion: vi.fn().mockResolvedValue({
-        id: 'b',
-        version: '42',
-        processingState: 'PROCESSING',
-        expired: false,
-      }),
+      findBuildByVersion: vi.fn().mockReturnValue(
+        Effect.succeed({
+          id: 'b',
+          version: '42',
+          processingState: 'INVALID',
+          expired: false,
+        }),
+      ),
     });
     await expect(
-      waitForValidBuild(api, 'app1', 42, { sleep: noSleep, timeoutMs: 0 }),
+      Effect.runPromise(waitForValidBuild(api, 'app1', 42, { sleep: noSleep })),
+    ).rejects.toThrow(/INVALID/);
+  });
+  it('throws on timeout', async () => {
+    const api = makeApi({
+      findBuildByVersion: vi.fn(() =>
+        Effect.succeed({
+          id: 'b',
+          version: '42',
+          processingState: 'PROCESSING',
+          expired: false,
+        }),
+      ),
+    });
+    await expect(
+      Effect.runPromise(waitForValidBuild(api, 'app1', 42, { sleep: noSleep, timeoutMs: 0 })),
     ).rejects.toThrow(/still PROCESSING/);
   });
 });

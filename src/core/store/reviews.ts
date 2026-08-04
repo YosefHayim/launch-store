@@ -1,102 +1,130 @@
-/**
- * The `launch reviews` domain: read an app's customer reviews and manage the developer response,
- * entirely through the App Store Connect API key (no portal, no web session).
- *
- * Design:
- * - **Stateless & read-first.** Every call reads the live account; there's no local cache to drift.
- *   `listReviews` resolves the app record from its bundle id, pulls all pages, and applies the
- *   rating / territory / unanswered filters; unanswered is computed client-side from each review's
- *   `answered` flag (derived from the `response` relationship the client already includes).
- * - **One write path, made safe.** A developer response is a public, moderated reply, so the command
- *   confirms before posting. Apple's `POST /v1/customerReviewResponses` is an upsert (it replaces an
- *   existing reply in place), so {@link replyToReview} reports whether it *replaced* one — letting the
- *   command warn "this overwrites your current reply" — without a delete-then-recreate dance.
- *
- * The {@link AscReviewsApi} slice mirrors `core/ascSync.ts`'s `AscCatalogApi`: it names the exact
- * client surface this module needs, so the logic is unit-testable with a hand-rolled fake and
- * `AppStoreConnectClient` satisfies it structurally.
- */
-
+import { Data, Effect } from 'effect';
 import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,
-} from '../../apple/ascClient.js';
-import { appRecordNotFound } from '../asc/storeSync.js';
+} from '../types/appleCatalog.js';
 
-/** The exact slice of {@link AppStoreConnectClient} the reviews domain depends on. */
-export interface AscReviewsApi {
-  getAppId(bundleId: string): Promise<string | null>;
-  listCustomerReviews(
+/** The App Store transport operations required by the customer-reviews domain. */
+export type AscReviewsApi = Readonly<{
+  getAppId: (bundleId: string) => Effect.Effect<string | null, unknown>;
+  listCustomerReviews: (
     appId: string,
-    filters: { rating?: number; territory?: string },
-  ): Promise<CustomerReviewResource[]>;
-  getCustomerReviewResponse(reviewId: string): Promise<CustomerReviewResponseResource | null>;
-  createCustomerReviewResponse(
+    filters: Readonly<{ rating?: number; territory?: string }>,
+  ) => Effect.Effect<CustomerReviewResource[], unknown>;
+  getCustomerReviewResponse: (
     reviewId: string,
-    responseBody: string,
-  ): Promise<CustomerReviewResponseResource>;
-  deleteCustomerReviewResponse(responseId: string): Promise<void>;
-}
+  ) => Effect.Effect<CustomerReviewResponseResource | null, unknown>;
+  createCustomerReviewResponse: (
+    reviewId: string,
+    responseText: string,
+  ) => Effect.Effect<CustomerReviewResponseResource, unknown>;
+  deleteCustomerReviewResponse: (reviewReplyId: string) => Effect.Effect<void, unknown>;
+}>;
 
-/** Filters for {@link listReviews}. `unansweredOnly` is applied client-side; the rest narrow server-side. */
-export interface ReviewFilters {
-  /** Keep only this star rating (1–5). */
-  rating?: number;
-  /** Keep only reviews from this territory (e.g. `USA`). */
-  territory?: string;
-  /** Keep only reviews without a developer response yet. */
-  unansweredOnly?: boolean;
-}
+/** A customer-review validation or App Store request failed. */
+export type ReviewFailure = Readonly<{
+  readonly _tag: 'ReviewFailure';
+  readonly operation: string;
+  readonly message: string;
+  readonly cause: unknown;
+}>;
+export const makeReviewFailure = Data.tagged<ReviewFailure>('ReviewFailure');
 
-/** Outcome of {@link replyToReview}: the stored response and whether it replaced an existing reply. */
-export interface ReplyResult {
-  response: CustomerReviewResponseResource;
-  /** True when a prior response existed and this call overwrote it (Apple's POST is an upsert). */
+/** Optional filters for App Store customer reviews. */
+export type ReviewFilters = Readonly<{
+  rating?: number | undefined;
+  territory?: string | undefined;
+  unansweredOnly?: boolean | undefined;
+}>;
+
+/** The stored developer reply and whether it replaced existing copy. */
+export type ReplyResult = Readonly<{
+  reviewReply: CustomerReviewResponseResource;
   replaced: boolean;
-}
+}>;
 
-/**
- * List an app's customer reviews (newest first), narrowed by the given filters. Resolves the ASC app
- * record from the bundle id first, throwing an actionable error when none exists. Rating and territory
- * are pushed to Apple; `unansweredOnly` is applied here over the `answered` flag each review carries.
- */
-export async function listReviews(
-  api: AscReviewsApi,
+/** Convert a transport failure to the reviews error channel. */
+const reviewFailure = (operation: string, cause: unknown): ReviewFailure => {
+  let message = `${operation} failed.`;
+  if (cause instanceof Error) message = cause.message;
+  if (typeof cause === 'object' && cause !== null && 'message' in cause) {
+    const causeMessage = cause.message;
+    if (typeof causeMessage === 'string') message = causeMessage;
+  }
+  return makeReviewFailure({ operation, message, cause });
+};
+
+/** Run one App Store review request in the reviews error channel. */
+const runReviewRequest = <Success>(
+  operation: string,
+  requestEffect: Effect.Effect<Success, unknown>,
+): Effect.Effect<Success, ReviewFailure> =>
+  requestEffect.pipe(Effect.mapError((cause) => reviewFailure(operation, cause)));
+
+/** List an app's customer reviews, newest first. */
+export const listReviews = (
+  reviewsStore: AscReviewsApi,
   bundleId: string,
   filters: ReviewFilters = {},
-): Promise<CustomerReviewResource[]> {
-  const appId = await api.getAppId(bundleId);
-  if (!appId) throw appRecordNotFound(bundleId);
+): Effect.Effect<readonly CustomerReviewResource[], ReviewFailure> =>
+  Effect.gen(function* () {
+    const appId = yield* runReviewRequest('resolve App Store app', reviewsStore.getAppId(bundleId));
+    if (appId === null) {
+      return yield* Effect.fail(
+        makeReviewFailure({
+          operation: 'resolve App Store app',
+          message:
+            `No App Store Connect app record for ${bundleId}. Confirm the bundle id and that this ` +
+            'account can access the app.',
+          cause: bundleId,
+        }),
+      );
+    }
+    const serverFilters: { rating?: number; territory?: string } = {};
+    if (filters.rating !== undefined) serverFilters.rating = filters.rating;
+    if (filters.territory !== undefined) serverFilters.territory = filters.territory;
+    const customerReviews = yield* runReviewRequest(
+      'list customer reviews',
+      reviewsStore.listCustomerReviews(appId, serverFilters),
+    );
+    if (filters.unansweredOnly) {
+      return customerReviews.filter((customerReview) => !customerReview.answered);
+    }
+    return customerReviews;
+  });
 
-  const serverFilters: { rating?: number; territory?: string } = {};
-  if (filters.rating !== undefined) serverFilters.rating = filters.rating;
-  if (filters.territory) serverFilters.territory = filters.territory;
-
-  const reviews = await api.listCustomerReviews(appId, serverFilters);
-  return filters.unansweredOnly ? reviews.filter((review) => !review.answered) : reviews;
-}
-
-/**
- * Post (or replace) the developer response to a review. Checks for an existing reply first only to
- * report `replaced` so the command can warn before overwriting; the write itself is one upsert POST.
- */
-export async function replyToReview(
-  api: AscReviewsApi,
+/** Post or replace the developer reply to a customer review. */
+export const replyToReview = (
+  reviewsStore: AscReviewsApi,
   reviewId: string,
-  responseBody: string,
-): Promise<ReplyResult> {
-  const existing = await api.getCustomerReviewResponse(reviewId);
-  const response = await api.createCustomerReviewResponse(reviewId, responseBody);
-  return { response, replaced: existing !== null };
-}
+  responseText: string,
+): Effect.Effect<ReplyResult, ReviewFailure> =>
+  Effect.gen(function* () {
+    const existingReply = yield* runReviewRequest(
+      'read existing review reply',
+      reviewsStore.getCustomerReviewResponse(reviewId),
+    );
+    const reviewReply = yield* runReviewRequest(
+      'post review reply',
+      reviewsStore.createCustomerReviewResponse(reviewId, responseText),
+    );
+    return { reviewReply, replaced: existingReply !== null };
+  });
 
-/**
- * Delete the developer response to a review, returning whether there was one to delete. Resolves the
- * response's resource id from the review (the delete endpoint keys on the response id, not the review).
- */
-export async function deleteReviewResponse(api: AscReviewsApi, reviewId: string): Promise<boolean> {
-  const existing = await api.getCustomerReviewResponse(reviewId);
-  if (!existing) return false;
-  await api.deleteCustomerReviewResponse(existing.id);
-  return true;
-}
+/** Delete the developer reply to a customer review when one exists. */
+export const deleteReviewResponse = (
+  reviewsStore: AscReviewsApi,
+  reviewId: string,
+): Effect.Effect<boolean, ReviewFailure> =>
+  Effect.gen(function* () {
+    const existingReply = yield* runReviewRequest(
+      'read existing review reply',
+      reviewsStore.getCustomerReviewResponse(reviewId),
+    );
+    if (existingReply === null) return false;
+    yield* runReviewRequest(
+      'delete review reply',
+      reviewsStore.deleteCustomerReviewResponse(existingReply.id),
+    );
+    return true;
+  });

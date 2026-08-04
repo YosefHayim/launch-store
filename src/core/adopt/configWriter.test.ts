@@ -5,15 +5,14 @@ import {
   renderEntitlementsBlock,
   serializeProductsSection,
 } from './configWriter.js';
-import type { ProductPiece, InAppPurchaseConfig, SubscriptionGroupConfig } from '../types/index.js';
-
+import type { ProductPiece } from '../types/adopt.js';
+import type { InAppPurchaseConfig, SubscriptionGroupConfig } from '../types/catalog.js';
 const IAP: InAppPurchaseConfig = {
   productId: 'com.acme.coins',
   referenceName: 'Coins',
   type: 'CONSUMABLE',
   localizations: [{ locale: 'en-US', name: 'Coins' }],
 };
-
 const GROUP: SubscriptionGroupConfig = {
   referenceName: 'Pro',
   localizations: [{ locale: 'en-US', name: 'Pro Tiers' }],
@@ -26,7 +25,6 @@ const GROUP: SubscriptionGroupConfig = {
     },
   ],
 };
-
 describe('aggregateProductPieces', () => {
   it('folds iap and subscription-group pieces into one AppProducts, dropping empty arms', () => {
     const pieces: ProductPiece[] = [
@@ -41,7 +39,6 @@ describe('aggregateProductPieces', () => {
     expect(aggregateProductPieces([])).toEqual({});
   });
 });
-
 describe('serializeProductsSection', () => {
   it('renders a commented, paste-ready products block keyed by bundle id', () => {
     const section = serializeProductsSection({ 'com.acme.app': { inAppPurchases: [IAP] } });
@@ -52,7 +49,6 @@ describe('serializeProductsSection', () => {
     expect(section.trimEnd().endsWith('},')).toBe(true);
   });
 });
-
 describe('buildAdoptedConfig', () => {
   it('produces a full config that imports defineConfig and embeds the products block', () => {
     const config = buildAdoptedConfig('./apps', { 'com.acme.app': { inAppPurchases: [IAP] } });
@@ -62,7 +58,6 @@ describe('buildAdoptedConfig', () => {
     expect(config.trimEnd().endsWith('});')).toBe(true);
   });
 });
-
 describe('renderEntitlementsBlock', () => {
   it('wraps entitlements under ios for pasting into a dynamic config', () => {
     expect(JSON.parse(renderEntitlementsBlock({ 'aps-environment': 'production' }))).toEqual({

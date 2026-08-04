@@ -1,71 +1,76 @@
-/**
- * Reconcile a build's **TestFlight release prep** — its per-locale "What to Test" notes and its **Beta
- * App Review submission** — from declared notes, using the App Store Connect API key alone. Typing the
- * notes and submitting for beta review on every external build is repeatable App Store Connect work that
- * EAS doesn't touch; Launch already uploads the build, this closes the loop.
- *
- * Per run:
- * 1. Resolve the target build: the one named by `buildVersion`, else the newest `VALID`, non-expired build.
- * 2. For each declared locale, **create** the "What to Test" note, or **update** it when the text differs.
- * 3. When `submitForReview` is set, **submit** the build for Beta App Review — idempotent: a build that
- *    already has a submission (waiting / in review / rejected / approved) is left alone, with its state
- *    reported. Re-submitting a rejected build is left to App Store Connect (Apple keeps one submission
- *    per build).
- *
- * Mirrors {@link reconcileAccessibility `core/accessibility.ts`} / {@link reconcileGameCenter
- * `core/gameCenter.ts`}: a read-only PLAN pass builds idempotent {@link PlannedAction}s, the command
- * prints them, then an APPLY pass performs them, each action isolated so one failure never aborts the rest.
- */
-
-import { existsSync, readFileSync } from 'node:fs';
+import { FileSystem } from '@effect/platform';
+import { Data, Effect, Schema } from 'effect';
 import type {
   BetaAppReviewSubmissionResource,
   BetaBuildLocalizationResource,
   BetaReviewState,
   BuildResource,
-} from '../../apple/ascClient.js';
-import { plan, skip, type PlannedAction, type ReconcileContext } from '../asc/storeSync.js';
+} from '../types/appleCatalog.js';
 import { errorMessage } from '../services/errorMessage.js';
+import { plan, skip, type ReconcileContext } from '../store/reconcile.js';
+import type { PlannedAction } from '../types/reconcile.js';
 
-/** How many recent builds to scan when resolving the target build (newest first). */
 const BUILD_SCAN_LIMIT = 50;
 
-/** The `testflight.config.json` document — localized "What to Test" notes. */
-export interface BetaReviewConfig {
-  /** Locale → "What to Test" note (at least one). */
-  whatToTest: Record<string, string>;
-}
+const WhatToTestSchema = Schema.Record({
+  key: Schema.String,
+  value: Schema.String.pipe(Schema.minLength(1)),
+}).pipe(
+  Schema.filter((localizedNotes) => Object.keys(localizedNotes).length > 0, {
+    message: () => 'whatToTest must declare at least one locale.',
+  }),
+);
 
-/**
- * The exact slice of {@link AppStoreConnectClient} the beta-review reconciler depends on. Declared here
- * (rather than the concrete client) so the diff logic is unit-testable with a hand-rolled fake, mirroring
- * {@link AscAccessibilityApi} in `accessibility.ts`.
- */
-export interface AscBetaReviewApi {
-  listBuilds(appId: string, limit?: number): Promise<BuildResource[]>;
-  listBetaBuildLocalizations(buildId: string): Promise<BetaBuildLocalizationResource[]>;
-  createBetaBuildLocalization(buildId: string, locale: string, whatsNew: string): Promise<void>;
-  updateBetaBuildLocalization(localizationId: string, whatsNew: string): Promise<void>;
-  getBetaAppReviewSubmission(buildId: string): Promise<BetaAppReviewSubmissionResource | null>;
-  createBetaAppReviewSubmission(buildId: string): Promise<void>;
-}
+export const BetaReviewConfigSchema = Schema.Struct({
+  whatToTest: WhatToTestSchema,
+});
 
-/** Inputs to reconcile one build's release prep. */
-export interface BetaReviewReconcileInput {
-  /** The App Store Connect app id (resolved upstream from the bundle id). */
-  appId: string;
-  /** Target a specific build by `CFBundleVersion`; default: the newest `VALID`, non-expired build. */
-  buildVersion?: string;
-  /** Locale → "What to Test" note to set on the build. */
-  whatToTest: Record<string, string>;
-  /** Whether to also submit the build for Beta App Review (required for external testers). */
-  submitForReview: boolean;
-  /** Rehearse only: read state and build the plan, perform no writes. */
-  dryRun: boolean;
-}
+export type BetaReviewConfig = Schema.Schema.Type<typeof BetaReviewConfigSchema>;
 
-/** Human phrasing for a Beta App Review verdict, for the "already submitted" skip line. */
-function describeState(state: BetaReviewState | undefined): string {
+export type BetaReviewFailure = Readonly<{
+  readonly _tag: 'BetaReviewFailure';
+  readonly operation: string;
+  readonly message: string;
+  readonly cause?: unknown;
+}>;
+
+export const makeBetaReviewFailure = Data.tagged<BetaReviewFailure>('BetaReviewFailure');
+
+export type AscBetaReviewApi = Readonly<{
+  readonly listBuilds: (appId: string, limit?: number) => Effect.Effect<BuildResource[], unknown>;
+  readonly listBetaBuildLocalizations: (
+    buildId: string,
+  ) => Effect.Effect<BetaBuildLocalizationResource[], unknown>;
+  readonly createBetaBuildLocalization: (
+    buildId: string,
+    locale: string,
+    whatsNew: string,
+  ) => Effect.Effect<void, unknown>;
+  readonly updateBetaBuildLocalization: (
+    localizationId: string,
+    whatsNew: string,
+  ) => Effect.Effect<void, unknown>;
+  readonly getBetaAppReviewSubmission: (
+    buildId: string,
+  ) => Effect.Effect<BetaAppReviewSubmissionResource | null, unknown>;
+  readonly createBetaAppReviewSubmission: (buildId: string) => Effect.Effect<void, unknown>;
+}>;
+
+export type BetaReviewReconcileInput = Readonly<{
+  readonly appId: string;
+  readonly buildVersion?: string;
+  readonly whatToTest: Record<string, string>;
+  readonly submitForReview: boolean;
+  readonly dryRun: boolean;
+}>;
+
+export type BetaReviewReport = Readonly<{
+  readonly buildVersion: string;
+  readonly actions: PlannedAction[];
+}>;
+
+/** Return human wording for Apple's Beta App Review state. */
+const describeState = (state: BetaReviewState | undefined): string => {
   switch (state) {
     case 'WAITING_FOR_REVIEW':
       return 'waiting for review';
@@ -78,178 +83,238 @@ function describeState(state: BetaReviewState | undefined): string {
     default:
       return 'submitted';
   }
-}
+};
 
-/**
- * Choose the build to operate on. An explicit `buildVersion` must exist and not be expired; otherwise the
- * newest `VALID`, non-expired build wins. Throws an actionable error when no eligible build is found.
- */
-function selectBuild(builds: BuildResource[], buildVersion: string | undefined): BuildResource {
-  if (buildVersion) {
-    const match = builds.find((build) => build.version === buildVersion);
-    if (!match) {
-      throw new Error(
-        `No build ${buildVersion} for this app. Upload it first, or omit --build to use the latest.`,
-      );
-    }
-    if (match.expired) {
-      throw new Error(
-        `Build ${buildVersion} has expired (TestFlight's 90-day limit) and can't be submitted.`,
-      );
-    }
-    return match;
-  }
-  const latest = builds.find((build) => build.processingState === 'VALID' && !build.expired);
-  if (!latest) {
-    throw new Error(
-      'No VALID, non-expired build to release. Upload a build and wait for processing to finish.',
+/** Select the requested build or the newest valid, non-expired build. */
+const selectBuild = (
+  availableBuilds: BuildResource[],
+  requestedVersion: string | undefined,
+): Effect.Effect<BuildResource, BetaReviewFailure> => {
+  if (requestedVersion !== undefined) {
+    const matchedBuild = availableBuilds.find(
+      (availableBuild) => availableBuild.version === requestedVersion,
     );
+    if (matchedBuild === undefined) {
+      return Effect.fail(
+        makeBetaReviewFailure({
+          operation: 'select TestFlight build',
+          message: `No build ${requestedVersion} for this app. Upload it first, or omit --build to use the latest.`,
+        }),
+      );
+    }
+    if (matchedBuild.expired) {
+      return Effect.fail(
+        makeBetaReviewFailure({
+          operation: 'select TestFlight build',
+          message: `Build ${requestedVersion} has expired (TestFlight's 90-day limit) and cannot be submitted.`,
+        }),
+      );
+    }
+    return Effect.succeed(matchedBuild);
   }
-  return latest;
-}
-
-/**
- * Reconcile one build's "What to Test" notes and (optionally) its Beta App Review submission. Throws only
- * for a precondition the user must fix (no eligible build); per-action failures are captured so one never
- * aborts the rest. Returns the resolved build version so the command can name it in the summary.
- */
-export async function reconcileBetaReview(
-  api: AscBetaReviewApi,
-  input: BetaReviewReconcileInput,
-): Promise<{ buildVersion: string; actions: PlannedAction[] }> {
-  const ctx: ReconcileContext = { actions: [], dryRun: input.dryRun };
-
-  const build = selectBuild(
-    await api.listBuilds(input.appId, BUILD_SCAN_LIMIT),
-    input.buildVersion,
+  const latestBuild = availableBuilds.find(
+    (availableBuild) =>
+      availableBuild.processingState === 'VALID' && availableBuild.expired !== true,
   );
-  await reconcileNotes(ctx, api, build.id, input.whatToTest);
-  if (input.submitForReview) await reconcileSubmission(ctx, api, build.id);
+  if (latestBuild !== undefined) return Effect.succeed(latestBuild);
+  return Effect.fail(
+    makeBetaReviewFailure({
+      operation: 'select TestFlight build',
+      message:
+        'No VALID, non-expired build to release. Upload a build and wait for processing to finish.',
+    }),
+  );
+};
 
-  return { buildVersion: build.version, actions: ctx.actions };
-}
-
-/** Create each declared locale's "What to Test" note, or update it when the text differs; skip when in sync. */
-async function reconcileNotes(
-  ctx: ReconcileContext,
-  api: AscBetaReviewApi,
-  buildId: string,
-  whatToTest: Record<string, string>,
-): Promise<void> {
-  const existing = new Map(
-    (await api.listBetaBuildLocalizations(buildId)).map((localization) => [
-      localization.locale,
-      localization,
-    ]),
+/** Apply one note write while retaining per-action failures in the reconciliation report. */
+const applyNote = (
+  action: PlannedAction,
+  noteWrite: Effect.Effect<void, unknown>,
+): Effect.Effect<void> =>
+  noteWrite.pipe(
+    Effect.match({
+      onFailure: (cause) => {
+        action.status = 'failed';
+        action.error = errorMessage(cause);
+      },
+      onSuccess: () => {
+        action.status = 'applied';
+      },
+    }),
   );
 
-  for (const [locale, text] of Object.entries(whatToTest)) {
-    const current = existing.get(locale);
-    if (current && (current.whatsNew ?? '') === text) continue; // already in sync
-
-    const action = plan(
-      ctx,
-      current ? `update "What to Test" (${locale})` : `set "What to Test" (${locale})`,
-    );
-    if (ctx.dryRun) continue;
-    try {
-      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
-      if (current) await api.updateBetaBuildLocalization(current.id, text);
-      else await api.createBetaBuildLocalization(buildId, locale, text);
-      action.status = 'applied';
-    } catch (error) {
-      action.status = 'failed';
-      action.error = errorMessage(error);
-    }
-  }
-}
-
-/** Submit the build for Beta App Review, unless it already has a submission (then skip, reporting its state). */
-async function reconcileSubmission(
-  ctx: ReconcileContext,
-  api: AscBetaReviewApi,
+/** Reconcile localized What-to-Test notes serially for App Store rate limits. */
+const reconcileNotes = (
+  reconciliation: ReconcileContext,
+  appleStore: AscBetaReviewApi,
   buildId: string,
-): Promise<void> {
-  const existing = await api.getBetaAppReviewSubmission(buildId);
-  if (existing) {
-    skip(
-      ctx,
-      `submit for Beta App Review: build already submitted (${describeState(existing.state)})`,
+  localizedNotes: Record<string, string>,
+): Effect.Effect<void, unknown> =>
+  Effect.gen(function* () {
+    const existingLocalizations = new Map(
+      (yield* appleStore.listBetaBuildLocalizations(buildId)).map((localization) => [
+        localization.locale,
+        localization,
+      ]),
     );
-    return;
-  }
+    for (const [locale, noteText] of Object.entries(localizedNotes)) {
+      const currentLocalization = existingLocalizations.get(locale);
+      let currentText = '';
+      if (currentLocalization?.whatsNew !== undefined) {
+        currentText = currentLocalization.whatsNew;
+      }
+      if (currentText === noteText) continue;
+      let description = `set "What to Test" (${locale})`;
+      if (currentLocalization !== undefined) description = `update "What to Test" (${locale})`;
+      const action = plan(reconciliation, description);
+      if (reconciliation.dryRun) continue;
+      if (currentLocalization !== undefined) {
+        yield* applyNote(
+          action,
+          appleStore.updateBetaBuildLocalization(currentLocalization.id, noteText),
+        );
+        continue;
+      }
+      yield* applyNote(action, appleStore.createBetaBuildLocalization(buildId, locale, noteText));
+    }
+  });
 
-  const action = plan(ctx, 'submit for Beta App Review');
-  if (ctx.dryRun) return;
-  try {
-    await api.createBetaAppReviewSubmission(buildId);
-    action.status = 'applied';
-  } catch (error) {
-    action.status = 'failed';
-    action.error = errorMessage(error);
-  }
-}
-
-/** Narrow an unknown value to a plain object, or null. Arrays are rejected so a malformed section fails loudly. */
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-/**
- * Parse and validate a raw `testflight.config.json` value into a typed {@link BetaReviewConfig}. Rejects a
- * non-object document, a missing/empty `whatToTest`, and a non-string note so a bad file fails loudly.
- */
-export function parseBetaReviewConfig(raw: unknown): BetaReviewConfig {
-  const record = asRecord(raw);
-  if (!record) throw new Error('testflight.config.json must be a JSON object.');
-
-  const whatToTest = asRecord(record['whatToTest']);
-  if (!whatToTest) {
-    throw new Error(
-      'testflight.config.json: "whatToTest" must be an object mapping locale → notes.',
+/** Reconcile the Beta App Review submission while retaining an API failure as an action failure. */
+const reconcileSubmission = (
+  reconciliation: ReconcileContext,
+  appleStore: AscBetaReviewApi,
+  buildId: string,
+): Effect.Effect<void, unknown> =>
+  Effect.gen(function* () {
+    const existingSubmission = yield* appleStore.getBetaAppReviewSubmission(buildId);
+    if (existingSubmission !== null) {
+      skip(
+        reconciliation,
+        `submit for Beta App Review: build already submitted (${describeState(existingSubmission.state)})`,
+      );
+      return;
+    }
+    const action = plan(reconciliation, 'submit for Beta App Review');
+    if (reconciliation.dryRun) return;
+    yield* appleStore.createBetaAppReviewSubmission(buildId).pipe(
+      Effect.match({
+        onFailure: (cause) => {
+          action.status = 'failed';
+          action.error = errorMessage(cause);
+        },
+        onSuccess: () => {
+          action.status = 'applied';
+        },
+      }),
     );
-  }
+  });
 
-  const notes: Record<string, string> = {};
-  for (const [locale, value] of Object.entries(whatToTest)) {
-    if (typeof value !== 'string' || value.length === 0) {
-      throw new Error(
-        `testflight.config.json: whatToTest["${locale}"] must be a non-empty string.`,
+/** Reconcile one build's localized notes and optional Beta App Review submission. */
+export const reconcileBetaReview = (
+  appleStore: AscBetaReviewApi,
+  reconciliationInput: BetaReviewReconcileInput,
+): Effect.Effect<BetaReviewReport, unknown> =>
+  Effect.gen(function* () {
+    const reconciliation: ReconcileContext = {
+      actions: [],
+      dryRun: reconciliationInput.dryRun,
+    };
+    const availableBuilds = yield* appleStore.listBuilds(
+      reconciliationInput.appId,
+      BUILD_SCAN_LIMIT,
+    );
+    const selectedBuild = yield* selectBuild(availableBuilds, reconciliationInput.buildVersion);
+    yield* reconcileNotes(
+      reconciliation,
+      appleStore,
+      selectedBuild.id,
+      reconciliationInput.whatToTest,
+    );
+    if (reconciliationInput.submitForReview) {
+      yield* reconcileSubmission(reconciliation, appleStore, selectedBuild.id);
+    }
+    return { buildVersion: selectedBuild.version, actions: reconciliation.actions };
+  });
+
+/** Decode an unknown TestFlight configuration through the Effect Schema boundary. */
+export const parseBetaReviewConfig = (
+  rawConfiguration: unknown,
+): Effect.Effect<BetaReviewConfig, BetaReviewFailure> =>
+  Schema.decodeUnknown(BetaReviewConfigSchema)(rawConfiguration).pipe(
+    Effect.mapError((cause) =>
+      makeBetaReviewFailure({
+        operation: 'decode TestFlight config',
+        message: `Invalid testflight.config.json: ${errorMessage(cause)}`,
+        cause,
+      }),
+    ),
+  );
+
+/** Read and decode a TestFlight configuration file. */
+export const loadBetaReviewConfig = (
+  configPath: string,
+): Effect.Effect<BetaReviewConfig, BetaReviewFailure, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const configExists = yield* fileSystem.exists(configPath).pipe(
+      Effect.mapError((cause) =>
+        makeBetaReviewFailure({
+          operation: 'inspect TestFlight config',
+          message: `Could not inspect ${configPath}.`,
+          cause,
+        }),
+      ),
+    );
+    if (!configExists) {
+      return yield* Effect.fail(
+        makeBetaReviewFailure({
+          operation: 'read TestFlight config',
+          message: `No TestFlight config at ${configPath}. Add a "whatToTest" map, or pass --whats-new <text>.`,
+        }),
       );
     }
-    notes[locale] = value;
-  }
-  if (Object.keys(notes).length === 0) {
-    throw new Error('testflight.config.json: "whatToTest" must declare at least one locale.');
-  }
-  return { whatToTest: notes };
-}
-
-/** Read and parse a `testflight.config.json` from disk. */
-export function loadBetaReviewConfig(path: string): BetaReviewConfig {
-  if (!existsSync(path)) {
-    throw new Error(
-      `No TestFlight config at ${path}. Add a "whatToTest" map, or pass --whats-new <text>.`,
+    const configurationText = yield* fileSystem.readFileString(configPath).pipe(
+      Effect.mapError((cause) =>
+        makeBetaReviewFailure({
+          operation: 'read TestFlight config',
+          message: `Could not read ${configPath}.`,
+          cause,
+        }),
+      ),
     );
-  }
-  return parseBetaReviewConfig(JSON.parse(readFileSync(path, 'utf8')));
-}
+    const rawConfiguration = yield* Schema.decode(Schema.parseJson())(configurationText).pipe(
+      Effect.mapError((cause) =>
+        makeBetaReviewFailure({
+          operation: 'parse TestFlight config',
+          message: `Invalid JSON in ${configPath}.`,
+          cause,
+        }),
+      ),
+    );
+    return yield* parseBetaReviewConfig(rawConfiguration);
+  });
 
-/** Tally a report's action statuses for the run summary (mirrors the other store-sync commands). */
-export function summarizeBetaReview(actions: PlannedAction[]): {
-  applied: number;
-  failed: number;
-  skipped: number;
-} {
+/** Count applied, failed, and skipped beta-review actions. */
+export const summarizeBetaReview = (
+  actions: PlannedAction[],
+): Readonly<{ applied: number; failed: number; skipped: number }> => {
   let applied = 0;
   let failed = 0;
   let skipped = 0;
   for (const action of actions) {
-    if (action.status === 'applied') applied++;
-    else if (action.status === 'failed') failed++;
-    else if (action.status === 'skipped') skipped++;
+    switch (action.status) {
+      case 'applied':
+        applied += 1;
+        break;
+      case 'failed':
+        failed += 1;
+        break;
+      case 'skipped':
+        skipped += 1;
+        break;
+      case 'planned':
+        break;
+    }
   }
   return { applied, failed, skipped };
-}
+};

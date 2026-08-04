@@ -1,267 +1,242 @@
-/**
- * Reconcile an app's **custom product pages** — alternate App Store listings used for marketing campaigns
- * and deep links — from a declarative `custom-pages.config.json`, using the App Store Connect API key
- * alone. Standing up these variants is click-heavy App Store Connect work that EAS doesn't touch.
- *
- * Per app, for each declared page (matched by its `name`):
- * 1. **Create** the page when it's missing — Apple seeds it with an editable version cloned from the
- *    default listing.
- * 2. Reconcile its **promotional text** per locale on the editable version: create the locale's
- *    localization, or update it when the text differs.
- *
- * Mirrors {@link reconcileGameCenter `core/gameCenter.ts`}: a read-only PLAN pass builds idempotent
- * {@link PlannedAction}s, the command prints them, then an APPLY pass performs them, each action isolated.
- * Additive on pages (a page not in config is left untouched) and never deletes. Screenshots, app previews,
- * page visibility, and publishing a version live are out of scope (a deliberate follow-up).
- */
-
-import { existsSync, readFileSync } from 'node:fs';
+import { Effect, Schema } from 'effect';
 import type {
   CustomProductPageLocalizationResource,
   CustomProductPageResource,
   CustomProductPageVersionResource,
-} from '../../apple/ascClient.js';
-import {
-  appRecordMissing,
-  plan,
-  skip,
-  type PlannedAction,
-  type ReconcileContext,
-} from '../asc/storeSync.js';
+} from '../types/appleCatalog.js';
+import { appRecordMissing, plan, skip, type ReconcileContext } from './reconcile.js';
 import { errorMessage } from '../services/errorMessage.js';
-
+import type { PlannedAction } from '../types/reconcile.js';
+import {
+  decodeStoreSurfaceConfig,
+  loadStoreSurfaceConfig,
+  type StoreSurfaceConfigFailure,
+} from './surfaceConfig.js';
 /** Custom-product-page version states Apple still lets us edit localizations in. */
 const EDITABLE_VERSION_STATES = new Set(['PREPARE_FOR_SUBMISSION', 'REJECTED']);
 
+const PromotionalTextSchema = Schema.mutable(
+  Schema.Record({
+    key: Schema.String,
+    value: Schema.String.pipe(
+      Schema.nonEmptyString({
+        message: () => 'custom-pages.config.json: promotional text must be a non-empty string.',
+      }),
+    ),
+  }),
+);
+
+const CustomProductPageConfigSchema = Schema.mutable(
+  Schema.Struct({
+    name: Schema.String.pipe(
+      Schema.nonEmptyString({
+        message: () => 'custom-pages.config.json: page name must be a non-empty string.',
+      }),
+    ),
+    promotionalText: Schema.optionalWith(PromotionalTextSchema, { exact: true }),
+  }),
+);
+
+export const CustomProductPagesConfigSchema = Schema.mutable(
+  Schema.Struct({
+    pages: Schema.mutable(Schema.Array(CustomProductPageConfigSchema)).pipe(
+      Schema.minItems(1, {
+        message: () => 'custom-pages.config.json must declare at least one entry under "pages".',
+      }),
+      Schema.filter((declaredPages) => {
+        const declaredPageNames = new Set<string>();
+        for (const declaredPage of declaredPages) {
+          if (declaredPageNames.has(declaredPage.name)) {
+            return `custom-pages.config.json: duplicate page name "${declaredPage.name}".`;
+          }
+          declaredPageNames.add(declaredPage.name);
+        }
+        return true;
+      }),
+    ),
+  }),
+);
+
+const CustomProductPagesConfigSpec = {
+  documentName: 'custom-pages.config.json',
+  displayName: 'custom product pages config',
+  missingMessage: (configPath: string) =>
+    `No custom-pages config at ${configPath}. Create one (see \`launch custom-pages --help\`) or pass --config.`,
+  schema: CustomProductPagesConfigSchema,
+};
 /** One declared custom product page: a name plus optional per-locale promotional text. */
-export interface CustomProductPageConfig {
-  /** The page name (Apple's match key; shown in App Store Connect). */
+export type CustomProductPageConfig = {
   name: string;
-  /** Locale → promotional text to set on the page's editable version. */
   promotionalText?: Record<string, string>;
-}
-
+};
 /** The full `custom-pages.config.json` document. */
-export interface CustomProductPagesConfig {
-  /** One entry per custom product page; at least one required. */
+export type CustomProductPagesConfig = {
   pages: CustomProductPageConfig[];
-}
-
+};
 /**
  * The exact slice of {@link AppStoreConnectClient} the custom-pages reconciler depends on, declared here so
  * the diff logic is unit-testable with a hand-rolled fake (mirrors {@link AscGameCenterApi}).
  */
-export interface AscCustomPagesApi {
-  getAppId(bundleId: string): Promise<string | null>;
-  listCustomProductPages(appId: string): Promise<CustomProductPageResource[]>;
-  createCustomProductPage(appId: string, name: string): Promise<CustomProductPageResource>;
-  listCustomProductPageVersions(pageId: string): Promise<CustomProductPageVersionResource[]>;
+export type AscCustomPagesApi = {
+  getAppId(bundleId: string): Effect.Effect<string | null, unknown>;
+  listCustomProductPages(appId: string): Effect.Effect<CustomProductPageResource[], unknown>;
+  createCustomProductPage(
+    appId: string,
+    name: string,
+  ): Effect.Effect<CustomProductPageResource, unknown>;
+  listCustomProductPageVersions(
+    pageId: string,
+  ): Effect.Effect<CustomProductPageVersionResource[], unknown>;
   listCustomProductPageLocalizations(
     versionId: string,
-  ): Promise<CustomProductPageLocalizationResource[]>;
+  ): Effect.Effect<CustomProductPageLocalizationResource[], unknown>;
   createCustomProductPageLocalization(
     versionId: string,
     locale: string,
     promotionalText: string,
-  ): Promise<void>;
+  ): Effect.Effect<void, unknown>;
   updateCustomProductPageLocalization(
     localizationId: string,
     promotionalText: string,
-  ): Promise<void>;
-}
-
+  ): Effect.Effect<void, unknown>;
+};
 /** Inputs to reconcile one app's custom product pages. */
-export interface CustomPagesReconcileInput {
+export type CustomPagesReconcileInput = {
   bundleId: string;
   config: CustomProductPagesConfig;
   dryRun: boolean;
-}
-
+};
 /**
  * Reconcile one app's custom product pages. Throws only for a precondition the user must fix (no App
  * Store Connect app record); per-action failures are captured so one never aborts the rest.
  */
-export async function reconcileCustomProductPages(
+export const reconcileCustomProductPages = (
   api: AscCustomPagesApi,
   input: CustomPagesReconcileInput,
-): Promise<{ bundleId: string; actions: PlannedAction[] }> {
-  const ctx: ReconcileContext = { actions: [], dryRun: input.dryRun };
-
-  const appId = await api.getAppId(input.bundleId);
-  if (!appId) throw appRecordMissing(input.bundleId, 'custom-pages');
-
-  const existing = new Map(
-    (await api.listCustomProductPages(appId)).map((page) => [page.name, page]),
-  );
-  for (const page of input.config.pages) {
-    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
-    const pageId = await ensurePage(ctx, api, appId, page.name, existing.get(page.name));
-    await reconcilePromoText(ctx, api, page, pageId);
-  }
-  return { bundleId: input.bundleId, actions: ctx.actions };
-}
-
+): Effect.Effect<{ bundleId: string; actions: PlannedAction[] }, unknown> =>
+  Effect.gen(function* () {
+    const reconcileContext: ReconcileContext = { actions: [], dryRun: input.dryRun };
+    const appId = yield* api.getAppId(input.bundleId);
+    if (!appId) return yield* Effect.fail(appRecordMissing(input.bundleId, 'custom-pages'));
+    const pages = yield* api.listCustomProductPages(appId);
+    const existing = new Map(pages.map((page) => [page.name, page]));
+    for (const page of input.config.pages) {
+      const pageId = yield* ensurePage(
+        reconcileContext,
+        api,
+        appId,
+        page.name,
+        existing.get(page.name),
+      );
+      yield* reconcilePromoText(reconcileContext, api, page, pageId);
+    }
+    return { bundleId: input.bundleId, actions: reconcileContext.actions };
+  });
 /** Read the page by name, creating it when absent. Returns its id, or null when create failed / was rehearsed. */
-async function ensurePage(
-  ctx: ReconcileContext,
+const ensurePage = (
+  reconcileContext: ReconcileContext,
   api: AscCustomPagesApi,
   appId: string,
   name: string,
   existing: CustomProductPageResource | undefined,
-): Promise<string | null> {
-  if (existing) return existing.id;
-
-  const action = plan(ctx, `create custom product page "${name}"`);
-  if (ctx.dryRun) return null;
-  try {
-    const created = await api.createCustomProductPage(appId, name);
-    action.status = 'applied';
-    return created.id;
-  } catch (error) {
-    action.status = 'failed';
-    action.error = errorMessage(error);
-    return null;
-  }
-}
-
+): Effect.Effect<string | null> => {
+  if (existing) return Effect.succeed(existing.id);
+  const action = plan(reconcileContext, `create custom product page "${name}"`);
+  if (reconcileContext.dryRun) return Effect.succeed(null);
+  return api.createCustomProductPage(appId, name).pipe(
+    Effect.match({
+      onFailure: (writeFailure) => {
+        action.status = 'failed';
+        action.error = errorMessage(writeFailure);
+        return null;
+      },
+      onSuccess: (created) => {
+        action.status = 'applied';
+        return created.id;
+      },
+    }),
+  );
+};
 /** Reconcile a page's promotional text per declared locale on its editable version. */
-async function reconcilePromoText(
-  ctx: ReconcileContext,
+const reconcilePromoText = (
+  reconcileContext: ReconcileContext,
   api: AscCustomPagesApi,
   page: CustomProductPageConfig,
   pageId: string | null,
-): Promise<void> {
-  const locales = Object.entries(page.promotionalText ?? {});
-  if (locales.length === 0) return;
-
-  // No page id: either rehearsing a not-yet-created page (plan the sets) or its create failed (skip them).
-  if (!pageId) {
-    for (const [locale] of locales) {
-      if (ctx.dryRun) plan(ctx, `set promotional text on "${page.name}" (${locale})`);
-      else
-        skip(ctx, `promotional text on "${page.name}" (${locale}): skipped — page create failed`);
-    }
-    return;
-  }
-
-  const version = (await api.listCustomProductPageVersions(pageId)).find((entry) =>
-    EDITABLE_VERSION_STATES.has(entry.state),
-  );
-  if (!version) {
-    skip(ctx, `promotional text on "${page.name}": skipped — no editable version`);
-    return;
-  }
-
-  const current = new Map(
-    (await api.listCustomProductPageLocalizations(version.id)).map((localization) => [
-      localization.locale,
-      localization,
-    ]),
-  );
-  for (const [locale, text] of locales) {
-    const existing = current.get(locale);
-    if (existing && (existing.promotionalText ?? '') === text) continue; // already in sync
-
-    const action = plan(
-      ctx,
-      existing
-        ? `update promotional text on "${page.name}" (${locale})`
-        : `set promotional text on "${page.name}" (${locale})`,
-    );
-    if (ctx.dryRun) continue;
-    try {
-      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
-      if (existing) await api.updateCustomProductPageLocalization(existing.id, text);
-      else await api.createCustomProductPageLocalization(version.id, locale, text);
-      action.status = 'applied';
-    } catch (error) {
-      action.status = 'failed';
-      action.error = errorMessage(error);
-    }
-  }
-}
-
-/** Narrow an unknown value to a plain object, or null. Arrays are rejected so a malformed section fails loudly. */
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-/** Parse one page entry, validating its name and any promotional-text strings. */
-function parsePage(raw: unknown, index: number): CustomProductPageConfig {
-  const record = asRecord(raw);
-  const where = `pages[${index}]`;
-  if (!record) throw new Error(`custom-pages.config.json: ${where} must be an object.`);
-
-  const name = record['name'];
-  if (typeof name !== 'string' || name.length === 0) {
-    throw new Error(`custom-pages.config.json: ${where}.name must be a non-empty string.`);
-  }
-
-  const config: CustomProductPageConfig = { name };
-  if (record['promotionalText'] !== undefined) {
-    const promo = asRecord(record['promotionalText']);
-    if (!promo)
-      throw new Error(
-        `custom-pages.config.json: ${where}.promotionalText must be a locale → text object.`,
-      );
-    const text: Record<string, string> = {};
-    for (const [locale, value] of Object.entries(promo)) {
-      if (typeof value !== 'string' || value.length === 0) {
-        throw new Error(
-          `custom-pages.config.json: ${where}.promotionalText["${locale}"] must be a non-empty string.`,
-        );
+): Effect.Effect<void, unknown> =>
+  Effect.gen(function* () {
+    let declaredPromotionalText: Record<string, string> = {};
+    if (page.promotionalText !== undefined) declaredPromotionalText = page.promotionalText;
+    const locales = Object.entries(declaredPromotionalText);
+    if (locales.length === 0) return;
+    // No page id: either rehearsing a not-yet-created page (plan the sets) or its create failed (skip them).
+    if (!pageId) {
+      for (const [locale] of locales) {
+        if (reconcileContext.dryRun)
+          plan(reconcileContext, `set promotional text on "${page.name}" (${locale})`);
+        else
+          skip(
+            reconcileContext,
+            `promotional text on "${page.name}" (${locale}): skipped - page create failed`,
+          );
       }
-      text[locale] = value;
+      return;
     }
-    if (Object.keys(text).length > 0) config.promotionalText = text;
-  }
-  return config;
-}
-
-/**
- * Parse and validate a raw `custom-pages.config.json` value into a typed {@link CustomProductPagesConfig}.
- * Rejects a non-object document, a missing/empty `pages` list, and a duplicate page name so a bad file
- * fails loudly instead of racing itself.
- */
-export function parseCustomProductPagesConfig(raw: unknown): CustomProductPagesConfig {
-  const record = asRecord(raw);
-  if (!record) throw new Error('custom-pages.config.json must be a JSON object.');
-
-  const rawPages = record['pages'];
-  if (!Array.isArray(rawPages))
-    throw new Error('custom-pages.config.json: "pages" must be an array.');
-  if (rawPages.length === 0) {
-    throw new Error('custom-pages.config.json must declare at least one entry under "pages".');
-  }
-  const pages = rawPages.map(parsePage);
-
-  const seen = new Set<string>();
-  for (const page of pages) {
-    if (seen.has(page.name))
-      throw new Error(`custom-pages.config.json: duplicate page name "${page.name}".`);
-    seen.add(page.name);
-  }
-  return { pages };
-}
-
-/** Read and parse a `custom-pages.config.json` from disk. */
-export function loadCustomProductPagesConfig(path: string): CustomProductPagesConfig {
-  if (!existsSync(path)) {
-    throw new Error(
-      `No custom-pages config at ${path}. Create one (see \`launch custom-pages --help\`) or pass --config.`,
+    const versions = yield* api.listCustomProductPageVersions(pageId);
+    const version = versions.find((entry) => EDITABLE_VERSION_STATES.has(entry.state));
+    if (!version) {
+      skip(reconcileContext, `promotional text on "${page.name}": skipped - no editable version`);
+      return;
+    }
+    const localizations = yield* api.listCustomProductPageLocalizations(version.id);
+    const current = new Map(
+      localizations.map((localization) => [localization.locale, localization]),
     );
-  }
-  return parseCustomProductPagesConfig(JSON.parse(readFileSync(path, 'utf8')));
-}
+    for (const [locale, text] of locales) {
+      const existing = current.get(locale);
+      let existingText = '';
+      if (existing?.promotionalText !== undefined) existingText = existing.promotionalText;
+      if (existing !== undefined && existingText === text) continue;
+      let actionDescription = `set promotional text on "${page.name}" (${locale})`;
+      if (existing !== undefined) {
+        actionDescription = `update promotional text on "${page.name}" (${locale})`;
+      }
+      const action = plan(reconcileContext, actionDescription);
+      if (reconcileContext.dryRun) continue;
+      let writePromotionalText = api.createCustomProductPageLocalization(version.id, locale, text);
+      if (existing !== undefined) {
+        writePromotionalText = api.updateCustomProductPageLocalization(existing.id, text);
+      }
+      yield* writePromotionalText.pipe(
+        Effect.match({
+          onFailure: (writeFailure) => {
+            action.status = 'failed';
+            action.error = errorMessage(writeFailure);
+          },
+          onSuccess: () => {
+            action.status = 'applied';
+          },
+        }),
+      );
+    }
+  });
+/** Decode an untrusted custom product pages config document. */
+export const parseCustomProductPagesConfig = (
+  rawDocument: unknown,
+): Effect.Effect<CustomProductPagesConfig, StoreSurfaceConfigFailure> =>
+  decodeStoreSurfaceConfig(rawDocument, CustomProductPagesConfigSpec);
 
+/** Read and decode custom-pages.config.json through Effect Platform. */
+export const loadCustomProductPagesConfig = (configPath: string) =>
+  loadStoreSurfaceConfig(configPath, CustomProductPagesConfigSpec);
 /** Tally a report's action statuses for the run summary (mirrors the other store-sync commands). */
-export function summarizeCustomPages(actions: PlannedAction[]): {
+export const summarizeCustomPages = (
+  actions: PlannedAction[],
+): {
   applied: number;
   failed: number;
   skipped: number;
-} {
+} => {
   let applied = 0;
   let failed = 0;
   let skipped = 0;
@@ -271,4 +246,4 @@ export function summarizeCustomPages(actions: PlannedAction[]): {
     else if (action.status === 'skipped') skipped++;
   }
   return { applied, failed, skipped };
-}
+};

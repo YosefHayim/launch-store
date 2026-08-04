@@ -1,32 +1,14 @@
-/**
- * The core of `launch open`: store-console URL templates, the cross-platform opener, and the
- * orchestration that turns a target + flags into the page to open.
- *
- * `launch open` deep-links a developer from a read-only finding ("agreement unsigned", "missing
- * screenshots") straight to the irreducible UI step that fixes it. Every console URL template lives
- * here — never inlined at a call site — so the App Store Connect / Play Console paths have one home to
- * audit and update when Apple or Google move a page. {@link buildConsoleUrl} is the pure URL resolver;
- * {@link resolveOpenUrl} is the I/O orchestrator the CLI calls (parse target → resolve platform →
- * select the app → look up the App Store Connect id → build the URL); {@link openUrl} launches it
- * through the OS browser via `core/exec.ts` (`shell: false`, arg array — never a shell string). The
- * `src/cli/commands/open.ts` command is intentionally pure commander wiring over these — no domain
- * logic lives there.
- *
- * Apple supports stable per-app deep links keyed by the App Store Connect app id, so an iOS target lands
- * on the exact app page when the id resolves and on the console home otherwise. Google Play's per-app
- * URLs additionally need the developer-account id (which Launch doesn't hold), so Android targets land on
- * the Play Console home — the same behavior `launch doctor` and the build receipt already use.
- */
-
-import type { AppDescriptor, OpenTarget, Platform } from '../types/index.js';
-import { isApplePlatform, parsePlatform } from '../services/platform.js';
-import { run } from '../services/exec.js';
-import { hostOs } from '../services/os.js';
+import { Data, Effect } from 'effect';
 import { loadConfig } from '../config/config.js';
+import { executeCommand, provideNodeCommandServices } from '../services/exec.js';
+import { detectHostOperatingSystem } from '../services/os.js';
+import { LaunchPaths } from '../services/paths.js';
+import { isApplePlatform, parsePlatform } from '../services/platform.js';
+import type { ActiveAppleStoreRequirements } from '../store/appleStoreCommand.js';
 import { selectApps } from '../store/syncJobs.js';
 import { createAscClientResolver } from '../store/storeClients.js';
+import type { AppDescriptor, OpenTarget, Platform } from '../types/app.js';
 
-/** The accepted `[target]` values for `launch open`, in the order help lists them; the default is the first. */
 export const OPEN_TARGETS: readonly OpenTarget[] = [
   'asc',
   'play',
@@ -35,32 +17,41 @@ export const OPEN_TARGETS: readonly OpenTarget[] = [
   'reviews',
   'agreements',
   'app-record',
-] as const;
+];
 
-/**
- * Flags accepted by `launch open`, forwarded verbatim from commander to {@link resolveOpenUrl}.
- * Both are optional; the resolver applies the same platform/app defaults as the rest of the CLI.
- */
-export interface OpenUrlOptions {
-  /** Which store's console to open: `ios` (App Store Connect) or `android` (Play Console). */
+export type OpenUrlOptions = Readonly<{
   platform?: string;
-  /** App handle to open; defaults to the first discovered app that has the platform's id. */
   app?: string;
-}
+}>;
 
-/** App Store Connect web origin — Apple's per-app pages hang off `/apps/{id}`. */
+/** Resolving or opening a store-console link failed. */
+export type ConsoleLinkFailure = Readonly<{
+  readonly _tag: 'ConsoleLinkFailure';
+  readonly operation: string;
+  readonly message: string;
+  readonly cause?: unknown;
+}>;
+export const makeConsoleLinkFailure = Data.tagged<ConsoleLinkFailure>('ConsoleLinkFailure');
+
 const ASC_ORIGIN = 'https://appstoreconnect.apple.com';
-/** Google Play Console home. Per-app Play URLs need the developer-account id Launch doesn't have. */
 const PLAY_CONSOLE_URL = 'https://play.google.com/console';
 
-/**
- * The App Store Connect URL for a target, given the resolved app id (or `undefined` when it couldn't be
- * resolved — e.g. the app record doesn't exist yet). Account-level targets (`agreements`) ignore the id;
- * app-level targets fall back to the apps list when the id is unknown so the link is still useful.
- */
-function ascUrl(target: OpenTarget, appId: string | undefined): string {
+/** Convert a dependency failure into the console-link channel. */
+const consoleLinkFailure = (operation: string, cause: unknown): ConsoleLinkFailure => {
+  let message = `${operation} failed.`;
+  if (typeof cause === 'string' && cause.length > 0) message = cause;
+  if (cause instanceof Error) message = cause.message;
+  if (typeof cause === 'object' && cause !== null && 'message' in cause) {
+    const causeMessage = cause.message;
+    if (typeof causeMessage === 'string') message = causeMessage;
+  }
+  return makeConsoleLinkFailure({ operation, message, cause });
+};
+
+/** Build an App Store Connect URL, falling back to the apps list without an app id. */
+const appStoreConnectUrl = (target: OpenTarget, appId: string | undefined): string => {
   if (target === 'agreements') return `${ASC_ORIGIN}/agreements/`;
-  if (!appId) return `${ASC_ORIGIN}/apps`;
+  if (appId === undefined) return `${ASC_ORIGIN}/apps`;
   const appBase = `${ASC_ORIGIN}/apps/${appId}`;
   switch (target) {
     case 'testflight':
@@ -74,105 +65,119 @@ function ascUrl(target: OpenTarget, appId: string | undefined): string {
     case 'app-record':
       return appBase;
   }
-}
+};
 
-/**
- * Resolve a console URL for `launch open`. The `agreements` target is account-level (no platform
- * branch); every other target picks the App Store Connect page for iOS and the Play Console for Android.
- *
- * @param target the requested page (see {@link OpenTarget}).
- * @param platform which store's console to open. `play` always means Android; otherwise this decides.
- * @param appId the resolved App Store Connect app id, when known — only used for iOS deep links.
- */
-export function buildConsoleUrl(
+/** Build the web-console URL for a resolved target and platform. */
+export const buildConsoleUrl = (
   target: OpenTarget,
   platform: Platform,
   appId: string | undefined,
-): string {
+): string => {
   if (target === 'play') return PLAY_CONSOLE_URL;
   if (platform === 'android') return PLAY_CONSOLE_URL;
-  return ascUrl(target, appId);
-}
+  return appStoreConnectUrl(target, appId);
+};
 
-/** Validate the optional `[target]`, defaulting to `asc`, and rejecting anything off the known list. */
-export function parseOpenTarget(value: string | undefined): OpenTarget {
-  if (value === undefined) return 'asc';
-  const target = OPEN_TARGETS.find((known) => known === value);
-  if (!target)
-    throw new Error(`Unknown target "${value}". Use one of: ${OPEN_TARGETS.join(', ')}.`);
-  return target;
-}
+/** Validate the optional target, defaulting to App Store Connect. */
+export const parseOpenTarget = (
+  targetText: string | undefined,
+): Effect.Effect<OpenTarget, ConsoleLinkFailure> => {
+  if (targetText === undefined) return Effect.succeed('asc');
+  const matchedTarget = OPEN_TARGETS.find((knownTarget) => knownTarget === targetText);
+  if (matchedTarget !== undefined) return Effect.succeed(matchedTarget);
+  return Effect.fail(
+    makeConsoleLinkFailure({
+      operation: 'parse open target',
+      message: `Unknown target "${targetText}". Use one of: ${OPEN_TARGETS.join(', ')}.`,
+      cause: targetText,
+    }),
+  );
+};
 
-/**
- * Resolve the platform for an open: the explicit `--platform` flag wins; a `play` target implies
- * `android`; otherwise iOS is the default, matching the rest of the CLI. The web console is family-level —
- * every Apple platform shares one App Store Connect app page — so the Apple platforms collapse to `ios`.
- */
-export function resolveOpenPlatform(target: OpenTarget, flag: string | undefined): Platform {
-  if (flag !== undefined) return isApplePlatform(parsePlatform(flag)) ? 'ios' : 'android';
-  return target === 'play' ? 'android' : 'ios';
-}
+/** Resolve the explicit platform or the target-based default. */
+export const resolveOpenPlatform = (
+  target: OpenTarget,
+  platformFlag: string | undefined,
+): Effect.Effect<'ios' | 'android', ConsoleLinkFailure> =>
+  Effect.gen(function* () {
+    if (platformFlag !== undefined) {
+      const parsedPlatform = yield* parsePlatform(platformFlag).pipe(
+        Effect.mapError((cause) => consoleLinkFailure('parse open platform', cause)),
+      );
+      if (isApplePlatform(parsedPlatform)) return 'ios';
+      return 'android';
+    }
+    if (target === 'play') return 'android';
+    return 'ios';
+  });
 
-/**
- * Pick the one app to open from the discovered apps for a platform. Honors `--app`, else takes the first
- * app that has the platform's id (a bundle id for iOS, a package name for Android). Throws a pointed error
- * when nothing qualifies so the user knows to add the id rather than landing on an empty console.
- */
-export function selectOpenApp(
-  apps: AppDescriptor[],
+/** Pick the selected app that has an identifier for the target platform. */
+export const selectOpenApp = (
+  discoveredApps: AppDescriptor[],
   platform: Platform,
-  selector: string | undefined,
-): AppDescriptor {
-  const hasId = (app: AppDescriptor): boolean =>
-    platform === 'ios' ? Boolean(app.bundleId) : Boolean(app.packageName);
-  const app = selectApps(apps, selector).find(hasId);
-  if (!app) {
-    const idLabel = platform === 'ios' ? 'ios.bundleIdentifier' : 'android.package';
-    throw new Error(
-      `No ${platform} app found${selector ? ` matching "${selector}"` : ''}. Add an ${idLabel} in app.json.`,
+  appSelector: string | undefined,
+): Effect.Effect<AppDescriptor, ConsoleLinkFailure> =>
+  Effect.gen(function* () {
+    const selectedApps = yield* selectApps(discoveredApps, appSelector).pipe(
+      Effect.mapError((cause) => consoleLinkFailure('select app to open', cause)),
     );
-  }
-  return app;
-}
+    const selectedApp = selectedApps.find((discoveredApp) => {
+      if (platform === 'ios') return discoveredApp.bundleId !== undefined;
+      return discoveredApp.packageName !== undefined;
+    });
+    if (selectedApp !== undefined) return selectedApp;
+    let identifierLabel = 'android.package';
+    if (platform === 'ios') identifierLabel = 'ios.bundleIdentifier';
+    let selectorDetails = '';
+    if (appSelector !== undefined) selectorDetails = ` matching "${appSelector}"`;
+    return yield* Effect.fail(
+      makeConsoleLinkFailure({
+        operation: 'select app to open',
+        message: `No ${platform} app found${selectorDetails}. Add an ${identifierLabel} in app.json.`,
+        cause: appSelector,
+      }),
+    );
+  });
 
-/**
- * The full `launch open` resolution, from raw CLI input to the URL to launch — the single core
- * operation the command wires to. Parses the target, resolves the platform and the target app, and for
- * iOS best-effort resolves the App Store Connect app id (a missing id falls back to the apps list, never
- * throws). Android URLs are id-free, so the network call is skipped.
- */
-export async function resolveOpenUrl(
+/** Resolve open-command input to one store-console URL. */
+export const resolveOpenUrl = (
   rawTarget: string | undefined,
-  options: OpenUrlOptions,
-): Promise<string> {
-  const target = parseOpenTarget(rawTarget);
-  const platform = resolveOpenPlatform(target, options.platform);
-  const { apps } = await loadConfig();
-  const app = selectOpenApp(apps, platform, options.app);
+  openOptions: OpenUrlOptions,
+): Effect.Effect<string, ConsoleLinkFailure, ActiveAppleStoreRequirements> =>
+  Effect.gen(function* () {
+    const target = yield* parseOpenTarget(rawTarget);
+    const platform = yield* resolveOpenPlatform(target, openOptions.platform);
+    const launchPaths = yield* LaunchPaths;
+    const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory).pipe(
+      Effect.mapError((cause) => consoleLinkFailure('load configuration for console link', cause)),
+    );
+    const selectedApp = yield* selectOpenApp(loadedConfiguration.apps, platform, openOptions.app);
+    let appId: string | undefined;
+    if (platform === 'ios' && selectedApp.bundleId !== undefined) {
+      const resolveAppleStore = createAscClientResolver();
+      const appleStore = yield* resolveAppleStore().pipe(
+        Effect.mapError((cause) => consoleLinkFailure('connect to App Store Connect', cause)),
+      );
+      if (appleStore !== null) {
+        const resolvedAppId = yield* appleStore
+          .getAppId(selectedApp.bundleId)
+          .pipe(Effect.catchAll(() => Effect.succeed(null)));
+        if (resolvedAppId !== null) appId = resolvedAppId;
+      }
+    }
+    return buildConsoleUrl(target, platform, appId);
+  });
 
-  let appId: string | undefined;
-  if (platform === 'ios' && app.bundleId) {
-    const asc = await createAscClientResolver()();
-    appId = (await asc?.getAppId(app.bundleId).catch(() => null)) ?? undefined;
-  }
-
-  return buildConsoleUrl(target, platform, appId);
-}
-
-/**
- * The host's shell-free URL opener: `open` on macOS, `xdg-open` on Linux, `start` on Windows. Routed
- * through {@link run} (`shell: false`, explicit arg array), mirroring `cli/commands/builds.ts`'s log
- * opener. The Windows `start` is a `cmd` builtin, not an executable, so it's invoked as
- * `cmd /c start "" <url>` — the empty `""` is `start`'s title argument, which keeps a URL with spaces
- * from being mistaken for the window title.
- */
-export function openUrl(url: string): Promise<void> {
-  switch (hostOs()) {
-    case 'macos':
-      return run('open', [url]);
-    case 'linux':
-      return run('xdg-open', [url]);
-    case 'windows':
-      return run('cmd', ['/c', 'start', '', url]);
-  }
-}
+/** Open a URL with the host platform's shell-free browser command. */
+export const openUrl = (url: string): Effect.Effect<void, unknown> =>
+  Effect.gen(function* () {
+    const hostOperatingSystem = yield* detectHostOperatingSystem;
+    switch (hostOperatingSystem) {
+      case 'macos':
+        return yield* provideNodeCommandServices(executeCommand('open', [url]));
+      case 'linux':
+        return yield* provideNodeCommandServices(executeCommand('xdg-open', [url]));
+      case 'windows':
+        return yield* provideNodeCommandServices(executeCommand('cmd', ['/c', 'start', '', url]));
+    }
+  });

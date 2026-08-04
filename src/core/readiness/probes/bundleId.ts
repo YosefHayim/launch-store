@@ -1,15 +1,6 @@
-/**
- * Probe: is each iOS app's Bundle ID (App ID) **registered in the Developer portal**? Code signing and the
- * App Store Connect app record both hang off a registered Bundle ID, so a missing one stops a distribution
- * build before it can be signed. `launch sync` registers it as a side effect; this probe surfaces the gap
- * up front (read-only, via the same `findBundleId` lookup) so an audit reports it instead of a build dying
- * mid-archive. A `null` lookup is the expected "not ready" signal, mapped to a blocker.
- */
-
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../../types/index.js';
+import type { ProbeResult, ReadinessContext, ReadinessProbe } from '@core/types/readiness.js';
 import { Effect } from 'effect';
 import { iosApps } from '../appScopes.js';
-
 /** The Apple Bundle ID (App ID) registration readiness probe. */
 export const bundleIdProbe = {
   id: 'apple-bundle-id',
@@ -26,40 +17,33 @@ export const bundleIdProbe = {
     return Effect.gen(function* () {
       const apps = iosApps(readinessContext.apps);
       if (apps.length === 0) return { state: 'omitted' };
-
-      const api = yield* Effect.tryPromise({
-        try: () => readinessContext.resolveAscApi(),
-        catch: (resolverFailure) => resolverFailure,
-      });
+      const api = yield* readinessContext.resolveAscApi();
       if (!api)
         return {
           state: 'skipped',
           reason: 'no active Apple account',
           hint: 'run `launch creds set-key`',
         };
-
       const results = yield* Effect.forEach(
         apps,
         ({ name, identifier }) =>
           Effect.gen(function* () {
-            const bundleId = yield* Effect.tryPromise({
-              try: () => api.findBundleId(identifier),
-              catch: (apiFailure) => apiFailure,
-            });
-            return bundleId
-              ? {
-                  app: name,
-                  identifier,
-                  status: 'ok' as const,
-                  detail: 'registered in the Developer portal',
-                }
-              : {
-                  app: name,
-                  identifier,
-                  status: 'blocker' as const,
-                  detail: 'Bundle ID not registered in the Developer portal',
-                  hint: 'run `launch sync` to register the App ID before building for distribution',
-                };
+            const bundleId = yield* api.findBundleId(identifier);
+            if (bundleId) {
+              return {
+                app: name,
+                identifier,
+                status: 'ok' as const,
+                detail: 'registered in the Developer portal',
+              };
+            }
+            return {
+              app: name,
+              identifier,
+              status: 'blocker' as const,
+              detail: 'Bundle ID not registered in the Developer portal',
+              hint: 'run `launch sync` to register the App ID before building for distribution',
+            };
           }),
         { concurrency: 'unbounded' },
       );

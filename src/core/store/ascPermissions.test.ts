@@ -1,5 +1,6 @@
+import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import { AscRequestError } from '../../apple/ascClient.js';
+import { makeAppleTransportFailure } from '../services/appleStoreClient.js';
 import {
   formatPermissionLine,
   probeKeyPermissions,
@@ -7,98 +8,116 @@ import {
   type AscPermissionResult,
 } from './ascPermissions.js';
 
-/** A probe API where every read resolves (a full-access key); override one to simulate a role gap. */
-function makeApi(overrides: Partial<AscPermissionProbeApi> = {}): AscPermissionProbeApi {
-  return {
-    listDistributionCertificates: vi.fn().mockResolvedValue([]),
-    listBetaGroups: vi.fn().mockResolvedValue([]),
-    listAppStoreVersions: vi.fn().mockResolvedValue([]),
-    listSubscriptionGroups: vi.fn().mockResolvedValue([]),
-    listCustomerReviews: vi.fn().mockResolvedValue([]),
-    listAnalyticsReportRequests: vi.fn().mockResolvedValue([]),
-    ...overrides,
-  };
-}
+const makePermissionClient = (
+  overrides: Partial<AscPermissionProbeApi> = {},
+): AscPermissionProbeApi => ({
+  listDistributionCertificates: vi.fn(() => Effect.succeed([])),
+  listBetaGroups: vi.fn(() => Effect.succeed([])),
+  listAppStoreVersions: vi.fn(() => Effect.succeed([])),
+  listSubscriptionGroups: vi.fn(() => Effect.succeed([])),
+  listCustomerReviews: vi.fn(() => Effect.succeed([])),
+  listAnalyticsReportRequests: vi.fn(() => Effect.succeed([])),
+  ...overrides,
+});
 
-/** Pick the verdict for one feature, failing loudly if the probe set didn't produce it. */
-function byFeature(results: AscPermissionResult[], feature: string): AscPermissionResult {
-  const found = results.find((result) => result.feature === feature);
-  if (!found) throw new Error(`no result for ${feature}`);
-  return found;
-}
+const permissionFor = (
+  permissions: readonly AscPermissionResult[],
+  feature: string,
+): AscPermissionResult => {
+  const permission = permissions.find((candidate) => candidate.feature === feature);
+  if (!permission) throw new Error(`no permission verdict for ${feature}`);
+  return permission;
+};
+
+const transportFailure = (message: string, status?: number) => {
+  const cause = new Error(message);
+  if (status === undefined) return makeAppleTransportFailure({ message, cause });
+  return makeAppleTransportFailure({ message, cause, status });
+};
 
 describe('probeKeyPermissions', () => {
-  it('marks every feature available when all probes resolve', async () => {
-    const results = await probeKeyPermissions(makeApi(), 'app1');
-    expect(results).toHaveLength(6);
-    expect(results.every((result) => result.status === 'available')).toBe(true);
+  it('marks every feature available when all probes succeed', async () => {
+    const permissions = await Effect.runPromise(
+      probeKeyPermissions(makePermissionClient(), 'app1'),
+    );
+    expect(permissions).toHaveLength(6);
+    expect(permissions.every((permission) => permission.status === 'available')).toBe(true);
   });
 
-  it('flags a 403 as forbidden for just that feature, leaving the rest available', async () => {
-    const api = makeApi({
-      listCustomerReviews: vi.fn().mockRejectedValue(new AscRequestError('Forbidden', 403)),
+  it('flags a 403 as forbidden for just that feature', async () => {
+    const permissionClient = makePermissionClient({
+      listCustomerReviews: vi.fn(() => Effect.fail(transportFailure('Forbidden', 403))),
     });
-    const results = await probeKeyPermissions(api, 'app1');
-    expect(byFeature(results, 'customer-reviews').status).toBe('forbidden');
-    expect(byFeature(results, 'testflight').status).toBe('available');
+    const permissions = await Effect.runPromise(probeKeyPermissions(permissionClient, 'app1'));
+    expect(permissionFor(permissions, 'customer-reviews').status).toBe('forbidden');
+    expect(permissionFor(permissions, 'testflight').status).toBe('available');
   });
 
   it('maps a 401 to unauthorized', async () => {
-    const api = makeApi({
-      listBetaGroups: vi.fn().mockRejectedValue(new AscRequestError('Unauthorized', 401)),
+    const permissionClient = makePermissionClient({
+      listBetaGroups: vi.fn(() => Effect.fail(transportFailure('Unauthorized', 401))),
     });
-    const results = await probeKeyPermissions(api, 'app1');
-    expect(byFeature(results, 'testflight').status).toBe('unauthorized');
+    const permissions = await Effect.runPromise(probeKeyPermissions(permissionClient, 'app1'));
+    expect(permissionFor(permissions, 'testflight').status).toBe('unauthorized');
   });
 
-  it('maps a non-HTTP failure to inconclusive, preserving the error message', async () => {
-    const api = makeApi({
-      listAppStoreVersions: vi.fn().mockRejectedValue(new Error('network down')),
+  it('maps a transport failure to inconclusive and keeps its message', async () => {
+    const permissionClient = makePermissionClient({
+      listAppStoreVersions: vi.fn(() => Effect.fail(transportFailure('network down'))),
     });
-    const release = byFeature(await probeKeyPermissions(api, 'app1'), 'app-store-release');
-    expect(release.status).toBe('inconclusive');
-    expect(release.detail).toBe('network down');
+    const permissions = await Effect.runPromise(probeKeyPermissions(permissionClient, 'app1'));
+    const releasePermission = permissionFor(permissions, 'app-store-release');
+    expect(releasePermission.status).toBe('inconclusive');
+    expect(releasePermission.detail).toBe('network down');
   });
 
-  it('skips app-scoped probes (inconclusive) without an app record, but still runs account-wide ones', async () => {
-    const api = makeApi();
-    const results = await probeKeyPermissions(api, null);
-    expect(byFeature(results, 'provisioning').status).toBe('available');
-    expect(byFeature(results, 'testflight').status).toBe('inconclusive');
-    expect(byFeature(results, 'testflight').detail).toBe('no app record to probe');
-    expect(api.listBetaGroups).not.toHaveBeenCalled();
-    expect(api.listDistributionCertificates).toHaveBeenCalledTimes(1);
+  it('skips app reads without an app record but still runs account reads', async () => {
+    const permissionClient = makePermissionClient();
+    const permissions = await Effect.runPromise(probeKeyPermissions(permissionClient, null));
+    expect(permissionFor(permissions, 'provisioning').status).toBe('available');
+    expect(permissionFor(permissions, 'testflight').status).toBe('inconclusive');
+    expect(permissionFor(permissions, 'testflight').detail).toBe('no app record to probe');
+    expect(permissionClient.listBetaGroups).not.toHaveBeenCalled();
+    expect(permissionClient.listDistributionCertificates).toHaveBeenCalledTimes(1);
   });
 });
 
 describe('formatPermissionLine', () => {
-  const base = { feature: 'x', label: 'Feature X', roles: ['Admin', 'App Manager'] } as const;
+  const permissionBase = {
+    feature: 'x',
+    label: 'Feature X',
+    roles: ['Admin', 'App Manager'],
+  } as const;
 
-  it('renders available with a check', () => {
-    expect(formatPermissionLine({ ...base, status: 'available' })).toBe('✓ Feature X');
+  it('renders available with ASCII text', () => {
+    expect(formatPermissionLine({ ...permissionBase, status: 'available' })).toBe('OK Feature X');
   });
 
   it('renders forbidden with the role hint', () => {
-    expect(formatPermissionLine({ ...base, status: 'forbidden' })).toBe(
-      '✗ Feature X — key lacks the role (needs one of: Admin, App Manager)',
+    expect(formatPermissionLine({ ...permissionBase, status: 'forbidden' })).toBe(
+      'x Feature X - key lacks the role (needs one of: Admin, App Manager)',
     );
   });
 
   it('renders unauthorized', () => {
-    expect(formatPermissionLine({ ...base, status: 'unauthorized' })).toContain(
+    expect(formatPermissionLine({ ...permissionBase, status: 'unauthorized' })).toContain(
       'unauthorized (401)',
     );
   });
 
   it('renders inconclusive with the detail', () => {
     expect(
-      formatPermissionLine({ ...base, status: 'inconclusive', detail: 'no app record to probe' }),
-    ).toBe("• Feature X — couldn't determine (no app record to probe)");
+      formatPermissionLine({
+        ...permissionBase,
+        status: 'inconclusive',
+        detail: 'no app record to probe',
+      }),
+    ).toBe("- Feature X - couldn't determine (no app record to probe)");
   });
 
   it('renders inconclusive without a detail', () => {
-    expect(formatPermissionLine({ ...base, status: 'inconclusive' })).toBe(
-      "• Feature X — couldn't determine",
+    expect(formatPermissionLine({ ...permissionBase, status: 'inconclusive' })).toBe(
+      "- Feature X - couldn't determine",
     );
   });
 });

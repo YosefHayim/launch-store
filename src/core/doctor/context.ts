@@ -1,56 +1,104 @@
-/**
- * Wire {@link inspectDoctor}'s impure inputs to real I/O.
- *
- * {@link inspectDoctor} (`core/doctor/inspect.ts`) is a pure read — every side-effecting input it needs
- * arrives through a {@link DoctorContext}. This builder is the production wiring of that seam: PATH probes
- * via `core/exec`, the memoized store-client resolvers from `core/storeClients`, the keychain query, and
- * the local credentials status. It lives in `core` (not the CLI) so both `launch doctor` and the `doctor`
- * MCP tool construct an identical context from one place — the CLI no longer owns this glue. A test builds
- * its own fake {@link DoctorContext} instead of calling this, so the network/keychain stays untouched.
- *
- * `core` importing the local credentials *provider* by value mirrors `core/storage.ts` importing the
- * storage providers — an allowed direction; only the inspect *core* must stay provider-free (it takes the
- * status as an injected thunk).
- */
-
-import { capture, exists } from '../services/exec.js';
-import { hostOs } from '../services/os.js';
+import { FileSystem, Path } from '@effect/platform';
+import type { CommandExecutor } from '@effect/platform/CommandExecutor';
+import { Data, Effect } from 'effect';
 import { loadConfig } from '../config/config.js';
+import { errorMessage } from '../services/errorMessage.js';
+import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
+import { captureCommandOutput, checkCommandExists } from '../services/exec.js';
+import { detectHostOperatingSystem } from '../services/os.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
+import { getCredentialsProvider } from '../services/registry.js';
+import type { LaunchSecretStoreService } from '../services/secretStore.js';
+import type { AppleStoreClientService } from '../services/appleStoreClient.js';
+import type { GoogleStoreClientService } from '../services/googleStoreClient.js';
 import { createAscClientResolver, createPlayClientResolver } from '../store/storeClients.js';
 import { selectApps } from '../store/syncJobs.js';
-import { localCredentialsProvider } from '../../providers/credentials/local.js';
-import type { DoctorContext, DoctorPlatform } from '../types/index.js';
+import type { DoctorContext, DoctorPlatform } from '../types/doctor.js';
 
-/**
- * Build the production {@link DoctorContext} for a platform. The store resolvers' concrete clients
- * structurally satisfy the narrow {@link import("./types.js").DoctorAscApi}/`DoctorPlayApi` surfaces, so
- * they assign with no cast (return-type covariance). `androidSdk` is added only when one of the SDK env
- * vars is set, to honor the exact-optional-property contract.
- */
-export async function buildDoctorContext(
+export type DoctorRuntimeRequirements =
+  | AppleStoreClientService
+  | CommandExecutor
+  | FileSystem.FileSystem
+  | GoogleStoreClientService
+  | LaunchEnvironmentService
+  | LaunchPathsService
+  | LaunchSecretStoreService
+  | Path.Path;
+
+/** Doctor context construction failed before any inspection section could run. */
+export type DoctorContextFailure = Readonly<{
+  readonly _tag: 'DoctorContextFailure';
+  readonly operation: string;
+  readonly message: string;
+  readonly cause?: unknown;
+}>;
+
+export const makeDoctorContextFailure = Data.tagged<DoctorContextFailure>('DoctorContextFailure');
+
+/** Convert one context dependency failure into the doctor boundary error. */
+const contextFailure = (operation: string, cause: unknown): DoctorContextFailure =>
+  makeDoctorContextFailure({ operation, message: errorMessage(cause), cause });
+
+export const buildDoctorContext = (
   platform: DoctorPlatform,
-  app?: string,
-): Promise<DoctorContext> {
-  const { config, apps } = await loadConfig();
-  const sdk = process.env['ANDROID_HOME'] ?? process.env['ANDROID_SDK_ROOT'];
-  return {
-    config,
-    apps: selectApps(apps, app),
-    platform,
-    os: hostOs(),
-    cwd: process.cwd(),
-    exists,
-    resolveAsc: createAscClientResolver(),
-    resolvePlay: createPlayClientResolver(),
-    credentialsStatus: () => localCredentialsProvider.status(),
-    corepackAvailable: () => exists('corepack'),
-    codesignIdentities: async () => {
-      try {
-        return await capture('security', ['find-identity', '-v', '-p', 'codesigning']);
-      } catch {
-        return null;
-      }
-    },
-    ...(sdk ? { androidSdk: sdk } : {}),
-  };
-}
+  appSelector?: string,
+): Effect.Effect<
+  DoctorContext<DoctorRuntimeRequirements>,
+  DoctorContextFailure,
+  FileSystem.FileSystem | LaunchEnvironmentService | LaunchPathsService | Path.Path
+> =>
+  Effect.gen(function* () {
+    const environment = yield* LaunchEnvironment;
+    const launchPaths = yield* LaunchPaths;
+    const loadedConfig = yield* loadConfig(launchPaths.workingDirectory).pipe(
+      Effect.mapError((cause) => contextFailure('load Launch configuration', cause)),
+    );
+    const operatingSystem = yield* detectHostOperatingSystem;
+    const resolveAppleClient = createAscClientResolver();
+    const resolveGoogleClient = createPlayClientResolver();
+    const selectedApps = yield* selectApps(loadedConfig.apps, appSelector).pipe(
+      Effect.mapError((cause) => contextFailure('select doctor apps', cause)),
+    );
+
+    let androidSdk = environment.values.androidSdkRoot;
+    if (environment.values.androidSdkHome !== undefined)
+      androidSdk = environment.values.androidSdkHome;
+    if (androidSdk === '') androidSdk = undefined;
+
+    const shellLocale: NonNullable<DoctorContext['shellLocale']> = {};
+    const language = environment.rawVariables['LANG'];
+    const languageFallback = environment.rawVariables['LANGUAGE'];
+    const localeOverride = environment.rawVariables['LC_ALL'];
+    if (language !== undefined) shellLocale.LANG = language;
+    if (languageFallback !== undefined) shellLocale.LANGUAGE = languageFallback;
+    if (localeOverride !== undefined) shellLocale.LC_ALL = localeOverride;
+
+    const doctorContext: DoctorContext<DoctorRuntimeRequirements> = {
+      config: loadedConfig.config,
+      apps: selectedApps,
+      platform,
+      os: operatingSystem,
+      cwd: launchPaths.workingDirectory,
+      exists: (executable) => checkCommandExists(executable),
+      gradleWrapperExists: (appDirectory) =>
+        Effect.gen(function* () {
+          const fileSystem = yield* FileSystem.FileSystem;
+          const pathService = yield* Path.Path;
+          return yield* fileSystem.exists(pathService.join(appDirectory, 'android', 'gradlew'));
+        }),
+      resolveAsc: () => resolveAppleClient(),
+      resolvePlay: () => resolveGoogleClient(),
+      credentialsStatus: () =>
+        getCredentialsProvider(loadedConfig.config.credentials).pipe(
+          Effect.flatMap((credentialsProvider) => credentialsProvider.status()),
+        ),
+      corepackAvailable: () => checkCommandExists('corepack'),
+      codesignIdentities: () =>
+        captureCommandOutput('security', ['find-identity', '-v', '-p', 'codesigning']).pipe(
+          Effect.catchAll(() => Effect.succeed(null)),
+        ),
+      shellLocale,
+    };
+    if (androidSdk === undefined) return doctorContext;
+    return { ...doctorContext, androidSdk };
+  });

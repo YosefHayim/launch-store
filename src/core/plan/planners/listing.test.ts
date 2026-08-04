@@ -1,15 +1,18 @@
+import { Effect } from 'effect';
+import { runPlanner } from './planner.testkit.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { listingPlanner } from './listing.js';
-import { makeAscApiFake } from '../../../testkit/ascApiFake.testkit.js';
-import type { AscCatalogApi } from '../../store/ascSync.js';
-import type { PlanContext, AppDescriptor, LaunchConfig } from '../../types/index.js';
-import type { AppleLocaleInfo } from '../../store/storeConfig.js';
-
+import { makeAscApiFake } from '@testkit/ascApiFake.testkit.js';
+import type { AscCatalogApi } from '@core/store/ascSync.js';
+import type { AppDescriptor } from '@core/types/app.js';
+import type { LaunchConfig } from '@core/types/config.js';
+import type { PlanContext } from '@core/types/plan.js';
+import type { AppleLocaleInfo } from '@core/store/storeConfig.js';
 /** A fully-stubbed {@link AscCatalogApi}: reads default to "nothing exists yet", writes resolve to a created resource. */
-function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {
+const makeApi = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {
   const base: AscCatalogApi = {
     getAppId: vi.fn().mockResolvedValue('app1'),
     findBundleId: vi.fn().mockResolvedValue({ id: 'bundle1', identifier: 'com.acme.alpha' }),
@@ -46,26 +49,22 @@ function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {
     updateVersionLocalization: vi.fn().mockResolvedValue(undefined),
   };
   return { ...base, ...overrides };
-}
-
+};
 const tmpDirs: string[] = [];
-
 /** Create a temp app dir holding a `store.config.json` with the given en-US Apple listing, and return it. */
-function appDirWithListing(info: AppleLocaleInfo): string {
+const appDirWithListing = (localeListing: AppleLocaleInfo): string => {
   const dir = mkdtempSync(join(tmpdir(), 'plan-listing-test-'));
   tmpDirs.push(dir);
   writeFileSync(
     join(dir, 'store.config.json'),
-    JSON.stringify({ apple: { info: { 'en-US': info } } }),
+    JSON.stringify({ apple: { info: { 'en-US': localeListing } } }),
   );
   return dir;
-}
-
+};
 afterEach(() => {
   for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
-
-function makeCtx(api: AscCatalogApi | null, appDir: string): PlanContext {
+const makeCtx = (api: AscCatalogApi | null, appDir: string): PlanContext => {
   const config: LaunchConfig = {
     profiles: {},
     credentials: 'local',
@@ -84,30 +83,34 @@ function makeCtx(api: AscCatalogApi | null, appDir: string): PlanContext {
     apps: [app],
     // Widen the catalog-only fake to the full surface API the context now exposes; the listing methods
     // (which these tests assert on) win over the factory's inert defaults via the trailing spread.
-    resolveAscApi: () => Promise.resolve(api === null ? null : { ...makeAscApiFake(), ...api }),
-    resolvePlayApi: () => Promise.resolve(null),
+    resolveAscApi: () => {
+      if (api === null) return Effect.succeed(null);
+      return Effect.succeed(makeAscApiFake(api));
+    },
+    resolvePlayApi: () => Effect.succeed(null),
   };
-}
-
+};
 describe('listingPlanner', () => {
   it('omits itself when no app declares a store listing', async () => {
-    const plan = await listingPlanner.plan(makeCtx(makeApi(), '/no/such/dir/alpha'));
+    const plan = await runPlanner(listingPlanner, makeCtx(makeApi(), '/no/such/dir/alpha'));
     expect(plan.state).toBe('omitted');
   });
-
   it('skips with an actionable hint when no Apple account is active', async () => {
-    const plan = await listingPlanner.plan(makeCtx(null, appDirWithListing({ title: 'Acme' })));
+    const plan = await runPlanner(
+      listingPlanner,
+      makeCtx(null, appDirWithListing({ title: 'Acme' })),
+    );
     expect(plan.state).toBe('skipped');
     if (plan.state !== 'skipped') return;
     expect(plan.reason).toMatch(/Apple account/);
     expect(plan.hint).toMatch(/creds/);
   });
-
   it('reports the per-app diff a fresh listing would create', async () => {
     const dir = appDirWithListing({ title: 'Acme', description: 'The best acme app.' });
-    const plan = await listingPlanner.plan(makeCtx(makeApi(), dir));
+    const plan = await runPlanner(listingPlanner, makeCtx(makeApi(), dir));
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned' || plan.scope !== 'app') return;
+    if (plan.state !== 'planned') return;
+    if (plan.scope !== 'app') return;
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
     expect(
@@ -121,19 +124,22 @@ describe('listingPlanner', () => {
       ),
     ).toBe(true);
   });
-
   it('captures a missing app record as a per-app error, not a thrown plan', async () => {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
-    const plan = await listingPlanner.plan(makeCtx(api, appDirWithListing({ title: 'Acme' })));
+    const plan = await runPlanner(
+      listingPlanner,
+      makeCtx(api, appDirWithListing({ title: 'Acme' })),
+    );
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned' || plan.scope !== 'app') return;
+    if (plan.state !== 'planned') return;
+    if (plan.scope !== 'app') return;
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
   });
-
   it('is strictly read-only: never invokes a listing write endpoint', async () => {
     const api = makeApi();
-    await listingPlanner.plan(
+    await runPlanner(
+      listingPlanner,
       makeCtx(api, appDirWithListing({ title: 'Acme', description: 'The best acme app.' })),
     );
     expect(api.getEditableAppInfoId).toHaveBeenCalled();

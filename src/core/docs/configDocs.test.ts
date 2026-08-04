@@ -1,27 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { cleanDescription, renderConfigDocs } from './configDocs.js';
 import type { JsonSchema } from '../config/jsonSchema.js';
-
 describe('cleanDescription', () => {
   it("strips a bare {@link} down to the symbol's last segment", () => {
     expect(cleanDescription('See {@link ReleaseConfig.earliestReleaseDate}.')).toBe(
       'See earliestReleaseDate.',
     );
   });
-
   it('uses the display text of a labelled {@link}', () => {
     expect(cleanDescription('Drives {@link sync the reconciler}.')).toBe('Drives the reconciler.');
   });
-
   it('collapses newlines and runs of whitespace into single spaces', () => {
     expect(cleanDescription('line one\n  line two')).toBe('line one line two');
   });
-
   it('returns an empty string for no description', () => {
     expect(cleanDescription(undefined)).toBe('');
   });
 });
-
 describe('renderConfigDocs', () => {
   const schema: JsonSchema = {
     $ref: '#/definitions/LaunchConfigInput',
@@ -54,7 +49,6 @@ describe('renderConfigDocs', () => {
       },
     },
   };
-
   it('renders the top-level fields table with required flags and rendered types', () => {
     const docs = renderConfigDocs(schema);
     expect(docs).toContain('# Launch config reference');
@@ -62,7 +56,6 @@ describe('renderConfigDocs', () => {
     expect(docs).toContain('| `profiles` | `Record<string,BuildProfile>` | Yes |');
     expect(docs).toContain('| `appRoots` | `string[]` | No |');
   });
-
   it('renders a section per nested object definition but not for the root or Record/enum defs', () => {
     const docs = renderConfigDocs(schema);
     expect(docs).toContain('### `BuildProfile`');
@@ -70,7 +63,6 @@ describe('renderConfigDocs', () => {
     expect(docs).not.toContain('### `LaunchConfigInput`');
     expect(docs).not.toContain('### `Record<string,BuildProfile>`');
   });
-
   it('strips {@link} tags from rendered descriptions', () => {
     expect(renderConfigDocs(schema)).not.toContain('@link');
   });

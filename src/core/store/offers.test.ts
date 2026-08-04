@@ -1,3 +1,4 @@
+import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type {
   InAppPurchaseResource,
@@ -13,12 +14,11 @@ import type {
   SubscriptionResource,
   WinBackOfferCreate,
   WinBackOfferResource,
-} from '../../apple/ascClient.js';
-import type { AppProducts, SubscriptionConfig } from '../types/index.js';
+} from '../types/appleCatalog.js';
+import type { AppProducts, SubscriptionConfig } from '../types/catalog.js';
 import { reconcileOffers, type AscOffersApi } from './offers.js';
-
 /**
- * Hand-rolled {@link AscOffersApi} fake — records every create/reorder and serves configurable existing
+ * Hand-rolled {@link AscOffersApi} fake - records every create/reorder and serves configurable existing
  * state, so the reconciler's diff/plan logic is testable with no network (mirrors the ascSync tests).
  * `findSubscriptionPricePoint` resolves any price except the sentinel `999` (which models "no match").
  */
@@ -34,91 +34,97 @@ class FakeOffersApi implements AscOffersApi {
   introductoryOffers: IntroductoryOfferResource[] = [];
   winBackOffers: WinBackOfferResource[] = [];
   promoted: PromotedPurchaseResource[] = [];
-
   readonly createdOfferCodes: OfferCodeCreate[] = [];
   readonly createdPromotional: PromotionalOfferCreate[] = [];
   readonly createdWinBack: WinBackOfferCreate[] = [];
   readonly createdPromoted: PromotedPurchaseCreate[] = [];
   introCreateCount = 0;
   reorderedTo: string[] | null = null;
-
-  getAppId(): Promise<string | null> {
-    return Promise.resolve(this.appId);
+  getAppId(): Effect.Effect<string | null> {
+    return Effect.succeed(this.appId);
   }
-  listSubscriptionGroups(): Promise<SubscriptionGroupResource[]> {
-    return Promise.resolve(this.groups);
+  listSubscriptionGroups(): Effect.Effect<SubscriptionGroupResource[]> {
+    return Effect.succeed(this.groups);
   }
-  listSubscriptions(groupId: string): Promise<SubscriptionResource[]> {
-    return Promise.resolve(this.subsByGroup[groupId] ?? []);
+  listSubscriptions(groupId: string): Effect.Effect<SubscriptionResource[]> {
+    let subscriptions: SubscriptionResource[] = [];
+    if (this.subsByGroup[groupId] !== undefined) subscriptions = this.subsByGroup[groupId];
+    return Effect.succeed(subscriptions);
   }
-  listInAppPurchases(): Promise<InAppPurchaseResource[]> {
-    return Promise.resolve(this.iaps);
+  listInAppPurchases(): Effect.Effect<InAppPurchaseResource[]> {
+    return Effect.succeed(this.iaps);
   }
   findSubscriptionPricePoint(
     _subscriptionId: string,
     territory: string,
     customerPrice: number,
-  ): Promise<PricePointResource | null> {
-    if (customerPrice === 999) return Promise.resolve(null);
-    return Promise.resolve({
+  ): Effect.Effect<PricePointResource | null> {
+    if (customerPrice === 999) return Effect.succeed(null);
+    return Effect.succeed({
       id: `pp-${territory}-${customerPrice}`,
       customerPrice: String(customerPrice),
       territory,
     });
   }
-  listSubscriptionOfferCodes(): Promise<OfferCodeResource[]> {
-    return Promise.resolve(this.offerCodes);
+  listSubscriptionOfferCodes(): Effect.Effect<OfferCodeResource[]> {
+    return Effect.succeed(this.offerCodes);
   }
-  createSubscriptionOfferCode(input: OfferCodeCreate): Promise<OfferCodeResource> {
+  createSubscriptionOfferCode(input: OfferCodeCreate): Effect.Effect<OfferCodeResource> {
     this.createdOfferCodes.push(input);
-    return Promise.resolve({ id: `oc-${input.name}`, name: input.name, active: true });
+    return Effect.succeed({ id: `oc-${input.name}`, name: input.name, active: true });
   }
-  listPromotionalOffers(): Promise<PromotionalOfferResource[]> {
-    return Promise.resolve(this.promotionalOffers);
+  listPromotionalOffers(): Effect.Effect<PromotionalOfferResource[]> {
+    return Effect.succeed(this.promotionalOffers);
   }
-  createPromotionalOffer(input: PromotionalOfferCreate): Promise<PromotionalOfferResource> {
+  createPromotionalOffer(input: PromotionalOfferCreate): Effect.Effect<PromotionalOfferResource> {
     this.createdPromotional.push(input);
-    return Promise.resolve({
+    return Effect.succeed({
       id: `po-${input.offerCode}`,
       name: input.name,
       offerCode: input.offerCode,
     });
   }
-  listIntroductoryOffers(): Promise<IntroductoryOfferResource[]> {
-    return Promise.resolve(this.introductoryOffers);
+  listIntroductoryOffers(): Effect.Effect<IntroductoryOfferResource[]> {
+    return Effect.succeed(this.introductoryOffers);
   }
-  createIntroductoryOffer(): Promise<void> {
+  createIntroductoryOffer(): Effect.Effect<void> {
     this.introCreateCount++;
-    return Promise.resolve();
+    return Effect.void;
   }
-  listWinBackOffers(): Promise<WinBackOfferResource[]> {
-    return Promise.resolve(this.winBackOffers);
+  listWinBackOffers(): Effect.Effect<WinBackOfferResource[]> {
+    return Effect.succeed(this.winBackOffers);
   }
-  createWinBackOffer(input: WinBackOfferCreate): Promise<void> {
+  createWinBackOffer(input: WinBackOfferCreate): Effect.Effect<void> {
     this.createdWinBack.push(input);
-    return Promise.resolve();
+    return Effect.void;
   }
-  listPromotedPurchases(): Promise<PromotedPurchaseResource[]> {
-    return Promise.resolve(this.promoted);
+  listPromotedPurchases(): Effect.Effect<PromotedPurchaseResource[]> {
+    return Effect.succeed(this.promoted);
   }
-  createPromotedPurchase(input: PromotedPurchaseCreate): Promise<PromotedPurchaseResource> {
+  createPromotedPurchase(input: PromotedPurchaseCreate): Effect.Effect<PromotedPurchaseResource> {
     this.createdPromoted.push(input);
-    return Promise.resolve({
+    let inAppPurchaseId: string | null = null;
+    if (input.inAppPurchaseId !== undefined) inAppPurchaseId = input.inAppPurchaseId;
+    let subscriptionId: string | null = null;
+    if (input.subscriptionId !== undefined) subscriptionId = input.subscriptionId;
+    return Effect.succeed({
       id: `pp-new-${this.createdPromoted.length}`,
-      inAppPurchaseId: input.inAppPurchaseId ?? null,
-      subscriptionId: input.subscriptionId ?? null,
+      inAppPurchaseId,
+      subscriptionId,
       enabled: input.enabled,
       visibleForAllUsers: input.visibleForAllUsers,
     });
   }
-  reorderPromotedPurchases(_appId: string, orderedIds: string[]): Promise<void> {
+  reorderPromotedPurchases(_appId: string, orderedIds: string[]): Effect.Effect<void> {
     this.reorderedTo = orderedIds;
-    return Promise.resolve();
+    return Effect.void;
   }
 }
-
+/** Execute the offers reconciler at the test boundary. */
+const runReconcile = (api: AscOffersApi, input: Parameters<typeof reconcileOffers>[1]) =>
+  Effect.runPromise(reconcileOffers(api, input));
 /** Build a products config with one subscription carrying the given offer overrides. */
-function productsWith(overrides: Partial<SubscriptionConfig>): AppProducts {
+const productsWith = (overrides: Partial<SubscriptionConfig>): AppProducts => {
   const subscription: SubscriptionConfig = {
     productId: 'com.acme.pro',
     referenceName: 'Pro',
@@ -135,12 +141,11 @@ function productsWith(overrides: Partial<SubscriptionConfig>): AppProducts {
       },
     ],
   };
-}
-
-describe('reconcileOffers — offer codes', () => {
+};
+describe('reconcileOffers - offer codes', () => {
   it('creates a missing offer code with its prices resolved to price points', async () => {
     const api = new FakeOffersApi();
-    const report = await reconcileOffers(api, {
+    const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       dryRun: false,
       products: productsWith({
@@ -164,11 +169,10 @@ describe('reconcileOffers — offer codes', () => {
       { territory: 'USA', pricePointId: 'pp-USA-4.99' },
     ]);
   });
-
   it('skips an offer code that already exists (matched by name)', async () => {
     const api = new FakeOffersApi();
     api.offerCodes = [{ id: 'oc-LAUNCH', name: 'LAUNCH', active: true }];
-    const report = await reconcileOffers(api, {
+    const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       dryRun: false,
       products: productsWith({
@@ -188,10 +192,9 @@ describe('reconcileOffers — offer codes', () => {
     expect(report.actions).toHaveLength(0);
     expect(api.createdOfferCodes).toHaveLength(0);
   });
-
   it('plans but does not write on a dry-run', async () => {
     const api = new FakeOffersApi();
-    const report = await reconcileOffers(api, {
+    const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       dryRun: true,
       products: productsWith({
@@ -210,10 +213,9 @@ describe('reconcileOffers — offer codes', () => {
     expect(report.actions[0]?.status).toBe('planned');
     expect(api.createdOfferCodes).toHaveLength(0);
   });
-
   it('skips a FREE_TRIAL offer code that wrongly carries a price', async () => {
     const api = new FakeOffersApi();
-    const report = await reconcileOffers(api, {
+    const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       dryRun: false,
       products: productsWith({
@@ -234,10 +236,9 @@ describe('reconcileOffers — offer codes', () => {
     expect(report.actions[0]?.description).toContain('FREE_TRIAL');
     expect(api.createdOfferCodes).toHaveLength(0);
   });
-
   it('fails the action (not the run) when a declared price matches no price point', async () => {
     const api = new FakeOffersApi();
-    const report = await reconcileOffers(api, {
+    const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       dryRun: false,
       products: productsWith({
@@ -258,11 +259,10 @@ describe('reconcileOffers — offer codes', () => {
     expect(report.actions[0]?.error).toContain('price point');
   });
 });
-
-describe('reconcileOffers — promotional / introductory / win-back', () => {
+describe('reconcileOffers - promotional / introductory / win-back', () => {
   it("creates each declared offer kind that's missing", async () => {
     const api = new FakeOffersApi();
-    const report = await reconcileOffers(api, {
+    const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       dryRun: false,
       products: productsWith({
@@ -297,10 +297,9 @@ describe('reconcileOffers — promotional / introductory / win-back', () => {
     expect(api.introCreateCount).toBe(1);
     expect(api.createdWinBack).toHaveLength(1);
   });
-
   it('skips a win-back offer whose eligibility window is inverted', async () => {
     const api = new FakeOffersApi();
-    const report = await reconcileOffers(api, {
+    const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       dryRun: false,
       products: productsWith({
@@ -323,8 +322,7 @@ describe('reconcileOffers — promotional / introductory / win-back', () => {
     expect(api.createdWinBack).toHaveLength(0);
   });
 });
-
-describe('reconcileOffers — promoted purchases', () => {
+describe('reconcileOffers - promoted purchases', () => {
   it('promotes a missing product and reorders to the declared order', async () => {
     const api = new FakeOffersApi();
     api.iaps = [
@@ -343,26 +341,25 @@ describe('reconcileOffers — promoted purchases', () => {
       ...productsWith({}),
       promotedPurchases: [{ productId: 'com.acme.pro' }, { productId: 'com.acme.coins' }],
     };
-    const report = await reconcileOffers(api, {
+    const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       dryRun: false,
       products,
     });
-    // The subscription isn't promoted yet → created; then a reorder puts pro (new) before coins (existing).
+    // The subscription isn't promoted yet -> created; then a reorder puts pro (new) before coins (existing).
     expect(api.createdPromoted).toHaveLength(1);
     expect(api.createdPromoted[0]?.subscriptionId).toBe('sub-1');
     expect(
       report.actions.some((action) => action.description.startsWith('reorder promoted purchases')),
     ).toBe(true);
   });
-
   it('skips a promoted product that maps to no subscription or IAP', async () => {
     const api = new FakeOffersApi();
     const products: AppProducts = {
       ...productsWith({}),
       promotedPurchases: [{ productId: 'com.acme.ghost' }],
     };
-    const report = await reconcileOffers(api, {
+    const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       dryRun: false,
       products,
@@ -372,12 +369,11 @@ describe('reconcileOffers — promoted purchases', () => {
     expect(api.createdPromoted).toHaveLength(0);
   });
 });
-
-describe('reconcileOffers — preconditions', () => {
+describe('reconcileOffers - preconditions', () => {
   it("skips a subscription that isn't in App Store Connect yet", async () => {
     const api = new FakeOffersApi();
     api.subsByGroup = { 'grp-1': [] };
-    const report = await reconcileOffers(api, {
+    const report = await runReconcile(api, {
       bundleId: 'com.acme.app',
       dryRun: false,
       products: productsWith({
@@ -396,12 +392,11 @@ describe('reconcileOffers — preconditions', () => {
     expect(report.actions[0]?.status).toBe('skipped');
     expect(report.actions[0]?.description).toContain('launch sync');
   });
-
   it('throws when the app has no App Store Connect record', async () => {
     const api = new FakeOffersApi();
     api.appId = null;
     await expect(
-      reconcileOffers(api, { bundleId: 'com.acme.app', dryRun: false, products: productsWith({}) }),
+      runReconcile(api, { bundleId: 'com.acme.app', dryRun: false, products: productsWith({}) }),
     ).rejects.toThrow(/No App Store Connect app record/);
   });
 });

@@ -1,276 +1,216 @@
-/**
- * Shared vocabulary for the readiness layer — the read-only "is this actually shippable?" checks that
- * back `launch store doctor` (account onboarding) and, as they land, `launch audit` (pre-submit blockers)
- * and `launch iap doctor` (in-app-purchase verification).
- *
- * Where `core/plan` *diffs* config against live state, readiness *grades* live state against the store's
- * submission prerequisites. The mechanism mirrors the {@link import("./plan.js").SurfacePlanner}
- * registry exactly: each check is one {@link ReadinessProbe}, registered by id and tagged with the
- * {@link ReadinessCategory categories} it belongs to; a command is a thin **selector** over those tags
- * (store doctor = `account`, iap doctor = `iap`, audit = every submit-blocking probe). Adding a check is a
- * new probe file + one `registerReadinessProbe()` line — the orchestrator never names a concrete probe.
- *
- * These types describe the readiness *mechanism* and its report. Like every domain shape they live in
- * the `core/types/` barrel (imported via `core/types/index.js`); the probes, registry, and orchestrator
- * that act on them stay in `core/readiness/`.
- */
-
+import type { FileSystem, HttpClient, Path } from '@effect/platform';
+import type { Effect } from 'effect';
 import type { AppDescriptor } from './app.js';
 import type { LaunchConfig } from './config.js';
-import type { Effect } from 'effect';
 
-/** Which store a probe reads from — drives credential resolution and how the report is grouped. */
+/** Store queried by a readiness probe. */
 export type ReadinessStore = 'appstore' | 'play';
 
-/**
- * The tag(s) a probe is filed under, so a command selects the slice it cares about without naming probes:
- * - `account` — store-account onboarding prerequisites (agreements, app record, track readiness).
- * - `iap` — in-app-purchase / subscription shippability.
- * - `listing` — store-listing completeness (copy, screenshots, URLs).
- * - `privacy` — privacy-declaration / permissions reconciliation.
- * - `signing` — distribution certificate / profile / Play signing health.
- * - `submit` — the cross-cutting "would this be rejected at submission?" selector behind `launch audit`. A
- *   probe carries `submit` *in addition to* its domain tag when its failure blocks a submission, so audit
- *   is one selector over every blocking check and grows automatically as the family adds blocking probes.
- * The union grows as the family lands; a probe may carry several tags when a check matters to more than
- * one command (e.g. "subscription group ready" is both `account` and `iap`; "app record exists" is both
- * `account` and `submit`).
- */
+/** Probe groups selected by readiness commands. */
 export type ReadinessCategory = 'account' | 'iap' | 'listing' | 'privacy' | 'signing' | 'submit';
 
-/**
- * One app's finding for one probe. A probe maps an **expected** "not ready" condition (a missing app
- * record, no uploaded build) to a `blocker`/`warn` finding here; only an **unexpected** read failure is
- * allowed to throw, which the orchestrator records as an errored probe (see {@link ProbeOutcome}). So a
- * finding is always a successful read — never an infrastructure error in disguise.
- */
-export interface AppReadiness {
-  /** App handle as discovered (used for grouping and the `-a` selector). */
+/** One app's finding from one successful probe read. */
+export type AppReadiness = {
   app: string;
-  /** The app's identifier on this store — iOS bundle id / Android package name. */
   identifier: string;
-  /** `ok` shippable · `warn` advisory (recommended, not required) · `blocker` will cause rejection/failure. */
   status: 'ok' | 'warn' | 'blocker';
-  /** One-line plain-English summary of what was found, shown after the probe title. */
   detail: string;
-  /** Optional actionable next step, shown dimmed under a `warn`/`blocker`. */
   hint?: string;
-}
-
-/**
- * What a probe returns. A discriminated union mirroring {@link import("./plan.js").SurfacePlan}:
- * - `omitted` — nothing in scope for this probe (e.g. no subscriptions declared); dropped from output.
- * - `skipped` — the store's credentials aren't configured, so the check couldn't run; benign (exit 0)
- *   but surfaced with a hint, since a doctor that can't reach an account should say so.
- * - `checked` — the probe ran; `apps` carries the per-app findings.
- */
+};
+/** Probe outcome before unexpected failures are added by the orchestrator. */
 export type ProbeResult =
-  | { state: 'omitted' }
-  | { state: 'skipped'; reason: string; hint?: string }
-  | { state: 'checked'; apps: AppReadiness[] };
+  | {
+      state: 'omitted';
+    }
+  | {
+      state: 'skipped';
+      reason: string;
+      hint?: string;
+    }
+  | {
+      state: 'checked';
+      apps: AppReadiness[];
+    };
+/** Platform capabilities available to every readiness probe. */
+export type ReadinessProbeRequirements = FileSystem.FileSystem | HttpClient.HttpClient | Path.Path;
 
-/**
- * Temporary readiness-check return surface while the probe family migrates from Promise to Effect.
- * New and touched probes should return `Effect.Effect<ProbeResult, unknown>`; the Promise arm stays only
- * so old probes keep compiling until their files are converted.
- */
-export type ProbeCheckResult =
+/** Effect returned by every readiness probe. */
+export type ProbeCheckResult = Effect.Effect<ProbeResult, unknown, ReadinessProbeRequirements>;
+
+/** Probe result plus an unexpected read failure captured by the orchestrator. */
+export type ProbeOutcome =
   | ProbeResult
-  | Promise<ProbeResult>
-  | Effect.Effect<ProbeResult, unknown>;
-
-/**
- * A {@link ProbeResult} plus the `errored` state the orchestrator synthesizes when a probe throws
- * unexpectedly (a real read failure, not a "not ready" finding). Kept distinct from `blocker` so the exit
- * code can separate "couldn't certify" (exit 1) from "certified: found blockers" (exit 2).
- */
-export type ProbeOutcome = ProbeResult | { state: 'errored'; error: string };
-
-/**
- * One probe's resolved report, as rendered and serialized to `--json`. The orchestrator stamps the
- * probe's identity onto its {@link ProbeOutcome} so a probe never restates its own id/title/store.
- */
-export interface ProbeReport {
-  /** Stable probe key (shown in the report and usable for future per-probe scoping). */
+  | {
+      state: 'errored';
+      error: string;
+    };
+/** Identified probe outcome used by terminal and JSON renderers. */
+export type ProbeReport = {
   id: string;
-  /** Human-readable probe title. */
   title: string;
-  /** The store this probe read from. */
   store: ReadinessStore;
-  /** What the probe found (or that it was skipped/omitted/errored). */
   outcome: ProbeOutcome;
-}
-
-/**
- * The read-only App Store Connect surface the readiness probes share — exactly the methods they call,
- * nothing more. `AppStoreConnectClient` satisfies this structurally (every method already exists on it),
- * so the resolver from `core/storeClients.ts` is assignable here with no cast. Grows by one method as
- * each new Apple probe lands.
- */
-export interface AscReadinessApi {
-  /** The app's App Store Connect id for a bundle id, or `null` when no app record exists. */
-  getAppId(bundleId: string): Promise<string | null>;
-  /**
-   * Whether the account's required legal agreements (Developer Program License, Paid Applications,
-   * banking/tax) are signed and in effect. `false` means one is missing/expired — a 403 blocker on every
-   * upload. Throws only on an unexpected read failure (not the agreements 403).
-   */
-  checkRequiredAgreements(): Promise<boolean>;
-  /** The app's auto-renewable subscription groups (only `id` is needed to assert presence / list members). */
-  listSubscriptionGroups(appId: string): Promise<{ id: string }[]>;
-  /** The registered Bundle ID (App ID) for an identifier, or `null` when it isn't registered yet. */
-  findBundleId(identifier: string): Promise<{ id: string } | null>;
-  /** The team's distribution certificates (only `id` + `expirationDate` are needed to grade validity). */
-  listDistributionCertificates(): Promise<{ id: string; expirationDate?: string | undefined }[]>;
-  /**
-   * The app's one-time in-app purchases. `productId` + lifecycle `state` match config and grade readiness;
-   * `id` (the App Store Connect resource id, always present on a live read) lets a probe make a follow-up
-   * per-product call — resolving a price point, listing offers. Optional only so the readiness fakes can
-   * omit it where a probe doesn't read it.
-   */
-  listInAppPurchases(
-    appId: string,
-  ): Promise<{ id?: string; productId: string; state?: string | undefined }[]>;
-  /** A subscription group's subscriptions — the subscription counterpart of {@link listInAppPurchases}. */
-  listSubscriptions(
-    groupId: string,
-  ): Promise<{ id?: string; productId: string; state?: string | undefined }[]>;
-  /**
-   * The account's sandbox testers (the fake Apple IDs used to exercise StoreKit purchases). Only presence
-   * matters to readiness, so just `id` is read; an empty list means no tester has been created yet.
-   */
-  listSandboxTesters(): Promise<{ id: string }[]>;
-  /**
-   * The in-app-purchase price point in `territory` whose customer price equals `customerPrice`, or `null`
-   * when the declared amount isn't a rung on Apple's fixed price ladder for the product. Used to validate a
-   * config price *before* `launch sync` would reject it at apply time.
-   */
+};
+/** Read-only App Store Connect methods used by readiness probes. */
+export type AscReadinessApi = {
+  getAppId(bundleId: string): Effect.Effect<string | null, unknown>;
+  checkRequiredAgreements(): Effect.Effect<boolean, unknown>;
+  listSubscriptionGroups(appId: string): Effect.Effect<
+    {
+      id: string;
+    }[],
+    unknown
+  >;
+  findBundleId(identifier: string): Effect.Effect<
+    {
+      id: string;
+    } | null,
+    unknown
+  >;
+  listDistributionCertificates(): Effect.Effect<
+    {
+      id: string;
+      expirationDate?: string | undefined;
+    }[],
+    unknown
+  >;
+  listInAppPurchases(appId: string): Effect.Effect<
+    {
+      id?: string;
+      productId: string;
+      state?: string | undefined;
+    }[],
+    unknown
+  >;
+  listSubscriptions(groupId: string): Effect.Effect<
+    {
+      id?: string;
+      productId: string;
+      state?: string | undefined;
+    }[],
+    unknown
+  >;
+  listSandboxTesters(): Effect.Effect<
+    {
+      id: string;
+    }[],
+    unknown
+  >;
   findInAppPurchasePricePoint(
     iapId: string,
     territory: string,
     customerPrice: number,
-  ): Promise<{ id: string } | null>;
-  /** The subscription counterpart of {@link findInAppPurchasePricePoint}. */
+  ): Effect.Effect<
+    {
+      id: string;
+    } | null,
+    unknown
+  >;
   findSubscriptionPricePoint(
     subscriptionId: string,
     territory: string,
     customerPrice: number,
-  ): Promise<{ id: string } | null>;
-  /** A subscription's offer-code campaigns, matched by `name` (the reconciler's key) to verify declared offers exist. */
-  listSubscriptionOfferCodes(subscriptionId: string): Promise<{ name: string }[]>;
-  /**
-   * The app's current **editable** `appInfo` id (the container for app-level listing copy — name, privacy
-   * URL — and the age-rating questionnaire), or `null` when none is in an editable state. The age-rating
-   * and account-deletion probes hang their reads off it.
-   */
-  getEditableAppInfoId(appId: string): Promise<string | null>;
-  /**
-   * The age-rating questionnaire's stored answers under an `appInfo`, or `null` when it's never been
-   * touched. A populated `attributes` map means the questionnaire is completed.
-   */
-  getAgeRatingDeclaration(
-    appInfoId: string,
-  ): Promise<{ attributes: Record<string, string | boolean> } | null>;
-  /**
-   * Each locale's account-deletion URL under an `appInfo` (Apple's `privacyChoicesUrl`), the empty string
-   * where unset. The account-deletion-URL probe asserts at least one locale declares it.
-   */
-  listAccountDeletionUrls(appInfoId: string): Promise<{ locale: string; url: string }[]>;
-  /**
-   * The app's current **editable** App Store version id for `platform`, or `null` when none is in an
-   * editable state. The demo-account probe reads its App Review detail off it.
-   */
-  findEditableAppStoreVersion(appId: string, platform: string): Promise<{ id: string } | null>;
-  /**
-   * A version's App Review details (contact info, demo-account name, notes), or `null` when unset. The
-   * demo-account password is write-only on Apple's side and never returned, so `attributes` carries only
-   * the readable fields.
-   */
-  getAppStoreReviewDetail(
-    versionId: string,
-  ): Promise<{ attributes: Record<string, string | boolean> } | null>;
-  /** The capabilities currently enabled on a bundle id (App ID) — the entitlement-matching probe's live side. */
-  listBundleIdCapabilities(bundleIdResourceId: string): Promise<{ capabilityType: string }[]>;
-  /**
-   * The editable App Store version's per-locale localizations (only `id` + `locale` are needed). The
-   * screenshot probe walks these to find each locale's screenshot sets.
-   */
-  listAppStoreVersionLocalizations(versionId: string): Promise<{ id: string; locale: string }[]>;
-  /**
-   * The screenshot sets under one version localization — one set per device class. `screenshotDisplayType`
-   * is Apple's device-target enum (e.g. `APP_IPHONE_67`); the screenshot probe matches it against the
-   * required classes. A set may exist while empty, so presence is confirmed via {@link listScreenshots}.
-   */
-  listScreenshotSets(
-    versionLocalizationId: string,
-  ): Promise<{ id: string; screenshotDisplayType: string }[]>;
-  /** The screenshots in a set (only `id` is needed to confirm a set actually holds an image, not just exists). */
-  listScreenshots(setId: string): Promise<{ id: string }[]>;
-}
-
-/**
- * The read-only Google Play surface the readiness probes share — the Play counterpart to
- * {@link AscReadinessApi}. `GooglePlayClient` satisfies it structurally.
- */
-export interface PlayReadinessApi {
-  /** Throws when the app doesn't exist or the service account can't access it; resolves otherwise. */
-  assertAppExists(packageName: string): Promise<void>;
-  /** Highest uploaded bundle `versionCode`, or `0` when nothing has been uploaded yet. */
-  getLatestVersionCode(packageName: string): Promise<number>;
-  /** Every track on the app (only `track` is needed to assert a track's presence). */
-  listTracks(packageName: string): Promise<{ track: string }[]>;
-}
-
-/**
- * What a {@link ReadinessProbe} is handed: the loaded config, the apps in scope (already narrowed by
- * `-a`), and the lazy, memoized store-client resolvers from `core/storeClients.ts`. A resolver returns
- * `null` when the account isn't configured, letting the probe emit a `skipped` result instead of throwing.
- */
-export interface ReadinessContext {
+  ): Effect.Effect<
+    {
+      id: string;
+    } | null,
+    unknown
+  >;
+  listSubscriptionOfferCodes(subscriptionId: string): Effect.Effect<
+    {
+      name: string;
+    }[],
+    unknown
+  >;
+  getEditableAppInfoId(appId: string): Effect.Effect<string | null, unknown>;
+  getAgeRatingDeclaration(appInfoId: string): Effect.Effect<
+    {
+      attributes: Record<string, string | boolean>;
+    } | null,
+    unknown
+  >;
+  listAccountDeletionUrls(appInfoId: string): Effect.Effect<
+    {
+      locale: string;
+      url: string;
+    }[],
+    unknown
+  >;
+  findEditableAppStoreVersion(
+    appId: string,
+    platform: string,
+  ): Effect.Effect<
+    {
+      id: string;
+    } | null,
+    unknown
+  >;
+  getAppStoreReviewDetail(versionId: string): Effect.Effect<
+    {
+      attributes: Record<string, string | boolean>;
+    } | null,
+    unknown
+  >;
+  listBundleIdCapabilities(bundleIdResourceId: string): Effect.Effect<
+    {
+      capabilityType: string;
+    }[],
+    unknown
+  >;
+  listAppStoreVersionLocalizations(versionId: string): Effect.Effect<
+    {
+      id: string;
+      locale: string;
+    }[],
+    unknown
+  >;
+  listScreenshotSets(versionLocalizationId: string): Effect.Effect<
+    {
+      id: string;
+      screenshotDisplayType: string;
+    }[],
+    unknown
+  >;
+  listScreenshots(setId: string): Effect.Effect<
+    {
+      id: string;
+    }[],
+    unknown
+  >;
+};
+/** Read-only Google Play methods used by readiness probes. */
+export type PlayReadinessApi = {
+  assertAppExists(packageName: string): Effect.Effect<void, unknown>;
+  getLatestVersionCode(packageName: string): Effect.Effect<number, unknown>;
+  listTracks(packageName: string): Effect.Effect<
+    {
+      track: string;
+    }[],
+    unknown
+  >;
+};
+/** Config, selected apps, and memoized clients shared by readiness probes. */
+export type ReadinessContext = {
   config: LaunchConfig;
   apps: AppDescriptor[];
-  /** Resolve the read-only App Store Connect client, or `null` when no Apple account is active. */
-  resolveAscApi(): Promise<AscReadinessApi | null>;
-  /** Resolve the read-only Google Play client, or `null` when no Play service account is configured. */
-  resolvePlayApi(): Promise<PlayReadinessApi | null>;
-}
-
-/**
- * One readiness check. {@link check} is **read-only**: it resolves live state and classifies it, never
- * writing. Registered like a provider/planner (see {@link import("../readiness/registry.js")}); the orchestrator
- * resolves every selected probe and never names a concrete one.
- */
-export interface ReadinessProbe {
-  /** Stable probe key shown in the report. */
+  resolveAscApi(): Effect.Effect<AscReadinessApi | null, unknown>;
+  resolvePlayApi(): Effect.Effect<PlayReadinessApi | null, unknown>;
+};
+/** Registered read-only probe selected by category. */
+export type ReadinessProbe = {
   id: string;
-  /** Human-readable title for the report line. */
   title: string;
-  /** Which store this probe reads from. */
   store: ReadinessStore;
-  /** The category tags this probe is filed under, used by a command to select it. */
   categories: readonly ReadinessCategory[];
-  /** Read live state for the in-scope apps and classify it, performing no writes. */
   check(readinessContext: ReadinessContext): ProbeCheckResult;
-}
-
-/**
- * The aggregate result of a readiness run, structured so the command can render it and `--json` can
- * serialize it verbatim. `reports` excludes omitted probes; the counts drive both the summary line and
- * the exit code (see {@link import("../readiness/orchestrator.js").readinessExitCode}).
- */
-export interface ReadinessOutcome {
-  /** Every probe that produced output (omitted probes dropped). */
+};
+/** Aggregate readiness report and its process exit code. */
+export type ReadinessOutcome = {
   reports: ProbeReport[];
-  /** Per-app `ok` findings across all probes. */
   okCount: number;
-  /** Per-app `warn` findings (advisory; do not affect the exit code). */
   warnCount: number;
-  /** Per-app `blocker` findings — the "exit 2" signal. */
   blockerCount: number;
-  /** Probes that threw while reading — the "exit 1" signal (takes precedence over blockers). */
   errorCount: number;
-  /** Probes skipped for missing credentials (benign; surfaced with a hint). */
   skippedCount: number;
-  /** The resolved process exit code per the readiness contract. */
   exitCode: number;
-}
+};

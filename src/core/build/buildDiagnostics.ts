@@ -1,51 +1,26 @@
-/**
- * Native build-failure diagnostics — turn a wall of xcodebuild/Gradle/CocoaPods output into a short,
- * actionable "here's the cause, here's the fix" list.
- *
- * Native build logs are long and the real error is usually one line buried in thousands. This module
- * scans a captured log against a curated table of the failures Launch users actually hit and maps each
- * to a plain-English cause and a concrete fix (often a single `launch …` command). It's a pure text →
- * diagnoses function, so it's exhaustively unit-testable and reused in two places: automatically on a
- * failed build (see `core/progress.ts`'s failure path) and on demand via `launch diagnose`.
- *
- * Adding a case = append one {@link DiagnosticSignature}. Keep matches specific enough not to fire on
- * unrelated lines, and order the table most-specific-first since {@link diagnoseBuildLog} preserves
- * table order and de-duplicates by title.
- */
-
-/**
- * One recognized build failure: what went wrong, in human terms, and exactly how to fix it. This is
- * the public result shape — `cause`/`fix` are written to be shown verbatim to the user.
- */
-export interface BuildDiagnosis {
-  /** Short headline for the problem, e.g. `"Code signing: no usable profile"`. */
+export type BuildDiagnosis = {
   title: string;
-  /** Plain-English explanation of why the build failed. */
   cause: string;
-  /** The concrete remedy — a command to run or a setting to change. */
   fix: string;
-}
-
+};
 /** A diagnosis plus the regexes that trigger it; `match` fires when ANY pattern is found in the log. */
-interface DiagnosticSignature extends BuildDiagnosis {
-  /** Any one of these matching the log text selects this diagnosis. */
+type DiagnosticSignature = BuildDiagnosis & {
   match: RegExp[];
-}
-
+};
 /**
  * The known-failure table, most-specific first. Patterns are intentionally narrow so a diagnosis only
  * fires on its real signature, not on an incidental mention of a word.
  */
 const SIGNATURES: DiagnosticSignature[] = [
   {
-    title: 'Code signing — app profile leaked onto CocoaPods targets (Xcode 26)',
+    title: 'Code signing - app profile leaked onto CocoaPods targets (Xcode 26)',
     cause:
       "The app's manual provisioning profile was applied workspace-wide, so it landed on CocoaPods library targets that can't carry one. Xcode 26 makes this a hard error (older Xcode silently ignored it), failing the archive at exit 65 with one error per Pods target.",
-    fix: 'Update Launch and rebuild — it now stamps the profile into the app target only, never as a global `gym --xcargs`. If you invoke gym yourself, drop `PROVISIONING_PROFILE_SPECIFIER` from the workspace-wide `--xcargs`.',
+    fix: 'Update Launch and rebuild - it now stamps the profile into the app target only, never as a global `gym --xcargs`. If you invoke gym yourself, drop `PROVISIONING_PROFILE_SPECIFIER` from the workspace-wide `--xcargs`.',
     match: [/does not support provisioning profiles/i],
   },
   {
-    title: 'Code signing — no usable certificate or profile',
+    title: 'Code signing - no usable certificate or profile',
     cause:
       "Xcode couldn't find a distribution certificate and provisioning profile matching this app.",
     fix: 'Run `launch creds setup` to provision (or reuse) the cert + profile, then rebuild.',
@@ -76,7 +51,7 @@ const SIGNATURES: DiagnosticSignature[] = [
   {
     title: 'Native module not found',
     cause:
-      "A native module isn't linked — usually Pods are stale after adding or upgrading a dependency.",
+      "A native module isn't linked - usually Pods are stale after adding or upgrading a dependency.",
     fix: 'Rebuild clean so Pods re-install and link: `launch build ios --clean`.',
     match: [
       /error: no such module/i,
@@ -95,13 +70,13 @@ const SIGNATURES: DiagnosticSignature[] = [
   {
     title: 'Run-script phase failed (Xcode sandbox)',
     cause:
-      'A build script phase failed — on Xcode 15+ this is often the user-script sandbox blocking file access.',
+      'A build script phase failed - on Xcode 15+ this is often the user-script sandbox blocking file access.',
     fix: "Check the failing script in the log; if it's the sandbox, set `ENABLE_USER_SCRIPT_SANDBOXING=NO`.",
     match: [/Command PhaseScriptExecution failed/i, /Sandbox: .* deny/i],
   },
   {
     title: 'Android SDK location not found',
-    cause: "Gradle can't find the Android SDK — ANDROID_HOME / ANDROID_SDK_ROOT isn't set.",
+    cause: "Gradle can't find the Android SDK - ANDROID_HOME / ANDROID_SDK_ROOT isn't set.",
     fix: 'Install the SDK (Android Studio or command-line tools) and export `ANDROID_HOME`. `launch doctor --platform android` checks this.',
     match: [/SDK location not found/i, /ANDROID_HOME is not set/i, /ANDROID_SDK_ROOT/i],
   },
@@ -116,7 +91,7 @@ const SIGNATURES: DiagnosticSignature[] = [
     ],
   },
   {
-    title: 'Android signing — keystore problem',
+    title: 'Android signing - keystore problem',
     cause: "Gradle couldn't read the upload keystore, or the keystore/key password is wrong.",
     fix: 'Re-import the keystore: `launch creds setup --platform android`, and check the keystore + key passwords.',
     match: [
@@ -142,7 +117,7 @@ const SIGNATURES: DiagnosticSignature[] = [
   },
   {
     title: 'Dependency download failed (network)',
-    cause: "A dependency couldn't be fetched — usually a network, proxy, or registry outage.",
+    cause: "A dependency couldn't be fetched - usually a network, proxy, or registry outage.",
     fix: 'Check your connection/proxy and retry; the build is likely fine once the registry is reachable.',
     match: [
       /Could not resolve all (?:files|dependencies|artifacts)/i,
@@ -167,12 +142,11 @@ const SIGNATURES: DiagnosticSignature[] = [
     ],
   },
 ];
-
 /**
  * Scan a build log and return the distinct diagnoses whose signatures matched, in table order. Returns
- * an empty array when nothing is recognized — the caller then falls back to the raw log tail.
+ * an empty array when nothing is recognized - the caller then falls back to the raw log tail.
  */
-export function diagnoseBuildLog(log: string): BuildDiagnosis[] {
+export const diagnoseBuildLog = (log: string): BuildDiagnosis[] => {
   const matched: BuildDiagnosis[] = [];
   for (const signature of SIGNATURES) {
     if (signature.match.some((pattern) => pattern.test(log))) {
@@ -180,14 +154,14 @@ export function diagnoseBuildLog(log: string): BuildDiagnosis[] {
     }
   }
   return matched;
-}
-
-/** Render diagnoses as an indented, human-readable block for the terminal. Empty input → empty string. */
-export function formatDiagnoses(diagnoses: BuildDiagnosis[]): string {
+};
+/** Render diagnoses as an indented, human-readable block for the terminal. Empty input -> empty string. */
+export const formatDiagnoses = (diagnoses: BuildDiagnosis[]): string => {
   if (diagnoses.length === 0) return '';
-  const header = diagnoses.length === 1 ? 'Likely cause:' : 'Likely causes:';
+  let header = 'Likely causes:';
+  if (diagnoses.length === 1) header = 'Likely cause:';
   const blocks = diagnoses.map(
-    (diagnosis) => `  • ${diagnosis.title}\n    Why: ${diagnosis.cause}\n    Fix: ${diagnosis.fix}`,
+    (diagnosis) => `  - ${diagnosis.title}\n    Why: ${diagnosis.cause}\n    Fix: ${diagnosis.fix}`,
   );
   return [header, ...blocks].join('\n');
-}
+};

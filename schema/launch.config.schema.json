@@ -1,16 +1,14 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$ref": "#/definitions/LaunchConfig",
   "definitions": {
     "LaunchConfig": {
       "type": "object",
-      "required": [
-        "profiles"
-      ],
       "properties": {
         "profiles": {
           "type": "object",
-          "required": [],
           "properties": {},
+          "required": [],
           "additionalProperties": {
             "$ref": "#/definitions/BuildProfile"
           },
@@ -37,7 +35,7 @@
               "$ref": "#/definitions/SubmitByPlatform"
             }
           ],
-          "description": "Where built artifacts are submitted, in one of two forms: a single registered submitter name (the iOS default `app-store-connect`, which an Android build swaps for its twin `google-play`; or `eas`) — the original, unchanged shape; or a per-platform {@link SubmitByPlatform} map, to fan one build out to several stores from this one config (e.g. an Android `.aab` to `google-play` and `amazon-appstore`). The pipeline resolves this to a store list per platform (see `resolveSubmitters`), so the build target and the store are no longer welded 1:1. See `docs/adr/0006-platform-store-split.md`."
+          "description": "Where built artifacts are submitted, in one of two forms: a single registered submitter name (the iOS default `app-store-connect`, which an Android build swaps for its twin `google-play`; or `eas`) - the original, unchanged shape; or a per-platform {@link SubmitByPlatform} map, to fan one build out to several stores from this one config (e.g. an Android `.aab` to `google-play` and `amazon-appstore`). The pipeline resolves this to a store list per platform (see `resolveSubmitters`), so the build target and the store are no longer welded 1:1. See `docs/adr/0006-platform-store-split.md`."
         },
         "appRoots": {
           "type": "array",
@@ -48,8 +46,8 @@
         },
         "products": {
           "type": "object",
-          "required": [],
           "properties": {},
+          "required": [],
           "additionalProperties": {
             "$ref": "#/definitions/AppProducts"
           },
@@ -57,7 +55,6 @@
         },
         "notify": {
           "type": "object",
-          "required": [],
           "properties": {
             "webhookUrl": {
               "type": "string",
@@ -81,12 +78,12 @@
               "description": "Which transitions fire a notification. Absent = all."
             }
           },
+          "required": [],
           "additionalProperties": false,
           "description": "Build/submit completion notifications (webhook + shell hook). Absent = no notifications. See {@link NotifyConfig}."
         },
         "release": {
           "type": "object",
-          "required": [],
           "properties": {
             "releaseType": {
               "type": "string",
@@ -99,15 +96,15 @@
             },
             "earliestReleaseDate": {
               "type": "string",
-              "description": "ISO-8601 instant to go live at — only meaningful with `releaseType: \"SCHEDULED\"` (ignored otherwise). A `--scheduled <iso>` flag sets both this and the release type for one run."
+              "description": "ISO-8601 instant to go live at - only meaningful with `releaseType: \"SCHEDULED\"` (ignored otherwise). A `--scheduled <iso>` flag sets both this and the release type for one run."
             },
             "phasedRelease": {
               "type": "boolean",
-              "description": "Opt into Apple's 7-day phased release (a gradual percentage rollout) for an approved update. Defaults to `false` — an immediate 100% release. Overridable per-run with `--phased`, and steerable afterward with `launch rollout <pause|resume|complete>`. Ignored for a first version (Apple only phases updates)."
+              "description": "Opt into Apple's 7-day phased release (a gradual percentage rollout) for an approved update. Defaults to `false` - an immediate 100% release. Overridable per-run with `--phased`, and steerable afterward with `launch rollout <pause|resume|complete>`. Ignored for a first version (Apple only phases updates)."
             },
             "usesNonExemptEncryption": {
               "type": "boolean",
-              "description": "Whether the binary contains non-exempt encryption (Apple's export-compliance question). `false` — the common case for apps using only standard HTTPS/system crypto — lets Launch declare compliance over the API so the build clears `WAITING_FOR_EXPORT_COMPLIANCE` without a portal trip. Set `true` only if you ship proprietary/non-exempt encryption; Launch then stops and points you to the portal, since genuine non-exempt encryption requires documentation Apple's API can't accept. Defaults to `false`."
+              "description": "Whether the binary contains non-exempt encryption (Apple's export-compliance question). `false` - the common case for apps using only standard HTTPS/system crypto - lets Launch declare compliance over the API so the build clears `WAITING_FOR_EXPORT_COMPLIANCE` without a portal trip. Set `true` only if you ship proprietary/non-exempt encryption; Launch then stops and points you to the portal, since genuine non-exempt encryption requires documentation Apple's API can't accept. Defaults to `false`."
             },
             "releaseNotes": {
               "anyOf": [
@@ -116,8 +113,8 @@
                 },
                 {
                   "type": "object",
-                  "required": [],
                   "properties": {},
+                  "required": [],
                   "additionalProperties": {
                     "type": "string"
                   }
@@ -130,13 +127,14 @@
               "description": "Primary App Store locale for a bare-string {@link ReleaseConfig.releaseNotes}. Defaults to `en-US`."
             }
           },
+          "required": [],
           "additionalProperties": false,
           "description": "iOS public-release policy for `launch release` (release type, scheduled date, phased rollout, export compliance, release notes). Absent = the safe defaults (go live after approval, all at once). See {@link ReleaseConfig}."
         },
         "gameCenter": {
           "type": "object",
-          "required": [],
           "properties": {},
+          "required": [],
           "additionalProperties": {
             "$ref": "#/definitions/GameCenterConfig"
           },
@@ -144,8 +142,8 @@
         },
         "appClips": {
           "type": "object",
-          "required": [],
           "properties": {},
+          "required": [],
           "additionalProperties": {
             "$ref": "#/definitions/AppClipsConfig"
           },
@@ -153,8 +151,8 @@
         },
         "releaseAttributes": {
           "type": "object",
-          "required": [],
           "properties": {},
+          "required": [],
           "additionalProperties": {
             "$ref": "#/definitions/ReleaseAttributesConfig"
           },
@@ -162,7 +160,6 @@
         },
         "wallet": {
           "type": "object",
-          "required": [],
           "properties": {
             "merchantIds": {
               "type": "array",
@@ -179,14 +176,12 @@
               "description": "Wallet pass type ids to register."
             }
           },
+          "required": [],
           "additionalProperties": false,
           "description": "Team-level Apple Pay merchant ids & Wallet pass type ids. Drives `launch wallet`. The single-config form of `wallet.config.json` (still accepted for back-compat). See {@link WalletConfig}."
         },
         "euDistribution": {
           "type": "object",
-          "required": [
-            "domains"
-          ],
           "properties": {
             "domains": {
               "type": "array",
@@ -196,12 +191,14 @@
               "description": "Domains to authorize for EU alternative distribution."
             }
           },
+          "required": [
+            "domains"
+          ],
           "additionalProperties": false,
           "description": "Team-level EU alternative-distribution domains (DMA). Drives `launch eu-distribution`. The single-config form of `eu-distribution.config.json` (still accepted for back-compat). See {@link EuDistributionConfig}."
         },
         "configFiles": {
           "type": "object",
-          "required": [],
           "properties": {
             "availability": {
               "type": "string"
@@ -216,14 +213,12 @@
               "type": "string"
             }
           },
+          "required": [],
           "additionalProperties": false,
           "description": "Optional non-default paths for the sidecar-only surfaces' `*.config.json` files (availability, accessibility, experiments, custom pages). Lets `launch plan` / `launch drift` find a sidecar that isn't at its default filename, since those surfaces have no typed field here. Omit to use defaults. See {@link SurfaceConfigFiles}."
         },
         "aws": {
           "type": "object",
-          "required": [
-            "region"
-          ],
           "properties": {
             "region": {
               "type": "string",
@@ -242,15 +237,14 @@
               "description": "EC2 Mac instance type. Defaults to `mac2.metal` (cheapest M-series in most regions)."
             }
           },
+          "required": [
+            "region"
+          ],
           "additionalProperties": false,
           "description": "AWS EC2 Mac settings for remote (off-Mac) builds. Only needed when building via `--remote aws`."
         },
         "storageConfig": {
           "type": "object",
-          "required": [
-            "bucket",
-            "publicBaseUrl"
-          ],
           "properties": {
             "endpoint": {
               "type": "string",
@@ -266,34 +260,37 @@
             },
             "publicBaseUrl": {
               "type": "string",
-              "description": "Public base URL that maps to the bucket root — used to build install links and OTA manifest URLs. e.g. an R2 custom domain `https://cdn.example.com`, or a Supabase public object URL prefix `https://<project>.supabase.co/storage/v1/object/public/<bucket>`. No trailing slash required."
+              "description": "Public base URL that maps to the bucket root - used to build install links and OTA manifest URLs. e.g. an R2 custom domain `https://cdn.example.com`, or a Supabase public object URL prefix `https://<project>.supabase.co/storage/v1/object/public/<bucket>`. No trailing slash required."
             },
             "supabaseUrl": {
               "type": "string",
               "description": "Supabase project URL (`https://<project>.supabase.co`). Required by `supabase`, unused by `s3`."
             }
           },
+          "required": [
+            "bucket",
+            "publicBaseUrl"
+          ],
           "additionalProperties": false,
-          "description": "Bucket/endpoint settings for a cloud {@link StorageProvider} (`s3` / `supabase`). Required when `storage` names a cloud provider — it's where ad-hoc install links and OTA update manifests are hosted. Secrets stay out: access keys resolve from env / the OS secret store, never from here."
+          "description": "Bucket/endpoint settings for a cloud {@link StorageProvider} (`s3` / `supabase`). Required when `storage` names a cloud provider - it's where ad-hoc install links and OTA update manifests are hosted. Secrets stay out: access keys resolve from env / the OS secret store, never from here."
         },
         "artifactDir": {
           "type": "string",
-          "description": "Where the `local` storage provider writes build binaries and raw objects (install plists, OTA manifests). A relative path resolves against the project root (the `launch.config.ts` directory); a leading `~/` expands to the home directory; an absolute path is used as-is. Omit to use the global `~/.launch/artifacts` (the default — existing projects are unaffected). `launch init` and the no-args wizard scaffold this as the in-repo `./.launch/artifacts` and add it to `.gitignore`, so build binaries never get committed. Only the `local` provider observes it — cloud stores key off {@link StorageConfig}. The history index stays under `~/.launch`, so build history and retention span projects regardless of where the binaries land."
+          "description": "Where the `local` storage provider writes build binaries and raw objects (install plists, OTA manifests). A relative path resolves against the project root (the `launch.config.ts` directory); a leading `~/` expands to the home directory; an absolute path is used as-is. Omit to use the global `~/.launch/artifacts` (the default - existing projects are unaffected). `launch init` and the no-args wizard scaffold this as the in-repo `./.launch/artifacts` and add it to `.gitignore`, so build binaries never get committed. Only the `local` provider observes it - cloud stores key off {@link StorageConfig}. The history index stays under `~/.launch`, so build history and retention span projects regardless of where the binaries land."
         },
         "artifactRetentionDays": {
           "type": "number",
-          "description": "How many days a local build binary is kept before the artifact store auto-prunes it to reclaim disk (the newest build per app+platform is always kept, so a promotable artifact never disappears). Runs after each successful local build. Defaults to 30 when omitted; set to `0` to disable the automatic sweep entirely (`launch builds prune` still works on demand). Only the `local` provider observes this — cloud stores manage retention through their own bucket lifecycle rules."
+          "description": "How many days a local build binary is kept before the artifact store auto-prunes it to reclaim disk (the newest build per app+platform is always kept, so a promotable artifact never disappears). Runs after each successful local build. Defaults to 30 when omitted; set to `0` to disable the automatic sweep entirely (`launch builds prune` still works on demand). Only the `local` provider observes this - cloud stores manage retention through their own bucket lifecycle rules."
         },
         "envExclude": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Env var names that must NEVER be injected into a build — a hard denylist applied across every layer (`.env`, `.env.<profile>`, keychain, profile `env:`, even an explicit `--env`). A matched name is dropped outright, so it can't reach the build subprocess and therefore can't be baked into the shipped app even by an `app.config.js` that forwards `process.env`.\n\nEach entry is either an exact, case-sensitive name or a `PREFIX*` wildcard: `OPENAI_*` drops every name starting with `OPENAI_` (e.g. `OPENAI_API_KEY`, `OPENAI_ORG_ID`), so a whole family of backend keys collapses to one line instead of being listed individually. Wildcards anchor at the START — there is no tail/`*_KEY` form, by design, since that would also snag a publishable `EXPO_PUBLIC_..._KEY`.\n\nThis is the home for *backend-only* values that sit in the app's `.env` for local tooling but must never ship (e.g. `OPENAI_API_KEY`, a server-side `SENTRY_AUTH_TOKEN`). It is distinct from `launch secret set`: a stored secret is still *injected* — the build needs it — it's just moved out of plaintext; `envExclude` means \"don't inject this at all\". A name matched here is exempt from the `.env.example` missing-key gate (even when no layer sets it). Omit (or `[]`) to exclude nothing."
+          "description": "Env var names that must NEVER be injected into a build - a hard denylist applied across every layer (`.env`, `.env.<profile>`, keychain, profile `env:`, even an explicit `--env`). A matched name is dropped outright, so it can't reach the build subprocess and therefore can't be baked into the shipped app even by an `app.config.js` that forwards environment variables.\n\nEach entry is either an exact, case-sensitive name or a `PREFIX*` wildcard: `OPENAI_*` drops every name starting with `OPENAI_` (e.g. `OPENAI_API_KEY`, `OPENAI_ORG_ID`), so a whole family of backend keys collapses to one line instead of being listed individually. Wildcards anchor at the START - there is no tail/`*_KEY` form, by design, since that would also snag a publishable `EXPO_PUBLIC_..._KEY`.\n\nThis is the home for *backend-only* values that sit in the app's `.env` for local tooling but must never ship (e.g. `OPENAI_API_KEY`, a server-side `SENTRY_AUTH_TOKEN`). It is distinct from `launch secret set`: a stored secret is still *injected* - the build needs it - it's just moved out of plaintext; `envExclude` means \"don't inject this at all\". A name matched here is exempt from the `.env.example` missing-key gate (even when no layer sets it). Omit (or `[]`) to exclude nothing."
         },
         "mcp": {
           "type": "object",
-          "required": [],
           "properties": {
             "capabilities": {
               "type": "array",
@@ -306,21 +303,22 @@
                   "dangerous"
                 ]
               },
-              "description": "Which capability tiers the MCP server may expose. Each enabled tier unlocks the tools tagged at that tier; omit (or `[]`) for `[\"read\"]` — read-only. Listing a higher tier does not imply the lower ones, so `[\"read\", \"write\"]` is the usual \"let agents read everything and run reconciles\" posture."
+              "description": "Which capability tiers the MCP server may expose. Each enabled tier unlocks the tools tagged at that tier; omit (or `[]`) for `[\"read\"]` - read-only. Listing a higher tier does not imply the lower ones, so `[\"read\", \"write\"]` is the usual \"let agents read everything and run reconciles\" posture."
             }
           },
+          "required": [],
           "additionalProperties": false,
-          "description": "How `launch mcp` exposes Launch to AI agents — chiefly which capability tiers it may offer. Absent = least privilege (read-only tools). See {@link McpConfig}."
+          "description": "How `launch mcp` exposes Launch to AI agents - chiefly which capability tiers it may offer. Absent = least privilege (read-only tools). See {@link McpConfig}."
         }
       },
+      "required": [
+        "profiles"
+      ],
       "additionalProperties": false,
       "description": "The fully-resolved configuration for one `launch` invocation. Produced by {@link loadConfig} from `launch.config.ts` plus auto-discovered apps. Names here (`storage`, `credentials`, `buildEngine`) are looked up in the provider registry at runtime."
     },
     "BuildProfile": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "properties": {
         "name": {
           "type": "string",
@@ -332,12 +330,12 @@
         },
         "env": {
           "type": "object",
-          "required": [],
           "properties": {},
+          "required": [],
           "additionalProperties": {
             "type": "string"
           },
-          "description": "Inline env vars for this profile, merged into the build/update/release environment. They sit above the dotenv files (`.env.local`, `.env.<profile>`, `.env`) but below keychain secrets and `--env` flags in the precedence ladder — see `core/env.ts` `resolveEnv`. Use for non-secret, committed config that should travel with the profile; keep real secrets in `launch secret`."
+          "description": "Inline env vars for this profile, merged into the build/update/release environment. They sit above the dotenv files (`.env.local`, `.env.<profile>`, `.env`) but below keychain secrets and `--env` flags in the precedence ladder - see `core/env.ts` `resolveEnv`. Use for non-secret, committed config that should travel with the profile; keep real secrets in `launch secret`."
         },
         "ssl": {
           "type": "boolean",
@@ -359,15 +357,17 @@
         },
         "rollout": {
           "type": "number",
-          "description": "Android-only: default staged-rollout fraction (0–1) for production releases when `--rollout` is omitted. Defaults to `1.0` (full rollout). Ignored on iOS."
+          "description": "Android-only: default staged-rollout fraction (0-1) for production releases when `--rollout` is omitted. Defaults to `1.0` (full rollout). Ignored on iOS."
         }
       },
+      "required": [
+        "name"
+      ],
       "additionalProperties": false,
       "description": "A named build profile from `launch.config.ts` (e.g. `production`, `preview`). Holds only Launch-specific settings; app facts stay in `app.json`. A profile maps to a `.env` file whose values are injected into the build and gates the artifact on size."
     },
     "SubmitByPlatform": {
       "type": "object",
-      "required": [],
       "properties": {
         "ios": {
           "type": "array",
@@ -400,11 +400,11 @@
           }
         }
       },
+      "required": [],
       "additionalProperties": false
     },
     "AppProducts": {
       "type": "object",
-      "required": [],
       "properties": {
         "subscriptionGroups": {
           "type": "array",
@@ -428,20 +428,16 @@
           "description": "Promoted purchases in product-page display order (`launch offers` reorders the live list to match)."
         }
       },
+      "required": [],
       "additionalProperties": false,
       "description": "The declarative App Store Connect product catalog for ONE app, keyed by iOS bundle id under {@link LaunchConfig.products}. `launch sync` reconciles the live account to match this: it creates missing groups/subscriptions/IAPs, fills in localizations, and sets prices. `launch offers` reconciles the subscription offers nested under {@link SubscriptionGroupConfig} and the {@link AppProducts.promotedPurchases} ordering. All fields are optional so an app can sell only subscriptions, only one-off purchases, or (with none set) nothing."
     },
     "SubscriptionGroupConfig": {
       "type": "object",
-      "required": [
-        "referenceName",
-        "localizations",
-        "subscriptions"
-      ],
       "properties": {
         "referenceName": {
           "type": "string",
-          "description": "Internal reference name (unique within the app) — the reconciler's natural key for the group."
+          "description": "Internal reference name (unique within the app) - the reconciler's natural key for the group."
         },
         "localizations": {
           "type": "array",
@@ -458,15 +454,16 @@
           "description": "The subscription levels in this group."
         }
       },
+      "required": [
+        "referenceName",
+        "localizations",
+        "subscriptions"
+      ],
       "additionalProperties": false,
-      "description": "A subscription group — Apple's container for mutually-exclusive subscription levels (a customer holds at most one active subscription per group). `referenceName` is unique within the app and is the reconciler's natural key for the group."
+      "description": "A subscription group - Apple's container for mutually-exclusive subscription levels (a customer holds at most one active subscription per group). `referenceName` is unique within the app and is the reconciler's natural key for the group."
     },
     "GroupLocalization": {
       "type": "object",
-      "required": [
-        "locale",
-        "name"
-      ],
       "properties": {
         "locale": {
           "type": "string",
@@ -477,17 +474,15 @@
           "description": "Customer-facing group name."
         }
       },
+      "required": [
+        "locale",
+        "name"
+      ],
       "additionalProperties": false,
       "description": "One locale's display name for a subscription GROUP. Groups carry only a name (no description); it's shown at the point of purchase grouping the subscription levels. Without one, every subscription in the group is stuck in \"Missing Metadata\", so at least one is required per group."
     },
     "SubscriptionConfig": {
       "type": "object",
-      "required": [
-        "productId",
-        "referenceName",
-        "subscriptionPeriod",
-        "localizations"
-      ],
       "properties": {
         "productId": {
           "type": "string",
@@ -518,9 +513,6 @@
         },
         "price": {
           "type": "object",
-          "required": [
-            "customerPrice"
-          ],
           "properties": {
             "baseTerritory": {
               "type": "string",
@@ -531,6 +523,9 @@
               "description": "Exact customer-facing price in the base territory's currency, e.g. `9.99`. Must equal an Apple price point."
             }
           },
+          "required": [
+            "customerPrice"
+          ],
           "additionalProperties": false,
           "description": "Baseline price. Omit only to price manually in the UI."
         },
@@ -564,13 +559,10 @@
         },
         "reviewScreenshot": {
           "type": "string",
-          "description": "Path (relative to the app directory) to this subscription's App Review screenshot — the image Apple requires before a subscription can be submitted. `launch sync` uploads it via the reservation flow, idempotently: it's skipped when the live screenshot's MD5 already matches the local file. Omit to attach it by hand in App Store Connect. Reconciled in `core/ascScreenshots.ts`, not here."
+          "description": "Path (relative to the app directory) to this subscription's App Review screenshot - the image Apple requires before a subscription can be submitted. `launch sync` uploads it via the reservation flow, idempotently: it's skipped when the live screenshot's MD5 already matches the local file. Omit to attach it by hand in App Store Connect. Reconciled in `core/store/ascScreenshots.ts`, not here."
         },
         "play": {
           "type": "object",
-          "required": [
-            "prices"
-          ],
           "properties": {
             "productId": {
               "type": "string",
@@ -582,12 +574,12 @@
             },
             "prices": {
               "type": "object",
-              "required": [],
               "properties": {},
+              "required": [],
               "additionalProperties": {
                 "$ref": "#/definitions/PlayPriceConfig"
               },
-              "description": "Per-region base-plan prices (region code → micro-units + currency). At least one region required."
+              "description": "Per-region base-plan prices (region code -> micro-units + currency). At least one region required."
             },
             "offers": {
               "type": "array",
@@ -597,19 +589,24 @@
               "description": "Offers (free trials / introductory pricing) to ensure exist on the base plan."
             }
           },
+          "required": [
+            "prices"
+          ],
           "additionalProperties": false,
           "description": "Google Play overrides; present this to also publish the subscription to Play (see {@link PlaySubscriptionOverride})."
         }
       },
+      "required": [
+        "productId",
+        "referenceName",
+        "subscriptionPeriod",
+        "localizations"
+      ],
       "additionalProperties": false,
       "description": "One auto-renewable subscription product inside a {@link SubscriptionGroupConfig}. `productId` is the globally-unique Apple product id the app references at runtime and the reconciler's natural key. Add a {@link PlaySubscriptionOverride} under `play` to also publish it to Google Play."
     },
     "ProductLocalization": {
       "type": "object",
-      "required": [
-        "locale",
-        "name"
-      ],
       "properties": {
         "locale": {
           "type": "string",
@@ -624,19 +621,15 @@
           "description": "Customer-facing description (Apple limit: 45 characters). Omitted when not provided."
         }
       },
+      "required": [
+        "locale",
+        "name"
+      ],
       "additionalProperties": false,
-      "description": "One locale's customer-facing copy for a subscription or in-app purchase — the display name (and optional description) shown on the product page. Apple keeps a product in \"Missing Metadata\" until it has at least one localization, so the reconciler rejects an empty list rather than silently creating an unsubmittable product. The `locale` is the natural key the reconciler matches on."
+      "description": "One locale's customer-facing copy for a subscription or in-app purchase - the display name (and optional description) shown on the product page. Apple keeps a product in \"Missing Metadata\" until it has at least one localization, so the reconciler rejects an empty list rather than silently creating an unsubmittable product. The `locale` is the natural key the reconciler matches on."
     },
     "OfferCodeConfig": {
       "type": "object",
-      "required": [
-        "duration",
-        "offerMode",
-        "numberOfPeriods",
-        "name",
-        "customerEligibilities",
-        "offerEligibility"
-      ],
       "properties": {
         "duration": {
           "type": "string",
@@ -674,7 +667,7 @@
         },
         "name": {
           "type": "string",
-          "description": "Campaign name shown in App Store Connect — unique per subscription; the reconciler's key."
+          "description": "Campaign name shown in App Store Connect - unique per subscription; the reconciler's key."
         },
         "customerEligibilities": {
           "type": "array",
@@ -697,14 +690,19 @@
           "description": "Whether the code stacks with or replaces the intro offer."
         }
       },
+      "required": [
+        "duration",
+        "offerMode",
+        "numberOfPeriods",
+        "name",
+        "customerEligibilities",
+        "offerEligibility"
+      ],
       "additionalProperties": false,
-      "description": "A subscription offer-code campaign (Apple's `subscriptionOfferCodes`) — a redeemable promo that grants an introductory price. `name` is the reconciler's natural key (unique per subscription); offer-code terms are immutable once created, so the reconciler only ever creates a missing code, never edits one (deactivation is the explicit `launch offers deactivate` action). One-time-use and custom code batches are generated separately (the imperative `launch offers codes` subcommands), not declared here."
+      "description": "A subscription offer-code campaign (Apple's `subscriptionOfferCodes`) - a redeemable promo that grants an introductory price. `name` is the reconciler's natural key (unique per subscription); offer-code terms are immutable once created, so the reconciler only ever creates a missing code, never edits one (deactivation is the explicit `launch offers deactivate` action). One-time-use and custom code batches are generated separately (the imperative `launch offers codes` subcommands), not declared here."
     },
     "OfferPrice": {
       "type": "object",
-      "required": [
-        "customerPrice"
-      ],
       "properties": {
         "territory": {
           "type": "string",
@@ -715,18 +713,14 @@
           "description": "Exact customer-facing price in the territory's currency, e.g. `4.99`. Must equal an Apple price point."
         }
       },
+      "required": [
+        "customerPrice"
+      ],
       "additionalProperties": false,
       "description": "One territory's discounted price for an offer, resolved to an Apple subscription price point exactly like {@link ProductPrice} (the customer-facing amount must equal a point on Apple's fixed ladder). Omit prices entirely for a `FREE_TRIAL` offer."
     },
     "PromotionalOfferConfig": {
       "type": "object",
-      "required": [
-        "duration",
-        "offerMode",
-        "numberOfPeriods",
-        "name",
-        "offerCode"
-      ],
       "properties": {
         "duration": {
           "type": "string",
@@ -768,19 +762,21 @@
         },
         "offerCode": {
           "type": "string",
-          "description": "Product-level offer identifier the app references in StoreKit — the reconciler's key."
+          "description": "Product-level offer identifier the app references in StoreKit - the reconciler's key."
         }
       },
-      "additionalProperties": false,
-      "description": "A promotional offer (Apple's `subscriptionPromotionalOffers`) — a developer-presented discount surfaced in-app to existing/lapsed subscribers. `offerCode` is the product-level identifier the app passes to StoreKit at redemption; it is the reconciler's natural key (unique per subscription)."
-    },
-    "IntroductoryOfferConfig": {
-      "type": "object",
       "required": [
         "duration",
         "offerMode",
-        "numberOfPeriods"
+        "numberOfPeriods",
+        "name",
+        "offerCode"
       ],
+      "additionalProperties": false,
+      "description": "A promotional offer (Apple's `subscriptionPromotionalOffers`) - a developer-presented discount surfaced in-app to existing/lapsed subscribers. `offerCode` is the product-level identifier the app passes to StoreKit at redemption; it is the reconciler's natural key (unique per subscription)."
+    },
+    "IntroductoryOfferConfig": {
+      "type": "object",
       "properties": {
         "duration": {
           "type": "string",
@@ -815,9 +811,6 @@
         },
         "price": {
           "type": "object",
-          "required": [
-            "customerPrice"
-          ],
           "properties": {
             "territory": {
               "type": "string",
@@ -828,6 +821,9 @@
               "description": "Exact customer-facing price in the territory's currency, e.g. `4.99`. Must equal an Apple price point."
             }
           },
+          "required": [
+            "customerPrice"
+          ],
           "additionalProperties": false,
           "description": "The discounted price in {@link IntroductoryOfferConfig.territory}. Required unless `FREE_TRIAL`."
         },
@@ -840,21 +836,16 @@
           "description": "ISO date (`YYYY-MM-DD`) the offer ends; omit for no end."
         }
       },
-      "additionalProperties": false,
-      "description": "An introductory offer (Apple's `subscriptionIntroductoryOffers`) — the one auto-applied first-time discount. Apple allows at most one per (subscription, territory); when `territory` is omitted it applies to all territories the subscription is sold in. `territory` is the reconciler's natural key."
-    },
-    "WinBackOfferConfig": {
-      "type": "object",
       "required": [
         "duration",
         "offerMode",
-        "numberOfPeriods",
-        "offerId",
-        "referenceName",
-        "eligiblePaidMonths",
-        "monthsSinceLastSubscribed",
-        "startDate"
+        "numberOfPeriods"
       ],
+      "additionalProperties": false,
+      "description": "An introductory offer (Apple's `subscriptionIntroductoryOffers`) - the one auto-applied first-time discount. Apple allows at most one per (subscription, territory); when `territory` is omitted it applies to all territories the subscription is sold in. `territory` is the reconciler's natural key."
+    },
+    "WinBackOfferConfig": {
+      "type": "object",
       "properties": {
         "duration": {
           "type": "string",
@@ -892,7 +883,7 @@
         },
         "offerId": {
           "type": "string",
-          "description": "Stable offer identifier the app references — the reconciler's key (unique within the app)."
+          "description": "Stable offer identifier the app references - the reconciler's key (unique within the app)."
         },
         "referenceName": {
           "type": "string",
@@ -904,10 +895,6 @@
         },
         "monthsSinceLastSubscribed": {
           "type": "object",
-          "required": [
-            "min",
-            "max"
-          ],
           "properties": {
             "min": {
               "type": "number"
@@ -916,6 +903,10 @@
               "type": "number"
             }
           },
+          "required": [
+            "min",
+            "max"
+          ],
           "additionalProperties": false,
           "description": "Eligible window since the customer last subscribed, in months (inclusive `[min, max]`)."
         },
@@ -948,15 +939,21 @@
           "description": "Whether Apple auto-generates promotion artwork (`USE_AUTO_GENERATED_ASSETS`) or the offer isn't promoted."
         }
       },
+      "required": [
+        "duration",
+        "offerMode",
+        "numberOfPeriods",
+        "offerId",
+        "referenceName",
+        "eligiblePaidMonths",
+        "monthsSinceLastSubscribed",
+        "startDate"
+      ],
       "additionalProperties": false,
-      "description": "A win-back offer (Apple's `winBackOffers`) — a discount shown on the App Store to lapsed subscribers, gated on how long they previously paid and how long ago they churned. `offerId` is the reconciler's natural key (unique within the app). Win-back offers carry no images here — promotion artwork is the `promotionIntent` auto-generated path; custom artwork is a deferred follow-up."
+      "description": "A win-back offer (Apple's `winBackOffers`) - a discount shown on the App Store to lapsed subscribers, gated on how long they previously paid and how long ago they churned. `offerId` is the reconciler's natural key (unique within the app). Win-back offers carry no images here - promotion artwork is the `promotionIntent` auto-generated path; custom artwork is a deferred follow-up."
     },
     "PlayPriceConfig": {
       "type": "object",
-      "required": [
-        "priceMicros",
-        "currency"
-      ],
       "properties": {
         "priceMicros": {
           "type": "string",
@@ -967,14 +964,15 @@
           "description": "ISO 4217 currency code, e.g. `USD`."
         }
       },
+      "required": [
+        "priceMicros",
+        "currency"
+      ],
       "additionalProperties": false,
-      "description": "A Google Play price: an exact amount in a currency's micro-units (millionths) plus the ISO currency code. Play has no price-point ladder — `\"1990000\"` with currency `\"USD\"` is $1.99. Used for both a product's default price and any per-region overrides. Kept distinct from {@link ProductPrice} because the two stores model money differently (Apple resolves a fixed price point; Play takes a literal micro-unit amount), so a single shared price field can't serve both."
+      "description": "A Google Play price: an exact amount in a currency's micro-units (millionths) plus the ISO currency code. Play has no price-point ladder - `\"1990000\"` with currency `\"USD\"` is $1.99. Used for both a product's default price and any per-region overrides. Kept distinct from {@link ProductPrice} because the two stores model money differently (Apple resolves a fixed price point; Play takes a literal micro-unit amount), so a single shared price field can't serve both."
     },
     "PlaySubscriptionOfferConfig": {
       "type": "object",
-      "required": [
-        "offerId"
-      ],
       "properties": {
         "offerId": {
           "type": "string",
@@ -986,29 +984,26 @@
         },
         "introPrices": {
           "type": "object",
-          "required": [],
           "properties": {},
+          "required": [],
           "additionalProperties": {
             "$ref": "#/definitions/PlayPriceConfig"
           },
-          "description": "Introductory per-region prices (region code → micro-units + currency). Omit for no intro phase."
+          "description": "Introductory per-region prices (region code -> micro-units + currency). Omit for no intro phase."
         },
         "introRecurrenceCount": {
           "type": "number",
           "description": "How many billing periods the introductory price repeats for. Defaults to 1."
         }
       },
+      "required": [
+        "offerId"
+      ],
       "additionalProperties": false,
-      "description": "One Google Play offer on a subscription's base plan — a free trial, an introductory price, or both (Play allows up to two offer phases). `offerId` is the natural key the reconciler matches on. Set `freeTrialDuration` for a free phase and/or `introPrices` for a discounted phase; an offer with neither is rejected (it would discount nothing)."
+      "description": "One Google Play offer on a subscription's base plan - a free trial, an introductory price, or both (Play allows up to two offer phases). `offerId` is the natural key the reconciler matches on. Set `freeTrialDuration` for a free phase and/or `introPrices` for a discounted phase; an offer with neither is rejected (it would discount nothing)."
     },
     "InAppPurchaseConfig": {
       "type": "object",
-      "required": [
-        "productId",
-        "referenceName",
-        "type",
-        "localizations"
-      ],
       "properties": {
         "productId": {
           "type": "string",
@@ -1036,9 +1031,6 @@
         },
         "price": {
           "type": "object",
-          "required": [
-            "customerPrice"
-          ],
           "properties": {
             "baseTerritory": {
               "type": "string",
@@ -1049,12 +1041,14 @@
               "description": "Exact customer-facing price in the base territory's currency, e.g. `9.99`. Must equal an Apple price point."
             }
           },
+          "required": [
+            "customerPrice"
+          ],
           "additionalProperties": false,
           "description": "Baseline price. Omit only to price manually in the UI."
         },
         "play": {
           "type": "object",
-          "required": [],
           "properties": {
             "sku": {
               "type": "string",
@@ -1062,10 +1056,6 @@
             },
             "defaultPrice": {
               "type": "object",
-              "required": [
-                "priceMicros",
-                "currency"
-              ],
               "properties": {
                 "priceMicros": {
                   "type": "string",
@@ -1076,31 +1066,39 @@
                   "description": "ISO 4217 currency code, e.g. `USD`."
                 }
               },
+              "required": [
+                "priceMicros",
+                "currency"
+              ],
               "additionalProperties": false,
               "description": "Default price applied to every region without an explicit {@link PlayProductOverride.prices} entry."
             },
             "prices": {
               "type": "object",
-              "required": [],
               "properties": {},
+              "required": [],
               "additionalProperties": {
                 "$ref": "#/definitions/PlayPriceConfig"
               },
               "description": "Per-region price overrides keyed by ISO region code (e.g. `US`)."
             }
           },
+          "required": [],
           "additionalProperties": false,
           "description": "Google Play overrides; present this to also publish the product to Play (see {@link PlayProductOverride})."
         }
       },
+      "required": [
+        "productId",
+        "referenceName",
+        "type",
+        "localizations"
+      ],
       "additionalProperties": false,
       "description": "One non-subscription in-app purchase (consumable, non-consumable, or non-renewing subscription). `productId` is the globally-unique Apple product id and the reconciler's natural key. Add a {@link PlayProductOverride} under `play` to also publish it to Google Play."
     },
     "PromotedPurchaseConfig": {
       "type": "object",
-      "required": [
-        "productId"
-      ],
       "properties": {
         "productId": {
           "type": "string",
@@ -1115,12 +1113,14 @@
           "description": "Whether the promotion is enabled. Defaults to `true`."
         }
       },
+      "required": [
+        "productId"
+      ],
       "additionalProperties": false,
-      "description": "One promoted purchase (Apple's `promotedPurchases`) — an IAP or subscription surfaced on the app's App Store product page. Declaration order in {@link AppProducts.promotedPurchases} is the display order Apple shows; `launch offers` reorders the live list to match. `productId` references an existing subscription or in-app purchase; the reconciler resolves it to the live resource."
+      "description": "One promoted purchase (Apple's `promotedPurchases`) - an IAP or subscription surfaced on the app's App Store product page. Declaration order in {@link AppProducts.promotedPurchases} is the display order Apple shows; `launch offers` reorders the live list to match. `productId` references an existing subscription or in-app purchase; the reconciler resolves it to the live resource."
     },
     "GameCenterConfig": {
       "type": "object",
-      "required": [],
       "properties": {
         "achievements": {
           "type": "array",
@@ -1135,19 +1135,12 @@
           }
         }
       },
+      "required": [],
       "additionalProperties": false,
-      "description": "An app's declared Game Center achievements and leaderboards — the `gamecenter.config.json` document, or one entry of {@link LaunchConfig.gameCenter} (keyed by iOS bundle id). Either list may be omitted. Reconciled additively by `launch game-center`."
+      "description": "An app's declared Game Center achievements and leaderboards - the `gamecenter.config.json` document, or one entry of {@link LaunchConfig.gameCenter} (keyed by iOS bundle id). Either list may be omitted. Reconciled additively by `launch game-center`."
     },
     "AchievementConfig": {
       "type": "object",
-      "required": [
-        "vendorIdentifier",
-        "referenceName",
-        "points",
-        "name",
-        "beforeEarnedDescription",
-        "afterEarnedDescription"
-      ],
       "properties": {
         "vendorIdentifier": {
           "type": "string",
@@ -1186,19 +1179,19 @@
           "description": "Locale for the localization above (default `en-US`)."
         }
       },
+      "required": [
+        "vendorIdentifier",
+        "referenceName",
+        "points",
+        "name",
+        "beforeEarnedDescription",
+        "afterEarnedDescription"
+      ],
       "additionalProperties": false,
       "description": "One declared Game Center achievement: Apple's create attributes plus its default-locale localization."
     },
     "LeaderboardConfig": {
       "type": "object",
-      "required": [
-        "vendorIdentifier",
-        "referenceName",
-        "defaultFormatter",
-        "submissionType",
-        "scoreSortType",
-        "name"
-      ],
       "properties": {
         "vendorIdentifier": {
           "type": "string"
@@ -1255,30 +1248,37 @@
           "description": "Locale for the localization above (default `en-US`)."
         }
       },
+      "required": [
+        "vendorIdentifier",
+        "referenceName",
+        "defaultFormatter",
+        "submissionType",
+        "scoreSortType",
+        "name"
+      ],
       "additionalProperties": false,
       "description": "One declared Game Center leaderboard: Apple's create attributes plus its default-locale localization name."
     },
     "AppClipsConfig": {
       "type": "object",
-      "required": [
-        "clips"
-      ],
       "properties": {
         "clips": {
           "type": "object",
-          "required": [],
           "properties": {},
+          "required": [],
           "additionalProperties": {
             "$ref": "#/definitions/AppClipConfig"
           }
         }
       },
+      "required": [
+        "clips"
+      ],
       "additionalProperties": false,
-      "description": "An app's declared App Clips — the `appclips.config.json` document, or one entry of {@link LaunchConfig.appClips} (keyed by the parent app's iOS bundle id). Each App Clip is keyed by its own bundle id (e.g. `com.acme.app.Clip`), which is how a config entry is matched to the clip the build produced. Reconciled by `launch app-clips`."
+      "description": "An app's declared App Clips - the `appclips.config.json` document, or one entry of {@link LaunchConfig.appClips} (keyed by the parent app's iOS bundle id). Each App Clip is keyed by its own bundle id (e.g. `com.acme.app.Clip`), which is how a config entry is matched to the clip the build produced. Reconciled by `launch app-clips`."
     },
     "AppClipConfig": {
       "type": "object",
-      "required": [],
       "properties": {
         "action": {
           "type": "string",
@@ -1291,38 +1291,38 @@
         },
         "localizations": {
           "type": "object",
-          "required": [],
           "properties": {},
+          "required": [],
           "additionalProperties": {
             "$ref": "#/definitions/AppClipLocalizationConfig"
           },
           "description": "Per-locale card subtitles, keyed by Apple locale (e.g. `en-US`)."
         }
       },
+      "required": [],
       "additionalProperties": false,
       "description": "One App Clip's declared card metadata. Both fields are optional and reconciled independently, so a clip may declare just an `action`, just `localizations`, or both."
     },
     "AppClipLocalizationConfig": {
       "type": "object",
-      "required": [
-        "subtitle"
-      ],
       "properties": {
         "subtitle": {
           "type": "string"
         }
       },
+      "required": [
+        "subtitle"
+      ],
       "additionalProperties": false,
       "description": "One locale of an App Clip card: the subtitle shown under the app name in that locale."
     },
     "ReleaseAttributesConfig": {
       "type": "object",
-      "required": [],
       "properties": {
         "ageRating": {
           "type": "object",
-          "required": [],
           "properties": {},
+          "required": [],
           "additionalProperties": {
             "anyOf": [
               {
@@ -1333,7 +1333,7 @@
               }
             ]
           },
-          "description": "Age-rating answers as Apple's `name → value` map (enum strings or booleans); only changed keys are sent."
+          "description": "Age-rating answers as Apple's `name -> value` map (enum strings or booleans); only changed keys are sent."
         },
         "categories": {
           "$ref": "#/definitions/ReleaseCategories"
@@ -1345,12 +1345,12 @@
           "$ref": "#/definitions/ReviewDetailsConfig"
         }
       },
+      "required": [],
       "additionalProperties": false,
-      "description": "An app's declared App Store *release attributes* — age rating, App Store categories, base price, and App Review details — the `release.config.json` document, or one entry of {@link LaunchConfig.releaseAttributes} (keyed by iOS bundle id). Every section is optional and reconciled independently by `launch release-config`, so a file may declare only the attribute(s) you manage as code (e.g. just `pricing`). Named to avoid colliding with {@link ReleaseConfig}, which is the distinct iOS *release policy* (when/how a version goes live)."
+      "description": "An app's declared App Store *release attributes* - age rating, App Store categories, base price, and App Review details - the `release.config.json` document, or one entry of {@link LaunchConfig.releaseAttributes} (keyed by iOS bundle id). Every section is optional and reconciled independently by `launch release-config`, so a file may declare only the attribute(s) you manage as code (e.g. just `pricing`). Named to avoid colliding with {@link ReleaseConfig}, which is the distinct iOS *release policy* (when/how a version goes live)."
     },
     "ReleaseCategories": {
       "type": "object",
-      "required": [],
       "properties": {
         "primary": {
           "type": "string"
@@ -1359,14 +1359,12 @@
           "type": "string"
         }
       },
+      "required": [],
       "additionalProperties": false,
       "description": "Declared primary/secondary App Store categories (`appCategories` ids such as `PRODUCTIVITY`)."
     },
     "ReleasePricing": {
       "type": "object",
-      "required": [
-        "customerPrice"
-      ],
       "properties": {
         "baseTerritory": {
           "type": "string",
@@ -1377,12 +1375,14 @@
           "description": "The customer-facing price in the base territory; must match one of Apple's price-ladder rungs."
         }
       },
+      "required": [
+        "customerPrice"
+      ],
       "additionalProperties": false,
       "description": "Declared base price: a customer price (e.g. `9.99`) in a base territory Apple equalizes from."
     },
     "ReviewDetailsConfig": {
       "type": "object",
-      "required": [],
       "properties": {
         "contactFirstName": {
           "type": "string"
@@ -1404,21 +1404,18 @@
         },
         "demoAccountPassword": {
           "type": "string",
-          "description": "The reviewer demo-account password. Prefer an indirection over a plaintext literal so the secret needn't sit in a repo-committed config (per \"secrets never touch the repo\"): `env:VAR_NAME` reads it from the environment, `keychain:ACCOUNT` from the OS keychain — both resolved only at submit time, so a plan never reads or holds it. Any other value is used as a literal (backward compatible)."
+          "description": "The reviewer demo-account password. Prefer an indirection over a plaintext literal so the secret needn't sit in a repo-committed config (per \"secrets never touch the repo\"): `env:VAR_NAME` reads it from the environment, `keychain:ACCOUNT` from the OS keychain - both resolved only at submit time, so a plan never reads or holds it. Any other value is used as a literal (backward compatible)."
         },
         "notes": {
           "type": "string"
         }
       },
+      "required": [],
       "additionalProperties": false,
       "description": "Declared App Review details: the contact Apple reaches and the demo account its reviewer signs in with. Field names match Apple's `appStoreReviewDetails` attributes verbatim. `demoAccountPassword` is never read back from Apple or logged."
     },
     "WalletIdConfig": {
       "type": "object",
-      "required": [
-        "identifier",
-        "name"
-      ],
       "properties": {
         "identifier": {
           "type": "string",
@@ -1429,15 +1426,15 @@
           "description": "A label shown in App Store Connect / the developer portal."
         }
       },
+      "required": [
+        "identifier",
+        "name"
+      ],
       "additionalProperties": false,
       "description": "One declared Apple identifier: the reverse-DNS id plus a human-readable name shown in the portal."
     },
     "EuDistributionDomainConfig": {
       "type": "object",
-      "required": [
-        "domain",
-        "referenceName"
-      ],
       "properties": {
         "domain": {
           "type": "string",
@@ -1448,9 +1445,12 @@
           "description": "A label shown in App Store Connect to identify the domain."
         }
       },
+      "required": [
+        "domain",
+        "referenceName"
+      ],
       "additionalProperties": false,
       "description": "One authorized EU distribution domain: the host plus a human-readable reference name."
     }
-  },
-  "$ref": "#/definitions/LaunchConfig"
+  }
 }

@@ -1,307 +1,363 @@
-/**
- * Reconcile an app's **product-page A/B experiments** (Apple's v2 model) from a declarative
- * `experiments.config.json`, using the App Store Connect API key alone. Standing up experiments and their
- * treatment arms is click-heavy App Store Connect work that EAS doesn't touch.
- *
- * Per app, for each declared experiment (matched by its `name`):
- * 1. **Create** the experiment when missing, with its platform and traffic proportion.
- * 2. **Create** each declared treatment (variant arm, matched by name) the experiment doesn't have yet.
- *
- * Mirrors {@link reconcileGameCenter `core/gameCenter.ts`}: a read-only PLAN pass builds idempotent
- * {@link PlannedAction}s, then an APPLY pass performs them, each action isolated. Additive (existing
- * experiments/treatments are left untouched, re-run safe; nothing is deleted). Treatment **screenshots**,
- * treatment localizations, and **starting/stopping** an experiment are out of scope (a deliberate
- * follow-up) — Launch sets the experiment up; you launch it from App Store Connect.
- */
-
-import { existsSync, readFileSync } from 'node:fs';
+import { FileSystem } from '@effect/platform';
+import { Data, Effect, Schema } from 'effect';
+import { errorMessage } from '../services/errorMessage.js';
+import { appRecordMissing, plan, type ReconcileContext } from '../store/reconcile.js';
 import type {
   ExperimentTreatmentResource,
   VersionExperimentResource,
-} from '../../apple/ascClient.js';
-import {
-  appRecordMissing,
-  plan,
-  type PlannedAction,
-  type ReconcileContext,
-} from '../asc/storeSync.js';
-import { errorMessage } from '../services/errorMessage.js';
+} from '../types/appleCatalog.js';
+import type { PlannedAction } from '../types/reconcile.js';
 
-/** Default platform for an experiment that doesn't name one. */
 const DEFAULT_PLATFORM = 'IOS';
 
-/** One declared treatment (variant arm) of an experiment. */
-export interface TreatmentConfig {
-  /** Treatment name (Apple's match key; shown in App Store Connect). */
-  name: string;
-  /** Optional custom app-icon asset name for this treatment. */
-  appIconName?: string;
-}
+const ExperimentsDocumentSchema = Schema.Record({
+  key: Schema.String,
+  value: Schema.Unknown,
+});
+const ExperimentNameSchema = Schema.String.pipe(
+  Schema.nonEmptyString({
+    message: () =>
+      'experiments.config.json: experiment and treatment names must be non-empty strings.',
+  }),
+);
+const TrafficProportionSchema = Schema.Number.annotations({
+  message: () => 'experiments.config.json: trafficProportion must be a positive number.',
+}).pipe(
+  Schema.finite({
+    message: () => 'experiments.config.json: trafficProportion must be a positive number.',
+  }),
+  Schema.positive({
+    message: () => 'experiments.config.json: trafficProportion must be a positive number.',
+  }),
+);
 
-/** One declared product-page A/B experiment. */
-export interface ExperimentConfig {
-  /** Experiment name (Apple's match key). */
-  name: string;
-  /** Apple's traffic proportion for the experiment (the share of users entered into it). */
-  trafficProportion: number;
-  /** Platform the experiment runs on (default `IOS`). */
-  platform?: string;
-  /** The treatment arms; at least one is recommended (an experiment needs arms to be meaningful). */
-  treatments?: TreatmentConfig[];
-}
+export const TreatmentConfigSchema = Schema.mutable(
+  Schema.Struct({
+    name: ExperimentNameSchema,
+    appIconName: Schema.optionalWith(Schema.String, { exact: true }),
+  }),
+);
 
-/** The full `experiments.config.json` document. */
-export interface VersionExperimentsConfig {
-  /** One entry per experiment; at least one required. */
-  experiments: ExperimentConfig[];
-}
+export type TreatmentConfig = Schema.Schema.Type<typeof TreatmentConfigSchema>;
 
-/**
- * The exact slice of {@link AppStoreConnectClient} the experiments reconciler depends on, declared here so
- * the diff logic is unit-testable with a hand-rolled fake (mirrors {@link AscGameCenterApi}).
- */
-export interface AscExperimentsApi {
-  getAppId(bundleId: string): Promise<string | null>;
-  listVersionExperiments(appId: string): Promise<VersionExperimentResource[]>;
-  createVersionExperiment(
+export const ExperimentConfigSchema = Schema.mutable(
+  Schema.Struct({
+    name: ExperimentNameSchema,
+    trafficProportion: TrafficProportionSchema,
+    platform: Schema.optionalWith(Schema.String, { exact: true }),
+    treatments: Schema.optionalWith(Schema.mutable(Schema.Array(TreatmentConfigSchema)), {
+      exact: true,
+    }),
+  }),
+);
+
+export type ExperimentConfig = Schema.Schema.Type<typeof ExperimentConfigSchema>;
+
+export const VersionExperimentsConfigSchema = Schema.mutable(
+  Schema.Struct({
+    experiments: Schema.mutable(Schema.Array(ExperimentConfigSchema)).pipe(
+      Schema.minItems(1, {
+        message: () =>
+          'experiments.config.json must declare at least one entry under "experiments".',
+      }),
+      Schema.filter((declaredExperiments) => {
+        const experimentNames = new Set<string>();
+        for (const declaredExperiment of declaredExperiments) {
+          if (experimentNames.has(declaredExperiment.name)) {
+            return `experiments.config.json: duplicate experiment name "${declaredExperiment.name}".`;
+          }
+          experimentNames.add(declaredExperiment.name);
+        }
+        return true;
+      }),
+    ),
+  }),
+);
+
+export type VersionExperimentsConfig = Schema.Schema.Type<typeof VersionExperimentsConfigSchema>;
+
+/** Experiments decoding or reconciliation failed. */
+export type VersionExperimentsFailure = Readonly<{
+  readonly _tag: 'VersionExperimentsFailure';
+  readonly operation: string;
+  readonly message: string;
+  readonly cause: unknown;
+}>;
+
+export const makeVersionExperimentsFailure = Data.tagged<VersionExperimentsFailure>(
+  'VersionExperimentsFailure',
+);
+
+/** Store API calls used by product-page experiment reconciliation. */
+export type AscExperimentsApi = Readonly<{
+  getAppId: (bundleId: string) => Effect.Effect<string | null, unknown>;
+  listVersionExperiments: (appId: string) => Effect.Effect<VersionExperimentResource[], unknown>;
+  createVersionExperiment: (
     appId: string,
-    input: { name: string; platform: string; trafficProportion: number },
-  ): Promise<VersionExperimentResource>;
-  listExperimentTreatments(experimentId: string): Promise<ExperimentTreatmentResource[]>;
-  createExperimentTreatment(
+    experimentInput: {
+      name: string;
+      platform: string;
+      trafficProportion: number;
+    },
+  ) => Effect.Effect<VersionExperimentResource, unknown>;
+  listExperimentTreatments: (
     experimentId: string,
-    input: { name: string; appIconName?: string },
-  ): Promise<ExperimentTreatmentResource>;
-}
+  ) => Effect.Effect<ExperimentTreatmentResource[], unknown>;
+  createExperimentTreatment: (
+    experimentId: string,
+    treatmentInput: { name: string; appIconName?: string },
+  ) => Effect.Effect<ExperimentTreatmentResource, unknown>;
+}>;
 
-/** Inputs to reconcile one app's version experiments. */
-export interface ExperimentsReconcileInput {
+/** Inputs for one app's experiment reconciliation. */
+export type ExperimentsReconcileInput = Readonly<{
   bundleId: string;
   config: VersionExperimentsConfig;
   dryRun: boolean;
-}
+}>;
 
-/** Where an experiment stands after ensuring it: its id (and whether it pre-existed), or null when create failed. */
-interface EnsuredExperiment {
+type EnsuredExperiment = Readonly<{
   experimentId: string | null;
   existed: boolean;
-}
+}>;
 
-/**
- * Reconcile one app's product-page experiments. Throws only for a precondition the user must fix (no App
- * Store Connect app record); per-action failures are captured so one never aborts the rest.
- */
-export async function reconcileVersionExperiments(
-  api: AscExperimentsApi,
-  input: ExperimentsReconcileInput,
-): Promise<{ bundleId: string; actions: PlannedAction[] }> {
-  const ctx: ReconcileContext = { actions: [], dryRun: input.dryRun };
+/** Convert an underlying failure to the experiments channel. */
+const versionExperimentsFailure = (
+  operation: string,
+  cause: unknown,
+  explicitMessage?: string,
+): VersionExperimentsFailure => {
+  let message = explicitMessage;
+  if (message === undefined) message = errorMessage(cause);
+  if (message.length === 0) message = `${operation} failed.`;
+  return makeVersionExperimentsFailure({ operation, message, cause });
+};
 
-  const appId = await api.getAppId(input.bundleId);
-  if (!appId) throw appRecordMissing(input.bundleId, 'experiments');
-
-  const existing = new Map(
-    (await api.listVersionExperiments(appId)).map((experiment) => [experiment.name, experiment]),
-  );
-  for (const experiment of input.config.experiments) {
-    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
-    const ensured = await ensureExperiment(
-      ctx,
-      api,
-      appId,
-      experiment,
-      existing.get(experiment.name),
-    );
-    await reconcileTreatments(ctx, api, experiment, ensured);
-  }
-  return { bundleId: input.bundleId, actions: ctx.actions };
-}
-
-/** Read the experiment by name, creating it when absent. */
-async function ensureExperiment(
-  ctx: ReconcileContext,
-  api: AscExperimentsApi,
+/** Read an experiment by name or create it when absent. */
+const ensureExperiment = (
+  reconcileContext: ReconcileContext,
+  appleExperimentsApi: AscExperimentsApi,
   appId: string,
-  experiment: ExperimentConfig,
-  existing: VersionExperimentResource | undefined,
-): Promise<EnsuredExperiment> {
-  if (existing) return { experimentId: existing.id, existed: true };
-
-  const action = plan(
-    ctx,
-    `create experiment "${experiment.name}" (${experiment.trafficProportion}% traffic)`,
-  );
-  if (ctx.dryRun) return { experimentId: null, existed: false };
-  try {
-    const created = await api.createVersionExperiment(appId, {
-      name: experiment.name,
-      platform: experiment.platform ?? DEFAULT_PLATFORM,
-      trafficProportion: experiment.trafficProportion,
+  desiredExperiment: ExperimentConfig,
+  existingExperiment: VersionExperimentResource | undefined,
+): Effect.Effect<EnsuredExperiment> => {
+  if (existingExperiment !== undefined) {
+    return Effect.succeed({
+      experimentId: existingExperiment.id,
+      existed: true,
     });
-    action.status = 'applied';
-    return { experimentId: created.id, existed: false };
-  } catch (error) {
-    action.status = 'failed';
-    action.error = errorMessage(error);
-    return { experimentId: null, existed: false };
   }
-}
-
-/** Create each declared treatment the experiment doesn't have yet (matched by name). */
-async function reconcileTreatments(
-  ctx: ReconcileContext,
-  api: AscExperimentsApi,
-  experiment: ExperimentConfig,
-  ensured: EnsuredExperiment,
-): Promise<void> {
-  const declared = experiment.treatments ?? [];
-  const existingNames =
-    ensured.existed && ensured.experimentId
-      ? new Set(
-          (await api.listExperimentTreatments(ensured.experimentId)).map(
-            (treatment) => treatment.name,
-          ),
-        )
-      : new Set<string>();
-
-  for (const treatment of declared) {
-    if (existingNames.has(treatment.name)) continue;
-
-    const action = plan(
-      ctx,
-      `create treatment "${treatment.name}" on experiment "${experiment.name}"`,
+  const plannedAction = plan(
+    reconcileContext,
+    `create experiment "${desiredExperiment.name}" (${desiredExperiment.trafficProportion}% traffic)`,
+  );
+  if (reconcileContext.dryRun) {
+    return Effect.succeed({ experimentId: null, existed: false });
+  }
+  let platform = DEFAULT_PLATFORM;
+  if (desiredExperiment.platform !== undefined) {
+    platform = desiredExperiment.platform;
+  }
+  return appleExperimentsApi
+    .createVersionExperiment(appId, {
+      name: desiredExperiment.name,
+      platform,
+      trafficProportion: desiredExperiment.trafficProportion,
+    })
+    .pipe(
+      Effect.match({
+        onSuccess: (createdExperiment) => {
+          plannedAction.status = 'applied';
+          return { experimentId: createdExperiment.id, existed: false };
+        },
+        onFailure: (creationFailure) => {
+          plannedAction.status = 'failed';
+          plannedAction.error = errorMessage(creationFailure);
+          return { experimentId: null, existed: false };
+        },
+      }),
     );
-    if (ctx.dryRun) continue;
-    if (!ensured.experimentId) {
-      action.status = 'skipped'; // the experiment create failed, so its treatments can't be created
-      continue;
+};
+
+/** Create declared treatments that are not already present. */
+const reconcileTreatments = (
+  reconcileContext: ReconcileContext,
+  appleExperimentsApi: AscExperimentsApi,
+  desiredExperiment: ExperimentConfig,
+  ensuredExperiment: EnsuredExperiment,
+): Effect.Effect<void, unknown> =>
+  Effect.gen(function* () {
+    let desiredTreatments: TreatmentConfig[] = [];
+    if (desiredExperiment.treatments !== undefined) {
+      desiredTreatments = desiredExperiment.treatments;
     }
-    try {
-      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
-      await api.createExperimentTreatment(ensured.experimentId, {
-        name: treatment.name,
-        ...(treatment.appIconName ? { appIconName: treatment.appIconName } : {}),
-      });
-      action.status = 'applied';
-    } catch (error) {
-      action.status = 'failed';
-      action.error = errorMessage(error);
+    const existingTreatmentNames = new Set<string>();
+    if (ensuredExperiment.existed && ensuredExperiment.experimentId !== null) {
+      const existingTreatments = yield* appleExperimentsApi.listExperimentTreatments(
+        ensuredExperiment.experimentId,
+      );
+      for (const existingTreatment of existingTreatments) {
+        existingTreatmentNames.add(existingTreatment.name);
+      }
     }
-  }
-}
-
-/** Narrow an unknown value to a plain object, or null. Arrays are rejected so a malformed section fails loudly. */
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-/** Read a required non-empty string field, throwing a located error when missing or the wrong type. */
-function requireString(record: Record<string, unknown>, key: string, where: string): string {
-  const value = record[key];
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`experiments.config.json: ${where}.${key} must be a non-empty string.`);
-  }
-  return value;
-}
-
-/** Parse one treatment entry. */
-function parseTreatment(raw: unknown, where: string): TreatmentConfig {
-  const record = asRecord(raw);
-  if (!record) throw new Error(`experiments.config.json: ${where} must be an object.`);
-  const config: TreatmentConfig = { name: requireString(record, 'name', where) };
-  if (record['appIconName'] !== undefined) {
-    if (typeof record['appIconName'] !== 'string') {
-      throw new Error(`experiments.config.json: ${where}.appIconName must be a string.`);
+    for (const desiredTreatment of desiredTreatments) {
+      if (existingTreatmentNames.has(desiredTreatment.name)) continue;
+      const plannedAction = plan(
+        reconcileContext,
+        `create treatment "${desiredTreatment.name}" on experiment "${desiredExperiment.name}"`,
+      );
+      if (reconcileContext.dryRun) continue;
+      if (ensuredExperiment.experimentId === null) {
+        plannedAction.status = 'skipped';
+        continue;
+      }
+      const treatmentInput: { name: string; appIconName?: string } = {
+        name: desiredTreatment.name,
+      };
+      if (desiredTreatment.appIconName !== undefined) {
+        treatmentInput.appIconName = desiredTreatment.appIconName;
+      }
+      yield* appleExperimentsApi
+        .createExperimentTreatment(ensuredExperiment.experimentId, treatmentInput)
+        .pipe(
+          Effect.match({
+            onSuccess: () => {
+              plannedAction.status = 'applied';
+            },
+            onFailure: (creationFailure) => {
+              plannedAction.status = 'failed';
+              plannedAction.error = errorMessage(creationFailure);
+            },
+          }),
+        );
     }
-    config.appIconName = record['appIconName'];
-  }
-  return config;
-}
+  });
 
-/** Parse one experiment entry, validating its name, traffic proportion, and treatments. */
-function parseExperiment(raw: unknown, index: number): ExperimentConfig {
-  const record = asRecord(raw);
-  const where = `experiments[${index}]`;
-  if (!record) throw new Error(`experiments.config.json: ${where} must be an object.`);
-
-  const trafficProportion = record['trafficProportion'];
-  if (typeof trafficProportion !== 'number' || trafficProportion <= 0) {
-    throw new Error(
-      `experiments.config.json: ${where}.trafficProportion must be a positive number.`,
+/** Reconcile product-page experiments for one App Store app. */
+export const reconcileVersionExperiments = (
+  appleExperimentsApi: AscExperimentsApi,
+  reconciliationInput: ExperimentsReconcileInput,
+): Effect.Effect<{ bundleId: string; actions: PlannedAction[] }, VersionExperimentsFailure> =>
+  Effect.gen(function* () {
+    const reconcileContext: ReconcileContext = {
+      actions: [],
+      dryRun: reconciliationInput.dryRun,
+    };
+    const appId = yield* appleExperimentsApi.getAppId(reconciliationInput.bundleId);
+    if (appId === null) {
+      return yield* Effect.fail(appRecordMissing(reconciliationInput.bundleId, 'experiments'));
+    }
+    const existingExperiments = yield* appleExperimentsApi.listVersionExperiments(appId);
+    const experimentsByName = new Map(
+      existingExperiments.map((existingExperiment) => [
+        existingExperiment.name,
+        existingExperiment,
+      ]),
     );
-  }
-
-  const config: ExperimentConfig = {
-    name: requireString(record, 'name', where),
-    trafficProportion,
-  };
-  if (record['platform'] !== undefined) {
-    if (typeof record['platform'] !== 'string') {
-      throw new Error(`experiments.config.json: ${where}.platform must be a string (e.g. "IOS").`);
+    for (const desiredExperiment of reconciliationInput.config.experiments) {
+      const ensuredExperiment = yield* ensureExperiment(
+        reconcileContext,
+        appleExperimentsApi,
+        appId,
+        desiredExperiment,
+        experimentsByName.get(desiredExperiment.name),
+      );
+      yield* reconcileTreatments(
+        reconcileContext,
+        appleExperimentsApi,
+        desiredExperiment,
+        ensuredExperiment,
+      );
     }
-    config.platform = record['platform'];
-  }
-  if (record['treatments'] !== undefined) {
-    if (!Array.isArray(record['treatments'])) {
-      throw new Error(`experiments.config.json: ${where}.treatments must be an array.`);
+    return {
+      bundleId: reconciliationInput.bundleId,
+      actions: reconcileContext.actions,
+    };
+  }).pipe(
+    Effect.mapError((cause) => versionExperimentsFailure('reconcile version experiments', cause)),
+  );
+
+/** Decode an untrusted experiments.config.json document. */
+export const parseVersionExperimentsConfig = (
+  rawDocument: unknown,
+): Effect.Effect<VersionExperimentsConfig, VersionExperimentsFailure> =>
+  Effect.gen(function* () {
+    const experimentsDocument = yield* Schema.decodeUnknown(ExperimentsDocumentSchema)(
+      rawDocument,
+    ).pipe(
+      Effect.mapError((cause) =>
+        versionExperimentsFailure(
+          'decode experiments config document',
+          cause,
+          'experiments.config.json must be a JSON object.',
+        ),
+      ),
+    );
+    return yield* Schema.decodeUnknown(VersionExperimentsConfigSchema)(experimentsDocument).pipe(
+      Effect.mapError((cause) =>
+        versionExperimentsFailure('decode experiments config fields', cause, errorMessage(cause)),
+      ),
+    );
+  });
+
+/** Read and decode experiments.config.json through Effect Platform. */
+export const loadVersionExperimentsConfig = (
+  configPath: string,
+): Effect.Effect<VersionExperimentsConfig, VersionExperimentsFailure, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const configExists = yield* fileSystem
+      .exists(configPath)
+      .pipe(
+        Effect.mapError((cause) => versionExperimentsFailure('inspect experiments config', cause)),
+      );
+    if (!configExists) {
+      return yield* Effect.fail(
+        versionExperimentsFailure(
+          'read experiments config',
+          configPath,
+          `No experiments config at ${configPath}. Create one (see \`launch experiments --help\`) or pass --config.`,
+        ),
+      );
     }
-    config.treatments = record['treatments'].map((entry, i) =>
-      parseTreatment(entry, `${where}.treatments[${i}]`),
+    const configSource = yield* fileSystem
+      .readFileString(configPath)
+      .pipe(
+        Effect.mapError((cause) => versionExperimentsFailure('read experiments config', cause)),
+      );
+    const rawDocument = yield* Schema.decodeUnknown(Schema.parseJson())(configSource).pipe(
+      Effect.mapError((cause) =>
+        versionExperimentsFailure(
+          'parse experiments config JSON',
+          cause,
+          `Invalid JSON in ${configPath}.`,
+        ),
+      ),
     );
-  }
-  return config;
-}
+    return yield* parseVersionExperimentsConfig(rawDocument);
+  });
 
-/**
- * Parse and validate a raw `experiments.config.json` value into a typed {@link VersionExperimentsConfig}.
- * Rejects a non-object document, a missing/empty `experiments` list, and a duplicate experiment name.
- */
-export function parseVersionExperimentsConfig(raw: unknown): VersionExperimentsConfig {
-  const record = asRecord(raw);
-  if (!record) throw new Error('experiments.config.json must be a JSON object.');
-
-  const rawExperiments = record['experiments'];
-  if (!Array.isArray(rawExperiments))
-    throw new Error('experiments.config.json: "experiments" must be an array.');
-  if (rawExperiments.length === 0) {
-    throw new Error('experiments.config.json must declare at least one entry under "experiments".');
-  }
-  const experiments = rawExperiments.map(parseExperiment);
-
-  const seen = new Set<string>();
-  for (const experiment of experiments) {
-    if (seen.has(experiment.name))
-      throw new Error(`experiments.config.json: duplicate experiment name "${experiment.name}".`);
-    seen.add(experiment.name);
-  }
-  return { experiments };
-}
-
-/** Read and parse an `experiments.config.json` from disk. */
-export function loadVersionExperimentsConfig(path: string): VersionExperimentsConfig {
-  if (!existsSync(path)) {
-    throw new Error(
-      `No experiments config at ${path}. Create one (see \`launch experiments --help\`) or pass --config.`,
-    );
-  }
-  return parseVersionExperimentsConfig(JSON.parse(readFileSync(path, 'utf8')));
-}
-
-/** Tally a report's action statuses for the run summary (mirrors the other store-sync commands). */
-export function summarizeExperiments(actions: PlannedAction[]): {
-  applied: number;
-  failed: number;
-  skipped: number;
-} {
+/** Count applied, failed, and skipped experiment actions. */
+export const summarizeExperiments = (
+  plannedActions: PlannedAction[],
+): Readonly<{ applied: number; failed: number; skipped: number }> => {
   let applied = 0;
   let failed = 0;
   let skipped = 0;
-  for (const action of actions) {
-    if (action.status === 'applied') applied++;
-    else if (action.status === 'failed') failed++;
-    else if (action.status === 'skipped') skipped++;
+  for (const plannedAction of plannedActions) {
+    switch (plannedAction.status) {
+      case 'applied':
+        applied += 1;
+        break;
+      case 'failed':
+        failed += 1;
+        break;
+      case 'skipped':
+        skipped += 1;
+        break;
+      case 'planned':
+        break;
+    }
   }
   return { applied, failed, skipped };
-}
+};

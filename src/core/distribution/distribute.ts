@@ -1,40 +1,33 @@
-/**
- * The internal-distribution tail: turn a freshly built ad-hoc artifact into a tester install link hosted
- * on the user's own bucket.
- *
- * Uploads the artifact, an `itms-services` manifest plist (iOS/tvOS/visionOS only), and a small landing
- * page to the configured cloud {@link StorageProvider}, then prints the install URL. This is the
- * `launch build --distribution internal` analog of the submit step — no TestFlight, no Play track, no
- * shared cloud queue. It requires a cloud storage provider, since a `file://` path can't serve an
- * install link; the guard fails loud with the fix when `storage` is still `local`.
- */
-
-import { readFileSync } from 'node:fs';
-import { extname } from 'node:path';
-import { isApplePlatform } from '../services/platform.js';
-import type { AppDescriptor, LaunchConfig, Platform } from '../types/index.js';
+import { FileSystem, Path } from '@effect/platform';
+import { Data, Effect } from 'effect';
 import type { Logger } from '../services/logger.js';
+import type { LaunchPathsService } from '../services/paths.js';
+import { isApplePlatform } from '../services/platform.js';
+import type { AppDescriptor, Platform } from '../types/app.js';
+import type { LaunchConfig } from '../types/config.js';
 import { isCloudStorage, resolveStorageProvider } from './storage.js';
 import { installLandingPage, iosInstallManifestPlist, itmsServicesUrl } from './installManifest.js';
 
-/** Inputs for {@link distributeArtifact}. */
-export interface DistributeOptions {
-  config: LaunchConfig;
-  app: AppDescriptor;
-  platform: Platform;
-  /** Absolute path to the built ad-hoc artifact: `.ipa` (iOS/tvOS/visionOS), `.apk` (Android), `.pkg`/`.app`/`.dmg` (macOS). */
-  artifactPath: string;
-  /** Marketing version, e.g. `1.0.0`. */
-  version: string;
-  /** Build number (iOS `CFBundleVersion`) / versionCode (Android). */
-  buildNumber: number;
-  /** iOS bundle id, required for the install manifest. Absent on Android. */
-  bundleId?: string | undefined;
-  dryRun: boolean;
-  log: Logger;
-}
+export type DistributeOptions = Readonly<{
+  readonly config: LaunchConfig;
+  readonly app: AppDescriptor;
+  readonly platform: Platform;
+  readonly artifactPath: string;
+  readonly version: string;
+  readonly buildNumber: number;
+  readonly bundleId?: string;
+  readonly dryRun: boolean;
+  readonly log: Logger;
+}>;
 
-/** Content types for the files an internal distribution uploads. */
+export type DistributionFailure = Readonly<{
+  readonly _tag: 'DistributionFailure';
+  readonly reason: 'BundleIdentifierRequired' | 'CloudStorageRequired';
+  readonly platform: Platform;
+}>;
+
+export const makeDistributionFailure = Data.tagged<DistributionFailure>('DistributionFailure');
+
 const CONTENT_TYPE = {
   ipa: 'application/octet-stream',
   apk: 'application/vnd.android.package-archive',
@@ -42,99 +35,100 @@ const CONTENT_TYPE = {
   html: 'text/html; charset=utf-8',
 } as const;
 
-/**
- * Upload the artifact + install manifest + landing page and return the tester-facing install link.
- * The keys are namespaced per app/platform/build so successive internal builds don't overwrite each
- * other. In `--dry-run` it computes the same public URLs (no credentials needed) and uploads nothing.
- */
-export async function distributeArtifact(options: DistributeOptions): Promise<void> {
-  const { config, app, platform, artifactPath, version, buildNumber, bundleId, dryRun, log } =
-    options;
-
-  if (!isCloudStorage(config)) {
-    throw new Error(
-      'Internal distribution needs a cloud storage provider to host the install link. Set `storage: "s3"` ' +
-        '(or `supabase`) + a `storageConfig` block in launch.config.ts.',
-    );
-  }
-
-  const storage = resolveStorageProvider(config);
-  const base = `internal/${app.name}/${platform}/${buildNumber}`;
-  const pageKey = `${base}/index.html`;
-  const pageUrl = storage.publicUrl(pageKey);
-
-  // iOS, tvOS, and visionOS install over the air via an `itms-services` manifest. macOS has no
-  // itms-services OTA, so (like Android) it falls through to the direct-download path below.
-  if (isApplePlatform(platform) && platform !== 'macos') {
-    if (!bundleId)
-      throw new Error(
-        'An Apple internal build needs a bundle identifier to build the install manifest.',
+/** Upload an internal build and publish its tester-facing installation page. */
+export const distributeArtifact = (
+  distributeOptions: DistributeOptions,
+): Effect.Effect<void, unknown, FileSystem.FileSystem | LaunchPathsService | Path.Path> =>
+  Effect.gen(function* () {
+    const { config, app, platform, artifactPath, version, buildNumber, bundleId, dryRun, log } =
+      distributeOptions;
+    if (!isCloudStorage(config)) {
+      return yield* Effect.fail(
+        makeDistributionFailure({ reason: 'CloudStorageRequired', platform }),
       );
-    const ipaKey = `${base}/${app.name}.ipa`;
-    const manifestKey = `${base}/manifest.plist`;
-    const ipaUrl = storage.publicUrl(ipaKey);
-    const manifestUrl = storage.publicUrl(manifestKey);
-    const installUrl = itmsServicesUrl(manifestUrl);
-    const manifest = iosInstallManifestPlist({ ipaUrl, bundleId, version, title: app.name });
-    const page = installLandingPage({
+    }
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const storageProvider = yield* resolveStorageProvider(config);
+    const objectPrefix = `internal/${app.name}/${platform}/${buildNumber}`;
+    const landingPageKey = `${objectPrefix}/index.html`;
+    const landingPageUrl = storageProvider.publicUrl(landingPageKey);
+    if (isApplePlatform(platform) && platform !== 'macos') {
+      if (bundleId === undefined) {
+        return yield* Effect.fail(
+          makeDistributionFailure({ reason: 'BundleIdentifierRequired', platform }),
+        );
+      }
+      const ipaKey = `${objectPrefix}/${app.name}.ipa`;
+      const manifestKey = `${objectPrefix}/manifest.plist`;
+      const ipaUrl = storageProvider.publicUrl(ipaKey);
+      const manifestUrl = storageProvider.publicUrl(manifestKey);
+      const installUrl = itmsServicesUrl(manifestUrl);
+      const manifestText = iosInstallManifestPlist({
+        ipaUrl,
+        bundleId,
+        version,
+        title: app.name,
+      });
+      const landingPageHtml = installLandingPage({
+        title: app.name,
+        version,
+        buildNumber,
+        platform,
+        installUrl,
+      });
+      if (dryRun) {
+        yield* log.step(
+          'distribute',
+          `would upload .ipa + manifest + page to ${objectPrefix}/`,
+          'ad-hoc-distribution',
+        );
+        yield* log.note(`install page -> ${landingPageUrl}`);
+        return;
+      }
+      const artifactBytes = yield* fileSystem.readFile(artifactPath);
+      yield* storageProvider.putObject(ipaKey, Buffer.from(artifactBytes), CONTENT_TYPE.ipa);
+      yield* storageProvider.putObject(manifestKey, manifestText, CONTENT_TYPE.plist);
+      yield* storageProvider.putObject(landingPageKey, landingPageHtml, CONTENT_TYPE.html);
+      yield* log.step('distribute', 'ad-hoc install link ready', 'ad-hoc-distribution');
+      yield* log.box('Install link', [
+        `${app.name} ${version} (${buildNumber})`,
+        landingPageUrl,
+        `direct: ${installUrl}`,
+      ]);
+      return;
+    }
+    let artifactExtension = pathService.extname(artifactPath);
+    if (artifactExtension === '' && platform === 'android') artifactExtension = '.apk';
+    const artifactKey = `${objectPrefix}/${app.name}${artifactExtension}`;
+    const artifactUrl = storageProvider.publicUrl(artifactKey);
+    let artifactContentType: string = CONTENT_TYPE.ipa;
+    if (platform === 'android') artifactContentType = CONTENT_TYPE.apk;
+    const landingPageHtml = installLandingPage({
       title: app.name,
       version,
       buildNumber,
       platform,
-      installUrl,
+      installUrl: artifactUrl,
     });
-
     if (dryRun) {
-      log.step(
+      let artifactLabel = artifactExtension;
+      if (artifactLabel === '') artifactLabel = 'artifact';
+      yield* log.step(
         'distribute',
-        `would upload .ipa + manifest + page to ${base}/`,
+        `would upload ${artifactLabel} + page to ${objectPrefix}/`,
         'ad-hoc-distribution',
       );
-      log.info(`install page → ${pageUrl}`);
+      yield* log.note(`install page -> ${landingPageUrl}`);
       return;
     }
-    await storage.putObject(ipaKey, readFileSync(artifactPath), CONTENT_TYPE.ipa);
-    await storage.putObject(manifestKey, manifest, CONTENT_TYPE.plist);
-    await storage.putObject(pageKey, page, CONTENT_TYPE.html);
-    log.step('distribute', `ad-hoc install link ready`, 'ad-hoc-distribution');
-    log.box('Install link', [
+    const artifactBytes = yield* fileSystem.readFile(artifactPath);
+    yield* storageProvider.putObject(artifactKey, Buffer.from(artifactBytes), artifactContentType);
+    yield* storageProvider.putObject(landingPageKey, landingPageHtml, CONTENT_TYPE.html);
+    yield* log.step('distribute', 'install link ready', 'ad-hoc-distribution');
+    yield* log.box('Install link', [
       `${app.name} ${version} (${buildNumber})`,
-      pageUrl,
-      `direct: ${installUrl}`,
+      landingPageUrl,
+      `direct: ${artifactUrl}`,
     ]);
-    return;
-  }
-
-  // Direct download: Android (.apk installs directly) and macOS (.pkg/.app/.dmg) — the landing page links
-  // straight to the artifact, no install manifest. The artifact keeps its own extension; the .apk has its
-  // own MIME, every other binary is served as octet-stream.
-  const ext = extname(artifactPath) || (platform === 'android' ? '.apk' : '');
-  const fileKey = `${base}/${app.name}${ext}`;
-  const fileUrl = storage.publicUrl(fileKey);
-  const contentType = platform === 'android' ? CONTENT_TYPE.apk : CONTENT_TYPE.ipa;
-  const page = installLandingPage({
-    title: app.name,
-    version,
-    buildNumber,
-    platform,
-    installUrl: fileUrl,
   });
-
-  if (dryRun) {
-    log.step(
-      'distribute',
-      `would upload ${ext || 'artifact'} + page to ${base}/`,
-      'ad-hoc-distribution',
-    );
-    log.info(`install page → ${pageUrl}`);
-    return;
-  }
-  await storage.putObject(fileKey, readFileSync(artifactPath), contentType);
-  await storage.putObject(pageKey, page, CONTENT_TYPE.html);
-  log.step('distribute', `install link ready`, 'ad-hoc-distribution');
-  log.box('Install link', [
-    `${app.name} ${version} (${buildNumber})`,
-    pageUrl,
-    `direct: ${fileUrl}`,
-  ]);
-}

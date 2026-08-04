@@ -1,11 +1,15 @@
+import { Effect } from 'effect';
+import { runPlanner } from './planner.testkit.js';
 import { describe, expect, it, vi } from 'vitest';
 import { catalogPlanner } from './catalog.js';
-import { makeAscApiFake } from '../../../testkit/ascApiFake.testkit.js';
-import type { AscCatalogApi } from '../../store/ascSync.js';
-import type { PlanContext, AppDescriptor, AppProducts, LaunchConfig } from '../../types/index.js';
-
+import { makeAscApiFake } from '@testkit/ascApiFake.testkit.js';
+import type { AscCatalogApi } from '@core/store/ascSync.js';
+import type { AppDescriptor } from '@core/types/app.js';
+import type { AppProducts } from '@core/types/catalog.js';
+import type { LaunchConfig } from '@core/types/config.js';
+import type { PlanContext } from '@core/types/plan.js';
 /** A fully-stubbed {@link AscCatalogApi}: reads default to "nothing exists yet", writes resolve to a created resource. */
-function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {
+const makeApi = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {
   const base: AscCatalogApi = {
     getAppId: vi.fn().mockResolvedValue('app1'),
     findBundleId: vi.fn().mockResolvedValue({ id: 'bundle1', identifier: 'com.acme.alpha' }),
@@ -17,23 +21,32 @@ function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {
       ),
     disableCapability: vi.fn().mockResolvedValue(undefined),
     listInAppPurchases: vi.fn().mockResolvedValue([]),
-    createInAppPurchase: vi
-      .fn()
-      .mockImplementation(
-        (_a: string, input: { productId: string; name: string; inAppPurchaseType: string }) =>
-          Promise.resolve({
-            id: 'iap-new',
-            productId: input.productId,
-            name: input.name,
-            inAppPurchaseType: input.inAppPurchaseType,
-          }),
-      ),
+    createInAppPurchase: vi.fn().mockImplementation(
+      (
+        _a: string,
+        input: {
+          productId: string;
+          name: string;
+          inAppPurchaseType: string;
+        },
+      ) =>
+        Promise.resolve({
+          id: 'iap-new',
+          productId: input.productId,
+          name: input.name,
+          inAppPurchaseType: input.inAppPurchaseType,
+        }),
+    ),
     listInAppPurchaseLocalizations: vi.fn().mockResolvedValue([]),
-    createInAppPurchaseLocalization: vi
-      .fn()
-      .mockImplementation((_i: string, input: { locale: string; name: string }) =>
-        Promise.resolve({ id: 'iloc', locale: input.locale, name: input.name }),
-      ),
+    createInAppPurchaseLocalization: vi.fn().mockImplementation(
+      (
+        _i: string,
+        input: {
+          locale: string;
+          name: string;
+        },
+      ) => Promise.resolve({ id: 'iloc', locale: input.locale, name: input.name }),
+    ),
     inAppPurchaseHasPrice: vi.fn().mockResolvedValue(false),
     findInAppPurchasePricePoint: vi
       .fn()
@@ -50,11 +63,15 @@ function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {
     listSubscriptionGroupLocalizations: vi.fn().mockResolvedValue([]),
     createSubscriptionGroupLocalization: vi.fn().mockResolvedValue({ id: 'gloc' }),
     listSubscriptions: vi.fn().mockResolvedValue([]),
-    createSubscription: vi
-      .fn()
-      .mockImplementation((_g: string, input: { productId: string; name: string }) =>
-        Promise.resolve({ id: 'sub-new', productId: input.productId, name: input.name }),
-      ),
+    createSubscription: vi.fn().mockImplementation(
+      (
+        _g: string,
+        input: {
+          productId: string;
+          name: string;
+        },
+      ) => Promise.resolve({ id: 'sub-new', productId: input.productId, name: input.name }),
+    ),
     listSubscriptionLocalizations: vi.fn().mockResolvedValue([]),
     createSubscriptionLocalization: vi.fn().mockResolvedValue({ id: 'sloc' }),
     subscriptionHasPrice: vi.fn().mockResolvedValue(false),
@@ -70,8 +87,7 @@ function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {
     updateVersionLocalization: vi.fn().mockResolvedValue(undefined),
   };
   return { ...base, ...overrides };
-}
-
+};
 const PRODUCTS: AppProducts = {
   inAppPurchases: [
     {
@@ -83,54 +99,57 @@ const PRODUCTS: AppProducts = {
     },
   ],
 };
-
 const ALPHA: AppDescriptor = {
   name: 'alpha',
   dir: '/no/such/dir/alpha',
   configPath: '/no/such/dir/alpha/app.json',
   bundleId: 'com.acme.alpha',
 };
-
-function makeCtx(
+const makeCtx = (
   api: AscCatalogApi | null,
   products: Record<string, AppProducts> = {},
-): PlanContext {
-  const config: LaunchConfig = {
+): PlanContext => {
+  const baseConfig: LaunchConfig = {
     profiles: {},
     credentials: 'local',
     storage: 'local',
     buildEngine: 'fastlane',
     submit: 'app-store-connect',
-    ...(Object.keys(products).length > 0 ? { products } : {}),
   };
+  let config = baseConfig;
+  if (Object.keys(products).length > 0) config = { ...baseConfig, products };
   return {
     config,
     apps: [ALPHA],
     // Widen the catalog-only fake to the full surface API the context now exposes; the catalog methods
     // (which these tests assert on) win over the factory's inert defaults via the trailing spread.
-    resolveAscApi: () => Promise.resolve(api === null ? null : { ...makeAscApiFake(), ...api }),
-    resolvePlayApi: () => Promise.resolve(null),
+    resolveAscApi: () => {
+      if (api === null) return Effect.succeed(null);
+      return Effect.succeed(makeAscApiFake(api));
+    },
+    resolvePlayApi: () => Effect.succeed(null),
   };
-}
-
+};
 describe('catalogPlanner', () => {
   it('omits itself when no app declares a catalog', async () => {
-    const plan = await catalogPlanner.plan(makeCtx(makeApi(), {}));
+    const plan = await runPlanner(catalogPlanner, makeCtx(makeApi(), {}));
     expect(plan.state).toBe('omitted');
   });
-
   it('skips with an actionable hint when no Apple account is active', async () => {
-    const plan = await catalogPlanner.plan(makeCtx(null, { 'com.acme.alpha': PRODUCTS }));
+    const plan = await runPlanner(catalogPlanner, makeCtx(null, { 'com.acme.alpha': PRODUCTS }));
     expect(plan.state).toBe('skipped');
     if (plan.state !== 'skipped') return;
     expect(plan.reason).toMatch(/Apple account/);
     expect(plan.hint).toMatch(/creds/);
   });
-
   it('reports the per-app diff a fresh catalog would create', async () => {
-    const plan = await catalogPlanner.plan(makeCtx(makeApi(), { 'com.acme.alpha': PRODUCTS }));
+    const plan = await runPlanner(
+      catalogPlanner,
+      makeCtx(makeApi(), { 'com.acme.alpha': PRODUCTS }),
+    );
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned' || plan.scope !== 'app') return;
+    if (plan.state !== 'planned') return;
+    if (plan.scope !== 'app') return;
     expect(plan.apps).toHaveLength(1);
     expect(plan.apps[0]?.identifier).toBe('com.acme.alpha');
     expect(
@@ -139,19 +158,18 @@ describe('catalogPlanner', () => {
       ),
     ).toBe(true);
   });
-
   it('captures a missing app record as a per-app error, not a thrown plan', async () => {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
-    const plan = await catalogPlanner.plan(makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
+    const plan = await runPlanner(catalogPlanner, makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
     expect(plan.state).toBe('planned');
-    if (plan.state !== 'planned' || plan.scope !== 'app') return;
+    if (plan.state !== 'planned') return;
+    if (plan.scope !== 'app') return;
     expect(plan.apps[0]?.error).toMatch(/No App Store Connect app record/);
     expect(plan.apps[0]?.actions).toHaveLength(0);
   });
-
   it('is strictly read-only: never invokes a write endpoint', async () => {
     const api = makeApi();
-    await catalogPlanner.plan(makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
+    await runPlanner(catalogPlanner, makeCtx(api, { 'com.acme.alpha': PRODUCTS }));
     expect(api.getAppId).toHaveBeenCalled();
     expect(api.listInAppPurchases).toHaveBeenCalled();
     expect(api.enableCapability).toHaveBeenCalledTimes(0);

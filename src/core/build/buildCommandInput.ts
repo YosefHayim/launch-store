@@ -1,19 +1,12 @@
-/**
- * Build-command input decoding.
- *
- * Commander owns the flag names and help text. This module owns turning the raw command values into
- * the {@link import("./pipeline.js").BuildRunOptions} shape the build pipeline consumes.
- */
-
 import { Data, Effect } from 'effect';
 import { parseCliEnv } from '../config/env.js';
 import { parsePlatform, PLATFORMS } from '../services/platform.js';
-import type { BuildRunOptions } from './pipeline.js';
-import type { Distribution, PlayTrack, RemoteTarget } from '../types/index.js';
+import type { BuildRunOptions } from './pipelineTypes.js';
+import type { Distribution, PlayTrack } from '../types/app.js';
+import type { RemoteTarget } from '../types/remote.js';
 import type { BumpKind } from '../release/version.js';
-
 /** Raw `launch build` options as Commander hands them to the action callback. */
-export interface BuildCommandOptions {
+export type BuildCommandOptions = {
   readonly profile: string;
   readonly app?: string;
   readonly explain: boolean;
@@ -34,66 +27,40 @@ export interface BuildCommandOptions {
   readonly includeLocal: boolean;
   readonly printEnv: boolean;
   readonly ccache: boolean;
-}
-
+};
 /** A bad `launch build` command-line value that failed before the pipeline started. */
-export class BuildCommandInputError extends Data.TaggedError('BuildCommandInputError')<{
+export type BuildCommandInputError = Readonly<{
+  readonly _tag: 'BuildCommandInputError';
   readonly field: string;
-  readonly value: unknown;
+  readonly rejectedInput: unknown;
   readonly message: string;
   readonly cause?: unknown;
-}> {}
-
+}>;
+export const makeBuildCommandInputError =
+  Data.tagged<BuildCommandInputError>('BuildCommandInputError');
 const BUMP_SELECTORS: readonly (BumpKind | 'ask')[] = ['patch', 'minor', 'major', 'keep', 'ask'];
 const DISTRIBUTIONS: readonly Distribution[] = ['store', 'internal'];
 const PLAY_TRACKS: readonly PlayTrack[] = ['internal', 'closed', 'open', 'production'];
-
-/**
- * Create a typed command-input failure with the rejected field and value attached.
- *
- * @param field - Raw command field that failed validation.
- * @param value - Rejected raw value.
- * @param message - Human-facing failure message.
- * @param cause - Optional underlying parser error from an older boundary helper.
- * @returns A tagged error suitable for `Effect.fail`.
- */
 const buildCommandInputError = (
   field: string,
-  value: unknown,
+  rejectedInput: unknown,
   message: string,
   cause?: unknown,
-): BuildCommandInputError =>
-  new BuildCommandInputError({
-    field,
-    value,
-    message,
-    ...(cause === undefined ? {} : { cause }),
-  });
-
-/**
- * Parse the required `<platform>` argument into Launch's platform union.
- *
- * @param platformArgument - Raw Commander argument after `launch build`.
- * @returns An Effect that succeeds with a known build platform or fails with a typed input error.
- */
+): BuildCommandInputError => {
+  if (cause === undefined) return makeBuildCommandInputError({ field, rejectedInput, message });
+  return makeBuildCommandInputError({ field, rejectedInput, message, cause });
+};
 export const parseBuildPlatformArgument = (platformArgument: string) =>
-  Effect.try({
-    try: () => parsePlatform(platformArgument),
-    catch: (cause) =>
+  parsePlatform(platformArgument).pipe(
+    Effect.mapError((cause) =>
       buildCommandInputError(
         'platform',
         platformArgument,
         `Unknown platform "${platformArgument}". Use one of: ${PLATFORMS.join(', ')}.`,
         cause,
       ),
-  });
-
-/**
- * Parse `--bump` into the version-bump selector consumed by the pipeline.
- *
- * @param bump - Raw `--bump` value, or undefined when omitted.
- * @returns An Effect that succeeds with a bump selector or undefined.
- */
+    ),
+  );
 export const parseBuildBump = (bump: string | undefined) =>
   Effect.gen(function* () {
     switch (bump) {
@@ -115,13 +82,6 @@ export const parseBuildBump = (bump: string | undefined) =>
         );
     }
   });
-
-/**
- * Parse `--distribution`, defaulting to the store/testing path.
- *
- * @param distribution - Raw `--distribution` value, or undefined when omitted.
- * @returns An Effect that succeeds with a known distribution mode.
- */
 export const parseBuildDistribution = (distribution: string | undefined) =>
   Effect.gen(function* () {
     switch (distribution) {
@@ -140,13 +100,6 @@ export const parseBuildDistribution = (distribution: string | undefined) =>
         );
     }
   });
-
-/**
- * Parse `--remote` into a concrete remote-build target.
- *
- * @param remote - Commander value for `--remote`, including bare boolean usage.
- * @returns An Effect that succeeds with a remote target or undefined for local builds.
- */
 export const resolveBuildRemoteTarget = (remote: string | boolean | undefined) =>
   Effect.sync((): RemoteTarget | undefined => {
     switch (remote) {
@@ -160,13 +113,6 @@ export const resolveBuildRemoteTarget = (remote: string | boolean | undefined) =
         return { kind: 'ssh', target: remote };
     }
   });
-
-/**
- * Parse `--track` into a known Google Play track.
- *
- * @param track - Raw `--track` value, or undefined when omitted.
- * @returns An Effect that succeeds with a Play track or undefined.
- */
 export const parseBuildTrack = (track: string | undefined) =>
   Effect.gen(function* () {
     switch (track) {
@@ -187,19 +133,11 @@ export const parseBuildTrack = (track: string | undefined) =>
         );
     }
   });
-
-/**
- * Parse `--rollout` into the 0-1 staged-rollout fraction.
- *
- * @param rollout - Raw `--rollout` value, or undefined when omitted.
- * @returns An Effect that succeeds with a rollout fraction or undefined.
- */
 export const parseBuildRollout = (rollout: string | undefined) =>
   Effect.gen(function* () {
     if (rollout === undefined) return;
-
     const rolloutFraction = Number.parseFloat(rollout);
-    if (Number.isNaN(rolloutFraction) || rolloutFraction <= 0 || rolloutFraction > 1) {
+    if (Number.isNaN(rolloutFraction)) {
       return yield* Effect.fail(
         buildCommandInputError(
           'rollout',
@@ -208,22 +146,31 @@ export const parseBuildRollout = (rollout: string | undefined) =>
         ),
       );
     }
-
+    if (rolloutFraction <= 0) {
+      return yield* Effect.fail(
+        buildCommandInputError(
+          'rollout',
+          rollout,
+          `Invalid --rollout "${rollout}". Pass a fraction between 0 (exclusive) and 1.`,
+        ),
+      );
+    }
+    if (rolloutFraction > 1) {
+      return yield* Effect.fail(
+        buildCommandInputError(
+          'rollout',
+          rollout,
+          `Invalid --rollout "${rollout}". Pass a fraction between 0 (exclusive) and 1.`,
+        ),
+      );
+    }
     return rolloutFraction;
   });
-
-/**
- * Parse `--size-budget`/`--budget` into a positive MB number.
- *
- * @param sizeBudget - Raw size-budget flag value, or undefined when omitted.
- * @returns An Effect that succeeds with a positive MB value or undefined.
- */
 export const parseSizeBudget = (sizeBudget: string | undefined) =>
   Effect.gen(function* () {
     if (sizeBudget === undefined) return;
-
     const sizeBudgetMB = Number.parseFloat(sizeBudget);
-    if (Number.isNaN(sizeBudgetMB) || sizeBudgetMB <= 0) {
+    if (Number.isNaN(sizeBudgetMB)) {
       return yield* Effect.fail(
         buildCommandInputError(
           'sizeBudget',
@@ -232,35 +179,21 @@ export const parseSizeBudget = (sizeBudget: string | undefined) =>
         ),
       );
     }
-
+    if (sizeBudgetMB <= 0) {
+      return yield* Effect.fail(
+        buildCommandInputError(
+          'sizeBudget',
+          sizeBudget,
+          `Invalid --size-budget "${sizeBudget}". Pass a size in MB greater than 0.`,
+        ),
+      );
+    }
     return sizeBudgetMB;
   });
-
-/**
- * Parse repeated `--env KEY=VALUE` flags into the environment override map.
- *
- * @param envPairs - Raw repeated env flag values.
- * @returns An Effect that succeeds with parsed overrides or fails with a typed input error.
- */
 export const parseBuildEnvironmentOverrides = (envPairs: readonly string[]) =>
-  Effect.try({
-    try: () => parseCliEnv([...envPairs]),
-    catch: (cause) =>
-      buildCommandInputError(
-        'env',
-        envPairs,
-        cause instanceof Error ? cause.message : 'Invalid --env value.',
-        cause,
-      ),
-  });
-
-/**
- * Decode one raw Commander build invocation into the pipeline's build options.
- *
- * @param platformArgument - Raw `<platform>` argument.
- * @param commandOptions - Raw options object from Commander.
- * @returns An Effect that succeeds with `BuildRunOptions` or fails with a typed input error.
- */
+  parseCliEnv([...envPairs]).pipe(
+    Effect.mapError((cause) => buildCommandInputError('env', envPairs, cause.message, cause)),
+  );
 export const parseBuildCommandInput = (
   platformArgument: string,
   commandOptions: BuildCommandOptions,
@@ -272,9 +205,10 @@ export const parseBuildCommandInput = (
     const rollout = yield* parseBuildRollout(commandOptions.rollout);
     const distribution = yield* parseBuildDistribution(commandOptions.distribution);
     const bump = yield* parseBuildBump(commandOptions.bump);
-    const sizeBudgetMB = yield* parseSizeBudget(commandOptions.sizeBudget ?? commandOptions.budget);
+    let sizeBudgetText = commandOptions.budget;
+    if (commandOptions.sizeBudget !== undefined) sizeBudgetText = commandOptions.sizeBudget;
+    const sizeBudgetMB = yield* parseSizeBudget(sizeBudgetText);
     const environmentOverrides = yield* parseBuildEnvironmentOverrides(commandOptions.env);
-
     const buildRunOptions: BuildRunOptions = {
       platform,
       profileName: commandOptions.profile,
@@ -290,7 +224,6 @@ export const parseBuildCommandInput = (
       includeLocal: commandOptions.includeLocal,
       printEnv: commandOptions.printEnv,
     };
-
     if (remote !== undefined) buildRunOptions.remote = remote;
     if (track !== undefined) buildRunOptions.track = track;
     if (rollout !== undefined) buildRunOptions.rollout = rollout;
@@ -298,6 +231,5 @@ export const parseBuildCommandInput = (
     if (bump !== undefined) buildRunOptions.bump = bump;
     if (sizeBudgetMB !== undefined) buildRunOptions.sizeBudgetMB = sizeBudgetMB;
     if (!commandOptions.ccache) buildRunOptions.ccache = false;
-
     return buildRunOptions;
   });

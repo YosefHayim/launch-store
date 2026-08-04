@@ -1,74 +1,114 @@
-/**
- * Machine-discovered remote-build state, persisted at `~/.launch/cloud.json`.
- *
- * Two things live here and nowhere else: the currently-live AWS host handle (so a later command can
- * reuse the paid window, show accrued cost, and release it) and the golden AMI id Launch built for
- * this machine (so subsequent allocations boot a ready toolchain instead of bootstrapping again).
- *
- * These are non-secret infra ids only — never `.env` (that's the shipped app's env), never committed,
- * and never secrets (the `.p8`/`.p12` stay in the OS keychain). The file is chmod-600 regardless.
- */
+import { FileSystem, type Path } from '@effect/platform';
+import { Effect, Schema } from 'effect';
+import type { HostHandle } from '../types/remote.js';
+import {
+  resolveCloudStateFilePath,
+  resolveLaunchHomeDirectory,
+  type LaunchPathsService,
+} from '../services/paths.js';
 
-import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import type { HostHandle } from '../types/index.js';
-import { CLOUD_STATE, LAUNCH_HOME, ensureDir } from '../services/paths.js';
-
-/**
- * Shape of `~/.launch/cloud.json`.
- *
- * `host` is present only while a remote host is live; `amiId` persists across sessions once Launch has
- * snapshotted a golden image (omitted when the user brings their own via `aws.amiId` in config).
- */
-export interface CloudState {
-  /** The live remote host, if one is currently allocated. */
+export type CloudState = {
   host?: HostHandle;
-  /** Golden AMI id Launch created and reuses for this machine. */
   amiId?: string;
-}
+};
 
-/** Read cloud state, tolerating a missing or malformed file (returns an empty state). */
-export function readCloudState(): CloudState {
-  if (!existsSync(CLOUD_STATE)) return {};
-  try {
-    const parsed = JSON.parse(readFileSync(CLOUD_STATE, 'utf8')) as Partial<CloudState>;
-    return {
-      ...(parsed.host ? { host: parsed.host } : {}),
-      ...(parsed.amiId ? { amiId: parsed.amiId } : {}),
-    };
-  } catch {
-    return {};
-  }
-}
+const SshTargetSchema = Schema.mutable(
+  Schema.Struct({
+    host: Schema.String,
+    user: Schema.String,
+    port: Schema.Number,
+    identityFile: Schema.optionalWith(Schema.String, { exact: true }),
+  }),
+);
+const HostHandleSchema: Schema.Schema<HostHandle> = Schema.mutable(
+  Schema.Struct({
+    provider: Schema.String,
+    ssh: SshTargetSchema,
+    allocatedAt: Schema.String,
+    instanceId: Schema.optionalWith(Schema.String, { exact: true }),
+    hostId: Schema.optionalWith(Schema.String, { exact: true }),
+    region: Schema.optionalWith(Schema.String, { exact: true }),
+    instanceType: Schema.optionalWith(Schema.String, { exact: true }),
+  }),
+);
+const CloudStateSchema: Schema.Schema<CloudState> = Schema.mutable(
+  Schema.Struct({
+    host: Schema.optionalWith(HostHandleSchema, { exact: true }),
+    amiId: Schema.optionalWith(Schema.String, { exact: true }),
+  }),
+);
+type CloudStateRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
 
-/** Write cloud state back to disk (chmod 600). */
-export function writeCloudState(state: CloudState): void {
-  ensureDir(LAUNCH_HOME);
-  writeFileSync(CLOUD_STATE, JSON.stringify(state, null, 2));
-  chmodSync(CLOUD_STATE, 0o600);
-}
+/** Reads cloud state, treating absent or malformed state as empty. */
+export const readCloudState = (): Effect.Effect<CloudState, never, CloudStateRequirements> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const cloudStateFilePath = yield* resolveCloudStateFilePath();
+    const stateExists = yield* fileSystem
+      .exists(cloudStateFilePath)
+      .pipe(Effect.orElseSucceed(() => false));
+    if (!stateExists) return {};
+    return yield* fileSystem.readFileString(cloudStateFilePath).pipe(
+      Effect.flatMap((stateText) => Effect.try(() => JSON.parse(stateText))),
+      Effect.flatMap(Schema.decodeUnknown(CloudStateSchema)),
+      Effect.orElseSucceed(() => ({})),
+    );
+  });
 
-/** The live remote host handle, or null if none is allocated. */
-export function getLiveHost(): HostHandle | null {
-  return readCloudState().host ?? null;
-}
+/** Writes cloud state with owner-only permissions. */
+export const writeCloudState = (
+  cloudState: CloudState,
+): Effect.Effect<void, unknown, CloudStateRequirements> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const launchHomeDirectory = yield* resolveLaunchHomeDirectory();
+    const cloudStateFilePath = yield* resolveCloudStateFilePath();
+    yield* fileSystem.makeDirectory(launchHomeDirectory, { recursive: true });
+    yield* fileSystem.writeFileString(cloudStateFilePath, JSON.stringify(cloudState, null, 2));
+    yield* fileSystem.chmod(cloudStateFilePath, 0o600);
+  });
 
-/** Record the live host (called right after a successful allocation). */
-export function setLiveHost(host: HostHandle): void {
-  writeCloudState({ ...readCloudState(), host });
-}
+/** Reads the live remote host handle. */
+export const getLiveHost = (): Effect.Effect<HostHandle | null, never, CloudStateRequirements> =>
+  readCloudState().pipe(
+    Effect.map((cloudState) => {
+      if (cloudState.host === undefined) return null;
+      return cloudState.host;
+    }),
+  );
 
-/** Forget the live host (called after a successful teardown/release). */
-export function clearLiveHost(): void {
-  const { amiId } = readCloudState();
-  writeCloudState(amiId ? { amiId } : {});
-}
+/** Records a newly allocated remote host. */
+export const setLiveHost = (
+  hostHandle: HostHandle,
+): Effect.Effect<void, unknown, CloudStateRequirements> =>
+  Effect.gen(function* () {
+    const cloudState = yield* readCloudState();
+    yield* writeCloudState({ ...cloudState, host: hostHandle });
+  });
 
-/** The golden AMI id Launch built for this machine, or null. */
-export function getAmiId(): string | null {
-  return readCloudState().amiId ?? null;
-}
+/** Clears the live host while preserving a reusable AMI. */
+export const clearLiveHost = (): Effect.Effect<void, unknown, CloudStateRequirements> =>
+  Effect.gen(function* () {
+    const cloudState = yield* readCloudState();
+    if (cloudState.amiId === undefined) {
+      yield* writeCloudState({});
+      return;
+    }
+    yield* writeCloudState({ amiId: cloudState.amiId });
+  });
 
-/** Persist the golden AMI id after snapshotting it, so later allocations reuse it. */
-export function setAmiId(amiId: string): void {
-  writeCloudState({ ...readCloudState(), amiId });
-}
+/** Reads the cached golden AMI identifier. */
+export const getAmiId = (): Effect.Effect<string | null, never, CloudStateRequirements> =>
+  readCloudState().pipe(
+    Effect.map((cloudState) => {
+      if (cloudState.amiId === undefined) return null;
+      return cloudState.amiId;
+    }),
+  );
+
+/** Records the reusable golden AMI identifier. */
+export const setAmiId = (amiId: string): Effect.Effect<void, unknown, CloudStateRequirements> =>
+  Effect.gen(function* () {
+    const cloudState = yield* readCloudState();
+    yield* writeCloudState({ ...cloudState, amiId });
+  });

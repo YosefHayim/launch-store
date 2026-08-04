@@ -1,3 +1,5 @@
+import { NodeContext } from '@effect/platform-node';
+import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
   assembleManifest,
@@ -11,16 +13,18 @@ import {
   updatesAppConfigSnippet,
   updatesWorkerScript,
 } from './otaManifest.js';
-
 describe('contentTypeFor', () => {
-  it('maps known extensions and defaults unknown ones to octet-stream', () => {
-    expect(contentTypeFor('_expo/static/js/ios/index-abc.hbc')).toBe('application/javascript');
-    expect(contentTypeFor('assets/logo.png')).toBe('image/png');
-    expect(contentTypeFor('fonts/Inter.ttf')).toBe('font/ttf');
-    expect(contentTypeFor('weird.xyz')).toBe('application/octet-stream');
+  const resolveContentType = (filePath: string) =>
+    Effect.runPromise(contentTypeFor(filePath).pipe(Effect.provide(NodeContext.layer)));
+  it('maps known extensions and defaults unknown ones to octet-stream', async () => {
+    expect(await resolveContentType('_expo/static/js/ios/index-abc.hbc')).toBe(
+      'application/javascript',
+    );
+    expect(await resolveContentType('assets/logo.png')).toBe('image/png');
+    expect(await resolveContentType('fonts/Inter.ttf')).toBe('font/ttf');
+    expect(await resolveContentType('weird.xyz')).toBe('application/octet-stream');
   });
 });
-
 describe('assembleManifest', () => {
   it('produces a protocol-v0 manifest with empty metadata/extra', () => {
     const manifest = assembleManifest({
@@ -46,7 +50,6 @@ describe('assembleManifest', () => {
     expect(manifest.assets[0]?.fileExtension).toBe('.png');
   });
 });
-
 describe('manifestKey', () => {
   it('keys a manifest by channel, platform, and runtime version', () => {
     expect(manifestKey('production', 'ios', '1.0.0')).toBe(
@@ -57,7 +60,6 @@ describe('manifestKey', () => {
     );
   });
 });
-
 describe('history + rollback keys', () => {
   it('keys the index per channel+platform and snapshots/directives under the runtime version', () => {
     expect(historyIndexKey('production', 'android')).toBe(
@@ -71,7 +73,6 @@ describe('history + rollback keys', () => {
     );
   });
 });
-
 describe('assembleRollbackDirective', () => {
   it('builds a rollBackToEmbedded directive committed at the given time', () => {
     expect(assembleRollbackDirective('2026-06-14T00:00:00.000Z')).toEqual({
@@ -80,7 +81,6 @@ describe('assembleRollbackDirective', () => {
     });
   });
 });
-
 describe('updatesWorkerScript', () => {
   it('reads the expo headers and routes to the static manifest under the public base', () => {
     const script = updatesWorkerScript('https://cdn.example.com/');
@@ -90,7 +90,6 @@ describe('updatesWorkerScript', () => {
     expect(script).toContain('expo-protocol-version');
     expect(script).toContain('manifest.sig');
   });
-
   it('emits a protocol-v1 multipart response with a rollback directive part', () => {
     const script = updatesWorkerScript('https://cdn.example.com');
     expect(script).toContain('multipart/mixed');
@@ -100,7 +99,6 @@ describe('updatesWorkerScript', () => {
     expect(script).toContain("part('manifest'");
   });
 });
-
 describe('updatesAppConfigSnippet', () => {
   it('includes the code-signing block only when signed', () => {
     const signed = updatesAppConfigSnippet({

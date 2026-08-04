@@ -1,104 +1,108 @@
-/**
- * Reconcile the team's **EU alternative-distribution domains** (DMA web distribution / alternative
- * marketplaces) from a declarative `eu-distribution.config.json`, and register the package-signing
- * **public key**, using the App Store Connect API key alone.
- *
- * Under the EU Digital Markets Act, distributing iOS apps outside the App Store requires authorizing the
- * domains you'll host downloads from and registering a public key Apple verifies your signed packages
- * against. Both are repeatable, portal-clicked setup that no tool automates and EAS doesn't touch.
- *
- * These are **team-level** resources (not per-app), so — unlike `core/releaseAttrs.ts` / `core/offers.ts`
- * — there's no app/bundle-id resolution: the reconcile operates directly on the team. Domains are
- * declarative state (this module diffs them); the public key is a register-once action driven by the
- * command's `set-key` subcommand, not reconciled here. The diff is **additive**: declared domains Apple
- * doesn't have yet are created, and an undeclared domain is left untouched (never deleted), so a re-run
- * is safe — removing a domain stays a deliberate App Store Connect action. Mirrors the plan/apply
- * vocabulary (`PlannedAction`) the rest of the store-sync commands share.
- */
+import { Effect, Schema } from 'effect';
+import type { AlternativeDistributionDomainResource } from '../types/appleCatalog.js';
+import { plan, type ReconcileContext } from './reconcile.js';
+import { errorMessage } from '../services/errorMessage.js';
+import type { PlannedAction } from '../types/reconcile.js';
+import type { EuDistributionConfig } from '../types/storeSurface.js';
+import {
+  decodeStoreSurfaceConfig,
+  loadStoreSurfaceConfig,
+  type StoreSurfaceConfigFailure,
+} from './surfaceConfig.js';
 
-import { existsSync, readFileSync } from 'node:fs';
-import type { AlternativeDistributionDomainResource } from '../../apple/ascClient.js';
-import { act, type PlannedAction, type ReconcileContext } from '../asc/storeSync.js';
-import { asRecord } from '../services/json.js';
-import type { EuDistributionConfig, EuDistributionDomainConfig } from '../types/index.js';
+const EuDistributionDomainSchema = Schema.mutable(
+  Schema.Struct({
+    domain: Schema.String.pipe(
+      Schema.nonEmptyString({
+        message: () => 'eu-distribution.config.json: domain must be a non-empty string.',
+      }),
+    ),
+    referenceName: Schema.String.pipe(
+      Schema.nonEmptyString({
+        message: () => 'eu-distribution.config.json: referenceName must be a non-empty string.',
+      }),
+    ),
+  }),
+);
 
+export const EuDistributionConfigSchema = Schema.mutable(
+  Schema.Struct({
+    domains: Schema.mutable(Schema.Array(EuDistributionDomainSchema)).pipe(
+      Schema.minItems(1, {
+        message: () => 'eu-distribution.config.json must declare a non-empty "domains" array.',
+      }),
+    ),
+  }),
+);
+
+const EuDistributionConfigSpec = {
+  documentName: 'eu-distribution.config.json',
+  displayName: 'EU distribution config',
+  missingMessage: (configPath: string) =>
+    `No EU distribution config at ${configPath}. Create one (see \`launch eu-distribution --help\`) or pass --config.`,
+  schema: EuDistributionConfigSchema,
+};
 /**
  * The exact slice of {@link AppStoreConnectClient} the domain reconciler depends on. Declaring it here
  * (rather than taking the concrete client) keeps the diff logic unit-testable with a hand-rolled fake;
  * `AppStoreConnectClient` satisfies it structurally, mirroring {@link AscReleaseApi} in `releaseAttrs.ts`.
  */
-export interface AscEuDistributionApi {
-  listAlternativeDistributionDomains(): Promise<AlternativeDistributionDomainResource[]>;
-  createAlternativeDistributionDomain(domain: string, referenceName: string): Promise<void>;
-}
-
+export type AscEuDistributionApi = {
+  listAlternativeDistributionDomains(): Effect.Effect<
+    AlternativeDistributionDomainResource[],
+    unknown
+  >;
+  createAlternativeDistributionDomain(
+    domain: string,
+    referenceName: string,
+  ): Effect.Effect<void, unknown>;
+};
 /**
  * Reconcile the team's authorized distribution domains: create each declared domain Apple doesn't already
  * have (matched on `domain`), leaving undeclared ones untouched. Every write is captured per-action so a
  * single failure never aborts the run.
  */
-export async function reconcileEuDistributionDomains(
+export const reconcileEuDistributionDomains = (
   api: AscEuDistributionApi,
   config: EuDistributionConfig,
   dryRun: boolean,
-): Promise<PlannedAction[]> {
-  const ctx: ReconcileContext = { actions: [], dryRun };
-  const existing = new Set(
-    (await api.listAlternativeDistributionDomains()).flatMap((entry) =>
-      entry.domain ? [entry.domain] : [],
-    ),
-  );
-  for (const { domain, referenceName } of config.domains) {
-    if (existing.has(domain)) continue;
-    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
-    await act(ctx, `authorize distribution domain ${domain} (${referenceName})`, () =>
-      api.createAlternativeDistributionDomain(domain, referenceName),
+): Effect.Effect<PlannedAction[], unknown> =>
+  Effect.gen(function* () {
+    const reconcileContext: ReconcileContext = { actions: [], dryRun };
+    const domains = yield* api.listAlternativeDistributionDomains();
+    const existing = new Set(
+      domains.flatMap((entry) => {
+        if (entry.domain) return [entry.domain];
+        return [];
+      }),
     );
-  }
-  return ctx.actions;
-}
+    for (const { domain, referenceName } of config.domains) {
+      if (existing.has(domain)) continue;
+      const action = plan(
+        reconcileContext,
+        `authorize distribution domain ${domain} (${referenceName})`,
+      );
+      if (!dryRun)
+        yield* api.createAlternativeDistributionDomain(domain, referenceName).pipe(
+          Effect.match({
+            onFailure: (writeFailure) => {
+              action.status = 'failed';
+              action.error = errorMessage(writeFailure);
+            },
+            onSuccess: () => {
+              action.status = 'applied';
+            },
+          }),
+        );
+    }
+    return reconcileContext.actions;
+  });
+/** Decode an untrusted EU distribution config document. */
+export const parseEuDistributionConfig = (
+  rawDocument: unknown,
+): Effect.Effect<EuDistributionConfig, StoreSurfaceConfigFailure> =>
+  decodeStoreSurfaceConfig(rawDocument, EuDistributionConfigSpec);
 
-/** Parse and validate one domain entry, requiring a non-empty `domain` and `referenceName`. */
-function parseDomain(raw: unknown, index: number): EuDistributionDomainConfig {
-  const record = asRecord(raw);
-  if (!record) throw new Error(`eu-distribution.config.json: domains[${index}] must be an object.`);
-  const domain = record['domain'];
-  const referenceName = record['referenceName'];
-  if (typeof domain !== 'string' || domain.length === 0) {
-    throw new Error(
-      `eu-distribution.config.json: domains[${index}].domain must be a non-empty string.`,
-    );
-  }
-  if (typeof referenceName !== 'string' || referenceName.length === 0) {
-    throw new Error(
-      `eu-distribution.config.json: domains[${index}].referenceName must be a non-empty string.`,
-    );
-  }
-  return { domain, referenceName };
-}
-
-/**
- * Parse and validate a raw `eu-distribution.config.json` value into a typed {@link EuDistributionConfig}.
- * Rejects a non-object document and a missing/empty/non-array `domains`, so a bad file fails loudly
- * instead of silently reconciling nothing.
- */
-export function parseEuDistributionConfig(raw: unknown): EuDistributionConfig {
-  const record = asRecord(raw);
-  if (!record) throw new Error('eu-distribution.config.json must be a JSON object.');
-
-  const domainsRaw = record['domains'];
-  if (!Array.isArray(domainsRaw) || domainsRaw.length === 0) {
-    throw new Error('eu-distribution.config.json must declare a non-empty "domains" array.');
-  }
-  return { domains: domainsRaw.map(parseDomain) };
-}
-
-/** Read and parse an `eu-distribution.config.json` from disk. */
-export function loadEuDistributionConfig(path: string): EuDistributionConfig {
-  if (!existsSync(path)) {
-    throw new Error(
-      `No EU distribution config at ${path}. Create one (see \`launch eu-distribution --help\`) or pass --config.`,
-    );
-  }
-  return parseEuDistributionConfig(JSON.parse(readFileSync(path, 'utf8')));
-}
+/** Read and decode eu-distribution.config.json through Effect Platform. */
+export const loadEuDistributionConfig = (configPath: string) =>
+  loadStoreSurfaceConfig(configPath, EuDistributionConfigSpec);

@@ -1,159 +1,38 @@
-/**
- * `launch config` — work with the typed `launch.config.ts` schema. Three read-only subcommands over the
- * generated JSON Schema (`schema/launch.config.schema.json`, derived from the config types):
- *   - `config schema [--out]` emits the JSON Schema, so an editor can autocomplete and validate a config;
- *   - `config validate [file]` checks a config against it (the project's `launch.config.ts`, or a `.json`
- *     file an agent wrote) and points at each offending field;
- *   - `config docs` prints the field reference (the same content committed as `docs/config.md`).
- *
- * Thin glue: the schema is loaded/validated by `core/configSchema.ts` and rendered by
- * `core/docs/configDocs.ts`, so this only wires the commander surface and the output. See issue #173.
- */
-
-import { readFileSync, writeFileSync } from 'node:fs';
 import type { Command } from 'commander';
-import { findLaunchConfig } from '../../core/config/config.js';
-import type { FoundConfig } from '../../core/config/config.js';
-import { loadConfigSchema, validateConfig } from '../../core/config/configSchema.js';
-import { checkConfigSemantics } from '../../core/config/configSemantics.js';
-import type { SemanticIssue } from '../../core/config/configSemantics.js';
-import { renderConfigDocs } from '../../core/docs/configDocs.js';
-import { createLogger } from '../../core/services/logger.js';
-import type { Logger } from '../../core/services/logger.js';
-import type { LaunchConfig } from '../../core/types/index.js';
-import type { SchemaViolation } from '../../core/config/jsonSchema.js';
+import { configCommandProgram } from '@core/config/configCommand.js';
+import { runCliProgram } from '../runCliProgram.js';
 
-/** Options for `config schema`. */
-interface SchemaOptions {
-  /** Write the schema to this file (to reference via `$schema`) instead of printing it to stdout. */
-  out?: string;
-}
+type SchemaOptions = Readonly<{ out?: string }>;
 
-/** Print a config's validation result — a success box, or each violation as `path: message` with a non-zero exit. */
-function reportViolations(log: Logger, violations: SchemaViolation[], source: string): void {
-  if (violations.length === 0) {
-    log.box('Config valid', [`✓ ${source} matches the schema`]);
-    return;
-  }
-  for (const violation of violations)
-    log.warn(`${violation.path || '(root)'}: ${violation.message}`);
-  log.gap();
-  log.error(`${violations.length} problem${violations.length === 1 ? '' : 's'} in ${source}.`);
-  process.exitCode = 1;
-}
-
-/**
- * Print cross-field semantic findings as advisories — they never fail the command (exit stays 0), since a
- * semantically-questionable config is still a valid one Launch can run; the schema is the gate, these are
- * the nudge. Runs only on the typed `launch.config.ts` load (a schema-valid object), after shape validation.
- */
-function reportSemantics(log: Logger, config: LaunchConfig): void {
-  const issues: SemanticIssue[] = checkConfigSemantics(config);
-  if (issues.length === 0) return;
-  log.gap();
-  for (const issue of issues) log.warn(`${issue.path}: ${issue.message}`);
-  log.gap();
-  log.tip(
-    `${issues.length} semantic warning${issues.length === 1 ? '' : 's'} (not schema errors — exit 0).`,
-  );
-}
-
-/** Emit the JSON Schema: to `--out` (with a hint to wire `$schema`), or to stdout so it can be piped. */
-function runSchema(options: SchemaOptions): void {
-  const json = `${JSON.stringify(loadConfigSchema(), null, 2)}\n`;
-  if (options.out === undefined) {
-    process.stdout.write(json);
-    return;
-  }
-  writeFileSync(options.out, json);
-  createLogger(false).box('Schema written', [
-    `✓ wrote ${options.out}`,
-    'Reference it via a `$schema` key (in a JSON config) or your editor for autocomplete + validation.',
-  ]);
-}
-
-/**
- * Validate a config against the schema. With no `file`, load the project's `launch.config.ts` (post-
- * `defineConfig`, so this catches wrong types/enums/nested shapes but not already-dropped unknown
- * top-level keys) and, when it's schema-valid, also run the cross-field semantic checks as advisories;
- * with a `.json` file, validate it verbatim — the full shape, including unknown keys — which is the
- * AI/programmatic path. A non-JSON file argument is rejected with a usage hint.
- */
-async function runValidate(file: string | undefined): Promise<void> {
-  const log = createLogger(false);
-
-  if (file === undefined) {
-    let found: FoundConfig | null;
-    try {
-      found = await findLaunchConfig();
-    } catch (error) {
-      log.error(error instanceof Error ? error.message : String(error));
-      process.exitCode = 1;
-      return;
-    }
-    if (!found) {
-      log.error(
-        'No launch.config.{ts,mjs,js} in this directory. Pass a .json file, or run `launch init` first.',
-      );
-      process.exitCode = 1;
-      return;
-    }
-    const violations = validateConfig(found.config);
-    reportViolations(log, violations, found.path);
-    if (violations.length === 0) reportSemantics(log, found.config);
-    return;
-  }
-
-  if (!file.endsWith('.json')) {
-    log.error(
-      '`launch config validate` takes a .json file, or no argument to validate launch.config.ts.',
-    );
-    process.exitCode = 1;
-    return;
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(readFileSync(file, 'utf8'));
-  } catch (error) {
-    log.error(`Could not read ${file}: ${error instanceof Error ? error.message : String(error)}`);
-    process.exitCode = 1;
-    return;
-  }
-  reportViolations(log, validateConfig(parsed), file);
-}
-
-/** Attach the `config` command group and its `schema`/`validate`/`docs` subcommands to the program. */
-export function registerConfigCommand(program: Command): void {
-  const config = program
+/** Attach config schema, validation, and reference commands to Commander. */
+export const registerConfigCommand = (program: Command): void => {
+  const configCommand = program
     .command('config')
     .description(
-      'work with the launch.config.ts schema — emit JSON Schema, validate a config, or print the field reference',
+      'work with launch.config.ts - emit JSON Schema, validate a config, or print the field reference',
     );
 
-  config
+  configCommand
     .command('schema')
-    .description('print the JSON Schema for launch.config.ts (generated from the config types)')
+    .description('print the JSON Schema for launch.config.ts')
     .option('--out <file>', 'write the schema to this file instead of stdout')
-    .action((options: SchemaOptions) => {
-      runSchema(options);
-    });
+    .action((commandOptions: SchemaOptions) =>
+      runCliProgram(configCommandProgram({ operation: 'schema', out: commandOptions.out })),
+    );
 
-  config
+  configCommand
     .command('validate')
     .argument(
       '[file]',
-      'a .json config to validate (default: the launch.config.ts in the current directory)',
+      'a .json config to validate (default: launch.config.ts in the current directory)',
     )
-    .description('validate a config against the schema, reporting each problem with its field path')
-    .action(async (file: string | undefined) => {
-      await runValidate(file);
-    });
+    .description('validate a config and report each problem with its field path')
+    .action((file: string | undefined) =>
+      runCliProgram(configCommandProgram({ operation: 'validate', file })),
+    );
 
-  config
+  configCommand
     .command('docs')
-    .description('print the launch.config.ts field reference (the same content as docs/config.md)')
-    .action(() => {
-      process.stdout.write(renderConfigDocs(loadConfigSchema()));
-    });
-}
+    .description('print the launch.config.ts field reference')
+    .action(() => runCliProgram(configCommandProgram({ operation: 'docs' })));
+};

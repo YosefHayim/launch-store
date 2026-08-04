@@ -1,57 +1,62 @@
-/**
- * The App Store Connect submitter — the binary-upload step.
- *
- * Uploads the signed `.ipa` to App Store Connect with fastlane `pilot`, authenticating with the same
- * API key as everything else (written to a temporary JSON file in fastlane's expected shape, removed
- * after). fastlane is deliberately scoped to the upload only: the uploaded build lands in App Store
- * Connect and is usable for BOTH TestFlight and an App Store version, so public release is no longer a
- * separate `deliver` step but is driven over the API by `core/appStoreRelease.ts` (`launch release`).
- * This submitter therefore just gets the binary to Apple — both submit targets upload the same way; the
- * API decides what becomes of it. Implements {@link Submitter}, the iOS twin of the Google Play one.
- */
-
-import { rmSync } from 'node:fs';
-import type {
-  BuildCredentials,
-  ResolvedBuildContext,
-  Submitter,
-  SubmitTarget,
-} from '../../core/types/index.js';
-import { run } from '../../core/services/exec.js';
-import { writeAscApiKeyFile } from '../../apple/apiKeyFile.js';
+import { FileSystem, Path } from '@effect/platform';
+import { NodeContext } from '@effect/platform-node';
+import { Effect } from 'effect';
+import type { SubmitTarget } from '@core/types/app.js';
+import type { ResolvedBuildContext } from '@core/types/config.js';
+import type { BuildCredentials } from '@core/types/credentials.js';
+import { makeProviderInputFailure, type Submitter } from '@core/types/providers.js';
+import { executeCommand, provideNodeCommandServices } from '@core/services/exec.js';
 
 export const appStoreConnectSubmitter: Submitter = {
   name: 'app-store-connect',
-
-  async submit(
+  submit(
     artifactPath: string,
     _target: SubmitTarget,
-    creds: BuildCredentials,
-    ctx: ResolvedBuildContext,
-  ): Promise<void> {
-    if (creds.platform !== 'ios')
-      throw new Error('The app-store-connect submitter handles iOS only.');
-    const apiKeyPath = writeAscApiKeyFile(creds.ascKey);
-    try {
-      // `pilot upload` puts the binary into App Store Connect; `--skip_waiting_for_build_processing`
-      // returns as soon as the upload lands — Launch polls processing itself (see waitForValidBuild).
-      // Resolved env (profile env: / .env / keychain / --env) reaches fastlane as its process env.
-      await run(
-        'fastlane',
-        [
-          'pilot',
-          'upload',
-          '--ipa',
-          artifactPath,
-          '--api_key_path',
-          apiKeyPath,
-          '--skip_waiting_for_build_processing',
-          'true',
-        ],
-        { env: ctx.env },
+    buildCredentials: BuildCredentials,
+    buildContext: ResolvedBuildContext,
+  ) {
+    if (buildCredentials.platform !== 'ios') {
+      return Effect.fail(
+        makeProviderInputFailure({
+          provider: 'app-store-connect',
+          message: 'The app-store-connect submitter handles iOS only.',
+        }),
       );
-    } finally {
-      rmSync(apiKeyPath, { force: true });
     }
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const fileSystem = yield* FileSystem.FileSystem;
+        const pathService = yield* Path.Path;
+        const temporaryDirectory = yield* fileSystem.makeTempDirectoryScoped({
+          prefix: 'launch-key-',
+        });
+        const apiKeyPath = pathService.join(temporaryDirectory, 'asc_api_key.json');
+        yield* fileSystem.writeFileString(
+          apiKeyPath,
+          JSON.stringify({
+            key_id: buildCredentials.ascKey.keyId,
+            issuer_id: buildCredentials.ascKey.issuerId,
+            key: buildCredentials.ascKey.p8,
+            in_house: false,
+          }),
+        );
+        yield* provideNodeCommandServices(
+          executeCommand(
+            'fastlane',
+            [
+              'pilot',
+              'upload',
+              '--ipa',
+              artifactPath,
+              '--api_key_path',
+              apiKeyPath,
+              '--skip_waiting_for_build_processing',
+              'true',
+            ],
+            { environmentOverrides: buildContext.env },
+          ),
+        );
+      }),
+    ).pipe(Effect.provide(NodeContext.layer));
   },
 };

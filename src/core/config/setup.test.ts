@@ -6,7 +6,6 @@ import {
   toolchainReadinessRows,
 } from './setup.js';
 import type { Tool } from './toolchain.js';
-
 /** A three-tool slice covering every branch: a required guide tool, a required brew tool, a recommended one. */
 const TOOLS: Tool[] = [
   {
@@ -28,14 +27,11 @@ const TOOLS: Tool[] = [
     install: { kind: 'brew', formula: 'ccache' },
   },
 ];
-
 describe('toolchainReadinessRows', () => {
   const rows = toolchainReadinessRows(TOOLS, new Set(['fastlane']));
-
   it('marks a present tool ok with no fix hint', () => {
     expect(rows.find((r) => r.label === 'fastlane')).toEqual({ label: 'fastlane', status: 'ok' });
   });
-
   it('marks a missing required tool a todo carrying its install hint', () => {
     expect(rows.find((r) => r.label.startsWith('Xcode'))).toEqual({
       label: 'Xcode (xcodebuild)',
@@ -43,14 +39,12 @@ describe('toolchainReadinessRows', () => {
       detail: 'Install Xcode from the App Store.',
     });
   });
-
   it('marks a missing recommended tool advisory (info), never a gap', () => {
     const ccache = rows.find((r) => r.label === 'ccache');
     expect(ccache?.status).toBe('info');
     expect(ccache?.detail).toContain('brew install ccache');
   });
 });
-
 describe('formatSetupBoard', () => {
   const readiness: SetupReadiness = {
     groups: [
@@ -65,22 +59,19 @@ describe('formatSetupBoard', () => {
     ],
   };
   const lines = formatSetupBoard(readiness);
-
   it('renders each group title with its checks indented under it', () => {
     expect(lines).toContain('Config');
-    expect(lines).toContain('  ✓ launch.config.ts — present');
+    expect(lines).toContain('  OK launch.config.ts - present');
     expect(lines).toContain('Toolchain');
-    expect(lines).toContain('  ✓ fastlane');
-    expect(lines).toContain('  ✗ Xcode — Install Xcode.');
+    expect(lines).toContain('  OK fastlane');
+    expect(lines).toContain('  x Xcode - Install Xcode.');
   });
-
   it('separates groups with a blank line but never leads with one', () => {
     expect(lines[0]).toBe('Config');
     expect(lines).toContain('');
     expect(lines.indexOf('')).toBeGreaterThan(0);
   });
 });
-
 describe('pendingTodos', () => {
   it('flattens only the todo rows across every group, dropping ok and info', () => {
     const readiness: SetupReadiness = {

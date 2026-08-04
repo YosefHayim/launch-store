@@ -1,47 +1,44 @@
-/**
- * The `launch events` domain: read an app's **in-app events**, create a draft event, manage its localized
- * copy, and delete a draft — all through the App Store Connect API key (no portal session). In-app events
- * are App Store product-page happenings (live events, premieres, challenges, …); EAS has no equivalent.
- *
- * Scope (deliberately bounded — this is a niche slice of #54): the **event records and their localizations**.
- * Territory scheduling, event screenshots/video clips, and submitting an event for review are out of scope
- * here — submission in particular routes through the shared `reviewSubmissions` machinery and would
- * duplicate the release flow. A created event is a DRAFT the developer schedules + submits in App Store
- * Connect (or via a future slice).
- *
- * Design (mirrors `core/reviews.ts` / `core/team.ts`): the {@link AscAppEventsApi} slice names the exact
- * client surface this module needs, so the logic is unit-testable with a hand-rolled fake and
- * `AppStoreConnectClient` satisfies it structurally. Enum-valued attributes (badge, priority, purpose) are
- * validated up front so a typo gets the valid list instead of Apple's opaque 4xx.
- */
-
+import { Data, Effect } from 'effect';
 import type {
   AppEventLocalizationInput,
   AppEventLocalizationResource,
   AppEventResource,
   NewAppEvent,
-} from '../../apple/ascClient.js';
-import { appRecordNotFound } from '../asc/storeSync.js';
+} from '../types/appleCatalog.js';
 
-/** The exact slice of {@link AppStoreConnectClient} the in-app-events domain depends on. */
-export interface AscAppEventsApi {
-  getAppId(bundleId: string): Promise<string | null>;
-  listAppEvents(appId: string): Promise<AppEventResource[]>;
-  listAppEventLocalizations(eventId: string): Promise<AppEventLocalizationResource[]>;
-  createAppEvent(appId: string, attributes: NewAppEvent): Promise<AppEventResource>;
-  deleteAppEvent(eventId: string): Promise<void>;
-  createAppEventLocalization(
+/** The App Store transport operations required by the in-app-events domain. */
+export type AscAppEventsApi = Readonly<{
+  getAppId: (bundleId: string) => Effect.Effect<string | null, unknown>;
+  listAppEvents: (appId: string) => Effect.Effect<AppEventResource[], unknown>;
+  listAppEventLocalizations: (
+    eventId: string,
+  ) => Effect.Effect<AppEventLocalizationResource[], unknown>;
+  createAppEvent: (
+    appId: string,
+    attributes: NewAppEvent,
+  ) => Effect.Effect<AppEventResource, unknown>;
+  deleteAppEvent: (eventId: string) => Effect.Effect<void, unknown>;
+  createAppEventLocalization: (
     eventId: string,
     locale: string,
     attributes: AppEventLocalizationInput,
-  ): Promise<AppEventLocalizationResource>;
-  updateAppEventLocalization(
+  ) => Effect.Effect<AppEventLocalizationResource, unknown>;
+  updateAppEventLocalization: (
     localizationId: string,
     attributes: AppEventLocalizationInput,
-  ): Promise<AppEventLocalizationResource>;
-}
+  ) => Effect.Effect<AppEventLocalizationResource, unknown>;
+}>;
 
-/** Apple's in-app-event badges (`AppEventBadge`). Validated before create so a typo fails fast. */
+/** An in-app-event request or validation step failed. */
+export type AppEventFailure = Readonly<{
+  readonly _tag: 'AppEventFailure';
+  readonly operation: string;
+  readonly message: string;
+  readonly cause: unknown;
+}>;
+export const makeAppEventFailure = Data.tagged<AppEventFailure>('AppEventFailure');
+
+/** Apple's in-app-event badges. */
 export const APP_EVENT_BADGES: readonly string[] = [
   'LIVE_EVENT',
   'PREMIERE',
@@ -52,10 +49,10 @@ export const APP_EVENT_BADGES: readonly string[] = [
   'SPECIAL_EVENT',
 ];
 
-/** How prominently Apple may feature an event (`AppEventPriority`). */
+/** How prominently Apple may feature an event. */
 export const APP_EVENT_PRIORITIES: readonly string[] = ['HIGH', 'NORMAL'];
 
-/** An event's marketing purpose (`AppEventPurpose`). */
+/** The supported marketing purposes for an event. */
 export const APP_EVENT_PURPOSES: readonly string[] = [
   'APPROPRIATE_FOR_ALL_USERS',
   'ATTRACT_NEW_USERS',
@@ -63,136 +60,216 @@ export const APP_EVENT_PURPOSES: readonly string[] = [
   'BRING_BACK_LAPSED_USERS',
 ];
 
-/** One event paired with its localizations — what `launch events list` renders. */
-export interface AppEventWithLocalizations {
+/** One event paired with its localizations. */
+export type AppEventWithLocalizations = Readonly<{
   event: AppEventResource;
-  localizations: AppEventLocalizationResource[];
-}
+  localizations: readonly AppEventLocalizationResource[];
+}>;
 
-/** CLI-facing request to create a draft event; enum fields are validated by {@link createEvent}. */
-export interface CreateEventRequest {
+/** Input for creating a draft in-app event. */
+export type CreateEventRequest = Readonly<{
   referenceName: string;
-  badge?: string;
-  primaryLocale?: string;
-  deepLink?: string;
-  priority?: string;
-  purpose?: string;
-}
+  badge?: string | undefined;
+  primaryLocale?: string | undefined;
+  deepLink?: string | undefined;
+  priority?: string | undefined;
+  purpose?: string | undefined;
+}>;
 
-/** CLI-facing request to set one locale's copy on an event. */
-export interface LocalizeEventRequest {
+/** Input for creating or updating one event localization. */
+export type LocalizeEventRequest = Readonly<{
   locale: string;
-  name?: string;
-  shortDescription?: string;
-  longDescription?: string;
-}
+  name?: string | undefined;
+  shortDescription?: string | undefined;
+  longDescription?: string | undefined;
+}>;
 
-/** Outcome of {@link localizeEvent}: the stored localization and whether it replaced existing copy. */
-export interface LocalizeResult {
+/** The stored localization and whether existing copy was replaced. */
+export type LocalizeResult = Readonly<{
   localization: AppEventLocalizationResource;
-  /** True when a localization for the locale already existed and this call updated it (vs. created). */
   replaced: boolean;
-}
+}>;
 
-/** Validate an optional enum attribute, returning the canonical (upper-cased) value or undefined when unset. */
-function validateEnum(
-  field: string,
-  value: string | undefined,
-  allowed: readonly string[],
-): string | undefined {
-  if (value === undefined) return undefined;
-  const normalized = value.trim().toUpperCase();
-  if (!allowed.includes(normalized)) {
-    throw new Error(`Invalid ${field} "${value}". Valid ${field}s: ${allowed.join(', ')}.`);
+/** Convert a transport failure into the in-app-event error channel. */
+const appEventFailure = (operation: string, cause: unknown): AppEventFailure => {
+  let message = `${operation} failed.`;
+  if (cause instanceof Error) message = cause.message;
+  if (typeof cause === 'object' && cause !== null && 'message' in cause) {
+    const causeMessage = cause.message;
+    if (typeof causeMessage === 'string') message = causeMessage;
   }
-  return normalized;
-}
+  return makeAppEventFailure({ operation, message, cause });
+};
 
-/**
- * List an app's in-app events, each paired with its localizations. Resolves the ASC app record from the
- * bundle id first, throwing an actionable error when none exists.
- */
-export async function listEvents(
-  api: AscAppEventsApi,
-  bundleId: string,
-): Promise<AppEventWithLocalizations[]> {
-  const appId = await api.getAppId(bundleId);
-  if (!appId) throw appRecordNotFound(bundleId);
+/** Run one transport call in the in-app-event error channel. */
+const runEventRequest = <Success>(
+  operation: string,
+  requestEffect: Effect.Effect<Success, unknown>,
+): Effect.Effect<Success, AppEventFailure> =>
+  requestEffect.pipe(Effect.mapError((cause) => appEventFailure(operation, cause)));
 
-  const events = await api.listAppEvents(appId);
-  return Promise.all(
-    events.map(async (event) => ({
-      event,
-      localizations: await api.listAppEventLocalizations(event.id),
-    })),
-  );
-}
-
-/**
- * Create a draft in-app event. Validates the reference name and the enum attributes (badge/priority/purpose)
- * before resolving the app record and creating the event.
- */
-export async function createEvent(
-  api: AscAppEventsApi,
-  bundleId: string,
-  request: CreateEventRequest,
-): Promise<AppEventResource> {
-  const referenceName = request.referenceName.trim();
-  if (!referenceName) throw new Error('A reference name is required to create an in-app event.');
-
-  const badge = validateEnum('badge', request.badge, APP_EVENT_BADGES);
-  const priority = validateEnum('priority', request.priority, APP_EVENT_PRIORITIES);
-  const purpose = validateEnum('purpose', request.purpose, APP_EVENT_PURPOSES);
-
-  const appId = await api.getAppId(bundleId);
-  if (!appId) throw appRecordNotFound(bundleId);
-
-  return api.createAppEvent(appId, {
-    referenceName,
-    ...(badge ? { badge } : {}),
-    ...(request.primaryLocale ? { primaryLocale: request.primaryLocale.trim() } : {}),
-    ...(request.deepLink ? { deepLink: request.deepLink.trim() } : {}),
-    ...(priority ? { priority } : {}),
-    ...(purpose ? { purpose } : {}),
+/** Build the missing-App-Store-record failure shared by list and create. */
+const missingAppRecord = (bundleId: string): AppEventFailure =>
+  makeAppEventFailure({
+    operation: 'resolve App Store app',
+    message:
+      `No App Store Connect app record for ${bundleId}. Confirm the bundle id and that this ` +
+      'account can access the app.',
+    cause: bundleId,
   });
-}
 
-/**
- * Set one locale's copy on an event — an upsert: update the existing localization for the locale, or create
- * one when none exists. Requires at least one copy field. Reports `replaced` so the command can say whether
- * it overwrote existing copy.
- */
-export async function localizeEvent(
-  api: AscAppEventsApi,
-  eventId: string,
-  request: LocalizeEventRequest,
-): Promise<LocalizeResult> {
-  const locale = request.locale.trim();
-  if (!locale) throw new Error('A locale is required to localize an in-app event.');
-
-  const attributes: AppEventLocalizationInput = {};
-  if (request.name !== undefined) attributes.name = request.name;
-  if (request.shortDescription !== undefined)
-    attributes.shortDescription = request.shortDescription;
-  if (request.longDescription !== undefined) attributes.longDescription = request.longDescription;
-  if (Object.keys(attributes).length === 0) {
-    throw new Error('Provide at least one of --name, --short, or --long to localize the event.');
-  }
-
-  const existing = (await api.listAppEventLocalizations(eventId)).find(
-    (localization) => localization.locale.toLowerCase() === locale.toLowerCase(),
+/** Validate and normalize an optional Apple enum attribute. */
+const validateEventEnum = (
+  field: string,
+  fieldText: string | undefined,
+  allowedValues: readonly string[],
+): Effect.Effect<string | undefined, AppEventFailure> => {
+  if (fieldText === undefined) return Effect.succeed(undefined);
+  const normalizedField = fieldText.trim().toUpperCase();
+  if (allowedValues.includes(normalizedField)) return Effect.succeed(normalizedField);
+  return Effect.fail(
+    makeAppEventFailure({
+      operation: `validate ${field}`,
+      message: `Invalid ${field} "${fieldText}". Valid ${field}s: ${allowedValues.join(', ')}.`,
+      cause: fieldText,
+    }),
   );
-  if (existing) {
-    const localization = await api.updateAppEventLocalization(existing.id, attributes);
-    // PATCH omits the unchanged locale; carry the known one through so callers always have it.
-    return { localization: { ...localization, locale: existing.locale }, replaced: true };
-  }
+};
 
-  const localization = await api.createAppEventLocalization(eventId, locale, attributes);
-  return { localization, replaced: false };
-}
+/** List an app's in-app events with their localizations. */
+export const listEvents = (
+  appEventsStore: AscAppEventsApi,
+  bundleId: string,
+): Effect.Effect<readonly AppEventWithLocalizations[], AppEventFailure> =>
+  Effect.gen(function* () {
+    const appId = yield* runEventRequest(
+      'resolve App Store app',
+      appEventsStore.getAppId(bundleId),
+    );
+    if (appId === null) return yield* Effect.fail(missingAppRecord(bundleId));
+    const appEvents = yield* runEventRequest(
+      'list in-app events',
+      appEventsStore.listAppEvents(appId),
+    );
+    return yield* Effect.forEach(
+      appEvents,
+      (appEvent) =>
+        runEventRequest(
+          'list event localizations',
+          appEventsStore.listAppEventLocalizations(appEvent.id),
+        ).pipe(Effect.map((localizations) => ({ event: appEvent, localizations }))),
+      { concurrency: 'unbounded' },
+    );
+  });
 
-/** Delete a draft in-app event by id. */
-export async function deleteEvent(api: AscAppEventsApi, eventId: string): Promise<void> {
-  await api.deleteAppEvent(eventId);
-}
+/** Create a validated draft in-app event. */
+export const createEvent = (
+  appEventsStore: AscAppEventsApi,
+  bundleId: string,
+  eventRequest: CreateEventRequest,
+): Effect.Effect<AppEventResource, AppEventFailure> =>
+  Effect.gen(function* () {
+    const referenceName = eventRequest.referenceName.trim();
+    if (referenceName.length === 0) {
+      return yield* Effect.fail(
+        makeAppEventFailure({
+          operation: 'validate reference name',
+          message: 'A reference name is required to create an in-app event.',
+          cause: eventRequest.referenceName,
+        }),
+      );
+    }
+    const badge = yield* validateEventEnum('badge', eventRequest.badge, APP_EVENT_BADGES);
+    const priority = yield* validateEventEnum(
+      'priority',
+      eventRequest.priority,
+      APP_EVENT_PRIORITIES,
+    );
+    const purpose = yield* validateEventEnum('purpose', eventRequest.purpose, APP_EVENT_PURPOSES);
+    const appId = yield* runEventRequest(
+      'resolve App Store app',
+      appEventsStore.getAppId(bundleId),
+    );
+    if (appId === null) return yield* Effect.fail(missingAppRecord(bundleId));
+    const eventAttributes: NewAppEvent = { referenceName };
+    if (badge !== undefined) eventAttributes.badge = badge;
+    if (eventRequest.primaryLocale !== undefined) {
+      eventAttributes.primaryLocale = eventRequest.primaryLocale.trim();
+    }
+    if (eventRequest.deepLink !== undefined) {
+      eventAttributes.deepLink = eventRequest.deepLink.trim();
+    }
+    if (priority !== undefined) eventAttributes.priority = priority;
+    if (purpose !== undefined) eventAttributes.purpose = purpose;
+    return yield* runEventRequest(
+      'create in-app event',
+      appEventsStore.createAppEvent(appId, eventAttributes),
+    );
+  });
+
+/** Create or update one locale's event copy. */
+export const localizeEvent = (
+  appEventsStore: AscAppEventsApi,
+  eventId: string,
+  localizationRequest: LocalizeEventRequest,
+): Effect.Effect<LocalizeResult, AppEventFailure> =>
+  Effect.gen(function* () {
+    const locale = localizationRequest.locale.trim();
+    if (locale.length === 0) {
+      return yield* Effect.fail(
+        makeAppEventFailure({
+          operation: 'validate event locale',
+          message: 'A locale is required to localize an in-app event.',
+          cause: localizationRequest.locale,
+        }),
+      );
+    }
+    const localizationAttributes: AppEventLocalizationInput = {};
+    if (localizationRequest.name !== undefined) {
+      localizationAttributes.name = localizationRequest.name;
+    }
+    if (localizationRequest.shortDescription !== undefined) {
+      localizationAttributes.shortDescription = localizationRequest.shortDescription;
+    }
+    if (localizationRequest.longDescription !== undefined) {
+      localizationAttributes.longDescription = localizationRequest.longDescription;
+    }
+    if (Object.keys(localizationAttributes).length === 0) {
+      return yield* Effect.fail(
+        makeAppEventFailure({
+          operation: 'validate event localization',
+          message: 'Provide at least one of --name, --short, or --long to localize the event.',
+          cause: localizationRequest,
+        }),
+      );
+    }
+    const localizations = yield* runEventRequest(
+      'list event localizations',
+      appEventsStore.listAppEventLocalizations(eventId),
+    );
+    const existingLocalization = localizations.find(
+      (localization) => localization.locale.toLowerCase() === locale.toLowerCase(),
+    );
+    if (existingLocalization !== undefined) {
+      const storedLocalization = yield* runEventRequest(
+        'update event localization',
+        appEventsStore.updateAppEventLocalization(existingLocalization.id, localizationAttributes),
+      );
+      return {
+        localization: { ...storedLocalization, locale: existingLocalization.locale },
+        replaced: true,
+      };
+    }
+    const storedLocalization = yield* runEventRequest(
+      'create event localization',
+      appEventsStore.createAppEventLocalization(eventId, locale, localizationAttributes),
+    );
+    return { localization: storedLocalization, replaced: false };
+  });
+
+/** Delete a draft in-app event by its App Store resource id. */
+export const deleteEvent = (
+  appEventsStore: AscAppEventsApi,
+  eventId: string,
+): Effect.Effect<void, AppEventFailure> =>
+  runEventRequest('delete in-app event', appEventsStore.deleteAppEvent(eventId));

@@ -1,116 +1,15 @@
-/**
- * `launch eu-distribution` — config-as-code setup for EU **alternative distribution** (DMA web
- * distribution / alternative marketplaces), via the App Store Connect API key alone. Fills a gap no tool
- * covers and EAS ignores entirely: authorizing the domains you distribute from and registering the
- * package-signing public key are otherwise hand-clicked in App Store Connect.
- *
- * The default `launch eu-distribution` reconciles the authorized **domains** from `eu-distribution.config.json`
- * with the same plan→confirm→apply / `--dry-run` flow as `launch sync`. The imperative subcommands cover
- * the team-level public key — a register-once action, not declarative state: `set-key <pem>` registers
- * the package-signing public key, and `list` shows the current domains and whether a key is registered.
- *
- * These are team-level resources, so there's no `--app` selection; everything acts on the active account's
- * team. The public key is the *public* half (not a secret), so it's read from a plain PEM file.
- */
-
-import { readFileSync } from 'node:fs';
-import { cancel, confirm, isCancel } from '@clack/prompts';
 import type { Command } from 'commander';
-import type { PlannedAction } from '../../core/store/ascSync.js';
-import { AppStoreConnectClient } from '../../apple/ascClient.js';
-import { loadActiveAscKey } from '../../core/credentials/accounts.js';
-import { loadConfig, resolveSidecarConfig } from '../../core/config/config.js';
-import { createLogger } from '../../core/services/logger.js';
-import { summarize } from '../../core/asc/storeSync.js';
-import {
-  loadEuDistributionConfig,
-  reconcileEuDistributionDomains,
-} from '../../core/store/euDistribution.js';
+import { euDistributionCommandProgram } from '@core/store/euDistributionCommand.js';
+import { runCliProgram } from '../runCliProgram.js';
 
-/** CLI options for the default `launch eu-distribution` domain reconcile. */
-interface EuDistributionOptions {
+type EuDistributionOptions = Readonly<{
   config: string;
-  dryRun?: boolean;
-  yes?: boolean;
-}
+  dryRun: boolean;
+  yes: boolean;
+}>;
 
-/** Build a client bound to the active Apple account, or fail with the onboarding hint. */
-async function activeClient(): Promise<AppStoreConnectClient> {
-  const ascKey = await loadActiveAscKey();
-  if (!ascKey) throw new Error('No active Apple account. Run `launch creds set-key` first.');
-  return new AppStoreConnectClient(ascKey);
-}
-
-/**
- * Render one action line: `✗` for a failure (with Apple's detail), `+` for a planned/applied change.
- * (Domain reconcile never skips, but the failed branch keeps the summary honest.) Exported for tests.
- */
-export function renderAction(action: PlannedAction): string {
-  if (action.status === 'failed')
-    return `✗ ${action.description}${action.error ? ` — ${action.error}` : ''}`;
-  return `+ ${action.description}`;
-}
-
-/** The body of `launch eu-distribution`: plan domain authorizations, print, confirm, apply. */
-async function runReconcile(options: EuDistributionOptions, command: Command): Promise<void> {
-  const log = createLogger(false);
-  const { config: launchConfig } = await loadConfig();
-  const config = resolveSidecarConfig({
-    typed: launchConfig.euDistribution,
-    configPath: options.config,
-    explicitPath: command.getOptionValueSource('config') === 'cli',
-    load: loadEuDistributionConfig,
-  });
-  if (!config) {
-    throw new Error(
-      `No EU distribution config. Add an \`euDistribution\` field to launch.config.ts or create ${options.config}.`,
-    );
-  }
-  const client = await activeClient();
-
-  const plan = await reconcileEuDistributionDomains(client, config, true);
-
-  log.gap();
-  if (plan.length === 0) {
-    log.step('eu-distribution', 'distribution domains already authorized');
-    return;
-  }
-  log.notice('EU alternative distribution', ...plan.map(renderAction));
-
-  log.gap();
-  log.info(`${plan.length} domain(s) to authorize.`);
-  if (options.dryRun === true) {
-    log.info('Dry run — no changes made. Re-run without --dry-run to apply.');
-    return;
-  }
-
-  if (options.yes !== true) {
-    if (!process.stdout.isTTY) {
-      throw new Error(
-        'Refusing to apply without confirmation. Re-run with --yes (or --dry-run to preview).',
-      );
-    }
-    const proceed = await confirm({ message: `Authorize ${plan.length} distribution domain(s)?` });
-    if (isCancel(proceed) || !proceed) {
-      cancel('Aborted — no changes made.');
-      return;
-    }
-  }
-
-  const applied = await reconcileEuDistributionDomains(client, config, false);
-  const summary = summarize(applied);
-  const rows = applied.map((action) =>
-    action.status === 'failed'
-      ? `✗ ${action.description} — ${action.error ?? 'failed'}`
-      : `✓ ${action.description}`,
-  );
-  log.box(summary.failed > 0 ? 'Authorized with errors' : 'Domains authorized', rows);
-  if (summary.failed > 0) process.exitCode = 1;
-}
-
-/** Attach the `eu-distribution` command (domain reconcile) and its imperative subcommands to the program. */
-export function registerEuDistributionCommand(program: Command): void {
-  const eu = program
+export const registerEuDistributionCommand = (program: Command): void => {
+  const euDistributionCommand = program
     .command('eu-distribution')
     .description(
       'authorize EU alternative-distribution domains from eu-distribution.config.json (DMA)',
@@ -122,45 +21,29 @@ export function registerEuDistributionCommand(program: Command): void {
     )
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
-    .action((options: EuDistributionOptions, command: Command) => runReconcile(options, command));
+    .action((commandOptions: EuDistributionOptions, command: Command) =>
+      runCliProgram(
+        euDistributionCommandProgram({
+          operation: 'reconcile',
+          configPath: commandOptions.config,
+          explicitConfig: command.getOptionValueSource('config') === 'cli',
+          dryRun: commandOptions.dryRun,
+          yes: commandOptions.yes,
+        }),
+      ),
+    );
 
-  eu.command('set-key <pemPath>')
+  euDistributionCommand
+    .command('set-key <pemPath>')
     .description(
-      "register the team's package-signing public key (the public half — a plain .pem file)",
+      "register the team's package-signing public key (the public half - a plain .pem file)",
     )
-    .action(async (pemPath: string) => {
-      const log = createLogger(false);
-      const publicKey = readFileSync(pemPath, 'utf8').trim();
-      if (!publicKey) throw new Error(`${pemPath} is empty — expected a PEM public key.`);
-      const client = await activeClient();
-      const existing = await client.listAlternativeDistributionKeys();
-      if (existing.length > 0) {
-        log.info(
-          `A distribution key is already registered (id ${existing[0]?.id}). Delete it in App Store Connect to replace it.`,
-        );
-        return;
-      }
-      await client.createAlternativeDistributionKey(publicKey);
-      log.step('eu-distribution', 'registered the alternative-distribution public key');
-    });
+    .action((pemPath: string) =>
+      runCliProgram(euDistributionCommandProgram({ operation: 'set-key', pemPath })),
+    );
 
-  eu.command('list')
+  euDistributionCommand
+    .command('list')
     .description("show the team's authorized distribution domains and whether a key is registered")
-    .action(async () => {
-      const log = createLogger(false);
-      const client = await activeClient();
-      const [domains, keys] = await Promise.all([
-        client.listAlternativeDistributionDomains(),
-        client.listAlternativeDistributionKeys(),
-      ]);
-      log.notice(
-        `EU alternative distribution — key ${keys.length > 0 ? 'registered' : 'not registered'}`,
-        ...(domains.length > 0
-          ? domains.map(
-              (entry) =>
-                `• ${entry.domain ?? '?'}${entry.referenceName ? ` (${entry.referenceName})` : ''}`,
-            )
-          : ['• no domains authorized']),
-      );
-    });
-}
+    .action(() => runCliProgram(euDistributionCommandProgram({ operation: 'list' })));
+};

@@ -1,30 +1,6 @@
-/**
- * The asset half of `launch sync`: upload App Store **screenshots** (per locale × device target), **app
- * preview videos** (the parallel `appPreviewSets`/`appPreviews` flow, via {@link reconcilePreviews}), and
- * **subscription review screenshots** to App Store Connect, idempotently. It's the deliberate follow-up
- * the catalog reconciler (`ascSync.ts`) flagged — products clear "Missing Metadata", but a screenshot is
- * a chunked binary upload, so it lives in its own pass.
- *
- * Why a sibling module (not part of `reconcileApp`): binary asset upload is a separate concern from the
- * catalog/text reconcile, and keeping it out of `AscCatalogApi` keeps that interface (and its large test
- * fake) untouched. The two passes share only the plan primitives — {@link act}, {@link ActionLog},
- * {@link PlannedAction} — imported one-directionally from `ascSync.ts`, so there's no import cycle.
- *
- * Design (mirrors `ascSync.ts`):
- * - **Declarative & stateless.** Reality is re-read each run (sets, existing screenshots, subscriptions);
- *   the local `screenshots/` tree is the source of truth.
- * - **Additive & idempotent.** A local file whose MD5 already appears on Apple (`sourceFileChecksum`) is
- *   skipped. New files are uploaded; existing ones are never deleted or reordered here (that would be a
- *   destructive follow-up), so a re-run after no change uploads nothing.
- * - **Plan, then apply.** Same `dryRun` walk as the catalog pass; each upload is isolated via {@link act}
- *   so one bad file never aborts the rest.
- *
- * Display-type resolution honors Apple's lagging enum: the target is whatever the user's folder is named
- * (see `screenshotAssets.ts`), never gated against a hardcoded list — an unknown constant is attempted and,
- * if Apple rejects it, captured as a single failed action rather than aborting the locale.
- */
-
+import { Effect } from 'effect';
 import type {
+  ListingLocalization,
   PreviewResource,
   PreviewSetResource,
   ReviewScreenshotResource,
@@ -32,390 +8,357 @@ import type {
   ScreenshotSetResource,
   SubscriptionGroupResource,
   SubscriptionResource,
-  ListingLocalization,
-} from '../../apple/ascClient.js';
+} from '../types/appleCatalog.js';
+import { act, DRY_RUN_ID, succeededOrPlanned, type ActionLog } from './ascSync.js';
+import type { PlannedAction } from '../types/reconcile.js';
 import {
-  act,
-  DRY_RUN_ID,
-  succeededOrPlanned,
-  type ActionLog,
-  type PlannedAction,
-} from './ascSync.js';
-import {
-  displayTypeLabel,
   MAX_PREVIEWS_PER_SET,
   MAX_SCREENSHOTS_PER_SET,
-  previewTypeLabel,
   type LocalAsset,
   type LocalPreview,
   type LocalScreenshot,
-} from '../services/screenshotAssets.js';
-
+} from '../listing/screenshots/assets.js';
+import { appleDisplayTypeLabel, applePreviewTypeLabel } from '../listing/screenshots/targets.js';
 /**
  * The slice of {@link AppStoreConnectClient} the screenshot reconciler depends on. Declared here (rather
  * than taking the concrete client) so the reconcile logic is unit-testable against a hand-rolled fake.
  * `AppStoreConnectClient` satisfies it structurally. The high-level `upload*` methods hide the
- * reserve→PUT→commit asset flow so this module never deals with upload operations or checksums directly.
+ * reserve->PUT->commit asset flow so this module never deals with upload operations or checksums directly.
  */
-export interface ScreenshotsApi {
-  getAppId(bundleId: string): Promise<string | null>;
-  getEditableVersionId(appId: string): Promise<string | null>;
-  /** Reused from the listing reconciler to map each declared locale to its version-localization id. */
-  listVersionLocalizations(versionId: string): Promise<ListingLocalization[]>;
-  listScreenshotSets(versionLocalizationId: string): Promise<ScreenshotSetResource[]>;
+export type ScreenshotsApi = {
+  getAppId(bundleId: string): Effect.Effect<string | null, unknown>;
+  getEditableVersionId(appId: string): Effect.Effect<string | null, unknown>;
+  listVersionLocalizations(versionId: string): Effect.Effect<ListingLocalization[], unknown>;
+  listScreenshotSets(
+    versionLocalizationId: string,
+  ): Effect.Effect<ScreenshotSetResource[], unknown>;
   createScreenshotSet(
     versionLocalizationId: string,
     displayType: string,
-  ): Promise<ScreenshotSetResource>;
-  listScreenshots(setId: string): Promise<ScreenshotResource[]>;
-  uploadScreenshot(setId: string, fileName: string, filePath: string): Promise<void>;
-  listSubscriptionGroups(appId: string): Promise<SubscriptionGroupResource[]>;
-  listSubscriptions(groupId: string): Promise<SubscriptionResource[]>;
-  getSubscriptionReviewScreenshot(subscriptionId: string): Promise<ReviewScreenshotResource | null>;
+  ): Effect.Effect<ScreenshotSetResource, unknown>;
+  listScreenshots(setId: string): Effect.Effect<ScreenshotResource[], unknown>;
+  uploadScreenshot(setId: string, fileName: string, filePath: string): Effect.Effect<void, unknown>;
+  listSubscriptionGroups(appId: string): Effect.Effect<SubscriptionGroupResource[], unknown>;
+  listSubscriptions(groupId: string): Effect.Effect<SubscriptionResource[], unknown>;
+  getSubscriptionReviewScreenshot(
+    subscriptionId: string,
+  ): Effect.Effect<ReviewScreenshotResource | null, unknown>;
   uploadSubscriptionReviewScreenshot(
     subscriptionId: string,
     fileName: string,
     filePath: string,
-  ): Promise<void>;
-}
-
+  ): Effect.Effect<void, unknown>;
+};
 /** One subscription's declared review screenshot, paired with its product id for live subscription resolution. */
-export interface SubscriptionReviewScreenshot {
-  /** Apple product id of the subscription the screenshot belongs to — matched against the live catalog. */
+export type SubscriptionReviewScreenshot = {
   productId: string;
-  /** The fingerprinted local image (already resolved + MD5'd by the command). */
   asset: LocalAsset;
-}
-
+};
 /** Inputs to the screenshot reconcile pass for one app. */
-export interface ScreenshotReconcileInput {
-  /** The app's iOS bundle id — resolves the ASC app record. */
+export type ScreenshotReconcileInput = {
   bundleId: string;
-  /** App Store screenshots discovered from `<appDir>/screenshots/<locale>/<displayType>/`. */
   screenshots: LocalScreenshot[];
-  /** Subscription review screenshots declared via `SubscriptionConfig.reviewScreenshot`. */
   subscriptionReviewScreenshots: SubscriptionReviewScreenshot[];
-  /** Rehearse only: build the plan, perform no uploads. */
   dryRun: boolean;
-  /** Permit destructive actions. None exist yet (upload is additive); accepted for parity with the catalog pass. */
   allowDestructive: boolean;
-}
-
-/** Group a list by a derived key, preserving first-seen order of both keys and members. */
-function groupBy<T>(items: T[], key: (item: T) => string): Map<string, T[]> {
-  const groups = new Map<string, T[]>();
-  for (const item of items) {
-    const bucket = groups.get(key(item));
-    if (bucket) bucket.push(item);
-    else groups.set(key(item), [item]);
+};
+/** Group members by a derived string key. */
+const groupBy = <Member>(
+  members: Member[],
+  keyOf: (member: Member) => string,
+): Map<string, Member[]> => {
+  const groups = new Map<string, Member[]>();
+  for (const member of members) {
+    const existingGroup = groups.get(keyOf(member));
+    if (existingGroup !== undefined) existingGroup.push(member);
+    else groups.set(keyOf(member), [member]);
   }
   return groups;
-}
-
-/** A skipped action with guidance — the plan still shows the work that couldn't run and why. */
-function skip(log: ActionLog, description: string): void {
+};
+/** A skipped action with guidance - the plan still shows the work that couldn't run and why. */
+const skip = (log: ActionLog, description: string): void => {
   log.actions.push({ description, destructive: false, status: 'skipped' });
-}
-
+};
 /**
  * Reconcile one app's App Store assets. Resolves the ASC app record once, then runs the screenshot and
  * subscription-review-screenshot passes; returns the actions planned/performed (the command merges them
- * into the app's overall sync report). Never throws for a per-asset failure — those are captured on their
+ * into the app's overall sync report). Never throws for a per-asset failure - those are captured on their
  * action by {@link act}.
  */
-export async function reconcileScreenshots(
+export const reconcileScreenshots = (
   api: ScreenshotsApi,
   input: ScreenshotReconcileInput,
-): Promise<PlannedAction[]> {
-  const log: ActionLog = {
-    actions: [],
-    dryRun: input.dryRun,
-    allowDestructive: input.allowDestructive,
-  };
-  if (input.screenshots.length === 0 && input.subscriptionReviewScreenshots.length === 0)
+): Effect.Effect<PlannedAction[], unknown> =>
+  Effect.gen(function* () {
+    const log: ActionLog = {
+      actions: [],
+      dryRun: input.dryRun,
+      allowDestructive: input.allowDestructive,
+    };
+    if (input.screenshots.length === 0 && input.subscriptionReviewScreenshots.length === 0)
+      return log.actions;
+    const appId = yield* api.getAppId(input.bundleId);
+    if (appId === null) {
+      skip(
+        log,
+        `screenshots: no App Store Connect app record for ${input.bundleId} - create the app, then re-run`,
+      );
+      return log.actions;
+    }
+    if (input.screenshots.length > 0)
+      yield* reconcileAppScreenshots(api, log, appId, input.screenshots);
+    if (input.subscriptionReviewScreenshots.length > 0) {
+      yield* reconcileSubscriptionReviewScreenshots(
+        api,
+        log,
+        appId,
+        input.subscriptionReviewScreenshots,
+      );
+    }
     return log.actions;
-
-  const appId = await api.getAppId(input.bundleId);
-  if (!appId) {
-    skip(
-      log,
-      `screenshots: no App Store Connect app record for ${input.bundleId} — create the app, then re-run`,
-    );
-    return log.actions;
-  }
-
-  if (input.screenshots.length > 0)
-    await reconcileAppScreenshots(api, log, appId, input.screenshots);
-  if (input.subscriptionReviewScreenshots.length > 0) {
-    await reconcileSubscriptionReviewScreenshots(
-      api,
-      log,
-      appId,
-      input.subscriptionReviewScreenshots,
-    );
-  }
-  return log.actions;
-}
-
-/** Upload screenshots into the editable App Store version, per locale → display-type set. */
-async function reconcileAppScreenshots(
+  });
+/** Upload screenshots into the editable App Store version, per locale -> display-type set. */
+const reconcileAppScreenshots = (
   api: ScreenshotsApi,
   log: ActionLog,
   appId: string,
   screenshots: LocalScreenshot[],
-): Promise<void> {
-  const versionId = await api.getEditableVersionId(appId);
-  if (!versionId) {
-    skip(
-      log,
-      'screenshots: no editable App Store version — prepare a version in App Store Connect, then re-run',
-    );
-    return;
-  }
-
-  const localizations = await api.listVersionLocalizations(versionId);
-  const localizationIdByLocale = new Map(
-    localizations.map((localization) => [localization.locale, localization.id]),
-  );
-
-  for (const [locale, localeShots] of groupBy(screenshots, (shot) => shot.locale)) {
-    const localizationId = localizationIdByLocale.get(locale);
-    if (!localizationId) {
+): Effect.Effect<void, unknown> =>
+  Effect.gen(function* () {
+    const versionId = yield* api.getEditableVersionId(appId);
+    if (versionId === null) {
       skip(
         log,
-        `screenshots [${locale}]: locale not on the editable version — sync the listing for ${locale} first ` +
-          `(${localeShots.length} screenshot(s) waiting)`,
+        'screenshots: no editable App Store version - prepare a version in App Store Connect, then re-run',
       );
-      continue;
+      return;
     }
-
-    const setByType = new Map(
-      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
-      (await api.listScreenshotSets(localizationId)).map((set) => [set.screenshotDisplayType, set]),
+    const localizations = yield* api.listVersionLocalizations(versionId);
+    const localizationIdByLocale = new Map(
+      localizations.map((localization) => [localization.locale, localization.id]),
     );
-    for (const [displayType, typeShots] of groupBy(localeShots, (shot) => shot.displayType)) {
-      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
-      await reconcileScreenshotSet(
-        api,
-        log,
-        localizationId,
-        setByType.get(displayType),
-        displayType,
-        locale,
-        typeShots,
+    for (const [locale, localeScreenshots] of groupBy(
+      screenshots,
+      (screenshot) => screenshot.locale,
+    )) {
+      const localizationId = localizationIdByLocale.get(locale);
+      if (localizationId === undefined) {
+        skip(
+          log,
+          `screenshots [${locale}]: locale not on the editable version - sync the listing for ${locale} first ` +
+            `(${localeScreenshots.length} screenshot(s) waiting)`,
+        );
+        continue;
+      }
+      const screenshotSets = yield* api.listScreenshotSets(localizationId);
+      const setByType = new Map(
+        screenshotSets.map((screenshotSet) => [screenshotSet.screenshotDisplayType, screenshotSet]),
       );
+      for (const [displayType, typeScreenshots] of groupBy(
+        localeScreenshots,
+        (screenshot) => screenshot.displayType,
+      )) {
+        yield* reconcileScreenshotSet(
+          api,
+          log,
+          localizationId,
+          setByType.get(displayType),
+          displayType,
+          locale,
+          typeScreenshots,
+        );
+      }
     }
-  }
-}
-
+  });
 /** Resolve (or create) one display-type set, then upload the local screenshots Apple doesn't already have. */
-async function reconcileScreenshotSet(
+const reconcileScreenshotSet = (
   api: ScreenshotsApi,
   log: ActionLog,
   localizationId: string,
   existingSet: ScreenshotSetResource | undefined,
   displayType: string,
   locale: string,
-  shots: LocalScreenshot[],
-): Promise<void> {
-  const label = displayTypeLabel(displayType);
-
-  let setId: string;
-  let existing: ScreenshotResource[];
-  if (existingSet) {
-    setId = existingSet.id;
-    existing = await api.listScreenshots(setId);
-  } else {
-    const created = await act(log, `create screenshot set ${label} [${locale}]`, false, () =>
-      api.createScreenshotSet(localizationId, displayType),
-    );
-    if (!succeededOrPlanned(created.status)) return;
-    setId = created.value?.id ?? DRY_RUN_ID;
-    existing = [];
-  }
-
-  // A FAILED delivery never finished, so don't treat its checksum as "already uploaded" — let it re-send.
-  const uploadedChecksums = new Set(
-    existing
-      .filter((shot) => shot.assetDeliveryState !== 'FAILED')
-      .map((shot) => shot.sourceFileChecksum)
-      .filter((sum): sum is string => !!sum),
-  );
-  let count = existing.length;
-  for (const shot of shots) {
-    if (uploadedChecksums.has(shot.checksum)) continue; // already on Apple, byte-for-byte
-    if (count >= MAX_SCREENSHOTS_PER_SET) {
-      skip(
+  screenshots: LocalScreenshot[],
+): Effect.Effect<void, unknown> =>
+  Effect.gen(function* () {
+    const label = appleDisplayTypeLabel(displayType);
+    let setId: string;
+    let existingScreenshots: ScreenshotResource[];
+    if (existingSet !== undefined) {
+      setId = existingSet.id;
+      existingScreenshots = yield* api.listScreenshots(setId);
+    } else {
+      const createAction = yield* act(
         log,
-        `screenshot ${label} [${locale}] ${shot.fileName}: set is full (${MAX_SCREENSHOTS_PER_SET} max) — skipped`,
+        `create screenshot set ${label} [${locale}]`,
+        false,
+        () => api.createScreenshotSet(localizationId, displayType),
       );
-      continue;
+      if (!succeededOrPlanned(createAction.status)) return;
+      const createdSetId = createAction.actionValue?.id;
+      setId = DRY_RUN_ID;
+      if (createdSetId !== undefined) setId = createdSetId;
+      existingScreenshots = [];
     }
-    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
-    await act(log, `upload screenshot ${label} [${locale}] ${shot.fileName}`, false, () =>
-      api.uploadScreenshot(setId, shot.fileName, shot.path),
+    const uploadedChecksums = new Set(
+      existingScreenshots
+        .filter((screenshot) => screenshot.assetDeliveryState !== 'FAILED')
+        .map((screenshot) => screenshot.sourceFileChecksum)
+        .filter((checksum): checksum is string => typeof checksum === 'string'),
     );
-    count++;
-  }
-}
-
+    let screenshotCount = existingScreenshots.length;
+    for (const screenshot of screenshots) {
+      if (uploadedChecksums.has(screenshot.checksum)) continue;
+      if (screenshotCount >= MAX_SCREENSHOTS_PER_SET) {
+        skip(
+          log,
+          `screenshot ${label} [${locale}] ${screenshot.fileName}: set is full (${MAX_SCREENSHOTS_PER_SET} max) - skipped`,
+        );
+        continue;
+      }
+      yield* act(log, `upload screenshot ${label} [${locale}] ${screenshot.fileName}`, false, () =>
+        api.uploadScreenshot(setId, screenshot.fileName, screenshot.path),
+      );
+      screenshotCount++;
+    }
+  });
 /** Upload each declared subscription's review screenshot, resolving the subscription live by product id. */
-async function reconcileSubscriptionReviewScreenshots(
+const reconcileSubscriptionReviewScreenshots = (
   api: ScreenshotsApi,
   log: ActionLog,
   appId: string,
-  items: SubscriptionReviewScreenshot[],
-): Promise<void> {
-  const subscriptionIdByProduct = new Map<string, string>();
-  for (const group of await api.listSubscriptionGroups(appId)) {
-    for (const subscription of await api.listSubscriptions(group.id)) {
-      subscriptionIdByProduct.set(subscription.productId, subscription.id);
+  reviewScreenshots: SubscriptionReviewScreenshot[],
+): Effect.Effect<void, unknown> =>
+  Effect.gen(function* () {
+    const subscriptionIdByProduct = new Map<string, string>();
+    const subscriptionGroups = yield* api.listSubscriptionGroups(appId);
+    for (const subscriptionGroup of subscriptionGroups) {
+      const subscriptions = yield* api.listSubscriptions(subscriptionGroup.id);
+      for (const subscription of subscriptions) {
+        subscriptionIdByProduct.set(subscription.productId, subscription.id);
+      }
     }
-  }
-
-  for (const item of items) {
-    const subscriptionId = subscriptionIdByProduct.get(item.productId);
-    if (!subscriptionId) {
-      // Expected on a first run / dry-run: the subscription is created earlier in the same sync (or not yet).
-      skip(
+    for (const reviewScreenshot of reviewScreenshots) {
+      const subscriptionId = subscriptionIdByProduct.get(reviewScreenshot.productId);
+      if (subscriptionId === undefined) {
+        skip(
+          log,
+          `subscription review screenshot ${reviewScreenshot.productId}: subscription not on App Store Connect yet - ` +
+            "re-run after it's created",
+        );
+        continue;
+      }
+      const currentScreenshot = yield* api.getSubscriptionReviewScreenshot(subscriptionId);
+      if (
+        currentScreenshot?.sourceFileChecksum === reviewScreenshot.asset.checksum &&
+        currentScreenshot.assetDeliveryState !== 'FAILED'
+      )
+        continue;
+      yield* act(
         log,
-        `subscription review screenshot ${item.productId}: subscription not on App Store Connect yet — ` +
-          "re-run after it's created",
+        `upload subscription review screenshot ${reviewScreenshot.productId} (${reviewScreenshot.asset.fileName})`,
+        false,
+        () =>
+          api.uploadSubscriptionReviewScreenshot(
+            subscriptionId,
+            reviewScreenshot.asset.fileName,
+            reviewScreenshot.asset.path,
+          ),
       );
-      continue;
     }
-    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
-    const current = await api.getSubscriptionReviewScreenshot(subscriptionId);
-    // Skip only a finished upload that matches byte-for-byte; a FAILED one re-sends.
-    if (
-      current?.sourceFileChecksum === item.asset.checksum &&
-      current.assetDeliveryState !== 'FAILED'
-    )
-      continue;
-    await act(
-      log,
-      `upload subscription review screenshot ${item.productId} (${item.asset.fileName})`,
-      false,
-      () =>
-        api.uploadSubscriptionReviewScreenshot(
-          subscriptionId,
-          item.asset.fileName,
-          item.asset.path,
-        ),
-    );
-  }
-}
-
-// ── App preview videos ───────────────────────────────────────────────────────────────────────────────
-
-/**
- * The slice of {@link AppStoreConnectClient} the **preview** reconciler depends on — the video counterpart
- * of {@link ScreenshotsApi}. Kept as its own narrow interface (rather than widening `ScreenshotsApi`) so the
- * screenshot pass and its test fake stay untouched; `AppStoreConnectClient` satisfies both structurally. The
- * `uploadPreview` method hides the reserve→PUT→commit asset flow, so this module never touches checksums or
- * upload operations directly.
- */
-export interface PreviewsApi {
-  getAppId(bundleId: string): Promise<string | null>;
-  getEditableVersionId(appId: string): Promise<string | null>;
-  /** Maps each declared locale to its version-localization id (shared with the listing/screenshot reconcilers). */
-  listVersionLocalizations(versionId: string): Promise<ListingLocalization[]>;
-  listPreviewSets(versionLocalizationId: string): Promise<PreviewSetResource[]>;
-  createPreviewSet(versionLocalizationId: string, previewType: string): Promise<PreviewSetResource>;
-  listPreviews(setId: string): Promise<PreviewResource[]>;
-  uploadPreview(setId: string, fileName: string, filePath: string): Promise<void>;
-}
-
+  });
+/** App Store client operations required for preview videos. */
+export type PreviewsApi = {
+  getAppId(bundleId: string): Effect.Effect<string | null, unknown>;
+  getEditableVersionId(appId: string): Effect.Effect<string | null, unknown>;
+  listVersionLocalizations(versionId: string): Effect.Effect<ListingLocalization[], unknown>;
+  listPreviewSets(versionLocalizationId: string): Effect.Effect<PreviewSetResource[], unknown>;
+  createPreviewSet(
+    versionLocalizationId: string,
+    previewType: string,
+  ): Effect.Effect<PreviewSetResource, unknown>;
+  listPreviews(setId: string): Effect.Effect<PreviewResource[], unknown>;
+  uploadPreview(setId: string, fileName: string, filePath: string): Effect.Effect<void, unknown>;
+};
 /** Inputs to the app-preview reconcile pass for one app. */
-export interface PreviewReconcileInput {
-  /** The app's iOS bundle id — resolves the ASC app record. */
+export type PreviewReconcileInput = {
   bundleId: string;
-  /** App preview videos discovered from `<appDir>/previews/<locale>/<previewType>/`, fingerprinted. */
   previews: LocalPreview[];
-  /** Rehearse only: build the plan, perform no uploads. */
   dryRun: boolean;
-  /** Permit destructive actions. None exist yet (upload is additive); accepted for parity with the catalog pass. */
   allowDestructive: boolean;
-}
-
+};
 /**
  * Reconcile one app's App Store **preview videos**, the video counterpart of {@link reconcileScreenshots}.
- * Resolves the ASC app record + editable version once, then uploads (per locale × `previewType` set) the
+ * Resolves the ASC app record + editable version once, then uploads per locale and `previewType` set the
  * videos Apple doesn't already have. Idempotent and additive: a local file whose MD5 already appears on
- * Apple is skipped, and because Apple records that checksum at commit time — before it finishes processing
- * the video asynchronously — a re-run mid-processing re-uploads nothing. Never throws for a per-asset
+ * Apple is skipped, and because Apple records that checksum at commit time - before it finishes processing
+ * the video asynchronously - a re-run mid-processing re-uploads nothing. Never throws for a per-asset
  * failure; those are captured on their action by {@link act}.
  */
-export async function reconcilePreviews(
+export const reconcilePreviews = (
   api: PreviewsApi,
   input: PreviewReconcileInput,
-): Promise<PlannedAction[]> {
-  const log: ActionLog = {
-    actions: [],
-    dryRun: input.dryRun,
-    allowDestructive: input.allowDestructive,
-  };
-  if (input.previews.length === 0) return log.actions;
-
-  const appId = await api.getAppId(input.bundleId);
-  if (!appId) {
-    skip(
-      log,
-      `previews: no App Store Connect app record for ${input.bundleId} — create the app, then re-run`,
-    );
-    return log.actions;
-  }
-
-  const versionId = await api.getEditableVersionId(appId);
-  if (!versionId) {
-    skip(
-      log,
-      'previews: no editable App Store version — prepare a version in App Store Connect, then re-run',
-    );
-    return log.actions;
-  }
-
-  const localizations = await api.listVersionLocalizations(versionId);
-  const localizationIdByLocale = new Map(
-    localizations.map((localization) => [localization.locale, localization.id]),
-  );
-
-  for (const [locale, localePreviews] of groupBy(input.previews, (preview) => preview.locale)) {
-    const localizationId = localizationIdByLocale.get(locale);
-    if (!localizationId) {
+): Effect.Effect<PlannedAction[], unknown> =>
+  Effect.gen(function* () {
+    const log: ActionLog = {
+      actions: [],
+      dryRun: input.dryRun,
+      allowDestructive: input.allowDestructive,
+    };
+    if (input.previews.length === 0) return log.actions;
+    const appId = yield* api.getAppId(input.bundleId);
+    if (appId === null) {
       skip(
         log,
-        `previews [${locale}]: locale not on the editable version — sync the listing for ${locale} first ` +
-          `(${localePreviews.length} preview(s) waiting)`,
+        `previews: no App Store Connect app record for ${input.bundleId} - create the app, then re-run`,
       );
-      continue;
+      return log.actions;
     }
-
-    const setByType = new Map(
-      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
-      (await api.listPreviewSets(localizationId)).map((set) => [set.previewType, set]),
-    );
-    for (const [previewType, typePreviews] of groupBy(
-      localePreviews,
-      (preview) => preview.previewType,
-    )) {
-      // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
-      await reconcilePreviewSet(
-        api,
+    const versionId = yield* api.getEditableVersionId(appId);
+    if (versionId === null) {
+      skip(
         log,
-        localizationId,
-        setByType.get(previewType),
-        previewType,
-        locale,
-        typePreviews,
+        'previews: no editable App Store version - prepare a version in App Store Connect, then re-run',
       );
+      return log.actions;
     }
-  }
-  return log.actions;
-}
-
+    const localizations = yield* api.listVersionLocalizations(versionId);
+    const localizationIdByLocale = new Map(
+      localizations.map((localization) => [localization.locale, localization.id]),
+    );
+    for (const [locale, localePreviews] of groupBy(input.previews, (preview) => preview.locale)) {
+      const localizationId = localizationIdByLocale.get(locale);
+      if (localizationId === undefined) {
+        skip(
+          log,
+          `previews [${locale}]: locale not on the editable version - sync the listing for ${locale} first ` +
+            `(${localePreviews.length} preview(s) waiting)`,
+        );
+        continue;
+      }
+      const previewSets = yield* api.listPreviewSets(localizationId);
+      const setByType = new Map(
+        previewSets.map((previewSet) => [previewSet.previewType, previewSet]),
+      );
+      for (const [previewType, typePreviews] of groupBy(
+        localePreviews,
+        (preview) => preview.previewType,
+      )) {
+        yield* reconcilePreviewSet(
+          api,
+          log,
+          localizationId,
+          setByType.get(previewType),
+          previewType,
+          locale,
+          typePreviews,
+        );
+      }
+    }
+    return log.actions;
+  });
 /** Resolve (or create) one preview-type set, then upload the local previews Apple doesn't already have. */
-async function reconcilePreviewSet(
+const reconcilePreviewSet = (
   api: PreviewsApi,
   log: ActionLog,
   localizationId: string,
@@ -423,44 +366,43 @@ async function reconcilePreviewSet(
   previewType: string,
   locale: string,
   previews: LocalPreview[],
-): Promise<void> {
-  const label = previewTypeLabel(previewType);
-
-  let setId: string;
-  let existing: PreviewResource[];
-  if (existingSet) {
-    setId = existingSet.id;
-    existing = await api.listPreviews(setId);
-  } else {
-    const created = await act(log, `create preview set ${label} [${locale}]`, false, () =>
-      api.createPreviewSet(localizationId, previewType),
-    );
-    if (!succeededOrPlanned(created.status)) return;
-    setId = created.value?.id ?? DRY_RUN_ID;
-    existing = [];
-  }
-
-  // A FAILED delivery never finished, so don't treat its checksum as "already uploaded" — let it re-send.
-  const uploadedChecksums = new Set(
-    existing
-      .filter((preview) => preview.assetDeliveryState !== 'FAILED')
-      .map((preview) => preview.sourceFileChecksum)
-      .filter((sum): sum is string => !!sum),
-  );
-  let count = existing.length;
-  for (const preview of previews) {
-    if (uploadedChecksums.has(preview.checksum)) continue; // already on Apple, byte-for-byte
-    if (count >= MAX_PREVIEWS_PER_SET) {
-      skip(
-        log,
-        `preview ${label} [${locale}] ${preview.fileName}: set is full (${MAX_PREVIEWS_PER_SET} max) — skipped`,
+): Effect.Effect<void, unknown> =>
+  Effect.gen(function* () {
+    const label = applePreviewTypeLabel(previewType);
+    let setId: string;
+    let existingPreviews: PreviewResource[];
+    if (existingSet !== undefined) {
+      setId = existingSet.id;
+      existingPreviews = yield* api.listPreviews(setId);
+    } else {
+      const createAction = yield* act(log, `create preview set ${label} [${locale}]`, false, () =>
+        api.createPreviewSet(localizationId, previewType),
       );
-      continue;
+      if (!succeededOrPlanned(createAction.status)) return;
+      const createdSetId = createAction.actionValue?.id;
+      setId = DRY_RUN_ID;
+      if (createdSetId !== undefined) setId = createdSetId;
+      existingPreviews = [];
     }
-    // biome-ignore lint/performance/noAwaitInLoops: serial App Store Connect writes — the API rate-limits parallel bursts and dependent creates read ids from earlier ones
-    await act(log, `upload preview ${label} [${locale}] ${preview.fileName}`, false, () =>
-      api.uploadPreview(setId, preview.fileName, preview.path),
+    const uploadedChecksums = new Set(
+      existingPreviews
+        .filter((preview) => preview.assetDeliveryState !== 'FAILED')
+        .map((preview) => preview.sourceFileChecksum)
+        .filter((checksum): checksum is string => typeof checksum === 'string'),
     );
-    count++;
-  }
-}
+    let previewCount = existingPreviews.length;
+    for (const preview of previews) {
+      if (uploadedChecksums.has(preview.checksum)) continue;
+      if (previewCount >= MAX_PREVIEWS_PER_SET) {
+        skip(
+          log,
+          `preview ${label} [${locale}] ${preview.fileName}: set is full (${MAX_PREVIEWS_PER_SET} max) - skipped`,
+        );
+        continue;
+      }
+      yield* act(log, `upload preview ${label} [${locale}] ${preview.fileName}`, false, () =>
+        api.uploadPreview(setId, preview.fileName, preview.path),
+      );
+      previewCount++;
+    }
+  });

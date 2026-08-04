@@ -1,69 +1,187 @@
-/**
- * Read/write the persisted `launch release-train` records under `~/.launch/release-trains/` — the
- * on-disk source of truth a train is advanced through across many `status` invocations (ADR 0004 D3).
- * Mirrors `core/lastRun.ts`: tolerant reads (a missing/corrupt record reads as "no such train", never a
- * crash) and a plain read-modify-write persist.
- *
- * Pure I/O only — no state-machine logic. The orchestrator (`releaseTrain/orchestrator.ts`) owns
- * advancing a record; this module just stores and retrieves it.
- */
+import { FileSystem, Path } from '@effect/platform';
+import { Data, Effect, Schema } from 'effect';
+import {
+  type LaunchPathsService,
+  resolveReleaseTrainFilePath,
+  resolveReleaseTrainsDirectory,
+} from '../services/paths.js';
+import type { TrainRecord } from '../types/releaseTrain.js';
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { RELEASE_TRAINS_DIR, releaseTrainFile } from '../services/paths.js';
-import type { TrainRecord } from '../types/index.js';
+const NativeCarSchema = Schema.mutable(
+  Schema.Struct({
+    kind: Schema.Literal('ios', 'android'),
+    state: Schema.Literal(
+      'building',
+      'submitted',
+      'in-review',
+      'approved',
+      'released',
+      'rejected',
+      'failed',
+    ),
+    buildId: Schema.optionalWith(Schema.String, { exact: true }),
+    error: Schema.optionalWith(Schema.String, { exact: true }),
+    updatedAt: Schema.String,
+  }),
+);
 
-/** Persist a train record, creating the release-trains directory on first write. */
-export function writeTrainRecord(record: TrainRecord, dir: string = RELEASE_TRAINS_DIR): void {
-  const file = trainFileIn(dir, record.id);
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, JSON.stringify(record, null, 2));
-}
+const OtaCarSchema = Schema.mutable(
+  Schema.Struct({
+    kind: Schema.Literal('ota'),
+    platform: Schema.Literal('ios', 'android'),
+    channel: Schema.String,
+    runtimeVersion: Schema.String,
+    state: Schema.Literal('pending', 'published'),
+    manifestId: Schema.optionalWith(Schema.String, { exact: true }),
+    updatedAt: Schema.String,
+  }),
+);
 
-/** Read one train by id, or `null` when it doesn't exist or the file is unreadable/corrupt. */
-export function readTrainRecord(id: string, dir: string = RELEASE_TRAINS_DIR): TrainRecord | null {
-  const file = trainFileIn(dir, id);
-  if (!existsSync(file)) return null;
-  try {
-    return JSON.parse(readFileSync(file, 'utf8')) as TrainRecord;
-  } catch {
-    return null;
-  }
-}
+const TrainRecordSchema: Schema.Schema<TrainRecord> = Schema.mutable(
+  Schema.Struct({
+    id: Schema.String,
+    app: Schema.String,
+    hold: Schema.Boolean,
+    state: Schema.Literal('running', 'blocked', 'done', 'aborted'),
+    createdAt: Schema.String,
+    updatedAt: Schema.String,
+    cars: Schema.mutable(Schema.Array(Schema.Union(NativeCarSchema, OtaCarSchema))),
+  }),
+);
 
-/** Every persisted train, newest first by `createdAt`. Skips any unreadable/corrupt record. */
-export function listTrainRecords(dir: string = RELEASE_TRAINS_DIR): TrainRecord[] {
-  if (!existsSync(dir)) return [];
-  const records: TrainRecord[] = [];
-  for (const entry of readdirSync(dir)) {
-    if (!entry.endsWith('.json')) continue;
-    try {
-      records.push(JSON.parse(readFileSync(join(dir, entry), 'utf8')) as TrainRecord);
-    } catch {
-      // A corrupt record is skipped, not fatal — one bad file never hides the rest.
-    }
-  }
-  return records.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-}
+/** A persisted release-train record could not be read or written. */
+export type TrainRecordFailure = Readonly<{
+  readonly _tag: 'TrainRecordFailure';
+  readonly operation: string;
+  readonly message: string;
+  readonly cause: unknown;
+}>;
 
-/**
- * Resolve the train to act on when the command got no explicit id: the most recent train that is still
- * live (`running` or `blocked`), else the most recent train of any state, else `null`. Lets
- * `status` / `release` / `abort` default to "the train you're in the middle of" (ADR D6).
- */
-export function latestTrainRecord(dir: string = RELEASE_TRAINS_DIR): TrainRecord | null {
-  const all = listTrainRecords(dir);
-  return all.find((t) => t.state === 'running' || t.state === 'blocked') ?? all[0] ?? null;
-}
+export const makeTrainRecordFailure = Data.tagged<TrainRecordFailure>('TrainRecordFailure');
 
-/** Delete a train record. Used by maintenance/tests; `abort` marks a record terminated rather than deleting. */
-export function removeTrainRecord(id: string, dir: string = RELEASE_TRAINS_DIR): void {
-  rmSync(trainFileIn(dir, id), { force: true });
-}
+/** Platform services used by release-train record persistence. */
+export type TrainRecordRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
 
-/** Resolve a train's record path inside `dir` — honoring an overridden dir (tests) while sanitizing the id. */
-function trainFileIn(dir: string, id: string): string {
-  if (dir === RELEASE_TRAINS_DIR) return releaseTrainFile(id);
-  const safe = id.replace(/[^A-Za-z0-9_-]/g, '');
-  return join(dir, `${safe || 'train'}.json`);
-}
+/** Convert a persistence cause to the release-train record channel. */
+const recordFailure = (operation: string, cause: unknown): TrainRecordFailure => {
+  let message = `${operation} failed.`;
+  if (cause instanceof Error) message = cause.message;
+  return makeTrainRecordFailure({ operation, message, cause });
+};
+
+/** Sanitize a train id before it becomes a filename. */
+const safeTrainId = (trainId: string): string => {
+  const sanitizedTrainId = trainId.replace(/[^A-Za-z0-9_-]/g, '');
+  if (sanitizedTrainId.length === 0) return 'train';
+  return sanitizedTrainId;
+};
+
+/** Resolve the configured or default release-train directory. */
+const releaseTrainDirectory = (
+  directoryOverride: string | undefined,
+): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
+  Effect.gen(function* () {
+    if (directoryOverride !== undefined) return directoryOverride;
+    return yield* resolveReleaseTrainsDirectory();
+  });
+
+/** Resolve one train's JSON file path. */
+const trainRecordPath = (
+  trainId: string,
+  directoryOverride: string | undefined,
+): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
+  Effect.gen(function* () {
+    if (directoryOverride === undefined) return yield* resolveReleaseTrainFilePath(trainId);
+    const pathService = yield* Path.Path;
+    return pathService.join(directoryOverride, `${safeTrainId(trainId)}.json`);
+  });
+
+/** Persist a train record, creating the release-trains directory when needed. */
+export const writeTrainRecord = (
+  trainRecord: TrainRecord,
+  directoryOverride?: string,
+): Effect.Effect<void, TrainRecordFailure, TrainRecordRequirements> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const filePath = yield* trainRecordPath(trainRecord.id, directoryOverride);
+    yield* fileSystem
+      .makeDirectory(pathService.dirname(filePath), { recursive: true })
+      .pipe(Effect.mapError((cause) => recordFailure('create release-train directory', cause)));
+    yield* fileSystem
+      .writeFileString(filePath, JSON.stringify(trainRecord, null, 2))
+      .pipe(Effect.mapError((cause) => recordFailure('write release-train record', cause)));
+  });
+
+/** Read one train by id, returning null for absent, unreadable, or malformed files. */
+export const readTrainRecord = (
+  trainId: string,
+  directoryOverride?: string,
+): Effect.Effect<TrainRecord | null, never, TrainRecordRequirements> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const filePath = yield* trainRecordPath(trainId, directoryOverride);
+    const fileExists = yield* fileSystem.exists(filePath).pipe(Effect.orElseSucceed(() => false));
+    if (!fileExists) return null;
+    return yield* fileSystem.readFileString(filePath).pipe(
+      Effect.flatMap(Schema.decodeUnknown(Schema.parseJson(TrainRecordSchema))),
+      Effect.map((trainRecord): TrainRecord => trainRecord),
+      Effect.orElseSucceed(() => null),
+    );
+  });
+
+/** List every valid persisted train newest-first. */
+export const listTrainRecords = (
+  directoryOverride?: string,
+): Effect.Effect<TrainRecord[], TrainRecordFailure, TrainRecordRequirements> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const directoryPath = yield* releaseTrainDirectory(directoryOverride);
+    const directoryExists = yield* fileSystem
+      .exists(directoryPath)
+      .pipe(Effect.orElseSucceed(() => false));
+    if (!directoryExists) return [];
+    const directoryEntries = yield* fileSystem
+      .readDirectory(directoryPath)
+      .pipe(Effect.mapError((cause) => recordFailure('list release-train records', cause)));
+    const trainRecords = yield* Effect.forEach(
+      directoryEntries,
+      (directoryEntry) => {
+        if (!directoryEntry.endsWith('.json')) return Effect.succeed(null);
+        return readTrainRecord(directoryEntry.slice(0, -'.json'.length), directoryPath);
+      },
+      { concurrency: 'unbounded' },
+    );
+    return trainRecords
+      .filter((trainRecord): trainRecord is TrainRecord => trainRecord !== null)
+      .sort((firstTrain, secondTrain) => secondTrain.createdAt.localeCompare(firstTrain.createdAt));
+  });
+
+/** Resolve the newest live train, then the newest train of any state. */
+export const latestTrainRecord = (
+  directoryOverride?: string,
+): Effect.Effect<TrainRecord | null, TrainRecordFailure, TrainRecordRequirements> =>
+  Effect.gen(function* () {
+    const trainRecords = yield* listTrainRecords(directoryOverride);
+    const liveTrain = trainRecords.find((trainRecord) => {
+      if (trainRecord.state === 'running') return true;
+      return trainRecord.state === 'blocked';
+    });
+    if (liveTrain !== undefined) return liveTrain;
+    const newestTrain = trainRecords[0];
+    if (newestTrain === undefined) return null;
+    return newestTrain;
+  });
+
+/** Remove one persisted train record when it exists. */
+export const removeTrainRecord = (
+  trainId: string,
+  directoryOverride?: string,
+): Effect.Effect<void, TrainRecordFailure, TrainRecordRequirements> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const filePath = yield* trainRecordPath(trainId, directoryOverride);
+    yield* fileSystem
+      .remove(filePath, { force: true })
+      .pipe(Effect.mapError((cause) => recordFailure('remove release-train record', cause)));
+  });

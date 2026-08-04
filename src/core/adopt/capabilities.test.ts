@@ -1,8 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { NodeContext } from '@effect/platform-node';
+import { Effect } from 'effect';
+import { describe, expect, it } from 'vitest';
 import { capabilitiesAdopter, planCapabilityEntitlements } from './capabilities.js';
 import { NEEDS_VALUE } from './capabilities.js';
-import type { AdoptCatalogApi, AdoptTarget, AppDescriptor } from '../types/index.js';
-
+import type { AdoptCatalogApi, AdoptTarget } from '../types/adopt.js';
+import type { AppDescriptor } from '../types/app.js';
+import { makeLaunchEnvironmentTest } from '../services/environment.js';
 describe('planCapabilityEntitlements', () => {
   it('recovers a real identifier value from the provisioning profile', () => {
     const planned = planCapabilityEntitlements({
@@ -15,7 +18,6 @@ describe('planCapabilityEntitlements', () => {
       { key: 'com.apple.security.application-groups', value: ['group.com.acme'] },
     ]);
   });
-
   it('flags an enabled capability with NEEDS_VALUE and an off-Mac note when no profile is available', () => {
     const [planned] = planCapabilityEntitlements({
       enabledTypes: ['APP_GROUPS'],
@@ -26,7 +28,6 @@ describe('planCapabilityEntitlements', () => {
     expect(planned?.value).toBe(NEEDS_VALUE);
     expect(planned?.note).toMatch(/off-Mac or none/);
   });
-
   it('flags an enabled capability the profile omits with a profile-gap note', () => {
     const [planned] = planCapabilityEntitlements({
       enabledTypes: ['PUSH_NOTIFICATIONS'],
@@ -40,7 +41,6 @@ describe('planCapabilityEntitlements', () => {
       note: 'enabled on App Store Connect but no value in the provisioning profile',
     });
   });
-
   it('never overwrites an entitlement the app.json already declares', () => {
     const planned = planCapabilityEntitlements({
       enabledTypes: ['APP_GROUPS'],
@@ -50,7 +50,6 @@ describe('planCapabilityEntitlements', () => {
     });
     expect(planned).toEqual([]);
   });
-
   it('ignores always-on capabilities that carry no entitlement', () => {
     const planned = planCapabilityEntitlements({
       enabledTypes: ['IN_APP_PURCHASE', 'GAME_CENTER'],
@@ -60,7 +59,6 @@ describe('planCapabilityEntitlements', () => {
     });
     expect(planned).toEqual([]);
   });
-
   it('appends capability settings to a NEEDS_VALUE note as advisory detail', () => {
     const [planned] = planCapabilityEntitlements({
       enabledTypes: ['ICLOUD'],
@@ -72,29 +70,27 @@ describe('planCapabilityEntitlements', () => {
     expect(planned?.note).toContain('settings: ICLOUD_VERSION=VERSION_2');
   });
 });
-
-function makeApi(overrides: Partial<AdoptCatalogApi> = {}): AdoptCatalogApi {
+const makeApi = (overrides: Partial<AdoptCatalogApi> = {}): AdoptCatalogApi => {
   const base: AdoptCatalogApi = {
-    getAppId: vi.fn().mockResolvedValue('app1'),
-    getLatestMarketingVersion: vi.fn().mockResolvedValue(null),
-    getLatestBuildNumber: vi.fn().mockResolvedValue(0),
-    findBundleId: vi.fn().mockResolvedValue({ id: 'b1', identifier: 'com.acme.app' }),
-    listBundleIdCapabilities: vi.fn().mockResolvedValue([]),
-    listProfilesForBundleId: vi.fn().mockResolvedValue([]),
-    listMerchantIds: vi.fn().mockResolvedValue([]),
-    listInAppPurchases: vi.fn().mockResolvedValue([]),
-    listInAppPurchaseLocalizations: vi.fn().mockResolvedValue([]),
-    inAppPurchaseHasPrice: vi.fn().mockResolvedValue(false),
-    listSubscriptionGroups: vi.fn().mockResolvedValue([]),
-    listSubscriptionGroupLocalizations: vi.fn().mockResolvedValue([]),
-    listSubscriptions: vi.fn().mockResolvedValue([]),
-    listSubscriptionLocalizations: vi.fn().mockResolvedValue([]),
-    subscriptionHasPrice: vi.fn().mockResolvedValue(false),
-    listDistributionCertificates: vi.fn().mockResolvedValue([]),
+    getAppId: () => Effect.succeed('app1'),
+    getLatestMarketingVersion: () => Effect.succeed(null),
+    getLatestBuildNumber: () => Effect.succeed(0),
+    findBundleId: () => Effect.succeed({ id: 'b1', identifier: 'com.acme.app' }),
+    listBundleIdCapabilities: () => Effect.succeed([]),
+    listProfilesForBundleId: () => Effect.succeed([]),
+    listMerchantIds: () => Effect.succeed([]),
+    listInAppPurchases: () => Effect.succeed([]),
+    listInAppPurchaseLocalizations: () => Effect.succeed([]),
+    inAppPurchaseHasPrice: () => Effect.succeed(false),
+    listSubscriptionGroups: () => Effect.succeed([]),
+    listSubscriptionGroupLocalizations: () => Effect.succeed([]),
+    listSubscriptions: () => Effect.succeed([]),
+    listSubscriptionLocalizations: () => Effect.succeed([]),
+    subscriptionHasPrice: () => Effect.succeed(false),
+    listDistributionCertificates: () => Effect.succeed([]),
   };
   return { ...base, ...overrides };
-}
-
+};
 const APP: AppDescriptor = {
   name: 'acme',
   dir: '/repo/acme',
@@ -109,21 +105,25 @@ const TARGET: AdoptTarget = {
   cwd: '/repo',
   hasLaunchConfig: false,
 };
-
+/** Run the capability adopter with platform command services available. */
+const runCapabilitiesAdopter = (appleCatalog: AdoptCatalogApi) =>
+  Effect.runPromise(
+    capabilitiesAdopter
+      .read(appleCatalog, TARGET)
+      .pipe(Effect.provide(NodeContext.layer), Effect.provide(makeLaunchEnvironmentTest({}))),
+  );
 describe('capabilitiesAdopter', () => {
   it("returns no writes when the bundle id isn't registered yet", async () => {
-    const api = makeApi({ findBundleId: vi.fn().mockResolvedValue(null) });
-    expect(await capabilitiesAdopter.read(api, TARGET)).toEqual([]);
+    const api = makeApi({ findBundleId: () => Effect.succeed(null) });
+    expect(await runCapabilitiesAdopter(api)).toEqual([]);
   });
-
   it('plans app.json entitlement writes for enabled capabilities with no profile to read', async () => {
     const api = makeApi({
-      listBundleIdCapabilities: vi
-        .fn()
-        .mockResolvedValue([{ id: 'c1', capabilityType: 'PUSH_NOTIFICATIONS' }]),
-      listProfilesForBundleId: vi.fn().mockResolvedValue([]),
+      listBundleIdCapabilities: () =>
+        Effect.succeed([{ id: 'c1', capabilityType: 'PUSH_NOTIFICATIONS' }]),
+      listProfilesForBundleId: () => Effect.succeed([]),
     });
-    const writes = await capabilitiesAdopter.read(api, TARGET);
+    const writes = await runCapabilitiesAdopter(api);
     expect(writes).toHaveLength(1);
     expect(writes[0]?.change).toEqual({
       home: 'app.json',

@@ -1,17 +1,6 @@
-/**
- * Probe: for each iOS app that declares auto-renewable subscriptions in `launch.config.ts`, does a
- * **subscription group** exist on App Store Connect? Subscriptions can't be created or reviewed without
- * their group, so a config that declares subscriptions against an account with no group is a silent
- * blocker. Tagged for both `account` (store doctor) and `iap` (iap doctor) since it matters to each.
- *
- * Read-only: it lists groups via the same reader `launch sync` uses and never creates one. Apps that
- * declare no subscriptions are out of scope (the probe omits itself when none do).
- */
-
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../../types/index.js';
+import type { ProbeResult, ReadinessContext, ReadinessProbe } from '@core/types/readiness.js';
 import { Effect } from 'effect';
 import { iosApps } from '../appScopes.js';
-
 /** The App Store Connect subscription-group readiness probe. */
 export const subscriptionGroupProbe = {
   id: 'apple-subscription-group',
@@ -26,60 +15,52 @@ export const subscriptionGroupProbe = {
    */
   check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
     return Effect.gen(function* () {
-      const apps = iosApps(readinessContext.apps).filter(
-        ({ identifier }) =>
-          (readinessContext.config.products?.[identifier]?.subscriptionGroups?.length ?? 0) > 0,
-      );
-      if (apps.length === 0) return { state: 'omitted' };
-
-      const api = yield* Effect.tryPromise({
-        try: () => readinessContext.resolveAscApi(),
-        catch: (resolverFailure) => resolverFailure,
+      const apps = iosApps(readinessContext.apps).filter(({ identifier }) => {
+        const groupCount =
+          readinessContext.config.products?.[identifier]?.subscriptionGroups?.length;
+        if (groupCount === undefined) return false;
+        return groupCount > 0;
       });
+      if (apps.length === 0) return { state: 'omitted' };
+      const api = yield* readinessContext.resolveAscApi();
       if (!api)
         return {
           state: 'skipped',
           reason: 'no active Apple account',
           hint: 'run `launch creds set-key`',
         };
-
       const results = yield* Effect.forEach(
         apps,
         ({ name, identifier }) =>
           Effect.gen(function* () {
-            const declared =
-              readinessContext.config.products?.[identifier]?.subscriptionGroups?.length ?? 0;
-            const appId = yield* Effect.tryPromise({
-              try: () => api.getAppId(identifier),
-              catch: (apiFailure) => apiFailure,
-            });
+            let declared =
+              readinessContext.config.products?.[identifier]?.subscriptionGroups?.length;
+            if (declared === undefined) declared = 0;
+            const appId = yield* api.getAppId(identifier);
             if (!appId) {
               return {
                 app: name,
                 identifier,
                 status: 'warn' as const,
-                detail: "can't verify — no app record yet",
+                detail: "can't verify - no app record yet",
                 hint: 'create the app record first (see the app-record check)',
               };
             }
-            const groups = yield* Effect.tryPromise({
-              try: () => api.listSubscriptionGroups(appId),
-              catch: (apiFailure) => apiFailure,
-            });
-            return groups.length > 0
-              ? {
-                  app: name,
-                  identifier,
-                  status: 'ok' as const,
-                  detail: `${groups.length} group(s) present`,
-                }
-              : {
-                  app: name,
-                  identifier,
-                  status: 'blocker' as const,
-                  detail: `config declares ${declared} subscription group(s), none exist on App Store Connect`,
-                  hint: 'run `launch sync` to create the declared subscription group(s)',
-                };
+            const groups = yield* api.listSubscriptionGroups(appId);
+            if (groups.length > 0)
+              return {
+                app: name,
+                identifier,
+                status: 'ok' as const,
+                detail: `${groups.length} group(s) present`,
+              };
+            return {
+              app: name,
+              identifier,
+              status: 'blocker' as const,
+              detail: `config declares ${declared} subscription group(s), none exist on App Store Connect`,
+              hint: 'run `launch sync` to create the declared subscription group(s)',
+            };
           }),
         { concurrency: 'unbounded' },
       );

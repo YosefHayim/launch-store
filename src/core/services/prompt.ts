@@ -1,121 +1,344 @@
-/**
- * Shared "pick one of many" prompt — the single home for the type-to-search picker so the app picker
- * and the credentials key picker behave identically (issue #11). A small flat list uses clack's
- * `select`; past {@link PICK_SEARCH_THRESHOLD} it becomes a fuzzy type-to-search `autocomplete`, so a
- * 60-app monorepo doesn't overflow the viewport. The non-interactive policy is explicit per call site
- * because the safe default differs: refusing to guess which app to BUILD vs. taking the newest key.
- */
+import {
+  autocomplete,
+  cancel,
+  confirm as clackConfirm,
+  isCancel,
+  multiselect,
+  password,
+  select,
+  text,
+} from '@clack/prompts';
+import { Context, Data, Effect, Layer } from 'effect';
+import { createLogger, type Logger } from './logger.js';
 
-import { autocomplete, cancel, isCancel, select } from '@clack/prompts';
-import { createLogger } from './logger.js';
-
-/** Above this many options, the flat list becomes a fuzzy type-to-search prompt. */
 export const PICK_SEARCH_THRESHOLD = 8;
 
-/**
- * Subsequence fuzzy match: every character of `query` must appear in `haystack` in order, case-
- * insensitively (so `"pmd"` matches `"sampleapp"`). Dependency-free; powers {@link pickOne}'s filter
- * over big lists without pulling in a ranking library.
- */
-export function fuzzyMatch(query: string, haystack: string): boolean {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return true;
-  const hay = haystack.toLowerCase();
-  let n = 0;
-  for (let h = 0; h < hay.length && n < needle.length; h++) {
-    if (hay[h] === needle[n]) n++;
-  }
-  return n === needle.length;
-}
+export type PromptSelectionFailure = Readonly<{
+  readonly _tag: 'PromptSelectionFailure';
+  readonly message: string;
+  readonly cause?: unknown;
+}>;
 
-/**
- * One selectable choice. `value` is returned verbatim; `label` is displayed and searched; the optional
- * `hint` (e.g. a bundle id or tildified path) is shown dimmed and is also matched by the fuzzy filter.
- */
-export interface PickOption<T> {
-  value: T;
-  label: string;
-  hint?: string;
-}
+export const makePromptSelectionFailure =
+  Data.tagged<PromptSelectionFailure>('PromptSelectionFailure');
 
-/**
- * What {@link pickOne} does when it can't prompt (no TTY / `--yes` / piped input):
- * - `require` — throw `"<message> <flagHint>"`, refusing to guess (used where a wrong guess is costly,
- *   e.g. which app to build → the error tells the user to pass `--app`).
- * - `fallback` — return `value` (used where a sensible default exists, e.g. the newest key); an optional
- *   `note` is printed so the user knows a choice was made for them and how to override it.
- */
-export type NonInteractivePolicy<T> =
-  | { kind: 'require'; flagHint: string }
-  | { kind: 'fallback'; value: T; note?: string };
+export type PromptChoice<TSelection> = {
+  readonly selection: TSelection;
+  readonly label: string;
+  readonly hint?: string;
+};
 
-/** Arguments to {@link pickOne}. Callers resolve the 0- and 1-option cases before calling. */
-export interface PickOneArgs<T> {
-  /** The prompt question; also the lead of a `require` non-interactive error. */
-  message: string;
-  /** The choices to offer. */
-  options: PickOption<T>[];
-  /** Whether an interactive prompt is possible; false applies {@link nonInteractive}. */
-  canPrompt: boolean;
-  /** Behavior when `canPrompt` is false. */
-  nonInteractive: NonInteractivePolicy<T>;
-  /** Override the flat-list → search cutoff (default {@link PICK_SEARCH_THRESHOLD}). */
-  searchThreshold?: number;
-  /**
-   * Pre-highlight this option in the flat-list prompt (matched by `===` against each option's `value`),
-   * so a remembered choice is one keystroke away. Ignored when the value isn't among `options` (stale)
-   * and in the type-to-search variant, where the user types rather than scrolls.
-   */
-  initialValue?: T;
-}
+export type PromptSelectionRequest<TSelection> = {
+  readonly message: string;
+  readonly choices: readonly PromptChoice<TSelection>[];
+  readonly searchThreshold?: number;
+  readonly initialSelection?: TSelection;
+};
 
-/**
- * Prompt for one choice, scaling the UI to the list size and degrading safely without a TTY. Cancelling
- * (Ctrl-C) exits the process cleanly, matching the rest of the CLI's prompts.
- */
-export async function pickOne<T>(args: PickOneArgs<T>): Promise<T> {
-  if (!args.canPrompt) {
-    if (args.nonInteractive.kind === 'fallback') {
-      if (args.nonInteractive.note) createLogger(false).line(args.nonInteractive.note);
-      return args.nonInteractive.value;
+export type PromptMultiSelectionRequest<TSelection> = Readonly<{
+  readonly message: string;
+  readonly choices: readonly PromptChoice<TSelection>[];
+  readonly initialSelections?: readonly TSelection[];
+}>;
+
+export type NonInteractivePolicy<TSelection> =
+  | {
+      readonly kind: 'require';
+      readonly flagHint: string;
     }
-    throw new Error(`${args.message} ${args.nonInteractive.flagHint}`);
-  }
+  | {
+      readonly kind: 'fallback';
+      readonly selection: TSelection;
+      readonly note?: string;
+    };
 
-  // clack's `Option` type is conditional on the value being a primitive, so drive the prompt with string
-  // indices (always a clean `Option<string>`) and map the choice back to the caller's value — that keeps
-  // `pickOne` generic over any value type. The truthy ternary omits `hint` when unset, since `hint:
-  // undefined` trips exactOptionalPropertyTypes.
-  const options = args.options.map((option, index) =>
-    option.hint
-      ? { value: String(index), label: option.label, hint: option.hint }
-      : { value: String(index), label: option.label },
-  );
-  const threshold = args.searchThreshold ?? PICK_SEARCH_THRESHOLD;
-  // Pre-select the remembered option by its string index (clack's value), when it's still in the list.
-  const initialIndex =
-    args.initialValue !== undefined
-      ? args.options.findIndex((option) => option.value === args.initialValue)
-      : -1;
-  const choice =
-    args.options.length > threshold
-      ? await autocomplete({
-          message: args.message,
-          options,
-          placeholder: 'Type to search…',
-          maxItems: 10,
-          filter: (search, option) => fuzzyMatch(search, `${option.label} ${option.hint ?? ''}`),
-        })
-      : await select({
-          message: args.message,
-          options,
-          ...(initialIndex >= 0 ? { initialValue: String(initialIndex) } : {}),
-        });
-  if (isCancel(choice)) {
-    cancel('Cancelled.');
-    process.exit(0);
+export type PickOneArgs<TSelection> = PromptSelectionRequest<TSelection> & {
+  readonly canPrompt: boolean;
+  readonly nonInteractive: NonInteractivePolicy<TSelection>;
+};
+
+export type LaunchPromptService = Readonly<{
+  readonly confirm: (message: string) => Effect.Effect<boolean, PromptSelectionFailure>;
+  readonly requiredText: (message: string) => Effect.Effect<string, PromptSelectionFailure>;
+  readonly requiredSecret: (message: string) => Effect.Effect<string, PromptSelectionFailure>;
+  readonly select: <TSelection>(
+    request: PromptSelectionRequest<TSelection>,
+  ) => Effect.Effect<TSelection, PromptSelectionFailure>;
+  readonly selectMany: <TSelection>(
+    request: PromptMultiSelectionRequest<TSelection>,
+  ) => Effect.Effect<readonly TSelection[] | null, PromptSelectionFailure>;
+  readonly cancel: (message: string) => Effect.Effect<void>;
+}>;
+
+export type LaunchPromptTestAnswers = Readonly<{
+  readonly confirmation?: boolean;
+  readonly text?: string;
+  readonly secret?: string;
+  readonly selectionIndex?: number;
+  readonly selectionIndexes?: readonly number[];
+}>;
+
+export const LaunchPrompt = Context.GenericTag<LaunchPromptService>('launch-store/Prompt');
+
+export const fuzzyMatch = (query: string, candidate: string): boolean => {
+  const searchNeedle = query.trim().toLowerCase();
+  if (searchNeedle.length === 0) return true;
+  const searchableText = candidate.toLowerCase();
+  let needleOffset = 0;
+  for (
+    let candidateOffset = 0;
+    candidateOffset < searchableText.length && needleOffset < searchNeedle.length;
+    candidateOffset += 1
+  ) {
+    if (searchableText[candidateOffset] === searchNeedle[needleOffset]) needleOffset += 1;
   }
-  const picked = args.options[Number(choice)];
-  if (!picked) throw new Error('pickOne: the selection did not match a provided option.');
-  return picked.value;
-}
+  return needleOffset === searchNeedle.length;
+};
+
+const requirePromptAnswer = (
+  promptEffect: Effect.Effect<string | symbol, PromptSelectionFailure>,
+): Effect.Effect<string, PromptSelectionFailure> =>
+  promptEffect.pipe(
+    Effect.flatMap((answer) => {
+      if (isCancel(answer))
+        return Effect.fail(makePromptSelectionFailure({ message: 'Prompt cancelled.' }));
+      return Effect.succeed(answer);
+    }),
+  );
+
+const makeClackChoices = <TSelection>(
+  choices: readonly PromptChoice<TSelection>[],
+): Array<{
+  readonly value: string;
+  readonly label: string;
+  readonly hint?: string;
+}> =>
+  choices.map((promptChoice, choiceIndex) => {
+    if (promptChoice.hint === undefined)
+      return { value: String(choiceIndex), label: promptChoice.label };
+    return { value: String(choiceIndex), label: promptChoice.label, hint: promptChoice.hint };
+  });
+
+const resolveSearchThreshold = (requestedThreshold: number | undefined): number => {
+  if (requestedThreshold === undefined) return PICK_SEARCH_THRESHOLD;
+  return requestedThreshold;
+};
+
+const runSelectionPrompt = <TSelection>(
+  request: PromptSelectionRequest<TSelection>,
+): Effect.Effect<TSelection, PromptSelectionFailure> =>
+  Effect.gen(function* () {
+    const clackChoices = makeClackChoices(request.choices);
+    const searchThreshold = resolveSearchThreshold(request.searchThreshold);
+    let initialChoiceIndex = -1;
+    if (request.initialSelection !== undefined)
+      initialChoiceIndex = request.choices.findIndex(
+        (promptChoice) => promptChoice.selection === request.initialSelection,
+      );
+
+    const selectedIdentifier = yield* Effect.tryPromise({
+      try: () => {
+        if (request.choices.length > searchThreshold) {
+          return autocomplete({
+            message: request.message,
+            options: clackChoices,
+            placeholder: 'Type to search...',
+            maxItems: 10,
+            filter: (searchText, clackChoice) => {
+              let searchableHint = '';
+              if (clackChoice.hint !== undefined) searchableHint = clackChoice.hint;
+              return fuzzyMatch(searchText, `${clackChoice.label} ${searchableHint}`);
+            },
+          });
+        }
+        if (initialChoiceIndex >= 0) {
+          return select({
+            message: request.message,
+            options: clackChoices,
+            initialValue: String(initialChoiceIndex),
+          });
+        }
+        return select({ message: request.message, options: clackChoices });
+      },
+      catch: (cause) =>
+        makePromptSelectionFailure({ message: 'The selection prompt failed.', cause }),
+    });
+
+    if (isCancel(selectedIdentifier)) {
+      cancel('Cancelled.');
+      return yield* Effect.fail(makePromptSelectionFailure({ message: 'Selection cancelled.' }));
+    }
+    const selectedChoice = request.choices[Number(selectedIdentifier)];
+    if (selectedChoice === undefined)
+      return yield* Effect.fail(
+        makePromptSelectionFailure({ message: 'The selection did not match a provided choice.' }),
+      );
+    return selectedChoice.selection;
+  });
+
+/** Present a typed multi-selection prompt and retain cancellation as an explicit null. */
+const runMultiSelectionPrompt = <TSelection>(
+  request: PromptMultiSelectionRequest<TSelection>,
+): Effect.Effect<readonly TSelection[] | null, PromptSelectionFailure> =>
+  Effect.gen(function* () {
+    const clackChoices = makeClackChoices(request.choices);
+    const initialIdentifiers: string[] = [];
+    if (request.initialSelections !== undefined) {
+      for (const initialSelection of request.initialSelections) {
+        const choiceIndex = request.choices.findIndex(
+          (promptChoice) => promptChoice.selection === initialSelection,
+        );
+        if (choiceIndex >= 0) initialIdentifiers.push(String(choiceIndex));
+      }
+    }
+    const selectedIdentifiers = yield* Effect.tryPromise({
+      try: () =>
+        multiselect({
+          message: request.message,
+          options: clackChoices,
+          initialValues: initialIdentifiers,
+        }),
+      catch: (cause) =>
+        makePromptSelectionFailure({ message: 'The multi-selection prompt failed.', cause }),
+    });
+    if (isCancel(selectedIdentifiers)) return null;
+    const selections: TSelection[] = [];
+    for (const selectedIdentifier of selectedIdentifiers) {
+      const selectedChoice = request.choices[Number(selectedIdentifier)];
+      if (selectedChoice === undefined) {
+        return yield* Effect.fail(
+          makePromptSelectionFailure({
+            message: 'A multi-selection did not match a provided choice.',
+          }),
+        );
+      }
+      selections.push(selectedChoice.selection);
+    }
+    return selections;
+  });
+
+export const LaunchPromptLive = Layer.succeed(LaunchPrompt, {
+  confirm: (message) =>
+    Effect.tryPromise({
+      try: () => clackConfirm({ message }),
+      catch: (cause) =>
+        makePromptSelectionFailure({ message: 'The confirmation prompt failed.', cause }),
+    }).pipe(
+      Effect.map((confirmation) => {
+        if (isCancel(confirmation)) return false;
+        return confirmation;
+      }),
+    ),
+  requiredText: (message) =>
+    requirePromptAnswer(
+      Effect.tryPromise({
+        try: () =>
+          text({
+            message,
+            validate: (enteredText) => {
+              if (enteredText === undefined) return 'A value is required.';
+              if (enteredText.trim().length === 0) return 'A value is required.';
+              return undefined;
+            },
+          }),
+        catch: (cause) => makePromptSelectionFailure({ message: 'The text prompt failed.', cause }),
+      }),
+    ),
+  requiredSecret: (message) =>
+    requirePromptAnswer(
+      Effect.tryPromise({
+        try: () =>
+          password({
+            message,
+            validate: (enteredSecret) => {
+              if (enteredSecret === undefined) return 'A value is required.';
+              if (enteredSecret.trim().length === 0) return 'A value is required.';
+              return undefined;
+            },
+          }),
+        catch: (cause) =>
+          makePromptSelectionFailure({ message: 'The secret prompt failed.', cause }),
+      }),
+    ),
+  select: runSelectionPrompt,
+  selectMany: runMultiSelectionPrompt,
+  cancel: (message) =>
+    Effect.sync(() => {
+      cancel(message);
+    }),
+});
+
+export const makeLaunchPromptTest = (
+  answers: LaunchPromptTestAnswers = {},
+): Layer.Layer<LaunchPromptService> => {
+  let confirmation = true;
+  if (answers.confirmation !== undefined) confirmation = answers.confirmation;
+  let enteredText = 'test-text';
+  if (answers.text !== undefined) enteredText = answers.text;
+  let enteredSecret = 'test-secret';
+  if (answers.secret !== undefined) enteredSecret = answers.secret;
+  let selectionIndex = 0;
+  if (answers.selectionIndex !== undefined) selectionIndex = answers.selectionIndex;
+  let selectionIndexes: readonly number[] = [];
+  if (answers.selectionIndexes !== undefined) selectionIndexes = answers.selectionIndexes;
+
+  return Layer.succeed(LaunchPrompt, {
+    confirm: () => Effect.succeed(confirmation),
+    requiredText: () => Effect.succeed(enteredText),
+    requiredSecret: () => Effect.succeed(enteredSecret),
+    select: <TSelection>(request: PromptSelectionRequest<TSelection>) => {
+      const selectedChoice = request.choices[selectionIndex];
+      if (selectedChoice === undefined)
+        return Effect.fail(
+          makePromptSelectionFailure({ message: 'The test selection index is unavailable.' }),
+        );
+      return Effect.succeed(selectedChoice.selection);
+    },
+    selectMany: <TSelection>(request: PromptMultiSelectionRequest<TSelection>) => {
+      const selections: TSelection[] = [];
+      for (const requestedIndex of selectionIndexes) {
+        const selectedChoice = request.choices[requestedIndex];
+        if (selectedChoice === undefined) {
+          return Effect.fail(
+            makePromptSelectionFailure({
+              message: 'A test multi-selection index is unavailable.',
+            }),
+          );
+        }
+        selections.push(selectedChoice.selection);
+      }
+      return Effect.succeed(selections);
+    },
+    cancel: () => Effect.void,
+  });
+};
+
+export const pickOne = <TSelection>(
+  request: PickOneArgs<TSelection>,
+): Effect.Effect<TSelection, PromptSelectionFailure, LaunchPromptService | Logger> =>
+  Effect.gen(function* () {
+    if (!request.canPrompt) {
+      if (request.nonInteractive.kind === 'fallback') {
+        if (request.nonInteractive.note !== undefined) {
+          const logger = yield* createLogger(false);
+          yield* logger.line(request.nonInteractive.note).pipe(
+            Effect.mapError((cause) =>
+              makePromptSelectionFailure({
+                message: 'The prompt note could not be written.',
+                cause,
+              }),
+            ),
+          );
+        }
+        return request.nonInteractive.selection;
+      }
+      return yield* Effect.fail(
+        makePromptSelectionFailure({
+          message: `${request.message} ${request.nonInteractive.flagHint}`,
+        }),
+      );
+    }
+
+    const launchPrompt = yield* LaunchPrompt;
+    return yield* launchPrompt.select(request);
+  });

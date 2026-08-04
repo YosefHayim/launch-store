@@ -1,15 +1,18 @@
+import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import { reconcileApp, type AscCatalogApi, type ReconcileInput } from './ascSync.js';
-import { makeAscCatalogApiFake } from '../../testkit/ascCatalogApi.testkit.js';
+import { makeAscCatalogApiFake } from '@testkit/ascCatalogApi.testkit.js';
 import type { AppleStoreConfig } from './storeConfig.js';
-import type { AppProducts, InAppPurchaseConfig, SubscriptionGroupConfig } from '../types/index.js';
-import { expectArrayElement } from '../../testkit/assertions.testkit.js';
-
-/** Local alias for the shared {@link AscCatalogApi} fake — keeps the existing `makeApi(...)` call sites intact. */
-function makeApi(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {
+import type {
+  AppProducts,
+  InAppPurchaseConfig,
+  SubscriptionGroupConfig,
+} from '../types/catalog.js';
+import { expectArrayElement } from '@testkit/assertions.testkit.js';
+/** Local alias for the shared {@link AscCatalogApi} fake - keeps the existing `makeApi(...)` call sites intact. */
+const makeApi = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {
   return makeAscCatalogApiFake(overrides);
-}
-
+};
 const IAPS: InAppPurchaseConfig[] = [
   {
     productId: 'com.acme.coins',
@@ -19,7 +22,6 @@ const IAPS: InAppPurchaseConfig[] = [
     price: { customerPrice: 4.99 },
   },
 ];
-
 const SUBSCRIPTION_GROUPS: SubscriptionGroupConfig[] = [
   {
     referenceName: 'Pro',
@@ -35,10 +37,8 @@ const SUBSCRIPTION_GROUPS: SubscriptionGroupConfig[] = [
     ],
   },
 ];
-
 const PRODUCTS: AppProducts = { inAppPurchases: IAPS, subscriptionGroups: SUBSCRIPTION_GROUPS };
-
-function input(overrides: Partial<ReconcileInput> = {}): ReconcileInput {
+const input = (overrides: Partial<ReconcileInput> = {}): ReconcileInput => {
   return {
     bundleId: 'com.acme.app',
     capabilities: ['PUSH_NOTIFICATIONS'],
@@ -47,13 +47,14 @@ function input(overrides: Partial<ReconcileInput> = {}): ReconcileInput {
     allowDestructive: false,
     ...overrides,
   };
-}
-
+};
+/** Execute the catalog reconciler at the test boundary. */
+const runReconcile = (api: AscCatalogApi, reconcileInput: ReconcileInput) =>
+  Effect.runPromise(reconcileApp(api, reconcileInput));
 describe('reconcileApp', () => {
   it('plans every create from an empty account without performing any writes (dry-run)', async () => {
     const api = makeApi();
-    const report = await reconcileApp(api, input({ dryRun: true }));
-
+    const report = await runReconcile(api, input({ dryRun: true }));
     const descriptions = report.actions.map((action) => action.description);
     expect(descriptions).toEqual([
       'enable capability PUSH_NOTIFICATIONS',
@@ -71,11 +72,9 @@ describe('reconcileApp', () => {
     expect(api.createInAppPurchase).not.toHaveBeenCalled();
     expect(api.createSubscription).not.toHaveBeenCalled();
   });
-
   it('applies every create against an empty account, in dependency order', async () => {
     const api = makeApi();
-    const report = await reconcileApp(api, input());
-
+    const report = await runReconcile(api, input());
     expect(report.actions.every((action) => action.status === 'applied')).toBe(true);
     expect(api.enableCapability).toHaveBeenCalledWith('bundle1', 'PUSH_NOTIFICATIONS');
     expect(api.createInAppPurchase).toHaveBeenCalledWith('app1', {
@@ -92,7 +91,6 @@ describe('reconcileApp', () => {
     });
     expect(api.createSubscriptionPrice).toHaveBeenCalledWith('sub-new', 'spp');
   });
-
   it('is additive: existing products, localizations, capabilities, and prices are left untouched', async () => {
     const api = makeApi({
       listBundleIdCapabilities: vi
@@ -124,9 +122,7 @@ describe('reconcileApp', () => {
         .mockResolvedValue([{ id: 'sl1', locale: 'en-US', name: 'Pro' }]),
       subscriptionHasPrice: vi.fn().mockResolvedValue(true),
     });
-
-    const report = await reconcileApp(api, input());
-
+    const report = await runReconcile(api, input());
     expect(report.actions).toEqual([]);
     expect(api.enableCapability).not.toHaveBeenCalled();
     expect(api.createInAppPurchase).not.toHaveBeenCalled();
@@ -135,27 +131,23 @@ describe('reconcileApp', () => {
     expect(api.createSubscription).not.toHaveBeenCalled();
     expect(api.createSubscriptionPrice).not.toHaveBeenCalled();
   });
-
   it('gates capability removal behind allowDestructive', async () => {
     const withExtra = {
       listBundleIdCapabilities: vi
         .fn()
         .mockResolvedValue([{ id: 'c-extra', capabilityType: 'HEALTHKIT' }]),
     };
-
     const guarded = makeApi(withExtra);
-    const guardedReport = await reconcileApp(guarded, input());
+    const guardedReport = await runReconcile(guarded, input());
     const disable = guardedReport.actions.find(
       (action) => action.description === 'disable capability HEALTHKIT',
     );
     expect(disable).toMatchObject({ destructive: true, status: 'skipped' });
     expect(guarded.disableCapability).not.toHaveBeenCalled();
-
     const allowed = makeApi(withExtra);
-    await reconcileApp(allowed, input({ allowDestructive: true }));
+    await runReconcile(allowed, input({ allowDestructive: true }));
     expect(allowed.disableCapability).toHaveBeenCalledWith('c-extra');
   });
-
   it("never proposes removing Apple's always-on capabilities (IN_APP_PURCHASE / GAME_CENTER)", async () => {
     const api = makeApi({
       listBundleIdCapabilities: vi.fn().mockResolvedValue([
@@ -163,20 +155,18 @@ describe('reconcileApp', () => {
         { id: 'c2', capabilityType: 'GAME_CENTER' },
       ]),
     });
-    const report = await reconcileApp(api, input({ capabilities: [] }));
+    const report = await runReconcile(api, input({ capabilities: [] }));
     expect(report.actions.filter((action) => action.destructive)).toEqual([]);
   });
-
   it('throws an actionable error when the app has no App Store Connect record', async () => {
     const api = makeApi({ getAppId: vi.fn().mockResolvedValue(null) });
-    await expect(reconcileApp(api, input())).rejects.toThrow(
+    await expect(runReconcile(api, input())).rejects.toThrow(
       /No App Store Connect app record.*Apple has no API/s,
     );
   });
-
   it("skips capabilities (without failing) when the bundle id isn't registered yet", async () => {
     const api = makeApi({ findBundleId: vi.fn().mockResolvedValue(null) });
-    const report = await reconcileApp(api, input({ products: {} }));
+    const report = await runReconcile(api, input({ products: {} }));
     expect(report.actions).toHaveLength(1);
     expect(report.actions[0]).toMatchObject({ status: 'skipped' });
     expect(expectArrayElement(report.actions, 0, 'report.actions').description).toContain(
@@ -184,43 +174,38 @@ describe('reconcileApp', () => {
     );
     expect(api.enableCapability).not.toHaveBeenCalled();
   });
-
   it('isolates a failing action (no matching price point) and still applies the rest', async () => {
     const api = makeApi({
       findInAppPurchasePricePoint: vi.fn().mockResolvedValue(null),
     });
-    const report = await reconcileApp(
+    const report = await runReconcile(
       api,
       input({ capabilities: [], products: { inAppPurchases: IAPS } }),
     );
-
     const priceAction = report.actions.find((action) =>
       action.description.startsWith('set IAP price'),
     );
     expect(priceAction).toMatchObject({ status: 'failed' });
     expect(priceAction?.error).toMatch(/No USA price point matches 4.99/);
-    // The create + localization before it still went through — one failure doesn't abort the walk.
+    // The create + localization before it still went through - one failure doesn't abort the walk.
     expect(api.createInAppPurchase).toHaveBeenCalled();
     expect(api.createInAppPurchaseLocalization).toHaveBeenCalled();
     expect(api.createInAppPurchasePriceSchedule).not.toHaveBeenCalled();
   });
-
   it("skips a new product's dependent work when its creation fails", async () => {
     const api = makeApi({
       createInAppPurchase: vi.fn().mockRejectedValue(new Error('duplicate productId')),
     });
-    const report = await reconcileApp(
+    const report = await runReconcile(
       api,
       input({ capabilities: [], products: { inAppPurchases: IAPS } }),
     );
-
     expect(report.actions.map((action) => ({ d: action.description, s: action.status }))).toEqual([
       { d: 'create in-app purchase com.acme.coins (CONSUMABLE)', s: 'failed' },
     ]);
     expect(api.createInAppPurchaseLocalization).not.toHaveBeenCalled();
     expect(api.findInAppPurchasePricePoint).not.toHaveBeenCalled();
   });
-
   it('assigns group levels from config order (first subscription = level 1)', async () => {
     const api = makeApi();
     const twoTiers: AppProducts = {
@@ -245,7 +230,7 @@ describe('reconcileApp', () => {
         },
       ],
     };
-    await reconcileApp(api, input({ capabilities: [], products: twoTiers }));
+    await runReconcile(api, input({ capabilities: [], products: twoTiers }));
     expect(api.createSubscription).toHaveBeenNthCalledWith(
       1,
       'grp-new',
@@ -258,8 +243,7 @@ describe('reconcileApp', () => {
     );
   });
 });
-
-describe('reconcileApp — store listing localizations', () => {
+describe('reconcileApp - store listing localizations', () => {
   /** A listing-only run: no capabilities/products, just the App Store listing for one or more locales. */
   function listingInput(
     listing: AppleStoreConfig,
@@ -267,7 +251,6 @@ describe('reconcileApp — store listing localizations', () => {
   ): ReconcileInput {
     return input({ capabilities: [], products: {}, listing, ...overrides });
   }
-
   it('creates missing app-level and version-level locales, routing each field correctly', async () => {
     const api = makeApi();
     const listing: AppleStoreConfig = {
@@ -280,9 +263,7 @@ describe('reconcileApp — store listing localizations', () => {
         },
       },
     };
-
-    const report = await reconcileApp(api, listingInput(listing));
-
+    const report = await runReconcile(api, listingInput(listing));
     expect(report.actions.map((action) => action.description)).toEqual(
       expect.arrayContaining([
         expect.stringContaining('create listing [en-US] App Info'),
@@ -298,7 +279,6 @@ describe('reconcileApp — store listing localizations', () => {
       keywords: 'a,b',
     });
   });
-
   it('patches only the fields that changed, leaving matching copy untouched', async () => {
     const api = makeApi({
       listAppInfoLocalizations: vi
@@ -317,13 +297,10 @@ describe('reconcileApp — store listing localizations', () => {
         'en-US': { title: 'New', subtitle: 'Sub', description: 'Desc', keywords: ['a', 'b'] },
       },
     };
-
-    await reconcileApp(api, listingInput(listing));
-
+    await runReconcile(api, listingInput(listing));
     expect(api.updateAppInfoLocalization).toHaveBeenCalledWith('ail1', { name: 'New' });
     expect(api.updateVersionLocalization).toHaveBeenCalledWith('vl1', { keywords: 'a,b' });
   });
-
   it('is a no-op when the stored listing already matches', async () => {
     const api = makeApi({
       listAppInfoLocalizations: vi
@@ -334,22 +311,17 @@ describe('reconcileApp — store listing localizations', () => {
         .mockResolvedValue([{ id: 'vl1', locale: 'en-US', fields: { description: 'Copy' } }]),
     });
     const listing: AppleStoreConfig = { info: { 'en-US': { title: 'Acme', description: 'Copy' } } };
-
-    const report = await reconcileApp(api, listingInput(listing));
-
+    const report = await runReconcile(api, listingInput(listing));
     expect(report.actions).toHaveLength(0);
     expect(api.updateAppInfoLocalization).not.toHaveBeenCalled();
     expect(api.updateVersionLocalization).not.toHaveBeenCalled();
   });
-
   it('skips an over-length field but still writes the valid ones', async () => {
     const api = makeApi();
     const listing: AppleStoreConfig = {
       info: { 'en-US': { title: 'Acme', description: 'Copy', keywords: ['x'.repeat(120)] } },
     };
-
-    const report = await reconcileApp(api, listingInput(listing));
-
+    const report = await runReconcile(api, listingInput(listing));
     expect(report.actions.find((action) => action.status === 'skipped')?.description).toContain(
       'keywords is 120 chars (max 100)',
     );
@@ -357,13 +329,10 @@ describe('reconcileApp — store listing localizations', () => {
       description: 'Copy',
     });
   });
-
   it('skips version copy when no editable App Store version exists, but still writes app-level copy', async () => {
     const api = makeApi({ getEditableVersionId: vi.fn().mockResolvedValue(null) });
     const listing: AppleStoreConfig = { info: { 'en-US': { title: 'Acme', description: 'Copy' } } };
-
-    const report = await reconcileApp(api, listingInput(listing));
-
+    const report = await runReconcile(api, listingInput(listing));
     expect(
       report.actions.some(
         (action) =>

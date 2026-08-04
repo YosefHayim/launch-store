@@ -1,13 +1,4 @@
-/**
- * The surface-planner registry — the same "implement an interface + register it" seam the provider and
- * adopter registries use (`src/providers/index.ts`, `src/core/adopt/registry.ts`), scoped to
- * `launch plan` / `launch drift`. The orchestrator walks {@link listSurfacePlanners} and never names a
- * concrete surface, so adding the listing / Play-products / Play-subscriptions surfaces (and the other
- * config-as-code surfaces after them) is a new planner file plus one {@link registerSurfacePlanner} line
- * in {@link registerBuiltinPlanners} — the orchestrator is untouched.
- */
-
-import type { SurfacePlanner } from '../types/index.js';
+import type { SurfacePlanner } from '../types/plan.js';
 import { catalogPlanner } from './planners/catalog.js';
 import { listingPlanner } from './planners/listing.js';
 import { playProductsPlanner } from './planners/playProducts.js';
@@ -23,27 +14,23 @@ import { walletPlanner } from './planners/wallet.js';
 import { euDistributionPlanner } from './planners/euDistribution.js';
 import { offersPlanner } from './planners/offers.js';
 import { screenshotsPlanner } from './planners/screenshots.js';
-
 /** Registered planners, keyed by surface id so re-registering one replaces it (idempotent built-in wiring). */
 const PLANNERS = new Map<string, SurfacePlanner>();
-
 /** Register (or replace) a surface planner by its id. */
-export function registerSurfacePlanner(planner: SurfacePlanner): void {
+export const registerSurfacePlanner = (planner: SurfacePlanner): void => {
   PLANNERS.set(planner.id, planner);
-}
-
-/** Every registered planner, in registration order — the orchestrator's full work list. */
-export function listSurfacePlanners(): SurfacePlanner[] {
+};
+/** Every registered planner, in registration order - the orchestrator's full work list. */
+export const listSurfacePlanners = (): SurfacePlanner[] => {
   return [...PLANNERS.values()];
-}
-
+};
 /**
  * Register the built-in planners. Idempotent: safe to call from the command entry and from tests without
- * duplicating — the cross-store v1 surfaces (catalog, listing, Play products & subscriptions) plus the
- * v1.1 breadth App Store surfaces (release-config, game-center, app-clips, …) all wire in here (see
+ * duplicating - the cross-store v1 surfaces (catalog, listing, Play products & subscriptions) plus the
+ * v1.1 breadth App Store surfaces (release-config, game-center, app-clips, ...) all wire in here (see
  * `docs/adr/0003-plan-drift.md`).
  */
-export function registerBuiltinPlanners(): void {
+export const registerBuiltinPlanners = (): void => {
   registerSurfacePlanner(catalogPlanner);
   registerSurfacePlanner(listingPlanner);
   registerSurfacePlanner(playProductsPlanner);
@@ -59,4 +46,4 @@ export function registerBuiltinPlanners(): void {
   registerSurfacePlanner(euDistributionPlanner);
   registerSurfacePlanner(offersPlanner);
   registerSurfacePlanner(screenshotsPlanner);
-}
+};

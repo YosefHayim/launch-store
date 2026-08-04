@@ -1,43 +1,25 @@
-/**
- * Store-listing metadata: parse Expo's `store.config.json` and translate it to/from the on-disk
- * metadata folders that fastlane `deliver` (iOS) and `supply` (Android) read and write.
- *
- * Why this shape: `eas metadata` uses `store.config.json` for the App Store listing but has NO Android
- * support at all. Launch adopts the same file verbatim for iOS (so an EAS user migrates by copying it)
- * and EXTENDS it with an `android` section for the Play listing — covering a platform EAS can't.
- *
- * Why fastlane (not the ASC API directly): `deliver`/`supply` own the fiddly, transactional listing
- * edits and screenshot handling. Routing through them sidesteps the exact direct-API listing bugs
- * EAS keeps hitting (e.g. screenshots that re-upload identically, reorders that silently no-op),
- * and reuses the build engine Launch already depends on. This module is the pure translation layer;
- * the command (`cli/commands/metadata.ts`) drives the actual fastlane runs.
- */
+import { FileSystem, Path } from '@effect/platform';
+import type { PlatformError } from '@effect/platform/Error';
+import { Effect, Schema } from 'effect';
+import {
+  decodeStoreSurfaceConfig,
+  loadStoreSurfaceConfig,
+  type StoreSurfaceConfigFailure,
+} from './surfaceConfig.js';
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-
-/**
- * The full `store.config.json` document. `apple` matches Expo/EAS's schema (a subset of the fields
- * `eas metadata` supports); `android` is Launch's own extension (no EAS equivalent). Either platform
- * section may be absent — `launch metadata --platform ios` only needs `apple`.
- */
-export interface StoreConfig {
-  /** Schema version, carried through untouched for forward-compat with Expo's format. */
+/** App Store and Play listing metadata. */
+export type StoreConfig = {
   configVersion?: number;
   apple?: AppleStoreConfig;
   android?: AndroidStoreConfig;
-}
-
+};
 /** The App Store listing: per-locale text plus app-level category ids. */
-export interface AppleStoreConfig {
-  /** Per-locale listing, keyed by Apple locale (e.g. `en-US`). */
+export type AppleStoreConfig = {
   info: Record<string, AppleLocaleInfo>;
-  /** App Store category ids (e.g. `PRODUCTIVITY`). Optional; left untouched when absent. */
   categories?: string[];
-}
-
-/** One locale's App Store listing text. Every field is optional — only what's present is pushed. */
-export interface AppleLocaleInfo {
+};
+/** One locale's App Store listing text. Every field is optional - only what's present is pushed. */
+export type AppleLocaleInfo = {
   title?: string;
   subtitle?: string;
   description?: string;
@@ -47,24 +29,19 @@ export interface AppleLocaleInfo {
   marketingUrl?: string;
   supportUrl?: string;
   privacyPolicyUrl?: string;
-}
-
+};
 /** The Play Store listing (Launch's extension; no EAS equivalent): per-locale text. */
-export interface AndroidStoreConfig {
-  /** Per-locale listing, keyed by Play locale (e.g. `en-US`). */
+export type AndroidStoreConfig = {
   info: Record<string, AndroidLocaleInfo>;
-}
-
+};
 /** One locale's Play Store listing text. */
-export interface AndroidLocaleInfo {
+export type AndroidLocaleInfo = {
   title?: string;
   shortDescription?: string;
   fullDescription?: string;
   video?: string;
-}
-
-/** Map each Apple listing field to fastlane `deliver`'s per-locale filename. The single source of the mapping. */
-const APPLE_FILES: Record<keyof Omit<AppleLocaleInfo, 'keywords'>, string> = {
+};
+const APPLE_FILE_NAMES = {
   title: 'name.txt',
   subtitle: 'subtitle.txt',
   description: 'description.txt',
@@ -73,237 +50,287 @@ const APPLE_FILES: Record<keyof Omit<AppleLocaleInfo, 'keywords'>, string> = {
   marketingUrl: 'marketing_url.txt',
   supportUrl: 'support_url.txt',
   privacyPolicyUrl: 'privacy_url.txt',
-};
+} as const;
+const APPLE_FILES = [
+  { field: 'title', fileName: APPLE_FILE_NAMES.title },
+  { field: 'subtitle', fileName: APPLE_FILE_NAMES.subtitle },
+  { field: 'description', fileName: APPLE_FILE_NAMES.description },
+  { field: 'releaseNotes', fileName: APPLE_FILE_NAMES.releaseNotes },
+  { field: 'promotionalText', fileName: APPLE_FILE_NAMES.promotionalText },
+  { field: 'marketingUrl', fileName: APPLE_FILE_NAMES.marketingUrl },
+  { field: 'supportUrl', fileName: APPLE_FILE_NAMES.supportUrl },
+  { field: 'privacyPolicyUrl', fileName: APPLE_FILE_NAMES.privacyPolicyUrl },
+] as const;
 /** `deliver` stores keywords comma-joined in their own file. */
 const APPLE_KEYWORDS_FILE = 'keywords.txt';
-
-/** Map each Play listing field to fastlane `supply`'s per-locale filename. */
-const ANDROID_FILES: Record<keyof AndroidLocaleInfo, string> = {
+const ANDROID_FILE_NAMES = {
   title: 'title.txt',
   shortDescription: 'short_description.txt',
   fullDescription: 'full_description.txt',
   video: 'video.txt',
+} as const;
+const ANDROID_FILES = [
+  { field: 'title', fileName: ANDROID_FILE_NAMES.title },
+  { field: 'shortDescription', fileName: ANDROID_FILE_NAMES.shortDescription },
+  { field: 'fullDescription', fileName: ANDROID_FILE_NAMES.fullDescription },
+  { field: 'video', fileName: ANDROID_FILE_NAMES.video },
+] as const;
+
+const AppleLocaleInfoSchema = Schema.mutable(
+  Schema.Struct({
+    title: Schema.optionalWith(Schema.String, { exact: true }),
+    subtitle: Schema.optionalWith(Schema.String, { exact: true }),
+    description: Schema.optionalWith(Schema.String, { exact: true }),
+    keywords: Schema.optionalWith(Schema.mutable(Schema.Array(Schema.String)), { exact: true }),
+    releaseNotes: Schema.optionalWith(Schema.String, { exact: true }),
+    promotionalText: Schema.optionalWith(Schema.String, { exact: true }),
+    marketingUrl: Schema.optionalWith(Schema.String, { exact: true }),
+    supportUrl: Schema.optionalWith(Schema.String, { exact: true }),
+    privacyPolicyUrl: Schema.optionalWith(Schema.String, { exact: true }),
+  }),
+);
+
+const AndroidLocaleInfoSchema = Schema.mutable(
+  Schema.Struct({
+    title: Schema.optionalWith(Schema.String, { exact: true }),
+    shortDescription: Schema.optionalWith(Schema.String, { exact: true }),
+    fullDescription: Schema.optionalWith(Schema.String, { exact: true }),
+    video: Schema.optionalWith(Schema.String, { exact: true }),
+  }),
+);
+
+const AppleStoreConfigSchema = Schema.mutable(
+  Schema.Struct({
+    info: Schema.mutable(Schema.Record({ key: Schema.String, value: AppleLocaleInfoSchema })),
+    categories: Schema.optionalWith(Schema.mutable(Schema.Array(Schema.String)), { exact: true }),
+  }),
+);
+
+const AndroidStoreConfigSchema = Schema.mutable(
+  Schema.Struct({
+    info: Schema.mutable(Schema.Record({ key: Schema.String, value: AndroidLocaleInfoSchema })),
+  }),
+);
+
+export const StoreConfigSchema = Schema.mutable(
+  Schema.Struct({
+    configVersion: Schema.optionalWith(Schema.Number, { exact: true }),
+    apple: Schema.optionalWith(AppleStoreConfigSchema, { exact: true }),
+    android: Schema.optionalWith(AndroidStoreConfigSchema, { exact: true }),
+  }),
+).pipe(
+  Schema.filter((storeConfig) => {
+    if (storeConfig.apple !== undefined) return true;
+    if (storeConfig.android !== undefined) return true;
+    return 'store.config.json has neither an "apple" nor an "android" section - nothing to push.';
+  }),
+);
+
+const StoreConfigSpec = {
+  documentName: 'store.config.json',
+  displayName: 'store config',
+  missingMessage: (configPath: string) =>
+    `No store.config.json at ${configPath}. Run \`launch metadata pull\` to create one.`,
+  schema: StoreConfigSchema,
 };
 
-/** Narrow an unknown value to a plain object, or null. Mirrors `config.ts` (no zod dependency). */
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
-}
+/** Decode an untrusted store.config.json document. */
+export const parseStoreConfig = (
+  rawDocument: unknown,
+): Effect.Effect<StoreConfig, StoreSurfaceConfigFailure> =>
+  decodeStoreSurfaceConfig(rawDocument, StoreConfigSpec);
 
-/** Read a string field, or undefined when absent/non-string. */
-function str(record: Record<string, unknown>, key: string): string | undefined {
-  return typeof record[key] === 'string' ? record[key] : undefined;
-}
-
-/** Read a string-array field (e.g. keywords/categories), dropping non-string entries. */
-function strArray(record: Record<string, unknown>, key: string): string[] | undefined {
-  const value = record[key];
-  if (!Array.isArray(value)) return undefined;
-  const items = value.filter((entry): entry is string => typeof entry === 'string');
-  return items.length > 0 ? items : undefined;
-}
-
-/**
- * Drop undefined-valued keys so the result carries only fields that were actually present. The return
- * type makes every key optional-without-undefined, which is what `exactOptionalPropertyTypes` wants
- * (an absent key, never a `key: undefined`). The cast is the unavoidable cost of `Object.fromEntries`
- * losing the key types; it's sound because we only remove entries.
- */
-function compact<T extends Record<string, unknown>>(
-  object: T,
-): { [K in keyof T]?: Exclude<T[K], undefined> } {
-  return Object.fromEntries(Object.entries(object).filter(([, value]) => value !== undefined)) as {
-    [K in keyof T]?: Exclude<T[K], undefined>;
-  };
-}
-
-/** Parse one Apple locale block from raw JSON into a typed {@link AppleLocaleInfo}. */
-function parseAppleLocale(raw: Record<string, unknown>): AppleLocaleInfo {
-  return compact({
-    title: str(raw, 'title'),
-    subtitle: str(raw, 'subtitle'),
-    description: str(raw, 'description'),
-    keywords: strArray(raw, 'keywords'),
-    releaseNotes: str(raw, 'releaseNotes'),
-    promotionalText: str(raw, 'promotionalText'),
-    marketingUrl: str(raw, 'marketingUrl'),
-    supportUrl: str(raw, 'supportUrl'),
-    privacyPolicyUrl: str(raw, 'privacyPolicyUrl'),
-  });
-}
-
-/** Parse one Android locale block from raw JSON into a typed {@link AndroidLocaleInfo}. */
-function parseAndroidLocale(raw: Record<string, unknown>): AndroidLocaleInfo {
-  return compact({
-    title: str(raw, 'title'),
-    shortDescription: str(raw, 'shortDescription'),
-    fullDescription: str(raw, 'fullDescription'),
-    video: str(raw, 'video'),
-  });
-}
-
-/** Parse a per-locale `info` map, applying `parseLocale` to each locale's block. */
-function parseInfo<T>(
-  infoRaw: unknown,
-  parseLocale: (raw: Record<string, unknown>) => T,
-): Record<string, T> {
-  const record = asRecord(infoRaw);
-  if (!record) return {};
-  const info: Record<string, T> = {};
-  for (const [locale, block] of Object.entries(record)) {
-    const blockRecord = asRecord(block);
-    if (blockRecord) info[locale] = parseLocale(blockRecord);
-  }
-  return info;
-}
-
-/**
- * Parse and validate a raw `store.config.json` value into a typed {@link StoreConfig}. Tolerant of
- * missing platform sections (so a single-platform listing is valid), but rejects a non-object document
- * outright so a malformed file fails loudly instead of silently pushing an empty listing.
- */
-export function parseStoreConfig(raw: unknown): StoreConfig {
-  const record = asRecord(raw);
-  if (!record) throw new Error('store.config.json must be a JSON object.');
-
-  const config: StoreConfig = {};
-  if (typeof record['configVersion'] === 'number') config.configVersion = record['configVersion'];
-
-  const appleRaw = asRecord(record['apple']);
-  if (appleRaw) {
-    const apple: AppleStoreConfig = { info: parseInfo(appleRaw['info'], parseAppleLocale) };
-    const categories = strArray(appleRaw, 'categories');
-    if (categories) apple.categories = categories;
-    config.apple = apple;
-  }
-
-  const android = asRecord(record['android']);
-  if (android) {
-    config.android = { info: parseInfo(android['info'], parseAndroidLocale) };
-  }
-
-  if (!config.apple && !config.android) {
-    throw new Error(
-      'store.config.json has neither an "apple" nor an "android" section — nothing to push.',
-    );
-  }
-  return config;
-}
-
-/** Read and parse a `store.config.json` from disk. */
-export function loadStoreConfig(path: string): StoreConfig {
-  if (!existsSync(path))
-    throw new Error(`No store.config.json at ${path}. Run \`launch metadata pull\` to create one.`);
-  return parseStoreConfig(JSON.parse(readFileSync(path, 'utf8')));
-}
-
+/** Read and decode store.config.json through Effect Platform. */
+export const loadStoreConfig = (configPath: string) =>
+  loadStoreSurfaceConfig(configPath, StoreConfigSpec);
 /**
  * Write `apple` listing text into fastlane `deliver`'s metadata layout under `dir` (one folder per
  * locale, one `.txt` file per field), returning the relative file paths written. The inverse of
  * {@link readAppleMetadataDir}; used by `launch metadata push` to feed `deliver --metadata_path`.
  */
-export function writeAppleMetadataDir(apple: AppleStoreConfig, dir: string): string[] {
-  const written: string[] = [];
-  for (const [locale, info] of Object.entries(apple.info)) {
-    const localeDir = join(dir, locale);
-    mkdirSync(localeDir, { recursive: true });
-    for (const [field, file] of Object.entries(APPLE_FILES)) {
-      const value = info[field as keyof typeof APPLE_FILES];
-      if (value === undefined) continue;
-      writeFileSync(join(localeDir, file), value);
-      written.push(join(locale, file));
+export const writeAppleMetadataDir = (
+  appleStoreConfig: AppleStoreConfig,
+  metadataDirectory: string,
+): Effect.Effect<string[], PlatformError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const writtenPaths: string[] = [];
+    for (const [locale, localeListing] of Object.entries(appleStoreConfig.info)) {
+      const localeDirectory = pathService.join(metadataDirectory, locale);
+      yield* fileSystem.makeDirectory(localeDirectory, { recursive: true });
+      for (const fieldMapping of APPLE_FILES) {
+        const fieldText = localeListing[fieldMapping.field];
+        if (fieldText === undefined) continue;
+        yield* fileSystem.writeFileString(
+          pathService.join(localeDirectory, fieldMapping.fileName),
+          fieldText,
+        );
+        writtenPaths.push(pathService.join(locale, fieldMapping.fileName));
+      }
+      if (localeListing.keywords !== undefined && localeListing.keywords.length > 0) {
+        yield* fileSystem.writeFileString(
+          pathService.join(localeDirectory, APPLE_KEYWORDS_FILE),
+          localeListing.keywords.join(', '),
+        );
+        writtenPaths.push(pathService.join(locale, APPLE_KEYWORDS_FILE));
+      }
     }
-    if (info.keywords?.length) {
-      writeFileSync(join(localeDir, APPLE_KEYWORDS_FILE), info.keywords.join(', '));
-      written.push(join(locale, APPLE_KEYWORDS_FILE));
-    }
-  }
-  return written;
-}
-
+    return writtenPaths;
+  });
 /**
  * Write `android` listing text into fastlane `supply`'s metadata layout under `dir`. The inverse of
  * {@link readAndroidMetadataDir}; used by `launch metadata push` to feed `supply --metadata_path`.
  */
-export function writeAndroidMetadataDir(android: AndroidStoreConfig, dir: string): string[] {
-  const written: string[] = [];
-  for (const [locale, info] of Object.entries(android.info)) {
-    const localeDir = join(dir, locale);
-    mkdirSync(localeDir, { recursive: true });
-    for (const [field, file] of Object.entries(ANDROID_FILES)) {
-      const value = info[field as keyof AndroidLocaleInfo];
-      if (value === undefined) continue;
-      writeFileSync(join(localeDir, file), value);
-      written.push(join(locale, file));
+export const writeAndroidMetadataDir = (
+  androidStoreConfig: AndroidStoreConfig,
+  metadataDirectory: string,
+): Effect.Effect<string[], PlatformError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const writtenPaths: string[] = [];
+    for (const [locale, localeListing] of Object.entries(androidStoreConfig.info)) {
+      const localeDirectory = pathService.join(metadataDirectory, locale);
+      yield* fileSystem.makeDirectory(localeDirectory, { recursive: true });
+      for (const fieldMapping of ANDROID_FILES) {
+        const fieldText = localeListing[fieldMapping.field];
+        if (fieldText === undefined) continue;
+        yield* fileSystem.writeFileString(
+          pathService.join(localeDirectory, fieldMapping.fileName),
+          fieldText,
+        );
+        writtenPaths.push(pathService.join(locale, fieldMapping.fileName));
+      }
     }
-  }
-  return written;
-}
-
+    return writtenPaths;
+  });
 /** Read a single metadata `.txt` file, returning undefined when it's absent or blank. */
-function readField(localeDir: string, file: string): string | undefined {
-  const path = join(localeDir, file);
-  if (!existsSync(path)) return undefined;
-  const value = readFileSync(path, 'utf8').trim();
-  return value.length > 0 ? value : undefined;
-}
-
+const readMetadataField = (
+  localeDirectory: string,
+  fileName: string,
+): Effect.Effect<string | undefined, PlatformError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const fieldPath = pathService.join(localeDirectory, fileName);
+    if (!(yield* fileSystem.exists(fieldPath))) return undefined;
+    const fieldText = (yield* fileSystem.readFileString(fieldPath)).trim();
+    if (fieldText.length === 0) return undefined;
+    return fieldText;
+  });
 /** List the immediate subdirectories of `dir` (the per-locale folders), or [] when `dir` is absent. */
-function localeDirs(dir: string): string[] {
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name);
-}
-
+const listLocaleDirectories = (
+  metadataDirectory: string,
+): Effect.Effect<string[], PlatformError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    if (!(yield* fileSystem.exists(metadataDirectory))) return [];
+    const entryNames = yield* fileSystem.readDirectory(metadataDirectory);
+    const localeDirectories: string[] = [];
+    for (const entryName of entryNames) {
+      const entryPath = pathService.join(metadataDirectory, entryName);
+      if ((yield* fileSystem.stat(entryPath)).type === 'Directory') {
+        localeDirectories.push(entryName);
+      }
+    }
+    return localeDirectories;
+  });
 /**
  * Read fastlane `deliver` metadata folders under `dir` back into an {@link AppleStoreConfig}. The
  * inverse of {@link writeAppleMetadataDir}; used by `launch metadata pull` after `deliver` downloads
  * the live listing.
  */
-export function readAppleMetadataDir(dir: string): AppleStoreConfig {
-  const info: Record<string, AppleLocaleInfo> = {};
-  for (const locale of localeDirs(dir)) {
-    const localeDir = join(dir, locale);
-    const keywords = readField(localeDir, APPLE_KEYWORDS_FILE);
-    const localeInfo = compact({
-      title: readField(localeDir, APPLE_FILES.title),
-      subtitle: readField(localeDir, APPLE_FILES.subtitle),
-      description: readField(localeDir, APPLE_FILES.description),
-      keywords: keywords
-        ? keywords
-            .split(',')
-            .map((keyword) => keyword.trim())
-            .filter(Boolean)
-        : undefined,
-      releaseNotes: readField(localeDir, APPLE_FILES.releaseNotes),
-      promotionalText: readField(localeDir, APPLE_FILES.promotionalText),
-      marketingUrl: readField(localeDir, APPLE_FILES.marketingUrl),
-      supportUrl: readField(localeDir, APPLE_FILES.supportUrl),
-      privacyPolicyUrl: readField(localeDir, APPLE_FILES.privacyPolicyUrl),
-    });
-    if (Object.keys(localeInfo).length > 0) info[locale] = localeInfo;
-  }
-  return { info };
-}
-
+export const readAppleMetadataDir = (
+  metadataDirectory: string,
+): Effect.Effect<AppleStoreConfig, PlatformError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const pathService = yield* Path.Path;
+    const localeInfoByName: Record<string, AppleLocaleInfo> = {};
+    const localeNames = yield* listLocaleDirectories(metadataDirectory);
+    for (const localeName of localeNames) {
+      const localeDirectory = pathService.join(metadataDirectory, localeName);
+      const metadataFields = yield* Effect.all(
+        {
+          title: readMetadataField(localeDirectory, APPLE_FILE_NAMES.title),
+          subtitle: readMetadataField(localeDirectory, APPLE_FILE_NAMES.subtitle),
+          description: readMetadataField(localeDirectory, APPLE_FILE_NAMES.description),
+          keywords: readMetadataField(localeDirectory, APPLE_KEYWORDS_FILE),
+          releaseNotes: readMetadataField(localeDirectory, APPLE_FILE_NAMES.releaseNotes),
+          promotionalText: readMetadataField(localeDirectory, APPLE_FILE_NAMES.promotionalText),
+          marketingUrl: readMetadataField(localeDirectory, APPLE_FILE_NAMES.marketingUrl),
+          supportUrl: readMetadataField(localeDirectory, APPLE_FILE_NAMES.supportUrl),
+          privacyPolicyUrl: readMetadataField(localeDirectory, APPLE_FILE_NAMES.privacyPolicyUrl),
+        },
+        { concurrency: 'unbounded' },
+      );
+      let keywords: string[] | undefined;
+      if (metadataFields.keywords !== undefined) {
+        keywords = metadataFields.keywords
+          .split(',')
+          .map((keyword) => keyword.trim())
+          .filter((keyword) => keyword.length > 0);
+      }
+      const localeListing: AppleLocaleInfo = {};
+      if (metadataFields.title !== undefined) localeListing.title = metadataFields.title;
+      if (metadataFields.subtitle !== undefined) localeListing.subtitle = metadataFields.subtitle;
+      if (metadataFields.description !== undefined) {
+        localeListing.description = metadataFields.description;
+      }
+      if (keywords !== undefined && keywords.length > 0) localeListing.keywords = keywords;
+      if (metadataFields.releaseNotes !== undefined) {
+        localeListing.releaseNotes = metadataFields.releaseNotes;
+      }
+      if (metadataFields.promotionalText !== undefined) {
+        localeListing.promotionalText = metadataFields.promotionalText;
+      }
+      if (metadataFields.marketingUrl !== undefined) {
+        localeListing.marketingUrl = metadataFields.marketingUrl;
+      }
+      if (metadataFields.supportUrl !== undefined) {
+        localeListing.supportUrl = metadataFields.supportUrl;
+      }
+      if (metadataFields.privacyPolicyUrl !== undefined) {
+        localeListing.privacyPolicyUrl = metadataFields.privacyPolicyUrl;
+      }
+      if (Object.keys(localeListing).length > 0) localeInfoByName[localeName] = localeListing;
+    }
+    return { info: localeInfoByName };
+  });
 /** Read fastlane `supply` metadata folders under `dir` back into an {@link AndroidStoreConfig}. */
-export function readAndroidMetadataDir(dir: string): AndroidStoreConfig {
-  const info: Record<string, AndroidLocaleInfo> = {};
-  for (const locale of localeDirs(dir)) {
-    const localeDir = join(dir, locale);
-    const localeInfo = compact({
-      title: readField(localeDir, ANDROID_FILES.title),
-      shortDescription: readField(localeDir, ANDROID_FILES.shortDescription),
-      fullDescription: readField(localeDir, ANDROID_FILES.fullDescription),
-      video: readField(localeDir, ANDROID_FILES.video),
-    });
-    if (Object.keys(localeInfo).length > 0) info[locale] = localeInfo;
-  }
-  return { info };
-}
-
+export const readAndroidMetadataDir = (
+  metadataDirectory: string,
+): Effect.Effect<AndroidStoreConfig, PlatformError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const pathService = yield* Path.Path;
+    const localeInfoByName: Record<string, AndroidLocaleInfo> = {};
+    const localeNames = yield* listLocaleDirectories(metadataDirectory);
+    for (const localeName of localeNames) {
+      const localeDirectory = pathService.join(metadataDirectory, localeName);
+      const metadataFields = yield* Effect.all(
+        {
+          title: readMetadataField(localeDirectory, ANDROID_FILE_NAMES.title),
+          shortDescription: readMetadataField(localeDirectory, ANDROID_FILE_NAMES.shortDescription),
+          fullDescription: readMetadataField(localeDirectory, ANDROID_FILE_NAMES.fullDescription),
+          video: readMetadataField(localeDirectory, ANDROID_FILE_NAMES.video),
+        },
+        { concurrency: 'unbounded' },
+      );
+      const localeListing: AndroidLocaleInfo = {};
+      if (metadataFields.title !== undefined) localeListing.title = metadataFields.title;
+      if (metadataFields.shortDescription !== undefined) {
+        localeListing.shortDescription = metadataFields.shortDescription;
+      }
+      if (metadataFields.fullDescription !== undefined) {
+        localeListing.fullDescription = metadataFields.fullDescription;
+      }
+      if (metadataFields.video !== undefined) localeListing.video = metadataFields.video;
+      if (Object.keys(localeListing).length > 0) localeInfoByName[localeName] = localeListing;
+    }
+    return { info: localeInfoByName };
+  });
 /** Serialize a {@link StoreConfig} to pretty JSON (the on-disk `store.config.json` form). */
-export function serializeStoreConfig(config: StoreConfig): string {
+export const serializeStoreConfig = (config: StoreConfig): string => {
   return `${JSON.stringify(config, null, 2)}\n`;
-}
+};

@@ -1,16 +1,8 @@
-/**
- * Probe: does each Android app exist on Google Play **and** can the configured service account reach it?
- * `assertAppExists` opens (and immediately abandons) a read edit, so a success proves both the app is
- * created and the service account has API access — the two account-level prerequisites Play submission
- * needs. A thrown {@link import("../../../google/playClient.js").PlayAppNotFoundError} is the expected
- * "not ready" signal, mapped to a blocker rather than allowed to error the run.
- */
-
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../../types/index.js';
+import type { ProbeResult, ReadinessContext, ReadinessProbe } from '@core/types/readiness.js';
+import { errorMessage } from '@core/services/errorMessage.js';
 import { Effect } from 'effect';
 import { androidApps } from '../appScopes.js';
-
-/** The Google Play app-exists / service-account-access readiness probe — an account and a submit blocker. */
+/** The Google Play app-exists / service-account-access readiness probe - an account and a submit blocker. */
 export const playAppProbe = {
   id: 'play-app-access',
   title: 'Play app exists & service account authorized',
@@ -26,11 +18,7 @@ export const playAppProbe = {
     return Effect.gen(function* () {
       const apps = androidApps(readinessContext.apps);
       if (apps.length === 0) return { state: 'omitted' };
-
-      const api = yield* Effect.tryPromise({
-        try: () => readinessContext.resolvePlayApi(),
-        catch: (resolverFailure) => resolverFailure,
-      });
+      const api = yield* readinessContext.resolvePlayApi();
       if (!api) {
         return {
           state: 'skipped',
@@ -38,14 +26,10 @@ export const playAppProbe = {
           hint: 'configure a Play service account',
         };
       }
-
       const results = yield* Effect.forEach(
         apps,
         ({ name, identifier }) =>
-          Effect.tryPromise({
-            try: () => api.assertAppExists(identifier),
-            catch: (apiFailure) => apiFailure,
-          }).pipe(
+          api.assertAppExists(identifier).pipe(
             Effect.as({
               app: name,
               identifier,
@@ -57,7 +41,7 @@ export const playAppProbe = {
                 app: name,
                 identifier,
                 status: 'blocker' as const,
-                detail: apiFailure instanceof Error ? apiFailure.message : String(apiFailure),
+                detail: errorMessage(apiFailure),
                 hint: 'create the app in Play Console and grant the service account access to it',
               }),
             ),

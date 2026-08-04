@@ -1,45 +1,57 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { rmSync } from 'node:fs';
-
-// Redirect ~/.launch to a throwaway temp dir so the test never touches the real first-run state.
-vi.mock('../services/paths.js', async () => {
-  const os = await import('node:os');
-  const path = await import('node:path');
-  const fs = await import('node:fs');
-  const dir = path.join(os.tmpdir(), 'launch-firstrun-test');
-  return {
-    LAUNCH_HOME: dir,
-    STATE_FILE: path.join(dir, 'state.json'),
-    ensureDir: (target: string): string => {
-      fs.mkdirSync(target, { recursive: true });
-      return target;
-    },
-  };
-});
-
-import { STATE_FILE } from '../services/paths.js';
+import { NodeContext } from '@effect/platform-node';
+import { Effect } from 'effect';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { makeLaunchPathsTest, type LaunchPathsService } from '../services/paths.js';
 import { hasSeenTour, markTourSeen, readFirstRunState } from './firstRun.js';
 
-afterEach(() => {
-  rmSync(STATE_FILE, { force: true });
+let temporaryHome: string;
+
+/** Run first-run state behavior against an isolated Effect Platform home directory. */
+const executeFirstRunProgram = <Success, Failure>(
+  program: Effect.Effect<Success, Failure, LaunchPathsService | NodeContext.NodeContext>,
+): Promise<Success> =>
+  Effect.runPromise(
+    program.pipe(
+      Effect.provide(makeLaunchPathsTest(temporaryHome, temporaryHome)),
+      Effect.provide(NodeContext.layer),
+    ),
+  );
+
+beforeEach(() => {
+  temporaryHome = mkdtempSync(join(tmpdir(), 'launch-first-run-'));
 });
 
-describe('first-run state (~/.launch/state.json)', () => {
-  it("reads as 'never seen' when the file does not exist", () => {
-    expect(readFirstRunState()).toEqual({});
-    expect(hasSeenTour()).toBe(false);
+afterEach(() => {
+  rmSync(temporaryHome, { recursive: true, force: true });
+});
+
+describe('first-run state', () => {
+  it('reads as unseen when the state file does not exist', async () => {
+    await expect(executeFirstRunProgram(readFirstRunState())).resolves.toEqual({});
+    await expect(executeFirstRunProgram(hasSeenTour())).resolves.toBe(false);
   });
 
-  it('records the tour once and reads it back', () => {
-    markTourSeen();
-    expect(hasSeenTour()).toBe(true);
-    expect(readFirstRunState().tourSeenAt).toBeTypeOf('string');
+  it('records the tour once and reads it back', async () => {
+    await executeFirstRunProgram(markTourSeen());
+    await expect(executeFirstRunProgram(hasSeenTour())).resolves.toBe(true);
+    const firstRunState = await Effect.runPromise(
+      readFirstRunState().pipe(
+        Effect.provide(makeLaunchPathsTest(temporaryHome, temporaryHome)),
+        Effect.provide(NodeContext.layer),
+      ),
+    );
+    expect(firstRunState.tourSeenAt).toBeTypeOf('string');
   });
 
-  it('tolerates a malformed file by treating the tour as unseen', async () => {
-    const { writeFileSync } = await import('node:fs');
-    writeFileSync(STATE_FILE, '{ not json');
-    expect(readFirstRunState()).toEqual({});
-    expect(hasSeenTour()).toBe(false);
+  it('treats malformed state as unseen', async () => {
+    const launchHome = join(temporaryHome, '.launch');
+    const stateFile = join(launchHome, 'state.json');
+    mkdirSync(launchHome, { recursive: true });
+    writeFileSync(stateFile, '{ not json');
+    await expect(executeFirstRunProgram(readFirstRunState())).resolves.toEqual({});
+    await expect(executeFirstRunProgram(hasSeenTour())).resolves.toBe(false);
   });
 });

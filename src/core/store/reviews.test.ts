@@ -1,92 +1,127 @@
 import { describe, expect, it, vi } from 'vitest';
+import { Effect } from 'effect';
 import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,
-} from '../../apple/ascClient.js';
+} from '../types/appleCatalog.js';
 import { deleteReviewResponse, listReviews, replyToReview, type AscReviewsApi } from './reviews.js';
 
-/** Build a fake review with sensible defaults; override what a test cares about. */
-function review(
+/** Build one customer-review fixture. */
+const customerReview = (
   overrides: Partial<CustomerReviewResource> & { id: string; rating: number },
-): CustomerReviewResource {
-  return { answered: false, ...overrides };
-}
+): CustomerReviewResource => ({ answered: false, ...overrides });
 
-/**
- * A hand-rolled {@link AscReviewsApi}. `appId` maps bundle ids to app records (absent → no record);
- * `reviews` is what the list call returns; `existingResponse` is the current developer reply, if any.
- */
-function makeApi(opts: {
-  appId?: Record<string, string>;
-  reviews?: CustomerReviewResource[];
-  existingResponse?: CustomerReviewResponseResource | null;
-}): AscReviewsApi {
-  return {
-    getAppId: vi.fn((bundleId: string) => Promise.resolve(opts.appId?.[bundleId] ?? null)),
-    listCustomerReviews: vi.fn(() => Promise.resolve(opts.reviews ?? [])),
-    getCustomerReviewResponse: vi.fn(() => Promise.resolve(opts.existingResponse ?? null)),
-    createCustomerReviewResponse: vi.fn((reviewId: string, responseBody: string) =>
-      Promise.resolve({ id: `resp-${reviewId}`, responseBody, state: 'PENDING_PUBLISH' }),
-    ),
-    deleteCustomerReviewResponse: vi.fn(() => Promise.resolve()),
-  };
-}
+/** Build a deterministic reviews transport fake. */
+const makeReviewsStore = (fixtures: {
+  appIds?: Readonly<Record<string, string>>;
+  customerReviews?: CustomerReviewResource[];
+  existingReply?: CustomerReviewResponseResource | null;
+}): AscReviewsApi => ({
+  getAppId: vi.fn((bundleId: string) => {
+    const appId = fixtures.appIds?.[bundleId];
+    if (appId === undefined) return Effect.succeed(null);
+    return Effect.succeed(appId);
+  }),
+  listCustomerReviews: vi.fn(() => {
+    if (fixtures.customerReviews === undefined) return Effect.succeed([]);
+    return Effect.succeed(fixtures.customerReviews);
+  }),
+  getCustomerReviewResponse: vi.fn(() => {
+    if (fixtures.existingReply === undefined) return Effect.succeed(null);
+    return Effect.succeed(fixtures.existingReply);
+  }),
+  createCustomerReviewResponse: vi.fn((reviewId: string, responseText: string) =>
+    Effect.succeed({
+      id: `resp-${reviewId}`,
+      responseBody: responseText,
+      state: 'PENDING_PUBLISH',
+    }),
+  ),
+  deleteCustomerReviewResponse: vi.fn(() => Effect.void),
+});
 
 describe('listReviews', () => {
-  it('throws an actionable error when the app record is missing', async () => {
-    const api = makeApi({ appId: {} });
-    await expect(listReviews(api, 'com.x.missing')).rejects.toThrow(
-      /No App Store Connect app record/,
+  it('returns an actionable failure when the app record is missing', async () => {
+    const reviewsStore = makeReviewsStore({ appIds: {} });
+    const missingApp = await Effect.runPromise(
+      Effect.flip(listReviews(reviewsStore, 'com.x.missing')),
     );
+    expect(missingApp.message).toContain('No App Store Connect app record');
   });
 
-  it('pushes rating + territory to the server and returns the list unchanged', async () => {
-    const reviews = [review({ id: 'r1', rating: 5 }), review({ id: 'r2', rating: 5 })];
-    const api = makeApi({ appId: { 'com.x': 'app1' }, reviews });
-    const result = await listReviews(api, 'com.x', { rating: 5, territory: 'USA' });
-    expect(result).toBe(reviews);
-    expect(api.listCustomerReviews).toHaveBeenCalledWith('app1', { rating: 5, territory: 'USA' });
-  });
-
-  it('applies unansweredOnly client-side over the answered flag', async () => {
-    const reviews = [
-      review({ id: 'r1', rating: 5, answered: true }),
-      review({ id: 'r2', rating: 4, answered: false }),
+  it('pushes rating and territory to Apple and returns the list unchanged', async () => {
+    const customerReviews = [
+      customerReview({ id: 'r1', rating: 5 }),
+      customerReview({ id: 'r2', rating: 5 }),
     ];
-    const api = makeApi({ appId: { 'com.x': 'app1' }, reviews });
-    const result = await listReviews(api, 'com.x', { unansweredOnly: true });
-    expect(result.map((review) => review.id)).toEqual(['r2']);
-    // unansweredOnly is not a server filter — only rating/territory reach Apple.
-    expect(api.listCustomerReviews).toHaveBeenCalledWith('app1', {});
+    const reviewsStore = makeReviewsStore({
+      appIds: { 'com.x': 'app1' },
+      customerReviews,
+    });
+    const listedReviews = await Effect.runPromise(
+      listReviews(reviewsStore, 'com.x', { rating: 5, territory: 'USA' }),
+    );
+    expect(listedReviews).toBe(customerReviews);
+    expect(reviewsStore.listCustomerReviews).toHaveBeenCalledWith('app1', {
+      rating: 5,
+      territory: 'USA',
+    });
+  });
+
+  it('applies unanswered-only filtering after the server read', async () => {
+    const customerReviews = [
+      customerReview({ id: 'r1', rating: 5, answered: true }),
+      customerReview({ id: 'r2', rating: 4, answered: false }),
+    ];
+    const reviewsStore = makeReviewsStore({
+      appIds: { 'com.x': 'app1' },
+      customerReviews,
+    });
+    const listedReviews = await Effect.runPromise(
+      listReviews(reviewsStore, 'com.x', { unansweredOnly: true }),
+    );
+    expect(listedReviews.map((listedReview) => listedReview.id)).toEqual(['r2']);
+    expect(reviewsStore.listCustomerReviews).toHaveBeenCalledWith('app1', {});
   });
 });
 
 describe('replyToReview', () => {
-  it("reports replaced=false and posts the body when there's no existing reply", async () => {
-    const api = makeApi({ existingResponse: null });
-    const { response, replaced } = await replyToReview(api, 'r1', 'Thanks for the feedback!');
-    expect(replaced).toBe(false);
-    expect(response).toMatchObject({ responseBody: 'Thanks for the feedback!' });
-    expect(api.createCustomerReviewResponse).toHaveBeenCalledWith('r1', 'Thanks for the feedback!');
+  it('posts a new reply and reports that it did not replace one', async () => {
+    const reviewsStore = makeReviewsStore({ existingReply: null });
+    const replyOutcome = await Effect.runPromise(
+      replyToReview(reviewsStore, 'r1', 'Thanks for the feedback!'),
+    );
+    expect(replyOutcome.replaced).toBe(false);
+    expect(replyOutcome.reviewReply).toMatchObject({ responseBody: 'Thanks for the feedback!' });
+    expect(reviewsStore.createCustomerReviewResponse).toHaveBeenCalledWith(
+      'r1',
+      'Thanks for the feedback!',
+    );
   });
 
-  it('reports replaced=true when a reply already existed (upsert overwrites it)', async () => {
-    const api = makeApi({ existingResponse: { id: 'resp-old', responseBody: 'old' } });
-    const { replaced } = await replyToReview(api, 'r1', 'Updated reply');
-    expect(replaced).toBe(true);
+  it('reports replacement when a reply already exists', async () => {
+    const reviewsStore = makeReviewsStore({
+      existingReply: { id: 'resp-old', responseBody: 'old' },
+    });
+    const replyOutcome = await Effect.runPromise(
+      replyToReview(reviewsStore, 'r1', 'Updated reply'),
+    );
+    expect(replyOutcome.replaced).toBe(true);
   });
 });
 
 describe('deleteReviewResponse', () => {
-  it("returns false when there's no response to delete", async () => {
-    const api = makeApi({ existingResponse: null });
-    expect(await deleteReviewResponse(api, 'r1')).toBe(false);
-    expect(api.deleteCustomerReviewResponse).not.toHaveBeenCalled();
+  it('returns false when no reply exists', async () => {
+    const reviewsStore = makeReviewsStore({ existingReply: null });
+    expect(await Effect.runPromise(deleteReviewResponse(reviewsStore, 'r1'))).toBe(false);
+    expect(reviewsStore.deleteCustomerReviewResponse).not.toHaveBeenCalled();
   });
 
-  it("deletes by the response's resource id and returns true", async () => {
-    const api = makeApi({ existingResponse: { id: 'resp-1', responseBody: 'hi' } });
-    expect(await deleteReviewResponse(api, 'r1')).toBe(true);
-    expect(api.deleteCustomerReviewResponse).toHaveBeenCalledWith('resp-1');
+  it('deletes the reply resource and returns true', async () => {
+    const reviewsStore = makeReviewsStore({
+      existingReply: { id: 'resp-1', responseBody: 'hi' },
+    });
+    expect(await Effect.runPromise(deleteReviewResponse(reviewsStore, 'r1'))).toBe(true);
+    expect(reviewsStore.deleteCustomerReviewResponse).toHaveBeenCalledWith('resp-1');
   });
 });

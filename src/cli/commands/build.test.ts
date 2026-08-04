@@ -5,9 +5,8 @@ import {
   type BuildCommandOptions,
   parseBuildCommandInput,
   parseSizeBudget,
-} from '../../core/build/buildCommandInput.js';
+} from '@core/build/buildCommandInput.js';
 import { registerBuildCommand } from './build.js';
-
 const BASE_OPTIONS: BuildCommandOptions = {
   profile: 'production',
   explain: false,
@@ -21,32 +20,29 @@ const BASE_OPTIONS: BuildCommandOptions = {
   printEnv: false,
   ccache: true,
 };
-
 const GREATER_THAN_ZERO_ERROR = /greater than 0/;
 const INVALID_SIZE_BUDGET_ERROR = /Invalid --size-budget "big"/;
 const UNKNOWN_TRACK_ERROR = /Unknown --track "beta"/;
-
-describe('parseSizeBudget — the per-run size-budget CLI boundary', () => {
-  it('returns undefined when the flag is omitted (→ profile, then default)', () => {
+describe('parseSizeBudget - the per-run size-budget CLI boundary', () => {
+  it('returns undefined when the flag is omitted (-> profile, then default)', () => {
     expect(Effect.runSync(parseSizeBudget(undefined))).toBeUndefined();
   });
-
   it('parses a positive MB number, including fractional values', () => {
     expect(Effect.runSync(parseSizeBudget('250'))).toBe(250);
     expect(Effect.runSync(parseSizeBudget('199.5'))).toBe(199.5);
   });
-
   it('rejects zero and negative budgets with a clear message', () => {
-    expect(() => Effect.runSync(parseSizeBudget('0'))).toThrow(GREATER_THAN_ZERO_ERROR);
-    expect(() => Effect.runSync(parseSizeBudget('-5'))).toThrow(GREATER_THAN_ZERO_ERROR);
+    const zeroBudgetFailure = Effect.runSync(Effect.flip(parseSizeBudget('0')));
+    const negativeBudgetFailure = Effect.runSync(Effect.flip(parseSizeBudget('-5')));
+    expect(zeroBudgetFailure.message).toMatch(GREATER_THAN_ZERO_ERROR);
+    expect(negativeBudgetFailure.message).toMatch(GREATER_THAN_ZERO_ERROR);
   });
-
   it('rejects non-numeric input with a clear message', () => {
-    expect(() => Effect.runSync(parseSizeBudget('big'))).toThrow(INVALID_SIZE_BUDGET_ERROR);
+    const sizeBudgetFailure = Effect.runSync(Effect.flip(parseSizeBudget('big')));
+    expect(sizeBudgetFailure.message).toMatch(INVALID_SIZE_BUDGET_ERROR);
   });
 });
-
-describe('parseBuildCommandInput — raw Commander values to pipeline input', () => {
+describe('parseBuildCommandInput - raw Commander values to pipeline input', () => {
   it('decodes optional build flags into the BuildRunOptions contract', () => {
     const buildInput = Effect.runSync(
       parseBuildCommandInput('ios', {
@@ -62,7 +58,6 @@ describe('parseBuildCommandInput — raw Commander values to pipeline input', ()
         printEnv: true,
       }),
     );
-
     expect(buildInput).toMatchObject({
       platform: 'ios',
       profileName: 'production',
@@ -78,13 +73,12 @@ describe('parseBuildCommandInput — raw Commander values to pipeline input', ()
       account: 'team-a',
     });
   });
-
   it('rejects unknown tracks before the pipeline runs', () => {
-    expect(() =>
-      Effect.runSync(parseBuildCommandInput('android', { ...BASE_OPTIONS, track: 'beta' })),
-    ).toThrow(UNKNOWN_TRACK_ERROR);
+    const trackFailure = Effect.runSync(
+      Effect.flip(parseBuildCommandInput('android', { ...BASE_OPTIONS, track: 'beta' })),
+    );
+    expect(trackFailure.message).toMatch(UNKNOWN_TRACK_ERROR);
   });
-
   it('decodes --no-ccache into the BuildRunOptions contract', () => {
     const buildInput = Effect.runSync(
       parseBuildCommandInput('ios', { ...BASE_OPTIONS, ccache: false }),
@@ -92,26 +86,23 @@ describe('parseBuildCommandInput — raw Commander values to pipeline input', ()
     expect(buildInput.ccache).toBe(false);
   });
 });
-
-describe('registerBuildCommand — the size-budget flag and its alias', () => {
+describe('registerBuildCommand - the size-budget flag and its alias', () => {
   function buildCommand() {
     const program = new Command();
     registerBuildCommand(program);
     return program.commands.find((command) => command.name() === 'build');
   }
-
   it('exposes --size-budget and its --budget alias', () => {
-    const build = buildCommand();
-    expect(build).toBeDefined();
-    const flags = build?.options.map((option) => option.long);
+    const storeBuild82 = buildCommand();
+    expect(storeBuild82).toBeDefined();
+    const flags = storeBuild82?.options.map((option) => option.long);
     expect(flags).toContain('--size-budget');
     expect(flags).toContain('--budget');
   });
-
   it('exposes --no-ccache for monorepo extension builds that cannot use the RN ccache shim', () => {
-    const build = buildCommand();
-    expect(build).toBeDefined();
-    const flags = build?.options.map((option) => option.long);
+    const storeBuild89 = buildCommand();
+    expect(storeBuild89).toBeDefined();
+    const flags = storeBuild89?.options.map((option) => option.long);
     expect(flags).toContain('--no-ccache');
   });
 });

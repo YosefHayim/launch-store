@@ -1,3 +1,5 @@
+import { NodeContext } from '@effect/platform-node';
+import { Effect } from 'effect';
 import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,49 +8,61 @@ import type {
   BetaFeedbackCrashSubmissionResource,
   BetaFeedbackScreenshotSubmissionResource,
   BuildResource,
-} from '../../apple/ascClient.js';
+} from '../types/appleCatalog.js';
+import type { BetaFeedback } from '../types/app.js';
 import {
+  type AscFeedbackApi,
   downloadFeedbackAttachments,
   listBetaFeedback,
-  type AscFeedbackApi,
 } from './testflightFeedback.js';
-import type { BetaFeedback } from '../types/index.js';
 
-/**
- * A hand-rolled {@link AscFeedbackApi}. `appId` maps bundle ids to app records (absent → no record);
- * `crashes` / `screenshots` are what each list call returns; `builds` resolves a version → resource id.
- */
-function makeApi(opts: {
-  appId?: Record<string, string>;
-  crashes?: BetaFeedbackCrashSubmissionResource[];
-  screenshots?: BetaFeedbackScreenshotSubmissionResource[];
+type AppleStoreOptions = Readonly<{
+  appIds?: Record<string, string>;
+  crashSubmissions?: BetaFeedbackCrashSubmissionResource[];
+  screenshotSubmissions?: BetaFeedbackScreenshotSubmissionResource[];
   builds?: Record<number, BuildResource>;
-  bytes?: Buffer;
-}): AscFeedbackApi {
-  return {
-    getAppId: vi.fn((bundleId: string) => Promise.resolve(opts.appId?.[bundleId] ?? null)),
-    findBuildByVersion: vi.fn((_appId: string, version: number) =>
-      Promise.resolve(opts.builds?.[version] ?? null),
-    ),
-    listBetaFeedbackCrashSubmissions: vi.fn(() => Promise.resolve(opts.crashes ?? [])),
-    listBetaFeedbackScreenshotSubmissions: vi.fn(() => Promise.resolve(opts.screenshots ?? [])),
-    downloadBetaFeedbackScreenshot: vi.fn(() => Promise.resolve(opts.bytes ?? Buffer.from('png'))),
-  };
-}
+  screenshotBytes?: Buffer;
+}>;
+
+/** Create an Effect-native App Store feedback fake. */
+const makeAppleStore = (options: AppleStoreOptions): AscFeedbackApi => ({
+  getAppId: vi.fn((bundleId: string) => {
+    const appId = options.appIds?.[bundleId];
+    if (appId === undefined) return Effect.succeed(null);
+    return Effect.succeed(appId);
+  }),
+  findBuildByVersion: vi.fn((_appId: string, buildNumber: number) => {
+    const matchedBuild = options.builds?.[buildNumber];
+    if (matchedBuild === undefined) return Effect.succeed(null);
+    return Effect.succeed(matchedBuild);
+  }),
+  listBetaFeedbackCrashSubmissions: vi.fn(() => {
+    if (options.crashSubmissions === undefined) return Effect.succeed([]);
+    return Effect.succeed(options.crashSubmissions);
+  }),
+  listBetaFeedbackScreenshotSubmissions: vi.fn(() => {
+    if (options.screenshotSubmissions === undefined) return Effect.succeed([]);
+    return Effect.succeed(options.screenshotSubmissions);
+  }),
+  downloadBetaFeedbackScreenshot: vi.fn(() => {
+    if (options.screenshotBytes === undefined) return Effect.succeed(Buffer.from('png'));
+    return Effect.succeed(options.screenshotBytes);
+  }),
+});
 
 describe('listBetaFeedback', () => {
-  it('throws an actionable error when the app record is missing', async () => {
-    const api = makeApi({ appId: {} });
-    await expect(listBetaFeedback(api, 'com.x.missing')).rejects.toThrow(
+  it('fails clearly when the app record is missing', async () => {
+    const appleStore = makeAppleStore({ appIds: {} });
+    await expect(Effect.runPromise(listBetaFeedback(appleStore, 'com.x.missing'))).rejects.toThrow(
       /No App Store Connect app record/,
     );
   });
 
-  it('merges crash + screenshot feedback newest-first and tags each kind', async () => {
-    const api = makeApi({
-      appId: { 'com.x': 'app1' },
-      crashes: [{ id: 'c1', createdDate: '2026-06-18T00:00:00Z', comment: 'crash' }],
-      screenshots: [
+  it('merges crash and screenshot feedback newest-first', async () => {
+    const appleStore = makeAppleStore({
+      appIds: { 'com.x': 'app1' },
+      crashSubmissions: [{ id: 'c1', createdDate: '2026-06-18T00:00:00Z', comment: 'crash' }],
+      screenshotSubmissions: [
         {
           id: 's1',
           createdDate: '2026-06-20T00:00:00Z',
@@ -56,72 +70,81 @@ describe('listBetaFeedback', () => {
         },
       ],
     });
-    const result = await listBetaFeedback(api, 'com.x');
-    expect(result.map((item) => item.id)).toEqual(['s1', 'c1']);
-    expect(result.find((item) => item.id === 'c1')?.kind).toBe('crash');
-    const shot = result.find((item) => item.id === 's1');
-    expect(shot?.kind).toBe('screenshot');
-    expect(shot?.screenshots).toEqual([{ url: 'https://a/1.png' }]);
+    const feedbackEntries = await Effect.runPromise(listBetaFeedback(appleStore, 'com.x'));
+    expect(feedbackEntries.map((feedbackEntry) => feedbackEntry.id)).toEqual(['s1', 'c1']);
+    expect(feedbackEntries.find((feedbackEntry) => feedbackEntry.id === 'c1')?.kind).toBe('crash');
+    const screenshotFeedback = feedbackEntries.find((feedbackEntry) => feedbackEntry.id === 's1');
+    expect(screenshotFeedback?.kind).toBe('screenshot');
+    expect(screenshotFeedback?.screenshots).toEqual([{ url: 'https://a/1.png' }]);
   });
 
-  it('--type crash skips the screenshot call entirely', async () => {
-    const api = makeApi({ appId: { 'com.x': 'app1' }, crashes: [{ id: 'c1' }] });
-    const result = await listBetaFeedback(api, 'com.x', { kind: 'crash' });
-    expect(result.map((item) => item.id)).toEqual(['c1']);
-    expect(api.listBetaFeedbackScreenshotSubmissions).not.toHaveBeenCalled();
-  });
-
-  it('--type screenshot skips the crash call entirely', async () => {
-    const api = makeApi({
-      appId: { 'com.x': 'app1' },
-      screenshots: [{ id: 's1', screenshots: [{ url: 'https://a/1.png' }] }],
+  it('skips screenshot reads when crash feedback is requested', async () => {
+    const appleStore = makeAppleStore({
+      appIds: { 'com.x': 'app1' },
+      crashSubmissions: [{ id: 'c1' }],
     });
-    const result = await listBetaFeedback(api, 'com.x', { kind: 'screenshot' });
-    expect(result.map((item) => item.id)).toEqual(['s1']);
-    expect(api.listBetaFeedbackCrashSubmissions).not.toHaveBeenCalled();
+    const feedbackEntries = await Effect.runPromise(
+      listBetaFeedback(appleStore, 'com.x', { kind: 'crash' }),
+    );
+    expect(feedbackEntries.map((feedbackEntry) => feedbackEntry.id)).toEqual(['c1']);
+    expect(appleStore.listBetaFeedbackScreenshotSubmissions).not.toHaveBeenCalled();
   });
 
-  it('--build resolves the version to a build id and pushes it as a server filter', async () => {
-    const api = makeApi({
-      appId: { 'com.x': 'app1' },
-      builds: { 42: { id: 'build-42', version: '42', processingState: 'VALID', expired: false } },
-      crashes: [{ id: 'c1' }],
+  it('skips crash reads when screenshot feedback is requested', async () => {
+    const appleStore = makeAppleStore({
+      appIds: { 'com.x': 'app1' },
+      screenshotSubmissions: [{ id: 's1', screenshots: [{ url: 'https://a/1.png' }] }],
     });
-    await listBetaFeedback(api, 'com.x', { build: '42' });
-    expect(api.findBuildByVersion).toHaveBeenCalledWith('app1', 42);
-    expect(api.listBetaFeedbackCrashSubmissions).toHaveBeenCalledWith('app1', {
+    const feedbackEntries = await Effect.runPromise(
+      listBetaFeedback(appleStore, 'com.x', { kind: 'screenshot' }),
+    );
+    expect(feedbackEntries.map((feedbackEntry) => feedbackEntry.id)).toEqual(['s1']);
+    expect(appleStore.listBetaFeedbackCrashSubmissions).not.toHaveBeenCalled();
+  });
+
+  it('resolves a build version into the server-side build filter', async () => {
+    const appleStore = makeAppleStore({
+      appIds: { 'com.x': 'app1' },
+      builds: {
+        42: { id: 'build-42', version: '42', processingState: 'VALID', expired: false },
+      },
+      crashSubmissions: [{ id: 'c1' }],
+    });
+    await Effect.runPromise(listBetaFeedback(appleStore, 'com.x', { build: '42' }));
+    expect(appleStore.findBuildByVersion).toHaveBeenCalledWith('app1', 42);
+    expect(appleStore.listBetaFeedbackCrashSubmissions).toHaveBeenCalledWith('app1', {
       buildId: 'build-42',
     });
   });
 
-  it('--build errors when no such build exists on the app', async () => {
-    const api = makeApi({ appId: { 'com.x': 'app1' }, builds: {} });
-    await expect(listBetaFeedback(api, 'com.x', { build: '99' })).rejects.toThrow(/No build 99/);
+  it('rejects missing and non-numeric builds', async () => {
+    const appleStore = makeAppleStore({ appIds: { 'com.x': 'app1' }, builds: {} });
+    await expect(
+      Effect.runPromise(listBetaFeedback(appleStore, 'com.x', { build: '99' })),
+    ).rejects.toThrow(/No build 99/);
+    await expect(
+      Effect.runPromise(listBetaFeedback(appleStore, 'com.x', { build: '1.2.0' })),
+    ).rejects.toThrow(/CFBundleVersion/);
+    expect(appleStore.findBuildByVersion).toHaveBeenCalledTimes(1);
   });
 
-  it('--build rejects a non-numeric CFBundleVersion before any network call', async () => {
-    const api = makeApi({ appId: { 'com.x': 'app1' } });
-    await expect(listBetaFeedback(api, 'com.x', { build: '1.2.0' })).rejects.toThrow(
-      /CFBundleVersion/,
-    );
-    expect(api.findBuildByVersion).not.toHaveBeenCalled();
-  });
-
-  it('omits an empty screenshots array on a screenshot submission with no usable images', async () => {
-    const api = makeApi({
-      appId: { 'com.x': 'app1' },
-      screenshots: [{ id: 's1', screenshots: [] }],
+  it('omits an empty screenshot collection', async () => {
+    const appleStore = makeAppleStore({
+      appIds: { 'com.x': 'app1' },
+      screenshotSubmissions: [{ id: 's1', screenshots: [] }],
     });
-    const [item] = await listBetaFeedback(api, 'com.x', { kind: 'screenshot' });
-    expect(item).toBeDefined();
-    expect(item && 'screenshots' in item).toBe(false);
+    const [feedbackEntry] = await Effect.runPromise(
+      listBetaFeedback(appleStore, 'com.x', { kind: 'screenshot' }),
+    );
+    expect(feedbackEntry).toBeDefined();
+    expect(feedbackEntry !== undefined && 'screenshots' in feedbackEntry).toBe(false);
   });
 });
 
 describe('downloadFeedbackAttachments', () => {
-  it('writes one file per screenshot, named <id>-<n>.png, and skips crashes', async () => {
-    const api = makeApi({ bytes: Buffer.from('imgbytes') });
-    const feedback: BetaFeedback[] = [
+  it('writes one file per screenshot and skips crash feedback', async () => {
+    const appleStore = makeAppleStore({ screenshotBytes: Buffer.from('imgbytes') });
+    const feedbackEntries: BetaFeedback[] = [
       { id: 'c1', kind: 'crash' },
       {
         id: 's1',
@@ -129,31 +152,38 @@ describe('downloadFeedbackAttachments', () => {
         screenshots: [{ url: 'https://a/1.png' }, { url: 'https://a/2.png' }],
       },
     ];
-    const outDir = mkdtempSync(join(tmpdir(), 'launch-feedback-'));
-    const written = await downloadFeedbackAttachments(api, feedback, outDir);
-
-    expect(written.map((entry) => entry.path)).toEqual([
-      join(outDir, 's1-1.png'),
-      join(outDir, 's1-2.png'),
+    const outputDirectory = mkdtempSync(join(tmpdir(), 'launch-feedback-'));
+    const downloadedAttachments = await Effect.runPromise(
+      downloadFeedbackAttachments(appleStore, feedbackEntries, outputDirectory).pipe(
+        Effect.provide(NodeContext.layer),
+      ),
+    );
+    expect(downloadedAttachments.map((attachment) => attachment.path)).toEqual([
+      join(outputDirectory, 's1-1.png'),
+      join(outputDirectory, 's1-2.png'),
     ]);
-    expect(readdirSync(outDir).sort()).toEqual(['s1-1.png', 's1-2.png']);
-    expect(readFileSync(join(outDir, 's1-1.png')).toString()).toBe('imgbytes');
-    expect(api.downloadBetaFeedbackScreenshot).toHaveBeenCalledTimes(2);
+    expect(readdirSync(outputDirectory).sort()).toEqual(['s1-1.png', 's1-2.png']);
+    expect(readFileSync(join(outputDirectory, 's1-1.png')).toString()).toBe('imgbytes');
+    expect(appleStore.downloadBetaFeedbackScreenshot).toHaveBeenCalledTimes(2);
   });
 
-  it('encodes a non-path-safe feedback id so downloads stay in outDir without colliding', async () => {
-    const api = makeApi({ bytes: Buffer.from('x') });
-    // Both ids collapse to "a" under a naive character strip — encoding must keep them distinct.
-    const feedback: BetaFeedback[] = [
+  it('encodes unsafe feedback ids into distinct child paths', async () => {
+    const appleStore = makeAppleStore({ screenshotBytes: Buffer.from('x') });
+    const feedbackEntries: BetaFeedback[] = [
       { id: '../a', kind: 'screenshot', screenshots: [{ url: 'https://a/1.png' }] },
       { id: 'a/..', kind: 'screenshot', screenshots: [{ url: 'https://a/2.png' }] },
     ];
-    const outDir = mkdtempSync(join(tmpdir(), 'launch-feedback-'));
-    const written = await downloadFeedbackAttachments(api, feedback, outDir);
-
-    const files = readdirSync(outDir).sort();
-    expect(files).toHaveLength(2); // distinct encodings → no overwrite
-    for (const name of files) expect(name).toMatch(/^[A-Za-z0-9_-]+-1\.png$/); // path-safe child of outDir
-    for (const entry of written) expect(entry.path.startsWith(`${outDir}/`)).toBe(true);
+    const outputDirectory = mkdtempSync(join(tmpdir(), 'launch-feedback-'));
+    const downloadedAttachments = await Effect.runPromise(
+      downloadFeedbackAttachments(appleStore, feedbackEntries, outputDirectory).pipe(
+        Effect.provide(NodeContext.layer),
+      ),
+    );
+    const filenames = readdirSync(outputDirectory).sort();
+    expect(filenames).toHaveLength(2);
+    for (const filename of filenames) expect(filename).toMatch(/^[A-Za-z0-9_-]+-1\.png$/);
+    for (const attachment of downloadedAttachments) {
+      expect(attachment.path.startsWith(`${outputDirectory}/`)).toBe(true);
+    }
   });
 });

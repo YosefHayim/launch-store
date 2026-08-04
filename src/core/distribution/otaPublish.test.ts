@@ -1,162 +1,191 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StorageProvider } from '../types/index.js';
+import { NodeContext } from '@effect/platform-node';
+import { Effect, Schema } from 'effect';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { CodeSigner } from '../credentials/codeSign.js';
-import { createLogger } from '../services/logger.js';
+import { createLogger, makeLaunchLoggerTest } from '../services/logger.js';
+import type { StorageProvider } from '../types/providers.js';
 import {
   historyIndexKey,
   historySnapshotKey,
   manifestKey,
   manifestSignatureKey,
 } from './otaManifest.js';
-import { publishOtaPlatform, readExportMetadata, type ExportMetadata } from './otaPublish.js';
+import { type ExportMetadata, publishOtaPlatform, readExportMetadata } from './otaPublish.js';
 
-/** An in-memory {@link StorageProvider} so the publish path is testable without a real bucket. */
-function fakeStorage(): StorageProvider & { objects: Map<string, string> } {
+type MemoryStorage = StorageProvider &
+  Readonly<{
+    readonly objects: Map<string, string>;
+  }>;
+
+/** Build an in-memory object store with Effect-returning provider methods. */
+const makeMemoryStorage = (): MemoryStorage => {
   const objects = new Map<string, string>();
   return {
     objects,
-    name: 'fake',
-    put: () => Promise.reject(new Error('unused')),
-    list: () => Promise.resolve([]),
-    url: () => Promise.resolve(''),
-    putObject: (key, body) => {
-      objects.set(key, body.toString());
-      return Promise.resolve({ id: key, location: `mem://${key}` });
-    },
-    getObject: (key) => {
-      const value = objects.get(key);
-      return Promise.resolve(value === undefined ? null : Buffer.from(value));
-    },
-    publicUrl: (key) => `https://cdn/${key}`,
+    name: 'memory',
+    put: () => Effect.dieMessage('unused'),
+    list: () => Effect.succeed([]),
+    url: () => Effect.succeed(''),
+    putObject: (objectKey, objectContents) =>
+      Effect.sync(() => {
+        objects.set(objectKey, objectContents.toString());
+        return { id: objectKey, location: `memory://${objectKey}` };
+      }),
+    getObject: (objectKey) =>
+      Effect.sync(() => {
+        const storedText = objects.get(objectKey);
+        if (storedText === undefined) return null;
+        return Buffer.from(storedText);
+      }),
+    publicUrl: (objectKey) => `https://cdn/${objectKey}`,
   };
-}
+};
 
-const fakeSigner: CodeSigner = {
+const fixedSigner: CodeSigner = {
   certPath: '/tmp/cert.pem',
   sign: () => 'sig="FAKE", keyid="main", alg="rsa-v1_5-sha256"',
 };
 
-const log = createLogger(false);
+/** Run an OTA publish with platform services and a captured test logger. */
+const runPublish = (
+  input: Parameters<typeof publishOtaPlatform>[0],
+  terminalWrites: string[] = [],
+) =>
+  Effect.runPromise(
+    Effect.gen(function* () {
+      const logger = yield* createLogger(false);
+      return yield* publishOtaPlatform(input, logger);
+    }).pipe(
+      Effect.provide(makeLaunchLoggerTest(terminalWrites)),
+      Effect.provide(NodeContext.layer),
+    ),
+  );
 
 describe('publishOtaPlatform', () => {
-  let distDir: string;
-  let metadata: ExportMetadata;
+  let exportDirectory: string;
+  let exportMetadata: ExportMetadata;
 
   beforeEach(() => {
-    distDir = mkdtempSync(join(tmpdir(), 'launch-ota-'));
-    writeFileSync(join(distDir, 'bundle.js'), "console.log('bundle')");
-    writeFileSync(join(distDir, 'logo.png'), 'PNGDATA');
-    metadata = {
-      fileMetadata: { ios: { bundle: 'bundle.js', assets: [{ path: 'logo.png', ext: 'png' }] } },
+    exportDirectory = mkdtempSync(join(tmpdir(), 'launch-ota-'));
+    writeFileSync(join(exportDirectory, 'bundle.js'), "console.log('bundle')");
+    writeFileSync(join(exportDirectory, 'logo.png'), 'PNGDATA');
+    exportMetadata = {
+      fileMetadata: {
+        ios: {
+          bundle: 'bundle.js',
+          assets: [{ path: 'logo.png', ext: 'png' }],
+        },
+      },
     };
   });
+
   afterEach(() => {
-    rmSync(distDir, { recursive: true, force: true });
+    rmSync(exportDirectory, { recursive: true, force: true });
   });
 
-  it('uploads bundle, manifest, snapshot, and history; signs when a signer is given', async () => {
-    const storage = fakeStorage();
-    const result = await publishOtaPlatform(
-      {
-        storage,
-        distDir,
-        metadata,
-        platform: 'ios',
-        channel: 'production',
-        runtimeVersion: '1.0.0',
-        signer: fakeSigner,
-      },
-      log,
-    );
+  it('uploads assets, manifest, signature, snapshot, and history', async () => {
+    const storage = makeMemoryStorage();
+    const publishDetails = await runPublish({
+      storage,
+      distDir: exportDirectory,
+      metadata: exportMetadata,
+      platform: 'ios',
+      channel: 'production',
+      runtimeVersion: '1.0.0',
+      signer: fixedSigner,
+    });
 
-    expect(result.published).toBe(true);
-    expect(result.assetCount).toBe(1);
-    expect(result.prefix).toBe('updates/production/ios/1.0.0');
-    expect(result.manifestId).toBeTruthy();
+    expect(publishDetails.published).toBe(true);
+    expect(publishDetails.assetCount).toBe(1);
+    expect(publishDetails.prefix).toBe('updates/production/ios/1.0.0');
+    expect(publishDetails.manifestId).toBeDefined();
+    const manifestId = publishDetails.manifestId;
+    if (manifestId === undefined) throw new Error('Expected a manifest identifier');
+    const objectKeys = [...storage.objects.keys()];
+    expect(objectKeys).toContain('updates/production/ios/1.0.0/bundle.js');
+    expect(objectKeys).toContain('updates/production/ios/1.0.0/logo.png');
+    expect(objectKeys).toContain(manifestKey('production', 'ios', '1.0.0'));
+    expect(objectKeys).toContain(manifestSignatureKey('production', 'ios', '1.0.0'));
+    expect(objectKeys).toContain(historySnapshotKey('production', 'ios', '1.0.0', manifestId));
 
-    const keys = [...storage.objects.keys()];
-    expect(keys).toContain('updates/production/ios/1.0.0/bundle.js');
-    expect(keys).toContain('updates/production/ios/1.0.0/logo.png');
-    expect(keys).toContain(manifestKey('production', 'ios', '1.0.0'));
-    expect(keys).toContain(manifestSignatureKey('production', 'ios', '1.0.0'));
-    expect(keys).toContain(
-      historySnapshotKey('production', 'ios', '1.0.0', result.manifestId ?? ''),
-    );
-
-    const history = JSON.parse(
-      storage.objects.get(historyIndexKey('production', 'ios')) ?? '[]',
-    ) as {
-      signed: boolean;
-    }[];
-    expect(history).toHaveLength(1);
-    expect(history[0]?.signed).toBe(true);
+    const historyText = storage.objects.get(historyIndexKey('production', 'ios'));
+    if (historyText === undefined) throw new Error('Expected an update history index');
+    const historyEntries = Schema.decodeUnknownSync(
+      Schema.Array(Schema.Struct({ signed: Schema.Boolean })),
+    )(JSON.parse(historyText));
+    expect(historyEntries).toHaveLength(1);
+    expect(historyEntries[0]?.signed).toBe(true);
   });
 
-  it('publishes unsigned (no signature object) when signer is null', async () => {
-    const storage = fakeStorage();
-    await publishOtaPlatform(
-      {
-        storage,
-        distDir,
-        metadata,
-        platform: 'ios',
-        channel: 'production',
-        runtimeVersion: '1.0.0',
-        signer: null,
-      },
-      log,
-    );
+  it('omits the signature object for an unsigned publish', async () => {
+    const storage = makeMemoryStorage();
+    await runPublish({
+      storage,
+      distDir: exportDirectory,
+      metadata: exportMetadata,
+      platform: 'ios',
+      channel: 'production',
+      runtimeVersion: '1.0.0',
+      signer: null,
+    });
     expect([...storage.objects.keys()]).not.toContain(
       manifestSignatureKey('production', 'ios', '1.0.0'),
     );
   });
 
-  it('skips (published: false) and never writes when the export has no bundle for the platform', async () => {
-    const storage = fakeStorage();
-    const warn = vi.spyOn(log, 'warn').mockImplementation(() => undefined);
-    const result = await publishOtaPlatform(
+  it('warns and skips a platform absent from the export', async () => {
+    const storage = makeMemoryStorage();
+    const terminalWrites: string[] = [];
+    const publishDetails = await runPublish(
       {
         storage,
-        distDir,
-        metadata,
+        distDir: exportDirectory,
+        metadata: exportMetadata,
         platform: 'android',
         channel: 'production',
         runtimeVersion: '1.0.0',
-        signer: fakeSigner,
+        signer: fixedSigner,
       },
-      log,
+      terminalWrites,
     );
-    expect(result.published).toBe(false);
+    expect(publishDetails.published).toBe(false);
     expect(storage.objects.size).toBe(0);
-    expect(warn).toHaveBeenCalledOnce();
-    warn.mockRestore();
+    expect(terminalWrites.join('')).toContain('[WARN] No android bundle');
   });
 });
 
 describe('readExportMetadata', () => {
-  it('throws an actionable error when metadata.json is missing', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'launch-ota-empty-'));
+  it('fails with an actionable error when metadata.json is missing', async () => {
+    const exportDirectory = mkdtempSync(join(tmpdir(), 'launch-ota-empty-'));
     try {
-      expect(() => readExportMetadata(dir)).toThrow(/metadata\.json/);
+      const metadataRead = await Effect.runPromise(
+        readExportMetadata(exportDirectory).pipe(Effect.either, Effect.provide(NodeContext.layer)),
+      );
+      expect(metadataRead).toMatchObject({
+        _tag: 'Left',
+        left: { _tag: 'OtaPublishFailure' },
+      });
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(exportDirectory, { recursive: true, force: true });
     }
   });
 
-  it('parses a valid metadata.json', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'launch-ota-meta-'));
+  it('decodes valid Expo export metadata', async () => {
+    const exportDirectory = mkdtempSync(join(tmpdir(), 'launch-ota-meta-'));
+    const expectedMetadata: ExportMetadata = {
+      fileMetadata: { ios: { bundle: 'bundle.js', assets: [] } },
+    };
     try {
-      writeFileSync(join(dir, 'metadata.json'), JSON.stringify(metadataFixture()));
-      expect(readExportMetadata(dir)).toEqual(metadataFixture());
+      writeFileSync(join(exportDirectory, 'metadata.json'), JSON.stringify(expectedMetadata));
+      const parsedMetadata = await Effect.runPromise(
+        readExportMetadata(exportDirectory).pipe(Effect.provide(NodeContext.layer)),
+      );
+      expect(parsedMetadata).toEqual(expectedMetadata);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(exportDirectory, { recursive: true, force: true });
     }
   });
 });
-
-function metadataFixture(): ExportMetadata {
-  return { fileMetadata: { ios: { bundle: 'b.js', assets: [] } } };
-}

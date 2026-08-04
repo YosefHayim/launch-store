@@ -1,3 +1,4 @@
+import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import { appleProductsSource } from './appleProducts.js';
 import { appleSubscriptionsSource } from './appleSubscriptions.js';
@@ -5,19 +6,19 @@ import { appleListingSource } from './appleListing.js';
 import { appleCapabilitiesSource } from './appleCapabilities.js';
 import { playProductsSource } from './playProducts.js';
 import { playSubscriptionsSource } from './playSubscriptions.js';
-import { makeAscCatalogApiFake } from '../../../testkit/ascCatalogApi.testkit.js';
+import { makeAscCatalogApiFake } from '@testkit/ascCatalogApi.testkit.js';
+import type { AppDescriptor } from '@core/types/app.js';
+import type { LaunchConfig } from '@core/types/config.js';
+import type { PlayCatalogApi } from '@core/types/plan.js';
 import type {
-  AppDescriptor,
   AppEntities,
-  LaunchConfig,
-  PlayCatalogApi,
   RestoreContext,
   RestoreInput,
   SnapshotAscApi,
   SnapshotContext,
   SnapshotPlayApi,
-} from '../../types/index.js';
-
+  SnapshotSource,
+} from '@core/types/snapshot.js';
 const CONFIG: LaunchConfig = {
   profiles: {},
   credentials: 'local',
@@ -25,52 +26,52 @@ const CONFIG: LaunchConfig = {
   buildEngine: 'fastlane',
   submit: 'app-store-connect',
 };
-
-function app(over: Partial<AppDescriptor>): AppDescriptor {
+const app = (over: Partial<AppDescriptor>): AppDescriptor => {
   return { name: 'alpha', dir: '/tmp/alpha', configPath: '/tmp/alpha/app.json', ...over };
-}
-
-function ctx(over: Partial<SnapshotContext>): SnapshotContext {
+};
+const snapshotContext = (over: Partial<SnapshotContext>): SnapshotContext => {
   return {
     config: CONFIG,
     apps: [],
-    resolveAscApi: () => Promise.resolve(null),
-    resolvePlayApi: () => Promise.resolve(null),
+    resolveAscApi: () => Effect.succeed(null),
+    resolvePlayApi: () => Effect.succeed(null),
     ...over,
   };
-}
-
+};
+const captureSource = (source: SnapshotSource, snapshotContext: SnapshotContext) =>
+  Effect.runPromise(source.capture(snapshotContext));
+const runRestore = (restore: NonNullable<SnapshotSource['restore']>, restoreInput: RestoreInput) =>
+  Effect.runPromise(restore(restoreInput));
 const ascApi: SnapshotAscApi = {
-  getAppId: () => Promise.resolve('1234567890'),
+  getAppId: () => Effect.succeed('1234567890'),
   listInAppPurchases: () =>
-    Promise.resolve([
+    Effect.succeed([
       { productId: 'com.acme.coins', inAppPurchaseType: 'CONSUMABLE', state: 'APPROVED' },
     ]),
-  listSubscriptionGroups: () => Promise.resolve([{ id: 'g1', referenceName: 'Pro' }]),
+  listSubscriptionGroups: () => Effect.succeed([{ id: 'g1', referenceName: 'Pro' }]),
   listSubscriptions: () =>
-    Promise.resolve([{ productId: 'com.acme.pro', subscriptionPeriod: 'P1M', state: 'APPROVED' }]),
-  getEditableAppInfoId: () => Promise.resolve('appinfo-1'),
+    Effect.succeed([{ productId: 'com.acme.pro', subscriptionPeriod: 'P1M', state: 'APPROVED' }]),
+  getEditableAppInfoId: () => Effect.succeed('appinfo-1'),
   listAppInfoLocalizations: () =>
-    Promise.resolve([
+    Effect.succeed([
       { id: 'ail-1', locale: 'en-US', fields: { name: 'Acme', subtitle: 'Do more' } },
     ]),
-  getEditableVersionId: () => Promise.resolve('ver-1'),
+  getEditableVersionId: () => Effect.succeed('ver-1'),
   listVersionLocalizations: () =>
-    Promise.resolve([
+    Effect.succeed([
       {
         id: 'avl-1',
         locale: 'en-US',
         fields: { description: 'Great app', keywords: 'acme,tools' },
       },
     ]),
-  findBundleId: () => Promise.resolve({ id: 'bundle-1', identifier: 'com.acme.alpha' }),
+  findBundleId: () => Effect.succeed({ id: 'bundle-1', identifier: 'com.acme.alpha' }),
   listBundleIdCapabilities: () =>
-    Promise.resolve([{ capabilityType: 'PUSH_NOTIFICATIONS' }, { capabilityType: 'ICLOUD' }]),
+    Effect.succeed([{ capabilityType: 'PUSH_NOTIFICATIONS' }, { capabilityType: 'ICLOUD' }]),
 };
-
 const playApi: SnapshotPlayApi = {
   listInAppProducts: () =>
-    Promise.resolve([
+    Effect.succeed([
       {
         sku: 'coins',
         status: 'active',
@@ -80,7 +81,7 @@ const playApi: SnapshotPlayApi = {
       },
     ]),
   listSubscriptions: () =>
-    Promise.resolve([
+    Effect.succeed([
       {
         productId: 'sub.pro',
         basePlans: [
@@ -101,27 +102,27 @@ const playApi: SnapshotPlayApi = {
       },
     ]),
 };
-
 describe('appleProductsSource', () => {
   it('omits when no iOS apps are in scope', async () => {
-    const capture = await appleProductsSource.capture(
-      ctx({ apps: [app({ packageName: 'com.acme.alpha' })] }),
+    const capture = await captureSource(
+      appleProductsSource,
+      snapshotContext({ apps: [app({ packageName: 'com.acme.alpha' })] }),
     );
     expect(capture).toEqual({ state: 'omitted' });
   });
-
   it('skips when no Apple account is active', async () => {
-    const capture = await appleProductsSource.capture(
-      ctx({ apps: [app({ bundleId: 'com.acme.alpha' })] }),
+    const capture = await captureSource(
+      appleProductsSource,
+      snapshotContext({ apps: [app({ bundleId: 'com.acme.alpha' })] }),
     );
     expect(capture.state).toBe('skipped');
   });
-
   it('captures each in-app purchase keyed by product id', async () => {
-    const capture = await appleProductsSource.capture(
-      ctx({
+    const capture = await captureSource(
+      appleProductsSource,
+      snapshotContext({
         apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Promise.resolve(ascApi),
+        resolveAscApi: () => Effect.succeed(ascApi),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
@@ -133,25 +134,25 @@ describe('appleProductsSource', () => {
       },
     ]);
   });
-
   it('drops an app with no App Store Connect record yet', async () => {
-    const capture = await appleProductsSource.capture(
-      ctx({
+    const capture = await captureSource(
+      appleProductsSource,
+      snapshotContext({
         apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Promise.resolve({ ...ascApi, getAppId: () => Promise.resolve(null) }),
+        resolveAscApi: () => Effect.succeed({ ...ascApi, getAppId: () => Effect.succeed(null) }),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps).toEqual([]);
   });
 });
-
 describe('appleSubscriptionsSource', () => {
   it('flattens subscriptions across groups, keyed by product id with the group recorded', async () => {
-    const capture = await appleSubscriptionsSource.capture(
-      ctx({
+    const capture = await captureSource(
+      appleSubscriptionsSource,
+      snapshotContext({
         apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Promise.resolve(ascApi),
+        resolveAscApi: () => Effect.succeed(ascApi),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
@@ -164,13 +165,13 @@ describe('appleSubscriptionsSource', () => {
     ]);
   });
 });
-
 describe('appleListingSource', () => {
   it('merges app-info and version listing fields into one entity per locale', async () => {
-    const capture = await appleListingSource.capture(
-      ctx({
+    const capture = await captureSource(
+      appleListingSource,
+      snapshotContext({
         apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Promise.resolve(ascApi),
+        resolveAscApi: () => Effect.succeed(ascApi),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
@@ -190,48 +191,48 @@ describe('appleListingSource', () => {
       },
     ]);
   });
-
   it('captures an empty listing when nothing is editable', async () => {
-    const capture = await appleListingSource.capture(
-      ctx({
+    const capture = await captureSource(
+      appleListingSource,
+      snapshotContext({
         apps: [app({ bundleId: 'com.acme.alpha' })],
         resolveAscApi: () =>
-          Promise.resolve({
+          Effect.succeed({
             ...ascApi,
-            getEditableAppInfoId: () => Promise.resolve(null),
-            getEditableVersionId: () => Promise.resolve(null),
+            getEditableAppInfoId: () => Effect.succeed(null),
+            getEditableVersionId: () => Effect.succeed(null),
           }),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([]);
   });
-
   it('drops an app with no App Store Connect record yet', async () => {
-    const capture = await appleListingSource.capture(
-      ctx({
+    const capture = await captureSource(
+      appleListingSource,
+      snapshotContext({
         apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Promise.resolve({ ...ascApi, getAppId: () => Promise.resolve(null) }),
+        resolveAscApi: () => Effect.succeed({ ...ascApi, getAppId: () => Effect.succeed(null) }),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps).toEqual([]);
   });
 });
-
 describe('playProductsSource', () => {
   it('skips when no Play service account is configured', async () => {
-    const capture = await playProductsSource.capture(
-      ctx({ apps: [app({ packageName: 'com.acme.alpha' })] }),
+    const capture = await captureSource(
+      playProductsSource,
+      snapshotContext({ apps: [app({ packageName: 'com.acme.alpha' })] }),
     );
     expect(capture.state).toBe('skipped');
   });
-
   it('captures managed products keyed by SKU, dropping the fanned-out region prices', async () => {
-    const capture = await playProductsSource.capture(
-      ctx({
+    const capture = await captureSource(
+      playProductsSource,
+      snapshotContext({
         apps: [app({ packageName: 'com.acme.alpha' })],
-        resolvePlayApi: () => Promise.resolve(playApi),
+        resolvePlayApi: () => Effect.succeed(playApi),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
@@ -250,13 +251,13 @@ describe('playProductsSource', () => {
     ]);
   });
 });
-
 describe('playSubscriptionsSource', () => {
   it('captures subscriptions with base plans and listings, keyed by product id', async () => {
-    const capture = await playSubscriptionsSource.capture(
-      ctx({
+    const capture = await captureSource(
+      playSubscriptionsSource,
+      snapshotContext({
         apps: [app({ packageName: 'com.acme.alpha' })],
-        resolvePlayApi: () => Promise.resolve(playApi),
+        resolvePlayApi: () => Effect.succeed(playApi),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
@@ -280,27 +281,27 @@ describe('playSubscriptionsSource', () => {
     ]);
   });
 });
-
 describe('appleCapabilitiesSource', () => {
   it('omits when no iOS apps are in scope', async () => {
-    const capture = await appleCapabilitiesSource.capture(
-      ctx({ apps: [app({ packageName: 'com.acme.alpha' })] }),
+    const capture = await captureSource(
+      appleCapabilitiesSource,
+      snapshotContext({ apps: [app({ packageName: 'com.acme.alpha' })] }),
     );
     expect(capture).toEqual({ state: 'omitted' });
   });
-
   it('skips when no Apple account is active', async () => {
-    const capture = await appleCapabilitiesSource.capture(
-      ctx({ apps: [app({ bundleId: 'com.acme.alpha' })] }),
+    const capture = await captureSource(
+      appleCapabilitiesSource,
+      snapshotContext({ apps: [app({ bundleId: 'com.acme.alpha' })] }),
     );
     expect(capture.state).toBe('skipped');
   });
-
   it('captures enabled capabilities keyed and sorted by capability type', async () => {
-    const capture = await appleCapabilitiesSource.capture(
-      ctx({
+    const capture = await captureSource(
+      appleCapabilitiesSource,
+      snapshotContext({
         apps: [app({ bundleId: 'com.acme.alpha' })],
-        resolveAscApi: () => Promise.resolve(ascApi),
+        resolveAscApi: () => Effect.succeed(ascApi),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
@@ -313,20 +314,19 @@ describe('appleCapabilitiesSource', () => {
       },
     ]);
   });
-
   it("captures an empty list when the App ID isn't registered yet", async () => {
-    const capture = await appleCapabilitiesSource.capture(
-      ctx({
+    const capture = await captureSource(
+      appleCapabilitiesSource,
+      snapshotContext({
         apps: [app({ bundleId: 'com.acme.alpha' })],
         resolveAscApi: () =>
-          Promise.resolve({ ...ascApi, findBundleId: () => Promise.resolve(null) }),
+          Effect.succeed({ ...ascApi, findBundleId: () => Effect.succeed(null) }),
       }),
     );
     if (capture.state !== 'captured') throw new Error(`expected captured, got ${capture.state}`);
     expect(capture.apps[0]?.entities).toEqual([]);
   });
 });
-
 describe('appleListingSource.restore', () => {
   /** One app's captured listing, keyed by locale, with both app-level and version-level fields. */
   const saved: AppEntities[] = [
@@ -351,48 +351,45 @@ describe('appleListingSource.restore', () => {
       ],
     },
   ];
-
   /** Narrow the optional `restore` to a callable, failing the test if the source ever drops it. */
   function restoreOf(): NonNullable<typeof appleListingSource.restore> {
     const restore = appleListingSource.restore;
     if (!restore) throw new Error('expected appleListingSource to implement restore');
     return restore;
   }
-
   function input(over: Partial<RestoreInput>): RestoreInput {
     return {
       ctx: {
         config: CONFIG,
         apps: [],
-        resolveAscWriteClient: () => Promise.resolve(null),
-        resolvePlayWriteClient: () => Promise.resolve(null),
+        resolveAscWriteClient: () => Effect.succeed(null),
+        resolvePlayWriteClient: () => Effect.succeed(null),
       },
       saved,
       dryRun: true,
       ...over,
     };
   }
-
   it('skips with no writes when no Apple account is active', async () => {
-    const report = await restoreOf()(input({}));
+    const report = await runRestore(restoreOf(), input({}));
     expect(report.actions).toEqual([
       {
-        description: 'App Store listing: skipped — no active Apple account',
+        description: 'App Store listing: skipped - no active Apple account',
         destructive: false,
         status: 'skipped',
       },
     ]);
   });
-
   it('plans the routed listing fields in a dry-run without writing', async () => {
     const api = makeAscCatalogApiFake();
-    const report = await restoreOf()(
+    const report = await runRestore(
+      restoreOf(),
       input({
         ctx: {
           config: CONFIG,
           apps: [],
-          resolveAscWriteClient: () => Promise.resolve(api),
-          resolvePlayWriteClient: () => Promise.resolve(null),
+          resolveAscWriteClient: () => Effect.succeed(api),
+          resolvePlayWriteClient: () => Effect.succeed(null),
         },
       }),
     );
@@ -409,17 +406,17 @@ describe('appleListingSource.restore', () => {
     expect(api.createAppInfoLocalization).toHaveBeenCalledTimes(0);
     expect(api.createVersionLocalization).toHaveBeenCalledTimes(0);
   });
-
   it('applies the inverted listing, round-tripping keywords back to a comma string', async () => {
     const api = makeAscCatalogApiFake();
-    const report = await restoreOf()(
+    const report = await runRestore(
+      restoreOf(),
       input({
         dryRun: false,
         ctx: {
           config: CONFIG,
           apps: [],
-          resolveAscWriteClient: () => Promise.resolve(api),
-          resolvePlayWriteClient: () => Promise.resolve(null),
+          resolveAscWriteClient: () => Effect.succeed(api),
+          resolvePlayWriteClient: () => Effect.succeed(null),
         },
       }),
     );
@@ -440,38 +437,35 @@ describe('appleListingSource.restore', () => {
     expect(report.actions.every((action) => action.status === 'applied')).toBe(true);
   });
 });
-
 /** A fully-stubbed {@link PlayCatalogApi}. Reads default to "nothing exists yet"; writes resolve. */
-function makePlayApi(overrides: Partial<PlayCatalogApi> = {}): PlayCatalogApi {
+const makePlayApi = (overrides: Partial<PlayCatalogApi> = {}): PlayCatalogApi => {
   const base: PlayCatalogApi = {
-    assertAppExists: vi.fn().mockResolvedValue(undefined),
-    listInAppProducts: vi.fn().mockResolvedValue([]),
-    insertInAppProduct: vi.fn().mockResolvedValue(undefined),
-    updateInAppProduct: vi.fn().mockResolvedValue(undefined),
-    listSubscriptions: vi.fn().mockResolvedValue([]),
-    createSubscription: vi.fn().mockResolvedValue(undefined),
-    patchSubscription: vi.fn().mockResolvedValue(undefined),
-    activateBasePlan: vi.fn().mockResolvedValue(undefined),
-    listSubscriptionOffers: vi.fn().mockResolvedValue([]),
-    createSubscriptionOffer: vi.fn().mockResolvedValue(undefined),
-    activateSubscriptionOffer: vi.fn().mockResolvedValue(undefined),
+    assertAppExists: vi.fn(() => Effect.void),
+    listInAppProducts: vi.fn(() => Effect.succeed([])),
+    insertInAppProduct: vi.fn(() => Effect.void),
+    updateInAppProduct: vi.fn(() => Effect.void),
+    listSubscriptions: vi.fn(() => Effect.succeed([])),
+    createSubscription: vi.fn(() => Effect.void),
+    patchSubscription: vi.fn(() => Effect.void),
+    activateBasePlan: vi.fn(() => Effect.void),
+    listSubscriptionOffers: vi.fn(() => Effect.succeed([])),
+    createSubscriptionOffer: vi.fn(() => Effect.void),
+    activateSubscriptionOffer: vi.fn(() => Effect.void),
   };
   return { ...base, ...overrides };
-}
-
+};
 /** A restore context defaulting both write resolvers to "no account"; override the one under test. */
-function restoreCtx(over: Partial<RestoreContext> = {}): RestoreContext {
+const restoreCtx = (over: Partial<RestoreContext> = {}): RestoreContext => {
   return {
     config: CONFIG,
     apps: [],
-    resolveAscWriteClient: () => Promise.resolve(null),
-    resolvePlayWriteClient: () => Promise.resolve(null),
+    resolveAscWriteClient: () => Effect.succeed(null),
+    resolvePlayWriteClient: () => Effect.succeed(null),
     ...over,
   };
-}
-
+};
 describe('playProductsSource.restore', () => {
-  /** One app's captured managed product — the same shape `playProductsSource.capture` records. */
+  /** One app's captured managed product - the same shape `playProductsSource.capture` records. */
   const savedProducts: AppEntities[] = [
     {
       app: 'alpha',
@@ -491,46 +485,43 @@ describe('playProductsSource.restore', () => {
       ],
     },
   ];
-
   /** Narrow the optional `restore` to a callable, failing the test if the source ever drops it. */
   function restoreOf(): NonNullable<typeof playProductsSource.restore> {
     const restore = playProductsSource.restore;
     if (!restore) throw new Error('expected playProductsSource to implement restore');
     return restore;
   }
-
   function input(over: Partial<RestoreInput>): RestoreInput {
     return { ctx: restoreCtx(), saved: savedProducts, dryRun: true, ...over };
   }
-
   it('skips with no writes when no Play service account is configured', async () => {
-    const report = await restoreOf()(input({}));
+    const report = await runRestore(restoreOf(), input({}));
     expect(report.actions).toEqual([
       {
-        description: 'Google Play products: skipped — no Play service account',
+        description: 'Google Play products: skipped - no Play service account',
         destructive: false,
         status: 'skipped',
       },
     ]);
   });
-
   it('plans a create in a dry-run without inserting', async () => {
     const api = makePlayApi();
-    const report = await restoreOf()(
-      input({ ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }) }),
+    const report = await runRestore(
+      restoreOf(),
+      input({ ctx: restoreCtx({ resolvePlayWriteClient: () => Effect.succeed(api) }) }),
     );
     expect(report.actions).toEqual([
       { description: 'create Play product coins', destructive: false, status: 'planned' },
     ]);
     expect(api.insertInAppProduct).toHaveBeenCalledTimes(0);
   });
-
   it('applies a create, inverting the captured listing and default price', async () => {
     const api = makePlayApi();
-    const report = await restoreOf()(
+    const report = await runRestore(
+      restoreOf(),
       input({
         dryRun: false,
-        ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }),
+        ctx: restoreCtx({ resolvePlayWriteClient: () => Effect.succeed(api) }),
       }),
     );
     expect(api.insertInAppProduct).toHaveBeenCalledWith(
@@ -543,12 +534,12 @@ describe('playProductsSource.restore', () => {
     );
     expect(report.actions.every((action) => action.status === 'applied')).toBe(true);
   });
-
   it('skips a product with no captured listing', async () => {
     const api = makePlayApi();
-    const report = await restoreOf()(
+    const report = await runRestore(
+      restoreOf(),
       input({
-        ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }),
+        ctx: restoreCtx({ resolvePlayWriteClient: () => Effect.succeed(api) }),
         saved: [
           {
             app: 'alpha',
@@ -560,7 +551,7 @@ describe('playProductsSource.restore', () => {
     );
     expect(report.actions).toEqual([
       {
-        description: 'Play product coins: skipped — no listing to restore',
+        description: 'Play product coins: skipped - no listing to restore',
         destructive: false,
         status: 'skipped',
       },
@@ -568,9 +559,8 @@ describe('playProductsSource.restore', () => {
     expect(api.insertInAppProduct).toHaveBeenCalledTimes(0);
   });
 });
-
 describe('playSubscriptionsSource.restore', () => {
-  /** One app's captured subscription — the same shape `playSubscriptionsSource.capture` records. */
+  /** One app's captured subscription - the same shape `playSubscriptionsSource.capture` records. */
   const savedSubs: AppEntities[] = [
     {
       app: 'alpha',
@@ -595,33 +585,30 @@ describe('playSubscriptionsSource.restore', () => {
       ],
     },
   ];
-
   /** Narrow the optional `restore` to a callable, failing the test if the source ever drops it. */
   function restoreOf(): NonNullable<typeof playSubscriptionsSource.restore> {
     const restore = playSubscriptionsSource.restore;
     if (!restore) throw new Error('expected playSubscriptionsSource to implement restore');
     return restore;
   }
-
   function input(over: Partial<RestoreInput>): RestoreInput {
     return { ctx: restoreCtx(), saved: savedSubs, dryRun: true, ...over };
   }
-
   it('skips with no writes when no Play service account is configured', async () => {
-    const report = await restoreOf()(input({}));
+    const report = await runRestore(restoreOf(), input({}));
     expect(report.actions).toEqual([
       {
-        description: 'Google Play subscriptions: skipped — no Play service account',
+        description: 'Google Play subscriptions: skipped - no Play service account',
         destructive: false,
         status: 'skipped',
       },
     ]);
   });
-
   it('plans the create + base-plan activation in a dry-run without writing', async () => {
     const api = makePlayApi();
-    const report = await restoreOf()(
-      input({ ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }) }),
+    const report = await runRestore(
+      restoreOf(),
+      input({ ctx: restoreCtx({ resolvePlayWriteClient: () => Effect.succeed(api) }) }),
     );
     const descriptions = report.actions.map((action) => action.description);
     expect(descriptions).toEqual([
@@ -631,13 +618,13 @@ describe('playSubscriptionsSource.restore', () => {
     expect(report.actions.every((action) => action.status === 'planned')).toBe(true);
     expect(api.createSubscription).toHaveBeenCalledTimes(0);
   });
-
   it("applies the create, inverting the base plan's period and prices", async () => {
     const api = makePlayApi();
-    await restoreOf()(
+    await runRestore(
+      restoreOf(),
       input({
         dryRun: false,
-        ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }),
+        ctx: restoreCtx({ resolvePlayWriteClient: () => Effect.succeed(api) }),
       }),
     );
     expect(api.createSubscription).toHaveBeenCalledWith(
@@ -646,12 +633,12 @@ describe('playSubscriptionsSource.restore', () => {
     );
     expect(api.activateBasePlan).toHaveBeenCalledWith('com.acme.alpha', 'sub.pro', 'monthly');
   });
-
   it('skips a subscription whose base plan has no known period or prices', async () => {
     const api = makePlayApi();
-    const report = await restoreOf()(
+    const report = await runRestore(
+      restoreOf(),
       input({
-        ctx: restoreCtx({ resolvePlayWriteClient: () => Promise.resolve(api) }),
+        ctx: restoreCtx({ resolvePlayWriteClient: () => Effect.succeed(api) }),
         saved: [
           {
             app: 'alpha',
@@ -670,7 +657,7 @@ describe('playSubscriptionsSource.restore', () => {
     expect(report.actions).toEqual([
       {
         description:
-          'Play subscription sub.pro: skipped — needs a base plan with a known period and prices',
+          'Play subscription sub.pro: skipped - needs a base plan with a known period and prices',
         destructive: false,
         status: 'skipped',
       },

@@ -1,40 +1,31 @@
-/**
- * The App Store **experiments** plan surface: an app's declared product-page A/B experiments and their
- * treatment arms. Wraps `launch experiments`'s reconciler ({@link reconcileVersionExperiments}) in
- * dry-run, reading desired state from the `experiments.config.json` sidecar (its path overridable via
- * `configFiles.experiments`). Additive: the reconciler creates declared experiments/treatments it can't
- * find but never removes one, so a `= in sync` result means "config is fully applied," not that no extra
- * experiments exist in the portal.
- *
- * Sidecar-only — no typed `LaunchConfig` field — so the same single file applies to every in-scope app;
- * absent file ⇒ the surface is omitted.
- */
-
-import { resolveSidecarConfig } from '../../config/config.js';
 import {
-  loadVersionExperimentsConfig,
+  parseVersionExperimentsConfig,
   reconcileVersionExperiments,
-} from '../../release/versionExperiments.js';
+} from '@core/release/versionExperiments.js';
+import { resolveStoreSurfaceSection } from '@core/store/appStoreSurfaceCommand.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '../../types/index.js';
-
-/** Surface id — also the value users pass as `launch plan experiments`. */
+import type { SurfacePlanner } from '@core/types/plan.js';
+/** Surface id - also the value users pass as `launch plan experiments`. */
 const SURFACE = 'experiments';
-
 export const experimentsPlanner: SurfacePlanner = {
   id: SURFACE,
   store: 'appstore',
-  plan: (ctx) =>
-    planAppStoreSurface(ctx, {
+  plan: (planContext) =>
+    planAppStoreSurface(planContext, {
       surface: SURFACE,
       direction: 'additive',
-      configFor: () =>
-        resolveSidecarConfig({
-          typed: undefined,
-          configPath: ctx.config.configFiles?.experiments ?? 'experiments.config.json',
-          explicitPath: false,
-          load: loadVersionExperimentsConfig,
-        }),
+      configFor: () => {
+        let configPath = 'experiments.config.json';
+        if (planContext.config.configFiles?.experiments !== undefined) {
+          configPath = planContext.config.configFiles.experiments;
+        }
+        return resolveStoreSurfaceSection(
+          undefined,
+          configPath,
+          false,
+          parseVersionExperimentsConfig,
+        );
+      },
       reconcile: (api, bundleId, config) =>
         reconcileVersionExperiments(api, { bundleId, config, dryRun: true }),
     }),

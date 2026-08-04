@@ -1,298 +1,263 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { generateKeyPairSync } from 'node:crypto';
-import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.js';
+import { Effect } from 'effect';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  GooglePlayClient,
-  PlayAppNotFoundError,
   describePlayErrors,
+  GooglePlayClient,
   parseServiceAccount,
+  type GooglePlayTransport,
 } from './playClient.js';
-
-/** A real RSA PKCS#8 key so `jose` can actually sign — the client mints a genuine RS256 assertion. */
-function makeServiceAccountJson(): string {
-  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+/** Minimal valid service-account JSON for adapter construction. */
+const makeServiceAccountJson = (): string => {
   return JSON.stringify({
     type: 'service_account',
     client_email: 'launch@proj.iam.gserviceaccount.com',
-    private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+    private_key: '-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----',
     private_key_id: 'kid-123',
     token_uri: 'https://oauth2.googleapis.com/token',
   });
-}
-
-/** Minimal stand-in for the parts of `Response` the client reads. */
-function fakeResponse(status: number, body: string) {
-  return { status, ok: status >= 200 && status < 300, text: () => Promise.resolve(body) };
-}
-
-/** Decode a JWT payload (no verification needed — we only assert the claims we set). */
-function decodeJwtPayload(token: string): Record<string, unknown> {
-  const payload = token.split('.')[1];
-  return JSON.parse(Buffer.from(expectDefined(payload, 'JWT payload'), 'base64url').toString());
-}
-
+};
+const insertEdit = vi.fn();
+const commitEdit = vi.fn();
+const deleteEdit = vi.fn();
+const listBundles = vi.fn();
+const convertRegionPrices = vi.fn();
+const unusedGeneratedRequest = vi.fn();
+/** Build the generated-client slice exercised by this adapter test. */
+const generatedPublisherFake = (): GooglePlayTransport => {
+  return {
+    edits: {
+      insert: insertEdit,
+      commit: commitEdit,
+      delete: deleteEdit,
+      bundles: { list: listBundles },
+      tracks: {
+        get: unusedGeneratedRequest,
+        list: unusedGeneratedRequest,
+        update: unusedGeneratedRequest,
+      },
+      testers: { get: unusedGeneratedRequest, update: unusedGeneratedRequest },
+      countryavailability: { get: unusedGeneratedRequest },
+    },
+    inappproducts: {
+      list: unusedGeneratedRequest,
+      insert: unusedGeneratedRequest,
+      update: unusedGeneratedRequest,
+    },
+    monetization: {
+      convertRegionPrices,
+      subscriptions: {
+        list: unusedGeneratedRequest,
+        create: unusedGeneratedRequest,
+        patch: unusedGeneratedRequest,
+        basePlans: {
+          activate: unusedGeneratedRequest,
+          offers: {
+            list: unusedGeneratedRequest,
+            create: unusedGeneratedRequest,
+            activate: unusedGeneratedRequest,
+          },
+        },
+      },
+    },
+    reviews: {
+      list: unusedGeneratedRequest,
+      get: unusedGeneratedRequest,
+      reply: unusedGeneratedRequest,
+    },
+  };
+};
+let client: GooglePlayClient;
+beforeEach(() => {
+  vi.clearAllMocks();
+  client = new GooglePlayClient(
+    Effect.runSync(parseServiceAccount(makeServiceAccountJson())),
+    generatedPublisherFake(),
+  );
+});
 describe('parseServiceAccount', () => {
   it('extracts the fields Launch needs from a valid key', () => {
-    const account = parseServiceAccount(makeServiceAccountJson());
+    const account = Effect.runSync(parseServiceAccount(makeServiceAccountJson()));
     expect(account.clientEmail).toBe('launch@proj.iam.gserviceaccount.com');
     expect(account.privateKey).toContain('PRIVATE KEY');
     expect(account.tokenUri).toBe('https://oauth2.googleapis.com/token');
     expect(account.privateKeyId).toBe('kid-123');
   });
-
   it('defaults the token endpoint when absent', () => {
-    const account = parseServiceAccount(
-      JSON.stringify({
-        client_email: 'a@b.iam',
-        private_key: '-----BEGIN PRIVATE KEY-----\nx\n-----END PRIVATE KEY-----',
-      }),
+    const account = Effect.runSync(
+      parseServiceAccount(
+        JSON.stringify({
+          client_email: 'a@b.iam',
+          private_key: '-----BEGIN PRIVATE KEY-----\nx\n-----END PRIVATE KEY-----',
+        }),
+      ),
     );
     expect(account.tokenUri).toBe('https://oauth2.googleapis.com/token');
   });
-
-  it('rejects non-JSON and the wrong kind of key with an actionable error', () => {
-    expect(() => parseServiceAccount('not json')).toThrow(/not valid JSON/);
-    expect(() => parseServiceAccount(JSON.stringify({ type: 'authorized_user' }))).toThrow(
-      /client_email.*private_key/,
-    );
+  it('rejects non-JSON and the wrong key kind with actionable text', async () => {
+    await expect(Effect.runPromise(parseServiceAccount('not json'))).rejects.toMatchObject({
+      message: expect.stringMatching(/not valid JSON/),
+    });
+    await expect(
+      Effect.runPromise(parseServiceAccount(JSON.stringify({ type: 'authorized_user' }))),
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/client_email.*private_key/),
+    });
   });
 });
-
 describe('describePlayErrors', () => {
   it("extracts Google's error message", () => {
     expect(
       describePlayErrors(JSON.stringify({ error: { message: 'The app was not found.' } })),
     ).toBe('The app was not found.');
   });
-
   it('flags a sensitive-permission rejection with the fix', () => {
-    const body = JSON.stringify({ error: { message: 'Your app uses a sensitive permission.' } });
-    expect(describePlayErrors(body)).toMatch(/Permissions Declaration/);
+    const errorText = JSON.stringify({
+      error: { message: 'Your app uses a sensitive permission.' },
+    });
+    expect(describePlayErrors(errorText)).toMatch(/Permissions Declaration/);
   });
-
   it('falls back to raw text, then a placeholder when empty', () => {
     expect(describePlayErrors('plain failure')).toBe('plain failure');
     expect(describePlayErrors('')).toBe('no response body');
   });
 });
-
-const fetchMock = vi.fn();
-let client: GooglePlayClient;
-
-beforeEach(() => {
-  fetchMock.mockReset();
-  vi.stubGlobal('fetch', fetchMock);
-  client = new GooglePlayClient(parseServiceAccount(makeServiceAccountJson()));
-});
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
-
-describe('GooglePlayClient — auth + reads', () => {
-  it('exchanges a JWT-bearer assertion for a token, then returns the highest versionCode', async () => {
-    fetchMock
-      .mockResolvedValueOnce(
-        fakeResponse(200, JSON.stringify({ access_token: 'tok', expires_in: 3600 })),
-      )
-      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ id: 'edit1' })))
-      .mockResolvedValueOnce(
-        fakeResponse(200, JSON.stringify({ bundles: [{ versionCode: 3 }, { versionCode: 7 }] })),
-      )
-      .mockResolvedValueOnce(fakeResponse(204, ''));
-
-    expect(await client.getLatestVersionCode('com.example.hello')).toBe(7);
-
-    // The first call is the token exchange, carrying a JWT-bearer assertion bound to the account.
-    const [tokenUrl, tokenInit] = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
-    expect(tokenUrl).toBe('https://oauth2.googleapis.com/token');
-    const assertion = expectDefined(
-      (tokenInit.body as URLSearchParams).get('assertion'),
-      'JWT assertion',
-    );
-    expect((tokenInit.body as URLSearchParams).get('grant_type')).toBe(
-      'urn:ietf:params:oauth:grant-type:jwt-bearer',
-    );
-    const payload = decodeJwtPayload(assertion);
-    expect(payload['iss']).toBe('launch@proj.iam.gserviceaccount.com');
-    expect(payload['scope']).toBe('https://www.googleapis.com/auth/androidpublisher');
-    expect(payload['aud']).toBe('https://oauth2.googleapis.com/token');
-
-    // The edit call carries the resolved bearer token.
-    const [editUrl, editInit] = expectArrayElement(fetchMock.mock.calls, 1, 'mock call');
-    expect(editUrl).toContain('/applications/com.example.hello/edits');
-    expect((editInit.headers as Record<string, string>)['Authorization']).toBe('Bearer tok');
+describe('GooglePlayClient generated reads', () => {
+  it('returns the highest uploaded version code and abandons the read edit', async () => {
+    insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
+    listBundles.mockResolvedValue({
+      data: { bundles: [{ versionCode: 3 }, { versionCode: 7 }] },
+    });
+    deleteEdit.mockResolvedValue({ data: undefined });
+    expect(await Effect.runPromise(client.getLatestVersionCode('com.example.hello'))).toBe(7);
+    expect(insertEdit).toHaveBeenCalledWith({ packageName: 'com.example.hello' });
+    expect(listBundles).toHaveBeenCalledWith({
+      packageName: 'com.example.hello',
+      editId: 'edit1',
+    });
+    expect(deleteEdit).toHaveBeenCalledWith({
+      packageName: 'com.example.hello',
+      editId: 'edit1',
+    });
   });
-
-  it('reports zero when no bundles have been uploaded yet', async () => {
-    fetchMock
-      .mockResolvedValueOnce(
-        fakeResponse(200, JSON.stringify({ access_token: 'tok', expires_in: 3600 })),
-      )
-      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ id: 'edit1' })))
-      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({})))
-      .mockResolvedValueOnce(fakeResponse(204, ''));
-
-    expect(await client.getLatestVersionCode('com.example.fresh')).toBe(0);
+  it('reports zero when no bundles have been uploaded', async () => {
+    insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
+    listBundles.mockResolvedValue({ data: {} });
+    deleteEdit.mockResolvedValue({ data: undefined });
+    expect(await Effect.runPromise(client.getLatestVersionCode('com.example.fresh'))).toBe(0);
   });
-
-  it('raises PlayAppNotFoundError when the app record is missing (404 on edit creation)', async () => {
-    fetchMock
-      .mockResolvedValueOnce(
-        fakeResponse(200, JSON.stringify({ access_token: 'tok', expires_in: 3600 })),
-      )
-      .mockResolvedValueOnce(
-        fakeResponse(404, JSON.stringify({ error: { message: 'Application not found.' } })),
-      );
-
-    await expect(client.assertAppExists('com.example.missing')).rejects.toBeInstanceOf(
-      PlayAppNotFoundError,
+  it('raises PlayAppNotFoundError when edit creation reports a missing app', async () => {
+    insertEdit.mockRejectedValue(
+      Object.assign(new Error('Application not found.'), { status: 404 }),
     );
+    const appLookupFailure = await Effect.runPromise(
+      Effect.flip(client.assertAppExists('com.example.missing')),
+    );
+    expect(appLookupFailure).toMatchObject({ _tag: 'PlayAppNotFoundError' });
   });
 });
-
-/** Map recorded fetch calls to `"METHOD url"` strings for asserting the edit lifecycle. */
-function calledRoutes(): string[] {
-  return fetchMock.mock.calls.map(
-    (call) =>
-      `${(call[1] as { method?: string } | undefined)?.method ?? 'GET'} ${call[0] as string}`,
-  );
-}
-
-describe('GooglePlayClient.withEdit (transactional writes)', () => {
-  it('opens an edit, runs the writes, then commits — no rollback', async () => {
-    fetchMock
-      .mockResolvedValueOnce(
-        fakeResponse(200, JSON.stringify({ access_token: 'tok', expires_in: 3600 })),
-      )
-      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ id: 'edit1' }))) // createEdit
-      .mockResolvedValueOnce(fakeResponse(204, '')); // commitEdit
-
-    const result = await client.withEdit('com.example.app', (editId) => Promise.resolve(editId));
-
-    expect(result).toBe('edit1');
-    const routes = calledRoutes();
-    expect(routes.some((route) => route.includes('/edits') && route.startsWith('POST'))).toBe(true);
-    expect(routes.some((route) => route.includes(':commit'))).toBe(true);
-    expect(routes.some((route) => route.startsWith('DELETE'))).toBe(false);
+describe('GooglePlayClient.withEdit', () => {
+  it('opens an edit, applies the write, then commits', async () => {
+    insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
+    commitEdit.mockResolvedValue({ data: {} });
+    const appliedEditId = await Effect.runPromise(
+      client.withEdit('com.example.app', (editId) => Effect.succeed(editId)),
+    );
+    expect(appliedEditId).toBe('edit1');
+    expect(commitEdit).toHaveBeenCalledWith({ packageName: 'com.example.app', editId: 'edit1' });
+    expect(deleteEdit).not.toHaveBeenCalled();
   });
-
-  it('abandons the edit (DELETE, no commit) when the writes throw, and re-throws', async () => {
-    fetchMock
-      .mockResolvedValueOnce(
-        fakeResponse(200, JSON.stringify({ access_token: 'tok', expires_in: 3600 })),
-      )
-      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ id: 'edit1' }))) // createEdit
-      .mockResolvedValueOnce(fakeResponse(204, '')); // deleteEdit (rollback)
-
+  it('abandons the edit when the write fails', async () => {
+    insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
+    deleteEdit.mockResolvedValue({ data: undefined });
     await expect(
-      client.withEdit('com.example.app', () => Promise.reject(new Error('boom'))),
+      Effect.runPromise(client.withEdit('com.example.app', () => Effect.fail(new Error('boom')))),
     ).rejects.toThrow('boom');
-
-    const routes = calledRoutes();
-    expect(routes.some((route) => route.includes(':commit'))).toBe(false);
-    expect(routes.some((route) => route.startsWith('DELETE'))).toBe(true);
+    expect(commitEdit).not.toHaveBeenCalled();
+    expect(deleteEdit).toHaveBeenCalledWith({ packageName: 'com.example.app', editId: 'edit1' });
   });
 });
-
 describe('GooglePlayClient.convertRegionPrices', () => {
-  it('POSTs the base price and normalizes the response into sorted regions + fallback', async () => {
-    fetchMock
-      .mockResolvedValueOnce(
-        fakeResponse(200, JSON.stringify({ access_token: 'tok', expires_in: 3600 })),
-      )
-      .mockResolvedValueOnce(
-        fakeResponse(
-          200,
-          JSON.stringify({
-            convertedRegionPrices: {
-              // Deliberately out of order to prove the client sorts by region code.
-              US: {
-                regionCode: 'US',
-                price: { currencyCode: 'USD', units: '4', nanos: 990000000 },
-                taxAmount: {},
-              },
-              DE: {
-                regionCode: 'DE',
-                price: { currencyCode: 'EUR', units: '4', nanos: 490000000 },
-              },
-              JP: { regionCode: 'JP', price: { currencyCode: 'JPY', units: '600', nanos: 0 } },
-            },
-            convertedOtherRegionsPrice: {
-              usdPrice: { currencyCode: 'USD', units: '4', nanos: 990000000 },
-              eurPrice: { currencyCode: 'EUR', units: '4', nanos: 490000000 },
-            },
-          }),
-        ),
-      );
-
-    const result = await client.convertRegionPrices('com.example.app', {
-      currencyCode: 'USD',
-      units: '4',
-      nanos: 990000000,
+  it('normalizes generated prices into sorted regions and fallback money', async () => {
+    convertRegionPrices.mockResolvedValue({
+      data: {
+        convertedRegionPrices: {
+          US: {
+            regionCode: 'US',
+            price: { currencyCode: 'USD', units: '4', nanos: 990000000 },
+          },
+          DE: {
+            regionCode: 'DE',
+            price: { currencyCode: 'EUR', units: '4', nanos: 490000000 },
+          },
+          JP: { regionCode: 'JP', price: { currencyCode: 'JPY', units: '600', nanos: 0 } },
+        },
+        convertedOtherRegionsPrice: {
+          usdPrice: { currencyCode: 'USD', units: '4', nanos: 990000000 },
+          eurPrice: { currencyCode: 'EUR', units: '4', nanos: 490000000 },
+        },
+      },
     });
-
-    // It's a direct (non-edit-scoped) POST to the pricing endpoint, carrying the price in the body.
-    const [url, init] = expectArrayElement(fetchMock.mock.calls, 1, 'mock call');
-    expect(url).toContain('/applications/com.example.app/pricing:convertRegionPrices');
-    expect((init as { method?: string }).method).toBe('POST');
-    expect(JSON.parse((init as { body: string }).body)).toEqual({
-      price: { currencyCode: 'USD', units: '4', nanos: 990000000 },
+    const convertedPrices = await Effect.runPromise(
+      client.convertRegionPrices('com.example.app', {
+        currencyCode: 'USD',
+        units: '4',
+        nanos: 990000000,
+      }),
+    );
+    expect(convertRegionPrices).toHaveBeenCalledWith({
+      packageName: 'com.example.app',
+      requestBody: {
+        price: { currencyCode: 'USD', units: '4', nanos: 990000000 },
+      },
     });
-
-    expect(result.regions.map((r) => r.regionCode)).toEqual(['DE', 'JP', 'US']);
-    expect(result.regions[2]).toEqual({
+    expect(convertedPrices.regions.map((regionPrice) => regionPrice.regionCode)).toEqual([
+      'DE',
+      'JP',
+      'US',
+    ]);
+    expect(convertedPrices.regions[2]).toEqual({
       regionCode: 'US',
       price: { currencyCode: 'USD', units: '4', nanos: 990000000 },
     });
-    expect(result.otherRegions?.usdPrice.units).toBe('4');
-    expect(result.otherRegions?.eurPrice.currencyCode).toBe('EUR');
+    expect(convertedPrices.otherRegions?.usdPrice.units).toBe('4');
+    expect(convertedPrices.otherRegions?.eurPrice.currencyCode).toBe('EUR');
   });
-
-  it('drops entries without a region code, coerces missing money parts to zero, and omits an absent fallback', async () => {
-    fetchMock
-      .mockResolvedValueOnce(
-        fakeResponse(200, JSON.stringify({ access_token: 'tok', expires_in: 3600 })),
-      )
-      .mockResolvedValueOnce(
-        fakeResponse(
-          200,
-          JSON.stringify({
-            convertedRegionPrices: {
-              GB: { regionCode: 'GB', price: { currencyCode: 'GBP' } }, // units/nanos missing on the wire
-              '': { price: { currencyCode: 'USD', units: '1', nanos: 0 } }, // no regionCode → dropped
-            },
-          }),
-        ),
-      );
-
-    const result = await client.convertRegionPrices('com.example.app', {
-      currencyCode: 'USD',
-      units: '1',
-      nanos: 0,
+  it('drops missing region codes, fills missing money fields, and omits absent fallback', async () => {
+    convertRegionPrices.mockResolvedValue({
+      data: {
+        convertedRegionPrices: {
+          GB: { regionCode: 'GB', price: { currencyCode: 'GBP' } },
+          missing: { price: { currencyCode: 'USD', units: '1', nanos: 0 } },
+        },
+      },
     });
-
-    expect(result.regions).toEqual([
+    const convertedPrices = await Effect.runPromise(
+      client.convertRegionPrices('com.example.app', {
+        currencyCode: 'USD',
+        units: '1',
+        nanos: 0,
+      }),
+    );
+    expect(convertedPrices.regions).toEqual([
       { regionCode: 'GB', price: { currencyCode: 'GBP', units: '0', nanos: 0 } },
     ]);
-    expect(result.otherRegions).toBeUndefined();
+    expect(convertedPrices.otherRegions).toBeUndefined();
   });
-
-  it('includes productTaxCategoryCode in the body when given', async () => {
-    fetchMock
-      .mockResolvedValueOnce(
-        fakeResponse(200, JSON.stringify({ access_token: 'tok', expires_in: 3600 })),
-      )
-      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ convertedRegionPrices: {} })));
-
-    await client.convertRegionPrices(
-      'com.example.app',
-      { currencyCode: 'USD', units: '4', nanos: 0 },
-      'TAX_CATEGORY',
+  it('passes the optional product tax category to the generated request', async () => {
+    convertRegionPrices.mockResolvedValue({ data: { convertedRegionPrices: {} } });
+    await Effect.runPromise(
+      client.convertRegionPrices(
+        'com.example.app',
+        { currencyCode: 'USD', units: '4', nanos: 0 },
+        'TAX_CATEGORY',
+      ),
     );
-
-    const body = JSON.parse(
-      (expectArrayElement(fetchMock.mock.calls, 1, 'mock call')[1] as { body: string }).body,
-    );
-    expect(body.productTaxCategoryCode).toBe('TAX_CATEGORY');
+    expect(convertRegionPrices).toHaveBeenCalledWith({
+      packageName: 'com.example.app',
+      requestBody: {
+        price: { currencyCode: 'USD', units: '4', nanos: 0 },
+        productTaxCategoryCode: 'TAX_CATEGORY',
+      },
+    });
   });
 });

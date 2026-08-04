@@ -1,16 +1,7 @@
-/**
- * Probe: has each Android app received its **first build upload**? Google Play blocks API-driven
- * submission until at least one build has been uploaded (historically a manual Play Console upload), so a
- * brand-new app with valid credentials still can't be released by `launch` until this is satisfied.
- * `getLatestVersionCode` returns `0` when no bundle has been uploaded — the blocker signal — reusing the
- * same reader `launch status` uses. A read failure here is mapped to a `warn` (the app-access probe owns
- * the "app missing" blocker) so it never double-reports or errors the run.
- */
-
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../../types/index.js';
+import type { ProbeResult, ReadinessContext, ReadinessProbe } from '@core/types/readiness.js';
+import { errorMessage } from '@core/services/errorMessage.js';
 import { Effect } from 'effect';
 import { androidApps } from '../appScopes.js';
-
 /** The Google Play first-upload readiness probe. */
 export const playFirstUploadProbe = {
   id: 'play-first-upload',
@@ -27,11 +18,7 @@ export const playFirstUploadProbe = {
     return Effect.gen(function* () {
       const apps = androidApps(readinessContext.apps);
       if (apps.length === 0) return { state: 'omitted' };
-
-      const api = yield* Effect.tryPromise({
-        try: () => readinessContext.resolvePlayApi(),
-        catch: (resolverFailure) => resolverFailure,
-      });
+      const api = yield* readinessContext.resolvePlayApi();
       if (!api) {
         return {
           state: 'skipped',
@@ -39,37 +26,34 @@ export const playFirstUploadProbe = {
           hint: 'configure a Play service account',
         };
       }
-
       const results = yield* Effect.forEach(
         apps,
         ({ name, identifier }) =>
-          Effect.tryPromise({
-            try: () => api.getLatestVersionCode(identifier),
-            catch: (apiFailure) => apiFailure,
-          }).pipe(
-            Effect.map((versionCode) =>
-              versionCode > 0
-                ? {
-                    app: name,
-                    identifier,
-                    status: 'ok' as const,
-                    detail: `latest uploaded versionCode ${versionCode}`,
-                  }
-                : {
-                    app: name,
-                    identifier,
-                    status: 'blocker' as const,
-                    detail:
-                      'no uploaded build — Play blocks API submission until the first build is uploaded',
-                    hint: 'upload the first build once in Play Console (a manual AAB upload satisfies this)',
-                  },
-            ),
+          api.getLatestVersionCode(identifier).pipe(
+            Effect.map((versionCode) => {
+              if (versionCode > 0) {
+                return {
+                  app: name,
+                  identifier,
+                  status: 'ok' as const,
+                  detail: `latest uploaded versionCode ${versionCode}`,
+                };
+              }
+              return {
+                app: name,
+                identifier,
+                status: 'blocker' as const,
+                detail:
+                  'no uploaded build - Play blocks API submission until the first build is uploaded',
+                hint: 'upload the first build once in Play Console (a manual AAB upload satisfies this)',
+              };
+            }),
             Effect.catchAll((apiFailure) =>
               Effect.succeed({
                 app: name,
                 identifier,
                 status: 'warn' as const,
-                detail: `could not read uploads: ${apiFailure instanceof Error ? apiFailure.message : String(apiFailure)}`,
+                detail: `could not read uploads: ${errorMessage(apiFailure)}`,
                 hint: 'confirm the app exists and the service account has access (see the app-access check)',
               }),
             ),

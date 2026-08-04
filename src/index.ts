@@ -1,44 +1,37 @@
-/**
- * Public API of the `launch-store` package — what a user's `launch.config.ts` imports.
- *
- * Re-exports only: the `defineConfig` helper for authoring a typed config, plus the config-shape
- * types so editors give completion and type-checking. The CLI itself is the `launch` bin; this entry
- * exists so `import { defineConfig } from "launch-store"` resolves in a consumer's config file.
- */
-
 export { defineConfig } from './core/config/config.js';
 export type { LaunchConfigInput } from './core/config/config.js';
+export type { BuildProfile, PlayTrack } from './core/types/app.js';
 export type {
-  LaunchConfig,
-  BuildProfile,
-  PlayTrack,
-  ReleaseConfig,
-  ReleaseType,
   AppProducts,
-  SubscriptionGroupConfig,
-  SubscriptionConfig,
-  PlaySubscriptionOverride,
-  PlaySubscriptionOfferConfig,
-  InAppPurchaseConfig,
-  PlayProductOverride,
-  PlayPriceConfig,
-  ProductLocalization,
   GroupLocalization,
-  ProductPrice,
-  SubscriptionPeriod,
+  InAppPurchaseConfig,
   InAppPurchaseType,
-  GameCenterConfig,
+  PlayPriceConfig,
+  PlayProductOverride,
+  PlaySubscriptionOfferConfig,
+  PlaySubscriptionOverride,
+  ProductLocalization,
+  ProductPrice,
+  SubscriptionConfig,
+  SubscriptionGroupConfig,
+  SubscriptionPeriod,
+} from './core/types/catalog.js';
+export type { LaunchConfig } from './core/types/config.js';
+export type {
   AchievementConfig,
-  LeaderboardConfig,
-  AppClipsConfig,
   AppClipConfig,
   AppClipLocalizationConfig,
+  AppClipsConfig,
   EuDistributionConfig,
   EuDistributionDomainConfig,
-  WalletConfig,
-  WalletIdConfig,
+  GameCenterConfig,
+  LeaderboardConfig,
   ReleaseAttributesConfig,
   ReleaseCategories,
+  ReleaseConfig,
   ReleasePricing,
+  ReleaseType,
   ReviewDetailsConfig,
-} from './core/types/index.js';
+  WalletConfig,
+  WalletIdConfig,
+} from './core/types/storeSurface.js';

@@ -1,13 +1,10 @@
-/**
- * Tests for the shared iOS signing preflight (#261) — readiness gathering, extension resolution,
- * and the doctor/build message surfaces.
- */
-
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import type { AppDescriptor } from '../types/index.js';
+import { NodeContext } from '@effect/platform-node';
+import { Effect } from 'effect';
+import type { AppDescriptor } from '../types/app.js';
 import {
   appGroupPreflightNotice,
   gatherTargetSigningReadiness,
@@ -15,8 +12,7 @@ import {
   signingPreflightDoctorChecks,
   signingPreflightWarnings,
 } from './signingPreflight.js';
-
-/** Minimal realistic pbxproj fixture — same shape as {@link appleTargets.test.ts}. */
+/** Minimal realistic pbxproj fixture - same shape as {@link appleTargets.test.ts}. */
 const APP_WITH_WIDGET_PBXPROJ = `// !$*UTF8*$!
 {
 	objects = {
@@ -77,8 +73,7 @@ const APP_WITH_WIDGET_PBXPROJ = `// !$*UTF8*$!
 	};
 }
 `;
-
-function app(overrides: Partial<AppDescriptor> = {}): AppDescriptor {
+const app = (overrides: Partial<AppDescriptor> = {}): AppDescriptor => {
   return {
     name: 'sampleapp',
     dir: '/apps/sampleapp',
@@ -86,38 +81,44 @@ function app(overrides: Partial<AppDescriptor> = {}): AppDescriptor {
     bundleId: 'com.example.sampleapp',
     ...overrides,
   };
-}
-
+};
 describe('resolveExtensionBundleIdsForApp', () => {
-  it('returns configured extensions when ios/ has not been generated yet', () => {
+  it('returns configured extensions when ios/ has not been generated yet', async () => {
     const root = mkdtempSync(join(tmpdir(), 'launch-preflight-'));
     try {
-      expect(
-        resolveExtensionBundleIdsForApp(
-          app({ dir: join(root, 'app'), iosExtensions: ['com.example.sampleapp.widget'] }),
+      await expect(
+        Effect.runPromise(
+          resolveExtensionBundleIdsForApp(
+            app({
+              dir: join(root, 'app'),
+              iosExtensions: ['com.example.sampleapp.widget'],
+            }),
+          ).pipe(Effect.provide(NodeContext.layer)),
         ),
-      ).toEqual(['com.example.sampleapp.widget']);
+      ).resolves.toEqual(['com.example.sampleapp.widget']);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
-
-  it('discovers widget extensions from a generated ios/ project', () => {
+  it('discovers widget extensions from a generated ios/ project', async () => {
     const root = mkdtempSync(join(tmpdir(), 'launch-preflight-'));
     try {
       const appDir = join(root, 'app');
       const projectDir = join(appDir, 'ios', 'SampleApp.xcodeproj');
       mkdirSync(projectDir, { recursive: true });
       writeFileSync(join(projectDir, 'project.pbxproj'), APP_WITH_WIDGET_PBXPROJ);
-      expect(resolveExtensionBundleIdsForApp(app({ dir: appDir }))).toEqual([
-        'com.example.sampleapp.widget',
-      ]);
+      await expect(
+        Effect.runPromise(
+          resolveExtensionBundleIdsForApp(app({ dir: appDir })).pipe(
+            Effect.provide(NodeContext.layer),
+          ),
+        ),
+      ).resolves.toEqual(['com.example.sampleapp.widget']);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
   });
 });
-
 describe('appGroupPreflightNotice', () => {
   it('returns the portal notice when App Groups are declared', () => {
     const notice = appGroupPreflightNotice({
@@ -127,25 +128,27 @@ describe('appGroupPreflightNotice', () => {
     expect(notice).toContain('portal-only');
     expect(notice).toContain('exit 65');
   });
-
   it('is null when no App Groups are declared', () => {
     expect(appGroupPreflightNotice(undefined)).toBeNull();
   });
 });
-
 describe('gatherTargetSigningReadiness', () => {
   it('marks an unregistered extension and a main app missing APP_GROUPS', async () => {
     const asc = {
-      findBundleId: vi.fn(async (id: string) =>
-        id === 'com.example.sampleapp' ? { id: 'bid-main' } : null,
+      findBundleId: vi.fn((id: string) =>
+        Effect.sync(() => {
+          if (id === 'com.example.sampleapp') return { id: 'bid-main' };
+          return null;
+        }),
       ),
-      listBundleIdCapabilities: vi.fn(async () => [{ capabilityType: 'PUSH_NOTIFICATIONS' }]),
+      listBundleIdCapabilities: vi.fn(() =>
+        Effect.succeed([{ capabilityType: 'PUSH_NOTIFICATIONS' }]),
+      ),
     };
-    const readiness = await gatherTargetSigningReadiness(
-      asc,
-      'com.example.sampleapp',
-      ['com.example.sampleapp.widget'],
-      { 'com.apple.security.application-groups': ['group.com.example.sampleapp'] },
+    const readiness = await Effect.runPromise(
+      gatherTargetSigningReadiness(asc, 'com.example.sampleapp', ['com.example.sampleapp.widget'], {
+        'com.apple.security.application-groups': ['group.com.example.sampleapp'],
+      }),
     );
     expect(readiness).toEqual([
       {
@@ -157,7 +160,6 @@ describe('gatherTargetSigningReadiness', () => {
     ]);
   });
 });
-
 describe('signingPreflightWarnings', () => {
   it('delegates to multiTargetSigningWarnings', () => {
     const [warning] = signingPreflightWarnings([
@@ -166,7 +168,6 @@ describe('signingPreflightWarnings', () => {
     expect(warning).toContain('not registered');
   });
 });
-
 describe('signingPreflightDoctorChecks', () => {
   it('emits an info check for App Groups and fail checks for not-ready targets', () => {
     const checks = signingPreflightDoctorChecks(
@@ -189,7 +190,6 @@ describe('signingPreflightDoctorChecks', () => {
     expect(checks.some((check) => check.detail?.includes('APP_GROUPS'))).toBe(true);
     expect(checks.some((check) => check.detail?.includes('not registered'))).toBe(true);
   });
-
   it('is silent when every target is ready and no App Groups are declared', () => {
     expect(
       signingPreflightDoctorChecks([

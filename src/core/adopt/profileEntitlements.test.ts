@@ -1,19 +1,22 @@
+import { NodeContext } from '@effect/platform-node';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Effect } from 'effect';
-import { capture } from '../services/exec.js';
+import { captureCommandOutput, makeCommandFailed } from '../services/exec.js';
+import { makeLaunchEnvironmentTest } from '../services/environment.js';
 import { extractProfileEntitlements } from './profileEntitlements.js';
-
-vi.mock('../services/os.js', () => ({ isMac: () => true }));
-vi.mock('../services/exec.js', () => ({ capture: vi.fn() }));
-
-const captureMock = vi.mocked(capture);
-
-/**
- * Read one mocked `capture` call with a real narrowing so tests avoid non-null assertions.
- *
- * @param index - Call index to read.
- * @returns The command and args captured at that index.
- */
+vi.mock('../services/os.js', () => ({ checkIsMacOperatingSystem: Effect.succeed(true) }));
+vi.mock('../services/exec.js', async (importOriginal) => {
+  const commandServices = await importOriginal<typeof import('../services/exec.js')>();
+  return { ...commandServices, captureCommandOutput: vi.fn() };
+});
+const captureMock = vi.mocked(captureCommandOutput);
+const runExtractProfileEntitlements = (profileContent: string) =>
+  Effect.runPromise(
+    extractProfileEntitlements(profileContent).pipe(
+      Effect.provide(NodeContext.layer),
+      Effect.provide(makeLaunchEnvironmentTest({})),
+    ),
+  );
 const readCaptureCall = (index: number) => {
   const call = captureMock.mock.calls.at(index);
   expect(call).toBeDefined();
@@ -22,36 +25,41 @@ const readCaptureCall = (index: number) => {
   }
   return call;
 };
-
 beforeEach(() => {
   captureMock.mockReset();
 });
-
 describe('extractProfileEntitlements', () => {
   it("returns null for content that isn't a decodable provisioning profile (or off-Mac)", async () => {
-    captureMock.mockRejectedValueOnce(new Error('security cms failed'));
-
-    expect(await Effect.runPromise(extractProfileEntitlements('bm90LWEtcHJvZmlsZQ=='))).toBeNull();
+    captureMock.mockReturnValueOnce(
+      Effect.fail(
+        makeCommandFailed({
+          command: 'security',
+          exitCode: 1,
+          stderr: 'security cms failed',
+        }),
+      ),
+    );
+    expect(await runExtractProfileEntitlements('bm90LWEtcHJvZmlsZQ==')).toBeNull();
   });
-
   it('extracts Entitlements as xml1 before converting the sub-plist to JSON', async () => {
     captureMock
-      .mockResolvedValueOnce(
-        '<plist><dict><key>DeveloperCertificates</key><data>abc</data></dict></plist>',
+      .mockReturnValueOnce(
+        Effect.succeed(
+          '<plist><dict><key>DeveloperCertificates</key><data>abc</data></dict></plist>',
+        ),
       )
-      .mockResolvedValueOnce('')
-      .mockResolvedValueOnce(
-        JSON.stringify({ 'com.apple.security.application-groups': ['group.com.acme.app'] }),
+      .mockReturnValueOnce(Effect.succeed(''))
+      .mockReturnValueOnce(
+        Effect.succeed(
+          JSON.stringify({ 'com.apple.security.application-groups': ['group.com.acme.app'] }),
+        ),
       );
-
-    await expect(Effect.runPromise(extractProfileEntitlements('cHJvZmlsZQ=='))).resolves.toEqual({
+    await expect(runExtractProfileEntitlements('cHJvZmlsZQ==')).resolves.toEqual({
       'com.apple.security.application-groups': ['group.com.acme.app'],
     });
-
     const securityCall = readCaptureCall(0);
     const extractCall = readCaptureCall(1);
     const convertCall = readCaptureCall(2);
-
     expect(securityCall).toEqual([
       'security',
       expect.arrayContaining([

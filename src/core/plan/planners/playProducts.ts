@@ -1,101 +1,87 @@
-/**
- * The Google Play in-app-products plan surface: the one-off (non-subscription) managed products a user
- * declares under `products[bundleId].inAppPurchases` that carry a `play` override. Runs the same
- * reconciler as `launch play-products` ({@link reconcilePlayProducts}) in dry-run, so the diff it reports
- * is exactly what that command would apply — minus any writes. Apple-only purchases (no `play` override)
- * are filtered out, mirroring the command's own gating.
- *
- * The catalog is keyed by iOS bundle id, so an app needs both a `packageName` (to reach Play) and a
- * `bundleId` (to locate its products); apps missing either, or with no Play-overridden product, contribute
- * nothing to this surface.
- */
-
-import { reconcilePlayProducts, type PlayProductsApi } from '../../store/playProducts.js';
-import type {
-  AppDescriptor,
-  InAppPurchaseConfig,
-  LaunchConfig,
-  AppPlan,
-  PlanContext,
-  SurfacePlan,
-  SurfacePlanner,
-} from '../../types/index.js';
-
-/** Surface id — also the value users pass as `launch plan play-products`. */
+import { Effect } from 'effect';
+import { errorMessage } from '@core/services/errorMessage.js';
+import { reconcilePlayProducts, type PlayProductsApi } from '@core/store/playProducts.js';
+import type { AppDescriptor } from '@core/types/app.js';
+import type { InAppPurchaseConfig } from '@core/types/catalog.js';
+import type { LaunchConfig } from '@core/types/config.js';
+import type { AppPlan, PlanContext, SurfacePlanner } from '@core/types/plan.js';
+/** Surface id - also the value users pass as `launch plan play-products`. */
 const SURFACE = 'play-products';
-
 /** One app's Play-products plan target: its package name paired with the declared Play-overridden products. */
-interface PlayProductsTarget {
+type PlayProductsTarget = {
   app: string;
   packageName: string;
   products: InAppPurchaseConfig[];
-}
-
+};
 /** Resolve the apps that declare at least one Play-overridden in-app product, with their package + products. */
-function targetsFor(apps: AppDescriptor[], config: LaunchConfig): PlayProductsTarget[] {
+const targetsFor = (apps: AppDescriptor[], config: LaunchConfig): PlayProductsTarget[] => {
   const targets: PlayProductsTarget[] = [];
   for (const app of apps) {
-    if (!app.packageName || !app.bundleId) continue;
-    const products = (config.products?.[app.bundleId]?.inAppPurchases ?? []).filter(
-      (product) => product.play,
-    );
+    if (!app.packageName) continue;
+    if (!app.bundleId) continue;
+    let configuredProducts = config.products?.[app.bundleId]?.inAppPurchases;
+    if (configuredProducts === undefined) configuredProducts = [];
+    const products = configuredProducts.filter((product) => product.play);
     if (products.length === 0) continue;
     targets.push({ app: app.name, packageName: app.packageName, products });
   }
   return targets;
-}
-
+};
 /** Plan one app's Play products in dry-run, capturing a precondition failure (e.g. unreachable app) as `error`. */
-async function planTarget(api: PlayProductsApi, target: PlayProductsTarget): Promise<AppPlan> {
-  try {
-    const report = await reconcilePlayProducts(api, {
-      packageName: target.packageName,
-      products: target.products,
-      dryRun: true,
-    });
-    return { app: target.app, identifier: target.packageName, actions: report.actions };
-  } catch (error) {
-    return {
-      app: target.app,
-      identifier: target.packageName,
-      actions: [],
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
-
+const planTarget = (api: PlayProductsApi, target: PlayProductsTarget): Effect.Effect<AppPlan> =>
+  reconcilePlayProducts(api, {
+    packageName: target.packageName,
+    products: target.products,
+    dryRun: true,
+  }).pipe(
+    Effect.match({
+      onSuccess: (report): AppPlan => ({
+        app: target.app,
+        identifier: target.packageName,
+        actions: report.actions,
+      }),
+      onFailure: (reconciliationFailure): AppPlan => ({
+        app: target.app,
+        identifier: target.packageName,
+        actions: [],
+        error: errorMessage(reconciliationFailure),
+      }),
+    }),
+  );
 /**
  * The Play-products planner. Omits itself when no app declares a Play-overridden product; reports a skip
  * with an actionable hint when no Play service account is configured (the `--check` gate turns that into
- * an error); otherwise returns the per-app diff. Apps are planned concurrently and isolated — one app's
+ * an error); otherwise returns the per-app diff. Apps are planned concurrently and isolated - one app's
  * precondition failure is recorded on its {@link AppPlan} and never aborts the rest.
  */
 export const playProductsPlanner: SurfacePlanner = {
   id: SURFACE,
   store: 'play',
-  async plan(ctx: PlanContext): Promise<SurfacePlan> {
-    const targets = targetsFor(ctx.apps, ctx.config);
-    if (targets.length === 0) return { surface: SURFACE, store: 'play', state: 'omitted' };
-
-    const api = await ctx.resolvePlayApi();
-    if (!api) {
+  plan(planContext: PlanContext) {
+    return Effect.gen(function* () {
+      const targets = targetsFor(planContext.apps, planContext.config);
+      if (targets.length === 0) return { surface: SURFACE, store: 'play', state: 'omitted' };
+      const api = yield* planContext.resolvePlayApi();
+      if (!api) {
+        return {
+          surface: SURFACE,
+          store: 'play',
+          state: 'skipped',
+          reason: 'no Play service account',
+          hint: 'run `launch creds set-key --platform android`',
+        };
+      }
+      const apps = yield* Effect.forEach(targets, (target) => planTarget(api, target), {
+        concurrency: 'unbounded',
+      });
       return {
         surface: SURFACE,
         store: 'play',
-        state: 'skipped',
-        reason: 'no Play service account',
-        hint: 'run `launch creds set-key --platform android`',
+        state: 'planned',
+        scope: 'app',
+        direction: 'two-way',
+        apps,
       };
-    }
-
-    const apps = await Promise.all(targets.map((target) => planTarget(api, target)));
-    return {
-      surface: SURFACE,
-      store: 'play',
-      state: 'planned',
-      scope: 'app',
-      direction: 'two-way',
-      apps,
-    };
+    });
   },
 };

@@ -1,36 +1,21 @@
-/**
- * The curated content behind every cross-agent integration file Launch ships.
- *
- * This is the single source the renderers ({@link import("./render.js")}) turn into Claude Skills,
- * Cursor Rules, and the `AGENTS.md` Launch section — so the same prose can't drift across three agents.
- * Two audiences: {@link CONSUMER_SKILLS} + {@link BASE_CONTEXT} teach an agent to DRIVE Launch in a
- * user's own app (scaffolded by `launch agents init`); {@link CONTRIBUTOR_RULES} (Cursor) and
- * {@link CONTRIBUTOR_SKILLS} (Claude) teach an agent to work ON launch-store (emitted under
- * `.cursor/rules/` and `.claude/skills/` by `npm run docs:gen`, gated by `docs:check`).
- *
- * Every command a skill names is a structured {@link SkillStep} so {@link import("./validate.js")} can
- * assert it still resolves in the live `launch` program — a renamed or removed command fails the build.
- */
-
 import type {
   BaseContext,
   ConsumerSkill,
   ContributorRule,
   ContributorSkill,
-} from '../types/index.js';
-
+} from '../types/agents.js';
 /**
  * The always-on context every agent gets in a Launch repo. Derived from `AGENTS.md`, the README, and
- * `llms.txt` (kept faithful — no inflation). The {@link BaseContext.guardrail} encodes Launch's own
- * plan → confirm → apply ethos so an agent with `--yes` can't publish to production on its own.
+ * `llms.txt` (kept faithful - no inflation). The {@link BaseContext.guardrail} encodes Launch's own
+ * plan -> confirm -> apply ethos so an agent with `--yes` can't publish to production on its own.
  */
 export const BASE_CONTEXT: BaseContext = {
   intro:
-    'This repo ships with **Launch** — an open-source, self-hosted alternative to Expo EAS that builds, ' +
+    'This repo ships with **Launch** - an open-source, self-hosted alternative to Expo EAS that builds, ' +
     "signs, and ships this Expo / React Native app to TestFlight and Google Play from the developer's own " +
     'machine, with their own keys, and no per-build bill. Everything is driven from one typed ' +
-    '`launch.config.ts`. The pipeline mirrors EAS: prebuild → resolve credentials → compile & sign → ' +
-    'size-check → store → submit to the **testing** track (TestFlight / Play internal). `launch release` ' +
+    '`launch.config.ts`. The pipeline mirrors EAS: prebuild -> resolve credentials -> compile & sign -> ' +
+    'size-check -> store -> submit to the **testing** track (TestFlight / Play internal). `launch release` ' +
     'is the separate, deliberately confirmed **public** release.',
   commandMap: [
     {
@@ -56,37 +41,36 @@ export const BASE_CONTEXT: BaseContext = {
     },
   ],
   rails: [
-    '**Secrets stay in the OS keychain.** Never write, log, or commit a `.p8`, `.p12`, keystore, or private key, and never put a real secret in a committed `.env` — store build secrets with `npx launch secret set <NAME>` instead.',
-    '**`launch.config.ts` is the source of truth** for store config. The reconcilers (`sync`, `metadata`) run a read-only plan → confirm → apply and never clobber a live or in-review version; preview any of them with `--dry-run`.',
+    '**Secrets stay in the OS keychain.** Never write, log, or commit a `.p8`, `.p12`, keystore, or private key, and never put a real secret in a committed `.env` - store build secrets with `npx launch secret set <NAME>` instead.',
+    '**`launch.config.ts` is the source of truth** for store config. The reconcilers (`sync`, `metadata`) run a read-only plan -> confirm -> apply and never clobber a live or in-review version; preview any of them with `--dry-run`.',
     '**Learn as you go.** `npx launch <command> --explain` expands any step into plain English, and `npx launch demo` walks the whole pipeline as a zero-setup simulation.',
     "**iOS signing needs a Mac.** With no local Mac, build on a cloud Mac in the user's own AWS account, over SSH to any Mac, or hand off to EAS (`npx launch build ios --remote`). Android builds anywhere a JDK runs.",
     '**Non-interactive by design.** Pass `--yes` to run the safe, idempotent commands unattended; Launch already degrades to non-interactive when it detects CI, a pipe, or an agent.',
   ],
   guardrail: {
     free: [
-      '**Setup & onboarding** — `init`, `adopt`, `migrate eas|fastlane`, and first-time `creds set-key` / `creds setup` (provisioning is idempotent).',
-      '**Builds to the testing track** — `build ios|android` uploads to TestFlight / Play internal, not the public store.',
-      '**Reads & rehearsals** — `status`, `doctor`, `diagnose`, `demo`, `sync --dry-run`, `metadata pull`, and any command with `--explain`.',
-      '**Planning & readiness (read-only)** — `plan`, `drift`, `audit`, `store doctor`, `iap doctor`, `privacy scan`, `snapshot create|diff`, and `insights` only read live state.',
-      "**Local-only tooling** — `dashboard` (a read-only local web UI over CLI state) and `mcp install` (expose Launch to local AI clients) run on the developer's machine, never touching the store.",
-      '**Over-the-air updates** — `update` and `updates list|view` (and `updates rollback` to reverse a bad one).',
+      '**Setup & onboarding** - `init`, `adopt`, `migrate eas|fastlane`, and first-time `creds set-key` / `creds setup` (provisioning is idempotent).',
+      '**Builds to the testing track** - `build ios|android` uploads to TestFlight / Play internal, not the public store.',
+      '**Reads & rehearsals** - `status`, `doctor`, `diagnose`, `demo`, `sync --dry-run`, `metadata pull`, and any command with `--explain`.',
+      '**Planning & readiness (read-only)** - `plan`, `drift`, `audit`, `store doctor`, `iap doctor`, `privacy scan`, `snapshot create|diff`, and `insights` only read live state.',
+      "**Local-only tooling** - `dashboard` (a read-only local web UI over CLI state) and `mcp install` (expose Launch to local AI clients) run on the developer's machine, never touching the store.",
+      '**Over-the-air updates** - `update` and `updates list|view` (and `updates rollback` to reverse a bad one).',
     ],
     confirm: [
-      '**`launch release ios|android`** — submits to the PUBLIC production track and is hard to reverse. Run `--dry-run` first, show the plan, and let a human trigger the real submit.',
-      '**`launch rollout complete`** and accelerating a phased rollout — it pushes a public release toward 100%.',
-      '**Credential changes that switch or delete signing material** — `launch creds use|rename|remove`. (First-time `creds set-key` / `creds setup` during onboarding is fine.)',
-      '**Applying a store reconcile to a live or in-review listing** — `launch sync` / `launch metadata push` without `--dry-run`, and especially `sync --allow-destructive`. Show the `--dry-run` plan and get confirmation before applying.',
+      '**`launch release ios|android`** - submits to the PUBLIC production track and is hard to reverse. Run `--dry-run` first, show the plan, and let a human trigger the real submit.',
+      '**`launch rollout complete`** and accelerating a phased rollout - it pushes a public release toward 100%.',
+      '**Credential changes that switch or delete signing material** - `launch creds use|rename|remove`. (First-time `creds set-key` / `creds setup` during onboarding is fine.)',
+      '**Applying a store reconcile to a live or in-review listing** - `launch sync` / `launch metadata push` without `--dry-run`, and especially `sync --allow-destructive`. Show the `--dry-run` plan and get confirmation before applying.',
     ],
   },
   bootstrap: [
     'Install Launch as a dev dependency: `npm install --save-dev launch-store` (or `--global` to put `launch` on the PATH).',
     'Verify the toolchain and config before building: `npx launch doctor` (add `--fix` to install missing iOS tools).',
-    'The recipes below call `npx launch …`, which resolves the locally-installed binary; with a global install you can drop the `npx`.',
+    'The recipes below call `npx launch ...`, which resolves the locally-installed binary; with a global install you can drop the `npx`.',
   ],
 };
-
 /**
- * The thirteen task-scoped consumer skills, in pipeline order — the six core ship/release flows first,
+ * The thirteen task-scoped consumer skills, in pipeline order - the six core ship/release flows first,
  * then the readiness, planning, snapshot, migration, insights, AI-listing, and agent-access surfaces that
  * the wider command set unlocked. Each becomes a Claude Skill, a Cursor Agent-Requested rule, and a
  * section of the `AGENTS.md` Launch block. `launch-store-config` carries a {@link ConsumerSkill.reference}
@@ -98,7 +82,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
     id: 'launch-ship',
     title: 'Set up and ship to TestFlight / Play',
     description:
-      'Use when the developer wants to build, sign, and ship this Expo / React Native app to TestFlight or Google Play with Launch — first-time setup, provisioning signing credentials, producing a signed build, or uploading to the internal testing track. Covers `launch init`, `launch creds`, `launch doctor`, and `launch build`.',
+      'Use when the developer wants to build, sign, and ship this Expo / React Native app to TestFlight or Google Play with Launch - first-time setup, provisioning signing credentials, producing a signed build, or uploading to the internal testing track. Covers `launch init`, `launch creds`, `launch doctor`, and `launch build`.',
     triggers: [
       'ship the app to TestFlight or Play internal testing',
       'build and upload a test build',
@@ -112,7 +96,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       },
       {
         path: ['adopt'],
-        note: 'OPTIONAL — app already on the store? import its live App Store Connect setup into config',
+        note: 'OPTIONAL - app already on the store? import its live App Store Connect setup into config',
       },
       {
         path: ['creds'],
@@ -142,15 +126,15 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       '- Android: `build android` signs with the upload keystore and uploads to the Play track (`--track internal|closed|open|production`).',
     ].join('\n'),
     cautions: [
-      "`build` uploads to the TESTING track only — that's safe. Putting the app in front of the PUBLIC is `launch release` (see the launch-release skill), which needs human confirmation.",
-      'First-time `creds setup` provisions real signing assets in the Apple Developer account — expected during onboarding. Switching or removing an account later (`creds use|remove`) needs human confirmation.',
+      "`build` uploads to the TESTING track only - that's safe. Putting the app in front of the PUBLIC is `launch release` (see the launch-release skill), which needs human confirmation.",
+      'First-time `creds setup` provisions real signing assets in the Apple Developer account - expected during onboarding. Switching or removing an account later (`creds use|remove`) needs human confirmation.',
     ],
   },
   {
     id: 'launch-release',
     title: 'Public release & phased rollout',
     description:
-      'Use when the developer wants to submit an already-built version to the PUBLIC App Store or Google Play production track, check review status, or steer a phased rollout (pause / resume / complete). Covers `launch release`, `launch status`, and `launch rollout`. This is the irreversible, outward-facing step — confirm with a human before submitting.',
+      'Use when the developer wants to submit an already-built version to the PUBLIC App Store or Google Play production track, check review status, or steer a phased rollout (pause / resume / complete). Covers `launch release`, `launch status`, and `launch rollout`. This is the irreversible, outward-facing step - confirm with a human before submitting.',
     triggers: [
       'release the app to the App Store / production / make it public',
       'submit for review or go live',
@@ -165,7 +149,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       {
         path: ['release'],
         args: ['ios'],
-        note: 'submit the latest build to the PUBLIC production track — preview with --dry-run first',
+        note: 'submit the latest build to the PUBLIC production track - preview with --dry-run first',
       },
       {
         path: ['rollout'],
@@ -181,21 +165,21 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
     body: [
       '`release` is the deliberate public step, distinct from `build` (which only reaches the testing track). Always preview first.',
       '',
-      '- `release <platform> --dry-run` prints the release plan and touches nothing — run it, show the plan, then let a human trigger the real submit.',
+      '- `release <platform> --dry-run` prints the release plan and touches nothing - run it, show the plan, then let a human trigger the real submit.',
       "- iOS options: `--phased` opts into Apple's 7-day phased rollout, `--build latest|<n>` promotes an existing build instead of uploading, `--manual` holds the approved build for manual release, `--scheduled <iso>` schedules go-live.",
       '- `status --watch` polls until review reaches a terminal verdict; `rollout pause|resume|complete` steers an in-progress phased release.',
-      '- Shipping iOS + Android (and an OTA leg) together? `release-train start` records the whole release as one resumable unit — `--hold` gates every leg until all are approved and releases them together, `--platform`/`--no-ota` scope it, and `status`/`release`/`abort` drive or unwind it.',
+      '- Shipping iOS + Android (and an OTA leg) together? `release-train start` records the whole release as one resumable unit - `--hold` gates every leg until all are approved and releases them together, `--platform`/`--no-ota` scope it, and `status`/`release`/`abort` drive or unwind it.',
     ].join('\n'),
     cautions: [
       '`launch release` makes the app PUBLIC and is hard to reverse. Run `launch release <platform> --dry-run`, show the plan, and get explicit human confirmation before the real submit.',
-      '`rollout complete` accelerates a public rollout to 100% — confirm before running it.',
+      '`rollout complete` accelerates a public rollout to 100% - confirm before running it.',
     ],
   },
   {
     id: 'launch-store-config',
     title: 'Store configuration as code',
     description:
-      'Use when the developer wants to manage App Store Connect or Google Play configuration as code from launch.config.ts — in-app purchases, subscriptions, pricing, capabilities, listing metadata, promo offers, in-app events, A/B experiments, availability / territories, or custom product pages. Covers `launch sync`, `launch metadata`, `launch offers`, `launch play-products`, `launch play-subscriptions`, and more.',
+      'Use when the developer wants to manage App Store Connect or Google Play configuration as code from launch.config.ts - in-app purchases, subscriptions, pricing, capabilities, listing metadata, promo offers, in-app events, A/B experiments, availability / territories, or custom product pages. Covers `launch sync`, `launch metadata`, `launch offers`, `launch play-products`, `launch play-subscriptions`, and more.',
     triggers: [
       'add or change an in-app purchase or subscription',
       'sync store config / capabilities to App Store Connect',
@@ -206,7 +190,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
     steps: [
       {
         path: ['sync'],
-        note: 'reconcile ASC IAPs, subscriptions, pricing, and capabilities from config — run with --dry-run first',
+        note: 'reconcile ASC IAPs, subscriptions, pricing, and capabilities from config - run with --dry-run first',
       },
       {
         path: ['metadata', 'pull'],
@@ -214,7 +198,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       },
       {
         path: ['metadata', 'push'],
-        note: 'push edited listing copy / screenshots back to the store — --dry-run rehearses',
+        note: 'push edited listing copy / screenshots back to the store - --dry-run rehearses',
       },
       { path: ['play-products'], note: 'reconcile Google Play in-app products from config' },
       {
@@ -223,7 +207,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       },
     ],
     body: [
-      'Store config lives in `launch.config.ts` (catalog) and `store.config.json` (listing). One catalog drives BOTH stores. Every reconcile runs plan → confirm → apply.',
+      'Store config lives in `launch.config.ts` (catalog) and `store.config.json` (listing). One catalog drives BOTH stores. Every reconcile runs plan -> confirm -> apply.',
       '',
       'The safe loop: preview with `--dry-run` (or `metadata pull`), review the plan, then apply. See the bundled command reference for the full surface across both stores.',
       '',
@@ -231,11 +215,11 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
     ].join('\n'),
     cautions: [
       'These commands change a LIVE store. Always preview with `--dry-run` (or `metadata pull`), show the plan, and get human confirmation before applying.',
-      '`sync --allow-destructive` can remove a capability or product — treat it as requiring explicit human sign-off.',
+      '`sync --allow-destructive` can remove a capability or product - treat it as requiring explicit human sign-off.',
     ],
     reference: {
       intro:
-        'The full store-config surface, both stores. Each runs a read-only plan → confirm → apply; preview with `--dry-run` and never apply to a live or in-review listing without human confirmation.',
+        'The full store-config surface, both stores. Each runs a read-only plan -> confirm -> apply; preview with `--dry-run` and never apply to a live or in-review listing without human confirmation.',
       commands: [
         {
           path: ['sync'],
@@ -294,14 +278,14 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       },
       {
         path: ['updates', 'rollback'],
-        note: 'reverse a bad update — promote a known-good one or drop clients to the embedded bundle',
+        note: 'reverse a bad update - promote a known-good one or drop clients to the embedded bundle',
       },
     ],
     body: [
       "OTA updates ship only JS and asset changes the installed runtime can accept (same runtime version), code-signed and hosted on the user's own bucket. **Native** changes (new dependencies, config plugins, permissions) need a full `build` + `release`, not an update.",
       '',
       '- `update --channel <name> --platform ios|android|all` publishes; `--dry-run` prints the layout without uploading. Avoid `--no-sign` (it lets anyone who can write the bucket push JS).',
-      '- `updates rollback` is the escape hatch — it promotes a known-good update or drops clients back to the embedded bundle.',
+      '- `updates rollback` is the escape hatch - it promotes a known-good update or drops clients back to the embedded bundle.',
     ].join('\n'),
     cautions: [
       'An OTA update reaches real users immediately. Rehearse with `--dry-run`, and confirm the channel and runtime version before publishing to a production channel.',
@@ -311,7 +295,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
     id: 'launch-ci',
     title: 'CI on a hosted runner',
     description:
-      'Use when the developer wants to build and ship this app from CI — scaffold a GitHub Actions workflow on a hosted macOS / Linux runner, or run Launch unattended and headless. Covers `launch ci init` and the non-interactive, env-var-driven command flow.',
+      'Use when the developer wants to build and ship this app from CI - scaffold a GitHub Actions workflow on a hosted macOS / Linux runner, or run Launch unattended and headless. Covers `launch ci init` and the non-interactive, env-var-driven command flow.',
     triggers: [
       'set up CI / GitHub Actions to build and ship the app',
       'build and ship from a hosted runner without a local Mac',
@@ -337,7 +321,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       '- Pass `--yes` on the safe commands; Launch also auto-detects CI and degrades to non-interactive on its own.',
     ].join('\n'),
     cautions: [
-      "Keep `launch release` (public production) OUT of an automatic CI trigger — put it behind a manual approval / protected environment so a push can't publish to the store unattended. CI should target the TESTING track by default.",
+      "Keep `launch release` (public production) OUT of an automatic CI trigger - put it behind a manual approval / protected environment so a push can't publish to the store unattended. CI should target the TESTING track by default.",
       'Supply credentials only via repository secrets decoded at runtime; never commit a `.p8`, keystore, or service-account JSON.',
     ],
   },
@@ -347,7 +331,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
     description:
       "Use when a Launch build is failing, the toolchain looks broken, signing or credentials won't resolve, or the developer asks to fix their build environment. Covers `launch doctor --fix` (toolchain) and `launch diagnose` (native build-log analysis).",
     triggers: [
-      'the build is failing or broken — fix it',
+      'the build is failing or broken - fix it',
       'fix the toolchain / install missing build tools',
       'diagnose a native build error',
       "signing or credentials won't resolve",
@@ -382,7 +366,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
     id: 'launch-verify',
     title: 'Pre-submit readiness & verification',
     description:
-      'Use when the developer wants to know whether the app would pass review right now — a pre-submit sweep, store-account readiness, in-app-purchase readiness, or a privacy / permissions reconcile. All read-only. Covers `launch audit`, `launch store doctor`, `launch iap doctor`, and `launch privacy scan`.',
+      'Use when the developer wants to know whether the app would pass review right now - a pre-submit sweep, store-account readiness, in-app-purchase readiness, or a privacy / permissions reconcile. All read-only. Covers `launch audit`, `launch store doctor`, `launch iap doctor`, and `launch privacy scan`.',
     triggers: [
       'is the app ready to submit / would it get rejected?',
       'run a pre-submit readiness check',
@@ -392,7 +376,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
     steps: [
       {
         path: ['audit'],
-        note: 'one-shot pre-submit sweep — would a submission be rejected right now? (read-only)',
+        note: 'one-shot pre-submit sweep - would a submission be rejected right now? (read-only)',
       },
       {
         path: ['store', 'doctor'],
@@ -408,7 +392,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       },
     ],
     body: [
-      'Run these before a `release` to catch rejections on your machine instead of in App Review. Every command here only reads — none of them changes the store.',
+      'Run these before a `release` to catch rejections on your machine instead of in App Review. Every command here only reads - none of them changes the store.',
       '',
       '- `audit` is the headline sweep; the focused doctors (`store doctor`, `iap doctor`) and `privacy scan` drill into the specific area that fails.',
       '- Pair this with `launch plan` (see the launch-plan skill) to also diff your config-as-code against live state before submitting.',
@@ -418,7 +402,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
     id: 'launch-plan',
     title: 'Store config as code: plan & drift',
     description:
-      'Use when the developer wants to preview how `launch.config.ts` differs from the live App Store Connect / Google Play state, or fail CI when the store has drifted from config — the read-only half of store-config-as-code. Covers `launch plan [surface]` and `launch drift`.',
+      'Use when the developer wants to preview how `launch.config.ts` differs from the live App Store Connect / Google Play state, or fail CI when the store has drifted from config - the read-only half of store-config-as-code. Covers `launch plan [surface]` and `launch drift`.',
     triggers: [
       'preview the store config diff before syncing',
       'what would `launch sync` change?',
@@ -432,7 +416,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       },
       {
         path: ['drift'],
-        note: 'fail when live state has drifted from config — `plan --check` for CI',
+        note: 'fail when live state has drifted from config - `plan --check` for CI',
       },
     ],
     body: [
@@ -466,7 +450,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       {
         path: ['snapshot', 'restore'],
         args: ['<name>'],
-        note: "restore a snapshot's App Store listing back to live — additive; previews unless --yes",
+        note: "restore a snapshot's App Store listing back to live - additive; previews unless --yes",
       },
       {
         path: ['snapshot', 'prune'],
@@ -480,14 +464,14 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       '- `snapshot prune` requires at least one of `--keep`/`--older-than` and never touches the automatic pre-sync baselines.',
     ].join('\n'),
     cautions: [
-      '`snapshot restore` changes a LIVE listing (additive, never destructive). It previews the plan by default — show that plan and get human confirmation before re-running with `--yes`.',
+      '`snapshot restore` changes a LIVE listing (additive, never destructive). It previews the plan by default - show that plan and get human confirmation before re-running with `--yes`.',
     ],
   },
   {
     id: 'launch-migrate',
     title: 'Migrate from EAS / fastlane, or adopt a live app',
     description:
-      'Use when the developer is moving an existing project onto Launch — importing an EAS or fastlane setup into a `launch.config.ts`, onboarding an app that already ships, or validating the resulting config. Covers `launch migrate eas`/`fastlane`, `launch adopt`, and `launch config validate`.',
+      'Use when the developer is moving an existing project onto Launch - importing an EAS or fastlane setup into a `launch.config.ts`, onboarding an app that already ships, or validating the resulting config. Covers `launch migrate eas`/`fastlane`, `launch adopt`, and `launch config validate`.',
     triggers: [
       'migrate from Expo EAS / eas.json to Launch',
       'import an existing fastlane setup',
@@ -501,7 +485,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       },
       {
         path: ['migrate', 'fastlane'],
-        note: 'read fastlane config (Appfile/Fastfile/Matchfile…) and emit the same Launch config set + a report',
+        note: 'read fastlane config (Appfile/Fastfile/Matchfile...) and emit the same Launch config set + a report',
       },
       {
         path: ['adopt'],
@@ -515,7 +499,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
     body: [
       'Pick the migrator that matches the current setup: `migrate eas` for an Expo EAS project, `migrate fastlane` for a fastlane one, or `adopt` to pull a live App Store Connect setup into config. Each writes a `launch.config.ts` (plus `.env.example` and `store.config.json`) and a report of what it found.',
       '',
-      '- Migration only writes local config files — it touches no store and provisions nothing.',
+      '- Migration only writes local config files - it touches no store and provisions nothing.',
       '- Always finish with `config validate` to confirm the emitted config is schema-clean, then `launch plan` (see the launch-plan skill) to see how it compares to live state.',
     ].join('\n'),
   },
@@ -523,7 +507,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
     id: 'launch-insights',
     title: 'Ratings, reviews, sales & analytics insights',
     description:
-      'Use when the developer wants to read store performance — aggregated rating & review trends, individual customer reviews, or Sales & Trends / finance / analytics reports. All read-only, over the same API key. Covers `launch insights`, `launch reports`, and `launch reviews list`.',
+      'Use when the developer wants to read store performance - aggregated rating & review trends, individual customer reviews, or Sales & Trends / finance / analytics reports. All read-only, over the same API key. Covers `launch insights`, `launch reports`, and `launch reviews list`.',
     triggers: [
       'how is the app rated / how are reviews trending?',
       'read the latest customer reviews',
@@ -547,7 +531,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
     body: [
       '`insights` is the aggregated cross-store view (ratings and review trends); drop to `reviews list` for the individual reviews and `reports` for the raw Sales & Trends / finance / analytics data.',
       '',
-      '- Everything here only reads — safe to run unattended.',
+      '- Everything here only reads - safe to run unattended.',
       "- Reply to reviews with `launch reviews reply` (App Store) or `launch play-reviews reply` (Play) once you've read them.",
     ].join('\n'),
   },
@@ -577,20 +561,20 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       },
     ],
     body: [
-      '`ai listing` writes drafted copy into `store.config.json` only — it changes nothing live. Treat the draft as a starting point: read it, edit it, then preview before pushing.',
+      '`ai listing` writes drafted copy into `store.config.json` only - it changes nothing live. Treat the draft as a starting point: read it, edit it, then preview before pushing.',
       '',
       '- Preview with `launch plan` (see the launch-plan skill) so you see exactly what the listing change would do before it goes out.',
-      '- `metadata push` is what actually updates the live listing — gate it behind a human review of the AI copy.',
+      '- `metadata push` is what actually updates the live listing - gate it behind a human review of the AI copy.',
     ].join('\n'),
     cautions: [
-      'AI-drafted copy is a draft — review it for accuracy and brand voice before shipping. `metadata push` changes the LIVE store listing, so preview with `launch plan` and get confirmation first.',
+      'AI-drafted copy is a draft - review it for accuracy and brand voice before shipping. `metadata push` changes the LIVE store listing, so preview with `launch plan` and get confirmation first.',
     ],
   },
   {
     id: 'launch-agent-access',
     title: 'Expose Launch to AI agents & a local dashboard',
     description:
-      'Use when the developer wants to drive Launch from AI tooling — wire the MCP server into an AI client, serve the read-only local dashboard, or scaffold the agent skills/rules into the repo. All local-only. Covers `launch mcp install`, `launch dashboard`, and `launch agents init`.',
+      'Use when the developer wants to drive Launch from AI tooling - wire the MCP server into an AI client, serve the read-only local dashboard, or scaffold the agent skills/rules into the repo. All local-only. Covers `launch mcp install`, `launch dashboard`, and `launch agents init`.',
     triggers: [
       'let Claude / Cursor drive Launch (set up MCP)',
       'open the local Launch dashboard',
@@ -614,17 +598,16 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
     body: [
       "These are the on-ramps for agent-driven and at-a-glance use, all strictly local: `mcp install` exposes Launch's commands to an AI client, `dashboard` opens a read-only web view of your state, and `agents init` drops these very skills into the repo.",
       '',
-      '- `dashboard` is read-only and `mcp install` only edits a local client config — neither touches the store.',
+      '- `dashboard` is read-only and `mcp install` only edits a local client config - neither touches the store.',
       '- `agents check` keeps the scaffolded skills in sync after Launch upgrades.',
     ].join('\n'),
   },
 ];
-
 /**
  * Contributor-facing Cursor rules for working ON the launch-store codebase. `AGENTS.md` stays the
- * canonical prose — these add PATH-triggered guidance Cursor attaches only when the relevant files are
+ * canonical prose - these add PATH-triggered guidance Cursor attaches only when the relevant files are
  * open. The first entry is the always-on base rule that simply points Cursor at `AGENTS.md`; the rest
- * are glob-scoped. Emitted under `.cursor/rules/` by `npm run docs:gen` and gated by `docs:check`.
+ * are glob-scoped. Emitted under `.cursor/rules/` by `pnpm docs:gen` and gated by `docs:check`.
  */
 export const CONTRIBUTOR_RULES: ContributorRule[] = [
   {
@@ -633,11 +616,11 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
     globs: [],
     alwaysApply: true,
     body: [
-      'You are working **on** launch-store (the `launch` CLI), not using it. The canonical working rules live in [AGENTS.md](../../AGENTS.md) and [CLAUDE.md](../../CLAUDE.md) — read them first.',
+      'You are working **on** launch-store (the `launch` CLI), not using it. The canonical working rules live in [AGENTS.md](../../AGENTS.md) and [CLAUDE.md](../../CLAUDE.md) - read them first.',
       '',
       '- One Node ESM / TypeScript package. `src/cli` is thin Commander wiring, `src/core` is purpose-grouped domain code, `src/providers` are swappable backends, `src/apple` and `src/google` are store API mirrors, and `src/testkit` holds shared fakes/layers.',
       '- Do not create flat `src/core/*.ts` files. Put new core work under the owning purpose folder such as `build/`, `config/`, `credentials/`, `release/`, `store/`, `services/`, `terminal/`, or `types/`.',
-      '- Before calling a change done, run `npm run typecheck && npm run lint && npm run lint:style && npm run docs:check && npm run test && npm run build` (the generated docs + these rules are gated).',
+      '- Before calling a change done, run `pnpm typecheck && pnpm lint && pnpm lint:style && pnpm docs:check && pnpm test && pnpm build` (the generated docs + these rules are gated).',
       '- Keep it KISS / YAGNI / DRY: extend the nearest sibling file rather than inventing a new file, util, or abstraction. Add a test (`*.test.ts`) beside any new logic.',
       '- Never log, write, or commit secrets; `~/.launch` holds non-secret paths and ids only.',
     ].join('\n'),
@@ -645,13 +628,13 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
   {
     file: 'core-types',
     description: 'Editing the domain shapes or provider interfaces.',
-    globs: ['src/core/types/*.ts', 'src/core/types/index.ts'],
+    globs: ['src/core/types/*.ts'],
     alwaysApply: false,
     body: [
-      'The types module — the `src/core/types/index.ts` barrel plus the `src/core/types/*.ts` modules it re-exports — is the single source of truth for every domain shape and the five provider interfaces (`BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`).',
+      'The purpose-named modules under `src/core/types/` are the source of truth for domain shapes and the five provider interfaces (`BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`).',
       '',
-      '- Add or change a shape in the matching `src/core/types/*.ts` module, never inline in a feature file — a change ripples through every provider and the pipeline, so plan the edit before writing code. `src/core/types/index.ts` is the wildcard barrel; do not add declarations to the barrel.',
-      '- One exception: the App Store Connect `*Resource` / `*Query` wire types live in `src/apple/ascResources.ts` and are re-exported by `src/apple/ascClient.ts` for compatibility.',
+      '- Add or change a shape in its matching purpose-named module and import it directly. Do not create an internal barrel.',
+      '- Normalized App Store resource/query shapes live in `src/core/types/appleCatalog.ts`; generated Apple wire types stay in `src/apple/generated/schema.ts`.',
       '- Google Play wire/resource DTOs currently live beside the transport in `src/google/playClient.ts` and `src/google/playReporting.ts`; move them into a resource module only as part of that API mirror cleanup.',
     ].join('\n'),
   },
@@ -662,7 +645,7 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
     globs: ['src/providers/**'],
     alwaysApply: false,
     body: [
-      'Adding a backend = implement one of the five interfaces from `src/core/types/index.ts` as a named object and register it in `src/providers/index.ts`, which wires into `src/core/services/registry.ts`.',
+      'Adding a backend = implement one of the five interfaces from `src/core/types/providers.ts` as a named object and register it in `src/providers/index.ts`, which wires into `src/core/services/registry.ts`.',
       '',
       '- The pipeline resolves a provider by its `name` (the value users put in `launch.config.ts`), so you **never** edit `src/core/build/pipeline.ts` to add a backend.',
       '- Lazy-load heavy / optional SDKs (AWS, the native keyring) through `requireOptional` in `src/core/services/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
@@ -679,64 +662,63 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
     ],
     alwaysApply: false,
     body: [
-      'All child processes go through `src/core/services/exec.ts` — `run` streams output, `capture` collects stdout — both with `shell: false` and an explicit argv array. Never build a shell string or call `spawn` / `exec` directly.',
+      'All child processes go through `src/core/services/exec.ts` - `run` streams output, `capture` collects stdout - both with `shell: false` and an explicit argv array. Never build a shell string or call `spawn` / `exec` directly.',
       '',
       "- Secrets (`.p8` / `.p12` / keystore / private keys) live in the OS keychain via the secret store; `~/.launch` holds non-secret paths and ids only. Don't log, write, or commit key material.",
     ].join('\n'),
   },
 ];
-
 /**
- * Claude Skills for working ON launch-store — the task-recipe counterpart to {@link CONTRIBUTOR_RULES}
+ * Claude Skills for working ON launch-store - the task-recipe counterpart to {@link CONTRIBUTOR_RULES}
  * (which are Cursor's path-scoped rules). Each is a repeatable contributor workflow that today lives only
- * as `AGENTS.md` prose; rendered to `.claude/skills/<id>/SKILL.md` by `npm run docs:gen` and gated by
+ * as `AGENTS.md` prose; rendered to `.claude/skills/<id>/SKILL.md` by `pnpm docs:gen` and gated by
  * `docs:check`. The relative links resolve from a skill file's directory (`.claude/skills/<id>/`), so they
- * climb three levels to the repo root. Steps are guidance only — nothing here auto-executes.
+ * climb three levels to the repo root. Steps are guidance only - nothing here auto-executes.
  */
 export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
   {
     id: 'run-the-gate',
     title: 'Run the validation gate',
     description:
-      'Use when finishing or verifying a change to launch-store — run the full typecheck, lint, test, build, and docs gate that must be green before a change is done or a PR merges.',
+      'Use when finishing or verifying a change to launch-store - run the full typecheck, lint, test, build, and docs gate that must be green before a change is done or a PR merges.',
     triggers: [
       "you finished a change and need to confirm it's green before calling it done",
       'CI failed and you want to reproduce the gate locally',
       'before opening or squash-merging a PR',
     ],
     steps: [
-      '`npm run typecheck && npm run lint && npm run lint:style && npm run docs:check && npm run test && npm run build` — the six-part gate from `AGENTS.md` (`lint` is Biome, `lint:style` is Launch-specific, and `docs:check` guards generated docs).',
-      'If `docs:check` fails, run `npm run docs:gen` and commit the generated docs (`docs/commands.md`, `llms.txt`, `.cursor/rules/*`, `.claude/skills/*`, README badges, and config docs).',
+      '`pnpm typecheck && pnpm lint && pnpm lint:style && pnpm docs:check && pnpm test && pnpm build` - the six-part gate from `AGENTS.md` (`lint` is Biome, `lint:style` is Launch-specific, and `docs:check` guards generated docs).',
+      'If `docs:check` fails, run `pnpm docs:gen` and commit the generated docs (`docs/commands.md`, `llms.txt`, `.cursor/rules/*`, `.claude/skills/*`, README badges, and config docs).',
     ],
     body: [
       'All gates must be green before a change is done. The husky pre-commit hook runs lint + format + typecheck but **not** the tests and **can** be bypassed, so run the full line yourself. Add a `*.test.ts` beside any new logic.',
       '',
-      'See [AGENTS.md](../../../AGENTS.md) → “Before you call a change done”.',
+      'See [AGENTS.md](../../../AGENTS.md) -> “Before you call a change done”.',
     ].join('\n'),
   },
   {
     id: 'add-a-provider',
     title: 'Add a provider backend',
     description:
-      'Use when adding or changing a build, storage, credentials, submit, or compute backend in launch-store — implement one of the five provider interfaces and register it, without touching the pipeline.',
+      'Use when adding or changing a build, storage, credentials, submit, or compute backend in launch-store - implement one of the five provider interfaces and register it, without touching the pipeline.',
     triggers: [
       'adding a new storage / build / submit / credentials / compute backend',
       "wiring a new SDK behind one of Launch's provider interfaces",
     ],
     steps: [
-      'Pick one of the five interfaces in `src/core/types/index.ts`: `BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`.',
+      'Pick one of the five types in `src/core/types/providers.ts`: `BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`.',
       'Implement it as a named object in `src/providers/<kind>/<name>.ts`, setting `name` to the value users put in `launch.config.ts`.',
       'Register it in `src/providers/index.ts` (`registerBuiltins()`), which wires into `src/core/services/registry.ts`. The pipeline resolves a provider by its `name`, so you never edit `src/core/build/pipeline.ts` to add one.',
       'Lazy-load any heavy or optional SDK through `requireOptional` in `src/core/services/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
       'Add a `*.test.ts` beside the provider, then run the gate (see the `run-the-gate` skill).',
     ],
     body: [
-      'Adding a backend never edits the pipeline — that is the whole point of the registry: implement the interface, register the name, done.',
+      'Adding a backend never edits the pipeline - that is the whole point of the registry: implement the interface, register the name, done.',
       '',
-      'See [AGENTS.md](../../../AGENTS.md) → “Adding a backend = implement an interface + register it” for the worked S3 example.',
+      'See [AGENTS.md](../../../AGENTS.md) -> “Adding a backend = implement an interface + register it” for the worked S3 example.',
     ].join('\n'),
     cautions: [
-      'All child processes go through `src/core/services/exec.ts` (`run` / `capture`, `shell: false`, explicit argv) — never build a shell string or call `spawn` / `exec` directly.',
+      'All child processes go through `src/core/services/exec.ts` (`run` / `capture`, `shell: false`, explicit argv) - never build a shell string or call `spawn` / `exec` directly.',
       "Secrets stay in the OS keychain; `~/.launch` holds non-secret paths and ids only. Don't log, write, or commit key material.",
     ],
   },
@@ -744,19 +726,19 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
     id: 'add-a-command',
     title: 'Add a launch CLI command',
     description:
-      'Use when adding a new top-level `launch` command or subcommand — wire it as thin commander code and regenerate the docs the CLI surface drives.',
+      'Use when adding a new top-level `launch` command or subcommand - wire it as thin commander code and regenerate the docs the CLI surface drives.',
     triggers: [
       'adding a new `launch <command>` or subcommand',
       'a `docs:check` failure after changing the CLI surface',
     ],
     steps: [
       "Add the command as thin commander wiring in `src/cli/commands/` and register its `register*Command` in `src/cli/program.ts`'s `buildProgram()`. Keep domain logic in `src/core`, not the CLI layer.",
-      'Run `npm run docs:gen` — it introspects `buildProgram()` and regenerates `docs/commands.md`, `llms.txt`, the README stats badges, and the committed `.cursor/rules` / `.claude/skills`.',
-      'Commit the regenerated files; `npm run docs:check` (CI) fails if they drift.',
+      'Run `pnpm docs:gen` - it introspects `buildProgram()` and regenerates `docs/commands.md`, `llms.txt`, the README stats badges, and the committed `.cursor/rules` / `.claude/skills`.',
+      'Commit the regenerated files; `pnpm docs:check` (CI) fails if they drift.',
       'Add a `*.test.ts` beside the new logic, then run the gate.',
     ],
     body: [
-      'The docs are generated from the live `buildProgram()` in `src/cli/program.ts`, so a new command surfaces in the reference automatically once you run `docs:gen` — never hand-edit the generated files.',
+      'The docs are generated from the live `buildProgram()` in `src/cli/program.ts`, so a new command surfaces in the reference automatically once you run `docs:gen` - never hand-edit the generated files.',
       '',
       'See [AGENTS.md](../../../AGENTS.md).',
     ].join('\n'),
@@ -765,13 +747,13 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
     id: 'add-a-glossary-topic',
     title: 'Add a glossary topic',
     description:
-      'Use when adding teaching text for a concept or step in launch-store — add it to the single glossary source that feeds both `launch explain` and the `--explain` step expansions.',
+      'Use when adding teaching text for a concept or step in launch-store - add it to the single glossary source that feeds both `launch explain` and the `--explain` step expansions.',
     triggers: [
       'adding a `launch explain` topic',
       'adding teaching text for a new concept, step, or store term',
     ],
     steps: [
-      'Add the topic to `src/core/terminal/glossary.ts` — the single source for teaching text. It feeds both `launch explain` and the `--explain` step expansions; never duplicate the strings elsewhere.',
+      'Add the topic to `src/core/terminal/glossary.ts` - the single source for teaching text. It feeds both `launch explain` and the `--explain` step expansions; never duplicate the strings elsewhere.',
       'Bump the topic count in `src/core/terminal/glossary.test.ts` (`expect(topics.length).toBe(N)`) by the number of topics you added, and add a `toContain(...)` assertion per new topic.',
       'Run the gate.',
     ],

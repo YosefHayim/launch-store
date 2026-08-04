@@ -1,415 +1,425 @@
-/**
- * {@link inspectDoctor} — the pure, read-only heart of `launch doctor`.
- *
- * Every check that used to `console.log` inside `cli/commands/doctor.ts` lives here as a function that
- * returns {@link DoctorCheck}s instead of printing. The CLI renders the resulting {@link DoctorReport}
- * with ✓/✗/• glyphs, `--json` serializes it, and `launch mcp` hands the same object to an agent — one
- * inspection, three consumers. All impure inputs (PATH probes, store clients, the keychain query, the
- * credentials store) arrive through {@link DoctorContext}, so this module performs no network or keychain
- * I/O of its own and a test drives it with fakes. The only direct reads are project-directory files
- * (`package.json`, `android/gradlew`) derived from `cwd`/`app.dir`, which the repo already tests against
- * fixture dirs.
- *
- * The `--fix` side of the old command (interactive toolchain install + the export-compliance network
- * reconcile) is deliberately NOT here — it mutates state, so it stays in the CLI layered around this
- * read. A section that throws is caught by the caller and surfaced as a single `fail` check, so one
- * broken probe never sinks the whole report.
- */
-
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import type { FileSystem, Path } from '@effect/platform';
+import { Effect } from 'effect';
 import { checkApp, formatFinding } from '../config/configCheck.js';
-import { errorMessage } from '../services/errorMessage.js';
-import { describeExportComplianceConfig } from '../store/exportCompliance.js';
-import { formatPermissionLine, probeKeyPermissions } from '../store/ascPermissions.js';
 import { inspectPackageSetup, packageManagerWarnings } from '../config/packageManager.js';
-import { appPrivacyChecklist } from '../privacy/privacyNutritionLabel.js';
-import { ANDROID_TOOLS, REQUIRED_TOOLS, fixHint } from '../config/toolchain.js';
-import { buildConsoleUrl } from '../terminal/consoleLinks.js';
+import { ANDROID_TOOLS, fixHint, REQUIRED_TOOLS } from '../config/toolchain.js';
 import {
   appGroupPreflightNotice,
   gatherTargetSigningReadiness,
   resolveExtensionBundleIdsForApp,
   signingPreflightDoctorChecks,
 } from '../credentials/signingPreflight.js';
-import { shellLocaleDoctorCheck } from '../terminal/locale.js';
-import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from '../types/index.js';
+import { appPrivacyChecklist } from '../privacy/privacyNutritionLabel.js';
+import { errorMessage } from '../services/errorMessage.js';
+import { formatPermissionLine, probeKeyPermissions } from '../store/ascPermissions.js';
+import { describeExportComplianceConfig } from '../store/exportCompliance.js';
+import { buildConsoleUrl } from '../terminal/consoleLinks.js';
+import { shellLocaleDoctorCheck, type ShellLocaleEnv } from '../terminal/locale.js';
+import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from '../types/doctor.js';
 
-/** Where to create a missing App Store Connect app record — the one step the API can't do. */
 const APP_STORE_CONNECT_APPS_URL = buildConsoleUrl('app-record', 'ios', undefined);
-/** Where to create a Play app and enroll in Play App Signing on first release. */
 const PLAY_CONSOLE_URL = buildConsoleUrl('play', 'android', undefined);
 
-/**
- * Report the detected package manager + monorepo root and the known Corepack/lockfile footguns. The
- * manager/workspace lines are `ok`; the warnings are advisory `info` (the build still runs) — surfacing
- * them up front avoids the EAS-class wrong-PM wasted build.
- */
-async function packageManagerChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
-  const setup = inspectPackageSetup(ctx.cwd);
-  const version = setup.pm.version ? `@${setup.pm.version}` : '';
-  const checks: DoctorCheck[] = [
-    { status: 'ok', title: `Package manager: ${setup.pm.name}${version} (via ${setup.pm.source})` },
-  ];
-  if (setup.workspace) {
-    checks.push({
-      status: 'ok',
-      title: `Monorepo workspace root: ${setup.workspace.root} (${setup.workspace.kind})`,
-    });
-  }
-  const corepackAvailable = await ctx.corepackAvailable();
-  for (const warning of packageManagerWarnings({
-    info: setup.pm,
-    lockfile: setup.lockfile,
-    corepackAvailable,
-  })) {
-    checks.push({ status: 'info', title: warning });
-  }
-  return checks;
-}
-
-/**
- * The iOS toolchain, one check per tool. A missing *required* tool is a `fail`; a *recommended* one
- * (ccache) is `info` — the build still runs, just uncached.
- */
-async function iosToolchainChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
-  const checks: DoctorCheck[] = [shellLocaleDoctorCheck(ctx.shellLocale)];
-  for (const tool of REQUIRED_TOOLS) {
-    // biome-ignore lint/performance/noAwaitInLoops: serial toolchain probes — each shells out to check one tool; kept sequential to bound subprocess load and keep output ordered
-    const present = await ctx.exists(tool.command);
-    if (tool.tier === 'recommended') {
-      checks.push(
-        present
-          ? { status: 'ok', title: tool.label }
-          : { status: 'info', title: `${tool.label} (recommended)`, hint: fixHint(tool) },
-      );
-      continue;
-    }
-    checks.push(
-      present
-        ? { status: 'ok', title: tool.label }
-        : { status: 'fail', title: tool.label, hint: fixHint(tool) },
-    );
-  }
-  return checks;
-}
-
-/**
- * The Android toolchain (all required) plus the two non-PATH prerequisites: the SDK (`ANDROID_HOME`)
- * and a per-app gradle wrapper. A missing tool or SDK is a `fail`; a missing wrapper is `info`
- * (`launch build android` generates it via `expo prebuild`).
- */
-async function androidToolchainChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
-  const checks: DoctorCheck[] = [];
-  for (const tool of ANDROID_TOOLS) {
-    // biome-ignore lint/performance/noAwaitInLoops: serial toolchain probes — each shells out to check one tool; kept sequential to bound subprocess load and keep output ordered
-    const present = await ctx.exists(tool.command);
-    checks.push(
-      present
-        ? { status: 'ok', title: tool.label }
-        : { status: 'fail', title: tool.label, hint: fixHint(tool) },
-    );
-  }
-
-  checks.push(
-    ctx.androidSdk
-      ? { status: 'ok', title: `Android SDK (${ctx.androidSdk})` }
-      : {
-          status: 'fail',
-          title: 'Android SDK',
-          hint: 'set ANDROID_HOME (install via Android Studio or the command-line tools)',
-        },
-  );
-
-  for (const app of ctx.apps) {
-    if (!app.packageName) continue;
-    const hasWrapper = existsSync(join(app.dir, 'android', 'gradlew'));
-    checks.push(
-      hasWrapper
-        ? { status: 'ok', title: `Gradle wrapper for ${app.name}` }
-        : {
-            status: 'info',
-            title: `No android/gradlew for ${app.name} yet`,
-            detail: '`launch build android` will run `expo prebuild` to generate it',
-          },
-    );
-  }
-  return checks;
-}
-
-/** The `launch creds status` readout as one advisory check (its body can span both platforms). */
-async function credentialsCheck(ctx: DoctorContext): Promise<DoctorCheck[]> {
-  return [{ status: 'info', title: 'Credentials', detail: await ctx.credentialsStatus() }];
-}
-
-/**
- * Confirm the distribution identity is visible to `codesign` the way a build looks it up (the guard
- * against the Tahoe temporary-keychain "0 valid identities" failure). Informational when no cert is set
- * up yet — that's not-provisioned, not a fault. macOS only.
- */
-async function codesignCheck(ctx: DoctorContext): Promise<DoctorCheck[]> {
-  if (ctx.os !== 'macos') return [];
-  const output = await ctx.codesignIdentities();
-  if (output === null) {
-    return [
-      { status: 'info', title: 'Could not query codesign identities (security CLI unavailable)' },
-    ];
-  }
-  if (/Apple Distribution|iPhone Distribution/.test(output)) {
-    return [
+/** Report package-manager selection and known lockfile or Corepack footguns. */
+const packageManagerChecks = <Requirements>(doctorContext: DoctorContext<Requirements>) =>
+  Effect.gen(function* () {
+    const packageSetup = yield* inspectPackageSetup(doctorContext.cwd);
+    let versionText = '';
+    if (packageSetup.pm.version !== undefined) versionText = `@${packageSetup.pm.version}`;
+    const doctorChecks: DoctorCheck[] = [
       {
         status: 'ok',
-        title: 'Distribution identity visible to codesign (login keychain — Tahoe-safe)',
+        title: `Package manager: ${packageSetup.pm.name}${versionText} (via ${packageSetup.pm.source})`,
       },
     ];
-  }
-  return [
-    {
-      status: 'info',
-      title: 'No distribution identity in the login keychain yet',
-      hint: '`launch creds setup` imports one',
-    },
-  ];
-}
+    if (packageSetup.workspace !== null) {
+      doctorChecks.push({
+        status: 'ok',
+        title: `Monorepo workspace root: ${packageSetup.workspace.root} (${packageSetup.workspace.kind})`,
+      });
+    }
+    const corepackAvailable = yield* doctorContext.corepackAvailable();
+    const warnings = packageManagerWarnings({
+      info: packageSetup.pm,
+      lockfile: packageSetup.lockfile,
+      corepackAvailable,
+    });
+    for (const warning of warnings) doctorChecks.push({ status: 'info', title: warning });
+    return doctorChecks;
+  });
 
-/**
- * Probe Apple for an unsigned/expired agreement and for missing app records (the one step the API can't
- * create). A failed agreement check or a missing record is a `fail`; no account configured is an
- * advisory skip.
- */
-async function appleAccountChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
-  const asc = await ctx.resolveAsc();
-  if (!asc) {
+/** Inspect the iOS command-line toolchain. */
+const iosToolchainChecks = <Requirements>(
+  doctorContext: DoctorContext<Requirements>,
+): Effect.Effect<DoctorCheck[], unknown, Requirements> =>
+  Effect.gen(function* () {
+    let shellLocale: ShellLocaleEnv = {};
+    if (doctorContext.shellLocale !== undefined) shellLocale = doctorContext.shellLocale;
+    const doctorChecks: DoctorCheck[] = [shellLocaleDoctorCheck(shellLocale)];
+    for (const tool of REQUIRED_TOOLS) {
+      const toolPresent = yield* doctorContext.exists(tool.command);
+      if (toolPresent) {
+        doctorChecks.push({ status: 'ok', title: tool.label });
+        continue;
+      }
+      if (tool.tier === 'recommended') {
+        doctorChecks.push({
+          status: 'info',
+          title: `${tool.label} (recommended)`,
+          hint: fixHint(tool),
+        });
+        continue;
+      }
+      doctorChecks.push({ status: 'fail', title: tool.label, hint: fixHint(tool) });
+    }
+    return doctorChecks;
+  });
+
+/** Inspect Android tools, the SDK, and app-local Gradle wrappers. */
+const androidToolchainChecks = <Requirements>(
+  doctorContext: DoctorContext<Requirements>,
+): Effect.Effect<DoctorCheck[], unknown, Requirements> =>
+  Effect.gen(function* () {
+    const doctorChecks: DoctorCheck[] = [];
+    for (const tool of ANDROID_TOOLS) {
+      const toolPresent = yield* doctorContext.exists(tool.command);
+      if (toolPresent) {
+        doctorChecks.push({ status: 'ok', title: tool.label });
+        continue;
+      }
+      doctorChecks.push({ status: 'fail', title: tool.label, hint: fixHint(tool) });
+    }
+    if (doctorContext.androidSdk === undefined) {
+      doctorChecks.push({
+        status: 'fail',
+        title: 'Android SDK',
+        hint: 'set ANDROID_HOME (install via Android Studio or the command-line tools)',
+      });
+    } else {
+      doctorChecks.push({ status: 'ok', title: `Android SDK (${doctorContext.androidSdk})` });
+    }
+    for (const app of doctorContext.apps) {
+      if (app.packageName === undefined) continue;
+      const wrapperPresent = yield* doctorContext.gradleWrapperExists(app.dir);
+      if (wrapperPresent) {
+        doctorChecks.push({ status: 'ok', title: `Gradle wrapper for ${app.name}` });
+        continue;
+      }
+      doctorChecks.push({
+        status: 'info',
+        title: `No android/gradlew for ${app.name} yet`,
+        detail: '`launch build android` will run `expo prebuild` to generate it',
+      });
+    }
+    return doctorChecks;
+  });
+
+/** Surface the credential provider's platform summary. */
+const credentialsCheck = <Requirements>(
+  doctorContext: DoctorContext<Requirements>,
+): Effect.Effect<DoctorCheck[], unknown, Requirements> =>
+  doctorContext.credentialsStatus().pipe(
+    Effect.map((credentialSummary): DoctorCheck[] => [
+      {
+        status: 'info',
+        title: 'Credentials',
+        detail: credentialSummary,
+      },
+    ]),
+  );
+
+/** Confirm a macOS distribution identity is visible to codesign. */
+const codesignCheck = <Requirements>(
+  doctorContext: DoctorContext<Requirements>,
+): Effect.Effect<DoctorCheck[], unknown, Requirements> =>
+  Effect.gen(function* () {
+    if (doctorContext.os !== 'macos') return [];
+    const identityText = yield* doctorContext.codesignIdentities();
+    if (identityText === null) {
+      return [
+        {
+          status: 'info',
+          title: 'Could not query codesign identities (security CLI unavailable)',
+        },
+      ];
+    }
+    if (/Apple Distribution|iPhone Distribution/.test(identityText)) {
+      return [
+        {
+          status: 'ok',
+          title: 'Distribution identity visible to codesign (login keychain - Tahoe-safe)',
+        },
+      ];
+    }
     return [
       {
         status: 'info',
-        title: 'No active Apple account — skipping Apple checks',
-        hint: '`launch creds set-key`',
+        title: 'No distribution identity in the login keychain yet',
+        hint: '`launch creds setup` imports one',
       },
     ];
-  }
+  });
 
-  const checks: DoctorCheck[] = [];
-  try {
-    await asc.assertReady();
-    checks.push({
+/** Probe Apple agreements and app-record availability. */
+const appleAccountChecks = <Requirements>(
+  doctorContext: DoctorContext<Requirements>,
+): Effect.Effect<DoctorCheck[], unknown, Requirements> =>
+  Effect.gen(function* () {
+    const appleClient = yield* doctorContext.resolveAsc();
+    if (appleClient === null) {
+      return [
+        {
+          status: 'info',
+          title: 'No active Apple account - skipping Apple checks',
+          hint: '`launch creds set-key`',
+        },
+      ];
+    }
+    const doctorChecks: DoctorCheck[] = [];
+    const agreementCheck = yield* appleClient.assertReady().pipe(Effect.either);
+    if (agreementCheck._tag === 'Left') {
+      doctorChecks.push({
+        status: 'fail',
+        title: 'Apple account check failed',
+        detail: errorMessage(agreementCheck.left),
+      });
+      return doctorChecks;
+    }
+    doctorChecks.push({
       status: 'ok',
       title: 'Apple agreements accepted',
-      detail:
-        'via App Store Connect API key — no password, no 2FA (immune to the Apple-ID 2FA failures EAS hits)',
+      detail: 'via App Store Connect API key - no password or two-factor prompt',
     });
-  } catch (error) {
-    checks.push({
-      status: 'fail',
-      title: 'Apple account check failed',
-      detail: errorMessage(error),
+    for (const app of doctorContext.apps) {
+      if (app.bundleId === undefined) continue;
+      const appId = yield* appleClient.getAppId(app.bundleId);
+      if (appId !== null) {
+        doctorChecks.push({ status: 'ok', title: `App record for ${app.bundleId}` });
+        continue;
+      }
+      doctorChecks.push({
+        status: 'fail',
+        title: `No App Store Connect record for ${app.bundleId}`,
+        hint: `create it at ${APP_STORE_CONNECT_APPS_URL}`,
+      });
+    }
+    return doctorChecks;
+  });
+
+/** Probe Google Play access for every configured Android app. */
+const playAccountChecks = <Requirements>(
+  doctorContext: DoctorContext<Requirements>,
+): Effect.Effect<DoctorCheck[], unknown, Requirements> =>
+  Effect.gen(function* () {
+    const googleClient = yield* doctorContext.resolvePlay();
+    if (googleClient === null) {
+      return [
+        {
+          status: 'info',
+          title: 'No service account imported - skipping Play checks',
+          hint: '`launch creds set-key --platform android`',
+        },
+      ];
+    }
+    const doctorChecks: DoctorCheck[] = [];
+    for (const app of doctorContext.apps) {
+      if (app.packageName === undefined) continue;
+      const accessCheck = yield* googleClient.assertAppExists(app.packageName).pipe(Effect.either);
+      if (accessCheck._tag === 'Right') {
+        doctorChecks.push({ status: 'ok', title: `Play app reachable for ${app.packageName}` });
+        continue;
+      }
+      doctorChecks.push({
+        status: 'fail',
+        title: errorMessage(accessCheck.left),
+        hint: `Create the app and enroll in Play App Signing at ${PLAY_CONSOLE_URL}`,
+      });
+    }
+    doctorChecks.push({
+      status: 'info',
+      title:
+        'A new personal Play account needs about 20 testers for 14 days before production unlocks.',
     });
-    return checks;
-  }
+    doctorChecks.push({
+      status: 'info',
+      title: 'Sensitive permissions may require a Play Console declaration before release.',
+    });
+    return doctorChecks;
+  });
 
-  for (const app of ctx.apps) {
-    if (!app.bundleId) continue;
-    // biome-ignore lint/performance/noAwaitInLoops: serial per-app store call — one request per app; kept sequential to respect the store API rate limit
-    const appId = await asc.getAppId(app.bundleId);
-    checks.push(
-      appId
-        ? { status: 'ok', title: `App record for ${app.bundleId}` }
-        : {
-            status: 'fail',
-            title: `No App Store Connect record for ${app.bundleId}`,
-            hint: `create it (one-time) at ${APP_STORE_CONNECT_APPS_URL}`,
-          },
-    );
-  }
-  return checks;
-}
+/** Validate each discovered app's Expo configuration. */
+const configChecks = <Requirements>(
+  doctorContext: DoctorContext<Requirements>,
+  platform: DoctorPlatform,
+) =>
+  Effect.gen(function* () {
+    const doctorChecks: DoctorCheck[] = [];
+    for (const app of doctorContext.apps) {
+      const configFindings = yield* checkApp(app, platform);
+      if (configFindings.length === 0) {
+        doctorChecks.push({ status: 'ok', title: `${app.name}: app config clean` });
+        continue;
+      }
+      for (const finding of configFindings) {
+        let checkStatus: DoctorCheck['status'] = 'info';
+        if (finding.severity === 'error') checkStatus = 'fail';
+        doctorChecks.push({
+          status: checkStatus,
+          title: `${app.name}: ${formatFinding(finding)}`,
+        });
+      }
+    }
+    return doctorChecks;
+  });
 
-/**
- * Confirm the service account can reach each app (a `fail` when it can't, deep-linking the irreducible
- * Play Console step), then surface the two Play gates Launch can't automate as advisory notes.
- */
-async function playAccountChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
-  const play = await ctx.resolvePlay();
-  if (!play) {
+/** Report each iOS app's export-compliance posture. */
+const exportComplianceChecks = <Requirements>(
+  doctorContext: DoctorContext<Requirements>,
+): Effect.Effect<DoctorCheck[]> =>
+  Effect.sync(() => {
+    const iosApps = doctorContext.apps.filter((app) => app.bundleId !== undefined);
+    return iosApps.map((app) => {
+      const exportCompliance = describeExportComplianceConfig(app.usesNonExemptEncryption);
+      let checkStatus: DoctorCheck['status'] = 'info';
+      if (exportCompliance.ok) checkStatus = 'ok';
+      return { status: checkStatus, title: `${app.name}: ${exportCompliance.message}` };
+    });
+  });
+
+/** Inspect App ID and capability readiness for every iOS target. */
+const signingPreflightChecks = <Requirements>(
+  doctorContext: DoctorContext<Requirements>,
+): Effect.Effect<DoctorCheck[], unknown, FileSystem.FileSystem | Path.Path | Requirements> =>
+  Effect.gen(function* () {
+    const appleClient = yield* doctorContext.resolveAsc();
+    if (appleClient === null) return [];
+    const doctorChecks: DoctorCheck[] = [];
+    for (const app of doctorContext.apps) {
+      if (app.bundleId === undefined) continue;
+      const appGroupNotice = appGroupPreflightNotice(app.iosEntitlements);
+      const extensionBundleIds = yield* resolveExtensionBundleIdsForApp(app);
+      const readinessCheck = yield* gatherTargetSigningReadiness(
+        appleClient,
+        app.bundleId,
+        extensionBundleIds,
+        app.iosEntitlements,
+      ).pipe(Effect.either);
+      if (readinessCheck._tag === 'Left') {
+        doctorChecks.push({
+          status: 'info',
+          title: `${app.name}: signing preflight skipped`,
+          detail: errorMessage(readinessCheck.left),
+        });
+        continue;
+      }
+      doctorChecks.push(...signingPreflightDoctorChecks(readinessCheck.right, appGroupNotice));
+    }
+    return doctorChecks;
+  });
+
+/** Remind iOS developers about the manual App Privacy form. */
+const appPrivacyChecks = <Requirements>(
+  doctorContext: DoctorContext<Requirements>,
+): Effect.Effect<DoctorCheck[]> =>
+  Effect.sync(() => {
+    if (!doctorContext.apps.some((app) => app.bundleId !== undefined)) return [];
+    const [headline, ...checklistItems] = appPrivacyChecklist();
+    let title = 'App Privacy';
+    if (headline !== undefined) title = headline;
+    return [{ status: 'info', title, detail: checklistItems.join('\n') }];
+  });
+
+/** Probe the active Apple key against every role-gated feature. */
+const keyPermissionChecks = <Requirements>(
+  doctorContext: DoctorContext<Requirements>,
+): Effect.Effect<DoctorCheck[], unknown, Requirements> =>
+  Effect.gen(function* () {
+    const appleClient = yield* doctorContext.resolveAsc();
+    if (appleClient === null) return [];
+    const appWithBundleId = doctorContext.apps.find((app) => app.bundleId !== undefined);
+    let appId: string | null = null;
+    if (appWithBundleId?.bundleId !== undefined) {
+      appId = yield* appleClient
+        .getAppId(appWithBundleId.bundleId)
+        .pipe(Effect.catchAll(() => Effect.succeed(null)));
+    }
+    const permissionChecks = yield* probeKeyPermissions(appleClient, appId);
     return [
       {
         status: 'info',
-        title: 'No service account imported — skipping Play checks',
-        hint: '`launch creds set-key --platform android`',
+        title: 'API-key role access (per feature):',
+        detail: permissionChecks
+          .map((permissionCheck) => `  ${formatPermissionLine(permissionCheck)}`)
+          .join('\n'),
       },
     ];
-  }
-
-  const checks: DoctorCheck[] = [];
-  for (const app of ctx.apps) {
-    if (!app.packageName) continue;
-    try {
-      // biome-ignore lint/performance/noAwaitInLoops: serial per-app store call — one request per app; kept sequential to respect the store API rate limit
-      await play.assertAppExists(app.packageName);
-      checks.push({ status: 'ok', title: `Play app reachable for ${app.packageName}` });
-    } catch (error) {
-      checks.push({
-        status: 'fail',
-        title: errorMessage(error),
-        hint: `Create the app + enroll in Play App Signing on first release at ${PLAY_CONSOLE_URL}`,
-      });
-    }
-  }
-
-  checks.push({
-    status: 'info',
-    title:
-      'A new personal Play account needs ~20 testers for 14 days on a testing track before production unlocks.',
   });
-  checks.push({
-    status: 'info',
-    title:
-      'Sensitive/high-risk permissions can make the Publishing API reject a release until declared in Play Console.',
-  });
-  return checks;
-}
 
-/**
- * Validate each app's Expo config against the known native-config footguns (the same "fail before a
- * wasted build" check `launch build` runs). An `error` finding is a `fail`; a `warn` is `info`.
- */
-async function configChecks(ctx: DoctorContext, platform: DoctorPlatform): Promise<DoctorCheck[]> {
-  const checks: DoctorCheck[] = [];
-  for (const app of ctx.apps) {
-    // biome-ignore lint/performance/noAwaitInLoops: serial per-app config pass — each reads/inspects one app’s config in turn
-    const findings = await checkApp(app, platform);
-    if (findings.length === 0) {
-      checks.push({ status: 'ok', title: `${app.name}: app config clean` });
-      continue;
-    }
-    for (const finding of findings) {
-      checks.push({
-        status: finding.severity === 'error' ? 'fail' : 'info',
-        title: `${app.name}: ${formatFinding(finding)}`,
-      });
-    }
-  }
-  return checks;
-}
+/** Collect one section, converting its failure into one visible doctor check. */
+const collectSection = <Requirements>(
+  doctorChecks: DoctorCheck[],
+  sectionLabel: string,
+  section: Effect.Effect<DoctorCheck[], unknown, Requirements>,
+): Effect.Effect<void, never, Requirements> =>
+  section.pipe(
+    Effect.catchAll(
+      (failure): Effect.Effect<DoctorCheck[]> =>
+        Effect.succeed([
+          {
+            status: 'fail',
+            title: `${sectionLabel} check failed`,
+            detail: errorMessage(failure),
+          },
+        ]),
+    ),
+    Effect.map((sectionChecks) => {
+      doctorChecks.push(...sectionChecks);
+      return undefined;
+    }),
+  );
 
-/**
- * Report each iOS app's export-compliance posture from its Expo config alone (network-free, read-only).
- * Always advisory — the only "clean" case (`usesNonExemptEncryption: false`) is `ok`, the rest `info`.
- * The `--fix` network reconcile stays in the CLI.
- */
-function exportComplianceChecks(ctx: DoctorContext): DoctorCheck[] {
-  const iosApps = ctx.apps.filter((app) => app.bundleId);
-  return iosApps.map((app) => {
-    const status = describeExportComplianceConfig(app.usesNonExemptEncryption);
-    return { status: status.ok ? 'ok' : 'info', title: `${app.name}: ${status.message}` };
-  });
-}
-
-/**
- * Grade each iOS app's signing targets BEFORE a build: App Group portal notice (advisory) plus App ID
- * registration and capability coverage for the main bundle and any extensions (fail when not ready).
- * Best-effort when the ASC read throws — one advisory skip, not a sunk run.
- */
-async function signingPreflightChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
-  const asc = await ctx.resolveAsc();
-  if (!asc) return [];
-
-  const checks: DoctorCheck[] = [];
-  for (const app of ctx.apps) {
-    if (!app.bundleId) continue;
-    const appGroupNotice = appGroupPreflightNotice(app.iosEntitlements);
-    const extensions = resolveExtensionBundleIdsForApp(app);
-    try {
-      // biome-ignore lint/performance/noAwaitInLoops: serial per-app store call — one request per app; kept sequential to respect the store API rate limit
-      const readiness = await gatherTargetSigningReadiness(
-        asc,
-        app.bundleId,
-        extensions,
-        app.iosEntitlements,
+/** Run the read-only doctor preflight and return its structured report. */
+export const inspectDoctor = <Requirements>(
+  doctorContext: DoctorContext<Requirements>,
+): Effect.Effect<DoctorReport, never, FileSystem.FileSystem | Path.Path | Requirements> =>
+  Effect.gen(function* () {
+    const doctorChecks: DoctorCheck[] = [];
+    yield* collectSection(doctorChecks, 'Package manager', packageManagerChecks(doctorContext));
+    if (doctorContext.platform === 'android') {
+      yield* collectSection(
+        doctorChecks,
+        'Android toolchain',
+        androidToolchainChecks(doctorContext),
       );
-      checks.push(...signingPreflightDoctorChecks(readiness, appGroupNotice));
-    } catch (error) {
-      checks.push({
-        status: 'info',
-        title: `${app.name}: signing preflight skipped`,
-        detail: errorMessage(error),
-      });
+      yield* collectSection(doctorChecks, 'Credentials', credentialsCheck(doctorContext));
+      yield* collectSection(doctorChecks, 'Play account', playAccountChecks(doctorContext));
+      yield* collectSection(doctorChecks, 'App config', configChecks(doctorContext, 'android'));
+    } else {
+      yield* collectSection(doctorChecks, 'iOS toolchain', iosToolchainChecks(doctorContext));
+      yield* collectSection(doctorChecks, 'Credentials', credentialsCheck(doctorContext));
+      yield* collectSection(doctorChecks, 'Codesign identity', codesignCheck(doctorContext));
+      yield* collectSection(doctorChecks, 'Apple account', appleAccountChecks(doctorContext));
+      yield* collectSection(
+        doctorChecks,
+        'Signing preflight',
+        signingPreflightChecks(doctorContext),
+      );
+      yield* collectSection(doctorChecks, 'App config', configChecks(doctorContext, 'ios'));
+      yield* collectSection(
+        doctorChecks,
+        'Export compliance',
+        exportComplianceChecks(doctorContext),
+      );
+      yield* collectSection(doctorChecks, 'App privacy', appPrivacyChecks(doctorContext));
+      yield* collectSection(
+        doctorChecks,
+        'API-key permissions',
+        keyPermissionChecks(doctorContext),
+      );
     }
-  }
-  return checks;
-}
-
-/** Remind that the App Privacy "nutrition label" is a one-time manual step (no API). iOS apps only. */
-function appPrivacyChecks(ctx: DoctorContext): DoctorCheck[] {
-  if (!ctx.apps.some((app) => app.bundleId)) return [];
-  const [headline, ...rest] = appPrivacyChecklist();
-  return [{ status: 'info', title: headline ?? 'App Privacy', detail: rest.join('\n') }];
-}
-
-/**
- * Probe the active API key against each role-gated feature and report the access matrix, so a developer
- * learns up front their key can't (say) reply to reviews instead of hitting a 403 mid-flight. Advisory.
- */
-async function keyPermissionChecks(ctx: DoctorContext): Promise<DoctorCheck[]> {
-  const asc = await ctx.resolveAsc();
-  if (!asc) return [];
-  const bundleId = ctx.apps.find((app) => app.bundleId)?.bundleId;
-  let appId: string | null = null;
-  if (bundleId) {
-    try {
-      appId = await asc.getAppId(bundleId);
-    } catch {
-      appId = null;
-    }
-  }
-  const results = await probeKeyPermissions(asc, appId);
-  return [
-    {
-      status: 'info',
-      title: 'API-key role access (per feature):',
-      detail: results.map((result) => `  ${formatPermissionLine(result)}`).join('\n'),
-    },
-  ];
-}
-
-/**
- * Run the read-only doctor preflight for a platform and return the structured {@link DoctorReport}.
- *
- * The body of `launch doctor`, the wizard's guided setup, and the `doctor` MCP tool all call this. Each
- * section is run behind a guard: a section that throws becomes a single `fail` check (with the error
- * message) rather than aborting the run, so a flaky probe degrades one line instead of the whole report.
- * `ok` is the verdict — `true` exactly when no check is `fail` (advisory `info` never fails the run).
- */
-export async function inspectDoctor(ctx: DoctorContext): Promise<DoctorReport> {
-  const checks: DoctorCheck[] = [];
-  const collect = async (
-    label: string,
-    run: () => Promise<DoctorCheck[]> | DoctorCheck[],
-  ): Promise<void> => {
-    try {
-      checks.push(...(await run()));
-    } catch (error) {
-      checks.push({ status: 'fail', title: `${label} check failed`, detail: errorMessage(error) });
-    }
-  };
-
-  await collect('Package manager', () => packageManagerChecks(ctx));
-  if (ctx.platform === 'android') {
-    await collect('Android toolchain', () => androidToolchainChecks(ctx));
-    await collect('Credentials', () => credentialsCheck(ctx));
-    await collect('Play account', () => playAccountChecks(ctx));
-    await collect('App config', () => configChecks(ctx, 'android'));
-  } else {
-    await collect('iOS toolchain', () => iosToolchainChecks(ctx));
-    await collect('Credentials', () => credentialsCheck(ctx));
-    await collect('Codesign identity', () => codesignCheck(ctx));
-    await collect('Apple account', () => appleAccountChecks(ctx));
-    await collect('Signing preflight', () => signingPreflightChecks(ctx));
-    await collect('App config', () => configChecks(ctx, 'ios'));
-    await collect('Export compliance', () => exportComplianceChecks(ctx));
-    await collect('App privacy', () => appPrivacyChecks(ctx));
-    await collect('API-key permissions', () => keyPermissionChecks(ctx));
-  }
-
-  return { platform: ctx.platform, checks, ok: checks.every((check) => check.status !== 'fail') };
-}
+    return {
+      platform: doctorContext.platform,
+      checks: doctorChecks,
+      ok: doctorChecks.every((doctorCheck) => doctorCheck.status !== 'fail'),
+    };
+  });

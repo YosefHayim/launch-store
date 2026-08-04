@@ -1,221 +1,459 @@
-/**
- * Build the live {@link TrainEngine} for one `launch release-train` run. Each engine method wraps an
- * already-tested release primitive — `appStoreRelease` (iOS submit/read/release), the Play submitter
- * (Android), and `otaPublish` (OTA followers) — and the store clients / code signer resolve **lazily**, so
- * a `status` reconcile that only reads never constructs a signer or a write-capable client.
- *
- * This is the domain seam the `release-train` CLI command sits on: the command resolves config + env, calls
- * {@link buildTrainRuntime}, and hands the engine to `core/releaseTrain/orchestrator.ts`. Keeping the engine
- * construction here (not in `src/cli`) is what keeps the App Store Connect / Google Play / code-signing
- * dependencies out of the CLI layer, where only thin wiring belongs.
- */
-
-import { join } from 'node:path';
-import type {
-  AndroidReleaseOptions,
-  AppDescriptor,
-  BuildProfile,
-  Car,
-  LaunchConfig,
-  ResolvedBuildContext,
-} from '../types/index.js';
-import { submitToStores } from '../build/pipeline.js';
-import type { Logger } from '../services/logger.js';
-import { loadActiveAscKey } from '../credentials/accounts.js';
-import { AppStoreConnectClient } from '../../apple/ascClient.js';
+import { type FileSystem, Path } from '@effect/platform';
+import type * as PlatformCommandExecutor from '@effect/platform/CommandExecutor';
+import { Data, Effect } from 'effect';
 import {
   appRecordMissingMessage,
   IOS_PLATFORM,
   pickCurrentVersion,
   readReleaseStatus,
   releaseApp,
+  type AscReleaseApi,
   type ReleaseInput,
 } from '../release/appStoreRelease.js';
-import { GooglePlayClient, parseServiceAccount } from '../../google/playClient.js';
-import { loadServiceAccount } from '../../google/credentials.js';
-import { getCredentialsProvider } from '../services/registry.js';
+import { resolveReleaseType, resolveWhatsNew } from '../release/releaseInputs.js';
+import { submitToStores } from '../build/pipelineProviders.js';
+import {
+  type CodeSigner,
+  type CodeSigningRequirements,
+  ensureCodeSigner,
+} from '../credentials/codeSign.js';
+import { loadActiveAscKey } from '../credentials/accounts.js';
+import { loadServiceAccount } from '../credentials/androidKeystore.js';
+import { publishOtaPlatform, readExportMetadata } from '../distribution/otaPublish.js';
 import {
   ensureArtifactPresent,
   isCloudStorage,
   resolveStorageProvider,
 } from '../distribution/storage.js';
-import { ensureCodeSigner, type CodeSigner } from '../credentials/codeSign.js';
-import { runWithProgress } from '../services/progress.js';
-import { publishOtaPlatform, readExportMetadata } from '../distribution/otaPublish.js';
-import { resolveReleaseType, resolveWhatsNew } from '../release/releaseInputs.js';
+import {
+  AppleStoreClientService,
+  type AppleStoreClientService as AppleStoreClientDependencies,
+} from '../services/appleStoreClient.js';
+import { executeCommand } from '../services/exec.js';
+import type { LaunchEnvironmentService } from '../services/environment.js';
+import {
+  GoogleStoreClientService,
+  type EffectGooglePlayClient,
+  type GoogleStoreClientService as GoogleStoreClientDependencies,
+} from '../services/googleStoreClient.js';
+import type { Logger } from '../services/logger.js';
+import type { LaunchPathsService } from '../services/paths.js';
+import { getCredentialsProvider } from '../services/registry.js';
+import type { LaunchSecretStoreService } from '../services/secretStore.js';
+import type { AndroidReleaseOptions, AppDescriptor, BuildProfile } from '../types/app.js';
+import type { LaunchConfig, ResolvedBuildContext } from '../types/config.js';
+import type { Car } from '../types/releaseTrain.js';
 import { androidCarState, iosCarState } from './engine.js';
 import type { TrainEngine } from './orchestrator.js';
 
-/** Memoized, lazy resolvers + the live {@link TrainEngine} for one run — clients are resolved only as a car needs them. */
-export interface TrainRuntime {
-  engine: TrainEngine;
-}
+/** A release-train engine operation failed. */
+export type TrainRuntimeFailure = Readonly<{
+  readonly _tag: 'TrainRuntimeFailure';
+  readonly operation: string;
+  readonly message: string;
+  readonly cause: unknown;
+}>;
 
-/**
- * Build the live engine for an app: each method wraps an already-tested release primitive, and the store
- * clients / code signer resolve lazily (a `status` reconcile that only reads never touches the signer).
- * The iOS bundle id and Android package are present because cars are only created for declared platforms;
- * the per-method guards keep that explicit without a non-null assertion.
- */
-export function buildTrainRuntime(
-  config: LaunchConfig,
-  app: AppDescriptor,
-  profile: BuildProfile,
-  env: Record<string, string>,
-  hold: boolean,
-  log: Logger,
-): TrainRuntime {
-  let ascClient: AppStoreConnectClient | undefined;
-  let playClient: GooglePlayClient | undefined;
-  let signer: CodeSigner | undefined;
+export const makeTrainRuntimeFailure = Data.tagged<TrainRuntimeFailure>('TrainRuntimeFailure');
 
-  const asc = async (): Promise<AppStoreConnectClient> => {
-    if (!ascClient) {
-      const key = await loadActiveAscKey();
-      if (!key) throw new Error('No active Apple account. Run `launch creds set-key` first.');
-      ascClient = new AppStoreConnectClient(key);
-    }
-    return ascClient;
-  };
-  const play = async (): Promise<GooglePlayClient> => {
-    if (!playClient) {
-      const json = await loadServiceAccount();
-      if (!json)
-        throw new Error(
-          'No Google Play service account configured. Run `launch creds set-key --platform android`.',
+/** Platform services required by the live train engine. */
+export type TrainRuntimeRequirements =
+  | AppleStoreClientDependencies
+  | FileSystem.FileSystem
+  | GoogleStoreClientDependencies
+  | LaunchEnvironmentService
+  | LaunchPathsService
+  | LaunchSecretStoreService
+  | Path.Path
+  | PlatformCommandExecutor.CommandExecutor;
+
+/** Live train engine assembled for one app and profile. */
+export type TrainRuntime = Readonly<{
+  engine: TrainEngine<TrainRuntimeRequirements>;
+}>;
+
+/** Convert an unknown runtime cause to the train engine's tagged channel. */
+const runtimeFailure = (
+  operation: string,
+  cause: unknown,
+  fallbackMessage?: string,
+): TrainRuntimeFailure => {
+  let message = fallbackMessage;
+  if (message === undefined && cause instanceof Error) message = cause.message;
+  if (message === undefined) message = `${operation} failed.`;
+  return makeTrainRuntimeFailure({ operation, message, cause });
+};
+
+/** Map a store transport operation into the train engine's tagged channel. */
+const attemptTransport = <Success>(
+  operation: string,
+  transportOperation: () => Effect.Effect<Success, unknown>,
+): Effect.Effect<Success, TrainRuntimeFailure> =>
+  transportOperation().pipe(Effect.mapError((cause) => runtimeFailure(operation, cause)));
+
+/** Build the live Effect engine for one release-train run. */
+export const buildTrainRuntime = (
+  launchConfiguration: LaunchConfig,
+  appDescriptor: AppDescriptor,
+  buildProfile: BuildProfile,
+  environmentValues: Record<string, string>,
+  holdReleases: boolean,
+  logger: Logger,
+): TrainRuntime => {
+  let cachedAppleClient: AscReleaseApi | undefined;
+  let cachedGoogleClient: EffectGooglePlayClient | undefined;
+  let cachedCodeSigner: CodeSigner | undefined;
+
+  /** Resolve and memoize the active App Store Connect client. */
+  const resolveAppleClient = (): Effect.Effect<
+    AscReleaseApi,
+    TrainRuntimeFailure,
+    | AppleStoreClientDependencies
+    | FileSystem.FileSystem
+    | LaunchPathsService
+    | LaunchSecretStoreService
+    | Path.Path
+  > =>
+    Effect.gen(function* () {
+      if (cachedAppleClient !== undefined) return cachedAppleClient;
+      const ascKey = yield* loadActiveAscKey().pipe(
+        Effect.mapError((cause) => runtimeFailure('load active Apple account', cause)),
+      );
+      if (ascKey === null) {
+        return yield* Effect.fail(
+          runtimeFailure(
+            'load active Apple account',
+            appDescriptor.name,
+            'No active Apple account. Run `launch creds set-key` first.',
+          ),
         );
-      playClient = new GooglePlayClient(parseServiceAccount(json));
-    }
-    return playClient;
-  };
-  const codeSigner = async (): Promise<CodeSigner> =>
-    (signer ??= await ensureCodeSigner(false, log));
-
-  const bundleId = app.bundleId;
-  const packageName = app.packageName;
-
-  /** Submit the latest processed iOS build to App Store review (manual release when the train holds). */
-  const submitIos = async (): Promise<{ buildId?: string }> => {
-    if (!bundleId)
-      throw new Error(`${app.name} has no iOS bundle id (ios.bundleIdentifier in app.json).`);
-    const client = await asc();
-    const appId = await client.getAppId(bundleId);
-    if (!appId) throw new Error(appRecordMissingMessage(bundleId, 'launch release-train start'));
-    const build =
-      (await client.listBuilds(appId)).find((b) => b.processingState === 'VALID' && !b.expired) ??
-      null;
-    if (!build) {
-      throw new Error(
-        `No processed iOS build on App Store Connect for ${app.name}. Run \`launch build ios\` and upload it ` +
-          `(\`launch testflight\` or \`launch release ios --no-wait\`) before starting the train.`,
-      );
-    }
-    const versionString = app.version ?? (await client.getLatestMarketingVersion(bundleId));
-    if (!versionString)
-      throw new Error(
-        `Could not determine a marketing version for ${app.name}. Set "version" in app.json.`,
-      );
-    // A holding train forces MANUAL (it releases every car together later); otherwise honor the configured
-    // type — and when that's SCHEDULED, `resolveReleaseType` carries the `earliestReleaseDate` the submit needs.
-    const { releaseType, earliestReleaseDate } = resolveReleaseType(config.release, {
-      manual: hold,
-    });
-    const input: ReleaseInput = {
-      bundleId,
-      platform: IOS_PLATFORM,
-      versionString,
-      releaseType,
-      ...(earliestReleaseDate ? { earliestReleaseDate } : {}),
-      phasedRelease: config.release?.phasedRelease === true,
-      usesNonExemptEncryption: config.release?.usesNonExemptEncryption ?? false,
-      whatsNew: resolveWhatsNew(config.release, app.dir),
-      build,
-      dryRun: false,
-    };
-    await releaseApp(client, input);
-    return { buildId: build.id };
-  };
-
-  /** Promote the latest stored Android artifact to the Play production track. */
-  const submitAndroid = async (): Promise<{ buildId?: string }> => {
-    if (!packageName)
-      throw new Error(`${app.name} has no Android package (android.package in app.json).`);
-    const latest = (await resolveStorageProvider(config).list()).find(
-      (artifact) => artifact.appName === app.name && artifact.platform === 'android',
-    );
-    if (!latest)
-      throw new Error(
-        `No stored Android build for ${app.name}. Run \`launch build android\` first.`,
-      );
-    ensureArtifactPresent(latest, app.name, 'android');
-    const android: AndroidReleaseOptions = { track: 'production', rollout: profile.rollout ?? 1.0 };
-    const ctx: ResolvedBuildContext = {
-      platform: 'android',
-      app,
-      profile,
-      env,
-      explain: false,
-      dryRun: false,
-      forceClean: false,
-      android,
-    };
-    const credentials = await getCredentialsProvider(config.credentials).resolve(ctx);
-    await submitToStores(config, 'android', latest.path, 'production', credentials, ctx);
-    return { buildId: String(latest.buildNumber) };
-  };
-
-  /** Export the current JS and publish one OTA follower's manifest (its native platform is live). */
-  const publishOta = async (
-    car: Extract<Car, { kind: 'ota' }>,
-  ): Promise<{ manifestId?: string }> => {
-    if (!isCloudStorage(config))
-      throw new Error('OTA needs a cloud storage provider (s3 / supabase).');
-    const storage = resolveStorageProvider(config);
-    const distDir = join(app.dir, 'dist');
-    await runWithProgress('npx', ['expo', 'export', '--output-dir', distDir], {
-      label: `Exporting JS bundle · ${app.name}`,
-      cwd: app.dir,
-      env,
-    });
-    const metadata = readExportMetadata(distDir);
-    const result = await publishOtaPlatform(
-      {
-        storage,
-        distDir,
-        metadata,
-        platform: car.platform,
-        channel: car.channel,
-        runtimeVersion: car.runtimeVersion,
-        signer: await codeSigner(),
-      },
-      log,
-    );
-    return result.manifestId !== undefined ? { manifestId: result.manifestId } : {};
-  };
-
-  const engine: TrainEngine = {
-    submitNative: (car) => (car.kind === 'ios' ? submitIos() : submitAndroid()),
-    async readNative(car) {
-      if (car.kind === 'ios') {
-        if (!bundleId) return car.state;
-        const status = await readReleaseStatus(await asc(), bundleId, IOS_PLATFORM);
-        return iosCarState(status.verdict) ?? car.state;
       }
-      if (!packageName) return car.state;
-      const releases = await (await play()).getTrackReleases(packageName, 'production');
-      return androidCarState(releases) ?? car.state;
+      const appleStoreClient = yield* AppleStoreClientService;
+      cachedAppleClient = yield* appleStoreClient
+        .createClient(ascKey)
+        .pipe(Effect.mapError((cause) => runtimeFailure('create App Store client', cause)));
+      return cachedAppleClient;
+    });
+
+  /** Resolve and memoize the configured Google Play client. */
+  const resolveGoogleClient = (): Effect.Effect<
+    EffectGooglePlayClient,
+    TrainRuntimeFailure,
+    GoogleStoreClientDependencies | LaunchSecretStoreService
+  > =>
+    Effect.gen(function* () {
+      if (cachedGoogleClient !== undefined) return cachedGoogleClient;
+      const serviceAccountJson = yield* loadServiceAccount().pipe(
+        Effect.mapError((cause) => runtimeFailure('load Google Play service account', cause)),
+      );
+      if (serviceAccountJson === null) {
+        return yield* Effect.fail(
+          runtimeFailure(
+            'load Google Play service account',
+            appDescriptor.name,
+            'No Google Play service account configured. Run `launch creds set-key --platform android`.',
+          ),
+        );
+      }
+      const googleStoreClient = yield* GoogleStoreClientService;
+      cachedGoogleClient = yield* googleStoreClient
+        .createEffectClient(serviceAccountJson)
+        .pipe(Effect.mapError((cause) => runtimeFailure('create Google Play client', cause)));
+      return cachedGoogleClient;
+    });
+
+  /** Resolve and memoize the OTA code signer. */
+  const resolveCodeSigner = (): Effect.Effect<
+    CodeSigner,
+    TrainRuntimeFailure,
+    CodeSigningRequirements
+  > =>
+    Effect.gen(function* () {
+      if (cachedCodeSigner !== undefined) return cachedCodeSigner;
+      cachedCodeSigner = yield* ensureCodeSigner(false, logger).pipe(
+        Effect.mapError((cause) => runtimeFailure('resolve OTA code signer', cause)),
+      );
+      return cachedCodeSigner;
+    });
+
+  /** Submit the latest valid iOS build to App Store review. */
+  const submitIos = (): Effect.Effect<
+    Readonly<{ buildId?: string }>,
+    TrainRuntimeFailure,
+    | AppleStoreClientDependencies
+    | FileSystem.FileSystem
+    | LaunchPathsService
+    | LaunchSecretStoreService
+    | Path.Path
+  > =>
+    Effect.gen(function* () {
+      const bundleId = appDescriptor.bundleId;
+      if (bundleId === undefined) {
+        return yield* Effect.fail(
+          runtimeFailure(
+            'resolve iOS bundle identifier',
+            appDescriptor,
+            `${appDescriptor.name} has no iOS bundle id (ios.bundleIdentifier in app.json).`,
+          ),
+        );
+      }
+      const ascClient = yield* resolveAppleClient();
+      const appId = yield* attemptTransport('find App Store app', () =>
+        ascClient.getAppId(bundleId),
+      );
+      if (appId === null) {
+        return yield* Effect.fail(
+          runtimeFailure(
+            'find App Store app',
+            bundleId,
+            appRecordMissingMessage(bundleId, 'launch release-train start'),
+          ),
+        );
+      }
+      const storeBuilds = yield* attemptTransport('list App Store builds', () =>
+        ascClient.listBuilds(appId),
+      );
+      const storeBuild = storeBuilds.find(
+        (candidateBuild) => candidateBuild.processingState === 'VALID' && !candidateBuild.expired,
+      );
+      if (storeBuild === undefined) {
+        return yield* Effect.fail(
+          runtimeFailure(
+            'find processed iOS build',
+            appDescriptor.name,
+            `No processed iOS build on App Store Connect for ${appDescriptor.name}. Run \`launch build ios\` and upload it (\`launch testflight\` or \`launch release ios --no-wait\`) before starting the train.`,
+          ),
+        );
+      }
+      let versionString = appDescriptor.version;
+      if (versionString === undefined) {
+        const storeVersion = yield* attemptTransport('read App Store version', () =>
+          ascClient.getLatestMarketingVersion(bundleId),
+        );
+        if (storeVersion !== null) versionString = storeVersion;
+      }
+      if (versionString === undefined) {
+        return yield* Effect.fail(
+          runtimeFailure(
+            'resolve iOS marketing version',
+            appDescriptor,
+            `Could not determine a marketing version for ${appDescriptor.name}. Set "version" in app.json.`,
+          ),
+        );
+      }
+      if (versionString === '') {
+        return yield* Effect.fail(
+          runtimeFailure(
+            'resolve iOS marketing version',
+            appDescriptor,
+            `Could not determine a marketing version for ${appDescriptor.name}. Set "version" in app.json.`,
+          ),
+        );
+      }
+      const releaseTypeSettings = resolveReleaseType(launchConfiguration.release, {
+        manual: holdReleases,
+      });
+      const releaseNotes = yield* resolveWhatsNew(
+        launchConfiguration.release,
+        appDescriptor.dir,
+      ).pipe(Effect.mapError((cause) => runtimeFailure('read iOS release notes', cause)));
+      const releaseInput: ReleaseInput = {
+        bundleId,
+        platform: IOS_PLATFORM,
+        versionString,
+        releaseType: releaseTypeSettings.releaseType,
+        phasedRelease: launchConfiguration.release?.phasedRelease === true,
+        usesNonExemptEncryption: launchConfiguration.release?.usesNonExemptEncryption === true,
+        whatsNew: releaseNotes,
+        build: storeBuild,
+        dryRun: false,
+      };
+      if (releaseTypeSettings.earliestReleaseDate !== undefined) {
+        releaseInput.earliestReleaseDate = releaseTypeSettings.earliestReleaseDate;
+      }
+      yield* attemptTransport('submit iOS release', () => releaseApp(ascClient, releaseInput));
+      return { buildId: storeBuild.id };
+    });
+
+  /** Submit the latest stored Android build to the Play production track. */
+  const submitAndroid = (): Effect.Effect<
+    Readonly<{ buildId?: string }>,
+    TrainRuntimeFailure,
+    FileSystem.FileSystem | LaunchPathsService | Path.Path
+  > =>
+    Effect.gen(function* () {
+      if (appDescriptor.packageName === undefined) {
+        return yield* Effect.fail(
+          runtimeFailure(
+            'resolve Android package name',
+            appDescriptor,
+            `${appDescriptor.name} has no Android package (android.package in app.json).`,
+          ),
+        );
+      }
+      const storageProvider = yield* resolveStorageProvider(launchConfiguration).pipe(
+        Effect.mapError((cause) => runtimeFailure('resolve build storage', cause)),
+      );
+      const storedBuilds = yield* storageProvider
+        .list()
+        .pipe(Effect.mapError((cause) => runtimeFailure('read stored Android builds', cause)));
+      const latestBuild = storedBuilds.find(
+        (storedBuild) =>
+          storedBuild.appName === appDescriptor.name && storedBuild.platform === 'android',
+      );
+      if (latestBuild === undefined) {
+        return yield* Effect.fail(
+          runtimeFailure(
+            'find stored Android build',
+            appDescriptor.name,
+            `No stored Android build for ${appDescriptor.name}. Run \`launch build android\` first.`,
+          ),
+        );
+      }
+      yield* ensureArtifactPresent(latestBuild, appDescriptor.name, 'android').pipe(
+        Effect.mapError((cause) => runtimeFailure('verify stored Android build', cause)),
+      );
+      let rollout = buildProfile.rollout;
+      if (rollout === undefined) rollout = 1;
+      const androidRelease: AndroidReleaseOptions = { track: 'production', rollout };
+      const buildContext: ResolvedBuildContext = {
+        platform: 'android',
+        app: appDescriptor,
+        profile: buildProfile,
+        env: environmentValues,
+        explain: false,
+        dryRun: false,
+        forceClean: false,
+        android: androidRelease,
+      };
+      const credentialsProvider = yield* getCredentialsProvider(
+        launchConfiguration.credentials,
+      ).pipe(Effect.mapError((cause) => runtimeFailure('resolve credentials provider', cause)));
+      const buildCredentials = yield* credentialsProvider
+        .resolveBuildCredentials(buildContext)
+        .pipe(Effect.mapError((cause) => runtimeFailure('resolve Android credentials', cause)));
+      yield* submitToStores(
+        launchConfiguration,
+        'android',
+        latestBuild.path,
+        'production',
+        buildCredentials,
+        buildContext,
+      ).pipe(Effect.mapError((cause) => runtimeFailure('submit Android release', cause)));
+      return { buildId: String(latestBuild.buildNumber) };
+    });
+
+  /** Export and publish one OTA follower after its native platform is live. */
+  const publishOta = (
+    trainCar: Extract<Car, { kind: 'ota' }>,
+  ): Effect.Effect<
+    Readonly<{ manifestId?: string }>,
+    TrainRuntimeFailure,
+    | FileSystem.FileSystem
+    | LaunchEnvironmentService
+    | LaunchPathsService
+    | LaunchSecretStoreService
+    | Path.Path
+    | PlatformCommandExecutor.CommandExecutor
+  > =>
+    Effect.gen(function* () {
+      if (!isCloudStorage(launchConfiguration)) {
+        return yield* Effect.fail(
+          runtimeFailure(
+            'resolve OTA storage',
+            launchConfiguration.storage,
+            'OTA needs a cloud storage provider (s3 / supabase).',
+          ),
+        );
+      }
+      const storageProvider = yield* resolveStorageProvider(launchConfiguration).pipe(
+        Effect.mapError((cause) => runtimeFailure('resolve OTA storage', cause)),
+      );
+      const pathService = yield* Path.Path;
+      const distributionDirectory = pathService.join(appDescriptor.dir, 'dist');
+      yield* logger
+        .run(`Exporting JS bundle - ${appDescriptor.name}`)
+        .pipe(Effect.mapError((cause) => runtimeFailure('render OTA export step', cause)));
+      yield* executeCommand('npx', ['expo', 'export', '--output-dir', distributionDirectory], {
+        workingDirectory: appDescriptor.dir,
+        environmentOverrides: environmentValues,
+      }).pipe(Effect.mapError((cause) => runtimeFailure('export OTA bundle', cause)));
+      const exportMetadata = yield* readExportMetadata(distributionDirectory).pipe(
+        Effect.mapError((cause) => runtimeFailure('read OTA export metadata', cause)),
+      );
+      const codeSigner = yield* resolveCodeSigner();
+      const publishedUpdate = yield* publishOtaPlatform(
+        {
+          storage: storageProvider,
+          distDir: distributionDirectory,
+          metadata: exportMetadata,
+          platform: trainCar.platform,
+          channel: trainCar.channel,
+          runtimeVersion: trainCar.runtimeVersion,
+          signer: codeSigner,
+        },
+        logger,
+      ).pipe(Effect.mapError((cause) => runtimeFailure('publish OTA update', cause)));
+      if (publishedUpdate.manifestId === undefined) return {};
+      return { manifestId: publishedUpdate.manifestId };
+    });
+
+  const engine: TrainEngine<TrainRuntimeRequirements> = {
+    submitNative: (trainCar) => {
+      if (trainCar.kind === 'ios') return submitIos();
+      return submitAndroid();
     },
-    async releaseNative(car) {
-      // Android promotes to production on submit and exposes no developer-release gate — nothing to fire.
-      if (car.kind !== 'ios' || !bundleId) return;
-      const client = await asc();
-      const appId = await client.getAppId(bundleId);
-      if (!appId)
-        throw new Error(appRecordMissingMessage(bundleId, 'launch release-train release'));
-      const version = pickCurrentVersion(await client.listAppStoreVersions(appId, IOS_PLATFORM));
-      if (version) await client.createAppStoreVersionReleaseRequest(version.id);
-    },
+    readNative: (trainCar) =>
+      Effect.gen(function* () {
+        if (trainCar.kind === 'ios') {
+          const bundleId = appDescriptor.bundleId;
+          if (bundleId === undefined) return trainCar.state;
+          const ascClient = yield* resolveAppleClient();
+          const releaseStatus = yield* attemptTransport('read App Store release status', () =>
+            readReleaseStatus(ascClient, bundleId, IOS_PLATFORM),
+          );
+          const nextState = iosCarState(releaseStatus.verdict);
+          if (nextState === null) return trainCar.state;
+          return nextState;
+        }
+        const packageName = appDescriptor.packageName;
+        if (packageName === undefined) return trainCar.state;
+        const playClient = yield* resolveGoogleClient();
+        const trackReleases = yield* playClient
+          .getTrackReleases(packageName, 'production')
+          .pipe(Effect.mapError((cause) => runtimeFailure('read Play production track', cause)));
+        const nextState = androidCarState(trackReleases);
+        if (nextState === null) return trainCar.state;
+        return nextState;
+      }),
+    releaseNative: (trainCar) =>
+      Effect.gen(function* () {
+        if (trainCar.kind !== 'ios') return;
+        const bundleId = appDescriptor.bundleId;
+        if (bundleId === undefined) return;
+        const ascClient = yield* resolveAppleClient();
+        const appId = yield* attemptTransport('find App Store app', () =>
+          ascClient.getAppId(bundleId),
+        );
+        if (appId === null) {
+          return yield* Effect.fail(
+            runtimeFailure(
+              'find App Store app',
+              bundleId,
+              appRecordMissingMessage(bundleId, 'launch release-train release'),
+            ),
+          );
+        }
+        const storeVersions = yield* attemptTransport('list App Store versions', () =>
+          ascClient.listAppStoreVersions(appId, IOS_PLATFORM),
+        );
+        const currentVersion = pickCurrentVersion(storeVersions);
+        if (currentVersion === null) return;
+        yield* attemptTransport('release approved App Store version', () =>
+          ascClient.createAppStoreVersionReleaseRequest(currentVersion.id),
+        );
+      }),
     publishOta,
   };
   return { engine };
-}
+};

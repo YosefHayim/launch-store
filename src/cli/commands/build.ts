@@ -1,22 +1,8 @@
-/**
- * `launch build <platform>` command registration.
- *
- * Commander owns the user-facing command surface here. Parsing and orchestration live in
- * `src/core/build/*` so the wizard, agents, and non-interactive CLI can converge on the same program.
- */
-
 import type { Command } from 'commander';
-import { Effect } from 'effect';
-import { buildCommandProgram } from '../../core/build/buildCommandProgram.js';
-import type { BuildCommandOptions } from '../../core/build/buildCommandInput.js';
+import { buildCommandProgram } from '@core/build/buildCommandProgram.js';
+import type { BuildCommandOptions } from '@core/build/buildCommandInput.js';
 import { addEnvFlags } from '../options.js';
-
-/**
- * Attach Apple-specific build options to the command.
- *
- * @param command - Build command being configured.
- * @returns The same command with Apple build options attached.
- */
+import { runCliProgram } from '../runCliProgram.js';
 const addAppleBuildOptions = (command: Command): Command =>
   command
     .option(
@@ -31,13 +17,6 @@ const addAppleBuildOptions = (command: Command): Command =>
       '--bump <kind>',
       "iOS only - version bump: patch|minor|major|keep (default: last used, else prompt) or 'ask' to force the prompt",
     );
-
-/**
- * Attach Android-specific build options to the command.
- *
- * @param command - Build command being configured.
- * @returns The same command with Android build options attached.
- */
 const addAndroidBuildOptions = (command: Command): Command =>
   command
     .option(
@@ -48,13 +27,6 @@ const addAndroidBuildOptions = (command: Command): Command =>
       '--rollout <fraction>',
       'Android only - staged-rollout fraction for production (default: 1.0)',
     );
-
-/**
- * Attach shared build execution options to the command.
- *
- * @param command - Build command being configured.
- * @returns The same command with shared execution options attached.
- */
 const addSharedBuildOptions = (command: Command): Command =>
   command
     .option(
@@ -79,13 +51,6 @@ const addSharedBuildOptions = (command: Command): Command =>
       'stream the full xcodebuild/gradle output instead of a progress spinner',
       false,
     );
-
-/**
- * Attach the `build` command to the root CLI program.
- *
- * @param program - Commander root program to extend.
- * @returns Nothing; Commander is mutated by registration.
- */
 export const registerBuildCommand = (program: Command): void => {
   const command = addSharedBuildOptions(
     addAndroidBuildOptions(
@@ -103,8 +68,7 @@ export const registerBuildCommand = (program: Command): void => {
       ),
     ),
   );
-
   addEnvFlags(command).action((platformArgument: string, commandOptions: BuildCommandOptions) =>
-    Effect.runPromise(buildCommandProgram(platformArgument, commandOptions)),
+    runCliProgram(buildCommandProgram(platformArgument, commandOptions)),
   );
 };

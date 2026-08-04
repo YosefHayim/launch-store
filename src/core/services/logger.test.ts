@@ -1,60 +1,57 @@
-/**
- * Tests for the logger's plain, non-TTY rendering. Under vitest stdout isn't a TTY, so every helper
- * takes its plain branch — exactly the path CI logs and pipes hit. We assert that path: the `box` and
- * `shipped` receipts, the `notice` checkpoint, the `step` label title-casing, and the `chip` highlight
- * (which collapses to the bare value off a TTY, with no escapes or padding leaking into captured logs).
- */
+import { describe, expect, it } from 'vitest';
+import { Effect } from 'effect';
+import { createLogger, makeLaunchLoggerTest } from './logger.js';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createLogger } from './logger.js';
+describe('logger ASCII rendering', () => {
+  it('prints stable status text and receipt lines through the test service', async () => {
+    const terminalWrites: string[] = [];
+    const loggingProgram = Effect.gen(function* () {
+      const logger = yield* createLogger(false);
+      yield* logger.box('Synced', ['3 apps', '0 errors']);
+      yield* logger.shipped(['sampleapp 1.0.0 (42)', 'download 47.2 MB - on disk 61.3 MB']);
+      yield* logger.notice('Upload to TestFlight', 'sampleapp 1.0.0 (build 42)');
+    }).pipe(Effect.provide(makeLaunchLoggerTest(terminalWrites)));
 
-describe('logger plain (non-TTY) rendering', () => {
-  let lines: string[];
+    await Effect.runPromise(loggingProgram);
 
-  beforeEach(() => {
-    lines = [];
-    vi.spyOn(console, 'log').mockImplementation((message?: string) => {
-      lines.push(message ?? '');
-    });
+    expect(terminalWrites.join('')).toBe(
+      '[OK] Synced\n' +
+        '  3 apps\n' +
+        '  0 errors\n' +
+        '[OK] Shipped\n' +
+        '  sampleapp 1.0.0 (42)\n' +
+        '  download 47.2 MB - on disk 61.3 MB\n' +
+        '[RUN] Upload to TestFlight\n' +
+        '  sampleapp 1.0.0 (build 42)\n',
+    );
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
+  it('writes labels verbatim and expands a requested glossary topic', async () => {
+    const terminalWrites: string[] = [];
+    const loggingProgram = Effect.gen(function* () {
+      const logger = yield* createLogger(true);
+      yield* logger.step('native project', 'using existing ios/', 'bundle-id');
+      yield* logger.step('com.example.sampleapp', 'already in sync');
+    }).pipe(Effect.provide(makeLaunchLoggerTest(terminalWrites)));
+
+    await Effect.runPromise(loggingProgram);
+
+    const transcript = terminalWrites.join('');
+    expect(transcript).toContain('[RUN] native project - using existing ios/');
+    expect(transcript).toContain('[RUN] com.example.sampleapp - already in sync');
+    expect(transcript).toContain('Bundle ID');
   });
 
-  it("box prints the title then each row indented when output isn't a TTY", () => {
-    createLogger(false).box('Synced', ['3 apps', '0 errors']);
-    expect(lines).toContain('Synced');
-    expect(lines).toContain('  3 apps');
-    expect(lines).toContain('  0 errors');
-  });
+  it('keeps chip formatting pure and free of terminal escapes', () => {
+    const terminalWrites: string[] = [];
+    const chipText = Effect.runSync(
+      createLogger(false).pipe(
+        Effect.map((logger) => logger.chip('29.7 MB')),
+        Effect.provide(makeLaunchLoggerTest(terminalWrites)),
+      ),
+    );
 
-  it("shipped prints the Shipped title then each row indented when output isn't a TTY (no boat)", async () => {
-    await createLogger(false).shipped([
-      'sampleapp 1.0.0 (42)',
-      'download 47.2 MB · on disk 61.3 MB',
-    ]);
-    expect(lines).toContain('Shipped');
-    expect(lines).toContain('  sampleapp 1.0.0 (42)');
-    expect(lines).toContain('  download 47.2 MB · on disk 61.3 MB');
-  });
-
-  it('notice prints a lead line followed by indented detail lines', () => {
-    createLogger(false).notice('⬆ Upload to TestFlight', 'sampleapp 1.0.0 (build 42)');
-    expect(lines.some((line) => line.includes('⬆ Upload to TestFlight'))).toBe(true);
-    expect(lines.some((line) => line.includes('sampleapp 1.0.0 (build 42)'))).toBe(true);
-  });
-
-  it('step title-cases a plain lowercase label but leaves dotted/cased identifiers verbatim', () => {
-    const log = createLogger(false);
-    log.step('native project', 'using existing ios/');
-    log.step('com.example.sampleapp', 'already in sync');
-    expect(lines.some((line) => line.includes('Native Project'))).toBe(true);
-    expect(lines.some((line) => line.includes('com.example.sampleapp'))).toBe(true);
-    expect(lines.some((line) => line.includes('Com.example.sampleapp'))).toBe(false);
-  });
-
-  it('chip collapses to the bare value off a TTY — no escapes or padding in captured logs', () => {
-    expect(createLogger(false).chip('29.7 MB')).toBe('29.7 MB');
+    expect(chipText).toBe('29.7 MB');
+    expect(terminalWrites).toEqual([]);
   });
 });

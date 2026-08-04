@@ -1,4 +1,4 @@
-# Hello World — the full-feature Launch example
+# Hello World - the full-feature Launch example
 
 A single, runnable, **dual-platform (iOS + Android)** Expo app wired to **every feature Launch can
 configure as code**. It's a tiny one-button tap game; the point isn't the app, it's the config around
@@ -8,7 +8,7 @@ Every file here works with **today's** shipped CLI. The five Launch-native App S
 (Game Center, App Clips, release attributes, Wallet, EU distribution) are **typed fields in
 `launch.config.ts`** (issue #101); the standalone `*.config.json` sidecars still work for back-compat.
 The four file-only surfaces (availability, accessibility, experiments, custom product pages) live as
-**sidecars under `store/`**, located by the `configFiles` map. And `store.config.json` stays a sidecar —
+**sidecars under `store/`**, located by the `configFiles` map. And `store.config.json` stays a sidecar -
 its `apple` section mirrors the Expo/EAS metadata schema verbatim (the `eas metadata` migration path).
 All of these together are what [`launch plan` / `launch drift`](#plan-coverage) diff against live store
 state.
@@ -17,17 +17,17 @@ state.
 
 ```bash
 cd examples/hello-world
-npm install            # install the Expo app deps (optional — only needed to start the RN app)
+npm install            # install the Expo app deps (optional - only needed to start the RN app)
 npx expo start         # run the tap game in a simulator/device
 
 # Then explore Launch against this config. --dry-run rehearses every step with no real changes:
 launch doctor                       # check toolchain + store account
 launch sync --dry-run               # plan the App Store Connect product catalog
-launch build ios --dry-run          # rehearse the build → sign → submit pipeline
-launch build android --dry-run      # the Android leg (gradle → AAB → Play internal track)
+launch build ios --dry-run          # rehearse the build -> sign -> submit pipeline
+launch build android --dry-run      # the Android leg (gradle -> AAB -> Play internal track)
 ```
 
-> Run all `launch` commands **from this directory** — `launch.config.ts` and `store.config.json` are
+> Run all `launch` commands **from this directory** - `launch.config.ts` and `store.config.json` are
 > resolved relative to the current directory, and the app is discovered from `app.json` here.
 
 > **Want zero cloud setup?** This config is intentionally maximal. For a purely local build, edit
@@ -38,15 +38,15 @@ launch build android --dry-run      # the Android leg (gradle → AAB → Play i
 
 | File                                                             | What it is                                                                                                                                                                                                                                                    |
 | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app.json`                                                       | Expo app facts — bundle id, `android.package`, version, capabilities, export compliance. The source of truth Launch reads (never duplicated in `launch.config.ts`).                                                                                           |
+| `app.json`                                                       | Expo app facts - bundle id, `android.package`, version, capabilities, export compliance. The source of truth Launch reads (never duplicated in `launch.config.ts`).                                                                                           |
 | `App.tsx` / `package.json` / `babel.config.js` / `tsconfig.json` | The minimal runnable Expo app (a tap counter).                                                                                                                                                                                                                |
-| `launch.config.ts`                                               | The one **typed** config — providers, profiles, the product catalog (subscriptions, offers, IAP, promoted), release policy, notifications, AWS, cloud storage, **plus** the Game Center, App Clips, release-attributes, Wallet, and EU-distribution sections. |
+| `launch.config.ts`                                               | The one **typed** config - providers, profiles, the product catalog (subscriptions, offers, IAP, promoted), release policy, notifications, AWS, cloud storage, **plus** the Game Center, App Clips, release-attributes, Wallet, and EU-distribution sections. |
 | `.env.production` / `.env.preview`                               | Committed, **non-secret** per-profile build env. (Secrets go in `launch secret`.)                                                                                                                                                                             |
 | `.env.example`                                                   | Template documenting the env keys; copy to `.env` for local overrides.                                                                                                                                                                                        |
-| `store.config.json`                                              | Store listing text for **both** stores (Apple + Android) → `launch metadata` / `launch sync`. Its `apple` section mirrors the Expo/EAS schema verbatim.                                                                                                       |
-| `store/*.config.json`                                            | The four file-only App Store surfaces — `availability`, `accessibility`, `experiments`, `custom-pages` — located by `configFiles` in `launch.config.ts`. Applied by their own commands; diffed by `launch plan`.                                              |
+| `store.config.json`                                              | Store listing text for **both** stores (Apple + Android) -> `launch metadata` / `launch sync`. Its `apple` section mirrors the Expo/EAS schema verbatim.                                                                                                       |
+| `store/*.config.json`                                            | The four file-only App Store surfaces - `availability`, `accessibility`, `experiments`, `custom-pages` - located by `configFiles` in `launch.config.ts`. Applied by their own commands; diffed by `launch plan`.                                              |
 
-## Feature → where it's configured → how it's applied
+## Feature -> where it's configured -> how it's applied
 
 Everything below is demonstrated by a real file in this folder.
 
@@ -78,17 +78,17 @@ Everything below is demonstrated by a real file in this folder.
 ## Plan coverage
 
 `launch plan` reads this config and every sidecar above, diffs each surface against **live** App Store
-Connect / Google Play state, and prints what it _would_ change — no writes. `launch drift` is the same
+Connect / Google Play state, and prints what it _would_ change - no writes. `launch drift` is the same
 diff with a non-zero exit when anything is out of sync, so it gates a CI job or a pre-release check.
 Because this example turns on every surface, `launch plan` here exercises the whole matrix below.
 
-Each surface reads in one of two ways — and the distinction matters when you read a plan:
+Each surface reads in one of two ways - and the distinction matters when you read a plan:
 
-- **two-way** — Launch knows the full desired set, so it reports both **additions and removals**. A
+- **two-way** - Launch knows the full desired set, so it reports both **additions and removals**. A
   `= in sync` line means live state _equals_ config. (e.g. availability: config lists exactly the
   territories you sell in, so a territory live-but-not-in-config shows as a removal.)
-- **additive** — Launch only ever **creates what's missing** and never deletes, so a plan shows
-  additions only. `= in sync` means "everything you declared exists," **not** "nothing else exists" —
+- **additive** - Launch only ever **creates what's missing** and never deletes, so a plan shows
+  additions only. `= in sync` means "everything you declared exists," **not** "nothing else exists" -
   extra items in the portal are invisible to the diff by design (e.g. an achievement you added by hand
   stays). These are the surfaces where a destructive delete is left to the portal on purpose.
 
@@ -122,18 +122,18 @@ launch drift                     # same diff; non-zero exit if anything is out o
 These commands operate on your account, devices, or build history rather than a config file. Run
 `launch <command> --help` for flags, or see the [Commands table in the root README](../../README.md#commands).
 
-- **Set up:** `launch init` · `launch doctor` · `launch diagnose` · `launch explain <topic>` · `launch demo`
-- **Build & inspect:** `launch build <ios|android>` · `launch builds [list|view|log]` · `launch fingerprint` · `launch run [id|latest]` · `launch build:resign [id|latest]`
-- **Credentials & secrets:** `launch creds [status|set-key|setup|use|push-key]` · `launch secret [list|set|rm]`
-- **Release & rollout:** `launch release <ios|android>` · `launch status [--watch]` · `launch rollout <pause|resume|complete>`
-- **Testing & devices:** `launch testflight [groups|testers|add|rm]` · `launch device [add|list]`
-- **OTA updates:** `launch update --channel <name>` · `launch updates [list|view|rollback]`
-- **Insights:** `launch reviews [list|reply|delete]` · `launch reports [sales|finance|analytics]`
-- **Remote & CI:** `launch cloud [setup|status|teardown|doctor]` · `launch ci init`
+- **Set up:** `launch init` - `launch doctor` - `launch diagnose` - `launch explain <topic>` - `launch demo`
+- **Build & inspect:** `launch build <ios|android>` - `launch builds [list|view|log]` - `launch fingerprint` - `launch run [id|latest]` - `launch build:resign [id|latest]`
+- **Credentials & secrets:** `launch creds [status|set-key|setup|use|push-key]` - `launch secret [list|set|rm]`
+- **Release & rollout:** `launch release <ios|android>` - `launch status [--watch]` - `launch rollout <pause|resume|complete>`
+- **Testing & devices:** `launch testflight [groups|testers|add|rm]` - `launch device [add|list]`
+- **OTA updates:** `launch update --channel <name>` - `launch updates [list|view|rollback]`
+- **Insights:** `launch reviews [list|reply|delete]` - `launch reports [sales|finance|analytics]`
+- **Remote & CI:** `launch cloud [setup|status|teardown|doctor]` - `launch ci init`
 
 ## Secrets never live in this folder
 
-The `.p8` / `.p12` / keystore material stays in your OS keychain — imported with `launch creds` and
+The `.p8` / `.p12` / keystore material stays in your OS keychain - imported with `launch creds` and
 `launch secret`, never written here or committed. The `.env.*` files hold only public, build-time
 config (anything prefixed `EXPO_PUBLIC_` reaches the app bundle). `storageConfig` and `aws` carry
-bucket names and regions, not access keys — those resolve from your environment at call time.
+bucket names and regions, not access keys - those resolve from your environment at call time.

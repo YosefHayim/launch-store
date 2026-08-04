@@ -1,37 +1,26 @@
-/**
- * The App Store **accessibility** plan surface: an app's declared accessibility-support declarations per
- * device family. Wraps `launch accessibility`'s reconciler ({@link reconcileAccessibility}) in dry-run,
- * reading desired state from the `accessibility.config.json` sidecar (its path overridable via
- * `configFiles.accessibility`). Additive: the reconciler creates/updates declared declarations but never
- * removes one, so a `= in sync` result means "config is fully applied," not that no extra declarations
- * exist in the portal.
- *
- * Sidecar-only — no typed `LaunchConfig` field — so the same single file applies to every in-scope app;
- * absent file ⇒ the surface is omitted.
- */
-
-import { resolveSidecarConfig } from '../../config/config.js';
-import { loadAccessibilityConfig, reconcileAccessibility } from '../../store/accessibility.js';
+import { resolveSidecarConfig } from '@core/config/config.js';
+import { loadAccessibilityConfig, reconcileAccessibility } from '@core/store/accessibility.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
-import type { SurfacePlanner } from '../../types/index.js';
-
-/** Surface id — also the value users pass as `launch plan accessibility`. */
+import type { SurfacePlanner } from '@core/types/plan.js';
+/** Surface id - also the value users pass as `launch plan accessibility`. */
 const SURFACE = 'accessibility';
-
 export const accessibilityPlanner: SurfacePlanner = {
   id: SURFACE,
   store: 'appstore',
-  plan: (ctx) =>
-    planAppStoreSurface(ctx, {
+  plan: (planContext) =>
+    planAppStoreSurface(planContext, {
       surface: SURFACE,
       direction: 'additive',
-      configFor: () =>
-        resolveSidecarConfig({
+      configFor: () => {
+        let configPath = planContext.config.configFiles?.accessibility;
+        if (configPath === undefined) configPath = 'accessibility.config.json';
+        return resolveSidecarConfig({
           typed: undefined,
-          configPath: ctx.config.configFiles?.accessibility ?? 'accessibility.config.json',
+          configPath,
           explicitPath: false,
           load: loadAccessibilityConfig,
-        }),
+        });
+      },
       reconcile: (api, bundleId, config) =>
         reconcileAccessibility(api, { bundleId, config, dryRun: true }),
     }),

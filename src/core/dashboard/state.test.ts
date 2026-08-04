@@ -1,18 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { Effect } from 'effect';
 import { buildDashboardState, RECENT_ARTIFACT_LIMIT, type DashboardInputs } from './state.js';
-import { LAUNCH_HOME } from '../services/paths.js';
-import type {
-  AccountRecord,
-  AppDescriptor,
-  BuildArtifact,
-  HostHandle,
-  LaunchConfig,
-} from '../types/index.js';
-
+import type { AppDescriptor } from '../types/app.js';
+import type { BuildArtifact } from '../types/artifacts.js';
+import type { LaunchConfig } from '../types/config.js';
+import type { AccountRecord } from '../types/credentials.js';
+import type { HostHandle } from '../types/remote.js';
 const NOW = new Date('2026-06-18T12:00:00.000Z');
-
+const TEST_LAUNCH_HOME = '/home/test/.launch';
 /** A minimal config; tests override only what they exercise. */
-function config(overrides: Partial<LaunchConfig> = {}): LaunchConfig {
+const config = (overrides: Partial<LaunchConfig> = {}): LaunchConfig => {
   return {
     credentials: 'local',
     storage: 'local',
@@ -21,18 +18,16 @@ function config(overrides: Partial<LaunchConfig> = {}): LaunchConfig {
     profiles: { production: { name: 'production' }, preview: { name: 'preview' } },
     ...overrides,
   };
-}
-
-function app(overrides: Partial<AppDescriptor> = {}): AppDescriptor {
+};
+const app = (overrides: Partial<AppDescriptor> = {}): AppDescriptor => {
   return {
     name: 'sampleapp',
     dir: '/apps/sampleapp',
     configPath: '/apps/sampleapp/app.json',
     ...overrides,
   };
-}
-
-function account(overrides: Partial<AccountRecord> = {}): AccountRecord {
+};
+const account = (overrides: Partial<AccountRecord> = {}): AccountRecord => {
   return {
     keyId: 'KEY1',
     issuerId: 'ISS',
@@ -40,9 +35,8 @@ function account(overrides: Partial<AccountRecord> = {}): AccountRecord {
     addedAt: NOW.toISOString(),
     ...overrides,
   };
-}
-
-function artifact(overrides: Partial<BuildArtifact> = {}): BuildArtifact {
+};
+const artifact = (overrides: Partial<BuildArtifact> = {}): BuildArtifact => {
   return {
     path: '/store/sampleapp.ipa',
     platform: 'ios',
@@ -55,12 +49,12 @@ function artifact(overrides: Partial<BuildArtifact> = {}): BuildArtifact {
     createdAt: NOW.toISOString(),
     ...overrides,
   };
-}
-
+};
 /** Assemble inputs with sensible empties; each test overrides the slice it cares about. */
-function inputs(overrides: Partial<DashboardInputs> = {}): DashboardInputs {
+const inputs = (overrides: Partial<DashboardInputs> = {}): DashboardInputs => {
   return {
     now: NOW,
+    launchHome: TEST_LAUNCH_HOME,
     config: config(),
     apps: [],
     accounts: [],
@@ -70,40 +64,38 @@ function inputs(overrides: Partial<DashboardInputs> = {}): DashboardInputs {
     cloudHost: null,
     ...overrides,
   };
-}
-
+};
 describe('buildDashboardState', () => {
+  const projectDashboardState = (dashboardInputs: DashboardInputs) =>
+    Effect.runSync(buildDashboardState(dashboardInputs));
   it('stamps the snapshot time and the local state home', () => {
-    const state = buildDashboardState(inputs());
-    expect(state.generatedAt).toBe(NOW.toISOString());
-    expect(state.launchHome).toBe(LAUNCH_HOME);
+    const dashboardState = projectDashboardState(inputs());
+    expect(dashboardState.generatedAt).toBe(NOW.toISOString());
+    expect(dashboardState.launchHome).toBe(TEST_LAUNCH_HOME);
   });
-
   it('projects the provider wiring and profile names from the config', () => {
-    const state = buildDashboardState(inputs({ config: config({ storage: 's3' }) }));
-    expect(state.project.providers).toEqual({
+    const dashboardState = projectDashboardState(inputs({ config: config({ storage: 's3' }) }));
+    expect(dashboardState.project.providers).toEqual({
       credentials: 'local',
       storage: 's3',
       buildEngine: 'fastlane',
       submit: 'app-store-connect',
     });
-    expect(state.project.profiles).toEqual(['production', 'preview']);
+    expect(dashboardState.project.profiles).toEqual(['production', 'preview']);
   });
-
   it('collapses absent app optionals to null', () => {
-    const state = buildDashboardState(
+    const dashboardState = projectDashboardState(
       inputs({ apps: [app({ version: '2.1.0', bundleId: 'com.x.y' })] }),
     );
-    expect(state.project.apps[0]).toEqual({
+    expect(dashboardState.project.apps[0]).toEqual({
       name: 'sampleapp',
       version: '2.1.0',
       bundleId: 'com.x.y',
       packageName: null,
     });
   });
-
   it('flags the active account and counts its visible apps', () => {
-    const state = buildDashboardState(
+    const dashboardState = projectDashboardState(
       inputs({
         accounts: [
           account({ keyId: 'KEY1', apps: ['a', 'b'] }),
@@ -112,41 +104,39 @@ describe('buildDashboardState', () => {
         activeKeyId: 'KEY2',
       }),
     );
-    expect(state.accounts[0]).toMatchObject({ keyId: 'KEY1', appCount: 2, active: false });
-    expect(state.accounts[1]).toMatchObject({ keyId: 'KEY2', appCount: 0, active: true });
+    expect(dashboardState.accounts[0]).toMatchObject({ keyId: 'KEY1', appCount: 2, active: false });
+    expect(dashboardState.accounts[1]).toMatchObject({ keyId: 'KEY2', appCount: 0, active: true });
   });
-
   it('caps recent artifacts at the limit while preserving newest-first order', () => {
     const many = Array.from({ length: RECENT_ARTIFACT_LIMIT + 5 }, (_, i) =>
       artifact({ buildNumber: i + 1 }),
     );
-    const state = buildDashboardState(inputs({ artifacts: many }));
-    expect(state.artifacts).toHaveLength(RECENT_ARTIFACT_LIMIT);
-    expect(state.artifacts[0]?.buildNumber).toBe(1);
+    const dashboardState = projectDashboardState(inputs({ artifacts: many }));
+    expect(dashboardState.artifacts).toHaveLength(RECENT_ARTIFACT_LIMIT);
+    expect(dashboardState.artifacts[0]?.buildNumber).toBe(1);
   });
-
   it('rounds artifact size to MB and marks pruned binaries', () => {
-    const state = buildDashboardState(
+    const dashboardState = projectDashboardState(
       inputs({
         artifacts: [
-          artifact({ sizeReport: { artifactBytes: 31_457_280, entries: [] } }), // 30 MB exactly
+          artifact({ sizeReport: { artifactBytes: 31457280, entries: [] } }), // 30 MB exactly
           artifact({ sizeReport: { artifactBytes: 0, entries: [] }, prunedAt: NOW.toISOString() }),
         ],
       }),
     );
-    expect(state.artifacts[0]).toMatchObject({ sizeMB: 30, pruned: false });
-    expect(state.artifacts[1]).toMatchObject({ sizeMB: null, pruned: true });
+    expect(dashboardState.artifacts[0]).toMatchObject({ sizeMB: 30, pruned: false });
+    expect(dashboardState.artifacts[1]).toMatchObject({ sizeMB: null, pruned: true });
   });
-
   it('carries only the non-secret coordinates of each build secret', () => {
-    const state = buildDashboardState(
+    const dashboardState = projectDashboardState(
       inputs({ secrets: [{ app: 'sampleapp', profile: null, name: 'SENTRY_AUTH_TOKEN' }] }),
     );
-    expect(state.secrets).toEqual([{ app: 'sampleapp', profile: null, name: 'SENTRY_AUTH_TOKEN' }]);
+    expect(dashboardState.secrets).toEqual([
+      { app: 'sampleapp', profile: null, name: 'SENTRY_AUTH_TOKEN' },
+    ]);
   });
-
   it('projects the live cloud host, or null when none is allocated', () => {
-    expect(buildDashboardState(inputs()).cloudHost).toBeNull();
+    expect(projectDashboardState(inputs()).cloudHost).toBeNull();
     const host: HostHandle = {
       provider: 'aws-ec2-mac',
       ssh: { host: '1.2.3.4', user: 'ec2-user', port: 22 },
@@ -155,8 +145,8 @@ describe('buildDashboardState', () => {
       instanceType: 'mac2.metal',
       instanceId: 'i-abc',
     };
-    const state = buildDashboardState(inputs({ cloudHost: host }));
-    expect(state.cloudHost).toEqual({
+    const dashboardState = projectDashboardState(inputs({ cloudHost: host }));
+    expect(dashboardState.cloudHost).toEqual({
       provider: 'aws-ec2-mac',
       region: 'us-east-1',
       instanceType: 'mac2.metal',

@@ -1,57 +1,64 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { SecretStore } from '../types/index.js';
+import { describe, expect, it } from 'vitest';
+import { Effect } from 'effect';
+import { makeLaunchEnvironmentTest } from '../services/environment.js';
+import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
 import { resolveSecretRef } from './secretRef.js';
 
-/** An in-memory SecretStore so the `keychain:` branch resolves without touching the real OS keychain. */
-function fakeStore(entries: Record<string, string>): SecretStore {
-  return {
-    name: 'fake',
-    get: (account) => Promise.resolve(entries[account] ?? null),
-    set: () => Promise.resolve(),
-    delete: () => Promise.resolve(),
-  };
-}
+/** Resolve one test reference with explicit environment and secret-store capabilities. */
+const resolveTestReference = (
+  secretReference: string,
+  environmentVariables: Readonly<Record<string, string | undefined>> = {},
+  storedSecrets: Map<string, string> = new Map<string, string>(),
+): Promise<string> => {
+  return Effect.runPromise(
+    resolveSecretRef(secretReference, 'demoAccountPassword').pipe(
+      Effect.provide(makeLaunchEnvironmentTest(environmentVariables)),
+      Effect.provide(makeLaunchSecretStoreTest(storedSecrets)),
+    ),
+  );
+};
 
 describe('resolveSecretRef', () => {
-  const ENV_VAR = 'LAUNCH_TEST_DEMO_PW';
-  afterEach(() => {
-    vi.unstubAllEnvs();
+  const environmentVariableName = 'LAUNCH_TEST_DEMO_PW';
+
+  it('returns a literal value verbatim', async () => {
+    const literalSecret = ['plain', 'demo', 'pw'].join('-');
+    expect(await resolveTestReference(literalSecret)).toBe(literalSecret);
   });
 
-  it('returns a literal value verbatim (back-compat with a plain string)', async () => {
-    const literal = ['plain', 'demo', 'pw'].join('-');
-    expect(await resolveSecretRef(literal, 'demoAccountPassword')).toBe(literal);
+  it('resolves an environment reference from the environment service', async () => {
+    const environmentSecret = ['env', 'demo', 'pw'].join('-');
+    expect(
+      await resolveTestReference(`env:${environmentVariableName}`, {
+        [environmentVariableName]: environmentSecret,
+      }),
+    ).toBe(environmentSecret);
   });
 
-  it('resolves an `env:` reference from the environment at call time', async () => {
-    const secret = ['env', 'demo', 'pw'].join('-');
-    vi.stubEnv(ENV_VAR, secret);
-    expect(await resolveSecretRef(`env:${ENV_VAR}`, 'demoAccountPassword')).toBe(secret);
-  });
-
-  it('throws when an `env:` reference names an unset variable', async () => {
-    await expect(resolveSecretRef(`env:${ENV_VAR}`, 'demoAccountPassword')).rejects.toThrow(
+  it('fails when an environment reference names an unset variable', async () => {
+    await expect(resolveTestReference(`env:${environmentVariableName}`)).rejects.toThrow(
       /environment variable LAUNCH_TEST_DEMO_PW is not set/,
     );
   });
 
-  it('throws when an `env:` reference has no variable name', async () => {
-    await expect(resolveSecretRef('env:', 'demoAccountPassword')).rejects.toThrow(
-      /needs a variable name/,
-    );
+  it('fails when an environment reference has no variable name', async () => {
+    await expect(resolveTestReference('env:')).rejects.toThrow(/needs a variable name/);
   });
 
-  it('resolves a `keychain:` reference through the secret store', async () => {
-    const secret = ['kc', 'demo', 'pw'].join('-');
-    const store = fakeStore({ 'my-app-review': secret });
-    expect(await resolveSecretRef('keychain:my-app-review', 'demoAccountPassword', store)).toBe(
-      secret,
-    );
+  it('resolves a keychain reference through the secret-store service', async () => {
+    const keychainSecret = ['kc', 'demo', 'pw'].join('-');
+    expect(
+      await resolveTestReference(
+        'keychain:my-app-review',
+        {},
+        new Map([['my-app-review', keychainSecret]]),
+      ),
+    ).toBe(keychainSecret);
   });
 
-  it('throws when a `keychain:` reference has no stored secret', async () => {
-    await expect(
-      resolveSecretRef('keychain:absent', 'demoAccountPassword', fakeStore({})),
-    ).rejects.toThrow(/no secret is stored under that account/);
+  it('fails when a keychain reference has no stored secret', async () => {
+    await expect(resolveTestReference('keychain:absent')).rejects.toThrow(
+      /no secret is stored under that account/,
+    );
   });
 });

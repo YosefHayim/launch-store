@@ -1,16 +1,13 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { NodeContext } from '@effect/platform-node';
+import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type {
-  AppDescriptor,
-  MigrationArtifact,
-  MigrationNote,
-  MigrationNoteLevel,
-} from '../types/index.js';
-import { expectDefined } from '../../testkit/assertions.testkit.js';
+import { expectDefined } from '@testkit/assertions.testkit.js';
+import type { AppDescriptor } from '../types/app.js';
+import type { MigrationArtifact, MigrationNote, MigrationNoteLevel } from '../types/migrate.js';
 import { migrateEas, parseEasJson } from './eas.js';
-
 /** A realistic eas.json covering build profiles, env, submit credentials, and the cli block. */
 const SAMPLE_EAS = JSON.stringify({
   cli: { appVersionSource: 'remote' },
@@ -34,9 +31,8 @@ const SAMPLE_EAS = JSON.stringify({
     },
   },
 });
-
 /** A minimal app descriptor, overridable per field. */
-function app(over: Partial<AppDescriptor> = {}): AppDescriptor {
+const app = (over: Partial<AppDescriptor> = {}): AppDescriptor => {
   return {
     name: 'alpha',
     dir: '/tmp',
@@ -44,52 +40,48 @@ function app(over: Partial<AppDescriptor> = {}): AppDescriptor {
     bundleId: 'com.acme.alpha',
     ...over,
   };
-}
-
+};
 /** The artifact at `path`, asserting it was emitted. */
-function artifact(artifacts: MigrationArtifact[], path: string): MigrationArtifact {
+const artifact = (artifacts: MigrationArtifact[], path: string): MigrationArtifact => {
   const found = artifacts.find((entry) => entry.path === path);
   expect(found, `expected artifact ${path}`).toBeDefined();
   return expectDefined(found, `artifact ${path}`);
-}
-
+};
 /** Notes at a given level. */
-function notesAt(notes: MigrationNote[], level: MigrationNoteLevel): MigrationNote[] {
+const notesAt = (notes: MigrationNote[], level: MigrationNoteLevel): MigrationNote[] => {
   return notes.filter((note) => note.level === level);
-}
-
+};
 describe('parseEasJson', () => {
   it('parses build, submit, and cli into the narrowed shape', () => {
-    const eas = parseEasJson(SAMPLE_EAS);
+    const eas = Effect.runSync(parseEasJson(SAMPLE_EAS));
     expect(Object.keys(eas.build).sort()).toEqual(['development', 'production']);
     expect(eas.build['production']?.env).toEqual({ API_URL: 'https://prod', SENTRY_DSN: 'x' });
     expect(eas.build['development']?.distribution).toBe('internal');
     expect(eas.submit['production']?.android?.track).toBe('internal');
     expect(eas.cli?.appVersionSource).toBe('remote');
   });
-
   it('defaults missing sections rather than failing', () => {
-    const eas = parseEasJson('{}');
+    const eas = Effect.runSync(parseEasJson('{}'));
     expect(eas).toEqual({ build: {}, submit: {} });
   });
-
   it('drops non-string env values and empty halves', () => {
-    const eas = parseEasJson(
-      JSON.stringify({ build: { p: { env: { A: '1', B: 2 } } }, submit: { p: { ios: {} } } }),
+    const eas = Effect.runSync(
+      parseEasJson(
+        JSON.stringify({ build: { p: { env: { A: '1', B: 2 } } }, submit: { p: { ios: {} } } }),
+      ),
     );
     expect(eas.build['p']?.env).toEqual({ A: '1' });
     expect(eas.submit['p']?.ios).toBeUndefined();
   });
-
-  it('throws on invalid JSON', () => {
-    expect(() => parseEasJson('{ not json')).toThrow(/not valid JSON/);
+  it('returns a tagged failure for invalid JSON', () => {
+    const parsingFailure = Effect.runSync(Effect.flip(parseEasJson('{ not json')));
+    expect(parsingFailure.reason).toBe('InvalidEasJson');
   });
-
-  it('throws on a non-object document', () => {
-    expect(() => parseEasJson('"a string"')).toThrow(/must be a JSON object/);
+  it('returns a tagged failure for a non-object document', () => {
+    const parsingFailure = Effect.runSync(Effect.flip(parseEasJson('"a string"')));
+    expect(parsingFailure.reason).toBe('InvalidEasJson');
   });
 });
-
 describe('migrateEas', () => {
   let dir: string;
   beforeEach(() => {
@@ -99,73 +91,80 @@ describe('migrateEas', () => {
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
   });
-
-  it('throws when there is no eas.json', async () => {
+  const runMigrateEas = (workingDirectory: string, apps: AppDescriptor[]) =>
+    Effect.runPromise(migrateEas(workingDirectory, apps).pipe(Effect.provide(NodeContext.layer)));
+  it('returns a tagged failure when there is no eas.json', async () => {
     rmSync(join(dir, 'eas.json'));
-    await expect(migrateEas(dir, [app()])).rejects.toThrow(/No eas.json/);
+    const migrationFailure = await Effect.runPromise(
+      Effect.flip(migrateEas(dir, [app()]).pipe(Effect.provide(NodeContext.layer))),
+    );
+    expect(migrationFailure).toMatchObject({
+      _tag: 'EasMigrationFailure',
+      reason: 'MissingEasConfig',
+    });
   });
-
   it('emits launch.config.ts carrying every EAS build profile', async () => {
-    const result = await migrateEas(dir, [app()]);
-    const config = artifact(result.artifacts, 'launch.config.ts').contents;
+    const migration = await runMigrateEas(dir, [app()]);
+    const config = artifact(migration.artifacts, 'launch.config.ts').contents;
     expect(config).toContain('"development"');
     expect(config).toContain('"production"');
     expect(config).toContain('defineConfig');
   });
-
   it('lifts the Play track from the matching submit profile onto the build profile', async () => {
     const config = artifact(
-      (await migrateEas(dir, [app()])).artifacts,
+      (await runMigrateEas(dir, [app()])).artifacts,
       'launch.config.ts',
     ).contents;
     expect(config).toContain('"track": "internal"');
   });
-
   it('collects env keys (sorted, values blanked) into .env.example', async () => {
-    const env = artifact((await migrateEas(dir, [app()])).artifacts, '.env.example').contents;
+    const env = artifact((await runMigrateEas(dir, [app()])).artifacts, '.env.example').contents;
     expect(env).toContain('API_URL=');
     expect(env).toContain('SENTRY_DSN=');
     expect(env).not.toContain('https://prod');
   });
-
   it('emits a .env.<profile> file (keys only) for each profile that carries its own env', async () => {
-    const result = await migrateEas(dir, [app()]);
-    const dev = artifact(result.artifacts, '.env.development').contents;
-    const prod = artifact(result.artifacts, '.env.production').contents;
+    const migration = await runMigrateEas(dir, [app()]);
+    const dev = artifact(migration.artifacts, '.env.development').contents;
+    const prod = artifact(migration.artifacts, '.env.production').contents;
     expect(dev).toContain('API_URL=');
     expect(dev).not.toContain('https://dev');
     expect(prod).toContain('API_URL=');
     expect(prod).toContain('SENTRY_DSN=');
     expect(prod).not.toContain('https://prod');
-    expect(notesAt(result.notes, 'mapped').some((n) => n.message.includes('.env.production'))).toBe(
-      true,
-    );
-  });
-
-  it('scaffolds store.config.json when absent and notes it as manual', async () => {
-    const result = await migrateEas(dir, [app()]);
-    expect(result.artifacts.map((a) => a.path)).toContain('store.config.json');
-    const manual = notesAt(result.notes, 'manual').map((n) => n.message);
-    expect(manual.some((m) => m.includes('store.config.json'))).toBe(true);
-  });
-
-  it('skips store.config.json when one already exists', async () => {
-    writeFileSync(join(dir, 'store.config.json'), '{}');
-    const result = await migrateEas(dir, [app()]);
-    expect(result.artifacts.map((a) => a.path)).not.toContain('store.config.json');
     expect(
-      notesAt(result.notes, 'skipped').some((n) => n.message.includes('store.config.json')),
+      notesAt(migration.notes, 'mapped').some((note) => note.message.includes('.env.production')),
     ).toBe(true);
   });
-
+  it('scaffolds store.config.json when absent and notes it as manual', async () => {
+    const migration = await runMigrateEas(dir, [app()]);
+    expect(migration.artifacts.map((migrationArtifact) => migrationArtifact.path)).toContain(
+      'store.config.json',
+    );
+    const manual = notesAt(migration.notes, 'manual').map((note) => note.message);
+    expect(manual.some((m) => m.includes('store.config.json'))).toBe(true);
+  });
+  it('skips store.config.json when one already exists', async () => {
+    writeFileSync(join(dir, 'store.config.json'), '{}');
+    const migration = await runMigrateEas(dir, [app()]);
+    expect(migration.artifacts.map((migrationArtifact) => migrationArtifact.path)).not.toContain(
+      'store.config.json',
+    );
+    expect(
+      notesAt(migration.notes, 'skipped').some((note) =>
+        note.message.includes('store.config.json'),
+      ),
+    ).toBe(true);
+  });
   it('reports EAS Update channels, internal distribution, and submit credentials as manual', async () => {
-    const manual = notesAt((await migrateEas(dir, [app()])).notes, 'manual').map((n) => n.message);
+    const manual = notesAt((await runMigrateEas(dir, [app()])).notes, 'manual').map(
+      (note) => note.message,
+    );
     expect(manual.some((m) => m.includes('channel'))).toBe(true);
     expect(manual.some((m) => m.includes('internal (ad-hoc) distribution'))).toBe(true);
     expect(manual.some((m) => m.includes('Apple account details'))).toBe(true);
     expect(manual.some((m) => m.includes('Play service account'))).toBe(true);
   });
-
   it('imports local credentials.json as manual notes without ever surfacing a password', async () => {
     writeFileSync(
       join(dir, 'credentials.json'),
@@ -184,31 +183,36 @@ describe('migrateEas', () => {
         },
       }),
     );
-    const result = await migrateEas(dir, [app()]);
-    const manual = notesAt(result.notes, 'manual').map((n) => n.message);
+    const migration = await runMigrateEas(dir, [app()]);
+    const manual = notesAt(migration.notes, 'manual').map((note) => note.message);
     expect(manual.some((m) => m.includes('ios/certs/dist.p12') && m.includes('launch creds'))).toBe(
       true,
     );
     expect(
       manual.some((m) => m.includes('android/release.keystore') && m.includes('"upload"')),
     ).toBe(true);
-
-    const everything = JSON.stringify(result);
-    expect(everything).not.toContain('SUPER_SECRET_PW');
-    expect(everything).not.toContain('KS_SECRET');
-    expect(everything).not.toContain('KEY_SECRET');
+    const migrationJson = JSON.stringify(migration);
+    expect(migrationJson).not.toContain('SUPER_SECRET_PW');
+    expect(migrationJson).not.toContain('KS_SECRET');
+    expect(migrationJson).not.toContain('KEY_SECRET');
   });
-
   it('reports remote appVersionSource and detected ids as non-manual', async () => {
-    const result = await migrateEas(dir, [app({ packageName: 'com.acme.alpha' })]);
+    const migration = await runMigrateEas(dir, [app({ packageName: 'com.acme.alpha' })]);
     expect(
-      notesAt(result.notes, 'mapped').some((n) => n.message.includes('appVersionSource')),
+      notesAt(migration.notes, 'mapped').some((note) => note.message.includes('appVersionSource')),
     ).toBe(true);
-    const info = notesAt(result.notes, 'info').map((n) => n.message);
-    expect(info.some((m) => m.includes('com.acme.alpha') && m.includes('bundle id'))).toBe(true);
-    expect(info.some((m) => m.includes('com.acme.alpha') && m.includes('package'))).toBe(true);
+    const informationalNotes = notesAt(migration.notes, 'info').map((note) => note.message);
+    expect(
+      informationalNotes.some(
+        (message) => message.includes('com.acme.alpha') && message.includes('bundle id'),
+      ),
+    ).toBe(true);
+    expect(
+      informationalNotes.some(
+        (message) => message.includes('com.acme.alpha') && message.includes('package'),
+      ),
+    ).toBe(true);
   });
-
   it('surfaces EAS app facts (projectId, owner, runtimeVersion, updates) from app.json as info notes', async () => {
     const appDir = mkdtempSync(join(tmpdir(), 'launch-migrate-app-'));
     writeFileSync(join(appDir, 'eas.json'), SAMPLE_EAS);
@@ -226,23 +230,26 @@ describe('migrateEas', () => {
       }),
     );
     try {
-      const result = await migrateEas(appDir, [
+      const migration = await runMigrateEas(appDir, [
         app({ dir: appDir, configPath: join(appDir, 'app.json') }),
       ]);
-      const info = notesAt(result.notes, 'info').map((n) => n.message);
-      expect(info.some((m) => m.includes('11111111-2222-3333-4444-555555555555'))).toBe(true);
-      expect(info.some((m) => m.includes('acme-org'))).toBe(true);
-      expect(info.some((m) => m.includes('sdkVersion'))).toBe(true);
-      expect(info.some((m) => m.includes('expo.updates'))).toBe(true);
+      const informationalNotes = notesAt(migration.notes, 'info').map((note) => note.message);
+      expect(
+        informationalNotes.some((message) =>
+          message.includes('11111111-2222-3333-4444-555555555555'),
+        ),
+      ).toBe(true);
+      expect(informationalNotes.some((message) => message.includes('acme-org'))).toBe(true);
+      expect(informationalNotes.some((message) => message.includes('sdkVersion'))).toBe(true);
+      expect(informationalNotes.some((message) => message.includes('expo.updates'))).toBe(true);
     } finally {
       rmSync(appDir, { recursive: true, force: true });
     }
   });
-
   it('falls back to a single production profile when eas.json declares none', async () => {
     writeFileSync(join(dir, 'eas.json'), JSON.stringify({ submit: {} }));
     const config = artifact(
-      (await migrateEas(dir, [app()])).artifacts,
+      (await runMigrateEas(dir, [app()])).artifacts,
       'launch.config.ts',
     ).contents;
     expect(config).toContain('"production"');

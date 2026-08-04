@@ -1,30 +1,79 @@
-/**
- * The default {@link ListingGenerator}: Anthropic's Messages API, called over the global `fetch`
- * (Node ≥20) so there's **no SDK dependency** to install for a local-only user. The key comes from
- * `ANTHROPIC_API_KEY`; a missing key is an actionable error, not a stack trace.
- *
- * Why a seam + a fetch default (not the SDK): listing copy is the only place Launch talks to a model,
- * so pulling in `@anthropic-ai/sdk` for one POST would bloat every install. `fetch` keeps the core lean
- * and the {@link ListingGenerator} interface keeps the model swappable and the command testable with a
- * fake. `buildListingPrompt` and `parseDraftListing` are exported and pure so the prompt and the
- * response parsing are unit-tested without a network round-trip.
- */
-
-import { asRecord } from '../services/json.js';
+import { HttpClient, HttpClientRequest, HttpClientResponse } from '@effect/platform';
+import { Data, Effect, Redacted, Schema } from 'effect';
+import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
+import type { DraftListing, ListingBrief, ListingGenerator } from '../types/listing.js';
 import { APPLE_LIMITS, serializeKeywords } from './apply.js';
-import type { DraftListing, ListingBrief, ListingGenerator } from '../types/index.js';
 
-/** Anthropic Messages API endpoint. Centralized here per the repo's "no scattered URL strings" rule. */
+const GeneratedListingSchema = Schema.Struct({
+  title: Schema.optionalWith(Schema.String, { exact: true }),
+  subtitle: Schema.optionalWith(Schema.String, { exact: true }),
+  description: Schema.optionalWith(Schema.String, { exact: true }),
+  promotionalText: Schema.optionalWith(Schema.String, { exact: true }),
+  keywords: Schema.optionalWith(Schema.Union(Schema.Array(Schema.String), Schema.String), {
+    exact: true,
+  }),
+});
+
+const AnthropicMessageSchema = Schema.Struct({
+  content: Schema.Array(
+    Schema.Struct({
+      type: Schema.String,
+      text: Schema.optionalWith(Schema.String, { exact: true }),
+    }),
+  ),
+});
+
+const AnthropicRequestSchema = Schema.Struct({
+  model: Schema.String,
+  max_tokens: Schema.Number,
+  messages: Schema.Array(
+    Schema.Struct({
+      role: Schema.Literal('user'),
+      content: Schema.String,
+    }),
+  ),
+});
+
 const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com/v1/messages';
-/** Pinned Messages API version header (Anthropic dates its breaking changes). */
 const ANTHROPIC_VERSION = '2023-06-01';
-/** Default model; overridable via `--model` or `$LAUNCH_AI_MODEL`. */
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
-/** Build the instruction prompt for one locale: the limits, the seed material, and a JSON-only contract. */
-export function buildListingPrompt(brief: ListingBrief): string {
-  const lines = [
-    `You are an App Store optimization expert writing the ${brief.locale} App Store listing for an app called "${brief.appName}".`,
+/** Anthropic listing generation or decoding failed. */
+export type ListingGenerationFailure = Readonly<{
+  readonly _tag: 'ListingGenerationFailure';
+  readonly operation: string;
+  readonly message: string;
+  readonly cause: unknown;
+}>;
+
+export const makeListingGenerationFailure = Data.tagged<ListingGenerationFailure>(
+  'ListingGenerationFailure',
+);
+
+export const ListingGenerationFailureSchema: Schema.Schema<ListingGenerationFailure> =
+  Schema.Struct({
+    _tag: Schema.Literal('ListingGenerationFailure'),
+    operation: Schema.String,
+    message: Schema.String,
+    cause: Schema.Unknown,
+  });
+
+/** Normalize a generator dependency failure. */
+const generationFailure = (
+  operation: string,
+  cause: unknown,
+  explicitMessage?: string,
+): ListingGenerationFailure => {
+  let message = `${operation} failed.`;
+  if (cause instanceof Error) message = cause.message;
+  if (explicitMessage !== undefined) message = explicitMessage;
+  return makeListingGenerationFailure({ operation, message, cause });
+};
+
+/** Build the instruction sent for one locale. */
+export const buildListingPrompt = (listingBrief: ListingBrief): string => {
+  const promptLines = [
+    `You are an App Store optimization expert writing the ${listingBrief.locale} App Store listing for an app called "${listingBrief.appName}".`,
     '',
     'Return ONLY a JSON object (no prose, no markdown fences) with these optional string fields:',
     `- "title": app name shown on the product page, at most ${APPLE_LIMITS.title} characters.`,
@@ -33,129 +82,180 @@ export function buildListingPrompt(brief: ListingBrief): string {
     `- "promotionalText": a short promo blurb, at most ${APPLE_LIMITS.promotionalText} characters.`,
     `- "description": the full marketing description, at most ${APPLE_LIMITS.description} characters.`,
     '',
-    `Write natural, compelling copy in the ${brief.locale} locale. Respect every character limit exactly.`,
+    `Write natural, compelling copy in the ${listingBrief.locale} locale. Respect every character limit exactly.`,
   ];
-  if (brief.about) lines.push('', `What the app does: ${brief.about}`);
-  if (brief.keywords && brief.keywords.length > 0)
-    lines.push('', `Themes to weave in: ${serializeKeywords(brief.keywords)}`);
-  if (brief.current && Object.keys(brief.current).length > 0) {
-    lines.push(
+  if (listingBrief.about !== undefined)
+    promptLines.push('', `What the app does: ${listingBrief.about}`);
+  if (listingBrief.keywords !== undefined && listingBrief.keywords.length > 0)
+    promptLines.push('', `Themes to weave in: ${serializeKeywords(listingBrief.keywords)}`);
+  if (listingBrief.current !== undefined && Object.keys(listingBrief.current).length > 0) {
+    promptLines.push(
       '',
       'Improve on the current listing (do not copy it verbatim):',
-      JSON.stringify(brief.current, null, 2),
+      JSON.stringify(listingBrief.current, null, 2),
     );
   }
-  return lines.join('\n');
-}
+  return promptLines.join('\n');
+};
 
-/** Strip an optional ```json … ``` fence so a fenced reply still parses. */
-function stripFences(text: string): string {
-  const trimmed = text.trim();
-  const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/.exec(trimmed);
-  return fenced?.[1] ?? trimmed;
-}
+/** Remove an optional JSON Markdown fence from model text. */
+const stripJsonFence = (completionText: string): string => {
+  const trimmedText = completionText.trim();
+  const fencedMatch = /^```(?:json)?\s*([\s\S]*?)\s*```$/.exec(trimmedText);
+  const fencedJson = fencedMatch?.[1];
+  if (fencedJson === undefined) return trimmedText;
+  return fencedJson;
+};
 
-/** Read an optional trimmed string field from a parsed record, ignoring non-strings and blanks. */
-function readString(record: Record<string, unknown>, key: string): string | undefined {
-  const value = record[key];
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-}
+/** Keep one non-blank generated text field. */
+const normalizeGeneratedText = (generatedText: string | undefined): string | undefined => {
+  if (generatedText === undefined) return undefined;
+  const trimmedText = generatedText.trim();
+  if (trimmedText.length === 0) return undefined;
+  return trimmedText;
+};
 
-/** Read keywords as either a string array or a comma-separated string, dropping blanks and non-strings. */
-function readKeywords(value: unknown): string[] | undefined {
-  const raw = Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === 'string')
-    : typeof value === 'string'
-      ? value.split(',')
-      : [];
-  const keywords = raw.map((keyword) => keyword.trim()).filter(Boolean);
-  return keywords.length > 0 ? keywords : undefined;
-}
+/** Normalize generated keywords from the two accepted vendor shapes. */
+const normalizeGeneratedKeywords = (
+  generatedKeywords: readonly string[] | string | undefined,
+): string[] | undefined => {
+  if (generatedKeywords === undefined) return undefined;
+  let keywordCandidates: readonly string[];
+  if (typeof generatedKeywords === 'string') keywordCandidates = generatedKeywords.split(',');
+  else keywordCandidates = generatedKeywords;
+  const normalizedKeywords = keywordCandidates
+    .map((keywordCandidate) => keywordCandidate.trim())
+    .filter((keywordCandidate) => keywordCandidate.length > 0);
+  if (normalizedKeywords.length === 0) return undefined;
+  return normalizedKeywords;
+};
 
-/**
- * Parse a model reply into a {@link DraftListing}: tolerate a JSON fence, keep only string-typed fields,
- * normalize keywords, and reject a reply with no usable fields so the failure is loud, not a silent
- * empty write. Pure and exported so the parsing contract is unit-tested.
- */
-export function parseDraftListing(text: string): DraftListing {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(stripFences(text));
-  } catch {
-    throw new Error('The model did not return valid JSON listing copy.');
-  }
-  const record = asRecord(parsed);
-  if (!record) throw new Error('The model returned JSON that is not a listing object.');
+/** Decode model text into a usable listing draft. */
+export const parseDraftListing = (
+  completionText: string,
+): Effect.Effect<DraftListing, ListingGenerationFailure> =>
+  Schema.decodeUnknown(Schema.parseJson(GeneratedListingSchema))(
+    stripJsonFence(completionText),
+  ).pipe(
+    Effect.map((generatedListing) => {
+      const listingDraft: DraftListing = {};
+      const title = normalizeGeneratedText(generatedListing.title);
+      if (title !== undefined) listingDraft.title = title;
+      const subtitle = normalizeGeneratedText(generatedListing.subtitle);
+      if (subtitle !== undefined) listingDraft.subtitle = subtitle;
+      const description = normalizeGeneratedText(generatedListing.description);
+      if (description !== undefined) listingDraft.description = description;
+      const promotionalText = normalizeGeneratedText(generatedListing.promotionalText);
+      if (promotionalText !== undefined) listingDraft.promotionalText = promotionalText;
+      const keywords = normalizeGeneratedKeywords(generatedListing.keywords);
+      if (keywords !== undefined) listingDraft.keywords = keywords;
+      return listingDraft;
+    }),
+    Effect.flatMap((listingDraft) => {
+      if (Object.keys(listingDraft).length > 0) return Effect.succeed(listingDraft);
+      return Effect.fail(
+        generationFailure(
+          'decode listing completion',
+          completionText,
+          'The model returned no usable listing fields.',
+        ),
+      );
+    }),
+    Effect.mapError((cause) => {
+      if (Schema.is(ListingGenerationFailureSchema)(cause)) return cause;
+      return generationFailure(
+        'decode listing completion',
+        cause,
+        'The model did not return valid JSON listing copy.',
+      );
+    }),
+  );
 
-  const draft: DraftListing = {};
-  const title = readString(record, 'title');
-  if (title !== undefined) draft.title = title;
-  const subtitle = readString(record, 'subtitle');
-  if (subtitle !== undefined) draft.subtitle = subtitle;
-  const description = readString(record, 'description');
-  if (description !== undefined) draft.description = description;
-  const promotionalText = readString(record, 'promotionalText');
-  if (promotionalText !== undefined) draft.promotionalText = promotionalText;
-  const keywords = readKeywords(record['keywords']);
-  if (keywords !== undefined) draft.keywords = keywords;
-
-  if (Object.keys(draft).length === 0)
-    throw new Error('The model returned no usable listing fields.');
-  return draft;
-}
-
-/** Pull the concatenated text out of an Anthropic Messages response, narrowing the unknown payload. */
-function extractText(payload: unknown): string {
-  const content = asRecord(payload)?.['content'];
-  if (!Array.isArray(content))
-    throw new Error('Unexpected Anthropic response: missing content array.');
-  const text = content
-    .map((block) => asRecord(block))
-    .filter((block): block is Record<string, unknown> => block?.['type'] === 'text')
-    .map((block) => (typeof block['text'] === 'string' ? block['text'] : ''))
+/** Join the text blocks from a decoded Anthropic message. */
+const extractCompletionText = (
+  anthropicMessage: Schema.Schema.Type<typeof AnthropicMessageSchema>,
+): Effect.Effect<string, ListingGenerationFailure> => {
+  const completionText = anthropicMessage.content
+    .filter((contentBlock) => contentBlock.type === 'text')
+    .map((contentBlock) => {
+      if (contentBlock.text === undefined) return '';
+      return contentBlock.text;
+    })
     .join('');
-  if (!text) throw new Error('Anthropic returned an empty completion.');
-  return text;
-}
+  if (completionText.length > 0) return Effect.succeed(completionText);
+  return Effect.fail(
+    generationFailure(
+      'read Anthropic completion',
+      anthropicMessage,
+      'Anthropic returned an empty completion.',
+    ),
+  );
+};
 
-/**
- * Create the Anthropic-backed generator. The model resolves from `options.model`, then
- * `$LAUNCH_AI_MODEL`, then the pinned default; the key resolves at call time from `options.apiKey` or
- * `$ANTHROPIC_API_KEY` so constructing the generator never requires a key (only `generate` does).
- */
-export function createAnthropicListingGenerator(
-  options: { model?: string; apiKey?: string } = {},
-): ListingGenerator {
-  const model = options.model ?? process.env['LAUNCH_AI_MODEL'] ?? DEFAULT_MODEL;
-  return {
-    name: `anthropic:${model}`,
-    async generate(brief: ListingBrief): Promise<DraftListing> {
-      const apiKey = options.apiKey ?? process.env['ANTHROPIC_API_KEY'];
-      if (!apiKey) {
-        throw new Error(
-          'Set ANTHROPIC_API_KEY to generate listing copy (create a key at https://console.anthropic.com/).',
-        );
-      }
-      const response = await fetch(ANTHROPIC_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': ANTHROPIC_VERSION,
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: 1024,
-          messages: [{ role: 'user', content: buildListingPrompt(brief) }],
-        }),
-      });
-      if (!response.ok) {
-        const detail = (await response.text()).slice(0, 300);
-        throw new Error(`Anthropic API error ${response.status}: ${detail}`);
-      }
-      return parseDraftListing(extractText(await response.json()));
-    },
-  };
-}
+/** Create the Anthropic listing generator from the shared environment service. */
+export const createAnthropicListingGenerator = (
+  options: Readonly<{ model?: string; apiKey?: string }> = {},
+): Effect.Effect<ListingGenerator<HttpClient.HttpClient>, never, LaunchEnvironmentService> =>
+  Effect.gen(function* () {
+    const launchEnvironment = yield* LaunchEnvironment;
+    let model = DEFAULT_MODEL;
+    if (launchEnvironment.values.aiModel !== undefined) model = launchEnvironment.values.aiModel;
+    if (options.model !== undefined) model = options.model;
+    return {
+      name: `anthropic:${model}`,
+      generate: (listingBrief) =>
+        Effect.gen(function* () {
+          let apiKey: string | undefined;
+          if (launchEnvironment.values.anthropicApiKey !== undefined)
+            apiKey = Redacted.value(launchEnvironment.values.anthropicApiKey);
+          if (options.apiKey !== undefined) apiKey = options.apiKey;
+          let apiKeyMissing = false;
+          if (apiKey === undefined) apiKeyMissing = true;
+          else if (apiKey.length === 0) apiKeyMissing = true;
+          if (apiKeyMissing) {
+            return yield* Effect.fail(
+              generationFailure(
+                'authenticate Anthropic request',
+                'missing-api-key',
+                'Set ANTHROPIC_API_KEY to generate listing copy (create a key at https://console.anthropic.com/).',
+              ),
+            );
+          }
+          const requestDocument: Schema.Schema.Type<typeof AnthropicRequestSchema> = {
+            model,
+            max_tokens: 1024,
+            messages: [{ role: 'user', content: buildListingPrompt(listingBrief) }],
+          };
+          const anthropicRequest = yield* HttpClientRequest.post(ANTHROPIC_ENDPOINT).pipe(
+            HttpClientRequest.setHeaders({
+              'x-api-key': apiKey,
+              'anthropic-version': ANTHROPIC_VERSION,
+            }),
+            HttpClientRequest.schemaBodyJson(AnthropicRequestSchema)(requestDocument),
+          );
+          const httpClient = yield* HttpClient.HttpClient;
+          const anthropicReply = yield* httpClient.execute(anthropicRequest);
+          let requestFailed = anthropicReply.status < 200;
+          if (anthropicReply.status >= 300) requestFailed = true;
+          if (requestFailed) {
+            const failureDetail = (yield* anthropicReply.text).slice(0, 300);
+            return yield* Effect.fail(
+              generationFailure(
+                'request Anthropic listing',
+                anthropicReply.status,
+                `Anthropic API error ${anthropicReply.status}: ${failureDetail}`,
+              ),
+            );
+          }
+          const anthropicMessage =
+            yield* HttpClientResponse.schemaBodyJson(AnthropicMessageSchema)(anthropicReply);
+          const completionText = yield* extractCompletionText(anthropicMessage);
+          return yield* parseDraftListing(completionText);
+        }).pipe(
+          Effect.mapError((cause) => {
+            if (Schema.is(ListingGenerationFailureSchema)(cause)) return cause;
+            return generationFailure('generate Anthropic listing', cause);
+          }),
+        ),
+    } satisfies ListingGenerator<HttpClient.HttpClient>;
+  });

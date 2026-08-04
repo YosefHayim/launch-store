@@ -1,50 +1,42 @@
+import { Command } from 'commander';
 import { describe, expect, it } from 'vitest';
-import { additiveNote, planGlyph } from './plan.js';
-import type { PlannedAction } from '../../core/store/ascSync.js';
+import { registerPlanCommand } from './plan.js';
 
-function action(over: Partial<PlannedAction> = {}): PlannedAction {
-  return {
-    description: 'create in-app purchase com.acme.coins',
-    destructive: false,
-    status: 'planned',
-    ...over,
-  };
-}
+const registeredPlanCommands = (): readonly Command[] => {
+  const program = new Command();
+  registerPlanCommand(program);
+  return program.commands;
+};
 
-describe('planGlyph', () => {
-  it('marks an addition with +', () => {
-    expect(planGlyph(action())).toBe('+');
+describe('registerPlanCommand', () => {
+  it('keeps the plan command and drift alias with optional surface arguments', () => {
+    const planCommands = registeredPlanCommands();
+    expect(planCommands.map((registeredCommand) => registeredCommand.name())).toEqual([
+      'plan',
+      'drift',
+    ]);
+    for (const registeredCommand of planCommands) {
+      expect(registeredCommand.registeredArguments).toHaveLength(1);
+      expect(registeredCommand.registeredArguments[0]?.required).toBe(false);
+    }
   });
 
-  it('marks a change with ~', () => {
-    expect(
-      planGlyph(action({ description: 'update listing [en-US] App Info: name ∅→"Acme"' })),
-    ).toBe('~');
-  });
-
-  it('marks a destructive action with -', () => {
-    expect(
-      planGlyph(action({ description: 'disable capability HEALTHKIT', destructive: true })),
-    ).toBe('-');
-  });
-
-  it('marks an advisory skip with •', () => {
-    expect(
-      planGlyph(
-        action({
-          description: 'listing [en-US]: name is 40 chars (max 30) — skipped',
-          status: 'skipped',
-        }),
-      ),
-    ).toBe('•');
-  });
-});
-
-describe('additiveNote', () => {
-  it('names the surface and states the one-way caveat', () => {
-    const note = additiveNote('wallet');
-    expect(note).toContain('wallet');
-    expect(note).toMatch(/additive/);
-    expect(note).toMatch(/portal-side/);
+  it('preserves app, check, and JSON options on their public commands', () => {
+    const planCommands = registeredPlanCommands();
+    const planCommand = planCommands.find(
+      (registeredCommand) => registeredCommand.name() === 'plan',
+    );
+    const driftCommand = planCommands.find(
+      (registeredCommand) => registeredCommand.name() === 'drift',
+    );
+    expect(planCommand?.options.map((commandOption) => commandOption.long)).toEqual([
+      '--app',
+      '--check',
+      '--json',
+    ]);
+    expect(driftCommand?.options.map((commandOption) => commandOption.long)).toEqual([
+      '--app',
+      '--json',
+    ]);
   });
 });

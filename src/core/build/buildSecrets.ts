@@ -1,124 +1,136 @@
-/**
- * Keychain-backed build secrets — the secure alternative to putting real secrets in plaintext `.env`.
- *
- * Mirrors the account registry's split (see `core/accounts.ts`): the non-secret index of WHICH secrets
- * exist and their app/profile scope lives in `~/.launch/secrets.json`, while each secret's VALUE stays
- * in the OS secret store (`core/keychain.ts`). The index exists because the OS keychain isn't reliably
- * enumerable cross-platform — `launch secret list` and the build-time injection both read it to know
- * what to fetch.
- *
- * Scope: a secret is keyed by app and (optionally) profile. A secret with no profile is app-wide
- * (injected into every profile's build); a profile-scoped one applies to just that profile and
- * overrides an app-wide secret of the same name. At build time stored secrets win over `.env` — they
- * are the source of truth for anything sensitive. See {@link resolveBuildSecrets}.
- */
+// Stores build-secret coordinates on disk while values remain in the OS secret store.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { SECRETS_FILE, LAUNCH_HOME, ensureDir } from '../services/paths.js';
+import { FileSystem, Path } from '@effect/platform';
+import { Effect, Schema } from 'effect';
 import { deleteSecret, getSecret, setSecret } from '../credentials/keychain.js';
+import { type LaunchPathsService, resolveSecretsFilePath } from '../services/paths.js';
 
-/**
- * One secret's non-secret coordinates: which app and (optional) profile it's scoped to, and its env
- * var name. The value is NOT here — it's in the OS secret store, fetched by {@link getBuildSecret}.
- * `profile` is `null` for an app-wide secret. The triple (`app`, `profile`, `name`) is the natural key.
- */
-export interface SecretRef {
-  /** App handle the secret belongs to (matches {@link AppDescriptor.name}). */
+/** Non-secret coordinates for one app/profile environment secret. */
+export type SecretRef = Readonly<{
   app: string;
-  /** Profile name the secret is scoped to, or `null` for an app-wide secret applied to every profile. */
   profile: string | null;
-  /** The environment variable name injected at build time, e.g. `SENTRY_AUTH_TOKEN`. */
   name: string;
-}
+}>;
 
-/** The on-disk shape of `~/.launch/secrets.json` — the index of secret coordinates only, no values. */
-interface SecretsIndex {
-  secrets: SecretRef[];
-}
+type SecretsIndex = Readonly<{ secrets: readonly SecretRef[] }>;
 
-/** The keychain account under which a secret's value is stored, namespaced by its scope + name. */
-function secretAccount(ref: SecretRef): string {
-  return `build-secret:${ref.app}:${ref.profile ?? '*'}:${ref.name}`;
-}
+const SecretRefSchema = Schema.Struct({
+  app: Schema.String,
+  profile: Schema.NullOr(Schema.String),
+  name: Schema.String,
+});
+const SecretsIndexSchema = Schema.Struct({ secrets: Schema.Array(SecretRefSchema) });
 
-/** Whether two refs name the same secret (same app, profile scope, and name). */
-function sameRef(a: SecretRef, b: SecretRef): boolean {
-  return a.app === b.app && a.profile === b.profile && a.name === b.name;
-}
+/** Resolve the secret-store account for one scoped build secret. */
+const secretAccount = (secretReference: SecretRef): string => {
+  let profile = '*';
+  if (secretReference.profile !== null) profile = secretReference.profile;
+  return `build-secret:${secretReference.app}:${profile}:${secretReference.name}`;
+};
 
-/** Read the index, returning an empty one when the file is absent or malformed. */
-function readIndex(): SecretsIndex {
-  if (!existsSync(SECRETS_FILE)) return { secrets: [] };
-  try {
-    const parsed = JSON.parse(readFileSync(SECRETS_FILE, 'utf8')) as Partial<SecretsIndex>;
-    return { secrets: Array.isArray(parsed.secrets) ? parsed.secrets : [] };
-  } catch {
-    return { secrets: [] };
-  }
-}
+/** Compare two secret coordinates by their natural key. */
+const sameSecret = (left: SecretRef, right: SecretRef): boolean =>
+  left.app === right.app && left.profile === right.profile && left.name === right.name;
 
-/** Write the index back to disk (pretty-printed; non-secret coordinates only). */
-function writeIndex(index: SecretsIndex): void {
-  ensureDir(LAUNCH_HOME);
-  writeFileSync(SECRETS_FILE, JSON.stringify(index, null, 2));
-}
+/** Read and decode the non-secret index, degrading missing or malformed files to an empty index. */
+const readIndex = (): Effect.Effect<
+  SecretsIndex,
+  never,
+  FileSystem.FileSystem | Path.Path | LaunchPathsService
+> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const indexPath = yield* resolveSecretsFilePath();
+    const encodedIndex = yield* fileSystem
+      .readFileString(indexPath)
+      .pipe(Effect.catchAll(() => Effect.succeed(null)));
+    if (encodedIndex === null) return { secrets: [] };
+    const decodedIndex = yield* Effect.try({
+      try: () => JSON.parse(encodedIndex),
+      catch: () => null,
+    }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+    if (decodedIndex === null) return { secrets: [] };
+    const schemaOutcome = Schema.decodeUnknownEither(SecretsIndexSchema)(decodedIndex);
+    if (schemaOutcome._tag === 'Left') return { secrets: [] };
+    return schemaOutcome.right;
+  });
 
-/** Every recorded secret ref, optionally filtered to one app. Coordinates only — never values. */
-export function listSecretRefs(app?: string): SecretRef[] {
-  const refs = readIndex().secrets;
-  return app ? refs.filter((ref) => ref.app === app) : refs;
-}
+/** Persist the non-secret index, creating its parent directory first. */
+const writeIndex = (secretIndex: SecretsIndex) =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const indexPath = yield* resolveSecretsFilePath();
+    yield* fileSystem.makeDirectory(pathService.dirname(indexPath), { recursive: true });
+    yield* fileSystem.writeFileString(indexPath, JSON.stringify(secretIndex, null, 2));
+  });
 
-/**
- * Store (or overwrite) a secret's value in the OS secret store and record its coordinates in the index.
- * Re-setting an existing (app, profile, name) updates the value in place without duplicating the index
- * entry.
- */
-export async function setBuildSecret(ref: SecretRef, value: string): Promise<void> {
-  await setSecret(secretAccount(ref), value);
-  const index = readIndex();
-  if (!index.secrets.some((existing) => sameRef(existing, ref))) {
-    writeIndex({ secrets: [...index.secrets, ref] });
-  }
-}
+/** List recorded secret coordinates, optionally restricted to one app. */
+export const listSecretRefs = (appName?: string) =>
+  readIndex().pipe(
+    Effect.map((secretIndex) => {
+      if (appName === undefined) return secretIndex.secrets;
+      return secretIndex.secrets.filter((secretReference) => secretReference.app === appName);
+    }),
+  );
 
-/** Remove a secret's value and its index entry. Returns whether the index had it (the value delete is idempotent). */
-export async function removeBuildSecret(ref: SecretRef): Promise<boolean> {
-  await deleteSecret(secretAccount(ref));
-  const index = readIndex();
-  const remaining = index.secrets.filter((existing) => !sameRef(existing, ref));
-  const existed = remaining.length !== index.secrets.length;
-  if (existed) writeIndex({ secrets: remaining });
-  return existed;
-}
+/** Store a secret value and add its coordinates to the index once. */
+export const setBuildSecret = (secretReference: SecretRef, secretValue: string) =>
+  Effect.gen(function* () {
+    yield* setSecret(secretAccount(secretReference), secretValue);
+    const secretIndex = yield* readIndex();
+    if (
+      secretIndex.secrets.some((existingReference) =>
+        sameSecret(existingReference, secretReference),
+      )
+    ) {
+      return;
+    }
+    yield* writeIndex({ secrets: [...secretIndex.secrets, secretReference] });
+  });
 
-/**
- * The refs that apply to one build, in injection order: app-wide secrets first, then the profile's own,
- * so a profile-scoped secret overrides an app-wide one of the same name when merged. Pure — split out
- * from {@link resolveBuildSecrets} so the precedence logic is unit-testable without the keychain.
- */
-export function effectiveRefs(refs: SecretRef[], app: string, profile: string): SecretRef[] {
-  const forApp = refs.filter((ref) => ref.app === app);
+/** Delete a secret value and remove its coordinates from the index. */
+export const removeBuildSecret = (secretReference: SecretRef) =>
+  Effect.gen(function* () {
+    yield* deleteSecret(secretAccount(secretReference));
+    const secretIndex = yield* readIndex();
+    const remainingReferences = secretIndex.secrets.filter(
+      (existingReference) => !sameSecret(existingReference, secretReference),
+    );
+    const existed = remainingReferences.length !== secretIndex.secrets.length;
+    if (existed) yield* writeIndex({ secrets: remainingReferences });
+    return existed;
+  });
+
+/** Select app-wide secrets first and profile-specific overrides second. */
+export const effectiveRefs = (
+  secretReferences: readonly SecretRef[],
+  appName: string,
+  profileName: string,
+): readonly SecretRef[] => {
+  const appReferences = secretReferences.filter(
+    (secretReference) => secretReference.app === appName,
+  );
   return [
-    ...forApp.filter((ref) => ref.profile === null),
-    ...forApp.filter((ref) => ref.profile === profile),
+    ...appReferences.filter((secretReference) => secretReference.profile === null),
+    ...appReferences.filter((secretReference) => secretReference.profile === profileName),
   ];
-}
+};
 
-/**
- * Resolve the env vars to inject into a build from the keychain: every secret scoped to this app and
- * profile, with profile-scoped values overriding app-wide ones. The pipeline merges the result over
- * `.env` (stored secrets win). A ref whose value has gone missing from the keychain is skipped.
- */
-export async function resolveBuildSecrets(
-  app: string,
-  profile: string,
-): Promise<Record<string, string>> {
-  const env: Record<string, string> = {};
-  for (const ref of effectiveRefs(listSecretRefs(), app, profile)) {
-    // biome-ignore lint/performance/noAwaitInLoops: serial secret reads — each value is fetched from the OS keychain in turn
-    const value = await getSecret(secretAccount(ref));
-    if (value !== null) env[ref.name] = value;
-  }
-  return env;
-}
+/** Resolve keychain values for one build, with profile-specific values overriding app-wide values. */
+export const resolveBuildSecrets = (appName: string, profileName: string) =>
+  Effect.gen(function* () {
+    const secretReferences = yield* listSecretRefs();
+    const environmentValues: Record<string, string> = {};
+    yield* Effect.forEach(
+      effectiveRefs(secretReferences, appName, profileName),
+      (secretReference) =>
+        getSecret(secretAccount(secretReference)).pipe(
+          Effect.tap((secretValue) => {
+            if (secretValue !== null) environmentValues[secretReference.name] = secretValue;
+          }),
+        ),
+      { concurrency: 1, discard: true },
+    );
+    return environmentValues;
+  });

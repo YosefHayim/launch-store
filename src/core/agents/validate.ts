@@ -1,48 +1,44 @@
-/**
- * The anti-rot guard for the agent skill registry.
- *
- * Every command a {@link ConsumerSkill} names is a structured {@link SkillStep} whose `path` must
- * resolve to a real (sub)command in the live `launch` program. {@link findUnknownCommands} walks the
- * commander tree and returns any path that no longer resolves, so a renamed or removed command turns
- * into a failing test (`src/core/agents/validate.test.ts`) and a loud error at `launch agents` time —
- * instead of a recipe that silently tells an agent to run a command that doesn't exist.
- */
-
-import type { Command } from 'commander';
+import type { ConsumerSkill } from '../types/agents.js';
 import { CONSUMER_SKILLS } from './registry.js';
-import type { ConsumerSkill } from '../types/index.js';
 
-/**
- * Whether a command path (subcommand names only, no args) resolves in the program tree. Descends one
- * level per segment, matching a command's `name()` or any alias; returns false if a segment is missing
- * or the path is empty (an empty path would match the program root, which is never a real step).
- */
-function pathResolves(program: Command, path: string[]): boolean {
-  if (path.length === 0) return false;
-  let node: Command | undefined = program;
-  for (const name of path) {
-    node = node.commands.find((child) => child.name() === name || child.aliases().includes(name));
-    if (!node) return false;
+/** Commander-independent command tree used to validate generated agent instructions. */
+export type RegisteredCommand = Readonly<{
+  readonly name: string;
+  readonly aliases: readonly string[];
+  readonly commands: readonly RegisteredCommand[];
+}>;
+
+/** Check whether a generated command path exists in the registered CLI tree. */
+const pathResolves = (
+  registeredCli: RegisteredCommand,
+  commandPath: readonly string[],
+): boolean => {
+  if (commandPath.length === 0) return false;
+  let availableCommands = registeredCli.commands;
+  for (const commandName of commandPath) {
+    const matchedCommand = availableCommands.find((registeredCommand) => {
+      if (registeredCommand.name === commandName) return true;
+      return registeredCommand.aliases.includes(commandName);
+    });
+    if (matchedCommand === undefined) return false;
+    availableCommands = matchedCommand.commands;
   }
   return true;
-}
+};
 
-/**
- * Return a human-readable list of every skill command whose path no longer resolves against `program`.
- * Empty means the registry is in sync with the CLI. Checks both each skill's happy-path `steps` and its
- * `reference.commands`, so the bundled reference can't rot either.
- */
-export function findUnknownCommands(
-  program: Command,
-  skills: ConsumerSkill[] = CONSUMER_SKILLS,
-): string[] {
-  const unknown: string[] = [];
+/** Return generated skill commands that no longer exist in the registered CLI. */
+export const findUnknownCommands = (
+  registeredCli: RegisteredCommand,
+  skills: readonly ConsumerSkill[] = CONSUMER_SKILLS,
+): string[] => {
+  const unknownCommands: string[] = [];
   for (const skill of skills) {
-    const steps = [...skill.steps, ...(skill.reference?.commands ?? [])];
-    for (const step of steps) {
-      if (!pathResolves(program, step.path))
-        unknown.push(`${skill.id}: launch ${step.path.join(' ')}`);
+    const referencedCommands = [...skill.steps];
+    if (skill.reference !== undefined) referencedCommands.push(...skill.reference.commands);
+    for (const skillCommand of referencedCommands) {
+      if (pathResolves(registeredCli, skillCommand.path)) continue;
+      unknownCommands.push(`${skill.id}: launch ${skillCommand.path.join(' ')}`);
     }
   }
-  return unknown;
-}
+  return unknownCommands;
+};

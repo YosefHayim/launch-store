@@ -1,19 +1,7 @@
-/**
- * A bounded, read-only directory walk shared by the file-based IAP probes (`apple-iap-code-reference`,
- * `apple-storekit-config`). Both need to look through an app's own source — one for product-id references,
- * one for a `.storekit` file — without ever executing user code, following symlinks out of the tree, or
- * stalling on a large monorepo. This module centralizes that traversal (skip set + `.gitignore` honoring +
- * symlink refusal + hard caps) so each probe only supplies a per-file visitor, and the safety bounds can't
- * drift between them. No glob/ignore dependency is pulled in — AGENTS.md keeps the local-only install lean.
- */
-
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import type { Dirent } from 'node:fs';
-import { extname, join } from 'node:path';
+import { FileSystem, Path } from '@effect/platform';
 import { Effect } from 'effect';
 
-/** Always-skip directories: generated, vendored, or native build output that can't hold hand-written source. */
-const BASE_SKIP_DIRS = new Set([
+const SOURCE_SCAN_SKIP_DIRECTORIES = new Set([
   'node_modules',
   '.git',
   '.expo',
@@ -25,88 +13,93 @@ const BASE_SKIP_DIRS = new Set([
   'vendor',
   'Pods',
 ]);
+const MAX_SCAN_DEPTH = 8;
+const MAX_SCANNED_FILES = 5000;
 
-/** Depth and file-count caps so the walk stays bounded regardless of repo size (a backstop, not the budget). */
-const MAX_DEPTH = 8;
-const MAX_FILES = 5000;
+export type SourceScanRequirements = FileSystem.FileSystem | Path.Path;
 
-/**
- * Plain directory names from an app's `.gitignore`, added to the skip set so the scan honors what the
- * project already excludes (an Expo app gitignores `ios`/`android`, for instance). Deliberately simple: only
- * bare directory entries (`ios`, `/build`, `.expo/`) are honored; glob, negation, and nested-path patterns
- * are ignored, since this only needs to prune obvious generated trees, not reimplement gitignore matching.
- *
- * @param rootDir - App root whose `.gitignore` should be read.
- * @returns An Effect that succeeds with directory names to skip during source scanning.
- */
-function gitignoredDirs(rootDir: string): Effect.Effect<Set<string>> {
-  return Effect.gen(function* () {
-    const dirs = new Set<string>();
-    const path = join(rootDir, '.gitignore');
-    const exists = yield* Effect.sync(() => existsSync(path));
-    if (!exists) return dirs;
-    const content = yield* Effect.try({
-      try: () => readFileSync(path, 'utf8'),
-      catch: (readFailure) => readFailure,
-    }).pipe(Effect.catchAll(() => Effect.succeed('')));
-    for (const raw of content.split('\n')) {
-      let line = raw.trim();
-      if (!line || line.startsWith('#') || line.startsWith('!') || line.includes('*')) continue;
-      if (line.startsWith('/')) line = line.slice(1);
-      if (line.endsWith('/')) line = line.slice(0, -1);
-      if (line && !line.includes('/')) dirs.add(line);
+/** Read the simple top-level directory exclusions declared in `.gitignore`. */
+const readIgnoredDirectories = (
+  sourceRoot: string,
+): Effect.Effect<Set<string>, never, SourceScanRequirements> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const gitignorePath = pathService.join(sourceRoot, '.gitignore');
+    const gitignoreExists = yield* fileSystem
+      .exists(gitignorePath)
+      .pipe(Effect.catchAll(() => Effect.succeed(false)));
+    if (!gitignoreExists) return new Set<string>();
+
+    const gitignoreSource = yield* fileSystem
+      .readFileString(gitignorePath)
+      .pipe(Effect.catchAll(() => Effect.succeed('')));
+    const ignoredDirectories = new Set<string>();
+    for (const rawLine of gitignoreSource.split('\n')) {
+      let ignorePattern = rawLine.trim();
+      if (ignorePattern.length === 0) continue;
+      if (ignorePattern.startsWith('#')) continue;
+      if (ignorePattern.startsWith('!')) continue;
+      if (ignorePattern.includes('*')) continue;
+      if (ignorePattern.startsWith('/')) ignorePattern = ignorePattern.slice(1);
+      if (ignorePattern.endsWith('/')) ignorePattern = ignorePattern.slice(0, -1);
+      if (ignorePattern.length === 0) continue;
+      if (ignorePattern.includes('/')) continue;
+      ignoredDirectories.add(ignorePattern);
     }
-    return dirs;
+    return ignoredDirectories;
   });
-}
 
-/**
- * Walk `rootDir` and invoke `onFile(absolutePath, lowercasedExt)` for each regular file, skipping
- * generated/vendored/gitignored and hidden directories and never following symlinks. `onFile` returns
- * `true` to stop the walk early (it found what it needed); the walk also stops at the depth/file caps. The
- * walker reads no file contents itself — a content-scanning visitor opens (and size-limits) only the files
- * it cares about — so the cost of reading is paid only where a probe actually needs it.
- *
- * @param rootDir - App root to walk.
- * @param onFile - Effectful visitor invoked for each regular file with its extension.
- * @returns An Effect that completes after the bounded walk finishes or stops early.
- */
-export function walkAppSource(
-  rootDir: string,
-  onFile: (filePath: string, ext: string) => Effect.Effect<boolean>,
-): Effect.Effect<void> {
-  return Effect.gen(function* () {
-    const ignoredDirs = yield* gitignoredDirs(rootDir);
-    const skip = new Set([...BASE_SKIP_DIRS, ...ignoredDirs]);
-    let files = 0;
+export const walkAppSource = <InspectionFailure, InspectionRequirements>(
+  sourceRoot: string,
+  inspectFile: (
+    filePath: string,
+    fileExtension: string,
+  ) => Effect.Effect<boolean, InspectionFailure, InspectionRequirements>,
+): Effect.Effect<void, InspectionFailure, SourceScanRequirements | InspectionRequirements> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const ignoredDirectories = yield* readIgnoredDirectories(sourceRoot);
+    const skippedDirectories = new Set([...SOURCE_SCAN_SKIP_DIRECTORIES, ...ignoredDirectories]);
+    let scannedFileCount = 0;
 
-    /** Returns `true` to stop the entire walk (a global cap was hit or `onFile` asked to stop). */
-    const walk = (dir: string, depth: number): Effect.Effect<boolean> =>
+    const walkDirectory = (
+      directoryPath: string,
+      directoryDepth: number,
+    ): Effect.Effect<boolean, InspectionFailure, InspectionRequirements> =>
       Effect.gen(function* () {
-        if (depth > MAX_DEPTH) return false; // prune this branch, but keep walking elsewhere
-        if (files >= MAX_FILES) return true; // global file cap — stop everything
-        const entries: Dirent[] = yield* Effect.try({
-          try: () => readdirSync(dir, { withFileTypes: true }),
-          catch: (readFailure) => readFailure,
-        }).pipe(Effect.catchAll(() => Effect.succeed([])));
-        for (const entry of entries) {
-          if (files >= MAX_FILES) return true;
-          if (entry.isSymbolicLink()) continue;
-          if (entry.isDirectory()) {
-            if (
-              !skip.has(entry.name) &&
-              !entry.name.startsWith('.') &&
-              (yield* walk(join(dir, entry.name), depth + 1))
-            )
-              return true;
+        if (directoryDepth > MAX_SCAN_DEPTH) return false;
+        if (scannedFileCount >= MAX_SCANNED_FILES) return true;
+
+        const entryNames = yield* fileSystem
+          .readDirectory(directoryPath)
+          .pipe(Effect.catchAll(() => Effect.succeed([])));
+        for (const entryName of entryNames) {
+          if (scannedFileCount >= MAX_SCANNED_FILES) return true;
+          const entryPath = pathService.join(directoryPath, entryName);
+          const entryMetadata = yield* fileSystem
+            .stat(entryPath)
+            .pipe(Effect.catchAll(() => Effect.succeed(undefined)));
+          if (entryMetadata === undefined) continue;
+          if (entryMetadata.type === 'SymbolicLink') continue;
+          if (entryMetadata.type === 'Directory') {
+            if (skippedDirectories.has(entryName)) continue;
+            if (entryName.startsWith('.')) continue;
+            const nestedScanStopped = yield* walkDirectory(entryPath, directoryDepth + 1);
+            if (nestedScanStopped) return true;
             continue;
           }
-          if (!entry.isFile()) continue;
-          files += 1;
-          if (yield* onFile(join(dir, entry.name), extname(entry.name).toLowerCase())) return true;
+          if (entryMetadata.type !== 'File') continue;
+          scannedFileCount += 1;
+          const scanStopped = yield* inspectFile(
+            entryPath,
+            pathService.extname(entryName).toLowerCase(),
+          );
+          if (scanStopped) return true;
         }
         return false;
       });
-    yield* walk(rootDir, 0);
+
+    yield* walkDirectory(sourceRoot, 0);
   });
-}

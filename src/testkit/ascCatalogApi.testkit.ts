@@ -1,91 +1,125 @@
-/**
- * Shared test fake for the `launch sync` reconciler's {@link AscCatalogApi} write surface. Reused by the
- * reconciler's own tests (`ascSync.test.ts`) and the snapshot listing-restore tests (`snapshot/sources`),
- * so the ~30-method stub lives in one place instead of being copied per consumer.
- *
- * Defaults model a fresh account: reads return "nothing exists yet", writes resolve to a created resource.
- * Override any method to model existing state or a failure. Not shipped — imported only from `*.test.ts`.
- */
-
+import { Effect } from 'effect';
 import { vi } from 'vitest';
 import type { AscCatalogApi } from '../core/store/ascSync.js';
 
+const effectMethods = <Api extends object>(api: Api): Api => {
+  const wrappedMethods = new Map<PropertyKey, unknown>();
+  return new Proxy(api, {
+    get(targetApi, methodName, receiver) {
+      if (wrappedMethods.has(methodName)) return wrappedMethods.get(methodName);
+      const apiMember = Reflect.get(targetApi, methodName, receiver);
+      if (typeof apiMember !== 'function') return apiMember;
+      const effectMethod = vi.fn((...methodArguments: unknown[]) => {
+        const methodOutput = Reflect.apply(apiMember, targetApi, methodArguments);
+        if (Effect.isEffect(methodOutput)) return methodOutput;
+        return Effect.tryPromise({
+          try: () => Promise.resolve(methodOutput),
+          catch: (fakeFailure) => fakeFailure,
+        });
+      });
+      wrappedMethods.set(methodName, effectMethod);
+      return effectMethod;
+    },
+  });
+};
 /** A fully-stubbed {@link AscCatalogApi}. Reads default to "nothing exists yet"; writes resolve to a created resource. */
-export function makeAscCatalogApiFake(overrides: Partial<AscCatalogApi> = {}): AscCatalogApi {
+export const makeAscCatalogApiFake = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {
   const base: AscCatalogApi = {
-    getAppId: vi.fn().mockResolvedValue('app1'),
-    findBundleId: vi.fn().mockResolvedValue({ id: 'bundle1', identifier: 'com.acme.app' }),
-    listBundleIdCapabilities: vi.fn().mockResolvedValue([]),
+    getAppId: vi.fn(() => Effect.succeed('app1')),
+    findBundleId: vi.fn(() => Effect.succeed({ id: 'bundle1', identifier: 'com.acme.app' })),
+    listBundleIdCapabilities: vi.fn(() => Effect.succeed([])),
     enableCapability: vi
       .fn()
       .mockImplementation((_b: string, capabilityType: string) =>
-        Promise.resolve({ id: 'cap-new', capabilityType }),
+        Effect.succeed({ id: 'cap-new', capabilityType }),
       ),
-    disableCapability: vi.fn().mockResolvedValue(undefined),
-    listInAppPurchases: vi.fn().mockResolvedValue([]),
-    createInAppPurchase: vi
-      .fn()
-      .mockImplementation(
-        (_a: string, input: { productId: string; name: string; inAppPurchaseType: string }) =>
-          Promise.resolve({
-            id: 'iap-new',
-            productId: input.productId,
-            name: input.name,
-            inAppPurchaseType: input.inAppPurchaseType,
-          }),
-      ),
-    listInAppPurchaseLocalizations: vi.fn().mockResolvedValue([]),
-    createInAppPurchaseLocalization: vi
-      .fn()
-      .mockImplementation((_i: string, input: { locale: string; name: string }) =>
-        Promise.resolve({ id: 'iloc', locale: input.locale, name: input.name }),
-      ),
-    inAppPurchaseHasPrice: vi.fn().mockResolvedValue(false),
+    disableCapability: vi.fn(() => Effect.void),
+    listInAppPurchases: vi.fn(() => Effect.succeed([])),
+    createInAppPurchase: vi.fn().mockImplementation(
+      (
+        _a: string,
+        input: {
+          productId: string;
+          name: string;
+          inAppPurchaseType: string;
+        },
+      ) =>
+        Effect.succeed({
+          id: 'iap-new',
+          productId: input.productId,
+          name: input.name,
+          inAppPurchaseType: input.inAppPurchaseType,
+        }),
+    ),
+    listInAppPurchaseLocalizations: vi.fn(() => Effect.succeed([])),
+    createInAppPurchaseLocalization: vi.fn().mockImplementation(
+      (
+        _i: string,
+        input: {
+          locale: string;
+          name: string;
+        },
+      ) => Effect.succeed({ id: 'iloc', locale: input.locale, name: input.name }),
+    ),
+    inAppPurchaseHasPrice: vi.fn(() => Effect.succeed(false)),
     findInAppPurchasePricePoint: vi
       .fn()
       .mockImplementation((_i: string, territory: string, price: number) =>
-        Promise.resolve({ id: 'ipp', customerPrice: String(price), territory }),
+        Effect.succeed({ id: 'ipp', customerPrice: String(price), territory }),
       ),
-    createInAppPurchasePriceSchedule: vi.fn().mockResolvedValue(undefined),
-    listSubscriptionGroups: vi.fn().mockResolvedValue([]),
+    createInAppPurchasePriceSchedule: vi.fn(() => Effect.void),
+    listSubscriptionGroups: vi.fn(() => Effect.succeed([])),
     createSubscriptionGroup: vi
       .fn()
       .mockImplementation((_a: string, referenceName: string) =>
-        Promise.resolve({ id: 'grp-new', referenceName }),
+        Effect.succeed({ id: 'grp-new', referenceName }),
       ),
-    listSubscriptionGroupLocalizations: vi.fn().mockResolvedValue([]),
-    createSubscriptionGroupLocalization: vi
-      .fn()
-      .mockImplementation((_g: string, input: { locale: string; name: string }) =>
-        Promise.resolve({ id: 'gloc', locale: input.locale, name: input.name }),
-      ),
-    listSubscriptions: vi.fn().mockResolvedValue([]),
-    createSubscription: vi
-      .fn()
-      .mockImplementation((_g: string, input: { productId: string; name: string }) =>
-        Promise.resolve({ id: 'sub-new', productId: input.productId, name: input.name }),
-      ),
-    listSubscriptionLocalizations: vi.fn().mockResolvedValue([]),
-    createSubscriptionLocalization: vi
-      .fn()
-      .mockImplementation((_s: string, input: { locale: string; name: string }) =>
-        Promise.resolve({ id: 'sloc', locale: input.locale, name: input.name }),
-      ),
-    subscriptionHasPrice: vi.fn().mockResolvedValue(false),
+    listSubscriptionGroupLocalizations: vi.fn(() => Effect.succeed([])),
+    createSubscriptionGroupLocalization: vi.fn().mockImplementation(
+      (
+        _g: string,
+        input: {
+          locale: string;
+          name: string;
+        },
+      ) => Effect.succeed({ id: 'gloc', locale: input.locale, name: input.name }),
+    ),
+    listSubscriptions: vi.fn(() => Effect.succeed([])),
+    createSubscription: vi.fn().mockImplementation(
+      (
+        _g: string,
+        input: {
+          productId: string;
+          name: string;
+        },
+      ) => Effect.succeed({ id: 'sub-new', productId: input.productId, name: input.name }),
+    ),
+    listSubscriptionLocalizations: vi.fn(() => Effect.succeed([])),
+    createSubscriptionLocalization: vi.fn().mockImplementation(
+      (
+        _s: string,
+        input: {
+          locale: string;
+          name: string;
+        },
+      ) => Effect.succeed({ id: 'sloc', locale: input.locale, name: input.name }),
+    ),
+    subscriptionHasPrice: vi.fn(() => Effect.succeed(false)),
     findSubscriptionPricePoint: vi
       .fn()
       .mockImplementation((_s: string, territory: string, price: number) =>
-        Promise.resolve({ id: 'spp', customerPrice: String(price), territory }),
+        Effect.succeed({ id: 'spp', customerPrice: String(price), territory }),
       ),
-    createSubscriptionPrice: vi.fn().mockResolvedValue(undefined),
-    getEditableAppInfoId: vi.fn().mockResolvedValue('appinfo1'),
-    listAppInfoLocalizations: vi.fn().mockResolvedValue([]),
-    createAppInfoLocalization: vi.fn().mockResolvedValue(undefined),
-    updateAppInfoLocalization: vi.fn().mockResolvedValue(undefined),
-    getEditableVersionId: vi.fn().mockResolvedValue('version1'),
-    listVersionLocalizations: vi.fn().mockResolvedValue([]),
-    createVersionLocalization: vi.fn().mockResolvedValue(undefined),
-    updateVersionLocalization: vi.fn().mockResolvedValue(undefined),
+    createSubscriptionPrice: vi.fn(() => Effect.void),
+    getEditableAppInfoId: vi.fn(() => Effect.succeed('appinfo1')),
+    listAppInfoLocalizations: vi.fn(() => Effect.succeed([])),
+    createAppInfoLocalization: vi.fn(() => Effect.void),
+    updateAppInfoLocalization: vi.fn(() => Effect.void),
+    getEditableVersionId: vi.fn(() => Effect.succeed('version1')),
+    listVersionLocalizations: vi.fn(() => Effect.succeed([])),
+    createVersionLocalization: vi.fn(() => Effect.void),
+    updateVersionLocalization: vi.fn(() => Effect.void),
   };
-  return { ...base, ...overrides };
-}
+  const normalizedOverrides = effectMethods(overrides);
+  return { ...base, ...normalizedOverrides };
+};

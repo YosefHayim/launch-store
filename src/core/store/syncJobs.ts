@@ -1,130 +1,154 @@
-/**
- * Build the per-app reconcile work list shared by `launch sync` and `launch plan`.
- *
- * `sync` and the catalog plan/drift surface both answer the same first question — "given the discovered
- * apps and `launch.config.ts`, what does each app declare for App Store Connect?" — before they diverge
- * (sync applies, plan only reports). That shared question is {@link buildJobs}: it resolves each app's
- * capabilities (from `app.json` entitlements), product catalog (from `config.products[bundleId]`), store
- * listing (from `store.config.json`), and on-disk screenshot/preview assets into one {@link SyncJob}.
- * Extracted here (rather than left private in `cli/commands/sync.ts`) so `core/plan` can reuse it without
- * a `core → cli` import — the command layer depends on core, never the reverse.
- *
- * Read-only: building a job reads the filesystem and config but never touches App Store Connect.
- */
-
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-import type { AppDescriptor, AppProducts, LaunchConfig } from '../types/index.js';
+import { FileSystem, Path } from '@effect/platform';
+import { Data, Effect, Schema } from 'effect';
+import type { AppDescriptor } from '../types/app.js';
+import type { AppProducts } from '../types/catalog.js';
+import type { LaunchConfig } from '../types/config.js';
 import { mapEntitlementsToCapabilities, type CapabilityType } from '../credentials/capabilities.js';
 import {
   discoverPreviews,
   discoverScreenshots,
   type LocalPreview,
   type LocalScreenshot,
-} from '../services/screenshotAssets.js';
-import { loadStoreConfig, type AppleStoreConfig } from './storeConfig.js';
-
+} from '../listing/screenshots/assets.js';
+import { parseStoreConfig, type AppleStoreConfig } from './storeConfig.js';
 /** One app's reconcile work: the resolved capabilities + products plus any entitlements we couldn't map. */
-export interface SyncJob {
+export type SyncJob = {
   app: AppDescriptor;
   bundleId: string;
   capabilities: CapabilityType[];
   products: AppProducts;
-  /** The app's `store.config.json` `apple` listing, when present — reconciled natively into ASC. */
   listing?: AppleStoreConfig;
-  /** App Store screenshots discovered under `<appDir>/screenshots/<locale>/<displayType>/`, fingerprinted. */
   screenshots: LocalScreenshot[];
-  /** App preview videos discovered under `<appDir>/previews/<locale>/<previewType>/`, fingerprinted. */
   previews: LocalPreview[];
-  /** Subscriptions declaring a `reviewScreenshot`, paired with the path fingerprinted at apply time. */
-  subscriptionReviewScreenshots: { productId: string; relPath: string }[];
-  /** Entitlement keys with no known capability mapping — surfaced as a warning, not an error. */
+  subscriptionReviewScreenshots: {
+    productId: string;
+    relPath: string;
+  }[];
   unmapped: string[];
-}
-
+};
 /**
  * Read an app's `store.config.json` `apple` listing, or undefined when absent. A malformed file is
- * swallowed here (returns undefined) so a broken listing never blocks product/capability sync — the
+ * swallowed here (returns undefined) so a broken listing never blocks product/capability sync - the
  * dedicated `launch metadata` command is where it's loudly validated.
  */
-function loadListing(appDir: string): AppleStoreConfig | undefined {
-  const path = join(appDir, 'store.config.json');
-  if (!existsSync(path)) return undefined;
-  try {
-    return loadStoreConfig(path).apple;
-  } catch {
-    return undefined;
-  }
-}
-
+const loadListing = (appDirectory: string) =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const configPath = pathService.join(appDirectory, 'store.config.json');
+    const configExists = yield* fileSystem.exists(configPath);
+    if (!configExists) return undefined;
+    const configText = yield* fileSystem.readFileString(configPath);
+    const rawDocument = yield* Schema.decodeUnknown(Schema.parseJson())(configText);
+    const storeConfig = yield* parseStoreConfig(rawDocument);
+    return storeConfig.apple;
+  }).pipe(Effect.catchAll(() => Effect.succeed(undefined)));
 /**
  * Whether a listing carries at least one locale with at least one field worth reconciling. A type guard,
  * so callers that filter on it (`launch plan`'s listing surface) narrow `listing` to a present
  * {@link AppleStoreConfig} without an assertion.
  */
-export function hasListing(listing: AppleStoreConfig | undefined): listing is AppleStoreConfig {
+export const hasListing = (listing: AppleStoreConfig | undefined): listing is AppleStoreConfig => {
   return (
     listing !== undefined &&
-    Object.values(listing.info).some((info) => Object.keys(info).length > 0)
+    Object.values(listing.info).some((localeListing) => Object.keys(localeListing).length > 0)
   );
-}
-
+};
 /** The subscriptions that declare a review screenshot, paired with the relative path to upload. */
-function collectSubscriptionReviewScreenshots(
+const collectSubscriptionReviewScreenshots = (
   products: AppProducts,
-): { productId: string; relPath: string }[] {
-  return (products.subscriptionGroups ?? [])
-    .flatMap((group) => group.subscriptions)
-    .flatMap((sub) =>
-      sub.reviewScreenshot ? [{ productId: sub.productId, relPath: sub.reviewScreenshot }] : [],
-    );
-}
+): {
+  productId: string;
+  relPath: string;
+}[] => {
+  const reviewScreenshots: { productId: string; relPath: string }[] = [];
+  const subscriptionGroups = products.subscriptionGroups;
+  if (subscriptionGroups === undefined) return reviewScreenshots;
+  for (const subscriptionGroup of subscriptionGroups) {
+    for (const subscription of subscriptionGroup.subscriptions) {
+      if (subscription.reviewScreenshot === undefined) continue;
+      reviewScreenshots.push({
+        productId: subscription.productId,
+        relPath: subscription.reviewScreenshot,
+      });
+    }
+  }
+  return reviewScreenshots;
+};
+/** An app selector named a discovered app that does not exist. */
+export type AppSelectionFailure = Readonly<{
+  readonly _tag: 'AppSelectionFailure';
+  readonly appName: string;
+  readonly discoveredApps: readonly string[];
+  readonly message: string;
+}>;
 
-/** Resolve the apps to act on from discovery + the optional `--app` selector, erroring on an unknown name. */
-export function selectApps(apps: AppDescriptor[], selector: string | undefined): AppDescriptor[] {
-  if (!selector) return apps;
-  const wanted = selector
+export const makeAppSelectionFailure = Data.tagged<AppSelectionFailure>('AppSelectionFailure');
+
+/** Resolve discovered apps from an optional comma-separated selector. */
+export const selectApps = (
+  apps: AppDescriptor[],
+  selector: string | undefined,
+): Effect.Effect<AppDescriptor[], AppSelectionFailure> => {
+  if (selector === undefined) return Effect.succeed(apps);
+  if (selector === '') return Effect.succeed(apps);
+  const selectedNames = selector
     .split(',')
     .map((name) => name.trim())
     .filter(Boolean);
-  const byName = new Map(apps.map((app) => [app.name, app]));
-  return wanted.map((name) => {
-    const app = byName.get(name);
-    if (!app)
-      throw new Error(
-        `Unknown app "${name}". Discovered apps: ${apps.map((a) => a.name).join(', ') || 'none'}.`,
-      );
-    return app;
+  const discoveredByName = new Map(apps.map((app) => [app.name, app]));
+  const discoveredNames = apps.map((app) => app.name);
+  return Effect.forEach(selectedNames, (selectedName) => {
+    const selectedApp = discoveredByName.get(selectedName);
+    if (selectedApp !== undefined) return Effect.succeed(selectedApp);
+    let discoveredAppList = discoveredNames.join(', ');
+    if (discoveredAppList.length === 0) discoveredAppList = 'none';
+    return Effect.fail(
+      makeAppSelectionFailure({
+        appName: selectedName,
+        discoveredApps: discoveredNames,
+        message: `Unknown app "${selectedName}". Discovered apps: ${discoveredAppList}.`,
+      }),
+    );
   });
-}
-
+};
 /** Build the job list, dropping apps with no iOS bundle id and nothing (capabilities, products, listing, or assets) to sync. */
-export function buildJobs(apps: AppDescriptor[], config: LaunchConfig): SyncJob[] {
-  const jobs: SyncJob[] = [];
-  for (const app of apps) {
-    if (!app.bundleId) continue;
-    const { enable, unmapped } = mapEntitlementsToCapabilities(app.iosEntitlements);
-    const products = config.products?.[app.bundleId] ?? {};
-    const productCount =
-      (products.inAppPurchases?.length ?? 0) + (products.subscriptionGroups?.length ?? 0);
-    const listing = loadListing(app.dir);
-    const screenshots = discoverScreenshots(app.dir);
-    const previews = discoverPreviews(app.dir);
-    const subscriptionReviewScreenshots = collectSubscriptionReviewScreenshots(products);
-    const hasAssets =
-      screenshots.length > 0 || previews.length > 0 || subscriptionReviewScreenshots.length > 0;
-    if (enable.length === 0 && productCount === 0 && !hasListing(listing) && !hasAssets) continue;
-    jobs.push({
-      app,
-      bundleId: app.bundleId,
-      capabilities: enable,
-      products,
-      ...(listing ? { listing } : {}),
-      screenshots,
-      previews,
-      subscriptionReviewScreenshots,
-      unmapped,
-    });
-  }
-  return jobs;
-}
+export const buildJobs = (apps: AppDescriptor[], config: LaunchConfig) =>
+  Effect.gen(function* () {
+    const jobs: SyncJob[] = [];
+    for (const app of apps) {
+      if (!app.bundleId) continue;
+      const { enable, unmapped } = mapEntitlementsToCapabilities(app.iosEntitlements);
+      let products: AppProducts = {};
+      const configuredProducts = config.products?.[app.bundleId];
+      if (configuredProducts !== undefined) products = configuredProducts;
+      let productCount = 0;
+      if (products.inAppPurchases !== undefined) {
+        productCount += products.inAppPurchases.length;
+      }
+      if (products.subscriptionGroups !== undefined) {
+        productCount += products.subscriptionGroups.length;
+      }
+      const listing = yield* loadListing(app.dir);
+      const screenshots = [...(yield* discoverScreenshots(app.dir))];
+      const previews = [...(yield* discoverPreviews(app.dir))];
+      const subscriptionReviewScreenshots = collectSubscriptionReviewScreenshots(products);
+      let hasAssets = screenshots.length > 0;
+      if (!hasAssets) hasAssets = previews.length > 0;
+      if (!hasAssets) hasAssets = subscriptionReviewScreenshots.length > 0;
+      if (enable.length === 0 && productCount === 0 && !hasListing(listing) && !hasAssets) continue;
+      const syncJob: SyncJob = {
+        app,
+        bundleId: app.bundleId,
+        capabilities: enable,
+        products,
+        screenshots,
+        previews,
+        subscriptionReviewScreenshots,
+        unmapped,
+      };
+      if (listing !== undefined) syncJob.listing = listing;
+      jobs.push(syncJob);
+    }
+    return jobs;
+  });

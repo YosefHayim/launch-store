@@ -1,58 +1,31 @@
 import { defineConfig } from 'launch-store';
 
-/**
- * Kitchen-sink Launch config for one dual-platform (iOS + Android) Expo app.
- *
- * Everything Launch can configure-as-code is turned on here so this file doubles as a feature tour —
- * see README.md for the file-by-file + command-by-command walkthrough. App FACTS (bundle id, version,
- * capabilities, export compliance) are NOT here: they live in `app.json` and Launch reads them straight
- * from Expo's config, exactly where EAS reads them. This file holds only Launch's own settings.
- *
- * `launch init` scaffolds a minimal version of this (providers + one profile + commented sections).
- * The five Launch-native App Store Connect sections — Game Center, App Clips, release attributes,
- * Wallet, and EU distribution — are typed fields right here (issue #101); their standalone
- * `*.config.json` sidecars still work for back-compat. The four file-only surfaces — availability,
- * accessibility, experiments, and custom product pages — stay sidecar-only (`store/*.config.json`,
- * located via `configFiles` below). And `store.config.json` is a deliberate sidecar too: its `apple`
- * section mirrors the Expo/EAS metadata schema verbatim (the `eas metadata` migration path).
- *
- * Together these surfaces are what `launch plan` / `launch drift` diff against live App Store / Play
- * state — see the "Plan coverage" table in README.md for which read two-way vs additively.
- *
- * The product catalog is store-agnostic: each subscription/IAP can carry a `play` override that
- * publishes the same product to Google Play (`launch play-subscriptions` / `launch play-products`),
- * because Apple's fixed price points and Play's literal micro-unit money don't map 1:1.
- *
- * Want a zero-setup local build to play with? The only fields you must change are `storage: "local"`
- * (drop `storageConfig`) and you can ignore `aws`. Everything else is parse-valid and dry-run-able as is
- * (a declared `reviewScreenshot` with no file on disk is reported as a skip, never an error).
- */
 export default defineConfig({
-  // ── Providers ────────────────────────────────────────────────────────────────────────────────────
+  // Providers
   // Swappable backends, resolved by name from the registry (src/providers). The iOS defaults below
-  // auto-swap to their Android twins on `launch build android`: `fastlane` → `gradle`, and
-  // `app-store-connect` → `google-play`. So a dual-platform app names the iOS side and gets Android free.
-  credentials: 'local', // your own Apple/Play keys, kept in the OS keychain — never in this repo
+  // auto-swap to their Android twins on `launch build android`: `fastlane` -> `gradle`, and
+  // `app-store-connect` -> `google-play`. So a dual-platform app names the iOS side and gets Android free.
+  credentials: 'local', // your own Apple/Play keys, kept in the OS keychain - never in this repo
   storage: 's3', // artifacts + OTA manifests on your own bucket (configured in `storageConfig`)
   buildEngine: 'fastlane', // iOS archives via fastlane `gym`; Android auto-uses `gradle`
-  submit: 'app-store-connect', // iOS → TestFlight/App Store; Android auto-uses `google-play`
+  submit: 'app-store-connect', // iOS -> TestFlight/App Store; Android auto-uses `google-play`
 
   // Where to scan for apps (each app is a folder with an `app.json`). Defaults to the repo root; a
   // monorepo would use `["apps/*"]`. Here the single app sits beside this config.
   appRoots: ['.'],
 
-  // ── Backend-only env (never injected into a build) ──────────────────────────────────────────────────
+  // Backend-only env (never injected into a build)
   // A hard denylist over the resolved env, enforced across every layer (`.env`, `.env.<profile>`,
   // keychain, inline `env:`, even an explicit `--env`). These names are dropped outright, so a backend
-  // secret kept in the app's `.env` for local server tooling can never be bundled into the shipped app —
+  // secret kept in the app's `.env` for local server tooling can never be bundled into the shipped app -
   // not even if an `app.config.js` forwards `process.env`. Each entry is an exact name OR a `PREFIX*`
-  // wildcard: `OPENAI_*` drops `OPENAI_API_KEY`, `OPENAI_ORG_ID`, … in one line (wildcards anchor at the
+  // wildcard: `OPENAI_*` drops `OPENAI_API_KEY`, `OPENAI_ORG_ID`, ... in one line (wildcards anchor at the
   // start, so a publishable `EXPO_PUBLIC_..._KEY` is never caught). Different from `launch secret set`,
   // which still INJECTS the value (the build needs it) and only moves it out of plaintext. A name matched
   // here is also exempt from the `.env.example` missing-key gate.
   envExclude: ['OPENAI_*', 'GEMINI_*', 'STRIPE_SECRET_KEY', 'SENTRY_AUTH_TOKEN'],
 
-  // ── Build profiles ───────────────────────────────────────────────────────────────────────────────
+  // Build profiles
   // A profile bundles the env + size budget + Android release defaults for one kind of build.
   // Select one with `launch build ios --profile <name>`.
   profiles: {
@@ -73,7 +46,7 @@ export default defineConfig({
     },
   },
 
-  // ── App Store Connect product catalog (`launch sync` / `launch offers`) ─────────────────────────────
+  // App Store Connect product catalog (`launch sync` / `launch offers`)
   // Declarative desired-state of the app's monetization, keyed by iOS bundle id (must match
   // app.json `ios.bundleIdentifier`). `launch sync` creates/updates the products + prices; `launch
   // offers` reconciles the subscription offers and the promoted-purchase ordering. The gap EAS leaves.
@@ -99,7 +72,7 @@ export default defineConfig({
               price: { customerPrice: 4.99 },
               // App Review screenshot Apple requires before a subscription can be submitted. Path is
               // relative to the app dir; `launch sync` uploads it idempotently (skipped if unchanged, and
-              // reported as a skip — not an error — when the file is absent). Drop your PNG at this path.
+              // reported as a skip - not an error - when the file is absent). Drop your PNG at this path.
               reviewScreenshot: 'store/review/pro-monthly.png',
               // First-time auto-applied 1-week free trial (a FREE_TRIAL offer carries no price).
               introductoryOffers: [
@@ -230,7 +203,7 @@ export default defineConfig({
           },
         },
         {
-          // A one-off, time-boxed unlock that does NOT auto-renew — Apple's third IAP kind.
+          // A one-off, time-boxed unlock that does NOT auto-renew - Apple's third IAP kind.
           productId: 'com.example.helloworld.seasonpass',
           referenceName: 'Season Pass',
           type: 'NON_RENEWING_SUBSCRIPTION',
@@ -248,7 +221,7 @@ export default defineConfig({
     },
   },
 
-  // ── Build/submit completion notifications (`launch build`, `launch release`) ────────────────────────
+  // Build/submit completion notifications (`launch build`, `launch release`)
   // Fired on success AND failure, best-effort (never blocks/fails the build). Set a webhook, a shell
   // command, or both. The command sees the event as LAUNCH_* env vars.
   notify: {
@@ -256,7 +229,7 @@ export default defineConfig({
     command: 'echo Launch: $LAUNCH_APP $LAUNCH_VERSION finished $LAUNCH_STATUS',
   },
 
-  // ── iOS public-release policy (`launch release`, `launch rollout`) ──────────────────────────────────
+  // iOS public-release policy (`launch release`, `launch rollout`)
   // Defaults applied to the App Store version `launch release` submits. NOTE: this is the release
   // *behavior* (when/how it goes live). The release *attributes* (age rating, categories, price, review
   // contact) are the `releaseAttributes` field below, applied by `launch release-config`.
@@ -265,13 +238,13 @@ export default defineConfig({
     // With `releaseType: "SCHEDULED"`, set `earliestReleaseDate` to the ISO-8601 instant to go live at:
     // earliestReleaseDate: "2026-07-01T09:00:00Z",
     phasedRelease: true, // Apple's 7-day gradual rollout for the update
-    usesNonExemptEncryption: false, // standard HTTPS only → Launch clears export compliance over the API
+    usesNonExemptEncryption: false, // standard HTTPS only -> Launch clears export compliance over the API
     primaryLocale: 'en-US',
     releaseNotes: { 'en-US': 'Faster taps, fewer bugs, and a brand-new Pro tier.' },
   },
 
-  // ── Game Center achievements & leaderboards (`launch game-center`) ──────────────────────────────────
-  // Per-app (keyed by iOS bundle id). Reconciled additively to App Store Connect — re-runs only create
+  // Game Center achievements & leaderboards (`launch game-center`)
+  // Per-app (keyed by iOS bundle id). Reconciled additively to App Store Connect - re-runs only create
   // what's missing. Single-config form of the old gamecenter.config.json.
   gameCenter: {
     'com.example.helloworld': {
@@ -308,9 +281,9 @@ export default defineConfig({
     },
   },
 
-  // ── App Clip card metadata (`launch app-clips`) ─────────────────────────────────────────────────────
+  // App Clip card metadata (`launch app-clips`)
   // Per-app (keyed by the parent app's bundle id); each clip keyed by its OWN bundle id. The clip binary
-  // comes from a build target — this configures the card's action + subtitle.
+  // comes from a build target - this configures the card's action + subtitle.
   appClips: {
     'com.example.helloworld': {
       clips: {
@@ -322,7 +295,7 @@ export default defineConfig({
     },
   },
 
-  // ── App Store release attributes (`launch release-config`) ──────────────────────────────────────────
+  // App Store release attributes (`launch release-config`)
   // Per-app (keyed by iOS bundle id): age rating, store categories, base price, and App Review details.
   // Distinct from `release` above (that's the release *policy*). Single-config form of release.config.json.
   releaseAttributes: {
@@ -341,7 +314,7 @@ export default defineConfig({
         contactLastName: 'Lovelace',
         contactPhone: '+1-555-0100',
         contactEmail: 'review@helloworld.example',
-        // No login → demoAccountRequired stays false; set it true plus demoAccountName/demoAccountPassword
+        // No login -> demoAccountRequired stays false; set it true plus demoAccountName/demoAccountPassword
         // when a reviewer must sign in to reach gated content (the password is never read back or logged).
         demoAccountRequired: false,
         notes: 'Tap the big button to raise the score. No account or login required.',
@@ -349,24 +322,24 @@ export default defineConfig({
     },
   },
 
-  // ── Apple Pay merchant ids & Wallet pass type ids (`launch wallet`) ─────────────────────────────────
-  // Team-level (not per-app) — these Identifiers are shared across the team. Registered additively.
+  // Apple Pay merchant ids & Wallet pass type ids (`launch wallet`)
+  // Team-level (not per-app) - these Identifiers are shared across the team. Registered additively.
   wallet: {
     merchantIds: [{ identifier: 'merchant.com.example.helloworld', name: 'Hello World Payments' }],
     passTypeIds: [{ identifier: 'pass.com.example.helloworld.coupon', name: 'Hello World Coupon' }],
   },
 
-  // ── EU alternative-distribution domains, DMA (`launch eu-distribution`) ─────────────────────────────
+  // EU alternative-distribution domains, DMA (`launch eu-distribution`)
   // Team-level. Authorizes the domains you host distribution packages from. The signing key is a
   // register-once action (`launch eu-distribution set-key`), not declared here.
   euDistribution: {
     domains: [{ domain: 'downloads.example.com', referenceName: 'Hello World EU downloads' }],
   },
 
-  // ── Sidecar locations for the four file-only surfaces (`launch plan`, `launch drift`) ────────────────
-  // availability / accessibility / experiments / custom-pages have NO typed field — their desired state
+  // Sidecar locations for the four file-only surfaces (`launch plan`, `launch drift`)
+  // availability / accessibility / experiments / custom-pages have NO typed field - their desired state
   // lives in a `*.config.json` sidecar. By default Launch looks for each at the app-dir root
-  // (`availability.config.json`, …); this map relocates them so all store-config files sit together under
+  // (`availability.config.json`, ...); this map relocates them so all store-config files sit together under
   // `store/`. `launch plan` reads every one of them in dry-run; an absent file just omits that surface.
   configFiles: {
     availability: 'store/availability.config.json',
@@ -375,8 +348,8 @@ export default defineConfig({
     customPages: 'store/custom-pages.config.json',
   },
 
-  // ── AWS EC2 Mac settings for off-Mac builds (`launch build ios --remote aws`, `launch cloud`) ────────
-  // Launch stores NO AWS secrets — credentials resolve through the standard SDK chain (env, ~/.aws, SSO).
+  // AWS EC2 Mac settings for off-Mac builds (`launch build ios --remote aws`, `launch cloud`)
+  // Launch stores NO AWS secrets - credentials resolve through the standard SDK chain (env, ~/.aws, SSO).
   aws: {
     region: 'us-east-1',
     profile: 'default', // named profile in ~/.aws; omit to use the default credential chain
@@ -384,9 +357,9 @@ export default defineConfig({
     amiId: 'ami-0abcd1234example0', // BYO golden AMI; omit to bootstrap + snapshot one on first use
   },
 
-  // ── Cloud artifact storage (used because `storage: "s3"` above) ─────────────────────────────────────
+  // Cloud artifact storage (used because `storage: "s3"` above)
   // Where Launch writes IPAs/AABs, ad-hoc install links, and OTA update manifests, served from your own
-  // domain. This example targets Cloudflare R2 (S3-compatible). Access keys are NOT here — they resolve
+  // domain. This example targets Cloudflare R2 (S3-compatible). Access keys are NOT here - they resolve
   // from env vars / the OS secret store at call time. (`supabaseUrl` is the Supabase-only field, unused by s3.)
   storageConfig: {
     endpoint: 'https://<account-id>.r2.cloudflarestorage.com',
@@ -395,9 +368,9 @@ export default defineConfig({
     publicBaseUrl: 'https://cdn.helloworld.example',
   },
 
-  // ── Local artifact retention (`launch builds prune`) ────────────────────────────────────────────────
+  // Local artifact retention (`launch builds prune`)
   // How many days the `local` artifact store keeps a build binary before auto-pruning it to reclaim disk;
   // the newest build per app+platform is always kept. Defaults to 30; `0` disables the automatic sweep.
-  // Only the `local` storage provider observes this — cloud stores use their bucket's own lifecycle rules.
+  // Only the `local` storage provider observes this - cloud stores use their bucket's own lifecycle rules.
   artifactRetentionDays: 30,
 });

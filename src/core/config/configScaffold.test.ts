@@ -1,23 +1,27 @@
+import { NodeContext } from '@effect/platform-node';
+import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { configTemplate, detectAppRoot } from './configScaffold.js';
-import type { AppDescriptor } from '../types/index.js';
-
+import type { AppDescriptor } from '../types/app.js';
 const app = (dir: string): AppDescriptor => ({ name: 'x', dir, configPath: `${dir}/app.json` });
-
+const runScaffoldEffect = <Success, Failure>(
+  scaffoldEffect: Effect.Effect<Success, Failure, NodeContext.NodeContext>,
+): Success => Effect.runSync(scaffoldEffect.pipe(Effect.provide(NodeContext.layer)));
 describe('detectAppRoot', () => {
   it('returns the single shared subdir when every app lives under one', () => {
-    expect(detectAppRoot([app('/repo/apps/a'), app('/repo/apps/b')], '/repo')).toBe('./apps');
+    expect(
+      runScaffoldEffect(detectAppRoot([app('/repo/apps/a'), app('/repo/apps/b')], '/repo')),
+    ).toBe('./apps');
   });
-
   it('returns null when an app sits at the repo root', () => {
-    expect(detectAppRoot([app('/repo')], '/repo')).toBeNull();
+    expect(runScaffoldEffect(detectAppRoot([app('/repo')], '/repo'))).toBeNull();
   });
-
   it('returns null when apps span more than one top-level subdir', () => {
-    expect(detectAppRoot([app('/repo/apps/a'), app('/repo/packages/b')], '/repo')).toBeNull();
+    expect(
+      runScaffoldEffect(detectAppRoot([app('/repo/apps/a'), app('/repo/packages/b')], '/repo')),
+    ).toBeNull();
   });
 });
-
 describe('configTemplate', () => {
   it('writes the blank starter (with a commented appRoots hint) when no root or extras are given', () => {
     const template = configTemplate(null);
@@ -26,14 +30,12 @@ describe('configTemplate', () => {
     expect(template).not.toContain('products:');
     expect(template.trimEnd().endsWith('});')).toBe(true);
   });
-
   it('injects an extra section just before the closing call', () => {
     const template = configTemplate('./apps', '  products: { foo: {} },');
     expect(template).toContain('appRoots: ["./apps"]');
     expect(template).toContain('  products: { foo: {} },');
     expect(template.indexOf('products: { foo: {} },')).toBeLessThan(template.lastIndexOf('});'));
   });
-
   it('emits an artifactDir line only when one is supplied', () => {
     expect(configTemplate(null)).not.toContain('artifactDir:');
     const withDir = configTemplate(null, undefined, undefined, './.launch/artifacts');

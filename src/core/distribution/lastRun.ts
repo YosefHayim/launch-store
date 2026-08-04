@@ -1,121 +1,125 @@
-/**
- * Remembered interactive build picks, persisted at `~/.launch/last-run.json`.
- *
- * After a successful build Launch records the choices a re-run would otherwise re-ask — which app was
- * built, and the version-bump kind — so the next `launch build` defaults to them instead of prompting
- * from scratch. The app pick is pre-selected (you still confirm it); the bump auto-applies (override with
- * `--bump`). This is host-local convenience only: a default you want to *commit and share* belongs in the
- * declarative `launch.config.ts`, never here — which is why this file is auto-written and gitignore-able.
- *
- * Non-secret and tolerant: a missing or malformed file reads as "nothing remembered," so a corrupted
- * state can only ever cost one extra prompt, never a crash. Writes merge (read-modify-write) so recording
- * one app's bump never clobbers another's.
- */
-
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
-import { LAST_RUN_FILE, ensureDir } from '../services/paths.js';
+import { FileSystem, Path } from '@effect/platform';
+import { Effect, Schema } from 'effect';
+import { resolveLastRunFilePath, type LaunchPathsService } from '../services/paths.js';
 import type { BumpKind } from '../release/version.js';
-import type { BuildLocation, Platform } from '../types/index.js';
+import type { BuildLocation, Platform } from '../types/app.js';
 
-/** What a single app remembers between runs. Sparse — only fields the user actually chose appear. */
-interface AppMemory {
-  /** The version-bump kind last applied for this app, auto-applied next time. Absent ⇒ prompt. */
+type AppMemory = {
   bump?: BumpKind;
-}
+};
 
-/**
- * The full set of picks one no-args `launch` wizard build made, persisted so the next run can offer a
- * one-keypress "Repeat last build?" replay. Host-local convenience only — a default you want to commit
- * and share belongs in `launch.config.ts`, never here. Written only after a *successful* wizard build;
- * the wizard validates a remembered flow against the current config + account registry before offering
- * it, so a stale flow (its profile/app/account no longer resolves) is silently skipped, never replayed.
- *
- * The version bump is deliberately absent: it stays owned by {@link readLastBump} / the pipeline's
- * auto-apply, so it's never recorded in two places.
- */
-export interface LastFlow {
-  /** The platform built. */
+export type LastFlow = {
   platform: Platform;
-  /** Where an iOS build ran; always `"local"` for Android (gradle runs on the host). */
   location: BuildLocation;
-  /** SSH `user@host[:port]` — present only when `location` is `"ssh"`. */
   sshTarget?: string;
-  /** Key ID of the Apple account used (iOS only). Validated to still be registered before a replay. */
   account?: string;
-  /** The build profile chosen. */
   profile: string;
-  /** Whether the build uploaded to the testing track (`true`) or stopped after building (`false`). */
   submit: boolean;
-}
+};
 
-/**
- * Shape of `~/.launch/last-run.json`. `lastApp` is global (the picker pre-selects it across the repo);
- * per-app memory is keyed by the app handle ({@link import("../types/index.js").AppDescriptor.name});
- * `lastFlow` is the most recent wizard build's full flow, for one-keypress replay.
- */
-export interface LastRunState {
-  /** The app built most recently — pre-selected as the default in a multi-app picker. */
+export type LastRunState = {
   lastApp?: string;
-  /** Per-app remembered picks, keyed by app handle. */
   apps: Record<string, AppMemory>;
-  /** The most recent no-args wizard build's full flow. Absent until a wizard build succeeds. */
   lastFlow?: LastFlow;
-}
+};
 
-/** Read remembered picks, tolerating a missing or malformed file (returns an empty, well-formed state). */
-export function readLastRun(file: string = LAST_RUN_FILE): LastRunState {
-  if (!existsSync(file)) return { apps: {} };
-  try {
-    const parsed = JSON.parse(readFileSync(file, 'utf8')) as Partial<LastRunState>;
-    const state: LastRunState = { apps: parsed.apps ?? {} };
-    if (parsed.lastApp) state.lastApp = parsed.lastApp;
-    if (parsed.lastFlow) state.lastFlow = parsed.lastFlow;
-    return state;
-  } catch {
-    return { apps: {} };
-  }
-}
+const BumpKindSchema = Schema.Literal('major', 'minor', 'patch', 'keep');
+const AppMemorySchema: Schema.Schema<AppMemory> = Schema.mutable(
+  Schema.Struct({
+    bump: Schema.optionalWith(BumpKindSchema, { exact: true }),
+  }),
+);
+const LastFlowSchema: Schema.Schema<LastFlow> = Schema.mutable(
+  Schema.Struct({
+    platform: Schema.Literal('ios', 'android', 'tvos', 'macos', 'visionos'),
+    location: Schema.Literal('local', 'aws', 'ssh', 'eas'),
+    sshTarget: Schema.optionalWith(Schema.String, { exact: true }),
+    account: Schema.optionalWith(Schema.String, { exact: true }),
+    profile: Schema.String,
+    submit: Schema.Boolean,
+  }),
+);
+const LastRunStateSchema: Schema.Schema<LastRunState> = Schema.mutable(
+  Schema.Struct({
+    lastApp: Schema.optionalWith(Schema.String, { exact: true }),
+    apps: Schema.mutable(Schema.Record({ key: Schema.String, value: AppMemorySchema })),
+    lastFlow: Schema.optionalWith(LastFlowSchema, { exact: true }),
+  }),
+);
+type LastRunRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
 
-/** The app built most recently, or undefined when nothing's been built yet. */
-export function readLastApp(file: string = LAST_RUN_FILE): string | undefined {
-  return readLastRun(file).lastApp;
-}
+const resolveMemoryFilePath = (
+  filePath: string | undefined,
+): Effect.Effect<string, never, LaunchPathsService | Path.Path> => {
+  if (filePath !== undefined) return Effect.succeed(filePath);
+  return resolveLastRunFilePath();
+};
 
-/** The bump kind last applied for an app, or undefined when it has no remembered pick. */
-export function readLastBump(appName: string, file: string = LAST_RUN_FILE): BumpKind | undefined {
-  return readLastRun(file).apps[appName]?.bump;
-}
+/** Reads remembered build choices, treating absent or malformed state as empty. */
+export const readLastRun = (
+  filePath?: string,
+): Effect.Effect<LastRunState, never, LastRunRequirements> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const memoryFilePath = yield* resolveMemoryFilePath(filePath);
+    const memoryExists = yield* fileSystem
+      .exists(memoryFilePath)
+      .pipe(Effect.orElseSucceed(() => false));
+    if (!memoryExists) return { apps: {} };
+    return yield* fileSystem.readFileString(memoryFilePath).pipe(
+      Effect.flatMap((memoryText) => Effect.try(() => JSON.parse(memoryText))),
+      Effect.flatMap(Schema.decodeUnknown(LastRunStateSchema)),
+      Effect.orElseSucceed(() => ({ apps: {} })),
+    );
+  });
 
-/**
- * Record one successful build's picks. Always marks `appName` as the last app; updates that app's
- * remembered bump only when a kind was actually applied (a "Custom…" version or a non-prompting
- * `--yes`/CI run passes `undefined`, leaving any prior bump untouched). Merges over existing state.
- */
-export function rememberLastRun(
+/** Reads the most recently built app name. */
+export const readLastApp = (
+  filePath?: string,
+): Effect.Effect<string | undefined, never, LastRunRequirements> =>
+  readLastRun(filePath).pipe(Effect.map((memory) => memory.lastApp));
+
+/** Reads the last version bump selected for an app. */
+export const readLastBump = (
+  appName: string,
+  filePath?: string,
+): Effect.Effect<BumpKind | undefined, never, LastRunRequirements> =>
+  readLastRun(filePath).pipe(Effect.map((memory) => memory.apps[appName]?.bump));
+
+/** Records one successful build's app and optional version bump. */
+export const rememberLastRun = (
   appName: string,
   bump?: BumpKind,
-  file: string = LAST_RUN_FILE,
-): void {
-  const state = readLastRun(file);
-  state.lastApp = appName;
-  if (bump) state.apps[appName] = { ...state.apps[appName], bump };
-  ensureDir(dirname(file));
-  writeFileSync(file, JSON.stringify(state, null, 2));
-}
+  filePath?: string,
+): Effect.Effect<void, unknown, LastRunRequirements> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const memoryFilePath = yield* resolveMemoryFilePath(filePath);
+    const memory = yield* readLastRun(memoryFilePath);
+    memory.lastApp = appName;
+    if (bump !== undefined) memory.apps[appName] = { ...memory.apps[appName], bump };
+    yield* fileSystem.makeDirectory(pathService.dirname(memoryFilePath), { recursive: true });
+    yield* fileSystem.writeFileString(memoryFilePath, JSON.stringify(memory, null, 2));
+  });
 
-/** The most recent wizard build's flow, or undefined when none has been recorded. */
-export function readLastFlow(file: string = LAST_RUN_FILE): LastFlow | undefined {
-  return readLastRun(file).lastFlow;
-}
+/** Reads the most recent wizard build flow. */
+export const readLastFlow = (
+  filePath?: string,
+): Effect.Effect<LastFlow | undefined, never, LastRunRequirements> =>
+  readLastRun(filePath).pipe(Effect.map((memory) => memory.lastFlow));
 
-/**
- * Record one successful wizard build's full flow so the next `launch` can offer to repeat it. Merges
- * over existing state (leaving `lastApp` and per-app bumps — owned by {@link rememberLastRun} — intact).
- */
-export function rememberLastFlow(flow: LastFlow, file: string = LAST_RUN_FILE): void {
-  const state = readLastRun(file);
-  state.lastFlow = flow;
-  ensureDir(dirname(file));
-  writeFileSync(file, JSON.stringify(state, null, 2));
-}
+/** Records one successful wizard build flow without replacing bump memory. */
+export const rememberLastFlow = (
+  flow: LastFlow,
+  filePath?: string,
+): Effect.Effect<void, unknown, LastRunRequirements> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const memoryFilePath = yield* resolveMemoryFilePath(filePath);
+    const memory = yield* readLastRun(memoryFilePath);
+    memory.lastFlow = flow;
+    yield* fileSystem.makeDirectory(pathService.dirname(memoryFilePath), { recursive: true });
+    yield* fileSystem.writeFileString(memoryFilePath, JSON.stringify(memory, null, 2));
+  });

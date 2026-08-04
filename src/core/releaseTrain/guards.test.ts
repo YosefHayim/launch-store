@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isCarTerminal, isNativeCar, isOtaCar } from './guards.js';
-import type { Car } from '../types/index.js';
-
+import type { Car } from '../types/releaseTrain.js';
 const at = '2026-06-16T00:00:00.000Z';
 const ios = (state: 'building' | 'released' | 'failed'): Car => ({
   kind: 'ios',
@@ -16,7 +15,6 @@ const ota = (state: 'pending' | 'published'): Car => ({
   state,
   updatedAt: at,
 });
-
 describe('release-train car guards', () => {
   it('discriminates native vs OTA cars', () => {
     expect(isNativeCar(ios('building'))).toBe(true);
@@ -24,7 +22,6 @@ describe('release-train car guards', () => {
     expect(isOtaCar(ota('pending'))).toBe(true);
     expect(isNativeCar(ota('pending'))).toBe(false);
   });
-
   it('treats released/failed native and published OTA cars as terminal', () => {
     expect(isCarTerminal(ios('released'))).toBe(true);
     expect(isCarTerminal(ios('failed'))).toBe(true);

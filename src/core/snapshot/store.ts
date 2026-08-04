@@ -1,154 +1,249 @@
-/**
- * Read/write the persisted `launch snapshot` records under `~/.launch/snapshots/` — the on-disk source of
- * truth `diff` / `export` / `list` operate on. Mirrors `core/releaseTrain/record.ts`: tolerant reads (a
- * missing or corrupt record reads as "no such snapshot", never a crash) and a plain write that creates the
- * directory on first use. A snapshot is a named save slot — re-capturing under the same name overwrites it.
- *
- * Pure I/O only — no capture or diff logic. The orchestrator builds a {@link Snapshot}; this module just
- * stores and retrieves it.
- */
-
+import { FileSystem, Path } from '@effect/platform';
+import type { PlatformError } from '@effect/platform/Error';
+import { Effect, Schema } from 'effect';
 import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  unlinkSync,
-  writeFileSync,
-} from 'node:fs';
-import { dirname, join } from 'node:path';
-import { SNAPSHOTS_DIR, snapshotFile } from '../services/paths.js';
-import type { Snapshot } from '../types/index.js';
+  resolveSnapshotFilePath,
+  resolveSnapshotsDirectory,
+  type LaunchPathsService,
+} from '../services/paths.js';
+import type {
+  AppEntities,
+  CaptureOutcome,
+  CaptureReport,
+  JsonValue,
+  Snapshot,
+  SnapshotEntity,
+} from '../types/snapshot.js';
 
-/** Persist a snapshot, creating the snapshots directory on first write. Returns the file path written. */
-export function saveSnapshot(snapshot: Snapshot, dir: string = SNAPSHOTS_DIR): string {
-  const file = snapshotFileIn(dir, snapshot.name);
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, JSON.stringify(snapshot, null, 2));
-  return file;
-}
+const JsonValueSchema: Schema.Schema<JsonValue> = Schema.suspend(() =>
+  Schema.Union(
+    Schema.String,
+    Schema.Number,
+    Schema.Boolean,
+    Schema.Null,
+    Schema.mutable(Schema.Array(JsonValueSchema)),
+    Schema.mutable(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
+  ),
+);
 
-/** Read one snapshot by name, or `null` when it doesn't exist or the file is unreadable/corrupt. */
-export function loadSnapshot(name: string, dir: string = SNAPSHOTS_DIR): Snapshot | null {
-  const file = snapshotFileIn(dir, name);
-  if (!existsSync(file)) return null;
-  return parseSnapshot(safeRead(file));
-}
+const SnapshotEntitySchema: Schema.Schema<SnapshotEntity> = Schema.mutable(
+  Schema.Struct({
+    key: Schema.String,
+    summary: Schema.String,
+    data: JsonValueSchema,
+  }),
+);
 
-/** Every persisted snapshot, newest first by `capturedAt`. Skips any unreadable/corrupt record. */
-export function listSnapshots(dir: string = SNAPSHOTS_DIR): Snapshot[] {
-  if (!existsSync(dir)) return [];
-  const snapshots: Snapshot[] = [];
-  for (const entry of readdirSync(dir)) {
-    if (!entry.endsWith('.json')) continue;
-    const snapshot = parseSnapshot(safeRead(join(dir, entry)));
-    if (snapshot) snapshots.push(snapshot);
-  }
-  return snapshots.sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
-}
+const AppEntitiesSchema: Schema.Schema<AppEntities> = Schema.mutable(
+  Schema.Struct({
+    app: Schema.String,
+    identifier: Schema.String,
+    entities: Schema.mutable(Schema.Array(SnapshotEntitySchema)),
+  }),
+);
 
-/**
- * Prune the oldest snapshots whose name starts with `prefix`, keeping the `keep` newest. Used by the
- * pre-sync auto-snapshot to bound its reserved-prefix baselines without ever touching a user's
- * manually-named snapshot. Tolerant: a file that vanishes mid-prune is ignored. Returns the names deleted.
- */
-export function pruneSnapshots(
-  prefix: string,
-  keep: number,
-  dir: string = SNAPSHOTS_DIR,
-): string[] {
-  const stale = listSnapshots(dir)
-    .filter((snapshot) => snapshot.name.startsWith(prefix))
-    .slice(Math.max(0, keep)); // listSnapshots is newest-first, so the tail is the oldest beyond the window
-  const deleted: string[] = [];
-  for (const snapshot of stale) {
-    try {
-      unlinkSync(snapshotFileIn(dir, snapshot.name));
-      deleted.push(snapshot.name);
-    } catch {
-      // already gone or unreadable — nothing left to prune for this entry
-    }
-  }
-  return deleted;
-}
+const CaptureOutcomeSchema: Schema.Schema<CaptureOutcome> = Schema.Union(
+  Schema.mutable(Schema.Struct({ state: Schema.Literal('omitted') })),
+  Schema.mutable(
+    Schema.Struct({
+      state: Schema.Literal('skipped'),
+      reason: Schema.String,
+      hint: Schema.optionalWith(Schema.String, { exact: true }),
+    }),
+  ),
+  Schema.mutable(
+    Schema.Struct({
+      state: Schema.Literal('captured'),
+      apps: Schema.mutable(Schema.Array(AppEntitiesSchema)),
+    }),
+  ),
+  Schema.mutable(
+    Schema.Struct({
+      state: Schema.Literal('errored'),
+      error: Schema.String,
+    }),
+  ),
+);
 
-/** Delete one snapshot by name. Returns `true` when a file was removed, `false` when none existed. Tolerant. */
-export function deleteSnapshot(name: string, dir: string = SNAPSHOTS_DIR): boolean {
-  try {
-    unlinkSync(snapshotFileIn(dir, name));
-    return true;
-  } catch {
-    return false;
-  }
-}
+const CaptureReportSchema: Schema.Schema<CaptureReport> = Schema.mutable(
+  Schema.Struct({
+    id: Schema.String,
+    title: Schema.String,
+    store: Schema.Literal('appstore', 'play'),
+    outcome: CaptureOutcomeSchema,
+  }),
+);
 
-/**
- * Which snapshots a `snapshot prune` run deletes — the union of two independent rules. The command rejects
- * an empty criteria (neither set), so a prune never silently matches everything; here an unset rule simply
- * contributes nothing to the union.
- */
-export interface PruneCriteria {
-  /** Keep only the `keep` newest; everything older is eligible. */
-  keep?: number;
-  /** Eligible once a snapshot is strictly older than this many days. */
-  olderThanDays?: number;
-}
+const SnapshotSchema: Schema.Schema<Snapshot> = Schema.mutable(
+  Schema.Struct({
+    version: Schema.Number,
+    name: Schema.String,
+    capturedAt: Schema.String,
+    reports: Schema.mutable(Schema.Array(CaptureReportSchema)),
+  }),
+);
 
-/** Age of a capture in fractional days relative to `now` — the `olderThanDays` rule's measure. */
-function ageInDays(capturedAt: string, now: Date): number {
-  return (now.getTime() - new Date(capturedAt).getTime()) / 86_400_000;
-}
+type SnapshotStoreRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
 
-/**
- * Pure prune planner: given the prune-eligible snapshots (the caller has already excluded auto-snapshot
- * baselines, which `snapshot prune` must never touch), return the ones to delete. `now` is injected so the
- * `olderThanDays` rule is deterministic in tests and identical between the dry-run preview and the apply
- * pass. A snapshot is deleted if it matches *either* rule.
- */
-export function planPrune(snapshots: Snapshot[], criteria: PruneCriteria, now: Date): Snapshot[] {
-  const newestFirst = [...snapshots].sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
-  return newestFirst.filter((snapshot, index) => {
-    const tooOld =
-      criteria.olderThanDays != null &&
-      ageInDays(snapshot.capturedAt, now) > criteria.olderThanDays;
-    const beyondKeep = criteria.keep != null && index >= criteria.keep;
-    return tooOld || beyondKeep;
+/** Resolve the persisted snapshot directory or an explicit test/CLI override. */
+const snapshotDirectory = (
+  directoryOverride: string | undefined,
+): Effect.Effect<string, never, LaunchPathsService | Path.Path> => {
+  if (directoryOverride !== undefined) return Effect.succeed(directoryOverride);
+  return resolveSnapshotsDirectory();
+};
+
+/** Resolve a sanitized snapshot file path. */
+const snapshotFilePath = (
+  snapshotName: string,
+  directoryOverride: string | undefined,
+): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
+  Effect.gen(function* () {
+    if (directoryOverride === undefined) return yield* resolveSnapshotFilePath(snapshotName);
+    const pathService = yield* Path.Path;
+    const sanitizedName = snapshotName.replace(/[^A-Za-z0-9_-]/g, '');
+    let fileName = 'snapshot';
+    if (sanitizedName.length > 0) fileName = sanitizedName;
+    return pathService.join(directoryOverride, `${fileName}.json`);
   });
-}
 
-/** Read a file's text, or `null` when it can't be read (deleted between listing and reading, permissions). */
-function safeRead(file: string): string | null {
-  try {
-    return readFileSync(file, 'utf8');
-  } catch {
-    return null;
-  }
-}
+/** Decode one persisted snapshot with the schema that owns its shape. */
+const decodeSnapshot = (snapshotText: string): Effect.Effect<Snapshot, unknown> =>
+  Effect.try(() => JSON.parse(snapshotText)).pipe(
+    Effect.flatMap(Schema.decodeUnknown(SnapshotSchema)),
+  );
 
-/** Parse and shape-check a snapshot record; returns `null` for unparseable or structurally-wrong content. */
-function parseSnapshot(raw: string | null): Snapshot | null {
-  if (raw === null) return null;
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      'name' in parsed &&
-      typeof parsed.name === 'string' &&
-      'reports' in parsed &&
-      Array.isArray(parsed.reports)
-    ) {
-      return parsed as Snapshot;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+/** Persist one snapshot and return its file path. */
+export const saveSnapshot = (
+  snapshot: Snapshot,
+  directoryOverride?: string,
+): Effect.Effect<string, PlatformError, SnapshotStoreRequirements> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const directoryPath = yield* snapshotDirectory(directoryOverride);
+    const filePath = yield* snapshotFilePath(snapshot.name, directoryOverride);
+    yield* fileSystem.makeDirectory(directoryPath, { recursive: true });
+    yield* fileSystem.writeFileString(filePath, JSON.stringify(snapshot, null, 2));
+    return filePath;
+  });
 
-/** Resolve a snapshot's path inside `dir` — honoring an overridden dir (tests) while sanitizing the name. */
-function snapshotFileIn(dir: string, name: string): string {
-  if (dir === SNAPSHOTS_DIR) return snapshotFile(name);
-  const safe = name.replace(/[^A-Za-z0-9_-]/g, '');
-  return join(dir, `${safe || 'snapshot'}.json`);
-}
+/** Load one snapshot, returning null for absent, unreadable, or malformed files. */
+export const loadSnapshot = (
+  snapshotName: string,
+  directoryOverride?: string,
+): Effect.Effect<Snapshot | null, never, SnapshotStoreRequirements> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const filePath = yield* snapshotFilePath(snapshotName, directoryOverride);
+    const fileExists = yield* fileSystem.exists(filePath).pipe(Effect.orElseSucceed(() => false));
+    if (!fileExists) return null;
+    return yield* fileSystem.readFileString(filePath).pipe(
+      Effect.flatMap(decodeSnapshot),
+      Effect.map((snapshot): Snapshot | null => snapshot),
+      Effect.orElseSucceed(() => null),
+    );
+  });
+
+/** List valid snapshots newest first. */
+export const listSnapshots = (
+  directoryOverride?: string,
+): Effect.Effect<readonly Snapshot[], never, SnapshotStoreRequirements> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const directoryPath = yield* snapshotDirectory(directoryOverride);
+    const directoryExists = yield* fileSystem
+      .exists(directoryPath)
+      .pipe(Effect.orElseSucceed(() => false));
+    if (!directoryExists) return [];
+    const entryNames = yield* fileSystem
+      .readDirectory(directoryPath)
+      .pipe(Effect.orElseSucceed(() => []));
+    const snapshotCandidates = yield* Effect.forEach(
+      entryNames.filter((entryName) => entryName.endsWith('.json')),
+      (entryName) =>
+        fileSystem.readFileString(pathService.join(directoryPath, entryName)).pipe(
+          Effect.flatMap(decodeSnapshot),
+          Effect.map((snapshot): Snapshot | null => snapshot),
+          Effect.orElseSucceed(() => null),
+        ),
+      { concurrency: 'unbounded' },
+    );
+    return snapshotCandidates
+      .filter((snapshot): snapshot is Snapshot => snapshot !== null)
+      .sort((firstSnapshot, secondSnapshot) =>
+        secondSnapshot.capturedAt.localeCompare(firstSnapshot.capturedAt),
+      );
+  });
+
+/** Prune old snapshots with a matching reserved prefix. */
+export const pruneSnapshots = (
+  namePrefix: string,
+  keepCount: number,
+  directoryOverride?: string,
+): Effect.Effect<readonly string[], never, SnapshotStoreRequirements> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const storedSnapshots = yield* listSnapshots(directoryOverride);
+    const staleSnapshots = storedSnapshots
+      .filter((snapshot) => snapshot.name.startsWith(namePrefix))
+      .slice(Math.max(0, keepCount));
+    const deletionAttempts = yield* Effect.forEach(
+      staleSnapshots,
+      (snapshot) =>
+        Effect.gen(function* () {
+          const filePath = yield* snapshotFilePath(snapshot.name, directoryOverride);
+          return yield* fileSystem.remove(filePath, { force: true }).pipe(
+            Effect.map((): string | null => snapshot.name),
+            Effect.orElseSucceed(() => null),
+          );
+        }),
+      { concurrency: 1 },
+    );
+    return deletionAttempts.filter((snapshotName): snapshotName is string => snapshotName !== null);
+  });
+
+/** Delete one snapshot and report whether its file existed. */
+export const deleteSnapshot = (
+  snapshotName: string,
+  directoryOverride?: string,
+): Effect.Effect<boolean, never, SnapshotStoreRequirements> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const filePath = yield* snapshotFilePath(snapshotName, directoryOverride);
+    const fileExists = yield* fileSystem.exists(filePath).pipe(Effect.orElseSucceed(() => false));
+    if (!fileExists) return false;
+    return yield* fileSystem.remove(filePath, { force: true }).pipe(
+      Effect.as(true),
+      Effect.orElseSucceed(() => false),
+    );
+  });
+
+export type PruneCriteria = {
+  keep?: number;
+  olderThanDays?: number;
+};
+
+/** Calculate the age of a snapshot capture in fractional days. */
+const ageInDays = (capturedAt: string, now: Date): number =>
+  (now.getTime() - new Date(capturedAt).getTime()) / 86_400_000;
+
+/** Select snapshots matching either configured prune rule. */
+export const planPrune = (
+  snapshots: Snapshot[],
+  criteria: PruneCriteria,
+  now: Date,
+): Snapshot[] => {
+  const newestFirst = [...snapshots].sort((firstSnapshot, secondSnapshot) =>
+    secondSnapshot.capturedAt.localeCompare(firstSnapshot.capturedAt),
+  );
+  return newestFirst.filter((snapshot, snapshotIndex) => {
+    let tooOld = false;
+    if (criteria.olderThanDays !== undefined)
+      tooOld = ageInDays(snapshot.capturedAt, now) > criteria.olderThanDays;
+    let beyondKeep = false;
+    if (criteria.keep !== undefined) beyondKeep = snapshotIndex >= criteria.keep;
+    if (tooOld) return true;
+    return beyondKeep;
+  });
+};

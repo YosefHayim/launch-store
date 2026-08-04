@@ -1,105 +1,86 @@
-/**
- * The EAS handoff pipeline — build (and submit) for no-Mac, no-AWS developers via Expo's cloud.
- *
- * Selected by `buildEngine: "eas"` (or the wizard's "Expo EAS" branch). It reuses the shared front
- * half from `core/pipeline.ts` (app selection, `.env` validation, size gate, local artifact storage)
- * and delegates everything macOS to the contained EAS adapter (`providers/build/eas.ts`). No Apple
- * credentials are resolved locally — Expo manages them — which is the whole point of this path.
- */
-
-import type { BuildArtifact } from '../types/index.js';
-import {
-  type BuildTransport,
-  confirmUpload,
-  reportSize,
-  renderReceipt,
-  resolveSizeBudgetMB,
-} from './pipeline.js';
+import type { BuildArtifact } from '../types/artifacts.js';
+import { Effect } from 'effect';
+import { confirmUpload, reportSize, renderReceipt } from './pipelineArtifact.js';
+import { resolveSizeBudgetMB } from './pipelineProviders.js';
+import type { BuildRunOptions, PreparedBuild } from './pipelineTypes.js';
 import { resolveStorageProvider } from '../distribution/storage.js';
-import {
-  detectEasCli,
-  easBuildToIpa,
-  easSubmit,
-  ensureExpoSession,
-} from '../../providers/build/eas.js';
-
+import { getHostedBuildProvider } from '../services/registry.js';
 /** Build via EAS, store the downloaded `.ipa`, and optionally submit through `eas submit`. */
-export const runEasBuild: BuildTransport = async (prepared, options) => {
-  const { config, app, profile, ctx, log } = prepared;
-
-  if (options.dryRun) {
-    log.step('eas', 'would run `eas build --platform ios --profile <p> --json --wait`');
-    if (options.submit) {
-      log.step(
-        'submit',
-        `would run \`eas submit --platform ios\` → ${options.target === 'testing' ? 'TestFlight' : 'App Store review'}`,
-        'testflight',
-      );
+export const runEasBuild = (prepared: PreparedBuild, options: BuildRunOptions) =>
+  Effect.gen(function* () {
+    const { config, app, profile, buildContext, log } = prepared;
+    let appVersion = app.version;
+    if (appVersion === undefined) appVersion = '0.0.0';
+    if (options.dryRun) {
+      yield* log.step('eas', 'would run `eas build --platform ios --profile <p> --json --wait`');
+      if (options.submit) {
+        let dryRunDestination = 'App Store review';
+        if (options.target === 'testing') dryRunDestination = 'TestFlight';
+        yield* log.step(
+          'submit',
+          `would run \`eas submit --platform ios\` -> ${dryRunDestination}`,
+          'testflight',
+        );
+      }
+      yield* log.gap();
+      yield* log.note(`Done. ${app.name} ${appVersion} - dry-run (EAS handoff), nothing changed`);
+      return;
     }
-    log.gap();
-    log.info(
-      `Done. ${app.name} ${app.version ?? '0.0.0'} · dry-run (EAS handoff), nothing changed`,
+    const easProvider = yield* getHostedBuildProvider('eas');
+    yield* log.step('eas-cli', yield* easProvider.describeCli(), 'eas-handoff');
+    yield* log.step('expo session', yield* easProvider.authenticate());
+    yield* log.note("Building in Expo's cloud (eas build)...");
+    const { artifactPath, sizeReport, buildNumber } = yield* easProvider.build(
+      buildContext,
+      profile.name,
     );
-    return;
-  }
-
-  log.step('eas-cli', await detectEasCli(), 'eas-handoff');
-  log.step('expo session', await ensureExpoSession());
-
-  log.info("Building in Expo's cloud (eas build)…");
-  const { ipaPath, sizeReport, buildNumber } = await easBuildToIpa(ctx, profile.name);
-  log.step('build', ipaPath);
-
-  reportSize(sizeReport, log);
-
-  const artifact: BuildArtifact = {
-    path: ipaPath,
-    platform: 'ios',
-    appName: app.name,
-    profile: profile.name,
-    version: app.version ?? '0.0.0',
-    buildNumber,
-    sizeReport,
-    // EAS always clean-builds in Expo's cloud, so its artifacts are reproducible — no release nudge.
-    clean: true,
-    createdAt: new Date().toISOString(),
-  };
-  const stored = await resolveStorageProvider(config).put(artifact);
-  log.step('store', stored.location);
-
-  if (options.submit) {
-    await confirmUpload({
-      report: sizeReport,
-      budgetMB: resolveSizeBudgetMB(options, profile),
-      destination:
-        options.target === 'testing' ? 'TestFlight (via EAS)' : 'App Store review (via EAS)',
-      app,
-      version: app.version ?? '0.0.0',
+    yield* log.step('build', artifactPath);
+    yield* reportSize(sizeReport, log);
+    const artifact: BuildArtifact = {
+      path: artifactPath,
+      platform: 'ios',
+      appName: app.name,
+      profile: profile.name,
+      version: appVersion,
       buildNumber,
-      yes: options.yes ?? false,
+      sizeReport,
+      // EAS always clean-builds in Expo's cloud, so its artifacts are reproducible - no release nudge.
+      clean: true,
+      createdAt: new Date().toISOString(),
+    };
+    const storageProvider = yield* resolveStorageProvider(config);
+    const stored = yield* storageProvider.put(artifact);
+    yield* log.step('store', stored.location);
+    if (options.submit) {
+      let uploadDestination = 'App Store review (via EAS)';
+      if (options.target === 'testing') uploadDestination = 'TestFlight (via EAS)';
+      yield* confirmUpload({
+        report: sizeReport,
+        budgetMB: resolveSizeBudgetMB(options, profile),
+        destination: uploadDestination,
+        app,
+        version: appVersion,
+        buildNumber,
+        yes: options.yes === true,
+        log,
+      });
+      yield* log.note('Submitting via eas submit...');
+      yield* easProvider.submit(buildContext, artifactPath, profile.name);
+      let submissionDescription = 'submitted for App Store review via EAS';
+      if (options.target === 'testing') submissionDescription = 'submitted to TestFlight via EAS';
+      yield* log.step('submit', submissionDescription, 'testflight');
+    }
+    let receiptDestination = 'built - not uploaded';
+    if (options.submit) {
+      receiptDestination = 'App Store - in review (via EAS)';
+      if (options.target === 'testing') receiptDestination = 'TestFlight - via EAS';
+    }
+    yield* renderReceipt({
+      app,
+      version: appVersion,
+      buildNumber,
+      report: sizeReport,
+      destination: receiptDestination,
       log,
     });
-    log.info('Submitting via eas submit…');
-    await easSubmit(ctx, ipaPath, profile.name);
-    log.step(
-      'submit',
-      options.target === 'testing'
-        ? 'submitted to TestFlight via EAS'
-        : 'submitted for App Store review via EAS',
-      'testflight',
-    );
-  }
-
-  await renderReceipt({
-    app,
-    version: app.version ?? '0.0.0',
-    buildNumber,
-    report: sizeReport,
-    destination: options.submit
-      ? options.target === 'testing'
-        ? 'TestFlight · via EAS'
-        : 'App Store · in review (via EAS)'
-      : 'built · not uploaded',
-    log,
   });
-};

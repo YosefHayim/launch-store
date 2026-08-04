@@ -1,6 +1,8 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { NodeContext } from '@effect/platform-node';
+import { Effect } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   detectFromLockfiles,
@@ -10,20 +12,22 @@ import {
   packageManagerWarnings,
   parsePackageManagerField,
 } from './packageManager.js';
-import { expectDefined } from '../../testkit/assertions.testkit.js';
-
+import { expectDefined } from '@testkit/assertions.testkit.js';
 const tmpDirs: string[] = [];
-function scratch(): string {
+const runPackageManagerEffect = <Success, Failure>(
+  packageManagerEffect: Effect.Effect<Success, Failure, NodeContext.NodeContext>,
+): Promise<Success> =>
+  Effect.runPromise(packageManagerEffect.pipe(Effect.provide(NodeContext.layer)));
+const scratch = (): string => {
   const dir = mkdtempSync(join(tmpdir(), 'launch-pm-'));
   tmpDirs.push(dir);
   return dir;
-}
+};
 afterEach(() => {
   while (tmpDirs.length) {
     rmSync(expectDefined(tmpDirs.pop(), 'temp dir'), { recursive: true, force: true });
   }
 });
-
 describe('parsePackageManagerField', () => {
   it('splits a Corepack pin into manager + version', () => {
     expect(parsePackageManagerField('yarn@4.1.0')).toEqual({ name: 'yarn', version: '4.1.0' });
@@ -38,7 +42,6 @@ describe('parsePackageManagerField', () => {
     expect(parsePackageManagerField('rush@1.0.0')).toBeNull();
   });
 });
-
 describe('detectFromLockfiles', () => {
   it('prefers pnpm/yarn over an incidental package-lock.json', () => {
     expect(detectFromLockfiles(new Set(['pnpm-lock.yaml', 'package-lock.json']))).toBe('pnpm');
@@ -48,7 +51,6 @@ describe('detectFromLockfiles', () => {
     expect(detectFromLockfiles(new Set())).toBeNull();
   });
 });
-
 describe('packageManagerWarnings', () => {
   it('flags a Corepack pin with Corepack disabled', () => {
     const warnings = packageManagerWarnings({
@@ -76,50 +78,56 @@ describe('packageManagerWarnings', () => {
     ).toEqual([]);
   });
 });
-
 describe('detectPackageManager (filesystem)', () => {
-  it('lets the packageManager field win over a lockfile', () => {
+  it('lets the packageManager field win over a lockfile', async () => {
     const dir = scratch();
     writeFileSync(join(dir, 'package.json'), JSON.stringify({ packageManager: 'yarn@4.1.0' }));
     writeFileSync(join(dir, 'package-lock.json'), '{}');
-    expect(detectPackageManager(dir)).toMatchObject({
+    expect(await runPackageManagerEffect(detectPackageManager(dir))).toMatchObject({
       name: 'yarn',
       source: 'packageManager',
       corepackPinned: true,
     });
   });
-  it('falls back to the lockfile, then .yarnrc.yml, then npm', () => {
+  it('falls back to the lockfile, then .yarnrc.yml, then npm', async () => {
     const lock = scratch();
     writeFileSync(join(lock, 'pnpm-lock.yaml'), '');
-    expect(detectPackageManager(lock)).toMatchObject({ name: 'pnpm', source: 'lockfile' });
-
+    expect(await runPackageManagerEffect(detectPackageManager(lock))).toMatchObject({
+      name: 'pnpm',
+      source: 'lockfile',
+    });
     const berry = scratch();
     writeFileSync(join(berry, '.yarnrc.yml'), '');
-    expect(detectPackageManager(berry)).toMatchObject({ name: 'yarn', source: 'yarnrc' });
-
-    expect(detectPackageManager(scratch())).toMatchObject({ name: 'npm', source: 'default' });
+    expect(await runPackageManagerEffect(detectPackageManager(berry))).toMatchObject({
+      name: 'yarn',
+      source: 'yarnrc',
+    });
+    expect(await runPackageManagerEffect(detectPackageManager(scratch()))).toMatchObject({
+      name: 'npm',
+      source: 'default',
+    });
   });
 });
-
 describe('findWorkspaceRoot + inspectPackageSetup', () => {
-  it('resolves the PM at the monorepo root, not the nested app dir', () => {
+  it('resolves the PM at the monorepo root, not the nested app dir', async () => {
     const root = scratch();
     writeFileSync(join(root, 'package.json'), JSON.stringify({ workspaces: ['apps/*'] }));
     writeFileSync(join(root, 'pnpm-lock.yaml'), '');
     const appDir = join(root, 'apps', 'mobile');
     mkdirSync(appDir, { recursive: true });
     writeFileSync(join(appDir, 'package.json'), JSON.stringify({ name: 'mobile' }));
-
-    expect(findWorkspaceRoot(appDir)).toEqual({ root, kind: 'npm/yarn' });
-    const setup = inspectPackageSetup(appDir);
+    expect(await runPackageManagerEffect(findWorkspaceRoot(appDir))).toEqual({
+      root,
+      kind: 'npm/yarn',
+    });
+    const setup = await runPackageManagerEffect(inspectPackageSetup(appDir));
     expect(setup.pm.name).toBe('pnpm');
     expect(setup.workspace?.root).toBe(root);
     expect(setup.lockfile).toBe('pnpm-lock.yaml');
   });
-
-  it('returns no workspace for a standalone app', () => {
+  it('returns no workspace for a standalone app', async () => {
     const dir = scratch();
     writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'solo' }));
-    expect(findWorkspaceRoot(dir)).toBeNull();
+    expect(await runPackageManagerEffect(findWorkspaceRoot(dir))).toBeNull();
   });
 });

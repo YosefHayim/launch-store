@@ -1,45 +1,36 @@
-/**
- * Renders `llms.txt`: the single AI-facing map of Launch — the summary blockquote, the EAS-parity
- * prose, the is/is-not disambiguation, the FAQ, the full command list, and the curated source links.
- * Reuses {@link renderFeaturesList} so the feature list can't drift from the README's.
- */
-
 import { CANONICAL_SENTENCE, GENERATIVE_AI_FAQ, WHAT_LAUNCH_IS_BLOCK } from './content.js';
 import { renderFeaturesList } from './readme.js';
-import type { CommandSpec, DocStats } from '../../types/index.js';
-
+import type { CommandSpec, DocStats } from '@core/types/commandDocs.js';
 /** Curated prose describing the EAS-parity pipeline, lifted verbatim into both llms files. */
-const PIPELINE_PROSE = `Launch runs the EAS pipeline locally: prebuild → resolve credentials → compile & sign → size-check → store → submit to the testing track (TestFlight / Play internal); \`launch release\` is the separate, confirmed public release. EAS → Launch mapping: \`eas build\` → \`launch build\`, \`eas submit\` → \`launch release\`, \`eas update\` → \`launch update\` (Expo Updates protocol, hosted on your own S3/R2/Supabase bucket, with \`launch updates rollback\`), \`eas metadata\` → \`launch metadata\` (iOS _and_ Android), \`eas credentials\` → \`launch creds\` (multi-account, keychain-stored, with an APNs push-key vault). Beyond parity it adds store config as code (\`launch sync\` reconciles IAPs, subscriptions, and capabilities onto App Store Connect), keychain-backed build secrets with a documented env-precedence ladder (\`launch secret\`), internal/ad-hoc distribution, build history and re-signing (\`launch builds\`, \`launch build:resign\`), native-failure diagnosis (\`launch diagnose\`), and no-Mac builds on your own AWS EC2 Mac or any Mac over SSH. Signing keys stay in the OS keychain (macOS Keychain, or the platform secret store elsewhere); storage, credentials, build engine, and submission are pluggable behind small interfaces. App facts come from each \`app.json\`, so nothing is duplicated. \`launch demo\` walks the whole flow as a zero-setup simulation.`;
-
+const PIPELINE_PROSE = `Launch runs the EAS pipeline locally: prebuild -> resolve credentials -> compile & sign -> size-check -> store -> submit to the testing track (TestFlight / Play internal); \`launch release\` is the separate, confirmed public release. EAS -> Launch mapping: \`eas build\` -> \`launch build\`, \`eas submit\` -> \`launch release\`, \`eas update\` -> \`launch update\` (Expo Updates protocol, hosted on your own S3/R2/Supabase bucket, with \`launch updates rollback\`), \`eas metadata\` -> \`launch metadata\` (iOS _and_ Android), \`eas credentials\` -> \`launch creds\` (multi-account, keychain-stored, with an APNs push-key vault). Beyond parity it adds store config as code (\`launch sync\` reconciles IAPs, subscriptions, and capabilities onto App Store Connect), keychain-backed build secrets with a documented env-precedence ladder (\`launch secret\`), internal/ad-hoc distribution, build history and re-signing (\`launch builds\`, \`launch build:resign\`), native-failure diagnosis (\`launch diagnose\`), and no-Mac builds on your own AWS EC2 Mac or any Mac over SSH. Signing keys stay in the OS keychain (macOS Keychain, or the platform secret store elsewhere); storage, credentials, build engine, and submission are pluggable behind small interfaces. App facts come from each \`app.json\`, so nothing is duplicated. \`launch demo\` walks the whole flow as a zero-setup simulation.`;
 /** Curated "Source" link list, shared by both llms files; every link is asserted to resolve on disk. */
-const SOURCE_LINKS = `- [Domain types & provider interfaces](./src/core/types/index.ts): the single source of truth for Launch's vocabulary (incl. SecretStore, ComputeHost).
-- [Pipeline](./src/core/build/pipeline.ts): the build → submit spine, the shared \`prepareBuild\` front half, and the \`--dry-run\` rehearsal.
-- [Remote pipeline](./src/core/build/remotePipeline.ts): the C1–C7 host lifecycle for off-Mac builds; [EAS pipeline](./src/core/build/easPipeline.ts): the Expo handoff.
+const SOURCE_LINKS = `- [Domain types](./src/core/types/app.ts) and [provider interfaces](./src/core/types/providers.ts): purpose-named source modules for Launch's vocabulary.
+- [Pipeline](./src/core/build/pipeline.ts): the build -> submit spine, the shared \`prepareBuild\` front half, and the \`--dry-run\` rehearsal.
+- [Remote pipeline](./src/core/build/remotePipeline.ts): the C1-C7 host lifecycle for off-Mac builds; [EAS pipeline](./src/core/build/easPipeline.ts): the Expo handoff.
 - [AWS EC2 Mac host](./src/providers/compute/awsEc2Mac.ts): allocate/status/teardown + golden-AMI + \`cloud doctor\`; [SSH transport](./src/core/services/ssh.ts) and [remote build ops](./src/core/build/remoteBuild.ts).
 - [Glossary](./src/core/terminal/glossary.ts): plain-English term definitions shared by \`launch explain\` and the docs.
-- [App Store Connect resources](./src/apple/ascResources.ts): the App Store Connect \`*Resource\` / \`*Query\` wire types; [client](./src/apple/ascClient.ts): the Apple API transport (JWT auth, bundle ids, certs, profiles, builds).
+- [App Store domain types](./src/core/types/appleCatalog.ts): normalized App Store resource/query shapes; [generated wire schema](./src/apple/generated/schema.ts): Apple OpenAPI types; [client](./src/apple/ascClient.ts): the Apple API transport.
 - [ASC product sync](./src/core/store/ascSync.ts): the declarative reconciler behind \`launch sync\` (capabilities, IAPs, subscriptions, pricing).
 - [Config preflight](./src/core/config/configCheck.ts): the app-config footgun validator run by \`launch doctor\` and at the head of \`launch build\`.
 - [Build secrets](./src/core/build/buildSecrets.ts): keychain-backed \`launch secret\` storage, injected through the [env-precedence ladder](./src/core/config/env.ts) shared by \`build\`, \`release\`, and \`update\`.
 - [Completion notifications](./src/core/services/notify.ts): the \`notify\` webhook + shell hook fired on build/submit completion.
 - [Public API](./src/index.ts): what a user's \`launch.config.ts\` imports (\`defineConfig\`, the \`products\` catalog, the \`notify\` config).`;
-
 /** Render one command as an `llms.txt` bullet (and its subcommands as nested bullets). */
-function renderCommandBullet(command: CommandSpec, indent: string): string {
-  const usage = command.args ? `launch ${command.path} ${command.args}` : `launch ${command.path}`;
-  const lines = [`${indent}- \`${usage}\` — ${command.description}`];
+const renderCommandBullet = (command: CommandSpec, indent: string): string => {
+  let usage = `launch ${command.path}`;
+  if (command.args) usage = `launch ${command.path} ${command.args}`;
+  const lines = [`${indent}- \`${usage}\` - ${command.description}`];
   for (const sub of command.subcommands) lines.push(renderCommandBullet(sub, `${indent}  `));
   return lines.join('\n');
-}
-
+};
 /**
- * Render `llms.txt`: the single AI-facing map of Launch — the llmstxt.org summary blockquote, the
+ * Render `llms.txt`: the single AI-facing map of Launch - the llmstxt.org summary blockquote, the
  * EAS-parity prose, the {@link WHAT_LAUNCH_IS_BLOCK is/is-not} disambiguation, the {@link GENERATIVE_AI_FAQ FAQ}
  * AI engines lift to answer "EAS alternative" queries, the full command list (so one fetch ingests the
  * whole surface), and the curated doc/source links. Merged from the former `llms.txt` + `llms-full.txt`
  * into one file at the conventional `/llms.txt` endpoint that crawlers probe for.
  */
-export function renderLlmsTxt(commands: CommandSpec[], stats: DocStats): string {
+export const renderLlmsTxt = (commands: CommandSpec[], stats: DocStats): string => {
   const everyCommand = commands.map((command) => renderCommandBullet(command, '')).join('\n');
   return `# Launch
 
@@ -47,7 +38,7 @@ export function renderLlmsTxt(commands: CommandSpec[], stats: DocStats): string 
 
 ${PIPELINE_PROSE}
 
-## What Launch is — and is not
+## What Launch is - and is not
 
 ${WHAT_LAUNCH_IS_BLOCK}
 
@@ -87,4 +78,4 @@ ${SOURCE_LINKS}
 
 - [LICENSE](./LICENSE): MIT.
 `;
-}
+};

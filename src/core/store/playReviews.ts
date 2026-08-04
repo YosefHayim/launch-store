@@ -1,83 +1,68 @@
-/**
- * The `launch play-reviews` domain: read a Play app's customer reviews and manage the developer reply,
- * entirely through the Play service account (no Play Console web session). The Play twin of
- * `core/reviews.ts`.
- *
- * Design (mirrors `core/reviews.ts`):
- * - **Stateless & read-first.** Every call reads the live account; there's no local cache to drift.
- *   `listPlayReviews` pulls all pages and applies the rating / unanswered filters client-side over the
- *   `answered` flag and `rating` the client already flattened out of each review's nested comments.
- * - **One write path, made safe.** A reply is a public, moderated post, so the command confirms before
- *   posting. Play's reply endpoint is an upsert (it edits an existing reply in place), so
- *   {@link replyToPlayReview} reports whether it *replaced* one — letting the command warn before
- *   overwriting — without a delete-then-recreate dance. Play has no delete-reply endpoint, so (unlike
- *   the Apple side) there's no delete path.
- *
- * The {@link PlayReviewsApi} slice names the exact client surface this module needs, so the logic is
- * unit-testable with a hand-rolled fake and `GooglePlayClient` satisfies it structurally.
- */
+import { Effect } from 'effect';
+import type { PlayReplyResult, PlayReview } from '../types/googlePlay.js';
 
-import type { PlayReplyResult, PlayReview } from '../../google/playClient.js';
-
-/** The exact slice of {@link GooglePlayClient} the reviews domain depends on. */
-export interface PlayReviewsApi {
-  listReviews(
+/** The Google Play review operations used by the reviews domain. */
+export type PlayReviewsApi = Readonly<{
+  readonly listReviews: (
     packageName: string,
-    options: { translationLanguage?: string },
-  ): Promise<PlayReview[]>;
-  getReview(packageName: string, reviewId: string): Promise<PlayReview | null>;
-  replyToReview(packageName: string, reviewId: string, replyText: string): Promise<PlayReplyResult>;
-}
+    options: Readonly<{
+      readonly translationLanguage?: string;
+    }>,
+  ) => Effect.Effect<readonly PlayReview[], unknown>;
+  readonly getReview: (
+    packageName: string,
+    reviewId: string,
+  ) => Effect.Effect<PlayReview | null, unknown>;
+  readonly replyToReview: (
+    packageName: string,
+    reviewId: string,
+    replyText: string,
+  ) => Effect.Effect<PlayReplyResult, unknown>;
+}>;
 
-/** Filters for {@link listPlayReviews}, all applied client-side (the Play API has no server-side equivalents). */
-export interface PlayReviewFilters {
-  /** Keep only this star rating (1–5). */
-  rating?: number;
-  /** Keep only reviews without a developer reply yet. */
-  unansweredOnly?: boolean;
-  /** Ask Play to machine-translate review text into this BCP-47 language. */
-  translationLanguage?: string;
-}
+/** Client-side filters for recent Google Play reviews. */
+export type PlayReviewFilters = Readonly<{
+  readonly rating?: number;
+  readonly unansweredOnly?: boolean;
+  readonly translationLanguage?: string;
+}>;
 
-/** Outcome of {@link replyToPlayReview}: the stored reply and whether it overwrote an existing one. */
-export interface PlayReplyOutcome {
-  result: PlayReplyResult;
-  /** True when a prior reply existed and this call overwrote it (Play's reply is an upsert). */
-  replaced: boolean;
-}
+/** The stored reply and whether it replaced an earlier developer reply. */
+export type PlayReplyOutcome = Readonly<{
+  readonly reply: PlayReplyResult;
+  readonly replaced: boolean;
+}>;
 
-/**
- * List an app's customer reviews, narrowed by the given filters. Play returns only reviews with text from
- * roughly the last week (a platform limit); rating and unanswered are applied here over the flattened
- * fields each review carries.
- */
-export async function listPlayReviews(
-  api: PlayReviewsApi,
+export const listPlayReviews = (
+  playReviewsApi: PlayReviewsApi,
   packageName: string,
-  filters: PlayReviewFilters = {},
-): Promise<PlayReview[]> {
-  const reviews = await api.listReviews(
-    packageName,
-    filters.translationLanguage ? { translationLanguage: filters.translationLanguage } : {},
-  );
-  return reviews.filter((review) => {
-    if (filters.rating !== undefined && review.rating !== filters.rating) return false;
-    if (filters.unansweredOnly && review.answered) return false;
-    return true;
+  reviewFilters: PlayReviewFilters = {},
+): Effect.Effect<readonly PlayReview[], unknown> =>
+  Effect.gen(function* () {
+    const reviewRequest: { translationLanguage?: string } = {};
+    if (reviewFilters.translationLanguage !== undefined) {
+      reviewRequest.translationLanguage = reviewFilters.translationLanguage;
+    }
+    const recentReviews = yield* playReviewsApi.listReviews(packageName, reviewRequest);
+    return recentReviews.filter((playReview) => {
+      if (reviewFilters.rating !== undefined && playReview.rating !== reviewFilters.rating) {
+        return false;
+      }
+      if (reviewFilters.unansweredOnly === true && playReview.answered) return false;
+      return true;
+    });
   });
-}
 
-/**
- * Post (or replace) the developer reply to a review. Reads the review first only to report `replaced` so
- * the command can warn before overwriting; the write itself is one upsert.
- */
-export async function replyToPlayReview(
-  api: PlayReviewsApi,
+export const replyToPlayReview = (
+  playReviewsApi: PlayReviewsApi,
   packageName: string,
   reviewId: string,
   replyText: string,
-): Promise<PlayReplyOutcome> {
-  const existing = await api.getReview(packageName, reviewId);
-  const result = await api.replyToReview(packageName, reviewId, replyText);
-  return { result, replaced: existing?.answered === true };
-}
+  existingReview: PlayReview | null,
+): Effect.Effect<PlayReplyOutcome, unknown> =>
+  Effect.gen(function* () {
+    const storedReply = yield* playReviewsApi.replyToReview(packageName, reviewId, replyText);
+    let replaced = existingReview?.answered;
+    if (replaced === undefined) replaced = false;
+    return { reply: storedReply, replaced };
+  });

@@ -1,20 +1,8 @@
-/**
- * The OTA publish core: assemble + sign + upload one platform's update manifest, lifted out of
- * `cli/commands/update.ts` so both `launch update` and `launch release-train` (ADR 0004 D4) publish JS
- * the exact same way — no duplicated upload logic. Behavior-preserving: same export-metadata reading,
- * same key layout, same history record, same rollback-clear as the original command body.
- *
- * Dependency-injected (the resolved {@link StorageProvider} and an optional {@link CodeSigner} come in as
- * parameters) so it's unit-testable against an in-memory bucket and the train can hand it an already-
- * resolved storage provider.
- */
-
-import { randomUUID } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import type { StorageProvider } from '../types/index.js';
-import type { Logger } from '../services/logger.js';
+import { FileSystem, Path } from '@effect/platform';
+import { Clock, Data, Effect, Random, Schema } from 'effect';
 import type { CodeSigner } from '../credentials/codeSign.js';
+import type { Logger } from '../services/logger.js';
+import type { StorageProvider } from '../types/providers.js';
 import {
   assembleManifest,
   contentTypeFor,
@@ -25,132 +13,223 @@ import {
 } from './otaManifest.js';
 import { clearRollbackDirective, recordPublish } from './updateHistory.js';
 
-/** The subset of `expo export`'s `metadata.json` Launch reads: per-platform bundle + asset paths. */
-export interface ExportMetadata {
-  fileMetadata: Record<string, { bundle: string; assets: { path: string; ext: string }[] }>;
-}
+/** The part of Expo export metadata required to publish bundles and assets. */
+export type ExportMetadata = {
+  fileMetadata: Record<
+    string,
+    {
+      bundle: string;
+      assets: {
+        path: string;
+        ext: string;
+      }[];
+    }
+  >;
+};
 
-/** Read and parse `metadata.json` from an `expo export` output directory. */
-export function readExportMetadata(distDir: string): ExportMetadata {
-  const path = join(distDir, 'metadata.json');
-  if (!existsSync(path))
-    throw new Error(`No metadata.json in ${distDir} — did \`expo export\` run?`);
-  return JSON.parse(readFileSync(path, 'utf8')) as ExportMetadata;
-}
+const ExportMetadataSchema: Schema.Schema<ExportMetadata> = Schema.mutable(
+  Schema.Struct({
+    fileMetadata: Schema.mutable(
+      Schema.Record({
+        key: Schema.String,
+        value: Schema.mutable(
+          Schema.Struct({
+            bundle: Schema.String,
+            assets: Schema.mutable(
+              Schema.Array(
+                Schema.mutable(
+                  Schema.Struct({
+                    path: Schema.String,
+                    ext: Schema.String,
+                  }),
+                ),
+              ),
+            ),
+          }),
+        ),
+      }),
+    ),
+  }),
+);
 
-/** Everything {@link publishOtaPlatform} needs to publish one platform's manifest. */
-export interface OtaPublishInput {
-  /** The resolved artifact store the manifest + assets upload to. */
-  storage: StorageProvider;
-  /** The `expo export` output directory holding the bundle + assets named by {@link metadata}. */
-  distDir: string;
-  /** The parsed `metadata.json` from that export. */
-  metadata: ExportMetadata;
-  /** Which platform's bundle to publish. */
-  platform: 'ios' | 'android';
-  /** The release channel to publish under. */
-  channel: string;
-  /** The runtime version this update targets. */
-  runtimeVersion: string;
-  /** A resolved signer to code-sign the manifest, or `null` to publish unsigned (`--no-sign`). */
-  signer: CodeSigner | null;
-}
+/** Expo export metadata is missing or does not match the expected contract. */
+export type OtaPublishFailure = Readonly<{
+  readonly _tag: 'OtaPublishFailure';
+  readonly message: string;
+}>;
 
-/** What a successful platform publish produced — enough for the caller to log and for a train to record. */
-export interface OtaPublishResult {
-  /** Whether a bundle for this platform existed in the export (false ⇒ nothing published). */
-  published: boolean;
-  /** The published manifest's UUID (absent when `published` is false). */
-  manifestId?: string;
-  /** ISO-8601 publish timestamp (absent when `published` is false). */
-  createdAt?: string;
-  /** Number of non-bundle assets uploaded. */
-  assetCount: number;
-  /** The `updates/<channel>/<platform>/<runtimeVersion>` prefix the manifest now lives under. */
-  prefix: string;
-}
+export const makeOtaPublishFailure = Data.tagged<OtaPublishFailure>('OtaPublishFailure');
 
-/**
- * Publish one platform's manifest: upload the bundle + assets, assemble + (optionally) sign the manifest,
- * upload it with an immutable history snapshot, record the publish, and clear any prior rollback directive
- * for this runtime version. A no-op (returns `published: false`) when the export has no bundle for the
- * platform, matching the command's original skip-with-warning.
- */
-export async function publishOtaPlatform(
+/** Read and validate metadata.json from an Expo export directory. */
+export const readExportMetadata = (
+  exportDirectory: string,
+): Effect.Effect<ExportMetadata, OtaPublishFailure, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const metadataFilePath = pathService.join(exportDirectory, 'metadata.json');
+    const metadataExists = yield* fileSystem
+      .exists(metadataFilePath)
+      .pipe(Effect.orElseSucceed(() => false));
+    if (!metadataExists) {
+      return yield* Effect.fail(
+        makeOtaPublishFailure({
+          message: `No metadata.json in ${exportDirectory}; Expo export may not have completed.`,
+        }),
+      );
+    }
+
+    const metadataText = yield* fileSystem.readFileString(metadataFilePath).pipe(
+      Effect.mapError(() =>
+        makeOtaPublishFailure({
+          message: `Could not read ${metadataFilePath}.`,
+        }),
+      ),
+    );
+    return yield* Effect.try(() => JSON.parse(metadataText)).pipe(
+      Effect.flatMap(Schema.decodeUnknown(ExportMetadataSchema)),
+      Effect.mapError(() =>
+        makeOtaPublishFailure({
+          message: `${metadataFilePath} does not contain valid Expo export metadata.`,
+        }),
+      ),
+    );
+  });
+
+/** Inputs required to publish one platform update. */
+export type OtaPublishInput = Readonly<{
+  readonly storage: StorageProvider;
+  readonly distDir: string;
+  readonly metadata: ExportMetadata;
+  readonly platform: 'ios' | 'android';
+  readonly channel: string;
+  readonly runtimeVersion: string;
+  readonly signer: CodeSigner | null;
+}>;
+
+/** Details produced by one platform publish. */
+export type OtaPublishResult = Readonly<{
+  readonly published: boolean;
+  readonly manifestId?: string;
+  readonly createdAt?: string;
+  readonly assetCount: number;
+  readonly prefix: string;
+}>;
+
+/** Create an injectable RFC 4122 version-4 identifier. */
+const randomUpdateId = (): Effect.Effect<string> =>
+  Effect.gen(function* () {
+    const byteOffsets = Array.from({ length: 16 }, (_, byteOffset) => byteOffset);
+    const randomBytes = yield* Effect.forEach(byteOffsets, () => Random.nextIntBetween(0, 256), {
+      concurrency: 1,
+    });
+    const versionByte = randomBytes[6];
+    const variantByte = randomBytes[8];
+    if (versionByte === undefined)
+      return yield* Effect.dieMessage('UUID version byte is unavailable');
+    if (variantByte === undefined)
+      return yield* Effect.dieMessage('UUID variant byte is unavailable');
+    randomBytes[6] = (versionByte & 0x0f) | 0x40;
+    randomBytes[8] = (variantByte & 0x3f) | 0x80;
+    const hexadecimalId = randomBytes
+      .map((randomByte) => randomByte.toString(16).padStart(2, '0'))
+      .join('');
+    return [
+      hexadecimalId.slice(0, 8),
+      hexadecimalId.slice(8, 12),
+      hexadecimalId.slice(12, 16),
+      hexadecimalId.slice(16, 20),
+      hexadecimalId.slice(20),
+    ].join('-');
+  });
+
+/** Publish one platform bundle, its assets, active manifest, and history snapshot. */
+export const publishOtaPlatform = (
   input: OtaPublishInput,
-  log: Logger,
-): Promise<OtaPublishResult> {
-  const { storage, distDir, metadata, platform, channel, runtimeVersion, signer } = input;
-  const prefix = `updates/${channel}/${platform}/${runtimeVersion}`;
+  logger: Logger,
+): Effect.Effect<OtaPublishResult, unknown, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const { storage, distDir, metadata, platform, channel, runtimeVersion, signer } = input;
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const objectPrefix = `updates/${channel}/${platform}/${runtimeVersion}`;
+    const platformMetadata = metadata.fileMetadata[platform];
+    if (platformMetadata === undefined) {
+      yield* logger.warn(`No ${platform} bundle in the export; skipping.`);
+      return { published: false, assetCount: 0, prefix: objectPrefix };
+    }
 
-  const platformMeta = metadata.fileMetadata[platform];
-  if (!platformMeta) {
-    log.warn(`No ${platform} bundle in the export — skipping.`);
-    return { published: false, assetCount: 0, prefix };
-  }
+    const uploadExportFile = (
+      relativeFilePath: string,
+      fileExtension?: string,
+    ): Effect.Effect<ManifestAsset, unknown, Path.Path> =>
+      Effect.gen(function* () {
+        const objectKey = `${objectPrefix}/${relativeFilePath}`;
+        const assetBytes = yield* fileSystem.readFile(pathService.join(distDir, relativeFilePath));
+        const contentType = yield* contentTypeFor(relativeFilePath);
+        yield* storage.putObject(objectKey, Buffer.from(assetBytes), contentType);
+        const manifestAsset: ManifestAsset = {
+          key: relativeFilePath,
+          contentType,
+          url: storage.publicUrl(objectKey),
+        };
+        if (fileExtension === undefined) return manifestAsset;
+        return { ...manifestAsset, fileExtension: `.${fileExtension}` };
+      });
 
-  /** Upload one exported file and return its manifest asset entry. */
-  const upload = async (relativePath: string, ext?: string): Promise<ManifestAsset> => {
-    const key = `${prefix}/${relativePath}`;
-    await storage.putObject(
-      key,
-      readFileSync(join(distDir, relativePath)),
-      contentTypeFor(relativePath),
+    const launchAsset = yield* uploadExportFile(platformMetadata.bundle);
+    const manifestAssets = yield* Effect.forEach(
+      platformMetadata.assets,
+      (exportedAsset) => uploadExportFile(exportedAsset.path, exportedAsset.ext),
+      { concurrency: 'unbounded' },
     );
-    const base: ManifestAsset = {
-      key: relativePath,
-      contentType: contentTypeFor(relativePath),
-      url: storage.publicUrl(key),
+    const manifestId = yield* randomUpdateId();
+    const epochMilliseconds = yield* Clock.currentTimeMillis;
+    const createdAt = new Date(epochMilliseconds).toISOString();
+    const updateManifest = assembleManifest({
+      id: manifestId,
+      createdAt,
+      runtimeVersion,
+      launchAsset,
+      assets: manifestAssets,
+    });
+    const manifestText = JSON.stringify(updateManifest);
+    yield* storage.putObject(
+      manifestKey(channel, platform, runtimeVersion),
+      manifestText,
+      'application/json',
+    );
+    yield* storage.putObject(
+      historySnapshotKey(channel, platform, runtimeVersion, manifestId),
+      manifestText,
+      'application/json',
+    );
+    if (signer !== null) {
+      yield* storage.putObject(
+        manifestSignatureKey(channel, platform, runtimeVersion),
+        signer.sign(manifestText),
+        'text/plain',
+      );
+    }
+    yield* recordPublish(storage, channel, platform, {
+      id: manifestId,
+      runtimeVersion,
+      createdAt,
+      active: true,
+      signed: signer !== null,
+      kind: 'publish',
+    });
+    yield* clearRollbackDirective(storage, channel, platform, runtimeVersion);
+    yield* logger.step(
+      'update',
+      `${platform} - ${manifestAssets.length} asset(s) -> ${objectPrefix}/`,
+      'ota-update',
+    );
+    return {
+      published: true,
+      manifestId,
+      createdAt,
+      assetCount: manifestAssets.length,
+      prefix: objectPrefix,
     };
-    return ext ? { ...base, fileExtension: `.${ext}` } : base;
-  };
-
-  const launchAsset = await upload(platformMeta.bundle);
-  const assets = await Promise.all(
-    platformMeta.assets.map((asset) => upload(asset.path, asset.ext)),
-  );
-
-  const manifest = assembleManifest({
-    id: randomUUID(),
-    createdAt: new Date().toISOString(),
-    runtimeVersion,
-    launchAsset,
-    assets,
   });
-  const body = JSON.stringify(manifest);
-  await storage.putObject(manifestKey(channel, platform, runtimeVersion), body, 'application/json');
-  // Immutable snapshot so `launch updates view`/`rollback` can read this exact manifest back later.
-  await storage.putObject(
-    historySnapshotKey(channel, platform, runtimeVersion, manifest.id),
-    body,
-    'application/json',
-  );
-
-  if (signer) {
-    await storage.putObject(
-      manifestSignatureKey(channel, platform, runtimeVersion),
-      signer.sign(body),
-      'text/plain',
-    );
-  }
-
-  await recordPublish(storage, channel, platform, {
-    id: manifest.id,
-    runtimeVersion,
-    createdAt: manifest.createdAt,
-    active: true,
-    signed: signer !== null,
-    kind: 'publish',
-  });
-  // A fresh publish supersedes any prior `--to-embedded` rollback for this runtime version.
-  await clearRollbackDirective(storage, channel, platform, runtimeVersion);
-  log.step('update', `${platform} · ${assets.length} asset(s) → ${prefix}/`, 'ota-update');
-
-  return {
-    published: true,
-    manifestId: manifest.id,
-    createdAt: manifest.createdAt,
-    assetCount: assets.length,
-    prefix,
-  };
-}

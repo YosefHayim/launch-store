@@ -1,49 +1,77 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { NodeContext } from '@effect/platform-node';
+import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type {
   ExperimentTreatmentResource,
   VersionExperimentResource,
-} from '../../apple/ascClient.js';
+} from '../types/appleCatalog.js';
 import {
   type AscExperimentsApi,
-  type VersionExperimentsConfig,
+  loadVersionExperimentsConfig,
   parseVersionExperimentsConfig,
   reconcileVersionExperiments,
   summarizeExperiments,
+  type VersionExperimentsConfig,
 } from './versionExperiments.js';
 
-/** Records every write the reconciler makes. */
-interface Calls {
-  createdExperiments: { name: string; platform: string; trafficProportion: number }[];
-  createdTreatments: { experimentId: string; name: string }[];
-}
+type ExperimentWrites = {
+  createdExperiments: Array<{
+    name: string;
+    platform: string;
+    trafficProportion: number;
+  }>;
+  createdTreatments: Array<{ experimentId: string; name: string }>;
+};
 
-/** State the fake API serves on reads. */
-interface State {
+type ExperimentStoreState = {
   appId: string | null;
   experiments: VersionExperimentResource[];
   treatments: ExperimentTreatmentResource[];
-}
+};
 
-function makeApi(state: Partial<State>): { api: AscExperimentsApi; calls: Calls } {
-  const full: State = { appId: 'app-1', experiments: [], treatments: [], ...state };
-  const calls: Calls = { createdExperiments: [], createdTreatments: [] };
-  const api: AscExperimentsApi = {
-    getAppId: () => Promise.resolve(full.appId),
-    listVersionExperiments: () => Promise.resolve(full.experiments),
-    createVersionExperiment: (_appId, input) => {
-      calls.createdExperiments.push(input);
-      return Promise.resolve({ id: 'exp-new', name: input.name, state: 'PREPARE_FOR_SUBMISSION' });
-    },
-    listExperimentTreatments: () => Promise.resolve(full.treatments),
-    createExperimentTreatment: (experimentId, input) => {
-      calls.createdTreatments.push({ experimentId, name: input.name });
-      return Promise.resolve({ id: 'treat-new', name: input.name });
-    },
+/** Build an Effect-native experiments API fake and its write journal. */
+const makeExperimentsApi = (
+  stateOverrides: Partial<ExperimentStoreState>,
+  methodOverrides: Partial<AscExperimentsApi> = {},
+): Readonly<{ appleExperimentsApi: AscExperimentsApi; experimentWrites: ExperimentWrites }> => {
+  const experimentStore: ExperimentStoreState = {
+    appId: 'app-1',
+    experiments: [],
+    treatments: [],
+    ...stateOverrides,
   };
-  return { api, calls };
-}
+  const experimentWrites: ExperimentWrites = {
+    createdExperiments: [],
+    createdTreatments: [],
+  };
+  const appleExperimentsApi: AscExperimentsApi = {
+    getAppId: () => Effect.succeed(experimentStore.appId),
+    listVersionExperiments: () => Effect.succeed(experimentStore.experiments),
+    createVersionExperiment: (_appId, experimentInput) => {
+      experimentWrites.createdExperiments.push(experimentInput);
+      return Effect.succeed({
+        id: 'exp-new',
+        name: experimentInput.name,
+        state: 'PREPARE_FOR_SUBMISSION',
+      });
+    },
+    listExperimentTreatments: () => Effect.succeed(experimentStore.treatments),
+    createExperimentTreatment: (experimentId, treatmentInput) => {
+      experimentWrites.createdTreatments.push({
+        experimentId,
+        name: treatmentInput.name,
+      });
+      return Effect.succeed({ id: 'treat-new', name: treatmentInput.name });
+    },
+    ...methodOverrides,
+  };
+  return { appleExperimentsApi, experimentWrites };
+};
 
-const CONFIG: VersionExperimentsConfig = {
+const experimentConfig: VersionExperimentsConfig = {
   experiments: [
     {
       name: 'Icon Test',
@@ -53,97 +81,130 @@ const CONFIG: VersionExperimentsConfig = {
   ],
 };
 
-describe('parseVersionExperimentsConfig', () => {
-  it('parses experiments with treatments', () => {
-    const config = parseVersionExperimentsConfig(CONFIG);
-    expect(config.experiments[0]?.name).toBe('Icon Test');
-    expect(config.experiments[0]?.treatments?.map((treatment) => treatment.name)).toEqual([
-      'Variant A',
-      'Variant B',
-    ]);
+/** Run the shared experiment fixture in plan or apply mode. */
+const reconcileExperiments = (appleExperimentsApi: AscExperimentsApi, dryRun: boolean) =>
+  Effect.runPromise(
+    reconcileVersionExperiments(appleExperimentsApi, {
+      bundleId: 'com.acme.app',
+      config: experimentConfig,
+      dryRun,
+    }),
+  );
+
+describe('version experiments schema', () => {
+  it('decodes experiments with treatments', async () => {
+    const decodedConfig = await Effect.runPromise(parseVersionExperimentsConfig(experimentConfig));
+    expect(decodedConfig.experiments[0]?.name).toBe('Icon Test');
+    expect(
+      decodedConfig.experiments[0]?.treatments?.map((declaredTreatment) => declaredTreatment.name),
+    ).toEqual(['Variant A', 'Variant B']);
   });
 
-  it('rejects a non-object, an empty list, a bad traffic proportion, and a duplicate name', () => {
-    expect(() => parseVersionExperimentsConfig('nope')).toThrow(/must be a JSON object/);
-    expect(() => parseVersionExperimentsConfig({ experiments: [] })).toThrow(/at least one entry/);
-    expect(() =>
-      parseVersionExperimentsConfig({ experiments: [{ name: 'X', trafficProportion: 0 }] }),
-    ).toThrow(/trafficProportion must be a positive number/);
-    expect(() =>
-      parseVersionExperimentsConfig({
-        experiments: [
-          { name: 'X', trafficProportion: 10 },
-          { name: 'X', trafficProportion: 20 },
-        ],
-      }),
-    ).toThrow(/duplicate experiment name "X"/);
+  it('rejects malformed documents and duplicate names', async () => {
+    await expect(Effect.runPromise(parseVersionExperimentsConfig('nope'))).rejects.toThrow(
+      /must be a JSON object/,
+    );
+    await expect(
+      Effect.runPromise(parseVersionExperimentsConfig({ experiments: [] })),
+    ).rejects.toThrow(/at least one entry/);
+    await expect(
+      Effect.runPromise(
+        parseVersionExperimentsConfig({
+          experiments: [{ name: 'X', trafficProportion: 0 }],
+        }),
+      ),
+    ).rejects.toThrow(/trafficProportion must be a positive number/);
+    await expect(
+      Effect.runPromise(
+        parseVersionExperimentsConfig({
+          experiments: [
+            { name: 'X', trafficProportion: 10 },
+            { name: 'X', trafficProportion: 20 },
+          ],
+        }),
+      ),
+    ).rejects.toThrow(/duplicate experiment name/);
+  });
+
+  it('reads and decodes a sidecar through Effect Platform', async () => {
+    const temporaryDirectory = mkdtempSync(join(tmpdir(), 'launch-experiments-'));
+    const configPath = join(temporaryDirectory, 'experiments.config.json');
+    try {
+      writeFileSync(configPath, JSON.stringify(experimentConfig));
+      const loadedConfig = await Effect.runPromise(
+        loadVersionExperimentsConfig(configPath).pipe(Effect.provide(NodeContext.layer)),
+      );
+      expect(loadedConfig).toEqual(experimentConfig);
+    } finally {
+      rmSync(temporaryDirectory, { recursive: true, force: true });
+    }
   });
 });
 
-describe('reconcileVersionExperiments', () => {
-  it('throws when the app has no App Store Connect record', async () => {
-    const { api } = makeApi({ appId: null });
-    await expect(
-      reconcileVersionExperiments(api, { bundleId: 'com.acme.app', config: CONFIG, dryRun: true }),
-    ).rejects.toThrow(/No App Store Connect app record/);
+describe('version experiment reconciliation', () => {
+  it('fails when the App Store record is absent', async () => {
+    const { appleExperimentsApi } = makeExperimentsApi({ appId: null });
+    await expect(reconcileExperiments(appleExperimentsApi, true)).rejects.toThrow(
+      /No App Store Connect app record/,
+    );
   });
 
-  it('creates a missing experiment and each treatment (apply)', async () => {
-    const { api, calls } = makeApi({});
-    const report = await reconcileVersionExperiments(api, {
-      bundleId: 'com.acme.app',
-      config: CONFIG,
-      dryRun: false,
-    });
-    expect(calls.createdExperiments).toEqual([
+  it('creates a missing experiment and its treatments', async () => {
+    const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({});
+    const reconciliationReport = await reconcileExperiments(appleExperimentsApi, false);
+    expect(experimentWrites.createdExperiments).toEqual([
       { name: 'Icon Test', platform: 'IOS', trafficProportion: 50 },
     ]);
-    expect(calls.createdTreatments).toEqual([
+    expect(experimentWrites.createdTreatments).toEqual([
       { experimentId: 'exp-new', name: 'Variant A' },
       { experimentId: 'exp-new', name: 'Variant B' },
     ]);
-    expect(summarizeExperiments(report.actions)).toEqual({ applied: 3, failed: 0, skipped: 0 });
+    expect(summarizeExperiments(reconciliationReport.actions)).toEqual({
+      applied: 3,
+      failed: 0,
+      skipped: 0,
+    });
   });
 
-  it("only creates treatments the existing experiment doesn't already have", async () => {
-    const { api, calls } = makeApi({
+  it('creates only missing treatments on an existing experiment', async () => {
+    const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({
       experiments: [{ id: 'exp-1', name: 'Icon Test', state: 'PREPARE_FOR_SUBMISSION' }],
       treatments: [{ id: 't-a', name: 'Variant A' }],
     });
-    await reconcileVersionExperiments(api, {
-      bundleId: 'com.acme.app',
-      config: CONFIG,
-      dryRun: false,
-    });
-    expect(calls.createdExperiments).toHaveLength(0); // experiment already exists
-    expect(calls.createdTreatments).toEqual([{ experimentId: 'exp-1', name: 'Variant B' }]);
+    await reconcileExperiments(appleExperimentsApi, false);
+    expect(experimentWrites.createdExperiments).toHaveLength(0);
+    expect(experimentWrites.createdTreatments).toEqual([
+      { experimentId: 'exp-1', name: 'Variant B' },
+    ]);
   });
 
-  it('plans but performs nothing on a dry-run', async () => {
-    const { api, calls } = makeApi({});
-    const report = await reconcileVersionExperiments(api, {
-      bundleId: 'com.acme.app',
-      config: CONFIG,
-      dryRun: true,
-    });
-    expect(calls.createdExperiments).toHaveLength(0);
-    expect(calls.createdTreatments).toHaveLength(0);
-    expect(report.actions.every((action) => action.status === 'planned')).toBe(true);
-    expect(report.actions).toHaveLength(3); // experiment + 2 treatments
+  it('plans without applying writes', async () => {
+    const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({});
+    const reconciliationReport = await reconcileExperiments(appleExperimentsApi, true);
+    expect(experimentWrites.createdExperiments).toHaveLength(0);
+    expect(experimentWrites.createdTreatments).toHaveLength(0);
+    expect(
+      reconciliationReport.actions.every((plannedAction) => plannedAction.status === 'planned'),
+    ).toBe(true);
+    expect(reconciliationReport.actions).toHaveLength(3);
   });
 
-  it('skips treatments when the experiment create failed', async () => {
-    const { api } = makeApi({});
-    api.createVersionExperiment = () => Promise.reject(new Error('name already in use'));
-    const report = await reconcileVersionExperiments(api, {
-      bundleId: 'com.acme.app',
-      config: CONFIG,
-      dryRun: false,
-    });
-    const summary = summarizeExperiments(report.actions);
-    expect(summary).toEqual({ applied: 0, failed: 1, skipped: 2 }); // 1 failed experiment, 2 skipped treatments
-    expect(report.actions.find((action) => action.status === 'failed')?.error).toBe(
-      'name already in use',
+  it('skips treatments when experiment creation fails', async () => {
+    const { appleExperimentsApi } = makeExperimentsApi(
+      {},
+      {
+        createVersionExperiment: () => Effect.fail(new Error('name already in use')),
+      },
     );
+    const reconciliationReport = await reconcileExperiments(appleExperimentsApi, false);
+    expect(summarizeExperiments(reconciliationReport.actions)).toEqual({
+      applied: 0,
+      failed: 1,
+      skipped: 2,
+    });
+    expect(
+      reconciliationReport.actions.find((plannedAction) => plannedAction.status === 'failed')
+        ?.error,
+    ).toBe('name already in use');
   });
 });

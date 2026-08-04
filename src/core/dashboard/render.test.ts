@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { Effect, Schema } from 'effect';
 import { renderDashboardHtml } from './render.js';
-import type { DashboardState } from '../types/index.js';
-
+import type { DashboardState } from '../types/dashboard.js';
 const GENERATED_AT = '2026-06-18T12:00:00.000Z';
-
 /** A populated baseline state; tests override only the slice they exercise. */
-function state(overrides: Partial<DashboardState> = {}): DashboardState {
+const state = (overrides: Partial<DashboardState> = {}): DashboardState => {
   return {
     generatedAt: GENERATED_AT,
     launchHome: '/home/dev/.launch',
@@ -37,19 +36,19 @@ function state(overrides: Partial<DashboardState> = {}): DashboardState {
     cloudHost: null,
     ...overrides,
   };
-}
-
+};
 /** Extract the embedded `application/json` snapshot from rendered HTML. */
-function embeddedJson(html: string): string {
+const embeddedJson = (html: string): string => {
   const match =
     /<script id="launch-dashboard-state" type="application\/json">([\s\S]*?)<\/script>/.exec(html);
   if (!match?.[1]) throw new Error('no embedded state script found');
   return match[1];
-}
-
+};
 describe('renderDashboardHtml', () => {
+  const renderDashboard = (dashboardState: DashboardState) =>
+    Effect.runSync(renderDashboardHtml(dashboardState));
   it('is a self-contained HTML document with every section heading', () => {
-    const html = renderDashboardHtml(state());
+    const html = renderDashboard(state());
     expect(html.startsWith('<!doctype html>')).toBe(true);
     for (const heading of [
       'Project',
@@ -65,17 +64,15 @@ describe('renderDashboardHtml', () => {
     expect(html).not.toContain('src="http');
     expect(html).not.toContain('href="http');
   });
-
   it('renders the data the snapshot carries', () => {
-    const html = renderDashboardHtml(state());
+    const html = renderDashboard(state());
     expect(html).toContain('sampleapp');
     expect(html).toContain('SENTRY_AUTH_TOKEN');
     expect(html).toContain('30 MB');
     expect(html).toContain('>active<');
   });
-
   it('escapes a script-injection attempt in user-controlled strings', () => {
-    const html = renderDashboardHtml(
+    const html = renderDashboard(
       state({
         project: {
           providers: {
@@ -91,14 +88,13 @@ describe('renderDashboardHtml', () => {
         },
       }),
     );
-    // The raw injection never appears as live markup …
+    // The raw injection never appears as live markup ...
     expect(html).not.toContain('<script>alert(1)</script>');
-    // … it survives only in its escaped form.
+    // ... it survives only in its escaped form.
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
   });
-
   it("embeds the snapshot as valid JSON with `<` escaped so it can't break out of the script tag", () => {
-    const html = renderDashboardHtml(
+    const html = renderDashboard(
       state({
         project: {
           ...state().project,
@@ -108,13 +104,20 @@ describe('renderDashboardHtml', () => {
     );
     const json = embeddedJson(html);
     expect(json).not.toContain('</script>');
-    const parsed: DashboardState = JSON.parse(json.replace(/\\u003c/g, '<'));
-    expect(parsed.project.apps[0]?.name).toBe('a</script><b>');
-    expect(parsed.generatedAt).toBe(GENERATED_AT);
+    const EmbeddedDashboardSchema = Schema.Struct({
+      generatedAt: Schema.String,
+      project: Schema.Struct({
+        apps: Schema.Array(Schema.Struct({ name: Schema.String })),
+      }),
+    });
+    const embeddedDashboard = Schema.decodeUnknownSync(EmbeddedDashboardSchema)(
+      JSON.parse(json.replace(/\\u003c/g, '<')),
+    );
+    expect(embeddedDashboard.project.apps[0]?.name).toBe('a</script><b>');
+    expect(embeddedDashboard.generatedAt).toBe(GENERATED_AT);
   });
-
   it("shows muted empty notes when there's nothing to list", () => {
-    const html = renderDashboardHtml(
+    const html = renderDashboard(
       state({
         project: { providers: state().project.providers, profiles: [], apps: [] },
         accounts: [],
@@ -128,9 +131,8 @@ describe('renderDashboardHtml', () => {
     expect(html).toContain('No build secrets stored.');
     expect(html).toContain('No remote host allocated.');
   });
-
   it('renders the live cloud host when one is allocated', () => {
-    const html = renderDashboardHtml(
+    const html = renderDashboard(
       state({
         cloudHost: {
           provider: 'aws-ec2-mac',

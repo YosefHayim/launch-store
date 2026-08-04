@@ -1,156 +1,181 @@
-/**
- * The `s3` storage provider — one S3-compatible adapter covering AWS S3, Cloudflare R2, Backblaze B2,
- * and self-hosted MinIO (whichever the `endpoint`/`region` in `storageConfig` points at).
- *
- * It backs two needs at once: the build-artifact history ({@link StorageProvider.put}/`list`/`url`,
- * with a small `artifacts/index.json` object standing in for the local index) and the raw keyed
- * objects ad-hoc install links + OTA manifests upload ({@link StorageProvider.putObject}/`publicUrl`).
- * Files are served from {@link StorageConfig.publicBaseUrl} (an R2 custom domain, a CloudFront dist,
- * etc.), so the user owns the hosting — Launch never runs a server (the locked "BYO bucket" decision).
- *
- * Why `@aws-sdk/client-s3` (optional, lazy): SigV4 request signing can't be done with plain `fetch`,
- * and the v3 client speaks to every S3-compatible backend via one `endpoint`/`forcePathStyle` switch.
- * It's an optional dependency, dynamic-imported here so a `local`-storage install never pulls it.
- * Credentials resolve from env vars or the OS secret store (never from committed config); with neither
- * set and no custom endpoint, the AWS default credential chain applies (the plain-AWS-S3 case).
- */
+// S3-compatible artifact storage. The SDK stays lazy until this provider is selected.
 
-import { readFileSync } from 'node:fs';
-import { extname } from 'node:path';
-import type {
-  BuildArtifact,
-  StorageConfig,
-  StorageProvider,
-  StoredArtifact,
-} from '../../core/types/index.js';
-import { requireOptional } from '../../core/services/optionalDep.js';
-import { getSecret } from '../../core/credentials/keychain.js';
+import { FileSystem, Path } from '@effect/platform';
+import { Effect, Redacted, Schema } from 'effect';
+import { LaunchEnvironment } from '@core/services/environment.js';
+import { requireOptional } from '@core/services/optionalDep.js';
+import { LaunchSecretStore } from '@core/services/secretStore.js';
+import {
+  ArtifactIndexSchema,
+  type BuildArtifact,
+  type StoredArtifact,
+} from '@core/types/artifacts.js';
+import type { StorageConfig } from '@core/types/config.js';
+import {
+  makeProviderInputFailure,
+  type StorageProvider,
+  type StorageProviderResolver,
+} from '@core/types/providers.js';
 
-/** The optional AWS S3 SDK module shape; type-only so the import stays erased + lazy. */
 type S3Module = typeof import('@aws-sdk/client-s3');
 type S3Client = InstanceType<S3Module['S3Client']>;
+type S3ClientOptions = ConstructorParameters<S3Module['S3Client']>[0];
 
-const INSTALL_HINT = 'npm install @aws-sdk/client-s3';
-/** Object key under which the build-artifact history index is kept, mirroring the local `index.json`. */
-const INDEX_KEY = 'artifacts/index.json';
+const INSTALL_HINT = 'pnpm add @aws-sdk/client-s3';
+const INDEX_OBJECT_KEY = 'artifacts/index.json';
 
-/** Lazy-load the S3 client module with an actionable hint when the optional package is absent. */
-const loadS3 = (): Promise<S3Module> =>
-  requireOptional(
-    'Cloud artifact storage (S3/R2/B2)',
-    INSTALL_HINT,
-    () => import('@aws-sdk/client-s3'),
+const loadS3Module = () =>
+  requireOptional('Cloud artifact storage (S3/R2/B2)', INSTALL_HINT, () =>
+    Effect.tryPromise(() => import('@aws-sdk/client-s3')),
   );
 
-/**
- * Resolve S3 credentials: explicit env vars first, then the OS secret store. Returns null when neither
- * is set — fine for plain AWS S3 (the SDK falls back to its default chain), but an explicit endpoint
- * (R2/B2/MinIO) has no such chain, so a null there surfaces as the SDK's own "no credentials" error.
- */
-async function resolveCredentials(): Promise<{
-  accessKeyId: string;
-  secretAccessKey: string;
-} | null> {
-  const accessKeyId =
-    process.env['LAUNCH_S3_ACCESS_KEY_ID'] ?? (await getSecret('storage-s3-access-key-id'));
-  const secretAccessKey =
-    process.env['LAUNCH_S3_SECRET_ACCESS_KEY'] ?? (await getSecret('storage-s3-secret-access-key'));
-  return accessKeyId && secretAccessKey ? { accessKeyId, secretAccessKey } : null;
-}
+const resolveS3Credentials = Effect.gen(function* () {
+  const environment = yield* LaunchEnvironment;
+  const secretStore = yield* LaunchSecretStore;
+  let accessKeyId = yield* secretStore.readSecret('storage-s3-access-key-id');
+  let secretAccessKey = yield* secretStore.readSecret('storage-s3-secret-access-key');
 
-/** Build a configured S3 client for the target bucket's endpoint/region, resolving credentials lazily. */
-async function makeClient(config: StorageConfig): Promise<{ s3: S3Module; client: S3Client }> {
-  const s3 = await loadS3();
-  const credentials = await resolveCredentials();
-  const client = new s3.S3Client({
-    region: config.region ?? 'auto',
-    ...(config.endpoint ? { endpoint: config.endpoint, forcePathStyle: true } : {}),
-    ...(credentials ? { credentials } : {}),
-  });
-  return { s3, client };
-}
-
-/** Join the public base URL and an object key into a clean, single-slash URL. */
-function joinUrl(base: string, key: string): string {
-  return `${base.replace(/\/+$/, '')}/${key.replace(/^\/+/, '')}`;
-}
-
-/**
- * Construct an S3-compatible {@link StorageProvider} bound to one bucket. A factory (not a singleton)
- * because it captures the per-project {@link StorageConfig}; `core/storage.ts` builds it from config.
- */
-export function createS3StorageProvider(config: StorageConfig): StorageProvider {
-  const publicUrl = (key: string): string => joinUrl(config.publicBaseUrl, key);
-
-  /** Upload bytes to a key, then return its public location. */
-  async function upload(
-    key: string,
-    body: Buffer | string,
-    contentType: string,
-  ): Promise<StoredArtifact> {
-    const { s3, client } = await makeClient(config);
-    await client.send(
-      new s3.PutObjectCommand({
-        Bucket: config.bucket,
-        Key: key,
-        Body: body,
-        ContentType: contentType,
-      }),
-    );
-    return { id: key, location: publicUrl(key) };
+  if (environment.values.s3AccessKeyId !== undefined) {
+    accessKeyId = Redacted.value(environment.values.s3AccessKeyId);
   }
+  if (environment.values.s3SecretAccessKey !== undefined) {
+    secretAccessKey = Redacted.value(environment.values.s3SecretAccessKey);
+  }
+  if (accessKeyId === null) return null;
+  if (accessKeyId === '') return null;
+  if (secretAccessKey === null) return null;
+  if (secretAccessKey === '') return null;
+  return { accessKeyId, secretAccessKey };
+});
 
-  /** Read the artifact index object, tolerating a not-yet-created (404) index. */
-  async function readIndex(): Promise<BuildArtifact[]> {
-    const { s3, client } = await makeClient(config);
-    try {
-      const response = await client.send(
-        new s3.GetObjectCommand({ Bucket: config.bucket, Key: INDEX_KEY }),
-      );
-      const text = await response.Body?.transformToString();
-      return text ? (JSON.parse(text) as BuildArtifact[]) : [];
-    } catch {
-      return [];
+const joinPublicUrl = (publicBaseUrl: string, objectKey: string): string =>
+  `${publicBaseUrl.replace(/\/+$/, '')}/${objectKey.replace(/^\/+/, '')}`;
+
+/** Acquire S3, secret-store, filesystem, and path services for one configured bucket. */
+export const makeS3StorageProvider = (storageConfig: StorageConfig) =>
+  Effect.gen(function* () {
+    const s3Module = yield* loadS3Module();
+    const credentials = yield* resolveS3Credentials;
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    let region = storageConfig.region;
+    if (region === undefined) region = 'auto';
+    const clientOptions: S3ClientOptions = { region };
+    if (storageConfig.endpoint !== undefined) {
+      clientOptions.endpoint = storageConfig.endpoint;
+      clientOptions.forcePathStyle = true;
     }
-  }
+    if (credentials !== null) clientOptions.credentials = credentials;
+    const s3Client: S3Client = new s3Module.S3Client(clientOptions);
+    const publicUrl = (objectKey: string): string =>
+      joinPublicUrl(storageConfig.publicBaseUrl, objectKey);
 
-  return {
-    name: 's3',
+    const upload = (
+      objectKey: string,
+      objectContents: Buffer | string,
+      contentType: string,
+    ): Effect.Effect<StoredArtifact, unknown> =>
+      Effect.tryPromise(() =>
+        s3Client.send(
+          new s3Module.PutObjectCommand({
+            Bucket: storageConfig.bucket,
+            Key: objectKey,
+            Body: objectContents,
+            ContentType: contentType,
+          }),
+        ),
+      ).pipe(Effect.as({ id: objectKey, location: publicUrl(objectKey) }));
 
-    async put(artifact: BuildArtifact): Promise<StoredArtifact> {
-      const key = `artifacts/${artifact.appName}-${artifact.version}-${artifact.buildNumber}-${artifact.platform}${extname(artifact.path)}`;
-      const stored = await upload(key, readFileSync(artifact.path), 'application/octet-stream');
-      const index = await readIndex();
-      index.unshift({ ...artifact, path: stored.location });
-      await upload(INDEX_KEY, JSON.stringify(index, null, 2), 'application/json');
-      return stored;
-    },
+    const readIndex = (): Effect.Effect<BuildArtifact[], never> =>
+      Effect.tryPromise(() =>
+        s3Client.send(
+          new s3Module.GetObjectCommand({
+            Bucket: storageConfig.bucket,
+            Key: INDEX_OBJECT_KEY,
+          }),
+        ),
+      ).pipe(
+        Effect.flatMap((indexReply) => {
+          const indexObjectStream = indexReply.Body;
+          if (indexObjectStream === undefined) return Effect.succeed([]);
+          return Effect.tryPromise(() => indexObjectStream.transformToString()).pipe(
+            Effect.flatMap((indexText) => {
+              if (indexText === '') return Effect.succeed([]);
+              return Schema.decodeUnknown(Schema.parseJson(ArtifactIndexSchema))(indexText);
+            }),
+          );
+        }),
+        Effect.catchAll(() => Effect.succeed([])),
+      );
 
-    list(): Promise<BuildArtifact[]> {
-      return readIndex();
-    },
+    const storageProvider: StorageProvider = {
+      name: 's3',
+      put: (artifact: BuildArtifact) =>
+        Effect.gen(function* () {
+          const objectKey = `artifacts/${artifact.appName}-${artifact.version}-${artifact.buildNumber}-${artifact.platform}${pathService.extname(artifact.path)}`;
+          const artifactBytes = yield* fileSystem.readFile(artifact.path);
+          const uploadedArtifact = yield* upload(
+            objectKey,
+            Buffer.from(artifactBytes),
+            'application/octet-stream',
+          );
+          const artifactIndex = yield* readIndex();
+          artifactIndex.unshift({ ...artifact, path: uploadedArtifact.location });
+          yield* upload(
+            INDEX_OBJECT_KEY,
+            JSON.stringify(artifactIndex, null, 2),
+            'application/json',
+          );
+          return uploadedArtifact;
+        }),
+      list: readIndex,
+      url: (artifactId: string) => {
+        let objectKey = artifactId;
+        if (!objectKey.startsWith('artifacts/')) objectKey = `artifacts/${objectKey}`;
+        return Effect.succeed(publicUrl(objectKey));
+      },
+      putObject: upload,
+      getObject: (objectKey: string) =>
+        Effect.tryPromise(() =>
+          s3Client.send(
+            new s3Module.GetObjectCommand({ Bucket: storageConfig.bucket, Key: objectKey }),
+          ),
+        ).pipe(
+          Effect.flatMap((objectReply) => {
+            const objectStream = objectReply.Body;
+            if (objectStream === undefined) return Effect.succeed(null);
+            return Effect.tryPromise(() => objectStream.transformToByteArray()).pipe(
+              Effect.map((objectBytes) => Buffer.from(objectBytes)),
+            );
+          }),
+          Effect.catchAll(() => Effect.succeed(null)),
+        ),
+      publicUrl,
+    };
+    return storageProvider;
+  });
 
-    async url(id: string): Promise<string> {
-      return publicUrl(id.startsWith('artifacts/') ? id : `artifacts/${id}`);
-    },
+type S3StorageRequirements = Effect.Effect.Context<ReturnType<typeof makeS3StorageProvider>>;
 
-    putObject(key: string, body: Buffer | string, contentType: string): Promise<StoredArtifact> {
-      return upload(key, body, contentType);
-    },
-
-    async getObject(key: string): Promise<Buffer | null> {
-      const { s3, client } = await makeClient(config);
-      try {
-        const response = await client.send(
-          new s3.GetObjectCommand({ Bucket: config.bucket, Key: key }),
+/** Capture shared services once and defer S3 client creation until this provider is selected. */
+export const makeS3StorageProviderResolver = () =>
+  Effect.gen(function* () {
+    const providerServices = yield* Effect.context<S3StorageRequirements>();
+    return {
+      name: 's3',
+      resolveStorageProvider: (providerOptions) => {
+        if (providerOptions.storageConfig === undefined) {
+          return Effect.fail(
+            makeProviderInputFailure({
+              provider: 's3',
+              message:
+                'Storage "s3" needs a storageConfig block in launch.config.ts (bucket + publicBaseUrl).',
+            }),
+          );
+        }
+        return makeS3StorageProvider(providerOptions.storageConfig).pipe(
+          Effect.provide(providerServices),
         );
-        const bytes = await response.Body?.transformToByteArray();
-        return bytes ? Buffer.from(bytes) : null;
-      } catch {
-        return null;
-      }
-    },
-
-    publicUrl,
-  };
-}
+      },
+    } satisfies StorageProviderResolver;
+  });

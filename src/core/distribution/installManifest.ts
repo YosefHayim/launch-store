@@ -1,42 +1,27 @@
-/**
- * Generators for the static files an internal (ad-hoc) install link needs.
- *
- * iOS over-the-air installs are driven by an `itms-services://` URL that points at a "manifest" plist
- * describing the `.ipa` to fetch; Android just downloads the `.apk` directly. Both get a small landing
- * page so a tester opens one link and taps Install. These are pure string builders — the distribute
- * pipeline uploads whatever they return to the user's bucket; nothing here touches the network.
- */
-
 import { isApplePlatform } from '../services/platform.js';
-import type { Platform } from '../types/index.js';
-
+import type { Platform } from '../types/app.js';
 /** Escape the five XML special characters so app titles/ids can't break the plist or the HTML. */
-function escapeXml(value: string): string {
-  return value
+const escapeXml = (xmlText: string): string => {
+  return xmlText
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
-}
-
+};
 /** Inputs for the iOS install manifest plist. */
-export interface IosManifestOptions {
-  /** Public URL of the uploaded `.ipa`. */
+export type IosManifestOptions = {
   ipaUrl: string;
   bundleId: string;
-  /** Marketing version shown during install, e.g. `1.0.0`. */
   version: string;
-  /** Display name shown in the install sheet. */
   title: string;
-}
-
+};
 /**
- * Build the iOS OTA-install manifest plist (the document an `itms-services://…&url=` link fetches).
- * iOS requires this exact `items → assets[kind=software-package] + metadata` shape to install an
+ * Build the iOS OTA-install manifest plist (the document an `itms-services://...&url=` link fetches).
+ * iOS requires this exact `items -> assets[kind=software-package] + metadata` shape to install an
  * ad-hoc `.ipa` straight from a web link.
  */
-export function iosInstallManifestPlist(options: IosManifestOptions): string {
+export const iosInstallManifestPlist = (options: IosManifestOptions): string => {
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
@@ -54,44 +39,39 @@ export function iosInstallManifestPlist(options: IosManifestOptions): string {
     '</dict></dict></array>',
     '</dict></plist>',
   ].join('\n');
-}
-
+};
 /**
  * Wrap a manifest URL in the `itms-services://` scheme iOS recognizes as "install this app". The
  * manifest URL must be HTTPS and is URL-encoded so its query string survives intact.
  */
-export function itmsServicesUrl(manifestUrl: string): string {
+export const itmsServicesUrl = (manifestUrl: string): string => {
   return `itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}`;
-}
-
+};
 /** Inputs for the install landing page. */
-export interface LandingPageOptions {
+export type LandingPageOptions = {
   title: string;
   version: string;
   buildNumber: number;
   platform: Platform;
-  /** The tap-to-install target: an `itms-services://` URL (iOS/tvOS/visionOS) or the direct artifact URL (Android `.apk`, macOS `.pkg`/`.app`/`.dmg`). */
   installUrl: string;
-}
-
+};
 /** The platform-specific footnote under the Install button (device registration vs Gatekeeper vs unknown-sources). */
-function installNote(platform: Platform): string {
+const installNote = (platform: Platform): string => {
   if (platform === 'macos') {
-    return '<p>macOS: if Gatekeeper blocks the app, right-click it and choose Open, or allow it in System Settings → Privacy &amp; Security.</p>';
+    return '<p>macOS: if Gatekeeper blocks the app, right-click it and choose Open, or allow it in System Settings -> Privacy &amp; Security.</p>';
   }
   if (isApplePlatform(platform)) {
-    return '<p>Apple: your device must be registered for this build. After installing, trust the developer in Settings → General → VPN &amp; Device Management.</p>';
+    return '<p>Apple: your device must be registered for this build. After installing, trust the developer in Settings -> General -> VPN &amp; Device Management.</p>';
   }
   return '<p>Android: you may need to allow installs from this browser/source.</p>';
-}
-
+};
 /**
  * Build the tester-facing install landing page: app name, version/build, and one Install button
  * wired to {@link LandingPageOptions.installUrl}. iOS/tvOS/visionOS also get the standard reminder that
  * ad-hoc installs only work on a device whose UDID is registered on the profile; macOS gets the Gatekeeper
  * note.
  */
-export function installLandingPage(options: LandingPageOptions): string {
+export const installLandingPage = (options: LandingPageOptions): string => {
   const note = installNote(options.platform);
   return [
     '<!doctype html>',
@@ -107,4 +87,4 @@ export function installLandingPage(options: LandingPageOptions): string {
     note,
     '</body></html>',
   ].join('\n');
-}
+};

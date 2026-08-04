@@ -1,98 +1,97 @@
-/**
- * The `local` storage provider — v1's only artifact backend.
- *
- * Copies each built artifact into a base directory (the global `~/.launch/artifacts` by default, or a
- * project-local dir when `artifactDir` is set) and records it in a newest-first JSON index, giving you a
- * local build history with retrievable paths. It's deliberately shaped after the S3 object-store model
- * ({@link StorageProvider}: put/list/url) so an R2/S3/Supabase provider is a thin drop-in later — the
- * pipeline calls these methods regardless of where bytes land.
- *
- * A factory (not a singleton) because the base directory is per-project: `core/storage.ts` resolves
- * `artifactDir` and builds the provider bound to it, mirroring the `s3` factory. The history index stays
- * GLOBAL (`~/.launch/artifacts/index.json`, absolute paths) — read/written via
- * {@link import("../../core/build/artifactRetention.js")}, shared with the retention sweep so both agree on the
- * on-disk format — so `dashboard`/list/retention work across projects no matter where the binaries land.
- * `prune` here is the only provider that implements it (cloud stores trim via their own bucket lifecycle).
- */
+// Stores build artifacts and distribution objects on the local filesystem.
 
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { FileSystem, Path } from '@effect/platform';
+import { Effect } from 'effect';
 import { pathToFileURL } from 'node:url';
-import { basename, dirname, extname, join } from 'node:path';
-import type {
-  BuildArtifact,
-  PruneOptions,
-  PruneResult,
-  StorageProvider,
-  StoredArtifact,
-} from '../../core/types/index.js';
-import { ARTIFACTS_DIR, ensureDir } from '../../core/services/paths.js';
+import { ArtifactRetention } from '@core/services/artifactRetention.js';
+import { resolveArtifactsDirectory } from '@core/services/paths.js';
+import type { BuildArtifact, PruneOptions } from '@core/types/artifacts.js';
 import {
-  readArtifactIndex,
-  runArtifactPrune,
-  writeArtifactIndex,
-} from '../../core/build/artifactRetention.js';
+  makeProviderInputFailure,
+  type StorageProvider,
+  type StorageProviderResolver,
+} from '@core/types/providers.js';
 
-/**
- * Build a `local` {@link StorageProvider} that writes binaries (and raw objects under `<baseDir>/objects`)
- * into `baseDir`. Defaults to the global {@link ARTIFACTS_DIR} so the registered built-in and any
- * unconfigured run behave exactly as before; `core/storage.ts` passes a resolved `artifactDir` to relocate
- * the bytes into the project. The index is global regardless, so `list`/`prune` are unaffected by `baseDir`.
- */
-export function createLocalStorageProvider(baseDir: string = ARTIFACTS_DIR): StorageProvider {
-  const objectsDir = join(baseDir, 'objects');
-  /** Resolve a forward-slash object key to an absolute path under this provider's objects dir. */
-  const objectPath = (key: string): string => join(objectsDir, ...key.split('/'));
+/** Acquire filesystem services once and return a leaf-like local storage provider. */
+export const makeLocalStorageProvider = (directoryOverride?: string) =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const artifactRetention = yield* ArtifactRetention;
+    let baseDirectory = directoryOverride;
+    if (baseDirectory === undefined) baseDirectory = yield* resolveArtifactsDirectory();
+    const objectsDirectory = pathService.join(baseDirectory, 'objects');
+    const artifactIndexPath = pathService.join(baseDirectory, 'index.json');
+    const readIndex = () => artifactRetention.readIndex(artifactIndexPath);
+    const writeIndex = (artifactIndex: BuildArtifact[]) =>
+      artifactRetention.writeIndex(artifactIndex, artifactIndexPath);
+    const objectPath = (objectKey: string): string =>
+      pathService.join(objectsDirectory, ...objectKey.split('/'));
 
-  return {
-    name: 'local',
+    const storageProvider: StorageProvider = {
+      name: 'local',
+      put: (artifact: BuildArtifact) =>
+        Effect.gen(function* () {
+          yield* fileSystem.makeDirectory(baseDirectory, { recursive: true });
+          const artifactId = `${artifact.appName}-${artifact.version}-${artifact.buildNumber}-${artifact.platform}${pathService.extname(artifact.path)}`;
+          const destination = pathService.join(baseDirectory, artifactId);
+          yield* fileSystem.copy(artifact.path, destination);
+          const artifactIndex = yield* readIndex();
+          artifactIndex.unshift({ ...artifact, path: destination });
+          yield* writeIndex(artifactIndex);
+          return { id: artifactId, location: destination };
+        }),
+      list: readIndex,
+      prune: (pruneOptions: PruneOptions) =>
+        artifactRetention.prune({ ...pruneOptions, indexPath: artifactIndexPath }),
+      url: (artifactId: string) => {
+        const artifactPath = pathService.join(baseDirectory, pathService.basename(artifactId));
+        return fileSystem.exists(artifactPath).pipe(
+          Effect.flatMap((artifactExists) => {
+            if (artifactExists) return Effect.succeed(artifactPath);
+            return Effect.fail(
+              makeProviderInputFailure({
+                provider: 'local-storage',
+                message: `No stored artifact with id "${artifactId}".`,
+              }),
+            );
+          }),
+        );
+      },
+      putObject: (objectKey: string, objectContents: Buffer | string, _contentType: string) =>
+        Effect.gen(function* () {
+          const destination = objectPath(objectKey);
+          yield* fileSystem.makeDirectory(pathService.dirname(destination), { recursive: true });
+          if (typeof objectContents === 'string') {
+            yield* fileSystem.writeFileString(destination, objectContents);
+          } else {
+            yield* fileSystem.writeFile(destination, objectContents);
+          }
+          return { id: objectKey, location: pathToFileURL(destination).href };
+        }),
+      getObject: (objectKey: string) => {
+        const objectFilePath = objectPath(objectKey);
+        return fileSystem.readFile(objectFilePath).pipe(
+          Effect.map((fileBytes) => Buffer.from(fileBytes)),
+          Effect.catchAll(() => Effect.succeed(null)),
+        );
+      },
+      publicUrl: (objectKey: string): string => pathToFileURL(objectPath(objectKey)).href,
+    };
+    return storageProvider;
+  });
 
-    async put(artifact: BuildArtifact): Promise<StoredArtifact> {
-      ensureDir(baseDir);
-      const id = `${artifact.appName}-${artifact.version}-${artifact.buildNumber}-${artifact.platform}${extname(artifact.path)}`;
-      const dest = join(baseDir, id);
-      copyFileSync(artifact.path, dest);
-      const index = readArtifactIndex();
-      index.unshift({ ...artifact, path: dest });
-      writeArtifactIndex(index);
-      return { id, location: dest };
-    },
+type LocalStorageRequirements = Effect.Effect.Context<ReturnType<typeof makeLocalStorageProvider>>;
 
-    async list(): Promise<BuildArtifact[]> {
-      return readArtifactIndex();
-    },
-
-    /** Trim binaries older than the window, keeping the newest per app+platform. See {@link runArtifactPrune}. */
-    async prune(options: PruneOptions): Promise<PruneResult> {
-      return runArtifactPrune(options);
-    },
-
-    async url(id: string): Promise<string> {
-      const path = join(baseDir, basename(id));
-      if (!existsSync(path)) throw new Error(`No stored artifact with id "${id}".`);
-      return path;
-    },
-
-    async putObject(
-      key: string,
-      body: Buffer | string,
-      _contentType: string,
-    ): Promise<StoredArtifact> {
-      const dest = objectPath(key);
-      ensureDir(dirname(dest));
-      writeFileSync(dest, body);
-      return { id: key, location: pathToFileURL(dest).href };
-    },
-
-    async getObject(key: string): Promise<Buffer | null> {
-      const path = objectPath(key);
-      return existsSync(path) ? readFileSync(path) : null;
-    },
-
-    publicUrl(key: string): string {
-      return pathToFileURL(objectPath(key)).href;
-    },
-  };
-}
-
-/** The default-dir (`~/.launch/artifacts`) local provider registered as a built-in for name-based lookup. */
-export const localStorageProvider: StorageProvider = createLocalStorageProvider();
+/** Capture shared services once and defer local-provider configuration until selection. */
+export const makeLocalStorageProviderResolver = () =>
+  Effect.gen(function* () {
+    const providerServices = yield* Effect.context<LocalStorageRequirements>();
+    return {
+      name: 'local',
+      resolveStorageProvider: (providerOptions) =>
+        makeLocalStorageProvider(providerOptions.artifactDirectory).pipe(
+          Effect.provide(providerServices),
+        ),
+    } satisfies StorageProviderResolver;
+  });

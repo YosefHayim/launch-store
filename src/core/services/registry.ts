@@ -1,72 +1,77 @@
-/**
- * The provider registry — Launch's tiny dependency-injection seam.
- *
- * Built-in providers register themselves here at startup; the pipeline then looks one up by the
- * name in `launch.config.ts`. Adding a backend is "implement an interface + call `register*`",
- * with no change to the pipeline. Cloud-heavy providers can be registered lazily so a local-only
- * install never imports their SDKs.
- */
-
 import type {
   BuildEngine,
   ComputeHost,
   CredentialsProvider,
+  HostedBuildProvider,
   StorageProvider,
+  StorageProviderResolver,
   Submitter,
-} from '../types/index.js';
-
+} from '../types/providers.js';
+import { Data, Effect } from 'effect';
 const credentialsProviders = new Map<string, CredentialsProvider>();
 const buildEngines = new Map<string, BuildEngine>();
+const hostedBuildProviders = new Map<string, HostedBuildProvider>();
 const storageProviders = new Map<string, StorageProvider>();
+const storageProviderResolvers = new Map<string, StorageProviderResolver>();
 const submitters = new Map<string, Submitter>();
 const computeHosts = new Map<string, ComputeHost>();
-
 /** Register a credentials provider under its `name`. */
-export function registerCredentialsProvider(provider: CredentialsProvider): void {
+export const registerCredentialsProvider = (provider: CredentialsProvider): void => {
   credentialsProviders.set(provider.name, provider);
-}
-
+};
 /** Register a build engine under its `name`. */
-export function registerBuildEngine(engine: BuildEngine): void {
+export const registerBuildEngine = (engine: BuildEngine): void => {
   buildEngines.set(engine.name, engine);
-}
-
+};
+/** Register a hosted build provider under its `name`. */
+export const registerHostedBuildProvider = (provider: HostedBuildProvider): void => {
+  hostedBuildProviders.set(provider.name, provider);
+};
 /** Register a storage provider under its `name`. */
-export function registerStorageProvider(provider: StorageProvider): void {
+export const registerStorageProvider = (provider: StorageProvider): void => {
   storageProviders.set(provider.name, provider);
-}
-
+};
+/** Register a configured storage-provider resolver under its `name`. */
+export const registerStorageProviderResolver = (resolver: StorageProviderResolver): void => {
+  storageProviderResolvers.set(resolver.name, resolver);
+};
 /** Register a submitter under its `name`. */
-export function registerSubmitter(submitter: Submitter): void {
+export const registerSubmitter = (submitter: Submitter): void => {
   submitters.set(submitter.name, submitter);
-}
-
+};
 /** Register a compute host (remote-Mac provisioner) under its `name`. */
-export function registerComputeHost(host: ComputeHost): void {
+export const registerComputeHost = (host: ComputeHost): void => {
   computeHosts.set(host.name, host);
-}
-
+};
 /** Look up a registered provider, throwing a clear error listing the available names if missing. */
-function lookup<T>(kind: string, name: string, registry: Map<string, T>): T {
+export type ProviderNotRegistered = Readonly<{
+  readonly _tag: 'ProviderNotRegistered';
+  readonly kind: string;
+  readonly name: string;
+  readonly available: readonly string[];
+}>;
+export const makeProviderNotRegistered =
+  Data.tagged<ProviderNotRegistered>('ProviderNotRegistered');
+const lookup = <T>(
+  kind: string,
+  name: string,
+  registry: Map<string, T>,
+): Effect.Effect<T, ProviderNotRegistered> => {
   const found = registry.get(name);
   if (!found) {
     const names = [...registry.keys()];
-    const available = names.length > 0 ? names.join(', ') : '(none registered)';
-    throw new Error(`Unknown ${kind} "${name}". Available: ${available}.`);
+    return Effect.fail(makeProviderNotRegistered({ kind, name, available: names }));
   }
-  return found;
-}
-
-export const getCredentialsProvider = (name: string): CredentialsProvider =>
+  return Effect.succeed(found);
+};
+export const getCredentialsProvider = (name: string) =>
   lookup('credentials provider', name, credentialsProviders);
-
-export const getBuildEngine = (name: string): BuildEngine =>
-  lookup('build engine', name, buildEngines);
-
-export const getStorageProvider = (name: string): StorageProvider =>
+export const getBuildEngine = (name: string) => lookup('build engine', name, buildEngines);
+export const getHostedBuildProvider = (name: string) =>
+  lookup('hosted build provider', name, hostedBuildProviders);
+export const getStorageProvider = (name: string) =>
   lookup('storage provider', name, storageProviders);
-
-export const getSubmitter = (name: string): Submitter => lookup('submitter', name, submitters);
-
-export const getComputeHost = (name: string): ComputeHost =>
-  lookup('compute host', name, computeHosts);
+export const getStorageProviderResolver = (name: string) =>
+  lookup('storage provider resolver', name, storageProviderResolvers);
+export const getSubmitter = (name: string) => lookup('submitter', name, submitters);
+export const getComputeHost = (name: string) => lookup('compute host', name, computeHosts);

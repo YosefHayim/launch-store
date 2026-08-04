@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { installLandingPage, iosInstallManifestPlist, itmsServicesUrl } from './installManifest.js';
-
 describe('iosInstallManifestPlist', () => {
   it('embeds the ipa url, bundle id, and version in the software-package shape iOS requires', () => {
     const plist = iosInstallManifestPlist({
@@ -14,7 +13,6 @@ describe('iosInstallManifestPlist', () => {
     expect(plist).toContain('<key>bundle-identifier</key><string>com.example.hello</string>');
     expect(plist).toContain('<key>bundle-version</key><string>1.2.0</string>');
   });
-
   it("escapes XML special characters in the title so it can't break the plist", () => {
     const plist = iosInstallManifestPlist({
       ipaUrl: 'u',
@@ -26,7 +24,6 @@ describe('iosInstallManifestPlist', () => {
     expect(plist).not.toContain('A & B <C>');
   });
 });
-
 describe('itmsServicesUrl', () => {
   it('wraps and URL-encodes the manifest URL', () => {
     expect(itmsServicesUrl('https://cdn.example.com/manifest.plist?v=1')).toBe(
@@ -34,7 +31,6 @@ describe('itmsServicesUrl', () => {
     );
   });
 });
-
 describe('installLandingPage', () => {
   it('wires the install button to the given install URL', () => {
     const page = installLandingPage({
@@ -48,7 +44,6 @@ describe('installLandingPage', () => {
     expect(page).toContain('Version 1.0.0 (build 7)');
     expect(page).toContain('Device Management');
   });
-
   it('links straight to the apk for Android', () => {
     const page = installLandingPage({
       title: 'Hello',

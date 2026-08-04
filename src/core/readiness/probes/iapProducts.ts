@@ -1,22 +1,12 @@
-/**
- * Probe: for each iOS app that declares one-time in-app purchases in `launch.config.ts`, does every declared
- * `productId` exist on App Store Connect **and** is it past `MISSING_METADATA`? A product the app references
- * at runtime but that doesn't exist (or was created and never completed) means the purchase fails in
- * production — the classic "the build is green but buying the thing crashes" gap. Read-only: it lists IAPs
- * via the same reader `launch sync` uses and grades each against {@link gradeDeclaredProduct}, one finding
- * per declared product. Tagged `submit` too, so an app selling IAP surfaces a broken product in `launch audit`.
- */
-
 import type {
   AppReadiness,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '../../types/index.js';
+} from '@core/types/readiness.js';
 import { Effect } from 'effect';
 import { iosApps } from '../appScopes.js';
 import { gradeDeclaredProduct } from './iapReadiness.js';
-
 /** The App Store Connect one-time in-app-purchase readiness probe. */
 export const iapProductsProbe = {
   id: 'apple-iap-products',
@@ -31,47 +21,39 @@ export const iapProductsProbe = {
    */
   check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
     return Effect.gen(function* () {
-      const apps = iosApps(readinessContext.apps).filter(
-        ({ identifier }) =>
-          (readinessContext.config.products?.[identifier]?.inAppPurchases?.length ?? 0) > 0,
-      );
-      if (apps.length === 0) return { state: 'omitted' };
-
-      const api = yield* Effect.tryPromise({
-        try: () => readinessContext.resolveAscApi(),
-        catch: (resolverFailure) => resolverFailure,
+      const apps = iosApps(readinessContext.apps).filter(({ identifier }) => {
+        const purchaseCount =
+          readinessContext.config.products?.[identifier]?.inAppPurchases?.length;
+        if (purchaseCount === undefined) return false;
+        return purchaseCount > 0;
       });
+      if (apps.length === 0) return { state: 'omitted' };
+      const api = yield* readinessContext.resolveAscApi();
       if (!api)
         return {
           state: 'skipped',
           reason: 'no active Apple account',
           hint: 'run `launch creds set-key`',
         };
-
       const nested = yield* Effect.forEach(
         apps,
         ({ name, identifier }): Effect.Effect<AppReadiness[], unknown> =>
           Effect.gen(function* () {
-            const declared = readinessContext.config.products?.[identifier]?.inAppPurchases ?? [];
-            const appId = yield* Effect.tryPromise({
-              try: () => api.getAppId(identifier),
-              catch: (apiFailure) => apiFailure,
-            });
+            let declared = readinessContext.config.products?.[identifier]?.inAppPurchases;
+            if (declared === undefined) declared = [];
+            const appId = yield* api.getAppId(identifier);
             if (!appId) {
               return [
                 {
                   app: name,
                   identifier,
                   status: 'warn',
-                  detail: "can't verify — no app record yet",
+                  detail: "can't verify - no app record yet",
                   hint: 'create the app record first (see the app-record check)',
                 },
               ];
             }
-            const livePurchases = yield* Effect.tryPromise({
-              try: () => api.listInAppPurchases(appId),
-              catch: (apiFailure) => apiFailure,
-            });
+            const livePurchases = yield* api.listInAppPurchases(appId);
             const liveByProductId = new Map(
               livePurchases.map((inAppPurchase) => [inAppPurchase.productId, inAppPurchase]),
             );

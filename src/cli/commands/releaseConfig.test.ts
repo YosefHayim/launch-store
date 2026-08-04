@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { renderAction } from './releaseConfig.js';
-
+import { renderAction } from '@core/release/releaseConfigCommand.js';
 describe('renderAction', () => {
-  it('marks a change with + and a skipped area with •', () => {
+  it('marks a change with + and a skipped area with -', () => {
     expect(
       renderAction({
         description: 'set categories (primary=GAMES)',
@@ -23,10 +22,9 @@ describe('renderAction', () => {
         destructive: false,
         status: 'skipped',
       }),
-    ).toBe('• App Review details: no editable App Store version');
+    ).toBe('- App Review details: no editable App Store version');
   });
-
-  it("renders a failed action with ✗ and Apple's error detail", () => {
+  it("renders a failed action with x and Apple's error detail", () => {
     expect(
       renderAction({
         description: 'set app price = 9.99 (USA)',
@@ -34,6 +32,6 @@ describe('renderAction', () => {
         status: 'failed',
         error: 'No USA app price point matches 9.99.',
       }),
-    ).toBe('✗ set app price = 9.99 (USA) — No USA app price point matches 9.99.');
+    ).toBe('x set app price = 9.99 (USA) - No USA app price point matches 9.99.');
   });
 });

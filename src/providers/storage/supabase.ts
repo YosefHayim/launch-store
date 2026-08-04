@@ -1,132 +1,196 @@
-/**
- * The `supabase` storage provider — uploads to a Supabase Storage bucket over its REST API.
- *
- * Deliberately dependency-free: Supabase Storage is a plain authenticated HTTP API, so this talks to
- * it with the built-in `fetch` rather than pulling `@supabase/storage-js`. That keeps the install lean
- * (the only cloud SDK Launch adds is `@aws-sdk/client-s3` for the SigV4-signed S3 path) and avoids a
- * dependency that would otherwise need lazy-loading anyway. Like the S3 provider it serves both the
- * build-artifact history and the raw keyed objects ad-hoc + OTA need, from the user's own project.
- *
- * Credentials: the service-role key resolves from `LAUNCH_SUPABASE_SERVICE_KEY` or the OS secret store
- * (`storage-supabase-service-key`) — never from committed config. The project URL is non-secret config.
- */
+// Supabase artifact storage through its HTTP object API.
 
-import { readFileSync } from 'node:fs';
-import { extname } from 'node:path';
-import type {
-  BuildArtifact,
-  StorageConfig,
-  StorageProvider,
-  StoredArtifact,
-} from '../../core/types/index.js';
-import { getSecret } from '../../core/credentials/keychain.js';
+import { FileSystem, HttpClient, HttpClientRequest, Path } from '@effect/platform';
+import { Effect, Redacted, Schema } from 'effect';
+import { LaunchEnvironment } from '@core/services/environment.js';
+import { LaunchSecretStore } from '@core/services/secretStore.js';
+import {
+  ArtifactIndexSchema,
+  type BuildArtifact,
+  type StoredArtifact,
+} from '@core/types/artifacts.js';
+import type { StorageConfig } from '@core/types/config.js';
+import {
+  makeProviderInputFailure,
+  type StorageProvider,
+  type StorageProviderResolver,
+} from '@core/types/providers.js';
 
-/** Object key under which the build-artifact history index is kept, mirroring the local `index.json`. */
-const INDEX_KEY = 'artifacts/index.json';
+const INDEX_OBJECT_KEY = 'artifacts/index.json';
 
-/** Resolve the Supabase service-role key from env or the OS secret store, failing with an actionable message. */
-async function resolveServiceKey(): Promise<string> {
-  const key =
-    process.env['LAUNCH_SUPABASE_SERVICE_KEY'] ?? (await getSecret('storage-supabase-service-key'));
-  if (!key) {
-    throw new Error(
-      'No Supabase service key found. Set LAUNCH_SUPABASE_SERVICE_KEY or store it with `launch creds` ' +
-        '(account: storage-supabase-service-key).',
+const resolveServiceKey = Effect.gen(function* () {
+  const environment = yield* LaunchEnvironment;
+  const secretStore = yield* LaunchSecretStore;
+  let serviceKey = yield* secretStore.readSecret('storage-supabase-service-key');
+  if (environment.values.supabaseServiceKey !== undefined) {
+    serviceKey = Redacted.value(environment.values.supabaseServiceKey);
+  }
+  if (serviceKey === null) {
+    return yield* Effect.fail(
+      makeProviderInputFailure({
+        provider: 'supabase-storage',
+        message:
+          'No Supabase service key found. Set LAUNCH_SUPABASE_SERVICE_KEY or store account storage-supabase-service-key with `launch creds`.',
+      }),
     );
   }
-  return key;
-}
-
-/** Join two URL parts into a clean, single-slash URL. */
-function joinUrl(base: string, key: string): string {
-  return `${base.replace(/\/+$/, '')}/${key.replace(/^\/+/, '')}`;
-}
-
-/**
- * Construct a Supabase Storage {@link StorageProvider} bound to one project + bucket. A factory (not a
- * singleton) because it captures the per-project {@link StorageConfig}; `core/storage.ts` builds it.
- */
-export function createSupabaseStorageProvider(config: StorageConfig): StorageProvider {
-  const projectUrl = config.supabaseUrl;
-  if (!projectUrl)
-    throw new Error(
-      'The "supabase" storage provider needs `storageConfig.supabaseUrl` in launch.config.ts.',
+  if (serviceKey === '') {
+    return yield* Effect.fail(
+      makeProviderInputFailure({
+        provider: 'supabase-storage',
+        message:
+          'No Supabase service key found. Set LAUNCH_SUPABASE_SERVICE_KEY or store account storage-supabase-service-key with `launch creds`.',
+      }),
     );
-  /** REST endpoint for an object at `key` within the configured bucket. */
-  const objectEndpoint = (key: string): string =>
-    `${projectUrl.replace(/\/+$/, '')}/storage/v1/object/${config.bucket}/${key}`;
-  const publicUrl = (key: string): string => joinUrl(config.publicBaseUrl, key);
+  }
+  return serviceKey;
+});
 
-  /** Upload bytes to a key (upsert), then return its public location. */
-  async function upload(
-    key: string,
-    body: Buffer | string,
-    contentType: string,
-  ): Promise<StoredArtifact> {
-    const serviceKey = await resolveServiceKey();
-    const response = await fetch(objectEndpoint(key), {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${serviceKey}`,
-        'Content-Type': contentType,
-        'x-upsert': 'true',
-      },
-      body,
-    });
-    if (!response.ok) {
-      throw new Error(
-        `Supabase upload of ${key} failed (${response.status}): ${await response.text()}`,
+const joinPublicUrl = (publicBaseUrl: string, objectKey: string): string =>
+  `${publicBaseUrl.replace(/\/+$/, '')}/${objectKey.replace(/^\/+/, '')}`;
+
+/** Acquire HTTP, secret-store, filesystem, and path services for one Supabase bucket. */
+export const makeSupabaseStorageProvider = (storageConfig: StorageConfig) =>
+  Effect.gen(function* () {
+    if (storageConfig.supabaseUrl === undefined) {
+      return yield* Effect.fail(
+        makeProviderInputFailure({
+          provider: 'supabase-storage',
+          message:
+            'The "supabase" storage provider needs storageConfig.supabaseUrl in launch.config.ts.',
+        }),
       );
     }
-    return { id: key, location: publicUrl(key) };
-  }
+    type ServiceKeyRequirements = Effect.Effect.Context<typeof resolveServiceKey>;
+    const secretServices = yield* Effect.context<ServiceKeyRequirements>();
+    const readServiceKey = () => resolveServiceKey.pipe(Effect.provide(secretServices));
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const httpClient = yield* HttpClient.HttpClient;
+    const projectUrl = storageConfig.supabaseUrl;
+    const objectEndpoint = (objectKey: string): string =>
+      `${projectUrl.replace(/\/+$/, '')}/storage/v1/object/${storageConfig.bucket}/${objectKey}`;
+    const publicUrl = (objectKey: string): string =>
+      joinPublicUrl(storageConfig.publicBaseUrl, objectKey);
 
-  /** Read the artifact index object, tolerating a not-yet-created index. */
-  async function readIndex(): Promise<BuildArtifact[]> {
-    const serviceKey = await resolveServiceKey();
-    const response = await fetch(objectEndpoint(INDEX_KEY), {
-      headers: { Authorization: `Bearer ${serviceKey}` },
-    });
-    if (!response.ok) return [];
-    try {
-      return JSON.parse(await response.text()) as BuildArtifact[];
-    } catch {
-      return [];
-    }
-  }
-
-  return {
-    name: 'supabase',
-
-    async put(artifact: BuildArtifact): Promise<StoredArtifact> {
-      const key = `artifacts/${artifact.appName}-${artifact.version}-${artifact.buildNumber}-${artifact.platform}${extname(artifact.path)}`;
-      const stored = await upload(key, readFileSync(artifact.path), 'application/octet-stream');
-      const index = await readIndex();
-      index.unshift({ ...artifact, path: stored.location });
-      await upload(INDEX_KEY, JSON.stringify(index, null, 2), 'application/json');
-      return stored;
-    },
-
-    list(): Promise<BuildArtifact[]> {
-      return readIndex();
-    },
-
-    async url(id: string): Promise<string> {
-      return publicUrl(id.startsWith('artifacts/') ? id : `artifacts/${id}`);
-    },
-
-    putObject(key: string, body: Buffer | string, contentType: string): Promise<StoredArtifact> {
-      return upload(key, body, contentType);
-    },
-
-    async getObject(key: string): Promise<Buffer | null> {
-      const serviceKey = await resolveServiceKey();
-      const response = await fetch(objectEndpoint(key), {
-        headers: { Authorization: `Bearer ${serviceKey}` },
+    const upload = (
+      objectKey: string,
+      objectContents: Buffer | string,
+      contentType: string,
+    ): Effect.Effect<StoredArtifact, unknown> =>
+      Effect.gen(function* () {
+        const serviceKey = yield* readServiceKey();
+        let uploadRequest = HttpClientRequest.post(objectEndpoint(objectKey)).pipe(
+          HttpClientRequest.setHeaders({
+            Authorization: `Bearer ${serviceKey}`,
+            'x-upsert': 'true',
+          }),
+        );
+        if (typeof objectContents === 'string') {
+          uploadRequest = HttpClientRequest.bodyText(uploadRequest, objectContents, contentType);
+        } else {
+          uploadRequest = HttpClientRequest.bodyUint8Array(
+            uploadRequest,
+            objectContents,
+            contentType,
+          );
+        }
+        const uploadReply = yield* httpClient.execute(uploadRequest);
+        let uploadFailed = uploadReply.status < 200;
+        if (!uploadFailed) uploadFailed = uploadReply.status >= 300;
+        if (uploadFailed) {
+          const failureDetail = yield* uploadReply.text;
+          return yield* Effect.fail(
+            makeProviderInputFailure({
+              provider: 'supabase-storage',
+              message: `Supabase upload of ${objectKey} failed (${uploadReply.status}): ${failureDetail}`,
+            }),
+          );
+        }
+        return { id: objectKey, location: publicUrl(objectKey) };
       });
-      return response.ok ? Buffer.from(await response.arrayBuffer()) : null;
-    },
 
-    publicUrl,
-  };
-}
+    const readIndex = (): Effect.Effect<BuildArtifact[], unknown> =>
+      Effect.gen(function* () {
+        const serviceKey = yield* readServiceKey();
+        const indexRequest = HttpClientRequest.get(objectEndpoint(INDEX_OBJECT_KEY)).pipe(
+          HttpClientRequest.setHeader('Authorization', `Bearer ${serviceKey}`),
+        );
+        const indexReply = yield* httpClient.execute(indexRequest);
+        if (indexReply.status < 200) return [];
+        if (indexReply.status >= 300) return [];
+        const indexText = yield* indexReply.text;
+        return yield* Schema.decodeUnknown(Schema.parseJson(ArtifactIndexSchema))(indexText).pipe(
+          Effect.catchAll(() => Effect.succeed([])),
+        );
+      });
+
+    const storageProvider: StorageProvider = {
+      name: 'supabase',
+      put: (artifact: BuildArtifact) =>
+        Effect.gen(function* () {
+          const objectKey = `artifacts/${artifact.appName}-${artifact.version}-${artifact.buildNumber}-${artifact.platform}${pathService.extname(artifact.path)}`;
+          const artifactBytes = yield* fileSystem.readFile(artifact.path);
+          const uploadedArtifact = yield* upload(
+            objectKey,
+            Buffer.from(artifactBytes),
+            'application/octet-stream',
+          );
+          const artifactIndex = yield* readIndex();
+          artifactIndex.unshift({ ...artifact, path: uploadedArtifact.location });
+          yield* upload(
+            INDEX_OBJECT_KEY,
+            JSON.stringify(artifactIndex, null, 2),
+            'application/json',
+          );
+          return uploadedArtifact;
+        }),
+      list: readIndex,
+      url: (artifactId: string) => {
+        let objectKey = artifactId;
+        if (!objectKey.startsWith('artifacts/')) objectKey = `artifacts/${objectKey}`;
+        return Effect.succeed(publicUrl(objectKey));
+      },
+      putObject: upload,
+      getObject: (objectKey: string) =>
+        Effect.gen(function* () {
+          const serviceKey = yield* readServiceKey();
+          const objectRequest = HttpClientRequest.get(objectEndpoint(objectKey)).pipe(
+            HttpClientRequest.setHeader('Authorization', `Bearer ${serviceKey}`),
+          );
+          const objectReply = yield* httpClient.execute(objectRequest);
+          if (objectReply.status < 200) return null;
+          if (objectReply.status >= 300) return null;
+          return Buffer.from(yield* objectReply.arrayBuffer);
+        }),
+      publicUrl,
+    };
+    return storageProvider;
+  });
+
+type SupabaseStorageRequirements = Effect.Effect.Context<
+  ReturnType<typeof makeSupabaseStorageProvider>
+>;
+
+/** Capture shared services once and defer Supabase configuration until this provider is selected. */
+export const makeSupabaseStorageProviderResolver = () =>
+  Effect.gen(function* () {
+    const providerServices = yield* Effect.context<SupabaseStorageRequirements>();
+    return {
+      name: 'supabase',
+      resolveStorageProvider: (providerOptions) => {
+        if (providerOptions.storageConfig === undefined) {
+          return Effect.fail(
+            makeProviderInputFailure({
+              provider: 'supabase',
+              message:
+                'Storage "supabase" needs a storageConfig block in launch.config.ts (bucket + publicBaseUrl).',
+            }),
+          );
+        }
+        return makeSupabaseStorageProvider(providerOptions.storageConfig).pipe(
+          Effect.provide(providerServices),
+        );
+      },
+    } satisfies StorageProviderResolver;
+  });

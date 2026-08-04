@@ -1,11 +1,3 @@
-/**
- * Effect Schema home for the `launch.config.ts` boundary.
- *
- * Effect Schema is the structural and documentation SSOT (ADR 0013): field and type
- * descriptions live as Schema annotations and flow into JSON Schema via `JSONSchema.make`.
- * Runtime validation enters through this module.
- */
-
 import { type Effect, Schema } from 'effect';
 import type { ParseResult } from 'effect';
 import {
@@ -13,7 +5,7 @@ import {
   LEADERBOARD_FORMATTERS,
   LEADERBOARD_SORT_TYPES,
   LEADERBOARD_SUBMISSION_TYPES,
-} from '../../apple/ascResources.js';
+} from '../types/appleCatalog.js';
 import type { SchemaViolation } from './jsonSchema.js';
 import {
   DEFAULT_BUILD_ENGINE,
@@ -22,30 +14,18 @@ import {
   DEFAULT_SUBMITTER,
 } from '../types/config.js';
 import { PLAY_TRACKS } from '../types/app.js';
-
 const CONFIG_PARSE_OPTIONS = { errors: 'all', onExcessProperty: 'error' } as const;
-
 const OptionalString = Schema.optional(Schema.String);
 const OptionalBoolean = Schema.optional(Schema.Boolean);
 const StringArray = Schema.Array(Schema.String);
 const OptionalStringArray = Schema.optional(StringArray);
 const StringMap = Schema.Record({ key: Schema.String, value: Schema.String });
-
-/**
- * Attach a JSON Schema description to a field schema. Descriptions must sit on the inner
- * value schema (not the `optional` wrapper) so Effect's emitter includes them on properties.
- *
- * @param valueSchema - Schema for the field's value.
- * @param description - Prose shown in editor autocomplete and `docs/config.md`.
- * @returns The same schema with a description annotation.
- */
-function described<A, I, R>(
+const described = <A, I, R>(
   valueSchema: Schema.Schema<A, I, R>,
   description: string,
-): Schema.Schema<A, I, R> {
+): Schema.Schema<A, I, R> => {
   return valueSchema.annotations({ description });
-}
-
+};
 const PlayTrackSchema = Schema.Literal(...PLAY_TRACKS);
 const SubmitByPlatformEffectSchema = Schema.Struct({
   ios: OptionalStringArray,
@@ -54,7 +34,6 @@ const SubmitByPlatformEffectSchema = Schema.Struct({
   macos: OptionalStringArray,
   visionos: OptionalStringArray,
 }).annotations({ identifier: 'SubmitByPlatform' });
-
 const BuildProfileEffectSchema = Schema.Struct({
   name: Schema.String.annotations({ description: 'Profile name as referenced by `--profile`.' }),
   envFile: Schema.optional(
@@ -66,7 +45,7 @@ const BuildProfileEffectSchema = Schema.Struct({
   env: Schema.optional(
     described(
       Schema.Record({ key: Schema.String, value: Schema.String }),
-      'Inline env vars for this profile, merged into the build/update/release environment. They sit above the dotenv files (`.env.local`, `.env.<profile>`, `.env`) but below keychain secrets and `--env` flags in the precedence ladder — see `core/env.ts` `resolveEnv`. Use for non-secret, committed config that should travel with the profile; keep real secrets in `launch secret`.',
+      'Inline env vars for this profile, merged into the build/update/release environment. They sit above the dotenv files (`.env.local`, `.env.<profile>`, `.env`) but below keychain secrets and `--env` flags in the precedence ladder - see `core/env.ts` `resolveEnv`. Use for non-secret, committed config that should travel with the profile; keep real secrets in `launch secret`.',
     ),
   ),
   ssl: Schema.optional(
@@ -89,7 +68,7 @@ const BuildProfileEffectSchema = Schema.Struct({
   rollout: Schema.optional(
     Schema.Number.annotations({
       description:
-        'Android-only: default staged-rollout fraction (0–1) for production releases when `--rollout` is omitted. Defaults to `1.0` (full rollout). Ignored on iOS.',
+        'Android-only: default staged-rollout fraction (0-1) for production releases when `--rollout` is omitted. Defaults to `1.0` (full rollout). Ignored on iOS.',
     }),
   ),
 }).annotations({
@@ -97,7 +76,6 @@ const BuildProfileEffectSchema = Schema.Struct({
   description:
     'A named build profile from `launch.config.ts` (e.g. `production`, `preview`). Holds only Launch-specific settings; app facts stay in `app.json`. A profile maps to a `.env` file whose values are injected into the build and gates the artifact on size.',
 });
-
 const ProductLocalizationEffectSchema = Schema.Struct({
   locale: Schema.String.annotations({ description: 'App Store locale code, e.g. `en-US`.' }),
   name: Schema.String.annotations({
@@ -111,7 +89,7 @@ const ProductLocalizationEffectSchema = Schema.Struct({
   ),
 }).annotations({
   identifier: 'ProductLocalization',
-  description: `One locale's customer-facing copy for a subscription or in-app purchase — the display name (and optional description) shown on the product page. Apple keeps a product in "Missing Metadata" until it has at least one localization, so the reconciler rejects an empty list rather than silently creating an unsubmittable product. The \`locale\` is the natural key the reconciler matches on.`,
+  description: `One locale's customer-facing copy for a subscription or in-app purchase - the display name (and optional description) shown on the product page. Apple keeps a product in "Missing Metadata" until it has at least one localization, so the reconciler rejects an empty list rather than silently creating an unsubmittable product. The \`locale\` is the natural key the reconciler matches on.`,
 });
 const GroupLocalizationEffectSchema = Schema.Struct({
   locale: Schema.String.annotations({ description: 'App Store locale code, e.g. `en-US`.' }),
@@ -131,7 +109,7 @@ const ProductPriceEffectSchema = Schema.Struct({
   }),
 }).annotations({
   identifier: 'ProductPrice',
-  description: `A product's baseline price, expressed as the customer-facing amount in a base territory. Apple does not accept arbitrary numbers — every price is one of a fixed ladder of price points. The reconciler resolves this declaration to the price point whose \`customerPrice\` equals \`customerPrice\` in \`baseTerritory\`, erroring (with the nearby points listed) when none matches exactly, then anchors the other territories off it — the same model the App Store Connect UI uses. A product with no price can never be submitted, so omit this only when you intend to set the price by hand in the UI.`,
+  description: `A product's baseline price, expressed as the customer-facing amount in a base territory. Apple does not accept arbitrary numbers - every price is one of a fixed ladder of price points. The reconciler resolves this declaration to the price point whose \`customerPrice\` equals \`customerPrice\` in \`baseTerritory\`, erroring (with the nearby points listed) when none matches exactly, then anchors the other territories off it - the same model the App Store Connect UI uses. A product with no price can never be submitted, so omit this only when you intend to set the price by hand in the UI.`,
 });
 const OfferPriceEffectSchema = Schema.Struct({
   territory: Schema.optional(
@@ -153,7 +131,7 @@ const PlayPriceConfigEffectSchema = Schema.Struct({
   currency: Schema.String.annotations({ description: 'ISO 4217 currency code, e.g. `USD`.' }),
 }).annotations({
   identifier: 'PlayPriceConfig',
-  description: `A Google Play price: an exact amount in a currency's micro-units (millionths) plus the ISO currency code. Play has no price-point ladder — \`"1990000"\` with currency \`"USD"\` is $1.99. Used for both a product's default price and any per-region overrides. Kept distinct from {@link ProductPrice} because the two stores model money differently (Apple resolves a fixed price point; Play takes a literal micro-unit amount), so a single shared price field can't serve both.`,
+  description: `A Google Play price: an exact amount in a currency's micro-units (millionths) plus the ISO currency code. Play has no price-point ladder - \`"1990000"\` with currency \`"USD"\` is $1.99. Used for both a product's default price and any per-region overrides. Kept distinct from {@link ProductPrice} because the two stores model money differently (Apple resolves a fixed price point; Play takes a literal micro-unit amount), so a single shared price field can't serve both.`,
 });
 const OfferDurationSchema = Schema.Literal(
   'THREE_DAYS',
@@ -187,7 +165,7 @@ const OfferConfigBaseSchema = {
 const OfferCodeConfigEffectSchema = Schema.Struct({
   ...OfferConfigBaseSchema,
   name: Schema.String.annotations({
-    description: `Campaign name shown in App Store Connect — unique per subscription; the reconciler's key.`,
+    description: `Campaign name shown in App Store Connect - unique per subscription; the reconciler's key.`,
   }),
   customerEligibilities: described(
     Schema.Array(OfferCustomerEligibilitySchema),
@@ -199,7 +177,7 @@ const OfferCodeConfigEffectSchema = Schema.Struct({
   ),
 }).annotations({
   identifier: 'OfferCodeConfig',
-  description: `A subscription offer-code campaign (Apple's \`subscriptionOfferCodes\`) — a redeemable promo that grants an introductory price. \`name\` is the reconciler's natural key (unique per subscription); offer-code terms are immutable once created, so the reconciler only ever creates a missing code, never edits one (deactivation is the explicit \`launch offers deactivate\` action). One-time-use and custom code batches are generated separately (the imperative \`launch offers codes\` subcommands), not declared here.`,
+  description: `A subscription offer-code campaign (Apple's \`subscriptionOfferCodes\`) - a redeemable promo that grants an introductory price. \`name\` is the reconciler's natural key (unique per subscription); offer-code terms are immutable once created, so the reconciler only ever creates a missing code, never edits one (deactivation is the explicit \`launch offers deactivate\` action). One-time-use and custom code batches are generated separately (the imperative \`launch offers codes\` subcommands), not declared here.`,
 });
 const PromotionalOfferConfigEffectSchema = Schema.Struct({
   duration: described(OfferDurationSchema, 'Offer billing duration unit.'),
@@ -218,11 +196,11 @@ const PromotionalOfferConfigEffectSchema = Schema.Struct({
   ),
   name: Schema.String.annotations({ description: 'Internal name shown in App Store Connect.' }),
   offerCode: Schema.String.annotations({
-    description: `Product-level offer identifier the app references in StoreKit — the reconciler's key.`,
+    description: `Product-level offer identifier the app references in StoreKit - the reconciler's key.`,
   }),
 }).annotations({
   identifier: 'PromotionalOfferConfig',
-  description: `A promotional offer (Apple's \`subscriptionPromotionalOffers\`) — a developer-presented discount surfaced in-app to existing/lapsed subscribers. \`offerCode\` is the product-level identifier the app passes to StoreKit at redemption; it is the reconciler's natural key (unique per subscription).`,
+  description: `A promotional offer (Apple's \`subscriptionPromotionalOffers\`) - a developer-presented discount surfaced in-app to existing/lapsed subscribers. \`offerCode\` is the product-level identifier the app passes to StoreKit at redemption; it is the reconciler's natural key (unique per subscription).`,
 });
 const IntroductoryOfferConfigEffectSchema = Schema.Struct({
   duration: described(OfferDurationSchema, 'Billing duration unit.'),
@@ -256,7 +234,7 @@ const IntroductoryOfferConfigEffectSchema = Schema.Struct({
   ),
 }).annotations({
   identifier: 'IntroductoryOfferConfig',
-  description: `An introductory offer (Apple's \`subscriptionIntroductoryOffers\`) — the one auto-applied first-time discount. Apple allows at most one per (subscription, territory); when \`territory\` is omitted it applies to all territories the subscription is sold in. \`territory\` is the reconciler's natural key.`,
+  description: `An introductory offer (Apple's \`subscriptionIntroductoryOffers\`) - the one auto-applied first-time discount. Apple allows at most one per (subscription, territory); when \`territory\` is omitted it applies to all territories the subscription is sold in. \`territory\` is the reconciler's natural key.`,
 });
 const WinBackOfferConfigEffectSchema = Schema.Struct({
   duration: described(OfferDurationSchema, 'Offer billing duration unit.'),
@@ -274,7 +252,7 @@ const WinBackOfferConfigEffectSchema = Schema.Struct({
     ),
   ),
   offerId: Schema.String.annotations({
-    description: `Stable offer identifier the app references — the reconciler's key (unique within the app).`,
+    description: `Stable offer identifier the app references - the reconciler's key (unique within the app).`,
   }),
   referenceName: Schema.String.annotations({
     description: 'Internal reference name shown in App Store Connect.',
@@ -313,7 +291,7 @@ const WinBackOfferConfigEffectSchema = Schema.Struct({
   ),
 }).annotations({
   identifier: 'WinBackOfferConfig',
-  description: `A win-back offer (Apple's \`winBackOffers\`) — a discount shown on the App Store to lapsed subscribers, gated on how long they previously paid and how long ago they churned. \`offerId\` is the reconciler's natural key (unique within the app). Win-back offers carry no images here — promotion artwork is the \`promotionIntent\` auto-generated path; custom artwork is a deferred follow-up.`,
+  description: `A win-back offer (Apple's \`winBackOffers\`) - a discount shown on the App Store to lapsed subscribers, gated on how long they previously paid and how long ago they churned. \`offerId\` is the reconciler's natural key (unique within the app). Win-back offers carry no images here - promotion artwork is the \`promotionIntent\` auto-generated path; custom artwork is a deferred follow-up.`,
 });
 const PlaySubscriptionOfferConfigEffectSchema = Schema.Struct({
   offerId: Schema.String.annotations({
@@ -328,7 +306,7 @@ const PlaySubscriptionOfferConfigEffectSchema = Schema.Struct({
   introPrices: Schema.optional(
     described(
       Schema.Record({ key: Schema.String, value: PlayPriceConfigEffectSchema }),
-      'Introductory per-region prices (region code → micro-units + currency). Omit for no intro phase.',
+      'Introductory per-region prices (region code -> micro-units + currency). Omit for no intro phase.',
     ),
   ),
   introRecurrenceCount: Schema.optional(
@@ -338,7 +316,7 @@ const PlaySubscriptionOfferConfigEffectSchema = Schema.Struct({
   ),
 }).annotations({
   identifier: 'PlaySubscriptionOfferConfig',
-  description: `One Google Play offer on a subscription's base plan — a free trial, an introductory price, or both (Play allows up to two offer phases). \`offerId\` is the natural key the reconciler matches on. Set \`freeTrialDuration\` for a free phase and/or \`introPrices\` for a discounted phase; an offer with neither is rejected (it would discount nothing).`,
+  description: `One Google Play offer on a subscription's base plan - a free trial, an introductory price, or both (Play allows up to two offer phases). \`offerId\` is the natural key the reconciler matches on. Set \`freeTrialDuration\` for a free phase and/or \`introPrices\` for a discounted phase; an offer with neither is rejected (it would discount nothing).`,
 });
 const PlaySubscriptionOverrideEffectSchema = Schema.Struct({
   productId: Schema.optional(
@@ -354,7 +332,7 @@ const PlaySubscriptionOverrideEffectSchema = Schema.Struct({
   ),
   prices: described(
     Schema.Record({ key: Schema.String, value: PlayPriceConfigEffectSchema }),
-    'Per-region base-plan prices (region code → micro-units + currency). At least one region required.',
+    'Per-region base-plan prices (region code -> micro-units + currency). At least one region required.',
   ),
   offers: Schema.optional(
     described(
@@ -364,7 +342,7 @@ const PlaySubscriptionOverrideEffectSchema = Schema.Struct({
   ),
 }).annotations({
   identifier: 'PlaySubscriptionOverride',
-  description: `Google Play overrides for a {@link SubscriptionConfig}, so one subscription declaration can drive both stores. Apple models each billing period as a separate product, so Launch maps one config to one Play subscription with a single auto-renewing base plan whose billing period is derived from \`subscriptionPeriod\`. Listings come from the shared localizations; pricing is declared HERE (Play's per-region \`units\`+\`nanos\` money diverges from Apple's price points — see {@link PlayPriceConfig}). Present this object to publish the subscription to Play via \`launch play-subscriptions\`; omit it to keep the subscription Apple-only.`,
+  description: `Google Play overrides for a {@link SubscriptionConfig}, so one subscription declaration can drive both stores. Apple models each billing period as a separate product, so Launch maps one config to one Play subscription with a single auto-renewing base plan whose billing period is derived from \`subscriptionPeriod\`. Listings come from the shared localizations; pricing is declared HERE (Play's per-region \`units\`+\`nanos\` money diverges from Apple's price points - see {@link PlayPriceConfig}). Present this object to publish the subscription to Play via \`launch play-subscriptions\`; omit it to keep the subscription Apple-only.`,
 });
 const SubscriptionPeriodSchema = Schema.Literal(
   'ONE_WEEK',
@@ -417,7 +395,7 @@ const SubscriptionConfigEffectSchema = Schema.Struct({
   ),
   reviewScreenshot: Schema.optional(
     Schema.String.annotations({
-      description: `Path (relative to the app directory) to this subscription's App Review screenshot — the image Apple requires before a subscription can be submitted. \`launch sync\` uploads it via the reservation flow, idempotently: it's skipped when the live screenshot's MD5 already matches the local file. Omit to attach it by hand in App Store Connect. Reconciled in \`core/ascScreenshots.ts\`, not here.`,
+      description: `Path (relative to the app directory) to this subscription's App Review screenshot - the image Apple requires before a subscription can be submitted. \`launch sync\` uploads it via the reservation flow, idempotently: it's skipped when the live screenshot's MD5 already matches the local file. Omit to attach it by hand in App Store Connect. Reconciled in \`core/store/ascScreenshots.ts\`, not here.`,
     }),
   ),
   play: Schema.optional(
@@ -432,7 +410,7 @@ const SubscriptionConfigEffectSchema = Schema.Struct({
 });
 const SubscriptionGroupConfigEffectSchema = Schema.Struct({
   referenceName: Schema.String.annotations({
-    description: `Internal reference name (unique within the app) — the reconciler's natural key for the group.`,
+    description: `Internal reference name (unique within the app) - the reconciler's natural key for the group.`,
   }),
   localizations: described(
     Schema.Array(GroupLocalizationEffectSchema),
@@ -444,7 +422,7 @@ const SubscriptionGroupConfigEffectSchema = Schema.Struct({
   ),
 }).annotations({
   identifier: 'SubscriptionGroupConfig',
-  description: `A subscription group — Apple's container for mutually-exclusive subscription levels (a customer holds at most one active subscription per group). \`referenceName\` is unique within the app and is the reconciler's natural key for the group.`,
+  description: `A subscription group - Apple's container for mutually-exclusive subscription levels (a customer holds at most one active subscription per group). \`referenceName\` is unique within the app and is the reconciler's natural key for the group.`,
 });
 const PlayProductOverrideEffectSchema = Schema.Struct({
   sku: Schema.optional(
@@ -467,7 +445,7 @@ const PlayProductOverrideEffectSchema = Schema.Struct({
   ),
 }).annotations({
   identifier: 'PlayProductOverride',
-  description: `Google Play overrides for an {@link InAppPurchaseConfig}, so one product declaration can drive both stores. The shared fields are reused for Play — \`productId\` becomes the Play SKU (override via \`sku\`) and each {@link ProductLocalization} becomes a Play listing (\`name\` → title, \`description\` → description), with the first localization's locale as the product's default language. Pricing is declared HERE rather than reused from {@link InAppPurchaseConfig.price} because the two stores' money models don't line up (see {@link PlayPriceConfig}). Present this object to publish the product to Play via \`launch play-products\` as an active managed product; omit it to keep the product Apple-only.`,
+  description: `Google Play overrides for an {@link InAppPurchaseConfig}, so one product declaration can drive both stores. The shared fields are reused for Play - \`productId\` becomes the Play SKU (override via \`sku\`) and each {@link ProductLocalization} becomes a Play listing (\`name\` -> title, \`description\` -> description), with the first localization's locale as the product's default language. Pricing is declared HERE rather than reused from {@link InAppPurchaseConfig.price} because the two stores' money models don't line up (see {@link PlayPriceConfig}). Present this object to publish the product to Play via \`launch play-products\` as an active managed product; omit it to keep the product Apple-only.`,
 });
 const InAppPurchaseConfigEffectSchema = Schema.Struct({
   productId: Schema.String.annotations({
@@ -515,7 +493,7 @@ const PromotedPurchaseConfigEffectSchema = Schema.Struct({
   ),
 }).annotations({
   identifier: 'PromotedPurchaseConfig',
-  description: `One promoted purchase (Apple's \`promotedPurchases\`) — an IAP or subscription surfaced on the app's App Store product page. Declaration order in {@link AppProducts.promotedPurchases} is the display order Apple shows; \`launch offers\` reorders the live list to match. \`productId\` references an existing subscription or in-app purchase; the reconciler resolves it to the live resource.`,
+  description: `One promoted purchase (Apple's \`promotedPurchases\`) - an IAP or subscription surfaced on the app's App Store product page. Declaration order in {@link AppProducts.promotedPurchases} is the display order Apple shows; \`launch offers\` reorders the live list to match. \`productId\` references an existing subscription or in-app purchase; the reconciler resolves it to the live resource.`,
 });
 const AppProductsEffectSchema = Schema.Struct({
   subscriptionGroups: Schema.optional(
@@ -538,7 +516,6 @@ const AppProductsEffectSchema = Schema.Struct({
   description:
     'The declarative App Store Connect product catalog for ONE app, keyed by iOS bundle id under {@link LaunchConfig.products}. `launch sync` reconciles the live account to match this: it creates missing groups/subscriptions/IAPs, fills in localizations, and sets prices. `launch offers` reconciles the subscription offers nested under {@link SubscriptionGroupConfig} and the {@link AppProducts.promotedPurchases} ordering. All fields are optional so an app can sell only subscriptions, only one-off purchases, or (with none set) nothing.',
 });
-
 const ReleaseConfigEffectSchema = Schema.Struct({
   releaseType: Schema.optional(
     described(
@@ -548,17 +525,17 @@ const ReleaseConfigEffectSchema = Schema.Struct({
   ),
   earliestReleaseDate: Schema.optional(
     Schema.String.annotations({
-      description: `ISO-8601 instant to go live at — only meaningful with \`releaseType: "SCHEDULED"\` (ignored otherwise). A \`--scheduled <iso>\` flag sets both this and the release type for one run.`,
+      description: `ISO-8601 instant to go live at - only meaningful with \`releaseType: "SCHEDULED"\` (ignored otherwise). A \`--scheduled <iso>\` flag sets both this and the release type for one run.`,
     }),
   ),
   phasedRelease: Schema.optional(
     Schema.Boolean.annotations({
-      description: `Opt into Apple's 7-day phased release (a gradual percentage rollout) for an approved update. Defaults to \`false\` — an immediate 100% release. Overridable per-run with \`--phased\`, and steerable afterward with \`launch rollout <pause|resume|complete>\`. Ignored for a first version (Apple only phases updates).`,
+      description: `Opt into Apple's 7-day phased release (a gradual percentage rollout) for an approved update. Defaults to \`false\` - an immediate 100% release. Overridable per-run with \`--phased\`, and steerable afterward with \`launch rollout <pause|resume|complete>\`. Ignored for a first version (Apple only phases updates).`,
     }),
   ),
   usesNonExemptEncryption: Schema.optional(
     Schema.Boolean.annotations({
-      description: `Whether the binary contains non-exempt encryption (Apple's export-compliance question). \`false\` — the common case for apps using only standard HTTPS/system crypto — lets Launch declare compliance over the API so the build clears \`WAITING_FOR_EXPORT_COMPLIANCE\` without a portal trip. Set \`true\` only if you ship proprietary/non-exempt encryption; Launch then stops and points you to the portal, since genuine non-exempt encryption requires documentation Apple's API can't accept. Defaults to \`false\`.`,
+      description: `Whether the binary contains non-exempt encryption (Apple's export-compliance question). \`false\` - the common case for apps using only standard HTTPS/system crypto - lets Launch declare compliance over the API so the build clears \`WAITING_FOR_EXPORT_COMPLIANCE\` without a portal trip. Set \`true\` only if you ship proprietary/non-exempt encryption; Launch then stops and points you to the portal, since genuine non-exempt encryption requires documentation Apple's API can't accept. Defaults to \`false\`.`,
     }),
   ),
   releaseNotes: Schema.optional(
@@ -575,7 +552,7 @@ const ReleaseConfigEffectSchema = Schema.Struct({
   ),
 }).annotations({
   identifier: 'ReleaseConfig',
-  description: `iOS public-release policy, declared under {@link LaunchConfig.release}. These are the defaults \`launch release\` applies to the App Store version it submits; every field is optional, so an absent \`release\` block means "go live after approval, all at once" — the safe, common case. Android release policy is unaffected (it rides on the Play track + \`--rollout\`, see {@link AndroidReleaseOptions}). Scope: this drives an UPDATE to an already-configured app. A brand-new app's first submission still needs portal-only steps (screenshots, age rating, signed agreements) and the app record itself — which Apple has no API to create — so \`launch release\` detects that and prints a one-time checklist.`,
+  description: `iOS public-release policy, declared under {@link LaunchConfig.release}. These are the defaults \`launch release\` applies to the App Store version it submits; every field is optional, so an absent \`release\` block means "go live after approval, all at once" - the safe, common case. Android release policy is unaffected (it rides on the Play track + \`--rollout\`, see {@link AndroidReleaseOptions}). Scope: this drives an UPDATE to an already-configured app. A brand-new app's first submission still needs portal-only steps (screenshots, age rating, signed agreements) and the app record itself - which Apple has no API to create - so \`launch release\` detects that and prints a one-time checklist.`,
 });
 const NotifyConfigEffectSchema = Schema.Struct({
   webhookUrl: Schema.optional(
@@ -598,7 +575,7 @@ const NotifyConfigEffectSchema = Schema.Struct({
   ),
 }).annotations({
   identifier: 'NotifyConfig',
-  description: `Transition notifications — the EAS-\`webhook\` parity hook, declared under {@link LaunchConfig.notify}. Fires on the milestones a dev waits on: a build/submit finishing, an App Store review reaching a verdict, and a phased rollout changing state. A local Mac build can run many minutes and Apple's verdict lands hours later; this pings on each transition. All fields are optional and independent: set a \`webhookUrl\`, a \`command\`, both, or (absent) get the silent default; restrict which transitions fire with \`events\`. Fired on success AND failure; never blocks or fails the run (best-effort).`,
+  description: `Transition notifications - the EAS-\`webhook\` parity hook, declared under {@link LaunchConfig.notify}. Fires on the milestones a dev waits on: a build/submit finishing, an App Store review reaching a verdict, and a phased rollout changing state. A local Mac build can run many minutes and Apple's verdict lands hours later; this pings on each transition. All fields are optional and independent: set a \`webhookUrl\`, a \`command\`, both, or (absent) get the silent default; restrict which transitions fire with \`events\`. Fired on success AND failure; never blocks or fails the run (best-effort).`,
 });
 const AchievementConfigEffectSchema = Schema.Struct({
   vendorIdentifier: Schema.String.annotations({
@@ -666,7 +643,7 @@ const GameCenterConfigEffectSchema = Schema.Struct({
   leaderboards: Schema.optional(Schema.Array(LeaderboardConfigEffectSchema)),
 }).annotations({
   identifier: 'GameCenterConfig',
-  description: `An app's declared Game Center achievements and leaderboards — the \`gamecenter.config.json\` document, or one entry of {@link LaunchConfig.gameCenter} (keyed by iOS bundle id). Either list may be omitted. Reconciled additively by \`launch game-center\`.`,
+  description: `An app's declared Game Center achievements and leaderboards - the \`gamecenter.config.json\` document, or one entry of {@link LaunchConfig.gameCenter} (keyed by iOS bundle id). Either list may be omitted. Reconciled additively by \`launch game-center\`.`,
 });
 const AppClipLocalizationConfigEffectSchema = Schema.Struct({
   subtitle: Schema.String,
@@ -696,7 +673,7 @@ const AppClipsConfigEffectSchema = Schema.Struct({
   clips: Schema.Record({ key: Schema.String, value: AppClipConfigEffectSchema }),
 }).annotations({
   identifier: 'AppClipsConfig',
-  description: `An app's declared App Clips — the \`appclips.config.json\` document, or one entry of {@link LaunchConfig.appClips} (keyed by the parent app's iOS bundle id). Each App Clip is keyed by its own bundle id (e.g. \`com.acme.app.Clip\`), which is how a config entry is matched to the clip the build produced. Reconciled by \`launch app-clips\`.`,
+  description: `An app's declared App Clips - the \`appclips.config.json\` document, or one entry of {@link LaunchConfig.appClips} (keyed by the parent app's iOS bundle id). Each App Clip is keyed by its own bundle id (e.g. \`com.acme.app.Clip\`), which is how a config entry is matched to the clip the build produced. Reconciled by \`launch app-clips\`.`,
 });
 const EuDistributionDomainConfigEffectSchema = Schema.Struct({
   domain: Schema.String.annotations({
@@ -717,7 +694,7 @@ const EuDistributionConfigEffectSchema = Schema.Struct({
   ),
 }).annotations({
   identifier: 'EuDistributionConfig',
-  description: `The team's EU alternative-distribution domains — the \`eu-distribution.config.json\` document, or {@link LaunchConfig.euDistribution}. Team-level (not per-app); reconciled by \`launch eu-distribution\`.`,
+  description: `The team's EU alternative-distribution domains - the \`eu-distribution.config.json\` document, or {@link LaunchConfig.euDistribution}. Team-level (not per-app); reconciled by \`launch eu-distribution\`.`,
 });
 const WalletIdConfigEffectSchema = Schema.Struct({
   identifier: Schema.String.annotations({
@@ -741,7 +718,7 @@ const WalletConfigEffectSchema = Schema.Struct({
   ),
 }).annotations({
   identifier: 'WalletConfig',
-  description: `The team's Apple Pay merchant ids and Wallet pass type ids — the \`wallet.config.json\` document, or {@link LaunchConfig.wallet}. Team-level; either family may be omitted. Registered by \`launch wallet\`.`,
+  description: `The team's Apple Pay merchant ids and Wallet pass type ids - the \`wallet.config.json\` document, or {@link LaunchConfig.wallet}. Team-level; either family may be omitted. Registered by \`launch wallet\`.`,
 });
 const ReleaseCategoriesEffectSchema = Schema.Struct({
   primary: OptionalString,
@@ -774,7 +751,7 @@ const ReviewDetailsConfigEffectSchema = Schema.Struct({
   demoAccountName: OptionalString,
   demoAccountPassword: Schema.optional(
     Schema.String.annotations({
-      description: `The reviewer demo-account password. Prefer an indirection over a plaintext literal so the secret needn't sit in a repo-committed config (per "secrets never touch the repo"): \`env:VAR_NAME\` reads it from the environment, \`keychain:ACCOUNT\` from the OS keychain — both resolved only at submit time, so a plan never reads or holds it. Any other value is used as a literal (backward compatible).`,
+      description: `The reviewer demo-account password. Prefer an indirection over a plaintext literal so the secret needn't sit in a repo-committed config (per "secrets never touch the repo"): \`env:VAR_NAME\` reads it from the environment, \`keychain:ACCOUNT\` from the OS keychain - both resolved only at submit time, so a plan never reads or holds it. Any other value is used as a literal (backward compatible).`,
     }),
   ),
   notes: OptionalString,
@@ -786,7 +763,7 @@ const ReleaseAttributesConfigEffectSchema = Schema.Struct({
   ageRating: Schema.optional(
     described(
       Schema.Record({ key: Schema.String, value: Schema.Union(Schema.String, Schema.Boolean) }),
-      `Age-rating answers as Apple's \`name → value\` map (enum strings or booleans); only changed keys are sent.`,
+      `Age-rating answers as Apple's \`name -> value\` map (enum strings or booleans); only changed keys are sent.`,
     ),
   ),
   categories: Schema.optional(ReleaseCategoriesEffectSchema),
@@ -794,7 +771,7 @@ const ReleaseAttributesConfigEffectSchema = Schema.Struct({
   reviewDetails: Schema.optional(ReviewDetailsConfigEffectSchema),
 }).annotations({
   identifier: 'ReleaseAttributesConfig',
-  description: `An app's declared App Store *release attributes* — age rating, App Store categories, base price, and App Review details — the \`release.config.json\` document, or one entry of {@link LaunchConfig.releaseAttributes} (keyed by iOS bundle id). Every section is optional and reconciled independently by \`launch release-config\`, so a file may declare only the attribute(s) you manage as code (e.g. just \`pricing\`). Named to avoid colliding with {@link ReleaseConfig}, which is the distinct iOS *release policy* (when/how a version goes live).`,
+  description: `An app's declared App Store *release attributes* - age rating, App Store categories, base price, and App Review details - the \`release.config.json\` document, or one entry of {@link LaunchConfig.releaseAttributes} (keyed by iOS bundle id). Every section is optional and reconciled independently by \`launch release-config\`, so a file may declare only the attribute(s) you manage as code (e.g. just \`pricing\`). Named to avoid colliding with {@link ReleaseConfig}, which is the distinct iOS *release policy* (when/how a version goes live).`,
 });
 const SurfaceConfigFilesEffectSchema = Schema.Struct({
   availability: OptionalString,
@@ -804,18 +781,18 @@ const SurfaceConfigFilesEffectSchema = Schema.Struct({
 }).annotations({
   identifier: 'SurfaceConfigFiles',
   description:
-    'Where the sidecar-only surfaces keep their `*.config.json` desired-state files when not at the default filename. These surfaces have no typed field on {@link LaunchConfig}, so without this map a non-interactive caller — chiefly `launch plan` / `launch drift`, which has no per-surface `--config` flag — can only find a sidecar at its default name. Declaring a path here makes `plan` read the same file the command would (the existing `resolveSidecarConfig` consumes it). Each entry is optional; omit the whole map to use defaults (`availability.config.json`, `accessibility.config.json`, `experiments.config.json`, `custom-pages.config.json`).',
+    'Where the sidecar-only surfaces keep their `*.config.json` desired-state files when not at the default filename. These surfaces have no typed field on {@link LaunchConfig}, so without this map a non-interactive caller - chiefly `launch plan` / `launch drift`, which has no per-surface `--config` flag - can only find a sidecar at its default name. Declaring a path here makes `plan` read the same file the command would (the existing `resolveSidecarConfig` consumes it). Each entry is optional; omit the whole map to use defaults (`availability.config.json`, `accessibility.config.json`, `experiments.config.json`, `custom-pages.config.json`).',
 });
 const McpConfigEffectSchema = Schema.Struct({
   capabilities: Schema.optional(
     described(
       Schema.Array(Schema.Literal('read', 'dryRun', 'write', 'dangerous')),
-      `Which capability tiers the MCP server may expose. Each enabled tier unlocks the tools tagged at that tier; omit (or \`[]\`) for \`["read"]\` — read-only. Listing a higher tier does not imply the lower ones, so \`["read", "write"]\` is the usual "let agents read everything and run reconciles" posture.`,
+      `Which capability tiers the MCP server may expose. Each enabled tier unlocks the tools tagged at that tier; omit (or \`[]\`) for \`["read"]\` - read-only. Listing a higher tier does not imply the lower ones, so \`["read", "write"]\` is the usual "let agents read everything and run reconciles" posture.`,
     ),
   ),
 }).annotations({
   identifier: 'McpConfig',
-  description: `The \`mcp\` block of \`launch.config.ts\` — how \`launch mcp\` exposes Launch to AI agents. Absent means least privilege: the server offers only \`read\`-tier tools, so wiring up an agent can never mutate a store until the operator widens {@link McpConfig.capabilities} on purpose. Declared here (not inline in the command) so #173's generator emits it into the config schema and \`launch config validate/docs\` cover it for free.`,
+  description: `The \`mcp\` block of \`launch.config.ts\` - how \`launch mcp\` exposes Launch to AI agents. Absent means least privilege: the server offers only \`read\`-tier tools, so wiring up an agent can never mutate a store until the operator widens {@link McpConfig.capabilities} on purpose. Declared here (not inline in the command) so #173's generator emits it into the config schema and \`launch config validate/docs\` cover it for free.`,
 });
 const AwsConfigEffectSchema = Schema.Struct({
   region: Schema.String.annotations({
@@ -842,7 +819,7 @@ const AwsConfigEffectSchema = Schema.Struct({
 }).annotations({
   identifier: 'AwsConfig',
   description:
-    'AWS settings for the EC2 Mac compute host, declared in `launch.config.ts` under `aws`. Launch stores NO AWS secrets: credentials resolve through the standard SDK chain (env → `~/.aws` profiles → SSO → IMDS). `amiId` is an optional BYO golden image; omit it to let Launch bootstrap one and persist its id to `~/.launch/cloud.json`.',
+    'AWS settings for the EC2 Mac compute host, declared in `launch.config.ts` under `aws`. Launch stores NO AWS secrets: credentials resolve through the standard SDK chain (env -> `~/.aws` profiles -> SSO -> IMDS). `amiId` is an optional BYO golden image; omit it to let Launch bootstrap one and persist its id to `~/.launch/cloud.json`.',
 });
 const StorageConfigEffectSchema = Schema.Struct({
   endpoint: Schema.optional(
@@ -862,7 +839,7 @@ const StorageConfigEffectSchema = Schema.Struct({
   ),
   publicBaseUrl: Schema.String.annotations({
     description:
-      'Public base URL that maps to the bucket root — used to build install links and OTA manifest URLs. e.g. an R2 custom domain `https://cdn.example.com`, or a Supabase public object URL prefix `https://<project>.supabase.co/storage/v1/object/public/<bucket>`. No trailing slash required.',
+      'Public base URL that maps to the bucket root - used to build install links and OTA manifest URLs. e.g. an R2 custom domain `https://cdn.example.com`, or a Supabase public object URL prefix `https://<project>.supabase.co/storage/v1/object/public/<bucket>`. No trailing slash required.',
   }),
   supabaseUrl: Schema.optional(
     Schema.String.annotations({
@@ -873,9 +850,8 @@ const StorageConfigEffectSchema = Schema.Struct({
 }).annotations({
   identifier: 'StorageConfig',
   description:
-    'Non-secret settings for a cloud {@link StorageProvider}. Launch writes static artifacts (install plists, OTA manifests, JS bundles, IPAs/AABs) here and serves them from {@link StorageConfig.publicBaseUrl}, so the user owns the infra (no Launch-hosted server). Credentials are NEVER stored here — the S3 access key / Supabase service key resolve from env vars or the OS secret store at call time.',
+    'Non-secret settings for a cloud {@link StorageProvider}. Launch writes static artifacts (install plists, OTA manifests, JS bundles, IPAs/AABs) here and serves them from {@link StorageConfig.publicBaseUrl}, so the user owns the infra (no Launch-hosted server). Credentials are NEVER stored here - the S3 access key / Supabase service key resolve from env vars or the OS secret store at call time.',
 });
-
 /**
  * Effect Schema source of truth for the authoring shape and decoded runtime config.
  */
@@ -914,7 +890,7 @@ export const LaunchConfigEffectSchema = Schema.Struct({
   submit: Schema.optionalWith(
     described(
       Schema.Union(Schema.String, SubmitByPlatformEffectSchema),
-      'Where built artifacts are submitted, in one of two forms: a single registered submitter name (the iOS default `app-store-connect`, which an Android build swaps for its twin `google-play`; or `eas`) — the original, unchanged shape; or a per-platform {@link SubmitByPlatform} map, to fan one build out to several stores from this one config (e.g. an Android `.aab` to `google-play` and `amazon-appstore`). The pipeline resolves this to a store list per platform (see `resolveSubmitters`), so the build target and the store are no longer welded 1:1. See `docs/adr/0006-platform-store-split.md`.',
+      'Where built artifacts are submitted, in one of two forms: a single registered submitter name (the iOS default `app-store-connect`, which an Android build swaps for its twin `google-play`; or `eas`) - the original, unchanged shape; or a per-platform {@link SubmitByPlatform} map, to fan one build out to several stores from this one config (e.g. an Android `.aab` to `google-play` and `amazon-appstore`). The pipeline resolves this to a store list per platform (see `resolveSubmitters`), so the build target and the store are no longer welded 1:1. See `docs/adr/0006-platform-store-split.md`.',
     ),
     { default: () => DEFAULT_SUBMITTER },
   ),
@@ -987,35 +963,35 @@ export const LaunchConfigEffectSchema = Schema.Struct({
   storageConfig: Schema.optional(
     described(
       StorageConfigEffectSchema,
-      `Bucket/endpoint settings for a cloud {@link StorageProvider} (\`s3\` / \`supabase\`). Required when \`storage\` names a cloud provider — it's where ad-hoc install links and OTA update manifests are hosted. Secrets stay out: access keys resolve from env / the OS secret store, never from here.`,
+      `Bucket/endpoint settings for a cloud {@link StorageProvider} (\`s3\` / \`supabase\`). Required when \`storage\` names a cloud provider - it's where ad-hoc install links and OTA update manifests are hosted. Secrets stay out: access keys resolve from env / the OS secret store, never from here.`,
     ),
   ),
   artifactDir: Schema.optional(
     Schema.String.annotations({
       description:
-        'Where the `local` storage provider writes build binaries and raw objects (install plists, OTA manifests). A relative path resolves against the project root (the `launch.config.ts` directory); a leading `~/` expands to the home directory; an absolute path is used as-is. Omit to use the global `~/.launch/artifacts` (the default — existing projects are unaffected). `launch init` and the no-args wizard scaffold this as the in-repo `./.launch/artifacts` and add it to `.gitignore`, so build binaries never get committed. Only the `local` provider observes it — cloud stores key off {@link StorageConfig}. The history index stays under `~/.launch`, so build history and retention span projects regardless of where the binaries land.',
+        'Where the `local` storage provider writes build binaries and raw objects (install plists, OTA manifests). A relative path resolves against the project root (the `launch.config.ts` directory); a leading `~/` expands to the home directory; an absolute path is used as-is. Omit to use the global `~/.launch/artifacts` (the default - existing projects are unaffected). `launch init` and the no-args wizard scaffold this as the in-repo `./.launch/artifacts` and add it to `.gitignore`, so build binaries never get committed. Only the `local` provider observes it - cloud stores key off {@link StorageConfig}. The history index stays under `~/.launch`, so build history and retention span projects regardless of where the binaries land.',
     }),
   ),
   artifactRetentionDays: Schema.optional(
     Schema.Number.annotations({
       description:
-        'How many days a local build binary is kept before the artifact store auto-prunes it to reclaim disk (the newest build per app+platform is always kept, so a promotable artifact never disappears). Runs after each successful local build. Defaults to 30 when omitted; set to `0` to disable the automatic sweep entirely (`launch builds prune` still works on demand). Only the `local` provider observes this — cloud stores manage retention through their own bucket lifecycle rules.',
+        'How many days a local build binary is kept before the artifact store auto-prunes it to reclaim disk (the newest build per app+platform is always kept, so a promotable artifact never disappears). Runs after each successful local build. Defaults to 30 when omitted; set to `0` to disable the automatic sweep entirely (`launch builds prune` still works on demand). Only the `local` provider observes this - cloud stores manage retention through their own bucket lifecycle rules.',
     }),
   ),
   envExclude: Schema.optional(
     described(
       Schema.Array(Schema.String),
-      `Env var names that must NEVER be injected into a build — a hard denylist applied across every layer (\`.env\`, \`.env.<profile>\`, keychain, profile \`env:\`, even an explicit \`--env\`). A matched name is dropped outright, so it can't reach the build subprocess and therefore can't be baked into the shipped app even by an \`app.config.js\` that forwards \`process.env\`.
+      `Env var names that must NEVER be injected into a build - a hard denylist applied across every layer (\`.env\`, \`.env.<profile>\`, keychain, profile \`env:\`, even an explicit \`--env\`). A matched name is dropped outright, so it can't reach the build subprocess and therefore can't be baked into the shipped app even by an \`app.config.js\` that forwards environment variables.
 
-Each entry is either an exact, case-sensitive name or a \`PREFIX*\` wildcard: \`OPENAI_*\` drops every name starting with \`OPENAI_\` (e.g. \`OPENAI_API_KEY\`, \`OPENAI_ORG_ID\`), so a whole family of backend keys collapses to one line instead of being listed individually. Wildcards anchor at the START — there is no tail/\`*_KEY\` form, by design, since that would also snag a publishable \`EXPO_PUBLIC_..._KEY\`.
+Each entry is either an exact, case-sensitive name or a \`PREFIX*\` wildcard: \`OPENAI_*\` drops every name starting with \`OPENAI_\` (e.g. \`OPENAI_API_KEY\`, \`OPENAI_ORG_ID\`), so a whole family of backend keys collapses to one line instead of being listed individually. Wildcards anchor at the START - there is no tail/\`*_KEY\` form, by design, since that would also snag a publishable \`EXPO_PUBLIC_..._KEY\`.
 
-This is the home for *backend-only* values that sit in the app's \`.env\` for local tooling but must never ship (e.g. \`OPENAI_API_KEY\`, a server-side \`SENTRY_AUTH_TOKEN\`). It is distinct from \`launch secret set\`: a stored secret is still *injected* — the build needs it — it's just moved out of plaintext; \`envExclude\` means "don't inject this at all". A name matched here is exempt from the \`.env.example\` missing-key gate (even when no layer sets it). Omit (or \`[]\`) to exclude nothing.`,
+This is the home for *backend-only* values that sit in the app's \`.env\` for local tooling but must never ship (e.g. \`OPENAI_API_KEY\`, a server-side \`SENTRY_AUTH_TOKEN\`). It is distinct from \`launch secret set\`: a stored secret is still *injected* - the build needs it - it's just moved out of plaintext; \`envExclude\` means "don't inject this at all". A name matched here is exempt from the \`.env.example\` missing-key gate (even when no layer sets it). Omit (or \`[]\`) to exclude nothing.`,
     ),
   ),
   mcp: Schema.optional(
     described(
       McpConfigEffectSchema,
-      'How `launch mcp` exposes Launch to AI agents — chiefly which capability tiers it may offer. Absent = least privilege (read-only tools). See {@link McpConfig}.',
+      'How `launch mcp` exposes Launch to AI agents - chiefly which capability tiers it may offer. Absent = least privilege (read-only tools). See {@link McpConfig}.',
     ),
   ),
 }).annotations({
@@ -1023,58 +999,25 @@ This is the home for *backend-only* values that sit in the app's \`.env\` for lo
   description:
     'The fully-resolved configuration for one `launch` invocation. Produced by {@link loadConfig} from `launch.config.ts` plus auto-discovered apps. Names here (`storage`, `credentials`, `buildEngine`) are looked up in the provider registry at runtime.',
 });
-
 export type ParsedLaunchConfig = Schema.Schema.Type<typeof LaunchConfigEffectSchema>;
 export type LaunchConfigEffectInput = Schema.Schema.Encoded<typeof LaunchConfigEffectSchema>;
-
-/**
- * Decode an unknown config value through the Effect Schema boundary.
- *
- * @param candidateConfig - Value loaded from `launch.config.ts` or a JSON config file.
- * @returns Effect that succeeds with provider defaults filled or fails with an Effect parse error.
- *
- * @example
- * ```ts
- * const parsed = yield* parseLaunchConfig({ profiles: {} });
- * ```
- */
-export function parseLaunchConfig(
+export const parseLaunchConfig = (
   candidateConfig: unknown,
-): Effect.Effect<ParsedLaunchConfig, ParseResult.ParseError> {
+): Effect.Effect<ParsedLaunchConfig, ParseResult.ParseError> => {
   return Schema.decodeUnknown(LaunchConfigEffectSchema, CONFIG_PARSE_OPTIONS)(candidateConfig);
-}
-
-/**
- * Validate an unknown config value and flatten Effect parse issues into Launch's public violation shape.
- *
- * @param candidateConfig - Value loaded from the config boundary.
- * @returns One violation per failing config path, or an empty array when valid.
- *
- * @example
- * ```ts
- * const violations = validateLaunchConfig({ profiles: {}, nope: true });
- * ```
- */
-export function validateLaunchConfig(candidateConfig: unknown): SchemaViolation[] {
+};
+export const validateLaunchConfig = (candidateConfig: unknown): SchemaViolation[] => {
   const decodedConfig = Schema.decodeUnknownEither(
     LaunchConfigEffectSchema,
     CONFIG_PARSE_OPTIONS,
   )(candidateConfig);
   if (decodedConfig._tag === 'Right') return [];
   return parseIssueToViolations(decodedConfig.left.issue, []);
-}
-
-/**
- * Convert an Effect parse issue tree into flat Launch schema violations.
- *
- * @param parseIssue - Current Effect parse issue node being flattened.
- * @param parentPath - Path accumulated from parent pointer issues.
- * @returns Public Launch schema violations for this issue branch.
- */
-function parseIssueToViolations(
+};
+const parseIssueToViolations = (
   parseIssue: ParseResult.ParseIssue,
   parentPath: PropertyKey[],
-): SchemaViolation[] {
+): SchemaViolation[] => {
   switch (parseIssue._tag) {
     case 'Composite':
       return parseIssuesToViolations(parseIssue.issues, parentPath);
@@ -1088,58 +1031,46 @@ function parseIssueToViolations(
       return parseIssueToViolations(parseIssue.issue, parentPath);
     case 'Unexpected':
       return [{ path: formatPath(parentPath), message: 'unknown property' }];
-    case 'Missing':
-      return [{ path: formatPath(parentPath), message: parseIssue.message ?? 'is required' }];
+    case 'Missing': {
+      let message = parseIssue.message;
+      if (message === undefined) message = 'is required';
+      return [{ path: formatPath(parentPath), message }];
+    }
     case 'Type':
-    case 'Forbidden':
-      return [{ path: formatPath(parentPath), message: parseIssue.message ?? 'invalid value' }];
+    case 'Forbidden': {
+      let message = parseIssue.message;
+      if (message === undefined) message = 'invalid value';
+      return [{ path: formatPath(parentPath), message }];
+    }
   }
-}
-
-/**
- * Normalize Effect's single-or-non-empty path representation into an array.
- *
- * @param path - Effect parse path segment or non-empty segment array.
- * @returns Path segments as a mutable array for downstream formatting.
- */
-function pathSegments(path: ParseResult.Path): PropertyKey[] {
+};
+const pathSegments = (path: ParseResult.Path): PropertyKey[] => {
   const pathValue: PropertyKey | readonly PropertyKey[] = path;
-  return Array.isArray(pathValue)
-    ? [...(pathValue as readonly PropertyKey[])]
-    : [pathValue as PropertyKey];
-}
-
-/**
- * Convert one or many nested Effect parse issues into flat Launch schema violations.
- *
- * @param parseIssues - Single issue or non-empty issue array from an Effect composite.
- * @param parentPath - Path accumulated from parent pointer issues.
- * @returns Public Launch schema violations for every nested issue.
- */
-function parseIssuesToViolations(
+  if (typeof pathValue === 'string') return [pathValue];
+  if (typeof pathValue === 'number') return [pathValue];
+  if (typeof pathValue === 'symbol') return [pathValue];
+  return [...pathValue];
+};
+const parseIssuesToViolations = (
   parseIssues: ParseResult.SingleOrNonEmpty<ParseResult.ParseIssue>,
   parentPath: PropertyKey[],
-): SchemaViolation[] {
-  const issueList = Array.isArray(parseIssues) ? parseIssues : [parseIssues];
+): SchemaViolation[] => {
+  let issueList: readonly ParseResult.ParseIssue[];
+  if ('_tag' in parseIssues) issueList = [parseIssues];
+  else issueList = parseIssues;
   return issueList.flatMap((nestedIssue) => parseIssueToViolations(nestedIssue, parentPath));
-}
-
-/**
- * Format a parsed config path as the dotted/bracketed path callers show.
- *
- * @param path - Config path segments reported by the Effect parser.
- * @returns Dotted path for identifiers and bracketed path for indexes or unusual keys.
- */
-function formatPath(path: readonly PropertyKey[]): string {
+};
+const formatPath = (path: readonly PropertyKey[]): string => {
   let formattedPath = '';
   for (const pathSegment of path) {
     if (typeof pathSegment === 'number') {
       formattedPath += `[${pathSegment}]`;
     } else if (typeof pathSegment === 'string' && /^[A-Za-z_$][\w$]*$/.test(pathSegment)) {
-      formattedPath += formattedPath ? `.${pathSegment}` : pathSegment;
+      if (formattedPath) formattedPath += `.${pathSegment}`;
+      else formattedPath += pathSegment;
     } else {
       formattedPath += `[${JSON.stringify(String(pathSegment))}]`;
     }
   }
   return formattedPath;
-}
+};

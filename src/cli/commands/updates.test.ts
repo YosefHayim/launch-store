@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { UpdateManifest } from '../../core/distribution/otaManifest.js';
-import { formatUpdateDetail, formatUpdatesTable, shortId, type UpdateRow } from './updates.js';
-
-function row(over: Partial<UpdateRow> = {}): UpdateRow {
+import type { UpdateManifest } from '@core/distribution/otaManifest.js';
+import {
+  formatUpdateDetail,
+  formatUpdatesTable,
+  shortId,
+  type UpdateRow,
+} from '@core/config/updatesCommand.js';
+const tableRow4 = (over: Partial<UpdateRow> = {}): UpdateRow => {
   return {
     id: '1234abcd-5678-90ef-ghij-klmnopqrstuv',
     platform: 'ios',
@@ -13,19 +17,17 @@ function row(over: Partial<UpdateRow> = {}): UpdateRow {
     kind: 'publish',
     ...over,
   };
-}
-
+};
 describe('shortId', () => {
   it('abbreviates a UUID to its first segment', () => {
     expect(shortId('1234abcd-5678-90ef')).toBe('1234abcd');
   });
 });
-
 describe('formatUpdatesTable', () => {
   it('renders a header and one row per update with the active marker', () => {
     const table = formatUpdatesTable([
-      row({ id: 'aaaaaaaa-1', active: true, kind: 'publish' }),
-      row({
+      tableRow4({ id: 'aaaaaaaa-1', active: true, kind: 'publish' }),
+      tableRow4({
         id: 'bbbbbbbb-2',
         platform: 'android',
         active: false,
@@ -43,7 +45,6 @@ describe('formatUpdatesTable', () => {
     expect(second).toContain('2.0.0');
   });
 });
-
 describe('formatUpdateDetail', () => {
   const manifest: UpdateManifest = {
     id: '1234abcd',
@@ -60,16 +61,14 @@ describe('formatUpdateDetail', () => {
     metadata: {},
     extra: {},
   };
-
   it('includes the bundle URL and asset count when the snapshot is present', () => {
-    const detail = formatUpdateDetail(row(), manifest);
+    const detail = formatUpdateDetail(tableRow4(), manifest);
     expect(detail).toContain('https://cdn/bundle.hbc');
     expect(detail).toContain('assets:  1');
     expect(detail).toContain('active');
   });
-
   it('omits manifest lines when the snapshot is missing', () => {
-    const detail = formatUpdateDetail(row({ active: false }), null);
+    const detail = formatUpdateDetail(tableRow4({ active: false }), null);
     expect(detail).not.toContain('bundle:');
     expect(detail).toContain('runtime 1.0.0');
   });

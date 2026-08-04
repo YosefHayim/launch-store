@@ -1,38 +1,54 @@
-import { spawn } from 'node:child_process';
-import { EventEmitter } from 'node:events';
-import { describe, expect, it, vi, afterEach } from 'vitest';
-import { run } from './exec.js';
+import { Effect } from 'effect';
+import { describe, expect, it } from 'vitest';
 import { UTF8_LOCALE } from '../terminal/locale.js';
-
-vi.mock('node:child_process', () => ({
-  spawn: vi.fn(),
-}));
-
-function mockChild(exitCode = 0): EventEmitter {
-  const child = new EventEmitter();
-  queueMicrotask(() => child.emit('close', exitCode));
-  return child;
-}
-
-describe('exec.run locale', () => {
-  afterEach(() => {
-    vi.mocked(spawn).mockReset();
-  });
-
-  it('passes UTF-8 locale env to spawned children', async () => {
-    vi.mocked(spawn).mockReturnValue(mockChild(0) as never);
-
-    await run('echo', ['hi']);
-
-    expect(spawn).toHaveBeenCalledWith(
-      'echo',
-      ['hi'],
-      expect.objectContaining({
-        env: expect.objectContaining({
-          LANG: UTF8_LOCALE.LANG,
-          LC_ALL: UTF8_LOCALE.LC_ALL,
-        }),
-      }),
+import {
+  captureCommandOutput,
+  checkCommandExists,
+  executeCommand,
+  provideNodeCommandServices,
+} from './exec.js';
+/** Execute a command service test with the official Node platform services. */
+const executeTestProgram = <TValue, TError>(
+  program: Parameters<typeof provideNodeCommandServices<TValue, TError>>[0],
+): Promise<TValue> => Effect.runPromise(provideNodeCommandServices(program));
+describe('Effect Platform command execution', () => {
+  it('passes the UTF-8 locale to spawned children', async () => {
+    const localeText = await executeTestProgram(
+      captureCommandOutput(process.execPath, [
+        '-e',
+        'process.stdout.write(`${process.env.LANG}|${process.env.LC_ALL}`)',
+      ]),
     );
+    expect(localeText).toBe(`${UTF8_LOCALE.LANG}|${UTF8_LOCALE.LC_ALL}`);
+  });
+  it('captures trimmed stdout', async () => {
+    const standardOutput = await executeTestProgram(
+      captureCommandOutput(process.execPath, ['-e', 'process.stdout.write("launch\\n")']),
+    );
+    expect(standardOutput).toBe('launch');
+  });
+  it('closes stdin for captured commands', async () => {
+    const standardOutput = await executeTestProgram(
+      captureCommandOutput(process.execPath, [
+        '-e',
+        'process.stdin.on("end", () => process.stdout.write("closed")); process.stdin.resume()',
+      ]),
+    );
+    expect(standardOutput).toBe('closed');
+  });
+  it('returns a tagged error for a non-zero exit', async () => {
+    const failure = await Effect.runPromise(
+      provideNodeCommandServices(
+        executeCommand(process.execPath, ['-e', 'process.exit(7)']).pipe(Effect.flip),
+      ),
+    );
+    expect(failure._tag).toBe('CommandFailed');
+    expect(failure.exitCode).toBe(7);
+  });
+  it('checks PATH through the platform command executor', async () => {
+    await expect(executeTestProgram(checkCommandExists('node'))).resolves.toBe(true);
+    await expect(
+      executeTestProgram(checkCommandExists('launch-command-that-does-not-exist')),
+    ).resolves.toBe(false);
   });
 });

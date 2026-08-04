@@ -1,108 +1,145 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { NodeContext } from '@effect/platform-node';
+import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import type { LaunchConfig, DoctorAscApi, DoctorContext, DoctorPlatform } from '../types/index.js';
+import type { LaunchConfig } from '../types/config.js';
+import type { DoctorAscApi, DoctorContext, DoctorPlatform } from '../types/doctor.js';
 import { inspectDoctor } from './inspect.js';
+const launchConfig: LaunchConfig = {
+  profiles: {},
+  credentials: 'local',
+  storage: 'local',
+  buildEngine: 'fastlane',
+  submit: 'app-store-connect',
+};
 
-/**
- * A fully-faked {@link DoctorContext} — no network, no keychain. Defaults to a healthy macOS-free machine
- * with every PATH tool present and no store accounts configured (resolvers return `null`, so the Apple and
- * Play sections record advisory skips rather than reaching out).
- */
-function context(overrides: Partial<DoctorContext> = {}): DoctorContext {
+const DOCTOR_PLATFORMS: readonly DoctorPlatform[] = ['ios', 'android'];
+
+/** Build a doctor context with no network or keychain access. */
+const context = (overrides: Partial<DoctorContext> = {}): DoctorContext => {
   return {
-    config: {} as unknown as LaunchConfig,
+    config: launchConfig,
     apps: [],
     platform: 'ios',
     os: 'linux',
-    cwd: overrides.cwd ?? process.cwd(),
-    exists: async () => true,
-    resolveAsc: async () => null,
-    resolvePlay: async () => null,
-    credentialsStatus: async () => 'no credentials',
-    codesignIdentities: async () => null,
-    corepackAvailable: async () => true,
+    cwd: process.cwd(),
+    exists: () => Effect.succeed(true),
+    gradleWrapperExists: () => Effect.succeed(false),
+    resolveAsc: () => Effect.succeed(null),
+    resolvePlay: () => Effect.succeed(null),
+    credentialsStatus: () => Effect.succeed('no credentials'),
+    codesignIdentities: () => Effect.succeed(null),
+    corepackAvailable: () => Effect.succeed(true),
     ...overrides,
   };
-}
+};
+/** Run the Effect-native doctor inspection for a test context. */
+const runInspect = (doctorContext: DoctorContext) =>
+  Effect.runPromise(inspectDoctor(doctorContext).pipe(Effect.provide(NodeContext.layer)));
 
+/** Complete permission-probe methods shared by focused Apple doctor fakes. */
+const availablePermissionReads = {
+  listDistributionCertificates: () => Effect.succeed([]),
+  listBetaGroups: () => Effect.succeed([]),
+  listAppStoreVersions: () => Effect.succeed([]),
+  listSubscriptionGroups: () => Effect.succeed([]),
+  listCustomerReviews: () => Effect.succeed([]),
+  listAnalyticsReportRequests: () => Effect.succeed([]),
+};
 describe('inspectDoctor', () => {
   it('passes a clean iOS preflight (no fails) with no accounts configured', async () => {
-    const report = await inspectDoctor(context({ platform: 'ios' }));
+    const report = await runInspect(context({ platform: 'ios' }));
     expect(report.platform).toBe('ios');
     expect(report.ok).toBe(true);
-    expect(report.checks.some((c) => c.title.startsWith('Package manager:'))).toBe(true);
-    expect(report.checks.some((c) => c.title.includes('skipping Apple checks'))).toBe(true);
-  });
-
-  it('fails the Android run when the SDK and toolchain are missing', async () => {
-    const report = await inspectDoctor(context({ platform: 'android', exists: async () => false }));
-    expect(report.platform).toBe('android');
-    expect(report.ok).toBe(false);
-    expect(report.checks.some((c) => c.status === 'fail' && c.title === 'Android SDK')).toBe(true);
-  });
-
-  it('reports the Android SDK as ok when ANDROID_HOME is set', async () => {
-    const report = await inspectDoctor(
-      context({ platform: 'android', androidSdk: '/opt/android-sdk' }),
-    );
     expect(
-      report.checks.some((c) => c.status === 'ok' && c.title.includes('/opt/android-sdk')),
+      report.checks.some((doctorCheck) => doctorCheck.title.startsWith('Package manager:')),
+    ).toBe(true);
+    expect(
+      report.checks.some((doctorCheck) => doctorCheck.title.includes('skipping Apple checks')),
     ).toBe(true);
   });
-
-  it('isolates a throwing section as a single fail without sinking the rest', async () => {
-    const report = await inspectDoctor(
+  it('fails the Android run when the SDK and toolchain are missing', async () => {
+    const report = await runInspect(
       context({
-        credentialsStatus: () => {
-          throw new Error('keychain locked');
-        },
+        platform: 'android',
+        exists: () => Effect.succeed(false),
       }),
     );
-    const failed = report.checks.filter((c) => c.status === 'fail');
-    expect(failed).toEqual([
+    expect(report.platform).toBe('android');
+    expect(report.ok).toBe(false);
+    expect(
+      report.checks.some(
+        (doctorCheck) => doctorCheck.status === 'fail' && doctorCheck.title === 'Android SDK',
+      ),
+    ).toBe(true);
+  });
+  it('reports the Android SDK as ok when ANDROID_HOME is set', async () => {
+    const report = await runInspect(
+      context({
+        platform: 'android',
+        androidSdk: '/opt/android-sdk',
+      }),
+    );
+    expect(
+      report.checks.some(
+        (doctorCheck) =>
+          doctorCheck.status === 'ok' && doctorCheck.title.includes('/opt/android-sdk'),
+      ),
+    ).toBe(true);
+  });
+  it('isolates a throwing section as a single fail without sinking the rest', async () => {
+    const report = await runInspect(
+      context({
+        credentialsStatus: () => Effect.fail(new Error('keychain locked')),
+      }),
+    );
+    const failedChecks = report.checks.filter((doctorCheck) => doctorCheck.status === 'fail');
+    expect(failedChecks).toEqual([
       { status: 'fail', title: 'Credentials check failed', detail: 'keychain locked' },
     ]);
     expect(report.ok).toBe(false);
-    expect(report.checks.some((c) => c.title.startsWith('Package manager:'))).toBe(true);
+    expect(
+      report.checks.some((doctorCheck) => doctorCheck.title.startsWith('Package manager:')),
+    ).toBe(true);
   });
-
-  for (const platform of ['ios', 'android'] as DoctorPlatform[]) {
+  for (const platform of DOCTOR_PLATFORMS) {
     it(`always reports the package manager first for ${platform}`, async () => {
-      const report = await inspectDoctor(context({ platform }));
+      const report = await runInspect(context({ platform }));
       expect(report.checks[0]?.title.startsWith('Package manager:')).toBe(true);
     });
   }
-
   it('inspects the package setup of the given cwd', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'launch-doctor-pm-'));
     try {
       writeFileSync(join(dir, 'package.json'), JSON.stringify({ packageManager: 'pnpm@9.0.0' }));
       writeFileSync(join(dir, 'pnpm-lock.yaml'), '');
-      const report = await inspectDoctor(context({ cwd: dir }));
-      expect(report.checks.some((c) => c.title.includes('pnpm'))).toBe(true);
+      const report = await runInspect(context({ cwd: dir }));
+      expect(report.checks.some((doctorCheck) => doctorCheck.title.includes('pnpm'))).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
   });
-
   it('reports shell locale in the iOS toolchain section', async () => {
-    const report = await inspectDoctor(
-      context({ platform: 'ios', shellLocale: { LANG: 'en_US.UTF-8' } }),
+    const report = await runInspect(
+      context({
+        platform: 'ios',
+        shellLocale: { LANG: 'en_US.UTF-8' },
+      }),
     );
-    expect(report.checks.some((c) => c.title === 'Shell locale (en_US.UTF-8)')).toBe(true);
+    expect(
+      report.checks.some((doctorCheck) => doctorCheck.title === 'Shell locale (en_US.UTF-8)'),
+    ).toBe(true);
   });
-
   it('advises when the shell locale is not UTF-8', async () => {
-    const report = await inspectDoctor(context({ platform: 'ios', shellLocale: { LANG: 'C' } }));
+    const report = await runInspect(context({ platform: 'ios', shellLocale: { LANG: 'C' } }));
     const locale = report.checks.find((c) => c.title.startsWith('Shell locale'));
     expect(locale?.status).toBe('info');
     expect(locale?.hint).toContain('Launch sets UTF-8');
   });
-
   it('fails the iOS run when an extension App ID is unregistered (#261 doctor preflight)', async () => {
-    const report = await inspectDoctor(
+    const report = await runInspect(
       context({
         apps: [
           {
@@ -113,14 +150,19 @@ describe('inspectDoctor', () => {
             iosExtensions: ['com.example.sampleapp.widget'],
           },
         ],
-        resolveAsc: async () =>
-          ({
-            assertReady: async () => {},
-            getAppId: async () => 'app-1',
-            findBundleId: async (id: string) =>
-              id === 'com.example.sampleapp' ? { id: 'bid-main' } : null,
-            listBundleIdCapabilities: async () => [{ capabilityType: 'APP_GROUPS' }],
-          }) as unknown as DoctorAscApi,
+        resolveAsc: () =>
+          Effect.succeed({
+            ...availablePermissionReads,
+            assertReady: () => Effect.void,
+            getAppId: () => Effect.succeed('app-1'),
+            findBundleId: (bundleId: string) => {
+              if (bundleId === 'com.example.sampleapp') {
+                return Effect.succeed({ id: 'bid-main' });
+              }
+              return Effect.succeed(null);
+            },
+            listBundleIdCapabilities: () => Effect.succeed([{ capabilityType: 'APP_GROUPS' }]),
+          } satisfies DoctorAscApi),
       }),
     );
     expect(report.ok).toBe(false);
@@ -133,9 +175,8 @@ describe('inspectDoctor', () => {
       ),
     ).toBe(true);
   });
-
   it('surfaces App Groups portal setup as advisory info in doctor', async () => {
-    const report = await inspectDoctor(
+    const report = await runInspect(
       context({
         apps: [
           {
@@ -148,13 +189,14 @@ describe('inspectDoctor', () => {
             },
           },
         ],
-        resolveAsc: async () =>
-          ({
-            assertReady: async () => {},
-            getAppId: async () => 'app-1',
-            findBundleId: async () => ({ id: 'bid-main' }),
-            listBundleIdCapabilities: async () => [{ capabilityType: 'APP_GROUPS' }],
-          }) as unknown as DoctorAscApi,
+        resolveAsc: () =>
+          Effect.succeed({
+            ...availablePermissionReads,
+            assertReady: () => Effect.void,
+            getAppId: () => Effect.succeed('app-1'),
+            findBundleId: () => Effect.succeed({ id: 'bid-main' }),
+            listBundleIdCapabilities: () => Effect.succeed([{ capabilityType: 'APP_GROUPS' }]),
+          } satisfies DoctorAscApi),
       }),
     );
     expect(report.ok).toBe(true);

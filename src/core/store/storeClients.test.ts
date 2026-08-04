@@ -1,61 +1,120 @@
+import { Effect, unsafeCoerce } from 'effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../credentials/accounts.js', () => ({ loadActiveAscKey: vi.fn() }));
-vi.mock('../../google/credentials.js', () => ({ loadServiceAccount: vi.fn() }));
-vi.mock('../../apple/ascClient.js', () => ({ AppStoreConnectClient: vi.fn() }));
-vi.mock('../../google/playClient.js', () => ({
-  GooglePlayClient: vi.fn(),
-  parseServiceAccount: vi.fn((json: string) => json),
-}));
+vi.mock('../credentials/androidKeystore.js', () => ({ loadServiceAccount: vi.fn() }));
 
-import { createAscClientResolver, createPlayClientResolver } from './storeClients.js';
 import { loadActiveAscKey } from '../credentials/accounts.js';
-import { loadServiceAccount } from '../../google/credentials.js';
-import { AppStoreConnectClient } from '../../apple/ascClient.js';
-import { GooglePlayClient } from '../../google/playClient.js';
+import { loadServiceAccount } from '../credentials/androidKeystore.js';
+import {
+  type AppleStoreClientService,
+  AppleStoreClientService as AppleStoreClients,
+  type EffectAppStoreConnectClient,
+} from '../services/appleStoreClient.js';
+import {
+  type EffectGooglePlayClient,
+  type GoogleStoreClientService,
+  GoogleStoreClientService as GoogleStoreClients,
+} from '../services/googleStoreClient.js';
+import { createAscClientResolver, createPlayClientResolver } from './storeClients.js';
+
+const appStoreClient = unsafeCoerce<unknown, EffectAppStoreConnectClient>({ store: 'apple' });
+const playStoreClient = unsafeCoerce<unknown, EffectGooglePlayClient>({ store: 'google' });
+
+const createEffectAppStoreClient = vi.fn(() => Effect.succeed(appStoreClient));
+const createEffectPlayStoreClient = vi.fn(() => Effect.succeed(playStoreClient));
+
+const appleStoreClientTest = unsafeCoerce<
+  Pick<AppleStoreClientService, 'createEffectClient'>,
+  AppleStoreClientService
+>({ createEffectClient: createEffectAppStoreClient });
+
+const googleStoreClientTest = unsafeCoerce<
+  Pick<GoogleStoreClientService, 'createEffectClient'>,
+  GoogleStoreClientService
+>({ createEffectClient: createEffectPlayStoreClient });
+
+const runTest = <Success, Failure, Requirements>(
+  testEffect: Effect.Effect<Success, Failure, Requirements>,
+): Promise<Success> =>
+  Effect.runPromise(
+    unsafeCoerce<Effect.Effect<Success, Failure, Requirements>, Effect.Effect<Success, Failure>>(
+      testEffect,
+    ),
+  );
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 describe('createAscClientResolver', () => {
-  it('loads credentials and constructs the client once, then memoizes it', async () => {
-    vi.mocked(loadActiveAscKey).mockResolvedValue({ keyId: 'K', issuerId: 'I', p8: 'pem' });
-    const resolve = createAscClientResolver();
-    const first = await resolve();
-    const second = await resolve();
-    expect(first).toBe(second);
+  it('loads credentials and constructs the client once', async () => {
+    vi.mocked(loadActiveAscKey).mockReturnValue(
+      Effect.succeed({ keyId: 'K', issuerId: 'I', p8: 'pem' }),
+    );
+    const resolveAppStoreClient = createAscClientResolver();
+    const runResolver = () =>
+      runTest(
+        resolveAppStoreClient().pipe(
+          Effect.provideService(AppleStoreClients, appleStoreClientTest),
+        ),
+      );
+
+    const firstClient = await runResolver();
+    const secondClient = await runResolver();
+    expect(firstClient).toBe(secondClient);
     expect(loadActiveAscKey).toHaveBeenCalledTimes(1);
-    expect(AppStoreConnectClient).toHaveBeenCalledTimes(1);
+    expect(createEffectAppStoreClient).toHaveBeenCalledTimes(1);
   });
 
-  it('caches a null (unconfigured) result without re-reading or constructing', async () => {
-    vi.mocked(loadActiveAscKey).mockResolvedValue(null);
-    const resolve = createAscClientResolver();
-    expect(await resolve()).toBeNull();
-    expect(await resolve()).toBeNull();
+  it('caches an unconfigured account without creating a client', async () => {
+    vi.mocked(loadActiveAscKey).mockReturnValue(Effect.succeed(null));
+    const resolveAppStoreClient = createAscClientResolver();
+    const runResolver = () =>
+      runTest(
+        resolveAppStoreClient().pipe(
+          Effect.provideService(AppleStoreClients, appleStoreClientTest),
+        ),
+      );
+
+    expect(await runResolver()).toBeNull();
+    expect(await runResolver()).toBeNull();
     expect(loadActiveAscKey).toHaveBeenCalledTimes(1);
-    expect(AppStoreConnectClient).not.toHaveBeenCalled();
+    expect(createEffectAppStoreClient).not.toHaveBeenCalled();
   });
 });
 
 describe('createPlayClientResolver', () => {
-  it('loads the service account and constructs the client once, then memoizes it', async () => {
-    vi.mocked(loadServiceAccount).mockResolvedValue('{}');
-    const resolve = createPlayClientResolver();
-    const first = await resolve();
-    const second = await resolve();
-    expect(first).toBe(second);
+  it('loads the service account and constructs the client once', async () => {
+    vi.mocked(loadServiceAccount).mockReturnValue(Effect.succeed('{}'));
+    const resolvePlayStoreClient = createPlayClientResolver();
+    const runResolver = () =>
+      runTest(
+        resolvePlayStoreClient().pipe(
+          Effect.provideService(GoogleStoreClients, googleStoreClientTest),
+        ),
+      );
+
+    const firstClient = await runResolver();
+    const secondClient = await runResolver();
+    expect(firstClient).toBe(secondClient);
     expect(loadServiceAccount).toHaveBeenCalledTimes(1);
-    expect(GooglePlayClient).toHaveBeenCalledTimes(1);
+    expect(createEffectPlayStoreClient).toHaveBeenCalledTimes(1);
   });
 
-  it('caches a null result', async () => {
-    vi.mocked(loadServiceAccount).mockResolvedValue(null);
-    const resolve = createPlayClientResolver();
-    expect(await resolve()).toBeNull();
-    expect(await resolve()).toBeNull();
+  it('caches an unconfigured account without creating a client', async () => {
+    vi.mocked(loadServiceAccount).mockReturnValue(Effect.succeed(null));
+    const resolvePlayStoreClient = createPlayClientResolver();
+    const runResolver = () =>
+      runTest(
+        resolvePlayStoreClient().pipe(
+          Effect.provideService(GoogleStoreClients, googleStoreClientTest),
+        ),
+      );
+
+    expect(await runResolver()).toBeNull();
+    expect(await runResolver()).toBeNull();
     expect(loadServiceAccount).toHaveBeenCalledTimes(1);
-    expect(GooglePlayClient).not.toHaveBeenCalled();
+    expect(createEffectPlayStoreClient).not.toHaveBeenCalled();
   });
 });

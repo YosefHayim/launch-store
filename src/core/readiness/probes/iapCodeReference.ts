@@ -1,25 +1,13 @@
-/**
- * Probe: does every IAP/subscription product id declared in `launch.config.ts` actually appear somewhere in
- * the app's own source? A declared id the app never references is almost always a typo or an orphan left
- * behind after a rename — the product exists on App Store Connect but no `Purchases.purchaseProduct("…")`
- * call can ever reach it, so it silently never sells. This is the one IAP check that reads the *app code*
- * rather than the store, so it's purely local (no credentials, never skips) and advisory (`warn`, not a hard
- * blocker — the scan deliberately skips native/generated trees, so a miss is "couldn't find it", not "proven
- * absent"). The scan is bounded and read-only and never executes anything (see {@link walkAppSource}). Tag `iap`.
- */
-
-import { readFileSync, statSync } from 'node:fs';
+import { FileSystem } from '@effect/platform';
 import { Effect } from 'effect';
 import type {
   AppReadiness,
   ProbeResult,
   ReadinessContext,
   ReadinessProbe,
-} from '../../types/index.js';
-import { walkAppSource } from '../sourceScan.js';
+} from '@core/types/readiness.js';
+import { type SourceScanRequirements, walkAppSource } from '../sourceScan.js';
 import { declaredAppleProductIds } from './iapReadiness.js';
-
-/** Extensions a product id can realistically be referenced from: JS/TS, native sources, and config/JSON. */
 const SCANNABLE_EXTENSIONS = new Set([
   '.js',
   '.jsx',
@@ -35,51 +23,44 @@ const SCANNABLE_EXTENSIONS = new Set([
   '.kt',
   '.java',
 ]);
-
-/** Skip an individual file larger than this (minified bundles, lockfiles) — they won't hold a hand-typed id. */
 const MAX_FILE_BYTES = 512 * 1024;
-/** Stop scanning contents once this many bytes have been read — the budget that actually bounds the work. */
 const MAX_SCAN_BYTES = 8 * 1024 * 1024;
 
-/**
- * Which of `productIds` appear as a literal substring in the app's source under `appDir`. Reads only
- * scannable text files within the per-file and total byte budgets and stops as soon as every id is found.
- *
- * @param appDir - App source root to scan.
- * @param productIds - Declared Apple product ids that should appear in source.
- * @returns An Effect that succeeds with the subset of ids found in source text.
- */
-function findReferencedIds(appDir: string, productIds: string[]): Effect.Effect<Set<string>> {
-  const found = new Set<string>();
-  const pending = new Set(productIds);
+/** Find declared product identifiers in a bounded app-source scan. */
+const findReferencedIds = (
+  appDirectory: string,
+  productIds: string[],
+): Effect.Effect<Set<string>, never, SourceScanRequirements> => {
+  const referencedIds = new Set<string>();
+  const pendingIds = new Set(productIds);
   let bytesScanned = 0;
-
-  return walkAppSource(appDir, (filePath, ext) =>
+  return walkAppSource(appDirectory, (filePath, fileExtension) =>
     Effect.gen(function* () {
-      if (!SCANNABLE_EXTENSIONS.has(ext)) return false;
-      const size = yield* Effect.try({
-        try: () => statSync(filePath).size,
-        catch: (statFailure) => statFailure,
-      }).pipe(Effect.catchAll(() => Effect.succeed(0)));
-      if (size > MAX_FILE_BYTES) return false;
-      if (bytesScanned + size > MAX_SCAN_BYTES) return true; // byte budget exhausted — stop the walk
-      const text = yield* Effect.try({
-        try: () => readFileSync(filePath, 'utf8'),
-        catch: (readFailure) => readFailure,
-      }).pipe(Effect.catchAll(() => Effect.succeed('')));
-      bytesScanned += size;
-      for (const id of pending) {
-        if (text.includes(id)) {
-          found.add(id);
-          pending.delete(id);
+      if (!SCANNABLE_EXTENSIONS.has(fileExtension)) return false;
+      const fileSystem = yield* FileSystem.FileSystem;
+      const fileMetadata = yield* fileSystem
+        .stat(filePath)
+        .pipe(Effect.catchAll(() => Effect.succeed(undefined)));
+      if (fileMetadata === undefined) return false;
+      const fileBytes = Number(fileMetadata.size);
+      if (fileBytes > MAX_FILE_BYTES) return false;
+      if (bytesScanned + fileBytes > MAX_SCAN_BYTES) return true;
+      const sourceText = yield* fileSystem
+        .readFileString(filePath)
+        .pipe(Effect.catchAll(() => Effect.succeed('')));
+      bytesScanned += fileBytes;
+      for (const productId of pendingIds) {
+        if (sourceText.includes(productId)) {
+          referencedIds.add(productId);
+          pendingIds.delete(productId);
         }
       }
-      return pending.size === 0; // every declared id accounted for — no need to keep walking
+      return pendingIds.size === 0;
     }),
-  ).pipe(Effect.as(found));
-}
+  ).pipe(Effect.as(referencedIds));
+};
 
-/** The App Store Connect "declared product ids are referenced in app code" probe (local source scan). */
+/** Check whether declared App Store products appear in local app source. */
 export const iapCodeReferenceProbe = {
   id: 'apple-iap-code-reference',
   title: 'Product ids referenced in app code',
@@ -91,43 +72,64 @@ export const iapCodeReferenceProbe = {
    * @param readinessContext - Loaded config and selected apps for the readiness run.
    * @returns An Effect that succeeds with one source-reference finding per in-scope app.
    */
-  check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult> {
+  check(
+    readinessContext: ReadinessContext,
+  ): Effect.Effect<ProbeResult, never, SourceScanRequirements> {
     return Effect.gen(function* () {
-      const apps = readinessContext.apps.flatMap((app) => {
-        const bundleId = app.bundleId;
-        if (!bundleId) return [];
-        const productIds = declaredAppleProductIds(readinessContext.config.products?.[bundleId]);
-        return productIds.length > 0
-          ? [{ name: app.name, identifier: bundleId, dir: app.dir, productIds }]
-          : [];
-      });
-      if (apps.length === 0) return { state: 'omitted' };
-
-      const results: AppReadiness[] = yield* Effect.forEach(
-        apps,
-        ({ name, identifier, dir, productIds }) =>
+      const scopedApps: {
+        name: string;
+        identifier: string;
+        directory: string;
+        productIds: string[];
+      }[] = [];
+      for (const configuredApp of readinessContext.apps) {
+        if (configuredApp.bundleId === undefined) continue;
+        const productIds = declaredAppleProductIds(
+          readinessContext.config.products?.[configuredApp.bundleId],
+        );
+        if (productIds.length === 0) continue;
+        scopedApps.push({
+          name: configuredApp.name,
+          identifier: configuredApp.bundleId,
+          directory: configuredApp.dir,
+          productIds,
+        });
+      }
+      if (scopedApps.length === 0) return { state: 'omitted' };
+      const appFindings = yield* Effect.forEach(
+        scopedApps,
+        ({
+          name,
+          identifier,
+          directory,
+          productIds,
+        }): Effect.Effect<AppReadiness, never, SourceScanRequirements> =>
           Effect.gen(function* () {
-            const referenced = yield* findReferencedIds(dir, productIds);
-            const orphaned = productIds.filter((productId) => !referenced.has(productId));
-            if (orphaned.length === 0) {
+            const referencedIds = yield* findReferencedIds(directory, productIds);
+            const missingIds = productIds.filter((productId) => !referencedIds.has(productId));
+            if (missingIds.length === 0) {
+              let productLabel = 'product ids';
+              if (productIds.length === 1) productLabel = 'product id';
               return {
                 app: name,
                 identifier,
-                status: 'ok' as const,
-                detail: `all ${productIds.length} declared product id${productIds.length === 1 ? '' : 's'} referenced in source`,
+                status: 'ok',
+                detail: `all ${productIds.length} declared ${productLabel} referenced in source`,
               };
             }
+            let productLabel = 'product ids';
+            if (missingIds.length === 1) productLabel = 'product id';
             return {
               app: name,
               identifier,
-              status: 'warn' as const,
-              detail: `${orphaned.length} declared product id${orphaned.length === 1 ? '' : 's'} not found in source: ${orphaned.join(', ')}`,
+              status: 'warn',
+              detail: `${missingIds.length} declared ${productLabel} not found in source: ${missingIds.join(', ')}`,
               hint: 'check for a typo or an orphaned product in launch.config.ts (native/generated dirs are skipped)',
             };
           }),
         { concurrency: 'unbounded' },
       );
-      return { state: 'checked', apps: results };
+      return { state: 'checked', apps: appFindings };
     });
   },
 } satisfies ReadinessProbe;

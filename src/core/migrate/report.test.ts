@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { Effect } from 'effect';
 import { renderReport } from './report.js';
-import type { MigrationResult } from '../types/index.js';
-
+import type { MigrationResult } from '../types/migrate.js';
 /** A result exercising every note level plus a couple of artifacts. */
 const RESULT: MigrationResult = {
   source: 'eas',
@@ -16,34 +16,35 @@ const RESULT: MigrationResult = {
     { level: 'info', message: 'Detected bundle id.' },
   ],
 };
-
 describe('renderReport', () => {
+  const renderMigrationReport = (migration: MigrationResult) =>
+    Effect.runSync(renderReport(migration));
   it('titles the report and names the source', () => {
-    const md = renderReport(RESULT);
-    expect(md).toContain('# Launch migration report');
-    expect(md).toContain('EAS (eas.json)');
+    const reportMarkdown = renderMigrationReport(RESULT);
+    expect(reportMarkdown).toContain('# Launch migration report');
+    expect(reportMarkdown).toContain('EAS (eas.json)');
   });
-
   it('lists the emitted artifacts', () => {
-    const md = renderReport(RESULT);
-    expect(md).toContain('- `launch.config.ts`');
-    expect(md).toContain('- `.env.example`');
+    const reportMarkdown = renderMigrationReport(RESULT);
+    expect(reportMarkdown).toContain('- `launch.config.ts`');
+    expect(reportMarkdown).toContain('- `.env.example`');
   });
-
   it('renders a section per present note level, actionable first', () => {
-    const md = renderReport(RESULT);
-    expect(md).toContain('## Needs your attention');
-    expect(md).toContain('## Mapped automatically');
-    expect(md).toContain('## Skipped (left as-is)');
-    expect(md).toContain('## For your information');
-    expect(md.indexOf('## Needs your attention')).toBeLessThan(
-      md.indexOf('## For your information'),
+    const reportMarkdown = renderMigrationReport(RESULT);
+    expect(reportMarkdown).toContain('## Needs your attention');
+    expect(reportMarkdown).toContain('## Mapped automatically');
+    expect(reportMarkdown).toContain('## Skipped (left as-is)');
+    expect(reportMarkdown).toContain('## For your information');
+    expect(reportMarkdown.indexOf('## Needs your attention')).toBeLessThan(
+      reportMarkdown.indexOf('## For your information'),
     );
   });
-
   it('omits sections with no notes', () => {
-    const md = renderReport({ ...RESULT, notes: [{ level: 'manual', message: 'x' }] });
-    expect(md).toContain('## Needs your attention');
-    expect(md).not.toContain('## For your information');
+    const reportMarkdown = renderMigrationReport({
+      ...RESULT,
+      notes: [{ level: 'manual', message: 'x' }],
+    });
+    expect(reportMarkdown).toContain('## Needs your attention');
+    expect(reportMarkdown).not.toContain('## For your information');
   });
 });

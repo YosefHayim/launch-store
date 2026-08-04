@@ -1,369 +1,548 @@
-/**
- * Reconcile an app's App Store *release attributes* — age rating, App Store categories, the base price,
- * and the App Review (demo account + contact) details — from a declarative `release.config.json` to
- * match App Store Connect. These are the non-text version-page fields you'd otherwise click through by
- * hand before submitting; getting them wrong is a frequent rejection / duplicate-submission source, and
- * EAS automates none of them.
- *
- * Design mirrors {@link reconcileApp `core/ascSync.ts`}: a read-only PLAN pass builds the
- * {@link PlannedAction}s (idempotent — each sub-area re-reads live state and proposes a change only when
- * it actually differs), the command prints them, then an APPLY pass performs them, each action isolated
- * so one failing sub-area never aborts the rest. Each sub-area is independent: declaring only `pricing`
- * touches only pricing. The reconcile-action vocabulary (PlannedAction / ActionStatus / ReconcileReport)
- * is reused from `ascSync.ts` so plans render identically to `launch sync`, and the {@link act} / {@link skip}
- * reconcile primitives come from the shared `core/asc/storeSync.ts` vocabulary.
- *
- * This is a standalone command rather than a `launch sync` subcommand on purpose: the `launch sync`
- * orchestrator is owned by a parallel in-flight change, and these app-level attributes are a distinct
- * concern from the product catalog it reconciles.
- */
-
-import { existsSync, readFileSync } from 'node:fs';
+import { FileSystem } from '@effect/platform';
+import { Data, Effect, Schema } from 'effect';
+import { resolveSecretRef } from '../credentials/secretRef.js';
+import { errorMessage } from '../services/errorMessage.js';
+import { appRecordMissing, skip, type ReconcileContext } from '../store/reconcile.js';
 import type {
   AgeRatingDeclarationResource,
   AgeRatingValue,
   AppInfoResource,
   AppStoreReviewDetailResource,
   PricePointResource,
-} from '../../apple/ascClient.js';
-import { act, appRecordMissing, skip, type ReconcileContext } from '../asc/storeSync.js';
-import type { ReconcileReport } from '../store/ascSync.js';
-import { asRecord } from '../services/json.js';
-import { resolveSecretRef } from '../credentials/secretRef.js';
+} from '../types/appleCatalog.js';
+import type { PlannedAction, ReconcileReport } from '../types/reconcile.js';
 import type {
   ReleaseAttributesConfig,
   ReleaseCategories,
   ReleasePricing,
   ReviewDetailsConfig,
-} from '../types/index.js';
+} from '../types/storeSurface.js';
 
-/** Default platform whose editable version owns the App Review details. */
 const DEFAULT_PLATFORM = 'IOS';
-/** Default base territory for price-point resolution when the config doesn't name one. */
 const DEFAULT_TERRITORY = 'USA';
-/** Demo-account password is write-only on Apple's side; it's diffed and rendered by name only, never value. */
 const DEMO_PASSWORD_KEY = 'demoAccountPassword';
 
-/**
- * The exact slice of {@link AppStoreConnectClient} the release reconciler depends on. Declaring it here
- * (rather than taking the concrete client) keeps the diff logic unit-testable with a hand-rolled fake;
- * `AppStoreConnectClient` satisfies it structurally.
- */
-export interface AscReleaseApi {
-  getAppId(bundleId: string): Promise<string | null>;
-  getAppInfo(appId: string): Promise<AppInfoResource | null>;
-  updateAppInfoCategories(
+const ReleaseDocumentSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown });
+const AgeRatingSettingSchema = Schema.Unknown.pipe(
+  Schema.filter(
+    (ageRatingSetting): ageRatingSetting is AgeRatingValue =>
+      [typeof ageRatingSetting === 'string', typeof ageRatingSetting === 'boolean'].includes(true),
+    {
+      message: () => 'release.config.json: ageRating answers must be a string or boolean.',
+    },
+  ),
+);
+const CategoriesSchema = Schema.mutable(
+  Schema.Struct({
+    primary: Schema.optionalWith(Schema.String, { exact: true }),
+    secondary: Schema.optionalWith(Schema.String, { exact: true }),
+  }),
+);
+const CustomerPriceSchema = Schema.Number.annotations({
+  message: () => 'release.config.json: pricing.customerPrice must be a non-negative number.',
+}).pipe(
+  Schema.finite({
+    message: () => 'release.config.json: pricing.customerPrice must be a non-negative number.',
+  }),
+  Schema.nonNegative({
+    message: () => 'release.config.json: pricing.customerPrice must be a non-negative number.',
+  }),
+);
+const PricingSchema = Schema.mutable(
+  Schema.Struct({
+    baseTerritory: Schema.optionalWith(Schema.String, { exact: true }),
+    customerPrice: CustomerPriceSchema,
+  }),
+);
+const ReviewDetailsSchema = Schema.mutable(
+  Schema.Struct({
+    contactFirstName: Schema.optionalWith(Schema.String, { exact: true }),
+    contactLastName: Schema.optionalWith(Schema.String, { exact: true }),
+    contactPhone: Schema.optionalWith(Schema.String, { exact: true }),
+    contactEmail: Schema.optionalWith(Schema.String, { exact: true }),
+    demoAccountRequired: Schema.optionalWith(Schema.Boolean, { exact: true }),
+    demoAccountName: Schema.optionalWith(Schema.String, { exact: true }),
+    demoAccountPassword: Schema.optionalWith(Schema.String, { exact: true }),
+    notes: Schema.optionalWith(Schema.String, { exact: true }),
+  }),
+);
+
+export const ReleaseAttributesConfigSchema = Schema.mutable(
+  Schema.Struct({
+    ageRating: Schema.optionalWith(
+      Schema.mutable(Schema.Record({ key: Schema.String, value: AgeRatingSettingSchema })),
+      { exact: true },
+    ),
+    categories: Schema.optionalWith(CategoriesSchema, { exact: true }),
+    pricing: Schema.optionalWith(PricingSchema, { exact: true }),
+    reviewDetails: Schema.optionalWith(ReviewDetailsSchema, { exact: true }),
+  }),
+).pipe(
+  Schema.filter(
+    (releaseConfig) =>
+      [
+        releaseConfig.ageRating,
+        releaseConfig.categories,
+        releaseConfig.pricing,
+        releaseConfig.reviewDetails,
+      ].some((declaredSection) => declaredSection !== undefined),
+    {
+      message: () =>
+        'release.config.json has no recognized section - declare at least one of ageRating / categories / pricing / reviewDetails.',
+    },
+  ),
+);
+
+/** Release-attribute decoding or reconciliation failed. */
+export type ReleaseAttributesFailure = Readonly<{
+  readonly _tag: 'ReleaseAttributesFailure';
+  readonly operation: string;
+  readonly message: string;
+  readonly cause: unknown;
+}>;
+
+export const makeReleaseAttributesFailure = Data.tagged<ReleaseAttributesFailure>(
+  'ReleaseAttributesFailure',
+);
+
+/** Store API calls used by release-attribute reconciliation. */
+export type AscReleaseApi = Readonly<{
+  getAppId: (bundleId: string) => Effect.Effect<string | null, unknown>;
+  getAppInfo: (appId: string) => Effect.Effect<AppInfoResource | null, unknown>;
+  updateAppInfoCategories: (
     appInfoId: string,
     categories: { primaryCategoryId?: string; secondaryCategoryId?: string | null },
-  ): Promise<void>;
-  getAgeRatingDeclaration(appInfoId: string): Promise<AgeRatingDeclarationResource | null>;
-  updateAgeRatingDeclaration(
+  ) => Effect.Effect<void, unknown>;
+  getAgeRatingDeclaration: (
+    appInfoId: string,
+  ) => Effect.Effect<AgeRatingDeclarationResource | null, unknown>;
+  updateAgeRatingDeclaration: (
     declarationId: string,
     attributes: Record<string, AgeRatingValue>,
-  ): Promise<void>;
-  findAppPricePoint(
+  ) => Effect.Effect<void, unknown>;
+  findAppPricePoint: (
     appId: string,
     territory: string,
     customerPrice: number,
-  ): Promise<PricePointResource | null>;
-  getCurrentAppPrice(appId: string, territory: string): Promise<string | null>;
-  createAppPriceSchedule(appId: string, baseTerritory: string, pricePointId: string): Promise<void>;
-  findEditableAppStoreVersion(appId: string, platform: string): Promise<{ id: string } | null>;
-  getAppStoreReviewDetail(versionId: string): Promise<AppStoreReviewDetailResource | null>;
-  createAppStoreReviewDetail(
+  ) => Effect.Effect<PricePointResource | null, unknown>;
+  getCurrentAppPrice: (appId: string, territory: string) => Effect.Effect<string | null, unknown>;
+  createAppPriceSchedule: (
+    appId: string,
+    baseTerritory: string,
+    pricePointId: string,
+  ) => Effect.Effect<void, unknown>;
+  findEditableAppStoreVersion: (
+    appId: string,
+    platform: string,
+  ) => Effect.Effect<{ id: string } | null, unknown>;
+  getAppStoreReviewDetail: (
+    versionId: string,
+  ) => Effect.Effect<AppStoreReviewDetailResource | null, unknown>;
+  createAppStoreReviewDetail: (
     versionId: string,
     attributes: Record<string, string | boolean>,
-  ): Promise<{ id: string }>;
-  updateAppStoreReviewDetail(
+  ) => Effect.Effect<{ id: string }, unknown>;
+  updateAppStoreReviewDetail: (
     detailId: string,
     attributes: Record<string, string | boolean>,
-  ): Promise<void>;
-}
+  ) => Effect.Effect<void, unknown>;
+}>;
 
-/** Inputs to reconcile one app's release attributes. */
-export interface ReleaseReconcileInput {
-  /** The app's iOS bundle id — resolves the ASC app record. */
+/** Inputs for one app's release-attribute reconciliation. */
+export type ReleaseReconcileInput = Readonly<{
   bundleId: string;
-  /** The declared release attributes. */
   config: ReleaseAttributesConfig;
-  /** Platform whose editable version owns the review details (default `IOS`). */
   platform?: string;
-  /** Rehearse only: read state and build the plan, perform no writes. */
   dryRun: boolean;
-}
+}>;
 
-/**
- * Reconcile one app's declared release attributes. Throws only for a precondition the user must fix (no
- * ASC app record); everything else is captured per-action so a single failure never aborts the run.
- */
-export async function reconcileRelease(
-  api: AscReleaseApi,
-  input: ReleaseReconcileInput,
-): Promise<ReconcileReport> {
-  const ctx: ReconcileContext = { actions: [], dryRun: input.dryRun };
-  const { config } = input;
+type SecretResolver<Requirements> = (
+  secretReference: string,
+  secretLabel: string,
+) => Effect.Effect<string, unknown, Requirements>;
 
-  const appId = await api.getAppId(input.bundleId);
-  if (!appId) throw appRecordMissing(input.bundleId, 'release-config');
+/** Convert an underlying failure to the release-attribute channel. */
+const releaseAttributesFailure = (
+  operation: string,
+  cause: unknown,
+  explicitMessage?: string,
+): ReleaseAttributesFailure => {
+  let message = explicitMessage;
+  if (message === undefined) message = errorMessage(cause);
+  if (message.length === 0) message = `${operation} failed.`;
+  return makeReleaseAttributesFailure({ operation, message, cause });
+};
 
-  if (config.categories || (config.ageRating && Object.keys(config.ageRating).length > 0)) {
-    const appInfo = await api.getAppInfo(appId);
-    if (!appInfo) {
-      skip(ctx, 'categories / age rating: no App Info record on the app yet');
-    } else {
-      await reconcileCategories(ctx, api, appInfo, config.categories);
-      await reconcileAgeRating(ctx, api, appInfo, config.ageRating);
-    }
-  }
+/** Record and optionally apply one non-destructive reconciliation action. */
+const performAction = <Requirements>(
+  reconcileContext: ReconcileContext,
+  description: string,
+  applyAction: () => Effect.Effect<void, unknown, Requirements>,
+): Effect.Effect<void, never, Requirements> => {
+  const plannedAction: PlannedAction = {
+    description,
+    destructive: false,
+    status: 'planned',
+  };
+  reconcileContext.actions.push(plannedAction);
+  if (reconcileContext.dryRun) return Effect.void;
+  return applyAction().pipe(
+    Effect.match({
+      onSuccess: () => {
+        plannedAction.status = 'applied';
+      },
+      onFailure: (actionFailure) => {
+        plannedAction.status = 'failed';
+        plannedAction.error = errorMessage(actionFailure);
+      },
+    }),
+  );
+};
 
-  if (config.pricing) await reconcilePricing(ctx, api, appId, config.pricing);
-  if (config.reviewDetails) {
-    await reconcileReviewDetails(
-      ctx,
-      api,
-      appId,
-      input.platform ?? DEFAULT_PLATFORM,
-      config.reviewDetails,
-    );
-  }
-
-  return { bundleId: input.bundleId, actions: ctx.actions };
-}
-
-/** Set primary/secondary categories that differ from what's live (no action when already in sync). */
-async function reconcileCategories(
-  ctx: ReconcileContext,
-  api: AscReleaseApi,
-  appInfo: AppInfoResource,
+/** Reconcile declared App Store categories. */
+const reconcileCategories = (
+  reconcileContext: ReconcileContext,
+  appleReleaseApi: AscReleaseApi,
+  appInformation: AppInfoResource,
   categories: ReleaseCategories | undefined,
-): Promise<void> {
-  if (!categories) return;
-  const change: { primaryCategoryId?: string; secondaryCategoryId?: string | null } = {};
-  if (categories.primary && categories.primary !== appInfo.primaryCategoryId)
-    change.primaryCategoryId = categories.primary;
-  if (categories.secondary !== undefined && categories.secondary !== appInfo.secondaryCategoryId) {
-    change.secondaryCategoryId = categories.secondary;
-  } else if (categories.secondary === undefined && appInfo.secondaryCategoryId) {
-    change.secondaryCategoryId = null;
+): Effect.Effect<void> => {
+  if (categories === undefined) return Effect.void;
+  const categoryChanges: {
+    primaryCategoryId?: string;
+    secondaryCategoryId?: string | null;
+  } = {};
+  if (categories.primary !== undefined && categories.primary !== appInformation.primaryCategoryId) {
+    categoryChanges.primaryCategoryId = categories.primary;
   }
-  if (Object.keys(change).length === 0) return;
-
-  const parts = [
-    change.primaryCategoryId ? `primary=${change.primaryCategoryId}` : undefined,
-    change.secondaryCategoryId !== undefined
-      ? `secondary=${change.secondaryCategoryId ?? 'unset'}`
-      : undefined,
-  ].filter(Boolean);
-  await act(ctx, `set categories (${parts.join(', ')})`, () =>
-    api.updateAppInfoCategories(appInfo.id, change),
+  if (
+    categories.secondary !== undefined &&
+    categories.secondary !== appInformation.secondaryCategoryId
+  ) {
+    categoryChanges.secondaryCategoryId = categories.secondary;
+  }
+  if (categories.secondary === undefined && appInformation.secondaryCategoryId !== undefined) {
+    categoryChanges.secondaryCategoryId = null;
+  }
+  if (Object.keys(categoryChanges).length === 0) return Effect.void;
+  const changeDescriptions: string[] = [];
+  if (categoryChanges.primaryCategoryId !== undefined) {
+    changeDescriptions.push(`primary=${categoryChanges.primaryCategoryId}`);
+  }
+  if (categoryChanges.secondaryCategoryId !== undefined) {
+    let secondaryCategory = categoryChanges.secondaryCategoryId;
+    if (secondaryCategory === null) secondaryCategory = 'unset';
+    changeDescriptions.push(`secondary=${secondaryCategory}`);
+  }
+  return performAction(reconcileContext, `set categories (${changeDescriptions.join(', ')})`, () =>
+    appleReleaseApi.updateAppInfoCategories(appInformation.id, categoryChanges),
   );
-}
+};
 
-/** PATCH the age-rating answers that differ from the live declaration (no action when already in sync). */
-async function reconcileAgeRating(
-  ctx: ReconcileContext,
-  api: AscReleaseApi,
-  appInfo: AppInfoResource,
-  answers: Record<string, AgeRatingValue> | undefined,
-): Promise<void> {
-  if (!answers || Object.keys(answers).length === 0) return;
-  const current = await api.getAgeRatingDeclaration(appInfo.id);
-  if (!current) {
-    skip(ctx, 'age rating: no declaration on the app yet (create the version, then re-run)');
-    return;
-  }
-  const changed: Record<string, AgeRatingValue> = {};
-  for (const [key, value] of Object.entries(answers)) {
-    if (current.attributes[key] !== value) changed[key] = value;
-  }
-  if (Object.keys(changed).length === 0) return;
-  await act(ctx, `set age rating (${Object.keys(changed).join(', ')})`, () =>
-    api.updateAgeRatingDeclaration(current.id, changed),
-  );
-}
+/** Reconcile changed age-rating answers. */
+const reconcileAgeRating = (
+  reconcileContext: ReconcileContext,
+  appleReleaseApi: AscReleaseApi,
+  appInformation: AppInfoResource,
+  desiredAnswers: Record<string, AgeRatingValue> | undefined,
+): Effect.Effect<void, unknown> =>
+  Effect.gen(function* () {
+    if (desiredAnswers === undefined) return;
+    if (Object.keys(desiredAnswers).length === 0) return;
+    const currentDeclaration = yield* appleReleaseApi.getAgeRatingDeclaration(appInformation.id);
+    if (currentDeclaration === null) {
+      skip(
+        reconcileContext,
+        'age rating: no declaration on the app yet (create the version, then re-run)',
+      );
+      return;
+    }
+    const changedAnswers: Record<string, AgeRatingValue> = {};
+    for (const answerEntry of Object.entries(desiredAnswers)) {
+      const answerName = answerEntry[0];
+      const desiredAnswer = answerEntry[1];
+      if (currentDeclaration.attributes[answerName] !== desiredAnswer) {
+        changedAnswers[answerName] = desiredAnswer;
+      }
+    }
+    if (Object.keys(changedAnswers).length === 0) return;
+    yield* performAction(
+      reconcileContext,
+      `set age rating (${Object.keys(changedAnswers).join(', ')})`,
+      () => appleReleaseApi.updateAgeRatingDeclaration(currentDeclaration.id, changedAnswers),
+    );
+  });
 
-/** Set the app's base price when it differs from what's live (resolves the matching price-ladder rung). */
-async function reconcilePricing(
-  ctx: ReconcileContext,
-  api: AscReleaseApi,
+/** Reconcile the base-territory customer price. */
+const reconcilePricing = (
+  reconcileContext: ReconcileContext,
+  appleReleaseApi: AscReleaseApi,
   appId: string,
   pricing: ReleasePricing,
-): Promise<void> {
-  const territory = pricing.baseTerritory ?? DEFAULT_TERRITORY;
-  const current = await api.getCurrentAppPrice(appId, territory);
-  if (current !== null && Number.parseFloat(current) === pricing.customerPrice) return;
-
-  await act(ctx, `set app price = ${pricing.customerPrice} (${territory})`, async () => {
-    const point = await api.findAppPricePoint(appId, territory, pricing.customerPrice);
-    if (!point)
-      throw new Error(`No ${territory} app price point matches ${pricing.customerPrice}.`);
-    await api.createAppPriceSchedule(appId, territory, point.id);
+): Effect.Effect<void, unknown> =>
+  Effect.gen(function* () {
+    let baseTerritory = DEFAULT_TERRITORY;
+    if (pricing.baseTerritory !== undefined) baseTerritory = pricing.baseTerritory;
+    const currentPrice = yield* appleReleaseApi.getCurrentAppPrice(appId, baseTerritory);
+    if (currentPrice !== null && Number.parseFloat(currentPrice) === pricing.customerPrice) {
+      return;
+    }
+    yield* performAction(
+      reconcileContext,
+      `set app price = ${pricing.customerPrice} (${baseTerritory})`,
+      () =>
+        Effect.gen(function* () {
+          const pricePoint = yield* appleReleaseApi.findAppPricePoint(
+            appId,
+            baseTerritory,
+            pricing.customerPrice,
+          );
+          if (pricePoint === null) {
+            return yield* Effect.fail(
+              releaseAttributesFailure(
+                'resolve App Store price point',
+                pricing,
+                `No ${baseTerritory} app price point matches ${pricing.customerPrice}.`,
+              ),
+            );
+          }
+          yield* appleReleaseApi.createAppPriceSchedule(appId, baseTerritory, pricePoint.id);
+        }),
+    );
   });
-}
 
-/**
- * Create or update the editable version's App Review details. The diff ignores `demoAccountPassword`
- * (Apple never returns it on a read), so a change to the password *alone* can't be detected — change any
- * other field, or remove the detail in App Store Connect, to force it. The password is included in the
- * write when present, and only ever rendered by field name, never by value.
- */
-async function reconcileReviewDetails(
-  ctx: ReconcileContext,
-  api: AscReleaseApi,
+/** Keep only review fields Apple accepts on the write resource. */
+const reviewAttributes = (reviewDetails: ReviewDetailsConfig): Record<string, string | boolean> => {
+  const reviewWrite: Record<string, string | boolean> = {};
+  for (const reviewEntry of Object.entries(reviewDetails)) {
+    const fieldName = reviewEntry[0];
+    const fieldSetting = reviewEntry[1];
+    if (typeof fieldSetting === 'string') reviewWrite[fieldName] = fieldSetting;
+    if (typeof fieldSetting === 'boolean') reviewWrite[fieldName] = fieldSetting;
+  }
+  return reviewWrite;
+};
+
+/** Render review field names without exposing their values. */
+const renderFields = (attributes: Record<string, string | boolean>): string =>
+  Object.keys(attributes).join(', ');
+
+/** Resolve a demo-password reference only when an action is applied. */
+const resolveReviewWrite = <Requirements>(
+  attributes: Record<string, string | boolean>,
+  resolveDemoSecret: SecretResolver<Requirements>,
+): Effect.Effect<Record<string, string | boolean>, unknown, Requirements> =>
+  Effect.gen(function* () {
+    const passwordReference = attributes[DEMO_PASSWORD_KEY];
+    if (typeof passwordReference !== 'string') return attributes;
+    return {
+      ...attributes,
+      [DEMO_PASSWORD_KEY]: yield* resolveDemoSecret(passwordReference, DEMO_PASSWORD_KEY),
+    };
+  });
+
+/** Reconcile the editable version's App Review details. */
+const reconcileReviewDetails = <Requirements>(
+  reconcileContext: ReconcileContext,
+  appleReleaseApi: AscReleaseApi,
   appId: string,
   platform: string,
-  details: ReviewDetailsConfig,
-): Promise<void> {
-  const desired = reviewAttributes(details);
-  if (Object.keys(desired).length === 0) return;
-
-  const version = await api.findEditableAppStoreVersion(appId, platform);
-  if (!version) {
-    skip(ctx, 'App Review details: no editable App Store version (create/select a version first)');
-    return;
-  }
-
-  const current = await api.getAppStoreReviewDetail(version.id);
-  if (!current) {
-    await act(ctx, `set App Review details (${renderFields(desired)})`, async () => {
-      await api.createAppStoreReviewDetail(version.id, await resolveReviewWrite(desired));
-    });
-    return;
-  }
-
-  const changed: Record<string, string | boolean> = {};
-  for (const [key, value] of Object.entries(desired)) {
-    if (key === DEMO_PASSWORD_KEY) continue;
-    if (current.attributes[key] !== value) changed[key] = value;
-  }
-  if (Object.keys(changed).length === 0) return;
-  if (desired[DEMO_PASSWORD_KEY] !== undefined)
-    changed[DEMO_PASSWORD_KEY] = desired[DEMO_PASSWORD_KEY];
-  await act(ctx, `update App Review details (${renderFields(changed)})`, async () =>
-    api.updateAppStoreReviewDetail(current.id, await resolveReviewWrite(changed)),
-  );
-}
-
-/**
- * Resolve a `demoAccountPassword` reference (`env:` / `keychain:`) to its real value at the moment of the
- * write, so the secret reaches Apple but never sits in the repo-committed config — a plain string still
- * works unchanged. Returns a copy; the original attribute map (used only for name-only plan rendering and
- * the readable-field diff) is left untouched, so the plan never reads or holds the secret.
- */
-async function resolveReviewWrite(
-  attributes: Record<string, string | boolean>,
-): Promise<Record<string, string | boolean>> {
-  const password = attributes[DEMO_PASSWORD_KEY];
-  if (typeof password !== 'string') return attributes;
-  return {
-    ...attributes,
-    [DEMO_PASSWORD_KEY]: await resolveSecretRef(password, DEMO_PASSWORD_KEY),
-  };
-}
-
-/** Collapse the review config to Apple's attribute map, dropping unset fields (names match Apple's). */
-function reviewAttributes(details: ReviewDetailsConfig): Record<string, string | boolean> {
-  const attributes: Record<string, string | boolean> = {};
-  for (const [key, value] of Object.entries(details)) {
-    // The typeof guard both drops unset fields and narrows `Object.entries`'s widened value to a scalar.
-    if (typeof value === 'string' || typeof value === 'boolean') attributes[key] = value;
-  }
-  return attributes;
-}
-
-/** Render an attribute map as a comma-joined field-name list for the plan — names only, never values. */
-function renderFields(attributes: Record<string, string | boolean>): string {
-  return Object.keys(attributes).join(', ');
-}
-
-/** Parse the `categories` section, keeping only string primary/secondary ids that are present. */
-function parseCategories(raw: Record<string, unknown>): ReleaseCategories {
-  const categories: ReleaseCategories = {};
-  if (typeof raw['primary'] === 'string') categories.primary = raw['primary'];
-  if (typeof raw['secondary'] === 'string') categories.secondary = raw['secondary'];
-  return categories;
-}
-
-/** Parse the `pricing` section, requiring a non-negative numeric `customerPrice`. */
-function parsePricing(raw: Record<string, unknown>): ReleasePricing {
-  const customerPrice = raw['customerPrice'];
-  if (typeof customerPrice !== 'number' || !Number.isFinite(customerPrice) || customerPrice < 0) {
-    throw new Error('release.config.json: pricing.customerPrice must be a non-negative number.');
-  }
-  const pricing: ReleasePricing = { customerPrice };
-  if (typeof raw['baseTerritory'] === 'string') pricing.baseTerritory = raw['baseTerritory'];
-  return pricing;
-}
-
-/** Parse the `ageRating` section, accepting only string-enum or boolean answers. */
-function parseAgeRating(raw: Record<string, unknown>): Record<string, AgeRatingValue> {
-  const answers: Record<string, AgeRatingValue> = {};
-  for (const [key, value] of Object.entries(raw)) {
-    if (typeof value === 'string' || typeof value === 'boolean') answers[key] = value;
-    else
-      throw new Error(
-        `release.config.json: ageRating.${key} must be a string or boolean (got ${typeof value}).`,
+  reviewDetails: ReviewDetailsConfig,
+  resolveDemoSecret: SecretResolver<Requirements>,
+): Effect.Effect<void, unknown, Requirements> =>
+  Effect.gen(function* () {
+    const desiredAttributes = reviewAttributes(reviewDetails);
+    if (Object.keys(desiredAttributes).length === 0) return;
+    const editableVersion = yield* appleReleaseApi.findEditableAppStoreVersion(appId, platform);
+    if (editableVersion === null) {
+      skip(
+        reconcileContext,
+        'App Review details: no editable App Store version (create/select a version first)',
       );
-  }
-  return answers;
-}
-
-/** Parse the `reviewDetails` section, keeping the known string fields plus the boolean `demoAccountRequired`. */
-function parseReviewDetails(raw: Record<string, unknown>): ReviewDetailsConfig {
-  const details: ReviewDetailsConfig = {};
-  // `as const` keeps these to exactly the string-typed fields, so the indexed write below stays a string.
-  const stringFields = [
-    'contactFirstName',
-    'contactLastName',
-    'contactPhone',
-    'contactEmail',
-    'demoAccountName',
-    'demoAccountPassword',
-    'notes',
-  ] as const;
-  for (const field of stringFields) {
-    const value = raw[field];
-    if (typeof value === 'string') details[field] = value;
-  }
-  if (typeof raw['demoAccountRequired'] === 'boolean')
-    details.demoAccountRequired = raw['demoAccountRequired'];
-  return details;
-}
-
-/**
- * Parse and validate a raw `release.config.json` value into a typed {@link ReleaseAttributesConfig}. Rejects a
- * non-object document, an empty document (no recognized section), and malformed values, so a bad file
- * fails loudly instead of silently reconciling nothing.
- */
-export function parseReleaseConfig(raw: unknown): ReleaseAttributesConfig {
-  const record = asRecord(raw);
-  if (!record) throw new Error('release.config.json must be a JSON object.');
-
-  const config: ReleaseAttributesConfig = {};
-  const ageRating = asRecord(record['ageRating']);
-  if (ageRating) config.ageRating = parseAgeRating(ageRating);
-  const categories = asRecord(record['categories']);
-  if (categories) config.categories = parseCategories(categories);
-  const pricing = asRecord(record['pricing']);
-  if (pricing) config.pricing = parsePricing(pricing);
-  const reviewDetails = asRecord(record['reviewDetails']);
-  if (reviewDetails) config.reviewDetails = parseReviewDetails(reviewDetails);
-
-  if (!config.ageRating && !config.categories && !config.pricing && !config.reviewDetails) {
-    throw new Error(
-      'release.config.json has no recognized section — declare at least one of ' +
-        'ageRating / categories / pricing / reviewDetails.',
+      return;
+    }
+    const currentReviewDetails = yield* appleReleaseApi.getAppStoreReviewDetail(editableVersion.id);
+    if (currentReviewDetails === null) {
+      yield* performAction(
+        reconcileContext,
+        `set App Review details (${renderFields(desiredAttributes)})`,
+        () =>
+          Effect.gen(function* () {
+            const resolvedAttributes = yield* resolveReviewWrite(
+              desiredAttributes,
+              resolveDemoSecret,
+            );
+            yield* appleReleaseApi.createAppStoreReviewDetail(
+              editableVersion.id,
+              resolvedAttributes,
+            );
+          }),
+      );
+      return;
+    }
+    const changedAttributes: Record<string, string | boolean> = {};
+    for (const desiredEntry of Object.entries(desiredAttributes)) {
+      const fieldName = desiredEntry[0];
+      const desiredSetting = desiredEntry[1];
+      if (fieldName === DEMO_PASSWORD_KEY) continue;
+      if (currentReviewDetails.attributes[fieldName] !== desiredSetting) {
+        changedAttributes[fieldName] = desiredSetting;
+      }
+    }
+    if (Object.keys(changedAttributes).length === 0) return;
+    if (desiredAttributes[DEMO_PASSWORD_KEY] !== undefined) {
+      changedAttributes[DEMO_PASSWORD_KEY] = desiredAttributes[DEMO_PASSWORD_KEY];
+    }
+    yield* performAction(
+      reconcileContext,
+      `update App Review details (${renderFields(changedAttributes)})`,
+      () =>
+        Effect.gen(function* () {
+          const resolvedAttributes = yield* resolveReviewWrite(
+            changedAttributes,
+            resolveDemoSecret,
+          );
+          yield* appleReleaseApi.updateAppStoreReviewDetail(
+            currentReviewDetails.id,
+            resolvedAttributes,
+          );
+        }),
     );
-  }
-  return config;
-}
+  });
 
-/** Read and parse a `release.config.json` from disk. */
-export function loadReleaseConfig(path: string): ReleaseAttributesConfig {
-  if (!existsSync(path)) {
-    throw new Error(
-      `No release config at ${path}. Create one (see \`launch release-config --help\`) or pass --config.`,
+/** Run reconciliation with an injected demo-secret resolver. */
+const reconcileReleaseWith = <Requirements>(
+  appleReleaseApi: AscReleaseApi,
+  reconciliationInput: ReleaseReconcileInput,
+  resolveDemoSecret: SecretResolver<Requirements>,
+): Effect.Effect<ReconcileReport, unknown, Requirements> =>
+  Effect.gen(function* () {
+    const reconcileContext: ReconcileContext = {
+      actions: [],
+      dryRun: reconciliationInput.dryRun,
+    };
+    const releaseConfig = reconciliationInput.config;
+    const appId = yield* appleReleaseApi.getAppId(reconciliationInput.bundleId);
+    if (appId === null) {
+      return yield* Effect.fail(appRecordMissing(reconciliationInput.bundleId, 'release-config'));
+    }
+    const ageRatingDeclared =
+      releaseConfig.ageRating !== undefined && Object.keys(releaseConfig.ageRating).length > 0;
+    if ([releaseConfig.categories !== undefined, ageRatingDeclared].includes(true)) {
+      const appInformation = yield* appleReleaseApi.getAppInfo(appId);
+      if (appInformation === null) {
+        skip(reconcileContext, 'categories / age rating: no App Info record on the app yet');
+      } else {
+        yield* reconcileCategories(
+          reconcileContext,
+          appleReleaseApi,
+          appInformation,
+          releaseConfig.categories,
+        );
+        yield* reconcileAgeRating(
+          reconcileContext,
+          appleReleaseApi,
+          appInformation,
+          releaseConfig.ageRating,
+        );
+      }
+    }
+    if (releaseConfig.pricing !== undefined) {
+      yield* reconcilePricing(reconcileContext, appleReleaseApi, appId, releaseConfig.pricing);
+    }
+    if (releaseConfig.reviewDetails !== undefined) {
+      let platform = DEFAULT_PLATFORM;
+      if (reconciliationInput.platform !== undefined) {
+        platform = reconciliationInput.platform;
+      }
+      yield* reconcileReviewDetails(
+        reconcileContext,
+        appleReleaseApi,
+        appId,
+        platform,
+        releaseConfig.reviewDetails,
+        resolveDemoSecret,
+      );
+    }
+    return {
+      bundleId: reconciliationInput.bundleId,
+      actions: reconcileContext.actions,
+    };
+  });
+
+/** Reconcile release attributes and resolve secrets only during apply actions. */
+export const reconcileRelease = (
+  appleReleaseApi: AscReleaseApi,
+  reconciliationInput: ReleaseReconcileInput,
+) =>
+  reconcileReleaseWith(appleReleaseApi, reconciliationInput, resolveSecretRef).pipe(
+    Effect.mapError((cause) => releaseAttributesFailure('reconcile release attributes', cause)),
+  );
+
+/** Plan release attributes without resolving secret references. */
+export const reconcileReleasePlan = (
+  appleReleaseApi: AscReleaseApi,
+  reconciliationInput: ReleaseReconcileInput,
+) =>
+  reconcileReleaseWith(appleReleaseApi, reconciliationInput, (secretReference) =>
+    Effect.fail(
+      releaseAttributesFailure(
+        'resolve review secret during plan',
+        secretReference,
+        'A release-attribute plan must not resolve secrets.',
+      ),
+    ),
+  ).pipe(Effect.mapError((cause) => releaseAttributesFailure('plan release attributes', cause)));
+
+/** Decode an untrusted release.config.json document. */
+export const parseReleaseConfig = (
+  rawDocument: unknown,
+): Effect.Effect<ReleaseAttributesConfig, ReleaseAttributesFailure> =>
+  Effect.gen(function* () {
+    const releaseDocument = yield* Schema.decodeUnknown(ReleaseDocumentSchema)(rawDocument).pipe(
+      Effect.mapError((cause) =>
+        releaseAttributesFailure(
+          'decode release config document',
+          cause,
+          'release.config.json must be a JSON object.',
+        ),
+      ),
     );
-  }
-  return parseReleaseConfig(JSON.parse(readFileSync(path, 'utf8')));
-}
+    return yield* Schema.decodeUnknown(ReleaseAttributesConfigSchema)(releaseDocument).pipe(
+      Effect.mapError((cause) =>
+        releaseAttributesFailure('decode release config fields', cause, errorMessage(cause)),
+      ),
+    );
+  });
+
+/** Read and decode release.config.json through Effect Platform. */
+export const loadReleaseConfig = (
+  configPath: string,
+): Effect.Effect<ReleaseAttributesConfig, ReleaseAttributesFailure, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const configExists = yield* fileSystem
+      .exists(configPath)
+      .pipe(Effect.mapError((cause) => releaseAttributesFailure('inspect release config', cause)));
+    if (!configExists) {
+      return yield* Effect.fail(
+        releaseAttributesFailure(
+          'read release config',
+          configPath,
+          `No release config at ${configPath}. Create one (see \`launch release-config --help\`) or pass --config.`,
+        ),
+      );
+    }
+    const configSource = yield* fileSystem
+      .readFileString(configPath)
+      .pipe(Effect.mapError((cause) => releaseAttributesFailure('read release config', cause)));
+    const rawDocument = yield* Schema.decodeUnknown(Schema.parseJson())(configSource).pipe(
+      Effect.mapError((cause) =>
+        releaseAttributesFailure(
+          'parse release config JSON',
+          cause,
+          `Invalid JSON in ${configPath}.`,
+        ),
+      ),
+    );
+    return yield* parseReleaseConfig(rawDocument);
+  });

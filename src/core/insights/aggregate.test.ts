@@ -6,15 +6,13 @@ import {
   sentimentOf,
   summarizeRatings,
 } from './aggregate.js';
-import type { ReviewDatum } from '../types/index.js';
-
+import type { ReviewDatum } from '../types/insights.js';
 /** Build a review datum with sensible defaults so tests state only what they exercise. */
-function review(over: Partial<ReviewDatum> = {}): ReviewDatum {
+const review = (over: Partial<ReviewDatum> = {}): ReviewDatum => {
   return { store: 'appstore', rating: 5, answered: false, ...over };
-}
-
+};
 describe('sentimentOf', () => {
-  it('buckets 4–5 positive, 3 neutral, 1–2 negative', () => {
+  it('buckets 4-5 positive, 3 neutral, 1-2 negative', () => {
     expect(sentimentOf(5)).toBe('positive');
     expect(sentimentOf(4)).toBe('positive');
     expect(sentimentOf(3)).toBe('neutral');
@@ -22,7 +20,6 @@ describe('sentimentOf', () => {
     expect(sentimentOf(1)).toBe('negative');
   });
 });
-
 describe('summarizeRatings', () => {
   it('returns an all-zero summary for an empty set without dividing by zero', () => {
     expect(summarizeRatings([])).toEqual({
@@ -34,7 +31,6 @@ describe('summarizeRatings', () => {
       sentiment: { positive: 0, neutral: 0, negative: 0 },
     });
   });
-
   it('tallies distribution, mean, answered rate, and sentiment in one pass', () => {
     const summary = summarizeRatings([
       review({ rating: 5, answered: true }),
@@ -50,7 +46,6 @@ describe('summarizeRatings', () => {
     expect(summary.answeredRate).toBe(0.4);
     expect(summary.sentiment).toEqual({ positive: 3, neutral: 1, negative: 1 });
   });
-
   it('rounds the average to one decimal', () => {
     expect(
       summarizeRatings([review({ rating: 5 }), review({ rating: 4 }), review({ rating: 4 })])
@@ -58,14 +53,13 @@ describe('summarizeRatings', () => {
     ).toBe(4.3);
   });
 });
-
 describe('monthlyTrend', () => {
   it('groups dated reviews by YYYY-MM, oldest first, skipping undated ones', () => {
     const trend = monthlyTrend([
       review({ rating: 4, date: '2026-05-10T00:00:00Z' }),
       review({ rating: 2, date: '2026-05-20T00:00:00Z' }),
       review({ rating: 5, date: '2026-04-01T00:00:00Z' }),
-      review({ rating: 5 }), // undated → excluded from the timeline
+      review({ rating: 5 }), // undated -> excluded from the timeline
     ]);
     expect(trend).toEqual([
       { month: '2026-04', count: 1, average: 5 },
@@ -73,7 +67,6 @@ describe('monthlyTrend', () => {
     ]);
   });
 });
-
 describe('buildAppInsights', () => {
   it('splits per-store summaries and only includes stores with reviews', () => {
     const insights = buildAppInsights('myapp', [
@@ -86,14 +79,12 @@ describe('buildAppInsights', () => {
     expect(insights.byStore.appstore?.total).toBe(2);
     expect(insights.byStore.play?.total).toBe(1);
   });
-
   it('omits a store the app left no reviews in', () => {
     const insights = buildAppInsights('ios-only', [review({ store: 'appstore', rating: 5 })]);
     expect(insights.byStore.appstore).toBeDefined();
     expect(insights.byStore.play).toBeUndefined();
   });
 });
-
 describe('buildInsightsReport', () => {
   it('computes the overall summary across every app', () => {
     const report = buildInsightsReport([
@@ -102,6 +93,6 @@ describe('buildInsightsReport', () => {
     ]);
     expect(report.apps.map((a) => a.app)).toEqual(['a', 'b']);
     expect(report.overall.total).toBe(3);
-    expect(report.overall.average).toBe(3.7); // (5+5+1)/3 = 3.666… → 3.7
+    expect(report.overall.average).toBe(3.7); // (5+5+1)/3 = 3.666... -> 3.7
   });
 });

@@ -1,29 +1,34 @@
-/**
- * Shared App Store Connect fake for planner tests. One factory returns a complete {@link AscSurfacesApi}
- * with sensible "nothing configured yet" read defaults (so a reconciler's dry-run plans the creates) and
- * inert write stubs, letting each planner test override only the few methods its scenario needs.
- *
- * Why a `.testkit.ts` (not `.test.ts`): it's imported by several `*.test.ts` files but is not itself a
- * test suite, and it pulls in `vitest`'s `vi` — so it must never reach the published `dist`. It is
- * excluded from the build (`tsconfig.build.json`) and from coverage (`vitest.config.ts`), while still
- * being type-checked by the root `tsconfig`, which is what guarantees it stays a valid `AscSurfacesApi`
- * as new surfaces extend that interface.
- */
-
+import { Effect } from 'effect';
 import { vi } from 'vitest';
-import type { AscSurfacesApi } from '../core/types/index.js';
+import type { AscSurfacesApi } from '../core/types/plan.js';
 
+const effectMethods = <Api extends object>(api: Api): Api => {
+  const wrappedMethods = new Map<PropertyKey, unknown>();
+  return new Proxy(api, {
+    get(targetApi, methodName, receiver) {
+      if (wrappedMethods.has(methodName)) return wrappedMethods.get(methodName);
+      const apiMember = Reflect.get(targetApi, methodName, receiver);
+      if (typeof apiMember !== 'function') return apiMember;
+      const effectMethod = vi.fn((...methodArguments: unknown[]) => {
+        const methodOutput = Reflect.apply(apiMember, targetApi, methodArguments);
+        if (Effect.isEffect(methodOutput)) return methodOutput;
+        return Effect.promise(() => Promise.resolve(methodOutput));
+      });
+      wrappedMethods.set(methodName, effectMethod);
+      return effectMethod;
+    },
+  });
+};
 /**
  * A fully-stubbed {@link AscSurfacesApi}. Reads resolve to "the app exists, nothing is configured" so a
  * reconcile dry-run yields a full create plan; writes are inert `vi.fn()`s (never invoked in dry-run, but
- * present so a test can assert they were not called). Pass `overrides` to shape a specific scenario —
+ * present so a test can assert they were not called). Pass `overrides` to shape a specific scenario -
  * e.g. `getAppId: () => Promise.resolve(null)` to exercise the missing-record error path.
  */
-export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurfacesApi {
+export const makeAscApiFake = (overrides: Partial<AscSurfacesApi> = {}): AscSurfacesApi => {
   const base: AscSurfacesApi = {
     // shared
     getAppId: vi.fn().mockResolvedValue('app1'),
-
     // catalog reads
     findBundleId: vi.fn().mockResolvedValue(null),
     listBundleIdCapabilities: vi.fn().mockResolvedValue([]),
@@ -56,7 +61,6 @@ export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurf
     updateAppInfoLocalization: vi.fn(),
     createVersionLocalization: vi.fn(),
     updateVersionLocalization: vi.fn(),
-
     // release reads
     getAppInfo: vi.fn().mockResolvedValue(null),
     getAgeRatingDeclaration: vi.fn().mockResolvedValue(null),
@@ -70,7 +74,6 @@ export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurf
     createAppPriceSchedule: vi.fn(),
     createAppStoreReviewDetail: vi.fn(),
     updateAppStoreReviewDetail: vi.fn(),
-
     // game center reads
     getGameCenterDetail: vi.fn().mockResolvedValue(null),
     listGameCenterAchievements: vi.fn().mockResolvedValue([]),
@@ -81,7 +84,6 @@ export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurf
     createGameCenterAchievementLocalization: vi.fn(),
     createGameCenterLeaderboard: vi.fn(),
     createGameCenterLeaderboardLocalization: vi.fn(),
-
     // app clips reads
     listAppClips: vi.fn().mockResolvedValue([]),
     listAppClipDefaultExperiences: vi.fn().mockResolvedValue([]),
@@ -91,22 +93,19 @@ export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurf
     updateAppClipDefaultExperienceAction: vi.fn(),
     createAppClipDefaultExperienceLocalization: vi.fn(),
     updateAppClipDefaultExperienceLocalization: vi.fn(),
-
     // availability
     getAppAvailability: vi.fn().mockResolvedValue(null),
-    setAppAvailability: vi.fn(),
-
+    createAppAvailability: vi.fn(),
+    updateAppAvailabilityTerritories: vi.fn(),
     // accessibility
     listAccessibilityDeclarations: vi.fn().mockResolvedValue([]),
     createAccessibilityDeclaration: vi.fn(),
     updateAccessibilityDeclaration: vi.fn(),
-
     // version experiments
     listVersionExperiments: vi.fn().mockResolvedValue([]),
     createVersionExperiment: vi.fn(),
     listExperimentTreatments: vi.fn().mockResolvedValue([]),
     createExperimentTreatment: vi.fn(),
-
     // custom product pages
     listCustomProductPages: vi.fn().mockResolvedValue([]),
     createCustomProductPage: vi.fn(),
@@ -114,17 +113,14 @@ export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurf
     listCustomProductPageLocalizations: vi.fn().mockResolvedValue([]),
     createCustomProductPageLocalization: vi.fn(),
     updateCustomProductPageLocalization: vi.fn(),
-
     // wallet (team-level)
     listMerchantIds: vi.fn().mockResolvedValue([]),
     createMerchantId: vi.fn(),
     listPassTypeIds: vi.fn().mockResolvedValue([]),
     createPassTypeId: vi.fn(),
-
     // EU distribution (team-level)
     listAlternativeDistributionDomains: vi.fn().mockResolvedValue([]),
     createAlternativeDistributionDomain: vi.fn(),
-
     // offers reads (catalog reads above are shared)
     listSubscriptionOfferCodes: vi.fn().mockResolvedValue([]),
     listPromotionalOffers: vi.fn().mockResolvedValue([]),
@@ -138,7 +134,6 @@ export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurf
     createWinBackOffer: vi.fn(),
     createPromotedPurchase: vi.fn(),
     reorderPromotedPurchases: vi.fn(),
-
     // screenshots reads (getEditableVersionId / listVersionLocalizations above are shared)
     listScreenshotSets: vi.fn().mockResolvedValue([]),
     listScreenshots: vi.fn().mockResolvedValue([]),
@@ -147,7 +142,6 @@ export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurf
     createScreenshotSet: vi.fn(),
     uploadScreenshot: vi.fn(),
     uploadSubscriptionReviewScreenshot: vi.fn(),
-
     // preview videos reads
     listPreviewSets: vi.fn().mockResolvedValue([]),
     listPreviews: vi.fn().mockResolvedValue([]),
@@ -155,5 +149,5 @@ export function makeAscApiFake(overrides: Partial<AscSurfacesApi> = {}): AscSurf
     createPreviewSet: vi.fn(),
     uploadPreview: vi.fn(),
   };
-  return { ...base, ...overrides };
-}
+  return effectMethods({ ...base, ...overrides });
+};

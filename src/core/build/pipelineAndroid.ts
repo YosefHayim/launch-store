@@ -1,10 +1,6 @@
-/**
- * The Android local build spine.
- *
- * prebuild → resolve service account + keystore → versionCode → gradle .aab → size → store → supply.
- */
-
-import type { BuildCredentials } from '../types/index.js';
+import { Effect } from 'effect';
+import type { BuildCredentials } from '../types/credentials.js';
+import { makeProviderInputFailure } from '../types/providers.js';
 import { getBuildEngine, getCredentialsProvider } from '../services/registry.js';
 import { rememberLastRun } from '../distribution/lastRun.js';
 import { withSpinner } from '../services/progress.js';
@@ -27,157 +23,161 @@ import {
   runBuildStep,
   storeArtifact,
 } from './pipelineArtifact.js';
-
-export async function runAndroidBuild(
-  prepared: PreparedBuild,
-  options: BuildRunOptions,
-): Promise<void> {
-  const { config, app, ctx, log } = prepared;
-  const { dryRun } = options;
-  const packageName = app.packageName;
-  if (!packageName)
-    throw new Error(`No Android application id for ${app.name}. Set android.package in app.json.`);
-
-  // 2. Generate the native project only when it's missing (committed android/ is used as-is).
-  await ensureAndroidProject(ctx, log);
-
-  // 3. Resolve the Play service account, then reuse-or-provision the upload keystore.
-  const resolved: BuildCredentials = dryRun
-    ? { platform: 'android', serviceAccountJson: '' }
-    : await getCredentialsProvider(config.credentials).resolve(ctx);
-  if (resolved.platform !== 'android')
-    throw new Error('Expected Android credentials for an Android build.');
-  log.step(
-    'credentials',
-    dryRun ? 'dry-run (no service account needed)' : 'service account loaded',
-    'service-account',
-  );
-  const keystore = await resolveKeystore(resolved, app, log, dryRun);
-  const credentials: BuildCredentials = {
-    platform: 'android',
-    serviceAccountJson: resolved.serviceAccountJson,
-    keystore,
-  };
-
-  // 4. Auto-bump the versionCode from the latest Google Play has on record (app.json as a floor).
-  const versionCode = dryRun
-    ? await nextVersionCode(
+export const runAndroidBuild = (prepared: PreparedBuild, options: BuildRunOptions) =>
+  Effect.gen(function* () {
+    const { config, app, buildContext, log } = prepared;
+    const { dryRun } = options;
+    let appVersion = app.version;
+    if (appVersion === undefined) appVersion = '0.0.0';
+    const packageName = app.packageName;
+    if (!packageName)
+      return yield* Effect.fail(
+        makeProviderInputFailure({
+          provider: 'android-build',
+          message: `No Android application id for ${app.name}. Set android.package in app.json.`,
+        }),
+      );
+    // 2. Generate the native project only when it's missing (committed android/ is used as-is).
+    yield* ensureAndroidProject(buildContext, log);
+    // 3. Resolve the Play service account, then reuse-or-provision the upload keystore.
+    let resolved: BuildCredentials = { platform: 'android', serviceAccountJson: '' };
+    if (!dryRun) {
+      const credentialsProvider = yield* getCredentialsProvider(config.credentials);
+      resolved = yield* credentialsProvider.resolveBuildCredentials(buildContext);
+    }
+    if (resolved.platform !== 'android') {
+      return yield* Effect.fail(
+        makeProviderInputFailure({
+          provider: config.credentials,
+          message: 'Expected Android credentials for an Android build.',
+        }),
+      );
+    }
+    let credentialsDescription = 'service account loaded';
+    if (dryRun) credentialsDescription = 'dry-run (no service account needed)';
+    yield* log.step('credentials', credentialsDescription, 'service-account');
+    const keystore = yield* resolveKeystore(resolved, app, log, dryRun);
+    const credentials: BuildCredentials = {
+      platform: 'android',
+      serviceAccountJson: resolved.serviceAccountJson,
+      keystore,
+    };
+    // 4. Auto-bump the versionCode from the latest Google Play has on record (app.json as a floor).
+    let versionCode: number;
+    let configuredVersionCode = app.androidVersionCode;
+    if (configuredVersionCode === undefined) configuredVersionCode = 0;
+    if (dryRun) {
+      versionCode = yield* nextVersionCode(
         resolved.serviceAccountJson,
         packageName,
-        app.androidVersionCode ?? 0,
+        configuredVersionCode,
         dryRun,
-      )
-    : await withSpinner('Checking latest versionCode on Google Play', () =>
-        nextVersionCode(
-          resolved.serviceAccountJson,
-          packageName,
-          app.androidVersionCode ?? 0,
-          dryRun,
-        ),
-      );
-  const stamped = dryRun ? false : setAndroidVersionCode(app.dir, versionCode);
-  log.step(
-    'version code',
-    dryRun
-      ? `would set next versionCode (≈${versionCode})`
-      : stamped
-        ? `set to ${versionCode}`
-        : `${versionCode} (could not stamp build.gradle)`,
-    'version-code',
-  );
-
-  // 5. Compile, sign (upload key), export the .aab, and estimate the download with bundletool.
-  const { artifactPath, sizeReport, cleanBuilt } = await runBuildStep(prepared, versionCode, () =>
-    getBuildEngine(resolveBuildEngineName(config, 'android')).build(ctx, credentials),
-  );
-  log.step(
-    'build',
-    dryRun
-      ? 'skipped (dry-run)'
-      : `${cleanBuilt ? 'clean (from scratch)' : 'incremental (Gradle)'} · ${artifactPath}`,
-    'incremental-build',
-  );
-
-  // 6. Show the size readout (bundletool estimate; the budget decision happens at the upload boundary).
-  reportSize(sizeReport, log, 'bundletool');
-
-  // 7. Store the artifact (shared with iOS).
-  await storeArtifact(prepared, artifactPath, versionCode, sizeReport, cleanBuilt);
-
-  // 8a. Internal distribution: skip the Play track — upload the .apk as a direct install link.
-  if (ctx.distribution === 'internal') {
-    await distributeArtifact({
-      config,
-      app,
-      platform: 'android',
-      artifactPath,
-      version: app.version ?? '0.0.0',
-      buildNumber: versionCode,
-      dryRun,
-      log,
-    });
-    if (dryRun) {
-      log.gap();
-      log.info(
-        `Done. ${app.name} ${app.version ?? '0.0.0'} (${versionCode}) · dry-run, nothing changed`,
       );
     } else {
-      rememberLastRun(app.name);
+      versionCode = yield* withSpinner('Checking latest versionCode on Google Play', () =>
+        nextVersionCode(resolved.serviceAccountJson, packageName, configuredVersionCode, dryRun),
+      );
     }
-    return;
-  }
-
-  // 8. Confirm the upload (size shown; budget enforced here), then submit via fastlane supply.
-  const track = ctx.android?.track ?? 'internal';
-  if (options.submit) {
-    if (dryRun) {
-      log.step('submit', `would upload to the ${track} track via fastlane supply`, 'play-track');
-    } else {
-      await confirmUpload({
-        report: sizeReport,
-        budgetMB: resolveSizeBudgetMB(options, prepared.profile),
-        destination: `Google Play (${track} track)`,
+    let stamped = false;
+    if (!dryRun) stamped = yield* setAndroidVersionCode(app.dir, versionCode);
+    let versionCodeDescription = `${versionCode} (could not stamp build.gradle)`;
+    if (stamped) versionCodeDescription = `set to ${versionCode}`;
+    if (dryRun) versionCodeDescription = `would set next versionCode (~${versionCode})`;
+    yield* log.step('version code', versionCodeDescription, 'version-code');
+    // 5. Compile, sign (upload key), export the .aab, and estimate the download with bundletool.
+    const buildEngine = yield* getBuildEngine(resolveBuildEngineName(config, 'android'));
+    const { artifactPath, sizeReport, cleanBuilt } = yield* runBuildStep(
+      prepared,
+      versionCode,
+      () => buildEngine.buildArtifact(buildContext, credentials),
+    );
+    let buildDescription = 'skipped (dry-run)';
+    if (!dryRun) {
+      let buildKind = 'incremental (Gradle)';
+      if (cleanBuilt) buildKind = 'clean (from scratch)';
+      buildDescription = `${buildKind} - ${artifactPath}`;
+    }
+    yield* log.step('build', buildDescription, 'incremental-build');
+    // 6. Show the size readout (bundletool estimate; the budget decision happens at the upload boundary).
+    yield* reportSize(sizeReport, log, 'bundletool');
+    // 7. Store the artifact (shared with iOS).
+    yield* storeArtifact(prepared, artifactPath, versionCode, sizeReport, cleanBuilt);
+    // 8a. Internal distribution: skip the Play track - upload the .apk as a direct install link.
+    if (buildContext.distribution === 'internal') {
+      yield* distributeArtifact({
+        config,
         app,
-        version: app.version ?? '0.0.0',
+        platform: 'android',
+        artifactPath,
+        version: appVersion,
         buildNumber: versionCode,
-        previous: await previousBuild(config, app, 'android', versionCode),
-        yes: options.yes ?? false,
+        dryRun,
         log,
       });
-      const stores = await submitToStores(
-        config,
-        'android',
-        artifactPath,
-        options.target,
-        credentials,
-        ctx,
-      );
-      log.step(
-        'submit',
-        stores.length > 1
-          ? `uploaded to the ${track} track and ${stores.length - 1} more store(s)`
-          : `uploaded to the ${track} track`,
-        'play-track',
-      );
+      if (dryRun) {
+        yield* log.gap();
+        yield* log.note(
+          `Done. ${app.name} ${appVersion} (${versionCode}) - dry-run, nothing changed`,
+        );
+      } else {
+        yield* rememberLastRun(app.name);
+      }
+      return;
     }
-  }
-
-  if (dryRun) {
-    log.gap();
-    log.info(
-      `Done. ${app.name} ${app.version ?? '0.0.0'} (${versionCode}) · dry-run, nothing changed`,
-    );
-    return;
-  }
-  await renderReceipt({
-    app,
-    version: app.version ?? '0.0.0',
-    buildNumber: versionCode,
-    report: sizeReport,
-    destination: receiptDestination('android', options, track),
-    link: options.submit ? 'https://play.google.com/console' : undefined,
-    log,
+    // 8. Confirm the upload (size shown; budget enforced here), then submit via fastlane supply.
+    let track = buildContext.android?.track;
+    if (track === undefined) track = 'internal';
+    if (options.submit) {
+      if (dryRun) {
+        yield* log.step(
+          'submit',
+          `would upload to the ${track} track via fastlane supply`,
+          'play-track',
+        );
+      } else {
+        yield* confirmUpload({
+          report: sizeReport,
+          budgetMB: resolveSizeBudgetMB(options, prepared.profile),
+          destination: `Google Play (${track} track)`,
+          app,
+          version: appVersion,
+          buildNumber: versionCode,
+          previous: yield* previousBuild(config, app, 'android', versionCode),
+          yes: options.yes === true,
+          log,
+        });
+        const stores = yield* submitToStores(
+          config,
+          'android',
+          artifactPath,
+          options.target,
+          credentials,
+          buildContext,
+        );
+        let submissionDescription = `uploaded to the ${track} track`;
+        if (stores.length > 1)
+          submissionDescription = `uploaded to the ${track} track and ${stores.length - 1} more store(s)`;
+        yield* log.step('submit', submissionDescription, 'play-track');
+      }
+    }
+    if (dryRun) {
+      yield* log.gap();
+      yield* log.note(
+        `Done. ${app.name} ${appVersion} (${versionCode}) - dry-run, nothing changed`,
+      );
+      return;
+    }
+    let storeLink: string | undefined;
+    if (options.submit) storeLink = 'https://play.google.com/console';
+    yield* renderReceipt({
+      app,
+      version: appVersion,
+      buildNumber: versionCode,
+      report: sizeReport,
+      destination: receiptDestination('android', options, track),
+      link: storeLink,
+      log,
+    });
+    // Remember the app built so the next run's picker pre-selects it (Android has no marketing-bump prompt).
+    yield* rememberLastRun(app.name);
   });
-  // Remember the app built so the next run's picker pre-selects it (Android has no marketing-bump prompt).
-  rememberLastRun(app.name);
-}

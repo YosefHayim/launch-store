@@ -1,32 +1,15 @@
-/**
- * Shared vocabulary for `launch snapshot` — a read-only, point-in-time capture of live App Store Connect
- * + Google Play state, saved as a named record so destructive store automation (`launch sync` / `apply`)
- * has a trustworthy "before" to diff and, later, restore against (see issue #169).
- *
- * Where `core/plan` *diffs* config against live state and `core/readiness` *grades* it, snapshot just
- * *records* it: it runs every registered {@link SnapshotSource} against the live read-only clients and
- * serializes what each returns. The mechanism mirrors the {@link import("./plan.js").SurfacePlanner}
- * and {@link import("./readiness.js").ReadinessProbe} registries — each source owns one surface,
- * the orchestrator never names a concrete one, so adding a captured surface is a new source file + one
- * `registerSnapshotSource()` line.
- *
- * These types describe the snapshot *mechanism* and its on-disk record. Like every domain shape they
- * live in the `core/types/` barrel (imported via `core/types/index.js`); the sources, orchestrator, and
- * record I/O that act on them stay in `core/snapshot/`.
- */
-
-import type { ListingLocalization } from '../../apple/ascClient.js';
-import type { InAppProductResource, SubscriptionResource } from '../../google/playClient.js';
-import type { AscCatalogApi, PlannedAction } from '../store/ascSync.js';
+import type { Effect } from 'effect';
+import type { ListingLocalization } from './appleCatalog.js';
+import type { InAppProductResource, SubscriptionResource } from './googlePlay.js';
+import type { AscCatalogApi } from '../store/ascSync.js';
+import type { PlannedAction } from './reconcile.js';
 import type { AppDescriptor } from './app.js';
 import type { LaunchConfig } from './config.js';
 import type { PlayCatalogApi } from './plan.js';
-
-/** Which store a source reads from — drives credential resolution and how a capture/diff is grouped. */
+/** Which store a source reads from - drives credential resolution and how a capture/diff is grouped. */
 export type SnapshotStore = 'appstore' | 'play';
-
 /**
- * A JSON-serializable value — the on-disk form of a captured entity's normalized state. A precise union
+ * A JSON-serializable value - the on-disk form of a captured entity's normalized state. A precise union
  * (not `unknown`) so the snapshot record stays serializable end-to-end and a structural diff can compare
  * two captures field-by-field. Sources build this from plain object/array literals, deliberately dropping
  * volatile portal-internal ids so re-capturing an unchanged catalog produces an identical record.
@@ -37,202 +20,196 @@ export type JsonValue =
   | boolean
   | null
   | JsonValue[]
-  | { [key: string]: JsonValue };
-
+  | {
+      [key: string]: JsonValue;
+    };
 /**
- * One captured item within a surface — e.g. a single in-app purchase or subscription.
+ * One captured item within a surface - e.g. a single in-app purchase or subscription.
  * - `key` is the item's natural, stable identifier (product id / SKU); it pairs items across two
  *   snapshots so the diff can tell an *added* item from a *changed* one.
  * - `summary` is a one-line human description shown in `snapshot diff` output.
  * - `data` is the normalized state used for the structural change check and `snapshot export`.
  */
-export interface SnapshotEntity {
+export type SnapshotEntity = {
   key: string;
   summary: string;
   data: JsonValue;
-}
-
+};
 /** One app's captured entities for one source (the per-app grouping inside a captured surface). */
-export interface AppEntities {
-  /** App handle as discovered (used for grouping and the `-a` selector). */
+export type AppEntities = {
   app: string;
-  /** The app's identifier on this store — iOS bundle id / Android package name. */
   identifier: string;
-  /** The items captured for this app under this source; empty means the surface exists but holds nothing. */
   entities: SnapshotEntity[];
-}
-
+};
 /**
  * What a source returns, as a discriminated union mirroring {@link import("./plan.js").SurfacePlan}:
- * - `omitted` — nothing in scope (e.g. no iOS apps); dropped from the record entirely.
- * - `skipped` — the store's credentials aren't configured, so live state couldn't be read; benign, but
+ * - `omitted` - nothing in scope (e.g. no iOS apps); dropped from the record entirely.
+ * - `skipped` - the store's credentials aren't configured, so live state couldn't be read; benign, but
  *   recorded with a reason so a partial snapshot never masquerades as complete.
- * - `captured` — the source read successfully; `apps` carries the per-app entities.
+ * - `captured` - the source read successfully; `apps` carries the per-app entities.
  */
 export type SourceCapture =
-  | { state: 'omitted' }
-  | { state: 'skipped'; reason: string; hint?: string }
-  | { state: 'captured'; apps: AppEntities[] };
-
+  | {
+      state: 'omitted';
+    }
+  | {
+      state: 'skipped';
+      reason: string;
+      hint?: string;
+    }
+  | {
+      state: 'captured';
+      apps: AppEntities[];
+    };
 /**
  * A {@link SourceCapture} plus the `errored` state the orchestrator synthesizes when a source throws
  * unexpectedly (a real read failure, not an empty surface). Kept distinct so `snapshot create` can exit
  * non-zero when a surface couldn't be captured, rather than silently saving an incomplete record.
  */
-export type CaptureOutcome = SourceCapture | { state: 'errored'; error: string };
-
+export type CaptureOutcome =
+  | SourceCapture
+  | {
+      state: 'errored';
+      error: string;
+    };
 /**
  * One source's stamped result in a saved snapshot. The orchestrator records the source's identity onto its
  * {@link CaptureOutcome} so a source never restates its own id/title/store, and so the on-disk record is
  * self-describing for `diff`/`export`. Omitted sources are dropped before persisting.
  */
-export interface CaptureReport {
-  /** Stable source key (e.g. `apple-products`), the join key the diff pairs surfaces on. */
+export type CaptureReport = {
   id: string;
-  /** Human-readable surface title shown in capture/diff output. */
   title: string;
-  /** The store this source read from. */
   store: SnapshotStore;
-  /** What was captured (or that the surface was skipped/errored). */
   outcome: CaptureOutcome;
-}
-
+};
 /**
- * The persisted snapshot record — the JSON written under `~/.launch/snapshots/<name>.json` and the unit
+ * The persisted snapshot record - the JSON written under `~/.launch/snapshots/<name>.json` and the unit
  * `diff`/`export`/`list` operate on. `version` guards the on-disk format; `reports` excludes omitted
  * surfaces so an Apple-only project never carries empty Play blocks.
  */
-export interface Snapshot {
-  /** On-disk schema version, so a future format change can migrate or reject an old record. */
+export type Snapshot = {
   version: number;
-  /** The label the user gave (or a timestamp default) — also the file's basename and the `diff`/`export` handle. */
   name: string;
-  /** ISO-8601 capture time. */
   capturedAt: string;
-  /** One block per source that produced output (captured/skipped/errored). */
   reports: CaptureReport[];
-}
-
+};
 /**
- * The read-only App Store Connect surface the snapshot sources share — exactly the methods they call,
+ * The read-only App Store Connect surface the snapshot sources share - exactly the methods they call,
  * nothing more. `AppStoreConnectClient` satisfies it structurally (every method already exists on it), so
  * the resolver from `core/storeClients.ts` is assignable here with no cast. Mirrors
  * {@link import("./readiness.js").AscReadinessApi}; grows by one method as each Apple source lands.
  */
-export interface SnapshotAscApi {
-  /** The app's App Store Connect id for a bundle id, or `null` when no app record exists. */
-  getAppId(bundleId: string): Promise<string | null>;
-  /** The app's one-time in-app purchases (product id, type, and lifecycle `state`). */
-  listInAppPurchases(
-    appId: string,
-  ): Promise<{ productId: string; inAppPurchaseType: string; state?: string | undefined }[]>;
-  /** The app's auto-renewable subscription groups. */
-  listSubscriptionGroups(appId: string): Promise<{ id: string; referenceName: string }[]>;
-  /** A subscription group's subscriptions (product id, billing period, lifecycle `state`). */
-  listSubscriptions(
-    groupId: string,
-  ): Promise<
-    { productId: string; subscriptionPeriod?: string | undefined; state?: string | undefined }[]
+export type SnapshotAscApi = {
+  getAppId(bundleId: string): Effect.Effect<string | null, unknown>;
+  listInAppPurchases(appId: string): Effect.Effect<
+    {
+      productId: string;
+      inAppPurchaseType: string;
+      state?: string | undefined;
+    }[],
+    unknown
   >;
-  /** The app's current editable `appInfo` id (app-level listing container), or `null` when none is editable. */
-  getEditableAppInfoId(appId: string): Promise<string | null>;
-  /** The app-level listing localizations (name / subtitle / privacy URL) under an `appInfo`. */
-  listAppInfoLocalizations(appInfoId: string): Promise<ListingLocalization[]>;
-  /** The app's current editable App Store version id, or `null` when only a live/in-review version exists. */
-  getEditableVersionId(appId: string): Promise<string | null>;
-  /** The version-level listing localizations (description / keywords / whatsNew / …) under a version. */
-  listVersionLocalizations(versionId: string): Promise<ListingLocalization[]>;
-  /** The App ID (bundle id) portal resource for an identifier, or `null` when it isn't registered yet. */
-  findBundleId(identifier: string): Promise<{ id: string; identifier: string } | null>;
-  /** The capabilities enabled on an App ID resource (e.g. `PUSH_NOTIFICATIONS`, `ICLOUD`). */
-  listBundleIdCapabilities(bundleIdResourceId: string): Promise<{ capabilityType: string }[]>;
-}
-
+  listSubscriptionGroups(appId: string): Effect.Effect<
+    {
+      id: string;
+      referenceName: string;
+    }[],
+    unknown
+  >;
+  listSubscriptions(groupId: string): Effect.Effect<
+    {
+      productId: string;
+      subscriptionPeriod?: string | undefined;
+      state?: string | undefined;
+    }[],
+    unknown
+  >;
+  getEditableAppInfoId(appId: string): Effect.Effect<string | null, unknown>;
+  listAppInfoLocalizations(appInfoId: string): Effect.Effect<ListingLocalization[], unknown>;
+  getEditableVersionId(appId: string): Effect.Effect<string | null, unknown>;
+  listVersionLocalizations(versionId: string): Effect.Effect<ListingLocalization[], unknown>;
+  findBundleId(identifier: string): Effect.Effect<
+    {
+      id: string;
+      identifier: string;
+    } | null,
+    unknown
+  >;
+  listBundleIdCapabilities(bundleIdResourceId: string): Effect.Effect<
+    {
+      capabilityType: string;
+    }[],
+    unknown
+  >;
+};
 /**
- * The read-only Google Play surface the snapshot sources share — the Play counterpart to
+ * The read-only Google Play surface the snapshot sources share - the Play counterpart to
  * {@link SnapshotAscApi}: exactly the two readers they call, never the reconcilers' write methods, so the
  * read-only invariant is enforced by the type. The return shapes reuse the Play reconcilers' resource
  * types (`InAppProductResource` / `SubscriptionResource`) rather than re-declaring the wire shape, keeping
  * one source of truth; `GooglePlayClient` satisfies it structurally with no cast.
  */
-export interface SnapshotPlayApi {
-  /** The app's managed in-app products (`inappproducts`), including pricing and listings. */
-  listInAppProducts(packageName: string): Promise<InAppProductResource[]>;
-  /** The app's auto-renewable subscriptions, including base plans and listings. */
-  listSubscriptions(packageName: string): Promise<SubscriptionResource[]>;
-}
-
+export type SnapshotPlayApi = {
+  listInAppProducts(packageName: string): Effect.Effect<InAppProductResource[], unknown>;
+  listSubscriptions(packageName: string): Effect.Effect<SubscriptionResource[], unknown>;
+};
 /**
  * What a {@link SnapshotSource} is handed: the loaded config, the apps in scope (already narrowed by `-a`),
  * and the lazy, memoized store-client resolvers from `core/storeClients.ts`. A resolver returns `null` when
  * the account isn't configured, letting a source emit a `skipped` capture instead of throwing.
  */
-export interface SnapshotContext {
+export type SnapshotContext = {
   config: LaunchConfig;
   apps: AppDescriptor[];
-  /** Resolve the read-only App Store Connect client, or `null` when no Apple account is active. */
-  resolveAscApi(): Promise<SnapshotAscApi | null>;
-  /** Resolve the read-only Google Play client, or `null` when no Play service account is configured. */
-  resolvePlayApi(): Promise<SnapshotPlayApi | null>;
-}
-
+  resolveAscApi(): Effect.Effect<SnapshotAscApi | null, unknown>;
+  resolvePlayApi(): Effect.Effect<SnapshotPlayApi | null, unknown>;
+};
 /**
  * What a {@link SnapshotSource.restore} pass is handed: the write-capable counterpart to
- * {@link SnapshotContext}. Each resolver returns the reconciler write surface its store's sources need —
+ * {@link SnapshotContext}. Each resolver returns the reconciler write surface its store's sources need -
  * the {@link AscCatalogApi} for App Store sources, the {@link PlayCatalogApi} (products + subscriptions)
- * for Play sources — or `null` when that account isn't configured, so a source emits a skipped action
+ * for Play sources - or `null` when that account isn't configured, so a source emits a skipped action
  * instead of throwing. The concrete clients satisfy these structurally, like the read side's
  * {@link SnapshotAscApi} / {@link SnapshotPlayApi}.
  */
-export interface RestoreContext {
+export type RestoreContext = {
   config: LaunchConfig;
   apps: AppDescriptor[];
-  /** Resolve the read-write App Store Connect catalog surface, or `null` when no Apple account is active. */
-  resolveAscWriteClient(): Promise<AscCatalogApi | null>;
-  /** Resolve the read-write Google Play catalog surface, or `null` when no Play service account is configured. */
-  resolvePlayWriteClient(): Promise<PlayCatalogApi | null>;
-}
-
+  resolveAscWriteClient(): Effect.Effect<AscCatalogApi | null, unknown>;
+  resolvePlayWriteClient(): Effect.Effect<PlayCatalogApi | null, unknown>;
+};
 /**
  * One source's restore request: the write context plus the per-app entities loaded from the saved snapshot
- * (already narrowed by `-a`). `dryRun` drives the same plan-then-apply contract the reconcilers use — a
+ * (already narrowed by `-a`). `dryRun` drives the same plan-then-apply contract the reconcilers use - a
  * dry-run produces the planned actions for the preview and performs no writes.
  */
-export interface RestoreInput {
+export type RestoreInput = {
   ctx: RestoreContext;
-  /** The saved per-app entities for this source, read back from the snapshot record. */
   saved: AppEntities[];
-  /** Rehearse only: build the plan and perform no writes. */
   dryRun: boolean;
-}
-
+};
 /** The result of a restore pass: the actions planned (dry-run) or applied, in order. */
-export interface RestoreReport {
+export type RestoreReport = {
   actions: PlannedAction[];
-}
-
+};
 /**
  * One captured surface. {@link capture} is **read-only**: it resolves live state and serializes it, never
  * writing. Registered like a provider/planner (see {@link import("./registry.js")}); the orchestrator
  * resolves every registered source and never names a concrete one.
  *
  * {@link restore} is the optional write counterpart to {@link capture}: it pushes a saved capture back to
- * the store. Only **config-complete** sources implement it — `apple-listing` (full per-locale listing) and
+ * the store. Only **config-complete** sources implement it - `apple-listing` (full per-locale listing) and
  * the Play catalog sources (`play-products` / `play-subscriptions`, which capture price + listings and
  * restore additively via the same reconcilers `launch sync` uses). The Apple catalog sources
  * (`apple-products` / `apple-subscriptions`) stay capture-only: App Store Connect exposes no reader for an
  * in-app purchase's current price/territory, so their capture is summary-grade and can't be faithfully
  * restored. A source without `restore` is preview-only in `snapshot restore`.
  */
-export interface SnapshotSource {
-  /** Stable source key shown in the record and used to pair surfaces across two snapshots in a diff. */
+export type SnapshotSource = {
   id: string;
-  /** Human-readable surface title for capture/diff output. */
   title: string;
-  /** Which store this source reads from. */
   store: SnapshotStore;
-  /** Read live state for the in-scope apps and return its normalized capture, performing no writes. */
-  capture(ctx: SnapshotContext): Promise<SourceCapture>;
-  /** Push a saved capture back to the store. Present only on config-complete sources; absent ⇒ preview-only. */
-  restore?(input: RestoreInput): Promise<RestoreReport>;
-}
+  capture(snapshotContext: SnapshotContext): Effect.Effect<SourceCapture, unknown>;
+  restore?(input: RestoreInput): Effect.Effect<RestoreReport, unknown>;
+};

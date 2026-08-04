@@ -1,12 +1,4 @@
-/**
- * The readiness-probe registry — the same "implement an interface + register it" seam the provider,
- * adopter, and surface-planner registries use, scoped to the readiness layer. The orchestrator walks
- * {@link selectReadinessProbes} and never names a concrete probe, so adding a check (or a whole new
- * command's worth of checks) is a new probe file plus one {@link registerReadinessProbe} line in
- * {@link registerBuiltinProbes} — the orchestrator and every existing command are untouched.
- */
-
-import type { ReadinessCategory, ReadinessProbe } from '../types/index.js';
+import type { ReadinessCategory, ReadinessProbe } from '../types/readiness.js';
 import { agreementsProbe } from './probes/agreements.js';
 import { appRecordProbe } from './probes/appRecord.js';
 import { subscriptionGroupProbe } from './probes/subscriptionGroup.js';
@@ -29,49 +21,18 @@ import { accountDeletionProbe } from './probes/accountDeletion.js';
 import { demoAccountProbe } from './probes/demoAccount.js';
 import { profileEntitlementsProbe } from './probes/profileEntitlements.js';
 import { screenshotsProbe } from './probes/screenshots.js';
-
 /** Registered probes, keyed by id so re-registering one replaces it (idempotent built-in wiring). */
 const PROBES = new Map<string, ReadinessProbe>();
-
-/**
- * Register or replace a readiness probe by id.
- *
- * @param probe - Probe implementation to add to the readiness registry.
- * @returns Nothing; the process-local registry is mutated in place.
- */
-export function registerReadinessProbe(probe: ReadinessProbe): void {
+export const registerReadinessProbe = (probe: ReadinessProbe): void => {
   PROBES.set(probe.id, probe);
-}
-
-/**
- * List every registered readiness probe.
- *
- * @returns Registered probes in registration order.
- */
-export function listReadinessProbes(): ReadinessProbe[] {
+};
+export const listReadinessProbes = (): ReadinessProbe[] => {
   return [...PROBES.values()];
-}
-
-/**
- * The probes tagged with `category`, in registration order — how a command selects its slice
- * (store doctor passes `account`, iap doctor `iap`, …). A probe tagged with several categories appears
- * in each one's selection.
- *
- * @param category - Readiness category to select.
- * @returns Registered probes tagged with the requested category.
- */
-export function selectReadinessProbes(category: ReadinessCategory): ReadinessProbe[] {
+};
+export const selectReadinessProbes = (category: ReadinessCategory): ReadinessProbe[] => {
   return listReadinessProbes().filter((probe) => probe.categories.includes(category));
-}
-
-/**
- * Register the built-in probes. Idempotent: safe to call from a command entry and from tests without
- * duplicating. The whole trust-layer family wires in here — account probes (store doctor), submit-blocking
- * probes (audit), and IAP probes (iap doctor); a command is just a selector over the category tags.
- *
- * @returns Nothing; built-in probes are registered into the process-local registry.
- */
-export function registerBuiltinProbes(): void {
+};
+export const registerBuiltinProbes = (): void => {
   registerReadinessProbe(agreementsProbe);
   registerReadinessProbe(appRecordProbe);
   registerReadinessProbe(subscriptionGroupProbe);
@@ -94,4 +55,4 @@ export function registerBuiltinProbes(): void {
   registerReadinessProbe(demoAccountProbe);
   registerReadinessProbe(profileEntitlementsProbe);
   registerReadinessProbe(screenshotsProbe);
-}
+};

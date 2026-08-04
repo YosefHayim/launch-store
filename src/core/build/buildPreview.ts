@@ -1,130 +1,115 @@
-/**
- * A read-only, write-free rehearsal of what `launch build <platform>` would do — the engine behind the
- * `build_plan` MCP tool's `dryRun` capability tier.
- *
- * This is the dry-run twin of `core/pipeline.ts`'s `prepareBuild`, but stripped to the decisions that can
- * be made from config alone: which app, profile, build engine, submitter, distribution, and (on Android)
- * track + rollout a build would resolve to. It performs NO writes, NO network calls, NO child processes,
- * and crucially NO logging — `prepareBuild` drives a stdout `Logger` and resolves credentials/env, both
- * fatal on the MCP stdio transport (which owns stdout) and both side-effecting. The reconcile-style
- * dry-run of *store* state already lives behind `launch plan` / `launch drift`; this fills the build half,
- * letting an agent answer "what would `launch build ios` actually run?" without touching the toolchain.
- *
- * It reuses the pipeline's own pure resolvers (`resolveBuildEngineName`, `resolveSubmitterName`,
- * `resolveAndroidRelease`) so the preview can never disagree with the real run's selection logic.
- */
-
+import { Data, Effect } from 'effect';
 import { isApplePlatform } from '../services/platform.js';
-import type { AppDescriptor, LaunchConfig, Platform, PlayTrack } from '../types/index.js';
-import { resolveAndroidRelease, resolveBuildEngineName, resolveSubmitterName } from './pipeline.js';
+import type { AppDescriptor, Platform, PlayTrack } from '../types/app.js';
+import type { LaunchConfig } from '../types/config.js';
+import {
+  resolveAndroidRelease,
+  resolveBuildEngineName,
+  resolveSubmitterName,
+} from './pipelineProviders.js';
+import type { BuildRunOptions } from './pipelineTypes.js';
 
-/**
- * One app's resolved build plan — every decision `launch build` would make for it before any expensive
- * native work, with nothing applied. `identifier` is the store-side id for the platform (iOS bundle id /
- * Android package name), absent when the app declares none for that platform (itself a buildable-state
- * signal the agent can flag).
- */
-export interface AppBuildPlan {
-  /** App handle as discovered (the `--app` selector). */
-  app: string;
-  /** iOS bundle id / Android package name, or `undefined` when the app targets the other platform only. */
-  identifier?: string;
-  /** Registered build-engine name the run would use (e.g. `fastlane`, `gradle`, `eas`). */
-  buildEngine: string;
-  /** Registered submitter name the run would use (e.g. `app-store-connect`, `google-play`). */
-  submitter: string;
-  /** Android track the run would target; omitted on iOS. */
-  track?: string;
-  /** Android staged-rollout fraction (0–1) the run would use; omitted on iOS. */
-  rollout?: number;
-}
+/** One app's resolved build decisions before native work starts. */
+export type AppBuildPlan = Readonly<{
+  readonly app: string;
+  readonly identifier?: string;
+  readonly buildEngine: string;
+  readonly submitter: string;
+  readonly track?: string;
+  readonly rollout?: number;
+}>;
 
-/**
- * The full build-plan preview for one `launch build <platform>` invocation across the in-scope apps. Pure
- * data, serialized verbatim by the `build_plan` MCP tool; carries the shared decisions (platform, profile,
- * distribution) once, then the per-app resolution.
- */
-export interface BuildPreview {
-  platform: Platform;
-  /** The build profile name resolved for this run. */
-  profile: string;
-  /** How the build would be distributed (`store` default, or `internal` for an ad-hoc link). */
-  distribution: string;
-  /** One resolved plan per in-scope app. */
-  apps: AppBuildPlan[];
-}
+/** Resolved build decisions for every selected app. */
+export type BuildPreview = Readonly<{
+  readonly platform: Platform;
+  readonly profile: string;
+  readonly distribution: string;
+  readonly apps: readonly AppBuildPlan[];
+}>;
 
-/** What {@link previewBuild} needs: the loaded config, the in-scope apps, and the run's platform/flags. */
-export interface BuildPreviewInput {
-  config: LaunchConfig;
-  apps: AppDescriptor[];
-  platform: Platform;
-  /** Profile name to preview; defaults to `production` when the config declares it, else the first profile. */
-  profile?: string;
-  /** Distribution mode (`store` | `internal`); defaults to `store`. */
-  distribution?: string;
-  /** Android track override (`--track`); falls back to the profile default then the safe per-target floor. */
-  track?: PlayTrack;
-  /** Android rollout override (`--rollout`); falls back to the profile default then `1.0`. */
-  rollout?: number;
-}
+/** Inputs used to preview a build without invoking a toolchain. */
+export type BuildPreviewInput = Readonly<{
+  readonly config: LaunchConfig;
+  readonly apps: readonly AppDescriptor[];
+  readonly platform: Platform;
+  readonly profile?: string;
+  readonly distribution?: string;
+  readonly track?: PlayTrack;
+  readonly rollout?: number;
+}>;
 
-/** The id an app exposes on a given platform — bundle id for any Apple platform, package name for Android. */
-function identifierFor(app: AppDescriptor, platform: Platform): string | undefined {
-  return isApplePlatform(platform) ? app.bundleId : app.packageName;
-}
+/** A requested build preview cannot be resolved from configuration. */
+export type BuildPreviewFailure = Readonly<{
+  readonly _tag: 'BuildPreviewFailure';
+  readonly requestedProfile: string;
+  readonly message: string;
+}>;
 
-/**
- * Pick the profile to preview: an explicit name (validated against the config), else `production` when
- * declared, else the first declared profile, else the synthetic `production` the real pipeline falls back
- * to. Throws on an explicit-but-unknown name so a typo surfaces as an error rather than a silent default.
- */
-function resolveProfileName(config: LaunchConfig, requested: string | undefined): string {
-  const names = Object.keys(config.profiles);
-  if (requested !== undefined) {
-    if (!(requested in config.profiles)) {
-      throw new Error(
-        `Unknown profile "${requested}". Declared profiles: ${names.join(', ') || 'none'}.`,
-      );
-    }
-    return requested;
-  }
-  if ('production' in config.profiles) return 'production';
-  return names[0] ?? 'production';
-}
+export const makeBuildPreviewFailure = Data.tagged<BuildPreviewFailure>('BuildPreviewFailure');
 
-/**
- * Rehearse a `launch build <platform>` run against config alone, writing nothing. Resolves the shared
- * profile/distribution once, then each app's engine, submitter, and (on Android) track + rollout via the
- * pipeline's own resolvers, so the preview tracks the real selection logic by construction.
- */
-export function previewBuild(input: BuildPreviewInput): BuildPreview {
-  const { config, apps, platform } = input;
-  const profileName = resolveProfileName(config, input.profile);
-  const profile = config.profiles[profileName] ?? { name: profileName, sizeBudgetMB: 200 };
-  const distribution = input.distribution ?? 'store';
+/** Resolve the store identifier an app exposes for the selected platform. */
+const identifierFor = (appDescriptor: AppDescriptor, platform: Platform): string | undefined => {
+  if (isApplePlatform(platform)) return appDescriptor.bundleId;
+  return appDescriptor.packageName;
+};
 
-  const planned = apps.map((app): AppBuildPlan => {
-    const identifier = identifierFor(app, platform);
-    const base: AppBuildPlan = {
-      app: app.name,
-      buildEngine: resolveBuildEngineName(config, platform),
-      submitter: resolveSubmitterName(config, platform),
-      ...(identifier !== undefined ? { identifier } : {}),
-    };
-    if (platform !== 'android') return base;
-    // `internal` distribution rehearses an internal-testing upload; `store` rehearses a production release.
-    const target = distribution === 'internal' ? 'testing' : 'production';
-    const { track, rollout } = resolveAndroidRelease(
-      {
-        target,
-        ...(input.track !== undefined ? { track: input.track } : {}),
-        ...(input.rollout !== undefined ? { rollout: input.rollout } : {}),
-      },
-      profile,
+/** Resolve the configured profile name or fail for an explicit unknown profile. */
+const resolveProfileName = (
+  config: LaunchConfig,
+  requestedProfile: string | undefined,
+): Effect.Effect<string, BuildPreviewFailure> => {
+  const profileNames = Object.keys(config.profiles);
+  if (requestedProfile !== undefined) {
+    if (requestedProfile in config.profiles) return Effect.succeed(requestedProfile);
+    let declaredProfiles = profileNames.join(', ');
+    if (declaredProfiles.length === 0) declaredProfiles = 'none';
+    return Effect.fail(
+      makeBuildPreviewFailure({
+        requestedProfile,
+        message: `Unknown profile "${requestedProfile}". Declared profiles: ${declaredProfiles}.`,
+      }),
     );
-    return { ...base, track, rollout };
-  });
+  }
+  if ('production' in config.profiles) return Effect.succeed('production');
+  const firstProfileName = profileNames[0];
+  if (firstProfileName !== undefined) return Effect.succeed(firstProfileName);
+  return Effect.succeed('production');
+};
 
-  return { platform, profile: profileName, distribution, apps: planned };
-}
+export const previewBuild = (
+  previewInput: BuildPreviewInput,
+): Effect.Effect<BuildPreview, BuildPreviewFailure> =>
+  Effect.gen(function* () {
+    const profileName = yield* resolveProfileName(previewInput.config, previewInput.profile);
+    let buildProfile = previewInput.config.profiles[profileName];
+    if (buildProfile === undefined) buildProfile = { name: profileName, sizeBudgetMB: 200 };
+    let distribution = previewInput.distribution;
+    if (distribution === undefined) distribution = 'store';
+    const appPlans = previewInput.apps.map((appDescriptor): AppBuildPlan => {
+      const identifier = identifierFor(appDescriptor, previewInput.platform);
+      let appPlan: AppBuildPlan = {
+        app: appDescriptor.name,
+        buildEngine: resolveBuildEngineName(previewInput.config, previewInput.platform),
+        submitter: resolveSubmitterName(previewInput.config, previewInput.platform),
+      };
+      if (identifier !== undefined) appPlan = { ...appPlan, identifier };
+      if (previewInput.platform !== 'android') return appPlan;
+      let target: 'testing' | 'production' = 'production';
+      if (distribution === 'internal') target = 'testing';
+      let releaseOptions: Pick<BuildRunOptions, 'target' | 'track' | 'rollout'> = { target };
+      if (previewInput.track !== undefined) {
+        releaseOptions = { ...releaseOptions, track: previewInput.track };
+      }
+      if (previewInput.rollout !== undefined) {
+        releaseOptions = { ...releaseOptions, rollout: previewInput.rollout };
+      }
+      const androidRelease = resolveAndroidRelease(releaseOptions, buildProfile);
+      return { ...appPlan, ...androidRelease };
+    });
+    return {
+      platform: previewInput.platform,
+      profile: profileName,
+      distribution,
+      apps: appPlans,
+    };
+  });

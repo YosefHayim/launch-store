@@ -1,145 +1,158 @@
-/**
- * Assemble the {@link DashboardState} the local dashboard renders.
- *
- * The split mirrors the codebase's pure-core / thin-shell pattern: {@link buildDashboardState} is a
- * **pure** projection from already-read domain shapes into the flat presentation snapshot (so every
- * rule — the recent-artifact cap, the active-account flag, dropping secret values — is unit-tested
- * without touching disk), and {@link gatherDashboardState} is the thin reader that pulls the raw state
- * from the existing helpers and hands it to the pure builder. No network or App Store Connect call
- * happens here; this reads only `launch.config.ts` and `~/.launch`.
- */
-
+import { Clock, Effect } from 'effect';
+import { readArtifactIndex } from '../build/artifactRetention.js';
+import { listSecretRefs, type SecretRef } from '../build/buildSecrets.js';
+import { loadConfig } from '../config/config.js';
+import { getActiveAccount, listAccounts } from '../credentials/accounts.js';
+import { getLiveHost } from '../distribution/cloudState.js';
+import { LaunchPaths, resolveLaunchHomeDirectory } from '../services/paths.js';
+import type { AppDescriptor } from '../types/app.js';
+import type { BuildArtifact } from '../types/artifacts.js';
+import type { LaunchConfig } from '../types/config.js';
+import type { AccountRecord } from '../types/credentials.js';
 import type {
-  AccountRecord,
-  AppDescriptor,
-  BuildArtifact,
   DashboardAccount,
   DashboardApp,
   DashboardArtifact,
   DashboardCloudHost,
   DashboardState,
-  HostHandle,
-  LaunchConfig,
-} from '../types/index.js';
-import type { SecretRef } from '../build/buildSecrets.js';
-import { loadConfig } from '../config/config.js';
-import { getActiveAccount, listAccounts } from '../credentials/accounts.js';
-import { readArtifactIndex } from '../build/artifactRetention.js';
-import { getLiveHost } from '../distribution/cloudState.js';
-import { listSecretRefs } from '../build/buildSecrets.js';
-import { LAUNCH_HOME } from '../services/paths.js';
+} from '../types/dashboard.js';
+import type { HostHandle } from '../types/remote.js';
 
-/** How many of the newest build artifacts the dashboard lists — enough to be useful, not a full history. */
 export const RECENT_ARTIFACT_LIMIT = 12;
-
 const BYTES_PER_MB = 1024 * 1024;
 
-/** The raw, already-read local state the pure builder projects — injected so the projection is testable. */
-export interface DashboardInputs {
-  /** Snapshot instant, stamped into {@link DashboardState.generatedAt}. */
-  now: Date;
-  config: LaunchConfig;
-  apps: AppDescriptor[];
-  accounts: AccountRecord[];
-  /** Key ID of the active account, or null when none is selected. */
-  activeKeyId: string | null;
-  /** The artifact index, newest-first (as {@link readArtifactIndex} returns it). */
-  artifacts: BuildArtifact[];
-  secrets: SecretRef[];
-  /** The live remote host, or null when none is allocated. */
-  cloudHost: HostHandle | null;
-}
+export type DashboardInputs = Readonly<{
+  readonly now: Date;
+  readonly launchHome: string;
+  readonly config: LaunchConfig;
+  readonly apps: readonly AppDescriptor[];
+  readonly accounts: readonly AccountRecord[];
+  readonly activeKeyId: string | null;
+  readonly artifacts: readonly BuildArtifact[];
+  readonly secrets: readonly SecretRef[];
+  readonly cloudHost: HostHandle | null;
+}>;
 
-/** Round a byte count to MB (one decimal), or null when there's nothing recorded. */
-function toSizeMB(bytes: number): number | null {
-  return bytes > 0 ? Math.round((bytes / BYTES_PER_MB) * 10) / 10 : null;
-}
+const toSizeMB = (artifactBytes: number): number | null => {
+  if (artifactBytes <= 0) return null;
+  return Math.round((artifactBytes / BYTES_PER_MB) * 10) / 10;
+};
 
-/** Project a discovered app to its display fields, collapsing absent optionals to null. */
-function toDashboardApp(app: AppDescriptor): DashboardApp {
-  return {
-    name: app.name,
-    version: app.version ?? null,
-    bundleId: app.bundleId ?? null,
-    packageName: app.packageName ?? null,
-  };
-}
+const optionalText = (text: string | undefined): string | null => {
+  if (text === undefined) return null;
+  return text;
+};
 
-/** Project an account, flagging the active one and counting its visible apps. */
-function toDashboardAccount(account: AccountRecord, activeKeyId: string | null): DashboardAccount {
+const toDashboardApp = (app: AppDescriptor): DashboardApp => ({
+  name: app.name,
+  version: optionalText(app.version),
+  bundleId: optionalText(app.bundleId),
+  packageName: optionalText(app.packageName),
+});
+
+const toDashboardAccount = (
+  account: AccountRecord,
+  activeKeyId: string | null,
+): DashboardAccount => {
+  let appCount = 0;
+  if (account.apps !== undefined) appCount = account.apps.length;
   return {
     label: account.label,
     keyId: account.keyId,
-    teamId: account.teamId ?? null,
-    appCount: account.apps?.length ?? 0,
+    teamId: optionalText(account.teamId),
+    appCount,
     active: account.keyId === activeKeyId,
   };
-}
+};
 
-/** Project a build artifact to its display row. */
-function toDashboardArtifact(artifact: BuildArtifact): DashboardArtifact {
-  return {
-    app: artifact.appName,
-    platform: artifact.platform,
-    version: artifact.version,
-    buildNumber: artifact.buildNumber,
-    createdAt: artifact.createdAt,
-    sizeMB: toSizeMB(artifact.sizeReport.artifactBytes),
-    pruned: artifact.prunedAt !== undefined,
-  };
-}
+const toDashboardArtifact = (buildArtifact: BuildArtifact): DashboardArtifact => ({
+  app: buildArtifact.appName,
+  platform: buildArtifact.platform,
+  version: buildArtifact.version,
+  buildNumber: buildArtifact.buildNumber,
+  createdAt: buildArtifact.createdAt,
+  sizeMB: toSizeMB(buildArtifact.sizeReport.artifactBytes),
+  pruned: buildArtifact.prunedAt !== undefined,
+});
 
-/** Project the live host to its display fields, or null when none is allocated. */
-function toDashboardCloudHost(host: HostHandle | null): DashboardCloudHost | null {
-  if (!host) return null;
+const toDashboardCloudHost = (host: HostHandle | null): DashboardCloudHost | null => {
+  if (host === null) return null;
   return {
     provider: host.provider,
-    region: host.region ?? null,
-    instanceType: host.instanceType ?? null,
-    instanceId: host.instanceId ?? null,
+    region: optionalText(host.region),
+    instanceType: optionalText(host.instanceType),
+    instanceId: optionalText(host.instanceId),
     allocatedAt: host.allocatedAt,
   };
-}
+};
 
-/** Collapse the `submit` config (a single submitter, or a per-platform store map) to a display string. */
-function formatSubmit(submit: LaunchConfig['submit']): string {
-  if (typeof submit === 'string') return submit;
-  return [...new Set(Object.values(submit).flat())].join(', ');
-}
+const formatSubmitProviders = (submitProviders: LaunchConfig['submit']): string => {
+  if (typeof submitProviders === 'string') return submitProviders;
+  return [...new Set(Object.values(submitProviders).flat())].join(', ');
+};
 
-/** Pure projection of the read local state into the flat snapshot the dashboard renders. */
-export function buildDashboardState(inputs: DashboardInputs): DashboardState {
-  return {
-    generatedAt: inputs.now.toISOString(),
-    launchHome: LAUNCH_HOME,
+/** Project already-read local state into the dashboard snapshot. */
+export const buildDashboardState = (
+  dashboardInputs: DashboardInputs,
+): Effect.Effect<DashboardState> =>
+  Effect.sync(() => ({
+    generatedAt: dashboardInputs.now.toISOString(),
+    launchHome: dashboardInputs.launchHome,
     project: {
       providers: {
-        credentials: inputs.config.credentials,
-        storage: inputs.config.storage,
-        buildEngine: inputs.config.buildEngine,
-        submit: formatSubmit(inputs.config.submit),
+        credentials: dashboardInputs.config.credentials,
+        storage: dashboardInputs.config.storage,
+        buildEngine: dashboardInputs.config.buildEngine,
+        submit: formatSubmitProviders(dashboardInputs.config.submit),
       },
-      profiles: Object.keys(inputs.config.profiles),
-      apps: inputs.apps.map(toDashboardApp),
+      profiles: Object.keys(dashboardInputs.config.profiles),
+      apps: dashboardInputs.apps.map(toDashboardApp),
     },
-    accounts: inputs.accounts.map((account) => toDashboardAccount(account, inputs.activeKeyId)),
-    artifacts: inputs.artifacts.slice(0, RECENT_ARTIFACT_LIMIT).map(toDashboardArtifact),
-    secrets: inputs.secrets.map((ref) => ({ app: ref.app, profile: ref.profile, name: ref.name })),
-    cloudHost: toDashboardCloudHost(inputs.cloudHost),
-  };
-}
+    accounts: dashboardInputs.accounts.map((account) =>
+      toDashboardAccount(account, dashboardInputs.activeKeyId),
+    ),
+    artifacts: dashboardInputs.artifacts.slice(0, RECENT_ARTIFACT_LIMIT).map(toDashboardArtifact),
+    secrets: dashboardInputs.secrets.map((secretReference) => ({
+      app: secretReference.app,
+      profile: secretReference.profile,
+      name: secretReference.name,
+    })),
+    cloudHost: toDashboardCloudHost(dashboardInputs.cloudHost),
+  }));
 
-/** Read every piece of local state and project it into a {@link DashboardState}. No network calls. */
-export async function gatherDashboardState(now: Date = new Date()): Promise<DashboardState> {
-  const { config, apps } = await loadConfig();
-  return buildDashboardState({
-    now,
-    config,
-    apps,
-    accounts: listAccounts(),
-    activeKeyId: getActiveAccount()?.keyId ?? null,
-    artifacts: readArtifactIndex(),
-    secrets: listSecretRefs(),
-    cloudHost: getLiveHost(),
+/** Read local state and build a dashboard snapshot without making network calls. */
+export const gatherDashboardState = (snapshotTime?: Date) =>
+  Effect.gen(function* () {
+    const launchPaths = yield* LaunchPaths;
+    const launchHome = yield* resolveLaunchHomeDirectory();
+    let generatedAt = snapshotTime;
+    if (generatedAt === undefined) {
+      generatedAt = new Date(yield* Clock.currentTimeMillis);
+    }
+    const localDashboardState = yield* Effect.all(
+      {
+        loadedConfig: loadConfig(launchPaths.workingDirectory),
+        accounts: listAccounts(),
+        activeAccount: getActiveAccount(),
+        artifacts: readArtifactIndex(),
+        secrets: listSecretRefs(),
+        cloudHost: getLiveHost(),
+      },
+      { concurrency: 'unbounded' },
+    );
+    let activeKeyId: string | null = null;
+    if (localDashboardState.activeAccount !== null) {
+      activeKeyId = localDashboardState.activeAccount.keyId;
+    }
+    return yield* buildDashboardState({
+      now: generatedAt,
+      launchHome,
+      config: localDashboardState.loadedConfig.config,
+      apps: localDashboardState.loadedConfig.apps,
+      accounts: localDashboardState.accounts,
+      activeKeyId,
+      artifacts: localDashboardState.artifacts,
+      secrets: localDashboardState.secrets,
+      cloudHost: localDashboardState.cloudHost,
+    });
   });
-}
