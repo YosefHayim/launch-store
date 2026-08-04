@@ -1,0 +1,104 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.1/schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": ["**", "!!src/apple/generated/schema.ts", "!!schema/launch.config.schema.json"]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "trailingCommas": "all",
+      "semicolons": "always"
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "useSortedKeys": "off",
+        "useSortedPackageJson": "off",
+        "useSortedAttributes": "off",
+        "organizeImports": "off"
+      }
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "style": {
+        "noDefaultExport": "error",
+        "noNonNullAssertion": "error",
+        "noJsxLiterals": "off",
+        "useComponentExportOnlyModules": "off",
+        "noTernary": "error",
+        "useNamingConvention": "off",
+        "noMagicNumbers": "off",
+        "noCommonJs": "off",
+        "useExportsLast": "off",
+        "noIncrementDecrement": "off",
+        "noProcessEnv": "off",
+        "noExcessiveLinesPerFile": "off",
+        "useTemplate": "off"
+      },
+      "correctness": {
+        "noNodejsModules": "off",
+        "noUnresolvedImports": "off",
+        "useImportExtensions": "off",
+        "useQwikValidLexicalScope": "off",
+        "useHookAtTopLevel": "off"
+      },
+      "performance": {
+        "useSolidForComponent": "off",
+        "noAwaitInLoops": "error",
+        "useTopLevelRegex": "off"
+      },
+      "suspicious": {
+        "noUnknownAttribute": "off",
+        "noUnnecessaryConditions": "off",
+        "noControlCharactersInRegex": "off",
+        "noTemplateCurlyInString": "off",
+        "noFocusedTests": "off",
+        "noNonNullAssertedOptionalChain": "error",
+        "noAssignInExpressions": "off",
+        "noReturnAssign": "off"
+      },
+      "complexity": {
+        "useLiteralKeys": "off",
+        "noExcessiveCognitiveComplexity": "off",
+        "noExcessiveLinesPerFunction": "off",
+        "noVoid": "off"
+      }
+    },
+    "domains": {
+      "test": "recommended",
+      "project": "recommended"
+    }
+  },
+  "plugins": [
+    "./biome-rules/no-logical-or-fallback.grit",
+    "./biome-rules/no-nullish-coalescing.grit"
+  ],
+  "overrides": [
+    {
+      "includes": ["**/*.config.ts", "launch.config.example.ts", "examples/hello-world/App.tsx"],
+      "linter": { "rules": { "style": { "noDefaultExport": "off" } } }
+    },
+    {
+      "includes": ["**/*.test.ts", "**/*.e2e.ts"],
+      "linter": { "rules": { "suspicious": { "noFocusedTests": "error" } } }
+    }
+  ]
+}

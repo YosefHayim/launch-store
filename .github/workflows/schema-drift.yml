@@ -1,0 +1,37 @@
+name: ASC schema drift
+
+# Keep live Apple schema checks separate from the deterministic pull-request gate.
+on:
+  schedule:
+    - cron: "0 7 * * 1" # Mondays 07:00 UTC
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/apple/generated/**"
+      - "scripts/dev/generate-apple-types.ts"
+      - ".github/workflows/schema-drift.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Regenerate types from Apple's current spec
+        run: pnpm gen:asc
+      - name: Fail if the committed types are stale
+        run: |
+          if ! git diff --quiet -- src/apple/generated/schema.ts; then
+            echo "::error file=src/apple/generated/schema.ts::Generated ASC types are out of date with Apple's published OpenAPI spec. Run 'pnpm gen:asc' and commit the result."
+            git diff --stat -- src/apple/generated/schema.ts
+            exit 1
+          fi
+          echo "ASC types are in sync with Apple's current spec."

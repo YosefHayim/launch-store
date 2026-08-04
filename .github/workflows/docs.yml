@@ -1,0 +1,20 @@
+name: Docs in sync
+
+# `docs:check` is offline; live Apple schema drift has its own scheduled workflow.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    name: Docs are in sync with the CLI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-node-cached
+        with:
+          node-version: 22
+      - run: pnpm docs:check

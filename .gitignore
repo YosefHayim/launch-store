@@ -1,0 +1,51 @@
+# Dependencies & build output
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Secrets — NEVER commit. Launch keeps these in the OS keychain / ~/.launch.
+.env
+.env.*.local
+*.p8
+*.p12
+*.mobileprovision
+*.keystore
+*.jks
+*.pem
+AuthKey_*.p8
+
+# Internal design docs — local-only working notes, not part of the public/published repo.
+# Exceptions: docs/agents/ (engineering-skills config agents/contributors read), docs/commands.md and
+# docs/config.md (the generated, CI-gated public command + config reference the README and llms.txt link to),
+# and docs/adr/ (architectural decision records linked from llms.txt / README / CLAUDE.md).
+docs/*
+!docs/agents/
+!docs/adr/
+!docs/commands.md
+!docs/config.md
+
+# Launch's local state (artifacts, metadata cache)
+.launch/
+
+# Generated native projects (recreated by `expo prebuild`)
+ios/
+android/
+
+# OS / editor noise
+.DS_Store
+*.log
+
+# Claude Code agent worktrees, session state, and local settings (settings.local.json) — local-only.
+# Exception: .claude/skills/ holds the committed, CI-gated contributor skills (`npm run docs:gen`),
+# the Claude counterpart to the tracked .cursor/rules. Mirrors the docs/* + !docs/agents/ split above.
+.claude/*
+!.claude/skills/
+
+# TUI style preview — throwaway scratch played via `npx tsx .tui-preview/preview.ts`, never shipped.
+.tui-preview/
+
+# Kiro CLI agent config (local)
+.kiro
+
+# Kimi Code CLI local config + skills
+.kimi-code/

@@ -1,0 +1,32 @@
+name: Biome
+
+# Biome owns mechanical lint and formatting checks.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  biome:
+    name: Lint & format (biome ci)
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint & format (biome ci)
+        run: pnpm check:ci

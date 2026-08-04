@@ -1,0 +1,51 @@
+name: CI
+
+# `CI Gate` is the stable branch-protection check across the reusable workflow legs. See ADR 0009.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    uses: ./.github/workflows/lint.yml
+  typecheck:
+    uses: ./.github/workflows/typecheck.yml
+  docs:
+    uses: ./.github/workflows/docs.yml
+  test:
+    uses: ./.github/workflows/test.yml
+  build:
+    uses: ./.github/workflows/build.yml
+  e2e:
+    uses: ./.github/workflows/e2e.yml
+
+  gate:
+    name: CI Gate
+    needs: [lint, typecheck, docs, test, build, e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every gate to pass
+        run: |
+          echo "lint=${{ needs.lint.result }} typecheck=${{ needs.typecheck.result }} docs=${{ needs.docs.result }} test=${{ needs.test.result }} build=${{ needs.build.result }} e2e=${{ needs.e2e.result }}"
+          test "${{ needs.lint.result }}" = "success" \
+            && test "${{ needs.typecheck.result }}" = "success" \
+            && test "${{ needs.docs.result }}" = "success" \
+            && test "${{ needs.test.result }}" = "success" \
+            && test "${{ needs.build.result }}" = "success" \
+            && test "${{ needs.e2e.result }}" = "success"
+
+  report-failure:
+    name: Open issue on main failure
+    needs: [lint, typecheck, docs, test, build, e2e]
+    if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      issues: write
+      actions: read
+    uses: ./.github/workflows/report-failure.yml

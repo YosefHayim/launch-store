@@ -1,0 +1,22 @@
+name: Lint
+
+# Biome handles mechanical rules; Launch's AST and Grit checks enforce repository conventions.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint & format (biome check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-node-cached
+        with:
+          node-version: 22
+      - run: pnpm lint
+      - run: pnpm lint:style:self-test
+      - run: pnpm lint:style
