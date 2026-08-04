@@ -2,7 +2,7 @@
 
 Issues and PRDs for **launch-store** live as GitHub issues on
 [`YosefHayim/launch-store`](https://github.com/YosefHayim/launch-store). Use the `gh` CLI for all
-operations — it infers the repo from `git remote -v` automatically inside a clone.
+operations - it infers the repo from `git remote -v` automatically inside a clone.
 
 ## Conventions
 

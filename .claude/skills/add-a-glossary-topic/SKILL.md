@@ -1,6 +1,6 @@
 ---
 name: add-a-glossary-topic
-description: Use when adding teaching text for a concept or step in launch-store — add it to the single glossary source that feeds both `launch explain` and the `--explain` step expansions.
+description: Use when adding teaching text for a concept or step in launch-store - add it to the single glossary source that feeds both `launch explain` and the `--explain` step expansions.
 ---
 
 # Add a glossary topic
@@ -12,7 +12,7 @@ description: Use when adding teaching text for a concept or step in launch-store
 
 ## Steps
 
-1. Add the topic to `src/core/terminal/glossary.ts` — the single source for teaching text. It feeds both `launch explain` and the `--explain` step expansions; never duplicate the strings elsewhere.
+1. Add the topic to `src/core/terminal/glossary.ts` - the single source for teaching text. It feeds both `launch explain` and the `--explain` step expansions; never duplicate the strings elsewhere.
 2. Bump the topic count in `src/core/terminal/glossary.test.ts` (`expect(topics.length).toBe(N)`) by the number of topics you added, and add a `toContain(...)` assertion per new topic.
 3. Run the gate.
 

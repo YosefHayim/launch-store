@@ -9,7 +9,7 @@ links to that rather than repeat it.
 - **Node 20+** and **pnpm** (see `packageManager` in `package.json`; Corepack `corepack enable` is enough).
 
 That's all you need to work on the CLI and its tests. A real iOS build additionally needs a Mac with
-Xcode + fastlane and an App Store Connect API key — but the test suite mocks those, so you can
+Xcode + fastlane and an App Store Connect API key - but the test suite mocks those, so you can
 contribute to most of Launch on any OS.
 
 ## Setup
@@ -26,41 +26,42 @@ pnpm dev -- --help     # run the CLI from source (tsx), no build needed
 Launch's codebase is the product's reference implementation, so it's kept provably clean. Two layers
 enforce that:
 
-- **Locally**, the husky pre-commit hook runs `lint-staged` (Biome on staged files) then a full
-  `typecheck`.
+- **Locally**, the husky pre-commit hook runs `lint-staged`, `typecheck`, and the Launch style checker.
 - **In CI** ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)), every push and PR re-runs the
-  whole gate on Node 20 and 22 — because the local hook can be bypassed with `--no-verify`.
+  whole gate on Node 20 and 22 - because the local hook can be bypassed with `--no-verify`.
 
 Run the same checks before you push:
 
 ```bash
 pnpm typecheck     # tsc --noEmit, max-strict
 pnpm lint          # biome check (lint + format)
+pnpm lint:style    # Launch architecture and naming rules
+pnpm docs:check    # generated docs are current
 pnpm test          # vitest
 pnpm build         # emits dist/ (production code only)
 ```
 
-Style and types are owned entirely by `tsconfig.json` and `biome.json` — fix
-what they flag rather than working around it.
+Style and types are owned by `CODE-STYLE.md`, `code-style.rules.json`, `tsconfig.json`, and
+`biome.json` - fix what they flag rather than working around it.
 
 ## Tests
 
 Tests use **[Vitest](https://vitest.dev)** and live beside the code they cover (`src/**/*.test.ts`).
 
 ```bash
-npm run test          # run once
-npm run test:watch    # watch mode while developing
-npm run test:coverage # with a coverage summary (what CI surfaces)
+pnpm test          # run once
+pnpm test:watch    # watch mode while developing
+pnpm test:coverage # with a coverage summary (what CI surfaces)
 ```
 
 The suite covers the **reliability-critical paths**: config loading + app auto-discovery, `.env`
 validation and secret-name warnings, the provider registry, the glossary, the App Store Connect client
-(JWT shape, request building, error parsing — `fetch` mocked), the pure build helpers (thinning-report
+(JWT shape, request building, error parsing - `fetch` mocked), the pure build helpers (thinning-report
 parse, export-options plist), and the full **`--dry-run` pipeline** as an end-to-end integration test
 that asserts no network call or process spawn happens.
 
 What the suite intentionally does **not** mock is the live `openssl` / `security` / `fastlane` shell
-calls — asserting their exact arguments just re-encodes the implementation and goes brittle. Those are
+calls - asserting their exact arguments just re-encodes the implementation and goes brittle. Those are
 verified by `launch build ios --dry-run` (which rehearses every step) and `launch doctor` (which checks
 the toolchain and Apple account). **Add a test for any new logic you introduce.**
 
@@ -69,16 +70,16 @@ the toolchain and Apple account). **Add a test for any new logic you introduce.*
 This is the extensibility story, and it's a small, well-defined change. To add (say) an S3 storage
 provider:
 
-1. **Find the interface** in [`src/core/types.ts`](./src/core/types.ts) — here, `StorageProvider`
+1. **Find the provider type** in [`src/core/types/providers.ts`](./src/core/types/providers.ts) - here, `StorageProvider`
    (`put` / `list` / `url`).
 2. **Implement it** in `src/providers/storage/s3.ts`, using
    [`src/providers/storage/local.ts`](./src/providers/storage/local.ts) as the reference shape. Give it
    a unique `name` (`"s3"`). Lazy-`import()` the AWS SDK inside the methods so a local-only install
    never pulls it in.
-3. **Register it** in [`src/providers/index.ts`](./src/providers/index.ts) via
-   `registerStorageProvider(...)`.
+3. **Register its live layer** through the provider registry in
+   [`src/core/services/registry.ts`](./src/core/services/registry.ts).
 4. **Select it** by name from a `launch.config.ts` (`storage: "s3"`). Nothing in
-   `src/core/pipeline.ts` changes — the pipeline looks providers up by name.
+   [`src/core/build/pipeline.ts`](./src/core/build/pipeline.ts) changes - the pipeline looks providers up by name.
 5. **Add a test** beside it and run the gate.
 
 The same five steps apply to a `BuildEngine`, `CredentialsProvider`, or `Submitter`.
@@ -88,7 +89,7 @@ The same five steps apply to a `BuildEngine`, `CredentialsProvider`, or `Submitt
 - Branch off `main`; keep the gate green.
 - Write clear, imperative commit messages (`add s3 storage provider`, not `wip`).
 - When you add a dependency or a non-obvious pattern, note the rationale (what, why over alternatives,
-  the tradeoff) in the PR description — see Global development principles in the project standards.
-- Keep changes within the **scope boundary** so they land in the right milestone (v1 is iOS →
+  the tradeoff) in the PR description - see Global development principles in the project standards.
+- Keep changes within the **scope boundary** so they land in the right milestone (v1 is iOS ->
   TestFlight; Android and cloud backends are designed-for but deferred).
 - Never commit secrets. `.p8` / `.p12` / `.env` are git-ignored and belong in the Keychain.

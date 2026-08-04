@@ -1,10 +1,10 @@
 # LANGUAGE.md
 
-The ubiquitous language of **Launch** — use these terms (not synonyms) in code, issues, commits,
+The ubiquitous language of **Launch** - use these terms (not synonyms) in code, issues, commits,
 and docs. The **runtime** source of truth is [`src/core/terminal/glossary.ts`](./src/core/terminal/glossary.ts), which
 powers `launch explain <topic>` and the `--explain` step expansions. Keep the two aligned.
 
-For the React Native / Expo / Apple / Google stack terms, see [`TECH-GLOSSARY.md`](./TECH-GLOSSARY.md).
+For React Native, Expo, Apple, Google Play, signing, and build-tool terms, see [`TECH.md`](./TECH.md).
 
 ---
 
@@ -12,7 +12,7 @@ For the React Native / Expo / Apple / Google stack terms, see [`TECH-GLOSSARY.md
 
 | Term | Definition | Avoid |
 |------|-----------|-------|
-| **platform** | What you _build_ (`ios`, `android`, `tvos`, `macos`, `visionos`) — the build engine + artifact type. | "store" (a platform is not where you submit) |
+| **platform** | What you _build_ (`ios`, `android`, `tvos`, `macos`, `visionos`) - the build engine + artifact type. | "store" (a platform is not where you submit) |
 | **store** | Where you _submit_ (a `Submitter`: App Store Connect, Google Play, and later Amazon Appstore / Galaxy Store / AppGallery). One Android build can fan out to several stores. | "platform" (a store is not what you compile) |
 | **archive** | The compiled, signed app bundle Xcode produces before export (the `.xcarchive`); exporting it yields the uploadable `.ipa`. | |
 | **artifact** | A built, uploadable binary: an `.ipa` (iOS) or `.aab` (Android). Stored with a newest-first index by the storage provider. | |
@@ -24,10 +24,10 @@ For the React Native / Expo / Apple / Google stack terms, see [`TECH-GLOSSARY.md
 | Term | Definition | Avoid |
 |------|-----------|-------|
 | **profile** | A named set of build settings in `launch.config.ts` (default `production`); selects env, track, rollout, etc. | "provisioning profile" (Apple signing asset) |
-| **reconcile** | Launch treats `launch.config.ts` as the _desired state_ and makes the live store match it (the GitOps loop). Declarative and additive — safe to re-run. | |
+| **reconcile** | Launch treats `launch.config.ts` as the _desired state_ and makes the live store match it (the GitOps loop). Declarative and additive - safe to re-run. | |
 | **plan** | The read-only half of the GitOps loop. `launch plan` diffs desired vs. live and prints what `sync` _would_ change, touching nothing. | |
 | **drift** | The same read as `plan`, graded for CI: exit `0` in sync, `2` on drift. | |
-| **adopt** | The reverse of reconcile — `launch adopt` reads live ASC setup and writes it back into `launch.config.ts`. | |
+| **adopt** | The reverse of reconcile - `launch adopt` reads live ASC setup and writes it back into `launch.config.ts`. | |
 | **migrate** | File-based onboarding: `launch migrate` reads an existing EAS/fastlane setup off disk and emits the equivalent Launch config. | |
 
 ## App Store Connect
@@ -37,7 +37,7 @@ For the React Native / Expo / Apple / Google stack terms, see [`TECH-GLOSSARY.md
 | **App Store version** | The per-release record on ASC (one per marketing version): review state, attached build, release type, "What's New" notes. |
 | **review submission** | Apple's container for what you send to App Review. `launch release` drives it over the API. |
 | **release type** | How an approved build reaches the public: `AFTER_APPROVAL` (default), `MANUAL`, or `SCHEDULED`. |
-| **phased release** | Apple's 7-day staged rollout — growing user percentage per day. Opt in with `--phased`. |
+| **phased release** | Apple's 7-day staged rollout - growing user percentage per day. Opt in with `--phased`. |
 | **export compliance** | Apple's encryption question every build must answer before shipping. Standard HTTPS is exempt. |
 | **subscription group** | Apple's container for mutually-exclusive subscription tiers (e.g. Monthly vs. Yearly). |
 | **subscription offer** | A discounted entry price: introductory, promotional, or offer code. Immutable once created. |
@@ -65,7 +65,7 @@ For the React Native / Expo / Apple / Google stack terms, see [`TECH-GLOSSARY.md
 | Term | Definition |
 |------|-----------|
 | **store metadata** | Your listing (name, subtitle, description, keywords, release notes, URLs). |
-| **AI store assets** | Listing copy drafted by a model — fills versioned files, plan→confirm→apply still gates it. |
+| **AI store assets** | Listing copy drafted by a model - fills versioned files, plan->confirm->apply still gates it. |
 | **App Clip** | A tiny, install-free slice of your app from a link/NFC/QR. |
 | **Game Center** | Apple's gaming network (achievements, leaderboards). |
 | **in-app event** | A timed, discoverable happening (tournament, premiere) surfaced on your product page. |
