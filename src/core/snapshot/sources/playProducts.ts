@@ -15,6 +15,7 @@ import type { InAppProductResource, PlayMoney } from '@core/types/googlePlay.js'
 import type { PlannedAction } from '@core/types/reconcile.js';
 import { reconcilePlayProducts } from '@core/store/playProducts.js';
 import { androidApps } from '@core/readiness/appScopes.js';
+import type { MutableDeep } from '@core/types/mutable.js';
 import {
   jsonRecord,
   restoreErrorMessage,
@@ -78,7 +79,7 @@ const toLocalizations = (
     let name: string | undefined;
     if (fields) name = stringField(fields, 'title');
     if (name === undefined) continue;
-    const localization: ProductLocalization = { locale, name };
+    const localization: MutableDeep<ProductLocalization> = { locale, name };
     let description: string | undefined;
     if (fields) description = stringField(fields, 'description');
     if (description !== undefined) localization.description = description;
@@ -111,7 +112,7 @@ const toProductConfig = (entity: SnapshotEntity): InAppPurchaseConfig | null => 
     stringField(productFields, 'defaultLanguage'),
   );
   if (localizations.length === 0) return null;
-  const play: PlayProductOverride = { sku };
+  const play: MutableDeep<PlayProductOverride> = { sku };
   const defaultPrice = toPriceConfig(productFields['defaultPrice']);
   if (defaultPrice) play.defaultPrice = defaultPrice;
   return { productId: sku, referenceName: sku, type: 'NON_CONSUMABLE', localizations, play };

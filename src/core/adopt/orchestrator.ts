@@ -140,7 +140,7 @@ export const detectTargets = (
 export const planTargets = <Requirements>(
   appleCatalog: AdoptCatalogApi,
   detection: Detection,
-  adopters: Adopter<Requirements>[],
+  adopters: readonly Adopter<Requirements>[],
 ): Effect.Effect<TargetPlan[], never, Requirements> =>
   Effect.forEach(
     detection.detected,
@@ -194,7 +194,7 @@ export type AdoptApplyResult = {
 };
 
 /** Collect imported product pieces into a bundle-keyed catalog. */
-const collectProducts = (plans: TargetPlan[]): Record<string, AppProducts> => {
+const collectProducts = (plans: readonly TargetPlan[]): Record<string, AppProducts> => {
   const productsByBundleId: Record<string, AppProducts> = {};
   for (const targetPlan of plans) {
     const productPieces: ProductPiece[] = [];
@@ -212,7 +212,7 @@ const collectProducts = (plans: TargetPlan[]): Record<string, AppProducts> => {
 
 /** Apply a confirmed adoption plan to local configuration and delegated listing pulls. */
 export const applyAdopt = <Requirements>(
-  plans: TargetPlan[],
+  plans: readonly TargetPlan[],
   applyContext: ApplyContext<Requirements>,
 ): Effect.Effect<AdoptApplyResult, unknown, FileSystem.FileSystem | Path.Path | Requirements> =>
   Effect.gen(function* () {

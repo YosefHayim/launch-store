@@ -20,48 +20,49 @@ export type DoctorStatus = 'ok' | 'fail' | 'info';
  * a `fail`/`info`. A check is always a finished read - never an error in disguise (a read that throws is
  * caught by the caller and surfaced as a `fail`).
  */
-export type DoctorCheck = {
+export type DoctorCheck = Readonly<{
   status: DoctorStatus;
   title: string;
   detail?: string;
   hint?: string;
-};
+}>;
 /**
  * The aggregate result of a doctor run, structured so the command renders it, `--json` serializes it, and
  * an MCP tool returns it. `ok` is the gate: `true` exactly when no check is `fail` (advisory `info` lines
  * never fail the run), which is what `launch doctor`'s exit code and the wizard's branch both read.
  */
-export type DoctorReport = {
+export type DoctorReport = Readonly<{
   platform: DoctorPlatform;
-  checks: DoctorCheck[];
+  checks: readonly DoctorCheck[];
   ok: boolean;
-};
+}>;
 /**
  * The read-only App Store Connect surface the doctor inspection uses - `assertReady` (agreement health)
  * and `getAppId` (app-record existence) on top of the {@link AscPermissionProbeApi} reads the role
  * preflight needs. `AppStoreConnectClient` satisfies it structurally, so the resolver from
  * `core/storeClients.ts` is assignable here with no cast (return-type covariance).
  */
-export type DoctorAscApi = AscPermissionProbeApi & {
-  assertReady(): Effect.Effect<void, unknown>;
-  getAppId(bundleId: string): Effect.Effect<string | null, unknown>;
-  findBundleId(identifier: string): Effect.Effect<
-    {
-      id: string;
-    } | null,
-    unknown
-  >;
-  listBundleIdCapabilities(bundleIdResourceId: string): Effect.Effect<
-    {
-      capabilityType: string;
-    }[],
-    unknown
-  >;
-};
+export type DoctorAscApi = AscPermissionProbeApi &
+  Readonly<{
+    assertReady(): Effect.Effect<void, unknown>;
+    getAppId(bundleId: string): Effect.Effect<string | null, unknown>;
+    findBundleId(identifier: string): Effect.Effect<
+      Readonly<{
+        id: string;
+      }> | null,
+      unknown
+    >;
+    listBundleIdCapabilities(bundleIdResourceId: string): Effect.Effect<
+      Readonly<{
+        capabilityType: string;
+      }>[],
+      unknown
+    >;
+  }>;
 /** The read-only Google Play surface the doctor uses: prove the service account can reach an app. */
-export type DoctorPlayApi = {
+export type DoctorPlayApi = Readonly<{
   assertAppExists(packageName: string): Effect.Effect<void, unknown>;
-};
+}>;
 /**
  * What {@link inspectDoctor} is handed. The pure config/apps plus every impure input injected as a
  * function, so the inspection itself performs no I/O it doesn't go through this seam - which is what lets
@@ -70,7 +71,7 @@ export type DoctorPlayApi = {
  */
 export type DoctorContext<Requirements = never> = {
   config: LaunchConfig;
-  apps: AppDescriptor[];
+  apps: readonly AppDescriptor[];
   platform: DoctorPlatform;
   os: HostOs;
   cwd: string;

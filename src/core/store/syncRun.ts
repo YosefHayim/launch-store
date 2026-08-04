@@ -38,7 +38,7 @@ export type SyncAppReport = {
   app: string;
   bundleId: string;
   error?: string;
-  actions?: PlannedAction[];
+  actions?: readonly PlannedAction[];
   summary?: {
     applied: number;
     failed: number;
@@ -187,8 +187,14 @@ export const reconcileJob = (
     };
     if (job.listing) reconcileInput.listing = job.listing;
     const report = yield* reconcileApp(client, reconcileInput);
-    report.actions.push(...(yield* reconcileAssetActions(client, job, dryRun, allowDestructive)));
-    return { job, report };
+    const assetActions = yield* reconcileAssetActions(client, job, dryRun, allowDestructive);
+    return {
+      job,
+      report: {
+        ...report,
+        actions: [...report.actions, ...assetActions],
+      },
+    };
   }).pipe(
     Effect.catchAll((failure) =>
       Effect.succeed({

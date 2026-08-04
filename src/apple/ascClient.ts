@@ -95,6 +95,7 @@ import type {
   WinBackOfferResource,
 } from '../core/types/appleCatalog.js';
 import { ACCESSIBILITY_SUPPORT_KEYS } from '../core/types/appleCatalog.js';
+import type { MutableDeep } from '../core/types/mutable.js';
 /** Scheme + host of the App Store Connect API; most resources hang off `/v1`, a few newer ones off `/v2`. */
 const API_ORIGIN = 'https://api.appstoreconnect.apple.com';
 const BASE_URL = `${API_ORIGIN}/v1`;
@@ -321,7 +322,7 @@ const pickListingFields = (
 const pickAccessibilitySupport = (
   attributes: Partial<AccessibilitySupport>,
 ): AccessibilitySupport => {
-  const support: AccessibilitySupport = {};
+  const support: MutableDeep<AccessibilitySupport> = {};
   for (const key of ACCESSIBILITY_SUPPORT_KEYS) {
     const fieldValue = attributes[key];
     if (typeof fieldValue === 'boolean') support[key] = fieldValue;
@@ -1042,7 +1043,7 @@ export class AppStoreConnectClient {
     return appleResources.map((localization) => {
       let locale = localization.attributes.locale;
       if (locale === undefined) locale = '';
-      const localizedExperience: AppClipLocalizationResource = {
+      const localizedExperience: MutableDeep<AppClipLocalizationResource> = {
         id: localization.id,
         locale,
       };
@@ -1330,7 +1331,7 @@ export class AppStoreConnectClient {
     name: string,
     bundleIdResourceId: string,
     certificateId: string,
-    deviceIds: string[],
+    deviceIds: readonly string[],
     profileType: ProvisioningProfileType = AD_HOC_PROFILE_TYPE,
   ): Promise<ProfileResource> {
     const appleResources = await this.createResource<{
@@ -1457,7 +1458,7 @@ export class AppStoreConnectClient {
     });
   }
   /** Clear the StoreKit purchase history for one or more sandbox testers (a single batched request). */
-  async clearSandboxTesterPurchaseHistory(testerIds: string[]): Promise<void> {
+  async clearSandboxTesterPurchaseHistory(testerIds: readonly string[]): Promise<void> {
     await this.createResource(this.v2('/sandboxTestersClearPurchaseHistoryRequest'), {
       type: 'sandboxTestersClearPurchaseHistoryRequest',
       relationships: {
@@ -1743,7 +1744,7 @@ export class AppStoreConnectClient {
         type: 'subscriptionOfferCodes',
         attributes: {
           name: input.name,
-          customerEligibilities: input.customerEligibilities,
+          customerEligibilities: [...input.customerEligibilities],
           offerEligibility: input.offerEligibility,
           duration: input.duration,
           offerMode: input.offerMode,
@@ -2066,7 +2067,7 @@ export class AppStoreConnectClient {
     return { id: appleResources.id, inAppPurchaseId, subscriptionId, enabled, visibleForAllUsers };
   }
   /** Replace the app's promoted-purchase ordering with `orderedIds` (the product-page display order). */
-  async reorderPromotedPurchases(appId: string, orderedIds: string[]): Promise<void> {
+  async reorderPromotedPurchases(appId: string, orderedIds: readonly string[]): Promise<void> {
     const requestDocument: components['schemas']['AppPromotedPurchasesLinkagesRequest'] = {
       data: orderedIds.map((id) => ({ type: 'promotedPurchases', id })),
     };
@@ -2244,13 +2245,13 @@ export class AppStoreConnectClient {
     return betaTester;
   }
   /** Add existing testers to a beta group in one relationship call (invites external testers). */
-  async addTestersToGroup(groupId: string, testerIds: string[]): Promise<void> {
+  async addTestersToGroup(groupId: string, testerIds: readonly string[]): Promise<void> {
     await this.request<unknown>('POST', `/betaGroups/${groupId}/relationships/betaTesters`, {
       data: testerIds.map((id) => ({ type: 'betaTesters', id })),
     });
   }
   /** Remove testers from a beta group; they keep app access through any other group they're in. */
-  async removeTestersFromGroup(groupId: string, testerIds: string[]): Promise<void> {
+  async removeTestersFromGroup(groupId: string, testerIds: readonly string[]): Promise<void> {
     await this.request<unknown>('DELETE', `/betaGroups/${groupId}/relationships/betaTesters`, {
       data: testerIds.map((id) => ({ type: 'betaTesters', id })),
     });
@@ -2562,7 +2563,7 @@ export class AppStoreConnectClient {
    */
   async updateAppAvailabilityTerritories(
     availabilityId: string,
-    territories: string[],
+    territories: readonly string[],
   ): Promise<void> {
     const desired = new Set(territories);
     const territoryAvailabilities = await this.listAppTerritoryAvailabilities(availabilityId);
@@ -3274,7 +3275,7 @@ export class AppStoreConnectClient {
         email: invite.email,
         firstName: invite.firstName,
         lastName: invite.lastName,
-        roles: invite.roles,
+        roles: [...invite.roles],
         allAppsVisible: invite.allAppsVisible,
         provisioningAllowed: invite.provisioningAllowed,
       },
@@ -3282,7 +3283,7 @@ export class AppStoreConnectClient {
     let email = appleResources.attributes.email;
     if (email === undefined) email = invite.email;
     let roles = appleResources.attributes.roles;
-    if (roles === undefined) roles = invite.roles;
+    if (roles === undefined) roles = [...invite.roles];
     const pendingInvitation: UserInvitationResource = { id: appleResources.id, email, roles };
     if (appleResources.attributes.firstName !== undefined)
       Object.assign(pendingInvitation, { firstName: appleResources.attributes.firstName });
@@ -4474,7 +4475,10 @@ export class AppStoreConnectClient {
     return { id: reservation.data.id, operations };
   }
   /** PUT a reserved asset's bytes to Apple's CDN, one operation (chunk) at a time, with transient-retry. */
-  private async putAssetBytes(operations: UploadOperation[], bytes: Buffer): Promise<void> {
+  private async putAssetBytes(
+    operations: readonly UploadOperation[],
+    bytes: Buffer,
+  ): Promise<void> {
     for (const operation of operations) {
       let offset = operation.offset;
       if (offset === undefined) offset = 0;

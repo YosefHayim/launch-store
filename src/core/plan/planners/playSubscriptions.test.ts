@@ -39,7 +39,9 @@ const APPLE_ONLY_SUB: SubscriptionConfig = {
   localizations: [{ locale: 'en-US', name: 'Pro Yearly' }],
 };
 /** Wrap subscriptions in the one group `products[bundleId].subscriptionGroups` requires. */
-const productsWith = (subscriptions: SubscriptionConfig[]): Record<string, AppProducts> => {
+const productsWith = (
+  subscriptions: readonly SubscriptionConfig[],
+): Record<string, AppProducts> => {
   return {
     'com.acme.alpha': {
       subscriptionGroups: [

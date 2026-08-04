@@ -14,6 +14,7 @@ import { errorMessage } from '../services/errorMessage.js';
 import type { AppleLocaleInfo, AppleStoreConfig } from './storeConfig.js';
 import type { AppProducts, InAppPurchaseConfig, SubscriptionConfig } from '../types/catalog.js';
 import type { ActionStatus, PlannedAction, ReconcileReport } from '../types/reconcile.js';
+import type { MutableDeep } from '../types/mutable.js';
 /**
  * The exact slice of {@link AppStoreConnectClient} the reconciler depends on. Declaring it here (rather
  * than taking the concrete client) keeps the diff logic unit-testable with a hand-rolled fake and
@@ -161,7 +162,7 @@ const ALWAYS_ENABLED_CAPABILITIES = new Set<string>(['IN_APP_PURCHASE', 'GAME_CE
  * on the catalog surface. This is the one shared seam between the two reconcilers.
  */
 export type ActionLog = {
-  actions: PlannedAction[];
+  actions: MutableDeep<PlannedAction>[];
   dryRun: boolean;
   allowDestructive: boolean;
 };
@@ -190,7 +191,7 @@ export const act = <CreatedResource>(
   status: ActionStatus;
   actionValue?: CreatedResource;
 }> => {
-  const plannedAction: PlannedAction = { description, destructive, status: 'planned' };
+  const plannedAction: MutableDeep<PlannedAction> = { description, destructive, status: 'planned' };
   actionLog.actions.push(plannedAction);
   if (actionLog.dryRun) return Effect.succeed({ status: plannedAction.status });
   if (destructive && !actionLog.allowDestructive) {
@@ -256,12 +257,12 @@ export const reconcileApp = (
     };
     const appId = yield* resolveAppId(api, input.bundleId);
     yield* reconcileCapabilities(reconcileContext, input.bundleId, input.capabilities);
-    let desiredInAppPurchases: InAppPurchaseConfig[] = [];
+    let desiredInAppPurchases: readonly InAppPurchaseConfig[] = [];
     if (input.products.inAppPurchases !== undefined) {
       desiredInAppPurchases = input.products.inAppPurchases;
     }
     yield* reconcileInAppPurchases(reconcileContext, appId, desiredInAppPurchases);
-    let desiredSubscriptionGroups: AppProducts['subscriptionGroups'] = [];
+    let desiredSubscriptionGroups: NonNullable<AppProducts['subscriptionGroups']> = [];
     if (input.products.subscriptionGroups !== undefined) {
       desiredSubscriptionGroups = input.products.subscriptionGroups;
     }
@@ -301,7 +302,7 @@ export const reconcileAppListing = (
 const reconcileCapabilities = (
   reconcileContext: ReconcileContext,
   bundleId: string,
-  desired: CapabilityType[],
+  desired: readonly CapabilityType[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     const resource = yield* reconcileContext.api.findBundleId(bundleId);
@@ -342,7 +343,7 @@ const reconcileCapabilities = (
 const reconcileInAppPurchases = (
   reconcileContext: ReconcileContext,
   appId: string,
-  desired: InAppPurchaseConfig[],
+  desired: readonly InAppPurchaseConfig[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     if (desired.length === 0) return;
@@ -472,7 +473,7 @@ const reconcileSubscriptionGroups = (
 const reconcileSubscription = (
   reconcileContext: ReconcileContext,
   groupId: string,
-  existingSubs: SubscriptionResource[],
+  existingSubs: readonly SubscriptionResource[],
   subscription: SubscriptionConfig,
   groupLevel: number,
 ): Effect.Effect<void, unknown> =>

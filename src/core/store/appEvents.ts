@@ -1,4 +1,5 @@
 import { Data, Effect } from 'effect';
+import type { MutableDeep } from '../types/mutable.js';
 import type {
   AppEventLocalizationInput,
   AppEventLocalizationResource,
@@ -191,7 +192,7 @@ export const createEvent = (
       appEventsStore.getAppId(bundleId),
     );
     if (appId === null) return yield* Effect.fail(missingAppRecord(bundleId));
-    const eventAttributes: NewAppEvent = { referenceName };
+    const eventAttributes: MutableDeep<NewAppEvent> = { referenceName };
     if (badge !== undefined) eventAttributes.badge = badge;
     if (eventRequest.primaryLocale !== undefined) {
       eventAttributes.primaryLocale = eventRequest.primaryLocale.trim();
@@ -224,7 +225,7 @@ export const localizeEvent = (
         }),
       );
     }
-    const localizationAttributes: AppEventLocalizationInput = {};
+    const localizationAttributes: MutableDeep<AppEventLocalizationInput> = {};
     if (localizationRequest.name !== undefined) {
       localizationAttributes.name = localizationRequest.name;
     }

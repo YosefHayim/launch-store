@@ -8,130 +8,130 @@ export type MigrationSource = 'eas' | 'fastlane';
  */
 export type MigrationNoteLevel = 'mapped' | 'manual' | 'skipped' | 'info';
 /** One line in the migration report: what happened to a piece of the source setup, and (when `manual`) how to finish it. */
-export type MigrationNote = {
+export type MigrationNote = Readonly<{
   level: MigrationNoteLevel;
   message: string;
-};
+}>;
 /**
  * A file the migration would write, as a path relative to the output directory plus its full contents.
  * Existence/overwrite is decided at write time against the output dir (see `write.ts`), so an artifact
  * carries no `exists` flag - the same artifact can be previewed (`--dry-run`) or written unchanged.
  */
-export type MigrationArtifact = {
+export type MigrationArtifact = Readonly<{
   path: string;
   contents: string;
-};
+}>;
 /**
  * The outcome of one migration run: which toolchain it read, the artifacts to write, and the per-item
  * report. Returned by a source's migrate function (e.g. {@link import("./eas.js").migrateEas}) and
  * consumed by `report.ts` (render) and `write.ts` (persist) - both shared across every source.
  */
-export type MigrationResult = {
+export type MigrationResult = Readonly<{
   source: MigrationSource;
-  artifacts: MigrationArtifact[];
-  notes: MigrationNote[];
-};
+  artifacts: readonly MigrationArtifact[];
+  notes: readonly MigrationNote[];
+}>;
 /**
  * One `build.<profile>` block in `eas.json`. Only the fields Launch maps or reports on are modeled:
  * `channel`/`distribution`/`developmentClient` become report notes, `env` keys seed `.env.example`.
  */
-export type EasBuildProfile = {
+export type EasBuildProfile = Readonly<{
   channel?: string;
   distribution?: string;
   env?: Record<string, string>;
   autoIncrement?: boolean | string;
   developmentClient?: boolean;
-};
+}>;
 /** The iOS half of a `submit.<profile>` block - Apple account details that map to `launch creds`, not config. */
-export type EasSubmitIos = {
+export type EasSubmitIos = Readonly<{
   appleId?: string;
   ascAppId?: string;
   appleTeamId?: string;
-};
+}>;
 /** The Android half of a `submit.<profile>` block - the Play track maps to a profile; the key path to `launch creds`. */
-export type EasSubmitAndroid = {
+export type EasSubmitAndroid = Readonly<{
   serviceAccountKeyPath?: string;
   track?: string;
-};
+}>;
 /** One `submit.<profile>` block in `eas.json`. */
-export type EasSubmitProfile = {
+export type EasSubmitProfile = Readonly<{
   ios?: EasSubmitIos;
   android?: EasSubmitAndroid;
-};
+}>;
 /** The `cli` block in `eas.json` - only `appVersionSource` informs the report (it matches Launch's store-driven bumping). */
-export type EasCli = {
+export type EasCli = Readonly<{
   appVersionSource?: string;
-};
+}>;
 /**
  * The parsed `eas.json`, narrowed to what Launch reads. `build`/`submit` default to `{}` so a file with
  * only one of them (or neither) still migrates cleanly; `cli` is optional.
  */
-export type EasJson = {
+export type EasJson = Readonly<{
   cli?: EasCli;
   build: Record<string, EasBuildProfile>;
   submit: Record<string, EasSubmitProfile>;
-};
+}>;
 /**
  * A non-secret summary of an EAS `credentials.json` (present when `eas.json` sets
  * `credentialsSource: "local"`). Only paths and the keystore alias are surfaced; the certificate/keystore
  * Password fields are discarded by the boundary schema and never enter this shape.
  */
-export type CredentialsSummary = {
-  ios?: {
+export type CredentialsSummary = Readonly<{
+  ios?: Readonly<{
     distributionCertificatePath?: string;
     provisioningProfilePath?: string;
-  };
-  android?: {
+  }>;
+  android?: Readonly<{
     keystorePath?: string;
     keyAlias?: string;
-  };
-};
+  }>;
+}>;
 /** The `Appfile` - the app/account identifiers fastlane shares across actions. */
-export type AppfileData = {
+export type AppfileData = Readonly<{
   appIdentifier?: string;
   appleId?: string;
   teamId?: string;
   itcTeamId?: string;
   packageName?: string;
-};
+}>;
 /**
  * The `Matchfile` - fastlane `match`'s signing strategy. Launch manages its own certificates in the OS
  * keychain, so every field here becomes a `manual` note (you don't carry match over), not config.
  */
-export type MatchfileData = {
+export type MatchfileData = Readonly<{
   gitUrl?: string;
   type?: string;
   storageMode?: string;
   appIdentifier?: string;
-};
+}>;
 /** The `Supplyfile` - fastlane `supply`'s Play upload defaults. */
-export type SupplyfileData = {
+export type SupplyfileData = Readonly<{
   packageName?: string;
   jsonKey?: string;
   track?: string;
-};
+}>;
 /**
  * One lane parsed from a `Fastfile`: its name, the `platform` block it sits in (when any), and the
  * recognized fastlane actions found in its body. The body is captured by line-scan (see fastlane.ts
  * `parseFastfile`) - tolerant, not a Ruby parser - so `actions` is best-effort, and a lane with no
  * recognized actions still appears (with an empty `actions`) so the report can flag it as custom.
  */
-export type FastlaneLane = {
+export type FastlaneLane = Readonly<{
   name: string;
   platform?: string;
-  actions: string[];
-};
+  actions: readonly string[];
+}>;
 /**
  * A parsed fastlane setup, narrowed to what Launch reads from the standard files. Lanes and recognized
  * actions drive the report (Launch's pipeline replaces lanes); the per-file blocks are present only when
  * that file existed. Mirrors {@link EasJson} as the file-based input to a migration source.
  */
-export type FastlaneSetup = {
+export type FastlaneSetup = Readonly<{
   appfile?: AppfileData;
   matchfile?: MatchfileData;
   supply?: SupplyfileData;
-  lanes: FastlaneLane[];
-  actions: string[];
+  lanes: readonly FastlaneLane[];
+  actions: readonly string[];
   hasDeliverfile: boolean;
-  envKeys: string[];
-};
+  envKeys: readonly string[];
+}>;

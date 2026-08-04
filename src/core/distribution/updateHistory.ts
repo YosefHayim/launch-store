@@ -111,7 +111,7 @@ const writeHistory = (
   storage: StorageProvider,
   channel: string,
   platform: string,
-  entries: UpdateHistoryEntry[],
+  entries: readonly UpdateHistoryEntry[],
 ): Effect.Effect<void, unknown> =>
   storage
     .putObject(

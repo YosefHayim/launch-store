@@ -2,7 +2,7 @@ import { Path } from '@effect/platform';
 import { Effect } from 'effect';
 import type { AppDescriptor } from '../types/app.js';
 /** Derive a single `appRoots` subdir when every discovered app lives under one (e.g. an `apps/` monorepo). */
-export const detectAppRoot = (apps: AppDescriptor[], workingDirectory: string) =>
+export const detectAppRoot = (apps: readonly AppDescriptor[], workingDirectory: string) =>
   Effect.gen(function* () {
     const pathService = yield* Path.Path;
     const segments = new Set<string>();

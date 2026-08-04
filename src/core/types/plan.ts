@@ -24,7 +24,7 @@ export type PlanStore = 'appstore' | 'play';
  * {@link AscCatalogApi} backs every App Store surface); each planner uses only the slice it needs, and
  * `GooglePlayClient` satisfies the whole thing structurally.
  */
-export type PlayCatalogApi = PlayProductsApi & PlaySubscriptionsApi & {};
+export type PlayCatalogApi = PlayProductsApi & PlaySubscriptionsApi;
 /**
  * The full read surface of App Store Connect the App Store planners share - the union of every ASC
  * surface reconciler's API slice (mirrors how {@link PlayCatalogApi} unions the two Play interfaces). One
@@ -45,19 +45,19 @@ export type AscSurfacesApi = AscCatalogApi &
   AscEuDistributionApi &
   AscOffersApi &
   ScreenshotsApi &
-  PreviewsApi & {};
+  PreviewsApi;
 /**
  * One app's slice of a surface's plan. `actions` is the reconciler's existing {@link PlannedAction} list
  * (all `planned` in dry-run, with advisory `skipped` lines for length-limit/precondition notes); empty
  * means in sync. `error` is set instead when the app couldn't be planned at all - a precondition the
  * user must fix, e.g. no App Store Connect app record - so the gate never silently certifies it as clean.
  */
-export type AppPlan = {
+export type AppPlan = Readonly<{
   app: string;
   identifier: string;
-  actions: PlannedAction[];
+  actions: readonly PlannedAction[];
   error?: string;
-};
+}>;
 /**
  * How completely a surface detects drift - surfaced on the plan and in `--json` so a `drift` gate's
  * guarantee is legible (ADR 0003 A3):
@@ -81,57 +81,57 @@ export type PlanDirection = 'two-way' | 'additive';
  * Every `planned` variant carries its {@link PlanDirection} so the renderer can flag additive surfaces.
  */
 export type SurfacePlan =
-  | {
+  | Readonly<{
       surface: string;
       store: PlanStore;
       state: 'omitted';
-    }
-  | {
+    }>
+  | Readonly<{
       surface: string;
       store: PlanStore;
       state: 'skipped';
       reason: string;
       hint?: string;
-    }
-  | {
+    }>
+  | Readonly<{
       surface: string;
       store: PlanStore;
       state: 'planned';
       scope: 'app';
       direction: PlanDirection;
-      apps: AppPlan[];
-    }
-  | {
+      apps: readonly AppPlan[];
+    }>
+  | Readonly<{
       surface: string;
       store: PlanStore;
       state: 'planned';
       scope: 'team';
       direction: PlanDirection;
-      actions: PlannedAction[];
-    };
+      actions: readonly PlannedAction[];
+    }>;
 /**
  * What a {@link SurfacePlanner} is handed: the loaded config, the apps to consider (already narrowed by
  * `-a`), and lazy store-client resolvers. A resolver returns `null` when the account isn't configured,
  * letting the planner emit a `skipped` surface rather than throw. Resolvers are memoized by the command,
  * so several planners over the same store share one client (and one credential read).
  */
-export type PlanContext = {
+export type PlanContext = Readonly<{
   config: LaunchConfig;
-  apps: AppDescriptor[];
+  apps: readonly AppDescriptor[];
   resolveAscApi(): Effect.Effect<AscSurfacesApi | null, unknown>;
   resolvePlayApi(): Effect.Effect<PlayCatalogApi | null, unknown>;
-};
+}>;
 /**
  * One config-as-code surface's planner. {@link plan} is **read-only**: it resolves live state and returns
  * the diff it *would* apply without performing any write, so the same call powers both `launch plan` and
  * the `launch drift` gate. Registered like a provider/adopter (see {@link import("./registry.js")}); the
  * orchestrator resolves every registered planner and never names a concrete one.
  */
-export type SurfacePlanner = {
+export type SurfacePlanner = Readonly<{
   id: string;
   store: PlanStore;
   plan(
     planContext: PlanContext,
   ): Effect.Effect<SurfacePlan, unknown, FileSystem.FileSystem | Path.Path>;
-};
+}>;
 import type { FileSystem, Path } from '@effect/platform';

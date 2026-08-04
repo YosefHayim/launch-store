@@ -1,5 +1,6 @@
 import { Effect } from 'effect';
 import type { AdoptCatalogApi, Adopter, PlannedWrite } from '../types/adopt.js';
+import type { MutableDeep } from '../types/mutable.js';
 import type {
   InAppPurchaseResource,
   LocalizationResource,
@@ -44,9 +45,11 @@ const toSubscriptionPeriod = (
 };
 
 /** Convert App Store localization resources into config localization entries. */
-const toProductLocalizations = (localizations: LocalizationResource[]): ProductLocalization[] =>
+const toProductLocalizations = (
+  localizations: readonly LocalizationResource[],
+): ProductLocalization[] =>
   localizations.map((localization) => {
-    const productLocalization: ProductLocalization = {
+    const productLocalization: MutableDeep<ProductLocalization> = {
       locale: localization.locale,
       name: localization.name,
     };
@@ -75,7 +78,7 @@ const importInAppPurchase = (
       productId: purchase.productId,
       referenceName: purchase.name,
       type: purchaseType,
-      localizations: toProductLocalizations(localizations),
+      localizations: [...toProductLocalizations(localizations)],
     };
     const plannedWrite: PlannedWrite = {
       description: `products: import in-app purchase ${purchase.productId} (${purchaseType})`,
@@ -86,11 +89,11 @@ const importInAppPurchase = (
         piece: { type: 'iap', iap: purchaseConfig },
       },
     };
-    if (hasPrice) {
-      plannedWrite.note =
-        'priced on App Store Connect - add `price` in config or keep managing it in the UI';
-    }
-    return plannedWrite;
+    if (!hasPrice) return plannedWrite;
+    return {
+      ...plannedWrite,
+      note: 'priced on App Store Connect - add `price` in config or keep managing it in the UI',
+    };
   });
 
 type ImportedSubscription = Readonly<{
@@ -118,7 +121,7 @@ const importSubscription = (
         productId: subscription.productId,
         referenceName: subscription.name,
         subscriptionPeriod,
-        localizations: toProductLocalizations(localizations),
+        localizations: [...toProductLocalizations(localizations)],
       },
       pricedUnimported: hasPrice,
     };
@@ -169,10 +172,11 @@ const importSubscriptionGroup = (
         piece: { type: 'subscriptionGroup', group: groupConfig },
       },
     };
-    if (unimportedPriceIds.length > 0) {
-      plannedWrite.note = `priced on App Store Connect, not imported - set \`price\` for: ${unimportedPriceIds.join(', ')}`;
-    }
-    return plannedWrite;
+    if (unimportedPriceIds.length === 0) return plannedWrite;
+    return {
+      ...plannedWrite,
+      note: `priced on App Store Connect, not imported - set \`price\` for: ${unimportedPriceIds.join(', ')}`,
+    };
   });
 
 /** Read products and plan their launch.config imports. */

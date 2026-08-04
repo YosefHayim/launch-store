@@ -293,7 +293,7 @@ const selectStoredArtifact = (
       loadedConfig.config,
       launchPaths.workingDirectory,
     );
-    let buildHistory = yield* storageProvider.list();
+    let buildHistory: readonly BuildArtifact[] = yield* storageProvider.list();
     if (commandInput.app !== undefined) {
       buildHistory = buildHistory.filter(
         (storedArtifact) => storedArtifact.appName === commandInput.app,

@@ -64,7 +64,7 @@ export type ScreenshotReconcileInput = {
 };
 /** Group members by a derived string key. */
 const groupBy = <Member>(
-  members: Member[],
+  members: readonly Member[],
   keyOf: (member: Member) => string,
 ): Map<string, Member[]> => {
   const groups = new Map<string, Member[]>();
@@ -122,7 +122,7 @@ const reconcileAppScreenshots = (
   api: ScreenshotsApi,
   log: ActionLog,
   appId: string,
-  screenshots: LocalScreenshot[],
+  screenshots: readonly LocalScreenshot[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     const versionId = yield* api.getEditableVersionId(appId);
@@ -178,7 +178,7 @@ const reconcileScreenshotSet = (
   existingSet: ScreenshotSetResource | undefined,
   displayType: string,
   locale: string,
-  screenshots: LocalScreenshot[],
+  screenshots: readonly LocalScreenshot[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     const label = appleDisplayTypeLabel(displayType);
@@ -227,7 +227,7 @@ const reconcileSubscriptionReviewScreenshots = (
   api: ScreenshotsApi,
   log: ActionLog,
   appId: string,
-  reviewScreenshots: SubscriptionReviewScreenshot[],
+  reviewScreenshots: readonly SubscriptionReviewScreenshot[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     const subscriptionIdByProduct = new Map<string, string>();
@@ -365,7 +365,7 @@ const reconcilePreviewSet = (
   existingSet: PreviewSetResource | undefined,
   previewType: string,
   locale: string,
-  previews: LocalPreview[],
+  previews: readonly LocalPreview[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     const label = applePreviewTypeLabel(previewType);

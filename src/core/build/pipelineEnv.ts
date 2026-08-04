@@ -39,7 +39,7 @@ export const makeBuildEnvironmentFailure =
  * to a fuzzy type-to-search over the name and bundle/package id. With no TTY and more than one app it
  * refuses to guess and tells the user to pass `--app`, rather than silently building the wrong one.
  */
-export const selectApp = (apps: AppDescriptor[], appName: string | undefined) =>
+export const selectApp = (apps: readonly AppDescriptor[], appName: string | undefined) =>
   Effect.gen(function* () {
     if (apps.length === 0)
       return yield* Effect.fail(
@@ -98,7 +98,7 @@ export const resolveCommandEnv = (input: {
   profile: BuildProfile;
   cliEnv?: Record<string, string> | undefined;
   includeLocal?: boolean | undefined;
-  envExclude?: string[] | undefined;
+  envExclude?: readonly string[] | undefined;
 }) =>
   Effect.gen(function* () {
     const secrets = yield* resolveBuildSecrets(input.app.name, input.profile.name).pipe(
@@ -134,7 +134,7 @@ export const validateResolvedEnv = (
   appDir: string,
   resolved: ResolvedEnv,
   log: Logger,
-  exclude: string[] = [],
+  exclude: readonly string[] = [],
 ) =>
   Effect.gen(function* () {
     const missing = yield* missingKeys(appDir, resolved.values, exclude).pipe(

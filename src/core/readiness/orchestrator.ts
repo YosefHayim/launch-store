@@ -26,7 +26,7 @@ export const readinessExitCode = ({ errorCount, blockerCount }: ReadinessExitInp
 
 export const runProbes = (
   readinessContext: ReadinessContext,
-  probes: ReadinessProbe[],
+  probes: readonly ReadinessProbe[],
 ): Effect.Effect<ReadinessOutcome, never, ReadinessProbeRequirements> =>
   Effect.gen(function* () {
     const reports = yield* Effect.forEach(probes, (probe) => runProbe(readinessContext, probe), {

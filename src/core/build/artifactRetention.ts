@@ -10,6 +10,7 @@ import type {
 } from '../types/artifacts.js';
 import { ArtifactIndexSchema } from '../types/artifacts.js';
 import type { LaunchConfig } from '../types/config.js';
+import type { MutableDeep } from '../types/mutable.js';
 
 export const DEFAULT_RETENTION_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -26,7 +27,7 @@ const resolveArtifactIndexPath = (
 /** Read and decode the newest-first artifact index, tolerating absent or malformed state. */
 export const readArtifactIndex = (
   indexPath?: string,
-): Effect.Effect<BuildArtifact[], never, ArtifactIndexRequirements> =>
+): Effect.Effect<readonly BuildArtifact[], never, ArtifactIndexRequirements> =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const artifactIndexPath = yield* resolveArtifactIndexPath(indexPath);
@@ -44,7 +45,7 @@ export const readArtifactIndex = (
 
 /** Persist the artifact index, creating its parent directory first. */
 export const writeArtifactIndex = (
-  artifactIndex: BuildArtifact[],
+  artifactIndex: readonly BuildArtifact[],
   indexPath?: string,
 ): Effect.Effect<void, PlatformError, ArtifactIndexRequirements> =>
   Effect.gen(function* () {
@@ -82,7 +83,7 @@ const artifactGroupKey = (buildArtifact: BuildArtifact): string =>
 
 /** Split an artifact index according to the retention and keep-newest policy. */
 export const planPrune = (
-  artifactIndex: BuildArtifact[],
+  artifactIndex: readonly BuildArtifact[],
   pruneOptions: Pick<PruneOptions, 'now' | 'retentionDays' | 'app' | 'platform'>,
 ): { prune: BuildArtifact[]; keep: BuildArtifact[] } => {
   const newestArtifactByGroup = new Map<string, BuildArtifact>();
@@ -148,7 +149,9 @@ export const runArtifactPrune = (
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const artifactIndex = yield* readArtifactIndex(pruneOptions.indexPath);
-    const policyInput: Pick<PruneOptions, 'now' | 'retentionDays' | 'app' | 'platform'> = {
+    const policyInput: MutableDeep<
+      Pick<PruneOptions, 'now' | 'retentionDays' | 'app' | 'platform'>
+    > = {
       now: pruneOptions.now,
       retentionDays: pruneOptions.retentionDays,
     };

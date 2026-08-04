@@ -28,7 +28,7 @@ const renderStep = (step: SkillStep): string => {
   return `\`${command}\` - ${step.note}`;
 };
 /** Render a skill's reference catalog as a two-column markdown table. */
-const renderReferenceTable = (commands: SkillStep[]): string => {
+const renderReferenceTable = (commands: readonly SkillStep[]): string => {
   const rows = commands.map((step) => {
     const commandParts = ['npx', 'launch', ...step.path];
     if (step.args !== undefined) commandParts.push(...step.args);
@@ -38,21 +38,21 @@ const renderReferenceTable = (commands: SkillStep[]): string => {
   return ['| Command | What it does |', '| --- | --- |', ...rows].join('\n');
 };
 /** Render a bulleted "Use this when" list from a skill's triggers. */
-const renderTriggers = (triggers: string[]): string => {
+const renderTriggers = (triggers: readonly string[]): string => {
   return ['## Use this when', '', ...triggers.map((t) => `- ${t}`)].join('\n');
 };
 /** Render a skill's numbered recipe. */
-const renderRecipe = (steps: SkillStep[]): string => {
+const renderRecipe = (steps: readonly SkillStep[]): string => {
   return ['## Steps', '', ...steps.map((step, i) => `${i + 1}. ${renderStep(step)}`)].join('\n');
 };
 /** Render a skill's cautions block, or `""` when it has none. */
-const renderCautions = (cautions: string[] | undefined): string => {
+const renderCautions = (cautions: readonly string[] | undefined): string => {
   if (!cautions) return '';
   if (cautions.length === 0) return '';
   return ['## Cautions', '', ...cautions.map((c) => `- ${c}`)].join('\n');
 };
 /** Join non-empty markdown chunks with blank lines, then end with a single trailing newline. */
-const joinSections = (sections: string[]): string => {
+const joinSections = (sections: readonly string[]): string => {
   return `${sections.filter((s) => s.trim() !== '').join('\n\n')}\n`;
 };
 /**
@@ -203,7 +203,7 @@ const renderSkillSection = (skill: ConsumerSkill): string => {
 export const renderAgentsBlock = (
   version: string,
   base: BaseContext = BASE_CONTEXT,
-  skills: ConsumerSkill[] = CONSUMER_SKILLS,
+  skills: readonly ConsumerSkill[] = CONSUMER_SKILLS,
 ): string => {
   const sections = [
     '## Shipping this app with Launch',
@@ -222,7 +222,7 @@ export const renderAgentsBlock = (
  */
 export const renderClaudeMemoryBlock = (
   version: string,
-  skills: ConsumerSkill[] = CONSUMER_SKILLS,
+  skills: readonly ConsumerSkill[] = CONSUMER_SKILLS,
 ): string => {
   const skillList = skills.map((s) => `\`${s.id}\``).join(', ');
   const inner = [
@@ -347,7 +347,7 @@ export const renderWindsurfTaskRule = (
 export const renderCopilotBlock = (
   version: string,
   base: BaseContext = BASE_CONTEXT,
-  skills: ConsumerSkill[] = CONSUMER_SKILLS,
+  skills: readonly ConsumerSkill[] = CONSUMER_SKILLS,
 ): string => {
   const skillSummaries = skills.map((s) => `- **${s.title}**: ${s.description}`).join('\n');
   const sections = [
@@ -370,7 +370,7 @@ export const renderCopilotBlock = (
 export const renderKiroSteering = (
   version: string,
   base: BaseContext = BASE_CONTEXT,
-  skills: ConsumerSkill[] = CONSUMER_SKILLS,
+  skills: readonly ConsumerSkill[] = CONSUMER_SKILLS,
 ): GeneratedAgentFile => {
   const renderedMarkdown = joinSections([
     '# Launch - build, sign & ship to the App Store / Play',

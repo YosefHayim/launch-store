@@ -72,7 +72,7 @@ export const compareVersions = (a: string, b: string): number => {
  * Used to fold App Store + TestFlight versions into a single "latest on record" without trusting the
  * store's own (lexical) sort, which would order `1.10.0` below `1.9.0`.
  */
-export const highestVersion = (versions: string[]): string | null => {
+export const highestVersion = (versions: readonly string[]): string | null => {
   const parseable = versions.filter((version) => parseVersion(version) !== null);
   if (parseable.length === 0) return null;
   return parseable.reduce((highest, version) => {

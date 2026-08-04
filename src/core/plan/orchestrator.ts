@@ -69,7 +69,7 @@ export const planExitCode = ({
  */
 export const runPlanners = (
   planContext: PlanContext,
-  planners: SurfacePlanner[],
+  planners: readonly SurfacePlanner[],
   options: PlanRunOptions,
 ): Effect.Effect<PlanOutcome, unknown, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {

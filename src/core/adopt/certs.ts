@@ -11,8 +11,8 @@ export type LocalSigningView = {
 };
 
 export type CertPlanInput = {
-  certificates: CertificateResource[];
-  profiles: ProfileResource[];
+  certificates: readonly CertificateResource[];
+  profiles: readonly ProfileResource[];
   local: LocalSigningView;
   bundleId: string;
 };
@@ -29,8 +29,8 @@ const signingReport = (description: string, note?: string): PlannedWrite => {
     fidelity: 'detect',
     change: { home: 'keychain' },
   };
-  if (note !== undefined) plannedWrite.note = note;
-  return plannedWrite;
+  if (note === undefined) return plannedWrite;
+  return { ...plannedWrite, note };
 };
 
 /** Compare live signing assets against the locally cached private-key view. */
@@ -78,7 +78,7 @@ export const certsAdopter: Adopter<CertAdopterRequirements> = {
     Effect.gen(function* () {
       const bundleResource = yield* appleCatalog.findBundleId(target.bundleId);
       const certificates = yield* appleCatalog.listDistributionCertificates();
-      let profiles: ProfileResource[] = [];
+      let profiles: readonly ProfileResource[] = [];
       if (bundleResource !== null)
         profiles = yield* appleCatalog.listProfilesForBundleId(bundleResource.id);
       const storedCredentials = yield* describeStoredCredentials(target.keyId);

@@ -21,6 +21,7 @@ import type {
   SupplyfileData,
 } from '../types/migrate.js';
 import { buildEnvExample, scaffoldStoreConfig } from './scaffold.js';
+import type { MutableDeep } from '../types/mutable.js';
 
 export type FastlaneMigrationFailure = Readonly<{
   readonly _tag: 'FastlaneMigrationFailure';
@@ -43,7 +44,7 @@ const readRubyString = (rubySource: string, directiveName: string): string | und
 };
 
 export const parseAppfile = (appfileSource: string): AppfileData => {
-  const appfile: AppfileData = {};
+  const appfile: MutableDeep<AppfileData> = {};
   const appIdentifier = readRubyString(appfileSource, 'app_identifier');
   if (appIdentifier !== undefined) appfile.appIdentifier = appIdentifier;
   const appleId = readRubyString(appfileSource, 'apple_id');
@@ -58,7 +59,7 @@ export const parseAppfile = (appfileSource: string): AppfileData => {
 };
 
 export const parseMatchfile = (matchfileSource: string): MatchfileData => {
-  const matchfile: MatchfileData = {};
+  const matchfile: MutableDeep<MatchfileData> = {};
   const gitUrl = readRubyString(matchfileSource, 'git_url');
   if (gitUrl !== undefined) matchfile.gitUrl = gitUrl;
   const signingType = readRubyString(matchfileSource, 'type');
@@ -71,7 +72,7 @@ export const parseMatchfile = (matchfileSource: string): MatchfileData => {
 };
 
 export const parseSupplyfile = (supplyfileSource: string): SupplyfileData => {
-  const supplyfile: SupplyfileData = {};
+  const supplyfile: MutableDeep<SupplyfileData> = {};
   const packageName = readRubyString(supplyfileSource, 'package_name');
   if (packageName !== undefined) supplyfile.packageName = packageName;
   const jsonKey = readRubyString(supplyfileSource, 'json_key');
@@ -119,7 +120,7 @@ const findLanePlatform = (fastfileSource: string, laneStartIndex: number): strin
 /** Parse lane names and recognized actions without attempting to interpret arbitrary Ruby. */
 export const parseFastfile = (
   fastfileSource: string,
-): { lanes: FastlaneLane[]; actions: string[] } => {
+): { lanes: readonly FastlaneLane[]; actions: readonly string[] } => {
   const laneDeclarations = [
     ...fastfileSource.matchAll(/^[ \t]*(?:private_)?lane\s+:([A-Za-z_]\w*)\s+do\b/gm),
   ];
@@ -137,9 +138,11 @@ export const parseFastfile = (
       containsAction(laneSource, actionName),
     );
     const lanePlatform = findLanePlatform(fastfileSource, laneStartIndex);
-    const fastlaneLane: FastlaneLane = { name: laneName, actions: laneActions };
-    if (lanePlatform !== undefined) fastlaneLane.platform = lanePlatform;
-    fastlaneLanes.push(fastlaneLane);
+    if (lanePlatform !== undefined) {
+      fastlaneLanes.push({ name: laneName, actions: laneActions, platform: lanePlatform });
+      continue;
+    }
+    fastlaneLanes.push({ name: laneName, actions: laneActions });
   }
   return {
     lanes: fastlaneLanes,
@@ -214,27 +217,27 @@ export const readFastlaneSetup = (
     if (fastlaneSources.supplyfile !== undefined) hasFastlaneSource = true;
     if (fastlaneSources.deliverfile !== undefined) hasFastlaneSource = true;
     if (!hasFastlaneSource) return null;
-    let parsedFastfile: { lanes: FastlaneLane[]; actions: string[] } = {
+    let parsedFastfile: { lanes: readonly FastlaneLane[]; actions: readonly string[] } = {
       lanes: [],
       actions: [],
     };
     if (fastlaneSources.fastfile !== undefined) {
       parsedFastfile = parseFastfile(fastlaneSources.fastfile);
     }
-    const fastlaneSetup: FastlaneSetup = {
+    let fastlaneSetup: FastlaneSetup = {
       lanes: parsedFastfile.lanes,
       actions: parsedFastfile.actions,
       hasDeliverfile: fastlaneSources.deliverfile !== undefined,
       envKeys: fastlaneSources.environmentKeys,
     };
     if (fastlaneSources.appfile !== undefined) {
-      fastlaneSetup.appfile = parseAppfile(fastlaneSources.appfile);
+      fastlaneSetup = { ...fastlaneSetup, appfile: parseAppfile(fastlaneSources.appfile) };
     }
     if (fastlaneSources.matchfile !== undefined) {
-      fastlaneSetup.matchfile = parseMatchfile(fastlaneSources.matchfile);
+      fastlaneSetup = { ...fastlaneSetup, matchfile: parseMatchfile(fastlaneSources.matchfile) };
     }
     if (fastlaneSources.supplyfile !== undefined) {
-      fastlaneSetup.supply = parseSupplyfile(fastlaneSources.supplyfile);
+      fastlaneSetup = { ...fastlaneSetup, supply: parseSupplyfile(fastlaneSources.supplyfile) };
     }
     return fastlaneSetup;
   });
@@ -309,7 +312,7 @@ const laneCommands = (fastlaneLane: FastlaneLane): string[] => {
   return launchCommands;
 };
 
-const buildLaneNotes = (fastlaneLanes: FastlaneLane[]): MigrationNote[] => {
+const buildLaneNotes = (fastlaneLanes: readonly FastlaneLane[]): MigrationNote[] => {
   const migrationNotes: MigrationNote[] = [];
   const customLaneNames: string[] = [];
   for (const fastlaneLane of fastlaneLanes) {
@@ -338,7 +341,7 @@ const buildLaneNotes = (fastlaneLanes: FastlaneLane[]): MigrationNote[] => {
 
 const buildMigrationNotes = (
   fastlaneSetup: FastlaneSetup,
-  apps: AppDescriptor[],
+  apps: readonly AppDescriptor[],
   importedMetadata: boolean,
 ): MigrationNote[] => {
   const migrationNotes = buildLaneNotes(fastlaneSetup.lanes);
@@ -472,7 +475,7 @@ const importFastlaneMetadata = (
 /** Read a Fastlane project and return Launch artifacts without writing them. */
 export const migrateFastlane = (
   workingDirectory: string,
-  apps: AppDescriptor[],
+  apps: readonly AppDescriptor[],
 ): Effect.Effect<
   MigrationResult,
   FastlaneMigrationFailure | PlatformError,

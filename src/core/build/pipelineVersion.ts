@@ -20,6 +20,7 @@ import { AppleStoreClientService } from '../services/appleStoreClient.js';
 import { GoogleStoreClientService } from '../services/googleStoreClient.js';
 import { LaunchPrompt } from '../services/prompt.js';
 import type { BuildRunOptions, BumpResolution } from './pipelineTypes.js';
+import type { MutableDeep } from '../types/mutable.js';
 
 export type BuildVersionFailure = Readonly<{
   readonly _tag: 'BuildVersionFailure';
@@ -174,7 +175,7 @@ export const promptVersion = (baseline: string, current: string, latest: string 
  * explains the source (e.g. `patch, remembered`) so the line is self-documenting.
  */
 export const applyChosenVersion = (
-  app: AppDescriptor,
+  app: MutableDeep<AppDescriptor>,
   platform: Platform,
   chosen: string,
   latest: string | null,
@@ -212,7 +213,7 @@ export const applyChosenVersion = (
 export const resolveMarketingVersion = (
   ascKey: AppleCredentials['ascKey'],
   bundleId: string,
-  app: AppDescriptor,
+  app: MutableDeep<AppDescriptor>,
   platform: Platform,
   options: BuildRunOptions,
   log: Logger,

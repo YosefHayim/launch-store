@@ -39,7 +39,7 @@ class FakeOffersApi implements AscOffersApi {
   readonly createdWinBack: WinBackOfferCreate[] = [];
   readonly createdPromoted: PromotedPurchaseCreate[] = [];
   introCreateCount = 0;
-  reorderedTo: string[] | null = null;
+  reorderedTo: readonly string[] | null = null;
   getAppId(): Effect.Effect<string | null> {
     return Effect.succeed(this.appId);
   }
@@ -115,7 +115,7 @@ class FakeOffersApi implements AscOffersApi {
       visibleForAllUsers: input.visibleForAllUsers,
     });
   }
-  reorderPromotedPurchases(_appId: string, orderedIds: string[]): Effect.Effect<void> {
+  reorderPromotedPurchases(_appId: string, orderedIds: readonly string[]): Effect.Effect<void> {
     this.reorderedTo = orderedIds;
     return Effect.void;
   }

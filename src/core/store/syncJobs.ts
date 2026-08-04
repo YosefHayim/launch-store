@@ -87,9 +87,9 @@ export const makeAppSelectionFailure = Data.tagged<AppSelectionFailure>('AppSele
 
 /** Resolve discovered apps from an optional comma-separated selector. */
 export const selectApps = (
-  apps: AppDescriptor[],
+  apps: readonly AppDescriptor[],
   selector: string | undefined,
-): Effect.Effect<AppDescriptor[], AppSelectionFailure> => {
+): Effect.Effect<readonly AppDescriptor[], AppSelectionFailure> => {
   if (selector === undefined) return Effect.succeed(apps);
   if (selector === '') return Effect.succeed(apps);
   const selectedNames = selector
@@ -113,7 +113,7 @@ export const selectApps = (
   });
 };
 /** Build the job list, dropping apps with no iOS bundle id and nothing (capabilities, products, listing, or assets) to sync. */
-export const buildJobs = (apps: AppDescriptor[], config: LaunchConfig) =>
+export const buildJobs = (apps: readonly AppDescriptor[], config: LaunchConfig) =>
   Effect.gen(function* () {
     const jobs: SyncJob[] = [];
     for (const app of apps) {

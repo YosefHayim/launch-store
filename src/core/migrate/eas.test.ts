@@ -42,13 +42,13 @@ const app = (over: Partial<AppDescriptor> = {}): AppDescriptor => {
   };
 };
 /** The artifact at `path`, asserting it was emitted. */
-const artifact = (artifacts: MigrationArtifact[], path: string): MigrationArtifact => {
+const artifact = (artifacts: readonly MigrationArtifact[], path: string): MigrationArtifact => {
   const found = artifacts.find((entry) => entry.path === path);
   expect(found, `expected artifact ${path}`).toBeDefined();
   return expectDefined(found, `artifact ${path}`);
 };
 /** Notes at a given level. */
-const notesAt = (notes: MigrationNote[], level: MigrationNoteLevel): MigrationNote[] => {
+const notesAt = (notes: readonly MigrationNote[], level: MigrationNoteLevel): MigrationNote[] => {
   return notes.filter((note) => note.level === level);
 };
 describe('parseEasJson', () => {
@@ -91,7 +91,7 @@ describe('migrateEas', () => {
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
   });
-  const runMigrateEas = (workingDirectory: string, apps: AppDescriptor[]) =>
+  const runMigrateEas = (workingDirectory: string, apps: readonly AppDescriptor[]) =>
     Effect.runPromise(migrateEas(workingDirectory, apps).pipe(Effect.provide(NodeContext.layer)));
   it('returns a tagged failure when there is no eas.json', async () => {
     rmSync(join(dir, 'eas.json'));

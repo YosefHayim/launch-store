@@ -29,7 +29,7 @@ const MAX_SCAN_BYTES = 8 * 1024 * 1024;
 /** Find declared product identifiers in a bounded app-source scan. */
 const findReferencedIds = (
   appDirectory: string,
-  productIds: string[],
+  productIds: readonly string[],
 ): Effect.Effect<Set<string>, never, SourceScanRequirements> => {
   const referencedIds = new Set<string>();
   const pendingIds = new Set(productIds);

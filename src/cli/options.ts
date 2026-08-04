@@ -10,7 +10,7 @@ export type EnvFlags = {
   printEnv: boolean;
 };
 /** Commander reducer: collect a repeatable string option into an array. */
-const collectEnv = (environmentFlag: string, previousFlags: string[]): string[] => {
+const collectEnv = (environmentFlag: string, previousFlags: readonly string[]): string[] => {
   return [...previousFlags, environmentFlag];
 };
 /**

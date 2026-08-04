@@ -96,7 +96,7 @@ const seedCredentials = (
       uuid: string;
     }
   >,
-  installedUuids: string[],
+  installedUuids: readonly string[],
 ): void => {
   const dir = join(home.dir, '.launch', 'credentials', KEY_ID);
   mkdirSync(dir, { recursive: true });
@@ -182,7 +182,7 @@ describe('profileStaleAgainstCapabilities - regenerate-vs-reuse decision (#261)'
     profileContent: 'base64-bytes',
   };
   /** A client stub exposing only the one read this decision makes - no network. */
-  function clientWithCapabilities(types: string[]) {
+  function clientWithCapabilities(types: readonly string[]) {
     return {
       listBundleIdCapabilities: vi.fn(() =>
         Effect.succeed(

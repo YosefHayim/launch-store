@@ -5,7 +5,7 @@ import type { McpTool } from '../types/mcp.js';
 import type { McpCapability } from '../types/storeSurface.js';
 import { enabledCapabilities, gateTools } from './gate.js';
 /** A bare config with an optional `mcp` block - only the fields the gate reads matter here. */
-const config = (capabilities?: McpCapability[]): LaunchConfig => {
+const config = (capabilities?: readonly McpCapability[]): LaunchConfig => {
   const launchConfig: LaunchConfig = {
     profiles: {},
     credentials: 'local',

@@ -166,9 +166,9 @@ const currentIsoTime = (): Effect.Effect<string> =>
 
 /** Narrow discovered apps through the snapshot selector in the typed error channel. */
 const selectSnapshotApps = (
-  discoveredApps: AppDescriptor[],
+  discoveredApps: readonly AppDescriptor[],
   appSelector: string | undefined,
-): Effect.Effect<AppDescriptor[], SnapshotCommandFailure> =>
+): Effect.Effect<readonly AppDescriptor[], SnapshotCommandFailure> =>
   selectApps(discoveredApps, appSelector).pipe(
     Effect.mapError((cause) => snapshotFailure('select snapshot apps', cause)),
   );
@@ -640,7 +640,7 @@ const savedEntitiesFor = (
   savedSnapshot: Snapshot,
   sourceId: string,
   appSelector: string | undefined,
-): AppEntities[] => {
+): readonly AppEntities[] => {
   const captureReport = savedSnapshot.reports.find(
     (snapshotReport) => snapshotReport.id === sourceId,
   );

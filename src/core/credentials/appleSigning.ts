@@ -31,6 +31,7 @@ import {
 import type { CertificateResource, ProfileResource } from '../types/appleCatalog.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import { randomHexSecret } from './randomSecret.js';
+import type { MutableDeep } from '../types/mutable.js';
 /**
  * Keychain account holding the random password that protects an account's `.p12` backup, namespaced
  * by Key ID so each Apple account's `.p12` has its own password. Exported so first-run migration can
@@ -106,7 +107,7 @@ export type EnsureSigningOptions = {
   log: Logger;
   dryRun: boolean;
   confirmCreate: (message: string) => Effect.Effect<boolean, unknown>;
-  extensions?: string[];
+  extensions?: readonly string[];
 };
 /** Summarize what signing material is cached locally for one account, for `launch creds status`. */
 export const describeStoredCredentials = (
@@ -194,7 +195,7 @@ const plistFirstArrayString = (xml: string, key: string): string | null => {
 export const loadCachedSigningAssets = (
   keyId: string,
   bundleId: string,
-  extensions: string[] = [],
+  extensions: readonly string[] = [],
 ): Effect.Effect<
   SigningAssets | null,
   never,
@@ -231,7 +232,7 @@ export const loadCachedSigningAssets = (
         return null;
       extensionProfiles[ext] = extProfile.name;
     }
-    const signingAssets: SigningAssets = {
+    const signingAssets: MutableDeep<SigningAssets> = {
       bundleId,
       teamId: profile.teamId,
       certName: DISTRIBUTION_CERT_NAME,
@@ -1020,7 +1021,7 @@ const createCertificateForUpload = (
 /** A cached cert is reusable only if Apple still lists its serial and the local `.p12` backup exists. */
 const reusableCertificate = (
   index: CredentialsIndex,
-  liveCerts: CertificateResource[],
+  liveCerts: readonly CertificateResource[],
 ): Effect.Effect<CertRecord | null, never, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;

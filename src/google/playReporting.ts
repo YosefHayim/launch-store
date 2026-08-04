@@ -6,6 +6,7 @@ import {
 import { Data, Effect } from 'effect';
 import type { ServiceAccount } from '../core/types/credentials.js';
 import { describePlayErrors } from './playClient.js';
+import type { MutableDeep } from '../core/types/mutable.js';
 import type {
   PlayVitalsMetric,
   PlayVitalsRow,
@@ -287,7 +288,7 @@ export class PlayReportingClient {
           for (const metricEntry of metricPage.rows) {
             const date = dateTimeToIso(metricEntry.startTime);
             if (!date) continue;
-            const normalized: PlayVitalsRow = { metric, date };
+            const normalized: MutableDeep<PlayVitalsRow> = { metric, date };
             const rate = metricNumber(metricEntry, set.rate);
             if (rate !== undefined) normalized.rate = rate;
             const userPerceivedRate = metricNumber(metricEntry, set.userPerceivedRate);

@@ -33,7 +33,7 @@ const source = (
   return { id, title: id, store, capture };
 };
 const META = { name: 'before-sync', capturedAt: '2026-06-16T00:00:00.000Z' };
-const runCapture = (sources: SnapshotSource[]) =>
+const runCapture = (sources: readonly SnapshotSource[]) =>
   Effect.runPromise(captureSnapshot(makeCtx(), sources, META));
 /** A captured surface holding `count` entities under one app. */
 const captured = (count: number): SourceCapture => {

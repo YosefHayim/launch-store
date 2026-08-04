@@ -60,10 +60,10 @@ export type OpenTarget =
  * Google Play submitter reads a single source of truth. Resolved from `--track`/`--rollout`, then the
  * profile's defaults, then the safe fallback. Present only for Android builds; absent on iOS.
  */
-export type AndroidReleaseOptions = {
+export type AndroidReleaseOptions = Readonly<{
   track: PlayTrack;
   rollout: number;
-};
+}>;
 /**
  * Which kind of TestFlight beta feedback a {@link BetaFeedback} carries - Apple keeps the two on
  * separate resources (`betaFeedbackCrashSubmissions` / `betaFeedbackScreenshotSubmissions`), which is
@@ -75,11 +75,11 @@ export type BetaFeedbackKind = 'crash' | 'screenshot';
  * pixel dimensions. The URL expires (Apple signs it for a short window), so it's for immediate viewing
  * or download, not long-term storage; `launch testflight feedback --out` fetches it before it lapses.
  */
-export type BetaFeedbackScreenshot = {
+export type BetaFeedbackScreenshot = Readonly<{
   url: string;
   width?: number;
   height?: number;
-};
+}>;
 /**
  * One piece of TestFlight beta feedback, normalized across Apple's two submission resources into the
  * single shape `launch testflight feedback` renders. `kind` discriminates the two: a `crash` carries no
@@ -87,7 +87,7 @@ export type BetaFeedbackScreenshot = {
  * this is the product-facing read model the CLI and `--json` output share, so it omits Apple ids beyond
  * the feedback's own and keeps only the fields a developer triages from.
  */
-export type BetaFeedback = {
+export type BetaFeedback = Readonly<{
   id: string;
   kind: BetaFeedbackKind;
   createdDate?: string;
@@ -96,8 +96,8 @@ export type BetaFeedback = {
   deviceModel?: string;
   osVersion?: string;
   buildVersion?: string;
-  screenshots?: BetaFeedbackScreenshot[];
-};
+  screenshots?: readonly BetaFeedbackScreenshot[];
+}>;
 /**
  * One app discovered in the surrounding monorepo.
  *
@@ -105,7 +105,7 @@ export type BetaFeedback = {
  * facts here (bundle id, version) come straight from Expo's config and are never
  * duplicated in Launch's own config - `app.json` stays the single source of truth.
  */
-export type AppDescriptor = {
+export type AppDescriptor = Readonly<{
   name: string;
   dir: string;
   configPath: string;
@@ -113,15 +113,15 @@ export type AppDescriptor = {
   packageName?: string;
   version?: string;
   iosEntitlements?: Record<string, unknown>;
-  iosExtensions?: string[];
+  iosExtensions?: readonly string[];
   androidVersionCode?: number;
   usesNonExemptEncryption?: boolean;
-};
+}>;
 /**
  * A named build profile from `launch.config.ts` (e.g. `production`, `preview`).
  * Holds only Launch-specific settings; app facts stay in `app.json`.
  */
-export type BuildProfile = {
+export type BuildProfile = Readonly<{
   name: string;
   envFile?: string;
   env?: Record<string, string>;
@@ -129,4 +129,4 @@ export type BuildProfile = {
   sizeBudgetMB?: number;
   track?: PlayTrack;
   rollout?: number;
-};
+}>;

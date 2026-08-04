@@ -28,7 +28,7 @@ export type AppStoreSurfaceSpec<TConfig> = {
     config: TConfig,
   ) => Effect.Effect<
     {
-      actions: PlannedAction[];
+      actions: readonly PlannedAction[];
     },
     unknown
   >;
@@ -111,7 +111,10 @@ export type TeamSurfaceSpec<TConfig> = {
     | TConfig
     | Effect.Effect<TConfig | undefined, unknown, FileSystem.FileSystem>
     | undefined;
-  reconcile: (api: AscSurfacesApi, config: TConfig) => Effect.Effect<PlannedAction[], unknown>;
+  reconcile: (
+    api: AscSurfacesApi,
+    config: TConfig,
+  ) => Effect.Effect<readonly PlannedAction[], unknown>;
 };
 /**
  * Plan one team-level App Store surface: omit when nothing is declared, skip with a hint when no Apple

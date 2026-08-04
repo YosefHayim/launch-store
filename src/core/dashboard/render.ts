@@ -46,7 +46,7 @@ const renderSection = (sectionTitle: string, sectionHtml: string): string =>
 const renderProviderChip = (providerLabel: string, providerName: string): string =>
   `<span class="chip"><b>${escapeHtml(providerLabel)}</b> ${escapeHtml(providerName)}</span>`;
 
-const renderAppsTable = (apps: DashboardApp[]): string => {
+const renderAppsTable = (apps: readonly DashboardApp[]): string => {
   const appTableRows = apps.map((app) => [
     renderTableCell(app.name),
     renderTableCell(app.version),
@@ -65,7 +65,7 @@ const renderAccountStatus = (account: DashboardAccount): string => {
   return renderTableCell(null);
 };
 
-const renderAccountsTable = (accounts: DashboardAccount[]): string => {
+const renderAccountsTable = (accounts: readonly DashboardAccount[]): string => {
   const accountTableRows = accounts.map((account) => [
     renderTableCell(account.label),
     renderTableCell(account.keyId),
@@ -90,7 +90,7 @@ const renderArtifactStatus = (buildArtifact: DashboardArtifact): string => {
   return '<span class="ok">on disk</span>';
 };
 
-const renderArtifactsTable = (buildArtifacts: DashboardArtifact[]): string => {
+const renderArtifactsTable = (buildArtifacts: readonly DashboardArtifact[]): string => {
   const artifactTableRows = buildArtifacts.map((buildArtifact) => [
     renderTableCell(buildArtifact.app),
     renderTableCell(buildArtifact.platform),
@@ -112,7 +112,7 @@ const renderSecretScope = (buildSecret: DashboardSecret): string => {
   return renderTableCell(buildSecret.profile);
 };
 
-const renderSecretsTable = (buildSecrets: DashboardSecret[]): string => {
+const renderSecretsTable = (buildSecrets: readonly DashboardSecret[]): string => {
   const secretTableRows = buildSecrets.map((buildSecret) => [
     renderTableCell(buildSecret.app),
     renderSecretScope(buildSecret),

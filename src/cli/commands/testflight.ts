@@ -94,7 +94,7 @@ export const registerTestflightCommand = (program: Command): void => {
     .option('--csv <path>', 'import testers from a CSV (email,firstName,lastName per line)')
     .option('--dry-run', 'report what would change without inviting anyone', false)
     .option('-y, --yes', 'skip the confirmation prompt', false)
-    .action((emails: string[], commandOptions: AddTesterOptions) =>
+    .action((emails: readonly string[], commandOptions: AddTesterOptions) =>
       runCliProgram(
         testflightCommandProgram({
           operation: 'add',
@@ -118,7 +118,7 @@ export const registerTestflightCommand = (program: Command): void => {
     .option('-g, --group <name>', "beta group to remove from (auto-selected if there's only one)")
     .option('--dry-run', 'report what would change without removing anyone', false)
     .option('-y, --yes', 'skip the confirmation prompt', false)
-    .action((emails: string[], commandOptions: TesterMutationOptions) =>
+    .action((emails: readonly string[], commandOptions: TesterMutationOptions) =>
       runCliProgram(
         testflightCommandProgram({
           operation: 'remove',
