@@ -26,6 +26,10 @@ const addAndroidBuildOptions = (command: Command): Command =>
     .option(
       '--rollout <fraction>',
       'Android only - staged-rollout fraction for production (default: 1.0)',
+    )
+    .option(
+      '--notes <path>',
+      'Android only - JSON file mapping language codes to Play release notes (Whats new); overrides config when set',
     );
 const addSharedBuildOptions = (command: Command): Command =>
   command
