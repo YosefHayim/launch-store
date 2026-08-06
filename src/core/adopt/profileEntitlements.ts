@@ -1,8 +1,8 @@
 import { FileSystem, Path } from '@effect/platform';
 import type { CommandExecutor } from '@effect/platform/CommandExecutor';
 import { Effect, Schema } from 'effect';
-import { captureCommandOutput } from '../services/exec.js';
 import type { LaunchEnvironmentService } from '../services/environment.js';
+import { captureCommandOutput } from '../services/exec.js';
 import { checkIsMacOperatingSystem } from '../services/os.js';
 import type { EntitlementValue } from '../types/adopt.js';
 
@@ -33,12 +33,8 @@ export type ProfileEntitlementRequirements =
 /** Decode entitlement values from a provisioning profile on macOS. */
 export const extractProfileEntitlements = (
   profileContent: string,
-): Effect.Effect<
-  Record<string, EntitlementValue> | null,
-  never,
-  ProfileEntitlementRequirements
-> => {
-  return Effect.gen(function* () {
+): Effect.Effect<Record<string, EntitlementValue> | null, never, ProfileEntitlementRequirements> =>
+  Effect.gen(function* () {
     const runningOnMac = yield* checkIsMacOperatingSystem;
     if (!runningOnMac) return null;
     return yield* Effect.scoped(
@@ -80,4 +76,3 @@ export const extractProfileEntitlements = (
       }).pipe(Effect.catchAll(() => Effect.succeed(null))),
     );
   });
-};

@@ -13,9 +13,9 @@ export const listingAdopter: Adopter<Path.Path> = {
       return [
         {
           description: `listing: pull App Store copy into ${target.app.name}/store.config.json (via metadata pull)`,
-          fidelity: 'importable',
+          fidelity: 'importable' as const,
           change: {
-            home: 'store.config',
+            home: 'store.config' as const,
             bundleId: target.bundleId,
             configPath,
             appName: target.app.name,
