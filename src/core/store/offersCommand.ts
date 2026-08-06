@@ -2,6 +2,7 @@ import { type FileSystem, type Path, Terminal } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
 import { loadConfig } from '../config/config.js';
 import type { EffectAppStoreConnectClient } from '../services/appleStoreClient.js';
+import { errorMessage } from '../services/errorMessage.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
@@ -10,7 +11,8 @@ import type { AppDescriptor } from '../types/app.js';
 import type { AppProducts } from '../types/catalog.js';
 import type { PlannedAction, ReconcileReport } from '../types/reconcile.js';
 import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './appleStoreCommand.js';
-import { reconcileOffers } from './offers.js';
+import { appDeclaresOffers, reconcileOffers } from './offers.js';
+import { summarize } from './reconcile.js';
 
 const OffersReconcileInputSchema = Schema.Struct({
   operation: Schema.Literal('reconcile'),
@@ -101,50 +103,15 @@ const offersFailure = (
   cause: unknown,
   explicitMessage?: string,
 ): OffersCommandFailure => {
-  let message = `${operation} failed.`;
+  let message = errorMessage(cause);
   if (explicitMessage !== undefined) message = explicitMessage;
-  if (explicitMessage === undefined && typeof cause === 'string' && cause.length > 0)
-    message = cause;
-  if (explicitMessage === undefined && cause instanceof Error) message = cause.message;
-  if (
-    explicitMessage === undefined &&
-    typeof cause === 'object' &&
-    cause !== null &&
-    'message' in cause &&
-    typeof cause.message === 'string'
-  ) {
-    message = cause.message;
-  }
   return makeOffersCommandFailure({ operation, message, cause });
 };
 
 /** Whether one product catalog declares offers or promoted-purchase ordering. */
 export const hasOffersWork = (products: AppProducts | undefined): boolean => {
   if (products === undefined) return false;
-  if (products.promotedPurchases !== undefined && products.promotedPurchases.length > 0)
-    return true;
-  if (products.subscriptionGroups === undefined) return false;
-  for (const subscriptionGroup of products.subscriptionGroups) {
-    for (const subscription of subscriptionGroup.subscriptions) {
-      if (subscription.offerCodes !== undefined && subscription.offerCodes.length > 0) return true;
-      if (
-        subscription.promotionalOffers !== undefined &&
-        subscription.promotionalOffers.length > 0
-      ) {
-        return true;
-      }
-      if (
-        subscription.introductoryOffers !== undefined &&
-        subscription.introductoryOffers.length > 0
-      ) {
-        return true;
-      }
-      if (subscription.winBackOffers !== undefined && subscription.winBackOffers.length > 0) {
-        return true;
-      }
-    }
-  }
-  return false;
+  return appDeclaresOffers(products);
 };
 
 /** Render one offer action with stable ASCII markers. */
@@ -254,21 +221,6 @@ const reconcileOffersJob = (
     }),
   );
 
-/** Count action outcomes for one app receipt. */
-const summarizeOfferActions = (
-  actions: PlannedAction[],
-): Readonly<{ applied: number; failed: number; skipped: number }> => {
-  let applied = 0;
-  let failed = 0;
-  let skipped = 0;
-  for (const plannedAction of actions) {
-    if (plannedAction.status === 'applied') applied += 1;
-    if (plannedAction.status === 'failed') failed += 1;
-    if (plannedAction.status === 'skipped') skipped += 1;
-  }
-  return { applied, failed, skipped };
-};
-
 /** Confirm an App Store Connect write unless --yes was supplied. */
 const confirmOffersWrite = (
   mutationCount: number,
@@ -377,7 +329,7 @@ const executeOffersReconcile = (
         receiptLines.push(`x ${applyOutcome.job.app.name}: ${applyOutcome.message}`);
         continue;
       }
-      const offersSummary = summarizeOfferActions(applyOutcome.report.actions);
+      const offersSummary = summarize(applyOutcome.report.actions);
       failureCount += offersSummary.failed;
       let receiptStatus = 'OK';
       if (offersSummary.failed > 0) receiptStatus = 'x';

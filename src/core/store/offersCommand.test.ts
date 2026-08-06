@@ -53,13 +53,34 @@ describe('offers command renderers', () => {
         error: 'Apple rejected it',
       }),
     ).toBe('x create offer LAUNCH - Apple rejected it');
+    expect(
+      renderOfferAction({
+        description: 'create offer LAUNCH',
+        destructive: false,
+        status: 'failed',
+      }),
+    ).toBe('x create offer LAUNCH - failed');
+    expect(
+      renderOfferAction({
+        description: 'create offer LAUNCH',
+        destructive: false,
+        status: 'skipped',
+      }),
+    ).toBe('- create offer LAUNCH');
+    expect(
+      renderOfferAction({
+        description: 'create offer LAUNCH',
+        destructive: false,
+        status: 'applied',
+      }),
+    ).toBe('+ create offer LAUNCH');
     expect(renderOfferCodeState({ name: 'LAUNCH', active: true })).toBe('[active] LAUNCH');
     expect(renderOfferCodeState({ name: 'OLD', active: false })).toBe('[inactive] OLD');
   });
 });
 
 describe('hasOffersWork', () => {
-  it('recognizes offers and promoted-purchase ordering without truthy fallback chains', () => {
+  it('delegates to appDeclaresOffers and rejects an undefined catalog', () => {
     const offerCatalog: AppProducts = {
       subscriptionGroups: [
         {
@@ -89,6 +110,8 @@ describe('hasOffersWork', () => {
       ],
     };
     expect(hasOffersWork(offerCatalog)).toBe(true);
+    expect(hasOffersWork({ promotedPurchases: [{ productId: 'com.acme.pro' }] })).toBe(true);
     expect(hasOffersWork({})).toBe(false);
+    expect(hasOffersWork(undefined)).toBe(false);
   });
 });
