@@ -1,7 +1,7 @@
 import { FileSystem, Path } from '@effect/platform';
 import type { CommandExecutor } from '@effect/platform/CommandExecutor';
 import { Data, Effect, Schema } from 'effect';
-import { loadConfig } from '../config/config.js';
+import { loadConfig, type LoadedConfig } from '../config/config.js';
 import { getActiveKeyId, listAccounts } from '../credentials/accounts.js';
 import { loadCachedKeystore } from '../credentials/androidKeystore.js';
 import { loadCachedSigningAssets } from '../credentials/appleSigning.js';
@@ -16,9 +16,10 @@ import { createLogger, type Logger } from '../services/logger.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import { isApplePlatform, platformLabel } from '../services/platform.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
-import type { Platform } from '../types/app.js';
+import type { AppDescriptor, Platform } from '../types/app.js';
 import type { BuildArtifact } from '../types/artifacts.js';
 import type { KeystoreAssets, SigningAssets } from '../types/credentials.js';
+import type { StorageProvider } from '../types/providers.js';
 import { findBuild } from './buildHistoryCommand.js';
 
 const STORE_PASSWORD_VARIABLE = 'LAUNCH_KS_STOREPASS';
@@ -49,6 +50,13 @@ export type AndroidResignSpec = Readonly<{
   readonly environment: Readonly<Record<string, string>>;
 }>;
 
+/** Config, apps, and storage for one `build:resign` run. */
+type ResignWorkspace = Readonly<{
+  readonly workingDirectory: string;
+  readonly apps: readonly AppDescriptor[];
+  readonly storageProvider: StorageProvider;
+}>;
+
 type ResignCommandRequirements =
   | CommandExecutor
   | FileSystem.FileSystem
@@ -58,6 +66,18 @@ type ResignCommandRequirements =
   | Logger
   | Path.Path
   | StorageResolverRequirements;
+
+/** Whether a failure already belongs to this command family's public channel. */
+const isResignCommandFailure = (cause: unknown): cause is ResignCommandFailure => {
+  if (typeof cause !== 'object') return false;
+  if (cause === null) return false;
+  if (!('_tag' in cause)) return false;
+  return cause._tag === 'ResignCommandFailure';
+};
+
+/** Map an underlying cause into the resign command error channel. */
+const resignFailure = (operation: string, cause: unknown): ResignCommandFailure =>
+  makeResignCommandFailure({ operation, message: errorMessage(cause), cause });
 
 /** Reject the macOS package format that this re-signing flow cannot rewrite. */
 export const assertResignablePlatform = (
@@ -79,6 +99,21 @@ export const resignOutputPath = (
   extensionName: string,
 ): string =>
   `${outputDirectory}/${artifact.appName}-${artifact.version}-${artifact.buildNumber}-resigned${extensionName}`;
+
+/** Choose the stored-build reference, defaulting to the most recent entry. */
+export const storedArtifactReference = (commandInput: ResignCommandInput): string => {
+  if (commandInput.id !== undefined) return commandInput.id;
+  return 'latest';
+};
+
+/** Narrow stored artifacts to one app handle when the operator asked for a scope. */
+export const filterStoredArtifactsByApp = (
+  artifacts: readonly BuildArtifact[],
+  appName: string | undefined,
+): BuildArtifact[] => {
+  if (appName === undefined) return [...artifacts];
+  return artifacts.filter((storedArtifact) => storedArtifact.appName === appName);
+};
 
 /** Build arguments for unpacking an IPA. */
 export const unzipArgs = (ipaPath: string, destination: string): string[] => [
@@ -114,7 +149,7 @@ export const androidResignSpec = (
   artifactPath: string,
   keystore: KeystoreAssets,
 ): AndroidResignSpec => {
-  const environment = {
+  const environment: Record<string, string> = {
     [STORE_PASSWORD_VARIABLE]: keystore.storePassword,
     [KEY_PASSWORD_VARIABLE]: keystore.keyPassword,
   };
@@ -155,6 +190,26 @@ export const androidResignSpec = (
     environment,
   };
 };
+
+/** Load config, discovered apps, and the storage provider once per resign run. */
+const loadResignWorkspace = (): Effect.Effect<
+  ResignWorkspace,
+  unknown,
+  ResignCommandRequirements
+> =>
+  Effect.gen(function* () {
+    const launchPaths = yield* LaunchPaths;
+    const loadedConfig: LoadedConfig = yield* loadConfig(launchPaths.workingDirectory);
+    const storageProvider = yield* resolveStorageProvider(
+      loadedConfig.config,
+      launchPaths.workingDirectory,
+    );
+    return {
+      workingDirectory: launchPaths.workingDirectory,
+      apps: loadedConfig.apps,
+      storageProvider,
+    };
+  });
 
 /** Select an Apple account by label or Key ID, falling back to the active account. */
 const selectAccountKeyId = (
@@ -244,8 +299,12 @@ const resignAndroidArtifact = (
     const fileSystem = yield* FileSystem.FileSystem;
     yield* fileSystem.copyFile(artifact.path, outputPath);
     const resignSpec = androidResignSpec(outputPath, keystore);
+    const environmentOverrides: Record<string, string> = {
+      [STORE_PASSWORD_VARIABLE]: keystore.storePassword,
+      [KEY_PASSWORD_VARIABLE]: keystore.keyPassword,
+    };
     yield* executeCommand(resignSpec.command, resignSpec.arguments, {
-      environmentOverrides: { ...resignSpec.environment },
+      environmentOverrides,
     });
   });
 
@@ -285,23 +344,15 @@ const printAndroidPlan = (
 /** Find the requested stored build inside an optional application scope. */
 const selectStoredArtifact = (
   commandInput: ResignCommandInput,
-): Effect.Effect<BuildArtifact, unknown, ResignCommandRequirements> =>
+  workspace: ResignWorkspace,
+): Effect.Effect<BuildArtifact, unknown, FileSystem.FileSystem> =>
   Effect.gen(function* () {
-    const launchPaths = yield* LaunchPaths;
-    const loadedConfig = yield* loadConfig(launchPaths.workingDirectory);
-    const storageProvider = yield* resolveStorageProvider(
-      loadedConfig.config,
-      launchPaths.workingDirectory,
+    const scopedHistory = filterStoredArtifactsByApp(
+      yield* workspace.storageProvider.list(),
+      commandInput.app,
     );
-    let buildHistory = yield* storageProvider.list();
-    if (commandInput.app !== undefined) {
-      buildHistory = buildHistory.filter(
-        (storedArtifact) => storedArtifact.appName === commandInput.app,
-      );
-    }
-    let reference = commandInput.id;
-    if (reference === undefined) reference = 'latest';
-    const artifact = findBuild(buildHistory, reference);
+    const reference = storedArtifactReference(commandInput);
+    const artifact = findBuild(scopedHistory, reference);
     if (artifact === undefined) {
       return yield* Effect.fail(
         makeResignCommandFailure({
@@ -324,45 +375,59 @@ const selectStoredArtifact = (
 const selectOutputPath = (
   artifact: BuildArtifact,
   enteredOutput: string | undefined,
-): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
+  workingDirectory: string,
+): Effect.Effect<string, never, Path.Path> =>
   Effect.gen(function* () {
-    const launchPaths = yield* LaunchPaths;
     const pathService = yield* Path.Path;
     if (enteredOutput !== undefined && pathService.extname(enteredOutput).length > 0) {
       return enteredOutput;
     }
     let outputDirectory = enteredOutput;
-    if (outputDirectory === undefined) outputDirectory = launchPaths.workingDirectory;
+    if (outputDirectory === undefined) outputDirectory = workingDirectory;
     return resignOutputPath(artifact, outputDirectory, pathService.extname(artifact.path));
   });
+
+/** Bundle identifier configured for the artifact's app, or a typed failure. */
+const requireAppleBundleId = (
+  apps: readonly AppDescriptor[],
+  appName: string,
+): Effect.Effect<string, ResignCommandFailure> => {
+  const configuredApp = apps.find((appDescriptor) => appDescriptor.name === appName);
+  if (configuredApp === undefined) {
+    return Effect.fail(
+      makeResignCommandFailure({
+        operation: 'find Apple bundle identifier',
+        message: `No Apple bundle identifier is configured for ${appName}.`,
+      }),
+    );
+  }
+  if (configuredApp.bundleId === undefined) {
+    return Effect.fail(
+      makeResignCommandFailure({
+        operation: 'find Apple bundle identifier',
+        message: `No Apple bundle identifier is configured for ${appName}.`,
+      }),
+    );
+  }
+  return Effect.succeed(configuredApp.bundleId);
+};
 
 /** Re-sign one Apple build or explain what the dry run would do. */
 const runAppleResign = (
   artifact: BuildArtifact,
   commandInput: ResignCommandInput,
   outputPath: string,
+  workspace: ResignWorkspace,
 ): Effect.Effect<void, unknown, ResignCommandRequirements> =>
   Effect.gen(function* () {
-    const launchPaths = yield* LaunchPaths;
-    const loadedConfig = yield* loadConfig(launchPaths.workingDirectory);
-    const configuredApp = loadedConfig.apps.find(
-      (appDescriptor) => appDescriptor.name === artifact.appName,
-    );
-    if (configuredApp?.bundleId === undefined) {
-      return yield* Effect.fail(
-        makeResignCommandFailure({
-          operation: 'find Apple bundle identifier',
-          message: `No Apple bundle identifier is configured for ${artifact.appName}.`,
-        }),
-      );
-    }
+    const bundleId = yield* requireAppleBundleId(workspace.apps, artifact.appName);
     const keyId = yield* selectAccountKeyId(commandInput.account);
-    const signingAssets = yield* loadCachedSigningAssets(keyId, configuredApp.bundleId);
+    const signingAssets = yield* loadCachedSigningAssets(keyId, bundleId);
     if (signingAssets === null) {
       return yield* Effect.fail(
         makeResignCommandFailure({
           operation: 'load Apple signing assets',
-          message: `No cached signing exists for ${configuredApp.bundleId} under account ${keyId}.`,
+          message: `No cached signing exists for ${bundleId} under account ${keyId}.`,
         }),
       );
     }
@@ -396,11 +461,16 @@ export const resignCommandProgram = (
 ): Effect.Effect<void, ResignCommandFailure, ResignCommandRequirements> =>
   Effect.gen(function* () {
     const commandInput = yield* Schema.decodeUnknown(ResignCommandInputSchema)(rawCommandInput);
-    const artifact = yield* selectStoredArtifact(commandInput);
+    const workspace = yield* loadResignWorkspace();
+    const artifact = yield* selectStoredArtifact(commandInput, workspace);
     yield* assertResignablePlatform(artifact.platform);
-    const outputPath = yield* selectOutputPath(artifact, commandInput.output);
+    const outputPath = yield* selectOutputPath(
+      artifact,
+      commandInput.output,
+      workspace.workingDirectory,
+    );
     if (isApplePlatform(artifact.platform)) {
-      yield* runAppleResign(artifact, commandInput, outputPath);
+      yield* runAppleResign(artifact, commandInput, outputPath, workspace);
     } else {
       yield* runAndroidResign(artifact, commandInput, outputPath);
     }
@@ -409,11 +479,8 @@ export const resignCommandProgram = (
       yield* logger.ok(`Re-signed artifact written to ${outputPath}.`);
     }
   }).pipe(
-    Effect.mapError((cause) =>
-      makeResignCommandFailure({
-        operation: 're-sign stored artifact',
-        message: errorMessage(cause),
-        cause,
-      }),
-    ),
+    Effect.mapError((cause) => {
+      if (isResignCommandFailure(cause)) return cause;
+      return resignFailure('re-sign stored artifact', cause);
+    }),
   );
