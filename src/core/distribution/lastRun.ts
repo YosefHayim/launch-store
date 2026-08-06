@@ -8,6 +8,7 @@ type AppMemory = {
   bump?: BumpKind;
 };
 
+/** Wizard flow memory. Fields stay writable for journey assembly that fills optionals after create. */
 export type LastFlow = {
   platform: Platform;
   location: BuildLocation;
@@ -46,7 +47,10 @@ const LastRunStateSchema: Schema.Schema<LastRunState> = Schema.mutable(
     lastFlow: Schema.optionalWith(LastFlowSchema, { exact: true }),
   }),
 );
+
 type LastRunRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
+
+const emptyLastRunState = (): LastRunState => ({ apps: {} });
 
 const resolveMemoryFilePath = (
   filePath: string | undefined,
@@ -65,12 +69,13 @@ export const readLastRun = (
     const memoryExists = yield* fileSystem
       .exists(memoryFilePath)
       .pipe(Effect.orElseSucceed(() => false));
-    if (!memoryExists) return { apps: {} };
-    return yield* fileSystem.readFileString(memoryFilePath).pipe(
-      Effect.flatMap((memoryText) => Effect.try(() => JSON.parse(memoryText))),
-      Effect.flatMap(Schema.decodeUnknown(LastRunStateSchema)),
-      Effect.orElseSucceed(() => ({ apps: {} })),
-    );
+    if (!memoryExists) return emptyLastRunState();
+    return yield* fileSystem
+      .readFileString(memoryFilePath)
+      .pipe(
+        Effect.flatMap(Schema.decodeUnknown(Schema.parseJson(LastRunStateSchema))),
+        Effect.orElseSucceed(emptyLastRunState),
+      );
   });
 
 /** Reads the most recently built app name. */
@@ -84,7 +89,25 @@ export const readLastBump = (
   appName: string,
   filePath?: string,
 ): Effect.Effect<BumpKind | undefined, never, LastRunRequirements> =>
-  readLastRun(filePath).pipe(Effect.map((memory) => memory.apps[appName]?.bump));
+  readLastRun(filePath).pipe(
+    Effect.map((memory) => {
+      const appMemory = memory.apps[appName];
+      if (appMemory === undefined) return undefined;
+      return appMemory.bump;
+    }),
+  );
+
+/** Write last-run memory with parent directories created as needed. */
+const writeLastRun = (
+  memoryFilePath: string,
+  memory: LastRunState,
+): Effect.Effect<void, unknown, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    yield* fileSystem.makeDirectory(pathService.dirname(memoryFilePath), { recursive: true });
+    yield* fileSystem.writeFileString(memoryFilePath, JSON.stringify(memory, null, 2));
+  });
 
 /** Records one successful build's app and optional version bump. */
 export const rememberLastRun = (
@@ -93,14 +116,23 @@ export const rememberLastRun = (
   filePath?: string,
 ): Effect.Effect<void, unknown, LastRunRequirements> =>
   Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
     const memoryFilePath = yield* resolveMemoryFilePath(filePath);
     const memory = yield* readLastRun(memoryFilePath);
-    memory.lastApp = appName;
-    if (bump !== undefined) memory.apps[appName] = { ...memory.apps[appName], bump };
-    yield* fileSystem.makeDirectory(pathService.dirname(memoryFilePath), { recursive: true });
-    yield* fileSystem.writeFileString(memoryFilePath, JSON.stringify(memory, null, 2));
+    let nextApps = memory.apps;
+    if (bump !== undefined) {
+      const priorAppMemory = memory.apps[appName];
+      if (priorAppMemory === undefined) {
+        nextApps = { ...memory.apps, [appName]: { bump } };
+      } else {
+        nextApps = { ...memory.apps, [appName]: { ...priorAppMemory, bump } };
+      }
+    }
+    const nextMemory: LastRunState = {
+      ...memory,
+      lastApp: appName,
+      apps: nextApps,
+    };
+    yield* writeLastRun(memoryFilePath, nextMemory);
   });
 
 /** Reads the most recent wizard build flow. */
@@ -115,11 +147,11 @@ export const rememberLastFlow = (
   filePath?: string,
 ): Effect.Effect<void, unknown, LastRunRequirements> =>
   Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
     const memoryFilePath = yield* resolveMemoryFilePath(filePath);
     const memory = yield* readLastRun(memoryFilePath);
-    memory.lastFlow = flow;
-    yield* fileSystem.makeDirectory(pathService.dirname(memoryFilePath), { recursive: true });
-    yield* fileSystem.writeFileString(memoryFilePath, JSON.stringify(memory, null, 2));
+    const nextMemory: LastRunState = {
+      ...memory,
+      lastFlow: flow,
+    };
+    yield* writeLastRun(memoryFilePath, nextMemory);
   });

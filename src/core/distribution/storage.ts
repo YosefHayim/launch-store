@@ -25,11 +25,11 @@ export type ArtifactUnavailableFailure = Readonly<{
 export const makeArtifactUnavailableFailure = Data.tagged<ArtifactUnavailableFailure>(
   'ArtifactUnavailableFailure',
 );
+
 /**
- * Resolve `config.artifactDir` to the absolute base directory the `local` provider writes into. A relative
- * path resolves against `projectRoot` (the `launch.config.ts` directory); a leading `~/` expands to home;
- * an absolute path is used as-is. Omitted -> the global {@link ARTIFACTS_DIR} (`~/.launch/artifacts`), so an
- * existing project with no `artifactDir` is unaffected. Throws on an empty string (a likely config typo).
+ * Resolve `config.artifactDir` to the absolute base directory the `local` provider writes into.
+ * Relative paths resolve against `projectRoot` (or the working directory); `~/` expands to home;
+ * absolute paths are used as-is. Omitted -> `~/.launch/artifacts`. Empty string fails.
  */
 export const resolveArtifactDir = (
   artifactDir: string | undefined,
@@ -59,11 +59,10 @@ export const resolveArtifactDir = (
     if (pathService.isAbsolute(configuredDirectory)) return configuredDirectory;
     return pathService.resolve(projectDirectory, configuredDirectory);
   });
+
 /**
- * Build (or look up) the storage provider named by `config.storage`, wiring in the resolved `artifactDir`
- * for `local` and `storageConfig` for cloud backends. `projectRoot` anchors a relative `artifactDir`; it
- * defaults to the current directory (the project root, since the config loads from there), so the many
- * read-path callers need not pass it.
+ * Build (or look up) the storage provider named by `config.storage`, wiring `artifactDir` for
+ * `local` and `storageConfig` for cloud backends.
  */
 export const resolveStorageProvider = (
   config: LaunchConfig,
@@ -107,18 +106,16 @@ export const resolveStorageProvider = (
 export type StorageResolverRequirements = Effect.Effect.Context<
   ReturnType<typeof resolveStorageProvider>
 >;
+
 /**
- * Whether the resolved storage can serve public HTTP(S) URLs - required for ad-hoc install links and
- * OTA manifests, which are useless behind a `file://` path. `local` is for build-artifact history only.
+ * Whether the resolved storage can serve public HTTP(S) URLs - required for ad-hoc install links
+ * and OTA manifests. `local` is for build-artifact history only.
  */
-export const isCloudStorage = (config: LaunchConfig): boolean => {
-  return config.storage !== 'local';
-};
+export const isCloudStorage = (config: LaunchConfig): boolean => config.storage !== 'local';
+
 /**
- * Guard a promote/submit that reuses a stored binary. The newest build per app+platform is never
- * auto-pruned, so this normally passes - but a manually-deleted or pruned binary turns a deep submit
- * failure (an opaque fastlane/Play file error) into a clear "rebuild first" precondition message instead.
- * Shared by `launch release` and the release train so every promote path guards the artifact identically.
+ * Guard a promote/submit that reuses a stored binary. Turns a pruned or deleted binary into a
+ * clear "rebuild first" precondition instead of an opaque store upload failure.
  */
 export const ensureArtifactPresent = (
   artifact: BuildArtifact,
