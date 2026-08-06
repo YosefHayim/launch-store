@@ -24,6 +24,8 @@ import { runBuild } from './pipeline.js';
 import { sizeSummary, uploadSizeReadout, worstDownloadBytes } from './pipelineArtifact.js';
 import { selectApp } from './pipelineEnv.js';
 import {
+  androidReleaseNotesFromLocaleMap,
+  resolveAndroidSubmitReleaseNotes,
   resolveBuildTransport,
   resolveSizeBudgetMB,
   resolveSubmitters,
@@ -451,5 +453,63 @@ describe('submitToStores - fans one build out to every configured store', () => 
     );
     expect(stores).toEqual(['alt-store-a', 'alt-store-b']);
     expect(calls).toEqual(['alt-store-a:/tmp/app.aab', 'alt-store-b:/tmp/app.aab']);
+  });
+});
+describe('android release notes for submit (issue #309)', () => {
+  it('maps a locale document into Play release-note rows', () => {
+    expect(
+      androidReleaseNotesFromLocaleMap({
+        'en-US': 'Bug fixes',
+        'iw-IL': 'תיקונים',
+      }),
+    ).toEqual([
+      { language: 'en-US', text: 'Bug fixes' },
+      { language: 'iw-IL', text: 'תיקונים' },
+    ]);
+  });
+  it('reads --notes JSON when provided', async () => {
+    const notesDirectory = mkdtempSync(join(tmpdir(), 'launch-notes-'));
+    const notesPath = join(notesDirectory, 'notes.json');
+    writeFileSync(notesPath, JSON.stringify({ 'en-US': 'From CLI notes file' }));
+    try {
+      const releaseNotes = await Effect.runPromise(
+        resolveAndroidSubmitReleaseNotes(
+          {
+            profiles: {},
+            credentials: 'local',
+            storage: 'local',
+            buildEngine: 'gradle',
+            submit: 'google-play',
+          },
+          notesDirectory,
+          notesPath,
+        ).pipe(Effect.provide(NodeContext.layer)),
+      );
+      expect(releaseNotes).toEqual([{ language: 'en-US', text: 'From CLI notes file' }]);
+    } finally {
+      rmSync(notesDirectory, { recursive: true, force: true });
+    }
+  });
+  it('falls back to release.releaseNotes from launch config when no --notes path', async () => {
+    const appDirectory = mkdtempSync(join(tmpdir(), 'launch-app-'));
+    try {
+      const releaseNotes = await Effect.runPromise(
+        resolveAndroidSubmitReleaseNotes(
+          {
+            profiles: {},
+            credentials: 'local',
+            storage: 'local',
+            buildEngine: 'gradle',
+            submit: 'google-play',
+            release: { releaseNotes: { 'en-US': 'From launch.config' }, primaryLocale: 'en-US' },
+          },
+          appDirectory,
+          undefined,
+        ).pipe(Effect.provide(NodeContext.layer)),
+      );
+      expect(releaseNotes).toEqual([{ language: 'en-US', text: 'From launch.config' }]);
+    } finally {
+      rmSync(appDirectory, { recursive: true, force: true });
+    }
   });
 });

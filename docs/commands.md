@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **189 App Store Connect & Google Play API operations** across **63 commands**, guarded by **2064 tests**.
+> Launch wraps **189 App Store Connect & Google Play API operations** across **63 commands**, guarded by **2069 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `pnpm docs:gen` - edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -88,6 +88,7 @@ run the full pipeline and upload to the testing track (--no-submit to build only
 | `--bump <kind>` | iOS only - version bump: patch\|minor\|major\|keep (default: last used, else prompt) or 'ask' to force the prompt |
 | `--track <track>` | Android only - Play track: internal\|closed\|open\|production (default: internal) |
 | `--rollout <fraction>` | Android only - staged-rollout fraction for production (default: 1.0) |
+| `--notes <path>` | Android only - JSON file mapping language codes to Play release notes (Whats new); overrides config when set |
 | `--distribution <mode>` | store (default, TestFlight/Play) or internal (ad-hoc install link) |
 | `--size-budget <MB>` | override the profile soft size budget for this build only (MB, e.g. 250) |
 | `--budget <MB>` | alias of --size-budget |
@@ -405,6 +406,7 @@ download a Sales and Trends report (gzipped TSV)
 | `--frequency <frequency>` | DAILY \| WEEKLY \| MONTHLY \| YEARLY |
 | `--report-type <type>` | SALES \| SUBSCRIPTION \| SUBSCRIBER \| ... |
 | `--sub-type <type>` | SUMMARY \| DETAILED |
+| `--version <version>` | report schema version, e.g. 1_0 |
 | `--out <directory>` | directory to write the reports into |
 | `--json` | write parsed JSON instead of raw TSV |
 
@@ -665,6 +667,7 @@ ship a build to a track at a chosen status / rollout, with release notes
 | --- | --- |
 | `--track <track>` | target track (internal, alpha, beta, production, or a custom track) |
 | `-a, --app <name>` | app handle (auto-selected if there's only one) |
+| `--version-code <code>` | Play versionCode to ship (defaults to the latest uploaded; not the CLI package --version) |
 | `--status <status>` | release status: draft, inProgress, halted, completed (default: completed, or inProgress with --rollout) |
 | `--rollout <fraction>` | staged-rollout fraction 0-1 (implies --status inProgress) |
 | `--notes <path>` | path to a JSON file mapping language codes to release-note text |

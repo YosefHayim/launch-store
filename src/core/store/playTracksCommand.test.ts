@@ -19,6 +19,21 @@ describe('PlayTracksCommandInputSchema', () => {
     ).toEqual({ operation: 'promote', track: 'production', yes: true });
     expect(
       Schema.decodeUnknownSync(PlayTracksCommandInputSchema)({
+        operation: 'promote',
+        track: 'internal',
+        versionCode: '8',
+        notes: 'notes.json',
+        yes: true,
+      }),
+    ).toEqual({
+      operation: 'promote',
+      track: 'internal',
+      versionCode: '8',
+      notes: 'notes.json',
+      yes: true,
+    });
+    expect(
+      Schema.decodeUnknownSync(PlayTracksCommandInputSchema)({
         operation: 'testers',
         track: 'internal',
         yes: false,

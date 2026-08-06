@@ -31,7 +31,7 @@ const PlayTracksPromoteInputSchema = Schema.Struct({
   operation: Schema.Literal('promote'),
   app: Schema.optionalWith(Schema.String, { exact: true }),
   track: Schema.String,
-  version: Schema.optionalWith(Schema.String, { exact: true }),
+  versionCode: Schema.optionalWith(Schema.String, { exact: true }),
   status: Schema.optionalWith(Schema.String, { exact: true }),
   rollout: Schema.optionalWith(Schema.String, { exact: true }),
   notes: Schema.optionalWith(Schema.String, { exact: true }),
@@ -203,7 +203,7 @@ const promoteTrackRelease = (
   Effect.gen(function* () {
     const packageName = yield* resolveGoogleStorePackageName(commandInput.app);
     const googleStore = yield* loadActiveGoogleStore();
-    let versionCode = commandInput.version;
+    let versionCode = commandInput.versionCode;
     if (versionCode === undefined) {
       const latestVersionCode = yield* googleStore.getLatestVersionCode(packageName);
       if (latestVersionCode === 0) {
@@ -211,7 +211,7 @@ const promoteTrackRelease = (
           makePlayTracksCommandFailure({
             operation: 'promote',
             message:
-              'No uploaded build to promote. Run `launch submit --platform android` first, or pass --version.',
+              'No uploaded build to promote. Run `launch submit --platform android` first, or pass --version-code.',
             cause: 'missing-build',
           }),
         );

@@ -56,13 +56,23 @@ export type OpenTarget =
   | 'agreements'
   | 'app-record';
 /**
+ * One localized Play "What's new" line carried on {@link AndroidReleaseOptions} so the Google Play
+ * submitter can attach changelogs during AAB upload without re-reading config.
+ */
+export type AndroidReleaseNote = {
+  language: string;
+  text: string;
+};
+/**
  * Resolved Android release settings for one invocation, carried on {@link ResolvedBuildContext} so the
  * Google Play submitter reads a single source of truth. Resolved from `--track`/`--rollout`, then the
  * profile's defaults, then the safe fallback. Present only for Android builds; absent on iOS.
+ * `releaseNotes` is optional: when set, `google-play` uploads them as supply changelogs with the AAB.
  */
 export type AndroidReleaseOptions = {
   track: PlayTrack;
   rollout: number;
+  releaseNotes?: readonly AndroidReleaseNote[];
 };
 /**
  * Which kind of TestFlight beta feedback a {@link BetaFeedback} carries - Apple keeps the two on
