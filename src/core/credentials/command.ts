@@ -12,7 +12,7 @@ import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import { parsePlatform } from '../services/platform.js';
 import type { AppDescriptor, Platform } from '../types/app.js';
-import type { AccountRecord, ApnsKeyRecord, AscKey } from '../types/credentials.js';
+import type { AccountRecord, AscKey } from '../types/credentials.js';
 import {
   addAccount,
   formatAccountSummary,
@@ -103,6 +103,14 @@ export const makeCredentialsCommandFailure = Data.tagged<CredentialsCommandFailu
   'CredentialsCommandFailure',
 );
 
+/** Whether a failure already belongs to this command family's public channel. */
+const isCredentialsCommandFailure = (cause: unknown): cause is CredentialsCommandFailure => {
+  if (typeof cause !== 'object') return false;
+  if (cause === null) return false;
+  if (!('_tag' in cause)) return false;
+  return cause._tag === 'CredentialsCommandFailure';
+};
+
 /** Turn an underlying typed failure into the command family's public failure. */
 const commandFailure = (operation: string, cause: unknown): CredentialsCommandFailure =>
   makeCredentialsCommandFailure({ operation, message: errorMessage(cause), cause });
@@ -120,6 +128,40 @@ const firstDefinedText = (...candidates: readonly (string | undefined)[]): strin
     if (candidate !== undefined) return candidate;
   }
   return undefined;
+};
+
+/** Resolve an account by label or Key ID, or fail with a shared missing-account message. */
+const requireMatchedAccount = (
+  accounts: readonly AccountRecord[],
+  selector: string,
+  operation: string,
+): Effect.Effect<AccountRecord, CredentialsCommandFailure> => {
+  const matchedAccount = matchAccount([...accounts], selector);
+  if (matchedAccount === undefined) {
+    return failCommand(operation, `No Apple account matching "${selector}".`);
+  }
+  return Effect.succeed(matchedAccount);
+};
+
+/** Reject a label that another Apple account already owns. */
+const requireUniqueAccountLabel = (
+  accounts: readonly AccountRecord[],
+  accountLabel: string,
+  excludingKeyId: string,
+  operation: string,
+): Effect.Effect<void, CredentialsCommandFailure> => {
+  const conflictingAccount = accounts.find(
+    (account) =>
+      account.label.toLowerCase() === accountLabel.toLowerCase() &&
+      account.keyId !== excludingKeyId,
+  );
+  if (conflictingAccount !== undefined) {
+    return failCommand(
+      operation,
+      `Label "${accountLabel}" is already used by key ${conflictingAccount.keyId}.`,
+    );
+  }
+  return Effect.void;
 };
 
 /** Build the ordered directories used for deliberate credential discovery. */
@@ -297,16 +339,7 @@ const selectAccountLabel = (
     accountLabel = accountLabel.trim();
     if (accountLabel.length === 0) accountLabel = keyId;
     const accounts = yield* listAccounts();
-    const conflictingAccount = accounts.find(
-      (account) =>
-        account.label.toLowerCase() === accountLabel.toLowerCase() && account.keyId !== keyId,
-    );
-    if (conflictingAccount !== undefined) {
-      return yield* failCommand(
-        'select account label',
-        `Label "${accountLabel}" is already used by key ${conflictingAccount.keyId}.`,
-      );
-    }
+    yield* requireUniqueAccountLabel(accounts, accountLabel, keyId, 'select account label');
     return accountLabel;
   });
 
@@ -489,9 +522,7 @@ const selectAppleAccount = (
     const accounts = yield* listAccounts();
     const selector = firstDefinedText(commandOptions.account, environment.values.appleAccount);
     if (selector !== undefined) {
-      const matchedAccount = matchAccount([...accounts], selector);
-      if (matchedAccount !== undefined) return matchedAccount;
-      return yield* failCommand('select Apple account', `No Apple account matching "${selector}".`);
+      return yield* requireMatchedAccount(accounts, selector, 'select Apple account');
     }
     const activeAccount = yield* getActiveAccount();
     if (activeAccount !== null) return activeAccount;
@@ -694,10 +725,7 @@ const useAppleAccount = (
       return;
     }
     const accounts = yield* listAccounts();
-    const matchedAccount = matchAccount([...accounts], selector);
-    if (matchedAccount === undefined) {
-      return yield* failCommand('use Apple account', `No Apple account matching "${selector}".`);
-    }
+    const matchedAccount = yield* requireMatchedAccount(accounts, selector, 'use Apple account');
     yield* setActiveKeyId(matchedAccount.keyId);
     const logger = yield* createLogger(false);
     yield* logger.ok(
@@ -724,22 +752,14 @@ const renameAppleAccount = (
       );
     }
     const accounts = yield* listAccounts();
-    const matchedAccount = matchAccount([...accounts], selector);
-    if (matchedAccount === undefined) {
-      return yield* failCommand('rename Apple account', `No Apple account matching "${selector}".`);
-    }
+    const matchedAccount = yield* requireMatchedAccount(accounts, selector, 'rename Apple account');
     const accountLabel = enteredLabel.trim();
-    const conflictingAccount = accounts.find(
-      (account) =>
-        account.label.toLowerCase() === accountLabel.toLowerCase() &&
-        account.keyId !== matchedAccount.keyId,
+    yield* requireUniqueAccountLabel(
+      accounts,
+      accountLabel,
+      matchedAccount.keyId,
+      'rename Apple account',
     );
-    if (conflictingAccount !== undefined) {
-      return yield* failCommand(
-        'rename Apple account',
-        `Label "${accountLabel}" is already used by key ${conflictingAccount.keyId}.`,
-      );
-    }
     yield* renameAccount(matchedAccount.keyId, accountLabel);
     const logger = yield* createLogger(false);
     yield* logger.ok(`Renamed account ${matchedAccount.keyId} to "${accountLabel}".`);
@@ -755,10 +775,7 @@ const removeAppleAccount = (
       return yield* failCommand('remove Apple account', 'Usage: launch creds remove <account>.');
     }
     const accounts = yield* listAccounts();
-    const matchedAccount = matchAccount([...accounts], selector);
-    if (matchedAccount === undefined) {
-      return yield* failCommand('remove Apple account', `No Apple account matching "${selector}".`);
-    }
+    const matchedAccount = yield* requireMatchedAccount(accounts, selector, 'remove Apple account');
     if (yield* commandCanPrompt(commandOptions)) {
       const prompt = yield* LaunchPrompt;
       const confirmed = yield* prompt.confirm(
@@ -779,13 +796,11 @@ const refreshAppleAccounts = (
     const accounts = yield* listAccounts();
     let refreshTargets = [...accounts];
     if (selector !== undefined) {
-      const matchedAccount = matchAccount([...accounts], selector);
-      if (matchedAccount === undefined) {
-        return yield* failCommand(
-          'refresh Apple accounts',
-          `No Apple account matching "${selector}".`,
-        );
-      }
+      const matchedAccount = yield* requireMatchedAccount(
+        accounts,
+        selector,
+        'refresh Apple accounts',
+      );
       refreshTargets = [matchedAccount];
     }
     if (refreshTargets.length === 0) {
@@ -987,6 +1002,9 @@ export const credentialsCommandProgram = (
           decodedCommand.options,
         );
     }
-  }).pipe(Effect.mapError((cause) => commandFailure('run credentials command', cause)));
-
-export type { ApnsKeyRecord };
+  }).pipe(
+    Effect.mapError((cause) => {
+      if (isCredentialsCommandFailure(cause)) return cause;
+      return commandFailure('run credentials command', cause);
+    }),
+  );
