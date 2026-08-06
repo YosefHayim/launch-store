@@ -5,11 +5,14 @@ import type { SubscriptionConfig } from '../types/catalog.js';
 import { expectArrayElement } from '@testkit/assertions.testkit.js';
 import {
   type PlaySubscriptionsApi,
-  buildOffer,
   microsToMoney,
+  offerFromConfig,
+  periodFromIso,
   reconcilePlaySubscriptions,
   summarizePlaySubscriptions,
+  unitsToMicros,
 } from './playSubscriptions.js';
+
 /** Records every write the reconciler makes, so a test can assert exactly what was sent to Play. */
 type Calls = {
   created: SubscriptionResource[];
@@ -27,13 +30,18 @@ type Calls = {
     basePlanId: string;
     offerId: string;
   }[];
+  listOffersFailures: number;
 };
-/** A hand-rolled {@link PlaySubscriptionsApi} - no network - serving `existing` and recording the writes. */
+
+/** A hand-rolled {@link PlaySubscriptionsApi} - no network - serving `existing` and recording writes. */
 const makeApi = (
   existing: SubscriptionResource[],
   options: {
     reachable?: boolean;
     offersByBasePlan?: Record<string, SubscriptionOfferResource[]>;
+    failCreateSubscription?: boolean;
+    failCreateOffer?: boolean;
+    failListOffers?: boolean;
   } = {},
 ): {
   api: PlaySubscriptionsApi;
@@ -45,6 +53,7 @@ const makeApi = (
     activatedBasePlans: [],
     createdOffers: [],
     activatedOffers: [],
+    listOffersFailures: 0,
   };
   const api: PlaySubscriptionsApi = {
     assertAppExists: () => {
@@ -52,43 +61,56 @@ const makeApi = (
       return Effect.void;
     },
     listSubscriptions: () => Effect.succeed(existing),
-    createSubscription: (_pkg, subscription) => {
+    createSubscription: (_packageName, subscription) => {
+      if (options.failCreateSubscription === true) {
+        return Effect.fail(new Error('create subscription rejected'));
+      }
       calls.created.push(subscription);
       return Effect.void;
     },
-    patchSubscription: (_pkg, subscription, updateMask) => {
+    patchSubscription: (_packageName, subscription, updateMask) => {
       calls.patched.push({ subscription, updateMask });
       return Effect.void;
     },
-    activateBasePlan: (_pkg, productId, basePlanId) => {
+    activateBasePlan: (_packageName, productId, basePlanId) => {
       calls.activatedBasePlans.push({ productId, basePlanId });
       return Effect.void;
     },
-    listSubscriptionOffers: (_pkg, productId, basePlanId) => {
+    listSubscriptionOffers: (_packageName, productId, basePlanId) => {
+      if (options.failListOffers === true) {
+        calls.listOffersFailures += 1;
+        return Effect.fail(new Error('list offers unavailable'));
+      }
       let offers: SubscriptionOfferResource[] = [];
       const configuredOffers = options.offersByBasePlan?.[`${productId}/${basePlanId}`];
       if (configuredOffers !== undefined) offers = configuredOffers;
       return Effect.succeed(offers);
     },
-    createSubscriptionOffer: (_pkg, offer) => {
+    createSubscriptionOffer: (_packageName, offer) => {
+      if (options.failCreateOffer === true) {
+        return Effect.fail(new Error('create offer rejected'));
+      }
       calls.createdOffers.push(offer);
       return Effect.void;
     },
-    activateSubscriptionOffer: (_pkg, productId, basePlanId, offerId) => {
+    activateSubscriptionOffer: (_packageName, productId, basePlanId, offerId) => {
       calls.activatedOffers.push({ productId, basePlanId, offerId });
       return Effect.void;
     },
   };
   return { api, calls };
 };
+
 /** Execute the offer builder at the test boundary. */
-const runOffer = (...offerInput: Parameters<typeof buildOffer>): SubscriptionOfferResource =>
-  Effect.runSync(buildOffer(...offerInput));
+const runOffer = (...offerInput: Parameters<typeof offerFromConfig>): SubscriptionOfferResource =>
+  Effect.runSync(offerFromConfig(...offerInput));
+
 /** Execute the subscriptions reconciler at the test boundary. */
 const runReconcile = (
   api: PlaySubscriptionsApi,
   input: Parameters<typeof reconcilePlaySubscriptions>[1],
 ) => Effect.runPromise(reconcilePlaySubscriptions(api, input));
+
 /** A minimal shared subscription config with a Play override. */
 const sub = (overrides: Partial<SubscriptionConfig> = {}): SubscriptionConfig => {
   return {
@@ -100,7 +122,20 @@ const sub = (overrides: Partial<SubscriptionConfig> = {}): SubscriptionConfig =>
     ...overrides,
   };
 };
-describe('microsToMoney', () => {
+
+describe('periodFromIso', () => {
+  it('maps every known ISO duration and rejects unknowns', () => {
+    expect(periodFromIso('P1W')).toBe('ONE_WEEK');
+    expect(periodFromIso('P1M')).toBe('ONE_MONTH');
+    expect(periodFromIso('P2M')).toBe('TWO_MONTHS');
+    expect(periodFromIso('P3M')).toBe('THREE_MONTHS');
+    expect(periodFromIso('P6M')).toBe('SIX_MONTHS');
+    expect(periodFromIso('P1Y')).toBe('ONE_YEAR');
+    expect(periodFromIso('P99Y')).toBeUndefined();
+  });
+});
+
+describe('microsToMoney / unitsToMicros', () => {
   it('splits micro-units into whole units and billionths', () => {
     expect(microsToMoney({ priceMicros: '9990000', currency: 'USD' })).toEqual({
       currencyCode: 'USD',
@@ -113,8 +148,14 @@ describe('microsToMoney', () => {
       nanos: 990000000,
     });
   });
+
+  it('round-trips units+nanos back to micro-units', () => {
+    const money = microsToMoney({ priceMicros: '1990000', currency: 'USD' });
+    expect(unitsToMicros(money)).toBe('1990000');
+  });
 });
-describe('buildOffer', () => {
+
+describe('offerFromConfig', () => {
   it("builds a free-trial offer covering the base plan's regions", () => {
     const offer = runOffer('com.acme.pro', 'p1m', ['US', 'GB'], {
       offerId: 'trial',
@@ -135,6 +176,7 @@ describe('buildOffer', () => {
       { regionCode: 'GB', newSubscriberAvailability: true },
     ]);
   });
+
   it('builds an introductory-price offer over the priced regions', () => {
     const offer = runOffer('com.acme.pro', 'p1m', ['US'], {
       offerId: 'intro',
@@ -150,6 +192,7 @@ describe('buildOffer', () => {
       },
     ]);
   });
+
   it('intersects regions when an offer has both a trial and an intro phase', () => {
     const offer = runOffer('com.acme.pro', 'p1m', ['US', 'GB'], {
       offerId: 'combo',
@@ -159,14 +202,15 @@ describe('buildOffer', () => {
     expect(offer.regionalConfigs).toEqual([{ regionCode: 'US', newSubscriberAvailability: true }]);
     expect(offer.phases[0]?.regionalConfigs).toEqual([{ regionCode: 'US', free: {} }]);
   });
+
   it('rejects an offer that discounts nothing and one whose phases share no region', () => {
     const emptyOfferFailure = Effect.runSync(
-      Effect.flip(buildOffer('p', 'bp', ['US'], { offerId: 'empty' })),
+      Effect.flip(offerFromConfig('p', 'bp', ['US'], { offerId: 'empty' })),
     );
     expect(emptyOfferFailure.message).toMatch(/neither a free trial nor intro/);
     const splitRegionFailure = Effect.runSync(
       Effect.flip(
-        buildOffer('p', 'bp', ['GB'], {
+        offerFromConfig('p', 'bp', ['GB'], {
           offerId: 'split',
           freeTrialDuration: 'P1W',
           introPrices: { US: { priceMicros: '1', currency: 'USD' } },
@@ -176,6 +220,7 @@ describe('buildOffer', () => {
     expect(splitRegionFailure.message).toMatch(/no region common/);
   });
 });
+
 describe('reconcilePlaySubscriptions', () => {
   it('throws when the Play app record is unreachable', async () => {
     const { api } = makeApi([], { reachable: false });
@@ -187,6 +232,24 @@ describe('reconcilePlaySubscriptions', () => {
       }),
     ).rejects.toThrow(/No reachable Play app/);
   });
+
+  it('skips catalog subscriptions without a play override', async () => {
+    const { api, calls } = makeApi([]);
+    const appleOnlySubscription: SubscriptionConfig = {
+      productId: 'com.acme.pro.monthly',
+      referenceName: 'Pro Monthly',
+      subscriptionPeriod: 'ONE_MONTH',
+      localizations: [{ locale: 'en-US', name: 'Pro Monthly', description: 'All features' }],
+    };
+    const subscriptionsOutcome = await runReconcile(api, {
+      packageName: 'com.acme.app',
+      subscriptions: [appleOnlySubscription],
+      dryRun: false,
+    });
+    expect(subscriptionsOutcome.actions).toEqual([]);
+    expect(calls.created).toHaveLength(0);
+  });
+
   it('creates a subscription + base plan, activates the plan, then creates + activates its offers', async () => {
     const { api, calls } = makeApi([]);
     const subscriptionsOutcome = await runReconcile(api, {
@@ -227,6 +290,47 @@ describe('reconcilePlaySubscriptions', () => {
     ]);
     expect(summarizePlaySubscriptions(subscriptionsOutcome.actions).failed).toBe(0);
   });
+
+  it('honors play.productId and play.basePlanId overrides', async () => {
+    const { api, calls } = makeApi([]);
+    await runReconcile(api, {
+      packageName: 'com.acme.app',
+      subscriptions: [
+        sub({
+          play: {
+            productId: 'pro_monthly_play',
+            basePlanId: 'monthly-v2',
+            prices: { US: { priceMicros: '9990000', currency: 'USD' } },
+          },
+        }),
+      ],
+      dryRun: false,
+    });
+    const created = expectArrayElement(calls.created, 0, 'calls.created');
+    expect(created.productId).toBe('pro_monthly_play');
+    expect(created.basePlans?.[0]?.basePlanId).toBe('monthly-v2');
+    expect(calls.activatedBasePlans).toEqual([
+      { productId: 'pro_monthly_play', basePlanId: 'monthly-v2' },
+    ]);
+  });
+
+  it('falls back to the localization name when description is omitted', async () => {
+    const { api, calls } = makeApi([]);
+    await runReconcile(api, {
+      packageName: 'com.acme.app',
+      subscriptions: [
+        sub({
+          localizations: [{ locale: 'en-US', name: 'Pro Monthly' }],
+        }),
+      ],
+      dryRun: false,
+    });
+    const created = expectArrayElement(calls.created, 0, 'calls.created');
+    expect(created.listings).toEqual([
+      { languageCode: 'en-US', title: 'Pro Monthly', description: 'Pro Monthly' },
+    ]);
+  });
+
   it('does nothing when the subscription, base plan, and listings already match', async () => {
     const existing: SubscriptionResource = {
       productId: 'com.acme.pro.monthly',
@@ -244,6 +348,7 @@ describe('reconcilePlaySubscriptions', () => {
     expect(calls.patched).toHaveLength(0);
     expect(calls.activatedBasePlans).toHaveLength(0);
   });
+
   it("patches listings (mask 'listings') when a title drifts, preserving locales it doesn't manage", async () => {
     const existing: SubscriptionResource = {
       productId: 'com.acme.pro.monthly',
@@ -267,6 +372,7 @@ describe('reconcilePlaySubscriptions', () => {
     const languages = patchedListings.map((listing) => listing.languageCode).sort();
     expect(languages).toEqual(['de-DE', 'en-US']);
   });
+
   it('adds + activates a base plan missing from an existing subscription, re-sending live plans without their state', async () => {
     const existing: SubscriptionResource = {
       productId: 'com.acme.pro.monthly',
@@ -289,12 +395,13 @@ describe('reconcilePlaySubscriptions', () => {
     const basePlanPatch = expectArrayElement(calls.patched, 0, 'calls.patched');
     let sentPlans = basePlanPatch.subscription.basePlans;
     if (sentPlans === undefined) sentPlans = [];
-    expect(sentPlans.map((plan) => plan.basePlanId)).toEqual(['p1y', 'p1m']);
-    expect(sentPlans.find((plan) => plan.basePlanId === 'p1y')?.state).toBeUndefined();
+    expect(sentPlans.map((basePlan) => basePlan.basePlanId)).toEqual(['p1y', 'p1m']);
+    expect(sentPlans.find((basePlan) => basePlan.basePlanId === 'p1y')?.state).toBeUndefined();
     expect(calls.activatedBasePlans).toEqual([
       { productId: 'com.acme.pro.monthly', basePlanId: 'p1m' },
     ]);
   });
+
   it('activates a base plan that exists but is still DRAFT', async () => {
     const existing: SubscriptionResource = {
       productId: 'com.acme.pro.monthly',
@@ -312,6 +419,7 @@ describe('reconcilePlaySubscriptions', () => {
       { productId: 'com.acme.pro.monthly', basePlanId: 'p1m' },
     ]);
   });
+
   it('creates a missing offer but skips one that already exists', async () => {
     const existing: SubscriptionResource = {
       productId: 'com.acme.pro.monthly',
@@ -343,16 +451,57 @@ describe('reconcilePlaySubscriptions', () => {
     });
     expect(calls.createdOffers.map((offer) => offer.offerId)).toEqual(['intro']);
   });
-  it('plans without writing on a dry run', async () => {
+
+  it('treats a failed offer list as empty and still creates missing offers', async () => {
+    const existing: SubscriptionResource = {
+      productId: 'com.acme.pro.monthly',
+      listings: [{ languageCode: 'en-US', title: 'Pro Monthly', description: 'All features' }],
+      basePlans: [{ basePlanId: 'p1m', state: 'ACTIVE' }],
+    };
+    const { api, calls } = makeApi([existing], { failListOffers: true });
+    await runReconcile(api, {
+      packageName: 'com.acme.app',
+      subscriptions: [
+        sub({
+          play: {
+            prices: { US: { priceMicros: '9990000', currency: 'USD' } },
+            offers: [{ offerId: 'trial', freeTrialDuration: 'P1W' }],
+          },
+        }),
+      ],
+      dryRun: false,
+    });
+    expect(calls.listOffersFailures).toBe(1);
+    expect(calls.createdOffers.map((offer) => offer.offerId)).toEqual(['trial']);
+  });
+
+  it('plans without writing on a dry run, including create+activate for offers', async () => {
     const { api, calls } = makeApi([]);
     const subscriptionsOutcome = await runReconcile(api, {
       packageName: 'com.acme.app',
-      subscriptions: [sub()],
+      subscriptions: [
+        sub({
+          play: {
+            prices: { US: { priceMicros: '9990000', currency: 'USD' } },
+            offers: [{ offerId: 'trial', freeTrialDuration: 'P1W' }],
+          },
+        }),
+      ],
       dryRun: true,
     });
     expect(subscriptionsOutcome.actions.every((action) => action.status === 'planned')).toBe(true);
+    expect(subscriptionsOutcome.actions.map((action) => action.description)).toEqual(
+      expect.arrayContaining([
+        'create Play subscription com.acme.pro.monthly',
+        'activate base plan p1m',
+        'create offer trial on base plan p1m',
+        'activate offer trial',
+      ]),
+    );
     expect(calls.created).toHaveLength(0);
+    expect(calls.createdOffers).toHaveLength(0);
   });
+
   it('records a failed action for an offer config that discounts nothing, without aborting', async () => {
     const { api, calls } = makeApi([]);
     const subscriptionsOutcome = await runReconcile(api, {
@@ -369,6 +518,54 @@ describe('reconcilePlaySubscriptions', () => {
     });
     const failedAction = subscriptionsOutcome.actions.find((action) => action.status === 'failed');
     expect(failedAction?.error).toMatch(/neither a free trial nor intro/);
-    expect(calls.created).toHaveLength(1); // the subscription itself still got created
+    expect(calls.created).toHaveLength(1);
+  });
+
+  it('skips base-plan activate and offers when subscription create fails', async () => {
+    const { api, calls } = makeApi([], { failCreateSubscription: true });
+    const subscriptionsOutcome = await runReconcile(api, {
+      packageName: 'com.acme.app',
+      subscriptions: [
+        sub({
+          play: {
+            prices: { US: { priceMicros: '9990000', currency: 'USD' } },
+            offers: [{ offerId: 'trial', freeTrialDuration: 'P1W' }],
+          },
+        }),
+      ],
+      dryRun: false,
+    });
+    expect(calls.created).toHaveLength(0);
+    expect(calls.activatedBasePlans).toHaveLength(0);
+    expect(calls.createdOffers).toHaveLength(0);
+    const summary = summarizePlaySubscriptions(subscriptionsOutcome.actions);
+    expect(summary.failed).toBe(1);
+    expect(summary.skipped).toBe(1);
+  });
+
+  it('skips offer activate when offer create fails', async () => {
+    const existing: SubscriptionResource = {
+      productId: 'com.acme.pro.monthly',
+      listings: [{ languageCode: 'en-US', title: 'Pro Monthly', description: 'All features' }],
+      basePlans: [{ basePlanId: 'p1m', state: 'ACTIVE' }],
+    };
+    const { api, calls } = makeApi([existing], { failCreateOffer: true });
+    const subscriptionsOutcome = await runReconcile(api, {
+      packageName: 'com.acme.app',
+      subscriptions: [
+        sub({
+          play: {
+            prices: { US: { priceMicros: '9990000', currency: 'USD' } },
+            offers: [{ offerId: 'trial', freeTrialDuration: 'P1W' }],
+          },
+        }),
+      ],
+      dryRun: false,
+    });
+    expect(calls.createdOffers).toHaveLength(0);
+    expect(calls.activatedOffers).toHaveLength(0);
+    const summary = summarizePlaySubscriptions(subscriptionsOutcome.actions);
+    expect(summary.failed).toBe(1);
+    expect(summary.skipped).toBe(1);
   });
 });
