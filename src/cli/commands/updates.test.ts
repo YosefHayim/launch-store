@@ -1,75 +1,34 @@
+import { Command } from 'commander';
 import { describe, expect, it } from 'vitest';
-import type { UpdateManifest } from '@core/distribution/otaManifest.js';
-import {
-  formatUpdateDetail,
-  formatUpdatesTable,
-  shortId,
-  type UpdateRow,
-} from '@core/config/updatesCommand.js';
-const tableRow4 = (over: Partial<UpdateRow> = {}): UpdateRow => {
-  return {
-    id: '1234abcd-5678-90ef-ghij-klmnopqrstuv',
-    platform: 'ios',
-    runtimeVersion: '1.0.0',
-    createdAt: '2026-06-14T09:12:00.000Z',
-    active: true,
-    signed: true,
-    kind: 'publish',
-    ...over,
-  };
-};
-describe('shortId', () => {
-  it('abbreviates a UUID to its first segment', () => {
-    expect(shortId('1234abcd-5678-90ef')).toBe('1234abcd');
+import { registerUpdatesCommand } from './updates.js';
+
+describe('registerUpdatesCommand', () => {
+  it('registers list, view, and rollback under the updates family', () => {
+    const program = new Command();
+    registerUpdatesCommand(program);
+    const updatesCommand = program.commands.find((command) => command.name() === 'updates');
+    expect(updatesCommand).toBeDefined();
+    if (updatesCommand === undefined) return;
+    const subcommandNames = updatesCommand.commands.map((command) => command.name());
+    expect(subcommandNames).toEqual(['list', 'view', 'rollback']);
   });
-});
-describe('formatUpdatesTable', () => {
-  it('renders a header and one row per update with the active marker', () => {
-    const table = formatUpdatesTable([
-      tableRow4({ id: 'aaaaaaaa-1', active: true, kind: 'publish' }),
-      tableRow4({
-        id: 'bbbbbbbb-2',
-        platform: 'android',
-        active: false,
-        kind: 'rollback',
-        runtimeVersion: '2.0.0',
-      }),
-    ]);
-    const [header, first, second] = table.split('\n');
-    expect(header).toContain('UPDATE');
-    expect(header).toContain('ACTIVE');
-    expect(first).toContain('aaaaaaaa');
-    expect(first).toContain('yes'); // active
-    expect(second).toContain('android');
-    expect(second).toContain('rollback');
-    expect(second).toContain('2.0.0');
-  });
-});
-describe('formatUpdateDetail', () => {
-  const manifest: UpdateManifest = {
-    id: '1234abcd',
-    createdAt: '2026-06-14T09:12:00.000Z',
-    runtimeVersion: '1.0.0',
-    launchAsset: {
-      key: 'bundle',
-      contentType: 'application/javascript',
-      url: 'https://cdn/bundle.hbc',
-    },
-    assets: [
-      { key: 'logo', contentType: 'image/png', url: 'https://cdn/logo.png', fileExtension: '.png' },
-    ],
-    metadata: {},
-    extra: {},
-  };
-  it('includes the bundle URL and asset count when the snapshot is present', () => {
-    const detail = formatUpdateDetail(tableRow4(), manifest);
-    expect(detail).toContain('https://cdn/bundle.hbc');
-    expect(detail).toContain('assets:  1');
-    expect(detail).toContain('active');
-  });
-  it('omits manifest lines when the snapshot is missing', () => {
-    const detail = formatUpdateDetail(tableRow4({ active: false }), null);
-    expect(detail).not.toContain('bundle:');
-    expect(detail).toContain('runtime 1.0.0');
+
+  it('defaults list to production channel and rollback to interactive confirmation', () => {
+    const program = new Command();
+    registerUpdatesCommand(program);
+    const updatesCommand = program.commands.find((command) => command.name() === 'updates');
+    expect(updatesCommand).toBeDefined();
+    if (updatesCommand === undefined) return;
+    const listCommand = updatesCommand.commands.find((command) => command.name() === 'list');
+    const rollbackCommand = updatesCommand.commands.find(
+      (command) => command.name() === 'rollback',
+    );
+    expect(listCommand).toBeDefined();
+    expect(rollbackCommand).toBeDefined();
+    if (listCommand === undefined) return;
+    if (rollbackCommand === undefined) return;
+    expect(listCommand.opts()['channel']).toBe('production');
+    expect(rollbackCommand.opts()['toEmbedded']).toBe(false);
+    expect(rollbackCommand.opts()['yes']).toBe(false);
   });
 });
