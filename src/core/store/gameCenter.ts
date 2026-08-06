@@ -3,12 +3,11 @@ import {
   LEADERBOARD_FORMATTERS,
   LEADERBOARD_SORT_TYPES,
   LEADERBOARD_SUBMISSION_TYPES,
+  type GameCenterAchievementCreate,
   type GameCenterAchievementResource,
   type GameCenterDetailResource,
+  type GameCenterLeaderboardCreate,
   type GameCenterLeaderboardResource,
-  type LeaderboardFormatter,
-  type LeaderboardSortType,
-  type LeaderboardSubmissionType,
 } from '../types/appleCatalog.js';
 import { appRecordMissing, plan, skip, type ReconcileContext } from './reconcile.js';
 import { errorMessage } from '../services/errorMessage.js';
@@ -23,6 +22,7 @@ import {
   loadStoreSurfaceConfig,
   type StoreSurfaceConfigFailure,
 } from './surfaceConfig.js';
+
 /** Default locale for an achievement / leaderboard localization that doesn't name one. */
 const DEFAULT_LOCALE = 'en-US';
 
@@ -105,6 +105,7 @@ const GameCenterConfigSpec = {
     `No Game Center config at ${configPath}. Create one (see \`launch game-center --help\`) or pass --config.`,
   schema: GameCenterConfigSchema,
 };
+
 /**
  * The exact slice of {@link AppStoreConnectClient} the Game Center reconciler depends on. Declared here
  * (rather than the concrete client) so the diff logic is unit-testable with a hand-rolled fake;
@@ -119,13 +120,7 @@ export type AscGameCenterApi = {
   ): Effect.Effect<GameCenterAchievementResource[], unknown>;
   createGameCenterAchievement(
     detailId: string,
-    attributes: {
-      referenceName: string;
-      vendorIdentifier: string;
-      points: number;
-      showBeforeEarned: boolean;
-      repeatable: boolean;
-    },
+    achievement: GameCenterAchievementCreate,
   ): Effect.Effect<
     {
       id: string;
@@ -135,7 +130,7 @@ export type AscGameCenterApi = {
   >;
   createGameCenterAchievementLocalization(
     versionId: string,
-    fields: {
+    localization: {
       locale: string;
       name: string;
       beforeEarnedDescription: string;
@@ -147,13 +142,7 @@ export type AscGameCenterApi = {
   ): Effect.Effect<GameCenterLeaderboardResource[], unknown>;
   createGameCenterLeaderboard(
     detailId: string,
-    attributes: {
-      referenceName: string;
-      vendorIdentifier: string;
-      defaultFormatter: LeaderboardFormatter;
-      submissionType: LeaderboardSubmissionType;
-      scoreSortType: LeaderboardSortType;
-    },
+    leaderboard: GameCenterLeaderboardCreate,
   ): Effect.Effect<
     {
       id: string;
@@ -163,53 +152,110 @@ export type AscGameCenterApi = {
   >;
   createGameCenterLeaderboardLocalization(
     versionId: string,
-    fields: {
+    localization: {
       locale: string;
       name: string;
     },
   ): Effect.Effect<void, unknown>;
 };
+
 /** Inputs to reconcile one app's Game Center config. */
 export type GameCenterReconcileInput = {
   bundleId: string;
   config: GameCenterConfig;
   dryRun: boolean;
 };
-/** Where the detail stands after ensuring it: its id (and whether it pre-existed) or `null` when create failed. */
+
+/**
+ * Where the detail stands after ensuring it: its id (and whether it pre-existed), or `null` when
+ * create failed and the rest of the walk must skip.
+ */
 type EnsuredDetail = {
   detailId: string | null;
   existed: boolean;
 } | null;
+
+/** Collect developer-chosen vendor identifiers already live on a detail. */
+const vendorIdentifiersOf = (
+  resources: ReadonlyArray<{ readonly vendorIdentifier?: string }>,
+): Set<string> => {
+  const vendorIdentifiers = new Set<string>();
+  for (const resource of resources) {
+    if (resource.vendorIdentifier === undefined) continue;
+    vendorIdentifiers.add(resource.vendorIdentifier);
+  }
+  return vendorIdentifiers;
+};
+
+/** Localization locale declared on the config entry, else the Game Center default. */
+const localizationLocale = (locale: string | undefined): string => {
+  if (locale !== undefined) return locale;
+  return DEFAULT_LOCALE;
+};
+
 /**
- * Reconcile one app's Game Center achievements and leaderboards. Throws only for a precondition the user
- * must fix (no ASC app record); everything else is captured per-action so a single failure never aborts
- * the run.
+ * Run a localization create against the version returned by the parent create. When Apple didn't echo a
+ * version id, the parent still succeeded - so the localization is recorded as skipped (add it in App Store
+ * Connect) rather than failed.
  */
-export const reconcileGameCenter = (
-  api: AscGameCenterApi,
-  input: GameCenterReconcileInput,
-): Effect.Effect<{ bundleId: string; actions: PlannedAction[] }, unknown> =>
+const applyLocalization = (
+  localizationAction: PlannedAction,
+  versionId: string | null,
+  vendorIdentifier: string,
+  writeLocalization: (confirmedVersionId: string) => Effect.Effect<void, unknown>,
+): Effect.Effect<void> => {
+  if (versionId === null) {
+    localizationAction.status = 'skipped';
+    localizationAction.description = `localization for ${vendorIdentifier}: created the item, but no version id was returned - add it in App Store Connect`;
+    return Effect.void;
+  }
+  return writeLocalization(versionId).pipe(
+    Effect.match({
+      onFailure: (writeFailure) => {
+        localizationAction.status = 'failed';
+        localizationAction.error = errorMessage(writeFailure);
+      },
+      onSuccess: () => {
+        localizationAction.status = 'applied';
+      },
+    }),
+  );
+};
+
+/**
+ * Plan create + localization, then apply when not dry-run. Create failures skip localization;
+ * a missing version id from Apple records localization as skipped (add it in App Store Connect).
+ */
+const createItemWithLocalization = (
+  reconcileContext: ReconcileContext,
+  createDescription: string,
+  localizationDescription: string,
+  vendorIdentifier: string,
+  createItem: () => Effect.Effect<{ versionId: string | null }, unknown>,
+  writeLocalization: (confirmedVersionId: string) => Effect.Effect<void, unknown>,
+): Effect.Effect<void> =>
   Effect.gen(function* () {
-    const reconcileContext: ReconcileContext = { actions: [], dryRun: input.dryRun };
-    const { config } = input;
-    const appId = yield* api.getAppId(input.bundleId);
-    if (!appId) return yield* Effect.fail(appRecordMissing(input.bundleId, 'game-center'));
-    const detail = yield* ensureDetail(reconcileContext, api, appId);
-    if (!detail) {
-      skip(
-        reconcileContext,
-        'achievements / leaderboards: skipped - Game Center could not be enabled for the app',
-      );
-      return { bundleId: input.bundleId, actions: reconcileContext.actions };
-    }
-    let achievements: AchievementConfig[] = [];
-    if (config.achievements !== undefined) achievements = config.achievements;
-    let leaderboards: LeaderboardConfig[] = [];
-    if (config.leaderboards !== undefined) leaderboards = config.leaderboards;
-    yield* reconcileAchievements(reconcileContext, api, detail, achievements);
-    yield* reconcileLeaderboards(reconcileContext, api, detail, leaderboards);
-    return { bundleId: input.bundleId, actions: reconcileContext.actions };
+    const createAction = plan(reconcileContext, createDescription);
+    const localizationAction = plan(reconcileContext, localizationDescription);
+    if (reconcileContext.dryRun) return;
+    const versionId = yield* createItem().pipe(
+      Effect.match({
+        onFailure: (writeFailure) => {
+          createAction.status = 'failed';
+          createAction.error = errorMessage(writeFailure);
+          localizationAction.status = 'skipped';
+          return null;
+        },
+        onSuccess: (created) => {
+          createAction.status = 'applied';
+          return created.versionId;
+        },
+      }),
+    );
+    if (createAction.status === 'failed') return;
+    yield* applyLocalization(localizationAction, versionId, vendorIdentifier, writeLocalization);
   });
+
 /** Read the app's Game Center detail, creating it (enabling Game Center) when absent. */
 const ensureDetail = (
   reconcileContext: ReconcileContext,
@@ -217,83 +263,60 @@ const ensureDetail = (
   appId: string,
 ): Effect.Effect<EnsuredDetail, unknown> =>
   Effect.gen(function* () {
-    const existing = yield* api.getGameCenterDetail(appId);
-    if (existing) return { detailId: existing.id, existed: true };
-    const action = plan(reconcileContext, 'enable Game Center for the app');
+    const existingDetail = yield* api.getGameCenterDetail(appId);
+    if (existingDetail !== null) return { detailId: existingDetail.id, existed: true };
+    const enableAction = plan(reconcileContext, 'enable Game Center for the app');
     if (reconcileContext.dryRun) return { detailId: null, existed: false };
     return yield* api.createGameCenterDetail(appId).pipe(
       Effect.match({
         onFailure: (writeFailure): EnsuredDetail => {
-          action.status = 'failed';
-          action.error = errorMessage(writeFailure);
+          enableAction.status = 'failed';
+          enableAction.error = errorMessage(writeFailure);
           return null;
         },
-        onSuccess: (created): EnsuredDetail => {
-          action.status = 'applied';
-          return { detailId: created.id, existed: false };
+        onSuccess: (createdDetail): EnsuredDetail => {
+          enableAction.status = 'applied';
+          return { detailId: createdDetail.id, existed: false };
         },
       }),
     );
   });
+
 /** Create each declared achievement the detail doesn't have yet (by `vendorIdentifier`), with its localization. */
 const reconcileAchievements = (
   reconcileContext: ReconcileContext,
   api: AscGameCenterApi,
   detail: NonNullable<EnsuredDetail>,
-  declared: AchievementConfig[],
+  declaredAchievements: AchievementConfig[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     let existingIdentifiers = new Set<string>();
     if (detail.existed && detail.detailId !== null) {
       const liveAchievements = yield* api.listGameCenterAchievements(detail.detailId);
-      existingIdentifiers = new Set(
-        liveAchievements.flatMap((achievement) => {
-          if (achievement.vendorIdentifier !== undefined) return [achievement.vendorIdentifier];
-          return [];
-        }),
-      );
+      existingIdentifiers = vendorIdentifiersOf(liveAchievements);
     }
-    for (const achievement of declared) {
+    for (const achievement of declaredAchievements) {
       if (existingIdentifiers.has(achievement.vendorIdentifier)) continue;
-      let locale = DEFAULT_LOCALE;
-      if (achievement.locale !== undefined) locale = achievement.locale;
-      const createAction = plan(
+      const locale = localizationLocale(achievement.locale);
+      const detailId = detail.detailId;
+      yield* createItemWithLocalization(
         reconcileContext,
         `create achievement ${achievement.vendorIdentifier} (${achievement.points} pts)`,
-      );
-      const localizationAction = plan(
-        reconcileContext,
         `set achievement ${achievement.vendorIdentifier} localization (${locale})`,
-      );
-      if (reconcileContext.dryRun) continue;
-      if (!detail.detailId) continue;
-      const versionId = yield* api
-        .createGameCenterAchievement(detail.detailId, {
-          referenceName: achievement.referenceName,
-          vendorIdentifier: achievement.vendorIdentifier,
-          points: achievement.points,
-          showBeforeEarned: achievement.showBeforeEarned === true,
-          repeatable: achievement.repeatable === true,
-        })
-        .pipe(
-          Effect.match({
-            onFailure: (writeFailure) => {
-              createAction.status = 'failed';
-              createAction.error = errorMessage(writeFailure);
-              localizationAction.status = 'skipped';
-              return null;
-            },
-            onSuccess: (created) => {
-              createAction.status = 'applied';
-              return created.versionId;
-            },
-          }),
-        );
-      if (createAction.status === 'failed') continue;
-      yield* applyLocalization(
-        localizationAction,
-        versionId,
         achievement.vendorIdentifier,
+        () => {
+          // dry-run is the only path with a null detail id; createItem is never invoked then.
+          if (detailId === null) {
+            return Effect.die('Game Center detail id missing on apply');
+          }
+          return api.createGameCenterAchievement(detailId, {
+            referenceName: achievement.referenceName,
+            vendorIdentifier: achievement.vendorIdentifier,
+            points: achievement.points,
+            showBeforeEarned: achievement.showBeforeEarned === true,
+            repeatable: achievement.repeatable === true,
+          });
+        },
         (confirmedVersionId) =>
           api.createGameCenterAchievementLocalization(confirmedVersionId, {
             locale,
@@ -304,65 +327,41 @@ const reconcileAchievements = (
       );
     }
   });
+
 /** Create each declared leaderboard the detail doesn't have yet (by `vendorIdentifier`), with its localization. */
 const reconcileLeaderboards = (
   reconcileContext: ReconcileContext,
   api: AscGameCenterApi,
   detail: NonNullable<EnsuredDetail>,
-  declared: LeaderboardConfig[],
+  declaredLeaderboards: LeaderboardConfig[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     let existingIdentifiers = new Set<string>();
     if (detail.existed && detail.detailId !== null) {
       const liveLeaderboards = yield* api.listGameCenterLeaderboards(detail.detailId);
-      existingIdentifiers = new Set(
-        liveLeaderboards.flatMap((leaderboard) => {
-          if (leaderboard.vendorIdentifier !== undefined) return [leaderboard.vendorIdentifier];
-          return [];
-        }),
-      );
+      existingIdentifiers = vendorIdentifiersOf(liveLeaderboards);
     }
-    for (const leaderboard of declared) {
+    for (const leaderboard of declaredLeaderboards) {
       if (existingIdentifiers.has(leaderboard.vendorIdentifier)) continue;
-      let locale = DEFAULT_LOCALE;
-      if (leaderboard.locale !== undefined) locale = leaderboard.locale;
-      const createAction = plan(
+      const locale = localizationLocale(leaderboard.locale);
+      const detailId = detail.detailId;
+      yield* createItemWithLocalization(
         reconcileContext,
         `create leaderboard ${leaderboard.vendorIdentifier} (${leaderboard.defaultFormatter})`,
-      );
-      const localizationAction = plan(
-        reconcileContext,
         `set leaderboard ${leaderboard.vendorIdentifier} localization (${locale})`,
-      );
-      if (reconcileContext.dryRun) continue;
-      if (!detail.detailId) continue;
-      const versionId = yield* api
-        .createGameCenterLeaderboard(detail.detailId, {
-          referenceName: leaderboard.referenceName,
-          vendorIdentifier: leaderboard.vendorIdentifier,
-          defaultFormatter: leaderboard.defaultFormatter,
-          submissionType: leaderboard.submissionType,
-          scoreSortType: leaderboard.scoreSortType,
-        })
-        .pipe(
-          Effect.match({
-            onFailure: (writeFailure) => {
-              createAction.status = 'failed';
-              createAction.error = errorMessage(writeFailure);
-              localizationAction.status = 'skipped';
-              return null;
-            },
-            onSuccess: (created) => {
-              createAction.status = 'applied';
-              return created.versionId;
-            },
-          }),
-        );
-      if (createAction.status === 'failed') continue;
-      yield* applyLocalization(
-        localizationAction,
-        versionId,
         leaderboard.vendorIdentifier,
+        () => {
+          if (detailId === null) {
+            return Effect.die('Game Center detail id missing on apply');
+          }
+          return api.createGameCenterLeaderboard(detailId, {
+            referenceName: leaderboard.referenceName,
+            vendorIdentifier: leaderboard.vendorIdentifier,
+            defaultFormatter: leaderboard.defaultFormatter,
+            submissionType: leaderboard.submissionType,
+            scoreSortType: leaderboard.scoreSortType,
+          });
+        },
         (confirmedVersionId) =>
           api.createGameCenterLeaderboardLocalization(confirmedVersionId, {
             locale,
@@ -371,34 +370,40 @@ const reconcileLeaderboards = (
       );
     }
   });
+
 /**
- * Run a localization create against the version returned by the parent create. When Apple didn't echo a
- * version id, the parent still succeeded - so the localization is recorded as skipped (add it in App Store
- * Connect) rather than failed.
+ * Reconcile one app's Game Center achievements and leaderboards. Fails only for a precondition the user
+ * must fix (no ASC app record); everything else is captured per-action so a single failure never aborts
+ * the run.
  */
-const applyLocalization = (
-  action: PlannedAction,
-  versionId: string | null,
-  vendorIdentifier: string,
-  createLocalization: (confirmedVersionId: string) => Effect.Effect<void, unknown>,
-): Effect.Effect<void> => {
-  if (!versionId) {
-    action.status = 'skipped';
-    action.description = `localization for ${vendorIdentifier}: created the item, but no version id was returned - add it in App Store Connect`;
-    return Effect.void;
-  }
-  return createLocalization(versionId).pipe(
-    Effect.match({
-      onFailure: (writeFailure) => {
-        action.status = 'failed';
-        action.error = errorMessage(writeFailure);
-      },
-      onSuccess: () => {
-        action.status = 'applied';
-      },
-    }),
-  );
-};
+export const reconcileGameCenter = (
+  api: AscGameCenterApi,
+  reconcileInput: GameCenterReconcileInput,
+): Effect.Effect<{ bundleId: string; actions: PlannedAction[] }, unknown> =>
+  Effect.gen(function* () {
+    const reconcileContext: ReconcileContext = { actions: [], dryRun: reconcileInput.dryRun };
+    const gameCenterConfig = reconcileInput.config;
+    const appId = yield* api.getAppId(reconcileInput.bundleId);
+    if (appId === null) {
+      return yield* Effect.fail(appRecordMissing(reconcileInput.bundleId, 'game-center'));
+    }
+    const detail = yield* ensureDetail(reconcileContext, api, appId);
+    if (detail === null) {
+      skip(
+        reconcileContext,
+        'achievements / leaderboards: skipped - Game Center could not be enabled for the app',
+      );
+      return { bundleId: reconcileInput.bundleId, actions: reconcileContext.actions };
+    }
+    let achievements: AchievementConfig[] = [];
+    if (gameCenterConfig.achievements !== undefined) achievements = gameCenterConfig.achievements;
+    let leaderboards: LeaderboardConfig[] = [];
+    if (gameCenterConfig.leaderboards !== undefined) leaderboards = gameCenterConfig.leaderboards;
+    yield* reconcileAchievements(reconcileContext, api, detail, achievements);
+    yield* reconcileLeaderboards(reconcileContext, api, detail, leaderboards);
+    return { bundleId: reconcileInput.bundleId, actions: reconcileContext.actions };
+  });
+
 /** Decode an untrusted Game Center config document. */
 export const parseGameCenterConfig = (
   rawDocument: unknown,
