@@ -1,19 +1,18 @@
 import { FileSystem, Terminal } from '@effect/platform';
 import type * as PlatformCommandExecutor from '@effect/platform/CommandExecutor';
 import { Context, Data, Effect, Layer } from 'effect';
-import { loadConfig } from '../config/config.js';
-import {
-  resolveStorageProvider,
-  type StorageResolverRequirements,
-} from '../distribution/storage.js';
-import { LaunchEnvironment } from '../services/environment.js';
+import { loadConfig, type LoadedConfig } from '../config/config.js';
+import { resolveStorageProvider } from '../distribution/storage.js';
+import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
 import { executeCommand } from '../services/exec.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import { detectHostOperatingSystem } from '../services/os.js';
 import { parsePlatform } from '../services/platform.js';
 import { LaunchPrompt } from '../services/prompt.js';
 import type { Platform } from '../types/app.js';
+import type { LaunchConfig } from '../types/config.js';
 import type { BuildArtifact, PrunedArtifact } from '../types/artifacts.js';
+import type { StorageProvider } from '../types/providers.js';
 import { resolveCommandRetentionDays } from './artifactRetention.js';
 import { buildLogId, buildLogPath, readBuildLog } from './buildLog.js';
 import { sizeSummary, worstDownloadBytes } from './pipelineArtifact.js';
@@ -67,8 +66,8 @@ export const makeBuildHistoryCommandFailure = Data.tagged<BuildHistoryCommandFai
   'BuildHistoryCommandFailure',
 );
 
-/** Runtime-only terminal and filesystem capabilities used by build history. */
-export type BuildHistoryCommandDependencies = Readonly<{
+/** Injectable terminal, clock, and local I/O boundary for build history. */
+export type BuildHistoryCommandService = Readonly<{
   logger: Logger;
   currentTime: () => number;
   terminalIsInteractive: boolean;
@@ -80,12 +79,15 @@ export type BuildHistoryCommandDependencies = Readonly<{
     logPath: string,
   ) => Effect.Effect<void, BuildHistoryCommandFailure, PlatformCommandExecutor.CommandExecutor>;
 }>;
-
-/** Injectable runtime boundary for build-history presentation and local I/O. */
-export type BuildHistoryCommandService = BuildHistoryCommandDependencies;
 export const BuildHistoryCommandService = Context.GenericTag<BuildHistoryCommandService>(
   'BuildHistoryCommandService',
 );
+
+/** Loaded config and storage provider for one build-history session. */
+type BuildStorageSession = Readonly<{
+  config: LaunchConfig;
+  storageProvider: StorageProvider;
+}>;
 
 /** Convert an unknown dependency failure to the build-history error channel. */
 const buildHistoryFailure = (
@@ -95,6 +97,15 @@ const buildHistoryFailure = (
 ): BuildHistoryCommandFailure => {
   let message = fallbackMessage;
   if (message === undefined && cause instanceof Error) message = cause.message;
+  if (
+    message === undefined &&
+    typeof cause === 'object' &&
+    cause !== null &&
+    'message' in cause &&
+    typeof cause.message === 'string'
+  ) {
+    message = cause.message;
+  }
   if (message === undefined) message = `${operation} failed.`;
   return makeBuildHistoryCommandFailure({ operation, message, cause });
 };
@@ -106,24 +117,20 @@ const writeLog = (
 ): Effect.Effect<void, BuildHistoryCommandFailure> =>
   logWrite.pipe(Effect.mapError((cause) => buildHistoryFailure(operation, cause)));
 
+/** Render a JSON value as a single terminal line. */
+const writeJsonLine = (
+  operation: string,
+  logger: Logger,
+  jsonValue: unknown,
+): Effect.Effect<void, BuildHistoryCommandFailure> =>
+  writeLog(operation, logger.line(JSON.stringify(jsonValue, null, 2)));
+
 /** Stable provider-independent identifier for one stored build. */
 export const buildId = (artifact: BuildArtifact): string => buildLogId(artifact);
 
 /** Project one persisted build into the stable presentation shape. */
 export const toBuildRow = (artifact: BuildArtifact): BuildRow => {
-  const buildRow: {
-    id: string;
-    app: string;
-    version: string;
-    platform: Platform;
-    buildNumber: number;
-    downloadBytes: number;
-    artifactBytes: number;
-    clean: boolean;
-    createdAt: string;
-    path: string;
-    prunedAt?: string;
-  } = {
+  const buildRow: BuildRow = {
     id: buildId(artifact),
     app: artifact.appName,
     version: artifact.version,
@@ -135,8 +142,8 @@ export const toBuildRow = (artifact: BuildArtifact): BuildRow => {
     createdAt: artifact.createdAt,
     path: artifact.path,
   };
-  if (artifact.prunedAt !== undefined) buildRow.prunedAt = artifact.prunedAt;
-  return buildRow;
+  if (artifact.prunedAt === undefined) return buildRow;
+  return { ...buildRow, prunedAt: artifact.prunedAt };
 };
 
 /** Narrow build history to the requested app and platform. */
@@ -164,9 +171,17 @@ export const findBuild = (
 
 /** Render an ISO timestamp as `YYYY-MM-DD HH:MM`. */
 const formatDate = (isoTimestamp: string): string => {
-  if (isoTimestamp.length >= 16)
+  if (isoTimestamp.length >= 16) {
     return `${isoTimestamp.slice(0, 10)} ${isoTimestamp.slice(11, 16)}`;
+  }
   return isoTimestamp;
+};
+
+/** Label a build as pruned, clean, or incremental for table/detail output. */
+export const buildKindLabel = (flags: Readonly<{ clean: boolean; prunedAt?: string }>): string => {
+  if (flags.prunedAt !== undefined) return 'pruned';
+  if (flags.clean) return 'clean';
+  return 'incremental';
 };
 
 /** A table column and its domain-specific cell renderer. */
@@ -210,14 +225,7 @@ const BUILD_COLUMNS: readonly Column<BuildRow>[] = [
   { header: 'PLATFORM', cell: (buildRow) => buildRow.platform },
   { header: 'DOWNLOAD', cell: (buildRow) => mb(buildRow.downloadBytes) },
   { header: 'CREATED', cell: (buildRow) => formatDate(buildRow.createdAt) },
-  {
-    header: 'TYPE',
-    cell: (buildRow) => {
-      if (buildRow.prunedAt !== undefined) return 'pruned';
-      if (buildRow.clean) return 'clean';
-      return 'incremental';
-    },
-  },
+  { header: 'TYPE', cell: (buildRow) => buildKindLabel(buildRow) },
 ];
 
 const PRUNE_COLUMNS: readonly Column<PrunedArtifact>[] = [
@@ -238,8 +246,6 @@ export const formatPrunePreview = (prunedArtifacts: readonly PrunedArtifact[]): 
 
 /** Render the detail block for one stored build. */
 export const formatBuildDetail = (artifact: BuildArtifact): string => {
-  let buildKind = 'incremental';
-  if (artifact.clean) buildKind = 'clean';
   let artifactLine = `  artifact: ${artifact.path}`;
   if (artifact.prunedAt !== undefined) {
     artifactLine = `  artifact: pruned ${formatDate(artifact.prunedAt)} - binary removed to save disk; rebuild to ship`;
@@ -248,7 +254,7 @@ export const formatBuildDetail = (artifact: BuildArtifact): string => {
     `${artifact.appName} ${artifact.version} (build ${artifact.buildNumber}) - ${artifact.platform}`,
     `  ${sizeSummary(artifact.sizeReport)}`,
     `  profile:  ${artifact.profile}`,
-    `  built:    ${formatDate(artifact.createdAt)}  (${buildKind})`,
+    `  built:    ${formatDate(artifact.createdAt)}  (${buildKindLabel(artifact)})`,
     `  id:       ${buildId(artifact)}`,
     artifactLine,
   ];
@@ -263,20 +269,16 @@ export const formatBuildDetail = (artifact: BuildArtifact): string => {
 };
 
 /** Parse an optional platform filter through the shared platform decoder. */
-const parsePlatformFilter = (
-  platformText: string | undefined,
-): Effect.Effect<Platform | undefined, BuildHistoryCommandFailure> => {
-  if (platformText === undefined) return Effect.succeed(undefined);
+const parsePlatformFilter = (platformText: string | undefined) => {
+  if (platformText === undefined) return Effect.succeed<Platform | undefined>(undefined);
   return parsePlatform(platformText).pipe(
     Effect.mapError((cause) => buildHistoryFailure('parse build platform', cause, cause.message)),
   );
 };
 
 /** Parse an optional positive retention-day override. */
-const parsePruneDays = (
-  daysText: string | undefined,
-): Effect.Effect<number | undefined, BuildHistoryCommandFailure> => {
-  if (daysText === undefined) return Effect.succeed(undefined);
+export const parsePruneDays = (daysText: string | undefined) => {
+  if (daysText === undefined) return Effect.succeed<number | undefined>(undefined);
   const retentionDays = Number(daysText);
   if (Number.isInteger(retentionDays) && retentionDays >= 1) return Effect.succeed(retentionDays);
   return Effect.fail(
@@ -288,48 +290,75 @@ const parsePruneDays = (
   );
 };
 
-/** Load newest-first history from the configured storage provider. */
-const loadHistory = (): Effect.Effect<
-  BuildArtifact[],
-  BuildHistoryCommandFailure,
-  FileSystem.FileSystem | StorageResolverRequirements
-> =>
+/** Load config and the storage provider once for list/view/log/prune. */
+const loadBuildStorageSession = () =>
   Effect.gen(function* () {
-    const loadedConfiguration = yield* loadConfig().pipe(
+    const loadedConfiguration: LoadedConfig = yield* loadConfig().pipe(
       Effect.mapError((cause) => buildHistoryFailure('load Launch configuration', cause)),
     );
     const storageProvider = yield* resolveStorageProvider(loadedConfiguration.config).pipe(
       Effect.mapError((cause) => buildHistoryFailure('resolve storage provider', cause)),
     );
-    return yield* storageProvider
+    return {
+      config: loadedConfiguration.config,
+      storageProvider,
+    } satisfies BuildStorageSession;
+  });
+
+/** Load newest-first history from the configured storage provider. */
+const loadHistory = () =>
+  Effect.gen(function* () {
+    const storageSession = yield* loadBuildStorageSession();
+    return yield* storageSession.storageProvider
       .list()
       .pipe(Effect.mapError((cause) => buildHistoryFailure('read build history', cause)));
   });
 
+/** Fail when a build reference does not match history. */
+const requireStoredBuild = (reference: string) =>
+  Effect.gen(function* () {
+    const storedBuild = findBuild(yield* loadHistory(), reference);
+    if (storedBuild === undefined) {
+      return yield* Effect.fail(
+        buildHistoryFailure(
+          'find stored build',
+          reference,
+          `No build matches "${reference}". Run \`launch builds list\` to see what's available.`,
+        ),
+      );
+    }
+    return storedBuild;
+  });
+
 /** Render a grammatically correct build-count label. */
-const buildsLabel = (count: number): string => {
+export const buildsLabel = (count: number): string => {
   if (count === 1) return '1 build';
   return `${count} builds`;
 };
 
+/**
+ * Whether prune must fail instead of prompting: non-TTY or `--json` without `--yes`.
+ * When `--yes` is set, callers skip confirmation entirely.
+ */
+export const pruneConfirmationBlocked = (
+  commandOptions: Readonly<{ yes?: boolean; json?: boolean }>,
+  terminalIsInteractive: boolean,
+): boolean => {
+  if (commandOptions.yes === true) return false;
+  if (commandOptions.json === true) return true;
+  if (!terminalIsInteractive) return true;
+  return false;
+};
+
 /** Count binaries eligible for the default cleanup policy. */
-export const countPrunableBuilds = (): Effect.Effect<
-  number,
-  BuildHistoryCommandFailure,
-  FileSystem.FileSystem | StorageResolverRequirements
-> =>
+export const countPrunableBuilds = () =>
   Effect.gen(function* () {
-    const loadedConfiguration = yield* loadConfig().pipe(
-      Effect.mapError((cause) => buildHistoryFailure('load Launch configuration', cause)),
-    );
-    const storageProvider = yield* resolveStorageProvider(loadedConfiguration.config).pipe(
-      Effect.mapError((cause) => buildHistoryFailure('resolve storage provider', cause)),
-    );
-    if (storageProvider.prune === undefined) return 0;
-    const prunePreview = yield* storageProvider
+    const storageSession = yield* loadBuildStorageSession();
+    if (storageSession.storageProvider.prune === undefined) return 0;
+    const prunePreview = yield* storageSession.storageProvider
       .prune({
         now: Date.now(),
-        retentionDays: resolveCommandRetentionDays(loadedConfiguration.config),
+        retentionDays: resolveCommandRetentionDays(storageSession.config),
         dryRun: true,
       })
       .pipe(Effect.mapError((cause) => buildHistoryFailure('preview build cleanup', cause)));
@@ -337,34 +366,23 @@ export const countPrunableBuilds = (): Effect.Effect<
   });
 
 /** Execute build cleanup for CLI and wizard callers. */
-export const runPrune = (
-  commandOptions: PruneCommandOptions,
-): Effect.Effect<
-  void,
-  BuildHistoryCommandFailure,
-  BuildHistoryCommandService | FileSystem.FileSystem | StorageResolverRequirements
-> =>
+export const runPrune = (commandOptions: PruneCommandOptions) =>
   Effect.gen(function* () {
     const commandService = yield* BuildHistoryCommandService;
     const platform = yield* parsePlatformFilter(commandOptions.platform);
     const requestedRetentionDays = yield* parsePruneDays(commandOptions.days);
-    const loadedConfiguration = yield* loadConfig().pipe(
-      Effect.mapError((cause) => buildHistoryFailure('load Launch configuration', cause)),
-    );
-    const storageProvider = yield* resolveStorageProvider(loadedConfiguration.config).pipe(
-      Effect.mapError((cause) => buildHistoryFailure('resolve storage provider', cause)),
-    );
-    if (storageProvider.prune === undefined) {
+    const storageSession = yield* loadBuildStorageSession();
+    if (storageSession.storageProvider.prune === undefined) {
       return yield* Effect.fail(
         buildHistoryFailure(
           'prune build history',
-          loadedConfiguration.config.storage,
-          `\`builds prune\` applies only to the local artifact store; storage "${loadedConfiguration.config.storage}" manages retention through its own bucket lifecycle rules.`,
+          storageSession.config.storage,
+          `\`builds prune\` applies only to the local artifact store; storage "${storageSession.config.storage}" manages retention through its own bucket lifecycle rules.`,
         ),
       );
     }
     const retentionDays = resolveCommandRetentionDays(
-      loadedConfiguration.config,
+      storageSession.config,
       requestedRetentionDays,
     );
     const pruneFilter: {
@@ -375,30 +393,25 @@ export const runPrune = (
     } = { now: commandService.currentTime(), retentionDays };
     if (commandOptions.app !== undefined) pruneFilter.app = commandOptions.app;
     if (platform !== undefined) pruneFilter.platform = platform;
-    const prunePreview = yield* storageProvider
+    const prunePreview = yield* storageSession.storageProvider
       .prune({ ...pruneFilter, dryRun: true })
       .pipe(Effect.mapError((cause) => buildHistoryFailure('preview build cleanup', cause)));
     if (prunePreview.pruned.length === 0) {
-      if (commandOptions.json === true)
-        yield* writeLog(
-          'render build cleanup preview',
-          commandService.logger.line(JSON.stringify(prunePreview, null, 2)),
-        );
-      else
+      if (commandOptions.json === true) {
+        yield* writeJsonLine('render build cleanup preview', commandService.logger, prunePreview);
+      } else {
         yield* writeLog(
           'render build cleanup preview',
           commandService.logger.line(
             `Nothing to prune - no builds older than ${retentionDays}d (the newest per app+platform is always kept).`,
           ),
         );
+      }
       return;
     }
     if (commandOptions.dryRun === true) {
       if (commandOptions.json === true) {
-        yield* writeLog(
-          'render build cleanup preview',
-          commandService.logger.line(JSON.stringify(prunePreview, null, 2)),
-        );
+        yield* writeJsonLine('render build cleanup preview', commandService.logger, prunePreview);
         return;
       }
       yield* writeLog(
@@ -413,18 +426,16 @@ export const runPrune = (
       );
       return;
     }
+    if (pruneConfirmationBlocked(commandOptions, commandService.terminalIsInteractive)) {
+      return yield* Effect.fail(
+        buildHistoryFailure(
+          'confirm build cleanup',
+          commandOptions,
+          'Refusing to delete without confirmation. Re-run with --yes (or --dry-run to preview).',
+        ),
+      );
+    }
     if (commandOptions.yes !== true) {
-      let confirmationBlocked = !commandService.terminalIsInteractive;
-      if (commandOptions.json === true) confirmationBlocked = true;
-      if (confirmationBlocked) {
-        return yield* Effect.fail(
-          buildHistoryFailure(
-            'confirm build cleanup',
-            commandOptions,
-            'Refusing to delete without confirmation. Re-run with --yes (or --dry-run to preview).',
-          ),
-        );
-      }
       yield* writeLog(
         'render build cleanup preview',
         commandService.logger.line(formatPrunePreview(prunePreview.pruned)),
@@ -437,14 +448,11 @@ export const runPrune = (
         return;
       }
     }
-    const pruneOutcome = yield* storageProvider
+    const pruneOutcome = yield* storageSession.storageProvider
       .prune({ ...pruneFilter, dryRun: false })
       .pipe(Effect.mapError((cause) => buildHistoryFailure('prune build history', cause)));
     if (commandOptions.json === true) {
-      yield* writeLog(
-        'render build cleanup outcome',
-        commandService.logger.line(JSON.stringify(pruneOutcome, null, 2)),
-      );
+      yield* writeJsonLine('render build cleanup outcome', commandService.logger, pruneOutcome);
       return;
     }
     yield* writeLog(
@@ -455,117 +463,106 @@ export const runPrune = (
     );
   });
 
-/** Run one build-history command operation. */
-export const buildHistoryCommandProgram = (
-  commandInput: BuildHistoryCommandInput,
-): Effect.Effect<
-  void,
-  BuildHistoryCommandFailure,
-  | BuildHistoryCommandService
-  | FileSystem.FileSystem
-  | PlatformCommandExecutor.CommandExecutor
-  | StorageResolverRequirements
-  | Effect.Effect.Context<ReturnType<typeof buildLogPath>>
-> =>
+/** List filtered build history as a table or JSON. */
+const listBuilds = (commandInput: Extract<BuildHistoryCommandInput, { operation: 'list' }>) =>
   Effect.gen(function* () {
     const commandService = yield* BuildHistoryCommandService;
-    switch (commandInput.operation) {
-      case 'list': {
-        const platform = yield* parsePlatformFilter(commandInput.platform);
-        const storedBuilds = yield* loadHistory();
-        const buildFilters: { app?: string; platform?: Platform } = {};
-        if (commandInput.app !== undefined) buildFilters.app = commandInput.app;
-        if (platform !== undefined) buildFilters.platform = platform;
-        const matchedBuilds = filterBuilds(storedBuilds, buildFilters);
-        const buildRows = matchedBuilds.map(toBuildRow);
-        if (commandInput.json) {
-          yield* writeLog(
-            'render build history',
-            commandService.logger.line(JSON.stringify(buildRows, null, 2)),
-          );
-          return;
-        }
-        if (buildRows.length === 0) {
-          yield* writeLog(
-            'render build history',
-            commandService.logger.line(
-              'No builds yet. Run `launch build ios` (or android) to create one.',
-            ),
-          );
-          return;
-        }
-        yield* writeLog(
-          'render build history',
-          commandService.logger.line(formatBuildsTable(buildRows)),
-        );
-        yield* writeLog(
-          'render build history summary',
-          commandService.logger.line(`\n${buildsLabel(buildRows.length)}.`),
-        );
-        return;
-      }
-      case 'view': {
-        const storedBuild = findBuild(yield* loadHistory(), commandInput.reference);
-        if (storedBuild === undefined) {
-          return yield* Effect.fail(
-            buildHistoryFailure(
-              'find stored build',
-              commandInput.reference,
-              `No build matches "${commandInput.reference}". Run \`launch builds list\` to see what's available.`,
-            ),
-          );
-        }
-        if (commandInput.json) {
-          yield* writeLog(
-            'render build detail',
-            commandService.logger.line(JSON.stringify(toBuildRow(storedBuild), null, 2)),
-          );
-          return;
-        }
-        yield* writeLog(
-          'render build detail',
-          commandService.logger.line(formatBuildDetail(storedBuild)),
-        );
-        return;
-      }
-      case 'log': {
-        const storedBuild = findBuild(yield* loadHistory(), commandInput.reference);
-        if (storedBuild === undefined) {
-          return yield* Effect.fail(
-            buildHistoryFailure(
-              'find stored build',
-              commandInput.reference,
-              `No build matches "${commandInput.reference}". Run \`launch builds list\` to see what's available.`,
-            ),
-          );
-        }
-        const buildIdentifier = buildId(storedBuild);
-        const logPath = yield* buildLogPath(buildIdentifier);
-        if (!(yield* commandService.logFileExists(logPath))) {
-          return yield* Effect.fail(
-            buildHistoryFailure(
-              'find build log',
-              logPath,
-              `No stored log for build ${buildIdentifier}. Logs are captured for local builds (run under the progress spinner); CI / --verbose builds stream their output to stdout instead.`,
-            ),
-          );
-        }
-        if (commandInput.open) {
-          yield* commandService.openLog(logPath);
-          return;
-        }
-        const logText = yield* commandService.readLog(buildIdentifier);
-        if (logText !== null && logText.trim() !== '') {
-          yield* writeLog('render build log', commandService.logger.line(logText));
-          return;
-        }
-        yield* writeLog('render build log', commandService.logger.line('(log is empty)'));
-        return;
-      }
-      case 'prune':
-        return yield* runPrune(commandInput.options);
+    const platform = yield* parsePlatformFilter(commandInput.platform);
+    const storedBuilds = yield* loadHistory();
+    const buildFilters: { app?: string; platform?: Platform } = {};
+    if (commandInput.app !== undefined) buildFilters.app = commandInput.app;
+    if (platform !== undefined) buildFilters.platform = platform;
+    const buildRows = filterBuilds(storedBuilds, buildFilters).map(toBuildRow);
+    if (commandInput.json) {
+      yield* writeJsonLine('render build history', commandService.logger, buildRows);
+      return;
     }
+    if (buildRows.length === 0) {
+      yield* writeLog(
+        'render build history',
+        commandService.logger.line(
+          'No builds yet. Run `launch build ios` (or android) to create one.',
+        ),
+      );
+      return;
+    }
+    yield* writeLog(
+      'render build history',
+      commandService.logger.line(formatBuildsTable(buildRows)),
+    );
+    yield* writeLog(
+      'render build history summary',
+      commandService.logger.line(`\n${buildsLabel(buildRows.length)}.`),
+    );
   });
+
+/** Show detail for one stored build. */
+const viewBuild = (commandInput: Extract<BuildHistoryCommandInput, { operation: 'view' }>) =>
+  Effect.gen(function* () {
+    const commandService = yield* BuildHistoryCommandService;
+    const storedBuild = yield* requireStoredBuild(commandInput.reference);
+    if (commandInput.json) {
+      yield* writeJsonLine('render build detail', commandService.logger, toBuildRow(storedBuild));
+      return;
+    }
+    yield* writeLog(
+      'render build detail',
+      commandService.logger.line(formatBuildDetail(storedBuild)),
+    );
+  });
+
+/** Print or open the redacted native log for one stored build. */
+const showBuildLog = (commandInput: Extract<BuildHistoryCommandInput, { operation: 'log' }>) =>
+  Effect.gen(function* () {
+    const commandService = yield* BuildHistoryCommandService;
+    const storedBuild = yield* requireStoredBuild(commandInput.reference);
+    const buildIdentifier = buildId(storedBuild);
+    const logPath = yield* buildLogPath(buildIdentifier);
+    if (!(yield* commandService.logFileExists(logPath))) {
+      return yield* Effect.fail(
+        buildHistoryFailure(
+          'find build log',
+          logPath,
+          `No stored log for build ${buildIdentifier}. Logs are captured for local builds (run under the progress spinner); CI / --verbose builds stream their output to stdout instead.`,
+        ),
+      );
+    }
+    if (commandInput.open) {
+      yield* commandService.openLog(logPath);
+      return;
+    }
+    const logText = yield* commandService.readLog(buildIdentifier);
+    if (logText !== null && logText.trim() !== '') {
+      yield* writeLog('render build log', commandService.logger.line(logText));
+      return;
+    }
+    yield* writeLog('render build log', commandService.logger.line('(log is empty)'));
+  });
+
+/** Run one build-history command operation. */
+export const buildHistoryCommandProgram = (commandInput: BuildHistoryCommandInput) => {
+  switch (commandInput.operation) {
+    case 'list':
+      return listBuilds(commandInput);
+    case 'view':
+      return viewBuild(commandInput);
+    case 'log':
+      return showBuildLog(commandInput);
+    case 'prune':
+      return runPrune(commandInput.options);
+  }
+};
+
+/** Open a log path with one host command under the live environment. */
+const openLogWithCommand = (
+  editorCommand: string,
+  logPath: string,
+  launchEnvironment: LaunchEnvironmentService,
+) =>
+  executeCommand(editorCommand, [logPath]).pipe(
+    Effect.provideService(LaunchEnvironment, launchEnvironment),
+    Effect.mapError((cause) => buildHistoryFailure('open build log', cause)),
+  );
 
 /** Live build-history dependencies backed by Effect platform services. */
 export const BuildHistoryCommandServiceLive = Layer.effect(
@@ -598,31 +595,22 @@ export const BuildHistoryCommandServiceLive = Layer.effect(
         Effect.gen(function* () {
           const editorCommand = launchEnvironment.values.editorCommand;
           if (editorCommand !== undefined && editorCommand !== '') {
-            return yield* executeCommand(editorCommand, [logPath]).pipe(
-              Effect.provideService(LaunchEnvironment, launchEnvironment),
-              Effect.mapError((cause) => buildHistoryFailure('open build log', cause)),
-            );
+            return yield* openLogWithCommand(editorCommand, logPath, launchEnvironment);
           }
           const operatingSystem = yield* detectHostOperatingSystem.pipe(
             Effect.mapError((cause) => buildHistoryFailure('detect host operating system', cause)),
           );
           if (operatingSystem === 'macos') {
-            return yield* executeCommand('open', [logPath]).pipe(
-              Effect.provideService(LaunchEnvironment, launchEnvironment),
-              Effect.mapError((cause) => buildHistoryFailure('open build log', cause)),
-            );
+            return yield* openLogWithCommand('open', logPath, launchEnvironment);
           }
           if (operatingSystem === 'linux') {
-            return yield* executeCommand('xdg-open', [logPath]).pipe(
-              Effect.provideService(LaunchEnvironment, launchEnvironment),
-              Effect.mapError((cause) => buildHistoryFailure('open build log', cause)),
-            );
+            return yield* openLogWithCommand('xdg-open', logPath, launchEnvironment);
           }
           yield* writeLog(
             'render build log path',
             logger.line(`Log file: ${logPath}  (set $EDITOR to open it automatically)`),
           );
         }),
-    } satisfies BuildHistoryCommandDependencies;
+    } satisfies BuildHistoryCommandService;
   }),
 );
