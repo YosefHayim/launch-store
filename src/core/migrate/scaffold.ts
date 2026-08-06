@@ -4,23 +4,25 @@ import { Effect } from 'effect';
 import { ENV_EXAMPLE_TEMPLATE } from '../config/configScaffold.js';
 import { serializeStoreConfig, type StoreConfig } from '../store/storeConfig.js';
 import type { MigrationArtifact, MigrationNote } from '../types/migrate.js';
-/** A fill-in-the-blanks `store.config.json` (the EAS metadata schema Launch adopts verbatim for iOS). */
+
+/** Fill-in-the-blanks `store.config.json` skeleton (EAS metadata schema for iOS). */
 const STORE_CONFIG_SKELETON: StoreConfig = {
   configVersion: 0,
   apple: { info: { 'en-US': { title: '', subtitle: '', description: '', keywords: [] } } },
 };
+
+export type StoreScaffoldDecision = Readonly<{
+  artifact: MigrationArtifact | null;
+  note: MigrationNote;
+}>;
+
 /**
- * Decide how a migration handles `store.config.json` in `cwd`: emit a skeleton artifact when none exists
- * (with a `manual` note to fill it in or pull the live listing), or emit no artifact and a `skipped` note
- * when one is already present (Launch uses it verbatim). Returns both so the caller appends them uniformly.
+ * Emit a skeleton `store.config.json` when absent, or skip when present.
+ * Shared by EAS and Fastlane migrations.
  */
 export const scaffoldStoreConfig = (
   workingDirectory: string,
-): Effect.Effect<
-  { artifact: MigrationArtifact | null; note: MigrationNote },
-  PlatformError,
-  FileSystem.FileSystem | Path.Path
-> =>
+): Effect.Effect<StoreScaffoldDecision, PlatformError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const pathService = yield* Path.Path;
@@ -46,11 +48,10 @@ export const scaffoldStoreConfig = (
       },
     };
   });
+
 /**
- * Build a `.env.example` body from imported env var KEYS: the configScaffold template's comment header
- * plus a blank-valued line per key. Values are intentionally dropped (they may be secrets), matching how
- * both migration sources treat env. Falls back to the plain starter template when no keys were found, so
- * the artifact is always valid. Shared by `eas.ts` (EAS `env` keys) and `fastlane.ts` (dotenv keys).
+ * `.env.example` body from imported env KEYS only (values dropped; may be secrets).
+ * Falls back to the starter template when no keys were found. Shared by EAS and Fastlane.
  */
 export const buildEnvExample = (keys: string[]): string => {
   if (keys.length === 0) return ENV_EXAMPLE_TEMPLATE;
