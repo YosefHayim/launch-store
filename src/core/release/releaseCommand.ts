@@ -13,8 +13,8 @@ import {
   AppleStoreClientService,
   type AppleStoreClientService as AppleStoreClientDependencies,
 } from '../services/appleStoreClient.js';
-import { createLogger, type Logger } from '../services/logger.js';
 import type { LaunchEnvironmentService } from '../services/environment.js';
+import { createLogger, type Logger } from '../services/logger.js';
 import { notify, type NotifyEvent } from '../services/notify.js';
 import type { LaunchPathsService } from '../services/paths.js';
 import { getCredentialsProvider } from '../services/registry.js';
@@ -36,6 +36,7 @@ import {
   releaseApp,
   waitForValidBuild,
   type AscReleaseApi,
+  type ReleaseAction,
   type ReleaseInput,
   type ReleaseReport,
 } from './appStoreRelease.js';
@@ -73,26 +74,27 @@ export type ReleaseCommandFailure = Readonly<{
 export const makeReleaseCommandFailure =
   Data.tagged<ReleaseCommandFailure>('ReleaseCommandFailure');
 
-/** Runtime-only presentation and confirmation capabilities for public releases. */
-export type ReleaseCommandDependencies = Readonly<{
+/** Injectable terminal boundary for public release orchestration. */
+export type ReleaseCommandService = Readonly<{
   terminalIsInteractive: boolean;
   confirmRelease: (message: string) => Effect.Effect<boolean, ReleaseCommandFailure>;
   cancelRelease: () => Effect.Effect<void>;
 }>;
-
-/** Injectable terminal boundary for public release orchestration. */
-export type ReleaseCommandService = ReleaseCommandDependencies;
 export const ReleaseCommandService =
   Context.GenericTag<ReleaseCommandService>('ReleaseCommandService');
 
-type StoreBuild = BuildResource;
+/** How an operator selected which App Store build to promote. */
+export type AppStoreBuildSelector =
+  | Readonly<{ kind: 'latest' }>
+  | Readonly<{ kind: 'number'; buildNumber: number }>
+  | Readonly<{ kind: 'invalid'; selector: string }>;
+
 type ReleaseInputCommon = Omit<ReleaseInput, 'versionString' | 'build' | 'dryRun'>;
 type BuildSource =
   | Readonly<{ kind: 'upload' }>
-  | Readonly<{ kind: 'promote'; storeBuild: StoreBuild }>;
-type SelectedStoreBuild = Readonly<{ storeBuild: StoreBuild; versionString: string }>;
+  | Readonly<{ kind: 'promote'; storeBuild: BuildResource }>;
+type SelectedStoreBuild = Readonly<{ storeBuild: BuildResource; versionString: string }>;
 
-/** Convert an unknown dependency failure to the release command's tagged channel. */
 const releaseFailure = (
   operation: string,
   cause: unknown,
@@ -104,14 +106,12 @@ const releaseFailure = (
   return makeReleaseCommandFailure({ operation, message, cause });
 };
 
-/** Map an App Store operation into the release command channel. */
-const attemptRead = <ReadValue>(
+const attemptRead = <ReadOutput>(
   operation: string,
-  read: () => Effect.Effect<ReadValue, unknown>,
-): Effect.Effect<ReadValue, ReleaseCommandFailure> =>
-  read().pipe(Effect.mapError((cause) => releaseFailure(operation, cause)));
+  read: Effect.Effect<ReadOutput, unknown>,
+): Effect.Effect<ReadOutput, ReleaseCommandFailure> =>
+  read.pipe(Effect.mapError((cause) => releaseFailure(operation, cause)));
 
-/** Map one terminal write into the release command's error channel. */
 const writeLog = (
   operation: string,
   logWrite: ReturnType<Logger['line']>,
@@ -122,16 +122,70 @@ const writeLog = (
 export const shouldNudgeRelease = (artifact: Pick<BuildArtifact, 'clean'>): boolean =>
   !artifact.clean;
 
+/** Whether an App Store build is processed and still usable for promotion. */
+export const isVerifiedStoreBuild = (storeBuild: BuildResource): boolean =>
+  storeBuild.processingState === 'VALID' && !storeBuild.expired;
+
 /** Select the newest processed, non-expired App Store build. */
-const newestValidBuild = (storeBuilds: readonly StoreBuild[]): StoreBuild | null => {
-  const newestBuild = storeBuilds.find(
-    (storeBuild) => storeBuild.processingState === 'VALID' && !storeBuild.expired,
-  );
+export const newestValidBuild = (storeBuilds: readonly BuildResource[]): BuildResource | null => {
+  const newestBuild = storeBuilds.find(isVerifiedStoreBuild);
   if (newestBuild === undefined) return null;
   return newestBuild;
 };
 
-/** Resolve the marketing version from app config or App Store Connect. */
+/** Parse `--build latest` or `--build <n>` into a typed selector. */
+export const parseAppStoreBuildSelector = (selector: string): AppStoreBuildSelector => {
+  if (selector === 'latest') return { kind: 'latest' };
+  const buildNumber = Number.parseInt(selector, 10);
+  if (Number.isNaN(buildNumber)) return { kind: 'invalid', selector };
+  return { kind: 'number', buildNumber };
+};
+
+/** Resolve the staged-rollout fraction for a Play production release. */
+export const resolveAndroidRollout = (
+  profileRollout: number | undefined,
+  rolloutFlag: string | undefined,
+): number => {
+  if (rolloutFlag !== undefined) return Number.parseFloat(rolloutFlag);
+  if (profileRollout !== undefined) return profileRollout;
+  return 1;
+};
+
+/** Format one release-plan / receipt line from a recorded action. */
+export const formatReleaseActionLine = (
+  releaseAction: ReleaseAction,
+  mode: 'plan' | 'receipt',
+): string => {
+  if (mode === 'receipt' && releaseAction.status === 'failed') {
+    let errorSuffix = '';
+    if (releaseAction.error !== undefined) errorSuffix = ` - ${releaseAction.error}`;
+    return `x ${releaseAction.description}${errorSuffix}`;
+  }
+  let noteSuffix = '';
+  if (releaseAction.status === 'skipped' && releaseAction.note !== undefined) {
+    noteSuffix = ` (${releaseAction.note})`;
+  }
+  return `- ${releaseAction.description}${noteSuffix}`;
+};
+
+/** Count failed steps in a release report for exit-code decisions. */
+export const countFailedReleaseActions = (releaseReport: ReleaseReport): number => {
+  let failureCount = 0;
+  for (const releaseAction of releaseReport.actions) {
+    if (releaseAction.status === 'failed') failureCount += 1;
+  }
+  return failureCount;
+};
+
+const findStoredPlatformBuild = (
+  storedBuilds: readonly BuildArtifact[],
+  appName: string,
+  platform: Platform,
+): BuildArtifact | undefined =>
+  storedBuilds.find(
+    (storedBuild) => storedBuild.appName === appName && storedBuild.platform === platform,
+  );
+
 const resolveVersionString = (
   ascClient: AscReleaseApi,
   appDescriptor: AppDescriptor,
@@ -140,7 +194,8 @@ const resolveVersionString = (
   Effect.gen(function* () {
     const configuredVersion = appDescriptor.version;
     if (configuredVersion !== undefined) return configuredVersion;
-    const latestVersion = yield* attemptRead('read latest App Store version', () =>
+    const latestVersion = yield* attemptRead(
+      'read latest App Store version',
       ascClient.getLatestMarketingVersion(bundleId),
     );
     if (latestVersion !== null) return latestVersion;
@@ -153,9 +208,8 @@ const resolveVersionString = (
     );
   });
 
-/** Confirm public release according to `--yes` and terminal availability. */
 const confirmPublicRelease = (
-  commandService: ReleaseCommandDependencies,
+  commandService: ReleaseCommandService,
   message: string,
   commandOptions: ReleaseCommandOptions,
 ): Effect.Effect<boolean, ReleaseCommandFailure> =>
@@ -170,18 +224,36 @@ const confirmPublicRelease = (
     return yield* commandService.confirmRelease(message);
   });
 
-/** Render a read-only release plan. */
+const confirmOrCancel = (
+  commandService: ReleaseCommandService,
+  message: string,
+  commandOptions: ReleaseCommandOptions,
+): Effect.Effect<boolean, ReleaseCommandFailure> =>
+  Effect.gen(function* () {
+    const confirmed = yield* confirmPublicRelease(commandService, message, commandOptions);
+    if (confirmed) return true;
+    yield* commandService.cancelRelease();
+    return false;
+  });
+
+const confirmIncrementalArtifact = (
+  commandService: ReleaseCommandService,
+  artifact: Pick<BuildArtifact, 'clean'>,
+  message: string,
+  commandOptions: ReleaseCommandOptions,
+): Effect.Effect<boolean, ReleaseCommandFailure> => {
+  if (!shouldNudgeRelease(artifact)) return Effect.succeed(true);
+  return confirmOrCancel(commandService, message, commandOptions);
+};
+
 const renderReleasePlan = (
   releaseReport: ReleaseReport,
   appName: string,
   logger: Logger,
 ): Effect.Effect<void, ReleaseCommandFailure> => {
-  const planLines = releaseReport.actions.map((releaseAction) => {
-    if (releaseAction.status !== 'skipped') return `- ${releaseAction.description}`;
-    let noteSuffix = '';
-    if (releaseAction.note !== undefined) noteSuffix = ` (${releaseAction.note})`;
-    return `- ${releaseAction.description}${noteSuffix}`;
-  });
+  const planLines = releaseReport.actions.map((releaseAction) =>
+    formatReleaseActionLine(releaseAction, 'plan'),
+  );
   if (planLines.length === 0) planLines.push('nothing to do - already submitted or up to date');
   return writeLog(
     'render release plan',
@@ -192,7 +264,6 @@ const renderReleasePlan = (
   );
 };
 
-/** Render a submitted release and return its failed-step count. */
 const renderReleaseReport = (
   releaseReport: ReleaseReport,
   appName: string,
@@ -207,21 +278,10 @@ const renderReleaseReport = (
       ),
     ).pipe(Effect.as(0));
   }
-  let failureCount = 0;
-  const receiptLines = releaseReport.actions.map((releaseAction) => {
-    if (releaseAction.status === 'failed') {
-      failureCount += 1;
-      let errorSuffix = '';
-      if (releaseAction.error !== undefined) errorSuffix = ` - ${releaseAction.error}`;
-      return `x ${releaseAction.description}${errorSuffix}`;
-    }
-    if (releaseAction.status === 'skipped') {
-      let noteSuffix = '';
-      if (releaseAction.note !== undefined) noteSuffix = ` (${releaseAction.note})`;
-      return `- ${releaseAction.description}${noteSuffix}`;
-    }
-    return `- ${releaseAction.description}`;
-  });
+  const failureCount = countFailedReleaseActions(releaseReport);
+  const receiptLines = releaseReport.actions.map((releaseAction) =>
+    formatReleaseActionLine(releaseAction, 'receipt'),
+  );
   let receiptTitle = 'Submitted for App Store review';
   if (failureCount > 0) receiptTitle = `Submitted with ${failureCount} failed step(s) - see below`;
   return writeLog(
@@ -233,18 +293,37 @@ const renderReleaseReport = (
   ).pipe(Effect.as(failureCount));
 };
 
-/** Resolve a requested processed App Store build. */
+const exitMissingAppRecord = (
+  bundleId: string,
+  logger: Logger,
+): Effect.Effect<void, CommandExit | ReleaseCommandFailure> =>
+  Effect.gen(function* () {
+    yield* writeLog(
+      'render missing App Store record',
+      logger.note(appRecordMissingMessage(bundleId)),
+    );
+    yield* completeCommand(1);
+  });
+
 const resolveBuildToPromote = (
   ascClient: AscReleaseApi,
   appId: string,
   appName: string,
   selector: string,
-): Effect.Effect<StoreBuild, ReleaseCommandFailure> =>
+): Effect.Effect<BuildResource, ReleaseCommandFailure> =>
   Effect.gen(function* () {
-    if (selector === 'latest') {
-      const storeBuilds = yield* attemptRead('list App Store builds', () =>
-        ascClient.listBuilds(appId),
+    const buildSelector = parseAppStoreBuildSelector(selector);
+    if (buildSelector.kind === 'invalid') {
+      return yield* Effect.fail(
+        releaseFailure(
+          'parse App Store build selector',
+          selector,
+          `--build must be a build number or "latest" (got "${selector}").`,
+        ),
       );
+    }
+    if (buildSelector.kind === 'latest') {
+      const storeBuilds = yield* attemptRead('list App Store builds', ascClient.listBuilds(appId));
       const storeBuild = newestValidBuild(storeBuilds);
       if (storeBuild !== null) return storeBuild;
       return yield* Effect.fail(
@@ -255,30 +334,20 @@ const resolveBuildToPromote = (
         ),
       );
     }
-    const buildNumber = Number.parseInt(selector, 10);
-    if (Number.isNaN(buildNumber)) {
-      return yield* Effect.fail(
-        releaseFailure(
-          'parse App Store build selector',
-          selector,
-          `--build must be a build number or "latest" (got "${selector}").`,
-        ),
-      );
-    }
-    const storeBuild = yield* attemptRead('find App Store build', () =>
-      ascClient.findBuildByVersion(appId, buildNumber),
+    const storeBuild = yield* attemptRead(
+      'find App Store build',
+      ascClient.findBuildByVersion(appId, buildSelector.buildNumber),
     );
     if (storeBuild !== null) return storeBuild;
     return yield* Effect.fail(
       releaseFailure(
         'find App Store build',
         selector,
-        `No build ${buildNumber} on App Store Connect for ${appName}.`,
+        `No build ${buildSelector.buildNumber} on App Store Connect for ${appName}.`,
       ),
     );
   });
 
-/** Choose between uploading a local build and promoting a verified store build. */
 const resolveBuildSource = (
   ascClient: AscReleaseApi,
   appId: string,
@@ -298,12 +367,8 @@ const resolveBuildSource = (
       );
       return { kind: 'promote', storeBuild };
     }
-    const storeBuilds = yield* attemptRead('list App Store builds', () =>
-      ascClient.listBuilds(appId),
-    );
-    const verifiedBuilds = storeBuilds.filter(
-      (storeBuild) => storeBuild.processingState === 'VALID' && !storeBuild.expired,
-    );
+    const storeBuilds = yield* attemptRead('list App Store builds', ascClient.listBuilds(appId));
+    const verifiedBuilds = storeBuilds.filter(isVerifiedStoreBuild);
     if (verifiedBuilds.length === 0) {
       if (terminalIsInteractive)
         yield* writeLog(
@@ -349,7 +414,6 @@ const resolveBuildSource = (
     }).pipe(Effect.mapError((cause) => releaseFailure('select release build', cause)));
   });
 
-/** Resolve the iOS build that will be submitted, or stop after cancellation/upload-only. */
 const resolveIosBuild = (
   ascClient: AscReleaseApi,
   appId: string,
@@ -359,7 +423,7 @@ const resolveIosBuild = (
   commandOptions: ReleaseCommandOptions,
   buildContext: ResolvedBuildContext,
   logger: Logger,
-  commandService: ReleaseCommandDependencies,
+  commandService: ReleaseCommandService,
 ): Effect.Effect<
   SelectedStoreBuild | null,
   ReleaseCommandFailure,
@@ -376,15 +440,12 @@ const resolveIosBuild = (
     );
     if (buildSource.kind === 'promote') {
       const versionString = yield* resolveVersionString(ascClient, appDescriptor, bundleId);
-      const confirmed = yield* confirmPublicRelease(
+      const confirmed = yield* confirmOrCancel(
         commandService,
         `Submit ${appDescriptor.name} ${versionString} (build ${buildSource.storeBuild.version}) for App Store review?`,
         commandOptions,
       );
-      if (!confirmed) {
-        yield* commandService.cancelRelease();
-        return null;
-      }
+      if (!confirmed) return null;
       return { storeBuild: buildSource.storeBuild, versionString };
     }
     const storageProvider = yield* resolveStorageProvider(launchConfig).pipe(
@@ -393,10 +454,10 @@ const resolveIosBuild = (
     const storedBuilds = yield* storageProvider
       .list()
       .pipe(Effect.mapError((cause) => releaseFailure('read stored builds', cause)));
-    const artifact = storedBuilds.find(
-      (storedBuild) =>
-        storedBuild.appName === appDescriptor.name &&
-        storedBuild.platform === buildContext.platform,
+    const artifact = findStoredPlatformBuild(
+      storedBuilds,
+      appDescriptor.name,
+      buildContext.platform,
     );
     if (artifact === undefined) {
       return yield* Effect.fail(
@@ -423,26 +484,19 @@ const resolveIosBuild = (
         ...noticeDetails,
       ),
     );
-    const uploadConfirmed = yield* confirmPublicRelease(
+    const uploadConfirmed = yield* confirmOrCancel(
       commandService,
       `Upload and submit ${appDescriptor.name} ${artifact.version} (${artifact.buildNumber}) for review?`,
       commandOptions,
     );
-    if (!uploadConfirmed) {
-      yield* commandService.cancelRelease();
-      return null;
-    }
-    if (shouldNudgeRelease(artifact)) {
-      const incrementalConfirmed = yield* confirmPublicRelease(
-        commandService,
-        `This build was incremental, not clean - promote anyway? (\`launch build ${buildContext.platform} --clean\` for a fresh one)`,
-        commandOptions,
-      );
-      if (!incrementalConfirmed) {
-        yield* commandService.cancelRelease();
-        return null;
-      }
-    }
+    if (!uploadConfirmed) return null;
+    const incrementalConfirmed = yield* confirmIncrementalArtifact(
+      commandService,
+      artifact,
+      `This build was incremental, not clean - promote anyway? (\`launch build ${buildContext.platform} --clean\` for a fresh one)`,
+      commandOptions,
+    );
+    if (!incrementalConfirmed) return null;
     const credentialsProvider = yield* getCredentialsProvider(launchConfig.credentials).pipe(
       Effect.mapError((cause) => releaseFailure('resolve credentials provider', cause)),
     );
@@ -478,13 +532,13 @@ const resolveIosBuild = (
       'render App Store processing step',
       logger.step('processing', 'waiting for App Store Connect to finish processing the build'),
     );
-    const storeBuild = yield* attemptRead('wait for App Store build processing', () =>
+    const storeBuild = yield* attemptRead(
+      'wait for App Store build processing',
       waitForValidBuild(ascClient, appId, artifact.buildNumber),
     );
     return { storeBuild, versionString: artifact.version };
   });
 
-/** Execute an Apple public release. */
 const releaseAppleBuild = (
   platform: Platform,
   appDescriptor: AppDescriptor,
@@ -539,21 +593,13 @@ const releaseAppleBuild = (
     const ascClient = yield* appleStoreClient
       .createClient(ascKey)
       .pipe(Effect.mapError((cause) => releaseFailure('create App Store client', cause)));
-    const appId = yield* attemptRead('read App Store app id', () => ascClient.getAppId(bundleId));
+    const appId = yield* attemptRead('read App Store app id', ascClient.getAppId(bundleId));
     if (commandOptions.createApp === true) {
-      yield* writeLog(
-        'render missing App Store record',
-        logger.note(appRecordMissingMessage(bundleId)),
-      );
-      yield* completeCommand(1);
+      yield* exitMissingAppRecord(bundleId, logger);
       return;
     }
     if (appId === null) {
-      yield* writeLog(
-        'render missing App Store record',
-        logger.note(appRecordMissingMessage(bundleId)),
-      );
-      yield* completeCommand(1);
+      yield* exitMissingAppRecord(bundleId, logger);
       return;
     }
     const releaseTypeSettings = resolveReleaseType(launchConfig.release, commandOptions);
@@ -583,7 +629,7 @@ const releaseAppleBuild = (
     if (releaseTypeSettings.earliestReleaseDate !== undefined)
       releaseInputCommon.earliestReleaseDate = releaseTypeSettings.earliestReleaseDate;
     if (commandOptions.dryRun === true) {
-      let storeBuild: StoreBuild | null = null;
+      let storeBuild: BuildResource | null = null;
       if (commandOptions.build !== undefined)
         storeBuild = yield* resolveBuildToPromote(
           ascClient,
@@ -599,7 +645,8 @@ const releaseAppleBuild = (
           ),
         );
       const versionString = yield* resolveVersionString(ascClient, appDescriptor, bundleId);
-      const releaseReport = yield* attemptRead('plan App Store release', () =>
+      const releaseReport = yield* attemptRead(
+        'plan App Store release',
         releaseApp(ascClient, {
           ...releaseInputCommon,
           versionString,
@@ -647,7 +694,8 @@ const releaseAppleBuild = (
       destination: 'App Store review',
     };
     if (!Number.isNaN(parsedBuildNumber)) notifyEvent.buildNumber = parsedBuildNumber;
-    const releaseReport = yield* attemptRead('submit App Store release', () =>
+    const releaseReport = yield* attemptRead(
+      'submit App Store release',
       releaseApp(ascClient, releaseInput),
     ).pipe(
       Effect.tapError((cause) =>
@@ -688,7 +736,6 @@ const releaseAppleBuild = (
     );
   });
 
-/** Execute an Android public release. */
 const releaseAndroidBuild = (
   appDescriptor: AppDescriptor,
   buildProfile: BuildProfile,
@@ -714,10 +761,7 @@ const releaseAndroidBuild = (
     const storedBuilds = yield* storageProvider
       .list()
       .pipe(Effect.mapError((cause) => releaseFailure('read stored builds', cause)));
-    const latestBuild = storedBuilds.find(
-      (storedBuild) =>
-        storedBuild.appName === appDescriptor.name && storedBuild.platform === 'android',
-    );
+    const latestBuild = findStoredPlatformBuild(storedBuilds, appDescriptor.name, 'android');
     if (latestBuild === undefined) {
       return yield* Effect.fail(
         releaseFailure(
@@ -730,29 +774,20 @@ const releaseAndroidBuild = (
     yield* ensureArtifactPresent(latestBuild, appDescriptor.name, 'android').pipe(
       Effect.mapError((cause) => releaseFailure('verify Android release build', cause)),
     );
-    const releaseConfirmed = yield* confirmPublicRelease(
+    const releaseConfirmed = yield* confirmOrCancel(
       commandService,
       `Submit ${appDescriptor.name} ${latestBuild.version} (${latestBuild.buildNumber}) to the PUBLIC Play production track?`,
       commandOptions,
     );
-    if (!releaseConfirmed) {
-      yield* commandService.cancelRelease();
-      return;
-    }
-    if (shouldNudgeRelease(latestBuild)) {
-      const incrementalConfirmed = yield* confirmPublicRelease(
-        commandService,
-        'This build was incremental, not clean - promote anyway? Run `launch build android --clean` first for a from-scratch artifact.',
-        commandOptions,
-      );
-      if (!incrementalConfirmed) {
-        yield* commandService.cancelRelease();
-        return;
-      }
-    }
-    let rollout = buildProfile.rollout;
-    if (commandOptions.rollout !== undefined) rollout = Number.parseFloat(commandOptions.rollout);
-    if (rollout === undefined) rollout = 1;
+    if (!releaseConfirmed) return;
+    const incrementalConfirmed = yield* confirmIncrementalArtifact(
+      commandService,
+      latestBuild,
+      'This build was incremental, not clean - promote anyway? Run `launch build android --clean` first for a from-scratch artifact.',
+      commandOptions,
+    );
+    if (!incrementalConfirmed) return;
+    const rollout = resolveAndroidRollout(buildProfile.rollout, commandOptions.rollout);
     const android: AndroidReleaseOptions = { track: 'production', rollout };
     const buildContext: ResolvedBuildContext = {
       platform: 'android',
@@ -897,6 +932,6 @@ export const ReleaseCommandServiceLive = Layer.effect(
           .confirm(message)
           .pipe(Effect.mapError((cause) => releaseFailure('confirm public release', cause))),
       cancelRelease: () => launchPrompt.cancel('Cancelled - nothing submitted.'),
-    } satisfies ReleaseCommandDependencies;
+    } satisfies ReleaseCommandService;
   }),
 );
