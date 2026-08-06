@@ -43,29 +43,33 @@ export const registerReleaseTrainCommand = (program: Command): void => {
     .option('--json', 'machine-readable output for CI/agents', false);
   addEnvFlags(releaseTrainCommand).action(
     (action: string, trainId: string | undefined, commandOptions: ReleaseTrainOptions) => {
-      const optionalOptions: {
+      const releaseTrainOptions: {
         app?: string;
+        profile: string;
         platform?: string;
+        ota: boolean;
         hold?: boolean;
+        channel: string;
         runtimeVersion?: string;
         watch?: boolean;
         json?: boolean;
-      } = {};
-      if (commandOptions.app !== undefined) optionalOptions.app = commandOptions.app;
-      if (commandOptions.platform !== undefined) optionalOptions.platform = commandOptions.platform;
-      if (commandOptions.hold !== undefined) optionalOptions.hold = commandOptions.hold;
-      if (commandOptions.runtimeVersion !== undefined)
-        optionalOptions.runtimeVersion = commandOptions.runtimeVersion;
-      if (commandOptions.watch !== undefined) optionalOptions.watch = commandOptions.watch;
-      if (commandOptions.json !== undefined) optionalOptions.json = commandOptions.json;
-      const releaseTrainOptions = {
+        env: string[];
+        includeLocal: boolean;
+      } = {
         profile: commandOptions.profile,
         ota: commandOptions.ota,
         channel: commandOptions.channel,
         env: commandOptions.env,
         includeLocal: commandOptions.includeLocal,
-        ...optionalOptions,
       };
+      if (commandOptions.app !== undefined) releaseTrainOptions.app = commandOptions.app;
+      if (commandOptions.platform !== undefined)
+        releaseTrainOptions.platform = commandOptions.platform;
+      if (commandOptions.hold !== undefined) releaseTrainOptions.hold = commandOptions.hold;
+      if (commandOptions.runtimeVersion !== undefined)
+        releaseTrainOptions.runtimeVersion = commandOptions.runtimeVersion;
+      if (commandOptions.watch !== undefined) releaseTrainOptions.watch = commandOptions.watch;
+      if (commandOptions.json !== undefined) releaseTrainOptions.json = commandOptions.json;
       if (trainId === undefined) {
         return runCliProgram(releaseTrainCommandProgram({ action, options: releaseTrainOptions }));
       }

@@ -1,4 +1,5 @@
 import { Effect, Either } from 'effect';
+import { errorMessage } from '../services/errorMessage.js';
 import type {
   Car,
   NativeCar,
@@ -49,16 +50,33 @@ export type AdvanceOptions = Readonly<{
 /** Process exit codes for release-train status. */
 export const TRAIN_EXIT = { ok: 0, error: 1, blocked: 2, inProgress: 3 } as const;
 
-/** Convert an unknown engine failure to display text. */
-const failureMessage = (cause: unknown): string => {
-  if (cause instanceof Error) return cause.message;
-  return String(cause);
-};
-
 /** Whether a native car stopped at a failure that requires an operator. */
-const isNativeFailure = (trainCar: NativeCar): boolean => {
+export const isNativeFailure = (trainCar: NativeCar): boolean => {
   if (trainCar.state === 'rejected') return true;
   return trainCar.state === 'failed';
+};
+
+/** Whether a native car is approved or already released (eligible for the hold gate). */
+export const isNativeApprovedOrReleased = (trainCar: NativeCar): boolean => {
+  if (trainCar.state === 'approved') return true;
+  return trainCar.state === 'released';
+};
+
+/**
+ * Whether the release gate may fire this reconcile.
+ * Hold waits for every native car to be approved/released unless forced; a held failure blocks.
+ */
+export const isReleaseGateOpen = (
+  hold: boolean,
+  forced: boolean,
+  hasNativeFailure: boolean,
+  allNativeApprovedOrReleased: boolean,
+): boolean => {
+  const blocked = hold && !forced && hasNativeFailure;
+  if (blocked) return false;
+  if (forced) return true;
+  if (!hold) return true;
+  return allNativeApprovedOrReleased;
 };
 
 /** Derive the train lifecycle from its cars and hold gate. */
@@ -90,7 +108,7 @@ export const startTrain = <Requirements>(
       const submission = yield* trainEngine.submitNative(nativeCar).pipe(Effect.either);
       if (Either.isLeft(submission)) {
         nativeCar.state = 'failed';
-        nativeCar.error = failureMessage(submission.left);
+        nativeCar.error = errorMessage(submission.left);
       } else {
         nativeCar.state = 'submitted';
         if (submission.right.buildId !== undefined) {
@@ -144,14 +162,8 @@ export const advanceTrain = <Requirements>(
 
     const nativeCars = trainCars.filter(isNativeCar);
     const hasNativeFailure = nativeCars.some(isNativeFailure);
-    const blocked = trainRecord.hold && !forced && hasNativeFailure;
-    const allApproved = nativeCars.every((nativeCar) => {
-      if (nativeCar.state === 'approved') return true;
-      return nativeCar.state === 'released';
-    });
-    let gateOpen = forced;
-    if (!trainRecord.hold && !blocked) gateOpen = true;
-    if (allApproved && !blocked) gateOpen = true;
+    const allApproved = nativeCars.every(isNativeApprovedOrReleased);
+    const gateOpen = isReleaseGateOpen(trainRecord.hold, forced, hasNativeFailure, allApproved);
 
     if (gateOpen) {
       for (const nativeCar of nativeCars) {
@@ -160,7 +172,7 @@ export const advanceTrain = <Requirements>(
         nativeCar.updatedAt = advanceOptions.now;
         if (Either.isLeft(releaseOutcome)) {
           nativeCar.state = 'failed';
-          nativeCar.error = failureMessage(releaseOutcome.left);
+          nativeCar.error = errorMessage(releaseOutcome.left);
           continue;
         }
         nativeCar.state = 'released';
@@ -172,12 +184,13 @@ export const advanceTrain = <Requirements>(
       if (!isOtaCar(otaCar)) continue;
       if (otaCar.state !== 'pending') continue;
       const nativeCar = nativeCars.find((candidate) => candidate.kind === otaCar.platform);
-      if (nativeCar?.state !== 'released') continue;
+      if (nativeCar === undefined) continue;
+      if (nativeCar.state !== 'released') continue;
       const publishOutcome = yield* trainEngine.publishOta(otaCar).pipe(Effect.either);
       if (Either.isLeft(publishOutcome)) {
         if (advanceOptions.onWarn !== undefined) {
           advanceOptions.onWarn(
-            `OTA ${otaCar.platform} (${otaCar.channel}/${otaCar.runtimeVersion}) publish failed: ${failureMessage(publishOutcome.left)}`,
+            `OTA ${otaCar.platform} (${otaCar.channel}/${otaCar.runtimeVersion}) publish failed: ${errorMessage(publishOutcome.left)}`,
           );
         }
         continue;

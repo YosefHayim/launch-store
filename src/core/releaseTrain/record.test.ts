@@ -7,36 +7,37 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { makeLaunchPathsTest } from '../services/paths.js';
 import type { TrainRecord } from '../types/releaseTrain.js';
 import {
+  isLiveTrain,
   latestTrainRecord,
   listTrainRecords,
   readTrainRecord,
   removeTrainRecord,
+  safeTrainId,
   type TrainRecordRequirements,
   writeTrainRecord,
 } from './record.js';
-/** Build a minimal valid train record, overridable per field. */
-const train = (over: Partial<TrainRecord> = {}): TrainRecord => {
-  return {
-    id: 'helloworld-ab12',
-    app: 'hello-world',
-    hold: false,
-    state: 'running',
-    createdAt: '2026-06-16T00:00:00.000Z',
-    updatedAt: '2026-06-16T00:00:00.000Z',
-    cars: [
-      { kind: 'ios', state: 'building', updatedAt: '2026-06-16T00:00:00.000Z' },
-      {
-        kind: 'ota',
-        platform: 'ios',
-        channel: 'production',
-        runtimeVersion: '1.0.0',
-        state: 'pending',
-        updatedAt: '2026-06-16T00:00:00.000Z',
-      },
-    ],
-    ...over,
-  };
-};
+
+/** Minimal valid train record, overridable per field. */
+const train = (over: Partial<TrainRecord> = {}): TrainRecord => ({
+  id: 'helloworld-ab12',
+  app: 'hello-world',
+  hold: false,
+  state: 'running',
+  createdAt: '2026-06-16T00:00:00.000Z',
+  updatedAt: '2026-06-16T00:00:00.000Z',
+  cars: [
+    { kind: 'ios', state: 'building', updatedAt: '2026-06-16T00:00:00.000Z' },
+    {
+      kind: 'ota',
+      platform: 'ios',
+      channel: 'production',
+      runtimeVersion: '1.0.0',
+      state: 'pending',
+      updatedAt: '2026-06-16T00:00:00.000Z',
+    },
+  ],
+  ...over,
+});
 
 /** Run one record operation with deterministic Launch home and Node platform services. */
 const runRecordOperation = <Success, Failure>(
@@ -48,6 +49,21 @@ const runRecordOperation = <Success, Failure>(
       Effect.provide(NodeContext.layer),
     ),
   );
+
+describe('release-train record pure helpers', () => {
+  it('treats running and blocked trains as live', () => {
+    expect(isLiveTrain(train({ state: 'running' }))).toBe(true);
+    expect(isLiveTrain(train({ state: 'blocked' }))).toBe(true);
+    expect(isLiveTrain(train({ state: 'done' }))).toBe(false);
+    expect(isLiveTrain(train({ state: 'aborted' }))).toBe(false);
+  });
+
+  it('sanitizes train ids for filenames', () => {
+    expect(safeTrainId('hello-world_ab12')).toBe('hello-world_ab12');
+    expect(safeTrainId('weird/../id')).toBe('weirdid');
+    expect(safeTrainId('!!!')).toBe('train');
+  });
+});
 
 describe('release-train record', () => {
   let directoryPath: string;
