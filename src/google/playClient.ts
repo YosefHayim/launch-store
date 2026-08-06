@@ -150,10 +150,81 @@ const normalizeTrackRelease = (
   return release;
 };
 /** Retain a non-empty generated page token and collapse null/empty values to undefined. */
-const normalizedPageToken = (token: string | null | undefined): string | undefined => {
+export const nonEmptyPageToken = (token: string | null | undefined): string | undefined => {
   if (typeof token !== 'string') return;
   if (token.length === 0) return;
   return token;
+};
+/**
+ * Walk every page of a token-bearing generated list into one Launch-owned collection.
+ * Callers supply the page load, item projection, and next-token extraction so product,
+ * subscription, offer, and review lists share one pagination loop.
+ */
+const collectGeneratedPages = <TPage, TCollected>(
+  loadPage: (pageToken: string | undefined) => Effect.Effect<TPage, GooglePlayApiError>,
+  collectedFromPage: (page: TPage) => readonly TCollected[],
+  nextTokenFromPage: (page: TPage) => string | null | undefined,
+): Effect.Effect<TCollected[], GooglePlayApiError> =>
+  Effect.gen(function* () {
+    const collected: TCollected[] = [];
+    let pageToken: string | undefined;
+    do {
+      const page = yield* loadPage(pageToken);
+      for (const pageEntry of collectedFromPage(page)) collected.push(pageEntry);
+      pageToken = nonEmptyPageToken(nextTokenFromPage(page));
+    } while (pageToken !== undefined);
+    return collected;
+  });
+/** Project generated track releases into the {@link PlayRelease} slice Launch reads and writes. */
+const releasesFromGoogleTrack = (
+  googleReleases: androidpublisher_v3.Schema$TrackRelease[] | null | undefined,
+): PlayRelease[] => {
+  const releases: PlayRelease[] = [];
+  if (!Array.isArray(googleReleases)) return releases;
+  for (const googleRelease of googleReleases) {
+    releases.push(normalizeTrackRelease(googleRelease));
+  }
+  return releases;
+};
+/** Keep only offer tags that carry a real tag string. */
+const offerTagsFromGoogle = (
+  googleTags: androidpublisher_v3.Schema$OfferTag[] | null | undefined,
+):
+  | {
+      tag: string;
+    }[]
+  | undefined => {
+  if (!Array.isArray(googleTags)) return;
+  const offerTags: {
+    tag: string;
+  }[] = [];
+  for (const googleTag of googleTags) {
+    if (typeof googleTag.tag === 'string') offerTags.push({ tag: googleTag.tag });
+  }
+  return offerTags;
+};
+/** JWT options the official Google clients accept for one service-account key + OAuth scopes. */
+export const serviceAccountJwtOptions = (
+  account: ServiceAccount,
+  scopes: readonly string[],
+): {
+  email: string;
+  key: string;
+  keyId?: string;
+  scopes: string[];
+} => {
+  const authenticationOptions: {
+    email: string;
+    key: string;
+    keyId?: string;
+    scopes: string[];
+  } = {
+    email: account.clientEmail,
+    key: account.privateKey,
+    scopes: [...scopes],
+  };
+  if (account.privateKeyId !== undefined) authenticationOptions.keyId = account.privateKeyId;
+  return authenticationOptions;
 };
 /** Normalize the legacy in-app-product money representation. */
 const normalizeProductMoney = (
@@ -236,15 +307,8 @@ const normalizeBasePlan = (
     }
     basePlan.regionalConfigs = regionalConfigs;
   }
-  if (Array.isArray(googlePlan.offerTags)) {
-    const offerTags: {
-      tag: string;
-    }[] = [];
-    for (const googleTag of googlePlan.offerTags) {
-      if (typeof googleTag.tag === 'string') offerTags.push({ tag: googleTag.tag });
-    }
-    basePlan.offerTags = offerTags;
-  }
+  const offerTags = offerTagsFromGoogle(googlePlan.offerTags);
+  if (offerTags !== undefined) basePlan.offerTags = offerTags;
   return basePlan;
 };
 /** Normalize one generated subscription to Launch's consumed catalog shape. */
@@ -329,15 +393,8 @@ const normalizeSubscriptionOffer = (
       offer.phases.push(phase);
     }
   }
-  if (Array.isArray(googleOffer.offerTags)) {
-    const offerTags: {
-      tag: string;
-    }[] = [];
-    for (const googleTag of googleOffer.offerTags) {
-      if (typeof googleTag.tag === 'string') offerTags.push({ tag: googleTag.tag });
-    }
-    offer.offerTags = offerTags;
-  }
+  const offerTags = offerTagsFromGoogle(googleOffer.offerTags);
+  if (offerTags !== undefined) offer.offerTags = offerTags;
   return offer;
 };
 const ServiceAccountKeySchema = Schema.Struct({
@@ -445,18 +502,9 @@ export class GooglePlayClient {
       this.publisher = generatedPublisher;
       return;
     }
-    const authenticationOptions: {
-      email: string;
-      key: string;
-      keyId?: string;
-      scopes: string[];
-    } = {
-      email: account.clientEmail,
-      key: account.privateKey,
-      scopes: [OAUTH_SCOPE],
-    };
-    if (account.privateKeyId !== undefined) authenticationOptions.keyId = account.privateKeyId;
-    const googleAuthentication = new androidPublisherAuth.JWT(authenticationOptions);
+    const googleAuthentication = new androidPublisherAuth.JWT(
+      serviceAccountJwtOptions(account, [OAUTH_SCOPE]),
+    );
     this.publisher = androidpublisher({ version: 'v3', auth: googleAuthentication });
   }
   /** Convert the official generated client's Promise-shaped request into one Effect. */
@@ -561,42 +609,30 @@ export class GooglePlayClient {
     track: string,
   ): Effect.Effect<PlayRelease[], GooglePlayApiError> {
     return this.withReadEdit(packageName, (editId) =>
-      Effect.gen(this, function* () {
-        const trackSnapshot = yield* this.executeGeneratedRequest('get track', () =>
-          this.publisher.edits.tracks.get({ packageName, editId, track }),
-        );
-        const releases: PlayRelease[] = [];
-        if (Array.isArray(trackSnapshot.releases)) {
-          for (const googleRelease of trackSnapshot.releases) {
-            releases.push(normalizeTrackRelease(googleRelease));
-          }
-        }
-        return releases;
-      }),
+      this.executeGeneratedRequest('get track', () =>
+        this.publisher.edits.tracks.get({ packageName, editId, track }),
+      ).pipe(Effect.map((trackSnapshot) => releasesFromGoogleTrack(trackSnapshot.releases))),
     );
   }
   /** Read every track and its releases (for `launch play-tracks status`). */
   listTracks(packageName: string): Effect.Effect<PlayTrackInfo[], GooglePlayApiError> {
     return this.withReadEdit(packageName, (editId) =>
-      Effect.gen(this, function* () {
-        const trackCatalog = yield* this.executeGeneratedRequest('list tracks', () =>
-          this.publisher.edits.tracks.list({ packageName, editId }),
-        );
-        const tracks: PlayTrackInfo[] = [];
-        if (Array.isArray(trackCatalog.tracks)) {
+      this.executeGeneratedRequest('list tracks', () =>
+        this.publisher.edits.tracks.list({ packageName, editId }),
+      ).pipe(
+        Effect.map((trackCatalog) => {
+          const tracks: PlayTrackInfo[] = [];
+          if (!Array.isArray(trackCatalog.tracks)) return tracks;
           for (const googleTrack of trackCatalog.tracks) {
             if (typeof googleTrack.track !== 'string') continue;
-            const releases: PlayRelease[] = [];
-            if (Array.isArray(googleTrack.releases)) {
-              for (const googleRelease of googleTrack.releases) {
-                releases.push(normalizeTrackRelease(googleRelease));
-              }
-            }
-            tracks.push({ track: googleTrack.track, releases });
+            tracks.push({
+              track: googleTrack.track,
+              releases: releasesFromGoogleTrack(googleTrack.releases),
+            });
           }
-        }
-        return tracks;
-      }),
+          return tracks;
+        }),
+      ),
     );
   }
   /**
@@ -703,27 +739,27 @@ export class GooglePlayClient {
   listInAppProducts(
     packageName: string,
   ): Effect.Effect<InAppProductResource[], GooglePlayApiError> {
-    return Effect.gen(this, function* () {
-      const products: InAppProductResource[] = [];
-      let token: string | undefined;
-      do {
+    return collectGeneratedPages(
+      (pageToken) => {
         const listParameters: androidpublisher_v3.Params$Resource$Inappproducts$List = {
           packageName,
         };
-        if (token !== undefined) listParameters.token = token;
-        const productPage = yield* this.executeGeneratedRequest('list in-app products', () =>
+        if (pageToken !== undefined) listParameters.token = pageToken;
+        return this.executeGeneratedRequest('list in-app products', () =>
           this.publisher.inappproducts.list(listParameters),
         );
-        if (Array.isArray(productPage.inappproduct)) {
-          for (const googleProduct of productPage.inappproduct) {
-            const product = normalizeInAppProduct(googleProduct);
-            if (product !== undefined) products.push(product);
-          }
+      },
+      (productPage) => {
+        const products: InAppProductResource[] = [];
+        if (!Array.isArray(productPage.inappproduct)) return products;
+        for (const googleProduct of productPage.inappproduct) {
+          const product = normalizeInAppProduct(googleProduct);
+          if (product !== undefined) products.push(product);
         }
-        token = normalizedPageToken(productPage.tokenPagination?.nextPageToken);
-      } while (token);
-      return products;
-    });
+        return products;
+      },
+      (productPage) => productPage.tokenPagination?.nextPageToken,
+    );
   }
   /** Create a new in-app managed product (POST). The product carries its `sku`. */
   insertInAppProduct(
@@ -804,28 +840,28 @@ export class GooglePlayClient {
   listSubscriptions(
     packageName: string,
   ): Effect.Effect<SubscriptionResource[], GooglePlayApiError> {
-    return Effect.gen(this, function* () {
-      const subscriptions: SubscriptionResource[] = [];
-      let token: string | undefined;
-      do {
+    return collectGeneratedPages(
+      (pageToken) => {
         const listParameters: androidpublisher_v3.Params$Resource$Monetization$Subscriptions$List =
           {
             packageName,
           };
-        if (token !== undefined) listParameters.pageToken = token;
-        const subscriptionPage = yield* this.executeGeneratedRequest('list subscriptions', () =>
+        if (pageToken !== undefined) listParameters.pageToken = pageToken;
+        return this.executeGeneratedRequest('list subscriptions', () =>
           this.publisher.monetization.subscriptions.list(listParameters),
         );
-        if (Array.isArray(subscriptionPage.subscriptions)) {
-          for (const googleSubscription of subscriptionPage.subscriptions) {
-            const subscription = normalizeSubscription(googleSubscription);
-            if (subscription !== undefined) subscriptions.push(subscription);
-          }
+      },
+      (subscriptionPage) => {
+        const subscriptions: SubscriptionResource[] = [];
+        if (!Array.isArray(subscriptionPage.subscriptions)) return subscriptions;
+        for (const googleSubscription of subscriptionPage.subscriptions) {
+          const subscription = normalizeSubscription(googleSubscription);
+          if (subscription !== undefined) subscriptions.push(subscription);
         }
-        token = normalizedPageToken(subscriptionPage.nextPageToken);
-      } while (token);
-      return subscriptions;
-    });
+        return subscriptions;
+      },
+      (subscriptionPage) => subscriptionPage.nextPageToken,
+    );
   }
   /**
    * Create a subscription with its base plans (which Play creates in DRAFT - activate them separately).
@@ -885,26 +921,26 @@ export class GooglePlayClient {
     productId: string,
     basePlanId: string,
   ): Effect.Effect<SubscriptionOfferResource[], GooglePlayApiError> {
-    return Effect.gen(this, function* () {
-      const offers: SubscriptionOfferResource[] = [];
-      let token: string | undefined;
-      do {
+    return collectGeneratedPages(
+      (pageToken) => {
         const listParameters: androidpublisher_v3.Params$Resource$Monetization$Subscriptions$Baseplans$Offers$List =
           { packageName, productId, basePlanId };
-        if (token !== undefined) listParameters.pageToken = token;
-        const offerPage = yield* this.executeGeneratedRequest('list subscription offers', () =>
+        if (pageToken !== undefined) listParameters.pageToken = pageToken;
+        return this.executeGeneratedRequest('list subscription offers', () =>
           this.publisher.monetization.subscriptions.basePlans.offers.list(listParameters),
         );
-        if (Array.isArray(offerPage.subscriptionOffers)) {
-          for (const googleOffer of offerPage.subscriptionOffers) {
-            const offer = normalizeSubscriptionOffer(googleOffer);
-            if (offer !== undefined) offers.push(offer);
-          }
+      },
+      (offerPage) => {
+        const offers: SubscriptionOfferResource[] = [];
+        if (!Array.isArray(offerPage.subscriptionOffers)) return offers;
+        for (const googleOffer of offerPage.subscriptionOffers) {
+          const offer = normalizeSubscriptionOffer(googleOffer);
+          if (offer !== undefined) offers.push(offer);
         }
-        token = normalizedPageToken(offerPage.nextPageToken);
-      } while (token);
-      return offers;
-    });
+        return offers;
+      },
+      (offerPage) => offerPage.nextPageToken,
+    );
   }
   /** Create a subscription offer (in DRAFT - activate it separately). `regionsVersion.version` is required. */
   createSubscriptionOffer(
@@ -954,28 +990,28 @@ export class GooglePlayClient {
       translationLanguage?: string;
     }> = {},
   ): Effect.Effect<PlayReview[], GooglePlayApiError> {
-    return Effect.gen(this, function* () {
-      const reviews: PlayReview[] = [];
-      let token: string | undefined;
-      do {
+    return collectGeneratedPages(
+      (pageToken) => {
         const listParameters: androidpublisher_v3.Params$Resource$Reviews$List = { packageName };
         if (options.translationLanguage !== undefined) {
           listParameters.translationLanguage = options.translationLanguage;
         }
-        if (token !== undefined) listParameters.token = token;
-        const reviewPage = yield* this.executeGeneratedRequest('list reviews', () =>
+        if (pageToken !== undefined) listParameters.token = pageToken;
+        return this.executeGeneratedRequest('list reviews', () =>
           this.publisher.reviews.list(listParameters),
         );
-        if (Array.isArray(reviewPage.reviews)) {
-          for (const googleReview of reviewPage.reviews) {
-            const review = normalizeReview(googleReview);
-            if (review !== undefined) reviews.push(review);
-          }
+      },
+      (reviewPage) => {
+        const reviews: PlayReview[] = [];
+        if (!Array.isArray(reviewPage.reviews)) return reviews;
+        for (const googleReview of reviewPage.reviews) {
+          const review = normalizeReview(googleReview);
+          if (review !== undefined) reviews.push(review);
         }
-        token = normalizedPageToken(reviewPage.tokenPagination?.nextPageToken);
-      } while (token);
-      return reviews;
-    });
+        return reviews;
+      },
+      (reviewPage) => reviewPage.tokenPagination?.nextPageToken,
+    );
   }
   /** Fetch one review by id (flattened to {@link PlayReview}), or null when it doesn't exist / is too old. */
   getReview(
@@ -1031,12 +1067,13 @@ export class GooglePlayClient {
  * echo a 403 - it tells you the release was blocked on a permission declaration.
  */
 export const describePlayErrors = (googleErrorText: string): string => {
+  const emptyBodyMessage = 'no response body';
   const decodedErrorDocument = Schema.decodeUnknownOption(
     Schema.parseJson(GoogleErrorDocumentSchema),
   )(googleErrorText);
   if (Option.isNone(decodedErrorDocument)) {
     if (googleErrorText.length > 0) return googleErrorText;
-    return 'no response body';
+    return emptyBodyMessage;
   }
   const googleErrorDocument = decodedErrorDocument.value;
   const googleError = googleErrorDocument.error;
@@ -1053,7 +1090,7 @@ export const describePlayErrors = (googleErrorText: string): string => {
   }
   if (message.length === 0) {
     if (googleErrorText.length > 0) return googleErrorText;
-    return 'no response body';
+    return emptyBodyMessage;
   }
   if (/permission|sensitive|high.?risk|declaration/i.test(message)) {
     return `${message} - a sensitive/high-risk permission likely needs pre-approval (a Permissions Declaration) in Play Console before this release is accepted.`;

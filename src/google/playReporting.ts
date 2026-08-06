@@ -5,13 +5,13 @@ import {
 } from '@googleapis/playdeveloperreporting';
 import { Data, Effect } from 'effect';
 import type { ServiceAccount } from '../core/types/credentials.js';
-import { describePlayErrors } from './playClient.js';
 import type {
   PlayVitalsMetric,
   PlayVitalsRow,
   VitalsTimeline,
   VitalsWindow,
 } from '../core/types/vitals.js';
+import { describePlayErrors, nonEmptyPageToken, serviceAccountJwtOptions } from './playClient.js';
 /** Distinct from the Play Developer API scope - the reporting API rejects an `androidpublisher` token. */
 const OAUTH_SCOPE = 'https://www.googleapis.com/auth/playdeveloperreporting';
 /**
@@ -48,11 +48,13 @@ const shiftIsoDate = (iso: string, delta: number): string => {
   return shifted.toISOString().slice(0, 10);
 };
 /**
- * Compute the DAILY window to query: `days` of history ending at `latestDate` (the metric set's freshest
- * day, from `:get`). Falls back to ending today when freshness is unknown - the API still clamps to what
- * it has, so an over-reaching end is harmless. Returns inclusive `startDate`/`endDate`.
+ * DAILY query window of `days` inclusive days ending at `latestDate` (metric-set freshness from `:get`).
+ * Falls back to ending today when freshness is unknown - the API clamps an over-reaching end.
  */
-export const resolveVitalsWindow = (latestDate: string | null, days: number): VitalsWindow => {
+export const vitalsWindowFromLatestDate = (
+  latestDate: string | null,
+  days: number,
+): VitalsWindow => {
   let endDate = new Date().toISOString().slice(0, 10);
   if (latestDate !== null) endDate = latestDate;
   return { startDate: shiftIsoDate(endDate, -(days - 1)), endDate };
@@ -92,7 +94,7 @@ const metricNumber = (
 ): number | undefined => {
   const encodedValue = metricEntry.metrics?.find((metric) => metric.metric === name)?.decimalValue
     ?.value;
-  if (typeof encodedValue !== 'string') return undefined;
+  if (typeof encodedValue !== 'string') return;
   const metricValue = Number(encodedValue);
   if (Number.isNaN(metricValue)) return;
   return metricValue;
@@ -130,18 +132,9 @@ export class PlayReportingClient {
       this.reporting = generatedReporting;
       return;
     }
-    const authenticationOptions: {
-      email: string;
-      key: string;
-      keyId?: string;
-      scopes: string[];
-    } = {
-      email: account.clientEmail,
-      key: account.privateKey,
-      scopes: [OAUTH_SCOPE],
-    };
-    if (account.privateKeyId !== undefined) authenticationOptions.keyId = account.privateKeyId;
-    const googleAuthentication = new playReportingAuth.JWT(authenticationOptions);
+    const googleAuthentication = new playReportingAuth.JWT(
+      serviceAccountJwtOptions(account, [OAUTH_SCOPE]),
+    );
     this.reporting = playdeveloperreporting({
       version: 'v1beta1',
       auth: googleAuthentication,
@@ -215,17 +208,9 @@ export class PlayReportingClient {
   ): Effect.Effect<VitalsTimeline, PlayReportingApiError> {
     return Effect.gen(this, function* () {
       const latestDate = yield* this.latestDailyDate(packageName, metric);
-      const window = resolveVitalsWindow(latestDate, days);
-      switch (metric) {
-        case 'crash': {
-          const entries = yield* this.queryCrashRate(packageName, window);
-          return { metric, window, rows: entries };
-        }
-        case 'anr': {
-          const entries = yield* this.queryAnrRate(packageName, window);
-          return { metric, window, rows: entries };
-        }
-      }
+      const window = vitalsWindowFromLatestDate(latestDate, days);
+      const rows = yield* this.queryVitals(metric, packageName, window);
+      return { metric, window, rows };
     });
   }
   /** Query the crash-rate metric set over a DAILY window, returning normalized rows. */
@@ -253,7 +238,7 @@ export class PlayReportingClient {
     window: VitalsWindow,
   ): Effect.Effect<PlayVitalsRow[], PlayReportingApiError> {
     return Effect.gen(this, function* () {
-      const set = METRIC_SETS[metric];
+      const metricSet = METRIC_SETS[metric];
       const entries: PlayVitalsRow[] = [];
       let pageToken: string | undefined;
       do {
@@ -264,10 +249,10 @@ export class PlayReportingClient {
               startTime: isoToDateParts(window.startDate),
               endTime: isoToDateParts(window.endDate),
             },
-            metrics: [set.rate, set.userPerceivedRate, set.distinctUsers],
+            metrics: [metricSet.rate, metricSet.userPerceivedRate, metricSet.distinctUsers],
           };
         if (pageToken !== undefined) queryRequest.pageToken = pageToken;
-        const name = `apps/${packageName}/${set.resource}`;
+        const name = `apps/${packageName}/${metricSet.resource}`;
         let metricPage:
           | playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1QueryCrashRateMetricSetResponse
           | playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1QueryAnrRateMetricSetResponse;
@@ -286,24 +271,19 @@ export class PlayReportingClient {
         if (Array.isArray(metricPage.rows)) {
           for (const metricEntry of metricPage.rows) {
             const date = dateTimeToIso(metricEntry.startTime);
-            if (!date) continue;
+            if (date === undefined) continue;
             const normalized: PlayVitalsRow = { metric, date };
-            const rate = metricNumber(metricEntry, set.rate);
+            const rate = metricNumber(metricEntry, metricSet.rate);
             if (rate !== undefined) normalized.rate = rate;
-            const userPerceivedRate = metricNumber(metricEntry, set.userPerceivedRate);
+            const userPerceivedRate = metricNumber(metricEntry, metricSet.userPerceivedRate);
             if (userPerceivedRate !== undefined) normalized.userPerceivedRate = userPerceivedRate;
-            const distinctUsers = metricNumber(metricEntry, set.distinctUsers);
+            const distinctUsers = metricNumber(metricEntry, metricSet.distinctUsers);
             if (distinctUsers !== undefined) normalized.distinctUsers = distinctUsers;
             entries.push(normalized);
           }
         }
-        const nextPageToken = metricPage.nextPageToken;
-        if (typeof nextPageToken === 'string' && nextPageToken.length > 0) {
-          pageToken = nextPageToken;
-        } else {
-          pageToken = undefined;
-        }
-      } while (pageToken);
+        pageToken = nonEmptyPageToken(metricPage.nextPageToken);
+      } while (pageToken !== undefined);
       entries.sort((leftEntry, rightEntry) => leftEntry.date.localeCompare(rightEntry.date));
       return entries;
     });
