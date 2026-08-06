@@ -19,40 +19,40 @@ import {
   serializeProductsSection,
 } from './configWriter.js';
 
-export type SkippedApp = {
+export type SkippedApp = Readonly<{
   app: AppDescriptor;
   reason: string;
-};
+}>;
 
-export type DetectedApp = {
+export type DetectedApp = Readonly<{
   target: AdoptTarget;
   signal: string;
-};
+}>;
 
-export type Detection = {
-  detected: DetectedApp[];
-  skipped: SkippedApp[];
-};
+export type Detection = Readonly<{
+  detected: readonly DetectedApp[];
+  skipped: readonly SkippedApp[];
+}>;
 
-export type DetectContext = {
+export type DetectContext = Readonly<{
   keyId: string;
   cwd: string;
   hasLaunchConfig: boolean;
-};
+}>;
 
-export type AdopterError = {
+export type AdopterError = Readonly<{
   domain: string;
   message: string;
-};
+}>;
 
-export type TargetPlan = {
+export type TargetPlan = Readonly<{
   detected: DetectedApp;
-  writes: PlannedWrite[];
-  errors: AdopterError[];
-};
+  writes: readonly PlannedWrite[];
+  errors: readonly AdopterError[];
+}>;
 
-/** Render the latest version and build-count signal for one detected app. */
-const describeSignal = (version: string | null, buildCount: number): string => {
+/** Confirming live-version / build-count signal for one detected app. */
+export const describeAdoptSignal = (version: string | null, buildCount: number): string => {
   const signalParts: string[] = [];
   if (version !== null) signalParts.push(`v${version} live`);
   if (buildCount > 0) {
@@ -71,7 +71,7 @@ type AppDetection =
 /** Resolve discovered apps against App Store Connect. */
 export const detectTargets = (
   appleCatalog: AdoptCatalogApi,
-  apps: AppDescriptor[],
+  apps: readonly AppDescriptor[],
   detectionContext: DetectContext,
 ): Effect.Effect<Detection, unknown> =>
   Effect.gen(function* () {
@@ -81,14 +81,14 @@ export const detectTargets = (
         Effect.gen(function* () {
           if (app.bundleId === undefined) {
             return {
-              _tag: 'Skipped',
+              _tag: 'Skipped' as const,
               skippedApp: { app, reason: 'no iOS bundle id' },
             };
           }
           const appId = yield* appleCatalog.getAppId(app.bundleId);
           if (appId === null) {
             return {
-              _tag: 'Skipped',
+              _tag: 'Skipped' as const,
               skippedApp: {
                 app,
                 reason: 'no App Store Connect record (create the app once in App Store Connect)',
@@ -107,7 +107,7 @@ export const detectTargets = (
             { concurrency: 'unbounded' },
           );
           return {
-            _tag: 'Detected',
+            _tag: 'Detected' as const,
             detectedApp: {
               target: {
                 app,
@@ -117,7 +117,7 @@ export const detectTargets = (
                 cwd: detectionContext.cwd,
                 hasLaunchConfig: detectionContext.hasLaunchConfig,
               },
-              signal: describeSignal(version, buildCount),
+              signal: describeAdoptSignal(version, buildCount),
             },
           };
         }),
@@ -126,8 +126,11 @@ export const detectTargets = (
     const detected: DetectedApp[] = [];
     const skipped: SkippedApp[] = [];
     for (const appDetection of appDetections) {
-      if (appDetection._tag === 'Detected') detected.push(appDetection.detectedApp);
-      else skipped.push(appDetection.skippedApp);
+      if (appDetection._tag === 'Detected') {
+        detected.push(appDetection.detectedApp);
+        continue;
+      }
+      skipped.push(appDetection.skippedApp);
     }
     detected.sort((firstApp, secondApp) =>
       firstApp.target.bundleId.localeCompare(secondApp.target.bundleId),
@@ -140,7 +143,7 @@ export const detectTargets = (
 export const planTargets = <Requirements>(
   appleCatalog: AdoptCatalogApi,
   detection: Detection,
-  adopters: Adopter<Requirements>[],
+  adopters: readonly Adopter<Requirements>[],
 ): Effect.Effect<TargetPlan[], never, Requirements> =>
   Effect.forEach(
     detection.detected,
@@ -166,78 +169,103 @@ export const planTargets = <Requirements>(
     { concurrency: 'unbounded' },
   );
 
-export type ApplyContext<Requirements = never> = {
+export type ApplyContext<Requirements = never> = Readonly<{
   cwd: string;
   hasLaunchConfig: boolean;
   appRoot: string | null;
   pullListing: (bundleId: string, configPath: string) => Effect.Effect<void, unknown, Requirements>;
-};
+}>;
 
-export type AdoptApplyResult = {
+export type AppJsonPatch = Readonly<{
+  app: string;
+  configPath: string;
+  added: readonly string[];
+}>;
+
+export type AppJsonPasteBlock = Readonly<{
+  app: string;
+  configPath: string;
+  block: string;
+}>;
+
+export type ListingError = Readonly<{
+  app: string;
+  message: string;
+}>;
+
+export type AdoptApplyResult = Readonly<{
   configWritten?: string;
   configBlock?: string;
-  appJsonPatched: {
-    app: string;
-    configPath: string;
-    added: string[];
-  }[];
-  appJsonBlocks: {
-    app: string;
-    configPath: string;
-    block: string;
-  }[];
-  listingsPulled: string[];
-  listingErrors: {
-    app: string;
-    message: string;
-  }[];
-};
+  appJsonPatched: readonly AppJsonPatch[];
+  appJsonBlocks: readonly AppJsonPasteBlock[];
+  listingsPulled: readonly string[];
+  listingErrors: readonly ListingError[];
+}>;
 
 /** Collect imported product pieces into a bundle-keyed catalog. */
-const collectProducts = (plans: TargetPlan[]): Record<string, AppProducts> => {
+export const collectAdoptedProducts = (
+  targetPlans: readonly TargetPlan[],
+): Record<string, AppProducts> => {
   const productsByBundleId: Record<string, AppProducts> = {};
-  for (const targetPlan of plans) {
+  for (const targetPlan of targetPlans) {
     const productPieces: ProductPiece[] = [];
     for (const plannedWrite of targetPlan.writes) {
       if (plannedWrite.change.home === 'launch.config')
         productPieces.push(plannedWrite.change.piece);
     }
-    if (productPieces.length > 0) {
-      productsByBundleId[targetPlan.detected.target.bundleId] =
-        aggregateProductPieces(productPieces);
-    }
+    if (productPieces.length === 0) continue;
+    productsByBundleId[targetPlan.detected.target.bundleId] = aggregateProductPieces(productPieces);
   }
   return productsByBundleId;
 };
 
-/** Apply a confirmed adoption plan to local configuration and delegated listing pulls. */
-export const applyAdopt = <Requirements>(
-  plans: TargetPlan[],
-  applyContext: ApplyContext<Requirements>,
-): Effect.Effect<AdoptApplyResult, unknown, FileSystem.FileSystem | Path.Path | Requirements> =>
+type ProductCatalogOutcome = Readonly<{
+  configWritten?: string;
+  configBlock?: string;
+}>;
+
+type EntitlementWriteOutcome = Readonly<{
+  appJsonPatched: readonly AppJsonPatch[];
+  appJsonBlocks: readonly AppJsonPasteBlock[];
+}>;
+
+type ListingPullOutcome = Readonly<{
+  listingsPulled: readonly string[];
+  listingErrors: readonly ListingError[];
+}>;
+
+/** Write or print the adopted products section for launch.config.ts. */
+const applyProductCatalog = (
+  productsByBundleId: Record<string, AppProducts>,
+  applyContext: Readonly<{
+    cwd: string;
+    hasLaunchConfig: boolean;
+    appRoot: string | null;
+  }>,
+): Effect.Effect<ProductCatalogOutcome, unknown, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const adoptionSummary: AdoptApplyResult = {
-      appJsonPatched: [],
-      appJsonBlocks: [],
-      listingsPulled: [],
-      listingErrors: [],
-    };
-    const productsByBundleId = collectProducts(plans);
-    if (Object.keys(productsByBundleId).length > 0) {
-      if (applyContext.hasLaunchConfig) {
-        adoptionSummary.configBlock = serializeProductsSection(productsByBundleId);
-      } else {
-        const configPath = pathService.join(applyContext.cwd, 'launch.config.ts');
-        yield* fileSystem.writeFileString(
-          configPath,
-          buildAdoptedConfig(applyContext.appRoot, productsByBundleId),
-        );
-        adoptionSummary.configWritten = configPath;
-      }
+    if (Object.keys(productsByBundleId).length === 0) return {};
+    if (applyContext.hasLaunchConfig) {
+      return { configBlock: serializeProductsSection(productsByBundleId) };
     }
-    for (const targetPlan of plans) {
+    const pathService = yield* Path.Path;
+    const fileSystem = yield* FileSystem.FileSystem;
+    const configPath = pathService.join(applyContext.cwd, 'launch.config.ts');
+    yield* fileSystem.writeFileString(
+      configPath,
+      buildAdoptedConfig(applyContext.appRoot, productsByBundleId),
+    );
+    return { configWritten: configPath };
+  });
+
+/** Patch static app.json entitlements or emit paste blocks for dynamic configs. */
+const applyEntitlementWrites = (
+  targetPlans: readonly TargetPlan[],
+): Effect.Effect<EntitlementWriteOutcome, unknown, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const appJsonPatched: AppJsonPatch[] = [];
+    const appJsonBlocks: AppJsonPasteBlock[] = [];
+    for (const targetPlan of targetPlans) {
       const app = targetPlan.detected.target.app;
       const entitlements: Record<string, EntitlementValue> = {};
       for (const plannedWrite of targetPlan.writes) {
@@ -249,7 +277,7 @@ export const applyAdopt = <Requirements>(
       if (app.configPath.endsWith('.json')) {
         const addedEntitlements = yield* writeAppEntitlements(app, entitlements);
         if (addedEntitlements.length > 0) {
-          adoptionSummary.appJsonPatched.push({
+          appJsonPatched.push({
             app: app.name,
             configPath: app.configPath,
             added: addedEntitlements,
@@ -257,27 +285,73 @@ export const applyAdopt = <Requirements>(
         }
         continue;
       }
-      adoptionSummary.appJsonBlocks.push({
+      appJsonBlocks.push({
         app: app.name,
         configPath: app.configPath,
         block: renderEntitlementsBlock(entitlements),
       });
     }
-    for (const targetPlan of plans) {
+    return { appJsonPatched, appJsonBlocks };
+  });
+
+/** Delegate store.config listing pulls and capture per-app failures. */
+const applyListingPulls = <Requirements>(
+  targetPlans: readonly TargetPlan[],
+  pullListing: (bundleId: string, configPath: string) => Effect.Effect<void, unknown, Requirements>,
+): Effect.Effect<ListingPullOutcome, never, Requirements> =>
+  Effect.gen(function* () {
+    const listingsPulled: string[] = [];
+    const listingErrors: ListingError[] = [];
+    for (const targetPlan of targetPlans) {
       for (const plannedWrite of targetPlan.writes) {
         if (plannedWrite.change.home !== 'store.config') continue;
-        const listingPull = yield* applyContext
-          .pullListing(plannedWrite.change.bundleId, plannedWrite.change.configPath)
-          .pipe(Effect.either);
+        const listingPull = yield* pullListing(
+          plannedWrite.change.bundleId,
+          plannedWrite.change.configPath,
+        ).pipe(Effect.either);
         if (listingPull._tag === 'Right') {
-          adoptionSummary.listingsPulled.push(plannedWrite.change.appName);
+          listingsPulled.push(plannedWrite.change.appName);
           continue;
         }
-        adoptionSummary.listingErrors.push({
+        listingErrors.push({
           app: plannedWrite.change.appName,
           message: errorMessage(listingPull.left),
         });
       }
     }
+    return { listingsPulled, listingErrors };
+  });
+
+/** Apply a confirmed adoption plan to local configuration and delegated listing pulls. */
+export const applyAdopt = <Requirements>(
+  targetPlans: readonly TargetPlan[],
+  applyContext: ApplyContext<Requirements>,
+): Effect.Effect<AdoptApplyResult, unknown, FileSystem.FileSystem | Path.Path | Requirements> =>
+  Effect.gen(function* () {
+    const productsByBundleId = collectAdoptedProducts(targetPlans);
+    const productOutcome = yield* applyProductCatalog(productsByBundleId, {
+      cwd: applyContext.cwd,
+      hasLaunchConfig: applyContext.hasLaunchConfig,
+      appRoot: applyContext.appRoot,
+    });
+    const entitlementOutcome = yield* applyEntitlementWrites(targetPlans);
+    const listingOutcome = yield* applyListingPulls(targetPlans, applyContext.pullListing);
+    const adoptionSummary: {
+      configWritten?: string;
+      configBlock?: string;
+      appJsonPatched: readonly AppJsonPatch[];
+      appJsonBlocks: readonly AppJsonPasteBlock[];
+      listingsPulled: readonly string[];
+      listingErrors: readonly ListingError[];
+    } = {
+      appJsonPatched: entitlementOutcome.appJsonPatched,
+      appJsonBlocks: entitlementOutcome.appJsonBlocks,
+      listingsPulled: listingOutcome.listingsPulled,
+      listingErrors: listingOutcome.listingErrors,
+    };
+    if (productOutcome.configWritten !== undefined)
+      adoptionSummary.configWritten = productOutcome.configWritten;
+    if (productOutcome.configBlock !== undefined)
+      adoptionSummary.configBlock = productOutcome.configBlock;
     return adoptionSummary;
   });
