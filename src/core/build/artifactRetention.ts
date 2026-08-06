@@ -23,7 +23,7 @@ const resolveArtifactIndexPath = (
   return resolveArtifactIndexFilePath();
 };
 
-/** Read and decode the newest-first artifact index, tolerating absent or malformed state. */
+/** Read and decode the newest-first artifact index; absent or malformed state yields []. */
 export const readArtifactIndex = (
   indexPath?: string,
 ): Effect.Effect<BuildArtifact[], never, ArtifactIndexRequirements> =>
@@ -55,11 +55,16 @@ export const writeArtifactIndex = (
     yield* fileSystem.writeFileString(artifactIndexPath, JSON.stringify(artifactIndex, null, 2));
   });
 
+/** Automatic post-store retention window from config (default 30; 0 disables). */
 export const resolveRetentionDays = (launchConfig: LaunchConfig): number => {
   if (launchConfig.artifactRetentionDays === undefined) return DEFAULT_RETENTION_DAYS;
   return launchConfig.artifactRetentionDays;
 };
 
+/**
+ * Explicit `builds prune` window: CLI override wins; config when positive; default when unset or 0
+ * so an explicit prune still does work when auto-sweep is disabled.
+ */
 export const resolveCommandRetentionDays = (
   launchConfig: LaunchConfig,
   retentionDaysOverride?: number,
@@ -80,23 +85,31 @@ const artifactAgeDays = (buildArtifact: BuildArtifact, currentTime: number): num
 const artifactGroupKey = (buildArtifact: BuildArtifact): string =>
   `${buildArtifact.appName}:${buildArtifact.platform}`;
 
-/** Split an artifact index according to the retention and keep-newest policy. */
+/** Newest artifact per app+platform group (by createdAt). */
+const newestArtifactByGroup = (artifactIndex: BuildArtifact[]): Map<string, BuildArtifact> => {
+  const newestByGroup = new Map<string, BuildArtifact>();
+  for (const buildArtifact of artifactIndex) {
+    const groupKey = artifactGroupKey(buildArtifact);
+    const currentNewest = newestByGroup.get(groupKey);
+    if (currentNewest === undefined) {
+      newestByGroup.set(groupKey, buildArtifact);
+      continue;
+    }
+    const candidateCreated = Date.parse(buildArtifact.createdAt);
+    const newestCreated = Date.parse(currentNewest.createdAt);
+    if (candidateCreated > newestCreated) {
+      newestByGroup.set(groupKey, buildArtifact);
+    }
+  }
+  return newestByGroup;
+};
+
+/** Split an artifact index by retention + keep-newest-per-app+platform policy. */
 export const planPrune = (
   artifactIndex: BuildArtifact[],
   pruneOptions: Pick<PruneOptions, 'now' | 'retentionDays' | 'app' | 'platform'>,
 ): { prune: BuildArtifact[]; keep: BuildArtifact[] } => {
-  const newestArtifactByGroup = new Map<string, BuildArtifact>();
-  for (const buildArtifact of artifactIndex) {
-    const groupKey = artifactGroupKey(buildArtifact);
-    const newestArtifact = newestArtifactByGroup.get(groupKey);
-    if (newestArtifact === undefined) {
-      newestArtifactByGroup.set(groupKey, buildArtifact);
-      continue;
-    }
-    if (Date.parse(buildArtifact.createdAt) > Date.parse(newestArtifact.createdAt)) {
-      newestArtifactByGroup.set(groupKey, buildArtifact);
-    }
-  }
+  const newestByGroup = newestArtifactByGroup(artifactIndex);
   const artifactsToPrune: BuildArtifact[] = [];
   const artifactsToKeep: BuildArtifact[] = [];
   for (const buildArtifact of artifactIndex) {
@@ -107,10 +120,11 @@ export const planPrune = (
     if (pruneOptions.platform !== undefined) {
       matchesPlatform = buildArtifact.platform === pruneOptions.platform;
     }
+    const isGroupNewest = newestByGroup.get(artifactGroupKey(buildArtifact)) === buildArtifact;
     const shouldPrune =
       pruneOptions.retentionDays > 0 &&
       buildArtifact.prunedAt === undefined &&
-      newestArtifactByGroup.get(artifactGroupKey(buildArtifact)) !== buildArtifact &&
+      !isGroupNewest &&
       matchesApp &&
       matchesPlatform &&
       ageInDays !== null &&
@@ -121,7 +135,10 @@ export const planPrune = (
   return { prune: artifactsToPrune, keep: artifactsToKeep };
 };
 
-const toPrunedArtifact = (buildArtifact: BuildArtifact, artifactBytes: number): PrunedArtifact => ({
+const prunedArtifactEntry = (
+  buildArtifact: BuildArtifact,
+  artifactBytes: number,
+): PrunedArtifact => ({
   app: buildArtifact.appName,
   platform: buildArtifact.platform,
   version: buildArtifact.version,
@@ -141,6 +158,20 @@ const readArtifactBytes = (
     return Number((yield* fileSystem.stat(buildArtifact.path)).size);
   });
 
+/** Stamp prunedAt on pruned rows without mutating the source index entries. */
+const stampPrunedArtifacts = (
+  artifactIndex: BuildArtifact[],
+  prunedArtifacts: readonly BuildArtifact[],
+  prunedAt: string,
+): BuildArtifact[] => {
+  // planPrune returns the same object refs that live in the index.
+  const prunedIdentity = new Set<BuildArtifact>(prunedArtifacts);
+  return artifactIndex.map((buildArtifact) => {
+    if (!prunedIdentity.has(buildArtifact)) return buildArtifact;
+    return { ...buildArtifact, prunedAt };
+  });
+};
+
 /** Delete eligible artifacts and record the sweep in the artifact index. */
 export const runArtifactPrune = (
   pruneOptions: PruneOptions & { indexPath?: string },
@@ -155,23 +186,23 @@ export const runArtifactPrune = (
     if (pruneOptions.app !== undefined) policyInput.app = pruneOptions.app;
     if (pruneOptions.platform !== undefined) policyInput.platform = pruneOptions.platform;
     const artifactsToPrune = planPrune(artifactIndex, policyInput).prune;
-    const prunedArtifacts: PrunedArtifact[] = [];
+    const prunedEntries: PrunedArtifact[] = [];
     let freedBytes = 0;
     let dryRun = false;
     if (pruneOptions.dryRun !== undefined) dryRun = pruneOptions.dryRun;
     const prunedAt = new Date(pruneOptions.now).toISOString();
     for (const buildArtifact of artifactsToPrune) {
       const artifactBytes = yield* readArtifactBytes(buildArtifact);
-      prunedArtifacts.push(toPrunedArtifact(buildArtifact, artifactBytes));
+      prunedEntries.push(prunedArtifactEntry(buildArtifact, artifactBytes));
       freedBytes += artifactBytes;
       if (dryRun) continue;
       if (yield* fileSystem.exists(buildArtifact.path)) {
         yield* fileSystem.remove(buildArtifact.path);
       }
-      buildArtifact.prunedAt = prunedAt;
     }
-    if (!dryRun && prunedArtifacts.length > 0) {
-      yield* writeArtifactIndex(artifactIndex, pruneOptions.indexPath);
+    if (!dryRun && prunedEntries.length > 0) {
+      const writtenIndex = stampPrunedArtifacts(artifactIndex, artifactsToPrune, prunedAt);
+      yield* writeArtifactIndex(writtenIndex, pruneOptions.indexPath);
     }
-    return { pruned: prunedArtifacts, freedBytes, dryRun };
+    return { pruned: prunedEntries, freedBytes, dryRun };
   });
