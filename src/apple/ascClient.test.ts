@@ -1488,6 +1488,68 @@ describe('app-level release attributes', () => {
   });
 });
 describe('AppStoreConnectClient - app availability', () => {
+  it('reads available territories only when the territory relationship is present', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: {
+              id: 'availability-1',
+              attributes: { availableInNewTerritories: true },
+            },
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [
+              {
+                id: 'row-usa',
+                attributes: { available: true },
+                relationships: { territory: { data: { type: 'territories', id: 'USA' } } },
+              },
+              {
+                id: 'row-gbr',
+                attributes: { available: false },
+                relationships: { territory: { data: { type: 'territories', id: 'GBR' } } },
+              },
+              {
+                id: 'row-can',
+                attributes: { available: true },
+                relationships: { territory: { data: { type: 'territories', id: 'CAN' } } },
+              },
+            ],
+            links: {},
+          }),
+        ),
+      );
+    await expect(client.getAppAvailability('app-1')).resolves.toEqual({
+      id: 'availability-1',
+      availableInNewTerritories: true,
+      availableTerritories: ['USA', 'CAN'],
+    });
+    const [headUrl] = expectArrayElement(fetchMock.mock.calls, 0, 'availability head');
+    expect(headUrl).toContain('/apps/app-1/appAvailabilityV2');
+    const [territoryListUrl] = expectArrayElement(
+      fetchMock.mock.calls,
+      1,
+      'territory availability list',
+    );
+    expect(territoryListUrl).toContain(
+      '/v2/appAvailabilities/availability-1/territoryAvailabilities',
+    );
+    expect(territoryListUrl).toContain('include=territory');
+    expect(territoryListUrl).not.toContain('fields[territoryAvailabilities]');
+  });
+  it('returns null when the app has no availability singleton', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(404, JSON.stringify({ errors: [{ title: 'Not Found' }] })),
+    );
+    await expect(client.getAppAvailability('app-1')).resolves.toBeNull();
+  });
   it('creates the singleton with POST and the complete inline territory set', async () => {
     fetchMock.mockResolvedValueOnce(
       fakeResponse(201, JSON.stringify({ data: { id: 'availability-1', attributes: {} } })),
@@ -1563,6 +1625,7 @@ describe('AppStoreConnectClient - app availability', () => {
     await client.updateAppAvailabilityTerritories('availability-1', ['USA']);
     const [readUrl] = expectArrayElement(fetchMock.mock.calls, 0, 'territory availability read');
     expect(readUrl).toContain('/v2/appAvailabilities/availability-1/territoryAvailabilities');
+    expect(readUrl).toContain('include=territory');
     const patches = fetchMock.mock.calls
       .slice(1)
       .map(([url, init]) => ({ url, init, body: readRequestDocument(init) }));
@@ -1620,7 +1683,8 @@ describe('AppStoreConnectClient - app availability', () => {
     await client.updateAppAvailabilityTerritories('availability-1', []);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const [url, init] = expectArrayElement(fetchMock.mock.calls, 1, 'clear territory call');
-    expect(url).toContain('/territoryAvailabilities/row-usa');
+    expect(url).toBe('https://api.appstoreconnect.apple.com/v1/territoryAvailabilities/row-usa');
+    expect(init.method).toBe('PATCH');
     expect(documentValueAt(readRequestDocument(init), ['data', 'attributes'])).toEqual({
       available: false,
     });
@@ -1645,6 +1709,43 @@ describe('AppStoreConnectClient - app availability', () => {
       client.updateAppAvailabilityTerritories('availability-1', ['USA', 'GBR']),
     ).rejects.toThrow(/GBR/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it('never POSTs a second singleton when updating an existing availability', async () => {
+    fetchMock.mockImplementation((_url: string | URL, init?: RequestInit) => {
+      if (init?.method === 'GET') {
+        return Promise.resolve(
+          fakeResponse(
+            200,
+            JSON.stringify({
+              data: [
+                {
+                  id: 'row-usa',
+                  attributes: { available: true },
+                  relationships: { territory: { data: { id: 'USA' } } },
+                },
+              ],
+              links: {},
+            }),
+          ),
+        );
+      }
+      if (init?.method === 'PATCH') return Promise.resolve(fakeResponse(204, ''));
+      return Promise.resolve(
+        fakeResponse(500, JSON.stringify({ errors: [{ title: 'unexpected' }] })),
+      );
+    });
+    await client.updateAppAvailabilityTerritories('availability-1', []);
+    const methods = fetchMock.mock.calls.map(([, requestInit]) => {
+      if (requestInit?.method === undefined) return 'GET';
+      return requestInit.method;
+    });
+    expect(methods).not.toContain('POST');
+    expect(methods).toContain('PATCH');
+    const createSingletonCalls = fetchMock.mock.calls.filter(([requestUrl, requestInit]) => {
+      if (requestInit?.method !== 'POST') return false;
+      return String(requestUrl).includes('/v2/appAvailabilities');
+    });
+    expect(createSingletonCalls).toHaveLength(0);
   });
 });
 describe('App Clips', () => {
