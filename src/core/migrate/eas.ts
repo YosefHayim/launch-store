@@ -158,14 +158,21 @@ const PLAY_TRACKS: readonly PlayTrack[] = ['internal', 'closed', 'open', 'produc
 const isPlayTrack = (trackName: string): trackName is PlayTrack =>
   PLAY_TRACKS.some((playTrack) => playTrack === trackName);
 
-const mapProfiles = (easConfiguration: EasJson): Record<string, BuildProfile> => {
+/** Project EAS build profiles into Launch `profiles`, lifting a matching Play submit track when valid. */
+export const launchProfilesFromEas = (easConfiguration: EasJson): Record<string, BuildProfile> => {
   const launchProfiles: Record<string, BuildProfile> = {};
   for (const profileName of Object.keys(easConfiguration.build)) {
     const launchProfile: BuildProfile = { name: profileName, sizeBudgetMB: 200 };
     const submitProfile = easConfiguration.submit[profileName];
-    const androidSubmission = submitProfile?.android;
-    const trackName = androidSubmission?.track;
-    if (trackName !== undefined && isPlayTrack(trackName)) launchProfile.track = trackName;
+    if (submitProfile !== undefined) {
+      const androidSubmission = submitProfile.android;
+      if (androidSubmission !== undefined) {
+        const trackName = androidSubmission.track;
+        if (trackName !== undefined && isPlayTrack(trackName)) {
+          launchProfile.track = trackName;
+        }
+      }
+    }
     launchProfiles[profileName] = launchProfile;
   }
   if (Object.keys(launchProfiles).length === 0) {
@@ -178,8 +185,11 @@ const serializeProfilesSection = (launchProfiles: Record<string, BuildProfile>):
   const profileLines = JSON.stringify(launchProfiles, null, 2).split('\n');
   const indentedLines: string[] = [];
   for (const [lineIndex, profileLine] of profileLines.entries()) {
-    if (lineIndex === 0) indentedLines.push(profileLine);
-    else indentedLines.push(`  ${profileLine}`);
+    if (lineIndex === 0) {
+      indentedLines.push(profileLine);
+      continue;
+    }
+    indentedLines.push(`  ${profileLine}`);
   }
   return [
     '  // Imported from eas.json by `launch migrate eas` - review, then commit.',
@@ -187,7 +197,8 @@ const serializeProfilesSection = (launchProfiles: Record<string, BuildProfile>):
   ].join('\n');
 };
 
-const collectEnvironmentKeys = (easConfiguration: EasJson): string[] => {
+/** Sorted union of env keys declared across every EAS build profile. */
+export const collectEnvironmentKeys = (easConfiguration: EasJson): string[] => {
   const environmentKeys = new Set<string>();
   for (const buildProfile of Object.values(easConfiguration.build)) {
     if (buildProfile.env === undefined) continue;
@@ -198,7 +209,7 @@ const collectEnvironmentKeys = (easConfiguration: EasJson): string[] => {
   return [...environmentKeys].sort();
 };
 
-const makeProfileEnvironmentArtifacts = (easConfiguration: EasJson): MigrationArtifact[] => {
+const profileEnvironmentArtifactsFromEas = (easConfiguration: EasJson): MigrationArtifact[] => {
   const environmentArtifacts: MigrationArtifact[] = [];
   for (const [profileName, buildProfile] of Object.entries(easConfiguration.build)) {
     if (buildProfile.env === undefined) continue;
@@ -210,7 +221,7 @@ const makeProfileEnvironmentArtifacts = (easConfiguration: EasJson): MigrationAr
   return environmentArtifacts;
 };
 
-const buildMigrationNotes = (easConfiguration: EasJson, apps: AppDescriptor[]): MigrationNote[] => {
+const notesFromBuildProfiles = (easConfiguration: EasJson): MigrationNote[] => {
   const migrationNotes: MigrationNote[] = [];
   for (const [profileName, buildProfile] of Object.entries(easConfiguration.build)) {
     migrationNotes.push({
@@ -242,6 +253,11 @@ const buildMigrationNotes = (easConfiguration: EasJson, apps: AppDescriptor[]): 
       });
     }
   }
+  return migrationNotes;
+};
+
+const notesFromSubmitProfiles = (easConfiguration: EasJson): MigrationNote[] => {
+  const migrationNotes: MigrationNote[] = [];
   for (const [profileName, submitProfile] of Object.entries(easConfiguration.submit)) {
     if (submitProfile.ios !== undefined) {
       migrationNotes.push({
@@ -249,13 +265,15 @@ const buildMigrationNotes = (easConfiguration: EasJson, apps: AppDescriptor[]): 
         message: `Submit profile "${profileName}" carried Apple account details (appleId/ascAppId/appleTeamId) - configure your Apple API key with \`launch creds set-key\`.`,
       });
     }
-    if (submitProfile.android?.serviceAccountKeyPath !== undefined) {
+    const androidSubmission = submitProfile.android;
+    if (androidSubmission === undefined) continue;
+    if (androidSubmission.serviceAccountKeyPath !== undefined) {
       migrationNotes.push({
         level: 'manual',
-        message: `Submit profile "${profileName}" referenced a Play service account key (${submitProfile.android.serviceAccountKeyPath}) - configure it with \`launch creds\`.`,
+        message: `Submit profile "${profileName}" referenced a Play service account key (${androidSubmission.serviceAccountKeyPath}) - configure it with \`launch creds\`.`,
       });
     }
-    const trackName = submitProfile.android?.track;
+    const trackName = androidSubmission.track;
     if (trackName !== undefined && !isPlayTrack(trackName)) {
       migrationNotes.push({
         level: 'manual',
@@ -263,18 +281,24 @@ const buildMigrationNotes = (easConfiguration: EasJson, apps: AppDescriptor[]): 
       });
     }
   }
-  if (easConfiguration.cli?.appVersionSource === 'remote') {
-    migrationNotes.push({
+  return migrationNotes;
+};
+
+const notesFromEasCli = (easConfiguration: EasJson): MigrationNote[] => {
+  const cliBlock = easConfiguration.cli;
+  if (cliBlock === undefined) return [];
+  if (cliBlock.appVersionSource !== 'remote') return [];
+  return [
+    {
       level: 'mapped',
       message:
         '`cli.appVersionSource: remote` -> Launch already bumps build numbers from the store, matching remote.',
-    });
-  }
-  migrationNotes.push({
-    level: 'manual',
-    message:
-      'EAS built in the cloud; Launch builds locally by default (`buildEngine: "fastlane"`). No Mac? Set `buildEngine: "eas"` or run `launch build --remote` (see `launch explain eas-handoff`).',
-  });
+    },
+  ];
+};
+
+const notesFromAppIdentifiers = (apps: AppDescriptor[]): MigrationNote[] => {
+  const migrationNotes: MigrationNote[] = [];
   for (const app of apps) {
     if (app.bundleId !== undefined) {
       migrationNotes.push({
@@ -291,6 +315,22 @@ const buildMigrationNotes = (easConfiguration: EasJson, apps: AppDescriptor[]): 
   }
   return migrationNotes;
 };
+
+/** Report notes for build/submit/cli mapping and detected store identifiers. */
+export const notesFromEasConfiguration = (
+  easConfiguration: EasJson,
+  apps: AppDescriptor[],
+): MigrationNote[] => [
+  ...notesFromBuildProfiles(easConfiguration),
+  ...notesFromSubmitProfiles(easConfiguration),
+  ...notesFromEasCli(easConfiguration),
+  {
+    level: 'manual',
+    message:
+      'EAS built in the cloud; Launch builds locally by default (`buildEngine: "fastlane"`). No Mac? Set `buildEngine: "eas"` or run `launch build --remote` (see `launch explain eas-handoff`).',
+  },
+  ...notesFromAppIdentifiers(apps),
+];
 
 const CredentialsDocumentSchema = Schema.mutable(
   Schema.Struct({
@@ -329,13 +369,20 @@ const CredentialsDocumentSchema = Schema.mutable(
   }),
 );
 
-const summarizeCredentialsDocument = (
-  credentialsDocument: Schema.Schema.Type<typeof CredentialsDocumentSchema>,
+type CredentialsDocument = Schema.Schema.Type<typeof CredentialsDocumentSchema>;
+
+/** Drop password fields and keep only path/alias facts Launch can surface in notes. */
+export const credentialsSummaryFromDocument = (
+  credentialsDocument: CredentialsDocument,
 ): CredentialsSummary | null => {
   const credentialsSummary: CredentialsSummary = {};
   const iosCredentials = credentialsDocument.ios;
   if (iosCredentials !== undefined) {
-    const distributionCertificatePath = iosCredentials.distributionCertificate?.path;
+    let distributionCertificatePath: string | undefined;
+    const distributionCertificate = iosCredentials.distributionCertificate;
+    if (distributionCertificate !== undefined) {
+      distributionCertificatePath = distributionCertificate.path;
+    }
     const provisioningProfilePath = iosCredentials.provisioningProfilePath;
     let hasIosSigningPath = distributionCertificatePath !== undefined;
     if (provisioningProfilePath !== undefined) hasIosSigningPath = true;
@@ -349,23 +396,37 @@ const summarizeCredentialsDocument = (
       }
     }
   }
-  const androidKeystore = credentialsDocument.android?.keystore;
-  if (androidKeystore !== undefined) {
-    let hasAndroidKeystoreField = androidKeystore.keystorePath !== undefined;
-    if (androidKeystore.keyAlias !== undefined) hasAndroidKeystoreField = true;
-    if (hasAndroidKeystoreField) {
-      credentialsSummary.android = {};
-      if (androidKeystore.keystorePath !== undefined) {
-        credentialsSummary.android.keystorePath = androidKeystore.keystorePath;
-      }
-      if (androidKeystore.keyAlias !== undefined) {
-        credentialsSummary.android.keyAlias = androidKeystore.keyAlias;
+  const androidCredentials = credentialsDocument.android;
+  if (androidCredentials !== undefined) {
+    const androidKeystore = androidCredentials.keystore;
+    if (androidKeystore !== undefined) {
+      let hasAndroidKeystoreField = androidKeystore.keystorePath !== undefined;
+      if (androidKeystore.keyAlias !== undefined) hasAndroidKeystoreField = true;
+      if (hasAndroidKeystoreField) {
+        credentialsSummary.android = {};
+        if (androidKeystore.keystorePath !== undefined) {
+          credentialsSummary.android.keystorePath = androidKeystore.keystorePath;
+        }
+        if (androidKeystore.keyAlias !== undefined) {
+          credentialsSummary.android.keyAlias = androidKeystore.keyAlias;
+        }
       }
     }
   }
   if (credentialsSummary.ios !== undefined) return credentialsSummary;
   if (credentialsSummary.android !== undefined) return credentialsSummary;
   return null;
+};
+
+/** Decode credentials.json source and keep only non-secret path/alias facts. */
+export const credentialsSummaryFromJson = (
+  credentialsSource: string,
+): CredentialsSummary | null => {
+  const decodedDocument = Schema.decodeUnknownOption(Schema.parseJson(CredentialsDocumentSchema))(
+    credentialsSource,
+  );
+  if (Option.isNone(decodedDocument)) return null;
+  return credentialsSummaryFromDocument(decodedDocument.value);
 };
 
 const readCredentialsSummary = (
@@ -378,33 +439,34 @@ const readCredentialsSummary = (
     if (!(yield* fileSystem.exists(credentialsPath))) return null;
     const credentialsSource = yield* fileSystem.readFileString(credentialsPath).pipe(Effect.option);
     if (Option.isNone(credentialsSource)) return null;
-    const credentialsDocument = yield* Schema.decodeUnknown(
-      Schema.parseJson(CredentialsDocumentSchema),
-    )(credentialsSource.value).pipe(Effect.option);
-    if (Option.isNone(credentialsDocument)) return null;
-    return summarizeCredentialsDocument(credentialsDocument.value);
+    return credentialsSummaryFromJson(credentialsSource.value);
   });
 
-const makeCredentialsNotes = (credentialsSummary: CredentialsSummary): MigrationNote[] => {
+/** Manual follow-ups when local EAS credentials.json still holds signing material. */
+export const notesFromCredentialsSummary = (
+  credentialsSummary: CredentialsSummary,
+): MigrationNote[] => {
   const migrationNotes: MigrationNote[] = [];
-  if (credentialsSummary.ios !== undefined) {
+  const iosCredentials = credentialsSummary.ios;
+  if (iosCredentials !== undefined) {
     let certificateLocation = 'your distribution certificate';
-    if (credentialsSummary.ios.distributionCertificatePath !== undefined) {
-      certificateLocation = credentialsSummary.ios.distributionCertificatePath;
+    if (iosCredentials.distributionCertificatePath !== undefined) {
+      certificateLocation = iosCredentials.distributionCertificatePath;
     }
     migrationNotes.push({
       level: 'manual',
       message: `Local iOS signing material in credentials.json (${certificateLocation}) - import it with \`launch creds\`; Launch keeps certs in the OS keychain and never reads the password from credentials.json.`,
     });
   }
-  if (credentialsSummary.android !== undefined) {
+  const androidCredentials = credentialsSummary.android;
+  if (androidCredentials !== undefined) {
     let keystoreLocation = 'your release keystore';
-    if (credentialsSummary.android.keystorePath !== undefined) {
-      keystoreLocation = credentialsSummary.android.keystorePath;
+    if (androidCredentials.keystorePath !== undefined) {
+      keystoreLocation = androidCredentials.keystorePath;
     }
     let keyAliasLabel = '';
-    if (credentialsSummary.android.keyAlias !== undefined) {
-      keyAliasLabel = `, key alias "${credentialsSummary.android.keyAlias}"`;
+    if (androidCredentials.keyAlias !== undefined) {
+      keyAliasLabel = `, key alias "${androidCredentials.keyAlias}"`;
     }
     migrationNotes.push({
       level: 'manual',
@@ -452,15 +514,22 @@ const ExpoWrapperSchema = Schema.mutable(
   }),
 );
 
-const decodeExpoFacts = (resolvedConfiguration: Record<string, unknown>) => {
+type ExpoFacts = Schema.Schema.Type<typeof ExpoFactsSchema>;
+
+/** Read Expo/EAS project facts from either a wrapped or bare app config document. */
+export const expoFactsFromResolvedConfig = (
+  resolvedConfiguration: Record<string, unknown>,
+): ExpoFacts | null => {
   const decodedWrapper = Schema.decodeUnknownOption(ExpoWrapperSchema)(resolvedConfiguration);
-  if (Option.isSome(decodedWrapper) && decodedWrapper.value.expo !== undefined) {
-    return decodedWrapper.value.expo;
+  if (Option.isSome(decodedWrapper)) {
+    const wrappedExpo = decodedWrapper.value.expo;
+    if (wrappedExpo !== undefined) return wrappedExpo;
   }
   return Option.getOrNull(Schema.decodeUnknownOption(ExpoFactsSchema)(resolvedConfiguration));
 };
 
-const describeRuntimeVersion = (
+/** Human-readable runtimeVersion label for info notes. */
+export const describeRuntimeVersion = (
   runtimeVersion: Schema.Schema.Type<typeof RuntimeVersionSchema>,
 ): string | undefined => {
   if (typeof runtimeVersion === 'string') return runtimeVersion;
@@ -468,42 +537,54 @@ const describeRuntimeVersion = (
   return undefined;
 };
 
-const buildAppFactNotes = (apps: AppDescriptor[]) =>
+/** Info notes from Expo app.json facts (project id, owner, runtimeVersion, updates). */
+export const notesFromExpoFacts = (appName: string, expoFacts: ExpoFacts): MigrationNote[] => {
+  const migrationNotes: MigrationNote[] = [];
+  let projectId: string | undefined;
+  const extraBlock = expoFacts.extra;
+  if (extraBlock !== undefined) {
+    const easBlock = extraBlock.eas;
+    if (easBlock !== undefined) projectId = easBlock.projectId;
+  }
+  if (projectId !== undefined) {
+    migrationNotes.push({
+      level: 'info',
+      message: `"${appName}" is EAS project ${projectId} (app.json extra.eas.projectId) - Launch doesn't use an EAS project id; drop it once you've cut over.`,
+    });
+  }
+  if (expoFacts.owner !== undefined) {
+    migrationNotes.push({
+      level: 'info',
+      message: `"${appName}" is owned by the Expo account "${expoFacts.owner}" - Launch publishes under your Apple/Play accounts, not an Expo owner.`,
+    });
+  }
+  if (expoFacts.runtimeVersion !== undefined) {
+    const runtimeVersionLabel = describeRuntimeVersion(expoFacts.runtimeVersion);
+    if (runtimeVersionLabel !== undefined) {
+      migrationNotes.push({
+        level: 'info',
+        message: `"${appName}" set runtimeVersion ${runtimeVersionLabel} - relevant only for EAS Update; Launch ships store builds (see \`launch explain ota-update\`).`,
+      });
+    }
+  }
+  if (expoFacts.updates !== undefined) {
+    migrationNotes.push({
+      level: 'info',
+      message: `"${appName}" configures expo.updates (EAS Update) - Launch ships store builds and doesn't run OTA by default (see \`launch explain ota-update\`).`,
+    });
+  }
+  return migrationNotes;
+};
+
+const notesFromAppExpoFacts = (apps: AppDescriptor[]) =>
   Effect.gen(function* () {
     const migrationNotes: MigrationNote[] = [];
     for (const app of apps) {
       const resolvedConfiguration = yield* readResolvedConfig(app.dir);
       if (resolvedConfiguration === null) continue;
-      const expoFacts = decodeExpoFacts(resolvedConfiguration);
+      const expoFacts = expoFactsFromResolvedConfig(resolvedConfiguration);
       if (expoFacts === null) continue;
-      const projectId = expoFacts.extra?.eas?.projectId;
-      if (projectId !== undefined) {
-        migrationNotes.push({
-          level: 'info',
-          message: `"${app.name}" is EAS project ${projectId} (app.json extra.eas.projectId) - Launch doesn't use an EAS project id; drop it once you've cut over.`,
-        });
-      }
-      if (expoFacts.owner !== undefined) {
-        migrationNotes.push({
-          level: 'info',
-          message: `"${app.name}" is owned by the Expo account "${expoFacts.owner}" - Launch publishes under your Apple/Play accounts, not an Expo owner.`,
-        });
-      }
-      if (expoFacts.runtimeVersion !== undefined) {
-        const runtimeVersionLabel = describeRuntimeVersion(expoFacts.runtimeVersion);
-        if (runtimeVersionLabel !== undefined) {
-          migrationNotes.push({
-            level: 'info',
-            message: `"${app.name}" set runtimeVersion ${runtimeVersionLabel} - relevant only for EAS Update; Launch ships store builds (see \`launch explain ota-update\`).`,
-          });
-        }
-      }
-      if (expoFacts.updates !== undefined) {
-        migrationNotes.push({
-          level: 'info',
-          message: `"${app.name}" configures expo.updates (EAS Update) - Launch ships store builds and doesn't run OTA by default (see \`launch explain ota-update\`).`,
-        });
-      }
+      migrationNotes.push(...notesFromExpoFacts(app.name, expoFacts));
     }
     return migrationNotes;
   });
@@ -534,7 +615,7 @@ export const migrateEas = (
         ),
       );
     const easConfiguration = yield* parseEasJson(easJsonSource);
-    const profileSection = serializeProfilesSection(mapProfiles(easConfiguration));
+    const profileSection = serializeProfilesSection(launchProfilesFromEas(easConfiguration));
     const migrationArtifacts: MigrationArtifact[] = [
       {
         path: 'launch.config.ts',
@@ -548,14 +629,14 @@ export const migrateEas = (
         path: '.env.example',
         contents: buildEnvExample(collectEnvironmentKeys(easConfiguration)),
       },
-      ...makeProfileEnvironmentArtifacts(easConfiguration),
+      ...profileEnvironmentArtifactsFromEas(easConfiguration),
     ];
-    const migrationNotes = buildMigrationNotes(easConfiguration, apps);
+    const migrationNotes = notesFromEasConfiguration(easConfiguration, apps);
     const credentialsSummary = yield* readCredentialsSummary(workingDirectory);
     if (credentialsSummary !== null) {
-      migrationNotes.push(...makeCredentialsNotes(credentialsSummary));
+      migrationNotes.push(...notesFromCredentialsSummary(credentialsSummary));
     }
-    migrationNotes.push(...(yield* buildAppFactNotes(apps)));
+    migrationNotes.push(...(yield* notesFromAppExpoFacts(apps)));
     const storeScaffold = yield* scaffoldStoreConfig(workingDirectory);
     if (storeScaffold.artifact !== null) migrationArtifacts.push(storeScaffold.artifact);
     migrationNotes.push(storeScaffold.note);
