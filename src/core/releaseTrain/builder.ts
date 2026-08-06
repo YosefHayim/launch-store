@@ -29,6 +29,7 @@ import {
   AppleStoreClientService,
   type AppleStoreClientService as AppleStoreClientDependencies,
 } from '../services/appleStoreClient.js';
+import { errorMessage } from '../services/errorMessage.js';
 import { executeCommand } from '../services/exec.js';
 import type { LaunchEnvironmentService } from '../services/environment.js';
 import {
@@ -42,6 +43,7 @@ import { getCredentialsProvider } from '../services/registry.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import type { AndroidReleaseOptions, AppDescriptor, BuildProfile } from '../types/app.js';
 import type { LaunchConfig, ResolvedBuildContext } from '../types/config.js';
+import type { BuildArtifact } from '../types/artifacts.js';
 import type { Car } from '../types/releaseTrain.js';
 import { androidCarState, iosCarState } from './engine.js';
 import type { TrainEngine } from './orchestrator.js';
@@ -72,27 +74,48 @@ export type TrainRuntime = Readonly<{
   engine: TrainEngine<TrainRuntimeRequirements>;
 }>;
 
-/** Convert an unknown runtime cause to the train engine's tagged channel. */
 const runtimeFailure = (
   operation: string,
   cause: unknown,
   fallbackMessage?: string,
 ): TrainRuntimeFailure => {
   let message = fallbackMessage;
-  if (message === undefined && cause instanceof Error) message = cause.message;
-  if (message === undefined) message = `${operation} failed.`;
+  if (message === undefined) message = errorMessage(cause);
+  if (message.length === 0) message = `${operation} failed.`;
   return makeTrainRuntimeFailure({ operation, message, cause });
 };
 
-/** Map a store transport operation into the train engine's tagged channel. */
 const attemptTransport = <Success>(
   operation: string,
-  transportOperation: () => Effect.Effect<Success, unknown>,
+  transportOperation: Effect.Effect<Success, unknown>,
 ): Effect.Effect<Success, TrainRuntimeFailure> =>
-  transportOperation().pipe(Effect.mapError((cause) => runtimeFailure(operation, cause)));
+  transportOperation.pipe(Effect.mapError((cause) => runtimeFailure(operation, cause)));
 
-/** Build the live Effect engine for one release-train run. */
-export const buildTrainRuntime = (
+/** Whether an App Store build is processed and still usable for train submit. */
+export const isUsableIosStoreBuild = (storeBuild: {
+  processingState: string;
+  expired: boolean;
+}): boolean => storeBuild.processingState === 'VALID' && !storeBuild.expired;
+
+/** Whether a stored artifact is the latest Android build for the given app. */
+export const isStoredAndroidBuild = (
+  storedBuild: Pick<BuildArtifact, 'appName' | 'platform'>,
+  appName: string,
+): boolean => storedBuild.appName === appName && storedBuild.platform === 'android';
+
+/** Actionable message when marketing version cannot be determined. */
+export const marketingVersionMissingMessage = (appName: string): string =>
+  `Could not determine a marketing version for ${appName}. Set "version" in app.json.`;
+
+/** Keep a non-empty marketing version; null when absent or blank. */
+export const usableMarketingVersion = (versionString: string | undefined): string | null => {
+  if (versionString === undefined) return null;
+  if (versionString === '') return null;
+  return versionString;
+};
+
+/** Assemble the live Effect engine for one release-train run. */
+export const createTrainRuntime = (
   launchConfiguration: LaunchConfig,
   appDescriptor: AppDescriptor,
   buildProfile: BuildProfile,
@@ -104,8 +127,7 @@ export const buildTrainRuntime = (
   let cachedGoogleClient: EffectGooglePlayClient | undefined;
   let cachedCodeSigner: CodeSigner | undefined;
 
-  /** Resolve and memoize the active App Store Connect client. */
-  const resolveAppleClient = (): Effect.Effect<
+  const loadAppleClient = (): Effect.Effect<
     AscReleaseApi,
     TrainRuntimeFailure,
     | AppleStoreClientDependencies
@@ -135,8 +157,7 @@ export const buildTrainRuntime = (
       return cachedAppleClient;
     });
 
-  /** Resolve and memoize the configured Google Play client. */
-  const resolveGoogleClient = (): Effect.Effect<
+  const loadGoogleClient = (): Effect.Effect<
     EffectGooglePlayClient,
     TrainRuntimeFailure,
     GoogleStoreClientDependencies | LaunchSecretStoreService
@@ -162,8 +183,7 @@ export const buildTrainRuntime = (
       return cachedGoogleClient;
     });
 
-  /** Resolve and memoize the OTA code signer. */
-  const resolveCodeSigner = (): Effect.Effect<
+  const loadCodeSigner = (): Effect.Effect<
     CodeSigner,
     TrainRuntimeFailure,
     CodeSigningRequirements
@@ -171,12 +191,11 @@ export const buildTrainRuntime = (
     Effect.gen(function* () {
       if (cachedCodeSigner !== undefined) return cachedCodeSigner;
       cachedCodeSigner = yield* ensureCodeSigner(false, logger).pipe(
-        Effect.mapError((cause) => runtimeFailure('resolve OTA code signer', cause)),
+        Effect.mapError((cause) => runtimeFailure('load OTA code signer', cause)),
       );
       return cachedCodeSigner;
     });
 
-  /** Submit the latest valid iOS build to App Store review. */
   const submitIos = (): Effect.Effect<
     Readonly<{ buildId?: string }>,
     TrainRuntimeFailure,
@@ -197,10 +216,8 @@ export const buildTrainRuntime = (
           ),
         );
       }
-      const ascClient = yield* resolveAppleClient();
-      const appId = yield* attemptTransport('find App Store app', () =>
-        ascClient.getAppId(bundleId),
-      );
+      const ascClient = yield* loadAppleClient();
+      const appId = yield* attemptTransport('find App Store app', ascClient.getAppId(bundleId));
       if (appId === null) {
         return yield* Effect.fail(
           runtimeFailure(
@@ -210,12 +227,11 @@ export const buildTrainRuntime = (
           ),
         );
       }
-      const storeBuilds = yield* attemptTransport('list App Store builds', () =>
+      const storeBuilds = yield* attemptTransport(
+        'list App Store builds',
         ascClient.listBuilds(appId),
       );
-      const storeBuild = storeBuilds.find(
-        (candidateBuild) => candidateBuild.processingState === 'VALID' && !candidateBuild.expired,
-      );
+      const storeBuild = storeBuilds.find(isUsableIosStoreBuild);
       if (storeBuild === undefined) {
         return yield* Effect.fail(
           runtimeFailure(
@@ -225,28 +241,21 @@ export const buildTrainRuntime = (
           ),
         );
       }
-      let versionString = appDescriptor.version;
-      if (versionString === undefined) {
-        const storeVersion = yield* attemptTransport('read App Store version', () =>
+      let versionCandidate = appDescriptor.version;
+      if (versionCandidate === undefined) {
+        const storeVersion = yield* attemptTransport(
+          'read App Store version',
           ascClient.getLatestMarketingVersion(bundleId),
         );
-        if (storeVersion !== null) versionString = storeVersion;
+        if (storeVersion !== null) versionCandidate = storeVersion;
       }
-      if (versionString === undefined) {
+      const marketingVersion = usableMarketingVersion(versionCandidate);
+      if (marketingVersion === null) {
         return yield* Effect.fail(
           runtimeFailure(
             'resolve iOS marketing version',
             appDescriptor,
-            `Could not determine a marketing version for ${appDescriptor.name}. Set "version" in app.json.`,
-          ),
-        );
-      }
-      if (versionString === '') {
-        return yield* Effect.fail(
-          runtimeFailure(
-            'resolve iOS marketing version',
-            appDescriptor,
-            `Could not determine a marketing version for ${appDescriptor.name}. Set "version" in app.json.`,
+            marketingVersionMissingMessage(appDescriptor.name),
           ),
         );
       }
@@ -260,7 +269,7 @@ export const buildTrainRuntime = (
       const releaseInput: ReleaseInput = {
         bundleId,
         platform: IOS_PLATFORM,
-        versionString,
+        versionString: marketingVersion,
         releaseType: releaseTypeSettings.releaseType,
         phasedRelease: launchConfiguration.release?.phasedRelease === true,
         usesNonExemptEncryption: launchConfiguration.release?.usesNonExemptEncryption === true,
@@ -271,11 +280,10 @@ export const buildTrainRuntime = (
       if (releaseTypeSettings.earliestReleaseDate !== undefined) {
         releaseInput.earliestReleaseDate = releaseTypeSettings.earliestReleaseDate;
       }
-      yield* attemptTransport('submit iOS release', () => releaseApp(ascClient, releaseInput));
+      yield* attemptTransport('submit iOS release', releaseApp(ascClient, releaseInput));
       return { buildId: storeBuild.id };
     });
 
-  /** Submit the latest stored Android build to the Play production track. */
   const submitAndroid = (): Effect.Effect<
     Readonly<{ buildId?: string }>,
     TrainRuntimeFailure,
@@ -297,9 +305,8 @@ export const buildTrainRuntime = (
       const storedBuilds = yield* storageProvider
         .list()
         .pipe(Effect.mapError((cause) => runtimeFailure('read stored Android builds', cause)));
-      const latestBuild = storedBuilds.find(
-        (storedBuild) =>
-          storedBuild.appName === appDescriptor.name && storedBuild.platform === 'android',
+      const latestBuild = storedBuilds.find((storedBuild) =>
+        isStoredAndroidBuild(storedBuild, appDescriptor.name),
       );
       if (latestBuild === undefined) {
         return yield* Effect.fail(
@@ -343,7 +350,6 @@ export const buildTrainRuntime = (
       return { buildId: String(latestBuild.buildNumber) };
     });
 
-  /** Export and publish one OTA follower after its native platform is live. */
   const publishOta = (
     trainCar: Extract<Car, { kind: 'ota' }>,
   ): Effect.Effect<
@@ -381,7 +387,7 @@ export const buildTrainRuntime = (
       const exportMetadata = yield* readExportMetadata(distributionDirectory).pipe(
         Effect.mapError((cause) => runtimeFailure('read OTA export metadata', cause)),
       );
-      const codeSigner = yield* resolveCodeSigner();
+      const codeSigner = yield* loadCodeSigner();
       const publishedUpdate = yield* publishOtaPlatform(
         {
           storage: storageProvider,
@@ -408,8 +414,9 @@ export const buildTrainRuntime = (
         if (trainCar.kind === 'ios') {
           const bundleId = appDescriptor.bundleId;
           if (bundleId === undefined) return trainCar.state;
-          const ascClient = yield* resolveAppleClient();
-          const releaseStatus = yield* attemptTransport('read App Store release status', () =>
+          const ascClient = yield* loadAppleClient();
+          const releaseStatus = yield* attemptTransport(
+            'read App Store release status',
             readReleaseStatus(ascClient, bundleId, IOS_PLATFORM),
           );
           const nextState = iosCarState(releaseStatus.verdict);
@@ -418,7 +425,7 @@ export const buildTrainRuntime = (
         }
         const packageName = appDescriptor.packageName;
         if (packageName === undefined) return trainCar.state;
-        const playClient = yield* resolveGoogleClient();
+        const playClient = yield* loadGoogleClient();
         const trackReleases = yield* playClient
           .getTrackReleases(packageName, 'production')
           .pipe(Effect.mapError((cause) => runtimeFailure('read Play production track', cause)));
@@ -431,10 +438,8 @@ export const buildTrainRuntime = (
         if (trainCar.kind !== 'ios') return;
         const bundleId = appDescriptor.bundleId;
         if (bundleId === undefined) return;
-        const ascClient = yield* resolveAppleClient();
-        const appId = yield* attemptTransport('find App Store app', () =>
-          ascClient.getAppId(bundleId),
-        );
+        const ascClient = yield* loadAppleClient();
+        const appId = yield* attemptTransport('find App Store app', ascClient.getAppId(bundleId));
         if (appId === null) {
           return yield* Effect.fail(
             runtimeFailure(
@@ -444,12 +449,14 @@ export const buildTrainRuntime = (
             ),
           );
         }
-        const storeVersions = yield* attemptTransport('list App Store versions', () =>
+        const storeVersions = yield* attemptTransport(
+          'list App Store versions',
           ascClient.listAppStoreVersions(appId, IOS_PLATFORM),
         );
         const currentVersion = pickCurrentVersion(storeVersions);
         if (currentVersion === null) return;
-        yield* attemptTransport('release approved App Store version', () =>
+        yield* attemptTransport(
+          'release approved App Store version',
           ascClient.createAppStoreVersionReleaseRequest(currentVersion.id),
         );
       }),

@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { ReleaseVerdict } from '../release/appStoreRelease.js';
-import { androidCarState, iosCarState, resolveTrainCars } from './engine.js';
-const verdict = (state: ReleaseVerdict['state']): ReleaseVerdict => {
-  return { label: state, state, done: true, exitCode: 0 };
-};
+import { androidCarState, iosCarState, planTrainCars } from './engine.js';
+
+const verdict = (state: ReleaseVerdict['state']): ReleaseVerdict => ({
+  label: state,
+  state,
+  done: true,
+  exitCode: 0,
+});
+
 describe('iosCarState', () => {
   it('maps each verdict to a native car state, keeping the car put on unknown', () => {
     expect(iosCarState(verdict('released'))).toBe('released');
@@ -14,6 +19,7 @@ describe('iosCarState', () => {
     expect(iosCarState(verdict('unknown'))).toBeNull();
   });
 });
+
 describe('androidCarState', () => {
   it('treats a processed production release as live and a draft as submitted', () => {
     expect(androidCarState([{ status: 'completed' }])).toBe('released');
@@ -21,15 +27,18 @@ describe('androidCarState', () => {
     expect(androidCarState([{ status: 'halted' }])).toBe('released');
     expect(androidCarState([{ status: 'draft' }])).toBe('submitted');
   });
+
   it('keeps the car put when the track is empty or in an unknown status', () => {
     expect(androidCarState([])).toBeNull();
     expect(androidCarState([{ status: 'weird' }])).toBeNull();
   });
 });
-describe('resolveTrainCars', () => {
+
+describe('planTrainCars', () => {
   const base = { runtimeVersion: '1.0.0', channel: 'production', noOta: false };
+
   it('coordinates both native legs and one OTA follower each by default', () => {
-    const plan = resolveTrainCars({
+    const plan = planTrainCars({
       ...base,
       hasBundleId: true,
       hasPackageName: true,
@@ -41,9 +50,10 @@ describe('resolveTrainCars', () => {
       { platform: 'android', channel: 'production', runtimeVersion: '1.0.0' },
     ]);
   });
+
   it('drops OTA followers under --no-ota or with no cloud storage', () => {
     expect(
-      resolveTrainCars({
+      planTrainCars({
         ...base,
         hasBundleId: true,
         hasPackageName: false,
@@ -52,7 +62,7 @@ describe('resolveTrainCars', () => {
       }).ota,
     ).toEqual([]);
     expect(
-      resolveTrainCars({
+      planTrainCars({
         ...base,
         hasBundleId: true,
         hasPackageName: false,
@@ -60,8 +70,9 @@ describe('resolveTrainCars', () => {
       }).ota,
     ).toEqual([]);
   });
+
   it('narrows to one native leg under --platform', () => {
-    const plan = resolveTrainCars({
+    const plan = planTrainCars({
       ...base,
       hasBundleId: true,
       hasPackageName: true,
@@ -71,8 +82,9 @@ describe('resolveTrainCars', () => {
     expect(plan.platforms).toEqual(['ios']);
     expect(plan.ota).toEqual([{ platform: 'ios', channel: 'production', runtimeVersion: '1.0.0' }]);
   });
+
   it("omits a native leg the app doesn't declare", () => {
-    const plan = resolveTrainCars({
+    const plan = planTrainCars({
       ...base,
       hasBundleId: false,
       hasPackageName: true,

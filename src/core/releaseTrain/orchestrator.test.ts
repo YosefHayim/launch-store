@@ -3,6 +3,9 @@ import { Effect } from 'effect';
 import {
   advanceTrain,
   deriveTrainState,
+  isNativeApprovedOrReleased,
+  isNativeFailure,
+  isReleaseGateOpen,
   isTrainSettled,
   startTrain,
   trainExitCode,
@@ -269,6 +272,31 @@ describe('advanceTrain - invariants', () => {
     expect(native(record, 'ios')).toMatchObject({ state: 'released' });
   });
 });
+describe('release gate helpers', () => {
+  it('classifies native failures and approved-or-released cars', () => {
+    expect(isNativeFailure({ kind: 'ios', state: 'rejected', updatedAt: NOW })).toBe(true);
+    expect(isNativeFailure({ kind: 'ios', state: 'failed', updatedAt: NOW })).toBe(true);
+    expect(isNativeFailure({ kind: 'ios', state: 'approved', updatedAt: NOW })).toBe(false);
+    expect(isNativeApprovedOrReleased({ kind: 'ios', state: 'approved', updatedAt: NOW })).toBe(
+      true,
+    );
+    expect(isNativeApprovedOrReleased({ kind: 'ios', state: 'released', updatedAt: NOW })).toBe(
+      true,
+    );
+    expect(isNativeApprovedOrReleased({ kind: 'ios', state: 'in-review', updatedAt: NOW })).toBe(
+      false,
+    );
+  });
+
+  it('opens the gate for release-when-ready, hold-all-approved, and force', () => {
+    expect(isReleaseGateOpen(false, false, false, false)).toBe(true);
+    expect(isReleaseGateOpen(true, false, false, false)).toBe(false);
+    expect(isReleaseGateOpen(true, false, false, true)).toBe(true);
+    expect(isReleaseGateOpen(true, true, true, false)).toBe(true);
+    expect(isReleaseGateOpen(true, false, true, true)).toBe(false);
+  });
+});
+
 describe('deriveTrainState / trainExitCode / isTrainSettled', () => {
   it('is done only when every car is terminal', () => {
     expect(
