@@ -16,7 +16,7 @@ import type {
   WinBackOfferCreate,
   WinBackOfferResource,
 } from '../types/appleCatalog.js';
-import type { ActionStatus, PlannedAction, ReconcileReport } from '../types/reconcile.js';
+import type { PlannedAction, ReconcileReport } from '../types/reconcile.js';
 import type {
   AppProducts,
   IntroductoryOfferConfig,
@@ -27,6 +27,8 @@ import type {
   WinBackOfferConfig,
 } from '../types/catalog.js';
 import { errorMessage } from '../services/errorMessage.js';
+import { act, makeAppRecordFailure, plan, skip, type ReconcileContext } from './reconcile.js';
+
 /**
  * The exact slice of {@link AppStoreConnectClient} the offers reconciler depends on. Declared here (not
  * the concrete client) so the diff logic is unit-testable with a hand-rolled fake, mirroring
@@ -60,57 +62,29 @@ export type AscOffersApi = {
   ): Effect.Effect<PromotedPurchaseResource, unknown>;
   reorderPromotedPurchases(appId: string, orderedIds: string[]): Effect.Effect<void, unknown>;
 };
+
 /** Default territory for an {@link OfferPrice} that doesn't name one - matches the rest of the catalog. */
 const DEFAULT_TERRITORY = 'USA';
+
 /** Inputs to reconcile one app's offers. */
 export type ReconcileOffersInput = {
   bundleId: string;
   products: AppProducts;
   dryRun: boolean;
 };
-/** Mutable per-run context threaded through the reconcile walk (mirrors `core/store/ascSync.ts`). */
-type OffersContext = {
+
+/** Per-run context: shared reconcile bookkeeping plus the ASC offers surface. */
+type OffersContext = ReconcileContext & {
   api: AscOffersApi;
-  actions: PlannedAction[];
-  dryRun: boolean;
 };
-/**
- * Record an action and, unless this is a dry-run, perform it. A thrown error is captured on the action
- * (status `failed`) rather than propagated, so one bad offer never aborts the rest of the walk. Mirrors
- * the `act` helper in `core/store/ascSync.ts` (kept local - that one is private to its reconciler).
- */
-const act = (
-  offersContext: OffersContext,
-  description: string,
-  run: () => Effect.Effect<void, unknown>,
-): Effect.Effect<ActionStatus> => {
-  const action: PlannedAction = { description, destructive: false, status: 'planned' };
-  offersContext.actions.push(action);
-  if (offersContext.dryRun) return Effect.succeed(action.status);
-  return run().pipe(
-    Effect.match({
-      onFailure: (writeFailure) => {
-        action.status = 'failed';
-        action.error = errorMessage(writeFailure);
-        return action.status;
-      },
-      onSuccess: () => {
-        action.status = 'applied';
-        return action.status;
-      },
-    }),
-  );
-};
-/** Record an already-decided non-write outcome (skipped, with a reason) on the plan. */
-const note = (offersContext: OffersContext, description: string): void => {
-  offersContext.actions.push({ description, destructive: false, status: 'skipped' });
-};
-/** Resolve declared per-territory prices to Apple price-point ids; throws on the first non-matching amount. */
+
+/** Resolve declared per-territory prices to Apple price-point ids; fails on the first non-matching amount. */
 export type OfferPricePointFailure = Readonly<{
   readonly _tag: 'OfferPricePointFailure';
   readonly message: string;
 }>;
 const makeOfferPricePointFailure = Data.tagged<OfferPricePointFailure>('OfferPricePointFailure');
+
 const resolvePrices = (
   api: AscOffersApi,
   subscriptionId: string,
@@ -126,16 +100,18 @@ const resolvePrices = (
         territory,
         price.customerPrice,
       );
-      if (!point)
+      if (point === null) {
         return yield* Effect.fail(
           makeOfferPricePointFailure({
             message: `no ${territory} price point matches ${price.customerPrice}`,
           }),
         );
+      }
       resolved.push({ territory, pricePointId: point.id });
     }
     return resolved;
   });
+
 /**
  * Validate a price-bearing offer (offer code, promotional, win-back) at the boundary: `FREE_TRIAL` must
  * carry no prices; any other mode needs at least one. Returns a human reason when invalid, else null.
@@ -150,6 +126,24 @@ const priceModeError = (offerMode: string, prices: OfferPrice[] | undefined): st
   if (priceCount === 0) return `${offerMode} offers need at least one price`;
   return null;
 };
+
+/** Plan/apply a create that resolves optional declared prices first. */
+const createWithResolvedPrices = (
+  offersContext: OffersContext,
+  subscriptionId: string,
+  description: string,
+  prices: OfferPrice[] | undefined,
+  write: (resolvedPrices: ResolvedOfferPrice[]) => Effect.Effect<void, unknown>,
+): Effect.Effect<void> =>
+  act(offersContext, description, () =>
+    Effect.gen(function* () {
+      let offerPrices: OfferPrice[] = [];
+      if (prices !== undefined) offerPrices = prices;
+      const resolvedPrices = yield* resolvePrices(offersContext.api, subscriptionId, offerPrices);
+      yield* write(resolvedPrices);
+    }),
+  );
+
 /** Reconcile a subscription's offer-code campaigns - create each declared `name` Apple doesn't have yet. */
 const reconcileOfferCodes = (
   offersContext: OffersContext,
@@ -163,33 +157,32 @@ const reconcileOfferCodes = (
     for (const offer of desired) {
       if (existing.has(offer.name)) continue;
       const invalid = priceModeError(offer.offerMode, offer.prices);
-      if (invalid) {
-        note(offersContext, `offer code "${offer.name}" on ${productId}: ${invalid} - skipped`);
+      if (invalid !== null) {
+        skip(offersContext, `offer code "${offer.name}" on ${productId}: ${invalid} - skipped`);
         continue;
       }
-      yield* act(
+      yield* createWithResolvedPrices(
         offersContext,
+        subscriptionId,
         `create offer code "${offer.name}" on ${productId} (${offer.offerMode})`,
-        () =>
-          Effect.gen(function* () {
-            let offerPrices: OfferPrice[] = [];
-            if (offer.prices !== undefined) offerPrices = offer.prices;
-            const prices = yield* resolvePrices(offersContext.api, subscriptionId, offerPrices);
-            const create: OfferCodeCreate = {
-              subscriptionId,
-              name: offer.name,
-              customerEligibilities: offer.customerEligibilities,
-              offerEligibility: offer.offerEligibility,
-              duration: offer.duration,
-              offerMode: offer.offerMode,
-              numberOfPeriods: offer.numberOfPeriods,
-              prices,
-            };
-            yield* offersContext.api.createSubscriptionOfferCode(create);
-          }),
+        offer.prices,
+        (resolvedPrices) => {
+          const create: OfferCodeCreate = {
+            subscriptionId,
+            name: offer.name,
+            customerEligibilities: offer.customerEligibilities,
+            offerEligibility: offer.offerEligibility,
+            duration: offer.duration,
+            offerMode: offer.offerMode,
+            numberOfPeriods: offer.numberOfPeriods,
+            prices: resolvedPrices,
+          };
+          return offersContext.api.createSubscriptionOfferCode(create).pipe(Effect.asVoid);
+        },
       );
     }
   });
+
 /** Reconcile a subscription's promotional offers - create each declared `offerCode` that's missing. */
 const reconcilePromotionalOffers = (
   offersContext: OffersContext,
@@ -203,35 +196,34 @@ const reconcilePromotionalOffers = (
     for (const offer of desired) {
       if (existing.has(offer.offerCode)) continue;
       const invalid = priceModeError(offer.offerMode, offer.prices);
-      if (invalid) {
-        note(
+      if (invalid !== null) {
+        skip(
           offersContext,
           `promotional offer "${offer.offerCode}" on ${productId}: ${invalid} - skipped`,
         );
         continue;
       }
-      yield* act(
+      yield* createWithResolvedPrices(
         offersContext,
+        subscriptionId,
         `create promotional offer "${offer.offerCode}" on ${productId} (${offer.offerMode})`,
-        () =>
-          Effect.gen(function* () {
-            let offerPrices: OfferPrice[] = [];
-            if (offer.prices !== undefined) offerPrices = offer.prices;
-            const prices = yield* resolvePrices(offersContext.api, subscriptionId, offerPrices);
-            const create: PromotionalOfferCreate = {
-              subscriptionId,
-              name: offer.name,
-              offerCode: offer.offerCode,
-              duration: offer.duration,
-              offerMode: offer.offerMode,
-              numberOfPeriods: offer.numberOfPeriods,
-              prices,
-            };
-            yield* offersContext.api.createPromotionalOffer(create);
-          }),
+        offer.prices,
+        (resolvedPrices) => {
+          const create: PromotionalOfferCreate = {
+            subscriptionId,
+            name: offer.name,
+            offerCode: offer.offerCode,
+            duration: offer.duration,
+            offerMode: offer.offerMode,
+            numberOfPeriods: offer.numberOfPeriods,
+            prices: resolvedPrices,
+          };
+          return offersContext.api.createPromotionalOffer(create).pipe(Effect.asVoid);
+        },
       );
     }
   });
+
 /** Reconcile a subscription's introductory offers - at most one per territory (null = all territories). */
 const reconcileIntroductoryOffers = (
   offersContext: OffersContext,
@@ -248,14 +240,14 @@ const reconcileIntroductoryOffers = (
       if (existing.has(territory)) continue;
       const isFreeTrial = offer.offerMode === 'FREE_TRIAL';
       if (isFreeTrial && offer.price) {
-        note(
+        skip(
           offersContext,
           `introductory offer on ${productId}: FREE_TRIAL offers take no price - skipped`,
         );
         continue;
       }
       if (!isFreeTrial && !offer.price) {
-        note(
+        skip(
           offersContext,
           `introductory offer on ${productId}: ${offer.offerMode} offers need a price - skipped`,
         );
@@ -290,6 +282,7 @@ const reconcileIntroductoryOffers = (
       );
     }
   });
+
 /** Reconcile a subscription's win-back offers - create each declared `offerId` that's missing. */
 const reconcileWinBackOffers = (
   offersContext: OffersContext,
@@ -303,79 +296,85 @@ const reconcileWinBackOffers = (
     for (const offer of desired) {
       if (existing.has(offer.offerId)) continue;
       const invalid = priceModeError(offer.offerMode, offer.prices);
-      if (invalid) {
-        note(
+      if (invalid !== null) {
+        skip(
           offersContext,
           `win-back offer "${offer.offerId}" on ${productId}: ${invalid} - skipped`,
         );
         continue;
       }
       if (offer.monthsSinceLastSubscribed.min > offer.monthsSinceLastSubscribed.max) {
-        note(
+        skip(
           offersContext,
           `win-back offer "${offer.offerId}" on ${productId}: monthsSinceLastSubscribed min > max - skipped`,
         );
         continue;
       }
-      yield* act(
+      yield* createWithResolvedPrices(
         offersContext,
+        subscriptionId,
         `create win-back offer "${offer.offerId}" on ${productId} (${offer.offerMode})`,
-        () =>
-          Effect.gen(function* () {
-            let offerPrices: OfferPrice[] = [];
-            if (offer.prices !== undefined) offerPrices = offer.prices;
-            const prices = yield* resolvePrices(offersContext.api, subscriptionId, offerPrices);
-            let priority: WinBackOfferCreate['priority'] = 'NORMAL';
-            if (offer.priority !== undefined) priority = offer.priority;
-            const create: WinBackOfferCreate = {
-              subscriptionId,
-              offerId: offer.offerId,
-              referenceName: offer.referenceName,
-              duration: offer.duration,
-              offerMode: offer.offerMode,
-              numberOfPeriods: offer.numberOfPeriods,
-              eligiblePaidMonths: offer.eligiblePaidMonths,
-              monthsSinceLastSubscribed: offer.monthsSinceLastSubscribed,
-              startDate: offer.startDate,
-              priority,
-              prices,
-            };
-            if (offer.waitBetweenOffersMonths !== undefined) {
-              create.waitBetweenOffersMonths = offer.waitBetweenOffersMonths;
-            }
-            if (offer.endDate !== undefined) create.endDate = offer.endDate;
-            if (offer.promotionIntent !== undefined) {
-              create.promotionIntent = offer.promotionIntent;
-            }
-            yield* offersContext.api.createWinBackOffer(create);
-          }),
+        offer.prices,
+        (resolvedPrices) => {
+          let priority: WinBackOfferCreate['priority'] = 'NORMAL';
+          if (offer.priority !== undefined) priority = offer.priority;
+          const create: WinBackOfferCreate = {
+            subscriptionId,
+            offerId: offer.offerId,
+            referenceName: offer.referenceName,
+            duration: offer.duration,
+            offerMode: offer.offerMode,
+            numberOfPeriods: offer.numberOfPeriods,
+            eligiblePaidMonths: offer.eligiblePaidMonths,
+            monthsSinceLastSubscribed: offer.monthsSinceLastSubscribed,
+            startDate: offer.startDate,
+            priority,
+            prices: resolvedPrices,
+          };
+          if (offer.waitBetweenOffersMonths !== undefined) {
+            create.waitBetweenOffersMonths = offer.waitBetweenOffersMonths;
+          }
+          if (offer.endDate !== undefined) create.endDate = offer.endDate;
+          if (offer.promotionIntent !== undefined) {
+            create.promotionIntent = offer.promotionIntent;
+          }
+          return offersContext.api.createWinBackOffer(create);
+        },
       );
     }
   });
-/** True when a subscription declares no offers at all (so the reconciler skips its network reads). */
-const hasNoOffers = (sub: SubscriptionConfig): boolean => {
-  if (sub.offerCodes !== undefined && sub.offerCodes.length > 0) return false;
-  if (sub.promotionalOffers !== undefined && sub.promotionalOffers.length > 0) return false;
-  if (sub.introductoryOffers !== undefined && sub.introductoryOffers.length > 0) return false;
-  if (sub.winBackOffers !== undefined && sub.winBackOffers.length > 0) return false;
-  return true;
+
+/** True when a subscription declares at least one offer of any kind. */
+const subscriptionDeclaresOffers = (subscription: SubscriptionConfig): boolean => {
+  if (subscription.offerCodes !== undefined && subscription.offerCodes.length > 0) return true;
+  if (subscription.promotionalOffers !== undefined && subscription.promotionalOffers.length > 0) {
+    return true;
+  }
+  if (subscription.introductoryOffers !== undefined && subscription.introductoryOffers.length > 0) {
+    return true;
+  }
+  if (subscription.winBackOffers !== undefined && subscription.winBackOffers.length > 0) {
+    return true;
+  }
+  return false;
 };
+
 /**
  * Whether an app's declared catalog carries anything this reconciler acts on - at least one subscription
  * offer (of any kind) or a promoted-purchase ordering. Lets `launch plan`'s offers surface omit apps that
- * declare only plain products, reusing {@link hasNoOffers} so "what counts as an offer" has one home.
+ * declare only plain products, reusing {@link subscriptionDeclaresOffers} so "what counts as an offer"
+ * has one home.
  */
 export const appDeclaresOffers = (products: AppProducts): boolean => {
   if (products.subscriptionGroups !== undefined) {
     for (const subscriptionGroup of products.subscriptionGroups) {
-      if (subscriptionGroup.subscriptions.some((subscription) => !hasNoOffers(subscription))) {
-        return true;
-      }
+      if (subscriptionGroup.subscriptions.some(subscriptionDeclaresOffers)) return true;
     }
   }
   if (products.promotedPurchases === undefined) return false;
   return products.promotedPurchases.length > 0;
 };
+
 /**
  * Reconcile every promoted purchase declared on the app: create the ones Apple doesn't have yet, then
  * rewrite the order to put the declared products first (in declared order), preserving any undeclared
@@ -385,7 +384,7 @@ export const appDeclaresOffers = (products: AppProducts): boolean => {
 const reconcilePromotedPurchases = (
   offersContext: OffersContext,
   appId: string,
-  desired: AppProducts['promotedPurchases'] = [],
+  desired: NonNullable<AppProducts['promotedPurchases']>,
   subscriptionIdByProduct: Map<string, string>,
   inAppPurchaseIdByProduct: Map<string, string>,
 ): Effect.Effect<void, unknown> =>
@@ -407,7 +406,7 @@ const reconcilePromotedPurchases = (
       const subscriptionId = subscriptionIdByProduct.get(promoted.productId);
       const inAppPurchaseId = inAppPurchaseIdByProduct.get(promoted.productId);
       if (subscriptionId === undefined && inAppPurchaseId === undefined) {
-        note(
+        skip(
           offersContext,
           `promoted purchase ${promoted.productId}: no matching subscription or in-app purchase - run \`launch sync\` first`,
         );
@@ -434,11 +433,25 @@ const reconcilePromotedPurchases = (
       if (promoted.enabled !== undefined) create.enabled = promoted.enabled;
       if (subscriptionId !== undefined) create.subscriptionId = subscriptionId;
       else if (inAppPurchaseId !== undefined) create.inAppPurchaseId = inAppPurchaseId;
-      const status = yield* act(offersContext, `promote ${promoted.productId}`, () =>
-        offersContext.api.createPromotedPurchase(create).pipe(Effect.asVoid),
-      );
-      if (status === 'applied') declaredOrder.push(`(${promoted.productId})`);
-      else if (status === 'planned') declaredOrder.push(`(${promoted.productId})`);
+      const promoteAction: PlannedAction = plan(offersContext, `promote ${promoted.productId}`);
+      if (!offersContext.dryRun) {
+        yield* offersContext.api.createPromotedPurchase(create).pipe(
+          Effect.match({
+            onFailure: (writeFailure) => {
+              promoteAction.status = 'failed';
+              promoteAction.error = errorMessage(writeFailure);
+            },
+            onSuccess: () => {
+              promoteAction.status = 'applied';
+            },
+          }),
+        );
+      }
+      if (promoteAction.status === 'applied') {
+        declaredOrder.push(`(${promoted.productId})`);
+      } else if (promoteAction.status === 'planned') {
+        declaredOrder.push(`(${promoted.productId})`);
+      }
     }
     const undeclaredPromotionIds = livePromotions
       .map((livePromotion) => livePromotion.id)
@@ -452,11 +465,12 @@ const reconcilePromotedPurchases = (
         offersContext.api.reorderPromotedPurchases(appId, realIds),
       );
     } else if (orderChanged) {
-      note(offersContext, `reorder promoted purchases to declared order (${desired.length})`);
+      skip(offersContext, `reorder promoted purchases to declared order (${desired.length})`);
     }
   });
+
 /**
- * Reconcile one app's offers and promoted-purchase ordering end to end. Throws only for a precondition
+ * Reconcile one app's offers and promoted-purchase ordering end to end. Fails only for a precondition
  * the user must fix (no ASC app record); every offer write is captured per-action so a single failure
  * never aborts the run. Subscriptions are matched to Apple by `productId`, so a subscription that isn't
  * created yet is reported as skipped with a pointer to `launch sync`.
@@ -468,9 +482,10 @@ export const reconcileOffers = (
   Effect.gen(function* () {
     const offersContext: OffersContext = { api, actions: [], dryRun: input.dryRun };
     const appId = yield* api.getAppId(input.bundleId);
-    if (!appId) {
+    if (appId === null) {
       return yield* Effect.fail(
-        makeOfferPricePointFailure({
+        makeAppRecordFailure({
+          bundleId: input.bundleId,
           message: `No App Store Connect app record for ${input.bundleId}. Create the app in App Store Connect, then re-run.`,
         }),
       );
@@ -489,10 +504,10 @@ export const reconcileOffers = (
     if (declaredSubscriptionGroups === undefined) declaredSubscriptionGroups = [];
     for (const subscriptionGroup of declaredSubscriptionGroups) {
       for (const subscription of subscriptionGroup.subscriptions) {
-        if (hasNoOffers(subscription)) continue;
+        if (!subscriptionDeclaresOffers(subscription)) continue;
         const subscriptionId = subscriptionIdByProduct.get(subscription.productId);
-        if (!subscriptionId) {
-          note(
+        if (subscriptionId === undefined) {
+          skip(
             offersContext,
             `subscription ${subscription.productId}: not in App Store Connect yet - run \`launch sync\` first`,
           );
@@ -539,7 +554,9 @@ export const reconcileOffers = (
       }
     }
     const inAppPurchaseIdByProduct = new Map<string, string>();
+    let promotedPurchases: NonNullable<AppProducts['promotedPurchases']> = [];
     if (input.products.promotedPurchases !== undefined) {
+      promotedPurchases = input.products.promotedPurchases;
       const inAppPurchases = yield* api.listInAppPurchases(appId);
       for (const inAppPurchase of inAppPurchases) {
         if (inAppPurchase.productId) {
@@ -550,7 +567,7 @@ export const reconcileOffers = (
     yield* reconcilePromotedPurchases(
       offersContext,
       appId,
-      input.products.promotedPurchases,
+      promotedPurchases,
       subscriptionIdByProduct,
       inAppPurchaseIdByProduct,
     );
