@@ -32,11 +32,13 @@ export const makeFastlaneMigrationFailure = Data.tagged<FastlaneMigrationFailure
   'FastlaneMigrationFailure',
 );
 
-const readRubyString = (rubySource: string, directiveName: string): string | undefined => {
+/** Read a top-level Fastlane Ruby string directive (`name "value"` / `name("value")`). */
+export const readRubyString = (rubySource: string, directiveName: string): string | undefined => {
   const directiveMatch = new RegExp(`^\\s*${directiveName}\\s*\\(?\\s*["']([^"']*)["']`, 'm').exec(
     rubySource,
   );
-  const directiveText = directiveMatch?.[1];
+  if (directiveMatch === null) return undefined;
+  const directiveText = directiveMatch[1];
   if (directiveText === undefined) return undefined;
   if (directiveText === '') return undefined;
   return directiveText;
@@ -81,24 +83,74 @@ export const parseSupplyfile = (supplyfileSource: string): SupplyfileData => {
   return supplyfile;
 };
 
-const KNOWN_ACTIONS = [
-  'build_app',
-  'gym',
-  'upload_to_testflight',
-  'pilot',
-  'upload_to_app_store',
-  'deliver',
-  'supply',
-  'upload_to_play_store',
-  'match',
-  'sync_code_signing',
-  'cert',
-  'sigh',
-  'get_certificates',
-  'get_provisioning_profile',
-  'capture_screenshots',
-  'snapshot',
+/** One recognized Fastlane action group: detection names, optional Launch command, report note. */
+type FastlaneActionGroup = Readonly<{
+  actions: readonly string[];
+  launchCommand?: string;
+  noteLevel: MigrationNoteLevel;
+  noteMessage: string;
+}>;
+
+const FASTLANE_ACTION_GROUPS: readonly FastlaneActionGroup[] = [
+  {
+    actions: ['build_app', 'gym'],
+    launchCommand: 'launch build',
+    noteLevel: 'mapped',
+    noteMessage: 'fastlane built with gym/build_app -> `launch build`.',
+  },
+  {
+    actions: ['upload_to_testflight', 'pilot'],
+    launchCommand: 'launch release --track testing',
+    noteLevel: 'mapped',
+    noteMessage:
+      'fastlane uploaded to TestFlight (pilot) -> `launch release` on the testing track.',
+  },
+  {
+    actions: ['upload_to_app_store', 'deliver'],
+    launchCommand: 'launch release',
+    noteLevel: 'mapped',
+    noteMessage:
+      'fastlane released with deliver -> `launch release` plus `launch metadata` for the listing.',
+  },
+  {
+    actions: ['supply', 'upload_to_play_store'],
+    launchCommand: 'launch release (Android)',
+    noteLevel: 'mapped',
+    noteMessage:
+      'fastlane uploaded to Play (supply) -> `launch release` (Android) plus `launch metadata`.',
+  },
+  {
+    actions: [
+      'match',
+      'sync_code_signing',
+      'cert',
+      'sigh',
+      'get_certificates',
+      'get_provisioning_profile',
+    ],
+    noteLevel: 'manual',
+    noteMessage:
+      "fastlane managed signing (match/cert/sigh) -> Launch provisions and stores its own certificates in the OS keychain (see `launch explain code-signing`); you don't carry these over.",
+  },
+  {
+    actions: ['capture_screenshots', 'snapshot'],
+    noteLevel: 'manual',
+    noteMessage:
+      'fastlane captured screenshots - upload them with your listing via `launch metadata`.',
+  },
 ];
+
+const KNOWN_ACTIONS: readonly string[] = FASTLANE_ACTION_GROUPS.flatMap(
+  (actionGroup) => actionGroup.actions,
+);
+
+const ACTION_LAUNCH_COMMAND: Record<string, string> = {};
+for (const actionGroup of FASTLANE_ACTION_GROUPS) {
+  if (actionGroup.launchCommand === undefined) continue;
+  for (const actionName of actionGroup.actions) {
+    ACTION_LAUNCH_COMMAND[actionName] = actionGroup.launchCommand;
+  }
+}
 
 const containsAction = (rubySource: string, actionName: string): boolean =>
   new RegExp(`\\b${actionName}\\b`).test(rubySource);
@@ -116,7 +168,7 @@ const findLanePlatform = (fastfileSource: string, laneStartIndex: number): strin
   return lanePlatform;
 };
 
-/** Parse lane names and recognized actions without attempting to interpret arbitrary Ruby. */
+/** Parse lane names and recognized actions without interpreting arbitrary Ruby. */
 export const parseFastfile = (
   fastfileSource: string,
 ): { lanes: FastlaneLane[]; actions: string[] } => {
@@ -166,7 +218,8 @@ const discoverDotenvKeys = (
       const dotenvSource = yield* fileSystem.readFileString(dotenvPath);
       for (const dotenvLine of dotenvSource.split('\n')) {
         const assignmentMatch = /^\s*(?:export\s+)?([A-Za-z_]\w*)\s*=/.exec(dotenvLine);
-        const environmentKey = assignmentMatch?.[1];
+        if (assignmentMatch === null) continue;
+        const environmentKey = assignmentMatch[1];
         if (environmentKey !== undefined) environmentKeys.add(environmentKey);
       }
     }
@@ -192,7 +245,7 @@ const readFastlaneFile = (
     return undefined;
   });
 
-/** Read the supported Fastlane files and return null when no setup exists. */
+/** Read supported Fastlane files; null when no setup exists. */
 export const readFastlaneSetup = (
   workingDirectory: string,
 ): Effect.Effect<FastlaneSetup | null, PlatformError, FileSystem.FileSystem | Path.Path> =>
@@ -239,81 +292,22 @@ export const readFastlaneSetup = (
     return fastlaneSetup;
   });
 
-type ActionNote = Readonly<{
-  readonly actions: readonly string[];
-  readonly level: MigrationNoteLevel;
-  readonly message: string;
-}>;
-
-const ACTION_NOTES: readonly ActionNote[] = [
-  {
-    actions: ['build_app', 'gym'],
-    level: 'mapped',
-    message: 'fastlane built with gym/build_app -> `launch build`.',
-  },
-  {
-    actions: ['upload_to_testflight', 'pilot'],
-    level: 'mapped',
-    message: 'fastlane uploaded to TestFlight (pilot) -> `launch release` on the testing track.',
-  },
-  {
-    actions: ['upload_to_app_store', 'deliver'],
-    level: 'mapped',
-    message:
-      'fastlane released with deliver -> `launch release` plus `launch metadata` for the listing.',
-  },
-  {
-    actions: ['supply', 'upload_to_play_store'],
-    level: 'mapped',
-    message:
-      'fastlane uploaded to Play (supply) -> `launch release` (Android) plus `launch metadata`.',
-  },
-  {
-    actions: [
-      'match',
-      'sync_code_signing',
-      'cert',
-      'sigh',
-      'get_certificates',
-      'get_provisioning_profile',
-    ],
-    level: 'manual',
-    message:
-      "fastlane managed signing (match/cert/sigh) -> Launch provisions and stores its own certificates in the OS keychain (see `launch explain code-signing`); you don't carry these over.",
-  },
-  {
-    actions: ['capture_screenshots', 'snapshot'],
-    level: 'manual',
-    message: 'fastlane captured screenshots - upload them with your listing via `launch metadata`.',
-  },
-];
-
-const ACTION_COMMAND: Readonly<Record<string, string>> = {
-  build_app: 'launch build',
-  gym: 'launch build',
-  upload_to_testflight: 'launch release --track testing',
-  pilot: 'launch release --track testing',
-  upload_to_app_store: 'launch release',
-  deliver: 'launch release',
-  supply: 'launch release (Android)',
-  upload_to_play_store: 'launch release (Android)',
-};
-
-const laneCommands = (fastlaneLane: FastlaneLane): string[] => {
+/** Distinct Launch commands mapped from recognized actions on one lane. */
+export const laneLaunchCommands = (fastlaneLane: FastlaneLane): string[] => {
   const launchCommands: string[] = [];
   for (const actionName of fastlaneLane.actions) {
-    const launchCommand = ACTION_COMMAND[actionName];
+    const launchCommand = ACTION_LAUNCH_COMMAND[actionName];
     if (launchCommand === undefined) continue;
     if (!launchCommands.includes(launchCommand)) launchCommands.push(launchCommand);
   }
   return launchCommands;
 };
 
-const buildLaneNotes = (fastlaneLanes: FastlaneLane[]): MigrationNote[] => {
+const laneNotes = (fastlaneLanes: FastlaneLane[]): MigrationNote[] => {
   const migrationNotes: MigrationNote[] = [];
   const customLaneNames: string[] = [];
   for (const fastlaneLane of fastlaneLanes) {
-    const launchCommands = laneCommands(fastlaneLane);
+    const launchCommands = laneLaunchCommands(fastlaneLane);
     if (launchCommands.length > 0) {
       let laneLabel = `lane :${fastlaneLane.name}`;
       if (fastlaneLane.platform !== undefined) {
@@ -336,79 +330,67 @@ const buildLaneNotes = (fastlaneLanes: FastlaneLane[]): MigrationNote[] => {
   return migrationNotes;
 };
 
-const buildMigrationNotes = (
-  fastlaneSetup: FastlaneSetup,
-  apps: AppDescriptor[],
-  importedMetadata: boolean,
-): MigrationNote[] => {
-  const migrationNotes = buildLaneNotes(fastlaneSetup.lanes);
-  for (const actionNote of ACTION_NOTES) {
-    if (actionNote.actions.some((actionName) => fastlaneSetup.actions.includes(actionName))) {
-      migrationNotes.push({ level: actionNote.level, message: actionNote.message });
-    }
+const matchfileNotes = (matchfile: MatchfileData): MigrationNote[] => {
+  const signingParts: string[] = [];
+  if (matchfile.type !== undefined) signingParts.push(`type "${matchfile.type}"`);
+  if (matchfile.storageMode !== undefined) {
+    signingParts.push(`storage "${matchfile.storageMode}"`);
   }
-  if (fastlaneSetup.matchfile !== undefined) {
-    const signingParts: string[] = [];
-    if (fastlaneSetup.matchfile.type !== undefined) {
-      signingParts.push(`type "${fastlaneSetup.matchfile.type}"`);
-    }
-    if (fastlaneSetup.matchfile.storageMode !== undefined) {
-      signingParts.push(`storage "${fastlaneSetup.matchfile.storageMode}"`);
-    }
-    if (fastlaneSetup.matchfile.gitUrl !== undefined) {
-      signingParts.push(`repo ${fastlaneSetup.matchfile.gitUrl}`);
-    }
-    if (signingParts.length > 0) {
-      let storageExplanation = '';
-      const storageMode = fastlaneSetup.matchfile.storageMode;
-      if (storageMode !== undefined && storageMode !== 'git') {
-        storageExplanation = ` Your certificates live in ${storageMode}, not git - Launch doesn't read them; it provisions fresh.`;
-      }
-      migrationNotes.push({
-        level: 'info',
-        message: `Matchfile signing config detected (${signingParts.join(', ')}) - informational; Launch uses its own signing.${storageExplanation}`,
-      });
-    }
+  if (matchfile.gitUrl !== undefined) signingParts.push(`repo ${matchfile.gitUrl}`);
+  if (signingParts.length === 0) return [];
+  let storageExplanation = '';
+  const storageMode = matchfile.storageMode;
+  if (storageMode !== undefined && storageMode !== 'git') {
+    storageExplanation = ` Your certificates live in ${storageMode}, not git - Launch doesn't read them; it provisions fresh.`;
   }
-  const appfile = fastlaneSetup.appfile;
-  if (appfile !== undefined) {
-    let hasAppleAccount = appfile.appleId !== undefined;
-    if (appfile.teamId !== undefined) hasAppleAccount = true;
-    if (appfile.itcTeamId !== undefined) hasAppleAccount = true;
-    if (hasAppleAccount) {
-      migrationNotes.push({
-        level: 'manual',
-        message:
-          'Appfile carried Apple account details (apple_id/team_id) - configure your Apple API key with `launch creds set-key`.',
-      });
-    }
-    if (appfile.appIdentifier !== undefined) {
-      migrationNotes.push({
-        level: 'info',
-        message: `Appfile app_identifier ${appfile.appIdentifier} - Launch reads the bundle id from app.json; nothing to write.`,
-      });
-    }
+  return [
+    {
+      level: 'info',
+      message: `Matchfile signing config detected (${signingParts.join(', ')}) - informational; Launch uses its own signing.${storageExplanation}`,
+    },
+  ];
+};
+
+const appfileNotes = (appfile: AppfileData): MigrationNote[] => {
+  const migrationNotes: MigrationNote[] = [];
+  let hasAppleAccount = appfile.appleId !== undefined;
+  if (appfile.teamId !== undefined) hasAppleAccount = true;
+  if (appfile.itcTeamId !== undefined) hasAppleAccount = true;
+  if (hasAppleAccount) {
+    migrationNotes.push({
+      level: 'manual',
+      message:
+        'Appfile carried Apple account details (apple_id/team_id) - configure your Apple API key with `launch creds set-key`.',
+    });
   }
-  const supplyfile = fastlaneSetup.supply;
-  if (supplyfile?.jsonKey !== undefined) {
+  if (appfile.appIdentifier !== undefined) {
+    migrationNotes.push({
+      level: 'info',
+      message: `Appfile app_identifier ${appfile.appIdentifier} - Launch reads the bundle id from app.json; nothing to write.`,
+    });
+  }
+  return migrationNotes;
+};
+
+const supplyNotes = (supplyfile: SupplyfileData): MigrationNote[] => {
+  const migrationNotes: MigrationNote[] = [];
+  if (supplyfile.jsonKey !== undefined) {
     migrationNotes.push({
       level: 'manual',
       message: `Supplyfile referenced a Play service-account key (${supplyfile.jsonKey}) - configure it with \`launch creds\`.`,
     });
   }
-  if (supplyfile?.track !== undefined) {
+  if (supplyfile.track !== undefined) {
     migrationNotes.push({
       level: 'manual',
       message: `Supplyfile default Play track "${supplyfile.track}" - set it as \`track\` on a profile in launch.config.ts.`,
     });
   }
-  if (fastlaneSetup.hasDeliverfile && !importedMetadata) {
-    migrationNotes.push({
-      level: 'manual',
-      message:
-        'Deliverfile configured App Store metadata - import your live listing with `launch metadata pull`.',
-    });
-  }
+  return migrationNotes;
+};
+
+const appDescriptorNotes = (apps: AppDescriptor[]): MigrationNote[] => {
+  const migrationNotes: MigrationNote[] = [];
   for (const app of apps) {
     if (app.bundleId !== undefined) {
       migrationNotes.push({
@@ -426,13 +408,48 @@ const buildMigrationNotes = (
   return migrationNotes;
 };
 
+/** Pure report notes for a parsed Fastlane setup (no filesystem). */
+export const migrationNotesFor = (
+  fastlaneSetup: FastlaneSetup,
+  apps: AppDescriptor[],
+  importedMetadata: boolean,
+): MigrationNote[] => {
+  const migrationNotes = laneNotes(fastlaneSetup.lanes);
+  for (const actionGroup of FASTLANE_ACTION_GROUPS) {
+    const groupPresent = actionGroup.actions.some((actionName) =>
+      fastlaneSetup.actions.includes(actionName),
+    );
+    if (!groupPresent) continue;
+    migrationNotes.push({ level: actionGroup.noteLevel, message: actionGroup.noteMessage });
+  }
+  if (fastlaneSetup.matchfile !== undefined) {
+    migrationNotes.push(...matchfileNotes(fastlaneSetup.matchfile));
+  }
+  if (fastlaneSetup.appfile !== undefined) {
+    migrationNotes.push(...appfileNotes(fastlaneSetup.appfile));
+  }
+  if (fastlaneSetup.supply !== undefined) {
+    migrationNotes.push(...supplyNotes(fastlaneSetup.supply));
+  }
+  if (fastlaneSetup.hasDeliverfile && !importedMetadata) {
+    migrationNotes.push({
+      level: 'manual',
+      message:
+        'Deliverfile configured App Store metadata - import your live listing with `launch metadata pull`.',
+    });
+  }
+  migrationNotes.push(...appDescriptorNotes(apps));
+  return migrationNotes;
+};
+
+type StoreScaffoldOutcome = Readonly<{
+  artifact: MigrationArtifact | null;
+  note: MigrationNote;
+}>;
+
 const importFastlaneMetadata = (
   workingDirectory: string,
-): Effect.Effect<
-  { artifact: MigrationArtifact; note: MigrationNote } | null,
-  PlatformError,
-  FileSystem.FileSystem | Path.Path
-> =>
+): Effect.Effect<StoreScaffoldOutcome | null, PlatformError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const pathService = yield* Path.Path;
     const appleMetadataDirectory = pathService.join(workingDirectory, 'fastlane', 'metadata');
@@ -469,6 +486,34 @@ const importFastlaneMetadata = (
     };
   });
 
+/** Resolve store.config.json: reuse existing, import metadata, or scaffold. */
+const storeScaffoldFor = (
+  workingDirectory: string,
+): Effect.Effect<
+  { storeScaffold: StoreScaffoldOutcome; importedMetadata: boolean },
+  PlatformError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const storeConfigPath = pathService.join(workingDirectory, 'store.config.json');
+    if (yield* fileSystem.exists(storeConfigPath)) {
+      return {
+        storeScaffold: yield* scaffoldStoreConfig(workingDirectory),
+        importedMetadata: false,
+      };
+    }
+    const importedStoreConfig = yield* importFastlaneMetadata(workingDirectory);
+    if (importedStoreConfig === null) {
+      return {
+        storeScaffold: yield* scaffoldStoreConfig(workingDirectory),
+        importedMetadata: false,
+      };
+    }
+    return { storeScaffold: importedStoreConfig, importedMetadata: true };
+  });
+
 /** Read a Fastlane project and return Launch artifacts without writing them. */
 export const migrateFastlane = (
   workingDirectory: string,
@@ -479,8 +524,6 @@ export const migrateFastlane = (
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
     const fastlaneSetup = yield* readFastlaneSetup(workingDirectory);
     if (fastlaneSetup === null) {
       return yield* Effect.fail(
@@ -500,21 +543,8 @@ export const migrateFastlane = (
         contents: buildEnvExample(fastlaneSetup.envKeys),
       },
     ];
-    let importedMetadata = false;
-    let storeScaffold: { artifact: MigrationArtifact | null; note: MigrationNote };
-    const storeConfigPath = pathService.join(workingDirectory, 'store.config.json');
-    if (yield* fileSystem.exists(storeConfigPath)) {
-      storeScaffold = yield* scaffoldStoreConfig(workingDirectory);
-    } else {
-      const importedStoreConfig = yield* importFastlaneMetadata(workingDirectory);
-      if (importedStoreConfig === null) {
-        storeScaffold = yield* scaffoldStoreConfig(workingDirectory);
-      } else {
-        importedMetadata = true;
-        storeScaffold = importedStoreConfig;
-      }
-    }
-    const migrationNotes = buildMigrationNotes(fastlaneSetup, apps, importedMetadata);
+    const { storeScaffold, importedMetadata } = yield* storeScaffoldFor(workingDirectory);
+    const migrationNotes = migrationNotesFor(fastlaneSetup, apps, importedMetadata);
     if (storeScaffold.artifact !== null) {
       migrationArtifacts.push(storeScaffold.artifact);
     }
