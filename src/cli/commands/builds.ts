@@ -3,14 +3,14 @@ import { Effect } from 'effect';
 import {
   BuildHistoryCommandServiceLive,
   buildHistoryCommandProgram,
+  type BuildHistoryCommandInput,
   type PruneCommandOptions,
 } from '@core/build/buildHistoryCommand.js';
 import { runCliProgram } from '../runCliProgram.js';
 
 /** Provide the live build-history boundary and execute one command operation. */
-const provideBuildHistoryCommand = (
-  commandInput: Parameters<typeof buildHistoryCommandProgram>[0],
-) => buildHistoryCommandProgram(commandInput).pipe(Effect.provide(BuildHistoryCommandServiceLive));
+const provideBuildHistoryCommand = (commandInput: BuildHistoryCommandInput) =>
+  buildHistoryCommandProgram(commandInput).pipe(Effect.provide(BuildHistoryCommandServiceLive));
 
 /** Attach the build-history command family. */
 export const registerBuildsCommand = (program: Command): void => {
