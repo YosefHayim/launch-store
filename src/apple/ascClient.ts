@@ -2464,9 +2464,9 @@ export class AppStoreConnectClient {
   }
   /**
    * Read an app's store availability - the `availableInNewTerritories` flag plus every territory code it's
-   * for sale in - or null when the app has no availability set yet. The territory list is paged through in
-   * full (Apple links past the first page), keeping each row's `territory` relationship so the code survives
-   * (which {@link requestAll} would drop).
+   * for sale in - or null when the app has no availability set yet. Territory rows are paged through in full
+   * with `include=territory` so each row's territory-code relationship is populated (Apple omits that
+   * linkage without the include; {@link requestAll} would also drop relationships).
    */
   async getAppAvailability(appId: string): Promise<AppAvailabilityResource | null> {
     const head = await this.getOptional<{
@@ -2503,8 +2503,12 @@ export class AppStoreConnectClient {
     availabilityId: string,
   ): Promise<TerritoryAvailabilityRow[]> {
     const territoryAvailabilities: TerritoryAvailabilityRow[] = [];
+    // `include=territory` is required for Apple to populate each row's territory relationship
+    // linkage. Sparse `fields[territoryAvailabilities]=available,territory` alone returns rows
+    // without `relationships.territory.data`, which made live reads report zero storefronts while
+    // every row was still available.
     let next: string | undefined =
-      `${this.v2(`/appAvailabilities/${availabilityId}/territoryAvailabilities`)}?fields[territoryAvailabilities]=available,territory&limit=200`;
+      `${this.v2(`/appAvailabilities/${availabilityId}/territoryAvailabilities`)}?include=territory&limit=200`;
     while (next) {
       // biome-ignore lint/performance/noAwaitInLoops: cursor pagination - each page’s `next` link comes from the prior response, so the reads are inherently sequential
       const page: TerritoryAvailabilityPage = await this.request('GET', next);
