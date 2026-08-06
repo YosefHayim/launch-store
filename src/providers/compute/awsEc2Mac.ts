@@ -1,5 +1,5 @@
 import { FileSystem, Path } from '@effect/platform';
-import { Data, Effect, unsafeCoerce } from 'effect';
+import { Effect, unsafeCoerce } from 'effect';
 import type { _InstanceType } from '@aws-sdk/client-ec2';
 import {
   AWS_BOOTSTRAP_TOOLS,
@@ -10,7 +10,6 @@ import {
   setAwsGoldenAmiId,
 } from '@core/services/awsComputeSupport.js';
 import { errorMessage } from '@core/services/errorMessage.js';
-import { requireOptional } from '@core/services/optionalDep.js';
 import { LAUNCH_HOME } from '@core/services/paths.js';
 import { sshCapture, sshReachable } from '@core/services/ssh.js';
 import type { ComputeHost } from '@core/types/providers.js';
@@ -22,89 +21,25 @@ import type {
   HostHandle,
   SshTarget,
 } from '@core/types/remote.js';
+import {
+  type AwsComputeFailure,
+  type Ec2Client,
+  type Ec2Module,
+  awsFailure,
+  makeClient,
+  requireAws,
+  sendAwsRequest,
+} from './awsEc2MacClient.js';
 
-type Ec2Module = typeof import('@aws-sdk/client-ec2');
-type CredentialModule = typeof import('@aws-sdk/credential-providers');
-type Ec2Client = InstanceType<Ec2Module['EC2Client']>;
-type AwsComputeFailure = Readonly<{
-  readonly _tag: 'AwsComputeFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}>;
-
-const makeAwsComputeFailure = Data.tagged<AwsComputeFailure>('AwsComputeFailure');
-const INSTALL_HINT = 'pnpm add @aws-sdk/client-ec2 @aws-sdk/credential-providers';
 const KEY_NAME = 'launch-ec2-mac';
 const SG_NAME = 'launch-ec2-mac-sg';
-const DEFAULT_INSTANCE_TYPE = 'mac2.metal';
+export const DEFAULT_INSTANCE_TYPE = 'mac2.metal';
 const SSH_BOOT_TIMEOUT_MS = 12 * 60 * 1000;
 const AMI_AVAILABLE_TIMEOUT_MS = 30 * 60 * 1000;
+const TERMINATE_TIMEOUT_MS = 5 * 60 * 1000;
 
-/** Convert an AWS SDK rejection into the provider's typed failure channel. */
-const awsFailure = (operation: string, cause: unknown, detail?: string): AwsComputeFailure => {
-  let message = errorMessage(cause);
-  if (detail !== undefined) message = detail;
-  return makeAwsComputeFailure({ operation, message, cause });
-};
-
-/** Run one lazy AWS SDK request through Effect's failure channel. */
-const sendAwsRequest = <Success>(
-  operation: string,
-  sendRequest: () => PromiseLike<Success>,
-): Effect.Effect<Success, AwsComputeFailure> =>
-  Effect.tryPromise({
-    try: sendRequest,
-    catch: (cause) => awsFailure(operation, cause),
-  });
-
-/** Lazy-load the optional EC2 client package. */
-const loadEc2 = (): Effect.Effect<Ec2Module, unknown> =>
-  requireOptional('AWS EC2 Mac builds', INSTALL_HINT, () =>
-    Effect.tryPromise({
-      try: () => import('@aws-sdk/client-ec2'),
-      catch: (cause) => awsFailure('load the EC2 SDK', cause),
-    }),
-  );
-
-/** Lazy-load the standard AWS credential provider package. */
-const loadCredentials = (): Effect.Effect<CredentialModule, unknown> =>
-  requireOptional('AWS EC2 Mac builds', INSTALL_HINT, () =>
-    Effect.tryPromise({
-      try: () => import('@aws-sdk/credential-providers'),
-      catch: (cause) => awsFailure('load AWS credential providers', cause),
-    }),
-  );
-
-/** Construct the regional EC2 client from the standard AWS credential chain. */
-const makeClient = (
-  awsConfiguration: Pick<AwsConfig, 'region' | 'profile'>,
-): Effect.Effect<{ ec2: Ec2Module; client: Ec2Client }, unknown> =>
-  Effect.gen(function* () {
-    const ec2 = yield* loadEc2();
-    const credentialModule = yield* loadCredentials();
-    let credentialOptions = {};
-    if (awsConfiguration.profile !== undefined) {
-      credentialOptions = { profile: awsConfiguration.profile };
-    }
-    const credentials = credentialModule.fromNodeProviderChain(credentialOptions);
-    return {
-      ec2,
-      client: new ec2.EC2Client({ region: awsConfiguration.region, credentials }),
-    };
-  });
-
-/** Require the AWS settings needed by this compute provider. */
-const requireAws = (
-  allocationRequest: AllocateRequest,
-): Effect.Effect<AwsConfig, AwsComputeFailure> => {
-  if (allocationRequest.aws !== undefined) return Effect.succeed(allocationRequest.aws);
-  const message = 'AWS settings missing - add an `aws: { region: ... }` block to launch.config.ts.';
-  return Effect.fail(awsFailure('read AWS settings', message, message));
-};
-
-/** Pick the first populated public instance address. */
-const publicAddress = (
+/** Prefer public DNS, then public IP; empty strings are treated as missing. */
+export const publicAddress = (
   publicDnsName: string | undefined,
   publicIpAddress: string | undefined,
 ): string | undefined => {
@@ -113,12 +48,88 @@ const publicAddress = (
   return undefined;
 };
 
+export const configuredInstanceType = (
+  awsConfiguration: Pick<AwsConfig, 'instanceType'>,
+): string => {
+  if (awsConfiguration.instanceType !== undefined) return awsConfiguration.instanceType;
+  return DEFAULT_INSTANCE_TYPE;
+};
+
+/** Amazon macOS AMI architecture for an EC2 Mac instance family (`mac2*` is arm64). */
+export const macosArchitectureFor = (instanceType: string): string => {
+  if (instanceType.startsWith('mac2')) return 'arm64_mac';
+  return 'x86_64_mac';
+};
+
+export const isDedicatedHostQuotaFailure = (failureMessage: string): boolean =>
+  /quota|limit|exceeded|insufficient/i.test(failureMessage);
+
+export type DatedAmiImage = Readonly<{
+  readonly id: string;
+  readonly date: string;
+}>;
+
+export const datedMacImages = (
+  catalogImages: ReadonlyArray<{
+    ImageId?: string | undefined;
+    CreationDate?: string | undefined;
+  }>,
+): DatedAmiImage[] =>
+  catalogImages.flatMap((imageDescription) => {
+    if (imageDescription.ImageId === undefined) return [];
+    if (imageDescription.CreationDate === undefined) return [];
+    return [{ id: imageDescription.ImageId, date: imageDescription.CreationDate }];
+  });
+
+/** Newest by CreationDate; stable for equal dates. */
+export const newestImageId = (datedImages: readonly DatedAmiImage[]): string | undefined => {
+  if (datedImages.length === 0) return undefined;
+  const sortedImages = datedImages.slice().sort((firstImage, secondImage) => {
+    if (firstImage.date < secondImage.date) return 1;
+    if (firstImage.date > secondImage.date) return -1;
+    return 0;
+  });
+  return sortedImages[0]?.id;
+};
+
+export const countLiveDedicatedHosts = (
+  describedHosts: ReadonlyArray<{ State?: string | undefined }>,
+): number =>
+  describedHosts.filter((describedHost) => {
+    if (describedHost.State === undefined) return false;
+    return !describedHost.State.startsWith('released');
+  }).length;
+
+/** Missing or already-released hosts are not billable status targets. */
+export const hostIsReleasedOrMissing = (hostState: string | undefined): boolean => {
+  if (hostState === undefined) return true;
+  return hostState.startsWith('released');
+};
+
+export const releaseFailureDetail = (
+  failedRelease:
+    | {
+        Error?:
+          | {
+              Message?: string | undefined;
+            }
+          | undefined;
+      }
+    | undefined,
+): string | undefined => {
+  if (failedRelease === undefined) return undefined;
+  if (failedRelease.Error?.Message !== undefined) return failedRelease.Error.Message;
+  return 'unknown';
+};
+
+export const bootstrapReportsMissingXcode = (bootstrapOutput: string): boolean =>
+  bootstrapOutput.includes('LAUNCH_NO_XCODE');
+
 type AwsComputeRequirements =
   | Effect.Effect.Context<ReturnType<typeof getAwsGoldenAmiId>>
   | FileSystem.FileSystem
   | Path.Path;
 
-/** Acquire file and cloud-state services once and return the EC2 Mac provider. */
 export const makeAwsEc2MacComputeHost = () =>
   Effect.gen(function* () {
     const computeServices = yield* Effect.context<AwsComputeRequirements>();
@@ -136,10 +147,7 @@ export const makeAwsEc2MacComputeHost = () =>
           if (allocationRequest.onProgress !== undefined) {
             reportProgress = allocationRequest.onProgress;
           }
-          let instanceType = DEFAULT_INSTANCE_TYPE;
-          if (awsConfiguration.instanceType !== undefined) {
-            instanceType = awsConfiguration.instanceType;
-          }
+          const instanceType = configuredInstanceType(awsConfiguration);
           const { ec2, client } = yield* makeClient(awsConfiguration);
           const allocationConfirmed = yield* allocationRequest.confirm(
             awsAllocationConsentMessage(),
@@ -155,54 +163,16 @@ export const makeAwsEc2MacComputeHost = () =>
           const hostId = yield* allocateHost(ec2, client, instanceType, availabilityZone);
           const allocatedAt = new Date().toISOString();
 
-          return yield* Effect.gen(function* () {
-            const keyPair = yield* ensureKeyPair(ec2, client);
-            const { subnetId, vpcId } = yield* defaultSubnet(ec2, client, availabilityZone);
-            const securityGroupId = yield* ensureSecurityGroup(ec2, client, vpcId);
-            let goldenAmiId: string | null | undefined = awsConfiguration.amiId;
-            if (goldenAmiId === undefined) {
-              goldenAmiId = yield* provideComputeServices(getAwsGoldenAmiId());
-            }
-            const shouldCreateGoldenImage = goldenAmiId === null;
-            let imageId: string;
-            if (goldenAmiId === null) {
-              imageId = yield* latestMacosAmi(ec2, client, instanceType);
-            } else {
-              imageId = goldenAmiId;
-            }
-            reportProgress('Launching the EC2 Mac instance...');
-            const instanceId = yield* runInstance(ec2, client, {
-              imageId,
-              instanceType,
-              hostId,
-              keyName: keyPair.keyName,
-              subnetId,
-              securityGroupId,
-            });
-            const sshTarget = yield* waitForSsh(
-              ec2,
-              client,
-              instanceId,
-              keyPair.keyPath,
-              reportProgress,
-            );
-            if (shouldCreateGoldenImage) {
-              reportProgress(
-                'First run: bootstrapping the toolchain and snapshotting a golden AMI for next time...',
-              );
-              yield* bootstrapToolchain(sshTarget);
-              const newGoldenAmiId = yield* snapshotGoldenAmi(ec2, client, instanceId);
-              yield* provideComputeServices(setAwsGoldenAmiId(newGoldenAmiId));
-            }
-            return {
-              provider: 'aws-ec2-mac',
-              ssh: sshTarget,
-              allocatedAt,
-              instanceId,
-              hostId,
-              region: awsConfiguration.region,
-              instanceType,
-            };
+          return yield* provisionAllocatedHost({
+            ec2,
+            client,
+            awsConfiguration,
+            instanceType,
+            hostId,
+            availabilityZone,
+            allocatedAt,
+            reportProgress,
+            provideComputeServices,
           }).pipe(
             Effect.catchAll((cause) =>
               Effect.gen(function* () {
@@ -224,8 +194,7 @@ export const makeAwsEc2MacComputeHost = () =>
             client.send(new ec2.DescribeHostsCommand({ HostIds: [hostId] })),
           );
           const hostState = hostDescription.Hosts?.[0]?.State;
-          if (hostState === undefined) return null;
-          if (hostState.startsWith('released')) return null;
+          if (hostIsReleasedOrMissing(hostState)) return null;
           const ageMs = Date.now() - new Date(hostHandle.allocatedAt).getTime();
           return {
             handle: hostHandle,
@@ -251,12 +220,8 @@ export const makeAwsEc2MacComputeHost = () =>
           const releaseReply = yield* sendAwsRequest('release the Dedicated Host', () =>
             client.send(new ec2.ReleaseHostsCommand({ HostIds: [hostId] })),
           );
-          const failedRelease = releaseReply.Unsuccessful?.[0];
-          if (failedRelease === undefined) return;
-          let failureDetail = 'unknown';
-          if (failedRelease.Error?.Message !== undefined) {
-            failureDetail = failedRelease.Error.Message;
-          }
+          const failureDetail = releaseFailureDetail(releaseReply.Unsuccessful?.[0]);
+          if (failureDetail === undefined) return;
           const message =
             `Could not release host ${hostId}: ${failureDetail}. ` +
             'AWS only allows release after the 24h minimum - it keeps billing until then.';
@@ -266,16 +231,85 @@ export const makeAwsEc2MacComputeHost = () =>
     } satisfies ComputeHost;
   });
 
-/** Diagnose AWS credentials, regional availability, quota visibility, and IAM needs. */
+type ProvisionAllocatedHostOptions = Readonly<{
+  ec2: Ec2Module;
+  client: Ec2Client;
+  awsConfiguration: AwsConfig;
+  instanceType: string;
+  hostId: string;
+  availabilityZone: string;
+  allocatedAt: string;
+  reportProgress: (message: string) => void;
+  provideComputeServices: <Success, Failure>(
+    computeProgram: Effect.Effect<Success, Failure, AwsComputeRequirements>,
+  ) => Effect.Effect<Success, Failure>;
+}>;
+
+const provisionAllocatedHost = (
+  provisionOptions: ProvisionAllocatedHostOptions,
+): Effect.Effect<HostHandle, unknown, AwsComputeRequirements> =>
+  Effect.gen(function* () {
+    const {
+      ec2,
+      client,
+      awsConfiguration,
+      instanceType,
+      hostId,
+      availabilityZone,
+      allocatedAt,
+      reportProgress,
+      provideComputeServices,
+    } = provisionOptions;
+    const keyPair = yield* ensureKeyPair(ec2, client);
+    const { subnetId, vpcId } = yield* defaultSubnet(ec2, client, availabilityZone);
+    const securityGroupId = yield* ensureSecurityGroup(ec2, client, vpcId);
+    let goldenAmiId: string | null | undefined = awsConfiguration.amiId;
+    if (goldenAmiId === undefined) {
+      goldenAmiId = yield* provideComputeServices(getAwsGoldenAmiId());
+    }
+    const shouldCreateGoldenImage = goldenAmiId === null;
+    let imageId: string;
+    if (goldenAmiId === null) {
+      imageId = yield* latestMacosAmi(ec2, client, instanceType);
+    } else {
+      imageId = goldenAmiId;
+    }
+    reportProgress('Launching the EC2 Mac instance...');
+    const instanceId = yield* runInstance(ec2, client, {
+      imageId,
+      instanceType,
+      hostId,
+      keyName: keyPair.keyName,
+      subnetId,
+      securityGroupId,
+    });
+    const sshTarget = yield* waitForSsh(ec2, client, instanceId, keyPair.keyPath, reportProgress);
+    if (shouldCreateGoldenImage) {
+      reportProgress(
+        'First run: bootstrapping the toolchain and snapshotting a golden AMI for next time...',
+      );
+      yield* bootstrapToolchain(sshTarget);
+      const newGoldenAmiId = yield* snapshotGoldenAmi(ec2, client, instanceId);
+      yield* provideComputeServices(setAwsGoldenAmiId(newGoldenAmiId));
+    }
+    return {
+      provider: 'aws-ec2-mac',
+      ssh: sshTarget,
+      allocatedAt,
+      instanceId,
+      hostId,
+      region: awsConfiguration.region,
+      instanceType,
+    };
+  });
+
+/** Diagnose AWS credentials, regional Mac availability, host visibility, and IAM needs. */
 export const runCloudDoctor = (
   awsConfiguration: AwsConfig,
 ): Effect.Effect<CloudDoctorReport, never> =>
   Effect.gen(function* () {
     const cloudChecks: CloudCheck[] = [];
-    let instanceType = DEFAULT_INSTANCE_TYPE;
-    if (awsConfiguration.instanceType !== undefined) {
-      instanceType = awsConfiguration.instanceType;
-    }
+    const instanceType = configuredInstanceType(awsConfiguration);
     const clientAttempt = yield* makeClient(awsConfiguration).pipe(Effect.either);
     if (clientAttempt._tag === 'Left') {
       return {
@@ -348,10 +382,7 @@ export const runCloudDoctor = (
     } else {
       let describedHosts = hostAttempt.right.Hosts;
       if (describedHosts === undefined) describedHosts = [];
-      const liveHostCount = describedHosts.filter((describedHost) => {
-        if (describedHost.State === undefined) return false;
-        return !describedHost.State.startsWith('released');
-      }).length;
+      const liveHostCount = countLiveDedicatedHosts(describedHosts);
       cloudChecks.push({
         label: 'Dedicated Host quota',
         ok: true,
@@ -369,7 +400,6 @@ export const runCloudDoctor = (
     return { ok: cloudChecks.every((cloudCheck) => cloudCheck.ok), checks: cloudChecks };
   });
 
-/** Find the first available zone for a Dedicated Host and subnet. */
 const firstAvailableZone = (
   ec2: Ec2Module,
   client: Ec2Client,
@@ -392,7 +422,6 @@ const firstAvailableZone = (
     return yield* Effect.fail(awsFailure('find an available zone', message, message));
   });
 
-/** Allocate one Mac Dedicated Host and explain quota failures. */
 const allocateHost = (
   ec2: Ec2Module,
   client: Ec2Client,
@@ -411,7 +440,7 @@ const allocateHost = (
   ).pipe(
     Effect.catchAll((cause) => {
       const failureMessage = errorMessage(cause);
-      if (/quota|limit|exceeded|insufficient/i.test(failureMessage)) {
+      if (isDedicatedHostQuotaFailure(failureMessage)) {
         const message =
           `AWS won't allocate a Mac Dedicated Host: ${failureMessage}\n` +
           'Mac hosts almost always need a quota increase first - run `launch cloud doctor` for the request link.';
@@ -427,7 +456,6 @@ const allocateHost = (
     }),
   );
 
-/** Reuse or create the SSH key pair whose private key is stored locally. */
 const ensureKeyPair = (
   ec2: Ec2Module,
   client: Ec2Client,
@@ -457,7 +485,6 @@ const ensureKeyPair = (
     return { keyName: KEY_NAME, keyPath };
   });
 
-/** Find the default public subnet in the selected zone. */
 const defaultSubnet = (
   ec2: Ec2Module,
   client: Ec2Client,
@@ -482,7 +509,6 @@ const defaultSubnet = (
     return yield* Effect.fail(awsFailure('find the default subnet', message, message));
   });
 
-/** Reuse or create the security group that permits key-only SSH. */
 const ensureSecurityGroup = (
   ec2: Ec2Module,
   client: Ec2Client,
@@ -538,15 +564,13 @@ const ensureSecurityGroup = (
     return securityGroupId;
   });
 
-/** Select the newest compatible Amazon macOS image. */
 const latestMacosAmi = (
   ec2: Ec2Module,
   client: Ec2Client,
   instanceType: string,
 ): Effect.Effect<string, AwsComputeFailure> =>
   Effect.gen(function* () {
-    let architecture = 'x86_64_mac';
-    if (instanceType.startsWith('mac2')) architecture = 'arm64_mac';
+    const architecture = macosArchitectureFor(instanceType);
     const imageCatalog = yield* sendAwsRequest('find an Amazon macOS image', () =>
       client.send(
         new ec2.DescribeImagesCommand({
@@ -561,18 +585,8 @@ const latestMacosAmi = (
     );
     let catalogImages = imageCatalog.Images;
     if (catalogImages === undefined) catalogImages = [];
-    const datedImages = catalogImages.flatMap((imageDescription) => {
-      if (imageDescription.ImageId === undefined) return [];
-      if (imageDescription.CreationDate === undefined) return [];
-      return [{ id: imageDescription.ImageId, date: imageDescription.CreationDate }];
-    });
-    datedImages.sort((firstImage, secondImage) => {
-      if (firstImage.date < secondImage.date) return 1;
-      if (firstImage.date > secondImage.date) return -1;
-      return 0;
-    });
-    const newestImage = datedImages[0];
-    if (newestImage !== undefined) return newestImage.id;
+    const newestImage = newestImageId(datedMacImages(catalogImages));
+    if (newestImage !== undefined) return newestImage;
     const message =
       'No Amazon macOS AMI found in this region. Set aws.amiId to a Mac image with Xcode.';
     return yield* Effect.fail(awsFailure('find an Amazon macOS image', message, message));
@@ -587,7 +601,6 @@ type RunInstanceOptions = Readonly<{
   securityGroupId: string;
 }>;
 
-/** Launch one Mac instance on the allocated host and public subnet. */
 const runInstance = (
   ec2: Ec2Module,
   client: Ec2Client,
@@ -630,7 +643,6 @@ const runInstance = (
     }),
   );
 
-/** Wait for a public address and then for the Mac's SSH daemon. */
 const waitForSsh = (
   ec2: Ec2Module,
   client: Ec2Client,
@@ -677,7 +689,7 @@ const waitForSsh = (
     return yield* Effect.fail(awsFailure('wait for SSH', message, message));
   });
 
-/** Brew commands derived from the same tool list used by doctor. */
+/** Brew lines share doctor's toolchain list; fastlane falls back to gem when brew misses. */
 const BOOTSTRAP_BREW_LINES = AWS_BOOTSTRAP_TOOLS.flatMap((requiredTool) => {
   if (requiredTool.install.kind !== 'brew') return [];
   let fastlaneFallback = '';
@@ -694,18 +706,16 @@ const BOOTSTRAP_SCRIPT = [
   'xcodebuild -version >/dev/null 2>&1 || echo LAUNCH_NO_XCODE',
 ].join('\n');
 
-/** Install the golden image toolchain and verify full Xcode exists. */
 const bootstrapToolchain = (sshTarget: SshTarget): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     const bootstrapOutput = yield* sshCapture(sshTarget, BOOTSTRAP_SCRIPT);
-    if (!bootstrapOutput.includes('LAUNCH_NO_XCODE')) return;
+    if (!bootstrapReportsMissingXcode(bootstrapOutput)) return;
     const message =
       'The base AMI has no full Xcode (gym needs it). Provide a BYO golden AMI with Xcode preinstalled ' +
       "via aws.amiId - Xcode can't be redistributed in a shared image.";
     return yield* Effect.fail(awsFailure('bootstrap the EC2 Mac toolchain', message, message));
   });
 
-/** Snapshot the bootstrapped instance and wait until its AMI is usable. */
 const snapshotGoldenAmi = (
   ec2: Ec2Module,
   client: Ec2Client,
@@ -736,14 +746,13 @@ const snapshotGoldenAmi = (
     return amiId;
   });
 
-/** Wait for termination so AWS can release the underlying host. */
 const waitForTerminated = (
   ec2: Ec2Module,
   client: Ec2Client,
   instanceId: string,
 ): Effect.Effect<void, AwsComputeFailure> =>
   Effect.gen(function* () {
-    const deadline = Date.now() + 5 * 60 * 1000;
+    const deadline = Date.now() + TERMINATE_TIMEOUT_MS;
     while (Date.now() < deadline) {
       const instanceCatalog = yield* sendAwsRequest('wait for instance termination', () =>
         client.send(new ec2.DescribeInstancesCommand({ InstanceIds: [instanceId] })),
@@ -753,7 +762,6 @@ const waitForTerminated = (
     }
   });
 
-/** Best-effort host release for a failed allocation. */
 const releaseHostQuietly = (
   ec2: Ec2Module,
   client: Ec2Client,
