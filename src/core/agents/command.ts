@@ -5,7 +5,7 @@ import { createLogger, type Logger } from '../services/logger.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
 import { completeCommand, type CommandExit } from '../terminal/commandExit.js';
-import type { AgentTarget } from '../types/agents.js';
+import type { AgentTarget, ConsumerSkill, GeneratedAgentFile } from '../types/agents.js';
 import { CONSUMER_SKILLS } from './registry.js';
 import {
   MANAGED_END,
@@ -103,7 +103,7 @@ type AgentsCommandRequirements =
   | Terminal.Terminal;
 
 /** Narrow a text token to a supported coding-agent target. */
-const isAgentTarget = (candidate: string): candidate is AgentTarget => {
+export const isAgentTarget = (candidate: string): candidate is AgentTarget => {
   switch (candidate) {
     case 'claude':
     case 'cursor':
@@ -126,6 +126,26 @@ const agentsFailure = (operation: string, cause: unknown): AgentsCommandFailure 
   return makeAgentsCommandFailure({ operation, message, cause });
 };
 
+/** Convert a rendered file into a fully-owned artifact write. */
+export const ownedAgentArtifact = (generatedFile: GeneratedAgentFile): AgentArtifact => ({
+  kind: 'owned',
+  path: generatedFile.path,
+  content: generatedFile.body,
+});
+
+/** Plan base + per-skill task rules for rule-file agent targets. */
+export const planBaseAndTaskArtifacts = (
+  launchVersion: string,
+  renderBase: (version: string) => GeneratedAgentFile,
+  renderTask: (skill: ConsumerSkill, version: string) => GeneratedAgentFile,
+): AgentArtifact[] => {
+  const plannedArtifacts: AgentArtifact[] = [ownedAgentArtifact(renderBase(launchVersion))];
+  for (const consumerSkill of CONSUMER_SKILLS) {
+    plannedArtifacts.push(ownedAgentArtifact(renderTask(consumerSkill, launchVersion)));
+  }
+  return plannedArtifacts;
+};
+
 /** Detect coding-agent footprints already present in a repository. */
 export const detectAgentTargets = (
   repositoryPath: string,
@@ -135,19 +155,21 @@ export const detectAgentTargets = (
     const pathService = yield* Path.Path;
     const pathExists = (relativePath: string) =>
       fileSystem.exists(pathService.join(repositoryPath, relativePath));
+    const anyPathExists = (relativePaths: readonly string[]) =>
+      Effect.gen(function* () {
+        for (const relativePath of relativePaths) {
+          if (yield* pathExists(relativePath)) return true;
+        }
+        return false;
+      });
     const detectedTargets: AgentTarget[] = [];
-    if (yield* pathExists('.claude')) detectedTargets.push('claude');
-    else if (yield* pathExists('CLAUDE.md')) detectedTargets.push('claude');
-    if (yield* pathExists('.cursor')) detectedTargets.push('cursor');
-    else if (yield* pathExists('.cursorrules')) detectedTargets.push('cursor');
-    if (yield* pathExists('AGENTS.md')) detectedTargets.push('codex');
-    else if (yield* pathExists('.codex')) detectedTargets.push('codex');
-    if (yield* pathExists('.windsurf')) detectedTargets.push('windsurf');
-    else if (yield* pathExists('.windsurfrules')) detectedTargets.push('windsurf');
+    if (yield* anyPathExists(['.claude', 'CLAUDE.md'])) detectedTargets.push('claude');
+    if (yield* anyPathExists(['.cursor', '.cursorrules'])) detectedTargets.push('cursor');
+    if (yield* anyPathExists(['AGENTS.md', '.codex'])) detectedTargets.push('codex');
+    if (yield* anyPathExists(['.windsurf', '.windsurfrules'])) detectedTargets.push('windsurf');
     if (yield* pathExists('.github/copilot-instructions.md')) detectedTargets.push('copilot');
     if (yield* pathExists('.kiro')) detectedTargets.push('kiro');
-    if (yield* pathExists('.cline')) detectedTargets.push('cline');
-    else if (yield* pathExists('.clinerules')) detectedTargets.push('cline');
+    if (yield* anyPathExists(['.cline', '.clinerules'])) detectedTargets.push('cline');
     if (yield* pathExists('.amazonq')) detectedTargets.push('amazonq');
     return detectedTargets;
   }).pipe(Effect.mapError((cause) => agentsFailure('detect agent files', cause)));
@@ -178,6 +200,20 @@ export const writeAgentArtifacts = (
     }
   }).pipe(Effect.mapError((cause) => agentsFailure('write agent files', cause)));
 
+/** Whether on-disk content matches the planned managed block for a spliced artifact. */
+export const managedBlockIsCurrent = (
+  currentContent: string,
+  plannedBlock: string,
+): 'missing-block' | 'stale' | 'current' => {
+  const managedStart = currentContent.indexOf(MANAGED_START);
+  const managedEnd = currentContent.indexOf(MANAGED_END);
+  if (managedStart === -1) return 'missing-block';
+  if (managedEnd === -1) return 'missing-block';
+  const managedContent = currentContent.slice(managedStart, managedEnd + MANAGED_END.length);
+  if (managedContent !== plannedBlock) return 'stale';
+  return 'current';
+};
+
 /** Return planned agent artifacts that are missing or differ from a fresh render. */
 export const findStaleAgentArtifacts = (
   repositoryPath: string,
@@ -198,18 +234,12 @@ export const findStaleAgentArtifacts = (
         if (currentContent !== artifact.content) staleArtifactPaths.push(artifact.path);
         continue;
       }
-      const managedStart = currentContent.indexOf(MANAGED_START);
-      const managedEnd = currentContent.indexOf(MANAGED_END);
-      if (managedStart === -1) {
+      const managedStatus = managedBlockIsCurrent(currentContent, artifact.block);
+      if (managedStatus === 'missing-block') {
         staleArtifactPaths.push(`${artifact.path} (no Launch block)`);
         continue;
       }
-      if (managedEnd === -1) {
-        staleArtifactPaths.push(`${artifact.path} (no Launch block)`);
-        continue;
-      }
-      const managedContent = currentContent.slice(managedStart, managedEnd + MANAGED_END.length);
-      if (managedContent !== artifact.block) staleArtifactPaths.push(artifact.path);
+      if (managedStatus === 'stale') staleArtifactPaths.push(artifact.path);
     }
     return staleArtifactPaths;
   }).pipe(Effect.mapError((cause) => agentsFailure('check agent files', cause)));
@@ -245,21 +275,12 @@ export const planAgentArtifacts = (
   launchVersion: string,
 ): AgentArtifact[] => {
   const wantsClaude = targets.includes('claude');
-  const wantsCursor = targets.includes('cursor');
   const wantsCodex = targets.includes('codex');
-  const wantsWindsurf = targets.includes('windsurf');
-  const wantsCopilot = targets.includes('copilot');
-  const wantsKiro = targets.includes('kiro');
-  const wantsCline = targets.includes('cline');
-  const wantsAmazonQ = targets.includes('amazonq');
   const plannedArtifacts: AgentArtifact[] = [];
-  if (wantsClaude) {
-    plannedArtifacts.push({
-      kind: 'spliced',
-      path: 'AGENTS.md',
-      block: renderAgentsBlock(launchVersion),
-    });
-  } else if (wantsCodex) {
+  let needsAgentsMarkdown = false;
+  if (wantsClaude) needsAgentsMarkdown = true;
+  if (wantsCodex) needsAgentsMarkdown = true;
+  if (needsAgentsMarkdown) {
     plannedArtifacts.push({
       kind: 'spliced',
       path: 'AGENTS.md',
@@ -274,81 +295,60 @@ export const planAgentArtifacts = (
     });
     for (const consumerSkill of CONSUMER_SKILLS) {
       for (const renderedFile of renderClaudeSkillFiles(consumerSkill, launchVersion)) {
-        plannedArtifacts.push({
-          kind: 'owned',
-          path: renderedFile.path,
-          content: renderedFile.body,
-        });
+        plannedArtifacts.push(ownedAgentArtifact(renderedFile));
       }
     }
   }
-  if (wantsCursor) {
-    const baseRule = renderCursorBaseRule(launchVersion);
-    plannedArtifacts.push({ kind: 'owned', path: baseRule.path, content: baseRule.body });
-    for (const consumerSkill of CONSUMER_SKILLS) {
-      const taskRule = renderCursorTaskRule(consumerSkill, launchVersion);
-      plannedArtifacts.push({ kind: 'owned', path: taskRule.path, content: taskRule.body });
-    }
+  if (targets.includes('cursor')) {
+    plannedArtifacts.push(
+      ...planBaseAndTaskArtifacts(launchVersion, renderCursorBaseRule, renderCursorTaskRule),
+    );
   }
-  if (wantsWindsurf) {
-    const baseRule = renderWindsurfBaseRule(launchVersion);
-    plannedArtifacts.push({ kind: 'owned', path: baseRule.path, content: baseRule.body });
-    for (const consumerSkill of CONSUMER_SKILLS) {
-      const taskRule = renderWindsurfTaskRule(consumerSkill, launchVersion);
-      plannedArtifacts.push({ kind: 'owned', path: taskRule.path, content: taskRule.body });
-    }
+  if (targets.includes('windsurf')) {
+    plannedArtifacts.push(
+      ...planBaseAndTaskArtifacts(launchVersion, renderWindsurfBaseRule, renderWindsurfTaskRule),
+    );
   }
-  if (wantsCopilot) {
+  if (targets.includes('copilot')) {
     plannedArtifacts.push({
       kind: 'spliced',
       path: '.github/copilot-instructions.md',
       block: renderCopilotBlock(launchVersion),
     });
   }
-  if (wantsKiro) {
-    const steeringRule = renderKiroSteering(launchVersion);
-    plannedArtifacts.push({
-      kind: 'owned',
-      path: steeringRule.path,
-      content: steeringRule.body,
-    });
+  if (targets.includes('kiro')) {
+    plannedArtifacts.push(ownedAgentArtifact(renderKiroSteering(launchVersion)));
   }
-  if (wantsCline) {
-    const baseRule = renderClineBaseRule(launchVersion);
-    plannedArtifacts.push({ kind: 'owned', path: baseRule.path, content: baseRule.body });
-    for (const consumerSkill of CONSUMER_SKILLS) {
-      const taskRule = renderClineTaskRule(consumerSkill, launchVersion);
-      plannedArtifacts.push({ kind: 'owned', path: taskRule.path, content: taskRule.body });
-    }
+  if (targets.includes('cline')) {
+    plannedArtifacts.push(
+      ...planBaseAndTaskArtifacts(launchVersion, renderClineBaseRule, renderClineTaskRule),
+    );
   }
-  if (wantsAmazonQ) {
-    const baseRule = renderAmazonQBaseRule(launchVersion);
-    plannedArtifacts.push({ kind: 'owned', path: baseRule.path, content: baseRule.body });
-    for (const consumerSkill of CONSUMER_SKILLS) {
-      const taskRule = renderAmazonQTaskRule(consumerSkill, launchVersion);
-      plannedArtifacts.push({ kind: 'owned', path: taskRule.path, content: taskRule.body });
-    }
+  if (targets.includes('amazonq')) {
+    plannedArtifacts.push(
+      ...planBaseAndTaskArtifacts(launchVersion, renderAmazonQBaseRule, renderAmazonQTaskRule),
+    );
   }
   return plannedArtifacts;
 };
 
 /** Normalize Commander's empty version sentinel to Launch's development version. */
-const normalizeLaunchVersion = (launchVersion: string | undefined): string => {
+export const normalizeLaunchVersion = (launchVersion: string | undefined): string => {
   if (launchVersion === undefined) return '0.0.0';
   if (launchVersion.length === 0) return '0.0.0';
   return launchVersion;
 };
 
-/** Resolve the MCP clients attached to the selected agent targets. */
-const mcpClientsForTargets = (targets: readonly AgentTarget[]): McpClient[] => {
+/** MCP clients attached to the selected agent targets. */
+export const mcpClientsForTargets = (targets: readonly AgentTarget[]): McpClient[] => {
   const mcpClients: McpClient[] = [];
   if (targets.includes('claude')) mcpClients.push('claude-code');
   if (targets.includes('cursor')) mcpClients.push('cursor');
   return mcpClients;
 };
 
-/** Resolve explicit, detected, defaulted, or interactively selected targets. */
-const resolveAgentTargets = (
+/** Choose explicit, detected, defaulted, or interactively selected targets. */
+const selectAgentTargets = (
   commandOptions: AgentsCommandOptions,
   repositoryPath: string,
 ): Effect.Effect<
@@ -416,6 +416,16 @@ const writeAgentLog = (
     ),
   );
 
+/** Summarize how many files were written for the selected targets. */
+export const formatAgentsWriteSummary = (
+  artifactCount: number,
+  targets: readonly AgentTarget[],
+): string => {
+  let fileNoun = 'files';
+  if (artifactCount === 1) fileNoun = 'file';
+  return `Wrote ${artifactCount} ${fileNoun} for ${targets.join(', ')}.`;
+};
+
 /** Run `launch agents init` through the shared platform and prompt services. */
 const initializeAgents = (
   commandInput: AgentsCommandInput,
@@ -427,7 +437,7 @@ const initializeAgents = (
     const commandService = yield* AgentsCommandService;
     const logger = yield* createLogger(false);
     const repositoryPath = launchPaths.workingDirectory;
-    const targets = yield* resolveAgentTargets(commandInput.options, repositoryPath);
+    const targets = yield* selectAgentTargets(commandInput.options, repositoryPath);
     if (targets === null) {
       yield* prompt.cancel('Cancelled.');
       return;
@@ -467,9 +477,7 @@ const initializeAgents = (
       (mcpClient) => commandService.installMcpServer(mcpClient, repositoryPath),
       { concurrency: 1 },
     );
-    let fileNoun = 'files';
-    if (plannedArtifacts.length === 1) fileNoun = 'file';
-    const summary = `Wrote ${plannedArtifacts.length} ${fileNoun} for ${targets.join(', ')}.`;
+    const summary = formatAgentsWriteSummary(plannedArtifacts.length, targets);
     if (interactive) {
       yield* writeAgentLog(logger.ok(summary));
     } else {
