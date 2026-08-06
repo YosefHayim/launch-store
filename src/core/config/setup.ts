@@ -45,21 +45,21 @@ import {
 } from './toolchain.js';
 
 export type ReadinessStatus = 'ok' | 'todo' | 'info';
-export type ReadinessRow = {
+export type ReadinessRow = Readonly<{
   label: string;
   status: ReadinessStatus;
   detail?: string;
-};
-export type ReadinessGroup = {
+}>;
+export type ReadinessGroup = Readonly<{
   title: string;
-  rows: ReadinessRow[];
-};
-export type SetupReadiness = {
-  groups: ReadinessGroup[];
-};
+  rows: readonly ReadinessRow[];
+}>;
+export type SetupReadiness = Readonly<{
+  groups: readonly ReadinessGroup[];
+}>;
 
 /** Return the ASCII marker for one readiness state. */
-const readinessMark = (status: ReadinessStatus): string => {
+export const readinessMark = (status: ReadinessStatus): string => {
   switch (status) {
     case 'ok':
       return 'OK';
@@ -78,6 +78,12 @@ const makeReadinessRow = (
 ): ReadinessRow => {
   if (detail === undefined) return { label, status };
   return { label, status, detail };
+};
+
+/** Render one pending todo as a human-readable line. */
+export const formatPendingTodoLine = (readinessEntry: ReadinessRow): string => {
+  if (readinessEntry.detail === undefined) return readinessEntry.label;
+  return `${readinessEntry.label} - ${readinessEntry.detail}`;
 };
 
 /** Render the readiness board as plain terminal lines. */
@@ -99,9 +105,13 @@ export const formatSetupBoard = (readiness: SetupReadiness): string[] => {
 
 /** Return every setup gap that still needs user action. */
 export const pendingTodos = (readiness: SetupReadiness): ReadinessRow[] => {
-  return readiness.groups.flatMap((readinessGroup) => {
-    return readinessGroup.rows.filter((readinessEntry) => readinessEntry.status === 'todo');
-  });
+  const todoRows: ReadinessRow[] = [];
+  for (const readinessGroup of readiness.groups) {
+    for (const readinessEntry of readinessGroup.rows) {
+      if (readinessEntry.status === 'todo') todoRows.push(readinessEntry);
+    }
+  }
+  return todoRows;
 };
 
 /** Map tool availability into readiness entries. */
@@ -140,7 +150,7 @@ const environmentReadinessRows = () =>
   });
 
 /** Describe configuration discovery without changing the project. */
-const configReadinessRows = (apps: AppDescriptor[]) =>
+const configReadinessRows = (apps: readonly AppDescriptor[]) =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const pathService = yield* Path.Path;
@@ -165,8 +175,47 @@ const configReadinessRows = (apps: AppDescriptor[]) =>
     return readinessEntries;
   });
 
+/**
+ * Probe each app for a store record and append ok/todo rows. `requireTruthyPresence` keeps the
+ * Apple path's "API returned a record" check while Play treats any Right as present.
+ */
+const appendStoreAppReadinessRows = <AppId>(storeAppProbe: {
+  apps: readonly AppDescriptor[];
+  readinessEntries: ReadinessRow[];
+  selectAppId: (app: AppDescriptor) => AppId | undefined;
+  checkStoreApp: (appId: AppId) => Effect.Effect<unknown, unknown>;
+  requireTruthyPresence: boolean;
+  okLabel: (appId: AppId) => string;
+  missingDetail: string;
+}): Effect.Effect<void> =>
+  Effect.forEach(
+    storeAppProbe.apps,
+    (app) =>
+      Effect.gen(function* () {
+        const appId = storeAppProbe.selectAppId(app);
+        if (appId === undefined) return;
+        const appCheck = yield* storeAppProbe.checkStoreApp(appId).pipe(Effect.either);
+        if (appCheck._tag === 'Left') {
+          storeAppProbe.readinessEntries.push(
+            makeReadinessRow(storeAppProbe.okLabel(appId), 'todo', storeAppProbe.missingDetail),
+          );
+          return;
+        }
+        let isPresent = true;
+        if (storeAppProbe.requireTruthyPresence) isPresent = Boolean(appCheck.right);
+        if (!isPresent) {
+          storeAppProbe.readinessEntries.push(
+            makeReadinessRow(storeAppProbe.okLabel(appId), 'todo', storeAppProbe.missingDetail),
+          );
+          return;
+        }
+        storeAppProbe.readinessEntries.push(makeReadinessRow(storeAppProbe.okLabel(appId), 'ok'));
+      }),
+    { concurrency: 1, discard: true },
+  );
+
 /** Probe the active Apple account and each configured App Store record. */
-const appleAccountReadinessRows = (apps: AppDescriptor[]) =>
+const appleAccountReadinessRows = (apps: readonly AppDescriptor[]) =>
   Effect.gen(function* () {
     const activeAccount = yield* getActiveAccount();
     if (activeAccount === null) {
@@ -178,7 +227,7 @@ const appleAccountReadinessRows = (apps: AppDescriptor[]) =>
         ),
       ];
     }
-    const readinessEntries = [
+    const readinessEntries: ReadinessRow[] = [
       makeReadinessRow(
         `Apple account: ${activeAccount.label}`,
         'ok',
@@ -198,33 +247,20 @@ const appleAccountReadinessRows = (apps: AppDescriptor[]) =>
     readinessEntries.push(
       makeReadinessRow('Apple agreements', 'ok', 'accepted - API-key auth (no password, no 2FA)'),
     );
-    yield* Effect.forEach(
+    yield* appendStoreAppReadinessRows({
       apps,
-      (app) =>
-        Effect.gen(function* () {
-          if (app.bundleId === undefined) return;
-          const appCheck = yield* storeReadiness
-            .checkAppleApp(ascKey, app.bundleId)
-            .pipe(Effect.either);
-          if (appCheck._tag === 'Right' && appCheck.right) {
-            readinessEntries.push(makeReadinessRow(`App Store record - ${app.bundleId}`, 'ok'));
-            return;
-          }
-          readinessEntries.push(
-            makeReadinessRow(
-              `App Store record - ${app.bundleId}`,
-              'todo',
-              'create it once at appstoreconnect.apple.com/apps',
-            ),
-          );
-        }),
-      { concurrency: 1, discard: true },
-    );
+      readinessEntries,
+      selectAppId: (app) => app.bundleId,
+      checkStoreApp: (bundleId) => storeReadiness.checkAppleApp(ascKey, bundleId),
+      requireTruthyPresence: true,
+      okLabel: (bundleId) => `App Store record - ${bundleId}`,
+      missingDetail: 'create it once at appstoreconnect.apple.com/apps',
+    });
     return readinessEntries;
   });
 
 /** Probe the stored Play account and each configured Play application. */
-const playAccountReadinessRows = (apps: AppDescriptor[]) =>
+const playAccountReadinessRows = (apps: readonly AppDescriptor[]) =>
   Effect.gen(function* () {
     const serviceAccountJson = yield* loadServiceAccount();
     if (serviceAccountJson === null) {
@@ -236,30 +272,19 @@ const playAccountReadinessRows = (apps: AppDescriptor[]) =>
         ),
       ];
     }
-    const readinessEntries = [makeReadinessRow('Play service account', 'ok', 'imported')];
+    const readinessEntries: ReadinessRow[] = [
+      makeReadinessRow('Play service account', 'ok', 'imported'),
+    ];
     const storeReadiness = yield* SetupStoreReadiness;
-    yield* Effect.forEach(
+    yield* appendStoreAppReadinessRows({
       apps,
-      (app) =>
-        Effect.gen(function* () {
-          if (app.packageName === undefined) return;
-          const appCheck = yield* storeReadiness
-            .checkPlayApp(serviceAccountJson, app.packageName)
-            .pipe(Effect.either);
-          if (appCheck._tag === 'Right') {
-            readinessEntries.push(makeReadinessRow(`Play app - ${app.packageName}`, 'ok'));
-            return;
-          }
-          readinessEntries.push(
-            makeReadinessRow(
-              `Play app - ${app.packageName}`,
-              'todo',
-              'create + enroll in Play App Signing at play.google.com/console',
-            ),
-          );
-        }),
-      { concurrency: 1, discard: true },
-    );
+      readinessEntries,
+      selectAppId: (app) => app.packageName,
+      checkStoreApp: (packageName) => storeReadiness.checkPlayApp(serviceAccountJson, packageName),
+      requireTruthyPresence: false,
+      okLabel: (packageName) => `Play app - ${packageName}`,
+      missingDetail: 'create + enroll in Play App Signing at play.google.com/console',
+    });
     return readinessEntries;
   });
 
@@ -295,7 +320,7 @@ const signingReadinessRows = (): Effect.Effect<ReadinessRow[], never> =>
   });
 
 /** Check each app for configuration findings on the selected platform. */
-const appConfigReadinessRows = (apps: AppDescriptor[], platform: Platform) =>
+const appConfigReadinessRows = (apps: readonly AppDescriptor[], platform: Platform) =>
   Effect.gen(function* () {
     const readinessEntries: ReadinessRow[] = [];
     yield* Effect.forEach(
@@ -321,7 +346,7 @@ const appConfigReadinessRows = (apps: AppDescriptor[], platform: Platform) =>
   });
 
 /** Collect the complete setup readiness picture without changing external state. */
-export const collectReadiness = (platform: Platform, apps: AppDescriptor[]) =>
+export const collectReadiness = (platform: Platform, apps: readonly AppDescriptor[]) =>
   Effect.gen(function* () {
     let tools = REQUIRED_TOOLS;
     if (platform === 'android') tools = ANDROID_TOOLS;
@@ -365,12 +390,12 @@ export const collectReadiness = (platform: Platform, apps: AppDescriptor[]) =>
   });
 
 /** Write the initial config files and ignore the in-repository artifact directory. */
-const scaffoldConfig = (apps: AppDescriptor[]) =>
+const scaffoldConfig = (apps: readonly AppDescriptor[]) =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const pathService = yield* Path.Path;
     const projectDirectory = (yield* LaunchPaths).workingDirectory;
-    const appRoot = yield* detectAppRoot(apps, projectDirectory);
+    const appRoot = yield* detectAppRoot([...apps], projectDirectory);
     yield* fileSystem.writeFileString(
       pathService.join(projectDirectory, 'launch.config.ts'),
       configTemplate(appRoot, undefined, undefined, DEFAULT_IN_REPO_ARTIFACT_DIR),
@@ -385,23 +410,16 @@ const scaffoldConfig = (apps: AppDescriptor[]) =>
     );
   });
 
-export type SetupOptions = {
+export type SetupOptions = Readonly<{
   platform: Platform;
   yes: boolean;
   rehearse: boolean;
-};
+}>;
 
-/** Rehearse the build pipeline without changing external state. */
-const rehearsePipeline = (platform: Platform, app: AppDescriptor) => {
-  return runBuild({
-    platform,
-    appName: app.name,
-    profileName: 'production',
-    explain: false,
-    submit: true,
-    target: 'testing',
-    dryRun: true,
-  });
+/** Whether setup may attempt toolchain installs under the current TTY/`--yes` policy. */
+export const mayInstallToolchain = (terminalIsInteractive: boolean, yes: boolean): boolean => {
+  if (yes) return true;
+  return terminalIsInteractive;
 };
 
 /** Configure safe defaults, report remaining gaps, and optionally rehearse the pipeline. */
@@ -429,19 +447,16 @@ export const runSetup = (options: SetupOptions) =>
     }
 
     const terminalIsInteractive = yield* checkTerminalIsInteractive;
-    let mayInstallTools = terminalIsInteractive;
-    if (yes) mayInstallTools = true;
     const isMacOperatingSystem = yield* checkIsMacOperatingSystem;
     const missingTools = yield* missingRequiredTools();
     if (
       isApplePlatform(platform) &&
       isMacOperatingSystem &&
-      mayInstallTools &&
+      mayInstallToolchain(terminalIsInteractive, yes) &&
       missingTools.length > 0
     ) {
-      let assumeToolInstallConsent = !terminalIsInteractive;
-      if (yes) assumeToolInstallConsent = true;
-      yield* ensureToolchain({ assumeYes: assumeToolInstallConsent });
+      // Non-interactive without --yes never reaches this branch (mayInstallToolchain is false).
+      yield* ensureToolchain({ assumeYes: yes });
     }
 
     const readiness = yield* collectReadiness(platform, apps);
@@ -455,7 +470,15 @@ export const runSetup = (options: SetupOptions) =>
         'Rehearsing the pipeline',
         'Dry-run - no build, no network, no account changes.',
       );
-      const rehearsal = yield* rehearsePipeline(platform, firstApp).pipe(Effect.either);
+      const rehearsal = yield* runBuild({
+        platform,
+        appName: firstApp.name,
+        profileName: 'production',
+        explain: false,
+        submit: true,
+        target: 'testing',
+        dryRun: true,
+      }).pipe(Effect.either);
       if (rehearsal._tag === 'Left')
         yield* logger.warn(`Rehearsal stopped early: ${errorMessage(rehearsal.left)}`);
     }
@@ -470,10 +493,7 @@ export const runSetup = (options: SetupOptions) =>
     if (remainingTodos.length === 1) stepSuffix = '';
     yield* logger.notice(
       `Almost there - ${remainingTodos.length} step${stepSuffix} left:`,
-      ...remainingTodos.map((readinessEntry) => {
-        if (readinessEntry.detail === undefined) return readinessEntry.label;
-        return `${readinessEntry.label} - ${readinessEntry.detail}`;
-      }),
+      ...remainingTodos.map(formatPendingTodoLine),
     );
     if (!terminalIsInteractive) {
       yield* logger.note(
