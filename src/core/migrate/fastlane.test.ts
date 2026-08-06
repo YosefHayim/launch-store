@@ -8,12 +8,15 @@ import { expectDefined } from '@testkit/assertions.testkit.js';
 import type { AppDescriptor } from '../types/app.js';
 import type { MigrationArtifact, MigrationNote, MigrationNoteLevel } from '../types/migrate.js';
 import {
+  laneLaunchCommands,
   migrateFastlane,
+  migrationNotesFor,
   parseAppfile,
   parseFastfile,
   parseMatchfile,
   parseSupplyfile,
   readFastlaneSetup,
+  readRubyString,
 } from './fastlane.js';
 /** A realistic Appfile carrying both team ids, the Apple ID, and both platform identifiers. */
 const SAMPLE_APPFILE = [
@@ -89,6 +92,16 @@ const runMigrateFastlane = (workingDirectory: string, apps: AppDescriptor[]) =>
   Effect.runPromise(
     migrateFastlane(workingDirectory, apps).pipe(Effect.provide(NodeContext.layer)),
   );
+describe('readRubyString', () => {
+  it('reads bare and parenthesized string directives', () => {
+    expect(readRubyString('team_id "ABCD1234"', 'team_id')).toBe('ABCD1234');
+    expect(readRubyString('apple_id("you@example.com")', 'apple_id')).toBe('you@example.com');
+  });
+  it('treats missing and empty directives as absent', () => {
+    expect(readRubyString('team_id "ABCD"', 'apple_id')).toBeUndefined();
+    expect(readRubyString('team_id ""', 'team_id')).toBeUndefined();
+  });
+});
 describe('parseAppfile', () => {
   it('reads every identifier and keeps team_id distinct from itc_team_id', () => {
     const appfile = parseAppfile(SAMPLE_APPFILE);
@@ -133,13 +146,21 @@ describe('parseFastfile', () => {
   it('attributes each lane to its platform block and scopes actions to its body', () => {
     const lanes = parseFastfile(SAMPLE_FASTFILE).lanes;
     const beta = lanes.find((lane) => lane.name === 'beta');
-    expect(beta?.platform).toBe('ios');
-    expect(beta?.actions.sort()).toEqual(['gym', 'match', 'pilot']);
+    expect(beta).toBeDefined();
+    if (beta === undefined) return;
+    expect(beta.platform).toBe('ios');
+    expect(beta.actions.sort()).toEqual(['gym', 'match', 'pilot']);
+    expect(laneLaunchCommands(beta)).toEqual(['launch build', 'launch release --track testing']);
     const play = lanes.find((lane) => lane.name === 'play');
-    expect(play?.platform).toBe('android');
-    expect(play?.actions).toEqual(['supply']);
+    expect(play).toBeDefined();
+    if (play === undefined) return;
+    expect(play.platform).toBe('android');
+    expect(play.actions).toEqual(['supply']);
     // gym lives in :beta, not in :release - body scoping keeps them apart.
-    expect(lanes.find((lane) => lane.name === 'release')?.actions).toEqual(['deliver']);
+    const release = lanes.find((lane) => lane.name === 'release');
+    expect(release).toBeDefined();
+    if (release === undefined) return;
+    expect(release.actions).toEqual(['deliver']);
   });
   it('detects the recognized actions used anywhere in the file', () => {
     const { actions } = parseFastfile(SAMPLE_FASTFILE);
@@ -150,6 +171,46 @@ describe('parseFastfile', () => {
     expect(actions).toContain('supply');
     expect(actions).toContain('capture_screenshots');
     expect(actions).not.toContain('upload_to_play_store');
+  });
+});
+describe('migrationNotesFor', () => {
+  it('maps lanes and surfaces signing as manual without filesystem access', () => {
+    const parsedFastfile = parseFastfile(SAMPLE_FASTFILE);
+    const migrationNotes = migrationNotesFor(
+      {
+        appfile: parseAppfile(SAMPLE_APPFILE),
+        matchfile: parseMatchfile(SAMPLE_MATCHFILE),
+        supply: parseSupplyfile(SAMPLE_SUPPLYFILE),
+        lanes: parsedFastfile.lanes,
+        actions: parsedFastfile.actions,
+        hasDeliverfile: true,
+        envKeys: [],
+      },
+      [app({ packageName: 'com.acme.alpha' })],
+      false,
+    );
+    const mapped = notesAt(migrationNotes, 'mapped').map((note) => note.message);
+    expect(mapped).toContain('lane :beta (ios) -> launch build + launch release --track testing.');
+    const manual = notesAt(migrationNotes, 'manual').map((note) => note.message);
+    expect(manual.some((message) => message.includes('match/cert/sigh'))).toBe(true);
+    expect(manual.some((message) => message.includes('Deliverfile'))).toBe(true);
+    const informational = notesAt(migrationNotes, 'info').map((note) => note.message);
+    expect(informational.some((message) => message.includes('app_identifier'))).toBe(true);
+  });
+  it('drops the Deliverfile follow-up when metadata was imported', () => {
+    const migrationNotes = migrationNotesFor(
+      {
+        lanes: [],
+        actions: [],
+        hasDeliverfile: true,
+        envKeys: [],
+      },
+      [],
+      true,
+    );
+    expect(
+      notesAt(migrationNotes, 'manual').some((note) => note.message.includes('Deliverfile')),
+    ).toBe(false);
   });
 });
 describe('readFastlaneSetup', () => {
