@@ -4,6 +4,7 @@ import { loadConfig } from '../config/config.js';
 import { errorMessage } from '../services/errorMessage.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
+import type { AppDescriptor } from '../types/app.js';
 import type { MigrationNote, MigrationResult } from '../types/migrate.js';
 import { migrateEas } from './eas.js';
 import { migrateFastlane } from './fastlane.js';
@@ -36,7 +37,7 @@ type MigrateCommandRequirements = FileSystem.FileSystem | LaunchPathsService | L
 const readMigration = (
   source: MigrateCommandInput['source'],
   workingDirectory: string,
-  apps: Parameters<typeof migrateEas>[1],
+  apps: AppDescriptor[],
 ) => {
   switch (source) {
     case 'eas':
@@ -70,12 +71,12 @@ const printMigrationNotes = (
   });
 
 const previewMigration = (
+  logger: Logger,
   migration: MigrationResult,
   outputDirectory: string,
   force: boolean,
-): Effect.Effect<void, unknown, FileSystem.FileSystem | Logger | Path.Path> =>
+): Effect.Effect<void, unknown, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const logger = yield* createLogger(false);
     const writeOutcome = yield* writeArtifacts(migration, {
       outDir: outputDirectory,
       force,
@@ -91,14 +92,14 @@ const previewMigration = (
   });
 
 const persistMigration = (
+  logger: Logger,
   migration: MigrationResult,
   outputDirectory: string,
   force: boolean,
-): Effect.Effect<void, unknown, FileSystem.FileSystem | Logger | Path.Path> =>
+): Effect.Effect<void, unknown, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const pathService = yield* Path.Path;
-    const logger = yield* createLogger(false);
     yield* fileSystem.makeDirectory(outputDirectory, { recursive: true });
     const writeOutcome = yield* writeArtifacts(migration, {
       outDir: outputDirectory,
@@ -141,15 +142,15 @@ export const migrateCommandProgram = (
     let outputDirectory = launchPaths.workingDirectory;
     if (commandInput.out !== undefined) outputDirectory = commandInput.out;
     if (commandInput.dryRun) {
-      return yield* previewMigration(migration, outputDirectory, commandInput.force);
+      return yield* previewMigration(logger, migration, outputDirectory, commandInput.force);
     }
-    return yield* persistMigration(migration, outputDirectory, commandInput.force);
+    return yield* persistMigration(logger, migration, outputDirectory, commandInput.force);
   }).pipe(
-    Effect.mapError((cause) => {
-      return makeMigrateCommandFailure({
+    Effect.mapError((cause) =>
+      makeMigrateCommandFailure({
         operation: 'migrate project configuration',
         message: errorMessage(cause),
         cause,
-      });
-    }),
+      }),
+    ),
   );
