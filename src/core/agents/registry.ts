@@ -3,7 +3,18 @@ import type {
   ConsumerSkill,
   ContributorRule,
   ContributorSkill,
+  SkillStep,
 } from '../types/agents.js';
+
+/** Join markdown paragraphs used as skill / rule bodies. */
+const markdownBody = (sections: readonly string[]): string => sections.join('\n');
+
+/** One validated recipe step: command path + note, optional positional args. */
+const recipeStep = (path: string[], note: string, args?: string[]): SkillStep => {
+  if (args === undefined) return { path, note };
+  return { path, args, note };
+};
+
 /**
  * The always-on context every agent gets in a Launch repo. Derived from `AGENTS.md`, the README, and
  * `llms.txt` (kept faithful - no inflation). The {@link BaseContext.guardrail} encodes Launch's own
@@ -90,41 +101,36 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       'onboard an existing (already-shipping) app to Launch',
     ],
     steps: [
-      {
-        path: ['init'],
-        note: 'scaffold launch.config.ts (+ .env.example); skip if it already exists',
-      },
-      {
-        path: ['adopt'],
-        note: 'OPTIONAL - app already on the store? import its live App Store Connect setup into config',
-      },
-      {
-        path: ['creds'],
-        args: ['set-key'],
-        note: 'store the App Store Connect API key (.p8) in the OS keychain',
-      },
-      {
-        path: ['creds'],
-        args: ['setup'],
-        note: 'register the app id and create or reuse the cert + provisioning profile',
-      },
-      {
-        path: ['doctor'],
-        note: 'verify the iOS/Android toolchain and config; add --fix to install missing tools',
-      },
-      {
-        path: ['build'],
-        args: ['ios'],
-        note: "run the full pipeline and upload to TestFlight (use 'android' for Play; --no-submit builds only)",
-      },
+      recipeStep(['init'], 'scaffold launch.config.ts (+ .env.example); skip if it already exists'),
+      recipeStep(
+        ['adopt'],
+        'OPTIONAL - app already on the store? import its live App Store Connect setup into config',
+      ),
+      recipeStep(['creds'], 'store the App Store Connect API key (.p8) in the OS keychain', [
+        'set-key',
+      ]),
+      recipeStep(
+        ['creds'],
+        'register the app id and create or reuse the cert + provisioning profile',
+        ['setup'],
+      ),
+      recipeStep(
+        ['doctor'],
+        'verify the iOS/Android toolchain and config; add --fix to install missing tools',
+      ),
+      recipeStep(
+        ['build'],
+        "run the full pipeline and upload to TestFlight (use 'android' for Play; --no-submit builds only)",
+        ['ios'],
+      ),
     ],
-    body: [
+    body: markdownBody([
       'Run the steps in order. `init` writes the config, `creds` puts the signing material in the keychain, `doctor` catches toolchain and store-side blockers, and `build` produces a signed binary and uploads it to the **testing** track.',
       '',
       '- `build` flags worth knowing: `--profile <name>` selects a build profile, `--no-submit` builds without uploading, `--dry-run` rehearses every step, `--explain` teaches as it runs, and `--remote [aws|user@host]` builds iOS without a local Mac.',
       '- Manage testers after the upload with `launch testflight` (groups, add/remove testers, `testflight release` to push a build to a group). `launch builds` lists build history; `launch build:resign` re-signs a stored artifact without rebuilding.',
       '- Android: `build android` signs with the upload keystore and uploads to the Play track (`--track internal|closed|open|production`).',
-    ].join('\n'),
+    ]),
     cautions: [
       "`build` uploads to the TESTING track only - that's safe. Putting the app in front of the PUBLIC is `launch release` (see the launch-release skill), which needs human confirmation.",
       'First-time `creds setup` provisions real signing assets in the Apple Developer account - expected during onboarding. Switching or removing an account later (`creds use|remove`) needs human confirmation.',
@@ -142,34 +148,30 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       'pause, resume, or complete a phased rollout',
     ],
     steps: [
-      {
-        path: ['status'],
-        note: "show each app's store version, review state, and phased-rollout state (--json for CI)",
-      },
-      {
-        path: ['release'],
-        args: ['ios'],
-        note: 'submit the latest build to the PUBLIC production track - preview with --dry-run first',
-      },
-      {
-        path: ['rollout'],
-        args: ['pause'],
-        note: 'steer an iOS phased release: pause | resume | complete',
-      },
-      {
-        path: ['release-train'],
-        args: ['start'],
-        note: 'coordinate iOS + Android + OTA as one resumable release record (start | status | release | abort)',
-      },
+      recipeStep(
+        ['status'],
+        "show each app's store version, review state, and phased-rollout state (--json for CI)",
+      ),
+      recipeStep(
+        ['release'],
+        'submit the latest build to the PUBLIC production track - preview with --dry-run first',
+        ['ios'],
+      ),
+      recipeStep(['rollout'], 'steer an iOS phased release: pause | resume | complete', ['pause']),
+      recipeStep(
+        ['release-train'],
+        'coordinate iOS + Android + OTA as one resumable release record (start | status | release | abort)',
+        ['start'],
+      ),
     ],
-    body: [
+    body: markdownBody([
       '`release` is the deliberate public step, distinct from `build` (which only reaches the testing track). Always preview first.',
       '',
       '- `release <platform> --dry-run` prints the release plan and touches nothing - run it, show the plan, then let a human trigger the real submit.',
       "- iOS options: `--phased` opts into Apple's 7-day phased rollout, `--build latest|<n>` promotes an existing build instead of uploading, `--manual` holds the approved build for manual release, `--scheduled <iso>` schedules go-live.",
       '- `status --watch` polls until review reaches a terminal verdict; `rollout pause|resume|complete` steers an in-progress phased release.',
       '- Shipping iOS + Android (and an OTA leg) together? `release-train start` records the whole release as one resumable unit - `--hold` gates every leg until all are approved and releases them together, `--platform`/`--no-ota` scope it, and `status`/`release`/`abort` drive or unwind it.',
-    ].join('\n'),
+    ]),
     cautions: [
       '`launch release` makes the app PUBLIC and is hard to reverse. Run `launch release <platform> --dry-run`, show the plan, and get explicit human confirmation before the real submit.',
       '`rollout complete` accelerates a public rollout to 100% - confirm before running it.',
@@ -188,31 +190,31 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       'generate promo offer codes, an in-app event, or an A/B experiment',
     ],
     steps: [
-      {
-        path: ['sync'],
-        note: 'reconcile ASC IAPs, subscriptions, pricing, and capabilities from config - run with --dry-run first',
-      },
-      {
-        path: ['metadata', 'pull'],
-        note: 'pull the current listing into store.config.json to edit (--platform android for Play)',
-      },
-      {
-        path: ['metadata', 'push'],
-        note: 'push edited listing copy / screenshots back to the store - --dry-run rehearses',
-      },
-      { path: ['play-products'], note: 'reconcile Google Play in-app products from config' },
-      {
-        path: ['play-subscriptions'],
-        note: 'reconcile Google Play subscriptions (base plans + offers)',
-      },
+      recipeStep(
+        ['sync'],
+        'reconcile ASC IAPs, subscriptions, pricing, and capabilities from config - run with --dry-run first',
+      ),
+      recipeStep(
+        ['metadata', 'pull'],
+        'pull the current listing into store.config.json to edit (--platform android for Play)',
+      ),
+      recipeStep(
+        ['metadata', 'push'],
+        'push edited listing copy / screenshots back to the store - --dry-run rehearses',
+      ),
+      recipeStep(['play-products'], 'reconcile Google Play in-app products from config'),
+      recipeStep(
+        ['play-subscriptions'],
+        'reconcile Google Play subscriptions (base plans + offers)',
+      ),
     ],
-    body: [
+    body: markdownBody([
       'Store config lives in `launch.config.ts` (catalog) and `store.config.json` (listing). One catalog drives BOTH stores. Every reconcile runs plan -> confirm -> apply.',
       '',
       'The safe loop: preview with `--dry-run` (or `metadata pull`), review the plan, then apply. See the bundled command reference for the full surface across both stores.',
       '',
       'Preview the full cross-surface diff with `launch plan` and gate drift in CI with `launch drift` (see the launch-plan skill); draft listing copy with `launch ai listing` before pushing it (see the launch-ai-listing skill).',
-    ].join('\n'),
+    ]),
     cautions: [
       'These commands change a LIVE store. Always preview with `--dry-run` (or `metadata pull`), show the plan, and get human confirmation before applying.',
       '`sync --allow-destructive` can remove a capability or product - treat it as requiring explicit human sign-off.',
@@ -221,36 +223,36 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       intro:
         'The full store-config surface, both stores. Each runs a read-only plan -> confirm -> apply; preview with `--dry-run` and never apply to a live or in-review listing without human confirmation.',
       commands: [
-        {
-          path: ['sync'],
-          note: 'App Store Connect: reconcile IAPs, subscriptions, pricing, capabilities (--dry-run, --allow-destructive, --yes)',
-        },
-        {
-          path: ['metadata', 'pull'],
-          note: 'pull the store listing (copy, screenshots, previews) into store.config.json',
-        },
-        { path: ['metadata', 'push'], note: 'push the edited listing back to the store' },
-        { path: ['offers', 'list'], note: 'list promotional offers for a subscription product' },
-        {
-          path: ['offers', 'generate-codes'],
-          note: 'generate one-time promo / offer codes for a product',
-        },
-        { path: ['offers', 'deactivate'], note: 'deactivate an offer' },
-        { path: ['play-products'], note: 'Google Play: reconcile in-app products' },
-        {
-          path: ['play-subscriptions'],
-          note: 'Google Play: reconcile subscriptions (base plans + offers)',
-        },
-        { path: ['play-tracks', 'status'], note: 'show Google Play track state' },
-        { path: ['play-tracks', 'promote'], note: 'promote a build between Play tracks' },
-        { path: ['availability'], note: 'manage territory / country availability' },
-        { path: ['custom-pages'], note: 'manage custom product pages' },
-        { path: ['experiments'], note: 'manage product-page A/B experiments' },
-        { path: ['events', 'list'], note: 'list in-app events' },
-        { path: ['events', 'create'], note: 'create an in-app event' },
-        { path: ['app-clips'], note: 'configure App Clips' },
-        { path: ['game-center'], note: 'configure Game Center leaderboards / achievements' },
-        { path: ['accessibility'], note: 'set the accessibility declarations on the listing' },
+        recipeStep(
+          ['sync'],
+          'App Store Connect: reconcile IAPs, subscriptions, pricing, capabilities (--dry-run, --allow-destructive, --yes)',
+        ),
+        recipeStep(
+          ['metadata', 'pull'],
+          'pull the store listing (copy, screenshots, previews) into store.config.json',
+        ),
+        recipeStep(['metadata', 'push'], 'push the edited listing back to the store'),
+        recipeStep(['offers', 'list'], 'list promotional offers for a subscription product'),
+        recipeStep(
+          ['offers', 'generate-codes'],
+          'generate one-time promo / offer codes for a product',
+        ),
+        recipeStep(['offers', 'deactivate'], 'deactivate an offer'),
+        recipeStep(['play-products'], 'Google Play: reconcile in-app products'),
+        recipeStep(
+          ['play-subscriptions'],
+          'Google Play: reconcile subscriptions (base plans + offers)',
+        ),
+        recipeStep(['play-tracks', 'status'], 'show Google Play track state'),
+        recipeStep(['play-tracks', 'promote'], 'promote a build between Play tracks'),
+        recipeStep(['availability'], 'manage territory / country availability'),
+        recipeStep(['custom-pages'], 'manage custom product pages'),
+        recipeStep(['experiments'], 'manage product-page A/B experiments'),
+        recipeStep(['events', 'list'], 'list in-app events'),
+        recipeStep(['events', 'create'], 'create an in-app event'),
+        recipeStep(['app-clips'], 'configure App Clips'),
+        recipeStep(['game-center'], 'configure Game Center leaderboards / achievements'),
+        recipeStep(['accessibility'], 'set the accessibility declarations on the listing'),
       ],
     },
   },
@@ -266,27 +268,23 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       'roll back a bad update',
     ],
     steps: [
-      {
-        path: ['update'],
-        note: 'publish a code-signed OTA update to the channel (--channel, --platform; --dry-run rehearses)',
-      },
-      { path: ['updates', 'list'], note: 'list published updates for a channel' },
-      {
-        path: ['updates', 'view'],
-        args: ['latest'],
-        note: "inspect an update by id (or 'latest')",
-      },
-      {
-        path: ['updates', 'rollback'],
-        note: 'reverse a bad update - promote a known-good one or drop clients to the embedded bundle',
-      },
+      recipeStep(
+        ['update'],
+        'publish a code-signed OTA update to the channel (--channel, --platform; --dry-run rehearses)',
+      ),
+      recipeStep(['updates', 'list'], 'list published updates for a channel'),
+      recipeStep(['updates', 'view'], "inspect an update by id (or 'latest')", ['latest']),
+      recipeStep(
+        ['updates', 'rollback'],
+        'reverse a bad update - promote a known-good one or drop clients to the embedded bundle',
+      ),
     ],
-    body: [
+    body: markdownBody([
       "OTA updates ship only JS and asset changes the installed runtime can accept (same runtime version), code-signed and hosted on the user's own bucket. **Native** changes (new dependencies, config plugins, permissions) need a full `build` + `release`, not an update.",
       '',
       '- `update --channel <name> --platform ios|android|all` publishes; `--dry-run` prints the layout without uploading. Avoid `--no-sign` (it lets anyone who can write the bucket push JS).',
       '- `updates rollback` is the escape hatch - it promotes a known-good update or drops clients back to the embedded bundle.',
-    ].join('\n'),
+    ]),
     cautions: [
       'An OTA update reaches real users immediately. Rehearse with `--dry-run`, and confirm the channel and runtime version before publishing to a production channel.',
     ],
@@ -303,23 +301,19 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       'wire up the release pipeline secrets',
     ],
     steps: [
-      {
-        path: ['ci', 'init'],
-        note: 'write .github/workflows/launch.yml for a hosted runner (--android adds an Android job)',
-      },
-      { path: ['doctor'], args: ['--yes'], note: 'non-interactive preflight inside the workflow' },
-      {
-        path: ['build'],
-        args: ['ios', '--yes'],
-        note: 'unattended build + upload to the testing track',
-      },
+      recipeStep(
+        ['ci', 'init'],
+        'write .github/workflows/launch.yml for a hosted runner (--android adds an Android job)',
+      ),
+      recipeStep(['doctor'], 'non-interactive preflight inside the workflow', ['--yes']),
+      recipeStep(['build'], 'unattended build + upload to the testing track', ['ios', '--yes']),
     ],
-    body: [
+    body: markdownBody([
       '`ci init` writes a transparent, editable workflow (not a black-box action) wired to the same unattended commands Launch already supports.',
       '',
       '- It installs `launch-store` globally on the runner, triggers on `workflow_dispatch` and pushed `v*` tags, and reads credentials from repository secrets decoded at runtime: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_API_KEY_BASE64` (Android adds `PLAY_SERVICE_ACCOUNT_BASE64`, `ANDROID_KEYSTORE_BASE64`, and the key alias/passwords).',
       '- Pass `--yes` on the safe commands; Launch also auto-detects CI and degrades to non-interactive on its own.',
-    ].join('\n'),
+    ]),
     cautions: [
       "Keep `launch release` (public production) OUT of an automatic CI trigger - put it behind a manual approval / protected environment so a push can't publish to the store unattended. CI should target the TESTING track by default.",
       'Supply credentials only via repository secrets decoded at runtime; never commit a `.p8`, keystore, or service-account JSON.',
@@ -337,27 +331,27 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       "signing or credentials won't resolve",
     ],
     steps: [
-      {
-        path: ['doctor'],
-        note: 'detect the iOS/Android toolchain and store-side blockers; --fix installs missing brew tools (--yes for CI)',
-      },
-      {
-        path: ['diagnose'],
-        note: 'analyze the most recent build log (or a given logfile) and explain the native failure',
-      },
-      {
-        path: ['creds'],
-        args: ['status'],
-        note: 'show which Apple account and signing assets are active when signing fails',
-      },
+      recipeStep(
+        ['doctor'],
+        'detect the iOS/Android toolchain and store-side blockers; --fix installs missing brew tools (--yes for CI)',
+      ),
+      recipeStep(
+        ['diagnose'],
+        'analyze the most recent build log (or a given logfile) and explain the native failure',
+      ),
+      recipeStep(
+        ['creds'],
+        'show which Apple account and signing assets are active when signing fails',
+        ['status'],
+      ),
     ],
-    body: [
+    body: markdownBody([
       'Start with `doctor` to separate environment problems from build problems, then `diagnose` to read the actual native failure.',
       '',
       '- `doctor --fix` asks for consent, then installs missing iOS tools via Homebrew (`--yes` skips the prompt for CI/agents). `doctor --platform android` checks the Android toolchain.',
       '- `diagnose` reads the newest log under `~/.launch/logs` (or a path you pass) and explains the failure in plain English. A config footgun check also runs at the head of every `build`.',
       '- When signing is the problem, `creds status` shows the active account; `creds set-key` / `creds setup` fix a missing key or profile.',
-    ].join('\n'),
+    ]),
     cautions: [
       "`doctor --fix` installs build tools via Homebrew. It's safe to run, but review what it proposes; pass `--yes` only in CI where unattended installs are intended.",
     ],
@@ -374,29 +368,29 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       "check the privacy declarations against the app's permissions",
     ],
     steps: [
-      {
-        path: ['audit'],
-        note: 'one-shot pre-submit sweep - would a submission be rejected right now? (read-only)',
-      },
-      {
-        path: ['store', 'doctor'],
-        note: 'store-account readiness: the Apple app record, Play onboarding & access (read-only)',
-      },
-      {
-        path: ['iap', 'doctor'],
-        note: 'in-app-purchase readiness: products & subscriptions exist and are submittable (read-only)',
-      },
-      {
-        path: ['privacy', 'scan'],
-        note: 'reconcile permissions / manifests against the privacy declarations; flags undeclared collection',
-      },
+      recipeStep(
+        ['audit'],
+        'one-shot pre-submit sweep - would a submission be rejected right now? (read-only)',
+      ),
+      recipeStep(
+        ['store', 'doctor'],
+        'store-account readiness: the Apple app record, Play onboarding & access (read-only)',
+      ),
+      recipeStep(
+        ['iap', 'doctor'],
+        'in-app-purchase readiness: products & subscriptions exist and are submittable (read-only)',
+      ),
+      recipeStep(
+        ['privacy', 'scan'],
+        'reconcile permissions / manifests against the privacy declarations; flags undeclared collection',
+      ),
     ],
-    body: [
+    body: markdownBody([
       'Run these before a `release` to catch rejections on your machine instead of in App Review. Every command here only reads - none of them changes the store.',
       '',
       '- `audit` is the headline sweep; the focused doctors (`store doctor`, `iap doctor`) and `privacy scan` drill into the specific area that fails.',
       '- Pair this with `launch plan` (see the launch-plan skill) to also diff your config-as-code against live state before submitting.',
-    ].join('\n'),
+    ]),
   },
   {
     id: 'launch-plan',
@@ -410,21 +404,18 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       'check that the live store still matches launch.config.ts',
     ],
     steps: [
-      {
-        path: ['plan'],
-        note: 'diff launch.config against live store state across every config-as-code surface (read-only)',
-      },
-      {
-        path: ['drift'],
-        note: 'fail when live state has drifted from config - `plan --check` for CI',
-      },
+      recipeStep(
+        ['plan'],
+        'diff launch.config against live store state across every config-as-code surface (read-only)',
+      ),
+      recipeStep(['drift'], 'fail when live state has drifted from config - `plan --check` for CI'),
     ],
-    body: [
+    body: markdownBody([
       '`plan` is the read-only preview behind `sync` / `metadata` / the Play reconcilers: it diffs config against live state across capabilities, IAPs, subscriptions, pricing, listing, and the rest of the config-as-code surfaces. `drift` is the same diff as a CI gate (exit non-zero on any difference).',
       '',
       '- `plan [surface]` narrows the diff to one surface; bare `plan` covers them all.',
       '- Use `drift` in CI to keep the store and `launch.config.ts` from silently diverging; apply changes with the launch-store-config skill once the plan looks right.',
-    ].join('\n'),
+    ]),
   },
   {
     id: 'launch-snapshot',
@@ -438,31 +429,31 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       'clean up old snapshots',
     ],
     steps: [
-      {
-        path: ['snapshot', 'create'],
-        note: 'capture live App Store + Play state into a named snapshot',
-      },
-      {
-        path: ['snapshot', 'diff'],
-        args: ['<name>'],
-        note: 'compare a saved snapshot against another snapshot or live state (default: live)',
-      },
-      {
-        path: ['snapshot', 'restore'],
-        args: ['<name>'],
-        note: "restore a snapshot's App Store listing back to live - additive; previews unless --yes",
-      },
-      {
-        path: ['snapshot', 'prune'],
-        note: 'delete old user snapshots by --keep <n> and/or --older-than <days> (auto baselines untouched)',
-      },
+      recipeStep(
+        ['snapshot', 'create'],
+        'capture live App Store + Play state into a named snapshot',
+      ),
+      recipeStep(
+        ['snapshot', 'diff'],
+        'compare a saved snapshot against another snapshot or live state (default: live)',
+        ['<name>'],
+      ),
+      recipeStep(
+        ['snapshot', 'restore'],
+        "restore a snapshot's App Store listing back to live - additive; previews unless --yes",
+        ['<name>'],
+      ),
+      recipeStep(
+        ['snapshot', 'prune'],
+        'delete old user snapshots by --keep <n> and/or --older-than <days> (auto baselines untouched)',
+      ),
     ],
-    body: [
+    body: markdownBody([
       'Take a `snapshot create` before any risky reconcile so you have a labelled baseline, then `snapshot diff` to see exactly what moved. `restore` writes the saved App Store listing back to live (other surfaces are preview-only for now).',
       '',
       '- `snapshot diff <name>` defaults to comparing against live state; pass a second name to compare two saved snapshots.',
       '- `snapshot prune` requires at least one of `--keep`/`--older-than` and never touches the automatic pre-sync baselines.',
-    ].join('\n'),
+    ]),
     cautions: [
       '`snapshot restore` changes a LIVE listing (additive, never destructive). It previews the plan by default - show that plan and get human confirmation before re-running with `--yes`.',
     ],
@@ -479,29 +470,29 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       'validate my launch.config.ts against the schema',
     ],
     steps: [
-      {
-        path: ['migrate', 'eas'],
-        note: 'read eas.json/app.json and emit launch.config.ts, .env.example, store.config.json + a report',
-      },
-      {
-        path: ['migrate', 'fastlane'],
-        note: 'read fastlane config (Appfile/Fastfile/Matchfile...) and emit the same Launch config set + a report',
-      },
-      {
-        path: ['adopt'],
-        note: 'onboard an already-shipping app: import its live App Store Connect setup into config',
-      },
-      {
-        path: ['config', 'validate'],
-        note: 'validate the config against the schema, reporting each problem by field path',
-      },
+      recipeStep(
+        ['migrate', 'eas'],
+        'read eas.json/app.json and emit launch.config.ts, .env.example, store.config.json + a report',
+      ),
+      recipeStep(
+        ['migrate', 'fastlane'],
+        'read fastlane config (Appfile/Fastfile/Matchfile...) and emit the same Launch config set + a report',
+      ),
+      recipeStep(
+        ['adopt'],
+        'onboard an already-shipping app: import its live App Store Connect setup into config',
+      ),
+      recipeStep(
+        ['config', 'validate'],
+        'validate the config against the schema, reporting each problem by field path',
+      ),
     ],
-    body: [
+    body: markdownBody([
       'Pick the migrator that matches the current setup: `migrate eas` for an Expo EAS project, `migrate fastlane` for a fastlane one, or `adopt` to pull a live App Store Connect setup into config. Each writes a `launch.config.ts` (plus `.env.example` and `store.config.json`) and a report of what it found.',
       '',
       '- Migration only writes local config files - it touches no store and provisions nothing.',
       '- Always finish with `config validate` to confirm the emitted config is schema-clean, then `launch plan` (see the launch-plan skill) to see how it compares to live state.',
-    ].join('\n'),
+    ]),
   },
   {
     id: 'launch-insights',
@@ -515,25 +506,22 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       'pull App Store analytics',
     ],
     steps: [
-      {
-        path: ['insights'],
-        note: 'aggregate rating & review trends across the App Store and Play (read-only)',
-      },
-      {
-        path: ['reports', 'sales'],
-        note: 'download a Sales & Trends report (gzipped TSV, or --json)',
-      },
-      {
-        path: ['reviews', 'list'],
-        note: "list an app's customer reviews, newest first (filter by rating/territory)",
-      },
+      recipeStep(
+        ['insights'],
+        'aggregate rating & review trends across the App Store and Play (read-only)',
+      ),
+      recipeStep(['reports', 'sales'], 'download a Sales & Trends report (gzipped TSV, or --json)'),
+      recipeStep(
+        ['reviews', 'list'],
+        "list an app's customer reviews, newest first (filter by rating/territory)",
+      ),
     ],
-    body: [
+    body: markdownBody([
       '`insights` is the aggregated cross-store view (ratings and review trends); drop to `reviews list` for the individual reviews and `reports` for the raw Sales & Trends / finance / analytics data.',
       '',
       '- Everything here only reads - safe to run unattended.',
       "- Reply to reviews with `launch reviews reply` (App Store) or `launch play-reviews reply` (Play) once you've read them.",
-    ].join('\n'),
+    ]),
   },
   {
     id: 'launch-ai-listing',
@@ -547,25 +535,22 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       'fill in store.config.json copy automatically',
     ],
     steps: [
-      {
-        path: ['ai', 'listing'],
-        note: 'draft App Store / Play listing copy with AI into store.config.json',
-      },
-      {
-        path: ['plan'],
-        note: 'review the drafted listing as a read-only diff against the live store',
-      },
-      {
-        path: ['metadata', 'push'],
-        note: 'upload store.config.json to the live listing (metadata only; no binary)',
-      },
+      recipeStep(
+        ['ai', 'listing'],
+        'draft App Store / Play listing copy with AI into store.config.json',
+      ),
+      recipeStep(['plan'], 'review the drafted listing as a read-only diff against the live store'),
+      recipeStep(
+        ['metadata', 'push'],
+        'upload store.config.json to the live listing (metadata only; no binary)',
+      ),
     ],
-    body: [
+    body: markdownBody([
       '`ai listing` writes drafted copy into `store.config.json` only - it changes nothing live. Treat the draft as a starting point: read it, edit it, then preview before pushing.',
       '',
       '- Preview with `launch plan` (see the launch-plan skill) so you see exactly what the listing change would do before it goes out.',
       '- `metadata push` is what actually updates the live listing - gate it behind a human review of the AI copy.',
-    ].join('\n'),
+    ]),
     cautions: [
       'AI-drafted copy is a draft - review it for accuracy and brand voice before shipping. `metadata push` changes the LIVE store listing, so preview with `launch plan` and get confirmation first.',
     ],
@@ -582,25 +567,25 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       'give an AI agent access to Launch',
     ],
     steps: [
-      {
-        path: ['mcp', 'install'],
-        note: "wire `launch mcp` into an AI client's config (auto-detects Claude Code / Cursor)",
-      },
-      {
-        path: ['dashboard'],
-        note: 'serve a local, read-only web UI over apps, builds, accounts, and secrets',
-      },
-      {
-        path: ['agents', 'init'],
-        note: 'write Claude skills, Cursor rules, and the AGENTS.md Launch section into this repo',
-      },
+      recipeStep(
+        ['mcp', 'install'],
+        "wire `launch mcp` into an AI client's config (auto-detects Claude Code / Cursor)",
+      ),
+      recipeStep(
+        ['dashboard'],
+        'serve a local, read-only web UI over apps, builds, accounts, and secrets',
+      ),
+      recipeStep(
+        ['agents', 'init'],
+        'write Claude skills, Cursor rules, and the AGENTS.md Launch section into this repo',
+      ),
     ],
-    body: [
+    body: markdownBody([
       "These are the on-ramps for agent-driven and at-a-glance use, all strictly local: `mcp install` exposes Launch's commands to an AI client, `dashboard` opens a read-only web view of your state, and `agents init` drops these very skills into the repo.",
       '',
       '- `dashboard` is read-only and `mcp install` only edits a local client config - neither touches the store.',
       '- `agents check` keeps the scaffolded skills in sync after Launch upgrades.',
-    ].join('\n'),
+    ]),
   },
 ];
 /**
@@ -615,7 +600,7 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
     description: 'Always-on contributing context for the launch-store codebase.',
     globs: [],
     alwaysApply: true,
-    body: [
+    body: markdownBody([
       'You are working **on** launch-store (the `launch` CLI), not using it. The canonical working rules live in [AGENTS.md](../../AGENTS.md) and [CLAUDE.md](../../CLAUDE.md) - read them first.',
       '',
       '- One Node ESM / TypeScript package. `src/cli` is thin Commander wiring, `src/core` is purpose-grouped domain code, `src/providers` are swappable backends, `src/apple` and `src/google` are store API mirrors, and `src/testkit` holds shared fakes/layers.',
@@ -623,20 +608,20 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
       '- Before calling a change done, run `pnpm typecheck && pnpm lint && pnpm lint:style && pnpm docs:check && pnpm test && pnpm build` (the generated docs + these rules are gated).',
       '- Keep it KISS / YAGNI / DRY: extend the nearest sibling file rather than inventing a new file, util, or abstraction. Add a test (`*.test.ts`) beside any new logic.',
       '- Never log, write, or commit secrets; `~/.launch` holds non-secret paths and ids only.',
-    ].join('\n'),
+    ]),
   },
   {
     file: 'core-types',
     description: 'Editing the domain shapes or provider interfaces.',
     globs: ['src/core/types/*.ts'],
     alwaysApply: false,
-    body: [
+    body: markdownBody([
       'The purpose-named modules under `src/core/types/` are the source of truth for domain shapes and the five provider interfaces (`BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`).',
       '',
       '- Add or change a shape in its matching purpose-named module and import it directly. Do not create an internal barrel.',
       '- Normalized App Store resource/query shapes live in `src/core/types/appleCatalog.ts`; generated Apple wire types stay in `src/apple/generated/schema.ts`.',
       '- Google Play wire/resource DTOs currently live beside the transport in `src/google/playClient.ts` and `src/google/playReporting.ts`; move them into a resource module only as part of that API mirror cleanup.',
-    ].join('\n'),
+    ]),
   },
   {
     file: 'providers',
@@ -644,12 +629,12 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
       'Adding or changing a provider backend (build / storage / credentials / submit / compute).',
     globs: ['src/providers/**'],
     alwaysApply: false,
-    body: [
+    body: markdownBody([
       'Adding a backend = implement one of the five interfaces from `src/core/types/providers.ts` as a named object and register it in `src/providers/index.ts`, which wires into `src/core/services/registry.ts`.',
       '',
       '- The pipeline resolves a provider by its `name` (the value users put in `launch.config.ts`), so you **never** edit `src/core/build/pipeline.ts` to add a backend.',
       '- Lazy-load heavy / optional SDKs (AWS, the native keyring) through `requireOptional` in `src/core/services/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
-    ].join('\n'),
+    ]),
   },
   {
     file: 'exec-secrets',
@@ -661,11 +646,11 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
       'src/core/build/buildSecrets.ts',
     ],
     alwaysApply: false,
-    body: [
+    body: markdownBody([
       'All child processes go through `src/core/services/exec.ts` - `run` streams output, `capture` collects stdout - both with `shell: false` and an explicit argv array. Never build a shell string or call `spawn` / `exec` directly.',
       '',
       "- Secrets (`.p8` / `.p12` / keystore / private keys) live in the OS keychain via the secret store; `~/.launch` holds non-secret paths and ids only. Don't log, write, or commit key material.",
-    ].join('\n'),
+    ]),
   },
 ];
 /**
@@ -690,11 +675,11 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
       '`pnpm typecheck && pnpm lint && pnpm lint:style && pnpm docs:check && pnpm test && pnpm build` - the six-part gate from `AGENTS.md` (`lint` is Biome, `lint:style` is Launch-specific, and `docs:check` guards generated docs).',
       'If `docs:check` fails, run `pnpm docs:gen` and commit the generated docs (`docs/commands.md`, `llms.txt`, `.cursor/rules/*`, `.claude/skills/*`, README badges, and config docs).',
     ],
-    body: [
+    body: markdownBody([
       'All gates must be green before a change is done. The husky pre-commit hook runs lint + format + typecheck but **not** the tests and **can** be bypassed, so run the full line yourself. Add a `*.test.ts` beside any new logic.',
       '',
       'See [AGENTS.md](../../../AGENTS.md) -> “Before you call a change done”.',
-    ].join('\n'),
+    ]),
   },
   {
     id: 'add-a-provider',
@@ -712,11 +697,11 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
       'Lazy-load any heavy or optional SDK through `requireOptional` in `src/core/services/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
       'Add a `*.test.ts` beside the provider, then run the gate (see the `run-the-gate` skill).',
     ],
-    body: [
+    body: markdownBody([
       'Adding a backend never edits the pipeline - that is the whole point of the registry: implement the interface, register the name, done.',
       '',
       'See [AGENTS.md](../../../AGENTS.md) -> “Adding a backend = implement an interface + register it” for the worked S3 example.',
-    ].join('\n'),
+    ]),
     cautions: [
       'All child processes go through `src/core/services/exec.ts` (`run` / `capture`, `shell: false`, explicit argv) - never build a shell string or call `spawn` / `exec` directly.',
       "Secrets stay in the OS keychain; `~/.launch` holds non-secret paths and ids only. Don't log, write, or commit key material.",
@@ -737,11 +722,11 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
       'Commit the regenerated files; `pnpm docs:check` (CI) fails if they drift.',
       'Add a `*.test.ts` beside the new logic, then run the gate.',
     ],
-    body: [
+    body: markdownBody([
       'The docs are generated from the live `buildProgram()` in `src/cli/program.ts`, so a new command surfaces in the reference automatically once you run `docs:gen` - never hand-edit the generated files.',
       '',
       'See [AGENTS.md](../../../AGENTS.md).',
-    ].join('\n'),
+    ]),
   },
   {
     id: 'add-a-glossary-topic',
@@ -757,10 +742,10 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
       'Bump the topic count in `src/core/terminal/glossary.test.ts` (`expect(topics.length).toBe(N)`) by the number of topics you added, and add a `toContain(...)` assertion per new topic.',
       'Run the gate.',
     ],
-    body: [
+    body: markdownBody([
       'The `toBe(N)` count is a known merge hotspot: if a concurrent PR also added a topic, the count collides. On rebase, **sum** both additions rather than taking one side, and keep both topics.',
       '',
       'See [AGENTS.md](../../../AGENTS.md).',
-    ].join('\n'),
+    ]),
   },
 ];
