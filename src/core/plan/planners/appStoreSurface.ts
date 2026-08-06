@@ -60,7 +60,7 @@ export const planAppStoreSurface = <TConfig>(
     }
     if (targets.length === 0) return { surface: spec.surface, store: 'appstore', state: 'omitted' };
     const api = yield* planContext.resolveAscApi();
-    if (!api) {
+    if (api === null) {
       return {
         surface: spec.surface,
         store: 'appstore',
@@ -131,7 +131,7 @@ export const planTeamSurface = <TConfig>(
     if (surfaceConfig === undefined)
       return { surface: spec.surface, store: 'appstore', state: 'omitted' };
     const api = yield* planContext.resolveAscApi();
-    if (!api) {
+    if (api === null) {
       return {
         surface: spec.surface,
         store: 'appstore',
