@@ -202,19 +202,20 @@ const showCloudSetup = (): Effect.Effect<
       regionLine = `${regionLine} - profile ${awsConfiguration.profile}`;
     }
     yield* logger.line(regionLine);
-    let goldenAmi: string | null | undefined = awsConfiguration.amiId;
-    if (goldenAmi === undefined) goldenAmi = yield* getAmiId();
-    if (goldenAmi === null) {
-      yield* logger.line(
-        'Golden AMI: (none yet - bootstrapped and snapshotted on first remote build)',
-      );
-    } else if (goldenAmi === undefined) {
+
+    let goldenAmiId: string | undefined = awsConfiguration.amiId;
+    if (goldenAmiId === undefined) {
+      const cachedAmiId = yield* getAmiId();
+      if (cachedAmiId !== null) goldenAmiId = cachedAmiId;
+    }
+    if (goldenAmiId === undefined) {
       yield* logger.line(
         'Golden AMI: (none yet - bootstrapped and snapshotted on first remote build)',
       );
     } else {
-      yield* logger.line(`Golden AMI: ${goldenAmi}`);
+      yield* logger.line(`Golden AMI: ${goldenAmiId}`);
     }
+
     const hostHandle = yield* getLiveHost();
     if (hostHandle === null) {
       yield* logger.line('Live host: none');
