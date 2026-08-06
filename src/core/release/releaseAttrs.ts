@@ -161,7 +161,6 @@ type SecretResolver<Requirements> = (
   secretLabel: string,
 ) => Effect.Effect<string, unknown, Requirements>;
 
-/** Convert an underlying failure to the release-attribute channel. */
 const releaseAttributesFailure = (
   operation: string,
   cause: unknown,
@@ -199,6 +198,22 @@ const performAction = <Requirements>(
   );
 };
 
+const describeCategoryChanges = (categoryChanges: {
+  primaryCategoryId?: string;
+  secondaryCategoryId?: string | null;
+}): string => {
+  const changeDescriptions: string[] = [];
+  if (categoryChanges.primaryCategoryId !== undefined) {
+    changeDescriptions.push(`primary=${categoryChanges.primaryCategoryId}`);
+  }
+  if (categoryChanges.secondaryCategoryId !== undefined) {
+    let secondaryCategory = categoryChanges.secondaryCategoryId;
+    if (secondaryCategory === null) secondaryCategory = 'unset';
+    changeDescriptions.push(`secondary=${secondaryCategory}`);
+  }
+  return changeDescriptions.join(', ');
+};
+
 /** Reconcile declared App Store categories. */
 const reconcileCategories = (
   reconcileContext: ReconcileContext,
@@ -220,21 +235,15 @@ const reconcileCategories = (
   ) {
     categoryChanges.secondaryCategoryId = categories.secondary;
   }
+  // Config omits secondary while the live App Info still has one - clear the stale assignment.
   if (categories.secondary === undefined && appInformation.secondaryCategoryId !== undefined) {
     categoryChanges.secondaryCategoryId = null;
   }
   if (Object.keys(categoryChanges).length === 0) return Effect.void;
-  const changeDescriptions: string[] = [];
-  if (categoryChanges.primaryCategoryId !== undefined) {
-    changeDescriptions.push(`primary=${categoryChanges.primaryCategoryId}`);
-  }
-  if (categoryChanges.secondaryCategoryId !== undefined) {
-    let secondaryCategory = categoryChanges.secondaryCategoryId;
-    if (secondaryCategory === null) secondaryCategory = 'unset';
-    changeDescriptions.push(`secondary=${secondaryCategory}`);
-  }
-  return performAction(reconcileContext, `set categories (${changeDescriptions.join(', ')})`, () =>
-    appleReleaseApi.updateAppInfoCategories(appInformation.id, categoryChanges),
+  return performAction(
+    reconcileContext,
+    `set categories (${describeCategoryChanges(categoryChanges)})`,
+    () => appleReleaseApi.updateAppInfoCategories(appInformation.id, categoryChanges),
   );
 };
 
@@ -310,7 +319,7 @@ const reconcilePricing = (
     );
   });
 
-/** Keep only review fields Apple accepts on the write resource. */
+/** Keep only review fields Apple accepts on the write resource (string/boolean only). */
 const reviewAttributes = (reviewDetails: ReviewDetailsConfig): Record<string, string | boolean> => {
   const reviewWrite: Record<string, string | boolean> = {};
   for (const reviewEntry of Object.entries(reviewDetails)) {
@@ -322,8 +331,8 @@ const reviewAttributes = (reviewDetails: ReviewDetailsConfig): Record<string, st
   return reviewWrite;
 };
 
-/** Render review field names without exposing their values. */
-const renderFields = (attributes: Record<string, string | boolean>): string =>
+/** Field names only - never render secret values into action descriptions. */
+const renderFieldNames = (attributes: Record<string, string | boolean>): string =>
   Object.keys(attributes).join(', ');
 
 /** Resolve a demo-password reference only when an action is applied. */
@@ -364,7 +373,7 @@ const reconcileReviewDetails = <Requirements>(
     if (currentReviewDetails === null) {
       yield* performAction(
         reconcileContext,
-        `set App Review details (${renderFields(desiredAttributes)})`,
+        `set App Review details (${renderFieldNames(desiredAttributes)})`,
         () =>
           Effect.gen(function* () {
             const resolvedAttributes = yield* resolveReviewWrite(
@@ -383,6 +392,7 @@ const reconcileReviewDetails = <Requirements>(
     for (const desiredEntry of Object.entries(desiredAttributes)) {
       const fieldName = desiredEntry[0];
       const desiredSetting = desiredEntry[1];
+      // ASC never echoes the password - skip equality and attach it only when another field drifts.
       if (fieldName === DEMO_PASSWORD_KEY) continue;
       if (currentReviewDetails.attributes[fieldName] !== desiredSetting) {
         changedAttributes[fieldName] = desiredSetting;
@@ -394,7 +404,7 @@ const reconcileReviewDetails = <Requirements>(
     }
     yield* performAction(
       reconcileContext,
-      `update App Review details (${renderFields(changedAttributes)})`,
+      `update App Review details (${renderFieldNames(changedAttributes)})`,
       () =>
         Effect.gen(function* () {
           const resolvedAttributes = yield* resolveReviewWrite(
