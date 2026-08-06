@@ -21,6 +21,8 @@ export type BuildRunOptions = {
   target: SubmitTarget;
   track?: PlayTrack;
   rollout?: number;
+  /** Android only - path to a JSON file mapping language codes to release-note text. */
+  notesPath?: string;
   dryRun: boolean;
   sizeBudgetMB?: number;
   yes?: boolean;

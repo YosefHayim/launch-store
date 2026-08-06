@@ -11,7 +11,7 @@ import {
   type ReleaseInput,
 } from '../release/appStoreRelease.js';
 import { resolveReleaseType, resolveWhatsNew } from '../release/releaseInputs.js';
-import { submitToStores } from '../build/pipelineProviders.js';
+import { resolveAndroidSubmitReleaseNotes, submitToStores } from '../build/pipelineProviders.js';
 import {
   type CodeSigner,
   type CodeSigningRequirements,
@@ -315,7 +315,15 @@ export const buildTrainRuntime = (
       );
       let rollout = buildProfile.rollout;
       if (rollout === undefined) rollout = 1;
-      const androidRelease: AndroidReleaseOptions = { track: 'production', rollout };
+      let androidRelease: AndroidReleaseOptions = { track: 'production', rollout };
+      const releaseNotes = yield* resolveAndroidSubmitReleaseNotes(
+        launchConfiguration,
+        appDescriptor.dir,
+        undefined,
+      ).pipe(Effect.mapError((cause) => runtimeFailure('read Android release notes', cause)));
+      if (releaseNotes.length > 0) {
+        androidRelease = { ...androidRelease, releaseNotes };
+      }
       const buildContext: ResolvedBuildContext = {
         platform: 'android',
         app: appDescriptor,

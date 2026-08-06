@@ -1,5 +1,7 @@
+import { FileSystem, type Path } from '@effect/platform';
 import { Data, Effect } from 'effect';
 import type {
+  AndroidReleaseNote,
   AndroidReleaseOptions,
   BuildProfile,
   Platform,
@@ -9,6 +11,8 @@ import type {
 import type { LaunchConfig, ResolvedBuildContext } from '../types/config.js';
 import type { BuildCredentials } from '../types/credentials.js';
 import type { RemoteTarget } from '../types/remote.js';
+import { resolveWhatsNew } from '../release/releaseInputs.js';
+import { parseReleaseNotesJson } from '../store/playTracks.js';
 import { getSubmitter } from '../services/registry.js';
 import { platformLabel } from '../services/platform.js';
 import {
@@ -115,6 +119,36 @@ export const resolveAndroidRelease = (
     rollout,
   };
 };
+
+/** Convert a language-to-copy map into the Play submitter's release-note shape. */
+export const androidReleaseNotesFromLocaleMap = (
+  releaseNotesByLocale: Readonly<Record<string, string>>,
+): readonly AndroidReleaseNote[] =>
+  Object.entries(releaseNotesByLocale).map(([language, text]) => ({ language, text }));
+
+/**
+ * Resolve Play release notes for an Android ship: `--notes` JSON wins when set, otherwise the same
+ * `release.releaseNotes` + store.config sources iOS uses via {@link resolveWhatsNew}. Empty means the
+ * submitter skips changelogs (binary-only upload).
+ */
+export const resolveAndroidSubmitReleaseNotes = (
+  launchConfig: LaunchConfig,
+  appDirectory: string,
+  notesPath: string | undefined,
+): Effect.Effect<readonly AndroidReleaseNote[], unknown, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    if (notesPath !== undefined) {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const releaseNotesText = yield* fileSystem.readFileString(notesPath);
+      const releaseNotes = yield* parseReleaseNotesJson(releaseNotesText);
+      return releaseNotes.map((releaseNote) => ({
+        language: releaseNote.language,
+        text: releaseNote.text,
+      }));
+    }
+    const releaseNotesByLocale = yield* resolveWhatsNew(launchConfig.release, appDirectory);
+    return androidReleaseNotesFromLocaleMap(releaseNotesByLocale);
+  });
 /**
  * The soft size budget (MB) the pre-upload gate enforces for one run: a per-run override
  * (`--size-budget` / the wizard's custom-budget prompt) wins, then the profile's `sizeBudgetMB`, then

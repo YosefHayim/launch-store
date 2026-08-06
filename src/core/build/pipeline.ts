@@ -11,7 +11,11 @@ import {
   type StorageResolverRequirements,
 } from '../distribution/storage.js';
 import type { BuildRunOptions, PreparedBuild } from './pipelineTypes.js';
-import { resolveAndroidRelease, resolveBuildTransport } from './pipelineProviders.js';
+import {
+  resolveAndroidRelease,
+  resolveAndroidSubmitReleaseNotes,
+  resolveBuildTransport,
+} from './pipelineProviders.js';
 import { previewEnv, resolveCommandEnv, selectApp, validateResolvedEnv } from './pipelineEnv.js';
 import { receiptDestination, worstDownloadBytes } from './pipelineArtifact.js';
 import { runIosBuild } from './pipelineIos.js';
@@ -109,8 +113,32 @@ export const prepareBuild = (options: BuildRunOptions) =>
       forceClean: options.forceClean === true,
     };
     if (options.ccache !== undefined) buildContext = { ...buildContext, ccache: options.ccache };
-    if (platform === 'android')
-      buildContext = { ...buildContext, android: resolveAndroidRelease(options, profile) };
+    if (platform === 'android') {
+      let androidRelease = resolveAndroidRelease(options, profile);
+      const releaseNotes = yield* resolveAndroidSubmitReleaseNotes(
+        config,
+        app.dir,
+        options.notesPath,
+      ).pipe(
+        Effect.mapError((cause) => {
+          let detail = 'unknown error';
+          if (typeof cause === 'string' && cause.length > 0) detail = cause;
+          if (cause instanceof Error) detail = cause.message;
+          if (typeof cause === 'object' && cause !== null && 'message' in cause) {
+            const causeMessage = cause.message;
+            if (typeof causeMessage === 'string' && causeMessage.length > 0) detail = causeMessage;
+          }
+          return makeBuildPreparationFailure({
+            appName: app.name,
+            message: `Could not resolve Android release notes for ${app.name}: ${detail}`,
+          });
+        }),
+      );
+      if (releaseNotes.length > 0) {
+        androidRelease = { ...androidRelease, releaseNotes };
+      }
+      buildContext = { ...buildContext, android: androidRelease };
+    }
     if (options.distribution !== undefined)
       buildContext = { ...buildContext, distribution: options.distribution };
     return { config, app, profile, env, buildContext, log };

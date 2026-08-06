@@ -38,7 +38,10 @@ const toSpec = (command: Command, parentPath: string): CommandSpec => {
   const options = command.options
     .filter((option) => {
       if (option.flags.includes('--help')) return false;
-      return !option.flags.includes('--version');
+      // Drop only Commander's bare package-version option (`-V, --version`), not
+      // `--version <value>` or `--version-code <code>` domain flags.
+      if (/(?:^|[\s,])--version$/.test(option.flags.trim())) return false;
+      return true;
     })
     .map((option) => ({ flags: option.flags, description: option.description }));
   const subcommands = command
