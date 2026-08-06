@@ -2,6 +2,7 @@ import type { ProbeResult, ReadinessContext, ReadinessProbe } from '@core/types/
 import { errorMessage } from '@core/services/errorMessage.js';
 import { Effect } from 'effect';
 import { androidApps } from '../appScopes.js';
+import { OMITTED_PROBE, SKIPPED_NO_PLAY_ACCOUNT } from './credentialsSkip.js';
 /** The track id Google Play always provisions for internal testing. */
 const INTERNAL_TRACK = 'internal';
 /** The Google Play internal-track readiness probe. */
@@ -19,14 +20,10 @@ export const playInternalTrackProbe = {
   check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
     return Effect.gen(function* () {
       const apps = androidApps(readinessContext.apps);
-      if (apps.length === 0) return { state: 'omitted' };
+      if (apps.length === 0) return OMITTED_PROBE;
       const api = yield* readinessContext.resolvePlayApi();
       if (!api) {
-        return {
-          state: 'skipped',
-          reason: 'no Play service account',
-          hint: 'configure a Play service account',
-        };
+        return SKIPPED_NO_PLAY_ACCOUNT;
       }
       const results = yield* Effect.forEach(
         apps,

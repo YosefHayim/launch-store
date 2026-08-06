@@ -8,6 +8,7 @@ import type {
   ReadinessContext,
   ReadinessProbe,
 } from '@core/types/readiness.js';
+import { OMITTED_PROBE } from './credentialsSkip.js';
 
 export const URL_LIVENESS_TIMEOUT_MS = 5000;
 
@@ -92,7 +93,7 @@ export const listingUrlsProbe = {
         { concurrency: 'unbounded' },
       );
       const listingUrls = listingUrlsByApp.flat();
-      if (listingUrls.length === 0) return { state: 'omitted' };
+      if (listingUrls.length === 0) return OMITTED_PROBE;
       const appFindings = yield* Effect.forEach(
         listingUrls,
         ({ app, field, url }): Effect.Effect<AppReadiness, unknown, HttpClient.HttpClient> =>

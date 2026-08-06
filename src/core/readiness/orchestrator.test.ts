@@ -1,8 +1,14 @@
 import { NodeContext, NodeHttpClient } from '@effect/platform-node';
-import { describe, expect, it } from 'vitest';
 import { Effect } from 'effect';
-import { READINESS_EXIT, readinessExitCode, runProbes } from './orchestrator.js';
-import type { ProbeResult, ReadinessContext, ReadinessProbe } from '../types/readiness.js';
+import { describe, expect, it } from 'vitest';
+import type {
+  ProbeReport,
+  ProbeResult,
+  ReadinessContext,
+  ReadinessProbe,
+} from '../types/readiness.js';
+import { READINESS_EXIT, readinessExitCode, runProbes, tallyProbeReports } from './orchestrator.js';
+
 /** A context whose resolvers are never reached - the fake probes below don't call them. */
 const readinessContext: ReadinessContext = {
   config: {
@@ -16,6 +22,7 @@ const readinessContext: ReadinessContext = {
   resolveAscApi: () => Effect.succeed(null),
   resolvePlayApi: () => Effect.succeed(null),
 };
+
 /** Build a fake probe that returns a fixed result (or throws), so the orchestrator is tested with no network. */
 const probe = (id: string, fixedProbeResult: ProbeResult | (() => never)): ReadinessProbe => {
   return {
@@ -54,6 +61,54 @@ describe('readinessExitCode', () => {
     expect(readinessExitCode({ errorCount: 1, blockerCount: 3 })).toBe(READINESS_EXIT.error);
   });
 });
+
+describe('tallyProbeReports', () => {
+  it('counts per-app findings and probe-level skip/error states', () => {
+    const probeReports: ProbeReport[] = [
+      {
+        id: 'a',
+        title: 'a',
+        store: 'appstore',
+        outcome: {
+          state: 'checked',
+          apps: [
+            { app: 'x', identifier: 'com.x', status: 'ok', detail: '' },
+            { app: 'y', identifier: 'com.y', status: 'warn', detail: '' },
+          ],
+        },
+      },
+      {
+        id: 'b',
+        title: 'b',
+        store: 'appstore',
+        outcome: {
+          state: 'checked',
+          apps: [{ app: 'z', identifier: 'com.z', status: 'blocker', detail: '' }],
+        },
+      },
+      {
+        id: 'c',
+        title: 'c',
+        store: 'appstore',
+        outcome: { state: 'skipped', reason: 'no account' },
+      },
+      {
+        id: 'd',
+        title: 'd',
+        store: 'play',
+        outcome: { state: 'errored', error: 'network' },
+      },
+    ];
+    expect(tallyProbeReports(probeReports)).toEqual({
+      okCount: 1,
+      warnCount: 1,
+      blockerCount: 1,
+      errorCount: 1,
+      skippedCount: 1,
+    });
+  });
+});
+
 describe('runProbes', () => {
   it('tallies per-app findings and exits 2 on a blocker', async () => {
     const outcome = await runProbeSet([
@@ -98,5 +153,21 @@ describe('runProbes', () => {
     expect(outcome.exitCode).toBe(READINESS_EXIT.error);
     const errored = outcome.reports.find((report) => report.id === 'boom');
     expect(errored?.outcome).toEqual({ state: 'errored', error: 'network down' });
+  });
+  it('formats non-Error probe failures via errorMessage', async () => {
+    const outcome = await runProbeSet([
+      {
+        id: 'tagged',
+        title: 'tagged',
+        store: 'appstore',
+        categories: ['account'],
+        check: () => Effect.fail({ message: 'asc rate limited' }),
+      },
+    ]);
+    expect(outcome.errorCount).toBe(1);
+    expect(outcome.reports[0]?.outcome).toEqual({
+      state: 'errored',
+      error: 'asc rate limited',
+    });
   });
 });

@@ -7,6 +7,7 @@ import type {
 import { Effect } from 'effect';
 import { iosApps } from '../appScopes.js';
 import { gradeDeclaredProduct } from './iapReadiness.js';
+import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
 /** The App Store Connect one-time in-app-purchase readiness probe. */
 export const iapProductsProbe = {
   id: 'apple-iap-products',
@@ -27,14 +28,9 @@ export const iapProductsProbe = {
         if (purchaseCount === undefined) return false;
         return purchaseCount > 0;
       });
-      if (apps.length === 0) return { state: 'omitted' };
+      if (apps.length === 0) return OMITTED_PROBE;
       const api = yield* readinessContext.resolveAscApi();
-      if (!api)
-        return {
-          state: 'skipped',
-          reason: 'no active Apple account',
-          hint: 'run `launch creds set-key`',
-        };
+      if (!api) return SKIPPED_NO_APPLE_ACCOUNT;
       const nested = yield* Effect.forEach(
         apps,
         ({ name, identifier }): Effect.Effect<AppReadiness[], unknown> =>
