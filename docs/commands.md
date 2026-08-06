@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **189 App Store Connect & Google Play API operations** across **63 commands**, guarded by **2064 tests**.
+> Launch wraps **189 App Store Connect & Google Play API operations** across **63 commands**, guarded by **2074 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `pnpm docs:gen` - edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
