@@ -12,18 +12,17 @@ import {
   GoogleStoreClientService,
 } from '../services/googleStoreClient.js';
 import { createLogger, type Logger } from '../services/logger.js';
-import type { AscCatalogApi } from '../store/ascSync.js';
 import { selectApps } from '../store/syncJobs.js';
 import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
-import type { PlayCatalogApi } from '../types/plan.js';
-import type { ActionStatus, PlannedAction } from '../types/reconcile.js';
 import type { AppDescriptor } from '../types/app.js';
+import type { LaunchConfig } from '../types/config.js';
+import type { ActionStatus, PlannedAction } from '../types/reconcile.js';
 import type {
   AppEntities,
   CaptureReport,
+  RestoreContext,
   Snapshot,
-  SnapshotAscApi,
-  SnapshotPlayApi,
+  SnapshotContext,
   SnapshotSource,
   SnapshotStore,
 } from '../types/snapshot.js';
@@ -41,6 +40,7 @@ import {
 } from './store.js';
 
 const LIVE_SNAPSHOT = 'live';
+const SNAPSHOT_STORES: readonly SnapshotStore[] = ['appstore', 'play'];
 const DIFF_MARKER: Readonly<Record<DiffChange, string>> = {
   added: '+',
   removed: '-',
@@ -173,10 +173,13 @@ const selectSnapshotApps = (
     Effect.mapError((cause) => snapshotFailure('select snapshot apps', cause)),
   );
 
-const snapshotAscApi = (client: EffectAppStoreConnectClient): SnapshotAscApi => client;
-const ascCatalogApi = (client: EffectAppStoreConnectClient): AscCatalogApi => client;
-const snapshotPlayApi = (client: EffectGooglePlayClient): SnapshotPlayApi => client;
-const playCatalogApi = (client: EffectGooglePlayClient): PlayCatalogApi => client;
+/** Loaded config, selected apps, and store clients for one snapshot command. */
+type SnapshotStoreSession = Readonly<{
+  config: LaunchConfig;
+  apps: AppDescriptor[];
+  ascClient: EffectAppStoreConnectClient | null;
+  playClient: EffectGooglePlayClient | null;
+}>;
 
 /** Human-readable store label for snapshot sections. */
 const storeLabel = (snapshotStore: SnapshotStore): string => {
@@ -184,8 +187,8 @@ const storeLabel = (snapshotStore: SnapshotStore): string => {
   return 'Google Play';
 };
 
-/** Build the read-only store capture context for selected apps. */
-const buildCaptureContext = (appSelector: string | undefined) =>
+/** Load configuration, credentials, and store clients once for capture or restore. */
+const loadSnapshotStoreSession = (appSelector: string | undefined) =>
   Effect.gen(function* () {
     const loadedConfiguration = yield* loadConfig().pipe(
       Effect.mapError((cause) => snapshotFailure('load Launch configuration', cause)),
@@ -211,63 +214,36 @@ const buildCaptureContext = (appSelector: string | undefined) =>
         .pipe(Effect.mapError((cause) => snapshotFailure('create Google Play client', cause)));
     }
     const selectedApps = yield* selectSnapshotApps(loadedConfiguration.apps, appSelector);
-    let ascApi: SnapshotAscApi | null = null;
-    if (ascClient !== null) ascApi = snapshotAscApi(ascClient);
-    let playApi: SnapshotPlayApi | null = null;
-    if (playClient !== null) playApi = snapshotPlayApi(playClient);
     return {
       config: loadedConfiguration.config,
       apps: selectedApps,
-      resolveAscApi: () => Effect.succeed(ascApi),
-      resolvePlayApi: () => Effect.succeed(playApi),
-    };
+      ascClient,
+      playClient,
+    } satisfies SnapshotStoreSession;
   });
 
-/** Build the write-capable restore context for selected apps. */
-const buildRestoreContext = (appSelector: string | undefined) =>
-  Effect.gen(function* () {
-    const loadedConfiguration = yield* loadConfig().pipe(
-      Effect.mapError((cause) => snapshotFailure('load Launch configuration', cause)),
-    );
-    const ascKey = yield* loadActiveAscKey().pipe(
-      Effect.mapError((cause) => snapshotFailure('load active Apple account', cause)),
-    );
-    const appleStoreClient = yield* AppleStoreClientService;
-    let ascClient: EffectAppStoreConnectClient | null = null;
-    if (ascKey !== null) {
-      ascClient = yield* appleStoreClient
-        .createEffectClient(ascKey)
-        .pipe(Effect.mapError((cause) => snapshotFailure('create App Store client', cause)));
-    }
-    const serviceAccountJson = yield* loadServiceAccount().pipe(
-      Effect.mapError((cause) => snapshotFailure('load Google service account', cause)),
-    );
-    const googleStoreClient = yield* GoogleStoreClientService;
-    let playClient: EffectGooglePlayClient | null = null;
-    if (serviceAccountJson !== null) {
-      playClient = yield* googleStoreClient
-        .createEffectClient(serviceAccountJson)
-        .pipe(Effect.mapError((cause) => snapshotFailure('create Google Play client', cause)));
-    }
-    const selectedApps = yield* selectSnapshotApps(loadedConfiguration.apps, appSelector);
-    let ascWriteClient: AscCatalogApi | null = null;
-    if (ascClient !== null) ascWriteClient = ascCatalogApi(ascClient);
-    let playWriteClient: PlayCatalogApi | null = null;
-    if (playClient !== null) playWriteClient = playCatalogApi(playClient);
-    return {
-      config: loadedConfiguration.config,
-      apps: selectedApps,
-      resolveAscWriteClient: () => Effect.succeed(ascWriteClient),
-      resolvePlayWriteClient: () => Effect.succeed(playWriteClient),
-    };
-  });
+/** Read-only capture context over one loaded store session. */
+const captureContextFromSession = (storeSession: SnapshotStoreSession): SnapshotContext => ({
+  config: storeSession.config,
+  apps: storeSession.apps,
+  resolveAscApi: () => Effect.succeed(storeSession.ascClient),
+  resolvePlayApi: () => Effect.succeed(storeSession.playClient),
+});
+
+/** Write-capable restore context over one loaded store session. */
+const restoreContextFromSession = (storeSession: SnapshotStoreSession): RestoreContext => ({
+  config: storeSession.config,
+  apps: storeSession.apps,
+  resolveAscWriteClient: () => Effect.succeed(storeSession.ascClient),
+  resolvePlayWriteClient: () => Effect.succeed(storeSession.playClient),
+});
 
 /** Create the filesystem-safe default name for one capture instant. */
-const defaultSnapshotName = (capturedAt: string): string =>
+export const defaultSnapshotName = (capturedAt: string): string =>
   `snapshot-${capturedAt.replace(/[:.]/g, '-')}`;
 
 /** Count captured entities across all snapshot surfaces. */
-const countEntities = (snapshot: Snapshot): number => {
+export const countEntities = (snapshot: Snapshot): number => {
   let entityCount = 0;
   for (const captureReport of snapshot.reports) {
     if (captureReport.outcome.state !== 'captured') continue;
@@ -319,8 +295,7 @@ const renderCapture = (
   snapshotPath: string,
 ): Effect.Effect<void, SnapshotCommandFailure> =>
   Effect.gen(function* () {
-    const stores: readonly SnapshotStore[] = ['appstore', 'play'];
-    for (const snapshotStore of stores) {
+    for (const snapshotStore of SNAPSHOT_STORES) {
       const storeReports = captureOutcome.snapshot.reports.filter(
         (captureReport) => captureReport.store === snapshotStore,
       );
@@ -358,11 +333,15 @@ const createSnapshot = (commandInput: Extract<SnapshotCommandInput, { operation:
     const capturedAt = yield* currentIsoTime();
     let snapshotName = commandInput.name;
     if (snapshotName === undefined) snapshotName = defaultSnapshotName(capturedAt);
-    const captureContext = yield* buildCaptureContext(commandInput.app);
-    const captureOutcome = yield* captureSnapshot(captureContext, listSnapshotSources(), {
-      name: snapshotName,
-      capturedAt,
-    });
+    const storeSession = yield* loadSnapshotStoreSession(commandInput.app);
+    const captureOutcome = yield* captureSnapshot(
+      captureContextFromSession(storeSession),
+      listSnapshotSources(),
+      {
+        name: snapshotName,
+        capturedAt,
+      },
+    );
     const snapshotPath = yield* saveSnapshot(captureOutcome.snapshot).pipe(
       Effect.mapError((cause) => snapshotFailure('save store snapshot', cause)),
     );
@@ -388,8 +367,7 @@ const renderDiff = (
       yield* writeLog('render snapshot diff', logger.note('In sync - no differences.'));
       return;
     }
-    const stores: readonly SnapshotStore[] = ['appstore', 'play'];
-    for (const snapshotStore of stores) {
+    for (const snapshotStore of SNAPSHOT_STORES) {
       const storeEntries = snapshotDiff.entries.filter(
         (diffEntry) => diffEntry.store === snapshotStore,
       );
@@ -441,11 +419,15 @@ const diffSnapshot = (commandInput: Extract<SnapshotCommandInput, { operation: '
     let againstSnapshot: Snapshot;
     if (commandInput.against === LIVE_SNAPSHOT) {
       yield* Effect.sync(registerBuiltinSources);
-      const captureContext = yield* buildCaptureContext(commandInput.app);
-      const liveCapture = yield* captureSnapshot(captureContext, listSnapshotSources(), {
-        name: LIVE_SNAPSHOT,
-        capturedAt: yield* currentIsoTime(),
-      });
+      const storeSession = yield* loadSnapshotStoreSession(commandInput.app);
+      const liveCapture = yield* captureSnapshot(
+        captureContextFromSession(storeSession),
+        listSnapshotSources(),
+        {
+          name: LIVE_SNAPSHOT,
+          capturedAt: yield* currentIsoTime(),
+        },
+      );
       againstSnapshot = liveCapture.snapshot;
     } else {
       const savedComparison = yield* loadSnapshot(commandInput.against);
@@ -551,7 +533,7 @@ const removeSnapshot = (commandInput: Extract<SnapshotCommandInput, { operation:
   });
 
 /** Parse a non-negative integer prune option. */
-const parseCount = (
+export const parsePruneCount = (
   countText: string,
   flagName: string,
 ): Effect.Effect<number, SnapshotCommandFailure> => {
@@ -581,9 +563,9 @@ const pruneSnapshots = (pruneOptions: PruneOptions) =>
     }
     const pruneCriteria: PruneCriteria = {};
     if (pruneOptions.keep !== undefined)
-      pruneCriteria.keep = yield* parseCount(pruneOptions.keep, '--keep');
+      pruneCriteria.keep = yield* parsePruneCount(pruneOptions.keep, '--keep');
     if (pruneOptions.olderThan !== undefined)
-      pruneCriteria.olderThanDays = yield* parseCount(pruneOptions.olderThan, '--older-than');
+      pruneCriteria.olderThanDays = yield* parsePruneCount(pruneOptions.olderThan, '--older-than');
     const savedSnapshots = yield* listSnapshots();
     const userSnapshots = savedSnapshots.filter(
       (savedSnapshot) => !savedSnapshot.name.startsWith(AUTO_SNAPSHOT_PREFIX),
@@ -636,7 +618,7 @@ const pruneSnapshots = (pruneOptions: PruneOptions) =>
   });
 
 /** Select the saved entities for one source and optional app filter. */
-const savedEntitiesFor = (
+export const savedEntitiesFor = (
   savedSnapshot: Snapshot,
   sourceId: string,
   appSelector: string | undefined,
@@ -644,7 +626,8 @@ const savedEntitiesFor = (
   const captureReport = savedSnapshot.reports.find(
     (snapshotReport) => snapshotReport.id === sourceId,
   );
-  if (captureReport?.outcome.state !== 'captured') return [];
+  if (captureReport === undefined) return [];
+  if (captureReport.outcome.state !== 'captured') return [];
   if (appSelector === undefined) return captureReport.outcome.apps;
   const selectedNames = new Set(
     appSelector
@@ -656,7 +639,7 @@ const savedEntitiesFor = (
 };
 
 /** List captured surfaces without restore support. */
-const previewOnlyTitles = (
+export const previewOnlyTitles = (
   savedSnapshot: Snapshot,
   sourceRestores: readonly SourceRestore[],
   sourceFilter: string | undefined,
@@ -777,14 +760,15 @@ const restoreSnapshot = (commandInput: Extract<SnapshotCommandInput, { operation
         (snapshotSource) =>
           savedEntitiesFor(savedSnapshot, snapshotSource.id, commandInput.app).length > 0,
       );
-    const captureContext = yield* buildCaptureContext(commandInput.app);
+    const storeSession = yield* loadSnapshotStoreSession(commandInput.app);
+    const captureContext = captureContextFromSession(storeSession);
+    const restoreContext = restoreContextFromSession(storeSession);
     const liveCapture = yield* captureSnapshot(captureContext, snapshotSources, {
       name: LIVE_SNAPSHOT,
       capturedAt: yield* currentIsoTime(),
     });
     const preview = diffSnapshots(savedSnapshot, liveCapture.snapshot);
     const dryRun = commandInput.yes !== true;
-    const restoreContext = yield* buildRestoreContext(commandInput.app);
     const sourceRestores = yield* Effect.forEach(
       restorableSources,
       (snapshotSource) =>
