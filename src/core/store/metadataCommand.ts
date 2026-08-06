@@ -1,9 +1,10 @@
 import { FileSystem, Path, type Terminal } from '@effect/platform';
 import type { CommandExecutor } from '@effect/platform/CommandExecutor';
-import { Data, Effect, Schema } from 'effect';
+import { Data, Effect, Schema, type Scope } from 'effect';
 import { loadActiveAscKey } from '../credentials/accounts.js';
 import { loadServiceAccount } from '../credentials/androidKeystore.js';
 import type { LaunchEnvironmentService } from '../services/environment.js';
+import { errorMessage } from '../services/errorMessage.js';
 import { executeCommand } from '../services/exec.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import type { LaunchPathsService } from '../services/paths.js';
@@ -13,7 +14,7 @@ import { isApplePlatform, parsePlatform, platformLabel } from '../services/platf
 import type { AppDescriptor, Platform } from '../types/app.js';
 import type { AscKey } from '../types/credentials.js';
 import {
-  parseStoreConfig,
+  loadStoreConfig,
   readAndroidMetadataDir,
   readAppleMetadataDir,
   serializeStoreConfig,
@@ -65,42 +66,27 @@ const metadataFailure = (
   cause: unknown,
   explicitMessage?: string,
 ): MetadataCommandFailure => {
-  let message = `${operation} failed.`;
+  let message = errorMessage(cause);
   if (explicitMessage !== undefined) message = explicitMessage;
-  if (explicitMessage === undefined && typeof cause === 'string' && cause.length > 0)
-    message = cause;
-  if (explicitMessage === undefined && cause instanceof Error) message = cause.message;
-  if (
-    explicitMessage === undefined &&
-    typeof cause === 'object' &&
-    cause !== null &&
-    'message' in cause &&
-    typeof cause.message === 'string'
-  ) {
-    message = cause.message;
-  }
   return makeMetadataCommandFailure({ operation, message, cause });
+};
+
+const isMetadataCommandFailure = (cause: unknown): cause is MetadataCommandFailure => {
+  if (typeof cause !== 'object') return false;
+  if (cause === null) return false;
+  if (!('_tag' in cause)) return false;
+  if (cause._tag !== 'MetadataCommandFailure') return false;
+  if (!('operation' in cause)) return false;
+  if (typeof cause.operation !== 'string') return false;
+  if (!('message' in cause)) return false;
+  if (typeof cause.message !== 'string') return false;
+  if (!('cause' in cause)) return false;
+  return true;
 };
 
 /** Preserve metadata failures while normalizing platform cleanup and terminal failures. */
 const normalizeMetadataFailure = (operation: string, cause: unknown): MetadataCommandFailure => {
-  if (
-    typeof cause === 'object' &&
-    cause !== null &&
-    '_tag' in cause &&
-    cause._tag === 'MetadataCommandFailure' &&
-    'operation' in cause &&
-    typeof cause.operation === 'string' &&
-    'message' in cause &&
-    typeof cause.message === 'string' &&
-    'cause' in cause
-  ) {
-    return makeMetadataCommandFailure({
-      operation: cause.operation,
-      message: cause.message,
-      cause: cause.cause,
-    });
-  }
+  if (isMetadataCommandFailure(cause)) return cause;
   return metadataFailure(operation, cause);
 };
 
@@ -119,8 +105,8 @@ export const assertListingPlatform = (
   );
 };
 
-/** Resolve the selected app and store.config.json path. */
-const resolveMetadataTarget = (
+/** Select the app and the store.config.json path it owns. */
+const selectMetadataTarget = (
   appSelector: string | undefined,
   configuredPath: string | undefined,
 ): Effect.Effect<
@@ -148,14 +134,8 @@ const readExistingStoreConfig = (
       .exists(configPath)
       .pipe(Effect.mapError((cause) => metadataFailure('inspect store metadata config', cause)));
     if (!configExists) return {};
-    const configText = yield* fileSystem
-      .readFileString(configPath)
-      .pipe(Effect.mapError((cause) => metadataFailure('read store metadata config', cause)));
-    const rawDocument = yield* Schema.decodeUnknown(Schema.parseJson())(configText).pipe(
-      Effect.mapError((cause) => metadataFailure('parse store metadata JSON', cause)),
-    );
-    return yield* parseStoreConfig(rawDocument).pipe(
-      Effect.mapError((cause) => metadataFailure('decode store metadata config', cause)),
+    return yield* loadStoreConfig(configPath).pipe(
+      Effect.mapError((cause) => metadataFailure(cause.operation, cause.cause, cause.message)),
     );
   });
 
@@ -163,29 +143,37 @@ const readExistingStoreConfig = (
 const readRequiredStoreConfig = (
   configPath: string,
 ): Effect.Effect<StoreConfig, MetadataCommandFailure, FileSystem.FileSystem> =>
+  loadStoreConfig(configPath).pipe(
+    Effect.mapError((cause) => metadataFailure(cause.operation, cause.cause, cause.message)),
+  );
+
+/** Merge platform listing fields into store.config.json. */
+const writeMergedStoreConfig = (
+  configPath: string,
+  storeConfigPatch: StoreConfig,
+): Effect.Effect<void, MetadataCommandFailure, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
-    const configExists = yield* fileSystem
-      .exists(configPath)
-      .pipe(Effect.mapError((cause) => metadataFailure('inspect store metadata config', cause)));
-    if (!configExists) {
-      return yield* Effect.fail(
-        metadataFailure(
-          'read store metadata config',
-          configPath,
-          `No store.config.json at ${configPath}. Run \`launch metadata pull\` to create one.`,
-        ),
-      );
-    }
-    const configText = yield* fileSystem
-      .readFileString(configPath)
-      .pipe(Effect.mapError((cause) => metadataFailure('read store metadata config', cause)));
-    const rawDocument = yield* Schema.decodeUnknown(Schema.parseJson())(configText).pipe(
-      Effect.mapError((cause) => metadataFailure('parse store metadata JSON', cause)),
-    );
-    return yield* parseStoreConfig(rawDocument).pipe(
-      Effect.mapError((cause) => metadataFailure('decode store metadata config', cause)),
-    );
+    const currentStoreConfig = yield* readExistingStoreConfig(configPath);
+    yield* fileSystem
+      .writeFileString(
+        configPath,
+        serializeStoreConfig({ ...currentStoreConfig, ...storeConfigPatch }),
+      )
+      .pipe(Effect.mapError((cause) => metadataFailure('write store metadata config', cause)));
+  });
+
+/** Open a scoped staging directory for fastlane metadata exchange. */
+const createMetadataStaging = (): Effect.Effect<
+  string,
+  MetadataCommandFailure,
+  FileSystem.FileSystem | Scope.Scope
+> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    return yield* fileSystem
+      .makeTempDirectoryScoped({ prefix: 'launch-meta-' })
+      .pipe(Effect.mapError((cause) => metadataFailure('create metadata staging', cause)));
   });
 
 /** Write fastlane's App Store Connect API-key JSON inside a scoped directory. */
@@ -211,6 +199,65 @@ const writeAscKeyFile = (
     return apiKeyPath;
   });
 
+/** Require the active ASC API key before talking to App Store Connect. */
+const requireActiveAscKey = (): Effect.Effect<
+  AscKey,
+  MetadataCommandFailure,
+  MetadataCommandRequirements
+> =>
+  Effect.gen(function* () {
+    const ascKey = yield* loadActiveAscKey().pipe(
+      Effect.mapError((cause) => metadataFailure('load active Apple account', cause)),
+    );
+    if (ascKey === null) {
+      return yield* Effect.fail(
+        metadataFailure(
+          'load active Apple account',
+          'missing-active-account',
+          'No active Apple account. Run `launch creds set-key` first.',
+        ),
+      );
+    }
+    return ascKey;
+  });
+
+/** Stage the Play service-account JSON for fastlane supply. */
+const stagePlayServiceAccount = (
+  serviceAccountJson: string,
+  workingDirectory: string,
+): Effect.Effect<string, MetadataCommandFailure, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const serviceAccountPath = pathService.join(workingDirectory, 'play-service-account.json');
+    yield* fileSystem
+      .writeFileString(serviceAccountPath, serviceAccountJson)
+      .pipe(Effect.mapError((cause) => metadataFailure('stage Play service account', cause)));
+    return serviceAccountPath;
+  });
+
+/** Require a Play service account before talking to Google Play. */
+const requirePlayServiceAccount = (): Effect.Effect<
+  string,
+  MetadataCommandFailure,
+  MetadataCommandRequirements
+> =>
+  Effect.gen(function* () {
+    const serviceAccountJson = yield* loadServiceAccount().pipe(
+      Effect.mapError((cause) => metadataFailure('load Play service account', cause)),
+    );
+    if (serviceAccountJson === null) {
+      return yield* Effect.fail(
+        metadataFailure(
+          'load Play service account',
+          'missing-service-account',
+          'No Play service account. Run `launch creds set-key --platform android` first.',
+        ),
+      );
+    }
+    return serviceAccountJson;
+  });
+
 /** Pull the live App Store listing into store.config.json. */
 export const pullAppleListing = (
   bundleId: string,
@@ -219,23 +266,9 @@ export const pullAppleListing = (
 ): Effect.Effect<void, MetadataCommandFailure, MetadataCommandRequirements> =>
   Effect.scoped(
     Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
       const logger = yield* createLogger(false);
-      const ascKey = yield* loadActiveAscKey().pipe(
-        Effect.mapError((cause) => metadataFailure('load active Apple account', cause)),
-      );
-      if (ascKey === null) {
-        return yield* Effect.fail(
-          metadataFailure(
-            'load active Apple account',
-            'missing-active-account',
-            'No active Apple account. Run `launch creds set-key` first.',
-          ),
-        );
-      }
-      const workingDirectory = yield* fileSystem
-        .makeTempDirectoryScoped({ prefix: 'launch-meta-' })
-        .pipe(Effect.mapError((cause) => metadataFailure('create metadata staging', cause)));
+      const ascKey = yield* requireActiveAscKey();
+      const workingDirectory = yield* createMetadataStaging();
       const apiKeyPath = yield* writeAscKeyFile(ascKey, workingDirectory);
       if (dryRun) {
         yield* logger.step(
@@ -257,13 +290,7 @@ export const pullAppleListing = (
       const appleListing = yield* readAppleMetadataDir(workingDirectory).pipe(
         Effect.mapError((cause) => metadataFailure('read downloaded App Store metadata', cause)),
       );
-      const currentStoreConfig = yield* readExistingStoreConfig(configPath);
-      yield* fileSystem
-        .writeFileString(
-          configPath,
-          serializeStoreConfig({ ...currentStoreConfig, apple: appleListing }),
-        )
-        .pipe(Effect.mapError((cause) => metadataFailure('write store metadata config', cause)));
+      yield* writeMergedStoreConfig(configPath, { apple: appleListing });
       yield* logger.step('metadata', `wrote App Store listing -> ${configPath}`);
     }),
   ).pipe(Effect.mapError((cause) => normalizeMetadataFailure('pull App Store metadata', cause)));
@@ -276,28 +303,13 @@ const pullAndroidListing = (
 ): Effect.Effect<void, MetadataCommandFailure, MetadataCommandRequirements> =>
   Effect.scoped(
     Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const pathService = yield* Path.Path;
       const logger = yield* createLogger(false);
-      const serviceAccountJson = yield* loadServiceAccount().pipe(
-        Effect.mapError((cause) => metadataFailure('load Play service account', cause)),
+      const serviceAccountJson = yield* requirePlayServiceAccount();
+      const workingDirectory = yield* createMetadataStaging();
+      const serviceAccountPath = yield* stagePlayServiceAccount(
+        serviceAccountJson,
+        workingDirectory,
       );
-      if (serviceAccountJson === null) {
-        return yield* Effect.fail(
-          metadataFailure(
-            'load Play service account',
-            'missing-service-account',
-            'No Play service account. Run `launch creds set-key --platform android` first.',
-          ),
-        );
-      }
-      const workingDirectory = yield* fileSystem
-        .makeTempDirectoryScoped({ prefix: 'launch-meta-' })
-        .pipe(Effect.mapError((cause) => metadataFailure('create metadata staging', cause)));
-      const serviceAccountPath = pathService.join(workingDirectory, 'play-service-account.json');
-      yield* fileSystem
-        .writeFileString(serviceAccountPath, serviceAccountJson)
-        .pipe(Effect.mapError((cause) => metadataFailure('stage Play service account', cause)));
       if (dryRun) {
         yield* logger.step(
           'metadata',
@@ -318,13 +330,7 @@ const pullAndroidListing = (
       const androidListing = yield* readAndroidMetadataDir(workingDirectory).pipe(
         Effect.mapError((cause) => metadataFailure('read downloaded Play metadata', cause)),
       );
-      const currentStoreConfig = yield* readExistingStoreConfig(configPath);
-      yield* fileSystem
-        .writeFileString(
-          configPath,
-          serializeStoreConfig({ ...currentStoreConfig, android: androidListing }),
-        )
-        .pipe(Effect.mapError((cause) => metadataFailure('write store metadata config', cause)));
+      yield* writeMergedStoreConfig(configPath, { android: androidListing });
       yield* logger.step('metadata', `wrote Play listing -> ${configPath}`);
     }),
   ).pipe(Effect.mapError((cause) => normalizeMetadataFailure('pull Play metadata', cause)));
@@ -337,7 +343,6 @@ const pushAppleListing = (
 ): Effect.Effect<void, MetadataCommandFailure, MetadataCommandRequirements> =>
   Effect.scoped(
     Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
       const logger = yield* createLogger(false);
       const storeConfig = yield* readRequiredStoreConfig(configPath);
       if (storeConfig.apple === undefined) {
@@ -350,9 +355,7 @@ const pushAppleListing = (
         );
       }
       const appleStoreConfig = storeConfig.apple;
-      const workingDirectory = yield* fileSystem
-        .makeTempDirectoryScoped({ prefix: 'launch-meta-' })
-        .pipe(Effect.mapError((cause) => metadataFailure('create metadata staging', cause)));
+      const workingDirectory = yield* createMetadataStaging();
       const writtenFields = yield* writeAppleMetadataDir(appleStoreConfig, workingDirectory).pipe(
         Effect.mapError((cause) => metadataFailure('stage App Store metadata', cause)),
       );
@@ -364,18 +367,7 @@ const pushAppleListing = (
         yield* logger.note(`rehearsed into ${workingDirectory} (no upload)`);
         return;
       }
-      const ascKey = yield* loadActiveAscKey().pipe(
-        Effect.mapError((cause) => metadataFailure('load active Apple account', cause)),
-      );
-      if (ascKey === null) {
-        return yield* Effect.fail(
-          metadataFailure(
-            'load active Apple account',
-            'missing-active-account',
-            'No active Apple account. Run `launch creds set-key` first.',
-          ),
-        );
-      }
+      const ascKey = yield* requireActiveAscKey();
       const apiKeyPath = yield* writeAscKeyFile(ascKey, workingDirectory);
       yield* executeCommand('fastlane', [
         'deliver',
@@ -404,8 +396,6 @@ const pushAndroidListing = (
 ): Effect.Effect<void, MetadataCommandFailure, MetadataCommandRequirements> =>
   Effect.scoped(
     Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const pathService = yield* Path.Path;
       const logger = yield* createLogger(false);
       const storeConfig = yield* readRequiredStoreConfig(configPath);
       if (storeConfig.android === undefined) {
@@ -418,9 +408,7 @@ const pushAndroidListing = (
         );
       }
       const androidStoreConfig = storeConfig.android;
-      const workingDirectory = yield* fileSystem
-        .makeTempDirectoryScoped({ prefix: 'launch-meta-' })
-        .pipe(Effect.mapError((cause) => metadataFailure('create metadata staging', cause)));
+      const workingDirectory = yield* createMetadataStaging();
       const writtenFields = yield* writeAndroidMetadataDir(
         androidStoreConfig,
         workingDirectory,
@@ -433,22 +421,11 @@ const pushAndroidListing = (
         yield* logger.note(`rehearsed into ${workingDirectory} (no upload)`);
         return;
       }
-      const serviceAccountJson = yield* loadServiceAccount().pipe(
-        Effect.mapError((cause) => metadataFailure('load Play service account', cause)),
+      const serviceAccountJson = yield* requirePlayServiceAccount();
+      const serviceAccountPath = yield* stagePlayServiceAccount(
+        serviceAccountJson,
+        workingDirectory,
       );
-      if (serviceAccountJson === null) {
-        return yield* Effect.fail(
-          metadataFailure(
-            'load Play service account',
-            'missing-service-account',
-            'No Play service account. Run `launch creds set-key --platform android` first.',
-          ),
-        );
-      }
-      const serviceAccountPath = pathService.join(workingDirectory, 'play-service-account.json');
-      yield* fileSystem
-        .writeFileString(serviceAccountPath, serviceAccountJson)
-        .pipe(Effect.mapError((cause) => metadataFailure('stage Play service account', cause)));
       yield* executeCommand('fastlane', [
         'supply',
         '--json_key',
@@ -486,7 +463,7 @@ export const metadataCommandProgram = (
       Effect.mapError((cause) => metadataFailure('parse metadata platform', cause)),
     );
     yield* assertListingPlatform(platform);
-    const metadataTarget = yield* resolveMetadataTarget(commandInput.app, commandInput.config);
+    const metadataTarget = yield* selectMetadataTarget(commandInput.app, commandInput.config);
     if (isApplePlatform(platform)) {
       if (metadataTarget.app.bundleId === undefined) {
         return yield* Effect.fail(
