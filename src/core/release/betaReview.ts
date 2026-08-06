@@ -126,12 +126,12 @@ const selectBuild = (
   );
 };
 
-/** Apply one note write while retaining per-action failures in the reconciliation report. */
-const applyNote = (
+/** Apply one write while retaining per-action failures in the reconciliation report. */
+const applyPlannedAction = (
   action: PlannedAction,
-  noteWrite: Effect.Effect<void, unknown>,
+  actionWrite: Effect.Effect<void, unknown>,
 ): Effect.Effect<void> =>
-  noteWrite.pipe(
+  actionWrite.pipe(
     Effect.match({
       onFailure: (cause) => {
         action.status = 'failed';
@@ -169,13 +169,16 @@ const reconcileNotes = (
       const action = plan(reconciliation, description);
       if (reconciliation.dryRun) continue;
       if (currentLocalization !== undefined) {
-        yield* applyNote(
+        yield* applyPlannedAction(
           action,
           appleStore.updateBetaBuildLocalization(currentLocalization.id, noteText),
         );
         continue;
       }
-      yield* applyNote(action, appleStore.createBetaBuildLocalization(buildId, locale, noteText));
+      yield* applyPlannedAction(
+        action,
+        appleStore.createBetaBuildLocalization(buildId, locale, noteText),
+      );
     }
   });
 
@@ -196,17 +199,7 @@ const reconcileSubmission = (
     }
     const action = plan(reconciliation, 'submit for Beta App Review');
     if (reconciliation.dryRun) return;
-    yield* appleStore.createBetaAppReviewSubmission(buildId).pipe(
-      Effect.match({
-        onFailure: (cause) => {
-          action.status = 'failed';
-          action.error = errorMessage(cause);
-        },
-        onSuccess: () => {
-          action.status = 'applied';
-        },
-      }),
-    );
+    yield* applyPlannedAction(action, appleStore.createBetaAppReviewSubmission(buildId));
   });
 
 /** Reconcile one build's localized notes and optional Beta App Review submission. */

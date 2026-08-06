@@ -127,26 +127,45 @@ const testflightFailure = (
   return makeTestflightCommandFailure({ operation, message, cause });
 };
 
+/** Keep non-empty CSV name cells; blank cells become absent optional fields. */
+const optionalCsvName = (cellText: string | undefined): string | undefined => {
+  if (cellText === undefined) return undefined;
+  if (cellText.length === 0) return undefined;
+  return cellText;
+};
+
+/** Assemble one tester identity from an email and optional names. */
+const testerFromParts = (
+  email: string,
+  firstName: string | undefined,
+  lastName: string | undefined,
+): TesterInput => {
+  if (firstName !== undefined && lastName !== undefined) {
+    return { email, firstName, lastName };
+  }
+  if (firstName !== undefined) return { email, firstName };
+  if (lastName !== undefined) return { email, lastName };
+  return { email };
+};
+
+/** English count label with a regular plural suffix. */
+const countLabel = (count: number, singularNoun: string): string => {
+  if (count === 1) return `1 ${singularNoun}`;
+  return `${count} ${singularNoun}s`;
+};
+
 /** Parse tester CSV rows while ignoring headers, blanks, and malformed email cells. */
 export const parseTestersCsv = (csvText: string): TesterInput[] => {
   const testers: TesterInput[] = [];
   for (const csvLine of csvText.split(/\r?\n/)) {
-    const [email, firstName, lastName] = csvLine.split(',').map((cellText) => cellText.trim());
+    const [email, firstNameCell, lastNameCell] = csvLine
+      .split(',')
+      .map((cellText) => cellText.trim());
     if (email === undefined) continue;
     if (!email.includes('@')) continue;
-    if (firstName !== undefined && firstName.length > 0) {
-      if (lastName !== undefined && lastName.length > 0) {
-        testers.push({ email, firstName, lastName });
-        continue;
-      }
-      testers.push({ email, firstName });
-      continue;
-    }
-    if (lastName !== undefined && lastName.length > 0) {
-      testers.push({ email, lastName });
-      continue;
-    }
-    testers.push({ email });
+    testers.push(
+      testerFromParts(email, optionalCsvName(firstNameCell), optionalCsvName(lastNameCell)),
+    );
   }
   return testers;
 };
@@ -212,11 +231,12 @@ export const renderFeedback = (feedbackEntry: BetaFeedback): string => {
 /** Render one beta-review action with stable ASCII status markers. */
 export const renderBetaAction = (action: PlannedAction): string => {
   if (action.status === 'failed') {
-    let failureDetail = '';
-    if (action.error !== undefined) failureDetail = ` - ${action.error}`;
-    return `x ${action.description}${failureDetail}`;
+    let failureDetail = 'failed';
+    if (action.error !== undefined) failureDetail = action.error;
+    return `x ${action.description} - ${failureDetail}`;
   }
   if (action.status === 'skipped') return `- ${action.description}`;
+  if (action.status === 'applied') return `[OK] ${action.description}`;
   return `+ ${action.description}`;
 };
 
@@ -311,19 +331,7 @@ const collectTesters = (
   Effect.gen(function* () {
     const testers: TesterInput[] = [];
     for (const email of commandInput.emails) {
-      if (commandInput.firstName !== undefined && commandInput.lastName !== undefined) {
-        testers.push({ email, firstName: commandInput.firstName, lastName: commandInput.lastName });
-        continue;
-      }
-      if (commandInput.firstName !== undefined) {
-        testers.push({ email, firstName: commandInput.firstName });
-        continue;
-      }
-      if (commandInput.lastName !== undefined) {
-        testers.push({ email, lastName: commandInput.lastName });
-        continue;
-      }
-      testers.push({ email });
+      testers.push(testerFromParts(email, commandInput.firstName, commandInput.lastName));
     }
     if (commandInput.csv !== undefined) {
       const fileSystem = yield* FileSystem.FileSystem;
@@ -405,10 +413,8 @@ const listGroups = (
       if (betaGroup.isInternal) groupKind = 'internal';
       let publicLink = '';
       if (betaGroup.publicLink !== undefined) publicLink = ` - ${betaGroup.publicLink}`;
-      let testerSuffix = 's';
-      if (testerCount === 1) testerSuffix = '';
       yield* logger.line(
-        `- ${betaGroup.name} (${groupKind}, ${testerCount} tester${testerSuffix})${publicLink}`,
+        `- ${betaGroup.name} (${groupKind}, ${countLabel(testerCount, 'tester')})${publicLink}`,
       );
     }
     yield* logger.line(`\n${betaGroups.length} group(s) for ${selectedApp.name}.`);
@@ -610,15 +616,17 @@ const releaseBuild = (
     }
     const appleStore = yield* loadActiveAppleStore();
     const selectedApp = yield* loadSelectedAppleApp(appleStore, commandInput.app);
-    const commonInput = {
+    let reconciliationInput: BetaReviewReconcileInput = {
       appId: selectedApp.appId,
       whatToTest: localizedNotes,
       submitForReview: commandInput.review,
       dryRun: true,
     };
-    let reconciliationInput: BetaReviewReconcileInput = commonInput;
     if (commandInput.build !== undefined) {
-      reconciliationInput = { ...commonInput, buildVersion: commandInput.build };
+      reconciliationInput = {
+        ...reconciliationInput,
+        buildVersion: commandInput.build,
+      };
     }
     const planReport = yield* reconcileBetaReview(appleStore, reconciliationInput);
     const plannedActions = planReport.actions.filter((action) => action.status === 'planned');
@@ -648,21 +656,14 @@ const releaseBuild = (
       yield* logger.skip('No TestFlight changes were applied.');
       return;
     }
-    reconciliationInput = { ...reconciliationInput, dryRun: false };
-    const appliedReport = yield* reconcileBetaReview(appleStore, reconciliationInput);
-    const actionSummary = summarizeBetaReview(appliedReport.actions);
-    const receiptLines = appliedReport.actions.map((action) => {
-      if (action.status === 'failed') {
-        let failureText = 'failed';
-        if (action.error !== undefined) failureText = action.error;
-        return `x ${action.description} - ${failureText}`;
-      }
-      if (action.status === 'skipped') return `- ${action.description}`;
-      return `[OK] ${action.description}`;
+    const appliedReport = yield* reconcileBetaReview(appleStore, {
+      ...reconciliationInput,
+      dryRun: false,
     });
+    const actionSummary = summarizeBetaReview(appliedReport.actions);
     let receiptTitle = 'Applied';
     if (actionSummary.failed > 0) receiptTitle = 'Applied with errors';
-    yield* logger.box(receiptTitle, receiptLines);
+    yield* logger.box(receiptTitle, appliedReport.actions.map(renderBetaAction));
     if (actionSummary.failed > 0) {
       return yield* Effect.fail(
         testflightFailure(
@@ -680,16 +681,16 @@ const showFeedback = (
   Effect.gen(function* () {
     const feedbackKind = yield* parseFeedbackType(commandInput.type);
     let filters: FeedbackFilters = {};
-    if (commandInput.build !== undefined && feedbackKind !== undefined) {
-      filters = { build: commandInput.build, kind: feedbackKind };
-    } else if (commandInput.build !== undefined) {
-      filters = { build: commandInput.build };
-    } else if (feedbackKind !== undefined) {
-      filters = { kind: feedbackKind };
+    if (commandInput.build !== undefined) {
+      filters = { ...filters, build: commandInput.build };
+    }
+    if (feedbackKind !== undefined) {
+      filters = { ...filters, kind: feedbackKind };
     }
     const appleStore = yield* loadActiveAppleStore();
     const selectedApp = yield* loadSelectedAppleApp(appleStore, commandInput.app);
     const feedbackEntries = yield* listBetaFeedback(appleStore, selectedApp.bundleId, filters);
+    const logger = yield* createLogger(false);
     if (commandInput.out !== undefined) {
       const downloadedAttachments = yield* downloadFeedbackAttachments(
         appleStore,
@@ -697,15 +698,11 @@ const showFeedback = (
         commandInput.out,
       );
       if (!commandInput.json) {
-        const logger = yield* createLogger(false);
-        let screenshotSuffix = 's';
-        if (downloadedAttachments.length === 1) screenshotSuffix = '';
         yield* logger.ok(
-          `Downloaded ${downloadedAttachments.length} screenshot${screenshotSuffix} to ${commandInput.out}.`,
+          `Downloaded ${countLabel(downloadedAttachments.length, 'screenshot')} to ${commandInput.out}.`,
         );
       }
     }
-    const logger = yield* createLogger(false);
     if (commandInput.json) {
       yield* logger.line(JSON.stringify(feedbackEntries, null, 2));
       return;
@@ -715,9 +712,7 @@ const showFeedback = (
       return;
     }
     yield* logger.line(feedbackEntries.map(renderFeedback).join('\n\n'));
-    let feedbackSuffix = 's';
-    if (feedbackEntries.length === 1) feedbackSuffix = '';
-    yield* logger.line(`\n${feedbackEntries.length} feedback item${feedbackSuffix}.`);
+    yield* logger.line(`\n${countLabel(feedbackEntries.length, 'feedback item')}.`);
   });
 
 /** Run one schema-decoded TestFlight operation. */
