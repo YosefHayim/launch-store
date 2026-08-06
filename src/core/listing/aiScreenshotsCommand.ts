@@ -4,6 +4,7 @@ import { Data, Effect } from 'effect';
 import { selectApp } from '../build/pipelineEnv.js';
 import { loadConfig } from '../config/config.js';
 import type { LaunchEnvironmentService } from '../services/environment.js';
+import { errorMessage } from '../services/errorMessage.js';
 import { executeCommand } from '../services/exec.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import type { LaunchPathsService } from '../services/paths.js';
@@ -46,7 +47,7 @@ export type EnhancedShot = Readonly<{
 }>;
 
 /** One platform enhancement request sent to a screenshot backend. */
-export type EnhanceRequest = {
+export type EnhanceRequest = Readonly<{
   platform: Platform;
   brief?: string;
   locales: readonly string[];
@@ -54,7 +55,7 @@ export type EnhanceRequest = {
   captions?: readonly string[];
   sources: readonly string[];
   outDir: string;
-};
+}>;
 
 /** Injectable screenshot enhancement backend. */
 export type ScreenshotEnhancer<Requirements = never> = Readonly<{
@@ -74,15 +75,24 @@ export type AiScreenshotsFailure = Readonly<{
 
 export const makeAiScreenshotsFailure = Data.tagged<AiScreenshotsFailure>('AiScreenshotsFailure');
 
+type AiScreenshotsRequirements =
+  | FileSystem.FileSystem
+  | LaunchEnvironmentService
+  | LaunchPathsService
+  | LaunchPromptService
+  | Logger
+  | Path.Path
+  | PlatformCommandExecutor.CommandExecutor
+  | Terminal.Terminal;
+
 /** Convert an unknown cause to the screenshot command's tagged channel. */
 const screenshotFailure = (
   operation: string,
   cause: unknown,
-  fallbackMessage?: string,
+  explicitMessage?: string,
 ): AiScreenshotsFailure => {
-  let message = fallbackMessage;
-  if (message === undefined && cause instanceof Error) message = cause.message;
-  if (message === undefined) message = `${operation} failed.`;
+  let message = errorMessage(cause);
+  if (explicitMessage !== undefined) message = explicitMessage;
   return makeAiScreenshotsFailure({ operation, message, cause });
 };
 
@@ -99,6 +109,13 @@ const isMissingBinaryError = (cause: unknown): boolean => {
   if (!('code' in cause)) return false;
   return cause.code === 'ENOENT';
 };
+
+/** Split a comma-separated CLI list into non-empty trimmed tokens. */
+const parseCsvList = (csv: string): readonly string[] =>
+  csv
+    .split(',')
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0);
 
 /** Build the genshot CLI enhancement backend. */
 export const createGenshotEnhancer = (
@@ -161,24 +178,30 @@ export const createGenshotEnhancer = (
 };
 
 /** Resolve the requested platform selector. */
-const parsePlatforms = (
+export const parseScreenshotPlatforms = (
   platformSelector: string | undefined,
 ): Effect.Effect<readonly Platform[], AiScreenshotsFailure> => {
   if (platformSelector === undefined) return Effect.succeed(['ios', 'android']);
-  if (platformSelector === 'all') return Effect.succeed(['ios', 'android']);
-  if (platformSelector === 'ios') return Effect.succeed(['ios']);
-  if (platformSelector === 'android') return Effect.succeed(['android']);
-  return Effect.fail(
-    screenshotFailure(
-      'select screenshot platforms',
-      platformSelector,
-      `Unknown platform "${platformSelector}". Use ios, android, or all.`,
-    ),
-  );
+  switch (platformSelector) {
+    case 'all':
+      return Effect.succeed(['ios', 'android']);
+    case 'ios':
+      return Effect.succeed(['ios']);
+    case 'android':
+      return Effect.succeed(['android']);
+    default:
+      return Effect.fail(
+        screenshotFailure(
+          'select screenshot platforms',
+          platformSelector,
+          `Unknown platform "${platformSelector}". Use ios, android, or all.`,
+        ),
+      );
+  }
 };
 
 /** Resolve explicit or discovered screenshot locales. */
-const resolveLocales = (
+export const resolveScreenshotLocales = (
   localeCsv: string | undefined,
   sourceScreenshots: readonly LocalScreenshot[],
 ): Effect.Effect<readonly string[], AiScreenshotsFailure> => {
@@ -187,10 +210,7 @@ const resolveLocales = (
     if (discoveredLocales.length > 0) return Effect.succeed(discoveredLocales);
     return Effect.succeed(['en-US']);
   }
-  const requestedLocales = localeCsv
-    .split(',')
-    .map((locale) => locale.trim())
-    .filter((locale) => locale.length > 0);
+  const requestedLocales = parseCsvList(localeCsv);
   if (requestedLocales.length > 0) return Effect.succeed(requestedLocales);
   return Effect.fail(
     screenshotFailure(
@@ -202,7 +222,7 @@ const resolveLocales = (
 };
 
 /** Resolve explicit or platform-default screenshot targets. */
-const resolveTargets = (
+export const resolveScreenshotTargets = (
   platform: Platform,
   targetCsv: string | undefined,
 ): Effect.Effect<readonly string[], AiScreenshotsFailure> => {
@@ -210,10 +230,7 @@ const resolveTargets = (
     if (platform === 'ios') return Effect.succeed([...DEFAULT_APPLE_DISPLAY_TYPES]);
     return Effect.succeed([...DEFAULT_PLAY_FORM_FACTORS]);
   }
-  const requestedTargets = targetCsv
-    .split(',')
-    .map((target) => target.trim())
-    .filter((target) => target.length > 0);
+  const requestedTargets = parseCsvList(targetCsv);
   if (requestedTargets.length > 0) return Effect.succeed(requestedTargets);
   return Effect.fail(
     screenshotFailure(
@@ -225,12 +242,11 @@ const resolveTargets = (
 };
 
 /** Parse optional comma-separated screenshot captions. */
-const parseCaptions = (captionCsv: string | undefined): readonly string[] | undefined => {
+export const parseScreenshotCaptions = (
+  captionCsv: string | undefined,
+): readonly string[] | undefined => {
   if (captionCsv === undefined) return;
-  return captionCsv
-    .split(',')
-    .map((caption) => caption.trim())
-    .filter((caption) => caption.length > 0);
+  return parseCsvList(captionCsv);
 };
 
 /** Reject a generated batch when any screenshot is unreadable or off-spec. */
@@ -291,6 +307,112 @@ const promoteScreenshot = (
       .pipe(Effect.mapError((cause) => screenshotFailure('promote screenshot', cause)));
   });
 
+/** Enhance, validate, and collect screenshots for each requested platform. */
+const enhancePlatformScreenshots = <EnhancerRequirements>(
+  platforms: readonly Platform[],
+  locales: readonly string[],
+  captions: readonly string[] | undefined,
+  sourcePaths: readonly string[],
+  sourceCount: number,
+  stagingDirectory: string,
+  deviceTypes: string | undefined,
+  brief: string | undefined,
+  screenshotEnhancer: ScreenshotEnhancer<EnhancerRequirements>,
+  logger: Logger,
+): Effect.Effect<
+  readonly EnhancedShot[],
+  AiScreenshotsFailure,
+  EnhancerRequirements | FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const pathService = yield* Path.Path;
+    const enhancedScreenshots: EnhancedShot[] = [];
+    for (const platform of platforms) {
+      const targets = yield* resolveScreenshotTargets(platform, deviceTypes);
+      yield* writeLog(
+        'render screenshot enhancement step',
+        logger.run(
+          `Enhancing ${sourceCount} screenshot(s) -> ${platform} (${targets.join(', ')}) with ${screenshotEnhancer.name}`,
+        ),
+      );
+      let enhancementRequest: EnhanceRequest = {
+        platform,
+        locales,
+        targets,
+        sources: sourcePaths,
+        outDir: pathService.join(stagingDirectory, platform),
+      };
+      if (brief !== undefined) {
+        enhancementRequest = { ...enhancementRequest, brief };
+      }
+      if (captions !== undefined) {
+        enhancementRequest = { ...enhancementRequest, captions };
+      }
+      const platformScreenshots = yield* screenshotEnhancer
+        .enhance(enhancementRequest)
+        .pipe(
+          Effect.mapError((cause) => screenshotFailure(`enhance ${platform} screenshots`, cause)),
+        );
+      yield* validateGeneratedScreenshots(platform, platformScreenshots);
+      enhancedScreenshots.push(...platformScreenshots);
+    }
+    return enhancedScreenshots;
+  });
+
+/** Print the staged enhancement set before dry-run exit or promotion. */
+const renderEnhancedPreview = (
+  enhancedScreenshots: readonly EnhancedShot[],
+  logger: Logger,
+): Effect.Effect<void, AiScreenshotsFailure, Path.Path> =>
+  Effect.gen(function* () {
+    const pathService = yield* Path.Path;
+    yield* writeLog(
+      'render generated screenshots',
+      logger.note(`genshot produced ${enhancedScreenshots.length} store-ready screenshot(s):`),
+    );
+    for (const generatedScreenshot of enhancedScreenshots) {
+      yield* writeLog(
+        'render generated screenshot',
+        logger.line(
+          `  ${generatedScreenshot.locale}/${generatedScreenshot.target} - ${pathService.basename(generatedScreenshot.path)}`,
+        ),
+      );
+    }
+  });
+
+/**
+ * Confirm promotion when the operator did not pass `--yes`. Non-TTY without `--yes` refuses so CI
+ * never writes silently; interactive runs open the staging folder then ask.
+ */
+const confirmScreenshotPromotion = (
+  commandInput: AiScreenshotsInput,
+  stagingDirectory: string,
+  outputDirectory: string,
+  enhancedCount: number,
+): Effect.Effect<boolean, AiScreenshotsFailure, LaunchPromptService | Terminal.Terminal> =>
+  Effect.gen(function* () {
+    if (commandInput.yes === true) return true;
+    const terminal = yield* Terminal.Terminal;
+    const terminalIsInteractive = yield* terminal.isTTY;
+    if (!terminalIsInteractive) {
+      return yield* Effect.fail(
+        screenshotFailure(
+          'confirm screenshot promotion',
+          commandInput,
+          'Refusing to write without confirmation. Re-run with --yes (non-interactive).',
+        ),
+      );
+    }
+    yield* openUrl(stagingDirectory).pipe(Effect.catchAll(() => Effect.void));
+    const launchPrompt = yield* LaunchPrompt;
+    const confirmed = yield* launchPrompt
+      .confirm(`Promote ${enhancedCount} screenshot(s) into ${outputDirectory}?`)
+      .pipe(Effect.mapError((cause) => screenshotFailure('confirm screenshot promotion', cause)));
+    if (confirmed) return true;
+    yield* launchPrompt.cancel('Aborted - nothing written.');
+    return false;
+  });
+
 /** Generate, validate, preview, and optionally promote screenshots for one app directory. */
 export const generateScreenshots = <EnhancerRequirements>(
   appDirectory: string,
@@ -311,7 +433,7 @@ export const generateScreenshots = <EnhancerRequirements>(
       const fileSystem = yield* FileSystem.FileSystem;
       const pathService = yield* Path.Path;
       const logger = yield* createLogger(false);
-      const platforms = yield* parsePlatforms(commandInput.platform);
+      const platforms = yield* parseScreenshotPlatforms(commandInput.platform);
       let sourceDirectory = pathService.join(appDirectory, SCREENSHOTS_DIRNAME);
       if (commandInput.in !== undefined) sourceDirectory = commandInput.in;
       let outputDirectory = pathService.join(appDirectory, SCREENSHOTS_DIRNAME);
@@ -328,50 +450,25 @@ export const generateScreenshots = <EnhancerRequirements>(
           ),
         );
       }
-      const locales = yield* resolveLocales(commandInput.locale, sourceScreenshots);
-      const captions = parseCaptions(commandInput.captions);
+      const locales = yield* resolveScreenshotLocales(commandInput.locale, sourceScreenshots);
+      const captions = parseScreenshotCaptions(commandInput.captions);
       const sourcePaths = sourceScreenshots.map((sourceScreenshot) => sourceScreenshot.path);
       const stagingDirectory = yield* fileSystem
         .makeTempDirectoryScoped({ prefix: 'launch-genshot-' })
         .pipe(Effect.mapError((cause) => screenshotFailure('create screenshot staging', cause)));
-      const enhancedScreenshots: EnhancedShot[] = [];
-      for (const platform of platforms) {
-        const targets = yield* resolveTargets(platform, commandInput.deviceTypes);
-        yield* writeLog(
-          'render screenshot enhancement step',
-          logger.run(
-            `Enhancing ${sourceScreenshots.length} screenshot(s) -> ${platform} (${targets.join(', ')}) with ${screenshotEnhancer.name}`,
-          ),
-        );
-        const enhancementRequest: EnhanceRequest = {
-          platform,
-          locales,
-          targets,
-          sources: sourcePaths,
-          outDir: pathService.join(stagingDirectory, platform),
-        };
-        if (commandInput.brief !== undefined) enhancementRequest.brief = commandInput.brief;
-        if (captions !== undefined) enhancementRequest.captions = captions;
-        const platformScreenshots = yield* screenshotEnhancer
-          .enhance(enhancementRequest)
-          .pipe(
-            Effect.mapError((cause) => screenshotFailure(`enhance ${platform} screenshots`, cause)),
-          );
-        yield* validateGeneratedScreenshots(platform, platformScreenshots);
-        enhancedScreenshots.push(...platformScreenshots);
-      }
-      yield* writeLog(
-        'render generated screenshots',
-        logger.note(`genshot produced ${enhancedScreenshots.length} store-ready screenshot(s):`),
+      const enhancedScreenshots = yield* enhancePlatformScreenshots(
+        platforms,
+        locales,
+        captions,
+        sourcePaths,
+        sourceScreenshots.length,
+        stagingDirectory,
+        commandInput.deviceTypes,
+        commandInput.brief,
+        screenshotEnhancer,
+        logger,
       );
-      for (const generatedScreenshot of enhancedScreenshots) {
-        yield* writeLog(
-          'render generated screenshot',
-          logger.line(
-            `  ${generatedScreenshot.locale}/${generatedScreenshot.target} - ${pathService.basename(generatedScreenshot.path)}`,
-          ),
-        );
-      }
+      yield* renderEnhancedPreview(enhancedScreenshots, logger);
       if (commandInput.dryRun === true) {
         yield* writeLog(
           'render screenshot dry run',
@@ -379,30 +476,13 @@ export const generateScreenshots = <EnhancerRequirements>(
         );
         return [];
       }
-      if (commandInput.yes !== true) {
-        const terminal = yield* Terminal.Terminal;
-        const terminalIsInteractive = yield* terminal.isTTY;
-        if (!terminalIsInteractive) {
-          return yield* Effect.fail(
-            screenshotFailure(
-              'confirm screenshot promotion',
-              commandInput,
-              'Refusing to write without confirmation. Re-run with --yes (non-interactive).',
-            ),
-          );
-        }
-        yield* openUrl(stagingDirectory).pipe(Effect.catchAll(() => Effect.void));
-        const launchPrompt = yield* LaunchPrompt;
-        const confirmed = yield* launchPrompt
-          .confirm(`Promote ${enhancedScreenshots.length} screenshot(s) into ${outputDirectory}?`)
-          .pipe(
-            Effect.mapError((cause) => screenshotFailure('confirm screenshot promotion', cause)),
-          );
-        if (!confirmed) {
-          yield* launchPrompt.cancel('Aborted - nothing written.');
-          return [];
-        }
-      }
+      const shouldPromote = yield* confirmScreenshotPromotion(
+        commandInput,
+        stagingDirectory,
+        outputDirectory,
+        enhancedScreenshots.length,
+      );
+      if (!shouldPromote) return [];
       yield* Effect.forEach(
         enhancedScreenshots,
         (generatedScreenshot) => promoteScreenshot(outputDirectory, generatedScreenshot),
@@ -423,24 +503,13 @@ export const generateScreenshots = <EnhancerRequirements>(
 /** Resolve the selected app and run the screenshot enhancement flow. */
 export const aiScreenshotsCommandProgram = (
   commandInput: AiScreenshotsInput,
-): Effect.Effect<
-  void,
-  AiScreenshotsFailure,
-  | FileSystem.FileSystem
-  | LaunchEnvironmentService
-  | LaunchPathsService
-  | LaunchPromptService
-  | Logger
-  | Path.Path
-  | PlatformCommandExecutor.CommandExecutor
-  | Terminal.Terminal
-> =>
+): Effect.Effect<void, AiScreenshotsFailure, AiScreenshotsRequirements> =>
   Effect.gen(function* () {
     const loadedConfiguration = yield* loadConfig().pipe(
       Effect.mapError((cause) => screenshotFailure('load Launch configuration', cause)),
     );
     const selectedApp = yield* selectApp(loadedConfiguration.apps, commandInput.app).pipe(
-      Effect.mapError((cause) => screenshotFailure('select app', cause, cause.message)),
+      Effect.mapError((cause) => screenshotFailure('select app', cause)),
     );
     yield* generateScreenshots(
       selectedApp.dir,
