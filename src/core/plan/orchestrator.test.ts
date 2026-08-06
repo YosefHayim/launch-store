@@ -1,11 +1,18 @@
 import { NodeContext } from '@effect/platform-node';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { PLAN_EXIT, planExitCode, runPlanners } from './orchestrator.js';
+import {
+  PLAN_EXIT,
+  countPlannedActions,
+  planExitCode,
+  runPlanners,
+  tallyPlanSurfaces,
+} from './orchestrator.js';
 import type { LaunchConfig } from '../types/config.js';
 import type { AppPlan, PlanContext, SurfacePlan, SurfacePlanner } from '../types/plan.js';
 import type { PlannedAction } from '../types/reconcile.js';
-/** A minimal context - fake planners ignore it, but the types must be honored without casts. */
+
+/** Minimal context - fake planners ignore it. */
 const makeCtx = (): PlanContext => {
   const config: LaunchConfig = {
     profiles: {},
@@ -21,10 +28,12 @@ const makeCtx = (): PlanContext => {
     resolvePlayApi: () => Effect.succeed(null),
   };
 };
-/** A planner that returns a canned surface, ignoring its context. */
+
+/** Planner that returns a canned surface. */
 const planner = (plan: SurfacePlan): SurfacePlanner => {
   return { id: plan.surface, store: plan.store, plan: () => Effect.succeed(plan) };
 };
+
 /** Execute the planner orchestrator at the test boundary. */
 const runPlannerSet = (
   planContext: PlanContext,
@@ -34,6 +43,7 @@ const runPlannerSet = (
   Effect.runPromise(
     runPlanners(planContext, planners, options).pipe(Effect.provide(NodeContext.layer)),
   );
+
 const action = (over: Partial<PlannedAction> = {}): PlannedAction => {
   return {
     description: 'create in-app purchase com.acme.coins',
@@ -42,13 +52,16 @@ const action = (over: Partial<PlannedAction> = {}): PlannedAction => {
     ...over,
   };
 };
+
 const appPlan = (over: Partial<AppPlan> = {}): AppPlan => {
   return { app: 'alpha', identifier: 'com.acme.alpha', actions: [action()], ...over };
 };
+
 const planned = (surface: string, apps: AppPlan[]): SurfacePlan => {
   return { surface, store: 'appstore', state: 'planned', scope: 'app', direction: 'two-way', apps };
 };
-/** A team-level planned surface (wallet / EU distribution): actions, no per-app grouping (ADR 0003 A5). */
+
+/** Team-level planned surface (wallet / EU distribution). */
 const plannedTeam = (surface: string, actions: PlannedAction[]): SurfacePlan => {
   return {
     surface,
@@ -59,6 +72,50 @@ const plannedTeam = (surface: string, actions: PlannedAction[]): SurfacePlan => 
     actions,
   };
 };
+
+describe('countPlannedActions', () => {
+  it('counts only planned status actions', () => {
+    expect(
+      countPlannedActions([action(), action({ status: 'skipped' }), action({ status: 'planned' })]),
+    ).toBe(2);
+  });
+});
+
+describe('tallyPlanSurfaces', () => {
+  it('drops nothing from the input and tallies team, app, skip, and error cases', () => {
+    const tallies = tallyPlanSurfaces([
+      {
+        surface: 'catalog',
+        store: 'appstore',
+        state: 'planned',
+        scope: 'app',
+        direction: 'two-way',
+        apps: [
+          appPlan({ actions: [action(), action({ status: 'skipped' })] }),
+          appPlan({ app: 'beta', actions: [], error: 'missing record' }),
+        ],
+      },
+      {
+        surface: 'wallet',
+        store: 'appstore',
+        state: 'planned',
+        scope: 'team',
+        direction: 'additive',
+        actions: [action()],
+      },
+      {
+        surface: 'play-products',
+        store: 'play',
+        state: 'skipped',
+        reason: 'no Play credentials',
+      },
+    ]);
+    expect(tallies.changeCount).toBe(2);
+    expect(tallies.appErrorCount).toBe(1);
+    expect(tallies.skippedSurfaceCount).toBe(1);
+  });
+});
+
 describe('planExitCode', () => {
   it('plain run is informational - exit 0 even with pending changes or skips', () => {
     expect(
@@ -89,6 +146,7 @@ describe('planExitCode', () => {
     ).toBe(PLAN_EXIT.error);
   });
 });
+
 describe('runPlanners', () => {
   it('drops omitted surfaces and counts only planned actions as drift', async () => {
     const outcome = await runPlannerSet(
@@ -102,7 +160,7 @@ describe('runPlanners', () => {
       {},
     );
     expect(outcome.surfaces).toHaveLength(1);
-    expect(outcome.changeCount).toBe(1); // the advisory "skipped" action is not drift
+    expect(outcome.changeCount).toBe(1);
   });
   it('a plain run with drift is informational (exit 0)', async () => {
     const outcome = await runPlannerSet(makeCtx(), [planner(planned('catalog', [appPlan()]))], {});

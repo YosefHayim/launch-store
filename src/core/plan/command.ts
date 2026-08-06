@@ -1,12 +1,15 @@
 import type { FileSystem, Path } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
 import { loadConfig } from '../config/config.js';
+import type { AppleStoreClientService } from '../services/appleStoreClient.js';
 import { errorMessage } from '../services/errorMessage.js';
+import type { GoogleStoreClientService } from '../services/googleStoreClient.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
+import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import { createAscClientResolver, createPlayClientResolver } from '../store/storeClients.js';
+import { selectApps } from '../store/syncJobs.js';
 import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
-import type { AppDescriptor } from '../types/app.js';
 import type { PlanContext, PlanStore, SurfacePlan, SurfacePlanner } from '../types/plan.js';
 import type { PlannedAction } from '../types/reconcile.js';
 import { PLAN_EXIT, runPlanners, type PlanOutcome } from './orchestrator.js';
@@ -34,19 +37,15 @@ export const makePlanCommandFailure = Data.tagged<PlanCommandFailure>('PlanComma
 
 type PlannedAppSurface = Extract<SurfacePlan, { state: 'planned'; scope: 'app' }>;
 type PlannedTeamSurface = Extract<SurfacePlan, { state: 'planned'; scope: 'team' }>;
-type AscResolverRequirements = Effect.Effect.Context<
-  ReturnType<ReturnType<typeof createAscClientResolver>>
->;
-type PlayResolverRequirements = Effect.Effect.Context<
-  ReturnType<ReturnType<typeof createPlayClientResolver>>
->;
+
 type PlanCommandRequirements =
-  | AscResolverRequirements
+  | AppleStoreClientService
   | FileSystem.FileSystem
+  | GoogleStoreClientService
   | LaunchPathsService
+  | LaunchSecretStoreService
   | Logger
-  | Path.Path
-  | PlayResolverRequirements;
+  | Path.Path;
 
 const commandFailure = (operation: string, cause: unknown): PlanCommandFailure =>
   makePlanCommandFailure({ operation, message: errorMessage(cause), cause });
@@ -57,6 +56,7 @@ const writeLog = (
 ): Effect.Effect<void, PlanCommandFailure> =>
   logWrite.pipe(Effect.mapError((cause) => commandFailure(operation, cause)));
 
+/** ASCII action marker for plan report lines. */
 export const planGlyph = (plannedAction: PlannedAction): string => {
   if (plannedAction.status === 'skipped') return '-';
   if (plannedAction.destructive) return '-';
@@ -64,6 +64,7 @@ export const planGlyph = (plannedAction: PlannedAction): string => {
   return '+';
 };
 
+/** Caveat shown under additive surfaces (portal-side extras are invisible). */
 export const additiveNote = (surfaceName: string): string =>
   `-> ${surfaceName} is additive - detects missing items, not portal-side additions (drift != "live == config")`;
 
@@ -163,6 +164,7 @@ const renderSummary = (
     );
   });
 
+/** Render human plan/drift report lines for one outcome. */
 export const renderPlanOutcome = (
   logger: Logger,
   planOutcome: PlanOutcome,
@@ -203,44 +205,12 @@ export const renderPlanOutcome = (
     yield* renderSummary(logger, planOutcome);
   });
 
-const selectPlanApps = (
-  discoveredApps: AppDescriptor[],
-  appSelector: string | undefined,
-): Effect.Effect<AppDescriptor[], PlanCommandFailure> => {
-  if (appSelector === undefined) return Effect.succeed(discoveredApps);
-  if (appSelector.length === 0) return Effect.succeed(discoveredApps);
-  const requestedNames: string[] = [];
-  for (const selectorPart of appSelector.split(',')) {
-    const requestedName = selectorPart.trim();
-    if (requestedName.length > 0) requestedNames.push(requestedName);
-  }
-  const appsByName = new Map(
-    discoveredApps.map((discoveredApp) => [discoveredApp.name, discoveredApp]),
-  );
-  const selectedApps: AppDescriptor[] = [];
-  for (const requestedName of requestedNames) {
-    const selectedApp = appsByName.get(requestedName);
-    if (selectedApp !== undefined) {
-      selectedApps.push(selectedApp);
-      continue;
-    }
-    let availableNames = discoveredApps.map((discoveredApp) => discoveredApp.name).join(', ');
-    if (availableNames.length === 0) availableNames = 'none';
-    return Effect.fail(
-      commandFailure(
-        'select plan apps',
-        `Unknown app "${requestedName}". Discovered apps: ${availableNames}.`,
-      ),
-    );
-  }
-  return Effect.succeed(selectedApps);
-};
-
-const selectPlanPlanners = (
-  registeredPlanners: SurfacePlanner[],
+/** Narrow registered planners to an optional surface id. */
+export const selectPlanPlanners = (
+  registeredPlanners: readonly SurfacePlanner[],
   surfaceName: string | undefined,
 ): Effect.Effect<SurfacePlanner[], PlanCommandFailure> => {
-  if (surfaceName === undefined) return Effect.succeed(registeredPlanners);
+  if (surfaceName === undefined) return Effect.succeed([...registeredPlanners]);
   const selectedPlanner = registeredPlanners.find(
     (registeredPlanner) => registeredPlanner.id === surfaceName,
   );
@@ -257,6 +227,7 @@ const selectPlanPlanners = (
   );
 };
 
+/** Load config, resolve store clients once, run planners, and print or emit JSON. */
 export const planCommandProgram = (
   rawCommandInput: unknown,
 ): Effect.Effect<void, CommandExit | PlanCommandFailure, PlanCommandRequirements> =>
@@ -266,22 +237,22 @@ export const planCommandProgram = (
     const logger = yield* createLogger(false);
     yield* Effect.sync(registerBuiltinPlanners);
     const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory);
-    const selectedApps = yield* selectPlanApps(loadedConfiguration.apps, commandInput.app);
+    const selectedApps = yield* selectApps(loadedConfiguration.apps, commandInput.app).pipe(
+      Effect.mapError((cause) => commandFailure('select plan apps', cause)),
+    );
     const selectedPlanners = yield* selectPlanPlanners(listSurfacePlanners(), commandInput.surface);
     let check = commandInput.check;
     if (commandInput.operation === 'drift') check = true;
-    const ascResolverServices = yield* Effect.context<AscResolverRequirements>();
-    const playResolverServices = yield* Effect.context<PlayResolverRequirements>();
-    const resolveAscClient = createAscClientResolver();
-    const resolvePlayClient = createPlayClientResolver();
+    const ascClient = yield* createAscClientResolver()();
+    const playClient = yield* createPlayClientResolver()();
     const planContext: PlanContext = {
       config: loadedConfiguration.config,
       apps: selectedApps,
-      resolveAscApi: () => resolveAscClient().pipe(Effect.provide(ascResolverServices)),
-      resolvePlayApi: () => resolvePlayClient().pipe(Effect.provide(playResolverServices)),
+      resolveAscApi: () => Effect.succeed(ascClient),
+      resolvePlayApi: () => Effect.succeed(playClient),
     };
     const planOutcome = yield* runPlanners(planContext, selectedPlanners, { check });
-    if (commandInput.json) {
+    if (commandInput.json === true) {
       yield* writeLog('render plan JSON', logger.line(JSON.stringify(planOutcome, null, 2)));
     } else {
       yield* renderPlanOutcome(logger, planOutcome);
