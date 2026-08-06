@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   type SetupReadiness,
+  formatPendingTodoLine,
   formatSetupBoard,
+  mayInstallToolchain,
   pendingTodos,
+  readinessMark,
   toolchainReadinessRows,
 } from './setup.js';
 import type { Tool } from './toolchain.js';
@@ -28,21 +31,52 @@ const TOOLS: Tool[] = [
   },
 ];
 describe('toolchainReadinessRows', () => {
-  const rows = toolchainReadinessRows(TOOLS, new Set(['fastlane']));
+  const readinessRows = toolchainReadinessRows(TOOLS, new Set(['fastlane']));
   it('marks a present tool ok with no fix hint', () => {
-    expect(rows.find((r) => r.label === 'fastlane')).toEqual({ label: 'fastlane', status: 'ok' });
+    expect(readinessRows.find((readinessRow) => readinessRow.label === 'fastlane')).toEqual({
+      label: 'fastlane',
+      status: 'ok',
+    });
   });
   it('marks a missing required tool a todo carrying its install hint', () => {
-    expect(rows.find((r) => r.label.startsWith('Xcode'))).toEqual({
+    expect(readinessRows.find((readinessRow) => readinessRow.label.startsWith('Xcode'))).toEqual({
       label: 'Xcode (xcodebuild)',
       status: 'todo',
       detail: 'Install Xcode from the App Store.',
     });
   });
   it('marks a missing recommended tool advisory (info), never a gap', () => {
-    const ccache = rows.find((r) => r.label === 'ccache');
-    expect(ccache?.status).toBe('info');
-    expect(ccache?.detail).toContain('brew install ccache');
+    const ccacheRow = readinessRows.find((readinessRow) => readinessRow.label === 'ccache');
+    expect(ccacheRow?.status).toBe('info');
+    expect(ccacheRow?.detail).toContain('brew install ccache');
+  });
+});
+describe('readinessMark', () => {
+  it('maps each readiness status to a stable ASCII marker', () => {
+    expect(readinessMark('ok')).toBe('OK');
+    expect(readinessMark('todo')).toBe('x');
+    expect(readinessMark('info')).toBe('-');
+  });
+});
+describe('formatPendingTodoLine', () => {
+  it('joins label and detail when a detail is present', () => {
+    expect(
+      formatPendingTodoLine({ label: 'Xcode', status: 'todo', detail: 'Install Xcode.' }),
+    ).toBe('Xcode - Install Xcode.');
+  });
+  it('returns the bare label when no detail is set', () => {
+    expect(formatPendingTodoLine({ label: 'Apps', status: 'todo' })).toBe('Apps');
+  });
+});
+describe('mayInstallToolchain', () => {
+  it('allows installs on an interactive TTY without --yes', () => {
+    expect(mayInstallToolchain(true, false)).toBe(true);
+  });
+  it('allows installs when --yes is set even without a TTY', () => {
+    expect(mayInstallToolchain(false, true)).toBe(true);
+  });
+  it('blocks installs when non-interactive and --yes is absent', () => {
+    expect(mayInstallToolchain(false, false)).toBe(false);
   });
 });
 describe('formatSetupBoard', () => {
@@ -58,18 +92,18 @@ describe('formatSetupBoard', () => {
       },
     ],
   };
-  const lines = formatSetupBoard(readiness);
+  const boardLines = formatSetupBoard(readiness);
   it('renders each group title with its checks indented under it', () => {
-    expect(lines).toContain('Config');
-    expect(lines).toContain('  OK launch.config.ts - present');
-    expect(lines).toContain('Toolchain');
-    expect(lines).toContain('  OK fastlane');
-    expect(lines).toContain('  x Xcode - Install Xcode.');
+    expect(boardLines).toContain('Config');
+    expect(boardLines).toContain('  OK launch.config.ts - present');
+    expect(boardLines).toContain('Toolchain');
+    expect(boardLines).toContain('  OK fastlane');
+    expect(boardLines).toContain('  x Xcode - Install Xcode.');
   });
   it('separates groups with a blank line but never leads with one', () => {
-    expect(lines[0]).toBe('Config');
-    expect(lines).toContain('');
-    expect(lines.indexOf('')).toBeGreaterThan(0);
+    expect(boardLines[0]).toBe('Config');
+    expect(boardLines).toContain('');
+    expect(boardLines.indexOf('')).toBeGreaterThan(0);
   });
 });
 describe('pendingTodos', () => {

@@ -376,11 +376,11 @@ describe('writeAppVersion - persist the bump back to a static app.json', () => {
 });
 describe('writeAppEntitlements', () => {
   /** Build an AppDescriptor pointing at a freshly-written app.json in a temp repo. */
-  function appWith(expo: Record<string, unknown>): AppDescriptor {
+  const appWith = (expo: Record<string, unknown>): AppDescriptor => {
     const repo = makeRepo();
     writeApp(repo, 'app', expo);
     return { name: 'app', dir: join(repo, 'app'), configPath: join(repo, 'app', 'app.json') };
-  }
+  };
   const runWriteAppEntitlements = (
     app: AppDescriptor,
     entitlements: Parameters<typeof writeAppEntitlements>[1],

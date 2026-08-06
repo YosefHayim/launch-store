@@ -2,19 +2,23 @@ import { Path } from '@effect/platform';
 import { Effect } from 'effect';
 import type { AppDescriptor } from '../types/app.js';
 /** Derive a single `appRoots` subdir when every discovered app lives under one (e.g. an `apps/` monorepo). */
-export const detectAppRoot = (apps: AppDescriptor[], workingDirectory: string) =>
+export const detectAppRoot = (apps: readonly AppDescriptor[], workingDirectory: string) =>
   Effect.gen(function* () {
     const pathService = yield* Path.Path;
-    const segments = new Set<string>();
+    const topLevelSegments = new Set<string>();
     for (const app of apps) {
-      const rel = pathService.relative(workingDirectory, app.dir);
-      if (rel === '') return null; // an app sits at the repo root -> scan the root
-      const [first] = rel.split(/[/\\]/);
-      if (first) segments.add(first);
+      const relativeAppPath = pathService.relative(workingDirectory, app.dir);
+      // An app at the repo root means scan the root - no shared monorepo subdir.
+      if (relativeAppPath === '') return null;
+      const [firstSegment] = relativeAppPath.split(/[/\\]/);
+      if (firstSegment !== undefined && firstSegment.length > 0) {
+        topLevelSegments.add(firstSegment);
+      }
     }
-    const [only] = [...segments];
-    if (segments.size === 1 && only) return `./${only}`;
-    return null;
+    if (topLevelSegments.size !== 1) return null;
+    const [onlySegment] = [...topLevelSegments];
+    if (onlySegment === undefined) return null;
+    return `./${onlySegment}`;
   });
 /**
  * The in-repo artifact directory `launch init` and the no-args wizard scaffold by default - a `.launch`
@@ -46,13 +50,17 @@ export const configTemplate = (
   artifactDir?: string,
 ): string => {
   let appRootsLine = `  // appRoots: ["./apps"], // uncomment if your apps live in a subfolder`;
-  if (appRoot) appRootsLine = `  appRoots: ["${appRoot}"], // every app.json lives under here`;
+  if (appRoot !== null) {
+    appRootsLine = `  appRoots: ["${appRoot}"], // every app.json lives under here`;
+  }
   let injected = '';
-  if (extraSections) injected = `\n${extraSections}\n`;
+  if (extraSections !== undefined && extraSections.length > 0) {
+    injected = `\n${extraSections}\n`;
+  }
   let profilesBlock = profilesSection;
   if (profilesBlock === undefined) profilesBlock = DEFAULT_PROFILES_BLOCK;
   let artifactDirLine = '';
-  if (artifactDir) {
+  if (artifactDir !== undefined && artifactDir.length > 0) {
     artifactDirLine = `\n  artifactDir: ${JSON.stringify(artifactDir)}, // where local build binaries land (auto-added to .gitignore)`;
   }
   return `import { defineConfig } from "launch-store";
