@@ -6,6 +6,7 @@ import type {
 } from '@core/types/readiness.js';
 import { Effect } from 'effect';
 import { iosApps } from '../appScopes.js';
+import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
 /** Synthetic subject for the account-wide finding (agreements aren't scoped to a single app). */
 const ACCOUNT_SUBJECT = { app: 'Apple account', identifier: 'account-wide' } as const;
 /** The Apple required-agreements (incl. banking & tax) readiness probe - an account-onboarding and submit blocker. */
@@ -22,14 +23,9 @@ export const agreementsProbe = {
    */
   check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
     return Effect.gen(function* () {
-      if (iosApps(readinessContext.apps).length === 0) return { state: 'omitted' };
+      if (iosApps(readinessContext.apps).length === 0) return OMITTED_PROBE;
       const api = yield* readinessContext.resolveAscApi();
-      if (!api)
-        return {
-          state: 'skipped',
-          reason: 'no active Apple account',
-          hint: 'run `launch creds set-key`',
-        };
+      if (!api) return SKIPPED_NO_APPLE_ACCOUNT;
       const signed = yield* api.checkRequiredAgreements();
       let finding: AppReadiness = {
         ...ACCOUNT_SUBJECT,

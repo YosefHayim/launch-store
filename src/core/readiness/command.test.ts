@@ -12,8 +12,10 @@ import {
 import { makeLaunchLoggerTest } from '../services/logger.js';
 import { makeLaunchPathsTest } from '../services/paths.js';
 import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
-import type { ProbeResult, ReadinessProbe } from '../types/readiness.js';
+import type { ProbeResult, ReadinessOutcome, ReadinessProbe } from '../types/readiness.js';
+import { formatReadinessSummaryDetail, readinessStoreLabel } from './command.js';
 import { READINESS_EXIT } from './orchestrator.js';
+
 /**
  * The category passed to the last `selectReadinessProbes` call, captured so a test can assert that a
  * command's probe slice reaches the registry unchanged. Mutated by the mock below.
@@ -73,6 +75,44 @@ const runReadinessCommand = (
       Effect.catchTag('CommandExit', (commandExit) => Effect.succeed(commandExit.exitCode)),
     ),
   );
+
+const emptyOutcome = (overrides: Partial<ReadinessOutcome> = {}): ReadinessOutcome => ({
+  reports: [],
+  okCount: 0,
+  warnCount: 0,
+  blockerCount: 0,
+  errorCount: 0,
+  skippedCount: 0,
+  exitCode: READINESS_EXIT.ok,
+  ...overrides,
+});
+
+describe('readinessStoreLabel', () => {
+  it('names App Store and Google Play for section headers', () => {
+    expect(readinessStoreLabel('appstore')).toBe('App Store');
+    expect(readinessStoreLabel('play')).toBe('Google Play');
+  });
+});
+
+describe('formatReadinessSummaryDetail', () => {
+  it('returns all clear when every tally is zero', () => {
+    expect(formatReadinessSummaryDetail(emptyOutcome())).toBe('all clear');
+  });
+  it('joins blocker, unreadable, warning, and skipped tallies in priority order', () => {
+    expect(
+      formatReadinessSummaryDetail(
+        emptyOutcome({
+          blockerCount: 2,
+          errorCount: 1,
+          warnCount: 3,
+          skippedCount: 4,
+          exitCode: READINESS_EXIT.error,
+        }),
+      ),
+    ).toBe('2 blocker(s) - 1 unreadable - 3 warning(s) - 4 skipped');
+  });
+});
+
 describe('readinessCommandProgram', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -120,5 +160,16 @@ describe('readinessCommandProgram', () => {
     const printedOutcome: unknown = JSON.parse(printedText);
     expect(printedOutcome).toMatchObject({ exitCode: READINESS_EXIT.ok });
     expect(printedOutcome).toMatchObject({ reports: [expect.any(Object)] });
+  });
+  it('renders human summary with command labels when not in JSON mode', async () => {
+    probes = [
+      probe('clear', {
+        state: 'checked',
+        apps: [{ app: 'x', identifier: 'com.x', status: 'ok', detail: 'ready' }],
+      }),
+    ];
+    const terminalWrites: string[] = [];
+    await runReadinessCommand({ category: 'submit', labels: LABELS }, terminalWrites);
+    expect(terminalWrites.some((line) => line.includes('Test readiness: all clear'))).toBe(true);
   });
 });

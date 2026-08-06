@@ -1,6 +1,7 @@
 import type { ProbeResult, ReadinessContext, ReadinessProbe } from '@core/types/readiness.js';
 import { Effect } from 'effect';
 import { iosApps } from '../appScopes.js';
+import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
 /** The Apple Bundle ID (App ID) registration readiness probe. */
 export const bundleIdProbe = {
   id: 'apple-bundle-id',
@@ -16,14 +17,9 @@ export const bundleIdProbe = {
   check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
     return Effect.gen(function* () {
       const apps = iosApps(readinessContext.apps);
-      if (apps.length === 0) return { state: 'omitted' };
+      if (apps.length === 0) return OMITTED_PROBE;
       const api = yield* readinessContext.resolveAscApi();
-      if (!api)
-        return {
-          state: 'skipped',
-          reason: 'no active Apple account',
-          hint: 'run `launch creds set-key`',
-        };
+      if (!api) return SKIPPED_NO_APPLE_ACCOUNT;
       const results = yield* Effect.forEach(
         apps,
         ({ name, identifier }) =>

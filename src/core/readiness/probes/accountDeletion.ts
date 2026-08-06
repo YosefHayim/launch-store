@@ -6,6 +6,7 @@ import type {
 } from '@core/types/readiness.js';
 import { Effect } from 'effect';
 import { iosApps } from '../appScopes.js';
+import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
 /** The App Store Connect account-deletion-URL readiness probe - a listing-completeness, conditionally-submit check. */
 export const accountDeletionProbe = {
   id: 'apple-account-deletion',
@@ -21,14 +22,9 @@ export const accountDeletionProbe = {
   check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
     return Effect.gen(function* () {
       const apps = iosApps(readinessContext.apps);
-      if (apps.length === 0) return { state: 'omitted' };
+      if (apps.length === 0) return OMITTED_PROBE;
       const api = yield* readinessContext.resolveAscApi();
-      if (!api)
-        return {
-          state: 'skipped',
-          reason: 'no active Apple account',
-          hint: 'run `launch creds set-key`',
-        };
+      if (!api) return SKIPPED_NO_APPLE_ACCOUNT;
       const results: AppReadiness[] = yield* Effect.forEach(
         apps,
         ({ name, identifier }) =>
