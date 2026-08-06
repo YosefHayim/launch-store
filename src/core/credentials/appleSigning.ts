@@ -1,102 +1,43 @@
 import { FileSystem, Path } from '@effect/platform';
-import type { CommandExecutor } from '@effect/platform/CommandExecutor';
-import { Data, Effect, Schema } from 'effect';
+import { Effect, Schema } from 'effect';
 import type { Platform } from '../types/app.js';
 import type { AscKey, SigningAssets } from '../types/credentials.js';
 import type { Logger } from '../services/logger.js';
-import { captureCommandOutput } from '../services/exec.js';
-import type { LaunchEnvironmentService } from '../services/environment.js';
-import {
-  adHocProfileType,
-  appStoreProfileType,
-  platformLabel,
-  toBundleIdPlatform,
-} from '../services/platform.js';
-import { getSecret, setSecret } from './keychain.js';
-import { staleProfileCapabilities } from './capabilities.js';
-import {
-  extractProfileEntitlements,
-  type ProfileEntitlementRequirements,
-} from '../adopt/profileEntitlements.js';
+import { adHocProfileType, appStoreProfileType, platformLabel } from '../services/platform.js';
 import {
   resolveAccountCredentialsDirectory,
   resolveCredentialsDirectory,
   resolveProvisioningProfilesDirectory,
   type LaunchPathsService,
 } from '../services/paths.js';
-import {
-  AppleCredentialsClientFactory,
-  type AppleCredentialsClient,
-} from '../services/appleCredentialsClient.js';
-import type { CertificateResource, ProfileResource } from '../types/appleCatalog.js';
+import { AppleCredentialsClientFactory } from '../services/appleCredentialsClient.js';
+import type { ProfileResource } from '../types/appleCatalog.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
-import { randomHexSecret } from './randomSecret.js';
-/**
- * Keychain account holding the random password that protects an account's `.p12` backup, namespaced
- * by Key ID so each Apple account's `.p12` has its own password. Exported so first-run migration can
- * rename the legacy single-account entry (`dist-cert-p12-password`) onto this scheme.
- */
-export const p12PasswordAccount = (keyId: string): string => {
-  return `dist-cert-p12-password:${keyId}`;
-};
-/** Apple's distribution-certificate cap; creating past it fails, so warn first. */
-const DISTRIBUTION_CERT_CAP = 2;
-/** Xcode identity name used for App Store and ad-hoc distribution certificates. */
-export const DISTRIBUTION_CERT_NAME = 'Apple Distribution';
-/** Persisted record of the distribution certificate Launch created and backed up. */
-type CertRecord = {
-  id: string;
-  serial: string;
-  p12Path: string;
-};
-/** Persisted record of one bundle's App Store provisioning profile. */
-type ProfileRecord = {
-  id: string;
-  uuid: string;
-  name: string;
-  path: string;
-  teamId: string;
-};
-/** On-disk credential metadata (`~/.launch/credentials/index.json`). No secrets - paths + ids only. */
-type CredentialsIndex = {
-  certificate?: CertRecord;
-  profiles: Record<string, ProfileRecord>;
-};
-type AppleSigningPlatform =
-  | CommandExecutor
-  | FileSystem.FileSystem
-  | LaunchEnvironmentService
-  | LaunchPathsService
-  | Path.Path;
-const CertRecordSchema: Schema.Schema<CertRecord> = Schema.mutable(
-  Schema.Struct({
-    id: Schema.String,
-    serial: Schema.String,
-    p12Path: Schema.String,
-  }),
-);
-const ProfileRecordSchema: Schema.Schema<ProfileRecord> = Schema.mutable(
-  Schema.Struct({
-    id: Schema.String,
-    uuid: Schema.String,
-    name: Schema.String,
-    path: Schema.String,
-    teamId: Schema.String,
-  }),
-);
-const CredentialsIndexSchema: Schema.Schema<CredentialsIndex> = Schema.mutable(
-  Schema.Struct({
-    certificate: Schema.optionalWith(CertRecordSchema, { exact: true }),
-    profiles: Schema.mutable(Schema.Record({ key: Schema.String, value: ProfileRecordSchema })),
-  }),
-);
-const emptyCredentialsIndex = (): CredentialsIndex => ({ profiles: {} });
-export type AppleSigningFailure = Readonly<{
-  readonly _tag: 'AppleSigningFailure';
-  readonly message: string;
-  readonly cause?: unknown;
-}>;
-export const makeAppleSigningFailure = Data.tagged<AppleSigningFailure>('AppleSigningFailure');
+import {
+  CredentialsIndexSchema,
+  makeAppleSigningFailure,
+  readIndex,
+  type AppleSigningFailure,
+  type AppleSigningPlatform,
+} from './appleSigningIndex.js';
+import {
+  DISTRIBUTION_CERT_NAME,
+  ensureDistributionCertificate,
+  p12PasswordAccount,
+} from './appleSigningCerts.js';
+import {
+  ensureAppStoreProfileForBundle,
+  ensureRegisteredBundleId,
+  installProfile,
+  profileStaleAgainstCapabilities,
+  resolveProfileTeamId,
+  staleCachedSigningTargets,
+} from './appleSigningProfiles.js';
+
+export type { AppleSigningFailure };
+export { makeAppleSigningFailure, DISTRIBUTION_CERT_NAME, p12PasswordAccount };
+export { profileStaleAgainstCapabilities, staleCachedSigningTargets };
+
 /** Inputs for {@link ensureSigningCredentials}. */
 export type EnsureSigningOptions = {
   platform: Platform;
@@ -108,6 +49,7 @@ export type EnsureSigningOptions = {
   confirmCreate: (message: string) => Effect.Effect<boolean, unknown>;
   extensions?: string[];
 };
+
 /** Summarize what signing material is cached locally for one account, for `launch creds status`. */
 export const describeStoredCredentials = (
   keyId: string,
@@ -128,59 +70,7 @@ export const describeStoredCredentials = (
       bundleIds: Object.keys(index.profiles),
     };
   });
-/** Absolute path to one account's signing index. */
-const indexPath = (keyId: string): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const pathService = yield* Path.Path;
-    const credentialsDirectory = yield* resolveAccountCredentialsDirectory(keyId);
-    return pathService.join(credentialsDirectory, 'index.json');
-  });
-/** Read an account's credentials index, tolerating a missing or malformed file. */
-const readIndex = (
-  keyId: string,
-): Effect.Effect<CredentialsIndex, never, FileSystem.FileSystem | LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const credentialsIndexPath = yield* indexPath(keyId);
-    const indexExists = yield* fileSystem
-      .exists(credentialsIndexPath)
-      .pipe(Effect.orElseSucceed(() => false));
-    if (!indexExists) return emptyCredentialsIndex();
-    return yield* fileSystem.readFileString(credentialsIndexPath).pipe(
-      Effect.flatMap((indexText) => Effect.try(() => JSON.parse(indexText))),
-      Effect.flatMap(Schema.decodeUnknown(CredentialsIndexSchema)),
-      Effect.orElseSucceed(emptyCredentialsIndex),
-    );
-  });
-/** Write an account's credentials index back to disk. */
-const writeIndex = (
-  keyId: string,
-  credentialsIndex: CredentialsIndex,
-): Effect.Effect<void, unknown, FileSystem.FileSystem | LaunchPathsService | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const credentialsDirectory = yield* resolveAccountCredentialsDirectory(keyId);
-    yield* fileSystem.makeDirectory(credentialsDirectory, { recursive: true });
-    const credentialsIndexPath = yield* indexPath(keyId);
-    yield* fileSystem.writeFileString(
-      credentialsIndexPath,
-      JSON.stringify(credentialsIndex, null, 2),
-    );
-  });
-/** Pull a single `<key>...</key><string>...</string>` value out of a provisioning profile's plist XML. */
-const plistString = (xml: string, key: string): string | null => {
-  const match = new RegExp(`<key>${key}</key>\\s*<string>([^<]+)</string>`).exec(xml);
-  const matchedText = match?.[1];
-  if (matchedText === undefined) return null;
-  return matchedText;
-};
-/** Pull the first entry of a `<key>...</key><array><string>...</string>` value (e.g. TeamIdentifier). */
-const plistFirstArrayString = (xml: string, key: string): string | null => {
-  const match = new RegExp(`<key>${key}</key>\\s*<array>\\s*<string>([^<]+)</string>`).exec(xml);
-  const matchedText = match?.[1];
-  if (matchedText === undefined) return null;
-  return matchedText;
-};
+
 /**
  * Return cached signing assets for a bundle id without any network call - the build's silent-reuse
  * path. Null if anything is missing (no cert backup, no installed profile), which tells the caller
@@ -243,186 +133,7 @@ export const loadCachedSigningAssets = (
     if (extensions.length > 0) signingAssets.extensionProfiles = extensionProfiles;
     return signingAssets;
   });
-/** Generate an RSA private key + certificate-signing request locally; returns the key path and CSR PEM. */
-const generateKeypairAndCsr = (
-  workDirectory: string,
-): Effect.Effect<
-  {
-    keyPath: string;
-    csrPem: string;
-  },
-  unknown,
-  AppleSigningPlatform
-> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const keyPath = pathService.join(workDirectory, 'dist.key');
-    const csrPath = pathService.join(workDirectory, 'dist.csr');
-    yield* captureCommandOutput('openssl', [
-      'req',
-      '-new',
-      '-newkey',
-      'rsa:2048',
-      '-nodes',
-      '-keyout',
-      keyPath,
-      '-out',
-      csrPath,
-      '-subj',
-      '/CN=Launch Distribution/O=Launch/C=US',
-    ]);
-    const csrPem = yield* fileSystem.readFileString(csrPath);
-    return { keyPath, csrPem };
-  });
-/** Package the signed certificate + private key into a password-protected `.p12` backup. */
-const packageP12 = (
-  workDirectory: string,
-  keyPath: string,
-  certBase64: string,
-  p12Path: string,
-  password: string,
-): Effect.Effect<void, unknown, AppleSigningPlatform> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const cerPath = pathService.join(workDirectory, 'dist.cer');
-    const certPemPath = pathService.join(workDirectory, 'dist.crt.pem');
-    yield* fileSystem.writeFile(cerPath, Buffer.from(certBase64, 'base64'));
-    yield* captureCommandOutput('openssl', [
-      'x509',
-      '-inform',
-      'DER',
-      '-in',
-      cerPath,
-      '-out',
-      certPemPath,
-    ]);
-    yield* captureCommandOutput('openssl', [
-      'pkcs12',
-      '-export',
-      '-inkey',
-      keyPath,
-      '-in',
-      certPemPath,
-      '-out',
-      p12Path,
-      '-passout',
-      `pass:${password}`,
-      '-name',
-      DISTRIBUTION_CERT_NAME,
-    ]);
-    yield* fileSystem.chmod(p12Path, 0o600);
-  });
-/** Import a `.p12` into the login Keychain, pre-authorizing codesign. Ignores an already-present item. */
-const importP12 = (
-  p12Path: string,
-  password: string,
-): Effect.Effect<void, unknown, CommandExecutor | LaunchEnvironmentService> =>
-  Effect.gen(function* () {
-    const importAttempt = yield* captureCommandOutput('security', [
-      'import',
-      p12Path,
-      '-P',
-      password,
-      '-T',
-      '/usr/bin/codesign',
-      '-T',
-      '/usr/bin/security',
-      '-f',
-      'pkcs12',
-    ]).pipe(Effect.either);
-    if (importAttempt._tag === 'Left' && !/already exists/i.test(String(importAttempt.left))) {
-      return yield* Effect.fail(importAttempt.left);
-    }
-  });
-/** Decode an installed profile to read its UUID, name, and Team ID (Xcode's manual-signing inputs). */
-const readProfileMetadata = (
-  profilePath: string,
-): Effect.Effect<
-  {
-    uuid: string;
-    name: string;
-    teamId: string | null;
-  },
-  AppleSigningFailure | unknown,
-  CommandExecutor | LaunchEnvironmentService
-> =>
-  Effect.gen(function* () {
-    const xml = yield* captureCommandOutput('security', ['cms', '-D', '-i', profilePath]);
-    const uuid = plistString(xml, 'UUID');
-    const name = plistString(xml, 'Name');
-    if (!uuid)
-      return yield* Effect.fail(
-        makeAppleSigningFailure({
-          message: `Could not read UUID/Name from provisioning profile at ${profilePath}.`,
-        }),
-      );
-    if (!name)
-      return yield* Effect.fail(
-        makeAppleSigningFailure({
-          message: `Could not read UUID/Name from provisioning profile at ${profilePath}.`,
-        }),
-      );
-    return { uuid, name, teamId: plistFirstArrayString(xml, 'TeamIdentifier') };
-  });
-/**
- * Decode the base64 profile content, install it where Xcode looks, and back it up per-account.
- * `backupName` is the backup filename base (without extension) - the App Store path passes the bundle
- * id; the ad-hoc path passes `<bundleId>.adhoc` so the two profiles for one bundle don't overwrite
- * each other's backup. (The installed copy is keyed by UUID, so it never collides regardless.)
- */
-const installProfile = (
-  keyId: string,
-  backupName: string,
-  profileContent: string,
-): Effect.Effect<
-  {
-    uuid: string;
-    name: string;
-    teamId: string | null;
-    installedPath: string;
-  },
-  AppleSigningFailure | unknown,
-  AppleSigningPlatform
-> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const credentialsDirectory = yield* resolveAccountCredentialsDirectory(keyId);
-    yield* fileSystem.makeDirectory(credentialsDirectory, { recursive: true });
-    const backupPath = pathService.join(credentialsDirectory, `${backupName}.mobileprovision`);
-    yield* fileSystem.writeFile(backupPath, Buffer.from(profileContent, 'base64'));
-    const { uuid, name, teamId } = yield* readProfileMetadata(backupPath);
-    const provisioningProfilesDirectory = yield* resolveProvisioningProfilesDirectory();
-    yield* fileSystem.makeDirectory(provisioningProfilesDirectory, { recursive: true });
-    const installedPath = pathService.join(
-      provisioningProfilesDirectory,
-      `${uuid}.mobileprovision`,
-    );
-    yield* fileSystem.copyFile(backupPath, installedPath);
-    return { uuid, name, teamId, installedPath };
-  });
 
-/** Prefer the installed profile's team and fall back to the App ID team when absent. */
-const resolveProfileTeamId = (
-  installedTeamId: string | null,
-  bundleTeamId: string | undefined,
-): string => {
-  if (installedTeamId !== null) return installedTeamId;
-  if (bundleTeamId !== undefined) return bundleTeamId;
-  return '';
-};
-/** Get (or create + persist) the random password that protects one account's `.p12` backup. */
-const p12Password = (keyId: string): Effect.Effect<string, unknown, LaunchSecretStoreService> =>
-  Effect.gen(function* () {
-    const account = p12PasswordAccount(keyId);
-    const existing = yield* getSecret(account);
-    if (existing) return existing;
-    const password = yield* randomHexSecret(24);
-    yield* setSecret(account, password);
-    return password;
-  });
 /** A SigningAssets stand-in for `--dry-run`, so the rest of the pipeline can run unchanged. */
 const dryRunAssets = (
   bundleId: string,
@@ -440,6 +151,7 @@ const dryRunAssets = (
       profilePath: pathService.join(provisioningProfilesDirectory, 'dry-run.mobileprovision'),
     };
   });
+
 /**
  * Resolve a bundle's signing assets, reusing what already exists and creating only what's missing.
  *
@@ -486,47 +198,17 @@ export const ensureSigningCredentials = (
     const index = yield* readIndex(keyId);
     // 1. Distribution certificate: reuse the cached one if Apple still lists it, else create one. One cert
     // signs every bundle in the team, so it's resolved once and shared by the main app and each extension.
-    const liveCerts = yield* client.listDistributionCertificates();
-    const password = yield* p12Password(keyId);
-    const reusable = yield* reusableCertificate(index, liveCerts);
-    let cert: CertRecord;
-    let freshCert = false;
-    if (reusable) {
-      cert = reusable;
-      yield* importP12(cert.p12Path, password);
-      yield* log.step(
-        'certificate',
-        `reusing distribution cert ${cert.serial}`,
-        'distribution-certificate',
-      );
-    } else {
-      if (liveCerts.length >= DISTRIBUTION_CERT_CAP) {
-        yield* log.warn(
-          `Apple already has ${liveCerts.length} distribution certificate(s) and none are Launch's. ` +
-            `If creation fails, revoke an unused one in the Developer portal (Apple caps these).`,
-        );
-      }
-      if (
-        !(yield* confirmCreate(
-          'Create a new distribution certificate (generates a private key on this Mac)?',
-        ))
-      ) {
-        return yield* Effect.fail(
-          makeAppleSigningFailure({
-            message: 'No usable distribution certificate. Re-run and confirm to create one.',
-          }),
-        );
-      }
-      cert = yield* createAndStoreCertificate(client, password, keyId);
-      freshCert = true;
-      index.certificate = cert;
-      yield* writeIndex(keyId, index);
-      yield* log.step(
-        'certificate',
-        `created distribution cert ${cert.serial}`,
-        'distribution-certificate',
-      );
-    }
+    const { cert, freshCert } = yield* ensureDistributionCertificate({
+      client,
+      keyId,
+      index,
+      confirmCreate,
+      log,
+      importToKeychain: true,
+      warnAtCertCap: true,
+      createConfirmMessage:
+        'Create a new distribution certificate (generates a private key on this Mac)?',
+    });
     // 2. App ID + App Store profile for the main bundle (reuse by name unless a fresh cert was minted).
     const main = yield* ensureAppStoreProfileForBundle({
       client,
@@ -561,163 +243,7 @@ export const ensureSigningCredentials = (
     if (Object.keys(extensionProfiles).length === 0) return main;
     return { ...main, extensionProfiles };
   });
-/** Inputs for {@link ensureAppStoreProfileForBundle} - one bundle's App ID + App Store profile step. */
-type EnsureProfileForBundleOptions = {
-  client: AppleCredentialsClient;
-  keyId: string;
-  index: CredentialsIndex;
-  platform: Platform;
-  bundleId: string;
-  appName: string;
-  cert: CertRecord;
-  freshCert: boolean;
-  confirmCreate: (message: string) => Effect.Effect<boolean, unknown>;
-  log: Logger;
-};
-export const profileStaleAgainstCapabilities = (
-  client: Pick<AppleCredentialsClient, 'listBundleIdCapabilities'>,
-  bundleIdResourceId: string,
-  profile: ProfileResource,
-): Effect.Effect<string[], unknown, ProfileEntitlementRequirements> =>
-  Effect.gen(function* () {
-    const enabledCapabilities = yield* client.listBundleIdCapabilities(bundleIdResourceId);
-    const enabled = enabledCapabilities.map((capability) => capability.capabilityType);
-    const profileEntitlements = yield* extractProfileEntitlements(profile.profileContent);
-    return staleProfileCapabilities(enabled, profileEntitlements);
-  });
-export const staleCachedSigningTargets = (
-  client: Pick<
-    AppleCredentialsClient,
-    'findBundleId' | 'findProfileByName' | 'listBundleIdCapabilities'
-  >,
-  signing: SigningAssets,
-): Effect.Effect<
-  {
-    bundleId: string;
-    missing: string[];
-  }[],
-  never,
-  ProfileEntitlementRequirements
-> =>
-  Effect.gen(function* () {
-    let extensionProfiles = signing.extensionProfiles;
-    if (extensionProfiles === undefined) extensionProfiles = {};
-    const targets = [
-      { bundleId: signing.bundleId, profileName: signing.profileName },
-      ...Object.entries(extensionProfiles).map(([bundleId, profileName]) => ({
-        bundleId,
-        profileName,
-      })),
-    ];
-    const graded = yield* Effect.forEach(
-      targets,
-      ({ bundleId, profileName }) =>
-        Effect.gen(function* () {
-          const bundle = yield* client.findBundleId(bundleId);
-          if (!bundle) return null;
-          const profile = yield* client.findProfileByName(profileName);
-          if (!profile) return null;
-          const missing = yield* profileStaleAgainstCapabilities(client, bundle.id, profile);
-          if (missing.length > 0) return { bundleId, missing };
-          return null;
-        }).pipe(Effect.catchAll(() => Effect.succeed(null))),
-      { concurrency: 'unbounded' },
-    );
-    return graded.filter(
-      (
-        target,
-      ): target is {
-        bundleId: string;
-        missing: string[];
-      } => target !== null,
-    );
-  });
-/**
- * Ensure one bundle id's App ID + App Store provisioning profile against a shared distribution cert,
- * install the profile where Xcode looks, and record it in the account index. The per-bundle unit reused
- * by {@link ensureSigningCredentials} for the main app and each embedded extension - both follow the
- * identical App ID -> App Store profile path; only the certificate (one per team) is shared between them.
- * Returns the local {@link SigningAssets} for the bundle.
- */
-const ensureAppStoreProfileForBundle = (
-  options: EnsureProfileForBundleOptions,
-): Effect.Effect<SigningAssets, AppleSigningFailure | unknown, AppleSigningPlatform> =>
-  Effect.gen(function* () {
-    const {
-      client,
-      keyId,
-      index,
-      platform,
-      bundleId,
-      appName,
-      cert,
-      freshCert,
-      confirmCreate,
-      log,
-    } = options;
-    // App ID must be registered before a profile can reference it.
-    let bundle = yield* client.findBundleId(bundleId);
-    if (!bundle) {
-      if (!(yield* confirmCreate(`Register App ID "${bundleId}" in your Apple account?`))) {
-        return yield* Effect.fail(
-          makeAppleSigningFailure({
-            message: `App ID ${bundleId} is not registered. Re-run and confirm, or register it in the Developer portal.`,
-          }),
-        );
-      }
-      const bundleIdPlatform = yield* toBundleIdPlatform(platform);
-      bundle = yield* client.createBundleId(bundleId, appName, bundleIdPlatform);
-      yield* log.step('app id', `registered ${bundleId}`, 'bundle-id');
-    } else {
-      yield* log.step('app id', `${bundleId} already registered`, 'bundle-id');
-    }
-    // App Store profile: reuse by name unless we just minted a new cert (then recreate to match it) OR the
-    // cached profile predates a capability now enabled on the App ID (issue #261 - App Groups was turned on
-    // after the profile was minted, so the reused profile omits the entitlement and xcodebuild exits 65).
-    // Space-free name so it passes safely through xcodebuild's PROVISIONING_PROFILE_SPECIFIER setting.
-    const profileName = `Launch_${bundleId}_AppStore`;
-    const existingProfile = yield* client.findProfileByName(profileName);
-    let staleCapabilities: string[] = [];
-    if (existingProfile && !freshCert) {
-      staleCapabilities = yield* profileStaleAgainstCapabilities(
-        client,
-        bundle.id,
-        existingProfile,
-      );
-    }
-    let profile: ProfileResource;
-    if (existingProfile && !freshCert && staleCapabilities.length === 0) {
-      profile = existingProfile;
-      yield* log.step('profile', `reusing ${profileName}`, 'provisioning-profile');
-    } else {
-      if (existingProfile) yield* client.deleteProfile(existingProfile.id);
-      const profileType = yield* appStoreProfileType(platform);
-      profile = yield* client.createAppStoreProfile(profileName, bundle.id, cert.id, profileType);
-      let reason = `created ${profileName}`;
-      if (staleCapabilities.length)
-        reason = `regenerated ${profileName} (was missing ${staleCapabilities.join(', ')})`;
-      yield* log.step('profile', reason, 'provisioning-profile');
-    }
-    const installed = yield* installProfile(keyId, bundleId, profile.profileContent);
-    const teamId = resolveProfileTeamId(installed.teamId, bundle.seedId);
-    index.profiles[bundleId] = {
-      id: profile.id,
-      uuid: installed.uuid,
-      name: installed.name,
-      path: installed.installedPath,
-      teamId,
-    };
-    yield* writeIndex(keyId, index);
-    return {
-      bundleId,
-      teamId,
-      certName: DISTRIBUTION_CERT_NAME,
-      certSerial: cert.serial,
-      profileName: installed.name,
-      profileUuid: installed.uuid,
-      profilePath: installed.installedPath,
-    };
-  });
+
 /**
  * Resolve signing assets for an ad-hoc (internal-distribution) build - the install-link twin of
  * {@link ensureSigningCredentials}.
@@ -766,55 +292,28 @@ export const ensureAdHocSigningCredentials = (
     const client = yield* appleCredentialsClientFactory.createClient(ascKey);
     const index = yield* readIndex(keyId);
     // 1. App ID - same prerequisite as the App Store path.
-    let bundle = yield* client.findBundleId(bundleId);
-    if (!bundle) {
-      if (!(yield* confirmCreate(`Register App ID "${bundleId}" in your Apple account?`))) {
-        return yield* Effect.fail(
-          makeAppleSigningFailure({
-            message: `App ID ${bundleId} is not registered. Re-run and confirm, or register it in the portal.`,
-          }),
-        );
-      }
-      const bundleIdPlatform = yield* toBundleIdPlatform(platform);
-      bundle = yield* client.createBundleId(bundleId, appName, bundleIdPlatform);
-      yield* log.step('app id', `registered ${bundleId}`, 'bundle-id');
-    } else {
-      yield* log.step('app id', `${bundleId} already registered`, 'bundle-id');
-    }
+    const bundle = yield* ensureRegisteredBundleId({
+      client,
+      platform,
+      bundleId,
+      appName,
+      confirmCreate,
+      log,
+      declineMessage: `App ID ${bundleId} is not registered. Re-run and confirm, or register it in the portal.`,
+    });
     // 2. Distribution certificate - reuse the cached one (importing the .p12) or create one.
-    const liveCerts = yield* client.listDistributionCertificates();
-    const password = yield* p12Password(keyId);
-    const reusable = yield* reusableCertificate(index, liveCerts);
-    let cert: CertRecord;
-    if (reusable) {
-      cert = reusable;
-      yield* importP12(cert.p12Path, password);
-      yield* log.step(
-        'certificate',
-        `reusing distribution cert ${cert.serial}`,
-        'distribution-certificate',
-      );
-    } else {
-      if (
-        !(yield* confirmCreate(
-          'Create a new distribution certificate (generates a private key on this Mac)?',
-        ))
-      ) {
-        return yield* Effect.fail(
-          makeAppleSigningFailure({
-            message: 'No usable distribution certificate. Re-run and confirm to create one.',
-          }),
-        );
-      }
-      cert = yield* createAndStoreCertificate(client, password, keyId);
-      index.certificate = cert;
-      yield* writeIndex(keyId, index);
-      yield* log.step(
-        'certificate',
-        `created distribution cert ${cert.serial}`,
-        'distribution-certificate',
-      );
-    }
+    // Ad-hoc historically skips the cert-cap warning (devices fail first when the team is empty).
+    const { cert } = yield* ensureDistributionCertificate({
+      client,
+      keyId,
+      index,
+      confirmCreate,
+      log,
+      importToKeychain: true,
+      warnAtCertCap: false,
+      createConfirmMessage:
+        'Create a new distribution certificate (generates a private key on this Mac)?',
+    });
     // 3. Every registered, enabled device goes on the profile (disabled devices don't count to Apple).
     const devices = (yield* client.listDevices()).filter((device) => device.status !== 'DISABLED');
     if (devices.length === 0) {
@@ -850,6 +349,7 @@ export const ensureAdHocSigningCredentials = (
       profilePath: installed.installedPath,
     };
   });
+
 /**
  * Local files + identifiers needed to sign on a REMOTE Mac, produced by {@link ensureRemoteSigningAssets}.
  *
@@ -868,6 +368,7 @@ export type RemoteSigningBundle = {
   p12Password: string;
   profilePath: string;
 };
+
 /**
  * Resolve a bundle's signing assets for a REMOTE (off-Mac) build, leaving local files to upload.
  *
@@ -909,62 +410,27 @@ export const ensureRemoteSigningAssets = (
     const client = yield* appleCredentialsClientFactory.createClient(ascKey);
     const index = yield* readIndex(keyId);
     // 1. App ID must exist before a profile can reference it.
-    let bundle = yield* client.findBundleId(bundleId);
-    if (!bundle) {
-      if (!(yield* confirmCreate(`Register App ID "${bundleId}" in your Apple account?`))) {
-        return yield* Effect.fail(
-          makeAppleSigningFailure({
-            message: `App ID ${bundleId} is not registered. Re-run and confirm, or register it in the portal.`,
-          }),
-        );
-      }
-      const bundleIdPlatform = yield* toBundleIdPlatform(platform);
-      bundle = yield* client.createBundleId(bundleId, appName, bundleIdPlatform);
-      yield* log.step('app id', `registered ${bundleId}`, 'bundle-id');
-    } else {
-      yield* log.step('app id', `${bundleId} already registered`, 'bundle-id');
-    }
+    const bundle = yield* ensureRegisteredBundleId({
+      client,
+      platform,
+      bundleId,
+      appName,
+      confirmCreate,
+      log,
+      declineMessage: `App ID ${bundleId} is not registered. Re-run and confirm, or register it in the portal.`,
+    });
     // 2. Distribution cert as a local .p12 - reuse the cached one, else mint with openssl (no keychain import).
-    const liveCerts = yield* client.listDistributionCertificates();
-    const password = yield* p12Password(keyId);
-    const reusable = yield* reusableCertificate(index, liveCerts);
-    let cert: CertRecord;
-    let freshCert = false;
-    if (reusable) {
-      cert = reusable;
-      yield* log.step(
-        'certificate',
-        `reusing distribution cert ${cert.serial}`,
-        'distribution-certificate',
-      );
-    } else {
-      if (liveCerts.length >= DISTRIBUTION_CERT_CAP) {
-        yield* log.warn(
-          `Apple already has ${liveCerts.length} distribution certificate(s) and none are Launch's. ` +
-            `If creation fails, revoke an unused one in the Developer portal (Apple caps these).`,
-        );
-      }
-      if (
-        !(yield* confirmCreate(
-          'Create a new distribution certificate (generates a private key on this machine)?',
-        ))
-      ) {
-        return yield* Effect.fail(
-          makeAppleSigningFailure({
-            message: 'No usable distribution certificate. Re-run and confirm to create one.',
-          }),
-        );
-      }
-      cert = yield* createCertificateForUpload(client, password, keyId);
-      freshCert = true;
-      index.certificate = cert;
-      yield* writeIndex(keyId, index);
-      yield* log.step(
-        'certificate',
-        `created distribution cert ${cert.serial}`,
-        'distribution-certificate',
-      );
-    }
+    const { cert, freshCert, password } = yield* ensureDistributionCertificate({
+      client,
+      keyId,
+      index,
+      confirmCreate,
+      log,
+      importToKeychain: false,
+      warnAtCertCap: true,
+      createConfirmMessage:
+        'Create a new distribution certificate (generates a private key on this machine)?',
+    });
     // 3. App Store profile - reuse by name unless a fresh cert was minted; save the bytes to upload.
     const profileName = `Launch_${bundleId}_AppStore`;
     const existingProfile = yield* client.findProfileByName(profileName);
@@ -997,68 +463,14 @@ export const ensureRemoteSigningAssets = (
       profilePath,
     };
   });
-/** Mint a distribution cert + local `.p12` for upload, WITHOUT importing it into a local keychain. */
-const createCertificateForUpload = (
-  client: AppleCredentialsClient,
-  password: string,
-  keyId: string,
-): Effect.Effect<CertRecord, unknown, AppleSigningPlatform> =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const pathService = yield* Path.Path;
-      const workDirectory = yield* fileSystem.makeTempDirectoryScoped({ prefix: 'launch-cert-' });
-      const { keyPath, csrPem } = yield* generateKeypairAndCsr(workDirectory);
-      const created = yield* client.createCertificate(csrPem);
-      const credentialsDirectory = yield* resolveAccountCredentialsDirectory(keyId);
-      yield* fileSystem.makeDirectory(credentialsDirectory, { recursive: true });
-      const p12Path = pathService.join(credentialsDirectory, `dist-${created.serialNumber}.p12`);
-      yield* packageP12(workDirectory, keyPath, created.certificateContent, p12Path, password);
-      return { id: created.id, serial: created.serialNumber, p12Path };
-    }),
-  );
-/** A cached cert is reusable only if Apple still lists its serial and the local `.p12` backup exists. */
-const reusableCertificate = (
-  index: CredentialsIndex,
-  liveCerts: CertificateResource[],
-): Effect.Effect<CertRecord | null, never, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const cached = index.certificate;
-    if (!cached) return null;
-    if (!(yield* fileSystem.exists(cached.p12Path).pipe(Effect.orElseSucceed(() => false))))
-      return null;
-    if (liveCerts.some((certificate) => certificate.serialNumber === cached.serial)) return cached;
-    return null;
-  });
-/** Generate a key/CSR, ask Apple to sign it, and package + back up the `.p12`. Returns the record. */
-const createAndStoreCertificate = (
-  client: AppleCredentialsClient,
-  password: string,
-  keyId: string,
-): Effect.Effect<CertRecord, unknown, AppleSigningPlatform> =>
-  Effect.scoped(
-    Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const pathService = yield* Path.Path;
-      const workDirectory = yield* fileSystem.makeTempDirectoryScoped({ prefix: 'launch-cert-' });
-      const { keyPath, csrPem } = yield* generateKeypairAndCsr(workDirectory);
-      const created = yield* client.createCertificate(csrPem);
-      const credentialsDirectory = yield* resolveAccountCredentialsDirectory(keyId);
-      yield* fileSystem.makeDirectory(credentialsDirectory, { recursive: true });
-      const p12Path = pathService.join(credentialsDirectory, `dist-${created.serialNumber}.p12`);
-      yield* packageP12(workDirectory, keyPath, created.certificateContent, p12Path, password);
-      yield* importP12(p12Path, password);
-      return { id: created.id, serial: created.serialNumber, p12Path };
-    }),
-  );
+
 /**
  * Move a pre-multi-account signing index (the flat `~/.launch/credentials/index.json` plus the `.p12`
  * and `.mobileprovision` files it references) into the per-account folder for `keyId`, rewriting the
- * stored paths so {@link reusableCertificate} still finds the cached `.p12` (and so doesn't burn an
- * Apple cert slot re-creating one). Best-effort and idempotent: a missing legacy index is a no-op, and
- * a failed file move just leaves that account to re-provision on its next build. Called once by the
- * account-registry migration; see `core/accounts.ts`.
+ * stored paths so a later reuse still finds the cached `.p12` (and so doesn't burn an Apple cert slot
+ * re-creating one). Best-effort and idempotent: a missing legacy index is a no-op, and a failed file
+ * move just leaves that account to re-provision on its next build. Called once by the account-registry
+ * migration; see `core/accounts.ts`.
  */
 export const migrateLegacySigningIndex = (
   keyId: string,
