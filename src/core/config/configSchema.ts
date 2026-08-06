@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { Effect, Schema } from 'effect';
 import { type JsonSchema, JsonSchemaNode, type SchemaViolation } from './jsonSchema.js';
 import { validateLaunchConfig } from './schema.js';
+
 /**
  * Absolute path to the committed schema, resolved relative to THIS module so it points at the copy that
  * actually ships: `<root>/schema/...` under vitest (`src/core/config/configSchema.ts`) and
@@ -13,26 +14,28 @@ import { validateLaunchConfig } from './schema.js';
 const SCHEMA_PATH = fileURLToPath(
   new URL('../../../schema/launch.config.schema.json', import.meta.url),
 );
+
 /** Memoized parse of the committed schema - it's immutable at runtime, so read and parse it once. */
-let cached: JsonSchema | undefined;
+let cachedSchema: JsonSchema | undefined;
+
 /** Load and cache the committed JSON Schema used by config commands and MCP tools. */
 export const loadConfigSchema = (): Effect.Effect<JsonSchema, unknown, FileSystem.FileSystem> => {
-  if (cached !== undefined) return Effect.succeed(cached);
+  if (cachedSchema !== undefined) {
+    return Effect.succeed(cachedSchema);
+  }
   return Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const schemaText = yield* fileSystem.readFileString(SCHEMA_PATH);
     const loadedSchema = yield* Schema.decodeUnknown(Schema.parseJson(JsonSchemaNode))(schemaText);
-    cached = loadedSchema;
+    cachedSchema = loadedSchema;
     return loadedSchema;
   });
 };
+
 /**
- * Validate a candidate config against the SSOT schema, returning every violation (empty when it's valid).
- * The value is the authoring shape ({@link import("./config.js").LaunchConfigInput}): `profiles` required,
- * provider names optional (they default). Unknown keys at any level are flagged (the schema is strict),
- * and cross-field semantics are a separate advisory pass (`configSemantics.ts`). Callers decide how to
- * surface the violations and the exit code.
+ * Validate a candidate config against the Effect Schema SSOT, returning every violation (empty when valid).
+ * Authoring shape: `profiles` required, provider names optional (they default). Unknown keys at any level
+ * are flagged. Cross-field semantics are a separate advisory pass (`configSemantics.ts`).
  */
-export const validateConfig = (candidateConfig: unknown): SchemaViolation[] => {
-  return validateLaunchConfig(candidateConfig);
-};
+export const validateConfig = (candidateConfig: unknown): SchemaViolation[] =>
+  validateLaunchConfig(candidateConfig);

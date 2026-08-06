@@ -180,20 +180,7 @@ const OfferCodeConfigEffectSchema = Schema.Struct({
   description: `A subscription offer-code campaign (Apple's \`subscriptionOfferCodes\`) - a redeemable promo that grants an introductory price. \`name\` is the reconciler's natural key (unique per subscription); offer-code terms are immutable once created, so the reconciler only ever creates a missing code, never edits one (deactivation is the explicit \`launch offers deactivate\` action). One-time-use and custom code batches are generated separately (the imperative \`launch offers codes\` subcommands), not declared here.`,
 });
 const PromotionalOfferConfigEffectSchema = Schema.Struct({
-  duration: described(OfferDurationSchema, 'Offer billing duration unit.'),
-  offerMode: described(
-    OfferModeSchema,
-    'How the offer discounts. `FREE_TRIAL` must omit {@link OfferConfigBase.prices}.',
-  ),
-  numberOfPeriods: Schema.Number.annotations({
-    description: 'How many {@link OfferConfigBase.duration} units the offer spans.',
-  }),
-  prices: Schema.optional(
-    described(
-      Schema.Array(OfferPriceEffectSchema),
-      'Per-territory discounted prices. Required unless `offerMode` is `FREE_TRIAL`.',
-    ),
-  ),
+  ...OfferConfigBaseSchema,
   name: Schema.String.annotations({ description: 'Internal name shown in App Store Connect.' }),
   offerCode: Schema.String.annotations({
     description: `Product-level offer identifier the app references in StoreKit - the reconciler's key.`,
@@ -237,20 +224,7 @@ const IntroductoryOfferConfigEffectSchema = Schema.Struct({
   description: `An introductory offer (Apple's \`subscriptionIntroductoryOffers\`) - the one auto-applied first-time discount. Apple allows at most one per (subscription, territory); when \`territory\` is omitted it applies to all territories the subscription is sold in. \`territory\` is the reconciler's natural key.`,
 });
 const WinBackOfferConfigEffectSchema = Schema.Struct({
-  duration: described(OfferDurationSchema, 'Offer billing duration unit.'),
-  offerMode: described(
-    OfferModeSchema,
-    'How the offer discounts. `FREE_TRIAL` must omit {@link OfferConfigBase.prices}.',
-  ),
-  numberOfPeriods: Schema.Number.annotations({
-    description: 'How many {@link OfferConfigBase.duration} units the offer spans.',
-  }),
-  prices: Schema.optional(
-    described(
-      Schema.Array(OfferPriceEffectSchema),
-      'Per-territory discounted prices. Required unless `offerMode` is `FREE_TRIAL`.',
-    ),
-  ),
+  ...OfferConfigBaseSchema,
   offerId: Schema.String.annotations({
     description: `Stable offer identifier the app references - the reconciler's key (unique within the app).`,
   }),
@@ -1001,19 +975,67 @@ This is the home for *backend-only* values that sit in the app's \`.env\` for lo
 });
 export type ParsedLaunchConfig = Schema.Schema.Type<typeof LaunchConfigEffectSchema>;
 export type LaunchConfigEffectInput = Schema.Schema.Encoded<typeof LaunchConfigEffectSchema>;
-export const parseLaunchConfig = (
-  candidateConfig: unknown,
-): Effect.Effect<ParsedLaunchConfig, ParseResult.ParseError> => {
-  return Schema.decodeUnknown(LaunchConfigEffectSchema, CONFIG_PARSE_OPTIONS)(candidateConfig);
+
+/** Dotted path used in {@link SchemaViolation} reports (`profiles.production.sizeBudgetMB`, `items[0]`). */
+const formatSchemaPath = (pathKeys: readonly PropertyKey[]): string => {
+  let formattedPath = '';
+  for (const pathKey of pathKeys) {
+    if (typeof pathKey === 'number') {
+      formattedPath += `[${pathKey}]`;
+      continue;
+    }
+    if (typeof pathKey === 'string' && /^[A-Za-z_$][\w$]*$/.test(pathKey)) {
+      if (formattedPath.length > 0) {
+        formattedPath += `.${pathKey}`;
+      } else {
+        formattedPath += pathKey;
+      }
+      continue;
+    }
+    formattedPath += `[${JSON.stringify(String(pathKey))}]`;
+  }
+  return formattedPath;
 };
-export const validateLaunchConfig = (candidateConfig: unknown): SchemaViolation[] => {
-  const decodedConfig = Schema.decodeUnknownEither(
-    LaunchConfigEffectSchema,
-    CONFIG_PARSE_OPTIONS,
-  )(candidateConfig);
-  if (decodedConfig._tag === 'Right') return [];
-  return parseIssueToViolations(decodedConfig.left.issue, []);
+
+const schemaViolation = (pathKeys: readonly PropertyKey[], message: string): SchemaViolation => ({
+  path: formatSchemaPath(pathKeys),
+  message,
+});
+
+const issueMessage = (message: string | undefined, fallbackMessage: string): string => {
+  if (message === undefined) {
+    return fallbackMessage;
+  }
+  return message;
 };
+
+const pathSegments = (path: ParseResult.Path): PropertyKey[] => {
+  const pathValue: PropertyKey | readonly PropertyKey[] = path;
+  if (typeof pathValue === 'string') {
+    return [pathValue];
+  }
+  if (typeof pathValue === 'number') {
+    return [pathValue];
+  }
+  if (typeof pathValue === 'symbol') {
+    return [pathValue];
+  }
+  return [...pathValue];
+};
+
+const parseIssuesToViolations = (
+  parseIssues: ParseResult.SingleOrNonEmpty<ParseResult.ParseIssue>,
+  parentPath: PropertyKey[],
+): SchemaViolation[] => {
+  let issueList: readonly ParseResult.ParseIssue[];
+  if ('_tag' in parseIssues) {
+    issueList = [parseIssues];
+  } else {
+    issueList = parseIssues;
+  }
+  return issueList.flatMap((nestedIssue) => parseIssueToViolations(nestedIssue, parentPath));
+};
+
 const parseIssueToViolations = (
   parseIssue: ParseResult.ParseIssue,
   parentPath: PropertyKey[],
@@ -1030,47 +1052,28 @@ const parseIssueToViolations = (
     case 'Transformation':
       return parseIssueToViolations(parseIssue.issue, parentPath);
     case 'Unexpected':
-      return [{ path: formatPath(parentPath), message: 'unknown property' }];
-    case 'Missing': {
-      let message = parseIssue.message;
-      if (message === undefined) message = 'is required';
-      return [{ path: formatPath(parentPath), message }];
-    }
+      return [schemaViolation(parentPath, 'unknown property')];
+    case 'Missing':
+      return [schemaViolation(parentPath, issueMessage(parseIssue.message, 'is required'))];
     case 'Type':
-    case 'Forbidden': {
-      let message = parseIssue.message;
-      if (message === undefined) message = 'invalid value';
-      return [{ path: formatPath(parentPath), message }];
-    }
+    case 'Forbidden':
+      return [schemaViolation(parentPath, issueMessage(parseIssue.message, 'invalid value'))];
   }
 };
-const pathSegments = (path: ParseResult.Path): PropertyKey[] => {
-  const pathValue: PropertyKey | readonly PropertyKey[] = path;
-  if (typeof pathValue === 'string') return [pathValue];
-  if (typeof pathValue === 'number') return [pathValue];
-  if (typeof pathValue === 'symbol') return [pathValue];
-  return [...pathValue];
+
+export const parseLaunchConfig = (
+  candidateConfig: unknown,
+): Effect.Effect<ParsedLaunchConfig, ParseResult.ParseError> => {
+  return Schema.decodeUnknown(LaunchConfigEffectSchema, CONFIG_PARSE_OPTIONS)(candidateConfig);
 };
-const parseIssuesToViolations = (
-  parseIssues: ParseResult.SingleOrNonEmpty<ParseResult.ParseIssue>,
-  parentPath: PropertyKey[],
-): SchemaViolation[] => {
-  let issueList: readonly ParseResult.ParseIssue[];
-  if ('_tag' in parseIssues) issueList = [parseIssues];
-  else issueList = parseIssues;
-  return issueList.flatMap((nestedIssue) => parseIssueToViolations(nestedIssue, parentPath));
-};
-const formatPath = (path: readonly PropertyKey[]): string => {
-  let formattedPath = '';
-  for (const pathSegment of path) {
-    if (typeof pathSegment === 'number') {
-      formattedPath += `[${pathSegment}]`;
-    } else if (typeof pathSegment === 'string' && /^[A-Za-z_$][\w$]*$/.test(pathSegment)) {
-      if (formattedPath) formattedPath += `.${pathSegment}`;
-      else formattedPath += pathSegment;
-    } else {
-      formattedPath += `[${JSON.stringify(String(pathSegment))}]`;
-    }
+
+export const validateLaunchConfig = (candidateConfig: unknown): SchemaViolation[] => {
+  const decodedConfig = Schema.decodeUnknownEither(
+    LaunchConfigEffectSchema,
+    CONFIG_PARSE_OPTIONS,
+  )(candidateConfig);
+  if (decodedConfig._tag === 'Right') {
+    return [];
   }
-  return formattedPath;
+  return parseIssueToViolations(decodedConfig.left.issue, []);
 };
