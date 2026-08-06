@@ -8,6 +8,7 @@ import type {
 } from '@core/types/readiness.js';
 import { type SourceScanRequirements, walkAppSource } from '../sourceScan.js';
 import { declaredAppleProductIds } from './iapReadiness.js';
+import { OMITTED_PROBE } from './credentialsSkip.js';
 /** Return the first StoreKit configuration path found under an app directory. */
 const findStoreKitConfig = (
   appDirectory: string,
@@ -55,7 +56,7 @@ export const storeKitConfigProbe = {
           directory: configuredApp.dir,
         });
       }
-      if (scopedApps.length === 0) return { state: 'omitted' };
+      if (scopedApps.length === 0) return OMITTED_PROBE;
       const appFindings = yield* Effect.forEach(
         scopedApps,
         ({

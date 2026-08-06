@@ -8,6 +8,7 @@ import type {
 import { REQUIRED_APPLE_SCREENSHOT_DISPLAY_TYPES } from '@core/listing/screenshots/specs.js';
 import { Effect } from 'effect';
 import { iosApps } from '../appScopes.js';
+import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
 /** Apple's display-type prefix for every iPhone screenshot class (e.g. `APP_IPHONE_67`, `APP_IPHONE_65`). */
 const IPHONE_DISPLAY_PREFIX = 'APP_IPHONE';
 const populatedIphoneDisplayTypes = (
@@ -57,14 +58,9 @@ export const screenshotsProbe = {
   check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
     return Effect.gen(function* () {
       const apps = iosApps(readinessContext.apps);
-      if (apps.length === 0) return { state: 'omitted' };
+      if (apps.length === 0) return OMITTED_PROBE;
       const api = yield* readinessContext.resolveAscApi();
-      if (!api)
-        return {
-          state: 'skipped',
-          reason: 'no active Apple account',
-          hint: 'run `launch creds set-key`',
-        };
+      if (!api) return SKIPPED_NO_APPLE_ACCOUNT;
       const results: AppReadiness[] = yield* Effect.forEach(
         apps,
         ({ name, identifier }) =>

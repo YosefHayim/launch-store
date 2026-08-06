@@ -7,6 +7,7 @@ import type {
 } from '@core/types/readiness.js';
 import { Effect } from 'effect';
 import { mapEntitlementsToCapabilities } from '@core/credentials/capabilities.js';
+import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
 /** An in-scope app: declares a bundle id and at least one entitlement that maps to a portal capability. */
 type EntitledApp = {
   name: string;
@@ -36,14 +37,9 @@ export const profileEntitlementsProbe = {
   check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
     return Effect.gen(function* () {
       const apps = entitledApps(readinessContext.apps);
-      if (apps.length === 0) return { state: 'omitted' };
+      if (apps.length === 0) return OMITTED_PROBE;
       const api = yield* readinessContext.resolveAscApi();
-      if (!api)
-        return {
-          state: 'skipped',
-          reason: 'no active Apple account',
-          hint: 'run `launch creds set-key`',
-        };
+      if (!api) return SKIPPED_NO_APPLE_ACCOUNT;
       const results: AppReadiness[] = yield* Effect.forEach(
         apps,
         ({ name, identifier, required }) =>

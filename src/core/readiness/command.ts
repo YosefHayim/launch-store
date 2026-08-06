@@ -9,13 +9,14 @@ import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import { createAscClientResolver, createPlayClientResolver } from '../store/storeClients.js';
 import { selectApps } from '../store/syncJobs.js';
+import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
 import type {
+  AppReadiness,
   ProbeReport,
   ReadinessContext,
   ReadinessOutcome,
   ReadinessStore,
 } from '../types/readiness.js';
-import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
 import { READINESS_EXIT, runProbes } from './orchestrator.js';
 import { registerBuiltinProbes, selectReadinessProbes } from './registry.js';
 
@@ -58,14 +59,20 @@ type ReadinessCommandRequirements =
   | Logger
   | Path.Path;
 
+const READINESS_STORES: readonly ReadinessStore[] = ['appstore', 'play'];
+
+const STORE_LABELS: Readonly<Record<ReadinessStore, string>> = {
+  appstore: 'App Store',
+  play: 'Google Play',
+};
+
 /** Convert an unknown command dependency failure into the readiness command's tagged failure. */
-const commandFailure = (operation: string, cause: unknown): ReadinessCommandFailure => {
-  return makeReadinessCommandFailure({
+const commandFailure = (operation: string, cause: unknown): ReadinessCommandFailure =>
+  makeReadinessCommandFailure({
     operation,
     message: errorMessage(cause),
     cause,
   });
-};
 
 /** Map one terminal write into the readiness command's failure channel. */
 const writeLog = (
@@ -75,9 +82,61 @@ const writeLog = (
   logWrite.pipe(Effect.mapError((cause) => commandFailure(operation, cause)));
 
 /** Human store name for a report header. */
-const storeLabel = (store: ReadinessStore): string => {
-  if (store === 'appstore') return 'App Store';
-  return 'Google Play';
+export const readinessStoreLabel = (store: ReadinessStore): string => STORE_LABELS[store];
+
+/** Build the human summary detail after probe tallies (without the command-specific prefix). */
+export const formatReadinessSummaryDetail = (readinessOutcome: ReadinessOutcome): string => {
+  const summaryParts: string[] = [];
+  if (readinessOutcome.blockerCount > 0) {
+    summaryParts.push(`${readinessOutcome.blockerCount} blocker(s)`);
+  }
+  if (readinessOutcome.errorCount > 0) {
+    summaryParts.push(`${readinessOutcome.errorCount} unreadable`);
+  }
+  if (readinessOutcome.warnCount > 0) {
+    summaryParts.push(`${readinessOutcome.warnCount} warning(s)`);
+  }
+  if (readinessOutcome.skippedCount > 0) {
+    summaryParts.push(`${readinessOutcome.skippedCount} skipped`);
+  }
+  if (summaryParts.length === 0) return 'all clear';
+  return summaryParts.join(' - ');
+};
+
+/** Optional tip line when a finding or skip carries a hint. */
+const writeOptionalHint = (
+  hint: string | undefined,
+  operation: string,
+  logger: Logger,
+): Effect.Effect<void, ReadinessCommandFailure> => {
+  if (hint === undefined) return Effect.void;
+  return writeLog(operation, logger.tip(hint));
+};
+
+/** Render one app finding inside a checked probe report. */
+const renderAppReadiness = (
+  logger: Logger,
+  title: string,
+  appReadiness: AppReadiness,
+): Effect.Effect<void, ReadinessCommandFailure> => {
+  const reportLine = `${title} - ${appReadiness.app}: ${appReadiness.detail}`;
+  switch (appReadiness.status) {
+    case 'ok':
+      return writeLog(
+        'render clear readiness probe',
+        logger.step(title, `${appReadiness.app}: ${appReadiness.detail}`),
+      );
+    case 'warn':
+      return Effect.gen(function* () {
+        yield* writeLog('render readiness warning', logger.warn(reportLine));
+        yield* writeOptionalHint(appReadiness.hint, 'render readiness warning hint', logger);
+      });
+    case 'blocker':
+      return Effect.gen(function* () {
+        yield* writeLog('render readiness blocker', logger.error(reportLine));
+        yield* writeOptionalHint(appReadiness.hint, 'render readiness blocker hint', logger);
+      });
+  }
 };
 
 /** Render one probe's report through the shared terminal logger. */
@@ -87,43 +146,27 @@ const renderProbeReport = (
 ): Effect.Effect<void, ReadinessCommandFailure> =>
   Effect.gen(function* () {
     const { outcome, title } = probeReport;
-    if (outcome.state === 'skipped') {
-      yield* writeLog(
-        'render skipped readiness probe',
-        logger.warn(`${title}: skipped - ${outcome.reason}`),
-      );
-      if (outcome.hint !== undefined)
-        yield* writeLog('render readiness probe hint', logger.tip(outcome.hint));
-      return;
-    }
-    if (outcome.state === 'errored') {
-      yield* writeLog(
-        'render unreadable readiness probe',
-        logger.error(`${title}: ${outcome.error}`),
-      );
-      return;
-    }
-    if (outcome.state !== 'checked') return;
-    for (const appReadiness of outcome.apps) {
-      const reportLine = `${title} - ${appReadiness.app}: ${appReadiness.detail}`;
-      switch (appReadiness.status) {
-        case 'ok':
-          yield* writeLog(
-            'render clear readiness probe',
-            logger.step(title, `${appReadiness.app}: ${appReadiness.detail}`),
-          );
-          break;
-        case 'warn':
-          yield* writeLog('render readiness warning', logger.warn(reportLine));
-          if (appReadiness.hint !== undefined)
-            yield* writeLog('render readiness warning hint', logger.tip(appReadiness.hint));
-          break;
-        case 'blocker':
-          yield* writeLog('render readiness blocker', logger.error(reportLine));
-          if (appReadiness.hint !== undefined)
-            yield* writeLog('render readiness blocker hint', logger.tip(appReadiness.hint));
-          break;
-      }
+    switch (outcome.state) {
+      case 'skipped':
+        yield* writeLog(
+          'render skipped readiness probe',
+          logger.warn(`${title}: skipped - ${outcome.reason}`),
+        );
+        yield* writeOptionalHint(outcome.hint, 'render readiness probe hint', logger);
+        return;
+      case 'errored':
+        yield* writeLog(
+          'render unreadable readiness probe',
+          logger.error(`${title}: ${outcome.error}`),
+        );
+        return;
+      case 'checked':
+        for (const appReadiness of outcome.apps) {
+          yield* renderAppReadiness(logger, title, appReadiness);
+        }
+        return;
+      case 'omitted':
+        return;
     }
   });
 
@@ -138,30 +181,21 @@ export const renderReadinessOutcome = (
       yield* writeLog('render empty readiness report', logger.note(labels.empty));
       return;
     }
-    for (const store of ['appstore', 'play'] as const) {
+    for (const store of READINESS_STORES) {
       const storeReports = readinessOutcome.reports.filter(
         (probeReport) => probeReport.store === store,
       );
       if (storeReports.length === 0) continue;
-      yield* writeLog('render readiness store', logger.note(storeLabel(store)));
+      yield* writeLog('render readiness store', logger.note(readinessStoreLabel(store)));
       for (const probeReport of storeReports) yield* renderProbeReport(logger, probeReport);
     }
-    const summaryParts: string[] = [];
-    if (readinessOutcome.blockerCount > 0)
-      summaryParts.push(`${readinessOutcome.blockerCount} blocker(s)`);
-    if (readinessOutcome.errorCount > 0)
-      summaryParts.push(`${readinessOutcome.errorCount} unreadable`);
-    if (readinessOutcome.warnCount > 0)
-      summaryParts.push(`${readinessOutcome.warnCount} warning(s)`);
-    if (readinessOutcome.skippedCount > 0)
-      summaryParts.push(`${readinessOutcome.skippedCount} skipped`);
     yield* writeLog('render readiness summary', logger.gap());
-    let summaryDetail = 'all clear';
-    if (summaryParts.length > 0) summaryDetail = summaryParts.join(' - ');
-    const summary = `${labels.summary}: ${summaryDetail}`;
-    if (readinessOutcome.exitCode === READINESS_EXIT.ok)
+    const summary = `${labels.summary}: ${formatReadinessSummaryDetail(readinessOutcome)}`;
+    if (readinessOutcome.exitCode === READINESS_EXIT.ok) {
       yield* writeLog('render clear readiness summary', logger.note(summary));
-    else yield* writeLog('render blocked readiness summary', logger.error(summary));
+      return;
+    }
+    yield* writeLog('render blocked readiness summary', logger.error(summary));
   });
 
 /** Run the selected readiness probe family and emit its human or JSON report. */
@@ -187,12 +221,14 @@ export const readinessCommandProgram = (
       readinessContext,
       selectReadinessProbes(commandInput.category),
     );
-    if (commandInput.json === true)
+    if (commandInput.json === true) {
       yield* writeLog(
         'render readiness JSON',
         logger.line(JSON.stringify(readinessOutcome, null, 2)),
       );
-    else yield* renderReadinessOutcome(logger, readinessOutcome, commandInput.labels);
+    } else {
+      yield* renderReadinessOutcome(logger, readinessOutcome, commandInput.labels);
+    }
     yield* completeCommand(readinessOutcome.exitCode);
   }).pipe(
     Effect.mapError((cause) => {
