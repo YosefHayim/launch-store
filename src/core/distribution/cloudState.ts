@@ -20,6 +20,7 @@ const SshTargetSchema = Schema.mutable(
     identityFile: Schema.optionalWith(Schema.String, { exact: true }),
   }),
 );
+
 const HostHandleSchema: Schema.Schema<HostHandle> = Schema.mutable(
   Schema.Struct({
     provider: Schema.String,
@@ -31,13 +32,17 @@ const HostHandleSchema: Schema.Schema<HostHandle> = Schema.mutable(
     instanceType: Schema.optionalWith(Schema.String, { exact: true }),
   }),
 );
+
 const CloudStateSchema: Schema.Schema<CloudState> = Schema.mutable(
   Schema.Struct({
     host: Schema.optionalWith(HostHandleSchema, { exact: true }),
     amiId: Schema.optionalWith(Schema.String, { exact: true }),
   }),
 );
+
 type CloudStateRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
+
+const emptyCloudState = (): CloudState => ({});
 
 /** Reads cloud state, treating absent or malformed state as empty. */
 export const readCloudState = (): Effect.Effect<CloudState, never, CloudStateRequirements> =>
@@ -47,12 +52,13 @@ export const readCloudState = (): Effect.Effect<CloudState, never, CloudStateReq
     const stateExists = yield* fileSystem
       .exists(cloudStateFilePath)
       .pipe(Effect.orElseSucceed(() => false));
-    if (!stateExists) return {};
-    return yield* fileSystem.readFileString(cloudStateFilePath).pipe(
-      Effect.flatMap((stateText) => Effect.try(() => JSON.parse(stateText))),
-      Effect.flatMap(Schema.decodeUnknown(CloudStateSchema)),
-      Effect.orElseSucceed(() => ({})),
-    );
+    if (!stateExists) return emptyCloudState();
+    return yield* fileSystem
+      .readFileString(cloudStateFilePath)
+      .pipe(
+        Effect.flatMap(Schema.decodeUnknown(Schema.parseJson(CloudStateSchema))),
+        Effect.orElseSucceed(emptyCloudState),
+      );
   });
 
 /** Writes cloud state with owner-only permissions. */
@@ -91,7 +97,7 @@ export const clearLiveHost = (): Effect.Effect<void, unknown, CloudStateRequirem
   Effect.gen(function* () {
     const cloudState = yield* readCloudState();
     if (cloudState.amiId === undefined) {
-      yield* writeCloudState({});
+      yield* writeCloudState(emptyCloudState());
       return;
     }
     yield* writeCloudState({ amiId: cloudState.amiId });

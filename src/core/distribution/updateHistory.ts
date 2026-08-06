@@ -67,8 +67,7 @@ export const makeUpdateHistoryFailure = Data.tagged<UpdateHistoryFailure>('Updat
 const decodeJson = <DecodedValue, EncodedValue>(
   jsonText: string,
   schema: Schema.Schema<DecodedValue, EncodedValue>,
-): Effect.Effect<DecodedValue, unknown> =>
-  Effect.try(() => JSON.parse(jsonText)).pipe(Effect.flatMap(Schema.decodeUnknown(schema)));
+): Effect.Effect<DecodedValue, unknown> => Schema.decodeUnknown(Schema.parseJson(schema))(jsonText);
 
 /** Read the per-channel platform history, treating absent or malformed state as empty. */
 export const readHistory = (
@@ -160,6 +159,66 @@ export const clearRollbackDirective = (
     );
   });
 
+/** Write the active manifest, its immutable snapshot, and optional signature. */
+export const writeActiveManifest = (
+  storage: StorageProvider,
+  channel: string,
+  platform: string,
+  updateManifest: UpdateManifest,
+  signer: CodeSigner | null,
+): Effect.Effect<void, unknown> =>
+  Effect.gen(function* () {
+    const manifestText = JSON.stringify(updateManifest);
+    yield* storage.putObject(
+      manifestKey(channel, platform, updateManifest.runtimeVersion),
+      manifestText,
+      'application/json',
+    );
+    yield* storage.putObject(
+      historySnapshotKey(channel, platform, updateManifest.runtimeVersion, updateManifest.id),
+      manifestText,
+      'application/json',
+    );
+    if (signer === null) return;
+    yield* storage.putObject(
+      manifestSignatureKey(channel, platform, updateManifest.runtimeVersion),
+      signer.sign(manifestText),
+      'text/plain',
+    );
+  });
+
+export type ActivateUpdateInput = Readonly<{
+  readonly storage: StorageProvider;
+  readonly channel: string;
+  readonly platform: string;
+  readonly updateManifest: UpdateManifest;
+  readonly kind: UpdateHistoryEntry['kind'];
+  readonly signer: CodeSigner | null;
+}>;
+
+/**
+ * Persist the active manifest + snapshot, record history, and clear any rollback-to-embedded
+ * directive. Shared by first publish and snapshot republish.
+ */
+export const activateUpdate = (
+  input: ActivateUpdateInput,
+): Effect.Effect<UpdateHistoryEntry, unknown> =>
+  Effect.gen(function* () {
+    const { storage, channel, platform, updateManifest, kind, signer } = input;
+    yield* writeActiveManifest(storage, channel, platform, updateManifest, signer);
+    const historyEntry: UpdateHistoryEntry = {
+      id: updateManifest.id,
+      runtimeVersion: updateManifest.runtimeVersion,
+      createdAt: updateManifest.createdAt,
+      active: true,
+      signed: signer !== null,
+      kind,
+    };
+    yield* recordPublish(storage, channel, platform, historyEntry);
+    yield* clearRollbackDirective(storage, channel, platform, updateManifest.runtimeVersion);
+    return historyEntry;
+  });
+
 export type RepublishUpdateInput = Readonly<{
   readonly storage: StorageProvider;
   readonly channel: string;
@@ -170,10 +229,16 @@ export type RepublishUpdateInput = Readonly<{
   readonly signer: CodeSigner | null;
 }>;
 
+/** Outcome of republishing an immutable snapshot as the active update. */
+export type RepublishedUpdate = Readonly<{
+  readonly manifest: UpdateManifest;
+  readonly entry: UpdateHistoryEntry;
+}>;
+
 /** Republish an immutable snapshot as the active rollback update. */
 export const republishUpdate = (
   input: RepublishUpdateInput,
-): Effect.Effect<{ manifest: UpdateManifest; entry: UpdateHistoryEntry }, unknown> =>
+): Effect.Effect<RepublishedUpdate, unknown> =>
   Effect.gen(function* () {
     const { storage, channel, platform, target, newId, createdAt, signer } = input;
     const snapshotKey = historySnapshotKey(channel, platform, target.runtimeVersion, target.id);
@@ -196,38 +261,20 @@ export const republishUpdate = (
         }),
       ),
     );
-    const manifest: UpdateManifest = { ...previousManifest, id: newId, createdAt };
-    const manifestText = JSON.stringify(manifest);
-
-    yield* storage.putObject(
-      manifestKey(channel, platform, target.runtimeVersion),
-      manifestText,
-      'application/json',
-    );
-    yield* storage.putObject(
-      historySnapshotKey(channel, platform, target.runtimeVersion, newId),
-      manifestText,
-      'application/json',
-    );
-    if (signer !== null) {
-      yield* storage.putObject(
-        manifestSignatureKey(channel, platform, target.runtimeVersion),
-        signer.sign(manifestText),
-        'text/plain',
-      );
-    }
-
-    const historyEntry: UpdateHistoryEntry = {
+    const updateManifest: UpdateManifest = {
+      ...previousManifest,
       id: newId,
-      runtimeVersion: target.runtimeVersion,
       createdAt,
-      active: true,
-      signed: signer !== null,
-      kind: 'rollback',
     };
-    yield* recordPublish(storage, channel, platform, historyEntry);
-    yield* clearRollbackDirective(storage, channel, platform, target.runtimeVersion);
-    return { manifest, entry: historyEntry };
+    const historyEntry = yield* activateUpdate({
+      storage,
+      channel,
+      platform,
+      updateManifest,
+      kind: 'rollback',
+      signer,
+    });
+    return { manifest: updateManifest, entry: historyEntry };
   });
 
 export type SetRollbackToEmbeddedInput = Readonly<{
@@ -246,11 +293,16 @@ export const setRollbackToEmbedded = (
   Effect.gen(function* () {
     const { storage, channel, platform, runtimeVersion, commitTime, signer } = input;
     const directiveText = JSON.stringify(assembleRollbackDirective(commitTime));
-    const storedDirective: StoredRollbackDirective = {
+    let storedDirective: StoredRollbackDirective = {
       active: true,
       body: directiveText,
     };
-    if (signer !== null) storedDirective.signature = signer.sign(directiveText);
+    if (signer !== null) {
+      storedDirective = {
+        ...storedDirective,
+        signature: signer.sign(directiveText),
+      };
+    }
 
     yield* storage.putObject(
       rollbackDirectiveKey(channel, platform, runtimeVersion),
