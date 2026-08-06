@@ -1,8 +1,14 @@
 # AGENTS.md
 
-Working rules for AI agents and contributors editing **Launch**. This file holds only what you **can't infer** from the code and configs: module ownership, conventions a linter can't catch, and the validation gate every change must pass. Usage lives in [README.md](./README.md); style depth lives in [CODE-STYLE.md](./CODE-STYLE.md).
+Working rules for AI agents and contributors editing **Launch**. This file holds only what you **can't infer** from the code and configs: module ownership, conventions a linter can't catch, and the validation gate every change must pass. Usage lives in [README.md](./README.md); style depth lives in [CODE-STYLE.md](./CODE-STYLE.md). Branch and PR workflow lives in [BRANCHING.md](./BRANCHING.md).
 
 > Claude Code reads this through [CLAUDE.md](./CLAUDE.md), which imports this file with `@AGENTS.md`.
+
+## Branching And PRs
+
+- **Do not commit to `main`.** Branch as `feat|fix|refactor|chore|docs/<domain>/<slug>`, open a PR, label `domain:<domain>`, keep the gate green, delete the branch after merge.
+- Domains: `foundation`, `config`, `credentials`, `build`, `apple`, `google`, `store`, `release`, `testflight`, `readiness`, `agents`, `cli`, `docs`.
+- Full rules, CODEOWNERS path map, and the optional `experiment/layered-history` lab: [BRANCHING.md](./BRANCHING.md).
 
 ## Repo Layout - Who Owns What
 
