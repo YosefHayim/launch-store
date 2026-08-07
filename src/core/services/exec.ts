@@ -65,6 +65,19 @@ const checkExitCode = (
     }),
   );
 };
+/**
+ * Join captured stdout and stderr for failure diagnostics.
+ *
+ * Many CLIs (including Launch) print human-readable errors via the Effect logger / terminal on
+ * stdout. On non-zero exit, callers need both streams or the diagnostic message is lost.
+ */
+const combineCapturedDiagnostics = (standardOutput: string, standardError: string): string => {
+  const trimmedOutput = standardOutput.trim();
+  const trimmedError = standardError.trim();
+  if (trimmedOutput.length === 0) return trimmedError;
+  if (trimmedError.length === 0) return trimmedOutput;
+  return `${trimmedOutput}\n${trimmedError}`;
+};
 const collectText = <TError, TRequirements>(
   byteStream: Stream.Stream<Uint8Array, TError, TRequirements>,
 ): Effect.Effect<string, TError, TRequirements> =>
@@ -113,7 +126,11 @@ export const captureCommandOutput = (
         [collectText(childProcess.stdout), collectText(childProcess.stderr), childProcess.exitCode],
         { concurrency: 'unbounded' },
       ).pipe(Effect.mapError((cause) => commandPlatformFailure(executable, cause)));
-      yield* checkExitCode(executable, exitCode, standardError.trim());
+      yield* checkExitCode(
+        executable,
+        exitCode,
+        combineCapturedDiagnostics(standardOutput, standardError),
+      );
       return standardOutput.trim();
     }),
   );

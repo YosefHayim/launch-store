@@ -45,6 +45,33 @@ describe('Effect Platform command execution', () => {
     expect(failure._tag).toBe('CommandFailed');
     expect(failure.exitCode).toBe(7);
   });
+  it('includes stdout in CommandFailed when a captured command fails', async () => {
+    const failure = await Effect.runPromise(
+      provideNodeCommandServices(
+        captureCommandOutput(process.execPath, [
+          '-e',
+          'process.stdout.write("totallyBogusKey is unknown\\n"); process.exit(1)',
+        ]).pipe(Effect.flip),
+      ),
+    );
+    expect(failure._tag).toBe('CommandFailed');
+    expect(failure.exitCode).toBe(1);
+    expect(failure.stderr).toMatch(/totallyBogusKey is unknown/);
+  });
+  it('includes both stdout and stderr in CommandFailed diagnostics', async () => {
+    const failure = await Effect.runPromise(
+      provideNodeCommandServices(
+        captureCommandOutput(process.execPath, [
+          '-e',
+          'process.stdout.write("stdout-diag\\n"); process.stderr.write("stderr-diag\\n"); process.exit(2)',
+        ]).pipe(Effect.flip),
+      ),
+    );
+    expect(failure._tag).toBe('CommandFailed');
+    expect(failure.exitCode).toBe(2);
+    expect(failure.stderr).toMatch(/stdout-diag/);
+    expect(failure.stderr).toMatch(/stderr-diag/);
+  });
   it('checks PATH through the platform command executor', async () => {
     await expect(executeTestProgram(checkCommandExists('node'))).resolves.toBe(true);
     await expect(
