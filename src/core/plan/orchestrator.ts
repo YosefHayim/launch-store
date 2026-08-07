@@ -1,50 +1,97 @@
 import type { FileSystem, Path } from '@effect/platform';
 import { Effect } from 'effect';
 import type { PlanContext, SurfacePlan, SurfacePlanner } from '../types/plan.js';
+import type { PlannedAction } from '../types/reconcile.js';
+
 /**
- * Exit codes, mirroring the `launch status` convention (worst-wins, error first):
- * - `inSync` (0) - config matches live state (or, for plain `launch plan`, an informational run).
- * - `drift` (2) - `--check` only: a surface has pending changes.
- * - `error` (1) - a surface or app couldn't be read; takes precedence over drift, because a gate cannot
- *   honestly certify "no drift" over state it failed to read.
+ * Exit codes mirror `launch status` (worst-wins, error first):
+ * - `inSync` (0) - config matches live state, or plain `launch plan` with only drift/skips
+ * - `error` (1) - unreadable surface/app; a gate cannot certify state it failed to read
+ * - `drift` (2) - `--check` only: pending planned actions
  */
 export const PLAN_EXIT = { inSync: 0, error: 1, drift: 2 } as const;
-/** A surface that actually produced output - omitted surfaces (nothing declared) are dropped upstream. */
-type RenderableSurface = Exclude<
+
+/** Surfaces that produced output; omitted (nothing declared) are dropped upstream. */
+export type RenderableSurface = Exclude<
   SurfacePlan,
   {
     state: 'omitted';
   }
 >;
-/** Options for one plan run. `check` selects the `launch drift` gate semantics over the informational default. */
-export type PlanRunOptions = {
+
+/** Options for one plan run. `check` selects drift-gate exit semantics. */
+export type PlanRunOptions = Readonly<{
   check?: boolean;
-};
+}>;
+
 /**
- * The aggregate result of a plan run, structured so the command can render it and `--json` can serialize
- * it verbatim. `surfaces` excludes omitted surfaces; `changeCount` counts only `planned` actions (real
- * drift, not advisory skips); `appErrorCount` / `skippedSurfaceCount` drive both the summary and the
- * exit code.
+ * Aggregate plan outcome for rendering and `--json`.
+ * `changeCount` counts only `planned` actions (not advisory skips).
  */
-export type PlanOutcome = {
-  surfaces: RenderableSurface[];
+export type PlanOutcome = Readonly<{
+  surfaces: readonly RenderableSurface[];
   changeCount: number;
   appErrorCount: number;
   skippedSurfaceCount: number;
   check: boolean;
   exitCode: number;
-};
-/** What goes into the exit code - extracted as a pure function so the contract is tested directly. */
-export type ExitCodeInputs = {
+}>;
+
+/** Inputs for {@link planExitCode}, extracted so the contract is unit-tested pure. */
+export type ExitCodeInputs = Readonly<{
   check: boolean;
   changeCount: number;
   appErrorCount: number;
   skippedSurfaceCount: number;
+}>;
+
+/** Drift and failure tallies over renderable surfaces. */
+export type PlanSurfaceTallies = Readonly<{
+  changeCount: number;
+  appErrorCount: number;
+  skippedSurfaceCount: number;
+}>;
+
+/** Count actions with `planned` status (real drift, not advisory skips). */
+export const countPlannedActions = (actions: readonly PlannedAction[]): number => {
+  let plannedCount = 0;
+  for (const action of actions) {
+    if (action.status === 'planned') plannedCount += 1;
+  }
+  return plannedCount;
 };
+
+/** Tally planned changes, per-app errors, and unreadable surfaces. */
+export const tallyPlanSurfaces = (surfaces: readonly RenderableSurface[]): PlanSurfaceTallies => {
+  let changeCount = 0;
+  let appErrorCount = 0;
+  let skippedSurfaceCount = 0;
+  for (const surface of surfaces) {
+    switch (surface.state) {
+      case 'skipped':
+        skippedSurfaceCount += 1;
+        break;
+      case 'planned':
+        switch (surface.scope) {
+          case 'team':
+            changeCount += countPlannedActions(surface.actions);
+            break;
+          case 'app':
+            for (const appPlan of surface.apps) {
+              if (appPlan.error !== undefined) appErrorCount += 1;
+              changeCount += countPlannedActions(appPlan.actions);
+            }
+            break;
+        }
+        break;
+    }
+  }
+  return { changeCount, appErrorCount, skippedSurfaceCount };
+};
+
 /**
- * Resolve the exit code. Plain `launch plan` is informational - exit 0 even with pending changes, and a
- * missing-credentials skip is benign; only an app-level error (a precondition the user must fix) fails it.
- * `--check` is the gate: an error or an unreadable surface wins (1), then drift (2), then in-sync (0).
+ * Plain `launch plan` is informational (exit 0 with drift/skips); only app-level errors fail it.
+ * `--check` / `drift` is the gate: unreadable state wins (1), then drift (2), then in-sync (0).
  */
 export const planExitCode = ({
   check,
@@ -61,11 +108,10 @@ export const planExitCode = ({
   if (appErrorCount > 0) return PLAN_EXIT.error;
   return PLAN_EXIT.inSync;
 };
+
 /**
- * Run every planner concurrently, aggregate their diffs, and compute the exit code. Planners are
- * read-only and self-isolating (each captures its own per-app failures), so this never throws on a
- * surface error - it counts it. Omitted surfaces are dropped before tallying so an unconfigured store
- * adds no noise and no exit pressure.
+ * Run planners concurrently, drop omitted surfaces, tally diffs, and compute the exit code.
+ * Planners self-isolate per-app failures; this only aggregates.
  */
 export const runPlanners = (
   planContext: PlanContext,
@@ -79,30 +125,20 @@ export const runPlanners = (
     const surfaces = planned.filter(
       (surface): surface is RenderableSurface => surface.state !== 'omitted',
     );
-    let changeCount = 0;
-    let appErrorCount = 0;
-    let skippedSurfaceCount = 0;
-    for (const surface of surfaces) {
-      if (surface.state === 'skipped') {
-        skippedSurfaceCount++;
-        continue;
-      }
-      if (surface.scope === 'team') {
-        changeCount += surface.actions.filter((action) => action.status === 'planned').length;
-        continue;
-      }
-      for (const app of surface.apps) {
-        if (app.error !== undefined) appErrorCount++;
-        changeCount += app.actions.filter((action) => action.status === 'planned').length;
-      }
-    }
-    const check = options.check === true;
+    const tallies = tallyPlanSurfaces(surfaces);
+    let check = false;
+    if (options.check === true) check = true;
     return {
       surfaces,
-      changeCount,
-      appErrorCount,
-      skippedSurfaceCount,
+      changeCount: tallies.changeCount,
+      appErrorCount: tallies.appErrorCount,
+      skippedSurfaceCount: tallies.skippedSurfaceCount,
       check,
-      exitCode: planExitCode({ check, changeCount, appErrorCount, skippedSurfaceCount }),
+      exitCode: planExitCode({
+        check,
+        changeCount: tallies.changeCount,
+        appErrorCount: tallies.appErrorCount,
+        skippedSurfaceCount: tallies.skippedSurfaceCount,
+      }),
     };
   });

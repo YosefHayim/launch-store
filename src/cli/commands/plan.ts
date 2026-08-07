@@ -8,17 +8,17 @@ type PlanOptions = Readonly<{
   readonly json: boolean;
 }>;
 
-const toPlanInput = (
+const planCommandInput = (
   operation: 'plan' | 'drift',
   surfaceName: string | undefined,
   commandOptions: PlanOptions,
 ): PlanCommandInput => {
   let check = commandOptions.check === true;
   if (operation === 'drift') check = true;
-  let planInput: PlanCommandInput = { operation, check, json: commandOptions.json };
-  if (surfaceName !== undefined) planInput = { ...planInput, surface: surfaceName };
-  if (commandOptions.app !== undefined) planInput = { ...planInput, app: commandOptions.app };
-  return planInput;
+  let commandInput: PlanCommandInput = { operation, check, json: commandOptions.json };
+  if (surfaceName !== undefined) commandInput = { ...commandInput, surface: surfaceName };
+  if (commandOptions.app !== undefined) commandInput = { ...commandInput, app: commandOptions.app };
+  return commandInput;
 };
 
 export const registerPlanCommand = (program: Command): void => {
@@ -31,7 +31,7 @@ export const registerPlanCommand = (program: Command): void => {
     .option('--check', 'exit 2 when drift is present (CI gate); same as `launch drift`', false)
     .option('--json', 'machine-readable output for CI/agents', false)
     .action((surfaceName: string | undefined, commandOptions: PlanOptions) =>
-      runCliProgram(planCommandProgram(toPlanInput('plan', surfaceName, commandOptions))),
+      runCliProgram(planCommandProgram(planCommandInput('plan', surfaceName, commandOptions))),
     );
   program
     .command('drift [surface]')
@@ -41,6 +41,6 @@ export const registerPlanCommand = (program: Command): void => {
     .option('-a, --app <names>', 'comma-separated app handles (default: all apps)')
     .option('--json', 'machine-readable output for CI/agents', false)
     .action((surfaceName: string | undefined, commandOptions: PlanOptions) =>
-      runCliProgram(planCommandProgram(toPlanInput('drift', surfaceName, commandOptions))),
+      runCliProgram(planCommandProgram(planCommandInput('drift', surfaceName, commandOptions))),
     );
 };
