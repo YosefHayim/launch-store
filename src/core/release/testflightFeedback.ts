@@ -143,7 +143,7 @@ const safeFeedbackIdentifier = (feedbackId: string): string => {
 /** Download screenshot attachments serially into one directory. */
 export const downloadFeedbackAttachments = (
   appleStore: AscFeedbackApi,
-  feedbackEntries: BetaFeedback[],
+  feedbackEntries: readonly BetaFeedback[],
   outputDirectory: string,
 ): Effect.Effect<DownloadedAttachment[], unknown, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
