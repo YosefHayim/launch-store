@@ -11,6 +11,7 @@ import type {
   VitalsTimeline,
   VitalsWindow,
 } from '../core/types/vitals.js';
+import type { MutableDeep } from '../core/types/mutable.js';
 import { describePlayErrors, nonEmptyPageToken, serviceAccountJwtOptions } from './playClient.js';
 /** Distinct from the Play Developer API scope - the reporting API rejects an `androidpublisher` token. */
 const OAUTH_SCOPE = 'https://www.googleapis.com/auth/playdeveloperreporting';
@@ -272,7 +273,7 @@ export class PlayReportingClient {
           for (const metricEntry of metricPage.rows) {
             const date = dateTimeToIso(metricEntry.startTime);
             if (date === undefined) continue;
-            const normalized: PlayVitalsRow = { metric, date };
+            const normalized: MutableDeep<PlayVitalsRow> = { metric, date };
             const rate = metricNumber(metricEntry, metricSet.rate);
             if (rate !== undefined) normalized.rate = rate;
             const userPerceivedRate = metricNumber(metricEntry, metricSet.userPerceivedRate);
