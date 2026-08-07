@@ -12,47 +12,47 @@ export type Sentiment = 'positive' | 'neutral' | 'negative';
  * bodies stay in `reviews list` / `play-reviews list`; insights only needs the rating, whether it was
  * answered, and when it landed (for the monthly trend).
  */
-export type ReviewDatum = {
+export type ReviewDatum = Readonly<{
   store: InsightsStore;
   rating: StarRating;
   answered: boolean;
   date?: string;
-};
+}>;
 /**
  * The headline rollup over a set of reviews: count, mean rating, the per-star distribution, how many
  * carry a developer response, and the sentiment split. `average` and `answeredRate` are 0 for an empty
  * set so callers never divide by zero or branch on emptiness mid-render.
  */
-export type RatingSummary = {
+export type RatingSummary = Readonly<{
   total: number;
   average: number;
   distribution: Record<StarRating, number>;
   answered: number;
   answeredRate: number;
   sentiment: Record<Sentiment, number>;
-};
+}>;
 /** One point on the monthly ratings trend: the calendar month plus the volume and mean for it. */
-export type MonthlyRatingPoint = {
+export type MonthlyRatingPoint = Readonly<{
   month: string;
   count: number;
   average: number;
-};
+}>;
 /**
  * Everything insights synthesizes for a single app: the combined rating summary, the same summary
  * split per store, and the chronological monthly trend. `byStore` omits a store the app doesn't target
  * or that returned no reviews, so the renderer shows only what's real.
  */
-export type AppInsights = {
+export type AppInsights = Readonly<{
   app: string;
   ratings: RatingSummary;
   byStore: Partial<Record<InsightsStore, RatingSummary>>;
-  trend: MonthlyRatingPoint[];
-};
+  trend: readonly MonthlyRatingPoint[];
+}>;
 /**
  * The full insights report: one entry per app that yielded data, plus an `overall` summary across all
  * of them. This is the exact shape emitted by `--json`, so it doubles as the automation contract.
  */
-export type InsightsReport = {
-  apps: AppInsights[];
+export type InsightsReport = Readonly<{
+  apps: readonly AppInsights[];
   overall: RatingSummary;
-};
+}>;

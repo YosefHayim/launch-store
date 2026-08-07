@@ -59,11 +59,11 @@ export type SizeReport = Schema.Schema.Type<typeof SizeReportSchema>;
  * to feed every embedded extension's bundle id into provisioning. `productType` distinguishes the main
  * app (`com.apple.product-type.application`) from its app-extension targets.
  */
-export type DiscoveredTarget = {
+export type DiscoveredTarget = Readonly<{
   name: string;
   bundleId: string;
   productType: string;
-};
+}>;
 /**
  * A built, signed artifact plus the metadata Launch records about it.
  *
@@ -75,38 +75,38 @@ export type BuildArtifact = Schema.Schema.Type<typeof BuildArtifactSchema>;
  * presentation-ready projection of the pruned {@link BuildArtifact} plus the bytes it freed - what the
  * `builds prune` preview/table renders and `--json` emits, kept stable apart from the persisted record.
  */
-export type PrunedArtifact = {
+export type PrunedArtifact = Readonly<{
   app: string;
   platform: Platform;
   version: string;
   buildNumber: number;
   bytes: number;
   path: string;
-};
+}>;
 /**
  * Options for an artifact-retention sweep ({@link StorageProvider.prune}). `now` is injected (not read
  * from the clock) so the policy is deterministic and unit-testable; `retentionDays` is the resolved
  * window. An absent `app`/`platform` matches everything; `dryRun` plans without deleting.
  */
-export type PruneOptions = {
+export type PruneOptions = Readonly<{
   now: number;
   retentionDays: number;
   app?: string;
   platform?: Platform;
   dryRun?: boolean;
-};
+}>;
 /**
  * The outcome of an artifact-retention sweep. `pruned` is empty when nothing was eligible (a no-op);
  * `freedBytes` sums the removed binaries' sizes. When `dryRun` is true, `pruned`/`freedBytes` describe
  * what *would* be removed and nothing was deleted.
  */
-export type PruneResult = {
-  pruned: PrunedArtifact[];
+export type PruneResult = Readonly<{
+  pruned: readonly PrunedArtifact[];
   freedBytes: number;
   dryRun: boolean;
-};
+}>;
 /** A pointer to an artifact after a {@link StorageProvider} has stored it. */
-export type StoredArtifact = {
+export type StoredArtifact = Readonly<{
   id: string;
   location: string;
-};
+}>;

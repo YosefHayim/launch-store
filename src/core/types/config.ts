@@ -36,24 +36,24 @@ export type SubmitByPlatform = Partial<Record<Platform, string[]>>;
  * Non-secret settings for a cloud {@link StorageProvider}.
  * Credentials are NEVER stored here - keys resolve from env or the OS secret store.
  */
-export type StorageConfig = {
+export type StorageConfig = Readonly<{
   endpoint?: string;
   bucket: string;
   region?: string;
   publicBaseUrl: string;
   supabaseUrl?: string;
-};
+}>;
 /**
  * Fully-resolved configuration for one `launch` invocation (provider defaults filled).
  * Names here (`storage`, `credentials`, `buildEngine`) are looked up in the provider registry at runtime.
  */
-export type LaunchConfig = {
+export type LaunchConfig = Readonly<{
   profiles: Record<string, BuildProfile>;
   credentials: string;
   storage: string;
   buildEngine: string;
   submit: string | SubmitByPlatform;
-  appRoots?: string[];
+  appRoots?: readonly string[];
   products?: Record<string, AppProducts>;
   notify?: NotifyConfig;
   release?: ReleaseConfig;
@@ -67,9 +67,9 @@ export type LaunchConfig = {
   storageConfig?: StorageConfig;
   artifactDir?: string;
   artifactRetentionDays?: number;
-  envExclude?: string[];
+  envExclude?: readonly string[];
   mcp?: McpConfig;
-};
+}>;
 /**
  * Input to {@link defineConfig}: the shape a user authors in `launch.config.ts`.
  * Provider names are optional (they default via {@link DEFAULT_CREDENTIALS_PROVIDER} etc.).
@@ -77,19 +77,20 @@ export type LaunchConfig = {
 export type LaunchConfigInput = Omit<
   LaunchConfig,
   'credentials' | 'storage' | 'buildEngine' | 'submit'
-> & {
-  credentials?: string;
-  storage?: string;
-  buildEngine?: string;
-  submit?: string | SubmitByPlatform;
-};
+> &
+  Readonly<{
+    credentials?: string;
+    storage?: string;
+    buildEngine?: string;
+    submit?: string | SubmitByPlatform;
+  }>;
 /**
  * Everything a single build needs, assembled before any work starts.
  *
  * This is the value threaded through the whole pipeline and into every provider, so a provider
  * never has to re-derive the app, profile, or environment.
  */
-export type ResolvedBuildContext = {
+export type ResolvedBuildContext = Readonly<{
   platform: Platform;
   app: AppDescriptor;
   profile: BuildProfile;
@@ -101,4 +102,4 @@ export type ResolvedBuildContext = {
   android?: AndroidReleaseOptions;
   distribution?: Distribution;
   account?: string;
-};
+}>;
