@@ -42,7 +42,7 @@ const probe = (id: string, fixedProbeResult: ProbeResult | (() => never)): Readi
 };
 
 /** Run probe aggregation with the platform services available to production probes. */
-const runProbeSet = (readinessProbes: ReadinessProbe[]) =>
+const runProbeSet = (readinessProbes: readonly ReadinessProbe[]) =>
   Effect.runPromise(
     runProbes(readinessContext, readinessProbes).pipe(
       Effect.provide(NodeHttpClient.layer),

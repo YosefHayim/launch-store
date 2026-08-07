@@ -32,7 +32,7 @@ const captureListing = (
 ): Effect.Effect<SnapshotEntity[], unknown> =>
   Effect.gen(function* () {
     const byLocale = new Map<string, Record<string, string>>();
-    const merge = (localizations: ListingLocalization[]): void => {
+    const merge = (localizations: readonly ListingLocalization[]): void => {
       for (const localization of localizations) {
         byLocale.set(localization.locale, {
           ...byLocale.get(localization.locale),
@@ -48,8 +48,20 @@ const captureListing = (
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([locale, fields]) => toEntity(locale, fields));
   });
+/** Narrow a captured {@link JsonValue} to a plain object (rejecting arrays and null). */
+const isJsonObject = (
+  capturedNode: JsonValue,
+): capturedNode is Readonly<{ [key: string]: JsonValue }> => {
+  if (typeof capturedNode !== 'object') return false;
+  if (capturedNode === null) return false;
+  if (Array.isArray(capturedNode)) return false;
+  return true;
+};
 /** Read a string-valued field from a captured listing's `fields` map, or undefined when absent/non-string. */
-const fieldString = (fields: Record<string, JsonValue>, key: string): string | undefined => {
+const fieldString = (
+  fields: Readonly<{ [key: string]: JsonValue }>,
+  key: string,
+): string | undefined => {
   const listingField = fields[key];
   if (typeof listingField === 'string') return listingField;
   return undefined;
@@ -59,7 +71,7 @@ const fieldString = (fields: Record<string, JsonValue>, key: string): string | u
  * `ascSync.routeListing`. Only present fields are carried, and the comma-joined `keywords` string is split
  * back into the array shape `store.config.json` uses.
  */
-const toLocaleInfo = (fields: Record<string, JsonValue>): AppleLocaleInfo => {
+const toLocaleInfo = (fields: Readonly<{ [key: string]: JsonValue }>): AppleLocaleInfo => {
   const localeInfo: AppleLocaleInfo = {};
   const title = fieldString(fields, 'name');
   if (title !== undefined) localeInfo.title = title;
@@ -92,15 +104,12 @@ const toListing = (saved: AppEntities): AppleStoreConfig => {
   const localeInfoByLocale: Record<string, AppleLocaleInfo> = {};
   for (const entity of saved.entities) {
     const capturedListing = entity.data;
-    if (typeof capturedListing !== 'object') continue;
-    if (capturedListing === null) continue;
-    if (Array.isArray(capturedListing)) continue;
+    if (!isJsonObject(capturedListing)) continue;
     const locale = capturedListing['locale'];
     const fields = capturedListing['fields'];
     if (typeof locale !== 'string') continue;
-    if (typeof fields !== 'object') continue;
-    if (fields === null) continue;
-    if (Array.isArray(fields)) continue;
+    if (fields === undefined) continue;
+    if (!isJsonObject(fields)) continue;
     localeInfoByLocale[locale] = toLocaleInfo(fields);
   }
   return { info: localeInfoByLocale };
@@ -133,7 +142,10 @@ export const appleListingSource: SnapshotSource = {
       );
       return {
         state: 'captured',
-        apps: captured.filter((app): app is AppEntities => app !== null),
+        apps: captured.flatMap((app) => {
+          if (app === null) return [];
+          return [app];
+        }),
       };
     });
   },

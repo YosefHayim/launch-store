@@ -13,6 +13,7 @@ import type {
   SubscriptionGroupConfig,
   SubscriptionPeriod,
 } from '../types/catalog.js';
+import type { MutableDeep } from '../types/mutable.js';
 
 /** Narrow an App Store in-app purchase type to the modeled config union. */
 const parseInAppPurchaseType = (purchaseType: string): InAppPurchaseType | null => {
@@ -48,7 +49,7 @@ const productLocalizationsFromResources = (
   localizations: readonly LocalizationResource[],
 ): ProductLocalization[] =>
   localizations.map((localization) => {
-    const productLocalization: ProductLocalization = {
+    const productLocalization: MutableDeep<ProductLocalization> = {
       locale: localization.locale,
       name: localization.name,
     };

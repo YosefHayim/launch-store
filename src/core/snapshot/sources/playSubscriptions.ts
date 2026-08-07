@@ -38,7 +38,7 @@ import {
  * money as `units`+`nanos`, converted to micro-units here so a restore reads it straight back as a
  * {@link PlayPriceConfig}. Regions Play left price-less are dropped.
  */
-const regionalPrices = (configs: RegionalBasePlanConfig[]): Record<string, JsonValue> => {
+const regionalPrices = (configs: readonly RegionalBasePlanConfig[]): Record<string, JsonValue> => {
   const prices: Record<string, JsonValue> = {};
   for (const config of [...configs].sort((a, b) => a.regionCode.localeCompare(b.regionCode))) {
     if (config.price) {
@@ -51,7 +51,7 @@ const regionalPrices = (configs: RegionalBasePlanConfig[]): Record<string, JsonV
   return prices;
 };
 /** A subscription's base plans, normalized to serializable records (id, state, billing period, prices). */
-const basePlans = (plans: BasePlan[]): JsonValue => {
+const basePlans = (plans: readonly BasePlan[]): JsonValue => {
   return plans.map((plan): JsonValue => {
     let prices: Record<string, JsonValue> = {};
     if (plan.regionalConfigs) prices = regionalPrices(plan.regionalConfigs);
@@ -64,7 +64,7 @@ const basePlans = (plans: BasePlan[]): JsonValue => {
   });
 };
 /** A subscription's listings, normalized to language + title pairs. */
-const listings = (items: SubscriptionListing[]): JsonValue => {
+const listings = (items: readonly SubscriptionListing[]): JsonValue => {
   return items.map(
     (listing): JsonValue => ({ languageCode: listing.languageCode, title: listing.title }),
   );

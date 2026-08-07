@@ -13,6 +13,7 @@ import type {
   MigrationNote,
   MigrationResult,
 } from '../types/migrate.js';
+import type { MutableDeep } from '../types/mutable.js';
 import { buildEnvExample, scaffoldStoreConfig } from './scaffold.js';
 
 export type EasMigrationFailure = Readonly<{
@@ -116,7 +117,7 @@ const EasSubmitProfilesSchema = Schema.transform(
       for (const [profileName, unknownProfile] of Object.entries(unknownProfiles)) {
         const decodedProfile = Schema.decodeUnknownOption(EasSubmitProfileSchema)(unknownProfile);
         if (Option.isNone(decodedProfile)) continue;
-        const submitProfile: EasSubmitProfile = {};
+        const submitProfile: MutableDeep<EasSubmitProfile> = {};
         const iosSubmission = decodedProfile.value.ios;
         if (iosSubmission !== undefined && hasIosSubmitFields(iosSubmission)) {
           submitProfile.ios = iosSubmission;
@@ -375,7 +376,7 @@ type CredentialsDocument = Schema.Schema.Type<typeof CredentialsDocumentSchema>;
 export const credentialsSummaryFromDocument = (
   credentialsDocument: CredentialsDocument,
 ): CredentialsSummary | null => {
-  const credentialsSummary: CredentialsSummary = {};
+  const credentialsSummary: MutableDeep<CredentialsSummary> = {};
   const iosCredentials = credentialsDocument.ios;
   if (iosCredentials !== undefined) {
     let distributionCertificatePath: string | undefined;

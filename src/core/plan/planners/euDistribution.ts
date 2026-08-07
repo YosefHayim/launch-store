@@ -5,6 +5,7 @@ import {
 } from '@core/store/euDistribution.js';
 import { planTeamSurface } from './appStoreSurface.js';
 import type { SurfacePlanner } from '@core/types/plan.js';
+import type { EuDistributionConfig } from '@core/types/storeSurface.js';
 /** Surface id - also the value users pass as `launch plan eu-distribution`. */
 const SURFACE = 'eu-distribution';
 export const euDistributionPlanner: SurfacePlanner = {
@@ -15,7 +16,7 @@ export const euDistributionPlanner: SurfacePlanner = {
       surface: SURFACE,
       direction: 'additive',
       config: () =>
-        resolveSidecarConfig({
+        resolveSidecarConfig<EuDistributionConfig>({
           typed: planContext.config.euDistribution,
           configPath: 'eu-distribution.config.json',
           explicitPath: false,

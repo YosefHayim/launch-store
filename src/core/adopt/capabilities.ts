@@ -144,7 +144,7 @@ export const capabilitiesAdopter: Adopter<ProfileEntitlementRequirements> = {
       let profileEntitlements: Record<string, EntitlementValue> | null = null;
       if (profileContent !== null)
         profileEntitlements = yield* extractProfileEntitlements(profileContent);
-      const settingsByType: Record<string, CapabilitySetting[]> = {};
+      const settingsByType: Record<string, readonly CapabilitySetting[]> = {};
       for (const capability of capabilities) {
         if (capability.settings !== undefined)
           settingsByType[capability.capabilityType] = capability.settings;

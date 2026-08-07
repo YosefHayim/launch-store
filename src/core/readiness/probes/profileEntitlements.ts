@@ -14,7 +14,7 @@ type EntitledApp = {
   identifier: string;
   required: string[];
 };
-const entitledApps = (apps: AppDescriptor[]): EntitledApp[] => {
+const entitledApps = (apps: readonly AppDescriptor[]): EntitledApp[] => {
   return apps.flatMap((app) => {
     if (!app.bundleId) return [];
     const required = mapEntitlementsToCapabilities(app.iosEntitlements).enable;

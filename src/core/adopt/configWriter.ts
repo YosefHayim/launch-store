@@ -17,10 +17,12 @@ export const aggregateProductPieces = (pieces: readonly ProductPiece[]): AppProd
     }
     subscriptionGroups.push(piece.group);
   }
-  const products: AppProducts = {};
-  if (inAppPurchases.length > 0) products.inAppPurchases = inAppPurchases;
-  if (subscriptionGroups.length > 0) products.subscriptionGroups = subscriptionGroups;
-  return products;
+  if (inAppPurchases.length > 0 && subscriptionGroups.length > 0) {
+    return { inAppPurchases, subscriptionGroups };
+  }
+  if (inAppPurchases.length > 0) return { inAppPurchases };
+  if (subscriptionGroups.length > 0) return { subscriptionGroups };
+  return {};
 };
 
 /** Serialize a products block keyed by bundle id as an indented, paste-ready TypeScript section. */

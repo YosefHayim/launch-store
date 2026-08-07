@@ -84,7 +84,7 @@ export const certsAdopter: Adopter<CertAdopterRequirements> = {
     Effect.gen(function* () {
       const bundleResource = yield* appleCatalog.findBundleId(target.bundleId);
       const certificates = yield* appleCatalog.listDistributionCertificates();
-      let profiles: ProfileResource[] = [];
+      let profiles: readonly ProfileResource[] = [];
       if (bundleResource !== null)
         profiles = yield* appleCatalog.listProfilesForBundleId(bundleResource.id);
       const storedCredentials = yield* describeStoredCredentials(target.keyId);
