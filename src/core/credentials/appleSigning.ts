@@ -2,6 +2,7 @@ import { FileSystem, Path } from '@effect/platform';
 import { Effect, Schema } from 'effect';
 import type { Platform } from '../types/app.js';
 import type { AscKey, SigningAssets } from '../types/credentials.js';
+import type { MutableDeep } from '../types/mutable.js';
 import type { Logger } from '../services/logger.js';
 import { adHocProfileType, appStoreProfileType, platformLabel } from '../services/platform.js';
 import {
@@ -84,7 +85,7 @@ export const describeStoredCredentials = (
 export const loadCachedSigningAssets = (
   keyId: string,
   bundleId: string,
-  extensions: string[] = [],
+  extensions: readonly string[] = [],
 ): Effect.Effect<
   SigningAssets | null,
   never,
@@ -121,7 +122,7 @@ export const loadCachedSigningAssets = (
         return null;
       extensionProfiles[ext] = extProfile.name;
     }
-    const signingAssets: SigningAssets = {
+    const signingAssets: MutableDeep<SigningAssets> = {
       bundleId,
       teamId: profile.teamId,
       certName: DISTRIBUTION_CERT_NAME,
