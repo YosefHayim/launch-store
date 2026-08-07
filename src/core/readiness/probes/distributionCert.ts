@@ -6,6 +6,7 @@ import type {
 } from '@core/types/readiness.js';
 import { Effect } from 'effect';
 import { iosApps } from '../appScopes.js';
+import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
 /** Synthetic subject for the team-wide finding (this prerequisite isn't scoped to a single app). */
 const TEAM_SUBJECT = { app: 'Apple Developer team', identifier: 'team-wide' } as const;
 const isUsable = (
@@ -31,14 +32,9 @@ export const distributionCertProbe = {
    */
   check(readinessContext: ReadinessContext): Effect.Effect<ProbeResult, unknown> {
     return Effect.gen(function* () {
-      if (iosApps(readinessContext.apps).length === 0) return { state: 'omitted' };
+      if (iosApps(readinessContext.apps).length === 0) return OMITTED_PROBE;
       const api = yield* readinessContext.resolveAscApi();
-      if (!api)
-        return {
-          state: 'skipped',
-          reason: 'no active Apple account',
-          hint: 'run `launch creds set-key`',
-        };
+      if (!api) return SKIPPED_NO_APPLE_ACCOUNT;
       const certificates = yield* api.listDistributionCertificates();
       const now = yield* Effect.sync(() => Date.now());
       const usable = certificates.filter((certificate) => isUsable(certificate, now)).length;

@@ -7,6 +7,7 @@ import type {
 import { Effect } from 'effect';
 import { iosApps } from '../appScopes.js';
 import { sellsProducts } from './iapReadiness.js';
+import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
 /** Synthetic subject for the account-wide finding (sandbox testers aren't scoped to a single app). */
 const ACCOUNT_SUBJECT = { app: 'Apple account', identifier: 'account-wide' } as const;
 /** The App Store Connect sandbox-tester readiness probe - advisory IAP testing prerequisite. */
@@ -26,14 +27,9 @@ export const sandboxTestersProbe = {
       const sellsAnything = iosApps(readinessContext.apps).some(({ identifier }) =>
         sellsProducts(readinessContext, identifier),
       );
-      if (!sellsAnything) return { state: 'omitted' };
+      if (!sellsAnything) return OMITTED_PROBE;
       const api = yield* readinessContext.resolveAscApi();
-      if (!api)
-        return {
-          state: 'skipped',
-          reason: 'no active Apple account',
-          hint: 'run `launch creds set-key`',
-        };
+      if (!api) return SKIPPED_NO_APPLE_ACCOUNT;
       const testers = yield* api.listSandboxTesters();
       let finding: AppReadiness = {
         ...ACCOUNT_SUBJECT,

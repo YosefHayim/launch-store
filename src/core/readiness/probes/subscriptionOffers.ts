@@ -7,6 +7,7 @@ import type {
 } from '@core/types/readiness.js';
 import { Effect } from 'effect';
 import { iosApps } from '../appScopes.js';
+import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
 const subscriptionsWithOfferCodes = (
   readinessContext: ReadinessContext,
   bundleId: string,
@@ -41,14 +42,9 @@ export const subscriptionOffersProbe = {
       const apps = iosApps(readinessContext.apps).filter(
         ({ identifier }) => subscriptionsWithOfferCodes(readinessContext, identifier).length > 0,
       );
-      if (apps.length === 0) return { state: 'omitted' };
+      if (apps.length === 0) return OMITTED_PROBE;
       const appleStore = yield* readinessContext.resolveAscApi();
-      if (appleStore === null)
-        return {
-          state: 'skipped',
-          reason: 'no active Apple account',
-          hint: 'run `launch creds set-key`',
-        };
+      if (appleStore === null) return SKIPPED_NO_APPLE_ACCOUNT;
       const nested = yield* Effect.forEach(
         apps,
         ({ name, identifier }): Effect.Effect<AppReadiness[], unknown> =>

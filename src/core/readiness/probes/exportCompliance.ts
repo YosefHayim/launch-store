@@ -5,6 +5,7 @@ import type {
   ReadinessContext,
   ReadinessProbe,
 } from '@core/types/readiness.js';
+import { OMITTED_PROBE } from './credentialsSkip.js';
 /** The iOS export-compliance declaration readiness probe (config-only). */
 export const exportComplianceProbe = {
   id: 'apple-export-compliance',
@@ -27,7 +28,7 @@ export const exportComplianceProbe = {
         }
         return [];
       });
-      if (apps.length === 0) return { state: 'omitted' };
+      if (apps.length === 0) return OMITTED_PROBE;
       const results: AppReadiness[] = apps.map(({ name, identifier, declared }) => {
         if (declared === undefined) {
           return {
