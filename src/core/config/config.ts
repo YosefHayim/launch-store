@@ -11,6 +11,7 @@ import {
   DEFAULT_SUBMITTER,
 } from '../types/config.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
+import type { MutableDeep } from '../types/mutable.js';
 /**
  * Absolute path to THIS package's own public entry (`defineConfig` + the config types), resolved
  * relative to the loader so it points at whichever copy is actually running - the globally-installed
@@ -205,7 +206,7 @@ const appDescriptorFromConfig = (
     appHandle = expoConfig['name'];
   }
   if (appHandle === undefined) return null;
-  const descriptor: AppDescriptor = {
+  const descriptor: MutableDeep<AppDescriptor> = {
     name: appHandle.toLowerCase(),
     dir: appDirectory,
     configPath,

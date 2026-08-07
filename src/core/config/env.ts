@@ -43,7 +43,7 @@ export const loadDotenvFile = (filePath: string) =>
  * snag a publishable `EXPO_PUBLIC_..._KEY`. The single matching rule shared by {@link resolveEnv} (drops
  * matches before injection) and {@link missingKeys} (exempts matches from the gate), so the two agree.
  */
-export const isEnvExcluded = (name: string, patterns: string[]): boolean => {
+export const isEnvExcluded = (name: string, patterns: readonly string[]): boolean => {
   for (const pattern of patterns) {
     if (pattern.endsWith('*')) {
       if (name.startsWith(pattern.slice(0, -1))) return true;
@@ -64,7 +64,7 @@ export const isEnvExcluded = (name: string, patterns: string[]): boolean => {
 export const missingKeys = (
   appDirectory: string,
   environment: Record<string, string>,
-  excludedPatterns: string[] = [],
+  excludedPatterns: readonly string[] = [],
 ) =>
   Effect.gen(function* () {
     const pathService = yield* Path.Path;
@@ -138,7 +138,7 @@ export type ResolveEnvInput = {
   secrets?: Record<string, string> | undefined;
   cliEnv?: Record<string, string> | undefined;
   includeLocal?: boolean | undefined;
-  envExclude?: string[] | undefined;
+  envExclude?: readonly string[] | undefined;
 };
 /**
  * Resolve env through the single precedence ladder (lowest -> highest, later overrides earlier):
@@ -185,7 +185,7 @@ export const resolveEnv = (input: ResolveEnvInput) =>
     // Hard denylist: an excluded name is skipped in EVERY layer, so it can never land in the result no
     // matter which layer (incl. the final `--env`) set it - exclusion wins over precedence by design. Names
     // some layer actually tried to set are recorded, so the build log reports real drops, not the raw list.
-    let excludedPatterns: string[] = [];
+    let excludedPatterns: readonly string[] = [];
     if (input.envExclude !== undefined) excludedPatterns = input.envExclude;
     const excludedSeen = new Set<string>();
     const values: Record<string, string> = {};
