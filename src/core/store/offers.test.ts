@@ -16,7 +16,7 @@ import type {
   WinBackOfferResource,
 } from '../types/appleCatalog.js';
 import type { AppProducts, SubscriptionConfig } from '../types/catalog.js';
-import { reconcileOffers, type AscOffersApi } from './offers.js';
+import { appDeclaresOffers, reconcileOffers, type AscOffersApi } from './offers.js';
 /**
  * Hand-rolled {@link AscOffersApi} fake - records every create/reorder and serves configurable existing
  * state, so the reconciler's diff/plan logic is testable with no network (mirrors the ascSync tests).
@@ -398,5 +398,79 @@ describe('reconcileOffers - preconditions', () => {
     await expect(
       runReconcile(api, { bundleId: 'com.acme.app', dryRun: false, products: productsWith({}) }),
     ).rejects.toThrow(/No App Store Connect app record/);
+  });
+  it('skips a non-FREE_TRIAL offer code with no prices', async () => {
+    const api = new FakeOffersApi();
+    const report = await runReconcile(api, {
+      bundleId: 'com.acme.app',
+      dryRun: false,
+      products: productsWith({
+        offerCodes: [
+          {
+            name: 'NOPRICE',
+            customerEligibilities: ['NEW'],
+            offerEligibility: 'REPLACE_INTRO_OFFERS',
+            duration: 'ONE_MONTH',
+            offerMode: 'PAY_AS_YOU_GO',
+            numberOfPeriods: 1,
+          },
+        ],
+      }),
+    });
+    expect(report.actions[0]?.status).toBe('skipped');
+    expect(report.actions[0]?.description).toContain('need at least one price');
+    expect(api.createdOfferCodes).toHaveLength(0);
+  });
+  it('skips a promotional offer that already exists (matched by offerCode)', async () => {
+    const api = new FakeOffersApi();
+    api.promotionalOffers = [{ id: 'po-1', name: 'Loyalty', offerCode: 'loyalty10' }];
+    const report = await runReconcile(api, {
+      bundleId: 'com.acme.app',
+      dryRun: false,
+      products: productsWith({
+        promotionalOffers: [
+          {
+            name: 'Loyalty',
+            offerCode: 'loyalty10',
+            duration: 'ONE_MONTH',
+            offerMode: 'PAY_AS_YOU_GO',
+            numberOfPeriods: 2,
+            prices: [{ customerPrice: 2.99 }],
+          },
+        ],
+      }),
+    });
+    expect(report.actions).toHaveLength(0);
+    expect(api.createdPromotional).toHaveLength(0);
+  });
+});
+
+describe('appDeclaresOffers', () => {
+  it('is false for empty catalogs and plain subscriptions', () => {
+    expect(appDeclaresOffers({})).toBe(false);
+    expect(appDeclaresOffers(productsWith({}))).toBe(false);
+  });
+  it('is true for any subscription offer kind or promoted-purchase ordering', () => {
+    expect(
+      appDeclaresOffers(
+        productsWith({
+          offerCodes: [
+            {
+              name: 'LAUNCH',
+              customerEligibilities: ['NEW'],
+              offerEligibility: 'REPLACE_INTRO_OFFERS',
+              duration: 'ONE_WEEK',
+              offerMode: 'FREE_TRIAL',
+              numberOfPeriods: 1,
+            },
+          ],
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      appDeclaresOffers({
+        promotedPurchases: [{ productId: 'com.acme.pro' }],
+      }),
+    ).toBe(true);
   });
 });
