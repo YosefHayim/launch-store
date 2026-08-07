@@ -37,7 +37,7 @@ export const SNAPSHOT_VERSION = 1;
  */
 export const captureSnapshot = (
   snapshotContext: SnapshotContext,
-  sources: SnapshotSource[],
+  sources: readonly SnapshotSource[],
   meta: CaptureMeta,
 ): Effect.Effect<CaptureResult> =>
   Effect.gen(function* () {

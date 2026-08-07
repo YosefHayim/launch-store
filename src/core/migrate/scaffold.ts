@@ -53,7 +53,7 @@ export const scaffoldStoreConfig = (
  * `.env.example` body from imported env KEYS only (values dropped; may be secrets).
  * Falls back to the starter template when no keys were found. Shared by EAS and Fastlane.
  */
-export const buildEnvExample = (keys: string[]): string => {
+export const buildEnvExample = (keys: readonly string[]): string => {
   if (keys.length === 0) return ENV_EXAMPLE_TEMPLATE;
   const header = ENV_EXAMPLE_TEMPLATE.split('\n')
     .filter((line) => line.startsWith('#'))

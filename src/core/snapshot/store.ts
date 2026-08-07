@@ -21,67 +21,53 @@ const JsonValueSchema: Schema.Schema<JsonValue> = Schema.suspend(() =>
     Schema.Number,
     Schema.Boolean,
     Schema.Null,
-    Schema.mutable(Schema.Array(JsonValueSchema)),
-    Schema.mutable(Schema.Record({ key: Schema.String, value: JsonValueSchema })),
+    Schema.Array(JsonValueSchema),
+    Schema.Record({ key: Schema.String, value: JsonValueSchema }),
   ),
 );
 
-const SnapshotEntitySchema: Schema.Schema<SnapshotEntity> = Schema.mutable(
-  Schema.Struct({
-    key: Schema.String,
-    summary: Schema.String,
-    data: JsonValueSchema,
-  }),
-);
+const SnapshotEntitySchema: Schema.Schema<SnapshotEntity> = Schema.Struct({
+  key: Schema.String,
+  summary: Schema.String,
+  data: JsonValueSchema,
+});
 
-const AppEntitiesSchema: Schema.Schema<AppEntities> = Schema.mutable(
-  Schema.Struct({
-    app: Schema.String,
-    identifier: Schema.String,
-    entities: Schema.mutable(Schema.Array(SnapshotEntitySchema)),
-  }),
-);
+const AppEntitiesSchema: Schema.Schema<AppEntities> = Schema.Struct({
+  app: Schema.String,
+  identifier: Schema.String,
+  entities: Schema.Array(SnapshotEntitySchema),
+});
 
 const CaptureOutcomeSchema: Schema.Schema<CaptureOutcome> = Schema.Union(
-  Schema.mutable(Schema.Struct({ state: Schema.Literal('omitted') })),
-  Schema.mutable(
-    Schema.Struct({
-      state: Schema.Literal('skipped'),
-      reason: Schema.String,
-      hint: Schema.optionalWith(Schema.String, { exact: true }),
-    }),
-  ),
-  Schema.mutable(
-    Schema.Struct({
-      state: Schema.Literal('captured'),
-      apps: Schema.mutable(Schema.Array(AppEntitiesSchema)),
-    }),
-  ),
-  Schema.mutable(
-    Schema.Struct({
-      state: Schema.Literal('errored'),
-      error: Schema.String,
-    }),
-  ),
-);
-
-const CaptureReportSchema: Schema.Schema<CaptureReport> = Schema.mutable(
+  Schema.Struct({ state: Schema.Literal('omitted') }),
   Schema.Struct({
-    id: Schema.String,
-    title: Schema.String,
-    store: Schema.Literal('appstore', 'play'),
-    outcome: CaptureOutcomeSchema,
+    state: Schema.Literal('skipped'),
+    reason: Schema.String,
+    hint: Schema.optionalWith(Schema.String, { exact: true }),
+  }),
+  Schema.Struct({
+    state: Schema.Literal('captured'),
+    apps: Schema.Array(AppEntitiesSchema),
+  }),
+  Schema.Struct({
+    state: Schema.Literal('errored'),
+    error: Schema.String,
   }),
 );
 
-const SnapshotSchema: Schema.Schema<Snapshot> = Schema.mutable(
-  Schema.Struct({
-    version: Schema.Number,
-    name: Schema.String,
-    capturedAt: Schema.String,
-    reports: Schema.mutable(Schema.Array(CaptureReportSchema)),
-  }),
-);
+const CaptureReportSchema: Schema.Schema<CaptureReport> = Schema.Struct({
+  id: Schema.String,
+  title: Schema.String,
+  store: Schema.Literal('appstore', 'play'),
+  outcome: CaptureOutcomeSchema,
+});
+
+const SnapshotSchema: Schema.Schema<Snapshot> = Schema.Struct({
+  version: Schema.Number,
+  name: Schema.String,
+  capturedAt: Schema.String,
+  reports: Schema.Array(CaptureReportSchema),
+});
 
 type SnapshotStoreRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
 

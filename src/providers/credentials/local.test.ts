@@ -9,6 +9,7 @@ import type { ResolvedBuildContext } from '@core/types/config.js';
 import type { AscKey } from '@core/types/credentials.js';
 import type { CredentialsProvider } from '@core/types/providers.js';
 import { makeLocalCredentialsProvider } from './local.js';
+import type { MutableDeep } from '@core/types/mutable.js';
 
 type LocalCredentialsTestState = {
   appleKeys: Map<string, AscKey>;
@@ -55,7 +56,7 @@ const runWithLocalCredentials = <Success, Failure>(
 
 /** Build context containing only the fields the local credentials provider reads. */
 const iosContext = (account?: string): ResolvedBuildContext => {
-  const buildContext: ResolvedBuildContext = {
+  const buildContext: MutableDeep<ResolvedBuildContext> = {
     platform: 'ios',
     app: {
       name: 'sampleapp',

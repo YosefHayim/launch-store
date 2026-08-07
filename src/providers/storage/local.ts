@@ -23,7 +23,7 @@ export const makeLocalStorageProvider = (directoryOverride?: string) =>
     const objectsDirectory = pathService.join(baseDirectory, 'objects');
     const artifactIndexPath = pathService.join(baseDirectory, 'index.json');
     const readIndex = () => artifactRetention.readIndex(artifactIndexPath);
-    const writeIndex = (artifactIndex: BuildArtifact[]) =>
+    const writeIndex = (artifactIndex: readonly BuildArtifact[]) =>
       artifactRetention.writeIndex(artifactIndex, artifactIndexPath);
     const objectPath = (objectKey: string): string =>
       pathService.join(objectsDirectory, ...objectKey.split('/'));
@@ -37,8 +37,7 @@ export const makeLocalStorageProvider = (directoryOverride?: string) =>
           const destination = pathService.join(baseDirectory, artifactId);
           yield* fileSystem.copy(artifact.path, destination);
           const artifactIndex = yield* readIndex();
-          artifactIndex.unshift({ ...artifact, path: destination });
-          yield* writeIndex(artifactIndex);
+          yield* writeIndex([{ ...artifact, path: destination }, ...artifactIndex]);
           return { id: artifactId, location: destination };
         }),
       list: readIndex,

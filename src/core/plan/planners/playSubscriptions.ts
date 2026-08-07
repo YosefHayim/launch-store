@@ -17,7 +17,10 @@ type PlaySubscriptionsTarget = {
   subscriptions: SubscriptionConfig[];
 };
 /** Resolve the apps that declare at least one Play-overridden subscription, with their package + subscriptions. */
-const targetsFor = (apps: AppDescriptor[], config: LaunchConfig): PlaySubscriptionsTarget[] => {
+const targetsFor = (
+  apps: readonly AppDescriptor[],
+  config: LaunchConfig,
+): PlaySubscriptionsTarget[] => {
   const targets: PlaySubscriptionsTarget[] = [];
   for (const app of apps) {
     if (!app.packageName) continue;

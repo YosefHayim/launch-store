@@ -148,7 +148,7 @@ export const toBuildRow = (artifact: BuildArtifact): BuildRow => {
 
 /** Narrow build history to the requested app and platform. */
 export const filterBuilds = (
-  storedBuilds: BuildArtifact[],
+  storedBuilds: readonly BuildArtifact[],
   filters: Readonly<{ app?: string; platform?: Platform }>,
 ): BuildArtifact[] =>
   storedBuilds.filter((storedBuild) => {
@@ -159,7 +159,7 @@ export const filterBuilds = (
 
 /** Resolve a full id, build number, or `latest` against newest-first history. */
 export const findBuild = (
-  storedBuilds: BuildArtifact[],
+  storedBuilds: readonly BuildArtifact[],
   reference: string,
 ): BuildArtifact | undefined => {
   if (reference === 'latest') return storedBuilds[0];

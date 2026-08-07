@@ -18,6 +18,7 @@ import type {
   StarRating,
 } from '../types/insights.js';
 import { buildInsightsReport, STARS } from './aggregate.js';
+import type { MutableDeep } from '../types/mutable.js';
 
 /** Options accepted by the cross-store insights command. */
 export type InsightsCommandOptions = Readonly<{
@@ -66,7 +67,7 @@ const normalizeAscReviews = (customerReviews: readonly CustomerReviewResource[])
   for (const customerReview of customerReviews) {
     const starRating = toStarRating(customerReview.rating);
     if (starRating === null) continue;
-    const normalizedReview: ReviewDatum = {
+    const normalizedReview: MutableDeep<ReviewDatum> = {
       store: 'appstore',
       rating: starRating,
       answered: customerReview.answered,
@@ -85,7 +86,7 @@ const normalizePlayReviews = (playReviews: readonly PlayReview[]): ReviewDatum[]
   for (const playReview of playReviews) {
     const starRating = toStarRating(playReview.rating);
     if (starRating === null) continue;
-    const normalizedReview: ReviewDatum = {
+    const normalizedReview: MutableDeep<ReviewDatum> = {
       store: 'play',
       rating: starRating,
       answered: playReview.answered,

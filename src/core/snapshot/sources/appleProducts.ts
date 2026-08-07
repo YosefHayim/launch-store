@@ -1,10 +1,5 @@
 import { Effect } from 'effect';
-import type {
-  AppEntities,
-  SnapshotContext,
-  SnapshotEntity,
-  SnapshotSource,
-} from '@core/types/snapshot.js';
+import type { SnapshotContext, SnapshotEntity, SnapshotSource } from '@core/types/snapshot.js';
 import { iosApps } from '@core/readiness/appScopes.js';
 /** One captured in-app purchase -> a snapshot entity keyed by its product id. */
 const toEntity = (iap: {
@@ -55,7 +50,10 @@ export const appleProductsSource: SnapshotSource = {
       );
       return {
         state: 'captured',
-        apps: captured.filter((app): app is AppEntities => app !== null),
+        apps: captured.flatMap((app) => {
+          if (app === null) return [];
+          return [app];
+        }),
       };
     });
   },

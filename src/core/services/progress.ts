@@ -135,7 +135,7 @@ const logStamp = (epochMilliseconds: number): string => {
  * the full log on disk (falling back to the in-memory tail if it can't be read), since the real cause
  * sometimes precedes the trailing lines.
  */
-const reportFailure = (label: string, tail: string[], logFile: string) =>
+const reportFailure = (label: string, tail: readonly string[], logFile: string) =>
   Effect.gen(function* () {
     const lines = [
       `${label} failed. Last lines:`,
@@ -160,7 +160,11 @@ const reportFailure = (label: string, tail: string[], logFile: string) =>
  * shows the live step from `parseStep` and a running clock; on failure the tail and log path are
  * printed before the error propagates. In stream mode it is exactly {@link run} (inherited stdio).
  */
-export const runWithProgress = (command: string, args: string[], options: ProgressRunOptions) =>
+export const runWithProgress = (
+  command: string,
+  args: readonly string[],
+  options: ProgressRunOptions,
+) =>
   Effect.gen(function* () {
     const { label, parseStep, ...progressCommandOptions } = options;
     const commandOptions: {

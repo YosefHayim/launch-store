@@ -75,7 +75,7 @@ const app = (overrides: Partial<AppDescriptor> = {}): AppDescriptor => {
 };
 /** The artifact at `path`, asserting it was emitted. */
 const artifact = (
-  migrationArtifacts: MigrationArtifact[],
+  migrationArtifacts: readonly MigrationArtifact[],
   artifactPath: string,
 ): MigrationArtifact => {
   const matchingArtifact = migrationArtifacts.find((entry) => entry.path === artifactPath);
@@ -83,7 +83,10 @@ const artifact = (
   return expectDefined(matchingArtifact, `artifact ${artifactPath}`);
 };
 /** Notes at a given level. */
-const notesAt = (migrationNotes: MigrationNote[], level: MigrationNoteLevel): MigrationNote[] => {
+const notesAt = (
+  migrationNotes: readonly MigrationNote[],
+  level: MigrationNoteLevel,
+): MigrationNote[] => {
   return migrationNotes.filter((note) => note.level === level);
 };
 const runReadFastlaneSetup = (workingDirectory: string) =>
@@ -149,7 +152,7 @@ describe('parseFastfile', () => {
     expect(beta).toBeDefined();
     if (beta === undefined) return;
     expect(beta.platform).toBe('ios');
-    expect(beta.actions.sort()).toEqual(['gym', 'match', 'pilot']);
+    expect([...beta.actions].sort()).toEqual(['gym', 'match', 'pilot']);
     expect(laneLaunchCommands(beta)).toEqual(['launch build', 'launch release --track testing']);
     const play = lanes.find((lane) => lane.name === 'play');
     expect(play).toBeDefined();

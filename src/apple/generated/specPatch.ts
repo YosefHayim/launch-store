@@ -53,7 +53,7 @@ export function generatedHeader(spec: AscSpecMeta): string {
  * Pick the real spec file from a zip's entry list, accepting Apple's occasional download suffix and
  * skipping the macOS resource-fork sibling. Returns the matching entry or null when absent.
  */
-export function pickSpecEntry(entries: string[]): string | null {
+export function pickSpecEntry(entries: readonly string[]): string | null {
   const specEntry = entries.find((entry) => {
     const fileName = entry.split('/').at(-1);
     return (

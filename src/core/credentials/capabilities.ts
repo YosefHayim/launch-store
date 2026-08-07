@@ -203,7 +203,7 @@ export const APP_GROUP_PORTAL_URL =
  * to-do: which groups, where to create them, and which bundle ids must join. Pure - for the build path to
  * warn before archiving and for unit tests.
  */
-export const appGroupPortalNotice = (containers: string[]): string | null => {
+export const appGroupPortalNotice = (containers: readonly string[]): string | null => {
   if (containers.length === 0) return null;
   const groups = containers.map((id) => `"${id}"`).join(', ');
   let plural = 'App Groups';

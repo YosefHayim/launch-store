@@ -11,6 +11,7 @@ import { deleteSecret, getSecret, setSecret } from './keychain.js';
 import { migrateLegacySigningIndex, p12PasswordAccount } from './appleSigning.js';
 import { AppStoreIdentityService } from '../services/appStoreIdentity.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
+import type { MutableDeep } from '../types/mutable.js';
 /** Secret-store account holding one Apple account's `.p8` PEM, namespaced by Key ID. */
 const p8Account = (keyId: string): string => {
   return `asc-p8:${keyId}`;
@@ -25,23 +26,19 @@ export type AccountFailure = Readonly<{
   readonly message: string;
 }>;
 export const makeAccountFailure = Data.tagged<AccountFailure>('AccountFailure');
-const AccountRecordSchema: Schema.Schema<AccountRecord> = Schema.mutable(
-  Schema.Struct({
-    keyId: Schema.String,
-    issuerId: Schema.String,
-    label: Schema.String,
-    teamId: Schema.optionalWith(Schema.String, { exact: true }),
-    apps: Schema.optionalWith(Schema.mutable(Schema.Array(Schema.String)), { exact: true }),
-    addedAt: Schema.String,
-    resolvedAt: Schema.optionalWith(Schema.String, { exact: true }),
-  }),
-);
-const AccountsFileSchema: Schema.Schema<AccountsFile> = Schema.mutable(
-  Schema.Struct({
-    active: Schema.NullOr(Schema.String),
-    accounts: Schema.mutable(Schema.Array(AccountRecordSchema)),
-  }),
-);
+const AccountRecordSchema: Schema.Schema<AccountRecord> = Schema.Struct({
+  keyId: Schema.String,
+  issuerId: Schema.String,
+  label: Schema.String,
+  teamId: Schema.optionalWith(Schema.String, { exact: true }),
+  apps: Schema.optionalWith(Schema.Array(Schema.String), { exact: true }),
+  addedAt: Schema.String,
+  resolvedAt: Schema.optionalWith(Schema.String, { exact: true }),
+});
+const AccountsFileSchema: Schema.Schema<AccountsFile> = Schema.Struct({
+  active: Schema.NullOr(Schema.String),
+  accounts: Schema.Array(AccountRecordSchema),
+});
 type AccountStorageRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
 const emptyAccountsFile = (): AccountsFile => ({ active: null, accounts: [] });
 /** ISO-8601 stamp for `addedAt`/`resolvedAt`. */
@@ -139,7 +136,7 @@ export const findAccount = (
   );
 /** Match an account by its label or Key ID, case-insensitively - the selector form users type. */
 export const matchAccount = (
-  accounts: AccountRecord[],
+  accounts: readonly AccountRecord[],
   selector: string,
 ): AccountRecord | undefined => {
   const needle = selector.trim().toLowerCase();
@@ -209,14 +206,14 @@ export const addAccount = (
     if (!hasIdentity && input.apps !== undefined) hasIdentity = input.apps.length > 0;
     let addedAt = existing?.addedAt;
     if (addedAt === undefined) addedAt = timestamp;
-    const record: AccountRecord = {
+    const record: MutableDeep<AccountRecord> = {
       keyId: input.keyId,
       issuerId: input.issuerId,
       label: input.label,
       addedAt,
     };
     if (input.teamId !== null && input.teamId !== undefined) record.teamId = input.teamId;
-    if (input.apps !== undefined && input.apps.length > 0) record.apps = input.apps;
+    if (input.apps !== undefined && input.apps.length > 0) record.apps = [...input.apps];
     if (hasIdentity) record.resolvedAt = timestamp;
     let accounts = [...file.accounts, record];
     if (existing) {
@@ -232,16 +229,16 @@ export const addAccount = (
 export const updateAccountIdentity = (
   keyId: string,
   teamId: string | null,
-  apps: string[],
+  apps: readonly string[],
 ): Effect.Effect<void, AccountFailure, AccountStorageRequirements> =>
   Effect.gen(function* () {
     const file = yield* readAccounts();
     const timestamp = yield* currentTimestamp();
     const accounts = file.accounts.map((account) => {
       if (account.keyId !== keyId) return account;
-      const next: AccountRecord = { ...account, resolvedAt: timestamp };
-      if (teamId != null) next.teamId = teamId;
-      if (apps.length > 0) next.apps = apps;
+      let next: AccountRecord = { ...account, resolvedAt: timestamp };
+      if (teamId != null) next = { ...next, teamId };
+      if (apps.length > 0) next = { ...next, apps: [...apps] };
       return next;
     });
     yield* writeAccounts({ active: file.active, accounts });
@@ -364,7 +361,7 @@ export const decideBuildAccount = (file: AccountsFile, selector?: string): Build
 export type ResolveBuildAccountOptions = {
   selector?: string | undefined;
   interactive: boolean;
-  pick: (accounts: AccountRecord[]) => Effect.Effect<AccountRecord, unknown>;
+  pick: (accounts: readonly AccountRecord[]) => Effect.Effect<AccountRecord, unknown>;
 };
 /**
  * Resolve the account a build should use, applying {@link decideBuildAccount} and then either using

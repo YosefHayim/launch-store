@@ -37,7 +37,7 @@ const planner = (plan: SurfacePlan): SurfacePlanner => {
 /** Execute the planner orchestrator at the test boundary. */
 const runPlannerSet = (
   planContext: PlanContext,
-  planners: SurfacePlanner[],
+  planners: readonly SurfacePlanner[],
   options: Parameters<typeof runPlanners>[2],
 ) =>
   Effect.runPromise(

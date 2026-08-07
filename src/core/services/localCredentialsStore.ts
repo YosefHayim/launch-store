@@ -35,7 +35,7 @@ export type LocalCredentialsStoreService = Readonly<{
   readonly loadAppleSigningAssets: (
     keyId: string,
     bundleId: string,
-    extensions?: string[],
+    extensions?: readonly string[],
   ) => Effect.Effect<SigningAssets | null, unknown>;
   readonly loadPlayServiceAccount: () => Effect.Effect<string | null, unknown>;
   readonly loadAndroidKeystore: () => Effect.Effect<KeystoreAssets | null, unknown>;

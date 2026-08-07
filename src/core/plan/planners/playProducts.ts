@@ -14,7 +14,7 @@ type PlayProductsTarget = {
   products: InAppPurchaseConfig[];
 };
 /** Resolve the apps that declare at least one Play-overridden in-app product, with their package + products. */
-const targetsFor = (apps: AppDescriptor[], config: LaunchConfig): PlayProductsTarget[] => {
+const targetsFor = (apps: readonly AppDescriptor[], config: LaunchConfig): PlayProductsTarget[] => {
   const targets: PlayProductsTarget[] = [];
   for (const app of apps) {
     if (!app.packageName) continue;

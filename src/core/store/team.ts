@@ -81,7 +81,7 @@ export const getTeam = (teamClient: AscTeamApi): Effect.Effect<Team, TeamFailure
   ).pipe(Effect.mapError((cause) => teamFailure('list', cause)));
 
 /** Normalize comma-separated role fragments into Apple's canonical role names. */
-const normalizeRoles = (declaredRoles: string[]): string[] => {
+const normalizeRoles = (declaredRoles: readonly string[]): string[] => {
   const normalizedRoles = new Set<string>();
   for (const declaredRole of declaredRoles) {
     const normalizedRole = declaredRole.trim().toUpperCase();

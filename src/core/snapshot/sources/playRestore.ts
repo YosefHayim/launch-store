@@ -5,16 +5,27 @@ import type { PlannedAction } from '@core/types/reconcile.js';
  * Narrow a captured {@link JsonValue} to a plain object (rejecting arrays and null), or `null`, so a
  * malformed captured section is skipped rather than slipping through as an empty record.
  */
+const isJsonRecord = (
+  capturedNode: JsonValue,
+): capturedNode is Readonly<{ [key: string]: JsonValue }> => {
+  if (typeof capturedNode !== 'object') return false;
+  if (capturedNode === null) return false;
+  if (Array.isArray(capturedNode)) return false;
+  return true;
+};
+
 export const jsonRecord = (
   capturedNode: JsonValue | undefined,
-): Record<string, JsonValue> | null => {
-  if (typeof capturedNode !== 'object') return null;
-  if (capturedNode === null) return null;
-  if (Array.isArray(capturedNode)) return null;
+): Readonly<{ [key: string]: JsonValue }> | null => {
+  if (capturedNode === undefined) return null;
+  if (!isJsonRecord(capturedNode)) return null;
   return capturedNode;
 };
 /** Read a string-valued field from a captured record, or `undefined` when absent/non-string. */
-export const stringField = (record: Record<string, JsonValue>, key: string): string | undefined => {
+export const stringField = (
+  record: Readonly<{ [key: string]: JsonValue }>,
+  key: string,
+): string | undefined => {
   const capturedField = record[key];
   if (typeof capturedField === 'string') return capturedField;
   return undefined;

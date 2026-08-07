@@ -156,7 +156,7 @@ export const diagnoseBuildLog = (log: string): BuildDiagnosis[] => {
   return matched;
 };
 /** Render diagnoses as an indented, human-readable block for the terminal. Empty input -> empty string. */
-export const formatDiagnoses = (diagnoses: BuildDiagnosis[]): string => {
+export const formatDiagnoses = (diagnoses: readonly BuildDiagnosis[]): string => {
   if (diagnoses.length === 0) return '';
   let header = 'Likely causes:';
   if (diagnoses.length === 1) header = 'Likely cause:';

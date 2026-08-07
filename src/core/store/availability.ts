@@ -68,7 +68,7 @@ export type AvailabilityReconcileInput = {
   dryRun: boolean;
 };
 /** Uppercase, trim, and de-duplicate a list of territory codes into a stable set. */
-const normalizeTerritories = (territories: string[]): Set<string> => {
+const normalizeTerritories = (territories: readonly string[]): Set<string> => {
   return new Set(territories.map((code) => code.trim().toUpperCase()));
 };
 /** Sorted difference `a \ b` - codes in `a` not in `b`. */

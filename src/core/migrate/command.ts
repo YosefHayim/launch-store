@@ -49,7 +49,7 @@ const readMigration = (
 
 const printMigrationNotes = (
   logger: Logger,
-  notes: MigrationNote[],
+  notes: readonly MigrationNote[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     for (const migrationNote of notes) {

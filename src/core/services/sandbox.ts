@@ -3,7 +3,7 @@ import type { SandboxTesterResource } from '../types/appleCatalog.js';
 /** The exact slice of {@link AppStoreConnectClient} the sandbox domain depends on. */
 export type AscSandboxApi = {
   listSandboxTesters(): Effect.Effect<SandboxTesterResource[], unknown>;
-  clearSandboxTesterPurchaseHistory(testerIds: string[]): Effect.Effect<void, unknown>;
+  clearSandboxTesterPurchaseHistory(testerIds: readonly string[]): Effect.Effect<void, unknown>;
 };
 export type SandboxRequestFailure = Readonly<{
   readonly _tag: 'SandboxRequestFailure';

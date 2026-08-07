@@ -17,6 +17,7 @@ import type {
   GameCenterConfig,
   LeaderboardConfig,
 } from '../types/storeSurface.js';
+import type { MutableDeep } from '../types/mutable.js';
 import {
   decodeStoreSurfaceConfig,
   loadStoreSurfaceConfig,
@@ -199,7 +200,7 @@ const localizationLocale = (locale: string | undefined): string => {
  * Connect) rather than failed.
  */
 const applyLocalization = (
-  localizationAction: PlannedAction,
+  localizationAction: MutableDeep<PlannedAction>,
   versionId: string | null,
   vendorIdentifier: string,
   writeLocalization: (confirmedVersionId: string) => Effect.Effect<void, unknown>,
@@ -287,7 +288,7 @@ const reconcileAchievements = (
   reconcileContext: ReconcileContext,
   api: AscGameCenterApi,
   detail: NonNullable<EnsuredDetail>,
-  declaredAchievements: AchievementConfig[],
+  declaredAchievements: readonly AchievementConfig[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     let existingIdentifiers = new Set<string>();
@@ -333,7 +334,7 @@ const reconcileLeaderboards = (
   reconcileContext: ReconcileContext,
   api: AscGameCenterApi,
   detail: NonNullable<EnsuredDetail>,
-  declaredLeaderboards: LeaderboardConfig[],
+  declaredLeaderboards: readonly LeaderboardConfig[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     let existingIdentifiers = new Set<string>();
@@ -395,9 +396,9 @@ export const reconcileGameCenter = (
       );
       return { bundleId: reconcileInput.bundleId, actions: reconcileContext.actions };
     }
-    let achievements: AchievementConfig[] = [];
+    let achievements: readonly AchievementConfig[] = [];
     if (gameCenterConfig.achievements !== undefined) achievements = gameCenterConfig.achievements;
-    let leaderboards: LeaderboardConfig[] = [];
+    let leaderboards: readonly LeaderboardConfig[] = [];
     if (gameCenterConfig.leaderboards !== undefined) leaderboards = gameCenterConfig.leaderboards;
     yield* reconcileAchievements(reconcileContext, api, detail, achievements);
     yield* reconcileLeaderboards(reconcileContext, api, detail, leaderboards);

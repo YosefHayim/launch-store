@@ -1,5 +1,6 @@
 import type { AndroidLocaleInfo, AppleLocaleInfo, StoreConfig } from '../store/storeConfig.js';
 import type { DraftListing, ListingBrief, LocaleDraft } from '../types/listing.js';
+import type { MutableDeep } from '../types/mutable.js';
 /**
  * App Store field limits, in characters. `keywords` is the limit on the *comma-joined* string (Apple
  * counts the serialized field, and `storeConfig` joins with `", "`), not the count of keywords.
@@ -23,11 +24,11 @@ const clampText = (listingText: string, maxCharacters: number): string => {
   return listingText.slice(0, maxCharacters).trimEnd();
 };
 /** The comma-joined serialization Apple counts against the 100-char keyword limit. */
-export const serializeKeywords = (keywords: string[]): string => {
+export const serializeKeywords = (keywords: readonly string[]): string => {
   return keywords.join(', ');
 };
 /** Keep keywords from the front until adding the next would overflow the joined-string limit. */
-const clampKeywords = (keywords: string[], maxCharacters: number): string[] => {
+const clampKeywords = (keywords: readonly string[], maxCharacters: number): string[] => {
   const keptKeywords: string[] = [];
   for (const keyword of keywords) {
     if (serializeKeywords([...keptKeywords, keyword]).length > maxCharacters) break;
@@ -47,7 +48,7 @@ export const clampDraft = (
   warnings: string[];
 } => {
   const warningMessages: string[] = [];
-  const clampedDraft: DraftListing = {};
+  const clampedDraft: MutableDeep<DraftListing> = {};
   /** Clamp one optional text field, recording a warning when it was over the limit. */
   const fitText = (
     listingText: string | undefined,
@@ -98,7 +99,7 @@ export const briefFor = (
   currentListing: AppleLocaleInfo | undefined,
   aboutOverride: string | undefined,
 ): ListingBrief => {
-  const listingBrief: ListingBrief = { locale: localeName, appName: displayName };
+  const listingBrief: MutableDeep<ListingBrief> = { locale: localeName, appName: displayName };
   let aboutText = aboutOverride;
   if (aboutText === undefined && currentListing !== undefined)
     aboutText = currentListing.promotionalText;
@@ -135,6 +136,38 @@ export const deriveAndroidLocale = (listingDraft: DraftListing): AndroidLocaleIn
  * fields (so untouched fields and other locales survive), per targeted platform. The App Store fields
  * map 1:1; the Play fields are derived via {@link deriveAndroidLocale}. Returns a new config.
  */
+/** Merge a draft over one locale's existing App Store listing, copying keywords into a mutable array. */
+const mergeAppleLocale = (
+  existingLocale: AppleLocaleInfo | undefined,
+  listingDraft: DraftListing,
+): AppleLocaleInfo => {
+  const mergedLocale: MutableDeep<AppleLocaleInfo> = {};
+  if (existingLocale !== undefined) {
+    if (existingLocale.title !== undefined) mergedLocale.title = existingLocale.title;
+    if (existingLocale.subtitle !== undefined) mergedLocale.subtitle = existingLocale.subtitle;
+    if (existingLocale.description !== undefined)
+      mergedLocale.description = existingLocale.description;
+    if (existingLocale.keywords !== undefined) mergedLocale.keywords = [...existingLocale.keywords];
+    if (existingLocale.releaseNotes !== undefined)
+      mergedLocale.releaseNotes = existingLocale.releaseNotes;
+    if (existingLocale.promotionalText !== undefined)
+      mergedLocale.promotionalText = existingLocale.promotionalText;
+    if (existingLocale.marketingUrl !== undefined)
+      mergedLocale.marketingUrl = existingLocale.marketingUrl;
+    if (existingLocale.supportUrl !== undefined)
+      mergedLocale.supportUrl = existingLocale.supportUrl;
+    if (existingLocale.privacyPolicyUrl !== undefined)
+      mergedLocale.privacyPolicyUrl = existingLocale.privacyPolicyUrl;
+  }
+  if (listingDraft.title !== undefined) mergedLocale.title = listingDraft.title;
+  if (listingDraft.subtitle !== undefined) mergedLocale.subtitle = listingDraft.subtitle;
+  if (listingDraft.description !== undefined) mergedLocale.description = listingDraft.description;
+  if (listingDraft.promotionalText !== undefined)
+    mergedLocale.promotionalText = listingDraft.promotionalText;
+  if (listingDraft.keywords !== undefined) mergedLocale.keywords = [...listingDraft.keywords];
+  return mergedLocale;
+};
+
 export const applyDraft = (
   storeConfiguration: StoreConfig,
   localeName: string,
@@ -148,12 +181,11 @@ export const applyDraft = (
   if (listingTargets.ios) {
     let appleListing = storeConfiguration.apple;
     if (appleListing === undefined) appleListing = { info: {} };
+    const localeInfo: Record<string, AppleLocaleInfo> = { ...appleListing.info };
+    localeInfo[localeName] = mergeAppleLocale(appleListing.info[localeName], listingDraft);
     updatedStoreConfiguration.apple = {
       ...appleListing,
-      info: {
-        ...appleListing.info,
-        [localeName]: { ...appleListing.info[localeName], ...listingDraft },
-      },
+      info: localeInfo,
     };
   }
   if (listingTargets.android) {

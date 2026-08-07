@@ -1,10 +1,11 @@
 import { Data, Effect } from 'effect';
 import { errorMessage } from '../services/errorMessage.js';
 import type { PlannedAction } from '../types/reconcile.js';
+import type { MutableDeep } from '../types/mutable.js';
 
 /** Mutable state for one reconciliation pass. */
 export type ReconcileContext = {
-  actions: PlannedAction[];
+  actions: MutableDeep<PlannedAction>[];
   dryRun: boolean;
 };
 
@@ -23,7 +24,11 @@ export const act = (
   description: string,
   runAction: () => Effect.Effect<void, unknown>,
 ): Effect.Effect<void> => {
-  const plannedAction: PlannedAction = { description, destructive: false, status: 'planned' };
+  const plannedAction: MutableDeep<PlannedAction> = {
+    description,
+    destructive: false,
+    status: 'planned',
+  };
   reconcileContext.actions.push(plannedAction);
   if (reconcileContext.dryRun) return Effect.void;
   return runAction().pipe(
@@ -40,8 +45,15 @@ export const act = (
 };
 
 /** Record a planned action and return its mutable status handle. */
-export const plan = (reconcileContext: ReconcileContext, description: string): PlannedAction => {
-  const plannedAction: PlannedAction = { description, destructive: false, status: 'planned' };
+export const plan = (
+  reconcileContext: ReconcileContext,
+  description: string,
+): MutableDeep<PlannedAction> => {
+  const plannedAction: MutableDeep<PlannedAction> = {
+    description,
+    destructive: false,
+    status: 'planned',
+  };
   reconcileContext.actions.push(plannedAction);
   return plannedAction;
 };
@@ -72,7 +84,7 @@ export const skip = (reconcileContext: ReconcileContext, description: string): v
 };
 /** Tally a reconcile report's action statuses for the run-summary footer (applied / failed / skipped). */
 export const summarize = (
-  actions: PlannedAction[],
+  actions: readonly PlannedAction[],
 ): {
   applied: number;
   failed: number;

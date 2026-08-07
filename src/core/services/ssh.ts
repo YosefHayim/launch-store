@@ -80,7 +80,7 @@ export const rsyncUp = (
   target: SshTarget,
   localDir: string,
   remoteDir: string,
-  excludes: string[],
+  excludes: readonly string[],
 ) => {
   const sshCommand = ['ssh', ...sshFlags(target)].join(' ');
   const args = ['-az', '--delete', '-e', sshCommand];

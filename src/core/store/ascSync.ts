@@ -300,7 +300,7 @@ export const reconcileApp = (
     const catalogContext = emptyCatalogContext(api, input.dryRun, input.allowDestructive);
     const appId = yield* requireAppStoreRecordId(api, input.bundleId);
     yield* reconcileCapabilities(catalogContext, input.bundleId, input.capabilities);
-    let desiredInAppPurchases: InAppPurchaseConfig[] = [];
+    let desiredInAppPurchases: readonly InAppPurchaseConfig[] = [];
     if (input.products.inAppPurchases !== undefined) {
       desiredInAppPurchases = input.products.inAppPurchases;
     }
@@ -372,7 +372,7 @@ const reconcileCapabilities = (
 const reconcileInAppPurchases = (
   catalogContext: CatalogReconcileContext,
   appId: string,
-  desiredPurchases: InAppPurchaseConfig[],
+  desiredPurchases: readonly InAppPurchaseConfig[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     if (desiredPurchases.length === 0) return;

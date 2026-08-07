@@ -10,6 +10,7 @@ import {
 import { getSecret, setSecret } from './keychain.js';
 import { decodeP8, encodeP8 } from './accounts.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
+import type { MutableDeep } from '../types/mutable.js';
 /** Secret-store account holding one APNs key's `.p8` PEM, namespaced by Key ID. */
 const apnsAccount = (keyId: string): string => {
   return `apns-p8:${keyId}`;
@@ -93,7 +94,7 @@ export const importPushKey = (
     const timestamp = yield* currentTimestamp();
     let importedAt = existing?.importedAt;
     if (importedAt === undefined) importedAt = timestamp;
-    const record: ApnsKeyRecord = {
+    const record: MutableDeep<ApnsKeyRecord> = {
       keyId: input.keyId,
       importedAt,
     };

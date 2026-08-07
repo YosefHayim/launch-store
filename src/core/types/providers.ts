@@ -32,36 +32,36 @@ export const makeProviderInputFailure = Data.tagged<ProviderInputFailure>('Provi
  * (Android) as a {@link BuildCredentials}. A future `team`/`s3` implementation could fetch shared, encrypted
  * credentials instead - the pipeline neither knows nor cares which backend answered.
  */
-export type CredentialsProvider = {
+export type CredentialsProvider = Readonly<{
   readonly name: string;
   resolveBuildCredentials(
     buildContext: ResolvedBuildContext,
   ): Effect.Effect<BuildCredentials, unknown>;
   status(): Effect.Effect<string, unknown>;
-};
+}>;
 /**
  * Compiles and signs the native project into a distributable artifact.
  *
  * `fastlane` runs `gym` -> `.ipa` (iOS); `gradle` runs `bundleRelease` -> `.aab` (Android). Each engine
  * narrows {@link BuildCredentials} to the platform it serves and rejects the other.
  */
-export type BuildEngine = {
+export type BuildEngine = Readonly<{
   readonly name: string;
   buildArtifact(
     buildContext: ResolvedBuildContext,
     buildCredentials: BuildCredentials,
   ): Effect.Effect<
-    {
+    Readonly<{
       artifactPath: string;
       sizeReport: SizeReport;
       cleanBuilt: boolean;
-    },
+    }>,
     unknown
   >;
-};
+}>;
 
 /** Runs a hosted build service that owns its authentication, build number, and optional submission. */
-export type HostedBuildProvider = {
+export type HostedBuildProvider = Readonly<{
   readonly name: string;
   describeCli(): Effect.Effect<string, unknown>;
   authenticate(): Effect.Effect<string, unknown>;
@@ -69,11 +69,11 @@ export type HostedBuildProvider = {
     buildContext: ResolvedBuildContext,
     profileName: string,
   ): Effect.Effect<
-    {
+    Readonly<{
       artifactPath: string;
       sizeReport: SizeReport;
       buildNumber: number;
-    },
+    }>,
     unknown
   >;
   submit(
@@ -81,7 +81,7 @@ export type HostedBuildProvider = {
     artifactPath: string,
     profileName: string,
   ): Effect.Effect<void, unknown>;
-};
+}>;
 /**
  * Persists build artifacts and hands back a retrievable location.
  *
@@ -90,10 +90,10 @@ export type HostedBuildProvider = {
  * providers (R2, S3, Supabase) are thin drop-ins. `local` writes under `~/.launch`; the cloud
  * providers upload to the user's own bucket and serve from {@link StorageConfig.publicBaseUrl}.
  */
-export type StorageProvider = {
+export type StorageProvider = Readonly<{
   readonly name: string;
   put(artifact: BuildArtifact): Effect.Effect<StoredArtifact, unknown>;
-  list(): Effect.Effect<BuildArtifact[], unknown>;
+  list(): Effect.Effect<readonly BuildArtifact[], unknown>;
   url(id: string): Effect.Effect<string, unknown>;
   putObject(
     key: string,
@@ -103,7 +103,7 @@ export type StorageProvider = {
   getObject(key: string): Effect.Effect<Buffer | null, unknown>;
   publicUrl(key: string): string;
   prune?(options: PruneOptions): Effect.Effect<PruneResult, unknown>;
-};
+}>;
 
 export type StorageProviderOptions = Readonly<{
   readonly artifactDirectory?: string;
@@ -120,11 +120,11 @@ export type StorageProviderResolver = Readonly<{
  * Uploads a built artifact to a distribution destination.
  *
  * `app-store-connect` submits to TestFlight/App Store via fastlane `pilot`/`deliver`; `google-play`
- * submits to a Play track via fastlane `supply`. Each narrows {@link BuildCredentials} to its platform
- * and maps the neutral {@link SubmitTarget} onto its store's concept (Android also reads
+ * submits to a Play track via fastlane `supply`. Each narrows Readonly<{@link BuildCredentials}> to its platform
+ * and maps the neutral Readonly<{@link SubmitTarget}> onto its store's concept (Android also reads
  * `buildContext.android`).
  */
-export type Submitter = {
+export type Submitter = Readonly<{
   readonly name: string;
   submit(
     artifactPath: string,
@@ -132,7 +132,7 @@ export type Submitter = {
     buildCredentials: BuildCredentials,
     buildContext: ResolvedBuildContext,
   ): Effect.Effect<void, unknown>;
-};
+}>;
 /**
  * Generic OS-native secret storage - the cross-platform widening of the macOS-only Keychain.
  *
@@ -141,12 +141,12 @@ export type Submitter = {
  * no Keychain; this seam gives them a real OS-native store. NOTE: importing a cert into a *codesign*
  * keychain (the `security import` calls) is a different concern and stays in `core/keychain.ts`.
  */
-export type SecretStore = {
+export type SecretStore = Readonly<{
   readonly name: string;
   get(account: string): Effect.Effect<string | null, unknown>;
   set(account: string, secretText: string): Effect.Effect<void, unknown>;
   delete(account: string): Effect.Effect<void, unknown>;
-};
+}>;
 /**
  * Provisions, connects to, and tears down a remote Mac for off-Mac iOS builds.
  *
@@ -155,10 +155,10 @@ export type SecretStore = {
  * fastlane build/sign/submit spine over the SSH connection, so the host backend and the build logic
  * stay independent. SSH command execution lives in `core/ssh.ts`, shared by every host impl.
  */
-export type ComputeHost = {
+export type ComputeHost = Readonly<{
   readonly name: string;
   allocate(request: AllocateRequest): Effect.Effect<HostHandle, unknown>;
   status(handle: HostHandle): Effect.Effect<HostStatus | null, unknown>;
   teardown(handle: HostHandle): Effect.Effect<void, unknown>;
   doctor?(awsConfiguration: AwsConfig): Effect.Effect<CloudDoctorReport, unknown>;
-};
+}>;

@@ -46,7 +46,7 @@ export type AppleCredentialsClient = Readonly<{
     name: string,
     bundleIdResourceId: string,
     certificateId: string,
-    deviceIds: string[],
+    deviceIds: readonly string[],
     profileType: 'IOS_APP_ADHOC' | 'TVOS_APP_ADHOC',
   ) => Effect.Effect<ProfileResource, unknown>;
   readonly listBundleIdCapabilities: (

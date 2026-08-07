@@ -10,6 +10,7 @@ import type {
   TrainState,
 } from '../types/releaseTrain.js';
 import { isCarTerminal, isNativeCar, isOtaCar } from './guards.js';
+import type { MutableDeep } from '../types/mutable.js';
 
 /** Store and OTA operations driven by the release-train state machine. */
 export type TrainEngine<Requirements = never> = Readonly<{
@@ -100,7 +101,7 @@ export const startTrain = <Requirements>(
   Effect.gen(function* () {
     const trainCars: Car[] = [];
     for (const platform of trainInput.platforms) {
-      const nativeCar: NativeCar = {
+      const nativeCar: MutableDeep<NativeCar> = {
         kind: platform,
         state: 'building',
         updatedAt: trainInput.now,
@@ -148,7 +149,7 @@ export const advanceTrain = <Requirements>(
     if (trainRecord.state === 'done') return trainRecord;
     if (trainRecord.state === 'aborted') return trainRecord;
     const forced = advanceOptions.force === true;
-    const trainCars = trainRecord.cars.map((trainCar): Car => ({ ...trainCar }));
+    const trainCars = trainRecord.cars.map((trainCar): MutableDeep<Car> => ({ ...trainCar }));
 
     for (const trainCar of trainCars) {
       if (!isNativeCar(trainCar)) continue;
@@ -160,7 +161,11 @@ export const advanceTrain = <Requirements>(
       if (!isNativeFailure(trainCar)) delete trainCar.error;
     }
 
-    const nativeCars = trainCars.filter(isNativeCar);
+    const nativeCars: MutableDeep<NativeCar>[] = [];
+    for (const trainCar of trainCars) {
+      if (!isNativeCar(trainCar)) continue;
+      nativeCars.push(trainCar);
+    }
     const hasNativeFailure = nativeCars.some(isNativeFailure);
     const allApproved = nativeCars.every(isNativeApprovedOrReleased);
     const gateOpen = isReleaseGateOpen(trainRecord.hold, forced, hasNativeFailure, allApproved);

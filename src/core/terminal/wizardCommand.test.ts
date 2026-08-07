@@ -10,7 +10,7 @@ import {
   validateCustomBudget,
 } from './wizardCommand.js';
 
-const configWith = (profileNames: string[]): LaunchConfig => ({
+const configWith = (profileNames: readonly string[]): LaunchConfig => ({
   profiles: Object.fromEntries(
     profileNames.map((profileName) => [profileName, { name: profileName }]),
   ),

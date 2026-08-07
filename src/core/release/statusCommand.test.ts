@@ -4,6 +4,7 @@ import { NodeHttpClient } from '@effect/platform-node';
 import { createLogger, makeLaunchLoggerTest } from '../services/logger.js';
 import type { AppDescriptor } from '../types/app.js';
 import { classifyVerdict, type ReleaseStatus } from './appStoreRelease.js';
+import type { MutableDeep } from '../types/mutable.js';
 import {
   formatStatusLine,
   selectIosApps,
@@ -32,7 +33,7 @@ const releaseStatus = (overrides: Partial<ReleaseStatus> = {}): ReleaseStatus =>
 };
 
 const discoveredApp = (appName: string, bundleId?: string): AppDescriptor => {
-  const appDescriptor: AppDescriptor = {
+  const appDescriptor: MutableDeep<AppDescriptor> = {
     name: appName,
     dir: `/repo/${appName}`,
     configPath: `/repo/${appName}/app.json`,

@@ -23,12 +23,12 @@ export type Shell = 'bash' | 'zsh' | 'fish';
  * Filled by a {@link ComputeHost}: `aws-ec2-mac` from a freshly-provisioned instance, `byo-ssh` from
  * a user-supplied `user@host` string. Consumed by the SSH transport helpers in `core/ssh.ts`.
  */
-export type SshTarget = {
+export type SshTarget = Readonly<{
   host: string;
   user: string;
   port: number;
   identityFile?: string;
-};
+}>;
 /**
  * A handle to an allocated (or connected) remote Mac.
  *
@@ -36,7 +36,7 @@ export type SshTarget = {
  * accrued cost, and release it. For `byo-ssh` the AWS fields are absent - there is nothing to bill or
  * release; Launch only borrows the connection.
  */
-export type HostHandle = {
+export type HostHandle = Readonly<{
   provider: string;
   ssh: SshTarget;
   allocatedAt: string;
@@ -44,7 +44,7 @@ export type HostHandle = {
   hostId?: string;
   region?: string;
   instanceType?: string;
-};
+}>;
 /**
  * A live host's status, for `launch cloud status` and the per-command cost banner.
  *
@@ -52,22 +52,22 @@ export type HostHandle = {
  * the 24h minimum (see `core/cost.ts`). `releasableAt` is when AWS first allows releasing the
  * Dedicated Host with no further commitment.
  */
-export type HostStatus = {
+export type HostStatus = Readonly<{
   handle: HostHandle;
   ageMs: number;
   estimatedCostUsd: number;
   releasableAt: string;
-};
+}>;
 /**
  * AWS settings for the EC2 Mac compute host, declared in `launch.config.ts` under `aws`.
  * Launch stores NO AWS secrets: credentials resolve through the standard SDK chain.
  */
-export type AwsConfig = {
+export type AwsConfig = Readonly<{
   region: string;
   profile?: string;
   amiId?: string;
   instanceType?: string;
-};
+}>;
 
 /** One read-only AWS readiness probe shown by `launch cloud doctor`. */
 export type CloudCheck = Readonly<{
@@ -87,13 +87,13 @@ export type CloudDoctorReport = Readonly<{
  * - `ssh`: connect to an already-reachable Mac via the `byo-ssh` {@link ComputeHost}.
  */
 export type RemoteTarget =
-  | {
+  | Readonly<{
       kind: 'aws';
-    }
-  | {
+    }>
+  | Readonly<{
       kind: 'ssh';
       target: string;
-    };
+    }>;
 /**
  * Request passed to {@link ComputeHost.allocate}.
  *
@@ -102,9 +102,9 @@ export type RemoteTarget =
  * the first billable action, and an optional progress sink. Reuse of a live host is handled by the
  * caller (`core/remotePipeline.ts`), so `allocate` always provisions fresh.
  */
-export type AllocateRequest = {
+export type AllocateRequest = Readonly<{
   aws?: AwsConfig;
   sshTarget?: string;
   confirm(message: string): Effect.Effect<boolean, unknown>;
   onProgress?: (message: string) => void;
-};
+}>;

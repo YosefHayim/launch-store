@@ -59,14 +59,14 @@ const app = (over: Partial<AppDescriptor> = {}): AppDescriptor => ({
 });
 
 /** The artifact at `path`, asserting it was emitted. */
-const artifact = (artifacts: MigrationArtifact[], path: string): MigrationArtifact => {
+const artifact = (artifacts: readonly MigrationArtifact[], path: string): MigrationArtifact => {
   const found = artifacts.find((entry) => entry.path === path);
   expect(found, `expected artifact ${path}`).toBeDefined();
   return expectDefined(found, `artifact ${path}`);
 };
 
 /** Notes at a given level. */
-const notesAt = (notes: MigrationNote[], level: MigrationNoteLevel): MigrationNote[] =>
+const notesAt = (notes: readonly MigrationNote[], level: MigrationNoteLevel): MigrationNote[] =>
   notes.filter((note) => note.level === level);
 
 const sampleEasConfiguration = (): EasJson => Effect.runSync(parseEasJson(SAMPLE_EAS));
