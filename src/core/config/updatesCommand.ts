@@ -5,17 +5,17 @@ import { Context, Data, Effect, Layer, Schema } from 'effect';
 import { selectApp } from '../build/pipelineEnv.js';
 import { ensureCodeSigner, type CodeSigner } from '../credentials/codeSign.js';
 import {
-  assembleRollbackDirective,
-  historyIndexKey,
   historySnapshotKey,
-  manifestKey,
-  manifestSignatureKey,
-  rollbackDirectiveKey,
-  type ManifestAsset,
   type UpdateHistoryEntry,
   type UpdateManifest,
 } from '../distribution/otaManifest.js';
 import { isCloudStorage, resolveStorageProvider } from '../distribution/storage.js';
+import {
+  findHistoryEntry,
+  readHistory,
+  republishUpdate,
+  setRollbackToEmbedded,
+} from '../distribution/updateHistory.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import type { LaunchEnvironmentService } from '../services/environment.js';
 import type { LaunchPathsService } from '../services/paths.js';
@@ -23,7 +23,7 @@ import { LaunchPrompt, type LaunchPromptService, pickOne } from '../services/pro
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import type { Platform } from '../types/app.js';
 import type { StorageProvider } from '../types/providers.js';
-import { loadConfig } from './config.js';
+import { loadConfig, type LoadedConfig } from './config.js';
 
 const ManifestAssetSchema = Schema.Struct({
   key: Schema.String,
@@ -40,22 +40,6 @@ const UpdateManifestSchema = Schema.Struct({
   assets: Schema.Array(ManifestAssetSchema),
   metadata: Schema.Struct({}),
   extra: Schema.Struct({}),
-});
-
-const UpdateHistoryEntrySchema = Schema.Struct({
-  id: Schema.String,
-  runtimeVersion: Schema.String,
-  createdAt: Schema.String,
-  active: Schema.Boolean,
-  signed: Schema.Boolean,
-  kind: Schema.Literal('publish', 'rollback'),
-});
-
-const UpdateHistorySchema = Schema.Array(UpdateHistoryEntrySchema);
-const StoredRollbackDirectiveSchema = Schema.Struct({
-  active: Schema.Boolean,
-  body: Schema.String,
-  signature: Schema.optional(Schema.String),
 });
 
 /** Update history entry tagged with its source platform. */
@@ -92,8 +76,8 @@ export type UpdatesCommandFailure = Readonly<{
 export const makeUpdatesCommandFailure =
   Data.tagged<UpdatesCommandFailure>('UpdatesCommandFailure');
 
-/** Runtime-only update command capabilities. */
-export type UpdatesCommandDependencies = Readonly<{
+/** Injectable terminal, clock, and identifier boundary for update history. */
+export type UpdatesCommandService = Readonly<{
   logger: Logger;
   terminalIsInteractive: boolean;
   createUpdateId: () => string;
@@ -101,9 +85,6 @@ export type UpdatesCommandDependencies = Readonly<{
   confirmRollback: (message: string) => Effect.Effect<boolean, UpdatesCommandFailure>;
   cancelRollback: () => Effect.Effect<void>;
 }>;
-
-/** Injectable terminal, clock, and identifier boundary for update history. */
-export type UpdatesCommandService = UpdatesCommandDependencies;
 export const UpdatesCommandService =
   Context.GenericTag<UpdatesCommandService>('UpdatesCommandService');
 
@@ -115,6 +96,15 @@ const updatesFailure = (
 ): UpdatesCommandFailure => {
   let message = fallbackMessage;
   if (message === undefined && cause instanceof Error) message = cause.message;
+  if (
+    message === undefined &&
+    typeof cause === 'object' &&
+    cause !== null &&
+    'message' in cause &&
+    typeof cause.message === 'string'
+  ) {
+    message = cause.message;
+  }
   if (message === undefined) message = `${operation} failed.`;
   return makeUpdatesCommandFailure({ operation, message, cause });
 };
@@ -126,55 +116,52 @@ const writeLog = (
 ): Effect.Effect<void, UpdatesCommandFailure> =>
   logWrite.pipe(Effect.mapError((cause) => updatesFailure(operation, cause)));
 
-/** Decode persisted JSON through the schema that owns its boundary. */
-const decodeJson = <Decoded>(
-  operation: string,
-  schema: Schema.Schema<Decoded>,
-  jsonText: string,
-): Effect.Effect<Decoded, UpdatesCommandFailure> =>
-  Schema.decodeUnknown(Schema.parseJson(schema))(jsonText).pipe(
-    Effect.mapError((cause) => updatesFailure(operation, cause)),
+/** Decode a persisted update snapshot for human/json view. */
+const decodeManifestSnapshot = (
+  snapshotText: string,
+): Effect.Effect<UpdateManifest, UpdatesCommandFailure> =>
+  Schema.decodeUnknown(Schema.parseJson(UpdateManifestSchema))(snapshotText).pipe(
+    Effect.map((decodedManifest) => {
+      const copyAsset = (
+        decodedAsset: Schema.Schema.Type<typeof ManifestAssetSchema>,
+      ): UpdateManifest['launchAsset'] => {
+        const manifestAsset: UpdateManifest['launchAsset'] = {
+          key: decodedAsset.key,
+          contentType: decodedAsset.contentType,
+          url: decodedAsset.url,
+        };
+        if (decodedAsset.fileExtension !== undefined) {
+          manifestAsset.fileExtension = decodedAsset.fileExtension;
+        }
+        return manifestAsset;
+      };
+      const updateManifest: UpdateManifest = {
+        id: decodedManifest.id,
+        createdAt: decodedManifest.createdAt,
+        runtimeVersion: decodedManifest.runtimeVersion,
+        launchAsset: copyAsset(decodedManifest.launchAsset),
+        assets: decodedManifest.assets.map(copyAsset),
+        metadata: {},
+        extra: {},
+      };
+      return updateManifest;
+    }),
+    Effect.mapError((cause) => updatesFailure('decode update snapshot', cause)),
   );
-
-/** Copy a decoded manifest into the mutable legacy domain shape. */
-const toUpdateManifest = (
-  decodedManifest: Schema.Schema.Type<typeof UpdateManifestSchema>,
-): UpdateManifest => {
-  const copyAsset = (
-    decodedAsset: Schema.Schema.Type<typeof ManifestAssetSchema>,
-  ): ManifestAsset => {
-    const manifestAsset: ManifestAsset = {
-      key: decodedAsset.key,
-      contentType: decodedAsset.contentType,
-      url: decodedAsset.url,
-    };
-    if (decodedAsset.fileExtension !== undefined)
-      manifestAsset.fileExtension = decodedAsset.fileExtension;
-    return manifestAsset;
-  };
-  return {
-    id: decodedManifest.id,
-    createdAt: decodedManifest.createdAt,
-    runtimeVersion: decodedManifest.runtimeVersion,
-    launchAsset: copyAsset(decodedManifest.launchAsset),
-    assets: decodedManifest.assets.map(copyAsset),
-    metadata: {},
-    extra: {},
-  };
-};
 
 /** Abbreviate an update id for compact terminal display. */
 export const shortId = (updateId: string): string => updateId.slice(0, 8);
 
 /** Render an ISO timestamp as `YYYY-MM-DD HH:MM`. */
 const formatDate = (isoTimestamp: string): string => {
-  if (isoTimestamp.length >= 16)
+  if (isoTimestamp.length >= 16) {
     return `${isoTimestamp.slice(0, 10)} ${isoTimestamp.slice(11, 16)}`;
+  }
   return isoTimestamp;
 };
 
 /** Parse the optional two-platform filter. */
-const parsePlatformFilter = (
+export const platformsForUpdatesFilter = (
   platformText: string | undefined,
 ): Effect.Effect<readonly Platform[], UpdatesCommandFailure> => {
   if (platformText === undefined) return Effect.succeed(['ios', 'android']);
@@ -252,9 +239,12 @@ export const formatUpdateDetail = (
   return detailLines.join('\n');
 };
 
-/** Require cloud-backed storage for publicly served OTA updates. */
-const requireCloudStorage = (storageName: string): Effect.Effect<void, UpdatesCommandFailure> => {
-  if (storageName !== 'local') return Effect.void;
+/** Fail when storage cannot serve public OTA clients. */
+const requireCloudStorage = (
+  storageName: string,
+  cloudBacked: boolean,
+): Effect.Effect<void, UpdatesCommandFailure> => {
+  if (cloudBacked) return Effect.void;
   return Effect.fail(
     updatesFailure(
       'resolve update storage',
@@ -264,26 +254,8 @@ const requireCloudStorage = (storageName: string): Effect.Effect<void, UpdatesCo
   );
 };
 
-/** Read one per-platform history index, treating an absent or unreadable index as empty. */
-const readHistory = (
-  storageProvider: StorageProvider,
-  channel: string,
-  platform: Platform,
-): Effect.Effect<readonly UpdateHistoryEntry[], UpdatesCommandFailure> =>
-  Effect.gen(function* () {
-    const storedIndex = yield* storageProvider
-      .getObject(historyIndexKey(channel, platform))
-      .pipe(Effect.mapError((cause) => updatesFailure('read update history', cause)));
-    if (storedIndex === null) return [];
-    return yield* decodeJson(
-      'decode update history',
-      UpdateHistorySchema,
-      storedIndex.toString('utf8'),
-    ).pipe(Effect.catchAll(() => Effect.succeed([])));
-  });
-
 /** Read and merge platform histories newest first. */
-const loadEntries = (
+const loadUpdateRows = (
   storageProvider: StorageProvider,
   channel: string,
   platforms: readonly Platform[],
@@ -296,6 +268,7 @@ const loadEntries = (
           Effect.map((historyEntries) =>
             historyEntries.map((historyEntry) => ({ ...historyEntry, platform })),
           ),
+          Effect.mapError((cause) => updatesFailure('read update history', cause)),
         ),
       { concurrency: 2 },
     );
@@ -304,176 +277,9 @@ const loadEntries = (
       .sort((leftEntry, rightEntry) => rightEntry.createdAt.localeCompare(leftEntry.createdAt));
   });
 
-/** Resolve an update reference against newest-first history. */
-const findUpdate = (updateRows: readonly UpdateRow[], reference: string): UpdateRow | undefined => {
-  if (reference === 'latest') return updateRows[0];
-  const exactMatch = updateRows.find((updateRow) => updateRow.id === reference);
-  if (exactMatch !== undefined) return exactMatch;
-  return updateRows.find((updateRow) => updateRow.id.startsWith(reference));
-};
-
-/** Write one update history index. */
-const writeHistory = (
-  storageProvider: StorageProvider,
-  channel: string,
-  platform: Platform,
-  historyEntries: readonly UpdateHistoryEntry[],
-): Effect.Effect<void, UpdatesCommandFailure> =>
-  storageProvider
-    .putObject(
-      historyIndexKey(channel, platform),
-      JSON.stringify(historyEntries, null, 2),
-      'application/json',
-    )
-    .pipe(
-      Effect.asVoid,
-      Effect.mapError((cause) => updatesFailure('write update history', cause)),
-    );
-
-/** Clear an active rollback directive after a successful republish. */
-const clearRollbackDirective = (
-  storageProvider: StorageProvider,
-  channel: string,
-  platform: Platform,
-  runtimeVersion: string,
-): Effect.Effect<void, UpdatesCommandFailure> =>
-  Effect.gen(function* () {
-    const directiveKey = rollbackDirectiveKey(channel, platform, runtimeVersion);
-    const storedDirective = yield* storageProvider
-      .getObject(directiveKey)
-      .pipe(Effect.mapError((cause) => updatesFailure('read rollback directive', cause)));
-    if (storedDirective === null) return;
-    const rollbackDirective = yield* decodeJson(
-      'decode rollback directive',
-      StoredRollbackDirectiveSchema,
-      storedDirective.toString('utf8'),
-    ).pipe(Effect.catchAll(() => Effect.succeed({ active: true, body: '' })));
-    if (!rollbackDirective.active) return;
-    yield* storageProvider
-      .putObject(
-        directiveKey,
-        JSON.stringify({ active: false, body: '' }, null, 2),
-        'application/json',
-      )
-      .pipe(
-        Effect.asVoid,
-        Effect.mapError((cause) => updatesFailure('clear rollback directive', cause)),
-      );
-  });
-
-/** Republish one immutable manifest snapshot as the active update. */
-const republishUpdate = (
-  storageProvider: StorageProvider,
-  channel: string,
-  target: UpdateRow,
-  newId: string,
-  createdAt: string,
-  signer: CodeSigner | null,
-): Effect.Effect<UpdateHistoryEntry, UpdatesCommandFailure> =>
-  Effect.gen(function* () {
-    const snapshotKey = historySnapshotKey(
-      channel,
-      target.platform,
-      target.runtimeVersion,
-      target.id,
-    );
-    const storedSnapshot = yield* storageProvider
-      .getObject(snapshotKey)
-      .pipe(Effect.mapError((cause) => updatesFailure('read update snapshot', cause)));
-    if (storedSnapshot === null) {
-      return yield* Effect.fail(
-        updatesFailure(
-          'read update snapshot',
-          target,
-          `No snapshot for update ${target.id} (runtime ${target.runtimeVersion}) - its history record cannot be rolled back to.`,
-        ),
-      );
-    }
-    const decodedManifest = yield* decodeJson(
-      'decode update snapshot',
-      UpdateManifestSchema,
-      storedSnapshot.toString('utf8'),
-    );
-    const previousManifest = toUpdateManifest(decodedManifest);
-    const updateManifest: UpdateManifest = { ...previousManifest, id: newId, createdAt };
-    const manifestJson = JSON.stringify(updateManifest);
-    yield* Effect.all(
-      [
-        storageProvider.putObject(
-          manifestKey(channel, target.platform, target.runtimeVersion),
-          manifestJson,
-          'application/json',
-        ),
-        storageProvider.putObject(
-          historySnapshotKey(channel, target.platform, target.runtimeVersion, newId),
-          manifestJson,
-          'application/json',
-        ),
-      ],
-      { concurrency: 2 },
-    ).pipe(Effect.mapError((cause) => updatesFailure('write rollback manifest', cause)));
-    if (signer !== null) {
-      yield* storageProvider
-        .putObject(
-          manifestSignatureKey(channel, target.platform, target.runtimeVersion),
-          signer.sign(manifestJson),
-          'text/plain',
-        )
-        .pipe(Effect.mapError((cause) => updatesFailure('sign rollback manifest', cause)));
-    }
-    const rollbackEntry: UpdateHistoryEntry = {
-      id: newId,
-      runtimeVersion: target.runtimeVersion,
-      createdAt,
-      active: true,
-      signed: signer !== null,
-      kind: 'rollback',
-    };
-    const currentHistory = yield* readHistory(storageProvider, channel, target.platform);
-    const inactiveHistory = currentHistory.map((historyEntry) => {
-      if (historyEntry.runtimeVersion !== target.runtimeVersion) return historyEntry;
-      if (!historyEntry.active) return historyEntry;
-      return { ...historyEntry, active: false };
-    });
-    yield* writeHistory(storageProvider, channel, target.platform, [
-      rollbackEntry,
-      ...inactiveHistory,
-    ]);
-    yield* clearRollbackDirective(storageProvider, channel, target.platform, target.runtimeVersion);
-    return rollbackEntry;
-  });
-
-/** Publish a rollback-to-embedded directive for one platform and runtime version. */
-const setRollbackToEmbedded = (
-  storageProvider: StorageProvider,
-  channel: string,
-  platform: Platform,
-  runtimeVersion: string,
-  commitTime: string,
-  signer: CodeSigner | null,
-): Effect.Effect<void, UpdatesCommandFailure> =>
-  Effect.gen(function* () {
-    const directiveJson = JSON.stringify(assembleRollbackDirective(commitTime));
-    const storedDirective: { active: boolean; body: string; signature?: string } = {
-      active: true,
-      body: directiveJson,
-    };
-    if (signer !== null) storedDirective.signature = signer.sign(directiveJson);
-    yield* storageProvider
-      .putObject(
-        rollbackDirectiveKey(channel, platform, runtimeVersion),
-        JSON.stringify(storedDirective, null, 2),
-        'application/json',
-      )
-      .pipe(
-        Effect.asVoid,
-        Effect.mapError((cause) => updatesFailure('write rollback directive', cause)),
-      );
-  });
-
 /** Confirm a destructive rollback or fail safely in non-interactive use. */
 const requireRollbackConfirmation = (
-  commandService: UpdatesCommandDependencies,
+  commandService: UpdatesCommandService,
   yes: boolean,
   message: string,
 ): Effect.Effect<boolean, UpdatesCommandFailure> =>
@@ -494,8 +300,8 @@ const requireRollbackConfirmation = (
     return false;
   });
 
-/** Resolve a runtime version without trusting an absent app field. */
-const resolveRuntimeVersion = (
+/** Prefer an explicit runtime version flag, then the selected app marketing version. */
+const embeddedRollbackRuntimeVersion = (
   appVersion: string | undefined,
   runtimeVersion: string | undefined,
 ): Effect.Effect<string, UpdatesCommandFailure> => {
@@ -510,12 +316,42 @@ const resolveRuntimeVersion = (
   );
 };
 
-/** Execute one update history operation. */
-export const updatesCommandProgram = (
-  commandInput: UpdatesCommandInput,
+/** Infer whether rollback-to-embedded should sign from prior history rows. */
+const signingPreferenceFromHistory = (
+  historyEntries: readonly UpdateHistoryEntry[],
+  runtimeVersion: string,
+): boolean => {
+  const runtimeEntry = historyEntries.find(
+    (historyEntry) => historyEntry.runtimeVersion === runtimeVersion,
+  );
+  if (runtimeEntry !== undefined) return runtimeEntry.signed;
+  const newestEntry = historyEntries[0];
+  if (newestEntry !== undefined) return newestEntry.signed;
+  return true;
+};
+
+/** Load optional code signing when history says the channel was signed. */
+const loadUpdateSigner = (
+  signed: boolean,
+  logger: Logger,
 ): Effect.Effect<
-  void,
+  CodeSigner | null,
   UpdatesCommandFailure,
+  | FileSystem.FileSystem
+  | LaunchEnvironmentService
+  | LaunchPathsService
+  | LaunchSecretStoreService
+  | Path.Path
+  | PlatformCommandExecutor.CommandExecutor
+> => {
+  if (!signed) return Effect.succeed(null);
+  return ensureCodeSigner(false, logger).pipe(
+    Effect.mapError((cause) => updatesFailure('resolve update signer', cause)),
+  );
+};
+
+/** Shared requirements for every updates subcommand. */
+type UpdatesProgramRequirements =
   | FileSystem.FileSystem
   | LaunchEnvironmentService
   | LaunchPathsService
@@ -525,262 +361,313 @@ export const updatesCommandProgram = (
   | Path.Path
   | PlatformCommandExecutor.CommandExecutor
   | Terminal.Terminal
-  | UpdatesCommandService
+  | UpdatesCommandService;
+
+/** Loaded project config plus cloud storage for one updates command run. */
+type UpdatesSession = Readonly<{
+  loadedConfiguration: LoadedConfig;
+  storageProvider: StorageProvider;
+}>;
+
+/** Open cloud storage for the updates command after loading Launch config. */
+const openUpdatesSession = (): Effect.Effect<
+  UpdatesSession,
+  UpdatesCommandFailure,
+  UpdatesProgramRequirements
 > =>
   Effect.gen(function* () {
-    const commandService = yield* UpdatesCommandService;
     const loadedConfiguration = yield* loadConfig().pipe(
       Effect.mapError((cause) => updatesFailure('load Launch configuration', cause)),
     );
-    yield* requireCloudStorage(loadedConfiguration.config.storage);
-    if (!isCloudStorage(loadedConfiguration.config)) {
-      return yield* Effect.fail(
-        updatesFailure('resolve update storage', loadedConfiguration.config.storage),
-      );
-    }
+    yield* requireCloudStorage(
+      loadedConfiguration.config.storage,
+      isCloudStorage(loadedConfiguration.config),
+    );
     const storageProvider = yield* resolveStorageProvider(loadedConfiguration.config).pipe(
       Effect.mapError((cause) => updatesFailure('resolve storage provider', cause)),
     );
-    switch (commandInput.operation) {
-      case 'list': {
-        const platforms = yield* parsePlatformFilter(commandInput.platform);
-        let updateRows = yield* loadEntries(storageProvider, commandInput.channel, platforms);
-        if (commandInput.runtimeVersion !== undefined) {
-          updateRows = updateRows.filter(
-            (updateRow) => updateRow.runtimeVersion === commandInput.runtimeVersion,
-          );
-        }
-        if (commandInput.json) {
-          yield* writeLog(
-            'render update history',
-            commandService.logger.line(JSON.stringify(updateRows, null, 2)),
-          );
-          return;
-        }
-        if (updateRows.length === 0) {
-          yield* writeLog(
-            'render update history',
-            commandService.logger.line(
-              `No updates on channel "${commandInput.channel}". Run \`launch update\` to publish one.`,
-            ),
-          );
-          return;
-        }
-        yield* writeLog(
-          'render update history',
-          commandService.logger.line(formatUpdatesTable(updateRows)),
-        );
-        let updateNoun = 'updates';
-        if (updateRows.length === 1) updateNoun = 'update';
-        yield* writeLog(
-          'render update history summary',
-          commandService.logger.line(
-            `\n${updateRows.length} ${updateNoun} on "${commandInput.channel}".`,
-          ),
-        );
-        return;
-      }
-      case 'view': {
-        const updateRows = yield* loadEntries(storageProvider, commandInput.channel, [
-          'ios',
-          'android',
-        ]);
-        const updateRow = findUpdate(updateRows, commandInput.reference);
-        if (updateRow === undefined) {
-          return yield* Effect.fail(
-            updatesFailure(
-              'find published update',
-              commandInput.reference,
-              `No update matches "${commandInput.reference}" on "${commandInput.channel}". Run \`launch updates list\` to see what's available.`,
-            ),
-          );
-        }
-        const storedSnapshot = yield* storageProvider
-          .getObject(
-            historySnapshotKey(
-              commandInput.channel,
-              updateRow.platform,
-              updateRow.runtimeVersion,
-              updateRow.id,
-            ),
-          )
-          .pipe(Effect.mapError((cause) => updatesFailure('read update snapshot', cause)));
-        let updateManifest: UpdateManifest | null = null;
-        if (storedSnapshot !== null) {
-          const decodedManifest = yield* decodeJson(
-            'decode update snapshot',
-            UpdateManifestSchema,
-            storedSnapshot.toString('utf8'),
-          );
-          updateManifest = toUpdateManifest(decodedManifest);
-        }
-        if (commandInput.json) {
-          yield* writeLog(
-            'render update detail',
-            commandService.logger.line(
-              JSON.stringify({ ...updateRow, manifest: updateManifest }, null, 2),
-            ),
-          );
-          return;
-        }
-        yield* writeLog(
-          'render update detail',
-          commandService.logger.line(formatUpdateDetail(updateRow, updateManifest)),
-        );
-        return;
-      }
-      case 'rollback': {
-        const platforms = yield* parsePlatformFilter(commandInput.platform);
-        if (commandInput.toEmbedded) {
-          const selectedApp = yield* selectApp(loadedConfiguration.apps, commandInput.app).pipe(
-            Effect.mapError((cause) => updatesFailure('select app', cause, cause.message)),
-          );
-          const runtimeVersion = yield* resolveRuntimeVersion(
-            selectedApp.version,
-            commandInput.runtimeVersion,
-          );
-          const confirmed = yield* requireRollbackConfirmation(
-            commandService,
-            commandInput.yes,
-            `Roll ${commandInput.channel} / ${platforms.join('+')} (runtime ${runtimeVersion}) back to the EMBEDDED bundle?`,
-          );
-          if (!confirmed) return;
-          const commitTime = commandService.currentIsoTime();
-          yield* Effect.forEach(
-            platforms,
-            (platform) =>
-              Effect.gen(function* () {
-                const historyEntries = yield* readHistory(
-                  storageProvider,
-                  commandInput.channel,
-                  platform,
-                );
-                const runtimeEntry = historyEntries.find(
-                  (historyEntry) => historyEntry.runtimeVersion === runtimeVersion,
-                );
-                let signed = true;
-                if (runtimeEntry !== undefined) signed = runtimeEntry.signed;
-                else if (historyEntries[0] !== undefined) signed = historyEntries[0].signed;
-                let signer: CodeSigner | null = null;
-                if (signed) {
-                  signer = yield* ensureCodeSigner(false, commandService.logger).pipe(
-                    Effect.mapError((cause) => updatesFailure('resolve update signer', cause)),
-                  );
-                }
-                yield* setRollbackToEmbedded(
-                  storageProvider,
-                  commandInput.channel,
-                  platform,
-                  runtimeVersion,
-                  commitTime,
-                  signer,
-                );
-                yield* writeLog(
-                  'render embedded rollback step',
-                  commandService.logger.step(
-                    'rollback',
-                    `${platform} - runtime ${runtimeVersion} -> embedded`,
-                    'ota-update',
-                  ),
-                );
-              }),
-            { concurrency: 1 },
-          );
-          yield* writeLog(
-            'render embedded rollback outcome',
-            commandService.logger.note(
-              'Clients drop to the embedded build on next poll. The next `launch update` publish clears this.',
-            ),
-          );
-          return;
-        }
-        const updateRows = yield* loadEntries(storageProvider, commandInput.channel, platforms);
-        let targetUpdate: UpdateRow | undefined;
-        if (commandInput.to !== undefined) {
-          targetUpdate = findUpdate(updateRows, commandInput.to);
-          if (targetUpdate === undefined) {
-            return yield* Effect.fail(
-              updatesFailure(
-                'find rollback target',
-                commandInput.to,
-                `No update matches --to "${commandInput.to}" on "${commandInput.channel}".`,
-              ),
-            );
-          }
-        } else {
-          const rollbackCandidates = updateRows.filter((updateRow) => !updateRow.active);
-          if (rollbackCandidates.length === 0) {
-            return yield* Effect.fail(
-              updatesFailure(
-                'find rollback target',
-                commandInput.channel,
-                `No prior update to roll back to on "${commandInput.channel}". Need a non-active update in history.`,
-              ),
-            );
-          }
-          targetUpdate = yield* pickOne<UpdateRow>({
-            message: 'Pick an update to roll back to',
-            choices: rollbackCandidates.map((updateRow) => {
-              let hint = formatDate(updateRow.createdAt);
-              if (updateRow.kind === 'rollback') hint += ' - rollback';
-              return {
-                selection: updateRow,
-                label: `${shortId(updateRow.id)} - ${updateRow.platform} - runtime ${updateRow.runtimeVersion}`,
-                hint,
-              };
-            }),
-            canPrompt: commandService.terminalIsInteractive,
-            nonInteractive: {
-              kind: 'require',
-              flagHint: 'Pass --to <id> (see `launch updates list`).',
-            },
-          }).pipe(
-            Effect.mapError((cause) =>
-              updatesFailure('select rollback target', cause, cause.message),
-            ),
-          );
-        }
-        const confirmed = yield* requireRollbackConfirmation(
-          commandService,
-          commandInput.yes,
-          `Republish ${shortId(targetUpdate.id)} (${targetUpdate.platform}, runtime ${targetUpdate.runtimeVersion}) as the active update on "${commandInput.channel}"?`,
-        );
-        if (!confirmed) return;
-        let signer: CodeSigner | null = null;
-        if (targetUpdate.signed) {
-          signer = yield* ensureCodeSigner(false, commandService.logger).pipe(
-            Effect.mapError((cause) => updatesFailure('resolve update signer', cause)),
-          );
-        }
-        const rollbackEntry = yield* republishUpdate(
-          storageProvider,
+    return { loadedConfiguration, storageProvider };
+  });
+
+/** List published updates for a channel, optionally filtered by platform and runtime. */
+const listUpdates = (
+  commandInput: Extract<UpdatesCommandInput, { operation: 'list' }>,
+  commandService: UpdatesCommandService,
+  storageProvider: StorageProvider,
+): Effect.Effect<void, UpdatesCommandFailure> =>
+  Effect.gen(function* () {
+    const platforms = yield* platformsForUpdatesFilter(commandInput.platform);
+    let updateRows = yield* loadUpdateRows(storageProvider, commandInput.channel, platforms);
+    if (commandInput.runtimeVersion !== undefined) {
+      updateRows = updateRows.filter(
+        (updateRow) => updateRow.runtimeVersion === commandInput.runtimeVersion,
+      );
+    }
+    if (commandInput.json) {
+      yield* writeLog(
+        'render update history',
+        commandService.logger.line(JSON.stringify(updateRows, null, 2)),
+      );
+      return;
+    }
+    if (updateRows.length === 0) {
+      yield* writeLog(
+        'render update history',
+        commandService.logger.line(
+          `No updates on channel "${commandInput.channel}". Run \`launch update\` to publish one.`,
+        ),
+      );
+      return;
+    }
+    yield* writeLog(
+      'render update history',
+      commandService.logger.line(formatUpdatesTable(updateRows)),
+    );
+    let updateNoun = 'updates';
+    if (updateRows.length === 1) updateNoun = 'update';
+    yield* writeLog(
+      'render update history summary',
+      commandService.logger.line(
+        `\n${updateRows.length} ${updateNoun} on "${commandInput.channel}".`,
+      ),
+    );
+  });
+
+/** Show one published update and its optional immutable snapshot. */
+const viewUpdate = (
+  commandInput: Extract<UpdatesCommandInput, { operation: 'view' }>,
+  commandService: UpdatesCommandService,
+  storageProvider: StorageProvider,
+): Effect.Effect<void, UpdatesCommandFailure> =>
+  Effect.gen(function* () {
+    const updateRows = yield* loadUpdateRows(storageProvider, commandInput.channel, [
+      'ios',
+      'android',
+    ]);
+    const updateRow = findHistoryEntry([...updateRows], commandInput.reference);
+    if (updateRow === undefined) {
+      return yield* Effect.fail(
+        updatesFailure(
+          'find published update',
+          commandInput.reference,
+          `No update matches "${commandInput.reference}" on "${commandInput.channel}". Run \`launch updates list\` to see what's available.`,
+        ),
+      );
+    }
+    const storedSnapshot = yield* storageProvider
+      .getObject(
+        historySnapshotKey(
           commandInput.channel,
-          targetUpdate,
-          commandService.createUpdateId(),
-          commandService.currentIsoTime(),
-          signer,
-        );
-        yield* writeLog(
-          'render update rollback step',
-          commandService.logger.step(
-            'rollback',
-            `${targetUpdate.platform} - republished ${shortId(targetUpdate.id)} as ${shortId(rollbackEntry.id)}`,
-            'ota-update',
-          ),
-        );
-        yield* writeLog(
-          'render update rollback outcome',
-          commandService.logger.note(
-            'Active manifest updated - clients pull the prior bundle on next poll.',
-          ),
-        );
-        if (platforms.length > 1)
+          updateRow.platform,
+          updateRow.runtimeVersion,
+          updateRow.id,
+        ),
+      )
+      .pipe(Effect.mapError((cause) => updatesFailure('read update snapshot', cause)));
+    let updateManifest: UpdateManifest | null = null;
+    if (storedSnapshot !== null) {
+      updateManifest = yield* decodeManifestSnapshot(storedSnapshot.toString('utf8'));
+    }
+    if (commandInput.json) {
+      yield* writeLog(
+        'render update detail',
+        commandService.logger.line(
+          JSON.stringify({ ...updateRow, manifest: updateManifest }, null, 2),
+        ),
+      );
+      return;
+    }
+    yield* writeLog(
+      'render update detail',
+      commandService.logger.line(formatUpdateDetail(updateRow, updateManifest)),
+    );
+  });
+
+/** Roll clients back to the bundle embedded in the installed binary. */
+const rollbackToEmbedded = (
+  commandInput: Extract<UpdatesCommandInput, { operation: 'rollback' }>,
+  commandService: UpdatesCommandService,
+  updatesSession: UpdatesSession,
+): Effect.Effect<void, UpdatesCommandFailure, UpdatesProgramRequirements> =>
+  Effect.gen(function* () {
+    const platforms = yield* platformsForUpdatesFilter(commandInput.platform);
+    const selectedApp = yield* selectApp(
+      updatesSession.loadedConfiguration.apps,
+      commandInput.app,
+    ).pipe(Effect.mapError((cause) => updatesFailure('select app', cause, cause.message)));
+    const runtimeVersion = yield* embeddedRollbackRuntimeVersion(
+      selectedApp.version,
+      commandInput.runtimeVersion,
+    );
+    const confirmed = yield* requireRollbackConfirmation(
+      commandService,
+      commandInput.yes,
+      `Roll ${commandInput.channel} / ${platforms.join('+')} (runtime ${runtimeVersion}) back to the EMBEDDED bundle?`,
+    );
+    if (!confirmed) return;
+    const commitTime = commandService.currentIsoTime();
+    yield* Effect.forEach(
+      platforms,
+      (platform) =>
+        Effect.gen(function* () {
+          const historyEntries = yield* readHistory(
+            updatesSession.storageProvider,
+            commandInput.channel,
+            platform,
+          ).pipe(Effect.mapError((cause) => updatesFailure('read update history', cause)));
+          const signer = yield* loadUpdateSigner(
+            signingPreferenceFromHistory(historyEntries, runtimeVersion),
+            commandService.logger,
+          );
+          yield* setRollbackToEmbedded({
+            storage: updatesSession.storageProvider,
+            channel: commandInput.channel,
+            platform,
+            runtimeVersion,
+            commitTime,
+            signer,
+          }).pipe(Effect.mapError((cause) => updatesFailure('write rollback directive', cause)));
           yield* writeLog(
-            'render update rollback hint',
-            commandService.logger.note(
-              'Rolled back one platform; rerun for the other if both shipped the bad update.',
+            'render embedded rollback step',
+            commandService.logger.step(
+              'rollback',
+              `${platform} - runtime ${runtimeVersion} -> embedded`,
+              'ota-update',
             ),
           );
+        }),
+      { concurrency: 1 },
+    );
+    yield* writeLog(
+      'render embedded rollback outcome',
+      commandService.logger.note(
+        'Clients drop to the embedded build on next poll. The next `launch update` publish clears this.',
+      ),
+    );
+  });
+
+/** Pick or resolve the history row that a republish rollback should restore. */
+const selectRollbackTarget = (
+  commandInput: Extract<UpdatesCommandInput, { operation: 'rollback' }>,
+  commandService: UpdatesCommandService,
+  updateRows: readonly UpdateRow[],
+): Effect.Effect<UpdateRow, UpdatesCommandFailure, LaunchPromptService | Logger> =>
+  Effect.gen(function* () {
+    if (commandInput.to !== undefined) {
+      const targetUpdate = findHistoryEntry([...updateRows], commandInput.to);
+      if (targetUpdate === undefined) {
+        return yield* Effect.fail(
+          updatesFailure(
+            'find rollback target',
+            commandInput.to,
+            `No update matches --to "${commandInput.to}" on "${commandInput.channel}".`,
+          ),
+        );
+      }
+      return targetUpdate;
+    }
+    const rollbackCandidates = updateRows.filter((updateRow) => !updateRow.active);
+    if (rollbackCandidates.length === 0) {
+      return yield* Effect.fail(
+        updatesFailure(
+          'find rollback target',
+          commandInput.channel,
+          `No prior update to roll back to on "${commandInput.channel}". Need a non-active update in history.`,
+        ),
+      );
+    }
+    return yield* pickOne<UpdateRow>({
+      message: 'Pick an update to roll back to',
+      choices: rollbackCandidates.map((updateRow) => {
+        let hint = formatDate(updateRow.createdAt);
+        if (updateRow.kind === 'rollback') hint += ' - rollback';
+        return {
+          selection: updateRow,
+          label: `${shortId(updateRow.id)} - ${updateRow.platform} - runtime ${updateRow.runtimeVersion}`,
+          hint,
+        };
+      }),
+      canPrompt: commandService.terminalIsInteractive,
+      nonInteractive: {
+        kind: 'require',
+        flagHint: 'Pass --to <id> (see `launch updates list`).',
+      },
+    }).pipe(
+      Effect.mapError((cause) => updatesFailure('select rollback target', cause, cause.message)),
+    );
+  });
+
+/** Republish a prior immutable snapshot as the active update. */
+const rollbackToPriorUpdate = (
+  commandInput: Extract<UpdatesCommandInput, { operation: 'rollback' }>,
+  commandService: UpdatesCommandService,
+  storageProvider: StorageProvider,
+): Effect.Effect<void, UpdatesCommandFailure, UpdatesProgramRequirements> =>
+  Effect.gen(function* () {
+    const platforms = yield* platformsForUpdatesFilter(commandInput.platform);
+    const updateRows = yield* loadUpdateRows(storageProvider, commandInput.channel, platforms);
+    const targetUpdate = yield* selectRollbackTarget(commandInput, commandService, updateRows);
+    const confirmed = yield* requireRollbackConfirmation(
+      commandService,
+      commandInput.yes,
+      `Republish ${shortId(targetUpdate.id)} (${targetUpdate.platform}, runtime ${targetUpdate.runtimeVersion}) as the active update on "${commandInput.channel}"?`,
+    );
+    if (!confirmed) return;
+    const signer = yield* loadUpdateSigner(targetUpdate.signed, commandService.logger);
+    const republishedUpdate = yield* republishUpdate({
+      storage: storageProvider,
+      channel: commandInput.channel,
+      platform: targetUpdate.platform,
+      target: targetUpdate,
+      newId: commandService.createUpdateId(),
+      createdAt: commandService.currentIsoTime(),
+      signer,
+    }).pipe(Effect.mapError((cause) => updatesFailure('republish update', cause)));
+    yield* writeLog(
+      'render update rollback step',
+      commandService.logger.step(
+        'rollback',
+        `${targetUpdate.platform} - republished ${shortId(targetUpdate.id)} as ${shortId(republishedUpdate.entry.id)}`,
+        'ota-update',
+      ),
+    );
+    yield* writeLog(
+      'render update rollback outcome',
+      commandService.logger.note(
+        'Active manifest updated - clients pull the prior bundle on next poll.',
+      ),
+    );
+    if (platforms.length > 1) {
+      yield* writeLog(
+        'render update rollback hint',
+        commandService.logger.note(
+          'Rolled back one platform; rerun for the other if both shipped the bad update.',
+        ),
+      );
+    }
+  });
+
+/** Execute one update history operation. */
+export const updatesCommandProgram = (
+  commandInput: UpdatesCommandInput,
+): Effect.Effect<void, UpdatesCommandFailure, UpdatesProgramRequirements> =>
+  Effect.gen(function* () {
+    const commandService = yield* UpdatesCommandService;
+    const updatesSession = yield* openUpdatesSession();
+    switch (commandInput.operation) {
+      case 'list':
+        yield* listUpdates(commandInput, commandService, updatesSession.storageProvider);
+        return;
+      case 'view':
+        yield* viewUpdate(commandInput, commandService, updatesSession.storageProvider);
+        return;
+      case 'rollback': {
+        if (commandInput.toEmbedded) {
+          yield* rollbackToEmbedded(commandInput, commandService, updatesSession);
+          return;
+        }
+        yield* rollbackToPriorUpdate(commandInput, commandService, updatesSession.storageProvider);
+        return;
       }
     }
   });
@@ -803,6 +690,6 @@ export const UpdatesCommandServiceLive = Layer.effect(
           .confirm(message)
           .pipe(Effect.mapError((cause) => updatesFailure('confirm update rollback', cause))),
       cancelRollback: () => launchPrompt.cancel('Cancelled - nothing changed.'),
-    } satisfies UpdatesCommandDependencies;
+    } satisfies UpdatesCommandService;
   }),
 );
