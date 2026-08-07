@@ -28,10 +28,17 @@ describe('parseTestersCsv', () => {
       { email: 'b@x.com', firstName: 'Sam' },
     ]);
   });
+
+  it('keeps last-name-only rows and drops blank name cells', () => {
+    expect(parseTestersCsv('a@x.com,,Ng\nb@x.com, ,Lee')).toEqual([
+      { email: 'a@x.com', lastName: 'Ng' },
+      { email: 'b@x.com', lastName: 'Lee' },
+    ]);
+  });
 });
 
 describe('renderBetaAction', () => {
-  it('uses ASCII markers for changes, skips, and failures', () => {
+  it('uses ASCII markers for planned, applied, skipped, and failed actions', () => {
     expect(
       renderBetaAction({
         description: 'set "What to Test" (en-US)',
@@ -39,6 +46,13 @@ describe('renderBetaAction', () => {
         status: 'planned',
       }),
     ).toBe('+ set "What to Test" (en-US)');
+    expect(
+      renderBetaAction({
+        description: 'set "What to Test" (en-US)',
+        destructive: false,
+        status: 'applied',
+      }),
+    ).toBe('[OK] set "What to Test" (en-US)');
     expect(
       renderBetaAction({
         description: 'already submitted',
@@ -54,6 +68,13 @@ describe('renderBetaAction', () => {
         error: 'build is still processing',
       }),
     ).toBe('x submit for Beta App Review - build is still processing');
+    expect(
+      renderBetaAction({
+        description: 'submit for Beta App Review',
+        destructive: false,
+        status: 'failed',
+      }),
+    ).toBe('x submit for Beta App Review - failed');
   });
 });
 
@@ -134,6 +155,34 @@ describe('TestflightCommandInputSchema', () => {
       dryRun: true,
       yes: false,
     });
+  });
+
+  it('decodes release, remove, and feedback boundaries', () => {
+    expect(
+      Schema.decodeUnknownSync(TestflightCommandInputSchema)({
+        operation: 'release',
+        locale: 'en-US',
+        config: 'testflight.config.json',
+        review: true,
+        dryRun: false,
+        yes: true,
+      }),
+    ).toMatchObject({ operation: 'release', review: true, yes: true });
+    expect(
+      Schema.decodeUnknownSync(TestflightCommandInputSchema)({
+        operation: 'remove',
+        emails: ['gone@example.com'],
+        dryRun: false,
+        yes: true,
+      }),
+    ).toMatchObject({ operation: 'remove', emails: ['gone@example.com'] });
+    expect(
+      Schema.decodeUnknownSync(TestflightCommandInputSchema)({
+        operation: 'feedback',
+        json: true,
+        type: 'crash',
+      }),
+    ).toMatchObject({ operation: 'feedback', json: true, type: 'crash' });
   });
 
   it('rejects an unknown operation', () => {

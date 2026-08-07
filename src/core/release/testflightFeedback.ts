@@ -46,8 +46,8 @@ export const makeTestflightFeedbackFailure = Data.tagged<TestflightFeedbackFailu
   'TestflightFeedbackFailure',
 );
 
-/** Resolve a numeric CFBundleVersion to its App Store build resource id. */
-const resolveBuildId = (
+/** Look up a numeric CFBundleVersion and return its App Store build resource id. */
+const buildIdForVersion = (
   appleStore: AscFeedbackApi,
   appId: string,
   buildVersion: string,
@@ -57,7 +57,7 @@ const resolveBuildId = (
     if (!/^\d+$/.test(normalizedVersion)) {
       return yield* Effect.fail(
         makeTestflightFeedbackFailure({
-          operation: 'resolve TestFlight build',
+          operation: 'find TestFlight build',
           message: `--build must be a CFBundleVersion (a whole number), got "${buildVersion}".`,
         }),
       );
@@ -67,7 +67,7 @@ const resolveBuildId = (
     if (matchedBuild !== null) return matchedBuild.id;
     return yield* Effect.fail(
       makeTestflightFeedbackFailure({
-        operation: 'resolve TestFlight build',
+        operation: 'find TestFlight build',
         message: `No build ${buildVersion} for this app. Check the build number with \`launch status\`.`,
       }),
     );
@@ -91,7 +91,7 @@ export const listBetaFeedback = (
     }
     let query: BetaFeedbackQuery = {};
     if (filters.build !== undefined) {
-      query = { buildId: yield* resolveBuildId(appleStore, appId, filters.build) };
+      query = { buildId: yield* buildIdForVersion(appleStore, appId, filters.build) };
     }
     let crashRead: Effect.Effect<BetaFeedbackCrashSubmissionResource[], unknown> = Effect.succeed(
       [],
@@ -118,15 +118,20 @@ export const listBetaFeedback = (
         feedbackEntries.push({ ...submissionDetails, kind: 'screenshot' });
         continue;
       }
-      feedbackEntries.push({ ...submissionDetails, kind: 'screenshot', screenshots });
+      feedbackEntries.push({
+        ...submissionDetails,
+        kind: 'screenshot',
+        screenshots,
+      });
     }
-    return feedbackEntries.sort((leftEntry, rightEntry) => {
+    feedbackEntries.sort((leftEntry, rightEntry) => {
       let leftDate = '';
       if (leftEntry.createdDate !== undefined) leftDate = leftEntry.createdDate;
       let rightDate = '';
       if (rightEntry.createdDate !== undefined) rightDate = rightEntry.createdDate;
       return rightDate.localeCompare(leftDate);
     });
+    return feedbackEntries;
   });
 
 /** Convert an unexpected feedback id into a collision-resistant path segment. */
