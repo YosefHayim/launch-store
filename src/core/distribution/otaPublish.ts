@@ -3,15 +3,8 @@ import { Clock, Data, Effect, Random, Schema } from 'effect';
 import type { CodeSigner } from '../credentials/codeSign.js';
 import type { Logger } from '../services/logger.js';
 import type { StorageProvider } from '../types/providers.js';
-import {
-  assembleManifest,
-  contentTypeFor,
-  historySnapshotKey,
-  manifestKey,
-  manifestSignatureKey,
-  type ManifestAsset,
-} from './otaManifest.js';
-import { clearRollbackDirective, recordPublish } from './updateHistory.js';
+import { assembleManifest, contentTypeFor, type ManifestAsset } from './otaManifest.js';
+import { activateUpdate } from './updateHistory.js';
 
 /** The part of Expo export metadata required to publish bundles and assets. */
 export type ExportMetadata = {
@@ -86,8 +79,7 @@ export const readExportMetadata = (
         }),
       ),
     );
-    return yield* Effect.try(() => JSON.parse(metadataText)).pipe(
-      Effect.flatMap(Schema.decodeUnknown(ExportMetadataSchema)),
+    return yield* Schema.decodeUnknown(Schema.parseJson(ExportMetadataSchema))(metadataText).pipe(
       Effect.mapError(() =>
         makeOtaPublishFailure({
           message: `${metadataFilePath} does not contain valid Expo export metadata.`,
@@ -108,7 +100,7 @@ export type OtaPublishInput = Readonly<{
 }>;
 
 /** Details produced by one platform publish. */
-export type OtaPublishResult = Readonly<{
+export type OtaPublishDetails = Readonly<{
   readonly published: boolean;
   readonly manifestId?: string;
   readonly createdAt?: string;
@@ -145,11 +137,11 @@ const randomUpdateId = (): Effect.Effect<string> =>
 
 /** Publish one platform bundle, its assets, active manifest, and history snapshot. */
 export const publishOtaPlatform = (
-  input: OtaPublishInput,
+  publishInput: OtaPublishInput,
   logger: Logger,
-): Effect.Effect<OtaPublishResult, unknown, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<OtaPublishDetails, unknown, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const { storage, distDir, metadata, platform, channel, runtimeVersion, signer } = input;
+    const { storage, distDir, metadata, platform, channel, runtimeVersion, signer } = publishInput;
     const fileSystem = yield* FileSystem.FileSystem;
     const pathService = yield* Path.Path;
     const objectPrefix = `updates/${channel}/${platform}/${runtimeVersion}`;
@@ -193,33 +185,14 @@ export const publishOtaPlatform = (
       launchAsset,
       assets: manifestAssets,
     });
-    const manifestText = JSON.stringify(updateManifest);
-    yield* storage.putObject(
-      manifestKey(channel, platform, runtimeVersion),
-      manifestText,
-      'application/json',
-    );
-    yield* storage.putObject(
-      historySnapshotKey(channel, platform, runtimeVersion, manifestId),
-      manifestText,
-      'application/json',
-    );
-    if (signer !== null) {
-      yield* storage.putObject(
-        manifestSignatureKey(channel, platform, runtimeVersion),
-        signer.sign(manifestText),
-        'text/plain',
-      );
-    }
-    yield* recordPublish(storage, channel, platform, {
-      id: manifestId,
-      runtimeVersion,
-      createdAt,
-      active: true,
-      signed: signer !== null,
+    yield* activateUpdate({
+      storage,
+      channel,
+      platform,
+      updateManifest,
       kind: 'publish',
+      signer,
     });
-    yield* clearRollbackDirective(storage, channel, platform, runtimeVersion);
     yield* logger.step(
       'update',
       `${platform} - ${manifestAssets.length} asset(s) -> ${objectPrefix}/`,

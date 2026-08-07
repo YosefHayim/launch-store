@@ -1,28 +1,29 @@
 import { isApplePlatform } from '../services/platform.js';
 import type { Platform } from '../types/app.js';
-/** Escape the five XML special characters so app titles/ids can't break the plist or the HTML. */
-const escapeXml = (xmlText: string): string => {
-  return xmlText
+
+/** Escape the five XML special characters so app titles/ids cannot break the plist or HTML. */
+const escapeXml = (xmlText: string): string =>
+  xmlText
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
-};
+
 /** Inputs for the iOS install manifest plist. */
-export type IosManifestOptions = {
-  ipaUrl: string;
-  bundleId: string;
-  version: string;
-  title: string;
-};
+export type IosManifestOptions = Readonly<{
+  readonly ipaUrl: string;
+  readonly bundleId: string;
+  readonly version: string;
+  readonly title: string;
+}>;
+
 /**
  * Build the iOS OTA-install manifest plist (the document an `itms-services://...&url=` link fetches).
- * iOS requires this exact `items -> assets[kind=software-package] + metadata` shape to install an
- * ad-hoc `.ipa` straight from a web link.
+ * iOS requires this exact items/assets/metadata shape to install an ad-hoc `.ipa` from a web link.
  */
-export const iosInstallManifestPlist = (options: IosManifestOptions): string => {
-  return [
+export const iosInstallManifestPlist = (options: IosManifestOptions): string =>
+  [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
     '<plist version="1.0"><dict>',
@@ -39,23 +40,24 @@ export const iosInstallManifestPlist = (options: IosManifestOptions): string => 
     '</dict></dict></array>',
     '</dict></plist>',
   ].join('\n');
-};
+
 /**
- * Wrap a manifest URL in the `itms-services://` scheme iOS recognizes as "install this app". The
- * manifest URL must be HTTPS and is URL-encoded so its query string survives intact.
+ * Wrap a manifest URL in the `itms-services://` scheme iOS recognizes as "install this app".
+ * The manifest URL must be HTTPS and is URL-encoded so its query string survives intact.
  */
-export const itmsServicesUrl = (manifestUrl: string): string => {
-  return `itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}`;
-};
+export const itmsServicesUrl = (manifestUrl: string): string =>
+  `itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}`;
+
 /** Inputs for the install landing page. */
-export type LandingPageOptions = {
-  title: string;
-  version: string;
-  buildNumber: number;
-  platform: Platform;
-  installUrl: string;
-};
-/** The platform-specific footnote under the Install button (device registration vs Gatekeeper vs unknown-sources). */
+export type LandingPageOptions = Readonly<{
+  readonly title: string;
+  readonly version: string;
+  readonly buildNumber: number;
+  readonly platform: Platform;
+  readonly installUrl: string;
+}>;
+
+/** Platform-specific footnote under the Install button. */
 const installNote = (platform: Platform): string => {
   if (platform === 'macos') {
     return '<p>macOS: if Gatekeeper blocks the app, right-click it and choose Open, or allow it in System Settings -> Privacy &amp; Security.</p>';
@@ -65,14 +67,13 @@ const installNote = (platform: Platform): string => {
   }
   return '<p>Android: you may need to allow installs from this browser/source.</p>';
 };
+
 /**
- * Build the tester-facing install landing page: app name, version/build, and one Install button
- * wired to {@link LandingPageOptions.installUrl}. iOS/tvOS/visionOS also get the standard reminder that
- * ad-hoc installs only work on a device whose UDID is registered on the profile; macOS gets the Gatekeeper
- * note.
+ * Tester-facing install landing page: app name, version/build, and one Install button wired to
+ * {@link LandingPageOptions.installUrl}.
  */
 export const installLandingPage = (options: LandingPageOptions): string => {
-  const note = installNote(options.platform);
+  const platformNote = installNote(options.platform);
   return [
     '<!doctype html>',
     '<html lang="en"><head><meta charset="utf-8" />',
@@ -84,7 +85,7 @@ export const installLandingPage = (options: LandingPageOptions): string => {
     `<h1>${escapeXml(options.title)}</h1>`,
     `<p>Version ${escapeXml(options.version)} (build ${options.buildNumber})</p>`,
     `<a class="btn" href="${escapeXml(options.installUrl)}">Install</a>`,
-    note,
+    platformNote,
     '</body></html>',
   ].join('\n');
 };

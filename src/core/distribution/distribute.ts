@@ -53,6 +53,7 @@ export const distributeArtifact = (
     const objectPrefix = `internal/${app.name}/${platform}/${buildNumber}`;
     const landingPageKey = `${objectPrefix}/index.html`;
     const landingPageUrl = storageProvider.publicUrl(landingPageKey);
+
     if (isApplePlatform(platform) && platform !== 'macos') {
       if (bundleId === undefined) {
         return yield* Effect.fail(
@@ -60,10 +61,10 @@ export const distributeArtifact = (
         );
       }
       const ipaKey = `${objectPrefix}/${app.name}.ipa`;
-      const manifestKey = `${objectPrefix}/manifest.plist`;
+      const installManifestKey = `${objectPrefix}/manifest.plist`;
       const ipaUrl = storageProvider.publicUrl(ipaKey);
-      const manifestUrl = storageProvider.publicUrl(manifestKey);
-      const installUrl = itmsServicesUrl(manifestUrl);
+      const installManifestUrl = storageProvider.publicUrl(installManifestKey);
+      const installUrl = itmsServicesUrl(installManifestUrl);
       const manifestText = iosInstallManifestPlist({
         ipaUrl,
         bundleId,
@@ -88,7 +89,7 @@ export const distributeArtifact = (
       }
       const artifactBytes = yield* fileSystem.readFile(artifactPath);
       yield* storageProvider.putObject(ipaKey, Buffer.from(artifactBytes), CONTENT_TYPE.ipa);
-      yield* storageProvider.putObject(manifestKey, manifestText, CONTENT_TYPE.plist);
+      yield* storageProvider.putObject(installManifestKey, manifestText, CONTENT_TYPE.plist);
       yield* storageProvider.putObject(landingPageKey, landingPageHtml, CONTENT_TYPE.html);
       yield* log.step('distribute', 'ad-hoc install link ready', 'ad-hoc-distribution');
       yield* log.box('Install link', [
@@ -98,6 +99,7 @@ export const distributeArtifact = (
       ]);
       return;
     }
+
     let artifactExtension = pathService.extname(artifactPath);
     if (artifactExtension === '' && platform === 'android') artifactExtension = '.apk';
     const artifactKey = `${objectPrefix}/${app.name}${artifactExtension}`;
