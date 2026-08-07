@@ -1,4 +1,4 @@
-import { FileSystem, type HttpClient, Path } from '@effect/platform';
+import type { HttpClient } from '@effect/platform';
 import { Clock, Data, Effect } from 'effect';
 import { previewBuild, type BuildPreviewInput } from '../build/buildPreview.js';
 import { checkConfigSemantics } from '../config/configSemantics.js';
@@ -11,18 +11,9 @@ import { runPlanners } from '../plan/orchestrator.js';
 import { listSurfacePlanners, registerBuiltinPlanners } from '../plan/registry.js';
 import { runProbes } from '../readiness/orchestrator.js';
 import { registerBuiltinProbes, selectReadinessProbes } from '../readiness/registry.js';
-import {
-  AppleStoreClientService,
-  type AppleStoreClientService as AppleStoreClients,
-} from '../services/appleStoreClient.js';
-import {
-  GoogleStoreClientService,
-  type GoogleStoreClientService as GoogleStoreClients,
-} from '../services/googleStoreClient.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
-import { LaunchSecretStore, type LaunchSecretStoreService } from '../services/secretStore.js';
+import { LaunchPaths } from '../services/paths.js';
 import { diffSnapshots } from '../snapshot/diff.js';
-import { captureSnapshot } from '../snapshot/orchestrator.js';
+import { captureSnapshot, type CaptureResult } from '../snapshot/orchestrator.js';
 import { listSnapshotSources, registerBuiltinSources } from '../snapshot/registry.js';
 import { listSnapshots, loadSnapshot, saveSnapshot } from '../snapshot/store.js';
 import { createAscClientResolver, createPlayClientResolver } from '../store/storeClients.js';
@@ -30,7 +21,7 @@ import { runSyncBatch } from '../store/syncRun.js';
 import { buildJobs, selectApps } from '../store/syncJobs.js';
 import type { Platform } from '../types/app.js';
 import type { McpTool, McpToolResult } from '../types/mcp.js';
-import type { PlanContext } from '../types/plan.js';
+import type { PlanContext, SurfacePlanner } from '../types/plan.js';
 import type { ReadinessCategory, ReadinessContext } from '../types/readiness.js';
 import type { Snapshot, SnapshotContext } from '../types/snapshot.js';
 
@@ -43,13 +34,10 @@ const APP_FILTER_SCHEMA = {
   },
 } as const;
 
-type StoreContextRequirements =
-  | AppleStoreClients
-  | FileSystem.FileSystem
-  | GoogleStoreClients
-  | LaunchPathsService
-  | LaunchSecretStoreService
-  | Path.Path;
+const EMPTY_SYNC_REPORT = {
+  apps: [],
+  summary: { apps: 0, applied: 0, failed: 0, skipped: 0, planErrors: 0 },
+} as const;
 
 export type McpToolRequirements = DoctorRuntimeRequirements | HttpClient.HttpClient;
 
@@ -62,12 +50,12 @@ export type McpToolFailure = Readonly<{
 export const makeMcpToolFailure = Data.tagged<McpToolFailure>('McpToolFailure');
 
 /** Encode structured tool output as pretty-printed JSON text. */
-const jsonToolOutput = (structuredOutput: unknown): McpToolResult => ({
+export const jsonToolOutput = (structuredOutput: unknown): McpToolResult => ({
   content: [{ type: 'text', text: JSON.stringify(structuredOutput, null, 2) }],
 });
 
 /** Read an optional string argument. */
-const optionalString = (
+export const optionalString = (
   argumentsRecord: Record<string, unknown>,
   argumentName: string,
 ): string | undefined => {
@@ -76,8 +64,18 @@ const optionalString = (
   return undefined;
 };
 
+/** Fail when a required string argument is absent. */
+export const requiredString = (
+  argumentsRecord: Record<string, unknown>,
+  argumentName: string,
+): Effect.Effect<string, McpToolFailure> => {
+  const argumentValue = optionalString(argumentsRecord, argumentName);
+  if (argumentValue !== undefined) return Effect.succeed(argumentValue);
+  return Effect.fail(makeMcpToolFailure({ message: `\`${argumentName}\` is required.` }));
+};
+
 /** Read an optional platform argument, defaulting to iOS. */
-const requestedPlatform = (
+export const requestedPlatform = (
   argumentsRecord: Record<string, unknown>,
 ): Effect.Effect<'ios' | 'android', McpToolFailure> => {
   const platformArgument = optionalString(argumentsRecord, 'platform');
@@ -91,55 +89,67 @@ const requestedPlatform = (
   );
 };
 
-/** Fail when a required string argument is absent. */
-const requiredString = (
-  argumentsRecord: Record<string, unknown>,
-  argumentName: string,
-): Effect.Effect<string, McpToolFailure> => {
-  const argumentValue = optionalString(argumentsRecord, argumentName);
-  if (argumentValue !== undefined) return Effect.succeed(argumentValue);
-  return Effect.fail(makeMcpToolFailure({ message: `\`${argumentName}\` is required.` }));
+/** Restrict registered planners to one surface id, or keep every planner. */
+export const chooseSurfacePlanners = (
+  registeredPlanners: readonly SurfacePlanner[],
+  requestedSurface: string | undefined,
+): Effect.Effect<SurfacePlanner[], McpToolFailure> => {
+  if (requestedSurface === undefined) return Effect.succeed([...registeredPlanners]);
+  const matchingPlanner = registeredPlanners.find((planner) => planner.id === requestedSurface);
+  if (matchingPlanner !== undefined) return Effect.succeed([matchingPlanner]);
+  let availableSurfaces = registeredPlanners.map((planner) => planner.id).join(', ');
+  if (availableSurfaces.length === 0) availableSurfaces = 'none';
+  return Effect.fail(
+    makeMcpToolFailure({
+      message: `Unknown surface "${requestedSurface}". Available: ${availableSurfaces}.`,
+    }),
+  );
 };
 
-/** Build store contexts whose memoized resolvers carry no hidden runtime requirements. */
-const buildStoreContext = (
-  appSelector: string | undefined,
-): Effect.Effect<
-  PlanContext & ReadinessContext & SnapshotContext,
-  unknown,
-  StoreContextRequirements
-> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const launchPaths = yield* LaunchPaths;
-    const secretStore = yield* LaunchSecretStore;
-    const appleStoreClients = yield* AppleStoreClientService;
-    const googleStoreClients = yield* GoogleStoreClientService;
-    const loadedConfig = yield* loadConfig(launchPaths.workingDirectory);
-    const resolveAppleClient = createAscClientResolver();
-    const resolveGoogleClient = createPlayClientResolver();
+/** Compact list rows for the snapshot_list tool. */
+export const summarizeSnapshots = (
+  snapshots: readonly Snapshot[],
+): ReadonlyArray<{
+  readonly name: string;
+  readonly capturedAt: string;
+  readonly reports: number;
+}> =>
+  snapshots.map((snapshot) => ({
+    name: snapshot.name,
+    capturedAt: snapshot.capturedAt,
+    reports: snapshot.reports.length,
+  }));
 
-    const resolveAscApi = () =>
-      resolveAppleClient().pipe(
-        Effect.provideService(FileSystem.FileSystem, fileSystem),
-        Effect.provideService(Path.Path, pathService),
-        Effect.provideService(LaunchPaths, launchPaths),
-        Effect.provideService(LaunchSecretStore, secretStore),
-        Effect.provideService(AppleStoreClientService, appleStoreClients),
-      );
-    const resolvePlayApi = () =>
-      resolveGoogleClient().pipe(
-        Effect.provideService(LaunchSecretStore, secretStore),
-        Effect.provideService(GoogleStoreClientService, googleStoreClients),
-      );
+/** Load config, selected apps, and store clients once for plan/readiness/snapshot tools. */
+const loadStoreContext = (
+  appSelector: string | undefined,
+): Effect.Effect<PlanContext & ReadinessContext & SnapshotContext, unknown, McpToolRequirements> =>
+  Effect.gen(function* () {
+    const launchPaths = yield* LaunchPaths;
+    const loadedConfig = yield* loadConfig(launchPaths.workingDirectory);
     const selectedApps = yield* selectApps(loadedConfig.apps, appSelector);
+    const appleClient = yield* createAscClientResolver()();
+    const googleClient = yield* createPlayClientResolver()();
     return {
       config: loadedConfig.config,
       apps: selectedApps,
-      resolveAscApi,
-      resolvePlayApi,
+      resolveAscApi: () => Effect.succeed(appleClient),
+      resolvePlayApi: () => Effect.succeed(googleClient),
     };
+  });
+
+/** Fail when a named snapshot is missing from disk. */
+const requireStoredSnapshot = (
+  snapshotName: string,
+): Effect.Effect<Snapshot, McpToolFailure, McpToolRequirements> =>
+  Effect.gen(function* () {
+    const storedSnapshot = yield* loadSnapshot(snapshotName);
+    if (storedSnapshot !== null) return storedSnapshot;
+    return yield* Effect.fail(
+      makeMcpToolFailure({
+        message: `No snapshot named "${snapshotName}".`,
+      }),
+    );
   });
 
 /** Run the plan or drift tool. */
@@ -149,22 +159,11 @@ const runPlanTool = (
 ): Effect.Effect<McpToolResult, unknown, McpToolRequirements> =>
   Effect.gen(function* () {
     registerBuiltinPlanners();
-    const requestedSurface = optionalString(argumentsRecord, 'surface');
-    let selectedPlanners = listSurfacePlanners();
-    if (requestedSurface !== undefined) {
-      const matchingPlanner = selectedPlanners.find((planner) => planner.id === requestedSurface);
-      if (matchingPlanner === undefined) {
-        let availableSurfaces = selectedPlanners.map((planner) => planner.id).join(', ');
-        if (availableSurfaces.length === 0) availableSurfaces = 'none';
-        return yield* Effect.fail(
-          makeMcpToolFailure({
-            message: `Unknown surface "${requestedSurface}". Available: ${availableSurfaces}.`,
-          }),
-        );
-      }
-      selectedPlanners = [matchingPlanner];
-    }
-    const storeContext = yield* buildStoreContext(optionalString(argumentsRecord, 'app'));
+    const selectedPlanners = yield* chooseSurfacePlanners(
+      listSurfacePlanners(),
+      optionalString(argumentsRecord, 'surface'),
+    );
+    const storeContext = yield* loadStoreContext(optionalString(argumentsRecord, 'app'));
     const planOutcome = yield* runPlanners(storeContext, selectedPlanners, { check });
     return jsonToolOutput(planOutcome);
   });
@@ -176,7 +175,7 @@ const runReadinessTool = (
 ): Effect.Effect<McpToolResult, unknown, McpToolRequirements> =>
   Effect.gen(function* () {
     registerBuiltinProbes();
-    const storeContext = yield* buildStoreContext(optionalString(argumentsRecord, 'app'));
+    const storeContext = yield* loadStoreContext(optionalString(argumentsRecord, 'app'));
     const readinessOutcome = yield* runProbes(storeContext, selectReadinessProbes(category));
     return jsonToolOutput(readinessOutcome);
   });
@@ -184,14 +183,10 @@ const runReadinessTool = (
 /** Capture current store state for snapshot tools. */
 const captureLiveSnapshot = (
   appSelector: string | undefined,
-): Effect.Effect<
-  ReturnType<typeof captureSnapshot> extends Effect.Effect<infer Captured> ? Captured : never,
-  unknown,
-  McpToolRequirements
-> =>
+): Effect.Effect<CaptureResult, unknown, McpToolRequirements> =>
   Effect.gen(function* () {
     registerBuiltinSources();
-    const storeContext = yield* buildStoreContext(appSelector);
+    const storeContext = yield* loadStoreContext(appSelector);
     const epochMilliseconds = yield* Clock.currentTimeMillis;
     return yield* captureSnapshot(storeContext, listSnapshotSources(), {
       name: LIVE_SNAPSHOT_NAME,
@@ -244,14 +239,9 @@ const runSyncTool = (
   allowDestructive: boolean,
 ): Effect.Effect<McpToolResult, unknown, McpToolRequirements> =>
   Effect.gen(function* () {
-    const storeContext = yield* buildStoreContext(optionalString(argumentsRecord, 'app'));
+    const storeContext = yield* loadStoreContext(optionalString(argumentsRecord, 'app'));
     const syncJobs = yield* buildJobs(storeContext.apps, storeContext.config);
-    if (syncJobs.length === 0) {
-      return jsonToolOutput({
-        apps: [],
-        summary: { apps: 0, applied: 0, failed: 0, skipped: 0, planErrors: 0 },
-      });
-    }
+    if (syncJobs.length === 0) return jsonToolOutput(EMPTY_SYNC_REPORT);
     const appleClient = yield* storeContext.resolveAscApi();
     if (appleClient === null) {
       return yield* Effect.fail(
@@ -268,13 +258,7 @@ const runSyncTool = (
 const listSnapshotTool = (): Effect.Effect<McpToolResult, never, McpToolRequirements> =>
   Effect.gen(function* () {
     const snapshots = yield* listSnapshots();
-    return jsonToolOutput(
-      snapshots.map((snapshot) => ({
-        name: snapshot.name,
-        capturedAt: snapshot.capturedAt,
-        reports: snapshot.reports.length,
-      })),
-    );
+    return jsonToolOutput(summarizeSnapshots(snapshots));
   });
 
 /** Diff one persisted snapshot against another or current store state. */
@@ -283,14 +267,7 @@ const diffSnapshotTool = (
 ): Effect.Effect<McpToolResult, unknown, McpToolRequirements> =>
   Effect.gen(function* () {
     const baselineName = yield* requiredString(argumentsRecord, 'baseline');
-    const baselineSnapshot = yield* loadSnapshot(baselineName);
-    if (baselineSnapshot === null) {
-      return yield* Effect.fail(
-        makeMcpToolFailure({
-          message: `No snapshot named "${baselineName}".`,
-        }),
-      );
-    }
+    const baselineSnapshot = yield* requireStoredSnapshot(baselineName);
     let comparisonName = optionalString(argumentsRecord, 'against');
     if (comparisonName === undefined) comparisonName = LIVE_SNAPSHOT_NAME;
     let comparisonSnapshot: Snapshot;
@@ -298,15 +275,7 @@ const diffSnapshotTool = (
       const liveCapture = yield* captureLiveSnapshot(optionalString(argumentsRecord, 'app'));
       comparisonSnapshot = liveCapture.snapshot;
     } else {
-      const storedComparison = yield* loadSnapshot(comparisonName);
-      if (storedComparison === null) {
-        return yield* Effect.fail(
-          makeMcpToolFailure({
-            message: `No snapshot named "${comparisonName}".`,
-          }),
-        );
-      }
-      comparisonSnapshot = storedComparison;
+      comparisonSnapshot = yield* requireStoredSnapshot(comparisonName);
     }
     return jsonToolOutput(diffSnapshots(baselineSnapshot, comparisonSnapshot));
   });
@@ -323,15 +292,37 @@ const exportSnapshotTool = (
       const snapshotFilePath = yield* saveSnapshot(namedSnapshot);
       return jsonToolOutput({ ...liveCapture, snapshot: namedSnapshot, file: snapshotFilePath });
     }
-    const storedSnapshot = yield* loadSnapshot(snapshotName);
-    if (storedSnapshot === null) {
+    const storedSnapshot = yield* requireStoredSnapshot(snapshotName);
+    return jsonToolOutput(storedSnapshot);
+  });
+
+/** Validate launch.config shape and cross-field semantics. */
+const validateConfigTool = (): Effect.Effect<McpToolResult, unknown, McpToolRequirements> =>
+  Effect.gen(function* () {
+    const launchPaths = yield* LaunchPaths;
+    const foundConfig = yield* findLaunchConfig(launchPaths.workingDirectory);
+    if (foundConfig === null) {
       return yield* Effect.fail(
         makeMcpToolFailure({
-          message: `No snapshot named "${snapshotName}".`,
+          message: 'No launch.config file here. Run `launch init` first.',
         }),
       );
     }
-    return jsonToolOutput(storedSnapshot);
+    const violations = validateConfig(foundConfig.config);
+    const semanticChecks = checkConfigSemantics(foundConfig.config);
+    return jsonToolOutput({
+      path: foundConfig.path,
+      valid: violations.length === 0,
+      violations,
+      semantic: semanticChecks,
+    });
+  });
+
+/** Return the launch.config field reference as Markdown. */
+const configDocsTool = (): Effect.Effect<McpToolResult, unknown, McpToolRequirements> =>
+  Effect.gen(function* () {
+    const configSchema = yield* loadConfigSchema();
+    return jsonToolOutput({ markdown: renderConfigDocs(configSchema) });
   });
 
 export const READ_TOOLS: readonly McpTool<McpToolRequirements>[] = [
@@ -387,26 +378,7 @@ export const READ_TOOLS: readonly McpTool<McpToolRequirements>[] = [
     description: 'Validate launch.config shape and cross-field semantics.',
     capability: 'read',
     inputSchema: { type: 'object', properties: {} },
-    handler: () =>
-      Effect.gen(function* () {
-        const launchPaths = yield* LaunchPaths;
-        const foundConfig = yield* findLaunchConfig(launchPaths.workingDirectory);
-        if (foundConfig === null) {
-          return yield* Effect.fail(
-            makeMcpToolFailure({
-              message: 'No launch.config file here. Run `launch init` first.',
-            }),
-          );
-        }
-        const violations = validateConfig(foundConfig.config);
-        const semanticChecks = checkConfigSemantics(foundConfig.config);
-        return jsonToolOutput({
-          path: foundConfig.path,
-          valid: violations.length === 0,
-          violations,
-          semantic: semanticChecks,
-        });
-      }),
+    handler: validateConfigTool,
   },
   {
     name: 'config_schema',
@@ -420,11 +392,7 @@ export const READ_TOOLS: readonly McpTool<McpToolRequirements>[] = [
     description: 'Return the launch.config field reference as Markdown.',
     capability: 'read',
     inputSchema: { type: 'object', properties: {} },
-    handler: () =>
-      Effect.gen(function* () {
-        const configSchema = yield* loadConfigSchema();
-        return jsonToolOutput({ markdown: renderConfigDocs(configSchema) });
-      }),
+    handler: configDocsTool,
   },
   {
     name: 'snapshot_list',
