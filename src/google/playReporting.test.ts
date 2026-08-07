@@ -4,7 +4,7 @@ import { parseServiceAccount } from './playClient.js';
 import {
   PlayReportingClient,
   type PlayReportingTransport,
-  resolveVitalsWindow,
+  vitalsWindowFromLatestDate,
 } from './playReporting.js';
 /** Minimal valid service-account JSON for adapter construction. */
 const makeServiceAccountJson = (): string => {
@@ -72,15 +72,15 @@ beforeEach(() => {
     generatedReportingFake(),
   );
 });
-describe('resolveVitalsWindow', () => {
+describe('vitalsWindowFromLatestDate', () => {
   it('spans the default inclusive window ending at freshness', () => {
-    expect(resolveVitalsWindow('2026-06-28', 28)).toEqual({
+    expect(vitalsWindowFromLatestDate('2026-06-28', 28)).toEqual({
       startDate: '2026-06-01',
       endDate: '2026-06-28',
     });
   });
   it('honors a custom day count across month boundaries', () => {
-    expect(resolveVitalsWindow('2026-03-03', 7)).toEqual({
+    expect(vitalsWindowFromLatestDate('2026-03-03', 7)).toEqual({
       startDate: '2026-02-25',
       endDate: '2026-03-03',
     });
@@ -89,7 +89,7 @@ describe('resolveVitalsWindow', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-06-15T12:00:00Z'));
     try {
-      expect(resolveVitalsWindow(null, 1)).toEqual({
+      expect(vitalsWindowFromLatestDate(null, 1)).toEqual({
         startDate: '2026-06-15',
         endDate: '2026-06-15',
       });
