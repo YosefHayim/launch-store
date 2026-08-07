@@ -12,6 +12,7 @@ validation gate. The doc family:
 | [`LANGUAGE.md`](./LANGUAGE.md) | Domain glossary - the only terms to use |
 | [`CODE-STYLE.md`](./CODE-STYLE.md) | How code is written (Effect, prose naming, patterns) |
 | [`AGENTS.md`](./AGENTS.md) | Working rules for contributors and agents |
+| [`BRANCHING.md`](./BRANCHING.md) | Domain branch names, PR labels, main protection |
 | [`TECH.md`](./TECH.md) | React Native / Expo / Apple / Google stack terms |
 
 ## Claude-specific notes

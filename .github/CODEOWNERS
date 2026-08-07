@@ -1,0 +1,69 @@
+# Default review owner for the whole tree. Path blocks document domain ownership for routing;
+# they all still request the same maintainer until more owners are added.
+
+* @YosefHayim
+
+# foundation — tooling, shared spine
+/CODE-STYLE.md @YosefHayim
+/BRANCHING.md @YosefHayim
+/AGENTS.md @YosefHayim
+/code-style.rules.json @YosefHayim
+/biome.json @YosefHayim
+/tsconfig.json @YosefHayim
+/package.json @YosefHayim
+/pnpm-lock.yaml @YosefHayim
+/.github/ @YosefHayim
+/scripts/ @YosefHayim
+/src/core/services/ @YosefHayim
+/src/core/types/ @YosefHayim
+/src/core/terminal/ @YosefHayim
+/src/core/docs/ @YosefHayim
+/src/testkit/ @YosefHayim
+
+# config
+/src/core/config/ @YosefHayim
+/schema/ @YosefHayim
+/launch.config.ts @YosefHayim
+/launch.config.example.ts @YosefHayim
+
+# credentials
+/src/core/credentials/ @YosefHayim
+/src/providers/credentials/ @YosefHayim
+
+# build + distribution
+/src/core/build/ @YosefHayim
+/src/core/distribution/ @YosefHayim
+/src/providers/build/ @YosefHayim
+/src/providers/compute/ @YosefHayim
+/src/providers/storage/ @YosefHayim
+
+# apple / google transport
+/src/apple/ @YosefHayim
+/src/google/ @YosefHayim
+
+# store surfaces
+/src/core/store/ @YosefHayim
+/src/core/listing/ @YosefHayim
+/src/core/privacy/ @YosefHayim
+/src/providers/submit/ @YosefHayim
+
+# release + testflight
+/src/core/release/ @YosefHayim
+/src/core/releaseTrain/ @YosefHayim
+
+# readiness / plan / adopt
+/src/core/plan/ @YosefHayim
+/src/core/readiness/ @YosefHayim
+/src/core/doctor/ @YosefHayim
+/src/core/snapshot/ @YosefHayim
+/src/core/adopt/ @YosefHayim
+/src/core/migrate/ @YosefHayim
+
+# agents
+/src/core/agents/ @YosefHayim
+/src/core/mcp/ @YosefHayim
+/src/core/insights/ @YosefHayim
+/src/core/dashboard/ @YosefHayim
+
+# cli surface
+/src/cli/ @YosefHayim
