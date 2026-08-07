@@ -9,6 +9,7 @@ import {
 import { appRecordMissing, plan, type ReconcileContext } from './reconcile.js';
 import { errorMessage } from '../services/errorMessage.js';
 import type { PlannedAction } from '../types/reconcile.js';
+import type { MutableDeep } from '../types/mutable.js';
 import {
   decodeStoreSurfaceConfig,
   loadStoreSurfaceConfig,
@@ -126,7 +127,7 @@ const supportEquals = (
 };
 /** Expand omitted accessibility flags to `false`. */
 const normalizeSupport = (support: AccessibilitySupport): AccessibilitySupport => {
-  const normalizedSupport: AccessibilitySupport = {};
+  const normalizedSupport: MutableDeep<AccessibilitySupport> = {};
   for (const key of ACCESSIBILITY_SUPPORT_KEYS) normalizedSupport[key] = support[key] === true;
   return normalizedSupport;
 };

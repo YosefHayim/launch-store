@@ -14,6 +14,7 @@ import type {
   SubscriptionConfig,
   SubscriptionPeriod,
 } from '../types/catalog.js';
+import type { MutableDeep } from '../types/mutable.js';
 import type { PlannedAction } from '../types/reconcile.js';
 import { plan, type ReconcileContext } from './reconcile.js';
 import { errorMessage } from '../services/errorMessage.js';
@@ -110,7 +111,9 @@ export const unitsToMicros = (money: PlayMoneyUnits): string => {
 };
 
 /** Map shared localizations to Play subscription listings (Play requires a description; fall back to title). */
-const listingsFromLocalizations = (localizations: ProductLocalization[]): SubscriptionListing[] => {
+const listingsFromLocalizations = (
+  localizations: readonly ProductLocalization[],
+): SubscriptionListing[] => {
   return localizations.map((localization) => {
     let description = localization.name;
     if (localization.description !== undefined) description = localization.description;
@@ -124,8 +127,8 @@ const listingsFromLocalizations = (localizations: ProductLocalization[]): Subscr
 
 /** Whether every desired listing has a title/description-equal counterpart already live. */
 const listingsInSync = (
-  existing: SubscriptionListing[],
-  desired: SubscriptionListing[],
+  existing: readonly SubscriptionListing[],
+  desired: readonly SubscriptionListing[],
 ): boolean => {
   const byLanguage = new Map(existing.map((listing) => [listing.languageCode, listing]));
   return desired.every((listing) => {
@@ -137,8 +140,8 @@ const listingsInSync = (
 
 /** Merge desired listings over live ones by language so a patch never drops locales Launch does not manage. */
 const mergeListings = (
-  existing: SubscriptionListing[],
-  desired: SubscriptionListing[],
+  existing: readonly SubscriptionListing[],
+  desired: readonly SubscriptionListing[],
 ): SubscriptionListing[] => {
   const byLanguage = new Map(existing.map((listing) => [listing.languageCode, listing]));
   for (const listing of desired) {
@@ -168,14 +171,14 @@ const basePlanFromConfig = (
 
 /** Re-encode a live base plan for a patch that only appends a new one - drop output-only `state`. */
 const resendableBasePlan = (basePlan: BasePlan): BasePlan => {
-  const resendablePlan: BasePlan = { basePlanId: basePlan.basePlanId };
+  const resendablePlan: MutableDeep<BasePlan> = { basePlanId: basePlan.basePlanId };
   if (basePlan.autoRenewingBasePlanType !== undefined) {
     resendablePlan.autoRenewingBasePlanType = basePlan.autoRenewingBasePlanType;
   }
   if (basePlan.regionalConfigs !== undefined) {
-    resendablePlan.regionalConfigs = basePlan.regionalConfigs;
+    resendablePlan.regionalConfigs = [...basePlan.regionalConfigs];
   }
-  if (basePlan.offerTags !== undefined) resendablePlan.offerTags = basePlan.offerTags;
+  if (basePlan.offerTags !== undefined) resendablePlan.offerTags = [...basePlan.offerTags];
   return resendablePlan;
 };
 
@@ -195,7 +198,7 @@ const makePlayOfferConfigFailure = Data.tagged<PlayOfferConfigFailure>('PlayOffe
 export const offerFromConfig = (
   productId: string,
   basePlanId: string,
-  basePlanRegions: string[],
+  basePlanRegions: readonly string[],
   config: PlaySubscriptionOfferConfig,
 ): Effect.Effect<SubscriptionOfferResource, PlayOfferConfigFailure> => {
   const phases: SubscriptionOfferPhase[] = [];
@@ -259,8 +262,8 @@ const offersFromConfigs = (
   reconcileContext: ReconcileContext,
   productId: string,
   basePlanId: string,
-  basePlanRegions: string[],
-  configs: PlaySubscriptionOfferConfig[],
+  basePlanRegions: readonly string[],
+  configs: readonly PlaySubscriptionOfferConfig[],
 ): Effect.Effect<SubscriptionOfferResource[]> =>
   Effect.gen(function* () {
     const offers: SubscriptionOfferResource[] = [];
@@ -294,10 +297,10 @@ const offersFromConfigs = (
 type DesiredSubscription = {
   productId: string;
   basePlanId: string;
-  listings: SubscriptionListing[];
+  listings: readonly SubscriptionListing[];
   basePlan: BasePlan;
-  basePlanRegions: string[];
-  offerConfigs: PlaySubscriptionOfferConfig[];
+  basePlanRegions: readonly string[];
+  offerConfigs: readonly PlaySubscriptionOfferConfig[];
 };
 
 /** Project one catalog subscription into the Play shape Launch will create or patch. */
@@ -310,7 +313,7 @@ const desiredSubscriptionFromConfig = (
   if (playOverrides.productId !== undefined) productId = playOverrides.productId;
   let basePlanId = PERIOD_ISO[subscription.subscriptionPeriod].toLowerCase();
   if (playOverrides.basePlanId !== undefined) basePlanId = playOverrides.basePlanId;
-  let offerConfigs: PlaySubscriptionOfferConfig[] = [];
+  let offerConfigs: readonly PlaySubscriptionOfferConfig[] = [];
   if (playOverrides.offers !== undefined) offerConfigs = playOverrides.offers;
   return {
     productId,
@@ -427,7 +430,7 @@ const reconcileExistingSubscription = (
   desired: DesiredSubscription,
 ): Effect.Effect<void> =>
   Effect.gen(function* () {
-    let existingListings: SubscriptionListing[] = [];
+    let existingListings: readonly SubscriptionListing[] = [];
     if (existing.listings !== undefined) existingListings = existing.listings;
     if (!listingsInSync(existingListings, desired.listings)) {
       const mergedListings = mergeListings(existingListings, desired.listings);
@@ -444,7 +447,7 @@ const reconcileExistingSubscription = (
       }
     }
 
-    let existingBasePlans: BasePlan[] = [];
+    let existingBasePlans: readonly BasePlan[] = [];
     if (existing.basePlans !== undefined) existingBasePlans = existing.basePlans;
     const liveBasePlan = existingBasePlans.find(
       (basePlan) => basePlan.basePlanId === desired.basePlanId,

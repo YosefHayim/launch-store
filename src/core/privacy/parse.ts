@@ -12,7 +12,7 @@ const CollectedDataTypeSchema = Schema.Struct({
 const USAGE_DESCRIPTION_RE =
   /<key>(NS\w*UsageDescription)<\/key>\s*(?:<string>([^<]*)<\/string>|<string\s*\/>)/g;
 /** De-duplicate while preserving first-seen order. */
-const unique = (strings: string[]): string[] => {
+const unique = (strings: readonly string[]): string[] => {
   return [...new Set(strings)];
 };
 /** Collect every `<string>...</string>` inside an XML fragment. */

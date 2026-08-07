@@ -1,5 +1,6 @@
 import { Data, Effect, Schema } from 'effect';
 import type { PlayRelease } from '../types/googlePlay.js';
+import type { MutableDeep } from '../types/mutable.js';
 
 /** Play release statuses accepted by the Android Publisher API. */
 export const RELEASE_STATUSES = ['draft', 'inProgress', 'halted', 'completed'] as const;
@@ -105,7 +106,7 @@ export const buildRelease = (
       }),
     );
   }
-  const playRelease: PlayRelease = {
+  const playRelease: MutableDeep<PlayRelease> = {
     status: releaseInput.status,
     versionCodes: [...releaseInput.versionCodes],
   };

@@ -14,6 +14,7 @@ import {
   parseTsv,
 } from './reports.js';
 import { resolveStoreBundleId, type StoreAppSelectionRequirements } from './selectStoreApp.js';
+import type { MutableDeep } from '../types/mutable.js';
 
 const SalesReportsCommandInputSchema = Schema.Struct({
   operation: Schema.Literal('sales'),
@@ -244,7 +245,7 @@ const downloadSalesReports = (
     yield* Effect.forEach(
       reportDates,
       (reportDate) => {
-        const reportQuery: SalesReportQuery = {
+        const reportQuery: MutableDeep<SalesReportQuery> = {
           vendorNumber,
           frequency: commandInput.frequency,
           reportType: commandInput.reportType,
@@ -282,7 +283,7 @@ const downloadFinanceReport = (
     const vendorNumber = yield* selectVendorNumber(commandInput.vendorNumber);
     const outputDirectory = yield* projectOutputDirectory(commandInput.out);
     const appleStore = yield* loadActiveAppleStore();
-    const reportQuery: FinanceReportQuery = {
+    const reportQuery: MutableDeep<FinanceReportQuery> = {
       vendorNumber,
       reportDate: commandInput.date,
       regionCode: commandInput.region,

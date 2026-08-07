@@ -4,6 +4,7 @@ import type { InAppPurchaseConfig, PlayPriceConfig } from '../types/catalog.js';
 import type { PlannedAction } from '../types/reconcile.js';
 import { plan, type ReconcileContext } from './reconcile.js';
 import { errorMessage } from '../services/errorMessage.js';
+import type { MutableDeep } from '../types/mutable.js';
 /** Play's purchase type for a one-off managed (non-subscription) product. */
 const MANAGED_PRODUCT = 'managedUser';
 /** Status Launch publishes products as - declaring a `play` override means "this product should be sellable". */
@@ -85,7 +86,7 @@ export const toPlayProduct = (
       prices[region] = toMoney(price);
     }
   }
-  const desiredProduct: InAppProductResource = {
+  const desiredProduct: MutableDeep<InAppProductResource> = {
     sku,
     status: ACTIVE_STATUS,
     purchaseType: MANAGED_PRODUCT,

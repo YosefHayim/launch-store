@@ -3,6 +3,7 @@ import { Data, Effect, Redacted, Schema } from 'effect';
 import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
 import type { DraftListing, ListingBrief, ListingGenerator } from '../types/listing.js';
 import { APPLE_LIMITS, serializeKeywords } from './apply.js';
+import type { MutableDeep } from '../types/mutable.js';
 
 const GeneratedListingSchema = Schema.Struct({
   title: Schema.optionalWith(Schema.String, { exact: true }),
@@ -138,7 +139,7 @@ export const parseDraftListing = (
     stripJsonFence(completionText),
   ).pipe(
     Effect.map((generatedListing) => {
-      const listingDraft: DraftListing = {};
+      const listingDraft: MutableDeep<DraftListing> = {};
       const title = normalizeGeneratedText(generatedListing.title);
       if (title !== undefined) listingDraft.title = title;
       const subtitle = normalizeGeneratedText(generatedListing.subtitle);
