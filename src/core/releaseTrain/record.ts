@@ -1,5 +1,6 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
+import { errorMessage } from '../services/errorMessage.js';
 import {
   type LaunchPathsService,
   resolveReleaseTrainFilePath,
@@ -62,21 +63,25 @@ export const makeTrainRecordFailure = Data.tagged<TrainRecordFailure>('TrainReco
 /** Platform services used by release-train record persistence. */
 export type TrainRecordRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
 
-/** Convert a persistence cause to the release-train record channel. */
+/** Whether a train is still live (running or blocked). */
+export const isLiveTrain = (trainRecord: TrainRecord): boolean => {
+  if (trainRecord.state === 'running') return true;
+  return trainRecord.state === 'blocked';
+};
+
 const recordFailure = (operation: string, cause: unknown): TrainRecordFailure => {
-  let message = `${operation} failed.`;
-  if (cause instanceof Error) message = cause.message;
+  let message = errorMessage(cause);
+  if (message.length === 0) message = `${operation} failed.`;
   return makeTrainRecordFailure({ operation, message, cause });
 };
 
 /** Sanitize a train id before it becomes a filename. */
-const safeTrainId = (trainId: string): string => {
+export const safeTrainId = (trainId: string): string => {
   const sanitizedTrainId = trainId.replace(/[^A-Za-z0-9_-]/g, '');
   if (sanitizedTrainId.length === 0) return 'train';
   return sanitizedTrainId;
 };
 
-/** Resolve the configured or default release-train directory. */
 const releaseTrainDirectory = (
   directoryOverride: string | undefined,
 ): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
@@ -85,7 +90,6 @@ const releaseTrainDirectory = (
     return yield* resolveReleaseTrainsDirectory();
   });
 
-/** Resolve one train's JSON file path. */
 const trainRecordPath = (
   trainId: string,
   directoryOverride: string | undefined,
@@ -163,10 +167,7 @@ export const latestTrainRecord = (
 ): Effect.Effect<TrainRecord | null, TrainRecordFailure, TrainRecordRequirements> =>
   Effect.gen(function* () {
     const trainRecords = yield* listTrainRecords(directoryOverride);
-    const liveTrain = trainRecords.find((trainRecord) => {
-      if (trainRecord.state === 'running') return true;
-      return trainRecord.state === 'blocked';
-    });
+    const liveTrain = trainRecords.find(isLiveTrain);
     if (liveTrain !== undefined) return liveTrain;
     const newestTrain = trainRecords[0];
     if (newestTrain === undefined) return null;
