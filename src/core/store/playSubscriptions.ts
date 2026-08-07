@@ -17,6 +17,7 @@ import type {
 import type { PlannedAction } from '../types/reconcile.js';
 import { plan, type ReconcileContext } from './reconcile.js';
 import { errorMessage } from '../services/errorMessage.js';
+
 /** Apple billing period -> ISO-8601 duration, the form Play's base plans and offer phases want. */
 const PERIOD_ISO: Record<SubscriptionPeriod, string> = {
   ONE_WEEK: 'P1W',
@@ -26,6 +27,7 @@ const PERIOD_ISO: Record<SubscriptionPeriod, string> = {
   SIX_MONTHS: 'P6M',
   ONE_YEAR: 'P1Y',
 };
+
 /** Map an ISO-8601 billing duration (e.g. `P1M`) back to a config {@link SubscriptionPeriod}, or `undefined`. */
 export const periodFromIso = (iso: string): SubscriptionPeriod | undefined => {
   switch (iso) {
@@ -45,6 +47,7 @@ export const periodFromIso = (iso: string): SubscriptionPeriod | undefined => {
       return undefined;
   }
 };
+
 /**
  * The slice of {@link GooglePlayClient} the subscriptions reconciler depends on. Declared here (not the
  * concrete client) so the logic is unit-testable with a hand-rolled fake; `GooglePlayClient` satisfies it
@@ -83,12 +86,14 @@ export type PlaySubscriptionsApi = {
     offerId: string,
   ): Effect.Effect<void, unknown>;
 };
+
 /** Inputs to reconcile one app's Play subscriptions. */
 export type PlaySubscriptionsReconcileInput = {
   packageName: string;
   subscriptions: SubscriptionConfig[];
   dryRun: boolean;
 };
+
 /** Convert a micro-unit price to the subscriptions API's `units`+`nanos` money shape (1,990,000 -> 1.99). */
 export const microsToMoney = (price: PlayPriceConfig): PlayMoneyUnits => {
   const micros = BigInt(price.priceMicros);
@@ -98,12 +103,14 @@ export const microsToMoney = (price: PlayPriceConfig): PlayMoneyUnits => {
     nanos: Number((micros % 1000000n) * 1000n),
   };
 };
+
 /** Inverse of {@link microsToMoney}: a subscriptions `units`+`nanos` money back to a micro-unit string (1.99 -> 1,990,000). */
 export const unitsToMicros = (money: PlayMoneyUnits): string => {
   return (BigInt(money.units) * 1000000n + BigInt(money.nanos) / 1000n).toString();
 };
-/** Map the shared localizations to Play subscription listings (Play requires a description; fall back to the title). */
-const buildListings = (localizations: ProductLocalization[]): SubscriptionListing[] => {
+
+/** Map shared localizations to Play subscription listings (Play requires a description; fall back to title). */
+const listingsFromLocalizations = (localizations: ProductLocalization[]): SubscriptionListing[] => {
   return localizations.map((localization) => {
     let description = localization.name;
     if (localization.description !== undefined) description = localization.description;
@@ -114,6 +121,7 @@ const buildListings = (localizations: ProductLocalization[]): SubscriptionListin
     };
   });
 };
+
 /** Whether every desired listing has a title/description-equal counterpart already live. */
 const listingsInSync = (
   existing: SubscriptionListing[],
@@ -126,7 +134,8 @@ const listingsInSync = (
     return live.title === listing.title && live.description === listing.description;
   });
 };
-/** Merge desired listings over the live ones (by language) so a patch never drops locales Launch doesn't manage. */
+
+/** Merge desired listings over live ones by language so a patch never drops locales Launch does not manage. */
 const mergeListings = (
   existing: SubscriptionListing[],
   desired: SubscriptionListing[],
@@ -139,8 +148,9 @@ const mergeListings = (
   }
   return [...byLanguage.values()];
 };
-/** Build the auto-renewing base plan Launch wants: one billing period, priced per configured region. */
-const buildBasePlan = (
+
+/** Auto-renewing base plan: one billing period, priced per configured region. */
+const basePlanFromConfig = (
   basePlanId: string,
   period: SubscriptionPeriod,
   prices: Record<string, PlayPriceConfig>,
@@ -155,7 +165,8 @@ const buildBasePlan = (
     })),
   };
 };
-/** Re-encode a live base plan for a patch that only appends a new one - dropping the output-only `state`. */
+
+/** Re-encode a live base plan for a patch that only appends a new one - drop output-only `state`. */
 const resendableBasePlan = (basePlan: BasePlan): BasePlan => {
   const resendablePlan: BasePlan = { basePlanId: basePlan.basePlanId };
   if (basePlan.autoRenewingBasePlanType !== undefined) {
@@ -167,22 +178,21 @@ const resendableBasePlan = (basePlan: BasePlan): BasePlan => {
   if (basePlan.offerTags !== undefined) resendablePlan.offerTags = basePlan.offerTags;
   return resendablePlan;
 };
+
 /**
  * Build a Play offer from config. Supports a free-trial phase (`freeTrialDuration`) and/or an
  * introductory-price phase (`introPrices`). Every region in the offer must appear in every phase, so the
- * offer's region set is the intersection of its phases'. Throws on a config that discounts nothing or
- * whose phases share no region - surfaced as a per-offer failure, never aborting the run.
+ * offer's region set is the intersection of its phases'. Failures are tagged configuration errors -
+ * surfaced as a per-offer failure, never aborting the run.
  */
 export type PlayOfferConfigFailure = Readonly<{
   readonly _tag: 'PlayOfferConfigFailure';
   readonly message: string;
 }>;
 
-/** Build a typed configuration failure for a Play subscription offer. */
-export const makePlayOfferConfigFailure =
-  Data.tagged<PlayOfferConfigFailure>('PlayOfferConfigFailure');
+const makePlayOfferConfigFailure = Data.tagged<PlayOfferConfigFailure>('PlayOfferConfigFailure');
 
-export const buildOffer = (
+export const offerFromConfig = (
   productId: string,
   basePlanId: string,
   basePlanRegions: string[],
@@ -216,8 +226,7 @@ export const buildOffer = (
       }),
     );
   }
-  // Every region in the offer must appear in every phase, so the offer's regions are the intersection of
-  // its phases'. Each phase is then trimmed to that shared set.
+  // Every region in the offer must appear in every phase; the offer's regions are that intersection.
   const regions = phases
     .map((phase) => phase.regionalConfigs.map((regional) => regional.regionCode))
     .reduce((shared, set) => shared.filter((region) => set.includes(region)));
@@ -244,8 +253,9 @@ export const buildOffer = (
     })),
   });
 };
-/** Build the valid offers from config, recording a failed action for any config that can't be built. */
-const resolveOffers = (
+
+/** Build valid offers from config, recording a failed action for any config that cannot be built. */
+const offersFromConfigs = (
   reconcileContext: ReconcileContext,
   productId: string,
   basePlanId: string,
@@ -255,7 +265,12 @@ const resolveOffers = (
   Effect.gen(function* () {
     const offers: SubscriptionOfferResource[] = [];
     for (const config of configs) {
-      const offer = yield* buildOffer(productId, basePlanId, basePlanRegions, config).pipe(
+      const builtOffer = yield* offerFromConfig(
+        productId,
+        basePlanId,
+        basePlanRegions,
+        config,
+      ).pipe(
         Effect.match({
           onFailure: (configurationFailure) => {
             const action = plan(
@@ -264,15 +279,17 @@ const resolveOffers = (
             );
             action.status = 'failed';
             action.error = configurationFailure.message;
-            return null;
+            return undefined;
           },
-          onSuccess: (builtOffer) => builtOffer,
+          onSuccess: (offer) => offer,
         }),
       );
-      if (offer) offers.push(offer);
+      if (builtOffer === undefined) continue;
+      offers.push(builtOffer);
     }
     return offers;
   });
+
 /** Inputs shared by both reconcile paths, resolved once from a declared subscription. */
 type DesiredSubscription = {
   productId: string;
@@ -282,6 +299,29 @@ type DesiredSubscription = {
   basePlanRegions: string[];
   offerConfigs: PlaySubscriptionOfferConfig[];
 };
+
+/** Project one catalog subscription into the Play shape Launch will create or patch. */
+const desiredSubscriptionFromConfig = (
+  subscription: SubscriptionConfig,
+): DesiredSubscription | undefined => {
+  const playOverrides = subscription.play;
+  if (playOverrides === undefined) return undefined;
+  let productId = subscription.productId;
+  if (playOverrides.productId !== undefined) productId = playOverrides.productId;
+  let basePlanId = PERIOD_ISO[subscription.subscriptionPeriod].toLowerCase();
+  if (playOverrides.basePlanId !== undefined) basePlanId = playOverrides.basePlanId;
+  let offerConfigs: PlaySubscriptionOfferConfig[] = [];
+  if (playOverrides.offers !== undefined) offerConfigs = playOverrides.offers;
+  return {
+    productId,
+    basePlanId,
+    listings: listingsFromLocalizations(subscription.localizations),
+    basePlan: basePlanFromConfig(basePlanId, subscription.subscriptionPeriod, playOverrides.prices),
+    basePlanRegions: Object.keys(playOverrides.prices),
+    offerConfigs,
+  };
+};
+
 /** Apply one Play write and record its outcome on the planned action. */
 const applyAction = (
   write: Effect.Effect<void, unknown>,
@@ -300,7 +340,8 @@ const applyAction = (
       },
     }),
   );
-/** Create+activate a single offer, isolating each call so one failure never blocks the next offer. */
+
+/** Create+activate a single offer, isolating each call so one failure never blocks the next. */
 const ensureOffer = (
   reconcileContext: ReconcileContext,
   api: PlaySubscriptionsApi,
@@ -329,7 +370,8 @@ const ensureOffer = (
       activateAction,
     );
   });
-/** Create a subscription Play doesn't have yet (with its base plan), activate the plan, then add offers. */
+
+/** Create a subscription Play does not have yet (with its base plan), activate the plan, then add offers. */
 const createNewSubscription = (
   reconcileContext: ReconcileContext,
   api: PlaySubscriptionsApi,
@@ -337,7 +379,7 @@ const createNewSubscription = (
   desired: DesiredSubscription,
 ): Effect.Effect<void> =>
   Effect.gen(function* () {
-    const offers = yield* resolveOffers(
+    const offers = yield* offersFromConfigs(
       reconcileContext,
       desired.productId,
       desired.basePlanId,
@@ -346,29 +388,24 @@ const createNewSubscription = (
     );
     const createAction = plan(reconcileContext, `create Play subscription ${desired.productId}`);
     const activateAction = plan(reconcileContext, `activate base plan ${desired.basePlanId}`);
-    if (reconcileContext.dryRun) {
-      for (const offer of offers) {
-        plan(reconcileContext, `create offer ${offer.offerId} on base plan ${desired.basePlanId}`);
-        plan(reconcileContext, `activate offer ${offer.offerId}`);
+    if (!reconcileContext.dryRun) {
+      const created = yield* applyAction(
+        api.createSubscription(packageName, {
+          productId: desired.productId,
+          listings: desired.listings,
+          basePlans: [desired.basePlan],
+        }),
+        createAction,
+      );
+      if (!created) {
+        activateAction.status = 'skipped';
+        return;
       }
-      return;
+      yield* applyAction(
+        api.activateBasePlan(packageName, desired.productId, desired.basePlanId),
+        activateAction,
+      );
     }
-    const created = yield* applyAction(
-      api.createSubscription(packageName, {
-        productId: desired.productId,
-        listings: desired.listings,
-        basePlans: [desired.basePlan],
-      }),
-      createAction,
-    );
-    if (!created) {
-      activateAction.status = 'skipped';
-      return;
-    }
-    yield* applyAction(
-      api.activateBasePlan(packageName, desired.productId, desired.basePlanId),
-      activateAction,
-    );
     for (const offer of offers) {
       yield* ensureOffer(
         reconcileContext,
@@ -380,6 +417,7 @@ const createNewSubscription = (
       );
     }
   });
+
 /** Reconcile an existing subscription: listings, the base plan's presence/state, then any missing offers. */
 const reconcileExistingSubscription = (
   reconcileContext: ReconcileContext,
@@ -405,12 +443,13 @@ const reconcileExistingSubscription = (
         );
       }
     }
+
     let existingBasePlans: BasePlan[] = [];
     if (existing.basePlans !== undefined) existingBasePlans = existing.basePlans;
     const liveBasePlan = existingBasePlans.find(
       (basePlan) => basePlan.basePlanId === desired.basePlanId,
     );
-    if (!liveBasePlan) {
+    if (liveBasePlan === undefined) {
       const mergedBasePlans = [...existingBasePlans.map(resendableBasePlan), desired.basePlan];
       const addAction = plan(
         reconcileContext,
@@ -444,7 +483,8 @@ const reconcileExistingSubscription = (
         );
       }
     }
-    const offers = yield* resolveOffers(
+
+    const offers = yield* offersFromConfigs(
       reconcileContext,
       desired.productId,
       desired.basePlanId,
@@ -452,10 +492,12 @@ const reconcileExistingSubscription = (
       desired.offerConfigs,
     );
     const liveOfferIds = new Set<string>();
-    if (liveBasePlan) {
+    if (liveBasePlan !== undefined) {
+      // List failures look like "no live offers" so missing ones are still created; never abort the run.
+      const emptyOffers: SubscriptionOfferResource[] = [];
       const liveOffers = yield* api
         .listSubscriptionOffers(packageName, desired.productId, desired.basePlanId)
-        .pipe(Effect.catchAll(() => Effect.succeed([])));
+        .pipe(Effect.catchAll(() => Effect.succeed(emptyOffers)));
       for (const offer of liveOffers) liveOfferIds.add(offer.offerId);
     }
     for (const offer of offers) {
@@ -470,8 +512,9 @@ const reconcileExistingSubscription = (
       );
     }
   });
+
 /**
- * Reconcile one app's Play subscriptions. Throws only for a precondition the user must fix (the Play app
+ * Reconcile one app's Play subscriptions. Fails only for a precondition the user must fix (the Play app
  * record is unreachable); everything else is captured per-action so a single failure never aborts the run.
  */
 export const reconcilePlaySubscriptions = (
@@ -487,24 +530,10 @@ export const reconcilePlaySubscriptions = (
       liveSubscriptionsByProductId.set(liveSubscription.productId, liveSubscription);
     }
     for (const subscription of input.subscriptions) {
-      const playOverrides = subscription.play;
-      if (playOverrides === undefined) continue;
-      let productId = subscription.productId;
-      if (playOverrides.productId !== undefined) productId = playOverrides.productId;
-      let basePlanId = PERIOD_ISO[subscription.subscriptionPeriod].toLowerCase();
-      if (playOverrides.basePlanId !== undefined) basePlanId = playOverrides.basePlanId;
-      let offerConfigs: PlaySubscriptionOfferConfig[] = [];
-      if (playOverrides.offers !== undefined) offerConfigs = playOverrides.offers;
-      const desired: DesiredSubscription = {
-        productId,
-        basePlanId,
-        listings: buildListings(subscription.localizations),
-        basePlan: buildBasePlan(basePlanId, subscription.subscriptionPeriod, playOverrides.prices),
-        basePlanRegions: Object.keys(playOverrides.prices),
-        offerConfigs,
-      };
-      const existing = liveSubscriptionsByProductId.get(productId);
-      if (existing)
+      const desired = desiredSubscriptionFromConfig(subscription);
+      if (desired === undefined) continue;
+      const existing = liveSubscriptionsByProductId.get(desired.productId);
+      if (existing !== undefined) {
         yield* reconcileExistingSubscription(
           reconcileContext,
           api,
@@ -512,10 +541,13 @@ export const reconcilePlaySubscriptions = (
           existing,
           desired,
         );
-      else yield* createNewSubscription(reconcileContext, api, input.packageName, desired);
+      } else {
+        yield* createNewSubscription(reconcileContext, api, input.packageName, desired);
+      }
     }
     return { packageName: input.packageName, actions: reconcileContext.actions };
   });
+
 /** Tally a report's action statuses for the run summary (mirrors the other store-sync commands). */
 export const summarizePlaySubscriptions = (
   actions: PlannedAction[],
