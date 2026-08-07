@@ -13,7 +13,7 @@ type GameCenterOptions = Readonly<{
 }>;
 
 /** Map Commander values without explicit undefined optionals. */
-const toGameCenterInput = (
+const gameCenterInputFromOptions = (
   commandOptions: GameCenterOptions,
   explicitConfig: boolean,
 ): GameCenterCommandInput => {
@@ -41,7 +41,7 @@ export const registerGameCenterCommand = (program: Command): void => {
     .action((commandOptions: GameCenterOptions, registeredCommand: Command) => {
       const explicitConfig = registeredCommand.getOptionValueSource('config') === 'cli';
       return runCliProgram(
-        gameCenterCommandProgram(toGameCenterInput(commandOptions, explicitConfig)),
+        gameCenterCommandProgram(gameCenterInputFromOptions(commandOptions, explicitConfig)),
       );
     });
 };
