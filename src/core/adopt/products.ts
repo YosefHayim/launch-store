@@ -15,7 +15,7 @@ import type {
 } from '../types/catalog.js';
 
 /** Narrow an App Store in-app purchase type to the modeled config union. */
-const toInAppPurchaseType = (purchaseType: string): InAppPurchaseType | null => {
+const parseInAppPurchaseType = (purchaseType: string): InAppPurchaseType | null => {
   switch (purchaseType) {
     case 'CONSUMABLE':
     case 'NON_CONSUMABLE':
@@ -27,7 +27,7 @@ const toInAppPurchaseType = (purchaseType: string): InAppPurchaseType | null => 
 };
 
 /** Narrow an App Store subscription period to the modeled config union. */
-const toSubscriptionPeriod = (
+const parseSubscriptionPeriod = (
   subscriptionPeriod: string | undefined,
 ): SubscriptionPeriod | null => {
   switch (subscriptionPeriod) {
@@ -44,7 +44,9 @@ const toSubscriptionPeriod = (
 };
 
 /** Convert App Store localization resources into config localization entries. */
-const toProductLocalizations = (localizations: LocalizationResource[]): ProductLocalization[] =>
+const productLocalizationsFromResources = (
+  localizations: readonly LocalizationResource[],
+): ProductLocalization[] =>
   localizations.map((localization) => {
     const productLocalization: ProductLocalization = {
       locale: localization.locale,
@@ -62,7 +64,7 @@ const importInAppPurchase = (
   purchase: InAppPurchaseResource,
 ): Effect.Effect<PlannedWrite | null, unknown> =>
   Effect.gen(function* () {
-    const purchaseType = toInAppPurchaseType(purchase.inAppPurchaseType);
+    const purchaseType = parseInAppPurchaseType(purchase.inAppPurchaseType);
     if (purchaseType === null) return null;
     const [localizations, hasPrice] = yield* Effect.all(
       [
@@ -75,22 +77,29 @@ const importInAppPurchase = (
       productId: purchase.productId,
       referenceName: purchase.name,
       type: purchaseType,
-      localizations: toProductLocalizations(localizations),
-    };
-    const plannedWrite: PlannedWrite = {
-      description: `products: import in-app purchase ${purchase.productId} (${purchaseType})`,
-      fidelity: 'importable',
-      change: {
-        home: 'launch.config',
-        bundleId,
-        piece: { type: 'iap', iap: purchaseConfig },
-      },
+      localizations: productLocalizationsFromResources(localizations),
     };
     if (hasPrice) {
-      plannedWrite.note =
-        'priced on App Store Connect - add `price` in config or keep managing it in the UI';
+      return {
+        description: `products: import in-app purchase ${purchase.productId} (${purchaseType})`,
+        fidelity: 'importable' as const,
+        note: 'priced on App Store Connect - add `price` in config or keep managing it in the UI',
+        change: {
+          home: 'launch.config' as const,
+          bundleId,
+          piece: { type: 'iap' as const, iap: purchaseConfig },
+        },
+      };
     }
-    return plannedWrite;
+    return {
+      description: `products: import in-app purchase ${purchase.productId} (${purchaseType})`,
+      fidelity: 'importable' as const,
+      change: {
+        home: 'launch.config' as const,
+        bundleId,
+        piece: { type: 'iap' as const, iap: purchaseConfig },
+      },
+    };
   });
 
 type ImportedSubscription = Readonly<{
@@ -104,7 +113,7 @@ const importSubscription = (
   subscription: SubscriptionResource,
 ): Effect.Effect<ImportedSubscription | null, unknown> =>
   Effect.gen(function* () {
-    const subscriptionPeriod = toSubscriptionPeriod(subscription.subscriptionPeriod);
+    const subscriptionPeriod = parseSubscriptionPeriod(subscription.subscriptionPeriod);
     if (subscriptionPeriod === null) return null;
     const [localizations, hasPrice] = yield* Effect.all(
       [
@@ -118,7 +127,7 @@ const importSubscription = (
         productId: subscription.productId,
         referenceName: subscription.name,
         subscriptionPeriod,
-        localizations: toProductLocalizations(localizations),
+        localizations: productLocalizationsFromResources(localizations),
       },
       pricedUnimported: hasPrice,
     };
@@ -160,19 +169,25 @@ const importSubscriptionGroup = (
       .map((subscription) => subscription.config.productId);
     let levelSuffix = 'levels';
     if (importedSubscriptions.length === 1) levelSuffix = 'level';
-    const plannedWrite: PlannedWrite = {
-      description: `products: import subscription group "${group.referenceName}" (${importedSubscriptions.length} ${levelSuffix})`,
-      fidelity: 'importable',
-      change: {
-        home: 'launch.config',
-        bundleId,
-        piece: { type: 'subscriptionGroup', group: groupConfig },
-      },
+    const description = `products: import subscription group "${group.referenceName}" (${importedSubscriptions.length} ${levelSuffix})`;
+    const change = {
+      home: 'launch.config' as const,
+      bundleId,
+      piece: { type: 'subscriptionGroup' as const, group: groupConfig },
     };
     if (unimportedPriceIds.length > 0) {
-      plannedWrite.note = `priced on App Store Connect, not imported - set \`price\` for: ${unimportedPriceIds.join(', ')}`;
+      return {
+        description,
+        fidelity: 'importable' as const,
+        note: `priced on App Store Connect, not imported - set \`price\` for: ${unimportedPriceIds.join(', ')}`,
+        change,
+      };
     }
-    return plannedWrite;
+    return {
+      description,
+      fidelity: 'importable' as const,
+      change,
+    };
   });
 
 /** Read products and plan their launch.config imports. */

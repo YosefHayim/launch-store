@@ -1,11 +1,12 @@
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { productsAdopter } from './products.js';
 import type { AdoptCatalogApi, AdoptTarget } from '../types/adopt.js';
 import type { AppDescriptor } from '../types/app.js';
-/** A fully-stubbed {@link AdoptCatalogApi} whose reads default to "the account is empty". */
-const makeApi = (overrides: Partial<AdoptCatalogApi> = {}): AdoptCatalogApi => {
-  const base: AdoptCatalogApi = {
+import { productsAdopter } from './products.js';
+
+/** Empty catalog fake; override only the reads a scenario needs. */
+const emptyAdoptCatalog = (overrides: Partial<AdoptCatalogApi> = {}): AdoptCatalogApi => {
+  const baseCatalog: AdoptCatalogApi = {
     getAppId: () => Effect.succeed('app1'),
     getLatestMarketingVersion: () => Effect.succeed('1.0.0'),
     getLatestBuildNumber: () => Effect.succeed(1),
@@ -23,28 +24,29 @@ const makeApi = (overrides: Partial<AdoptCatalogApi> = {}): AdoptCatalogApi => {
     subscriptionHasPrice: () => Effect.succeed(false),
     listDistributionCertificates: () => Effect.succeed([]),
   };
-  return { ...base, ...overrides };
+  return { ...baseCatalog, ...overrides };
 };
+
 const APP: AppDescriptor = {
   name: 'acme',
   dir: '/repo/acme',
   configPath: '/repo/acme/app.json',
   bundleId: 'com.acme.app',
 };
-const target = (overrides: Partial<AdoptTarget> = {}): AdoptTarget => {
-  return {
-    app: APP,
-    appId: 'app1',
-    bundleId: 'com.acme.app',
-    keyId: 'K',
-    cwd: '/repo',
-    hasLaunchConfig: false,
-    ...overrides,
-  };
-};
+
+const adoptTarget = (overrides: Partial<AdoptTarget> = {}): AdoptTarget => ({
+  app: APP,
+  appId: 'app1',
+  bundleId: 'com.acme.app',
+  keyId: 'K',
+  cwd: '/repo',
+  hasLaunchConfig: false,
+  ...overrides,
+});
+
 describe('productsAdopter', () => {
   it('imports an in-app purchase with its localizations, keyed by bundle id', async () => {
-    const api = makeApi({
+    const appleCatalog = emptyAdoptCatalog({
       listInAppPurchases: () =>
         Effect.succeed([
           {
@@ -57,12 +59,16 @@ describe('productsAdopter', () => {
       listInAppPurchaseLocalizations: () =>
         Effect.succeed([{ id: 'l1', locale: 'en-US', name: 'Coins', description: 'Buy coins' }]),
     });
-    const writes = await Effect.runPromise(productsAdopter.read(api, target()));
+    const writes = await Effect.runPromise(productsAdopter.read(appleCatalog, adoptTarget()));
     expect(writes).toHaveLength(1);
-    const [write] = writes;
-    expect(write?.description).toBe('products: import in-app purchase com.acme.coins (CONSUMABLE)');
-    expect(write?.note).toBeUndefined();
-    expect(write?.change).toEqual({
+    const firstWrite = writes[0];
+    expect(firstWrite).toBeDefined();
+    if (firstWrite === undefined) return;
+    expect(firstWrite.description).toBe(
+      'products: import in-app purchase com.acme.coins (CONSUMABLE)',
+    );
+    expect(firstWrite.note).toBeUndefined();
+    expect(firstWrite.change).toEqual({
       home: 'launch.config',
       bundleId: 'com.acme.app',
       piece: {
@@ -76,8 +82,9 @@ describe('productsAdopter', () => {
       },
     });
   });
+
   it("notes a priced product whose amount the API won't cheaply return", async () => {
-    const api = makeApi({
+    const appleCatalog = emptyAdoptCatalog({
       listInAppPurchases: () =>
         Effect.succeed([
           {
@@ -89,20 +96,25 @@ describe('productsAdopter', () => {
         ]),
       inAppPurchaseHasPrice: () => Effect.succeed(true),
     });
-    const [write] = await Effect.runPromise(productsAdopter.read(api, target()));
-    expect(write?.note).toMatch(/priced on App Store Connect/);
+    const writes = await Effect.runPromise(productsAdopter.read(appleCatalog, adoptTarget()));
+    const firstWrite = writes[0];
+    expect(firstWrite).toBeDefined();
+    if (firstWrite === undefined) return;
+    expect(firstWrite.note).toMatch(/priced on App Store Connect/);
   });
+
   it("skips an in-app purchase whose type Launch doesn't model", async () => {
-    const api = makeApi({
+    const appleCatalog = emptyAdoptCatalog({
       listInAppPurchases: () =>
         Effect.succeed([
           { id: 'iap1', productId: 'com.acme.weird', name: 'Weird', inAppPurchaseType: 'MYSTERY' },
         ]),
     });
-    expect(await Effect.runPromise(productsAdopter.read(api, target()))).toEqual([]);
+    expect(await Effect.runPromise(productsAdopter.read(appleCatalog, adoptTarget()))).toEqual([]);
   });
+
   it('imports a subscription group with its levels and billing period', async () => {
-    const api = makeApi({
+    const appleCatalog = emptyAdoptCatalog({
       listSubscriptionGroups: () => Effect.succeed([{ id: 'g1', referenceName: 'Pro' }]),
       listSubscriptionGroupLocalizations: () =>
         Effect.succeed([{ id: 'gl', locale: 'en-US', name: 'Pro Tiers' }]),
@@ -118,9 +130,12 @@ describe('productsAdopter', () => {
       listSubscriptionLocalizations: () =>
         Effect.succeed([{ id: 'sl', locale: 'en-US', name: 'Pro' }]),
     });
-    const [write] = await Effect.runPromise(productsAdopter.read(api, target()));
-    expect(write?.description).toBe('products: import subscription group "Pro" (1 level)');
-    expect(write?.change).toMatchObject({
+    const writes = await Effect.runPromise(productsAdopter.read(appleCatalog, adoptTarget()));
+    const firstWrite = writes[0];
+    expect(firstWrite).toBeDefined();
+    if (firstWrite === undefined) return;
+    expect(firstWrite.description).toBe('products: import subscription group "Pro" (1 level)');
+    expect(firstWrite.change).toMatchObject({
       home: 'launch.config',
       bundleId: 'com.acme.app',
       piece: {
@@ -140,12 +155,13 @@ describe('productsAdopter', () => {
       },
     });
   });
+
   it('drops a subscription group whose only level is missing its billing period', async () => {
-    const api = makeApi({
+    const appleCatalog = emptyAdoptCatalog({
       listSubscriptionGroups: () => Effect.succeed([{ id: 'g1', referenceName: 'Pro' }]),
       listSubscriptions: () =>
         Effect.succeed([{ id: 's1', productId: 'com.acme.pro', name: 'Pro' }]),
     });
-    expect(await Effect.runPromise(productsAdopter.read(api, target()))).toEqual([]);
+    expect(await Effect.runPromise(productsAdopter.read(appleCatalog, adoptTarget()))).toEqual([]);
   });
 });

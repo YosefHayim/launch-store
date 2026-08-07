@@ -5,17 +5,17 @@ import type { LaunchPathsService } from '../services/paths.js';
 import type { Adopter, PlannedWrite } from '../types/adopt.js';
 import type { CertificateResource, ProfileResource } from '../types/appleCatalog.js';
 
-export type LocalSigningView = {
+export type LocalSigningView = Readonly<{
   certSerial: string | null;
-  bundleIds: string[];
-};
+  bundleIds: readonly string[];
+}>;
 
-export type CertPlanInput = {
-  certificates: CertificateResource[];
-  profiles: ProfileResource[];
+export type CertPlanInput = Readonly<{
+  certificates: readonly CertificateResource[];
+  profiles: readonly ProfileResource[];
   local: LocalSigningView;
   bundleId: string;
-};
+}>;
 
 type CertAdopterRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
 
@@ -23,26 +23,32 @@ const DELEGATE_HINT =
   'Apple never returns the private key - run `launch creds setup` to issue or reuse a usable certificate and profile';
 
 /** Build one detect-only signing report. */
-const signingReport = (description: string, note?: string): PlannedWrite => {
-  const plannedWrite: PlannedWrite = {
+const signingReport = (description: string, note: string | undefined): PlannedWrite => {
+  if (note !== undefined) {
+    return {
+      description,
+      fidelity: 'detect',
+      note,
+      change: { home: 'keychain' },
+    };
+  }
+  return {
     description,
     fidelity: 'detect',
     change: { home: 'keychain' },
   };
-  if (note !== undefined) plannedWrite.note = note;
-  return plannedWrite;
 };
 
 /** Compare live signing assets against the locally cached private-key view. */
-export const planCertReports = (input: CertPlanInput): PlannedWrite[] => {
+export const planCertReports = (certPlan: CertPlanInput): PlannedWrite[] => {
   const plannedWrites: PlannedWrite[] = [];
-  if (input.certificates.length === 0) {
+  if (certPlan.certificates.length === 0) {
     plannedWrites.push(
       signingReport('certs: no distribution certificates on this account', DELEGATE_HINT),
     );
   }
-  for (const certificate of input.certificates) {
-    const keyAvailableLocally = certificate.serialNumber === input.local.certSerial;
+  for (const certificate of certPlan.certificates) {
+    const keyAvailableLocally = certificate.serialNumber === certPlan.local.certSerial;
     let expiryDescription = '';
     if (certificate.expirationDate !== undefined)
       expiryDescription = ` (expires ${certificate.expirationDate.slice(0, 10)})`;
@@ -57,8 +63,8 @@ export const planCertReports = (input: CertPlanInput): PlannedWrite[] => {
       ),
     );
   }
-  const profileInstalled = input.local.bundleIds.includes(input.bundleId);
-  for (const profile of input.profiles) {
+  const profileInstalled = certPlan.local.bundleIds.includes(certPlan.bundleId);
+  for (const profile of certPlan.profiles) {
     let profileVerdict = 'not installed locally';
     if (profileInstalled) profileVerdict = 'installed locally';
     let note: string | undefined = DELEGATE_HINT;

@@ -9,56 +9,63 @@ import {
 
 export const NEEDS_VALUE = 'NEEDS_VALUE';
 
-export type PlannedEntitlement = {
+export type PlannedEntitlement = Readonly<{
   key: string;
   value: EntitlementValue;
   note?: string;
-};
+}>;
 
-export type CapabilityPlanInput = {
-  enabledTypes: string[];
-  settingsByType: Record<string, CapabilitySetting[]>;
-  profileEntitlements: Record<string, EntitlementValue> | null;
-  existing: Record<string, unknown>;
-};
+export type CapabilityPlanInput = Readonly<{
+  enabledTypes: readonly string[];
+  settingsByType: Readonly<Record<string, readonly CapabilitySetting[]>>;
+  profileEntitlements: Readonly<Record<string, EntitlementValue>> | null;
+  existing: Readonly<Record<string, unknown>>;
+}>;
 
 /** Render capability settings as concise key/value advice. */
-const describeSettings = (settings: CapabilitySetting[] | undefined): string | undefined => {
+const describeSettings = (
+  settings: readonly CapabilitySetting[] | undefined,
+): string | undefined => {
   if (settings === undefined) return undefined;
   if (settings.length === 0) return undefined;
   const settingDescriptions = settings.map((setting) => {
-    const firstOption = setting.options?.[0]?.key;
-    if (firstOption !== undefined) return `${setting.key}=${firstOption}`;
-    return setting.key;
+    if (setting.options === undefined) return setting.key;
+    if (setting.options.length === 0) return setting.key;
+    const firstOption = setting.options[0];
+    if (firstOption === undefined) return setting.key;
+    return `${setting.key}=${firstOption.key}`;
   });
   if (settingDescriptions.length === 0) return undefined;
   return settingDescriptions.join(', ');
 };
 
 /** Plan missing entitlement values without overwriting existing app configuration. */
-export const planCapabilityEntitlements = (input: CapabilityPlanInput): PlannedEntitlement[] => {
+export const planCapabilityEntitlements = (
+  capabilityPlan: CapabilityPlanInput,
+): PlannedEntitlement[] => {
   const plannedEntitlements = new Map<string, PlannedEntitlement>();
-  let profileEntitlements: Record<string, EntitlementValue> = {};
-  if (input.profileEntitlements !== null) profileEntitlements = input.profileEntitlements;
+  let profileEntitlements: Readonly<Record<string, EntitlementValue>> = {};
+  if (capabilityPlan.profileEntitlements !== null)
+    profileEntitlements = capabilityPlan.profileEntitlements;
   for (const [entitlementKey, entitlementValue] of Object.entries(profileEntitlements)) {
     if (!isCapabilityEntitlement(entitlementKey)) continue;
-    if (entitlementKey in input.existing) continue;
+    if (entitlementKey in capabilityPlan.existing) continue;
     plannedEntitlements.set(entitlementKey, {
       key: entitlementKey,
       value: entitlementValue,
     });
   }
 
-  for (const capabilityType of input.enabledTypes) {
+  for (const capabilityType of capabilityPlan.enabledTypes) {
     const entitlementKey = entitlementForCapability(capabilityType);
     if (entitlementKey === undefined) continue;
-    if (entitlementKey in input.existing) continue;
+    if (entitlementKey in capabilityPlan.existing) continue;
     if (plannedEntitlements.has(entitlementKey)) continue;
     let note = 'enabled on App Store Connect but no value in the provisioning profile';
-    if (input.profileEntitlements === null) {
+    if (capabilityPlan.profileEntitlements === null) {
       note = 'provisioning profile unavailable (off-Mac or none) - value not recovered';
     }
-    const settingDescription = describeSettings(input.settingsByType[capabilityType]);
+    const settingDescription = describeSettings(capabilityPlan.settingsByType[capabilityType]);
     if (settingDescription !== undefined) note = `${note}; settings: ${settingDescription}`;
     plannedEntitlements.set(entitlementKey, {
       key: entitlementKey,
@@ -71,16 +78,51 @@ export const planCapabilityEntitlements = (input: CapabilityPlanInput): PlannedE
   );
 };
 
+type ProfileWithContent = Readonly<{
+  name: string;
+  profileContent: string;
+}>;
+
 /** Choose the best profile content for entitlement recovery. */
-const chooseProfileContent = (
-  profiles: { name: string; profileContent: string }[],
-): string | null => {
+const chooseProfileContent = (profiles: readonly ProfileWithContent[]): string | null => {
   if (profiles.length === 0) return null;
   const appStoreProfile = profiles.find((profile) => /app\s*store/i.test(profile.name));
   if (appStoreProfile !== undefined) return appStoreProfile.profileContent;
   const firstProfile = profiles[0];
   if (firstProfile === undefined) return null;
   return firstProfile.profileContent;
+};
+
+/** Turn one planned entitlement into an advisory app.json write. */
+const plannedWriteForEntitlement = (
+  entitlement: PlannedEntitlement,
+  configPath: string,
+): PlannedWrite => {
+  let valueDescription = '';
+  if (entitlement.value === NEEDS_VALUE) valueDescription = ` = ${NEEDS_VALUE}`;
+  if (entitlement.note !== undefined) {
+    return {
+      description: `capabilities: add entitlement ${entitlement.key}${valueDescription}`,
+      fidelity: 'advisory',
+      note: entitlement.note,
+      change: {
+        home: 'app.json',
+        configPath,
+        key: entitlement.key,
+        value: entitlement.value,
+      },
+    };
+  }
+  return {
+    description: `capabilities: add entitlement ${entitlement.key}${valueDescription}`,
+    fidelity: 'advisory',
+    change: {
+      home: 'app.json',
+      configPath,
+      key: entitlement.key,
+      value: entitlement.value,
+    },
+  };
 };
 
 /** Read enabled capabilities and plan missing app.json entitlements. */
@@ -116,21 +158,8 @@ export const capabilitiesAdopter: Adopter<ProfileEntitlementRequirements> = {
         profileEntitlements,
         existing: existingEntitlements,
       });
-      return plannedEntitlements.map((entitlement): PlannedWrite => {
-        let valueDescription = '';
-        if (entitlement.value === NEEDS_VALUE) valueDescription = ` = ${NEEDS_VALUE}`;
-        const plannedWrite: PlannedWrite = {
-          description: `capabilities: add entitlement ${entitlement.key}${valueDescription}`,
-          fidelity: 'advisory',
-          change: {
-            home: 'app.json',
-            configPath: target.app.configPath,
-            key: entitlement.key,
-            value: entitlement.value,
-          },
-        };
-        if (entitlement.note !== undefined) plannedWrite.note = entitlement.note;
-        return plannedWrite;
-      });
+      return plannedEntitlements.map((entitlement) =>
+        plannedWriteForEntitlement(entitlement, target.app.configPath),
+      );
     }),
 };

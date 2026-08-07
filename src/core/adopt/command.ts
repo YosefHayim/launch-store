@@ -3,12 +3,12 @@ import type { CommandExecutor } from '@effect/platform/CommandExecutor';
 import { Data, Effect, Schema } from 'effect';
 import { loadConfig } from '../config/config.js';
 import { loadActiveAscKey } from '../credentials/accounts.js';
-import { errorMessage } from '../services/errorMessage.js';
-import type { LaunchEnvironmentService } from '../services/environment.js';
 import {
   AppleStoreClientService,
   type AppleStoreClientService as AppleStoreClientRequirements,
 } from '../services/appleStoreClient.js';
+import type { LaunchEnvironmentService } from '../services/environment.js';
+import { errorMessage } from '../services/errorMessage.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
@@ -37,10 +37,10 @@ export type AdoptCommandInput = Schema.Schema.Type<typeof AdoptCommandInputSchem
 
 /** The adopt command could not read or apply existing App Store state. */
 export type AdoptCommandFailure = Readonly<{
-  readonly _tag: 'AdoptCommandFailure';
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
+  _tag: 'AdoptCommandFailure';
+  operation: string;
+  message: string;
+  cause: unknown;
 }>;
 
 export const makeAdoptCommandFailure = Data.tagged<AdoptCommandFailure>('AdoptCommandFailure');
@@ -109,8 +109,8 @@ export const selectAdoptApps = (
   return Effect.succeed(selectedApps);
 };
 
-/** Count planned writes that modify local configuration. */
-const countMutations = (targetPlans: readonly TargetPlan[]): number =>
+/** Count planned writes that modify local configuration (keychain reports are detect-only). */
+export const countAdoptMutations = (targetPlans: readonly TargetPlan[]): number =>
   targetPlans.reduce(
     (mutationTotal, targetPlan) =>
       mutationTotal +
@@ -118,8 +118,8 @@ const countMutations = (targetPlans: readonly TargetPlan[]): number =>
     0,
   );
 
-/** Render the ASCII marker for one planned write. */
-const fidelityMarker = (fidelity: Fidelity): string => {
+/** ASCII marker for one planned write's fidelity tier. */
+export const adoptFidelityMarker = (fidelity: Fidelity): string => {
   switch (fidelity) {
     case 'importable':
       return '+';
@@ -130,27 +130,17 @@ const fidelityMarker = (fidelity: Fidelity): string => {
   }
 };
 
-/** Print one app's adopt plan. */
-const printTargetPlan = (logger: Logger, targetPlan: TargetPlan): Effect.Effect<void, unknown> => {
-  const planLines: string[] = [];
-  for (const plannedWrite of targetPlan.writes) {
-    planLines.push(`${fidelityMarker(plannedWrite.fidelity)} ${plannedWrite.description}`);
-    if (plannedWrite.note !== undefined) planLines.push(`    -> ${plannedWrite.note}`);
-  }
-  for (const adopterFailure of targetPlan.errors)
-    planLines.push(`x ${adopterFailure.domain}: ${adopterFailure.message}`);
-  if (planLines.length === 0) planLines.push('nothing to adopt');
-  return logger.notice(
-    `${targetPlan.detected.target.app.name} (${targetPlan.detected.target.bundleId}) - ${targetPlan.detected.signal}`,
-    ...planLines,
-  );
-};
+/** Minimal path ops used to detect a shared monorepo app root. */
+export type SharedAppRootPath = Readonly<{
+  relative: (from: string, to: string) => string;
+  sep: string;
+}>;
 
-/** Find the shared app-root folder for a generated Launch configuration. */
-const detectSharedAppRoot = (
+/** Shared monorepo app-root segment for a generated Launch configuration, if unique. */
+export const detectSharedAppRoot = (
   selectedApps: readonly AppDescriptor[],
   workingDirectory: string,
-  pathService: Path.Path,
+  pathService: SharedAppRootPath,
 ): string | null => {
   const rootSegments = new Set<string>();
   for (const selectedApp of selectedApps) {
@@ -163,6 +153,22 @@ const detectSharedAppRoot = (
   const sharedSegment = [...rootSegments][0];
   if (sharedSegment === undefined) return null;
   return `.${pathService.sep}${sharedSegment}`;
+};
+
+/** Print one app's adopt plan. */
+const printTargetPlan = (logger: Logger, targetPlan: TargetPlan): Effect.Effect<void, unknown> => {
+  const planLines: string[] = [];
+  for (const plannedWrite of targetPlan.writes) {
+    planLines.push(`${adoptFidelityMarker(plannedWrite.fidelity)} ${plannedWrite.description}`);
+    if (plannedWrite.note !== undefined) planLines.push(`    -> ${plannedWrite.note}`);
+  }
+  for (const adopterFailure of targetPlan.errors)
+    planLines.push(`x ${adopterFailure.domain}: ${adopterFailure.message}`);
+  if (planLines.length === 0) planLines.push('nothing to adopt');
+  return logger.notice(
+    `${targetPlan.detected.target.app.name} (${targetPlan.detected.target.bundleId}) - ${targetPlan.detected.signal}`,
+    ...planLines,
+  );
 };
 
 /** Print the files and listing state changed by adoption. */
@@ -258,7 +264,7 @@ export const adoptCommandProgram = (
     const targetPlans = yield* planTargets(appleCatalog, detection, listAdopters());
     yield* logger.gap();
     for (const targetPlan of targetPlans) yield* printTargetPlan(logger, targetPlan);
-    const mutationCount = countMutations(targetPlans);
+    const mutationCount = countAdoptMutations(targetPlans);
     yield* logger.gap();
     if (mutationCount === 0) {
       yield* logger.note('Nothing to import - the detect-only findings need no config changes.');
