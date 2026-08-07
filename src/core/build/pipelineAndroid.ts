@@ -128,10 +128,15 @@ export const runAndroidBuild = (prepared: PreparedBuild, options: BuildRunOption
     let track = buildContext.android?.track;
     if (track === undefined) track = 'internal';
     if (options.submit) {
+      const releaseNotes = buildContext.android?.releaseNotes;
+      let notesDescription = '';
+      if (releaseNotes !== undefined && releaseNotes.length > 0) {
+        notesDescription = ` with ${releaseNotes.length} locale release note(s)`;
+      }
       if (dryRun) {
         yield* log.step(
           'submit',
-          `would upload to the ${track} track via fastlane supply`,
+          `would upload to the ${track} track via fastlane supply${notesDescription}`,
           'play-track',
         );
       } else {
@@ -154,9 +159,10 @@ export const runAndroidBuild = (prepared: PreparedBuild, options: BuildRunOption
           credentials,
           buildContext,
         );
-        let submissionDescription = `uploaded to the ${track} track`;
-        if (stores.length > 1)
-          submissionDescription = `uploaded to the ${track} track and ${stores.length - 1} more store(s)`;
+        let submissionDescription = `uploaded to the ${track} track${notesDescription}`;
+        if (stores.length > 1) {
+          submissionDescription = `uploaded to the ${track} track and ${stores.length - 1} more store(s)${notesDescription}`;
+        }
         yield* log.step('submit', submissionDescription, 'play-track');
       }
     }

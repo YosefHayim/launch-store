@@ -16,7 +16,7 @@ type StatusOptions = Readonly<{
 type PromoteOptions = Readonly<{
   readonly app?: string;
   readonly track: string;
-  readonly version?: string;
+  readonly versionCode?: string;
   readonly status?: string;
   readonly rollout?: string;
   readonly notes?: string;
@@ -53,8 +53,8 @@ const toTrackPromoteInput = (commandOptions: PromoteOptions): PlayTracksPromoteI
   if (commandOptions.app !== undefined) {
     commandInput = { ...commandInput, app: commandOptions.app };
   }
-  if (commandOptions.version !== undefined) {
-    commandInput = { ...commandInput, version: commandOptions.version };
+  if (commandOptions.versionCode !== undefined) {
+    commandInput = { ...commandInput, versionCode: commandOptions.versionCode };
   }
   if (commandOptions.status !== undefined) {
     commandInput = { ...commandInput, status: commandOptions.status };
@@ -108,7 +108,10 @@ export const registerPlayTracksCommand = (program: Command): void => {
       'target track (internal, alpha, beta, production, or a custom track)',
     )
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
-    .option('--version <code>', 'version code to ship (defaults to the latest uploaded)')
+    .option(
+      '--version-code <code>',
+      'Play versionCode to ship (defaults to the latest uploaded; not the CLI package --version)',
+    )
     .option(
       '--status <status>',
       `release status: ${RELEASE_STATUSES.join(', ')} (default: completed, or inProgress with --rollout)`,

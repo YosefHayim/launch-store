@@ -17,6 +17,7 @@ export type BuildCommandOptions = {
   readonly remote?: string | boolean;
   readonly track?: string;
   readonly rollout?: string;
+  readonly notes?: string;
   readonly clean: boolean;
   readonly account?: string;
   readonly distribution?: string;
@@ -227,6 +228,7 @@ export const parseBuildCommandInput = (
     if (remote !== undefined) buildRunOptions.remote = remote;
     if (track !== undefined) buildRunOptions.track = track;
     if (rollout !== undefined) buildRunOptions.rollout = rollout;
+    if (commandOptions.notes !== undefined) buildRunOptions.notesPath = commandOptions.notes;
     if (commandOptions.account !== undefined) buildRunOptions.account = commandOptions.account;
     if (bump !== undefined) buildRunOptions.bump = bump;
     if (sizeBudgetMB !== undefined) buildRunOptions.sizeBudgetMB = sizeBudgetMB;
