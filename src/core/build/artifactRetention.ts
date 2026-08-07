@@ -10,6 +10,7 @@ import type {
 } from '../types/artifacts.js';
 import { ArtifactIndexSchema } from '../types/artifacts.js';
 import type { LaunchConfig } from '../types/config.js';
+import type { MutableDeep } from '../types/mutable.js';
 
 export const DEFAULT_RETENTION_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -26,7 +27,7 @@ const resolveArtifactIndexPath = (
 /** Read and decode the newest-first artifact index; absent or malformed state yields []. */
 export const readArtifactIndex = (
   indexPath?: string,
-): Effect.Effect<BuildArtifact[], never, ArtifactIndexRequirements> =>
+): Effect.Effect<readonly BuildArtifact[], never, ArtifactIndexRequirements> =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const artifactIndexPath = yield* resolveArtifactIndexPath(indexPath);
@@ -44,7 +45,7 @@ export const readArtifactIndex = (
 
 /** Persist the artifact index, creating its parent directory first. */
 export const writeArtifactIndex = (
-  artifactIndex: BuildArtifact[],
+  artifactIndex: readonly BuildArtifact[],
   indexPath?: string,
 ): Effect.Effect<void, PlatformError, ArtifactIndexRequirements> =>
   Effect.gen(function* () {
@@ -86,7 +87,9 @@ const artifactGroupKey = (buildArtifact: BuildArtifact): string =>
   `${buildArtifact.appName}:${buildArtifact.platform}`;
 
 /** Newest artifact per app+platform group (by createdAt). */
-const newestArtifactByGroup = (artifactIndex: BuildArtifact[]): Map<string, BuildArtifact> => {
+const newestArtifactByGroup = (
+  artifactIndex: readonly BuildArtifact[],
+): Map<string, BuildArtifact> => {
   const newestByGroup = new Map<string, BuildArtifact>();
   for (const buildArtifact of artifactIndex) {
     const groupKey = artifactGroupKey(buildArtifact);
@@ -106,7 +109,7 @@ const newestArtifactByGroup = (artifactIndex: BuildArtifact[]): Map<string, Buil
 
 /** Split an artifact index by retention + keep-newest-per-app+platform policy. */
 export const planPrune = (
-  artifactIndex: BuildArtifact[],
+  artifactIndex: readonly BuildArtifact[],
   pruneOptions: Pick<PruneOptions, 'now' | 'retentionDays' | 'app' | 'platform'>,
 ): { prune: BuildArtifact[]; keep: BuildArtifact[] } => {
   const newestByGroup = newestArtifactByGroup(artifactIndex);
@@ -160,7 +163,7 @@ const readArtifactBytes = (
 
 /** Stamp prunedAt on pruned rows without mutating the source index entries. */
 const stampPrunedArtifacts = (
-  artifactIndex: BuildArtifact[],
+  artifactIndex: readonly BuildArtifact[],
   prunedArtifacts: readonly BuildArtifact[],
   prunedAt: string,
 ): BuildArtifact[] => {
@@ -179,7 +182,9 @@ export const runArtifactPrune = (
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const artifactIndex = yield* readArtifactIndex(pruneOptions.indexPath);
-    const policyInput: Pick<PruneOptions, 'now' | 'retentionDays' | 'app' | 'platform'> = {
+    const policyInput: MutableDeep<
+      Pick<PruneOptions, 'now' | 'retentionDays' | 'app' | 'platform'>
+    > = {
       now: pruneOptions.now,
       retentionDays: pruneOptions.retentionDays,
     };

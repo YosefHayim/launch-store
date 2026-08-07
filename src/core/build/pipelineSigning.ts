@@ -32,7 +32,10 @@ import { discoverExtensionBundleIds } from './appleTargets.js';
 import { nativeProjectDirName } from '../services/platform.js';
 import type { BuildRunOptions } from './pipelineTypes.js';
 /** The interactive build-time account picker: choose among onboarded accounts and make the pick active. */
-export const pickAccount = (launchPrompt: LaunchPromptService, accounts: AccountRecord[]) =>
+export const pickAccount = (
+  launchPrompt: LaunchPromptService,
+  accounts: readonly AccountRecord[],
+) =>
   Effect.gen(function* () {
     return yield* launchPrompt.select({
       message: 'Which Apple account?',
@@ -94,7 +97,7 @@ export const resolveExtensionBundleIds = (
 ): Effect.Effect<string[], unknown, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const pathService = yield* Path.Path;
-    let configured: string[] = [];
+    let configured: readonly string[] = [];
     if (app.iosExtensions !== undefined) configured = app.iosExtensions;
     const nativeDirectoryName = yield* nativeProjectDirName(platform);
     const nativeDirectory = pathService.join(app.dir, nativeDirectoryName);
@@ -116,7 +119,7 @@ export const warnUnreadySigningTargets = (
   ascKey: AppleCredentials['ascKey'],
   app: AppDescriptor,
   bundleId: string,
-  extensions: string[],
+  extensions: readonly string[],
   log: Logger,
 ) =>
   Effect.gen(function* () {

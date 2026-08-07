@@ -195,7 +195,9 @@ export const discoverExtensionBundleIds = (
     const targets = parsePbxprojTargets(projectText);
     return splitMainAndExtensions(targets, mainBundleId).extensions;
   });
-export const multiTargetSigningWarnings = (readiness: TargetSigningReadiness[]): string[] => {
+export const multiTargetSigningWarnings = (
+  readiness: readonly TargetSigningReadiness[],
+): string[] => {
   const warnings: string[] = [];
   for (const target of readiness) {
     if (!target.registered) {
