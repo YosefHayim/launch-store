@@ -67,7 +67,7 @@ const teach = (topic: GlossaryTopic, title: string) =>
   });
 
 /** Select the app platform while showing whether each store is configured. */
-const selectPlatform = (configuredApps: AppDescriptor[]) =>
+const selectPlatform = (configuredApps: readonly AppDescriptor[]) =>
   Effect.gen(function* () {
     const hasIosApp = configuredApps.some((configuredApp) => configuredApp.bundleId !== undefined);
     const hasAndroidApp = configuredApps.some(
@@ -358,7 +358,7 @@ const isPromptSelectionFailure = (cause: unknown): cause is PromptSelectionFailu
 export const flowInvalidReason = (
   rememberedFlow: LastFlow,
   launchConfig: LaunchConfig,
-  configuredApps: AppDescriptor[],
+  configuredApps: readonly AppDescriptor[],
   accountKeyIds: Set<string>,
 ): string | null => {
   let platformConfigured = configuredApps.some(

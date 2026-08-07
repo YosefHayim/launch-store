@@ -27,7 +27,7 @@ export const registerCompletionCommand = (program: Command): void => {
   completion
     .command(`${COMPLETE_SUBCOMMAND} [words...]`, { hidden: true })
     .description('internal: emit completion candidates for the words typed so far')
-    .action((words: string[]) => {
+    .action((words: readonly string[]) => {
       return runCliProgram(
         completionCommandProgram({ operation: 'complete', words, commandTree: program }),
       );

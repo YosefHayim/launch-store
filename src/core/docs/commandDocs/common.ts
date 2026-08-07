@@ -9,7 +9,7 @@ export const countAsyncMethods = (source: string): number => {
   return methodMatches.length;
 };
 /** Count test cases (`it(` / `test(` calls, including `.each` / `.skip`) across the given test sources. */
-export const countTestCases = (sources: string[]): number => {
+export const countTestCases = (sources: readonly string[]): number => {
   let testCount = 0;
   for (const source of sources) {
     const testMatches = source.match(/^[ \t]*(?:it|test)(?:\.[a-z]+)?\(/gm);
