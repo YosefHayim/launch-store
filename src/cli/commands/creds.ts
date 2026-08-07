@@ -1,21 +1,11 @@
 import type { Command } from 'commander';
-import { Effect } from 'effect';
 import {
   credentialsCommandProgram,
   type CredentialsCommandOptions,
 } from '@core/credentials/command.js';
-import { AppStoreIdentityLive } from '@core/services/appStoreIdentity.js';
-import { AppleCredentialsClientLive } from '@core/services/appleCredentialsClient.js';
 import { runCliProgram } from '../runCliProgram.js';
 
 export type CredsOptions = CredentialsCommandOptions;
-
-/** Supply credential-specific Apple adapters to a core credentials command. */
-const provideCredentialAdapters = (commandInput: Parameters<typeof credentialsCommandProgram>[0]) =>
-  credentialsCommandProgram(commandInput).pipe(
-    Effect.provide(AppStoreIdentityLive),
-    Effect.provide(AppleCredentialsClientLive),
-  );
 
 /** Attach the credentials command and pass raw Commander input to the core schema boundary. */
 export const registerCredsCommand = (program: Command): void => {
@@ -50,7 +40,7 @@ export const registerCredsCommand = (program: Command): void => {
         commandOptions: CredsOptions,
       ) =>
         runCliProgram(
-          provideCredentialAdapters({
+          credentialsCommandProgram({
             action,
             firstArgument,
             secondArgument,
