@@ -10,9 +10,9 @@ import type { BuildArtifact, PruneOptions, PruneResult } from '../types/artifact
 
 /** Artifact-index persistence and retention operations used by storage providers. */
 export type ArtifactRetentionService = Readonly<{
-  readonly readIndex: (indexPath: string) => Effect.Effect<BuildArtifact[]>;
+  readonly readIndex: (indexPath: string) => Effect.Effect<readonly BuildArtifact[]>;
   readonly writeIndex: (
-    artifactIndex: BuildArtifact[],
+    artifactIndex: readonly BuildArtifact[],
     indexPath: string,
   ) => Effect.Effect<void, PlatformError>;
   readonly prune: (
