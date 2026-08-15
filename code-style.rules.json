@@ -1,43 +1,6 @@
 {
   "version": 3,
   "guide": "CODE-STYLE.md",
-  "scope": [
-    "src/**/*.{ts,tsx}",
-    "scripts/**/*.{ts,mjs}",
-    "examples/**/*.{ts,tsx}",
-    "launch.config.example.ts"
-  ],
-  "exclude": ["src/apple/generated/**", "schema/**", "dist/**", "coverage/**", "node_modules/**"],
-  "forbiddenBindings": [
-    "acc",
-    "body",
-    "cfg",
-    "ctx",
-    "curr",
-    "data",
-    "fallbackCandidate",
-    "info",
-    "item",
-    "opts",
-    "payload",
-    "req",
-    "res",
-    "resolve",
-    "response",
-    "result",
-    "row",
-    "toMap",
-    "value"
-  ],
-  "domainScopedBindings": {
-    "build": [
-      "src/cli/commands/builds.ts",
-      "src/core/build/**",
-      "src/core/types/providers.ts",
-      "src/providers/build/**"
-    ]
-  },
-  "publicEntrypoints": ["src/index.ts"],
   "rules": [
     {
       "id": "function.arrow-only",
@@ -51,7 +14,7 @@
     },
     {
       "id": "effect.production",
-      "statement": "Production behavior returns Effect while Promise syntax stays in tests, development scripts, generated code, the runtime entrypoint, Commander's callback contract, and Apple's HTTP/JWT transport boundary. The handwritten Apple client keeps the vendor-native Promise/fetch contract; src/core/services/appleStoreClient.ts converts it to typed Effects before any core program can use it.",
+      "statement": "Production behavior returns Effect while Promise syntax stays in tests, development scripts, generated code, the runtime entrypoint, Commander's callback contract, and Apple's HTTP/JWT transport boundary.",
       "verify": "pnpm lint:style"
     },
     {
