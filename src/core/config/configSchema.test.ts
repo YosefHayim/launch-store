@@ -25,6 +25,12 @@ describe('loadConfigSchema', () => {
     expect(schema.definitions?.['OfferCodeConfig']).toBeDefined();
     expect(schema.definitions?.['PromotionalOfferConfig']).toBeDefined();
     expect(schema.definitions?.['WinBackOfferConfig']).toBeDefined();
+    expect(schema.definitions?.['SubscriptionConfig']?.properties?.['productId']?.pattern).toBe(
+      '^[A-Za-z0-9._]+$',
+    );
+    expect(schema.definitions?.['InAppPurchaseConfig']?.properties?.['productId']?.pattern).toBe(
+      '^[A-Za-z0-9._]+$',
+    );
   });
 
   it('memoizes the committed schema across loads', async () => {

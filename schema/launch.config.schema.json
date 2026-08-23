@@ -51,7 +51,7 @@
           "additionalProperties": {
             "$ref": "#/definitions/AppProducts"
           },
-          "description": "Declarative App Store Connect product catalog, keyed by iOS bundle id. Drives `launch sync`, which reconciles each app's subscriptions, in-app purchases, and pricing on App Store Connect to match this. Absent for apps that sell nothing. See {@link AppProducts}."
+          "description": "Declarative App Store Connect product catalog, keyed by iOS bundle id. Bundle identifiers may contain hyphens, but nested Apple subscription and in-app purchase `productId` values may contain only letters, digits, underscores, and periods. Drives `launch sync`, which reconciles each app's subscriptions, in-app purchases, and pricing on App Store Connect to match this. Absent for apps that sell nothing. See {@link AppProducts}."
         },
         "notify": {
           "type": "object",
@@ -486,7 +486,8 @@
       "properties": {
         "productId": {
           "type": "string",
-          "description": "Apple product id, e.g. `com.acme.pro.monthly`. Globally unique; the reconciler matches on it."
+          "description": "Apple product id, e.g. `com.acme.pro.monthly`. Only letters, digits, underscores, and periods are allowed; unlike an iOS bundle identifier, a product id cannot contain hyphens. Globally unique; the reconciler matches on it.",
+          "pattern": "^[A-Za-z0-9._]+$"
         },
         "referenceName": {
           "type": "string",
@@ -1007,7 +1008,8 @@
       "properties": {
         "productId": {
           "type": "string",
-          "description": "Apple product id, e.g. `com.acme.coins.100`. Globally unique; the reconciler matches on it."
+          "description": "Apple product id, e.g. `com.acme.coins.100`. Only letters, digits, underscores, and periods are allowed; unlike an iOS bundle identifier, a product id cannot contain hyphens. Globally unique; the reconciler matches on it.",
+          "pattern": "^[A-Za-z0-9._]+$"
         },
         "referenceName": {
           "type": "string",

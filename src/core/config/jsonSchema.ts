@@ -18,6 +18,7 @@ export type JsonSchema = {
   definitions?: Record<string, JsonSchema>;
   description?: string;
   title?: string;
+  pattern?: string;
 };
 
 /** Recursive Effect Schema for the committed JSON Schema document. */
@@ -52,6 +53,7 @@ export const JsonSchemaNode: Schema.Schema<JsonSchema> = Schema.suspend(
       ),
       description: Schema.optionalWith(Schema.String, { exact: true }),
       title: Schema.optionalWith(Schema.String, { exact: true }),
+      pattern: Schema.optionalWith(Schema.String, { exact: true }),
     }),
 );
 
@@ -243,6 +245,15 @@ export const validate = (
       path,
       message: `expected ${JSON.stringify(schema.const)}, got ${JSON.stringify(candidateValue)}`,
     });
+  }
+  if (schema.pattern !== undefined && typeof candidateValue === 'string') {
+    const stringPattern = new RegExp(schema.pattern);
+    if (!stringPattern.test(candidateValue)) {
+      violations.push({
+        path,
+        message: `expected a string matching ${schema.pattern}, got ${JSON.stringify(candidateValue)}`,
+      });
+    }
   }
   if (
     typeof candidateValue === 'object' &&
