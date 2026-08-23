@@ -1,6 +1,43 @@
 {
   "version": 3,
   "guide": "CODE-STYLE.md",
+  "scope": [
+    "src/**/*.{ts,tsx}",
+    "scripts/**/*.{ts,mjs}",
+    "examples/**/*.{ts,tsx}",
+    "launch.config.example.ts"
+  ],
+  "exclude": ["src/apple/generated/**", "schema/**", "dist/**", "coverage/**", "node_modules/**"],
+  "forbiddenBindings": [
+    "acc",
+    "body",
+    "cfg",
+    "ctx",
+    "curr",
+    "data",
+    "fallbackCandidate",
+    "info",
+    "item",
+    "opts",
+    "payload",
+    "req",
+    "res",
+    "resolve",
+    "response",
+    "result",
+    "row",
+    "toMap",
+    "value"
+  ],
+  "domainScopedBindings": {
+    "build": [
+      "src/cli/commands/builds.ts",
+      "src/core/build/**",
+      "src/core/types/providers.ts",
+      "src/providers/build/**"
+    ]
+  },
+  "publicEntrypoints": ["src/index.ts"],
   "rules": [
     {
       "id": "function.arrow-only",
