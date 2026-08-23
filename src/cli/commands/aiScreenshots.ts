@@ -31,7 +31,7 @@ export const registerAiScreenshotsCommand = (program: Command): void => {
     )
     .option(
       '--device-types <list>',
-      'comma-separated target slots (default: the modern iPhone/iPad + Play phone set)',
+      'Genshot target slot (APP_IPHONE_67 for iOS or phone for Android)',
     )
     .option('--out <dir>', 'where to promote approved screenshots (default: <app>/screenshots)')
     .option('--genshot-bin <path>', 'path to the genshot CLI (default: genshot on PATH)')

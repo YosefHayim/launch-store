@@ -20,7 +20,7 @@
 <p align="center">
   <a href="./docs/commands.md"><img src="https://img.shields.io/badge/store%20API-189%20endpoints-8957e5?logo=apple&logoColor=white" alt="189 App Store Connect &amp; Google Play API operations" /></a>
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2326%20passing-3fb950?logo=vitest&logoColor=white" alt="2326 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2328%20passing-3fb950?logo=vitest&logoColor=white" alt="2328 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -282,6 +282,23 @@ npx launch creds setup          # register the app id + create/reuse signing ass
 npx launch build ios --dry-run  # rehearse the whole flow - no network, no build, no account changes
 npx launch build ios            # build, sign, size-check, and upload to the testing track
 ```
+
+Turn real app screens into polished store screenshots before syncing the listing:
+
+```bash
+npm install --global @genshot/cli
+genshot login
+npx launch ai screenshots --platform ios --brief "A calm habit tracker" --yes
+npx launch plan screenshots
+npx launch sync
+```
+
+`launch ai screenshots` delegates generation and account access to the official Genshot CLI. Launch
+then validates every generated image against the target store, promotes approved files into the
+listing tree, and leaves upload to the existing plan-and-sync workflow. Genshot starts new accounts
+with free Credits; generation never needs a Genshot API key inside `launch.config.ts`. Delegated
+requests identify Launch as their client source so Genshot can measure this integration separately
+from direct CLI usage.
 
 `launch build` reuses your cached credentials silently; if they're missing it offers to provision them
 inline. Public release is the separate, deliberate `launch release <platform>`.
