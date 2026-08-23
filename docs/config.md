@@ -14,7 +14,7 @@ Generated from the config schema in `src/core/config/` and config types in `src/
 | `buildEngine` | `string` | No | Registered name of the build engine. Carries the iOS default `fastlane` (or `eas` for the cloud handoff); an Android build swaps that iOS baseline for its twin `gradle` unless overridden here. |
 | `submit` | `string \| SubmitByPlatform` | No | Where built artifacts are submitted, in one of two forms: a single registered submitter name (the iOS default `app-store-connect`, which an Android build swaps for its twin `google-play`; or `eas`) - the original, unchanged shape; or a per-platform SubmitByPlatform map, to fan one build out to several stores from this one config (e.g. an Android `.aab` to `google-play` and `amazon-appstore`). The pipeline resolves this to a store list per platform (see `resolveSubmitters`), so the build target and the store are no longer welded 1:1. See `docs/adr/0006-platform-store-split.md`. |
 | `appRoots` | `string[]` | No | Glob roots to scan for apps. Defaults to the repo root. |
-| `products` | `Record<string, AppProducts>` | No | Declarative App Store Connect product catalog, keyed by iOS bundle id. Drives `launch sync`, which reconciles each app's subscriptions, in-app purchases, and pricing on App Store Connect to match this. Absent for apps that sell nothing. See AppProducts. |
+| `products` | `Record<string, AppProducts>` | No | Declarative App Store Connect product catalog, keyed by iOS bundle id. Bundle identifiers may contain hyphens, but nested Apple subscription and in-app purchase `productId` values may contain only letters, digits, underscores, and periods. Drives `launch sync`, which reconciles each app's subscriptions, in-app purchases, and pricing on App Store Connect to match this. Absent for apps that sell nothing. See AppProducts. |
 | `notify` | `object` | No | Build/submit completion notifications (webhook + shell hook). Absent = no notifications. See NotifyConfig. |
 | `release` | `object` | No | iOS public-release policy for `launch release` (release type, scheduled date, phased rollout, export compliance, release notes). Absent = the safe defaults (go live after approval, all at once). See ReleaseConfig. |
 | `gameCenter` | `Record<string, GameCenterConfig>` | No | Game Center achievements & leaderboards, keyed by iOS bundle id. Drives `launch game-center`. The single-config form of `gamecenter.config.json` (still accepted for back-compat). See GameCenterConfig. |
@@ -130,7 +130,7 @@ One non-subscription in-app purchase (consumable, non-consumable, or non-renewin
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `productId` | `string` | Yes | Apple product id, e.g. `com.acme.coins.100`. Globally unique; the reconciler matches on it. |
+| `productId` | `string` | Yes | Apple product id, e.g. `com.acme.coins.100`. Only letters, digits, underscores, and periods are allowed; unlike an iOS bundle identifier, a product id cannot contain hyphens. Globally unique; the reconciler matches on it. |
 | `referenceName` | `string` | Yes | Internal reference name shown only in App Store Connect. |
 | `type` | `"CONSUMABLE" \| "NON_CONSUMABLE" \| "NON_RENEWING_SUBSCRIPTION"` | Yes | The purchase kind. |
 | `localizations` | `ProductLocalization[]` | Yes | Per-locale display copy; at least one entry is required for a submittable product. |
@@ -301,7 +301,7 @@ One auto-renewable subscription product inside a SubscriptionGroupConfig. `produ
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `productId` | `string` | Yes | Apple product id, e.g. `com.acme.pro.monthly`. Globally unique; the reconciler matches on it. |
+| `productId` | `string` | Yes | Apple product id, e.g. `com.acme.pro.monthly`. Only letters, digits, underscores, and periods are allowed; unlike an iOS bundle identifier, a product id cannot contain hyphens. Globally unique; the reconciler matches on it. |
 | `referenceName` | `string` | Yes | Internal reference name shown only in App Store Connect (Apple limit: 64 characters). |
 | `subscriptionPeriod` | `"ONE_WEEK" \| "ONE_MONTH" \| "TWO_MONTHS" \| "THREE_MONTHS" \| "SIX_MONTHS" \| "ONE_YEAR"` | Yes | Billing period for this level. |
 | `localizations` | `ProductLocalization[]` | Yes | Per-locale display copy; at least one entry is required for a submittable product. |

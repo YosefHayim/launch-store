@@ -37,6 +37,17 @@ describe('validate', () => {
     ]);
   });
 
+  it('enforces string patterns', () => {
+    const schema: JsonSchema = { type: 'string', pattern: '^[A-Za-z0-9._]+$' };
+    expect(validate('com.acme.coins_100', schema)).toEqual([]);
+    expect(validate('com.acme.coins-100', schema)).toEqual([
+      {
+        path: '',
+        message: 'expected a string matching ^[A-Za-z0-9._]+$, got "com.acme.coins-100"',
+      },
+    ]);
+  });
+
   it('reports a missing required property at its own path', () => {
     const schema: JsonSchema = {
       type: 'object',
