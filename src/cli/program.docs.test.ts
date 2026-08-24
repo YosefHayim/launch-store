@@ -76,9 +76,22 @@ const expectNoBrokenLinks = (file: string): void => {
     expect(existsSync(join(ROOT, link)), `${file} links missing ${link}`).toBe(true);
   }
 };
-describe('every relative link in llms.txt resolves on disk', () => {
-  it('llms.txt has no broken links', () => {
+describe('every relative link in the AI-facing documents resolves on disk', () => {
+  it('llms.txt and llms-full.txt have no broken links', () => {
     expectNoBrokenLinks('llms.txt');
+    expectNoBrokenLinks('llms-full.txt');
+  });
+});
+
+describe('Genshot is discoverable from every primary documentation surface', () => {
+  it('documents setup and the screenshot command in README, llms.txt, and llms-full.txt', () => {
+    for (const documentationFile of ['README.md', 'llms.txt', 'llms-full.txt']) {
+      const documentationText = read(documentationFile);
+      expect(documentationText, documentationFile).toContain('@genshot/cli');
+      expect(documentationText, documentationFile).toContain('genshot login');
+      expect(documentationText, documentationFile).toContain('launch ai screenshots');
+      expect(documentationText, documentationFile).toContain('launch plan screenshots');
+    }
   });
 });
 describe('the README live-stats badges track the real codebase (gated alongside docs:check)', () => {

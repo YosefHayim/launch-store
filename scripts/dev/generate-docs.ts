@@ -9,7 +9,7 @@ import { renderContributorRules, renderContributorSkills } from '@core/agents/re
 import { LaunchConfigEffectSchema } from '@core/config/schema.ts';
 import { renderCommandReference } from '@core/docs/commandDocs/commandReference.ts';
 import { countAsyncMethods, countTestCases } from '@core/docs/commandDocs/common.ts';
-import { renderLlmsTxt } from '@core/docs/commandDocs/llmsTxt.ts';
+import { renderLlmsFullTxt, renderLlmsTxt } from '@core/docs/commandDocs/llmsTxt.ts';
 import {
   renderAgentSkillsRegion,
   renderFaqRegion,
@@ -99,6 +99,7 @@ const generateDocs = (): GeneratedDoc[] => {
     }),
     { path: 'docs/commands.md', body: renderCommandReference(commands, stats) },
     { path: 'llms.txt', body: renderLlmsTxt(commands, stats) },
+    { path: 'llms-full.txt', body: renderLlmsFullTxt(commands, stats) },
     {
       path: 'schema/launch.config.schema.json',
       body: `${JSON.stringify(configSchema, null, 2)}\n`,

@@ -5,7 +5,7 @@ import { selectApp } from '../build/pipelineEnv.js';
 import { loadConfig } from '../config/config.js';
 import type { LaunchEnvironmentService } from '../services/environment.js';
 import { errorMessage } from '../services/errorMessage.js';
-import { executeCommand } from '../services/exec.js';
+import { captureCommandOutput, checkCommandExists, executeCommand } from '../services/exec.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import type { LaunchPathsService } from '../services/paths.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
@@ -65,6 +65,18 @@ export type ScreenshotEnhancer<Requirements = never> = Readonly<{
   ) => Effect.Effect<readonly EnhancedShot[], unknown, Requirements>;
 }>;
 
+/** Side effects used to prepare the optional Genshot companion from the interactive front door. */
+export type GenshotSetupIo<Requirements = never> = Readonly<{
+  readonly exists: (executable: string) => Effect.Effect<boolean, unknown, Requirements>;
+  readonly authenticated: (executable: string) => Effect.Effect<boolean, unknown, Requirements>;
+  readonly run: (
+    executable: string,
+    commandArguments: readonly string[],
+  ) => Effect.Effect<void, unknown, Requirements>;
+  readonly confirm: (message: string) => Effect.Effect<boolean, unknown, Requirements>;
+  readonly note: (message: string) => Effect.Effect<void, unknown, Requirements>;
+}>;
+
 /** Screenshot generation, validation, or promotion failed. */
 export type AiScreenshotsFailure = Readonly<{
   readonly _tag: 'AiScreenshotsFailure';
@@ -102,6 +114,98 @@ const writeLog = (
   logWrite: ReturnType<Logger['line']>,
 ): Effect.Effect<void, AiScreenshotsFailure> =>
   logWrite.pipe(Effect.mapError((cause) => screenshotFailure(operation, cause)));
+
+/** Build the production Genshot setup seam from Launch's prompt, logger, and command services. */
+const makeGenshotSetupIo = () =>
+  Effect.gen(function* () {
+    const logger = yield* createLogger(false);
+    const launchPrompt = yield* LaunchPrompt;
+    return {
+      exists: checkCommandExists,
+      authenticated: (executable: string) =>
+        captureCommandOutput(executable, ['balance']).pipe(
+          Effect.as(true),
+          Effect.catchAll(() => Effect.succeed(false)),
+        ),
+      run: executeCommand,
+      confirm: launchPrompt.confirm,
+      note: logger.note,
+    } satisfies GenshotSetupIo<LaunchEnvironmentService | PlatformCommandExecutor.CommandExecutor>;
+  });
+
+/** Install and authenticate Genshot when the user enters screenshot generation from the TUI. */
+export const ensureGenshotForInteractiveScreenshots = <Requirements>(
+  setupIo: GenshotSetupIo<Requirements>,
+): Effect.Effect<boolean, AiScreenshotsFailure, Requirements> =>
+  Effect.gen(function* () {
+    let genshotInstalled = yield* setupIo
+      .exists(DEFAULT_GENSHOT_BINARY)
+      .pipe(Effect.mapError((cause) => screenshotFailure('detect genshot CLI', cause)));
+    if (!genshotInstalled) {
+      const installApproved = yield* setupIo
+        .confirm('Genshot creates polished store screenshots. Install @genshot/cli globally now?')
+        .pipe(Effect.mapError((cause) => screenshotFailure('confirm genshot installation', cause)));
+      if (!installApproved) {
+        yield* setupIo
+          .note('Genshot setup skipped. Install later with `npm install --global @genshot/cli`.')
+          .pipe(Effect.mapError((cause) => screenshotFailure('render genshot setup', cause)));
+        return false;
+      }
+      yield* setupIo
+        .run('npm', ['install', '--global', '@genshot/cli'])
+        .pipe(Effect.mapError((cause) => screenshotFailure('install genshot CLI', cause)));
+      genshotInstalled = yield* setupIo
+        .exists(DEFAULT_GENSHOT_BINARY)
+        .pipe(Effect.mapError((cause) => screenshotFailure('verify genshot installation', cause)));
+      if (!genshotInstalled) {
+        return yield* Effect.fail(
+          screenshotFailure(
+            'verify genshot installation',
+            DEFAULT_GENSHOT_BINARY,
+            'Genshot installed, but `genshot` is not on PATH. Open a new terminal and try again.',
+          ),
+        );
+      }
+    }
+    const authenticated = yield* setupIo
+      .authenticated(DEFAULT_GENSHOT_BINARY)
+      .pipe(Effect.mapError((cause) => screenshotFailure('check genshot login', cause)));
+    if (authenticated) return true;
+    const loginApproved = yield* setupIo
+      .confirm('Sign in to Genshot in your browser now? New accounts include free Credits.')
+      .pipe(Effect.mapError((cause) => screenshotFailure('confirm genshot login', cause)));
+    if (!loginApproved) {
+      yield* setupIo
+        .note('Genshot sign-in skipped. Run `genshot login` when you are ready.')
+        .pipe(Effect.mapError((cause) => screenshotFailure('render genshot login', cause)));
+      return false;
+    }
+    yield* setupIo
+      .run(DEFAULT_GENSHOT_BINARY, ['login'])
+      .pipe(Effect.mapError((cause) => screenshotFailure('sign in to genshot', cause)));
+    const loginVerified = yield* setupIo
+      .authenticated(DEFAULT_GENSHOT_BINARY)
+      .pipe(Effect.mapError((cause) => screenshotFailure('verify genshot login', cause)));
+    if (loginVerified) return true;
+    return yield* Effect.fail(
+      screenshotFailure(
+        'verify genshot login',
+        DEFAULT_GENSHOT_BINARY,
+        'Genshot sign-in did not complete. Run `genshot login` and try again.',
+      ),
+    );
+  });
+
+/** Run interactive Genshot preparation with Launch's production command and prompt services. */
+export const ensureGenshotForInteractiveScreenshotsLive = (): Effect.Effect<
+  boolean,
+  AiScreenshotsFailure,
+  LaunchEnvironmentService | LaunchPromptService | Logger | PlatformCommandExecutor.CommandExecutor
+> =>
+  Effect.gen(function* () {
+    const setupIo = yield* makeGenshotSetupIo();
+    return yield* ensureGenshotForInteractiveScreenshots(setupIo);
+  });
 
 /** Whether command execution failed because the configured binary is absent. */
 const isMissingBinaryError = (cause: unknown): boolean => {

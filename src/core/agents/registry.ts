@@ -81,7 +81,7 @@ export const BASE_CONTEXT: BaseContext = {
   ],
 };
 /**
- * The thirteen task-scoped consumer skills, in pipeline order - the six core ship/release flows first,
+ * The fourteen task-scoped consumer skills, in pipeline order - the six core ship/release flows first,
  * then the readiness, planning, snapshot, migration, insights, AI-listing, and agent-access surfaces that
  * the wider command set unlocked. Each becomes a Claude Skill, a Cursor Agent-Requested rule, and a
  * section of the `AGENTS.md` Launch block. `launch-store-config` carries a {@link ConsumerSkill.reference}
@@ -553,6 +553,42 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
     ]),
     cautions: [
       'AI-drafted copy is a draft - review it for accuracy and brand voice before shipping. `metadata push` changes the LIVE store listing, so preview with `launch plan` and get confirmation first.',
+    ],
+  },
+  {
+    id: 'launch-ai-screenshots',
+    title: 'AI-generated store screenshots with Genshot',
+    description:
+      'Use when the developer wants polished App Store or Google Play screenshots generated from real app screens. Covers installing and authenticating the Genshot companion, `launch ai screenshots`, store-dimension validation, `launch plan screenshots`, and the guarded upload through `launch sync`.',
+    triggers: [
+      'generate polished App Store or Google Play screenshots',
+      'turn real app screens into store marketing creatives',
+      'create localized screenshots with captions',
+      'prepare screenshots before syncing a store listing',
+    ],
+    steps: [
+      recipeStep(
+        ['ai', 'screenshots'],
+        'generate and validate store-ready screenshots from real screens; use --platform ios|android and --brief to steer the design',
+      ),
+      recipeStep(
+        ['plan'],
+        'review the generated screenshot diff against the live store without writing',
+        ['screenshots'],
+      ),
+      recipeStep(['sync'], 'upload the reviewed screenshots with the rest of the declared listing'),
+    ],
+    body: markdownBody([
+      'Before generation, make sure the companion is available: `npm install --save-dev @genshot/cli`, then `npx genshot login`. Browser OAuth stores the Genshot credential in the user account config; never put an API key in `launch.config.ts`.',
+      '',
+      '- Put real source images under `<app>/screenshots/<locale>/<DISPLAY_TYPE>/`. Launch enhances those screens; it does not fabricate product UI.',
+      '- `launch ai screenshots` delegates to Genshot, identifies Launch as the client source, validates every returned image against the selected store, and promotes approved files into the listing tree.',
+      '- Use `--captions` for ordered marketing captions, `--locale` for localization, and `--device-types` only when overriding the supported default (`APP_IPHONE_67` for iOS or `phone` for Android).',
+      '- Review with `launch plan screenshots`. Uploading remains the separate `launch sync` action and requires human confirmation.',
+    ]),
+    cautions: [
+      'Genshot generation spends Credits. If the developer did not directly request generation, show the selected sources, platform, count, and brief and get approval before running it.',
+      '`launch sync` changes the LIVE store listing. Show the read-only screenshot plan and get explicit human confirmation before uploading.',
     ],
   },
   {

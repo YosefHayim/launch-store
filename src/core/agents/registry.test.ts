@@ -41,6 +41,7 @@ describe('CONSUMER_SKILLS', () => {
       'launch-migrate',
       'launch-insights',
       'launch-ai-listing',
+      'launch-ai-screenshots',
       'launch-agent-access',
     ]);
     expect(new Set(skillIds).size).toBe(skillIds.length);

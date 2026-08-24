@@ -10,12 +10,14 @@ import { makeLaunchPromptTest, type LaunchPromptService } from '../services/prom
 import {
   buildGenshotArguments,
   buildGenshotPrompt,
+  ensureGenshotForInteractiveScreenshots,
   generateScreenshots,
   parseScreenshotCaptions,
   parseScreenshotPlatforms,
   resolveScreenshotLocales,
   resolveScreenshotTargets,
   type EnhancedShot,
+  type GenshotSetupIo,
   type ScreenshotEnhancer,
 } from './aiScreenshotsCommand.js';
 import { canonicalDimensions } from './screenshots/specs.js';
@@ -94,6 +96,83 @@ const runScreenshotGeneration = <Success, Failure>(
       Effect.provide(NodeContext.layer),
     ),
   );
+
+type GenshotSetupState = {
+  installed: boolean;
+  authenticated: boolean;
+  readonly confirmations: boolean[];
+  readonly commands: Array<readonly [string, readonly string[]]>;
+  readonly notes: string[];
+};
+
+/** Build a deterministic Genshot installer/login seam whose commands update the supplied state. */
+const makeGenshotSetupIo = (setupState: GenshotSetupState): GenshotSetupIo => ({
+  exists: () => Effect.succeed(setupState.installed),
+  authenticated: () => Effect.succeed(setupState.authenticated),
+  confirm: () => Effect.succeed(setupState.confirmations.shift() === true),
+  note: (message) =>
+    Effect.sync(() => {
+      setupState.notes.push(message);
+    }),
+  run: (executable, commandArguments) =>
+    Effect.sync(() => {
+      setupState.commands.push([executable, commandArguments]);
+      if (executable === 'npm') setupState.installed = true;
+      if (executable === 'genshot' && commandArguments[0] === 'login') {
+        setupState.authenticated = true;
+      }
+    }),
+});
+
+describe('interactive Genshot setup', () => {
+  it('installs the companion, opens login, and verifies authentication', async () => {
+    const setupState: GenshotSetupState = {
+      installed: false,
+      authenticated: false,
+      confirmations: [true, true],
+      commands: [],
+      notes: [],
+    };
+    await expect(
+      Effect.runPromise(ensureGenshotForInteractiveScreenshots(makeGenshotSetupIo(setupState))),
+    ).resolves.toBe(true);
+    expect(setupState.commands).toEqual([
+      ['npm', ['install', '--global', '@genshot/cli']],
+      ['genshot', ['login']],
+    ]);
+  });
+
+  it('does nothing when Genshot is already installed and authenticated', async () => {
+    const setupState: GenshotSetupState = {
+      installed: true,
+      authenticated: true,
+      confirmations: [],
+      commands: [],
+      notes: [],
+    };
+    await expect(
+      Effect.runPromise(ensureGenshotForInteractiveScreenshots(makeGenshotSetupIo(setupState))),
+    ).resolves.toBe(true);
+    expect(setupState.commands).toEqual([]);
+  });
+
+  it('stops cleanly when installation is declined', async () => {
+    const setupState: GenshotSetupState = {
+      installed: false,
+      authenticated: false,
+      confirmations: [false],
+      commands: [],
+      notes: [],
+    };
+    await expect(
+      Effect.runPromise(ensureGenshotForInteractiveScreenshots(makeGenshotSetupIo(setupState))),
+    ).resolves.toBe(false);
+    expect(setupState.commands).toEqual([]);
+    expect(setupState.notes).toEqual([
+      'Genshot setup skipped. Install later with `npm install --global @genshot/cli`.',
+    ]);
+  });
+});
 
 describe('parseScreenshotPlatforms', () => {
   it('defaults undefined and all to both store platforms', async () => {

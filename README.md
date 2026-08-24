@@ -20,7 +20,7 @@
 <p align="center">
   <a href="./docs/commands.md"><img src="https://img.shields.io/badge/store%20API-189%20endpoints-8957e5?logo=apple&logoColor=white" alt="189 App Store Connect &amp; Google Play API operations" /></a>
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2331%20passing-3fb950?logo=vitest&logoColor=white" alt="2331 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2338%20passing-3fb950?logo=vitest&logoColor=white" alt="2338 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -286,12 +286,16 @@ npx launch build ios            # build, sign, size-check, and upload to the tes
 Turn real app screens into polished store screenshots before syncing the listing:
 
 ```bash
-npm install --global @genshot/cli
-genshot login
+npm install --save-dev @genshot/cli
+npx genshot login
 npx launch ai screenshots --platform ios --brief "A calm habit tracker" --yes
 npx launch plan screenshots
 npx launch sync
 ```
+
+Prefer the guided path? Run bare `npx launch` and choose **Generate store screenshots**. Launch checks
+for Genshot, offers to install the official CLI when it is missing, opens browser OAuth when the account
+is not authenticated, and then runs the same validated screenshot workflow.
 
 `launch ai screenshots` delegates generation and account access to the official Genshot CLI. Launch
 then validates every generated image against the target store, promotes approved files into the

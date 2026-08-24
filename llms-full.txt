@@ -1,4 +1,4 @@
-# Launch
+# Launch - full context for AI agents
 
 > Open-source, self-hosted alternative to Expo EAS - build, sign, configure your stores, and ship Expo / React Native apps to the App Store & Google Play from one typed launch.config.ts - your machine, your keys. No per-build bill.
 
