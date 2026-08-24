@@ -17,13 +17,73 @@ beforeAll(() => {
   // A minimal schema-valid config (mirrors the built-in DEFAULT_CONFIG's profile shape).
   writeFileSync(
     join(workdir, 'good.json'),
-    JSON.stringify({ profiles: { production: { name: 'production', sizeBudgetMB: 200 } } }),
+    JSON.stringify({
+      profiles: { production: { name: 'production', sizeBudgetMB: 200 } },
+      products: {
+        'com.acme-app': {
+          inAppPurchases: [
+            {
+              productId: 'com.acme.coins_100',
+              referenceName: 'Coins',
+              type: 'CONSUMABLE',
+              localizations: [{ locale: 'en-US', name: 'Coins' }],
+            },
+          ],
+          subscriptionGroups: [
+            {
+              referenceName: 'Pro',
+              localizations: [{ locale: 'en-US', name: 'Pro' }],
+              subscriptions: [
+                {
+                  productId: 'com.acme.pro.monthly2',
+                  referenceName: 'Monthly',
+                  subscriptionPeriod: 'ONE_MONTH',
+                  localizations: [{ locale: 'en-US', name: 'Pro Monthly' }],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    }),
   );
   // Valid but for one unknown top-level key - the root is `additionalProperties: false`, so this is the
   // #197 unknown-key rejection, phrased to survive the #274 zod switch (which reports the key name too).
   writeFileSync(
     join(workdir, 'bad.json'),
     JSON.stringify({ profiles: { production: { name: 'production' } }, totallyBogusKey: true }),
+  );
+  writeFileSync(
+    join(workdir, 'bad-product-id.json'),
+    JSON.stringify({
+      profiles: { production: { name: 'production' } },
+      products: {
+        'com.acme-app': {
+          inAppPurchases: [
+            {
+              productId: 'com.acme.coins-100',
+              referenceName: 'Coins',
+              type: 'CONSUMABLE',
+              localizations: [{ locale: 'en-US', name: 'Coins' }],
+            },
+          ],
+          subscriptionGroups: [
+            {
+              referenceName: 'Pro',
+              localizations: [{ locale: 'en-US', name: 'Pro' }],
+              subscriptions: [
+                {
+                  productId: 'com.acme.pro-monthly',
+                  referenceName: 'Monthly',
+                  subscriptionPeriod: 'ONE_MONTH',
+                  localizations: [{ locale: 'en-US', name: 'Pro Monthly' }],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    }),
   );
 });
 afterAll(() => {
@@ -58,5 +118,10 @@ describe('launch CLI - offline surface (compiled dist)', () => {
     await expect(launch('config', 'validate', join(workdir, 'bad.json'))).rejects.toThrow(
       /totallyBogusKey|unknown|unrecognized/i,
     );
+  });
+  it('rejects invalid Apple product IDs and explains the allowed characters', async () => {
+    await expect(
+      launch('config', 'validate', join(workdir, 'bad-product-id.json')),
+    ).rejects.toThrow(/productId.*only letters, digits, underscores, and periods/i);
   });
 });

@@ -71,6 +71,80 @@ describe('parseLaunchConfig', () => {
 });
 
 describe('validateLaunchConfig', () => {
+  it('accepts Apple product IDs with letters, digits, underscores, and periods', () => {
+    expect(
+      validateLaunchConfig({
+        profiles: {},
+        products: {
+          'com.acme-app': {
+            inAppPurchases: [
+              {
+                productId: 'com.acme.coins_100',
+                referenceName: 'Coins',
+                type: 'CONSUMABLE',
+                localizations: [{ locale: 'en-US', name: 'Coins' }],
+              },
+            ],
+            subscriptionGroups: [
+              {
+                referenceName: 'Pro',
+                localizations: [{ locale: 'en-US', name: 'Pro' }],
+                subscriptions: [
+                  {
+                    productId: 'com.acme.pro.monthly2',
+                    referenceName: 'Monthly',
+                    subscriptionPeriod: 'ONE_MONTH',
+                    localizations: [{ locale: 'en-US', name: 'Pro Monthly' }],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      }),
+    ).toEqual([]);
+  });
+
+  it('rejects hyphens in Apple subscription and in-app purchase productId fields', () => {
+    const violations = validateLaunchConfig({
+      profiles: {},
+      products: {
+        'com.acme-app': {
+          inAppPurchases: [
+            {
+              productId: 'com.acme.coins-100',
+              referenceName: 'Coins',
+              type: 'CONSUMABLE',
+              localizations: [{ locale: 'en-US', name: 'Coins' }],
+            },
+          ],
+          subscriptionGroups: [
+            {
+              referenceName: 'Pro',
+              localizations: [{ locale: 'en-US', name: 'Pro' }],
+              subscriptions: [
+                {
+                  productId: 'com.acme.pro-monthly',
+                  referenceName: 'Monthly',
+                  subscriptionPeriod: 'ONE_MONTH',
+                  localizations: [{ locale: 'en-US', name: 'Pro Monthly' }],
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    expect(violations).toContainEqual({
+      path: 'products["com.acme-app"].inAppPurchases[0].productId',
+      message: 'productId may contain only letters, digits, underscores, and periods.',
+    });
+    expect(violations).toContainEqual({
+      path: 'products["com.acme-app"].subscriptionGroups[0].subscriptions[0].productId',
+      message: 'productId may contain only letters, digits, underscores, and periods.',
+    });
+  });
+
   it('rejects an unknown top-level key as an unknown property', () => {
     expect(validateLaunchConfig({ profiles: {}, nope: true })).toContainEqual({
       path: 'nope',

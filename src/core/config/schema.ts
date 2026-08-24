@@ -1,5 +1,4 @@
-import { type Effect, Schema } from 'effect';
-import type { ParseResult } from 'effect';
+import { type Effect, ParseResult, Schema } from 'effect';
 import {
   APP_CLIP_ACTIONS,
   LEADERBOARD_FORMATTERS,
@@ -26,6 +25,11 @@ const described = <A, I, R>(
 ): Schema.Schema<A, I, R> => {
   return valueSchema.annotations({ description });
 };
+const AppleProductIdEffectSchema = Schema.String.pipe(
+  Schema.pattern(/^[A-Za-z0-9._]+$/, {
+    message: () => 'productId may contain only letters, digits, underscores, and periods.',
+  }),
+);
 const PlayTrackSchema = Schema.Literal(...PLAY_TRACKS);
 const SubmitByPlatformEffectSchema = Schema.Struct({
   ios: OptionalStringArray,
@@ -327,9 +331,9 @@ const SubscriptionPeriodSchema = Schema.Literal(
   'ONE_YEAR',
 );
 const SubscriptionConfigEffectSchema = Schema.Struct({
-  productId: Schema.String.annotations({
+  productId: AppleProductIdEffectSchema.annotations({
     description:
-      'Apple product id, e.g. `com.acme.pro.monthly`. Globally unique; the reconciler matches on it.',
+      'Apple product id, e.g. `com.acme.pro.monthly`. Only letters, digits, underscores, and periods are allowed; unlike an iOS bundle identifier, a product id cannot contain hyphens. Globally unique; the reconciler matches on it.',
   }),
   referenceName: Schema.String.annotations({
     description:
@@ -422,9 +426,9 @@ const PlayProductOverrideEffectSchema = Schema.Struct({
   description: `Google Play overrides for an {@link InAppPurchaseConfig}, so one product declaration can drive both stores. The shared fields are reused for Play - \`productId\` becomes the Play SKU (override via \`sku\`) and each {@link ProductLocalization} becomes a Play listing (\`name\` -> title, \`description\` -> description), with the first localization's locale as the product's default language. Pricing is declared HERE rather than reused from {@link InAppPurchaseConfig.price} because the two stores' money models don't line up (see {@link PlayPriceConfig}). Present this object to publish the product to Play via \`launch play-products\` as an active managed product; omit it to keep the product Apple-only.`,
 });
 const InAppPurchaseConfigEffectSchema = Schema.Struct({
-  productId: Schema.String.annotations({
+  productId: AppleProductIdEffectSchema.annotations({
     description:
-      'Apple product id, e.g. `com.acme.coins.100`. Globally unique; the reconciler matches on it.',
+      'Apple product id, e.g. `com.acme.coins.100`. Only letters, digits, underscores, and periods are allowed; unlike an iOS bundle identifier, a product id cannot contain hyphens. Globally unique; the reconciler matches on it.',
   }),
   referenceName: Schema.String.annotations({
     description: 'Internal reference name shown only in App Store Connect.',
@@ -877,7 +881,7 @@ export const LaunchConfigEffectSchema = Schema.Struct({
   products: Schema.optional(
     described(
       Schema.Record({ key: Schema.String, value: AppProductsEffectSchema }),
-      `Declarative App Store Connect product catalog, keyed by iOS bundle id. Drives \`launch sync\`, which reconciles each app's subscriptions, in-app purchases, and pricing on App Store Connect to match this. Absent for apps that sell nothing. See {@link AppProducts}.`,
+      `Declarative App Store Connect product catalog, keyed by iOS bundle id. Bundle identifiers may contain hyphens, but nested Apple subscription and in-app purchase \`productId\` values may contain only letters, digits, underscores, and periods. Drives \`launch sync\`, which reconciles each app's subscriptions, in-app purchases, and pricing on App Store Connect to match this. Absent for apps that sell nothing. See {@link AppProducts}.`,
     ),
   ),
   notify: Schema.optional(
@@ -1049,6 +1053,10 @@ const parseIssueToViolations = (
         ...pathSegments(parseIssue.path),
       ]);
     case 'Refinement':
+      if (parseIssue.kind === 'Predicate') {
+        return [schemaViolation(parentPath, ParseResult.TreeFormatter.formatIssueSync(parseIssue))];
+      }
+      return parseIssueToViolations(parseIssue.issue, parentPath);
     case 'Transformation':
       return parseIssueToViolations(parseIssue.issue, parentPath);
     case 'Unexpected':
