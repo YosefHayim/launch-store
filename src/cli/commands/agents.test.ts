@@ -85,6 +85,7 @@ describe('the agent skill registry stays in sync with the CLI', () => {
       'launch-migrate',
       'launch-insights',
       'launch-ai-listing',
+      'launch-ai-screenshots',
       'launch-agent-access',
     ]);
     expect(new Set(skillIds).size).toBe(skillIds.length);

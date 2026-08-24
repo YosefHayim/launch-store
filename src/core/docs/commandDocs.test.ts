@@ -20,7 +20,7 @@ import {
 } from './commandDocs/content.js';
 import { renderCommandReference } from './commandDocs/commandReference.js';
 import { countAsyncMethods, countTestCases } from './commandDocs/common.js';
-import { renderLlmsTxt } from './commandDocs/llmsTxt.js';
+import { renderLlmsFullTxt, renderLlmsTxt } from './commandDocs/llmsTxt.js';
 import {
   renderAgentSkillsRegion,
   renderCollapsibleFaq,
@@ -93,7 +93,7 @@ describe('renderCommandReference', () => {
     expect(metadataSection).not.toContain('| Flag |');
   });
 });
-describe('renderLlmsTxt (the merged single AI-facing file)', () => {
+describe('AI-facing llms documents', () => {
   const txt = renderLlmsTxt(SAMPLE, STATS);
   it('leads with the canonical sentence as the llmstxt.org summary blockquote', () => {
     expect(txt).toContain(`> ${CANONICAL_SENTENCE}`);
@@ -116,6 +116,20 @@ describe('renderLlmsTxt (the merged single AI-facing file)', () => {
   });
   it('links the generated command reference with the live command count', () => {
     expect(txt).toContain('[Command reference](./docs/commands.md): all 2 `launch` commands');
+  });
+  it('documents Genshot setup, OAuth, source layout, credit consent, and review', () => {
+    expect(txt).toContain('## Genshot screenshot generation');
+    expect(txt).toContain('npm install --save-dev @genshot/cli');
+    expect(txt).toContain('npx genshot login');
+    expect(txt).toContain('<app>/screenshots/<locale>/<DISPLAY_TYPE>/');
+    expect(txt).toContain('Generation spends Genshot Credits');
+    expect(txt).toContain('launch plan screenshots');
+  });
+  it('renders llms-full.txt from the same complete source', () => {
+    const fullText = renderLlmsFullTxt(SAMPLE, STATS);
+    expect(fullText).toContain('Launch - full context for AI agents');
+    expect(fullText).toContain('## Genshot screenshot generation');
+    expect(fullText).toContain('- `launch metadata` - sync the store listing');
   });
 });
 describe('renderStatsBadges', () => {

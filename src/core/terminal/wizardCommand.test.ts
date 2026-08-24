@@ -8,6 +8,7 @@ import {
   formatFlowSummary,
   profileBudgetMB,
   validateCustomBudget,
+  wizardMenuChoices,
 } from './wizardCommand.js';
 
 const configWith = (profileNames: readonly string[]): LaunchConfig => ({
@@ -41,6 +42,21 @@ const iosFlow: LastFlow = {
 };
 
 describe('wizard flow helpers', () => {
+  it('offers Genshot screenshot generation and conditionally offers build cleanup', () => {
+    expect(wizardMenuChoices(0).map((menuChoice) => menuChoice.selection)).toEqual([
+      'build',
+      'screenshots',
+      'adopt',
+      'setup',
+    ]);
+    expect(wizardMenuChoices(2).at(-1)).toEqual({
+      selection: 'prune',
+      label: 'Clean up old builds',
+      hint: '2 builds past the retention window',
+    });
+    expect(wizardMenuChoices(0)[1]?.hint).toMatch(/install\/sign in to Genshot/);
+  });
+
   it('formats Apple and Android build summaries', () => {
     expect(formatFlowSummary(iosFlow)).toBe('ios - This Mac - production - upload');
     expect(

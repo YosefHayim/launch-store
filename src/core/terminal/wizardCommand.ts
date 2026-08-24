@@ -19,6 +19,10 @@ import {
 } from '../credentials/accounts.js';
 import { readLastFlow, rememberLastFlow, type LastFlow } from '../distribution/lastRun.js';
 import { runDoctorProgram } from '../doctor/command.js';
+import {
+  aiScreenshotsCommandProgram,
+  ensureGenshotForInteractiveScreenshotsLive,
+} from '../listing/aiScreenshotsCommand.js';
 import { errorMessage } from '../services/errorMessage.js';
 import { createLogger, outroDone } from '../services/logger.js';
 import { checkIsMacOperatingSystem, resolveHostOperatingSystemLabel } from '../services/os.js';
@@ -39,6 +43,49 @@ export type WizardCommandFailure = Readonly<{
 }>;
 
 export const makeWizardCommandFailure = Data.tagged<WizardCommandFailure>('WizardCommandFailure');
+
+type WizardMenuSelection = 'build' | 'adopt' | 'setup' | 'screenshots' | 'prune';
+
+/** Build the no-argument TUI menu, including optional cleanup when old builds exist. */
+export const wizardMenuChoices = (
+  prunableBuildCount: number,
+): ReadonlyArray<{
+  readonly selection: WizardMenuSelection;
+  readonly label: string;
+  readonly hint: string;
+}> => {
+  const menuChoices: Array<{
+    selection: WizardMenuSelection;
+    label: string;
+    hint: string;
+  }> = [
+    { selection: 'build', label: 'Build an app', hint: 'compile, check size, upload' },
+    {
+      selection: 'screenshots',
+      label: 'Generate store screenshots',
+      hint: 'install/sign in to Genshot, then enhance real app screens',
+    },
+    {
+      selection: 'adopt',
+      label: 'Adopt an existing app',
+      hint: "import an already-shipping app's store setup",
+    },
+    {
+      selection: 'setup',
+      label: 'Set up Launch',
+      hint: 'config, account, toolchain, signing',
+    },
+  ];
+  if (prunableBuildCount <= 0) return menuChoices;
+  let buildLabel = 'builds';
+  if (prunableBuildCount === 1) buildLabel = 'build';
+  menuChoices.push({
+    selection: 'prune',
+    label: 'Clean up old builds',
+    hint: `${prunableBuildCount} ${buildLabel} past the retention window`,
+  });
+  return menuChoices;
+};
 
 /** Build the shared pipeline input for one wizard run. */
 const buildRunOptions = (
@@ -523,6 +570,18 @@ const confirmBuildNow = () =>
     return yield* prompt.confirm('Build now?');
   });
 
+/** Prepare Genshot, choose a configured platform, and run the shared screenshot command. */
+const runScreenshotJourney = () =>
+  Effect.gen(function* () {
+    if (!(yield* ensureGenshotForInteractiveScreenshotsLive())) return;
+    const loadedConfiguration = yield* loadConfig();
+    const platform = yield* selectPlatform(loadedConfiguration.apps);
+    const logger = yield* createLogger(false);
+    yield* aiScreenshotsCommandProgram({ platform }).pipe(
+      Effect.catchAll((cause) => logger.warn(errorMessage(cause))),
+    );
+  });
+
 /** Run Launch's interactive no-subcommand front door. */
 export const wizardCommandProgram = (rawCommandInput: unknown) =>
   Effect.gen(function* () {
@@ -550,32 +609,7 @@ export const wizardCommandProgram = (rawCommandInput: unknown) =>
       return;
     }
     const prunableBuildCount = yield* countPrunableBuilds();
-    const menuChoices: Array<{
-      selection: 'build' | 'adopt' | 'setup' | 'prune';
-      label: string;
-      hint: string;
-    }> = [
-      { selection: 'build', label: 'Build an app', hint: 'compile, check size, upload' },
-      {
-        selection: 'adopt',
-        label: 'Adopt an existing app',
-        hint: "import an already-shipping app's store setup",
-      },
-      {
-        selection: 'setup',
-        label: 'Set up Launch',
-        hint: 'config, account, toolchain, signing',
-      },
-    ];
-    if (prunableBuildCount > 0) {
-      let buildLabel = 'builds';
-      if (prunableBuildCount === 1) buildLabel = 'build';
-      menuChoices.push({
-        selection: 'prune',
-        label: 'Clean up old builds',
-        hint: `${prunableBuildCount} ${buildLabel} past the retention window`,
-      });
-    }
+    const menuChoices = wizardMenuChoices(prunableBuildCount);
     const prompt = yield* LaunchPrompt;
     const selectedAction = yield* prompt.select({
       message: 'What would you like to do?',
@@ -597,6 +631,10 @@ export const wizardCommandProgram = (rawCommandInput: unknown) =>
           return;
         }
         break;
+      case 'screenshots':
+        yield* runScreenshotJourney();
+        yield* outroDone();
+        return;
       case 'build':
         break;
     }
