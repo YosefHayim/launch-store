@@ -1,4 +1,9 @@
-# PROJECT.md
+# PROJECT.md — launch-store
+
+Purpose and direction. Read this to understand *why* the project exists and where
+it's going; read `CONTEXT.md` for how it's shaped, `LANGUAGE.md` for the words,
+and `CODE-STYLE.md` for how code is written.
+
 
 Purpose and direction for **Launch** - the internal compass for contributors and agents.
 

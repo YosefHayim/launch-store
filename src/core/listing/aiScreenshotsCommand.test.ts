@@ -8,6 +8,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { makeLaunchLoggerTest, type Logger } from '../services/logger.js';
 import { makeLaunchPromptTest, type LaunchPromptService } from '../services/prompt.js';
 import {
+  buildGenshotArguments,
+  buildGenshotPrompt,
   generateScreenshots,
   parseScreenshotCaptions,
   parseScreenshotPlatforms,
@@ -163,23 +165,65 @@ describe('resolveScreenshotLocales', () => {
 });
 
 describe('resolveScreenshotTargets', () => {
-  it('uses platform defaults when no CSV is provided', async () => {
-    const appleDefaults = await Effect.runPromise(resolveScreenshotTargets('ios', undefined));
-    expect(appleDefaults.length).toBeGreaterThan(0);
-    expect(appleDefaults).toContain('APP_IPHONE_67');
+  it('uses the Genshot-supported phone target for each platform', async () => {
+    await expect(Effect.runPromise(resolveScreenshotTargets('ios', undefined))).resolves.toEqual([
+      'APP_IPHONE_67',
+    ]);
     await expect(
       Effect.runPromise(resolveScreenshotTargets('android', undefined)),
     ).resolves.toEqual(['phone']);
   });
 
-  it('parses an explicit target CSV and rejects empty lists', async () => {
+  it('accepts the supported target and rejects empty or unsupported targets', async () => {
     await expect(
-      Effect.runPromise(resolveScreenshotTargets('ios', 'APP_IPHONE_67, phone')),
-    ).resolves.toEqual(['APP_IPHONE_67', 'phone']);
+      Effect.runPromise(resolveScreenshotTargets('ios', 'APP_IPHONE_67')),
+    ).resolves.toEqual(['APP_IPHONE_67']);
     const targetFailure = await Effect.runPromise(
       Effect.flip(resolveScreenshotTargets('ios', ' , ')),
     );
     expect(targetFailure.message).toMatch(/--device-types was empty/);
+    const unsupportedTargetFailure = await Effect.runPromise(
+      Effect.flip(resolveScreenshotTargets('ios', 'APP_IPAD_PRO_3GEN_129')),
+    );
+    expect(unsupportedTargetFailure.message).toMatch(/currently supports APP_IPHONE_67/);
+  });
+});
+
+describe('Genshot CLI contract', () => {
+  const enhancementRequest = {
+    platform: 'ios' as const,
+    brief: 'A calm habit tracker',
+    locales: ['en-US'],
+    targets: ['APP_IPHONE_67'],
+    captions: ['Build a streak', 'See your progress'],
+    sources: ['/app/home.png', '/app/progress.png'],
+    outDir: '/tmp/genshot',
+  };
+
+  it('uses the public generate command and its shipped flags', () => {
+    expect(buildGenshotArguments(enhancementRequest, 'en-US', '/tmp/genshot/en-US')).toEqual([
+      'generate',
+      '--target-store',
+      'app_store',
+      '--image-type',
+      'store_screenshot',
+      '--count',
+      '2',
+      '--prompt',
+      buildGenshotPrompt(enhancementRequest, 'en-US'),
+      '--out',
+      '/tmp/genshot/en-US',
+      '--screenshot',
+      '/app/home.png',
+      '/app/progress.png',
+    ]);
+  });
+
+  it('places the locale, brief, and captions into Genshot art direction', () => {
+    const genshotPrompt = buildGenshotPrompt(enhancementRequest, 'he-IL');
+    expect(genshotPrompt).toMatch(/locale he-IL/);
+    expect(genshotPrompt).toMatch(/A calm habit tracker/);
+    expect(genshotPrompt).toMatch(/Build a streak \| See your progress/);
   });
 });
 

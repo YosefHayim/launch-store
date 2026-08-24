@@ -2,7 +2,7 @@
 
 # Launch command reference
 
-> Launch wraps **189 App Store Connect & Google Play API operations** across **63 commands**, guarded by **2329 tests**.
+> Launch wraps **189 App Store Connect & Google Play API operations** across **63 commands**, guarded by **2331 tests**.
 
 Generated from the `commander` definitions in `src/cli/` by `pnpm docs:gen` - edit the commands, then regenerate. For the curated overview, install, and configuration, see the [README](../README.md).
 
@@ -341,7 +341,7 @@ enhance your real screenshots into store-ready ones with genshot (review with `l
 | `--platform <p>` | ios, android, or all (default) |
 | `--in <dir>` | directory of real source screenshots to enhance (default: <app>/screenshots) |
 | `--captions <list>` | comma-separated captions, one per shot (omit to let genshot write them) |
-| `--device-types <list>` | comma-separated target slots (default: the modern iPhone/iPad + Play phone set) |
+| `--device-types <list>` | Genshot target slot (APP_IPHONE_67 for iOS or phone for Android) |
 | `--out <dir>` | where to promote approved screenshots (default: <app>/screenshots) |
 | `--genshot-bin <path>` | path to the genshot CLI (default: genshot on PATH) |
 | `--dry-run` | enhance and preview, but promote nothing |

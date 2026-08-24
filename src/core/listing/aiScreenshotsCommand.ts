@@ -16,13 +16,13 @@ import {
   SCREENSHOTS_DIRNAME,
   type LocalScreenshot,
 } from './screenshots/assets.js';
-import {
-  checkScreenshotFile,
-  DEFAULT_APPLE_DISPLAY_TYPES,
-  DEFAULT_PLAY_FORM_FACTORS,
-} from './screenshots/specs.js';
+import { checkScreenshotFile } from './screenshots/specs.js';
 
 const DEFAULT_GENSHOT_BINARY = 'genshot';
+const MAX_GENSHOT_SOURCE_COUNT = 10;
+const GENSHOT_GENERATED_IMAGE_EXTENSIONS = new Set(['.jpeg', '.jpg', '.png']);
+const GENSHOT_APP_STORE_TARGET = 'APP_IPHONE_67';
+const GENSHOT_GOOGLE_PLAY_TARGET = 'phone';
 
 /** Inputs accepted by `launch ai screenshots`. */
 export type AiScreenshotsInput = Readonly<{
@@ -117,6 +117,87 @@ const parseCsvList = (csv: string): readonly string[] =>
     .map((token) => token.trim())
     .filter((token) => token.length > 0);
 
+/** Resolve the Genshot store name for a Launch build platform. */
+export const genshotTargetStore = (platform: Platform): 'app_store' | 'google_play' => {
+  if (platform === 'ios') return 'app_store';
+  return 'google_play';
+};
+
+/** Build locale-aware art direction without inventing a second Genshot request contract. */
+export const buildGenshotPrompt = (enhancementRequest: EnhanceRequest, locale: string): string => {
+  const promptLines = [
+    'Create polished, high-converting store screenshots from the supplied real app UI.',
+    `Write all visible marketing copy for locale ${locale}.`,
+  ];
+  if (enhancementRequest.brief !== undefined) {
+    promptLines.push(`App brief: ${enhancementRequest.brief}`);
+  }
+  if (enhancementRequest.captions !== undefined && enhancementRequest.captions.length > 0) {
+    promptLines.push(
+      `Feature captions, in source order: ${enhancementRequest.captions.join(' | ')}`,
+    );
+  }
+  return promptLines.join('\n');
+};
+
+/** Build the public `genshot generate` invocation used for one locale and store target. */
+export const buildGenshotArguments = (
+  enhancementRequest: EnhanceRequest,
+  locale: string,
+  outputDirectory: string,
+): readonly string[] => [
+  'generate',
+  '--target-store',
+  genshotTargetStore(enhancementRequest.platform),
+  '--image-type',
+  'store_screenshot',
+  '--count',
+  String(enhancementRequest.sources.length),
+  '--prompt',
+  buildGenshotPrompt(enhancementRequest, locale),
+  '--out',
+  outputDirectory,
+  '--screenshot',
+  ...enhancementRequest.sources,
+];
+
+/** Read the flat `panel-N.png` files written by the Genshot CLI. */
+const discoverGenshotScreenshots = (
+  outputDirectory: string,
+  locale: string,
+  target: string,
+): Effect.Effect<
+  readonly EnhancedShot[],
+  AiScreenshotsFailure,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const generatedFileNames = yield* fileSystem
+      .readDirectory(outputDirectory)
+      .pipe(Effect.mapError((cause) => screenshotFailure('read genshot output', cause)));
+    generatedFileNames.sort();
+    const generatedScreenshots: EnhancedShot[] = [];
+    for (const generatedFileName of generatedFileNames) {
+      const fileExtension = pathService.extname(generatedFileName).toLowerCase();
+      if (!GENSHOT_GENERATED_IMAGE_EXTENSIONS.has(fileExtension)) continue;
+      generatedScreenshots.push({
+        path: pathService.join(outputDirectory, generatedFileName),
+        locale,
+        target,
+      });
+    }
+    if (generatedScreenshots.length > 0) return generatedScreenshots;
+    return yield* Effect.fail(
+      screenshotFailure(
+        'read genshot output',
+        outputDirectory,
+        `genshot completed without writing screenshots into ${outputDirectory}.`,
+      ),
+    );
+  });
+
 /** Build the genshot CLI enhancement backend. */
 export const createGenshotEnhancer = (
   binaryOverride: string | undefined,
@@ -134,45 +215,49 @@ export const createGenshotEnhancer = (
     enhance: (enhancementRequest) =>
       Effect.gen(function* () {
         const fileSystem = yield* FileSystem.FileSystem;
-        yield* fileSystem.makeDirectory(enhancementRequest.outDir, { recursive: true });
-        const commandArguments = [
-          'enhance',
-          '--platform',
-          enhancementRequest.platform,
-          '--out',
-          enhancementRequest.outDir,
-          '--locales',
-          enhancementRequest.locales.join(','),
-          '--targets',
-          enhancementRequest.targets.join(','),
-        ];
-        if (enhancementRequest.brief !== undefined) {
-          commandArguments.push('--brief', enhancementRequest.brief);
+        const pathService = yield* Path.Path;
+        if (enhancementRequest.sources.length > MAX_GENSHOT_SOURCE_COUNT) {
+          return yield* Effect.fail(
+            screenshotFailure(
+              'prepare genshot sources',
+              enhancementRequest.sources,
+              `genshot accepts at most ${MAX_GENSHOT_SOURCE_COUNT} source screenshots per generation.`,
+            ),
+          );
         }
-        if (enhancementRequest.captions !== undefined) {
-          commandArguments.push('--captions', enhancementRequest.captions.join(','));
+        const generatedScreenshots: EnhancedShot[] = [];
+        for (const locale of enhancementRequest.locales) {
+          for (const target of enhancementRequest.targets) {
+            const outputDirectory = pathService.join(enhancementRequest.outDir, locale, target);
+            yield* fileSystem.makeDirectory(outputDirectory, { recursive: true });
+            const commandArguments = buildGenshotArguments(
+              enhancementRequest,
+              locale,
+              outputDirectory,
+            );
+            yield* executeCommand(executable, commandArguments, {
+              environmentOverrides: { GENSHOT_CLIENT_SOURCE: 'launch-store' },
+            }).pipe(
+              Effect.mapError((cause) => {
+                if (isMissingBinaryError(cause.cause)) {
+                  return screenshotFailure(
+                    'run genshot',
+                    cause,
+                    'genshot CLI not found. Install it with `npm install --global @genshot/cli`, run `genshot login`, or pass --genshot-bin <path>.',
+                  );
+                }
+                return screenshotFailure('run genshot', cause);
+              }),
+            );
+            const localeScreenshots = yield* discoverGenshotScreenshots(
+              outputDirectory,
+              locale,
+              target,
+            );
+            generatedScreenshots.push(...localeScreenshots);
+          }
         }
-        commandArguments.push(...enhancementRequest.sources);
-        yield* executeCommand(executable, commandArguments).pipe(
-          Effect.mapError((cause) => {
-            if (isMissingBinaryError(cause.cause)) {
-              return screenshotFailure(
-                'run genshot',
-                cause,
-                'genshot CLI not found. Install the genshot screenshot backend and sign in, or pass --genshot-bin <path>.',
-              );
-            }
-            return screenshotFailure('run genshot', cause);
-          }),
-        );
-        const generatedScreenshots = yield* discoverScreenshotsAt(enhancementRequest.outDir).pipe(
-          Effect.mapError((cause) => screenshotFailure('read genshot output', cause)),
-        );
-        return generatedScreenshots.map((generatedScreenshot) => ({
-          path: generatedScreenshot.path,
-          locale: generatedScreenshot.locale,
-          target: generatedScreenshot.displayType,
-        }));
+        return generatedScreenshots;
       }),
   };
 };
@@ -227,16 +312,30 @@ export const resolveScreenshotTargets = (
   targetCsv: string | undefined,
 ): Effect.Effect<readonly string[], AiScreenshotsFailure> => {
   if (targetCsv === undefined) {
-    if (platform === 'ios') return Effect.succeed([...DEFAULT_APPLE_DISPLAY_TYPES]);
-    return Effect.succeed([...DEFAULT_PLAY_FORM_FACTORS]);
+    if (platform === 'ios') return Effect.succeed([GENSHOT_APP_STORE_TARGET]);
+    return Effect.succeed([GENSHOT_GOOGLE_PLAY_TARGET]);
   }
   const requestedTargets = parseCsvList(targetCsv);
-  if (requestedTargets.length > 0) return Effect.succeed(requestedTargets);
+  if (requestedTargets.length === 0) {
+    return Effect.fail(
+      screenshotFailure(
+        'parse screenshot targets',
+        targetCsv,
+        '--device-types was empty. Pass APP_IPHONE_67 for iOS or phone for Android.',
+      ),
+    );
+  }
+  let supportedTarget = GENSHOT_GOOGLE_PLAY_TARGET;
+  if (platform === 'ios') supportedTarget = GENSHOT_APP_STORE_TARGET;
+  const unsupportedTarget = requestedTargets.find(
+    (requestedTarget) => requestedTarget !== supportedTarget,
+  );
+  if (unsupportedTarget === undefined) return Effect.succeed(requestedTargets);
   return Effect.fail(
     screenshotFailure(
-      'parse screenshot targets',
-      targetCsv,
-      '--device-types was empty. Pass slots like --device-types APP_IPHONE_67.',
+      'select genshot target',
+      unsupportedTarget,
+      `genshot currently supports ${supportedTarget} for ${platform}; ${unsupportedTarget} requires a store-specific generator target that is not shipped yet.`,
     ),
   );
 };

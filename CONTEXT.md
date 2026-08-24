@@ -1,4 +1,4 @@
-# CONTEXT.md
+# CONTEXT.md — launch-store
 
 Architecture and orientation for **Launch** - the map agents and contributors read before exploring code.
 

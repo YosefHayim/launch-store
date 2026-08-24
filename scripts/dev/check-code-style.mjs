@@ -24,8 +24,8 @@ const directPlatformModules = new Set([
   'node:path',
 ]);
 const guideSeparator = String.fromCodePoint(183);
-const chosenMarker = '[GOOD]';
-const rejectedMarker = '[AVOID]';
+const chosenMarker = String.fromCodePoint(0x2713);
+const rejectedMarker = String.fromCodePoint(0x2717);
 const forbiddenPresentationPattern =
   /[\p{Extended_Pictographic}\u00d7\u2013-\u2015\u2022\u2026\u2190-\u21ff\u2500-\u257f\u2713-\u2718\u2800-\u28ff]/gu;
 const normalizedRepositoryPath = (filePath) => filePath.split(sep).join('/');

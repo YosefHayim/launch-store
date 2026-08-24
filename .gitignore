@@ -49,3 +49,6 @@ android/
 
 # Kimi Code CLI local config + skills
 .kimi-code/
+
+# multi-agent campaign worktrees (local only)
+.worktrees/
