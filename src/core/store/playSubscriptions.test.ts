@@ -40,6 +40,7 @@ const makeApi = (
     reachable?: boolean;
     offersByBasePlan?: Record<string, SubscriptionOfferResource[]>;
     failCreateSubscription?: boolean;
+    createSubscriptionFailure?: string;
     failCreateOffer?: boolean;
     failListOffers?: boolean;
   } = {},
@@ -62,6 +63,9 @@ const makeApi = (
     },
     listSubscriptions: () => Effect.succeed(existing),
     createSubscription: (_packageName, subscription) => {
+      if (options.createSubscriptionFailure !== undefined) {
+        return Effect.fail(new Error(options.createSubscriptionFailure));
+      }
       if (options.failCreateSubscription === true) {
         return Effect.fail(new Error('create subscription rejected'));
       }
@@ -521,7 +525,7 @@ describe('reconcilePlaySubscriptions', () => {
     expect(calls.created).toHaveLength(1);
   });
 
-  it('skips base-plan activate and offers when subscription create fails', async () => {
+  it('skips dependent writes and diagnoses known subscription create failures', async () => {
     const { api, calls } = makeApi([], { failCreateSubscription: true });
     const subscriptionsOutcome = await runReconcile(api, {
       packageName: 'com.acme.app',
@@ -541,6 +545,51 @@ describe('reconcilePlaySubscriptions', () => {
     const summary = summarizePlaySubscriptions(subscriptionsOutcome.actions);
     expect(summary.failed).toBe(1);
     expect(summary.skipped).toBe(1);
+
+    const { api: permissionFailureApi } = makeApi([], {
+      createSubscriptionFailure: 'The caller does not have permission',
+    });
+    const permissionFailureOutcome = await runReconcile(permissionFailureApi, {
+      packageName: 'com.acme.app',
+      serviceAccountEmail: 'launch-catalog@proj.iam.gserviceaccount.com',
+      subscriptions: [sub()],
+      dryRun: false,
+    });
+    const permissionFailureAction = permissionFailureOutcome.actions.find(
+      (action) => action.status === 'failed',
+    );
+    expect(permissionFailureAction?.error).toContain('launch-catalog@proj.iam.gserviceaccount.com');
+    expect(permissionFailureAction?.error).toContain('Manage store presence');
+    expect(permissionFailureAction?.error).toContain('Users and permissions');
+    expect(permissionFailureAction?.error).toContain(
+      'https://play.google.com/console/developers/users-and-permissions',
+    );
+    expect(permissionFailureAction?.error).toContain('Admin (all permissions)');
+    expect(permissionFailureAction?.error).toContain('View financial data');
+    expect(permissionFailureAction?.error).toContain('Manage orders and subscriptions');
+    expect(permissionFailureAction?.error).not.toContain('Permissions Declaration');
+
+    const { api: paymentsFailureApi } = makeApi([], {
+      createSubscriptionFailure:
+        'Cannot create a subscription without first registering a payments profile for the developer account.',
+    });
+    const paymentsFailureOutcome = await runReconcile(paymentsFailureApi, {
+      packageName: 'com.acme.app',
+      serviceAccountEmail: 'launch-catalog@proj.iam.gserviceaccount.com',
+      subscriptions: [sub()],
+      dryRun: false,
+    });
+    const paymentsFailureAction = paymentsFailureOutcome.actions.find(
+      (action) => action.status === 'failed',
+    );
+    expect(paymentsFailureAction?.error).toContain('Setup > Payments profile');
+    expect(paymentsFailureAction?.error).toContain(
+      'https://play.google.com/console/developers/paymentssettings',
+    );
+    expect(paymentsFailureAction?.error).toContain(
+      'rerun your original `launch play-subscriptions` command',
+    );
+    expect(paymentsFailureAction?.error).not.toContain('--app com.acme.app');
   });
 
   it('skips offer activate when offer create fails', async () => {

@@ -18,6 +18,10 @@ import type { MutableDeep } from '../types/mutable.js';
 import type { PlannedAction } from '../types/reconcile.js';
 import { plan, type ReconcileContext } from './reconcile.js';
 import { errorMessage } from '../services/errorMessage.js';
+import {
+  buildPlayPaymentsProfileUrl,
+  buildPlayUsersAndPermissionsUrl,
+} from '../terminal/consoleLinks.js';
 
 /** Apple billing period -> ISO-8601 duration, the form Play's base plans and offer phases want. */
 const PERIOD_ISO: Record<SubscriptionPeriod, string> = {
@@ -91,8 +95,38 @@ export type PlaySubscriptionsApi = {
 /** Inputs to reconcile one app's Play subscriptions. */
 export type PlaySubscriptionsReconcileInput = {
   packageName: string;
+  serviceAccountEmail?: string;
   subscriptions: SubscriptionConfig[];
   dryRun: boolean;
+};
+
+export const PLAY_SUBSCRIPTIONS_SETUP_GUIDANCE =
+  'Setup: in Play Console Users and permissions, give the configured service account app access and "Manage store presence" (or "Admin (all permissions)"). The Google Play Billing API permissions "View financial data" and "Manage orders and subscriptions" manage purchases/orders; they do not replace the catalog-write permission. Paid subscriptions also require Setup > Payments profile.';
+
+/** Add setup instructions only to the two Play subscription failures with known operator fixes. */
+export const describePlaySubscriptionWriteFailure = (
+  failureText: string,
+  packageName: string,
+  serviceAccountEmail: string | undefined,
+): string => {
+  if (/payments? profile/i.test(failureText)) {
+    return `${failureText}\nComplete Play Console Setup > Payments profile, then rerun your original \`launch play-subscriptions\` command: ${buildPlayPaymentsProfileUrl()}`;
+  }
+  const isSensitivePermissionFailure = /sensitive|high.?risk|permissions? declaration/i.test(
+    failureText,
+  );
+  const isCatalogPermissionFailure =
+    /caller does not have permission|permission denied|insufficient permissions?/i.test(
+      failureText,
+    );
+  if (!isCatalogPermissionFailure) return failureText;
+  if (isSensitivePermissionFailure) return failureText;
+  let serviceAccountIdentity = 'the configured service account';
+  if (serviceAccountEmail !== undefined) serviceAccountIdentity = serviceAccountEmail;
+  return (
+    `${failureText}\nFor ${packageName}, grant ${serviceAccountIdentity} app access and "Manage store presence" in Play Console Users and permissions: ${buildPlayUsersAndPermissionsUrl()}\n` +
+    '"Admin (all permissions)" is an alternative, not a requirement. The Google Play Billing API permissions "View financial data" and "Manage orders and subscriptions" cover purchase/order management; they do not replace the catalog-write permission. Then rerun `launch play-subscriptions`.'
+  );
 };
 
 /** Convert a micro-unit price to the subscriptions API's `units`+`nanos` money shape (1,990,000 -> 1.99). */
@@ -547,6 +581,15 @@ export const reconcilePlaySubscriptions = (
       } else {
         yield* createNewSubscription(reconcileContext, api, input.packageName, desired);
       }
+    }
+    for (const subscriptionAction of reconcileContext.actions) {
+      if (subscriptionAction.status !== 'failed') continue;
+      if (subscriptionAction.error === undefined) continue;
+      subscriptionAction.error = describePlaySubscriptionWriteFailure(
+        subscriptionAction.error,
+        input.packageName,
+        input.serviceAccountEmail,
+      );
     }
     return { packageName: input.packageName, actions: reconcileContext.actions };
   });
