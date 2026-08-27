@@ -10,6 +10,7 @@ import { makeLaunchPromptTest, type LaunchPromptService } from '../services/prom
 import {
   buildGenshotArguments,
   buildGenshotPrompt,
+  discoverGenshotScreenshots,
   ensureGenshotForInteractiveScreenshots,
   generateScreenshots,
   parseScreenshotCaptions,
@@ -41,6 +42,31 @@ const pngBytes = (width: number, height: number): Buffer => {
   return Buffer.concat([head, ihdr]);
 };
 
+/** Build the schema-v1 sidecar emitted by the fake Genshot executable. */
+const genshotManifest = (
+  generationId: string,
+  targetStore: 'app_store' | 'google_play',
+  generatedFile = 'enhanced.png',
+) => ({
+  schemaVersion: 1,
+  generationId,
+  status: 'succeeded',
+  targetStore,
+  targetImageType: 'store_screenshot',
+  requestedImageCount: 1,
+  deliveredImageCount: 1,
+  createdAt: '2026-08-27T00:00:00.000Z',
+  updatedAt: '2026-08-27T00:01:00.000Z',
+  generatedImages: [
+    {
+      generatedImageId: 'generated-image-test-001',
+      imageNumber: 1,
+      status: 'delivered',
+      file: generatedFile,
+    },
+  ],
+});
+
 /** A fresh app dir seeded with one en-US APP_IPHONE_67 source screenshot. */
 const makeAppDirectory = (withSource = true): string => {
   const appDirectory = mkdtempSync(join(tmpdir(), 'launch-aishots-'));
@@ -58,27 +84,45 @@ const makeAppDirectory = (withSource = true): string => {
  * dir under `<locale>/<target>/` and returns its descriptor. Uses each target's canonical size by
  * default, or a forced size to exercise the hard-gate.
  */
-const fakeEnhancer = (forcedSize?: readonly [number, number]): ScreenshotEnhancer => ({
+const fakeEnhancer = (
+  forcedSize?: readonly [number, number],
+  generationIdOverride?: string,
+): ScreenshotEnhancer<FileSystem.FileSystem | Path.Path> => ({
   name: 'fake-genshot',
-  enhance: (enhancementRequest) => {
-    const enhancedShots: EnhancedShot[] = [];
-    for (const locale of enhancementRequest.locales) {
-      for (const target of enhancementRequest.targets) {
-        let dimensions = forcedSize;
-        if (dimensions === undefined) {
-          dimensions = canonicalDimensions(enhancementRequest.platform, target);
+  enhance: (enhancementRequest) =>
+    Effect.gen(function* () {
+      const enhancedShots: EnhancedShot[] = [];
+      let generationId = 'generation-test-001';
+      if (generationIdOverride !== undefined) generationId = generationIdOverride;
+      for (const locale of enhancementRequest.locales) {
+        for (const target of enhancementRequest.targets) {
+          let dimensions = forcedSize;
+          if (dimensions === undefined) {
+            dimensions = canonicalDimensions(enhancementRequest.platform, target);
+          }
+          if (dimensions === undefined) dimensions = [1080, 1920];
+          const [width, height] = dimensions;
+          const targetDirectory = join(enhancementRequest.outDir, locale, target);
+          mkdirSync(targetDirectory, { recursive: true });
+          const screenshotPath = join(targetDirectory, 'enhanced.png');
+          writeFileSync(screenshotPath, pngBytes(width, height));
+          let targetStore: 'app_store' | 'google_play' = 'google_play';
+          if (enhancementRequest.platform === 'ios') targetStore = 'app_store';
+          writeFileSync(
+            join(targetDirectory, 'genshot-generation.json'),
+            `${JSON.stringify(genshotManifest(generationId, targetStore))}\n`,
+          );
+          const discoveredShots = yield* discoverGenshotScreenshots(
+            targetDirectory,
+            locale,
+            target,
+            enhancementRequest.platform,
+          );
+          enhancedShots.push(...discoveredShots);
         }
-        if (dimensions === undefined) dimensions = [1080, 1920];
-        const [width, height] = dimensions;
-        const targetDirectory = join(enhancementRequest.outDir, locale, target);
-        mkdirSync(targetDirectory, { recursive: true });
-        const screenshotPath = join(targetDirectory, 'enhanced.png');
-        writeFileSync(screenshotPath, pngBytes(width, height));
-        enhancedShots.push({ path: screenshotPath, locale, target });
       }
-    }
-    return Effect.succeed(enhancedShots);
-  },
+      return enhancedShots;
+    }),
 });
 
 /** Run screenshot generation with deterministic terminal services. */
@@ -88,10 +132,11 @@ const runScreenshotGeneration = <Success, Failure>(
     Failure,
     FileSystem.FileSystem | LaunchPromptService | Logger | Path.Path | Terminal.Terminal
   >,
+  loggerLines: string[] = [],
 ): Promise<Success> =>
   Effect.runPromise(
     screenshotProgram.pipe(
-      Effect.provide(makeLaunchLoggerTest([])),
+      Effect.provide(makeLaunchLoggerTest(loggerLines)),
       Effect.provide(makeLaunchPromptTest()),
       Effect.provide(NodeContext.layer),
     ),
@@ -279,7 +324,7 @@ describe('Genshot CLI contract', () => {
     outDir: '/tmp/genshot',
   };
 
-  it('uses the public generate command and its shipped flags', () => {
+  it('uses the public command and rejects invalid or mismatched generation manifests', async () => {
     expect(buildGenshotArguments(enhancementRequest, 'en-US', '/tmp/genshot/en-US')).toEqual([
       'generate',
       '--target-store',
@@ -296,6 +341,51 @@ describe('Genshot CLI contract', () => {
       '/app/home.png',
       '/app/progress.png',
     ]);
+    const outputDirectory = mkdtempSync(join(tmpdir(), 'launch-genshot-manifest-'));
+    temporaryDirectories.push(outputDirectory);
+    writeFileSync(join(outputDirectory, 'enhanced.png'), pngBytes(1290, 2796));
+    writeFileSync(
+      join(outputDirectory, 'genshot-generation.json'),
+      JSON.stringify({
+        ...genshotManifest('generation-invalid-001', 'app_store'),
+        schemaVersion: 2,
+      }),
+    );
+    await expect(
+      Effect.runPromise(
+        discoverGenshotScreenshots(outputDirectory, 'en-US', 'APP_IPHONE_67', 'ios').pipe(
+          Effect.provide(NodeContext.layer),
+        ),
+      ),
+    ).rejects.toThrow(/Invalid genshot-generation\.json/);
+    const targetMismatchDirectory = mkdtempSync(join(tmpdir(), 'launch-genshot-manifest-'));
+    const fileMismatchDirectory = mkdtempSync(join(tmpdir(), 'launch-genshot-manifest-'));
+    temporaryDirectories.push(targetMismatchDirectory, fileMismatchDirectory);
+    for (const outputDirectory of [targetMismatchDirectory, fileMismatchDirectory]) {
+      writeFileSync(join(outputDirectory, 'enhanced.png'), pngBytes(1290, 2796));
+    }
+    writeFileSync(
+      join(targetMismatchDirectory, 'genshot-generation.json'),
+      JSON.stringify(genshotManifest('generation-target-001', 'google_play')),
+    );
+    writeFileSync(
+      join(fileMismatchDirectory, 'genshot-generation.json'),
+      JSON.stringify(genshotManifest('generation-file-001', 'app_store', 'missing.png')),
+    );
+    await expect(
+      Effect.runPromise(
+        discoverGenshotScreenshots(targetMismatchDirectory, 'en-US', 'APP_IPHONE_67', 'ios').pipe(
+          Effect.provide(NodeContext.layer),
+        ),
+      ),
+    ).rejects.toThrow(/targets google_play; expected app_store/);
+    await expect(
+      Effect.runPromise(
+        discoverGenshotScreenshots(fileMismatchDirectory, 'en-US', 'APP_IPHONE_67', 'ios').pipe(
+          Effect.provide(NodeContext.layer),
+        ),
+      ),
+    ).rejects.toThrow(/enhanced\.png is not mapped/);
   });
 
   it('places the locale, brief, and captions into Genshot art direction', () => {
@@ -317,16 +407,60 @@ describe('parseScreenshotCaptions', () => {
 describe('generateScreenshots', () => {
   it('promotes an in-spec enhanced screenshot into <app>/screenshots/<locale>/<target>/', async () => {
     const appDirectory = makeAppDirectory();
+    const loggerLines: string[] = [];
     const promoted = await runScreenshotGeneration(
       generateScreenshots(
         appDirectory,
         { platform: 'ios', locale: 'en-US', deviceTypes: 'APP_IPHONE_67', yes: true },
         fakeEnhancer(),
       ),
+      loggerLines,
     );
     expect(promoted).toHaveLength(1);
     expect(
       existsSync(join(appDirectory, 'screenshots', 'en-US', 'APP_IPHONE_67', 'enhanced.png')),
+    ).toBe(true);
+    expect(
+      existsSync(
+        join(
+          appDirectory,
+          'screenshots',
+          'en-US',
+          'APP_IPHONE_67',
+          'genshot-generation-generation-test-001.json',
+        ),
+      ),
+    ).toBe(true);
+    expect(loggerLines.join('')).toMatch(/Genshot Generation ID: generation-test-001/);
+    expect(loggerLines.join('')).toMatch(/Retained Genshot Generation ID generation-test-001/);
+    const outputDirectory = join(appDirectory, 'collision-screenshots');
+    const commandInput = {
+      platform: 'ios',
+      locale: 'en-US',
+      deviceTypes: 'APP_IPHONE_67',
+      out: outputDirectory,
+      yes: true,
+    };
+    await runScreenshotGeneration(
+      generateScreenshots(
+        appDirectory,
+        commandInput,
+        fakeEnhancer(undefined, 'generation-first-001'),
+      ),
+    );
+    await runScreenshotGeneration(
+      generateScreenshots(
+        appDirectory,
+        commandInput,
+        fakeEnhancer(undefined, 'generation-second-002'),
+      ),
+    );
+    const retainedDirectory = join(outputDirectory, 'en-US', 'APP_IPHONE_67');
+    expect(
+      existsSync(join(retainedDirectory, 'genshot-generation-generation-first-001.json')),
+    ).toBe(true);
+    expect(
+      existsSync(join(retainedDirectory, 'genshot-generation-generation-second-002.json')),
     ).toBe(true);
   });
 
@@ -369,6 +503,7 @@ describe('generateScreenshots', () => {
 
   it('promotes nothing on a dry run', async () => {
     const appDirectory = makeAppDirectory();
+    const loggerLines: string[] = [];
     const promoted = await runScreenshotGeneration(
       generateScreenshots(
         appDirectory,
@@ -381,10 +516,24 @@ describe('generateScreenshots', () => {
         },
         fakeEnhancer(),
       ),
+      loggerLines,
     );
     expect(promoted).toHaveLength(0);
     expect(readdirSync(join(appDirectory, 'screenshots', 'en-US', 'APP_IPHONE_67'))).toEqual([
       'source.png',
     ]);
+    const dryRunMarker = 'Review the durable Genshot batch at ';
+    const dryRunLine = loggerLines.find((loggerLine) => loggerLine.includes(dryRunMarker));
+    expect(dryRunLine).toBeDefined();
+    if (dryRunLine === undefined) return;
+    const reviewDirectory = dryRunLine.slice(
+      dryRunLine.indexOf(dryRunMarker) + dryRunMarker.length,
+    );
+    temporaryDirectories.push(reviewDirectory.trim());
+    const stagedTargetDirectory = join(reviewDirectory.trim(), 'ios', 'en-US', 'APP_IPHONE_67');
+    expect(existsSync(join(stagedTargetDirectory, 'enhanced.png'))).toBe(true);
+    expect(existsSync(join(stagedTargetDirectory, 'genshot-generation.json'))).toBe(true);
+    expect(loggerLines.join('')).toMatch(/Genshot Generation ID: generation-test-001/);
+    expect(loggerLines.join('')).toMatch(/nothing promoted/);
   });
 });
