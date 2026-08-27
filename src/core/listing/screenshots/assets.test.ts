@@ -99,6 +99,11 @@ describe('discoverScreenshots', () => {
     const appDir = workDir();
     writeFile(appDir, `${SCREENSHOTS_DIRNAME}/en-US/APP_IPHONE_69_FUTURE/01.png`, 'future');
     writeFile(appDir, `${SCREENSHOTS_DIRNAME}/en-US/APP_IPHONE_69_FUTURE/notes.txt`, 'ignore me');
+    writeFile(
+      appDir,
+      `${SCREENSHOTS_DIRNAME}/en-US/APP_IPHONE_69_FUTURE/genshot-generation-run-001.json`,
+      '{"generationId":"run-001"}',
+    );
     const shots = await runAssetEffect(discoverScreenshots(appDir));
     expect(shots).toHaveLength(1);
     expect(shots[0]?.displayType).toBe('APP_IPHONE_69_FUTURE');
