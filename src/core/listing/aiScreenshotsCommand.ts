@@ -1,6 +1,6 @@
 import { FileSystem, Path, Terminal } from '@effect/platform';
 import type * as PlatformCommandExecutor from '@effect/platform/CommandExecutor';
-import { Data, Effect } from 'effect';
+import { Data, Effect, Schema } from 'effect';
 import { selectApp } from '../build/pipelineEnv.js';
 import { loadConfig } from '../config/config.js';
 import type { LaunchEnvironmentService } from '../services/environment.js';
@@ -21,8 +21,53 @@ import { checkScreenshotFile } from './screenshots/specs.js';
 const DEFAULT_GENSHOT_BINARY = 'genshot';
 const MAX_GENSHOT_SOURCE_COUNT = 10;
 const GENSHOT_GENERATED_IMAGE_EXTENSIONS = new Set(['.jpeg', '.jpg', '.png']);
+const GENSHOT_MANIFEST_FILENAME = 'genshot-generation.json';
+const GENSHOT_RETAINED_MANIFEST_PREFIX = 'genshot-generation-';
 const GENSHOT_APP_STORE_TARGET = 'APP_IPHONE_67';
 const GENSHOT_GOOGLE_PLAY_TARGET = 'phone';
+
+const GenshotIdentifierSchema = Schema.String.pipe(Schema.pattern(/^[A-Za-z0-9_-]{3,80}$/));
+const GenshotGeneratedImageSchema = Schema.Struct({
+  generatedImageId: GenshotIdentifierSchema,
+  imageNumber: Schema.Number.pipe(Schema.int(), Schema.positive()),
+  status: Schema.Literal(
+    'planned',
+    'generating',
+    'quality_check',
+    'delivered',
+    'failed',
+    'cancelled',
+    'deleted',
+  ),
+  file: Schema.NullOr(Schema.String),
+});
+const GenshotGenerationManifestSchema = Schema.Struct({
+  schemaVersion: Schema.Literal(1),
+  generationId: GenshotIdentifierSchema,
+  status: Schema.Literal(
+    'queued',
+    'planning',
+    'generating',
+    'checking',
+    'succeeded',
+    'failed',
+    'cancelled',
+    'deleted',
+  ),
+  targetStore: Schema.Literal('app_store', 'google_play', 'chrome_web_store'),
+  targetImageType: Schema.Literal(
+    'store_screenshot',
+    'feature_graphic',
+    'small_promo_tile',
+    'marquee',
+  ),
+  requestedImageCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  deliveredImageCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
+  createdAt: Schema.String,
+  updatedAt: Schema.String,
+  generatedImages: Schema.Array(GenshotGeneratedImageSchema),
+});
+type GenshotGenerationManifest = typeof GenshotGenerationManifestSchema.Type;
 
 /** Inputs accepted by `launch ai screenshots`. */
 export type AiScreenshotsInput = Readonly<{
@@ -44,6 +89,8 @@ export type EnhancedShot = Readonly<{
   path: string;
   locale: string;
   target: string;
+  generationId: string;
+  generationManifestPath: string;
 }>;
 
 /** One platform enhancement request sent to a screenshot backend. */
@@ -96,6 +143,13 @@ type AiScreenshotsRequirements =
   | Path.Path
   | PlatformCommandExecutor.CommandExecutor
   | Terminal.Terminal;
+
+type RetainedGenshotGeneration = Readonly<{
+  generationId: string;
+  locale: string;
+  target: string;
+  manifestPath: string;
+}>;
 
 /** Convert an unknown cause to the screenshot command's tagged channel. */
 const screenshotFailure = (
@@ -265,11 +319,169 @@ export const buildGenshotArguments = (
   ...enhancementRequest.sources,
 ];
 
-/** Read the flat `panel-N.png` files written by the Genshot CLI. */
-const discoverGenshotScreenshots = (
+/** Decode the versioned Genshot sidecar once at its filesystem boundary. */
+const readGenshotGenerationManifest = (
+  outputDirectory: string,
+): Effect.Effect<
+  GenshotGenerationManifest,
+  AiScreenshotsFailure,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const manifestPath = pathService.join(outputDirectory, GENSHOT_MANIFEST_FILENAME);
+    const manifestSource = yield* fileSystem
+      .readFileString(manifestPath)
+      .pipe(Effect.mapError((cause) => screenshotFailure('read genshot manifest', cause)));
+    return yield* Schema.decodeUnknown(Schema.parseJson(GenshotGenerationManifestSchema))(
+      manifestSource,
+    ).pipe(
+      Effect.mapError((cause) =>
+        screenshotFailure(
+          'decode genshot manifest',
+          cause,
+          `Invalid ${GENSHOT_MANIFEST_FILENAME} in ${outputDirectory}: ${errorMessage(cause)}`,
+        ),
+      ),
+    );
+  });
+
+/** Validate the manifest metadata and return its unique delivered file mappings. */
+const validateGenshotGenerationManifest = (
+  generationManifest: GenshotGenerationManifest,
+  expectedTargetStore: ReturnType<typeof genshotTargetStore>,
+  pathService: Path.Path,
+): Effect.Effect<ReadonlySet<string>, AiScreenshotsFailure> =>
+  Effect.gen(function* () {
+    if (generationManifest.status !== 'succeeded') {
+      return yield* Effect.fail(
+        screenshotFailure(
+          'validate genshot manifest',
+          generationManifest.status,
+          `Genshot manifest ${generationManifest.generationId} has status ${generationManifest.status}; expected succeeded.`,
+        ),
+      );
+    }
+    if (generationManifest.targetStore !== expectedTargetStore) {
+      return yield* Effect.fail(
+        screenshotFailure(
+          'validate genshot manifest',
+          generationManifest.targetStore,
+          `Genshot manifest ${generationManifest.generationId} targets ${generationManifest.targetStore}; expected ${expectedTargetStore}.`,
+        ),
+      );
+    }
+    if (generationManifest.targetImageType !== 'store_screenshot') {
+      return yield* Effect.fail(
+        screenshotFailure(
+          'validate genshot manifest',
+          generationManifest.targetImageType,
+          `Genshot manifest ${generationManifest.generationId} describes ${generationManifest.targetImageType}; expected store_screenshot.`,
+        ),
+      );
+    }
+    if (generationManifest.requestedImageCount !== generationManifest.generatedImages.length) {
+      return yield* Effect.fail(
+        screenshotFailure(
+          'validate genshot manifest',
+          generationManifest.requestedImageCount,
+          `Genshot manifest ${generationManifest.generationId} requested-image count does not match its generated-image mappings.`,
+        ),
+      );
+    }
+    const mappedImageNumbers = new Set<number>();
+    const mappedImageIds = new Set<string>();
+    const deliveredFileNames = new Set<string>();
+    for (const generatedImage of generationManifest.generatedImages) {
+      if (mappedImageNumbers.has(generatedImage.imageNumber)) {
+        return yield* Effect.fail(
+          screenshotFailure(
+            'validate genshot manifest',
+            generatedImage.imageNumber,
+            `Genshot manifest ${generationManifest.generationId} repeats image number ${generatedImage.imageNumber}.`,
+          ),
+        );
+      }
+      mappedImageNumbers.add(generatedImage.imageNumber);
+      if (mappedImageIds.has(generatedImage.generatedImageId)) {
+        return yield* Effect.fail(
+          screenshotFailure(
+            'validate genshot manifest',
+            generatedImage.generatedImageId,
+            `Genshot manifest ${generationManifest.generationId} repeats generated image ${generatedImage.generatedImageId}.`,
+          ),
+        );
+      }
+      mappedImageIds.add(generatedImage.generatedImageId);
+      if (generatedImage.status !== 'delivered') {
+        if (generatedImage.file === null) continue;
+        return yield* Effect.fail(
+          screenshotFailure(
+            'validate genshot manifest',
+            generatedImage.file,
+            `Genshot manifest ${generationManifest.generationId} maps a non-delivered image to ${generatedImage.file}.`,
+          ),
+        );
+      }
+      if (generatedImage.file === null) {
+        return yield* Effect.fail(
+          screenshotFailure(
+            'validate genshot manifest',
+            generatedImage.generatedImageId,
+            `Genshot manifest ${generationManifest.generationId} omits the file for delivered image ${generatedImage.generatedImageId}.`,
+          ),
+        );
+      }
+      const fileExtension = pathService.extname(generatedImage.file).toLowerCase();
+      const mappingIsSafe = pathService.basename(generatedImage.file) === generatedImage.file;
+      if (!mappingIsSafe) {
+        return yield* Effect.fail(
+          screenshotFailure(
+            'validate genshot manifest',
+            generatedImage.file,
+            `Genshot manifest ${generationManifest.generationId} contains an unsafe generated-image file mapping.`,
+          ),
+        );
+      }
+      if (!GENSHOT_GENERATED_IMAGE_EXTENSIONS.has(fileExtension)) {
+        return yield* Effect.fail(
+          screenshotFailure(
+            'validate genshot manifest',
+            generatedImage.file,
+            `Genshot manifest ${generationManifest.generationId} contains an unsafe generated-image file mapping.`,
+          ),
+        );
+      }
+      if (deliveredFileNames.has(generatedImage.file)) {
+        return yield* Effect.fail(
+          screenshotFailure(
+            'validate genshot manifest',
+            generatedImage.file,
+            `Genshot manifest ${generationManifest.generationId} maps ${generatedImage.file} more than once.`,
+          ),
+        );
+      }
+      deliveredFileNames.add(generatedImage.file);
+    }
+    if (generationManifest.deliveredImageCount !== deliveredFileNames.size) {
+      return yield* Effect.fail(
+        screenshotFailure(
+          'validate genshot manifest',
+          generationManifest.deliveredImageCount,
+          `Genshot manifest ${generationManifest.generationId} delivered-image count does not match its delivered mappings.`,
+        ),
+      );
+    }
+    return deliveredFileNames;
+  });
+
+/** Read only image files that are explicitly mapped by the decoded Genshot manifest. */
+export const discoverGenshotScreenshots = (
   outputDirectory: string,
   locale: string,
   target: string,
+  platform: Platform,
 ): Effect.Effect<
   readonly EnhancedShot[],
   AiScreenshotsFailure,
@@ -278,6 +490,12 @@ const discoverGenshotScreenshots = (
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const pathService = yield* Path.Path;
+    const generationManifest = yield* readGenshotGenerationManifest(outputDirectory);
+    const deliveredFileNames = yield* validateGenshotGenerationManifest(
+      generationManifest,
+      genshotTargetStore(platform),
+      pathService,
+    );
     const generatedFileNames = yield* fileSystem
       .readDirectory(outputDirectory)
       .pipe(Effect.mapError((cause) => screenshotFailure('read genshot output', cause)));
@@ -286,20 +504,42 @@ const discoverGenshotScreenshots = (
     for (const generatedFileName of generatedFileNames) {
       const fileExtension = pathService.extname(generatedFileName).toLowerCase();
       if (!GENSHOT_GENERATED_IMAGE_EXTENSIONS.has(fileExtension)) continue;
+      if (!deliveredFileNames.has(generatedFileName)) {
+        return yield* Effect.fail(
+          screenshotFailure(
+            'validate genshot manifest',
+            generatedFileName,
+            `Genshot output ${generatedFileName} is not mapped by manifest ${generationManifest.generationId}.`,
+          ),
+        );
+      }
       generatedScreenshots.push({
         path: pathService.join(outputDirectory, generatedFileName),
         locale,
         target,
+        generationId: generationManifest.generationId,
+        generationManifestPath: pathService.join(outputDirectory, GENSHOT_MANIFEST_FILENAME),
       });
     }
-    if (generatedScreenshots.length > 0) return generatedScreenshots;
-    return yield* Effect.fail(
-      screenshotFailure(
-        'read genshot output',
-        outputDirectory,
-        `genshot completed without writing screenshots into ${outputDirectory}.`,
-      ),
-    );
+    if (generatedScreenshots.length === 0) {
+      return yield* Effect.fail(
+        screenshotFailure(
+          'read genshot output',
+          outputDirectory,
+          `genshot completed without writing screenshots into ${outputDirectory}.`,
+        ),
+      );
+    }
+    if (generatedScreenshots.length !== deliveredFileNames.size) {
+      return yield* Effect.fail(
+        screenshotFailure(
+          'validate genshot manifest',
+          generationManifest.generationId,
+          `Genshot manifest ${generationManifest.generationId} maps a delivered file that is missing from ${outputDirectory}.`,
+        ),
+      );
+    }
+    return generatedScreenshots;
   });
 
 /** Build the genshot CLI enhancement backend. */
@@ -357,6 +597,7 @@ export const createGenshotEnhancer = (
               outputDirectory,
               locale,
               target,
+              enhancementRequest.platform,
             );
             generatedScreenshots.push(...localeScreenshots);
           }
@@ -510,6 +751,70 @@ const promoteScreenshot = (
       .pipe(Effect.mapError((cause) => screenshotFailure('promote screenshot', cause)));
   });
 
+/** Retain one collision-safe manifest beside every generated locale and target set. */
+const retainGenshotGenerationManifests = (
+  outputDirectory: string,
+  enhancedScreenshots: readonly EnhancedShot[],
+): Effect.Effect<
+  readonly RetainedGenshotGeneration[],
+  AiScreenshotsFailure,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const retainedGenerations: RetainedGenshotGeneration[] = [];
+    const retainedGenerationKeys = new Set<string>();
+    for (const enhancedScreenshot of enhancedScreenshots) {
+      const generationKey = [
+        enhancedScreenshot.locale,
+        enhancedScreenshot.target,
+        enhancedScreenshot.generationId,
+      ].join('\u0000');
+      if (retainedGenerationKeys.has(generationKey)) continue;
+      retainedGenerationKeys.add(generationKey);
+      const targetDirectory = pathService.join(
+        outputDirectory,
+        enhancedScreenshot.locale,
+        enhancedScreenshot.target,
+      );
+      yield* fileSystem
+        .makeDirectory(targetDirectory, { recursive: true })
+        .pipe(Effect.mapError((cause) => screenshotFailure('create screenshot directory', cause)));
+      const manifestPath = pathService.join(
+        targetDirectory,
+        `${GENSHOT_RETAINED_MANIFEST_PREFIX}${enhancedScreenshot.generationId}.json`,
+      );
+      yield* fileSystem
+        .copyFile(enhancedScreenshot.generationManifestPath, manifestPath)
+        .pipe(Effect.mapError((cause) => screenshotFailure('retain genshot manifest', cause)));
+      retainedGenerations.push({
+        generationId: enhancedScreenshot.generationId,
+        locale: enhancedScreenshot.locale,
+        target: enhancedScreenshot.target,
+        manifestPath,
+      });
+    }
+    return retainedGenerations;
+  });
+
+/** Print the retained Generation IDs and their durable sidecar paths. */
+const renderRetainedGenshotGenerations = (
+  retainedGenerations: readonly RetainedGenshotGeneration[],
+  logger: Logger,
+): Effect.Effect<void, AiScreenshotsFailure> =>
+  Effect.forEach(
+    retainedGenerations,
+    (retainedGeneration) =>
+      writeLog(
+        'render retained genshot generation',
+        logger.ok(
+          `Retained Genshot Generation ID ${retainedGeneration.generationId} -> ${retainedGeneration.manifestPath}`,
+        ),
+      ),
+    { concurrency: 1, discard: true },
+  );
+
 /** Enhance, validate, and collect screenshots for each requested platform. */
 const enhancePlatformScreenshots = <EnhancerRequirements>(
   platforms: readonly Platform[],
@@ -579,6 +884,15 @@ const renderEnhancedPreview = (
         logger.line(
           `  ${generatedScreenshot.locale}/${generatedScreenshot.target} - ${pathService.basename(generatedScreenshot.path)}`,
         ),
+      );
+    }
+    const previewedGenerationIds = new Set<string>();
+    for (const generatedScreenshot of enhancedScreenshots) {
+      if (previewedGenerationIds.has(generatedScreenshot.generationId)) continue;
+      previewedGenerationIds.add(generatedScreenshot.generationId);
+      yield* writeLog(
+        'render genshot generation',
+        logger.line(`  Genshot Generation ID: ${generatedScreenshot.generationId}`),
       );
     }
   });
@@ -656,9 +970,15 @@ export const generateScreenshots = <EnhancerRequirements>(
       const locales = yield* resolveScreenshotLocales(commandInput.locale, sourceScreenshots);
       const captions = parseScreenshotCaptions(commandInput.captions);
       const sourcePaths = sourceScreenshots.map((sourceScreenshot) => sourceScreenshot.path);
-      const stagingDirectory = yield* fileSystem
-        .makeTempDirectoryScoped({ prefix: 'launch-genshot-' })
-        .pipe(Effect.mapError((cause) => screenshotFailure('create screenshot staging', cause)));
+      let createStagingDirectory = fileSystem.makeTempDirectoryScoped({
+        prefix: 'launch-genshot-',
+      });
+      if (commandInput.dryRun === true) {
+        createStagingDirectory = fileSystem.makeTempDirectory({ prefix: 'launch-genshot-review-' });
+      }
+      const stagingDirectory = yield* createStagingDirectory.pipe(
+        Effect.mapError((cause) => screenshotFailure('create screenshot staging', cause)),
+      );
       const enhancedScreenshots = yield* enhancePlatformScreenshots(
         platforms,
         locales,
@@ -675,7 +995,9 @@ export const generateScreenshots = <EnhancerRequirements>(
       if (commandInput.dryRun === true) {
         yield* writeLog(
           'render screenshot dry run',
-          logger.note('Dry run - nothing promoted. Drop --dry-run to stage and promote.'),
+          logger.note(
+            `Dry run - nothing promoted. Review the durable Genshot batch at ${stagingDirectory}`,
+          ),
         );
         return [];
       }
@@ -686,6 +1008,10 @@ export const generateScreenshots = <EnhancerRequirements>(
         enhancedScreenshots.length,
       );
       if (!shouldPromote) return [];
+      const retainedGenerations = yield* retainGenshotGenerationManifests(
+        outputDirectory,
+        enhancedScreenshots,
+      );
       yield* Effect.forEach(
         enhancedScreenshots,
         (generatedScreenshot) => promoteScreenshot(outputDirectory, generatedScreenshot),
@@ -695,6 +1021,7 @@ export const generateScreenshots = <EnhancerRequirements>(
         'render screenshot promotion',
         logger.ok(`Promoted ${enhancedScreenshots.length} screenshot(s) -> ${outputDirectory}`),
       );
+      yield* renderRetainedGenshotGenerations(retainedGenerations, logger);
       yield* writeLog(
         'render screenshot next steps',
         logger.note('Review with `launch plan screenshots`, then upload with `launch sync`.'),
