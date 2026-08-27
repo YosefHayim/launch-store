@@ -105,6 +105,7 @@ describe('parseServiceAccount', () => {
     expect(account.privateKey).toContain('PRIVATE KEY');
     expect(account.tokenUri).toBe('https://oauth2.googleapis.com/token');
     expect(account.privateKeyId).toBe('kid-123');
+    expect(client.serviceAccountEmail).toBe('launch@proj.iam.gserviceaccount.com');
   });
   it('defaults the token endpoint when absent', () => {
     const account = Effect.runSync(
@@ -153,6 +154,12 @@ describe('describePlayErrors', () => {
       error: { message: 'Your app uses a sensitive permission.' },
     });
     expect(describePlayErrors(errorText)).toMatch(/Permissions Declaration/);
+    const genericPermissionErrorText = JSON.stringify({
+      error: { message: 'The caller does not have permission' },
+    });
+    expect(describePlayErrors(genericPermissionErrorText)).toBe(
+      'The caller does not have permission',
+    );
   });
   it('falls back across string error, description, raw text, then empty placeholder', () => {
     expect(describePlayErrors(JSON.stringify({ error: 'quota exceeded' }))).toBe('quota exceeded');

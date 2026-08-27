@@ -36,6 +36,18 @@ export const makeConsoleLinkFailure = Data.tagged<ConsoleLinkFailure>('ConsoleLi
 const ASC_ORIGIN = 'https://appstoreconnect.apple.com';
 const PLAY_CONSOLE_URL = 'https://play.google.com/console';
 
+/** Link to Play Console user grants, optionally pinned to one developer account. */
+export const buildPlayUsersAndPermissionsUrl = (developerId?: string): string => {
+  if (developerId === undefined) return `${PLAY_CONSOLE_URL}/developers/users-and-permissions`;
+  return `${PLAY_CONSOLE_URL}/u/0/developers/${encodeURIComponent(developerId)}/users-and-permissions`;
+};
+
+/** Link to Play Console payments-profile setup, optionally pinned to one developer account. */
+export const buildPlayPaymentsProfileUrl = (developerId?: string): string => {
+  if (developerId === undefined) return `${PLAY_CONSOLE_URL}/developers/paymentssettings`;
+  return `${PLAY_CONSOLE_URL}/u/0/developers/${encodeURIComponent(developerId)}/paymentssettings`;
+};
+
 /** Convert a dependency failure into the console-link channel. */
 const consoleLinkFailure = (operation: string, cause: unknown): ConsoleLinkFailure => {
   let message = `${operation} failed.`;

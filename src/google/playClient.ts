@@ -502,6 +502,8 @@ export type GooglePlayTransport = Readonly<{
 }>;
 /** Client bound to one Play service account. */
 export class GooglePlayClient {
+  /** Non-secret identity shown in actionable Play Console permission diagnostics. */
+  readonly serviceAccountEmail: string;
   /** Official generated Android Publisher v3 transport. */
   private readonly publisher: GooglePlayTransport;
   /**
@@ -511,6 +513,7 @@ export class GooglePlayClient {
    * @param generatedPublisher - Optional generated transport supplied by adapter tests.
    */
   constructor(account: ServiceAccount, generatedPublisher?: GooglePlayTransport) {
+    this.serviceAccountEmail = account.clientEmail;
     if (generatedPublisher !== undefined) {
       this.publisher = generatedPublisher;
       return;
@@ -1114,7 +1117,7 @@ export const describePlayErrors = (googleErrorText: string): string => {
     if (googleErrorText.length > 0) return googleErrorText;
     return emptyBodyMessage;
   }
-  if (/permission|sensitive|high.?risk|declaration/i.test(message)) {
+  if (/sensitive|high.?risk|permissions? declaration/i.test(message)) {
     return `${message} - a sensitive/high-risk permission likely needs pre-approval (a Permissions Declaration) in Play Console before this release is accepted.`;
   }
   return message;

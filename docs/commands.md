@@ -607,7 +607,7 @@ reconcile Google Play in-app products from the launch.config.ts product catalog
 
 ## `launch play-subscriptions`
 
-reconcile Google Play subscriptions (base plans + offers) from the launch.config.ts catalog
+reconcile Google Play subscriptions (base plans + offers) from the launch.config.ts catalog. Setup: in Play Console Users and permissions, give the configured service account app access and "Manage store presence" (or "Admin (all permissions)"). The Google Play Billing API permissions "View financial data" and "Manage orders and subscriptions" manage purchases/orders; they do not replace the catalog-write permission. Paid subscriptions also require Setup > Payments profile.
 
 | Flag | Description |
 | --- | --- |

@@ -212,7 +212,7 @@ All 63 `launch` commands (189 store-API operations underneath, 2338 tests):
 - `launch custom-pages` - reconcile custom product pages (alternate listings) from custom-pages.config.json
 - `launch experiments` - reconcile product-page A/B experiments from experiments.config.json
 - `launch play-products` - reconcile Google Play in-app products from the launch.config.ts product catalog
-- `launch play-subscriptions` - reconcile Google Play subscriptions (base plans + offers) from the launch.config.ts catalog
+- `launch play-subscriptions` - reconcile Google Play subscriptions (base plans + offers) from the launch.config.ts catalog. Setup: in Play Console Users and permissions, give the configured service account app access and "Manage store presence" (or "Admin (all permissions)"). The Google Play Billing API permissions "View financial data" and "Manage orders and subscriptions" manage purchases/orders; they do not replace the catalog-write permission. Paid subscriptions also require Setup > Payments profile.
 - `launch play-reviews` - read Google Play customer reviews and reply from the CLI
   - `launch play-reviews list` - list an app's Play reviews (only reviews with text from the last ~week)
   - `launch play-reviews reply <reviewId>` - post (or replace) the developer reply to a review

@@ -123,6 +123,7 @@ const executePlaySubscriptions = (
     const googleStore = yield* loadActiveGoogleStore();
     const subscriptionsPlan = yield* reconcilePlaySubscriptions(googleStore, {
       packageName: subscriptionsTarget.packageName,
+      serviceAccountEmail: googleStore.serviceAccountEmail,
       subscriptions: subscriptionsTarget.subscriptions,
       dryRun: true,
     });
@@ -153,6 +154,7 @@ const executePlaySubscriptions = (
     if (!confirmed) return 0;
     const appliedSubscriptions = yield* reconcilePlaySubscriptions(googleStore, {
       packageName: subscriptionsTarget.packageName,
+      serviceAccountEmail: googleStore.serviceAccountEmail,
       subscriptions: subscriptionsTarget.subscriptions,
       dryRun: false,
     });

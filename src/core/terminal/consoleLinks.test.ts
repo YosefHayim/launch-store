@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import type { AppDescriptor, OpenTarget } from '../types/app.js';
 import {
   buildConsoleUrl,
+  buildPlayPaymentsProfileUrl,
+  buildPlayUsersAndPermissionsUrl,
   parseOpenTarget,
   resolveOpenPlatform,
   selectOpenApp,
@@ -63,6 +65,18 @@ describe('buildConsoleUrl - Android', () => {
   it.each(targetCases)('%s -> Play Console', (target) => {
     expect(buildConsoleUrl(target, 'android', APP_ID)).toBe('https://play.google.com/console');
     expect(buildConsoleUrl(target, 'android', undefined)).toBe('https://play.google.com/console');
+    expect(buildPlayUsersAndPermissionsUrl()).toBe(
+      'https://play.google.com/console/developers/users-and-permissions',
+    );
+    expect(buildPlayPaymentsProfileUrl()).toBe(
+      'https://play.google.com/console/developers/paymentssettings',
+    );
+    expect(buildPlayUsersAndPermissionsUrl('123456789')).toBe(
+      'https://play.google.com/console/u/0/developers/123456789/users-and-permissions',
+    );
+    expect(buildPlayPaymentsProfileUrl('123456789')).toBe(
+      'https://play.google.com/console/u/0/developers/123456789/paymentssettings',
+    );
   });
 });
 

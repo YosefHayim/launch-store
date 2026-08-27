@@ -1,4 +1,5 @@
 import { escapeCell } from './common.js';
+import { PLAY_SUBSCRIPTIONS_SETUP_GUIDANCE } from '@core/store/playSubscriptions.js';
 import type { CommandSpec, DocStats, OptionSpec } from '@core/types/commandDocs.js';
 /** Render a command's flag table, or `""` when it has no options. */
 const renderOptionsTable = (options: readonly OptionSpec[]): string => {
@@ -6,11 +7,18 @@ const renderOptionsTable = (options: readonly OptionSpec[]): string => {
   const rows = options.map((o) => `| \`${escapeCell(o.flags)}\` | ${escapeCell(o.description)} |`);
   return ['', '| Flag | Description |', '| --- | --- |', ...rows].join('\n');
 };
+/** Extend generated reference prose with setup facts that are not Commander wiring. */
+const renderCommandDescription = (command: CommandSpec): string => {
+  if (command.path === 'play-subscriptions') {
+    return `${command.description}. ${PLAY_SUBSCRIPTIONS_SETUP_GUIDANCE}`;
+  }
+  return command.description;
+};
 /** Render one command (heading + description + flag table) and, recursively, its subcommands. */
 const renderCommand = (command: CommandSpec, level: number): string => {
   let usage = `launch ${command.path}`;
   if (command.args) usage = `launch ${command.path} ${command.args}`;
-  const parts = [`${'#'.repeat(level)} \`${usage}\``, '', command.description];
+  const parts = [`${'#'.repeat(level)} \`${usage}\``, '', renderCommandDescription(command)];
   const table = renderOptionsTable(command.options);
   if (table) parts.push(table);
   for (const sub of command.subcommands) parts.push('', renderCommand(sub, level + 1));
