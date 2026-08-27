@@ -1008,14 +1008,14 @@ export const generateScreenshots = <EnhancerRequirements>(
         enhancedScreenshots.length,
       );
       if (!shouldPromote) return [];
+      const retainedGenerations = yield* retainGenshotGenerationManifests(
+        outputDirectory,
+        enhancedScreenshots,
+      );
       yield* Effect.forEach(
         enhancedScreenshots,
         (generatedScreenshot) => promoteScreenshot(outputDirectory, generatedScreenshot),
         { concurrency: 1, discard: true },
-      );
-      const retainedGenerations = yield* retainGenshotGenerationManifests(
-        outputDirectory,
-        enhancedScreenshots,
       );
       yield* writeLog(
         'render screenshot promotion',

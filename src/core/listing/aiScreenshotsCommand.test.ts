@@ -475,6 +475,28 @@ describe('generateScreenshots', () => {
         ),
       ),
     ).rejects.toThrow(/off-spec ios screenshot/);
+    const copyFailureAppDirectory = makeAppDirectory();
+    const copyFailureOutput = join(copyFailureAppDirectory, 'copy-failure-output');
+    const copyFailureTarget = join(copyFailureOutput, 'en-US', 'APP_IPHONE_67');
+    mkdirSync(join(copyFailureTarget, 'enhanced.png'), { recursive: true });
+    await expect(
+      runScreenshotGeneration(
+        generateScreenshots(
+          copyFailureAppDirectory,
+          {
+            platform: 'ios',
+            locale: 'en-US',
+            deviceTypes: 'APP_IPHONE_67',
+            out: copyFailureOutput,
+            yes: true,
+          },
+          fakeEnhancer(),
+        ),
+      ),
+    ).rejects.toThrow();
+    expect(existsSync(join(copyFailureTarget, 'genshot-generation-generation-test-001.json'))).toBe(
+      true,
+    );
   });
 
   it("validates Android output against Play's constraint and promotes it", async () => {
