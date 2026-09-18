@@ -34,6 +34,28 @@ type PromptedVersion = Readonly<{
   readonly kind: BumpKind | undefined;
 }>;
 /**
+ * Find the app target directory inside a platform's native project directory - the one holding the
+ * generated `Info.plist`. Entries are narrowed to directories before the probe because `expo prebuild`
+ * leaves regular files (`.gitignore`, `.xcode.env`, `Podfile`) beside the target, and on APFS they
+ * enumerate first; probing `<regular file>/Info.plist` fails with `ENOTDIR`, which `exists` surfaces as
+ * a fatal error rather than `false`. Returns the entry name, or `null` when no target carries a plist.
+ */
+export const findNativeTargetDirectory = (
+  nativeDirectory: string,
+): Effect.Effect<string | null, unknown, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const nativeEntries = yield* fileSystem.readDirectory(nativeDirectory);
+    for (const nativeEntry of nativeEntries) {
+      const entryPath = pathService.join(nativeDirectory, nativeEntry);
+      const entryInfo = yield* fileSystem.stat(entryPath);
+      if (entryInfo.type !== 'Directory') continue;
+      if (yield* fileSystem.exists(pathService.join(entryPath, 'Info.plist'))) return nativeEntry;
+    }
+    return null;
+  });
+/**
  * Stamp a single key into the build platform's generated `Info.plist`. Stamping the plist directly -
  * rather than only writing `app.json` - is what makes a version/build choice take effect even when the
  * native project is committed (so prebuild, which would otherwise read `app.json`, never runs). The
@@ -51,16 +73,8 @@ export const setNativePlistValue = (
     const pathService = yield* Path.Path;
     const nativeDirectory = pathService.join(appDir, yield* nativeProjectDirName(platform));
     if (!(yield* fileSystem.exists(nativeDirectory))) return false;
-    const nativeEntries = yield* fileSystem.readDirectory(nativeDirectory);
-    let targetDirectory: string | undefined;
-    for (const nativeEntry of nativeEntries) {
-      const plistPath = pathService.join(nativeDirectory, nativeEntry, 'Info.plist');
-      if (yield* fileSystem.exists(plistPath)) {
-        targetDirectory = nativeEntry;
-        break;
-      }
-    }
-    if (targetDirectory === undefined) return false;
+    const targetDirectory = yield* findNativeTargetDirectory(nativeDirectory);
+    if (targetDirectory === null) return false;
     yield* provideNodeCommandServices(
       executeCommand('/usr/libexec/PlistBuddy', [
         '-c',
