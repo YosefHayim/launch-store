@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { NodeContext } from '@effect/platform-node';
 import { Effect } from 'effect';
+import { runOnNodePlatform } from '@testkit/platformRun.testkit.js';
 import {
   parseStoreConfig,
   readAndroidMetadataDir,
@@ -17,13 +17,6 @@ const workDir = (): string => {
   tmpDirs.push(dir);
   return dir;
 };
-const runMetadataRead = <StoreConfiguration>(
-  metadataRead: Effect.Effect<
-    StoreConfiguration,
-    unknown,
-    import('@effect/platform/FileSystem').FileSystem | import('@effect/platform/Path').Path
-  >,
-) => Effect.runPromise(metadataRead.pipe(Effect.provide(NodeContext.layer)));
 afterEach(() => {
   for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
@@ -78,12 +71,12 @@ describe('apple metadata folder round-trip (deliver layout)', () => {
       },
     };
     const dir = workDir();
-    const written = await runMetadataRead(writeAppleMetadataDir(apple, dir));
+    const written = await runOnNodePlatform(writeAppleMetadataDir(apple, dir));
     // keywords land comma-joined in deliver's keywords.txt; the title goes to name.txt.
     expect(written).toContain(join('en-US', 'name.txt'));
     expect(written).toContain(join('en-US', 'keywords.txt'));
     expect(readFileSync(join(dir, 'en-US', 'keywords.txt'), 'utf8')).toBe('fast, local');
-    expect(await runMetadataRead(readAppleMetadataDir(dir))).toEqual(apple);
+    expect(await runOnNodePlatform(readAppleMetadataDir(dir))).toEqual(apple);
   });
 });
 describe('android metadata folder round-trip (supply layout)', () => {
@@ -94,8 +87,8 @@ describe('android metadata folder round-trip (supply layout)', () => {
       },
     };
     const dir = workDir();
-    const written = await runMetadataRead(writeAndroidMetadataDir(android, dir));
+    const written = await runOnNodePlatform(writeAndroidMetadataDir(android, dir));
     expect(written).toContain(join('en-US', 'short_description.txt'));
-    expect(await runMetadataRead(readAndroidMetadataDir(dir))).toEqual(android);
+    expect(await runOnNodePlatform(readAndroidMetadataDir(dir))).toEqual(android);
   });
 });
