@@ -11,6 +11,7 @@ import {
   DEFAULT_CREDENTIALS_PROVIDER,
   DEFAULT_STORAGE_PROVIDER,
   DEFAULT_SUBMITTER,
+  PREBUILD_MODES,
 } from '../types/config.js';
 import { PLAY_TRACKS } from '../types/app.js';
 const CONFIG_PARSE_OPTIONS = { errors: 'all', onExcessProperty: 'error' } as const;
@@ -964,6 +965,12 @@ export const LaunchConfigEffectSchema = Schema.Struct({
 Each entry is either an exact, case-sensitive name or a \`PREFIX*\` wildcard: \`OPENAI_*\` drops every name starting with \`OPENAI_\` (e.g. \`OPENAI_API_KEY\`, \`OPENAI_ORG_ID\`), so a whole family of backend keys collapses to one line instead of being listed individually. Wildcards anchor at the START - there is no tail/\`*_KEY\` form, by design, since that would also snag a publishable \`EXPO_PUBLIC_..._KEY\`.
 
 This is the home for *backend-only* values that sit in the app's \`.env\` for local tooling but must never ship (e.g. \`OPENAI_API_KEY\`, a server-side \`SENTRY_AUTH_TOKEN\`). It is distinct from \`launch secret set\`: a stored secret is still *injected* - the build needs it - it's just moved out of plaintext; \`envExclude\` means "don't inject this at all". A name matched here is exempt from the \`.env.example\` missing-key gate (even when no layer sets it). Omit (or \`[]\`) to exclude nothing.`,
+    ),
+  ),
+  prebuild: Schema.optional(
+    described(
+      Schema.Literal(...PREBUILD_MODES),
+      'When to run `expo prebuild --clean` for an Expo app. `missing` (default) only generates ios/ or android/ when the directory is absent; `always` regenerates it on every build so app.json plugin changes can never ship from a stale native directory. Applies to local and remote (`--remote`) builds. Only iOS and Android are regenerated - tvOS, macOS and visionOS keep their committed native projects.',
     ),
   ),
   mcp: Schema.optional(

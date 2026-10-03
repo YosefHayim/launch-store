@@ -1,13 +1,30 @@
-import { describe, expect, it } from 'vitest';
+import { FileSystem } from '@effect/platform';
+import { NodeContext } from '@effect/platform-node';
+import { Effect } from 'effect';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { LaunchEnvironmentTest } from '../services/environment.js';
+import { LaunchLogger, makeLaunchLoggerTest } from '../services/logger.js';
+import { makeLaunchPathsTest } from '../services/paths.js';
+import { runWithProgress } from '../services/progress.js';
+import type { Platform } from '../types/app.js';
 import type { SizeReport } from '../types/artifacts.js';
+import type { PrebuildMode, ResolvedBuildContext } from '../types/config.js';
 import type { BuildRunOptions } from './pipelineTypes.js';
 import {
+  ensureAndroidProject,
+  ensureNativeProject,
   makeNativeProjectFailure,
   receiptDestination,
   sizeSummary,
   uploadSizeReadout,
   worstDownloadBytes,
 } from './pipelineArtifact.js';
+
+// A non-dry-run prebuild records its command here instead of spawning npx.
+vi.mock('../services/progress.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/progress.js')>();
+  return { ...actual, runWithProgress: vi.fn(() => Effect.void) };
+});
 
 const MB = 1024 * 1024;
 
@@ -163,5 +180,142 @@ describe('makeNativeProjectFailure', () => {
       platform: 'macos',
       message: 'commit a native project',
     });
+  });
+});
+
+type NativeProjectCase = Readonly<{
+  platform: Platform;
+  nativeDirExists: boolean;
+  prebuild?: PrebuildMode;
+  dryRun?: boolean;
+}>;
+
+const nativeProjectContext = (platform: Platform, dryRun: boolean): ResolvedBuildContext => ({
+  platform,
+  app: { name: 'Demo', dir: '/repo/apps/demo', configPath: '/repo/apps/demo/app.json' },
+  profile: { name: 'production' },
+  env: {},
+  explain: false,
+  dryRun,
+  forceClean: false,
+});
+
+/** Run the matching ensure step against a stubbed `exists` (dry-run unless asked); return the logged text. */
+const nativeProjectLog = async (nativeCase: NativeProjectCase): Promise<string> => {
+  const lines: string[] = [];
+  const fileSystem = FileSystem.layerNoop({
+    exists: () => Effect.succeed(nativeCase.nativeDirExists),
+  });
+  let dryRun = true;
+  if (nativeCase.dryRun === false) dryRun = false;
+  const program = Effect.gen(function* () {
+    const log = yield* LaunchLogger;
+    const buildContext = nativeProjectContext(nativeCase.platform, dryRun);
+    if (nativeCase.platform === 'android') {
+      yield* ensureAndroidProject(buildContext, log, nativeCase.prebuild);
+      return;
+    }
+    yield* ensureNativeProject(buildContext, log, nativeCase.prebuild);
+  });
+  await Effect.runPromise(
+    program.pipe(
+      Effect.provide(makeLaunchLoggerTest(lines)),
+      Effect.provide(fileSystem),
+      Effect.provide(makeLaunchPathsTest('/home/demo', '/repo')),
+      Effect.provide(LaunchEnvironmentTest),
+      Effect.provide(NodeContext.layer),
+    ),
+  );
+  return lines.join('');
+};
+
+describe('native project prebuild mode', () => {
+  beforeEach(() => {
+    vi.mocked(runWithProgress).mockClear();
+  });
+
+  it('reuses an existing ios/ by default', async () => {
+    const logged = await nativeProjectLog({ platform: 'ios', nativeDirExists: true });
+    expect(logged).toContain('using existing ios/ (no prebuild needed)');
+    expect(logged).not.toContain('expo prebuild');
+  });
+
+  it('prebuilds a missing ios/ by default', async () => {
+    const logged = await nativeProjectLog({ platform: 'ios', nativeDirExists: false });
+    expect(logged).toContain('would run `expo prebuild --platform ios --clean` (no ios/ found)');
+  });
+
+  it("regenerates an existing ios/ with prebuild: 'always'", async () => {
+    const logged = await nativeProjectLog({
+      platform: 'ios',
+      nativeDirExists: true,
+      prebuild: 'always',
+    });
+    expect(logged).toContain(
+      "would run `expo prebuild --platform ios --clean` (prebuild: 'always')",
+    );
+    expect(logged).not.toContain('using existing');
+  });
+
+  it("keeps a committed tvOS project with prebuild: 'always'", async () => {
+    const logged = await nativeProjectLog({
+      platform: 'tvos',
+      nativeDirExists: true,
+      prebuild: 'always',
+    });
+    expect(logged).toContain('using existing ios/ (no prebuild needed)');
+    expect(logged).not.toContain('expo prebuild');
+  });
+
+  it('reuses an existing android/ by default', async () => {
+    const logged = await nativeProjectLog({ platform: 'android', nativeDirExists: true });
+    expect(logged).toContain('using existing android/ (no prebuild needed)');
+    expect(logged).not.toContain('expo prebuild');
+  });
+
+  it("regenerates an existing android/ with prebuild: 'always'", async () => {
+    const logged = await nativeProjectLog({
+      platform: 'android',
+      nativeDirExists: true,
+      prebuild: 'always',
+    });
+    expect(logged).toContain(
+      "would run `expo prebuild --platform android --clean` (prebuild: 'always')",
+    );
+    expect(logged).not.toContain('using existing');
+  });
+
+  it("runs a clean iOS prebuild in the app dir on a real build with prebuild: 'always'", async () => {
+    await nativeProjectLog({
+      platform: 'ios',
+      nativeDirExists: true,
+      prebuild: 'always',
+      dryRun: false,
+    });
+    expect(runWithProgress).toHaveBeenCalledWith(
+      'npx',
+      ['expo', 'prebuild', '--platform', 'ios', '--clean'],
+      expect.objectContaining({ cwd: '/repo/apps/demo' }),
+    );
+  });
+
+  it("runs a clean Android prebuild in the app dir on a real build with prebuild: 'always'", async () => {
+    await nativeProjectLog({
+      platform: 'android',
+      nativeDirExists: true,
+      prebuild: 'always',
+      dryRun: false,
+    });
+    expect(runWithProgress).toHaveBeenCalledWith(
+      'npx',
+      ['expo', 'prebuild', '--platform', 'android', '--clean'],
+      expect.objectContaining({ cwd: '/repo/apps/demo' }),
+    );
+  });
+
+  it('runs no prebuild on a real build that reuses the native dir', async () => {
+    await nativeProjectLog({ platform: 'ios', nativeDirExists: true, dryRun: false });
+    await nativeProjectLog({ platform: 'android', nativeDirExists: true, dryRun: false });
+    expect(runWithProgress).not.toHaveBeenCalled();
   });
 });

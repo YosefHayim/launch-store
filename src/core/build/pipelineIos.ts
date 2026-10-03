@@ -36,8 +36,8 @@ export const runIosBuild = (prepared: PreparedBuild, options: BuildRunOptions) =
     const { dryRun } = options;
     let appVersion = app.version;
     if (appVersion === undefined) appVersion = '0.0.0';
-    // 2. Generate the native project only when it's missing (bare/committed ios/ is used as-is).
-    yield* ensureNativeProject(buildContext, log);
+    // 2. Generate ios/ when it's missing, or on every build with `prebuild: 'always'`.
+    yield* ensureNativeProject(buildContext, log, config.prebuild);
     // 2.5. Resolve which Apple account to build with (skipped in dry-run, which uses the placeholder key).
     let account: AccountRecord | undefined;
     if (!dryRun) {
