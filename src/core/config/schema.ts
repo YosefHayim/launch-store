@@ -11,6 +11,7 @@ import {
   DEFAULT_CREDENTIALS_PROVIDER,
   DEFAULT_STORAGE_PROVIDER,
   DEFAULT_SUBMITTER,
+  PREBUILD_MODES,
 } from '../types/config.js';
 import { PLAY_TRACKS } from '../types/app.js';
 const CONFIG_PARSE_OPTIONS = { errors: 'all', onExcessProperty: 'error' } as const;
@@ -968,8 +969,8 @@ This is the home for *backend-only* values that sit in the app's \`.env\` for lo
   ),
   prebuild: Schema.optional(
     described(
-      Schema.Literal('missing', 'always'),
-      'When to run `expo prebuild --clean` for an Expo app. `missing` (default) only generates ios/ or android/ when the directory is absent; `always` regenerates it on every build so app.json plugin changes can never ship from a stale native directory. Only iOS and Android are regenerated - tvOS, macOS and visionOS keep their committed native projects.',
+      Schema.Literal(...PREBUILD_MODES),
+      'When to run `expo prebuild --clean` for an Expo app. `missing` (default) only generates ios/ or android/ when the directory is absent; `always` regenerates it on every build so app.json plugin changes can never ship from a stale native directory. Applies to local and remote (`--remote`) builds. Only iOS and Android are regenerated - tvOS, macOS and visionOS keep their committed native projects.',
     ),
   ),
   mcp: Schema.optional(

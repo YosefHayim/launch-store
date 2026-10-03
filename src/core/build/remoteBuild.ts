@@ -46,6 +46,7 @@ export type RemoteBuildInputs = {
   submit: boolean;
   submitTarget: SubmitTarget;
   forceClean: boolean;
+  prebuildAlways: boolean;
   ccacheEnabled: boolean;
   env: Record<string, string>;
 };
@@ -159,10 +160,38 @@ export const runDoctorOnHost = (session: RemoteSession, mode: 'install' | 'asser
       yield* sshRun(session.target, `bash ${shellQuote(scriptRemote)}`);
     }),
   );
+/** The env the host build script reads: app identity, signing, submit target and the build switches. */
+export const remoteBuildEnvironment = (
+  inputs: RemoteBuildInputs,
+  keychainPassword: string,
+): Record<string, string> => {
+  const environmentVariables: Record<string, string> = {
+    ...inputs.env,
+    APP_NAME: inputs.appName,
+    BUNDLE_ID: inputs.bundleId,
+    TEAM_ID: inputs.signing.teamId,
+    CERT_NAME: inputs.signing.certName,
+    PROFILE_NAME: inputs.signing.profileName,
+    BUILD_NUMBER: String(inputs.buildNumber),
+    KEYCHAIN_PASSWORD: keychainPassword,
+    P12_PASSWORD: inputs.signing.p12Password,
+    ASC_KEY_ID: inputs.ascKey.keyId,
+    ASC_ISSUER_ID: inputs.ascKey.issuerId,
+    SUBMIT: '0',
+    SUBMIT_TARGET: inputs.submitTarget,
+    FORCE_CLEAN: '0',
+    PREBUILD_ALWAYS: '0',
+  };
+  if (inputs.submit) environmentVariables['SUBMIT'] = '1';
+  if (inputs.forceClean) environmentVariables['FORCE_CLEAN'] = '1';
+  if (inputs.prebuildAlways) environmentVariables['PREBUILD_ALWAYS'] = '1';
+  if (inputs.ccacheEnabled) environmentVariables['USE_CCACHE'] = '1';
+  return environmentVariables;
+};
 /**
  * Upload the build script and run it on the host (ephemeral keychain -> incremental deps/prebuild ->
- * host-gated pod install + gym -> optional submit). The clean-vs-incremental and ccache flags ride in as
- * env (`FORCE_CLEAN`, `USE_CCACHE`); the host owns its own staleness check, so this returns whether it
+ * host-gated pod install + gym -> optional submit). The clean-vs-incremental, prebuild and ccache flags
+ * ride in as env (`FORCE_CLEAN`, `PREBUILD_ALWAYS`, `USE_CCACHE`); the host owns its own staleness check, so this returns whether it
  * actually clean-built (read from a marker the script writes) for the pipeline to stamp on the artifact.
  */
 export const runBuildOnHost = (session: RemoteSession, inputs: RemoteBuildInputs) =>
@@ -175,25 +204,7 @@ export const runBuildOnHost = (session: RemoteSession, inputs: RemoteBuildInputs
       yield* fileSystem.writeFileString(scriptLocal, REMOTE_BUILD_SCRIPT);
       const scriptRemote = `${session.credentialsDirectory}/build.sh`;
       yield* scpUp(session.target, scriptLocal, scriptRemote);
-      const environmentVariables: Record<string, string> = {
-        ...inputs.env,
-        APP_NAME: inputs.appName,
-        BUNDLE_ID: inputs.bundleId,
-        TEAM_ID: inputs.signing.teamId,
-        CERT_NAME: inputs.signing.certName,
-        PROFILE_NAME: inputs.signing.profileName,
-        BUILD_NUMBER: String(inputs.buildNumber),
-        KEYCHAIN_PASSWORD: session.keychainPassword,
-        P12_PASSWORD: inputs.signing.p12Password,
-        ASC_KEY_ID: inputs.ascKey.keyId,
-        ASC_ISSUER_ID: inputs.ascKey.issuerId,
-        SUBMIT: '0',
-        SUBMIT_TARGET: inputs.submitTarget,
-        FORCE_CLEAN: '0',
-      };
-      if (inputs.submit) environmentVariables['SUBMIT'] = '1';
-      if (inputs.forceClean) environmentVariables['FORCE_CLEAN'] = '1';
-      if (inputs.ccacheEnabled) environmentVariables['USE_CCACHE'] = '1';
+      const environmentVariables = remoteBuildEnvironment(inputs, session.keychainPassword);
       const command = `${remoteEnvPrefix(environmentVariables)} bash ${shellQuote(scriptRemote)} ${shellQuote(session.workDirectory)} ${shellQuote(session.credentialsDirectory)}`;
       yield* sshRun(session.target, command);
       const marker = yield* sshCapture(
@@ -289,7 +300,8 @@ if [ -f yarn.lock ]; then yarn install
 elif [ -f pnpm-lock.yaml ]; then corepack pnpm install
 else npm install
 fi
-if [ ! -d ios ]; then npx expo prebuild --platform ios --clean; fi
+# prebuild: 'always' (PREBUILD_ALWAYS=1) regenerates the persisted ios/ so app.json changes always ship.
+if [ "$PREBUILD_ALWAYS" = "1" ] || [ ! -d ios ]; then npx expo prebuild --platform ios --clean; fi
 
 WORKSPACE="$(ls -d ios/*.xcworkspace | head -1)"
 SCHEME="$(basename "$WORKSPACE" .xcworkspace)"

@@ -216,6 +216,7 @@ export const runRemoteBuild = (prepared: PreparedBuild, options: BuildRunOptions
       submit: options.submit,
       submitTarget: options.target,
       forceClean: options.forceClean === true,
+      prebuildAlways: config.prebuild === 'always',
       ccacheEnabled: options.ccache !== false,
       env,
     };
