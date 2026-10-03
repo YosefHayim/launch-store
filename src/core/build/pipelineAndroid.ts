@@ -37,8 +37,8 @@ export const runAndroidBuild = (prepared: PreparedBuild, options: BuildRunOption
           message: `No Android application id for ${app.name}. Set android.package in app.json.`,
         }),
       );
-    // 2. Generate the native project only when it's missing (committed android/ is used as-is).
-    yield* ensureAndroidProject(buildContext, log);
+    // 2. Generate android/ when it's missing, or on every build with `prebuild: 'always'`.
+    yield* ensureAndroidProject(buildContext, log, config.prebuild);
     // 3. Resolve the Play service account, then reuse-or-provision the upload keystore.
     let resolved: BuildCredentials = { platform: 'android', serviceAccountJson: '' };
     if (!dryRun) {

@@ -1,7 +1,17 @@
+import { FileSystem } from '@effect/platform';
+import { NodeContext } from '@effect/platform-node';
+import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
+import { LaunchEnvironmentTest } from '../services/environment.js';
+import { LaunchLogger, makeLaunchLoggerTest } from '../services/logger.js';
+import { makeLaunchPathsTest } from '../services/paths.js';
+import type { Platform } from '../types/app.js';
 import type { SizeReport } from '../types/artifacts.js';
+import type { PrebuildMode, ResolvedBuildContext } from '../types/config.js';
 import type { BuildRunOptions } from './pipelineTypes.js';
 import {
+  ensureAndroidProject,
+  ensureNativeProject,
   makeNativeProjectFailure,
   receiptDestination,
   sizeSummary,
@@ -163,5 +173,101 @@ describe('makeNativeProjectFailure', () => {
       platform: 'macos',
       message: 'commit a native project',
     });
+  });
+});
+
+type NativeProjectCase = Readonly<{
+  platform: Platform;
+  nativeDirExists: boolean;
+  prebuild?: PrebuildMode;
+}>;
+
+const dryRunContext = (platform: Platform): ResolvedBuildContext => ({
+  platform,
+  app: { name: 'Demo', dir: '/repo/apps/demo', configPath: '/repo/apps/demo/app.json' },
+  profile: { name: 'production' },
+  env: {},
+  explain: false,
+  dryRun: true,
+  forceClean: false,
+});
+
+/** Run the matching ensure step in dry-run against a stubbed `exists`; return the logged text. */
+const nativeProjectLog = async (nativeCase: NativeProjectCase): Promise<string> => {
+  const lines: string[] = [];
+  const fileSystem = FileSystem.layerNoop({
+    exists: () => Effect.succeed(nativeCase.nativeDirExists),
+  });
+  const program = Effect.gen(function* () {
+    const log = yield* LaunchLogger;
+    const buildContext = dryRunContext(nativeCase.platform);
+    if (nativeCase.platform === 'android') {
+      yield* ensureAndroidProject(buildContext, log, nativeCase.prebuild);
+      return;
+    }
+    yield* ensureNativeProject(buildContext, log, nativeCase.prebuild);
+  });
+  await Effect.runPromise(
+    program.pipe(
+      Effect.provide(makeLaunchLoggerTest(lines)),
+      Effect.provide(fileSystem),
+      Effect.provide(makeLaunchPathsTest('/home/demo', '/repo')),
+      Effect.provide(LaunchEnvironmentTest),
+      Effect.provide(NodeContext.layer),
+    ),
+  );
+  return lines.join('');
+};
+
+describe('native project prebuild mode', () => {
+  it('reuses an existing ios/ by default', async () => {
+    const logged = await nativeProjectLog({ platform: 'ios', nativeDirExists: true });
+    expect(logged).toContain('using existing ios/ (no prebuild needed)');
+    expect(logged).not.toContain('expo prebuild');
+  });
+
+  it('prebuilds a missing ios/ by default', async () => {
+    const logged = await nativeProjectLog({ platform: 'ios', nativeDirExists: false });
+    expect(logged).toContain('would run `expo prebuild --platform ios --clean` (no ios/ found)');
+  });
+
+  it("regenerates an existing ios/ with prebuild: 'always'", async () => {
+    const logged = await nativeProjectLog({
+      platform: 'ios',
+      nativeDirExists: true,
+      prebuild: 'always',
+    });
+    expect(logged).toContain(
+      "would run `expo prebuild --platform ios --clean` (prebuild: 'always')",
+    );
+    expect(logged).not.toContain('using existing');
+  });
+
+  it("keeps a committed tvOS project with prebuild: 'always'", async () => {
+    const logged = await nativeProjectLog({
+      platform: 'tvos',
+      nativeDirExists: true,
+      prebuild: 'always',
+    });
+    expect(logged).toContain('using existing ios/ (no prebuild needed)');
+    expect(logged).not.toContain('expo prebuild');
+  });
+
+  it('reuses an existing android/ by default', async () => {
+    const logged = await nativeProjectLog({ platform: 'android', nativeDirExists: true });
+    expect(logged).toContain('using existing android/ (no prebuild needed)');
+    expect(logged).not.toContain('expo prebuild');
+  });
+
+  it("regenerates an existing android/ with prebuild: 'always'", async () => {
+    const logged = await nativeProjectLog({
+      platform: 'android',
+      nativeDirExists: true,
+      prebuild: 'always',
+    });
+    expect(logged).toContain(
+      "would run `expo prebuild --platform android --clean` (prebuild: 'always')",
+    );
+    expect(logged).not.toContain('using existing');
   });
 });

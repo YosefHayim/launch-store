@@ -68,8 +68,13 @@ export type LaunchConfig = Readonly<{
   artifactDir?: string;
   artifactRetentionDays?: number;
   envExclude?: readonly string[];
+  /** `'missing'` (default) prebuilds only when the native dir is absent; `'always'` runs a clean prebuild every build. */
+  prebuild?: PrebuildMode;
   mcp?: McpConfig;
 }>;
+
+/** When a build runs `expo prebuild --clean`: only for a missing native dir, or on every build. */
+export type PrebuildMode = 'missing' | 'always';
 /**
  * Input to {@link defineConfig}: the shape a user authors in `launch.config.ts`.
  * Provider names are optional (they default via {@link DEFAULT_CREDENTIALS_PROVIDER} etc.).
