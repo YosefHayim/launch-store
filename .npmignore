@@ -22,7 +22,6 @@ vitest.config.*
 CONTEXT.md
 TECH-GLOSSARY.md
 AGENTS.md
-CLAUDE.md
 llms.txt
 *.log
 *.tsbuildinfo

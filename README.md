@@ -341,7 +341,7 @@ The everyday ones:
 - [`docs/config.md`](./docs/config.md) - the generated `launch.config.ts` field reference.
 - [`examples/hello-world`](./examples/hello-world) - a worked Expo / React Native app config.
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) - local development, tests, CI, and provider contribution flow.
-- [`AGENTS.md`](./AGENTS.md), [`CLAUDE.md`](./CLAUDE.md), and [`CODE-STYLE.md`](./CODE-STYLE.md) - rules for coding agents and contributors editing this repo.
+- [`AGENTS.md`](./AGENTS.md) and [`CODE-STYLE.md`](./CODE-STYLE.md) - rules for coding agents and contributors editing this repo.
 - [`PROJECT.md`](./PROJECT.md), [`CONTEXT.md`](./CONTEXT.md), [`LANGUAGE.md`](./LANGUAGE.md), and [`docs/adr/`](./docs/adr/) - product direction, architecture context, domain language, and decisions.
 
 ## Configuration

@@ -78,7 +78,6 @@ ${everyCommand}
 - [Example app](./examples/hello-world): a worked Expo / React Native \`app.json\` + \`launch.config.ts\`.
 - [CONTRIBUTING](./CONTRIBUTING.md): dev setup, the quality gate, adding a provider, tests, and CI.
 - [AGENTS](./AGENTS.md): working rules for AI agents and contributors.
-- [CLAUDE](./CLAUDE.md): Claude Code memory that imports AGENTS.md and links the doc family.
 - [CODE-STYLE](./CODE-STYLE.md): the Launch-specific code style and migration rules.
 - [PROJECT](./PROJECT.md), [CONTEXT](./CONTEXT.md), [LANGUAGE](./LANGUAGE.md), and [ADRs](./docs/adr/): product direction, architecture context, domain language, and decisions.
 
