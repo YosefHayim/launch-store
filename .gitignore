@@ -17,7 +17,7 @@ AuthKey_*.p8
 # Internal design docs — local-only working notes, not part of the public/published repo.
 # Exceptions: docs/agents/ (engineering-skills config agents/contributors read), docs/commands.md and
 # docs/config.md (the generated, CI-gated public command + config reference the README and llms.txt link to),
-# and docs/adr/ (architectural decision records linked from llms.txt / README / CLAUDE.md).
+# and docs/adr/ (architectural decision records linked from llms.txt / README / AGENTS.md).
 docs/*
 !docs/agents/
 !docs/adr/

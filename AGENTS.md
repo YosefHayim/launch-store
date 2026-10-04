@@ -1,14 +1,22 @@
 # AGENTS.md
 
-Working rules for AI agents and contributors editing **Launch**. This file holds only what you **can't infer** from the code and configs: module ownership, conventions a linter can't catch, and the validation gate every change must pass. Usage lives in [README.md](./README.md); style depth lives in [CODE-STYLE.md](./CODE-STYLE.md). Branch and PR workflow lives in [BRANCHING.md](./BRANCHING.md).
+Working rules for AI agents and contributors editing **Launch**. This file holds only what you **can't infer** from the code and configs: module ownership, conventions a linter can't catch, and the validation gate every change must pass. Usage lives in [README.md](./README.md) (keep agent rules out of it); style depth lives in [CODE-STYLE.md](./CODE-STYLE.md). Branch and PR workflow lives in [BRANCHING.md](./BRANCHING.md).
 
-> Claude Code reads this through [CLAUDE.md](./CLAUDE.md), which imports this file with `@AGENTS.md`.
+> This is the only agent instructions file. Claude Code and Codex load it natively.
 
 ## Branching And PRs
 
 - **Do not commit to `main`.** Branch as `feat|fix|refactor|chore|docs/<domain>/<slug>`, open a PR, label `domain:<domain>`, keep the gate green, delete the branch after merge.
 - Domains: `foundation`, `config`, `credentials`, `build`, `apple`, `google`, `store`, `release`, `testflight`, `readiness`, `agents`, `cli`, `docs`.
 - Full rules, CODEOWNERS path map, and the optional `experiment/layered-history` lab: [BRANCHING.md](./BRANCHING.md).
+
+## Agent Skills
+
+Config the engineering skills read. `docs/agents/` is tracked even though the rest of `docs/` is local-only.
+
+- **Issue tracker:** GitHub issues on `YosefHayim/launch-store`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+- **Triage labels:** the five canonical triage roles, mapped to their default label strings. See `docs/agents/triage-labels.md`.
+- **Domain docs:** single-context - `CONTEXT.md` + `LANGUAGE.md` + `TECH.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
 ## Repo Layout - Who Owns What
 
@@ -58,7 +66,7 @@ Do not create flat `src/core/*.ts` files. Pick the purpose folder that owns the 
 
 ### Source Of Truth Files
 
-- Style: [CODE-STYLE.md](./CODE-STYLE.md). Edit there first; this file mirrors only the digest.
+- Style: [CODE-STYLE.md](./CODE-STYLE.md). Edit there first; this file mirrors only the digest. All new code follows it; rewrite existing code to it on contact.
 - Product direction: [PROJECT.md](./PROJECT.md).
 - Architecture orientation: [CONTEXT.md](./CONTEXT.md).
 - Domain language: [LANGUAGE.md](./LANGUAGE.md) and runtime teaching text in `src/core/terminal/glossary.ts`.
@@ -78,6 +86,8 @@ src/google    -> src/core/types only, never src/core logic
 ### Types And Public Exports
 
 `src/index.ts` is the package's only passive barrel. Internal modules import domain shapes directly from their owning files under `src/core/types/`. Apple generated shapes stay under `src/apple/generated/`; Google generated shapes stay inside the official Google client packages and their adapters.
+
+The service interfaces in `src/core/types/` ripple through every provider and the pipeline. Plan a change to them before writing code.
 
 ### Providers
 

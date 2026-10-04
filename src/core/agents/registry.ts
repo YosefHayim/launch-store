@@ -637,7 +637,7 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
     globs: [],
     alwaysApply: true,
     body: markdownBody([
-      'You are working **on** launch-store (the `launch` CLI), not using it. The canonical working rules live in [AGENTS.md](../../AGENTS.md) and [CLAUDE.md](../../CLAUDE.md) - read them first.',
+      'You are working **on** launch-store (the `launch` CLI), not using it. The canonical working rules live in [AGENTS.md](../../AGENTS.md) - read it first.',
       '',
       '- One Node ESM / TypeScript package. `src/cli` is thin Commander wiring, `src/core` is purpose-grouped domain code, `src/providers` are swappable backends, `src/apple` and `src/google` are store API mirrors, and `src/testkit` holds shared fakes/layers.',
       '- Do not create flat `src/core/*.ts` files. Put new core work under the owning purpose folder such as `build/`, `config/`, `credentials/`, `release/`, `store/`, `services/`, `terminal/`, or `types/`.',
