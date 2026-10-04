@@ -155,12 +155,12 @@ describe('the translated READMEs stay in structural parity with English (no sile
     }
   });
 });
-describe('the generated command reference covers every command', () => {
-  it('documents each top-level launch command from the live program', () => {
-    const reference = read('docs/commands.md');
+describe('the generated llms.txt command list covers every command', () => {
+  it('lists each top-level launch command from the live program', () => {
+    const llmsText = read('llms.txt');
     for (const command of buildProgram().commands) {
-      expect(reference, `docs/commands.md is missing \`launch ${command.name()}\``).toContain(
-        `## \`launch ${command.name()}`,
+      expect(llmsText, `llms.txt is missing \`launch ${command.name()}\``).toContain(
+        `- \`launch ${command.name()}`,
       );
     }
   });

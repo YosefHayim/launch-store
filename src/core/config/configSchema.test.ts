@@ -8,7 +8,7 @@ describe('loadConfigSchema', () => {
     const schema = await Effect.runPromise(
       loadConfigSchema().pipe(Effect.provide(NodeContext.layer)),
     );
-    // Effect Schema is the SSOT (ADR 0013); gen-docs normalizes `$defs` -> `definitions` and roots
+    // Effect Schema is the SSOT; gen-docs normalizes `$defs` -> `definitions` and roots
     // via `$ref` -> `#/definitions/LaunchConfig` when the root carries an identifier.
     const rootName = schema.$ref?.split('/').pop();
     let root = schema;

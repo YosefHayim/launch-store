@@ -14,7 +14,7 @@ description: Use when finishing or verifying a change to launch-store - run the 
 ## Steps
 
 1. `pnpm typecheck && pnpm lint && pnpm lint:style && pnpm docs:check && pnpm test && pnpm build` - the six-part gate from `AGENTS.md` (`lint` is Biome, `lint:style` is Launch-specific, and `docs:check` guards generated docs).
-2. If `docs:check` fails, run `pnpm docs:gen` and commit the generated docs (`docs/commands.md`, `llms.txt`, `.cursor/rules/*`, `.claude/skills/*`, README badges, and config docs).
+2. If `docs:check` fails, run `pnpm docs:gen` and commit the generated docs (`llms.txt`, `.cursor/rules/*`, `.claude/skills/*`, and README badges).
 
 All gates must be green before a change is done. The husky pre-commit hook runs lint + format + typecheck but **not** the tests and **can** be bypassed, so run the full line yourself. Add a `*.test.ts` beside any new logic.
 

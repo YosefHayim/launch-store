@@ -12,11 +12,11 @@ Working rules for AI agents and contributors editing **Launch**. This file holds
 
 ## Agent Skills
 
-Config the engineering skills read. `docs/agents/` is tracked even though the rest of `docs/` is local-only.
+Config the engineering skills read.
 
-- **Issue tracker:** GitHub issues on `YosefHayim/launch-store`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
-- **Triage labels:** the five canonical triage roles, mapped to their default label strings. See `docs/agents/triage-labels.md`.
-- **Domain docs:** single-context - `CONTEXT.md` + `LANGUAGE.md` + `TECH.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+- **Issue tracker:** GitHub issues on `YosefHayim/launch-store`, via the `gh` CLI.
+- **Triage labels:** the five canonical triage roles, mapped to their default label strings.
+- **Domain docs:** single-context - `CONTEXT.md` + `LANGUAGE.md` + `TECH.md` at the repo root.
 
 ## Repo Layout - Who Owns What
 
@@ -42,7 +42,7 @@ src/core/
  credentials/    # accounts, secrets, keychain, signing assets
  dashboard/      # terminal dashboard state/rendering
  distribution/   # install manifests, OTA updates, storage-facing distribution helpers
- docs/           # generated command/config docs
+ docs/           # README and llms.txt generators, config reference renderer
  doctor/         # doctor context/inspection
  insights/       # review/vitals aggregation
  listing/        # listing drafts/apply logic and screenshot asset specifications
@@ -71,7 +71,7 @@ Do not create flat `src/core/*.ts` files. Pick the purpose folder that owns the 
 - Architecture orientation: [CONTEXT.md](./CONTEXT.md).
 - Domain language: [LANGUAGE.md](./LANGUAGE.md) and runtime teaching text in `src/core/terminal/glossary.ts`.
 - Technical ecosystem language: [TECH.md](./TECH.md).
-- Config schema: Effect Schema in `src/core/config/`; zod is migration debt. ADR 0008 is superseded.
+- Config schema: Effect Schema in `src/core/config/`; zod is migration debt.
 
 ### Imports Follow Ownership
 

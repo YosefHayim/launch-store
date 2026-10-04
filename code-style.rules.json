@@ -176,7 +176,7 @@
     },
     {
       "id": "docs.same-change",
-      "statement": "A behavior or architecture change updates its owning generated docs, TECH.md, LANGUAGE.md, CONTEXT.md, or ADR in the same change.",
+      "statement": "A behavior or architecture change updates its owning generated docs, TECH.md, LANGUAGE.md, or CONTEXT.md in the same change; decisions go in the PR description.",
       "verify": "pnpm docs:check"
     }
   ]

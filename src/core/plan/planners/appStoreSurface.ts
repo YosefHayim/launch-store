@@ -101,7 +101,7 @@ export const planAppStoreSurface = <TConfig>(
 /**
  * How one **team-level** App Store surface plans itself (wallet / EU distribution). These reconcile
  * resources that have no bundle id, so there is no per-app loop: a single config is reconciled directly
- * against the team and the diff is returned as a `scope: "team"` plan (ADR 0003 A5).
+ * against the team and the diff is returned as a `scope: "team"` plan.
  * @typeParam TConfig - the surface's desired-state config shape (e.g. `WalletConfig`).
  */
 export type TeamSurfaceSpec<TConfig> = {

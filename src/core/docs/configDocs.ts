@@ -90,9 +90,8 @@ const renderTypeSection = (name: string, definition: JsonSchema): string => {
 /**
  * Render the full `launch.config.ts` field reference from its generated JSON Schema: the top-level fields
  * (the `LaunchConfigInput` root) as one table, then a `Types` section with a table per nested object
- * definition (sorted for stable output). Pure - the same markdown is printed by `launch config docs` and
- * committed as `docs/config.md`, so the two can't drift. Enum and `Record<...>` definitions render inline in
- * the type columns rather than as their own sections.
+ * definition (sorted for stable output). Pure - `launch config docs` prints this markdown. Enum and
+ * `Record<...>` definitions render inline in the type columns rather than as their own sections.
  */
 export const renderConfigDocs = (schema: JsonSchema): string => {
   let rootName = '';

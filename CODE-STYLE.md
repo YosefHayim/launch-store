@@ -461,10 +461,10 @@ Why: Script paths state whether a tool changes the repository or operates the pr
 ### Documentation in the same change
 [rule:docs.same-change] · verify: `pnpm docs:check`
 
-A behavior or architecture change updates its owning generated docs, TECH.md, LANGUAGE.md, CONTEXT.md, or ADR in the same change.
+A behavior or architecture change updates its owning generated docs, TECH.md, LANGUAGE.md, or CONTEXT.md in the same change; decisions go in the PR description.
 ```ts
 // ✓ command change plus generated command docs
-// src/cli/commands/playPricing.ts + docs/commands.md
+// src/cli/commands/playPricing.ts + llms.txt
 
 // ✗ stale user contract
 // command flags changed without pnpm docs:gen
@@ -498,7 +498,7 @@ src/cli/commands/playPricing.ts
   Commander names and flags -> runCliProgram(...)
         |
         v
-src/cli/program.ts -> docs/commands.md -> validation gate
+src/cli/program.ts -> llms.txt -> validation gate
 ```
 
 Copy this separation when adding the next command: generated vendor types stop at the adapter, the core program owns policy, and the CLI owns presentation only.
@@ -513,7 +513,7 @@ Copy this separation when adding the next command: generated vendor types stop a
 4. Add colocated behavior tests with hand Test layers and move reusable fakes to `src/testkit/` only after a second consumer appears.
 5. Register names, arguments, flags, and help in `src/cli/commands/<command>.ts`, then call the core program with `runCliProgram(...)`.
 6. Import and register the command once in `src/cli/program.ts` without changing unrelated command names.
-7. Run `pnpm docs:gen` and update `LANGUAGE.md`, `TECH.md`, `CONTEXT.md`, or a focused ADR only when their owned facts changed.
+7. Run `pnpm docs:gen` and update `LANGUAGE.md`, `TECH.md`, or `CONTEXT.md` only when their owned facts changed; decisions go in the PR description.
 8. Run the full validation gate below and compare the slice with the [canonical example](#canonical-example).
 
 Definition of done:

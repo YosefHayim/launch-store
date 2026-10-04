@@ -10,7 +10,6 @@ assets/
 # Source & tooling — the package ships compiled dist/, not the TypeScript source or dev configs.
 src/
 scripts/
-docs/
 examples/
 .github/
 .husky/

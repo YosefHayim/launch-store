@@ -31,7 +31,7 @@ const makeFaqEntryInvalid = Data.tagged<FaqEntryInvalid>('FaqEntryInvalid');
  * full-CRUD lifecycle marker, and the passing-test count, all centered under the hero badges. The
  * numbers are generated (never hand-typed) so they track the real codebase - the endpoint and test
  * badges move with every new API method or test, and `docs:check` fails the build if the committed
- * README drifts, exactly like the generated command reference. The CRUD badge is qualitative (the two
+ * README drifts. The CRUD badge is qualitative (the two
  * clients implement create/read/update/delete across the catalog), so it carries no number to go stale.
  *
  * Returns the block *including* both {@link STATS_BADGES_START} / {@link STATS_BADGES_END} fences so
@@ -45,7 +45,7 @@ export const renderStatsBadges = (stats: DocStats): string => {
     STATS_BADGES_START,
     '',
     '<p align="center">',
-    `  <a href="./docs/commands.md"><img src="${endpoints}" alt="${stats.operations} App Store Connect &amp; Google Play API operations" /></a>`,
+    `  <img src="${endpoints}" alt="${stats.operations} App Store Connect &amp; Google Play API operations" />`,
     `  <img src="${crud}" alt="Full create / read / update / delete coverage across the store APIs" />`,
     `  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="${tests}" alt="${stats.tests} tests passing" /></a>`,
     '</p>',

@@ -35,7 +35,7 @@
               "$ref": "#/definitions/SubmitByPlatform"
             }
           ],
-          "description": "Where built artifacts are submitted, in one of two forms: a single registered submitter name (the iOS default `app-store-connect`, which an Android build swaps for its twin `google-play`; or `eas`) - the original, unchanged shape; or a per-platform {@link SubmitByPlatform} map, to fan one build out to several stores from this one config (e.g. an Android `.aab` to `google-play` and `amazon-appstore`). The pipeline resolves this to a store list per platform (see `resolveSubmitters`), so the build target and the store are no longer welded 1:1. See `docs/adr/0006-platform-store-split.md`."
+          "description": "Where built artifacts are submitted, in one of two forms: a single registered submitter name (the iOS default `app-store-connect`, which an Android build swaps for its twin `google-play`; or `eas`) - the original, unchanged shape; or a per-platform {@link SubmitByPlatform} map, to fan one build out to several stores from this one config (e.g. an Android `.aab` to `google-play` and `amazon-appstore`). The pipeline resolves this to a store list per platform (see `resolveSubmitters`), so the build target and the store are no longer welded 1:1."
         },
         "appRoots": {
           "type": "array",

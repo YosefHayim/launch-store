@@ -1,6 +1,6 @@
 name: Report failure
 
-# The CI orchestrator calls this only for failures on main. See ADR 0009.
+# The CI orchestrator calls this only for failures on main.
 
 on:
   workflow_call:

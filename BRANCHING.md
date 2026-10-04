@@ -61,7 +61,7 @@ Use these names in branch paths and as GitHub labels (`domain:<name>`).
 | readiness | `domain:readiness` | plan, doctor, snapshot, adopt, migrate, readiness probes |
 | agents | `domain:agents` | agents, mcp, insights, dashboard |
 | cli | `domain:cli` | `src/cli/commands/*` registration and thin wiring only |
-| docs | `domain:docs` | README, CONTRIBUTING, BRANCHING, ADR-only docs with no code |
+| docs | `domain:docs` | README, CONTRIBUTING, BRANCHING, docs-only changes with no code |
 
 Cross-domain work: pick the **primary** domain for the branch name; add a second `domain:*` label.
 If the PR is no longer reviewable as one intent, split it.

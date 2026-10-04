@@ -18,7 +18,7 @@ import { walletPlanner } from './planners/wallet.js';
 /** Registered planners keyed by surface id; re-register replaces (idempotent wiring). */
 const PLANNERS = new Map<string, SurfacePlanner>();
 
-/** Built-in surfaces from ADR 0003 (catalog/listing/Play + v1.1 App Store breadth). */
+/** Built-in surfaces (catalog/listing/Play + v1.1 App Store breadth). */
 const BUILTIN_PLANNERS: readonly SurfacePlanner[] = [
   catalogPlanner,
   listingPlanner,

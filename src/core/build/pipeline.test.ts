@@ -356,7 +356,7 @@ describe('resolveSizeBudgetMB - per-run override > profile > default precedence'
     expect(resolveSizeBudgetMB({}, profile())).toBe(DEFAULT_SIZE_BUDGET_MB);
   });
 });
-describe('resolveSubmitters - the platformstore seam (ADR 0006)', () => {
+describe('resolveSubmitters - the platformstore seam', () => {
   const launchConfig = (submit: LaunchConfig['submit']): LaunchConfig => ({
     profiles: {},
     credentials: 'local',
@@ -393,7 +393,7 @@ describe('resolveSubmitters - the platformstore seam (ADR 0006)', () => {
       'google-play',
     ]);
   });
-  it("tvOS/macOS/visionOS default to App Store Connect with no config change (ADR 0006 'grows for free')", () => {
+  it('tvOS/macOS/visionOS default to App Store Connect with no config change', () => {
     for (const platform of ['tvos', 'macos', 'visionos'] as const) {
       expect(resolveSubmitters(launchConfig('app-store-connect'), platform)).toEqual([
         'app-store-connect',

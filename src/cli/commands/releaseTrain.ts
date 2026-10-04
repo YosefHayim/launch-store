@@ -20,9 +20,7 @@ type ReleaseTrainOptions = EnvFlags &
 export const registerReleaseTrainCommand = (program: Command): void => {
   const releaseTrainCommand = program
     .command('release-train')
-    .description(
-      "coordinate an app's iOS + Android + OTA release as one resumable record (ADR 0004)",
-    )
+    .description("coordinate an app's iOS + Android + OTA release as one resumable record")
     .argument('[action]', 'start | status | release | abort', 'status')
     .argument('[id]', 'train id (default: the latest train)')
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
