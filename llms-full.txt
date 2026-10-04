@@ -146,7 +146,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 63 `launch` commands (189 store-API operations underneath, 2354 tests):
+All 63 `launch` commands (189 store-API operations underneath, 2348 tests):
 
 - `launch init` - scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` - onboard an app that already ships: import its App Store Connect setup into config
@@ -164,7 +164,7 @@ All 63 `launch` commands (189 store-API operations underneath, 2354 tests):
 - `launch status` - show each app's App Store version, review, and phased-rollout state
 - `launch open [target]` - deep-link the app's App Store Connect / Play Console page in your browser
 - `launch dashboard` - serve a local, read-only web UI over your apps, builds, accounts, and secrets
-- `launch release-train [action] [id]` - coordinate an app's iOS + Android + OTA release as one resumable record (ADR 0004)
+- `launch release-train [action] [id]` - coordinate an app's iOS + Android + OTA release as one resumable record
 - `launch rollout <action>` - steer an iOS phased release: pause | resume | complete
 - `launch creds [action] [firstArgument] [secondArgument]` - inspect credentials, onboard/switch Apple accounts, or provision signing assets
 - `launch secret [action] [name]` - manage keychain-backed build secrets (set/list/rm) instead of plaintext .env
@@ -307,13 +307,11 @@ All 63 `launch` commands (189 store-API operations underneath, 2354 tests):
 
 - [README](./README.md): install, quick start, the command surface, configuration, and how credentials are handled.
 - [Full LLM context](./llms-full.txt): the complete mirrored context for clients that request the conventional full file.
-- [Command reference](./docs/commands.md): all 63 `launch` commands and every flag, generated from the CLI.
-- [Config reference](./docs/config.md): the generated `launch.config.ts` field reference.
 - [Example app](./examples/hello-world): a worked Expo / React Native `app.json` + `launch.config.ts`.
 - [CONTRIBUTING](./CONTRIBUTING.md): dev setup, the quality gate, adding a provider, tests, and CI.
 - [AGENTS](./AGENTS.md): working rules for AI agents and contributors.
 - [CODE-STYLE](./CODE-STYLE.md): the Launch-specific code style and migration rules.
-- [PROJECT](./PROJECT.md), [CONTEXT](./CONTEXT.md), [LANGUAGE](./LANGUAGE.md), and [ADRs](./docs/adr/): product direction, architecture context, domain language, and decisions.
+- [PROJECT](./PROJECT.md), [CONTEXT](./CONTEXT.md), and [LANGUAGE](./LANGUAGE.md): product direction, architecture context, and domain language.
 
 ## Source
 

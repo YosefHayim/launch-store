@@ -52,8 +52,6 @@ const defaultSubmitter = (platform: Platform): string => {
  *   `google-play` for an Android build under the iOS default - so every existing config is unchanged; or
  * - a **per-platform map** (`SubmitByPlatform`) yields its configured list for the platform, defaulting to
  *   the platform's standard store when that platform is omitted.
- *
- * See `docs/adr/0006-platform-store-split.md`.
  */
 export const resolveSubmitters = (config: LaunchConfig, platform: Platform): string[] => {
   if (typeof config.submit === 'string') {

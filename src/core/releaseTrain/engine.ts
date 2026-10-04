@@ -61,7 +61,7 @@ export type TrainCarPlanInput = Readonly<{
 }>;
 
 /**
- * Plan train cars from config + flags (ADR D2): native legs for declared
+ * Plan train cars from config + flags: native legs for declared
  * platforms, OTA followers when cloud storage is configured.
  */
 export const planTrainCars = (planInput: TrainCarPlanInput): TrainCarPlan => {

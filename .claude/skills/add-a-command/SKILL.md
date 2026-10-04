@@ -13,7 +13,7 @@ description: Use when adding a new top-level `launch` command or subcommand - wi
 ## Steps
 
 1. Add the command as thin commander wiring in `src/cli/commands/` and register its `register*Command` in `src/cli/program.ts`'s `buildProgram()`. Keep domain logic in `src/core`, not the CLI layer.
-2. Run `pnpm docs:gen` - it introspects `buildProgram()` and regenerates `docs/commands.md`, `llms.txt`, the README stats badges, and the committed `.cursor/rules` / `.claude/skills`.
+2. Run `pnpm docs:gen` - it introspects `buildProgram()` and regenerates `llms.txt`, the README stats badges, and the committed `.cursor/rules` / `.claude/skills`.
 3. Commit the regenerated files; `pnpm docs:check` (CI) fails if they drift.
 4. Add a `*.test.ts` beside the new logic, then run the gate.
 

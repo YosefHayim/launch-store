@@ -7,7 +7,6 @@ import { Effect, JSONSchema, Schema } from 'effect';
 import { buildProgram } from '@cli/program.ts';
 import { renderContributorRules, renderContributorSkills } from '@core/agents/render.ts';
 import { LaunchConfigEffectSchema } from '@core/config/schema.ts';
-import { renderCommandReference } from '@core/docs/commandDocs/commandReference.ts';
 import { countAsyncMethods, countTestCases } from '@core/docs/commandDocs/common.ts';
 import { renderLlmsFullTxt, renderLlmsTxt } from '@core/docs/commandDocs/llmsTxt.ts';
 import {
@@ -20,7 +19,6 @@ import {
   spliceReadmeFaq,
   spliceReadmeFeatures,
 } from '@core/docs/commandDocs/readme.ts';
-import { renderConfigDocs } from '@core/docs/configDocs.ts';
 import { type JsonSchema, JsonSchemaNode } from '@core/config/jsonSchema.ts';
 import type { CommandSpec, DocStats, GeneratedDoc } from '@core/types/commandDocs.ts';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -97,14 +95,12 @@ const generateDocs = (): GeneratedDoc[] => {
       }
       return { path, body: documentText };
     }),
-    { path: 'docs/commands.md', body: renderCommandReference(commands, stats) },
     { path: 'llms.txt', body: renderLlmsTxt(commands, stats) },
     { path: 'llms-full.txt', body: renderLlmsFullTxt(commands, stats) },
     {
       path: 'schema/launch.config.schema.json',
       body: `${JSON.stringify(configSchema, null, 2)}\n`,
     },
-    { path: 'docs/config.md', body: renderConfigDocs(configSchema) },
     ...renderContributorRules().map((rule) => ({ path: rule.path, body: rule.body })),
     ...renderContributorSkills().map((skill) => ({ path: skill.path, body: skill.body })),
   ];

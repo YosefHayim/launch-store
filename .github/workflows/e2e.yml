@@ -1,6 +1,6 @@
 name: E2E
 
-# The end-to-end suite drives the emitted CLI as a subprocess. See ADR 0010.
+# The end-to-end suite drives the emitted CLI as a subprocess.
 
 on:
   workflow_call:

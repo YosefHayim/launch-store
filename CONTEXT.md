@@ -48,7 +48,7 @@ src/
     credentials/  Accounts, secrets, keychain, signing assets
     dashboard/    Terminal dashboard state/rendering
     distribution/ Install manifests, OTA updates, storage-facing helpers
-    docs/         Generated command/config docs
+    docs/         README and llms.txt generators, config reference renderer
     doctor/       Doctor context/inspection
     insights/     Review/vitals aggregation
     listing/      Listing drafts, apply logic, and screenshot asset specifications

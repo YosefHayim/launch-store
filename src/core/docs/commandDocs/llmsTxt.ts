@@ -73,13 +73,11 @@ ${everyCommand}
 
 - [README](./README.md): install, quick start, the command surface, configuration, and how credentials are handled.
 - [Full LLM context](./llms-full.txt): the complete mirrored context for clients that request the conventional full file.
-- [Command reference](./docs/commands.md): all ${stats.commands} \`launch\` commands and every flag, generated from the CLI.
-- [Config reference](./docs/config.md): the generated \`launch.config.ts\` field reference.
 - [Example app](./examples/hello-world): a worked Expo / React Native \`app.json\` + \`launch.config.ts\`.
 - [CONTRIBUTING](./CONTRIBUTING.md): dev setup, the quality gate, adding a provider, tests, and CI.
 - [AGENTS](./AGENTS.md): working rules for AI agents and contributors.
 - [CODE-STYLE](./CODE-STYLE.md): the Launch-specific code style and migration rules.
-- [PROJECT](./PROJECT.md), [CONTEXT](./CONTEXT.md), [LANGUAGE](./LANGUAGE.md), and [ADRs](./docs/adr/): product direction, architecture context, domain language, and decisions.
+- [PROJECT](./PROJECT.md), [CONTEXT](./CONTEXT.md), and [LANGUAGE](./LANGUAGE.md): product direction, architecture context, and domain language.
 
 ## Source
 

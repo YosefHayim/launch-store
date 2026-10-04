@@ -709,7 +709,7 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
     ],
     steps: [
       '`pnpm typecheck && pnpm lint && pnpm lint:style && pnpm docs:check && pnpm test && pnpm build` - the six-part gate from `AGENTS.md` (`lint` is Biome, `lint:style` is Launch-specific, and `docs:check` guards generated docs).',
-      'If `docs:check` fails, run `pnpm docs:gen` and commit the generated docs (`docs/commands.md`, `llms.txt`, `.cursor/rules/*`, `.claude/skills/*`, README badges, and config docs).',
+      'If `docs:check` fails, run `pnpm docs:gen` and commit the generated docs (`llms.txt`, `.cursor/rules/*`, `.claude/skills/*`, and README badges).',
     ],
     body: markdownBody([
       'All gates must be green before a change is done. The husky pre-commit hook runs lint + format + typecheck but **not** the tests and **can** be bypassed, so run the full line yourself. Add a `*.test.ts` beside any new logic.',
@@ -754,7 +754,7 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
     ],
     steps: [
       "Add the command as thin commander wiring in `src/cli/commands/` and register its `register*Command` in `src/cli/program.ts`'s `buildProgram()`. Keep domain logic in `src/core`, not the CLI layer.",
-      'Run `pnpm docs:gen` - it introspects `buildProgram()` and regenerates `docs/commands.md`, `llms.txt`, the README stats badges, and the committed `.cursor/rules` / `.claude/skills`.',
+      'Run `pnpm docs:gen` - it introspects `buildProgram()` and regenerates `llms.txt`, the README stats badges, and the committed `.cursor/rules` / `.claude/skills`.',
       'Commit the regenerated files; `pnpm docs:check` (CI) fails if they drift.',
       'Add a `*.test.ts` beside the new logic, then run the gate.',
     ],

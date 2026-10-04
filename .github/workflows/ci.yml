@@ -1,6 +1,6 @@
 name: CI
 
-# `CI Gate` is the stable branch-protection check across the reusable workflow legs. See ADR 0009.
+# `CI Gate` is the stable branch-protection check across the reusable workflow legs.
 
 on:
   push:

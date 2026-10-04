@@ -60,7 +60,7 @@ export type AppPlan = Readonly<{
 }>;
 /**
  * How completely a surface detects drift - surfaced on the plan and in `--json` so a `drift` gate's
- * guarantee is legible (ADR 0003 A3):
+ * guarantee is legible:
  * - `two-way` - the reconciler lists live state and reports items that are missing **and** extra/changed,
  *   so a `= in sync` result means live == config.
  * - `additive` - the reconciler only ensures declared items exist (it never deletes), so it detects
@@ -77,7 +77,7 @@ export type PlanDirection = 'two-way' | 'additive';
  *   skip at exit 0); a hard error for `launch plan --check`, which cannot certify what it could not read.
  * - `planned` + `scope: "app"` - read successfully; `apps` carries the per-app diff (the usual case).
  * - `planned` + `scope: "team"` - a team-level surface with no bundle id (wallet / EU distribution);
- *   `actions` carries the diff directly, with no per-app grouping (ADR 0003 A5).
+ *   `actions` carries the diff directly, with no per-app grouping.
  * Every `planned` variant carries its {@link PlanDirection} so the renderer can flag additive surfaces.
  */
 export type SurfacePlan =
