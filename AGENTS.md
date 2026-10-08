@@ -132,3 +132,8 @@ pnpm typecheck && pnpm lint && pnpm lint:style && pnpm docs:check && pnpm test &
 
 All six must be green. Add or update colocated tests for any new behavior.
 (`npm run <script>` still works once dependencies are installed with **pnpm**; do not use `npm install` - this repo is `packageManager: pnpm@10` and only has `pnpm-lock.yaml`.)
+
+## Local CI
+
+Run `act workflow_dispatch -W .github/workflows/ci.yml` before opening a PR.
+The root `.actrc` selects the local Docker runner and keeps the pnpm store outside the workspace.
