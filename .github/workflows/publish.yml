@@ -1,31 +1,20 @@
 name: Publish
-
-# OIDC Trusted Publishing matches this exact `publish.yml` filename; renaming it breaks publishing.
-#
-# A GITHUB_TOKEN-created release does not fire the `release` event:
-#   1. pnpm version <patch|minor|major>
-#   2. git push origin main --follow-tags
-#   3. gh release create vX.Y.Z --generate-notes
-
-on:
+'on':
   release:
-    types: [published]
+    types:
+      - published
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing release tag to (re)publish, e.g. v0.2.0. Defaults to main HEAD."
+        description: Existing release tag to (re)publish, e.g. v0.2.0. Defaults to main HEAD.
         required: false
-        default: ""
-
-# OIDC trusted publishing needs id-token: write; nothing here writes to the repo.
+        default: ''
 permissions:
   id-token: write
   contents: read
-
 concurrency:
-  group: publish-${{ github.event.release.tag_name || github.ref }}
-  cancel-in-progress: false
-
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -43,30 +32,20 @@ jobs:
           else
             echo "ref=main" >> "$GITHUB_OUTPUT"
           fi
-
       - uses: actions/checkout@v5
         with:
           ref: ${{ steps.ref.outputs.ref }}
           fetch-depth: 0
-
-      # pnpm must be on PATH before setup-node's `cache: pnpm` (it shells out to `pnpm store path`).
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v5
+      - name: Setup workspace
+        uses: ./.github/actions/setup
         with:
-          node-version: 24 # bundles npm >= 11.5.1, required for OIDC trusted publishing
           registry-url: https://registry.npmjs.org
-          cache: pnpm
-
       - name: Verify npm supports OIDC trusted publishing
         run: |
           test "$(printf '%s\n' "11.5.1" "$(npm -v)" | sort -V | head -1)" = "11.5.1" || {
             echo "::error::npm $(npm -v) is below 11.5.1; trusted publishing is not supported"
             exit 1
           }
-
-      - run: pnpm install --frozen-lockfile
-
       - name: Verify the release tag matches package.json version
         if: github.event_name == 'release'
         env:
@@ -77,12 +56,10 @@ jobs:
             echo "::error::release tag ${RELEASE_TAG} != package.json v${PKG_VERSION}. Run 'npm version' before cutting the release."
             exit 1
           fi
-
-      # The same gate CI runs on every push, re-run here so a tag can never publish a broken build.
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
-
       - name: Publish to npm (OIDC trusted publishing + provenance)
         run: npm publish --access public --provenance
+    timeout-minutes: 15

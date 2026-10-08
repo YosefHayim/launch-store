@@ -1,29 +1,20 @@
 name: Build
-
-# Smoke tests run against the emitted package, not the TypeScript source.
-
-on:
-  workflow_call:
-
+'on':
+  workflow_call: null
 permissions:
   contents: read
-
 jobs:
   build:
-    name: node-${{ matrix.node }}
+    name: Build
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [20, 22]
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup-node-cached
-        with:
-          node-version: ${{ matrix.node }}
+      - name: Setup workspace
+        uses: ./.github/actions/setup
       - run: pnpm build
       - name: Smoke-test the built CLI
         run: |
           node dist/cli/index.js --version
           node dist/cli/index.js --help
           node dist/cli/index.js explain csr
+    timeout-minutes: 15

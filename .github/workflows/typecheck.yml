@@ -1,21 +1,15 @@
 name: Typecheck
-
-# Single-purpose, reusable (workflow_call): `tsc --noEmit`. Type results are deterministic across
-# OS/Node, so this runs single-leg (ubuntu, one Node) - no matrix.
-
-on:
-  workflow_call:
-
+'on':
+  workflow_call: null
 permissions:
   contents: read
-
 jobs:
   typecheck:
     name: Type check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup-node-cached
-        with:
-          node-version: 22
+      - name: Setup workspace
+        uses: ./.github/actions/setup
       - run: pnpm typecheck
+    timeout-minutes: 15
