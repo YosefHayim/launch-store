@@ -1,15 +1,15 @@
 name: CI
-
-# `CI Gate` is the stable branch-protection check across the reusable workflow legs.
-
-on:
+'on':
   push:
-    branches: [main]
-  pull_request:
-
+    branches:
+      - main
+  pull_request: null
+  workflow_dispatch: null
 permissions:
   contents: read
-
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   lint:
     uses: ./.github/workflows/lint.yml
@@ -23,12 +23,17 @@ jobs:
     uses: ./.github/workflows/build.yml
   e2e:
     uses: ./.github/workflows/e2e.yml
-
   gate:
     name: CI Gate
-    needs: [lint, typecheck, docs, test, build, e2e]
+    needs:
+      - lint
+      - typecheck
+      - docs
+      - test
+      - build
+      - e2e
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     steps:
       - name: Require every gate to pass
         run: |
@@ -39,10 +44,16 @@ jobs:
             && test "${{ needs.test.result }}" = "success" \
             && test "${{ needs.build.result }}" = "success" \
             && test "${{ needs.e2e.result }}" = "success"
-
+    timeout-minutes: 5
   report-failure:
     name: Open issue on main failure
-    needs: [lint, typecheck, docs, test, build, e2e]
+    needs:
+      - lint
+      - typecheck
+      - docs
+      - test
+      - build
+      - e2e
     if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read

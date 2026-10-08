@@ -1,22 +1,17 @@
 name: E2E
-
-# The end-to-end suite drives the emitted CLI as a subprocess.
-
-on:
-  workflow_call:
-
+'on':
+  workflow_call: null
 permissions:
   contents: read
-
 jobs:
   e2e:
     name: E2E (built CLI)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup-node-cached
-        with:
-          node-version: 22
+      - name: Setup workspace
+        uses: ./.github/actions/setup
       - run: pnpm build
       - name: Run E2E tests
         run: pnpm test:e2e
+    timeout-minutes: 20

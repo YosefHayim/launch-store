@@ -1,34 +1,25 @@
 name: Test
-
-# Mac-only tools are faked in unit tests; a real iOS build still requires macOS.
-
-on:
-  workflow_call:
-
+'on':
+  workflow_call: null
 permissions:
   contents: read
-
 jobs:
   test:
-    name: node-${{ matrix.node }}
+    name: Test
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [20, 22]
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/setup-node-cached
-        with:
-          node-version: ${{ matrix.node }}
+      - name: Setup workspace
+        uses: ./.github/actions/setup
       - name: Test (with coverage)
         run: pnpm test:coverage | tee coverage.txt
       - name: Coverage summary
         if: always()
         run: |
           {
-            echo '### Coverage (node ${{ matrix.node }})'
+            echo '### Coverage (node 24)'
             echo '```'
             tail -n 20 coverage.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+    timeout-minutes: 20
