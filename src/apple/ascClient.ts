@@ -294,6 +294,9 @@ type AssetReservation = {
   };
 };
 /** Lowercase-hex MD5 of an asset's bytes - the `sourceFileChecksum` Apple verifies at commit time. */
+// Apple 409s an inline-created included resource (ENTITY_ERROR.INCLUDED.INVALID_ID) unless its id is
+// a local id written as ${local-id}; the relationship references the same string.
+const inlinePriceId = (index: number): string => `\${price-${index}}`;
 const md5Hex = (bytes: Buffer): string => {
   return createHash('md5').update(bytes).digest('hex');
 };
@@ -1755,14 +1758,14 @@ export class AppStoreConnectClient {
           prices: {
             data: input.prices.map((_, index) => ({
               type: 'subscriptionOfferCodePrices',
-              id: `price-${index}`,
+              id: inlinePriceId(index),
             })),
           },
         },
       },
       included: input.prices.map((price, index) => ({
         type: 'subscriptionOfferCodePrices',
-        id: `price-${index}`,
+        id: inlinePriceId(index),
         relationships: {
           territory: { data: { type: 'territories', id: price.territory } },
           subscriptionPricePoint: {
@@ -1857,14 +1860,14 @@ export class AppStoreConnectClient {
           prices: {
             data: input.prices.map((_, index) => ({
               type: 'subscriptionPromotionalOfferPrices',
-              id: `price-${index}`,
+              id: inlinePriceId(index),
             })),
           },
         },
       },
       included: input.prices.map((price, index) => ({
         type: 'subscriptionPromotionalOfferPrices',
-        id: `price-${index}`,
+        id: inlinePriceId(index),
         relationships: {
           territory: { data: { type: 'territories', id: price.territory } },
           subscriptionPricePoint: {
@@ -1982,14 +1985,14 @@ export class AppStoreConnectClient {
           prices: {
             data: input.prices.map((_, index) => ({
               type: 'winBackOfferPrices',
-              id: `price-${index}`,
+              id: inlinePriceId(index),
             })),
           },
         },
       },
       included: input.prices.map((price, index) => ({
         type: 'winBackOfferPrices',
-        id: `price-${index}`,
+        id: inlinePriceId(index),
         relationships: {
           territory: { data: { type: 'territories', id: price.territory } },
           subscriptionPricePoint: {
@@ -4328,10 +4331,10 @@ export class AppStoreConnectClient {
         attributes,
         relationships: {
           gameCenterDetail: { data: { type: 'gameCenterDetails', id: detailId } },
-          versions: { data: [{ type: 'gameCenterAchievementVersions', id: 'version-0' }] },
+          versions: { data: [{ type: 'gameCenterAchievementVersions', id: '${version-0}' }] },
         },
       },
-      included: [{ type: 'gameCenterAchievementVersions', id: 'version-0' }],
+      included: [{ type: 'gameCenterAchievementVersions', id: '${version-0}' }],
     };
     const { data: appleResources } = await this.request<{
       data: {
@@ -4406,10 +4409,10 @@ export class AppStoreConnectClient {
         attributes,
         relationships: {
           gameCenterDetail: { data: { type: 'gameCenterDetails', id: detailId } },
-          versions: { data: [{ type: 'gameCenterLeaderboardVersions', id: 'version-0' }] },
+          versions: { data: [{ type: 'gameCenterLeaderboardVersions', id: '${version-0}' }] },
         },
       },
-      included: [{ type: 'gameCenterLeaderboardVersions', id: 'version-0' }],
+      included: [{ type: 'gameCenterLeaderboardVersions', id: '${version-0}' }],
     };
     const { data: appleResources } = await this.request<{
       data: {

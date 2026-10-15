@@ -702,6 +702,69 @@ describe('AppStoreConnectClient - product catalog', () => {
     expect(url).not.toContain('limit');
     expect(url).toContain('fields[bundleIdCapabilities]=capabilityType,settings');
   });
+  const OFFER_PRICES = [
+    { territory: 'ISR', pricePointId: 'pp-isr' },
+    { territory: 'USA', pricePointId: 'pp-usa' },
+  ];
+  const expectInlinePriceIds = (requestInit: RequestInit) => {
+    const requestDocument = readRequestDocument(requestInit);
+    for (const [index, localId] of ['${price-0}', '${price-1}'].entries()) {
+      expect(
+        documentValueAt(requestDocument, ['data', 'relationships', 'prices', 'data', index, 'id']),
+      ).toBe(localId);
+      expect(documentValueAt(requestDocument, ['included', index, 'id'])).toBe(localId);
+    }
+  };
+  it('creates an offer-code campaign with ${local-id} inline price ids', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(201, JSON.stringify({ data: { id: 'offer-1', attributes: {} } })),
+    );
+    await client.createSubscriptionOfferCode({
+      subscriptionId: 'sub-1',
+      name: 'retention-half-price',
+      customerEligibilities: ['EXISTING'],
+      offerEligibility: 'REPLACE_INTRO_OFFERS',
+      duration: 'ONE_MONTH',
+      offerMode: 'PAY_AS_YOU_GO',
+      numberOfPeriods: 3,
+      prices: OFFER_PRICES,
+    });
+    expectInlinePriceIds(expectArrayElement(fetchMock.mock.calls, 0, 'mock call')[1]);
+  });
+  it('creates a promotional offer with ${local-id} inline price ids', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(201, JSON.stringify({ data: { id: 'promo-1', attributes: {} } })),
+    );
+    await client.createPromotionalOffer({
+      subscriptionId: 'sub-1',
+      name: 'Come back',
+      offerCode: 'come_back',
+      duration: 'ONE_MONTH',
+      offerMode: 'PAY_AS_YOU_GO',
+      numberOfPeriods: 1,
+      prices: OFFER_PRICES,
+    });
+    expectInlinePriceIds(expectArrayElement(fetchMock.mock.calls, 0, 'mock call')[1]);
+  });
+  it('creates a win-back offer with ${local-id} inline price ids', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(201, JSON.stringify({ data: { id: 'win-back-1', attributes: {} } })),
+    );
+    await client.createWinBackOffer({
+      subscriptionId: 'sub-1',
+      offerId: 'win_back',
+      referenceName: 'Win back',
+      duration: 'ONE_MONTH',
+      offerMode: 'PAY_AS_YOU_GO',
+      numberOfPeriods: 1,
+      eligiblePaidMonths: 2,
+      monthsSinceLastSubscribed: { min: 1, max: 6 },
+      startDate: '2026-11-01',
+      priority: 'NORMAL',
+      prices: OFFER_PRICES,
+    });
+    expectInlinePriceIds(expectArrayElement(fetchMock.mock.calls, 0, 'mock call')[1]);
+  });
 });
 describe('AppStoreConnectClient - export compliance', () => {
   it("resolves a build's id and export-compliance answer by build number", async () => {
@@ -1995,13 +2058,13 @@ describe('Game Center', () => {
     const [url, init] = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
     expect(url).toContain('/v2/gameCenterAchievements');
     const requestDocument = readRequestDocument(init);
-    // temp-id appears in both the versions relationship and the included inline version (the offer-code pattern).
+    // Apple requires the inline temp id as ${local-id} in both the relationship and the included version.
     expect(
       documentValueAt(requestDocument, ['data', 'relationships', 'versions', 'data', 0, 'id']),
-    ).toBe('version-0');
+    ).toBe('${version-0}');
     expect(documentValueAt(requestDocument, ['included', 0])).toEqual({
       type: 'gameCenterAchievementVersions',
-      id: 'version-0',
+      id: '${version-0}',
     });
     expect(
       documentValueAt(requestDocument, ['data', 'relationships', 'gameCenterDetail', 'data']),
@@ -2076,9 +2139,13 @@ describe('Game Center', () => {
       'INTEGER',
     );
     expect(documentValueAt(requestDocument, ['data', 'attributes', 'scoreSortType'])).toBe('DESC');
-    expect(documentValueAt(requestDocument, ['included', 0, 'type'])).toBe(
-      'gameCenterLeaderboardVersions',
-    );
+    expect(
+      documentValueAt(requestDocument, ['data', 'relationships', 'versions', 'data', 0, 'id']),
+    ).toBe('${version-0}');
+    expect(documentValueAt(requestDocument, ['included', 0])).toEqual({
+      type: 'gameCenterLeaderboardVersions',
+      id: '${version-0}',
+    });
     expect(createdResource).toEqual({ id: 'lb-1', versionId: 'lv-real' });
   });
 });
