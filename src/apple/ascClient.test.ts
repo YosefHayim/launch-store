@@ -2139,9 +2139,13 @@ describe('Game Center', () => {
       'INTEGER',
     );
     expect(documentValueAt(requestDocument, ['data', 'attributes', 'scoreSortType'])).toBe('DESC');
-    expect(documentValueAt(requestDocument, ['included', 0, 'type'])).toBe(
-      'gameCenterLeaderboardVersions',
-    );
+    expect(
+      documentValueAt(requestDocument, ['data', 'relationships', 'versions', 'data', 0, 'id']),
+    ).toBe('${version-0}');
+    expect(documentValueAt(requestDocument, ['included', 0])).toEqual({
+      type: 'gameCenterLeaderboardVersions',
+      id: '${version-0}',
+    });
     expect(createdResource).toEqual({ id: 'lb-1', versionId: 'lv-real' });
   });
 });
