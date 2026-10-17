@@ -477,7 +477,9 @@ const listTesters = (
       if (fullName.length > 0) nameDetail = ` - ${fullName}`;
       let stateDetail = '';
       if (betaTester.state !== undefined) stateDetail = ` [${betaTester.state.toLowerCase()}]`;
-      yield* logger.line(`- ${betaTester.email}${nameDetail}${stateDetail}`);
+      let testerLabel = betaTester.email;
+      if (testerLabel.length === 0) testerLabel = '(no email, public link)';
+      yield* logger.line(`- ${testerLabel}${nameDetail}${stateDetail}`);
     }
     yield* logger.line(`\n${betaTesters.length} tester(s) in "${betaGroup.name}".`);
   });
