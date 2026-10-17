@@ -199,7 +199,8 @@ export type BetaGroupResource = Readonly<{
 /**
  * A TestFlight tester. Apple keys testers on `email` and scopes them to the team - the same person is
  * one tester resource reused across apps/groups - so adding an existing email to a new group links
- * rather than duplicates. `firstName`/`lastName` are optional and shown in the invite.
+ * rather than duplicates. `firstName`/`lastName` are optional and shown in the invite. `email` is empty
+ * for a tester who joined through a public link, since Apple does not share their address.
  */
 export type BetaTesterResource = Readonly<{
   id: string;

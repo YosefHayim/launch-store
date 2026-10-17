@@ -1126,7 +1126,7 @@ describe('AppStoreConnectClient - TestFlight beta groups + testers', () => {
       },
     });
   });
-  it('skips a tester with a null email and omits null names', async () => {
+  it('keeps a public-link tester with a null email and omits null names', async () => {
     fetchMock.mockResolvedValueOnce(
       fakeResponse(
         200,
@@ -1145,6 +1145,7 @@ describe('AppStoreConnectClient - TestFlight beta groups + testers', () => {
       ),
     );
     expect(await client.listBetaTestersInGroup('bg1')).toEqual([
+      { id: 't-public', email: '', state: 'INSTALLED' },
       { id: 't-invited', email: 'a@x.com', state: 'INVITED' },
     ]);
   });

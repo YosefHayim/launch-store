@@ -2285,8 +2285,9 @@ export class AppStoreConnectClient {
       state?: string;
     }>(path);
     return appleResources.flatMap((tester) => {
-      const testerEmail = tester.attributes.email;
-      if (typeof testerEmail !== 'string') return [];
+      let testerEmail = tester.attributes.email;
+      if (testerEmail === undefined) return [];
+      if (testerEmail === null) testerEmail = '';
       const betaTester: BetaTesterResource = { id: tester.id, email: testerEmail };
       if (typeof tester.attributes.firstName === 'string')
         Object.assign(betaTester, { firstName: tester.attributes.firstName });
