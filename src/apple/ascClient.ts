@@ -244,6 +244,23 @@ type AccessibilityDeclarationAttributes = AccessibilitySupport & {
   deviceFamily?: DeviceFamily;
   state?: AccessibilityDeclarationResource['state'];
 };
+/** Apple's raw `appEvents` attribute bag. Optional draft fields come back as `null` until set. */
+type AppEventAttributes = {
+  referenceName?: string;
+  badge?: string | null;
+  eventState?: string;
+  primaryLocale?: string | null;
+  deepLink?: string | null;
+  priority?: string | null;
+  purpose?: string | null;
+};
+/** Apple's raw `appEventLocalizations` attribute bag. Unset copy comes back as `null`. */
+type AppEventLocalizationAttributes = {
+  locale?: string;
+  name?: string | null;
+  shortDescription?: string | null;
+  longDescription?: string | null;
+};
 type ResourceList<A> = {
   data: {
     id: string;
@@ -373,10 +390,10 @@ type BetaFeedbackPage = {
     id: string;
     attributes?: {
       createdDate?: string;
-      comment?: string;
-      email?: string;
-      deviceModel?: string;
-      osVersion?: string;
+      comment?: string | null;
+      email?: string | null;
+      deviceModel?: string | null;
+      osVersion?: string | null;
       screenshots?: {
         url?: string;
         width?: number;
@@ -832,7 +849,7 @@ export class AppStoreConnectClient {
   > {
     const appleResources = await this.requestAll<{
       locale?: string;
-      privacyChoicesUrl?: string;
+      privacyChoicesUrl?: string | null;
     }>(
       `/appInfos/${appInfoId}/appInfoLocalizations?limit=200&fields[appInfoLocalizations]=locale,privacyChoicesUrl`,
     );
@@ -840,7 +857,7 @@ export class AppStoreConnectClient {
       let locale = localization.attributes.locale;
       if (locale === undefined) locale = '';
       let accountDeletionUrl = localization.attributes.privacyChoicesUrl;
-      if (accountDeletionUrl === undefined) accountDeletionUrl = '';
+      if (typeof accountDeletionUrl !== 'string') accountDeletionUrl = '';
       return { locale, url: accountDeletionUrl };
     });
   }
@@ -2227,9 +2244,9 @@ export class AppStoreConnectClient {
       Object.assign(testerAttributes, { firstName: input.firstName });
     if (input.lastName !== undefined) Object.assign(testerAttributes, { lastName: input.lastName });
     const appleResources = await this.createResource<{
-      email?: string;
-      firstName?: string;
-      lastName?: string;
+      email?: string | null;
+      firstName?: string | null;
+      lastName?: string | null;
       state?: string;
     }>('/betaTesters', {
       type: 'betaTesters',
@@ -2237,11 +2254,11 @@ export class AppStoreConnectClient {
       relationships: { betaGroups: { data: [{ type: 'betaGroups', id: groupId }] } },
     });
     let testerEmail = appleResources.attributes.email;
-    if (testerEmail === undefined) testerEmail = input.email;
+    if (typeof testerEmail !== 'string') testerEmail = input.email;
     const betaTester: BetaTesterResource = { id: appleResources.id, email: testerEmail };
-    if (appleResources.attributes.firstName !== undefined)
+    if (typeof appleResources.attributes.firstName === 'string')
       Object.assign(betaTester, { firstName: appleResources.attributes.firstName });
-    if (appleResources.attributes.lastName !== undefined)
+    if (typeof appleResources.attributes.lastName === 'string')
       Object.assign(betaTester, { lastName: appleResources.attributes.lastName });
     if (appleResources.attributes.state !== undefined)
       Object.assign(betaTester, { state: appleResources.attributes.state });
@@ -2262,18 +2279,18 @@ export class AppStoreConnectClient {
   /** Shared GET -> {@link BetaTesterResource}[] for any beta-tester collection (group members or a lookup). */
   private async betaTestersFrom(path: string): Promise<BetaTesterResource[]> {
     const appleResources = await this.requestAll<{
-      email?: string;
-      firstName?: string;
-      lastName?: string;
+      email?: string | null;
+      firstName?: string | null;
+      lastName?: string | null;
       state?: string;
     }>(path);
     return appleResources.flatMap((tester) => {
       const testerEmail = tester.attributes.email;
-      if (testerEmail === undefined) return [];
+      if (typeof testerEmail !== 'string') return [];
       const betaTester: BetaTesterResource = { id: tester.id, email: testerEmail };
-      if (tester.attributes.firstName !== undefined)
+      if (typeof tester.attributes.firstName === 'string')
         Object.assign(betaTester, { firstName: tester.attributes.firstName });
-      if (tester.attributes.lastName !== undefined)
+      if (typeof tester.attributes.lastName === 'string')
         Object.assign(betaTester, { lastName: tester.attributes.lastName });
       if (tester.attributes.state !== undefined)
         Object.assign(betaTester, { state: tester.attributes.state });
@@ -2660,7 +2677,7 @@ export class AppStoreConnectClient {
   ): Promise<CustomProductPageLocalizationResource[]> {
     const appleResources = await this.requestAll<{
       locale?: string;
-      promotionalText?: string;
+      promotionalText?: string | null;
     }>(
       `/appCustomProductPageVersions/${versionId}/appCustomProductPageLocalizations?limit=200&fields[appCustomProductPageLocalizations]=locale,promotionalText`,
     );
@@ -2671,7 +2688,7 @@ export class AppStoreConnectClient {
         id: localization.id,
         locale,
       };
-      if (localization.attributes.promotionalText !== undefined)
+      if (typeof localization.attributes.promotionalText === 'string')
         Object.assign(customPageLocalization, {
           promotionalText: localization.attributes.promotionalText,
         });
@@ -2977,7 +2994,7 @@ export class AppStoreConnectClient {
     const appleResources = await this.requestAll<{
       locale?: string;
       name?: string;
-      description?: string;
+      description?: string | null;
     }>(path);
     return appleResources.flatMap((localization) => {
       const locale = localization.attributes.locale;
@@ -2989,7 +3006,7 @@ export class AppStoreConnectClient {
         locale,
         name: localizationName,
       };
-      if (localization.attributes.description !== undefined)
+      if (typeof localization.attributes.description === 'string')
         Object.assign(localizedProduct, { description: localization.attributes.description });
       return [localizedProduct];
     });
@@ -3012,7 +3029,7 @@ export class AppStoreConnectClient {
     const appleResources = await this.createResource<{
       locale?: string;
       name?: string;
-      description?: string;
+      description?: string | null;
     }>(`/${resourceType}`, {
       type: resourceType,
       attributes: localizationAttributes,
@@ -3027,7 +3044,7 @@ export class AppStoreConnectClient {
       locale,
       name: localizationName,
     };
-    if (appleResources.attributes.description !== undefined)
+    if (typeof appleResources.attributes.description === 'string')
       Object.assign(localizedProduct, { description: appleResources.attributes.description });
     return localizedProduct;
   }
@@ -3184,12 +3201,13 @@ export class AppStoreConnectClient {
         const submission: BetaFeedbackSubmissionResource = { id };
         if (attributes?.createdDate !== undefined)
           Object.assign(submission, { createdDate: attributes.createdDate });
-        if (attributes?.comment !== undefined)
+        if (typeof attributes?.comment === 'string')
           Object.assign(submission, { comment: attributes.comment });
-        if (attributes?.email !== undefined) Object.assign(submission, { email: attributes.email });
-        if (attributes?.deviceModel !== undefined)
+        if (typeof attributes?.email === 'string')
+          Object.assign(submission, { email: attributes.email });
+        if (typeof attributes?.deviceModel === 'string')
           Object.assign(submission, { deviceModel: attributes.deviceModel });
-        if (attributes?.osVersion !== undefined)
+        if (typeof attributes?.osVersion === 'string')
           Object.assign(submission, { osVersion: attributes.osVersion });
         if (buildVersion !== undefined) Object.assign(submission, { buildVersion });
         let screenshots: BetaFeedbackRow['screenshots'] = [];
@@ -3518,7 +3536,7 @@ export class AppStoreConnectClient {
   async listBetaBuildLocalizations(buildId: string): Promise<BetaBuildLocalizationResource[]> {
     const appleResources = await this.requestAll<{
       locale?: string;
-      whatsNew?: string;
+      whatsNew?: string | null;
     }>(
       `/builds/${buildId}/betaBuildLocalizations?limit=200&fields[betaBuildLocalizations]=locale,whatsNew`,
     );
@@ -3526,7 +3544,7 @@ export class AppStoreConnectClient {
       const locale = localization.attributes.locale;
       if (locale === undefined) return [];
       const betaLocalization: BetaBuildLocalizationResource = { id: localization.id, locale };
-      if (localization.attributes.whatsNew !== undefined)
+      if (typeof localization.attributes.whatsNew === 'string')
         Object.assign(betaLocalization, { whatsNew: localization.attributes.whatsNew });
       return [betaLocalization];
     });
@@ -3821,62 +3839,17 @@ export class AppStoreConnectClient {
   /** In-app events and their localizations. */
   /** List an app's in-app events (newest lifecycle first is not guaranteed; Apple returns creation order). */
   async listAppEvents(appId: string): Promise<AppEventResource[]> {
-    const appleResources = await this.requestAll<{
-      referenceName?: string;
-      badge?: string;
-      eventState?: string;
-      primaryLocale?: string;
-      deepLink?: string;
-      priority?: string;
-      purpose?: string;
-    }>(
+    const appleResources = await this.requestAll<AppEventAttributes>(
       `/apps/${appId}/appEvents?limit=200&fields[appEvents]=referenceName,badge,eventState,primaryLocale,deepLink,priority,purpose`,
     );
-    return appleResources.map((event) => {
-      let referenceName = event.attributes.referenceName;
-      if (referenceName === undefined) referenceName = '';
-      const appEvent: AppEventResource = { id: event.id, referenceName };
-      if (event.attributes.badge !== undefined)
-        Object.assign(appEvent, { badge: event.attributes.badge });
-      if (event.attributes.eventState !== undefined)
-        Object.assign(appEvent, { eventState: event.attributes.eventState });
-      if (event.attributes.primaryLocale !== undefined)
-        Object.assign(appEvent, { primaryLocale: event.attributes.primaryLocale });
-      if (event.attributes.deepLink !== undefined)
-        Object.assign(appEvent, { deepLink: event.attributes.deepLink });
-      if (event.attributes.priority !== undefined)
-        Object.assign(appEvent, { priority: event.attributes.priority });
-      if (event.attributes.purpose !== undefined)
-        Object.assign(appEvent, { purpose: event.attributes.purpose });
-      return appEvent;
-    });
+    return appleResources.map((appleEvent) => toAppEvent(appleEvent, ''));
   }
   /** List one event's localizations (per-locale name + descriptions). */
   async listAppEventLocalizations(eventId: string): Promise<AppEventLocalizationResource[]> {
-    const appleResources = await this.requestAll<{
-      locale?: string;
-      name?: string;
-      shortDescription?: string;
-      longDescription?: string;
-    }>(
+    const appleResources = await this.requestAll<AppEventLocalizationAttributes>(
       `/appEvents/${eventId}/appEventLocalizations?limit=200&fields[appEventLocalizations]=locale,name,shortDescription,longDescription`,
     );
-    return appleResources.map((localization) => {
-      let locale = localization.attributes.locale;
-      if (locale === undefined) locale = '';
-      const eventLocalization: AppEventLocalizationResource = { id: localization.id, locale };
-      if (localization.attributes.name !== undefined)
-        Object.assign(eventLocalization, { name: localization.attributes.name });
-      if (localization.attributes.shortDescription !== undefined)
-        Object.assign(eventLocalization, {
-          shortDescription: localization.attributes.shortDescription,
-        });
-      if (localization.attributes.longDescription !== undefined)
-        Object.assign(eventLocalization, {
-          longDescription: localization.attributes.longDescription,
-        });
-      return eventLocalization;
-    });
+    return appleResources.map((localization) => toAppEventLocalization(localization, ''));
   }
   /** Create a draft in-app event for an app, returning the created event. */
   async createAppEvent(appId: string, attributes: NewAppEvent): Promise<AppEventResource> {
@@ -3890,35 +3863,12 @@ export class AppStoreConnectClient {
       Object.assign(eventAttributes, { priority: attributes.priority });
     if (attributes.purpose !== undefined)
       Object.assign(eventAttributes, { purpose: attributes.purpose });
-    const appleResources = await this.createResource<{
-      referenceName?: string;
-      badge?: string;
-      eventState?: string;
-      primaryLocale?: string;
-      deepLink?: string;
-      priority?: string;
-      purpose?: string;
-    }>('/appEvents', {
+    const appleResources = await this.createResource<AppEventAttributes>('/appEvents', {
       type: 'appEvents',
       attributes: eventAttributes,
       relationships: { app: { data: { type: 'apps', id: appId } } },
     });
-    let referenceName = appleResources.attributes.referenceName;
-    if (referenceName === undefined) referenceName = attributes.referenceName;
-    const appEvent: AppEventResource = { id: appleResources.id, referenceName };
-    if (appleResources.attributes.badge !== undefined)
-      Object.assign(appEvent, { badge: appleResources.attributes.badge });
-    if (appleResources.attributes.eventState !== undefined)
-      Object.assign(appEvent, { eventState: appleResources.attributes.eventState });
-    if (appleResources.attributes.primaryLocale !== undefined)
-      Object.assign(appEvent, { primaryLocale: appleResources.attributes.primaryLocale });
-    if (appleResources.attributes.deepLink !== undefined)
-      Object.assign(appEvent, { deepLink: appleResources.attributes.deepLink });
-    if (appleResources.attributes.priority !== undefined)
-      Object.assign(appEvent, { priority: appleResources.attributes.priority });
-    if (appleResources.attributes.purpose !== undefined)
-      Object.assign(appEvent, { purpose: appleResources.attributes.purpose });
-    return appEvent;
+    return toAppEvent(appleResources, attributes.referenceName);
   }
   /** Delete an in-app event by id (only a DRAFT event can be deleted). */
   async deleteAppEvent(eventId: string): Promise<void> {
@@ -3937,16 +3887,14 @@ export class AppStoreConnectClient {
       Object.assign(eventLocalizationAttributes, { shortDescription: attributes.shortDescription });
     if (attributes.longDescription !== undefined)
       Object.assign(eventLocalizationAttributes, { longDescription: attributes.longDescription });
-    const appleResources = await this.createResource<{
-      locale?: string;
-      name?: string;
-      shortDescription?: string;
-      longDescription?: string;
-    }>('/appEventLocalizations', {
-      type: 'appEventLocalizations',
-      attributes: eventLocalizationAttributes,
-      relationships: { appEvent: { data: { type: 'appEvents', id: eventId } } },
-    });
+    const appleResources = await this.createResource<AppEventLocalizationAttributes>(
+      '/appEventLocalizations',
+      {
+        type: 'appEventLocalizations',
+        attributes: eventLocalizationAttributes,
+        relationships: { appEvent: { data: { type: 'appEvents', id: eventId } } },
+      },
+    );
     return toAppEventLocalization(appleResources, locale);
   }
   /** Update an existing event localization's copy by its id, returning the updated localization. */
@@ -3962,12 +3910,7 @@ export class AppStoreConnectClient {
     if (attributes.longDescription !== undefined)
       Object.assign(eventLocalizationAttributes, { longDescription: attributes.longDescription });
     const { data: appleResources } = await this.request<
-      ResourceSingle<{
-        locale?: string;
-        name?: string;
-        shortDescription?: string;
-        longDescription?: string;
-      }>
+      ResourceSingle<AppEventLocalizationAttributes>
     >('PATCH', `/appEventLocalizations/${localizationId}`, {
       data: {
         type: 'appEventLocalizations',
@@ -4680,6 +4623,34 @@ const toReviewResponse = (appleResources: {
   return reviewResponse;
 };
 /**
+ * Project an ASC `appEvents` resource object into an {@link AppEventResource}. `fallbackReferenceName`
+ * fills a missing `referenceName`: the requested name on create, the empty string on a list.
+ */
+const toAppEvent = (
+  appleEvent: {
+    id: string;
+    attributes: AppEventAttributes;
+  },
+  fallbackReferenceName: string,
+): AppEventResource => {
+  let referenceName = appleEvent.attributes.referenceName;
+  if (referenceName === undefined) referenceName = fallbackReferenceName;
+  const appEvent: AppEventResource = { id: appleEvent.id, referenceName };
+  if (typeof appleEvent.attributes.badge === 'string')
+    Object.assign(appEvent, { badge: appleEvent.attributes.badge });
+  if (appleEvent.attributes.eventState !== undefined)
+    Object.assign(appEvent, { eventState: appleEvent.attributes.eventState });
+  if (typeof appleEvent.attributes.primaryLocale === 'string')
+    Object.assign(appEvent, { primaryLocale: appleEvent.attributes.primaryLocale });
+  if (typeof appleEvent.attributes.deepLink === 'string')
+    Object.assign(appEvent, { deepLink: appleEvent.attributes.deepLink });
+  if (typeof appleEvent.attributes.priority === 'string')
+    Object.assign(appEvent, { priority: appleEvent.attributes.priority });
+  if (typeof appleEvent.attributes.purpose === 'string')
+    Object.assign(appEvent, { purpose: appleEvent.attributes.purpose });
+  return appEvent;
+};
+/**
  * Project an ASC `appEventLocalizations` resource object into an {@link AppEventLocalizationResource}.
  * `fallbackLocale` supplies the locale on a PATCH response (Apple's update payload omits the unchanged
  * `locale`); it's the empty string when the caller doesn't need it (the create path passes the locale).
@@ -4687,12 +4658,7 @@ const toReviewResponse = (appleResources: {
 const toAppEventLocalization = (
   appleResources: {
     id: string;
-    attributes: {
-      locale?: string;
-      name?: string;
-      shortDescription?: string;
-      longDescription?: string;
-    };
+    attributes: AppEventLocalizationAttributes;
   },
   fallbackLocale: string,
 ): AppEventLocalizationResource => {
@@ -4702,13 +4668,13 @@ const toAppEventLocalization = (
     id: appleResources.id,
     locale,
   };
-  if (appleResources.attributes.name !== undefined)
+  if (typeof appleResources.attributes.name === 'string')
     Object.assign(eventLocalization, { name: appleResources.attributes.name });
-  if (appleResources.attributes.shortDescription !== undefined)
+  if (typeof appleResources.attributes.shortDescription === 'string')
     Object.assign(eventLocalization, {
       shortDescription: appleResources.attributes.shortDescription,
     });
-  if (appleResources.attributes.longDescription !== undefined)
+  if (typeof appleResources.attributes.longDescription === 'string')
     Object.assign(eventLocalization, {
       longDescription: appleResources.attributes.longDescription,
     });

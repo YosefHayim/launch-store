@@ -910,6 +910,113 @@ describe('AppStoreConnectClient - listing localizations', () => {
       { id: 'vl1', locale: 'en-US', fields: { description: 'Copy', keywords: 'a,b' } },
     ]);
   });
+  it('reads a null privacyChoicesUrl as an unset account-deletion URL', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: 'ail-en', attributes: { locale: 'en-US', privacyChoicesUrl: null } },
+            {
+              id: 'ail-he',
+              attributes: { locale: 'he', privacyChoicesUrl: 'https://example.com/delete' },
+            },
+          ],
+        }),
+      ),
+    );
+    expect(await client.listAccountDeletionUrls('ai-edit')).toEqual([
+      { locale: 'en-US', url: '' },
+      { locale: 'he', url: 'https://example.com/delete' },
+    ]);
+    expect(expectArrayElement(fetchMock.mock.calls, 0, 'mock call')[0]).toContain(
+      '/appInfos/ai-edit/appInfoLocalizations',
+    );
+  });
+  it('omits null promotional text, product description and What to Test copy', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [{ id: 'cpl1', attributes: { locale: 'en-US', promotionalText: null } }],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [{ id: 'loc1', attributes: { locale: 'en-US', name: 'Pro', description: null } }],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [{ id: 'bbl1', attributes: { locale: 'en-US', whatsNew: null } }],
+          }),
+        ),
+      );
+    expect(await client.listCustomProductPageLocalizations('cppv1')).toEqual([
+      { id: 'cpl1', locale: 'en-US' },
+    ]);
+    expect(await client.listInAppPurchaseLocalizations('iap1')).toEqual([
+      { id: 'loc1', locale: 'en-US', name: 'Pro' },
+    ]);
+    expect(await client.listBetaBuildLocalizations('b1')).toEqual([
+      { id: 'bbl1', locale: 'en-US' },
+    ]);
+  });
+  it('omits null optional fields from in-app events and their localizations', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [
+              {
+                id: 'ev1',
+                attributes: {
+                  referenceName: 'Launch week',
+                  badge: null,
+                  eventState: 'DRAFT',
+                  primaryLocale: null,
+                  deepLink: null,
+                  priority: null,
+                  purpose: null,
+                },
+              },
+            ],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [
+              {
+                id: 'evl1',
+                attributes: {
+                  locale: 'en-US',
+                  name: null,
+                  shortDescription: null,
+                  longDescription: null,
+                },
+              },
+            ],
+          }),
+        ),
+      );
+    expect(await client.listAppEvents('app1')).toEqual([
+      { id: 'ev1', referenceName: 'Launch week', eventState: 'DRAFT' },
+    ]);
+    expect(await client.listAppEventLocalizations('ev1')).toEqual([
+      { id: 'evl1', locale: 'en-US' },
+    ]);
+  });
   it('POSTs a new version localization with the appStoreVersion relationship', async () => {
     fetchMock.mockResolvedValueOnce(
       fakeResponse(201, JSON.stringify({ data: { id: 'vl-new', attributes: {} } })),
@@ -1018,6 +1125,28 @@ describe('AppStoreConnectClient - TestFlight beta groups + testers', () => {
         relationships: { betaGroups: { data: [{ type: 'betaGroups', id: 'bg1' }] } },
       },
     });
+  });
+  it('skips a tester with a null email and omits null names', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            {
+              id: 't-public',
+              attributes: { email: null, firstName: null, lastName: null, state: 'INSTALLED' },
+            },
+            {
+              id: 't-invited',
+              attributes: { email: 'a@x.com', firstName: null, lastName: null, state: 'INVITED' },
+            },
+          ],
+        }),
+      ),
+    );
+    expect(await client.listBetaTestersInGroup('bg1')).toEqual([
+      { id: 't-invited', email: 'a@x.com', state: 'INVITED' },
+    ]);
   });
   it('finds a tester by email via the filter, matching case-insensitively', async () => {
     fetchMock.mockResolvedValueOnce(
@@ -2487,6 +2616,31 @@ describe('AppStoreConnectClient - TestFlight beta feedback', () => {
         buildVersion: '7',
         screenshots: [{ url: 'https://a/1.png', width: 100, height: 200 }],
       },
+    ]);
+  });
+  it('omits the null comment, email and device fields of an anonymous submission', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            {
+              id: 's2',
+              attributes: {
+                createdDate: '2026-06-21T00:00:00Z',
+                comment: null,
+                email: null,
+                deviceModel: null,
+                osVersion: null,
+                screenshots: [],
+              },
+            },
+          ],
+        }),
+      ),
+    );
+    expect(await client.listBetaFeedbackScreenshotSubmissions('app1')).toEqual([
+      { id: 's2', createdDate: '2026-06-21T00:00:00Z', screenshots: [] },
     ]);
   });
   it('pushes filter[build] when a build id is given', async () => {
