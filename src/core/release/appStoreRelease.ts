@@ -49,6 +49,7 @@ export type AscReleaseApi = {
       releaseType?: string;
       earliestReleaseDate?: string;
       versionString?: string;
+      copyright?: string;
     },
   ): Effect.Effect<void, unknown>;
   selectBuildForVersion(versionId: string, buildId: string): Effect.Effect<void, unknown>;
@@ -145,6 +146,12 @@ export const nextReleaseAction = (appStoreState: string): ReleasePhase => {
   }
 };
 
+/** Whether any of the app's versions has ever gone live - false while the app is on its first version. */
+export const hasReleasedVersion = (
+  storeVersions: ReadonlyArray<Readonly<{ appStoreState: string }>>,
+): boolean =>
+  storeVersions.some((storeVersion) => nextReleaseAction(storeVersion.appStoreState) === 'live');
+
 /** Terminal-or-transient read of where a submitted version stands (`launch status` / watch). */
 export type ReleaseVerdict = {
   label: string;
@@ -228,6 +235,7 @@ export type ReleaseInput = {
   versionString: string;
   releaseType: ReleaseType;
   earliestReleaseDate?: string;
+  copyright?: string;
   phasedRelease: boolean;
   usesNonExemptEncryption: boolean;
   whatsNew: Record<string, string>;
@@ -270,6 +278,7 @@ type ReleaseContext = {
 type SelectedReleaseVersion = Readonly<{
   versionId: string;
   versionString: string;
+  appReleasedBefore: boolean;
   idempotentState?: string;
 }>;
 
@@ -409,14 +418,23 @@ export const releaseApp = (
         releaseInput.usesNonExemptEncryption,
       );
     }
-    yield* applyReleaseNotes(releaseContext, versionId, releaseInput.whatsNew);
+    yield* applyReleaseNotes(
+      releaseContext,
+      versionId,
+      releaseInput.whatsNew,
+      selectedVersion.appReleasedBefore,
+    );
     let releaseTypeDescription = `set release type ${releaseInput.releaseType}`;
-    const versionUpdate: { releaseType: string; earliestReleaseDate?: string } = {
-      releaseType: releaseInput.releaseType,
-    };
+    const versionUpdate: { releaseType: string; earliestReleaseDate?: string; copyright?: string } =
+      { releaseType: releaseInput.releaseType };
     if (releaseInput.earliestReleaseDate !== undefined) {
       releaseTypeDescription += ` @ ${releaseInput.earliestReleaseDate}`;
       versionUpdate.earliestReleaseDate = releaseInput.earliestReleaseDate;
+    }
+    const copyright = releaseInput.copyright;
+    if (copyright !== undefined && copyright.length > 0) {
+      releaseTypeDescription += `, copyright "${copyright}"`;
+      versionUpdate.copyright = copyright;
     }
     yield* performReleaseAction(releaseContext, releaseTypeDescription, () =>
       appleReleaseApi.updateAppStoreVersion(versionId, versionUpdate),
@@ -515,6 +533,7 @@ const selectReleaseVersion = (
     const storeVersions = yield* releaseContext.appleReleaseApi
       .listAppStoreVersions(appId, releaseInput.platform)
       .pipe(Effect.mapError((cause) => releaseFailure('list App Store versions', cause)));
+    const appReleasedBefore = hasReleasedVersion(storeVersions);
     const matchingVersion = storeVersions.find(
       (storeVersion) => storeVersion.versionString === releaseInput.versionString,
     );
@@ -533,10 +552,15 @@ const selectReleaseVersion = (
         return {
           versionId: matchingVersion.id,
           versionString: matchingVersion.versionString,
+          appReleasedBefore,
           idempotentState: matchingVersion.appStoreState,
         };
       }
-      return { versionId: matchingVersion.id, versionString: matchingVersion.versionString };
+      return {
+        versionId: matchingVersion.id,
+        versionString: matchingVersion.versionString,
+        appReleasedBefore,
+      };
     }
     const editableVersion = storeVersions.find(
       (storeVersion) => nextReleaseAction(storeVersion.appStoreState) === 'editable',
@@ -550,7 +574,11 @@ const selectReleaseVersion = (
             versionString: releaseInput.versionString,
           }),
       );
-      return { versionId: editableVersion.id, versionString: releaseInput.versionString };
+      return {
+        versionId: editableVersion.id,
+        versionString: releaseInput.versionString,
+        appReleasedBefore,
+      };
     }
     const createInput: {
       versionString: string;
@@ -575,23 +603,34 @@ const selectReleaseVersion = (
     return {
       versionId,
       versionString: releaseInput.versionString,
+      appReleasedBefore,
     };
   });
 
-/** Write each locale's release notes, creating the localization or updating its `whatsNew`. */
+/**
+ * Write each locale's release notes, creating the localization or updating its `whatsNew`. Skipped on
+ * an app's first version: Apple refuses `whatsNew` there (409 "cannot be edited at this time").
+ */
 const applyReleaseNotes = (
   releaseContext: ReleaseContext,
   versionId: string,
   whatsNew: Record<string, string>,
+  appReleasedBefore: boolean,
 ): Effect.Effect<void> =>
   Effect.gen(function* () {
     const localeEntries = Object.entries(whatsNew);
     if (localeEntries.length === 0) return;
-    if (versionId === DRY_RUN_ID) {
+    const allNotesDescription = `set release notes for ${localeEntries.length} locale(s)`;
+    if (!appReleasedBefore) {
       releaseContext.actions.push({
-        description: `set release notes for ${localeEntries.length} locale(s)`,
-        status: 'planned',
+        description: allNotesDescription,
+        status: 'skipped',
+        note: "first version - Apple shows What's New only on updates",
       });
+      return;
+    }
+    if (versionId === DRY_RUN_ID) {
+      releaseContext.actions.push({ description: allNotesDescription, status: 'planned' });
       return;
     }
     const existingLocalizations = yield* releaseContext.appleReleaseApi

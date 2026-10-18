@@ -237,6 +237,7 @@ export default defineConfig({
     releaseType: 'AFTER_APPROVAL', // go live automatically once Apple approves
     // With `releaseType: "SCHEDULED"`, set `earliestReleaseDate` to the ISO-8601 instant to go live at:
     // earliestReleaseDate: "2026-07-01T09:00:00Z",
+    copyright: '2026 Acme Inc.', // Apple won't submit a version whose copyright is empty
     phasedRelease: true, // Apple's 7-day gradual rollout for the update
     usesNonExemptEncryption: false, // standard HTTPS only -> Launch clears export compliance over the API
     primaryLocale: 'en-US',

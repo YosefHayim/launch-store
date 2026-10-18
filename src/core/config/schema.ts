@@ -508,6 +508,11 @@ const ReleaseConfigEffectSchema = Schema.Struct({
       description: `ISO-8601 instant to go live at - only meaningful with \`releaseType: "SCHEDULED"\` (ignored otherwise). A \`--scheduled <iso>\` flag sets both this and the release type for one run.`,
     }),
   ),
+  copyright: Schema.optional(
+    Schema.String.annotations({
+      description: `The version's copyright line (Apple's \`copyright\`, e.g. \`"2026 Acme Inc."\`), sent with the release type on each \`launch release\`. Apple won't add a version with an empty copyright to a review submission, so set it here unless you fill it in App Store Connect. Absent leaves the version's copyright as it is.`,
+    }),
+  ),
   phasedRelease: Schema.optional(
     Schema.Boolean.annotations({
       description: `Opt into Apple's 7-day phased release (a gradual percentage rollout) for an approved update. Defaults to \`false\` - an immediate 100% release. Overridable per-run with \`--phased\`, and steerable afterward with \`launch rollout <pause|resume|complete>\`. Ignored for a first version (Apple only phases updates).`,
@@ -521,7 +526,7 @@ const ReleaseConfigEffectSchema = Schema.Struct({
   releaseNotes: Schema.optional(
     described(
       Schema.Union(Schema.String, StringMap),
-      `Release notes ("What's New in This Version"), per App Store locale (e.g. \`{ "en-US": "Bug fixes." }\`) or a single string applied to {@link ReleaseConfig.primaryLocale}. When absent, Launch reuses the previous version's notes so a release never ships an empty "What's New". Apple stores these on the version's localization, not the version itself.`,
+      `Release notes ("What's New in This Version"), per App Store locale (e.g. \`{ "en-US": "Bug fixes." }\`) or a single string applied to {@link ReleaseConfig.primaryLocale}. When absent, Launch reuses the previous version's notes so a release never ships an empty "What's New". Skipped on an app's first version, which has no "What's New". Apple stores these on the version's localization, not the version itself.`,
     ),
   ),
   primaryLocale: Schema.optional(
@@ -532,7 +537,7 @@ const ReleaseConfigEffectSchema = Schema.Struct({
   ),
 }).annotations({
   identifier: 'ReleaseConfig',
-  description: `iOS public-release policy, declared under {@link LaunchConfig.release}. These are the defaults \`launch release\` applies to the App Store version it submits; every field is optional, so an absent \`release\` block means "go live after approval, all at once" - the safe, common case. Android release policy is unaffected (it rides on the Play track + \`--rollout\`, see {@link AndroidReleaseOptions}). Scope: this drives an UPDATE to an already-configured app. A brand-new app's first submission still needs portal-only steps (screenshots, age rating, signed agreements) and the app record itself - which Apple has no API to create - so \`launch release\` detects that and prints a one-time checklist.`,
+  description: `iOS public-release policy, declared under {@link LaunchConfig.release}. These are the defaults \`launch release\` applies to the App Store version it submits; every field is optional, so an absent \`release\` block means "go live after approval, all at once" - the safe, common case. Android release policy is unaffected (it rides on the Play track + \`--rollout\`, see {@link AndroidReleaseOptions}). Scope: this drives an UPDATE to an already-configured app. A brand-new app's first submission still needs portal-only steps (screenshots, age rating, App Privacy, signed agreements) and the app record itself - which Apple has no API to create - so \`launch release\` detects that and prints a one-time checklist.`,
 });
 const NotifyConfigEffectSchema = Schema.Struct({
   webhookUrl: Schema.optional(

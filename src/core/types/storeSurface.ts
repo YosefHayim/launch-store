@@ -10,6 +10,7 @@ export type ReleaseType = 'AFTER_APPROVAL' | 'MANUAL' | 'SCHEDULED';
 export type ReleaseConfig = Readonly<{
   releaseType?: ReleaseType;
   earliestReleaseDate?: string;
+  copyright?: string;
   phasedRelease?: boolean;
   usesNonExemptEncryption?: boolean;
   releaseNotes?: string | Record<string, string>;

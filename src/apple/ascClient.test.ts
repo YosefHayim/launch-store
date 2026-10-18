@@ -1929,15 +1929,54 @@ describe('app-level release attributes', () => {
         JSON.stringify({
           data: [
             { id: 'v-live', attributes: { appVersionState: 'READY_FOR_DISTRIBUTION' } },
-            { id: 'v-edit', attributes: { appVersionState: 'PREPARE_FOR_SUBMISSION' } },
+            {
+              id: 'v-edit',
+              attributes: { appVersionState: 'PREPARE_FOR_SUBMISSION', copyright: null },
+            },
           ],
         }),
       ),
     );
-    expect(await client.findEditableAppStoreVersion('app1', 'IOS')).toEqual({ id: 'v-edit' });
-    expect(expectArrayElement(fetchMock.mock.calls, 0, 'mock call')[0]).toContain(
-      '/apps/app1/appStoreVersions?filter[platform]=IOS',
+    expect(await client.findEditableAppStoreVersion('app1', 'IOS')).toEqual({
+      id: 'v-edit',
+      copyright: '',
+    });
+    const requestUrl = expectArrayElement(fetchMock.mock.calls, 0, 'mock call')[0];
+    expect(requestUrl).toContain('/apps/app1/appStoreVersions?filter[platform]=IOS');
+    expect(requestUrl).toContain('copyright');
+  });
+  it("reads the editable version's copyright", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            {
+              id: 'v-edit',
+              attributes: { appVersionState: 'PREPARE_FOR_SUBMISSION', copyright: '2026 Acme' },
+            },
+          ],
+        }),
+      ),
     );
+    expect(await client.findEditableAppStoreVersion('app1', 'IOS')).toEqual({
+      id: 'v-edit',
+      copyright: '2026 Acme',
+    });
+  });
+  it('sends copyright in the App Store version PATCH', async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: { id: 'v-edit' } })));
+    await client.updateAppStoreVersion('v-edit', {
+      releaseType: 'AFTER_APPROVAL',
+      copyright: '2026 Acme',
+    });
+    const patchCall = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
+    expect(patchCall[0]).toContain('/appStoreVersions/v-edit');
+    const patchBody = readRequestDocument(patchCall[1]);
+    expect(documentValueAt(patchBody, ['data', 'attributes'])).toEqual({
+      releaseType: 'AFTER_APPROVAL',
+      copyright: '2026 Acme',
+    });
   });
   it('returns null when no App Store version is editable', async () => {
     fetchMock.mockResolvedValueOnce(

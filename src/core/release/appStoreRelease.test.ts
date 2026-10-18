@@ -13,7 +13,9 @@ import {
   type ReleaseInput,
 } from './appStoreRelease.js';
 
-/** Fully-stubbed {@link AscReleaseApi}. Reads default to an empty app; writes resolve to a created resource. */
+const LIVE_VERSION = { id: 'v-live', versionString: '1.1.0', appStoreState: 'READY_FOR_SALE' };
+
+/** Fully-stubbed {@link AscReleaseApi}. Reads default to an app with one live version; writes resolve to a created resource. */
 const makeApi = (methodOverrides: Partial<AscReleaseApi> = {}): AscReleaseApi => {
   const baseApi: AscReleaseApi = {
     getAppId: vi.fn(() => Effect.succeed('app1')),
@@ -22,7 +24,7 @@ const makeApi = (methodOverrides: Partial<AscReleaseApi> = {}): AscReleaseApi =>
     findBuild: vi.fn(() => Effect.succeed({ id: 'b-1', usesNonExemptEncryption: null })),
     findBuildByVersion: vi.fn(() => Effect.succeed(null)),
     setBuildUsesNonExemptEncryption: vi.fn(() => Effect.void),
-    listAppStoreVersions: vi.fn(() => Effect.succeed([])),
+    listAppStoreVersions: vi.fn(() => Effect.succeed([LIVE_VERSION])),
     createAppStoreVersion: vi.fn().mockImplementation(
       (
         _appId: string,
@@ -154,6 +156,7 @@ describe('releaseApp - submit an update over the API', () => {
         .mockReturnValue(
           Effect.succeed([
             { id: 'v5', versionString: '1.2.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
+            LIVE_VERSION,
           ]),
         ),
       listAppStoreVersionLocalizations: vi
@@ -163,6 +166,40 @@ describe('releaseApp - submit an update over the API', () => {
     await runRelease(api, releaseInput());
     expect(api.updateAppStoreVersionLocalization).toHaveBeenCalledWith('loc-1', 'Bug fixes.');
     expect(api.createAppStoreVersionLocalization).not.toHaveBeenCalled();
+  });
+  it("skips release notes on the app's first version (Apple has no What's New there)", async () => {
+    const api = makeApi({
+      listAppStoreVersions: vi
+        .fn()
+        .mockReturnValue(
+          Effect.succeed([
+            { id: 'v1', versionString: '1.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
+          ]),
+        ),
+    });
+    const report = await runRelease(api, releaseInput({ versionString: '1.0' }));
+    expect(api.listAppStoreVersionLocalizations).not.toHaveBeenCalled();
+    expect(api.createAppStoreVersionLocalization).not.toHaveBeenCalled();
+    expect(api.updateAppStoreVersionLocalization).not.toHaveBeenCalled();
+    const notesAction = report.actions.find((action) =>
+      action.description.startsWith('set release notes'),
+    );
+    expect(notesAction).toMatchObject({
+      status: 'skipped',
+      note: expect.stringContaining('first version'),
+    });
+    expect(api.submitReviewSubmission).toHaveBeenCalledWith('rs1');
+  });
+  it('sends release.copyright in the version PATCH with the release type', async () => {
+    const api = makeApi();
+    const report = await runRelease(api, releaseInput({ copyright: '2026 Acme Inc.' }));
+    expect(api.updateAppStoreVersion).toHaveBeenCalledWith('v-new', {
+      releaseType: 'AFTER_APPROVAL',
+      copyright: '2026 Acme Inc.',
+    });
+    expect(report.actions.map((action) => action.description)).toContain(
+      'set release type AFTER_APPROVAL, copyright "2026 Acme Inc."',
+    );
   });
   it('retargets the open editable version when its version string differs (one editable allowed at a time)', async () => {
     const api = makeApi({
@@ -433,7 +470,7 @@ describe('readReleaseStatus', () => {
   });
 
   it('returns an empty preparing verdict when the app has no versions yet', async () => {
-    const api = makeApi();
+    const api = makeApi({ listAppStoreVersions: vi.fn(() => Effect.succeed([])) });
     const releaseStatus = await Effect.runPromise(
       readReleaseStatus(api, 'com.acme.app', IOS_PLATFORM),
     );

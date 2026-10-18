@@ -21,6 +21,8 @@ import { accountDeletionProbe } from './probes/accountDeletion.js';
 import { demoAccountProbe } from './probes/demoAccount.js';
 import { profileEntitlementsProbe } from './probes/profileEntitlements.js';
 import { screenshotsProbe } from './probes/screenshots.js';
+import { versionCopyrightProbe } from './probes/versionCopyright.js';
+import { appPrivacyProbe } from './probes/appPrivacy.js';
 /** Registered probes, keyed by id so re-registering one replaces it (idempotent built-in wiring). */
 const PROBES = new Map<string, ReadinessProbe>();
 export const registerReadinessProbe = (probe: ReadinessProbe): void => {
@@ -55,4 +57,6 @@ export const registerBuiltinProbes = (): void => {
   registerReadinessProbe(demoAccountProbe);
   registerReadinessProbe(profileEntitlementsProbe);
   registerReadinessProbe(screenshotsProbe);
+  registerReadinessProbe(versionCopyrightProbe);
+  registerReadinessProbe(appPrivacyProbe);
 };
