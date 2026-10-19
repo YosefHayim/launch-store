@@ -74,27 +74,27 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.8.1",
-    "@effect/platform": "^0.96.2",
+    "@effect/platform": "^0.96.3",
     "@effect/platform-node": "0.107.0",
     "@googleapis/androidpublisher": "^42.2.0",
     "@googleapis/playdeveloperreporting": "^15.0.1",
     "chalk": "^5.6.2",
     "commander": "^12.1.0",
-    "effect": "^3.21.4",
-    "jiti": "^2.4.0",
-    "jose": "^5.9.6"
+    "effect": "^3.22.3",
+    "jiti": "^2.7.0",
+    "jose": "^5.10.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
-    "@types/node": "^20.14.0",
-    "@vitest/coverage-v8": "^4.1.8",
-    "husky": "^9.1.6",
-    "lint-staged": "^15.2.10",
+    "@types/node": "^20.19.43",
+    "@vitest/coverage-v8": "^4.1.12",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "openapi-typescript": "^7.13.0",
     "tsc-alias": "^1.9.8",
     "tsx": "^4.23.15",
-    "typescript": "^5.6.3",
-    "vitest": "^4.1.8"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.12"
   },
   "lint-staged": {
     "**/*.{js,mjs,cjs,ts,mts,cts,json,jsonc}": [
