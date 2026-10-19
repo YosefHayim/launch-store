@@ -47,8 +47,3 @@ export const makeLaunchEnvironmentTest = (
 ): Layer.Layer<LaunchEnvironmentService, unknown> => {
   return makeLaunchEnvironmentLayer(environmentVariables);
 };
-
-/** Effect for entrypoints that intentionally resolve the production environment layer. */
-export const readLiveLaunchEnvironment = LaunchEnvironment.pipe(
-  Effect.provide(LaunchEnvironmentLive),
-);

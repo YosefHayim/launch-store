@@ -678,7 +678,7 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
     globs: [
       'src/core/services/exec.ts',
       'src/core/credentials/keychain.ts',
-      'src/core/credentials/secretStore.ts',
+      'src/core/services/secretStore.ts',
       'src/core/build/buildSecrets.ts',
     ],
     alwaysApply: false,

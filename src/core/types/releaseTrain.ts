@@ -14,8 +14,6 @@ export type NativeCarState =
   | 'failed';
 /** An OTA car's lifecycle: it waits `pending` until its native platform is live, then `published` (D4). */
 export type OtaCarState = 'pending' | 'published';
-/** Every car state, for code that handles both kinds uniformly. */
-export type CarState = NativeCarState | OtaCarState;
 /** The whole train's lifecycle: `running` until every car is terminal (`done`); `blocked` needs an operator. */
 export type TrainState = 'running' | 'blocked' | 'done' | 'aborted';
 /**
