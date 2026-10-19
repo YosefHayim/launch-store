@@ -14,6 +14,8 @@ export type AscTeamApi = Readonly<{
   cancelUserInvitation: (invitationId: string) => Effect.Effect<void, unknown>;
 }>;
 
+const DEPRECATED_ROLE_PERMISSION = 'ACCESS_TO_REPORTS';
+
 export const KNOWN_USER_ROLES: readonly string[] = [
   'ADMIN',
   'FINANCE',
@@ -22,7 +24,6 @@ export const KNOWN_USER_ROLES: readonly string[] = [
   'MARKETING',
   'APP_MANAGER',
   'DEVELOPER',
-  'ACCESS_TO_REPORTS',
   'CUSTOMER_SUPPORT',
   'CREATE_APPS',
   'CLOUD_MANAGED_DEVELOPER_ID',
@@ -108,6 +109,14 @@ export const inviteTeamMember = (
         teamFailure(
           'invite',
           `At least one role is required. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`,
+        ),
+      );
+    }
+    if (normalizedRoles.includes(DEPRECATED_ROLE_PERMISSION)) {
+      return yield* Effect.fail(
+        teamFailure(
+          'invite',
+          `${DEPRECATED_ROLE_PERMISSION} is deprecated by Apple (App Store Connect API 4.3). Report access comes with the Sales, Marketing, App Manager, and Developer roles: use one of them. Valid roles: ${KNOWN_USER_ROLES.join(', ')}.`,
         ),
       );
     }

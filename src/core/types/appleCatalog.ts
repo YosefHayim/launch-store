@@ -580,8 +580,32 @@ export type AppInfoResource = Readonly<{
   primaryCategoryId?: string;
   secondaryCategoryId?: string;
 }>;
-/** One age-rating answer: a content-descriptor enum string (`NONE` / `INFREQUENT_OR_MILD` / ...) or a boolean flag. */
+/** One age-rating answer: a content-descriptor enum string (`NONE` / `INFREQUENT` / `FREQUENT`) or a boolean flag. */
 export type AgeRatingValue = string | boolean;
+const DEPRECATED_AGE_RATING_ANSWERS: Readonly<Record<string, string>> = {
+  INFREQUENT_OR_MILD: 'INFREQUENT',
+  FREQUENT_OR_INTENSE: 'FREQUENT',
+};
+const DEPRECATED_AGE_RATING_ATTRIBUTES: Readonly<Record<string, string>> = {
+  kidsAgeBand: 'Apple deprecated it in App Store Connect API 4.2; remove it',
+  ageRatingOverride: 'use ageRatingOverrideV2',
+};
+/** Effect `Schema.filter` verdict for age-rating answers: `true`, or a message naming what to use instead of a deprecated name or value. */
+export const deprecatedAgeRatingVerdict = (
+  answers: Readonly<Record<string, AgeRatingValue>>,
+): true | string => {
+  for (const [attributeName, answer] of Object.entries(answers)) {
+    const attributeAdvice = DEPRECATED_AGE_RATING_ATTRIBUTES[attributeName];
+    if (attributeAdvice !== undefined) {
+      return `ageRating.${attributeName} is deprecated: ${attributeAdvice}.`;
+    }
+    const replacementAnswer = DEPRECATED_AGE_RATING_ANSWERS[String(answer)];
+    if (replacementAnswer !== undefined) {
+      return `ageRating.${attributeName} uses deprecated value ${String(answer)}: use ${replacementAnswer}.`;
+    }
+  }
+  return true;
+};
 /**
  * An app's age-rating declaration. Apple's attribute set (content-descriptor enums like
  * `violenceCartoonOrFantasy`, plus booleans and age bands) changes over time, so the attributes are

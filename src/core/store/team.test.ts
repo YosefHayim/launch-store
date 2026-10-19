@@ -121,6 +121,19 @@ describe('inviteTeamMember', () => {
     ).rejects.toThrow(/At least one role is required/);
   });
 
+  it('rejects the deprecated ACCESS_TO_REPORTS permission and names the roles to use', async () => {
+    await expect(
+      Effect.runPromise(
+        inviteTeamMember(makeTeamClient(), {
+          email: 'new@acme.com',
+          firstName: 'Pat',
+          lastName: 'Lee',
+          roles: ['SALES', 'ACCESS_TO_REPORTS'],
+        }),
+      ),
+    ).rejects.toThrow(/ACCESS_TO_REPORTS is deprecated by Apple.*Sales, Marketing, App Manager/);
+  });
+
   it('rejects an unknown role with the valid list', async () => {
     await expect(
       Effect.runPromise(

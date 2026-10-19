@@ -260,3 +260,18 @@ describe('validateLaunchConfig', () => {
     expect(violations.some((violation) => violation.path.includes('priority'))).toBe(true);
   });
 });
+
+describe('deprecated age-rating answers in releaseAttributes', () => {
+  it('rejects a deprecated value and names the one to use', () => {
+    expect(() =>
+      Effect.runSync(
+        parseLaunchConfig({
+          profiles: {},
+          releaseAttributes: {
+            'com.acme.app': { ageRating: { violenceRealistic: 'INFREQUENT_OR_MILD' } },
+          },
+        }),
+      ),
+    ).toThrow(/uses deprecated value INFREQUENT_OR_MILD: use INFREQUENT/);
+  });
+});

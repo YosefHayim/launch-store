@@ -104,6 +104,23 @@ describe('release config schema', () => {
     ).rejects.toThrow(/string or boolean/);
   });
 
+  it('rejects deprecated age-rating values and attributes with the replacement', async () => {
+    await expect(
+      Effect.runPromise(
+        parseReleaseConfig({ ageRating: { violenceRealistic: 'INFREQUENT_OR_MILD' } }),
+      ),
+    ).rejects.toThrow(/violenceRealistic uses deprecated value INFREQUENT_OR_MILD: use INFREQUENT/);
+    await expect(
+      Effect.runPromise(parseReleaseConfig({ ageRating: { contests: 'FREQUENT_OR_INTENSE' } })),
+    ).rejects.toThrow(/contests uses deprecated value FREQUENT_OR_INTENSE: use FREQUENT/);
+    await expect(
+      Effect.runPromise(parseReleaseConfig({ ageRating: { kidsAgeBand: 'SIX_TO_EIGHT' } })),
+    ).rejects.toThrow(/ageRating.kidsAgeBand is deprecated/);
+    await expect(
+      Effect.runPromise(parseReleaseConfig({ ageRating: { ageRatingOverride: 'NONE' } })),
+    ).rejects.toThrow(/use ageRatingOverrideV2/);
+  });
+
   it('reads and decodes a sidecar through Effect Platform', async () => {
     const temporaryDirectory = mkdtempSync(join(tmpdir(), 'launch-release-attrs-'));
     const configPath = join(temporaryDirectory, 'release.config.json');

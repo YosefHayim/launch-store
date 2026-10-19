@@ -1498,7 +1498,7 @@ describe('app-level release attributes', () => {
     );
     await client.updateAgeRatingDeclaration('age1', {
       gambling: false,
-      violenceRealistic: 'INFREQUENT_OR_MILD',
+      violenceRealistic: 'INFREQUENT',
     });
     const requestDocument = readRequestDocument(
       expectArrayElement(fetchMock.mock.calls, 0, 'mock call')[1],
@@ -1506,7 +1506,7 @@ describe('app-level release attributes', () => {
     expect(documentValueAt(requestDocument, ['data'])).toEqual({
       type: 'ageRatingDeclarations',
       id: 'age1',
-      attributes: { gambling: false, violenceRealistic: 'INFREQUENT_OR_MILD' },
+      attributes: { gambling: false, violenceRealistic: 'INFREQUENT' },
     });
   });
   it('matches an app price point by territory and customer price', async () => {
@@ -2163,6 +2163,16 @@ describe('Game Center', () => {
       id: 'app-1',
     });
     expect(detail).toEqual({ id: 'gc-1' });
+  });
+  it('lists achievements and leaderboards through the non-deprecated V2 relationship paths', async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })));
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })));
+    await client.listGameCenterAchievements('gc-1');
+    await client.listGameCenterLeaderboards('gc-1');
+    const [achievementsUrl] = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
+    const [leaderboardsUrl] = expectArrayElement(fetchMock.mock.calls, 1, 'mock call');
+    expect(achievementsUrl).toContain('/gameCenterDetails/gc-1/gameCenterAchievementsV2?');
+    expect(leaderboardsUrl).toContain('/gameCenterDetails/gc-1/gameCenterLeaderboardsV2?');
   });
   it('creates a V2 achievement with an inline version and returns the real version id', async () => {
     fetchMock.mockResolvedValueOnce(
