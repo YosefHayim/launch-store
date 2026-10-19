@@ -184,9 +184,9 @@ describe('readArtifactIndex / writeArtifactIndex - index I/O round-trip', () => 
   it('returns [] for a missing index', async () => {
     expect(await runArtifactEffect(readArtifactIndex(indexPath))).toEqual([]);
   });
-  it('returns [] for a malformed index', async () => {
+  it('rejects a malformed index', async () => {
     writeFileSync(indexPath, '{ not json');
-    expect(await runArtifactEffect(readArtifactIndex(indexPath))).toEqual([]);
+    await expect(runArtifactEffect(readArtifactIndex(indexPath))).rejects.toThrow();
   });
   it('round-trips a written index', async () => {
     const artifactIndex = [artifact({ buildNumber: 9 }), artifact({ buildNumber: 7 })];

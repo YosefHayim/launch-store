@@ -1,6 +1,7 @@
+import type { ParseError } from 'effect/ParseResult';
 import { FileSystem, Path } from '@effect/platform';
 import type { PlatformError } from '@effect/platform/Error';
-import { Effect, Option, Schema } from 'effect';
+import { Effect, Schema } from 'effect';
 import { resolveArtifactIndexFilePath, type LaunchPathsService } from '../services/paths.js';
 import type {
   BuildArtifact,
@@ -24,24 +25,21 @@ const resolveArtifactIndexPath = (
   return resolveArtifactIndexFilePath();
 };
 
-/** Read and decode the newest-first artifact index; absent or malformed state yields []. */
 export const readArtifactIndex = (
   indexPath?: string,
-): Effect.Effect<readonly BuildArtifact[], never, ArtifactIndexRequirements> =>
+): Effect.Effect<readonly BuildArtifact[], PlatformError | ParseError, ArtifactIndexRequirements> =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const artifactIndexPath = yield* resolveArtifactIndexPath(indexPath);
-    if (!(yield* fileSystem.exists(artifactIndexPath))) return [];
-    const artifactIndexSource = yield* fileSystem
-      .readFileString(artifactIndexPath)
-      .pipe(Effect.option);
-    if (Option.isNone(artifactIndexSource)) return [];
-    const decodedArtifactIndex = yield* Schema.decodeUnknown(Schema.parseJson(ArtifactIndexSchema))(
-      artifactIndexSource.value,
-    ).pipe(Effect.option);
-    if (Option.isNone(decodedArtifactIndex)) return [];
-    return decodedArtifactIndex.value;
-  }).pipe(Effect.catchAll(() => Effect.succeed([])));
+    const artifactIndexSource = yield* fileSystem.readFileString(artifactIndexPath).pipe(
+      Effect.catchIf(
+        (failure) => failure._tag === 'SystemError' && failure.reason === 'NotFound',
+        () => Effect.succeed(null),
+      ),
+    );
+    if (artifactIndexSource === null) return [];
+    return yield* Schema.decodeUnknown(Schema.parseJson(ArtifactIndexSchema))(artifactIndexSource);
+  });
 
 /** Persist the artifact index, creating its parent directory first. */
 export const writeArtifactIndex = (
@@ -178,7 +176,7 @@ const stampPrunedArtifacts = (
 /** Delete eligible artifacts and record the sweep in the artifact index. */
 export const runArtifactPrune = (
   pruneOptions: PruneOptions & { indexPath?: string },
-): Effect.Effect<PruneResult, PlatformError, ArtifactIndexRequirements> =>
+): Effect.Effect<PruneResult, PlatformError | ParseError, ArtifactIndexRequirements> =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const artifactIndex = yield* readArtifactIndex(pruneOptions.indexPath);

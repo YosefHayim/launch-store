@@ -29,6 +29,17 @@ const loadS3Module = () =>
     Effect.tryPromise(() => import('@aws-sdk/client-s3')),
   );
 
+const isMissingS3Object = (failure: unknown): boolean => {
+  if (typeof failure !== 'object') return false;
+  if (failure === null) return false;
+  if (!('cause' in failure)) return false;
+  const cause = failure.cause;
+  if (typeof cause !== 'object') return false;
+  if (cause === null) return false;
+  if (!('name' in cause)) return false;
+  return cause.name === 'NoSuchKey';
+};
+
 const resolveS3Credentials = Effect.gen(function* () {
   const environment = yield* LaunchEnvironment;
   const secretStore = yield* LaunchSecretStore;
@@ -86,7 +97,7 @@ export const makeS3StorageProvider = (storageConfig: StorageConfig) =>
         ),
       ).pipe(Effect.as({ id: objectKey, location: publicUrl(objectKey) }));
 
-    const readIndex = (): Effect.Effect<BuildArtifact[], never> =>
+    const readIndex = (): Effect.Effect<BuildArtifact[], unknown> =>
       Effect.tryPromise(() =>
         s3Client.send(
           new s3Module.GetObjectCommand({
@@ -95,17 +106,22 @@ export const makeS3StorageProvider = (storageConfig: StorageConfig) =>
           }),
         ),
       ).pipe(
-        Effect.flatMap((indexReply) => {
+        Effect.flatMap((indexReply): Effect.Effect<BuildArtifact[], unknown> => {
           const indexObjectStream = indexReply.Body;
-          if (indexObjectStream === undefined) return Effect.succeed([]);
+          if (indexObjectStream === undefined)
+            return Effect.fail(
+              makeProviderInputFailure({
+                provider: 's3',
+                message: 'Artifact index response has no body.',
+              }),
+            );
           return Effect.tryPromise(() => indexObjectStream.transformToString()).pipe(
             Effect.flatMap((indexText) => {
-              if (indexText === '') return Effect.succeed([]);
               return Schema.decodeUnknown(Schema.parseJson(ArtifactIndexSchema))(indexText);
             }),
           );
         }),
-        Effect.catchAll(() => Effect.succeed([])),
+        Effect.catchIf(isMissingS3Object, () => Effect.succeed([])),
       );
 
     const storageProvider: StorageProvider = {
@@ -148,7 +164,7 @@ export const makeS3StorageProvider = (storageConfig: StorageConfig) =>
               Effect.map((objectBytes) => Buffer.from(objectBytes)),
             );
           }),
-          Effect.catchAll(() => Effect.succeed(null)),
+          Effect.catchIf(isMissingS3Object, () => Effect.succeed(null)),
         ),
       publicUrl,
     };

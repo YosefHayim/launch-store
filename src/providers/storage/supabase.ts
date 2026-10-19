@@ -18,6 +18,16 @@ import {
 
 const INDEX_OBJECT_KEY = 'artifacts/index.json';
 
+const requireSuccessfulRead = (status: number, objectKey: string) => {
+  if (status >= 200 && status < 300) return Effect.void;
+  return Effect.fail(
+    makeProviderInputFailure({
+      provider: 'supabase-storage',
+      message: `Supabase read of ${objectKey} failed (${status}).`,
+    }),
+  );
+};
+
 const resolveServiceKey = Effect.gen(function* () {
   const environment = yield* LaunchEnvironment;
   const secretStore = yield* LaunchSecretStore;
@@ -117,12 +127,10 @@ export const makeSupabaseStorageProvider = (storageConfig: StorageConfig) =>
           HttpClientRequest.setHeader('Authorization', `Bearer ${serviceKey}`),
         );
         const indexReply = yield* httpClient.execute(indexRequest);
-        if (indexReply.status < 200) return [];
-        if (indexReply.status >= 300) return [];
+        if (indexReply.status === 404) return [];
+        yield* requireSuccessfulRead(indexReply.status, INDEX_OBJECT_KEY);
         const indexText = yield* indexReply.text;
-        return yield* Schema.decodeUnknown(Schema.parseJson(ArtifactIndexSchema))(indexText).pipe(
-          Effect.catchAll(() => Effect.succeed([])),
-        );
+        return yield* Schema.decodeUnknown(Schema.parseJson(ArtifactIndexSchema))(indexText);
       });
 
     const storageProvider: StorageProvider = {
@@ -159,8 +167,8 @@ export const makeSupabaseStorageProvider = (storageConfig: StorageConfig) =>
             HttpClientRequest.setHeader('Authorization', `Bearer ${serviceKey}`),
           );
           const objectReply = yield* httpClient.execute(objectRequest);
-          if (objectReply.status < 200) return null;
-          if (objectReply.status >= 300) return null;
+          if (objectReply.status === 404) return null;
+          yield* requireSuccessfulRead(objectReply.status, objectKey);
           return Buffer.from(yield* objectReply.arrayBuffer);
         }),
       publicUrl,

@@ -69,7 +69,7 @@ const decodeJson = <DecodedValue, EncodedValue>(
   schema: Schema.Schema<DecodedValue, EncodedValue>,
 ): Effect.Effect<DecodedValue, unknown> => Schema.decodeUnknown(Schema.parseJson(schema))(jsonText);
 
-/** Read the per-channel platform history, treating absent or malformed state as empty. */
+/** Read the per-channel platform history, treating only absent state as empty. */
 export const readHistory = (
   storage: StorageProvider,
   channel: string,
@@ -78,9 +78,7 @@ export const readHistory = (
   Effect.gen(function* () {
     const historyBytes = yield* storage.getObject(historyIndexKey(channel, platform));
     if (historyBytes === null) return [];
-    return yield* decodeJson(historyBytes.toString('utf8'), UpdateHistorySchema).pipe(
-      Effect.orElseSucceed(() => []),
-    );
+    return yield* decodeJson(historyBytes.toString('utf8'), UpdateHistorySchema);
   });
 
 /** Clear the active flag for entries with one runtime version. */

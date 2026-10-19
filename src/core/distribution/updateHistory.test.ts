@@ -133,11 +133,13 @@ describe('recordPublish', () => {
     expect(historyEntries.every((historyEntry) => historyEntry.active)).toBe(true);
   });
 
-  it('treats malformed history as empty', async () => {
+  it('preserves malformed history and refuses to overwrite it', async () => {
     const storage = makeMemoryStorage();
     storage.objects.set('updates/production/ios/history.json', '{broken');
-    const historyEntries = await Effect.runPromise(readHistory(storage, 'production', 'ios'));
-    expect(historyEntries).toEqual([]);
+    await expect(
+      Effect.runPromise(recordPublish(storage, 'production', 'ios', makeHistoryEntry())),
+    ).rejects.toThrow();
+    expect(storage.objects.get('updates/production/ios/history.json')).toBe('{broken');
   });
 });
 
