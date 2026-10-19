@@ -25,6 +25,7 @@ try {
       '--config-path',
       join(repositoryRoot, 'biome.json'),
       '--diagnostic-level=error',
+      '--vcs-enabled=false',
       fixturePath,
     ],
     { encoding: 'utf8' },
