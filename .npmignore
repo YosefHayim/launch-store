@@ -5,7 +5,6 @@
 
 # Heavy media — README badges & logos (~1 MB of JPG/PNG). Rendered from GitHub; never needed once installed.
 assets/
-.tui-preview/
 
 # Source & tooling — the package ships compiled dist/, not the TypeScript source or dev configs.
 src/
@@ -14,12 +13,10 @@ examples/
 .github/
 .husky/
 tsconfig*.json
-eslint.config.js
 vitest.config.*
 
 # Local notes & generated noise.
 CONTEXT.md
-TECH-GLOSSARY.md
 AGENTS.md
 llms.txt
 *.log

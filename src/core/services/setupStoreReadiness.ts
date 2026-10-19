@@ -67,8 +67,3 @@ export const SetupStoreReadinessLive: Layer.Layer<
     } satisfies SetupStoreReadinessService;
   }),
 );
-
-export const makeSetupStoreReadinessTest = (
-  setupStoreReadiness: SetupStoreReadinessService,
-): Layer.Layer<SetupStoreReadinessService> =>
-  Layer.succeed(SetupStoreReadiness, setupStoreReadiness);

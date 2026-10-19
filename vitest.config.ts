@@ -24,7 +24,6 @@ export default defineConfig({
         'src/**/*.e2e.ts',
         'src/cli/**',
         'src/index.ts',
-        'src/core/types.ts',
       ],
       reporter: ['text', 'text-summary'],
     },

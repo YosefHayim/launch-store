@@ -36,32 +36,16 @@ export const ARTIFACTS_DIR = `${LAUNCH_HOME}/artifacts`;
 export const LOGS_DIR = `${LAUNCH_HOME}/logs`;
 /** JSON index of stored artifacts (newest-first history). */
 export const ARTIFACT_INDEX = `${ARTIFACTS_DIR}/index.json`;
-/** Cross-run UX state: whether the user has seen the first-run tour. */
-export const STATE_FILE = `${LAUNCH_HOME}/state.json`;
 /** Registry of onboarded Apple accounts (non-secret: Key IDs, Issuer IDs, labels only). */
 export const ACCOUNTS_FILE = `${LAUNCH_HOME}/accounts.json`;
-/** Index of keychain-backed build secrets (records WHICH secrets exist, not their values). */
-export const SECRETS_FILE = `${LAUNCH_HOME}/secrets.json`;
 /** Non-secret signing metadata + the encrypted `.p12` backup (chmod 600). */
 export const CREDENTIALS_DIR = `${LAUNCH_HOME}/credentials`;
 /** Legacy single-account signing index (kept for first-run migration). */
 export const CREDENTIALS_INDEX = `${CREDENTIALS_DIR}/index.json`;
-/** Non-secret Android signing metadata. */
-export const ANDROID_CREDENTIALS_INDEX = `${CREDENTIALS_DIR}/android.json`;
 /** Where macOS/Xcode looks for installed provisioning profiles. */
 export const PROVISIONING_PROFILES_DIR = `${homedir()}/Library/MobileDevice/Provisioning Profiles`;
 /** Vault index of imported APNs auth keys (non-secret metadata only). */
 export const PUSH_KEYS_FILE = `${LAUNCH_HOME}/push-keys.json`;
-/** Machine-discovered remote-build state (host handle, AMI id - non-secret). */
-export const CLOUD_STATE = `${LAUNCH_HOME}/cloud.json`;
-/** Per-app build fingerprints that decide clean-vs-incremental. */
-export const BUILD_STATE_DIR = `${LAUNCH_HOME}/build-state`;
-/** Remembered interactive build picks (last app, bump choices). */
-export const LAST_RUN_FILE = `${LAUNCH_HOME}/last-run.json`;
-/** Persisted `launch release-train` records (one JSON per coordinated release). */
-export const RELEASE_TRAINS_DIR = `${LAUNCH_HOME}/release-trains`;
-/** Persisted `launch snapshot` records (one JSON per captured point-in-time). */
-export const SNAPSHOTS_DIR = `${LAUNCH_HOME}/snapshots`;
 const sanitizePathIdentifier = (identifier: string, fallbackIdentifier: string): string => {
   const sanitizedIdentifier = identifier.replace(/[^A-Za-z0-9_-]/g, '');
   if (sanitizedIdentifier.length === 0) return fallbackIdentifier;
