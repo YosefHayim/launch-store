@@ -121,6 +121,34 @@ describe('reconcileScreenshots - app screenshots', () => {
     expect(api.createScreenshotSet).toHaveBeenCalledWith('loc-en', 'APP_IPHONE_67');
     expect(api.uploadScreenshot).toHaveBeenCalledWith('set-new', '01.png', '/tmp/01.png');
   });
+  it('uploads display-type sets in parallel and keeps their actions in set order', async () => {
+    let inFlightUploads = 0;
+    let peakInFlightUploads = 0;
+    const api = makeApi({
+      uploadScreenshot: vi.fn().mockImplementation(async (_setId: string, fileName: string) => {
+        inFlightUploads += 1;
+        peakInFlightUploads = Math.max(peakInFlightUploads, inFlightUploads);
+        let uploadDelayMs = 1;
+        if (fileName === '01.png') uploadDelayMs = 10;
+        await new Promise((resumeUpload) => setTimeout(resumeUpload, uploadDelayMs));
+        inFlightUploads -= 1;
+      }),
+    });
+    const ipadShot = shot({
+      displayType: 'APP_IPAD_PRO_3GEN_129',
+      fileName: '02.png',
+      path: '/tmp/02.png',
+      checksum: 'sum-02',
+    });
+    const actions = await runScreenshots(api, input({ screenshots: [shot(), ipadShot] }));
+    expect(peakInFlightUploads).toBe(2);
+    expect(actions.map((a) => a.description)).toEqual([
+      'create screenshot set iPhone 6.7" [en-US]',
+      'upload screenshot iPhone 6.7" [en-US] 01.png',
+      expect.stringMatching(/^create screenshot set .+ \[en-US\]$/),
+      expect.stringMatching(/^upload screenshot .+ \[en-US\] 02\.png$/),
+    ]);
+  });
   it('reuses an existing set and skips a screenshot already uploaded byte-for-byte (idempotent)', async () => {
     const api = makeApi({
       listScreenshotSets: vi

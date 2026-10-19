@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateKeyPairSync } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { Schema } from 'effect';
 import type { AscKey } from '../core/types/credentials.js';
 import { expectArrayElement, expectDefined } from '../testkit/assertions.testkit.js';
@@ -322,6 +323,58 @@ describe('AppStoreConnectClient - auth + request building', () => {
     expect(init.method).toBe('DELETE');
     expect(url).toContain('/profiles/p1');
     expect(requestHeaders(init).get('Content-Type')).toBeNull();
+  });
+});
+describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  it('signs once per 15 minutes instead of once per request', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2030-01-01T00:00:00.000Z'));
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(fakeResponse(200, JSON.stringify({ data: [] }))),
+    );
+    await client.getAppId('com.example.one');
+    await client.getAppId('com.example.two');
+    vi.setSystemTime(new Date('2030-01-01T00:16:00.000Z'));
+    await client.getAppId('com.example.three');
+    const authorizations = fetchMock.mock.calls.map(([, requestInit]) =>
+      requestHeaders(requestInit).get('Authorization'),
+    );
+    expect(authorizations[1]).toBe(authorizations[0]);
+    expect(authorizations[2]).not.toBe(authorizations[0]);
+  });
+  it('uploads asset parts a few at a time', async () => {
+    let inFlightUploads = 0;
+    let peakInFlightUploads = 0;
+    const uploadOperations = Array.from({ length: 6 }, (_, partIndex) => ({
+      method: 'PUT',
+      url: `https://upload.example/part-${partIndex}`,
+      offset: partIndex,
+      length: 1,
+      requestHeaders: [],
+    }));
+    fetchMock.mockImplementation(async (url: string, requestInit: RequestInit) => {
+      if (url.startsWith('https://upload.example/')) {
+        inFlightUploads += 1;
+        peakInFlightUploads = Math.max(peakInFlightUploads, inFlightUploads);
+        await new Promise((resumeUpload) => setTimeout(resumeUpload, 5));
+        inFlightUploads -= 1;
+        return fakeResponse(200, '');
+      }
+      if (requestInit.method === 'POST') {
+        const reservation = { data: { id: 'shot-1', attributes: { uploadOperations } } };
+        return fakeResponse(201, JSON.stringify(reservation));
+      }
+      return fakeResponse(200, JSON.stringify({ data: { id: 'shot-1', attributes: {} } }));
+    });
+    await client.uploadScreenshot('set-1', 'shot.png', fileURLToPath(import.meta.url));
+    const partUploads = fetchMock.mock.calls.filter(([url]) =>
+      String(url).startsWith('https://upload.example/'),
+    );
+    expect(partUploads).toHaveLength(6);
+    expect(peakInFlightUploads).toBe(4);
   });
 });
 describe('AppStoreConnectClient - pagination (links.next)', () => {

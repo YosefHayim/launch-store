@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Effect } from 'effect';
+import { Deferred, Effect } from 'effect';
 import {
   advanceTrain,
   deriveTrainState,
@@ -132,6 +132,36 @@ describe('startTrain', () => {
     );
     expect(native(record, 'ios')).toMatchObject({ state: 'failed', error: 'no processed build' });
     expect(native(record, 'android')).toMatchObject({ state: 'submitted' });
+  });
+  it('submits native cars at the same time instead of one after another', async () => {
+    const androidSubmitted = await Effect.runPromise(Deferred.make<void>());
+    const engine = fakeEngine(
+      {},
+      {
+        submitNative: (car) => {
+          if (car.kind === 'ios')
+            return Deferred.await(androidSubmitted).pipe(Effect.as({ buildId: 'ios-100' }));
+          return Deferred.succeed(androidSubmitted, undefined).pipe(
+            Effect.as({ buildId: 'android-100' }),
+          );
+        },
+      },
+    );
+    const record = await Effect.runPromise(
+      startTrain(
+        {
+          id: 'app-ab12',
+          app: 'app',
+          hold: false,
+          platforms: ['ios', 'android'],
+          ota: [],
+          now: NOW,
+        },
+        engine,
+      ),
+    );
+    expect(native(record, 'ios')).toMatchObject({ state: 'submitted', buildId: 'ios-100' });
+    expect(native(record, 'android')).toMatchObject({ state: 'submitted', buildId: 'android-100' });
   });
 });
 describe('advanceTrain - release-when-ready (no hold)', () => {

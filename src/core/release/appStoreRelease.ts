@@ -807,7 +807,7 @@ export const waitForValidBuild = (
   options: WaitOptions = {},
 ): Effect.Effect<BuildResource, AppStoreReleaseFailure> =>
   Effect.gen(function* () {
-    let intervalMs = 30_000;
+    let intervalMs = 15_000;
     if (options.intervalMs !== undefined) intervalMs = options.intervalMs;
     let timeoutMs = 30 * 60_000;
     if (options.timeoutMs !== undefined) timeoutMs = options.timeoutMs;

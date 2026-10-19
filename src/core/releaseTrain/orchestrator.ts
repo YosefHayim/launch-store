@@ -99,25 +99,27 @@ export const startTrain = <Requirements>(
   trainEngine: TrainEngine<Requirements>,
 ): Effect.Effect<TrainRecord, never, Requirements> =>
   Effect.gen(function* () {
-    const trainCars: Car[] = [];
-    for (const platform of trainInput.platforms) {
-      const nativeCar: MutableDeep<NativeCar> = {
-        kind: platform,
-        state: 'building',
-        updatedAt: trainInput.now,
-      };
-      const submission = yield* trainEngine.submitNative(nativeCar).pipe(Effect.either);
-      if (Either.isLeft(submission)) {
-        nativeCar.state = 'failed';
-        nativeCar.error = errorMessage(submission.left);
-      } else {
-        nativeCar.state = 'submitted';
-        if (submission.right.buildId !== undefined) {
-          nativeCar.buildId = submission.right.buildId;
+    const submitNativeCar = (platform: NativeCar['kind']) =>
+      Effect.gen(function* () {
+        const nativeCar: MutableDeep<NativeCar> = {
+          kind: platform,
+          state: 'building',
+          updatedAt: trainInput.now,
+        };
+        const submission = yield* trainEngine.submitNative(nativeCar).pipe(Effect.either);
+        if (Either.isLeft(submission)) {
+          nativeCar.state = 'failed';
+          nativeCar.error = errorMessage(submission.left);
+          return nativeCar;
         }
-      }
-      trainCars.push(nativeCar);
-    }
+        nativeCar.state = 'submitted';
+        if (submission.right.buildId !== undefined) nativeCar.buildId = submission.right.buildId;
+        return nativeCar;
+      });
+    const nativeCars = yield* Effect.forEach(trainInput.platforms, submitNativeCar, {
+      concurrency: 'unbounded',
+    });
+    const trainCars: Car[] = [...nativeCars];
     for (const otaFollower of trainInput.ota) {
       trainCars.push({
         kind: 'ota',
