@@ -1,5 +1,6 @@
 import {
   autocomplete,
+  type CANCEL_SYMBOL,
   cancel,
   confirm as clackConfirm,
   isCancel,
@@ -96,7 +97,7 @@ export const fuzzyMatch = (query: string, candidate: string): boolean => {
 };
 
 const requirePromptAnswer = (
-  promptEffect: Effect.Effect<string | symbol, PromptSelectionFailure>,
+  promptEffect: Effect.Effect<string | typeof CANCEL_SYMBOL, PromptSelectionFailure>,
 ): Effect.Effect<string, PromptSelectionFailure> =>
   promptEffect.pipe(
     Effect.flatMap((answer) => {
