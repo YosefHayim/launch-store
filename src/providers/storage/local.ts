@@ -72,7 +72,10 @@ export const makeLocalStorageProvider = (directoryOverride?: string) =>
         const objectFilePath = objectPath(objectKey);
         return fileSystem.readFile(objectFilePath).pipe(
           Effect.map((fileBytes) => Buffer.from(fileBytes)),
-          Effect.catchAll(() => Effect.succeed(null)),
+          Effect.catchIf(
+            (failure) => failure._tag === 'SystemError' && failure.reason === 'NotFound',
+            () => Effect.succeed(null),
+          ),
         );
       },
       publicUrl: (objectKey: string): string => pathToFileURL(objectPath(objectKey)).href,

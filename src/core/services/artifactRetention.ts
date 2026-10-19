@@ -1,3 +1,4 @@
+import type { ParseError } from 'effect/ParseResult';
 import type { PlatformError } from '@effect/platform/Error';
 import { Context, Effect, Layer } from 'effect';
 import {
@@ -10,14 +11,16 @@ import type { BuildArtifact, PruneOptions, PruneResult } from '../types/artifact
 
 /** Artifact-index persistence and retention operations used by storage providers. */
 export type ArtifactRetentionService = Readonly<{
-  readonly readIndex: (indexPath: string) => Effect.Effect<readonly BuildArtifact[]>;
+  readonly readIndex: (
+    indexPath: string,
+  ) => Effect.Effect<readonly BuildArtifact[], PlatformError | ParseError>;
   readonly writeIndex: (
     artifactIndex: readonly BuildArtifact[],
     indexPath: string,
   ) => Effect.Effect<void, PlatformError>;
   readonly prune: (
     pruneOptions: PruneOptions & { readonly indexPath: string },
-  ) => Effect.Effect<PruneResult, PlatformError>;
+  ) => Effect.Effect<PruneResult, PlatformError | ParseError>;
 }>;
 
 export const ArtifactRetention = Context.GenericTag<ArtifactRetentionService>(
