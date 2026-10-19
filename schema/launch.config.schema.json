@@ -1342,8 +1342,7 @@
                 "type": "boolean"
               }
             ]
-          },
-          "description": "Age-rating answers as Apple's `name -> value` map (enum strings or booleans); only changed keys are sent."
+          }
         },
         "categories": {
           "$ref": "#/definitions/ReleaseCategories"

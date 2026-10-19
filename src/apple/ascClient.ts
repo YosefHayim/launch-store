@@ -4244,7 +4244,7 @@ export class AppStoreConnectClient {
     const appleResources = await this.requestAll<{
       vendorIdentifier?: string;
     }>(
-      `/gameCenterDetails/${detailId}/gameCenterAchievements?fields[gameCenterAchievements]=vendorIdentifier&limit=200`,
+      `/gameCenterDetails/${detailId}/gameCenterAchievementsV2?fields[gameCenterAchievements]=vendorIdentifier&limit=200`,
     );
     return appleResources.map((achievement) => {
       const achievementResource: GameCenterAchievementResource = { id: achievement.id };
@@ -4328,7 +4328,7 @@ export class AppStoreConnectClient {
     const appleResources = await this.requestAll<{
       vendorIdentifier?: string;
     }>(
-      `/gameCenterDetails/${detailId}/gameCenterLeaderboards?fields[gameCenterLeaderboards]=vendorIdentifier&limit=200`,
+      `/gameCenterDetails/${detailId}/gameCenterLeaderboardsV2?fields[gameCenterLeaderboards]=vendorIdentifier&limit=200`,
     );
     return appleResources.map((leaderboard) => {
       const leaderboardResource: GameCenterLeaderboardResource = { id: leaderboard.id };

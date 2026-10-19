@@ -3,12 +3,13 @@ import { Data, Effect, Schema } from 'effect';
 import { resolveSecretRef } from '../credentials/secretRef.js';
 import { errorMessage } from '../services/errorMessage.js';
 import { appRecordMissing, skip, type ReconcileContext } from '../store/reconcile.js';
-import type {
-  AgeRatingDeclarationResource,
-  AgeRatingValue,
-  AppInfoResource,
-  AppStoreReviewDetailResource,
-  PricePointResource,
+import {
+  deprecatedAgeRatingVerdict,
+  type AgeRatingDeclarationResource,
+  type AgeRatingValue,
+  type AppInfoResource,
+  type AppStoreReviewDetailResource,
+  type PricePointResource,
 } from '../types/appleCatalog.js';
 import type { PlannedAction, ReconcileReport } from '../types/reconcile.js';
 import type {
@@ -70,7 +71,9 @@ const ReviewDetailsSchema = Schema.mutable(
 export const ReleaseAttributesConfigSchema = Schema.mutable(
   Schema.Struct({
     ageRating: Schema.optionalWith(
-      Schema.mutable(Schema.Record({ key: Schema.String, value: AgeRatingSettingSchema })),
+      Schema.mutable(Schema.Record({ key: Schema.String, value: AgeRatingSettingSchema })).pipe(
+        Schema.filter(deprecatedAgeRatingVerdict),
+      ),
       { exact: true },
     ),
     categories: Schema.optionalWith(CategoriesSchema, { exact: true }),

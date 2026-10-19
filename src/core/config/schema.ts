@@ -1,6 +1,7 @@
 import { type Effect, ParseResult, Schema } from 'effect';
 import {
   APP_CLIP_ACTIONS,
+  deprecatedAgeRatingVerdict,
   LEADERBOARD_FORMATTERS,
   LEADERBOARD_SORT_TYPES,
   LEADERBOARD_SUBMISSION_TYPES,
@@ -741,7 +742,10 @@ const ReviewDetailsConfigEffectSchema = Schema.Struct({
 const ReleaseAttributesConfigEffectSchema = Schema.Struct({
   ageRating: Schema.optional(
     described(
-      Schema.Record({ key: Schema.String, value: Schema.Union(Schema.String, Schema.Boolean) }),
+      Schema.Record({
+        key: Schema.String,
+        value: Schema.Union(Schema.String, Schema.Boolean),
+      }).pipe(Schema.filter(deprecatedAgeRatingVerdict)),
       `Age-rating answers as Apple's \`name -> value\` map (enum strings or booleans); only changed keys are sent.`,
     ),
   ),
