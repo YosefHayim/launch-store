@@ -157,9 +157,15 @@ export const makeS3StorageProvider = (storageConfig: StorageConfig) =>
             new s3Module.GetObjectCommand({ Bucket: storageConfig.bucket, Key: objectKey }),
           ),
         ).pipe(
-          Effect.flatMap((objectReply) => {
+          Effect.flatMap((objectReply): Effect.Effect<Buffer | null, unknown> => {
             const objectStream = objectReply.Body;
-            if (objectStream === undefined) return Effect.succeed(null);
+            if (objectStream === undefined)
+              return Effect.fail(
+                makeProviderInputFailure({
+                  provider: 's3',
+                  message: `Object ${objectKey} response has no body.`,
+                }),
+              );
             return Effect.tryPromise(() => objectStream.transformToByteArray()).pipe(
               Effect.map((objectBytes) => Buffer.from(objectBytes)),
             );

@@ -33,6 +33,18 @@ const withStorageReply = async (
   }
 };
 
+const storedArtifact = {
+  path: 'artifacts/app.ipa',
+  platform: 'ios',
+  appName: 'App',
+  profile: 'production',
+  version: '1.0.0',
+  buildNumber: 7,
+  sizeReport: { artifactBytes: 1024, entries: [] },
+  clean: true,
+  createdAt: '2026-10-20T00:00:00.000Z',
+};
+
 const storageProviders = [makeS3StorageProvider, makeSupabaseStorageProvider];
 
 for (const createProvider of storageProviders) {
@@ -77,6 +89,20 @@ for (const createProvider of storageProviders) {
     it('rejects malformed index contents', async () => {
       await withStorageReply(200, '{broken', async (endpoint) => {
         await expect(Effect.runPromise(readStorage(endpoint))).rejects.toThrow();
+      });
+    });
+
+    it('reads a missing object as absent', async () => {
+      await withStorageReply(404, '<Error><Code>NoSuchKey</Code></Error>', async (endpoint) => {
+        const objectBytes = await Effect.runPromise(readStorage(endpoint, 'manifest.json'));
+        expect(objectBytes).toBeNull();
+      });
+    });
+
+    it('decodes a valid index', async () => {
+      await withStorageReply(200, JSON.stringify([storedArtifact]), async (endpoint) => {
+        const artifacts = await Effect.runPromise(readStorage(endpoint));
+        expect(artifacts).toEqual([storedArtifact]);
       });
     });
 

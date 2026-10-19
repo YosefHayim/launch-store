@@ -118,6 +118,18 @@ const writeHistory = (
     )
     .pipe(Effect.asVoid);
 
+/** Prepend an active entry to already-read history, deactivating its runtime version. */
+const writePublishedHistory = (
+  storage: StorageProvider,
+  channel: string,
+  platform: string,
+  existingHistory: UpdateHistoryEntry[],
+  entry: UpdateHistoryEntry,
+): Effect.Effect<void, unknown> => {
+  const updatedHistory = deactivateRuntimeVersion(existingHistory, entry.runtimeVersion);
+  return writeHistory(storage, channel, platform, [entry, ...updatedHistory]);
+};
+
 /** Make a newly published entry active and prepend it to history. */
 export const recordPublish = (
   storage: StorageProvider,
@@ -127,8 +139,7 @@ export const recordPublish = (
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     const existingHistory = yield* readHistory(storage, channel, platform);
-    const updatedHistory = deactivateRuntimeVersion(existingHistory, entry.runtimeVersion);
-    yield* writeHistory(storage, channel, platform, [entry, ...updatedHistory]);
+    yield* writePublishedHistory(storage, channel, platform, existingHistory, entry);
   });
 
 /** Deactivate the rollback-to-embedded directive for one runtime version. */
@@ -203,6 +214,7 @@ export const activateUpdate = (
 ): Effect.Effect<UpdateHistoryEntry, unknown> =>
   Effect.gen(function* () {
     const { storage, channel, platform, updateManifest, kind, signer } = input;
+    const existingHistory = yield* readHistory(storage, channel, platform);
     yield* writeActiveManifest(storage, channel, platform, updateManifest, signer);
     const historyEntry: UpdateHistoryEntry = {
       id: updateManifest.id,
@@ -212,7 +224,7 @@ export const activateUpdate = (
       signed: signer !== null,
       kind,
     };
-    yield* recordPublish(storage, channel, platform, historyEntry);
+    yield* writePublishedHistory(storage, channel, platform, existingHistory, historyEntry);
     yield* clearRollbackDirective(storage, channel, platform, updateManifest.runtimeVersion);
     return historyEntry;
   });

@@ -12,6 +12,7 @@ import {
   type UpdateManifest,
 } from './otaManifest.js';
 import {
+  activateUpdate,
   clearRollbackDirective,
   deactivateRuntimeVersion,
   findHistoryEntry,
@@ -140,6 +141,23 @@ describe('recordPublish', () => {
       Effect.runPromise(recordPublish(storage, 'production', 'ios', makeHistoryEntry())),
     ).rejects.toThrow();
     expect(storage.objects.get('updates/production/ios/history.json')).toBe('{broken');
+  });
+});
+
+describe('activateUpdate', () => {
+  it('leaves the active manifest untouched when history is malformed', async () => {
+    const storage = makeMemoryStorage();
+    storage.objects.set('updates/production/ios/history.json', '{broken');
+    const activation = activateUpdate({
+      storage,
+      channel: 'production',
+      platform: 'ios',
+      updateManifest: makeManifest('new-id'),
+      kind: 'publish',
+      signer: null,
+    });
+    await expect(Effect.runPromise(activation)).rejects.toThrow();
+    expect(storage.objects.has(manifestKey('production', 'ios', '1.0.0'))).toBe(false);
   });
 });
 
