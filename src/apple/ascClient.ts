@@ -242,6 +242,11 @@ export const isRetryableAscError = (error: unknown): boolean => {
   if (error.status === 429) return true;
   return error.status >= 500;
 };
+/** A GET or byte-range PUT is safe to repeat, so a dropped connection (fetch's TypeError) is retried like a 5xx. */
+const isRetryableIdempotentFailure = (requestFailure: unknown): boolean => {
+  if (requestFailure instanceof TypeError) return true;
+  return isRetryableAscError(requestFailure);
+};
 /** Apple's raw `accessibilityDeclarations` attribute bag - the support flags plus the family/state metadata. Internal to the read path. */
 type AccessibilityDeclarationAttributes = AccessibilitySupport & {
   deviceFamily?: DeviceFamily;
@@ -579,7 +584,7 @@ const putAssetChunk = async (operation: UploadOperation, bytes: Buffer): Promise
         );
       }
     },
-    { isRetryableFailure: isRetryableAscError },
+    { isRetryableFailure: isRetryableIdempotentFailure },
   );
 };
 /** PUT a reserved asset's bytes to Apple's CDN, a few independent byte-range parts at a time. */
@@ -591,7 +596,11 @@ const putAssetBytes = async (
     const operationBatch = operations.slice(batchStart, batchStart + ASSET_UPLOAD_CONCURRENCY);
     const chunkUploads = operationBatch.map((operation) => putAssetChunk(operation, bytes));
     // biome-ignore lint/performance/noAwaitInLoops: bounded batches - each part is its own byte range, so a batch uploads in parallel without flooding Apple's CDN
-    await Promise.all(chunkUploads);
+    const settledChunkUploads = await Promise.allSettled(chunkUploads);
+    const failedChunkUpload = settledChunkUploads.find(
+      (chunkUpload): chunkUpload is PromiseRejectedResult => chunkUpload.status === 'rejected',
+    );
+    if (failedChunkUpload !== undefined) return Promise.reject(failedChunkUpload.reason);
   }
 };
 /** Client bound to one App Store Connect API key. */
@@ -621,11 +630,12 @@ export class AppStoreConnectClient {
   ): Promise<T> {
     // Transparent backoff on Apple's transient failures (429 rate-limit / 5xx). A fresh token is
     // minted per attempt, so a retry that straddles the 19-minute TTL re-signs rather than 401s.
+    // A write that lost its connection may already have landed, so only a GET retries one.
+    let isRetryableFailure = isRetryableAscError;
+    if (method === 'GET') isRetryableFailure = isRetryableIdempotentFailure;
     return retryAppleTransportRequest(
       () => this.requestOnce<T>(method, pathOrUrl, requestDocument),
-      {
-        isRetryableFailure: isRetryableAscError,
-      },
+      { isRetryableFailure },
     );
   }
   /** A single (un-retried) authenticated request - the retry wrapper lives in {@link request}. */
@@ -3302,7 +3312,7 @@ export class AppStoreConnectClient {
         }
         return Buffer.from(await appleResponse.arrayBuffer());
       },
-      { isRetryableFailure: isRetryableAscError },
+      { isRetryableFailure: isRetryableIdempotentFailure },
     );
   }
   /** App Store Connect users and invitations. */
@@ -3532,7 +3542,7 @@ export class AppStoreConnectClient {
         }
         return Buffer.from(await appleResponse.arrayBuffer());
       },
-      { isRetryableFailure: isRetryableAscError },
+      { isRetryableFailure: isRetryableIdempotentFailure },
     );
   }
   /**
@@ -3542,7 +3552,7 @@ export class AppStoreConnectClient {
    */
   private async getReportBytes(pathOrUrl: string): Promise<Buffer> {
     return retryAppleTransportRequest(() => this.getReportBytesOnce(pathOrUrl), {
-      isRetryableFailure: isRetryableAscError,
+      isRetryableFailure: isRetryableIdempotentFailure,
     });
   }
   /** A single (un-retried) gzipped-report fetch - the retry wrapper lives in {@link getReportBytes}. */

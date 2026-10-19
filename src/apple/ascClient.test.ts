@@ -376,6 +376,52 @@ describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
     expect(partUploads).toHaveLength(6);
     expect(peakInFlightUploads).toBe(4);
   });
+  it('retries a part after a dropped connection', async () => {
+    const uploadOperations = [
+      { method: 'PUT', url: 'https://upload.example/part-0', offset: 0, length: 1 },
+    ];
+    let partAttempts = 0;
+    fetchMock.mockImplementation((url: string, requestInit: RequestInit) => {
+      if (url.startsWith('https://upload.example/')) {
+        partAttempts += 1;
+        if (partAttempts === 1) return Promise.reject(new TypeError('fetch failed'));
+        return Promise.resolve(fakeResponse(200, ''));
+      }
+      if (requestInit.method === 'POST') {
+        const reservation = { data: { id: 'shot-1', attributes: { uploadOperations } } };
+        return Promise.resolve(fakeResponse(201, JSON.stringify(reservation)));
+      }
+      return Promise.resolve(
+        fakeResponse(200, JSON.stringify({ data: { id: 'shot-1', attributes: {} } })),
+      );
+    });
+    await client.uploadScreenshot('set-1', 'shot.png', fileURLToPath(import.meta.url));
+    expect(partAttempts).toBe(2);
+  });
+  it('lets every part in a batch finish before reporting a failed part', async () => {
+    const uploadOperations = [
+      { method: 'PUT', url: 'https://upload.example/part-0', offset: 0, length: 1 },
+      { method: 'PUT', url: 'https://upload.example/part-1', offset: 1, length: 1 },
+    ];
+    let slowPartFinished = false;
+    fetchMock.mockImplementation(async (url: string, requestInit: RequestInit) => {
+      if (url === 'https://upload.example/part-0') return fakeResponse(400, '');
+      if (url === 'https://upload.example/part-1') {
+        await new Promise((resumeUpload) => setTimeout(resumeUpload, 10));
+        slowPartFinished = true;
+        return fakeResponse(200, '');
+      }
+      if (requestInit.method === 'POST') {
+        const reservation = { data: { id: 'shot-1', attributes: { uploadOperations } } };
+        return fakeResponse(201, JSON.stringify(reservation));
+      }
+      return fakeResponse(200, JSON.stringify({ data: { id: 'shot-1', attributes: {} } }));
+    });
+    await expect(
+      client.uploadScreenshot('set-1', 'shot.png', fileURLToPath(import.meta.url)),
+    ).rejects.toThrow(/asset upload chunk failed \(400\)/);
+    expect(slowPartFinished).toBe(true);
+  });
 });
 describe('AppStoreConnectClient - pagination (links.next)', () => {
   it('follows the absolute links.next URL verbatim, without the /v1/v1 double-prefix', async () => {
@@ -505,6 +551,20 @@ describe('AppStoreConnectClient - transient-failure retry', () => {
       fakeResponse(403, JSON.stringify({ errors: [{ detail: 'Forbidden' }] })),
     );
     await expect(client.assertReady()).rejects.toThrow(/403.*Forbidden/);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it('retries a read after a dropped connection', async () => {
+    fetchMock
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockResolvedValueOnce(
+        fakeResponse(200, JSON.stringify({ data: [{ id: '42', attributes: {} }] })),
+      );
+    expect(await client.getAppId('com.example.hello')).toBe('42');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it('does NOT repeat a write after a dropped connection (it may already have landed)', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('fetch failed'));
+    await expect(client.registerDevice('UDID9', "Dana's iPhone")).rejects.toThrow(/fetch failed/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
