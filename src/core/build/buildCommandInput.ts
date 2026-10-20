@@ -216,7 +216,6 @@ export const parseBuildCommandInput = (
       appName: commandOptions.app,
       explain: commandOptions.explain,
       submit: commandOptions.submit,
-      target: 'testing',
       dryRun: commandOptions.dryRun,
       yes: commandOptions.yes,
       forceClean: commandOptions.clean,

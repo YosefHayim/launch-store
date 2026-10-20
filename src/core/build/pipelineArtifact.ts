@@ -17,7 +17,7 @@ import { LaunchPrompt } from '../services/prompt.js';
 import { makeCommandExit } from '../terminal/commandExit.js';
 import { buildConsoleUrl } from '../terminal/consoleLinks.js';
 import type { GlossaryTopic } from '../terminal/glossary.js';
-import type { AppDescriptor, Platform, PlayTrack, SubmitTarget } from '../types/app.js';
+import type { AppDescriptor, Platform, PlayTrack } from '../types/app.js';
 import type { BuildArtifact, SizeReport } from '../types/artifacts.js';
 import type { LaunchConfig, PrebuildMode, ResolvedBuildContext } from '../types/config.js';
 import type { AppleCredentials, BuildCredentials } from '../types/credentials.js';
@@ -520,13 +520,11 @@ export const uploadIosBuild = (
 ) =>
   Effect.gen(function* () {
     const { config, app, log, buildContext } = prepared;
-    let destination = 'App Store review';
-    if (options.target === 'testing') destination = 'TestFlight';
     const previous = yield* previousBuild(config, app, buildContext.platform, artifact.buildNumber);
     yield* confirmUpload({
       report: sizeReport,
       budgetMB: resolveSizeBudgetMB(options, prepared.profile),
-      destination,
+      destination: 'TestFlight',
       app,
       version: artifact.version,
       buildNumber: artifact.buildNumber,
@@ -534,17 +532,8 @@ export const uploadIosBuild = (
       yes: options.yes === true,
       log,
     });
-    yield* submitToStores(
-      config,
-      buildContext.platform,
-      artifact,
-      options.target,
-      credentials,
-      buildContext,
-    );
-    let submissionDescription = 'submitted for App Store review';
-    if (options.target === 'testing') submissionDescription = 'uploaded to TestFlight';
-    yield* log.step('submit', submissionDescription, 'testflight');
+    yield* submitToStores(config, buildContext.platform, artifact, credentials, buildContext);
+    yield* log.step('submit', 'uploaded to TestFlight', 'testflight');
   });
 
 /** Receipt destination line: where the build went (or that it was not uploaded). */
@@ -559,19 +548,14 @@ export const receiptDestination = (
     if (track !== undefined) playTrack = track;
     return `Play - ${playTrack} track`;
   }
-  if (options.target === 'testing') return 'TestFlight';
-  return 'App Store - in review';
+  return 'TestFlight';
 };
 
 /**
  * Best-effort deep link to the uploaded build in App Store Connect. Falls back to console home
  * when the app id cannot be resolved. Never fails the build.
  */
-export const resolveAscBuildLink = (
-  ascKey: AppleCredentials['ascKey'],
-  bundleId: string,
-  target: SubmitTarget,
-) =>
+export const resolveAscBuildLink = (ascKey: AppleCredentials['ascKey'], bundleId: string) =>
   Effect.gen(function* () {
     const appleStoreClients = yield* AppleStoreClientService;
     const appStoreClient = yield* appleStoreClients.createEffectClient(ascKey);
@@ -580,9 +564,7 @@ export const resolveAscBuildLink = (
       .pipe(Effect.catchAll(() => Effect.succeed(null)));
     let linkAppId: string | undefined;
     if (appId !== null) linkAppId = appId;
-    let consoleDestination: 'testflight' | 'asc' = 'asc';
-    if (target === 'testing') consoleDestination = 'testflight';
-    return buildConsoleUrl(consoleDestination, 'ios', linkAppId);
+    return buildConsoleUrl('testflight', 'ios', linkAppId);
   });
 
 /**

@@ -65,7 +65,7 @@ describe('app-store-connect submitter - build upload API', () => {
       .mockResolvedValueOnce(uploadStatus('AWAITING_UPLOAD'))
       .mockResolvedValueOnce(uploadStatus('PROCESSING'))
       .mockResolvedValueOnce(uploadStatus('COMPLETE'));
-    await Effect.runPromise(submitter.submit(artifact, 'production', IOS_CREDS, iosCtx()));
+    await Effect.runPromise(submitter.submit(artifact, IOS_CREDS, iosCtx()));
     expect(ascFake.getAppId).toHaveBeenCalledWith('com.example.hello');
     expect(ascFake.createBuildUpload).toHaveBeenCalledWith('app-1', '1.4.0', 42, 'IOS');
     expect(ascFake.uploadBuildFile).toHaveBeenCalledWith(
@@ -78,7 +78,7 @@ describe('app-store-connect submitter - build upload API', () => {
   it('uploads a tvOS build for the TV_OS platform', async () => {
     acceptUploads();
     ascFake.getBuildUploadStatus.mockResolvedValue(uploadStatus('COMPLETE'));
-    await Effect.runPromise(submitter.submit(artifact, 'testing', IOS_CREDS, iosCtx('tvos')));
+    await Effect.runPromise(submitter.submit(artifact, IOS_CREDS, iosCtx('tvos')));
     expect(ascFake.createBuildUpload).toHaveBeenCalledWith('app-1', '1.4.0', 42, 'TV_OS');
   });
   it('tells the user to bump the version when the version train is closed', async () => {
@@ -87,7 +87,7 @@ describe('app-store-connect submitter - build upload API', () => {
       uploadStatus('FAILED', [{ code: '90186', description: 'Invalid Pre-Release Train.' }]),
     );
     await expect(
-      Effect.runPromise(submitter.submit(artifact, 'production', IOS_CREDS, iosCtx())),
+      Effect.runPromise(submitter.submit(artifact, IOS_CREDS, iosCtx())),
     ).rejects.toThrow(/no longer takes builds for version 1\.4\.0\. Bump the app version/);
   });
   it('still names the closed version train when Apple gives other reasons too', async () => {
@@ -99,7 +99,7 @@ describe('app-store-connect submitter - build upload API', () => {
       ]),
     );
     await expect(
-      Effect.runPromise(submitter.submit(artifact, 'production', IOS_CREDS, iosCtx())),
+      Effect.runPromise(submitter.submit(artifact, IOS_CREDS, iosCtx())),
     ).rejects.toThrow(/Bump the app version[\s\S]*Unsupported Architectures\. \(90087\)/);
   });
   it('counts slow status replies toward the wait, so it gives up on time', async () => {
@@ -110,7 +110,7 @@ describe('app-store-connect submitter - build upload API', () => {
     });
     const shortWait = makeAppStoreConnectSubmitter(Duration.millis(1), Duration.millis(100));
     await expect(
-      Effect.runPromise(shortWait.submit(artifact, 'production', IOS_CREDS, iosCtx())),
+      Effect.runPromise(shortWait.submit(artifact, IOS_CREDS, iosCtx())),
     ).rejects.toThrow(/still processing build upload upload-1/);
     expect(ascFake.getBuildUploadStatus.mock.calls.length).toBeLessThan(10);
   });
@@ -121,7 +121,7 @@ describe('app-store-connect submitter - build upload API', () => {
       fileState: 'FAILED',
       errors: [{ code: '90087', description: 'Unsupported Architectures.' }],
     });
-    const uploadFailure = submitter.submit(artifact, 'production', IOS_CREDS, iosCtx());
+    const uploadFailure = submitter.submit(artifact, IOS_CREDS, iosCtx());
     await expect(Effect.runPromise(Effect.flip(uploadFailure))).resolves.toEqual({
       _tag: 'StoreUploadFailure',
       provider: 'app-store-connect',
@@ -131,14 +131,14 @@ describe('app-store-connect submitter - build upload API', () => {
   it('fails before uploading when the app record does not exist', async () => {
     ascFake.getAppId.mockResolvedValue(null);
     await expect(
-      Effect.runPromise(submitter.submit(artifact, 'production', IOS_CREDS, iosCtx())),
+      Effect.runPromise(submitter.submit(artifact, IOS_CREDS, iosCtx())),
     ).rejects.toThrow(/com\.example\.hello/);
     expect(ascFake.createBuildUpload).not.toHaveBeenCalled();
   });
   it('rejects a non-Apple credential', async () => {
     const androidCreds: BuildCredentials = { platform: 'android', serviceAccountJson: '{}' };
     await expect(
-      Effect.runPromise(submitter.submit(artifact, 'testing', androidCreds, iosCtx())),
+      Effect.runPromise(submitter.submit(artifact, androidCreds, iosCtx())),
     ).rejects.toThrow(/Apple platforms only/);
   });
 });

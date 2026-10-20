@@ -155,7 +155,6 @@ export const runAndroidBuild = (prepared: PreparedBuild, options: BuildRunOption
           config,
           'android',
           { path: artifactPath, version: appVersion, buildNumber: versionCode },
-          options.target,
           credentials,
           buildContext,
         );

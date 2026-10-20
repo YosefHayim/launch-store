@@ -5,8 +5,6 @@ import type {
   AndroidReleaseOptions,
   BuildProfile,
   Platform,
-  PlayTrack,
-  SubmitTarget,
 } from '../types/app.js';
 import type { LaunchConfig, ResolvedBuildContext } from '../types/config.js';
 import type { BuildCredentials } from '../types/credentials.js';
@@ -79,7 +77,6 @@ export const submitToStores = (
   config: LaunchConfig,
   platform: Platform,
   artifact: SubmitArtifact,
-  target: SubmitTarget,
   credentials: BuildCredentials,
   buildContext: ResolvedBuildContext,
 ): Effect.Effect<string[], unknown> => {
@@ -88,28 +85,23 @@ export const submitToStores = (
     stores,
     (storeName) =>
       getSubmitter(storeName).pipe(
-        Effect.flatMap((submitter) =>
-          submitter.submit(artifact, target, credentials, buildContext),
-        ),
+        Effect.flatMap((submitter) => submitter.submit(artifact, credentials, buildContext)),
       ),
     { concurrency: 1 },
   ).pipe(Effect.as(stores));
 };
 /**
  * Resolve the Android track + rollout for one invocation: an explicit `--track`/`--rollout` wins,
- * then the profile default, then the safe fallback (`internal` for a testing target, `production`
- * only when the target itself is production). The result rides on {@link ResolvedBuildContext.android}
+ * then the profile default, then the safe `internal` fallback. The result rides on {@link ResolvedBuildContext.android}
  * so the Google Play submitter reads one source of truth.
  */
 export const resolveAndroidRelease = (
-  options: Pick<BuildRunOptions, 'target' | 'track' | 'rollout'>,
+  options: Pick<BuildRunOptions, 'track' | 'rollout'>,
   profile: BuildProfile,
 ): AndroidReleaseOptions => {
-  let fallbackTrack: PlayTrack = 'internal';
-  if (options.target === 'production') fallbackTrack = 'production';
   let track = profile.track;
   if (options.track !== undefined) track = options.track;
-  if (track === undefined) track = fallbackTrack;
+  if (track === undefined) track = 'internal';
   let rollout = profile.rollout;
   if (options.rollout !== undefined) rollout = options.rollout;
   if (rollout === undefined) rollout = 1.0;

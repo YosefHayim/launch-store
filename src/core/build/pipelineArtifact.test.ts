@@ -38,7 +38,6 @@ const buildRunOptions = (overrides: Partial<BuildRunOptions> = {}): BuildRunOpti
   profileName: 'production',
   explain: false,
   submit: true,
-  target: 'testing',
   dryRun: false,
   ...overrides,
 });
@@ -146,14 +145,8 @@ describe('receiptDestination', () => {
     );
   });
 
-  it('names TestFlight for Apple testing targets', () => {
-    expect(receiptDestination('ios', buildRunOptions({ target: 'testing' }))).toBe('TestFlight');
-  });
-
-  it('names App Store review for Apple production targets', () => {
-    expect(receiptDestination('ios', buildRunOptions({ target: 'production' }))).toBe(
-      'App Store - in review',
-    );
+  it('names TestFlight for uploaded Apple builds', () => {
+    expect(receiptDestination('ios', buildRunOptions())).toBe('TestFlight');
   });
 
   it('defaults Android track to internal', () => {

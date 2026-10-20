@@ -79,7 +79,7 @@ afterEach(() => {
 });
 describe('google-play submitter - package_name (EAS #3563 regression)', () => {
   it('uploads to android.package, NOT the iOS bundle identifier', async () => {
-    await Effect.runPromise(googlePlaySubmitter.submit(artifact, 'testing', creds, androidCtx()));
+    await Effect.runPromise(googlePlaySubmitter.submit(artifact, creds, androidCtx()));
     const [packageName, bundleBytes, track, release] = uploadCall();
     expect(packageName).toBe('com.example.hello.android');
     expect(bundleBytes.equals(readFileSync(aabPath))).toBe(true);
@@ -90,7 +90,6 @@ describe('google-play submitter - package_name (EAS #3563 regression)', () => {
     await Effect.runPromise(
       googlePlaySubmitter.submit(
         artifact,
-        'production',
         creds,
         androidCtx({ track: 'production', rollout: 0.1 }),
       ),
@@ -102,7 +101,7 @@ describe('google-play submitter - package_name (EAS #3563 regression)', () => {
   it('closes the bundle file when Google Play fails before reading it', async () => {
     playUpload.isRejected = true;
     await expect(
-      Effect.runPromise(googlePlaySubmitter.submit(artifact, 'testing', creds, androidCtx())),
+      Effect.runPromise(googlePlaySubmitter.submit(artifact, creds, androidCtx())),
     ).rejects.toThrow(/rejected the edit/);
     const [bundleStream] = playUpload.bundleStreams;
     expect(bundleStream?.destroyed).toBe(true);
@@ -113,7 +112,7 @@ describe('google-play submitter - package_name (EAS #3563 regression)', () => {
       ascKey: { keyId: 'K', issuerId: 'I', p8: 'PEM' },
     };
     await expect(
-      Effect.runPromise(googlePlaySubmitter.submit(artifact, 'testing', iosCreds, androidCtx())),
+      Effect.runPromise(googlePlaySubmitter.submit(artifact, iosCreds, androidCtx())),
     ).rejects.toThrow(/Android only/);
     expect(uploadBundleToTrack).not.toHaveBeenCalled();
   });
@@ -123,7 +122,6 @@ describe('google-play submitter - release notes (issue #309)', () => {
     await Effect.runPromise(
       googlePlaySubmitter.submit(
         artifact,
-        'testing',
         creds,
         androidCtx({
           track: 'internal',

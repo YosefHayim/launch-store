@@ -55,11 +55,11 @@ describe('previewBuild', () => {
     expect(plan?.submitter).toBe('google-play');
     expect(plan?.identifier).toBe('com.example.sampleapp');
   });
-  it('defaults Android track/rollout to production/full for store distribution', () => {
+  it('defaults Android track/rollout to internal/full like the real build', () => {
     const preview = Effect.runSync(
       previewBuild({ config: config(), apps: [app()], platform: 'android' }),
     );
-    expect(preview.apps[0]?.track).toBe('production');
+    expect(preview.apps[0]?.track).toBe('internal');
     expect(preview.apps[0]?.rollout).toBe(1.0);
   });
   it('rehearses an internal upload as the internal testing track', () => {

@@ -94,9 +94,7 @@ export const previewBuild = (
       };
       if (identifier !== undefined) appPlan = { ...appPlan, identifier };
       if (previewInput.platform !== 'android') return appPlan;
-      let target: 'testing' | 'production' = 'production';
-      if (distribution === 'internal') target = 'testing';
-      let releaseOptions: Pick<BuildRunOptions, 'target' | 'track' | 'rollout'> = { target };
+      let releaseOptions: Pick<BuildRunOptions, 'track' | 'rollout'> = {};
       if (previewInput.track !== undefined) {
         releaseOptions = { ...releaseOptions, track: previewInput.track };
       }

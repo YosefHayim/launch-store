@@ -143,15 +143,13 @@ export const runIosBuild = (prepared: PreparedBuild, options: BuildRunOptions) =
       return;
     }
     // 8. Confirm the upload (size shown; budget enforced here), submit, then report processing status.
-    let destination = 'App Store review';
-    if (options.target === 'testing') destination = 'TestFlight';
     if (options.submit) {
       if (dryRun) {
-        yield* log.step('submit', `would upload to ${destination}`, 'testflight');
+        yield* log.step('submit', 'would upload to TestFlight', 'testflight');
       } else {
         const submitArtifact = { path: artifactPath, version: appVersion, buildNumber };
         yield* uploadIosBuild(prepared, options, submitArtifact, sizeReport, credentials);
-        if (options.target === 'testing' && bundleId) {
+        if (bundleId) {
           yield* reportProcessing(resolved.ascKey, bundleId, buildNumber, log);
         }
       }
@@ -167,7 +165,7 @@ export const runIosBuild = (prepared: PreparedBuild, options: BuildRunOptions) =
     if (account) yield* refreshIdentityIfStale(account, resolved.ascKey);
     let link: string | undefined;
     if (options.submit && bundleId) {
-      link = yield* resolveAscBuildLink(resolved.ascKey, bundleId, options.target);
+      link = yield* resolveAscBuildLink(resolved.ascKey, bundleId);
     }
     yield* renderReceipt({
       app,

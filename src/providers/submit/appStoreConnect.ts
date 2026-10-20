@@ -1,7 +1,6 @@
 import { Path } from '@effect/platform';
 import { NodeContext } from '@effect/platform-node';
 import { Clock, Duration, Effect } from 'effect';
-import type { SubmitTarget } from '@core/types/app.js';
 import type { BuildUploadProblem } from '@core/types/appleCatalog.js';
 import type { ResolvedBuildContext } from '@core/types/config.js';
 import type { BuildCredentials } from '@core/types/credentials.js';
@@ -82,7 +81,6 @@ export const makeAppStoreConnectSubmitter = (
   name: PROVIDER,
   submit(
     artifact: SubmitArtifact,
-    _target: SubmitTarget,
     buildCredentials: BuildCredentials,
     buildContext: ResolvedBuildContext,
   ) {
