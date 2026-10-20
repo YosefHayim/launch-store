@@ -43,7 +43,7 @@ const main = async () => {
   await runCliProgram(
     runAutoUpgrade(launchVersion, {
       executablePath: process.execPath,
-      commandArguments: process.argv.slice(1),
+      commandArguments: process.argv.slice(2),
       terminalIsInteractive: process.stdout.isTTY === true,
       scriptPath,
     }),

@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-196%20endpoints-8957e5?logo=apple&logoColor=white" alt="196 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2430%20passing-3fb950?logo=vitest&logoColor=white" alt="2430 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2432%20passing-3fb950?logo=vitest&logoColor=white" alt="2432 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -125,7 +125,7 @@
 **入门与讲解**
 
 - **`launch demo`。** 对整条流水线的零配置模拟演练（首次运行时自动播放一次）；任意命令上的 `--explain` 和 `launch explain <topic>` 按需讲解相关术语。
-- **静默自升级。** 检测到更新的 npm 发布版本后会在其上重新运行你的命令--限速为每天一次，且在 CI 中、管道中以及对智能体而言均为空操作。
+- **静默自升级。** npm 或 pnpm 全局安装会用同一个包管理器获取更新的发布版本，并在其上重新运行你的命令（如果暂时找不到新副本，则从你的下一条命令开始使用）；项目内安装只会显示一条提示--限速为每天一次，且在 CI 中、管道中以及对智能体而言均为空操作。
 
 ## Launch vs EAS
 

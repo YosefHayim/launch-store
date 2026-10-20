@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-196%20endpoints-8957e5?logo=apple&logoColor=white" alt="196 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2430%20passing-3fb950?logo=vitest&logoColor=white" alt="2430 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2432%20passing-3fb950?logo=vitest&logoColor=white" alt="2432 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -205,7 +205,7 @@ rollback` reverte uma OTA ruim - promova uma atualização sabidamente boa ou fa
 
 - **`launch demo`.** Um passo a passo simulado e sem configuração de todo o pipeline (roda automaticamente uma vez na primeira
   execução); `--explain` em qualquer comando e `launch explain <topic>` cobrem a terminologia sob demanda.
-- **Autoatualização silenciosa.** Detecta um release npm mais novo e reexecuta seu comando nele - limitado a
+- **Autoatualização silenciosa.** Uma instalação global via npm ou pnpm obtém um release mais novo com o mesmo gerenciador de pacotes e reexecuta seu comando nele (ou no seu próximo comando, se a nova cópia ainda não puder ser encontrada); uma instalação no projeto mostra apenas um aviso - limitado a
   uma vez por dia e sem efeito em CI, quando há pipe e para agentes.
 
 ## Launch vs EAS

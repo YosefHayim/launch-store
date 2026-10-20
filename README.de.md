@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-196%20endpoints-8957e5?logo=apple&logoColor=white" alt="196 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2430%20passing-3fb950?logo=vitest&logoColor=white" alt="2430 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2432%20passing-3fb950?logo=vitest&logoColor=white" alt="2432 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -239,8 +239,8 @@ generate-codes/list/deactivate` steuern Angebotscode-Kampagnen über die CLI.
 - **`launch demo`.** Eine simulierte Tour ohne Einrichtung durch die gesamte Pipeline (läuft beim ersten
   Lauf einmal automatisch ab); `--explain` an jedem Befehl und `launch explain <topic>` decken die
   Terminologie auf Abruf ab.
-- **Stilles Selbst-Upgrade.** Greift eine neuere npm-Version auf und führt Ihren Befehl darauf erneut
-  aus - gedrosselt auf einmal täglich und ein No-Op in CI, bei Piping und für Agenten.
+- **Stilles Selbst-Upgrade.** Eine globale npm- oder pnpm-Installation holt eine neuere Version mit demselben Paketmanager und
+  führt Ihren Befehl darauf erneut aus (oder beim nächsten Befehl, falls die neue Kopie noch nicht gefunden wird); eine Projektinstallation zeigt nur einen Hinweis - gedrosselt auf einmal täglich und ein No-Op in CI, bei Piping und für Agenten.
 
 ## Launch vs. EAS
 

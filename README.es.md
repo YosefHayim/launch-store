@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-196%20endpoints-8957e5?logo=apple&logoColor=white" alt="196 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2430%20passing-3fb950?logo=vitest&logoColor=white" alt="2430 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2432%20passing-3fb950?logo=vitest&logoColor=white" alt="2432 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -125,7 +125,7 @@ Cada sección a continuación se declara en `launch.config.ts` (o en su archivo 
 **Onboarding y enseñanza**
 
 - **`launch demo`.** Un recorrido simulado y sin configuración de todo el pipeline (se reproduce automáticamente una vez en la primera ejecución); `--explain` en cualquier comando y `launch explain <topic>` cubren la terminología bajo demanda.
-- **Autoactualización silenciosa.** Detecta una versión más reciente de npm y vuelve a ejecutar tu comando con ella - limitada a una vez al día y sin efecto en CI, cuando se canaliza por tubería y para agentes.
+- **Autoactualización silenciosa.** Una instalación global con npm o pnpm obtiene una versión más reciente con ese mismo gestor de paquetes y vuelve a ejecutar tu comando con ella (o en tu siguiente comando, si la nueva copia aún no se encuentra); una instalación de proyecto solo muestra un aviso - limitada a una vez al día y sin efecto en CI, cuando se canaliza por tubería y para agentes.
 
 ## Launch vs EAS
 

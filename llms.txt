@@ -106,7 +106,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 58. **Interactive wizard.** Running bare `launch` opens a guided wizard that remembers your last flow and offers a one-keypress repeat.
 59. **Drive it from an AI agent.** `launch agents init`/`check` scaffolds [Claude Code](https://code.claude.com/docs/en/overview) / [Cursor](https://cursor.com/docs/rules) / [Codex](https://developers.openai.com/codex/guides/agents-md) skills so coding agents run the workflows under the same plan -> confirm -> apply guardrails.
 60. **CI in one command.** `launch ci init` scaffolds a [GitHub Actions](https://docs.github.com/actions) workflow that builds and ships unattended.
-61. **Silent self-upgrade.** Picks up a newer npm release and re-runs your command on it - throttled to once a day, and a no-op in CI, when piped, and for agents.
+61. **Silent self-upgrade.** A global npm or pnpm install picks up a newer release with that same package manager and re-runs your command on it (or on your next command, if the new copy cannot be found yet); a project install only prints a notice - throttled to once a day, and a no-op in CI, when piped, and for agents.
 
 ## FAQ
 
@@ -146,7 +146,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 63 `launch` commands (196 store-API operations underneath, 2430 tests):
+All 63 `launch` commands (196 store-API operations underneath, 2432 tests):
 
 - `launch init` - scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` - onboard an app that already ships: import its App Store Connect setup into config

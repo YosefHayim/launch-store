@@ -5,6 +5,7 @@ import {
   isNewer,
   maybeAutoUpgrade,
   shouldCheck,
+  type GlobalInstaller,
   type UpdateCheckDeps,
   type UpdateState,
   type UpgradeResult,
@@ -66,6 +67,7 @@ const makeDeps = (
   deps: UpdateCheckDeps;
   calls: {
     fetch: number;
+    resolveInstaller: number;
     upgrade: number;
     reexec: number;
     writes: UpdateState[];
@@ -74,12 +76,14 @@ const makeDeps = (
 } => {
   const calls: {
     fetch: number;
+    resolveInstaller: number;
     upgrade: number;
     reexec: number;
     writes: UpdateState[];
     notes: string[];
   } = {
     fetch: 0,
+    resolveInstaller: 0,
     upgrade: 0,
     reexec: 0,
     writes: [],
@@ -91,6 +95,11 @@ const makeDeps = (
     environmentVariables: {},
     isTTY: true,
     scriptPath: '/usr/local/lib/node_modules/launch-store/dist/cli/index.js',
+    resolveInstaller: () =>
+      Effect.sync((): GlobalInstaller | null => {
+        calls.resolveInstaller++;
+        return 'npm';
+      }),
     readState: () => null,
     writeState: (state) => {
       return Effect.sync(() => {
@@ -135,6 +144,7 @@ describe('maybeAutoUpgrade', () => {
     const { deps, calls } = makeDeps({ fetchLatest: () => Effect.succeed('0.1.0') });
     await Effect.runPromise(maybeAutoUpgrade(deps));
     expect(calls.writes).toHaveLength(1);
+    expect(calls.resolveInstaller).toBe(0);
     expect(calls.upgrade).toBe(0);
     expect(calls.reexec).toBe(0);
   });
@@ -148,7 +158,29 @@ describe('maybeAutoUpgrade', () => {
     const { deps, calls } = makeDeps({ upgrade: () => Effect.succeed('eacces') });
     await Effect.runPromise(maybeAutoUpgrade(deps));
     expect(calls.reexec).toBe(0);
-    expect(calls.notes.some((note) => note.includes('sudo npm i -g'))).toBe(true);
+    expect(calls.notes.some((note) => note.includes('sudo npm install -g'))).toBe(true);
+  });
+  it('upgrades, relaunches, and names pnpm for a pnpm install', async () => {
+    const usedInstallers: GlobalInstaller[] = [];
+    const { deps, calls } = makeDeps({
+      resolveInstaller: () => Effect.succeed('pnpm'),
+      upgrade: (installer) =>
+        Effect.sync(() => {
+          usedInstallers.push(installer);
+          return 'failed';
+        }),
+    });
+    await Effect.runPromise(maybeAutoUpgrade(deps));
+    expect(usedInstallers).toEqual(['pnpm']);
+    expect(calls.reexec).toBe(0);
+    expect(calls.notes).toEqual(['launch 0.2.0 is available - pnpm add -g launch-store@0.2.0']);
+  });
+  it('only notifies for a project or npx install', async () => {
+    const { deps, calls } = makeDeps({ resolveInstaller: () => Effect.succeed(null) });
+    await Effect.runPromise(maybeAutoUpgrade(deps));
+    expect(calls.upgrade).toBe(0);
+    expect(calls.reexec).toBe(0);
+    expect(calls.notes).toEqual(['launch 0.2.0 is available - you have 0.1.0']);
   });
   it('records the check and stays quiet when offline (fetch returns null)', async () => {
     const { deps, calls } = makeDeps({ fetchLatest: () => Effect.succeed(null) });
