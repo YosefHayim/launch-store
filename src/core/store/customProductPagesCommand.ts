@@ -17,6 +17,7 @@ import {
   type CustomProductPagesConfig,
 } from './customProductPages.js';
 import { loadStoreAppContext, type StoreAppSelectionRequirements } from './selectStoreApp.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 export const CustomProductPagesCommandInputSchema = Schema.Struct({
   app: Schema.optionalWith(Schema.String, { exact: true }),
@@ -55,7 +56,7 @@ const customPagesFailure = (
 ): CustomProductPagesCommandFailure => {
   let message = `${operation} failed.`;
   if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (
     typeof cause === 'object' &&
     cause !== null &&

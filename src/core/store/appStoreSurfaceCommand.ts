@@ -2,6 +2,7 @@ import { FileSystem, Terminal } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
 import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
 import type { PlannedAction } from '../types/reconcile.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 /** Reading a sidecar or confirming an App Store surface write failed. */
 export type AppStoreSurfaceCommandFailure = Readonly<{
@@ -24,7 +25,7 @@ const surfaceFailure = (
   if (explicitMessage !== undefined) message = explicitMessage;
   if (explicitMessage === undefined && typeof cause === 'string' && cause.length > 0)
     message = cause;
-  if (explicitMessage === undefined && cause instanceof Error) message = cause.message;
+  if (explicitMessage === undefined && hasMessage(cause)) message = cause.message;
   return makeAppStoreSurfaceCommandFailure({ operation, message, cause });
 };
 

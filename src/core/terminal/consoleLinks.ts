@@ -8,6 +8,7 @@ import type { ActiveAppleStoreRequirements } from '../store/appleStoreCommand.js
 import { selectApps } from '../store/syncJobs.js';
 import { createAscClientResolver } from '../store/storeClients.js';
 import type { AppDescriptor, OpenTarget, Platform } from '../types/app.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 export const OPEN_TARGETS: readonly OpenTarget[] = [
   'asc',
@@ -52,7 +53,7 @@ export const buildPlayPaymentsProfileUrl = (developerId?: string): string => {
 const consoleLinkFailure = (operation: string, cause: unknown): ConsoleLinkFailure => {
   let message = `${operation} failed.`;
   if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (typeof cause === 'object' && cause !== null && 'message' in cause) {
     const causeMessage = cause.message;
     if (typeof causeMessage === 'string') message = causeMessage;

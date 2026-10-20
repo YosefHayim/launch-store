@@ -15,6 +15,7 @@ import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import type { AppDescriptor } from '../types/app.js';
 import { formatEnvTable, parseCliEnv } from './env.js';
 import { loadConfig } from './config.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 const AppRuntimeVersionSchema = Schema.Struct({
   expo: Schema.optional(
@@ -56,7 +57,7 @@ const updateFailure = (
   fallbackMessage?: string,
 ): UpdateCommandFailure => {
   let message = fallbackMessage;
-  if (message === undefined && cause instanceof Error) message = cause.message;
+  if (message === undefined && hasMessage(cause)) message = cause.message;
   if (message === undefined) message = `${operation} failed.`;
   return makeUpdateCommandFailure({ operation, message, cause });
 };

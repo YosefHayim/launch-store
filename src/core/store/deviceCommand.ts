@@ -2,6 +2,7 @@ import { Data, Effect, Schema } from 'effect';
 import { createLogger, type Logger } from '../services/logger.js';
 import type { DeviceResource } from '../types/appleCatalog.js';
 import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './appleStoreCommand.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 const DeviceAddInputSchema = Schema.Struct({
   operation: Schema.Literal('add'),
@@ -37,7 +38,7 @@ const deviceCommandFailure = (
 ): DeviceCommandFailure => {
   let message = `Device ${operation} failed.`;
   if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (typeof cause === 'object' && cause !== null && 'message' in cause) {
     const causeMessage = cause.message;
     if (typeof causeMessage === 'string') message = causeMessage;

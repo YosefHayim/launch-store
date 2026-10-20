@@ -9,6 +9,7 @@ import type { AppDescriptor } from '../types/app.js';
 import type { PrivacySurface } from '../types/privacy.js';
 import { surfaceFromExpoConfig, surfaceFromNative } from './parse.js';
 import { buildPrivacyReport, reconcilePrivacy, renderPrivacyReport } from './reconcile.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 /** Options accepted by the privacy scan command program. */
 export type PrivacyCommandOptions = {
@@ -47,7 +48,7 @@ const SKIPPED_DIRECTORIES = new Set(['node_modules', 'Pods', 'build', 'DerivedDa
 /** Map a failed command dependency to the privacy command's tagged failure. */
 const commandFailure = (operation: string, cause: unknown): PrivacyCommandFailure => {
   let message = `${operation} failed.`;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   return makePrivacyCommandFailure({ operation, message, cause });
 };
 

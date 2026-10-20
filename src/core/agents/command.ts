@@ -26,6 +26,7 @@ import {
   spliceManagedBlock,
 } from './render.js';
 import { findUnknownCommands, type RegisteredCommand } from './validate.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 /** The coding-agent targets supported by `launch agents`, in display order. */
 export const AGENT_TARGETS: readonly AgentTarget[] = [
@@ -122,7 +123,7 @@ export const isAgentTarget = (candidate: string): candidate is AgentTarget => {
 /** Map a platform or prompt failure into the agents command channel. */
 const agentsFailure = (operation: string, cause: unknown): AgentsCommandFailure => {
   let message = `${operation} failed.`;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   return makeAgentsCommandFailure({ operation, message, cause });
 };
 

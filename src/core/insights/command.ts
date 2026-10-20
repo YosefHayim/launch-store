@@ -19,6 +19,7 @@ import type {
 } from '../types/insights.js';
 import { buildInsightsReport, STARS } from './aggregate.js';
 import type { MutableDeep } from '../types/mutable.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 /** Options accepted by the cross-store insights command. */
 export type InsightsCommandOptions = Readonly<{
@@ -39,7 +40,7 @@ export const makeInsightsCommandFailure =
 /** Convert any dependency failure into the insights command channel. */
 const insightsFailure = (operation: string, cause: unknown): InsightsCommandFailure => {
   let message = `${operation} failed.`;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (typeof cause === 'object' && cause !== null && 'message' in cause) {
     const causeMessage = cause.message;
     if (typeof causeMessage === 'string') message = causeMessage;

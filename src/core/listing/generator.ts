@@ -4,6 +4,7 @@ import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/en
 import type { DraftListing, ListingBrief, ListingGenerator } from '../types/listing.js';
 import { APPLE_LIMITS, serializeKeywords } from './apply.js';
 import type { MutableDeep } from '../types/mutable.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 const GeneratedListingSchema = Schema.Struct({
   title: Schema.optionalWith(Schema.String, { exact: true }),
@@ -66,7 +67,7 @@ const generationFailure = (
   explicitMessage?: string,
 ): ListingGenerationFailure => {
   let message = `${operation} failed.`;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (explicitMessage !== undefined) message = explicitMessage;
   return makeListingGenerationFailure({ operation, message, cause });
 };

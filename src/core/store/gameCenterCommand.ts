@@ -14,6 +14,7 @@ import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './apple
 import { parseGameCenterConfig, reconcileGameCenter } from './gameCenter.js';
 import { summarize } from './reconcile.js';
 import { loadStoreAppContext, type StoreAppSelectionRequirements } from './selectStoreApp.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 export const GameCenterCommandInputSchema = Schema.Struct({
   app: Schema.optionalWith(Schema.String, { exact: true }),
@@ -48,7 +49,7 @@ type GameCenterCommandRequirements =
 const gameCenterFailure = (operation: string, cause: unknown): GameCenterCommandFailure => {
   let message = `${operation} failed.`;
   if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (
     typeof cause === 'object' &&
     cause !== null &&

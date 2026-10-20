@@ -6,6 +6,7 @@ import type {
   AppEventResource,
   NewAppEvent,
 } from '../types/appleCatalog.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 /** The App Store transport operations required by the in-app-events domain. */
 export type AscAppEventsApi = Readonly<{
@@ -94,7 +95,7 @@ export type LocalizeResult = Readonly<{
 /** Convert a transport failure into the in-app-event error channel. */
 const appEventFailure = (operation: string, cause: unknown): AppEventFailure => {
   let message = `${operation} failed.`;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (typeof cause === 'object' && cause !== null && 'message' in cause) {
     const causeMessage = cause.message;
     if (typeof causeMessage === 'string') message = causeMessage;

@@ -38,6 +38,7 @@ import {
   saveSnapshot,
   type PruneCriteria,
 } from './store.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 const LIVE_SNAPSHOT = 'live';
 const SNAPSHOT_STORES: readonly SnapshotStore[] = ['appstore', 'play'];
@@ -148,7 +149,7 @@ const snapshotFailure = (
   fallbackMessage?: string,
 ): SnapshotCommandFailure => {
   let message = fallbackMessage;
-  if (message === undefined && cause instanceof Error) message = cause.message;
+  if (message === undefined && hasMessage(cause)) message = cause.message;
   if (message === undefined) message = `${operation} failed.`;
   return makeSnapshotCommandFailure({ operation, message, cause });
 };

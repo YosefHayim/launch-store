@@ -24,6 +24,7 @@ import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import type { Platform } from '../types/app.js';
 import type { StorageProvider } from '../types/providers.js';
 import { loadConfig, type LoadedConfig } from './config.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 const ManifestAssetSchema = Schema.Struct({
   key: Schema.String,
@@ -95,7 +96,7 @@ const updatesFailure = (
   fallbackMessage?: string,
 ): UpdatesCommandFailure => {
   let message = fallbackMessage;
-  if (message === undefined && cause instanceof Error) message = cause.message;
+  if (message === undefined && hasMessage(cause)) message = cause.message;
   if (
     message === undefined &&
     typeof cause === 'object' &&

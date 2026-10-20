@@ -5,6 +5,7 @@ import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
 import type { UserInvitationResource, UserResource } from '../types/appleCatalog.js';
 import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './appleStoreCommand.js';
 import { getTeam, inviteTeamMember, removeTeamMember, type Team } from './team.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 const TeamListInputSchema = Schema.Struct({
   operation: Schema.Literal('list'),
@@ -60,7 +61,7 @@ const teamCommandFailure = (
 ): TeamCommandFailure => {
   let message = `Team ${operation} failed.`;
   if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (typeof cause === 'object' && cause !== null && 'message' in cause) {
     const causeMessage = cause.message;
     if (typeof causeMessage === 'string') message = causeMessage;

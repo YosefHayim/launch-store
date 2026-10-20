@@ -1,8 +1,10 @@
+export const hasMessage = (failure: unknown): failure is Readonly<{ message: string }> =>
+  typeof failure === 'object' &&
+  failure !== null &&
+  'message' in failure &&
+  typeof failure.message === 'string';
+
 export const errorMessage = (error: unknown): string => {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'object' && error !== null && 'message' in error) {
-    const taggedMessage = error.message;
-    if (typeof taggedMessage === 'string') return taggedMessage;
-  }
+  if (hasMessage(error)) return error.message;
   return String(error);
 };

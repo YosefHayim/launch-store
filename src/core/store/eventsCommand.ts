@@ -11,6 +11,7 @@ import {
 } from './appEvents.js';
 import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './appleStoreCommand.js';
 import { resolveStoreBundleId, type StoreAppSelectionRequirements } from './selectStoreApp.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 /** Options for creating a draft in-app event. */
 export type CreateEventCommandInput = Readonly<{
@@ -63,7 +64,7 @@ const eventsFailure = (
   cause: unknown,
 ): EventsCommandFailure => {
   let message = `Events ${operation} failed.`;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (typeof cause === 'object' && cause !== null && 'message' in cause) {
     const causeMessage = cause.message;
     if (typeof causeMessage === 'string') message = causeMessage;

@@ -8,11 +8,12 @@ import {
   type AgentsCommandFailure,
   makeAgentsCommandFailure,
 } from './command.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 /** Map an MCP adapter failure into the agents command channel. */
 const liveFailure = (operation: string, cause: unknown): AgentsCommandFailure => {
   let message = `${operation} failed.`;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   return makeAgentsCommandFailure({ operation, message, cause });
 };
 

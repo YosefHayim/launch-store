@@ -11,6 +11,7 @@ import {
   resolveGoogleStorePackageName,
 } from './googleStoreCommand.js';
 import type { StoreAppSelectionRequirements } from './selectStoreApp.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 const PlayReviewsListInputSchema = Schema.Struct({
   operation: Schema.Literal('list'),
@@ -65,7 +66,7 @@ const playReviewsFailure = (
 ): PlayReviewsCommandFailure => {
   let message = `Play reviews ${operation} failed.`;
   if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (typeof cause === 'object' && cause !== null && 'message' in cause) {
     const causeMessage = cause.message;
     if (typeof causeMessage === 'string') message = causeMessage;

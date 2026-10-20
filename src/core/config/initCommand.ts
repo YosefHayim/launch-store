@@ -13,6 +13,7 @@ import {
   ENV_EXAMPLE_TEMPLATE,
 } from './configScaffold.js';
 import { ensureArtifactDirIgnored } from './gitignore.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 export const InitCommandInputSchema = Schema.Struct({
   workingDirectory: Schema.optionalWith(Schema.String, { exact: true }),
@@ -42,7 +43,7 @@ type InitCommandRequirements =
 const initFailure = (operation: string, cause: unknown): InitCommandFailure => {
   let message = `${operation} failed.`;
   if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (typeof cause === 'object' && cause !== null && 'message' in cause) {
     const causeMessage = cause.message;
     if (typeof causeMessage === 'string') message = causeMessage;

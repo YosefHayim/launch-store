@@ -1,5 +1,6 @@
 import { GooglePlayClient, parseServiceAccount } from '@google/playClient.js';
 import { Context, Data, Effect, Layer } from 'effect';
+import { hasMessage } from './errorMessage.js';
 
 /** Effect-native Google Play transport surface. */
 export type EffectGooglePlayClient = GooglePlayClient;
@@ -17,7 +18,7 @@ export const makeGoogleTransportFailure =
 /** Convert a Google transport cause to its tagged error channel. */
 const transportFailure = (cause: unknown): GoogleTransportFailure => {
   let message = String(cause);
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   return makeGoogleTransportFailure({ message, cause });
 };
 

@@ -1,4 +1,5 @@
 import { Data, Effect } from 'effect';
+import { hasMessage } from './errorMessage.js';
 
 /** Matches the module-resolution errors Node/the loader throw when a package isn't installed. */
 // Raw row example: "not installed"-like input should match.
@@ -20,7 +21,7 @@ export const requireOptional = <LoadedCapability, LoadFailure, LoadRequirements>
   load().pipe(
     Effect.catchAll((cause): Effect.Effect<never, LoadFailure | OptionalDependencyMissing> => {
       let message = String(cause);
-      if (cause instanceof Error) message = cause.message;
+      if (hasMessage(cause)) message = cause.message;
       if (!NOT_INSTALLED.test(message)) return Effect.fail(cause);
       return Effect.fail(
         makeOptionalDependencyMissing({
