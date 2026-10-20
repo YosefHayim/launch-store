@@ -123,13 +123,7 @@ const rehearse = (prepared: PreparedBuild, options: BuildRunOptions, buildNumber
       'would shred the secrets (keychain + creds), keeping the warm work tree for next time',
     );
     if (options.submit) {
-      let storeDestination = 'App Store review';
-      if (options.target === 'testing') storeDestination = 'TestFlight';
-      yield* log.step(
-        'submit',
-        `would upload the pulled .ipa to ${storeDestination}`,
-        'testflight',
-      );
+      yield* log.step('submit', 'would upload the pulled .ipa to TestFlight', 'testflight');
     }
     yield* log.step(
       'host',
@@ -292,8 +286,6 @@ export const runRemoteBuild = (prepared: PreparedBuild, options: BuildRunOptions
       const credentials: BuildCredentials = { platform: 'ios', ascKey };
       const submitArtifact = { path: pulled.ipaPath, version: appVersion, buildNumber };
       yield* uploadIosBuild(prepared, options, submitArtifact, pulled.sizeReport, credentials);
-    }
-    if (options.submit && options.target === 'testing') {
       yield* reportProcessing(ascKey, bundleId, buildNumber, log);
     }
     // Keep AWS hosts alive for the already-paid window; auto-release is scheduled near 23.5h.
@@ -306,7 +298,7 @@ export const runRemoteBuild = (prepared: PreparedBuild, options: BuildRunOptions
     // Backfill the account's Team ID + app names from Apple now that we have a live key in hand.
     if (account) yield* refreshIdentityIfStale(account, ascKey);
     let link: string | undefined;
-    if (options.submit) link = yield* resolveAscBuildLink(ascKey, bundleId, options.target);
+    if (options.submit) link = yield* resolveAscBuildLink(ascKey, bundleId);
     yield* renderReceipt({
       app,
       version: appVersion,

@@ -1,10 +1,4 @@
-import type {
-  AppDescriptor,
-  Distribution,
-  Platform,
-  PlayTrack,
-  SubmitTarget,
-} from '../types/app.js';
+import type { AppDescriptor, Distribution, Platform, PlayTrack } from '../types/app.js';
 import type { SizeReport } from '../types/artifacts.js';
 import type { LaunchConfig, ResolvedBuildContext } from '../types/config.js';
 import type { MutableDeep } from '../types/mutable.js';
@@ -19,7 +13,6 @@ export type BuildRunOptions = {
   profileName: string;
   explain: boolean;
   submit: boolean;
-  target: SubmitTarget;
   track?: PlayTrack;
   rollout?: number;
   /** Android only - path to a JSON file mapping language codes to release-note text. */

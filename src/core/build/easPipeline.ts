@@ -14,11 +14,9 @@ export const runEasBuild = (prepared: PreparedBuild, options: BuildRunOptions) =
     if (options.dryRun) {
       yield* log.step('eas', 'would run `eas build --platform ios --profile <p> --json --wait`');
       if (options.submit) {
-        let dryRunDestination = 'App Store review';
-        if (options.target === 'testing') dryRunDestination = 'TestFlight';
         yield* log.step(
           'submit',
-          `would run \`eas submit --platform ios\` -> ${dryRunDestination}`,
+          'would run `eas submit --platform ios` -> TestFlight',
           'testflight',
         );
       }
@@ -52,12 +50,10 @@ export const runEasBuild = (prepared: PreparedBuild, options: BuildRunOptions) =
     const stored = yield* storageProvider.put(artifact);
     yield* log.step('store', stored.location);
     if (options.submit) {
-      let uploadDestination = 'App Store review (via EAS)';
-      if (options.target === 'testing') uploadDestination = 'TestFlight (via EAS)';
       yield* confirmUpload({
         report: sizeReport,
         budgetMB: resolveSizeBudgetMB(options, profile),
-        destination: uploadDestination,
+        destination: 'TestFlight (via EAS)',
         app,
         version: appVersion,
         buildNumber,
@@ -66,15 +62,10 @@ export const runEasBuild = (prepared: PreparedBuild, options: BuildRunOptions) =
       });
       yield* log.note('Submitting via eas submit...');
       yield* easProvider.submit(buildContext, artifactPath, profile.name);
-      let submissionDescription = 'submitted for App Store review via EAS';
-      if (options.target === 'testing') submissionDescription = 'submitted to TestFlight via EAS';
-      yield* log.step('submit', submissionDescription, 'testflight');
+      yield* log.step('submit', 'uploaded to TestFlight via EAS', 'testflight');
     }
     let receiptDestination = 'built - not uploaded';
-    if (options.submit) {
-      receiptDestination = 'App Store - in review (via EAS)';
-      if (options.target === 'testing') receiptDestination = 'TestFlight - via EAS';
-    }
+    if (options.submit) receiptDestination = 'TestFlight - via EAS';
     yield* renderReceipt({
       app,
       version: appVersion,

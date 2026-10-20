@@ -1,7 +1,6 @@
 import { FileSystem, HttpClient, HttpClientResponse, Path } from '@effect/platform';
 import { NodeContext, NodeHttpClient } from '@effect/platform-node';
 import { Effect, Schema } from 'effect';
-import type { SubmitTarget } from '@core/types/app.js';
 import type { SizeReport } from '@core/types/artifacts.js';
 import type { ResolvedBuildContext } from '@core/types/config.js';
 import { makeProviderInputFailure, type HostedBuildProvider } from '@core/types/providers.js';
@@ -200,8 +199,6 @@ const downloadFile = (artifactUrl: string, destinationPath: string): Effect.Effe
     );
     yield* fileSystem.writeFile(destinationPath, new Uint8Array(artifactBytes));
   }).pipe(Effect.provide(NodeContext.layer), Effect.provide(NodeHttpClient.layer));
-/** `--target` is accepted for parity with the local submitter; EAS routes to TestFlight/Store via its own config. */
-export type EasSubmitTarget = SubmitTarget;
 
 /** Expo EAS implementation of the core hosted-build boundary. */
 export const easHostedBuildProvider: HostedBuildProvider = {

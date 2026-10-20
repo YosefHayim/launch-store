@@ -533,7 +533,6 @@ const resolveIosBuild = (
       launchConfig,
       buildContext.platform,
       artifact,
-      'production',
       buildCredentials,
       buildContext,
     ).pipe(Effect.mapError((cause) => releaseFailure('upload App Store build', cause)));
@@ -852,7 +851,6 @@ const releaseAndroidBuild = (
       launchConfig,
       'android',
       latestBuild,
-      'production',
       buildCredentials,
       buildContext,
     ).pipe(

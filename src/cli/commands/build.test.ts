@@ -62,7 +62,6 @@ describe('parseBuildCommandInput - raw Commander values to pipeline input', () =
       platform: 'ios',
       profileName: 'production',
       appName: 'demo',
-      target: 'testing',
       remote: { kind: 'aws' },
       distribution: 'internal',
       bump: 'patch',

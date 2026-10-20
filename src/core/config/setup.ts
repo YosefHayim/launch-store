@@ -476,7 +476,6 @@ export const runSetup = (options: SetupOptions) =>
         profileName: 'production',
         explain: false,
         submit: true,
-        target: 'testing',
         dryRun: true,
       }).pipe(Effect.either);
       if (rehearsal._tag === 'Left')

@@ -18,14 +18,6 @@ export type BuildLocation = 'local' | 'aws' | 'ssh' | 'eas';
  */
 export type Distribution = 'store' | 'internal';
 /**
- * Where a submission lands, neutrally named and mapped to each store by the platform's submitter.
- * - `testing`: a testing track (iOS -> TestFlight; Android -> the chosen {@link PlayTrack}, default
- *   `internal`). The default, safe path.
- * - `production`: the store's public release queue (iOS App Store review / Android production track).
- *   Reached only by the deliberate `launch release` command.
- */
-export type SubmitTarget = 'testing' | 'production';
-/**
  * A Google Play release track. `internal` is the safe default: a new personal Play account must run
  * ~20 testers for 14 days on a testing track before production is unlocked, so defaulting anywhere
  * else would fail for fresh accounts. Has no iOS equivalent. Array-first (SSOT) so config schemas reuse

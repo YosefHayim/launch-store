@@ -99,7 +99,6 @@ const buildRunOptions = (
     profileName,
     explain: false,
     submit,
-    target: 'testing',
     dryRun: false,
   };
   if (sizeBudgetMB !== undefined) commandOptions.sizeBudgetMB = sizeBudgetMB;

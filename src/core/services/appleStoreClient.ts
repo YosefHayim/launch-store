@@ -41,7 +41,7 @@ const transportFailure = (cause: unknown): AppleTransportFailure => {
 /** Actionable message when an app has no ASC record (Apple has no API to create one). */
 export const appRecordMissingMessage = (bundleId: string, command = 'launch release ios'): string =>
   `No App Store Connect app record for ${bundleId}. Apple has no API to create one - create the app ` +
-  `once at https://appstoreconnect.com/apps. A brand-new app also needs its screenshots, age rating, ` +
+  `once at https://appstoreconnect.apple.com/apps. A brand-new app also needs its screenshots, age rating, ` +
   `privacy details, and signed Paid/Free Apps agreement set there once. Then re-run \`${command}\`.`;
 
 const effectClient = (ascKey: AscKey): EffectAppStoreConnectClient => {

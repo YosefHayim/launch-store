@@ -1,7 +1,7 @@
 import { FileSystem } from '@effect/platform';
 import { NodeContext, NodeStream } from '@effect/platform-node';
 import { Effect } from 'effect';
-import type { AndroidReleaseNote, PlayTrack, SubmitTarget } from '@core/types/app.js';
+import type { AndroidReleaseNote, PlayTrack } from '@core/types/app.js';
 import type { ResolvedBuildContext } from '@core/types/config.js';
 import type { BuildCredentials } from '@core/types/credentials.js';
 import type { PlayRelease } from '@core/types/googlePlay.js';
@@ -34,7 +34,6 @@ export const googlePlaySubmitter: Submitter = {
   name: 'google-play',
   submit(
     artifact: SubmitArtifact,
-    target: SubmitTarget,
     buildCredentials: BuildCredentials,
     buildContext: ResolvedBuildContext,
   ) {
@@ -55,9 +54,7 @@ export const googlePlaySubmitter: Submitter = {
         }),
       );
     }
-    // Resolved upstream from Android build settings; use the safe default for the neutral target.
     let track: PlayTrack = 'internal';
-    if (target === 'production') track = 'production';
     if (buildContext.android?.track !== undefined) track = buildContext.android.track;
     let rollout = 1.0;
     if (buildContext.android?.rollout !== undefined) rollout = buildContext.android.rollout;

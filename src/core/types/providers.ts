@@ -1,5 +1,4 @@
 import { Data, type Effect } from 'effect';
-import type { SubmitTarget } from './app.js';
 import type {
   BuildArtifact,
   PruneOptions,
@@ -132,14 +131,12 @@ export type SubmitArtifact = Pick<BuildArtifact, 'path' | 'version' | 'buildNumb
  *
  * `app-store-connect` uploads to TestFlight through App Store Connect's build upload API; `google-play`
  * uploads to a Play track through the Android Publisher edits API. Each narrows Readonly<{@link BuildCredentials}>
- * to its platform and maps the neutral Readonly<{@link SubmitTarget}> onto its store's concept (Android also
- * reads `buildContext.android`).
+ * to its platform (Android also reads `buildContext.android`).
  */
 export type Submitter = Readonly<{
   readonly name: string;
   submit(
     artifact: SubmitArtifact,
-    target: SubmitTarget,
     buildCredentials: BuildCredentials,
     buildContext: ResolvedBuildContext,
   ): Effect.Effect<void, unknown>;

@@ -351,7 +351,6 @@ export const createTrainRuntime = (
         launchConfiguration,
         'android',
         latestBuild,
-        'production',
         buildCredentials,
         buildContext,
       ).pipe(Effect.mapError((cause) => runtimeFailure('submit Android release', cause)));
