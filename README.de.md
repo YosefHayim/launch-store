@@ -271,11 +271,11 @@ EAS Ihnen überlässt. Wo sich die beiden im selben Workflow unterscheiden:
 
 ## Voraussetzungen
 
-- **iOS:** eine **Apple-Developer-Program-Mitgliedschaft** (99 $/Jahr) - [hier registrieren](https://developer.apple.com/programs/enroll/) - und dann macOS mit **Xcode** + Befehlszeilenwerkzeugen und ein
+- **iOS:** eine **Apple-Developer-Program-Mitgliedschaft** (99 $/Jahr) - [hier registrieren](https://developer.apple.com/programs/enroll/) - und dann macOS mit **Xcode** + Befehlszeilenwerkzeugen, **CocoaPods** und ein
   **App-Store-Connect-API-Schlüssel** (`.p8` + Key-ID + Issuer-ID) - [hier einen
   generieren](https://appstoreconnect.apple.com/access/integrations/api).
   Kein Mac? Siehe [Bauen ohne Mac](#bauen-ohne-mac).
-- **Android:** ein **Google-Play-Developer-Konto** (einmalig 25 $) - [hier registrieren](https://play.google.com/console/signup) - und dann ein **JDK** (jedes Betriebssystem - kein Mac nötig) und ein
+- **Android:** ein **Google-Play-Developer-Konto** (einmalig 25 $) - [hier registrieren](https://play.google.com/console/signup) - und dann ein **JDK** und das **Android SDK** mit gesetztem `ANDROID_HOME` (jedes Betriebssystem - kein Mac nötig) und ein
   **Google-Play-Dienstkonto**-JSON-Schlüssel.
 - **Node 20+** auf jeder Plattform.
 
@@ -446,7 +446,7 @@ Launch liegt hier in der Automatisierung in Ihrem eigenen Konto mit überall den
 
 **Wo werden meine Signierschlüssel und Geheimnisse gespeichert?** In Ihrem OS-Keychain. Ihr App-Store-Connect-API-Schlüssel (`.p8`), privater Verteilungsschlüssel und Android-Upload-Schlüssel berühren nie das Repo oder die Server von irgendjemandem - es wird immer nur ein Certificate Signing Request (CSR) an Apple gesendet. Build-Geheimnisse leben ebenfalls im Keychain, über `launch secret`, sodass sie aus einer committeten `.env` herausbleiben.
 
-**Was benötige ich, um Launch auszuführen?** Node 20+ überall. Für iOS: macOS mit Xcode und seinen Befehlszeilenwerkzeugen und einen App-Store-Connect-API-Schlüssel (`.p8` + Key-ID + Issuer-ID) - oder einen Remote-Mac, wenn Sie keinen haben. Für Android: ein JDK (jedes Betriebssystem) und einen Google-Play-Dienstkonto-JSON-Schlüssel. Führen Sie `launch doctor` aus, um alles auf einmal zu prüfen.
+**Was benötige ich, um Launch auszuführen?** Node 20+ überall. Für iOS: macOS mit Xcode und seinen Befehlszeilenwerkzeugen, CocoaPods und einen App-Store-Connect-API-Schlüssel (`.p8` + Key-ID + Issuer-ID) - oder einen Remote-Mac, wenn Sie keinen haben. Für Android: ein JDK und das Android SDK mit gesetztem `ANDROID_HOME` (jedes Betriebssystem) und einen Google-Play-Dienstkonto-JSON-Schlüssel. Führen Sie `launch doctor` aus, um alles auf einmal zu prüfen.
 
 **Was kostet Launch?** Launch selbst ist kostenlos (MIT). Sie zahlen nur für das, was Sie ohnehin zahlen würden: Ihre eigene Build-Hardware (oder Cloud-Mac-Zeit, wenn Sie iOS ohne einen lokalen Mac bauen), plus die üblichen Apple-Developer-($99/yr) und Google-Play-Registrierungsgebühren (einmalig $25). Es gibt keine Gebühr pro Build und kein Abonnement.
 
@@ -456,7 +456,7 @@ Launch liegt hier in der Automatisierung in Ihrem eigenen Konto mit überall den
 
 **Kann Launch Store-Metadaten, In-App-Käufe und Abonnements verwalten?** Ja - als Code, für beide Stores. `launch sync` gleicht IAPs, Abonnements, Preise, Capabilities und das pro-Locale-Listing (Text, Screenshots, Vorschauen) mit App Store Connect ab; `launch metadata` deckt das Listing für iOS und Android ab; `launch play-products` / `launch play-subscriptions` steuern den Google-Play-Katalog. Jeder Befehl führt ein schreibgeschütztes Plan -> Bestätigen -> Anwenden aus, sodass er nie eine aktive oder in Prüfung befindliche Version überschreibt.
 
-**Bindet mich Launch an einen gehosteten Dienst?** Nein - es gibt nichts Gehostetes und nichts Proprietäres. Launch ist MIT-lizenziert, aufgebaut auf Xcode, Gradle und den eigenen APIs der Plattformen, mit austauschbaren Storage- / Credentials- / Build- / Submit-Providern. Ihre Schlüssel, Artefakte und Updates liegen in Infrastruktur, die Sie kontrollieren, sodass es später nichts zu migrieren gibt.
+**Bindet mich Launch an einen gehosteten Dienst?** Nein - es gibt nichts Gehostetes und nichts Proprietäres. Launch ist MIT-lizenziert, aufgebaut auf Xcode, Gradle und den eigenen APIs der Plattformen, mit austauschbaren Storage- / Credentials- / Build- / Submit-Providern. Ihre Schlüssel, Artefakte und Updates liegen in Infrastruktur, die Sie kontrollieren (einzige Ausnahme: Sie übergeben einen Build an Expo EAS), sodass es später nichts zu migrieren gibt.
 
 **Wie fange ich an?** Installieren Sie mit `npm install --global launch-store` (oder `--save-dev` pro Projekt), dann führen Sie `launch demo` für eine 60-sekündige simulierte Führung aus - keine Einrichtung oder Konto erforderlich. Wenn Sie bereit sind: `launch init` -> `launch creds set-key` -> `launch creds setup` -> `launch build ios`.
 

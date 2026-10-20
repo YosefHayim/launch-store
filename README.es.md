@@ -154,9 +154,9 @@ Launch ejecuta el mismo pipeline `eas build` -> `eas submit` -> `eas update` (m�
 
 ## Requisitos
 
-- **iOS:** una **suscripción al Apple Developer Program** ($99/año) - [regístrate aquí](https://developer.apple.com/programs/enroll/) - y luego macOS con **Xcode** + las herramientas de línea de comandos y una **clave de API de App Store Connect** (`.p8` + Key ID + Issuer ID) - [genera una aquí](https://appstoreconnect.apple.com/access/integrations/api).
+- **iOS:** una **suscripción al Apple Developer Program** ($99/año) - [regístrate aquí](https://developer.apple.com/programs/enroll/) - y luego macOS con **Xcode** + las herramientas de línea de comandos, **CocoaPods** y una **clave de API de App Store Connect** (`.p8` + Key ID + Issuer ID) - [genera una aquí](https://appstoreconnect.apple.com/access/integrations/api).
   ¿Sin Mac? Consulta [Compilar sin una Mac](#compilar-sin-una-mac).
-- **Android:** una **cuenta de Google Play Developer** (pago único de $25) - [regístrate aquí](https://play.google.com/console/signup) - y luego un **JDK** (cualquier sistema operativo - sin necesidad de Mac) y una clave JSON de **cuenta de servicio de Google Play**.
+- **Android:** una **cuenta de Google Play Developer** (pago único de $25) - [regístrate aquí](https://play.google.com/console/signup) - y luego un **JDK** y el **Android SDK** con `ANDROID_HOME` definido (cualquier sistema operativo - sin necesidad de Mac) y una clave JSON de **cuenta de servicio de Google Play**.
 - **Node 20+** en todas las plataformas.
 
 Ejecuta `launch doctor` en cualquier momento para comprobar todo lo anterior.
@@ -305,7 +305,7 @@ Las compilaciones remotas suben una copia transitoria de tus claves de firma a *
 
 **¿Dónde se almacenan mis claves de firma y secretos?** En tu keychain del sistema operativo. Tu clave de API de App Store Connect (`.p8`), la clave privada de distribución y la clave de subida de Android nunca tocan el repo ni los servidores de nadie - solo se envía un CSR a Apple. Los secretos de compilación también viven en el keychain, a través de `launch secret`, para que se mantengan fuera de un `.env` confirmado en el repo.
 
-**¿Qué necesito para ejecutar Launch?** Node 20+ en todas partes. Para iOS: macOS con Xcode y sus herramientas de línea de comandos y una clave de API de App Store Connect (`.p8` + Key ID + Issuer ID) - o una Mac remota si no tienes una. Para Android: un JDK (cualquier sistema operativo) y una clave JSON de cuenta de servicio de Google Play. Ejecuta `launch doctor` para comprobarlo todo a la vez.
+**¿Qué necesito para ejecutar Launch?** Node 20+ en todas partes. Para iOS: macOS con Xcode y sus herramientas de línea de comandos, CocoaPods y una clave de API de App Store Connect (`.p8` + Key ID + Issuer ID) - o una Mac remota si no tienes una. Para Android: un JDK y el Android SDK con `ANDROID_HOME` definido (cualquier sistema operativo) y una clave JSON de cuenta de servicio de Google Play. Ejecuta `launch doctor` para comprobarlo todo a la vez.
 
 **¿Cuánto cuesta Launch?** Launch en sí es gratuito (MIT). Solo pagas por lo que pagarías de todos modos: tu propio hardware de compilación (o tiempo de Mac en la nube si compilas iOS sin una Mac local), más las tarifas habituales de registro de Apple Developer ($99/yr) y Google Play ($25 de pago único). No hay cargo por compilación ni suscripción.
 
@@ -315,7 +315,7 @@ Las compilaciones remotas suben una copia transitoria de tus claves de firma a *
 
 **¿Puede Launch gestionar metadatos de tienda, compras dentro de la app y suscripciones?** Sí - como código, para ambas tiendas. `launch sync` reconcilia IAPs, suscripciones, precios, capacidades y la ficha por idioma (textos, capturas, vistas previas) en App Store Connect; `launch metadata` cubre la ficha para iOS y Android; `launch play-products` / `launch play-subscriptions` impulsan el catálogo de Google Play. Cada uno ejecuta un flujo de solo lectura plan -> confirmación -> aplicar, por lo que nunca machaca una versión activa o en revisión.
 
-**¿Launch me ata a un servicio alojado?** No - no hay nada alojado ni nada propietario. Launch tiene licencia MIT, está construido sobre Xcode, Gradle y las propias APIs de las plataformas, con proveedores intercambiables de almacenamiento / credenciales / compilación / envío. Tus claves, artefactos y actualizaciones viven en infraestructura que tú controlas, por lo que no hay nada de lo que migrar más adelante.
+**¿Launch me ata a un servicio alojado?** No - no hay nada alojado ni nada propietario. Launch tiene licencia MIT, está construido sobre Xcode, Gradle y las propias APIs de las plataformas, con proveedores intercambiables de almacenamiento / credenciales / compilación / envío. Tus claves, artefactos y actualizaciones viven en infraestructura que tú controlas (la única excepción es pasar una compilación a Expo EAS), por lo que no hay nada de lo que migrar más adelante.
 
 **¿Cómo empiezo?** Instala con `npm install --global launch-store` (o `--save-dev` por proyecto), luego ejecuta `launch demo` para un recorrido simulado de 60 segundos - sin configuración ni cuenta necesaria. Cuando estés listo: `launch init` -> `launch creds set-key` -> `launch creds setup` -> `launch build ios`.
 

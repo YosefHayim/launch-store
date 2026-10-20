@@ -244,10 +244,10 @@ two differ on the same workflow:
 
 ## Requirements
 
-- **iOS:** an **Apple Developer Program** membership ($99/yr) - [enroll here](https://developer.apple.com/programs/enroll/) - then macOS with **[Xcode](https://developer.apple.com/xcode/)** + command-line tools and an
+- **iOS:** an **Apple Developer Program** membership ($99/yr) - [enroll here](https://developer.apple.com/programs/enroll/) - then macOS with **[Xcode](https://developer.apple.com/xcode/)** + command-line tools, **[CocoaPods](https://cocoapods.org/)**, and an
   **App Store Connect API key** (`.p8` + Key ID + Issuer ID) - [generate one here](https://appstoreconnect.apple.com/access/integrations/api).
   No Mac? See [Building without a Mac](#building-without-a-mac).
-- **Android:** a **Google Play Developer account** (one-time $25) - [register here](https://play.google.com/console/signup) - then a **[JDK](https://openjdk.org/)** (any OS - no Mac needed) and a **Google Play service account** JSON key.
+- **Android:** a **Google Play Developer account** (one-time $25) - [register here](https://play.google.com/console/signup) - then a **[JDK](https://openjdk.org/)** and the **[Android SDK](https://developer.android.com/studio)** with `ANDROID_HOME` set (any OS - no Mac needed), and a **Google Play service account** JSON key.
 - **[Node.js](https://nodejs.org/en) 20+** on every platform.
 
 Run `launch doctor` any time to check all of the above.
@@ -504,7 +504,7 @@ In your OS keychain. Your App Store Connect API key (`.p8`), distribution privat
 <details>
 <summary><strong>What do I need to run Launch?</strong></summary>
 
-Node 20+ everywhere. For iOS: macOS with Xcode and its command-line tools, and an App Store Connect API key (`.p8` + Key ID + Issuer ID) - or a remote Mac if you do not have one. For Android: a JDK (any OS) and a Google Play service-account JSON key. Run `launch doctor` to check it all at once.
+Node 20+ everywhere. For iOS: macOS with Xcode and its command-line tools, CocoaPods, and an App Store Connect API key (`.p8` + Key ID + Issuer ID) - or a remote Mac if you do not have one. For Android: a JDK and the Android SDK with `ANDROID_HOME` set (any OS), and a Google Play service-account JSON key. Run `launch doctor` to check it all at once.
 
 </details>
 
@@ -539,7 +539,7 @@ Yes - as code, for both stores. `launch sync` reconciles IAPs, subscriptions, pr
 <details>
 <summary><strong>Does Launch lock me into a hosted service?</strong></summary>
 
-No - there is nothing hosted and nothing proprietary. Launch is MIT-licensed, built on Xcode, Gradle, and the platforms' own APIs, with pluggable storage / credentials / build / submit providers. Your keys, artifacts, and updates live in infrastructure you control, so there is nothing to migrate off later.
+No - there is nothing hosted and nothing proprietary. Launch is MIT-licensed, built on Xcode, Gradle, and the platforms' own APIs, with pluggable storage / credentials / build / submit providers. Your keys, artifacts, and updates live in infrastructure you control (handing a build to Expo EAS is the one exception), so there is nothing to migrate off later.
 
 </details>
 

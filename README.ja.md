@@ -154,8 +154,8 @@ Launch は、`eas build` -> `eas submit` -> `eas update` の同じパイプラ�
 
 ## 必要要件
 
-- **iOS:** **Apple Developer Program** への登録（年額 99 ドル） - [こちらで登録](https://developer.apple.com/programs/enroll/) - その後、**Xcode** ＋コマンドラインツールが入った macOS、そして **App Store Connect API キー**（`.p8` ＋ Key ID ＋ Issuer ID） - [こちらで生成](https://appstoreconnect.apple.com/access/integrations/api)。Mac がない？ [Mac なしでビルドする](#mac-なしでビルドする) を参照してください。
-- **Android:** **Google Play デベロッパー アカウント**（買い切り 25 ドル） - [こちらで登録](https://play.google.com/console/signup) - その後、**JDK**（任意の OS - Mac は不要）と **Google Play サービスアカウント** の JSON キー。
+- **iOS:** **Apple Developer Program** への登録（年額 99 ドル） - [こちらで登録](https://developer.apple.com/programs/enroll/) - その後、**Xcode** ＋コマンドラインツールと **CocoaPods** が入った macOS、そして **App Store Connect API キー**（`.p8` ＋ Key ID ＋ Issuer ID） - [こちらで生成](https://appstoreconnect.apple.com/access/integrations/api)。Mac がない？ [Mac なしでビルドする](#mac-なしでビルドする) を参照してください。
+- **Android:** **Google Play デベロッパー アカウント**（買い切り 25 ドル） - [こちらで登録](https://play.google.com/console/signup) - その後、**JDK** と `ANDROID_HOME` を設定した **Android SDK**（任意の OS - Mac は不要）と **Google Play サービスアカウント** の JSON キー。
 - すべてのプラットフォームで **Node 20+**。
 
 `launch doctor` をいつでも実行すれば、上記すべてを確認できます。
@@ -304,7 +304,7 @@ launch cloud teardown                    # stop + release the host (warns about 
 
 **署名鍵とシークレットはどこに保存されますか？** あなたの OS キーチェーンに保存されます。App Store Connect API キー（`.p8`）、配布用の秘密鍵、Android アップロードキーは、リポジトリにも誰かのサーバーにも決して触れません - Apple に送られるのは証明書署名要求（CSR）だけです。ビルドシークレットも `launch secret` 経由でキーチェーンに保存されるため、コミットされた `.env` の外に留まります。
 
-**Launch を実行するには何が必要ですか？** すべての環境で Node 20+。iOS の場合: Xcode とコマンドラインツールが入った macOS、および App Store Connect API キー（`.p8` ＋ Key ID ＋ Issuer ID） - Mac がない場合はリモート Mac。Android の場合: JDK（任意の OS）と Google Play サービスアカウントの JSON キー。`launch doctor` を実行すれば一度にすべて確認できます。
+**Launch を実行するには何が必要ですか？** すべての環境で Node 20+。iOS の場合: Xcode、コマンドラインツール、CocoaPods が入った macOS、および App Store Connect API キー（`.p8` ＋ Key ID ＋ Issuer ID） - Mac がない場合はリモート Mac。Android の場合: JDK と `ANDROID_HOME` を設定した Android SDK（任意の OS）と Google Play サービスアカウントの JSON キー。`launch doctor` を実行すれば一度にすべて確認できます。
 
 **Launch の料金はいくらですか？** Launch 自体は無料（MIT）です。支払うのは、いずれにせよ支払うものだけです: あなた自身のビルドハードウェア（またはローカル Mac なしで iOS をビルドする場合のクラウド Mac 時間）、そして通常の Apple Developer（$99/yr）と Google Play（一回限り $25）の登録料。ビルドごとの料金もサブスクリプションも一切ありません。
 
@@ -314,7 +314,7 @@ launch cloud teardown                    # stop + release the host (warns about 
 
 **Launch はストアメタデータ、アプリ内課金、サブスクリプションを管理できますか？** はい - 両ストアに対してコードとして管理します。`launch sync` は IAP、サブスクリプション、価格、ケイパビリティ、ロケールごとの掲載情報（テキスト、スクリーンショット、プレビュー）を App Store Connect に整合させます。`launch metadata` は iOS と Android の掲載情報をカバーします。`launch play-products` / `launch play-subscriptions` は Google Play カタログを駆動します。各コマンドは読み取り専用のプラン -> 確認 -> 適用で実行されるため、ライブ版や審査中のバージョンを上書きすることはありません。
 
-**Launch はホスト型サービスにロックインされますか？** いいえ - ホスト型のものも独自仕様のものも何もありません。Launch は MIT ライセンスで、Xcode、Gradle、各プラットフォーム自身の API の上に構築されており、ストレージ／認証情報／ビルド／サブミットのプロバイダーを差し替え可能です。鍵、成果物、アップデートはあなたが管理するインフラに置かれるため、あとで移行しなければならないものは何もありません。
+**Launch はホスト型サービスにロックインされますか？** いいえ - ホスト型のものも独自仕様のものも何もありません。Launch は MIT ライセンスで、Xcode、Gradle、各プラットフォーム自身の API の上に構築されており、ストレージ／認証情報／ビルド／サブミットのプロバイダーを差し替え可能です。鍵、成果物、アップデートはあなたが管理するインフラに置かれるため（ビルドを Expo EAS に任せる場合だけは例外です）、あとで移行しなければならないものは何もありません。
 
 **始めるにはどうすればいいですか？** `npm install --global launch-store`（またはプロジェクトごとに `--save-dev`）でインストールし、`launch demo` を実行すると 60 秒のシミュレーションウォークスルーを体験できます - セットアップもアカウントも不要です。準備ができたら: `launch init` -> `launch creds set-key` -> `launch creds setup` -> `launch build ios`。
 

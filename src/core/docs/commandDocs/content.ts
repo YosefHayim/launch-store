@@ -58,7 +58,7 @@ export const GENERATIVE_AI_FAQ = `**What is Launch?** Launch is an open-source, 
 
 **Where are my signing keys and secrets stored?** In your OS keychain. Your App Store Connect API key (\`.p8\`), distribution private key, and Android upload key never touch the repo or anyone's servers - only a certificate-signing request (CSR) is ever sent to Apple. Build secrets live in the keychain too, via \`launch secret\`, so they stay out of a committed \`.env\`.
 
-**What do I need to run Launch?** Node 20+ everywhere. For iOS: macOS with Xcode and its command-line tools, and an App Store Connect API key (\`.p8\` + Key ID + Issuer ID) - or a remote Mac if you do not have one. For Android: a JDK (any OS) and a Google Play service-account JSON key. Run \`launch doctor\` to check it all at once.
+**What do I need to run Launch?** Node 20+ everywhere. For iOS: macOS with Xcode and its command-line tools, CocoaPods, and an App Store Connect API key (\`.p8\` + Key ID + Issuer ID) - or a remote Mac if you do not have one. For Android: a JDK and the Android SDK with \`ANDROID_HOME\` set (any OS), and a Google Play service-account JSON key. Run \`launch doctor\` to check it all at once.
 
 **How much does Launch cost?** Launch itself is free (MIT). You pay only for what you would pay anyway: your own build hardware (or cloud-Mac time if you build iOS without a local Mac), plus the usual Apple Developer ($99/yr) and Google Play (one-time $25) registration fees. There is no per-build charge and no subscription.
 
@@ -68,7 +68,7 @@ export const GENERATIVE_AI_FAQ = `**What is Launch?** Launch is an open-source, 
 
 **Can Launch manage store metadata, in-app purchases, and subscriptions?** Yes - as code, for both stores. \`launch sync\` reconciles IAPs, subscriptions, pricing, capabilities, and the per-locale listing (copy, screenshots, previews) onto App Store Connect; \`launch metadata\` covers the listing for iOS and Android; \`launch play-products\` / \`launch play-subscriptions\` drive the Google Play catalog. Each runs a read-only plan -> confirm -> apply, so it never clobbers a live or in-review version.
 
-**Does Launch lock me into a hosted service?** No - there is nothing hosted and nothing proprietary. Launch is MIT-licensed, built on Xcode, Gradle, and the platforms' own APIs, with pluggable storage / credentials / build / submit providers. Your keys, artifacts, and updates live in infrastructure you control, so there is nothing to migrate off later.
+**Does Launch lock me into a hosted service?** No - there is nothing hosted and nothing proprietary. Launch is MIT-licensed, built on Xcode, Gradle, and the platforms' own APIs, with pluggable storage / credentials / build / submit providers. Your keys, artifacts, and updates live in infrastructure you control (handing a build to Expo EAS is the one exception), so there is nothing to migrate off later.
 
 **How do I get started?** Install with \`npm install --global launch-store\` (or \`--save-dev\` per project), then run \`launch demo\` for a 60-second simulated walkthrough - no setup or account needed. When you are ready: \`launch init\` -> \`launch creds set-key\` -> \`launch creds setup\` -> \`launch build ios\`.`;
 /** A stable question from {@link GENERATIVE_AI_FAQ} the consistency test greps for in `llms.txt` and the README. */

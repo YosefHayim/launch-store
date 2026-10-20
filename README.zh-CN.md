@@ -154,8 +154,8 @@ Launch 在你自己拥有的硬件上运行与 `eas build` -> `eas submit` -> `e
 
 ## 环境要求
 
-- **iOS：** 一个 **Apple Developer Program** 会员资格（99 美元/年）--[在此注册](https://developer.apple.com/programs/enroll/)--然后是装有 **Xcode** + 命令行工具的 macOS，以及一把 **App Store Connect API 密钥**（`.p8` + Key ID + Issuer ID）--[在此生成一把](https://appstoreconnect.apple.com/access/integrations/api)。没有 Mac？参见[无 Mac 构建](#无-mac-构建)。
-- **Android：** 一个 **Google Play 开发者账户**（一次性 25 美元）--[在此注册](https://play.google.com/console/signup)--然后是一个 **JDK**（任意操作系统--无需 Mac）和一把 **Google Play 服务账户** JSON 密钥。
+- **iOS：** 一个 **Apple Developer Program** 会员资格（99 美元/年）--[在此注册](https://developer.apple.com/programs/enroll/)--然后是装有 **Xcode** + 命令行工具和 **CocoaPods** 的 macOS，以及一把 **App Store Connect API 密钥**（`.p8` + Key ID + Issuer ID）--[在此生成一把](https://appstoreconnect.apple.com/access/integrations/api)。没有 Mac？参见[无 Mac 构建](#无-mac-构建)。
+- **Android：** 一个 **Google Play 开发者账户**（一次性 25 美元）--[在此注册](https://play.google.com/console/signup)--然后是一个 **JDK** 和设置好 `ANDROID_HOME` 的 **Android SDK**（任意操作系统--无需 Mac）和一把 **Google Play 服务账户** JSON 密钥。
 - 每个平台上都需要 **Node 20+**。
 
 随时运行 `launch doctor` 即可检查上述所有项。
@@ -304,7 +304,7 @@ launch cloud teardown                    # stop + release the host (warns about 
 
 **我的签名密钥和机密存放在哪里？** 在你的操作系统钥匙串里。你的 App Store Connect API 密钥（`.p8`）、分发私钥和 Android 上传密钥绝不会触碰仓库或任何人的服务器--只有一份证书签名请求（CSR）会被发送给 Apple。构建机密同样通过 `launch secret` 存放在钥匙串中，从而让它们远离已提交的 `.env`。
 
-**运行 Launch 需要什么？** 处处都需要 Node 20+。对于 iOS：需要装有 Xcode 和命令行工具，以及 App Store Connect API 密钥（`.p8` + Key ID + Issuer ID）的 macOS--或者在没有本地 Mac 时使用远程 Mac。对于 Android：需要一个 JDK（任意操作系统）和一把 Google Play 服务账户 JSON 密钥。运行 `launch doctor` 可一次检查所有项。
+**运行 Launch 需要什么？** 处处都需要 Node 20+。对于 iOS：需要装有 Xcode、命令行工具和 CocoaPods 的 macOS，以及 App Store Connect API 密钥（`.p8` + Key ID + Issuer ID）--或者在没有本地 Mac 时使用远程 Mac。对于 Android：需要一个 JDK 和设置好 `ANDROID_HOME` 的 Android SDK（任意操作系统），以及一把 Google Play 服务账户 JSON 密钥。运行 `launch doctor` 可一次检查所有项。
 
 **Launch 的费用是多少？** Launch 本身是免费的（MIT）。你只需为本来就要付费的东西买单：你自己的构建硬件（或者在没有本地 Mac 的情况下构建 iOS 时的云端 Mac 时间），加上常规的 Apple Developer 费用（$99/yr）和 Google Play 注册费（一次性 $25）。没有按次构建的收费，也没有订阅。
 
@@ -314,7 +314,7 @@ launch cloud teardown                    # stop + release the host (warns about 
 
 **Launch 能管理商店元数据、应用内购买和订阅吗？** 能--以代码方式，面向两个商店。`launch sync` 将 IAP、订阅、定价、能力，以及各语言区域的商店列表（文案、截图、预览）协调到 App Store Connect 上；`launch metadata` 覆盖 iOS 和 Android 的商店列表；`launch play-products` / `launch play-subscriptions` 驱动 Google Play 目录。每项操作均执行只读的 计划 -> 确认 -> 应用 流程，因此绝不会覆盖线上版本或审核中的版本。
 
-**Launch 会把我锁定在某个托管服务上吗？** 不会--没有任何托管内容，也没有任何专有内容。Launch 采用 MIT 许可，构建于 Xcode、Gradle 和各平台自己的 API 之上，存储/凭据/构建/提交提供方均可插拔。你的密钥、产物和更新都存放在你掌控的基础设施里，因此日后无需迁移任何东西。
+**Launch 会把我锁定在某个托管服务上吗？** 不会--没有任何托管内容，也没有任何专有内容。Launch 采用 MIT 许可，构建于 Xcode、Gradle 和各平台自己的 API 之上，存储/凭据/构建/提交提供方均可插拔。你的密钥、产物和更新都存放在你掌控的基础设施里（唯一的例外是把构建交给 Expo EAS），因此日后无需迁移任何东西。
 
 **如何开始使用？** 使用 `npm install --global launch-store`（或按项目 `--save-dev`）安装，然后运行 `launch demo`，进行一次 60 秒的模拟演练--无需任何配置或账户。准备好后：`launch init` -> `launch creds set-key` -> `launch creds setup` -> `launch build ios`。
 

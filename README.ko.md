@@ -154,8 +154,8 @@ Launch는 직접 보유한 하드웨어에서 동일한 `eas build` -> `eas subm
 
 ## 요구 사항
 
-- **iOS:** **Apple Developer Program** 멤버십(연 $99) - [여기서 등록하세요](https://developer.apple.com/programs/enroll/) - 그다음 **Xcode** + 명령줄 도구가 설치된 macOS, 그리고 **App Store Connect API 키**(`.p8` + Key ID + Issuer ID) - [여기서 생성하세요](https://appstoreconnect.apple.com/access/integrations/api). Mac이 없다고요? [Mac 없이 빌드하기](#mac-없이-빌드하기)를 참고하세요.
-- **Android:** **Google Play 개발자 계정**(일회성 $25) - [여기서 등록하세요](https://play.google.com/console/signup) - 그다음 **JDK**(아무 OS - Mac 불필요)와 **Google Play 서비스 계정** JSON 키.
+- **iOS:** **Apple Developer Program** 멤버십(연 $99) - [여기서 등록하세요](https://developer.apple.com/programs/enroll/) - 그다음 **Xcode** + 명령줄 도구와 **CocoaPods**가 설치된 macOS, 그리고 **App Store Connect API 키**(`.p8` + Key ID + Issuer ID) - [여기서 생성하세요](https://appstoreconnect.apple.com/access/integrations/api). Mac이 없다고요? [Mac 없이 빌드하기](#mac-없이-빌드하기)를 참고하세요.
+- **Android:** **Google Play 개발자 계정**(일회성 $25) - [여기서 등록하세요](https://play.google.com/console/signup) - 그다음 **JDK**와 `ANDROID_HOME`이 설정된 **Android SDK**(아무 OS - Mac 불필요)와 **Google Play 서비스 계정** JSON 키.
 - 모든 플랫폼에서 **Node 20+**.
 
 위 항목을 모두 확인하려면 언제든지 `launch doctor`를 실행하세요.
@@ -304,7 +304,7 @@ launch cloud teardown                    # stop + release the host (warns about 
 
 **서명 키와 시크릿은 어디에 저장되나요?** OS keychain에 있습니다. App Store Connect API 키(`.p8`), 배포 개인 키, Android 업로드 키는 저장소나 누군가의 서버에 절대 닿지 않습니다 - 인증서 서명 요청(CSR)만 Apple로 전송됩니다. 빌드 시크릿도 `launch secret`을 통해 keychain에 저장되므로 커밋된 `.env`에서 벗어납니다.
 
-**Launch를 실행하려면 무엇이 필요한가요?** 모든 곳에서 Node 20+. iOS의 경우: Xcode와 명령줄 도구가 설치된 macOS, App Store Connect API 키(`.p8` + Key ID + Issuer ID) - Mac이 없다면 원격 Mac. Android의 경우: JDK(아무 OS)와 Google Play 서비스 계정 JSON 키. `launch doctor`를 실행하면 한 번에 모두 확인됩니다.
+**Launch를 실행하려면 무엇이 필요한가요?** 모든 곳에서 Node 20+. iOS의 경우: Xcode, 명령줄 도구, CocoaPods가 설치된 macOS, App Store Connect API 키(`.p8` + Key ID + Issuer ID) - Mac이 없다면 원격 Mac. Android의 경우: JDK와 `ANDROID_HOME`이 설정된 Android SDK(아무 OS)와 Google Play 서비스 계정 JSON 키. `launch doctor`를 실행하면 한 번에 모두 확인됩니다.
 
 **Launch는 얼마나 하나요?** Launch 자체는 무료(MIT)입니다. 어차피 지불했을 것만 지불하면 됩니다: 직접 보유한 빌드 하드웨어(또는 로컬 Mac 없이 iOS를 빌드할 경우 클라우드 Mac 시간), 그리고 일반적인 Apple Developer($99/yr)와 Google Play(일회성 $25) 등록 요금. 빌드당 요금도 구독료도 없습니다.
 
@@ -314,7 +314,7 @@ launch cloud teardown                    # stop + release the host (warns about 
 
 **Launch는 스토어 메타데이터, 인앱 구매, 구독을 관리할 수 있나요?** 네 - 코드로, 양쪽 스토어 모두. `launch sync`는 IAP, 구독, 가격 책정, 기능(capabilities), 그리고 로케일별 등록(문구, 스크린샷, 미리보기)을 App Store Connect에 조정합니다; `launch metadata`는 iOS와 Android의 등록을 다룹니다; `launch play-products` / `launch play-subscriptions`는 Google Play 카탈로그를 구동합니다. 각각은 읽기 전용 계획 -> 확인 -> 적용을 실행하므로 라이브나 심사 중인 버전을 절대 덮어쓰지 않습니다.
 
-**Launch가 호스팅 서비스에 종속시키나요?** 아닙니다 - 호스팅되는 것도, 독점적인 것도 전혀 없습니다. Launch는 MIT 라이선스이며, Xcode, Gradle, 각 플랫폼의 자체 API를 기반으로 구축되었고, 교체 가능한 스토리지/자격 증명/빌드/제출 제공자가 있습니다. 키, 아티팩트, 업데이트는 본인이 제어하는 인프라에 있으므로 나중에 마이그레이션할 것이 전혀 없습니다.
+**Launch가 호스팅 서비스에 종속시키나요?** 아닙니다 - 호스팅되는 것도, 독점적인 것도 전혀 없습니다. Launch는 MIT 라이선스이며, Xcode, Gradle, 각 플랫폼의 자체 API를 기반으로 구축되었고, 교체 가능한 스토리지/자격 증명/빌드/제출 제공자가 있습니다. 키, 아티팩트, 업데이트는 본인이 제어하는 인프라에 있으므로(빌드를 Expo EAS에 맡길 때만 예외) 나중에 마이그레이션할 것이 전혀 없습니다.
 
 **어떻게 시작하나요?** `npm install --global launch-store`(또는 프로젝트별로 `--save-dev`)로 설치한 뒤, `launch demo`를 실행하면 60초 시뮬레이션 둘러보기를 볼 수 있습니다 - 설정도, 계정도 필요 없습니다. 준비가 되면: `launch init` -> `launch creds set-key` -> `launch creds setup` -> `launch build ios`.
 
