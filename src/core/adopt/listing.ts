@@ -12,7 +12,7 @@ export const listingAdopter: Adopter<Path.Path> = {
       const configPath = pathService.join(target.app.dir, 'store.config.json');
       return [
         {
-          description: `listing: pull App Store copy into ${target.app.name}/store.config.json (via metadata pull)`,
+          description: `listing: pull App Store copy into ${target.app.name}/store.config.json (from App Store Connect)`,
           fidelity: 'importable' as const,
           change: {
             home: 'store.config' as const,

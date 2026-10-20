@@ -146,7 +146,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 63 `launch` commands (192 store-API operations underneath, 2398 tests):
+All 63 `launch` commands (192 store-API operations underneath, 2402 tests):
 
 - `launch init` - scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` - onboard an app that already ships: import its App Store Connect setup into config
@@ -168,7 +168,7 @@ All 63 `launch` commands (192 store-API operations underneath, 2398 tests):
 - `launch rollout <action>` - steer an iOS phased release: pause | resume | complete
 - `launch creds [action] [firstArgument] [secondArgument]` - inspect credentials, onboard/switch Apple accounts, or provision signing assets
 - `launch secret [action] [name]` - manage keychain-backed build secrets (set/list/rm) instead of plaintext .env
-- `launch metadata` - sync the store listing (name, description, keywords, screenshots) via store.config.json
+- `launch metadata` - sync the store listing (name, description, keywords) via store.config.json
   - `launch metadata pull` - download the live store listing into store.config.json
   - `launch metadata push` - upload store.config.json to the store listing (metadata only; no binary)
   - `launch metadata help [command]` - display help for command

@@ -395,13 +395,15 @@ describe('applyAdopt', () => {
     });
     expect(successfulPull).toHaveBeenCalledWith('com.acme.app', storeConfig);
     expect(successfulAdoption.listingsPulled).toEqual(['acme']);
-    const failedPull = vi.fn(() => Effect.fail(new Error('fastlane missing')));
+    const failedPull = vi.fn(() => Effect.fail(new Error('App Store Connect unreachable')));
     const failedAdoption = await runApplyAdopt([plan(target, writes)], {
       cwd: workspaceDir,
       hasLaunchConfig: true,
       appRoot: null,
       pullListing: failedPull,
     });
-    expect(failedAdoption.listingErrors).toEqual([{ app: 'acme', message: 'fastlane missing' }]);
+    expect(failedAdoption.listingErrors).toEqual([
+      { app: 'acme', message: 'App Store Connect unreachable' },
+    ]);
   });
 });

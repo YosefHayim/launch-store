@@ -8,6 +8,13 @@ export type PlayRelease = Readonly<{
   releaseNotes?: Readonly<{ language: string; text: string }>[];
 }>;
 export type PlayTrackInfo = Readonly<{ track: string; releases: readonly PlayRelease[] }>;
+export type PlayListing = Readonly<{
+  language: string;
+  title?: string;
+  shortDescription?: string;
+  fullDescription?: string;
+  video?: string;
+}>;
 export type PlayCountryAvailability = Readonly<{
   restOfWorld?: boolean;
   countries: Readonly<{ countryCode: string }>[];
