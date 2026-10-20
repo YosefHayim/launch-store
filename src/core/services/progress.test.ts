@@ -35,18 +35,32 @@ describe('formatElapsed - compact mm ss clock', () => {
     expect(formatElapsed(125000)).toBe('2m 05s');
   });
 });
-describe('xcodeProgressStep - surface the xcpretty step', () => {
-  const xcprettyStepMarker = String.fromCodePoint(0x25b8);
-  it('extracts the text after the xcpretty marker', () => {
-    expect(xcodeProgressStep(`[02:56:43]: ${xcprettyStepMarker} Compiling yuv_sse2.c`)).toBe(
-      'Compiling yuv_sse2.c',
-    );
+describe('xcodeProgressStep - surface the raw xcodebuild step', () => {
+  it('names the file for compile, link and sign lines', () => {
+    const compileLine =
+      "CompileC /b/Pods/yuv_sse2.o /s/yuv_sse2.c normal arm64 c com.apple.compilers.llvm.clang.1_0.compiler (in target 'libwebp' from project 'Pods')";
+    const swiftLine =
+      "SwiftCompile normal arm64 /s/AppDelegate.swift (in target 'App' from project 'App')";
+    expect(xcodeProgressStep(compileLine)).toBe('CompileC yuv_sse2.o');
+    expect(xcodeProgressStep(swiftLine)).toBe('SwiftCompile AppDelegate.swift');
+    expect(xcodeProgressStep('Ld /b/App.app/App normal')).toBe('Ld App');
+    expect(xcodeProgressStep('CodeSign /b/App.app')).toBe('CodeSign App.app');
   });
-  it('ignores lines without a step marker', () => {
-    expect(xcodeProgressStep('[02:56:36]: Clean Succeeded')).toBeUndefined();
+  it('names the build phase script instead of its path', () => {
+    const scriptLine =
+      "PhaseScriptExecution [CP]\\ Embed\\ Pods\\ Frameworks /b/Script-1.sh (in target 'App' from project 'App')";
+    expect(xcodeProgressStep(scriptLine)).toBe('PhaseScriptExecution [CP] Embed Pods Frameworks');
+  });
+  it('reports the archive and export success markers', () => {
+    expect(xcodeProgressStep('** ARCHIVE SUCCEEDED **')).toBe('archive succeeded');
+    expect(xcodeProgressStep('** EXPORT SUCCEEDED **')).toBe('export succeeded');
+  });
+  it('ignores lines that are not build steps', () => {
+    expect(xcodeProgressStep('note: Using new build system')).toBeUndefined();
+    expect(xcodeProgressStep('')).toBeUndefined();
   });
   it('truncates an over-long step so it stays on one line', () => {
-    const long = `${xcprettyStepMarker} ${'Compiling/a/very/deep/path/to/some/Source.swift'.repeat(3)}`;
+    const long = `CompileC /b/${'LongName'.repeat(12)}.o /s/x.c normal arm64`;
     const step = xcodeProgressStep(long);
     expect(step).toBeDefined();
     expect(step?.length).toBeLessThanOrEqual(52);

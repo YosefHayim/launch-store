@@ -66,7 +66,7 @@ const makeCtx = (
     profiles: {},
     credentials: 'local',
     storage: 'local',
-    buildEngine: 'fastlane',
+    buildEngine: 'xcode',
     submit: 'app-store-connect',
   };
   let config = baseConfig;

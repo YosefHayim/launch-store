@@ -96,7 +96,7 @@ const APP_WITH_WIDGET = `// !$*UTF8*$!
 `;
 /**
  * A single-target Expo app WITH a real Release config - the plain #301 archive path. The stamp writes the
- * app's own profile into this Release config so gym reads it from the app target instead of a global xcarg
+ * app's own profile into this Release config so xcodebuild reads it from the app target instead of a global xcarg
  * that would leak onto the (separate) Pods project.
  */
 const SINGLE_TARGET_WITH_RELEASE = `// !$*UTF8*$!
@@ -374,7 +374,7 @@ describe('stampManualSigningIntoPbxproj - per-target manual signing for a multi-
     expect(parsePbxprojTargets(stamped)).toEqual(parsePbxprojTargets(APP_WITH_WIDGET));
   });
   it('stamps just the main app Release config for a single-target app (#301)', () => {
-    // The plain single-target archive path: the app's own profile lands in its Release config, so gym
+    // The plain single-target archive path: the app's own profile lands in its Release config, so xcodebuild
     // reads it from the app target and no profile is ever forced onto the (separate) Pods project.
     const profile = 'Launch_com.example.sampleapp_AppStore';
     const stamped = stampManualSigningIntoPbxproj(SINGLE_TARGET_WITH_RELEASE, {

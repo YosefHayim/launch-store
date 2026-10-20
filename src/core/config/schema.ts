@@ -864,7 +864,7 @@ export const LaunchConfigEffectSchema = Schema.Struct({
   buildEngine: Schema.optionalWith(
     described(
       Schema.String,
-      'Registered name of the build engine. Carries the iOS default `fastlane` (or `eas` for the cloud handoff); an Android build swaps that iOS baseline for its twin `gradle` unless overridden here.',
+      'Registered name of the build engine. Carries the iOS default `xcode` (or `eas` for the cloud handoff); an Android build swaps that iOS baseline for its twin `gradle` unless overridden here.',
     ),
     {
       default: () => DEFAULT_BUILD_ENGINE,

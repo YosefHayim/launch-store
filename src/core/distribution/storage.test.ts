@@ -66,7 +66,7 @@ const configWith = (storage: string, storageConfig?: StorageConfig): LaunchConfi
     profiles: { production: { name: 'production' } },
     credentials: 'local',
     storage,
-    buildEngine: 'fastlane',
+    buildEngine: 'xcode',
     submit: 'app-store-connect',
   };
   if (storageConfig === undefined) return baseConfig;

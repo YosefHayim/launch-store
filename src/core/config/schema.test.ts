@@ -8,7 +8,7 @@ describe('parseLaunchConfig', () => {
     expect(parsed).toMatchObject({
       credentials: 'local',
       storage: 'local',
-      buildEngine: 'fastlane',
+      buildEngine: 'xcode',
       submit: 'app-store-connect',
     });
   });

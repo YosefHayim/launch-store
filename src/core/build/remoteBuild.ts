@@ -52,10 +52,10 @@ export type RemoteBuildInputs = {
  * `extensionProfiles` is intentionally absent: the remote path uploads and installs exactly one profile
  * (see {@link uploadSigningMaterial} and the build script's step 2), so it is single-target-only by
  * construction. The per-target archive-signing fixes (issues #262 / #301) landed on the LOCAL engine - see
- * {@link import("./buildFlags.js").buildSigningXcargs} and
+ * {@link import("./buildFlags.js").assembleArchiveArguments} and
  * {@link import("./appleTargets.js").writeManualSigningToProject} - which moved the app's profile out of
- * the global `gym --xcargs` and into the app target's pbxproj. The remote build script below still pins the
- * profile in its own global `--xcargs`, so it shares the Xcode 26 "does not support provisioning profiles"
+ * the global `xcodebuild` build settings and into the app target's pbxproj. The remote build script below still pins the
+ * profile in its own global build settings, so it shares the Xcode 26 "does not support provisioning profiles"
  * exposure on the Pods library targets; porting the pbxproj-stamping fix onto the host (the stamper has to
  * run on the remote Mac, not just in the local CLI) is a larger, separately-verified follow-up.
  */
@@ -135,7 +135,7 @@ export const uploadSigningMaterial = (session: RemoteSession, inputs: RemoteBuil
  * Uploads {@link remoteToolchainPreflight} and executes it: `"install"` for an AWS host we own (brew-
  * installs any gaps) or `"assert"` for a BYO-SSH host (checks + fails with hints, never mutates the
  * user's machine). A missing required tool exits the preflight non-zero, so `sshRun` rejects and the
- * build fails fast with the gaps listed instead of a cryptic error deep inside fastlane.
+ * build fails fast with the gaps listed instead of a cryptic error deep inside xcodebuild.
  */
 export const runDoctorOnHost = (session: RemoteSession, mode: 'install' | 'assert') =>
   Effect.scoped(
@@ -175,7 +175,7 @@ export const remoteBuildEnvironment = (
 };
 /**
  * Upload the build script and run it on the host (ephemeral keychain -> incremental deps/prebuild ->
- * host-gated pod install + gym). The clean-vs-incremental, prebuild and ccache flags
+ * host-gated pod install + xcodebuild archive and export). The clean-vs-incremental, prebuild and ccache flags
  * ride in as env (`FORCE_CLEAN`, `PREBUILD_ALWAYS`, `USE_CCACHE`); the host owns its own staleness check, so this returns whether it
  * actually clean-built (read from a marker the script writes) for the pipeline to stamp on the artifact.
  */
@@ -243,7 +243,7 @@ export const shredHost = (session: RemoteSession) => {
   );
 };
 /**
- * The bash script Launch uploads and runs on the remote Mac - the on-host mirror of the local fastlane
+ * The bash script Launch uploads and runs on the remote Mac - the on-host mirror of the local xcodebuild
  * spine, now stateful for speed. `$1` is the PERSISTENT per-app work tree (source + warm
  * `node_modules`/`ios`/`Pods` survive between builds); `$2` is the per-run EPHEMERAL creds dir (cert,
  * profile, keychain - shredded every run). It installs deps incrementally, keeps the committed/generated
@@ -306,27 +306,41 @@ PLIST="$(ls ios/*/Info.plist | head -1)"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$PLIST" || true
 
 # 6. Archive + export a signed .ipa; clean only when stale/forced, reusing warm DerivedData otherwise.
-CLEAN_FLAG=""
-if [ "$CLEAN" = "1" ]; then CLEAN_FLAG="--clean"; fi
-fastlane gym \
-  --workspace "$WORKSPACE" \
-  --scheme "$SCHEME" \
-  --output_directory "$OUT" \
-  --output_name "$APP_NAME.ipa" \
-  --export_options "$CREDS/ExportOptions.plist" \
-  --codesigning_identity "$CERT_NAME" \
-  --xcargs "OTHER_CODE_SIGN_FLAGS=--keychain=$KEYCHAIN DEVELOPMENT_TEAM=$TEAM_ID CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER=$PROFILE_NAME COMPILER_INDEX_STORE_ENABLE=NO" \
-  $CLEAN_FLAG
+CLEAN_ACTION=""
+if [ "$CLEAN" = "1" ]; then CLEAN_ACTION="clean"; fi
+ARCHIVE="$OUT/$APP_NAME.xcarchive"
+EXPORT_DIR="$OUT/export"
+rm -rf "$ARCHIVE" "$EXPORT_DIR" "$OUT/$APP_NAME.ipa" "$OUT/App Thinning Size Report.txt"
+xcodebuild \
+  -workspace "$WORKSPACE" \
+  -scheme "$SCHEME" \
+  -configuration Release \
+  -destination "generic/platform=iOS" \
+  -archivePath "$ARCHIVE" \
+  "OTHER_CODE_SIGN_FLAGS=--keychain=$KEYCHAIN" \
+  "DEVELOPMENT_TEAM=$TEAM_ID" \
+  CODE_SIGN_STYLE=Manual \
+  "CODE_SIGN_IDENTITY=$CERT_NAME" \
+  "PROVISIONING_PROFILE_SPECIFIER=$PROFILE_NAME" \
+  COMPILER_INDEX_STORE_ENABLE=NO \
+  $CLEAN_ACTION archive
+xcodebuild -exportArchive \
+  -archivePath "$ARCHIVE" \
+  -exportOptionsPlist "$CREDS/ExportOptions.plist" \
+  -exportPath "$EXPORT_DIR"
+EXPORTED_IPA="$(ls "$EXPORT_DIR"/*.ipa 2>/dev/null | head -1)"
+if [ -n "$EXPORTED_IPA" ]; then mv "$EXPORTED_IPA" "$OUT/$APP_NAME.ipa"; fi
+if [ -f "$EXPORT_DIR/App Thinning Size Report.txt" ]; then mv "$EXPORT_DIR/App Thinning Size Report.txt" "$OUT/"; fi
 
 # Record the fingerprint (next run) + the clean decision (the orchestrator stamps BuildArtifact.clean).
 printf '%s' "$NEW_FP" > "$FP_FILE"
 printf '%s' "$CLEAN" > "$WORK/.launch-clean"
 
-# Fail fast on the host if gym produced no non-empty .ipa, so we don't waste a transfer on a dead
+# Fail fast on the host if the export produced no non-empty .ipa, so we don't waste a transfer on a dead
 # export - the authoritative device-archive guard runs locally after pull.
 IPA="$(ls "$OUT"/*.ipa 2>/dev/null | head -1)"
 if [ -z "$IPA" ] || [ ! -s "$IPA" ]; then
-  echo "LAUNCH_NO_ARTIFACT: gym produced no non-empty .ipa in $OUT" >&2
+  echo "LAUNCH_NO_ARTIFACT: xcodebuild export produced no non-empty .ipa in $OUT" >&2
   exit 1
 fi
 echo "LAUNCH_IPA=$IPA"

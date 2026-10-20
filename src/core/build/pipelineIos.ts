@@ -24,7 +24,7 @@ import {
   nudgeIfNoCcache,
   uploadIosBuild,
 } from './pipelineArtifact.js';
-/** The iOS spine: prebuild -> resolve creds/signing -> build number -> gym -> size -> store -> submit. */
+/** The iOS spine: prebuild -> resolve creds/signing -> build number -> xcodebuild archive and export -> size -> store -> submit. */
 export const runIosBuild = (prepared: PreparedBuild, options: BuildRunOptions) =>
   Effect.gen(function* () {
     const { config, app, buildContext, log } = prepared;

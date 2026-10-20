@@ -13,7 +13,7 @@ const config = (overrides: Partial<LaunchConfig> = {}): LaunchConfig => {
   return {
     credentials: 'local',
     storage: 'local',
-    buildEngine: 'fastlane',
+    buildEngine: 'xcode',
     submit: 'app-store-connect',
     profiles: { production: { name: 'production' }, preview: { name: 'preview' } },
     ...overrides,
@@ -78,7 +78,7 @@ describe('buildDashboardState', () => {
     expect(dashboardState.project.providers).toEqual({
       credentials: 'local',
       storage: 's3',
-      buildEngine: 'fastlane',
+      buildEngine: 'xcode',
       submit: 'app-store-connect',
     });
     expect(dashboardState.project.profiles).toEqual(['production', 'preview']);

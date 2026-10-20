@@ -13,7 +13,7 @@ const config = (overrides: Partial<LaunchConfig> = {}): LaunchConfig => {
     profiles,
     credentials: 'local',
     storage: 'local',
-    buildEngine: 'fastlane',
+    buildEngine: 'xcode',
     submit: 'app-store-connect',
     ...overrides,
   };
@@ -41,7 +41,7 @@ describe('previewBuild', () => {
       {
         app: 'sampleapp',
         identifier: 'com.example.sampleapp',
-        buildEngine: 'fastlane',
+        buildEngine: 'xcode',
         submitter: 'app-store-connect',
       },
     ]);

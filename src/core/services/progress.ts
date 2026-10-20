@@ -101,11 +101,29 @@ export const formatProgressLine = (parts: {
   if (bySteps) counter = ` ${steps}/~${estimate.steps}`;
   return `${head}   ${bar} ${pct}${counter} - ${elapsed} / ~${formatElapsed(estimate.ms)}`;
 };
-/** Pull the step text from an xcpretty progress line. */
+const XCODE_STEP_LINE =
+  /^(CompileC|CompileSwift|SwiftCompile|CompileAssetCatalog|CompileStoryboard|Ld|Libtool|CodeSign|ProcessInfoPlistFile|ProcessProductPackaging|GenerateDSYMFile|CopySwiftLibs|PhaseScriptExecution) (.+?)(?: \(in target .*)?$/;
+const XCODE_SUCCESS_LINE = /^\*\* (ARCHIVE|EXPORT|BUILD) SUCCEEDED \*\*/;
+const XCODE_SCRIPT_NAME = /^(.+?)(?: \/|$)/;
+/** Pull a compact step out of a raw `xcodebuild` line such as `CompileC ...`, `Ld ...` or `** ARCHIVE SUCCEEDED **`. */
 export const xcodeProgressStep = (line: string): string | undefined => {
-  const match = /\u25b8\s*(.+)/.exec(line);
-  if (match?.[1]) return truncateStep(match[1].trim());
-  return undefined;
+  const trimmedLine = line.trim();
+  const successMatch = XCODE_SUCCESS_LINE.exec(trimmedLine);
+  if (successMatch?.[1]) return `${successMatch[1].toLowerCase()} succeeded`;
+  const stepMatch = XCODE_STEP_LINE.exec(trimmedLine);
+  const verb = stepMatch?.[1];
+  const detail = stepMatch?.[2];
+  if (verb === undefined) return undefined;
+  if (detail === undefined) return truncateStep(verb);
+  if (verb === 'PhaseScriptExecution') {
+    const scriptMatch = XCODE_SCRIPT_NAME.exec(detail);
+    if (!scriptMatch?.[1]) return truncateStep(verb);
+    return truncateStep(`${verb} ${scriptMatch[1].replace(/\\ /g, ' ')}`);
+  }
+  const pathToken = detail.split(' ').find((token) => token.includes('/'));
+  if (pathToken === undefined) return truncateStep(verb);
+  const fileName = pathToken.slice(pathToken.lastIndexOf('/') + 1);
+  return truncateStep(`${verb} ${fileName}`);
 };
 /**
  * Pull a compact step out of a Gradle line. Gradle announces work as `> Task :app:bundleRelease`,

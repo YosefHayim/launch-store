@@ -12,7 +12,7 @@ const state = (overrides: Partial<DashboardState> = {}): DashboardState => {
       providers: {
         credentials: 'local',
         storage: 'local',
-        buildEngine: 'fastlane',
+        buildEngine: 'xcode',
         submit: 'app-store-connect',
       },
       profiles: ['production', 'preview'],
@@ -78,7 +78,7 @@ describe('renderDashboardHtml', () => {
           providers: {
             credentials: 'local',
             storage: 'local',
-            buildEngine: 'fastlane',
+            buildEngine: 'xcode',
             submit: 'app-store-connect',
           },
           profiles: [],

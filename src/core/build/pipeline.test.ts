@@ -66,7 +66,7 @@ const runBuildCoreTest = <Success, Failure>(
 
 /** Register requirement-free build engines used only by dry-run orchestration tests. */
 const registerDryRunBuildEngines = (): void => {
-  for (const engineName of ['fastlane', 'gradle']) {
+  for (const engineName of ['xcode', 'gradle']) {
     registerBuildEngine({
       name: engineName,
       buildArtifact: () =>
@@ -282,14 +282,14 @@ describe('resolveBuildTransport - which fork a run takes', () => {
     expect(resolveTransport('android', 'gradle', { kind: 'aws' })).toEqual({ kind: 'local' });
   });
   it('builds iOS locally by default', () => {
-    expect(resolveTransport('ios', 'fastlane', undefined)).toEqual({ kind: 'local' });
+    expect(resolveTransport('ios', 'xcode', undefined)).toEqual({ kind: 'local' });
   });
   it('routes iOS to the remote pipeline on --remote, carrying the target', () => {
-    expect(resolveTransport('ios', 'fastlane', { kind: 'aws' })).toEqual({
+    expect(resolveTransport('ios', 'xcode', { kind: 'aws' })).toEqual({
       kind: 'remote',
       remote: { kind: 'aws' },
     });
-    expect(resolveTransport('ios', 'fastlane', { kind: 'ssh', target: 'ec2-user@host' })).toEqual({
+    expect(resolveTransport('ios', 'xcode', { kind: 'ssh', target: 'ec2-user@host' })).toEqual({
       kind: 'remote',
       remote: { kind: 'ssh', target: 'ec2-user@host' },
     });
@@ -314,12 +314,12 @@ describe('resolveBuildTransport - which fork a run takes', () => {
     });
   });
   it('builds tvOS/macOS/visionOS locally (off-Mac forks are iOS-only in v1)', () => {
-    expect(resolveTransport('tvos', 'fastlane', undefined)).toEqual({ kind: 'local' });
-    expect(resolveTransport('macos', 'fastlane', undefined)).toEqual({ kind: 'local' });
-    expect(resolveTransport('visionos', 'fastlane', undefined)).toEqual({ kind: 'local' });
+    expect(resolveTransport('tvos', 'xcode', undefined)).toEqual({ kind: 'local' });
+    expect(resolveTransport('macos', 'xcode', undefined)).toEqual({ kind: 'local' });
+    expect(resolveTransport('visionos', 'xcode', undefined)).toEqual({ kind: 'local' });
   });
   it('fails fast when an off-Mac fork is explicitly requested for a non-iOS Apple platform', () => {
-    expect(() => resolveTransport('tvos', 'fastlane', { kind: 'aws' })).toThrow(
+    expect(() => resolveTransport('tvos', 'xcode', { kind: 'aws' })).toThrow(
       /Remote builds are iOS-only/,
     );
     expect(() => resolveTransport('macos', 'remote-mac', undefined)).toThrow(
@@ -386,7 +386,7 @@ describe('resolveSubmitters - the platformstore seam', () => {
     profiles: {},
     credentials: 'local',
     storage: 'local',
-    buildEngine: 'fastlane',
+    buildEngine: 'xcode',
     submit,
   });
   it('string form yields one store, mapping the iOS default to Play on Android', () => {

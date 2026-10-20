@@ -20,7 +20,7 @@ import {
   type BuildTransportChoice,
 } from './pipelineTypes.js';
 /** The built-in iOS provider defaults that `config` carries by default, and their Android twins. */
-const IOS_BUILD_ENGINE = 'fastlane';
+const IOS_BUILD_ENGINE = 'xcode';
 const IOS_SUBMITTER = 'app-store-connect';
 const ANDROID_BUILD_ENGINE = 'gradle';
 const ANDROID_SUBMITTER = 'google-play';
@@ -32,7 +32,7 @@ export type BuildTransportFailure = Readonly<{
 
 export const makeBuildTransportFailure =
   Data.tagged<BuildTransportFailure>('BuildTransportFailure');
-/** The build engine name for a platform, swapping the iOS baseline default (`fastlane`) for `gradle` on Android. */
+/** The build engine name for a platform, swapping the iOS baseline default (`xcode`) for `gradle` on Android. */
 export const resolveBuildEngineName = (config: LaunchConfig, platform: Platform): string => {
   if (platform === 'android' && config.buildEngine === IOS_BUILD_ENGINE)
     return ANDROID_BUILD_ENGINE;

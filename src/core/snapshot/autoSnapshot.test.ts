@@ -12,7 +12,7 @@ const CONFIG: LaunchConfig = {
   profiles: {},
   credentials: 'local',
   storage: 'local',
-  buildEngine: 'fastlane',
+  buildEngine: 'xcode',
   submit: 'app-store-connect',
 };
 /** A context with no apps and unconfigured stores - every source skips/omits, so capture stays offline. */

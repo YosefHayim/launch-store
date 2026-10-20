@@ -16,55 +16,57 @@ export const resolveCcacheEnvironment = (disabled?: boolean) =>
     if (environment.values.ccacheSetting === '0') return {};
     return { USE_CCACHE: '1' };
   });
-export const buildExtraXcargs = (parallelJobLimit: number | undefined) =>
-  Effect.sync(() => {
-    const parts = ['COMPILER_INDEX_STORE_ENABLE=NO'];
-    if (parallelJobLimit !== undefined) parts.push(`-jobs ${parallelJobLimit}`);
-    return parts.join(' ');
-  });
-export const buildSigningXcargs = (
-  signing: Pick<SigningAssets, 'teamId'>,
-  parallelJobLimit: number | undefined,
-) =>
-  Effect.gen(function* () {
-    const parts = [`DEVELOPMENT_TEAM=${signing.teamId}`, 'CODE_SIGN_STYLE=Manual'];
-    const extraXcargs = yield* buildExtraXcargs(parallelJobLimit);
-    return `${parts.join(' ')} ${extraXcargs}`;
-  });
-/** Inputs to one `fastlane gym` invocation, already resolved by the build engine. */
-export type GymArgsInput = {
+/** Inputs to the `xcodebuild archive` invocation, already resolved by the build engine. */
+export type ArchiveArgsInput = {
   workspace: string;
   scheme: string;
-  outputDir: string;
-  outputName: string;
-  exportOptionsPath: string;
+  archivePath: string;
   signing: Pick<SigningAssets, 'teamId' | 'certName'>;
   parallelJobLimit: number | undefined;
   shouldCleanBuild: boolean;
-  buildDestination: string | undefined;
+  buildDestination: string;
 };
-export const assembleGymArguments = (input: GymArgsInput) =>
-  Effect.gen(function* () {
-    const signingXcargs = yield* buildSigningXcargs(input.signing, input.parallelJobLimit);
-    const gymArguments = [
-      'gym',
-      '--workspace',
+/** Inputs to the `xcodebuild -exportArchive` invocation. */
+export type ExportArgsInput = {
+  archivePath: string;
+  exportOptionsPath: string;
+  exportPath: string;
+};
+/**
+ * The `xcodebuild archive` argv. Signing is manual and never carries a global
+ * `PROVISIONING_PROFILE_SPECIFIER`: each signed target holds its own profile in the pbxproj (issue #301).
+ */
+export const assembleArchiveArguments = (input: ArchiveArgsInput) =>
+  Effect.sync(() => {
+    const archiveArguments = [
+      '-workspace',
       input.workspace,
-      '--scheme',
+      '-scheme',
       input.scheme,
-      '--output_directory',
-      input.outputDir,
-      '--output_name',
-      input.outputName,
-      '--export_options',
-      input.exportOptionsPath,
-      '--codesigning_identity',
-      input.signing.certName,
-      '--xcargs',
-      signingXcargs,
+      '-configuration',
+      'Release',
+      '-archivePath',
+      input.archivePath,
+      '-destination',
+      input.buildDestination,
+      `DEVELOPMENT_TEAM=${input.signing.teamId}`,
+      'CODE_SIGN_STYLE=Manual',
+      `CODE_SIGN_IDENTITY=${input.signing.certName}`,
+      'COMPILER_INDEX_STORE_ENABLE=NO',
     ];
-    if (input.buildDestination !== undefined)
-      gymArguments.push('--destination', input.buildDestination);
-    if (input.shouldCleanBuild) gymArguments.push('--clean');
-    return gymArguments;
+    if (input.parallelJobLimit !== undefined)
+      archiveArguments.push('-jobs', String(input.parallelJobLimit));
+    if (input.shouldCleanBuild) archiveArguments.push('clean');
+    archiveArguments.push('archive');
+    return archiveArguments;
   });
+export const assembleExportArguments = (input: ExportArgsInput) =>
+  Effect.sync(() => [
+    '-exportArchive',
+    '-archivePath',
+    input.archivePath,
+    '-exportOptionsPlist',
+    input.exportOptionsPath,
+    '-exportPath',
+    input.exportPath,
+  ]);

@@ -20,7 +20,7 @@ const config = (products?: Record<string, AppProducts>): LaunchConfig => {
     profiles: {},
     credentials: 'local',
     storage: 'local',
-    buildEngine: 'fastlane',
+    buildEngine: 'xcode',
     submit: 'app-store-connect',
   };
   if (products === undefined) return launchConfig;

@@ -60,7 +60,7 @@ beforeEach(() => {
   vi.spyOn(console, 'warn').mockImplementation(() => undefined);
   vi.spyOn(console, 'error').mockImplementation(() => undefined);
   registerBuildEngine({
-    name: 'fastlane',
+    name: 'xcode',
     buildArtifact: () =>
       Effect.succeed({
         artifactPath: '(dry-run, not built)',

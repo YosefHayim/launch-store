@@ -166,16 +166,15 @@ export const adHocProfileType = (
   }
 };
 /**
- * The Xcode build destination for `gym` / `xcodebuild` for an Apple platform, or `undefined` for iOS -
- * whose destination is xcodebuild's default, so omitting the flag keeps the iOS build command
- * byte-identical to before this platform was generalized. Throws for Android, which does not use Xcode.
+ * The `xcodebuild archive` destination for an Apple platform. Always a generic device destination, so an
+ * archive never targets a simulator. Throws for Android, which does not use Xcode.
  */
-export const gymDestination = (
+export const archiveDestination = (
   platform: Platform,
-): Effect.Effect<string | undefined, PlatformMappingFailure> => {
+): Effect.Effect<string, PlatformMappingFailure> => {
   switch (platform) {
     case 'ios':
-      return Effect.succeed(undefined);
+      return Effect.succeed('generic/platform=iOS');
     case 'tvos':
       return Effect.succeed('generic/platform=tvOS');
     case 'macos':
@@ -242,9 +241,9 @@ export const nativeTargetHint = (
   }
 };
 /**
- * The file extension (no dot) of the archive `gym` exports for an Apple platform: `ipa` for the iOS-family
+ * The file extension (no dot) of the archive `xcodebuild -exportArchive` exports for an Apple platform: `ipa` for the iOS-family
  * platforms (iOS, tvOS, visionOS), `pkg` for a macOS App Store build (Apple wraps a Mac app in an installer
- * package). Drives both gym's `--output_name` and the post-build artifact discovery. Throws for Android.
+ * package). Drives the post-build artifact discovery. Throws for Android.
  */
 export const appleArtifactExtension = (
   platform: Platform,

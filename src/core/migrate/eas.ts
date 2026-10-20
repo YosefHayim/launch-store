@@ -328,7 +328,7 @@ export const notesFromEasConfiguration = (
   {
     level: 'manual',
     message:
-      'EAS built in the cloud; Launch builds locally by default (`buildEngine: "fastlane"`). No Mac? Set `buildEngine: "eas"` or run `launch build --remote` (see `launch explain eas-handoff`).',
+      'EAS built in the cloud; Launch builds locally by default (`buildEngine: "xcode"`). No Mac? Set `buildEngine: "eas"` or run `launch build --remote` (see `launch explain eas-handoff`).',
   },
   ...notesFromAppIdentifiers(apps),
 ];

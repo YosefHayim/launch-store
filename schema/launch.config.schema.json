@@ -24,7 +24,7 @@
         },
         "buildEngine": {
           "type": "string",
-          "description": "Registered name of the build engine. Carries the iOS default `fastlane` (or `eas` for the cloud handoff); an Android build swaps that iOS baseline for its twin `gradle` unless overridden here."
+          "description": "Registered name of the build engine. Carries the iOS default `xcode` (or `eas` for the cloud handoff); an Android build swaps that iOS baseline for its twin `gradle` unless overridden here."
         },
         "submit": {
           "anyOf": [
