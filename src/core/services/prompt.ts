@@ -269,6 +269,22 @@ export const LaunchPromptLive = Layer.succeed(LaunchPrompt, {
     }),
 });
 
+const JSON_PROMPT_MESSAGE =
+  'This step needs an answer, but --json never prompts. Pass the flag that answers it (for example --yes to confirm).';
+
+const failJsonPrompt = () =>
+  Effect.fail(makePromptSelectionFailure({ message: JSON_PROMPT_MESSAGE }));
+
+/** `--json` prompt service: every question fails with a message that names the flag to pass. */
+export const LaunchPromptJson = Layer.succeed(LaunchPrompt, {
+  confirm: failJsonPrompt,
+  requiredText: failJsonPrompt,
+  requiredSecret: failJsonPrompt,
+  select: failJsonPrompt,
+  selectMany: failJsonPrompt,
+  cancel: () => Effect.void,
+});
+
 export const makeLaunchPromptTest = (
   answers: LaunchPromptTestAnswers = {},
 ): Layer.Layer<LaunchPromptService> => {

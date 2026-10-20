@@ -7,7 +7,7 @@ import {
   type ReleaseCommandOptions,
 } from '@core/release/releaseCommand.js';
 import { addEnvFlags } from '../options.js';
-import { runCliProgram } from '../runCliProgram.js';
+import { runCliProgram, runJsonCliProgram } from '../runCliProgram.js';
 
 export { shouldNudgeRelease };
 
@@ -46,13 +46,27 @@ export const registerReleaseCommand = (program: Command): void => {
       false,
     )
     .option('-y, --yes', 'skip the confirmation prompt (for CI/agents after approval)', false)
-    .option('--explain', 'expand each step', false);
+    .option('--explain', 'expand each step', false)
+    .option(
+      '--json',
+      'stream progress as NDJSON events on stdout and end with one result line (never prompts)',
+      false,
+    );
   addEnvFlags(releaseCommand).action(
-    (platformArgument: string, commandOptions: ReleaseCommandOptions) =>
-      runCliProgram(
-        releaseCommandProgram(platformArgument, commandOptions).pipe(
-          Effect.provide(ReleaseCommandServiceLive),
-        ),
-      ),
+    (platformArgument: string, commandOptions: ReleaseCommandOptions) => {
+      const releaseProgram = releaseCommandProgram(platformArgument, commandOptions).pipe(
+        Effect.provide(ReleaseCommandServiceLive),
+      );
+      if (!commandOptions.json) return runCliProgram(releaseProgram);
+      return runJsonCliProgram(
+        {
+          command: 'release',
+          platform: platformArgument,
+          dryRun: commandOptions.dryRun === true,
+          profile: commandOptions.profile,
+        },
+        releaseProgram,
+      );
+    },
   );
 };

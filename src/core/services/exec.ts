@@ -10,6 +10,7 @@ import {
   type LaunchEnvironmentService,
 } from './environment.js';
 import { redactLine } from './redact.js';
+import { isJsonOutput } from './jsonOutputMode.js';
 /** A command could not start or completed with a non-zero exit code. */
 export type CommandFailed = Readonly<{
   readonly _tag: 'CommandFailed';
@@ -85,6 +86,22 @@ const collectText = <TError, TRequirements>(
     Stream.decodeText(),
     Stream.runFold('', (collectedText, textChunk) => collectedText + textChunk),
   );
+/** Run a command without the terminal: stdout is dropped and stderr is kept for the failure text. */
+const runCommandSilently = (command: Command.Command) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const childProcess = yield* Command.start(command.pipe(Command.stdin(Stream.empty)));
+      const [, standardError, exitCode] = yield* Effect.all(
+        [
+          Stream.runDrain(childProcess.stdout),
+          collectText(childProcess.stderr),
+          childProcess.exitCode,
+        ],
+        { concurrency: 'unbounded' },
+      );
+      return { exitCode, standardError };
+    }),
+  );
 export const executeCommand = (
   executable: string,
   commandArguments: readonly string[],
@@ -96,6 +113,13 @@ export const executeCommand = (
 > =>
   Effect.gen(function* () {
     const baseCommand = yield* makeCommand(executable, commandArguments, commandOptions);
+    if (isJsonOutput()) {
+      const silentRun = yield* runCommandSilently(baseCommand).pipe(
+        Effect.mapError((cause) => commandPlatformFailure(executable, cause)),
+      );
+      yield* checkExitCode(executable, silentRun.exitCode, silentRun.standardError.trim());
+      return;
+    }
     const command = baseCommand.pipe(
       Command.stdin('inherit'),
       Command.stdout('inherit'),

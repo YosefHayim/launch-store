@@ -14,6 +14,7 @@ export type BuildCommandOptions = {
   readonly dryRun: boolean;
   readonly yes: boolean;
   readonly verbose: boolean;
+  readonly json: boolean;
   readonly remote?: string | boolean;
   readonly track?: string;
   readonly rollout?: string;

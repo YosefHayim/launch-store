@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-196%20endpoints-8957e5?logo=apple&logoColor=white" alt="196 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2416%20passing-3fb950?logo=vitest&logoColor=white" alt="2416 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2430%20passing-3fb950?logo=vitest&logoColor=white" alt="2430 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -58,7 +58,7 @@ La compilation n'a jamais été le plus difficile - c'est la publication qui l'e
 - **La configuration du store comme du code.** `launch sync` réconcilie les achats intégrés, les abonnements, la tarification et les capacités sur App Store Connect depuis un seul `launch.config.ts` typé ; une douzaine d'autres commandes couvrent Game Center, Wallet, les App Clips, les événements in-app, les expériences A/B, les territoires, et tout le catalogue Google Play - plus `launch metadata` pour la fiche. Ce sont les parties qu'EAS vous laisse cliquer à la main.
 - **0 $ de compute, compilations illimitées.** EAS facture à la compilation, plafonne l'offre gratuite derrière un délai d'expiration de 45 minutes, et coûte **19 à 199 $/mois** plus le dépassement sur les forfaits payants. Launch compile sur votre propre machine - pas de compteur, pas de file d'attente, pas de délai d'expiration.
 - **Vos clés restent en local.** Votre certificat de distribution, votre clé d'API App Store Connect et votre clé d'envoi Android restent dans votre keychain ; Launch n'envoie jamais qu'un CSR à Apple. (Compiler sans Mac est la seule exception - voir plus bas.)
-- **Aucun verrouillage, jamais.** Sous licence MIT, bâti sur `xcodebuild`, Gradle et les API propres des plateformes, avec des fournisseurs de stockage / identifiants / compilation / soumission interchangeables. Rien de propriétaire à abandonner plus tard.
+- **Aucun verrouillage, jamais.** Sous licence MIT, bâti sur `fastlane`, Gradle et les API propres des plateformes, avec des fournisseurs de stockage / identifiants / compilation / soumission interchangeables. Rien de propriétaire à abandonner plus tard.
 - **Il enseigne pendant qu'il s'exécute.** Ajoutez `--explain` à n'importe quelle commande - ou lancez `launch demo` - pour développer chaque étape (CSR, profil de provisionnement, TestFlight, canal Play, groupe d'abonnements) en clair.
 
 ## Ce qu'est Launch - et ce qu'il n'est pas
@@ -98,7 +98,7 @@ Chaque section ci-dessous est déclarée dans `launch.config.ts` (ou dans son fi
 - **Rapide par défaut.** ccache se branche au moment de `pod install`, DerivedData reste chaud, et une empreinte du graphe natif force une compilation propre uniquement lorsque vos dépendances natives changent réellement. Les modifications JS recompilent de façon incrémentale ; `--clean` force une compilation à partir de zéro.
 - **Vérification de la taille réelle de téléchargement.** Rapporte la taille réelle par appareil (rapport App Thinning / bundletool) et applique la limite `sizeBudgetMB` que vous avez configurée.
 - **Garde-fous.** Refuse d'envoyer une compilation de simulateur, un `.app` ou un artefact vide ; `--dry-run` répète tout le pipeline sans aucun changement réseau, compilation ou compte.
-- **Publication publique délibérée - pas de portail.** Le canal de test est l'option par défaut ; le store public est le `launch release <platform>` distinct et confirmé. Pour iOS, il pilote l'API App Store Connect de bout en bout - créer/réutiliser la version, répondre à la conformité à l'export, attacher la compilation, écrire les notes de version, choisir un déploiement immédiat / programmé / progressif, et soumettre pour revue - de sorte qu'une publication n'a jamais besoin du site web. `launch status [--watch] [--json]` suit la revue (avec des codes de sortie pour la CI), et `launch rollout pause|resume|complete` pilote un déploiement progressif.
+- **Publication publique délibérée - pas de portail.** Le canal de test est l'option par défaut ; le store public est le `launch release <platform>` distinct et confirmé. Pour iOS, il pilote l'API App Store Connect de bout en bout - créer/réutiliser la version, répondre à la conformité à l'export, attacher la compilation, écrire les notes de version, choisir un déploiement immédiat / programmé / progressif, et soumettre pour revue - de sorte qu'une publication n'a jamais besoin du site web. `launch status [--watch] [--json]` suit la revue (avec des codes de sortie pour la CI), et `launch rollout pause|resume|complete` pilote un déploiement progressif. fastlane est limité au seul envoi du binaire.
 - **Resigner sans recompiler.** `launch build:resign` resigne un `.ipa`/`.aab` stocké avec des identifiants différents (un nouveau compte ou profil) directement depuis l'artefact - sans recompiler.
 - **Notifications de fin.** Un bloc `notify` envoie un ping à un webhook Slack/Discord et/ou exécute un hook shell quand une compilation ou une soumission se termine - en cas de succès _et_ d'échec - pour qu'une exécution sans surveillance/en CI vous prévienne quand elle est terminée. La parité avec le `webhook` d'EAS, sans service hébergé.
 
@@ -150,12 +150,12 @@ Launch exécute le même pipeline `eas build` -> `eas submit` -> `eas update` (p
 | Les **identifiants de signature peuvent résider sur les serveurs d'Expo**                                                                  | Les clés restent dans **votre keychain** - seul un **CSR** quitte un jour votre machine                                                                                 |
 | Les **artefacts de compilation sont hébergés sur Expo**                                                                                    | Les artefacts atterrissent dans **votre propre stockage** (local, ou S3 / R2 / Supabase)                                                                                |
 | **Pas de Mac ?** Le cloud payant d'EAS est la seule voie                                                                                   | **Pas de Mac ?** Un Mac dans le cloud sur **votre propre AWS**, n'importe quel Mac via **SSH**, ou délégation à **`eas build`**                                         |
-| **SaaS fermé** - propriétaire, verrouillage fournisseur                                                                                    | **MIT, open source** - `xcodebuild`/Gradle/API des plateformes, fournisseurs interchangeables, rien à migrer                                                            |
+| **SaaS fermé** - propriétaire, verrouillage fournisseur                                                                                    | **MIT, open source** - `fastlane`/Gradle/API des plateformes, fournisseurs interchangeables, rien à migrer                                                              |
 
 ## Prérequis
 
-- **iOS :** une **adhésion à l'Apple Developer Program** (99 $/an) - [inscrivez-vous ici](https://developer.apple.com/programs/enroll/) - puis macOS avec **Xcode** + les outils en ligne de commande, **CocoaPods** et une **clé d'API App Store Connect** (`.p8` + Key ID + Issuer ID) - [générez-en une ici](https://appstoreconnect.apple.com/access/integrations/api). Pas de Mac ? Voir [Compiler sans Mac](#compiler-sans-mac).
-- **Android :** un **compte Google Play Developer** (25 $, paiement unique) - [inscrivez-vous ici](https://play.google.com/console/signup) - puis un **JDK** et le **SDK Android** avec `ANDROID_HOME` défini (n'importe quel OS - pas de Mac nécessaire) et une clé JSON de **compte de service Google Play**.
+- **iOS :** une **adhésion à l'Apple Developer Program** (99 $/an) - [inscrivez-vous ici](https://developer.apple.com/programs/enroll/) - puis macOS avec **Xcode** + les outils en ligne de commande, **fastlane** (`brew install fastlane`), et une **clé d'API App Store Connect** (`.p8` + Key ID + Issuer ID) - [générez-en une ici](https://appstoreconnect.apple.com/access/integrations/api). Pas de Mac ? Voir [Compiler sans Mac](#compiler-sans-mac).
+- **Android :** un **compte Google Play Developer** (25 $, paiement unique) - [inscrivez-vous ici](https://play.google.com/console/signup) - puis un **JDK** (n'importe quel OS - pas de Mac nécessaire) et une clé JSON de **compte de service Google Play**.
 - **Node 20+** sur toutes les plateformes.
 
 Lancez `launch doctor` à tout moment pour vérifier tout ce qui précède.
@@ -216,7 +216,7 @@ export default defineConfig({
   // appRoots: ["./apps"],   // for a monorepo; omit to scan the repo root
   credentials: "local", // OS keychain + ~/.launch
   storage: "local", // ~/.launch/artifacts (swap for s3/r2/supabase later)
-  buildEngine: "xcode", // "xcode" (local Mac) - "remote-mac" (AWS EC2 Mac) - "eas" (Expo cloud)
+  buildEngine: "fastlane", // "fastlane" (local Mac) - "remote-mac" (AWS EC2 Mac) - "eas" (Expo cloud)
   // submit: "app-store-connect", // or "eas" to submit through Expo
 
   // Only needed to build iOS without a Mac via `--remote aws` - see "Building without a Mac".
@@ -300,11 +300,11 @@ Les compilations distantes envoient une copie transitoire de vos clés de signat
 
 **Launch est-il seulement un SDK App Store Connect ou un wrapper MCP ?** Non. Un SDK App Store Connect ou un serveur MCP enveloppe une tranche de l'API d'Apple. Launch pilote toute la publication chez Apple et Google - signature de code, compilations natives, vérifications de taille, configuration-du-store-comme-du-code, la publication publique confirmée, et les mises à jour OTA - rien de tout cela n'est touché par un wrapper d'API. Si vous voulez un Expo EAS auto-hébergé plutôt qu'un client d'API, c'est Launch.
 
-**En quoi Launch diffère-t-il de Fastlane ?** Fastlane est une boîte à outils Ruby d'actions séparées ; Launch est un pipeline de publication unique et typé, sans Ruby ni fastlane à installer. Launch exécute `xcodebuild` et Gradle directement, dialogue lui-même avec les API App Store Connect et Google Play pour les compilations et les fiches de store, et couvre toute la publication : provisionnement des identifiants, la compilation, la vérification réelle de la taille de téléchargement, la configuration-du-store-comme-du-code pour les deux stores, la publication publique délibérée, le contrôle du déploiement progressif et les mises à jour OTA - le tout depuis un `launch.config.ts` typé.
+**En quoi Launch diffère-t-il de Fastlane ?** Fastlane est un composant de base ; Launch l'orchestre. Launch utilise fastlane uniquement pour l'étape d'envoi du binaire et enveloppe toute la publication autour de lui : provisionnement des identifiants, la compilation, la vérification réelle de la taille de téléchargement, la configuration-du-store-comme-du-code pour les deux stores, la publication publique délibérée, le contrôle du déploiement progressif et les mises à jour OTA - le tout depuis un `launch.config.ts` typé.
 
 **Où sont stockées mes clés de signature et mes secrets ?** Dans votre keychain OS. Votre clé d'API App Store Connect (`.p8`), la clé privée de distribution et la clé d'envoi Android ne touchent jamais le dépôt ni les serveurs de quiconque - seule une demande de signature de certificat (CSR) est jamais envoyée à Apple. Les secrets de compilation résident également dans le keychain, via `launch secret`, afin qu'ils restent hors d'un `.env` versionné.
 
-**De quoi ai-je besoin pour utiliser Launch ?** Node 20+ partout. Pour iOS : macOS avec Xcode et ses outils en ligne de commande, CocoaPods et une clé d'API App Store Connect (`.p8` + Key ID + Issuer ID) - ou un Mac distant si vous n'en avez pas. Pour Android : un JDK et le SDK Android avec `ANDROID_HOME` défini (n'importe quel OS) et une clé JSON de compte de service Google Play. Lancez `launch doctor` pour tout vérifier en une seule fois.
+**De quoi ai-je besoin pour utiliser Launch ?** Node 20+ partout. Pour iOS : macOS avec Xcode et ses outils en ligne de commande, fastlane, et une clé d'API App Store Connect (`.p8` + Key ID + Issuer ID) - ou un Mac distant si vous n'en avez pas. Pour Android : un JDK (n'importe quel OS) et une clé JSON de compte de service Google Play. Lancez `launch doctor` pour tout vérifier en une seule fois.
 
 **Combien coûte Launch ?** Launch lui-même est gratuit (MIT). Vous payez uniquement ce que vous paieriez de toute façon : votre propre matériel de compilation (ou le temps de Mac dans le cloud si vous compilez iOS sans Mac local), plus les frais habituels d'inscription Apple Developer ($99/yr) et Google Play (un paiement unique de $25). Il n'y a aucun frais par compilation et aucun abonnement.
 
@@ -314,7 +314,7 @@ Les compilations distantes envoient une copie transitoire de vos clés de signat
 
 **Launch peut-il gérer les métadonnées du store, les achats intégrés et les abonnements ?** Oui - comme du code, pour les deux stores. `launch sync` réconcilie les achats intégrés, abonnements, tarification, capacités et la fiche par langue (texte, captures d'écran, aperçus) sur App Store Connect ; `launch metadata` couvre la fiche pour iOS et Android ; `launch play-products` / `launch play-subscriptions` pilotent le catalogue Google Play. Chacun exécute un cycle plan en lecture seule -> confirmation -> application, sans jamais écraser une version en ligne ou en cours de revue.
 
-**Launch me verrouille-t-il dans un service hébergé ?** Non - il n'y a rien d'hébergé et rien de propriétaire. Launch est sous licence MIT, bâti sur Xcode, Gradle et les API propres des plateformes, avec des fournisseurs de stockage / identifiants / compilation / soumission interchangeables. Vos clés, artefacts et mises à jour résident dans l'infrastructure que vous contrôlez (seule exception : confier une compilation à Expo EAS), donc il n'y a rien à migrer plus tard.
+**Launch me verrouille-t-il dans un service hébergé ?** Non - il n'y a rien d'hébergé et rien de propriétaire. Launch est sous licence MIT, bâti sur fastlane, Gradle et les API propres des plateformes, avec des fournisseurs de stockage / identifiants / compilation / soumission interchangeables. Vos clés, artefacts et mises à jour résident dans l'infrastructure que vous contrôlez, donc il n'y a rien à migrer plus tard.
 
 **Comment démarrer ?** Installez avec `npm install --global launch-store` (ou `--save-dev` par projet), puis lancez `launch demo` pour une visite guidée simulée de 60 secondes - sans configuration ni compte. Quand vous êtes prêt : `launch init` -> `launch creds set-key` -> `launch creds setup` -> `launch build ios`.
 

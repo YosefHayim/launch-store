@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Effect } from 'effect';
 import {
-  formatElapsed,
   formatProgressLine,
   gradleProgressStep,
   isInteractiveTerminal,
@@ -10,7 +9,8 @@ import {
   withSpinner,
   xcodeProgressStep,
 } from './progress.js';
-import { makeLaunchLoggerTest } from './logger.js';
+import { formatElapsed } from './elapsed.js';
+import { makeLaunchLoggerJsonTest, makeLaunchLoggerTest } from './logger.js';
 describe('selectProgressMode - only a real interactive TTY gets the spinner', () => {
   it('uses the spinner on an interactive, non-CI TTY without --verbose', () => {
     expect(selectProgressMode(true, {}, false)).toBe('spinner');
@@ -23,6 +23,12 @@ describe('selectProgressMode - only a real interactive TTY gets the spinner', ()
   });
   it('streams in CI so transcripts keep the complete output', () => {
     expect(selectProgressMode(true, { CI: 'true' }, false)).toBe('stream');
+  });
+});
+describe('selectProgressMode - --json never streams raw child output', () => {
+  it('takes the quiet path even off a TTY or under --verbose', () => {
+    expect(selectProgressMode(false, {}, false, true)).toBe('spinner');
+    expect(selectProgressMode(true, { CI: 'true' }, true, true)).toBe('spinner');
   });
 });
 describe('formatElapsed - compact mm ss clock', () => {
@@ -96,6 +102,36 @@ describe('withSpinner - silent network steps degrade cleanly off-TTY', () => {
         ),
       ),
     ).rejects.toThrow('boom');
+  });
+});
+describe('withSpinner - progress events under --json', () => {
+  it('emits start then done with the elapsed time', async () => {
+    const eventLines: string[] = [];
+    await Effect.runPromise(
+      withSpinner('looking up', () => Effect.succeed(42)).pipe(
+        Effect.provide(makeLaunchLoggerJsonTest(eventLines, [])),
+      ),
+    );
+    const events = eventLines.map((eventLine) => JSON.parse(eventLine));
+    expect(events[0]).toEqual({ event: 'progress', label: 'looking up', status: 'start' });
+    expect(events[1]).toMatchObject({ event: 'progress', label: 'looking up', status: 'done' });
+    expect(typeof events[1].elapsedMs).toBe('number');
+  });
+  it('emits start then fail when the task fails', async () => {
+    const eventLines: string[] = [];
+    const humanLines: string[] = [];
+    await Effect.runPromise(
+      withSpinner('looking up', () => Effect.fail(new Error('boom'))).pipe(
+        Effect.ignore,
+        Effect.provide(makeLaunchLoggerJsonTest(eventLines, humanLines)),
+      ),
+    );
+    const events = eventLines.map((eventLine) => JSON.parse(eventLine));
+    expect(events).toEqual([
+      { event: 'progress', label: 'looking up', status: 'start' },
+      { event: 'progress', label: 'looking up', status: 'fail' },
+    ]);
+    expect(humanLines.join('')).toBe('[ERROR] looking up failed\n');
   });
 });
 describe('gradleProgressStep - surface the Gradle task', () => {

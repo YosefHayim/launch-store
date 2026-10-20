@@ -64,6 +64,7 @@ export type ReleaseCommandOptions = Readonly<{
   dryRun?: boolean;
   createApp?: boolean;
   yes: boolean;
+  json: boolean;
 }>;
 
 /** A release operation failed before it could produce a store report. */
@@ -316,11 +317,9 @@ const exitMissingAppRecord = (
   logger: Logger,
 ): Effect.Effect<void, CommandExit | ReleaseCommandFailure> =>
   Effect.gen(function* () {
-    yield* writeLog(
-      'render missing App Store record',
-      logger.note(appRecordMissingMessage(bundleId)),
-    );
-    yield* completeCommand(1);
+    const missingRecordMessage = appRecordMissingMessage(bundleId);
+    yield* writeLog('render missing App Store record', logger.note(missingRecordMessage));
+    yield* completeCommand(1, missingRecordMessage);
   });
 
 const resolveBuildToPromote = (
@@ -734,14 +733,15 @@ const releaseAppleBuild = (
       logger,
     );
     if (failureCount > 0) {
+      const failureMessage = `${failureCount} release step(s) failed`;
       yield* notify(launchConfig, {
         ...notifyEvent,
         status: 'failure',
-        error: `${failureCount} release step(s) failed`,
+        error: failureMessage,
       }).pipe(
         Effect.mapError((cause) => releaseFailure('send release failure notification', cause)),
       );
-      yield* completeCommand(1);
+      yield* completeCommand(1, failureMessage);
       return;
     }
     yield* notify(launchConfig, notifyEvent).pipe(

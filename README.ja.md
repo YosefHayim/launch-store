@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-196%20endpoints-8957e5?logo=apple&logoColor=white" alt="196 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2416%20passing-3fb950?logo=vitest&logoColor=white" alt="2416 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2430%20passing-3fb950?logo=vitest&logoColor=white" alt="2430 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -58,7 +58,7 @@
 - **コードとしてのストア設定。** `launch sync` は、一つの型付き `launch.config.ts` から、アプリ内課金・サブスクリプション・価格・ケイパビリティを App Store Connect に整合させます。さらに十数個のコマンドが、Game Center、Wallet、App Clips、アプリ内イベント、A/B 実験、地域、そして Google Play カタログ全体をカバーします - 加えて掲載情報には `launch metadata` を使います。これらは EAS では手作業でのクリックに委ねられている部分です。
 - **コンピュート費用は $0、ビルドは無制限。** EAS はビルドごとに課金し、無料枠を 45 分のタイムアウトで制限し、有料プランでは **月額 $19〜$199** に加えて超過料金がかかります。Launch はあなた自身のマシンでビルドします - メーターも、キューも、タイムアウトもありません。
 - **鍵はローカルに留まる。** 配布証明書、App Store Connect API キー、Android アップロードキーは OS キーチェーンに留まります。Launch が Apple に送るのは CSR だけです。（Mac なしでのビルドは唯一の例外です - 下記参照。）
-- **ロックインは一切なし。** MIT ライセンスで、`xcodebuild`、Gradle、各プラットフォーム自身の API の上に構築されており、ストレージ／認証情報／ビルド／サブミットのプロバイダーを差し替え可能です。あとで移行しなければならない独自仕様は何もありません。
+- **ロックインは一切なし。** MIT ライセンスで、`fastlane`、Gradle、各プラットフォーム自身の API の上に構築されており、ストレージ／認証情報／ビルド／サブミットのプロバイダーを差し替え可能です。あとで移行しなければならない独自仕様は何もありません。
 - **動かしながら教えてくれる。** どのコマンドにも `--explain` を付ける - あるいは `launch demo` を実行する - だけで、各ステップ（CSR、プロビジョニングプロファイル、TestFlight、Play トラック、サブスクリプショングループ）が平易な言葉で展開されます。
 
 ## Launch とは何か - そして何でないか
@@ -98,7 +98,7 @@
 - **デフォルトで高速。** ccache は `pod install` 時に組み込まれ、DerivedData は温まったまま保たれ、ネイティブグラフのフィンガープリントが、ネイティブ依存関係が実際に変わったときだけクリーンビルドを強制します。JS の編集はインクリメンタルに再ビルドされます。`--clean` を付ければ最初からやり直します。
 - **本物のダウンロードサイズチェック。** デバイスごとの実際のサイズ（App Thinning レポート／bundletool）を報告し、設定した `sizeBudgetMB` で判定します。
 - **セーフティネット。** シミュレータビルド、`.app`、空の成果物のアップロードを拒否します。`--dry-run` は、ネットワーク・ビルド・アカウントへの変更を一切伴わずにパイプライン全体をリハーサルします。
-- **意図的な一般公開リリース - ポータル不要。** テスト用トラックがデフォルトで、一般ストアへの公開は別個の、確認を伴う `launch release <platform>` です。iOS については App Store Connect API を端から端まで駆動します - バージョンの作成／再利用、輸出コンプライアンスへの回答、ビルドの添付、リリースノートの記述、即時／予約／段階的展開の選択、そして審査へのサブミット - そのためリリースにウェブサイトは決して必要ありません。`launch status [--watch] [--json]` は審査を追跡し（CI 終了コード付き）、`launch rollout pause|resume|complete` は段階的展開を操舵します。
+- **意図的な一般公開リリース - ポータル不要。** テスト用トラックがデフォルトで、一般ストアへの公開は別個の、確認を伴う `launch release <platform>` です。iOS については App Store Connect API を端から端まで駆動します - バージョンの作成／再利用、輸出コンプライアンスへの回答、ビルドの添付、リリースノートの記述、即時／予約／段階的展開の選択、そして審査へのサブミット - そのためリリースにウェブサイトは決して必要ありません。`launch status [--watch] [--json]` は審査を追跡し（CI 終了コード付き）、`launch rollout pause|resume|complete` は段階的展開を操舵します。fastlane の役割はバイナリのアップロードのみに限定されています。
 - **再ビルドせずに再署名。** `launch build:resign` は、保存済みの `.ipa`/`.aab` を異なる認証情報（新しいアカウントやプロファイル）で、成果物から直接再署名します - 再ビルドはありません。
 - **完了通知。** `notify` ブロックは、ビルドやサブミットが終わったときに Slack/Discord の Webhook に通知を送り、かつ／またはシェルフックを実行します - 成功時 _も_ 失敗時 _も_ - そのため無人／CI 実行でも終わったことを知らせてくれます。EAS の `webhook` と同等で、ホスト型サービスは不要です。
 
@@ -150,12 +150,12 @@ Launch は、`eas build` -> `eas submit` -> `eas update` の同じパイプラ�
 | 署名 **認証情報は Expo のサーバーに置かれることがある**                                                            | 鍵は **あなたの OS キーチェーン** に留まる - マシンを離れるのは **CSR** だけ                                                                            |
 | ビルドの **成果物は Expo にホストされる**                                                                          | 成果物は **あなた自身のストレージ**（ローカル、または S3 / R2 / Supabase）に着地                                                                        |
 | **Mac がない？** EAS の有料クラウドが唯一の道                                                                      | **Mac がない？** **あなた自身の AWS** 内のクラウド Mac、**SSH** 越しの任意の Mac、または **`eas build`** への引き継ぎ                                   |
-| **クローズドな SaaS** - プロプライエタリでベンダーロックイン                                                       | **MIT、オープンソース** - `xcodebuild`/Gradle/プラットフォーム API、差し替え可能なプロバイダー、移行すべきものは何もなし                                |
+| **クローズドな SaaS** - プロプライエタリでベンダーロックイン                                                       | **MIT、オープンソース** - `fastlane`/Gradle/プラットフォーム API、差し替え可能なプロバイダー、移行すべきものは何もなし                                  |
 
 ## 必要要件
 
-- **iOS:** **Apple Developer Program** への登録（年額 99 ドル） - [こちらで登録](https://developer.apple.com/programs/enroll/) - その後、**Xcode** ＋コマンドラインツールと **CocoaPods** が入った macOS、そして **App Store Connect API キー**（`.p8` ＋ Key ID ＋ Issuer ID） - [こちらで生成](https://appstoreconnect.apple.com/access/integrations/api)。Mac がない？ [Mac なしでビルドする](#mac-なしでビルドする) を参照してください。
-- **Android:** **Google Play デベロッパー アカウント**（買い切り 25 ドル） - [こちらで登録](https://play.google.com/console/signup) - その後、**JDK** と `ANDROID_HOME` を設定した **Android SDK**（任意の OS - Mac は不要）と **Google Play サービスアカウント** の JSON キー。
+- **iOS:** **Apple Developer Program** への登録（年額 99 ドル） - [こちらで登録](https://developer.apple.com/programs/enroll/) - その後、**Xcode** ＋コマンドラインツールが入った macOS、**fastlane**（`brew install fastlane`）、そして **App Store Connect API キー**（`.p8` ＋ Key ID ＋ Issuer ID） - [こちらで生成](https://appstoreconnect.apple.com/access/integrations/api)。Mac がない？ [Mac なしでビルドする](#mac-なしでビルドする) を参照してください。
+- **Android:** **Google Play デベロッパー アカウント**（買い切り 25 ドル） - [こちらで登録](https://play.google.com/console/signup) - その後、**JDK**（任意の OS - Mac は不要）と **Google Play サービスアカウント** の JSON キー。
 - すべてのプラットフォームで **Node 20+**。
 
 `launch doctor` をいつでも実行すれば、上記すべてを確認できます。
@@ -216,7 +216,7 @@ export default defineConfig({
   // appRoots: ["./apps"],   // for a monorepo; omit to scan the repo root
   credentials: "local", // OS keychain + ~/.launch
   storage: "local", // ~/.launch/artifacts (swap for s3/r2/supabase later)
-  buildEngine: "xcode", // "xcode" (local Mac) - "remote-mac" (AWS EC2 Mac) - "eas" (Expo cloud)
+  buildEngine: "fastlane", // "fastlane" (local Mac) - "remote-mac" (AWS EC2 Mac) - "eas" (Expo cloud)
   // submit: "app-store-connect", // or "eas" to submit through Expo
 
   // Only needed to build iOS without a Mac via `--remote aws` - see "Building without a Mac".
@@ -300,11 +300,11 @@ launch cloud teardown                    # stop + release the host (warns about 
 
 **Launch は単なる App Store Connect SDK や MCP ラッパーですか？** いいえ。App Store Connect の SDK や MCP サーバーは Apple API の一部分をラップするにすぎません。Launch は Apple と Google にまたがるリリース全体を駆動します - コード署名、ネイティブビルド、サイズチェック、コードとしてのストア設定、確認済みの一般公開リリース、そして OTA アップデート - これらはどれも API ラッパーが触れない領域です。API クライアントではなくセルフホスト型の Expo EAS が欲しいなら、それが Launch です。
 
-**Launch は Fastlane とどう違いますか？** Fastlane は個別のアクションを集めた Ruby のツールキットで、Launch は型付きの単一のリリースパイプラインであり、Ruby も fastlane もインストール不要です。Launch は `xcodebuild` と Gradle を直接実行し、ビルドとストア掲載情報のために App Store Connect と Google Play の API と自力でやり取りして、リリース全体をカバーします: 認証情報プロビジョニング、ビルド、実際のダウンロードサイズチェック、両ストア向けのコードとしてのストア設定、意図的な一般公開リリース、段階的ロールアウト制御、そして OTA アップデート - すべて一つの型付き `launch.config.ts` から。
+**Launch は Fastlane とどう違いますか？** Fastlane はビルディングブロックであり、Launch はそれをオーケストレーションします。Launch はバイナリアップロードのステップにのみ fastlane を使用し、その周囲にリリース全体を構築します: 認証情報プロビジョニング、ビルド、実際のダウンロードサイズチェック、両ストア向けのコードとしてのストア設定、意図的な一般公開リリース、段階的ロールアウト制御、そして OTA アップデート - すべて一つの型付き `launch.config.ts` から。
 
 **署名鍵とシークレットはどこに保存されますか？** あなたの OS キーチェーンに保存されます。App Store Connect API キー（`.p8`）、配布用の秘密鍵、Android アップロードキーは、リポジトリにも誰かのサーバーにも決して触れません - Apple に送られるのは証明書署名要求（CSR）だけです。ビルドシークレットも `launch secret` 経由でキーチェーンに保存されるため、コミットされた `.env` の外に留まります。
 
-**Launch を実行するには何が必要ですか？** すべての環境で Node 20+。iOS の場合: Xcode、コマンドラインツール、CocoaPods が入った macOS、および App Store Connect API キー（`.p8` ＋ Key ID ＋ Issuer ID） - Mac がない場合はリモート Mac。Android の場合: JDK と `ANDROID_HOME` を設定した Android SDK（任意の OS）と Google Play サービスアカウントの JSON キー。`launch doctor` を実行すれば一度にすべて確認できます。
+**Launch を実行するには何が必要ですか？** すべての環境で Node 20+。iOS の場合: Xcode とコマンドラインツールが入った macOS、fastlane、および App Store Connect API キー（`.p8` ＋ Key ID ＋ Issuer ID） - Mac がない場合はリモート Mac。Android の場合: JDK（任意の OS）と Google Play サービスアカウントの JSON キー。`launch doctor` を実行すれば一度にすべて確認できます。
 
 **Launch の料金はいくらですか？** Launch 自体は無料（MIT）です。支払うのは、いずれにせよ支払うものだけです: あなた自身のビルドハードウェア（またはローカル Mac なしで iOS をビルドする場合のクラウド Mac 時間）、そして通常の Apple Developer（$99/yr）と Google Play（一回限り $25）の登録料。ビルドごとの料金もサブスクリプションも一切ありません。
 
@@ -314,7 +314,7 @@ launch cloud teardown                    # stop + release the host (warns about 
 
 **Launch はストアメタデータ、アプリ内課金、サブスクリプションを管理できますか？** はい - 両ストアに対してコードとして管理します。`launch sync` は IAP、サブスクリプション、価格、ケイパビリティ、ロケールごとの掲載情報（テキスト、スクリーンショット、プレビュー）を App Store Connect に整合させます。`launch metadata` は iOS と Android の掲載情報をカバーします。`launch play-products` / `launch play-subscriptions` は Google Play カタログを駆動します。各コマンドは読み取り専用のプラン -> 確認 -> 適用で実行されるため、ライブ版や審査中のバージョンを上書きすることはありません。
 
-**Launch はホスト型サービスにロックインされますか？** いいえ - ホスト型のものも独自仕様のものも何もありません。Launch は MIT ライセンスで、Xcode、Gradle、各プラットフォーム自身の API の上に構築されており、ストレージ／認証情報／ビルド／サブミットのプロバイダーを差し替え可能です。鍵、成果物、アップデートはあなたが管理するインフラに置かれるため（ビルドを Expo EAS に任せる場合だけは例外です）、あとで移行しなければならないものは何もありません。
+**Launch はホスト型サービスにロックインされますか？** いいえ - ホスト型のものも独自仕様のものも何もありません。Launch は MIT ライセンスで、fastlane、Gradle、各プラットフォーム自身の API の上に構築されており、ストレージ／認証情報／ビルド／サブミットのプロバイダーを差し替え可能です。鍵、成果物、アップデートはあなたが管理するインフラに置かれるため、あとで移行しなければならないものは何もありません。
 
 **始めるにはどうすればいいですか？** `npm install --global launch-store`（またはプロジェクトごとに `--save-dev`）でインストールし、`launch demo` を実行すると 60 秒のシミュレーションウォークスルーを体験できます - セットアップもアカウントも不要です。準備ができたら: `launch init` -> `launch creds set-key` -> `launch creds setup` -> `launch build ios`。
 

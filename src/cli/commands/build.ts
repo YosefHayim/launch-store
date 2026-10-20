@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import { buildCommandProgram } from '@core/build/buildCommandProgram.js';
 import type { BuildCommandOptions } from '@core/build/buildCommandInput.js';
 import { addEnvFlags } from '../options.js';
-import { runCliProgram } from '../runCliProgram.js';
+import { runCliProgram, runJsonCliProgram } from '../runCliProgram.js';
 const addAppleBuildOptions = (command: Command): Command =>
   command
     .option(
@@ -54,6 +54,11 @@ const addSharedBuildOptions = (command: Command): Command =>
       '-v, --verbose',
       'stream the full xcodebuild/gradle output instead of a progress spinner',
       false,
+    )
+    .option(
+      '--json',
+      'stream progress as NDJSON events on stdout and end with one result line (never prompts)',
+      false,
     );
 export const registerBuildCommand = (program: Command): void => {
   const command = addSharedBuildOptions(
@@ -72,7 +77,17 @@ export const registerBuildCommand = (program: Command): void => {
       ),
     ),
   );
-  addEnvFlags(command).action((platformArgument: string, commandOptions: BuildCommandOptions) =>
-    runCliProgram(buildCommandProgram(platformArgument, commandOptions)),
-  );
+  addEnvFlags(command).action((platformArgument: string, commandOptions: BuildCommandOptions) => {
+    const buildProgram = buildCommandProgram(platformArgument, commandOptions);
+    if (!commandOptions.json) return runCliProgram(buildProgram);
+    return runJsonCliProgram(
+      {
+        command: 'build',
+        platform: platformArgument,
+        dryRun: commandOptions.dryRun,
+        profile: commandOptions.profile,
+      },
+      buildProgram,
+    );
+  });
 };

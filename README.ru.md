@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-196%20endpoints-8957e5?logo=apple&logoColor=white" alt="196 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2416%20passing-3fb950?logo=vitest&logoColor=white" alt="2416 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2430%20passing-3fb950?logo=vitest&logoColor=white" alt="2430 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -76,7 +76,7 @@ Expo EAS - см. [Сборка без Mac](#сборка-без-mac).
 - **Ваши ключи остаются локальными.** Ваш сертификат распространения, ключ API App Store Connect и ключ
   загрузки Android остаются в вашем keychain ОС; Launch лишь отправляет CSR в Apple. (Сборка без Mac - единственное
   исключение, см. ниже.)
-- **Никакой привязки к вендору, никогда.** Лицензия MIT, основа на `xcodebuild`, Gradle и собственных API
+- **Никакой привязки к вендору, никогда.** Лицензия MIT, основа на `fastlane`, Gradle и собственных API
   платформ, с подключаемыми провайдерами хранилища/учётных данных/сборки/отправки. Ничего проприетарного, с чего
   пришлось бы мигрировать позже.
 - **Обучает по ходу работы.** Добавьте `--explain` к любой команде - или запустите `launch demo` - чтобы
@@ -169,7 +169,7 @@ Launch управляет всем релизом сразу в Apple **и** Goo
   конец - создать/переиспользовать версию, ответить об экспортном соответствии, прикрепить сборку, написать заметки о
   релизе, выбрать немедленную / запланированную / поэтапную выкатку и отправить на ревью - так что релизу никогда не
   нужен сайт. `launch status [--watch] [--json]` отслеживает ревью (с кодами выхода для CI), а `launch rollout
-pause|resume|complete` управляет поэтапной выкаткой.
+pause|resume|complete` управляет поэтапной выкаткой. fastlane задействован только для загрузки бинарника.
 - **Повторная подпись без пересборки.** `launch build:resign` повторно подписывает сохранённый `.ipa`/`.aab` другими
   учётными данными (новый аккаунт или профиль) прямо из артефакта - без пересборки.
 - **Уведомления о завершении.** Блок `notify` пингует webhook Slack/Discord и/или запускает shell-хук, когда сборка
@@ -244,14 +244,14 @@ Launch выполняет тот же конвейер `eas build` -> `eas submi
 | Учётные данные подписи **могут жить на серверах Expo**                                                                          | Ключи остаются в **вашем keychain ОС** - только **CSR** когда-либо покидает вашу машину                                                                          |
 | **Артефакты** сборки хостятся на Expo                                                                                           | Артефакты попадают в **ваше собственное хранилище** (локальное или S3 / R2 / Supabase)                                                                           |
 | **Нет Mac?** Платное облако EAS - единственный путь                                                                             | **Нет Mac?** Облачный Mac в **вашем собственном AWS**, любой Mac через **SSH** или передача в **`eas build`**                                                    |
-| **Закрытый SaaS** - проприетарный, привязка к вендору                                                                           | **MIT, открытый исходный код** - `xcodebuild`/Gradle/API платформ, сменные провайдеры, мигрировать не с чего                                                     |
+| **Закрытый SaaS** - проприетарный, привязка к вендору                                                                           | **MIT, открытый исходный код** - `fastlane`/Gradle/API платформ, сменные провайдеры, мигрировать не с чего                                                       |
 
 ## Требования
 
-- **iOS:** членство в **Apple Developer Program** ($99/год) - [зарегистрируйтесь здесь](https://developer.apple.com/programs/enroll/) - затем macOS с **Xcode** + инструменты командной строки, **CocoaPods** и
+- **iOS:** членство в **Apple Developer Program** ($99/год) - [зарегистрируйтесь здесь](https://developer.apple.com/programs/enroll/) - затем macOS с **Xcode** + инструменты командной строки, **fastlane** (`brew install fastlane`) и
   **ключ API App Store Connect** (`.p8` + Key ID + Issuer ID) - [сгенерируйте его здесь](https://appstoreconnect.apple.com/access/integrations/api).
   Нет Mac? См. [Сборка без Mac](#сборка-без-mac).
-- **Android:** **аккаунт разработчика Google Play** (единоразово $25) - [зарегистрируйтесь здесь](https://play.google.com/console/signup) - затем **JDK** и **Android SDK** с заданным `ANDROID_HOME` (любая ОС - Mac не нужен) и JSON-ключ **сервисного аккаунта Google Play**.
+- **Android:** **аккаунт разработчика Google Play** (единоразово $25) - [зарегистрируйтесь здесь](https://play.google.com/console/signup) - затем **JDK** (любая ОС - Mac не нужен) и JSON-ключ **сервисного аккаунта Google Play**.
 - **Node 20+** на каждой платформе.
 
 Запускайте `launch doctor` в любой момент, чтобы проверить всё вышеперечисленное.
@@ -317,7 +317,7 @@ export default defineConfig({
   // appRoots: ["./apps"],   // for a monorepo; omit to scan the repo root
   credentials: "local", // OS keychain + ~/.launch
   storage: "local", // ~/.launch/artifacts (swap for s3/r2/supabase later)
-  buildEngine: "xcode", // "xcode" (local Mac) - "remote-mac" (AWS EC2 Mac) - "eas" (Expo cloud)
+  buildEngine: "fastlane", // "fastlane" (local Mac) - "remote-mac" (AWS EC2 Mac) - "eas" (Expo cloud)
   // submit: "app-store-connect", // or "eas" to submit through Expo
 
   // Only needed to build iOS without a Mac via `--remote aws` - see "Building without a Mac".
@@ -410,11 +410,11 @@ Mac; ценность Launch здесь - автоматизация в ваше
 
 **Launch - это просто SDK для App Store Connect или MCP-обёртка?** Нет. SDK или MCP-сервер App Store Connect оборачивает лишь часть API Apple. Launch управляет всем релизом сразу в Apple и Google - подпись кода, нативные сборки, проверка размера, настройка магазина как код, подтверждённый публичный релиз и OTA-обновления - ничего из этого API-обёртка не касается. Если вам нужен self-hosted Expo EAS, а не клиент API - это Launch.
 
-**Чем Launch отличается от Fastlane?** Fastlane - это Ruby-набор отдельных действий; Launch - единый типизированный релизный конвейер, для которого не нужно устанавливать ни Ruby, ни fastlane. Launch напрямую запускает `xcodebuild` и Gradle, сам обращается к API App Store Connect и Google Play для сборок и карточек магазинов и охватывает весь релиз: подготовку учётных данных, сборку, реальную проверку размера загрузки, настройку магазина как код для обоих магазинов, осознанный публичный релиз, контроль поэтапного выкатывания и OTA-обновления - всё из одного типизированного `launch.config.ts`.
+**Чем Launch отличается от Fastlane?** Fastlane - строительный блок; Launch оркеструет его. Launch использует fastlane только для шага загрузки бинарника и выстраивает вокруг него весь релиз: подготовку учётных данных, сборку, реальную проверку размера загрузки, настройку магазина как код для обоих магазинов, осознанный публичный релиз, контроль поэтапного выкатывания и OTA-обновления - всё из одного типизированного `launch.config.ts`.
 
 **Где хранятся мои ключи подписи и секреты?** В вашем keychain ОС. Ваш ключ API App Store Connect (`.p8`), приватный ключ распространения и ключ загрузки Android никогда не касаются репозитория или чьих-либо серверов - в Apple отправляется только запрос на подпись сертификата (CSR). Секреты сборки также хранятся в keychain через `launch secret`, чтобы они не попадали в закоммиченный `.env`.
 
-**Что нужно для запуска Launch?** Node 20+ везде. Для iOS: macOS с Xcode, инструментами командной строки и CocoaPods, и ключ API App Store Connect (`.p8` + Key ID + Issuer ID) - или удалённый Mac, если у вас его нет. Для Android: JDK и Android SDK с заданным `ANDROID_HOME` (любая ОС) и JSON-ключ сервисного аккаунта Google Play. Запустите `launch doctor`, чтобы проверить всё сразу.
+**Что нужно для запуска Launch?** Node 20+ везде. Для iOS: macOS с Xcode и инструментами командной строки, fastlane и ключ API App Store Connect (`.p8` + Key ID + Issuer ID) - или удалённый Mac, если у вас его нет. Для Android: JDK (любая ОС) и JSON-ключ сервисного аккаунта Google Play. Запустите `launch doctor`, чтобы проверить всё сразу.
 
 **Сколько стоит Launch?** Launch сам по себе бесплатен (MIT). Вы платите только за то, что платили бы в любом случае: ваше собственное оборудование для сборки (или время облачного Mac, если собираете iOS без локального Mac), плюс обычные регистрационные взносы Apple Developer ($99/yr) и Google Play (единоразово $25). Нет платы за каждую сборку и нет подписки.
 
@@ -424,7 +424,7 @@ Mac; ценность Launch здесь - автоматизация в ваше
 
 **Может ли Launch управлять метаданными магазина, встроенными покупками и подписками?** Да - как кодом, для обоих магазинов. `launch sync` сверяет IAP, подписки, цены, возможности и локализованную карточку (тексты, скриншоты, превью) с App Store Connect; `launch metadata` покрывает карточку для iOS и Android; `launch play-products` / `launch play-subscriptions` управляют каталогом Google Play. Каждая команда выполняет план только для чтения -> подтверждение -> применение, поэтому никогда не затирает живую или находящуюся на ревью версию.
 
-**Привязывает ли Launch меня к хостируемому сервису?** Нет - нет ничего хостируемого и ничего проприетарного. Launch распространяется под лицензией MIT, построен на Xcode, Gradle и собственных API платформ, с подключаемыми провайдерами хранилища / учётных данных / сборки / отправки. Ваши ключи, артефакты и обновления хранятся в инфраструктуре под вашим контролем (единственное исключение - сборка, переданная в Expo EAS), так что мигрировать потом не с чего.
+**Привязывает ли Launch меня к хостируемому сервису?** Нет - нет ничего хостируемого и ничего проприетарного. Launch распространяется под лицензией MIT, построен на fastlane, Gradle и собственных API платформ, с подключаемыми провайдерами хранилища / учётных данных / сборки / отправки. Ваши ключи, артефакты и обновления хранятся в инфраструктуре под вашим контролем, так что мигрировать потом не с чего.
 
 **Как начать?** Установите командой `npm install --global launch-store` (или `--save-dev` на проект), затем запустите `launch demo` для 60-секундного симулированного обзора - без настройки и аккаунта. Когда будете готовы: `launch init` -> `launch creds set-key` -> `launch creds setup` -> `launch build ios`.
 

@@ -6,6 +6,8 @@ import { diagnoseBuildLog, formatDiagnoses } from '../build/buildDiagnostics.js'
 import { currentBuildLog } from '../build/buildLog.js';
 import type { BuildEstimate } from '../build/buildFingerprint.js';
 import { createLogger } from './logger.js';
+import { formatElapsed } from './elapsed.js';
+import { isJsonOutput } from './jsonOutputMode.js';
 import { LaunchEnvironment, type LaunchEnvironmentService } from './environment.js';
 /** Process-wide toggle: when true, `runWithProgress` streams the raw tool output instead of a spinner. */
 let streamRawOutput = false;
@@ -16,13 +18,16 @@ export const setVerboseOutput = (verbose: boolean): void => {
 /**
  * Whether to render a spinner or stream raw output. Pure so the decision is unit-testable. A spinner
  * needs a real interactive TTY that isn't CI and hasn't asked for verbose output; everything else
- * gets the raw stream so the full log survives in transcripts.
+ * gets the raw stream so the full log survives in transcripts. `--json` always takes the quiet path,
+ * so child output never reaches the NDJSON stdout.
  */
 export const selectProgressMode = (
   isTTY: boolean,
   env: NodeJS.ProcessEnv,
   verbose: boolean,
+  json = false,
 ): 'spinner' | 'stream' => {
+  if (json) return 'spinner';
   if (verbose) return 'stream';
   if (!isTTY) return 'stream';
   if (env['CI']) return 'stream';
@@ -48,14 +53,6 @@ const truncateStep = (step: string): string => {
   const max = 52;
   if (step.length > max) return `${step.slice(0, max - 3)}...`;
   return step;
-};
-/** Format an elapsed millisecond span as `"45s"` or `"2m 04s"`. */
-export const formatElapsed = (ms: number): string => {
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  if (minutes > 0) return `${minutes}m ${String(seconds).padStart(2, '0')}s`;
-  return `${seconds}s`;
 };
 /**
  * Render the "candy" Aurora progress bar - rounded violet/cyan end-caps (``...``) around a heavy ``
@@ -169,7 +166,7 @@ const reportFailure = (label: string, tail: readonly string[], logFile: string) 
     const diagnosis = formatDiagnoses(diagnoseBuildLog(logText));
     if (diagnosis) lines.push('', diagnosis);
     const logger = yield* createLogger(false);
-    yield* logger.error(lines.join('\n'));
+    yield* logger.progressFail(label, lines.join('\n'));
   });
 /**
  * Run a long external tool under a spinner (or stream it raw - see {@link selectProgressMode}).
@@ -199,8 +196,12 @@ export const runWithProgress = (
     const terminal = yield* Terminal.Terminal;
     const terminalIsInteractive = yield* terminal.isTTY;
     if (
-      selectProgressMode(terminalIsInteractive, environment.rawVariables, streamRawOutput) ===
-      'stream'
+      selectProgressMode(
+        terminalIsInteractive,
+        environment.rawVariables,
+        streamRawOutput,
+        isJsonOutput(),
+      ) === 'stream'
     ) {
       // Raw streaming (CI / piped / --verbose): no bar, but still time the run so the duration EMA learns.
       // Output isn't parsed here, so step count is 0 - the caller carries the prior step total forward.
@@ -225,7 +226,7 @@ export const runWithProgress = (
     const tail: string[] = [];
     let steps = 0;
     const logger = yield* createLogger(false);
-    yield* logger.run(label);
+    yield* logger.progressStart(label);
     yield* executeCommandQuietly(command, args, {
       ...commandOptions,
       logFilePath: logFile,
@@ -239,9 +240,7 @@ export const runWithProgress = (
     }).pipe(
       Effect.tap(() =>
         Clock.currentTimeMillis.pipe(
-          Effect.flatMap((completedAt) =>
-            logger.ok(`${label} - ${formatElapsed(completedAt - startedAt)}`),
-          ),
+          Effect.flatMap((completedAt) => logger.progressDone(label, completedAt - startedAt)),
         ),
       ),
       Effect.tapError(() => reportFailure(label, tail, logFile)),
@@ -283,15 +282,13 @@ export const withSpinner = <T, TError, TRequirements>(
   Effect.gen(function* () {
     const logger = yield* createLogger(false);
     const startedAt = yield* Clock.currentTimeMillis;
-    yield* logger.run(label);
+    yield* logger.progressStart(label);
     return yield* task().pipe(
       Effect.tap(() =>
         Clock.currentTimeMillis.pipe(
-          Effect.flatMap((completedAt) =>
-            logger.ok(`${label} - ${formatElapsed(completedAt - startedAt)}`),
-          ),
+          Effect.flatMap((completedAt) => logger.progressDone(label, completedAt - startedAt)),
         ),
       ),
-      Effect.tapError(() => logger.error(`${label} failed`)),
+      Effect.tapError(() => logger.progressFail(label, `${label} failed`)),
     );
   });

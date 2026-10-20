@@ -14,6 +14,7 @@ const BASE_OPTIONS: BuildCommandOptions = {
   dryRun: false,
   yes: false,
   verbose: false,
+  json: false,
   clean: false,
   env: [],
   includeLocal: false,
@@ -103,5 +104,11 @@ describe('registerBuildCommand - the size-budget flag and its alias', () => {
     expect(storeBuild89).toBeDefined();
     const flags = storeBuild89?.options.map((option) => option.long);
     expect(flags).toContain('--no-ccache');
+  });
+  it('exposes --json, off by default', () => {
+    const storeBuildJson = buildCommand();
+    const jsonOption = storeBuildJson?.options.find((option) => option.long === '--json');
+    expect(jsonOption).toBeDefined();
+    expect(jsonOption?.defaultValue).toBe(false);
   });
 });
