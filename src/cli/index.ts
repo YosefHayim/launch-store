@@ -15,6 +15,7 @@ import { runCliProgram } from './runCliProgram.js';
 
 const PackageManifestJsonSchema = Schema.parseJson(Schema.Struct({ version: Schema.String }));
 const PACKAGE_MANIFEST_PATH = fileURLToPath(new URL('../../package.json', import.meta.url));
+const CommandFailureMessageSchema = Schema.Struct({ message: Schema.String });
 
 const readVersion = (): Effect.Effect<string, never, FileSystem.FileSystem> =>
   Effect.gen(function* () {
@@ -63,20 +64,32 @@ const main = async () => {
     ).then(runWizard),
   ).parseAsync(process.argv);
 };
+/** The failure a command's Effect failed with, or none for a defect or a plain throw. */
+const commandFailureOf = (runtimeFailure: unknown): Option.Option<unknown> => {
+  if (!Runtime.isFiberFailure(runtimeFailure)) return Option.none();
+  return Cause.failureOption(runtimeFailure[Runtime.FiberFailureCauseId]);
+};
+/** The line to print: a command failure's own message, else the thrown error's message. */
+const failureMessageOf = (
+  runtimeFailure: unknown,
+  commandFailure: Option.Option<unknown>,
+): string => {
+  const failureMessage = Option.flatMap(
+    commandFailure,
+    Schema.decodeUnknownOption(CommandFailureMessageSchema),
+  );
+  if (Option.isSome(failureMessage)) return failureMessage.value.message;
+  if (runtimeFailure instanceof Error) return runtimeFailure.message;
+  return String(runtimeFailure);
+};
 main().catch(async (runtimeFailure: unknown) => {
-  if (Runtime.isFiberFailure(runtimeFailure)) {
-    const commandFailure = Cause.failureOption(runtimeFailure[Runtime.FiberFailureCauseId]);
-    if (Option.isSome(commandFailure)) {
-      const commandExit = Schema.decodeUnknownOption(CommandExitSchema)(commandFailure.value);
-      if (Option.isSome(commandExit)) {
-        process.exitCode = commandExit.value.exitCode;
-        return;
-      }
-    }
+  const commandFailure = commandFailureOf(runtimeFailure);
+  const commandExit = Option.flatMap(commandFailure, Schema.decodeUnknownOption(CommandExitSchema));
+  if (Option.isSome(commandExit)) {
+    process.exitCode = commandExit.value.exitCode;
+    return;
   }
-  let runtimeMessage: string;
-  if (runtimeFailure instanceof Error) runtimeMessage = runtimeFailure.message;
-  else runtimeMessage = String(runtimeFailure);
+  const runtimeMessage = failureMessageOf(runtimeFailure, commandFailure);
   await runCliProgram(
     createLogger(false).pipe(Effect.flatMap((logger) => logger.error(runtimeMessage))),
   ).catch(() => undefined);

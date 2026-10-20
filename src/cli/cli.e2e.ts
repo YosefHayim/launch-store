@@ -124,4 +124,13 @@ describe('launch CLI - offline surface (compiled dist)', () => {
       launch('config', 'validate', join(workdir, 'bad-product-id.json')),
     ).rejects.toThrow(/productId.*only letters, digits, underscores, and periods/i);
   });
+  it("prints a failed command's message, not its raw failure object", async () => {
+    const releaseRun = captureCommandOutput('node', [CLI, 'release', 'android'], {
+      workingDirectory: workdir,
+    });
+    const releaseFailure = provideNodeCommandServices(releaseRun).pipe(Effect.flip);
+    const commandFailure = await Effect.runPromise(releaseFailure);
+    expect(commandFailure.stderr).toContain('[ERROR] No apps found.');
+    expect(commandFailure.stderr).not.toContain('"_tag"');
+  });
 });
