@@ -68,7 +68,7 @@ e open source:
 - **Suas chaves ficam locais.** Seu certificado de distribuição, sua chave de API do App Store Connect e sua chave de upload
   do Android ficam no keychain do seu sistema operacional; o Launch só envia um CSR para a Apple. (Compilar sem um Mac é a única
   exceção - veja abaixo.)
-- **Sem lock-in, nunca.** Licença MIT, construído sobre `fastlane`, Gradle e as próprias APIs das plataformas, com
+- **Sem lock-in, nunca.** Licença MIT, construído sobre `xcodebuild`, Gradle e as próprias APIs das plataformas, com
   providers plugáveis de storage/credenciais/build/submit. Nada proprietário do qual migrar depois.
 - **Ensina enquanto roda.** Adicione `--explain` a qualquer comando - ou execute `launch demo` - para expandir cada etapa
   (CSR, provisioning profile, TestFlight, faixa do Play, grupo de assinaturas) em português claro.
@@ -159,7 +159,7 @@ em revisão. Esta é a superfície que o EAS deixa inteiramente para o site do A
   ponta - criar/reutilizar a versão, responder o export compliance, anexar o build, escrever as notas de release,
   escolher rollout imediato / agendado / em fases e submeter para revisão - então um release nunca precisa do
   site. `launch status [--watch] [--json]` acompanha a revisão (com códigos de saída para CI), e `launch rollout
-pause|resume|complete` conduz um rollout em fases. O fastlane fica restrito apenas ao upload do binário.
+pause|resume|complete` conduz um rollout em fases.
 - **Reassinar sem recompilar.** `launch build:resign` reassina um `.ipa`/`.aab` armazenado com credenciais
   diferentes (uma nova conta ou profile) diretamente do artefato - sem recompilar.
 - **Notificações de conclusão.** Um bloco `notify` aciona um webhook do Slack/Discord e/ou roda um shell hook
@@ -233,14 +233,14 @@ dois diferem no mesmo fluxo de trabalho:
 | As **credenciais de assinatura podem ficar nos servidores da Expo**                                                     | As chaves ficam no **keychain do seu sistema operacional** - só um **CSR** chega a sair da sua máquina                                                                   |
 | Os **artefatos de build são hospedados pela Expo**                                                                      | Os artefatos pousam no **seu próprio storage** (local, ou S3 / R2 / Supabase)                                                                                            |
 | **Sem Mac?** A nuvem paga do EAS é o único caminho                                                                      | **Sem Mac?** Um Mac na nuvem na **sua própria AWS**, qualquer Mac via **SSH**, ou delegação ao **`eas build`**                                                           |
-| **SaaS fechado** - proprietário, com lock-in de fornecedor                                                              | **MIT, open source** - APIs de `fastlane`/Gradle/plataforma, providers intercambiáveis, nada do que migrar                                                               |
+| **SaaS fechado** - proprietário, com lock-in de fornecedor                                                              | **MIT, open source** - APIs de `xcodebuild`/Gradle/plataforma, providers intercambiáveis, nada do que migrar                                                             |
 
 ## Requisitos
 
-- **iOS:** uma **assinatura do Apple Developer Program** (US$ 99/ano) - [inscreva-se aqui](https://developer.apple.com/programs/enroll/) - e então macOS com **Xcode** + ferramentas de linha de comando, **fastlane** (`brew install fastlane`) e uma
+- **iOS:** uma **assinatura do Apple Developer Program** (US$ 99/ano) - [inscreva-se aqui](https://developer.apple.com/programs/enroll/) - e então macOS com **Xcode** + ferramentas de linha de comando, **CocoaPods** e uma
   **chave de API do App Store Connect** (`.p8` + Key ID + Issuer ID) - [gere uma aqui](https://appstoreconnect.apple.com/access/integrations/api).
   Sem Mac? Veja [Compilando sem um Mac](#compilando-sem-um-mac).
-- **Android:** uma **conta de desenvolvedor do Google Play** (US$ 25, pagamento único) - [cadastre-se aqui](https://play.google.com/console/signup) - e então um **JDK** (qualquer SO - sem necessidade de Mac) e uma chave JSON de **service account do Google Play**.
+- **Android:** uma **conta de desenvolvedor do Google Play** (US$ 25, pagamento único) - [cadastre-se aqui](https://play.google.com/console/signup) - e então um **JDK** e o **Android SDK** com `ANDROID_HOME` definido (qualquer SO - sem necessidade de Mac) e uma chave JSON de **service account do Google Play**.
 - **Node 20+** em todas as plataformas.
 
 Execute `launch doctor` a qualquer momento para checar tudo isso.
@@ -305,7 +305,7 @@ export default defineConfig({
   // appRoots: ["./apps"],   // for a monorepo; omit to scan the repo root
   credentials: "local", // OS keychain + ~/.launch
   storage: "local", // ~/.launch/artifacts (swap for s3/r2/supabase later)
-  buildEngine: "fastlane", // "fastlane" (local Mac) - "remote-mac" (AWS EC2 Mac) - "eas" (Expo cloud)
+  buildEngine: "xcode", // "xcode" (local Mac) - "remote-mac" (AWS EC2 Mac) - "eas" (Expo cloud)
   // submit: "app-store-connect", // or "eas" to submit through Expo
 
   // Only needed to build iOS without a Mac via `--remote aws` - see "Building without a Mac".
@@ -398,11 +398,11 @@ em todos os lugares.
 
 **O Launch é apenas um SDK do App Store Connect ou um wrapper MCP?** Não. Um SDK ou servidor MCP do App Store Connect encapsula uma fatia da API da Apple. O Launch conduz o release inteiro pela Apple e pelo Google - assinatura de código, builds nativos, verificações de tamanho, configuração-de-loja-como-código, o release público confirmado e atualizações OTA - nada disso um wrapper de API toca. Se você quer um Expo EAS self-hosted em vez de um cliente de API, isso é o Launch.
 
-**Como o Launch é diferente do Fastlane?** O Fastlane é um bloco de construção; o Launch o orquestra. O Launch usa fastlane apenas para a etapa de upload do binário e envolve o release inteiro em torno disso: provisionamento de credenciais, o build, a verificação real de tamanho de download, configuração-de-loja-como-código para ambas as lojas, o release público deliberado, controle de rollout em fases e atualizações OTA - tudo a partir de um único `launch.config.ts` tipado.
+**Como o Launch é diferente do Fastlane?** O Fastlane é um conjunto de ferramentas em Ruby com ações separadas; o Launch é um único pipeline de release tipado, sem Ruby nem fastlane para instalar. O Launch executa `xcodebuild` e Gradle diretamente, conversa por conta própria com as APIs do App Store Connect e do Google Play para builds e listagens de loja, e cobre o release inteiro: provisionamento de credenciais, o build, a verificação real de tamanho de download, configuração-de-loja-como-código para ambas as lojas, o release público deliberado, controle de rollout em fases e atualizações OTA - tudo a partir de um único `launch.config.ts` tipado.
 
 **Onde minhas chaves de assinatura e segredos ficam armazenados?** No seu keychain do sistema operacional. Sua chave de API do App Store Connect (`.p8`), chave privada de distribuição e chave de upload do Android nunca tocam o repositório nem os servidores de ninguém - apenas uma requisição de assinatura de certificado (CSR) é enviada para a Apple. Segredos de build também ficam no keychain, via `launch secret`, para que fiquem fora de um `.env` versionado.
 
-**O que preciso para rodar o Launch?** Node 20+ em qualquer lugar. Para iOS: macOS com Xcode e suas ferramentas de linha de comando, fastlane e uma chave de API do App Store Connect (`.p8` + Key ID + Issuer ID) - ou um Mac remoto se você não tiver um. Para Android: um JDK (qualquer SO) e uma chave JSON de service account do Google Play. Execute `launch doctor` para verificar tudo de uma vez.
+**O que preciso para rodar o Launch?** Node 20+ em qualquer lugar. Para iOS: macOS com Xcode e suas ferramentas de linha de comando, CocoaPods e uma chave de API do App Store Connect (`.p8` + Key ID + Issuer ID) - ou um Mac remoto se você não tiver um. Para Android: um JDK e o Android SDK com `ANDROID_HOME` definido (qualquer SO) e uma chave JSON de service account do Google Play. Execute `launch doctor` para verificar tudo de uma vez.
 
 **Quanto custa o Launch?** O Launch em si é gratuito (MIT). Você paga apenas pelo que pagaria de qualquer forma: seu próprio hardware de build (ou tempo de Mac na nuvem se você compila iOS sem um Mac local), mais as taxas de registro usuais da Apple Developer ($99/yr) e do Google Play (única taxa de $25). Não há cobrança por build nem assinatura.
 
@@ -412,7 +412,7 @@ em todos os lugares.
 
 **O Launch pode gerenciar metadados da loja, compras dentro do app e assinaturas?** Sim - como código, para ambas as lojas. `launch sync` reconcilia IAPs, assinaturas, preços, capacidades e a listagem por locale (textos, screenshots, prévias) no App Store Connect; `launch metadata` cobre a listagem para iOS e Android; `launch play-products` / `launch play-subscriptions` dirigem o catálogo do Google Play. Cada um roda um plano somente-leitura -> confirmação -> aplicação, então nunca sobrescreve uma versão ativa ou em revisão.
 
-**O Launch me prende a um serviço hospedado?** Não - não há nada hospedado e nada proprietário. O Launch tem licença MIT, construído sobre fastlane, Gradle e as próprias APIs das plataformas, com providers plugáveis de storage / credenciais / build / submit. Suas chaves, artefatos e atualizações ficam na infraestrutura que você controla, então não há nada para migrar depois.
+**O Launch me prende a um serviço hospedado?** Não - não há nada hospedado e nada proprietário. O Launch tem licença MIT, construído sobre Xcode, Gradle e as próprias APIs das plataformas, com providers plugáveis de storage / credenciais / build / submit. Suas chaves, artefatos e atualizações ficam na infraestrutura que você controla (a única exceção é entregar um build ao Expo EAS), então não há nada para migrar depois.
 
 **Como começo?** Instale com `npm install --global launch-store` (ou `--save-dev` por projeto), então execute `launch demo` para um passo a passo simulado de 60 segundos - sem configuração nem conta necessária. Quando estiver pronto: `launch init` -> `launch creds set-key` -> `launch creds setup` -> `launch build ios`.
 
