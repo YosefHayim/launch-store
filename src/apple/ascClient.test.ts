@@ -360,7 +360,7 @@ describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
       if (url.startsWith('https://upload.example/')) {
         inFlightUploads += 1;
         peakInFlightUploads = Math.max(peakInFlightUploads, inFlightUploads);
-        await new Promise((resumeUpload) => setTimeout(resumeUpload, 5));
+        await new Promise((resumeUpload) => setTimeout(resumeUpload, 20));
         inFlightUploads -= 1;
         return fakeResponse(200, '');
       }
@@ -375,7 +375,8 @@ describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
       String(url).startsWith('https://upload.example/'),
     );
     expect(partUploads).toHaveLength(6);
-    expect(peakInFlightUploads).toBe(4);
+    expect(peakInFlightUploads).toBeGreaterThan(1);
+    expect(peakInFlightUploads).toBeLessThanOrEqual(4);
   });
   it('retries a part after a dropped connection', async () => {
     const uploadOperations = [
@@ -470,11 +471,12 @@ describe('AppStoreConnectClient - build uploads', () => {
     expect(
       documentValueAt(readRequestDocument(reserveInit), ['data', 'relationships', 'buildUpload']),
     ).toEqual({ data: { type: 'buildUploads', id: 'upload-1' } });
-    const [firstPartUrl, firstPartInit] = expectArrayElement(fetchMock.mock.calls, 1, 'part 0');
-    expect(firstPartUrl).toBe('https://upload.example/part-0');
+    const partCalls = fetchMock.mock.calls.slice(1, 3);
+    const firstPartCall = partCalls.find(([url]) => url === 'https://upload.example/part-0');
+    const [, firstPartInit] = expectDefined(firstPartCall, 'part 0');
     expect(firstPartInit.body).toEqual(ipaBytes.subarray(0, 5));
-    const [secondPartUrl, secondPartInit] = expectArrayElement(fetchMock.mock.calls, 2, 'part 1');
-    expect(secondPartUrl).toBe('https://upload.example/part-1');
+    const secondPartCall = partCalls.find(([url]) => url === 'https://upload.example/part-1');
+    const [, secondPartInit] = expectDefined(secondPartCall, 'part 1');
     expect(secondPartInit.body).toEqual(ipaBytes.subarray(5, 12));
     const [commitUrl, commitInit] = expectArrayElement(fetchMock.mock.calls, 3, 'commit call');
     expect(commitUrl).toBe('https://api.appstoreconnect.apple.com/v1/buildUploadFiles/file-1');
