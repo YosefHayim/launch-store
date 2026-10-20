@@ -407,8 +407,8 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   //  Store listing
   'store-metadata': [
     'Store metadata: your listing - name, subtitle, description, keywords, release notes, URLs. Launch syncs',
-    "it from a versioned store.config.json (Expo's schema for iOS, plus an android extension) via fastlane",
-    'deliver/supply, so the listing lives in your repo and pushes deterministically alongside the build.',
+    "it from a versioned store.config.json (Expo's schema for iOS, plus an android extension) through the",
+    'App Store Connect and Google Play APIs, so the listing lives in your repo and pushes deterministically.',
   ].join('\n'),
   'ai-store-assets': [
     'AI store assets: store listing material drafted by a model instead of by hand - listing copy today',

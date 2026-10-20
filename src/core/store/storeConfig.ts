@@ -51,16 +51,6 @@ const APPLE_FILE_NAMES = {
   supportUrl: 'support_url.txt',
   privacyPolicyUrl: 'privacy_url.txt',
 } as const;
-const APPLE_FILES = [
-  { field: 'title', fileName: APPLE_FILE_NAMES.title },
-  { field: 'subtitle', fileName: APPLE_FILE_NAMES.subtitle },
-  { field: 'description', fileName: APPLE_FILE_NAMES.description },
-  { field: 'releaseNotes', fileName: APPLE_FILE_NAMES.releaseNotes },
-  { field: 'promotionalText', fileName: APPLE_FILE_NAMES.promotionalText },
-  { field: 'marketingUrl', fileName: APPLE_FILE_NAMES.marketingUrl },
-  { field: 'supportUrl', fileName: APPLE_FILE_NAMES.supportUrl },
-  { field: 'privacyPolicyUrl', fileName: APPLE_FILE_NAMES.privacyPolicyUrl },
-] as const;
 /** `deliver` stores keywords comma-joined in their own file. */
 const APPLE_KEYWORDS_FILE = 'keywords.txt';
 const ANDROID_FILE_NAMES = {
@@ -69,12 +59,6 @@ const ANDROID_FILE_NAMES = {
   fullDescription: 'full_description.txt',
   video: 'video.txt',
 } as const;
-const ANDROID_FILES = [
-  { field: 'title', fileName: ANDROID_FILE_NAMES.title },
-  { field: 'shortDescription', fileName: ANDROID_FILE_NAMES.shortDescription },
-  { field: 'fullDescription', fileName: ANDROID_FILE_NAMES.fullDescription },
-  { field: 'video', fileName: ANDROID_FILE_NAMES.video },
-] as const;
 
 const AppleLocaleInfoSchema = Schema.mutable(
   Schema.Struct({
@@ -143,68 +127,6 @@ export const parseStoreConfig = (
 /** Read and decode store.config.json through Effect Platform. */
 export const loadStoreConfig = (configPath: string) =>
   loadStoreSurfaceConfig(configPath, StoreConfigSpec);
-/**
- * Write `apple` listing text into fastlane `deliver`'s metadata layout under `dir` (one folder per
- * locale, one `.txt` file per field), returning the relative file paths written. The inverse of
- * {@link readAppleMetadataDir}; used by `launch metadata push` to feed `deliver --metadata_path`.
- */
-export const writeAppleMetadataDir = (
-  appleStoreConfig: AppleStoreConfig,
-  metadataDirectory: string,
-): Effect.Effect<string[], PlatformError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const writtenPaths: string[] = [];
-    for (const [locale, localeListing] of Object.entries(appleStoreConfig.info)) {
-      const localeDirectory = pathService.join(metadataDirectory, locale);
-      yield* fileSystem.makeDirectory(localeDirectory, { recursive: true });
-      for (const fieldMapping of APPLE_FILES) {
-        const fieldText = localeListing[fieldMapping.field];
-        if (fieldText === undefined) continue;
-        yield* fileSystem.writeFileString(
-          pathService.join(localeDirectory, fieldMapping.fileName),
-          fieldText,
-        );
-        writtenPaths.push(pathService.join(locale, fieldMapping.fileName));
-      }
-      if (localeListing.keywords !== undefined && localeListing.keywords.length > 0) {
-        yield* fileSystem.writeFileString(
-          pathService.join(localeDirectory, APPLE_KEYWORDS_FILE),
-          localeListing.keywords.join(', '),
-        );
-        writtenPaths.push(pathService.join(locale, APPLE_KEYWORDS_FILE));
-      }
-    }
-    return writtenPaths;
-  });
-/**
- * Write `android` listing text into fastlane `supply`'s metadata layout under `dir`. The inverse of
- * {@link readAndroidMetadataDir}; used by `launch metadata push` to feed `supply --metadata_path`.
- */
-export const writeAndroidMetadataDir = (
-  androidStoreConfig: AndroidStoreConfig,
-  metadataDirectory: string,
-): Effect.Effect<string[], PlatformError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    const writtenPaths: string[] = [];
-    for (const [locale, localeListing] of Object.entries(androidStoreConfig.info)) {
-      const localeDirectory = pathService.join(metadataDirectory, locale);
-      yield* fileSystem.makeDirectory(localeDirectory, { recursive: true });
-      for (const fieldMapping of ANDROID_FILES) {
-        const fieldText = localeListing[fieldMapping.field];
-        if (fieldText === undefined) continue;
-        yield* fileSystem.writeFileString(
-          pathService.join(localeDirectory, fieldMapping.fileName),
-          fieldText,
-        );
-        writtenPaths.push(pathService.join(locale, fieldMapping.fileName));
-      }
-    }
-    return writtenPaths;
-  });
 /** Read a single metadata `.txt` file, returning undefined when it's absent or blank. */
 const readMetadataField = (
   localeDirectory: string,
@@ -239,8 +161,7 @@ const listLocaleDirectories = (
   });
 /**
  * Read fastlane `deliver` metadata folders under `dir` back into an {@link AppleStoreConfig}. The
- * inverse of {@link writeAppleMetadataDir}; used by `launch metadata pull` after `deliver` downloads
- * the live listing.
+ * Used by the fastlane migration to import an existing `deliver` metadata tree.
  */
 export const readAppleMetadataDir = (
   metadataDirectory: string,

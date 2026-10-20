@@ -18,6 +18,7 @@ import type {
   InAppProductResource,
   OfferPhaseRegionalConfig,
   PlayCountryAvailability,
+  PlayListing,
   PlayMoney,
   PlayRelease,
   PlayReplyResult,
@@ -193,6 +194,22 @@ const releasesFromGoogleTrack = (
     releases.push(normalizeTrackRelease(googleRelease));
   }
   return releases;
+};
+/** Project one generated store listing into the {@link PlayListing} slice Launch reads and writes. */
+const listingFromGoogle = (
+  googleListing: androidpublisher_v3.Schema$Listing,
+): PlayListing | undefined => {
+  if (typeof googleListing.language !== 'string') return undefined;
+  const listing: MutableDeep<PlayListing> = { language: googleListing.language };
+  if (typeof googleListing.title === 'string') listing.title = googleListing.title;
+  if (typeof googleListing.shortDescription === 'string') {
+    listing.shortDescription = googleListing.shortDescription;
+  }
+  if (typeof googleListing.fullDescription === 'string') {
+    listing.fullDescription = googleListing.fullDescription;
+  }
+  if (typeof googleListing.video === 'string') listing.video = googleListing.video;
+  return listing;
 };
 /** Keep only offer tags that carry a real tag string. */
 const offerTagsFromGoogle = (
@@ -478,6 +495,7 @@ export type GooglePlayTransport = Readonly<{
       tracks: Pick<AndroidPublisher['edits']['tracks'], 'get' | 'list' | 'update'>;
       testers: Pick<AndroidPublisher['edits']['testers'], 'get' | 'update'>;
       countryavailability: Pick<AndroidPublisher['edits']['countryavailability'], 'get'>;
+      listings: Pick<AndroidPublisher['edits']['listings'], 'list' | 'patch'>;
     }>;
   inappproducts: Pick<AndroidPublisher['inappproducts'], 'list' | 'insert' | 'update'>;
   monetization: Pick<AndroidPublisher['monetization'], 'convertRegionPrices'> &
@@ -747,6 +765,48 @@ export class GooglePlayClient {
           requestBody: { googleGroups: [...googleGroups] },
         }),
       ).pipe(Effect.asVoid),
+    );
+  }
+  /** Read every localized store listing (title, short and full description, video) of an app. */
+  listListings(packageName: string): Effect.Effect<PlayListing[], GooglePlayApiError> {
+    return this.withReadEdit(packageName, (editId) =>
+      this.executeGeneratedRequest('list listings', () =>
+        this.publisher.edits.listings.list({ packageName, editId }),
+      ).pipe(
+        Effect.map((listingCatalog) => {
+          const listings: PlayListing[] = [];
+          if (!Array.isArray(listingCatalog.listings)) return listings;
+          for (const googleListing of listingCatalog.listings) {
+            const listing = listingFromGoogle(googleListing);
+            if (listing !== undefined) listings.push(listing);
+          }
+          return listings;
+        }),
+      ),
+    );
+  }
+  /**
+   * Patch the given localized store listings inside ONE committed edit, so every language lands together or
+   * none does. Patch keeps fields the listing does not mention (for example the video) untouched.
+   */
+  updateListings(
+    packageName: string,
+    listings: readonly PlayListing[],
+  ): Effect.Effect<void, GooglePlayApiError> {
+    return this.withEdit(packageName, (editId) =>
+      Effect.forEach(
+        listings,
+        (listing) =>
+          this.executeGeneratedRequest('update listing', () =>
+            this.publisher.edits.listings.patch({
+              packageName,
+              editId,
+              language: listing.language,
+              requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Listing>(listing),
+            }),
+          ),
+        { discard: true },
+      ),
     );
   }
   /** Read a track's country availability. Read-only - Play exposes no API to change it. */

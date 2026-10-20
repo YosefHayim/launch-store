@@ -1,16 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { Effect } from 'effect';
 import { runOnNodePlatform } from '@testkit/platformRun.testkit.js';
-import {
-  parseStoreConfig,
-  readAndroidMetadataDir,
-  readAppleMetadataDir,
-  writeAndroidMetadataDir,
-  writeAppleMetadataDir,
-} from './storeConfig.js';
+import { parseStoreConfig, readAndroidMetadataDir, readAppleMetadataDir } from './storeConfig.js';
 const tmpDirs: string[] = [];
 const workDir = (): string => {
   const dir = mkdtempSync(join(tmpdir(), 'storeconfig-test-'));
@@ -56,9 +50,25 @@ describe('parseStoreConfig', () => {
     ).toThrow(/subtitle/);
   });
 });
-describe('apple metadata folder round-trip (deliver layout)', () => {
-  it('writes deliver .txt files and reads them back identically', async () => {
-    const apple = {
+const writeMetadataFiles = (dir: string, files: Record<string, string>): void => {
+  for (const [relativePath, text] of Object.entries(files)) {
+    mkdirSync(dirname(join(dir, relativePath)), { recursive: true });
+    writeFileSync(join(dir, relativePath), text);
+  }
+};
+describe('apple metadata folder read (deliver layout)', () => {
+  it('reads deliver .txt files into the apple section', async () => {
+    const dir = workDir();
+    writeMetadataFiles(dir, {
+      [join('en-US', 'name.txt')]: 'Hello',
+      [join('en-US', 'subtitle.txt')]: 'Sub',
+      [join('en-US', 'description.txt')]: 'A great app',
+      [join('en-US', 'keywords.txt')]: 'fast, local',
+      [join('en-US', 'release_notes.txt')]: 'First release',
+      [join('en-US', 'privacy_url.txt')]: 'https://example.com/privacy',
+      [join('en-US', 'support_url.txt')]: '   ',
+    });
+    expect(await runOnNodePlatform(readAppleMetadataDir(dir))).toEqual({
       info: {
         'en-US': {
           title: 'Hello',
@@ -69,26 +79,21 @@ describe('apple metadata folder round-trip (deliver layout)', () => {
           privacyPolicyUrl: 'https://example.com/privacy',
         },
       },
-    };
-    const dir = workDir();
-    const written = await runOnNodePlatform(writeAppleMetadataDir(apple, dir));
-    // keywords land comma-joined in deliver's keywords.txt; the title goes to name.txt.
-    expect(written).toContain(join('en-US', 'name.txt'));
-    expect(written).toContain(join('en-US', 'keywords.txt'));
-    expect(readFileSync(join(dir, 'en-US', 'keywords.txt'), 'utf8')).toBe('fast, local');
-    expect(await runOnNodePlatform(readAppleMetadataDir(dir))).toEqual(apple);
+    });
   });
 });
-describe('android metadata folder round-trip (supply layout)', () => {
-  it('writes supply .txt files and reads them back identically', async () => {
-    const android = {
+describe('android metadata folder read (supply layout)', () => {
+  it('reads supply .txt files into the android section', async () => {
+    const dir = workDir();
+    writeMetadataFiles(dir, {
+      [join('en-US', 'title.txt')]: 'Hello',
+      [join('en-US', 'short_description.txt')]: 'short',
+      [join('en-US', 'full_description.txt')]: 'the full thing',
+    });
+    expect(await runOnNodePlatform(readAndroidMetadataDir(dir))).toEqual({
       info: {
         'en-US': { title: 'Hello', shortDescription: 'short', fullDescription: 'the full thing' },
       },
-    };
-    const dir = workDir();
-    const written = await runOnNodePlatform(writeAndroidMetadataDir(android, dir));
-    expect(written).toContain(join('en-US', 'short_description.txt'));
-    expect(await runOnNodePlatform(readAndroidMetadataDir(dir))).toEqual(android);
+    });
   });
 });

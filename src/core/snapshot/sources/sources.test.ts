@@ -51,12 +51,12 @@ const ascApi: SnapshotAscApi = {
   listSubscriptionGroups: () => Effect.succeed([{ id: 'g1', referenceName: 'Pro' }]),
   listSubscriptions: () =>
     Effect.succeed([{ productId: 'com.acme.pro', subscriptionPeriod: 'P1M', state: 'APPROVED' }]),
-  getEditableAppInfoId: () => Effect.succeed('appinfo-1'),
+  getCurrentAppInfoId: () => Effect.succeed('appinfo-1'),
   listAppInfoLocalizations: () =>
     Effect.succeed([
       { id: 'ail-1', locale: 'en-US', fields: { name: 'Acme', subtitle: 'Do more' } },
     ]),
-  getEditableVersionId: () => Effect.succeed('ver-1'),
+  getCurrentVersionId: () => Effect.succeed('ver-1'),
   listVersionLocalizations: () =>
     Effect.succeed([
       {
@@ -191,7 +191,7 @@ describe('appleListingSource', () => {
       },
     ]);
   });
-  it('captures an empty listing when nothing is editable', async () => {
+  it('captures an empty listing when the app has no listing yet', async () => {
     const capture = await captureSource(
       appleListingSource,
       snapshotContext({
@@ -199,8 +199,8 @@ describe('appleListingSource', () => {
         resolveAscApi: () =>
           Effect.succeed({
             ...ascApi,
-            getEditableAppInfoId: () => Effect.succeed(null),
-            getEditableVersionId: () => Effect.succeed(null),
+            getCurrentAppInfoId: () => Effect.succeed(null),
+            getCurrentVersionId: () => Effect.succeed(null),
           }),
       }),
     );

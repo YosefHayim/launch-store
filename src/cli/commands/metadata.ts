@@ -38,15 +38,13 @@ const attachMetadataSelectionOptions = (command: Command): Command =>
 export const registerMetadataCommand = (program: Command): void => {
   const metadataCommand = program
     .command('metadata')
-    .description(
-      'sync the store listing (name, description, keywords, screenshots) via store.config.json',
-    );
+    .description('sync the store listing (name, description, keywords) via store.config.json');
   attachMetadataSelectionOptions(
     metadataCommand
       .command('pull')
       .description('download the live store listing into store.config.json'),
   )
-    .option('--dry-run', 'rehearse without contacting the store', false)
+    .option('--dry-run', 'read the store and report what would be written, write nothing', false)
     .action((commandOptions: MetadataOptions) => {
       return runCliProgram(
         metadataCommandProgram(metadataInputFromOptions('pull', commandOptions)),
@@ -57,11 +55,7 @@ export const registerMetadataCommand = (program: Command): void => {
       .command('push')
       .description('upload store.config.json to the store listing (metadata only; no binary)'),
   )
-    .option(
-      '--dry-run',
-      'rehearse: write the fastlane metadata folders and print the command, upload nothing',
-      false,
-    )
+    .option('--dry-run', 'rehearse: print the planned changes, write nothing to the store', false)
     .action((commandOptions: MetadataOptions) => {
       return runCliProgram(
         metadataCommandProgram(metadataInputFromOptions('push', commandOptions)),

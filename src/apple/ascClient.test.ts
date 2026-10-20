@@ -1138,6 +1138,71 @@ describe('AppStoreConnectClient - listing localizations', () => {
     );
     expect(await client.getEditableAppInfoId('app1')).toBe('ai-edit');
   });
+  it('reads the live appInfo and version when nothing is editable', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [
+              { id: 'ai-live', attributes: { state: 'READY_FOR_DISTRIBUTION' } },
+              { id: 'ai-review', attributes: { state: 'WAITING_FOR_REVIEW' } },
+            ],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [
+              { id: 'v-old', attributes: { appStoreState: 'REPLACED_WITH_NEW_VERSION' } },
+              { id: 'v-live', attributes: { appStoreState: 'READY_FOR_SALE' } },
+            ],
+          }),
+        ),
+      );
+    expect(await client.getCurrentAppInfoId('app1')).toBe('ai-live');
+    expect(await client.getCurrentVersionId('app1')).toBe('v-live');
+  });
+  it('reads a pre-order version as the live one', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [{ id: 'v-preorder', attributes: { appStoreState: 'PREORDER_READY_FOR_SALE' } }],
+        }),
+      ),
+    );
+    expect(await client.getCurrentVersionId('app1')).toBe('v-preorder');
+  });
+  it('prefers the editable appInfo and version over the live ones', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [
+              { id: 'ai-live', attributes: { state: 'READY_FOR_DISTRIBUTION' } },
+              { id: 'ai-edit', attributes: { state: 'PREPARE_FOR_SUBMISSION' } },
+            ],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [
+              { id: 'v-live', attributes: { appStoreState: 'READY_FOR_SALE' } },
+              { id: 'v-edit', attributes: { appStoreState: 'PREPARE_FOR_SUBMISSION' } },
+            ],
+          }),
+        ),
+      );
+    expect(await client.getCurrentAppInfoId('app1')).toBe('ai-edit');
+    expect(await client.getCurrentVersionId('app1')).toBe('v-edit');
+  });
   it('lists version localizations, keeping only present non-empty fields', async () => {
     fetchMock.mockResolvedValueOnce(
       fakeResponse(

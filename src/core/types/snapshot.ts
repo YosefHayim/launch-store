@@ -125,11 +125,11 @@ export type SnapshotAscApi = Readonly<{
     }>[],
     unknown
   >;
-  getEditableAppInfoId(appId: string): Effect.Effect<string | null, unknown>;
+  getCurrentAppInfoId(appId: string): Effect.Effect<string | null, unknown>;
   listAppInfoLocalizations(
     appInfoId: string,
   ): Effect.Effect<readonly ListingLocalization[], unknown>;
-  getEditableVersionId(appId: string): Effect.Effect<string | null, unknown>;
+  getCurrentVersionId(appId: string): Effect.Effect<string | null, unknown>;
   listVersionLocalizations(
     versionId: string,
   ): Effect.Effect<readonly ListingLocalization[], unknown>;
