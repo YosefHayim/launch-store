@@ -11,6 +11,7 @@ import { loadAscKeyById } from '../credentials/accounts.js';
 import { ensureArtifactPresent, resolveStorageProvider } from '../distribution/storage.js';
 import {
   AppleStoreClientService,
+  appRecordMissingMessage,
   type AppleStoreClientService as AppleStoreClientDependencies,
 } from '../services/appleStoreClient.js';
 import type { LaunchEnvironmentService } from '../services/environment.js';
@@ -32,7 +33,6 @@ import type { BuildArtifact } from '../types/artifacts.js';
 import type { BuildResource } from '../types/appleCatalog.js';
 import type { LaunchConfig, ResolvedBuildContext } from '../types/config.js';
 import {
-  appRecordMissingMessage,
   releaseApp,
   waitForValidBuild,
   type AscReleaseApi,
@@ -515,7 +515,7 @@ const resolveIosBuild = (
     yield* submitToStores(
       launchConfig,
       buildContext.platform,
-      artifact.path,
+      artifact,
       'production',
       buildCredentials,
       buildContext,
@@ -820,7 +820,7 @@ const releaseAndroidBuild = (
     yield* submitToStores(
       launchConfig,
       'android',
-      latestBuild.path,
+      latestBuild,
       'production',
       buildCredentials,
       buildContext,

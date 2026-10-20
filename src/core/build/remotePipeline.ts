@@ -1,7 +1,7 @@
 import type { BuildArtifact, SizeReport } from '../types/artifacts.js';
 import { Data, Effect } from 'effect';
 import type { LaunchConfig } from '../types/config.js';
-import type { AccountRecord, AscKey } from '../types/credentials.js';
+import type { AccountRecord, AscKey, BuildCredentials } from '../types/credentials.js';
 import type { ComputeHost } from '../types/providers.js';
 import type { AllocateRequest, RemoteTarget } from '../types/remote.js';
 import {
@@ -10,6 +10,7 @@ import {
   reportProcessing,
   reportSize,
   resolveAscBuildLink,
+  uploadIosBuild,
 } from './pipelineArtifact.js';
 import { interactiveConfirm, resolveIosAccount } from './pipelineSigning.js';
 import type { BuildRunOptions, PreparedBuild } from './pipelineTypes.js';
@@ -110,22 +111,26 @@ const rehearse = (prepared: PreparedBuild, options: BuildRunOptions, buildNumber
     );
     yield* log.step(
       'upload creds',
-      'would upload .p8/.p12/profile into a per-run ephemeral keychain on the host',
+      'would upload .p12/profile into a per-run ephemeral keychain on the host',
     );
     yield* log.step(
       'build',
       'would run fastlane gym on the host (incremental unless native deps changed or --clean)',
     );
-    if (options.submit) {
-      let storeDestination = 'App Store review';
-      if (options.target === 'testing') storeDestination = 'TestFlight';
-      yield* log.step('submit', `would upload to ${storeDestination} from the host`, 'testflight');
-    }
     yield* log.step('pull', 'would pull the .ipa home to ~/.launch/artifacts');
     yield* log.step(
       'shred',
       'would shred the secrets (keychain + creds), keeping the warm work tree for next time',
     );
+    if (options.submit) {
+      let storeDestination = 'App Store review';
+      if (options.target === 'testing') storeDestination = 'TestFlight';
+      yield* log.step(
+        'submit',
+        `would upload the pulled .ipa to ${storeDestination}`,
+        'testflight',
+      );
+    }
     yield* log.step(
       'host',
       'would keep the host for the paid window; auto-release scheduled near 23.5h',
@@ -211,19 +216,18 @@ export const runRemoteBuild = (prepared: PreparedBuild, options: BuildRunOptions
       appName: app.name,
       bundleId,
       signing,
-      ascKey,
       buildNumber,
-      submit: options.submit,
-      submitTarget: options.target,
       forceClean: options.forceClean === true,
       prebuildAlways: config.prebuild === 'always',
       ccacheEnabled: options.ccache !== false,
       env,
     };
+    let appVersion = app.version;
+    if (appVersion === undefined) appVersion = '0.0.0';
     const session = yield* openRemoteSession(handle.ssh, app.name);
-    let sizeReport: SizeReport | null = null;
+    let pulled: { ipaPath: string; sizeReport: SizeReport } | null = null;
     try {
-      // C4 + spine. Sync source into the persistent tree, upload transient creds, build (+submit) on the host.
+      // C4 + spine. Sync source into the persistent tree, upload transient creds, build on the host.
       yield* log.note('Syncing the project to the host...');
       yield* syncProject(session, app.dir);
       yield* log.step('sync', "project synced to the host's warm work tree");
@@ -243,16 +247,10 @@ export const runRemoteBuild = (prepared: PreparedBuild, options: BuildRunOptions
       const { cleanBuilt } = yield* runBuildOnHost(session, inputs);
       let buildKind = 'incremental (cache warm)';
       if (cleanBuilt) buildKind = 'clean (from scratch)';
-      let buildAction = 'built';
-      if (options.submit) buildAction = 'built and submitted';
-      yield* log.step('build', `${buildKind} - ${buildAction} on the host`, 'incremental-build');
-      // C5. Pull the artifact home and store it for `launch release`. The upload already happened on the
-      // host (bundled with the build), so this is a display-only size readout, not a pre-upload gate.
-      const pulled = yield* pullArtifact(session, app.name, ARTIFACTS_DIR);
-      sizeReport = pulled.sizeReport;
+      yield* log.step('build', `${buildKind} - built on the host`, 'incremental-build');
+      // C5. Pull the artifact home, show its size, and store it for `launch release`.
+      pulled = yield* pullArtifact(session, app.name, ARTIFACTS_DIR);
       yield* reportSize(pulled.sizeReport, log);
-      let appVersion = app.version;
-      if (appVersion === undefined) appVersion = '0.0.0';
       const artifact: BuildArtifact = {
         path: pulled.ipaPath,
         platform: 'ios',
@@ -268,9 +266,6 @@ export const runRemoteBuild = (prepared: PreparedBuild, options: BuildRunOptions
       const storageProvider = yield* resolveStorageProvider(config);
       const stored = yield* storageProvider.put(artifact);
       yield* log.step('store', stored.location);
-      if (options.submit && options.target === 'testing') {
-        yield* log.step('submit', 'uploaded to TestFlight from the host', 'testflight');
-      }
     } finally {
       // C6. Shred the host session on every exit path (success or build failure).
       try {
@@ -283,8 +278,21 @@ export const runRemoteBuild = (prepared: PreparedBuild, options: BuildRunOptions
         yield* log.warn('Could not fully shred the host session - check the host manually.');
       }
     }
-    // C7. Surface Apple-side processing for a TestFlight upload (the build uploaded from the host; we
-    // poll ASC locally for parity with the local spine), then the host disposition, then the receipt.
+    // Reaching here means the try block completed, so the pulled artifact is set.
+    if (pulled === null) {
+      return yield* Effect.fail(
+        makeRemotePipelineFailure({
+          message: 'Remote build completed without pulling the .ipa home.',
+        }),
+      );
+    }
+    // C7. Upload the pulled .ipa through the same store submitters as the local spine (the secrets are
+    // already shredded off the host), surface Apple-side processing, the host disposition, then the receipt.
+    if (options.submit) {
+      const credentials: BuildCredentials = { platform: 'ios', ascKey };
+      const submitArtifact = { path: pulled.ipaPath, version: appVersion, buildNumber };
+      yield* uploadIosBuild(prepared, options, submitArtifact, pulled.sizeReport, credentials);
+    }
     if (options.submit && options.target === 'testing') {
       yield* reportProcessing(ascKey, bundleId, buildNumber, log);
     }
@@ -297,23 +305,13 @@ export const runRemoteBuild = (prepared: PreparedBuild, options: BuildRunOptions
     }
     // Backfill the account's Team ID + app names from Apple now that we have a live key in hand.
     if (account) yield* refreshIdentityIfStale(account, ascKey);
-    // Reaching here means the try block completed, so the size report is set.
     let link: string | undefined;
     if (options.submit) link = yield* resolveAscBuildLink(ascKey, bundleId, options.target);
-    if (sizeReport === null) {
-      return yield* Effect.fail(
-        makeRemotePipelineFailure({
-          message: 'Remote build completed without a size report.',
-        }),
-      );
-    }
-    let appVersion = app.version;
-    if (appVersion === undefined) appVersion = '0.0.0';
     yield* renderReceipt({
       app,
       version: appVersion,
       buildNumber,
-      report: sizeReport,
+      report: pulled.sizeReport,
       destination: receiptDestination('ios', options),
       link,
       log,

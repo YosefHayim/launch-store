@@ -24,6 +24,15 @@ export type ProviderInputFailure = Readonly<{
 }>;
 
 export const makeProviderInputFailure = Data.tagged<ProviderInputFailure>('ProviderInputFailure');
+
+/** A store refused an upload or never finished taking it; the message carries the store's own reasons. */
+export type StoreUploadFailure = Readonly<{
+  readonly _tag: 'StoreUploadFailure';
+  readonly provider: string;
+  readonly message: string;
+}>;
+
+export const makeStoreUploadFailure = Data.tagged<StoreUploadFailure>('StoreUploadFailure');
 /**
  * Resolves and persists the credentials a build needs, for whichever platform the context names.
  *
@@ -116,18 +125,20 @@ export type StorageProviderResolver = Readonly<{
     providerOptions: StorageProviderOptions,
   ) => Effect.Effect<StorageProvider, unknown>;
 }>;
+/** The built binary a submitter uploads, with the version and build number stamped into it. */
+export type SubmitArtifact = Pick<BuildArtifact, 'path' | 'version' | 'buildNumber'>;
 /**
  * Uploads a built artifact to a distribution destination.
  *
- * `app-store-connect` submits to TestFlight/App Store via fastlane `pilot`/`deliver`; `google-play`
- * submits to a Play track via fastlane `supply`. Each narrows Readonly<{@link BuildCredentials}> to its platform
- * and maps the neutral Readonly<{@link SubmitTarget}> onto its store's concept (Android also reads
- * `buildContext.android`).
+ * `app-store-connect` uploads to TestFlight through App Store Connect's build upload API; `google-play`
+ * uploads to a Play track through the Android Publisher edits API. Each narrows Readonly<{@link BuildCredentials}>
+ * to its platform and maps the neutral Readonly<{@link SubmitTarget}> onto its store's concept (Android also
+ * reads `buildContext.android`).
  */
 export type Submitter = Readonly<{
   readonly name: string;
   submit(
-    artifactPath: string,
+    artifact: SubmitArtifact,
     target: SubmitTarget,
     buildCredentials: BuildCredentials,
     buildContext: ResolvedBuildContext,

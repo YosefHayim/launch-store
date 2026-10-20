@@ -3,6 +3,7 @@ import {
   auth as androidPublisherAuth,
   type androidpublisher_v3,
 } from '@googleapis/androidpublisher';
+import { Readable } from 'node:stream';
 import { Data, Effect, Option, Schema } from 'effect';
 import type { ServiceAccount } from '../core/types/credentials.js';
 import type { MutableDeep } from '../core/types/mutable.js';
@@ -473,7 +474,7 @@ type AndroidPublisher = androidpublisher_v3.Androidpublisher;
 export type GooglePlayTransport = Readonly<{
   edits: Pick<AndroidPublisher['edits'], 'insert' | 'commit' | 'delete'> &
     Readonly<{
-      bundles: Pick<AndroidPublisher['edits']['bundles'], 'list'>;
+      bundles: Pick<AndroidPublisher['edits']['bundles'], 'list' | 'upload'>;
       tracks: Pick<AndroidPublisher['edits']['tracks'], 'get' | 'list' | 'update'>;
       testers: Pick<AndroidPublisher['edits']['testers'], 'get' | 'update'>;
       countryavailability: Pick<AndroidPublisher['edits']['countryavailability'], 'get'>;
@@ -670,6 +671,53 @@ export class GooglePlayClient {
           requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Track>({ track, releases }),
         }),
       ).pipe(Effect.asVoid),
+    );
+  }
+  /**
+   * Upload an AAB and release it on a track in one committed edit. The release names the versionCode
+   * Play assigned the upload, and a failure abandons both, so a bundle never lands without its release.
+   */
+  uploadBundleToTrack(
+    packageName: string,
+    bundleBytes: Uint8Array,
+    track: string,
+    release: Omit<PlayRelease, 'versionCodes'>,
+  ): Effect.Effect<number, GooglePlayApiError> {
+    return this.withEdit(packageName, (editId) =>
+      Effect.gen(this, function* () {
+        const bundleStream = Readable.from(Buffer.from(bundleBytes));
+        const uploadedBundle = yield* this.executeGeneratedRequest('upload bundle', () =>
+          this.publisher.edits.bundles.upload({
+            packageName,
+            editId,
+            media: { mimeType: 'application/octet-stream', body: bundleStream },
+          }),
+        );
+        const versionCode = uploadedBundle.versionCode;
+        if (typeof versionCode !== 'number') {
+          return yield* Effect.fail(
+            makeGooglePlayApiError({
+              operation: 'upload bundle',
+              message:
+                'Google Play upload bundle failed: the generated client returned no versionCode.',
+              cause: uploadedBundle,
+            }),
+          );
+        }
+        const trackRelease: PlayRelease = { ...release, versionCodes: [String(versionCode)] };
+        yield* this.executeGeneratedRequest('update track', () =>
+          this.publisher.edits.tracks.update({
+            packageName,
+            editId,
+            track,
+            requestBody: mutableGoogleRequest<androidpublisher_v3.Schema$Track>({
+              track,
+              releases: [trackRelease],
+            }),
+          }),
+        );
+        return versionCode;
+      }),
     );
   }
   /** Read the Google Groups configured as testers for a track (closed/internal testing). */

@@ -154,7 +154,7 @@ export const runAndroidBuild = (prepared: PreparedBuild, options: BuildRunOption
         const stores = yield* submitToStores(
           config,
           'android',
-          artifactPath,
+          { path: artifactPath, version: appVersion, buildNumber: versionCode },
           options.target,
           credentials,
           buildContext,

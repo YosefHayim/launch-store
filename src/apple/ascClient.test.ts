@@ -423,6 +423,112 @@ describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
     expect(slowPartFinished).toBe(true);
   });
 });
+describe('AppStoreConnectClient - build uploads', () => {
+  it('opens a build upload for the app, version, build number and platform', async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(201, JSON.stringify({ data: { id: 'upload-1', type: 'buildUploads' } })),
+    );
+    await expect(client.createBuildUpload('app-1', '1.4.0', 42, 'IOS')).resolves.toBe('upload-1');
+    const [url, requestInit] = expectArrayElement(fetchMock.mock.calls, 0, 'create call');
+    expect(url).toBe('https://api.appstoreconnect.apple.com/v1/buildUploads');
+    expect(requestInit.method).toBe('POST');
+    expect(readRequestDocument(requestInit)).toEqual({
+      data: {
+        type: 'buildUploads',
+        attributes: { cfBundleShortVersionString: '1.4.0', cfBundleVersion: '42', platform: 'IOS' },
+        relationships: { app: { data: { type: 'apps', id: 'app-1' } } },
+      },
+    });
+  });
+  it('reserves the IPA, PUTs its parts, then marks it uploaded', async () => {
+    const uploadOperations = [
+      { method: 'PUT', url: 'https://upload.example/part-0', offset: 0, length: 1 },
+    ];
+    fetchMock.mockImplementation((url: string, requestInit: RequestInit) => {
+      if (url.startsWith('https://upload.example/')) return Promise.resolve(fakeResponse(200, ''));
+      if (requestInit.method === 'POST') {
+        const reservation = { data: { id: 'file-1', attributes: { uploadOperations } } };
+        return Promise.resolve(fakeResponse(201, JSON.stringify(reservation)));
+      }
+      return Promise.resolve(
+        fakeResponse(200, JSON.stringify({ data: { id: 'file-1', attributes: {} } })),
+      );
+    });
+    await client.uploadBuildFile('upload-1', 'App.ipa', fileURLToPath(import.meta.url));
+    const [reserveUrl, reserveInit] = expectArrayElement(fetchMock.mock.calls, 0, 'reserve call');
+    expect(reserveUrl).toBe('https://api.appstoreconnect.apple.com/v1/buildUploadFiles');
+    expect(documentValueAt(readRequestDocument(reserveInit), ['data', 'attributes'])).toEqual({
+      fileName: 'App.ipa',
+      fileSize: expect.any(Number),
+      assetType: 'ASSET',
+      uti: 'com.apple.ipa',
+    });
+    expect(
+      documentValueAt(readRequestDocument(reserveInit), ['data', 'relationships', 'buildUpload']),
+    ).toEqual({ data: { type: 'buildUploads', id: 'upload-1' } });
+    const [partUrl] = expectArrayElement(fetchMock.mock.calls, 1, 'part upload');
+    expect(partUrl).toBe('https://upload.example/part-0');
+    const [commitUrl, commitInit] = expectArrayElement(fetchMock.mock.calls, 2, 'commit call');
+    expect(commitUrl).toBe('https://api.appstoreconnect.apple.com/v1/buildUploadFiles/file-1');
+    expect(commitInit.method).toBe('PATCH');
+    expect(readRequestDocument(commitInit)).toEqual({
+      data: { type: 'buildUploadFiles', id: 'file-1', attributes: { uploaded: true } },
+    });
+  });
+  it('reads the upload state with the delivery errors of its IPA', async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: {
+            id: 'upload-1',
+            type: 'buildUploads',
+            attributes: {
+              state: {
+                state: 'FAILED',
+                errors: [{ code: '90186', description: 'Invalid Pre-Release Train.' }],
+              },
+            },
+          },
+          included: [
+            {
+              id: 'file-1',
+              type: 'buildUploadFiles',
+              attributes: {
+                assetDeliveryState: {
+                  state: 'FAILED',
+                  errors: [{ code: '90062', description: 'Version must be higher.' }],
+                },
+              },
+            },
+          ],
+        }),
+      ),
+    );
+    await expect(client.getBuildUploadStatus('upload-1')).resolves.toEqual({
+      state: 'FAILED',
+      fileState: 'FAILED',
+      errors: [
+        { code: '90186', description: 'Invalid Pre-Release Train.' },
+        { code: '90062', description: 'Version must be higher.' },
+      ],
+    });
+    const [url] = expectArrayElement(fetchMock.mock.calls, 0, 'status call');
+    expect(url).toBe(
+      'https://api.appstoreconnect.apple.com/v1/buildUploads/upload-1?include=assetFile&fields[buildUploads]=state,assetFile&fields[buildUploadFiles]=assetDeliveryState',
+    );
+  });
+  it('treats an upload with no state yet as awaiting upload', async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(200, JSON.stringify({ data: { id: 'upload-1', type: 'buildUploads' } })),
+    );
+    await expect(client.getBuildUploadStatus('upload-1')).resolves.toEqual({
+      state: 'AWAITING_UPLOAD',
+      fileState: '',
+      errors: [],
+    });
+  });
+});
 describe('AppStoreConnectClient - pagination (links.next)', () => {
   it('follows the absolute links.next URL verbatim, without the /v1/v1 double-prefix', async () => {
     const page2Url = 'https://api.appstoreconnect.apple.com/v1/devices?cursor=PAGE2';

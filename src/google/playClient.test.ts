@@ -1,3 +1,4 @@
+import { Readable } from 'node:stream';
 import { Effect } from 'effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -22,6 +23,7 @@ const insertEdit = vi.fn();
 const commitEdit = vi.fn();
 const deleteEdit = vi.fn();
 const listBundles = vi.fn();
+const uploadBundle = vi.fn();
 const getTrack = vi.fn();
 const listTracks = vi.fn();
 const updateTrack = vi.fn();
@@ -49,7 +51,7 @@ const generatedPublisherFake = (): GooglePlayTransport => {
       insert: insertEdit,
       commit: commitEdit,
       delete: deleteEdit,
-      bundles: { list: listBundles },
+      bundles: { list: listBundles, upload: uploadBundle },
       tracks: {
         get: getTrack,
         list: listTracks,
@@ -309,6 +311,49 @@ describe('GooglePlayClient.withEdit', () => {
       requestBody: { googleGroups: ['group@x.com'] },
     });
     expect(commitEdit).toHaveBeenCalledTimes(2);
+  });
+  it('uploads a bundle and releases its version code on the track in one edit', async () => {
+    insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
+    commitEdit.mockResolvedValue({ data: {} });
+    uploadBundle.mockResolvedValue({ data: { versionCode: 31 } });
+    updateTrack.mockResolvedValue({ data: {} });
+    const versionCode = await Effect.runPromise(
+      client.uploadBundleToTrack('com.example.app', new Uint8Array([1, 2, 3]), 'beta', {
+        status: 'inProgress',
+        userFraction: 0.2,
+      }),
+    );
+    expect(versionCode).toBe(31);
+    expect(uploadBundle).toHaveBeenCalledWith({
+      packageName: 'com.example.app',
+      editId: 'edit1',
+      media: { mimeType: 'application/octet-stream', body: expect.any(Readable) },
+    });
+    expect(updateTrack).toHaveBeenCalledWith({
+      packageName: 'com.example.app',
+      editId: 'edit1',
+      track: 'beta',
+      requestBody: {
+        track: 'beta',
+        releases: [{ status: 'inProgress', userFraction: 0.2, versionCodes: ['31'] }],
+      },
+    });
+    expect(commitEdit).toHaveBeenCalledTimes(1);
+  });
+  it('abandons the edit when the uploaded bundle has no version code', async () => {
+    insertEdit.mockResolvedValue({ data: { id: 'edit1' } });
+    deleteEdit.mockResolvedValue({ data: undefined });
+    uploadBundle.mockResolvedValue({ data: {} });
+    await expect(
+      Effect.runPromise(
+        client.uploadBundleToTrack('com.example.app', new Uint8Array([1]), 'internal', {
+          status: 'completed',
+        }),
+      ),
+    ).rejects.toThrow(/returned no versionCode/);
+    expect(updateTrack).not.toHaveBeenCalled();
+    expect(commitEdit).not.toHaveBeenCalled();
+    expect(deleteEdit).toHaveBeenCalledWith({ packageName: 'com.example.app', editId: 'edit1' });
   });
 });
 describe('GooglePlayClient.convertRegionPrices', () => {

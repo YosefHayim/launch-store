@@ -2,7 +2,6 @@ import { type FileSystem, Path } from '@effect/platform';
 import type * as PlatformCommandExecutor from '@effect/platform/CommandExecutor';
 import { Data, Effect } from 'effect';
 import {
-  appRecordMissingMessage,
   IOS_PLATFORM,
   pickCurrentVersion,
   readReleaseStatus,
@@ -27,6 +26,7 @@ import {
 } from '../distribution/storage.js';
 import {
   AppleStoreClientService,
+  appRecordMissingMessage,
   type AppleStoreClientService as AppleStoreClientDependencies,
 } from '../services/appleStoreClient.js';
 import { errorMessage } from '../services/errorMessage.js';
@@ -350,7 +350,7 @@ export const createTrainRuntime = (
       yield* submitToStores(
         launchConfiguration,
         'android',
-        latestBuild.path,
+        latestBuild,
         'production',
         buildCredentials,
         buildContext,

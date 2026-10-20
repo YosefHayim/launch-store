@@ -3,6 +3,7 @@ import { loadConfig } from '../config/config.js';
 import { loadActiveAscKey } from '../credentials/accounts.js';
 import {
   AppleStoreClientService,
+  appRecordMissingMessage,
   type AppleStoreClientService as AppleStoreClientRequirements,
 } from '../services/appleStoreClient.js';
 import { errorMessage } from '../services/errorMessage.js';
@@ -10,7 +11,7 @@ import { createLogger, type Logger } from '../services/logger.js';
 import { notify } from '../services/notify.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
-import { appRecordMissingMessage, IOS_PLATFORM, pickCurrentVersion } from './appStoreRelease.js';
+import { IOS_PLATFORM, pickCurrentVersion } from './appStoreRelease.js';
 import { selectIosApps } from './statusCommand.js';
 
 export const RolloutCommandInputSchema = Schema.Struct({

@@ -8,17 +8,11 @@ import { rememberLastRun } from '../distribution/lastRun.js';
 import { withSpinner } from '../services/progress.js';
 import { distributeArtifact } from '../distribution/distribute.js';
 import { type BuildRunOptions, type PreparedBuild, DRY_RUN_KEY } from './pipelineTypes.js';
-import {
-  resolveBuildEngineName,
-  resolveSizeBudgetMB,
-  submitToStores,
-} from './pipelineProviders.js';
+import { resolveBuildEngineName } from './pipelineProviders.js';
 import { resolveIosAccount, resolveSigning } from './pipelineSigning.js';
 import { nextBuildNumber, resolveMarketingVersion, setIosBuildNumber } from './pipelineVersion.js';
 import {
-  confirmUpload,
   ensureNativeProject,
-  previousBuild,
   receiptDestination,
   renderReceipt,
   reportCcacheStats,
@@ -28,6 +22,7 @@ import {
   runBuildStep,
   storeArtifact,
   nudgeIfNoCcache,
+  uploadIosBuild,
 } from './pipelineArtifact.js';
 /** The iOS spine: prebuild -> resolve creds/signing -> build number -> gym -> size -> store -> submit. */
 export const runIosBuild = (prepared: PreparedBuild, options: BuildRunOptions) =>
@@ -154,28 +149,8 @@ export const runIosBuild = (prepared: PreparedBuild, options: BuildRunOptions) =
       if (dryRun) {
         yield* log.step('submit', `would upload to ${destination}`, 'testflight');
       } else {
-        yield* confirmUpload({
-          report: sizeReport,
-          budgetMB: resolveSizeBudgetMB(options, prepared.profile),
-          destination,
-          app,
-          version: appVersion,
-          buildNumber,
-          previous: yield* previousBuild(config, app, 'ios', buildNumber),
-          yes: options.yes === true,
-          log,
-        });
-        yield* submitToStores(
-          config,
-          'ios',
-          artifactPath,
-          options.target,
-          credentials,
-          buildContext,
-        );
-        let submissionDescription = 'submitted for App Store review';
-        if (options.target === 'testing') submissionDescription = 'uploaded to TestFlight';
-        yield* log.step('submit', submissionDescription, 'testflight');
+        const submitArtifact = { path: artifactPath, version: appVersion, buildNumber };
+        yield* uploadIosBuild(prepared, options, submitArtifact, sizeReport, credentials);
         if (options.target === 'testing' && bundleId) {
           yield* reportProcessing(resolved.ascKey, bundleId, buildNumber, log);
         }

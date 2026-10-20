@@ -40,6 +40,8 @@ import type {
   BetaReviewState,
   BetaTesterResource,
   BuildResource,
+  BuildUploadProblem,
+  BuildUploadStatus,
   BundleIdCapabilityResource,
   BundleIdResource,
   CapabilitySetting,
@@ -587,6 +589,19 @@ const putAssetChunk = async (operation: UploadOperation, bytes: Buffer): Promise
     { isRetryableFailure: isRetryableIdempotentFailure },
   );
 };
+/** Flatten Apple's optional state details into the code + description pairs a submitter reports. */
+const buildUploadProblems = (
+  stateDetails: readonly components['schemas']['StateDetail'][] | undefined,
+): BuildUploadProblem[] => {
+  if (stateDetails === undefined) return [];
+  return stateDetails.map((stateDetail) => {
+    let code = stateDetail.code;
+    if (code === undefined) code = '';
+    let description = stateDetail.description;
+    if (description === undefined) description = '';
+    return { code, description };
+  });
+};
 /** PUT a reserved asset's bytes to Apple's CDN, a few independent byte-range parts at a time. */
 const putAssetBytes = async (
   operations: readonly UploadOperation[],
@@ -832,6 +847,86 @@ export class AppStoreConnectClient {
     const matchingBuild = appleResources[0];
     if (matchingBuild === undefined) return null;
     return matchingBuild.attributes.processingState;
+  }
+  /** Open a build upload for one version and build number of an app (App Store Connect's replacement for altool). */
+  async createBuildUpload(
+    appId: string,
+    version: string,
+    buildNumber: number,
+    platform: components['schemas']['Platform'],
+  ): Promise<string> {
+    const requestDocument: components['schemas']['BuildUploadCreateRequest'] = {
+      data: {
+        type: 'buildUploads',
+        attributes: {
+          cfBundleShortVersionString: version,
+          cfBundleVersion: String(buildNumber),
+          platform,
+        },
+        relationships: { app: { data: { type: 'apps', id: appId } } },
+      },
+    };
+    const { data: buildUpload } = await this.request<components['schemas']['BuildUploadResponse']>(
+      'POST',
+      '/buildUploads',
+      requestDocument,
+    );
+    return buildUpload.id;
+  }
+  /** Reserve the IPA (or macOS .pkg) inside a build upload, PUT its parts a few at a time, then mark it uploaded. */
+  async uploadBuildFile(
+    buildUploadId: string,
+    fileName: string,
+    binaryPath: string,
+  ): Promise<void> {
+    const bytes = await readTransportFile(binaryPath);
+    let uti = 'com.apple.ipa';
+    if (binaryPath.endsWith('.pkg')) uti = 'com.apple.pkg';
+    const { id, operations } = await this.reserveAsset(
+      'buildUploadFiles',
+      { relationship: 'buildUpload', type: 'buildUploads', id: buildUploadId },
+      fileName,
+      bytes.byteLength,
+      { assetType: 'ASSET', uti },
+    );
+    await putAssetBytes(operations, bytes);
+    const commitDocument: components['schemas']['BuildUploadFileUpdateRequest'] = {
+      data: { type: 'buildUploadFiles', id, attributes: { uploaded: true } },
+    };
+    await this.request<unknown>('PATCH', `/buildUploadFiles/${id}`, commitDocument);
+  }
+  /** Read a build upload's state, its IPA's delivery state, and every error Apple attached to either. */
+  async getBuildUploadStatus(buildUploadId: string): Promise<BuildUploadStatus> {
+    const { data: buildUpload, included } = await this.request<
+      components['schemas']['BuildUploadResponse']
+    >(
+      'GET',
+      `/buildUploads/${buildUploadId}?include=assetFile&fields[buildUploads]=state,assetFile&fields[buildUploadFiles]=assetDeliveryState`,
+    );
+    let uploadState = buildUpload.attributes?.state;
+    if (uploadState === undefined) uploadState = {};
+    const assetFile = included?.find(
+      (includedResource) => includedResource.type === 'buildUploadFiles',
+    );
+    let deliveryState: components['schemas']['AppMediaAssetState'] = {};
+    if (
+      assetFile?.type === 'buildUploadFiles' &&
+      assetFile.attributes?.assetDeliveryState !== undefined
+    ) {
+      deliveryState = assetFile.attributes.assetDeliveryState;
+    }
+    let state: string | undefined = uploadState.state;
+    if (state === undefined) state = 'AWAITING_UPLOAD';
+    let fileState: string | undefined = deliveryState.state;
+    if (fileState === undefined) fileState = '';
+    return {
+      state,
+      fileState,
+      errors: [
+        ...buildUploadProblems(uploadState.errors),
+        ...buildUploadProblems(deliveryState.errors),
+      ],
+    };
   }
   /**
    * Resolve a specific uploaded build by its build number, returning its ASC id plus the current
@@ -4486,6 +4581,7 @@ export class AppStoreConnectClient {
     },
     fileName: string,
     fileSize: number,
+    assetAttributes: Record<string, string> = {},
   ): Promise<{
     id: string;
     operations: UploadOperation[];
@@ -4493,7 +4589,7 @@ export class AppStoreConnectClient {
     const reservation = await this.request<AssetReservation>('POST', `/${type}`, {
       data: {
         type,
-        attributes: { fileName, fileSize },
+        attributes: { fileName, fileSize, ...assetAttributes },
         relationships: { [parent.relationship]: { data: { type: parent.type, id: parent.id } } },
       },
     });
