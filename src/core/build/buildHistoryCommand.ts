@@ -17,6 +17,7 @@ import { resolveCommandRetentionDays } from './artifactRetention.js';
 import { buildLogId, buildLogPath, readBuildLog } from './buildLog.js';
 import { sizeSummary, worstDownloadBytes } from './pipelineArtifact.js';
 import { mb } from './pipelineProviders.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 /** Stable presentation shape emitted by `builds list --json`. */
 export type BuildRow = Readonly<{
@@ -96,7 +97,7 @@ const buildHistoryFailure = (
   fallbackMessage?: string,
 ): BuildHistoryCommandFailure => {
   let message = fallbackMessage;
-  if (message === undefined && cause instanceof Error) message = cause.message;
+  if (message === undefined && hasMessage(cause)) message = cause.message;
   if (
     message === undefined &&
     typeof cause === 'object' &&

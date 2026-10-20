@@ -14,6 +14,7 @@ import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './apple
 import { parseAppClipsConfig, reconcileAppClips } from './appClips.js';
 import { summarize } from './reconcile.js';
 import { loadStoreAppContext, type StoreAppSelectionRequirements } from './selectStoreApp.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 export const AppClipsCommandInputSchema = Schema.Struct({
   app: Schema.optionalWith(Schema.String, { exact: true }),
@@ -47,7 +48,7 @@ type AppClipsCommandRequirements =
 const appClipsFailure = (operation: string, cause: unknown): AppClipsCommandFailure => {
   let message = `${operation} failed.`;
   if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (
     typeof cause === 'object' &&
     cause !== null &&

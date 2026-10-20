@@ -22,6 +22,7 @@ import { previewEnv, resolveCommandEnv, selectApp, validateResolvedEnv } from '.
 import { receiptDestination, worstDownloadBytes } from './pipelineArtifact.js';
 import { runIosBuild } from './pipelineIos.js';
 import { runAndroidBuild } from './pipelineAndroid.js';
+import { hasMessage } from '../services/errorMessage.js';
 /** App configuration failed the pre-build footgun check. */
 export type BuildPreparationFailure = Readonly<{
   readonly _tag: 'BuildPreparationFailure';
@@ -143,7 +144,7 @@ export const prepareBuild = (options: BuildRunOptions) =>
         Effect.mapError((cause) => {
           let detail = 'unknown error';
           if (typeof cause === 'string' && cause.length > 0) detail = cause;
-          if (cause instanceof Error) detail = cause.message;
+          if (hasMessage(cause)) detail = cause.message;
           if (typeof cause === 'object' && cause !== null && 'message' in cause) {
             const causeMessage = cause.message;
             if (typeof causeMessage === 'string' && causeMessage.length > 0) detail = causeMessage;
@@ -263,7 +264,7 @@ const buildFailureEvent = (
   let appVersion = prepared.app.version;
   if (appVersion === undefined) appVersion = '0.0.0';
   let errorMessage = String(error);
-  if (error instanceof Error) errorMessage = error.message;
+  if (hasMessage(error)) errorMessage = error.message;
   return {
     event: eventName,
     status: 'failure',

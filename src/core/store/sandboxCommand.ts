@@ -6,6 +6,7 @@ import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
 import type { SandboxTesterResource } from '../types/appleCatalog.js';
 import { clearPurchaseHistory, listSandboxTesters } from '../services/sandbox.js';
 import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './appleStoreCommand.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 /** One sandbox-tester operation selected by Commander. */
 export type SandboxCommandInput =
@@ -41,7 +42,7 @@ const sandboxFailure = (
   cause: unknown,
 ): SandboxCommandFailure => {
   let message = `Sandbox ${operation} failed.`;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (typeof cause === 'object' && cause !== null && 'message' in cause) {
     const causeMessage = cause.message;
     if (typeof causeMessage === 'string') message = causeMessage;

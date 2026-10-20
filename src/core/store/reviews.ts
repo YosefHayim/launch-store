@@ -3,6 +3,7 @@ import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,
 } from '../types/appleCatalog.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 /** The App Store transport operations required by the customer-reviews domain. */
 export type AscReviewsApi = Readonly<{
@@ -46,7 +47,7 @@ export type ReplyResult = Readonly<{
 /** Convert a transport failure to the reviews error channel. */
 const reviewFailure = (operation: string, cause: unknown): ReviewFailure => {
   let message = `${operation} failed.`;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (typeof cause === 'object' && cause !== null && 'message' in cause) {
     const causeMessage = cause.message;
     if (typeof causeMessage === 'string') message = causeMessage;

@@ -18,6 +18,7 @@ import {
   reconcileAccessibility,
   summarizeAccessibility,
 } from './accessibility.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 /** Inputs accepted by the accessibility command. */
 export type AccessibilityCommandInput = Readonly<{
@@ -46,7 +47,7 @@ const accessibilityFailure = (
   fallbackMessage?: string,
 ): AccessibilityCommandFailure => {
   let message = fallbackMessage;
-  if (message === undefined && cause instanceof Error) message = cause.message;
+  if (message === undefined && hasMessage(cause)) message = cause.message;
   if (message === undefined) message = `${operation} failed.`;
   return makeAccessibilityCommandFailure({ operation, message, cause });
 };

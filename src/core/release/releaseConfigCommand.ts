@@ -17,6 +17,7 @@ import type { PlannedAction } from '../types/reconcile.js';
 import { resolveStoreSurfaceSection } from '../store/appStoreSurfaceCommand.js';
 import { summarize } from '../store/reconcile.js';
 import { parseReleaseConfig, reconcileRelease } from './releaseAttrs.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 /** Inputs resolved from Commander for App Store release-attribute reconciliation. */
 export type ReleaseConfigCommandInput = Readonly<{
@@ -46,7 +47,7 @@ const releaseConfigFailure = (
   fallbackMessage?: string,
 ): ReleaseConfigCommandFailure => {
   let message = fallbackMessage;
-  if (message === undefined && cause instanceof Error) message = cause.message;
+  if (message === undefined && hasMessage(cause)) message = cause.message;
   if (message === undefined) message = `${operation} failed.`;
   return makeReleaseConfigCommandFailure({ operation, message, cause });
 };

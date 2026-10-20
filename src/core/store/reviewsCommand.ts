@@ -6,6 +6,7 @@ import type { CustomerReviewResource } from '../types/appleCatalog.js';
 import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './appleStoreCommand.js';
 import { deleteReviewResponse, listReviews, replyToReview } from './reviews.js';
 import { resolveStoreBundleId, type StoreAppSelectionRequirements } from './selectStoreApp.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 /** Options for listing App Store customer reviews. */
 export type ReviewsListCommandInput = Readonly<{
@@ -56,7 +57,7 @@ const reviewsFailure = (
   cause: unknown,
 ): ReviewsCommandFailure => {
   let message = `Reviews ${operation} failed.`;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (typeof cause === 'object' && cause !== null && 'message' in cause) {
     const causeMessage = cause.message;
     if (typeof causeMessage === 'string') message = causeMessage;

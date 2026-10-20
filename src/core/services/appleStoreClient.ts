@@ -4,6 +4,7 @@ import type { AscReleaseApi as PublicReleaseApi } from '../release/appStoreRelea
 import type { AscReleaseApi as ReleaseAttributesApi } from '../release/releaseAttrs.js';
 import type { AscKey } from '../types/credentials.js';
 import { effectMethodsProxy, type EffectMethods } from './effectMethodsClient.js';
+import { hasMessage } from './errorMessage.js';
 
 export type EffectAppStoreConnectClient = EffectMethods<
   AppStoreConnectClient,
@@ -22,7 +23,7 @@ export const makeAppleTransportFailure =
 
 const transportFailure = (cause: unknown): AppleTransportFailure => {
   let message = String(cause);
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (typeof cause !== 'object') {
     return makeAppleTransportFailure({ message, cause });
   }

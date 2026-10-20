@@ -42,6 +42,7 @@ import {
 } from './appStoreRelease.js';
 import { resolveReleaseConfirmationMode } from './confirmation.js';
 import { resolveReleaseType, resolveWhatsNew } from './releaseInputs.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 /** Parsed flags accepted by the public release command. */
 export type ReleaseCommandOptions = Readonly<{
@@ -101,7 +102,7 @@ const releaseFailure = (
   fallbackMessage?: string,
 ): ReleaseCommandFailure => {
   let message = fallbackMessage;
-  if (message === undefined && cause instanceof Error) message = cause.message;
+  if (message === undefined && hasMessage(cause)) message = cause.message;
   if (message === undefined) message = `${operation} failed.`;
   return makeReleaseCommandFailure({ operation, message, cause });
 };

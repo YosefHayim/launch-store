@@ -2,6 +2,7 @@ import { Data, Effect } from 'effect';
 import { runBuild } from './pipeline.js';
 import { setVerboseOutput } from '../services/progress.js';
 import { type BuildCommandOptions, parseBuildCommandInput } from './buildCommandInput.js';
+import { hasMessage } from '../services/errorMessage.js';
 /** The build pipeline failed while executing a decoded build command. */
 export type BuildCommandExecutionError = Readonly<{
   readonly _tag: 'BuildCommandExecutionError';
@@ -21,7 +22,7 @@ export const buildCommandProgram = (
     return yield* runBuild(buildRunOptions).pipe(
       Effect.mapError((cause) => {
         let failureMessage = 'Build command failed.';
-        if (cause instanceof Error) failureMessage = cause.message;
+        if (hasMessage(cause)) failureMessage = cause.message;
         return makeBuildCommandExecutionError({ message: failureMessage, cause });
       }),
     );

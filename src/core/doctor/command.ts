@@ -1,6 +1,6 @@
 import { Data, Effect, Schema } from 'effect';
 import { ensureToolchain } from '../config/toolchain.js';
-import { errorMessage } from '../services/errorMessage.js';
+import { errorMessage, hasMessage } from '../services/errorMessage.js';
 import type { EffectAppStoreConnectClient } from '../services/appleStoreClient.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import { isApplePlatform, parsePlatform } from '../services/platform.js';
@@ -41,7 +41,7 @@ type DoctorCommandRequirements = DoctorRuntimeRequirements | LaunchPromptService
 const doctorFailure = (operation: string, cause: unknown): DoctorCommandFailure => {
   let message = `${operation} failed.`;
   if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (typeof cause === 'object' && cause !== null && 'message' in cause) {
     const causeMessage = cause.message;
     if (typeof causeMessage === 'string') message = causeMessage;

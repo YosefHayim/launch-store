@@ -23,6 +23,7 @@ import {
   summarizeExperiments,
   type VersionExperimentsConfig,
 } from './versionExperiments.js';
+import { hasMessage } from '../services/errorMessage.js';
 
 export const VersionExperimentsCommandInputSchema = Schema.Struct({
   app: Schema.optionalWith(Schema.String, { exact: true }),
@@ -61,7 +62,7 @@ const experimentsFailure = (
 ): VersionExperimentsCommandFailure => {
   let message = `${operation} failed.`;
   if (typeof cause === 'string' && cause.length > 0) message = cause;
-  if (cause instanceof Error) message = cause.message;
+  if (hasMessage(cause)) message = cause.message;
   if (
     typeof cause === 'object' &&
     cause !== null &&
