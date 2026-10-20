@@ -11,7 +11,11 @@ import { Effect, Option, Schema } from 'effect';
 import { LaunchEnvironment } from '../services/environment.js';
 import type { LaunchEnvironmentService } from '../services/environment.js';
 import { captureCommandOutput } from '../services/exec.js';
-import { resolveUpdateStateFilePath, type LaunchPathsService } from '../services/paths.js';
+import {
+  LaunchPaths,
+  resolveUpdateStateFilePath,
+  type LaunchPathsService,
+} from '../services/paths.js';
 import { mergeChildEnv } from '../terminal/locale.js';
 import { makeCommandExit, type CommandExit } from '../terminal/commandExit.js';
 /** The published package name (the `launch` bin's npm package). */
@@ -236,6 +240,7 @@ const performUpgrade = (
   installer: GlobalInstaller,
   current: string,
   latest: string,
+  homeDirectory: string,
 ): Effect.Effect<
   UpgradeResult,
   never,
@@ -246,6 +251,7 @@ const performUpgrade = (
     const installAttempt = yield* captureCommandOutput(
       installer,
       installArguments(installer, latest),
+      { workingDirectory: homeDirectory },
     ).pipe(Effect.either);
     if (installAttempt._tag === 'Right') {
       yield* Effect.logInfo(`launch upgraded to ${latest} - relaunching`);
@@ -282,6 +288,7 @@ const reexecLaunch = (
 const resolveRelaunchScript = (
   installer: GlobalInstaller,
   scriptPath: string,
+  homeDirectory: string,
 ): Effect.Effect<
   string | null,
   never,
@@ -289,12 +296,11 @@ const resolveRelaunchScript = (
 > =>
   Effect.gen(function* () {
     if (installer === 'npm') return scriptPath;
-    const globalListingText = yield* captureCommandOutput('pnpm', [
-      'ls',
-      '-g',
-      '--json',
-      PACKAGE_NAME,
-    ]);
+    const globalListingText = yield* captureCommandOutput(
+      'pnpm',
+      ['ls', '-g', '--json', PACKAGE_NAME],
+      { workingDirectory: homeDirectory },
+    );
     const globalListing = yield* Schema.decodeUnknown(PnpmGlobalListingSchema)(globalListingText);
     const globalProject = globalListing[0];
     if (globalProject === undefined) return null;
@@ -312,13 +318,18 @@ const relaunchUpgradedLaunch = (
   installer: GlobalInstaller,
   runtime: AutoUpgradeRuntime,
   environmentVariables: Readonly<Record<string, string | undefined>>,
+  homeDirectory: string,
 ): Effect.Effect<
   void,
   CommandExit,
   CommandExecutor.CommandExecutor | LaunchEnvironmentService | Path.Path
 > =>
   Effect.gen(function* () {
-    const relaunchScript = yield* resolveRelaunchScript(installer, runtime.scriptPath);
+    const relaunchScript = yield* resolveRelaunchScript(
+      installer,
+      runtime.scriptPath,
+      homeDirectory,
+    );
     if (relaunchScript === null) {
       yield* Effect.logWarning('launch was upgraded - the new version runs from your next command');
       return;
@@ -352,6 +363,7 @@ export const runAutoUpgrade = (
     const httpClient = yield* HttpClient.HttpClient;
     const pathService = yield* Path.Path;
     const environment = yield* LaunchEnvironment;
+    const launchPaths = yield* LaunchPaths;
     const stateFilePath = yield* resolveUpdateStateFilePath();
     const currentState = yield* readState(stateFilePath);
     const realScriptPath = yield* fileSystem
@@ -375,12 +387,22 @@ export const runAutoUpgrade = (
           Effect.provideService(HttpClient.HttpClient, httpClient),
         ),
       upgrade: (upgradeInstaller, installedVersion, publishedVersion) =>
-        performUpgrade(upgradeInstaller, installedVersion, publishedVersion).pipe(
+        performUpgrade(
+          upgradeInstaller,
+          installedVersion,
+          publishedVersion,
+          launchPaths.homeDirectory,
+        ).pipe(
           Effect.provideService(CommandExecutor.CommandExecutor, commandExecutor),
           Effect.provideService(LaunchEnvironment, environment),
         ),
       reexec: (upgradedInstaller) =>
-        relaunchUpgradedLaunch(upgradedInstaller, runtime, environment.rawVariables).pipe(
+        relaunchUpgradedLaunch(
+          upgradedInstaller,
+          runtime,
+          environment.rawVariables,
+          launchPaths.homeDirectory,
+        ).pipe(
           Effect.provideService(CommandExecutor.CommandExecutor, commandExecutor),
           Effect.provideService(LaunchEnvironment, environment),
           Effect.provideService(Path.Path, pathService),
