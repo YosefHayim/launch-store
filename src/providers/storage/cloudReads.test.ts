@@ -88,9 +88,10 @@ for (const createProvider of storageProviders) {
       });
     });
 
-    it('rejects malformed index contents', async () => {
+    it('rejects malformed index contents as a parse failure, not a failed read', async () => {
       await withStorageReply(200, '{broken', async (endpoint) => {
-        await expect(Effect.runPromise(readStorage(endpoint))).rejects.toThrow();
+        const failure = await Effect.runPromise(Effect.flip(readStorage(endpoint)));
+        expect(failure).toMatchObject({ _tag: 'ParseError' });
       });
     });
 

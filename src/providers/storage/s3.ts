@@ -41,11 +41,10 @@ const isMissingS3Object = (failure: unknown): boolean => {
   return cause.name === 'NoSuchKey';
 };
 
-/** A failed S3 call, named for what it tried, with the reason the SDK gave instead of Effect's generic one. */
+/** A failed S3 call, named for what it tried, with the reason the SDK gave instead of Effect's generic one. Other failures, like a corrupt index, pass through as they are. */
 const s3Failure = (action: string, failure: unknown) => {
-  let reason = failure;
-  if (Cause.isUnknownException(failure)) reason = failure.error;
-  const reasonMessage = errorMessage(reason);
+  if (!Cause.isUnknownException(failure)) return failure;
+  const reasonMessage = errorMessage(failure.error);
   return makeProviderInputFailure({
     provider: 's3',
     message: `S3 ${action} failed: ${reasonMessage}`,
