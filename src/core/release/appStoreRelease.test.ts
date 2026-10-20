@@ -284,6 +284,17 @@ describe('releaseApp - submit an update over the API', () => {
     });
     await expect(runRelease(api, releaseInput())).rejects.toThrow(/already on the App Store/);
   });
+  it('errors without changing anything when the exact version is in an unknown state', async () => {
+    const api = makeApi({
+      listAppStoreVersions: vi
+        .fn()
+        .mockReturnValue(
+          Effect.succeed([{ id: 'v1', versionString: '1.2.0', appStoreState: 'SOME_NEW_STATE' }]),
+        ),
+    });
+    await expect(runRelease(api, releaseInput())).rejects.toThrow(/launch will not change/);
+    expect(api.updateAppStoreVersion).not.toHaveBeenCalled();
+  });
   it('errors with the portal checklist when the app has no App Store Connect record', async () => {
     const api = makeApi({ getAppId: vi.fn(() => Effect.succeed(null)) });
     await expect(runRelease(api, releaseInput())).rejects.toThrow(

@@ -548,6 +548,15 @@ const selectReleaseVersion = (
           ),
         );
       }
+      if (releasePhase === 'blocked') {
+        return yield* Effect.fail(
+          releaseFailure(
+            'select App Store version',
+            matchingVersion,
+            `Version ${releaseInput.versionString} is in state ${matchingVersion.appStoreState}, which launch will not change. Resolve it in App Store Connect, then release again.`,
+          ),
+        );
+      }
       if (['submitted', 'pending-release'].includes(releasePhase)) {
         return {
           versionId: matchingVersion.id,
