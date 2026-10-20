@@ -15,6 +15,7 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.ts'],
     environment: 'node',
+    forceRerunTriggers: ['**/{vitest,vite}.config.*'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],

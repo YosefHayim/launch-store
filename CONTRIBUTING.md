@@ -27,8 +27,8 @@ Launch's codebase is the product's reference implementation, so it's kept provab
 enforce that:
 
 - **Locally**, the husky pre-commit hook runs `lint-staged`, `typecheck`, and the Launch style checker.
-- **In CI** ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)), every push and PR re-runs the
-  whole gate on Node 20 and 22 - because the local hook can be bypassed with `--no-verify`.
+- **In CI** ([`.github/workflows/ci.yml`](./.github/workflows/ci.yml)), every PR re-runs the
+  gate on Node 24, checking only what the PR changes - because the local hook can be bypassed with `--no-verify`.
 
 Run the same checks before you push:
 
