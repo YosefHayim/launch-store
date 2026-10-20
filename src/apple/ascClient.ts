@@ -164,6 +164,8 @@ const EDITABLE_APPINFO_STATES = new Set<string>([
   'DEVELOPER_REJECTED',
   'REJECTED',
 ]);
+/** States of the live App Store record: `READY_FOR_DISTRIBUTION`, or `READY_FOR_SALE` in the older `appStoreState`. */
+const LIVE_STATES = new Set<string>(['READY_FOR_DISTRIBUTION', 'READY_FOR_SALE']);
 /** ASC `appInfoLocalizations` attribute keys Launch manages (app-level - persists across versions). */
 const APP_INFO_LISTING_FIELDS = ['name', 'subtitle', 'privacyPolicyUrl'] as const;
 /** ASC `appStoreVersionLocalizations` attribute keys Launch manages (version-level - per release). */
@@ -277,6 +279,35 @@ type ResourceList<A> = {
     id: string;
     attributes: A;
   }[];
+};
+type AppInfoStates = {
+  state?: string;
+  appStoreState?: string;
+};
+type VersionStates = {
+  appStoreState: string;
+};
+/** The id of the first appInfo in one of `states`, reading `state` and falling back to `appStoreState`. */
+const findAppInfoId = (
+  appInfos: ResourceList<AppInfoStates>['data'],
+  states: ReadonlySet<string>,
+): string | null => {
+  const appInformation = appInfos.find((candidate) => {
+    let state = candidate.attributes.state;
+    if (state === undefined) state = candidate.attributes.appStoreState;
+    return state !== undefined && states.has(state);
+  });
+  if (appInformation === undefined) return null;
+  return appInformation.id;
+};
+/** The id of the first App Store version in one of `states`. */
+const findVersionId = (
+  versions: ResourceList<VersionStates>['data'],
+  states: ReadonlySet<string>,
+): string | null => {
+  const version = versions.find((candidate) => states.has(candidate.attributes.appStoreState));
+  if (version === undefined) return null;
+  return version.id;
 };
 type ResourceSingle<A> = {
   data: {
@@ -1004,19 +1035,26 @@ export class AppStoreConnectClient {
    * A live app keeps a read-only `READY_FOR_DISTRIBUTION` appInfo we must never PATCH.
    */
   async getEditableAppInfoId(appId: string): Promise<string | null> {
-    const { data: appleResources } = await this.request<
-      ResourceList<{
-        state?: string;
-        appStoreState?: string;
-      }>
-    >('GET', `/apps/${appId}/appInfos?fields[appInfos]=state,appStoreState&limit=20`);
-    const editable = appleResources.find((appInformation) => {
-      let state = appInformation.attributes.state;
-      if (state === undefined) state = appInformation.attributes.appStoreState;
-      return state !== undefined && EDITABLE_APPINFO_STATES.has(state);
-    });
-    if (editable === undefined) return null;
-    return editable.id;
+    const appInfos = await this.listAppInfoStates(appId);
+    return findAppInfoId(appInfos, EDITABLE_APPINFO_STATES);
+  }
+  /**
+   * Resolve the `appInfo` whose app-level listing copy is current: the editable one while a change is
+   * pending, else the live one. Read-only callers use it, so a live app with no pending change still reads.
+   */
+  async getCurrentAppInfoId(appId: string): Promise<string | null> {
+    const appInfos = await this.listAppInfoStates(appId);
+    const editableAppInfoId = findAppInfoId(appInfos, EDITABLE_APPINFO_STATES);
+    if (editableAppInfoId !== null) return editableAppInfoId;
+    return findAppInfoId(appInfos, LIVE_STATES);
+  }
+  /** List the app's `appInfo` records with their states. */
+  async listAppInfoStates(appId: string): Promise<ResourceList<AppInfoStates>['data']> {
+    const { data: appInfos } = await this.request<ResourceList<AppInfoStates>>(
+      'GET',
+      `/apps/${appId}/appInfos?fields[appInfos]=state,appStoreState&limit=20`,
+    );
+    return appInfos;
   }
   /** List the app-level listing localizations (name/subtitle/privacy URL) under an `appInfo`. */
   async listAppInfoLocalizations(appInfoId: string): Promise<ListingLocalization[]> {
@@ -1119,16 +1157,26 @@ export class AppStoreConnectClient {
    * keywords, what's new, ... - can still be changed), or null when only a live/in-review version exists.
    */
   async getEditableVersionId(appId: string): Promise<string | null> {
-    const { data: appleResources } = await this.request<
-      ResourceList<{
-        appStoreState: string;
-      }>
-    >('GET', `/apps/${appId}/appStoreVersions?fields[appStoreVersions]=appStoreState&limit=20`);
-    const editable = appleResources.find((version) =>
-      EDITABLE_VERSION_STATES.has(version.attributes.appStoreState),
+    const versions = await this.listVersionStates(appId);
+    return findVersionId(versions, EDITABLE_VERSION_STATES);
+  }
+  /**
+   * Resolve the App Store version whose listing copy is current: the editable one while a release is being
+   * prepared, else the live `READY_FOR_SALE` one. Read-only callers use it, so a live app still reads.
+   */
+  async getCurrentVersionId(appId: string): Promise<string | null> {
+    const versions = await this.listVersionStates(appId);
+    const editableVersionId = findVersionId(versions, EDITABLE_VERSION_STATES);
+    if (editableVersionId !== null) return editableVersionId;
+    return findVersionId(versions, LIVE_STATES);
+  }
+  /** List the app's App Store versions with their states. */
+  async listVersionStates(appId: string): Promise<ResourceList<VersionStates>['data']> {
+    const { data: versions } = await this.request<ResourceList<VersionStates>>(
+      'GET',
+      `/apps/${appId}/appStoreVersions?fields[appStoreVersions]=appStoreState&limit=20`,
     );
-    if (editable === undefined) return null;
-    return editable.id;
+    return versions;
   }
   /** List the version-level listing localizations (description/keywords/whatsNew/...) under a version. */
   async listVersionLocalizations(versionId: string): Promise<ListingLocalization[]> {

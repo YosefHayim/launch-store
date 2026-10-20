@@ -6,8 +6,8 @@ import type { AppleLocaleInfo, AppleStoreConfig } from './storeConfig.js';
 /** The App Store Connect reads needed to assemble one app's live listing. */
 export type AppleListingReadApi = Pick<
   SnapshotAscApi,
-  | 'getEditableAppInfoId'
-  | 'getEditableVersionId'
+  | 'getCurrentAppInfoId'
+  | 'getCurrentVersionId'
   | 'listAppInfoLocalizations'
   | 'listVersionLocalizations'
 >;
@@ -37,9 +37,9 @@ export const readAppleLocaleFields = (
         });
       }
     };
-    const appInfoId = yield* api.getEditableAppInfoId(appId);
+    const appInfoId = yield* api.getCurrentAppInfoId(appId);
     if (appInfoId) merge(yield* api.listAppInfoLocalizations(appInfoId));
-    const versionId = yield* api.getEditableVersionId(appId);
+    const versionId = yield* api.getCurrentVersionId(appId);
     if (versionId) merge(yield* api.listVersionLocalizations(versionId));
     return [...byLocale.entries()]
       .sort(([a], [b]) => a.localeCompare(b))

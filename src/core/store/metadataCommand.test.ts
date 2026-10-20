@@ -64,9 +64,14 @@ const makePlayClientFake = () => ({
 
 let ascCatalogApi = makeAscCatalogApiFake();
 let playClientFake = makePlayClientFake();
-const createEffectAppleClient = vi.fn((_ascKey: unknown) =>
-  Effect.succeed(unsafeCoerce<unknown, EffectAppStoreConnectClient>(ascCatalogApi)),
-);
+const currentListingLookups = {
+  getCurrentAppInfoId: vi.fn(() => Effect.succeed('appinfo1')),
+  getCurrentVersionId: vi.fn(() => Effect.succeed('version1')),
+};
+const createEffectAppleClient = vi.fn((_ascKey: unknown) => {
+  const ascClientFake = { ...ascCatalogApi, ...currentListingLookups };
+  return Effect.succeed(unsafeCoerce<unknown, EffectAppStoreConnectClient>(ascClientFake));
+});
 const createEffectPlayClient = vi.fn((_serviceAccountJson: string) =>
   Effect.succeed(unsafeCoerce<unknown, EffectGooglePlayClient>(playClientFake)),
 );
