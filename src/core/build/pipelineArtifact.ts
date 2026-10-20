@@ -519,10 +519,10 @@ export const uploadIosBuild = (
   credentials: BuildCredentials,
 ) =>
   Effect.gen(function* () {
-    const { config, app, log } = prepared;
+    const { config, app, log, buildContext } = prepared;
     let destination = 'App Store review';
     if (options.target === 'testing') destination = 'TestFlight';
-    const previous = yield* previousBuild(config, app, 'ios', artifact.buildNumber);
+    const previous = yield* previousBuild(config, app, buildContext.platform, artifact.buildNumber);
     yield* confirmUpload({
       report: sizeReport,
       budgetMB: resolveSizeBudgetMB(options, prepared.profile),
@@ -536,11 +536,11 @@ export const uploadIosBuild = (
     });
     yield* submitToStores(
       config,
-      'ios',
+      buildContext.platform,
       artifact,
       options.target,
       credentials,
-      prepared.buildContext,
+      buildContext,
     );
     let submissionDescription = 'submitted for App Store review';
     if (options.target === 'testing') submissionDescription = 'uploaded to TestFlight';

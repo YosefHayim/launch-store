@@ -1,5 +1,5 @@
 import { FileSystem } from '@effect/platform';
-import { NodeContext } from '@effect/platform-node';
+import { NodeContext, NodeStream } from '@effect/platform-node';
 import { Effect } from 'effect';
 import type { AndroidReleaseNote, PlayTrack, SubmitTarget } from '@core/types/app.js';
 import type { ResolvedBuildContext } from '@core/types/config.js';
@@ -64,12 +64,13 @@ export const googlePlaySubmitter: Submitter = {
     const release = playReleaseFor(rollout, buildContext.android?.releaseNotes);
     return Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
-      const bundleBytes = yield* fileSystem.readFile(artifact.path);
+      const bundleFile = fileSystem.stream(artifact.path);
+      const bundleStream = yield* NodeStream.toReadable(bundleFile);
       const googleStoreClients = yield* GoogleStoreClientService;
       const playClient = yield* googleStoreClients.createEffectClient(
         buildCredentials.serviceAccountJson,
       );
-      yield* playClient.uploadBundleToTrack(packageName, bundleBytes, track, release);
+      yield* playClient.uploadBundleToTrack(packageName, bundleStream, track, release);
     }).pipe(Effect.provide(GoogleStoreClientLive), Effect.provide(NodeContext.layer));
   },
 };

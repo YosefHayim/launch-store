@@ -317,8 +317,9 @@ describe('GooglePlayClient.withEdit', () => {
     commitEdit.mockResolvedValue({ data: {} });
     uploadBundle.mockResolvedValue({ data: { versionCode: 31 } });
     updateTrack.mockResolvedValue({ data: {} });
+    const bundleStream = Readable.from([Buffer.from([1, 2, 3])]);
     const versionCode = await Effect.runPromise(
-      client.uploadBundleToTrack('com.example.app', new Uint8Array([1, 2, 3]), 'beta', {
+      client.uploadBundleToTrack('com.example.app', bundleStream, 'beta', {
         status: 'inProgress',
         userFraction: 0.2,
       }),
@@ -327,7 +328,7 @@ describe('GooglePlayClient.withEdit', () => {
     expect(uploadBundle).toHaveBeenCalledWith({
       packageName: 'com.example.app',
       editId: 'edit1',
-      media: { mimeType: 'application/octet-stream', body: expect.any(Readable) },
+      media: { mimeType: 'application/octet-stream', body: bundleStream },
     });
     expect(updateTrack).toHaveBeenCalledWith({
       packageName: 'com.example.app',
@@ -346,9 +347,14 @@ describe('GooglePlayClient.withEdit', () => {
     uploadBundle.mockResolvedValue({ data: {} });
     await expect(
       Effect.runPromise(
-        client.uploadBundleToTrack('com.example.app', new Uint8Array([1]), 'internal', {
-          status: 'completed',
-        }),
+        client.uploadBundleToTrack(
+          'com.example.app',
+          Readable.from([Buffer.from([1])]),
+          'internal',
+          {
+            status: 'completed',
+          },
+        ),
       ),
     ).rejects.toThrow(/returned no versionCode/);
     expect(updateTrack).not.toHaveBeenCalled();

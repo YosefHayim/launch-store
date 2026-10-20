@@ -2,7 +2,7 @@ import { FileSystem } from '@effect/platform';
 import { NodeContext } from '@effect/platform-node';
 import { createHash } from 'node:crypto';
 import { platform as detectOperatingSystem } from 'node:os';
-import { Data, Effect, Option, Schema, unsafeCoerce } from 'effect';
+import { Chunk, Data, Effect, Option, Schema, Stream, unsafeCoerce } from 'effect';
 import { SignJWT, importPKCS8 } from 'jose';
 import type { AscKey } from '../core/types/credentials.js';
 import type { components } from './generated/schema.js';
@@ -333,6 +333,20 @@ const readTransportFile = (filePath: string): Promise<Buffer> =>
     const fileBytes = yield* fileSystem.readFile(filePath);
     return Buffer.from(fileBytes);
   }).pipe(Effect.provide(NodeContext.layer), Effect.runPromise);
+const readTransportSize = (filePath: string): Promise<number> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const fileInfo = yield* fileSystem.stat(filePath);
+    return Number(fileInfo.size);
+  }).pipe(Effect.provide(NodeContext.layer), Effect.runPromise);
+const readTransportRange = (filePath: string, offset: number, byteCount: number): Promise<Buffer> =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const rangeStream = fileSystem.stream(filePath, { offset, bytesToRead: byteCount });
+    const rangeChunks = yield* Stream.runCollect(rangeStream);
+    const rangeParts = Chunk.toReadonlyArray(rangeChunks);
+    return Buffer.concat(rangeParts);
+  }).pipe(Effect.provide(NodeContext.layer), Effect.runPromise);
 /**
  * Pick the given keys out of a localization's raw attributes, keeping only present, non-empty strings.
  * Apple returns empty fields as `null` or `""`; both are dropped so a diff treats "unset" uniformly.
@@ -558,12 +572,16 @@ const reusableToken = async (key: AscKey): Promise<string> => {
   return token;
 };
 /** PUT one reserved byte range to Apple's upload CDN, with transient-retry. */
-const putAssetChunk = async (operation: UploadOperation, bytes: Buffer): Promise<void> => {
+const putAssetChunk = async (
+  operation: UploadOperation,
+  filePath: string,
+  fileByteLength: number,
+): Promise<void> => {
   let offset = operation.offset;
   if (offset === undefined) offset = 0;
   let operationLength = operation.length;
-  if (operationLength === undefined) operationLength = bytes.byteLength;
-  const chunk = bytes.subarray(offset, offset + operationLength);
+  if (operationLength === undefined) operationLength = fileByteLength - offset;
+  const chunk = await readTransportRange(filePath, offset, operationLength);
   const headers: Record<string, string> = {};
   let requestHeaders = operation.requestHeaders;
   if (requestHeaders === undefined) requestHeaders = [];
@@ -602,14 +620,17 @@ const buildUploadProblems = (
     return { code, description };
   });
 };
-/** PUT a reserved asset's bytes to Apple's CDN, a few independent byte-range parts at a time. */
-const putAssetBytes = async (
+/** PUT a reserved asset's file to Apple's CDN, reading only the few byte-range parts in flight. */
+const putAssetFile = async (
   operations: readonly UploadOperation[],
-  bytes: Buffer,
+  filePath: string,
+  fileByteLength: number,
 ): Promise<void> => {
   for (let batchStart = 0; batchStart < operations.length; batchStart += ASSET_UPLOAD_CONCURRENCY) {
     const operationBatch = operations.slice(batchStart, batchStart + ASSET_UPLOAD_CONCURRENCY);
-    const chunkUploads = operationBatch.map((operation) => putAssetChunk(operation, bytes));
+    const chunkUploads = operationBatch.map((operation) =>
+      putAssetChunk(operation, filePath, fileByteLength),
+    );
     // biome-ignore lint/performance/noAwaitInLoops: bounded batches - each part is its own byte range, so a batch uploads in parallel without flooding Apple's CDN
     const settledChunkUploads = await Promise.allSettled(chunkUploads);
     const failedChunkUpload = settledChunkUploads.find(
@@ -879,17 +900,17 @@ export class AppStoreConnectClient {
     fileName: string,
     binaryPath: string,
   ): Promise<void> {
-    const bytes = await readTransportFile(binaryPath);
+    const fileByteLength = await readTransportSize(binaryPath);
     let uti = 'com.apple.ipa';
     if (binaryPath.endsWith('.pkg')) uti = 'com.apple.pkg';
     const { id, operations } = await this.reserveAsset(
       'buildUploadFiles',
       { relationship: 'buildUpload', type: 'buildUploads', id: buildUploadId },
       fileName,
-      bytes.byteLength,
+      fileByteLength,
       { assetType: 'ASSET', uti },
     );
-    await putAssetBytes(operations, bytes);
+    await putAssetFile(operations, binaryPath, fileByteLength);
     const commitDocument: components['schemas']['BuildUploadFileUpdateRequest'] = {
       data: { type: 'buildUploadFiles', id, attributes: { uploaded: true } },
     };
@@ -4161,7 +4182,7 @@ export class AppStoreConnectClient {
       fileName,
       bytes.byteLength,
     );
-    await putAssetBytes(operations, bytes);
+    await putAssetFile(operations, filePath, bytes.byteLength);
     await this.commitAsset('appScreenshots', id, bytes);
   }
   /** The subscription's current App Review screenshot, or null when it has none. */
@@ -4207,7 +4228,7 @@ export class AppStoreConnectClient {
       fileName,
       bytes.byteLength,
     );
-    await putAssetBytes(operations, bytes);
+    await putAssetFile(operations, filePath, bytes.byteLength);
     await this.commitAsset('subscriptionAppStoreReviewScreenshots', id, bytes);
   }
   /** App Store preview videos. */
@@ -4284,7 +4305,7 @@ export class AppStoreConnectClient {
       fileName,
       bytes.byteLength,
     );
-    await putAssetBytes(operations, bytes);
+    await putAssetFile(operations, filePath, bytes.byteLength);
     await this.commitAsset('appPreviews', id, bytes);
   }
   /**

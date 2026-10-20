@@ -3,7 +3,7 @@ import {
   auth as androidPublisherAuth,
   type androidpublisher_v3,
 } from '@googleapis/androidpublisher';
-import { Readable } from 'node:stream';
+import type { Readable } from 'node:stream';
 import { Data, Effect, Option, Schema } from 'effect';
 import type { ServiceAccount } from '../core/types/credentials.js';
 import type { MutableDeep } from '../core/types/mutable.js';
@@ -679,13 +679,12 @@ export class GooglePlayClient {
    */
   uploadBundleToTrack(
     packageName: string,
-    bundleBytes: Uint8Array,
+    bundleStream: Readable,
     track: string,
     release: Omit<PlayRelease, 'versionCodes'>,
   ): Effect.Effect<number, GooglePlayApiError> {
     return this.withEdit(packageName, (editId) =>
       Effect.gen(this, function* () {
-        const bundleStream = Readable.from(Buffer.from(bundleBytes));
         const uploadedBundle = yield* this.executeGeneratedRequest('upload bundle', () =>
           this.publisher.edits.bundles.upload({
             packageName,

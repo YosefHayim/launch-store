@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs';
+import type { Readable } from 'node:stream';
+import { buffer } from 'node:stream/consumers';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Effect } from 'effect';
@@ -10,7 +12,7 @@ const uploadBundleToTrack = vi.hoisted(() =>
   vi.fn<
     (
       packageName: string,
-      bundleBytes: Uint8Array,
+      bundleBytes: Buffer,
       track: string,
       release: Omit<PlayRelease, 'versionCodes'>,
     ) => void
@@ -22,11 +24,12 @@ vi.mock('@google/playClient.js', async (importOriginal) => ({
   GooglePlayClient: class {
     uploadBundleToTrack = (
       packageName: string,
-      bundleBytes: Uint8Array,
+      bundleStream: Readable,
       track: string,
       release: Omit<PlayRelease, 'versionCodes'>,
     ) =>
-      Effect.sync(() => {
+      Effect.promise(async () => {
+        const bundleBytes = await buffer(bundleStream);
         uploadBundleToTrack(packageName, bundleBytes, track, release);
         return 7;
       });
@@ -68,7 +71,7 @@ describe('google-play submitter - package_name (EAS #3563 regression)', () => {
     await Effect.runPromise(googlePlaySubmitter.submit(artifact, 'testing', creds, androidCtx()));
     const [packageName, bundleBytes, track, release] = uploadCall();
     expect(packageName).toBe('com.example.hello.android');
-    expect(Buffer.from(bundleBytes).equals(readFileSync(aabPath))).toBe(true);
+    expect(bundleBytes.equals(readFileSync(aabPath))).toBe(true);
     expect(track).toBe('internal');
     expect(release).toEqual({ status: 'completed' });
   });

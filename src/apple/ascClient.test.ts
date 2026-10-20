@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateKeyPairSync } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Schema } from 'effect';
 import type { AscKey } from '../core/types/credentials.js';
@@ -440,9 +441,12 @@ describe('AppStoreConnectClient - build uploads', () => {
       },
     });
   });
-  it('reserves the IPA, PUTs its parts, then marks it uploaded', async () => {
+  it('reserves the IPA, PUTs each part from its own byte range, then marks it uploaded', async () => {
+    const ipaPath = fileURLToPath(import.meta.url);
+    const ipaBytes = readFileSync(ipaPath);
     const uploadOperations = [
-      { method: 'PUT', url: 'https://upload.example/part-0', offset: 0, length: 1 },
+      { method: 'PUT', url: 'https://upload.example/part-0', offset: 0, length: 5 },
+      { method: 'PUT', url: 'https://upload.example/part-1', offset: 5, length: 7 },
     ];
     fetchMock.mockImplementation((url: string, requestInit: RequestInit) => {
       if (url.startsWith('https://upload.example/')) return Promise.resolve(fakeResponse(200, ''));
@@ -454,21 +458,25 @@ describe('AppStoreConnectClient - build uploads', () => {
         fakeResponse(200, JSON.stringify({ data: { id: 'file-1', attributes: {} } })),
       );
     });
-    await client.uploadBuildFile('upload-1', 'App.ipa', fileURLToPath(import.meta.url));
+    await client.uploadBuildFile('upload-1', 'App.ipa', ipaPath);
     const [reserveUrl, reserveInit] = expectArrayElement(fetchMock.mock.calls, 0, 'reserve call');
     expect(reserveUrl).toBe('https://api.appstoreconnect.apple.com/v1/buildUploadFiles');
     expect(documentValueAt(readRequestDocument(reserveInit), ['data', 'attributes'])).toEqual({
       fileName: 'App.ipa',
-      fileSize: expect.any(Number),
+      fileSize: ipaBytes.byteLength,
       assetType: 'ASSET',
       uti: 'com.apple.ipa',
     });
     expect(
       documentValueAt(readRequestDocument(reserveInit), ['data', 'relationships', 'buildUpload']),
     ).toEqual({ data: { type: 'buildUploads', id: 'upload-1' } });
-    const [partUrl] = expectArrayElement(fetchMock.mock.calls, 1, 'part upload');
-    expect(partUrl).toBe('https://upload.example/part-0');
-    const [commitUrl, commitInit] = expectArrayElement(fetchMock.mock.calls, 2, 'commit call');
+    const [firstPartUrl, firstPartInit] = expectArrayElement(fetchMock.mock.calls, 1, 'part 0');
+    expect(firstPartUrl).toBe('https://upload.example/part-0');
+    expect(firstPartInit.body).toEqual(ipaBytes.subarray(0, 5));
+    const [secondPartUrl, secondPartInit] = expectArrayElement(fetchMock.mock.calls, 2, 'part 1');
+    expect(secondPartUrl).toBe('https://upload.example/part-1');
+    expect(secondPartInit.body).toEqual(ipaBytes.subarray(5, 12));
+    const [commitUrl, commitInit] = expectArrayElement(fetchMock.mock.calls, 3, 'commit call');
     expect(commitUrl).toBe('https://api.appstoreconnect.apple.com/v1/buildUploadFiles/file-1');
     expect(commitInit.method).toBe('PATCH');
     expect(readRequestDocument(commitInit)).toEqual({
