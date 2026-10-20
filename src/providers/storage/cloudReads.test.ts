@@ -82,13 +82,16 @@ for (const createProvider of storageProviders) {
 
     it('rejects denied index reads', async () => {
       await withStorageReply(403, '<Error><Code>AccessDenied</Code></Error>', async (endpoint) => {
-        await expect(Effect.runPromise(readStorage(endpoint))).rejects.toThrow();
+        await expect(Effect.runPromise(readStorage(endpoint))).rejects.toThrow(
+          /read of artifacts\/index\.json failed/,
+        );
       });
     });
 
-    it('rejects malformed index contents', async () => {
+    it('rejects malformed index contents as a parse failure, not a failed read', async () => {
       await withStorageReply(200, '{broken', async (endpoint) => {
-        await expect(Effect.runPromise(readStorage(endpoint))).rejects.toThrow();
+        const failure = await Effect.runPromise(Effect.flip(readStorage(endpoint)));
+        expect(failure).toMatchObject({ _tag: 'ParseError' });
       });
     });
 
@@ -108,7 +111,9 @@ for (const createProvider of storageProviders) {
 
     it('does not disguise denied object reads as absent objects', async () => {
       await withStorageReply(403, '<Error><Code>AccessDenied</Code></Error>', async (endpoint) => {
-        await expect(Effect.runPromise(readStorage(endpoint, 'manifest.json'))).rejects.toThrow();
+        await expect(Effect.runPromise(readStorage(endpoint, 'manifest.json'))).rejects.toThrow(
+          /read of manifest\.json failed/,
+        );
       });
     });
   });
