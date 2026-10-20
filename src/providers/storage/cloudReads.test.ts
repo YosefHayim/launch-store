@@ -82,7 +82,9 @@ for (const createProvider of storageProviders) {
 
     it('rejects denied index reads', async () => {
       await withStorageReply(403, '<Error><Code>AccessDenied</Code></Error>', async (endpoint) => {
-        await expect(Effect.runPromise(readStorage(endpoint))).rejects.toThrow();
+        await expect(Effect.runPromise(readStorage(endpoint))).rejects.toThrow(
+          /read of artifacts\/index\.json failed/,
+        );
       });
     });
 
@@ -108,7 +110,9 @@ for (const createProvider of storageProviders) {
 
     it('does not disguise denied object reads as absent objects', async () => {
       await withStorageReply(403, '<Error><Code>AccessDenied</Code></Error>', async (endpoint) => {
-        await expect(Effect.runPromise(readStorage(endpoint, 'manifest.json'))).rejects.toThrow();
+        await expect(Effect.runPromise(readStorage(endpoint, 'manifest.json'))).rejects.toThrow(
+          /read of manifest\.json failed/,
+        );
       });
     });
   });

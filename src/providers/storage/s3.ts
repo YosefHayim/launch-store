@@ -1,8 +1,9 @@
 // S3-compatible artifact storage. The SDK stays lazy until this provider is selected.
 
 import { FileSystem, Path } from '@effect/platform';
-import { Effect, Redacted, Schema } from 'effect';
+import { Cause, Effect, Redacted, Schema } from 'effect';
 import { LaunchEnvironment } from '@core/services/environment.js';
+import { errorMessage } from '@core/services/errorMessage.js';
 import { requireOptional } from '@core/services/optionalDep.js';
 import { LaunchSecretStore } from '@core/services/secretStore.js';
 import {
@@ -38,6 +39,17 @@ const isMissingS3Object = (failure: unknown): boolean => {
   if (cause === null) return false;
   if (!('name' in cause)) return false;
   return cause.name === 'NoSuchKey';
+};
+
+/** A failed S3 call, named for what it tried, with the reason the SDK gave instead of Effect's generic one. */
+const s3Failure = (action: string, failure: unknown) => {
+  let reason = failure;
+  if (Cause.isUnknownException(failure)) reason = failure.error;
+  const reasonMessage = errorMessage(reason);
+  return makeProviderInputFailure({
+    provider: 's3',
+    message: `S3 ${action} failed: ${reasonMessage}`,
+  });
 };
 
 const resolveS3Credentials = Effect.gen(function* () {
@@ -95,7 +107,10 @@ export const makeS3StorageProvider = (storageConfig: StorageConfig) =>
             ContentType: contentType,
           }),
         ),
-      ).pipe(Effect.as({ id: objectKey, location: publicUrl(objectKey) }));
+      ).pipe(
+        Effect.as({ id: objectKey, location: publicUrl(objectKey) }),
+        Effect.mapError((failure) => s3Failure(`upload of ${objectKey}`, failure)),
+      );
 
     const readIndex = (): Effect.Effect<BuildArtifact[], unknown> =>
       Effect.tryPromise(() =>
@@ -122,6 +137,7 @@ export const makeS3StorageProvider = (storageConfig: StorageConfig) =>
           );
         }),
         Effect.catchIf(isMissingS3Object, () => Effect.succeed([])),
+        Effect.mapError((failure) => s3Failure(`read of ${INDEX_OBJECT_KEY}`, failure)),
       );
 
     const storageProvider: StorageProvider = {
@@ -171,6 +187,7 @@ export const makeS3StorageProvider = (storageConfig: StorageConfig) =>
             );
           }),
           Effect.catchIf(isMissingS3Object, () => Effect.succeed(null)),
+          Effect.mapError((failure) => s3Failure(`read of ${objectKey}`, failure)),
         ),
       publicUrl,
     };
