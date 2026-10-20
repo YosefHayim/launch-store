@@ -31,7 +31,7 @@ const stubLaunchConfig: LaunchConfig = {
   profiles: {},
   credentials: 'local',
   storage: 'local',
-  buildEngine: 'fastlane',
+  buildEngine: 'xcode',
   submit: 'app-store-connect',
 };
 

@@ -25,7 +25,7 @@ import type {
  */
 export const DEFAULT_CREDENTIALS_PROVIDER = 'local';
 export const DEFAULT_STORAGE_PROVIDER = 'local';
-export const DEFAULT_BUILD_ENGINE = 'fastlane';
+export const DEFAULT_BUILD_ENGINE = 'xcode';
 export const DEFAULT_SUBMITTER = 'app-store-connect';
 /**
  * The multi-store form of {@link LaunchConfig.submit}: a per-platform list of registered `Submitter`

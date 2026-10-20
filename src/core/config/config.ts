@@ -40,7 +40,7 @@ const pathExists = (
   fileSystem.exists(candidatePath).pipe(Effect.orElseSucceed(() => false));
 /**
  * Author a typed `launch.config.ts`. Fills in the v1 defaults (`local` credentials + storage,
- * `fastlane` engine) so a minimal config only needs to declare profiles.
+ * `xcode` engine) so a minimal config only needs to declare profiles.
  *
  * The whole `input` is spread through first, so anything the user wrote - including a typo'd top-level
  * key the type system can't catch in an un-compiled config - survives onto the resolved object. That lets

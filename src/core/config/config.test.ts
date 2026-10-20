@@ -57,7 +57,7 @@ describe('defineConfig', () => {
     const config = defineConfig({ profiles: { production: { name: 'production' } } });
     expect(config.credentials).toBe('local');
     expect(config.storage).toBe('local');
-    expect(config.buildEngine).toBe('fastlane');
+    expect(config.buildEngine).toBe('xcode');
     expect(config.submit).toBe('app-store-connect');
     expect(config.appRoots).toBeUndefined();
     expect(config.aws).toBeUndefined();
@@ -197,7 +197,7 @@ describe('loadConfig - auto-discovers apps, app.json stays the source of truth',
       ios: { bundleIdentifier: 'com.example.hello' },
     });
     const { config, apps } = await runConfigEffect(loadConfig(repo));
-    expect(config.buildEngine).toBe('fastlane');
+    expect(config.buildEngine).toBe('xcode');
     expect(apps).toHaveLength(1);
     expect(apps[0]).toMatchObject({
       name: 'hello-world',
@@ -330,7 +330,7 @@ describe('loadConfig - resolves the launch-store import without a local dependen
     const { config } = await runConfigEffect(loadConfig(repo));
     // The custom profile proves OUR file loaded; the filled-in default proves it ran through defineConfig.
     expect(config.profiles['staging']?.sizeBudgetMB).toBe(123);
-    expect(config.buildEngine).toBe('fastlane');
+    expect(config.buildEngine).toBe('xcode');
   });
 });
 describe('writeAppVersion - persist the bump back to a static app.json', () => {

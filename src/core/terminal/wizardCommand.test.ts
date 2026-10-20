@@ -17,7 +17,7 @@ const configWith = (profileNames: readonly string[]): LaunchConfig => ({
   ),
   credentials: 'local',
   storage: 'local',
-  buildEngine: 'fastlane',
+  buildEngine: 'xcode',
   submit: 'app-store-connect',
 });
 

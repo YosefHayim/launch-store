@@ -16,7 +16,7 @@ const SIGNATURES: DiagnosticSignature[] = [
     title: 'Code signing - app profile leaked onto CocoaPods targets (Xcode 26)',
     cause:
       "The app's manual provisioning profile was applied workspace-wide, so it landed on CocoaPods library targets that can't carry one. Xcode 26 makes this a hard error (older Xcode silently ignored it), failing the archive at exit 65 with one error per Pods target.",
-    fix: 'Update Launch and rebuild - it now stamps the profile into the app target only, never as a global `gym --xcargs`. If you invoke gym yourself, drop `PROVISIONING_PROFILE_SPECIFIER` from the workspace-wide `--xcargs`.',
+    fix: 'Update Launch and rebuild - it now stamps the profile into the app target only, never as a global `xcodebuild` build setting. If you invoke xcodebuild yourself, drop `PROVISIONING_PROFILE_SPECIFIER` from the command line.',
     match: [/does not support provisioning profiles/i],
   },
   {
@@ -137,7 +137,7 @@ const SIGNATURES: DiagnosticSignature[] = [
       "A command the build depends on (CocoaPods, fastlane, bundletool) isn't installed or on PATH.",
     fix: 'Install the missing toolchain: `launch doctor --fix` (iOS) or `launch doctor --platform android`.',
     match: [
-      /command not found: (?:pod|fastlane|bundletool|gym)/i,
+      /command not found: (?:pod|fastlane|bundletool)/i,
       /(?:pod|fastlane|bundletool): command not found/i,
     ],
   },

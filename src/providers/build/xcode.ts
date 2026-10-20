@@ -14,7 +14,8 @@ import { runWithProgress, xcodeProgressStep } from '@core/services/progress.js';
 import { checkCommandExists, provideNodeCommandServices } from '@core/services/exec.js';
 import { readHostResources } from '@core/services/os.js';
 import {
-  assembleGymArguments,
+  assembleArchiveArguments,
+  assembleExportArguments,
   computeParallelJobLimit,
   estimateFor,
   gatherIosFingerprint,
@@ -27,7 +28,7 @@ import {
 } from '@core/services/buildEngineSupport.js';
 import {
   appleArtifactExtension,
-  gymDestination,
+  archiveDestination,
   isApplePlatform,
   nativeProjectDirName,
   platformLabel,
@@ -37,10 +38,10 @@ import {
  * ({@link nativeProjectDirName} - `ios` for iOS/tvOS, `macos`, `visionos`).
  *
  * The application directory is relative whenever `launch.config.ts` uses relative `appRoots` - the monorepo
- * case, e.g. `apps/sampleapp`. gym is run with its `cwd` at the app dir, and it re-resolves a
- * *relative* `--workspace` against that cwd, doubling the subpath to
+ * case, e.g. `apps/sampleapp`. xcodebuild is run with its `cwd` at the app dir, and it resolves a
+ * *relative* `-workspace` against that cwd, doubling the subpath to
  * `apps/sampleapp/apps/sampleapp/ios/...` and failing with "Workspace file not found". Resolving the
- * dir to absolute here means the workspace path gym receives (and the `pod install` cwd) is one no
+ * dir to absolute here means the workspace path xcodebuild receives (and the `pod install` cwd) is one no
  * cwd can double, in both single-app and monorepo layouts.
  */
 export const resolveNativeDir = (appDir: string, platform: Platform) =>
@@ -64,7 +65,7 @@ const findWorkspace = (
     if (!nativeDirectoryExists) {
       return yield* Effect.fail(
         makeProviderInputFailure({
-          provider: 'fastlane',
+          provider: 'xcode',
           message: `No native project directory at ${nativeDir} - did prebuild run?`,
         }),
       );
@@ -75,7 +76,7 @@ const findWorkspace = (
     if (workspaceName === undefined) {
       return yield* Effect.fail(
         makeProviderInputFailure({
-          provider: 'fastlane',
+          provider: 'xcode',
           message: `No .xcworkspace found in ${nativeDir}.`,
         }),
       );
@@ -88,7 +89,7 @@ const findWorkspace = (
 /**
  * Stamp each signed target's own provisioning profile into the project's Release configs before the
  * archive - see {@link writeManualSigningToProject}. Launch never passes `PROVISIONING_PROFILE_SPECIFIER`
- * as a global `gym --xcargs`: a command-line specifier applies to the whole workspace, so it would leak
+ * as a global `xcodebuild` build setting: a command-line specifier applies to the whole workspace, so it would leak
  * the app's profile onto every Pods library target and fail the Xcode 26 archive with "... does not support
  * provisioning profiles" (issue #301), and it would clobber an extension's own bundle (issue #262). Each
  * signed target therefore carries its profile in the pbxproj instead. `pod install` /
@@ -110,38 +111,31 @@ const stampManualSigning = (nativeDir: string, signing: SigningAssets) =>
   }).pipe(
     Effect.mapError((cause) =>
       makeProviderInputFailure({
-        provider: 'fastlane',
+        provider: 'xcode',
         message: `Could not configure manual signing in ${nativeDir}: ${String(cause)}`,
       }),
     ),
   );
 /**
- * Assemble the environment for the `gym` subprocess, layered by precedence (later spreads win).
+ * Assemble the environment for the `xcodebuild` subprocesses, layered by precedence (later spreads win).
  *
  * The resolved build environment goes in first (`--env` › secrets › `profile env:`
  * › `.env.<profile>` › `.env` ladder), and it's what `xcodebuild`'s "Bundle React Native code"
- * phase reads to inline `EXPO_PUBLIC_*` into the shipped bundle. The ccache compiler wrappers and the
- * App Store Connect API key are layered over it so those build-critical/auth vars still win over any
- * same-named user variable. Gradle, EAS, and submit already forward it; local iOS was the lone gap that
+ * phase reads to inline `EXPO_PUBLIC_*` into the shipped bundle. The ccache compiler wrappers are
+ * layered over it so those build-critical vars still win over any same-named user variable. Gradle, EAS, and submit already forward it; local iOS was the lone gap that
  * silently dropped every layer above the app's own `.env` (issue #109).
  */
-export const gymEnv = (
+export const xcodebuildEnv = (
   buildEnvironment: Record<string, string>,
   ccacheVars: Record<string, string>,
-  ascKey: {
-    keyId: string;
-    issuerId: string;
-  },
 ): Record<string, string> => {
   return {
     ...buildEnvironment,
     ...ccacheVars,
-    APP_STORE_CONNECT_API_KEY_KEY_ID: ascKey.keyId,
-    APP_STORE_CONNECT_API_KEY_ISSUER_ID: ascKey.issuerId,
   };
 };
-export const fastlaneBuildEngine = {
-  name: 'fastlane',
+export const xcodeBuildEngine = {
+  name: 'xcode',
   buildArtifact(buildContext: ResolvedBuildContext, buildCredentials: BuildCredentials) {
     return Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
@@ -159,22 +153,22 @@ export const fastlaneBuildEngine = {
       if (buildCredentials.platform !== 'ios')
         return yield* Effect.fail(
           makeProviderInputFailure({
-            provider: 'fastlane',
-            message: 'The fastlane build engine builds Apple platforms only.',
+            provider: 'xcode',
+            message: 'The xcode build engine builds Apple platforms only.',
           }),
         );
       if (!isApplePlatform(buildContext.platform))
         return yield* Effect.fail(
           makeProviderInputFailure({
-            provider: 'fastlane',
-            message: `The fastlane build engine cannot build ${buildContext.platform}.`,
+            provider: 'xcode',
+            message: `The xcode build engine cannot build ${buildContext.platform}.`,
           }),
         );
       const signing = buildCredentials.signing;
       if (!signing)
         return yield* Effect.fail(
           makeProviderInputFailure({
-            provider: 'fastlane',
+            provider: 'xcode',
             message: 'No signing assets resolved - run `launch creds setup` first.',
           }),
         );
@@ -208,7 +202,7 @@ export const fastlaneBuildEngine = {
         });
       }
       // Every signed target needs its own profile in the app's pbxproj before the archive (the main app,
-      // plus any embedded extensions), because Launch never pins a profile in the global gym xcargs where
+      // plus any embedded extensions), because Launch never pins a profile in the global xcodebuild build settings where
       // it would leak onto the Pods targets (issue #301). Runs right after `pod install` regenerates the
       // project (see {@link stampManualSigning}).
       yield* stampManualSigning(nativeDir, signing);
@@ -221,44 +215,53 @@ export const fastlaneBuildEngine = {
       let exportMethod: 'app-store' | 'ad-hoc' = 'app-store';
       if (buildContext.distribution === 'internal') exportMethod = 'ad-hoc';
       yield* fileSystem.writeFileString(plistPath, exportOptionsPlist(signing, exportMethod));
-      // gym argv is built by the shared buildFlags Effect: identical to the iOS command of old, plus a
-      // `--destination` only for the non-iOS Apple platforms (iOS omits it -> xcodebuild default). The output keeps each
-      // platform's archive extension (`.ipa` for iOS-family, `.pkg` for macOS).
+      // The export names the file after the product; the extension is `.ipa` for iOS-family, `.pkg` for macOS.
       const archiveExtension = yield* appleArtifactExtension(buildContext.platform);
-      const buildDestination = yield* gymDestination(buildContext.platform);
-      const gymArguments = yield* assembleGymArguments({
+      const buildDestination = yield* archiveDestination(buildContext.platform);
+      const archivePath = pathService.join(outputDir, `${buildContext.app.name}.xcarchive`);
+      const archiveArguments = yield* assembleArchiveArguments({
         workspace,
         scheme,
-        outputDir,
-        outputName: `${buildContext.app.name}.${archiveExtension}`,
-        exportOptionsPath: plistPath,
+        archivePath,
         signing,
         parallelJobLimit,
         shouldCleanBuild: decision.clean,
         buildDestination,
       });
-      const progressOptions = {
+      const exportArguments = yield* assembleExportArguments({
+        archivePath,
+        exportOptionsPath: plistPath,
+        exportPath: outputDir,
+      });
+      const buildEnvironment = xcodebuildEnv(buildContext.env, ccacheVars);
+      const archiveOptions = {
         label: `Building ${platformLabel(buildContext.platform)} - ${buildContext.app.name}`,
         parseStep: xcodeProgressStep,
         cwd: buildContext.app.dir,
-        env: gymEnv(buildContext.env, ccacheVars, buildCredentials.ascKey),
+        env: buildEnvironment,
       };
-      let buildProgram = runWithProgress('fastlane', gymArguments, progressOptions);
+      let archiveProgram = runWithProgress('xcodebuild', archiveArguments, archiveOptions);
       if (estimate !== undefined) {
-        buildProgram = runWithProgress('fastlane', gymArguments, {
-          ...progressOptions,
+        archiveProgram = runWithProgress('xcodebuild', archiveArguments, {
+          ...archiveOptions,
           estimate,
         });
       }
-      const buildRun = yield* buildProgram;
+      const buildRun = yield* archiveProgram;
+      yield* runWithProgress('xcodebuild', exportArguments, {
+        label: `Exporting ${platformLabel(buildContext.platform)} - ${buildContext.app.name}`,
+        parseStep: xcodeProgressStep,
+        cwd: buildContext.app.dir,
+        env: buildEnvironment,
+      });
       const archive = (yield* fileSystem.readDirectory(outputDir)).find((entryName) =>
         entryName.endsWith(`.${archiveExtension}`),
       );
       if (!archive)
         return yield* Effect.fail(
           makeProviderInputFailure({
-            provider: 'fastlane',
-            message: `gym finished but produced no .${archiveExtension} in ${outputDir}.`,
+            provider: 'xcode',
+            message: `xcodebuild export finished but produced no .${archiveExtension} in ${outputDir}.`,
           }),
         );
       const artifactPath = pathService.join(outputDir, archive);
@@ -301,18 +304,18 @@ export const fastlaneBuildEngine = {
   },
 };
 
-type FastlaneBuildRequirements = Effect.Effect.Context<
-  ReturnType<(typeof fastlaneBuildEngine)['buildArtifact']>
+type XcodeBuildRequirements = Effect.Effect.Context<
+  ReturnType<(typeof xcodeBuildEngine)['buildArtifact']>
 >;
 
-/** Acquire the build services once and return a requirement-free fastlane engine. */
-export const makeFastlaneBuildEngine = () =>
+/** Acquire the build services once and return a requirement-free xcode engine. */
+export const makeXcodeBuildEngine = () =>
   Effect.gen(function* () {
-    const buildServices = yield* Effect.context<FastlaneBuildRequirements>();
+    const buildServices = yield* Effect.context<XcodeBuildRequirements>();
     return {
-      name: fastlaneBuildEngine.name,
+      name: xcodeBuildEngine.name,
       buildArtifact: (buildContext: ResolvedBuildContext, buildCredentials: BuildCredentials) =>
-        fastlaneBuildEngine
+        xcodeBuildEngine
           .buildArtifact(buildContext, buildCredentials)
           .pipe(Effect.provide(buildServices)),
     } satisfies BuildEngine;

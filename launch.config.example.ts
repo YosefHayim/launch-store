@@ -3,7 +3,7 @@ import { defineConfig } from 'launch-store';
 export default defineConfig({
   credentials: 'local',
   storage: 'local',
-  buildEngine: 'fastlane',
+  buildEngine: 'xcode',
   profiles: {
     production: {
       name: 'production',

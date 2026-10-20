@@ -32,7 +32,7 @@ const makeCtx = (api: AscSurfacesApi | null, configPath: string): PlanContext =>
     profiles: {},
     credentials: 'local',
     storage: 'local',
-    buildEngine: 'fastlane',
+    buildEngine: 'xcode',
     submit: 'app-store-connect',
     configFiles: { experiments: configPath },
   };

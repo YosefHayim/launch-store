@@ -50,7 +50,7 @@ export type CredentialsProvider = Readonly<{
 /**
  * Compiles and signs the native project into a distributable artifact.
  *
- * `fastlane` runs `gym` -> `.ipa` (iOS); `gradle` runs `bundleRelease` -> `.aab` (Android). Each engine
+ * `xcode` runs `xcodebuild archive` and `-exportArchive` -> `.ipa` (iOS); `gradle` runs `bundleRelease` -> `.aab` (Android). Each engine
  * narrows {@link BuildCredentials} to the platform it serves and rejects the other.
  */
 export type BuildEngine = Readonly<{

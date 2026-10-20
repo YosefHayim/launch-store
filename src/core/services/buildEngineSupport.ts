@@ -1,5 +1,6 @@
 import {
-  assembleGymArguments as assembleCoreGymArguments,
+  assembleArchiveArguments as assembleCoreArchiveArguments,
+  assembleExportArguments as assembleCoreExportArguments,
   computeParallelJobLimit as computeCoreParallelJobLimit,
   resolveCcacheEnvironment as resolveCoreCcacheEnvironment,
 } from '../build/buildFlags.js';
@@ -13,8 +14,10 @@ import {
 } from '../build/buildFingerprint.js';
 import { writeManualSigningToProject as writeCoreManualSigning } from '../build/appleTargets.js';
 
-/** Provider-facing gym argument builder owned by the core build policy. */
-export const assembleGymArguments = assembleCoreGymArguments;
+/** Provider-facing xcodebuild archive argument builder owned by the core build policy. */
+export const assembleArchiveArguments = assembleCoreArchiveArguments;
+/** Provider-facing xcodebuild -exportArchive argument builder owned by the core build policy. */
+export const assembleExportArguments = assembleCoreExportArguments;
 /** Provider-facing RAM cap owned by the core build policy. */
 export const computeParallelJobLimit = computeCoreParallelJobLimit;
 /** Provider-facing ccache environment resolver owned by the core build policy. */

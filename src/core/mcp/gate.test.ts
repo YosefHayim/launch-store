@@ -10,7 +10,7 @@ const config = (capabilities?: readonly McpCapability[]): LaunchConfig => {
     profiles: {},
     credentials: 'local',
     storage: 'local',
-    buildEngine: 'fastlane',
+    buildEngine: 'xcode',
     submit: 'app-store-connect',
   };
   if (capabilities === undefined) return launchConfig;

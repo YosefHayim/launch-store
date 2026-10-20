@@ -293,9 +293,9 @@ const releaseConfigProfiles = (
 /**
  * Stamp per-target manual signing into a project's `project.pbxproj` and return the rewritten text
  * (the input unchanged when no target matched a profile). Launch drops `PROVISIONING_PROFILE_SPECIFIER`
- * from the global `gym --xcargs` - a workspace-wide specifier leaks onto the Pods library targets and
+ * from the global `xcodebuild archive` settings - a workspace-wide specifier leaks onto the Pods library targets and
  * fails the Xcode 26 archive (issue #301), and would clobber an extension's bundle (issue #262); see
- * {@link import("./buildFlags.js").buildSigningXcargs} - so each target's profile has to live in the
+ * {@link import("./buildFlags.js").assembleArchiveArguments} - so each target's profile has to live in the
  * project, or `xcodebuild` fails the archive at exit 65 with "requires a provisioning profile ... Select a
  * provisioning profile in the Signing & Capabilities editor" for every target (issue #289).
  *

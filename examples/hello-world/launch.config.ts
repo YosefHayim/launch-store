@@ -3,11 +3,11 @@ import { defineConfig } from 'launch-store';
 export default defineConfig({
   // Providers
   // Swappable backends, resolved by name from the registry (src/providers). The iOS defaults below
-  // auto-swap to their Android twins on `launch build android`: `fastlane` -> `gradle`, and
+  // auto-swap to their Android twins on `launch build android`: `xcode` -> `gradle`, and
   // `app-store-connect` -> `google-play`. So a dual-platform app names the iOS side and gets Android free.
   credentials: 'local', // your own Apple/Play keys, kept in the OS keychain - never in this repo
   storage: 's3', // artifacts + OTA manifests on your own bucket (configured in `storageConfig`)
-  buildEngine: 'fastlane', // iOS archives via fastlane `gym`; Android auto-uses `gradle`
+  buildEngine: 'xcode', // iOS archives via `xcodebuild`; Android auto-uses `gradle`
   submit: 'app-store-connect', // iOS -> TestFlight/App Store; Android auto-uses `google-play`
 
   // Where to scan for apps (each app is a folder with an `app.json`). Defaults to the repo root; a

@@ -5,7 +5,7 @@ import {
   appleArtifactExtension,
   appStoreProfileType,
   APPLE_PLATFORMS,
-  gymDestination,
+  archiveDestination,
   isApplePlatform,
   nativeProjectDirName,
   nativeTargetHint,
@@ -93,17 +93,17 @@ describe('provisioning profile types - visionOS reuses iOS, macOS has no ad-hoc'
     expect(adHocProfileFailure.message).toMatch(/Android/);
   });
 });
-describe('gymDestination - iOS omits the flag (byte-identical), others pass generic/platform', () => {
-  it('returns undefined for iOS so the build command is unchanged', () => {
-    expect(Effect.runSync(gymDestination('ios'))).toBeUndefined();
+describe('archiveDestination - every Apple platform targets generic/platform', () => {
+  it('targets a generic device for iOS so an archive never builds for a simulator', () => {
+    expect(Effect.runSync(archiveDestination('ios'))).toBe('generic/platform=iOS');
   });
   it('returns the xcodebuild generic destination for each other Apple platform', () => {
-    expect(Effect.runSync(gymDestination('tvos'))).toBe('generic/platform=tvOS');
-    expect(Effect.runSync(gymDestination('macos'))).toBe('generic/platform=macOS');
-    expect(Effect.runSync(gymDestination('visionos'))).toBe('generic/platform=visionOS');
+    expect(Effect.runSync(archiveDestination('tvos'))).toBe('generic/platform=tvOS');
+    expect(Effect.runSync(archiveDestination('macos'))).toBe('generic/platform=macOS');
+    expect(Effect.runSync(archiveDestination('visionos'))).toBe('generic/platform=visionOS');
   });
   it('throws for Android (not an Xcode build)', () => {
-    const destinationFailure = Effect.runSync(Effect.flip(gymDestination('android')));
+    const destinationFailure = Effect.runSync(Effect.flip(archiveDestination('android')));
     expect(destinationFailure.message).toMatch(/Xcode/);
   });
 });

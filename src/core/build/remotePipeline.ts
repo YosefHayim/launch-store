@@ -115,7 +115,7 @@ const rehearse = (prepared: PreparedBuild, options: BuildRunOptions, buildNumber
     );
     yield* log.step(
       'build',
-      'would run fastlane gym on the host (incremental unless native deps changed or --clean)',
+      'would run xcodebuild archive and -exportArchive on the host (incremental unless native deps changed or --clean)',
     );
     yield* log.step('pull', 'would pull the .ipa home to ~/.launch/artifacts');
     yield* log.step(

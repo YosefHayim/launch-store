@@ -48,7 +48,7 @@ const makeCtx = (api: AscSurfacesApi | null, app: AppDescriptor): PlanContext =>
     profiles: {},
     credentials: 'local',
     storage: 'local',
-    buildEngine: 'fastlane',
+    buildEngine: 'xcode',
     submit: 'app-store-connect',
   };
   return {

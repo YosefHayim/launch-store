@@ -69,7 +69,7 @@ const makeCtx = (api: AscCatalogApi | null, appDir: string): PlanContext => {
     profiles: {},
     credentials: 'local',
     storage: 'local',
-    buildEngine: 'fastlane',
+    buildEngine: 'xcode',
     submit: 'app-store-connect',
   };
   const app: AppDescriptor = {
