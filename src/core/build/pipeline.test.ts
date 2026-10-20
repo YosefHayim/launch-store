@@ -46,6 +46,7 @@ type BuildCoreTestRequirements =
   | Effect.Effect.Context<ReturnType<typeof selectApp>>;
 const runBuildCoreTest = <Success, Failure>(
   program: Effect.Effect<Success, Failure, BuildCoreTestRequirements>,
+  loggedLines: string[] = [],
 ): Promise<Success> =>
   Effect.runPromise(
     program.pipe(
@@ -57,7 +58,7 @@ const runBuildCoreTest = <Success, Failure>(
       Effect.provide(makeLaunchPathsTest(tempRepo, tempRepo)),
       Effect.provide(makeLaunchPromptTest()),
       Effect.provide(makeLaunchSecretStoreTest()),
-      Effect.provide(makeLaunchLoggerTest([])),
+      Effect.provide(makeLaunchLoggerTest(loggedLines)),
       Effect.provide(NodeHttpClient.layer),
       Effect.provide(NodeContext.layer),
     ),
@@ -151,6 +152,33 @@ describe('runBuild --dry-run (the end-to-end spine)', () => {
       ),
     ).resolves.toBeUndefined();
     expect(fetchGuard).not.toHaveBeenCalled();
+  });
+  it('rejects an unregistered build engine before any native work', async () => {
+    tempRepo = writeRepo({
+      slug: 'hello',
+      version: '1.0.0',
+      ios: { bundleIdentifier: 'com.example.hello' },
+    });
+    writeFileSync(
+      join(tempRepo, 'launch.config.mjs'),
+      "export default { buildEngine: 'missing-engine', profiles: { production: { name: 'production' } } };",
+    );
+    process.chdir(tempRepo);
+    const loggedLines: string[] = [];
+    const iosBuild = runBuildCoreTest(
+      runBuild({
+        platform: 'ios',
+        profileName: 'production',
+        appName: undefined,
+        explain: false,
+        submit: true,
+        target: 'testing',
+        dryRun: true,
+      }),
+      loggedLines,
+    );
+    await expect(iosBuild).rejects.toThrow(/Unknown build engine.*missing-engine/);
+    expect(loggedLines.join('\n')).not.toContain('prebuild');
   });
 });
 describe('selectApp', () => {
