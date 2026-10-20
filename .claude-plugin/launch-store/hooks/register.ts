@@ -11,6 +11,7 @@ import {
   errorText,
   failureText,
   launchOutcome,
+  reportLine,
   reportText,
   showOutputLine,
   splitLines,
@@ -159,7 +160,7 @@ const toolAnswer = async ($: EngineInterface, words: readonly string[]) => {
 
 const reportInBackground = async ($: EngineInterface, words: readonly string[]) => {
   const outcome = await runOnce($, words);
-  const report = reportText(words, outcome);
+  const report = reportLine(words, outcome);
   $.ui.log(report);
 };
 

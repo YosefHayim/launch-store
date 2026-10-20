@@ -262,15 +262,24 @@ test('a missing launch CLI says how to install it', async ($, on) => {
   expect(status.deny).toContain('pnpm add -g launch-store');
 });
 
-test('/launch runs in the background and logs the report when it ends', async ($, on) => {
-  const { seen, logged } = session(on, { manifest: EXPO_MANIFEST });
+test('/launch runs in the background and logs the report on one line when it ends', async ($, on) => {
+  const { seen, logged } = session(on, {
+    manifest: EXPO_MANIFEST,
+    runFor: () => ({
+      stdout: ndjson(
+        { event: 'step', step: 'config', detail: 'hello' },
+        { event: 'note', message: 'Done.' },
+        { event: 'result', ok: true },
+      ),
+    }),
+  });
   await start($);
 
   const started = await $.command.run(command('status', { kind: 'composer' }));
   const report = await logged.wait;
 
   expect(started.text).toBe('Started launch status. Progress shows in the status line.');
-  expect(report).toBe('launch status finished.');
+  expect(report).toBe('launch status finished. config - hello · Done.');
   expect(seen.spawned).toEqual(['launch status --json']);
 });
 

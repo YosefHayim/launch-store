@@ -108,7 +108,18 @@ export const startFailure = (error: unknown): LaunchOutcome => {
   return { verdict: 'failed', lines: [`Could not start launch: ${reason}. ${INSTALL_HINT}`] };
 };
 
+const headlineOf = (words: readonly string[], outcome: LaunchOutcome) =>
+  `launch ${words.join(' ')} ${outcome.verdict}.`;
+
 export const reportText = (words: readonly string[], outcome: LaunchOutcome) => {
-  const headline = `launch ${words.join(' ')} ${outcome.verdict}.`;
+  const headline = headlineOf(words, outcome);
   return [headline, ...outcome.lines].join('\n');
+};
+
+// The transcript draws a log as one line, so the report's lines share it.
+export const reportLine = (words: readonly string[], outcome: LaunchOutcome) => {
+  const headline = headlineOf(words, outcome);
+  const details = outcome.lines.join(' · ');
+  if (details === '') return headline;
+  return `${headline} ${details}`;
 };
