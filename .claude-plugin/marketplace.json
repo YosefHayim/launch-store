@@ -1,0 +1,11 @@
+{
+  "name": "launch-store",
+  "owner": { "name": "YosefHayim" },
+  "plugins": [
+    {
+      "name": "launch-store",
+      "source": "./.claude-plugin/launch-store",
+      "description": "Build, release and check iOS and Android apps with launch-store from Claude Code"
+    }
+  ]
+}
