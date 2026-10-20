@@ -14,7 +14,7 @@ Architecture and orientation for **Launch** - the map agents and contributors re
 
 If you're new to this stack: one TypeScript/React codebase (_React Native_) runs as a native iOS +
 Android app. _Expo_ sits on top so you describe the app in `app.json`. `expo prebuild` generates real
-native projects. On iOS, _Xcode_ + _fastlane_ + _CocoaPods_ compile and sign. On Android, _Gradle_ + a
+native projects. On iOS, _Xcode_ + _CocoaPods_ compile and sign. On Android, _Gradle_ + a
 JDK. Launch orchestrates this entire chain from `launch.config.ts`.
 
 EAS (Expo Application Services) is the paid cloud Launch replaces - same pipeline, your own hardware, $0.
@@ -26,7 +26,7 @@ EAS (Expo Application Services) is the paid cloud Launch replaces - same pipelin
 1. **Resolve** - pick app + profile + env from `launch.config.ts`
 2. **Prebuild** - `expo prebuild` only if no native project exists
 3. **Credentials** - signing assets from OS keychain (provisioning on first run)
-4. **Build** - fastlane `gym` (iOS) or Gradle `:app:bundleRelease` (Android)
+4. **Build** - `xcodebuild archive` + `-exportArchive` (iOS) or Gradle `:app:bundleRelease` (Android)
 5. **Size report** - per-device download/install from Xcode thinning or bundletool
 6. **Store** - copy artifact into local (or pluggable) storage
 7. **Submit** - upload to TestFlight / Play testing track (separate `launch release` for public)

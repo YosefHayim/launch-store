@@ -77,7 +77,7 @@ and open source:
 - **Your keys stay local.** Your distribution certificate, App Store Connect API key, and Android upload
   key stay in your OS keychain; Launch only ever sends a CSR to Apple. (Building without a Mac is the one
   exception - see below.)
-- **No lock-in, ever.** MIT-licensed, built on [fastlane](https://fastlane.tools/), [Gradle](https://gradle.org/), and the platforms' own APIs, with
+- **No lock-in, ever.** MIT-licensed, built on `xcodebuild`, [Gradle](https://gradle.org/), and the platforms' own APIs, with
   pluggable storage/credentials/build/submit providers. Nothing proprietary to migrate off later.
 - **It teaches as it runs.** Add `--explain` to any command - or run `launch demo` - to expand each step
   (CSR, provisioning profile, TestFlight, Play track, subscription group) into plain English.
@@ -240,14 +240,14 @@ two differ on the same workflow:
 | Signing **credentials can live on Expo's servers**                                                                  | Keys stay in **your OS keychain** - only a **CSR** ever leaves your machine                                                                                      |
 | Build **artifacts are hosted on Expo**                                                                              | Artifacts land in **your own storage** (local, or S3 / R2 / Supabase)                                                                                            |
 | **No Mac?** EAS's paid cloud is the only path                                                                       | **No Mac?** A cloud Mac in **your own AWS**, any Mac over **SSH**, or hand off to **`eas build`**                                                                |
-| **Closed SaaS** - proprietary, vendor lock-in                                                                       | **MIT, open source** - `fastlane`/Gradle/platform APIs, swappable providers, nothing to migrate                                                                  |
+| **Closed SaaS** - proprietary, vendor lock-in                                                                       | **MIT, open source** - `xcodebuild`/Gradle/platform APIs, swappable providers, nothing to migrate                                                               |
 
 ## Requirements
 
-- **iOS:** an **Apple Developer Program** membership ($99/yr) - [enroll here](https://developer.apple.com/programs/enroll/) - then macOS with **[Xcode](https://developer.apple.com/xcode/)** + command-line tools, **fastlane** (`brew install fastlane`), and an
+- **iOS:** an **Apple Developer Program** membership ($99/yr) - [enroll here](https://developer.apple.com/programs/enroll/) - then macOS with **[Xcode](https://developer.apple.com/xcode/)** + command-line tools, **[CocoaPods](https://cocoapods.org/)**, and an
   **App Store Connect API key** (`.p8` + Key ID + Issuer ID) - [generate one here](https://appstoreconnect.apple.com/access/integrations/api).
   No Mac? See [Building without a Mac](#building-without-a-mac).
-- **Android:** a **Google Play Developer account** (one-time $25) - [register here](https://play.google.com/console/signup) - then a **[JDK](https://openjdk.org/)** (any OS - no Mac needed) and a **Google Play service account** JSON key.
+- **Android:** a **Google Play Developer account** (one-time $25) - [register here](https://play.google.com/console/signup) - then a **[JDK](https://openjdk.org/)** and the **[Android SDK](https://developer.android.com/studio)** with `ANDROID_HOME` set (any OS - no Mac needed), and a **Google Play service account** JSON key.
 - **[Node.js](https://nodejs.org/en) 20+** on every platform.
 
 Run `launch doctor` any time to check all of the above.
@@ -352,7 +352,7 @@ export default defineConfig({
   // appRoots: ["./apps"],   // for a monorepo; omit to scan the repo root
   credentials: "local", // OS keychain + ~/.launch
   storage: "local", // ~/.launch/artifacts (swap for s3/r2/supabase later)
-  buildEngine: "fastlane", // "fastlane" (local Mac) - "remote-mac" (AWS EC2 Mac) - "eas" (Expo cloud)
+  buildEngine: "xcode", // "xcode" (local Mac) - "remote-mac" (AWS EC2 Mac) - "eas" (Expo cloud)
   // submit: "app-store-connect", // or "eas" to submit through Expo
 
   // Only needed to build iOS without a Mac via `--remote aws` - see "Building without a Mac".
@@ -490,7 +490,7 @@ No. An App Store Connect SDK or MCP server wraps a slice of Apple's API. Launch 
 <details>
 <summary><strong>How is Launch different from Fastlane?</strong></summary>
 
-Fastlane is a building block; Launch orchestrates it. Launch drives fastlane for the iOS archive (`gym`) and store-listing metadata (`deliver` / `supply`), uploads builds straight through the App Store Connect and Google Play APIs, and wraps the whole release around it: credential provisioning, the native build, the real download-size check, store-config-as-code for both stores, the deliberate public release, phased-rollout control, and OTA updates - all from one typed `launch.config.ts`.
+Fastlane is a Ruby toolkit of separate actions; Launch is one typed release pipeline with no Ruby or fastlane to install. Launch runs `xcodebuild` and Gradle directly, talks to the App Store Connect and Google Play APIs itself for builds and store listings, and covers the whole release: credential provisioning, the native build, the real download-size check, store-config-as-code for both stores, the deliberate public release, phased-rollout control, and OTA updates - all from one typed `launch.config.ts`.
 
 </details>
 
@@ -504,7 +504,7 @@ In your OS keychain. Your App Store Connect API key (`.p8`), distribution privat
 <details>
 <summary><strong>What do I need to run Launch?</strong></summary>
 
-Node 20+ everywhere. For iOS: macOS with Xcode and its command-line tools, fastlane, and an App Store Connect API key (`.p8` + Key ID + Issuer ID) - or a remote Mac if you do not have one. For Android: a JDK (any OS) and a Google Play service-account JSON key. Run `launch doctor` to check it all at once.
+Node 20+ everywhere. For iOS: macOS with Xcode and its command-line tools, CocoaPods, and an App Store Connect API key (`.p8` + Key ID + Issuer ID) - or a remote Mac if you do not have one. For Android: a JDK and the Android SDK with `ANDROID_HOME` set (any OS), and a Google Play service-account JSON key. Run `launch doctor` to check it all at once.
 
 </details>
 
@@ -539,7 +539,7 @@ Yes - as code, for both stores. `launch sync` reconciles IAPs, subscriptions, pr
 <details>
 <summary><strong>Does Launch lock me into a hosted service?</strong></summary>
 
-No - there is nothing hosted and nothing proprietary. Launch is MIT-licensed, built on fastlane, Gradle, and the platforms' own APIs, with pluggable storage / credentials / build / submit providers. Your keys, artifacts, and updates live in infrastructure you control, so there is nothing to migrate off later.
+No - there is nothing hosted and nothing proprietary. Launch is MIT-licensed, built on Xcode, Gradle, and the platforms' own APIs, with pluggable storage / credentials / build / submit providers. Your keys, artifacts, and updates live in infrastructure you control (handing a build to Expo EAS is the one exception), so there is nothing to migrate off later.
 
 </details>
 

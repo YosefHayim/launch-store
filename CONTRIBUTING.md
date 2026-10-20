@@ -9,7 +9,7 @@ links to that rather than repeat it.
 - **Node 20+** and **pnpm** (see `packageManager` in `package.json`; Corepack `corepack enable` is enough).
 
 That's all you need to work on the CLI and its tests. A real iOS build additionally needs a Mac with
-Xcode + fastlane and an App Store Connect API key - but the test suite mocks those, so you can
+Xcode and an App Store Connect API key - but the test suite mocks those, so you can
 contribute to most of Launch on any OS.
 
 ## Setup
@@ -60,7 +60,7 @@ validation and secret-name warnings, the provider registry, the glossary, the Ap
 parse, export-options plist), and the full **`--dry-run` pipeline** as an end-to-end integration test
 that asserts no network call or process spawn happens.
 
-What the suite intentionally does **not** mock is the live `openssl` / `security` / `fastlane` shell
+What the suite intentionally does **not** mock is the live `openssl` / `security` shell
 calls - asserting their exact arguments just re-encodes the implementation and goes brittle. Those are
 verified by `launch build ios --dry-run` (which rehearses every step) and `launch doctor` (which checks
 the toolchain and Apple account). **Add a test for any new logic you introduce.**

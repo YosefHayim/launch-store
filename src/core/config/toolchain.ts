@@ -40,13 +40,6 @@ export const REQUIRED_TOOLS: Tool[] = [
       how: 'Install Xcode from the App Store, then run `xcode-select --install` for the Command Line Tools.',
     },
   },
-  { label: 'Ruby', command: 'ruby', tier: 'required', install: { kind: 'brew', formula: 'ruby' } },
-  {
-    label: 'fastlane',
-    command: 'fastlane',
-    tier: 'required',
-    install: { kind: 'brew', formula: 'fastlane' },
-  },
   {
     label: 'CocoaPods (pod)',
     command: 'pod',
@@ -72,7 +65,7 @@ export const REQUIRED_TOOLS: Tool[] = [
  * The toolchain an Android build needs - the executables `launch doctor --platform android` probes.
  * Unlike iOS, none of these are macOS-only (Android builds anywhere), and Xcode has no analog: the
  * JDK supplies `keytool`, gradle runs via the project's own wrapper (checked separately, not here),
- * `bundletool` estimates the download, and `fastlane` does the upload. `ANDROID_HOME` (the SDK) is an
+ * and `bundletool` estimates the download. `ANDROID_HOME` (the SDK) is an
  * env var, also checked separately in `doctor`.
  */
 export const ANDROID_TOOLS: Tool[] = [
@@ -81,12 +74,6 @@ export const ANDROID_TOOLS: Tool[] = [
     command: 'keytool',
     tier: 'required',
     install: { kind: 'brew', formula: 'openjdk' },
-  },
-  {
-    label: 'fastlane',
-    command: 'fastlane',
-    tier: 'required',
-    install: { kind: 'brew', formula: 'fastlane' },
   },
   {
     label: 'bundletool',
@@ -310,7 +297,7 @@ export type CcacheOfferResult =
  * - non-interactive (CI / piped / no TTY) -> `"skipped-noninteractive"` - never block a build on stdin;
  * - Homebrew missing -> `"skipped-no-brew"` - don't chain a brew bootstrap into a build; point at doctor;
  * - declined -> `"declined"` - the caller remembers it so later builds never re-prompt;
- * - accepted -> `brew install ccache` + configure -> `"installed"` - this build's pod-install/gym pick it up.
+ * - accepted -> `brew install ccache` + configure -> `"installed"` - this build's pod-install/xcodebuild pick it up.
  *
  * Never throws on a decline or a failed install: a build without ccache simply runs uncached.
  */

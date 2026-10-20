@@ -42,7 +42,7 @@ A "boring, traceable" path from source to store that one developer can run and u
 
 - 211 App Store Connect + Google Play API operations covered.
 - 63 commands, with more than 2,000 test cases tracked by the generated docs gate.
-- Build engine: fastlane (local Mac), remote SSH, AWS EC2 Mac, EAS handoff.
+- Build engine: xcodebuild (local Mac), remote SSH, AWS EC2 Mac, EAS handoff.
 - Storage: local, S3, R2, Supabase.
 - OTA updates via Expo Updates protocol on your own bucket.
 - Store-config-as-code for both stores (products, subscriptions, capabilities, listing, Game Center, Wallet, App Clips, events, experiments, accessibility, EU distribution).

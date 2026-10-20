@@ -133,13 +133,9 @@ const SIGNATURES: DiagnosticSignature[] = [
   },
   {
     title: 'A required build tool is missing',
-    cause:
-      "A command the build depends on (CocoaPods, fastlane, bundletool) isn't installed or on PATH.",
+    cause: "A command the build depends on (CocoaPods, bundletool) isn't installed or on PATH.",
     fix: 'Install the missing toolchain: `launch doctor --fix` (iOS) or `launch doctor --platform android`.',
-    match: [
-      /command not found: (?:pod|fastlane|bundletool)/i,
-      /(?:pod|fastlane|bundletool): command not found/i,
-    ],
+    match: [/command not found: (?:pod|bundletool)/i, /(?:pod|bundletool): command not found/i],
   },
 ];
 /**

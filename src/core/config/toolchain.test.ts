@@ -74,11 +74,11 @@ const runToolchainEffect = <TValue, TError>(
 const ALL_COMMANDS = REQUIRED_TOOLS.map((tool) => tool.command);
 describe('fixHint', () => {
   it('renders a brew tool as `brew install <formula>`', () => {
-    const fastlane = expectDefined(
-      REQUIRED_TOOLS.find((tool) => tool.command === 'fastlane'),
-      'fastlane tool',
+    const cocoapods = expectDefined(
+      REQUIRED_TOOLS.find((tool) => tool.command === 'pod'),
+      'pod tool',
     );
-    expect(fixHint(fastlane)).toBe('brew install fastlane');
+    expect(fixHint(cocoapods)).toBe('brew install cocoapods');
   });
   it('renders a guided tool as its guide text', () => {
     const xcode = expectDefined(
@@ -92,14 +92,7 @@ describe('planInstall', () => {
   it('splits missing tools into brew-installable and guided', () => {
     const { brew, guided } = planInstall(REQUIRED_TOOLS);
     expect(guided.map((tool) => tool.command)).toEqual(['xcodebuild']);
-    expect(brew.map((tool) => tool.command)).toEqual([
-      'ruby',
-      'fastlane',
-      'pod',
-      'openssl',
-      'node',
-      'ccache',
-    ]);
+    expect(brew.map((tool) => tool.command)).toEqual(['pod', 'openssl', 'node', 'ccache']);
   });
 });
 describe("missingRequiredTools - the wizard's 'is a Homebrew install even relevant?' signal (issue #117)", () => {
@@ -112,10 +105,10 @@ describe("missingRequiredTools - the wizard's 'is a Homebrew install even releva
     expect(await runToolchainEffect(missingRequiredTools(io))).toEqual([]);
   });
   it('reports only the missing required tools, never the recommended ones', async () => {
-    const { io } = makeIo({ present: ['xcodebuild', 'ruby', 'pod', 'openssl', 'node'] }); // fastlane + ccache absent
+    const { io } = makeIo({ present: ['xcodebuild', 'pod', 'node'] }); // openssl + ccache absent
     expect(
       (await runToolchainEffect(missingRequiredTools(io))).map((tool) => tool.command),
-    ).toEqual(['fastlane']);
+    ).toEqual(['openssl']);
   });
 });
 describe('remoteToolchainPreflight - the on-host doctor, generated from the canonical list', () => {
@@ -135,7 +128,7 @@ describe('remoteToolchainPreflight - the on-host doctor, generated from the cano
     expect(assert).not.toContain('brew shellenv');
     const install = remoteToolchainPreflight('install');
     expect(install).toContain('if ! brew install cocoapods');
-    expect(install).toContain('if ! brew install fastlane');
+    expect(install).toContain('if ! brew install openssl');
     expect(install).toContain('-> installing');
     expect(install).toContain('brew shellenv'); // brew put on PATH first
   });
@@ -158,31 +151,31 @@ describe('ensureToolchain', () => {
     expect(runs).toEqual([]);
   });
   it('installs the missing brew tools as one batch, then re-verifies green', async () => {
-    const present = ALL_COMMANDS.filter((command) => command !== 'fastlane' && command !== 'pod');
+    const present = ALL_COMMANDS.filter((command) => command !== 'openssl' && command !== 'pod');
     const { io, runs } = makeIo({ present: [...present, 'brew'] });
     expect(
       await runToolchainEffect(ensureToolchain({ io, platform: 'darwin', assumeYes: true })),
     ).toBe(true);
-    expect(runs).toContainEqual(['brew', 'install', 'fastlane', 'cocoapods']);
+    expect(runs).toContainEqual(['brew', 'install', 'cocoapods', 'openssl']);
   });
   it("bootstraps Homebrew first when it's missing, then installs", async () => {
-    const present = ALL_COMMANDS.filter((command) => command !== 'fastlane'); // no fastlane, no brew
+    const present = ALL_COMMANDS.filter((command) => command !== 'pod'); // no pod, no brew
     const { io, runs } = makeIo({ present });
     expect(
       await runToolchainEffect(ensureToolchain({ io, platform: 'darwin', assumeYes: true })),
     ).toBe(true);
     expect(runs[0]?.[0]).toBe('/bin/bash'); // Homebrew installer ran first
-    expect(runs).toContainEqual(['brew', 'install', 'fastlane']);
+    expect(runs).toContainEqual(['brew', 'install', 'cocoapods']);
   });
   it('returns false and installs nothing when the user declines the Homebrew installer', async () => {
-    const present = ALL_COMMANDS.filter((command) => command !== 'fastlane'); // no fastlane, no brew
+    const present = ALL_COMMANDS.filter((command) => command !== 'pod'); // no pod, no brew
     const { io, runs, logs } = makeIo({ present, confirmText: false });
     expect(await runToolchainEffect(ensureToolchain({ io, platform: 'darwin' }))).toBe(false);
     expect(runs).toEqual([]);
     expect(logs.join('\n')).toMatch(/Homebrew isn't available/);
   });
   it('returns false and installs nothing when the user declines the brew batch', async () => {
-    const present = ALL_COMMANDS.filter((command) => command !== 'fastlane');
+    const present = ALL_COMMANDS.filter((command) => command !== 'pod');
     const { io, runs, logs } = makeIo({ present: [...present, 'brew'], confirm: false });
     expect(await runToolchainEffect(ensureToolchain({ io, platform: 'darwin' }))).toBe(false);
     expect(runs).toEqual([]);
