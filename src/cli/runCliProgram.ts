@@ -116,7 +116,8 @@ const failureOutcomeOf = (cause: Cause.Cause<unknown>) => {
   const commandFailure = Cause.failureOption(cause);
   const commandExit = Option.flatMap(commandFailure, Schema.decodeUnknownOption(CommandExitSchema));
   if (Option.isSome(commandExit)) {
-    const { exitCode } = commandExit.value;
+    const { exitCode, message } = commandExit.value;
+    if (message !== undefined) return { exitCode, message };
     return { exitCode, message: `The command ended with exit code ${exitCode}.` };
   }
   return { exitCode: 1, message: errorMessage(Cause.squash(cause)) };

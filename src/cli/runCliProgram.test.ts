@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Effect } from 'effect';
-import { makeCommandExit } from '../core/terminal/commandExit.js';
+import { completeCommand, makeCommandExit } from '../core/terminal/commandExit.js';
 import { makeBuildCommandExecutionError } from '../core/build/buildCommandProgram.js';
 import { createLogger } from '../core/services/logger.js';
 import { LaunchPrompt } from '../core/services/prompt.js';
@@ -76,6 +76,16 @@ describe('runJsonCliProgram - the final result line', () => {
     ).rejects.toThrow();
     expect(readEvents()).toEqual([
       { event: 'result', ok: false, ...SUMMARY, message: 'The command ended with exit code 3.' },
+    ]);
+  });
+
+  it('reports the reason a command gave for its exit code', async () => {
+    const readEvents = captureStdoutLines();
+    await expect(
+      runJsonCliProgram(SUMMARY, completeCommand(1, 'No App Store Connect app record yet.')),
+    ).rejects.toThrow();
+    expect(readEvents()).toEqual([
+      { event: 'result', ok: false, ...SUMMARY, message: 'No App Store Connect app record yet.' },
     ]);
   });
 
