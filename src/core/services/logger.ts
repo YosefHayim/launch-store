@@ -91,7 +91,7 @@ export type JsonEvent = Readonly<Record<string, unknown>>;
 export const jsonLine = (event: JsonEvent): string => `${JSON.stringify(event)}\n`;
 
 /**
- * Logger for `--json`: step, progress, warn, note and tip become NDJSON events on `emit`; every other
+ * Logger for `--json`: step, progress, warn, note, tip and box become NDJSON events on `emit`; every other
  * write is human text and goes to `display` (stderr), so stdout carries only events.
  */
 const makeJsonLogger = (
@@ -117,6 +117,7 @@ const makeJsonLogger = (
     warn: (message) => emit({ event: 'warn', message }),
     note: (message) => emit({ event: 'note', message }),
     tip: (message) => emit({ event: 'note', message: `Tip: ${message}` }),
+    box: (title, receiptLines) => emit({ event: 'box', title, lines: receiptLines }),
   };
   return jsonLogger;
 };

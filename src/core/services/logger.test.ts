@@ -128,7 +128,7 @@ describe('json logger NDJSON events', () => {
     ]);
   });
 
-  it('keeps receipts and other human text off the event stream', async () => {
+  it('turns a box into one event and keeps other human text off the event stream', async () => {
     const { eventLines, humanLines } = await runJsonLogging(
       Effect.gen(function* () {
         const logger = yield* createLogger(false);
@@ -137,7 +137,9 @@ describe('json logger NDJSON events', () => {
       }),
     );
 
-    expect(eventLines).toEqual([]);
-    expect(humanLines.join('')).toBe('[OK] Synced\n  3 apps\nplain\n');
+    expect(eventLines.map((eventLine) => JSON.parse(eventLine))).toEqual([
+      { event: 'box', title: 'Synced', lines: ['3 apps'] },
+    ]);
+    expect(humanLines.join('')).toBe('plain\n');
   });
 });

@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-196%20endpoints-8957e5?logo=apple&logoColor=white" alt="196 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2420%20passing-3fb950?logo=vitest&logoColor=white" alt="2420 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2430%20passing-3fb950?logo=vitest&logoColor=white" alt="2430 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -490,7 +490,7 @@ No. An App Store Connect SDK or MCP server wraps a slice of Apple's API. Launch 
 <details>
 <summary><strong>How is Launch different from Fastlane?</strong></summary>
 
-Fastlane is a building block; Launch orchestrates it. Launch drives fastlane for the iOS archive (`gym`) and store-listing metadata (`deliver` / `supply`), uploads builds straight through the App Store Connect and Google Play APIs, and wraps the whole release around it: credential provisioning, the native build, the real download-size check, store-config-as-code for both stores, the deliberate public release, phased-rollout control, and OTA updates - all from one typed `launch.config.ts`.
+Fastlane is a Ruby toolkit of separate actions; Launch is one typed release pipeline with no Ruby or fastlane to install. Launch runs `xcodebuild` and Gradle directly, talks to the App Store Connect and Google Play APIs itself for builds and store listings, and covers the whole release: credential provisioning, the native build, the real download-size check, store-config-as-code for both stores, the deliberate public release, phased-rollout control, and OTA updates - all from one typed `launch.config.ts`.
 
 </details>
 
@@ -504,7 +504,7 @@ In your OS keychain. Your App Store Connect API key (`.p8`), distribution privat
 <details>
 <summary><strong>What do I need to run Launch?</strong></summary>
 
-Node 20+ everywhere. For iOS: macOS with Xcode and its command-line tools, fastlane, and an App Store Connect API key (`.p8` + Key ID + Issuer ID) - or a remote Mac if you do not have one. For Android: a JDK (any OS) and a Google Play service-account JSON key. Run `launch doctor` to check it all at once.
+Node 20+ everywhere. For iOS: macOS with Xcode and its command-line tools, CocoaPods, and an App Store Connect API key (`.p8` + Key ID + Issuer ID) - or a remote Mac if you do not have one. For Android: a JDK and the Android SDK with `ANDROID_HOME` set (any OS), and a Google Play service-account JSON key. Run `launch doctor` to check it all at once.
 
 </details>
 
@@ -539,7 +539,7 @@ Yes - as code, for both stores. `launch sync` reconciles IAPs, subscriptions, pr
 <details>
 <summary><strong>Does Launch lock me into a hosted service?</strong></summary>
 
-No - there is nothing hosted and nothing proprietary. Launch is MIT-licensed, built on fastlane, Gradle, and the platforms' own APIs, with pluggable storage / credentials / build / submit providers. Your keys, artifacts, and updates live in infrastructure you control, so there is nothing to migrate off later.
+No - there is nothing hosted and nothing proprietary. Launch is MIT-licensed, built on Xcode, Gradle, and the platforms' own APIs, with pluggable storage / credentials / build / submit providers. Your keys, artifacts, and updates live in infrastructure you control (handing a build to Expo EAS is the one exception), so there is nothing to migrate off later.
 
 </details>
 
