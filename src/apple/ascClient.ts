@@ -164,8 +164,12 @@ const EDITABLE_APPINFO_STATES = new Set<string>([
   'DEVELOPER_REJECTED',
   'REJECTED',
 ]);
-/** States of the live App Store record: `READY_FOR_DISTRIBUTION`, or `READY_FOR_SALE` in the older `appStoreState`. */
-const LIVE_STATES = new Set<string>(['READY_FOR_DISTRIBUTION', 'READY_FOR_SALE']);
+/** States of the live App Store record: `READY_FOR_DISTRIBUTION`, or `READY_FOR_SALE` and `PREORDER_READY_FOR_SALE` in the older `appStoreState`. */
+const LIVE_STATES = new Set<string>([
+  'READY_FOR_DISTRIBUTION',
+  'READY_FOR_SALE',
+  'PREORDER_READY_FOR_SALE',
+]);
 /** ASC `appInfoLocalizations` attribute keys Launch manages (app-level - persists across versions). */
 const APP_INFO_LISTING_FIELDS = ['name', 'subtitle', 'privacyPolicyUrl'] as const;
 /** ASC `appStoreVersionLocalizations` attribute keys Launch manages (version-level - per release). */

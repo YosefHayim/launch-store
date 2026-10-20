@@ -1165,6 +1165,17 @@ describe('AppStoreConnectClient - listing localizations', () => {
     expect(await client.getCurrentAppInfoId('app1')).toBe('ai-live');
     expect(await client.getCurrentVersionId('app1')).toBe('v-live');
   });
+  it('reads a pre-order version as the live one', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [{ id: 'v-preorder', attributes: { appStoreState: 'PREORDER_READY_FOR_SALE' } }],
+        }),
+      ),
+    );
+    expect(await client.getCurrentVersionId('app1')).toBe('v-preorder');
+  });
   it('prefers the editable appInfo and version over the live ones', async () => {
     fetchMock
       .mockResolvedValueOnce(

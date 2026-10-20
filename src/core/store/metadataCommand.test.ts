@@ -344,6 +344,13 @@ describe('metadataCommandProgram', () => {
       expect(terminalWrites.join('')).toMatch(/wrote App Store listing/);
     });
 
+    it('keeps the configured App Store categories, which a pull does not read', async () => {
+      writeStoreConfig({ apple: { info: { 'en-US': { title: 'Old' } }, categories: ['GAMES'] } });
+      await runCommand('pull', 'ios', false);
+      expect(readStoreConfig()).toMatchObject({
+        apple: { info: { 'en-US': { title: 'Demo' } }, categories: ['GAMES'] },
+      });
+    });
     it('dry-run reads the store and reports locales without writing the config', async () => {
       await runCommand('pull', 'ios', true);
       expect(existsSync(configPath)).toBe(false);

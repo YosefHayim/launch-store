@@ -159,6 +159,16 @@ const readRequiredStoreConfig = (
     Effect.mapError((cause) => metadataFailure(cause.operation, cause.cause, cause.message)),
   );
 
+/** A pulled section replaces only the keys it read, so keys a pull does not read, like `apple.categories`, stay. */
+const mergeStoreConfig = (currentStoreConfig: StoreConfig, storeConfigPatch: StoreConfig) => {
+  const mergedStoreConfig: StoreConfig = { ...currentStoreConfig, ...storeConfigPatch };
+  if (storeConfigPatch.apple !== undefined)
+    mergedStoreConfig.apple = { ...currentStoreConfig.apple, ...storeConfigPatch.apple };
+  if (storeConfigPatch.android !== undefined)
+    mergedStoreConfig.android = { ...currentStoreConfig.android, ...storeConfigPatch.android };
+  return mergedStoreConfig;
+};
+
 /** Merge platform listing fields into store.config.json. */
 const writeMergedStoreConfig = (
   configPath: string,
@@ -167,11 +177,9 @@ const writeMergedStoreConfig = (
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const currentStoreConfig = yield* readExistingStoreConfig(configPath);
+    const mergedStoreConfig = mergeStoreConfig(currentStoreConfig, storeConfigPatch);
     yield* fileSystem
-      .writeFileString(
-        configPath,
-        serializeStoreConfig({ ...currentStoreConfig, ...storeConfigPatch }),
-      )
+      .writeFileString(configPath, serializeStoreConfig(mergedStoreConfig))
       .pipe(Effect.mapError((cause) => metadataFailure('write store metadata config', cause)));
   });
 
