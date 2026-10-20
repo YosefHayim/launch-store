@@ -13,8 +13,8 @@ permissions:
   id-token: write
   contents: read
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: publish-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -36,10 +36,16 @@ jobs:
         with:
           ref: ${{ steps.ref.outputs.ref }}
           fetch-depth: 0
-      - name: Setup workspace
-        uses: ./.github/actions/setup
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
         with:
+          node-version: 24
+          package-manager-cache: false
           registry-url: https://registry.npmjs.org
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
       - name: Verify npm supports OIDC trusted publishing
         run: |
           test "$(printf '%s\n' "11.5.1" "$(npm -v)" | sort -V | head -1)" = "11.5.1" || {

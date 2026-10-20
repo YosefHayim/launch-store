@@ -137,4 +137,5 @@ All six must be green. Add or update colocated tests for any new behavior.
 ## Local CI
 
 Run `act workflow_dispatch -W .github/workflows/ci.yml` before opening a PR.
+On Apple Silicon, add `--container-architecture linux/arm64`.
 The root `.actrc` selects the local Docker runner and keeps the pnpm store outside the workspace.
