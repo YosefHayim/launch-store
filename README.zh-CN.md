@@ -58,7 +58,7 @@
 - **商店配置即代码。** `launch sync` 依据同一份带类型的 `launch.config.ts`，把应用内购买、订阅、定价和能力（capabilities）协调到 App Store Connect 上；另有十几条命令覆盖 Game Center、Wallet、App Clips、应用内活动、A/B 实验、地区，以及整个 Google Play 目录--再加上用于商店列表的 `launch metadata`。这些正是 EAS 留给你手动点击的部分。
 - **零计算费用，无限次构建。** EAS 按构建次数计费，免费额度被 45 分钟超时卡住，付费方案为 **$19-$199/月**外加超额费用。Launch 在你自己的机器上构建--没有计费器、没有排队、没有超时。
 - **你的密钥始终在本地。** 你的分发证书、App Store Connect API 密钥和 Android 上传密钥都留在你的操作系统钥匙串里；Launch 只会向 Apple 发送一份 CSR。（无 Mac 构建是唯一的例外--见下文。）
-- **永不锁定。** 采用 MIT 许可，构建于 `fastlane`、Gradle 以及各平台自己的 API 之上，存储/凭据/构建/提交提供方均可插拔。没有任何专有内容会在日后逼你迁移。
+- **永不锁定。** 采用 MIT 许可，构建于 `xcodebuild`、Gradle 以及各平台自己的 API 之上，存储/凭据/构建/提交提供方均可插拔。没有任何专有内容会在日后逼你迁移。
 - **边运行边讲解。** 给任意命令加上 `--explain`--或者运行 `launch demo`--就能把每个步骤（CSR、配置描述文件、TestFlight、Play 通道、订阅组）展开成通俗易懂的说明。
 
 ## Launch 是什么--又不是什么
@@ -98,7 +98,7 @@
 - **默认就很快。** ccache 在 `pod install` 时接入，DerivedData 保持热态，而原生依赖图指纹只在你的原生依赖确实发生变化时才强制全新构建。JS 改动会增量重建；`--clean` 强制从头开始。
 - **真实的下载体积检查。** 报告实际的每设备体积（App Thinning 报告 / bundletool），并依据你配置的 `sizeBudgetMB` 进行门禁拦截。
 - **安全防护网。** 拒绝上传模拟器构建、`.app` 或空的构建产物；`--dry-run` 在不触及网络、构建或账户的情况下预演整条流水线。
-- **审慎的公开发布--无需门户。** 测试通道是默认目标；公开商店则是单独的、需确认的 `launch release <platform>`。对于 iOS，它端到端驱动 App Store Connect API--创建/复用版本、回答导出合规、附加构建、撰写发布说明、选择立即 / 定时 / 分阶段发布，并提交审核--所以发布永远无需网站。`launch status [--watch] [--json]` 跟踪审核（带 CI 退出码），而 `launch rollout pause|resume|complete` 操控分阶段发布。fastlane 的职责仅限于二进制文件的上传。
+- **审慎的公开发布--无需门户。** 测试通道是默认目标；公开商店则是单独的、需确认的 `launch release <platform>`。对于 iOS，它端到端驱动 App Store Connect API--创建/复用版本、回答导出合规、附加构建、撰写发布说明、选择立即 / 定时 / 分阶段发布，并提交审核--所以发布永远无需网站。`launch status [--watch] [--json]` 跟踪审核（带 CI 退出码），而 `launch rollout pause|resume|complete` 操控分阶段发布。
 - **无需重新构建即可重新签名。** `launch build:resign` 直接从构建产物出发，用不同的凭据（新账户或新描述文件）重新签名已保存的 `.ipa`/`.aab`--无需重建。
 - **完成通知。** 一个 `notify` 配置块会在构建或提交完成时--无论**成功还是**失败--ping 一个 Slack/Discord webhook 和/或运行一个 shell 钩子--这样无人值守/CI 的运行就能在完成时告知你。与 EAS 的 `webhook` 对等，且无需托管服务。
 
@@ -150,11 +150,11 @@ Launch 在你自己拥有的硬件上运行与 `eas build` -> `eas submit` -> `e
 | 签名**凭据可能存放在 Expo 的服务器**上                                                       | 密钥留在**你的操作系统钥匙串**里--只有一份 **CSR** 会离开你的机器                                                                        |
 | 构建**产物托管在 Expo**                                                                      | 产物落在**你自己的存储**里（本地，或 S3 / R2 / Supabase）                                                                                |
 | **没有 Mac？** EAS 的付费云端是唯一途径                                                      | **没有 Mac？** 一台在**你自己 AWS** 里的云端 Mac、任意一台通过 **SSH** 连接的 Mac，或交给 **`eas build`**                                |
-| **闭源 SaaS**--专有，供应商锁定                                                              | **MIT，开源**--`fastlane`/Gradle/平台 API，提供方可替换，无任何需要迁移的东西                                                            |
+| **闭源 SaaS**--专有，供应商锁定                                                              | **MIT，开源**--`xcodebuild`/Gradle/平台 API，提供方可替换，无任何需要迁移的东西                                                          |
 
 ## 环境要求
 
-- **iOS：** 一个 **Apple Developer Program** 会员资格（99 美元/年）--[在此注册](https://developer.apple.com/programs/enroll/)--然后是装有 **Xcode** + 命令行工具、**fastlane**（`brew install fastlane`）的 macOS，以及一把 **App Store Connect API 密钥**（`.p8` + Key ID + Issuer ID）--[在此生成一把](https://appstoreconnect.apple.com/access/integrations/api)。没有 Mac？参见[无 Mac 构建](#无-mac-构建)。
+- **iOS：** 一个 **Apple Developer Program** 会员资格（99 美元/年）--[在此注册](https://developer.apple.com/programs/enroll/)--然后是装有 **Xcode** + 命令行工具的 macOS，以及一把 **App Store Connect API 密钥**（`.p8` + Key ID + Issuer ID）--[在此生成一把](https://appstoreconnect.apple.com/access/integrations/api)。没有 Mac？参见[无 Mac 构建](#无-mac-构建)。
 - **Android：** 一个 **Google Play 开发者账户**（一次性 25 美元）--[在此注册](https://play.google.com/console/signup)--然后是一个 **JDK**（任意操作系统--无需 Mac）和一把 **Google Play 服务账户** JSON 密钥。
 - 每个平台上都需要 **Node 20+**。
 
@@ -216,7 +216,7 @@ export default defineConfig({
   // appRoots: ["./apps"],   // for a monorepo; omit to scan the repo root
   credentials: "local", // OS keychain + ~/.launch
   storage: "local", // ~/.launch/artifacts (swap for s3/r2/supabase later)
-  buildEngine: "fastlane", // "fastlane" (local Mac) - "remote-mac" (AWS EC2 Mac) - "eas" (Expo cloud)
+  buildEngine: "xcode", // "xcode" (local Mac) - "remote-mac" (AWS EC2 Mac) - "eas" (Expo cloud)
   // submit: "app-store-connect", // or "eas" to submit through Expo
 
   // Only needed to build iOS without a Mac via `--remote aws` - see "Building without a Mac".
@@ -300,11 +300,11 @@ launch cloud teardown                    # stop + release the host (warns about 
 
 **Launch 只是一个 App Store Connect SDK 或 MCP 封装器吗？** 不是。App Store Connect SDK 或 MCP 服务器只封装了 Apple API 的一小部分。Launch 驱动横跨 Apple 和 Google 的整个发布流程--代码签名、原生构建、体积检查、商店配置即代码、经确认的公开发布，以及 OTA 更新--这些都是 API 封装层根本触及不到的。如果你想要一个可自托管的 Expo EAS 而非一个 API 客户端，那就是 Launch。
 
-**Launch 与 Fastlane 有何不同？** Fastlane 是一块积木；Launch 则是编排者。Launch 仅将 fastlane 用于二进制文件上传步骤，并在其周围包裹了完整的发布流程：凭据配置、构建、真实的下载体积检查、两个商店的商店配置即代码、审慎的公开发布、分阶段发布控制，以及 OTA 更新--所有这一切都来自同一份有类型的 `launch.config.ts`。
+**Launch 与 Fastlane 有何不同？** Fastlane 是由一系列独立操作组成的 Ruby 工具包；Launch 则是一条有类型的统一发布流水线，无需安装 Ruby 或 fastlane。Launch 直接运行 `xcodebuild` 和 Gradle，自行与 App Store Connect 和 Google Play 的 API 通信来处理构建和商店信息，并覆盖完整的发布流程：凭据配置、构建、真实的下载体积检查、两个商店的商店配置即代码、审慎的公开发布、分阶段发布控制，以及 OTA 更新--所有这一切都来自同一份有类型的 `launch.config.ts`。
 
 **我的签名密钥和机密存放在哪里？** 在你的操作系统钥匙串里。你的 App Store Connect API 密钥（`.p8`）、分发私钥和 Android 上传密钥绝不会触碰仓库或任何人的服务器--只有一份证书签名请求（CSR）会被发送给 Apple。构建机密同样通过 `launch secret` 存放在钥匙串中，从而让它们远离已提交的 `.env`。
 
-**运行 Launch 需要什么？** 处处都需要 Node 20+。对于 iOS：需要装有 Xcode 和命令行工具、fastlane，以及 App Store Connect API 密钥（`.p8` + Key ID + Issuer ID）的 macOS--或者在没有本地 Mac 时使用远程 Mac。对于 Android：需要一个 JDK（任意操作系统）和一把 Google Play 服务账户 JSON 密钥。运行 `launch doctor` 可一次检查所有项。
+**运行 Launch 需要什么？** 处处都需要 Node 20+。对于 iOS：需要装有 Xcode 和命令行工具，以及 App Store Connect API 密钥（`.p8` + Key ID + Issuer ID）的 macOS--或者在没有本地 Mac 时使用远程 Mac。对于 Android：需要一个 JDK（任意操作系统）和一把 Google Play 服务账户 JSON 密钥。运行 `launch doctor` 可一次检查所有项。
 
 **Launch 的费用是多少？** Launch 本身是免费的（MIT）。你只需为本来就要付费的东西买单：你自己的构建硬件（或者在没有本地 Mac 的情况下构建 iOS 时的云端 Mac 时间），加上常规的 Apple Developer 费用（$99/yr）和 Google Play 注册费（一次性 $25）。没有按次构建的收费，也没有订阅。
 
@@ -314,7 +314,7 @@ launch cloud teardown                    # stop + release the host (warns about 
 
 **Launch 能管理商店元数据、应用内购买和订阅吗？** 能--以代码方式，面向两个商店。`launch sync` 将 IAP、订阅、定价、能力，以及各语言区域的商店列表（文案、截图、预览）协调到 App Store Connect 上；`launch metadata` 覆盖 iOS 和 Android 的商店列表；`launch play-products` / `launch play-subscriptions` 驱动 Google Play 目录。每项操作均执行只读的 计划 -> 确认 -> 应用 流程，因此绝不会覆盖线上版本或审核中的版本。
 
-**Launch 会把我锁定在某个托管服务上吗？** 不会--没有任何托管内容，也没有任何专有内容。Launch 采用 MIT 许可，构建于 fastlane、Gradle 和各平台自己的 API 之上，存储/凭据/构建/提交提供方均可插拔。你的密钥、产物和更新都存放在你掌控的基础设施里，因此日后无需迁移任何东西。
+**Launch 会把我锁定在某个托管服务上吗？** 不会--没有任何托管内容，也没有任何专有内容。Launch 采用 MIT 许可，构建于 Xcode、Gradle 和各平台自己的 API 之上，存储/凭据/构建/提交提供方均可插拔。你的密钥、产物和更新都存放在你掌控的基础设施里，因此日后无需迁移任何东西。
 
 **如何开始使用？** 使用 `npm install --global launch-store`（或按项目 `--save-dev`）安装，然后运行 `launch demo`，进行一次 60 秒的模拟演练--无需任何配置或账户。准备好后：`launch init` -> `launch creds set-key` -> `launch creds setup` -> `launch build ios`。
 

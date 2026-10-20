@@ -58,7 +58,7 @@
 - **코드로 관리하는 스토어 설정.** `launch sync`는 인앱 구매, 구독, 가격 책정, 기능(capabilities)을 하나의 타입이 지정된 `launch.config.ts`로부터 App Store Connect에 조정해 반영합니다. 그 외에 Game Center, Wallet, App Clips, 인앱 이벤트, A/B 실험, 판매 지역, Google Play 카탈로그 전체를 다루는 십여 개의 명령이 더 있으며, 스토어 등록 정보를 위한 `launch metadata`도 있습니다. 이것들은 EAS가 직접 클릭하도록 남겨둔 부분입니다.
 - **컴퓨트 비용 $0, 무제한 빌드.** EAS는 빌드 단위로 청구하고, 45분 타임아웃 뒤에 무료 등급을 제한하며, 유료 플랜에서는 **월 $19-$199** 에 더해 초과 사용료를 받습니다. Launch는 직접 보유한 머신에서 빌드합니다 - 미터링도, 대기열도, 타임아웃도 없습니다.
 - **키는 로컬에 남아 있습니다.** 배포 인증서, App Store Connect API 키, Android 업로드 키는 OS keychain에 남아 있고, Launch는 오직 CSR만 Apple로 전송합니다. (Mac 없이 빌드하는 경우가 유일한 예외입니다 - 아래를 참고하세요.)
-- **결코 종속되지 않습니다.** MIT 라이선스이며, `fastlane`, Gradle, 그리고 각 플랫폼의 자체 API 위에 구축되었고, 스토리지/자격 증명/빌드/제출 제공자를 교체할 수 있습니다. 나중에 빠져나와야 할 독점 기술이 전혀 없습니다.
+- **결코 종속되지 않습니다.** MIT 라이선스이며, `xcodebuild`, Gradle, 그리고 각 플랫폼의 자체 API 위에 구축되었고, 스토리지/자격 증명/빌드/제출 제공자를 교체할 수 있습니다. 나중에 빠져나와야 할 독점 기술이 전혀 없습니다.
 - **실행하면서 가르쳐 줍니다.** 어떤 명령에든 `--explain`을 붙이거나 `launch demo`를 실행하면 각 단계(CSR, 프로비저닝 프로파일, TestFlight, Play 트랙, 구독 그룹)를 알기 쉬운 설명으로 펼쳐 줍니다.
 
 ## Launch는 무엇이고, 무엇이 아닌가
@@ -98,7 +98,7 @@
 - **기본적으로 빠릅니다.** ccache가 `pod install` 시점에 연결되고, DerivedData는 따뜻하게 유지되며, 네이티브 그래프 지문(fingerprint)이 네이티브 의존성이 실제로 바뀔 때만 클린 빌드를 강제합니다. JS 수정은 증분적으로 다시 빌드하며, `--clean`은 처음부터 다시 빌드하도록 강제합니다.
 - **실제 다운로드 크기 검사.** 실제 기기별 크기(App Thinning 보고서 / bundletool)를 보고하고 구성한 `sizeBudgetMB`로 게이트를 겁니다.
 - **안전 장치.** 시뮬레이터 빌드, `.app`, 빈 아티팩트의 업로드를 거부합니다. `--dry-run`은 네트워크, 빌드, 계정 변경 없이 전체 파이프라인을 리허설합니다.
-- **의도적인 정식 출시 - 포털 불필요.** 테스트 트랙이 기본값이며, 공개 스토어는 별도로 확인을 거치는 `launch release <platform>`입니다. iOS의 경우 App Store Connect API를 처음부터 끝까지 구동합니다 - 버전 생성/재사용, 수출 규정 준수 답변, 빌드 첨부, 출시 노트 작성, 즉시 / 예약 / 단계적 출시 선택, 심사 제출 - 따라서 출시에 웹사이트가 결코 필요 없습니다. `launch status [--watch] [--json]`은 심사를 추적하고(CI 종료 코드 포함), `launch rollout pause|resume|complete`는 단계적 출시를 조종합니다. fastlane은 바이너리 업로드에만 한정됩니다.
+- **의도적인 정식 출시 - 포털 불필요.** 테스트 트랙이 기본값이며, 공개 스토어는 별도로 확인을 거치는 `launch release <platform>`입니다. iOS의 경우 App Store Connect API를 처음부터 끝까지 구동합니다 - 버전 생성/재사용, 수출 규정 준수 답변, 빌드 첨부, 출시 노트 작성, 즉시 / 예약 / 단계적 출시 선택, 심사 제출 - 따라서 출시에 웹사이트가 결코 필요 없습니다. `launch status [--watch] [--json]`은 심사를 추적하고(CI 종료 코드 포함), `launch rollout pause|resume|complete`는 단계적 출시를 조종합니다.
 - **다시 빌드하지 않고 재서명.** `launch build:resign`은 저장된 `.ipa`/`.aab`를 다른 자격 증명(새 계정이나 프로파일)으로 아티팩트에서 곧장 재서명합니다 - 다시 빌드하지 않습니다.
 - **완료 알림.** `notify` 블록은 빌드나 제출이 끝날 때 Slack/Discord 웹훅에 핑을 보내거나 셸 훅을 실행합니다 - 성공 _과_ 실패 양쪽에서요 - 그래서 무인/CI 실행이 끝났을 때 알려줍니다. 호스팅 서비스 없이 EAS의 `webhook`과 동등합니다.
 
@@ -150,11 +150,11 @@ Launch는 직접 보유한 하드웨어에서 동일한 `eas build` -> `eas subm
 | 서명 **자격 증명이 Expo의 서버에 있을 수 있음**                                                 | 키가 **OS keychain**에 남아 있음 - 오직 **CSR**만 머신을 떠남                                                                                     |
 | 빌드 **아티팩트가 Expo에 호스팅됨**                                                             | 아티팩트가 **직접 보유한 스토리지**(로컬, 또는 S3 / R2 / Supabase)에 저장됨                                                                       |
 | **Mac이 없다고요?** EAS의 유료 클라우드가 유일한 경로                                           | **Mac이 없다고요?** **본인 소유의 AWS**에 있는 클라우드 Mac, **SSH**로 접근하는 아무 Mac, 또는 **`eas build`** 로 작업 넘기기                     |
-| **폐쇄형 SaaS** - 독점적, 벤더 종속                                                             | **MIT, 오픈소스** - `fastlane`/Gradle/플랫폼 API, 교체 가능한 제공자, 이전할 것 없음                                                              |
+| **폐쇄형 SaaS** - 독점적, 벤더 종속                                                             | **MIT, 오픈소스** - `xcodebuild`/Gradle/플랫폼 API, 교체 가능한 제공자, 이전할 것 없음                                                            |
 
 ## 요구 사항
 
-- **iOS:** **Apple Developer Program** 멤버십(연 $99) - [여기서 등록하세요](https://developer.apple.com/programs/enroll/) - 그다음 **Xcode** + 명령줄 도구가 설치된 macOS, **fastlane**(`brew install fastlane`), 그리고 **App Store Connect API 키**(`.p8` + Key ID + Issuer ID) - [여기서 생성하세요](https://appstoreconnect.apple.com/access/integrations/api). Mac이 없다고요? [Mac 없이 빌드하기](#mac-없이-빌드하기)를 참고하세요.
+- **iOS:** **Apple Developer Program** 멤버십(연 $99) - [여기서 등록하세요](https://developer.apple.com/programs/enroll/) - 그다음 **Xcode** + 명령줄 도구가 설치된 macOS, 그리고 **App Store Connect API 키**(`.p8` + Key ID + Issuer ID) - [여기서 생성하세요](https://appstoreconnect.apple.com/access/integrations/api). Mac이 없다고요? [Mac 없이 빌드하기](#mac-없이-빌드하기)를 참고하세요.
 - **Android:** **Google Play 개발자 계정**(일회성 $25) - [여기서 등록하세요](https://play.google.com/console/signup) - 그다음 **JDK**(아무 OS - Mac 불필요)와 **Google Play 서비스 계정** JSON 키.
 - 모든 플랫폼에서 **Node 20+**.
 
@@ -216,7 +216,7 @@ export default defineConfig({
   // appRoots: ["./apps"],   // for a monorepo; omit to scan the repo root
   credentials: "local", // OS keychain + ~/.launch
   storage: "local", // ~/.launch/artifacts (swap for s3/r2/supabase later)
-  buildEngine: "fastlane", // "fastlane" (local Mac) - "remote-mac" (AWS EC2 Mac) - "eas" (Expo cloud)
+  buildEngine: "xcode", // "xcode" (local Mac) - "remote-mac" (AWS EC2 Mac) - "eas" (Expo cloud)
   // submit: "app-store-connect", // or "eas" to submit through Expo
 
   // Only needed to build iOS without a Mac via `--remote aws` - see "Building without a Mac".
@@ -300,11 +300,11 @@ launch cloud teardown                    # stop + release the host (warns about 
 
 **Launch는 단순한 App Store Connect SDK나 MCP 래퍼인가요?** 아닙니다. App Store Connect SDK나 MCP 서버는 Apple API의 일부만 감쌉니다. Launch는 Apple과 Google 양쪽에 걸친 전체 출시를 주도합니다 - 코드 서명, 네이티브 빌드, 크기 검사, 코드로 관리하는 스토어 구성, 확인된 정식 출시, OTA 업데이트 - 이 중 어느 것도 API 래퍼는 건드리지 않습니다. API 클라이언트가 아닌 셀프 호스팅 방식의 Expo EAS를 원한다면, 그것이 바로 Launch입니다.
 
-**Launch는 Fastlane과 어떻게 다른가요?** Fastlane은 빌딩 블록이고, Launch는 그것을 오케스트레이션합니다. Launch는 fastlane을 바이너리 업로드 단계에만 사용하며 그 주변으로 전체 출시를 감쌉니다: 자격 증명 프로비저닝, 빌드, 실제 다운로드 크기 검사, 양쪽 스토어를 위한 코드로 관리하는 스토어 구성, 의도적인 정식 출시, 단계적 출시 제어, OTA 업데이트 - 모두 하나의 타입이 지정된 `launch.config.ts`에서.
+**Launch는 Fastlane과 어떻게 다른가요?** Fastlane은 개별 액션으로 이루어진 Ruby 툴킷이고, Launch는 Ruby나 fastlane을 설치할 필요가 없는 하나의 타입이 지정된 출시 파이프라인입니다. Launch는 `xcodebuild`와 Gradle을 직접 실행하고, 빌드와 스토어 등록 정보를 위해 App Store Connect와 Google Play API와 직접 통신하며, 전체 출시를 다룹니다: 자격 증명 프로비저닝, 빌드, 실제 다운로드 크기 검사, 양쪽 스토어를 위한 코드로 관리하는 스토어 구성, 의도적인 정식 출시, 단계적 출시 제어, OTA 업데이트 - 모두 하나의 타입이 지정된 `launch.config.ts`에서.
 
 **서명 키와 시크릿은 어디에 저장되나요?** OS keychain에 있습니다. App Store Connect API 키(`.p8`), 배포 개인 키, Android 업로드 키는 저장소나 누군가의 서버에 절대 닿지 않습니다 - 인증서 서명 요청(CSR)만 Apple로 전송됩니다. 빌드 시크릿도 `launch secret`을 통해 keychain에 저장되므로 커밋된 `.env`에서 벗어납니다.
 
-**Launch를 실행하려면 무엇이 필요한가요?** 모든 곳에서 Node 20+. iOS의 경우: Xcode와 명령줄 도구가 설치된 macOS, fastlane, App Store Connect API 키(`.p8` + Key ID + Issuer ID) - Mac이 없다면 원격 Mac. Android의 경우: JDK(아무 OS)와 Google Play 서비스 계정 JSON 키. `launch doctor`를 실행하면 한 번에 모두 확인됩니다.
+**Launch를 실행하려면 무엇이 필요한가요?** 모든 곳에서 Node 20+. iOS의 경우: Xcode와 명령줄 도구가 설치된 macOS, App Store Connect API 키(`.p8` + Key ID + Issuer ID) - Mac이 없다면 원격 Mac. Android의 경우: JDK(아무 OS)와 Google Play 서비스 계정 JSON 키. `launch doctor`를 실행하면 한 번에 모두 확인됩니다.
 
 **Launch는 얼마나 하나요?** Launch 자체는 무료(MIT)입니다. 어차피 지불했을 것만 지불하면 됩니다: 직접 보유한 빌드 하드웨어(또는 로컬 Mac 없이 iOS를 빌드할 경우 클라우드 Mac 시간), 그리고 일반적인 Apple Developer($99/yr)와 Google Play(일회성 $25) 등록 요금. 빌드당 요금도 구독료도 없습니다.
 
@@ -314,7 +314,7 @@ launch cloud teardown                    # stop + release the host (warns about 
 
 **Launch는 스토어 메타데이터, 인앱 구매, 구독을 관리할 수 있나요?** 네 - 코드로, 양쪽 스토어 모두. `launch sync`는 IAP, 구독, 가격 책정, 기능(capabilities), 그리고 로케일별 등록(문구, 스크린샷, 미리보기)을 App Store Connect에 조정합니다; `launch metadata`는 iOS와 Android의 등록을 다룹니다; `launch play-products` / `launch play-subscriptions`는 Google Play 카탈로그를 구동합니다. 각각은 읽기 전용 계획 -> 확인 -> 적용을 실행하므로 라이브나 심사 중인 버전을 절대 덮어쓰지 않습니다.
 
-**Launch가 호스팅 서비스에 종속시키나요?** 아닙니다 - 호스팅되는 것도, 독점적인 것도 전혀 없습니다. Launch는 MIT 라이선스이며, fastlane, Gradle, 각 플랫폼의 자체 API를 기반으로 구축되었고, 교체 가능한 스토리지/자격 증명/빌드/제출 제공자가 있습니다. 키, 아티팩트, 업데이트는 본인이 제어하는 인프라에 있으므로 나중에 마이그레이션할 것이 전혀 없습니다.
+**Launch가 호스팅 서비스에 종속시키나요?** 아닙니다 - 호스팅되는 것도, 독점적인 것도 전혀 없습니다. Launch는 MIT 라이선스이며, Xcode, Gradle, 각 플랫폼의 자체 API를 기반으로 구축되었고, 교체 가능한 스토리지/자격 증명/빌드/제출 제공자가 있습니다. 키, 아티팩트, 업데이트는 본인이 제어하는 인프라에 있으므로 나중에 마이그레이션할 것이 전혀 없습니다.
 
 **어떻게 시작하나요?** `npm install --global launch-store`(또는 프로젝트별로 `--save-dev`)로 설치한 뒤, `launch demo`를 실행하면 60초 시뮬레이션 둘러보기를 볼 수 있습니다 - 설정도, 계정도 필요 없습니다. 준비가 되면: `launch init` -> `launch creds set-key` -> `launch creds setup` -> `launch build ios`.
 
