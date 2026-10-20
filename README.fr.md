@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-196%20endpoints-8957e5?logo=apple&logoColor=white" alt="196 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2436%20passing-3fb950?logo=vitest&logoColor=white" alt="2436 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2432%20passing-3fb950?logo=vitest&logoColor=white" alt="2432 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -125,7 +125,7 @@ Chaque section ci-dessous est déclarée dans `launch.config.ts` (ou dans son fi
 **Prise en main et apprentissage**
 
 - **`launch demo`.** Une visite guidée simulée et sans configuration de tout le pipeline (se joue automatiquement une fois au premier lancement) ; `--explain` sur n'importe quelle commande et `launch explain <topic>` couvrent la terminologie à la demande.
-- **Auto-mise à jour silencieuse.** Une installation globale npm ou pnpm récupère une version plus récente avec ce même gestionnaire de paquets et relance votre commande dessus ; une installation de projet affiche seulement un avis - limitée à une fois par jour et sans effet en CI, lorsqu'on redirige la sortie, et pour les agents.
+- **Auto-mise à jour silencieuse.** Une installation globale npm ou pnpm récupère une version plus récente avec ce même gestionnaire de paquets et relance votre commande dessus (ou à votre prochaine commande, si la nouvelle copie est encore introuvable) ; une installation de projet affiche seulement un avis - limitée à une fois par jour et sans effet en CI, lorsqu'on redirige la sortie, et pour les agents.
 
 ## Launch vs EAS
 

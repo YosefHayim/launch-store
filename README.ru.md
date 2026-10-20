@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-196%20endpoints-8957e5?logo=apple&logoColor=white" alt="196 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2436%20passing-3fb950?logo=vitest&logoColor=white" alt="2436 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2432%20passing-3fb950?logo=vitest&logoColor=white" alt="2432 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -216,7 +216,7 @@ rollback` отменяет неудачный OTA - продвигает зав�
 
 - **`launch demo`.** Симулированный обзор всего конвейера без настройки (проигрывается автоматически один раз при
   первом запуске); `--explain` к любой команде и `launch explain <topic>` раскрывают терминологию по требованию.
-- **Тихое самообновление.** Глобальная установка через npm или pnpm подхватывает более новый релиз тем же менеджером пакетов и перезапускает вашу команду на нём; установка в проект только показывает уведомление - с ограничением
+- **Тихое самообновление.** Глобальная установка через npm или pnpm подхватывает более новый релиз тем же менеджером пакетов и перезапускает вашу команду на нём (или на следующей команде, если новую копию пока не удаётся найти); установка в проект только показывает уведомление - с ограничением
   до одного раза в день и без действий в CI, при пайпе и для агентов.
 
 ## Launch против EAS

@@ -7,10 +7,10 @@ import {
   Path,
 } from '@effect/platform';
 import * as CommandExecutor from '@effect/platform/CommandExecutor';
-import { Effect, Option, Schema } from 'effect';
+import { Effect, Option, type ParseResult, Schema } from 'effect';
 import { LaunchEnvironment } from '../services/environment.js';
 import type { LaunchEnvironmentService } from '../services/environment.js';
-import { captureCommandOutput } from '../services/exec.js';
+import { captureCommandOutput, type CommandFailed } from '../services/exec.js';
 import {
   LaunchPaths,
   resolveUpdateStateFilePath,
@@ -37,8 +37,7 @@ const INSTALL_VERBS: Record<GlobalInstaller, readonly string[]> = {
   npm: ['install', '-g'],
   pnpm: ['add', '-g'],
 };
-const PNPM_GLOBAL_SEGMENT = '/pnpm/global/';
-const NPM_GLOBAL_PACKAGE_PATTERN = /\/(lib|npm)\/node_modules\/launch-store\//;
+const GLOBAL_INSTALLERS: readonly GlobalInstaller[] = ['npm', 'pnpm'];
 const UpdateStateSchema = Schema.Struct({
   lastCheckedAt: Schema.Number,
   latestSeen: Schema.optional(Schema.String),
@@ -102,12 +101,6 @@ export const autoUpgradeBlockedReason = (input: {
   if (input.scriptPath.endsWith('.ts')) return 'running from source (dev)';
   return null;
 };
-export const globalInstallerFor = (scriptPaths: readonly string[]): GlobalInstaller | null => {
-  const slashedPaths = scriptPaths.map((scriptPath) => scriptPath.replaceAll('\\', '/'));
-  if (slashedPaths.some((scriptPath) => scriptPath.includes(PNPM_GLOBAL_SEGMENT))) return 'pnpm';
-  if (slashedPaths.some((scriptPath) => NPM_GLOBAL_PACKAGE_PATTERN.test(scriptPath))) return 'npm';
-  return null;
-};
 const installArguments = (installer: GlobalInstaller, version: string): readonly string[] => [
   ...INSTALL_VERBS[installer],
   `${PACKAGE_NAME}@${version}`,
@@ -121,7 +114,7 @@ export type UpdateCheckDeps = {
   environmentVariables: Readonly<Record<string, string | undefined>>;
   isTTY: boolean;
   scriptPath: string;
-  installer: GlobalInstaller | null;
+  resolveInstaller(): Effect.Effect<GlobalInstaller | null>;
   readState(): UpdateState | null;
   writeState(state: UpdateState): Effect.Effect<void>;
   fetchLatest(): Effect.Effect<string | null>;
@@ -155,7 +148,7 @@ export const maybeAutoUpgrade = (deps: UpdateCheckDeps): Effect.Effect<void, Com
     yield* deps.writeState(nextState);
     if (latest === null) return;
     if (!isNewer(latest, deps.currentVersion)) return;
-    const installer = deps.installer;
+    const installer = yield* deps.resolveInstaller();
     if (installer === null) {
       yield* deps.notify(`launch ${latest} is available - you have ${deps.currentVersion}`);
       return;
@@ -285,9 +278,34 @@ const reexecLaunch = (
     );
     return yield* Effect.fail(makeCommandExit({ exitCode }));
   });
-const resolveRelaunchScript = (
+const resolveGlobalPackagePath = (
   installer: GlobalInstaller,
-  scriptPath: string,
+  homeDirectory: string,
+): Effect.Effect<
+  string | null,
+  CommandFailed | ParseResult.ParseError,
+  CommandExecutor.CommandExecutor | LaunchEnvironmentService | Path.Path
+> =>
+  Effect.gen(function* () {
+    const pathService = yield* Path.Path;
+    if (installer === 'npm') {
+      const npmGlobalRoot = yield* captureCommandOutput('npm', ['root', '-g'], {
+        workingDirectory: homeDirectory,
+      });
+      return pathService.join(npmGlobalRoot, PACKAGE_NAME);
+    }
+    const globalListingText = yield* captureCommandOutput(
+      'pnpm',
+      ['ls', '-g', '--json', PACKAGE_NAME],
+      { workingDirectory: homeDirectory },
+    );
+    const globalListing = yield* Schema.decodeUnknown(PnpmGlobalListingSchema)(globalListingText);
+    const [globalProject] = globalListing;
+    if (globalProject === undefined) return null;
+    return globalProject.dependencies[PACKAGE_NAME].path;
+  });
+const resolveGlobalEntryPath = (
+  installer: GlobalInstaller,
   homeDirectory: string,
 ): Effect.Effect<
   string | null,
@@ -295,18 +313,40 @@ const resolveRelaunchScript = (
   CommandExecutor.CommandExecutor | LaunchEnvironmentService | Path.Path
 > =>
   Effect.gen(function* () {
-    if (installer === 'npm') return scriptPath;
-    const globalListingText = yield* captureCommandOutput(
-      'pnpm',
-      ['ls', '-g', '--json', PACKAGE_NAME],
-      { workingDirectory: homeDirectory },
-    );
-    const globalListing = yield* Schema.decodeUnknown(PnpmGlobalListingSchema)(globalListingText);
-    const globalProject = globalListing[0];
-    if (globalProject === undefined) return null;
+    const globalPackagePath = yield* resolveGlobalPackagePath(installer, homeDirectory);
+    if (globalPackagePath === null) return null;
     const pathService = yield* Path.Path;
-    return pathService.join(globalProject.dependencies[PACKAGE_NAME].path, CLI_ENTRY_PATH);
-  }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+    return pathService.join(globalPackagePath, CLI_ENTRY_PATH);
+  }).pipe(Effect.orElseSucceed(() => null));
+const isRunningGlobalInstall = (
+  installer: GlobalInstaller,
+  realScriptPath: string,
+  homeDirectory: string,
+): Effect.Effect<
+  boolean,
+  never,
+  CommandExecutor.CommandExecutor | FileSystem.FileSystem | LaunchEnvironmentService | Path.Path
+> =>
+  Effect.gen(function* () {
+    const globalEntryPath = yield* resolveGlobalEntryPath(installer, homeDirectory);
+    if (globalEntryPath === null) return false;
+    const fileSystem = yield* FileSystem.FileSystem;
+    const realGlobalEntryPath = yield* fileSystem
+      .realPath(globalEntryPath)
+      .pipe(Effect.orElseSucceed(() => null));
+    return realGlobalEntryPath === realScriptPath;
+  });
+const resolveRunningInstaller = (
+  realScriptPath: string,
+  homeDirectory: string,
+): Effect.Effect<
+  GlobalInstaller | null,
+  never,
+  CommandExecutor.CommandExecutor | FileSystem.FileSystem | LaunchEnvironmentService | Path.Path
+> =>
+  Effect.findFirst(GLOBAL_INSTALLERS, (installer) =>
+    isRunningGlobalInstall(installer, realScriptPath, homeDirectory),
+  ).pipe(Effect.map(Option.getOrNull));
 
 export type AutoUpgradeRuntime = Readonly<{
   readonly executablePath: string;
@@ -325,11 +365,7 @@ const relaunchUpgradedLaunch = (
   CommandExecutor.CommandExecutor | LaunchEnvironmentService | Path.Path
 > =>
   Effect.gen(function* () {
-    const relaunchScript = yield* resolveRelaunchScript(
-      installer,
-      runtime.scriptPath,
-      homeDirectory,
-    );
+    const relaunchScript = yield* resolveGlobalEntryPath(installer, homeDirectory);
     if (relaunchScript === null) {
       yield* Effect.logWarning('launch was upgraded - the new version runs from your next command');
       return;
@@ -369,14 +405,19 @@ export const runAutoUpgrade = (
     const realScriptPath = yield* fileSystem
       .realPath(runtime.scriptPath)
       .pipe(Effect.orElseSucceed(() => runtime.scriptPath));
-    const installer = globalInstallerFor([runtime.scriptPath, realScriptPath]);
     yield* maybeAutoUpgrade({
       now: () => Date.now(),
       currentVersion,
       environmentVariables: environment.rawVariables,
       isTTY: runtime.terminalIsInteractive,
       scriptPath: runtime.scriptPath,
-      installer,
+      resolveInstaller: () =>
+        resolveRunningInstaller(realScriptPath, launchPaths.homeDirectory).pipe(
+          Effect.provideService(CommandExecutor.CommandExecutor, commandExecutor),
+          Effect.provideService(FileSystem.FileSystem, fileSystem),
+          Effect.provideService(LaunchEnvironment, environment),
+          Effect.provideService(Path.Path, pathService),
+        ),
       readState: () => currentState,
       writeState: (state) =>
         writeState(stateFilePath, pathService.dirname(stateFilePath), state).pipe(

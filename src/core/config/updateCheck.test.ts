@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { Effect } from 'effect';
 import {
   autoUpgradeBlockedReason,
-  globalInstallerFor,
   isNewer,
   maybeAutoUpgrade,
   shouldCheck,
@@ -61,52 +60,6 @@ describe('autoUpgradeBlockedReason', () => {
     );
   });
 });
-describe('globalInstallerFor', () => {
-  it('detects an npm global install through its resolved bin link', () => {
-    expect(
-      globalInstallerFor([
-        '/Users/me/.local/bin/launch',
-        '/Users/me/.local/lib/node_modules/launch-store/dist/cli/index.js',
-      ]),
-    ).toBe('npm');
-  });
-  it('detects pnpm 10 and pnpm 11 global installs', () => {
-    expect(
-      globalInstallerFor([
-        '/Users/me/Library/pnpm/global/5/.pnpm/launch-store@0.32.12_a4e7/node_modules/launch-store/dist/cli/index.js',
-      ]),
-    ).toBe('pnpm');
-    expect(
-      globalInstallerFor([
-        '/Users/me/Library/pnpm/global/v11/291a-1a158d29285/node_modules/launch-store/dist/cli/index.js',
-        '/Users/me/Library/pnpm/store/v11/links/@/launch-store/0.33.0/24c5/node_modules/launch-store/dist/cli/index.js',
-      ]),
-    ).toBe('pnpm');
-  });
-  it('detects Windows global installs', () => {
-    expect(
-      globalInstallerFor([
-        'C:\\Users\\me\\AppData\\Roaming\\npm\\node_modules\\launch-store\\dist\\cli\\index.js',
-      ]),
-    ).toBe('npm');
-    expect(
-      globalInstallerFor([
-        'C:\\Users\\me\\AppData\\Local\\pnpm\\global\\5\\node_modules\\launch-store\\dist\\cli\\index.js',
-      ]),
-    ).toBe('pnpm');
-  });
-  it('leaves project and npx installs alone', () => {
-    expect(globalInstallerFor(['/repo/node_modules/launch-store/dist/cli/index.js'])).toBeNull();
-    expect(
-      globalInstallerFor([
-        '/repo/node_modules/.pnpm/launch-store@0.33.0/node_modules/launch-store/dist/cli/index.js',
-      ]),
-    ).toBeNull();
-    expect(
-      globalInstallerFor(['/Users/me/.npm/_npx/1a2b/node_modules/launch-store/dist/cli/index.js']),
-    ).toBeNull();
-  });
-});
 /** Build fully-injected deps over recorded call counters; overrides tweak individual behaviors. */
 const makeDeps = (
   overrides: Partial<UpdateCheckDeps> = {},
@@ -114,6 +67,7 @@ const makeDeps = (
   deps: UpdateCheckDeps;
   calls: {
     fetch: number;
+    resolveInstaller: number;
     upgrade: number;
     reexec: number;
     writes: UpdateState[];
@@ -122,12 +76,14 @@ const makeDeps = (
 } => {
   const calls: {
     fetch: number;
+    resolveInstaller: number;
     upgrade: number;
     reexec: number;
     writes: UpdateState[];
     notes: string[];
   } = {
     fetch: 0,
+    resolveInstaller: 0,
     upgrade: 0,
     reexec: 0,
     writes: [],
@@ -139,7 +95,11 @@ const makeDeps = (
     environmentVariables: {},
     isTTY: true,
     scriptPath: '/usr/local/lib/node_modules/launch-store/dist/cli/index.js',
-    installer: 'npm',
+    resolveInstaller: () =>
+      Effect.sync((): GlobalInstaller | null => {
+        calls.resolveInstaller++;
+        return 'npm';
+      }),
     readState: () => null,
     writeState: (state) => {
       return Effect.sync(() => {
@@ -184,6 +144,7 @@ describe('maybeAutoUpgrade', () => {
     const { deps, calls } = makeDeps({ fetchLatest: () => Effect.succeed('0.1.0') });
     await Effect.runPromise(maybeAutoUpgrade(deps));
     expect(calls.writes).toHaveLength(1);
+    expect(calls.resolveInstaller).toBe(0);
     expect(calls.upgrade).toBe(0);
     expect(calls.reexec).toBe(0);
   });
@@ -202,7 +163,7 @@ describe('maybeAutoUpgrade', () => {
   it('upgrades, relaunches, and names pnpm for a pnpm install', async () => {
     const usedInstallers: GlobalInstaller[] = [];
     const { deps, calls } = makeDeps({
-      installer: 'pnpm',
+      resolveInstaller: () => Effect.succeed('pnpm'),
       upgrade: (installer) =>
         Effect.sync(() => {
           usedInstallers.push(installer);
@@ -215,7 +176,7 @@ describe('maybeAutoUpgrade', () => {
     expect(calls.notes).toEqual(['launch 0.2.0 is available - pnpm add -g launch-store@0.2.0']);
   });
   it('only notifies for a project or npx install', async () => {
-    const { deps, calls } = makeDeps({ installer: null });
+    const { deps, calls } = makeDeps({ resolveInstaller: () => Effect.succeed(null) });
     await Effect.runPromise(maybeAutoUpgrade(deps));
     expect(calls.upgrade).toBe(0);
     expect(calls.reexec).toBe(0);

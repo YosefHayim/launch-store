@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-196%20endpoints-8957e5?logo=apple&logoColor=white" alt="196 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2436%20passing-3fb950?logo=vitest&logoColor=white" alt="2436 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2432%20passing-3fb950?logo=vitest&logoColor=white" alt="2432 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -125,7 +125,7 @@
 **オンボーディングと学習**
 
 - **`launch demo`。** パイプライン全体をセットアップ不要でシミュレーションしたウォークスルーです（初回実行時に一度だけ自動再生されます）。どのコマンドにも付けられる `--explain` と `launch explain <topic>` が、用語を必要に応じて解説します。
-- **静かな自己アップグレード。** npm または pnpm のグローバルインストールは、同じパッケージマネージャーでより新しいリリースを取得し、その上であなたのコマンドを再実行します。プロジェクトへのインストールでは通知を表示するだけです - 一日一回に絞られ、CI 内、パイプ接続時、エージェントに対しては何もしません。
+- **静かな自己アップグレード。** npm または pnpm のグローバルインストールは、同じパッケージマネージャーでより新しいリリースを取得し、その上であなたのコマンドを再実行します（新しいコピーがまだ見つからない場合は、次のコマンドから使われます）。プロジェクトへのインストールでは通知を表示するだけです - 一日一回に絞られ、CI 内、パイプ接続時、エージェントに対しては何もしません。
 
 ## Launch 対 EAS
 
