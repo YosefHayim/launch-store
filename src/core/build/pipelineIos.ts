@@ -29,6 +29,7 @@ export const runIosBuild = (prepared: PreparedBuild, options: BuildRunOptions) =
   Effect.gen(function* () {
     const { config, app, buildContext, log } = prepared;
     const { dryRun } = options;
+    const buildEngine = yield* getBuildEngine(resolveBuildEngineName(config, 'ios'));
     let appVersion = app.version;
     if (appVersion === undefined) appVersion = '0.0.0';
     // 2. Generate ios/ when it's missing, or on every build with `prebuild: 'always'`.
@@ -101,7 +102,6 @@ export const runIosBuild = (prepared: PreparedBuild, options: BuildRunOptions) =
     yield* log.step('build number', buildNumberDescription, 'build-number');
     // 5. Compile, sign, export, and analyze size - clean or incremental per the build fingerprint.
     if (!dryRun) yield* nudgeIfNoCcache(log);
-    const buildEngine = yield* getBuildEngine(resolveBuildEngineName(config, 'ios'));
     const { artifactPath, sizeReport, cleanBuilt } = yield* runBuildStep(
       prepared,
       buildNumber,

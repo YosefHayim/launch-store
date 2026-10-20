@@ -43,12 +43,13 @@ export const registerSubmitter = (submitter: Submitter): void => {
 export const registerComputeHost = (host: ComputeHost): void => {
   computeHosts.set(host.name, host);
 };
-/** Look up a registered provider, throwing a clear error listing the available names if missing. */
+/** A provider lookup failed; the message lists the registered names. */
 export type ProviderNotRegistered = Readonly<{
   readonly _tag: 'ProviderNotRegistered';
   readonly kind: string;
   readonly name: string;
   readonly available: readonly string[];
+  readonly message: string;
 }>;
 export const makeProviderNotRegistered =
   Data.tagged<ProviderNotRegistered>('ProviderNotRegistered');
@@ -60,7 +61,8 @@ const lookup = <T>(
   const found = registry.get(name);
   if (!found) {
     const names = [...registry.keys()];
-    return Effect.fail(makeProviderNotRegistered({ kind, name, available: names }));
+    const message = `Unknown ${kind} "${name}". Valid ${kind}s: ${names.join(', ')}.`;
+    return Effect.fail(makeProviderNotRegistered({ kind, name, available: names, message }));
   }
   return Effect.succeed(found);
 };

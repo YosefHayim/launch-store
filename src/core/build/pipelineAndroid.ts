@@ -37,6 +37,7 @@ export const runAndroidBuild = (prepared: PreparedBuild, options: BuildRunOption
           message: `No Android application id for ${app.name}. Set android.package in app.json.`,
         }),
       );
+    const buildEngine = yield* getBuildEngine(resolveBuildEngineName(config, 'android'));
     // 2. Generate android/ when it's missing, or on every build with `prebuild: 'always'`.
     yield* ensureAndroidProject(buildContext, log, config.prebuild);
     // 3. Resolve the Play service account, then reuse-or-provision the upload keystore.
@@ -85,7 +86,6 @@ export const runAndroidBuild = (prepared: PreparedBuild, options: BuildRunOption
     if (dryRun) versionCodeDescription = `would set next versionCode (~${versionCode})`;
     yield* log.step('version code', versionCodeDescription, 'version-code');
     // 5. Compile, sign (upload key), export the .aab, and estimate the download with bundletool.
-    const buildEngine = yield* getBuildEngine(resolveBuildEngineName(config, 'android'));
     const { artifactPath, sizeReport, cleanBuilt } = yield* runBuildStep(
       prepared,
       versionCode,
