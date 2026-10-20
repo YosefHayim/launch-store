@@ -83,7 +83,7 @@ describe('parseAppStoreBuildSelector', () => {
 
 describe('resolveAndroidRollout', () => {
   it('prefers the CLI flag over the profile default', () => {
-    expect(resolveAndroidRollout(0.25, '0.5')).toBe(0.5);
+    expect(resolveAndroidRollout(0.25, 0.5)).toBe(0.5);
   });
 
   it('uses the profile fraction when no flag is passed', () => {
