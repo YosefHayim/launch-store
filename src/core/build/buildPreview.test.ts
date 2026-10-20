@@ -55,6 +55,15 @@ describe('previewBuild', () => {
     expect(plan?.submitter).toBe('google-play');
     expect(plan?.identifier).toBe('com.example.sampleapp');
   });
+  it('builds Android with Gradle when the config names an iOS-only engine', () => {
+    for (const buildEngine of ['remote-mac', 'eas']) {
+      const preview = Effect.runSync(
+        previewBuild({ config: config({ buildEngine }), apps: [app()], platform: 'android' }),
+      );
+      const [plan] = preview.apps;
+      expect(plan?.buildEngine).toBe('gradle');
+    }
+  });
   it('defaults Android track/rollout to internal/full like the real build', () => {
     const preview = Effect.runSync(
       previewBuild({ config: config(), apps: [app()], platform: 'android' }),

@@ -32,9 +32,11 @@ export type BuildTransportFailure = Readonly<{
 
 export const makeBuildTransportFailure =
   Data.tagged<BuildTransportFailure>('BuildTransportFailure');
-/** The build engine name for a platform, swapping the iOS baseline default (`xcode`) for `gradle` on Android. */
+/** Engines that only build Apple apps; an Android build swaps any of them for `gradle`. */
+const APPLE_ONLY_BUILD_ENGINES = new Set([IOS_BUILD_ENGINE, 'remote-mac', 'eas']);
+/** The build engine name for a platform, swapping an Apple-only engine (`xcode`, `remote-mac`, `eas`) for `gradle` on Android. */
 export const resolveBuildEngineName = (config: LaunchConfig, platform: Platform): string => {
-  if (platform === 'android' && config.buildEngine === IOS_BUILD_ENGINE)
+  if (platform === 'android' && APPLE_ONLY_BUILD_ENGINES.has(config.buildEngine))
     return ANDROID_BUILD_ENGINE;
   return config.buildEngine;
 };
