@@ -1,0 +1,9 @@
+{
+  "name": "launch-store",
+  "version": "0.1.0",
+  "description": "Build, release and check iOS and Android apps with launch-store from Claude Code",
+  "types": "./types/state.d.ts",
+  "author": {
+    "name": "YosefHayim"
+  }
+}

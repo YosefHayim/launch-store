@@ -20,7 +20,7 @@ Config the engineering skills read.
 
 ## Repo Layout - Who Owns What
 
-One TypeScript / Node ESM package. Top-level `src/` ownership:
+One TypeScript / Node ESM package plus its Claude Code mod. Top-level ownership:
 
 | Path | Owns |
 | --- | --- |
@@ -30,6 +30,7 @@ One TypeScript / Node ESM package. Top-level `src/` ownership:
 | `src/apple` | App Store Connect transport and the generated Apple API mirror. |
 | `src/google` | Google Play transport wrappers around Google's official generated clients. |
 | `src/testkit` | Shared test fakes and Effect test layers. |
+| `.claude-plugin/launch-store` | The Claude Code mod: tools and `/launch` that run `launch <command> --json`. Not in the npm package. Check it with `claude plugin validate --strict .claude-plugin/launch-store` and `claude plugin test .claude-plugin/launch-store`. |
 
 Current `src/core` layout:
 

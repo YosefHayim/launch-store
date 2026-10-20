@@ -1,8 +1,9 @@
 # dependencies
 node_modules/
 
-# build (tsc output, launch artifacts, Expo prebuild native projects)
+# build (tsc output, launch artifacts, Expo prebuild native projects, mod types)
 dist/
+.claude-plugin/*/.claude-plugin/types/
 *.tsbuildinfo
 .launch/
 ios/
