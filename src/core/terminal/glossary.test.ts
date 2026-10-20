@@ -88,7 +88,7 @@ describe('glossary - the single source for --explain and docs', () => {
     expect(topics).toContain('sandbox-tester');
     expect(topics).toContain('resign');
     expect(topics).toContain('ai-store-assets');
-    expect(topics.length).toBe(92);
+    expect(topics.length).toBe(91);
     expect(new Set(topics).size).toBe(topics.length);
   });
   it('returns non-empty teaching text for every topic', () => {

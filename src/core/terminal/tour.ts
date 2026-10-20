@@ -67,10 +67,11 @@ const TOUR_STEPS: readonly TourStep[] = [
     phase: 'build',
     title: 'Build & sign',
     detail: {
-      apple: () => `fastlane gym -> signed ${SAMPLE.name}.ipa (caches warm - incremental)`,
+      apple: () =>
+        `xcodebuild archive + export -> signed ${SAMPLE.name}.ipa (caches warm - incremental)`,
       android: `gradle :app:bundleRelease -> signed ${SAMPLE.name}.aab`,
     },
-    topic: { apple: 'fastlane', android: 'gradle' },
+    topic: { apple: 'xcode', android: 'gradle' },
   },
   {
     phase: 'size',

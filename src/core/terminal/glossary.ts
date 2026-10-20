@@ -11,7 +11,6 @@ export type GlossaryTopic =
   | 'apple-developer-program'
   | 'app-store-connect'
   | 'xcode'
-  | 'fastlane'
   | 'cocoapods'
   | 'keychain'
   | 'app-record'
@@ -159,13 +158,8 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   ].join('\n'),
   xcode: [
     "Xcode: Apple's toolchain (compiler, signing, simulators). It only runs on macOS, which is why an",
-    "iOS build needs a Mac - yours, a remote one, or EAS. Launch never opens Xcode's UI; it drives the",
-    'command-line build through fastlane, but the Xcode toolchain underneath is what compiles and signs.',
-  ].join('\n'),
-  fastlane: [
-    "fastlane: the open-source Ruby toolkit that automates Apple's build/upload steps from the command",
-    'line. Launch drives its actions - gym (archive + sign + export the .ipa) and deliver (App Store',
-    "metadata) - so iOS releases are scriptable. Build uploads skip it and go straight to Apple's API.",
+    "iOS build needs a Mac - yours, a remote one, or EAS. Launch never opens Xcode's UI; it runs",
+    'xcodebuild directly to archive, sign and export the .ipa.',
   ].join('\n'),
   cocoapods: [
     'CocoaPods: the dependency manager for iOS native libraries. `pod install` reads the Podfile that',
@@ -282,7 +276,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   ].join('\n'),
   'code-signing': [
     'Code signing: stamping the app with your distribution certificate so Apple (and the device)',
-    "can verify it came from you and wasn't tampered with. Launch signs during export via fastlane gym.",
+    "can verify it came from you and wasn't tampered with. Launch signs during the xcodebuild export.",
   ].join('\n'),
   resign: [
     'Re-signing: swapping the signing identity on an ALREADY-built artifact - a different cert/profile, or',
@@ -515,7 +509,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   'remote-build': [
     'Remote build: iOS can only be signed on macOS, so a non-Mac developer builds on a remote Mac.',
     'Launch syncs your project over SSH, uploads a transient copy of your signing keys into a throwaway',
-    'keychain on the host, runs the same fastlane build there, pulls the .ipa home, and shreds the host.',
+    'keychain on the host, runs the same xcodebuild build there, pulls the .ipa home, and shreds the host.',
   ].join('\n'),
   'ec2-mac': [
     'EC2 Mac: a Mac instance you rent in your OWN AWS account. It runs on a Dedicated Host with a hard',
@@ -523,7 +517,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     'build or 50. Stopping the instance does NOT stop the bill; only releasing the host does, after 24h.',
   ].join('\n'),
   'golden-ami': [
-    'Golden AMI: a snapshot of a Mac instance with the toolchain (Xcode/fastlane/node) already installed,',
+    'Golden AMI: a snapshot of a Mac instance with the toolchain (Xcode/node) already installed,',
     "kept in your own account because Xcode can't be redistributed. Launch bootstraps one on first use and",
     'reuses it so later sessions boot ready to build, wasting less of the paid 24-hour window.',
   ].join('\n'),

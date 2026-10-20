@@ -1,5 +1,5 @@
 import type { DoctorCheck } from '../types/doctor.js';
-/** Locale variables fastlane documents as required for a healthy iOS build. */
+/** Locale variables xcodebuild and CocoaPods need to run with UTF-8. */
 export const UTF8_LOCALE = {
   LANG: 'en_US.UTF-8',
   LANGUAGE: 'en_US.UTF-8',
@@ -38,6 +38,6 @@ export const shellLocaleDoctorCheck = (env: ShellLocaleEnv): DoctorCheck => {
   return {
     status: 'info',
     title: `Shell locale (${observedLocale})`,
-    hint: 'Launch sets UTF-8 for fastlane/xcodebuild. Add `export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8` to ~/.zshrc to fix your shell too.',
+    hint: 'Launch sets UTF-8 for xcodebuild/CocoaPods. Add `export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8` to ~/.zshrc to fix your shell too.',
   };
 };

@@ -689,13 +689,11 @@ const waitForSsh = (
     return yield* Effect.fail(awsFailure('wait for SSH', message, message));
   });
 
-/** Brew lines share doctor's toolchain list; fastlane falls back to gem when brew misses. */
+/** Brew lines share doctor's toolchain list. */
 const BOOTSTRAP_BREW_LINES = AWS_BOOTSTRAP_TOOLS.flatMap((requiredTool) => {
   if (requiredTool.install.kind !== 'brew') return [];
-  let fastlaneFallback = '';
-  if (requiredTool.command === 'fastlane') fastlaneFallback = ' || sudo gem install fastlane';
   return [
-    `command -v ${requiredTool.command} >/dev/null || brew install ${requiredTool.install.formula}${fastlaneFallback} || true`,
+    `command -v ${requiredTool.command} >/dev/null || brew install ${requiredTool.install.formula} || true`,
   ];
 });
 
@@ -711,7 +709,7 @@ const bootstrapToolchain = (sshTarget: SshTarget): Effect.Effect<void, unknown> 
     const bootstrapOutput = yield* sshCapture(sshTarget, BOOTSTRAP_SCRIPT);
     if (!bootstrapReportsMissingXcode(bootstrapOutput)) return;
     const message =
-      'The base AMI has no full Xcode (gym needs it). Provide a BYO golden AMI with Xcode preinstalled ' +
+      'The base AMI has no full Xcode (xcodebuild needs it). Provide a BYO golden AMI with Xcode preinstalled ' +
       "via aws.amiId - Xcode can't be redistributed in a shared image.";
     return yield* Effect.fail(awsFailure('bootstrap the EC2 Mac toolchain', message, message));
   });

@@ -18,10 +18,10 @@ const TOOLS: Tool[] = [
     install: { kind: 'guide', how: 'Install Xcode from the App Store.' },
   },
   {
-    label: 'fastlane',
-    command: 'fastlane',
+    label: 'pod',
+    command: 'pod',
     tier: 'required',
-    install: { kind: 'brew', formula: 'fastlane' },
+    install: { kind: 'brew', formula: 'pod' },
   },
   {
     label: 'ccache',
@@ -31,10 +31,10 @@ const TOOLS: Tool[] = [
   },
 ];
 describe('toolchainReadinessRows', () => {
-  const readinessRows = toolchainReadinessRows(TOOLS, new Set(['fastlane']));
+  const readinessRows = toolchainReadinessRows(TOOLS, new Set(['pod']));
   it('marks a present tool ok with no fix hint', () => {
-    expect(readinessRows.find((readinessRow) => readinessRow.label === 'fastlane')).toEqual({
-      label: 'fastlane',
+    expect(readinessRows.find((readinessRow) => readinessRow.label === 'pod')).toEqual({
+      label: 'pod',
       status: 'ok',
     });
   });
@@ -86,7 +86,7 @@ describe('formatSetupBoard', () => {
       {
         title: 'Toolchain',
         rows: [
-          { label: 'fastlane', status: 'ok' },
+          { label: 'pod', status: 'ok' },
           { label: 'Xcode', status: 'todo', detail: 'Install Xcode.' },
         ],
       },
@@ -97,7 +97,7 @@ describe('formatSetupBoard', () => {
     expect(boardLines).toContain('Config');
     expect(boardLines).toContain('  OK launch.config.ts - present');
     expect(boardLines).toContain('Toolchain');
-    expect(boardLines).toContain('  OK fastlane');
+    expect(boardLines).toContain('  OK pod');
     expect(boardLines).toContain('  x Xcode - Install Xcode.');
   });
   it('separates groups with a blank line but never leads with one', () => {
