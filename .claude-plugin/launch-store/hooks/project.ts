@@ -19,7 +19,10 @@ const PACKAGE_KINDS: ReadonlyArray<readonly [string, ProjectKind]> = [
 
 const parseManifest = (manifestText: string): PackageManifest => {
   try {
-    return JSON.parse(manifestText);
+    const manifest = JSON.parse(manifestText);
+    if (manifest === null) return {};
+    if (typeof manifest !== 'object') return {};
+    return manifest;
   } catch {
     return {};
   }

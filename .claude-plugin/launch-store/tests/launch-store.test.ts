@@ -120,6 +120,15 @@ test('an Expo app gets the five tools and /launch', async ($, on) => {
   expect(seen.commands).toEqual(['launch']);
 });
 
+test('a package.json of null still finds the native folders', async ($, on) => {
+  const { seen } = session(on, { files: ['ios'], manifest: 'null' });
+  await start($);
+
+  expect(seen.descriptions).toEqual([
+    'Build, release and check this app with launch-store (swift)',
+  ]);
+});
+
 test('Swift, Kotlin and launch-store folders are mobile projects too', async ($, on) => {
   const { seen } = session(on, {
     files: ['Hello.xcodeproj', 'settings.gradle.kts', 'launch.config.ts', 'notes.txt'],
@@ -321,4 +330,20 @@ test('one launch runs at a time', async ($, on) => {
   );
   expect(built.result).toBe('launch build ios --dry-run finished.');
   expect(status.result).toBe('launch status finished.');
+});
+
+test('two launches asked for at once run one at a time', async ($, on) => {
+  const { seen } = session(on, { manifest: EXPO_MANIFEST });
+  await start($);
+
+  const [first, second] = await Promise.all([
+    $.tool.call({ tool: STATUS_TOOL }),
+    $.tool.call({ tool: STATUS_TOOL }),
+  ]);
+
+  expect(seen.spawned).toEqual(['launch status --json']);
+  expect(first.result).toBe('launch status finished.');
+  expect(second.deny).toBe(
+    'launch status failed.\nlaunch status is still running. Wait for it to finish first.',
+  );
 });

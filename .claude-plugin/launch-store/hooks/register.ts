@@ -6,7 +6,7 @@ import {
   type EngineInterface,
   type Register,
 } from 'claude-code';
-import type { RunningLaunch } from '../types/state';
+import type { LaunchClaim, RunningLaunch } from '../types/state';
 import {
   errorText,
   failureText,
@@ -131,17 +131,26 @@ const runAnswered = ($: EngineInterface, words: readonly string[]) => {
   return runLaunch($, words);
 };
 
+const busyLine = (running: LaunchClaim) =>
+  `launch ${running.commandLine} is still running. Wait for it to finish first.`;
+
 const busyText = async ($: EngineInterface) => {
   const running = await read($, launchRun);
   if (running === null) return undefined;
-  return `launch ${running} is still running. Wait for it to finish first.`;
+  return busyLine(running);
+};
+
+const claimRun = (claim: LaunchClaim) => (running: RunningLaunch) => {
+  if (running !== null) return running;
+  return claim;
 };
 
 const runOnce = async ($: EngineInterface, words: readonly string[]): Promise<LaunchOutcome> => {
-  const busy = await busyText($);
-  if (busy !== undefined) return { verdict: 'failed', lines: [busy] };
   const commandLine = words.join(' ');
-  await update($, launchRun, () => commandLine);
+  const claim = { commandLine, runId: crypto.randomUUID() };
+  const running = await update($, launchRun, claimRun(claim));
+  if (running !== null && running.runId !== claim.runId)
+    return { verdict: 'failed', lines: [busyLine(running)] };
   try {
     const outcome = await runAnswered($, words);
     $.ui.toast(`launch ${commandLine} ${outcome.verdict}`);
