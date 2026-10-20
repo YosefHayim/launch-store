@@ -18,6 +18,10 @@ const uploadBundleToTrack = vi.hoisted(() =>
     ) => void
   >(),
 );
+const playUpload = vi.hoisted(() => {
+  const bundleStreams: Readable[] = [];
+  return { isRejected: false, bundleStreams };
+});
 vi.mock('@google/playClient.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@google/playClient.js')>()),
   parseServiceAccount: () => Effect.succeed({}),
@@ -27,12 +31,15 @@ vi.mock('@google/playClient.js', async (importOriginal) => ({
       bundleStream: Readable,
       track: string,
       release: Omit<PlayRelease, 'versionCodes'>,
-    ) =>
-      Effect.promise(async () => {
+    ) => {
+      playUpload.bundleStreams.push(bundleStream);
+      if (playUpload.isRejected) return Effect.fail(new Error('Google Play rejected the edit.'));
+      return Effect.promise(async () => {
         const bundleBytes = await buffer(bundleStream);
         uploadBundleToTrack(packageName, bundleBytes, track, release);
         return 7;
       });
+    };
   },
 }));
 const { googlePlaySubmitter } = await import('./googlePlay.js');
@@ -65,7 +72,11 @@ const uploadCall = () => {
   if (call === undefined) return expect.unreachable('the bundle was never uploaded');
   return call;
 };
-afterEach(() => uploadBundleToTrack.mockClear());
+afterEach(() => {
+  uploadBundleToTrack.mockClear();
+  playUpload.isRejected = false;
+  playUpload.bundleStreams.length = 0;
+});
 describe('google-play submitter - package_name (EAS #3563 regression)', () => {
   it('uploads to android.package, NOT the iOS bundle identifier', async () => {
     await Effect.runPromise(googlePlaySubmitter.submit(artifact, 'testing', creds, androidCtx()));
@@ -87,6 +98,14 @@ describe('google-play submitter - package_name (EAS #3563 regression)', () => {
     const [, , track, release] = uploadCall();
     expect(track).toBe('production');
     expect(release).toEqual({ status: 'inProgress', userFraction: 0.1 });
+  });
+  it('closes the bundle file when Google Play fails before reading it', async () => {
+    playUpload.isRejected = true;
+    await expect(
+      Effect.runPromise(googlePlaySubmitter.submit(artifact, 'testing', creds, androidCtx())),
+    ).rejects.toThrow(/rejected the edit/);
+    const [bundleStream] = playUpload.bundleStreams;
+    expect(bundleStream?.destroyed).toBe(true);
   });
   it('rejects a non-Android credential', async () => {
     const iosCreds: BuildCredentials = {

@@ -442,6 +442,29 @@ describe('AppStoreConnectClient - build uploads', () => {
       },
     });
   });
+  it('fails clearly when the file is shorter than a part Apple asks for', async () => {
+    const ipaPath = fileURLToPath(import.meta.url);
+    const ipaBytes = readFileSync(ipaPath);
+    const pastTheEnd = ipaBytes.byteLength - 2;
+    const uploadOperations = [
+      { method: 'PUT', url: 'https://upload.example/part-0', offset: pastTheEnd, length: 5 },
+    ];
+    fetchMock.mockImplementation((url: string, requestInit: RequestInit) => {
+      if (url.startsWith('https://upload.example/')) return Promise.resolve(fakeResponse(200, ''));
+      if (requestInit.method === 'POST') {
+        const reservation = { data: { id: 'file-1', attributes: { uploadOperations } } };
+        return Promise.resolve(fakeResponse(201, JSON.stringify(reservation)));
+      }
+      return Promise.resolve(
+        fakeResponse(200, JSON.stringify({ data: { id: 'file-1', attributes: {} } })),
+      );
+    });
+    await expect(client.uploadBuildFile('upload-1', 'App.ipa', ipaPath)).rejects.toThrow(
+      `Read 2 of 5 bytes at offset ${pastTheEnd} from ${ipaPath}; the file changed during the upload.`,
+    );
+    const partCalls = fetchMock.mock.calls.filter(([url]) => url.startsWith('https://upload.'));
+    expect(partCalls).toEqual([]);
+  });
   it('reserves the IPA, PUTs each part from its own byte range, then marks it uploaded', async () => {
     const ipaPath = fileURLToPath(import.meta.url);
     const ipaBytes = readFileSync(ipaPath);

@@ -24,7 +24,7 @@ vi.mock('@apple/ascClient.js', () => ({
   },
 }));
 const { makeAppStoreConnectSubmitter } = await import('./appStoreConnect.js');
-const submitter = makeAppStoreConnectSubmitter(Duration.millis(1));
+const submitter = makeAppStoreConnectSubmitter(Duration.millis(1), Duration.minutes(30));
 const ipaPath = fileURLToPath(import.meta.url);
 const artifact = { path: ipaPath, version: '1.4.0', buildNumber: 42 };
 /** Minimal iOS build context. */
@@ -89,6 +89,30 @@ describe('app-store-connect submitter - build upload API', () => {
     await expect(
       Effect.runPromise(submitter.submit(artifact, 'production', IOS_CREDS, iosCtx())),
     ).rejects.toThrow(/no longer takes builds for version 1\.4\.0\. Bump the app version/);
+  });
+  it('still names the closed version train when Apple gives other reasons too', async () => {
+    acceptUploads();
+    ascFake.getBuildUploadStatus.mockResolvedValue(
+      uploadStatus('FAILED', [
+        { code: '90186', description: 'Invalid Pre-Release Train.' },
+        { code: '90087', description: 'Unsupported Architectures.' },
+      ]),
+    );
+    await expect(
+      Effect.runPromise(submitter.submit(artifact, 'production', IOS_CREDS, iosCtx())),
+    ).rejects.toThrow(/Bump the app version[\s\S]*Unsupported Architectures\. \(90087\)/);
+  });
+  it('counts slow status replies toward the wait, so it gives up on time', async () => {
+    acceptUploads();
+    ascFake.getBuildUploadStatus.mockImplementation(async () => {
+      await new Promise((statusReplied) => setTimeout(statusReplied, 30));
+      return uploadStatus('PROCESSING');
+    });
+    const shortWait = makeAppStoreConnectSubmitter(Duration.millis(1), Duration.millis(100));
+    await expect(
+      Effect.runPromise(shortWait.submit(artifact, 'production', IOS_CREDS, iosCtx())),
+    ).rejects.toThrow(/still processing build upload upload-1/);
+    expect(ascFake.getBuildUploadStatus.mock.calls.length).toBeLessThan(10);
   });
   it('lists every reason Apple gives for a rejected upload', async () => {
     acceptUploads();

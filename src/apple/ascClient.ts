@@ -5,6 +5,7 @@ import { platform as detectOperatingSystem } from 'node:os';
 import { Chunk, Data, Effect, Option, Schema, Stream, unsafeCoerce } from 'effect';
 import { SignJWT, importPKCS8 } from 'jose';
 import type { AscKey } from '../core/types/credentials.js';
+import { makeStoreUploadFailure } from '../core/types/providers.js';
 import type { components } from './generated/schema.js';
 import { highestAppleMarketingVersion, retryAppleTransportRequest } from './transportHelpers.js';
 import type {
@@ -345,7 +346,14 @@ const readTransportRange = (filePath: string, offset: number, byteCount: number)
     const rangeStream = fileSystem.stream(filePath, { offset, bytesToRead: byteCount });
     const rangeChunks = yield* Stream.runCollect(rangeStream);
     const rangeParts = Chunk.toReadonlyArray(rangeChunks);
-    return Buffer.concat(rangeParts);
+    const rangeBuffer = Buffer.concat(rangeParts);
+    if (rangeBuffer.byteLength === byteCount) return rangeBuffer;
+    return yield* Effect.fail(
+      makeStoreUploadFailure({
+        provider: 'app-store-connect',
+        message: `Read ${rangeBuffer.byteLength} of ${byteCount} bytes at offset ${offset} from ${filePath}; the file changed during the upload.`,
+      }),
+    );
   }).pipe(Effect.provide(NodeContext.layer), Effect.runPromise);
 /**
  * Pick the given keys out of a localization's raw attributes, keeping only present, non-empty strings.

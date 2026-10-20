@@ -64,13 +64,15 @@ export const googlePlaySubmitter: Submitter = {
     const release = playReleaseFor(rollout, buildContext.android?.releaseNotes);
     return Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
-      const bundleFile = fileSystem.stream(artifact.path);
-      const bundleStream = yield* NodeStream.toReadable(bundleFile);
       const googleStoreClients = yield* GoogleStoreClientService;
       const playClient = yield* googleStoreClients.createEffectClient(
         buildCredentials.serviceAccountJson,
       );
-      yield* playClient.uploadBundleToTrack(packageName, bundleStream, track, release);
+      const bundleFile = fileSystem.stream(artifact.path);
+      const bundleStream = yield* NodeStream.toReadable(bundleFile);
+      const closeBundle = Effect.sync(() => bundleStream.destroy());
+      const uploading = playClient.uploadBundleToTrack(packageName, bundleStream, track, release);
+      yield* uploading.pipe(Effect.ensuring(closeBundle));
     }).pipe(Effect.provide(GoogleStoreClientLive), Effect.provide(NodeContext.layer));
   },
 };
