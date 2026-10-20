@@ -28,16 +28,20 @@ jobs:
               - pnpm-lock.yaml
               - pnpm-workspace.yaml
               - biome.json
+              - 'biome-rules/**'
               - 'tsconfig*.json'
               - '*.config.ts'
               - '.github/**'
             code:
               - *everything
-              - '**/*.{ts,tsx,css,json}'
+              - '**/*.{ts,tsx,css,json,mjs}'
             docs:
               - *everything
               - 'src/**'
               - 'scripts/**'
+              - 'README*.md'
+              - 'llms*.txt'
+              - 'schema/**'
               - package.json
             cli:
               - *everything

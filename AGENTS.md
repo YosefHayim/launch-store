@@ -143,8 +143,8 @@ The `changes` job in `ci.yml` (`dorny/paths-filter`, `token: ''`) decides what r
 
 - Docs-only changes skip every job, and `CI Gate` still passes.
 - Lint (`biome check --changed`) and test (`vitest run --changed`) check only the changed files.
-- Typecheck and build run in full when code changes. Docs run when `src/`, `scripts/` or `package.json` change. E2E runs when `src/` or `package.json` change.
-- A change to the lockfile, workspace file, `biome.json`, `tsconfig*.json`, `*.config.ts` or `.github/**`, and a manual run, run everything in full with coverage. A `package.json` change alone does not.
+- Typecheck and build run in full when code changes. Docs run when `src/`, `scripts/`, `package.json`, `README*.md`, `llms*.txt` or `schema/` change. Other markdown files are docs-only and skip every job. E2E runs when `src/` or `package.json` change.
+- A change to the lockfile, workspace file, `biome.json`, `biome-rules/**`, `tsconfig*.json`, `*.config.ts` or `.github/**`, and a manual run, run everything in full with coverage. A `package.json` change alone does not.
 - `CI Gate` fails only when a job failed or was cancelled.
 
 The root `.actrc` selects the local Docker runner and keeps the pnpm store outside the workspace.
