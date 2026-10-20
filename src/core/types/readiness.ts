@@ -136,12 +136,24 @@ export type AscReadinessApi = Readonly<{
     }>[],
     unknown
   >;
+  listAppStoreVersions(
+    appId: string,
+    platform: string,
+  ): Effect.Effect<
+    ReadonlyArray<
+      Readonly<{
+        appStoreState: string;
+      }>
+    >,
+    unknown
+  >;
   findEditableAppStoreVersion(
     appId: string,
     platform: string,
   ): Effect.Effect<
     Readonly<{
       id: string;
+      copyright: string;
     }> | null,
     unknown
   >;

@@ -70,6 +70,8 @@ describe('readiness registry', () => {
         'apple-demo-account',
         'apple-profile-entitlements',
         'apple-screenshots',
+        'apple-version-copyright',
+        'apple-app-privacy',
       ]),
     );
     expect(submit).not.toContain('play-internal-track'); // advisory, never a hard submit blocker

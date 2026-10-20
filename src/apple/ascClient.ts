@@ -3179,19 +3179,22 @@ export class AppStoreConnectClient {
   }
   /**
    * Find the app's editable App Store version for a platform (the one whose App Review details can still
-   * be changed), or null when none is in an {@link EDITABLE_METADATA_STATES editable state}.
+   * be changed), or null when none is in an {@link EDITABLE_METADATA_STATES editable state}. `copyright`
+   * is empty while unset - Apple won't add such a version to a review submission.
    */
   async findEditableAppStoreVersion(
     appId: string,
     platform: string,
   ): Promise<{
     id: string;
+    copyright: string;
   } | null> {
     const appleResources = await this.requestAll<{
       appVersionState?: string;
       appStoreState?: string;
+      copyright?: string | null;
     }>(
-      `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=50&fields[appStoreVersions]=appVersionState,appStoreState`,
+      `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=50&fields[appStoreVersions]=appVersionState,appStoreState,copyright`,
     );
     const editable = appleResources.find((version) => {
       let versionState = version.attributes.appVersionState;
@@ -3200,7 +3203,9 @@ export class AppStoreConnectClient {
       return EDITABLE_METADATA_STATES.has(versionState);
     });
     if (editable === undefined) return null;
-    return { id: editable.id };
+    let copyright = editable.attributes.copyright;
+    if (typeof copyright !== 'string') copyright = '';
+    return { id: editable.id, copyright };
   }
   /** Read a version's App Review details (contact info; never the demo password), or null when unset. */
   async getAppStoreReviewDetail(versionId: string): Promise<AppStoreReviewDetailResource | null> {
@@ -3897,12 +3902,14 @@ export class AppStoreConnectClient {
       releaseType?: string;
       earliestReleaseDate?: string;
       versionString?: string;
+      copyright?: string;
     },
   ): Promise<void> {
     const attributes: Record<string, string> = {};
     if (input.releaseType) attributes['releaseType'] = input.releaseType;
     if (input.earliestReleaseDate) attributes['earliestReleaseDate'] = input.earliestReleaseDate;
     if (input.versionString) attributes['versionString'] = input.versionString;
+    if (input.copyright) attributes['copyright'] = input.copyright;
     await this.updateResource(`/appStoreVersions/${versionId}`, {
       type: 'appStoreVersions',
       id: versionId,

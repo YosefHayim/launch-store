@@ -280,6 +280,9 @@ export const createTrainRuntime = (
       if (releaseTypeSettings.earliestReleaseDate !== undefined) {
         releaseInput.earliestReleaseDate = releaseTypeSettings.earliestReleaseDate;
       }
+      if (launchConfiguration.release?.copyright !== undefined) {
+        releaseInput.copyright = launchConfiguration.release.copyright;
+      }
       yield* attemptTransport('submit iOS release', releaseApp(ascClient, releaseInput));
       return { buildId: storeBuild.id };
     });

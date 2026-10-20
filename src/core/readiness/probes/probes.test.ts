@@ -27,6 +27,8 @@ import { accountDeletionProbe } from './accountDeletion.js';
 import { demoAccountProbe } from './demoAccount.js';
 import { profileEntitlementsProbe } from './profileEntitlements.js';
 import { screenshotsProbe } from './screenshots.js';
+import { versionCopyrightProbe } from './versionCopyright.js';
+import { appPrivacyProbe } from './appPrivacy.js';
 import type { AppDescriptor } from '@core/types/app.js';
 import type { LaunchConfig } from '@core/types/config.js';
 import type {
@@ -108,8 +110,17 @@ const ascApi = (overrides: Partial<AscReadinessApi> = {}): AscReadinessApi => {
         catch: (probeFailure) => probeFailure,
       }),
     ),
+    listAppStoreVersions: vi.fn(() =>
+      Effect.try({
+        try: () => [{ appStoreState: 'READY_FOR_SALE' }],
+        catch: (probeFailure) => probeFailure,
+      }),
+    ),
     findEditableAppStoreVersion: vi.fn(() =>
-      Effect.try({ try: () => ({ id: 'ver-1' }), catch: (probeFailure) => probeFailure }),
+      Effect.try({
+        try: () => ({ id: 'ver-1', copyright: '2026 Acme' }),
+        catch: (probeFailure) => probeFailure,
+      }),
     ),
     getAppStoreReviewDetail: vi.fn(() =>
       Effect.try({
@@ -1519,5 +1530,65 @@ describe('listingUrlsProbe', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+describe('versionCopyrightProbe', () => {
+  const emptyCopyright = ascApi({
+    findEditableAppStoreVersion: vi.fn(() =>
+      Effect.try({
+        try: () => ({ id: 'ver-1', copyright: '' }),
+        catch: (probeFailure) => probeFailure,
+      }),
+    ),
+  });
+  it('passes when the editable version has a copyright', async () => {
+    const ok = await checkProbe(
+      versionCopyrightProbe,
+      createReadinessContext({ apps: [app({ bundleId: 'com.x' })], asc: ascApi() }),
+    );
+    expect(findings(ok)).toEqual([{ status: 'ok', identifier: 'com.x' }]);
+  });
+  it('blocks when the editable version has an empty copyright', async () => {
+    const blocked = await checkProbe(
+      versionCopyrightProbe,
+      createReadinessContext({ apps: [app({ bundleId: 'com.x' })], asc: emptyCopyright }),
+    );
+    expect(findings(blocked)).toEqual([{ status: 'blocker', identifier: 'com.x' }]);
+  });
+  it('passes an empty copyright that release.copyright will fill', async () => {
+    const readinessContext = createReadinessContext({
+      apps: [app({ bundleId: 'com.x' })],
+      asc: emptyCopyright,
+    });
+    const configured = await checkProbe(versionCopyrightProbe, {
+      ...readinessContext,
+      config: { ...readinessContext.config, release: { copyright: '2026 Acme' } },
+    });
+    expect(findings(configured)).toEqual([{ status: 'ok', identifier: 'com.x' }]);
+  });
+});
+describe('appPrivacyProbe', () => {
+  it('passes an app that has been released before', async () => {
+    const ok = await checkProbe(
+      appPrivacyProbe,
+      createReadinessContext({ apps: [app({ bundleId: 'com.x' })], asc: ascApi() }),
+    );
+    expect(findings(ok)).toEqual([{ status: 'ok', identifier: 'com.x' }]);
+  });
+  it('lists App Privacy as a manual step for a first version', async () => {
+    const firstVersionOnly = ascApi({
+      listAppStoreVersions: vi.fn(() =>
+        Effect.try({
+          try: () => [{ appStoreState: 'PREPARE_FOR_SUBMISSION' }],
+          catch: (probeFailure) => probeFailure,
+        }),
+      ),
+    });
+    const firstVersion = await checkProbe(
+      appPrivacyProbe,
+      createReadinessContext({ apps: [app({ bundleId: 'com.x' })], asc: firstVersionOnly }),
+    );
+    expect(findings(firstVersion)).toEqual([{ status: 'warn', identifier: 'com.x' }]);
+    expect(firstVersionOnly.listAppStoreVersions).toHaveBeenCalledWith('app-1', 'IOS');
   });
 });

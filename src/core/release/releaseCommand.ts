@@ -644,6 +644,8 @@ const releaseAppleBuild = (
     };
     if (releaseTypeSettings.earliestReleaseDate !== undefined)
       releaseInputCommon.earliestReleaseDate = releaseTypeSettings.earliestReleaseDate;
+    if (launchConfig.release?.copyright !== undefined)
+      releaseInputCommon.copyright = launchConfig.release.copyright;
     if (commandOptions.dryRun === true) {
       let storeBuild: BuildResource | null = null;
       if (commandOptions.build !== undefined)
