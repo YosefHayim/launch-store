@@ -126,11 +126,11 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 **Is Launch just an App Store Connect SDK or MCP wrapper?** No. An App Store Connect SDK or MCP server wraps a slice of Apple's API. Launch drives the entire release across Apple and Google - code signing, native builds, size checks, store-config-as-code, the confirmed public release, and OTA updates - none of which an API wrapper touches. If you want a self-hosted Expo EAS rather than an API client, that is Launch.
 
-**How is Launch different from Fastlane?** Fastlane is a Ruby toolkit of separate actions; Launch is one typed release pipeline with no Ruby or fastlane to install. Launch runs `xcodebuild` and Gradle directly, talks to the App Store Connect and Google Play APIs itself for builds and store listings, and covers the whole release: credential provisioning, the native build, the real download-size check, store-config-as-code for both stores, the deliberate public release, phased-rollout control, and OTA updates - all from one typed `launch.config.ts`.
+**How is Launch different from Fastlane?** Fastlane is a building block; Launch orchestrates it. Launch drives fastlane for the iOS archive (`gym`) and store-listing metadata (`deliver` / `supply`), uploads builds straight through the App Store Connect and Google Play APIs, and wraps the whole release around it: credential provisioning, the native build, the real download-size check, store-config-as-code for both stores, the deliberate public release, phased-rollout control, and OTA updates - all from one typed `launch.config.ts`.
 
 **Where are my signing keys and secrets stored?** In your OS keychain. Your App Store Connect API key (`.p8`), distribution private key, and Android upload key never touch the repo or anyone's servers - only a certificate-signing request (CSR) is ever sent to Apple. Build secrets live in the keychain too, via `launch secret`, so they stay out of a committed `.env`.
 
-**What do I need to run Launch?** Node 20+ everywhere. For iOS: macOS with Xcode and its command-line tools, CocoaPods, and an App Store Connect API key (`.p8` + Key ID + Issuer ID) - or a remote Mac if you do not have one. For Android: a JDK and the Android SDK with `ANDROID_HOME` set (any OS), and a Google Play service-account JSON key. Run `launch doctor` to check it all at once.
+**What do I need to run Launch?** Node 20+ everywhere. For iOS: macOS with Xcode and its command-line tools, fastlane, and an App Store Connect API key (`.p8` + Key ID + Issuer ID) - or a remote Mac if you do not have one. For Android: a JDK (any OS) and a Google Play service-account JSON key. Run `launch doctor` to check it all at once.
 
 **How much does Launch cost?** Launch itself is free (MIT). You pay only for what you would pay anyway: your own build hardware (or cloud-Mac time if you build iOS without a local Mac), plus the usual Apple Developer ($99/yr) and Google Play (one-time $25) registration fees. There is no per-build charge and no subscription.
 
@@ -140,13 +140,13 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 **Can Launch manage store metadata, in-app purchases, and subscriptions?** Yes - as code, for both stores. `launch sync` reconciles IAPs, subscriptions, pricing, capabilities, and the per-locale listing (copy, screenshots, previews) onto App Store Connect; `launch metadata` covers the listing for iOS and Android; `launch play-products` / `launch play-subscriptions` drive the Google Play catalog. Each runs a read-only plan -> confirm -> apply, so it never clobbers a live or in-review version.
 
-**Does Launch lock me into a hosted service?** No - there is nothing hosted and nothing proprietary. Launch is MIT-licensed, built on Xcode, Gradle, and the platforms' own APIs, with pluggable storage / credentials / build / submit providers. Your keys, artifacts, and updates live in infrastructure you control (handing a build to Expo EAS is the one exception), so there is nothing to migrate off later.
+**Does Launch lock me into a hosted service?** No - there is nothing hosted and nothing proprietary. Launch is MIT-licensed, built on fastlane, Gradle, and the platforms' own APIs, with pluggable storage / credentials / build / submit providers. Your keys, artifacts, and updates live in infrastructure you control, so there is nothing to migrate off later.
 
 **How do I get started?** Install with `npm install --global launch-store` (or `--save-dev` per project), then run `launch demo` for a 60-second simulated walkthrough - no setup or account needed. When you are ready: `launch init` -> `launch creds set-key` -> `launch creds setup` -> `launch build ios`.
 
 ## Commands
 
-All 63 `launch` commands (196 store-API operations underneath, 2416 tests):
+All 63 `launch` commands (196 store-API operations underneath, 2419 tests):
 
 - `launch init` - scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` - onboard an app that already ships: import its App Store Connect setup into config

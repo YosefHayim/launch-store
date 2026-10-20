@@ -64,6 +64,7 @@ export type ReleaseCommandOptions = Readonly<{
   dryRun?: boolean;
   createApp?: boolean;
   yes: boolean;
+  json: boolean;
 }>;
 
 /** A release operation failed before it could produce a store report. */
