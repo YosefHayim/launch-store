@@ -102,6 +102,9 @@ const BASE_URL = `${API_ORIGIN}/v1`;
 const AUDIENCE = 'appstoreconnect-v1';
 /** Apple rejects tokens whose lifetime exceeds 20 minutes; stay safely under it. */
 const TOKEN_TTL_SECONDS = 19 * 60;
+const TOKEN_REUSE_SECONDS = 15 * 60;
+const mintedTokens = new Map<string, Readonly<{ token: string; issuedAt: number }>>();
+const ASSET_UPLOAD_CONCURRENCY = 4;
 /**
  * Clock drift past which a 401 is annotated as a likely clock problem. Tokens are signed for
  * {@link TOKEN_TTL_SECONDS} (19 min) against Apple's 20-minute ceiling, so a clock running more than
@@ -238,6 +241,11 @@ export const isRetryableAscError = (error: unknown): boolean => {
   if (!(error instanceof AscRequestError)) return false;
   if (error.status === 429) return true;
   return error.status >= 500;
+};
+/** A GET or byte-range PUT is safe to repeat, so a dropped connection (fetch's TypeError) is retried like a 5xx. */
+const isRetryableIdempotentFailure = (requestFailure: unknown): boolean => {
+  if (requestFailure instanceof TypeError) return true;
+  return isRetryableAscError(requestFailure);
 };
 /** Apple's raw `accessibilityDeclarations` attribute bag - the support flags plus the family/state metadata. Internal to the read path. */
 type AccessibilityDeclarationAttributes = AccessibilitySupport & {
@@ -520,23 +528,90 @@ const EDITABLE_METADATA_STATES = new Set<string>([
   'METADATA_REJECTED',
   'INVALID_BINARY',
 ]);
+/** Mint a bearer token for one API key. */
+const mintToken = async (key: AscKey, issuedAt: number): Promise<string> => {
+  const privateKey = await importPKCS8(key.p8, 'ES256');
+  return new SignJWT({})
+    .setProtectedHeader({ alg: 'ES256', kid: key.keyId, typ: 'JWT' })
+    .setIssuer(key.issuerId)
+    .setIssuedAt(issuedAt)
+    .setExpirationTime(issuedAt + TOKEN_TTL_SECONDS)
+    .setAudience(AUDIENCE)
+    .sign(privateKey);
+};
+/** Reuse a key's token until {@link TOKEN_REUSE_SECONDS}, so a long sync signs once instead of per request. */
+const reusableToken = async (key: AscKey): Promise<string> => {
+  const tokenKey = `${key.issuerId}:${key.keyId}`;
+  const currentSeconds = Math.floor(Date.now() / 1000);
+  const mintedToken = mintedTokens.get(tokenKey);
+  if (
+    mintedToken !== undefined &&
+    currentSeconds >= mintedToken.issuedAt &&
+    currentSeconds - mintedToken.issuedAt < TOKEN_REUSE_SECONDS
+  ) {
+    return mintedToken.token;
+  }
+  const token = await mintToken(key, currentSeconds);
+  mintedTokens.set(tokenKey, { token, issuedAt: currentSeconds });
+  return token;
+};
+/** PUT one reserved byte range to Apple's upload CDN, with transient-retry. */
+const putAssetChunk = async (operation: UploadOperation, bytes: Buffer): Promise<void> => {
+  let offset = operation.offset;
+  if (offset === undefined) offset = 0;
+  let operationLength = operation.length;
+  if (operationLength === undefined) operationLength = bytes.byteLength;
+  const chunk = bytes.subarray(offset, offset + operationLength);
+  const headers: Record<string, string> = {};
+  let requestHeaders = operation.requestHeaders;
+  if (requestHeaders === undefined) requestHeaders = [];
+  for (const header of requestHeaders) {
+    if (header.name && header.value !== undefined) headers[header.name] = header.value;
+  }
+  let requestMethod = operation.method;
+  if (requestMethod === undefined) requestMethod = 'PUT';
+  await retryAppleTransportRequest(
+    async () => {
+      const appleResponse = await fetch(operation.url, {
+        method: requestMethod,
+        headers,
+        body: chunk,
+      });
+      if (!appleResponse.ok) {
+        throw new AscRequestError(
+          `asset upload chunk failed (${appleResponse.status})`,
+          appleResponse.status,
+        );
+      }
+    },
+    { isRetryableFailure: isRetryableIdempotentFailure },
+  );
+};
+/** PUT a reserved asset's bytes to Apple's CDN, a few independent byte-range parts at a time. */
+const putAssetBytes = async (
+  operations: readonly UploadOperation[],
+  bytes: Buffer,
+): Promise<void> => {
+  for (let batchStart = 0; batchStart < operations.length; batchStart += ASSET_UPLOAD_CONCURRENCY) {
+    const operationBatch = operations.slice(batchStart, batchStart + ASSET_UPLOAD_CONCURRENCY);
+    const chunkUploads = operationBatch.map((operation) => putAssetChunk(operation, bytes));
+    // biome-ignore lint/performance/noAwaitInLoops: bounded batches - each part is its own byte range, so a batch uploads in parallel without flooding Apple's CDN
+    const settledChunkUploads = await Promise.allSettled(chunkUploads);
+    const failedChunkUpload = settledChunkUploads.find(
+      (chunkUpload): chunkUpload is PromiseRejectedResult => chunkUpload.status === 'rejected',
+    );
+    if (failedChunkUpload !== undefined) return Promise.reject(failedChunkUpload.reason);
+  }
+};
 /** Client bound to one App Store Connect API key. */
 export class AppStoreConnectClient {
   constructor(
     private readonly key: AscKey,
     private readonly operatingSystem: NodeJS.Platform = detectOperatingSystem(),
   ) {}
-  /** Mint a short-lived bearer token for the API. */
+  /** Reuse or mint the short-lived bearer token for the API. */
   private async token(): Promise<string> {
-    const privateKey = await importPKCS8(this.key.p8, 'ES256');
-    const issuedAt = Math.floor(Date.now() / 1000);
-    return new SignJWT({})
-      .setProtectedHeader({ alg: 'ES256', kid: this.key.keyId, typ: 'JWT' })
-      .setIssuer(this.key.issuerId)
-      .setIssuedAt(issuedAt)
-      .setExpirationTime(issuedAt + TOKEN_TTL_SECONDS)
-      .setAudience(AUDIENCE)
-      .sign(privateKey);
+    return reusableToken(this.key);
   }
   /**
    * Issue an authenticated request and parse the JSON body. On failure it surfaces Apple's own
@@ -555,11 +630,12 @@ export class AppStoreConnectClient {
   ): Promise<T> {
     // Transparent backoff on Apple's transient failures (429 rate-limit / 5xx). A fresh token is
     // minted per attempt, so a retry that straddles the 19-minute TTL re-signs rather than 401s.
+    // A write that lost its connection may already have landed, so only a GET retries one.
+    let isRetryableFailure = isRetryableAscError;
+    if (method === 'GET') isRetryableFailure = isRetryableIdempotentFailure;
     return retryAppleTransportRequest(
       () => this.requestOnce<T>(method, pathOrUrl, requestDocument),
-      {
-        isRetryableFailure: isRetryableAscError,
-      },
+      { isRetryableFailure },
     );
   }
   /** A single (un-retried) authenticated request - the retry wrapper lives in {@link request}. */
@@ -3236,7 +3312,7 @@ export class AppStoreConnectClient {
         }
         return Buffer.from(await appleResponse.arrayBuffer());
       },
-      { isRetryableFailure: isRetryableAscError },
+      { isRetryableFailure: isRetryableIdempotentFailure },
     );
   }
   /** App Store Connect users and invitations. */
@@ -3466,7 +3542,7 @@ export class AppStoreConnectClient {
         }
         return Buffer.from(await appleResponse.arrayBuffer());
       },
-      { isRetryableFailure: isRetryableAscError },
+      { isRetryableFailure: isRetryableIdempotentFailure },
     );
   }
   /**
@@ -3476,7 +3552,7 @@ export class AppStoreConnectClient {
    */
   private async getReportBytes(pathOrUrl: string): Promise<Buffer> {
     return retryAppleTransportRequest(() => this.getReportBytesOnce(pathOrUrl), {
-      isRetryableFailure: isRetryableAscError,
+      isRetryableFailure: isRetryableIdempotentFailure,
     });
   }
   /** A single (un-retried) gzipped-report fetch - the retry wrapper lives in {@link getReportBytes}. */
@@ -3990,7 +4066,7 @@ export class AppStoreConnectClient {
       fileName,
       bytes.byteLength,
     );
-    await this.putAssetBytes(operations, bytes);
+    await putAssetBytes(operations, bytes);
     await this.commitAsset('appScreenshots', id, bytes);
   }
   /** The subscription's current App Review screenshot, or null when it has none. */
@@ -4036,7 +4112,7 @@ export class AppStoreConnectClient {
       fileName,
       bytes.byteLength,
     );
-    await this.putAssetBytes(operations, bytes);
+    await putAssetBytes(operations, bytes);
     await this.commitAsset('subscriptionAppStoreReviewScreenshots', id, bytes);
   }
   /** App Store preview videos. */
@@ -4113,7 +4189,7 @@ export class AppStoreConnectClient {
       fileName,
       bytes.byteLength,
     );
-    await this.putAssetBytes(operations, bytes);
+    await putAssetBytes(operations, bytes);
     await this.commitAsset('appPreviews', id, bytes);
   }
   /**
@@ -4424,44 +4500,6 @@ export class AppStoreConnectClient {
     let operations = reservation.data.attributes.uploadOperations;
     if (operations === undefined) operations = [];
     return { id: reservation.data.id, operations };
-  }
-  /** PUT a reserved asset's bytes to Apple's CDN, one operation (chunk) at a time, with transient-retry. */
-  private async putAssetBytes(
-    operations: readonly UploadOperation[],
-    bytes: Buffer,
-  ): Promise<void> {
-    for (const operation of operations) {
-      let offset = operation.offset;
-      if (offset === undefined) offset = 0;
-      let operationLength = operation.length;
-      if (operationLength === undefined) operationLength = bytes.byteLength;
-      const chunk = bytes.subarray(offset, offset + operationLength);
-      const headers: Record<string, string> = {};
-      let requestHeaders = operation.requestHeaders;
-      if (requestHeaders === undefined) requestHeaders = [];
-      for (const header of requestHeaders) {
-        if (header.name && header.value !== undefined) headers[header.name] = header.value;
-      }
-      let requestMethod = operation.method;
-      if (requestMethod === undefined) requestMethod = 'PUT';
-      // biome-ignore lint/performance/noAwaitInLoops: sequential chunked upload - each PUT sends the next ordered byte-range (with transient retry); the chunks are one stream
-      await retryAppleTransportRequest(
-        async () => {
-          const appleResponse = await fetch(operation.url, {
-            method: requestMethod,
-            headers,
-            body: chunk,
-          });
-          if (!appleResponse.ok) {
-            throw new AscRequestError(
-              `asset upload chunk failed (${appleResponse.status})`,
-              appleResponse.status,
-            );
-          }
-        },
-        { isRetryableFailure: isRetryableAscError },
-      );
-    }
   }
   /** Commit a reserved asset once its bytes are uploaded: PATCH `uploaded:true` + the MD5 Apple verifies. */
   private async commitAsset(type: string, id: string, bytes: Buffer): Promise<void> {

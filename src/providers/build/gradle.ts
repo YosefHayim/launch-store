@@ -28,6 +28,27 @@ import {
 const ANDROID_ESTIMATE_KIND = 'default';
 const gradleFailure = (message: string) =>
   makeProviderInputFailure({ provider: 'gradle', message });
+/**
+ * Arguments for one release build. AGP's injected-signing properties sign with the resolved upload key
+ * (no build.gradle edit); `--build-cache` reuses task outputs from earlier builds.
+ */
+export const gradleBuildArguments = (
+  assembleTask: string,
+  cleanBuilt: boolean,
+  keystore: KeystoreAssets,
+): string[] => {
+  const gradleArguments: string[] = [];
+  if (cleanBuilt) gradleArguments.push(':app:clean');
+  gradleArguments.push(
+    assembleTask,
+    '--build-cache',
+    `-Pandroid.injected.signing.store.file=${keystore.path}`,
+    `-Pandroid.injected.signing.store.password=${keystore.storePassword}`,
+    `-Pandroid.injected.signing.key.alias=${keystore.alias}`,
+    `-Pandroid.injected.signing.key.password=${keystore.keyPassword}`,
+  );
+  return gradleArguments;
+};
 /** Locate the platform-specific Gradle wrapper. */
 const gradleWrapper = (androidDirectory: string) =>
   Effect.gen(function* () {
@@ -201,16 +222,7 @@ export const gradleBuildEngine = {
       if (internal) assembleTask = ':app:assembleRelease';
       const stored = yield* readBuildState(buildContext.app.name, 'android');
       const estimate = estimateFor(stored, ANDROID_ESTIMATE_KIND);
-      // Sign the artifact with the resolved upload key via AGP's injected-signing properties (no build.gradle edit).
-      const gradleArguments: string[] = [];
-      if (cleanBuilt) gradleArguments.push(':app:clean');
-      gradleArguments.push(
-        assembleTask,
-        `-Pandroid.injected.signing.store.file=${keystore.path}`,
-        `-Pandroid.injected.signing.store.password=${keystore.storePassword}`,
-        `-Pandroid.injected.signing.key.alias=${keystore.alias}`,
-        `-Pandroid.injected.signing.key.password=${keystore.keyPassword}`,
-      );
+      const gradleArguments = gradleBuildArguments(assembleTask, cleanBuilt, keystore);
       const progressOptions: ProgressRunOptions = {
         label: `Building Android - ${buildContext.app.name}`,
         parseStep: gradleProgressStep,

@@ -6,7 +6,33 @@ import type { BuildCredentials } from '@core/types/credentials.js';
 import { LaunchEnvironmentTest } from '@core/services/environment.js';
 import { makeLaunchLoggerTest } from '@core/services/logger.js';
 import { makeLaunchPathsTest } from '@core/services/paths.js';
-import { makeGradleBuildEngine, parseBundletoolSize } from './gradle.js';
+import { gradleBuildArguments, makeGradleBuildEngine, parseBundletoolSize } from './gradle.js';
+describe('gradleBuildArguments - signed release build', () => {
+  const keystore = {
+    path: '/keys/upload.jks',
+    alias: 'upload',
+    storePassword: 'store-secret',
+    keyPassword: 'key-secret',
+  };
+  it('reuses cached task outputs and signs with the upload key', () => {
+    expect(gradleBuildArguments(':app:bundleRelease', false, keystore)).toEqual([
+      ':app:bundleRelease',
+      '--build-cache',
+      '-Pandroid.injected.signing.store.file=/keys/upload.jks',
+      '-Pandroid.injected.signing.store.password=store-secret',
+      '-Pandroid.injected.signing.key.alias=upload',
+      '-Pandroid.injected.signing.key.password=key-secret',
+    ]);
+  });
+  it('prepends the clean task for a from-scratch build', () => {
+    const cleanArguments = gradleBuildArguments(':app:assembleRelease', true, keystore);
+    expect(cleanArguments.slice(0, 3)).toEqual([
+      ':app:clean',
+      ':app:assembleRelease',
+      '--build-cache',
+    ]);
+  });
+});
 describe('parseBundletoolSize - honest worst-case download from get-size total', () => {
   it('reads MIN/MAX from a single-row total', () => {
     expect(parseBundletoolSize('MIN,MAX\n1048576,2097152')).toEqual({

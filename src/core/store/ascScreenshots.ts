@@ -62,6 +62,7 @@ export type ScreenshotReconcileInput = {
   dryRun: boolean;
   allowDestructive: boolean;
 };
+const SET_UPLOAD_CONCURRENCY = 4;
 /** Group members by a derived string key. */
 const groupBy = <Member>(
   members: readonly Member[],
@@ -75,6 +76,27 @@ const groupBy = <Member>(
   }
   return groups;
 };
+/** Reconcile sets a few at a time, each into its own log, then append their actions in set order. */
+const reconcileSetsInOrder = <SetMember>(
+  log: ActionLog,
+  setGroups: Map<string, SetMember[]>,
+  reconcileSet: (
+    setLog: ActionLog,
+    setType: string,
+    setMembers: SetMember[],
+  ) => Effect.Effect<void, unknown>,
+): Effect.Effect<void, unknown> =>
+  Effect.gen(function* () {
+    const setLogs = yield* Effect.forEach(
+      setGroups,
+      ([setType, setMembers]) => {
+        const setLog: ActionLog = { ...log, actions: [] };
+        return reconcileSet(setLog, setType, setMembers).pipe(Effect.as(setLog));
+      },
+      { concurrency: SET_UPLOAD_CONCURRENCY },
+    );
+    for (const setLog of setLogs) log.actions.push(...setLog.actions);
+  });
 /** A skipped action with guidance - the plan still shows the work that couldn't run and why. */
 const skip = (log: ActionLog, description: string): void => {
   log.actions.push({ description, destructive: false, status: 'skipped' });
@@ -154,20 +176,18 @@ const reconcileAppScreenshots = (
       const setByType = new Map(
         screenshotSets.map((screenshotSet) => [screenshotSet.screenshotDisplayType, screenshotSet]),
       );
-      for (const [displayType, typeScreenshots] of groupBy(
-        localeScreenshots,
-        (screenshot) => screenshot.displayType,
-      )) {
-        yield* reconcileScreenshotSet(
+      const screenshotGroups = groupBy(localeScreenshots, (screenshot) => screenshot.displayType);
+      yield* reconcileSetsInOrder(log, screenshotGroups, (setLog, displayType, typeScreenshots) =>
+        reconcileScreenshotSet(
           api,
-          log,
+          setLog,
           localizationId,
           setByType.get(displayType),
           displayType,
           locale,
           typeScreenshots,
-        );
-      }
+        ),
+      );
     }
   });
 /** Resolve (or create) one display-type set, then upload the local screenshots Apple doesn't already have. */
@@ -340,20 +360,18 @@ export const reconcilePreviews = (
       const setByType = new Map(
         previewSets.map((previewSet) => [previewSet.previewType, previewSet]),
       );
-      for (const [previewType, typePreviews] of groupBy(
-        localePreviews,
-        (preview) => preview.previewType,
-      )) {
-        yield* reconcilePreviewSet(
+      const previewGroups = groupBy(localePreviews, (preview) => preview.previewType);
+      yield* reconcileSetsInOrder(log, previewGroups, (setLog, previewType, typePreviews) =>
+        reconcilePreviewSet(
           api,
-          log,
+          setLog,
           localizationId,
           setByType.get(previewType),
           previewType,
           locale,
           typePreviews,
-        );
-      }
+        ),
+      );
     }
     return log.actions;
   });
