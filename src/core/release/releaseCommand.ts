@@ -153,6 +153,22 @@ export const resolveAndroidRollout = (
   return 1;
 };
 
+/** The `--dry-run` plan for a Play production release: the build, the track and the rollout it would ship with. */
+export const androidReleasePlanLines = (
+  artifact: Pick<BuildArtifact, 'version' | 'buildNumber' | 'clean'>,
+  rollout: number,
+): string[] => {
+  const planLines = [
+    `submit ${artifact.version} (${artifact.buildNumber}) to the PUBLIC Play production track`,
+    `roll out to ${Math.round(rollout * 100)}% of users`,
+  ];
+  if (shouldNudgeRelease(artifact))
+    planLines.push(
+      'incremental build - run `launch build android --clean` first for a from-scratch artifact',
+    );
+  return planLines;
+};
+
 /** Format one release-plan / receipt line from a recorded action. */
 export const formatReleaseActionLine = (
   releaseAction: ReleaseAction,
@@ -719,7 +735,6 @@ const releaseAppleBuild = (
       logger,
     );
     if (failureCount > 0) {
-      yield* completeCommand(1);
       yield* notify(launchConfig, {
         ...notifyEvent,
         status: 'failure',
@@ -727,6 +742,7 @@ const releaseAppleBuild = (
       }).pipe(
         Effect.mapError((cause) => releaseFailure('send release failure notification', cause)),
       );
+      yield* completeCommand(1);
       return;
     }
     yield* notify(launchConfig, notifyEvent).pipe(
@@ -779,6 +795,18 @@ const releaseAndroidBuild = (
     yield* ensureArtifactPresent(latestBuild, appDescriptor.name, 'android').pipe(
       Effect.mapError((cause) => releaseFailure('verify Android release build', cause)),
     );
+    const rollout = resolveAndroidRollout(buildProfile.rollout, rolloutFlag);
+    if (commandOptions.dryRun === true) {
+      const planLines = androidReleasePlanLines(latestBuild, rollout);
+      yield* writeLog(
+        'render Play release plan',
+        logger.box(
+          `Plan - ${appDescriptor.name} ${latestBuild.version} (dry run, nothing submitted)`,
+          planLines,
+        ),
+      );
+      return;
+    }
     const releaseConfirmed = yield* confirmOrCancel(
       commandService,
       `Submit ${appDescriptor.name} ${latestBuild.version} (${latestBuild.buildNumber}) to the PUBLIC Play production track?`,
@@ -792,7 +820,6 @@ const releaseAndroidBuild = (
       commandOptions,
     );
     if (!incrementalConfirmed) return;
-    const rollout = resolveAndroidRollout(buildProfile.rollout, rolloutFlag);
     const android: AndroidReleaseOptions = { track: 'production', rollout };
     const buildContext: ResolvedBuildContext = {
       platform: 'android',

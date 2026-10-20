@@ -8,6 +8,7 @@ import {
   makeReleaseCommandFailure,
   newestValidBuild,
   parseAppStoreBuildSelector,
+  androidReleasePlanLines,
   resolveAndroidRollout,
   shouldNudgeRelease,
 } from './releaseCommand.js';
@@ -92,6 +93,27 @@ describe('resolveAndroidRollout', () => {
 
   it('defaults to a full production rollout', () => {
     expect(resolveAndroidRollout(undefined, undefined)).toBe(1);
+  });
+});
+
+describe('androidReleasePlanLines', () => {
+  it('names the build, the production track and the rollout', () => {
+    expect(
+      androidReleasePlanLines({ version: '1.2.0', buildNumber: 42, clean: true }, 0.2),
+    ).toEqual([
+      'submit 1.2.0 (42) to the PUBLIC Play production track',
+      'roll out to 20% of users',
+    ]);
+  });
+
+  it('flags an incremental build', () => {
+    const planLines = androidReleasePlanLines(
+      { version: '1.2.0', buildNumber: 42, clean: false },
+      1,
+    );
+    expect(planLines).toContain(
+      'incremental build - run `launch build android --clean` first for a from-scratch artifact',
+    );
   });
 });
 
