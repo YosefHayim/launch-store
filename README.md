@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-196%20endpoints-8957e5?logo=apple&logoColor=white" alt="196 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2430%20passing-3fb950?logo=vitest&logoColor=white" alt="2430 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2436%20passing-3fb950?logo=vitest&logoColor=white" alt="2436 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -209,7 +209,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 4. **Interactive wizard.** Running bare `launch` opens a guided wizard that remembers your last flow and offers a one-keypress repeat.
 5. **Drive it from an AI agent.** `launch agents init`/`check` scaffolds [Claude Code](https://code.claude.com/docs/en/overview) / [Cursor](https://cursor.com/docs/rules) / [Codex](https://developers.openai.com/codex/guides/agents-md) skills so coding agents run the workflows under the same plan -> confirm -> apply guardrails.
 6. **CI in one command.** `launch ci init` scaffolds a [GitHub Actions](https://docs.github.com/actions) workflow that builds and ships unattended.
-7. **Silent self-upgrade.** Picks up a newer npm release and re-runs your command on it - throttled to once a day, and a no-op in CI, when piped, and for agents.
+7. **Silent self-upgrade.** A global npm or pnpm install picks up a newer release with that same package manager and re-runs your command on it; a project install only prints a notice - throttled to once a day, and a no-op in CI, when piped, and for agents.
 
 </details>
 

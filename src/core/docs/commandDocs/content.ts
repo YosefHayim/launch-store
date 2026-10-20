@@ -196,7 +196,7 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
       '**Interactive wizard.** Running bare `launch` opens a guided wizard that remembers your last flow and offers a one-keypress repeat.',
       '**Drive it from an AI agent.** `launch agents init`/`check` scaffolds [Claude Code](https://code.claude.com/docs/en/overview) / [Cursor](https://cursor.com/docs/rules) / [Codex](https://developers.openai.com/codex/guides/agents-md) skills so coding agents run the workflows under the same plan -> confirm -> apply guardrails.',
       '**CI in one command.** `launch ci init` scaffolds a [GitHub Actions](https://docs.github.com/actions) workflow that builds and ships unattended.',
-      '**Silent self-upgrade.** Picks up a newer npm release and re-runs your command on it - throttled to once a day, and a no-op in CI, when piped, and for agents.',
+      '**Silent self-upgrade.** A global npm or pnpm install picks up a newer release with that same package manager and re-runs your command on it; a project install only prints a notice - throttled to once a day, and a no-op in CI, when piped, and for agents.',
     ],
   },
 ];

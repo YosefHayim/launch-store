@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-196%20endpoints-8957e5?logo=apple&logoColor=white" alt="196 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2430%20passing-3fb950?logo=vitest&logoColor=white" alt="2430 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2436%20passing-3fb950?logo=vitest&logoColor=white" alt="2436 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -125,7 +125,7 @@
 **온보딩 및 학습**
 
 - **`launch demo`.** 설정이 전혀 필요 없는, 전체 파이프라인의 시뮬레이션 둘러보기입니다(첫 실행 시 한 번 자동 재생됨). 어떤 명령에든 붙이는 `--explain`과 `launch explain <topic>`은 필요할 때 용어를 다룹니다.
-- **조용한 자가 업그레이드.** 더 새로운 npm 릴리스를 받아 그 위에서 명령을 다시 실행합니다 - 하루에 한 번으로 제한되며, CI에서, 파이프로 연결되었을 때, 그리고 에이전트에 대해서는 아무 동작도 하지 않습니다.
+- **조용한 자가 업그레이드.** npm 또는 pnpm 전역 설치는 같은 패키지 관리자로 더 새로운 릴리스를 받아 그 위에서 명령을 다시 실행하고, 프로젝트 설치는 알림만 표시합니다 - 하루에 한 번으로 제한되며, CI에서, 파이프로 연결되었을 때, 그리고 에이전트에 대해서는 아무 동작도 하지 않습니다.
 
 ## Launch 대 EAS
 
