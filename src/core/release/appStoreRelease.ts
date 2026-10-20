@@ -1,4 +1,5 @@
 import { Data, Effect } from 'effect';
+import { appRecordMissingMessage } from '../services/appleStoreClient.js';
 import { errorMessage } from '../services/errorMessage.js';
 import type {
   AppStoreVersionResource,
@@ -255,12 +256,6 @@ export type ReleaseReport = {
   alreadyInReview: boolean;
   actions: ReleaseAction[];
 };
-
-/** Actionable message when an app has no ASC record (Apple has no API to create one). */
-export const appRecordMissingMessage = (bundleId: string, command = 'launch release ios'): string =>
-  `No App Store Connect app record for ${bundleId}. Apple has no API to create one - create the app ` +
-  `once at https://appstoreconnect.com/apps. A brand-new app also needs its screenshots, age rating, ` +
-  `privacy details, and signed Paid/Free Apps agreement set there once. Then re-run \`${command}\`.`;
 
 /** Placeholder id when a version create was only planned or failed (create closure never produced an id). */
 const DRY_RUN_ID = '(dry-run)';

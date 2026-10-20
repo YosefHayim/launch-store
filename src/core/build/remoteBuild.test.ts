@@ -14,10 +14,7 @@ const remoteInputs = (overrides: Partial<RemoteBuildInputs> = {}): RemoteBuildIn
     p12Password: 'p12-password',
     profilePath: '/creds/profile.mobileprovision',
   },
-  ascKey: { keyId: 'KEY123', issuerId: 'issuer-1', p8: 'p8-body' },
   buildNumber: 7,
-  submit: false,
-  submitTarget: 'testing',
   forceClean: false,
   prebuildAlways: false,
   ccacheEnabled: false,
@@ -37,16 +34,20 @@ describe('remoteBuildEnvironment', () => {
 
   it('turns each build switch on independently', () => {
     const environment = remoteBuildEnvironment(
-      remoteInputs({ submit: true, forceClean: true, ccacheEnabled: true }),
+      remoteInputs({ forceClean: true, ccacheEnabled: true }),
       'keychain',
     );
     expect(environment).toMatchObject({
-      SUBMIT: '1',
       FORCE_CLEAN: '1',
       PREBUILD_ALWAYS: '0',
       USE_CCACHE: '1',
       KEYCHAIN_PASSWORD: 'keychain',
       BUILD_NUMBER: '7',
     });
+  });
+
+  it('keeps the App Store Connect key off the host', () => {
+    const environment = remoteBuildEnvironment(remoteInputs(), 'keychain');
+    expect(Object.keys(environment).filter((name) => name.startsWith('ASC_'))).toEqual([]);
   });
 });

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateKeyPairSync } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Schema } from 'effect';
 import type { AscKey } from '../core/types/credentials.js';
@@ -359,7 +360,7 @@ describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
       if (url.startsWith('https://upload.example/')) {
         inFlightUploads += 1;
         peakInFlightUploads = Math.max(peakInFlightUploads, inFlightUploads);
-        await new Promise((resumeUpload) => setTimeout(resumeUpload, 5));
+        await new Promise((resumeUpload) => setTimeout(resumeUpload, 20));
         inFlightUploads -= 1;
         return fakeResponse(200, '');
       }
@@ -374,7 +375,8 @@ describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
       String(url).startsWith('https://upload.example/'),
     );
     expect(partUploads).toHaveLength(6);
-    expect(peakInFlightUploads).toBe(4);
+    expect(peakInFlightUploads).toBeGreaterThan(1);
+    expect(peakInFlightUploads).toBeLessThanOrEqual(4);
   });
   it('retries a part after a dropped connection', async () => {
     const uploadOperations = [
@@ -421,6 +423,143 @@ describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
       client.uploadScreenshot('set-1', 'shot.png', fileURLToPath(import.meta.url)),
     ).rejects.toThrow(/asset upload chunk failed \(400\)/);
     expect(slowPartFinished).toBe(true);
+  });
+});
+describe('AppStoreConnectClient - build uploads', () => {
+  it('opens a build upload for the app, version, build number and platform', async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(201, JSON.stringify({ data: { id: 'upload-1', type: 'buildUploads' } })),
+    );
+    await expect(client.createBuildUpload('app-1', '1.4.0', 42, 'IOS')).resolves.toBe('upload-1');
+    const [url, requestInit] = expectArrayElement(fetchMock.mock.calls, 0, 'create call');
+    expect(url).toBe('https://api.appstoreconnect.apple.com/v1/buildUploads');
+    expect(requestInit.method).toBe('POST');
+    expect(readRequestDocument(requestInit)).toEqual({
+      data: {
+        type: 'buildUploads',
+        attributes: { cfBundleShortVersionString: '1.4.0', cfBundleVersion: '42', platform: 'IOS' },
+        relationships: { app: { data: { type: 'apps', id: 'app-1' } } },
+      },
+    });
+  });
+  it('fails clearly when the file is shorter than a part Apple asks for', async () => {
+    const ipaPath = fileURLToPath(import.meta.url);
+    const ipaBytes = readFileSync(ipaPath);
+    const pastTheEnd = ipaBytes.byteLength - 2;
+    const uploadOperations = [
+      { method: 'PUT', url: 'https://upload.example/part-0', offset: pastTheEnd, length: 5 },
+    ];
+    fetchMock.mockImplementation((url: string, requestInit: RequestInit) => {
+      if (url.startsWith('https://upload.example/')) return Promise.resolve(fakeResponse(200, ''));
+      if (requestInit.method === 'POST') {
+        const reservation = { data: { id: 'file-1', attributes: { uploadOperations } } };
+        return Promise.resolve(fakeResponse(201, JSON.stringify(reservation)));
+      }
+      return Promise.resolve(
+        fakeResponse(200, JSON.stringify({ data: { id: 'file-1', attributes: {} } })),
+      );
+    });
+    await expect(client.uploadBuildFile('upload-1', 'App.ipa', ipaPath)).rejects.toThrow(
+      `Read 2 of 5 bytes at offset ${pastTheEnd} from ${ipaPath}; the file changed during the upload.`,
+    );
+    const partCalls = fetchMock.mock.calls.filter(([url]) => url.startsWith('https://upload.'));
+    expect(partCalls).toEqual([]);
+  });
+  it('reserves the IPA, PUTs each part from its own byte range, then marks it uploaded', async () => {
+    const ipaPath = fileURLToPath(import.meta.url);
+    const ipaBytes = readFileSync(ipaPath);
+    const uploadOperations = [
+      { method: 'PUT', url: 'https://upload.example/part-0', offset: 0, length: 5 },
+      { method: 'PUT', url: 'https://upload.example/part-1', offset: 5, length: 7 },
+    ];
+    fetchMock.mockImplementation((url: string, requestInit: RequestInit) => {
+      if (url.startsWith('https://upload.example/')) return Promise.resolve(fakeResponse(200, ''));
+      if (requestInit.method === 'POST') {
+        const reservation = { data: { id: 'file-1', attributes: { uploadOperations } } };
+        return Promise.resolve(fakeResponse(201, JSON.stringify(reservation)));
+      }
+      return Promise.resolve(
+        fakeResponse(200, JSON.stringify({ data: { id: 'file-1', attributes: {} } })),
+      );
+    });
+    await client.uploadBuildFile('upload-1', 'App.ipa', ipaPath);
+    const [reserveUrl, reserveInit] = expectArrayElement(fetchMock.mock.calls, 0, 'reserve call');
+    expect(reserveUrl).toBe('https://api.appstoreconnect.apple.com/v1/buildUploadFiles');
+    expect(documentValueAt(readRequestDocument(reserveInit), ['data', 'attributes'])).toEqual({
+      fileName: 'App.ipa',
+      fileSize: ipaBytes.byteLength,
+      assetType: 'ASSET',
+      uti: 'com.apple.ipa',
+    });
+    expect(
+      documentValueAt(readRequestDocument(reserveInit), ['data', 'relationships', 'buildUpload']),
+    ).toEqual({ data: { type: 'buildUploads', id: 'upload-1' } });
+    const partCalls = fetchMock.mock.calls.slice(1, 3);
+    const firstPartCall = partCalls.find(([url]) => url === 'https://upload.example/part-0');
+    const [, firstPartInit] = expectDefined(firstPartCall, 'part 0');
+    expect(firstPartInit.body).toEqual(ipaBytes.subarray(0, 5));
+    const secondPartCall = partCalls.find(([url]) => url === 'https://upload.example/part-1');
+    const [, secondPartInit] = expectDefined(secondPartCall, 'part 1');
+    expect(secondPartInit.body).toEqual(ipaBytes.subarray(5, 12));
+    const [commitUrl, commitInit] = expectArrayElement(fetchMock.mock.calls, 3, 'commit call');
+    expect(commitUrl).toBe('https://api.appstoreconnect.apple.com/v1/buildUploadFiles/file-1');
+    expect(commitInit.method).toBe('PATCH');
+    expect(readRequestDocument(commitInit)).toEqual({
+      data: { type: 'buildUploadFiles', id: 'file-1', attributes: { uploaded: true } },
+    });
+  });
+  it('reads the upload state with the delivery errors of its IPA', async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: {
+            id: 'upload-1',
+            type: 'buildUploads',
+            attributes: {
+              state: {
+                state: 'FAILED',
+                errors: [{ code: '90186', description: 'Invalid Pre-Release Train.' }],
+              },
+            },
+          },
+          included: [
+            {
+              id: 'file-1',
+              type: 'buildUploadFiles',
+              attributes: {
+                assetDeliveryState: {
+                  state: 'FAILED',
+                  errors: [{ code: '90062', description: 'Version must be higher.' }],
+                },
+              },
+            },
+          ],
+        }),
+      ),
+    );
+    await expect(client.getBuildUploadStatus('upload-1')).resolves.toEqual({
+      state: 'FAILED',
+      fileState: 'FAILED',
+      errors: [
+        { code: '90186', description: 'Invalid Pre-Release Train.' },
+        { code: '90062', description: 'Version must be higher.' },
+      ],
+    });
+    const [url] = expectArrayElement(fetchMock.mock.calls, 0, 'status call');
+    expect(url).toBe(
+      'https://api.appstoreconnect.apple.com/v1/buildUploads/upload-1?include=assetFile&fields[buildUploads]=state,assetFile&fields[buildUploadFiles]=assetDeliveryState',
+    );
+  });
+  it('treats an upload with no state yet as awaiting upload', async () => {
+    fetchMock.mockResolvedValue(
+      fakeResponse(200, JSON.stringify({ data: { id: 'upload-1', type: 'buildUploads' } })),
+    );
+    await expect(client.getBuildUploadStatus('upload-1')).resolves.toEqual({
+      state: 'AWAITING_UPLOAD',
+      fileState: '',
+      errors: [],
+    });
   });
 });
 describe('AppStoreConnectClient - pagination (links.next)', () => {

@@ -1,6 +1,7 @@
 import { type FileSystem, type Path, Terminal } from '@effect/platform';
 import type { HttpClient } from '@effect/platform';
 import { Context, Data, Effect, Layer } from 'effect';
+import { parseBuildRollout } from '../build/buildCommandInput.js';
 import { worstDownloadBytes } from '../build/pipelineArtifact.js';
 import { resolveCommandEnv, selectApp } from '../build/pipelineEnv.js';
 import { mb, submitToStores } from '../build/pipelineProviders.js';
@@ -11,6 +12,7 @@ import { loadAscKeyById } from '../credentials/accounts.js';
 import { ensureArtifactPresent, resolveStorageProvider } from '../distribution/storage.js';
 import {
   AppleStoreClientService,
+  appRecordMissingMessage,
   type AppleStoreClientService as AppleStoreClientDependencies,
 } from '../services/appleStoreClient.js';
 import type { LaunchEnvironmentService } from '../services/environment.js';
@@ -32,7 +34,6 @@ import type { BuildArtifact } from '../types/artifacts.js';
 import type { BuildResource } from '../types/appleCatalog.js';
 import type { LaunchConfig, ResolvedBuildContext } from '../types/config.js';
 import {
-  appRecordMissingMessage,
   releaseApp,
   waitForValidBuild,
   type AscReleaseApi,
@@ -145,9 +146,9 @@ export const parseAppStoreBuildSelector = (selector: string): AppStoreBuildSelec
 /** Resolve the staged-rollout fraction for a Play production release. */
 export const resolveAndroidRollout = (
   profileRollout: number | undefined,
-  rolloutFlag: string | undefined,
+  rolloutFlag: number | undefined,
 ): number => {
-  if (rolloutFlag !== undefined) return Number.parseFloat(rolloutFlag);
+  if (rolloutFlag !== undefined) return rolloutFlag;
   if (profileRollout !== undefined) return profileRollout;
   return 1;
 };
@@ -515,7 +516,7 @@ const resolveIosBuild = (
     yield* submitToStores(
       launchConfig,
       buildContext.platform,
-      artifact.path,
+      artifact,
       'production',
       buildCredentials,
       buildContext,
@@ -756,6 +757,9 @@ const releaseAndroidBuild = (
   Effect.gen(function* () {
     const commandService = yield* ReleaseCommandService;
     const logger = yield* createLogger(commandOptions.explain);
+    const rolloutFlag = yield* parseBuildRollout(commandOptions.rollout).pipe(
+      Effect.mapError((cause) => releaseFailure('parse --rollout', cause, cause.message)),
+    );
     const storageProvider = yield* resolveStorageProvider(launchConfig).pipe(
       Effect.mapError((cause) => releaseFailure('resolve storage provider', cause)),
     );
@@ -788,7 +792,7 @@ const releaseAndroidBuild = (
       commandOptions,
     );
     if (!incrementalConfirmed) return;
-    const rollout = resolveAndroidRollout(buildProfile.rollout, commandOptions.rollout);
+    const rollout = resolveAndroidRollout(buildProfile.rollout, rolloutFlag);
     const android: AndroidReleaseOptions = { track: 'production', rollout };
     const buildContext: ResolvedBuildContext = {
       platform: 'android',
@@ -820,7 +824,7 @@ const releaseAndroidBuild = (
     yield* submitToStores(
       launchConfig,
       'android',
-      latestBuild.path,
+      latestBuild,
       'production',
       buildCredentials,
       buildContext,

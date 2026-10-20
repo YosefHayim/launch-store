@@ -427,9 +427,9 @@ describe('submitToStores - fans one build out to every configured store', () => 
     const calls: string[] = [];
     const fakeStore = (name: string): Submitter => ({
       name,
-      submit: (artifactPath) =>
+      submit: (artifact) =>
         Effect.sync(() => {
-          calls.push(`${name}:${artifactPath}`);
+          calls.push(`${name}:${artifact.path}`);
         }),
     });
     registerSubmitter(fakeStore('alt-store-a'));
@@ -445,7 +445,7 @@ describe('submitToStores - fans one build out to every configured store', () => 
       submitToStores(
         config,
         'android',
-        '/tmp/app.aab',
+        { path: '/tmp/app.aab', version: '1.0.0', buildNumber: 1 },
         'production',
         buildCredentials,
         buildContext,

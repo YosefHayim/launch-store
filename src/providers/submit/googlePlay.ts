@@ -1,52 +1,39 @@
-import { FileSystem, Path } from '@effect/platform';
-import { NodeContext } from '@effect/platform-node';
+import { FileSystem } from '@effect/platform';
+import { NodeContext, NodeStream } from '@effect/platform-node';
 import { Effect } from 'effect';
 import type { AndroidReleaseNote, PlayTrack, SubmitTarget } from '@core/types/app.js';
 import type { ResolvedBuildContext } from '@core/types/config.js';
 import type { BuildCredentials } from '@core/types/credentials.js';
-import { makeProviderInputFailure, type Submitter } from '@core/types/providers.js';
-import { executeCommand, provideNodeCommandServices } from '@core/services/exec.js';
-
-/** Listing/asset uploads Launch never manages - supply must skip them or it errors on missing files. */
-const SKIP_LISTING_BASE = [
-  '--skip_upload_metadata',
-  'true',
-  '--skip_upload_images',
-  'true',
-  '--skip_upload_screenshots',
-  'true',
-] as const;
+import type { PlayRelease } from '@core/types/googlePlay.js';
+import {
+  makeProviderInputFailure,
+  type SubmitArtifact,
+  type Submitter,
+} from '@core/types/providers.js';
+import {
+  GoogleStoreClientLive,
+  GoogleStoreClientService,
+} from '@core/services/googleStoreClient.js';
 
 /**
- * Write supply's changelog layout under `metadataDirectory`: one `changelogs/default.txt` per locale.
- * `default.txt` is supply's fallback when a versionCode-named file is absent, so notes attach to the
- * AAB being uploaded without the submitter needing the stamped versionCode.
+ * The release a Play upload lands as: a partial rollout is a staged (`inProgress`) release at that
+ * fraction, a full one is `completed`, and configured notes ride along per locale.
  */
-const writeChangelogMetadata = (
-  metadataDirectory: string,
-  releaseNotes: readonly AndroidReleaseNote[],
-): Effect.Effect<void, unknown, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const pathService = yield* Path.Path;
-    for (const releaseNote of releaseNotes) {
-      const changelogDirectory = pathService.join(
-        metadataDirectory,
-        releaseNote.language,
-        'changelogs',
-      );
-      yield* fileSystem.makeDirectory(changelogDirectory, { recursive: true });
-      yield* fileSystem.writeFileString(
-        pathService.join(changelogDirectory, 'default.txt'),
-        releaseNote.text,
-      );
-    }
-  });
+const playReleaseFor = (
+  rollout: number,
+  releaseNotes: readonly AndroidReleaseNote[] | undefined,
+): Omit<PlayRelease, 'versionCodes'> => {
+  let release: Omit<PlayRelease, 'versionCodes'> = { status: 'completed' };
+  if (rollout < 1) release = { status: 'inProgress', userFraction: rollout };
+  if (releaseNotes === undefined) return release;
+  if (releaseNotes.length === 0) return release;
+  return { ...release, releaseNotes: releaseNotes.map((releaseNote) => ({ ...releaseNote })) };
+};
 
 export const googlePlaySubmitter: Submitter = {
   name: 'google-play',
   submit(
-    artifactPath: string,
+    artifact: SubmitArtifact,
     target: SubmitTarget,
     buildCredentials: BuildCredentials,
     buildContext: ResolvedBuildContext,
@@ -74,45 +61,18 @@ export const googlePlaySubmitter: Submitter = {
     if (buildContext.android?.track !== undefined) track = buildContext.android.track;
     let rollout = 1.0;
     if (buildContext.android?.rollout !== undefined) rollout = buildContext.android.rollout;
-    const releaseNotes = buildContext.android?.releaseNotes;
-    let hasReleaseNotes = false;
-    if (releaseNotes !== undefined && releaseNotes.length > 0) hasReleaseNotes = true;
-    return Effect.scoped(
-      Effect.gen(function* () {
-        const fileSystem = yield* FileSystem.FileSystem;
-        const pathService = yield* Path.Path;
-        const temporaryDirectory = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: 'launch-play-',
-        });
-        const jsonKeyPath = pathService.join(temporaryDirectory, 'play-service-account.json');
-        yield* fileSystem.writeFileString(jsonKeyPath, buildCredentials.serviceAccountJson);
-        const args: string[] = [
-          'supply',
-          '--aab',
-          artifactPath,
-          '--json_key',
-          jsonKeyPath,
-          '--package_name',
-          packageName,
-          '--track',
-          track,
-          ...SKIP_LISTING_BASE,
-        ];
-        if (hasReleaseNotes && releaseNotes !== undefined) {
-          const metadataDirectory = pathService.join(temporaryDirectory, 'metadata');
-          yield* writeChangelogMetadata(metadataDirectory, releaseNotes);
-          args.push('--metadata_path', metadataDirectory);
-        } else {
-          // No notes configured: skip changelogs so supply does not require a metadata tree.
-          args.push('--skip_upload_changelogs', 'true');
-        }
-        // A partial rollout becomes a staged ("inProgress") release; a full one is left to complete.
-        if (rollout < 1) args.push('--rollout', String(rollout));
-        // Resolved env (profile env: / .env / keychain / --env) reaches fastlane as its process env.
-        yield* provideNodeCommandServices(
-          executeCommand('fastlane', args, { environmentOverrides: buildContext.env }),
-        );
-      }),
-    ).pipe(Effect.provide(NodeContext.layer));
+    const release = playReleaseFor(rollout, buildContext.android?.releaseNotes);
+    return Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const googleStoreClients = yield* GoogleStoreClientService;
+      const playClient = yield* googleStoreClients.createEffectClient(
+        buildCredentials.serviceAccountJson,
+      );
+      const bundleFile = fileSystem.stream(artifact.path);
+      const bundleStream = yield* NodeStream.toReadable(bundleFile);
+      const closeBundle = Effect.sync(() => bundleStream.destroy());
+      const uploading = playClient.uploadBundleToTrack(packageName, bundleStream, track, release);
+      yield* uploading.pipe(Effect.ensuring(closeBundle));
+    }).pipe(Effect.provide(GoogleStoreClientLive), Effect.provide(NodeContext.layer));
   },
 };

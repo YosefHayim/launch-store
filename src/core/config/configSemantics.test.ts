@@ -72,16 +72,18 @@ describe('checkConfigSemantics', () => {
     });
   });
   describe('profiles', () => {
-    it('flags a rollout fraction outside 0-1', () => {
+    it('flags a rollout fraction outside 0 (exclusive) to 1', () => {
       expect(paths({ profiles: { production: { name: 'production', rollout: 1.5 } } })).toEqual([
+        'profiles.production.rollout',
+      ]);
+      expect(paths({ profiles: { production: { name: 'production', rollout: 0 } } })).toEqual([
         'profiles.production.rollout',
       ]);
       expect(paths({ profiles: { production: { name: 'production', rollout: -0.1 } } })).toEqual([
         'profiles.production.rollout',
       ]);
     });
-    it('accepts the inclusive bounds and an interior fraction', () => {
-      expect(paths({ profiles: { production: { name: 'production', rollout: 0 } } })).toEqual([]);
+    it('accepts a full rollout and an interior fraction', () => {
       expect(paths({ profiles: { production: { name: 'production', rollout: 1 } } })).toEqual([]);
       expect(paths({ profiles: { production: { name: 'production', rollout: 0.25 } } })).toEqual(
         [],

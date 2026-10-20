@@ -1,8 +1,7 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Effect } from 'effect';
-import type { SubmitTarget } from '../types/app.js';
 import type { SizeReport } from '../types/artifacts.js';
-import type { AscKey, SigningAssets } from '../types/credentials.js';
+import type { SigningAssets } from '../types/credentials.js';
 import type { SshTarget } from '../types/remote.js';
 import type { RemoteSigningBundle } from '../credentials/appleSigning.js';
 import { randomHexSecret } from '../credentials/randomSecret.js';
@@ -41,10 +40,7 @@ export type RemoteBuildInputs = {
   appName: string;
   bundleId: string;
   signing: RemoteSigningBundle;
-  ascKey: AscKey;
   buildNumber: number;
-  submit: boolean;
-  submitTarget: SubmitTarget;
   forceClean: boolean;
   prebuildAlways: boolean;
   ccacheEnabled: boolean;
@@ -111,7 +107,7 @@ export const openRemoteSession = (target: SshTarget, appName: string) =>
  */
 export const syncProject = (session: RemoteSession, appDir: string) =>
   rsyncUp(session.target, appDir, `${session.workDirectory}/app`, SOURCE_EXCLUDES);
-/** Upload the transient `.p8`/`.p12`/profile + the export-options plist into the per-run ephemeral creds dir (chmod 600). */
+/** Upload the transient `.p12`/profile + the export-options plist into the per-run ephemeral creds dir (chmod 600). */
 export const uploadSigningMaterial = (session: RemoteSession, inputs: RemoteBuildInputs) =>
   Effect.scoped(
     Effect.gen(function* () {
@@ -119,9 +115,7 @@ export const uploadSigningMaterial = (session: RemoteSession, inputs: RemoteBuil
       const pathService = yield* Path.Path;
       const credentialsDirectory = session.credentialsDirectory;
       const staging = yield* fileSystem.makeTempDirectoryScoped({ prefix: 'launch-remote-' });
-      const p8Local = pathService.join(staging, 'asc.p8');
       const plistLocal = pathService.join(staging, 'ExportOptions.plist');
-      yield* fileSystem.writeFileString(p8Local, inputs.ascKey.p8);
       yield* fileSystem.writeFileString(
         plistLocal,
         exportOptionsPlist(toSigningAssets(inputs.signing)),
@@ -132,12 +126,8 @@ export const uploadSigningMaterial = (session: RemoteSession, inputs: RemoteBuil
         inputs.signing.profilePath,
         `${credentialsDirectory}/profile.mobileprovision`,
       );
-      yield* scpUp(session.target, p8Local, `${credentialsDirectory}/asc.p8`);
       yield* scpUp(session.target, plistLocal, `${credentialsDirectory}/ExportOptions.plist`);
-      yield* sshRun(
-        session.target,
-        `chmod 600 ${shellQuote(`${credentialsDirectory}/dist.p12`)} ${shellQuote(`${credentialsDirectory}/asc.p8`)}`,
-      );
+      yield* sshRun(session.target, `chmod 600 ${shellQuote(`${credentialsDirectory}/dist.p12`)}`);
     }),
   );
 /**
@@ -160,7 +150,7 @@ export const runDoctorOnHost = (session: RemoteSession, mode: 'install' | 'asser
       yield* sshRun(session.target, `bash ${shellQuote(scriptRemote)}`);
     }),
   );
-/** The env the host build script reads: app identity, signing, submit target and the build switches. */
+/** The env the host build script reads: app identity, signing and the build switches. */
 export const remoteBuildEnvironment = (
   inputs: RemoteBuildInputs,
   keychainPassword: string,
@@ -175,14 +165,9 @@ export const remoteBuildEnvironment = (
     BUILD_NUMBER: String(inputs.buildNumber),
     KEYCHAIN_PASSWORD: keychainPassword,
     P12_PASSWORD: inputs.signing.p12Password,
-    ASC_KEY_ID: inputs.ascKey.keyId,
-    ASC_ISSUER_ID: inputs.ascKey.issuerId,
-    SUBMIT: '0',
-    SUBMIT_TARGET: inputs.submitTarget,
     FORCE_CLEAN: '0',
     PREBUILD_ALWAYS: '0',
   };
-  if (inputs.submit) environmentVariables['SUBMIT'] = '1';
   if (inputs.forceClean) environmentVariables['FORCE_CLEAN'] = '1';
   if (inputs.prebuildAlways) environmentVariables['PREBUILD_ALWAYS'] = '1';
   if (inputs.ccacheEnabled) environmentVariables['USE_CCACHE'] = '1';
@@ -190,7 +175,7 @@ export const remoteBuildEnvironment = (
 };
 /**
  * Upload the build script and run it on the host (ephemeral keychain -> incremental deps/prebuild ->
- * host-gated pod install + gym -> optional submit). The clean-vs-incremental, prebuild and ccache flags
+ * host-gated pod install + gym). The clean-vs-incremental, prebuild and ccache flags
  * ride in as env (`FORCE_CLEAN`, `PREBUILD_ALWAYS`, `USE_CCACHE`); the host owns its own staleness check, so this returns whether it
  * actually clean-built (read from a marker the script writes) for the pipeline to stamp on the artifact.
  */
@@ -345,17 +330,4 @@ if [ -z "$IPA" ] || [ ! -s "$IPA" ]; then
   exit 1
 fi
 echo "LAUNCH_IPA=$IPA"
-
-# 7. Submit from the host (decision 10), using the same API key, then remove the temp key json.
-if [ "$SUBMIT" = "1" ]; then
-  KEYJSON="$CREDS/asc_key.json"
-  P8_ESCAPED="$(python3 -c 'import json,sys; print(json.dumps(open(sys.argv[1]).read()))' "$CREDS/asc.p8")"
-  printf '{"key_id":"%s","issuer_id":"%s","key":%s,"in_house":false}' "$ASC_KEY_ID" "$ASC_ISSUER_ID" "$P8_ESCAPED" > "$KEYJSON"
-  if [ "$SUBMIT_TARGET" = "production" ]; then
-    fastlane deliver --ipa "$IPA" --api_key_path "$KEYJSON" --submit_for_review true --force true
-  else
-    fastlane pilot upload --ipa "$IPA" --api_key_path "$KEYJSON" --skip_waiting_for_build_processing true
-  fi
-  rm -f "$KEYJSON"
-fi
 `;

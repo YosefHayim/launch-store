@@ -74,7 +74,7 @@ const BuildProfileEffectSchema = Schema.Struct({
   rollout: Schema.optional(
     Schema.Number.annotations({
       description:
-        'Android-only: default staged-rollout fraction (0-1) for production releases when `--rollout` is omitted. Defaults to `1.0` (full rollout). Ignored on iOS.',
+        'Android-only: default staged-rollout fraction (above 0, up to 1) for production releases when `--rollout` is omitted. Defaults to `1.0` (full rollout). Ignored on iOS.',
     }),
   ),
 }).annotations({

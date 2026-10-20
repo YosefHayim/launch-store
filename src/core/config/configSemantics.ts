@@ -59,17 +59,17 @@ const checkRelease = (config: LaunchConfig): SemanticIssue[] => {
   }
   return issues;
 };
-/** A staged-rollout fraction is a probability: it must sit in the inclusive 0-1 range. */
+/** A staged-rollout fraction must be above 0 and at most 1 - Play rejects a 0% staged release. */
 const checkProfiles = (config: LaunchConfig): SemanticIssue[] => {
   const issues: SemanticIssue[] = [];
   for (const [name, profile] of Object.entries(config.profiles)) {
     let rolloutInvalid = false;
-    if (profile.rollout !== undefined && profile.rollout < 0) rolloutInvalid = true;
+    if (profile.rollout !== undefined && profile.rollout <= 0) rolloutInvalid = true;
     if (profile.rollout !== undefined && profile.rollout > 1) rolloutInvalid = true;
     if (rolloutInvalid) {
       issues.push({
         path: `profiles.${name}.rollout`,
-        message: `rollout ${profile.rollout} is out of range - a staged-rollout fraction must be between 0 and 1.`,
+        message: `rollout ${profile.rollout} is out of range - a staged-rollout fraction must be between 0 (exclusive) and 1.`,
       });
     }
   }

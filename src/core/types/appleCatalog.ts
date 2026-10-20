@@ -413,6 +413,18 @@ export type BuildResource = Readonly<{
   uploadedDate?: string;
   expired: boolean;
 }>;
+/** One reason App Store Connect gave about a build upload (an error such as `90062`, or a warning). */
+export type BuildUploadProblem = Readonly<{ code: string; description: string }>;
+/**
+ * Where an IPA delivery stands: the build upload's state (`AWAITING_UPLOAD`, `PROCESSING`, `COMPLETE`,
+ * `FAILED`), its file's delivery state (`AWAITING_UPLOAD`, `UPLOAD_COMPLETE`, `COMPLETE`, `FAILED`, or
+ * empty before Apple reports one), and every error Apple attached to either.
+ */
+export type BuildUploadStatus = Readonly<{
+  state: string;
+  fileState: string;
+  errors: readonly BuildUploadProblem[];
+}>;
 /** One locale's TestFlight "What to Test" note for a build (`betaBuildLocalizations`). */
 export type BetaBuildLocalizationResource = Readonly<{
   id: string;

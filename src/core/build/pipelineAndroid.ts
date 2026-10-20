@@ -124,7 +124,7 @@ export const runAndroidBuild = (prepared: PreparedBuild, options: BuildRunOption
       }
       return;
     }
-    // 8. Confirm the upload (size shown; budget enforced here), then submit via fastlane supply.
+    // 8. Confirm the upload (size shown; budget enforced here), then upload through the Google Play API.
     let track = buildContext.android?.track;
     if (track === undefined) track = 'internal';
     if (options.submit) {
@@ -136,7 +136,7 @@ export const runAndroidBuild = (prepared: PreparedBuild, options: BuildRunOption
       if (dryRun) {
         yield* log.step(
           'submit',
-          `would upload to the ${track} track via fastlane supply${notesDescription}`,
+          `would upload to the ${track} track via the Google Play API${notesDescription}`,
           'play-track',
         );
       } else {
@@ -154,7 +154,7 @@ export const runAndroidBuild = (prepared: PreparedBuild, options: BuildRunOption
         const stores = yield* submitToStores(
           config,
           'android',
-          artifactPath,
+          { path: artifactPath, version: appVersion, buildNumber: versionCode },
           options.target,
           credentials,
           buildContext,

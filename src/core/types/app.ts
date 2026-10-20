@@ -67,7 +67,7 @@ export type AndroidReleaseNote = {
  * Resolved Android release settings for one invocation, carried on {@link ResolvedBuildContext} so the
  * Google Play submitter reads a single source of truth. Resolved from `--track`/`--rollout`, then the
  * profile's defaults, then the safe fallback. Present only for Android builds; absent on iOS.
- * `releaseNotes` is optional: when set, `google-play` uploads them as supply changelogs with the AAB.
+ * `releaseNotes` is optional: when set, `google-play` sends them as the release notes of the uploaded AAB.
  */
 export type AndroidReleaseOptions = {
   track: PlayTrack;

@@ -10,6 +10,7 @@ import type {
 } from '../types/app.js';
 import type { LaunchConfig, ResolvedBuildContext } from '../types/config.js';
 import type { BuildCredentials } from '../types/credentials.js';
+import type { SubmitArtifact } from '../types/providers.js';
 import type { RemoteTarget } from '../types/remote.js';
 import { resolveWhatsNew } from '../release/releaseInputs.js';
 import { parseReleaseNotesJson } from '../store/playTracks.js';
@@ -69,7 +70,7 @@ export const resolveSubmitterName = (config: LaunchConfig, platform: Platform): 
   return primarySubmitter;
 };
 /**
- * Upload `artifactPath` to every store {@link resolveSubmitters configured} for `platform`, in order, and
+ * Upload `artifact` to every store {@link resolveSubmitters configured} for `platform`, in order, and
  * return the store names. A single-store config submits to exactly one (so an iOS / Play-only setup
  * behaves as before); a per-platform `submit` map fans an Android build out to Play plus alternative
  * stores. Each store is a registered `Submitter` resolved by name, so adding a store never changes this loop.
@@ -77,7 +78,7 @@ export const resolveSubmitterName = (config: LaunchConfig, platform: Platform): 
 export const submitToStores = (
   config: LaunchConfig,
   platform: Platform,
-  artifactPath: string,
+  artifact: SubmitArtifact,
   target: SubmitTarget,
   credentials: BuildCredentials,
   buildContext: ResolvedBuildContext,
@@ -88,7 +89,7 @@ export const submitToStores = (
     (storeName) =>
       getSubmitter(storeName).pipe(
         Effect.flatMap((submitter) =>
-          submitter.submit(artifactPath, target, credentials, buildContext),
+          submitter.submit(artifact, target, credentials, buildContext),
         ),
       ),
     { concurrency: 1 },

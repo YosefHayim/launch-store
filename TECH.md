@@ -26,7 +26,7 @@ This guide assumes the reader is new to the mobile-store ecosystem. Run `launch 
 ## iOS / Apple - toolchain
 
 - **Xcode** - Apple's toolchain (compiler, signing, simulators). Runs only on macOS, which is why an iOS build needs a Mac (yours, a remote one, or EAS). Launch never opens Xcode's UI - it drives the command-line build through fastlane.
-- **fastlane** - the open-source Ruby toolkit that automates Apple's build/upload steps. Launch drives its actions: **gym** (archive + sign + export the `.ipa`), **pilot** (TestFlight upload), **deliver** (App Store + metadata).
+- **fastlane** - the open-source Ruby toolkit that automates Apple's build/upload steps. Launch drives its actions: **gym** (archive + sign + export the `.ipa`) and **deliver** (App Store metadata). Build uploads skip it: Launch sends the `.ipa` through the App Store Connect build upload API and the `.aab` through the Google Play Android Publisher API.
 - **CocoaPods / Podfile** - the iOS native-dependency manager. `pod install` reads the Podfile `expo prebuild` generates and fetches native pods, pinned in `Podfile.lock` (which feeds the build fingerprint).
 - **Keychain** - the OS's encrypted secret store (macOS Keychain; Credential Manager / libsecret elsewhere). Launch keeps signing keys, certificates, and API keys here - never in the repo or `~/.launch`.
 

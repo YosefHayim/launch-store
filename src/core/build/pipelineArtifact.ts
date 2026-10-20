@@ -20,10 +20,11 @@ import type { GlossaryTopic } from '../terminal/glossary.js';
 import type { AppDescriptor, Platform, PlayTrack, SubmitTarget } from '../types/app.js';
 import type { BuildArtifact, SizeReport } from '../types/artifacts.js';
 import type { LaunchConfig, PrebuildMode, ResolvedBuildContext } from '../types/config.js';
-import type { AppleCredentials } from '../types/credentials.js';
+import type { AppleCredentials, BuildCredentials } from '../types/credentials.js';
+import type { SubmitArtifact } from '../types/providers.js';
 import { resolveRetentionDays } from './artifactRetention.js';
 import { beginBuildLog, buildLogId, endBuildLog } from './buildLog.js';
-import { mb } from './pipelineProviders.js';
+import { mb, resolveSizeBudgetMB, submitToStores } from './pipelineProviders.js';
 import type {
   BuildOutput,
   BuildRunOptions,
@@ -507,6 +508,43 @@ export const confirmUpload = (options: ConfirmUploadOptions) =>
     if (overBudget) cancellationMessage = 'Stopped before upload (over size budget).';
     yield* launchPrompt.cancel(cancellationMessage);
     return yield* Effect.fail(makeCommandExit({ exitCode: 0 }));
+  });
+
+/** Confirm the upload against the size budget, then send the iOS build to every configured store. */
+export const uploadIosBuild = (
+  prepared: PreparedBuild,
+  options: BuildRunOptions,
+  artifact: SubmitArtifact,
+  sizeReport: SizeReport,
+  credentials: BuildCredentials,
+) =>
+  Effect.gen(function* () {
+    const { config, app, log, buildContext } = prepared;
+    let destination = 'App Store review';
+    if (options.target === 'testing') destination = 'TestFlight';
+    const previous = yield* previousBuild(config, app, buildContext.platform, artifact.buildNumber);
+    yield* confirmUpload({
+      report: sizeReport,
+      budgetMB: resolveSizeBudgetMB(options, prepared.profile),
+      destination,
+      app,
+      version: artifact.version,
+      buildNumber: artifact.buildNumber,
+      previous,
+      yes: options.yes === true,
+      log,
+    });
+    yield* submitToStores(
+      config,
+      buildContext.platform,
+      artifact,
+      options.target,
+      credentials,
+      buildContext,
+    );
+    let submissionDescription = 'submitted for App Store review';
+    if (options.target === 'testing') submissionDescription = 'uploaded to TestFlight';
+    yield* log.step('submit', submissionDescription, 'testflight');
   });
 
 /** Receipt destination line: where the build went (or that it was not uploaded). */

@@ -164,8 +164,8 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
   ].join('\n'),
   fastlane: [
     "fastlane: the open-source Ruby toolkit that automates Apple's build/upload steps from the command",
-    'line. Launch drives its actions - gym (archive + sign + export the .ipa), pilot (TestFlight),',
-    'deliver (App Store + metadata) - so iOS releases are scriptable instead of clicked through Xcode.',
+    'line. Launch drives its actions - gym (archive + sign + export the .ipa) and deliver (App Store',
+    "metadata) - so iOS releases are scriptable. Build uploads skip it and go straight to Apple's API.",
   ].join('\n'),
   cocoapods: [
     'CocoaPods: the dependency manager for iOS native libraries. `pod install` reads the Podfile that',
