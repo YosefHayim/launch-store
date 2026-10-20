@@ -1,6 +1,11 @@
 name: Test
 'on':
-  workflow_call: null
+  workflow_call:
+    inputs:
+      since:
+        description: Base commit to test changes against. Empty runs everything with coverage.
+        type: string
+        default: ''
 permissions:
   contents: read
 jobs:
@@ -8,13 +13,21 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - name: Setup workspace
         uses: ./.github/actions/setup
+      - name: Test changed files
+        if: inputs.since != ''
+        env:
+          SINCE: ${{ inputs.since }}
+        run: pnpm exec vitest run --changed "$SINCE"
       - name: Test (with coverage)
+        if: inputs.since == ''
         run: pnpm test:coverage | tee coverage.txt
       - name: Coverage summary
-        if: always()
+        if: inputs.since == ''
         run: |
           {
             echo '### Coverage (node 24)'

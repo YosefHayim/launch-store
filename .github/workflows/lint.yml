@@ -1,6 +1,11 @@
 name: Lint
 'on':
-  workflow_call: null
+  workflow_call:
+    inputs:
+      since:
+        description: Base commit to lint changes against. Empty lints everything.
+        type: string
+        default: ''
 permissions:
   contents: read
 jobs:
@@ -8,10 +13,20 @@ jobs:
     name: Lint & format (biome check)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
       - name: Setup workspace
         uses: ./.github/actions/setup
-      - run: pnpm lint
+      - name: Biome
+        env:
+          SINCE: ${{ inputs.since }}
+        run: |
+          if [ -n "$SINCE" ]; then
+            pnpm exec biome check --changed --since="$SINCE" --no-errors-on-unmatched
+          else
+            pnpm lint
+          fi
       - run: pnpm lint:style:self-test
       - run: pnpm lint:style
     timeout-minutes: 15
