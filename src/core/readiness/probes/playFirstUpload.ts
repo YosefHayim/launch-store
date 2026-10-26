@@ -19,42 +19,56 @@ export const playFirstUploadProbe = {
     return Effect.gen(function* () {
       const apps = androidApps(readinessContext.apps);
       if (apps.length === 0) return OMITTED_PROBE;
-      const api = yield* readinessContext.resolvePlayApi();
-      if (!api) {
+      const appClients = yield* Effect.forEach(
+        apps,
+        (app) => readinessContext.resolvePlayApi(app.identifier),
+        { concurrency: 1 },
+      );
+      if (appClients.every((api) => !api)) {
         return SKIPPED_NO_PLAY_ACCOUNT;
       }
       const results = yield* Effect.forEach(
         apps,
-        ({ name, identifier }) =>
-          api.getLatestVersionCode(identifier).pipe(
-            Effect.map((versionCode) => {
-              if (versionCode > 0) {
-                return {
-                  app: name,
-                  identifier,
-                  status: 'ok' as const,
-                  detail: `latest uploaded versionCode ${versionCode}`,
-                };
-              }
+        ({ name, identifier }, index) =>
+          Effect.gen(function* () {
+            const api = appClients[index];
+            if (!api)
               return {
                 app: name,
                 identifier,
                 status: 'blocker' as const,
-                detail:
-                  'no uploaded build - Play blocks API submission until the first build is uploaded',
-                hint: 'upload the first build once in Play Console (a manual AAB upload satisfies this)',
+                detail: 'No Play service account for this package.',
               };
-            }),
-            Effect.catchAll((apiFailure) =>
-              Effect.succeed({
-                app: name,
-                identifier,
-                status: 'warn' as const,
-                detail: `could not read uploads: ${errorMessage(apiFailure)}`,
-                hint: 'confirm the app exists and the service account has access (see the app-access check)',
+            return yield* api.getLatestVersionCode(identifier).pipe(
+              Effect.map((versionCode) => {
+                if (versionCode > 0) {
+                  return {
+                    app: name,
+                    identifier,
+                    status: 'ok' as const,
+                    detail: `latest uploaded versionCode ${versionCode}`,
+                  };
+                }
+                return {
+                  app: name,
+                  identifier,
+                  status: 'blocker' as const,
+                  detail:
+                    'no uploaded build - Play blocks API submission until the first build is uploaded',
+                  hint: 'upload the first build once in Play Console (a manual AAB upload satisfies this)',
+                };
               }),
-            ),
-          ),
+              Effect.catchAll((apiFailure) =>
+                Effect.succeed({
+                  app: name,
+                  identifier,
+                  status: 'warn' as const,
+                  detail: `could not read uploads: ${errorMessage(apiFailure)}`,
+                  hint: 'confirm the app exists and the service account has access (see the app-access check)',
+                }),
+              ),
+            );
+          }),
         { concurrency: 'unbounded' },
       );
       return { state: 'checked', apps: results };

@@ -125,7 +125,7 @@ export const playReportsCommandProgram = (
       );
     }
     const packageName = selectedApp.packageName;
-    const serviceAccountJson = yield* loadServiceAccount();
+    const serviceAccountJson = yield* loadServiceAccount(packageName);
     if (serviceAccountJson === null) {
       return yield* Effect.fail(
         makePlayReportsCommandFailure({

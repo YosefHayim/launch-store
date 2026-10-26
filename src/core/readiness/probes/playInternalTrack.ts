@@ -21,41 +21,55 @@ export const playInternalTrackProbe = {
     return Effect.gen(function* () {
       const apps = androidApps(readinessContext.apps);
       if (apps.length === 0) return OMITTED_PROBE;
-      const api = yield* readinessContext.resolvePlayApi();
-      if (!api) {
+      const appClients = yield* Effect.forEach(
+        apps,
+        (app) => readinessContext.resolvePlayApi(app.identifier),
+        { concurrency: 1 },
+      );
+      if (appClients.every((api) => !api)) {
         return SKIPPED_NO_PLAY_ACCOUNT;
       }
       const results = yield* Effect.forEach(
         apps,
-        ({ name, identifier }) =>
-          api.listTracks(identifier).pipe(
-            Effect.map((tracks) => {
-              if (tracks.some((track) => track.track === INTERNAL_TRACK)) {
-                return {
-                  app: name,
-                  identifier,
-                  status: 'ok' as const,
-                  detail: 'internal track available',
-                };
-              }
+        ({ name, identifier }, index) =>
+          Effect.gen(function* () {
+            const api = appClients[index];
+            if (!api)
               return {
                 app: name,
                 identifier,
-                status: 'warn' as const,
-                detail: 'no internal testing track',
-                hint: 'create an internal testing track in Play Console for the fastest tester rollout',
+                status: 'blocker' as const,
+                detail: 'No Play service account for this package.',
               };
-            }),
-            Effect.catchAll((apiFailure) =>
-              Effect.succeed({
-                app: name,
-                identifier,
-                status: 'warn' as const,
-                detail: `could not read tracks: ${errorMessage(apiFailure)}`,
-                hint: 'confirm the app exists and the service account has access (see the app-access check)',
+            return yield* api.listTracks(identifier).pipe(
+              Effect.map((tracks) => {
+                if (tracks.some((track) => track.track === INTERNAL_TRACK)) {
+                  return {
+                    app: name,
+                    identifier,
+                    status: 'ok' as const,
+                    detail: 'internal track available',
+                  };
+                }
+                return {
+                  app: name,
+                  identifier,
+                  status: 'warn' as const,
+                  detail: 'no internal testing track',
+                  hint: 'create an internal testing track in Play Console for the fastest tester rollout',
+                };
               }),
-            ),
-          ),
+              Effect.catchAll((apiFailure) =>
+                Effect.succeed({
+                  app: name,
+                  identifier,
+                  status: 'warn' as const,
+                  detail: `could not read tracks: ${errorMessage(apiFailure)}`,
+                  hint: 'confirm the app exists and the service account has access (see the app-access check)',
+                }),
+              ),
+            );
+          }),
         { concurrency: 'unbounded' },
       );
       return { state: 'checked', apps: results };

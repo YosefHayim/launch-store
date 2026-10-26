@@ -15,6 +15,9 @@ type LocalCredentialsTestState = {
   appleKeys: Map<string, AscKey>;
   activeAppleKeyId: string | null;
   appleAccountStatuses: readonly AppleCredentialAccountStatus[];
+  androidStatuses: Readonly<
+    Record<string, { keystoreAlias: string | null; hasServiceAccount: boolean }>
+  >;
 };
 
 const KEY_A: AscKey = { keyId: 'AAAA1111', issuerId: 'issuer-a', p8: 'pem-a' };
@@ -24,6 +27,7 @@ let credentialState: LocalCredentialsTestState = {
   appleKeys: new Map(),
   activeAppleKeyId: null,
   appleAccountStatuses: [],
+  androidStatuses: {},
 };
 
 const LocalCredentialsStoreTest = Layer.succeed(LocalCredentialsStore, {
@@ -40,8 +44,16 @@ const LocalCredentialsStoreTest = Layer.succeed(LocalCredentialsStore, {
   loadPlayServiceAccount: () => Effect.succeed(null),
   loadAndroidKeystore: () => Effect.succeed(null),
   listAppleAccountStatuses: () => Effect.succeed(credentialState.appleAccountStatuses),
-  readAndroidCredentialStatus: () =>
-    Effect.succeed({ keystoreAlias: null, hasServiceAccount: false }),
+  readAndroidCredentialStatus: (packageName) => {
+    if (packageName === undefined) {
+      return Effect.succeed({ keystoreAlias: null, hasServiceAccount: false });
+    }
+    const storedStatus = credentialState.androidStatuses[packageName];
+    if (storedStatus === undefined) {
+      return Effect.succeed({ keystoreAlias: null, hasServiceAccount: false });
+    }
+    return Effect.succeed(storedStatus);
+  },
 } satisfies LocalCredentialsStoreService);
 
 const runWithLocalCredentials = <Success, Failure>(
@@ -83,6 +95,7 @@ describe('localCredentialsProvider.resolveBuildCredentials (iOS account selectio
       ]),
       activeAppleKeyId: 'AAAA1111',
       appleAccountStatuses: [],
+      androidStatuses: {},
     };
   });
 
@@ -134,6 +147,7 @@ describe('localCredentialsProvider.status', () => {
         profileCount: 0,
       },
     ];
+    credentialState.androidStatuses = {};
   });
 
   it('lists each account with the active one marked', async () => {
@@ -179,5 +193,17 @@ describe('localCredentialsProvider.status', () => {
     credentialState.appleAccountStatuses = [];
     const status = await runWithLocalCredentials((provider) => provider.status());
     expect(status).toContain('no Apple account imported');
+  });
+
+  it('checks Android credentials against each configured app package', async () => {
+    credentialState.androidStatuses = {
+      'com.x.sampleapp': { keystoreAlias: 'upload-key', hasServiceAccount: true },
+    };
+    const status = await runWithLocalCredentials((provider) =>
+      provider.status(['com.x.sampleapp']),
+    );
+    expect(status).toContain(
+      'com.x.sampleapp: Android: service account present; upload keystore (alias upload-key).',
+    );
   });
 });

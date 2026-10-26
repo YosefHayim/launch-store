@@ -119,7 +119,7 @@ export type PlanContext = Readonly<{
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
   resolveAscApi(): Effect.Effect<AscSurfacesApi | null, unknown>;
-  resolvePlayApi(): Effect.Effect<PlayCatalogApi | null, unknown>;
+  resolvePlayApi(packageName?: string): Effect.Effect<PlayCatalogApi | null, unknown>;
 }>;
 /**
  * One config-as-code surface's planner. {@link plan} is **read-only**: it resolves live state and returns

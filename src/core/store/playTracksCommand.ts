@@ -155,7 +155,7 @@ const showTrackStatus = (
 ): Effect.Effect<void, PlayTracksCommandFailure, PlayTracksCommandRequirements> =>
   Effect.gen(function* () {
     const packageName = yield* resolveGoogleStorePackageName(commandInput.app);
-    const googleStore = yield* loadActiveGoogleStore();
+    const googleStore = yield* loadActiveGoogleStore(packageName);
     const trackCatalog = yield* googleStore.listTracks(packageName);
     const tracksWithCountries = yield* Effect.forEach(
       trackCatalog,
@@ -203,7 +203,7 @@ const promoteTrackRelease = (
 ): Effect.Effect<void, PlayTracksCommandFailure, PlayTracksCommandRequirements> =>
   Effect.gen(function* () {
     const packageName = yield* resolveGoogleStorePackageName(commandInput.app);
-    const googleStore = yield* loadActiveGoogleStore();
+    const googleStore = yield* loadActiveGoogleStore(packageName);
     let versionCode = commandInput.versionCode;
     if (versionCode === undefined) {
       const latestVersionCode = yield* googleStore.getLatestVersionCode(packageName);
@@ -266,7 +266,7 @@ const manageTrackTesters = (
 ): Effect.Effect<void, PlayTracksCommandFailure, PlayTracksCommandRequirements> =>
   Effect.gen(function* () {
     const packageName = yield* resolveGoogleStorePackageName(commandInput.app);
-    const googleStore = yield* loadActiveGoogleStore();
+    const googleStore = yield* loadActiveGoogleStore(packageName);
     const logger = yield* createLogger(false);
     if (commandInput.groups === undefined) {
       const testerGroups = yield* googleStore.getTesters(packageName, commandInput.track);

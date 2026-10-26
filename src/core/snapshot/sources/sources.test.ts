@@ -498,7 +498,7 @@ describe('playProductsSource.restore', () => {
     const report = await runRestore(restoreOf(), input({}));
     expect(report.actions).toEqual([
       {
-        description: 'Google Play products: skipped - no Play service account',
+        description: 'Google Play: skipped - no Play service account for com.acme.alpha',
         destructive: false,
         status: 'skipped',
       },
@@ -598,7 +598,7 @@ describe('playSubscriptionsSource.restore', () => {
     const report = await runRestore(restoreOf(), input({}));
     expect(report.actions).toEqual([
       {
-        description: 'Google Play subscriptions: skipped - no Play service account',
+        description: 'Google Play: skipped - no Play service account for com.acme.alpha',
         destructive: false,
         status: 'skipped',
       },
