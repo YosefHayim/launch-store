@@ -4,7 +4,8 @@ import { isSecretLookingName } from '../config/env.js';
 const HOME = homedir();
 /** `NAME=value` / `NAME: value` - the value is masked when NAME looks secret (e.g. `API_TOKEN=...`). */
 // Raw row example: "assignment"-like input should match.
-const ASSIGNMENT = /\b([A-Za-z][A-Za-z0-9_]*)(\s*[:=]\s*)("[^"]*"|'[^']*'|\S+)/g;
+const ASSIGNMENT =
+  /\b([A-Za-z][A-Za-z0-9_]*)(["']?\s*[:=]\s*)("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+)/g;
 /** A JWT (`eyJ...header.payload.signature`) - App Store Connect / service-account tokens take this form. */
 // Raw row example: JWT token segments should match.
 const JWT = /\beyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}/g;
@@ -43,4 +44,20 @@ export const redactLine = (line: string): string => {
  */
 export const redactText = (text: string): string => {
   return text.replace(PEM_BLOCK, '[redacted-key-material]').split('\n').map(redactLine).join('\n');
+};
+
+/** Keep a PEM body off disk even when the child emits it over multiple chunks. */
+export const makeLogRedactor = (): ((line: string) => string) => {
+  let withinPem = false;
+  return (line) => {
+    if (line.includes('-----BEGIN ')) {
+      withinPem = !line.includes('-----END ');
+      return '[redacted-key-material]';
+    }
+    if (withinPem) {
+      if (line.includes('-----END ')) withinPem = false;
+      return '[redacted-key-material]';
+    }
+    return redactLine(line);
+  };
 };
