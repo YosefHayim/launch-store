@@ -1,3 +1,4 @@
+import { commandEnvironmentExclusions } from '../services/exec.js';
 import { Data, Effect } from 'effect';
 import type { AppDescriptor } from '../types/app.js';
 import type { ResolvedBuildContext } from '../types/config.js';
@@ -175,7 +176,11 @@ export const runBuild = (options: BuildRunOptions) =>
       return yield* previewEnv(options);
     }
     const prepared = yield* prepareBuild(options);
+    let environmentExclusions: readonly string[] = [];
+    if (prepared.config.envExclude !== undefined)
+      environmentExclusions = prepared.config.envExclude;
     return yield* dispatchBuild(prepared, options).pipe(
+      Effect.locally(commandEnvironmentExclusions, environmentExclusions),
       Effect.tap(() => {
         if (options.dryRun) return Effect.void;
         return buildSuccessEvent(prepared, options).pipe(

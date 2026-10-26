@@ -79,3 +79,25 @@ describe('Effect Platform command execution', () => {
     ).resolves.toBe(false);
   });
 });
+
+describe('child environment exclusions', () => {
+  it('shadows excluded inherited values and prevents Expo from reloading dotenv', async () => {
+    const standardOutput = await executeTestProgram(
+      captureCommandOutput(
+        process.execPath,
+        [
+          '-e',
+          'process.stdout.write(JSON.stringify([process.env.LAUNCH_AUDIT_TOKEN,process.env.EXPO_NO_DOTENV,process.env.EXPO_PUBLIC_SAFE]))',
+        ],
+        {
+          environmentOverrides: {
+            LAUNCH_AUDIT_TOKEN: 'dummy-private-value',
+            EXPO_PUBLIC_SAFE: 'safe',
+          },
+          envExclude: ['LAUNCH_AUDIT_*'],
+        },
+      ),
+    );
+    expect(JSON.parse(standardOutput)).toEqual(['', '1', 'safe']);
+  });
+});
