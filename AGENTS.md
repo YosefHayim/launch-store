@@ -139,7 +139,7 @@ All six must be green. Add or update colocated tests for any new behavior.
 Before opening a PR, run `.github/workflows/ci.yml` locally with the run-ci-locally skill.
 It runs one act process per job, each holding a machine-wide slot, so parallel sessions do not run Docker out of memory.
 Never run `act` on the whole workflow.
-CI runs on `pull_request` and `workflow_dispatch` only, never after a merge.
+CI runs on `pull_request`, on `push` to main (markdown-only pushes skip it) and on `workflow_dispatch`.
 Lint, style, typecheck and the docs sync check run in the Husky pre-push hook, not in CI. A new worktree needs `pnpm install` before its first push.
 The `changes` job in `ci.yml` (`dorny/paths-filter`, `token: ''`) decides what runs:
 
