@@ -61,19 +61,34 @@ export const playProductsPlanner: SurfacePlanner = {
     return Effect.gen(function* () {
       const targets = targetsFor(planContext.apps, planContext.config);
       if (targets.length === 0) return { surface: SURFACE, store: 'play', state: 'omitted' };
-      const api = yield* planContext.resolvePlayApi();
-      if (!api) {
+      const targetClients = yield* Effect.forEach(
+        targets,
+        (target) => planContext.resolvePlayApi(target.packageName),
+        { concurrency: 1 },
+      );
+      if (targetClients.every((api) => api === null))
         return {
           surface: SURFACE,
           store: 'play',
           state: 'skipped',
           reason: 'no Play service account',
-          hint: 'run `launch creds set-key --platform android`',
+          hint: 'run `launch creds set-key --platform android --app <name>`',
         };
-      }
-      const apps = yield* Effect.forEach(targets, (target) => planTarget(api, target), {
-        concurrency: 'unbounded',
-      });
+      const apps = yield* Effect.forEach(
+        targets,
+        (target, index) => {
+          const api = targetClients[index];
+          if (!api)
+            return Effect.succeed({
+              app: target.app,
+              identifier: target.packageName,
+              actions: [],
+              error: 'No Play service account for this package.',
+            });
+          return planTarget(api, target);
+        },
+        { concurrency: 'unbounded' },
+      );
       return {
         surface: SURFACE,
         store: 'play',

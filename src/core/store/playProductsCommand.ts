@@ -111,7 +111,7 @@ const executePlayProducts = (
       );
       return 0;
     }
-    const googleStore = yield* loadActiveGoogleStore();
+    const googleStore = yield* loadActiveGoogleStore(productsTarget.packageName);
     const productsPlan = yield* reconcilePlayProducts(googleStore, {
       packageName: productsTarget.packageName,
       products: productsTarget.products,

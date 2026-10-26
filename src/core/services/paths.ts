@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import * as FileSystem from '@effect/platform/FileSystem';
 import type * as PlatformError from '@effect/platform/Error';
 import * as Path from '@effect/platform/Path';
@@ -79,14 +80,22 @@ export const resolveCredentialsDirectory = (): Effect.Effect<
     const pathService = yield* Path.Path;
     return pathService.join(yield* resolveLaunchHomeDirectory(), 'credentials');
   });
-export const resolveAndroidCredentialsIndexPath = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
+export const resolveAndroidCredentialsDirectory = (
+  packageName?: string,
+): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
   Effect.gen(function* () {
     const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveCredentialsDirectory(), 'android.json');
+    const credentialsDirectory = yield* resolveCredentialsDirectory();
+    if (packageName === undefined) return credentialsDirectory;
+    const packageDigest = createHash('sha256').update(packageName).digest('hex');
+    return pathService.join(credentialsDirectory, 'android', packageDigest);
+  });
+export const resolveAndroidCredentialsIndexPath = (
+  packageName?: string,
+): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
+  Effect.gen(function* () {
+    const pathService = yield* Path.Path;
+    return pathService.join(yield* resolveAndroidCredentialsDirectory(packageName), 'android.json');
   });
 export const resolveProvisioningProfilesDirectory = (): Effect.Effect<
   string,

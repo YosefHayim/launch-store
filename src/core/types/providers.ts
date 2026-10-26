@@ -45,7 +45,7 @@ export type CredentialsProvider = Readonly<{
   resolveBuildCredentials(
     buildContext: ResolvedBuildContext,
   ): Effect.Effect<BuildCredentials, unknown>;
-  status(): Effect.Effect<string, unknown>;
+  status(packageNames?: readonly string[]): Effect.Effect<string, unknown>;
 }>;
 /**
  * Compiles and signs the native project into a distributable artifact.
