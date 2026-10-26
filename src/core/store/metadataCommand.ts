@@ -206,13 +206,11 @@ const requireActiveAscKey = (): Effect.Effect<
   });
 
 /** Require a Play service account before talking to Google Play. */
-const requirePlayServiceAccount = (): Effect.Effect<
-  string,
-  MetadataCommandFailure,
-  MetadataCredentialRequirements
-> =>
+const requirePlayServiceAccount = (
+  packageName: string,
+): Effect.Effect<string, MetadataCommandFailure, MetadataCredentialRequirements> =>
   Effect.gen(function* () {
-    const serviceAccountJson = yield* loadServiceAccount().pipe(
+    const serviceAccountJson = yield* loadServiceAccount(packageName).pipe(
       Effect.mapError((cause) => metadataFailure('load Play service account', cause)),
     );
     if (serviceAccountJson === null) {
@@ -240,13 +238,11 @@ const createAppleClient = (): Effect.Effect<
   });
 
 /** Build the Google Play client for the stored service account. */
-const createPlayClient = (): Effect.Effect<
-  EffectGooglePlayClient,
-  MetadataCommandFailure,
-  GoogleMetadataRequirements
-> =>
+const createPlayClient = (
+  packageName: string,
+): Effect.Effect<EffectGooglePlayClient, MetadataCommandFailure, GoogleMetadataRequirements> =>
   Effect.gen(function* () {
-    const serviceAccountJson = yield* requirePlayServiceAccount();
+    const serviceAccountJson = yield* requirePlayServiceAccount(packageName);
     const googleStoreClients = yield* GoogleStoreClientService;
     return yield* googleStoreClients
       .createEffectClient(serviceAccountJson)
@@ -316,7 +312,7 @@ const pullAndroidListing = (
 ): Effect.Effect<void, MetadataCommandFailure, GoogleMetadataRequirements> =>
   Effect.gen(function* () {
     const logger = yield* createLogger(false);
-    const playClient = yield* createPlayClient();
+    const playClient = yield* createPlayClient(packageName);
     const listings = yield* playClient
       .listListings(packageName)
       .pipe(Effect.mapError((cause) => metadataFailure('read Play listings', cause)));
@@ -422,7 +418,7 @@ const pushAndroidListing = (
       yield* logger.note(`${configPath} has no Play locales to push.`);
       return;
     }
-    const playClient = yield* createPlayClient();
+    const playClient = yield* createPlayClient(packageName);
     yield* playClient
       .updateListings(packageName, listings)
       .pipe(Effect.mapError((cause) => metadataFailure('upload Play listings', cause)));

@@ -440,9 +440,18 @@ const runAndroidResign = (
   artifact: BuildArtifact,
   commandInput: ResignCommandInput,
   outputPath: string,
+  apps: readonly AppDescriptor[],
 ): Effect.Effect<void, unknown, ResignCommandRequirements> =>
   Effect.gen(function* () {
-    const keystore = yield* loadCachedKeystore();
+    const selectedApp = apps.find((app) => app.name === artifact.appName);
+    if (!selectedApp?.packageName)
+      return yield* Effect.fail(
+        makeResignCommandFailure({
+          operation: 'select Android app',
+          message: 'Select an app with android.package before re-signing.',
+        }),
+      );
+    const keystore = yield* loadCachedKeystore(selectedApp.packageName);
     if (keystore === null) {
       return yield* Effect.fail(
         makeResignCommandFailure({
@@ -472,7 +481,7 @@ export const resignCommandProgram = (
     if (isApplePlatform(artifact.platform)) {
       yield* runAppleResign(artifact, commandInput, outputPath, workspace);
     } else {
-      yield* runAndroidResign(artifact, commandInput, outputPath);
+      yield* runAndroidResign(artifact, commandInput, outputPath, workspace.apps);
     }
     if (!commandInput.dryRun) {
       const logger = yield* createLogger(false);

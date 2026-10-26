@@ -129,12 +129,12 @@ const loadStoreContext = (
     const loadedConfig = yield* loadConfig(launchPaths.workingDirectory);
     const selectedApps = yield* selectApps(loadedConfig.apps, appSelector);
     const appleClient = yield* createAscClientResolver()();
-    const googleClient = yield* createPlayClientResolver()();
+    const googleClient = yield* createPlayClientResolver();
     return {
       config: loadedConfig.config,
       apps: selectedApps,
       resolveAscApi: () => Effect.succeed(appleClient),
-      resolvePlayApi: () => Effect.succeed(googleClient),
+      resolvePlayApi: googleClient,
     };
   });
 

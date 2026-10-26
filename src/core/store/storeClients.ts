@@ -29,19 +29,28 @@ export const createAscClientResolver = () => {
 };
 
 /** Build one memoized Effect-native Google Play client resolver. */
-export const createPlayClientResolver = () => {
-  let cachedClient: EffectGooglePlayClient | null | undefined;
-  return () =>
-    Effect.gen(function* () {
-      if (cachedClient === undefined) {
-        const serviceAccountJson = yield* loadServiceAccount();
-        if (serviceAccountJson === null) {
-          cachedClient = null;
-        } else {
-          const googleStoreClients = yield* GoogleStoreClientService;
-          cachedClient = yield* googleStoreClients.createEffectClient(serviceAccountJson);
+export const createPlayClientResolver = () =>
+  Effect.gen(function* () {
+    const credentialContext = yield* Effect.context<
+      | Effect.Effect.Context<ReturnType<typeof loadServiceAccount>>
+      | typeof GoogleStoreClientService.Service
+    >();
+    const clients = new Map<string, EffectGooglePlayClient | null>();
+    return (packageName?: string) =>
+      Effect.gen(function* () {
+        if (!packageName) return null;
+        if (clients.has(packageName)) {
+          const cachedClient = clients.get(packageName);
+          if (cachedClient !== undefined) return cachedClient;
         }
-      }
-      return cachedClient;
-    });
-};
+        const serviceAccountJson = yield* loadServiceAccount(packageName);
+        if (serviceAccountJson === null) {
+          clients.set(packageName, null);
+          return null;
+        }
+        const googleStoreClients = yield* GoogleStoreClientService;
+        const client = yield* googleStoreClients.createEffectClient(serviceAccountJson);
+        clients.set(packageName, client);
+        return client;
+      }).pipe(Effect.provide(credentialContext));
+  });

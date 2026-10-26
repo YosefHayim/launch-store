@@ -211,19 +211,18 @@ const playAccountChecks = <Requirements>(
   doctorContext: DoctorContext<Requirements>,
 ): Effect.Effect<DoctorCheck[], unknown, Requirements> =>
   Effect.gen(function* () {
-    const googleClient = yield* doctorContext.resolvePlay();
-    if (googleClient === null) {
-      return [
-        {
-          status: 'info',
-          title: 'No service account imported - skipping Play checks',
-          hint: '`launch creds set-key --platform android`',
-        },
-      ];
-    }
     const doctorChecks: DoctorCheck[] = [];
     for (const app of doctorContext.apps) {
       if (app.packageName === undefined) continue;
+      const googleClient = yield* doctorContext.resolvePlay(app.packageName);
+      if (!googleClient) {
+        doctorChecks.push({
+          status: 'info',
+          title: `No service account imported for ${app.packageName} - skipping Play checks`,
+          hint: 'launch creds set-key --platform android --app <name>',
+        });
+        continue;
+      }
       const accessCheck = yield* googleClient.assertAppExists(app.packageName).pipe(Effect.either);
       if (accessCheck._tag === 'Right') {
         doctorChecks.push({ status: 'ok', title: `Play app reachable for ${app.packageName}` });

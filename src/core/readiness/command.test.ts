@@ -38,7 +38,7 @@ vi.mock('../config/config.js', () => ({
 }));
 vi.mock('../store/storeClients.js', () => ({
   createAscClientResolver: () => () => Effect.succeed(null),
-  createPlayClientResolver: () => () => Effect.succeed(null),
+  createPlayClientResolver: () => Effect.succeed(() => Effect.succeed(null)),
 }));
 vi.mock('./registry.js', () => ({
   registerBuiltinProbes: () => {},

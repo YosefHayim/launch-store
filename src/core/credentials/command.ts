@@ -480,7 +480,12 @@ const setGoogleKey = (
     if (!(yield* fileSystem.exists(keyPath))) {
       return yield* failCommand('import Google key', `No service-account JSON at ${enteredPath}.`);
     }
-    yield* storeServiceAccount(yield* fileSystem.readFileString(keyPath));
+    const launchPaths = yield* LaunchPaths;
+    const loadedConfig = yield* loadConfig(launchPaths.workingDirectory);
+    const app = yield* selectConfiguredApp(loadedConfig.apps, commandOptions.app, canPrompt);
+    if (!app.packageName)
+      return yield* failCommand('import Google key', 'Set android.package for the selected app.');
+    yield* storeServiceAccount(yield* fileSystem.readFileString(keyPath), app.packageName);
     const logger = yield* createLogger(false);
     yield* logger.ok(`Stored the Play service account from ${yield* displayPath(keyPath)}.`);
     yield* offerSourceRemoval(keyPath, 'Play service-account key', canPrompt);
@@ -660,8 +665,11 @@ const setupAndroid = (
     const keystoreImport = yield* selectKeystoreImport(commandOptions, canPrompt);
     const logger = yield* createLogger(false);
     const prompt = yield* LaunchPrompt;
+    if (!app.packageName)
+      return yield* failCommand('setup Android', 'Set android.package for the selected app.');
     const keystoreRequest = {
       appName: app.name,
+      packageName: app.packageName,
       log: logger,
       dryRun: false,
       confirmCreate: (message: string) => {
@@ -680,7 +688,9 @@ const setupAndroid = (
   });
 
 /** Render the current Apple, Android, and APNs credential inventory. */
-const showCredentialStatus = (): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
+const showCredentialStatus = (
+  commandOptions: CredentialsCommandOptions,
+): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
   Effect.gen(function* () {
     const logger = yield* createLogger(false);
     const accounts = yield* listAccounts();
@@ -700,7 +710,21 @@ const showCredentialStatus = (): Effect.Effect<void, unknown, CredentialsCommand
         yield* logger.line(`  profiles: ${storedSigning.bundleIds.join(', ')}`);
       }
     }
-    const androidCredentials = yield* describeStoredAndroidCredentials();
+    const launchPaths = yield* LaunchPaths;
+    const configuredApps = yield* loadConfig(launchPaths.workingDirectory).pipe(
+      Effect.map((configuration) => configuration.apps),
+      Effect.orElseSucceed(() => []),
+    );
+    let selectedAndroidPackage: string | undefined;
+    if (configuredApps.length > 0) {
+      const selectedApp = yield* selectConfiguredApp(
+        configuredApps,
+        commandOptions.app,
+        yield* commandCanPrompt(commandOptions),
+      );
+      selectedAndroidPackage = selectedApp.packageName;
+    }
+    const androidCredentials = yield* describeStoredAndroidCredentials(selectedAndroidPackage);
     let serviceAccountStatus = 'not stored';
     if (androidCredentials.hasServiceAccount) serviceAccountStatus = 'stored';
     yield* logger.line(`Google service account: ${serviceAccountStatus}`);
@@ -974,7 +998,7 @@ export const credentialsCommandProgram = (
     switch (decodedCommand.action) {
       case 'status':
       case 'accounts':
-        return yield* showCredentialStatus();
+        return yield* showCredentialStatus(decodedCommand.options);
       case 'set-key':
         if (platform === 'android') {
           return yield* setGoogleKey(decodedCommand.firstArgument, decodedCommand.options);

@@ -262,8 +262,14 @@ export const resolveKeystore = (
     }
     if (!dryRun)
       yield* log.note(`No cached upload keystore for ${app.name} - provisioning one now.`);
+    if (!app.packageName)
+      return yield* Effect.fail({
+        _tag: 'MissingAndroidPackage',
+        message: 'Set android.package before creating an upload keystore.',
+      });
     return yield* ensureUploadKeystore({
       appName: app.name,
+      packageName: app.packageName,
       log,
       dryRun,
       confirmCreate: (message) => interactiveConfirm(launchPrompt, message),

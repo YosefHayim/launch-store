@@ -210,12 +210,12 @@ export const readinessCommandProgram = (
     const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory);
     const selectedApps = yield* selectApps(loadedConfiguration.apps, commandInput.app);
     const ascClient = yield* createAscClientResolver()();
-    const playClient = yield* createPlayClientResolver()();
+    const playClient = yield* createPlayClientResolver();
     const readinessContext: ReadinessContext = {
       config: loadedConfiguration.config,
       apps: selectedApps,
       resolveAscApi: () => Effect.succeed(ascClient),
-      resolvePlayApi: () => Effect.succeed(playClient),
+      resolvePlayApi: playClient,
     };
     const readinessOutcome = yield* runProbes(
       readinessContext,

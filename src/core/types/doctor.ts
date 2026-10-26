@@ -78,7 +78,7 @@ export type DoctorContext<Requirements = never> = {
   exists(command: string): Effect.Effect<boolean, unknown, Requirements>;
   gradleWrapperExists(appDirectory: string): Effect.Effect<boolean, unknown, Requirements>;
   resolveAsc(): Effect.Effect<DoctorAscApi | null, unknown, Requirements>;
-  resolvePlay(): Effect.Effect<DoctorPlayApi | null, unknown, Requirements>;
+  resolvePlay(packageName?: string): Effect.Effect<DoctorPlayApi | null, unknown, Requirements>;
   credentialsStatus(): Effect.Effect<string, unknown, Requirements>;
   codesignIdentities(): Effect.Effect<string | null, unknown, Requirements>;
   corepackAvailable(): Effect.Effect<boolean, unknown, Requirements>;

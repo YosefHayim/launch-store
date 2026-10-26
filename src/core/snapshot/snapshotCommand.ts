@@ -1,16 +1,12 @@
+import { createPlayClientResolver } from '../store/storeClients.js';
 import { FileSystem } from '@effect/platform';
 import { Clock, Data, Effect, Schema } from 'effect';
 import { loadConfig } from '../config/config.js';
 import { loadActiveAscKey } from '../credentials/accounts.js';
-import { loadServiceAccount } from '../credentials/androidKeystore.js';
 import {
   AppleStoreClientService,
   type EffectAppStoreConnectClient,
 } from '../services/appleStoreClient.js';
-import {
-  type EffectGooglePlayClient,
-  GoogleStoreClientService,
-} from '../services/googleStoreClient.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import { selectApps } from '../store/syncJobs.js';
 import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
@@ -179,7 +175,7 @@ type SnapshotStoreSession = Readonly<{
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
   ascClient: EffectAppStoreConnectClient | null;
-  playClient: EffectGooglePlayClient | null;
+  playClient: Effect.Effect.Success<ReturnType<typeof createPlayClientResolver>>;
 }>;
 
 /** Human-readable store label for snapshot sections. */
@@ -204,16 +200,7 @@ const loadSnapshotStoreSession = (appSelector: string | undefined) =>
         .createEffectClient(ascKey)
         .pipe(Effect.mapError((cause) => snapshotFailure('create App Store client', cause)));
     }
-    const serviceAccountJson = yield* loadServiceAccount().pipe(
-      Effect.mapError((cause) => snapshotFailure('load Google service account', cause)),
-    );
-    const googleStoreClient = yield* GoogleStoreClientService;
-    let playClient: EffectGooglePlayClient | null = null;
-    if (serviceAccountJson !== null) {
-      playClient = yield* googleStoreClient
-        .createEffectClient(serviceAccountJson)
-        .pipe(Effect.mapError((cause) => snapshotFailure('create Google Play client', cause)));
-    }
+    const playClient = yield* createPlayClientResolver();
     const selectedApps = yield* selectSnapshotApps(loadedConfiguration.apps, appSelector);
     return {
       config: loadedConfiguration.config,
@@ -228,7 +215,7 @@ const captureContextFromSession = (storeSession: SnapshotStoreSession): Snapshot
   config: storeSession.config,
   apps: storeSession.apps,
   resolveAscApi: () => Effect.succeed(storeSession.ascClient),
-  resolvePlayApi: () => Effect.succeed(storeSession.playClient),
+  resolvePlayApi: storeSession.playClient,
 });
 
 /** Write-capable restore context over one loaded store session. */
@@ -236,7 +223,7 @@ const restoreContextFromSession = (storeSession: SnapshotStoreSession): RestoreC
   config: storeSession.config,
   apps: storeSession.apps,
   resolveAscWriteClient: () => Effect.succeed(storeSession.ascClient),
-  resolvePlayWriteClient: () => Effect.succeed(storeSession.playClient),
+  resolvePlayWriteClient: storeSession.playClient,
 });
 
 /** Create the filesystem-safe default name for one capture instant. */
