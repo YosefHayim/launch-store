@@ -412,6 +412,7 @@ export type BuildResource = Readonly<{
   processingState: string;
   uploadedDate?: string;
   expired: boolean;
+  marketingVersion?: string;
 }>;
 /** One reason App Store Connect gave about a build upload (an error such as `90062`, or a warning). */
 export type BuildUploadProblem = Readonly<{ code: string; description: string }>;

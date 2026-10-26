@@ -2792,6 +2792,36 @@ describe('AppStoreConnectClient - App Store release lifecycle', () => {
       '/builds?filter[app]=app1&sort=-uploadedDate',
     );
   });
+  it("reads each build's marketing version from its included pre-release version", async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            {
+              id: 'b591',
+              attributes: { version: '591', processingState: 'VALID', expired: false },
+              relationships: {
+                preReleaseVersion: { data: { type: 'preReleaseVersions', id: 'p1' } },
+              },
+            },
+          ],
+          included: [{ type: 'preReleaseVersions', id: 'p1', attributes: { version: '6.11.77' } }],
+        }),
+      ),
+    );
+    const promotedBuild = await client.findBuildByVersion('app1', 591);
+    expect(promotedBuild).toEqual({
+      id: 'b591',
+      version: '591',
+      processingState: 'VALID',
+      expired: false,
+      marketingVersion: '6.11.77',
+    });
+    expect(expectArrayElement(fetchMock.mock.calls, 0, 'mock call')[0]).toContain(
+      'filter[version]=591&limit=1&fields[builds]=version,processingState,uploadedDate,expired,preReleaseVersion&include=preReleaseVersion',
+    );
+  });
   it('declares export compliance with a PATCH to the build', async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(204, ''));
     await client.setBuildUsesNonExemptEncryption('b1', false);

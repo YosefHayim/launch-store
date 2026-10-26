@@ -205,12 +205,15 @@ const findStoredPlatformBuild = (
     (storedBuild) => storedBuild.appName === appName && storedBuild.platform === platform,
   );
 
-const resolveVersionString = (
-  ascClient: AscReleaseApi,
+export const resolveVersionString = (
+  ascClient: Pick<AscReleaseApi, 'getLatestMarketingVersion'>,
   appDescriptor: AppDescriptor,
   bundleId: string,
+  storeBuild: BuildResource | null,
 ): Effect.Effect<string, ReleaseCommandFailure> =>
   Effect.gen(function* () {
+    const promotedVersion = storeBuild?.marketingVersion;
+    if (promotedVersion !== undefined) return promotedVersion;
     const configuredVersion = appDescriptor.version;
     if (configuredVersion !== undefined) return configuredVersion;
     const latestVersion = yield* attemptRead(
@@ -456,7 +459,12 @@ const resolveIosBuild = (
       commandService.terminalIsInteractive,
     );
     if (buildSource.kind === 'promote') {
-      const versionString = yield* resolveVersionString(ascClient, appDescriptor, bundleId);
+      const versionString = yield* resolveVersionString(
+        ascClient,
+        appDescriptor,
+        bundleId,
+        buildSource.storeBuild,
+      );
       const confirmed = yield* confirmOrCancel(
         commandService,
         `Submit ${appDescriptor.name} ${versionString} (build ${buildSource.storeBuild.version}) for App Store review?`,
@@ -662,7 +670,12 @@ const releaseAppleBuild = (
             'Plan assumes uploading the latest local build (pass --build <n> to plan against a verified build).',
           ),
         );
-      const versionString = yield* resolveVersionString(ascClient, appDescriptor, bundleId);
+      const versionString = yield* resolveVersionString(
+        ascClient,
+        appDescriptor,
+        bundleId,
+        storeBuild,
+      );
       const releaseReport = yield* attemptRead(
         'plan App Store release',
         releaseApp(ascClient, {

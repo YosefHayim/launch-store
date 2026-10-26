@@ -486,6 +486,34 @@ type BetaFeedbackPage = {
     next?: string;
   };
 };
+const BUILD_PAGE_QUERY =
+  'fields[builds]=version,processingState,uploadedDate,expired,preReleaseVersion&include=preReleaseVersion&fields[preReleaseVersions]=version';
+type BuildPageIncluded = {
+  type: string;
+  id: string;
+  attributes?: {
+    version?: string;
+  };
+};
+type BuildPage = {
+  data: {
+    id: string;
+    attributes: {
+      version?: string;
+      processingState?: string;
+      uploadedDate?: string;
+      expired?: boolean;
+    };
+    relationships?: {
+      preReleaseVersion?: {
+        data?: {
+          id: string;
+        } | null;
+      };
+    };
+  }[];
+  included?: BuildPageIncluded[];
+};
 /** One normalized beta-feedback row before the crash/screenshot readers split off their public shapes. */
 type BetaFeedbackRow = {
   base: BetaFeedbackSubmissionResource;
@@ -3760,35 +3788,21 @@ export class AppStoreConnectClient {
   /** App Store versions, builds, review submission, and phased release. */
   /** List an app's most recent builds (one page, newest upload first) for the release build picker. */
   async listBuilds(appId: string, limit = 25): Promise<BuildResource[]> {
-    const { data: appleResources } = await this.request<
-      ResourceList<{
-        version?: string;
-        processingState?: string;
-        uploadedDate?: string;
-        expired?: boolean;
-      }>
-    >(
+    const buildPage = await this.request<BuildPage>(
       'GET',
-      `/builds?filter[app]=${appId}&sort=-uploadedDate&limit=${limit}&fields[builds]=version,processingState,uploadedDate,expired`,
+      `/builds?filter[app]=${appId}&sort=-uploadedDate&limit=${limit}&${BUILD_PAGE_QUERY}`,
     );
-    return appleResources.map((entry) => toBuildResource(entry));
+    return toBuildResources(buildPage);
   }
   /** Find one build by its `CFBundleVersion` number (the resource id is needed to attach / PATCH it), or null. */
   async findBuildByVersion(appId: string, buildNumber: number): Promise<BuildResource | null> {
-    const { data: appleResources } = await this.request<
-      ResourceList<{
-        version?: string;
-        processingState?: string;
-        uploadedDate?: string;
-        expired?: boolean;
-      }>
-    >(
+    const buildPage = await this.request<BuildPage>(
       'GET',
-      `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1&fields[builds]=version,processingState,uploadedDate,expired`,
+      `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1&${BUILD_PAGE_QUERY}`,
     );
-    const firstBuild = appleResources[0];
+    const [firstBuild] = toBuildResources(buildPage);
     if (firstBuild === undefined) return null;
-    return toBuildResource(firstBuild);
+    return firstBuild;
   }
   /** List a build's TestFlight "What to Test" notes, one per locale (`betaBuildLocalizations`). */
   async listBetaBuildLocalizations(buildId: string): Promise<BetaBuildLocalizationResource[]> {
@@ -4693,15 +4707,10 @@ export class AppStoreConnectClient {
   }
 }
 /** Map a raw build row onto a {@link BuildResource}, defaulting the optional/absent attributes. */
-const toBuildResource = (entry: {
-  id: string;
-  attributes: {
-    version?: string;
-    processingState?: string;
-    uploadedDate?: string;
-    expired?: boolean;
-  };
-}): BuildResource => {
+const toBuildResource = (
+  entry: BuildPage['data'][number],
+  preReleaseVersions: readonly BuildPageIncluded[],
+): BuildResource => {
   let version = entry.attributes.version;
   if (version === undefined) version = '';
   let processingState = entry.attributes.processingState;
@@ -4716,8 +4725,17 @@ const toBuildResource = (entry: {
   };
   if (entry.attributes.uploadedDate !== undefined)
     Object.assign(buildResource, { uploadedDate: entry.attributes.uploadedDate });
+  const preReleaseVersionId = entry.relationships?.preReleaseVersion?.data?.id;
+  const preReleaseVersion = preReleaseVersions.find(
+    (includedResource) =>
+      includedResource.type === 'preReleaseVersions' && includedResource.id === preReleaseVersionId,
+  );
+  const marketingVersion = preReleaseVersion?.attributes?.version;
+  if (marketingVersion !== undefined) Object.assign(buildResource, { marketingVersion });
   return buildResource;
 };
+const toBuildResources = ({ data: builds, included = [] }: BuildPage): BuildResource[] =>
+  builds.map((entry) => toBuildResource(entry, included));
 /** Map a raw version row onto an {@link AppStoreVersionResource}, keeping a known versionString fallback. */
 const toVersionResource = (
   entry: {
