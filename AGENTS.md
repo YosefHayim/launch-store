@@ -139,11 +139,11 @@ All six must be green. Add or update colocated tests for any new behavior.
 Before opening a PR, run `.github/workflows/ci.yml` locally with the run-ci-locally skill.
 It runs one act process per job, each holding a machine-wide slot, so parallel sessions do not run Docker out of memory.
 Never run `act` on the whole workflow.
-CI runs on `pull_request` and `workflow_dispatch` only, never after a merge.
+CI runs on `pull_request`, on `push` to main (markdown-only pushes skip it) and on `workflow_dispatch`.
+Lint, style, typecheck and the docs sync check run in the Husky pre-push hook, not in CI. A new worktree needs `pnpm install` before its first push.
 The `changes` job in `ci.yml` (`dorny/paths-filter`, `token: ''`) decides what runs:
 
 - Docs-only changes skip every job, and `CI Gate` still passes.
-- Lint (`biome check --changed`) and test (`vitest run --changed`) check only the changed files.
-- Typecheck and build run in full when code changes. Docs run when `src/`, `scripts/`, `package.json`, `README*.md`, `llms*.txt` or `schema/` change. Other markdown files are docs-only and skip every job. E2E runs when `src/` or `package.json` change.
+- Test (`vitest run --changed`) checks only the changed files; build and the CLI smoke test run in full when code changes. E2E runs when `src/` or `package.json` change.
 - A change to the lockfile, workspace file, `biome.json`, `biome-rules/**`, `tsconfig*.json`, `*.config.ts` or `.github/**`, and a manual run, run everything in full with coverage. A `package.json` change alone does not.
 - `CI Gate` fails only when a job failed or was cancelled.
