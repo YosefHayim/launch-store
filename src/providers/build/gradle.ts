@@ -43,9 +43,7 @@ export const gradleBuildArguments = (
     assembleTask,
     '--build-cache',
     `-Pandroid.injected.signing.store.file=${keystore.path}`,
-    `-Pandroid.injected.signing.store.password=${keystore.storePassword}`,
     `-Pandroid.injected.signing.key.alias=${keystore.alias}`,
-    `-Pandroid.injected.signing.key.password=${keystore.keyPassword}`,
   );
   return gradleArguments;
 };
@@ -156,6 +154,10 @@ const estimateDownload = (
       const pathService = yield* Path.Path;
       const workingDirectory = yield* fileSystem.makeTempDirectoryScoped({ prefix: 'launch-aab-' });
       const apksPath = pathService.join(workingDirectory, 'app.apks');
+      const storePasswordPath = pathService.join(workingDirectory, 'store-password');
+      const keyPasswordPath = pathService.join(workingDirectory, 'key-password');
+      yield* fileSystem.writeFileString(storePasswordPath, keystore.storePassword, { mode: 0o600 });
+      yield* fileSystem.writeFileString(keyPasswordPath, keystore.keyPassword, { mode: 0o600 });
       yield* provideNodeCommandServices(
         executeCommand('bundletool', [
           'build-apks',
@@ -163,9 +165,9 @@ const estimateDownload = (
           `--output=${apksPath}`,
           '--mode=default',
           `--ks=${keystore.path}`,
-          `--ks-pass=pass:${keystore.storePassword}`,
+          `--ks-pass=file:${storePasswordPath}`,
           `--ks-key-alias=${keystore.alias}`,
-          `--key-pass=pass:${keystore.keyPassword}`,
+          `--key-pass=file:${keyPasswordPath}`,
         ]),
       );
       const sizeTable = yield* provideNodeCommandServices(
@@ -227,7 +229,11 @@ export const gradleBuildEngine = {
         label: `Building Android - ${buildContext.app.name}`,
         parseStep: gradleProgressStep,
         cwd: androidDir,
-        env: buildContext.env,
+        env: {
+          ...buildContext.env,
+          'ORG_GRADLE_PROJECT_android.injected.signing.store.password': keystore.storePassword,
+          'ORG_GRADLE_PROJECT_android.injected.signing.key.password': keystore.keyPassword,
+        },
       };
       if (estimate !== undefined) progressOptions.estimate = estimate;
       const buildRun = yield* runWithProgress(wrapper, gradleArguments, progressOptions);
