@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { Effect } from 'effect';
+import { describe, expect, it, vi } from 'vitest';
+import type { AppDescriptor } from '../types/app.js';
 import type { BuildResource } from '../types/appleCatalog.js';
 import type { ReleaseAction, ReleaseReport } from './appStoreRelease.js';
 import {
@@ -10,6 +12,7 @@ import {
   parseAppStoreBuildSelector,
   androidReleasePlanLines,
   resolveAndroidRollout,
+  resolveVersionString,
   shouldNudgeRelease,
 } from './releaseCommand.js';
 
@@ -79,6 +82,31 @@ describe('parseAppStoreBuildSelector', () => {
   it('rejects non-numeric selectors that are not latest', () => {
     expect(parseAppStoreBuildSelector('main')).toEqual({ kind: 'invalid', selector: 'main' });
     expect(parseAppStoreBuildSelector('')).toEqual({ kind: 'invalid', selector: '' });
+  });
+});
+
+describe('resolveVersionString', () => {
+  const appDescriptor: AppDescriptor = {
+    name: 'acme',
+    dir: '.',
+    configPath: 'app.json',
+    version: '6.11.78',
+  };
+  const ascClient = { getLatestMarketingVersion: vi.fn(() => Effect.succeed('5.2')) };
+
+  it("uses a promoted build's own marketing version over app.json", async () => {
+    const promotedBuild = storeBuild({ version: '591', marketingVersion: '6.11.77' });
+    const versionString = await Effect.runPromise(
+      resolveVersionString(ascClient, appDescriptor, 'com.acme.app', promotedBuild),
+    );
+    expect(versionString).toBe('6.11.77');
+  });
+  it('falls back to app.json when the build has no marketing version', async () => {
+    const versionString = await Effect.runPromise(
+      resolveVersionString(ascClient, appDescriptor, 'com.acme.app', storeBuild()),
+    );
+    expect(versionString).toBe('6.11.78');
+    expect(ascClient.getLatestMarketingVersion).not.toHaveBeenCalled();
   });
 });
 
