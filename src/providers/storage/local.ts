@@ -1,7 +1,7 @@
 // Stores build artifacts and distribution objects on the local filesystem.
 
 import { FileSystem, Path } from '@effect/platform';
-import { Effect } from 'effect';
+import { Effect, Option } from 'effect';
 import { pathToFileURL } from 'node:url';
 import { ArtifactRetention } from '@core/services/artifactRetention.js';
 import { resolveArtifactsDirectory } from '@core/services/paths.js';
@@ -25,8 +25,40 @@ export const makeLocalStorageProvider = (directoryOverride?: string) =>
     const readIndex = () => artifactRetention.readIndex(artifactIndexPath);
     const writeIndex = (artifactIndex: readonly BuildArtifact[]) =>
       artifactRetention.writeIndex(artifactIndex, artifactIndexPath);
-    const objectPath = (objectKey: string): string =>
-      pathService.join(objectsDirectory, ...objectKey.split('/'));
+    const validObjectKey = (objectKey: string): boolean => {
+      if (objectKey.length === 0) return false;
+      if (/[:\\\x00]/.test(objectKey)) return false;
+      return objectKey
+        .split('/')
+        .every((segment) => segment.length > 0 && segment !== '.' && segment !== '..');
+    };
+    const objectPath = (objectKey: string): string => pathService.join(objectsDirectory, objectKey);
+    const invalidObjectKey = () =>
+      makeProviderInputFailure({
+        provider: 'local-storage',
+        message: 'Object keys must remain inside the local objects directory.',
+      });
+    const checkedObjectPath = (objectKey: string) =>
+      Effect.gen(function* () {
+        if (!validObjectKey(objectKey)) return yield* Effect.fail(invalidObjectKey());
+        yield* fileSystem.makeDirectory(objectsDirectory, { recursive: true });
+        const canonicalRoot = yield* fileSystem.realPath(objectsDirectory);
+        const destination = objectPath(objectKey);
+        let existingAncestor = destination;
+        while (existingAncestor !== objectsDirectory) {
+          const linkTarget = yield* fileSystem.readLink(existingAncestor).pipe(Effect.option);
+          if (Option.isSome(linkTarget)) return yield* Effect.fail(invalidObjectKey());
+          if (yield* fileSystem.exists(existingAncestor)) break;
+          existingAncestor = pathService.dirname(existingAncestor);
+        }
+        const canonicalAncestor = yield* fileSystem.realPath(existingAncestor);
+        const relativeAncestor = pathService.relative(canonicalRoot, canonicalAncestor);
+        if (relativeAncestor === '..') return yield* Effect.fail(invalidObjectKey());
+        if (relativeAncestor.startsWith(`..${pathService.sep}`))
+          return yield* Effect.fail(invalidObjectKey());
+        if (pathService.isAbsolute(relativeAncestor)) return yield* Effect.fail(invalidObjectKey());
+        return destination;
+      });
 
     const storageProvider: StorageProvider = {
       name: 'local',
@@ -59,7 +91,7 @@ export const makeLocalStorageProvider = (directoryOverride?: string) =>
       },
       putObject: (objectKey: string, objectContents: Buffer | string, _contentType: string) =>
         Effect.gen(function* () {
-          const destination = objectPath(objectKey);
+          const destination = yield* checkedObjectPath(objectKey);
           yield* fileSystem.makeDirectory(pathService.dirname(destination), { recursive: true });
           if (typeof objectContents === 'string') {
             yield* fileSystem.writeFileString(destination, objectContents);
@@ -68,17 +100,22 @@ export const makeLocalStorageProvider = (directoryOverride?: string) =>
           }
           return { id: objectKey, location: pathToFileURL(destination).href };
         }),
-      getObject: (objectKey: string) => {
-        const objectFilePath = objectPath(objectKey);
-        return fileSystem.readFile(objectFilePath).pipe(
-          Effect.map((fileBytes) => Buffer.from(fileBytes)),
-          Effect.catchIf(
-            (failure) => failure._tag === 'SystemError' && failure.reason === 'NotFound',
-            () => Effect.succeed(null),
-          ),
-        );
+      getObject: (objectKey: string) =>
+        Effect.gen(function* () {
+          const objectFilePath = yield* checkedObjectPath(objectKey);
+          return yield* fileSystem.readFile(objectFilePath).pipe(
+            Effect.map((fileBytes) => Buffer.from(fileBytes)),
+            Effect.catchIf(
+              (failure) => failure._tag === 'SystemError' && failure.reason === 'NotFound',
+              () => Effect.succeed(null),
+            ),
+          );
+        }),
+      publicUrl: (objectKey: string): string => {
+        if (objectKey === '') return pathToFileURL(objectsDirectory).href;
+        if (!validObjectKey(objectKey)) return 'about:blank#invalid-storage-key';
+        return pathToFileURL(objectPath(objectKey)).href;
       },
-      publicUrl: (objectKey: string): string => pathToFileURL(objectPath(objectKey)).href,
     };
     return storageProvider;
   });
