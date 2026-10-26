@@ -43,3 +43,10 @@ describe('redactText', () => {
     expect(out).not.toContain('AAAAfakekeybodyAAAA');
   });
 });
+
+describe('structured and streamed secrets', () => {
+  it('masks JSON properties including quoted secret values', () => {
+    expect(redactLine('{"private_key":"dummy-private-key"}')).not.toContain('dummy-private-key');
+    expect(redactLine('{"password":"dummy\\"rest-of-password"}')).not.toContain('rest-of-password');
+  });
+});

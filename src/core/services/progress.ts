@@ -211,7 +211,7 @@ export const runWithProgress = (
       return { elapsedMs: completedAt - startedAt, steps: 0 };
     }
     // A build in progress claims the per-build log (redacted, keyed by build id); standalone steps
-    // (e.g. prebuild, before the id is known) fall back to a transient stamped file kept raw.
+    // (e.g. prebuild, before the id is known) use a redacted transient stamped file.
     const buildLog = currentBuildLog();
     let logFile = buildLog;
     if (logFile === null) {
@@ -230,7 +230,7 @@ export const runWithProgress = (
     yield* executeCommandQuietly(command, args, {
       ...commandOptions,
       logFilePath: logFile,
-      shouldRedactSecrets: buildLog !== null,
+      shouldRedactSecrets: true,
       onLine: (line) => {
         tail.push(line);
         if (tail.length > TAIL_LINES) tail.shift();

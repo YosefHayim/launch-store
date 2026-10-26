@@ -9,7 +9,7 @@ import {
   LaunchEnvironmentLive,
   type LaunchEnvironmentService,
 } from './environment.js';
-import { redactLine } from './redact.js';
+import { makeLogRedactor, redactText } from './redact.js';
 import { isJsonOutput } from './jsonOutputMode.js';
 /** A command could not start or completed with a non-zero exit code. */
 export type CommandFailed = Readonly<{
@@ -51,7 +51,12 @@ const makeCommand = (
     return command;
   });
 const commandPlatformFailure = (executable: string, cause: unknown): CommandFailed =>
-  makeCommandFailed({ command: executable, exitCode: null, stderr: String(cause), cause });
+  makeCommandFailed({
+    command: executable,
+    exitCode: null,
+    stderr: redactText(String(cause)),
+    cause,
+  });
 const checkExitCode = (
   executable: string,
   exitCode: PlatformCommandExecutor.ExitCode,
@@ -62,7 +67,7 @@ const checkExitCode = (
     makeCommandFailed({
       command: executable,
       exitCode: Number(exitCode),
-      stderr: standardError,
+      stderr: redactText(standardError),
     }),
   );
 };
@@ -175,6 +180,7 @@ export const executeCommandQuietly = (
       const childProcess = yield* Command.start(command).pipe(
         Effect.mapError((cause) => commandPlatformFailure(executable, cause)),
       );
+      const redactOutputLine = makeLogRedactor();
       const combinedLines = Stream.merge(childProcess.stdout, childProcess.stderr).pipe(
         Stream.decodeText(),
         Stream.splitLines,
@@ -182,16 +188,16 @@ export const executeCommandQuietly = (
       const consumeOutput = combinedLines.pipe(
         Stream.runForEach((outputLine) =>
           Effect.gen(function* () {
+            let persistedLine = outputLine;
+            if (commandOptions.shouldRedactSecrets !== false)
+              persistedLine = redactOutputLine(outputLine);
             if (commandOptions.onLine !== undefined) {
-              yield* Effect.sync(() => commandOptions.onLine?.(outputLine));
+              yield* Effect.sync(() => commandOptions.onLine?.(persistedLine));
             }
             if (commandOptions.logFilePath === undefined) return;
-            let persistedLine = outputLine;
-            if (commandOptions.shouldRedactSecrets === true) {
-              persistedLine = redactLine(outputLine);
-            }
             yield* fileSystem.writeFileString(commandOptions.logFilePath, `${persistedLine}\n`, {
               flag: 'a',
+              mode: 0o600,
             });
           }),
         ),
