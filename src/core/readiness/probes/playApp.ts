@@ -19,30 +19,44 @@ export const playAppProbe = {
     return Effect.gen(function* () {
       const apps = androidApps(readinessContext.apps);
       if (apps.length === 0) return OMITTED_PROBE;
-      const api = yield* readinessContext.resolvePlayApi();
-      if (!api) {
+      const appClients = yield* Effect.forEach(
+        apps,
+        (app) => readinessContext.resolvePlayApi(app.identifier),
+        { concurrency: 1 },
+      );
+      if (appClients.every((api) => !api)) {
         return SKIPPED_NO_PLAY_ACCOUNT;
       }
       const results = yield* Effect.forEach(
         apps,
-        ({ name, identifier }) =>
-          api.assertAppExists(identifier).pipe(
-            Effect.as({
-              app: name,
-              identifier,
-              status: 'ok' as const,
-              detail: 'app reachable; service account authorized',
-            }),
-            Effect.catchAll((apiFailure) =>
-              Effect.succeed({
+        ({ name, identifier }, index) =>
+          Effect.gen(function* () {
+            const api = appClients[index];
+            if (!api)
+              return {
                 app: name,
                 identifier,
                 status: 'blocker' as const,
-                detail: errorMessage(apiFailure),
-                hint: 'create the app in Play Console and grant the service account access to it',
+                detail: 'No Play service account for this package.',
+              };
+            return yield* api.assertAppExists(identifier).pipe(
+              Effect.as({
+                app: name,
+                identifier,
+                status: 'ok' as const,
+                detail: 'app reachable; service account authorized',
               }),
-            ),
-          ),
+              Effect.catchAll((apiFailure) =>
+                Effect.succeed({
+                  app: name,
+                  identifier,
+                  status: 'blocker' as const,
+                  detail: errorMessage(apiFailure),
+                  hint: 'create the app in Play Console and grant the service account access to it',
+                }),
+              ),
+            );
+          }),
         { concurrency: 'unbounded' },
       );
       return { state: 'checked', apps: results };

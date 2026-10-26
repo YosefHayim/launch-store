@@ -37,13 +37,17 @@ export type LocalCredentialsStoreService = Readonly<{
     bundleId: string,
     extensions?: readonly string[],
   ) => Effect.Effect<SigningAssets | null, unknown>;
-  readonly loadPlayServiceAccount: () => Effect.Effect<string | null, unknown>;
-  readonly loadAndroidKeystore: () => Effect.Effect<KeystoreAssets | null, unknown>;
+  readonly loadPlayServiceAccount: (packageName?: string) => Effect.Effect<string | null, unknown>;
+  readonly loadAndroidKeystore: (
+    packageName?: string,
+  ) => Effect.Effect<KeystoreAssets | null, unknown>;
   readonly listAppleAccountStatuses: () => Effect.Effect<
     readonly AppleCredentialAccountStatus[],
     unknown
   >;
-  readonly readAndroidCredentialStatus: () => Effect.Effect<AndroidCredentialStatus, unknown>;
+  readonly readAndroidCredentialStatus: (
+    packageName?: string,
+  ) => Effect.Effect<AndroidCredentialStatus, unknown>;
 }>;
 
 export const LocalCredentialsStore = Context.GenericTag<LocalCredentialsStoreService>(
@@ -86,9 +90,10 @@ export const LocalCredentialsStoreLive: Layer.Layer<
         loadCachedSigningAssets(keyId, bundleId, extensions).pipe(
           Effect.provide(credentialStoreContext),
         ),
-      loadPlayServiceAccount: () =>
-        loadServiceAccount().pipe(Effect.provide(credentialStoreContext)),
-      loadAndroidKeystore: () => loadCachedKeystore().pipe(Effect.provide(credentialStoreContext)),
+      loadPlayServiceAccount: (packageName?: string) =>
+        loadServiceAccount(packageName).pipe(Effect.provide(credentialStoreContext)),
+      loadAndroidKeystore: (packageName?: string) =>
+        loadCachedKeystore(packageName).pipe(Effect.provide(credentialStoreContext)),
       listAppleAccountStatuses: () =>
         Effect.gen(function* () {
           const appleAccounts = yield* listAccounts();
@@ -113,8 +118,8 @@ export const LocalCredentialsStoreLive: Layer.Layer<
             { concurrency: 1 },
           );
         }).pipe(Effect.provide(credentialStoreContext)),
-      readAndroidCredentialStatus: () =>
-        describeStoredAndroidCredentials().pipe(Effect.provide(credentialStoreContext)),
+      readAndroidCredentialStatus: (packageName?: string) =>
+        describeStoredAndroidCredentials(packageName).pipe(Effect.provide(credentialStoreContext)),
     } satisfies LocalCredentialsStoreService;
   }),
 );

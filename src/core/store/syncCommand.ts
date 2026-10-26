@@ -247,12 +247,12 @@ export const syncCommandProgram = (
     }
     yield* confirmSync(planSummary.mutationCount, commandInput.yes);
     if (commandInput.snapshot) {
-      const playClient = yield* createPlayClientResolver()();
+      const playClient = yield* createPlayClientResolver();
       yield* captureSyncBaseline(
         loadedConfig.config,
         selectedApps,
         () => Effect.succeed(ascClient),
-        () => Effect.succeed(playClient),
+        playClient,
       );
     }
     const appliedOutcomes = yield* Effect.forEach(

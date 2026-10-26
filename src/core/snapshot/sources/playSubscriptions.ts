@@ -164,7 +164,12 @@ export const playSubscriptionsSource: SnapshotSource = {
     return Effect.gen(function* () {
       const apps = androidApps(snapshotContext.apps);
       if (apps.length === 0) return { state: 'omitted' };
-      const api = yield* snapshotContext.resolvePlayApi();
+      const appClients = yield* Effect.forEach(
+        apps,
+        (app) => snapshotContext.resolvePlayApi(app.identifier),
+        { concurrency: 1 },
+      );
+      const api = appClients.find((client) => client !== null);
       if (!api) {
         return {
           state: 'skipped',
@@ -176,7 +181,13 @@ export const playSubscriptionsSource: SnapshotSource = {
         apps,
         ({ name, identifier }) =>
           Effect.gen(function* () {
-            const subscriptions = yield* api.listSubscriptions(identifier);
+            const appClient = yield* snapshotContext.resolvePlayApi(identifier);
+            if (!appClient)
+              return yield* Effect.fail({
+                _tag: 'MissingPlayCredentials',
+                message: `No Play credentials for ${identifier}.`,
+              });
+            const subscriptions = yield* appClient.listSubscriptions(identifier);
             const entities = subscriptions.map(toEntity);
             return { app: name, identifier, entities };
           }),
@@ -194,14 +205,15 @@ export const playSubscriptionsSource: SnapshotSource = {
    */
   restore({ ctx: restoreContext, saved, dryRun }: RestoreInput) {
     return Effect.gen(function* () {
-      const client = yield* restoreContext.resolvePlayWriteClient();
-      if (!client) {
-        return {
-          actions: [skippedAction('Google Play subscriptions: skipped - no Play service account')],
-        };
-      }
       const actions: PlannedAction[] = [];
       for (const app of saved) {
+        const client = yield* restoreContext.resolvePlayWriteClient(app.identifier);
+        if (!client) {
+          actions.push(
+            skippedAction(`Google Play: skipped - no Play service account for ${app.identifier}`),
+          );
+          continue;
+        }
         const subscriptions: SubscriptionConfig[] = [];
         for (const entity of app.entities) {
           const config = toSubscriptionConfig(entity);

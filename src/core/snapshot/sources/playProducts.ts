@@ -126,7 +126,12 @@ export const playProductsSource: SnapshotSource = {
     return Effect.gen(function* () {
       const apps = androidApps(snapshotContext.apps);
       if (apps.length === 0) return { state: 'omitted' };
-      const api = yield* snapshotContext.resolvePlayApi();
+      const appClients = yield* Effect.forEach(
+        apps,
+        (app) => snapshotContext.resolvePlayApi(app.identifier),
+        { concurrency: 1 },
+      );
+      const api = appClients.find((client) => client !== null);
       if (!api) {
         return {
           state: 'skipped',
@@ -138,7 +143,13 @@ export const playProductsSource: SnapshotSource = {
         apps,
         ({ name, identifier }) =>
           Effect.gen(function* () {
-            const products = yield* api.listInAppProducts(identifier);
+            const appClient = yield* snapshotContext.resolvePlayApi(identifier);
+            if (!appClient)
+              return yield* Effect.fail({
+                _tag: 'MissingPlayCredentials',
+                message: `No Play credentials for ${identifier}.`,
+              });
+            const products = yield* appClient.listInAppProducts(identifier);
             const entities = products.map(toEntity);
             return { app: name, identifier, entities };
           }),
@@ -156,14 +167,15 @@ export const playProductsSource: SnapshotSource = {
    */
   restore({ ctx: restoreContext, saved, dryRun }: RestoreInput) {
     return Effect.gen(function* () {
-      const client = yield* restoreContext.resolvePlayWriteClient();
-      if (!client) {
-        return {
-          actions: [skippedAction('Google Play products: skipped - no Play service account')],
-        };
-      }
       const actions: PlannedAction[] = [];
       for (const app of saved) {
+        const client = yield* restoreContext.resolvePlayWriteClient(app.identifier);
+        if (!client) {
+          actions.push(
+            skippedAction(`Google Play: skipped - no Play service account for ${app.identifier}`),
+          );
+          continue;
+        }
         const products: InAppPurchaseConfig[] = [];
         for (const entity of app.entities) {
           const config = toProductConfig(entity);
