@@ -248,6 +248,7 @@ export const updateCommandProgram = (
     yield* executeCommand('npx', ['expo', 'export', '--output-dir', distributionDirectory], {
       workingDirectory: selectedApp.dir,
       environmentOverrides: resolvedEnvironment.values,
+      envExclude: loadedConfiguration.config.envExclude,
     }).pipe(Effect.mapError((cause) => updateFailure('export update bundle', cause)));
     yield* writeLog(
       'render update export outcome',

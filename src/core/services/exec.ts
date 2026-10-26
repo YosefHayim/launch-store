@@ -2,7 +2,8 @@ import * as Command from '@effect/platform/Command';
 import type * as PlatformCommandExecutor from '@effect/platform/CommandExecutor';
 import * as FileSystem from '@effect/platform/FileSystem';
 import { NodeContext } from '@effect/platform-node';
-import { Data, Effect, Layer, Stream } from 'effect';
+import { Data, Effect, FiberRef, Layer, Stream } from 'effect';
+import { isEnvExcluded } from '../config/env.js';
 import { mergeChildEnv } from '../terminal/locale.js';
 import {
   LaunchEnvironment,
@@ -21,10 +22,12 @@ export type CommandFailed = Readonly<{
 }>;
 /** Construct a readonly tagged command failure. */
 export const makeCommandFailed = Data.tagged<CommandFailed>('CommandFailed');
+export const commandEnvironmentExclusions = FiberRef.unsafeMake<readonly string[]>([]);
 /** Working-directory and environment inputs shared by command programs. */
 export type CommandExecutionOptions = Readonly<{
   readonly workingDirectory?: string;
   readonly environmentOverrides?: Record<string, string>;
+  readonly envExclude?: readonly string[] | undefined;
 }>;
 /** Output handling for a quiet command program. */
 export type QuietCommandExecutionOptions = CommandExecutionOptions &
@@ -41,10 +44,21 @@ const makeCommand = (
   Effect.gen(function* () {
     const environment = yield* LaunchEnvironment;
     let command = Command.make(executable, ...commandArguments);
-    command = Command.env(
-      command,
-      mergeChildEnv(environment.rawVariables, commandOptions.environmentOverrides),
+    let exclusions = commandOptions.envExclude;
+    if (exclusions === undefined) exclusions = yield* FiberRef.get(commandEnvironmentExclusions);
+    const childEnvironment = mergeChildEnv(
+      environment.rawVariables,
+      commandOptions.environmentOverrides,
     );
+    // Effect's Node executor merges the OS environment again, so deleted names must be shadowed.
+    for (const name of Object.keys(childEnvironment)) {
+      if (isEnvExcluded(name, exclusions)) childEnvironment[name] = '';
+    }
+    for (const pattern of exclusions) {
+      if (!pattern.endsWith('*')) childEnvironment[pattern] = '';
+    }
+    if (exclusions.length > 0) childEnvironment['EXPO_NO_DOTENV'] = '1';
+    command = Command.env(command, childEnvironment);
     if (commandOptions.workingDirectory !== undefined) {
       command = Command.workingDirectory(command, commandOptions.workingDirectory);
     }
