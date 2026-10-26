@@ -103,20 +103,24 @@ const packageP12 = (
       '-out',
       certPemPath,
     ]);
-    yield* captureCommandOutput('openssl', [
-      'pkcs12',
-      '-export',
-      '-inkey',
-      keyPath,
-      '-in',
-      certPemPath,
-      '-out',
-      p12Path,
-      '-passout',
-      `pass:${password}`,
-      '-name',
-      DISTRIBUTION_CERT_NAME,
-    ]);
+    yield* captureCommandOutput(
+      'openssl',
+      [
+        'pkcs12',
+        '-export',
+        '-inkey',
+        keyPath,
+        '-in',
+        certPemPath,
+        '-out',
+        p12Path,
+        '-passout',
+        'env:LAUNCH_P12_EXPORT_PASSWORD',
+        '-name',
+        DISTRIBUTION_CERT_NAME,
+      ],
+      { environmentOverrides: { LAUNCH_P12_EXPORT_PASSWORD: password } },
+    );
     yield* fileSystem.chmod(p12Path, 0o600);
   });
 

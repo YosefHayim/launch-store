@@ -74,12 +74,6 @@ const toSigningAssets = (bundle: RemoteSigningBundle): SigningAssets => {
 const shellQuote = (shellText: string): string => {
   return `'${shellText.replace(/'/g, "'\\''")}'`;
 };
-/** Build a `KEY='val' KEY2='val2' ` prefix passed to the remote build command (no secrets in argv beyond the keychain pw). */
-const remoteEnvPrefix = (vars: Record<string, string>): string => {
-  return Object.entries(vars)
-    .map(([variableName, variableValue]) => `${variableName}=${shellQuote(variableValue)}`)
-    .join(' ');
-};
 /**
  * Resolve the stable per-app work tree (persists across builds) and a fresh per-run ephemeral secrets
  * dir, then create both. The work tree's `$HOME` is resolved on the host so every later path is absolute.
@@ -190,7 +184,23 @@ export const runBuildOnHost = (session: RemoteSession, inputs: RemoteBuildInputs
       const scriptRemote = `${session.credentialsDirectory}/build.sh`;
       yield* scpUp(session.target, scriptLocal, scriptRemote);
       const environmentVariables = remoteBuildEnvironment(inputs, session.keychainPassword);
-      const command = `${remoteEnvPrefix(environmentVariables)} bash ${shellQuote(scriptRemote)} ${shellQuote(session.workDirectory)} ${shellQuote(session.credentialsDirectory)}`;
+      const environmentLines: string[] = [];
+      for (const [variableName, variableValue] of Object.entries(environmentVariables)) {
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(variableName))
+          return yield* Effect.fail({
+            _tag: 'InvalidRemoteEnvironmentName',
+            message: 'Remote environment names must be shell identifiers.',
+          });
+        environmentLines.push(`export ${variableName}=${shellQuote(variableValue)}`);
+      }
+      const environmentLocal = pathService.join(staging, 'environment.sh');
+      yield* fileSystem.writeFileString(environmentLocal, environmentLines.join('\n'), {
+        mode: 0o600,
+      });
+      const environmentRemote = `${session.credentialsDirectory}/environment.sh`;
+      yield* scpUp(session.target, environmentLocal, environmentRemote);
+      yield* sshRun(session.target, `chmod 600 ${shellQuote(environmentRemote)}`);
+      const command = `. ${shellQuote(environmentRemote)}; bash ${shellQuote(scriptRemote)} ${shellQuote(session.workDirectory)} ${shellQuote(session.credentialsDirectory)}`;
       yield* sshRun(session.target, command);
       const marker = yield* sshCapture(
         session.target,
