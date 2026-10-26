@@ -1,3 +1,4 @@
+import { redactText } from './redact.js';
 import { HttpClient, HttpClientRequest } from '@effect/platform';
 import { Effect } from 'effect';
 import type { Platform } from '../types/app.js';
@@ -89,7 +90,15 @@ export const notifyMessage = (event: NotifyEvent): string => {
  */
 export const notificationDocument = (event: NotifyEvent): Record<string, unknown> => {
   const message = notifyMessage(event);
-  return { text: message, content: message, ...event };
+  const notification: Record<string, unknown> = {
+    text: redactText(message),
+    content: redactText(message),
+  };
+  for (const [field, eventValue] of Object.entries(event)) {
+    if (typeof eventValue === 'string') notification[field] = redactText(eventValue);
+    else notification[field] = eventValue;
+  }
+  return notification;
 };
 /** The `LAUNCH_*` environment a shell hook receives. Omitted fields simply don't appear. */
 export const notifyEnv = (event: NotifyEvent): Record<string, string> => {

@@ -79,3 +79,37 @@ describe('Effect Platform command execution', () => {
     ).resolves.toBe(false);
   });
 });
+
+describe('redaction before log persistence', () => {
+  it('never persists a private-key body or a JSON password', async () => {
+    const { mkdtempSync, readFileSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const { executeCommandQuietly } = await import('./exec.js');
+    const directory = mkdtempSync(join(tmpdir(), 'launch-log-redaction-'));
+    try {
+      const logFilePath = join(directory, 'build.log');
+      const beginFence = ['-----', 'BEGIN', ' PRIVATE KEY-----'].join('');
+      const endFence = ['-----', 'END', ' PRIVATE KEY-----'].join('');
+      const secretOutput = [
+        beginFence,
+        'dummy-private-key-body',
+        endFence,
+        '{"password":"dummy-json-password"}',
+      ].join('\n');
+      await executeTestProgram(
+        executeCommandQuietly(
+          process.execPath,
+          ['-e', 'process.stdout.write(process.argv[1])', '--', secretOutput],
+          { logFilePath },
+        ),
+      );
+      const persistedLog = readFileSync(logFilePath, 'utf8');
+      expect(persistedLog).not.toContain('dummy-private-key-body');
+      expect(persistedLog).not.toContain('dummy-json-password');
+      expect(persistedLog).toContain('[redacted-key-material]');
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+});
