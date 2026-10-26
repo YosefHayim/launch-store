@@ -147,4 +147,4 @@ The `changes` job in `ci.yml` (`dorny/paths-filter`, `token: ''`) decides what r
 - A change to the lockfile, workspace file, `biome.json`, `biome-rules/**`, `tsconfig*.json`, `*.config.ts` or `.github/**`, and a manual run, run everything in full with coverage. A `package.json` change alone does not.
 - `CI Gate` fails only when a job failed or was cancelled.
 
-The root `.actrc` selects the local Docker runner and keeps the pnpm store outside the workspace.
+The machine's `~/.actrc` selects the runner, architecture and shared caches.
