@@ -10,14 +10,13 @@ concurrency:
 jobs:
   changes:
     name: Changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     outputs:
       since: ${{ steps.filter.outputs.everything != 'true' && github.event.pull_request.base.sha || '' }}
       code: ${{ github.event_name != 'pull_request' || steps.filter.outputs.code == 'true' }}
-      docs: ${{ github.event_name != 'pull_request' || steps.filter.outputs.docs == 'true' }}
       cli: ${{ github.event_name != 'pull_request' || steps.filter.outputs.cli == 'true' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         if: github.event_name == 'pull_request'
@@ -35,61 +34,58 @@ jobs:
             code:
               - *everything
               - '**/*.{ts,tsx,css,json,mjs}'
-            docs:
-              - *everything
-              - 'src/**'
-              - 'scripts/**'
-              - 'README*.md'
-              - 'llms*.txt'
-              - 'schema/**'
-              - package.json
             cli:
               - *everything
               - 'src/**'
               - package.json
     timeout-minutes: 5
-  lint:
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
-    uses: ./.github/workflows/lint.yml
-    with:
-      since: ${{ needs.changes.outputs.since }}
-  typecheck:
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
-    uses: ./.github/workflows/typecheck.yml
-  docs:
-    needs: changes
-    if: needs.changes.outputs.docs == 'true'
-    uses: ./.github/workflows/docs.yml
   test:
+    name: Test
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    uses: ./.github/workflows/test.yml
-    with:
-      since: ${{ needs.changes.outputs.since }}
-  build:
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
-    uses: ./.github/workflows/build.yml
-  e2e:
-    needs: changes
-    if: needs.changes.outputs.cli == 'true'
-    uses: ./.github/workflows/e2e.yml
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Setup workspace
+        uses: ./.github/actions/setup
+      - name: Test changed files
+        if: needs.changes.outputs.since != ''
+        env:
+          SINCE: ${{ needs.changes.outputs.since }}
+        run: pnpm exec vitest run --changed "$SINCE"
+      - name: Test (with coverage)
+        if: needs.changes.outputs.since == ''
+        run: pnpm test:coverage | tee coverage.txt
+      - name: Coverage summary
+        if: needs.changes.outputs.since == ''
+        run: |
+          {
+            echo '### Coverage (node 24)'
+            echo '```'
+            tail -n 20 coverage.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - run: pnpm build
+      - name: Smoke-test the built CLI
+        run: |
+          node dist/cli/index.js --version
+          node dist/cli/index.js --help
+          node dist/cli/index.js explain csr
+      - name: Run E2E tests
+        if: needs.changes.outputs.cli == 'true'
+        run: pnpm test:e2e
   gate:
     name: CI Gate
     needs:
       - changes
-      - lint
-      - typecheck
-      - docs
       - test
-      - build
-      - e2e
     if: always()
     runs-on: ubuntu-slim
+    timeout-minutes: 5
     steps:
       - name: Fail when any job failed or was cancelled
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: exit 1
-    timeout-minutes: 5
