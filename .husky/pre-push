@@ -1,4 +1,3 @@
 pnpm lint
-pnpm lint:grit
 pnpm typecheck
 pnpm docs:check

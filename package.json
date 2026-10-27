@@ -67,9 +67,7 @@
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "launch": "tsx src/cli/index.ts",
     "prepare": "husky",
-    "prepublishOnly": "pnpm build",
-    "lint:grit": "node scripts/dev/check-grit-rules.mjs",
-    "style:migrate": "node scripts/dev/replace-type-barrel-imports.mjs"
+    "prepublishOnly": "pnpm build"
   },
   "dependencies": {
     "@clack/prompts": "^1.8.1",

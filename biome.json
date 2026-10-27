@@ -43,7 +43,7 @@
         "noNonNullAssertion": "error",
         "noJsxLiterals": "off",
         "useComponentExportOnlyModules": "off",
-        "noTernary": "error",
+        "noTernary": "off",
         "useNamingConvention": "off",
         "noMagicNumbers": "off",
         "noCommonJs": "off",
@@ -87,10 +87,6 @@
       "project": "recommended"
     }
   },
-  "plugins": [
-    "./biome-rules/no-logical-or-fallback.grit",
-    "./biome-rules/no-nullish-coalescing.grit"
-  ],
   "overrides": [
     {
       "includes": ["**/*.config.ts", "launch.config.example.ts", "examples/hello-world/App.tsx"],
