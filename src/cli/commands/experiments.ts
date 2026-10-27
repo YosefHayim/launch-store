@@ -8,6 +8,8 @@ import { runCliProgram } from '../runCliProgram.js';
 type ExperimentsOptions = Readonly<{
   readonly app?: string;
   readonly config: string;
+  readonly submit: boolean;
+  readonly start: boolean;
   readonly dryRun: boolean;
   readonly yes: boolean;
 }>;
@@ -18,6 +20,8 @@ const toVersionExperimentsInput = (
 ): VersionExperimentsCommandInput => {
   let experimentsInput: VersionExperimentsCommandInput = {
     config: commandOptions.config,
+    submit: commandOptions.submit,
+    start: commandOptions.start,
     dryRun: commandOptions.dryRun,
     yes: commandOptions.yes,
   };
@@ -34,6 +38,12 @@ export const registerExperimentsCommand = (program: Command): void => {
     .description('reconcile product-page A/B experiments from experiments.config.json')
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .option('--config <path>', 'path to the experiments config file', 'experiments.config.json')
+    .option(
+      '--submit',
+      'submit each experiment for App Review once its treatments are synced',
+      false,
+    )
+    .option('--start', 'start each experiment Apple has approved', false)
     .option('--dry-run', 'print the plan and exit, making no changes', false)
     .option('-y, --yes', 'skip the confirmation prompt (for CI)', false)
     .action((commandOptions: ExperimentsOptions) =>

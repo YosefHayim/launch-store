@@ -714,11 +714,17 @@ export type VersionExperimentResource = Readonly<{
   name: string;
   state: string;
   trafficProportion?: number;
+  startDate?: string;
 }>;
 /** One treatment (variant arm) of a version experiment, matched by its `name`. */
 export type ExperimentTreatmentResource = Readonly<{
   id: string;
   name: string;
+}>;
+/** One locale of an experiment treatment; it holds that locale's treatment screenshot sets. */
+export type ExperimentTreatmentLocalizationResource = Readonly<{
+  id: string;
+  locale: string;
 }>;
 /**
  * An app version's App Review details - the contact info and demo-account credentials Apple's reviewer

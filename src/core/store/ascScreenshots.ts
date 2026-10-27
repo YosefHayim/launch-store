@@ -49,6 +49,14 @@ export type ScreenshotsApi = {
     filePath: string,
   ): Effect.Effect<void, unknown>;
 };
+/** The screenshot calls one set needs once its owner (version or treatment localization) is known. */
+export type ScreenshotSetApi = Pick<ScreenshotsApi, 'listScreenshots' | 'uploadScreenshot'>;
+/** One localization that owns screenshot sets: its locale plus how to list and create its sets. */
+export type ScreenshotSetOwner = Readonly<{
+  locale: string;
+  listSets: () => Effect.Effect<ScreenshotSetResource[], unknown>;
+  createSet: (displayType: string) => Effect.Effect<ScreenshotSetResource, unknown>;
+}>;
 /** One subscription's declared review screenshot, paired with its product id for live subscription resolution. */
 export type SubscriptionReviewScreenshot = {
   productId: string;
@@ -64,7 +72,7 @@ export type ScreenshotReconcileInput = {
 };
 const SET_UPLOAD_CONCURRENCY = 4;
 /** Group members by a derived string key. */
-const groupBy = <Member>(
+export const groupBy = <Member>(
   members: readonly Member[],
   keyOf: (member: Member) => string,
 ): Map<string, Member[]> => {
@@ -172,36 +180,50 @@ const reconcileAppScreenshots = (
         );
         continue;
       }
-      const screenshotSets = yield* api.listScreenshotSets(localizationId);
-      const setByType = new Map(
-        screenshotSets.map((screenshotSet) => [screenshotSet.screenshotDisplayType, screenshotSet]),
-      );
-      const screenshotGroups = groupBy(localeScreenshots, (screenshot) => screenshot.displayType);
-      yield* reconcileSetsInOrder(log, screenshotGroups, (setLog, displayType, typeScreenshots) =>
-        reconcileScreenshotSet(
-          api,
-          setLog,
-          localizationId,
-          setByType.get(displayType),
-          displayType,
-          locale,
-          typeScreenshots,
-        ),
-      );
+      const setOwner: ScreenshotSetOwner = {
+        locale,
+        listSets: () => api.listScreenshotSets(localizationId),
+        createSet: (displayType) => api.createScreenshotSet(localizationId, displayType),
+      };
+      yield* reconcileOwnerScreenshots(api, log, setOwner, localeScreenshots);
     }
+  });
+/** Reconcile one localization's display-type sets against its local screenshots. */
+export const reconcileOwnerScreenshots = (
+  api: ScreenshotSetApi,
+  log: ActionLog,
+  setOwner: ScreenshotSetOwner,
+  screenshots: readonly LocalScreenshot[],
+): Effect.Effect<void, unknown> =>
+  Effect.gen(function* () {
+    const screenshotSets = yield* setOwner.listSets();
+    const setByType = new Map(
+      screenshotSets.map((screenshotSet) => [screenshotSet.screenshotDisplayType, screenshotSet]),
+    );
+    const screenshotGroups = groupBy(screenshots, (screenshot) => screenshot.displayType);
+    yield* reconcileSetsInOrder(log, screenshotGroups, (setLog, displayType, typeScreenshots) =>
+      reconcileScreenshotSet(
+        api,
+        setLog,
+        setOwner,
+        setByType.get(displayType),
+        displayType,
+        typeScreenshots,
+      ),
+    );
   });
 /** Resolve (or create) one display-type set, then upload the local screenshots Apple doesn't already have. */
 const reconcileScreenshotSet = (
-  api: ScreenshotsApi,
+  api: ScreenshotSetApi,
   log: ActionLog,
-  localizationId: string,
+  setOwner: ScreenshotSetOwner,
   existingSet: ScreenshotSetResource | undefined,
   displayType: string,
-  locale: string,
   screenshots: readonly LocalScreenshot[],
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
     const label = appleDisplayTypeLabel(displayType);
+    const locale = setOwner.locale;
     let setId: string;
     let existingScreenshots: ScreenshotResource[];
     if (existingSet !== undefined) {
@@ -212,7 +234,7 @@ const reconcileScreenshotSet = (
         log,
         `create screenshot set ${label} [${locale}]`,
         false,
-        () => api.createScreenshotSet(localizationId, displayType),
+        () => setOwner.createSet(displayType),
       );
       if (!succeededOrPlanned(createAction.status)) return;
       const createdSetId = createAction.actionValue?.id;
