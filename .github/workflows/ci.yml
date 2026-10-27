@@ -32,7 +32,6 @@ jobs:
               - pnpm-lock.yaml
               - pnpm-workspace.yaml
               - biome.json
-              - 'biome-rules/**'
               - 'tsconfig*.json'
               - '*.config.ts'
               - '.github/**'

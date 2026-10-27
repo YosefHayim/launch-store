@@ -140,5 +140,5 @@ The `changes` job in `ci.yml` (`dorny/paths-filter`, `token: ''`) decides what r
 
 - Docs-only changes skip every job, and `CI Gate` still passes.
 - Test (`vitest run --changed`) checks only the changed files; build and the CLI smoke test run in full when code changes. E2E runs when `src/` or `package.json` change.
-- A change to the lockfile, workspace file, `biome.json`, `biome-rules/**`, `tsconfig*.json`, `*.config.ts` or `.github/**`, and a manual run, run everything in full with coverage. A `package.json` change alone does not.
+- A change to the lockfile, workspace file, `biome.json`, `tsconfig*.json`, `*.config.ts` or `.github/**`, and a manual run, run everything in full with coverage. A `package.json` change alone does not.
 - `CI Gate` fails only when a job failed or was cancelled.

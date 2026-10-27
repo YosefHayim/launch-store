@@ -1,3 +1,0 @@
-`$left || $right` as $fallback where {
-  register_diagnostic(span=$fallback, message="Use an explicit domain branch instead of logical-or fallback.", severity="error")
-}
