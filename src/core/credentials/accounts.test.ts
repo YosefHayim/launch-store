@@ -1,8 +1,9 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { rmSync } from 'node:fs';
-import { Effect } from 'effect';
+import { Effect, Layer } from 'effect';
 import { NodeContext } from '@effect/platform-node';
 import type { AccountRecord, AccountsFile } from '../types/credentials.js';
+import { makeLaunchEnvironmentTest } from '../services/environment.js';
 import {
   makeLaunchSecretStoreTest,
   type LaunchSecretStoreService,
@@ -54,6 +55,16 @@ const runAccountEffect = <TValue, TError>(
     ),
   );
 };
+/** Load the active key with the given environment, the way `launch` store commands do. */
+const loadActiveKeyWith = (environmentVariables: Readonly<Record<string, string>>) =>
+  Effect.runPromise(
+    loadActiveAscKey().pipe(
+      Effect.provide(makeLaunchEnvironmentTest(environmentVariables).pipe(Layer.orDie)),
+      Effect.provide(NodeContext.layer),
+      Effect.provide(makeLaunchPathsTest(home.dir, home.dir)),
+      Effect.provide(makeLaunchSecretStoreTest()),
+    ),
+  );
 import {
   addAccount,
   decideBuildAccount,
@@ -62,6 +73,7 @@ import {
   formatAccountSummary,
   getActiveKeyId,
   listAccounts,
+  loadActiveAscKey,
   loadAscKeyById,
   matchAccount,
   migrateLegacyAccounts,
@@ -267,6 +279,31 @@ describe('registry mutations', () => {
     expect(secrets.store.has('asc-p8:BBBB2222')).toBe(false);
     expect(await runAccountEffect(listAccounts())).toHaveLength(1);
     expect(await runAccountEffect(getActiveKeyId())).toBe('AAAA1111');
+  });
+});
+describe('loadActiveAscKey', () => {
+  const addTwoAccounts = async () => {
+    await runAccountEffect(
+      addAccount({ keyId: 'AAAA1111', issuerId: 'issuer-a', label: 'Personal', p8: PEM }),
+    );
+    await runAccountEffect(
+      addAccount({ keyId: 'BBBB2222', issuerId: 'issuer-b', label: 'Acme', p8: PEM }),
+    );
+  };
+  it('loads the active account without ASC_ACCOUNT', async () => {
+    await addTwoAccounts();
+    expect((await loadActiveKeyWith({}))?.keyId).toBe('BBBB2222');
+  });
+  it('loads the account ASC_ACCOUNT names by label or Key ID instead of the active one', async () => {
+    await addTwoAccounts();
+    expect((await loadActiveKeyWith({ ASC_ACCOUNT: 'personal' }))?.keyId).toBe('AAAA1111');
+    expect((await loadActiveKeyWith({ ASC_ACCOUNT: 'AAAA1111' }))?.keyId).toBe('AAAA1111');
+  });
+  it('fails when ASC_ACCOUNT matches no account', async () => {
+    await addTwoAccounts();
+    await expect(loadActiveKeyWith({ ASC_ACCOUNT: 'nobody' })).rejects.toThrow(
+      /No Apple account matching.*nobody/,
+    );
   });
 });
 describe('migrateLegacyAccounts', () => {

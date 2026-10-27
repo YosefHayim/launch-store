@@ -7,6 +7,7 @@ import type { GoogleStoreClientService } from '../services/googleStoreClient.js'
 import { createLogger, type Logger } from '../services/logger.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
+import type { LaunchEnvironmentService } from '../services/environment.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import { captureAutoSnapshot } from '../snapshot/autoSnapshot.js';
 import type { SnapshotContext } from '../types/snapshot.js';
@@ -37,6 +38,7 @@ type SyncCommandRequirements =
   | AppleStoreClientService
   | FileSystem.FileSystem
   | GoogleStoreClientService
+  | LaunchEnvironmentService
   | LaunchPathsService
   | LaunchPromptService
   | LaunchSecretStoreService

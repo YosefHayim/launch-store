@@ -1,5 +1,5 @@
 import { NodeContext, NodeHttpClient } from '@effect/platform-node';
-import { Effect } from 'effect';
+import { Effect, Layer } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   AppleStoreClientService,
@@ -9,6 +9,7 @@ import {
   GoogleStoreClientService,
   type GoogleStoreClientService as GoogleStoreClientContract,
 } from '../services/googleStoreClient.js';
+import { makeLaunchEnvironmentTest } from '../services/environment.js';
 import { makeLaunchLoggerTest } from '../services/logger.js';
 import { makeLaunchPathsTest } from '../services/paths.js';
 import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
@@ -66,6 +67,7 @@ const runReadinessCommand = (
     readinessCommandProgram(commandInput).pipe(
       Effect.provideService(AppleStoreClientService, unavailableAppleClients),
       Effect.provideService(GoogleStoreClientService, unavailableGoogleClients),
+      Effect.provide(makeLaunchEnvironmentTest({}).pipe(Layer.orDie)),
       Effect.provide(makeLaunchSecretStoreTest()),
       Effect.provide(makeLaunchPathsTest('/test-home', '/workspace')),
       Effect.provide(NodeHttpClient.layer),

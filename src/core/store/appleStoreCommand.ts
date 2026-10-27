@@ -7,6 +7,7 @@ import {
   type EffectAppStoreConnectClient,
 } from '../services/appleStoreClient.js';
 import type { LaunchPathsService } from '../services/paths.js';
+import type { LaunchEnvironmentService } from '../services/environment.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 
 /** Loading the active Apple account or creating its transport client failed. */
@@ -21,6 +22,7 @@ export const makeActiveAppleStoreFailure =
 export type ActiveAppleStoreRequirements =
   | AppleStoreClientRequirements
   | FileSystem.FileSystem
+  | LaunchEnvironmentService
   | LaunchPathsService
   | LaunchSecretStoreService
   | Path.Path;

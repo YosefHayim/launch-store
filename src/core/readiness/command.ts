@@ -6,6 +6,7 @@ import { errorMessage } from '../services/errorMessage.js';
 import type { GoogleStoreClientService } from '../services/googleStoreClient.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
+import type { LaunchEnvironmentService } from '../services/environment.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import { createAscClientResolver, createPlayClientResolver } from '../store/storeClients.js';
 import { selectApps } from '../store/syncJobs.js';
@@ -54,6 +55,7 @@ type ReadinessCommandRequirements =
   | FileSystem.FileSystem
   | GoogleStoreClientService
   | HttpClient.HttpClient
+  | LaunchEnvironmentService
   | LaunchPathsService
   | LaunchSecretStoreService
   | Logger
