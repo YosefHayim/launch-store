@@ -1333,6 +1333,9 @@ describe('AppStoreConnectClient - listing localizations', () => {
     expect(await client.listAppEventLocalizations('ev1')).toEqual([
       { id: 'evl1', locale: 'en-US' },
     ]);
+    expect(expectArrayElement(fetchMock.mock.calls, 1, 'mock call')[0]).toContain(
+      '/appEvents/ev1/localizations?',
+    );
   });
   it('POSTs a new version localization with the appStoreVersion relationship', async () => {
     fetchMock.mockResolvedValueOnce(
