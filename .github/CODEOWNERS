@@ -4,10 +4,8 @@
 * @YosefHayim
 
 # foundation — tooling, shared spine
-/CODE-STYLE.md @YosefHayim
 /BRANCHING.md @YosefHayim
 /AGENTS.md @YosefHayim
-/code-style.rules.json @YosefHayim
 /biome.json @YosefHayim
 /tsconfig.json @YosefHayim
 /package.json @YosefHayim

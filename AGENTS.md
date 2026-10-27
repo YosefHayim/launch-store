@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Working rules for AI agents and contributors editing **Launch**. This file holds only what you **can't infer** from the code and configs: module ownership, conventions a linter can't catch, and the validation gate every change must pass. Usage lives in [README.md](./README.md) (keep agent rules out of it); style depth lives in [CODE-STYLE.md](./CODE-STYLE.md). Branch and PR workflow lives in [BRANCHING.md](./BRANCHING.md).
+Working rules for AI agents and contributors editing **Launch**. This file holds only what you **can't infer** from the code and configs: module ownership, conventions a linter can't catch, and the validation gate every change must pass. Usage lives in [README.md](./README.md) (keep agent rules out of it). Branch and PR workflow lives in [BRANCHING.md](./BRANCHING.md).
 
 > This is the only agent instructions file. Claude Code and Codex load it natively.
 
@@ -67,7 +67,6 @@ Do not create flat `src/core/*.ts` files. Pick the purpose folder that owns the 
 
 ### Source Of Truth Files
 
-- Style: [CODE-STYLE.md](./CODE-STYLE.md). Edit there first; this file mirrors only the digest. All new code follows it; rewrite existing code to it on contact.
 - Product direction: [PROJECT.md](./PROJECT.md).
 - Architecture orientation: [CONTEXT.md](./CONTEXT.md).
 - Domain language: [LANGUAGE.md](./LANGUAGE.md) and runtime teaching text in `src/core/terminal/glossary.ts`.
@@ -100,10 +99,6 @@ Key material never touches the repo or `~/.launch`. `.p8`, `.p12`, private keys,
 
 ### Rules Digest
 
-<!-- rules digest - full guide in CODE-STYLE.md; edit there -->
-
-The full style guide is [CODE-STYLE.md](./CODE-STYLE.md), mirrored mechanically by [code-style.rules.json](./code-style.rules.json).
-
 - **Effect everywhere in production.** Exported behavior returns `Effect`; pure logic -> `Effect.sync`, I/O -> `Effect.gen`.
 - **Tagged failure values.** Expected failures are readonly tagged data in the Effect channel; no raw production throws or error classes.
 - **Official platform services.** Use Effect FileSystem, Path, CommandExecutor, and Terminal; Launch services own domain policy only.
@@ -114,7 +109,7 @@ The full style guide is [CODE-STYLE.md](./CODE-STYLE.md), mirrored mechanically 
 - **Effect Schema is config SSOT.** zod is temporary migration debt.
 - **Purpose-grouped core.** New code goes under `src/core/<job>/`; no new flat-core files.
 - **One public barrel.** `src/index.ts` is the package entrypoint; internal code imports owning modules directly.
-- **Prose naming.** Generic bindings listed in `code-style.rules.json` are banned; `build` is reserved for the real build domain.
+- **Prose naming.** Generic bindings such as `data`, `result`, and `value` are banned; `build` is reserved for the real build domain.
 - **Comments explain hidden intent.** No narrated headers, change history, caller lists, or TSDoc that restates types.
 - **Explicit control flow.** No ternary, `??`, or `||`; use guards, exhaustive switches, and named lookups.
 - **Arrow module functions.** Authored module functions are const arrows declared before first use.
@@ -123,15 +118,15 @@ The full style guide is [CODE-STYLE.md](./CODE-STYLE.md), mirrored mechanically 
 
 ## Style Is Enforced, Not Re-Explained
 
-Formatting and generic TypeScript rules live in `tsconfig.json`, `biome.json`, and the Husky hook. Launch-specific rules live in `CODE-STYLE.md`, `code-style.rules.json`, and `scripts/dev/check-code-style.mjs`; the authored tree is enforced globally with generated artifacts excluded.
+Formatting and generic TypeScript rules live in `tsconfig.json`, `biome.json`, and the Husky hook. The authored tree is enforced globally with generated artifacts excluded.
 
 ## Before You Call A Change Done
 
 ```bash
-pnpm typecheck && pnpm lint && pnpm lint:style && pnpm docs:check && pnpm test && pnpm build
+pnpm typecheck && pnpm lint && pnpm docs:check && pnpm test && pnpm build
 ```
 
-All six must be green. Add or update colocated tests for any new behavior.
+All five must be green. Add or update colocated tests for any new behavior.
 (`npm run <script>` still works once dependencies are installed with **pnpm**; do not use `npm install` - this repo is `packageManager: pnpm@10` and only has `pnpm-lock.yaml`.)
 
 ## Local CI
