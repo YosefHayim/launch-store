@@ -1,4 +1,6 @@
+import { Effect } from 'effect';
 import {
+  discoverTreatmentScreenshots,
   parseVersionExperimentsConfig,
   reconcileVersionExperiments,
 } from '@core/release/versionExperiments.js';
@@ -14,19 +16,33 @@ export const experimentsPlanner: SurfacePlanner = {
     planAppStoreSurface(planContext, {
       surface: SURFACE,
       direction: 'additive',
-      configFor: () => {
-        let configPath = 'experiments.config.json';
-        if (planContext.config.configFiles?.experiments !== undefined) {
-          configPath = planContext.config.configFiles.experiments;
-        }
-        return resolveStoreSurfaceSection(
-          undefined,
-          configPath,
-          false,
-          parseVersionExperimentsConfig,
-        );
-      },
-      reconcile: (api, bundleId, config) =>
-        reconcileVersionExperiments(api, { bundleId, config, dryRun: true }),
+      configFor: () =>
+        Effect.gen(function* () {
+          let configPath = 'experiments.config.json';
+          if (planContext.config.configFiles?.experiments !== undefined) {
+            configPath = planContext.config.configFiles.experiments;
+          }
+          const experimentsConfig = yield* resolveStoreSurfaceSection(
+            undefined,
+            configPath,
+            false,
+            parseVersionExperimentsConfig,
+          );
+          if (experimentsConfig === undefined) return undefined;
+          const treatmentScreenshots = yield* discoverTreatmentScreenshots(
+            configPath,
+            experimentsConfig,
+          );
+          return { experimentsConfig, treatmentScreenshots };
+        }),
+      reconcile: (api, bundleId, experimentsTarget) =>
+        reconcileVersionExperiments(api, {
+          bundleId,
+          config: experimentsTarget.experimentsConfig,
+          treatmentScreenshots: experimentsTarget.treatmentScreenshots,
+          submit: false,
+          start: false,
+          dryRun: true,
+        }),
     }),
 };

@@ -55,6 +55,7 @@ import type {
   DeviceFamily,
   DeviceResource,
   EncryptionDeclarationResource,
+  ExperimentTreatmentLocalizationResource,
   ExperimentTreatmentResource,
   FinanceReportQuery,
   GameCenterAchievementCreate,
@@ -3009,8 +3010,9 @@ export class AppStoreConnectClient {
       name?: string;
       state?: string;
       trafficProportion?: number;
+      startDate?: string;
     }>(
-      `/apps/${appId}/appStoreVersionExperimentsV2?limit=200&fields[appStoreVersionExperiments]=name,state,trafficProportion`,
+      `/apps/${appId}/appStoreVersionExperimentsV2?limit=200&fields[appStoreVersionExperiments]=name,state,trafficProportion,startDate`,
     );
     return appleResources.flatMap((experiment) => {
       const experimentName = experiment.attributes.name;
@@ -3026,6 +3028,8 @@ export class AppStoreConnectClient {
         Object.assign(versionExperiment, {
           trafficProportion: experiment.attributes.trafficProportion,
         });
+      if (experiment.attributes.startDate !== undefined)
+        Object.assign(versionExperiment, { startDate: experiment.attributes.startDate });
       return [versionExperiment];
     });
   }
@@ -3098,6 +3102,48 @@ export class AppStoreConnectClient {
       },
     );
     return { id: appleResources.id, name: input.name };
+  }
+  /** Start an approved product-page experiment (the v2 `started: true` PATCH). */
+  async startVersionExperiment(experimentId: string): Promise<void> {
+    await this.updateResource(this.v2(`/appStoreVersionExperiments/${experimentId}`), {
+      type: 'appStoreVersionExperiments',
+      id: experimentId,
+      attributes: { started: true },
+    });
+  }
+  /** List a treatment's localizations (one per locale), matched by locale. */
+  async listExperimentTreatmentLocalizations(
+    treatmentId: string,
+  ): Promise<ExperimentTreatmentLocalizationResource[]> {
+    const appleResources = await this.requestAll<{
+      locale?: string;
+    }>(
+      `/appStoreVersionExperimentTreatments/${treatmentId}/appStoreVersionExperimentTreatmentLocalizations?limit=200&fields[appStoreVersionExperimentTreatmentLocalizations]=locale`,
+    );
+    return appleResources.flatMap((localization) => {
+      const locale = localization.attributes.locale;
+      if (locale === undefined) return [];
+      return [{ id: localization.id, locale }];
+    });
+  }
+  /** Add one locale to a treatment so it can hold that locale's screenshot sets. */
+  async createExperimentTreatmentLocalization(
+    treatmentId: string,
+    locale: string,
+  ): Promise<ExperimentTreatmentLocalizationResource> {
+    const appleResources = await this.createResource<Record<string, never>>(
+      '/appStoreVersionExperimentTreatmentLocalizations',
+      {
+        type: 'appStoreVersionExperimentTreatmentLocalizations',
+        attributes: { locale },
+        relationships: {
+          appStoreVersionExperimentTreatment: {
+            data: { type: 'appStoreVersionExperimentTreatments', id: treatmentId },
+          },
+        },
+      },
+    );
+    return { id: appleResources.id, locale };
   }
   /** Find the app price point in `territory` whose customer price equals `customerPrice`, or null. */
   async findAppPricePoint(
@@ -4073,6 +4119,21 @@ export class AppStoreConnectClient {
       },
     });
   }
+  /** Add a product-page experiment to a review submission as an item. */
+  async addExperimentReviewSubmissionItem(
+    submissionId: string,
+    experimentId: string,
+  ): Promise<void> {
+    await this.createResource('/reviewSubmissionItems', {
+      type: 'reviewSubmissionItems',
+      relationships: {
+        reviewSubmission: { data: { type: 'reviewSubmissions', id: submissionId } },
+        appStoreVersionExperimentV2: {
+          data: { type: 'appStoreVersionExperiments', id: experimentId },
+        },
+      },
+    });
+  }
   /** Submit a review submission to Apple (the `submitted: true` PATCH). */
   async submitReviewSubmission(submissionId: string): Promise<void> {
     await this.updateResource(`/reviewSubmissions/${submissionId}`, {
@@ -4199,10 +4260,50 @@ export class AppStoreConnectClient {
   /** App Store screenshots and subscription review screenshots. */
   /** List the screenshot sets (one per device display type) bound to one App Store version localization. */
   async listScreenshotSets(versionLocalizationId: string): Promise<ScreenshotSetResource[]> {
+    return this.listScreenshotSetsOf('appStoreVersionLocalizations', versionLocalizationId);
+  }
+  /** Create a screenshot set for one display type under a version localization, returning the new set. */
+  async createScreenshotSet(
+    versionLocalizationId: string,
+    displayType: string,
+  ): Promise<ScreenshotSetResource> {
+    return this.createScreenshotSetOf(
+      'appStoreVersionLocalization',
+      'appStoreVersionLocalizations',
+      versionLocalizationId,
+      displayType,
+    );
+  }
+  /** List the screenshot sets bound to one experiment treatment localization. */
+  async listTreatmentScreenshotSets(
+    treatmentLocalizationId: string,
+  ): Promise<ScreenshotSetResource[]> {
+    return this.listScreenshotSetsOf(
+      'appStoreVersionExperimentTreatmentLocalizations',
+      treatmentLocalizationId,
+    );
+  }
+  /** Create a screenshot set for one display type under an experiment treatment localization. */
+  async createTreatmentScreenshotSet(
+    treatmentLocalizationId: string,
+    displayType: string,
+  ): Promise<ScreenshotSetResource> {
+    return this.createScreenshotSetOf(
+      'appStoreVersionExperimentTreatmentLocalization',
+      'appStoreVersionExperimentTreatmentLocalizations',
+      treatmentLocalizationId,
+      displayType,
+    );
+  }
+  /** List the screenshot sets of any set owner (version or treatment localization). */
+  private async listScreenshotSetsOf(
+    ownerType: string,
+    ownerId: string,
+  ): Promise<ScreenshotSetResource[]> {
     const appleResources = await this.requestAll<{
       screenshotDisplayType?: string;
     }>(
-      `/appStoreVersionLocalizations/${versionLocalizationId}/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType&limit=200`,
+      `/${ownerType}/${ownerId}/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType&limit=200`,
     );
     return appleResources.map((screenshotSet) => {
       let screenshotDisplayType = screenshotSet.attributes.screenshotDisplayType;
@@ -4210,9 +4311,11 @@ export class AppStoreConnectClient {
       return { id: screenshotSet.id, screenshotDisplayType };
     });
   }
-  /** Create a screenshot set for one display type under a version localization, returning the new set. */
-  async createScreenshotSet(
-    versionLocalizationId: string,
+  /** Create a screenshot set for one display type under any set owner. */
+  private async createScreenshotSetOf(
+    ownerRelationship: string,
+    ownerType: string,
+    ownerId: string,
     displayType: string,
   ): Promise<ScreenshotSetResource> {
     const appleResources = await this.createResource<{
@@ -4220,11 +4323,7 @@ export class AppStoreConnectClient {
     }>('/appScreenshotSets', {
       type: 'appScreenshotSets',
       attributes: { screenshotDisplayType: displayType },
-      relationships: {
-        appStoreVersionLocalization: {
-          data: { type: 'appStoreVersionLocalizations', id: versionLocalizationId },
-        },
-      },
+      relationships: { [ownerRelationship]: { data: { type: ownerType, id: ownerId } } },
     });
     let screenshotDisplayType = appleResources.attributes.screenshotDisplayType;
     if (screenshotDisplayType === undefined) screenshotDisplayType = displayType;
