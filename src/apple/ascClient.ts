@@ -4121,7 +4121,7 @@ export class AppStoreConnectClient {
   /** List one event's localizations (per-locale name + descriptions). */
   async listAppEventLocalizations(eventId: string): Promise<AppEventLocalizationResource[]> {
     const appleResources = await this.requestAll<AppEventLocalizationAttributes>(
-      `/appEvents/${eventId}/appEventLocalizations?limit=200&fields[appEventLocalizations]=locale,name,shortDescription,longDescription`,
+      `/appEvents/${eventId}/localizations?limit=200&fields[appEventLocalizations]=locale,name,shortDescription,longDescription`,
     );
     return appleResources.map((localization) => toAppEventLocalization(localization, ''));
   }
