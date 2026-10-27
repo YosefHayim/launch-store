@@ -10,6 +10,7 @@ import {
 import { createLogger, type Logger } from '../services/logger.js';
 import type { LaunchPathsService } from '../services/paths.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
+import type { LaunchEnvironmentService } from '../services/environment.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import { completeCommand, type CommandExit } from '../terminal/commandExit.js';
 import type { PlannedAction } from '../types/reconcile.js';
@@ -75,6 +76,7 @@ export const accessibilityCommandProgram = (
   AccessibilityCommandFailure | CommandExit,
   | AppleStoreClientDependencies
   | FileSystem.FileSystem
+  | LaunchEnvironmentService
   | LaunchPathsService
   | LaunchPromptService
   | LaunchSecretStoreService

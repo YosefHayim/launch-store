@@ -10,6 +10,7 @@ import {
 import { deleteSecret, getSecret, setSecret } from './keychain.js';
 import { migrateLegacySigningIndex, p12PasswordAccount } from './appleSigning.js';
 import { AppStoreIdentityService } from '../services/appStoreIdentity.js';
+import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import type { MutableDeep } from '../types/mutable.js';
 /** Secret-store account holding one Apple account's `.p8` PEM, namespaced by Key ID. */
@@ -306,13 +307,30 @@ export const loadAscKeyById = (
     if (!stored) return null;
     return { keyId, issuerId: record.issuerId, p8: decodeP8(stored) };
   });
-/** Load the active account's key, or null when none is selected. */
+/** Load the key of the account `ASC_ACCOUNT` names (label or Key ID), failing when none matches. */
+const loadSelectedAscKey = (selector: string) =>
+  Effect.gen(function* () {
+    const accounts = yield* listAccounts();
+    const selected = matchAccount(accounts, selector);
+    if (!selected) {
+      return yield* Effect.fail(
+        makeAccountFailure({
+          message: `No Apple account matching "${selector}". Run \`launch creds\` to list them.`,
+        }),
+      );
+    }
+    return yield* loadAscKeyById(selected.keyId);
+  });
+/** Load the `ASC_ACCOUNT` account's key, else the active account's, or null when none is selected. */
 export const loadActiveAscKey = (): Effect.Effect<
   AscKey | null,
   unknown,
-  AccountStorageRequirements | LaunchSecretStoreService
+  AccountStorageRequirements | LaunchEnvironmentService | LaunchSecretStoreService
 > =>
   Effect.gen(function* () {
+    const environment = yield* LaunchEnvironment;
+    const selector = environment.values.appleAccount;
+    if (selector !== undefined) return yield* loadSelectedAscKey(selector);
     const active = yield* getActiveKeyId();
     if (active) return yield* loadAscKeyById(active);
     return null;

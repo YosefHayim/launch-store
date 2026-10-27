@@ -132,6 +132,7 @@ export const createTrainRuntime = (
     TrainRuntimeFailure,
     | AppleStoreClientDependencies
     | FileSystem.FileSystem
+    | LaunchEnvironmentService
     | LaunchPathsService
     | LaunchSecretStoreService
     | Path.Path
@@ -201,6 +202,7 @@ export const createTrainRuntime = (
     TrainRuntimeFailure,
     | AppleStoreClientDependencies
     | FileSystem.FileSystem
+    | LaunchEnvironmentService
     | LaunchPathsService
     | LaunchSecretStoreService
     | Path.Path
