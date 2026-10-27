@@ -4,7 +4,7 @@ import { requireOptional } from '@core/services/optionalDep.js';
 import type { AllocateRequest, AwsConfig } from '@core/types/remote.js';
 
 export type Ec2Module = typeof import('@aws-sdk/client-ec2');
-export type CredentialModule = typeof import('@aws-sdk/credential-providers');
+type CredentialModule = typeof import('@aws-sdk/credential-providers');
 export type Ec2Client = InstanceType<Ec2Module['EC2Client']>;
 
 export type AwsComputeFailure = Readonly<{
@@ -14,9 +14,9 @@ export type AwsComputeFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeAwsComputeFailure = Data.tagged<AwsComputeFailure>('AwsComputeFailure');
+const makeAwsComputeFailure = Data.tagged<AwsComputeFailure>('AwsComputeFailure');
 
-export const INSTALL_HINT = 'pnpm add @aws-sdk/client-ec2 @aws-sdk/credential-providers';
+const INSTALL_HINT = 'pnpm add @aws-sdk/client-ec2 @aws-sdk/credential-providers';
 
 /** Prefer an explicit detail string; otherwise surface the underlying AWS/SDK message. */
 export const awsFailure = (
@@ -38,7 +38,7 @@ export const sendAwsRequest = <Success>(
     catch: (cause) => awsFailure(operation, cause),
   });
 
-export const loadEc2 = (): Effect.Effect<Ec2Module, unknown> =>
+const loadEc2 = (): Effect.Effect<Ec2Module, unknown> =>
   requireOptional('AWS EC2 Mac builds', INSTALL_HINT, () =>
     Effect.tryPromise({
       try: () => import('@aws-sdk/client-ec2'),
@@ -46,7 +46,7 @@ export const loadEc2 = (): Effect.Effect<Ec2Module, unknown> =>
     }),
   );
 
-export const loadCredentials = (): Effect.Effect<CredentialModule, unknown> =>
+const loadCredentials = (): Effect.Effect<CredentialModule, unknown> =>
   requireOptional('AWS EC2 Mac builds', INSTALL_HINT, () =>
     Effect.tryPromise({
       try: () => import('@aws-sdk/credential-providers'),

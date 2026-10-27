@@ -1,4 +1,4 @@
-export type OptionSpec = Readonly<{
+type OptionSpec = Readonly<{
   flags: string;
   description: string;
 }>;

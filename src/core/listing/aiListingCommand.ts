@@ -95,9 +95,9 @@ export type AiListingFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeAiListingFailure = Data.tagged<AiListingFailure>('AiListingFailure');
+const makeAiListingFailure = Data.tagged<AiListingFailure>('AiListingFailure');
 
-export const AiListingFailureSchema: Schema.Schema<AiListingFailure> = Schema.Struct({
+const AiListingFailureSchema: Schema.Schema<AiListingFailure> = Schema.Struct({
   _tag: Schema.Literal('AiListingFailure'),
   operation: Schema.String,
   message: Schema.String,

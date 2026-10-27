@@ -81,7 +81,7 @@ export const TestflightCommandInputSchema = Schema.Union(
   }),
 );
 
-export type TestflightCommandInput = Schema.Schema.Type<typeof TestflightCommandInputSchema>;
+type TestflightCommandInput = Schema.Schema.Type<typeof TestflightCommandInputSchema>;
 
 export type TestflightCommandFailure = Readonly<{
   readonly _tag: 'TestflightCommandFailure';
@@ -90,7 +90,7 @@ export type TestflightCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeTestflightCommandFailure = Data.tagged<TestflightCommandFailure>(
+const makeTestflightCommandFailure = Data.tagged<TestflightCommandFailure>(
   'TestflightCommandFailure',
 );
 

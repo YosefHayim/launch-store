@@ -50,7 +50,7 @@ export type PlayPriceConfig = Readonly<{
   currency: string;
 }>;
 /** Fields shared by price-bearing offer kinds. */
-export type OfferConfigBase = Readonly<{
+type OfferConfigBase = Readonly<{
   duration: OfferDuration;
   offerMode: OfferMode;
   numberOfPeriods: number;
@@ -145,7 +145,7 @@ export type InAppPurchaseConfig = Readonly<{
   play?: PlayProductOverride;
 }>;
 /** Promoted purchase on the App Store product page. */
-export type PromotedPurchaseConfig = Readonly<{
+type PromotedPurchaseConfig = Readonly<{
   productId: string;
   visibleForAllUsers?: boolean;
   enabled?: boolean;

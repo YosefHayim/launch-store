@@ -23,7 +23,7 @@ export type EasMigrationFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeEasMigrationFailure = Data.tagged<EasMigrationFailure>('EasMigrationFailure');
+const makeEasMigrationFailure = Data.tagged<EasMigrationFailure>('EasMigrationFailure');
 
 const StringEntriesSchema = Schema.transform(
   Schema.mutable(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
@@ -373,7 +373,7 @@ const CredentialsDocumentSchema = Schema.mutable(
 type CredentialsDocument = Schema.Schema.Type<typeof CredentialsDocumentSchema>;
 
 /** Drop password fields and keep only path/alias facts Launch can surface in notes. */
-export const credentialsSummaryFromDocument = (
+const credentialsSummaryFromDocument = (
   credentialsDocument: CredentialsDocument,
 ): CredentialsSummary | null => {
   const credentialsSummary: MutableDeep<CredentialsSummary> = {};

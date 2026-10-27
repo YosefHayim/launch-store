@@ -37,7 +37,7 @@ export type CustomProductPagesCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeCustomProductPagesCommandFailure = Data.tagged<CustomProductPagesCommandFailure>(
+const makeCustomProductPagesCommandFailure = Data.tagged<CustomProductPagesCommandFailure>(
   'CustomProductPagesCommandFailure',
 );
 

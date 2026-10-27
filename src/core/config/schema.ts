@@ -994,7 +994,6 @@ This is the home for *backend-only* values that sit in the app's \`.env\` for lo
     'The fully-resolved configuration for one `launch` invocation. Produced by {@link loadConfig} from `launch.config.ts` plus auto-discovered apps. Names here (`storage`, `credentials`, `buildEngine`) are looked up in the provider registry at runtime.',
 });
 export type ParsedLaunchConfig = Schema.Schema.Type<typeof LaunchConfigEffectSchema>;
-export type LaunchConfigEffectInput = Schema.Schema.Encoded<typeof LaunchConfigEffectSchema>;
 
 /** Dotted path used in {@link SchemaViolation} reports (`profiles.production.sizeBudgetMB`, `items[0]`). */
 const formatSchemaPath = (pathKeys: readonly PropertyKey[]): string => {

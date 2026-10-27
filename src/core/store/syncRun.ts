@@ -34,7 +34,7 @@ export type JobOutcome =
       error: string;
     };
 /** Per-app entry in a {@link SyncRunReport}: the app's handle and bundle id, plus its outcome. */
-export type SyncAppReport = {
+type SyncAppReport = {
   app: string;
   bundleId: string;
   error?: string;

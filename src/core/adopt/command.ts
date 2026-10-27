@@ -43,9 +43,9 @@ export type AdoptCommandFailure = Readonly<{
   cause: unknown;
 }>;
 
-export const makeAdoptCommandFailure = Data.tagged<AdoptCommandFailure>('AdoptCommandFailure');
+const makeAdoptCommandFailure = Data.tagged<AdoptCommandFailure>('AdoptCommandFailure');
 
-export const AdoptCommandFailureSchema: Schema.Schema<AdoptCommandFailure> = Schema.Struct({
+const AdoptCommandFailureSchema: Schema.Schema<AdoptCommandFailure> = Schema.Struct({
   _tag: Schema.Literal('AdoptCommandFailure'),
   operation: Schema.String,
   message: Schema.String,

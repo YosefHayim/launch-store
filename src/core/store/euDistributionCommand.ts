@@ -15,7 +15,7 @@ import {
 } from './appStoreSurfaceCommand.js';
 import { parseEuDistributionConfig, reconcileEuDistributionDomains } from './euDistribution.js';
 
-export const EuDistributionCommandInputSchema = Schema.Union(
+const EuDistributionCommandInputSchema = Schema.Union(
   Schema.Struct({
     operation: Schema.Literal('reconcile'),
     configPath: Schema.String,
@@ -27,9 +27,7 @@ export const EuDistributionCommandInputSchema = Schema.Union(
   Schema.Struct({ operation: Schema.Literal('list') }),
 );
 
-export type EuDistributionCommandInput = Schema.Schema.Type<
-  typeof EuDistributionCommandInputSchema
->;
+type EuDistributionCommandInput = Schema.Schema.Type<typeof EuDistributionCommandInputSchema>;
 
 export type EuDistributionCommandFailure = Readonly<{
   readonly _tag: 'EuDistributionCommandFailure';
@@ -38,7 +36,7 @@ export type EuDistributionCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeEuDistributionCommandFailure = Data.tagged<EuDistributionCommandFailure>(
+const makeEuDistributionCommandFailure = Data.tagged<EuDistributionCommandFailure>(
   'EuDistributionCommandFailure',
 );
 

@@ -19,12 +19,12 @@ import {
   serializeProductsSection,
 } from './configWriter.js';
 
-export type SkippedApp = Readonly<{
+type SkippedApp = Readonly<{
   app: AppDescriptor;
   reason: string;
 }>;
 
-export type DetectedApp = Readonly<{
+type DetectedApp = Readonly<{
   target: AdoptTarget;
   signal: string;
 }>;
@@ -40,7 +40,7 @@ export type DetectContext = Readonly<{
   hasLaunchConfig: boolean;
 }>;
 
-export type AdopterError = Readonly<{
+type AdopterError = Readonly<{
   domain: string;
   message: string;
 }>;
@@ -176,19 +176,19 @@ export type ApplyContext<Requirements = never> = Readonly<{
   pullListing: (bundleId: string, configPath: string) => Effect.Effect<void, unknown, Requirements>;
 }>;
 
-export type AppJsonPatch = Readonly<{
+type AppJsonPatch = Readonly<{
   app: string;
   configPath: string;
   added: readonly string[];
 }>;
 
-export type AppJsonPasteBlock = Readonly<{
+type AppJsonPasteBlock = Readonly<{
   app: string;
   configPath: string;
   block: string;
 }>;
 
-export type ListingError = Readonly<{
+type ListingError = Readonly<{
   app: string;
   message: string;
 }>;

@@ -32,10 +32,7 @@ import { discoverExtensionBundleIds } from './appleTargets.js';
 import { nativeProjectDirName } from '../services/platform.js';
 import type { BuildRunOptions } from './pipelineTypes.js';
 /** The interactive build-time account picker: choose among onboarded accounts and make the pick active. */
-export const pickAccount = (
-  launchPrompt: LaunchPromptService,
-  accounts: readonly AccountRecord[],
-) =>
+const pickAccount = (launchPrompt: LaunchPromptService, accounts: readonly AccountRecord[]) =>
   Effect.gen(function* () {
     return yield* launchPrompt.select({
       message: 'Which Apple account?',
@@ -79,7 +76,7 @@ export type SigningResolutionFailure = Readonly<{
   readonly message: string;
 }>;
 
-export const makeSigningResolutionFailure = Data.tagged<SigningResolutionFailure>(
+const makeSigningResolutionFailure = Data.tagged<SigningResolutionFailure>(
   'SigningResolutionFailure',
 );
 /**
@@ -91,7 +88,7 @@ export const makeSigningResolutionFailure = Data.tagged<SigningResolutionFailure
  * the returned list matches the app's declared extensions, keeping the no-extension path byte-identical. The
  * main bundle id is excluded so it's never mistaken for one of its own extensions.
  */
-export const resolveExtensionBundleIds = (
+const resolveExtensionBundleIds = (
   app: AppDescriptor,
   platform: Platform,
 ): Effect.Effect<string[], unknown, FileSystem.FileSystem | Path.Path> =>
@@ -115,7 +112,7 @@ export const resolveExtensionBundleIds = (
  * bundle is checked for missing capabilities (we know its entitlements); extensions are checked for
  * registration (App Group coverage is already surfaced by {@link appGroupPortalNotice}).
  */
-export const warnUnreadySigningTargets = (
+const warnUnreadySigningTargets = (
   ascKey: AppleCredentials['ascKey'],
   app: AppDescriptor,
   bundleId: string,
@@ -140,7 +137,7 @@ export const warnUnreadySigningTargets = (
  * against its App ID's live capabilities via {@link staleCachedSigningTargets} and regenerates a stale set
  * rather than letting the archive die at exit 65 (issue #292). Skipped under `--dry-run` (no network).
  */
-export const reuseCachedSigning = (
+const reuseCachedSigning = (
   signing: SigningAssets,
   ascKey: AppleCredentials['ascKey'],
   log: Logger,

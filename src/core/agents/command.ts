@@ -29,7 +29,7 @@ import { findUnknownCommands, type RegisteredCommand } from './validate.js';
 import { hasMessage } from '../services/errorMessage.js';
 
 /** The coding-agent targets supported by `launch agents`, in display order. */
-export const AGENT_TARGETS: readonly AgentTarget[] = [
+const AGENT_TARGETS: readonly AgentTarget[] = [
   'claude',
   'cursor',
   'codex',
@@ -41,7 +41,7 @@ export const AGENT_TARGETS: readonly AgentTarget[] = [
 ];
 
 /** Short picker label for each supported coding-agent target. */
-export const AGENT_TARGET_LABELS: Readonly<Record<AgentTarget, string>> = {
+const AGENT_TARGET_LABELS: Readonly<Record<AgentTarget, string>> = {
   claude: 'Claude    (.claude/skills + CLAUDE.md)',
   cursor: 'Cursor    (.cursor/rules)',
   codex: 'Codex     (AGENTS.md)',
@@ -104,7 +104,7 @@ type AgentsCommandRequirements =
   | Terminal.Terminal;
 
 /** Narrow a text token to a supported coding-agent target. */
-export const isAgentTarget = (candidate: string): candidate is AgentTarget => {
+const isAgentTarget = (candidate: string): candidate is AgentTarget => {
   switch (candidate) {
     case 'claude':
     case 'cursor':

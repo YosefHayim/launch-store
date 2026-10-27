@@ -91,8 +91,7 @@ export type AppStoreReleaseFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeAppStoreReleaseFailure =
-  Data.tagged<AppStoreReleaseFailure>('AppStoreReleaseFailure');
+const makeAppStoreReleaseFailure = Data.tagged<AppStoreReleaseFailure>('AppStoreReleaseFailure');
 
 const releaseFailure = (
   operation: string,
@@ -244,7 +243,7 @@ export type ReleaseInput = {
 };
 
 /** Where one release step ended: planned (dry-run), or applied / skipped / failed after a real run. */
-export type ReleaseActionStatus = 'planned' | 'applied' | 'skipped' | 'failed';
+type ReleaseActionStatus = 'planned' | 'applied' | 'skipped' | 'failed';
 
 /** One step of the release walk - for `--dry-run` plan and the post-run summary. */
 export type ReleaseAction = {

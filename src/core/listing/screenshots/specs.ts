@@ -5,33 +5,25 @@ import { Effect } from 'effect';
 import { readScreenshotDimensions } from './imageDimensions.js';
 import { APPLE_ASSET_TARGETS, findAppleScreenshotTarget } from './targets.js';
 
-export const DEFAULT_APPLE_DISPLAY_TYPES: readonly string[] = APPLE_ASSET_TARGETS.filter(
-  (assetTarget) => assetTarget.defaultGeneration === true,
-).map((assetTarget) => assetTarget.screenshotDisplayType);
-
 export const REQUIRED_APPLE_SCREENSHOT_DISPLAY_TYPES: readonly string[] =
   APPLE_ASSET_TARGETS.filter((assetTarget) => assetTarget.readinessRequired === true).map(
     (assetTarget) => assetTarget.screenshotDisplayType,
   );
 
 // Source: https://support.google.com/googleplay/android-developer/answer/9866151?hl=en
-export const PLAY_SCREENSHOT_CONSTRAINTS = {
+const PLAY_SCREENSHOT_CONSTRAINTS = {
   minSide: 320,
   maxSide: 3840,
   maxAspectMultiple: 2,
 } as const;
 
-export type PlayFormFactor = 'phone' | 'sevenInchTablet' | 'tenInchTablet';
+type PlayFormFactor = 'phone' | 'sevenInchTablet' | 'tenInchTablet';
 
-export const PLAY_FORM_FACTOR_DIMENSIONS: Readonly<
-  Record<PlayFormFactor, readonly [number, number]>
-> = {
+const PLAY_FORM_FACTOR_DIMENSIONS: Readonly<Record<PlayFormFactor, readonly [number, number]>> = {
   phone: [1080, 1920],
   sevenInchTablet: [1206, 2144],
   tenInchTablet: [1600, 2560],
 };
-
-export const DEFAULT_PLAY_FORM_FACTORS: readonly PlayFormFactor[] = ['phone'];
 
 export type DimensionVerdict =
   | {

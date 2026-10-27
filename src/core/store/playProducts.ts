@@ -48,7 +48,7 @@ export type PlayProductConfigFailure = Readonly<{
 }>;
 
 /** Build a typed configuration failure for a Play product. */
-export const makePlayProductConfigFailure = Data.tagged<PlayProductConfigFailure>(
+const makePlayProductConfigFailure = Data.tagged<PlayProductConfigFailure>(
   'PlayProductConfigFailure',
 );
 

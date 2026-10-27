@@ -22,7 +22,7 @@ export type AppSelectionFailure = Readonly<{
   readonly message: string;
   readonly cause?: unknown;
 }>;
-export const makeAppSelectionFailure = Data.tagged<AppSelectionFailure>('AppSelectionFailure');
+const makeAppSelectionFailure = Data.tagged<AppSelectionFailure>('AppSelectionFailure');
 
 /** Build environment resolution or validation failed before artifact creation. */
 export type BuildEnvironmentFailure = Readonly<{
@@ -31,8 +31,7 @@ export type BuildEnvironmentFailure = Readonly<{
   readonly message: string;
   readonly cause?: unknown;
 }>;
-export const makeBuildEnvironmentFailure =
-  Data.tagged<BuildEnvironmentFailure>('BuildEnvironmentFailure');
+const makeBuildEnvironmentFailure = Data.tagged<BuildEnvironmentFailure>('BuildEnvironmentFailure');
 /**
  * Pick the app to build: an explicit `--app`, the sole discovered app, or an interactive prompt. The
  * prompt is the shared {@link pickOne}, which past a threshold (large monorepos) switches the flat list

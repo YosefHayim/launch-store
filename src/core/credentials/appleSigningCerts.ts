@@ -35,9 +35,7 @@ export const p12PasswordAccount = (keyId: string): string => {
 };
 
 /** Get (or create + persist) the random password that protects one account's `.p12` backup. */
-export const p12Password = (
-  keyId: string,
-): Effect.Effect<string, unknown, LaunchSecretStoreService> =>
+const p12Password = (keyId: string): Effect.Effect<string, unknown, LaunchSecretStoreService> =>
   Effect.gen(function* () {
     const account = p12PasswordAccount(keyId);
     const existing = yield* getSecret(account);
@@ -121,7 +119,7 @@ const packageP12 = (
   });
 
 /** Import a `.p12` into the login Keychain, pre-authorizing codesign. Ignores an already-present item. */
-export const importP12 = (
+const importP12 = (
   p12Path: string,
   password: string,
 ): Effect.Effect<void, unknown, CommandExecutor | LaunchEnvironmentService> =>
@@ -144,7 +142,7 @@ export const importP12 = (
   });
 
 /** Mint a distribution cert + local `.p12` for upload, WITHOUT importing it into a local keychain. */
-export const createCertificateForUpload = (
+const createCertificateForUpload = (
   client: AppleCredentialsClient,
   password: string,
   keyId: string,
@@ -165,7 +163,7 @@ export const createCertificateForUpload = (
   );
 
 /** Generate a key/CSR, ask Apple to sign it, package + back up the `.p12`, and import it for local codesign. */
-export const createAndStoreCertificate = (
+const createAndStoreCertificate = (
   client: AppleCredentialsClient,
   password: string,
   keyId: string,
@@ -177,7 +175,7 @@ export const createAndStoreCertificate = (
   });
 
 /** A cached cert is reusable only if Apple still lists its serial and the local `.p12` backup exists. */
-export const reusableCertificate = (
+const reusableCertificate = (
   index: CredentialsIndex,
   liveCerts: CertificateResource[],
 ): Effect.Effect<CertRecord | null, never, FileSystem.FileSystem> =>

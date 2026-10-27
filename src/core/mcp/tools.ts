@@ -47,10 +47,10 @@ export type McpToolFailure = Readonly<{
   readonly message: string;
 }>;
 
-export const makeMcpToolFailure = Data.tagged<McpToolFailure>('McpToolFailure');
+const makeMcpToolFailure = Data.tagged<McpToolFailure>('McpToolFailure');
 
 /** Encode structured tool output as pretty-printed JSON text. */
-export const jsonToolOutput = (structuredOutput: unknown): McpToolResult => ({
+const jsonToolOutput = (structuredOutput: unknown): McpToolResult => ({
   content: [{ type: 'text', text: JSON.stringify(structuredOutput, null, 2) }],
 });
 

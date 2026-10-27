@@ -13,7 +13,7 @@ export type DoctorPlatform = 'ios' | 'android';
  * - `info` (-) - advisory or not-yet-provisioned state that does NOT fail the run (a recommended-only
  *   tool, a one-time manual step, a key-role gap).
  */
-export type DoctorStatus = 'ok' | 'fail' | 'info';
+type DoctorStatus = 'ok' | 'fail' | 'info';
 /**
  * One line of the doctor report. `title` is the headline shown after the glyph; `detail` carries extra
  * context on its own indented line (e.g. an access-matrix row); `hint` is the actionable fix shown after
@@ -60,7 +60,7 @@ export type DoctorAscApi = AscPermissionProbeApi &
     >;
   }>;
 /** The read-only Google Play surface the doctor uses: prove the service account can reach an app. */
-export type DoctorPlayApi = Readonly<{
+type DoctorPlayApi = Readonly<{
   assertAppExists(packageName: string): Effect.Effect<void, unknown>;
 }>;
 /**

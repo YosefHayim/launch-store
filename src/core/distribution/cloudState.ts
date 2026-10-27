@@ -62,7 +62,7 @@ export const readCloudState = (): Effect.Effect<CloudState, never, CloudStateReq
   });
 
 /** Writes cloud state with owner-only permissions. */
-export const writeCloudState = (
+const writeCloudState = (
   cloudState: CloudState,
 ): Effect.Effect<void, unknown, CloudStateRequirements> =>
   Effect.gen(function* () {

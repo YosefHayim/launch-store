@@ -8,7 +8,7 @@ import { playSubscriptionsSource } from './sources/playSubscriptions.js';
 /** Registered sources, keyed by id so re-registering one replaces it (idempotent built-in wiring). */
 const SOURCES = new Map<string, SnapshotSource>();
 /** Register (or replace) a snapshot source by its id. */
-export const registerSnapshotSource = (source: SnapshotSource): void => {
+const registerSnapshotSource = (source: SnapshotSource): void => {
   SOURCES.set(source.id, source);
 };
 /** Every registered source, in registration order. */

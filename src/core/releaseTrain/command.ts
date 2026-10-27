@@ -37,7 +37,7 @@ type ReleaseTrainRecordRequirements = Logger | TrainRecordRequirements;
 const OptionalString = Schema.optionalWith(Schema.String, { exact: true });
 const OptionalBoolean = Schema.optionalWith(Schema.Boolean, { exact: true });
 
-export const ReleaseTrainCommandOptionsSchema = Schema.Struct({
+const ReleaseTrainCommandOptionsSchema = Schema.Struct({
   app: OptionalString,
   profile: Schema.String,
   platform: OptionalString,
@@ -52,9 +52,7 @@ export const ReleaseTrainCommandOptionsSchema = Schema.Struct({
 });
 
 /** Flags shared by the release-train command verbs. */
-export type ReleaseTrainCommandOptions = Schema.Schema.Type<
-  typeof ReleaseTrainCommandOptionsSchema
->;
+type ReleaseTrainCommandOptions = Schema.Schema.Type<typeof ReleaseTrainCommandOptionsSchema>;
 
 /** Schema for one requested release-train verb. */
 export const ReleaseTrainCommandInputSchema = Schema.Struct({
@@ -63,10 +61,10 @@ export const ReleaseTrainCommandInputSchema = Schema.Struct({
   options: ReleaseTrainCommandOptionsSchema,
 });
 
-export type ReleaseTrainCommandInput = Schema.Schema.Type<typeof ReleaseTrainCommandInputSchema>;
+type ReleaseTrainCommandInput = Schema.Schema.Type<typeof ReleaseTrainCommandInputSchema>;
 
 /** Release-train configuration, persistence, or orchestration failed. */
-export const ReleaseTrainCommandFailureSchema = Schema.Struct({
+const ReleaseTrainCommandFailureSchema = Schema.Struct({
   _tag: Schema.Literal('ReleaseTrainCommandFailure'),
   operation: Schema.String,
   message: Schema.String,
@@ -77,7 +75,7 @@ export type ReleaseTrainCommandFailure = Schema.Schema.Type<
   typeof ReleaseTrainCommandFailureSchema
 >;
 
-export const makeReleaseTrainCommandFailure = Data.tagged<ReleaseTrainCommandFailure>(
+const makeReleaseTrainCommandFailure = Data.tagged<ReleaseTrainCommandFailure>(
   'ReleaseTrainCommandFailure',
 );
 

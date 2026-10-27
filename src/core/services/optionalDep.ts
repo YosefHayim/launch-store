@@ -10,7 +10,7 @@ export type OptionalDependencyMissing = Readonly<{
   readonly installHint: string;
   readonly message: string;
 }>;
-export const makeOptionalDependencyMissing = Data.tagged<OptionalDependencyMissing>(
+const makeOptionalDependencyMissing = Data.tagged<OptionalDependencyMissing>(
   'OptionalDependencyMissing',
 );
 export const requireOptional = <LoadedCapability, LoadFailure, LoadRequirements>(

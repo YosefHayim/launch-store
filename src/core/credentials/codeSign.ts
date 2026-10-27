@@ -10,7 +10,7 @@ import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import { getSecret, setSecret } from './keychain.js';
 
 const PRIVATE_KEY_ACCOUNT = 'ota-code-signing-key';
-export const CODE_SIGNING_KEYID = 'main';
+const CODE_SIGNING_KEYID = 'main';
 
 export type CodeSigner = Readonly<{
   readonly certPath: string;

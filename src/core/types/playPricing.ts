@@ -9,7 +9,7 @@ export type ConvertedRegionPrice = Readonly<{
   readonly price: PlayMoneyUnits;
 }>;
 /** Fallback prices for markets where Play does not support a local currency. */
-export type OtherRegionsPrice = Readonly<{
+type OtherRegionsPrice = Readonly<{
   readonly usdPrice: PlayMoneyUnits;
   readonly eurPrice: PlayMoneyUnits;
 }>;

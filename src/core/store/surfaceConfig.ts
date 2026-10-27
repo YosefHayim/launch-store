@@ -12,7 +12,7 @@ export type StoreSurfaceConfigFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeStoreSurfaceConfigFailure = Data.tagged<StoreSurfaceConfigFailure>(
+const makeStoreSurfaceConfigFailure = Data.tagged<StoreSurfaceConfigFailure>(
   'StoreSurfaceConfigFailure',
 );
 

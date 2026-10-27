@@ -51,7 +51,7 @@ export type GooglePlayApiError = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeGooglePlayApiError = Data.tagged<GooglePlayApiError>('GooglePlayApiError');
+const makeGooglePlayApiError = Data.tagged<GooglePlayApiError>('GooglePlayApiError');
 /** Raised when a package has no Play app record or the service account cannot reach it. */
 export type PlayAppNotFoundError = Readonly<{
   readonly _tag: 'PlayAppNotFoundError';
@@ -59,14 +59,14 @@ export type PlayAppNotFoundError = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makePlayAppNotFoundError = Data.tagged<PlayAppNotFoundError>('PlayAppNotFoundError');
+const makePlayAppNotFoundError = Data.tagged<PlayAppNotFoundError>('PlayAppNotFoundError');
 /** A service-account key could not be decoded into the fields Google auth requires. */
 export type ServiceAccountParseError = Readonly<{
   readonly _tag: 'ServiceAccountParseError';
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeServiceAccountParseError = Data.tagged<ServiceAccountParseError>(
+const makeServiceAccountParseError = Data.tagged<ServiceAccountParseError>(
   'ServiceAccountParseError',
 );
 /** Read the numeric status exposed by a generated-client failure, when present. */

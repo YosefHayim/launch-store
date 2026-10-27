@@ -39,9 +39,9 @@ export type StatusCommandFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeStatusCommandFailure = Data.tagged<StatusCommandFailure>('StatusCommandFailure');
+const makeStatusCommandFailure = Data.tagged<StatusCommandFailure>('StatusCommandFailure');
 
-export const StatusCommandFailureSchema: Schema.Schema<StatusCommandFailure> = Schema.Struct({
+const StatusCommandFailureSchema: Schema.Schema<StatusCommandFailure> = Schema.Struct({
   _tag: Schema.Literal('StatusCommandFailure'),
   operation: Schema.String,
   message: Schema.String,

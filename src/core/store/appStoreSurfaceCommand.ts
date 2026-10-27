@@ -11,7 +11,7 @@ export type AppStoreSurfaceCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeAppStoreSurfaceCommandFailure = Data.tagged<AppStoreSurfaceCommandFailure>(
+const makeAppStoreSurfaceCommandFailure = Data.tagged<AppStoreSurfaceCommandFailure>(
   'AppStoreSurfaceCommandFailure',
 );
 

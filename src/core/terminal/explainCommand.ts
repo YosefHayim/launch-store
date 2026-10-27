@@ -2,7 +2,7 @@ import { Data, Effect, Schema } from 'effect';
 import { createLogger, type Logger } from '../services/logger.js';
 import { explainTopic, isGlossaryTopic, listTopics } from './glossary.js';
 
-export const ExplainCommandInputSchema = Schema.Struct({
+const ExplainCommandInputSchema = Schema.Struct({
   topic: Schema.optionalWith(Schema.String, { exact: true }),
 });
 
@@ -12,8 +12,7 @@ export type ExplainCommandFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeExplainCommandFailure =
-  Data.tagged<ExplainCommandFailure>('ExplainCommandFailure');
+const makeExplainCommandFailure = Data.tagged<ExplainCommandFailure>('ExplainCommandFailure');
 
 /** Print the glossary index or one requested explanation. */
 export const explainCommandProgram = (

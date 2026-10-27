@@ -33,7 +33,7 @@ export type DoctorContextFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeDoctorContextFailure = Data.tagged<DoctorContextFailure>('DoctorContextFailure');
+const makeDoctorContextFailure = Data.tagged<DoctorContextFailure>('DoctorContextFailure');
 
 /** Convert one context dependency failure into the doctor boundary error. */
 const contextFailure = (operation: string, cause: unknown): DoctorContextFailure =>

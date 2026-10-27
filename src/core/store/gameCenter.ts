@@ -75,7 +75,7 @@ const LeaderboardConfigSchema = Schema.mutable(
   }),
 );
 
-export const GameCenterConfigSchema = Schema.mutable(
+const GameCenterConfigSchema = Schema.mutable(
   Schema.Struct({
     achievements: Schema.optionalWith(Schema.mutable(Schema.Array(AchievementConfigSchema)), {
       exact: true,

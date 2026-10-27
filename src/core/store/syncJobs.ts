@@ -83,7 +83,7 @@ export type AppSelectionFailure = Readonly<{
   readonly message: string;
 }>;
 
-export const makeAppSelectionFailure = Data.tagged<AppSelectionFailure>('AppSelectionFailure');
+const makeAppSelectionFailure = Data.tagged<AppSelectionFailure>('AppSelectionFailure');
 
 /** Resolve discovered apps from an optional comma-separated selector. */
 export const selectApps = (

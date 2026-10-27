@@ -48,7 +48,7 @@ export type UpdateCommandFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeUpdateCommandFailure = Data.tagged<UpdateCommandFailure>('UpdateCommandFailure');
+const makeUpdateCommandFailure = Data.tagged<UpdateCommandFailure>('UpdateCommandFailure');
 
 /** Convert an unknown cause to the OTA update error channel. */
 const updateFailure = (

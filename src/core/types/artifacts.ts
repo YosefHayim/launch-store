@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { PLATFORMS, type Platform } from './app.js';
 
-export const SizeReportEntrySchema = Schema.mutable(
+const SizeReportEntrySchema = Schema.mutable(
   Schema.Struct({
     device: Schema.String,
     downloadBytes: Schema.Number,
@@ -9,14 +9,14 @@ export const SizeReportEntrySchema = Schema.mutable(
   }),
 );
 
-export const SizeReportSchema = Schema.mutable(
+const SizeReportSchema = Schema.mutable(
   Schema.Struct({
     artifactBytes: Schema.Number,
     entries: Schema.mutable(Schema.Array(SizeReportEntrySchema)),
   }),
 );
 
-export const BuildArtifactSchema = Schema.mutable(
+const BuildArtifactSchema = Schema.mutable(
   Schema.Struct({
     path: Schema.String,
     platform: Schema.Literal(...PLATFORMS),

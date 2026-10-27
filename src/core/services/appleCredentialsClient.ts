@@ -17,7 +17,7 @@ import {
   AppleStoreClientService,
 } from './appleStoreClient.js';
 
-export type AppleDeviceResource = Readonly<{
+type AppleDeviceResource = Readonly<{
   readonly id: string;
   readonly udid: string;
   readonly name: string;

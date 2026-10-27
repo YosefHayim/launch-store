@@ -33,7 +33,7 @@ export type GameCenterCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeGameCenterCommandFailure = Data.tagged<GameCenterCommandFailure>(
+const makeGameCenterCommandFailure = Data.tagged<GameCenterCommandFailure>(
   'GameCenterCommandFailure',
 );
 

@@ -22,12 +22,12 @@ export type PackageManagerInfo = {
   corepackPinned: boolean;
 };
 /** A discovered monorepo workspace root and how it was declared. */
-export type WorkspaceInfo = {
+type WorkspaceInfo = {
   root: string;
   kind: 'npm/yarn' | 'pnpm';
 };
 /** The full package-setup picture for one app dir, assembled by {@link inspectPackageSetup}. */
-export type PackageSetup = {
+type PackageSetup = {
   pm: PackageManagerInfo;
   workspace: WorkspaceInfo | null;
   lockfile: string | null;

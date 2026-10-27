@@ -211,8 +211,7 @@ export type CliEnvironmentFailure = Readonly<{
   readonly _tag: 'CliEnvironmentFailure';
   readonly message: string;
 }>;
-export const makeCliEnvironmentFailure =
-  Data.tagged<CliEnvironmentFailure>('CliEnvironmentFailure');
+const makeCliEnvironmentFailure = Data.tagged<CliEnvironmentFailure>('CliEnvironmentFailure');
 export const parseCliEnv = (
   pairs: string[],
 ): Effect.Effect<Record<string, string>, CliEnvironmentFailure> =>

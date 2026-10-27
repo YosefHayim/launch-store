@@ -1,4 +1,4 @@
-export type ProjectKind = 'launch-store' | 'expo' | 'react-native' | 'swift' | 'kotlin';
+type ProjectKind = 'launch-store' | 'expo' | 'react-native' | 'swift' | 'kotlin';
 
 type PackageManifest = {
   dependencies?: Record<string, string>;

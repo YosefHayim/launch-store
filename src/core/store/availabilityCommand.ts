@@ -18,7 +18,7 @@ export const AvailabilityCommandInputSchema = Schema.Struct({
 
 export type AvailabilityCommandInput = Schema.Schema.Type<typeof AvailabilityCommandInputSchema>;
 
-export const AvailabilityCommandFailureSchema = Schema.Struct({
+const AvailabilityCommandFailureSchema = Schema.Struct({
   _tag: Schema.Literal('AvailabilityCommandFailure'),
   operation: Schema.String,
   message: Schema.String,
@@ -28,7 +28,7 @@ export const AvailabilityCommandFailureSchema = Schema.Struct({
 export type AvailabilityCommandFailure = Schema.Schema.Type<
   typeof AvailabilityCommandFailureSchema
 >;
-export const makeAvailabilityCommandFailure = Data.tagged<AvailabilityCommandFailure>(
+const makeAvailabilityCommandFailure = Data.tagged<AvailabilityCommandFailure>(
   'AvailabilityCommandFailure',
 );
 

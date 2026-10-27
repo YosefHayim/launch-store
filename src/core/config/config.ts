@@ -128,7 +128,7 @@ export type ConfigLoadFailure = Readonly<{
   readonly message: string;
   readonly cause?: unknown;
 }>;
-export const makeConfigLoadFailure = Data.tagged<ConfigLoadFailure>('ConfigLoadFailure');
+const makeConfigLoadFailure = Data.tagged<ConfigLoadFailure>('ConfigLoadFailure');
 /**
  * Find and load the user's `launch.config.{ts,mjs,js}` under `cwd`, returning the resolved path with the
  * loaded config - or `null` when none exists, so a caller (e.g. `launch config validate`) can tell "no

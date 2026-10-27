@@ -38,7 +38,7 @@ export const SecretCommandInputSchema = Schema.Union(
   }),
 );
 
-export type SecretCommandInput = Schema.Schema.Type<typeof SecretCommandInputSchema>;
+type SecretCommandInput = Schema.Schema.Type<typeof SecretCommandInputSchema>;
 
 export type SecretCommandFailure = Readonly<{
   readonly _tag: 'SecretCommandFailure';
@@ -47,7 +47,7 @@ export type SecretCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeSecretCommandFailure = Data.tagged<SecretCommandFailure>('SecretCommandFailure');
+const makeSecretCommandFailure = Data.tagged<SecretCommandFailure>('SecretCommandFailure');
 
 type SecretCommandRequirements =
   | FileSystem.FileSystem

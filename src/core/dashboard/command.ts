@@ -29,10 +29,9 @@ export type DashboardCommandFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeDashboardCommandFailure =
-  Data.tagged<DashboardCommandFailure>('DashboardCommandFailure');
+const makeDashboardCommandFailure = Data.tagged<DashboardCommandFailure>('DashboardCommandFailure');
 
-export const DashboardCommandFailureSchema: Schema.Schema<DashboardCommandFailure> = Schema.Struct({
+const DashboardCommandFailureSchema: Schema.Schema<DashboardCommandFailure> = Schema.Struct({
   _tag: Schema.Literal('DashboardCommandFailure'),
   operation: Schema.String,
   message: Schema.String,

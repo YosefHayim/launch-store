@@ -5,7 +5,6 @@ import type { MutableDeep } from '../types/mutable.js';
 import type { RemoteTarget } from '../types/remote.js';
 import type { Logger } from '../services/logger.js';
 import type { BumpKind } from '../release/version.js';
-import type { Effect } from 'effect';
 /** Options for one `launch build` invocation. */
 export type BuildRunOptions = {
   platform: Platform;
@@ -57,10 +56,6 @@ export const DEFAULT_SIZE_BUDGET_MB = 200;
  * which one a run uses and {@link dispatchBuild} invokes it. Naming the contract is what turns fork
  * selection into a testable seam rather than an inline branch.
  */
-export type BuildTransport<Requirements> = (
-  prepared: PreparedBuild,
-  options: BuildRunOptions,
-) => Effect.Effect<void, unknown, Requirements>;
 /**
  * Which build fork a run resolves to, plus the data that fork needs. A discriminated union so the remote
  * {@link RemoteTarget} rides only on the `remote` variant (no optional-but-always-set field): `local`

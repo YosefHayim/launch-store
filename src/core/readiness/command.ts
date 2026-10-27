@@ -22,13 +22,13 @@ import { READINESS_EXIT, runProbes } from './orchestrator.js';
 import { registerBuiltinProbes, selectReadinessProbes } from './registry.js';
 
 /** The two strings that let each readiness command keep its own terminal voice. */
-export type ReadinessReportLabels = Readonly<{
+type ReadinessReportLabels = Readonly<{
   readonly summary: string;
   readonly empty: string;
 }>;
 
 /** Shared input for audit, store doctor, and IAP doctor. */
-export const ReadinessCommandInputSchema = Schema.Struct({
+const ReadinessCommandInputSchema = Schema.Struct({
   category: Schema.Literal('account', 'iap', 'listing', 'privacy', 'signing', 'submit'),
   labels: Schema.Struct({
     summary: Schema.String,
@@ -38,8 +38,6 @@ export const ReadinessCommandInputSchema = Schema.Struct({
   json: Schema.optionalWith(Schema.Boolean, { exact: true }),
 });
 
-export type ReadinessCommandInput = Schema.Schema.Type<typeof ReadinessCommandInputSchema>;
-
 /** A configuration or store-client read failed before the probes could report readiness. */
 export type ReadinessCommandFailure = Readonly<{
   readonly _tag: 'ReadinessCommandFailure';
@@ -47,8 +45,7 @@ export type ReadinessCommandFailure = Readonly<{
   readonly message: string;
   readonly cause?: unknown;
 }>;
-export const makeReadinessCommandFailure =
-  Data.tagged<ReadinessCommandFailure>('ReadinessCommandFailure');
+const makeReadinessCommandFailure = Data.tagged<ReadinessCommandFailure>('ReadinessCommandFailure');
 
 type ReadinessCommandRequirements =
   | AppleStoreClientService
@@ -173,7 +170,7 @@ const renderProbeReport = (
   });
 
 /** Render a readiness outcome grouped by store with its command-specific summary. */
-export const renderReadinessOutcome = (
+const renderReadinessOutcome = (
   logger: Logger,
   readinessOutcome: ReadinessOutcome,
   labels: ReadinessReportLabels,

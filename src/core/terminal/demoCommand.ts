@@ -1,13 +1,13 @@
 import { Terminal } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
 import { errorMessage } from '../services/errorMessage.js';
-import { createLogger, type Logger } from '../services/logger.js';
+import { createLogger } from '../services/logger.js';
 import { parsePlatform } from '../services/platform.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
 import type { Platform } from '../types/app.js';
 import { runTour } from './tour.js';
 
-export const DemoCommandInputSchema = Schema.Struct({
+const DemoCommandInputSchema = Schema.Struct({
   platform: Schema.optionalWith(Schema.String, { exact: true }),
 });
 
@@ -17,7 +17,7 @@ export type DemoCommandFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeDemoCommandFailure = Data.tagged<DemoCommandFailure>('DemoCommandFailure');
+const makeDemoCommandFailure = Data.tagged<DemoCommandFailure>('DemoCommandFailure');
 
 /** Ask which store journey the simulated tour should show. */
 export const promptTourPlatform = (): Effect.Effect<Platform | null, never, LaunchPromptService> =>
@@ -66,5 +66,3 @@ export const demoCommandProgram = (rawCommandInput: unknown) =>
   }).pipe(
     Effect.mapError((cause) => makeDemoCommandFailure({ message: errorMessage(cause), cause })),
   );
-
-export type DemoCommandRequirements = LaunchPromptService | Logger | Terminal.Terminal;

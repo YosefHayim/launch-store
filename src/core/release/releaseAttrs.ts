@@ -68,7 +68,7 @@ const ReviewDetailsSchema = Schema.mutable(
   }),
 );
 
-export const ReleaseAttributesConfigSchema = Schema.mutable(
+const ReleaseAttributesConfigSchema = Schema.mutable(
   Schema.Struct({
     ageRating: Schema.optionalWith(
       Schema.mutable(Schema.Record({ key: Schema.String, value: AgeRatingSettingSchema })).pipe(
@@ -104,7 +104,7 @@ export type ReleaseAttributesFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeReleaseAttributesFailure = Data.tagged<ReleaseAttributesFailure>(
+const makeReleaseAttributesFailure = Data.tagged<ReleaseAttributesFailure>(
   'ReleaseAttributesFailure',
 );
 

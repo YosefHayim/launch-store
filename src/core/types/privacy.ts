@@ -1,4 +1,4 @@
-export type PrivacySeverity = 'blocker' | 'warning' | 'info';
+type PrivacySeverity = 'blocker' | 'warning' | 'info';
 /**
  * One reconciled finding, tagged with the app and platform it concerns. `code` is a stable,
  * machine-readable id (e.g. `ios.usage.empty`) so `--json` consumers can filter without parsing prose;

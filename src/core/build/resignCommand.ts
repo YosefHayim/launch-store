@@ -25,7 +25,7 @@ import { findBuild } from './buildHistoryCommand.js';
 const STORE_PASSWORD_VARIABLE = 'LAUNCH_KS_STOREPASS';
 const KEY_PASSWORD_VARIABLE = 'LAUNCH_KS_KEYPASS';
 
-export const ResignCommandInputSchema = Schema.Struct({
+const ResignCommandInputSchema = Schema.Struct({
   id: Schema.optionalWith(Schema.String, { exact: true }),
   app: Schema.optionalWith(Schema.String, { exact: true }),
   account: Schema.optionalWith(Schema.String, { exact: true }),

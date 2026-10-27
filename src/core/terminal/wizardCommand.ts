@@ -34,7 +34,7 @@ import { explainTopic, type GlossaryTopic } from './glossary.js';
 import { promptTourPlatform } from './demoCommand.js';
 import { runTour } from './tour.js';
 
-export const WizardCommandInputSchema = Schema.Struct({});
+const WizardCommandInputSchema = Schema.Struct({});
 
 export type WizardCommandFailure = Readonly<{
   readonly _tag: 'WizardCommandFailure';
@@ -42,7 +42,7 @@ export type WizardCommandFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeWizardCommandFailure = Data.tagged<WizardCommandFailure>('WizardCommandFailure');
+const makeWizardCommandFailure = Data.tagged<WizardCommandFailure>('WizardCommandFailure');
 
 type WizardMenuSelection = 'build' | 'adopt' | 'setup' | 'screenshots' | 'prune';
 

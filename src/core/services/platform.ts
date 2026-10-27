@@ -13,8 +13,7 @@ export type PlatformMappingFailure = Readonly<{
   readonly platform: string;
   readonly message: string;
 }>;
-export const makePlatformMappingFailure =
-  Data.tagged<PlatformMappingFailure>('PlatformMappingFailure');
+const makePlatformMappingFailure = Data.tagged<PlatformMappingFailure>('PlatformMappingFailure');
 const unsupportedPlatform = (
   operation: string,
   platform: string,

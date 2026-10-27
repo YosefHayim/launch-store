@@ -40,7 +40,7 @@ export type RegionalBasePlanConfig = Readonly<{
   newSubscriberAvailability?: boolean;
   price?: PlayMoneyUnits;
 }>;
-export type AutoRenewingBasePlanType = Readonly<{ billingPeriodDuration: string }>;
+type AutoRenewingBasePlanType = Readonly<{ billingPeriodDuration: string }>;
 export type BasePlan = Readonly<{
   basePlanId: string;
   state?: string;

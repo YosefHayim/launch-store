@@ -49,7 +49,7 @@ export type AdvanceOptions = Readonly<{
 }>;
 
 /** Process exit codes for release-train status. */
-export const TRAIN_EXIT = { ok: 0, error: 1, blocked: 2, inProgress: 3 } as const;
+const TRAIN_EXIT = { ok: 0, error: 1, blocked: 2, inProgress: 3 } as const;
 
 /** Whether a native car stopped at a failure that requires an operator. */
 export const isNativeFailure = (trainCar: NativeCar): boolean => {

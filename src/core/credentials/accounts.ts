@@ -26,7 +26,7 @@ export type AccountFailure = Readonly<{
   readonly _tag: 'AccountFailure';
   readonly message: string;
 }>;
-export const makeAccountFailure = Data.tagged<AccountFailure>('AccountFailure');
+const makeAccountFailure = Data.tagged<AccountFailure>('AccountFailure');
 const AccountRecordSchema: Schema.Schema<AccountRecord> = Schema.Struct({
   keyId: Schema.String,
   issuerId: Schema.String,
@@ -129,7 +129,7 @@ export const getActiveAccount = (): Effect.Effect<
     return activeAccount;
   });
 /** Find an account by exact Key ID. */
-export const findAccount = (
+const findAccount = (
   keyId: string,
 ): Effect.Effect<AccountRecord | undefined, never, AccountStorageRequirements> =>
   readAccounts().pipe(
@@ -405,12 +405,12 @@ export const resolveBuildAccount = (
     return yield* options.pick(file.accounts);
   });
 /** Validated Apple-side identity for an account: the Team ID and visible app names (best-effort each). */
-export type AccountIdentity = {
+type AccountIdentity = {
   teamId: string | null;
   apps: string[];
 };
 /** Resolve an account's Team ID + accessible app names from Apple (each degrades to null/[] on failure). */
-export const resolveAccountIdentity = (
+const resolveAccountIdentity = (
   ascKey: AscKey,
 ): Effect.Effect<AccountIdentity, never, AppStoreIdentityService> =>
   Effect.gen(function* () {

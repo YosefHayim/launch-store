@@ -96,7 +96,7 @@ const AndroidStoreConfigSchema = Schema.mutable(
   }),
 );
 
-export const StoreConfigSchema = Schema.mutable(
+const StoreConfigSchema = Schema.mutable(
   Schema.Struct({
     configVersion: Schema.optionalWith(Schema.Number, { exact: true }),
     apple: Schema.optionalWith(AppleStoreConfigSchema, { exact: true }),

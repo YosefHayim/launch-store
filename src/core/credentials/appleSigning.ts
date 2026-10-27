@@ -36,7 +36,7 @@ import {
 } from './appleSigningProfiles.js';
 
 export type { AppleSigningFailure };
-export { makeAppleSigningFailure, DISTRIBUTION_CERT_NAME, p12PasswordAccount };
+export { p12PasswordAccount };
 export { profileStaleAgainstCapabilities, staleCachedSigningTargets };
 
 /** Inputs for {@link ensureSigningCredentials}. */

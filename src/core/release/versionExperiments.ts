@@ -45,7 +45,7 @@ const TrafficProportionSchema = Schema.Number.annotations({
   }),
 );
 
-export const TreatmentConfigSchema = Schema.mutable(
+const TreatmentConfigSchema = Schema.mutable(
   Schema.Struct({
     name: ExperimentNameSchema,
     appIconName: Schema.optionalWith(Schema.String, { exact: true }),
@@ -53,9 +53,9 @@ export const TreatmentConfigSchema = Schema.mutable(
   }),
 );
 
-export type TreatmentConfig = Schema.Schema.Type<typeof TreatmentConfigSchema>;
+type TreatmentConfig = Schema.Schema.Type<typeof TreatmentConfigSchema>;
 
-export const ExperimentConfigSchema = Schema.mutable(
+const ExperimentConfigSchema = Schema.mutable(
   Schema.Struct({
     name: ExperimentNameSchema,
     trafficProportion: TrafficProportionSchema,
@@ -66,9 +66,9 @@ export const ExperimentConfigSchema = Schema.mutable(
   }),
 );
 
-export type ExperimentConfig = Schema.Schema.Type<typeof ExperimentConfigSchema>;
+type ExperimentConfig = Schema.Schema.Type<typeof ExperimentConfigSchema>;
 
-export const VersionExperimentsConfigSchema = Schema.mutable(
+const VersionExperimentsConfigSchema = Schema.mutable(
   Schema.Struct({
     experiments: Schema.mutable(Schema.Array(ExperimentConfigSchema)).pipe(
       Schema.minItems(1, {
@@ -99,7 +99,7 @@ export type VersionExperimentsFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeVersionExperimentsFailure = Data.tagged<VersionExperimentsFailure>(
+const makeVersionExperimentsFailure = Data.tagged<VersionExperimentsFailure>(
   'VersionExperimentsFailure',
 );
 

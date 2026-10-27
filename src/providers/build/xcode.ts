@@ -134,7 +134,7 @@ export const xcodebuildEnv = (
     ...ccacheVars,
   };
 };
-export const xcodeBuildEngine = {
+const xcodeBuildEngine = {
   name: 'xcode',
   buildArtifact(buildContext: ResolvedBuildContext, buildCredentials: BuildCredentials) {
     return Effect.gen(function* () {

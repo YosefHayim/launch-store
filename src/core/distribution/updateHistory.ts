@@ -56,12 +56,12 @@ const StoredRollbackDirectiveSchema: Schema.Schema<StoredRollbackDirective> = Sc
 );
 
 /** A persisted update snapshot is absent or does not match the manifest contract. */
-export type UpdateHistoryFailure = Readonly<{
+type UpdateHistoryFailure = Readonly<{
   readonly _tag: 'UpdateHistoryFailure';
   readonly message: string;
 }>;
 
-export const makeUpdateHistoryFailure = Data.tagged<UpdateHistoryFailure>('UpdateHistoryFailure');
+const makeUpdateHistoryFailure = Data.tagged<UpdateHistoryFailure>('UpdateHistoryFailure');
 
 /** Decode JSON text with the schema that owns its persisted shape. */
 const decodeJson = <DecodedValue, EncodedValue>(
@@ -169,7 +169,7 @@ export const clearRollbackDirective = (
   });
 
 /** Write the active manifest, its immutable snapshot, and optional signature. */
-export const writeActiveManifest = (
+const writeActiveManifest = (
   storage: StorageProvider,
   channel: string,
   platform: string,

@@ -21,7 +21,7 @@ export type ActiveGoogleStoreFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeActiveGoogleStoreFailure = Data.tagged<ActiveGoogleStoreFailure>(
+const makeActiveGoogleStoreFailure = Data.tagged<ActiveGoogleStoreFailure>(
   'ActiveGoogleStoreFailure',
 );
 
@@ -84,7 +84,7 @@ export type GoogleStoreConfirmationFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeGoogleStoreConfirmationFailure = Data.tagged<GoogleStoreConfirmationFailure>(
+const makeGoogleStoreConfirmationFailure = Data.tagged<GoogleStoreConfirmationFailure>(
   'GoogleStoreConfirmationFailure',
 );
 

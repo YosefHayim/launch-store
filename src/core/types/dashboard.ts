@@ -7,7 +7,7 @@ export type DashboardApp = Readonly<{
   packageName: string | null;
 }>;
 /** The provider wiring + discovered apps/profiles from `launch.config.ts`. */
-export type DashboardProject = Readonly<{
+type DashboardProject = Readonly<{
   providers: Readonly<{
     credentials: string;
     storage: string;

@@ -51,7 +51,6 @@ export const OffersCommandInputSchema = Schema.Union(
   OffersDeactivateInputSchema,
 );
 
-export type OffersCommandInput = Schema.Schema.Type<typeof OffersCommandInputSchema>;
 export type OffersReconcileInput = Schema.Schema.Type<typeof OffersReconcileInputSchema>;
 export type OffersGenerateCodesInput = Schema.Schema.Type<typeof OffersGenerateCodesInputSchema>;
 export type OffersListInput = Schema.Schema.Type<typeof OffersListInputSchema>;
@@ -64,7 +63,7 @@ export type OffersCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeOffersCommandFailure = Data.tagged<OffersCommandFailure>('OffersCommandFailure');
+const makeOffersCommandFailure = Data.tagged<OffersCommandFailure>('OffersCommandFailure');
 
 type OffersCommandRequirements =
   | ActiveAppleStoreRequirements

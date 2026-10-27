@@ -39,7 +39,7 @@ import { findPushKey, importPushKey, listPushKeys, loadPushKey } from './pushKey
 const optionalCommandText = Schema.optionalWith(Schema.String, { exact: true });
 const optionalCommandFlag = Schema.optionalWith(Schema.Boolean, { exact: true });
 
-export const CredentialsActionSchema = Schema.Literal(
+const CredentialsActionSchema = Schema.Literal(
   'status',
   'accounts',
   'set-key',
@@ -52,7 +52,7 @@ export const CredentialsActionSchema = Schema.Literal(
   'push-key',
 );
 
-export const CredentialsCommandOptionsSchema = Schema.Struct({
+const CredentialsCommandOptionsSchema = Schema.Struct({
   platform: optionalCommandText,
   keyId: optionalCommandText,
   issuerId: optionalCommandText,
@@ -75,9 +75,7 @@ export const CredentialsCommandInputSchema = Schema.Struct({
   options: CredentialsCommandOptionsSchema,
 });
 
-export type CredentialsAction = Schema.Schema.Type<typeof CredentialsActionSchema>;
 export type CredentialsCommandOptions = Schema.Schema.Type<typeof CredentialsCommandOptionsSchema>;
-export type CredentialsCommandInput = Schema.Schema.Type<typeof CredentialsCommandInputSchema>;
 
 type CredentialsCommandRequirements =
   | AppStoreIdentityService
@@ -99,7 +97,7 @@ export type CredentialsCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeCredentialsCommandFailure = Data.tagged<CredentialsCommandFailure>(
+const makeCredentialsCommandFailure = Data.tagged<CredentialsCommandFailure>(
   'CredentialsCommandFailure',
 );
 

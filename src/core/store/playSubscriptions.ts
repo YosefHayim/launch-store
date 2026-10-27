@@ -104,7 +104,7 @@ export const PLAY_SUBSCRIPTIONS_SETUP_GUIDANCE =
   'Setup: in Play Console Users and permissions, give the configured service account app access and "Manage store presence" (or "Admin (all permissions)"). The Google Play Billing API permissions "View financial data" and "Manage orders and subscriptions" manage purchases/orders; they do not replace the catalog-write permission. Paid subscriptions also require Setup > Payments profile.';
 
 /** Add setup instructions only to the two Play subscription failures with known operator fixes. */
-export const describePlaySubscriptionWriteFailure = (
+const describePlaySubscriptionWriteFailure = (
   failureText: string,
   packageName: string,
   serviceAccountEmail: string | undefined,

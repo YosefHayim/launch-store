@@ -40,8 +40,7 @@ export type ReviewsCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeReviewsCommandFailure =
-  Data.tagged<ReviewsCommandFailure>('ReviewsCommandFailure');
+const makeReviewsCommandFailure = Data.tagged<ReviewsCommandFailure>('ReviewsCommandFailure');
 
 type ReviewsCommandRequirements =
   | ActiveAppleStoreRequirements
@@ -85,7 +84,7 @@ export const parseReviewRating = (
 };
 
 /** Render one App Store customer review as a readable block. */
-export const renderCustomerReview = (customerReview: CustomerReviewResource): string => {
+const renderCustomerReview = (customerReview: CustomerReviewResource): string => {
   const reviewDetails = [customerReview.territory];
   if (customerReview.createdDate !== undefined) {
     reviewDetails.push(customerReview.createdDate.slice(0, 10));

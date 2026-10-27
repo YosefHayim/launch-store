@@ -33,7 +33,6 @@ export const LAUNCH_HOME = `${homedir()}/.launch`;
 /** Where built artifacts are copied by the local storage provider. */
 export const ARTIFACTS_DIR = `${LAUNCH_HOME}/artifacts`;
 /** Full tee'd logs of long external tools (xcodebuild, gradle, prebuild). */
-export const LOGS_DIR = `${LAUNCH_HOME}/logs`;
 /** JSON index of stored artifacts (newest-first history). */
 export const ARTIFACT_INDEX = `${ARTIFACTS_DIR}/index.json`;
 /** Registry of onboarded Apple accounts (non-secret: Key IDs, Issuer IDs, labels only). */

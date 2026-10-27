@@ -23,7 +23,7 @@ export const ConfigCommandInputSchema = Schema.Union(
   Schema.Struct({ operation: Schema.Literal('docs') }),
 );
 
-export type ConfigCommandInput = Schema.Schema.Type<typeof ConfigCommandInputSchema>;
+type ConfigCommandInput = Schema.Schema.Type<typeof ConfigCommandInputSchema>;
 
 export type ConfigCommandFailure = Readonly<{
   readonly _tag: 'ConfigCommandFailure';
@@ -32,7 +32,7 @@ export type ConfigCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeConfigCommandFailure = Data.tagged<ConfigCommandFailure>('ConfigCommandFailure');
+const makeConfigCommandFailure = Data.tagged<ConfigCommandFailure>('ConfigCommandFailure');
 
 type ConfigCommandRequirements = FileSystem.FileSystem | LaunchPathsService | Logger | Path.Path;
 

@@ -18,7 +18,7 @@ type NotifyEventBase = {
  * destination are filled when known (a success has them; an early failure may not). Fired from the
  * build->submit pipeline and the `release` command.
  */
-export type CompletionEvent = NotifyEventBase & {
+type CompletionEvent = NotifyEventBase & {
   event: 'build' | 'submit';
   status: 'success' | 'failure';
   buildNumber?: number;
@@ -31,7 +31,7 @@ export type CompletionEvent = NotifyEventBase & {
  * settles to a terminal verdict, so a dev who walked away learns the outcome without babysitting the
  * poll loop.
  */
-export type ReviewEvent = NotifyEventBase & {
+type ReviewEvent = NotifyEventBase & {
   event: 'review';
   status: 'approved' | 'rejected';
   detail?: string;
@@ -40,7 +40,7 @@ export type ReviewEvent = NotifyEventBase & {
  * A phased rollout changed state. Fired from `launch rollout` after a successful pause/resume/complete,
  * and from `launch status --watch` when Apple advances the ramp (`advanced`) between polls.
  */
-export type RolloutEvent = NotifyEventBase & {
+type RolloutEvent = NotifyEventBase & {
   event: 'rollout';
   status: 'paused' | 'resumed' | 'completed' | 'advanced';
   detail?: string;

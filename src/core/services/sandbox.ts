@@ -5,12 +5,11 @@ export type AscSandboxApi = {
   listSandboxTesters(): Effect.Effect<SandboxTesterResource[], unknown>;
   clearSandboxTesterPurchaseHistory(testerIds: readonly string[]): Effect.Effect<void, unknown>;
 };
-export type SandboxRequestFailure = Readonly<{
+type SandboxRequestFailure = Readonly<{
   readonly _tag: 'SandboxRequestFailure';
   readonly message: string;
 }>;
-export const makeSandboxRequestFailure =
-  Data.tagged<SandboxRequestFailure>('SandboxRequestFailure');
+const makeSandboxRequestFailure = Data.tagged<SandboxRequestFailure>('SandboxRequestFailure');
 /** What to clear: a set of tester emails, or every tester when `all` is true. */
 export type ClearRequest = {
   emails: string[];
