@@ -35,13 +35,12 @@ Run the same checks before you push:
 ```bash
 pnpm typecheck     # tsc --noEmit, max-strict
 pnpm lint          # biome check (lint + format)
-pnpm lint:style    # Launch architecture and naming rules
 pnpm docs:check    # generated docs are current
 pnpm test          # vitest
 pnpm build         # emits dist/ (production code only)
 ```
 
-Style and types are owned by `CODE-STYLE.md`, `code-style.rules.json`, `tsconfig.json`, and
+Style and types are owned by `tsconfig.json` and
 `biome.json` - fix what they flag rather than working around it.
 
 ## Tests

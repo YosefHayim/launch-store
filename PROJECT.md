@@ -1,8 +1,7 @@
 # PROJECT.md — launch-store
 
 Purpose and direction. Read this to understand *why* the project exists and where
-it's going; read `CONTEXT.md` for how it's shaped, `LANGUAGE.md` for the words,
-and `CODE-STYLE.md` for how code is written.
+it's going; read `CONTEXT.md` for how it's shaped, and `LANGUAGE.md` for the words.
 
 
 Purpose and direction for **Launch** - the internal compass for contributors and agents.
@@ -50,7 +49,7 @@ A "boring, traceable" path from source to store that one developer can run and u
 
 ## Direction
 
-1. **Full Effect migration** - rewrite the codebase in Effect (typed errors, services/layers, structured concurrency). See [CODE-STYLE.md](./CODE-STYLE.md) for the target style.
+1. **Full Effect migration** - rewrite the codebase in Effect (typed errors, services/layers, structured concurrency).
 2. **Deepen the purpose-grouped core** - keep new work in the existing `src/core/<job>/` folders and move touched legacy seams toward their owning group.
 3. **Finish declared migrations** - Effect Schema config, Effect services/layers, typed errors, and testkit centralization.
 4. **Expand Apple coverage** - after cleanup, add new ASC endpoints (Analytics, Marketplace/DMA).

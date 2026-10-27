@@ -337,7 +337,7 @@ The everyday ones:
 
 - [`examples/hello-world`](./examples/hello-world) - a worked Expo / React Native app config.
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) - local development, tests, CI, and provider contribution flow.
-- [`AGENTS.md`](./AGENTS.md) and [`CODE-STYLE.md`](./CODE-STYLE.md) - rules for coding agents and contributors editing this repo.
+- [`AGENTS.md`](./AGENTS.md) - rules for coding agents and contributors editing this repo.
 - [`PROJECT.md`](./PROJECT.md), [`CONTEXT.md`](./CONTEXT.md), and [`LANGUAGE.md`](./LANGUAGE.md) - product direction, architecture context, and domain language.
 
 ## Configuration

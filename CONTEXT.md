@@ -4,7 +4,6 @@ Architecture and orientation for **Launch** - the map agents and contributors re
 
 - **What it is and where it's going** -> [`PROJECT.md`](./PROJECT.md)
 - **Domain terms (the glossary)** -> [`LANGUAGE.md`](./LANGUAGE.md)
-- **Code style and patterns** -> [`CODE-STYLE.md`](./CODE-STYLE.md)
 - **Working rules for contributors** -> [`AGENTS.md`](./AGENTS.md)
 - **React Native / Expo / Apple / Google stack** -> [`TECH.md`](./TECH.md)
 
@@ -103,5 +102,4 @@ destination and signing profile type.
 | End-to-end flow | `src/core/build/pipeline.ts` |
 | New backend | `src/core/types/providers.ts` + `src/providers/<role>/` |
 | Domain terms | `src/core/terminal/glossary.ts` (runtime) + `LANGUAGE.md` |
-| Code style | `CODE-STYLE.md` |
 | Teaching text | `src/core/terminal/glossary.ts` |

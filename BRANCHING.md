@@ -28,7 +28,7 @@ release line.
 6. **Gate green before you call it done** (local + CI):
 
    ```bash
-   pnpm typecheck && pnpm lint && pnpm lint:style && pnpm docs:check && pnpm test && pnpm build
+   pnpm typecheck && pnpm lint && pnpm docs:check && pnpm test && pnpm build
    ```
 
 ## Daily flow
@@ -49,7 +49,7 @@ Use these names in branch paths and as GitHub labels (`domain:<name>`).
 
 | Domain | Label | Typical paths / commands |
 | --- | --- | --- |
-| foundation | `domain:foundation` | Root tooling, CI, CODE-STYLE, `src/core/services`, `src/core/types`, shared CLI helpers |
+| foundation | `domain:foundation` | Root tooling, CI, `src/core/services`, `src/core/types`, shared CLI helpers |
 | config | `domain:config` | `src/core/config/`, `schema/`, `launch.config*` |
 | credentials | `domain:credentials` | `src/core/credentials/`, `src/providers/credentials/` |
 | build | `domain:build` | `src/core/build/`, `src/core/distribution/`, build/compute/storage providers |
@@ -92,5 +92,4 @@ review how domains partition the tree.
 
 - [AGENTS.md](./AGENTS.md) — module ownership and validation gate
 - [CONTRIBUTING.md](./CONTRIBUTING.md) — setup and quality gate
-- [CODE-STYLE.md](./CODE-STYLE.md) — how code is written
 - [CONTEXT.md](./CONTEXT.md) — architecture map

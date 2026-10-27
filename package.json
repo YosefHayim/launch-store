@@ -68,9 +68,8 @@
     "launch": "tsx src/cli/index.ts",
     "prepare": "husky",
     "prepublishOnly": "pnpm build",
-    "lint:style": "node scripts/dev/check-code-style.mjs",
-    "lint:style:self-test": "node scripts/dev/check-code-style.mjs --self-test && node scripts/dev/check-grit-rules.mjs && node scripts/dev/migrate-code-style.mjs --self-test",
-    "style:migrate": "node scripts/dev/replace-type-barrel-imports.mjs && node scripts/dev/migrate-code-style.mjs"
+    "lint:grit": "node scripts/dev/check-grit-rules.mjs",
+    "style:migrate": "node scripts/dev/replace-type-barrel-imports.mjs"
   },
   "dependencies": {
     "@clack/prompts": "^1.8.1",

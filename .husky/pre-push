@@ -1,5 +1,4 @@
 pnpm lint
-pnpm lint:style:self-test
-pnpm lint:style
+pnpm lint:grit
 pnpm typecheck
 pnpm docs:check

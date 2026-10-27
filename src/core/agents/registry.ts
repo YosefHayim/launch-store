@@ -641,7 +641,7 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
       '',
       '- One Node ESM / TypeScript package. `src/cli` is thin Commander wiring, `src/core` is purpose-grouped domain code, `src/providers` are swappable backends, `src/apple` and `src/google` are store API mirrors, and `src/testkit` holds shared fakes/layers.',
       '- Do not create flat `src/core/*.ts` files. Put new core work under the owning purpose folder such as `build/`, `config/`, `credentials/`, `release/`, `store/`, `services/`, `terminal/`, or `types/`.',
-      '- Before calling a change done, run `pnpm typecheck && pnpm lint && pnpm lint:style && pnpm docs:check && pnpm test && pnpm build` (the generated docs + these rules are gated).',
+      '- Before calling a change done, run `pnpm typecheck && pnpm lint && pnpm docs:check && pnpm test && pnpm build` (the generated docs + these rules are gated).',
       '- Keep it KISS / YAGNI / DRY: extend the nearest sibling file rather than inventing a new file, util, or abstraction. Add a test (`*.test.ts`) beside any new logic.',
       '- Never log, write, or commit secrets; `~/.launch` holds non-secret paths and ids only.',
     ]),
@@ -708,7 +708,7 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
       'before opening or squash-merging a PR',
     ],
     steps: [
-      '`pnpm typecheck && pnpm lint && pnpm lint:style && pnpm docs:check && pnpm test && pnpm build` - the six-part gate from `AGENTS.md` (`lint` is Biome, `lint:style` is Launch-specific, and `docs:check` guards generated docs).',
+      '`pnpm typecheck && pnpm lint && pnpm docs:check && pnpm test && pnpm build` - the five-part gate from `AGENTS.md` (`lint` is Biome and `docs:check` guards generated docs).',
       'If `docs:check` fails, run `pnpm docs:gen` and commit the generated docs (`llms.txt`, `.cursor/rules/*`, `.claude/skills/*`, and README badges).',
     ],
     body: markdownBody([
