@@ -3029,7 +3029,7 @@ export class AppStoreConnectClient {
       return [versionExperiment];
     });
   }
-  /** Create a product-page A/B experiment (v2) with its name, platform, and traffic split. */
+  /** Create a product-page A/B experiment on `/v2` (the v1 create takes a version, not an app and platform). */
   async createVersionExperiment(
     appId: string,
     input: {
@@ -3039,7 +3039,7 @@ export class AppStoreConnectClient {
     },
   ): Promise<VersionExperimentResource> {
     const appleResources = await this.createResource<Record<string, never>>(
-      '/appStoreVersionExperiments',
+      this.v2('/appStoreVersionExperiments'),
       {
         type: 'appStoreVersionExperiments',
         attributes: {
@@ -3062,7 +3062,9 @@ export class AppStoreConnectClient {
     const appleResources = await this.requestAll<{
       name?: string;
     }>(
-      `/appStoreVersionExperiments/${experimentId}/appStoreVersionExperimentTreatments?limit=200&fields[appStoreVersionExperimentTreatments]=name`,
+      this.v2(
+        `/appStoreVersionExperiments/${experimentId}/appStoreVersionExperimentTreatments?limit=200&fields[appStoreVersionExperimentTreatments]=name`,
+      ),
     );
     return appleResources.flatMap((treatment) => {
       const treatmentName = treatment.attributes.name;
