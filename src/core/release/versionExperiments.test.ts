@@ -34,6 +34,8 @@ type ExperimentWrites = {
   createdLocalizations: Array<{ treatmentId: string; locale: string }>;
   createdSets: Array<{ localizationId: string; displayType: string }>;
   uploads: Array<{ setId: string; fileName: string }>;
+  removedScreenshots: string[];
+  reorders: Array<{ setId: string; screenshotIds: readonly string[] }>;
   createdSubmissions: string[];
   reviewItems: Array<{ submissionId: string; experimentId: string }>;
   submittedSubmissions: string[];
@@ -45,8 +47,8 @@ type ExperimentStoreState = {
   experiments: VersionExperimentResource[];
   treatments: ExperimentTreatmentResource[];
   localizations: ExperimentTreatmentLocalizationResource[];
-  screenshotSets: ScreenshotSetResource[];
-  screenshots: ScreenshotResource[];
+  screenshotSetsByLocalization: Record<string, ScreenshotSetResource[]>;
+  screenshotsBySet: Record<string, ScreenshotResource[]>;
   reviewSubmissions: ReviewSubmissionResource[];
 };
 
@@ -60,8 +62,8 @@ const makeExperimentsApi = (
     experiments: [],
     treatments: [],
     localizations: [],
-    screenshotSets: [],
-    screenshots: [],
+    screenshotSetsByLocalization: {},
+    screenshotsBySet: {},
     reviewSubmissions: [],
     ...stateOverrides,
   };
@@ -71,6 +73,8 @@ const makeExperimentsApi = (
     createdLocalizations: [],
     createdSets: [],
     uploads: [],
+    removedScreenshots: [],
+    reorders: [],
     createdSubmissions: [],
     reviewItems: [],
     submittedSubmissions: [],
@@ -104,14 +108,41 @@ const makeExperimentsApi = (
       experimentWrites.createdLocalizations.push({ treatmentId, locale });
       return Effect.succeed({ id: `loc-${locale}`, locale });
     },
-    listTreatmentScreenshotSets: () => Effect.succeed(experimentStore.screenshotSets),
+    listTreatmentScreenshotSets: (localizationId) => {
+      let localizationSets = experimentStore.screenshotSetsByLocalization[localizationId];
+      if (localizationSets === undefined) localizationSets = [];
+      return Effect.succeed(localizationSets);
+    },
     createTreatmentScreenshotSet: (localizationId, displayType) => {
       experimentWrites.createdSets.push({ localizationId, displayType });
       return Effect.succeed({ id: `set-${localizationId}`, screenshotDisplayType: displayType });
     },
-    listScreenshots: () => Effect.succeed(experimentStore.screenshots),
-    uploadScreenshot: (setId, fileName) => {
+    listScreenshots: (setId) => {
+      let setScreenshots = experimentStore.screenshotsBySet[setId];
+      if (setScreenshots === undefined) setScreenshots = [];
+      return Effect.succeed(setScreenshots);
+    },
+    uploadScreenshot: (setId, fileName, filePath) => {
       experimentWrites.uploads.push({ setId, fileName });
+      let setScreenshots = experimentStore.screenshotsBySet[setId];
+      if (setScreenshots === undefined) setScreenshots = [];
+      experimentStore.screenshotsBySet[setId] = [
+        ...setScreenshots,
+        { id: `up-${fileName}`, fileName, sourceFileChecksum: filePath },
+      ];
+      return Effect.void;
+    },
+    deleteScreenshot: (screenshotId) => {
+      experimentWrites.removedScreenshots.push(screenshotId);
+      for (const [setId, setScreenshots] of Object.entries(experimentStore.screenshotsBySet)) {
+        experimentStore.screenshotsBySet[setId] = setScreenshots.filter(
+          (screenshot) => screenshot.id !== screenshotId,
+        );
+      }
+      return Effect.void;
+    },
+    reorderScreenshots: (setId, screenshotIds) => {
+      experimentWrites.reorders.push({ setId, screenshotIds });
       return Effect.void;
     },
     listReviewSubmissions: () => Effect.succeed(experimentStore.reviewSubmissions),
@@ -152,15 +183,45 @@ const mediaConfig: VersionExperimentsConfig = {
   ],
 };
 
-/** One local treatment screenshot whose checksum is derived from its locale and name. */
+/** Where a fixture treatment screenshot lives; the fake upload stores it as the checksum too. */
+const screenshotPath = (locale: string, fileName: string): string =>
+  `/treatment/${locale}/APP_IPHONE_67/${fileName}`;
+
+/** One local treatment screenshot whose checksum is its path. */
 const localScreenshot = (locale: string, fileName: string): LocalScreenshot => ({
   locale,
   displayType: 'APP_IPHONE_67',
   fileName,
-  path: `/treatment/${locale}/APP_IPHONE_67/${fileName}`,
-  checksum: `sum-${locale}-${fileName}`,
+  path: screenshotPath(locale, fileName),
+  checksum: screenshotPath(locale, fileName),
   size: 1,
 });
+
+/** A screenshot Apple already holds whose checksum matches the local file. */
+const storedScreenshot = (id: string, locale: string, fileName: string): ScreenshotResource => ({
+  id,
+  fileName,
+  sourceFileChecksum: screenshotPath(locale, fileName),
+});
+
+/** A copy of an original-page screenshot that Apple put in a new treatment localization. */
+const originalScreenshot = (id: string, fileName: string): ScreenshotResource => ({
+  id,
+  fileName,
+  sourceFileChecksum: `original-${fileName}`,
+});
+
+/** Two existing treatment localizations with one 6.7-inch set each. */
+const existingLocaleSets: Partial<ExperimentStoreState> = {
+  localizations: [
+    { id: 'loc-1', locale: 'en-US' },
+    { id: 'loc-2', locale: 'he' },
+  ],
+  screenshotSetsByLocalization: {
+    'loc-1': [{ id: 'set-1', screenshotDisplayType: 'APP_IPHONE_67' }],
+    'loc-2': [{ id: 'set-2', screenshotDisplayType: 'APP_IPHONE_67' }],
+  },
+};
 
 const treatmentScreenshots = new Map([
   [
@@ -407,20 +468,65 @@ describe('version experiment treatment screenshots', () => {
     const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({
       experiments: [existingScreenshotsExperiment],
       treatments: [{ id: 't-1', name: 'Colorful' }],
-      localizations: [
-        { id: 'loc-1', locale: 'en-US' },
-        { id: 'loc-2', locale: 'he' },
-      ],
-      screenshotSets: [{ id: 'set-1', screenshotDisplayType: 'APP_IPHONE_67' }],
-      screenshots: [
-        { id: 's-1', fileName: '01.png', sourceFileChecksum: 'sum-en-US-01.png' },
-        { id: 's-2', fileName: '01.png', sourceFileChecksum: 'sum-he-01.png' },
-      ],
+      ...existingLocaleSets,
+      screenshotsBySet: {
+        'set-1': [storedScreenshot('s-1', 'en-US', '01.png')],
+        'set-2': [storedScreenshot('s-2', 'he', '01.png')],
+      },
     });
     await reconcileMediaExperiments(appleExperimentsApi, {});
     expect(experimentWrites.createdLocalizations).toHaveLength(0);
     expect(experimentWrites.createdSets).toHaveLength(0);
+    expect(experimentWrites.removedScreenshots).toHaveLength(0);
     expect(experimentWrites.uploads).toEqual([{ setId: 'set-1', fileName: '02.png' }]);
+    expect(experimentWrites.reorders).toHaveLength(0);
+  });
+
+  it("replaces the original page's screenshots Apple copied into the treatment", async () => {
+    const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({
+      experiments: [existingScreenshotsExperiment],
+      treatments: [{ id: 't-1', name: 'Colorful' }],
+      ...existingLocaleSets,
+      screenshotsBySet: {
+        'set-1': [
+          originalScreenshot('o-1', '01-camera.png'),
+          originalScreenshot('o-2', '02-meal.png'),
+        ],
+        'set-2': [storedScreenshot('s-2', 'he', '01.png')],
+      },
+    });
+    const reconciliationReport = await reconcileMediaExperiments(appleExperimentsApi, {});
+    expect(experimentWrites.removedScreenshots).toEqual(['o-1', 'o-2']);
+    expect(experimentWrites.uploads).toEqual([
+      { setId: 'set-1', fileName: '01.png' },
+      { setId: 'set-1', fileName: '02.png' },
+    ]);
+    expect(experimentWrites.reorders).toHaveLength(0);
+    expect(descriptionsWithStatus(reconciliationReport, 'applied').slice(0, 2)).toEqual([
+      'remove screenshot iPhone 6.7" [en-US] 01-camera.png: not a local file',
+      'remove screenshot iPhone 6.7" [en-US] 02-meal.png: not a local file',
+    ]);
+  });
+
+  it('keeps a matching screenshot and puts the set back in file order', async () => {
+    const { appleExperimentsApi, experimentWrites } = makeExperimentsApi({
+      experiments: [existingScreenshotsExperiment],
+      treatments: [{ id: 't-1', name: 'Colorful' }],
+      ...existingLocaleSets,
+      screenshotsBySet: {
+        'set-1': [
+          originalScreenshot('o-1', '01-camera.png'),
+          storedScreenshot('s-2', 'en-US', '02.png'),
+        ],
+        'set-2': [storedScreenshot('s-3', 'he', '01.png')],
+      },
+    });
+    await reconcileMediaExperiments(appleExperimentsApi, {});
+    expect(experimentWrites.removedScreenshots).toEqual(['o-1']);
+    expect(experimentWrites.uploads).toEqual([{ setId: 'set-1', fileName: '01.png' }]);
+    expect(experimentWrites.reorders).toEqual([
+      { setId: 'set-1', screenshotIds: ['up-01.png', 's-2'] },
+    ]);
   });
 
   it('plans the whole new experiment without writes', async () => {

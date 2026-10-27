@@ -47,6 +47,8 @@ const makeApi = (overrides: Partial<ScreenshotsApi> = {}): ScreenshotsApi => {
       ),
     listScreenshots: vi.fn().mockResolvedValue([]),
     uploadScreenshot: vi.fn().mockResolvedValue(undefined),
+    deleteScreenshot: vi.fn().mockResolvedValue(undefined),
+    reorderScreenshots: vi.fn().mockResolvedValue(undefined),
     listSubscriptionGroups: vi.fn().mockResolvedValue([]),
     listSubscriptions: vi.fn().mockResolvedValue([]),
     getSubscriptionReviewScreenshot: vi.fn().mockResolvedValue(null),

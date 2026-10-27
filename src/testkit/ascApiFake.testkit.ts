@@ -150,6 +150,8 @@ export const makeAscApiFake = (overrides: Partial<AscSurfacesApi> = {}): AscSurf
     // screenshots writes
     createScreenshotSet: vi.fn(),
     uploadScreenshot: vi.fn(),
+    deleteScreenshot: vi.fn(),
+    reorderScreenshots: vi.fn(),
     uploadSubscriptionReviewScreenshot: vi.fn(),
     // preview videos reads
     listPreviewSets: vi.fn().mockResolvedValue([]),

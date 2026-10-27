@@ -792,6 +792,27 @@ describe('AppStoreConnectClient - product catalog', () => {
       'https://api.appstoreconnect.apple.com/v2/appStoreVersionExperiments/exp1/appStoreVersionExperimentTreatments?',
     );
   });
+  it('deletes a screenshot and reorders a screenshot set', async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(204, ''))
+      .mockResolvedValueOnce(fakeResponse(204, ''));
+    await client.deleteScreenshot('shot1');
+    await client.reorderScreenshots('set1', ['shot3', 'shot2']);
+    const [deleteUrl, deleteInit] = expectArrayElement(fetchMock.mock.calls, 0, 'delete call');
+    expect(String(deleteUrl)).toBe('https://api.appstoreconnect.apple.com/v1/appScreenshots/shot1');
+    expect(deleteInit?.method).toBe('DELETE');
+    const [reorderUrl, reorderInit] = expectArrayElement(fetchMock.mock.calls, 1, 'reorder call');
+    expect(String(reorderUrl)).toBe(
+      'https://api.appstoreconnect.apple.com/v1/appScreenshotSets/set1/relationships/appScreenshots',
+    );
+    expect(reorderInit?.method).toBe('PATCH');
+    expect(JSON.parse(String(reorderInit?.body))).toEqual({
+      data: [
+        { type: 'appScreenshots', id: 'shot3' },
+        { type: 'appScreenshots', id: 'shot2' },
+      ],
+    });
+  });
   it('creates a subscription with its billing period and group relationship', async () => {
     fetchMock.mockResolvedValueOnce(
       fakeResponse(

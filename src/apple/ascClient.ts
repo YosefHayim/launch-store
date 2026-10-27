@@ -4355,6 +4355,20 @@ export class AppStoreConnectClient {
       return screenshotResource;
     });
   }
+  /** Delete one screenshot from its set. */
+  async deleteScreenshot(screenshotId: string): Promise<void> {
+    await this.deleteResource(`/appScreenshots/${screenshotId}`);
+  }
+  /** Replace a set's screenshot order with `screenshotIds`, which must list every screenshot in the set. */
+  async reorderScreenshots(setId: string, screenshotIds: readonly string[]): Promise<void> {
+    await this.request<unknown>(
+      'PATCH',
+      `/appScreenshotSets/${setId}/relationships/appScreenshots`,
+      {
+        data: screenshotIds.map((screenshotId) => ({ type: 'appScreenshots', id: screenshotId })),
+      },
+    );
+  }
   /** Upload one screenshot into a set via the full reserve->PUT->commit asset flow. */
   async uploadScreenshot(setId: string, fileName: string, filePath: string): Promise<void> {
     const bytes = await readTransportFile(filePath);
