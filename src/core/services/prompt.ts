@@ -12,7 +12,7 @@ import {
 import { Context, Data, Effect, Layer } from 'effect';
 import { createLogger, type Logger } from './logger.js';
 
-export const PICK_SEARCH_THRESHOLD = 8;
+const PICK_SEARCH_THRESHOLD = 8;
 
 export type PromptSelectionFailure = Readonly<{
   readonly _tag: 'PromptSelectionFailure';
@@ -20,29 +20,28 @@ export type PromptSelectionFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makePromptSelectionFailure =
-  Data.tagged<PromptSelectionFailure>('PromptSelectionFailure');
+const makePromptSelectionFailure = Data.tagged<PromptSelectionFailure>('PromptSelectionFailure');
 
-export type PromptChoice<TSelection> = {
+type PromptChoice<TSelection> = {
   readonly selection: TSelection;
   readonly label: string;
   readonly hint?: string;
 };
 
-export type PromptSelectionRequest<TSelection> = {
+type PromptSelectionRequest<TSelection> = {
   readonly message: string;
   readonly choices: readonly PromptChoice<TSelection>[];
   readonly searchThreshold?: number;
   readonly initialSelection?: TSelection;
 };
 
-export type PromptMultiSelectionRequest<TSelection> = Readonly<{
+type PromptMultiSelectionRequest<TSelection> = Readonly<{
   readonly message: string;
   readonly choices: readonly PromptChoice<TSelection>[];
   readonly initialSelections?: readonly TSelection[];
 }>;
 
-export type NonInteractivePolicy<TSelection> =
+type NonInteractivePolicy<TSelection> =
   | {
       readonly kind: 'require';
       readonly flagHint: string;

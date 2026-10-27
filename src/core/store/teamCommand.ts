@@ -46,7 +46,7 @@ export type TeamCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeTeamCommandFailure = Data.tagged<TeamCommandFailure>('TeamCommandFailure');
+const makeTeamCommandFailure = Data.tagged<TeamCommandFailure>('TeamCommandFailure');
 
 type TeamCommandRequirements =
   | ActiveAppleStoreRequirements
@@ -70,7 +70,7 @@ const teamCommandFailure = (
 };
 
 /** Join a person's available first and last names. */
-export const teamMemberFullName = (person: { firstName?: string; lastName?: string }): string => {
+const teamMemberFullName = (person: { firstName?: string; lastName?: string }): string => {
   const nameParts: string[] = [];
   if (person.firstName !== undefined) nameParts.push(person.firstName);
   if (person.lastName !== undefined) nameParts.push(person.lastName);
@@ -78,7 +78,7 @@ export const teamMemberFullName = (person: { firstName?: string; lastName?: stri
 };
 
 /** Render one accepted team member. */
-export const renderTeamMember = (teamMember: UserResource): string => {
+const renderTeamMember = (teamMember: UserResource): string => {
   const memberDetails = [teamMember.username];
   const memberName = teamMemberFullName(teamMember);
   if (memberName.length > 0) memberDetails.push(memberName);
@@ -87,7 +87,7 @@ export const renderTeamMember = (teamMember: UserResource): string => {
 };
 
 /** Render one pending team invitation. */
-export const renderTeamInvitation = (pendingInvitation: UserInvitationResource): string => {
+const renderTeamInvitation = (pendingInvitation: UserInvitationResource): string => {
   const invitationDetails = [pendingInvitation.email];
   const invitationName = teamMemberFullName(pendingInvitation);
   if (invitationName.length > 0) invitationDetails.push(invitationName);

@@ -20,7 +20,7 @@ export const MigrateCommandInputSchema = Schema.Struct({
   out: Schema.optional(Schema.String),
 });
 
-export type MigrateCommandInput = Schema.Schema.Type<typeof MigrateCommandInputSchema>;
+type MigrateCommandInput = Schema.Schema.Type<typeof MigrateCommandInputSchema>;
 
 export type MigrateCommandFailure = Readonly<{
   readonly _tag: 'MigrateCommandFailure';
@@ -29,8 +29,7 @@ export type MigrateCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeMigrateCommandFailure =
-  Data.tagged<MigrateCommandFailure>('MigrateCommandFailure');
+const makeMigrateCommandFailure = Data.tagged<MigrateCommandFailure>('MigrateCommandFailure');
 
 type MigrateCommandRequirements = FileSystem.FileSystem | LaunchPathsService | Logger | Path.Path;
 

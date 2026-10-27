@@ -45,7 +45,7 @@ export type ReportDateFailure = Readonly<{
   readonly message: string;
 }>;
 
-export const makeReportDateFailure = Data.tagged<ReportDateFailure>('ReportDateFailure');
+const makeReportDateFailure = Data.tagged<ReportDateFailure>('ReportDateFailure');
 /**
  * Parse a strict `YYYY-MM-DD` into a UTC timestamp, rejecting both a malformed format and an
  * out-of-range calendar date. `Date.parse`/`Date.UTC` silently *normalize* an overflow (e.g.
@@ -177,7 +177,7 @@ export type AnalyticsQuery = {
   processingDate?: string;
 };
 /** One downloadable analytics segment, flattened with the report/instance context for naming the output. */
-export type SegmentDownload = {
+type SegmentDownload = {
   reportName: string;
   category: string;
   granularity: string;

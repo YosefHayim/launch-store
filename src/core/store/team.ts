@@ -17,7 +17,7 @@ export type AscTeamApi = Readonly<{
 
 const DEPRECATED_ROLE_PERMISSION = 'ACCESS_TO_REPORTS';
 
-export const KNOWN_USER_ROLES: readonly string[] = [
+const KNOWN_USER_ROLES: readonly string[] = [
   'ADMIN',
   'FINANCE',
   'ACCOUNT_HOLDER',
@@ -58,7 +58,7 @@ export type TeamFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeTeamFailure = Data.tagged<TeamFailure>('TeamFailure');
+const makeTeamFailure = Data.tagged<TeamFailure>('TeamFailure');
 
 /** Convert a team dependency failure to the typed domain channel. */
 const teamFailure = (operation: TeamFailure['operation'], cause: unknown): TeamFailure => {

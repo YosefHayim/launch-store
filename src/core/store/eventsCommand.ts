@@ -49,7 +49,7 @@ export type EventsCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeEventsCommandFailure = Data.tagged<EventsCommandFailure>('EventsCommandFailure');
+const makeEventsCommandFailure = Data.tagged<EventsCommandFailure>('EventsCommandFailure');
 
 type EventsCommandRequirements =
   | ActiveAppleStoreRequirements
@@ -73,7 +73,7 @@ const eventsFailure = (
 };
 
 /** Render one event and its localizations as a readable text block. */
-export const renderAppEvent = ({ event, localizations }: AppEventWithLocalizations): string => {
+const renderAppEvent = ({ event, localizations }: AppEventWithLocalizations): string => {
   const eventDetails = [event.badge, event.eventState].filter(
     (eventDetail): eventDetail is string => eventDetail !== undefined,
   );

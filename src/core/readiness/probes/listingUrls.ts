@@ -10,7 +10,7 @@ import type {
 } from '@core/types/readiness.js';
 import { OMITTED_PROBE } from './credentialsSkip.js';
 
-export const URL_LIVENESS_TIMEOUT_MS = 5000;
+const URL_LIVENESS_TIMEOUT_MS = 5000;
 
 type ListingUrl = {
   app: string;

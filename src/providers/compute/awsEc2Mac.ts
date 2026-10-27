@@ -304,9 +304,7 @@ const provisionAllocatedHost = (
   });
 
 /** Diagnose AWS credentials, regional Mac availability, host visibility, and IAM needs. */
-export const runCloudDoctor = (
-  awsConfiguration: AwsConfig,
-): Effect.Effect<CloudDoctorReport, never> =>
+const runCloudDoctor = (awsConfiguration: AwsConfig): Effect.Effect<CloudDoctorReport, never> =>
   Effect.gen(function* () {
     const cloudChecks: CloudCheck[] = [];
     const instanceType = configuredInstanceType(awsConfiguration);

@@ -52,7 +52,7 @@ export type TrainRecordFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeTrainRecordFailure = Data.tagged<TrainRecordFailure>('TrainRecordFailure');
+const makeTrainRecordFailure = Data.tagged<TrainRecordFailure>('TrainRecordFailure');
 
 /** Platform services used by release-train record persistence. */
 export type TrainRecordRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;

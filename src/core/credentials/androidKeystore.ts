@@ -54,7 +54,7 @@ export type AndroidCredentialFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeAndroidCredentialFailure = Data.tagged<AndroidCredentialFailure>(
+const makeAndroidCredentialFailure = Data.tagged<AndroidCredentialFailure>(
   'AndroidCredentialFailure',
 );
 

@@ -29,7 +29,7 @@ export type FastlaneMigrationFailure = Readonly<{
   readonly sourcePath: string;
 }>;
 
-export const makeFastlaneMigrationFailure = Data.tagged<FastlaneMigrationFailure>(
+const makeFastlaneMigrationFailure = Data.tagged<FastlaneMigrationFailure>(
   'FastlaneMigrationFailure',
 );
 

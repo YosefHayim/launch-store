@@ -29,7 +29,7 @@ export type ReviewFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeReviewFailure = Data.tagged<ReviewFailure>('ReviewFailure');
+const makeReviewFailure = Data.tagged<ReviewFailure>('ReviewFailure');
 
 /** Optional filters for App Store customer reviews. */
 export type ReviewFilters = Readonly<{

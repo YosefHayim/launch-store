@@ -121,18 +121,17 @@ const CLOCK_SKEW_TOLERANCE_SECONDS = 60;
  * Certificate type to create/reuse. `DISTRIBUTION` is Apple's modern unified "Apple Distribution"
  * identity, valid for App Store submission; its codesign identity is named `Apple Distribution`.
  */
-export const DISTRIBUTION_CERT_TYPE = 'DISTRIBUTION';
+const DISTRIBUTION_CERT_TYPE = 'DISTRIBUTION';
 /** Codesign identity name that pairs with {@link DISTRIBUTION_CERT_TYPE}. */
-export const DISTRIBUTION_CERT_NAME = 'Apple Distribution';
 /**
  * Provisioning profile type for App Store / TestFlight distribution - the **iOS default**. tvOS, macOS,
  * and visionOS resolve their own profile type via `appStoreProfileType()` in `core/platform.ts` and pass
  * it to {@link AppStoreConnectClient.createAppStoreProfile}; this constant is the default that keeps the
  * iOS path unchanged.
  */
-export const APP_STORE_PROFILE_TYPE = 'IOS_APP_STORE';
+const APP_STORE_PROFILE_TYPE = 'IOS_APP_STORE';
 /** Provisioning profile type for ad-hoc (install-link) distribution - the iOS default; tvOS/visionOS map their own via `core/platform.ts` (macOS has no ad-hoc type). */
-export const AD_HOC_PROFILE_TYPE = 'IOS_APP_ADHOC';
+const AD_HOC_PROFILE_TYPE = 'IOS_APP_ADHOC';
 /** The App Store Connect signing-profile type written when creating a profile (e.g. `IOS_APP_STORE`, `TVOS_APP_STORE`, `MAC_APP_STORE`). */
 type ProvisioningProfileType = NonNullable<
   NonNullable<components['schemas']['Profile']['attributes']>['profileType']
@@ -144,7 +143,7 @@ type ProvisioningProfileType = NonNullable<
  * the only programmatic signal that the account's agreements need attention (see {@link
  * AppStoreConnectClient.checkRequiredAgreements}). Matched as a substring of Apple's `FORBIDDEN.<code>`.
  */
-export const REQUIRED_AGREEMENTS_ERROR_CODE = 'REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED';
+const REQUIRED_AGREEMENTS_ERROR_CODE = 'REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED';
 /** Platform value Apple expects when registering a device for ad-hoc distribution. */
 const IOS_DEVICE_PLATFORM = 'IOS';
 /**
@@ -231,7 +230,7 @@ const AscErrorsDocumentSchema = Schema.parseJson(
  * can branch on a specific failure structurally instead of string-matching the message. Extends Error, so
  * existing `rejects.toThrow(/.../)` assertions hold.
  */
-export class AscRequestError extends Error {
+class AscRequestError extends Error {
   constructor(
     message: string,
     readonly status: number,
@@ -242,12 +241,12 @@ export class AscRequestError extends Error {
   }
 }
 /** The requested store-availability set names a territory Apple did not return as updatable. */
-export class AscAvailabilityUpdateError extends Data.TaggedError('AscAvailabilityUpdateError')<{
+class AscAvailabilityUpdateError extends Data.TaggedError('AscAvailabilityUpdateError')<{
   readonly message: string;
   readonly missingTerritories: readonly string[];
 }> {}
 /** Whether an error is a transient App Store Connect failure worth retrying (HTTP 429 or any 5xx). */
-export const isRetryableAscError = (error: unknown): boolean => {
+const isRetryableAscError = (error: unknown): boolean => {
   if (!(error instanceof AscRequestError)) return false;
   if (error.status === 429) return true;
   return error.status >= 500;

@@ -8,7 +8,7 @@ export type KeyIdentityFailure = Readonly<{
   readonly message: string;
 }>;
 
-export const makeKeyIdentityFailure = Data.tagged<KeyIdentityFailure>('KeyIdentityFailure');
+const makeKeyIdentityFailure = Data.tagged<KeyIdentityFailure>('KeyIdentityFailure');
 
 /** Read an uppercase Apple Key ID from an `AuthKey_<KEYID>.p8` filename. */
 export const extractKeyId = (p8Path: string): Effect.Effect<string | null, never, Path.Path> =>

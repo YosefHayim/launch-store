@@ -17,8 +17,7 @@ export type ActiveAppleStoreFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeActiveAppleStoreFailure =
-  Data.tagged<ActiveAppleStoreFailure>('ActiveAppleStoreFailure');
+const makeActiveAppleStoreFailure = Data.tagged<ActiveAppleStoreFailure>('ActiveAppleStoreFailure');
 
 export type ActiveAppleStoreRequirements =
   | AppleStoreClientRequirements

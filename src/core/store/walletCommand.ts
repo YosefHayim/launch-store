@@ -15,7 +15,7 @@ import {
 } from './appStoreSurfaceCommand.js';
 import { parseWalletConfig, reconcileWalletIds } from './walletIds.js';
 
-export const WalletCommandInputSchema = Schema.Union(
+const WalletCommandInputSchema = Schema.Union(
   Schema.Struct({
     operation: Schema.Literal('reconcile'),
     configPath: Schema.String,
@@ -26,7 +26,7 @@ export const WalletCommandInputSchema = Schema.Union(
   Schema.Struct({ operation: Schema.Literal('list') }),
 );
 
-export type WalletCommandInput = Schema.Schema.Type<typeof WalletCommandInputSchema>;
+type WalletCommandInput = Schema.Schema.Type<typeof WalletCommandInputSchema>;
 
 export type WalletCommandFailure = Readonly<{
   readonly _tag: 'WalletCommandFailure';
@@ -35,7 +35,7 @@ export type WalletCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeWalletCommandFailure = Data.tagged<WalletCommandFailure>('WalletCommandFailure');
+const makeWalletCommandFailure = Data.tagged<WalletCommandFailure>('WalletCommandFailure');
 
 type WalletCommandRequirements =
   | ActiveAppleStoreRequirements

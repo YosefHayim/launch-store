@@ -16,7 +16,7 @@ export const CloudCommandInputSchema = Schema.Struct({
   yes: Schema.Boolean,
 });
 
-export type CloudCommandInput = Schema.Schema.Type<typeof CloudCommandInputSchema>;
+type CloudCommandInput = Schema.Schema.Type<typeof CloudCommandInputSchema>;
 
 export type CloudCommandFailure = Readonly<{
   readonly _tag: 'CloudCommandFailure';
@@ -25,7 +25,7 @@ export type CloudCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeCloudCommandFailure = Data.tagged<CloudCommandFailure>('CloudCommandFailure');
+const makeCloudCommandFailure = Data.tagged<CloudCommandFailure>('CloudCommandFailure');
 
 type CloudCommandRequirements =
   | FileSystem.FileSystem

@@ -107,8 +107,7 @@ export type PlayReportingApiError = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makePlayReportingApiError =
-  Data.tagged<PlayReportingApiError>('PlayReportingApiError');
+const makePlayReportingApiError = Data.tagged<PlayReportingApiError>('PlayReportingApiError');
 export type PlayReportingTransport = {
   readonly vitals: {
     readonly crashrate: Pick<

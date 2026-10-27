@@ -74,8 +74,7 @@ export type UpdatesCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeUpdatesCommandFailure =
-  Data.tagged<UpdatesCommandFailure>('UpdatesCommandFailure');
+const makeUpdatesCommandFailure = Data.tagged<UpdatesCommandFailure>('UpdatesCommandFailure');
 
 /** Injectable terminal, clock, and identifier boundary for update history. */
 export type UpdatesCommandService = Readonly<{

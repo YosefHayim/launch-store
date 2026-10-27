@@ -132,7 +132,7 @@ export type AiScreenshotsFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeAiScreenshotsFailure = Data.tagged<AiScreenshotsFailure>('AiScreenshotsFailure');
+const makeAiScreenshotsFailure = Data.tagged<AiScreenshotsFailure>('AiScreenshotsFailure');
 
 type AiScreenshotsRequirements =
   | FileSystem.FileSystem
@@ -276,7 +276,7 @@ const parseCsvList = (csv: string): readonly string[] =>
     .filter((token) => token.length > 0);
 
 /** Resolve the Genshot store name for a Launch build platform. */
-export const genshotTargetStore = (platform: Platform): 'app_store' | 'google_play' => {
+const genshotTargetStore = (platform: Platform): 'app_store' | 'google_play' => {
   if (platform === 'ios') return 'app_store';
   return 'google_play';
 };
@@ -543,7 +543,7 @@ export const discoverGenshotScreenshots = (
   });
 
 /** Build the genshot CLI enhancement backend. */
-export const createGenshotEnhancer = (
+const createGenshotEnhancer = (
   binaryOverride: string | undefined,
 ): ScreenshotEnhancer<
   | FileSystem.FileSystem

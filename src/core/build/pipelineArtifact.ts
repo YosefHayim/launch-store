@@ -352,7 +352,7 @@ export const sizeSummary = (
 /** A build whose worst-case download grows beyond this fraction over the previous one earns a warning. */
 const GROWTH_WARN_RATIO = 0.1;
 
-export type UploadSizeGrowth = {
+type UploadSizeGrowth = {
   readonly pct: number;
   readonly buildNumber: number;
 };

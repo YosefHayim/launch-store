@@ -32,7 +32,7 @@ export type ConsoleLinkFailure = Readonly<{
   readonly message: string;
   readonly cause?: unknown;
 }>;
-export const makeConsoleLinkFailure = Data.tagged<ConsoleLinkFailure>('ConsoleLinkFailure');
+const makeConsoleLinkFailure = Data.tagged<ConsoleLinkFailure>('ConsoleLinkFailure');
 
 const ASC_ORIGIN = 'https://appstoreconnect.apple.com';
 const PLAY_CONSOLE_URL = 'https://play.google.com/console';

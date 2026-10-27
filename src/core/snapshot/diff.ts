@@ -2,7 +2,7 @@ import type { JsonValue, Snapshot, SnapshotEntity, SnapshotStore } from '../type
 /** How one entity differs between the two snapshots. */
 export type DiffChange = 'added' | 'removed' | 'changed';
 /** One entity-level difference, carrying enough identity to render it grouped by store -> app -> surface. */
-export type EntityDiff = {
+type EntityDiff = {
   store: SnapshotStore;
   sourceId: string;
   sourceTitle: string;

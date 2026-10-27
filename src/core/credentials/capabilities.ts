@@ -177,7 +177,7 @@ export const staleProfileCapabilities = (
   return [...missing].sort();
 };
 /** The entitlement key whose value lists the `group.*` App Group container ids a bundle joins. */
-export const APP_GROUPS_ENTITLEMENT = 'com.apple.security.application-groups';
+const APP_GROUPS_ENTITLEMENT = 'com.apple.security.application-groups';
 /**
  * The `group.*` App Group container ids declared by one bundle's entitlements. The
  * {@link APP_GROUPS_ENTITLEMENT} value is an array of group ids in a normal Expo config; this reads it

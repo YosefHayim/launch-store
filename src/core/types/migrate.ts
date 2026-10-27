@@ -43,13 +43,13 @@ export type EasBuildProfile = Readonly<{
   developmentClient?: boolean;
 }>;
 /** The iOS half of a `submit.<profile>` block - Apple account details that map to `launch creds`, not config. */
-export type EasSubmitIos = Readonly<{
+type EasSubmitIos = Readonly<{
   appleId?: string;
   ascAppId?: string;
   appleTeamId?: string;
 }>;
 /** The Android half of a `submit.<profile>` block - the Play track maps to a profile; the key path to `launch creds`. */
-export type EasSubmitAndroid = Readonly<{
+type EasSubmitAndroid = Readonly<{
   serviceAccountKeyPath?: string;
   track?: string;
 }>;
@@ -59,7 +59,7 @@ export type EasSubmitProfile = Readonly<{
   android?: EasSubmitAndroid;
 }>;
 /** The `cli` block in `eas.json` - only `appVersionSource` informs the report (it matches Launch's store-driven bumping). */
-export type EasCli = Readonly<{
+type EasCli = Readonly<{
   appVersionSource?: string;
 }>;
 /**

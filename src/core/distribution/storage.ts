@@ -12,7 +12,7 @@ export type ArtifactDirectoryFailure = Readonly<{
   readonly message: string;
 }>;
 
-export const makeArtifactDirectoryFailure = Data.tagged<ArtifactDirectoryFailure>(
+const makeArtifactDirectoryFailure = Data.tagged<ArtifactDirectoryFailure>(
   'ArtifactDirectoryFailure',
 );
 
@@ -22,7 +22,7 @@ export type ArtifactUnavailableFailure = Readonly<{
   readonly artifactPath: string;
 }>;
 
-export const makeArtifactUnavailableFailure = Data.tagged<ArtifactUnavailableFailure>(
+const makeArtifactUnavailableFailure = Data.tagged<ArtifactUnavailableFailure>(
   'ArtifactUnavailableFailure',
 );
 

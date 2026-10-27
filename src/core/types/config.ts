@@ -31,7 +31,7 @@ export const DEFAULT_SUBMITTER = 'app-store-connect';
  * The multi-store form of {@link LaunchConfig.submit}: a per-platform list of registered `Submitter`
  * names a build for that {@link Platform} is uploaded to, in order.
  */
-export type SubmitByPlatform = Partial<Record<Platform, string[]>>;
+type SubmitByPlatform = Partial<Record<Platform, string[]>>;
 /**
  * Non-secret settings for a cloud {@link StorageProvider}.
  * Credentials are NEVER stored here - keys resolve from env or the OS secret store.

@@ -31,7 +31,7 @@ export type PlaySubscriptionsCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makePlaySubscriptionsCommandFailure = Data.tagged<PlaySubscriptionsCommandFailure>(
+const makePlaySubscriptionsCommandFailure = Data.tagged<PlaySubscriptionsCommandFailure>(
   'PlaySubscriptionsCommandFailure',
 );
 

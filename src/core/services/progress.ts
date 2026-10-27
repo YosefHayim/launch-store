@@ -42,10 +42,6 @@ export type ProgressRunOptions = {
   estimate?: BuildEstimate;
 };
 /** What {@link runWithProgress} measured - fed back to {@link import("../build/buildFingerprint.js").updateEstimate}. */
-export type RunProgressResult = {
-  elapsedMs: number;
-  steps: number;
-};
 /** Trailing lines kept in memory to show as context when a tool fails. */
 const TAIL_LINES = 40;
 /** Cap a step string so the spinner stays on one terminal line. */

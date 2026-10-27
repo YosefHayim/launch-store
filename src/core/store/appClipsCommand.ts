@@ -33,8 +33,7 @@ export type AppClipsCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeAppClipsCommandFailure =
-  Data.tagged<AppClipsCommandFailure>('AppClipsCommandFailure');
+const makeAppClipsCommandFailure = Data.tagged<AppClipsCommandFailure>('AppClipsCommandFailure');
 
 type AppClipsCommandRequirements =
   | ActiveAppleStoreRequirements

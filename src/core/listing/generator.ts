@@ -48,17 +48,16 @@ export type ListingGenerationFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeListingGenerationFailure = Data.tagged<ListingGenerationFailure>(
+const makeListingGenerationFailure = Data.tagged<ListingGenerationFailure>(
   'ListingGenerationFailure',
 );
 
-export const ListingGenerationFailureSchema: Schema.Schema<ListingGenerationFailure> =
-  Schema.Struct({
-    _tag: Schema.Literal('ListingGenerationFailure'),
-    operation: Schema.String,
-    message: Schema.String,
-    cause: Schema.Unknown,
-  });
+const ListingGenerationFailureSchema: Schema.Schema<ListingGenerationFailure> = Schema.Struct({
+  _tag: Schema.Literal('ListingGenerationFailure'),
+  operation: Schema.String,
+  message: Schema.String,
+  cause: Schema.Unknown,
+});
 
 /** Normalize a generator dependency failure. */
 const generationFailure = (

@@ -10,7 +10,7 @@ import {
 import type { BuildRunOptions } from './pipelineTypes.js';
 
 /** One app's resolved build decisions before native work starts. */
-export type AppBuildPlan = Readonly<{
+type AppBuildPlan = Readonly<{
   readonly app: string;
   readonly identifier?: string;
   readonly buildEngine: string;
@@ -45,7 +45,7 @@ export type BuildPreviewFailure = Readonly<{
   readonly message: string;
 }>;
 
-export const makeBuildPreviewFailure = Data.tagged<BuildPreviewFailure>('BuildPreviewFailure');
+const makeBuildPreviewFailure = Data.tagged<BuildPreviewFailure>('BuildPreviewFailure');
 
 /** Resolve the store identifier an app exposes for the selected platform. */
 const identifierFor = (appDescriptor: AppDescriptor, platform: Platform): string | undefined => {

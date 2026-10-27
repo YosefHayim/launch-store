@@ -18,7 +18,6 @@ export const DeviceCommandInputSchema = Schema.Union(DeviceAddInputSchema, Devic
 
 export type DeviceCommandInput = Schema.Schema.Type<typeof DeviceCommandInputSchema>;
 export type DeviceAddInput = Schema.Schema.Type<typeof DeviceAddInputSchema>;
-export type DeviceListInput = Schema.Schema.Type<typeof DeviceListInputSchema>;
 
 /** A device command step failed. */
 export type DeviceCommandFailure = Readonly<{
@@ -27,7 +26,7 @@ export type DeviceCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeDeviceCommandFailure = Data.tagged<DeviceCommandFailure>('DeviceCommandFailure');
+const makeDeviceCommandFailure = Data.tagged<DeviceCommandFailure>('DeviceCommandFailure');
 
 type DeviceCommandRequirements = ActiveAppleStoreRequirements | Logger;
 

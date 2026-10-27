@@ -42,7 +42,7 @@ const AccessibilityDeclarationConfigSchema = Schema.extend(
   ),
 );
 
-export const AccessibilityConfigSchema = Schema.mutable(
+const AccessibilityConfigSchema = Schema.mutable(
   Schema.Struct({
     publish: Schema.optionalWith(
       Schema.Boolean.annotations({
@@ -78,7 +78,7 @@ const AccessibilityConfigSpec = {
 };
 
 /** One device family's declared accessibility support. */
-export type AccessibilityDeclarationConfig = AccessibilitySupport & {
+type AccessibilityDeclarationConfig = AccessibilitySupport & {
   deviceFamily: DeviceFamily;
 };
 /** Accessibility declarations for one app. */

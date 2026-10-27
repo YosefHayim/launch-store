@@ -5,14 +5,12 @@ import { createLogger, type Logger } from '../services/logger.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 
 const WORKFLOW_SEGMENTS = ['.github', 'workflows', 'launch.yml'] as const;
-export const WORKFLOW_PATH = WORKFLOW_SEGMENTS.join('/');
+const WORKFLOW_PATH = WORKFLOW_SEGMENTS.join('/');
 
-export const CiCommandInputSchema = Schema.Struct({
+const CiCommandInputSchema = Schema.Struct({
   android: Schema.Boolean,
   force: Schema.Boolean,
 });
-
-export type CiCommandInput = Schema.Schema.Type<typeof CiCommandInputSchema>;
 
 export type CiCommandFailure = Readonly<{
   readonly _tag: 'CiCommandFailure';
@@ -21,7 +19,7 @@ export type CiCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeCiCommandFailure = Data.tagged<CiCommandFailure>('CiCommandFailure');
+const makeCiCommandFailure = Data.tagged<CiCommandFailure>('CiCommandFailure');
 
 /** Render the generated workflow's credential instructions. */
 const workflowHeader = (includeAndroid: boolean): string => {

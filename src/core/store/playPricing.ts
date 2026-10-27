@@ -24,8 +24,7 @@ export type PlayPricingInputError = Readonly<{
   readonly receivedValue: string;
   readonly message: string;
 }>;
-export const makePlayPricingInputError =
-  Data.tagged<PlayPricingInputError>('PlayPricingInputError');
+const makePlayPricingInputError = Data.tagged<PlayPricingInputError>('PlayPricingInputError');
 
 /** Configuration, credentials, conversion, or output failed. */
 export type PlayPricingExecutionError = Readonly<{
@@ -34,7 +33,7 @@ export type PlayPricingExecutionError = Readonly<{
   readonly message: string;
   readonly cause?: unknown;
 }>;
-export const makePlayPricingExecutionError = Data.tagged<PlayPricingExecutionError>(
+const makePlayPricingExecutionError = Data.tagged<PlayPricingExecutionError>(
   'PlayPricingExecutionError',
 );
 

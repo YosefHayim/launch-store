@@ -76,8 +76,7 @@ export type ExportComplianceFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeExportComplianceFailure =
-  Data.tagged<ExportComplianceFailure>('ExportComplianceFailure');
+const makeExportComplianceFailure = Data.tagged<ExportComplianceFailure>('ExportComplianceFailure');
 
 const exportComplianceFailure = (operation: string, cause: unknown): ExportComplianceFailure => {
   let message = `${operation} failed.`;

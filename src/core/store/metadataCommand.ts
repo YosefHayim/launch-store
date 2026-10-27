@@ -48,8 +48,7 @@ export type MetadataCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeMetadataCommandFailure =
-  Data.tagged<MetadataCommandFailure>('MetadataCommandFailure');
+const makeMetadataCommandFailure = Data.tagged<MetadataCommandFailure>('MetadataCommandFailure');
 
 type MetadataCredentialRequirements =
   | FileSystem.FileSystem

@@ -51,13 +51,13 @@ const AnalyticsReportsCommandInputSchema = Schema.Struct({
   out: Schema.String,
 });
 
-export const ReportsCommandInputSchema = Schema.Union(
+const ReportsCommandInputSchema = Schema.Union(
   SalesReportsCommandInputSchema,
   FinanceReportsCommandInputSchema,
   AnalyticsReportsCommandInputSchema,
 );
 
-export type ReportsCommandInput = Schema.Schema.Type<typeof ReportsCommandInputSchema>;
+type ReportsCommandInput = Schema.Schema.Type<typeof ReportsCommandInputSchema>;
 
 export type ReportsCommandFailure = Readonly<{
   readonly _tag: 'ReportsCommandFailure';
@@ -66,8 +66,7 @@ export type ReportsCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeReportsCommandFailure =
-  Data.tagged<ReportsCommandFailure>('ReportsCommandFailure');
+const makeReportsCommandFailure = Data.tagged<ReportsCommandFailure>('ReportsCommandFailure');
 
 type ReportsCommandRequirements =
   | ActiveAppleStoreRequirements

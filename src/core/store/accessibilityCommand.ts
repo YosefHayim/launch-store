@@ -37,7 +37,7 @@ export type AccessibilityCommandFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeAccessibilityCommandFailure = Data.tagged<AccessibilityCommandFailure>(
+const makeAccessibilityCommandFailure = Data.tagged<AccessibilityCommandFailure>(
   'AccessibilityCommandFailure',
 );
 

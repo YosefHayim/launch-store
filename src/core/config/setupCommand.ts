@@ -36,7 +36,7 @@ import {
 } from '../store/selectStoreApp.js';
 import { runSetup } from './setup.js';
 
-export const SetupCommandInputSchema = Schema.Union(
+const SetupCommandInputSchema = Schema.Union(
   Schema.Struct({
     operation: Schema.Literal('auto'),
     platform: Schema.optional(Schema.String),
@@ -53,7 +53,7 @@ export const SetupCommandInputSchema = Schema.Union(
   }),
 );
 
-export type SetupCommandInput = Schema.Schema.Type<typeof SetupCommandInputSchema>;
+type SetupCommandInput = Schema.Schema.Type<typeof SetupCommandInputSchema>;
 
 type ProvisioningDevice = Readonly<{
   name: string;
@@ -91,7 +91,7 @@ export type SetupCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeSetupCommandFailure = Data.tagged<SetupCommandFailure>('SetupCommandFailure');
+const makeSetupCommandFailure = Data.tagged<SetupCommandFailure>('SetupCommandFailure');
 
 type SetupCommandRequirements =
   | AppleStoreClientRequirements

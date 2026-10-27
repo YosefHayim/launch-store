@@ -37,7 +37,7 @@ const CustomProductPageConfigSchema = Schema.mutable(
   }),
 );
 
-export const CustomProductPagesConfigSchema = Schema.mutable(
+const CustomProductPagesConfigSchema = Schema.mutable(
   Schema.Struct({
     pages: Schema.mutable(Schema.Array(CustomProductPageConfigSchema)).pipe(
       Schema.minItems(1, {
@@ -65,7 +65,7 @@ const CustomProductPagesConfigSpec = {
   schema: CustomProductPagesConfigSchema,
 };
 /** One declared custom product page: a name plus optional per-locale promotional text. */
-export type CustomProductPageConfig = {
+type CustomProductPageConfig = {
   name: string;
   promotionalText?: Record<string, string>;
 };

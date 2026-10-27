@@ -21,7 +21,7 @@ const TerritoryCodeSchema = Schema.transform(
   },
 );
 
-export const AvailabilityConfigSchema = Schema.mutable(
+const AvailabilityConfigSchema = Schema.mutable(
   Schema.Struct({
     availableInNewTerritories: Schema.optionalWith(Schema.Boolean, { exact: true }),
     territories: Schema.mutable(Schema.Array(TerritoryCodeSchema)),
@@ -38,7 +38,7 @@ export type AvailabilityConfigFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeAvailabilityConfigFailure = Data.tagged<AvailabilityConfigFailure>(
+const makeAvailabilityConfigFailure = Data.tagged<AvailabilityConfigFailure>(
   'AvailabilityConfigFailure',
 );
 /**

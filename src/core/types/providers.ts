@@ -149,12 +149,6 @@ export type Submitter = Readonly<{
  * no Keychain; this seam gives them a real OS-native store. NOTE: importing a cert into a *codesign*
  * keychain (the `security import` calls) is a different concern and stays in `core/keychain.ts`.
  */
-export type SecretStore = Readonly<{
-  readonly name: string;
-  get(account: string): Effect.Effect<string | null, unknown>;
-  set(account: string, secretText: string): Effect.Effect<void, unknown>;
-  delete(account: string): Effect.Effect<void, unknown>;
-}>;
 /**
  * Provisions, connects to, and tears down a remote Mac for off-Mac iOS builds.
  *

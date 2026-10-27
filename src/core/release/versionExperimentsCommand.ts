@@ -47,7 +47,7 @@ export type VersionExperimentsCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeVersionExperimentsCommandFailure = Data.tagged<VersionExperimentsCommandFailure>(
+const makeVersionExperimentsCommandFailure = Data.tagged<VersionExperimentsCommandFailure>(
   'VersionExperimentsCommandFailure',
 );
 

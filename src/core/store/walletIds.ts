@@ -25,7 +25,7 @@ const WalletIdentifierSchema = Schema.mutable(
   }),
 );
 
-export const WalletConfigSchema = Schema.mutable(
+const WalletConfigSchema = Schema.mutable(
   Schema.Struct({
     merchantIds: Schema.optionalWith(Schema.mutable(Schema.Array(WalletIdentifierSchema)), {
       exact: true,

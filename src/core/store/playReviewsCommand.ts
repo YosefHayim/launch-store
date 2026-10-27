@@ -47,7 +47,7 @@ export type PlayReviewsCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makePlayReviewsCommandFailure = Data.tagged<PlayReviewsCommandFailure>(
+const makePlayReviewsCommandFailure = Data.tagged<PlayReviewsCommandFailure>(
   'PlayReviewsCommandFailure',
 );
 

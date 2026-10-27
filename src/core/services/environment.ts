@@ -14,7 +14,7 @@ export const LaunchEnvironment = Context.GenericTag<LaunchEnvironmentService>(
 );
 
 /** Build an environment layer from an explicit variable map. */
-export const makeLaunchEnvironmentLayer = (
+const makeLaunchEnvironmentLayer = (
   environmentVariables: Readonly<Record<string, string | undefined>>,
 ): Layer.Layer<LaunchEnvironmentService, unknown> => {
   return Layer.effect(

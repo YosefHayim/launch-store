@@ -25,8 +25,7 @@ export type SandboxCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeSandboxCommandFailure =
-  Data.tagged<SandboxCommandFailure>('SandboxCommandFailure');
+const makeSandboxCommandFailure = Data.tagged<SandboxCommandFailure>('SandboxCommandFailure');
 
 type SandboxCommandRequirements =
   | ActiveAppleStoreRequirements
@@ -51,7 +50,7 @@ const sandboxFailure = (
 };
 
 /** Render one sandbox tester as email, name, territory, and renewal rate. */
-export const renderSandboxTester = (sandboxTester: SandboxTesterResource): string => {
+const renderSandboxTester = (sandboxTester: SandboxTesterResource): string => {
   const nameParts = [sandboxTester.firstName, sandboxTester.lastName].filter(
     (namePart): namePart is string => namePart !== undefined && namePart.length > 0,
   );

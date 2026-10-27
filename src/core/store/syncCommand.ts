@@ -23,8 +23,6 @@ export const SyncCommandInputSchema = Schema.Struct({
   snapshot: Schema.Boolean,
 });
 
-export type SyncCommandInput = Schema.Schema.Type<typeof SyncCommandInputSchema>;
-
 export type SyncCommandFailure = Readonly<{
   readonly _tag: 'SyncCommandFailure';
   readonly operation: string;
@@ -32,7 +30,7 @@ export type SyncCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeSyncCommandFailure = Data.tagged<SyncCommandFailure>('SyncCommandFailure');
+const makeSyncCommandFailure = Data.tagged<SyncCommandFailure>('SyncCommandFailure');
 
 type SyncCommandRequirements =
   | AppleStoreClientService

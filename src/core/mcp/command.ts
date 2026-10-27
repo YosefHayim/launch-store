@@ -16,7 +16,7 @@ const CLIENT_LABELS: Record<McpClient, string> = {
   'claude-desktop': 'Claude Desktop',
 };
 
-export const McpCommandInputSchema = Schema.Union(
+const McpCommandInputSchema = Schema.Union(
   Schema.Struct({ operation: Schema.Literal('serve') }),
   Schema.Struct({
     operation: Schema.Literal('install'),
@@ -24,7 +24,7 @@ export const McpCommandInputSchema = Schema.Union(
   }),
 );
 
-export type McpCommandInput = Schema.Schema.Type<typeof McpCommandInputSchema>;
+type McpCommandInput = Schema.Schema.Type<typeof McpCommandInputSchema>;
 
 export type McpCommandFailure = Readonly<{
   readonly _tag: 'McpCommandFailure';
@@ -33,7 +33,7 @@ export type McpCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeMcpCommandFailure = Data.tagged<McpCommandFailure>('McpCommandFailure');
+const makeMcpCommandFailure = Data.tagged<McpCommandFailure>('McpCommandFailure');
 
 type McpCommandRequirements =
   | FileSystem.FileSystem

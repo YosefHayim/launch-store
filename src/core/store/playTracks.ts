@@ -6,7 +6,7 @@ import type { MutableDeep } from '../types/mutable.js';
 export const RELEASE_STATUSES = ['draft', 'inProgress', 'halted', 'completed'] as const;
 
 /** Schema for a Play track release status. */
-export const PlayReleaseStatusSchema = Schema.Literal(...RELEASE_STATUSES);
+const PlayReleaseStatusSchema = Schema.Literal(...RELEASE_STATUSES);
 
 /** A validated Play track release status. */
 export type PlayReleaseStatus = Schema.Schema.Type<typeof PlayReleaseStatusSchema>;
@@ -33,8 +33,7 @@ export type PlayReleaseInputFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makePlayReleaseInputFailure =
-  Data.tagged<PlayReleaseInputFailure>('PlayReleaseInputFailure');
+const makePlayReleaseInputFailure = Data.tagged<PlayReleaseInputFailure>('PlayReleaseInputFailure');
 
 const ReleaseNotesDocumentSchema = Schema.Record({ key: Schema.String, value: Schema.String });
 

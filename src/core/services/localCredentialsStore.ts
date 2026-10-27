@@ -24,7 +24,7 @@ export type AppleCredentialAccountStatus = Readonly<{
   readonly profileCount: number;
 }>;
 
-export type AndroidCredentialStatus = Readonly<{
+type AndroidCredentialStatus = Readonly<{
   readonly keystoreAlias: string | null;
   readonly hasServiceAccount: boolean;
 }>;

@@ -22,12 +22,12 @@ import { LaunchPrompt } from '../services/prompt.js';
 import type { BuildRunOptions, BumpResolution } from './pipelineTypes.js';
 import type { MutableDeep } from '../types/mutable.js';
 
-export type BuildVersionFailure = Readonly<{
+type BuildVersionFailure = Readonly<{
   readonly _tag: 'BuildVersionFailure';
   readonly message: string;
 }>;
 
-export const makeBuildVersionFailure = Data.tagged<BuildVersionFailure>('BuildVersionFailure');
+const makeBuildVersionFailure = Data.tagged<BuildVersionFailure>('BuildVersionFailure');
 
 type PromptedVersion = Readonly<{
   readonly chosen: string;
@@ -89,7 +89,7 @@ export const setIosBuildNumber = (appDir: string, platform: Platform, buildNumbe
   return setNativePlistValue(appDir, platform, 'CFBundleVersion', buildNumber);
 };
 /** Set the marketing version (`CFBundleShortVersionString`) into the platform's generated Info.plist. */
-export const setIosMarketingVersion = (appDir: string, platform: Platform, version: string) => {
+const setIosMarketingVersion = (appDir: string, platform: Platform, version: string) => {
   return setNativePlistValue(appDir, platform, 'CFBundleShortVersionString', version);
 };
 /** Resolve the next build number from App Store Connect, or a placeholder in dry-run. */
@@ -132,7 +132,7 @@ export const resolveBumpKind = (args: {
  * custom one. Returns the resolved version and its {@link BumpKind} - `undefined` for a typed "Custom..."
  * version, which has no kind and so is never remembered. Cancelling (Ctrl-C) exits cleanly.
  */
-export const promptVersion = (baseline: string, current: string, latest: string | null) =>
+const promptVersion = (baseline: string, current: string, latest: string | null) =>
   Effect.gen(function* () {
     const launchPrompt = yield* LaunchPrompt;
     const patchVersion = nextVersion(baseline, 'patch');
@@ -188,7 +188,7 @@ export const promptVersion = (baseline: string, current: string, latest: string 
  * later step reports it, warn when it doesn't increment the store's latest, and log the step. `note`
  * explains the source (e.g. `patch, remembered`) so the line is self-documenting.
  */
-export const applyChosenVersion = (
+const applyChosenVersion = (
   app: MutableDeep<AppDescriptor>,
   platform: Platform,
   chosen: string,

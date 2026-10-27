@@ -18,8 +18,6 @@ export const FingerprintCommandInputSchema = Schema.Struct({
   json: Schema.Boolean,
 });
 
-export type FingerprintCommandInput = Schema.Schema.Type<typeof FingerprintCommandInputSchema>;
-
 /** Fingerprint calculation and the cache decision it produces. */
 export type FingerprintReport = Readonly<{
   app: string;
@@ -29,7 +27,7 @@ export type FingerprintReport = Readonly<{
   decision: CleanDecision;
 }>;
 
-export const FingerprintCommandFailureSchema = Schema.Struct({
+const FingerprintCommandFailureSchema = Schema.Struct({
   _tag: Schema.Literal('FingerprintCommandFailure'),
   operation: Schema.String,
   message: Schema.String,
@@ -38,7 +36,7 @@ export const FingerprintCommandFailureSchema = Schema.Struct({
 
 export type FingerprintCommandFailure = Schema.Schema.Type<typeof FingerprintCommandFailureSchema>;
 
-export const makeFingerprintCommandFailure = Data.tagged<FingerprintCommandFailure>(
+const makeFingerprintCommandFailure = Data.tagged<FingerprintCommandFailure>(
   'FingerprintCommandFailure',
 );
 

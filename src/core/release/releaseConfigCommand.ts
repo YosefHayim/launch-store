@@ -36,7 +36,7 @@ export type ReleaseConfigCommandFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeReleaseConfigCommandFailure = Data.tagged<ReleaseConfigCommandFailure>(
+const makeReleaseConfigCommandFailure = Data.tagged<ReleaseConfigCommandFailure>(
   'ReleaseConfigCommandFailure',
 );
 
