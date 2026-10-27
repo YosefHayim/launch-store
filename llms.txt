@@ -39,7 +39,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 12. **Release attributes.** `launch release-config` reconciles the age rating, categories, base price, and App Review details (contact + demo account) onto the editable version.
 13. **Store availability.** `launch availability` sets the App Store territories the app sells in.
 14. **Custom product pages.** `launch custom-pages` reconciles alternate App Store listings.
-15. **Product-page A/B tests.** `launch experiments` reconciles product-page experiments and their treatments.
+15. **Product-page A/B tests.** `launch experiments` reconciles product-page experiments and their treatments, makes the screenshots of each treatment match its `screenshots` folder (Apple pre-fills a new treatment with the original screenshots), then `--submit` sends them to App Review and `--start` starts the approved ones.
 16. **In-app events.** `launch events list`/`create`/`localize`/`delete` manages App Store in-app events and their localizations.
 17. **Game Center.** `launch game-center` reconciles achievements and leaderboards.
 18. **Accessibility labels.** `launch accessibility` reconciles the accessibility nutrition labels.
@@ -146,7 +146,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 63 `launch` commands (202 store-API operations underneath, 2457 tests):
+All 63 `launch` commands (204 store-API operations underneath, 2460 tests):
 
 - `launch init` - scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` - onboard an app that already ships: import its App Store Connect setup into config

@@ -367,6 +367,7 @@ const reconcileTreatmentScreenshots = (
             ensuredLocalization.localizationId,
             displayType,
           ),
+        exact: true,
       };
       yield* reconcileOwnerScreenshots(appleExperimentsApi, actionLog, setOwner, localeScreenshots);
     }

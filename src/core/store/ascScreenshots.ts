@@ -38,6 +38,8 @@ export type ScreenshotsApi = {
   ): Effect.Effect<ScreenshotSetResource, unknown>;
   listScreenshots(setId: string): Effect.Effect<ScreenshotResource[], unknown>;
   uploadScreenshot(setId: string, fileName: string, filePath: string): Effect.Effect<void, unknown>;
+  deleteScreenshot(screenshotId: string): Effect.Effect<void, unknown>;
+  reorderScreenshots(setId: string, screenshotIds: readonly string[]): Effect.Effect<void, unknown>;
   listSubscriptionGroups(appId: string): Effect.Effect<SubscriptionGroupResource[], unknown>;
   listSubscriptions(groupId: string): Effect.Effect<SubscriptionResource[], unknown>;
   getSubscriptionReviewScreenshot(
@@ -50,10 +52,18 @@ export type ScreenshotsApi = {
   ): Effect.Effect<void, unknown>;
 };
 /** The screenshot calls one set needs once its owner (version or treatment localization) is known. */
-export type ScreenshotSetApi = Pick<ScreenshotsApi, 'listScreenshots' | 'uploadScreenshot'>;
-/** One localization that owns screenshot sets: its locale plus how to list and create its sets. */
+export type ScreenshotSetApi = Pick<
+  ScreenshotsApi,
+  'listScreenshots' | 'uploadScreenshot' | 'deleteScreenshot' | 'reorderScreenshots'
+>;
+/**
+ * One localization that owns screenshot sets: its locale plus how to list and create its sets. `exact`
+ * sets hold only the local screenshots, in file order (Apple fills a new treatment localization with the
+ * original's screenshots); other sets only gain the missing ones.
+ */
 export type ScreenshotSetOwner = Readonly<{
   locale: string;
+  exact: boolean;
   listSets: () => Effect.Effect<ScreenshotSetResource[], unknown>;
   createSet: (displayType: string) => Effect.Effect<ScreenshotSetResource, unknown>;
 }>;
@@ -184,6 +194,7 @@ const reconcileAppScreenshots = (
         locale,
         listSets: () => api.listScreenshotSets(localizationId),
         createSet: (displayType) => api.createScreenshotSet(localizationId, displayType),
+        exact: false,
       };
       yield* reconcileOwnerScreenshots(api, log, setOwner, localeScreenshots);
     }
@@ -212,6 +223,82 @@ export const reconcileOwnerScreenshots = (
       ),
     );
   });
+/** True when Apple stored the screenshot without a processing failure and with one of `checksums`. */
+const holdsChecksumOf = (
+  screenshot: ScreenshotResource,
+  checksums: ReadonlySet<string>,
+): boolean => {
+  if (screenshot.assetDeliveryState === 'FAILED') return false;
+  if (screenshot.sourceFileChecksum === undefined) return false;
+  return checksums.has(screenshot.sourceFileChecksum);
+};
+/** Delete an exact set's screenshots that are not local files; returns the screenshots still in the set. */
+const removeUnlistedScreenshots = (
+  api: ScreenshotSetApi,
+  log: ActionLog,
+  setLabel: string,
+  existingScreenshots: readonly ScreenshotResource[],
+  screenshots: readonly LocalScreenshot[],
+): Effect.Effect<ScreenshotResource[]> =>
+  Effect.gen(function* () {
+    const localChecksums = new Set(screenshots.map((screenshot) => screenshot.checksum));
+    const keptScreenshots: ScreenshotResource[] = [];
+    for (const existingScreenshot of existingScreenshots) {
+      if (holdsChecksumOf(existingScreenshot, localChecksums)) {
+        keptScreenshots.push(existingScreenshot);
+        continue;
+      }
+      const removeAction = yield* act(
+        log,
+        `remove screenshot ${setLabel} ${existingScreenshot.fileName}: not a local file`,
+        false,
+        () => api.deleteScreenshot(existingScreenshot.id),
+      );
+      if (!succeededOrPlanned(removeAction.status)) keptScreenshots.push(existingScreenshot);
+    }
+    return keptScreenshots;
+  });
+/** Reorder a set to `orderedChecksums`, failing rather than sending a list that would drop a screenshot. */
+const reorderByChecksum = (
+  api: ScreenshotSetApi,
+  setId: string,
+  orderedChecksums: readonly string[],
+): Effect.Effect<void, unknown> =>
+  Effect.gen(function* () {
+    const setScreenshots = yield* api.listScreenshots(setId);
+    const idByChecksum = new Map(
+      setScreenshots.map((screenshot) => [screenshot.sourceFileChecksum, screenshot.id]),
+    );
+    const orderedIds = orderedChecksums
+      .map((checksum) => idByChecksum.get(checksum))
+      .filter((screenshotId): screenshotId is string => screenshotId !== undefined);
+    const listsWholeSet =
+      orderedIds.length === orderedChecksums.length && orderedIds.length === setScreenshots.length;
+    if (!listsWholeSet) {
+      return yield* Effect.fail(new Error('the set does not hold exactly the local screenshots'));
+    }
+    yield* api.reorderScreenshots(setId, orderedIds);
+  });
+/** Put an exact set in file order when kept and newly uploaded screenshots ended up out of order. */
+const orderScreenshots = (
+  api: ScreenshotSetApi,
+  log: ActionLog,
+  setId: string,
+  setLabel: string,
+  resultingChecksums: readonly string[],
+  screenshots: readonly LocalScreenshot[],
+): Effect.Effect<void> => {
+  const localChecksums = screenshots.map((screenshot) => screenshot.checksum);
+  const holdsEveryScreenshot = resultingChecksums.length === localChecksums.length;
+  const inFileOrder = resultingChecksums.every(
+    (checksum, position) => checksum === localChecksums[position],
+  );
+  const needsReorder = holdsEveryScreenshot && !inFileOrder;
+  if (!needsReorder) return Effect.void;
+  return act(log, `order screenshots ${setLabel} by file name`, false, () =>
+    reorderByChecksum(api, setId, localChecksums),
+  ).pipe(Effect.asVoid);
+};
 /** Resolve (or create) one display-type set, then upload the local screenshots Apple doesn't already have. */
 const reconcileScreenshotSet = (
   api: ScreenshotSetApi,
@@ -224,6 +311,7 @@ const reconcileScreenshotSet = (
   Effect.gen(function* () {
     const label = appleDisplayTypeLabel(displayType);
     const locale = setOwner.locale;
+    const setLabel = `${label} [${locale}]`;
     let setId: string;
     let existingScreenshots: ScreenshotResource[];
     if (existingSet !== undefined) {
@@ -242,12 +330,21 @@ const reconcileScreenshotSet = (
       if (createdSetId !== undefined) setId = createdSetId;
       existingScreenshots = [];
     }
-    const uploadedChecksums = new Set(
-      existingScreenshots
-        .filter((screenshot) => screenshot.assetDeliveryState !== 'FAILED')
-        .map((screenshot) => screenshot.sourceFileChecksum)
-        .filter((checksum): checksum is string => typeof checksum === 'string'),
-    );
+    if (setOwner.exact) {
+      existingScreenshots = yield* removeUnlistedScreenshots(
+        api,
+        log,
+        setLabel,
+        existingScreenshots,
+        screenshots,
+      );
+    }
+    const storedChecksums = existingScreenshots
+      .filter((screenshot) => screenshot.assetDeliveryState !== 'FAILED')
+      .map((screenshot) => screenshot.sourceFileChecksum)
+      .filter((checksum): checksum is string => typeof checksum === 'string');
+    const uploadedChecksums = new Set(storedChecksums);
+    const resultingChecksums = [...storedChecksums];
     let screenshotCount = existingScreenshots.length;
     for (const screenshot of screenshots) {
       if (uploadedChecksums.has(screenshot.checksum)) continue;
@@ -258,10 +355,17 @@ const reconcileScreenshotSet = (
         );
         continue;
       }
-      yield* act(log, `upload screenshot ${label} [${locale}] ${screenshot.fileName}`, false, () =>
-        api.uploadScreenshot(setId, screenshot.fileName, screenshot.path),
+      const uploadAction = yield* act(
+        log,
+        `upload screenshot ${label} [${locale}] ${screenshot.fileName}`,
+        false,
+        () => api.uploadScreenshot(setId, screenshot.fileName, screenshot.path),
       );
+      if (succeededOrPlanned(uploadAction.status)) resultingChecksums.push(screenshot.checksum);
       screenshotCount++;
+    }
+    if (setOwner.exact) {
+      yield* orderScreenshots(api, log, setId, setLabel, resultingChecksums, screenshots);
     }
   });
 /** Upload each declared subscription's review screenshot, resolving the subscription live by product id. */
