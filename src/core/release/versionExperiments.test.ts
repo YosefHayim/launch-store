@@ -122,15 +122,14 @@ const makeExperimentsApi = (
       if (setScreenshots === undefined) setScreenshots = [];
       return Effect.succeed(setScreenshots);
     },
-    uploadScreenshot: (setId, fileName, filePath) => {
+    uploadScreenshot: (setId, fileName) => {
       experimentWrites.uploads.push({ setId, fileName });
       let setScreenshots = experimentStore.screenshotsBySet[setId];
       if (setScreenshots === undefined) setScreenshots = [];
-      experimentStore.screenshotsBySet[setId] = [
-        ...setScreenshots,
-        { id: `up-${fileName}`, fileName, sourceFileChecksum: filePath },
-      ];
-      return Effect.void;
+      const uploadedId = `up-${fileName}`;
+      // Apple fills sourceFileChecksum only after it processes the upload.
+      experimentStore.screenshotsBySet[setId] = [...setScreenshots, { id: uploadedId, fileName }];
+      return Effect.succeed(uploadedId);
     },
     deleteScreenshot: (screenshotId) => {
       experimentWrites.removedScreenshots.push(screenshotId);
@@ -183,7 +182,7 @@ const mediaConfig: VersionExperimentsConfig = {
   ],
 };
 
-/** Where a fixture treatment screenshot lives; the fake upload stores it as the checksum too. */
+/** Where a fixture treatment screenshot lives; also its checksum. */
 const screenshotPath = (locale: string, fileName: string): string =>
   `/treatment/${locale}/APP_IPHONE_67/${fileName}`;
 

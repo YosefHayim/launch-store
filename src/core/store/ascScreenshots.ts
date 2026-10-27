@@ -37,7 +37,11 @@ export type ScreenshotsApi = {
     displayType: string,
   ): Effect.Effect<ScreenshotSetResource, unknown>;
   listScreenshots(setId: string): Effect.Effect<ScreenshotResource[], unknown>;
-  uploadScreenshot(setId: string, fileName: string, filePath: string): Effect.Effect<void, unknown>;
+  uploadScreenshot(
+    setId: string,
+    fileName: string,
+    filePath: string,
+  ): Effect.Effect<string, unknown>;
   deleteScreenshot(screenshotId: string): Effect.Effect<void, unknown>;
   reorderScreenshots(setId: string, screenshotIds: readonly string[]): Effect.Effect<void, unknown>;
   listSubscriptionGroups(appId: string): Effect.Effect<SubscriptionGroupResource[], unknown>;
@@ -258,46 +262,41 @@ const removeUnlistedScreenshots = (
     }
     return keptScreenshots;
   });
-/** Reorder a set to `orderedChecksums`, failing rather than sending a list that would drop a screenshot. */
-const reorderByChecksum = (
-  api: ScreenshotSetApi,
-  setId: string,
-  orderedChecksums: readonly string[],
-): Effect.Effect<void, unknown> =>
-  Effect.gen(function* () {
-    const setScreenshots = yield* api.listScreenshots(setId);
-    const idByChecksum = new Map(
-      setScreenshots.map((screenshot) => [screenshot.sourceFileChecksum, screenshot.id]),
-    );
-    const orderedIds = orderedChecksums
-      .map((checksum) => idByChecksum.get(checksum))
-      .filter((screenshotId): screenshotId is string => screenshotId !== undefined);
-    const listsWholeSet =
-      orderedIds.length === orderedChecksums.length && orderedIds.length === setScreenshots.length;
-    if (!listsWholeSet) {
-      return yield* Effect.fail(new Error('the set does not hold exactly the local screenshots'));
-    }
-    yield* api.reorderScreenshots(setId, orderedIds);
-  });
+/**
+ * A local screenshot the set holds after this run, by its Apple id. Apple fills `sourceFileChecksum`
+ * only once it has processed an upload, so a fresh upload is known by the id its upload returned.
+ */
+type HeldScreenshot = Readonly<{ checksum: string; id: string }>;
 /** Put an exact set in file order when kept and newly uploaded screenshots ended up out of order. */
 const orderScreenshots = (
   api: ScreenshotSetApi,
   log: ActionLog,
   setId: string,
   setLabel: string,
-  resultingChecksums: readonly string[],
+  setSize: number,
+  heldScreenshots: readonly HeldScreenshot[],
   screenshots: readonly LocalScreenshot[],
 ): Effect.Effect<void> => {
   const localChecksums = screenshots.map((screenshot) => screenshot.checksum);
-  const holdsEveryScreenshot = resultingChecksums.length === localChecksums.length;
-  const inFileOrder = resultingChecksums.every(
-    (checksum, position) => checksum === localChecksums[position],
+  const holdsEveryScreenshot = heldScreenshots.length === localChecksums.length;
+  const inFileOrder = heldScreenshots.every(
+    (heldScreenshot, position) => heldScreenshot.checksum === localChecksums[position],
   );
   const needsReorder = holdsEveryScreenshot && !inFileOrder;
   if (!needsReorder) return Effect.void;
-  return act(log, `order screenshots ${setLabel} by file name`, false, () =>
-    reorderByChecksum(api, setId, localChecksums),
-  ).pipe(Effect.asVoid);
+  const idByChecksum = new Map(
+    heldScreenshots.map((heldScreenshot) => [heldScreenshot.checksum, heldScreenshot.id]),
+  );
+  const orderedIds = localChecksums
+    .map((checksum) => idByChecksum.get(checksum))
+    .filter((screenshotId): screenshotId is string => screenshotId !== undefined);
+  const listsWholeSet = orderedIds.length === setSize;
+  return act(log, `order screenshots ${setLabel} by file name`, false, () => {
+    if (!listsWholeSet) {
+      return Effect.fail(new Error('the set does not hold exactly the local screenshots'));
+    }
+    return api.reorderScreenshots(setId, orderedIds);
+  }).pipe(Effect.asVoid);
 };
 /** Resolve (or create) one display-type set, then upload the local screenshots Apple doesn't already have. */
 const reconcileScreenshotSet = (
@@ -339,12 +338,15 @@ const reconcileScreenshotSet = (
         screenshots,
       );
     }
-    const storedChecksums = existingScreenshots
+    const heldScreenshots: HeldScreenshot[] = existingScreenshots
       .filter((screenshot) => screenshot.assetDeliveryState !== 'FAILED')
-      .map((screenshot) => screenshot.sourceFileChecksum)
-      .filter((checksum): checksum is string => typeof checksum === 'string');
-    const uploadedChecksums = new Set(storedChecksums);
-    const resultingChecksums = [...storedChecksums];
+      .flatMap(({ id, sourceFileChecksum }) => {
+        if (sourceFileChecksum === undefined) return [];
+        return [{ checksum: sourceFileChecksum, id }];
+      });
+    const uploadedChecksums = new Set(
+      heldScreenshots.map((heldScreenshot) => heldScreenshot.checksum),
+    );
     let screenshotCount = existingScreenshots.length;
     for (const screenshot of screenshots) {
       if (uploadedChecksums.has(screenshot.checksum)) continue;
@@ -361,11 +363,23 @@ const reconcileScreenshotSet = (
         false,
         () => api.uploadScreenshot(setId, screenshot.fileName, screenshot.path),
       );
-      if (succeededOrPlanned(uploadAction.status)) resultingChecksums.push(screenshot.checksum);
+      if (succeededOrPlanned(uploadAction.status)) {
+        let uploadedId = DRY_RUN_ID;
+        if (uploadAction.actionValue !== undefined) uploadedId = uploadAction.actionValue;
+        heldScreenshots.push({ checksum: screenshot.checksum, id: uploadedId });
+      }
       screenshotCount++;
     }
     if (setOwner.exact) {
-      yield* orderScreenshots(api, log, setId, setLabel, resultingChecksums, screenshots);
+      yield* orderScreenshots(
+        api,
+        log,
+        setId,
+        setLabel,
+        screenshotCount,
+        heldScreenshots,
+        screenshots,
+      );
     }
   });
 /** Upload each declared subscription's review screenshot, resolving the subscription live by product id. */

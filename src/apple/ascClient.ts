@@ -252,6 +252,9 @@ export const isRetryableAscError = (error: unknown): boolean => {
   if (error.status === 429) return true;
   return error.status >= 500;
 };
+/** Apple refused the bearer token. It sometimes does so for a valid one mid-run; the request did not run. */
+const isRejectedToken = (requestFailure: unknown): boolean =>
+  requestFailure instanceof AscRequestError && requestFailure.status === 401;
 /** A GET or byte-range PUT is safe to repeat, so a dropped connection (fetch's TypeError) is retried like a 5xx. */
 const isRetryableIdempotentFailure = (requestFailure: unknown): boolean => {
   if (requestFailure instanceof TypeError) return true;
@@ -627,9 +630,16 @@ const mintToken = async (key: AscKey, issuedAt: number): Promise<string> => {
     .setAudience(AUDIENCE)
     .sign(privateKey);
 };
+/** The {@link mintedTokens} entry that holds a key's token. */
+const tokenCacheKey = (key: AscKey): string => `${key.issuerId}:${key.keyId}`;
+/** Drop a key's reused token so the next request signs a new one. */
+const forgetToken = (key: AscKey): void => {
+  const tokenKey = tokenCacheKey(key);
+  mintedTokens.delete(tokenKey);
+};
 /** Reuse a key's token until {@link TOKEN_REUSE_SECONDS}, so a long sync signs once instead of per request. */
 const reusableToken = async (key: AscKey): Promise<string> => {
-  const tokenKey = `${key.issuerId}:${key.keyId}`;
+  const tokenKey = tokenCacheKey(key);
   const currentSeconds = Math.floor(Date.now() / 1000);
   const mintedToken = mintedTokens.get(tokenKey);
   if (
@@ -741,10 +751,17 @@ export class AppStoreConnectClient {
     // A write that lost its connection may already have landed, so only a GET retries one.
     let isRetryableFailure = isRetryableAscError;
     if (method === 'GET') isRetryableFailure = isRetryableIdempotentFailure;
-    return retryAppleTransportRequest(
-      () => this.requestOnce<T>(method, pathOrUrl, requestDocument),
-      { isRetryableFailure },
-    );
+    const requestWithBackoff = () =>
+      retryAppleTransportRequest(() => this.requestOnce<T>(method, pathOrUrl, requestDocument), {
+        isRetryableFailure,
+      });
+    try {
+      return await requestWithBackoff();
+    } catch (requestFailure) {
+      if (!isRejectedToken(requestFailure)) throw requestFailure;
+      forgetToken(this.key);
+      return requestWithBackoff();
+    }
   }
   /** A single (un-retried) authenticated request - the retry wrapper lives in {@link request}. */
   private async requestOnce<T>(
@@ -4355,9 +4372,9 @@ export class AppStoreConnectClient {
       return screenshotResource;
     });
   }
-  /** Delete one screenshot from its set. */
+  /** Delete one screenshot from its set; one Apple no longer has is already gone. */
   async deleteScreenshot(screenshotId: string): Promise<void> {
-    await this.deleteResource(`/appScreenshots/${screenshotId}`);
+    await this.getOptional(() => this.deleteResource(`/appScreenshots/${screenshotId}`));
   }
   /** Replace a set's screenshot order with `screenshotIds`, which must list every screenshot in the set. */
   async reorderScreenshots(setId: string, screenshotIds: readonly string[]): Promise<void> {
@@ -4369,8 +4386,8 @@ export class AppStoreConnectClient {
       },
     );
   }
-  /** Upload one screenshot into a set via the full reserve->PUT->commit asset flow. */
-  async uploadScreenshot(setId: string, fileName: string, filePath: string): Promise<void> {
+  /** Upload one screenshot into a set via the full reserve->PUT->commit asset flow; returns its id. */
+  async uploadScreenshot(setId: string, fileName: string, filePath: string): Promise<string> {
     const bytes = await readTransportFile(filePath);
     const { id, operations } = await this.reserveAsset(
       'appScreenshots',
@@ -4380,6 +4397,7 @@ export class AppStoreConnectClient {
     );
     await putAssetFile(operations, filePath, bytes.byteLength);
     await this.commitAsset('appScreenshots', id, bytes);
+    return id;
   }
   /** The subscription's current App Review screenshot, or null when it has none. */
   async getSubscriptionReviewScreenshot(
