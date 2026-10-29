@@ -49,6 +49,15 @@ const MONTH_NAMES: readonly string[] = [
   'dec',
 ];
 
+const MONTHS_IN_YEAR = 12;
+
+// ISO dates sort as text, so a plain string compare orders them.
+export const pickLaterDate = (first: string | null, second: string): string => {
+  if (first === null) return second;
+  if (first > second) return first;
+  return second;
+};
+
 const isDateInRange = (date: string, range: DateRange): boolean =>
   date >= range.from && date <= range.to;
 
@@ -84,26 +93,25 @@ const readMappedStats = (
   table: PlayCsvTable,
   range: DateRange,
   mappings: readonly PlayColumnMapping[],
-): DailyStat[] => {
-  const stats: DailyStat[] = [];
-  for (const line of table.lines) {
+): DailyStat[] =>
+  table.lines.flatMap((line) => {
     const date = readDateOfLine(line);
-    if (date === null) continue;
-    if (!isDateInRange(date, range)) continue;
-    for (const mapping of mappings) {
+    if (date === null) return [];
+    if (!isDateInRange(date, range)) return [];
+    return mappings.flatMap((mapping) => {
       const cellNumber = readNumber(readFirstColumn(line, mapping.columnNames));
-      if (cellNumber === null) continue;
-      stats.push({
-        date,
-        feed: 'google-play',
-        metric: mapping.metric,
-        value: cellNumber,
-        currency: null,
-      });
-    }
-  }
-  return stats;
-};
+      if (cellNumber === null) return [];
+      return [
+        {
+          date,
+          feed: 'google-play',
+          metric: mapping.metric,
+          value: cellNumber,
+          currency: null,
+        } satisfies DailyStat,
+      ];
+    });
+  });
 
 const sumStatsByIdentity = (stats: readonly DailyStat[]): DailyStat[] => {
   const totals = new Map<string, DailyStat>();
@@ -137,14 +145,12 @@ export const readStorePerformanceStats = (table: PlayCsvTable, range: DateRange)
 
 /** The newest day that has a line, whatever the range, so a half-published month is covered only as far as it goes. */
 export const findLatestCsvDate = (table: PlayCsvTable): string | null => {
-  let latestDate: string | null = null;
-  for (const line of table.lines) {
+  const dates = table.lines.flatMap((line) => {
     const date = readDateOfLine(line);
-    if (date === null) continue;
-    const isNewestSoFar = latestDate === null || date > latestDate;
-    if (isNewestSoFar) latestDate = date;
-  }
-  return latestDate;
+    if (date === null) return [];
+    return [date];
+  });
+  return dates.reduce<string | null>((latestDate, date) => pickLaterDate(latestDate, date), null);
 };
 
 /** `Nov 30, 2016` (Pacific Time, as the earnings report writes it) as `2016-11-30`. */
@@ -174,42 +180,48 @@ export const readEarningsStats = (
   packageName: string,
   range: DateRange,
 ): DailyStat[] => {
-  const proceeds: DailyStat[] = [];
-  for (const line of table.lines) {
+  const proceeds = table.lines.flatMap((line) => {
     const isOtherPackage = line[EARNINGS_PACKAGE_COLUMN] !== packageName;
-    if (isOtherPackage) continue;
-    if (isTaxTransaction(line[EARNINGS_TYPE_COLUMN])) continue;
+    if (isOtherPackage) return [];
+    if (isTaxTransaction(line[EARNINGS_TYPE_COLUMN])) return [];
     const transactionDate = line[EARNINGS_DATE_COLUMN];
-    if (transactionDate === undefined) continue;
+    if (transactionDate === undefined) return [];
     const date = readEarningsDate(transactionDate);
-    if (date === null) continue;
-    if (!isDateInRange(date, range)) continue;
+    if (date === null) return [];
+    if (!isDateInRange(date, range)) return [];
     const merchantCurrency = line[EARNINGS_CURRENCY_COLUMN];
     const isCurrencyMissing = merchantCurrency === undefined || merchantCurrency === '';
-    if (isCurrencyMissing) continue;
+    if (isCurrencyMissing) return [];
     const amount = readNumber(line[EARNINGS_AMOUNT_COLUMN]);
-    if (amount === null) continue;
-    proceeds.push({
-      date,
-      feed: 'google-play',
-      metric: 'proceeds',
-      value: amount,
-      currency: merchantCurrency,
-    });
-  }
+    if (amount === null) return [];
+    return [
+      {
+        date,
+        feed: 'google-play',
+        metric: 'proceeds',
+        value: amount,
+        currency: merchantCurrency,
+      } satisfies DailyStat,
+    ];
+  });
   return sumStatsByIdentity(proceeds);
 };
 
 /** The `yyyyMM` months a range touches, the form Play puts in file names. */
 export const listReportMonths = (range: DateRange): string[] => {
-  const months: string[] = [];
-  const lastMonth = readMonthOfDate(range.to);
-  let monthStart = new Date(`${readMonthOfDate(range.from)}-01T00:00:00.000Z`);
-  while (monthStart.toISOString().slice(0, 7) <= lastMonth) {
-    months.push(monthStart.toISOString().slice(0, 7).replace('-', ''));
-    monthStart = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 1));
-  }
-  return months;
+  const firstMonth = new Date(`${readMonthOfDate(range.from)}-01T00:00:00.000Z`);
+  const lastMonth = new Date(`${readMonthOfDate(range.to)}-01T00:00:00.000Z`);
+  const monthCount =
+    (lastMonth.getUTCFullYear() - firstMonth.getUTCFullYear()) * MONTHS_IN_YEAR +
+    lastMonth.getUTCMonth() -
+    firstMonth.getUTCMonth() +
+    1;
+  return Array.from({ length: monthCount }, (_, monthOffset) => {
+    const monthStart = new Date(
+      Date.UTC(firstMonth.getUTCFullYear(), firstMonth.getUTCMonth() + monthOffset, 1),
+    );
+    return monthStart.toISOString().slice(0, 7).replace('-', '');
+  });
 };
 
 /** The last day of a `yyyyMM` month, as `YYYY-MM-DD`. */

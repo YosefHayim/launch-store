@@ -14,6 +14,7 @@ import {
   findLastDayOfReportMonth,
   findLatestCsvDate,
   listReportMonths,
+  pickLaterDate,
   readCrashStats,
   readEarningsStats,
   readInstallStats,
@@ -83,6 +84,11 @@ const createMonthlyCsvObjectName = (
 ): string =>
   `stats/${report.folder}/${report.folder}_${packageName}_${reportMonth}_${report.dimension}.csv`;
 
+const pickCsvPublishedThrough = (latestArbiterDate: string | null, range: DateRange): string => {
+  if (latestArbiterDate === null) return shiftDate(range.from, -1);
+  return latestArbiterDate;
+};
+
 const readMonthlyCsvReports = (
   request: BucketReportsRequest,
 ): Effect.Effect<BucketReportsReply, PlayReportsBucketFailure, HttpClient.HttpClient> =>
@@ -101,41 +107,41 @@ const readMonthlyCsvReports = (
         ).pipe(Effect.map((reply) => ({ report: reportFile.report, reply }))),
       { concurrency: DOWNLOAD_CONCURRENCY },
     );
-    const stats: DailyStat[] = [];
-    let latestArbiterDate: string | null = null;
-    for (const download of downloads) {
-      if (download.reply.status === 'forbidden') return { status: 'forbidden' } as const;
-      if (download.reply.status === 'missing') continue;
+    const isAnyDownloadForbidden = downloads.some(
+      (download) => download.reply.status === 'forbidden',
+    );
+    if (isAnyDownloadForbidden) return { status: 'forbidden' } as const;
+    const publishedReports = downloads.flatMap((download) => {
+      if (download.reply.status !== 'found') return [];
       const table = readPlayCsvTable(decodePlayCsvBytes(download.reply.bytes));
-      stats.push(...download.report.readStats(table, range));
-      const latestDate = findLatestCsvDate(table);
-      const isArbiterNewer =
-        download.report.isCoverageArbiter &&
-        latestDate !== null &&
-        (latestArbiterDate === null || latestDate > latestArbiterDate);
-      if (isArbiterNewer) latestArbiterDate = latestDate;
-    }
-    const noDayPublished = shiftDate(range.from, -1);
-    let csvPublishedThrough = noDayPublished;
-    if (latestArbiterDate !== null) csvPublishedThrough = latestArbiterDate;
+      return [{ report: download.report, table }];
+    });
+    const stats = publishedReports.flatMap((publishedReport) =>
+      publishedReport.report.readStats(publishedReport.table, range),
+    );
+    const latestArbiterDate = publishedReports
+      .filter((publishedReport) => publishedReport.report.isCoverageArbiter)
+      .reduce<string | null>((latestDate, publishedReport) => {
+        const reportDate = findLatestCsvDate(publishedReport.table);
+        if (reportDate === null) return latestDate;
+        return pickLaterDate(latestDate, reportDate);
+      }, null);
     return {
       status: 'read',
       stats,
-      csvPublishedThrough,
+      csvPublishedThrough: pickCsvPublishedThrough(latestArbiterDate, range),
       earningsPublishedThrough: null,
     } as const;
   });
 
 /** The newest month any earnings object covers: the report is published through its last day. */
 const findEarningsPublishedThrough = (objectNames: readonly string[]): string | null => {
-  let newestMonth: string | null = null;
-  for (const objectName of objectNames) {
-    const monthParts = EARNINGS_MONTH_PATTERN.exec(objectName);
-    const reportMonth = monthParts?.[1];
-    if (reportMonth === undefined) continue;
-    const isMonthNewer = newestMonth === null || reportMonth > newestMonth;
-    if (isMonthNewer) newestMonth = reportMonth;
-  }
+  const reportMonths = objectNames.flatMap((objectName) => {
+    const reportMonth = EARNINGS_MONTH_PATTERN.exec(objectName)?.[1];
+    if (reportMonth === undefined) return [];
+    return [reportMonth];
+  });
+  const newestMonth = reportMonths.reduce<string | null>(pickLaterDate, null);
   if (newestMonth === null) return null;
   return findLastDayOfReportMonth(newestMonth);
 };
@@ -167,19 +173,26 @@ const readEarningsReports = (
       (objectName) => downloadBucketObject(bucket, objectName, accessToken),
       { concurrency: DOWNLOAD_CONCURRENCY },
     );
-    const stats: DailyStat[] = [];
-    for (const download of downloads) {
-      if (download.status === 'forbidden') return { status: 'forbidden' } as const;
-      if (download.status === 'missing') continue;
-      const zipEntries = yield* Effect.try({
-        try: () => unzipSync(download.bytes),
+    const isAnyDownloadForbidden = downloads.some((download) => download.status === 'forbidden');
+    if (isAnyDownloadForbidden) return { status: 'forbidden' } as const;
+    const zipBytesList = downloads.flatMap((download) => {
+      if (download.status !== 'found') return [];
+      return [download.bytes];
+    });
+    const statsPerZip = yield* Effect.forEach(zipBytesList, (zipBytes) =>
+      Effect.try({
+        try: () => unzipSync(zipBytes),
         catch: (cause) => failBucketRead('unzip an earnings report', cause),
-      });
-      for (const csvBytes of Object.values(zipEntries)) {
-        const table = readPlayCsvTable(decodePlayCsvBytes(csvBytes));
-        stats.push(...readEarningsStats(table, packageName, range));
-      }
-    }
+      }).pipe(
+        Effect.map((zipEntries) =>
+          Object.values(zipEntries).flatMap((csvBytes) => {
+            const earningsTable = readPlayCsvTable(decodePlayCsvBytes(csvBytes));
+            return readEarningsStats(earningsTable, packageName, range);
+          }),
+        ),
+      ),
+    );
+    const stats = statsPerZip.flat();
     return {
       status: 'read',
       stats,

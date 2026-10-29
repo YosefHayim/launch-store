@@ -36,7 +36,7 @@ import {
 import { describeStoredCredentials, ensureSigningCredentials } from './appleSigning.js';
 import { extractKeyId, findAuthKeyFiles, reconcileKeyId } from './keyFiles.js';
 import {
-  createEmptyPortfolioFile,
+  pickSavedPortfolioFile,
   loadPortfolioFile,
   savePortfolioFile,
 } from '../portfolio/portfolioStore.js';
@@ -816,8 +816,7 @@ const setPlayReportsBucket = (
       );
     }
     const savedFile = yield* loadPortfolioFile();
-    let portfolioFile = createEmptyPortfolioFile();
-    if (savedFile !== null) portfolioFile = savedFile;
+    const portfolioFile = pickSavedPortfolioFile(savedFile);
     yield* savePortfolioFile({ ...portfolioFile, playReportsBucket: bucketName });
     const logger = yield* createLogger(false);
     yield* logger.ok(`Saved the Play reports bucket ${bucketName}.`);

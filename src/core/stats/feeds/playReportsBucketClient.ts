@@ -53,16 +53,16 @@ export const downloadBucketObject = (
     const objectRequest = HttpClientRequest.get(objectUrl).pipe(
       HttpClientRequest.bearerToken(accessToken),
     );
-    const objectResponse = yield* httpClient.execute(objectRequest);
-    const isForbidden = objectResponse.status === HTTP_FORBIDDEN;
+    const objectReply = yield* httpClient.execute(objectRequest);
+    const isForbidden = objectReply.status === HTTP_FORBIDDEN;
     if (isForbidden) return { status: 'forbidden' } satisfies BucketObjectReply;
-    const isMissing = objectResponse.status === HTTP_NOT_FOUND;
+    const isMissing = objectReply.status === HTTP_NOT_FOUND;
     if (isMissing) return { status: 'missing' } satisfies BucketObjectReply;
-    const isReplyUnexpected = objectResponse.status !== HTTP_OK;
+    const isReplyUnexpected = objectReply.status !== HTTP_OK;
     if (isReplyUnexpected) {
-      return yield* Effect.fail(`Cloud Storage answered HTTP ${objectResponse.status}`);
+      return yield* Effect.fail(`Cloud Storage answered HTTP ${objectReply.status}`);
     }
-    const objectBuffer = yield* objectResponse.arrayBuffer;
+    const objectBuffer = yield* objectReply.arrayBuffer;
     return { status: 'found', bytes: new Uint8Array(objectBuffer) } satisfies BucketObjectReply;
   }).pipe(
     Effect.mapError((cause) =>
@@ -70,36 +70,53 @@ export const downloadBucketObject = (
     ),
   );
 
+const createListUrl = (bucket: string, prefix: string, pageToken: string | null): string => {
+  const firstPageQuery = `prefix=${encodeURIComponent(prefix)}&fields=items(name),nextPageToken`;
+  const listUrl = `${STORAGE_API_ROOT}/${bucket}/o?${firstPageQuery}`;
+  if (pageToken === null) return listUrl;
+  return `${listUrl}&pageToken=${encodeURIComponent(pageToken)}`;
+};
+
+const listBucketPage = (
+  bucket: string,
+  prefix: string,
+  accessToken: string,
+  pageToken: string | null,
+): Effect.Effect<BucketListReply, unknown, HttpClient.HttpClient> =>
+  Effect.gen(function* () {
+    const httpClient = yield* HttpClient.HttpClient;
+    const listRequest = HttpClientRequest.get(createListUrl(bucket, prefix, pageToken)).pipe(
+      HttpClientRequest.bearerToken(accessToken),
+    );
+    const listReply = yield* httpClient.execute(listRequest);
+    const isForbidden = listReply.status === HTTP_FORBIDDEN;
+    if (isForbidden) return { status: 'forbidden' } satisfies BucketListReply;
+    const isReplyUnexpected = listReply.status !== HTTP_OK;
+    if (isReplyUnexpected) {
+      return yield* Effect.fail(`Cloud Storage answered HTTP ${listReply.status}`);
+    }
+    const listing = yield* listReply.json.pipe(
+      Effect.flatMap(Schema.decodeUnknown(BucketListingSchema)),
+    );
+    const pageObjectNames = listing.items.map((listedObject) => listedObject.name);
+    const nextPageToken = listing.nextPageToken;
+    if (nextPageToken === undefined) {
+      return { status: 'listed', objectNames: pageObjectNames } satisfies BucketListReply;
+    }
+    const nextPage = yield* listBucketPage(bucket, prefix, accessToken, nextPageToken);
+    if (nextPage.status === 'forbidden') return nextPage;
+    return {
+      status: 'listed',
+      objectNames: [...pageObjectNames, ...nextPage.objectNames],
+    } satisfies BucketListReply;
+  });
+
 /** Names of the bucket objects that start with the prefix, over every page (objects.list). */
 export const listBucketObjectNames = (
   bucket: string,
   prefix: string,
   accessToken: string,
 ): Effect.Effect<BucketListReply, PlayReportsBucketFailure, HttpClient.HttpClient> =>
-  Effect.gen(function* () {
-    const httpClient = yield* HttpClient.HttpClient;
-    const objectNames: string[] = [];
-    let pageToken: string | null = null;
-    do {
-      let pageQuery = `prefix=${encodeURIComponent(prefix)}&fields=items(name),nextPageToken`;
-      if (pageToken !== null) pageQuery = `${pageQuery}&pageToken=${encodeURIComponent(pageToken)}`;
-      const listRequest = HttpClientRequest.get(
-        `${STORAGE_API_ROOT}/${bucket}/o?${pageQuery}`,
-      ).pipe(HttpClientRequest.bearerToken(accessToken));
-      const listResponse = yield* httpClient.execute(listRequest);
-      const isForbidden = listResponse.status === HTTP_FORBIDDEN;
-      if (isForbidden) return { status: 'forbidden' } satisfies BucketListReply;
-      const isReplyUnexpected = listResponse.status !== HTTP_OK;
-      if (isReplyUnexpected) {
-        return yield* Effect.fail(`Cloud Storage answered HTTP ${listResponse.status}`);
-      }
-      const listing = yield* listResponse.json.pipe(
-        Effect.flatMap(Schema.decodeUnknown(BucketListingSchema)),
-      );
-      objectNames.push(...listing.items.map((listedObject) => listedObject.name));
-      const nextPageToken = listing.nextPageToken;
-      pageToken = null;
-      if (nextPageToken !== undefined) pageToken = nextPageToken;
-    } while (pageToken !== null);
-    return { status: 'listed', objectNames } satisfies BucketListReply;
-  }).pipe(Effect.mapError((cause) => failBucketRead('list the Play reports bucket', cause)));
+  listBucketPage(bucket, prefix, accessToken, null).pipe(
+    Effect.mapError((cause) => failBucketRead('list the Play reports bucket', cause)),
+  );

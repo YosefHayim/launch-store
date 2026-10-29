@@ -29,6 +29,9 @@ importers:
       commander:
         specifier: ^12.1.0
         version: 12.1.0
+      csv-parse:
+        specifier: 5.6.0
+        version: 5.6.0
       effect:
         specifier: ^3.22.3
         version: 3.22.3
@@ -1338,6 +1341,9 @@ packages:
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
     engines: {node: '>= 8'}
+
+  csv-parse@5.6.0:
+    resolution: {integrity: sha512-l3nz3euub2QMg5ouu5U09Ew9Wf6/wQ8I++ch1loQ0ljmzhmfZYrH9fflS22i/PQEvsPvxCwxgz5q7UB8K1JO4Q==}
 
   data-uri-to-buffer@4.0.1:
     resolution: {integrity: sha512-0R9ikRb668HB7QDxT1vkpuUBtqc53YyAwMwGeUFKRojY/NWKvdZ+9UYtRfGmhqNbRkTSVpMbmyhXipFFv2cb/A==}
@@ -3510,6 +3516,8 @@ snapshots:
       shebang-command: 2.0.0
       which: 2.0.2
     optional: true
+
+  csv-parse@5.6.0: {}
 
   data-uri-to-buffer@4.0.1: {}
 

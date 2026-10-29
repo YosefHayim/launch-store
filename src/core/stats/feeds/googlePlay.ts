@@ -45,6 +45,14 @@ const earlierDate = (first: string, second: string): string => {
   return second;
 };
 
+const pickCoveredThrough = (publishedThroughDates: readonly (string | null)[]): string => {
+  const publishedDates = publishedThroughDates.flatMap((publishedDate) => {
+    if (publishedDate === null) return [];
+    return [publishedDate];
+  });
+  return publishedDates.reduce(earlierDate);
+};
+
 const readVitals = (
   playClient: PlayReportingClient,
   packageName: string,
@@ -56,21 +64,23 @@ const readVitals = (
       playClient.vitalsTimeline(packageName, 'crash', windowDays),
       playClient.vitalsTimeline(packageName, 'anr', windowDays),
     ]);
-    const stats: DailyStat[] = [];
-    for (const timeline of [crashTimeline, anrTimeline]) {
-      for (const vitalsDay of timeline.rows) {
-        const isOutsideRange = vitalsDay.date < range.from || vitalsDay.date > range.to;
-        if (isOutsideRange) continue;
-        if (vitalsDay.rate === undefined) continue;
-        stats.push({
-          date: vitalsDay.date,
-          feed: 'google-play',
-          metric: VITALS_METRICS[timeline.metric],
-          value: vitalsDay.rate,
-          currency: null,
-        });
-      }
-    }
+    const stats = [crashTimeline, anrTimeline].flatMap((timeline) =>
+      timeline.rows.flatMap((vitalsDay) => {
+        const isBeforeRange = vitalsDay.date < range.from;
+        const isAfterRange = vitalsDay.date > range.to;
+        if (isBeforeRange || isAfterRange) return [];
+        if (vitalsDay.rate === undefined) return [];
+        return [
+          {
+            date: vitalsDay.date,
+            feed: 'google-play',
+            metric: VITALS_METRICS[timeline.metric],
+            value: vitalsDay.rate,
+            currency: null,
+          } satisfies DailyStat,
+        ];
+      }),
+    );
     return {
       stats,
       publishedThrough: earlierDate(crashTimeline.window.endDate, anrTimeline.window.endDate),
@@ -124,10 +134,11 @@ const fetchPlayStats = (
       } satisfies FeedFetchReply;
     }
     // Earnings arrive a month at a time; a month still unpublished must stay uncovered so a later sync pulls it.
-    let coveredThrough = earlierDate(vitalsCoveredThrough, bucketReports.csvPublishedThrough);
-    if (bucketReports.earningsPublishedThrough !== null) {
-      coveredThrough = earlierDate(coveredThrough, bucketReports.earningsPublishedThrough);
-    }
+    const coveredThrough = pickCoveredThrough([
+      vitalsCoveredThrough,
+      bucketReports.csvPublishedThrough,
+      bucketReports.earningsPublishedThrough,
+    ]);
     return {
       status: 'fetched',
       stats: [...vitals.stats, ...bucketReports.stats],
