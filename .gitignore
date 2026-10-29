@@ -3,6 +3,8 @@ node_modules/
 
 # build (tsc output, launch artifacts, Expo prebuild native projects, mod types)
 dist/
+.turbo/
+.worktrees/
 .claude-plugin/*/.claude-plugin/types/
 *.tsbuildinfo
 .launch/

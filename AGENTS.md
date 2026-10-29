@@ -131,11 +131,8 @@ All five must be green. Add or update colocated tests for any new behavior.
 
 ## Local CI
 
-Before opening a PR, run `.github/workflows/ci.yml` locally with the run-ci-locally skill.
-It runs one act process per job, each holding a machine-wide slot, so parallel sessions do not run Docker out of memory.
-Never run `act` on the whole workflow.
 CI runs on `pull_request`, on `push` to main (markdown-only pushes skip it) and on `workflow_dispatch`.
-Lint, style, typecheck and the docs sync check run in the Husky pre-push hook, not in CI. A new worktree needs `pnpm install` before its first push.
+The Husky pre-push hook runs `pnpm check` (lint, typecheck, docs sync check, test, build through Turborepo); lint, style, typecheck and the docs sync check do not run in CI. A new worktree needs `pnpm install` before its first push.
 The `changes` job in `ci.yml` (`dorny/paths-filter`, `token: ''`) decides what runs:
 
 - Docs-only changes skip every job, and `CI Gate` still passes.
