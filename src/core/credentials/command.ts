@@ -23,6 +23,7 @@ import {
   matchAccount,
   removeAccount,
   renameAccount,
+  setAccountVendorNumber,
   setActiveKeyId,
   updateAccountIdentity,
 } from './accounts.js';
@@ -50,6 +51,7 @@ const CredentialsActionSchema = Schema.Literal(
   'logout',
   'refresh',
   'push-key',
+  'set-vendor-number',
 );
 
 const CredentialsCommandOptionsSchema = Schema.Struct({
@@ -66,6 +68,7 @@ const CredentialsCommandOptionsSchema = Schema.Struct({
   teamId: optionalCommandText,
   out: optionalCommandText,
   force: optionalCommandFlag,
+  vendorNumber: optionalCommandText,
 });
 
 export const CredentialsCommandInputSchema = Schema.Struct({
@@ -763,6 +766,31 @@ const renameAppleAccount = (
     yield* logger.ok(`Renamed account ${matchedAccount.keyId} to "${accountLabel}".`);
   });
 
+const VENDOR_NUMBER_PATTERN = /^[0-9]+$/;
+
+const setAppleVendorNumber = (
+  commandOptions: CredentialsCommandOptions,
+): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
+  Effect.gen(function* () {
+    const usage = 'Usage: launch creds set-vendor-number --account <label> --vendor-number <n>.';
+    const { account: selector, vendorNumber } = commandOptions;
+    const isSelectorMissing = selector === undefined;
+    if (isSelectorMissing) return yield* failCommand('set vendor number', usage);
+    const isVendorNumberMissing = vendorNumber === undefined;
+    if (isVendorNumberMissing) return yield* failCommand('set vendor number', usage);
+    const trimmedVendorNumber = vendorNumber.trim();
+    const isVendorNumberDigits = VENDOR_NUMBER_PATTERN.test(trimmedVendorNumber);
+    const isVendorNumberInvalid = !isVendorNumberDigits;
+    if (isVendorNumberInvalid) {
+      return yield* failCommand('set vendor number', 'The vendor number is digits only.');
+    }
+    const accounts = yield* listAccounts();
+    const selectedAccount = yield* requireMatchedAccount(accounts, selector, 'set vendor number');
+    yield* setAccountVendorNumber(selectedAccount.keyId, trimmedVendorNumber);
+    const logger = yield* createLogger(false);
+    yield* logger.ok(`Saved the vendor number for account "${selectedAccount.label}".`);
+  });
+
 /** Remove one Apple account after an optional interactive confirmation. */
 const removeAppleAccount = (
   selector: string | undefined,
@@ -993,6 +1021,8 @@ export const credentialsCommandProgram = (
         return yield* removeAppleAccount(decodedCommand.firstArgument, decodedCommand.options);
       case 'refresh':
         return yield* refreshAppleAccounts(decodedCommand.firstArgument);
+      case 'set-vendor-number':
+        return yield* setAppleVendorNumber(decodedCommand.options);
       case 'push-key':
         return yield* runPushKeyAction(
           decodedCommand.firstArgument,

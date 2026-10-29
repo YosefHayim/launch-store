@@ -62,6 +62,8 @@ import { registerDiagnoseCommand } from './commands/diagnose.js';
 import { registerResignCommand } from './commands/resign.js';
 import { registerSetupCommand } from './commands/setup.js';
 import { registerSandboxCommand } from './commands/sandbox.js';
+import { registerAppsCommand } from './commands/apps.js';
+import { registerStatsCommand } from './commands/stats.js';
 import { runWizard } from './commands/wizard.js';
 /**
  * Assemble the full `launch` command tree and return it unparsed. Pure - registering providers and
@@ -122,6 +124,8 @@ export const buildProgram = (
   registerEventsCommand(program);
   registerSetupCommand(program);
   registerSandboxCommand(program);
+  registerAppsCommand(program);
+  registerStatsCommand(program);
   registerDoctorCommand(program);
   registerStoreCommand(program);
   registerAuditCommand(program);

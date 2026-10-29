@@ -146,7 +146,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 63 `launch` commands (204 store-API operations underneath, 2463 tests):
+All 65 `launch` commands (205 store-API operations underneath, 2643 tests):
 
 - `launch init` - scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` - onboard an app that already ships: import its App Store Connect setup into config
@@ -253,6 +253,13 @@ All 63 `launch` commands (204 store-API operations underneath, 2463 tests):
   - `launch sandbox list` - list the account's sandbox testers
   - `launch sandbox clear [emails...]` - clear sandbox testers' StoreKit purchase history (for re-testing purchases)
   - `launch sandbox help [command]` - display help for command
+- `launch apps` - list the apps of every saved store account and tag them as yours or a client
+  - `launch apps list` - list the apps of every saved App Store Connect account and the Play account
+  - `launch apps tag` - tag apps as mine or client, and link their GA4 property
+  - `launch apps help [command]` - display help for command
+- `launch stats` - keep daily download, rating and usage numbers of your apps on this machine
+  - `launch stats sync` - pull the missing days of every stats feed into ~/.launch/stats
+  - `launch stats help [command]` - display help for command
 - `launch doctor` - check that the local toolchain and store account are ready
 - `launch store` - store-account readiness and operations
   - `launch store doctor` - check store-account readiness: Apple app record, Play onboarding & access (read-only)

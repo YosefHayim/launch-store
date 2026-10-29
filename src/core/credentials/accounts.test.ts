@@ -79,6 +79,7 @@ import {
   migrateLegacyAccounts,
   removeAccount,
   renameAccount,
+  setAccountVendorNumber,
   setActiveKeyId,
   updateAccountIdentity,
 } from './accounts.js';
@@ -333,5 +334,40 @@ describe('migrateLegacyAccounts', () => {
   it('is a no-op when nothing was imported the old way', async () => {
     await runAccountEffect(migrateLegacyAccounts());
     expect(await runAccountEffect(listAccounts())).toHaveLength(0);
+  });
+});
+describe('setAccountVendorNumber', () => {
+  const addApple = (keyId: string) =>
+    addAccount({ keyId, issuerId: `issuer-${keyId}`, label: `label-${keyId}`, p8: PEM });
+
+  it('saves the vendor number on the account', async () => {
+    await runAccountEffect(addApple('AAAA1111'));
+
+    await runAccountEffect(setAccountVendorNumber('AAAA1111', '88001122'));
+
+    const accounts = await runAccountEffect(listAccounts());
+    expect(accounts[0]?.vendorNumber).toBe('88001122');
+  });
+
+  it('keeps the vendor number when the same key is added again', async () => {
+    await runAccountEffect(addApple('AAAA1111'));
+    await runAccountEffect(setAccountVendorNumber('AAAA1111', '88001122'));
+
+    await runAccountEffect(addApple('AAAA1111'));
+
+    const accounts = await runAccountEffect(listAccounts());
+    expect(accounts[0]?.vendorNumber).toBe('88001122');
+  });
+
+  it('leaves the vendor number missing on an account that never had one', async () => {
+    await runAccountEffect(addApple('AAAA1111'));
+
+    const accounts = await runAccountEffect(listAccounts());
+
+    expect(accounts[0]?.vendorNumber).toBeUndefined();
+  });
+
+  it('fails for an unknown key id', async () => {
+    await expect(runAccountEffect(setAccountVendorNumber('NOPE', '1'))).rejects.toThrow();
   });
 });

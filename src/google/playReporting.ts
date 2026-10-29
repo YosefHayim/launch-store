@@ -108,7 +108,41 @@ export type PlayReportingApiError = Readonly<{
   readonly cause: unknown;
 }>;
 const makePlayReportingApiError = Data.tagged<PlayReportingApiError>('PlayReportingApiError');
+const PLAY_APPS_PAGE_SIZE = 1000;
+export type PlayReportingApp = Readonly<{ packageName: string; displayName: string }>;
+const createAppsSearchRequest = (
+  pageToken: string | undefined,
+): playdeveloperreporting_v1beta1.Params$Resource$Apps$Search => {
+  const isFirstPage = pageToken === undefined;
+  if (isFirstPage) return { pageSize: PLAY_APPS_PAGE_SIZE };
+  return { pageSize: PLAY_APPS_PAGE_SIZE, pageToken };
+};
+
+const readDisplayName = (
+  googleApp: playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1App,
+  packageName: string,
+): string => {
+  const displayName = googleApp.displayName;
+  const hasDisplayName = typeof displayName === 'string';
+  if (hasDisplayName) return displayName;
+  return packageName;
+};
+
+const listReadableApps = (
+  googleApps: readonly playdeveloperreporting_v1beta1.Schema$GooglePlayDeveloperReportingV1beta1App[],
+): PlayReportingApp[] => {
+  const readableApps: PlayReportingApp[] = [];
+  for (const googleApp of googleApps) {
+    const packageName = googleApp.packageName;
+    const hasPackageName = typeof packageName === 'string';
+    if (!hasPackageName) continue;
+    readableApps.push({ packageName, displayName: readDisplayName(googleApp, packageName) });
+  }
+  return readableApps;
+};
+
 export type PlayReportingTransport = {
+  readonly apps: Pick<playdeveloperreporting_v1beta1.Resource$Apps, 'search'>;
   readonly vitals: {
     readonly crashrate: Pick<
       playdeveloperreporting_v1beta1.Resource$Vitals$Crashrate,
@@ -159,6 +193,23 @@ export class PlayReportingClient {
         });
       },
     }).pipe(Effect.map((completedRequest) => completedRequest.data));
+  }
+  listApps(): Effect.Effect<PlayReportingApp[], PlayReportingApiError> {
+    return Effect.gen(this, function* () {
+      const apps: PlayReportingApp[] = [];
+      let pageToken: string | undefined;
+      do {
+        const searchRequest = createAppsSearchRequest(pageToken);
+        const appsPage = yield* this.executeGeneratedRequest('search accessible apps', () =>
+          this.reporting.apps.search(searchRequest),
+        );
+        const googleApps = appsPage.apps;
+        const hasGoogleApps = Array.isArray(googleApps);
+        if (hasGoogleApps) apps.push(...listReadableApps(googleApps));
+        pageToken = nonEmptyPageToken(appsPage.nextPageToken);
+      } while (pageToken !== undefined);
+      return apps;
+    });
   }
   /**
    * Read the latest DAILY day Google has finished aggregating for a metric set, as ISO `YYYY-MM-DD`,

@@ -317,6 +317,26 @@ describe('AppStoreConnectClient - auth + request building', () => {
       '/apps?fields[apps]=name',
     );
   });
+  it('lists apps with id, name and bundle id, using the id when a name is missing', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: '1', attributes: { name: 'Mapleleaf', bundleId: 'com.acme.maple' } },
+            { id: '2', attributes: {} },
+          ],
+        }),
+      ),
+    );
+    expect(await client.listApps()).toEqual([
+      { id: '1', name: 'Mapleleaf', bundleId: 'com.acme.maple' },
+      { id: '2', name: '2', bundleId: null },
+    ]);
+    expect(expectArrayElement(fetchMock.mock.calls, 0, 'mock call')[0]).toContain(
+      '/apps?fields[apps]=name,bundleId&limit=200',
+    );
+  });
   it('treats a 204 as success with no body (profile deletion)', async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(204, ''));
     await expect(client.deleteProfile('p1')).resolves.toBeUndefined();
