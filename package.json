@@ -66,6 +66,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "launch": "tsx src/cli/index.ts",
+    "check": "turbo run lint typecheck docs:check test build --output-logs=errors-only",
     "prepare": "husky",
     "prepublishOnly": "pnpm build"
   },
@@ -93,6 +94,7 @@
     "openapi-typescript": "^7.13.0",
     "tsc-alias": "^1.9.8",
     "tsx": "^4.23.15",
+    "turbo": "2.11.8",
     "typescript": "^5.9.3",
     "vite": "^8.3.5",
     "vitest": "^4.1.12",
