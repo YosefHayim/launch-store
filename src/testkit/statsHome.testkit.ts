@@ -7,6 +7,7 @@ const DAY_MILLISECONDS = 24 * 60 * 60 * 1000;
 export const STATS_PORTFOLIO_FILE: PortfolioFile = {
   version: 1,
   discoveredAt: '2026-10-01T00:00:00.000Z',
+  playReportsBucket: null,
   apps: [
     {
       key: 'ios-1',
