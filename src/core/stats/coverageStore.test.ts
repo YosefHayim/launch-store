@@ -4,6 +4,7 @@ import {
   createTemporaryHomeDirectory,
   makeLaunchHomeTest,
   removeTemporaryHomeDirectory,
+  writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
 import type { AppCoverage } from '../types/stats.js';
 import { createEmptyAppCoverage, loadAppCoverage, saveAppCoverage } from './coverageStore.js';
@@ -25,6 +26,7 @@ const coverage: AppCoverage = {
       coveredFrom: '2026-10-01',
       coveredThrough: '2026-10-28',
       lastError: null,
+      lastNote: 'Apple is preparing',
     },
   },
 };
@@ -50,6 +52,30 @@ describe('loadAppCoverage', () => {
     );
 
     expect(failure._tag).toBe('InvalidAppKeyFailure');
+  });
+});
+
+describe('loadAppCoverage with a file saved before lastNote existed', () => {
+  test('decodes it with a null lastNote', async () => {
+    const oldFile = {
+      version: 1,
+      appKey: 'ios-1',
+      feeds: {
+        'app-store': {
+          lastSyncedAt: '2026-10-29T08:00:00.000Z',
+          coveredFrom: '2026-10-01',
+          coveredThrough: '2026-10-28',
+          lastError: null,
+        },
+      },
+    };
+    writeLaunchHomeFile(homeDirectory, 'stats/ios-1/coverage.json', JSON.stringify(oldFile));
+
+    const loaded = await Effect.runPromise(
+      loadAppCoverage('ios-1').pipe(Effect.provide(makeLaunchHomeTest(homeDirectory))),
+    );
+
+    expect(loaded.feeds['app-store']).toMatchObject({ lastError: null, lastNote: null });
   });
 });
 

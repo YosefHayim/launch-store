@@ -8,6 +8,12 @@ export interface HttpClientTestRoute {
   readonly body: unknown;
 }
 
+const pickReplyBytesOrDocument = (routeBody: unknown): string | Uint8Array<ArrayBuffer> => {
+  const isBodyBytes = routeBody instanceof Uint8Array;
+  if (isBodyBytes) return new Uint8Array(routeBody);
+  return JSON.stringify(routeBody);
+};
+
 export const makeHttpClientTest = (
   routes: readonly HttpClientTestRoute[],
 ): Layer.Layer<HttpClient.HttpClient> =>
@@ -20,12 +26,11 @@ export const makeHttpClientTest = (
       if (matchedRoute === undefined) {
         return Effect.die(new Error(`No test route for ${request.method} ${request.url}`));
       }
-      let replyBody: string | Uint8Array<ArrayBuffer> = JSON.stringify(matchedRoute.body);
-      if (matchedRoute.body instanceof Uint8Array) replyBody = new Uint8Array(matchedRoute.body);
+      const replyBytesOrDocument = pickReplyBytesOrDocument(matchedRoute.body);
       return Effect.succeed(
         HttpClientResponse.fromWeb(
           request,
-          new Response(replyBody, {
+          new Response(replyBytesOrDocument, {
             status: matchedRoute.status,
             headers: { 'content-type': 'application/json' },
           }),

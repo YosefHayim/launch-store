@@ -134,7 +134,6 @@ describe('createAppStoreReply', () => {
         analyticsSummary: { stats: [], latestDate: '2026-10-09' },
         ratingStats: [],
       },
-      'sales',
       request,
     );
 
@@ -146,10 +145,9 @@ describe('createAppStoreReply', () => {
     });
   });
 
-  test('skips with the preparing reason when analytics has no data on the analytics path', () => {
+  test('skips with the preparing reason when there are no stats at all', () => {
     const reply = createAppStoreReply(
       { salesStats: [], analyticsSummary: { stats: [], latestDate: null }, ratingStats: [] },
-      'analytics',
       request,
     );
 
@@ -159,14 +157,32 @@ describe('createAppStoreReply', () => {
     });
   });
 
-  test('keeps the sales stats but leaves the days uncovered on the sales path', () => {
+  test('keeps the rating stats but leaves the days uncovered while analytics are prepared', () => {
+    const ratingStat: DailyStat = { ...salesStat, metric: 'ratingAverage', value: 4.5 };
+    const reply = createAppStoreReply(
+      {
+        salesStats: [],
+        analyticsSummary: { stats: [], latestDate: null },
+        ratingStats: [ratingStat],
+      },
+      request,
+    );
+
+    expect(reply).toEqual({
+      status: 'fetched',
+      stats: [ratingStat],
+      coveredThrough: '2026-10-07',
+      notes: ['Apple is preparing analytics reports for Calfriend; first data within 1-2 days'],
+    });
+  });
+
+  test('keeps the sales stats but leaves the days uncovered', () => {
     const reply = createAppStoreReply(
       {
         salesStats: [salesStat],
         analyticsSummary: { stats: [], latestDate: null },
         ratingStats: [],
       },
-      'sales',
       request,
     );
 

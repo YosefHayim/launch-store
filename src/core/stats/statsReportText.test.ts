@@ -97,6 +97,12 @@ describe('describeAppStats', () => {
     expect(lines).toContain('  rating        4.70');
   });
 
+  test('shows the saved feed messages under the numbers', () => {
+    const lines = describeAppStats(appReport({ messages: ['app-store: Apple is preparing'] }));
+
+    expect(lines.at(-1)).toBe('  note: app-store: Apple is preparing');
+  });
+
   test('names active users when only that feed has usage, and marks untagged apps', () => {
     const lines = describeAppStats(
       appReport({

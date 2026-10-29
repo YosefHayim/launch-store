@@ -71,8 +71,10 @@ export const describeAppStats = (appReport: AppStatsReport): string[] => {
     { label: 'crash rate', figure: describeCrashRate(crashRate) },
     { label: 'rating', figure: describeRating(rating) },
   ].map((line) => `  ${line.label.padEnd(LABEL_WIDTH)}${line.figure}`);
+  const messageLines = appReport.messages.map((message) => `  note: ${message}`);
   return [
     `${appReport.name} (${appReport.platform}, ${owner}, ${appReport.accountLabel})`,
     ...lines,
+    ...messageLines,
   ];
 };

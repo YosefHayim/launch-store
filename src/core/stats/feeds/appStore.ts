@@ -294,10 +294,9 @@ interface AppStoreLoad {
   readonly ratingStats: readonly DailyStat[];
 }
 
-/** The stats of every source become one reply; no analytics yet means the days stay uncovered. */
+/** The stats of every source become one reply; no analytics yet keeps the stats but leaves the days uncovered. */
 export const createAppStoreReply = (
   load: AppStoreLoad,
-  path: AppStoreStatsPath,
   request: AppStoreFetchRequest,
 ): FeedFetchReply => {
   const { analyticsSummary } = load;
@@ -307,8 +306,8 @@ export const createAppStoreReply = (
   if (latestDate !== null) {
     return { status: 'fetched', stats, coveredThrough: latestDate, notes: [] };
   }
-  const isThereNoSalesToKeep = path === 'analytics';
-  if (isThereNoSalesToKeep) {
+  const isThereNoStatToKeep = stats.length === 0;
+  if (isThereNoStatToKeep) {
     return { status: 'skipped', reason: createPreparingReason(app.name) };
   }
   return {
@@ -338,7 +337,7 @@ const loadAppStoreStats = (
     const salesStats = yield* loadKnownVendorSales(client, vendorNumber, request);
     const analyticsSummary = yield* loadAnalyticsSummary(client, request, path);
     const ratingStats = yield* loadRatingStats(client, request);
-    return createAppStoreReply({ salesStats, analyticsSummary, ratingStats }, path, request);
+    return createAppStoreReply({ salesStats, analyticsSummary, ratingStats }, request);
   });
 
 const createFeedFailure = (app: PortfolioApp, cause: unknown): StatsFeedFailure =>

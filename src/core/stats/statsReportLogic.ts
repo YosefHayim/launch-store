@@ -1,12 +1,14 @@
 import type {
+  AppCoverage,
   DailyStat,
   DateRange,
   StatsFeed,
   StatsFreshness,
   StatsMetric,
 } from '../types/stats.js';
-import { METRIC_AGGREGATION } from '../types/stats.js';
+import { METRIC_AGGREGATION, STATS_FEEDS } from '../types/stats.js';
 import type { DailyPoint, MetricSeries, MetricTotal } from '../types/statsReport.js';
+import { findFeedCoverage } from './coverageLogic.js';
 import { readMonthOfDate, shiftDate } from './dateRange.js';
 
 const SAFE_DAY_TO_REACH_NEXT_MONTH = 4;
@@ -161,10 +163,13 @@ export const isAppStale = (freshness: StatsFreshness, appKey: string): boolean =
   );
 };
 
-/** The failed or skipped feed messages the last sync gave for one app. */
-export const listAppMessages = (freshness: StatsFreshness, appKey: string): string[] => {
-  if (freshness.report === null) return [];
-  return freshness.report.appFeeds
-    .filter((appFeed) => appFeed.appKey === appKey && appFeed.message !== null)
-    .map((appFeed) => `${appFeed.feed}: ${appFeed.message}`);
-};
+/** The error and note every feed saved at its last sync for one app, so a fresh cache still explains empty numbers. */
+export const listAppMessages = (appCoverage: AppCoverage): string[] =>
+  STATS_FEEDS.flatMap((feed) => {
+    const feedCoverage = findFeedCoverage(appCoverage, feed);
+    const isFeedNeverSynced = feedCoverage === null;
+    if (isFeedNeverSynced) return [];
+    return [feedCoverage.lastError, feedCoverage.lastNote]
+      .filter((message) => message !== null)
+      .map((message) => `${feed}: ${message}`);
+  });

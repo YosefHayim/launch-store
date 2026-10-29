@@ -4,8 +4,9 @@ import { filterPortfolioApps, findAppsByName } from '../portfolio/portfolioLogic
 import type { DocumentFileFailure } from '../services/atomicDocumentFile.js';
 import type { InvalidAppKeyFailure } from '../services/paths.js';
 import type { PortfolioApp } from '../types/portfolio.js';
-import type { DailyStat, DateRange, StatsFreshness } from '../types/stats.js';
+import type { AppCoverage, DailyStat, DateRange, StatsFreshness } from '../types/stats.js';
 import type { AppStatsReport, StatsReport, StatsReportRequest } from '../types/statsReport.js';
+import { loadAppCoverage } from './coverageStore.js';
 import { createLastDaysRange, readYesterdayUtc } from './dateRange.js';
 import { ensureFreshStats } from './ensureFreshStats.js';
 import { loadMonthStats } from './statsStore.js';
@@ -47,6 +48,7 @@ const loadRangeStats = (
 const createAppReport = (
   app: PortfolioApp,
   stats: readonly DailyStat[],
+  appCoverage: AppCoverage,
   freshness: StatsFreshness,
 ): AppStatsReport => ({
   key: app.key,
@@ -57,7 +59,7 @@ const createAppReport = (
   totals: foldMetricTotals(stats),
   series: createMetricSeries(stats),
   isStale: isAppStale(freshness, app.key),
-  messages: listAppMessages(freshness, app.key),
+  messages: listAppMessages(appCoverage),
 });
 
 const selectNamedApps = (
@@ -92,9 +94,11 @@ export const readStatsReport = (
     const lastDate = yield* readYesterdayUtc();
     const range = createLastDaysRange(lastDate, request.days);
     const appReports = yield* Effect.forEach(selectedApps, (app) =>
-      loadRangeStats(app.key, range).pipe(
-        Effect.map((stats) => createAppReport(app, stats, freshness)),
-      ),
+      Effect.gen(function* () {
+        const stats = yield* loadRangeStats(app.key, range);
+        const appCoverage = yield* loadAppCoverage(app.key);
+        return createAppReport(app, stats, appCoverage, freshness);
+      }),
     );
     return { range, days: request.days, isStale: freshness.isStale, apps: appReports };
   });

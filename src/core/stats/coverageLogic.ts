@@ -53,17 +53,31 @@ export const mergeFeedCoverage = (
   const isPreviousCoverageMissing =
     previous === null || previous.coveredFrom === null || previous.coveredThrough === null;
   if (isPreviousCoverageMissing && isNothingPulled) {
-    return { lastSyncedAt: syncedAt, coveredFrom: null, coveredThrough: null, lastError: null };
+    return {
+      lastSyncedAt: syncedAt,
+      coveredFrom: null,
+      coveredThrough: null,
+      lastError: null,
+      lastNote: null,
+    };
   }
   if (isPreviousCoverageMissing) {
-    return { lastSyncedAt: syncedAt, coveredFrom: range.from, coveredThrough, lastError: null };
+    return {
+      lastSyncedAt: syncedAt,
+      coveredFrom: range.from,
+      coveredThrough,
+      lastError: null,
+      lastNote: null,
+    };
   }
-  if (isNothingPulled) return { ...previous, lastSyncedAt: syncedAt, lastError: null };
+  if (isNothingPulled)
+    return { ...previous, lastSyncedAt: syncedAt, lastError: null, lastNote: null };
   return {
     lastSyncedAt: syncedAt,
     coveredFrom: pickEarlierDate(range.from, previous.coveredFrom),
     coveredThrough: pickLaterDate(coveredThrough, previous.coveredThrough),
     lastError: null,
+    lastNote: null,
   };
 };
 
@@ -71,12 +85,19 @@ export const mergeFeedCoverage = (
 export const markFeedCoverageSkipped = (
   previous: FeedCoverage | null,
   syncedAt: string,
+  reason: string,
 ): FeedCoverage => {
   const isNeverSynced = previous === null;
   if (isNeverSynced) {
-    return { lastSyncedAt: syncedAt, coveredFrom: null, coveredThrough: null, lastError: null };
+    return {
+      lastSyncedAt: syncedAt,
+      coveredFrom: null,
+      coveredThrough: null,
+      lastError: null,
+      lastNote: reason,
+    };
   }
-  return { ...previous, lastSyncedAt: syncedAt, lastError: null };
+  return { ...previous, lastSyncedAt: syncedAt, lastError: null, lastNote: reason };
 };
 
 export const markFeedCoverageFailed = (
@@ -90,9 +111,16 @@ export const markFeedCoverageFailed = (
       coveredFrom: null,
       coveredThrough: null,
       lastError: message,
+      lastNote: null,
     };
   }
-  return { ...previous, lastError: message };
+  return { ...previous, lastError: message, lastNote: null };
+};
+
+export const createNotesMessage = (notes: readonly string[]): string | null => {
+  const hasNoNotes = notes.length === 0;
+  if (hasNoNotes) return null;
+  return notes.join('; ');
 };
 
 export const isFeedCoverageStale = (

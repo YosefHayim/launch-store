@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import type { AppCoverage, FeedCoverage } from '../types/stats.js';
 import {
+  createNotesMessage,
   findFeedCoverage,
   isFeedCoverageStale,
   markFeedCoverageFailed,
@@ -16,6 +17,7 @@ const createCoverage = (overrides: Partial<FeedCoverage>): FeedCoverage => ({
   lastSyncedAt: SYNCED_AT,
   ...COVERED,
   lastError: null,
+  lastNote: null,
   ...overrides,
 });
 
@@ -95,6 +97,7 @@ describe('mergeFeedCoverage', () => {
       coveredFrom: '2026-10-01',
       coveredThrough: '2026-10-10',
       lastError: null,
+      lastNote: null,
     });
   });
 
@@ -124,6 +127,7 @@ describe('mergeFeedCoverage', () => {
       coveredFrom: '2026-09-25',
       coveredThrough: '2026-10-25',
       lastError: null,
+      lastNote: null,
     });
   });
 
@@ -146,7 +150,12 @@ describe('mergeFeedCoverage', () => {
       SYNCED_AT,
     );
 
-    expect(merged).toEqual({ lastSyncedAt: SYNCED_AT, ...COVERED, lastError: null });
+    expect(merged).toEqual({
+      lastSyncedAt: SYNCED_AT,
+      ...COVERED,
+      lastError: null,
+      lastNote: null,
+    });
   });
 });
 
@@ -166,22 +175,23 @@ describe('markFeedCoverageFailed', () => {
 
 describe('markFeedCoverageSkipped', () => {
   test('creates an empty coverage with the sync time when nothing was synced before', () => {
-    const skipped = markFeedCoverageSkipped(null, SYNCED_AT);
+    const skipped = markFeedCoverageSkipped(null, SYNCED_AT, 'not ready');
 
     expect(skipped).toEqual({
       lastSyncedAt: SYNCED_AT,
       coveredFrom: null,
       coveredThrough: null,
       lastError: null,
+      lastNote: 'not ready',
     });
   });
 
   test('keeps the covered days and moves the sync time and clears the error', () => {
     const previous = createCoverage({ lastSyncedAt: '2026-10-01T00:00:00.000Z', lastError: 'old' });
 
-    const skipped = markFeedCoverageSkipped(previous, SYNCED_AT);
+    const skipped = markFeedCoverageSkipped(previous, SYNCED_AT, 'not ready');
 
-    expect(skipped).toEqual(createCoverage({}));
+    expect(skipped).toEqual(createCoverage({ lastNote: 'not ready' }));
   });
 });
 
@@ -220,5 +230,15 @@ describe('isFeedCoverageStale', () => {
 
   test('is fresh when recent and without error', () => {
     expect(isFeedCoverageStale(createCoverage({}), now)).toBe(false);
+  });
+});
+
+describe('createNotesMessage', () => {
+  test('is null when there are no notes', () => {
+    expect(createNotesMessage([])).toBeNull();
+  });
+
+  test('joins the notes with a semicolon', () => {
+    expect(createNotesMessage(['first', 'second'])).toBe('first; second');
   });
 });

@@ -17,6 +17,7 @@ import type {
   StatsSyncRequest,
 } from '../types/stats.js';
 import {
+  createNotesMessage,
   findFeedCoverage,
   markFeedCoverageFailed,
   markFeedCoverageSkipped,
@@ -55,12 +56,6 @@ interface FeedSync {
   readonly report: AppFeedSyncReport;
   readonly coverage: FeedCoverage | null;
 }
-
-const createNotesMessage = (notes: readonly string[]): string | null => {
-  const hasNoNotes = notes.length === 0;
-  if (hasNoNotes) return null;
-  return notes.join('; ');
-};
 
 const syncOneFeed = (
   app: PortfolioApp,
@@ -113,19 +108,26 @@ const syncOneFeed = (
           statsWritten: 0,
           message: reply.reason,
         },
-        coverage: markFeedCoverageSkipped(savedCoverage, syncedAt),
+        coverage: markFeedCoverageSkipped(savedCoverage, syncedAt, reply.reason),
       } satisfies FeedSync;
     }
     yield* saveDailyStats(app.key, reply.stats);
+    const notesMessage = createNotesMessage(reply.notes);
+    const mergedCoverage = mergeFeedCoverage(
+      savedCoverage,
+      missingRange,
+      reply.coveredThrough,
+      syncedAt,
+    );
     return {
       report: {
         appKey: app.key,
         feed: plugin.feed,
         status: 'synced',
         statsWritten: reply.stats.length,
-        message: createNotesMessage(reply.notes),
+        message: notesMessage,
       },
-      coverage: mergeFeedCoverage(savedCoverage, missingRange, reply.coveredThrough, syncedAt),
+      coverage: { ...mergedCoverage, lastNote: notesMessage },
     } satisfies FeedSync;
   });
 
