@@ -113,6 +113,14 @@ describe('ensureFreshStats', () => {
     expect(freshness.report?.appFeeds.map((appFeed) => appFeed.status)).toEqual(['skipped']);
   });
 
+  test('does not sync again right after a feed was skipped', async () => {
+    await ensure('cal friend');
+
+    const freshness = await ensure('cal friend');
+
+    expect(freshness).toEqual({ isStale: false, report: null });
+  });
+
   test('syncs a feed that was synced more than 12 hours ago', async () => {
     writeCoverage('2020-01-01T00:00:00.000Z', null);
 
@@ -152,11 +160,11 @@ describe('ensureFreshStats', () => {
     expect(freshness.isStale).toBe(true);
   });
 
-  test('answers without apps when the portfolio cannot be loaded', async () => {
+  test('reports stale without a report when the portfolio cannot be loaded', async () => {
     writeLaunchHomeFile(homeDirectory, 'portfolio.json', '{not json');
 
     const freshness = await ensure('cal friend');
 
-    expect(freshness).toEqual({ isStale: false, report: null });
+    expect(freshness).toEqual({ isStale: true, report: null });
   });
 });

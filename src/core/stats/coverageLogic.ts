@@ -1,43 +1,55 @@
-import type { DateRange, FeedCoverage } from '../types/stats.js';
+import type { AppCoverage, DateRange, FeedCoverage, StatsFeed } from '../types/stats.js';
 import { isSyncedAtStale, REFRESH_TAIL_DAYS, shiftDate } from './dateRange.js';
 
 const NEVER_SYNCED_AT = '1970-01-01T00:00:00.000Z';
 
 // ISO dates sort as text, so a plain string compare orders them.
-const earlierDate = (first: string, second: string): string => {
-  if (first < second) return first;
-  return second;
+const pickEarlierDate = (firstDate: string, secondDate: string): string => {
+  const isFirstEarlier = firstDate < secondDate;
+  if (isFirstEarlier) return firstDate;
+  return secondDate;
 };
 
-const laterDate = (first: string, second: string): string => {
-  if (first > second) return first;
-  return second;
+const pickLaterDate = (firstDate: string, secondDate: string): string => {
+  const isFirstLater = firstDate > secondDate;
+  if (isFirstLater) return firstDate;
+  return secondDate;
 };
 
-/**
- * The days still to pull: the requested range minus what is covered, plus a re-pull of the last
- * `REFRESH_TAIL_DAYS` covered days (stores revise recent days). Null when nothing is missing.
- */
+export const findFeedCoverage = (
+  appCoverage: AppCoverage,
+  feed: StatsFeed,
+): FeedCoverage | null => {
+  const savedFeedCoverage = appCoverage.feeds[feed];
+  const isFeedCoverageMissing = savedFeedCoverage === undefined;
+  if (isFeedCoverageMissing) return null;
+  return savedFeedCoverage;
+};
+
+// Stores revise their newest days, so the last REFRESH_TAIL_DAYS covered days are pulled again.
 export const subtractCoverage = (
   requested: DateRange,
   covered: Pick<FeedCoverage, 'coveredFrom' | 'coveredThrough'> | null,
 ): DateRange | null => {
-  if (covered === null) return requested;
+  const isNothingCovered = covered === null;
+  if (isNothingCovered) return requested;
   const { coveredFrom, coveredThrough } = covered;
-  if (coveredFrom === null || coveredThrough === null) return requested;
+  const isCoverageEmpty = coveredFrom === null || coveredThrough === null;
+  if (isCoverageEmpty) return requested;
   const refreshFrom = shiftDate(coveredThrough, 1 - REFRESH_TAIL_DAYS);
   const isRangeReachingTail = requested.to >= refreshFrom;
   const isRangeStartingBeforeCoverage = requested.from < coveredFrom;
-  if (isRangeStartingBeforeCoverage && isRangeReachingTail) return requested;
+  const isWholeRangeNeeded = isRangeStartingBeforeCoverage && isRangeReachingTail;
+  if (isWholeRangeNeeded) return requested;
   if (isRangeStartingBeforeCoverage) {
-    return { from: requested.from, to: laterDate(requested.to, shiftDate(coveredFrom, -1)) };
+    return { from: requested.from, to: pickLaterDate(requested.to, shiftDate(coveredFrom, -1)) };
   }
-  if (!isRangeReachingTail) return null;
-  const tailStart = laterDate(requested.from, refreshFrom);
-  return { from: earlierDate(tailStart, shiftDate(coveredThrough, 1)), to: requested.to };
+  const isRangeInsideCoverage = !isRangeReachingTail;
+  if (isRangeInsideCoverage) return null;
+  const tailStart = pickLaterDate(requested.from, refreshFrom);
+  return { from: pickEarlierDate(tailStart, shiftDate(coveredThrough, 1)), to: requested.to };
 };
 
-/** The coverage after a successful pull of `range` that reached `coveredThrough`. */
 export const mergeFeedCoverage = (
   previous: FeedCoverage | null,
   range: DateRange,
@@ -45,29 +57,41 @@ export const mergeFeedCoverage = (
   syncedAt: string,
 ): FeedCoverage => {
   const isNothingPulled = coveredThrough < range.from;
-  const hasPreviousCoverage =
-    previous !== null && previous.coveredFrom !== null && previous.coveredThrough !== null;
-  if (!hasPreviousCoverage && isNothingPulled) {
+  const isPreviousCoverageMissing =
+    previous === null || previous.coveredFrom === null || previous.coveredThrough === null;
+  if (isPreviousCoverageMissing && isNothingPulled) {
     return { lastSyncedAt: syncedAt, coveredFrom: null, coveredThrough: null, lastError: null };
   }
-  if (!hasPreviousCoverage) {
+  if (isPreviousCoverageMissing) {
     return { lastSyncedAt: syncedAt, coveredFrom: range.from, coveredThrough, lastError: null };
   }
   if (isNothingPulled) return { ...previous, lastSyncedAt: syncedAt, lastError: null };
   return {
     lastSyncedAt: syncedAt,
-    coveredFrom: earlierDate(range.from, previous.coveredFrom),
-    coveredThrough: laterDate(coveredThrough, previous.coveredThrough),
+    coveredFrom: pickEarlierDate(range.from, previous.coveredFrom),
+    coveredThrough: pickLaterDate(coveredThrough, previous.coveredThrough),
     lastError: null,
   };
 };
 
-/** The coverage after a failed pull: the covered days and sync time stay, the error is recorded. */
+// A skipped feed counts as checked, or every read would try it again.
+export const markFeedCoverageSkipped = (
+  previous: FeedCoverage | null,
+  syncedAt: string,
+): FeedCoverage => {
+  const isNeverSynced = previous === null;
+  if (isNeverSynced) {
+    return { lastSyncedAt: syncedAt, coveredFrom: null, coveredThrough: null, lastError: null };
+  }
+  return { ...previous, lastSyncedAt: syncedAt, lastError: null };
+};
+
 export const markFeedCoverageFailed = (
   previous: FeedCoverage | null,
   message: string,
 ): FeedCoverage => {
-  if (previous === null) {
+  const isNeverSynced = previous === null;
+  if (isNeverSynced) {
     return {
       lastSyncedAt: NEVER_SYNCED_AT,
       coveredFrom: null,
@@ -78,12 +102,12 @@ export const markFeedCoverageFailed = (
   return { ...previous, lastError: message };
 };
 
-/** True when a feed was never synced, failed last time, or was synced too long ago. */
 export const isFeedCoverageStale = (
   coverage: FeedCoverage | null,
   nowMilliseconds: number,
 ): boolean => {
-  if (coverage === null) return true;
+  const isNeverSynced = coverage === null;
+  if (isNeverSynced) return true;
   const hasLastSyncFailed = coverage.lastError !== null;
   if (hasLastSyncFailed) return true;
   return isSyncedAtStale(coverage.lastSyncedAt, nowMilliseconds);

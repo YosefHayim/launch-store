@@ -5,7 +5,7 @@ import type { EffectAppStoreConnectClient } from '../services/appleStoreClient.j
 import type { PortfolioApp } from './portfolio.js';
 import type { ServiceAccount } from './credentials.js';
 
-type StatsFeed = 'app-store' | 'google-play' | 'ga4';
+export type StatsFeed = 'app-store' | 'google-play' | 'ga4';
 export const STATS_FEEDS: readonly StatsFeed[] = ['app-store', 'google-play', 'ga4'];
 
 type StatsMetric =
@@ -118,6 +118,7 @@ export type FeedFetchReply =
       readonly status: 'fetched';
       readonly stats: readonly DailyStat[];
       readonly coveredThrough: string;
+      readonly notes: readonly string[];
     };
 
 export type StatsFeedFailure = Readonly<{

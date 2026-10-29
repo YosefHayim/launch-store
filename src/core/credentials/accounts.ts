@@ -214,7 +214,8 @@ export const addAccount = (
       label: input.label,
       addedAt,
     };
-    if (existing?.vendorNumber !== undefined) record.vendorNumber = existing.vendorNumber;
+    const hasSavedVendorNumber = existing?.vendorNumber !== undefined;
+    if (hasSavedVendorNumber) record.vendorNumber = existing.vendorNumber;
     if (input.teamId !== null && input.teamId !== undefined) record.teamId = input.teamId;
     if (input.apps !== undefined && input.apps.length > 0) record.apps = [...input.apps];
     if (hasIdentity) record.resolvedAt = timestamp;
@@ -246,18 +247,22 @@ export const updateAccountIdentity = (
     });
     yield* writeAccounts({ active: file.active, accounts });
   });
-/** Save the Apple vendor number the stats sync uses for this account's sales reports. */
 export const setAccountVendorNumber = (
   keyId: string,
   vendorNumber: string,
 ): Effect.Effect<void, AccountFailure, AccountStorageRequirements> =>
   Effect.gen(function* () {
     const file = yield* readAccounts();
-    if (!file.accounts.some((account) => account.keyId === keyId)) {
-      return yield* Effect.fail(makeAccountFailure({ message: `No account with key ${keyId}.` }));
+    const isAccountSaved = file.accounts.some((account) => account.keyId === keyId);
+    if (!isAccountSaved) {
+      const missingAccountFailure = makeAccountFailure({
+        message: `No account with key ${keyId}.`,
+      });
+      return yield* Effect.fail(missingAccountFailure);
     }
     const accounts = file.accounts.map((account) => {
-      if (account.keyId === keyId) return { ...account, vendorNumber };
+      const isTargetAccount = account.keyId === keyId;
+      if (isTargetAccount) return { ...account, vendorNumber };
       return account;
     });
     yield* writeAccounts({ active: file.active, accounts });
@@ -268,8 +273,12 @@ export const setActiveKeyId = (
 ): Effect.Effect<void, AccountFailure, AccountStorageRequirements> =>
   Effect.gen(function* () {
     const file = yield* readAccounts();
-    if (!file.accounts.some((account) => account.keyId === keyId)) {
-      return yield* Effect.fail(makeAccountFailure({ message: `No account with key ${keyId}.` }));
+    const isAccountSaved = file.accounts.some((account) => account.keyId === keyId);
+    if (!isAccountSaved) {
+      const missingAccountFailure = makeAccountFailure({
+        message: `No account with key ${keyId}.`,
+      });
+      return yield* Effect.fail(missingAccountFailure);
     }
     yield* writeAccounts({ active: keyId, accounts: file.accounts });
   });
@@ -280,8 +289,12 @@ export const renameAccount = (
 ): Effect.Effect<void, AccountFailure, AccountStorageRequirements> =>
   Effect.gen(function* () {
     const file = yield* readAccounts();
-    if (!file.accounts.some((account) => account.keyId === keyId)) {
-      return yield* Effect.fail(makeAccountFailure({ message: `No account with key ${keyId}.` }));
+    const isAccountSaved = file.accounts.some((account) => account.keyId === keyId);
+    if (!isAccountSaved) {
+      const missingAccountFailure = makeAccountFailure({
+        message: `No account with key ${keyId}.`,
+      });
+      return yield* Effect.fail(missingAccountFailure);
     }
     const accounts = file.accounts.map((account) => {
       if (account.keyId === keyId) return { ...account, label: newLabel };

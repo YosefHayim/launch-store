@@ -16,7 +16,7 @@ const makeGoogleAccessTokenFailure = Data.tagged<GoogleAccessTokenFailure>(
 
 export type GoogleAccessTokenService = Readonly<{
   readonly readServiceAccount: (
-    serviceAccountJson: string,
+    savedServiceAccountKey: string,
   ) => Effect.Effect<ServiceAccount, GoogleAccessTokenFailure>;
   readonly createAccessToken: (
     account: ServiceAccount,
@@ -28,10 +28,9 @@ export const GoogleAccessToken = Context.GenericTag<GoogleAccessTokenService>(
   'launch-store/GoogleAccessToken',
 );
 
-/** Live token minting through Google's official JWT client. */
 export const GoogleAccessTokenLive = Layer.succeed(GoogleAccessToken, {
-  readServiceAccount: (serviceAccountJson) =>
-    parseServiceAccount(serviceAccountJson).pipe(
+  readServiceAccount: (savedServiceAccountKey) =>
+    parseServiceAccount(savedServiceAccountKey).pipe(
       Effect.mapError((cause) =>
         makeGoogleAccessTokenFailure({ message: errorMessage(cause), cause }),
       ),
@@ -47,7 +46,6 @@ export const GoogleAccessTokenLive = Layer.succeed(GoogleAccessToken, {
     }),
 } satisfies GoogleAccessTokenService);
 
-/** Deterministic layer: every service account key reads as `serviceAccount` and every token is `accessToken`. */
 export const makeGoogleAccessTokenTest = (
   serviceAccount: ServiceAccount,
   accessToken: string,

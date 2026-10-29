@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   createLastDaysRange,
   isSyncedAtStale,
-  monthOfDate,
+  readMonthOfDate,
   readYesterdayUtc,
   shiftDate,
 } from './dateRange.js';
@@ -22,9 +22,9 @@ describe('shiftDate', () => {
   });
 });
 
-describe('monthOfDate', () => {
+describe('readMonthOfDate', () => {
   test('keeps the year and month', () => {
-    expect(monthOfDate('2026-10-29')).toBe('2026-10');
+    expect(readMonthOfDate('2026-10-29')).toBe('2026-10');
   });
 });
 

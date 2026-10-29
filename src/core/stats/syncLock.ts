@@ -1,4 +1,5 @@
 import { FileSystem, Path } from '@effect/platform';
+import type { PlatformError } from '@effect/platform/Error';
 import { Clock, Data, Effect } from 'effect';
 import { errorMessage } from '../services/errorMessage.js';
 import { locateStatsDirectory, type LaunchPathsService } from '../services/paths.js';
@@ -16,13 +17,16 @@ const makeSyncLockFailure = Data.tagged<SyncLockFailure>('SyncLockFailure');
 
 type SyncLockRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
 
-/** A lock older than 5 minutes (or with unreadable text) belongs to a crashed sync. */
+// A lock older than the limit belongs to a crashed sync.
 export const isSyncLockStale = (lockedAt: string, nowMilliseconds: number): boolean => {
   const lockedAtMilliseconds = Date.parse(lockedAt);
   const isTimeUnreadable = Number.isNaN(lockedAtMilliseconds);
   if (isTimeUnreadable) return true;
   return nowMilliseconds - lockedAtMilliseconds > SYNC_LOCK_STALE_AFTER_MILLISECONDS;
 };
+
+const isAlreadyExistsError = (error: PlatformError): boolean =>
+  error._tag === 'SystemError' && error.reason === 'AlreadyExists';
 
 const createLockFile = (
   fileSystem: FileSystem.FileSystem,
@@ -43,12 +47,14 @@ const acquireSyncLock = (): Effect.Effect<string, SyncLockFailure, SyncLockRequi
     yield* fileSystem.makeDirectory(statsDirectory, { recursive: true });
     const isLockTaken = yield* createLockFile(fileSystem, lockFilePath, nowMilliseconds).pipe(
       Effect.as(false),
-      Effect.catchAll(() => Effect.succeed(true)),
+      Effect.catchIf(isAlreadyExistsError, () => Effect.succeed(true)),
     );
-    if (!isLockTaken) return lockFilePath;
+    const isLockFree = !isLockTaken;
+    if (isLockFree) return lockFilePath;
     const lockedAt = yield* fileSystem.readFileString(lockFilePath);
     const isLockOld = isSyncLockStale(lockedAt, nowMilliseconds);
-    if (!isLockOld) {
+    const isAnotherSyncRunning = !isLockOld;
+    if (isAnotherSyncRunning) {
       return yield* Effect.fail(new Error(`Another stats sync is running (started ${lockedAt}).`));
     }
     yield* fileSystem.remove(lockFilePath, { force: true });
@@ -69,8 +75,7 @@ const releaseSyncLock = (lockFilePath: string): Effect.Effect<void, never, FileS
     yield* fileSystem.remove(lockFilePath, { force: true });
   }).pipe(Effect.orDie);
 
-/** Run a sync while holding `sync.lock`, so two syncs never write the same files together. */
-export const withSyncLock = <Success, Failure, Requirements>(
+export const holdSyncLock = <Success, Failure, Requirements>(
   syncProgram: Effect.Effect<Success, Failure, Requirements>,
 ): Effect.Effect<Success, Failure | SyncLockFailure, Requirements | SyncLockRequirements> =>
   Effect.acquireUseRelease(acquireSyncLock(), () => syncProgram, releaseSyncLock);

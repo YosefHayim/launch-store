@@ -29,7 +29,7 @@ export const registerCredsCommand = (program: Command): void => {
     .option('--import <keystore>', 'existing Android upload keystore')
     .option('--alias <alias>', 'alias inside an imported Android keystore')
     .option('--team-id <id>', 'Apple Team ID for an APNs key')
-    .option('--vendor-number <n>', 'Apple vendor number for sales reports (set-vendor-number)')
+    .option('--vendor-number <number>', 'Apple vendor number for sales reports (set-vendor-number)')
     .option('--out <path>', 'APNs export destination')
     .option('--force', 'overwrite an existing APNs export destination')
     .option('--yes', 'run without interactive prompts')

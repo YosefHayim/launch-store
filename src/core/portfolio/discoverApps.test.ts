@@ -59,7 +59,7 @@ describe('discoverApps', () => {
     ]);
     expect(report).toMatchObject({
       warnings: [],
-      attemptedSourceCount: 3,
+      attemptedAccountCount: 3,
       failedAccountLabels: [],
     });
     expect(report.apps[0]).toMatchObject({
@@ -98,7 +98,7 @@ describe('discoverApps', () => {
     expect(report.apps.map((app) => app.key)).toEqual(['ios-2']);
     expect(report.warnings).toEqual([{ accountLabel: 'alpha', message: '401 revoked' }]);
     expect(report.failedAccountLabels).toEqual(['alpha']);
-    expect(report.attemptedSourceCount).toBe(2);
+    expect(report.attemptedAccountCount).toBe(2);
   });
 
   test('warns when an account has no saved key', async () => {
@@ -117,7 +117,7 @@ describe('discoverApps', () => {
     });
 
     expect(report.warnings).toEqual([{ accountLabel: 'google-play', message: '403 denied' }]);
-    expect(report.attemptedSourceCount).toBe(1);
+    expect(report.attemptedAccountCount).toBe(1);
   });
 
   test('does not count the Play source when no service account is saved', async () => {
@@ -126,7 +126,7 @@ describe('discoverApps', () => {
     expect(report).toEqual({
       apps: [],
       warnings: [],
-      attemptedSourceCount: 0,
+      attemptedAccountCount: 0,
       failedAccountLabels: [],
     });
   });

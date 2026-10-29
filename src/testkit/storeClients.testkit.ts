@@ -8,7 +8,6 @@ export interface FakeAscApp {
   readonly bundleId: string | null;
 }
 
-/** An App Store Connect client that answers only `listApps`, with the given apps or a failure. */
 export const makeFakeAscClient = (
   appsOrFailure: readonly FakeAscApp[] | Error,
 ): EffectAppStoreConnectClient => {
@@ -21,7 +20,6 @@ export const makeFakeAscClient = (
   return fakeClient as unknown as EffectAppStoreConnectClient;
 };
 
-/** A Play reporting client that answers only `listApps`, with the given apps or a failure. */
 export const makeFakePlayReportingClient = (
   appsOrFailure: readonly PlayReportingApp[] | Error,
 ): PlayReportingClient => {

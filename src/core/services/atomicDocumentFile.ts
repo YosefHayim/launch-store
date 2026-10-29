@@ -3,29 +3,30 @@ import { randomUUID } from 'node:crypto';
 import { Data, Effect, Schema } from 'effect';
 import { errorMessage } from './errorMessage.js';
 
-export type JsonFileFailure = Readonly<{
-  readonly _tag: 'JsonFileFailure';
+export type DocumentFileFailure = Readonly<{
+  readonly _tag: 'DocumentFileFailure';
   readonly filePath: string;
   readonly message: string;
   readonly cause: unknown;
 }>;
 
-const makeJsonFileFailure = Data.tagged<JsonFileFailure>('JsonFileFailure');
+const makeDocumentFileFailure = Data.tagged<DocumentFileFailure>('DocumentFileFailure');
 
-/** Read one JSON file through a schema: null when the file is absent, a failure when it is unreadable. */
-export const readJsonFile = <Document>(
+export const readDocumentFile = <Document>(
   filePath: string,
   documentSchema: Schema.Schema<Document>,
-): Effect.Effect<Document | null, JsonFileFailure, FileSystem.FileSystem> =>
+): Effect.Effect<Document | null, DocumentFileFailure, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const isFilePresent = yield* fileSystem.exists(filePath);
-    if (!isFilePresent) return null;
-    const fileText = yield* fileSystem.readFileString(filePath);
-    return yield* Schema.decodeUnknown(Schema.parseJson(documentSchema))(fileText);
+    const isFileMissing = !isFilePresent;
+    if (isFileMissing) return null;
+    const fileAsString = yield* fileSystem.readFileString(filePath);
+    const decodeDocument = Schema.decodeUnknown(Schema.parseJson(documentSchema));
+    return yield* decodeDocument(fileAsString);
   }).pipe(
     Effect.mapError((cause) =>
-      makeJsonFileFailure({
+      makeDocumentFileFailure({
         filePath,
         message: `Could not read ${filePath}: ${errorMessage(cause)}`,
         cause,
@@ -33,11 +34,10 @@ export const readJsonFile = <Document>(
     ),
   );
 
-/** Write a JSON document through a draft file in the same folder, then rename it over the target. */
-export const writeJsonFileAtomically = (
+export const writeDocumentFileAtomically = (
   filePath: string,
   document: unknown,
-): Effect.Effect<void, JsonFileFailure, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<void, DocumentFileFailure, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const pathService = yield* Path.Path;
@@ -45,11 +45,12 @@ export const writeJsonFileAtomically = (
     yield* fileSystem.makeDirectory(folderPath, { recursive: true });
     const draftFileId = yield* Effect.sync(() => randomUUID());
     const draftFilePath = `${filePath}.${draftFileId}.draft`;
-    yield* fileSystem.writeFileString(draftFilePath, `${JSON.stringify(document, null, 2)}\n`);
+    const documentAsString = JSON.stringify(document, null, 2);
+    yield* fileSystem.writeFileString(draftFilePath, `${documentAsString}\n`);
     yield* fileSystem.rename(draftFilePath, filePath);
   }).pipe(
     Effect.mapError((cause) =>
-      makeJsonFileFailure({
+      makeDocumentFileFailure({
         filePath,
         message: `Could not write ${filePath}: ${errorMessage(cause)}`,
         cause,

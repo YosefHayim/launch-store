@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'vitest';
-import type { FeedCoverage } from '../types/stats.js';
+import type { AppCoverage, FeedCoverage } from '../types/stats.js';
 import {
+  findFeedCoverage,
   isFeedCoverageStale,
   markFeedCoverageFailed,
+  markFeedCoverageSkipped,
   mergeFeedCoverage,
   subtractCoverage,
 } from './coverageLogic.js';
@@ -159,6 +161,43 @@ describe('markFeedCoverageFailed', () => {
     const failed = markFeedCoverageFailed(createCoverage({}), 'boom');
 
     expect(failed).toEqual(createCoverage({ lastError: 'boom' }));
+  });
+});
+
+describe('markFeedCoverageSkipped', () => {
+  test('creates an empty coverage with the sync time when nothing was synced before', () => {
+    const skipped = markFeedCoverageSkipped(null, SYNCED_AT);
+
+    expect(skipped).toEqual({
+      lastSyncedAt: SYNCED_AT,
+      coveredFrom: null,
+      coveredThrough: null,
+      lastError: null,
+    });
+  });
+
+  test('keeps the covered days and moves the sync time and clears the error', () => {
+    const previous = createCoverage({ lastSyncedAt: '2026-10-01T00:00:00.000Z', lastError: 'old' });
+
+    const skipped = markFeedCoverageSkipped(previous, SYNCED_AT);
+
+    expect(skipped).toEqual(createCoverage({}));
+  });
+});
+
+describe('findFeedCoverage', () => {
+  const appCoverage: AppCoverage = {
+    version: 1,
+    appKey: 'ios-1',
+    feeds: { 'app-store': createCoverage({}) },
+  };
+
+  test('returns the saved coverage of a feed', () => {
+    expect(findFeedCoverage(appCoverage, 'app-store')).toEqual(createCoverage({}));
+  });
+
+  test('returns null for a feed that was never synced', () => {
+    expect(findFeedCoverage(appCoverage, 'ga4')).toBeNull();
   });
 });
 

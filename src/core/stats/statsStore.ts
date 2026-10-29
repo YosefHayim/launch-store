@@ -1,10 +1,10 @@
 import { Path, type FileSystem } from '@effect/platform';
 import { Effect, Schema } from 'effect';
 import {
-  readJsonFile,
-  writeJsonFileAtomically,
-  type JsonFileFailure,
-} from '../services/atomicJsonFile.js';
+  readDocumentFile,
+  writeDocumentFileAtomically,
+  type DocumentFileFailure,
+} from '../services/atomicDocumentFile.js';
 import {
   locateAppStatsDirectory,
   type InvalidAppKeyFailure,
@@ -47,10 +47,15 @@ const StatsMonthFileSchema: Schema.Schema<StatsMonthFile> = Schema.Struct({
   stats: Schema.Array(DailyStatSchema),
 });
 
-type StatsStoreFailure = InvalidAppKeyFailure | JsonFileFailure;
+type StatsStoreFailure = InvalidAppKeyFailure | DocumentFileFailure;
 type StatsStoreRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
 
-/** Save daily stats into the month files of one app; saved days that are not re-sent stay. */
+const listSavedStats = (savedFile: StatsMonthFile | null): readonly DailyStat[] => {
+  const isFileMissing = savedFile === null;
+  if (isFileMissing) return [];
+  return savedFile.stats;
+};
+
 export const saveDailyStats = (
   appKey: string,
   stats: readonly DailyStat[],
@@ -61,15 +66,10 @@ export const saveDailyStats = (
     const statsByMonth = groupStatsByMonth(stats);
     for (const [month, monthStats] of statsByMonth) {
       const monthFilePath = pathService.join(appDirectory, `${month}.json`);
-      const savedFile = yield* readJsonFile(monthFilePath, StatsMonthFileSchema);
-      let savedStats: readonly DailyStat[] = [];
-      if (savedFile !== null) savedStats = savedFile.stats;
-      const monthFile: StatsMonthFile = {
-        version: 1,
-        appKey,
-        month,
-        stats: mergeStats(savedStats, monthStats),
-      };
-      yield* writeJsonFileAtomically(monthFilePath, monthFile);
+      const savedFile = yield* readDocumentFile(monthFilePath, StatsMonthFileSchema);
+      const savedStats = listSavedStats(savedFile);
+      const mergedStats = mergeStats(savedStats, monthStats);
+      const monthFile: StatsMonthFile = { version: 1, appKey, month, stats: mergedStats };
+      yield* writeDocumentFileAtomically(monthFilePath, monthFile);
     }
   });

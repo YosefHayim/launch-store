@@ -65,14 +65,16 @@ describe('parseDaysFlag', () => {
   });
 
   test('rejects zero, too many, and text that is not a whole number', async () => {
-    const daysTexts = ['0', '366', '2.5', '-3', 'abc', ''];
+    const invalidDaysFlags = ['0', '366', '2.5', '-3', 'abc', ''];
 
     const failures = await Promise.all(
-      daysTexts.map((daysText) => Effect.runPromise(parseDaysFlag(daysText).pipe(Effect.flip))),
+      invalidDaysFlags.map((invalidDaysFlag) =>
+        Effect.runPromise(parseDaysFlag(invalidDaysFlag).pipe(Effect.flip)),
+      ),
     );
 
     expect(failures.map((failure) => failure.message)).toEqual(
-      daysTexts.map(() => '--days must be a whole number from 1 to 365.'),
+      invalidDaysFlags.map(() => '--days must be a whole number from 1 to 365.'),
     );
   });
 });
@@ -88,7 +90,7 @@ describe('statsSyncProgram', () => {
     removeTemporaryHomeDirectory(homeDirectory);
   });
 
-  const run = (request: { app: string | undefined; days: string | undefined; json: boolean }) => {
+  const run = (request: { app: string | undefined; days: string | undefined; isJson: boolean }) => {
     const lines: string[] = [];
     const finished = Effect.runPromise(
       statsSyncProgram(request).pipe(
@@ -103,7 +105,7 @@ describe('statsSyncProgram', () => {
   };
 
   test('prints one JSON object with the feed reports with --json', async () => {
-    const { outcome, lines } = await run({ app: 'cal friend', days: '3', json: true });
+    const { outcome, lines } = await run({ app: 'cal friend', days: '3', isJson: true });
 
     expect(outcome._tag).toBe('Right');
     expect(lines).toHaveLength(1);
@@ -121,7 +123,7 @@ describe('statsSyncProgram', () => {
   });
 
   test('prints one line per feed without --json, syncing every app when no name is given', async () => {
-    const { lines } = await run({ app: undefined, days: undefined, json: false });
+    const { lines } = await run({ app: undefined, days: undefined, isJson: false });
 
     expect(lines).toEqual(['ios-1 app-store: skipped (not built yet)\n']);
   });
@@ -129,14 +131,14 @@ describe('statsSyncProgram', () => {
   test('exits 1 when a feed failed', async () => {
     fakeFeed.isFailing = true;
 
-    const { outcome, lines } = await run({ app: undefined, days: '3', json: false });
+    const { outcome, lines } = await run({ app: undefined, days: '3', isJson: false });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { _tag: 'CommandExit', exitCode: 1 } });
     expect(lines).toEqual(['ios-1 app-store: failed (report not ready)\n']);
   });
 
   test('exits 2 with a JSON error for a bad --days', async () => {
-    const { outcome, lines } = await run({ app: undefined, days: '0', json: true });
+    const { outcome, lines } = await run({ app: undefined, days: '0', isJson: true });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { exitCode: 2 } });
     expect(JSON.parse(lines[0] ?? '')).toEqual({
@@ -146,7 +148,7 @@ describe('statsSyncProgram', () => {
   });
 
   test('exits 2 when the app name matches nothing', async () => {
-    const { outcome } = await run({ app: 'zzz', days: undefined, json: false });
+    const { outcome } = await run({ app: 'zzz', days: undefined, isJson: false });
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { exitCode: 2 } });
   });

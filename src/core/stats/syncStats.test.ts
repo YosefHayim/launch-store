@@ -83,6 +83,7 @@ const FETCHED_REPLY: FeedFetchReply = {
   status: 'fetched',
   stats: [{ date: '2026-10-01', feed: 'app-store', metric: 'downloads', value: 7, currency: null }],
   coveredThrough: '2026-10-28',
+  notes: [],
 };
 
 describe('syncStats', () => {
@@ -140,6 +141,24 @@ describe('syncStats', () => {
       ['android-com.fit', 'skipped'],
     ]);
     expect(report.appFeeds[1]?.message).toBe('not built yet');
+  });
+
+  test('joins the feed notes into the report message', async () => {
+    fakeFeed.reply = { ...FETCHED_REPLY, notes: ['month 2026-09 missing', 'currency mixed'] };
+
+    const report = await sync('cal friend', 30);
+
+    expect(report.appFeeds[0]?.message).toBe('month 2026-09 missing; currency mixed');
+  });
+
+  test('records a skipped feed as checked so the next read does not sync again', async () => {
+    const report = await sync('fit', 5);
+
+    expect(report.appFeeds[0]?.status).toBe('skipped');
+    expect(readCoverage('android-com.fit').feeds['google-play']).toMatchObject({
+      lastSyncedAt: report.syncedAt,
+      lastError: null,
+    });
   });
 
   test('asks only for the days that are not covered yet on the second run', async () => {

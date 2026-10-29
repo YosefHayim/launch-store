@@ -17,7 +17,7 @@ export const StatsCredentials = Context.GenericTag<StatsCredentialsShape>(
 
 const makeStatsCredentialsFailure = Data.tagged<StatsCredentialsFailure>('StatsCredentialsFailure');
 
-const credentialsFailure = (operation: string, cause: unknown): StatsCredentialsFailure =>
+const createCredentialsFailure = (operation: string, cause: unknown): StatsCredentialsFailure =>
   makeStatsCredentialsFailure({
     message: `Could not ${operation}: ${errorMessage(cause)}`,
     cause,
@@ -33,7 +33,6 @@ type StatsCredentialsLiveRequirements =
   | LaunchSecretStoreService
   | Path.Path;
 
-/** Live credentials: every saved account is read by its own key id, never through the active account. */
 export const StatsCredentialsLive = Layer.effect(
   StatsCredentials,
   Effect.gen(function* () {
@@ -43,32 +42,38 @@ export const StatsCredentialsLive = Layer.effect(
     const googleAccessToken = yield* GoogleAccessToken;
     const googleReportingClients = yield* GoogleReportingClientService;
 
-    const loadServiceAccountJson = () =>
+    const loadSavedServiceAccountKey = () =>
       loadServiceAccount().pipe(
         Effect.provide(capturedServices),
-        Effect.mapError((cause) => credentialsFailure('load the Play service account', cause)),
+        Effect.mapError((cause) =>
+          createCredentialsFailure('load the Play service account', cause),
+        ),
       );
 
     const playServiceAccount: StatsCredentialsShape['playServiceAccount'] = () =>
       Effect.gen(function* () {
-        const serviceAccountJson = yield* loadServiceAccountJson();
-        if (serviceAccountJson === null) return null;
+        const savedServiceAccountKey = yield* loadSavedServiceAccountKey();
+        const isKeyMissing = savedServiceAccountKey === null;
+        if (isKeyMissing) return null;
         return yield* googleAccessToken
-          .readServiceAccount(serviceAccountJson)
+          .readServiceAccount(savedServiceAccountKey)
           .pipe(
-            Effect.mapError((cause) => credentialsFailure('read the Play service account', cause)),
+            Effect.mapError((cause) =>
+              createCredentialsFailure('read the Play service account', cause),
+            ),
           );
       });
 
     const playReportingClient: StatsCredentialsShape['playReportingClient'] = () =>
       Effect.gen(function* () {
-        const serviceAccountJson = yield* loadServiceAccountJson();
-        if (serviceAccountJson === null) return null;
+        const savedServiceAccountKey = yield* loadSavedServiceAccountKey();
+        const isKeyMissing = savedServiceAccountKey === null;
+        if (isKeyMissing) return null;
         return yield* googleReportingClients
-          .createClient(serviceAccountJson)
+          .createClient(savedServiceAccountKey)
           .pipe(
             Effect.mapError((cause) =>
-              credentialsFailure('create the Play reporting client', cause),
+              createCredentialsFailure('create the Play reporting client', cause),
             ),
           );
       });
@@ -76,11 +81,14 @@ export const StatsCredentialsLive = Layer.effect(
     const ascClientForAccount: StatsCredentialsShape['ascClientForAccount'] = (accountKeyId) =>
       Effect.gen(function* () {
         const ascKey = yield* loadAscKeyById(accountKeyId);
-        if (ascKey === null) return null;
+        const isKeyMissing = ascKey === null;
+        if (isKeyMissing) return null;
         return yield* appleStoreClients.createEffectClient(ascKey);
       }).pipe(
         Effect.provide(capturedServices),
-        Effect.mapError((cause) => credentialsFailure('load the App Store Connect key', cause)),
+        Effect.mapError((cause) =>
+          createCredentialsFailure('load the App Store Connect key', cause),
+        ),
       );
 
     const vendorNumberForAccount: StatsCredentialsShape['vendorNumberForAccount'] = (
@@ -89,24 +97,29 @@ export const StatsCredentialsLive = Layer.effect(
       Effect.gen(function* () {
         const accounts = yield* listAccounts();
         const account = accounts.find((candidate) => candidate.keyId === accountKeyId);
-        if (account !== undefined && account.vendorNumber !== undefined) {
-          return account.vendorNumber;
-        }
+        const hasAccountVendorNumber = account !== undefined && account.vendorNumber !== undefined;
+        if (hasAccountVendorNumber) return account.vendorNumber;
         const environmentVendorNumber = environment.values.appleVendorNumber;
-        if (environmentVendorNumber === undefined) return null;
-        return environmentVendorNumber;
+        const hasEnvironmentVendorNumber = environmentVendorNumber !== undefined;
+        if (hasEnvironmentVendorNumber) return environmentVendorNumber;
+        return null;
       }).pipe(
         Effect.provide(capturedServices),
-        Effect.mapError((cause) => credentialsFailure('read the vendor number', cause)),
+        Effect.mapError((cause) => createCredentialsFailure('read the vendor number', cause)),
       );
 
-    const accessTokenForScopes: StatsCredentialsShape['googleAccessToken'] = (scopes) =>
+    const readGoogleAccessToken: StatsCredentialsShape['googleAccessToken'] = (scopes) =>
       Effect.gen(function* () {
         const serviceAccount = yield* playServiceAccount();
-        if (serviceAccount === null) return null;
+        const isServiceAccountMissing = serviceAccount === null;
+        if (isServiceAccountMissing) return null;
         return yield* googleAccessToken
           .createAccessToken(serviceAccount, scopes)
-          .pipe(Effect.mapError((cause) => credentialsFailure('get a Google access token', cause)));
+          .pipe(
+            Effect.mapError((cause) =>
+              createCredentialsFailure('get a Google access token', cause),
+            ),
+          );
       });
 
     return {
@@ -114,12 +127,11 @@ export const StatsCredentialsLive = Layer.effect(
       vendorNumberForAccount,
       playServiceAccount,
       playReportingClient,
-      googleAccessToken: accessTokenForScopes,
+      googleAccessToken: readGoogleAccessToken,
     } satisfies StatsCredentialsShape;
   }),
 );
 
-/** Test layer: every method answers null unless the test passes its own answer. */
 export const makeStatsCredentialsTest = (
   overrides: Partial<StatsCredentialsShape> = {},
 ): Layer.Layer<StatsCredentialsShape> =>

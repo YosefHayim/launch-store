@@ -721,6 +721,29 @@ const putAssetFile = async (
   }
 };
 /** Client bound to one App Store Connect API key. */
+interface AppleAppSummary {
+  id: string;
+  name: string;
+  bundleId: string | null;
+}
+
+const readNonEmptyAttribute = (attribute: string | undefined): string | null => {
+  const isAttributePresent = typeof attribute === 'string' && attribute.length > 0;
+  if (isAttributePresent) return attribute;
+  return null;
+};
+
+const summarizeAppleApp = (appleResource: {
+  id: string;
+  attributes: { name?: string; bundleId?: string };
+}): AppleAppSummary => {
+  const name = readNonEmptyAttribute(appleResource.attributes.name);
+  const bundleId = readNonEmptyAttribute(appleResource.attributes.bundleId);
+  const isNameMissing = name === null;
+  if (isNameMissing) return { id: appleResource.id, name: appleResource.id, bundleId };
+  return { id: appleResource.id, name, bundleId };
+};
+
 export class AppStoreConnectClient {
   constructor(
     private readonly key: AscKey,
@@ -1464,19 +1487,12 @@ export class AppStoreConnectClient {
       .map((entry) => entry.attributes.name)
       .filter((name): name is string => Boolean(name));
   }
-  /** List every app this key can access with the id, name and bundle id a portfolio view needs. */
   async listApps(): Promise<{ id: string; name: string; bundleId: string | null }[]> {
     const appleResources = await this.requestAll<{
       name?: string;
       bundleId?: string;
     }>('/apps?fields[apps]=name,bundleId&limit=200');
-    return appleResources.map((appleResource) => {
-      let name = appleResource.id;
-      if (appleResource.attributes.name) name = appleResource.attributes.name;
-      let bundleId: string | null = null;
-      if (appleResource.attributes.bundleId) bundleId = appleResource.attributes.bundleId;
-      return { id: appleResource.id, name, bundleId };
-    });
+    return appleResources.map(summarizeAppleApp);
   }
   /**
    * Find a registered Bundle ID by its identifier, or null if it isn't registered yet. Apple's

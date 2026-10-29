@@ -1,6 +1,6 @@
 import type { FileSystem, Path } from '@effect/platform';
 import { Effect } from 'effect';
-import type { JsonFileFailure } from '../services/atomicJsonFile.js';
+import type { DocumentFileFailure } from '../services/atomicDocumentFile.js';
 import { LaunchLogger, type Logger } from '../services/logger.js';
 import type { LaunchPathsService } from '../services/paths.js';
 import type { CommandExit } from '../terminal/commandExit.js';
@@ -18,13 +18,18 @@ import type {
 } from '../types/portfolio.js';
 import type { StatsCredentialsShape } from '../types/stats.js';
 import { loadPortfolioApps } from './loadPortfolioApps.js';
-import { filterPortfolioApps, findAppsByAccount, findAppsByName } from './portfolioLogic.js';
+import {
+  applyTagChangeToApp,
+  filterPortfolioApps,
+  findAppsByAccount,
+  findAppsByName,
+} from './portfolioLogic.js';
 import { saveAppTags } from './tagApps.js';
 
 export interface AppsListRequest {
   readonly platform: string | undefined;
   readonly owner: string | undefined;
-  readonly json: boolean;
+  readonly isJson: boolean;
 }
 
 export interface AppsTagRequest {
@@ -32,7 +37,7 @@ export interface AppsTagRequest {
   readonly account: string | undefined;
   readonly owner: string | undefined;
   readonly ga4Property: string | undefined;
-  readonly json: boolean;
+  readonly isJson: boolean;
 }
 
 type AppsCommandRequirements =
@@ -45,64 +50,106 @@ type AppsCommandRequirements =
 const GA4_PROPERTY_PATTERN = /^[0-9]+$/;
 
 export const parsePlatformFlag = (
-  platformText: string | undefined,
+  platformFlag: string | undefined,
 ): Effect.Effect<PortfolioPlatform | null, UsageFailure> => {
-  if (platformText === undefined) return Effect.succeed(null);
-  if (platformText === 'ios') return Effect.succeed('ios');
-  if (platformText === 'android') return Effect.succeed('android');
-  return Effect.fail(makeUsageFailure({ message: '--platform must be ios or android.' }));
+  const isPlatformFlagMissing = platformFlag === undefined;
+  if (isPlatformFlagMissing) return Effect.succeed(null);
+  const isIos = platformFlag === 'ios';
+  if (isIos) return Effect.succeed('ios');
+  const isAndroid = platformFlag === 'android';
+  if (isAndroid) return Effect.succeed('android');
+  const platformFailure = makeUsageFailure({ message: '--platform must be ios or android.' });
+  return Effect.fail(platformFailure);
 };
 
 export const parseOwnerFlag = (
-  ownerText: string | undefined,
+  ownerFlag: string | undefined,
 ): Effect.Effect<AppOwner | null, UsageFailure> => {
-  if (ownerText === undefined) return Effect.succeed(null);
-  if (ownerText === 'mine') return Effect.succeed('mine');
-  if (ownerText === 'client') return Effect.succeed('client');
-  return Effect.fail(makeUsageFailure({ message: '--owner must be mine or client.' }));
+  const isOwnerFlagMissing = ownerFlag === undefined;
+  if (isOwnerFlagMissing) return Effect.succeed(null);
+  const isMine = ownerFlag === 'mine';
+  if (isMine) return Effect.succeed('mine');
+  const isClient = ownerFlag === 'client';
+  if (isClient) return Effect.succeed('client');
+  const ownerFailure = makeUsageFailure({ message: '--owner must be mine or client.' });
+  return Effect.fail(ownerFailure);
 };
 
-/** Check the `apps tag` flags: one of --app or --account, and at least one change to make. */
+const parseGa4PropertyFlag = (
+  ga4PropertyFlag: string | undefined,
+): Effect.Effect<string | null, UsageFailure> => {
+  const isFlagMissing = ga4PropertyFlag === undefined;
+  if (isFlagMissing) return Effect.succeed(null);
+  const isPropertyValid = GA4_PROPERTY_PATTERN.test(ga4PropertyFlag);
+  if (isPropertyValid) return Effect.succeed(ga4PropertyFlag);
+  const propertyFailure = makeUsageFailure({
+    message: '--ga4-property must be the numeric GA4 property id.',
+  });
+  return Effect.fail(propertyFailure);
+};
+
 export const parseTagRequest = (
   request: AppsTagRequest,
 ): Effect.Effect<AppTagChange, UsageFailure> =>
   Effect.gen(function* () {
     const hasApp = request.app !== undefined;
     const hasAccount = request.account !== undefined;
-    if (hasApp === hasAccount) {
-      return yield* Effect.fail(
-        makeUsageFailure({ message: 'Pass exactly one of --app <name> or --account <label>.' }),
-      );
+    const isSelectionAmbiguous = hasApp === hasAccount;
+    if (isSelectionAmbiguous) {
+      const selectionFailure = makeUsageFailure({
+        message: 'Pass exactly one of --app <name> or --account <label>.',
+      });
+      return yield* Effect.fail(selectionFailure);
     }
     const owner = yield* parseOwnerFlag(request.owner);
-    let ga4PropertyId: string | null = null;
-    if (request.ga4Property !== undefined) {
-      const isGa4PropertyValid = GA4_PROPERTY_PATTERN.test(request.ga4Property);
-      if (!isGa4PropertyValid) {
-        return yield* Effect.fail(
-          makeUsageFailure({ message: '--ga4-property must be the numeric GA4 property id.' }),
-        );
-      }
-      ga4PropertyId = request.ga4Property;
-    }
+    const ga4PropertyId = yield* parseGa4PropertyFlag(request.ga4Property);
     const isNothingToChange = owner === null && ga4PropertyId === null;
     if (isNothingToChange) {
-      return yield* Effect.fail(
-        makeUsageFailure({ message: 'Pass --owner mine|client and/or --ga4-property <id>.' }),
-      );
+      const changeFailure = makeUsageFailure({
+        message: 'Pass --owner mine|client and/or --ga4-property <id>.',
+      });
+      return yield* Effect.fail(changeFailure);
     }
     return { owner, ga4PropertyId };
   });
 
+const readStoreName = (platform: PortfolioPlatform): string => {
+  switch (platform) {
+    case 'ios':
+      return 'App Store';
+    case 'android':
+      return 'Google Play';
+  }
+};
+
+const readAppIdentifier = (app: PortfolioApp): string => {
+  const hasPackageName = app.packageName !== null;
+  if (hasPackageName) return app.packageName;
+  const hasBundleId = app.bundleId !== null;
+  if (hasBundleId) return app.bundleId;
+  return app.storeId;
+};
+
+const readOwnerLabel = (owner: AppOwner | null): string => {
+  const isUntagged = owner === null;
+  if (isUntagged) return 'untagged';
+  return owner;
+};
+
 const describeApp = (app: PortfolioApp): string => {
-  let owner = 'untagged';
-  if (app.owner !== null) owner = app.owner;
-  let storeName = 'App Store';
-  if (app.platform === 'android') storeName = 'Google Play';
-  let identifier = app.storeId;
-  if (app.bundleId !== null) identifier = app.bundleId;
-  if (app.packageName !== null) identifier = app.packageName;
-  return `${app.name} (${identifier}) - ${storeName}, ${app.accountLabel}, ${owner}`;
+  const identifier = readAppIdentifier(app);
+  const storeName = readStoreName(app.platform);
+  const ownerLabel = readOwnerLabel(app.owner);
+  return `${app.name} (${identifier}) - ${storeName}, ${app.accountLabel}, ${ownerLabel}`;
+};
+
+const findAppsToTag = (apps: readonly PortfolioApp[], request: AppsTagRequest): PortfolioApp[] => {
+  const { app: appName, account: accountLabel } = request;
+  const hasAppName = appName !== undefined;
+  if (hasAppName) return findAppsByName(apps, appName);
+  const hasAccountLabel = accountLabel !== undefined;
+  if (hasAccountLabel) return findAppsByAccount(apps, accountLabel);
+  return [];
 };
 
 const showWarnings = (warnings: readonly DiscoveryWarning[]): Effect.Effect<void, never, Logger> =>
@@ -113,74 +160,69 @@ const showWarnings = (warnings: readonly DiscoveryWarning[]): Effect.Effect<void
     }
   });
 
-/** `launch apps list`: the apps of every saved store account, with their tags. */
 export const appsListProgram = (
   request: AppsListRequest,
-): Effect.Effect<void, CommandExit | JsonFileFailure, AppsCommandRequirements> =>
+): Effect.Effect<void, CommandExit | DocumentFileFailure, AppsCommandRequirements> =>
   Effect.gen(function* () {
     const logger = yield* LaunchLogger;
     const platform = yield* parsePlatformFlag(request.platform);
     const owner = yield* parseOwnerFlag(request.owner);
     const portfolioLoad = yield* loadPortfolioApps('discover');
     const apps = filterPortfolioApps(portfolioLoad.apps, { platform, owner });
-    if (request.json) {
+    if (request.isJson) {
       const listing = {
         ok: true,
         apps,
         warnings: portfolioLoad.warnings,
         isFromCache: portfolioLoad.isFromCache,
       };
-      return yield* logger.line(JSON.stringify(listing)).pipe(Effect.orDie);
+      const listingLine = JSON.stringify(listing);
+      return yield* logger.line(listingLine).pipe(Effect.orDie);
     }
     yield* showWarnings(portfolioLoad.warnings);
-    for (const app of apps) yield* logger.line(describeApp(app)).pipe(Effect.orDie);
+    for (const app of apps) {
+      const appLine = describeApp(app);
+      yield* logger.line(appLine).pipe(Effect.orDie);
+    }
     const hasNoApps = apps.length === 0;
     if (hasNoApps) yield* logger.note('No apps found.').pipe(Effect.orDie);
   }).pipe(
     Effect.catchTag('UsageFailure', (usageFailure) =>
-      endWithUsageFailure(usageFailure, request.json),
+      endWithUsageFailure(usageFailure, request.isJson),
     ),
   );
 
-/** `launch apps tag`: set the owner and/or GA4 property of the matching apps. */
 export const appsTagProgram = (
   request: AppsTagRequest,
-): Effect.Effect<void, CommandExit | JsonFileFailure, AppsCommandRequirements> =>
+): Effect.Effect<void, CommandExit | DocumentFileFailure, AppsCommandRequirements> =>
   Effect.gen(function* () {
     const logger = yield* LaunchLogger;
     const change = yield* parseTagRequest(request);
     const portfolioLoad = yield* loadPortfolioApps('discover');
-    let matchedApps: PortfolioApp[] = [];
-    if (request.app !== undefined) matchedApps = findAppsByName(portfolioLoad.apps, request.app);
-    if (request.account !== undefined) {
-      matchedApps = findAppsByAccount(portfolioLoad.apps, request.account);
-    }
-    const isNothingMatched = matchedApps.length === 0;
-    if (isNothingMatched) {
+    const appsToTag = findAppsToTag(portfolioLoad.apps, request);
+    const isNothingFound = appsToTag.length === 0;
+    if (isNothingFound) {
       const knownNames = portfolioLoad.apps.map((app) => app.name).join(', ');
-      return yield* Effect.fail(
-        makeUsageFailure({ message: `No app matched. Known apps: ${knownNames}.` }),
-      );
+      const notFoundFailure = makeUsageFailure({
+        message: `No app matched. Known apps: ${knownNames}.`,
+      });
+      return yield* Effect.fail(notFoundFailure);
     }
-    yield* saveAppTags(
-      matchedApps.map((app) => app.key),
-      change,
-    );
-    const taggedApps = matchedApps.map(
-      (app): PortfolioApp => ({
-        ...app,
-        owner: change.owner === null ? app.owner : change.owner,
-        ga4PropertyId: change.ga4PropertyId === null ? app.ga4PropertyId : change.ga4PropertyId,
-      }),
-    );
-    if (request.json) {
+    const appKeys = appsToTag.map((app) => app.key);
+    yield* saveAppTags(appKeys, change);
+    const taggedApps = appsToTag.map((app) => applyTagChangeToApp(app, change));
+    if (request.isJson) {
       const tagging = { ok: true, tagged: taggedApps, warnings: portfolioLoad.warnings };
-      return yield* logger.line(JSON.stringify(tagging)).pipe(Effect.orDie);
+      const taggingLine = JSON.stringify(tagging);
+      return yield* logger.line(taggingLine).pipe(Effect.orDie);
     }
     yield* showWarnings(portfolioLoad.warnings);
-    for (const app of taggedApps) yield* logger.ok(`Tagged ${describeApp(app)}`).pipe(Effect.orDie);
+    for (const app of taggedApps) {
+      const taggedLine = `Tagged ${describeApp(app)}`;
+      yield* logger.ok(taggedLine).pipe(Effect.orDie);
+    }
   }).pipe(
     Effect.catchTag('UsageFailure', (usageFailure) =>
-      endWithUsageFailure(usageFailure, request.json),
+      endWithUsageFailure(usageFailure, request.isJson),
     ),
   );

@@ -1,10 +1,10 @@
 import { Path, type FileSystem } from '@effect/platform';
 import { Effect, Schema } from 'effect';
 import {
-  readJsonFile,
-  writeJsonFileAtomically,
-  type JsonFileFailure,
-} from '../services/atomicJsonFile.js';
+  readDocumentFile,
+  writeDocumentFileAtomically,
+  type DocumentFileFailure,
+} from '../services/atomicDocumentFile.js';
 import {
   locateAppStatsDirectory,
   type InvalidAppKeyFailure,
@@ -31,7 +31,7 @@ const AppCoverageSchema: Schema.Schema<AppCoverage> = Schema.Struct({
   }),
 });
 
-type CoverageStoreFailure = InvalidAppKeyFailure | JsonFileFailure;
+type CoverageStoreFailure = InvalidAppKeyFailure | DocumentFileFailure;
 type CoverageStoreRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
 
 export const createEmptyAppCoverage = (appKey: string): AppCoverage => ({
@@ -49,14 +49,14 @@ const locateCoverageFile = (
     return pathService.join(appDirectory, COVERAGE_FILE_NAME);
   });
 
-/** The saved coverage of one app, or an empty one when nothing was synced yet. */
 export const loadAppCoverage = (
   appKey: string,
 ): Effect.Effect<AppCoverage, CoverageStoreFailure, CoverageStoreRequirements> =>
   Effect.gen(function* () {
     const coverageFilePath = yield* locateCoverageFile(appKey);
-    const savedCoverage = yield* readJsonFile(coverageFilePath, AppCoverageSchema);
-    if (savedCoverage === null) return createEmptyAppCoverage(appKey);
+    const savedCoverage = yield* readDocumentFile(coverageFilePath, AppCoverageSchema);
+    const isCoverageMissing = savedCoverage === null;
+    if (isCoverageMissing) return createEmptyAppCoverage(appKey);
     return savedCoverage;
   });
 
@@ -65,5 +65,5 @@ export const saveAppCoverage = (
 ): Effect.Effect<void, CoverageStoreFailure, CoverageStoreRequirements> =>
   Effect.gen(function* () {
     const coverageFilePath = yield* locateCoverageFile(appCoverage.appKey);
-    yield* writeJsonFileAtomically(coverageFilePath, appCoverage);
+    yield* writeDocumentFileAtomically(coverageFilePath, appCoverage);
   });

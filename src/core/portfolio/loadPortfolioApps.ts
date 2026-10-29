@@ -1,16 +1,12 @@
 import type { FileSystem, Path } from '@effect/platform';
 import { Clock, Effect } from 'effect';
-import type { JsonFileFailure } from '../services/atomicJsonFile.js';
+import type { DocumentFileFailure } from '../services/atomicDocumentFile.js';
 import type { LaunchPathsService } from '../services/paths.js';
 import type { StatsCredentialsShape } from '../types/stats.js';
 import type { PortfolioFile, PortfolioLoad, PortfolioLoadMode } from '../types/portfolio.js';
 import { discoverApps } from './discoverApps.js';
-import { keepCachedAppsOfFailedSources, joinTags } from './portfolioLogic.js';
-import {
-  createEmptyPortfolioFile,
-  loadPortfolioFile,
-  savePortfolioFile,
-} from './portfolioStore.js';
+import { keepCachedAppsOfFailedAccounts, joinTags } from './portfolioLogic.js';
+import { loadPortfolioFile, pickSavedPortfolioFile, savePortfolioFile } from './portfolioStore.js';
 
 type LoadPortfolioRequirements =
   | FileSystem.FileSystem
@@ -18,18 +14,12 @@ type LoadPortfolioRequirements =
   | Path.Path
   | StatsCredentialsShape;
 
-/** True when every source that was asked failed, so nothing fresh is known. */
-const isEverySourceFailed = (attemptedSourceCount: number, failedSourceCount: number): boolean =>
-  attemptedSourceCount > 0 && failedSourceCount === attemptedSourceCount;
+const isEveryAccountFailed = (attemptedAccountCount: number, failedAccountCount: number): boolean =>
+  attemptedAccountCount > 0 && failedAccountCount === attemptedAccountCount;
 
-/**
- * Load the apps with their tags. `discover` asks the stores and saves `portfolio.json`; `cache-first`
- * reuses the saved file and only discovers when there is none. When every store fails, the saved
- * file answers with warnings.
- */
 export const loadPortfolioApps = (
   mode: PortfolioLoadMode,
-): Effect.Effect<PortfolioLoad, JsonFileFailure, LoadPortfolioRequirements> =>
+): Effect.Effect<PortfolioLoad, DocumentFileFailure, LoadPortfolioRequirements> =>
   Effect.gen(function* () {
     const cachedFile = yield* loadPortfolioFile();
     const isCacheUsable = mode === 'cache-first' && cachedFile !== null;
@@ -37,10 +27,9 @@ export const loadPortfolioApps = (
       return { apps: joinTags(cachedFile.apps, cachedFile.tags), warnings: [], isFromCache: true };
     }
     const report = yield* discoverApps();
-    let savedFile: PortfolioFile = createEmptyPortfolioFile();
-    if (cachedFile !== null) savedFile = cachedFile;
-    const isDiscoveryUseless = isEverySourceFailed(
-      report.attemptedSourceCount,
+    const savedFile = pickSavedPortfolioFile(cachedFile);
+    const isDiscoveryUseless = isEveryAccountFailed(
+      report.attemptedAccountCount,
       report.failedAccountLabels.length,
     );
     if (isDiscoveryUseless) {
@@ -50,7 +39,7 @@ export const loadPortfolioApps = (
         isFromCache: true,
       };
     }
-    const apps = keepCachedAppsOfFailedSources(
+    const apps = keepCachedAppsOfFailedAccounts(
       report.apps,
       savedFile.apps,
       report.failedAccountLabels,

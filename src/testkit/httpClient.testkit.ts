@@ -8,7 +8,6 @@ export interface HttpClientTestRoute {
   readonly body: unknown;
 }
 
-/** An HttpClient layer that answers only the listed routes; any other request is a loud test failure. */
 export const makeHttpClientTest = (
   routes: readonly HttpClientTestRoute[],
 ): Layer.Layer<HttpClient.HttpClient> =>

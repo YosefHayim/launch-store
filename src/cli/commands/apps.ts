@@ -2,7 +2,6 @@ import type { Command } from 'commander';
 import { appsListProgram, appsTagProgram } from '@core/portfolio/appsCommand.js';
 import { runCliProgram } from '../runCliProgram.js';
 
-/** Attach the `apps` command (with `list` / `tag` subcommands) to the program. */
 export const registerAppsCommand = (program: Command): void => {
   const apps = program
     .command('apps')
@@ -13,12 +12,12 @@ export const registerAppsCommand = (program: Command): void => {
     .option('--platform <platform>', 'only ios or android apps')
     .option('--owner <owner>', 'only apps tagged mine or client')
     .option('--json', 'output machine-readable JSON', false)
-    .action((options: { platform?: string; owner?: string; json?: boolean }) => {
+    .action((flags: { platform?: string; owner?: string; json?: boolean }) => {
       return runCliProgram(
         appsListProgram({
-          platform: options.platform,
-          owner: options.owner,
-          json: options.json === true,
+          platform: flags.platform,
+          owner: flags.owner,
+          isJson: flags.json === true,
         }),
       );
     });
@@ -31,7 +30,7 @@ export const registerAppsCommand = (program: Command): void => {
     .option('--ga4-property <id>', 'the numeric GA4 property id')
     .option('--json', 'output machine-readable JSON', false)
     .action(
-      (options: {
+      (flags: {
         app?: string;
         account?: string;
         owner?: string;
@@ -40,11 +39,11 @@ export const registerAppsCommand = (program: Command): void => {
       }) => {
         return runCliProgram(
           appsTagProgram({
-            app: options.app,
-            account: options.account,
-            owner: options.owner,
-            ga4Property: options.ga4Property,
-            json: options.json === true,
+            app: flags.app,
+            account: flags.account,
+            owner: flags.owner,
+            ga4Property: flags.ga4Property,
+            isJson: flags.json === true,
           }),
         );
       },

@@ -2,13 +2,14 @@ import { describe, expect, test } from 'vitest';
 import type { DiscoveredApp } from '../types/portfolio.js';
 import {
   applyTagChange,
+  applyTagChangeToApp,
   createAndroidAppKey,
   createIosAppKey,
   filterPortfolioApps,
   findAppsByAccount,
   findAppsByName,
   joinTags,
-  keepCachedAppsOfFailedSources,
+  keepCachedAppsOfFailedAccounts,
   mergeDiscoveredApps,
 } from './portfolioLogic.js';
 
@@ -36,9 +37,14 @@ const ANDROID_APP = createApp({
   accountLabel: 'google-play',
 });
 
-describe('createIosAppKey and createAndroidAppKey', () => {
-  test('prefix the store id with the platform', () => {
+describe('createIosAppKey', () => {
+  test('prefixes the store id with ios', () => {
     expect(createIosAppKey('42')).toBe('ios-42');
+  });
+});
+
+describe('createAndroidAppKey', () => {
+  test('prefixes the package name with android', () => {
     expect(createAndroidAppKey('com.a.b')).toBe('android-com.a.b');
   });
 });
@@ -57,11 +63,11 @@ describe('mergeDiscoveredApps', () => {
   });
 });
 
-describe('keepCachedAppsOfFailedSources', () => {
+describe('keepCachedAppsOfFailedAccounts', () => {
   test('keeps cached apps of a failed account and drops cached apps of an account that answered', () => {
     const cachedApps = [IOS_APP, ANDROID_APP];
 
-    const kept = keepCachedAppsOfFailedSources([], cachedApps, ['yosef']);
+    const kept = keepCachedAppsOfFailedAccounts([], cachedApps, ['yosef']);
 
     expect(kept).toEqual([IOS_APP]);
   });
@@ -69,7 +75,7 @@ describe('keepCachedAppsOfFailedSources', () => {
   test('prefers the fresh app over the cached copy', () => {
     const fresh = createApp({ name: 'Renamed' });
 
-    const kept = keepCachedAppsOfFailedSources([fresh], [IOS_APP], ['yosef']);
+    const kept = keepCachedAppsOfFailedAccounts([fresh], [IOS_APP], ['yosef']);
 
     expect(kept).toEqual([fresh]);
   });
@@ -174,5 +180,21 @@ describe('applyTagChange', () => {
       { appKey: 'ios-2', owner: 'client', ga4PropertyId: null },
       { appKey: 'ios-1', owner: 'mine', ga4PropertyId: '7' },
     ]);
+  });
+});
+
+describe('applyTagChangeToApp', () => {
+  const TAGGED_APP = { ...IOS_APP, owner: 'client' as const, ga4PropertyId: '7' };
+
+  test('replaces the owner and the property the change gives', () => {
+    const changed = applyTagChangeToApp(TAGGED_APP, { owner: 'mine', ga4PropertyId: '9' });
+
+    expect(changed).toMatchObject({ owner: 'mine', ga4PropertyId: '9' });
+  });
+
+  test('keeps the owner and the property the change leaves out', () => {
+    const changed = applyTagChangeToApp(TAGGED_APP, { owner: null, ga4PropertyId: null });
+
+    expect(changed).toMatchObject({ owner: 'client', ga4PropertyId: '7' });
   });
 });

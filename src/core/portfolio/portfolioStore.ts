@@ -1,10 +1,10 @@
 import type { FileSystem, Path } from '@effect/platform';
 import { Effect, Schema } from 'effect';
 import {
-  readJsonFile,
-  writeJsonFileAtomically,
-  type JsonFileFailure,
-} from '../services/atomicJsonFile.js';
+  readDocumentFile,
+  writeDocumentFileAtomically,
+  type DocumentFileFailure,
+} from '../services/atomicDocumentFile.js';
 import { locatePortfolioFilePath, type LaunchPathsService } from '../services/paths.js';
 import type { PortfolioFile } from '../types/portfolio.js';
 
@@ -43,21 +43,26 @@ export const createEmptyPortfolioFile = (): PortfolioFile => ({
   tags: [],
 });
 
-/** The saved portfolio, or null when `portfolio.json` does not exist yet. */
 export const loadPortfolioFile = (): Effect.Effect<
   PortfolioFile | null,
-  JsonFileFailure,
+  DocumentFileFailure,
   PortfolioStoreRequirements
 > =>
   Effect.gen(function* () {
     const portfolioFilePath = yield* locatePortfolioFilePath();
-    return yield* readJsonFile(portfolioFilePath, PortfolioFileSchema);
+    return yield* readDocumentFile(portfolioFilePath, PortfolioFileSchema);
   });
+
+export const pickSavedPortfolioFile = (cachedFile: PortfolioFile | null): PortfolioFile => {
+  const isFileMissing = cachedFile === null;
+  if (isFileMissing) return createEmptyPortfolioFile();
+  return cachedFile;
+};
 
 export const savePortfolioFile = (
   portfolioFile: PortfolioFile,
-): Effect.Effect<void, JsonFileFailure, PortfolioStoreRequirements> =>
+): Effect.Effect<void, DocumentFileFailure, PortfolioStoreRequirements> =>
   Effect.gen(function* () {
     const portfolioFilePath = yield* locatePortfolioFilePath();
-    yield* writeJsonFileAtomically(portfolioFilePath, portfolioFile);
+    yield* writeDocumentFileAtomically(portfolioFilePath, portfolioFile);
   });

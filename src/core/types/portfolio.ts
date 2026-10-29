@@ -40,7 +40,7 @@ export interface DiscoveryWarning {
 export interface DiscoveryReport {
   readonly apps: readonly DiscoveredApp[];
   readonly warnings: readonly DiscoveryWarning[];
-  readonly attemptedSourceCount: number;
+  readonly attemptedAccountCount: number;
   readonly failedAccountLabels: readonly string[];
 }
 

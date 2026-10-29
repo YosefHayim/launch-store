@@ -766,25 +766,29 @@ const renameAppleAccount = (
     yield* logger.ok(`Renamed account ${matchedAccount.keyId} to "${accountLabel}".`);
   });
 
-/** Save the Apple vendor number for one account, so the stats sync can read its sales reports. */
+const VENDOR_NUMBER_PATTERN = /^[0-9]+$/;
+
 const setAppleVendorNumber = (
   commandOptions: CredentialsCommandOptions,
 ): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
   Effect.gen(function* () {
     const usage = 'Usage: launch creds set-vendor-number --account <label> --vendor-number <n>.';
     const { account: selector, vendorNumber } = commandOptions;
-    if (selector === undefined) return yield* failCommand('set vendor number', usage);
-    if (vendorNumber === undefined) return yield* failCommand('set vendor number', usage);
+    const isSelectorMissing = selector === undefined;
+    if (isSelectorMissing) return yield* failCommand('set vendor number', usage);
+    const isVendorNumberMissing = vendorNumber === undefined;
+    if (isVendorNumberMissing) return yield* failCommand('set vendor number', usage);
     const trimmedVendorNumber = vendorNumber.trim();
-    const isVendorNumberDigits = /^[0-9]+$/.test(trimmedVendorNumber);
-    if (!isVendorNumberDigits) {
+    const isVendorNumberDigits = VENDOR_NUMBER_PATTERN.test(trimmedVendorNumber);
+    const isVendorNumberInvalid = !isVendorNumberDigits;
+    if (isVendorNumberInvalid) {
       return yield* failCommand('set vendor number', 'The vendor number is digits only.');
     }
     const accounts = yield* listAccounts();
-    const matchedAccount = yield* requireMatchedAccount(accounts, selector, 'set vendor number');
-    yield* setAccountVendorNumber(matchedAccount.keyId, trimmedVendorNumber);
+    const selectedAccount = yield* requireMatchedAccount(accounts, selector, 'set vendor number');
+    yield* setAccountVendorNumber(selectedAccount.keyId, trimmedVendorNumber);
     const logger = yield* createLogger(false);
-    yield* logger.ok(`Saved the vendor number for account "${matchedAccount.label}".`);
+    yield* logger.ok(`Saved the vendor number for account "${selectedAccount.label}".`);
   });
 
 /** Remove one Apple account after an optional interactive confirmation. */

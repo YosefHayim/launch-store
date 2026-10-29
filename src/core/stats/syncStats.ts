@@ -2,7 +2,7 @@ import type { FileSystem, HttpClient, Path } from '@effect/platform';
 import { Clock, Data, Effect } from 'effect';
 import { loadPortfolioApps } from '../portfolio/loadPortfolioApps.js';
 import { findAppsByName } from '../portfolio/portfolioLogic.js';
-import type { JsonFileFailure } from '../services/atomicJsonFile.js';
+import type { DocumentFileFailure } from '../services/atomicDocumentFile.js';
 import { errorMessage } from '../services/errorMessage.js';
 import type { InvalidAppKeyFailure, LaunchPathsService } from '../services/paths.js';
 import type { PortfolioApp } from '../types/portfolio.js';
@@ -16,13 +16,19 @@ import type {
   StatsSyncReport,
   StatsSyncRequest,
 } from '../types/stats.js';
-import { markFeedCoverageFailed, mergeFeedCoverage, subtractCoverage } from './coverageLogic.js';
+import {
+  findFeedCoverage,
+  markFeedCoverageFailed,
+  markFeedCoverageSkipped,
+  mergeFeedCoverage,
+  subtractCoverage,
+} from './coverageLogic.js';
 import { loadAppCoverage, saveAppCoverage } from './coverageStore.js';
 import { createLastDaysRange, readYesterdayUtc } from './dateRange.js';
 import { STATS_FEED_PLUGINS } from './feedRegistry.js';
 import { saveDailyStats } from './statsStore.js';
 import { StatsCredentials } from './statsCredentials.js';
-import { withSyncLock, type SyncLockFailure } from './syncLock.js';
+import { holdSyncLock, type SyncLockFailure } from './syncLock.js';
 
 type StatsAppNotFoundFailure = Readonly<{
   readonly _tag: 'StatsAppNotFoundFailure';
@@ -34,7 +40,7 @@ const makeStatsAppNotFoundFailure = Data.tagged<StatsAppNotFoundFailure>('StatsA
 
 export type StatsSyncFailure =
   | InvalidAppKeyFailure
-  | JsonFileFailure
+  | DocumentFileFailure
   | StatsAppNotFoundFailure
   | SyncLockFailure;
 
@@ -45,10 +51,16 @@ export type StatsSyncRequirements =
   | Path.Path
   | StatsCredentialsShape;
 
-interface FeedSyncOutcome {
+interface FeedSync {
   readonly report: AppFeedSyncReport;
   readonly coverage: FeedCoverage | null;
 }
+
+const createNotesMessage = (notes: readonly string[]): string | null => {
+  const hasNoNotes = notes.length === 0;
+  if (hasNoNotes) return null;
+  return notes.join('; ');
+};
 
 const syncOneFeed = (
   app: PortfolioApp,
@@ -56,11 +68,12 @@ const syncOneFeed = (
   requestedRange: DateRange,
   savedCoverage: FeedCoverage | null,
   syncedAt: string,
-): Effect.Effect<FeedSyncOutcome, InvalidAppKeyFailure | JsonFileFailure, StatsSyncRequirements> =>
+): Effect.Effect<FeedSync, InvalidAppKeyFailure | DocumentFileFailure, StatsSyncRequirements> =>
   Effect.gen(function* () {
     const credentials = yield* StatsCredentials;
     const missingRange = subtractCoverage(requestedRange, savedCoverage);
-    if (missingRange === null) {
+    const isFeedUpToDate = missingRange === null;
+    if (isFeedUpToDate) {
       return {
         report: {
           appKey: app.key,
@@ -70,12 +83,13 @@ const syncOneFeed = (
           message: null,
         },
         coverage: savedCoverage,
-      } satisfies FeedSyncOutcome;
+      } satisfies FeedSync;
     }
     const fetchReply = yield* plugin
       .fetchDays({ app, range: missingRange, credentials })
       .pipe(Effect.either);
-    if (fetchReply._tag === 'Left') {
+    const hasFetchFailed = fetchReply._tag === 'Left';
+    if (hasFetchFailed) {
       const message = errorMessage(fetchReply.left);
       return {
         report: {
@@ -86,10 +100,11 @@ const syncOneFeed = (
           message,
         },
         coverage: markFeedCoverageFailed(savedCoverage, message),
-      } satisfies FeedSyncOutcome;
+      } satisfies FeedSync;
     }
     const reply = fetchReply.right;
-    if (reply.status === 'skipped') {
+    const isFeedSkipped = reply.status === 'skipped';
+    if (isFeedSkipped) {
       return {
         report: {
           appKey: app.key,
@@ -98,8 +113,8 @@ const syncOneFeed = (
           statsWritten: 0,
           message: reply.reason,
         },
-        coverage: savedCoverage,
-      } satisfies FeedSyncOutcome;
+        coverage: markFeedCoverageSkipped(savedCoverage, syncedAt),
+      } satisfies FeedSync;
     }
     yield* saveDailyStats(app.key, reply.stats);
     return {
@@ -108,10 +123,10 @@ const syncOneFeed = (
         feed: plugin.feed,
         status: 'synced',
         statsWritten: reply.stats.length,
-        message: null,
+        message: createNotesMessage(reply.notes),
       },
       coverage: mergeFeedCoverage(savedCoverage, missingRange, reply.coveredThrough, syncedAt),
-    } satisfies FeedSyncOutcome;
+    } satisfies FeedSync;
   });
 
 const syncOneApp = (
@@ -120,7 +135,7 @@ const syncOneApp = (
   syncedAt: string,
 ): Effect.Effect<
   AppFeedSyncReport[],
-  InvalidAppKeyFailure | JsonFileFailure,
+  InvalidAppKeyFailure | DocumentFileFailure,
   StatsSyncRequirements
 > =>
   Effect.gen(function* () {
@@ -130,12 +145,11 @@ const syncOneApp = (
     for (const plugin of STATS_FEED_PLUGINS) {
       const isFeedApplicable = plugin.isApplicable(app);
       if (!isFeedApplicable) continue;
-      let savedFeedCoverage: FeedCoverage | null = null;
-      const knownFeedCoverage = feedCoverages[plugin.feed];
-      if (knownFeedCoverage !== undefined) savedFeedCoverage = knownFeedCoverage;
-      const outcome = yield* syncOneFeed(app, plugin, requestedRange, savedFeedCoverage, syncedAt);
-      appFeedReports.push(outcome.report);
-      if (outcome.coverage !== null) feedCoverages[plugin.feed] = outcome.coverage;
+      const savedFeedCoverage = findFeedCoverage(savedCoverage, plugin.feed);
+      const feedSync = yield* syncOneFeed(app, plugin, requestedRange, savedFeedCoverage, syncedAt);
+      appFeedReports.push(feedSync.report);
+      const hasNewCoverage = feedSync.coverage !== null;
+      if (hasNewCoverage) feedCoverages[plugin.feed] = feedSync.coverage;
     }
     yield* saveAppCoverage({ ...savedCoverage, feeds: feedCoverages });
     return appFeedReports;
@@ -145,33 +159,32 @@ const loadAppsToSync = (
   appName: string | null,
 ): Effect.Effect<
   PortfolioApp[],
-  JsonFileFailure | StatsAppNotFoundFailure,
+  DocumentFileFailure | StatsAppNotFoundFailure,
   StatsSyncRequirements
 > =>
   Effect.gen(function* () {
     const cachedLoad = yield* loadPortfolioApps('cache-first');
-    if (appName === null) return [...cachedLoad.apps];
-    const cachedMatches = findAppsByName(cachedLoad.apps, appName);
-    const isAppInCache = cachedMatches.length > 0;
-    if (isAppInCache) return cachedMatches;
+    const isEveryAppWanted = appName === null;
+    if (isEveryAppWanted) return [...cachedLoad.apps];
+    const appsFoundInCache = findAppsByName(cachedLoad.apps, appName);
+    const isAppInCache = appsFoundInCache.length > 0;
+    if (isAppInCache) return appsFoundInCache;
     const discoveredLoad = yield* loadPortfolioApps('discover');
-    const discoveredMatches = findAppsByName(discoveredLoad.apps, appName);
-    const isAppDiscovered = discoveredMatches.length > 0;
-    if (isAppDiscovered) return discoveredMatches;
+    const appsFoundByDiscovery = findAppsByName(discoveredLoad.apps, appName);
+    const isAppDiscovered = appsFoundByDiscovery.length > 0;
+    if (isAppDiscovered) return appsFoundByDiscovery;
     const knownAppNames = discoveredLoad.apps.map((app) => app.name);
-    return yield* Effect.fail(
-      makeStatsAppNotFoundFailure({
-        message: `No app matched "${appName}". Known apps: ${knownAppNames.join(', ')}.`,
-        knownAppNames,
-      }),
-    );
+    const notFoundFailure = makeStatsAppNotFoundFailure({
+      message: `No app matched "${appName}". Known apps: ${knownAppNames.join(', ')}.`,
+      knownAppNames,
+    });
+    return yield* Effect.fail(notFoundFailure);
   });
 
-/** Pull the missing days of every feed for the chosen apps; one feed failing never stops the others. */
 export const syncStats = (
   request: StatsSyncRequest,
 ): Effect.Effect<StatsSyncReport, StatsSyncFailure, StatsSyncRequirements> =>
-  withSyncLock(
+  holdSyncLock(
     Effect.gen(function* () {
       const apps = yield* loadAppsToSync(request.appName);
       const yesterday = yield* readYesterdayUtc();

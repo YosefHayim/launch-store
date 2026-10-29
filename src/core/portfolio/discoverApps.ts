@@ -10,6 +10,7 @@ import type { StatsCredentialsShape } from '../types/stats.js';
 import { createAndroidAppKey, createIosAppKey, mergeDiscoveredApps } from './portfolioLogic.js';
 
 const PLAY_ACCOUNT_LABEL = 'google-play';
+const APPLE_DISCOVERY_CONCURRENCY = 4;
 
 type DiscoveryRequirements =
   | FileSystem.FileSystem
@@ -17,13 +18,13 @@ type DiscoveryRequirements =
   | Path.Path
   | StatsCredentialsShape;
 
-interface SourceDiscovery {
+interface AccountDiscovery {
   readonly accountLabel: string;
   readonly apps: readonly DiscoveredApp[];
   readonly warning: DiscoveryWarning | null;
 }
 
-const failedSource = (accountLabel: string, cause: unknown): SourceDiscovery => ({
+const failedAccountDiscovery = (accountLabel: string, cause: unknown): AccountDiscovery => ({
   accountLabel,
   apps: [],
   warning: { accountLabel, message: errorMessage(cause) },
@@ -31,12 +32,16 @@ const failedSource = (accountLabel: string, cause: unknown): SourceDiscovery => 
 
 const discoverAppleAccount = (
   account: AccountRecord,
-): Effect.Effect<SourceDiscovery, never, StatsCredentialsShape> =>
+): Effect.Effect<AccountDiscovery, never, StatsCredentialsShape> =>
   Effect.gen(function* () {
     const credentials = yield* StatsCredentials;
     const ascClient = yield* credentials.ascClientForAccount(account.keyId);
-    if (ascClient === null) {
-      return failedSource(account.label, 'no saved key for this account in the secret store');
+    const isKeyMissing = ascClient === null;
+    if (isKeyMissing) {
+      return failedAccountDiscovery(
+        account.label,
+        'no saved key for this account in the secret store',
+      );
     }
     const ascApps = yield* ascClient.listApps();
     const apps = ascApps.map(
@@ -52,14 +57,14 @@ const discoverAppleAccount = (
       }),
     );
     return { accountLabel: account.label, apps, warning: null };
-  }).pipe(Effect.catchAll((cause) => Effect.succeed(failedSource(account.label, cause))));
+  }).pipe(Effect.catchAll((cause) => Effect.succeed(failedAccountDiscovery(account.label, cause))));
 
-/** The Play source, or null when no service account is saved (nothing was attempted). */
-const discoverPlay = (): Effect.Effect<SourceDiscovery | null, never, StatsCredentialsShape> =>
+const discoverPlay = (): Effect.Effect<AccountDiscovery | null, never, StatsCredentialsShape> =>
   Effect.gen(function* () {
     const credentials = yield* StatsCredentials;
     const reportingClient = yield* credentials.playReportingClient();
-    if (reportingClient === null) return null;
+    const isPlayNotConnected = reportingClient === null;
+    if (isPlayNotConnected) return null;
     const playApps = yield* reportingClient.listApps();
     const apps = playApps.map(
       (playApp): DiscoveredApp => ({
@@ -74,24 +79,30 @@ const discoverPlay = (): Effect.Effect<SourceDiscovery | null, never, StatsCrede
       }),
     );
     return { accountLabel: PLAY_ACCOUNT_LABEL, apps, warning: null };
-  }).pipe(Effect.catchAll((cause) => Effect.succeed(failedSource(PLAY_ACCOUNT_LABEL, cause))));
+  }).pipe(
+    Effect.catchAll((cause) => Effect.succeed(failedAccountDiscovery(PLAY_ACCOUNT_LABEL, cause))),
+  );
 
-/** Ask every saved App Store Connect account and the Play service account which apps they see. */
 export const discoverApps = (): Effect.Effect<DiscoveryReport, never, DiscoveryRequirements> =>
   Effect.gen(function* () {
     const accounts = yield* listAccounts();
-    const appleSources = yield* Effect.forEach(accounts, discoverAppleAccount, { concurrency: 4 });
-    const playSource = yield* discoverPlay();
-    const sources: SourceDiscovery[] = [...appleSources];
-    if (playSource !== null) sources.push(playSource);
+    const appleDiscoveries = yield* Effect.forEach(accounts, discoverAppleAccount, {
+      concurrency: APPLE_DISCOVERY_CONCURRENCY,
+    });
+    const playDiscovery = yield* discoverPlay();
+    const discoveries: AccountDiscovery[] = [...appleDiscoveries];
+    const isPlayConnected = playDiscovery !== null;
+    if (isPlayConnected) discoveries.push(playDiscovery);
     const warnings: DiscoveryWarning[] = [];
-    for (const source of sources) {
-      if (source.warning !== null) warnings.push(source.warning);
+    for (const discovery of discoveries) {
+      const hasWarning = discovery.warning !== null;
+      if (hasWarning) warnings.push(discovery.warning);
     }
+    const appLists = discoveries.map((discovery) => discovery.apps);
     return {
-      apps: mergeDiscoveredApps(sources.map((source) => source.apps)),
+      apps: mergeDiscoveredApps(appLists),
       warnings,
-      attemptedSourceCount: sources.length,
+      attemptedAccountCount: discoveries.length,
       failedAccountLabels: warnings.map((warning) => warning.accountLabel),
     };
   });

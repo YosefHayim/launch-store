@@ -8,7 +8,7 @@ import {
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
-import { isSyncLockStale, withSyncLock } from './syncLock.js';
+import { isSyncLockStale, holdSyncLock } from './syncLock.js';
 
 describe('isSyncLockStale', () => {
   const now = Date.parse('2026-10-29T12:00:00.000Z');
@@ -26,7 +26,7 @@ describe('isSyncLockStale', () => {
   });
 });
 
-describe('withSyncLock', () => {
+describe('holdSyncLock', () => {
   let homeDirectory: string;
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
@@ -38,7 +38,7 @@ describe('withSyncLock', () => {
   const lockPath = () => join(homeDirectory, '.launch', 'stats', 'sync.lock');
   const runLocked = <Success, Failure>(program: Effect.Effect<Success, Failure>) =>
     Effect.runPromise(
-      withSyncLock(program).pipe(Effect.provide(makeLaunchHomeTest(homeDirectory))),
+      holdSyncLock(program).pipe(Effect.provide(makeLaunchHomeTest(homeDirectory))),
     );
 
   test('holds the lock while the program runs and removes it after', async () => {
@@ -63,12 +63,14 @@ describe('withSyncLock', () => {
   });
 
   test('takes over a stale lock and removes it after', async () => {
-    const staleLockText = '2020-01-01T00:00:00.000Z';
-    writeLaunchHomeFile(homeDirectory, join('stats', 'sync.lock'), staleLockText);
+    const staleLockStamp = '2020-01-01T00:00:00.000Z';
+    writeLaunchHomeFile(homeDirectory, join('stats', 'sync.lock'), staleLockStamp);
 
-    const lockTextDuring = await runLocked(Effect.sync(() => readFileSync(lockPath(), 'utf8')));
+    const lockStampDuringSync = await runLocked(
+      Effect.sync(() => readFileSync(lockPath(), 'utf8')),
+    );
 
-    expect(lockTextDuring).not.toBe(staleLockText);
+    expect(lockStampDuringSync).not.toBe(staleLockStamp);
     expect(existsSync(lockPath())).toBe(false);
   });
 });

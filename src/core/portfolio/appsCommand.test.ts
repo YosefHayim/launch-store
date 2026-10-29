@@ -33,7 +33,7 @@ const TAG_BASE: AppsTagRequest = {
   account: undefined,
   owner: 'mine',
   ga4Property: undefined,
-  json: false,
+  isJson: false,
 };
 
 describe('parsePlatformFlag', () => {
@@ -106,7 +106,7 @@ describe('parseTagRequest', () => {
   });
 });
 
-describe('apps programs', () => {
+describe('appsListProgram and appsTagProgram', () => {
   let homeDirectory: string;
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
@@ -146,7 +146,7 @@ describe('apps programs', () => {
 
   test('apps list prints one JSON object with the apps and the warnings', async () => {
     const { outcome, lines } = await runProgram(
-      withServices(appsListProgram({ platform: undefined, owner: undefined, json: true })),
+      withServices(appsListProgram({ platform: undefined, owner: undefined, isJson: true })),
     );
 
     expect(outcome._tag).toBe('Right');
@@ -159,7 +159,7 @@ describe('apps programs', () => {
 
   test('apps list shows warnings and one line per app, filtered by platform', async () => {
     const { lines } = await runProgram(
-      withServices(appsListProgram({ platform: 'android', owner: undefined, json: false })),
+      withServices(appsListProgram({ platform: 'android', owner: undefined, isJson: false })),
     );
 
     expect(lines.some((line) => line.includes('beta: 401 revoked'))).toBe(true);
@@ -171,7 +171,7 @@ describe('apps programs', () => {
 
   test('apps list says so when no app matches the filter', async () => {
     const { lines } = await runProgram(
-      withServices(appsListProgram({ platform: undefined, owner: 'client', json: false })),
+      withServices(appsListProgram({ platform: undefined, owner: 'client', isJson: false })),
     );
 
     expect(lines.some((line) => line.includes('No apps found.'))).toBe(true);
@@ -179,7 +179,7 @@ describe('apps programs', () => {
 
   test('apps list exits 2 on a bad platform, as JSON with --json', async () => {
     const { outcome, lines } = await runProgram(
-      withServices(appsListProgram({ platform: 'web', owner: undefined, json: true })),
+      withServices(appsListProgram({ platform: 'web', owner: undefined, isJson: true })),
     );
 
     expect(outcome).toMatchObject({ _tag: 'Left', left: { _tag: 'CommandExit', exitCode: 2 } });
@@ -198,7 +198,7 @@ describe('apps programs', () => {
     );
     expect(savedFile.tags).toEqual([{ appKey: 'ios-1', owner: 'mine', ga4PropertyId: null }]);
     const listed = await runProgram(
-      withServices(appsListProgram({ platform: undefined, owner: 'mine', json: true })),
+      withServices(appsListProgram({ platform: undefined, owner: 'mine', isJson: true })),
     );
     expect(JSON.parse(listed.lines[0] ?? '').apps).toHaveLength(1);
   });
@@ -211,7 +211,7 @@ describe('apps programs', () => {
           app: undefined,
           account: 'google-play',
           owner: 'client',
-          json: true,
+          isJson: true,
         }),
       ),
     );
@@ -226,7 +226,7 @@ describe('apps programs', () => {
 
     const { lines } = await runProgram(
       withServices(
-        appsTagProgram({ ...TAG_BASE, owner: undefined, ga4Property: '555', json: true }),
+        appsTagProgram({ ...TAG_BASE, owner: undefined, ga4Property: '555', isJson: true }),
       ),
     );
 

@@ -248,20 +248,24 @@ export const locateStatsDirectory = (): Effect.Effect<
 > =>
   Effect.gen(function* () {
     const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveLaunchHomeDirectory(), 'stats');
+    const launchHomeDirectory = yield* resolveLaunchHomeDirectory();
+    return pathService.join(launchHomeDirectory, 'stats');
   });
 export const locateAppStatsDirectory = (
   appKey: string,
 ): Effect.Effect<string, InvalidAppKeyFailure, LaunchPathsService | Path.Path> =>
   Effect.gen(function* () {
     const isAppKeyValid = APP_KEY_PATTERN.test(appKey);
-    if (!isAppKeyValid) {
-      return yield* Effect.fail(
-        makeInvalidAppKeyFailure({ message: `"${appKey}" is not a valid app key.` }),
-      );
+    const isAppKeyInvalid = !isAppKeyValid;
+    if (isAppKeyInvalid) {
+      const invalidKeyFailure = makeInvalidAppKeyFailure({
+        message: `"${appKey}" is not a valid app key.`,
+      });
+      return yield* Effect.fail(invalidKeyFailure);
     }
     const pathService = yield* Path.Path;
-    return pathService.join(yield* locateStatsDirectory(), appKey);
+    const statsDirectory = yield* locateStatsDirectory();
+    return pathService.join(statsDirectory, appKey);
   });
 export const locatePortfolioFilePath = (): Effect.Effect<
   string,
@@ -270,5 +274,6 @@ export const locatePortfolioFilePath = (): Effect.Effect<
 > =>
   Effect.gen(function* () {
     const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveLaunchHomeDirectory(), 'portfolio.json');
+    const launchHomeDirectory = yield* resolveLaunchHomeDirectory();
+    return pathService.join(launchHomeDirectory, 'portfolio.json');
   });

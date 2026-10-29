@@ -9,74 +9,83 @@ import {
 import type { AppFeedSyncReport } from '../types/stats.js';
 import { DEFAULT_SYNC_DAYS, MAX_SYNC_DAYS } from './dateRange.js';
 import { syncStats, type StatsSyncRequirements } from './syncStats.js';
-import type { JsonFileFailure } from '../services/atomicJsonFile.js';
+import type { DocumentFileFailure } from '../services/atomicDocumentFile.js';
 import type { InvalidAppKeyFailure } from '../services/paths.js';
 import type { SyncLockFailure } from './syncLock.js';
 
 export interface StatsSyncCommandRequest {
   readonly app: string | undefined;
   readonly days: string | undefined;
-  readonly json: boolean;
+  readonly isJson: boolean;
 }
 
-type StatsSyncCommandFailure = InvalidAppKeyFailure | JsonFileFailure | SyncLockFailure;
+type StatsSyncCommandFailure = InvalidAppKeyFailure | DocumentFileFailure | SyncLockFailure;
 
 const FAILED_FEED_EXIT_CODE = 1;
 const DAYS_PATTERN = /^[0-9]+$/;
 
-/** Check `--days`: a whole number from 1 to 365, or the default when the flag is absent. */
 export const parseDaysFlag = (
-  daysText: string | undefined,
+  daysFlag: string | undefined,
 ): Effect.Effect<number, UsageFailure> => {
-  if (daysText === undefined) return Effect.succeed(DEFAULT_SYNC_DAYS);
-  const isWholeNumber = DAYS_PATTERN.test(daysText);
-  const days = Number(daysText);
+  const isDaysFlagMissing = daysFlag === undefined;
+  if (isDaysFlagMissing) return Effect.succeed(DEFAULT_SYNC_DAYS);
+  const isWholeNumber = DAYS_PATTERN.test(daysFlag);
+  const days = Number(daysFlag);
   const isInRange = days >= 1 && days <= MAX_SYNC_DAYS;
   if (isWholeNumber && isInRange) return Effect.succeed(days);
-  return Effect.fail(
-    makeUsageFailure({ message: `--days must be a whole number from 1 to ${MAX_SYNC_DAYS}.` }),
-  );
+  const daysFailure = makeUsageFailure({
+    message: `--days must be a whole number from 1 to ${MAX_SYNC_DAYS}.`,
+  });
+  return Effect.fail(daysFailure);
 };
 
 const describeAppFeed = (appFeed: AppFeedSyncReport): string => {
-  let suffix = '';
-  if (appFeed.message !== null) suffix = ` (${appFeed.message})`;
-  return `${appFeed.appKey} ${appFeed.feed}: ${appFeed.status}${suffix}`;
+  const hasMessage = appFeed.message !== null;
+  if (hasMessage) {
+    return `${appFeed.appKey} ${appFeed.feed}: ${appFeed.status} (${appFeed.message})`;
+  }
+  return `${appFeed.appKey} ${appFeed.feed}: ${appFeed.status}`;
 };
 
-/** `launch stats sync`: pull the missing days of every feed into the local stats files. */
+const pickAppName = (appFlag: string | undefined): string | null => {
+  const isAppFlagMissing = appFlag === undefined;
+  if (isAppFlagMissing) return null;
+  return appFlag;
+};
+
 export const statsSyncProgram = (
   request: StatsSyncCommandRequest,
 ): Effect.Effect<void, CommandExit | StatsSyncCommandFailure, StatsSyncRequirements | Logger> =>
   Effect.gen(function* () {
     const logger = yield* LaunchLogger;
     const days = yield* parseDaysFlag(request.days);
-    let appName: string | null = null;
-    if (request.app !== undefined) appName = request.app;
+    const appName = pickAppName(request.app);
     const report = yield* syncStats({ appName, days }).pipe(
-      Effect.catchTag('StatsAppNotFoundFailure', (notFound) =>
-        Effect.fail(makeUsageFailure({ message: notFound.message })),
-      ),
+      Effect.catchTag('StatsAppNotFoundFailure', (notFound) => {
+        const notFoundFailure = makeUsageFailure({ message: notFound.message });
+        return Effect.fail(notFoundFailure);
+      }),
     );
-    if (request.json) {
-      yield* logger.line(JSON.stringify({ ok: true, ...report })).pipe(Effect.orDie);
+    const isHumanOutput = !request.isJson;
+    if (request.isJson) {
+      const reportLine = JSON.stringify({ ok: true, ...report });
+      yield* logger.line(reportLine).pipe(Effect.orDie);
     }
-    if (!request.json) {
+    if (isHumanOutput) {
       for (const appFeed of report.appFeeds) {
         yield* logger.line(describeAppFeed(appFeed)).pipe(Effect.orDie);
       }
     }
     const hasFeedFailed = report.appFeeds.some((appFeed) => appFeed.status === 'failed');
     if (hasFeedFailed) {
-      return yield* Effect.fail(
-        makeCommandExit({
-          exitCode: FAILED_FEED_EXIT_CODE,
-          message: 'At least one stats feed failed.',
-        }),
-      );
+      const failedFeedExit = makeCommandExit({
+        exitCode: FAILED_FEED_EXIT_CODE,
+        message: 'At least one stats feed failed.',
+      });
+      return yield* Effect.fail(failedFeedExit);
     }
   }).pipe(
     Effect.catchTag('UsageFailure', (usageFailure) =>
-      endWithUsageFailure(usageFailure, request.json),
+      endWithUsageFailure(usageFailure, request.isJson),
     ),
   );

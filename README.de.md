@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-205%20endpoints-8957e5?logo=apple&logoColor=white" alt="205 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2631%20passing-3fb950?logo=vitest&logoColor=white" alt="2631 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2643%20passing-3fb950?logo=vitest&logoColor=white" alt="2643 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
