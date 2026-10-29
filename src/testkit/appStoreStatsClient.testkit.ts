@@ -32,20 +32,36 @@ export const createTsv = (
 
 const SEGMENT_URL_PREFIX = 'https://segments.test/';
 
+const EMPTY_SCENARIO: FakeAppStoreStatsScenario = {
+  salesTsvByDate: {},
+  analyticsInstances: {},
+  reviewRatings: [],
+  failure: null,
+};
+
+const readFailingStatus = (failure: FakeAppStoreStatsScenario['failure']): number => {
+  if (failure === null) return 0;
+  return failure.status;
+};
+
 const failWithStatus = (message: string, status: number) =>
   Effect.fail({ _tag: 'AppleTransportFailure', message, status });
 
 /** An App Store Connect client that serves the scenario's reports and records every call. */
 export const makeFakeAppStoreStatsClient = (scenario: Partial<FakeAppStoreStatsScenario> = {}) => {
-  const salesTsvByDate = scenario.salesTsvByDate ?? {};
-  const analyticsInstances = scenario.analyticsInstances ?? {};
-  const reviewRatings = scenario.reviewRatings ?? [];
-  const failure = scenario.failure ?? null;
+  const { salesTsvByDate, analyticsInstances, reviewRatings, failure }: FakeAppStoreStatsScenario =
+    { ...EMPTY_SCENARIO, ...scenario };
   const isFailing = (method: FakeFailureMethod): boolean =>
     failure !== null && failure.method === method;
-  const failingStatus = failure === null ? 0 : failure.status;
-  const findInstances = (accessType: string, reportName: string) =>
-    analyticsInstances[`${accessType}|${reportName}`] ?? [];
+  const failingStatus = readFailingStatus(failure);
+  const findInstances = (
+    accessType: string,
+    reportName: string,
+  ): readonly FakeAnalyticsInstance[] => {
+    const instances = analyticsInstances[`${accessType}|${reportName}`];
+    if (instances === undefined) return [];
+    return instances;
+  };
 
   const getSalesReport = vi.fn((query: { readonly reportDate: string }) => {
     if (isFailing('getSalesReport')) return failWithStatus('denied', failingStatus);
@@ -63,8 +79,8 @@ export const makeFakeAppStoreStatsClient = (scenario: Partial<FakeAppStoreStatsS
     Effect.succeed({ id: `request|${accessType}`, accessType }),
   );
   const listAnalyticsReports = vi.fn((requestId: string, filters: { readonly name?: string }) => {
-    const accessType = requestId.split('|')[1] ?? '';
-    const reportName = filters.name ?? '';
+    const [, accessType = ''] = requestId.split('|');
+    const { name: reportName = '' } = filters;
     const doesReportExist = `${accessType}|${reportName}` in analyticsInstances;
     if (!doesReportExist) return Effect.succeed([]);
     return Effect.succeed([{ id: `report|${accessType}|${reportName}`, name: reportName }]);
@@ -85,9 +101,9 @@ export const makeFakeAppStoreStatsClient = (scenario: Partial<FakeAppStoreStatsS
     const instance = findInstances(accessType, reportName).find(
       (candidate) => candidate.processingDate === processingDate,
     );
-    const segmentTsvs = instance === undefined ? [] : instance.segmentTsvs;
+    if (instance === undefined) return Effect.succeed([]);
     return Effect.succeed(
-      segmentTsvs.map((_tsv, index) => ({
+      instance.segmentTsvs.map((_tsv, index) => ({
         id: `segment-${index}`,
         url: `${SEGMENT_URL_PREFIX}${instanceId}|${index}`,
       })),
@@ -100,7 +116,8 @@ export const makeFakeAppStoreStatsClient = (scenario: Partial<FakeAppStoreStatsS
     const instance = findInstances(accessType, reportName).find(
       (candidate) => candidate.processingDate === processingDate,
     );
-    const tsv = instance === undefined ? undefined : instance.segmentTsvs[Number(index)];
+    if (instance === undefined) return Effect.die(new Error(`Unknown segment ${url}`));
+    const tsv = instance.segmentTsvs[Number(index)];
     if (tsv === undefined) return Effect.die(new Error(`Unknown segment ${url}`));
     return Effect.succeed(gzipTsv(tsv));
   });
