@@ -26,6 +26,7 @@ import { makeLaunchEnvironmentTest } from '../services/environment.js';
 import { GoogleStoreClientLive } from '../services/googleStoreClient.js';
 import { makeLaunchPathsTest } from '../services/paths.js';
 import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
+import { makeStatsCredentialsTest } from '../stats/statsCredentials.js';
 
 /** A bare config exposing the given MCP capability tiers - only the fields the gate reads matter here. */
 const config = (capabilities: readonly McpCapability[]): LaunchConfig => {
@@ -51,6 +52,7 @@ const provideToolServices = <A, E, R>(program: Effect.Effect<A, E, R>) =>
   program.pipe(
     Effect.provide(NodeContext.layer),
     Effect.provide(NodeHttpClient.layer),
+    Effect.provide(makeStatsCredentialsTest()),
     Effect.provide(AppleStoreClientLive),
     Effect.provide(GoogleStoreClientLive),
     Effect.provide(makeLaunchEnvironmentTest({})),

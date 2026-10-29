@@ -1,4 +1,5 @@
 import { Effect } from 'effect';
+import { createDashboardNav, DASHBOARD_STYLE, escapeHtml } from './htmlParts.js';
 import type {
   DashboardAccount,
   DashboardApp,
@@ -6,14 +7,6 @@ import type {
   DashboardSecret,
   DashboardState,
 } from '../types/dashboard.js';
-
-const escapeHtml = (markupText: string): string =>
-  markupText
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 
 const renderTableCell = (cellContent: string | number | null): string => {
   if (cellContent === null) return '<span class="muted">-</span>';
@@ -141,36 +134,32 @@ const renderCloudHostSection = (dashboardState: DashboardState): string => {
   );
 };
 
-const DASHBOARD_STYLE = `
-:root{color-scheme:light dark}
-body{font-family:-apple-system,system-ui,Segoe UI,Roboto,sans-serif;max-width:60rem;margin:2rem auto;padding:0 1rem;line-height:1.5;color:#1a1a1a}
-h1{margin:0 0 .25rem;font-size:1.6rem}
-.sub{color:#666;margin:0 0 1.5rem;font-size:.9rem}
-section{margin:2rem 0}
-h2{font-size:1.1rem;border-bottom:1px solid #e3e3e3;padding-bottom:.3rem}
-table{border-collapse:collapse;width:100%;font-size:.9rem}
-th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid #eee;vertical-align:top}
-th{color:#666;font-weight:600}
-.chip{display:inline-block;margin:.2rem .6rem .2rem 0;font-size:.9rem}
-.chip b{color:#666;font-weight:600}
-.muted{color:#999}
-.ok{color:#1a7f37;font-weight:600}
-@media(prefers-color-scheme:dark){body{color:#e6e6e6}.sub,.muted{color:#999}.chip b,th{color:#aaa}h2{border-color:#333}th,td{border-color:#2a2a2a}.ok{color:#3fb950}}
-`.trim();
+const renderProjectSections = (dashboardState: DashboardState): string[] => {
+  const isPortfolioOnly = dashboardState.mode === 'portfolio-only';
+  if (isPortfolioOnly) return [];
+  const providerChips = [
+    renderProviderChip('credentials', dashboardState.project.providers.credentials),
+    renderProviderChip('storage', dashboardState.project.providers.storage),
+    renderProviderChip('build', dashboardState.project.providers.buildEngine),
+    renderProviderChip('submit', dashboardState.project.providers.submit),
+  ].join('');
+  let profileNames = 'none';
+  if (dashboardState.project.profiles.length > 0) {
+    profileNames = dashboardState.project.profiles.join(', ');
+  }
+  return [
+    renderSection(
+      'Project',
+      `<p>${providerChips}</p><p><b>Profiles:</b> ${escapeHtml(profileNames)}</p>`,
+    ),
+    renderSection('Apps', renderAppsTable(dashboardState.project.apps)),
+  ];
+};
 
 /** Render one dashboard snapshot as a self-contained HTML document. */
 export const renderDashboardHtml = (dashboardState: DashboardState): Effect.Effect<string> =>
   Effect.sync(() => {
-    const providerChips = [
-      renderProviderChip('credentials', dashboardState.project.providers.credentials),
-      renderProviderChip('storage', dashboardState.project.providers.storage),
-      renderProviderChip('build', dashboardState.project.providers.buildEngine),
-      renderProviderChip('submit', dashboardState.project.providers.submit),
-    ].join('');
-    let profileNames = 'none';
-    if (dashboardState.project.profiles.length > 0) {
-      profileNames = dashboardState.project.profiles.join(', ');
-    }
+    const projectSections = renderProjectSections(dashboardState);
     // The inert JSON script escapes `<`, preventing a user-controlled `</script>` breakout.
     const embeddedDashboardState = JSON.stringify(dashboardState).replace(/</g, '\\u003c');
     return [
@@ -180,12 +169,9 @@ export const renderDashboardHtml = (dashboardState: DashboardState): Effect.Effe
       '<title>launch dashboard</title>',
       `<style>${DASHBOARD_STYLE}</style></head><body>`,
       '<h1>launch dashboard</h1>',
+      createDashboardNav('/'),
       `<p class="sub">Local state as of ${renderTableCell(dashboardState.generatedAt)} - ${renderTableCell(dashboardState.launchHome)}</p>`,
-      renderSection(
-        'Project',
-        `<p>${providerChips}</p><p><b>Profiles:</b> ${escapeHtml(profileNames)}</p>`,
-      ),
-      renderSection('Apps', renderAppsTable(dashboardState.project.apps)),
+      ...projectSections,
       renderSection('Apple accounts', renderAccountsTable(dashboardState.accounts)),
       renderSection('Recent builds', renderArtifactsTable(dashboardState.artifacts)),
       renderSection('Build secrets', renderSecretsTable(dashboardState.secrets)),

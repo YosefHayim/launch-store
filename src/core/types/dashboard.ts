@@ -58,7 +58,9 @@ export type DashboardCloudHost = Readonly<{
  * status, Play tracks, drift) are intentionally out of this first cut: they need ASC auth and belong on
  * the confirmed `plan`/`reports` read path, not an always-on local page.
  */
+export type DashboardMode = 'project' | 'portfolio-only';
 export type DashboardState = Readonly<{
+  mode: DashboardMode;
   generatedAt: string;
   launchHome: string;
   project: DashboardProject;

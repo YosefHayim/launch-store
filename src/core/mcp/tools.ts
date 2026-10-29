@@ -19,6 +19,7 @@ import { listSnapshots, loadSnapshot, saveSnapshot } from '../snapshot/store.js'
 import { createAscClientResolver, createPlayClientResolver } from '../store/storeClients.js';
 import { runSyncBatch } from '../store/syncRun.js';
 import { buildJobs, selectApps } from '../store/syncJobs.js';
+import type { StatsSyncRequirements } from '../stats/syncStats.js';
 import type { Platform } from '../types/app.js';
 import type { McpTool, McpToolResult } from '../types/mcp.js';
 import type { PlanContext, SurfacePlanner } from '../types/plan.js';
@@ -39,7 +40,10 @@ const EMPTY_SYNC_REPORT = {
   summary: { apps: 0, applied: 0, failed: 0, skipped: 0, planErrors: 0 },
 } as const;
 
-export type McpToolRequirements = DoctorRuntimeRequirements | HttpClient.HttpClient;
+export type McpToolRequirements =
+  | DoctorRuntimeRequirements
+  | HttpClient.HttpClient
+  | StatsSyncRequirements;
 
 /** A tool argument or requested resource is invalid. */
 export type McpToolFailure = Readonly<{
@@ -50,7 +54,7 @@ export type McpToolFailure = Readonly<{
 const makeMcpToolFailure = Data.tagged<McpToolFailure>('McpToolFailure');
 
 /** Encode structured tool output as pretty-printed JSON text. */
-const jsonToolOutput = (structuredOutput: unknown): McpToolResult => ({
+export const jsonToolOutput = (structuredOutput: unknown): McpToolResult => ({
   content: [{ type: 'text', text: JSON.stringify(structuredOutput, null, 2) }],
 });
 

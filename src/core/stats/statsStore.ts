@@ -73,3 +73,19 @@ export const saveDailyStats = (
       yield* writeDocumentFileAtomically(monthFilePath, monthFile);
     }
   });
+
+/** Read the saved daily stats of one app and month; an empty list when nothing was saved yet. */
+export const loadMonthStats = (
+  appKey: string,
+  month: string,
+): Effect.Effect<readonly DailyStat[], StatsStoreFailure, StatsStoreRequirements> =>
+  Effect.gen(function* () {
+    const pathService = yield* Path.Path;
+    const appDirectory = yield* locateAppStatsDirectory(appKey);
+    const monthFile = yield* readDocumentFile(
+      pathService.join(appDirectory, `${month}.json`),
+      StatsMonthFileSchema,
+    );
+    if (monthFile === null) return [];
+    return monthFile.stats;
+  });

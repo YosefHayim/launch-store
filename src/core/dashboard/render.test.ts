@@ -6,6 +6,7 @@ const GENERATED_AT = '2026-06-18T12:00:00.000Z';
 /** A populated baseline state; tests override only the slice they exercise. */
 const state = (overrides: Partial<DashboardState> = {}): DashboardState => {
   return {
+    mode: 'project',
     generatedAt: GENERATED_AT,
     launchHome: '/home/dev/.launch',
     project: {
@@ -130,6 +131,19 @@ describe('renderDashboardHtml', () => {
     expect(html).toContain('No builds recorded yet.');
     expect(html).toContain('No build secrets stored.');
     expect(html).toContain('No remote host allocated.');
+  });
+  it('links to the Apps tab from the nav', () => {
+    const html = renderDashboard(state());
+
+    expect(html).toContain('href="/apps"');
+  });
+  it('hides the project sections in portfolio-only mode and keeps the rest', () => {
+    const html = renderDashboard(state({ mode: 'portfolio-only' }));
+
+    expect(html).not.toContain('<h2>Project</h2>');
+    expect(html).not.toContain('<h2>Apps</h2>');
+    expect(html).toContain('<h2>Apple accounts</h2>');
+    expect(html).toContain('<h2>Recent builds</h2>');
   });
   it('renders the live cloud host when one is allocated', () => {
     const html = renderDashboard(

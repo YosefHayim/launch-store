@@ -2,7 +2,9 @@ import { Data, Effect, Schema } from 'effect';
 import { errorMessage } from '../services/errorMessage.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import { gatherDashboardState } from './state.js';
+import type { StatsSyncRequirements } from '../stats/syncStats.js';
 import { renderDashboardHtml } from './render.js';
+import { appsTabReply, statsApiReply } from './statsRoutes.js';
 import {
   DashboardServer,
   type DashboardServerService,
@@ -40,7 +42,11 @@ const DashboardCommandFailureSchema: Schema.Schema<DashboardCommandFailure> = Sc
 
 type DashboardStateRequirements = Effect.Effect.Context<ReturnType<typeof gatherDashboardState>>;
 
-type DashboardCommandRequirements = DashboardServerService | DashboardStateRequirements | Logger;
+type DashboardCommandRequirements =
+  | DashboardServerService
+  | DashboardStateRequirements
+  | Logger
+  | StatsSyncRequirements;
 
 /** Normalize one dashboard command failure. */
 const dashboardFailure = (
@@ -71,29 +77,16 @@ export const parseDashboardPort = (
   );
 };
 
-/** Render one dashboard route from freshly gathered local state. */
-export const dashboardHttpReply = (
-  dashboardRequest: DashboardHttpRequest,
+const NOT_FOUND_REPLY: DashboardHttpReply = {
+  status: 404,
+  contentType: 'text/plain; charset=utf-8',
+  content: 'Not found',
+};
+
+const showOverviewReply = (
   logger: Logger,
 ): Effect.Effect<DashboardHttpReply, never, DashboardStateRequirements> =>
   Effect.gen(function* () {
-    if (dashboardRequest.method !== 'GET') {
-      return {
-        status: 404,
-        contentType: 'text/plain; charset=utf-8',
-        content: 'Not found',
-      };
-    }
-    let requestUrl = '/';
-    if (dashboardRequest.url !== undefined) requestUrl = dashboardRequest.url;
-    const requestPath = requestUrl.split('?')[0];
-    if (requestPath !== '/' && requestPath !== '/index.html') {
-      return {
-        status: 404,
-        contentType: 'text/plain; charset=utf-8',
-        content: 'Not found',
-      };
-    }
     const renderedDashboard = yield* gatherDashboardState().pipe(
       Effect.flatMap(renderDashboardHtml),
       Effect.either,
@@ -115,6 +108,39 @@ export const dashboardHttpReply = (
     };
   });
 
+type DashboardRouteRequirements = DashboardStateRequirements | StatsSyncRequirements;
+
+interface DashboardRoute {
+  readonly path: string;
+  readonly reply: (
+    searchParams: URLSearchParams,
+    logger: Logger,
+  ) => Effect.Effect<DashboardHttpReply, never, DashboardRouteRequirements>;
+}
+
+const DASHBOARD_ROUTES: readonly DashboardRoute[] = [
+  { path: '/', reply: (_searchParams, logger) => showOverviewReply(logger) },
+  { path: '/index.html', reply: (_searchParams, logger) => showOverviewReply(logger) },
+  { path: '/apps', reply: appsTabReply },
+  { path: '/api/stats', reply: statsApiReply },
+];
+
+/** Answer one GET route; every other method or path is a 404. */
+export const dashboardHttpReply = (
+  dashboardRequest: DashboardHttpRequest,
+  logger: Logger,
+): Effect.Effect<DashboardHttpReply, never, DashboardRouteRequirements> =>
+  Effect.gen(function* () {
+    const isGetRequest = dashboardRequest.method === 'GET';
+    if (!isGetRequest) return NOT_FOUND_REPLY;
+    let requestUrl = '/';
+    if (dashboardRequest.url !== undefined) requestUrl = dashboardRequest.url;
+    const parsedUrl = new URL(requestUrl, 'http://127.0.0.1');
+    const matchingRoute = DASHBOARD_ROUTES.find((route) => route.path === parsedUrl.pathname);
+    if (matchingRoute === undefined) return NOT_FOUND_REPLY;
+    return yield* matchingRoute.reply(parsedUrl.searchParams, logger);
+  });
+
 /** Run the schema-decoded local dashboard command. */
 export const dashboardCommandProgram = (
   rawCommandInput: unknown,
@@ -129,7 +155,7 @@ export const dashboardCommandProgram = (
     }
     const port = yield* parseDashboardPort(commandInput.port);
     yield* gatherDashboardState();
-    const dashboardContext = yield* Effect.context<DashboardStateRequirements>();
+    const dashboardContext = yield* Effect.context<DashboardRouteRequirements>();
     const dashboardServer = yield* DashboardServer;
     yield* dashboardServer.serve({
       host: commandInput.host,
