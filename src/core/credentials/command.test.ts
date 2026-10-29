@@ -254,3 +254,73 @@ describe('set-vendor-number action', () => {
     });
   });
 });
+
+describe('set-play-reports-bucket action', () => {
+  let homeDirectory: string;
+  beforeEach(() => {
+    homeDirectory = createTemporaryHomeDirectory();
+  });
+  afterEach(() => {
+    removeTemporaryHomeDirectory(homeDirectory);
+  });
+
+  const runInTemporaryHome = (options: Record<string, unknown>) => {
+    const lines: string[] = [];
+    const finished = Effect.runPromise(
+      credentialsCommandProgram({ action: 'set-play-reports-bucket', options }).pipe(
+        Effect.either,
+        Effect.provide(makeLaunchHomeTest(homeDirectory)),
+        Effect.provide(LaunchEnvironmentTest),
+        Effect.provide(makeLaunchLoggerTest(lines)),
+        Effect.provide(makeLaunchPromptTest()),
+        Effect.provide(makeLaunchSecretStoreTest()),
+        Effect.provideService(AppStoreIdentityService, unusedIdentity),
+        Effect.provideService(AppleCredentialsClientFactory, unusedCredentialsFactory),
+      ),
+    );
+    return finished.then((outcome) => ({ outcome, lines }));
+  };
+
+  const readSavedPortfolio = () =>
+    JSON.parse(readFileSync(join(homeDirectory, '.launch', 'portfolio.json'), 'utf8'));
+
+  it('saves the bucket name from a copied gs:// URI into portfolio.json', async () => {
+    const { outcome, lines } = await runInTemporaryHome({
+      playReportsBucket: 'gs://pubsite_prod_rev_123/',
+    });
+
+    expect(outcome._tag).toBe('Right');
+    expect(lines.some((line) => line.includes('pubsite_prod_rev_123'))).toBe(true);
+    expect(readSavedPortfolio().playReportsBucket).toBe('pubsite_prod_rev_123');
+  });
+
+  it('keeps the tags already saved in portfolio.json', async () => {
+    writeLaunchHomeFile(
+      homeDirectory,
+      'portfolio.json',
+      JSON.stringify({
+        version: 1,
+        discoveredAt: '2026-10-01T00:00:00.000Z',
+        apps: [],
+        tags: [{ appKey: 'ios-1', owner: 'mine', ga4PropertyId: null }],
+      }),
+    );
+
+    await runInTemporaryHome({ playReportsBucket: 'pubsite_prod_123' });
+
+    const savedPortfolio = readSavedPortfolio();
+    expect(savedPortfolio.tags).toHaveLength(1);
+    expect(savedPortfolio.playReportsBucket).toBe('pubsite_prod_123');
+  });
+
+  it('asks for the flag and rejects text that is not a Play bucket', async () => {
+    const withoutFlag = await runInTemporaryHome({});
+    const withWrongBucket = await runInTemporaryHome({ playReportsBucket: 'gs://my-bucket/' });
+
+    expect(withoutFlag.outcome._tag).toBe('Left');
+    expect(withWrongBucket.outcome).toMatchObject({
+      _tag: 'Left',
+      left: { message: expect.stringContaining('pubsite_prod_rev_') },
+    });
+  });
+});

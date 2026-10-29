@@ -58,7 +58,7 @@ describe('STATS_FEED_PLUGINS', () => {
 
     expect(replies).toEqual([
       { status: 'skipped', reason: 'App has no App Store Connect account' },
-      { status: 'skipped', reason: 'not built yet' },
+      { status: 'skipped', reason: 'App has no package name' },
       {
         status: 'skipped',
         reason: 'No Google service account saved; add one with launch credentials',

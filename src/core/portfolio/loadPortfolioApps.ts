@@ -50,6 +50,7 @@ export const loadPortfolioApps = (
       discoveredAt: new Date(discoveredAtMilliseconds).toISOString(),
       apps,
       tags: savedFile.tags,
+      playReportsBucket: savedFile.playReportsBucket,
     };
     yield* savePortfolioFile(refreshedFile);
     return {

@@ -35,6 +35,12 @@ import {
 } from './androidKeystore.js';
 import { describeStoredCredentials, ensureSigningCredentials } from './appleSigning.js';
 import { extractKeyId, findAuthKeyFiles, reconcileKeyId } from './keyFiles.js';
+import {
+  createEmptyPortfolioFile,
+  loadPortfolioFile,
+  savePortfolioFile,
+} from '../portfolio/portfolioStore.js';
+import { parsePlayReportsBucket } from '../stats/playReportsBucket.js';
 import { findPushKey, importPushKey, listPushKeys, loadPushKey } from './pushKeyStore.js';
 
 const optionalCommandText = Schema.optionalWith(Schema.String, { exact: true });
@@ -52,6 +58,7 @@ const CredentialsActionSchema = Schema.Literal(
   'refresh',
   'push-key',
   'set-vendor-number',
+  'set-play-reports-bucket',
 );
 
 const CredentialsCommandOptionsSchema = Schema.Struct({
@@ -69,6 +76,7 @@ const CredentialsCommandOptionsSchema = Schema.Struct({
   out: optionalCommandText,
   force: optionalCommandFlag,
   vendorNumber: optionalCommandText,
+  playReportsBucket: optionalCommandText,
 });
 
 export const CredentialsCommandInputSchema = Schema.Struct({
@@ -791,6 +799,30 @@ const setAppleVendorNumber = (
     yield* logger.ok(`Saved the vendor number for account "${selectedAccount.label}".`);
   });
 
+/** Save the Play reports bucket the stats sync reads install, rating, crash and earnings files from. */
+const setPlayReportsBucket = (
+  commandOptions: CredentialsCommandOptions,
+): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
+  Effect.gen(function* () {
+    const usage =
+      'Usage: launch creds set-play-reports-bucket --play-reports-bucket <uri or name>.';
+    const { playReportsBucket: copiedBucket } = commandOptions;
+    if (copiedBucket === undefined) return yield* failCommand('set Play reports bucket', usage);
+    const bucketName = parsePlayReportsBucket(copiedBucket);
+    if (bucketName === null) {
+      return yield* failCommand(
+        'set Play reports bucket',
+        'Expected a Cloud Storage URI like gs://pubsite_prod_rev_0123456789/ or its bucket name.',
+      );
+    }
+    const savedFile = yield* loadPortfolioFile();
+    let portfolioFile = createEmptyPortfolioFile();
+    if (savedFile !== null) portfolioFile = savedFile;
+    yield* savePortfolioFile({ ...portfolioFile, playReportsBucket: bucketName });
+    const logger = yield* createLogger(false);
+    yield* logger.ok(`Saved the Play reports bucket ${bucketName}.`);
+  });
+
 /** Remove one Apple account after an optional interactive confirmation. */
 const removeAppleAccount = (
   selector: string | undefined,
@@ -1023,6 +1055,8 @@ export const credentialsCommandProgram = (
         return yield* refreshAppleAccounts(decodedCommand.firstArgument);
       case 'set-vendor-number':
         return yield* setAppleVendorNumber(decodedCommand.options);
+      case 'set-play-reports-bucket':
+        return yield* setPlayReportsBucket(decodedCommand.options);
       case 'push-key':
         return yield* runPushKeyAction(
           decodedCommand.firstArgument,

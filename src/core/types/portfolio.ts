@@ -30,6 +30,7 @@ export interface PortfolioFile {
   readonly discoveredAt: string | null;
   readonly apps: readonly DiscoveredApp[];
   readonly tags: readonly AppTag[];
+  readonly playReportsBucket: string | null;
 }
 
 export interface DiscoveryWarning {
