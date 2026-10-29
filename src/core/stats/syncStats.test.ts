@@ -150,6 +150,9 @@ describe('syncStats', () => {
     const report = await sync('cal friend', 30);
 
     expect(report.appFeeds[0]?.message).toBe('month 2026-09 missing; currency mixed');
+    expect(readCoverage('ios-1').feeds['app-store']?.lastNote).toBe(
+      'month 2026-09 missing; currency mixed',
+    );
   });
 
   test('records a skipped feed as checked so the next read does not sync again', async () => {
@@ -159,6 +162,7 @@ describe('syncStats', () => {
     expect(readCoverage('android-com.fit').feeds['google-play']).toMatchObject({
       lastSyncedAt: report.syncedAt,
       lastError: null,
+      lastNote: 'not built yet',
     });
   });
 
@@ -182,6 +186,7 @@ describe('syncStats', () => {
           coveredFrom: '2000-01-01',
           coveredThrough: '2999-01-01',
           lastError: null,
+          lastNote: null,
         },
       },
     };

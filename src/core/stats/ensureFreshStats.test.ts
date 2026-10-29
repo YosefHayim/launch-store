@@ -93,6 +93,7 @@ describe('ensureFreshStats', () => {
           coveredFrom: '2026-10-01',
           coveredThrough: '2026-10-28',
           lastError,
+          lastNote: null,
         },
       },
     };

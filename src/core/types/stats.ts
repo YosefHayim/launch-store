@@ -75,6 +75,7 @@ export interface FeedCoverage {
   readonly coveredFrom: string | null;
   readonly coveredThrough: string | null;
   readonly lastError: string | null;
+  readonly lastNote: string | null;
 }
 
 export interface AppCoverage {

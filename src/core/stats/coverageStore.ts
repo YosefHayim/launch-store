@@ -19,9 +19,11 @@ const FeedCoverageSchema = Schema.Struct({
   coveredFrom: Schema.NullOr(Schema.String),
   coveredThrough: Schema.NullOr(Schema.String),
   lastError: Schema.NullOr(Schema.String),
+  // Files saved before lastNote existed have no such key.
+  lastNote: Schema.optionalWith(Schema.NullOr(Schema.String), { default: () => null }),
 });
 
-const AppCoverageSchema: Schema.Schema<AppCoverage> = Schema.Struct({
+const AppCoverageSchema = Schema.Struct({
   version: Schema.Literal(1),
   appKey: Schema.String,
   feeds: Schema.Struct({

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import type { DailyStat, StatsFreshness } from '../types/stats.js';
+import type { AppCoverage, DailyStat, StatsFreshness } from '../types/stats.js';
 import type { MetricSeries, MetricTotal } from '../types/statsReport.js';
 import {
   createMetricSeries,
@@ -252,11 +252,31 @@ describe('isAppStale and listAppMessages', () => {
     expect(isAppStale(freshness, 'ios-2')).toBe(false);
   });
 
-  test('lists the messages of one app only', () => {
-    const freshness: StatsFreshness = { isStale: true, report };
+  test('lists the saved error and note of every feed of one app', () => {
+    const feedCoverage = {
+      lastSyncedAt: '2026-10-29T00:00:00.000Z',
+      coveredFrom: null,
+      coveredThrough: null,
+      lastError: null,
+      lastNote: null,
+    };
+    const appCoverage: AppCoverage = {
+      version: 1,
+      appKey: 'ios-1',
+      feeds: {
+        'app-store': { ...feedCoverage, lastNote: 'Apple is preparing analytics' },
+        ga4: { ...feedCoverage, lastError: 'API disabled' },
+        'google-play': feedCoverage,
+      },
+    };
 
-    expect(listAppMessages(freshness, 'ios-1')).toEqual(['app-store: report not ready']);
-    expect(listAppMessages(freshness, 'ios-2')).toEqual([]);
-    expect(listAppMessages({ isStale: false, report: null }, 'ios-1')).toEqual([]);
+    expect(listAppMessages(appCoverage)).toEqual([
+      'app-store: Apple is preparing analytics',
+      'ga4: API disabled',
+    ]);
+  });
+
+  test('lists nothing for an app that was never synced', () => {
+    expect(listAppMessages({ version: 1, appKey: 'ios-1', feeds: {} })).toEqual([]);
   });
 });

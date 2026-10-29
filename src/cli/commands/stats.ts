@@ -37,7 +37,9 @@ export const registerStatsCommand = (program: Command): void => {
     .option('--app <name>', 'only this app (part of its name, bundle id or package name)')
     .option('--days <days>', 'how many days back to cover (1 to 365, default 30)')
     .option('--json', 'output machine-readable JSON', false)
-    .action((flags: { app?: string; days?: string; json?: boolean }) => {
+    .action((_syncOwnFlags: unknown, syncCommand: Command) => {
+      // Commander gives the same-named options to the parent `stats` command, so read them from there.
+      const flags = syncCommand.optsWithGlobals<{ app?: string; days?: string; json?: boolean }>();
       return runCliProgram(
         statsSyncProgram({
           app: flags.app,

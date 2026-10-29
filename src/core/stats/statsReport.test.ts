@@ -175,6 +175,18 @@ describe('createStatsReport', () => {
     expect(outcome.right.apps[0]?.totals.length).toBeGreaterThan(0);
   });
 
+  test('shows the saved skip reason when the cache is fresh and no sync runs', async () => {
+    await createReport(ALL_APPS_REQUEST);
+    fakeFeed.isFailing = true;
+
+    const outcome = await createReport(ALL_APPS_REQUEST);
+
+    if (outcome._tag === 'Left') throw new Error('expected a report');
+    expect(outcome.right.isStale).toBe(false);
+    expect(outcome.right.apps[0]?.messages).toEqual(['app-store: not built yet']);
+    expect(outcome.right.apps[1]?.messages).toEqual([]);
+  });
+
   test('gives empty totals for an app with no saved numbers', async () => {
     removeTemporaryHomeDirectory(homeDirectory);
     homeDirectory = createTemporaryHomeDirectory();
