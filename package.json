@@ -90,7 +90,6 @@
     "@vitest/coverage-v8": "^4.1.12",
     "husky": "^9.1.7",
     "knip": "6.43.0",
-    "lint-staged": "^16.4.0",
     "openapi-typescript": "^7.13.0",
     "tsc-alias": "^1.9.8",
     "tsx": "^4.23.15",
@@ -99,11 +98,6 @@
     "vite": "^8.3.5",
     "vitest": "^4.1.12",
     "zod": "^4.6.7"
-  },
-  "lint-staged": {
-    "**/*.{js,mjs,cjs,ts,mts,cts,json,jsonc}": [
-      "biome format --write --no-errors-on-unmatched"
-    ]
   },
   "optionalDependencies": {
     "@aws-sdk/client-ec2": "^3.1153.0",
