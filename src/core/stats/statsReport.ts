@@ -38,12 +38,10 @@ const loadRangeStats = (
   range: DateRange,
 ): Effect.Effect<DailyStat[], InvalidAppKeyFailure | DocumentFileFailure, StatsSyncRequirements> =>
   Effect.gen(function* () {
-    const allStats: DailyStat[] = [];
-    for (const month of listMonthsInRange(range)) {
-      const monthStats = yield* loadMonthStats(appKey, month);
-      allStats.push(...monthStats);
-    }
-    return keepStatsInRange(allStats, range);
+    const monthsOfStats = yield* Effect.forEach(listMonthsInRange(range), (month) =>
+      loadMonthStats(appKey, month),
+    );
+    return keepStatsInRange(monthsOfStats.flat(), range);
   });
 
 const createAppReport = (

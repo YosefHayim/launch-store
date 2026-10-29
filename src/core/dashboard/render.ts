@@ -134,6 +134,12 @@ const renderCloudHostSection = (dashboardState: DashboardState): string => {
   );
 };
 
+const createProfileNames = (profiles: readonly string[]): string => {
+  const hasNoProfiles = profiles.length === 0;
+  if (hasNoProfiles) return 'none';
+  return profiles.join(', ');
+};
+
 const createProjectSections = (dashboardState: DashboardState): string[] => {
   const isPortfolioOnly = dashboardState.mode === 'portfolio-only';
   if (isPortfolioOnly) return [];
@@ -143,10 +149,7 @@ const createProjectSections = (dashboardState: DashboardState): string[] => {
     renderProviderChip('build', dashboardState.project.providers.buildEngine),
     renderProviderChip('submit', dashboardState.project.providers.submit),
   ].join('');
-  let profileNames = 'none';
-  if (dashboardState.project.profiles.length > 0) {
-    profileNames = dashboardState.project.profiles.join(', ');
-  }
+  const profileNames = createProfileNames(dashboardState.project.profiles);
   return [
     renderSection(
       'Project',

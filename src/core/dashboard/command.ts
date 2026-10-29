@@ -125,6 +125,11 @@ const DASHBOARD_ROUTES: readonly DashboardRoute[] = [
   { path: '/api/stats', reply: statsApiReply },
 ];
 
+const readRequestUrl = (dashboardRequest: DashboardHttpRequest): string => {
+  if (dashboardRequest.url === undefined) return '/';
+  return dashboardRequest.url;
+};
+
 /** Answer one GET route; every other method or path is a 404. */
 export const dashboardHttpReply = (
   dashboardRequest: DashboardHttpRequest,
@@ -133,8 +138,7 @@ export const dashboardHttpReply = (
   Effect.gen(function* () {
     const isGetRequest = dashboardRequest.method === 'GET';
     if (!isGetRequest) return NOT_FOUND_REPLY;
-    let requestUrl = '/';
-    if (dashboardRequest.url !== undefined) requestUrl = dashboardRequest.url;
+    const requestUrl = readRequestUrl(dashboardRequest);
     const parsedUrl = new URL(requestUrl, 'http://127.0.0.1');
     const requestedRoute = DASHBOARD_ROUTES.find((route) => route.path === parsedUrl.pathname);
     if (requestedRoute === undefined) return NOT_FOUND_REPLY;
