@@ -108,7 +108,11 @@ export type PlayReportingApiError = Readonly<{
   readonly cause: unknown;
 }>;
 const makePlayReportingApiError = Data.tagged<PlayReportingApiError>('PlayReportingApiError');
+const PLAY_APPS_PAGE_SIZE = 1000;
+/** One app the service account can read in the Play Developer Reporting API. */
+export type PlayReportingApp = Readonly<{ packageName: string; displayName: string }>;
 export type PlayReportingTransport = {
+  readonly apps: Pick<playdeveloperreporting_v1beta1.Resource$Apps, 'search'>;
   readonly vitals: {
     readonly crashrate: Pick<
       playdeveloperreporting_v1beta1.Resource$Vitals$Crashrate,
@@ -159,6 +163,35 @@ export class PlayReportingClient {
         });
       },
     }).pipe(Effect.map((completedRequest) => completedRequest.data));
+  }
+  /** List every app the service account can read, following `nextPageToken` in full. */
+  listApps(): Effect.Effect<PlayReportingApp[], PlayReportingApiError> {
+    return Effect.gen(this, function* () {
+      const apps: PlayReportingApp[] = [];
+      let pageToken: string | undefined;
+      do {
+        const searchRequest: playdeveloperreporting_v1beta1.Params$Resource$Apps$Search = {
+          pageSize: PLAY_APPS_PAGE_SIZE,
+        };
+        if (pageToken !== undefined) searchRequest.pageToken = pageToken;
+        const appsPage = yield* this.executeGeneratedRequest('search accessible apps', () =>
+          this.reporting.apps.search(searchRequest),
+        );
+        const googleApps = appsPage.apps;
+        if (!Array.isArray(googleApps)) {
+          pageToken = nonEmptyPageToken(appsPage.nextPageToken);
+          continue;
+        }
+        for (const googleApp of googleApps) {
+          if (typeof googleApp.packageName !== 'string') continue;
+          let displayName = googleApp.packageName;
+          if (typeof googleApp.displayName === 'string') displayName = googleApp.displayName;
+          apps.push({ packageName: googleApp.packageName, displayName });
+        }
+        pageToken = nonEmptyPageToken(appsPage.nextPageToken);
+      } while (pageToken !== undefined);
+      return apps;
+    });
   }
   /**
    * Read the latest DAILY day Google has finished aggregating for a metric set, as ISO `YYYY-MM-DD`,

@@ -1464,6 +1464,20 @@ export class AppStoreConnectClient {
       .map((entry) => entry.attributes.name)
       .filter((name): name is string => Boolean(name));
   }
+  /** List every app this key can access with the id, name and bundle id a portfolio view needs. */
+  async listApps(): Promise<{ id: string; name: string; bundleId: string | null }[]> {
+    const appleResources = await this.requestAll<{
+      name?: string;
+      bundleId?: string;
+    }>('/apps?fields[apps]=name,bundleId&limit=200');
+    return appleResources.map((appleResource) => {
+      let name = appleResource.id;
+      if (appleResource.attributes.name) name = appleResource.attributes.name;
+      let bundleId: string | null = null;
+      if (appleResource.attributes.bundleId) bundleId = appleResource.attributes.bundleId;
+      return { id: appleResource.id, name, bundleId };
+    });
+  }
   /**
    * Find a registered Bundle ID by its identifier, or null if it isn't registered yet. Apple's
    * `filter[identifier]` is a SUBSTRING match, so a query for `com.acme.app` also returns

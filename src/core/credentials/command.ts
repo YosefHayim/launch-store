@@ -23,6 +23,7 @@ import {
   matchAccount,
   removeAccount,
   renameAccount,
+  setAccountVendorNumber,
   setActiveKeyId,
   updateAccountIdentity,
 } from './accounts.js';
@@ -50,6 +51,7 @@ const CredentialsActionSchema = Schema.Literal(
   'logout',
   'refresh',
   'push-key',
+  'set-vendor-number',
 );
 
 const CredentialsCommandOptionsSchema = Schema.Struct({
@@ -66,6 +68,7 @@ const CredentialsCommandOptionsSchema = Schema.Struct({
   teamId: optionalCommandText,
   out: optionalCommandText,
   force: optionalCommandFlag,
+  vendorNumber: optionalCommandText,
 });
 
 export const CredentialsCommandInputSchema = Schema.Struct({
@@ -763,6 +766,27 @@ const renameAppleAccount = (
     yield* logger.ok(`Renamed account ${matchedAccount.keyId} to "${accountLabel}".`);
   });
 
+/** Save the Apple vendor number for one account, so the stats sync can read its sales reports. */
+const setAppleVendorNumber = (
+  commandOptions: CredentialsCommandOptions,
+): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
+  Effect.gen(function* () {
+    const usage = 'Usage: launch creds set-vendor-number --account <label> --vendor-number <n>.';
+    const { account: selector, vendorNumber } = commandOptions;
+    if (selector === undefined) return yield* failCommand('set vendor number', usage);
+    if (vendorNumber === undefined) return yield* failCommand('set vendor number', usage);
+    const trimmedVendorNumber = vendorNumber.trim();
+    const isVendorNumberDigits = /^[0-9]+$/.test(trimmedVendorNumber);
+    if (!isVendorNumberDigits) {
+      return yield* failCommand('set vendor number', 'The vendor number is digits only.');
+    }
+    const accounts = yield* listAccounts();
+    const matchedAccount = yield* requireMatchedAccount(accounts, selector, 'set vendor number');
+    yield* setAccountVendorNumber(matchedAccount.keyId, trimmedVendorNumber);
+    const logger = yield* createLogger(false);
+    yield* logger.ok(`Saved the vendor number for account "${matchedAccount.label}".`);
+  });
+
 /** Remove one Apple account after an optional interactive confirmation. */
 const removeAppleAccount = (
   selector: string | undefined,
@@ -993,6 +1017,8 @@ export const credentialsCommandProgram = (
         return yield* removeAppleAccount(decodedCommand.firstArgument, decodedCommand.options);
       case 'refresh':
         return yield* refreshAppleAccounts(decodedCommand.firstArgument);
+      case 'set-vendor-number':
+        return yield* setAppleVendorNumber(decodedCommand.options);
       case 'push-key':
         return yield* runPushKeyAction(
           decodedCommand.firstArgument,

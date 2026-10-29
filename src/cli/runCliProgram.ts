@@ -27,6 +27,12 @@ import {
   type GoogleReportingClientService,
 } from '../core/services/googleReportingClient.js';
 import {
+  GoogleAccessTokenLive,
+  type GoogleAccessTokenService,
+} from '../core/services/googleAccessToken.js';
+import { StatsCredentialsLive } from '../core/stats/statsCredentials.js';
+import type { StatsCredentialsShape } from '../core/types/stats.js';
+import {
   jsonLine,
   makeLaunchLoggerJson,
   LaunchLoggerLive,
@@ -56,7 +62,9 @@ type CliRequirements =
   | AppleCredentialsClientFactory
   | AppStoreIdentityService
   | GoogleStoreClientService
+  | GoogleAccessTokenService
   | GoogleReportingClientService
+  | StatsCredentialsShape
   | LaunchEnvironmentService
   | LaunchPathsService
   | LaunchPromptService
@@ -76,6 +84,8 @@ const runWithTerminalServices = <Success, Failure>(
       Effect.provide(AppStoreIdentityLive),
       Effect.provide(AppleCredentialsClientLive),
       Effect.provide(SetupStoreReadinessLive),
+      Effect.provide(StatsCredentialsLive),
+      Effect.provide(GoogleAccessTokenLive),
       Effect.provide(AppleStoreClientLive),
       Effect.provide(GoogleStoreClientLive),
       Effect.provide(GoogleReportingClientLive),
