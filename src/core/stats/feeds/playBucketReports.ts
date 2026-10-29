@@ -14,7 +14,7 @@ import {
   findLastDayOfReportMonth,
   findLatestCsvDate,
   listReportMonths,
-  pickLaterDate,
+  pickLaterKnownDate,
   readCrashStats,
   readEarningsStats,
   readInstallStats,
@@ -124,7 +124,7 @@ const readMonthlyCsvReports = (
       .reduce<string | null>((latestDate, publishedReport) => {
         const reportDate = findLatestCsvDate(publishedReport.table);
         if (reportDate === null) return latestDate;
-        return pickLaterDate(latestDate, reportDate);
+        return pickLaterKnownDate(latestDate, reportDate);
       }, null);
     return {
       status: 'read',
@@ -141,7 +141,7 @@ const findEarningsPublishedThrough = (objectNames: readonly string[]): string | 
     if (reportMonth === undefined) return [];
     return [reportMonth];
   });
-  const newestMonth = reportMonths.reduce<string | null>(pickLaterDate, null);
+  const newestMonth = reportMonths.reduce<string | null>(pickLaterKnownDate, null);
   if (newestMonth === null) return null;
   return findLastDayOfReportMonth(newestMonth);
 };

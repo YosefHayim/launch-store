@@ -5,7 +5,7 @@ import {
   findLastDayOfReportMonth,
   findLatestCsvDate,
   listReportMonths,
-  pickLaterDate,
+  pickLaterKnownDate,
   readCrashStats,
   readEarningsStats,
   readInstallStats,
@@ -223,10 +223,10 @@ describe('findLastDayOfReportMonth', () => {
   });
 });
 
-describe('pickLaterDate', () => {
+describe('pickLaterKnownDate', () => {
   test('returns the later of two dates and takes the second when there is no first', () => {
-    expect(pickLaterDate(null, '2026-10-01')).toBe('2026-10-01');
-    expect(pickLaterDate('2026-10-05', '2026-10-01')).toBe('2026-10-05');
-    expect(pickLaterDate('2026-10-01', '2026-10-05')).toBe('2026-10-05');
+    expect(pickLaterKnownDate(null, '2026-10-01')).toBe('2026-10-01');
+    expect(pickLaterKnownDate('2026-10-05', '2026-10-01')).toBe('2026-10-05');
+    expect(pickLaterKnownDate('2026-10-01', '2026-10-05')).toBe('2026-10-05');
   });
 });

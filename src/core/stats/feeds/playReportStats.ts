@@ -1,5 +1,5 @@
 import type { DailyStat, DateRange, StatsMetric } from '../../types/stats.js';
-import { readMonthOfDate } from '../dateRange.js';
+import { pickLaterDate, readMonthOfDate } from '../dateRange.js';
 import type { PlayCsvTable } from './playCsvTable.js';
 
 interface PlayColumnMapping {
@@ -51,11 +51,9 @@ const MONTH_NAMES: readonly string[] = [
 
 const MONTHS_IN_YEAR = 12;
 
-// ISO dates sort as text, so a plain string compare orders them.
-export const pickLaterDate = (first: string | null, second: string): string => {
-  if (first === null) return second;
-  if (first > second) return first;
-  return second;
+export const pickLaterKnownDate = (firstDate: string | null, secondDate: string): string => {
+  if (firstDate === null) return secondDate;
+  return pickLaterDate(firstDate, secondDate);
 };
 
 const isDateInRange = (date: string, range: DateRange): boolean =>
@@ -150,7 +148,10 @@ export const findLatestCsvDate = (table: PlayCsvTable): string | null => {
     if (date === null) return [];
     return [date];
   });
-  return dates.reduce<string | null>((latestDate, date) => pickLaterDate(latestDate, date), null);
+  return dates.reduce<string | null>(
+    (latestDate, date) => pickLaterKnownDate(latestDate, date),
+    null,
+  );
 };
 
 /** `Nov 30, 2016` (Pacific Time, as the earnings report writes it) as `2016-11-30`. */

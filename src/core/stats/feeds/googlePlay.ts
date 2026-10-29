@@ -13,6 +13,7 @@ import type {
   StatsFeedPlugin,
   StatsMetric,
 } from '../../types/stats.js';
+import { pickEarlierDate } from '../dateRange.js';
 import { readBucketReports } from './playBucketReports.js';
 import { STORAGE_READ_ONLY_SCOPE } from './playReportsBucketClient.js';
 
@@ -39,18 +40,12 @@ interface VitalsReading {
 const countRangeDays = (range: DateRange): number =>
   Math.round((Date.parse(range.to) - Date.parse(range.from)) / DAY_MILLISECONDS) + 1;
 
-// ISO dates sort as text, so a plain string compare orders them.
-const earlierDate = (first: string, second: string): string => {
-  if (first < second) return first;
-  return second;
-};
-
 const pickCoveredThrough = (publishedThroughDates: readonly (string | null)[]): string => {
   const publishedDates = publishedThroughDates.flatMap((publishedDate) => {
     if (publishedDate === null) return [];
     return [publishedDate];
   });
-  return publishedDates.reduce(earlierDate);
+  return publishedDates.reduce(pickEarlierDate);
 };
 
 const readVitals = (
@@ -83,7 +78,7 @@ const readVitals = (
     );
     return {
       stats,
-      publishedThrough: earlierDate(crashTimeline.window.endDate, anrTimeline.window.endDate),
+      publishedThrough: pickEarlierDate(crashTimeline.window.endDate, anrTimeline.window.endDate),
     };
   });
 
@@ -103,7 +98,7 @@ const fetchPlayStats = (
       } satisfies FeedFetchReply;
     }
     const vitals = yield* readVitals(playClient, packageName, range);
-    const vitalsCoveredThrough = earlierDate(vitals.publishedThrough, range.to);
+    const vitalsCoveredThrough = pickEarlierDate(vitals.publishedThrough, range.to);
     const reportsBucket = yield* credentials.playReportsBucket();
     const isBucketNotSet = reportsBucket === null;
     if (isBucketNotSet) {

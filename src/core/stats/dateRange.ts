@@ -14,6 +14,19 @@ export const shiftDate = (date: string, dayCount: number): string => {
   return new Date(shiftedMilliseconds).toISOString().slice(0, 10);
 };
 
+// ISO dates sort as text, so a plain string compare orders them.
+export const pickEarlierDate = (firstDate: string, secondDate: string): string => {
+  const isFirstEarlier = firstDate < secondDate;
+  if (isFirstEarlier) return firstDate;
+  return secondDate;
+};
+
+export const pickLaterDate = (firstDate: string, secondDate: string): string => {
+  const isFirstLater = firstDate > secondDate;
+  if (isFirstLater) return firstDate;
+  return secondDate;
+};
+
 export const readMonthOfDate = (date: string): string => date.slice(0, 7);
 
 export const createLastDaysRange = (lastDate: string, dayCount: number): DateRange => ({
