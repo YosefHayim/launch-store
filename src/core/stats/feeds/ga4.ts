@@ -52,6 +52,13 @@ const readProjectId = (
     return readProjectIdFromClientEmail(serviceAccount.clientEmail);
   });
 
+const createWholePropertyNotes = (target: Ga4Target): readonly string[] => {
+  if (target.streamId !== null) return [];
+  return [
+    `GA4 property ${target.propertyId} has no stream for this app, so the numbers cover the whole property`,
+  ];
+};
+
 const readStoreIdentifier = (app: PortfolioApp): string => {
   if (app.platform === 'ios' && app.bundleId !== null) return app.bundleId;
   if (app.platform === 'android' && app.packageName !== null) return app.packageName;
@@ -108,7 +115,8 @@ export const makeGa4Feed = (): StatsFeedPlugin => {
         streamId: target.streamId,
         range,
       });
-      return { status: 'fetched', stats, coveredThrough: range.to } as const;
+      const notes: readonly string[] = createWholePropertyNotes(target);
+      return { status: 'fetched', stats, coveredThrough: range.to, notes } as const;
     });
 
   return {

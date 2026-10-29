@@ -165,6 +165,7 @@ describe('ga4Feed', () => {
     expect(reply).toEqual({
       status: 'fetched',
       coveredThrough: '2026-10-03',
+      notes: [],
       stats: [
         { date: '2026-10-01', feed: 'ga4', metric: 'activeUsers', value: 5, currency: null },
         { date: '2026-10-01', feed: 'ga4', metric: 'newUsers', value: 2, currency: null },
@@ -191,7 +192,12 @@ describe('ga4Feed', () => {
       credentials: makeCredentials(),
     });
 
-    expect(reply).toEqual({ status: 'fetched', coveredThrough: '2026-10-03', stats: [] });
+    expect(reply).toEqual({
+      status: 'fetched',
+      coveredThrough: '2026-10-03',
+      notes: [],
+      stats: [],
+    });
     expect(sentRequests.some((sent) => sent.url.includes('properties/222:runReport'))).toBe(true);
   });
 
@@ -238,7 +244,9 @@ describe('ga4Feed', () => {
     });
 
     const reportRequest = sentRequests.find((sent) => sent.url === RUN_REPORT_URL);
-    expect(reply.status).toBe('fetched');
+    expect(reply.status === 'fetched' && reply.notes).toEqual([
+      'GA4 property 111 has no stream for this app, so the numbers cover the whole property',
+    ]);
     expect(JSON.parse(reportRequest?.bodyText ?? 'null').dimensionFilter).toBeUndefined();
   });
 
