@@ -68,6 +68,16 @@ const inputs = (overrides: Partial<DashboardInputs> = {}): DashboardInputs => {
 describe('buildDashboardState', () => {
   const projectDashboardState = (dashboardInputs: DashboardInputs) =>
     Effect.runSync(buildDashboardState(dashboardInputs));
+  it('is project mode with a config, and portfolio-only with an empty project without one', () => {
+    const projectState = projectDashboardState(inputs({ apps: [app()] }));
+    const portfolioOnlyState = projectDashboardState(inputs({ config: null, apps: [app()] }));
+
+    expect(projectState.mode).toBe('project');
+    expect(projectState.project.apps).toHaveLength(1);
+    expect(portfolioOnlyState.mode).toBe('portfolio-only');
+    expect(portfolioOnlyState.project.apps).toEqual([]);
+    expect(portfolioOnlyState.project.profiles).toEqual([]);
+  });
   it('stamps the snapshot time and the local state home', () => {
     const dashboardState = projectDashboardState(inputs());
     expect(dashboardState.generatedAt).toBe(NOW.toISOString());

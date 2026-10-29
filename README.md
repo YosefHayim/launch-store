@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-205%20endpoints-8957e5?logo=apple&logoColor=white" alt="205 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2668%20passing-3fb950?logo=vitest&logoColor=white" alt="2668 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2740%20passing-3fb950?logo=vitest&logoColor=white" alt="2740 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -332,6 +332,16 @@ The everyday ones:
 > **Driving Launch from an AI agent?** `launch agents init` scaffolds ready-made skills into your repo - [Claude Code](https://code.claude.com/docs/en/overview) Skills (`.claude/skills/`), [Cursor rules](https://cursor.com/docs/rules) (`.cursor/rules/`), and a Launch section in `AGENTS.md` for [Codex](https://developers.openai.com/codex/guides/agents-md) - so Claude Code, Cursor, and Codex can run the workflows above (ship, release, store-config-as-code, OTA updates, CI, and `launch doctor`) with the same plan -> confirm -> apply guardrails Launch uses, and never publish without your say-so. `launch agents check` keeps them in sync. In Claude Code, `/plugin install launch-store --marketplace YosefHayim/launch-store` adds the Launch mod: build, release, status, plan and doctor tools plus `/launch`, in any Swift, Kotlin, Expo or React Native folder, asking before anything uploads.
 
 <!-- agent-skills:end -->
+
+Want your numbers inside Claude? Downloads, proceeds per currency, sessions, crash rate and rating of
+every app work from any folder, with no `launch.config.ts`:
+
+```sh
+claude mcp add --scope user launch -- launch mcp   # stats_portfolio and stats_app tools
+launch stats --owner mine --days 30                 # the same numbers in the terminal
+launch stats --app "cal friend" --json              # one app, one JSON object
+launch dashboard                                    # open the Apps tab at http://127.0.0.1:4477/apps
+```
 
 **Read next:**
 

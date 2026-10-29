@@ -1,13 +1,14 @@
-import { FileSystem } from '@effect/platform';
+import { FileSystem, type Path } from '@effect/platform';
 import { Cause, Effect, Runtime, Schema } from 'effect';
 import { fileURLToPath } from 'node:url';
-import { loadConfig } from '../config/config.js';
+import { findLaunchConfig, loadConfig } from '../config/config.js';
 import { validate } from '../config/jsonSchema.js';
 import { errorMessage } from '../services/errorMessage.js';
 import { requireOptional } from '../services/optionalDep.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import type { McpTool, McpToolResult } from '../types/mcp.js';
 import { gateTools } from './gate.js';
+import { STATS_TOOLS } from './statsTools.js';
 import { ALL_TOOLS, type McpToolRequirements } from './tools.js';
 
 const SDK_INSTALL_HINT = 'pnpm add @modelcontextprotocol/sdk';
@@ -85,14 +86,32 @@ const serverVersion = (): Effect.Effect<string, never, FileSystem.FileSystem> =>
     );
   });
 
+/**
+ * The tools this folder gets. Without a launch.config only the stats tools are served, so one user-scope
+ * registration works from every folder. A config that exists but cannot load still fails.
+ */
+export const pickServedTools = (
+  tools: readonly McpTool<McpToolRequirements>[],
+  workingDirectory: string,
+): Effect.Effect<
+  readonly McpTool<McpToolRequirements>[],
+  unknown,
+  FileSystem.FileSystem | LaunchPathsService | Path.Path | McpToolRequirements
+> =>
+  Effect.gen(function* () {
+    const foundConfig = yield* findLaunchConfig(workingDirectory);
+    if (foundConfig === null) return STATS_TOOLS;
+    const loadedConfig = yield* loadConfig(workingDirectory);
+    return [...gateTools(tools, loadedConfig.config), ...STATS_TOOLS];
+  });
+
 /** Connect the configured MCP tool registry to the stdio transport. */
 export const startMcpServer = (
   tools: readonly McpTool<McpToolRequirements>[] = ALL_TOOLS,
 ): Effect.Effect<void, unknown, McpToolRequirements | FileSystem.FileSystem | LaunchPathsService> =>
   Effect.gen(function* () {
     const launchPaths = yield* LaunchPaths;
-    const loadedConfig = yield* loadConfig(launchPaths.workingDirectory);
-    const enabledTools = gateTools(tools, loadedConfig.config);
+    const enabledTools = yield* pickServedTools(tools, launchPaths.workingDirectory);
     const toolsByName = new Map(enabledTools.map((tool) => [tool.name, tool]));
     const { Server, StdioServerTransport, schemas } = yield* loadSdk();
     const version = yield* serverVersion();

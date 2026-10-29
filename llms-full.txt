@@ -146,7 +146,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 65 `launch` commands (205 store-API operations underneath, 2668 tests):
+All 65 `launch` commands (205 store-API operations underneath, 2740 tests):
 
 - `launch init` - scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` - onboard an app that already ships: import its App Store Connect setup into config
@@ -259,7 +259,6 @@ All 65 `launch` commands (205 store-API operations underneath, 2668 tests):
   - `launch apps help [command]` - display help for command
 - `launch stats` - keep daily download, rating and usage numbers of your apps on this machine
   - `launch stats sync` - pull the missing days of every stats feed into ~/.launch/stats
-  - `launch stats help [command]` - display help for command
 - `launch doctor` - check that the local toolchain and store account are ready
 - `launch store` - store-account readiness and operations
   - `launch store doctor` - check store-account readiness: Apple app record, Play onboarding & access (read-only)

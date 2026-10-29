@@ -8,7 +8,7 @@ import type { ServiceAccount } from './credentials.js';
 export type StatsFeed = 'app-store' | 'google-play' | 'ga4';
 export const STATS_FEEDS: readonly StatsFeed[] = ['app-store', 'google-play', 'ga4'];
 
-type StatsMetric =
+export type StatsMetric =
   | 'downloads'
   | 'redownloads'
   | 'updates'
@@ -28,7 +28,7 @@ type StatsMetric =
   | 'activeUsers'
   | 'newUsers';
 
-type MetricAggregation = 'sum' | 'latest' | 'average';
+export type MetricAggregation = 'sum' | 'latest' | 'average';
 export const METRIC_AGGREGATION: Readonly<Record<StatsMetric, MetricAggregation>> = {
   downloads: 'sum',
   redownloads: 'sum',
