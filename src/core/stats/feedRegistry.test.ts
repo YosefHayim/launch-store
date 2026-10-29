@@ -37,7 +37,7 @@ describe('STATS_FEED_PLUGINS', () => {
     expect(applicable('android')).toEqual(['google-play', 'ga4']);
   });
 
-  test('every placeholder feed skips with a reason', async () => {
+  test('every feed skips with a reason when nothing is saved', async () => {
     const credentials = await Effect.runPromise(
       StatsCredentials.pipe(Effect.provide(makeStatsCredentialsTest())),
     );
@@ -56,8 +56,13 @@ describe('STATS_FEED_PLUGINS', () => {
       ),
     );
 
-    expect(replies).toEqual(
-      STATS_FEED_PLUGINS.map(() => ({ status: 'skipped', reason: 'not built yet' })),
-    );
+    expect(replies).toEqual([
+      { status: 'skipped', reason: 'not built yet' },
+      { status: 'skipped', reason: 'not built yet' },
+      {
+        status: 'skipped',
+        reason: 'No Google service account saved; add one with launch credentials',
+      },
+    ]);
   });
 });
