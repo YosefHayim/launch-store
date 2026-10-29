@@ -27,11 +27,12 @@ const AppTagSchema = Schema.Struct({
   ga4PropertyId: Schema.NullOr(Schema.String),
 });
 
-const PortfolioFileSchema: Schema.Schema<PortfolioFile> = Schema.Struct({
+const PortfolioFileSchema = Schema.Struct({
   version: Schema.Literal(1),
   discoveredAt: Schema.NullOr(Schema.String),
   apps: Schema.Array(DiscoveredAppSchema),
   tags: Schema.Array(AppTagSchema),
+  playReportsBucket: Schema.optionalWith(Schema.NullOr(Schema.String), { default: () => null }),
 });
 
 type PortfolioStoreRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
@@ -41,6 +42,7 @@ export const createEmptyPortfolioFile = (): PortfolioFile => ({
   discoveredAt: null,
   apps: [],
   tags: [],
+  playReportsBucket: null,
 });
 
 export const loadPortfolioFile = (): Effect.Effect<

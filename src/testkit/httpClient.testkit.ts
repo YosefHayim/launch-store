@@ -20,7 +20,8 @@ export const makeHttpClientTest = (
       if (matchedRoute === undefined) {
         return Effect.die(new Error(`No test route for ${request.method} ${request.url}`));
       }
-      const replyBody = JSON.stringify(matchedRoute.body);
+      let replyBody: string | Uint8Array<ArrayBuffer> = JSON.stringify(matchedRoute.body);
+      if (matchedRoute.body instanceof Uint8Array) replyBody = new Uint8Array(matchedRoute.body);
       return Effect.succeed(
         HttpClientResponse.fromWeb(
           request,

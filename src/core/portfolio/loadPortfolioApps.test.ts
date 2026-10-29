@@ -48,6 +48,7 @@ const CACHED_FILE: PortfolioFile = {
     },
   ],
   tags: [{ appKey: 'ios-1', owner: 'mine', ga4PropertyId: null }],
+  playReportsBucket: null,
 };
 
 describe('loadPortfolioApps', () => {

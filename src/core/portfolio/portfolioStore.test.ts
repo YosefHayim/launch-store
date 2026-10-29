@@ -40,6 +40,7 @@ const savedFile: PortfolioFile = {
     },
   ],
   tags: [{ appKey: 'ios-1', owner: 'mine', ga4PropertyId: '99' }],
+  playReportsBucket: null,
 };
 
 describe('createEmptyPortfolioFile', () => {
@@ -49,6 +50,7 @@ describe('createEmptyPortfolioFile', () => {
       discoveredAt: null,
       apps: [],
       tags: [],
+      playReportsBucket: null,
     });
   });
 });
@@ -60,6 +62,20 @@ describe('loadPortfolioFile', () => {
     );
 
     expect(loaded).toBeNull();
+  });
+
+  test('decodes a file without playReportsBucket as null', async () => {
+    writeLaunchHomeFile(
+      homeDirectory,
+      'portfolio.json',
+      '{"version":1,"discoveredAt":null,"apps":[],"tags":[]}',
+    );
+
+    const loaded = await Effect.runPromise(
+      loadPortfolioFile().pipe(Effect.provide(makeLaunchHomeTest(homeDirectory))),
+    );
+
+    expect(loaded?.playReportsBucket).toBeNull();
   });
 
   test('fails when portfolio.json is broken', async () => {

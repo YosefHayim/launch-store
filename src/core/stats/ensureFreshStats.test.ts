@@ -61,6 +61,7 @@ const PORTFOLIO_FILE: PortfolioFile = {
     },
   ],
   tags: [],
+  playReportsBucket: null,
 };
 
 describe('ensureFreshStats', () => {

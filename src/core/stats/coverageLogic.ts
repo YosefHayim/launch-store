@@ -1,20 +1,13 @@
 import type { AppCoverage, DateRange, FeedCoverage, StatsFeed } from '../types/stats.js';
-import { isSyncedAtStale, REFRESH_TAIL_DAYS, shiftDate } from './dateRange.js';
+import {
+  isSyncedAtStale,
+  pickEarlierDate,
+  pickLaterDate,
+  REFRESH_TAIL_DAYS,
+  shiftDate,
+} from './dateRange.js';
 
 const NEVER_SYNCED_AT = '1970-01-01T00:00:00.000Z';
-
-// ISO dates sort as text, so a plain string compare orders them.
-const pickEarlierDate = (firstDate: string, secondDate: string): string => {
-  const isFirstEarlier = firstDate < secondDate;
-  if (isFirstEarlier) return firstDate;
-  return secondDate;
-};
-
-const pickLaterDate = (firstDate: string, secondDate: string): string => {
-  const isFirstLater = firstDate > secondDate;
-  if (isFirstLater) return firstDate;
-  return secondDate;
-};
 
 export const findFeedCoverage = (
   appCoverage: AppCoverage,

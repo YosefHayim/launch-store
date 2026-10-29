@@ -101,6 +101,7 @@ export interface StatsCredentialsShape {
     PlayReportingClient | null,
     StatsCredentialsFailure
   >;
+  readonly playReportsBucket: () => Effect.Effect<string | null, StatsCredentialsFailure>;
   readonly googleAccessToken: (
     scopes: readonly string[],
   ) => Effect.Effect<string | null, StatsCredentialsFailure>;

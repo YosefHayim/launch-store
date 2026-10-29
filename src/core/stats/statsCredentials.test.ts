@@ -44,6 +44,7 @@ describe('makeStatsCredentialsTest', () => {
     expect(await Effect.runPromise(credentials.vendorNumberForAccount('KEYA'))).toBeNull();
     expect(await Effect.runPromise(credentials.playServiceAccount())).toBeNull();
     expect(await Effect.runPromise(credentials.playReportingClient())).toBeNull();
+    expect(await Effect.runPromise(credentials.playReportsBucket())).toBeNull();
     expect(await Effect.runPromise(credentials.googleAccessToken(['scope']))).toBeNull();
   });
 
@@ -137,5 +138,26 @@ describe('StatsCredentialsLive', () => {
     expect(await Effect.runPromise(credentials.playServiceAccount())).toEqual(SERVICE_ACCOUNT);
     expect(await Effect.runPromise(credentials.playReportingClient())).toBe(playClient);
     expect(await Effect.runPromise(credentials.googleAccessToken(['scope']))).toBe('token-1');
+  });
+
+  test('reads the Play reports bucket from portfolio.json, or null when none is saved', async () => {
+    const credentials = await readCredentials(new Map());
+    const bucketBefore = await Effect.runPromise(credentials.playReportsBucket());
+    writeLaunchHomeFile(
+      homeDirectory,
+      'portfolio.json',
+      JSON.stringify({
+        version: 1,
+        discoveredAt: null,
+        apps: [],
+        tags: [],
+        playReportsBucket: 'pubsite_prod_rev_123',
+      }),
+    );
+
+    const bucketAfter = await Effect.runPromise(credentials.playReportsBucket());
+
+    expect(bucketBefore).toBeNull();
+    expect(bucketAfter).toBe('pubsite_prod_rev_123');
   });
 });

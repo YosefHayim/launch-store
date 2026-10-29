@@ -77,6 +77,7 @@ const PORTFOLIO_FILE: PortfolioFile = {
     },
   ],
   tags: [],
+  playReportsBucket: null,
 };
 
 const FETCHED_REPLY: FeedFetchReply = {

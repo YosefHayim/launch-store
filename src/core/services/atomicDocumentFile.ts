@@ -12,9 +12,9 @@ export type DocumentFileFailure = Readonly<{
 
 const makeDocumentFileFailure = Data.tagged<DocumentFileFailure>('DocumentFileFailure');
 
-export const readDocumentFile = <Document>(
+export const readDocumentFile = <Document, EncodedDocument>(
   filePath: string,
-  documentSchema: Schema.Schema<Document>,
+  documentSchema: Schema.Schema<Document, EncodedDocument>,
 ): Effect.Effect<Document | null, DocumentFileFailure, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;

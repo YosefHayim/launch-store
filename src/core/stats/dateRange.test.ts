@@ -3,6 +3,8 @@ import { describe, expect, test } from 'vitest';
 import {
   createLastDaysRange,
   isSyncedAtStale,
+  pickEarlierDate,
+  pickLaterDate,
   readMonthOfDate,
   readYesterdayUtc,
   shiftDate,
@@ -66,5 +68,19 @@ describe('isSyncedAtStale', () => {
 
   test('is stale when the time cannot be read', () => {
     expect(isSyncedAtStale('not a time', now)).toBe(true);
+  });
+});
+
+describe('pickEarlierDate', () => {
+  test('returns the earlier of two dates in either order', () => {
+    expect(pickEarlierDate('2026-10-01', '2026-10-05')).toBe('2026-10-01');
+    expect(pickEarlierDate('2026-10-05', '2026-10-01')).toBe('2026-10-01');
+  });
+});
+
+describe('pickLaterDate', () => {
+  test('returns the later of two dates in either order', () => {
+    expect(pickLaterDate('2026-10-01', '2026-10-05')).toBe('2026-10-05');
+    expect(pickLaterDate('2026-10-05', '2026-10-01')).toBe('2026-10-05');
   });
 });

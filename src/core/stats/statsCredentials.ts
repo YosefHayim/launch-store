@@ -1,6 +1,7 @@
 import type { FileSystem, Path } from '@effect/platform';
 import { Context, Data, Effect, Layer } from 'effect';
 import { listAccounts, loadAscKeyById } from '../credentials/accounts.js';
+import { loadPortfolioFile } from '../portfolio/portfolioStore.js';
 import { loadServiceAccount } from '../credentials/androidKeystore.js';
 import { AppleStoreClientService } from '../services/appleStoreClient.js';
 import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
@@ -108,6 +109,16 @@ export const StatsCredentialsLive = Layer.effect(
         Effect.mapError((cause) => createCredentialsFailure('read the vendor number', cause)),
       );
 
+    const playReportsBucket: StatsCredentialsShape['playReportsBucket'] = () =>
+      Effect.gen(function* () {
+        const portfolioFile = yield* loadPortfolioFile();
+        if (portfolioFile === null) return null;
+        return portfolioFile.playReportsBucket;
+      }).pipe(
+        Effect.provide(capturedServices),
+        Effect.mapError((cause) => createCredentialsFailure('read the Play reports bucket', cause)),
+      );
+
     const readGoogleAccessToken: StatsCredentialsShape['googleAccessToken'] = (scopes) =>
       Effect.gen(function* () {
         const serviceAccount = yield* playServiceAccount();
@@ -127,6 +138,7 @@ export const StatsCredentialsLive = Layer.effect(
       vendorNumberForAccount,
       playServiceAccount,
       playReportingClient,
+      playReportsBucket,
       googleAccessToken: readGoogleAccessToken,
     } satisfies StatsCredentialsShape;
   }),
@@ -140,6 +152,7 @@ export const makeStatsCredentialsTest = (
     vendorNumberForAccount: () => Effect.succeed(null),
     playServiceAccount: () => Effect.succeed(null),
     playReportingClient: () => Effect.succeed(null),
+    playReportsBucket: () => Effect.succeed(null),
     googleAccessToken: () => Effect.succeed(null),
     ...overrides,
   } satisfies StatsCredentialsShape);
