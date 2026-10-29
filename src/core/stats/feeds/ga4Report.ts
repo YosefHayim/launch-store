@@ -66,14 +66,14 @@ export const createStatsFromReport = (reportReply: ReportReply): readonly DailyS
     if (compactDate === undefined) return [];
     const date = readReportDate(compactDate);
     return GA4_METRICS.flatMap((metricName, metricIndex) => {
-      const metricText = reportRow.metricValues[metricIndex]?.value;
-      if (metricText === undefined) return [];
+      const metricAmount = reportRow.metricValues[metricIndex]?.value;
+      if (metricAmount === undefined) return [];
       return [
         {
           date,
           feed: 'ga4' as const,
           metric: metricName,
-          value: Number(metricText),
+          value: Number(metricAmount),
           currency: null,
         },
       ];

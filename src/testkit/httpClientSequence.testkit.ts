@@ -59,16 +59,16 @@ export const makeHttpClientSequenceTest = (
         authorization: readAuthorization(request.headers['authorization']),
         sentDocument: readSentDocument(request.body),
       });
-      const matchedRoute = routes.find(
+      const requestedRoute = routes.find(
         (route) => route.method === request.method && route.url === request.url,
       );
-      if (matchedRoute === undefined) {
+      if (requestedRoute === undefined) {
         return Effect.die(new Error(`No test route for ${routeKey}`));
       }
       const answeredCount = readAnsweredCount(answeredCounts, routeKey);
       answeredCounts.set(routeKey, answeredCount + 1);
-      const lastReplyIndex = matchedRoute.replies.length - 1;
-      const reply = matchedRoute.replies[Math.min(answeredCount, lastReplyIndex)];
+      const lastReplyIndex = requestedRoute.replies.length - 1;
+      const reply = requestedRoute.replies[Math.min(answeredCount, lastReplyIndex)];
       if (reply === undefined) return Effect.die(new Error(`Route ${routeKey} has no replies`));
       return Effect.succeed(
         HttpClientResponse.fromWeb(

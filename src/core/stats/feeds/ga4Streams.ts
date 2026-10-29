@@ -134,21 +134,21 @@ export const listAppStreams = (
       },
       null,
     );
-    const appStreams: Ga4AppStream[] = [];
-    for (const page of pages) {
-      const decodedPage = yield* Schema.decodeUnknown(DataStreamsSchema)(page).pipe(
+    const decodedPages = yield* Effect.forEach(pages, (page) =>
+      Schema.decodeUnknown(DataStreamsSchema)(page).pipe(
         Effect.mapError((cause) => createGa4Failure(session, 'Unreadable GA4 data streams', cause)),
-      );
-      for (const dataStream of decodedPage.dataStreams) {
+      ),
+    );
+    return decodedPages
+      .flatMap((decodedPage) => decodedPage.dataStreams)
+      .flatMap((dataStream): readonly Ga4AppStream[] => {
         const streamId = readIdAfterSegment(dataStream.name, 'dataStreams');
         const bundleId = dataStream.iosAppStreamData.bundleId;
         const packageName = dataStream.androidAppStreamData.packageName;
         const isAppStream = bundleId !== null || packageName !== null;
-        if (streamId === null || !isAppStream) continue;
-        appStreams.push({ propertyId, streamId, bundleId, packageName });
-      }
-    }
-    return appStreams;
+        if (streamId === null || !isAppStream) return [];
+        return [{ propertyId, streamId, bundleId, packageName }];
+      });
   });
 
 const listPropertyIds = (
@@ -164,21 +164,21 @@ const listPropertyIds = (
       },
       null,
     );
-    const propertyIds: string[] = [];
-    for (const page of pages) {
-      const decodedPage = yield* Schema.decodeUnknown(AccountSummariesSchema)(page).pipe(
+    const decodedPages = yield* Effect.forEach(pages, (page) =>
+      Schema.decodeUnknown(AccountSummariesSchema)(page).pipe(
         Effect.mapError((cause) =>
           createGa4Failure(session, 'Unreadable GA4 account summaries', cause),
         ),
-      );
-      for (const accountSummary of decodedPage.accountSummaries) {
-        for (const propertySummary of accountSummary.propertySummaries) {
-          const propertyId = readIdAfterSegment(propertySummary.property, 'properties');
-          if (propertyId !== null) propertyIds.push(propertyId);
-        }
-      }
-    }
-    return propertyIds;
+      ),
+    );
+    return decodedPages
+      .flatMap((decodedPage) => decodedPage.accountSummaries)
+      .flatMap((accountSummary) => accountSummary.propertySummaries)
+      .flatMap((propertySummary): readonly string[] => {
+        const propertyId = readIdAfterSegment(propertySummary.property, 'properties');
+        if (propertyId === null) return [];
+        return [propertyId];
+      });
   });
 
 /** Every app stream of every property the service account can see. */
