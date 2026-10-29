@@ -134,7 +134,7 @@ const renderCloudHostSection = (dashboardState: DashboardState): string => {
   );
 };
 
-const renderProjectSections = (dashboardState: DashboardState): string[] => {
+const createProjectSections = (dashboardState: DashboardState): string[] => {
   const isPortfolioOnly = dashboardState.mode === 'portfolio-only';
   if (isPortfolioOnly) return [];
   const providerChips = [
@@ -159,7 +159,7 @@ const renderProjectSections = (dashboardState: DashboardState): string[] => {
 /** Render one dashboard snapshot as a self-contained HTML document. */
 export const renderDashboardHtml = (dashboardState: DashboardState): Effect.Effect<string> =>
   Effect.sync(() => {
-    const projectSections = renderProjectSections(dashboardState);
+    const projectSections = createProjectSections(dashboardState);
     // The inert JSON script escapes `<`, preventing a user-controlled `</script>` breakout.
     const embeddedDashboardState = JSON.stringify(dashboardState).replace(/</g, '\\u003c');
     return [

@@ -1,6 +1,7 @@
 import {
   describeCount,
   describeCrashRate,
+  describeOwner,
   describeProceeds,
   describeRating,
   DOWNLOAD_METRICS,
@@ -15,9 +16,9 @@ const SPARK_HEIGHT = 32;
 const SPARK_PADDING = 3;
 const BAR_LABEL_WIDTH = 190;
 const BAR_MAX_WIDTH = 360;
-const BAR_ROW_HEIGHT = 24;
+const BAR_LINE_HEIGHT = 24;
 const BAR_HEIGHT = 14;
-const BAR_VALUE_GAP = 6;
+const BAR_LABEL_GAP = 6;
 const BAR_CHART_WIDTH = 720;
 const EMPTY_CELL = '<span class="muted">-</span>';
 
@@ -37,6 +38,12 @@ const createAppHeadline = (app: AppStatsReport): AppHeadline => ({
   usage: readHeadlineTotal(app.totals, USAGE_METRICS),
 });
 
+const readHeightShare = (amount: number, lowest: number, span: number): number => {
+  const isFlat = span === 0;
+  if (isFlat) return 0.5;
+  return (amount - lowest) / span;
+};
+
 const createSparklineSvg = (points: readonly DailyPoint[], title: string): string => {
   const hasTooFewPoints = points.length < 2;
   if (hasTooFewPoints) return EMPTY_CELL;
@@ -49,8 +56,7 @@ const createSparklineSvg = (points: readonly DailyPoint[], title: string): strin
   const polylinePoints = points
     .map((point, index) => {
       const xPosition = SPARK_PADDING + (index / (points.length - 1)) * innerWidth;
-      let heightShare = 0.5;
-      if (span > 0) heightShare = (point.amount - lowest) / span;
+      const heightShare = readHeightShare(point.amount, lowest, span);
       const yPosition = SPARK_PADDING + (1 - heightShare) * innerHeight;
       return `${xPosition.toFixed(1)},${yPosition.toFixed(1)}`;
     })
@@ -58,27 +64,31 @@ const createSparklineSvg = (points: readonly DailyPoint[], title: string): strin
   return `<svg role="img" width="${SPARK_WIDTH}" height="${SPARK_HEIGHT}" viewBox="0 0 ${SPARK_WIDTH} ${SPARK_HEIGHT}"><title>${escapeHtml(title)}</title><polyline class="spark" points="${polylinePoints}" /></svg>`;
 };
 
+const readBarWidth = (downloads: number | null, highest: number): number => {
+  if (downloads === null) return 0;
+  return Math.max(1, (downloads / highest) * BAR_MAX_WIDTH);
+};
+
 const createDownloadsBarChart = (headlines: readonly AppHeadline[]): string => {
-  const barRows = headlines.map((headline) => ({
+  const barLines = headlines.map((headline) => ({
     name: headline.app.name,
     downloads: headline.downloads,
   }));
-  const knownDownloads = barRows.flatMap((barRow) => {
-    if (barRow.downloads === null) return [];
-    return [barRow.downloads];
+  const knownDownloads = barLines.flatMap((barLine) => {
+    if (barLine.downloads === null) return [];
+    return [barLine.downloads];
   });
   const highest = Math.max(1, ...knownDownloads);
-  const chartHeight = barRows.length * BAR_ROW_HEIGHT + BAR_VALUE_GAP;
-  const barElements = barRows.map((barRow, index) => {
-    const downloads = barRow.downloads;
-    let barWidth = 0;
-    if (downloads !== null) barWidth = Math.max(1, (downloads / highest) * BAR_MAX_WIDTH);
-    const rowTop = index * BAR_ROW_HEIGHT + BAR_VALUE_GAP;
-    const textBaseline = rowTop + BAR_HEIGHT - 2;
+  const chartHeight = barLines.length * BAR_LINE_HEIGHT + BAR_LABEL_GAP;
+  const barElements = barLines.map((barLine, index) => {
+    const downloads = barLine.downloads;
+    const barWidth = readBarWidth(downloads, highest);
+    const barTop = index * BAR_LINE_HEIGHT + BAR_LABEL_GAP;
+    const labelBaseline = barTop + BAR_HEIGHT - 2;
     return [
-      `<text class="axis-label" x="0" y="${textBaseline}">${escapeHtml(barRow.name)}</text>`,
-      `<rect class="bar" x="${BAR_LABEL_WIDTH}" y="${rowTop}" width="${barWidth.toFixed(1)}" height="${BAR_HEIGHT}" />`,
-      `<text class="axis-label" x="${BAR_LABEL_WIDTH + barWidth + BAR_VALUE_GAP}" y="${textBaseline}">${escapeHtml(describeCount(downloads))}</text>`,
+      `<text class="axis-label" x="0" y="${labelBaseline}">${escapeHtml(barLine.name)}</text>`,
+      `<rect class="bar" x="${BAR_LABEL_WIDTH}" y="${barTop}" width="${barWidth.toFixed(1)}" height="${BAR_HEIGHT}" />`,
+      `<text class="axis-label" x="${BAR_LABEL_WIDTH + barWidth + BAR_LABEL_GAP}" y="${labelBaseline}">${escapeHtml(describeCount(downloads))}</text>`,
     ].join('');
   });
   const title = 'Downloads per app in the chosen range';
@@ -87,18 +97,18 @@ const createDownloadsBarChart = (headlines: readonly AppHeadline[]): string => {
 
 const createTable = (headers: readonly string[], rows: readonly (readonly string[])[]): string => {
   const headerCells = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('');
-  const bodyRows = rows
+  const tableLines = rows
     .map((cells) => `<tr>${cells.map((cell) => `<td>${cell}</td>`).join('')}</tr>`)
     .join('');
-  return `<table><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+  return `<table><thead><tr>${headerCells}</tr></thead><tbody>${tableLines}</tbody></table>`;
 };
 
-const createNumberCell = (text: string): string => `<span class="num">${escapeHtml(text)}</span>`;
+const createNumberCell = (figure: string): string =>
+  `<span class="num">${escapeHtml(figure)}</span>`;
 
-const createAppRow = (headline: AppHeadline, days: number): string[] => {
+const createAppCells = (headline: AppHeadline, days: number): string[] => {
   const app = headline.app;
-  let owner = 'untagged';
-  if (app.owner !== null) owner = app.owner;
+  const owner = describeOwner(app.owner);
   const crashRate = readHeadlineTotal(app.totals, ['crashRate']);
   const rating = readHeadlineTotal(app.totals, ['ratingAverage']);
   const downloadsTitle = `Downloads per day for ${app.name}, last ${days} days`;
@@ -115,60 +125,73 @@ const createAppRow = (headline: AppHeadline, days: number): string[] => {
   ];
 };
 
+const createUsageLabel = (usageAmount: number | undefined): string => {
+  if (usageAmount === undefined) return EMPTY_CELL;
+  return createNumberCell(describeCount(usageAmount));
+};
+
 const createDailyTable = (headline: AppHeadline): string => {
   const usageAmounts = new Map(headline.usagePoints.map((point) => [point.date, point.amount]));
-  const dailyRows = headline.downloadPoints.map((point) => {
+  const dailyLines = headline.downloadPoints.map((point) => {
     const usageAmount = usageAmounts.get(point.date);
-    let usageText = EMPTY_CELL;
-    if (usageAmount !== undefined) usageText = createNumberCell(describeCount(usageAmount));
-    return [escapeHtml(point.date), createNumberCell(describeCount(point.amount)), usageText];
+    const usageLabel = createUsageLabel(usageAmount);
+    return [escapeHtml(point.date), createNumberCell(describeCount(point.amount)), usageLabel];
   });
-  const hasNoDailyRows = dailyRows.length === 0;
-  if (hasNoDailyRows) return '';
+  const hasNoDailyLines = dailyLines.length === 0;
+  if (hasNoDailyLines) return '';
   const summary = `Daily numbers for ${headline.app.name}`;
-  return `<details><summary>${escapeHtml(summary)}</summary>${createTable(['Day', 'Downloads', 'Sessions or users'], dailyRows)}</details>`;
+  return `<details><summary>${escapeHtml(summary)}</summary>${createTable(['Day', 'Downloads', 'Sessions or users'], dailyLines)}</details>`;
+};
+
+const createMessageList = (messages: readonly string[]): string => {
+  const hasNoMessages = messages.length === 0;
+  if (hasNoMessages) return '';
+  const messageListLines = messages.map((message) => `<li>${escapeHtml(message)}</li>`).join('');
+  return `<ul>${messageListLines}</ul>`;
 };
 
 const createStaleBanner = (report: StatsReport): string => {
-  if (!report.isStale) return '';
+  const isNotStale = !report.isStale;
+  if (isNotStale) return '';
   const appMessages = report.apps.flatMap((app) => app.messages);
-  const messageItems = appMessages.map((message) => `<li>${escapeHtml(message)}</li>`).join('');
-  let messageList = '';
-  if (appMessages.length > 0) messageList = `<ul>${messageItems}</ul>`;
+  const messageList = createMessageList(appMessages);
   return `<div class="warn" role="status"><b>Some numbers are old.</b> The refresh timed out or failed, so saved numbers are shown. Run <code>launch stats sync</code> to see why.${messageList}</div>`;
+};
+
+const createAppsSection = (report: StatsReport): string => {
+  const headlines = report.apps.map(createAppHeadline);
+  const hasNoApps = headlines.length === 0;
+  if (hasNoApps)
+    return '<p class="muted">No apps found. Run <code>launch apps list</code> first.</p>';
+  const appCells = headlines.map((headline) => createAppCells(headline, report.days));
+  const barTableLines = headlines.map((headline) => [
+    escapeHtml(headline.app.name),
+    createNumberCell(describeCount(headline.downloads)),
+  ]);
+  return [
+    createTable(
+      [
+        'App',
+        'Downloads',
+        'Downloads per day',
+        'Proceeds',
+        'Sessions or users',
+        'Usage per day',
+        'Crash rate',
+        'Rating',
+      ],
+      appCells,
+    ),
+    '<h2>Downloads per app</h2>',
+    createDownloadsBarChart(headlines),
+    `<details><summary>Downloads per app as a table</summary>${createTable(['App', 'Downloads'], barTableLines)}</details>`,
+    ...headlines.map(createDailyTable),
+  ].join('\n');
 };
 
 /** The Apps tab: one table of headline numbers, a sparkline per app, a bar chart, and table fallbacks. */
 export const createAppsTabHtml = (report: StatsReport): string => {
-  const headlines = report.apps.map(createAppHeadline);
-  const hasNoApps = headlines.length === 0;
-  let appsSection = '<p class="muted">No apps found. Run <code>launch apps list</code> first.</p>';
-  if (!hasNoApps) {
-    const appRows = headlines.map((headline) => createAppRow(headline, report.days));
-    const barTableRows = headlines.map((headline) => [
-      escapeHtml(headline.app.name),
-      createNumberCell(describeCount(headline.downloads)),
-    ]);
-    appsSection = [
-      createTable(
-        [
-          'App',
-          'Downloads',
-          'Downloads per day',
-          'Proceeds',
-          'Sessions or users',
-          'Usage per day',
-          'Crash rate',
-          'Rating',
-        ],
-        appRows,
-      ),
-      '<h2>Downloads per app</h2>',
-      createDownloadsBarChart(headlines),
-      `<details><summary>Downloads per app as a table</summary>${createTable(['App', 'Downloads'], barTableRows)}</details>`,
-      ...headlines.map(createDailyTable),
-    ].join('\n');
-  }
+  const appsSection = createAppsSection(report);
   return [
     '<!doctype html>',
     '<html lang="en"><head><meta charset="utf-8" />',

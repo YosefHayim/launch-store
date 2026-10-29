@@ -12,21 +12,19 @@ import { readMonthOfDate, shiftDate } from './dateRange.js';
 const SAFE_DAY_TO_REACH_NEXT_MONTH = 4;
 const LAST_SAFE_DAY_OF_ANY_MONTH = 28;
 
-/** Every `YYYY-MM` month a date range touches, oldest first. */
-export const listMonthsInRange = (range: DateRange): string[] => {
-  const months: string[] = [];
-  const lastMonth = readMonthOfDate(range.to);
-  let month = readMonthOfDate(range.from);
-  while (month <= lastMonth) {
-    months.push(month);
-    const dayInNextMonth = shiftDate(
-      `${month}-${LAST_SAFE_DAY_OF_ANY_MONTH}`,
-      SAFE_DAY_TO_REACH_NEXT_MONTH,
-    );
-    month = readMonthOfDate(dayInNextMonth);
-  }
-  return months;
+const listMonthsFrom = (month: string, lastMonth: string): string[] => {
+  const isPastLastMonth = month > lastMonth;
+  if (isPastLastMonth) return [];
+  const dayInNextMonth = shiftDate(
+    `${month}-${LAST_SAFE_DAY_OF_ANY_MONTH}`,
+    SAFE_DAY_TO_REACH_NEXT_MONTH,
+  );
+  return [month, ...listMonthsFrom(readMonthOfDate(dayInNextMonth), lastMonth)];
 };
+
+/** Every `YYYY-MM` month a date range touches, oldest first. */
+export const listMonthsInRange = (range: DateRange): string[] =>
+  listMonthsFrom(readMonthOfDate(range.from), readMonthOfDate(range.to));
 
 /** Keep the stats whose day is inside the range, both ends included. */
 export const keepStatsInRange = (stats: readonly DailyStat[], range: DateRange): DailyStat[] =>
@@ -36,31 +34,36 @@ interface StatGroup {
   readonly feed: StatsFeed;
   readonly metric: StatsMetric;
   readonly currency: string | null;
-  readonly stats: DailyStat[];
+  readonly stats: readonly DailyStat[];
 }
 
 const createGroupIdentity = (group: Omit<StatGroup, 'stats'>): string =>
   [group.feed, group.metric, group.currency].join('|');
 
-const groupStats = (stats: readonly DailyStat[]): StatGroup[] => {
-  const groupsByIdentity = new Map<string, StatGroup>();
-  for (const stat of stats) {
-    const identity = createGroupIdentity(stat);
-    const savedGroup = groupsByIdentity.get(identity);
-    if (savedGroup === undefined) {
-      groupsByIdentity.set(identity, {
-        feed: stat.feed,
-        metric: stat.metric,
-        currency: stat.currency,
-        stats: [stat],
-      });
-    }
-    if (savedGroup !== undefined) savedGroup.stats.push(stat);
-  }
-  return [...groupsByIdentity.values()].sort((first, second) =>
-    createGroupIdentity(first).localeCompare(createGroupIdentity(second)),
+interface KeyedMembers<Member> {
+  readonly key: string;
+  readonly members: readonly Member[];
+}
+
+const groupByKey = <Member>(
+  members: readonly Member[],
+  readKey: (member: Member) => string,
+): KeyedMembers<Member>[] => {
+  const keys = [...new Set(members.map(readKey))].sort((first, second) =>
+    first.localeCompare(second),
   );
+  return keys.map((key) => ({ key, members: members.filter((member) => readKey(member) === key) }));
 };
+
+const groupStats = (stats: readonly DailyStat[]): StatGroup[] =>
+  groupByKey(stats, createGroupIdentity).flatMap((identityGroup) =>
+    identityGroup.members.slice(0, 1).map((firstStat) => ({
+      feed: firstStat.feed,
+      metric: firstStat.metric,
+      currency: firstStat.currency,
+      stats: identityGroup.members,
+    })),
+  );
 
 const sortByDate = (stats: readonly DailyStat[]): DailyStat[] =>
   [...stats].sort((first, second) => first.date.localeCompare(second.date));
@@ -140,18 +143,11 @@ export const mergeHeadlinePoints = (
     );
     const hasMetricSeries = metricSeries.length > 0;
     if (!hasMetricSeries) continue;
-    const amountsByDate = new Map<string, number>();
-    for (const oneSeries of metricSeries) {
-      for (const point of oneSeries.points) {
-        const savedAmount = amountsByDate.get(point.date);
-        let nextAmount = point.amount;
-        if (savedAmount !== undefined) nextAmount = savedAmount + point.amount;
-        amountsByDate.set(point.date, nextAmount);
-      }
-    }
-    return [...amountsByDate.entries()]
-      .sort(([firstDate], [secondDate]) => firstDate.localeCompare(secondDate))
-      .map(([date, amount]) => ({ date, amount }));
+    const allPoints = metricSeries.flatMap((oneSeries) => oneSeries.points);
+    return groupByKey(allPoints, (point) => point.date).map((dateGroup) => ({
+      date: dateGroup.key,
+      amount: dateGroup.members.reduce((runningTotal, point) => runningTotal + point.amount, 0),
+    }));
   }
   return [];
 };
@@ -168,12 +164,7 @@ export const isAppStale = (freshness: StatsFreshness, appKey: string): boolean =
 /** The failed or skipped feed messages the last sync gave for one app. */
 export const listAppMessages = (freshness: StatsFreshness, appKey: string): string[] => {
   if (freshness.report === null) return [];
-  const messages: string[] = [];
-  for (const appFeed of freshness.report.appFeeds) {
-    const isOtherApp = appFeed.appKey !== appKey;
-    const hasNoMessage = appFeed.message === null;
-    if (isOtherApp || hasNoMessage) continue;
-    messages.push(`${appFeed.feed}: ${appFeed.message}`);
-  }
-  return messages;
+  return freshness.report.appFeeds
+    .filter((appFeed) => appFeed.appKey === appKey && appFeed.message !== null)
+    .map((appFeed) => `${appFeed.feed}: ${appFeed.message}`);
 };

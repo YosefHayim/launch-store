@@ -9,7 +9,7 @@ import { jsonToolOutput, optionalString, requiredString } from './tools.js';
 
 const DAYS_DESCRIPTION = 'how many days back to show, 1 to 365 (default 30)';
 
-const readDaysText = (argumentsRecord: Record<string, unknown>): string | undefined => {
+const readDaysArgument = (argumentsRecord: Record<string, unknown>): string | undefined => {
   const daysArgument = argumentsRecord['days'];
   if (typeof daysArgument !== 'number') return undefined;
   return String(daysArgument);
@@ -21,7 +21,7 @@ const readPortfolioRequest = (
   Effect.gen(function* () {
     const platform = yield* parsePlatformFlag(optionalString(argumentsRecord, 'platform'));
     const owner = yield* parseOwnerFlag(optionalString(argumentsRecord, 'owner'));
-    const days = yield* parseDaysFlag(readDaysText(argumentsRecord));
+    const days = yield* parseDaysFlag(readDaysArgument(argumentsRecord));
     return { platform, owner, appName: null, days };
   });
 
@@ -30,11 +30,11 @@ const readAppRequest = (
 ): Effect.Effect<StatsReportRequest, unknown> =>
   Effect.gen(function* () {
     const appName = yield* requiredString(argumentsRecord, 'app');
-    const days = yield* parseDaysFlag(readDaysText(argumentsRecord));
+    const days = yield* parseDaysFlag(readDaysArgument(argumentsRecord));
     return { platform: null, owner: null, appName, days };
   });
 
-const createReportOutput = (
+const createReportReply = (
   request: StatsReportRequest,
 ): Effect.Effect<McpToolResult, unknown, StatsSyncRequirements> =>
   Effect.gen(function* () {
@@ -58,7 +58,7 @@ export const STATS_TOOLS: readonly McpTool<StatsSyncRequirements>[] = [
       },
     },
     handler: (argumentsRecord) =>
-      readPortfolioRequest(argumentsRecord).pipe(Effect.flatMap(createReportOutput)),
+      readPortfolioRequest(argumentsRecord).pipe(Effect.flatMap(createReportReply)),
   },
   {
     name: 'stats_app',
@@ -74,6 +74,6 @@ export const STATS_TOOLS: readonly McpTool<StatsSyncRequirements>[] = [
       required: ['app'],
     },
     handler: (argumentsRecord) =>
-      readAppRequest(argumentsRecord).pipe(Effect.flatMap(createReportOutput)),
+      readAppRequest(argumentsRecord).pipe(Effect.flatMap(createReportReply)),
   },
 ];

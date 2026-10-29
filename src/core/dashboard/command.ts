@@ -136,9 +136,9 @@ export const dashboardHttpReply = (
     let requestUrl = '/';
     if (dashboardRequest.url !== undefined) requestUrl = dashboardRequest.url;
     const parsedUrl = new URL(requestUrl, 'http://127.0.0.1');
-    const matchingRoute = DASHBOARD_ROUTES.find((route) => route.path === parsedUrl.pathname);
-    if (matchingRoute === undefined) return NOT_FOUND_REPLY;
-    return yield* matchingRoute.reply(parsedUrl.searchParams, logger);
+    const requestedRoute = DASHBOARD_ROUTES.find((route) => route.path === parsedUrl.pathname);
+    if (requestedRoute === undefined) return NOT_FOUND_REPLY;
+    return yield* requestedRoute.reply(parsedUrl.searchParams, logger);
   });
 
 /** Run the schema-decoded local dashboard command. */
@@ -155,13 +155,13 @@ export const dashboardCommandProgram = (
     }
     const port = yield* parseDashboardPort(commandInput.port);
     yield* gatherDashboardState();
-    const dashboardContext = yield* Effect.context<DashboardRouteRequirements>();
+    const routeServices = yield* Effect.context<DashboardRouteRequirements>();
     const dashboardServer = yield* DashboardServer;
     yield* dashboardServer.serve({
       host: commandInput.host,
       port,
       handleRequest: (dashboardRequest) =>
-        dashboardHttpReply(dashboardRequest, logger).pipe(Effect.provide(dashboardContext)),
+        dashboardHttpReply(dashboardRequest, logger).pipe(Effect.provide(routeServices)),
       onListening: () =>
         logger.note(`launch dashboard -> http://${commandInput.host}:${port} - Ctrl+C to stop`),
     });

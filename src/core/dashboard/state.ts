@@ -141,12 +141,12 @@ export const buildDashboardState = (
   }));
 
 /** Read the project config and its apps, or nothing when this folder has no launch.config. */
-const loadProjectConfig = (workingDirectory: string) =>
+const loadProjectSetup = (workingDirectory: string) =>
   Effect.gen(function* () {
-    const foundConfig = yield* findLaunchConfig(workingDirectory);
-    if (foundConfig === null) return { config: null, apps: NO_PROJECT_APPS };
-    const loadedConfig = yield* loadConfig(workingDirectory);
-    return { config: loadedConfig.config, apps: loadedConfig.apps };
+    const launchConfigPath = yield* findLaunchConfig(workingDirectory);
+    if (launchConfigPath === null) return { config: null, apps: NO_PROJECT_APPS };
+    const projectSetup = yield* loadConfig(workingDirectory);
+    return { config: projectSetup.config, apps: projectSetup.apps };
   });
 
 /** Read local state and build a dashboard snapshot without making network calls. */
@@ -160,7 +160,7 @@ export const gatherDashboardState = (snapshotTime?: Date) =>
     }
     const localDashboardState = yield* Effect.all(
       {
-        projectConfig: loadProjectConfig(launchPaths.workingDirectory),
+        projectConfig: loadProjectSetup(launchPaths.workingDirectory),
         accounts: listAccounts(),
         activeAccount: getActiveAccount(),
         artifacts: readArtifactIndex(),

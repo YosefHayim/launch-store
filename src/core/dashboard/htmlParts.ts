@@ -37,10 +37,15 @@ const NAV_LINKS = [
   { path: '/apps', label: 'Apps' },
 ] as const;
 
+const createCurrentAttribute = (linkPath: string, currentPath: string): string => {
+  const isCurrentPage = linkPath === currentPath;
+  if (isCurrentPage) return ' aria-current="page"';
+  return '';
+};
+
 export const createDashboardNav = (currentPath: '/' | '/apps'): string => {
   const links = NAV_LINKS.map((link) => {
-    let currentAttribute = '';
-    if (link.path === currentPath) currentAttribute = ' aria-current="page"';
+    const currentAttribute = createCurrentAttribute(link.path, currentPath);
     return `<a href="${link.path}"${currentAttribute}>${escapeHtml(link.label)}</a>`;
   });
   return `<nav>${links.join('')}</nav>`;

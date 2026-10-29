@@ -12,35 +12,35 @@ import { createAppsTabHtml } from './appsTabHtml.js';
 import type { DashboardHttpReply } from './server.js';
 
 const REFRESH_TIMEOUT_SECONDS = 10;
-const HTML_CONTENT_TYPE = 'text/html; charset=utf-8';
-const JSON_CONTENT_TYPE = 'application/json; charset=utf-8';
-const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8';
+const HTML_MEDIA_TYPE = 'text/html; charset=utf-8';
+const JSON_MEDIA_TYPE = 'application/json; charset=utf-8';
+const PLAIN_MEDIA_TYPE = 'text/plain; charset=utf-8';
 
 const TIMED_OUT_FRESHNESS: StatsFreshness = { isStale: true, report: null };
 
-const createTextReply = (status: number, message: string): DashboardHttpReply => ({
+const createPlainReply = (status: number, message: string): DashboardHttpReply => ({
   status,
-  contentType: TEXT_CONTENT_TYPE,
+  contentType: PLAIN_MEDIA_TYPE,
   content: message,
 });
 
-const readQueryText = (searchParams: URLSearchParams, name: string): string | undefined => {
-  const queryText = searchParams.get(name);
-  if (queryText === null) return undefined;
-  return queryText;
+const readQueryParameter = (searchParams: URLSearchParams, name: string): string | null =>
+  searchParams.get(name);
+
+const readFlagParameter = (searchParams: URLSearchParams, name: string): string | undefined => {
+  const queryParameter = readQueryParameter(searchParams, name);
+  if (queryParameter === null) return undefined;
+  return queryParameter;
 };
 
-const readAppName = (searchParams: URLSearchParams): string | null => {
-  const appName = searchParams.get('app');
-  if (appName === null) return null;
-  return appName;
-};
+const readAppName = (searchParams: URLSearchParams): string | null =>
+  readQueryParameter(searchParams, 'app');
 
 const readStatsRequest = (searchParams: URLSearchParams) =>
   Effect.gen(function* () {
-    const platform = yield* parsePlatformFlag(readQueryText(searchParams, 'platform'));
-    const owner = yield* parseOwnerFlag(readQueryText(searchParams, 'owner'));
-    const days = yield* parseDaysFlag(readQueryText(searchParams, 'days'));
+    const platform = yield* parsePlatformFlag(readFlagParameter(searchParams, 'platform'));
+    const owner = yield* parseOwnerFlag(readFlagParameter(searchParams, 'owner'));
+    const days = yield* parseDaysFlag(readFlagParameter(searchParams, 'days'));
     const request: StatsReportRequest = {
       platform,
       owner,
@@ -74,14 +74,14 @@ const createStatsReply = (
     return createBody(report);
   }).pipe(
     Effect.catchTags({
-      UsageFailure: (usageFailure) => Effect.succeed(createTextReply(400, usageFailure.message)),
+      UsageFailure: (usageFailure) => Effect.succeed(createPlainReply(400, usageFailure.message)),
       StatsReportAppNotFoundFailure: (notFound) =>
-        Effect.succeed(createTextReply(404, notFound.message)),
+        Effect.succeed(createPlainReply(404, notFound.message)),
     }),
     Effect.catchAll((failure) =>
       logger.error(`dashboard stats failed: ${errorMessage(failure)}`).pipe(
         Effect.catchAll(() => Effect.void),
-        Effect.as(createTextReply(500, 'Failed to read saved stats - see the terminal.')),
+        Effect.as(createPlainReply(500, 'Failed to read saved stats - see the terminal.')),
       ),
     ),
   );
@@ -93,7 +93,7 @@ export const appsTabReply = (
 ): Effect.Effect<DashboardHttpReply, never, StatsSyncRequirements> =>
   createStatsReply(searchParams, logger, (report) => ({
     status: 200,
-    contentType: HTML_CONTENT_TYPE,
+    contentType: HTML_MEDIA_TYPE,
     content: createAppsTabHtml(report),
   }));
 
@@ -104,6 +104,6 @@ export const statsApiReply = (
 ): Effect.Effect<DashboardHttpReply, never, StatsSyncRequirements> =>
   createStatsReply(searchParams, logger, (report) => ({
     status: 200,
-    contentType: JSON_CONTENT_TYPE,
+    contentType: JSON_MEDIA_TYPE,
     content: JSON.stringify(report),
   }));

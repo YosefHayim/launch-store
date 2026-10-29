@@ -4,6 +4,7 @@ import {
   describeAppStats,
   describeCount,
   describeCrashRate,
+  describeOwner,
   describeProceeds,
   describeRating,
 } from './statsReportText.js';
@@ -66,6 +67,13 @@ describe('describeCrashRate and describeRating', () => {
   test('shows a dash for no number', () => {
     expect(describeCrashRate(null)).toBe('-');
     expect(describeRating(null)).toBe('-');
+  });
+});
+
+describe('describeOwner', () => {
+  test('shows the owner, or untagged when there is none', () => {
+    expect(describeOwner('mine')).toBe('mine');
+    expect(describeOwner(null)).toBe('untagged');
   });
 });
 

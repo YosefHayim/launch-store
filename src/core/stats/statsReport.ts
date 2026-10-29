@@ -62,6 +62,14 @@ const createAppReport = (
   messages: listAppMessages(freshness, app.key),
 });
 
+const selectNamedApps = (
+  apps: readonly PortfolioApp[],
+  appName: string | null,
+): readonly PortfolioApp[] => {
+  if (appName === null) return apps;
+  return findAppsByName(apps, appName);
+};
+
 /** Read the saved numbers of the selected apps for the last `days` days, marked with how fresh they are. */
 export const readStatsReport = (
   request: StatsReportRequest,
@@ -69,8 +77,7 @@ export const readStatsReport = (
 ): Effect.Effect<StatsReport, StatsReportFailure, StatsSyncRequirements> =>
   Effect.gen(function* () {
     const portfolioLoad = yield* loadPortfolioApps('cache-first');
-    let namedApps = portfolioLoad.apps;
-    if (request.appName !== null) namedApps = findAppsByName(portfolioLoad.apps, request.appName);
+    const namedApps = selectNamedApps(portfolioLoad.apps, request.appName);
     const isNamedAppMissing = request.appName !== null && namedApps.length === 0;
     if (isNamedAppMissing) {
       const knownAppNames = portfolioLoad.apps.map((app) => app.name).join(', ');
@@ -86,11 +93,11 @@ export const readStatsReport = (
     });
     const lastDate = yield* readYesterdayUtc();
     const range = createLastDaysRange(lastDate, request.days);
-    const appReports: AppStatsReport[] = [];
-    for (const app of selectedApps) {
-      const stats = yield* loadRangeStats(app.key, range);
-      appReports.push(createAppReport(app, stats, freshness));
-    }
+    const appReports = yield* Effect.forEach(selectedApps, (app) =>
+      loadRangeStats(app.key, range).pipe(
+        Effect.map((stats) => createAppReport(app, stats, freshness)),
+      ),
+    );
     return { range, days: request.days, isStale: freshness.isStale, apps: appReports };
   });
 
