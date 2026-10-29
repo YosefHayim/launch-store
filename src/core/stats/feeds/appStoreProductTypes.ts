@@ -17,9 +17,9 @@ const SALES_REPORT_KINDS: readonly SalesReportKind[] = [
 
 /** What a Sales Report line counts as, or null for a product type the stats do not use (app bundles). */
 export const findSalesReportKind = (productTypeId: string): SalesReportKind | null => {
-  const matchingKind = SALES_REPORT_KINDS.find((kind) =>
+  const reportKind = SALES_REPORT_KINDS.find((kind) =>
     PRODUCT_TYPE_IDS_BY_KIND[kind].includes(productTypeId),
   );
-  if (matchingKind === undefined) return null;
-  return matchingKind;
+  if (reportKind === undefined) return null;
+  return reportKind;
 };

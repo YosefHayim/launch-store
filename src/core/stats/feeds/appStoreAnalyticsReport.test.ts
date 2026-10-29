@@ -13,11 +13,16 @@ const makeBatch = (fields: Partial<AnalyticsReportBatch>): AnalyticsReportBatch 
   ...fields,
 });
 
-const makeStat = (date: string, metric: string, value: number, currency: string | null = null) => ({
+const makeStat = (
+  date: string,
+  metric: string,
+  amount: number,
+  currency: string | null = null,
+) => ({
   date,
   feed: 'app-store',
   metric,
-  value,
+  value: amount,
   currency,
 });
 

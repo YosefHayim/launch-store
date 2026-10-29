@@ -191,17 +191,10 @@ const isLineCounted = (line: ReportLine, rule: AnalyticsMetricRule): boolean => 
 const groupLinesByDate = (
   lines: readonly ReportLine[],
 ): ReadonlyMap<string, readonly ReportLine[]> => {
-  const linesByDate = new Map<string, ReportLine[]>();
-  for (const line of lines) {
-    const date = readLineDate(line);
-    const knownLines = linesByDate.get(date);
-    if (knownLines === undefined) {
-      linesByDate.set(date, [line]);
-      continue;
-    }
-    knownLines.push(line);
-  }
-  return linesByDate;
+  const dates = new Set(lines.map(readLineDate));
+  return new Map(
+    [...dates].map((date) => [date, lines.filter((line) => readLineDate(line) === date)]),
+  );
 };
 
 const createRuleStats = (

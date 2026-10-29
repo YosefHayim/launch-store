@@ -48,11 +48,10 @@ const SALES_PATH_ANALYTICS_KINDS: readonly AnalyticsReportKind[] = [
   'crashes',
   'installs',
 ];
-const ANALYTICS_PATH_ANALYTICS_KINDS: readonly AnalyticsReportKind[] = [
-  ...SALES_PATH_ANALYTICS_KINDS,
-  'downloads',
-  'purchases',
-];
+const ANALYTICS_KINDS_BY_PATH: Record<AppStoreStatsPath, readonly AnalyticsReportKind[]> = {
+  sales: SALES_PATH_ANALYTICS_KINDS,
+  analytics: [...SALES_PATH_ANALYTICS_KINDS, 'downloads', 'purchases'],
+};
 
 const makeStatsFeedFailure = Data.tagged<StatsFeedFailure>('StatsFeedFailure');
 
@@ -247,8 +246,7 @@ const loadAnalyticsSummary = (
 ): Effect.Effect<AnalyticsSummary, unknown> =>
   Effect.gen(function* () {
     const { app, range } = request;
-    let kinds = ANALYTICS_PATH_ANALYTICS_KINDS;
-    if (path === 'sales') kinds = SALES_PATH_ANALYTICS_KINDS;
+    const kinds = ANALYTICS_KINDS_BY_PATH[path];
     const ongoingBatches = yield* loadAnalyticsBatches(client, request, kinds, 'ONGOING');
     const snapshotBatches = yield* loadSnapshotBatches(client, request, kinds);
     return summarizeAnalyticsBatches([...ongoingBatches, ...snapshotBatches], {
@@ -263,12 +261,12 @@ const loadRatingStats = (
 ): Effect.Effect<readonly DailyStat[], unknown> =>
   Effect.gen(function* () {
     const customerReviews = yield* client.listCustomerReviews(request.app.storeId);
-    const reviewData = customerReviews.flatMap((customerReview): ReviewDatum[] => {
+    const ratedReviews = customerReviews.flatMap((customerReview): ReviewDatum[] => {
       const starRating = pickStarRating(customerReview.rating);
       if (starRating === null) return [];
       return [{ store: 'appstore', rating: starRating, answered: customerReview.answered }];
     });
-    const ratingSummary = summarizeRatings(reviewData);
+    const ratingSummary = summarizeRatings(ratedReviews);
     const isThereNoRating = ratingSummary.total === 0;
     if (isThereNoRating) return [];
     const date = request.range.to;
@@ -321,6 +319,15 @@ export const createAppStoreReply = (
   };
 };
 
+const loadKnownVendorSales = (
+  client: EffectAppStoreConnectClient,
+  vendorNumber: string | null,
+  request: AppStoreFetchRequest,
+): Effect.Effect<readonly DailyStat[], unknown> => {
+  if (vendorNumber === null) return Effect.succeed([]);
+  return loadSalesStats(client, vendorNumber, request);
+};
+
 const loadAppStoreStats = (
   client: EffectAppStoreConnectClient,
   vendorNumber: string | null,
@@ -328,8 +335,7 @@ const loadAppStoreStats = (
 ): Effect.Effect<FeedFetchReply, unknown> =>
   Effect.gen(function* () {
     const path = pickStatsPath(vendorNumber);
-    let salesStats: readonly DailyStat[] = [];
-    if (vendorNumber !== null) salesStats = yield* loadSalesStats(client, vendorNumber, request);
+    const salesStats = yield* loadKnownVendorSales(client, vendorNumber, request);
     const analyticsSummary = yield* loadAnalyticsSummary(client, request, path);
     const ratingStats = yield* loadRatingStats(client, request);
     return createAppStoreReply({ salesStats, analyticsSummary, ratingStats }, path, request);
