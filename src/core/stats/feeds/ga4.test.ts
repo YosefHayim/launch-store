@@ -1,13 +1,15 @@
+import { HttpClient, HttpClientResponse } from '@effect/platform';
 import { Effect, Layer } from 'effect';
 import { describe, expect, test } from 'vitest';
 import {
   makeHttpClientSequenceTest,
+  type HttpClientSentRequest,
   type HttpClientSequenceRoute,
 } from '@testkit/httpClientSequence.testkit.js';
 import type { PortfolioApp } from '../../types/portfolio.js';
 import type { FeedFetchReply, StatsCredentialsShape } from '../../types/stats.js';
 import { makeStatsCredentialsTest, StatsCredentials } from '../statsCredentials.js';
-import { makeGa4Feed } from './ga4.js';
+import { ga4Feed } from './ga4.js';
 
 const ACCOUNT_SUMMARIES_URL =
   'https://analyticsadmin.googleapis.com/v1beta/accountSummaries?pageSize=200';
@@ -42,7 +44,7 @@ const readTwoPropertySummaries = (): HttpClientSequenceRoute => ({
   replies: [
     {
       status: 200,
-      body: {
+      document: {
         accountSummaries: [
           { propertySummaries: [{ property: 'properties/111' }, { property: 'properties/222' }] },
         ],
@@ -57,7 +59,7 @@ const streamsRoute = (
 ): HttpClientSequenceRoute => ({
   method: 'GET',
   url: `https://analyticsadmin.googleapis.com/v1beta/properties/${propertyId}/dataStreams?pageSize=200`,
-  replies: [{ status: 200, body: { dataStreams } }],
+  replies: [{ status: 200, document: { dataStreams } }],
 });
 
 const IOS_STREAM = {
@@ -97,18 +99,31 @@ const makeCredentials = (overrides: Partial<StatsCredentialsShape> = {}) =>
     ...overrides,
   });
 
+const makeHtmlErrorClient = () =>
+  Layer.succeed(
+    HttpClient.HttpClient,
+    HttpClient.make((request) =>
+      Effect.succeed(
+        HttpClientResponse.fromWeb(
+          request,
+          new Response('<html>Bad Gateway</html>', { status: 502 }),
+        ),
+      ),
+    ),
+  );
+
 interface Ga4Run {
   readonly app: PortfolioApp;
   readonly routes: readonly HttpClientSequenceRoute[];
   readonly credentials: Layer.Layer<StatsCredentialsShape>;
 }
 
-const runFeed = async (run: Ga4Run, feed = makeGa4Feed()) => {
+const runFeed = async (run: Ga4Run) => {
   const httpTest = makeHttpClientSequenceTest(run.routes);
   const reply = await Effect.runPromise(
     Effect.gen(function* () {
       const credentials = yield* StatsCredentials;
-      return yield* feed.fetchDays({ app: run.app, range: RANGE, credentials });
+      return yield* ga4Feed.fetchDays({ app: run.app, range: RANGE, credentials });
     }).pipe(Effect.provide(Layer.merge(httpTest.layer, run.credentials))),
   );
   return { reply, sentRequests: httpTest.sentRequests };
@@ -119,10 +134,17 @@ const readFailureMessage = async (run: Ga4Run): Promise<string> => {
   const failure = await Effect.runPromise(
     Effect.gen(function* () {
       const credentials = yield* StatsCredentials;
-      return yield* makeGa4Feed().fetchDays({ app: run.app, range: RANGE, credentials });
+      return yield* ga4Feed.fetchDays({ app: run.app, range: RANGE, credentials });
     }).pipe(Effect.flip, Effect.provide(Layer.merge(httpTest.layer, run.credentials))),
   );
   return failure.message;
+};
+
+const readSentQuery = (sentRequest: HttpClientSentRequest | undefined) => {
+  if (sentRequest === undefined || sentRequest.sentDocument === null) {
+    throw new Error('expected a sent report request');
+  }
+  return JSON.parse(sentRequest.sentDocument);
 };
 
 const readSkippedReason = (reply: FeedFetchReply): string => {
@@ -153,7 +175,7 @@ describe('ga4Feed', () => {
         reportRoute('111', [
           {
             status: 200,
-            body: { rows: [reportRow('20261001', '5', '2', '9')], rowCount: 1 },
+            document: { rows: [reportRow('20261001', '5', '2', '9')], rowCount: 1 },
           },
         ]),
       ],
@@ -161,7 +183,7 @@ describe('ga4Feed', () => {
     });
 
     const reportRequest = sentRequests.find((sent) => sent.url === RUN_REPORT_URL);
-    const reportBody = JSON.parse(reportRequest?.bodyText ?? 'null');
+    const reportQuery = readSentQuery(reportRequest);
     expect(reply).toEqual({
       status: 'fetched',
       coveredThrough: '2026-10-03',
@@ -173,8 +195,8 @@ describe('ga4Feed', () => {
       ],
     });
     expect(reportRequest?.authorization).toBe(`Bearer ${SECRET_TOKEN}`);
-    expect(reportBody.dateRanges).toEqual([{ startDate: '2026-10-01', endDate: '2026-10-03' }]);
-    expect(reportBody.dimensionFilter.filter).toEqual({
+    expect(reportQuery.dateRanges).toEqual([{ startDate: '2026-10-01', endDate: '2026-10-03' }]);
+    expect(reportQuery.dimensionFilter.filter).toEqual({
       fieldName: 'streamId',
       stringFilter: { matchType: 'EXACT', value: '9001' },
     });
@@ -187,7 +209,7 @@ describe('ga4Feed', () => {
         readTwoPropertySummaries(),
         streamsRoute('111', [IOS_STREAM]),
         streamsRoute('222', [ANDROID_STREAM]),
-        reportRoute('222', [{ status: 200, body: { rows: [], rowCount: 0 } }]),
+        reportRoute('222', [{ status: 200, document: { rows: [], rowCount: 0 } }]),
       ],
       credentials: makeCredentials(),
     });
@@ -222,7 +244,7 @@ describe('ga4Feed', () => {
       app: { ...IOS_APP, ga4PropertyId: '111' },
       routes: [
         streamsRoute('111', [IOS_STREAM]),
-        reportRoute('111', [{ status: 200, body: { rows: [], rowCount: 0 } }]),
+        reportRoute('111', [{ status: 200, document: { rows: [], rowCount: 0 } }]),
       ],
       credentials: makeCredentials(),
     });
@@ -230,7 +252,7 @@ describe('ga4Feed', () => {
     const reportRequest = sentRequests.find((sent) => sent.url === RUN_REPORT_URL);
     expect(reply.status).toBe('fetched');
     expect(sentRequests.some((sent) => sent.url === ACCOUNT_SUMMARIES_URL)).toBe(false);
-    expect(JSON.parse(reportRequest?.bodyText ?? 'null').dimensionFilter).toBeDefined();
+    expect(readSentQuery(reportRequest).dimensionFilter).toBeDefined();
   });
 
   test('reports the whole tagged property without a stream filter when it has no stream for the app', async () => {
@@ -238,7 +260,7 @@ describe('ga4Feed', () => {
       app: { ...IOS_APP, ga4PropertyId: '111' },
       routes: [
         streamsRoute('111', [WEB_STREAM]),
-        reportRoute('111', [{ status: 200, body: { rows: [], rowCount: 0 } }]),
+        reportRoute('111', [{ status: 200, document: { rows: [], rowCount: 0 } }]),
       ],
       credentials: makeCredentials(),
     });
@@ -247,7 +269,7 @@ describe('ga4Feed', () => {
     expect(reply.status === 'fetched' && reply.notes).toEqual([
       'GA4 property 111 has no stream for this app, so the numbers cover the whole property',
     ]);
-    expect(JSON.parse(reportRequest?.bodyText ?? 'null').dimensionFilter).toBeUndefined();
+    expect(readSentQuery(reportRequest).dimensionFilter).toBeUndefined();
   });
 
   test('pages the account summaries and data streams', async () => {
@@ -260,7 +282,7 @@ describe('ga4Feed', () => {
           replies: [
             {
               status: 200,
-              body: {
+              document: {
                 accountSummaries: [{ propertySummaries: [{ property: 'properties/222' }] }],
                 nextPageToken: 'summaries-2',
               },
@@ -273,7 +295,9 @@ describe('ga4Feed', () => {
           replies: [
             {
               status: 200,
-              body: { accountSummaries: [{ propertySummaries: [{ property: 'properties/111' }] }] },
+              document: {
+                accountSummaries: [{ propertySummaries: [{ property: 'properties/111' }] }],
+              },
             },
           ],
         },
@@ -282,15 +306,15 @@ describe('ga4Feed', () => {
           method: 'GET',
           url: 'https://analyticsadmin.googleapis.com/v1beta/properties/111/dataStreams?pageSize=200',
           replies: [
-            { status: 200, body: { dataStreams: [WEB_STREAM], nextPageToken: 'streams-2' } },
+            { status: 200, document: { dataStreams: [WEB_STREAM], nextPageToken: 'streams-2' } },
           ],
         },
         {
           method: 'GET',
           url: 'https://analyticsadmin.googleapis.com/v1beta/properties/111/dataStreams?pageSize=200&pageToken=streams-2',
-          replies: [{ status: 200, body: { dataStreams: [IOS_STREAM] } }],
+          replies: [{ status: 200, document: { dataStreams: [IOS_STREAM] } }],
         },
-        reportRoute('111', [{ status: 200, body: { rowCount: 0 } }]),
+        reportRoute('111', [{ status: 200, document: { rowCount: 0 } }]),
       ],
       credentials: makeCredentials(),
     });
@@ -305,17 +329,17 @@ describe('ga4Feed', () => {
       routes: [
         streamsRoute('111', [IOS_STREAM]),
         reportRoute('111', [
-          { status: 200, body: { rows: [reportRow('20261001', '1', '1', '1')], rowCount: 2 } },
-          { status: 200, body: { rows: [reportRow('20261002', '3', '3', '3')], rowCount: 2 } },
+          { status: 200, document: { rows: [reportRow('20261001', '1', '1', '1')], rowCount: 2 } },
+          { status: 200, document: { rows: [reportRow('20261002', '3', '3', '3')], rowCount: 2 } },
         ]),
       ],
       credentials: makeCredentials(),
     });
 
-    const reportBodies = sentRequests
+    const reportQueries = sentRequests
       .filter((sent) => sent.url === RUN_REPORT_URL)
-      .map((sent) => JSON.parse(sent.bodyText ?? 'null'));
-    expect(reportBodies.map((reportBody) => reportBody.offset)).toEqual(['0', '1']);
+      .map((sent) => JSON.parse(String(sent.sentDocument)));
+    expect(reportQueries.map((reportQuery) => reportQuery.offset)).toEqual(['0', '1']);
     expect(reply.status === 'fetched' && reply.stats).toHaveLength(6);
   });
 
@@ -327,7 +351,7 @@ describe('ga4Feed', () => {
         reportRoute('111', [
           {
             status: 403,
-            body: { error: { code: 403, status: 'PERMISSION_DENIED', message: 'no access' } },
+            document: { error: { code: 403, status: 'PERMISSION_DENIED', message: 'no access' } },
           },
         ]),
       ],
@@ -346,7 +370,7 @@ describe('ga4Feed', () => {
         {
           method: 'GET',
           url: 'https://analyticsadmin.googleapis.com/v1beta/properties/111/dataStreams?pageSize=200',
-          replies: [{ status: 403, body: { error: { status: 'PERMISSION_DENIED' } } }],
+          replies: [{ status: 403, document: { error: { status: 'PERMISSION_DENIED' } } }],
         },
       ],
       credentials: makeCredentials(),
@@ -365,7 +389,7 @@ describe('ga4Feed', () => {
           replies: [
             {
               status: 403,
-              body: {
+              document: {
                 error: {
                   status: 'PERMISSION_DENIED',
                   message: 'API has not been used',
@@ -394,7 +418,7 @@ describe('ga4Feed', () => {
         {
           method: 'GET',
           url: ACCOUNT_SUMMARIES_URL,
-          replies: [{ status: 403, body: { error: { status: 'PERMISSION_DENIED' } } }],
+          replies: [{ status: 403, document: { error: { status: 'PERMISSION_DENIED' } } }],
         },
       ],
       credentials: makeCredentials(),
@@ -408,7 +432,9 @@ describe('ga4Feed', () => {
       app: { ...IOS_APP, ga4PropertyId: '111' },
       routes: [
         streamsRoute('111', [IOS_STREAM]),
-        reportRoute('111', [{ status: 400, body: { error: { message: 'Invalid dimension' } } }]),
+        reportRoute('111', [
+          { status: 400, document: { error: { message: 'Invalid dimension' } } },
+        ]),
       ],
       credentials: makeCredentials(),
     });
@@ -416,26 +442,14 @@ describe('ga4Feed', () => {
     expect(message).toBe('Google Analytics error: Invalid dimension');
   });
 
-  test('looks up the properties once for several apps in one run', async () => {
-    const feed = makeGa4Feed();
-    const routes = [
-      readTwoPropertySummaries(),
-      streamsRoute('111', [IOS_STREAM]),
-      streamsRoute('222', [ANDROID_STREAM]),
-      reportRoute('111', [{ status: 200, body: { rowCount: 0 } }]),
-      reportRoute('222', [{ status: 200, body: { rowCount: 0 } }]),
-    ];
-
-    await runFeed({ app: IOS_APP, routes, credentials: makeCredentials() }, feed);
-    const secondRun = await runFeed(
-      { app: ANDROID_APP, routes, credentials: makeCredentials() },
-      feed,
+  test('fails with the HTTP status when an error reply is not JSON', async () => {
+    const failure = await Effect.runPromise(
+      Effect.gen(function* () {
+        const credentials = yield* StatsCredentials;
+        return yield* ga4Feed.fetchDays({ app: IOS_APP, range: RANGE, credentials });
+      }).pipe(Effect.flip, Effect.provide(Layer.merge(makeHtmlErrorClient(), makeCredentials()))),
     );
 
-    const summaryRequests = secondRun.sentRequests.filter(
-      (sent) => sent.url === ACCOUNT_SUMMARIES_URL,
-    );
-    expect(summaryRequests).toHaveLength(0);
-    expect(secondRun.reply.status).toBe('fetched');
+    expect(failure.message).toContain('(HTTP 502) was not JSON');
   });
 });

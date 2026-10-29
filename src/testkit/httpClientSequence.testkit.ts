@@ -3,7 +3,7 @@ import { Effect, Layer } from 'effect';
 
 export interface HttpClientSequenceReply {
   readonly status: number;
-  readonly body: unknown;
+  readonly document: unknown;
 }
 
 export interface HttpClientSequenceRoute {
@@ -16,7 +16,7 @@ export interface HttpClientSentRequest {
   readonly method: string;
   readonly url: string;
   readonly authorization: string | null;
-  readonly bodyText: string | null;
+  readonly sentDocument: string | null;
 }
 
 export interface HttpClientSequenceTest {
@@ -24,9 +24,23 @@ export interface HttpClientSequenceTest {
   readonly sentRequests: HttpClientSentRequest[];
 }
 
-const readBodyText = (body: { readonly _tag: string; readonly body?: unknown }): string | null => {
-  if (body._tag !== 'Uint8Array') return null;
-  return new TextDecoder().decode(body.body as Uint8Array);
+const readSentDocument = (requestPayload: {
+  readonly _tag: string;
+  readonly body?: unknown;
+}): string | null => {
+  if (requestPayload._tag !== 'Uint8Array') return null;
+  return new TextDecoder().decode(requestPayload.body as Uint8Array);
+};
+
+const readAuthorization = (authorization: string | undefined): string | null => {
+  if (authorization === undefined) return null;
+  return authorization;
+};
+
+const readAnsweredCount = (answeredCounts: Map<string, number>, routeKey: string): number => {
+  const answeredCount = answeredCounts.get(routeKey);
+  if (answeredCount === undefined) return 0;
+  return answeredCount;
 };
 
 /** Each route answers its replies in order (the last one repeats); every request is recorded. */
@@ -42,8 +56,8 @@ export const makeHttpClientSequenceTest = (
       sentRequests.push({
         method: request.method,
         url: request.url,
-        authorization: request.headers['authorization'] ?? null,
-        bodyText: readBodyText(request.body),
+        authorization: readAuthorization(request.headers['authorization']),
+        sentDocument: readSentDocument(request.body),
       });
       const matchedRoute = routes.find(
         (route) => route.method === request.method && route.url === request.url,
@@ -51,7 +65,7 @@ export const makeHttpClientSequenceTest = (
       if (matchedRoute === undefined) {
         return Effect.die(new Error(`No test route for ${routeKey}`));
       }
-      const answeredCount = answeredCounts.get(routeKey) ?? 0;
+      const answeredCount = readAnsweredCount(answeredCounts, routeKey);
       answeredCounts.set(routeKey, answeredCount + 1);
       const lastReplyIndex = matchedRoute.replies.length - 1;
       const reply = matchedRoute.replies[Math.min(answeredCount, lastReplyIndex)];
@@ -59,7 +73,7 @@ export const makeHttpClientSequenceTest = (
       return Effect.succeed(
         HttpClientResponse.fromWeb(
           request,
-          new Response(JSON.stringify(reply.body), {
+          new Response(JSON.stringify(reply.document), {
             status: reply.status,
             headers: { 'content-type': 'application/json' },
           }),

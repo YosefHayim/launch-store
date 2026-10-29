@@ -4,7 +4,7 @@ import type { PortfolioApp } from '../../types/portfolio.js';
 import {
   ANALYTICS_ADMIN_URL,
   createGa4Failure,
-  requestGa4Json,
+  requestGa4Document,
   type Ga4Failure,
   type Ga4Session,
 } from './ga4Client.js';
@@ -22,30 +22,41 @@ export interface Ga4AppStream {
 const NextPageSchema = Schema.Struct({ nextPageToken: Schema.optional(Schema.String) });
 
 const AccountSummariesSchema = Schema.Struct({
-  accountSummaries: Schema.optional(
+  accountSummaries: Schema.optionalWith(
     Schema.Array(
       Schema.Struct({
-        propertySummaries: Schema.optional(
+        propertySummaries: Schema.optionalWith(
           Schema.Array(Schema.Struct({ property: Schema.String })),
+          { default: () => [] },
         ),
       }),
     ),
+    { default: () => [] },
   ),
 });
 
 const DataStreamsSchema = Schema.Struct({
-  dataStreams: Schema.optional(
+  dataStreams: Schema.optionalWith(
     Schema.Array(
       Schema.Struct({
         name: Schema.String,
-        iosAppStreamData: Schema.optional(
-          Schema.Struct({ bundleId: Schema.optional(Schema.String) }),
+        iosAppStreamData: Schema.optionalWith(
+          Schema.Struct({
+            bundleId: Schema.optionalWith(Schema.NullOr(Schema.String), { default: () => null }),
+          }),
+          { default: () => ({ bundleId: null }) },
         ),
-        androidAppStreamData: Schema.optional(
-          Schema.Struct({ packageName: Schema.optional(Schema.String) }),
+        androidAppStreamData: Schema.optionalWith(
+          Schema.Struct({
+            packageName: Schema.optionalWith(Schema.NullOr(Schema.String), {
+              default: () => null,
+            }),
+          }),
+          { default: () => ({ packageName: null }) },
         ),
       }),
     ),
+    { default: () => [] },
   ),
 });
 
@@ -63,13 +74,13 @@ export const findAppStream = (
   app: PortfolioApp,
   streams: readonly Ga4AppStream[],
 ): Ga4AppStream | null => {
-  const matchedStream = streams.find((stream) => {
-    const isBundleMatch = app.bundleId !== null && stream.bundleId === app.bundleId;
-    const isPackageMatch = app.packageName !== null && stream.packageName === app.packageName;
-    return isBundleMatch || isPackageMatch;
+  const appStream = streams.find((stream) => {
+    const isSameBundleId = app.bundleId !== null && stream.bundleId === app.bundleId;
+    const isSamePackageName = app.packageName !== null && stream.packageName === app.packageName;
+    return isSameBundleId || isSamePackageName;
   });
-  if (matchedStream === undefined) return null;
-  return matchedStream;
+  if (appStream === undefined) return null;
+  return appStream;
 };
 
 const createPageUrl = (listUrl: string, pageSize: number, pageToken: string | null): string => {
@@ -91,21 +102,21 @@ const listPages = (
   pageToken: string | null,
 ): Effect.Effect<readonly unknown[], Ga4Failure, HttpClient.HttpClient> =>
   Effect.gen(function* () {
-    const pageBody = yield* requestGa4Json(session, {
+    const pageDocument = yield* requestGa4Document(session, {
       url: createPageUrl(pagedList.url, pagedList.pageSize, pageToken),
-      body: null,
+      requestDocument: null,
       propertyId: pagedList.propertyId,
     });
-    const nextPage = yield* Schema.decodeUnknown(NextPageSchema)(pageBody).pipe(
+    const nextPage = yield* Schema.decodeUnknown(NextPageSchema)(pageDocument).pipe(
       Effect.mapError((cause) =>
         createGa4Failure(session, 'Unreadable Google Analytics page', cause),
       ),
     );
     const nextPageToken = nextPage.nextPageToken;
     const isLastPage = nextPageToken === undefined || nextPageToken === '';
-    if (isLastPage) return [pageBody];
+    if (isLastPage) return [pageDocument];
     const laterPages = yield* listPages(session, pagedList, nextPageToken);
-    return [pageBody, ...laterPages];
+    return [pageDocument, ...laterPages];
   });
 
 /** The app streams (iOS or Android) of one property. */
@@ -128,10 +139,10 @@ export const listAppStreams = (
       const decodedPage = yield* Schema.decodeUnknown(DataStreamsSchema)(page).pipe(
         Effect.mapError((cause) => createGa4Failure(session, 'Unreadable GA4 data streams', cause)),
       );
-      for (const dataStream of decodedPage.dataStreams ?? []) {
+      for (const dataStream of decodedPage.dataStreams) {
         const streamId = readIdAfterSegment(dataStream.name, 'dataStreams');
-        const bundleId = dataStream.iosAppStreamData?.bundleId ?? null;
-        const packageName = dataStream.androidAppStreamData?.packageName ?? null;
+        const bundleId = dataStream.iosAppStreamData.bundleId;
+        const packageName = dataStream.androidAppStreamData.packageName;
         const isAppStream = bundleId !== null || packageName !== null;
         if (streamId === null || !isAppStream) continue;
         appStreams.push({ propertyId, streamId, bundleId, packageName });
@@ -160,8 +171,8 @@ const listPropertyIds = (
           createGa4Failure(session, 'Unreadable GA4 account summaries', cause),
         ),
       );
-      for (const accountSummary of decodedPage.accountSummaries ?? []) {
-        for (const propertySummary of accountSummary.propertySummaries ?? []) {
+      for (const accountSummary of decodedPage.accountSummaries) {
+        for (const propertySummary of accountSummary.propertySummaries) {
           const propertyId = readIdAfterSegment(propertySummary.property, 'properties');
           if (propertyId !== null) propertyIds.push(propertyId);
         }

@@ -9,7 +9,7 @@ describe('readReportDate', () => {
 
 describe('createStatsFromReport', () => {
   test('returns nothing for a reply without rows', () => {
-    expect(createStatsFromReport({ rowCount: 0 })).toEqual([]);
+    expect(createStatsFromReport({ rows: [], rowCount: 0 })).toEqual([]);
   });
 
   test('skips a row without a date and a metric without a value', () => {
@@ -18,6 +18,7 @@ describe('createStatsFromReport', () => {
         { dimensionValues: [], metricValues: [{ value: '1' }] },
         { dimensionValues: [{ value: '20261001' }], metricValues: [{ value: '7' }] },
       ],
+      rowCount: 2,
     });
 
     expect(dailyStats).toEqual([

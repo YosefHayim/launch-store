@@ -19,7 +19,7 @@ export interface Ga4Session {
 
 export interface Ga4Call {
   readonly url: string;
-  readonly body: unknown;
+  readonly requestDocument: unknown;
   readonly propertyId: string | null;
 }
 
@@ -40,12 +40,13 @@ export const createGa4Failure = (
 ): StatsFeedFailure =>
   makeStatsFeedFailure({ feed: 'ga4', appKey: session.appKey, message, cause });
 
-const Ga4ErrorBodySchema = Schema.Struct({
+const Ga4ErrorReplySchema = Schema.Struct({
   error: Schema.Struct({
     status: Schema.optional(Schema.String),
-    message: Schema.optional(Schema.String),
-    details: Schema.optional(
+    message: Schema.optionalWith(Schema.String, { default: () => '' }),
+    details: Schema.optionalWith(
       Schema.Array(Schema.Struct({ reason: Schema.optional(Schema.String) })),
+      { default: () => [] },
     ),
   }),
 });
@@ -57,15 +58,21 @@ interface Ga4ErrorReading {
   readonly message: string;
 }
 
+const readGoogleMessage = (googleMessage: string, fallbackMessage: string): string => {
+  if (googleMessage === '') return fallbackMessage;
+  return googleMessage;
+};
+
 /** Google reports a disabled API as 403 too, so the SERVICE_DISABLED reason wins over PERMISSION_DENIED. */
-export const readGa4Error = (httpStatus: number, errorBody: unknown): Ga4ErrorReading => {
-  const decodedBody = Schema.decodeUnknownOption(Ga4ErrorBodySchema)(errorBody);
+export const readGa4Error = (httpStatus: number, errorDocument: unknown): Ga4ErrorReading => {
+  const decodedErrorReply = Schema.decodeUnknownOption(Ga4ErrorReplySchema)(errorDocument);
   const fallbackMessage = `Google Analytics replied with HTTP ${httpStatus}`;
-  if (Option.isNone(decodedBody)) return { kind: 'other', message: fallbackMessage };
-  const googleError = decodedBody.value.error;
-  const message = googleError.message ?? fallbackMessage;
-  const details = googleError.details ?? [];
-  const isServiceDisabled = details.some((detail) => detail.reason === SERVICE_DISABLED_REASON);
+  if (Option.isNone(decodedErrorReply)) return { kind: 'other', message: fallbackMessage };
+  const googleError = decodedErrorReply.value.error;
+  const message = readGoogleMessage(googleError.message, fallbackMessage);
+  const isServiceDisabled = googleError.details.some(
+    (detail) => detail.reason === SERVICE_DISABLED_REASON,
+  );
   if (isServiceDisabled) return { kind: 'service-disabled', message };
   const isPermissionDenied =
     httpStatus === HTTP_FORBIDDEN && googleError.status === PERMISSION_DENIED_STATUS;
@@ -75,9 +82,9 @@ export const readGa4Error = (httpStatus: number, errorBody: unknown): Ga4ErrorRe
 
 /** A service account email ends in `@<project id>.iam.gserviceaccount.com`; only the project id is read. */
 export const readProjectIdFromClientEmail = (clientEmail: string): string | null => {
-  const emailMatch = /@([a-z][a-z0-9-]*)\.iam\.gserviceaccount\.com$/.exec(clientEmail);
-  if (emailMatch === null) return null;
-  const projectId = emailMatch[1];
+  const projectIdCapture = /@([a-z][a-z0-9-]*)\.iam\.gserviceaccount\.com$/.exec(clientEmail);
+  if (projectIdCapture === null) return null;
+  const projectId = projectIdCapture[1];
   if (projectId === undefined) return null;
   return projectId;
 };
@@ -99,17 +106,17 @@ export const createServiceDisabledReason = (url: string, projectId: string | nul
 };
 
 const createRequest = (call: Ga4Call, accessToken: string) => {
-  if (call.body === null) {
+  if (call.requestDocument === null) {
     return HttpClientRequest.get(call.url).pipe(HttpClientRequest.bearerToken(accessToken));
   }
   return HttpClientRequest.post(call.url).pipe(
     HttpClientRequest.bearerToken(accessToken),
-    HttpClientRequest.bodyUnsafeJson(call.body),
+    HttpClientRequest.bodyUnsafeJson(call.requestDocument),
   );
 };
 
 /** One Google Analytics call: a 2xx body comes back, permission and disabled-API errors become a skip signal. */
-export const requestGa4Json = (
+export const requestGa4Document = (
   session: Ga4Session,
   call: Ga4Call,
 ): Effect.Effect<unknown, Ga4Failure, HttpClient.HttpClient> =>
@@ -126,19 +133,19 @@ export const requestGa4Json = (
           ),
         ),
       );
-    const replyBody: unknown = yield* analyticsReply.json.pipe(
+    const analyticsDocument: unknown = yield* analyticsReply.json.pipe(
       Effect.mapError((cause) =>
         createGa4Failure(
           session,
-          `Google Analytics reply was not JSON: ${errorMessage(cause)}`,
+          `Google Analytics reply (HTTP ${analyticsReply.status}) was not JSON: ${errorMessage(cause)}`,
           cause,
         ),
       ),
     );
     const isSuccess =
       analyticsReply.status >= HTTP_SUCCESS_MIN && analyticsReply.status <= HTTP_SUCCESS_MAX;
-    if (isSuccess) return replyBody;
-    const errorReading = readGa4Error(analyticsReply.status, replyBody);
+    if (isSuccess) return analyticsDocument;
+    const errorReading = readGa4Error(analyticsReply.status, analyticsDocument);
     if (errorReading.kind === 'permission-denied') {
       return yield* Effect.fail(
         makeGa4SkipSignal({ reason: createPermissionReason(call.propertyId) }),
@@ -150,6 +157,10 @@ export const requestGa4Json = (
       );
     }
     return yield* Effect.fail(
-      createGa4Failure(session, `Google Analytics error: ${errorReading.message}`, replyBody),
+      createGa4Failure(
+        session,
+        `Google Analytics error: ${errorReading.message}`,
+        analyticsDocument,
+      ),
     );
   });
