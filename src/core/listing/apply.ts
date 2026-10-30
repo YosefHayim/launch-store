@@ -13,7 +13,7 @@ export const APPLE_LIMITS = {
   description: 4000,
 } as const;
 /** Play Store field limits, in characters. The short description is far tighter than Apple's subtitle. */
-export const ANDROID_LIMITS = {
+const ANDROID_LIMITS = {
   title: 30,
   shortDescription: 80,
   fullDescription: 4000,

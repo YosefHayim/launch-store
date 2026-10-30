@@ -182,7 +182,7 @@ const estimateDownload = (
       return [];
     }),
   );
-export const gradleBuildEngine = {
+const gradleBuildEngine = {
   name: 'gradle',
   buildArtifact(buildContext: ResolvedBuildContext, buildCredentials: BuildCredentials) {
     return Effect.gen(function* () {

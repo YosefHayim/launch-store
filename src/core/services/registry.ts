@@ -51,8 +51,7 @@ export type ProviderNotRegistered = Readonly<{
   readonly available: readonly string[];
   readonly message: string;
 }>;
-export const makeProviderNotRegistered =
-  Data.tagged<ProviderNotRegistered>('ProviderNotRegistered');
+const makeProviderNotRegistered = Data.tagged<ProviderNotRegistered>('ProviderNotRegistered');
 const lookup = <T>(
   kind: string,
   name: string,

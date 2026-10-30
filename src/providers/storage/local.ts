@@ -13,7 +13,7 @@ import {
 } from '@core/types/providers.js';
 
 /** Acquire filesystem services once and return a leaf-like local storage provider. */
-export const makeLocalStorageProvider = (directoryOverride?: string) =>
+const makeLocalStorageProvider = (directoryOverride?: string) =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const pathService = yield* Path.Path;

@@ -80,7 +80,7 @@ type OffersContext = ReconcileContext & {
 };
 
 /** Resolve declared per-territory prices to Apple price-point ids; fails on the first non-matching amount. */
-export type OfferPricePointFailure = Readonly<{
+type OfferPricePointFailure = Readonly<{
   readonly _tag: 'OfferPricePointFailure';
   readonly message: string;
 }>;

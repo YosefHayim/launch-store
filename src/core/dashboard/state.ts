@@ -1,7 +1,7 @@
 import { Clock, Effect } from 'effect';
 import { readArtifactIndex } from '../build/artifactRetention.js';
 import { listSecretRefs, type SecretRef } from '../build/buildSecrets.js';
-import { loadConfig } from '../config/config.js';
+import { findLaunchConfig, loadConfig } from '../config/config.js';
 import { getActiveAccount, listAccounts } from '../credentials/accounts.js';
 import { getLiveHost } from '../distribution/cloudState.js';
 import { LaunchPaths, resolveLaunchHomeDirectory } from '../services/paths.js';
@@ -14,6 +14,7 @@ import type {
   DashboardApp,
   DashboardArtifact,
   DashboardCloudHost,
+  DashboardMode,
   DashboardState,
 } from '../types/dashboard.js';
 import type { HostHandle } from '../types/remote.js';
@@ -24,7 +25,7 @@ const BYTES_PER_MB = 1024 * 1024;
 export type DashboardInputs = Readonly<{
   readonly now: Date;
   readonly launchHome: string;
-  readonly config: LaunchConfig;
+  readonly config: LaunchConfig | null;
   readonly apps: readonly AppDescriptor[];
   readonly accounts: readonly AccountRecord[];
   readonly activeKeyId: string | null;
@@ -91,23 +92,42 @@ const formatSubmitProviders = (submitProviders: LaunchConfig['submit']): string 
   return [...new Set(Object.values(submitProviders).flat())].join(', ');
 };
 
+const NO_PROJECT_APPS: readonly AppDescriptor[] = [];
+const EMPTY_PROJECT_PROVIDERS = { credentials: '', storage: '', buildEngine: '', submit: '' };
+
+const createDashboardProject = (
+  config: LaunchConfig | null,
+  apps: readonly AppDescriptor[],
+): DashboardState['project'] => {
+  if (config === null) {
+    return { providers: EMPTY_PROJECT_PROVIDERS, profiles: [], apps: [] };
+  }
+  return {
+    providers: {
+      credentials: config.credentials,
+      storage: config.storage,
+      buildEngine: config.buildEngine,
+      submit: formatSubmitProviders(config.submit),
+    },
+    profiles: Object.keys(config.profiles),
+    apps: apps.map(toDashboardApp),
+  };
+};
+
+const readDashboardMode = (config: LaunchConfig | null): DashboardMode => {
+  if (config === null) return 'portfolio-only';
+  return 'project';
+};
+
 /** Project already-read local state into the dashboard snapshot. */
 export const buildDashboardState = (
   dashboardInputs: DashboardInputs,
 ): Effect.Effect<DashboardState> =>
   Effect.sync(() => ({
+    mode: readDashboardMode(dashboardInputs.config),
     generatedAt: dashboardInputs.now.toISOString(),
     launchHome: dashboardInputs.launchHome,
-    project: {
-      providers: {
-        credentials: dashboardInputs.config.credentials,
-        storage: dashboardInputs.config.storage,
-        buildEngine: dashboardInputs.config.buildEngine,
-        submit: formatSubmitProviders(dashboardInputs.config.submit),
-      },
-      profiles: Object.keys(dashboardInputs.config.profiles),
-      apps: dashboardInputs.apps.map(toDashboardApp),
-    },
+    project: createDashboardProject(dashboardInputs.config, dashboardInputs.apps),
     accounts: dashboardInputs.accounts.map((account) =>
       toDashboardAccount(account, dashboardInputs.activeKeyId),
     ),
@@ -120,6 +140,15 @@ export const buildDashboardState = (
     cloudHost: toDashboardCloudHost(dashboardInputs.cloudHost),
   }));
 
+/** Read the project config and its apps, or nothing when this folder has no launch.config. */
+const loadProjectSetup = (workingDirectory: string) =>
+  Effect.gen(function* () {
+    const launchConfigPath = yield* findLaunchConfig(workingDirectory);
+    if (launchConfigPath === null) return { config: null, apps: NO_PROJECT_APPS };
+    const projectSetup = yield* loadConfig(workingDirectory);
+    return { config: projectSetup.config, apps: projectSetup.apps };
+  });
+
 /** Read local state and build a dashboard snapshot without making network calls. */
 export const gatherDashboardState = (snapshotTime?: Date) =>
   Effect.gen(function* () {
@@ -131,7 +160,7 @@ export const gatherDashboardState = (snapshotTime?: Date) =>
     }
     const localDashboardState = yield* Effect.all(
       {
-        loadedConfig: loadConfig(launchPaths.workingDirectory),
+        projectConfig: loadProjectSetup(launchPaths.workingDirectory),
         accounts: listAccounts(),
         activeAccount: getActiveAccount(),
         artifacts: readArtifactIndex(),
@@ -147,8 +176,8 @@ export const gatherDashboardState = (snapshotTime?: Date) =>
     return yield* buildDashboardState({
       now: generatedAt,
       launchHome,
-      config: localDashboardState.loadedConfig.config,
-      apps: localDashboardState.loadedConfig.apps,
+      config: localDashboardState.projectConfig.config,
+      apps: localDashboardState.projectConfig.apps,
       accounts: localDashboardState.accounts,
       activeKeyId,
       artifacts: localDashboardState.artifacts,

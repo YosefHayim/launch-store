@@ -7,12 +7,11 @@ const KEYCHAIN_PREFIX = 'keychain:';
  * Resolve `value` to a concrete secret. `label` names the field in error messages (e.g.
  * `demoAccountPassword`) so a missing reference points the developer at what to fix.
  */
-export type SecretReferenceFailure = Readonly<{
+type SecretReferenceFailure = Readonly<{
   readonly _tag: 'SecretReferenceFailure';
   readonly message: string;
 }>;
-export const makeSecretReferenceFailure =
-  Data.tagged<SecretReferenceFailure>('SecretReferenceFailure');
+const makeSecretReferenceFailure = Data.tagged<SecretReferenceFailure>('SecretReferenceFailure');
 export const resolveSecretRef = (
   secretReference: string,
   label = 'secret',

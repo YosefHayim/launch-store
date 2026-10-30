@@ -36,6 +36,7 @@ export type AccountRecord = Readonly<{
   apps?: readonly string[];
   addedAt: string;
   resolvedAt?: string;
+  vendorNumber?: string;
 }>;
 /**
  * The on-disk shape of `~/.launch/accounts.json`: the set of onboarded Apple accounts plus which one

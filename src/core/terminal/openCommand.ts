@@ -17,7 +17,7 @@ export type OpenCommandFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeOpenCommandFailure = Data.tagged<OpenCommandFailure>('OpenCommandFailure');
+const makeOpenCommandFailure = Data.tagged<OpenCommandFailure>('OpenCommandFailure');
 
 /** Resolve a store-console URL, print it, and open it with the host browser. */
 export const openCommandProgram = (rawCommandInput: unknown) =>

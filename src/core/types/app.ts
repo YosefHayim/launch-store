@@ -77,7 +77,7 @@ export type BetaFeedbackKind = 'crash' | 'screenshot';
  * pixel dimensions. The URL expires (Apple signs it for a short window), so it's for immediate viewing
  * or download, not long-term storage; `launch testflight feedback --out` fetches it before it lapses.
  */
-export type BetaFeedbackScreenshot = {
+type BetaFeedbackScreenshot = {
   url: string;
   width?: number;
   height?: number;

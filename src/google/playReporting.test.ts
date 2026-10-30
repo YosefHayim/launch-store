@@ -55,9 +55,11 @@ const getCrashFreshness = vi.fn();
 const getAnrFreshness = vi.fn();
 const queryCrashRate = vi.fn();
 const queryAnrRate = vi.fn();
+const searchApps = vi.fn();
 /** Build the generated reporting-client slice exercised by adapter tests. */
 const generatedReportingFake = (): PlayReportingTransport => {
   return {
+    apps: { search: searchApps },
     vitals: {
       crashrate: { get: getCrashFreshness, query: queryCrashRate },
       anrrate: { get: getAnrFreshness, query: queryAnrRate },
@@ -243,5 +245,42 @@ describe('PlayReportingClient generated metrics', () => {
         }),
       ),
     ).rejects.toThrow(/Reporting API not enabled/);
+  });
+});
+describe('PlayReportingClient.listApps', () => {
+  it('pages through every search page and keeps the package names', async () => {
+    searchApps
+      .mockResolvedValueOnce({
+        data: {
+          apps: [{ packageName: 'com.acme.one', displayName: 'One' }],
+          nextPageToken: 'page-2',
+        },
+      })
+      .mockResolvedValueOnce({
+        data: { apps: [{ packageName: 'com.acme.two' }, { displayName: 'No package' }] },
+      });
+
+    const apps = await Effect.runPromise(client.listApps());
+
+    expect(apps).toEqual([
+      { packageName: 'com.acme.one', displayName: 'One' },
+      { packageName: 'com.acme.two', displayName: 'com.acme.two' },
+    ]);
+    expect(searchApps).toHaveBeenNthCalledWith(1, { pageSize: 1000 });
+    expect(searchApps).toHaveBeenNthCalledWith(2, { pageSize: 1000, pageToken: 'page-2' });
+  });
+
+  it('returns an empty list when a page has no apps', async () => {
+    searchApps.mockResolvedValueOnce({ data: {} });
+
+    const apps = await Effect.runPromise(client.listApps());
+
+    expect(apps).toEqual([]);
+  });
+
+  it('fails with a reporting error when the search request fails', async () => {
+    searchApps.mockRejectedValueOnce(new Error('forbidden'));
+
+    await expect(Effect.runPromise(client.listApps())).rejects.toThrow(/search accessible apps/);
   });
 });

@@ -21,7 +21,7 @@ const WhatToTestSchema = Schema.Record({
   }),
 );
 
-export const BetaReviewConfigSchema = Schema.Struct({
+const BetaReviewConfigSchema = Schema.Struct({
   whatToTest: WhatToTestSchema,
 });
 
@@ -34,7 +34,7 @@ export type BetaReviewFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeBetaReviewFailure = Data.tagged<BetaReviewFailure>('BetaReviewFailure');
+const makeBetaReviewFailure = Data.tagged<BetaReviewFailure>('BetaReviewFailure');
 
 export type AscBetaReviewApi = Readonly<{
   readonly listBuilds: (appId: string, limit?: number) => Effect.Effect<BuildResource[], unknown>;

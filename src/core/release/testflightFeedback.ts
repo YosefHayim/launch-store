@@ -35,14 +35,14 @@ export type DownloadedAttachment = Readonly<{
   readonly url: string;
 }>;
 
-export type TestflightFeedbackFailure = Readonly<{
+type TestflightFeedbackFailure = Readonly<{
   readonly _tag: 'TestflightFeedbackFailure';
   readonly operation: string;
   readonly message: string;
   readonly cause?: unknown;
 }>;
 
-export const makeTestflightFeedbackFailure = Data.tagged<TestflightFeedbackFailure>(
+const makeTestflightFeedbackFailure = Data.tagged<TestflightFeedbackFailure>(
   'TestflightFeedbackFailure',
 );
 

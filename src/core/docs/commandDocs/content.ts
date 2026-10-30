@@ -115,7 +115,7 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
       '**Release attributes.** `launch release-config` reconciles the age rating, categories, base price, and App Review details (contact + demo account) onto the editable version.',
       '**Store availability.** `launch availability` sets the App Store territories the app sells in.',
       '**Custom product pages.** `launch custom-pages` reconciles alternate App Store listings.',
-      '**Product-page A/B tests.** `launch experiments` reconciles product-page experiments and their treatments.',
+      '**Product-page A/B tests.** `launch experiments` reconciles product-page experiments and their treatments, makes the screenshots of each treatment match its `screenshots` folder (Apple pre-fills a new treatment with the original screenshots), then `--submit` sends them to App Review and `--start` starts the approved ones.',
       '**In-app events.** `launch events list`/`create`/`localize`/`delete` manages App Store in-app events and their localizations.',
       '**Game Center.** `launch game-center` reconciles achievements and leaderboards.',
       '**Accessibility labels.** `launch accessibility` reconciles the accessibility nutrition labels.',

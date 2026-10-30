@@ -30,8 +30,7 @@ export type BuildTransportFailure = Readonly<{
   readonly message: string;
 }>;
 
-export const makeBuildTransportFailure =
-  Data.tagged<BuildTransportFailure>('BuildTransportFailure');
+const makeBuildTransportFailure = Data.tagged<BuildTransportFailure>('BuildTransportFailure');
 /** Engines that only build Apple apps; an Android build swaps any of them for `gradle`. */
 const APPLE_ONLY_BUILD_ENGINES = new Set([IOS_BUILD_ENGINE, 'remote-mac', 'eas']);
 /** The build engine name for a platform, swapping an Apple-only engine (`xcode`, `remote-mac`, `eas`) for `gradle` on Android. */

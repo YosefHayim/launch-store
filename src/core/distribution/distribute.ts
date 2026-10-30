@@ -20,13 +20,13 @@ export type DistributeOptions = Readonly<{
   readonly log: Logger;
 }>;
 
-export type DistributionFailure = Readonly<{
+type DistributionFailure = Readonly<{
   readonly _tag: 'DistributionFailure';
   readonly reason: 'BundleIdentifierRequired' | 'CloudStorageRequired';
   readonly platform: Platform;
 }>;
 
-export const makeDistributionFailure = Data.tagged<DistributionFailure>('DistributionFailure');
+const makeDistributionFailure = Data.tagged<DistributionFailure>('DistributionFailure');
 
 const CONTENT_TYPE = {
   ipa: 'application/octet-stream',

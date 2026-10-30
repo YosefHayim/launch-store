@@ -55,6 +55,7 @@ import type {
   DeviceFamily,
   DeviceResource,
   EncryptionDeclarationResource,
+  ExperimentTreatmentLocalizationResource,
   ExperimentTreatmentResource,
   FinanceReportQuery,
   GameCenterAchievementCreate,
@@ -120,18 +121,17 @@ const CLOCK_SKEW_TOLERANCE_SECONDS = 60;
  * Certificate type to create/reuse. `DISTRIBUTION` is Apple's modern unified "Apple Distribution"
  * identity, valid for App Store submission; its codesign identity is named `Apple Distribution`.
  */
-export const DISTRIBUTION_CERT_TYPE = 'DISTRIBUTION';
+const DISTRIBUTION_CERT_TYPE = 'DISTRIBUTION';
 /** Codesign identity name that pairs with {@link DISTRIBUTION_CERT_TYPE}. */
-export const DISTRIBUTION_CERT_NAME = 'Apple Distribution';
 /**
  * Provisioning profile type for App Store / TestFlight distribution - the **iOS default**. tvOS, macOS,
  * and visionOS resolve their own profile type via `appStoreProfileType()` in `core/platform.ts` and pass
  * it to {@link AppStoreConnectClient.createAppStoreProfile}; this constant is the default that keeps the
  * iOS path unchanged.
  */
-export const APP_STORE_PROFILE_TYPE = 'IOS_APP_STORE';
+const APP_STORE_PROFILE_TYPE = 'IOS_APP_STORE';
 /** Provisioning profile type for ad-hoc (install-link) distribution - the iOS default; tvOS/visionOS map their own via `core/platform.ts` (macOS has no ad-hoc type). */
-export const AD_HOC_PROFILE_TYPE = 'IOS_APP_ADHOC';
+const AD_HOC_PROFILE_TYPE = 'IOS_APP_ADHOC';
 /** The App Store Connect signing-profile type written when creating a profile (e.g. `IOS_APP_STORE`, `TVOS_APP_STORE`, `MAC_APP_STORE`). */
 type ProvisioningProfileType = NonNullable<
   NonNullable<components['schemas']['Profile']['attributes']>['profileType']
@@ -143,7 +143,7 @@ type ProvisioningProfileType = NonNullable<
  * the only programmatic signal that the account's agreements need attention (see {@link
  * AppStoreConnectClient.checkRequiredAgreements}). Matched as a substring of Apple's `FORBIDDEN.<code>`.
  */
-export const REQUIRED_AGREEMENTS_ERROR_CODE = 'REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED';
+const REQUIRED_AGREEMENTS_ERROR_CODE = 'REQUIRED_AGREEMENTS_MISSING_OR_EXPIRED';
 /** Platform value Apple expects when registering a device for ad-hoc distribution. */
 const IOS_DEVICE_PLATFORM = 'IOS';
 /**
@@ -230,7 +230,7 @@ const AscErrorsDocumentSchema = Schema.parseJson(
  * can branch on a specific failure structurally instead of string-matching the message. Extends Error, so
  * existing `rejects.toThrow(/.../)` assertions hold.
  */
-export class AscRequestError extends Error {
+class AscRequestError extends Error {
   constructor(
     message: string,
     readonly status: number,
@@ -241,16 +241,19 @@ export class AscRequestError extends Error {
   }
 }
 /** The requested store-availability set names a territory Apple did not return as updatable. */
-export class AscAvailabilityUpdateError extends Data.TaggedError('AscAvailabilityUpdateError')<{
+class AscAvailabilityUpdateError extends Data.TaggedError('AscAvailabilityUpdateError')<{
   readonly message: string;
   readonly missingTerritories: readonly string[];
 }> {}
 /** Whether an error is a transient App Store Connect failure worth retrying (HTTP 429 or any 5xx). */
-export const isRetryableAscError = (error: unknown): boolean => {
+const isRetryableAscError = (error: unknown): boolean => {
   if (!(error instanceof AscRequestError)) return false;
   if (error.status === 429) return true;
   return error.status >= 500;
 };
+/** Apple refused the bearer token. It sometimes does so for a valid one mid-run; the request did not run. */
+const isRejectedToken = (requestFailure: unknown): boolean =>
+  requestFailure instanceof AscRequestError && requestFailure.status === 401;
 /** A GET or byte-range PUT is safe to repeat, so a dropped connection (fetch's TypeError) is retried like a 5xx. */
 const isRetryableIdempotentFailure = (requestFailure: unknown): boolean => {
   if (requestFailure instanceof TypeError) return true;
@@ -626,9 +629,16 @@ const mintToken = async (key: AscKey, issuedAt: number): Promise<string> => {
     .setAudience(AUDIENCE)
     .sign(privateKey);
 };
+/** The {@link mintedTokens} entry that holds a key's token. */
+const tokenCacheKey = (key: AscKey): string => `${key.issuerId}:${key.keyId}`;
+/** Drop a key's reused token so the next request signs a new one. */
+const forgetToken = (key: AscKey): void => {
+  const tokenKey = tokenCacheKey(key);
+  mintedTokens.delete(tokenKey);
+};
 /** Reuse a key's token until {@link TOKEN_REUSE_SECONDS}, so a long sync signs once instead of per request. */
 const reusableToken = async (key: AscKey): Promise<string> => {
-  const tokenKey = `${key.issuerId}:${key.keyId}`;
+  const tokenKey = tokenCacheKey(key);
   const currentSeconds = Math.floor(Date.now() / 1000);
   const mintedToken = mintedTokens.get(tokenKey);
   if (
@@ -711,6 +721,29 @@ const putAssetFile = async (
   }
 };
 /** Client bound to one App Store Connect API key. */
+interface AppleAppSummary {
+  id: string;
+  name: string;
+  bundleId: string | null;
+}
+
+const readNonEmptyAttribute = (attribute: string | undefined): string | null => {
+  const isAttributePresent = typeof attribute === 'string' && attribute.length > 0;
+  if (isAttributePresent) return attribute;
+  return null;
+};
+
+const summarizeAppleApp = (appleResource: {
+  id: string;
+  attributes: { name?: string; bundleId?: string };
+}): AppleAppSummary => {
+  const name = readNonEmptyAttribute(appleResource.attributes.name);
+  const bundleId = readNonEmptyAttribute(appleResource.attributes.bundleId);
+  const isNameMissing = name === null;
+  if (isNameMissing) return { id: appleResource.id, name: appleResource.id, bundleId };
+  return { id: appleResource.id, name, bundleId };
+};
+
 export class AppStoreConnectClient {
   constructor(
     private readonly key: AscKey,
@@ -740,10 +773,17 @@ export class AppStoreConnectClient {
     // A write that lost its connection may already have landed, so only a GET retries one.
     let isRetryableFailure = isRetryableAscError;
     if (method === 'GET') isRetryableFailure = isRetryableIdempotentFailure;
-    return retryAppleTransportRequest(
-      () => this.requestOnce<T>(method, pathOrUrl, requestDocument),
-      { isRetryableFailure },
-    );
+    const requestWithBackoff = () =>
+      retryAppleTransportRequest(() => this.requestOnce<T>(method, pathOrUrl, requestDocument), {
+        isRetryableFailure,
+      });
+    try {
+      return await requestWithBackoff();
+    } catch (requestFailure) {
+      if (!isRejectedToken(requestFailure)) throw requestFailure;
+      forgetToken(this.key);
+      return requestWithBackoff();
+    }
   }
   /** A single (un-retried) authenticated request - the retry wrapper lives in {@link request}. */
   private async requestOnce<T>(
@@ -1446,6 +1486,13 @@ export class AppStoreConnectClient {
     return appleResources
       .map((entry) => entry.attributes.name)
       .filter((name): name is string => Boolean(name));
+  }
+  async listApps(): Promise<{ id: string; name: string; bundleId: string | null }[]> {
+    const appleResources = await this.requestAll<{
+      name?: string;
+      bundleId?: string;
+    }>('/apps?fields[apps]=name,bundleId&limit=200');
+    return appleResources.map(summarizeAppleApp);
   }
   /**
    * Find a registered Bundle ID by its identifier, or null if it isn't registered yet. Apple's
@@ -3009,8 +3056,9 @@ export class AppStoreConnectClient {
       name?: string;
       state?: string;
       trafficProportion?: number;
+      startDate?: string;
     }>(
-      `/apps/${appId}/appStoreVersionExperimentsV2?limit=200&fields[appStoreVersionExperiments]=name,state,trafficProportion`,
+      `/apps/${appId}/appStoreVersionExperimentsV2?limit=200&fields[appStoreVersionExperiments]=name,state,trafficProportion,startDate`,
     );
     return appleResources.flatMap((experiment) => {
       const experimentName = experiment.attributes.name;
@@ -3026,10 +3074,12 @@ export class AppStoreConnectClient {
         Object.assign(versionExperiment, {
           trafficProportion: experiment.attributes.trafficProportion,
         });
+      if (experiment.attributes.startDate !== undefined)
+        Object.assign(versionExperiment, { startDate: experiment.attributes.startDate });
       return [versionExperiment];
     });
   }
-  /** Create a product-page A/B experiment (v2) with its name, platform, and traffic split. */
+  /** Create a product-page A/B experiment on `/v2` (the v1 create takes a version, not an app and platform). */
   async createVersionExperiment(
     appId: string,
     input: {
@@ -3039,7 +3089,7 @@ export class AppStoreConnectClient {
     },
   ): Promise<VersionExperimentResource> {
     const appleResources = await this.createResource<Record<string, never>>(
-      '/appStoreVersionExperiments',
+      this.v2('/appStoreVersionExperiments'),
       {
         type: 'appStoreVersionExperiments',
         attributes: {
@@ -3062,7 +3112,9 @@ export class AppStoreConnectClient {
     const appleResources = await this.requestAll<{
       name?: string;
     }>(
-      `/appStoreVersionExperiments/${experimentId}/appStoreVersionExperimentTreatments?limit=200&fields[appStoreVersionExperimentTreatments]=name`,
+      this.v2(
+        `/appStoreVersionExperiments/${experimentId}/appStoreVersionExperimentTreatments?limit=200&fields[appStoreVersionExperimentTreatments]=name`,
+      ),
     );
     return appleResources.flatMap((treatment) => {
       const treatmentName = treatment.attributes.name;
@@ -3096,6 +3148,48 @@ export class AppStoreConnectClient {
       },
     );
     return { id: appleResources.id, name: input.name };
+  }
+  /** Start an approved product-page experiment (the v2 `started: true` PATCH). */
+  async startVersionExperiment(experimentId: string): Promise<void> {
+    await this.updateResource(this.v2(`/appStoreVersionExperiments/${experimentId}`), {
+      type: 'appStoreVersionExperiments',
+      id: experimentId,
+      attributes: { started: true },
+    });
+  }
+  /** List a treatment's localizations (one per locale), matched by locale. */
+  async listExperimentTreatmentLocalizations(
+    treatmentId: string,
+  ): Promise<ExperimentTreatmentLocalizationResource[]> {
+    const appleResources = await this.requestAll<{
+      locale?: string;
+    }>(
+      `/appStoreVersionExperimentTreatments/${treatmentId}/appStoreVersionExperimentTreatmentLocalizations?limit=200&fields[appStoreVersionExperimentTreatmentLocalizations]=locale`,
+    );
+    return appleResources.flatMap((localization) => {
+      const locale = localization.attributes.locale;
+      if (locale === undefined) return [];
+      return [{ id: localization.id, locale }];
+    });
+  }
+  /** Add one locale to a treatment so it can hold that locale's screenshot sets. */
+  async createExperimentTreatmentLocalization(
+    treatmentId: string,
+    locale: string,
+  ): Promise<ExperimentTreatmentLocalizationResource> {
+    const appleResources = await this.createResource<Record<string, never>>(
+      '/appStoreVersionExperimentTreatmentLocalizations',
+      {
+        type: 'appStoreVersionExperimentTreatmentLocalizations',
+        attributes: { locale },
+        relationships: {
+          appStoreVersionExperimentTreatment: {
+            data: { type: 'appStoreVersionExperimentTreatments', id: treatmentId },
+          },
+        },
+      },
+    );
+    return { id: appleResources.id, locale };
   }
   /** Find the app price point in `territory` whose customer price equals `customerPrice`, or null. */
   async findAppPricePoint(
@@ -4071,6 +4165,21 @@ export class AppStoreConnectClient {
       },
     });
   }
+  /** Add a product-page experiment to a review submission as an item. */
+  async addExperimentReviewSubmissionItem(
+    submissionId: string,
+    experimentId: string,
+  ): Promise<void> {
+    await this.createResource('/reviewSubmissionItems', {
+      type: 'reviewSubmissionItems',
+      relationships: {
+        reviewSubmission: { data: { type: 'reviewSubmissions', id: submissionId } },
+        appStoreVersionExperimentV2: {
+          data: { type: 'appStoreVersionExperiments', id: experimentId },
+        },
+      },
+    });
+  }
   /** Submit a review submission to Apple (the `submitted: true` PATCH). */
   async submitReviewSubmission(submissionId: string): Promise<void> {
     await this.updateResource(`/reviewSubmissions/${submissionId}`, {
@@ -4121,7 +4230,7 @@ export class AppStoreConnectClient {
   /** List one event's localizations (per-locale name + descriptions). */
   async listAppEventLocalizations(eventId: string): Promise<AppEventLocalizationResource[]> {
     const appleResources = await this.requestAll<AppEventLocalizationAttributes>(
-      `/appEvents/${eventId}/appEventLocalizations?limit=200&fields[appEventLocalizations]=locale,name,shortDescription,longDescription`,
+      `/appEvents/${eventId}/localizations?limit=200&fields[appEventLocalizations]=locale,name,shortDescription,longDescription`,
     );
     return appleResources.map((localization) => toAppEventLocalization(localization, ''));
   }
@@ -4197,10 +4306,50 @@ export class AppStoreConnectClient {
   /** App Store screenshots and subscription review screenshots. */
   /** List the screenshot sets (one per device display type) bound to one App Store version localization. */
   async listScreenshotSets(versionLocalizationId: string): Promise<ScreenshotSetResource[]> {
+    return this.listScreenshotSetsOf('appStoreVersionLocalizations', versionLocalizationId);
+  }
+  /** Create a screenshot set for one display type under a version localization, returning the new set. */
+  async createScreenshotSet(
+    versionLocalizationId: string,
+    displayType: string,
+  ): Promise<ScreenshotSetResource> {
+    return this.createScreenshotSetOf(
+      'appStoreVersionLocalization',
+      'appStoreVersionLocalizations',
+      versionLocalizationId,
+      displayType,
+    );
+  }
+  /** List the screenshot sets bound to one experiment treatment localization. */
+  async listTreatmentScreenshotSets(
+    treatmentLocalizationId: string,
+  ): Promise<ScreenshotSetResource[]> {
+    return this.listScreenshotSetsOf(
+      'appStoreVersionExperimentTreatmentLocalizations',
+      treatmentLocalizationId,
+    );
+  }
+  /** Create a screenshot set for one display type under an experiment treatment localization. */
+  async createTreatmentScreenshotSet(
+    treatmentLocalizationId: string,
+    displayType: string,
+  ): Promise<ScreenshotSetResource> {
+    return this.createScreenshotSetOf(
+      'appStoreVersionExperimentTreatmentLocalization',
+      'appStoreVersionExperimentTreatmentLocalizations',
+      treatmentLocalizationId,
+      displayType,
+    );
+  }
+  /** List the screenshot sets of any set owner (version or treatment localization). */
+  private async listScreenshotSetsOf(
+    ownerType: string,
+    ownerId: string,
+  ): Promise<ScreenshotSetResource[]> {
     const appleResources = await this.requestAll<{
       screenshotDisplayType?: string;
     }>(
-      `/appStoreVersionLocalizations/${versionLocalizationId}/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType&limit=200`,
+      `/${ownerType}/${ownerId}/appScreenshotSets?fields[appScreenshotSets]=screenshotDisplayType&limit=200`,
     );
     return appleResources.map((screenshotSet) => {
       let screenshotDisplayType = screenshotSet.attributes.screenshotDisplayType;
@@ -4208,9 +4357,11 @@ export class AppStoreConnectClient {
       return { id: screenshotSet.id, screenshotDisplayType };
     });
   }
-  /** Create a screenshot set for one display type under a version localization, returning the new set. */
-  async createScreenshotSet(
-    versionLocalizationId: string,
+  /** Create a screenshot set for one display type under any set owner. */
+  private async createScreenshotSetOf(
+    ownerRelationship: string,
+    ownerType: string,
+    ownerId: string,
     displayType: string,
   ): Promise<ScreenshotSetResource> {
     const appleResources = await this.createResource<{
@@ -4218,11 +4369,7 @@ export class AppStoreConnectClient {
     }>('/appScreenshotSets', {
       type: 'appScreenshotSets',
       attributes: { screenshotDisplayType: displayType },
-      relationships: {
-        appStoreVersionLocalization: {
-          data: { type: 'appStoreVersionLocalizations', id: versionLocalizationId },
-        },
-      },
+      relationships: { [ownerRelationship]: { data: { type: ownerType, id: ownerId } } },
     });
     let screenshotDisplayType = appleResources.attributes.screenshotDisplayType;
     if (screenshotDisplayType === undefined) screenshotDisplayType = displayType;
@@ -4254,8 +4401,22 @@ export class AppStoreConnectClient {
       return screenshotResource;
     });
   }
-  /** Upload one screenshot into a set via the full reserve->PUT->commit asset flow. */
-  async uploadScreenshot(setId: string, fileName: string, filePath: string): Promise<void> {
+  /** Delete one screenshot from its set; one Apple no longer has is already gone. */
+  async deleteScreenshot(screenshotId: string): Promise<void> {
+    await this.getOptional(() => this.deleteResource(`/appScreenshots/${screenshotId}`));
+  }
+  /** Replace a set's screenshot order with `screenshotIds`, which must list every screenshot in the set. */
+  async reorderScreenshots(setId: string, screenshotIds: readonly string[]): Promise<void> {
+    await this.request<unknown>(
+      'PATCH',
+      `/appScreenshotSets/${setId}/relationships/appScreenshots`,
+      {
+        data: screenshotIds.map((screenshotId) => ({ type: 'appScreenshots', id: screenshotId })),
+      },
+    );
+  }
+  /** Upload one screenshot into a set via the full reserve->PUT->commit asset flow; returns its id. */
+  async uploadScreenshot(setId: string, fileName: string, filePath: string): Promise<string> {
     const bytes = await readTransportFile(filePath);
     const { id, operations } = await this.reserveAsset(
       'appScreenshots',
@@ -4265,6 +4426,7 @@ export class AppStoreConnectClient {
     );
     await putAssetFile(operations, filePath, bytes.byteLength);
     await this.commitAsset('appScreenshots', id, bytes);
+    return id;
   }
   /** The subscription's current App Review screenshot, or null when it has none. */
   async getSubscriptionReviewScreenshot(

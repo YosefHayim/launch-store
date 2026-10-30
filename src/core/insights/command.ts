@@ -34,8 +34,7 @@ export type InsightsCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeInsightsCommandFailure =
-  Data.tagged<InsightsCommandFailure>('InsightsCommandFailure');
+const makeInsightsCommandFailure = Data.tagged<InsightsCommandFailure>('InsightsCommandFailure');
 
 /** Convert any dependency failure into the insights command channel. */
 const insightsFailure = (operation: string, cause: unknown): InsightsCommandFailure => {

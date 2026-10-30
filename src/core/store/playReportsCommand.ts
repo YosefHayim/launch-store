@@ -15,14 +15,12 @@ export const DEFAULT_VITALS_DAYS = 28;
 /** Largest Play vitals history window accepted from the CLI. */
 export const MAX_VITALS_DAYS = 365;
 
-export const PlayReportsCommandInputSchema = Schema.Struct({
+const PlayReportsCommandInputSchema = Schema.Struct({
   app: Schema.optional(Schema.String),
   metric: Schema.optional(Schema.String),
   days: Schema.optional(Schema.String),
   json: Schema.Boolean,
 });
-
-export type PlayReportsCommandInput = Schema.Schema.Type<typeof PlayReportsCommandInputSchema>;
 
 export type PlayReportsCommandFailure = Readonly<{
   readonly _tag: 'PlayReportsCommandFailure';
@@ -30,7 +28,7 @@ export type PlayReportsCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makePlayReportsCommandFailure = Data.tagged<PlayReportsCommandFailure>(
+const makePlayReportsCommandFailure = Data.tagged<PlayReportsCommandFailure>(
   'PlayReportsCommandFailure',
 );
 
@@ -94,7 +92,7 @@ const percentage = (rate: number | undefined): string => {
   return `${(rate * 100).toFixed(2)}%`;
 };
 
-export const renderVitalsTimeline = (timeline: VitalsTimeline): string => {
+const renderVitalsTimeline = (timeline: VitalsTimeline): string => {
   const header = `\n${METRIC_LABEL[timeline.metric]}  (${timeline.window.startDate} -> ${timeline.window.endDate}, DAILY)`;
   if (timeline.rows.length === 0) {
     return `${header}\n  (no data - the app may be new, or below Play's reporting threshold)`;

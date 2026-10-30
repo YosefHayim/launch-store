@@ -12,7 +12,7 @@ export type CertRecord = {
 };
 
 /** Persisted record of one bundle's App Store provisioning profile. */
-export type ProfileRecord = {
+type ProfileRecord = {
   id: string;
   uuid: string;
   name: string;
@@ -58,7 +58,7 @@ export const CredentialsIndexSchema: Schema.Schema<CredentialsIndex> = Schema.mu
   }),
 );
 
-export const emptyCredentialsIndex = (): CredentialsIndex => ({ profiles: {} });
+const emptyCredentialsIndex = (): CredentialsIndex => ({ profiles: {} });
 
 export type AppleSigningFailure = Readonly<{
   readonly _tag: 'AppleSigningFailure';
@@ -69,9 +69,7 @@ export type AppleSigningFailure = Readonly<{
 export const makeAppleSigningFailure = Data.tagged<AppleSigningFailure>('AppleSigningFailure');
 
 /** Absolute path to one account's signing index. */
-export const indexPath = (
-  keyId: string,
-): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
+const indexPath = (keyId: string): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
   Effect.gen(function* () {
     const pathService = yield* Path.Path;
     const credentialsDirectory = yield* resolveAccountCredentialsDirectory(keyId);

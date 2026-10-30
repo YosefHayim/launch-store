@@ -1,6 +1,6 @@
 import type { AppProducts } from '@core/types/catalog.js';
 import type { ReadinessContext } from '@core/types/readiness.js';
-export const declaredIapIds = (readinessContext: ReadinessContext, bundleId: string): string[] => {
+const declaredIapIds = (readinessContext: ReadinessContext, bundleId: string): string[] => {
   let inAppPurchases = readinessContext.config.products?.[bundleId]?.inAppPurchases;
   if (inAppPurchases === undefined) inAppPurchases = [];
   return inAppPurchases.map((inAppPurchase) => inAppPurchase.productId);

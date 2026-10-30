@@ -19,7 +19,7 @@ export const RolloutCommandInputSchema = Schema.Struct({
   app: Schema.optionalWith(Schema.String, { exact: true }),
 });
 
-export type RolloutCommandInput = Schema.Schema.Type<typeof RolloutCommandInputSchema>;
+type RolloutCommandInput = Schema.Schema.Type<typeof RolloutCommandInputSchema>;
 export type RolloutAction = RolloutCommandInput['action'];
 
 export type RolloutCommandFailure = Readonly<{
@@ -29,10 +29,9 @@ export type RolloutCommandFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeRolloutCommandFailure =
-  Data.tagged<RolloutCommandFailure>('RolloutCommandFailure');
+const makeRolloutCommandFailure = Data.tagged<RolloutCommandFailure>('RolloutCommandFailure');
 
-export const RolloutCommandFailureSchema: Schema.Schema<RolloutCommandFailure> = Schema.Struct({
+const RolloutCommandFailureSchema: Schema.Schema<RolloutCommandFailure> = Schema.Struct({
   _tag: Schema.Literal('RolloutCommandFailure'),
   operation: Schema.String,
   message: Schema.String,

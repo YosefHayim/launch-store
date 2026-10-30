@@ -1,6 +1,6 @@
-export type ScreenshotOrientation = 'both' | 'fixed';
+type ScreenshotOrientation = 'both' | 'fixed';
 /** Pixel dimensions accepted by one App Store screenshot display type. */
-export type AppleScreenshotDimensions = {
+type AppleScreenshotDimensions = {
   readonly canonical: readonly [number, number];
   readonly accepted: readonly (readonly [number, number])[];
   readonly orientation: ScreenshotOrientation;

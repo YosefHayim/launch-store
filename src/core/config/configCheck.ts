@@ -9,7 +9,7 @@ import { readResolvedConfig } from './config.js';
  * - `warn`: not build-breaking but store-rejecting or surprising (missing icon, no scheme) - surfaced
  *   and left to the developer.
  */
-export type FindingSeverity = 'error' | 'warn';
+type FindingSeverity = 'error' | 'warn';
 /**
  * One preflight finding about an app's config. Carries everything needed to print "the exact file +
  * key + fix": `file`/`key` locate it, `message` says what's wrong, and `fix` is the concrete remedy

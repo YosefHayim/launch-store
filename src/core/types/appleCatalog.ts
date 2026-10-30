@@ -714,11 +714,17 @@ export type VersionExperimentResource = Readonly<{
   name: string;
   state: string;
   trafficProportion?: number;
+  startDate?: string;
 }>;
 /** One treatment (variant arm) of a version experiment, matched by its `name`. */
 export type ExperimentTreatmentResource = Readonly<{
   id: string;
   name: string;
+}>;
+/** One locale of an experiment treatment; it holds that locale's treatment screenshot sets. */
+export type ExperimentTreatmentLocalizationResource = Readonly<{
+  id: string;
+  locale: string;
 }>;
 /**
  * An app version's App Review details - the contact info and demo-account credentials Apple's reviewer
@@ -832,9 +838,9 @@ export type LeaderboardFormatter = (typeof LEADERBOARD_FORMATTERS)[number];
  * (`LeaderboardConfig` in `core/types`) reuse them without duplicating Apple's lists.
  */
 export const LEADERBOARD_SUBMISSION_TYPES = ['BEST_SCORE', 'MOST_RECENT_SCORE'] as const;
-export type LeaderboardSubmissionType = (typeof LEADERBOARD_SUBMISSION_TYPES)[number];
+type LeaderboardSubmissionType = (typeof LEADERBOARD_SUBMISSION_TYPES)[number];
 export const LEADERBOARD_SORT_TYPES = ['ASC', 'DESC'] as const;
-export type LeaderboardSortType = (typeof LEADERBOARD_SORT_TYPES)[number];
+type LeaderboardSortType = (typeof LEADERBOARD_SORT_TYPES)[number];
 /** An app's Game Center configuration container (read-only attributes; created to enable Game Center). */
 export type GameCenterDetailResource = Readonly<{
   id: string;

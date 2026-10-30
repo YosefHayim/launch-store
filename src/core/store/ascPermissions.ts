@@ -28,7 +28,7 @@ export type AscPermissionProbeApi = Readonly<{
 }>;
 
 /** Verdict of probing one role-gated feature with the active key. */
-export type AscPermissionStatus = 'available' | 'forbidden' | 'unauthorized' | 'inconclusive';
+type AscPermissionStatus = 'available' | 'forbidden' | 'unauthorized' | 'inconclusive';
 
 /** One feature, its accepted roles, and the active key's probe verdict. */
 export type AscPermissionResult = Readonly<{

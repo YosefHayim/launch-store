@@ -5,10 +5,6 @@ import { LaunchPaths } from '../services/paths.js';
 /** Marker comment that headers Launch's auto-added ignore entry, so it's recognizable and removable by hand. */
 const IGNORE_MARKER = '# launch build artifacts';
 /** Outcome of an {@link ensureArtifactDirIgnored} attempt. */
-export type GitignoreResult = {
-  added: boolean;
-  entry?: string;
-};
 /** The git work-tree root containing `dir`, or null when `dir` isn't inside a repo (or git is absent). */
 const repoRoot = (dir: string): Effect.Effect<string | null> =>
   provideNodeCommandServices(
@@ -27,7 +23,7 @@ export type GitignoreFailure = Readonly<{
   readonly path: string;
   readonly cause: unknown;
 }>;
-export const makeGitignoreFailure = Data.tagged<GitignoreFailure>('GitignoreFailure');
+const makeGitignoreFailure = Data.tagged<GitignoreFailure>('GitignoreFailure');
 /**
  * Ensure `resolvedDir` (an absolute artifact directory) is git-ignored when it lives inside the project's
  * repo. `projectDir` is where the repo is located from - defaults to the current directory (which is the

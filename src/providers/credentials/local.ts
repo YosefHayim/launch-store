@@ -10,13 +10,13 @@ import type { ResolvedBuildContext } from '@core/types/config.js';
 import type { BuildCredentials } from '@core/types/credentials.js';
 import type { CredentialsProvider } from '@core/types/providers.js';
 
-export type MissingCredentialsFailure = Readonly<{
+type MissingCredentialsFailure = Readonly<{
   readonly _tag: 'MissingCredentialsFailure';
   readonly platform: 'apple' | 'android';
   readonly message: string;
 }>;
 
-export const makeMissingCredentialsFailure = Data.tagged<MissingCredentialsFailure>(
+const makeMissingCredentialsFailure = Data.tagged<MissingCredentialsFailure>(
   'MissingCredentialsFailure',
 );
 

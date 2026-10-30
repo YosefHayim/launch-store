@@ -25,8 +25,7 @@ export type PrivacyCommandFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makePrivacyCommandFailure =
-  Data.tagged<PrivacyCommandFailure>('PrivacyCommandFailure');
+const makePrivacyCommandFailure = Data.tagged<PrivacyCommandFailure>('PrivacyCommandFailure');
 
 /** Runtime dependencies for privacy discovery, output, and exit status. */
 export type PrivacyCommandDependencies = {

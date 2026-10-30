@@ -29,8 +29,7 @@ export type BuildPreparationFailure = Readonly<{
   readonly appName: string;
   readonly message: string;
 }>;
-export const makeBuildPreparationFailure =
-  Data.tagged<BuildPreparationFailure>('BuildPreparationFailure');
+const makeBuildPreparationFailure = Data.tagged<BuildPreparationFailure>('BuildPreparationFailure');
 /**
  * Resolve the shared front half of a build: config, the chosen app, the profile, a validated env, a
  * logger, and the {@link ResolvedBuildContext}. Identical for iOS and Android - every build path

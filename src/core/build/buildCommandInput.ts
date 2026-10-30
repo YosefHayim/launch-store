@@ -38,8 +38,7 @@ export type BuildCommandInputError = Readonly<{
   readonly message: string;
   readonly cause?: unknown;
 }>;
-export const makeBuildCommandInputError =
-  Data.tagged<BuildCommandInputError>('BuildCommandInputError');
+const makeBuildCommandInputError = Data.tagged<BuildCommandInputError>('BuildCommandInputError');
 const BUMP_SELECTORS: readonly (BumpKind | 'ask')[] = ['patch', 'minor', 'major', 'keep', 'ask'];
 const DISTRIBUTIONS: readonly Distribution[] = ['store', 'internal'];
 const PLAY_TRACKS: readonly PlayTrack[] = ['internal', 'closed', 'open', 'production'];
@@ -52,7 +51,7 @@ const buildCommandInputError = (
   if (cause === undefined) return makeBuildCommandInputError({ field, rejectedInput, message });
   return makeBuildCommandInputError({ field, rejectedInput, message, cause });
 };
-export const parseBuildPlatformArgument = (platformArgument: string) =>
+const parseBuildPlatformArgument = (platformArgument: string) =>
   parsePlatform(platformArgument).pipe(
     Effect.mapError((cause) =>
       buildCommandInputError(
@@ -63,7 +62,7 @@ export const parseBuildPlatformArgument = (platformArgument: string) =>
       ),
     ),
   );
-export const parseBuildBump = (bump: string | undefined) =>
+const parseBuildBump = (bump: string | undefined) =>
   Effect.gen(function* () {
     switch (bump) {
       case undefined:
@@ -84,7 +83,7 @@ export const parseBuildBump = (bump: string | undefined) =>
         );
     }
   });
-export const parseBuildDistribution = (distribution: string | undefined) =>
+const parseBuildDistribution = (distribution: string | undefined) =>
   Effect.gen(function* () {
     switch (distribution) {
       case undefined:
@@ -102,7 +101,7 @@ export const parseBuildDistribution = (distribution: string | undefined) =>
         );
     }
   });
-export const resolveBuildRemoteTarget = (remote: string | boolean | undefined) =>
+const resolveBuildRemoteTarget = (remote: string | boolean | undefined) =>
   Effect.sync((): RemoteTarget | undefined => {
     switch (remote) {
       case undefined:
@@ -115,7 +114,7 @@ export const resolveBuildRemoteTarget = (remote: string | boolean | undefined) =
         return { kind: 'ssh', target: remote };
     }
   });
-export const parseBuildTrack = (track: string | undefined) =>
+const parseBuildTrack = (track: string | undefined) =>
   Effect.gen(function* () {
     switch (track) {
       case undefined:
@@ -192,7 +191,7 @@ export const parseSizeBudget = (sizeBudget: string | undefined) =>
     }
     return sizeBudgetMB;
   });
-export const parseBuildEnvironmentOverrides = (envPairs: readonly string[]) =>
+const parseBuildEnvironmentOverrides = (envPairs: readonly string[]) =>
   parseCliEnv([...envPairs]).pipe(
     Effect.mapError((cause) => buildCommandInputError('env', envPairs, cause.message, cause)),
   );

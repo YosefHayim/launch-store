@@ -317,6 +317,26 @@ describe('AppStoreConnectClient - auth + request building', () => {
       '/apps?fields[apps]=name',
     );
   });
+  it('lists apps with id, name and bundle id, using the id when a name is missing', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            { id: '1', attributes: { name: 'Mapleleaf', bundleId: 'com.acme.maple' } },
+            { id: '2', attributes: {} },
+          ],
+        }),
+      ),
+    );
+    expect(await client.listApps()).toEqual([
+      { id: '1', name: 'Mapleleaf', bundleId: 'com.acme.maple' },
+      { id: '2', name: '2', bundleId: null },
+    ]);
+    expect(expectArrayElement(fetchMock.mock.calls, 0, 'mock call')[0]).toContain(
+      '/apps?fields[apps]=name,bundleId&limit=200',
+    );
+  });
   it('treats a 204 as success with no body (profile deletion)', async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(204, ''));
     await expect(client.deleteProfile('p1')).resolves.toBeUndefined();
@@ -370,7 +390,9 @@ describe('AppStoreConnectClient - token reuse + parallel asset upload', () => {
       }
       return fakeResponse(200, JSON.stringify({ data: { id: 'shot-1', attributes: {} } }));
     });
-    await client.uploadScreenshot('set-1', 'shot.png', fileURLToPath(import.meta.url));
+    expect(await client.uploadScreenshot('set-1', 'shot.png', fileURLToPath(import.meta.url))).toBe(
+      'shot-1',
+    );
     const partUploads = fetchMock.mock.calls.filter(([url]) =>
       String(url).startsWith('https://upload.example/'),
     );
@@ -701,6 +723,28 @@ describe('AppStoreConnectClient - transient-failure retry', () => {
     expect(await client.getAppId('com.example.hello')).toBe('42');
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+  it('retries a refused token once with a newly signed one, writes included', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse(401, JSON.stringify({ errors: [{ detail: 'signed bearer token' }] })),
+      )
+      .mockResolvedValueOnce(fakeResponse(204, ''));
+    await client.deleteScreenshot('shot1');
+    const authorizations = fetchMock.mock.calls.map(([, requestInit]) =>
+      requestHeaders(requestInit).get('Authorization'),
+    );
+    expect(authorizations).toHaveLength(2);
+    expect(authorizations[1]).not.toBe(authorizations[0]);
+  });
+  it('surfaces a 401 that a new token does not fix', async () => {
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        fakeResponse(401, JSON.stringify({ errors: [{ detail: 'signed bearer token' }] })),
+      ),
+    );
+    await expect(client.assertReady()).rejects.toThrow(/401/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
   it('does NOT repeat a write after a dropped connection (it may already have landed)', async () => {
     fetchMock.mockRejectedValueOnce(new TypeError('fetch failed'));
     await expect(client.registerDevice('UDID9', "Dana's iPhone")).rejects.toThrow(/fetch failed/);
@@ -763,6 +807,60 @@ describe('AppStoreConnectClient - product catalog', () => {
         attributes: { productId: 'com.x.coins', name: 'Coins', inAppPurchaseType: 'CONSUMABLE' },
         relationships: { app: { data: { type: 'apps', id: 'app1' } } },
       },
+    });
+  });
+  it('creates a version experiment and lists its treatments on the v2 paths', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse(201, JSON.stringify({ data: { id: 'exp1', attributes: {} } })),
+      )
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({ data: [{ id: 'treat1', attributes: { name: 'Colorful' } }] }),
+        ),
+      );
+    await client.createVersionExperiment('app1', {
+      name: 'Screenshots',
+      platform: 'IOS',
+      trafficProportion: 50,
+    });
+    const treatments = await client.listExperimentTreatments('exp1');
+    expect(treatments).toEqual([{ id: 'treat1', name: 'Colorful' }]);
+    const [createUrl] = expectArrayElement(fetchMock.mock.calls, 0, 'create call');
+    expect(String(createUrl)).toBe(
+      'https://api.appstoreconnect.apple.com/v2/appStoreVersionExperiments',
+    );
+    const [listUrl] = expectArrayElement(fetchMock.mock.calls, 1, 'list call');
+    expect(String(listUrl)).toContain(
+      'https://api.appstoreconnect.apple.com/v2/appStoreVersionExperiments/exp1/appStoreVersionExperimentTreatments?',
+    );
+  });
+  it('treats a screenshot Apple no longer has as deleted', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(404, JSON.stringify({ errors: [{ detail: 'There is no resource' }] })),
+    );
+    await expect(client.deleteScreenshot('gone')).resolves.toBeUndefined();
+  });
+  it('deletes a screenshot and reorders a screenshot set', async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(204, ''))
+      .mockResolvedValueOnce(fakeResponse(204, ''));
+    await client.deleteScreenshot('shot1');
+    await client.reorderScreenshots('set1', ['shot3', 'shot2']);
+    const [deleteUrl, deleteInit] = expectArrayElement(fetchMock.mock.calls, 0, 'delete call');
+    expect(String(deleteUrl)).toBe('https://api.appstoreconnect.apple.com/v1/appScreenshots/shot1');
+    expect(deleteInit?.method).toBe('DELETE');
+    const [reorderUrl, reorderInit] = expectArrayElement(fetchMock.mock.calls, 1, 'reorder call');
+    expect(String(reorderUrl)).toBe(
+      'https://api.appstoreconnect.apple.com/v1/appScreenshotSets/set1/relationships/appScreenshots',
+    );
+    expect(reorderInit?.method).toBe('PATCH');
+    expect(JSON.parse(String(reorderInit?.body))).toEqual({
+      data: [
+        { type: 'appScreenshots', id: 'shot3' },
+        { type: 'appScreenshots', id: 'shot2' },
+      ],
     });
   });
   it('creates a subscription with its billing period and group relationship', async () => {
@@ -1333,6 +1431,9 @@ describe('AppStoreConnectClient - listing localizations', () => {
     expect(await client.listAppEventLocalizations('ev1')).toEqual([
       { id: 'evl1', locale: 'en-US' },
     ]);
+    expect(expectArrayElement(fetchMock.mock.calls, 1, 'mock call')[0]).toContain(
+      '/appEvents/ev1/localizations?',
+    );
   });
   it('POSTs a new version localization with the appStoreVersion relationship', async () => {
     fetchMock.mockResolvedValueOnce(
@@ -2742,10 +2843,12 @@ describe('AppStoreConnectClient - 401 clock-skew enrichment', () => {
   it('appends the resync hint when a 401 coincides with a skewed clock (on macOS)', async () => {
     client = new AppStoreConnectClient(makeKey(), 'darwin');
     const skewedDate = new Date(Date.now() + 10 * 60000).toUTCString();
-    fetchMock.mockResolvedValueOnce(
-      fakeResponse(401, JSON.stringify({ errors: [{ detail: 'token expired' }] }), {
-        date: skewedDate,
-      }),
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        fakeResponse(401, JSON.stringify({ errors: [{ detail: 'token expired' }] }), {
+          date: skewedDate,
+        }),
+      ),
     );
     await expect(client.assertReady()).rejects.toThrow(
       /401.*token expired.*sudo sntp -sS time\.apple\.com/,
@@ -2753,10 +2856,12 @@ describe('AppStoreConnectClient - 401 clock-skew enrichment', () => {
   });
   it("surfaces only Apple's 401 detail when the clock is fine - no false alarm", async () => {
     client = new AppStoreConnectClient(makeKey(), 'darwin');
-    fetchMock.mockResolvedValueOnce(
-      fakeResponse(401, JSON.stringify({ errors: [{ detail: 'token expired' }] }), {
-        date: new Date().toUTCString(),
-      }),
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        fakeResponse(401, JSON.stringify({ errors: [{ detail: 'token expired' }] }), {
+          date: new Date().toUTCString(),
+        }),
+      ),
     );
     let message = '';
     try {

@@ -115,7 +115,7 @@ export type SnapshotCommandInput = Schema.Schema.Type<typeof SnapshotCommandInpu
 type PruneOptions = Schema.Schema.Type<typeof PruneOptionsSchema>;
 
 /** A snapshot command failed while reading, writing, or restoring store state. */
-export const SnapshotCommandFailureSchema = Schema.Struct({
+const SnapshotCommandFailureSchema = Schema.Struct({
   _tag: Schema.Literal('SnapshotCommandFailure'),
   operation: Schema.String,
   message: Schema.String,
@@ -123,8 +123,7 @@ export const SnapshotCommandFailureSchema = Schema.Struct({
 });
 
 export type SnapshotCommandFailure = Schema.Schema.Type<typeof SnapshotCommandFailureSchema>;
-export const makeSnapshotCommandFailure =
-  Data.tagged<SnapshotCommandFailure>('SnapshotCommandFailure');
+const makeSnapshotCommandFailure = Data.tagged<SnapshotCommandFailure>('SnapshotCommandFailure');
 
 type SnapshotCommandOutcome = CommandExit | SnapshotCommandFailure;
 

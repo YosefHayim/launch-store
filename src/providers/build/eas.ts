@@ -21,7 +21,7 @@ const easCommand = (): Effect.Effect<{
     return { cmd: 'npx', prefix: ['--yes', 'eas-cli'] };
   });
 /** Human label of how `eas` will be invoked, for the run header. Also surfaces a missing toolchain early. */
-export const detectEasCli = (): Effect.Effect<string> =>
+const detectEasCli = (): Effect.Effect<string> =>
   easCommand().pipe(
     Effect.map(({ cmd }) => {
       if (cmd === 'eas') return 'eas (global install)';
@@ -29,7 +29,7 @@ export const detectEasCli = (): Effect.Effect<string> =>
     }),
   );
 /** Ensure an Expo login, prompting `eas login` interactively if needed. Launch stores no Expo credentials. */
-export const ensureExpoSession = (): Effect.Effect<string, unknown> =>
+const ensureExpoSession = (): Effect.Effect<string, unknown> =>
   Effect.gen(function* () {
     const { cmd, prefix } = yield* easCommand();
     const currentUser = provideNodeCommandServices(
@@ -98,7 +98,7 @@ const firstBuildEntry = (jsonText: string): EasBuildEntry | null => {
   }
 };
 /** Run an EAS cloud build for iOS and download the `.ipa` locally. No per-device thinning report is available. */
-export const easBuildToIpa = (
+const easBuildToIpa = (
   buildContext: ResolvedBuildContext,
   profileName: string,
 ): Effect.Effect<

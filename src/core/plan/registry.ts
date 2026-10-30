@@ -38,7 +38,7 @@ const BUILTIN_PLANNERS: readonly SurfacePlanner[] = [
 ];
 
 /** Register (or replace) a surface planner by its id. */
-export const registerSurfacePlanner = (planner: SurfacePlanner): void => {
+const registerSurfacePlanner = (planner: SurfacePlanner): void => {
   PLANNERS.set(planner.id, planner);
 };
 

@@ -14,6 +14,9 @@ import {
   PROVISIONING_PROFILES_DIR,
   LAUNCH_HOME,
   ensureDirectoryExists,
+  locateAppStatsDirectory,
+  locatePortfolioFilePath,
+  locateStatsDirectory,
   makeLaunchPathsTest,
   resolveAccountCredentialsDirectory,
   type LaunchPathsService,
@@ -58,5 +61,36 @@ describe('paths - one canonical layout for ~/.launch', () => {
   it('builds account paths through Effect Platform Path', async () => {
     const accountDirectory = await executeTestProgram(resolveAccountCredentialsDirectory('KEY/42'));
     expect(accountDirectory).toBe(join(CREDENTIALS_DIR, 'KEY42'));
+  });
+});
+describe('stats paths', () => {
+  const homeDirectory = join('/test-home');
+  const runWithHome = <Success, Failure>(
+    program: Effect.Effect<Success, Failure, LaunchPathsService | NodeContext.NodeContext>,
+  ) =>
+    Effect.runPromise(
+      program.pipe(
+        Effect.provide(NodeContext.layer),
+        Effect.provide(makeLaunchPathsTest(homeDirectory, '/workspace')),
+      ),
+    );
+
+  it('puts the stats folder and portfolio file under ~/.launch', async () => {
+    expect(await runWithHome(locateStatsDirectory())).toBe(join(homeDirectory, '.launch', 'stats'));
+    expect(await runWithHome(locatePortfolioFilePath())).toBe(
+      join(homeDirectory, '.launch', 'portfolio.json'),
+    );
+  });
+
+  it('puts the stats of one app in its own folder', async () => {
+    const appDirectory = await runWithHome(locateAppStatsDirectory('android-com.acme.app'));
+
+    expect(appDirectory).toBe(join(homeDirectory, '.launch', 'stats', 'android-com.acme.app'));
+  });
+
+  it('refuses an app key that could leave the stats folder', async () => {
+    await expect(runWithHome(locateAppStatsDirectory('ios-../../etc'))).rejects.toThrow(
+      'not a valid app key',
+    );
   });
 });

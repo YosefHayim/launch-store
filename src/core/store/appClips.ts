@@ -49,7 +49,7 @@ const AppClipConfigSchema = Schema.mutable(
   }),
 );
 
-export const AppClipsConfigSchema = Schema.mutable(
+const AppClipsConfigSchema = Schema.mutable(
   Schema.Struct({
     clips: Schema.mutable(Schema.Record({ key: Schema.String, value: AppClipConfigSchema })).pipe(
       Schema.filter((declaredClips) => {

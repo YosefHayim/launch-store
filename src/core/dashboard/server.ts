@@ -21,8 +21,7 @@ export type DashboardServerFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeDashboardServerFailure =
-  Data.tagged<DashboardServerFailure>('DashboardServerFailure');
+const makeDashboardServerFailure = Data.tagged<DashboardServerFailure>('DashboardServerFailure');
 
 /** Injectable local HTTP transport for the dashboard command. */
 export type DashboardServerService = Readonly<{

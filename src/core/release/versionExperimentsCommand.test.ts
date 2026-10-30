@@ -7,11 +7,15 @@ describe('VersionExperimentsCommandInputSchema', () => {
     expect(
       Schema.decodeUnknownSync(VersionExperimentsCommandInputSchema)({
         config: 'experiments.config.json',
+        submit: true,
+        start: false,
         dryRun: true,
         yes: false,
       }),
     ).toEqual({
       config: 'experiments.config.json',
+      submit: true,
+      start: false,
       dryRun: true,
       yes: false,
     });
@@ -22,6 +26,8 @@ describe('VersionExperimentsCommandInputSchema', () => {
       Schema.decodeUnknownSync(VersionExperimentsCommandInputSchema)({
         app: undefined,
         config: 'experiments.config.json',
+        submit: false,
+        start: false,
         dryRun: false,
         yes: false,
       }),

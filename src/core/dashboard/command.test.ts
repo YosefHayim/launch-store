@@ -1,11 +1,19 @@
-import { NodeContext } from '@effect/platform-node';
+import { NodeContext, NodeHttpClient } from '@effect/platform-node';
 import { Effect, Schema } from 'effect';
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  createTemporaryHomeDirectory,
+  makeLaunchHomeTest,
+  removeTemporaryHomeDirectory,
+  writeLaunchHomeFile,
+} from '@testkit/launchHome.testkit.js';
 import { createLogger, makeLaunchLoggerTest } from '../services/logger.js';
 import { makeLaunchPathsTest } from '../services/paths.js';
+import { makeStatsCredentialsTest } from '../stats/statsCredentials.js';
 import type { DashboardState } from '../types/dashboard.js';
 
 const dashboardState: DashboardState = {
+  mode: 'project',
   generatedAt: '2026-08-04T00:00:00.000Z',
   launchHome: '/test-home/.launch',
   project: {
@@ -70,6 +78,19 @@ describe('parseDashboardPort', () => {
 });
 
 describe('dashboardHttpReply', () => {
+  let homeDirectory: string;
+  beforeAll(() => {
+    homeDirectory = createTemporaryHomeDirectory();
+    writeLaunchHomeFile(
+      homeDirectory,
+      'portfolio.json',
+      JSON.stringify({ version: 1, discoveredAt: '2026-10-01T00:00:00.000Z', apps: [], tags: [] }),
+    );
+  });
+  afterAll(() => {
+    removeTemporaryHomeDirectory(homeDirectory);
+  });
+
   const runRequest = (method: string, url: string) =>
     Effect.runPromise(
       Effect.gen(function* () {
@@ -77,8 +98,9 @@ describe('dashboardHttpReply', () => {
         return yield* dashboardHttpReply({ method, url }, logger);
       }).pipe(
         Effect.provide(makeLaunchLoggerTest([])),
-        Effect.provide(makeLaunchPathsTest('/test-home', '/workspace')),
-        Effect.provide(NodeContext.layer),
+        Effect.provide(makeStatsCredentialsTest()),
+        Effect.provide(NodeHttpClient.layer),
+        Effect.provide(makeLaunchHomeTest(homeDirectory)),
       ),
     );
 
@@ -93,6 +115,19 @@ describe('dashboardHttpReply', () => {
   it('returns plain 404 replies for other methods and paths', async () => {
     expect((await runRequest('POST', '/')).status).toBe(404);
     expect((await runRequest('GET', '/missing')).status).toBe(404);
+    expect((await runRequest('POST', '/apps')).status).toBe(404);
+    expect((await runRequest('POST', '/api/stats')).status).toBe(404);
+    expect((await runRequest('GET', '/apps/extra')).status).toBe(404);
+  });
+
+  it('serves the Apps tab as HTML and the report as JSON', async () => {
+    const appsReply = await runRequest('GET', '/apps');
+    const apiReply = await runRequest('GET', '/api/stats?days=7');
+    expect(appsReply.status).toBe(200);
+    expect(appsReply.contentType).toContain('text/html');
+    expect(apiReply.status).toBe(200);
+    expect(apiReply.contentType).toContain('application/json');
+    expect(JSON.parse(apiReply.content).days).toBe(7);
   });
 });
 
@@ -104,6 +139,8 @@ describe('dashboardCommandProgram', () => {
         Effect.provideService(DashboardServer, unavailableDashboardServer),
         Effect.provide(makeLaunchLoggerTest(terminalWrites)),
         Effect.provide(makeLaunchPathsTest('/test-home', '/workspace')),
+        Effect.provide(makeStatsCredentialsTest()),
+        Effect.provide(NodeHttpClient.layer),
         Effect.provide(NodeContext.layer),
       ),
     );

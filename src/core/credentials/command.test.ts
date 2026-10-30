@@ -1,6 +1,14 @@
 import { NodeContext } from '@effect/platform-node';
 import { Effect, Schema } from 'effect';
-import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import {
+  createTemporaryHomeDirectory,
+  makeLaunchHomeTest,
+  removeTemporaryHomeDirectory,
+  writeLaunchHomeFile,
+} from '@testkit/launchHome.testkit.js';
 import {
   AppStoreIdentityService,
   type AppStoreIdentityService as AppStoreIdentity,
@@ -178,5 +186,141 @@ describe('credentialsCommandProgram validation', () => {
     expect(failure._tag).toBe('CredentialsCommandFailure');
     expect(failure.operation).toBe('export APNs key');
     expect(failure.message).toContain('push-key export');
+  });
+});
+
+describe('set-vendor-number action', () => {
+  let homeDirectory: string;
+  beforeEach(() => {
+    homeDirectory = createTemporaryHomeDirectory();
+    writeLaunchHomeFile(
+      homeDirectory,
+      'accounts.json',
+      JSON.stringify({
+        active: 'KEYA',
+        accounts: [{ keyId: 'KEYA', issuerId: 'issuer-a', label: 'alpha', addedAt: 't' }],
+      }),
+    );
+  });
+  afterEach(() => {
+    removeTemporaryHomeDirectory(homeDirectory);
+  });
+
+  const runInTemporaryHome = (options: Record<string, unknown>) => {
+    const lines: string[] = [];
+    const finished = Effect.runPromise(
+      credentialsCommandProgram({ action: 'set-vendor-number', options }).pipe(
+        Effect.either,
+        Effect.provide(makeLaunchHomeTest(homeDirectory)),
+        Effect.provide(LaunchEnvironmentTest),
+        Effect.provide(makeLaunchLoggerTest(lines)),
+        Effect.provide(makeLaunchPromptTest()),
+        Effect.provide(makeLaunchSecretStoreTest()),
+        Effect.provideService(AppStoreIdentityService, unusedIdentity),
+        Effect.provideService(AppleCredentialsClientFactory, unusedCredentialsFactory),
+      ),
+    );
+    return finished.then((outcome) => ({ outcome, lines }));
+  };
+
+  it('saves the vendor number on the matching account', async () => {
+    const { outcome, lines } = await runInTemporaryHome({
+      account: 'alpha',
+      vendorNumber: ' 12345678 ',
+    });
+
+    expect(outcome._tag).toBe('Right');
+    expect(lines.some((line) => line.includes('alpha'))).toBe(true);
+    const savedFile = JSON.parse(
+      readFileSync(join(homeDirectory, '.launch', 'accounts.json'), 'utf8'),
+    );
+    expect(savedFile.accounts[0].vendorNumber).toBe('12345678');
+  });
+
+  it('asks for both flags', async () => {
+    const withoutAccount = await runInTemporaryHome({ vendorNumber: '1' });
+    const withoutNumber = await runInTemporaryHome({ account: 'alpha' });
+
+    expect(withoutAccount.outcome._tag).toBe('Left');
+    expect(withoutNumber.outcome._tag).toBe('Left');
+  });
+
+  it('rejects a vendor number that is not digits', async () => {
+    const { outcome } = await runInTemporaryHome({ account: 'alpha', vendorNumber: 'abc' });
+
+    expect(outcome).toMatchObject({
+      _tag: 'Left',
+      left: { message: expect.stringContaining('digits only') },
+    });
+  });
+});
+
+describe('set-play-reports-bucket action', () => {
+  let homeDirectory: string;
+  beforeEach(() => {
+    homeDirectory = createTemporaryHomeDirectory();
+  });
+  afterEach(() => {
+    removeTemporaryHomeDirectory(homeDirectory);
+  });
+
+  const runInTemporaryHome = (options: Record<string, unknown>) => {
+    const lines: string[] = [];
+    const finished = Effect.runPromise(
+      credentialsCommandProgram({ action: 'set-play-reports-bucket', options }).pipe(
+        Effect.either,
+        Effect.provide(makeLaunchHomeTest(homeDirectory)),
+        Effect.provide(LaunchEnvironmentTest),
+        Effect.provide(makeLaunchLoggerTest(lines)),
+        Effect.provide(makeLaunchPromptTest()),
+        Effect.provide(makeLaunchSecretStoreTest()),
+        Effect.provideService(AppStoreIdentityService, unusedIdentity),
+        Effect.provideService(AppleCredentialsClientFactory, unusedCredentialsFactory),
+      ),
+    );
+    return finished.then((outcome) => ({ outcome, lines }));
+  };
+
+  const readSavedPortfolio = () =>
+    JSON.parse(readFileSync(join(homeDirectory, '.launch', 'portfolio.json'), 'utf8'));
+
+  it('saves the bucket name from a copied gs:// URI into portfolio.json', async () => {
+    const { outcome, lines } = await runInTemporaryHome({
+      playReportsBucket: 'gs://pubsite_prod_rev_123/',
+    });
+
+    expect(outcome._tag).toBe('Right');
+    expect(lines.some((line) => line.includes('pubsite_prod_rev_123'))).toBe(true);
+    expect(readSavedPortfolio().playReportsBucket).toBe('pubsite_prod_rev_123');
+  });
+
+  it('keeps the tags already saved in portfolio.json', async () => {
+    writeLaunchHomeFile(
+      homeDirectory,
+      'portfolio.json',
+      JSON.stringify({
+        version: 1,
+        discoveredAt: '2026-10-01T00:00:00.000Z',
+        apps: [],
+        tags: [{ appKey: 'ios-1', owner: 'mine', ga4PropertyId: null }],
+      }),
+    );
+
+    await runInTemporaryHome({ playReportsBucket: 'pubsite_prod_123' });
+
+    const savedPortfolio = readSavedPortfolio();
+    expect(savedPortfolio.tags).toHaveLength(1);
+    expect(savedPortfolio.playReportsBucket).toBe('pubsite_prod_123');
+  });
+
+  it('asks for the flag and rejects text that is not a Play bucket', async () => {
+    const withoutFlag = await runInTemporaryHome({});
+    const withWrongBucket = await runInTemporaryHome({ playReportsBucket: 'gs://my-bucket/' });
+
+    expect(withoutFlag.outcome._tag).toBe('Left');
+    expect(withWrongBucket.outcome).toMatchObject({
+      _tag: 'Left',
+      left: { message: expect.stringContaining('pubsite_prod_rev_') },
+    });
   });
 });

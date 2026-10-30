@@ -1,4 +1,5 @@
-import type { FileSystem, Terminal } from '@effect/platform';
+import type { FileSystem, Path, Terminal } from '@effect/platform';
+import type { LocalScreenshot } from '../listing/screenshots/assets.js';
 import { Data, Effect, Schema } from 'effect';
 import { createLogger, type Logger } from '../services/logger.js';
 import type { LaunchPromptService } from '../services/prompt.js';
@@ -18,6 +19,7 @@ import {
 } from '../store/selectStoreApp.js';
 import { completeCommand, type CommandExit } from '../terminal/commandExit.js';
 import {
+  discoverTreatmentScreenshots,
   parseVersionExperimentsConfig,
   reconcileVersionExperiments,
   summarizeExperiments,
@@ -28,6 +30,8 @@ import { hasMessage } from '../services/errorMessage.js';
 export const VersionExperimentsCommandInputSchema = Schema.Struct({
   app: Schema.optionalWith(Schema.String, { exact: true }),
   config: Schema.String,
+  submit: Schema.Boolean,
+  start: Schema.Boolean,
   dryRun: Schema.Boolean,
   yes: Schema.Boolean,
 });
@@ -43,7 +47,7 @@ export type VersionExperimentsCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeVersionExperimentsCommandFailure = Data.tagged<VersionExperimentsCommandFailure>(
+const makeVersionExperimentsCommandFailure = Data.tagged<VersionExperimentsCommandFailure>(
   'VersionExperimentsCommandFailure',
 );
 
@@ -51,6 +55,7 @@ type VersionExperimentsCommandRequirements =
   | ActiveAppleStoreRequirements
   | FileSystem.FileSystem
   | LaunchPromptService
+  | Path.Path
   | Logger
   | StoreAppSelectionRequirements
   | Terminal.Terminal;
@@ -74,13 +79,17 @@ const experimentsFailure = (
   return makeVersionExperimentsCommandFailure({ operation, message, cause });
 };
 
-/** Resolve the selected bundle id and required experiments sidecar. */
+/** Resolve the selected bundle id, the required experiments sidecar, and its treatment screenshots. */
 const resolveExperimentsTarget = (
   commandInput: VersionExperimentsCommandInput,
 ): Effect.Effect<
-  Readonly<{ bundleId: string; experimentsConfig: VersionExperimentsConfig }>,
+  Readonly<{
+    bundleId: string;
+    experimentsConfig: VersionExperimentsConfig;
+    treatmentScreenshots: ReadonlyMap<string, readonly LocalScreenshot[]>;
+  }>,
   VersionExperimentsCommandFailure,
-  FileSystem.FileSystem | StoreAppSelectionRequirements
+  FileSystem.FileSystem | Path.Path | StoreAppSelectionRequirements
 > =>
   Effect.gen(function* () {
     const storeAppContext = yield* loadStoreAppContext(commandInput.app).pipe(
@@ -110,7 +119,11 @@ const resolveExperimentsTarget = (
         }),
       );
     }
-    return { bundleId: storeAppContext.app.bundleId, experimentsConfig };
+    const treatmentScreenshots = yield* discoverTreatmentScreenshots(
+      commandInput.config,
+      experimentsConfig,
+    ).pipe(Effect.mapError((cause) => experimentsFailure('read treatment screenshots', cause)));
+    return { bundleId: storeAppContext.app.bundleId, experimentsConfig, treatmentScreenshots };
   });
 
 /** Plan, confirm, and apply product-page experiment changes. */
@@ -128,9 +141,15 @@ const executeVersionExperiments = (
     const appleStore = yield* loadActiveAppleStore().pipe(
       Effect.mapError((cause) => experimentsFailure('load App Store Connect client', cause)),
     );
-    const experimentsPlan = yield* reconcileVersionExperiments(appleStore, {
+    const reconciliationInput = {
       bundleId: experimentsTarget.bundleId,
       config: experimentsTarget.experimentsConfig,
+      treatmentScreenshots: experimentsTarget.treatmentScreenshots,
+      submit: commandInput.submit,
+      start: commandInput.start,
+    };
+    const experimentsPlan = yield* reconcileVersionExperiments(appleStore, {
+      ...reconciliationInput,
       dryRun: true,
     }).pipe(Effect.mapError((cause) => experimentsFailure('plan experiment changes', cause)));
     const plannedActions = experimentsPlan.actions.filter(
@@ -162,8 +181,7 @@ const executeVersionExperiments = (
     ).pipe(Effect.mapError((cause) => experimentsFailure('confirm experiment changes', cause)));
     if (!confirmed) return 0;
     const appliedExperiments = yield* reconcileVersionExperiments(appleStore, {
-      bundleId: experimentsTarget.bundleId,
-      config: experimentsTarget.experimentsConfig,
+      ...reconciliationInput,
       dryRun: false,
     }).pipe(Effect.mapError((cause) => experimentsFailure('apply experiment changes', cause)));
     const experimentsSummary = summarizeExperiments(appliedExperiments.actions);

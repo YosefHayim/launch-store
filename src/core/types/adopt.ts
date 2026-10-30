@@ -100,7 +100,7 @@ export type ProductPiece =
  * into one `products` block, entitlements merge into one `app.json` patch - which is why the change is
  * structured data rather than ascSync's apply-closure: a closure can't be aggregated across adopters.
  */
-export type AdoptChange =
+type AdoptChange =
   | Readonly<{
       home: 'launch.config';
       bundleId: string;

@@ -9,8 +9,6 @@ export const DiagnoseCommandInputSchema = Schema.Struct({
   logfile: Schema.optional(Schema.String),
 });
 
-export type DiagnoseCommandInput = Schema.Schema.Type<typeof DiagnoseCommandInputSchema>;
-
 export type DiagnoseCommandFailure = Readonly<{
   readonly _tag: 'DiagnoseCommandFailure';
   readonly operation: string;
@@ -18,8 +16,7 @@ export type DiagnoseCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeDiagnoseCommandFailure =
-  Data.tagged<DiagnoseCommandFailure>('DiagnoseCommandFailure');
+const makeDiagnoseCommandFailure = Data.tagged<DiagnoseCommandFailure>('DiagnoseCommandFailure');
 
 type DiagnoseCommandRequirements = FileSystem.FileSystem | LaunchPathsService | Logger | Path.Path;
 

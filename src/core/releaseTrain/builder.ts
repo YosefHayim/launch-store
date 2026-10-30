@@ -49,14 +49,14 @@ import { androidCarState, iosCarState } from './engine.js';
 import type { TrainEngine } from './orchestrator.js';
 
 /** A release-train engine operation failed. */
-export type TrainRuntimeFailure = Readonly<{
+type TrainRuntimeFailure = Readonly<{
   readonly _tag: 'TrainRuntimeFailure';
   readonly operation: string;
   readonly message: string;
   readonly cause: unknown;
 }>;
 
-export const makeTrainRuntimeFailure = Data.tagged<TrainRuntimeFailure>('TrainRuntimeFailure');
+const makeTrainRuntimeFailure = Data.tagged<TrainRuntimeFailure>('TrainRuntimeFailure');
 
 /** Platform services required by the live train engine. */
 export type TrainRuntimeRequirements =
@@ -132,6 +132,7 @@ export const createTrainRuntime = (
     TrainRuntimeFailure,
     | AppleStoreClientDependencies
     | FileSystem.FileSystem
+    | LaunchEnvironmentService
     | LaunchPathsService
     | LaunchSecretStoreService
     | Path.Path
@@ -209,6 +210,7 @@ export const createTrainRuntime = (
     TrainRuntimeFailure,
     | AppleStoreClientDependencies
     | FileSystem.FileSystem
+    | LaunchEnvironmentService
     | LaunchPathsService
     | LaunchSecretStoreService
     | Path.Path

@@ -20,8 +20,6 @@ export const InitCommandInputSchema = Schema.Struct({
   framed: Schema.Boolean,
 });
 
-export type InitCommandInput = Schema.Schema.Type<typeof InitCommandInputSchema>;
-
 /** An init command step failed. */
 export type InitCommandFailure = Readonly<{
   readonly _tag: 'InitCommandFailure';
@@ -29,7 +27,7 @@ export type InitCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeInitCommandFailure = Data.tagged<InitCommandFailure>('InitCommandFailure');
+const makeInitCommandFailure = Data.tagged<InitCommandFailure>('InitCommandFailure');
 
 type InitCommandRequirements =
   | FileSystem.FileSystem

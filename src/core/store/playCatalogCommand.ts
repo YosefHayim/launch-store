@@ -9,7 +9,7 @@ export type PlayCatalogConfirmationFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makePlayCatalogConfirmationFailure = Data.tagged<PlayCatalogConfirmationFailure>(
+const makePlayCatalogConfirmationFailure = Data.tagged<PlayCatalogConfirmationFailure>(
   'PlayCatalogConfirmationFailure',
 );
 

@@ -69,7 +69,7 @@ const AppConfigSchema = Schema.Struct({
 type BuildStateRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
 
 /** Weight assigned to a new duration sample. */
-export const EMA_ALPHA = 0.5;
+const EMA_ALPHA = 0.5;
 
 /** Fold a completed build into its moving estimate. */
 export const updateEstimate = (
@@ -172,7 +172,7 @@ const buildStateDirectory = (
 };
 
 /** Resolve the state file for one app and platform. */
-export const buildStatePath = (
+const buildStatePath = (
   appName: string,
   platform: Platform,
   directoryOverride?: string,

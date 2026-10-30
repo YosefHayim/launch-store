@@ -33,7 +33,7 @@ export type DoctorCommandFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeDoctorCommandFailure = Data.tagged<DoctorCommandFailure>('DoctorCommandFailure');
+const makeDoctorCommandFailure = Data.tagged<DoctorCommandFailure>('DoctorCommandFailure');
 
 type DoctorCommandRequirements = DoctorRuntimeRequirements | LaunchPromptService | Logger;
 

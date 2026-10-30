@@ -194,7 +194,7 @@ export type RestoreInput = Readonly<{
   dryRun: boolean;
 }>;
 /** The result of a restore pass: the actions planned (dry-run) or applied, in order. */
-export type RestoreReport = Readonly<{
+type RestoreReport = Readonly<{
   actions: readonly PlannedAction[];
 }>;
 /**

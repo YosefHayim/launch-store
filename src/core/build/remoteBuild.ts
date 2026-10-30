@@ -17,7 +17,7 @@ import {
  * dirs are reinstalled/regenerated on the host, history is irrelevant, and `.env` is a secret-bearing
  * file whose *values* are injected separately as build env vars.
  */
-export const SOURCE_EXCLUDES = [
+const SOURCE_EXCLUDES = [
   'node_modules',
   '.git',
   'ios',

@@ -23,6 +23,7 @@ import {
   matchAccount,
   removeAccount,
   renameAccount,
+  setAccountVendorNumber,
   setActiveKeyId,
   updateAccountIdentity,
 } from './accounts.js';
@@ -34,12 +35,18 @@ import {
 } from './androidKeystore.js';
 import { describeStoredCredentials, ensureSigningCredentials } from './appleSigning.js';
 import { extractKeyId, findAuthKeyFiles, reconcileKeyId } from './keyFiles.js';
+import {
+  pickSavedPortfolioFile,
+  loadPortfolioFile,
+  savePortfolioFile,
+} from '../portfolio/portfolioStore.js';
+import { parsePlayReportsBucket } from '../stats/playReportsBucket.js';
 import { findPushKey, importPushKey, listPushKeys, loadPushKey } from './pushKeyStore.js';
 
 const optionalCommandText = Schema.optionalWith(Schema.String, { exact: true });
 const optionalCommandFlag = Schema.optionalWith(Schema.Boolean, { exact: true });
 
-export const CredentialsActionSchema = Schema.Literal(
+const CredentialsActionSchema = Schema.Literal(
   'status',
   'accounts',
   'set-key',
@@ -50,9 +57,11 @@ export const CredentialsActionSchema = Schema.Literal(
   'logout',
   'refresh',
   'push-key',
+  'set-vendor-number',
+  'set-play-reports-bucket',
 );
 
-export const CredentialsCommandOptionsSchema = Schema.Struct({
+const CredentialsCommandOptionsSchema = Schema.Struct({
   platform: optionalCommandText,
   keyId: optionalCommandText,
   issuerId: optionalCommandText,
@@ -66,6 +75,8 @@ export const CredentialsCommandOptionsSchema = Schema.Struct({
   teamId: optionalCommandText,
   out: optionalCommandText,
   force: optionalCommandFlag,
+  vendorNumber: optionalCommandText,
+  playReportsBucket: optionalCommandText,
 });
 
 export const CredentialsCommandInputSchema = Schema.Struct({
@@ -75,9 +86,7 @@ export const CredentialsCommandInputSchema = Schema.Struct({
   options: CredentialsCommandOptionsSchema,
 });
 
-export type CredentialsAction = Schema.Schema.Type<typeof CredentialsActionSchema>;
 export type CredentialsCommandOptions = Schema.Schema.Type<typeof CredentialsCommandOptionsSchema>;
-export type CredentialsCommandInput = Schema.Schema.Type<typeof CredentialsCommandInputSchema>;
 
 type CredentialsCommandRequirements =
   | AppStoreIdentityService
@@ -99,7 +108,7 @@ export type CredentialsCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeCredentialsCommandFailure = Data.tagged<CredentialsCommandFailure>(
+const makeCredentialsCommandFailure = Data.tagged<CredentialsCommandFailure>(
   'CredentialsCommandFailure',
 );
 
@@ -789,6 +798,54 @@ const renameAppleAccount = (
     yield* logger.ok(`Renamed account ${matchedAccount.keyId} to "${accountLabel}".`);
   });
 
+const VENDOR_NUMBER_PATTERN = /^[0-9]+$/;
+
+const setAppleVendorNumber = (
+  commandOptions: CredentialsCommandOptions,
+): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
+  Effect.gen(function* () {
+    const usage = 'Usage: launch creds set-vendor-number --account <label> --vendor-number <n>.';
+    const { account: selector, vendorNumber } = commandOptions;
+    const isSelectorMissing = selector === undefined;
+    if (isSelectorMissing) return yield* failCommand('set vendor number', usage);
+    const isVendorNumberMissing = vendorNumber === undefined;
+    if (isVendorNumberMissing) return yield* failCommand('set vendor number', usage);
+    const trimmedVendorNumber = vendorNumber.trim();
+    const isVendorNumberDigits = VENDOR_NUMBER_PATTERN.test(trimmedVendorNumber);
+    const isVendorNumberInvalid = !isVendorNumberDigits;
+    if (isVendorNumberInvalid) {
+      return yield* failCommand('set vendor number', 'The vendor number is digits only.');
+    }
+    const accounts = yield* listAccounts();
+    const selectedAccount = yield* requireMatchedAccount(accounts, selector, 'set vendor number');
+    yield* setAccountVendorNumber(selectedAccount.keyId, trimmedVendorNumber);
+    const logger = yield* createLogger(false);
+    yield* logger.ok(`Saved the vendor number for account "${selectedAccount.label}".`);
+  });
+
+/** Save the Play reports bucket the stats sync reads install, rating, crash and earnings files from. */
+const setPlayReportsBucket = (
+  commandOptions: CredentialsCommandOptions,
+): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
+  Effect.gen(function* () {
+    const usage =
+      'Usage: launch creds set-play-reports-bucket --play-reports-bucket <uri or name>.';
+    const { playReportsBucket: copiedBucket } = commandOptions;
+    if (copiedBucket === undefined) return yield* failCommand('set Play reports bucket', usage);
+    const bucketName = parsePlayReportsBucket(copiedBucket);
+    if (bucketName === null) {
+      return yield* failCommand(
+        'set Play reports bucket',
+        'Expected a Cloud Storage URI like gs://pubsite_prod_rev_0123456789/ or its bucket name.',
+      );
+    }
+    const savedFile = yield* loadPortfolioFile();
+    const portfolioFile = pickSavedPortfolioFile(savedFile);
+    yield* savePortfolioFile({ ...portfolioFile, playReportsBucket: bucketName });
+    const logger = yield* createLogger(false);
+    yield* logger.ok(`Saved the Play reports bucket ${bucketName}.`);
+  });
+
 /** Remove one Apple account after an optional interactive confirmation. */
 const removeAppleAccount = (
   selector: string | undefined,
@@ -1019,6 +1076,10 @@ export const credentialsCommandProgram = (
         return yield* removeAppleAccount(decodedCommand.firstArgument, decodedCommand.options);
       case 'refresh':
         return yield* refreshAppleAccounts(decodedCommand.firstArgument);
+      case 'set-vendor-number':
+        return yield* setAppleVendorNumber(decodedCommand.options);
+      case 'set-play-reports-bucket':
+        return yield* setPlayReportsBucket(decodedCommand.options);
       case 'push-key':
         return yield* runPushKeyAction(
           decodedCommand.firstArgument,

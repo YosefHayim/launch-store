@@ -6,7 +6,7 @@ import type { McpCapability } from './storeSurface.js';
  * pretty-printed JSON), but the field is kept as a discriminated shape so it matches the protocol's
  * content-block union and could carry other kinds later without a breaking change.
  */
-export type McpTextContent = Readonly<{
+type McpTextContent = Readonly<{
   type: 'text';
   text: string;
 }>;
@@ -26,7 +26,7 @@ export type McpToolResult = Readonly<{
  * value both advertises the tool (via `tools/list`) and validates incoming arguments through the
  * hand-rolled {@link import("../config/jsonSchema.js").validate} - one schema, no zod, no second validator.
  */
-export type McpInputSchema = JsonSchema &
+type McpInputSchema = JsonSchema &
   Readonly<{
     type: 'object';
   }>;

@@ -8,7 +8,7 @@ export type GoogleReportingClientFailure = Readonly<{
   readonly cause: unknown;
 }>;
 
-export const makeGoogleReportingClientFailure = Data.tagged<GoogleReportingClientFailure>(
+const makeGoogleReportingClientFailure = Data.tagged<GoogleReportingClientFailure>(
   'GoogleReportingClientFailure',
 );
 

@@ -38,10 +38,10 @@ export type AppEventFailure = Readonly<{
   readonly message: string;
   readonly cause: unknown;
 }>;
-export const makeAppEventFailure = Data.tagged<AppEventFailure>('AppEventFailure');
+const makeAppEventFailure = Data.tagged<AppEventFailure>('AppEventFailure');
 
 /** Apple's in-app-event badges. */
-export const APP_EVENT_BADGES: readonly string[] = [
+const APP_EVENT_BADGES: readonly string[] = [
   'LIVE_EVENT',
   'PREMIERE',
   'CHALLENGE',
@@ -52,10 +52,10 @@ export const APP_EVENT_BADGES: readonly string[] = [
 ];
 
 /** How prominently Apple may feature an event. */
-export const APP_EVENT_PRIORITIES: readonly string[] = ['HIGH', 'NORMAL'];
+const APP_EVENT_PRIORITIES: readonly string[] = ['HIGH', 'NORMAL'];
 
 /** The supported marketing purposes for an event. */
-export const APP_EVENT_PURPOSES: readonly string[] = [
+const APP_EVENT_PURPOSES: readonly string[] = [
   'APPROPRIATE_FOR_ALL_USERS',
   'ATTRACT_NEW_USERS',
   'KEEP_ACTIVE_USERS_INFORMED',

@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import * as FileSystem from '@effect/platform/FileSystem';
 import type * as PlatformError from '@effect/platform/Error';
 import * as Path from '@effect/platform/Path';
-import { Context, Effect, Layer } from 'effect';
+import { Context, Data, Effect, Layer } from 'effect';
+import { APP_KEY_PATTERN } from '../types/portfolio.js';
 import { homedir } from 'node:os';
 
 export type LaunchPathsService = Readonly<{
@@ -34,7 +35,6 @@ export const LAUNCH_HOME = `${homedir()}/.launch`;
 /** Where built artifacts are copied by the local storage provider. */
 export const ARTIFACTS_DIR = `${LAUNCH_HOME}/artifacts`;
 /** Full tee'd logs of long external tools (xcodebuild, gradle, prebuild). */
-export const LOGS_DIR = `${LAUNCH_HOME}/logs`;
 /** JSON index of stored artifacts (newest-first history). */
 export const ARTIFACT_INDEX = `${ARTIFACTS_DIR}/index.json`;
 /** Registry of onboarded Apple accounts (non-secret: Key IDs, Issuer IDs, labels only). */
@@ -244,4 +244,45 @@ export const ensureDirectoryExists = (
     const fileSystem = yield* FileSystem.FileSystem;
     yield* fileSystem.makeDirectory(directoryPath, { recursive: true });
     return directoryPath;
+  });
+export type InvalidAppKeyFailure = Readonly<{
+  readonly _tag: 'InvalidAppKeyFailure';
+  readonly message: string;
+}>;
+const makeInvalidAppKeyFailure = Data.tagged<InvalidAppKeyFailure>('InvalidAppKeyFailure');
+export const locateStatsDirectory = (): Effect.Effect<
+  string,
+  never,
+  LaunchPathsService | Path.Path
+> =>
+  Effect.gen(function* () {
+    const pathService = yield* Path.Path;
+    const launchHomeDirectory = yield* resolveLaunchHomeDirectory();
+    return pathService.join(launchHomeDirectory, 'stats');
+  });
+export const locateAppStatsDirectory = (
+  appKey: string,
+): Effect.Effect<string, InvalidAppKeyFailure, LaunchPathsService | Path.Path> =>
+  Effect.gen(function* () {
+    const isAppKeyValid = APP_KEY_PATTERN.test(appKey);
+    const isAppKeyInvalid = !isAppKeyValid;
+    if (isAppKeyInvalid) {
+      const invalidKeyFailure = makeInvalidAppKeyFailure({
+        message: `"${appKey}" is not a valid app key.`,
+      });
+      return yield* Effect.fail(invalidKeyFailure);
+    }
+    const pathService = yield* Path.Path;
+    const statsDirectory = yield* locateStatsDirectory();
+    return pathService.join(statsDirectory, appKey);
+  });
+export const locatePortfolioFilePath = (): Effect.Effect<
+  string,
+  never,
+  LaunchPathsService | Path.Path
+> =>
+  Effect.gen(function* () {
+    const pathService = yield* Path.Path;
+    const launchHomeDirectory = yield* resolveLaunchHomeDirectory();
+    return pathService.join(launchHomeDirectory, 'portfolio.json');
   });

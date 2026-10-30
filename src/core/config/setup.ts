@@ -50,7 +50,7 @@ export type ReadinessRow = Readonly<{
   status: ReadinessStatus;
   detail?: string;
 }>;
-export type ReadinessGroup = Readonly<{
+type ReadinessGroup = Readonly<{
   title: string;
   rows: readonly ReadinessRow[];
 }>;
@@ -349,7 +349,7 @@ const appConfigReadinessRows = (apps: readonly AppDescriptor[], platform: Platfo
   });
 
 /** Collect the complete setup readiness picture without changing external state. */
-export const collectReadiness = (platform: Platform, apps: readonly AppDescriptor[]) =>
+const collectReadiness = (platform: Platform, apps: readonly AppDescriptor[]) =>
   Effect.gen(function* () {
     let tools = REQUIRED_TOOLS;
     if (platform === 'android') tools = ANDROID_TOOLS;

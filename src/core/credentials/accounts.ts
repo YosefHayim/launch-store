@@ -10,6 +10,7 @@ import {
 import { deleteSecret, getSecret, setSecret } from './keychain.js';
 import { migrateLegacySigningIndex, p12PasswordAccount } from './appleSigning.js';
 import { AppStoreIdentityService } from '../services/appStoreIdentity.js';
+import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import type { MutableDeep } from '../types/mutable.js';
 /** Secret-store account holding one Apple account's `.p8` PEM, namespaced by Key ID. */
@@ -25,7 +26,7 @@ export type AccountFailure = Readonly<{
   readonly _tag: 'AccountFailure';
   readonly message: string;
 }>;
-export const makeAccountFailure = Data.tagged<AccountFailure>('AccountFailure');
+const makeAccountFailure = Data.tagged<AccountFailure>('AccountFailure');
 const AccountRecordSchema: Schema.Schema<AccountRecord> = Schema.Struct({
   keyId: Schema.String,
   issuerId: Schema.String,
@@ -34,6 +35,7 @@ const AccountRecordSchema: Schema.Schema<AccountRecord> = Schema.Struct({
   apps: Schema.optionalWith(Schema.Array(Schema.String), { exact: true }),
   addedAt: Schema.String,
   resolvedAt: Schema.optionalWith(Schema.String, { exact: true }),
+  vendorNumber: Schema.optionalWith(Schema.String, { exact: true }),
 });
 const AccountsFileSchema: Schema.Schema<AccountsFile> = Schema.Struct({
   active: Schema.NullOr(Schema.String),
@@ -128,7 +130,7 @@ export const getActiveAccount = (): Effect.Effect<
     return activeAccount;
   });
 /** Find an account by exact Key ID. */
-export const findAccount = (
+const findAccount = (
   keyId: string,
 ): Effect.Effect<AccountRecord | undefined, never, AccountStorageRequirements> =>
   readAccounts().pipe(
@@ -212,6 +214,8 @@ export const addAccount = (
       label: input.label,
       addedAt,
     };
+    const hasSavedVendorNumber = existing?.vendorNumber !== undefined;
+    if (hasSavedVendorNumber) record.vendorNumber = existing.vendorNumber;
     if (input.teamId !== null && input.teamId !== undefined) record.teamId = input.teamId;
     if (input.apps !== undefined && input.apps.length > 0) record.apps = [...input.apps];
     if (hasIdentity) record.resolvedAt = timestamp;
@@ -243,14 +247,38 @@ export const updateAccountIdentity = (
     });
     yield* writeAccounts({ active: file.active, accounts });
   });
+export const setAccountVendorNumber = (
+  keyId: string,
+  vendorNumber: string,
+): Effect.Effect<void, AccountFailure, AccountStorageRequirements> =>
+  Effect.gen(function* () {
+    const file = yield* readAccounts();
+    const isAccountSaved = file.accounts.some((account) => account.keyId === keyId);
+    if (!isAccountSaved) {
+      const missingAccountFailure = makeAccountFailure({
+        message: `No account with key ${keyId}.`,
+      });
+      return yield* Effect.fail(missingAccountFailure);
+    }
+    const accounts = file.accounts.map((account) => {
+      const isTargetAccount = account.keyId === keyId;
+      if (isTargetAccount) return { ...account, vendorNumber };
+      return account;
+    });
+    yield* writeAccounts({ active: file.active, accounts });
+  });
 /** Make `keyId` the active account; throws if it isn't registered. */
 export const setActiveKeyId = (
   keyId: string,
 ): Effect.Effect<void, AccountFailure, AccountStorageRequirements> =>
   Effect.gen(function* () {
     const file = yield* readAccounts();
-    if (!file.accounts.some((account) => account.keyId === keyId)) {
-      return yield* Effect.fail(makeAccountFailure({ message: `No account with key ${keyId}.` }));
+    const isAccountSaved = file.accounts.some((account) => account.keyId === keyId);
+    if (!isAccountSaved) {
+      const missingAccountFailure = makeAccountFailure({
+        message: `No account with key ${keyId}.`,
+      });
+      return yield* Effect.fail(missingAccountFailure);
     }
     yield* writeAccounts({ active: keyId, accounts: file.accounts });
   });
@@ -261,8 +289,12 @@ export const renameAccount = (
 ): Effect.Effect<void, AccountFailure, AccountStorageRequirements> =>
   Effect.gen(function* () {
     const file = yield* readAccounts();
-    if (!file.accounts.some((account) => account.keyId === keyId)) {
-      return yield* Effect.fail(makeAccountFailure({ message: `No account with key ${keyId}.` }));
+    const isAccountSaved = file.accounts.some((account) => account.keyId === keyId);
+    if (!isAccountSaved) {
+      const missingAccountFailure = makeAccountFailure({
+        message: `No account with key ${keyId}.`,
+      });
+      return yield* Effect.fail(missingAccountFailure);
     }
     const accounts = file.accounts.map((account) => {
       if (account.keyId === keyId) return { ...account, label: newLabel };
@@ -306,13 +338,30 @@ export const loadAscKeyById = (
     if (!stored) return null;
     return { keyId, issuerId: record.issuerId, p8: decodeP8(stored) };
   });
-/** Load the active account's key, or null when none is selected. */
+/** Load the key of the account `ASC_ACCOUNT` names (label or Key ID), failing when none matches. */
+const loadSelectedAscKey = (selector: string) =>
+  Effect.gen(function* () {
+    const accounts = yield* listAccounts();
+    const selected = matchAccount(accounts, selector);
+    if (!selected) {
+      return yield* Effect.fail(
+        makeAccountFailure({
+          message: `No Apple account matching "${selector}". Run \`launch creds\` to list them.`,
+        }),
+      );
+    }
+    return yield* loadAscKeyById(selected.keyId);
+  });
+/** Load the `ASC_ACCOUNT` account's key, else the active account's, or null when none is selected. */
 export const loadActiveAscKey = (): Effect.Effect<
   AscKey | null,
   unknown,
-  AccountStorageRequirements | LaunchSecretStoreService
+  AccountStorageRequirements | LaunchEnvironmentService | LaunchSecretStoreService
 > =>
   Effect.gen(function* () {
+    const environment = yield* LaunchEnvironment;
+    const selector = environment.values.appleAccount;
+    if (selector !== undefined) return yield* loadSelectedAscKey(selector);
     const active = yield* getActiveKeyId();
     if (active) return yield* loadAscKeyById(active);
     return null;
@@ -387,12 +436,12 @@ export const resolveBuildAccount = (
     return yield* options.pick(file.accounts);
   });
 /** Validated Apple-side identity for an account: the Team ID and visible app names (best-effort each). */
-export type AccountIdentity = {
+type AccountIdentity = {
   teamId: string | null;
   apps: string[];
 };
 /** Resolve an account's Team ID + accessible app names from Apple (each degrades to null/[] on failure). */
-export const resolveAccountIdentity = (
+const resolveAccountIdentity = (
   ascKey: AscKey,
 ): Effect.Effect<AccountIdentity, never, AppStoreIdentityService> =>
   Effect.gen(function* () {

@@ -44,7 +44,7 @@ export type ConsumerSkill = Readonly<{
   }>;
 }>;
 /** One row of the EAS -> Launch command map shown in the always-on base context. */
-export type CommandMapRow = Readonly<{
+type CommandMapRow = Readonly<{
   eas: string;
   launch: string;
   note: string;
@@ -54,7 +54,7 @@ export type CommandMapRow = Readonly<{
  * and which irreversible ones demand explicit human confirmation first. Mirrors Launch's own
  * plan -> confirm -> apply ethos so an over-eager agent can't publish to production with `--yes`.
  */
-export type Guardrail = Readonly<{
+type Guardrail = Readonly<{
   free: readonly string[];
   confirm: readonly string[];
 }>;

@@ -7,6 +7,7 @@ import type { GoogleStoreClientService } from '../services/googleStoreClient.js'
 import { createLogger, type Logger } from '../services/logger.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
+import type { LaunchEnvironmentService } from '../services/environment.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import { captureAutoSnapshot } from '../snapshot/autoSnapshot.js';
 import type { SnapshotContext } from '../types/snapshot.js';
@@ -22,8 +23,6 @@ export const SyncCommandInputSchema = Schema.Struct({
   snapshot: Schema.Boolean,
 });
 
-export type SyncCommandInput = Schema.Schema.Type<typeof SyncCommandInputSchema>;
-
 export type SyncCommandFailure = Readonly<{
   readonly _tag: 'SyncCommandFailure';
   readonly operation: string;
@@ -31,12 +30,13 @@ export type SyncCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeSyncCommandFailure = Data.tagged<SyncCommandFailure>('SyncCommandFailure');
+const makeSyncCommandFailure = Data.tagged<SyncCommandFailure>('SyncCommandFailure');
 
 type SyncCommandRequirements =
   | AppleStoreClientService
   | FileSystem.FileSystem
   | GoogleStoreClientService
+  | LaunchEnvironmentService
   | LaunchPathsService
   | LaunchPromptService
   | LaunchSecretStoreService

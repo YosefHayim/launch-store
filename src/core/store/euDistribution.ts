@@ -25,7 +25,7 @@ const EuDistributionDomainSchema = Schema.mutable(
   }),
 );
 
-export const EuDistributionConfigSchema = Schema.mutable(
+const EuDistributionConfigSchema = Schema.mutable(
   Schema.Struct({
     domains: Schema.mutable(Schema.Array(EuDistributionDomainSchema)).pipe(
       Schema.minItems(1, {

@@ -14,12 +14,10 @@ import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import type { BuildArtifact } from '../types/artifacts.js';
 import { findBuild } from './buildHistoryCommand.js';
 
-export const RunCommandInputSchema = Schema.Struct({
+const RunCommandInputSchema = Schema.Struct({
   reference: Schema.String,
   device: Schema.optionalWith(Schema.String, { exact: true }),
 });
-
-export type RunCommandInput = Schema.Schema.Type<typeof RunCommandInputSchema>;
 
 export type RunCommandFailure = Readonly<{
   readonly _tag: 'RunCommandFailure';
@@ -28,7 +26,7 @@ export type RunCommandFailure = Readonly<{
   readonly cause?: unknown;
 }>;
 
-export const makeRunCommandFailure = Data.tagged<RunCommandFailure>('RunCommandFailure');
+const makeRunCommandFailure = Data.tagged<RunCommandFailure>('RunCommandFailure');
 
 type RunCommandRequirements =
   | CommandExecutor

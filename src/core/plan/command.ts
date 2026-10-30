@@ -6,6 +6,7 @@ import { errorMessage } from '../services/errorMessage.js';
 import type { GoogleStoreClientService } from '../services/googleStoreClient.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
+import type { LaunchEnvironmentService } from '../services/environment.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import { createAscClientResolver, createPlayClientResolver } from '../store/storeClients.js';
 import { selectApps } from '../store/syncJobs.js';
@@ -25,7 +26,7 @@ export const PlanCommandInputSchema = Schema.Struct({
 
 export type PlanCommandInput = Schema.Schema.Type<typeof PlanCommandInputSchema>;
 
-export const PlanCommandFailureSchema = Schema.Struct({
+const PlanCommandFailureSchema = Schema.Struct({
   _tag: Schema.Literal('PlanCommandFailure'),
   operation: Schema.String,
   message: Schema.String,
@@ -33,7 +34,7 @@ export const PlanCommandFailureSchema = Schema.Struct({
 });
 
 export type PlanCommandFailure = Schema.Schema.Type<typeof PlanCommandFailureSchema>;
-export const makePlanCommandFailure = Data.tagged<PlanCommandFailure>('PlanCommandFailure');
+const makePlanCommandFailure = Data.tagged<PlanCommandFailure>('PlanCommandFailure');
 
 type PlannedAppSurface = Extract<SurfacePlan, { state: 'planned'; scope: 'app' }>;
 type PlannedTeamSurface = Extract<SurfacePlan, { state: 'planned'; scope: 'team' }>;
@@ -42,6 +43,7 @@ type PlanCommandRequirements =
   | AppleStoreClientService
   | FileSystem.FileSystem
   | GoogleStoreClientService
+  | LaunchEnvironmentService
   | LaunchPathsService
   | LaunchSecretStoreService
   | Logger
@@ -165,7 +167,7 @@ const renderSummary = (
   });
 
 /** Render human plan/drift report lines for one outcome. */
-export const renderPlanOutcome = (
+const renderPlanOutcome = (
   logger: Logger,
   planOutcome: PlanOutcome,
 ): Effect.Effect<void, PlanCommandFailure> =>

@@ -51,7 +51,7 @@ export type OtaPublishFailure = Readonly<{
   readonly message: string;
 }>;
 
-export const makeOtaPublishFailure = Data.tagged<OtaPublishFailure>('OtaPublishFailure');
+const makeOtaPublishFailure = Data.tagged<OtaPublishFailure>('OtaPublishFailure');
 
 /** Read and validate metadata.json from an Expo export directory. */
 export const readExportMetadata = (

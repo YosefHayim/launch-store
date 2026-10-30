@@ -35,7 +35,7 @@ export type ProbeResult =
 export type ReadinessProbeRequirements = FileSystem.FileSystem | HttpClient.HttpClient | Path.Path;
 
 /** Effect returned by every readiness probe. */
-export type ProbeCheckResult = Effect.Effect<ProbeResult, unknown, ReadinessProbeRequirements>;
+type ProbeCheckResult = Effect.Effect<ProbeResult, unknown, ReadinessProbeRequirements>;
 
 /** Probe result plus an unexpected read failure captured by the orchestrator. */
 export type ProbeOutcome =
