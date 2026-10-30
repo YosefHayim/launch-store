@@ -45,7 +45,12 @@ export const buildDoctorContext = (
 ): Effect.Effect<
   DoctorContext<DoctorRuntimeRequirements>,
   DoctorContextFailure,
-  FileSystem.FileSystem | LaunchEnvironmentService | LaunchPathsService | Path.Path
+  | FileSystem.FileSystem
+  | LaunchEnvironmentService
+  | LaunchPathsService
+  | Path.Path
+  | LaunchSecretStoreService
+  | GoogleStoreClientService
 > =>
   Effect.gen(function* () {
     const environment = yield* LaunchEnvironment;
@@ -55,7 +60,7 @@ export const buildDoctorContext = (
     );
     const operatingSystem = yield* detectHostOperatingSystem;
     const resolveAppleClient = createAscClientResolver();
-    const resolveGoogleClient = createPlayClientResolver();
+    const resolveGoogleClient = yield* createPlayClientResolver();
     const selectedApps = yield* selectApps(loadedConfig.apps, appSelector).pipe(
       Effect.mapError((cause) => contextFailure('select doctor apps', cause)),
     );
@@ -87,10 +92,17 @@ export const buildDoctorContext = (
           return yield* fileSystem.exists(pathService.join(appDirectory, 'android', 'gradlew'));
         }),
       resolveAsc: () => resolveAppleClient(),
-      resolvePlay: () => resolveGoogleClient(),
+      resolvePlay: (packageName) => resolveGoogleClient(packageName),
       credentialsStatus: () =>
         getCredentialsProvider(loadedConfig.config.credentials).pipe(
-          Effect.flatMap((credentialsProvider) => credentialsProvider.status()),
+          Effect.flatMap((credentialsProvider) =>
+            credentialsProvider.status(
+              selectedApps.flatMap((app) => {
+                if (app.packageName === undefined) return [];
+                return [app.packageName];
+              }),
+            ),
+          ),
         ),
       corepackAvailable: () => checkCommandExists('corepack'),
       codesignIdentities: () =>

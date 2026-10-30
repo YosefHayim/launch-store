@@ -165,7 +165,15 @@ export const createTrainRuntime = (
   > =>
     Effect.gen(function* () {
       if (cachedGoogleClient !== undefined) return cachedGoogleClient;
-      const serviceAccountJson = yield* loadServiceAccount().pipe(
+      if (!appDescriptor.packageName)
+        return yield* Effect.fail(
+          runtimeFailure(
+            'load Google Play service account',
+            appDescriptor.name,
+            'Set android.package before using Google Play.',
+          ),
+        );
+      const serviceAccountJson = yield* loadServiceAccount(appDescriptor.packageName).pipe(
         Effect.mapError((cause) => runtimeFailure('load Google Play service account', cause)),
       );
       if (serviceAccountJson === null) {

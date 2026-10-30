@@ -30,13 +30,11 @@ export type ActiveGoogleStoreRequirements =
   | LaunchSecretStoreService;
 
 /** Load the keychain-backed Play service account and create its Effect transport client. */
-export const loadActiveGoogleStore = (): Effect.Effect<
-  EffectGooglePlayClient,
-  ActiveGoogleStoreFailure,
-  ActiveGoogleStoreRequirements
-> =>
+export const loadActiveGoogleStore = (
+  packageName: string,
+): Effect.Effect<EffectGooglePlayClient, ActiveGoogleStoreFailure, ActiveGoogleStoreRequirements> =>
   Effect.gen(function* () {
-    const serviceAccountJson = yield* loadServiceAccount().pipe(
+    const serviceAccountJson = yield* loadServiceAccount(packageName).pipe(
       Effect.mapError((cause) =>
         makeActiveGoogleStoreFailure({
           message: 'Could not load the Play service account.',

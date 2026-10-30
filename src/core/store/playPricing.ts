@@ -173,7 +173,7 @@ export const playPricingCommandProgram = (
     const packageName = yield* resolveGoogleStorePackageName(commandInput.app).pipe(
       Effect.mapError((cause) => pricingFailure('app', 'Could not select an app.', cause)),
     );
-    const googleStore = yield* loadActiveGoogleStore().pipe(
+    const googleStore = yield* loadActiveGoogleStore(packageName).pipe(
       Effect.mapError((cause) =>
         pricingFailure('credentials', 'Could not load the Play service account.', cause),
       ),

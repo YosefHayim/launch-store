@@ -224,18 +224,18 @@ export const insightsCommandProgram = (commandOptions: InsightsCommandOptions) =
     const launchPaths = yield* LaunchPaths;
     const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory);
     const resolveAscClient = createAscClientResolver();
-    const resolvePlayClient = createPlayClientResolver();
-    const [ascClient, playClient] = yield* Effect.all([resolveAscClient(), resolvePlayClient()], {
-      concurrency: 'unbounded',
-    });
+    const resolvePlayClient = yield* createPlayClientResolver();
+    const ascClient = yield* resolveAscClient();
     const selectedApps = yield* selectApps(loadedConfiguration.apps, commandOptions.app);
     const logger = yield* createLogger(false);
     const appReviews = yield* Effect.forEach(
       selectedApps,
       (appDescriptor) =>
-        gatherAppReviews(appDescriptor, ascClient, playClient, logger).pipe(
-          Effect.map((reviews) => ({ app: appDescriptor.name, reviews })),
-        ),
+        Effect.gen(function* () {
+          const playClient = yield* resolvePlayClient(appDescriptor.packageName);
+          const reviews = yield* gatherAppReviews(appDescriptor, ascClient, playClient, logger);
+          return { app: appDescriptor.name, reviews };
+        }),
       { concurrency: 'unbounded' },
     );
     const insightsReport = buildInsightsReport(

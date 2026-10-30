@@ -1,3 +1,5 @@
+import { LaunchSecretStoreTest } from '../services/secretStore.js';
+import { GoogleStoreClientService } from '../services/googleStoreClient.js';
 import { NodeContext } from '@effect/platform-node';
 import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
@@ -13,7 +15,7 @@ vi.mock('../services/exec.js', () => ({
 }));
 vi.mock('../store/storeClients.js', () => ({
   createAscClientResolver: () => () => Effect.succeed(null),
-  createPlayClientResolver: () => () => Effect.succeed(null),
+  createPlayClientResolver: () => Effect.succeed(() => Effect.succeed(null)),
 }));
 vi.mock('../services/registry.js', () => ({
   getCredentialsProvider: () =>
@@ -55,6 +57,11 @@ const runBuildDoctorContext = (appSelector?: string) =>
       Effect.provide(makeLaunchEnvironmentTest({ LANG: 'en_US.UTF-8' })),
       Effect.provide(makeLaunchPathsTest('/test-home', '/workspace')),
       Effect.provide(NodeContext.layer),
+      Effect.provide(LaunchSecretStoreTest),
+      Effect.provideService(GoogleStoreClientService, {
+        createClient: () => Effect.dieMessage('unused'),
+        createEffectClient: () => Effect.dieMessage('unused'),
+      }),
     ),
   );
 

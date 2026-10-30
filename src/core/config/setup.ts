@@ -262,29 +262,32 @@ const appleAccountReadinessRows = (apps: readonly AppDescriptor[]) =>
 /** Probe the stored Play account and each configured Play application. */
 const playAccountReadinessRows = (apps: readonly AppDescriptor[]) =>
   Effect.gen(function* () {
-    const serviceAccountJson = yield* loadServiceAccount();
-    if (serviceAccountJson === null) {
-      return [
-        makeReadinessRow(
-          'Play service account',
-          'todo',
-          'import it: launch creds set-key --platform android',
-        ),
-      ];
-    }
-    const readinessEntries: ReadinessRow[] = [
-      makeReadinessRow('Play service account', 'ok', 'imported'),
-    ];
+    const readinessEntries: ReadinessRow[] = [];
     const storeReadiness = yield* SetupStoreReadiness;
-    yield* appendStoreAppReadinessRows({
-      apps,
-      readinessEntries,
-      selectAppId: (app) => app.packageName,
-      checkStoreApp: (packageName) => storeReadiness.checkPlayApp(serviceAccountJson, packageName),
-      requireTruthyPresence: false,
-      okLabel: (packageName) => `Play app - ${packageName}`,
-      missingDetail: 'create + enroll in Play App Signing at play.google.com/console',
-    });
+    for (const app of apps) {
+      if (!app.packageName) continue;
+      const serviceAccountJson = yield* loadServiceAccount(app.packageName);
+      if (serviceAccountJson === null) {
+        readinessEntries.push(
+          makeReadinessRow(
+            `Play service account - ${app.packageName}`,
+            'todo',
+            `import it: launch creds set-key --platform android --app ${app.name}`,
+          ),
+        );
+        continue;
+      }
+      yield* appendStoreAppReadinessRows({
+        apps: [app],
+        readinessEntries,
+        selectAppId: (configuredApp) => configuredApp.packageName,
+        checkStoreApp: (packageName) =>
+          storeReadiness.checkPlayApp(serviceAccountJson, packageName),
+        requireTruthyPresence: false,
+        okLabel: (packageName) => `Play app - ${packageName}`,
+        missingDetail: 'create + enroll in Play App Signing at play.google.com/console',
+      });
+    }
     return readinessEntries;
   });
 

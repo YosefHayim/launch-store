@@ -148,7 +148,7 @@ const listRecentPlayReviews = (
   Effect.gen(function* () {
     const rating = yield* parsePlayReviewRating(commandInput.rating);
     const packageName = yield* resolveGoogleStorePackageName(commandInput.app);
-    const googleStore = yield* loadActiveGoogleStore();
+    const googleStore = yield* loadActiveGoogleStore(packageName);
     let reviewFilters: PlayReviewFilters = { unansweredOnly: commandInput.unanswered };
     if (rating !== undefined) reviewFilters = { ...reviewFilters, rating };
     if (commandInput.lang !== undefined) {
@@ -179,7 +179,7 @@ const replyToRecentPlayReview = (
   Effect.gen(function* () {
     const replyText = yield* readPlayReplyText(commandInput);
     const packageName = yield* resolveGoogleStorePackageName(commandInput.app);
-    const googleStore = yield* loadActiveGoogleStore();
+    const googleStore = yield* loadActiveGoogleStore(packageName);
     const existingReview = yield* googleStore.getReview(packageName, commandInput.reviewId);
     let confirmationVerb = 'Post a public reply to';
     if (existingReview?.answered) {

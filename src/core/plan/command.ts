@@ -246,12 +246,12 @@ export const planCommandProgram = (
     let check = commandInput.check;
     if (commandInput.operation === 'drift') check = true;
     const ascClient = yield* createAscClientResolver()();
-    const playClient = yield* createPlayClientResolver()();
+    const playClient = yield* createPlayClientResolver();
     const planContext: PlanContext = {
       config: loadedConfiguration.config,
       apps: selectedApps,
       resolveAscApi: () => Effect.succeed(ascClient),
-      resolvePlayApi: () => Effect.succeed(playClient),
+      resolvePlayApi: playClient,
     };
     const planOutcome = yield* runPlanners(planContext, selectedPlanners, { check });
     if (commandInput.json === true) {

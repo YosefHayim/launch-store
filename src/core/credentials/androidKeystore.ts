@@ -7,7 +7,7 @@ import type { Logger } from '../services/logger.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import {
   resolveAndroidCredentialsIndexPath,
-  resolveCredentialsDirectory,
+  resolveAndroidCredentialsDirectory,
   type LaunchPathsService,
 } from '../services/paths.js';
 import type { KeystoreAssets } from '../types/credentials.js';
@@ -18,6 +18,10 @@ const SERVICE_ACCOUNT_SECRET = 'play-service-account';
 const KEYSTORE_STORE_PASSWORD = 'android-keystore-store-password';
 const KEYSTORE_KEY_PASSWORD = 'android-keystore-key-password';
 const DEFAULT_ALIAS = 'upload';
+const androidSecretAccount = (account: string, packageName?: string): string => {
+  if (packageName === undefined) return account;
+  return `${account}:${packageName}`;
+};
 type AndroidCredentialPlatform =
   | CommandExecutor
   | FileSystem.FileSystem
@@ -67,6 +71,7 @@ export type KeystoreImport = {
 
 export type EnsureKeystoreOptions = {
   appName: string;
+  packageName?: string;
   log: Logger;
   dryRun: boolean;
   confirmCreate: (message: string) => Effect.Effect<boolean, unknown>;
@@ -87,24 +92,27 @@ const decodeJson = (storedServiceAccount: string): string => {
   return storedServiceAccount;
 };
 
-const resolveKeystoreBackupPath = (): Effect.Effect<
-  string,
-  never,
-  LaunchPathsService | Path.Path
-> =>
+const resolveKeystoreBackupPath = (
+  packageName?: string,
+): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
   Effect.gen(function* () {
     const pathService = yield* Path.Path;
-    return pathService.join(yield* resolveCredentialsDirectory(), 'upload.keystore');
+    return pathService.join(
+      yield* resolveAndroidCredentialsDirectory(packageName),
+      'upload.keystore',
+    );
   });
 
-const readAndroidIndex = (): Effect.Effect<
+const readAndroidIndex = (
+  packageName?: string,
+): Effect.Effect<
   AndroidCredentialsIndex,
   never,
   FileSystem.FileSystem | LaunchPathsService | Path.Path
 > =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
-    const credentialsIndexPath = yield* resolveAndroidCredentialsIndexPath();
+    const credentialsIndexPath = yield* resolveAndroidCredentialsIndexPath(packageName);
     const indexExists = yield* fileSystem
       .exists(credentialsIndexPath)
       .pipe(Effect.orElseSucceed(() => false));
@@ -118,11 +126,12 @@ const readAndroidIndex = (): Effect.Effect<
 
 const writeAndroidIndex = (
   credentialsIndex: AndroidCredentialsIndex,
+  packageName?: string,
 ): Effect.Effect<void, unknown, FileSystem.FileSystem | LaunchPathsService | Path.Path> =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
-    const credentialsDirectory = yield* resolveCredentialsDirectory();
-    const credentialsIndexPath = yield* resolveAndroidCredentialsIndexPath();
+    const credentialsDirectory = yield* resolveAndroidCredentialsDirectory(packageName);
+    const credentialsIndexPath = yield* resolveAndroidCredentialsIndexPath(packageName);
     yield* fileSystem.makeDirectory(credentialsDirectory, { recursive: true });
     yield* fileSystem.writeFileString(
       credentialsIndexPath,
@@ -154,35 +163,44 @@ const validateServiceAccountJson = (
 
 export const storeServiceAccount = (
   serviceAccountJson: string,
+  packageName?: string,
 ): Effect.Effect<void, AndroidCredentialFailure | unknown, LaunchSecretStoreService> =>
   Effect.gen(function* () {
     yield* validateServiceAccountJson(serviceAccountJson);
-    yield* setSecret(SERVICE_ACCOUNT_SECRET, encodeJson(serviceAccountJson));
+    yield* setSecret(
+      androidSecretAccount(SERVICE_ACCOUNT_SECRET, packageName),
+      encodeJson(serviceAccountJson),
+    );
   });
 
-export const loadServiceAccount = (): Effect.Effect<
-  string | null,
-  unknown,
-  LaunchSecretStoreService
-> =>
+export const loadServiceAccount = (
+  packageName?: string,
+): Effect.Effect<string | null, unknown, LaunchSecretStoreService> =>
   Effect.gen(function* () {
-    const storedServiceAccount = yield* getSecret(SERVICE_ACCOUNT_SECRET);
+    const storedServiceAccount = yield* getSecret(
+      androidSecretAccount(SERVICE_ACCOUNT_SECRET, packageName),
+    );
     if (storedServiceAccount === null) return null;
     return decodeJson(storedServiceAccount);
   });
 
-export const loadCachedKeystore = (): Effect.Effect<
+export const loadCachedKeystore = (
+  packageName?: string,
+): Effect.Effect<
   KeystoreAssets | null,
   unknown,
   FileSystem.FileSystem | LaunchPathsService | Path.Path | LaunchSecretStoreService
 > =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
-    const keystoreRecord = (yield* readAndroidIndex()).keystore;
+    const keystoreRecord = (yield* readAndroidIndex(packageName)).keystore;
     if (keystoreRecord === undefined) return null;
     if (!(yield* fileSystem.exists(keystoreRecord.path))) return null;
     const [storePassword, keyPassword] = yield* Effect.all(
-      [getSecret(KEYSTORE_STORE_PASSWORD), getSecret(KEYSTORE_KEY_PASSWORD)],
+      [
+        getSecret(androidSecretAccount(KEYSTORE_STORE_PASSWORD, packageName)),
+        getSecret(androidSecretAccount(KEYSTORE_KEY_PASSWORD, packageName)),
+      ],
       { concurrency: 'unbounded' },
     );
     if (storePassword === null) return null;
@@ -190,7 +208,9 @@ export const loadCachedKeystore = (): Effect.Effect<
     return { path: keystoreRecord.path, alias: keystoreRecord.alias, storePassword, keyPassword };
   });
 
-export const describeStoredAndroidCredentials = (): Effect.Effect<
+export const describeStoredAndroidCredentials = (
+  packageName?: string,
+): Effect.Effect<
   {
     keystoreAlias: string | null;
     hasServiceAccount: boolean;
@@ -200,20 +220,27 @@ export const describeStoredAndroidCredentials = (): Effect.Effect<
 > =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
-    const keystoreRecord = (yield* readAndroidIndex()).keystore;
+    const keystoreRecord = (yield* readAndroidIndex(packageName)).keystore;
     let keystoreAlias: string | null = null;
     if (keystoreRecord !== undefined) {
       if (yield* fileSystem.exists(keystoreRecord.path)) keystoreAlias = keystoreRecord.alias;
     }
-    const serviceAccountJson = yield* getSecret(SERVICE_ACCOUNT_SECRET);
+    const serviceAccountJson = yield* getSecret(
+      androidSecretAccount(SERVICE_ACCOUNT_SECRET, packageName),
+    );
     return { keystoreAlias, hasServiceAccount: serviceAccountJson !== null };
   });
 
-const dryRunKeystore = (): Effect.Effect<KeystoreAssets, never, LaunchPathsService | Path.Path> =>
+const dryRunKeystore = (
+  packageName?: string,
+): Effect.Effect<KeystoreAssets, never, LaunchPathsService | Path.Path> =>
   Effect.gen(function* () {
     const pathService = yield* Path.Path;
     return {
-      path: pathService.join(yield* resolveCredentialsDirectory(), 'dry-run-upload.keystore'),
+      path: pathService.join(
+        yield* resolveAndroidCredentialsDirectory(packageName),
+        'dry-run-upload.keystore',
+      ),
       alias: DEFAULT_ALIAS,
       storePassword: 'dry-run',
       keyPassword: 'dry-run',
@@ -232,9 +259,11 @@ export const ensureUploadKeystore = (
       yield* options.log.note(
         '[dry-run] would generate or import an upload keystore under ~/.launch/credentials',
       );
-      return yield* dryRunKeystore();
+      return yield* dryRunKeystore(options.packageName);
     }
-    const cachedKeystore = yield* loadCachedKeystore();
+    if (options.import)
+      return yield* importKeystore(options.import, options.log, options.packageName);
+    const cachedKeystore = yield* loadCachedKeystore(options.packageName);
     if (cachedKeystore) {
       yield* options.log.step(
         'keystore',
@@ -243,7 +272,6 @@ export const ensureUploadKeystore = (
       );
       return cachedKeystore;
     }
-    if (options.import) return yield* importKeystore(options.import, options.log);
     const shouldCreate = yield* options.confirmCreate(
       'Generate a new upload keystore and back it up locally?',
     );
@@ -254,17 +282,18 @@ export const ensureUploadKeystore = (
         }),
       );
     }
-    return yield* generateKeystore(options.appName, options.log);
+    return yield* generateKeystore(options.appName, options.log, options.packageName);
   });
 
 const generateKeystore = (
   appName: string,
   log: Logger,
+  packageName?: string,
 ): Effect.Effect<KeystoreAssets, unknown, AndroidCredentialPlatform | LaunchSecretStoreService> =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
-    const credentialsDirectory = yield* resolveCredentialsDirectory();
-    const keystoreBackupPath = yield* resolveKeystoreBackupPath();
+    const credentialsDirectory = yield* resolveAndroidCredentialsDirectory(packageName);
+    const keystoreBackupPath = yield* resolveKeystoreBackupPath(packageName);
     yield* fileSystem.makeDirectory(credentialsDirectory, { recursive: true });
     const password = yield* randomHexSecret(24);
     yield* captureCommandOutput('keytool', [
@@ -287,10 +316,12 @@ const generateKeystore = (
       '-dname',
       `CN=Launch Upload (${appName}), O=Launch, C=US`,
     ]);
-    yield* fileSystem.chmod(keystoreBackupPath, 0o600);
-    yield* setSecret(KEYSTORE_STORE_PASSWORD, password);
-    yield* setSecret(KEYSTORE_KEY_PASSWORD, password);
-    yield* writeAndroidIndex({ keystore: { path: keystoreBackupPath, alias: DEFAULT_ALIAS } });
+    yield* setSecret(androidSecretAccount(KEYSTORE_STORE_PASSWORD, packageName), password);
+    yield* setSecret(androidSecretAccount(KEYSTORE_KEY_PASSWORD, packageName), password);
+    yield* writeAndroidIndex(
+      { keystore: { path: keystoreBackupPath, alias: DEFAULT_ALIAS } },
+      packageName,
+    );
     yield* log.step('keystore', `generated upload keystore (alias ${DEFAULT_ALIAS})`, 'upload-key');
     return {
       path: keystoreBackupPath,
@@ -303,6 +334,7 @@ const generateKeystore = (
 const importKeystore = (
   keystoreImport: KeystoreImport,
   log: Logger,
+  packageName?: string,
 ): Effect.Effect<
   KeystoreAssets,
   AndroidCredentialFailure | unknown,
@@ -310,8 +342,8 @@ const importKeystore = (
 > =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
-    const credentialsDirectory = yield* resolveCredentialsDirectory();
-    const keystoreBackupPath = yield* resolveKeystoreBackupPath();
+    const credentialsDirectory = yield* resolveAndroidCredentialsDirectory(packageName);
+    const keystoreBackupPath = yield* resolveKeystoreBackupPath(packageName);
     if (!(yield* fileSystem.exists(keystoreImport.path)))
       return yield* Effect.fail(
         makeAndroidCredentialFailure({ message: `No keystore at ${keystoreImport.path}.` }),
@@ -335,12 +367,20 @@ const importKeystore = (
     }
     yield* fileSystem.makeDirectory(credentialsDirectory, { recursive: true });
     yield* fileSystem.copyFile(keystoreImport.path, keystoreBackupPath);
-    yield* fileSystem.chmod(keystoreBackupPath, 0o600);
-    yield* setSecret(KEYSTORE_STORE_PASSWORD, keystoreImport.storePassword);
-    yield* setSecret(KEYSTORE_KEY_PASSWORD, keystoreImport.keyPassword);
-    yield* writeAndroidIndex({
-      keystore: { path: keystoreBackupPath, alias: keystoreImport.alias },
-    });
+    yield* setSecret(
+      androidSecretAccount(KEYSTORE_STORE_PASSWORD, packageName),
+      keystoreImport.storePassword,
+    );
+    yield* setSecret(
+      androidSecretAccount(KEYSTORE_KEY_PASSWORD, packageName),
+      keystoreImport.keyPassword,
+    );
+    yield* writeAndroidIndex(
+      {
+        keystore: { path: keystoreBackupPath, alias: keystoreImport.alias },
+      },
+      packageName,
+    );
     yield* log.step(
       'keystore',
       `imported upload keystore (alias ${keystoreImport.alias})`,

@@ -47,9 +47,20 @@ const resolveAppleCredentials = (
   });
 
 /** Resolve a Play service account and any reusable upload keystore. */
-const resolveAndroidCredentials = (credentialStore: typeof LocalCredentialsStore.Service) =>
+const resolveAndroidCredentials = (
+  credentialStore: typeof LocalCredentialsStore.Service,
+  buildContext: ResolvedBuildContext,
+) =>
   Effect.gen(function* () {
-    const serviceAccountJson = yield* credentialStore.loadPlayServiceAccount();
+    const packageName = buildContext.app.packageName;
+    if (!packageName)
+      return yield* Effect.fail(
+        makeMissingCredentialsFailure({
+          platform: 'android',
+          message: 'Set android.package before resolving Android credentials.',
+        }),
+      );
+    const serviceAccountJson = yield* credentialStore.loadPlayServiceAccount(packageName);
     if (serviceAccountJson === null) {
       return yield* Effect.fail(
         makeMissingCredentialsFailure({
@@ -60,7 +71,7 @@ const resolveAndroidCredentials = (credentialStore: typeof LocalCredentialsStore
       );
     }
     const androidCredentials: BuildCredentials = { platform: 'android', serviceAccountJson };
-    const keystoreAssets = yield* credentialStore.loadAndroidKeystore();
+    const keystoreAssets = yield* credentialStore.loadAndroidKeystore(packageName);
     if (keystoreAssets === null) return androidCredentials;
     return { ...androidCredentials, keystore: keystoreAssets };
   });
@@ -94,8 +105,11 @@ const appleStatus = (credentialStore: typeof LocalCredentialsStore.Service) =>
   });
 
 /** Render the Android portion of the credential status report. */
-const androidStatus = (credentialStore: typeof LocalCredentialsStore.Service) =>
-  credentialStore.readAndroidCredentialStatus().pipe(
+const androidStatus = (
+  credentialStore: typeof LocalCredentialsStore.Service,
+  packageName?: string,
+) =>
+  credentialStore.readAndroidCredentialStatus(packageName).pipe(
     Effect.map(({ keystoreAlias, hasServiceAccount }) => {
       if (!hasServiceAccount && !keystoreAlias) {
         return 'Android: no service account or upload keystore yet.';
@@ -108,10 +122,26 @@ const androidStatus = (credentialStore: typeof LocalCredentialsStore.Service) =>
     }),
   );
 
-const statusReport = (credentialStore: typeof LocalCredentialsStore.Service) =>
-  Effect.all([appleStatus(credentialStore), androidStatus(credentialStore)], {
-    concurrency: 'unbounded',
-  }).pipe(Effect.map((statusLines) => statusLines.join('\n')));
+const statusReport = (
+  credentialStore: typeof LocalCredentialsStore.Service,
+  packageNames?: readonly string[],
+) =>
+  Effect.gen(function* () {
+    const apple = yield* appleStatus(credentialStore);
+    let android: string[];
+    if (packageNames === undefined) {
+      android = [yield* androidStatus(credentialStore)];
+    } else if (packageNames.length === 0) {
+      android = [yield* androidStatus(credentialStore)];
+    } else {
+      android = yield* Effect.forEach(packageNames, (packageName) =>
+        androidStatus(credentialStore, packageName).pipe(
+          Effect.map((status) => `${packageName}: ${status}`),
+        ),
+      );
+    }
+    return [apple, ...android].join('\n');
+  });
 
 /** Acquire local services once and return a leaf-like provider for the registry. */
 export const makeLocalCredentialsProvider = () =>
@@ -124,8 +154,8 @@ export const makeLocalCredentialsProvider = () =>
           if (isApplePlatform(buildContext.platform)) {
             return yield* resolveAppleCredentials(buildContext, credentialStore);
           }
-          return yield* resolveAndroidCredentials(credentialStore);
+          return yield* resolveAndroidCredentials(credentialStore, buildContext);
         }),
-      status: () => statusReport(credentialStore),
+      status: (packageNames) => statusReport(credentialStore, packageNames),
     } satisfies CredentialsProvider;
   });
