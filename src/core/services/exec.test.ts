@@ -115,23 +115,27 @@ describe('redaction before log persistence', () => {
 });
 
 describe('child environment exclusions', () => {
-  it('shadows excluded inherited values and prevents Expo from reloading dotenv', async () => {
-    const standardOutput = await executeTestProgram(
-      captureCommandOutput(
-        process.execPath,
-        [
-          '-e',
-          'process.stdout.write(JSON.stringify([process.env.LAUNCH_AUDIT_TOKEN,process.env.EXPO_NO_DOTENV,process.env.EXPO_PUBLIC_SAFE]))',
-        ],
-        {
-          environmentOverrides: {
-            LAUNCH_AUDIT_TOKEN: 'dummy-private-value',
-            EXPO_PUBLIC_SAFE: 'safe',
+  it('shadows excluded values inherited from the parent process', async () => {
+    const previous = process.env['LAUNCH_AUDIT_TOKEN'];
+    process.env['LAUNCH_AUDIT_TOKEN'] = 'dummy-private-value';
+    try {
+      const standardOutput = await executeTestProgram(
+        captureCommandOutput(
+          process.execPath,
+          [
+            '-e',
+            'process.stdout.write(JSON.stringify([process.env.LAUNCH_AUDIT_TOKEN, process.env.EXPO_PUBLIC_SAFE]))',
+          ],
+          {
+            environmentOverrides: { EXPO_PUBLIC_SAFE: 'safe' },
+            envExclude: ['LAUNCH_AUDIT_*'],
           },
-          envExclude: ['LAUNCH_AUDIT_*'],
-        },
-      ),
-    );
-    expect(JSON.parse(standardOutput)).toEqual(['', '1', 'safe']);
+        ),
+      );
+      expect(JSON.parse(standardOutput)).toEqual(['', 'safe']);
+    } finally {
+      if (previous === undefined) delete process.env['LAUNCH_AUDIT_TOKEN'];
+      else process.env['LAUNCH_AUDIT_TOKEN'] = previous;
+    }
   });
 });

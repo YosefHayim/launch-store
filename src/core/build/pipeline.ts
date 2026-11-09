@@ -175,9 +175,7 @@ export const runBuild = (options: BuildRunOptions) =>
       return yield* previewEnv(options);
     }
     const prepared = yield* prepareBuild(options);
-    let environmentExclusions: readonly string[] = [];
-    if (prepared.config.envExclude !== undefined)
-      environmentExclusions = prepared.config.envExclude;
+    const { envExclude: environmentExclusions = [] } = prepared.config;
     return yield* dispatchBuild(prepared, options).pipe(
       Effect.locally(commandEnvironmentExclusions, environmentExclusions),
       Effect.tap(() => {
