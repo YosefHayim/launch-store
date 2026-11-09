@@ -433,6 +433,9 @@ describe('generateScreenshots', () => {
     ).toBe(true);
     expect(loggerLines.join('')).toMatch(/Genshot Generation ID: generation-test-001/);
     expect(loggerLines.join('')).toMatch(/Retained Genshot Generation ID generation-test-001/);
+    expect(loggerLines.join('')).toContain(
+      'Review with `launch plan screenshots`, then upload with `launch sync`.',
+    );
     const outputDirectory = join(appDirectory, 'collision-screenshots');
     const commandInput = {
       platform: 'ios',
@@ -501,17 +504,23 @@ describe('generateScreenshots', () => {
 
   it("validates Android output against Play's constraint and promotes it", async () => {
     const appDirectory = makeAppDirectory();
+    const loggerLines: string[] = [];
     const promoted = await runScreenshotGeneration(
       generateScreenshots(
         appDirectory,
         { platform: 'android', locale: 'en-US', deviceTypes: 'phone', yes: true },
         fakeEnhancer(),
       ),
+      loggerLines,
     );
     expect(promoted).toHaveLength(1);
     expect(existsSync(join(appDirectory, 'screenshots', 'en-US', 'phone', 'enhanced.png'))).toBe(
       true,
     );
+    expect(loggerLines.join('')).toContain('Launch cannot upload Google Play screenshots yet.');
+    expect(loggerLines.join('')).toContain(join(appDirectory, 'screenshots'));
+    expect(loggerLines.join('')).toContain('https://github.com/YosefHayim/launch-store/issues/512');
+    expect(loggerLines.join('')).not.toContain('launch sync');
   });
 
   it('refuses when there are no real source screenshots to enhance', async () => {

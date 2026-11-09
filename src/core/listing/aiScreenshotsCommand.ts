@@ -930,6 +930,17 @@ const confirmScreenshotPromotion = (
     return false;
   });
 
+/** Google Play upload is not in Launch yet (#512), so Android gets a manual upload note. */
+const pickScreenshotNextStep = (platform: Platform, outputDirectory: string): string => {
+  const isAndroid = platform === 'android';
+
+  if (isAndroid) {
+    return `Launch cannot upload Google Play screenshots yet. Upload the files in ${outputDirectory} in Play Console under the main store listing. Tracking: https://github.com/YosefHayim/launch-store/issues/512`;
+  }
+
+  return 'Review with `launch plan screenshots`, then upload with `launch sync`.';
+};
+
 /** Generate, validate, preview, and optionally promote screenshots for one app directory. */
 export const generateScreenshots = <EnhancerRequirements>(
   appDirectory: string,
@@ -1022,9 +1033,13 @@ export const generateScreenshots = <EnhancerRequirements>(
         logger.ok(`Promoted ${enhancedScreenshots.length} screenshot(s) -> ${outputDirectory}`),
       );
       yield* renderRetainedGenshotGenerations(retainedGenerations, logger);
-      yield* writeLog(
-        'render screenshot next steps',
-        logger.note('Review with `launch plan screenshots`, then upload with `launch sync`.'),
+      yield* Effect.forEach(
+        platforms,
+        (platform) => {
+          const nextStepNote = pickScreenshotNextStep(platform, outputDirectory);
+          return writeLog('render screenshot next steps', logger.note(nextStepNote));
+        },
+        { concurrency: 1, discard: true },
       );
       return enhancedScreenshots;
     }),
