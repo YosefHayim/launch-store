@@ -1,5 +1,7 @@
 import { Context, Effect, Layer } from 'effect';
 import { requireOptional } from './optionalDep.js';
+import { captureCommandOutput, provideNodeCommandServices } from './exec.js';
+import { detectHostOperatingSystem } from './os.js';
 
 const KEYCHAIN_SERVICE_NAME = 'launch';
 
@@ -29,15 +31,34 @@ const loadNativeKeyring = (): Effect.Effect<KeyringModule, unknown> =>
     return loadedKeyring;
   });
 
-const nativeKeyringSecretStore: LaunchSecretStoreService = {
+const confirmMacosMissingSecret = (account: string): Effect.Effect<null, unknown> =>
+  provideNodeCommandServices(
+    captureCommandOutput('security', [
+      'find-generic-password',
+      '-s',
+      KEYCHAIN_SERVICE_NAME,
+      '-a',
+      account,
+    ]),
+  ).pipe(
+    Effect.matchEffect({
+      onSuccess: () => Effect.fail(new Error(`Could not read ${account} from the keychain`)),
+      onFailure: (cause) => {
+        if (cause.exitCode === 44) return Effect.succeed(null);
+        return Effect.fail(new Error(`Could not read ${account} from the keychain`, { cause }));
+      },
+    }),
+  );
+
+const makeNativeKeyringSecretStore = (isMacos: boolean): LaunchSecretStoreService => ({
   readSecret: (account) =>
     Effect.gen(function* () {
       const { Entry } = yield* loadNativeKeyring();
-      // The keyring returns null only for a missing entry; every other failure throws.
       const storedPassword = yield* Effect.try({
         try: () => new Entry(KEYCHAIN_SERVICE_NAME, account).getPassword(),
         catch: (cause) => new Error(`Could not read ${account} from the keychain`, { cause }),
       });
+      if (storedPassword === null && isMacos) return yield* confirmMacosMissingSecret(account);
       return storedPassword;
     }),
   storeSecret: (account, secretText) =>
@@ -52,9 +73,14 @@ const nativeKeyringSecretStore: LaunchSecretStoreService = {
         Effect.catchAll(() => Effect.void),
       );
     }),
-};
+});
 
-export const LaunchSecretStoreLive = Layer.succeed(LaunchSecretStore, nativeKeyringSecretStore);
+export const LaunchSecretStoreLive = Layer.effect(
+  LaunchSecretStore,
+  detectHostOperatingSystem.pipe(
+    Effect.map((system) => makeNativeKeyringSecretStore(system === 'macos')),
+  ),
+);
 
 /** Build a deterministic secret-store layer over the supplied mutable map. */
 export const makeLaunchSecretStoreTest = (
