@@ -1,5 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { FileSystem, Path } from '@effect/platform';
-import { Clock, Data, Effect, Random, Schema } from 'effect';
+import { Clock, Data, Effect, Schema } from 'effect';
 import type { CodeSigner } from '../credentials/codeSign.js';
 import type { Logger } from '../services/logger.js';
 import type { StorageProvider } from '../types/providers.js';
@@ -108,32 +109,8 @@ export type OtaPublishDetails = Readonly<{
   readonly prefix: string;
 }>;
 
-/** Create an injectable RFC 4122 version-4 identifier. */
-const randomUpdateId = (): Effect.Effect<string> =>
-  Effect.gen(function* () {
-    const byteOffsets = Array.from({ length: 16 }, (_, byteOffset) => byteOffset);
-    const randomBytes = yield* Effect.forEach(byteOffsets, () => Random.nextIntBetween(0, 256), {
-      concurrency: 1,
-    });
-    const versionByte = randomBytes[6];
-    const variantByte = randomBytes[8];
-    if (versionByte === undefined)
-      return yield* Effect.dieMessage('UUID version byte is unavailable');
-    if (variantByte === undefined)
-      return yield* Effect.dieMessage('UUID variant byte is unavailable');
-    randomBytes[6] = (versionByte & 0x0f) | 0x40;
-    randomBytes[8] = (variantByte & 0x3f) | 0x80;
-    const hexadecimalId = randomBytes
-      .map((randomByte) => randomByte.toString(16).padStart(2, '0'))
-      .join('');
-    return [
-      hexadecimalId.slice(0, 8),
-      hexadecimalId.slice(8, 12),
-      hexadecimalId.slice(12, 16),
-      hexadecimalId.slice(16, 20),
-      hexadecimalId.slice(20),
-    ].join('-');
-  });
+/** Create a random RFC 4122 version-4 UUID for one published update. */
+const createUpdateId = (): Effect.Effect<string> => Effect.sync(() => randomUUID());
 
 /** Publish one platform bundle, its assets, active manifest, and history snapshot. */
 export const publishOtaPlatform = (
@@ -175,7 +152,7 @@ export const publishOtaPlatform = (
       (exportedAsset) => uploadExportFile(exportedAsset.path, exportedAsset.ext),
       { concurrency: 'unbounded' },
     );
-    const manifestId = yield* randomUpdateId();
+    const manifestId = yield* createUpdateId();
     const epochMilliseconds = yield* Clock.currentTimeMillis;
     const createdAt = new Date(epochMilliseconds).toISOString();
     const updateManifest = assembleManifest({

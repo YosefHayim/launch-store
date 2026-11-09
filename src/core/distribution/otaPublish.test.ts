@@ -104,6 +104,9 @@ describe('publishOtaPlatform', () => {
     expect(publishDetails.manifestId).toBeDefined();
     const manifestId = publishDetails.manifestId;
     if (manifestId === undefined) throw new Error('Expected a manifest identifier');
+    expect(manifestId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
     const objectKeys = [...storage.objects.keys()];
     expect(objectKeys).toContain('updates/production/ios/1.0.0/bundle.js');
     expect(objectKeys).toContain('updates/production/ios/1.0.0/logo.png');
