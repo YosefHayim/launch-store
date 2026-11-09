@@ -25,7 +25,7 @@ const makeLocalStorageProvider = (directoryOverride?: string) =>
     const readIndex = () => artifactRetention.readIndex(artifactIndexPath);
     const writeIndex = (artifactIndex: readonly BuildArtifact[]) =>
       artifactRetention.writeIndex(artifactIndex, artifactIndexPath);
-    const validObjectKey = (objectKey: string): boolean => {
+    const isSafeObjectKey = (objectKey: string): boolean => {
       if (objectKey.length === 0) return false;
       if (/[:\\\x00]/.test(objectKey)) return false;
       return objectKey
@@ -33,30 +33,31 @@ const makeLocalStorageProvider = (directoryOverride?: string) =>
         .every((segment) => segment.length > 0 && segment !== '.' && segment !== '..');
     };
     const objectPath = (objectKey: string): string => pathService.join(objectsDirectory, objectKey);
-    const invalidObjectKey = () =>
+    const createInvalidObjectKeyFailure = () =>
       makeProviderInputFailure({
         provider: 'local-storage',
         message: 'Object keys must remain inside the local objects directory.',
       });
-    const checkedObjectPath = (objectKey: string) =>
+    const checkObjectPath = (objectKey: string) =>
       Effect.gen(function* () {
-        if (!validObjectKey(objectKey)) return yield* Effect.fail(invalidObjectKey());
+        if (!isSafeObjectKey(objectKey)) return yield* Effect.fail(createInvalidObjectKeyFailure());
         yield* fileSystem.makeDirectory(objectsDirectory, { recursive: true });
         const canonicalRoot = yield* fileSystem.realPath(objectsDirectory);
         const destination = objectPath(objectKey);
         let existingAncestor = destination;
         while (existingAncestor !== objectsDirectory) {
           const linkTarget = yield* fileSystem.readLink(existingAncestor).pipe(Effect.option);
-          if (Option.isSome(linkTarget)) return yield* Effect.fail(invalidObjectKey());
+          if (Option.isSome(linkTarget)) return yield* Effect.fail(createInvalidObjectKeyFailure());
           if (yield* fileSystem.exists(existingAncestor)) break;
           existingAncestor = pathService.dirname(existingAncestor);
         }
         const canonicalAncestor = yield* fileSystem.realPath(existingAncestor);
         const relativeAncestor = pathService.relative(canonicalRoot, canonicalAncestor);
-        if (relativeAncestor === '..') return yield* Effect.fail(invalidObjectKey());
+        if (relativeAncestor === '..') return yield* Effect.fail(createInvalidObjectKeyFailure());
         if (relativeAncestor.startsWith(`..${pathService.sep}`))
-          return yield* Effect.fail(invalidObjectKey());
-        if (pathService.isAbsolute(relativeAncestor)) return yield* Effect.fail(invalidObjectKey());
+          return yield* Effect.fail(createInvalidObjectKeyFailure());
+        if (pathService.isAbsolute(relativeAncestor))
+          return yield* Effect.fail(createInvalidObjectKeyFailure());
         return destination;
       });
 
@@ -91,7 +92,7 @@ const makeLocalStorageProvider = (directoryOverride?: string) =>
       },
       putObject: (objectKey: string, objectContents: Buffer | string, _contentType: string) =>
         Effect.gen(function* () {
-          const destination = yield* checkedObjectPath(objectKey);
+          const destination = yield* checkObjectPath(objectKey);
           yield* fileSystem.makeDirectory(pathService.dirname(destination), { recursive: true });
           if (typeof objectContents === 'string') {
             yield* fileSystem.writeFileString(destination, objectContents);
@@ -102,7 +103,7 @@ const makeLocalStorageProvider = (directoryOverride?: string) =>
         }),
       getObject: (objectKey: string) =>
         Effect.gen(function* () {
-          const objectFilePath = yield* checkedObjectPath(objectKey);
+          const objectFilePath = yield* checkObjectPath(objectKey);
           return yield* fileSystem.readFile(objectFilePath).pipe(
             Effect.map((fileBytes) => Buffer.from(fileBytes)),
             Effect.catchIf(
@@ -113,7 +114,7 @@ const makeLocalStorageProvider = (directoryOverride?: string) =>
         }),
       publicUrl: (objectKey: string): string => {
         if (objectKey === '') return pathToFileURL(objectsDirectory).href;
-        if (!validObjectKey(objectKey)) return 'about:blank#invalid-storage-key';
+        if (!isSafeObjectKey(objectKey)) return 'about:blank#invalid-storage-key';
         return pathToFileURL(objectPath(objectKey)).href;
       },
     };

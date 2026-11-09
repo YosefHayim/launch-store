@@ -49,6 +49,16 @@ describe('local storage containment', () => {
       expect(await Effect.runPromise(storage.getObject('updates/missing'))).toBeNull();
     });
   });
+  it('writes and reads back a key with an at sign, a space and a version string', async () => {
+    await withStorage(async (storage) => {
+      const objectKey = 'builds/My App@1.0.0/app.ipa';
+      await Effect.runPromise(storage.putObject(objectKey, 'built', 'application/octet-stream'));
+
+      const storedObject = await Effect.runPromise(storage.getObject(objectKey));
+
+      expect(storedObject?.toString()).toBe('built');
+    });
+  });
   it.each([
     '../escape',
     '../../escape',
