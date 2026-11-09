@@ -291,6 +291,7 @@ export const createTrainRuntime = (
         whatsNew: releaseNotes,
         build: storeBuild,
         dryRun: false,
+        attachOnly: false,
       };
       if (releaseTypeSettings.earliestReleaseDate !== undefined) {
         releaseInput.earliestReleaseDate = releaseTypeSettings.earliestReleaseDate;

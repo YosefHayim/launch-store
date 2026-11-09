@@ -61,6 +61,7 @@ export type ReleaseCommandOptions = Readonly<{
   manual?: boolean;
   scheduled?: string;
   phased?: boolean;
+  attachOnly?: boolean;
   dryRun?: boolean;
   createApp?: boolean;
   yes: boolean;
@@ -286,12 +287,35 @@ const renderReleasePlan = (
   );
 };
 
+/** Receipt title: an attach-only run says the build is attached, because nothing was submitted. */
+const pickReceiptTitle = (
+  isAttachOnly: boolean,
+  buildLabel: string,
+  failureCount: number,
+): string => {
+  const hasFailedSteps = failureCount > 0;
+  const isAttachedWithFailures = isAttachOnly && hasFailedSteps;
+  if (isAttachedWithFailures) return `Attached with ${failureCount} failed step(s) - see below`;
+
+  if (isAttachOnly) return `Build ${buildLabel} attached - not submitted for review`;
+
+  if (hasFailedSteps) return `Submitted with ${failureCount} failed step(s) - see below`;
+
+  return 'Submitted for App Store review';
+};
+
+interface ReleaseReceipt {
+  appName: string;
+  buildLabel: string;
+  isAttachOnly: boolean;
+}
+
 const renderReleaseReport = (
   releaseReport: ReleaseReport,
-  appName: string,
-  buildLabel: string,
+  receipt: ReleaseReceipt,
   logger: Logger,
 ): Effect.Effect<number, ReleaseCommandFailure> => {
+  const { appName, buildLabel, isAttachOnly } = receipt;
   if (releaseReport.alreadyInReview) {
     return writeLog(
       'render release report',
@@ -304,12 +328,13 @@ const renderReleaseReport = (
   const receiptLines = releaseReport.actions.map((releaseAction) =>
     formatReleaseActionLine(releaseAction, 'receipt'),
   );
-  let receiptTitle = 'Submitted for App Store review';
-  if (failureCount > 0) receiptTitle = `Submitted with ${failureCount} failed step(s) - see below`;
+  const receiptTitle = pickReceiptTitle(isAttachOnly, buildLabel, failureCount);
+  const stateLines = isAttachOnly ? [`App Store state: ${releaseReport.appStoreState}`] : [];
   return writeLog(
     'render release report',
     logger.box(receiptTitle, [
       `${appName} ${releaseReport.versionString} (build ${buildLabel})`,
+      ...stateLines,
       ...receiptLines,
     ]),
   ).pipe(Effect.as(failureCount));
@@ -434,6 +459,21 @@ const resolveBuildSource = (
     }).pipe(Effect.mapError((cause) => releaseFailure('select release build', cause)));
   });
 
+/** The confirmation question for promoting a build; attach-only says it will not submit. */
+const describePromotionQuestion = (
+  promotion: Readonly<{
+    appName: string;
+    versionString: string;
+    buildLabel: string;
+    attachOnly: boolean;
+  }>,
+): string => {
+  const isAttachOnly = promotion.attachOnly;
+  if (isAttachOnly)
+    return `Attach build ${promotion.buildLabel} to ${promotion.appName} ${promotion.versionString} without submitting for review?`;
+  return `Submit ${promotion.appName} ${promotion.versionString} (build ${promotion.buildLabel}) for App Store review?`;
+};
+
 const resolveIosBuild = (
   ascClient: AscReleaseApi,
   appId: string,
@@ -467,7 +507,12 @@ const resolveIosBuild = (
       );
       const confirmed = yield* confirmOrCancel(
         commandService,
-        `Submit ${appDescriptor.name} ${versionString} (build ${buildSource.storeBuild.version}) for App Store review?`,
+        describePromotionQuestion({
+          appName: appDescriptor.name,
+          versionString,
+          buildLabel: buildSource.storeBuild.version,
+          attachOnly: commandOptions.attachOnly === true,
+        }),
         commandOptions,
       );
       if (!confirmed) return null;
@@ -649,11 +694,24 @@ const releaseAppleBuild = (
       phasedRelease,
       usesNonExemptEncryption: launchConfig.release?.usesNonExemptEncryption === true,
       whatsNew,
+      attachOnly: commandOptions.attachOnly === true,
     };
     if (releaseTypeSettings.earliestReleaseDate !== undefined)
       releaseInputCommon.earliestReleaseDate = releaseTypeSettings.earliestReleaseDate;
     if (launchConfig.release?.copyright !== undefined)
       releaseInputCommon.copyright = launchConfig.release.copyright;
+    const isAttachOnlyWithoutBuild =
+      commandOptions.attachOnly === true && commandOptions.build === undefined;
+    if (isAttachOnlyWithoutBuild) {
+      return yield* Effect.fail(
+        releaseFailure(
+          'select App Store build',
+          'attach-only',
+          '--attach-only needs an existing build: pass --build <n> or --build latest.',
+        ),
+      );
+    }
+
     if (commandOptions.dryRun === true) {
       let storeBuild: BuildResource | null = null;
       if (commandOptions.build !== undefined)
@@ -741,10 +799,14 @@ const releaseAppleBuild = (
         ),
       ),
     );
+    const isAttachOnly = releaseInput.attachOnly;
     const failureCount = yield* renderReleaseReport(
       releaseReport,
-      appDescriptor.name,
-      selectedBuild.storeBuild.version,
+      {
+        appName: appDescriptor.name,
+        buildLabel: selectedBuild.storeBuild.version,
+        isAttachOnly,
+      },
       logger,
     );
     if (failureCount > 0) {
@@ -759,6 +821,9 @@ const releaseAppleBuild = (
       yield* completeCommand(1, failureMessage);
       return;
     }
+
+    if (isAttachOnly) return;
+
     yield* notify(launchConfig, notifyEvent).pipe(
       Effect.mapError((cause) => releaseFailure('send release notification', cause)),
     );
@@ -916,6 +981,16 @@ export const releaseCommandProgram = (
     const platform = yield* parsePlatform(platformArgument).pipe(
       Effect.mapError((cause) => releaseFailure('parse release platform', cause, cause.message)),
     );
+    const isAttachOnlyOnAndroid = commandOptions.attachOnly === true && !isApplePlatform(platform);
+    if (isAttachOnlyOnAndroid) {
+      return yield* Effect.fail(
+        releaseFailure(
+          'select release platform',
+          'attach-only',
+          '--attach-only is iOS only; Google Play has no attach-without-submit step.',
+        ),
+      );
+    }
     const loadedConfiguration = yield* loadConfig().pipe(
       Effect.mapError((cause) => releaseFailure('load Launch configuration', cause)),
     );

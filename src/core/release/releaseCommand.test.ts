@@ -1,21 +1,39 @@
-import { Effect } from 'effect';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { NodeHttpClient } from '@effect/platform-node';
+import { Cause, Effect, Exit, Layer } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
+import { makeReleaseApiFake } from '@testkit/ascReleaseApi.testkit.js';
+import {
+  createTemporaryHomeDirectory,
+  makeLaunchHomeTest,
+  removeTemporaryHomeDirectory,
+  writeLaunchHomeFile,
+} from '@testkit/launchHome.testkit.js';
+import { makeFakeAscClient } from '@testkit/storeClients.testkit.js';
 import type { AppDescriptor } from '../types/app.js';
 import type { BuildResource } from '../types/appleCatalog.js';
-import type { ReleaseAction, ReleaseReport } from './appStoreRelease.js';
+import { AppleStoreClientService } from '../services/appleStoreClient.js';
+import { makeLaunchEnvironmentTest } from '../services/environment.js';
+import { makeLaunchLoggerTest } from '../services/logger.js';
+import { makeLaunchPromptTest } from '../services/prompt.js';
+import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
+import type { AscReleaseApi, ReleaseAction, ReleaseReport } from './appStoreRelease.js';
 import {
+  androidReleasePlanLines,
   countFailedReleaseActions,
   formatReleaseActionLine,
   isVerifiedStoreBuild,
   makeReleaseCommandFailure,
   newestValidBuild,
   parseAppStoreBuildSelector,
-  androidReleasePlanLines,
+  releaseCommandProgram,
+  ReleaseCommandService,
+  type ReleaseCommandOptions,
   resolveAndroidRollout,
   resolveVersionString,
   shouldNudgeRelease,
 } from './releaseCommand.js';
-
 const storeBuild = (overrides: Partial<BuildResource> = {}): BuildResource => ({
   id: 'b-1',
   version: '42',
@@ -186,5 +204,202 @@ describe('makeReleaseCommandFailure', () => {
     expect(failure._tag).toBe('ReleaseCommandFailure');
     expect(failure.operation).toBe('upload App Store build');
     expect(failure.message).toBe('network down');
+  });
+});
+
+const ASC_KEY_ID = 'KEY123';
+const P8_SECRET = Buffer.from('-----BEGIN PRIVATE KEY-----').toString('base64');
+const ACCOUNTS_FILE_TEXT = JSON.stringify({
+  active: ASC_KEY_ID,
+  accounts: [
+    {
+      keyId: ASC_KEY_ID,
+      issuerId: 'issuer-1',
+      label: 'Owner',
+      addedAt: '2026-11-01T00:00:00.000Z',
+    },
+  ],
+});
+const APP_JSON_TEXT = JSON.stringify({
+  expo: { name: 'Oly', version: '1.2.0', ios: { bundleIdentifier: 'com.acme.app' } },
+});
+const EDITABLE_VERSION = {
+  id: 'v-edit',
+  versionString: '1.2.0',
+  appStoreState: 'PREPARE_FOR_SUBMISSION',
+};
+
+interface CommandRun {
+  homeDirectory: string;
+  platformArgument: string;
+  commandOptions: ReleaseCommandOptions;
+  releaseApi: AscReleaseApi;
+}
+
+interface CommandOutcome {
+  exit: Exit.Exit<void, unknown>;
+  logLines: string[];
+  questions: string[];
+}
+
+const commandOptionsFor = (
+  overrides: Partial<ReleaseCommandOptions> = {},
+): ReleaseCommandOptions => ({
+  env: [],
+  includeLocal: false,
+  printEnv: false,
+  profile: 'production',
+  explain: false,
+  wait: false,
+  yes: false,
+  json: false,
+  ...overrides,
+});
+
+const makeAttachApiFake = (methodOverrides: Partial<AscReleaseApi> = {}): AscReleaseApi =>
+  makeReleaseApiFake({
+    listAppStoreVersions: vi.fn(() => Effect.succeed([EDITABLE_VERSION])),
+    listBuilds: vi.fn(() => Effect.succeed([storeBuild()])),
+    findBuild: vi.fn(() => Effect.succeed({ id: 'b-1', usesNonExemptEncryption: false })),
+    findBuildByVersion: vi.fn(() => Effect.succeed(storeBuild())),
+    ...methodOverrides,
+  });
+
+const runInTemporaryHome = async <Result>(
+  runWithHome: (homeDirectory: string) => Promise<Result>,
+): Promise<Result> => {
+  const homeDirectory = createTemporaryHomeDirectory();
+
+  try {
+    const workDirectory = join(homeDirectory, 'work');
+    mkdirSync(workDirectory, { recursive: true });
+    writeFileSync(join(workDirectory, 'app.json'), APP_JSON_TEXT);
+    writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE_TEXT);
+
+    return await runWithHome(homeDirectory);
+  } finally {
+    removeTemporaryHomeDirectory(homeDirectory);
+  }
+};
+
+const runReleaseCommand = async (commandRun: CommandRun): Promise<CommandOutcome> => {
+  const logLines: string[] = [];
+  const questions: string[] = [];
+  const appleStoreClientTest = Layer.succeed(AppleStoreClientService, {
+    createClient: () => Effect.succeed(commandRun.releaseApi),
+    createEffectClient: () => Effect.succeed(makeFakeAscClient([])),
+    createReleaseAttributesClient: () => Effect.succeed(makeFakeAscClient([])),
+  });
+  const releaseCommandTest = Layer.succeed(ReleaseCommandService, {
+    terminalIsInteractive: true,
+    confirmRelease: (message) =>
+      Effect.sync(() => {
+        questions.push(message);
+        return true;
+      }),
+    cancelRelease: () => Effect.void,
+  });
+  const secretStoreTest = makeLaunchSecretStoreTest(new Map([[`asc-p8:${ASC_KEY_ID}`, P8_SECRET]]));
+
+  const releaseProgram = releaseCommandProgram(
+    commandRun.platformArgument,
+    commandRun.commandOptions,
+  ).pipe(
+    Effect.provide(makeLaunchHomeTest(commandRun.homeDirectory)),
+    Effect.provide(NodeHttpClient.layer),
+    Effect.provide(makeLaunchEnvironmentTest({})),
+    Effect.provide(secretStoreTest),
+    Effect.provide(makeLaunchPromptTest()),
+    Effect.provide(makeLaunchLoggerTest(logLines)),
+    Effect.provide(appleStoreClientTest),
+    Effect.provide(releaseCommandTest),
+  );
+
+  const exit = await Effect.runPromiseExit(releaseProgram);
+
+  return { exit, logLines, questions };
+};
+
+const failedRunText = (exit: Exit.Exit<void, unknown>): string => {
+  const didRunFail = Exit.isFailure(exit);
+  if (!didRunFail) return '';
+
+  return Cause.pretty(exit.cause);
+};
+
+describe('releaseCommandProgram - attach-only', () => {
+  it('fails on Android before any App Store call', async () => {
+    const releaseApi = makeReleaseApiFake();
+
+    const outcome = await runInTemporaryHome((homeDirectory) =>
+      runReleaseCommand({
+        homeDirectory,
+        platformArgument: 'android',
+        commandOptions: commandOptionsFor({ attachOnly: true }),
+        releaseApi,
+      }),
+    );
+
+    expect(Exit.isFailure(outcome.exit)).toBe(true);
+    expect(failedRunText(outcome.exit)).toContain('--attach-only is iOS only');
+    expect(releaseApi.getAppId).not.toHaveBeenCalled();
+  });
+
+  it('attaches the build to the editable version and never submits it', async () => {
+    const releaseApi = makeAttachApiFake();
+
+    const outcome = await runInTemporaryHome((homeDirectory) =>
+      runReleaseCommand({
+        homeDirectory,
+        platformArgument: 'ios',
+        commandOptions: commandOptionsFor({ build: '42', attachOnly: true }),
+        releaseApi,
+      }),
+    );
+
+    expect(Exit.isSuccess(outcome.exit)).toBe(true);
+    expect(outcome.logLines.join('\n')).toContain('Build 42 attached - not submitted for review');
+    expect(outcome.questions).toContainEqual(
+      expect.stringMatching(/^Attach build 42 to .+ without submitting for review\?$/),
+    );
+    expect(releaseApi.createReviewSubmission).not.toHaveBeenCalled();
+  });
+
+  it('titles the receipt with the failed step count when an attach step fails', async () => {
+    const releaseApi = makeAttachApiFake({
+      selectBuildForVersion: vi.fn(() => Effect.fail(new Error('Apple rejected the build'))),
+    });
+
+    const outcome = await runInTemporaryHome((homeDirectory) =>
+      runReleaseCommand({
+        homeDirectory,
+        platformArgument: 'ios',
+        commandOptions: commandOptionsFor({ build: '42', attachOnly: true }),
+        releaseApi,
+      }),
+    );
+
+    expect(outcome.logLines.join('\n')).toContain('Attached with 1 failed step(s) - see below');
+    expect(Exit.isFailure(outcome.exit)).toBe(true);
+    expect(releaseApi.createReviewSubmission).not.toHaveBeenCalled();
+  });
+
+  it('asks to submit and submits for review when attach-only is off', async () => {
+    const releaseApi = makeAttachApiFake();
+
+    const outcome = await runInTemporaryHome((homeDirectory) =>
+      runReleaseCommand({
+        homeDirectory,
+        platformArgument: 'ios',
+        commandOptions: commandOptionsFor({ build: '42' }),
+        releaseApi,
+      }),
+    );
+
+    expect(outcome.logLines.join('\n')).toContain('Submitted for App Store review');
+    expect(outcome.questions).toContainEqual(
+      expect.stringMatching(/^Submit .+ \(build 42\) for App Store review\?$/),
+    );
+    expect(releaseApi.createReviewSubmission).toHaveBeenCalled();
   });
 });

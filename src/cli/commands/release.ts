@@ -39,6 +39,11 @@ export const registerReleaseCommand = (program: Command): void => {
     .option('--manual', 'iOS only - hold the approved build for manual release', false)
     .option('--scheduled <iso>', 'iOS only - schedule the go-live at an ISO-8601 instant')
     .option('--phased', "iOS only - opt into Apple's 7-day phased rollout", false)
+    .option(
+      '--attach-only',
+      'iOS only - attach the --build to the editable App Store version without submitting for review',
+      false,
+    )
     .option('--dry-run', 'print the release plan (touches nothing) and exit', false)
     .option(
       '--create-app',
