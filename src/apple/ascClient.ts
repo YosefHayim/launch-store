@@ -558,7 +558,16 @@ type BuildPageIncluded = {
   id: string;
   attributes?: {
     version?: string;
+    processingState?: string;
   };
+};
+/** One page of an app's App Store versions, read with `include=build` so each attached build resolves from `included`. */
+type AppStoreVersionPage = PagedList<{
+  versionString?: string;
+  appStoreState?: string;
+  releaseType?: string;
+}> & {
+  included?: BuildPageIncluded[];
 };
 type BuildPage = {
   data: {
@@ -898,15 +907,22 @@ export class AppStoreConnectClient {
   // A is the caller-specified attributes shape of the returned rows; no argument infers it, so the param is required.
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
   private async requestAll<A>(path: string): Promise<AppleResource<A>[]> {
-    const all: AppleResource<A>[] = [];
+    const pages = await this.requestPages<PagedList<A>>(path);
+    return pages.flatMap((page) => page.data);
+  }
+  /** Walk every page of a collection, keeping each raw page so its `included` sidebar survives. */
+  private async requestPages<Page extends { links?: { next?: string } }>(
+    path: string,
+  ): Promise<Page[]> {
+    const pages: Page[] = [];
     let next: string | undefined = path;
     while (next) {
       // biome-ignore lint/performance/noAwaitInLoops: cursor pagination - each page’s `next` link comes from the prior response, so the reads are inherently sequential
-      const page: PagedList<A> = await this.request<PagedList<A>>('GET', next);
-      all.push(...page.data);
+      const page = await this.request<Page>('GET', next);
+      pages.push(page);
       next = page.links?.next;
     }
-    return all;
+    return pages;
   }
   /**
    * Run a read that may legitimately find nothing, mapping App Store Connect's `404` to `null` while
@@ -4034,16 +4050,14 @@ export class AppStoreConnectClient {
       relationships: { build: { data: { type: 'builds', id: buildId } } },
     });
   }
-  /** List an app's App Store versions for a platform (e.g. `IOS`), across all pages. */
+  /** List an app's App Store versions for a platform (e.g. `IOS`), across all pages, with each attached build's number and state. */
   async listAppStoreVersions(appId: string, platform: string): Promise<AppStoreVersionResource[]> {
-    const appleResources = await this.requestAll<{
-      versionString?: string;
-      appStoreState?: string;
-      releaseType?: string;
-    }>(
-      `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=200&fields[appStoreVersions]=versionString,appStoreState,releaseType,build`,
+    const versionPages = await this.requestPages<AppStoreVersionPage>(
+      `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=200&fields[appStoreVersions]=versionString,appStoreState,releaseType,build&include=build&fields[builds]=version,processingState`,
     );
-    return appleResources.map((entry) => toVersionResource(entry));
+    return versionPages.flatMap(({ data: entries, included = [] }) =>
+      entries.map((entry) => toVersionResource(entry, '', included)),
+    );
   }
   /** Create a new App Store version for a marketing version string on a platform. */
   async createAppStoreVersion(
@@ -4978,6 +4992,7 @@ const toVersionResource = (
     releaseType?: string;
   }>,
   fallbackVersion = '',
+  includedBuilds: readonly BuildPageIncluded[] = [],
 ): AppStoreVersionResource => {
   let versionString = entry.attributes.versionString;
   if (versionString === undefined) versionString = fallbackVersion;
@@ -4986,12 +5001,19 @@ const toVersionResource = (
   const releaseType = entry.attributes.releaseType;
   const attachedBuildId = entry.relationships?.build?.data?.id;
   const isBuildAttached = attachedBuildId !== undefined;
+  const attachedBuild = includedBuilds.find(
+    (includedBuild) => includedBuild.type === 'builds' && includedBuild.id === attachedBuildId,
+  );
+  const attachedBuildNumber = attachedBuild?.attributes?.version;
+  const attachedBuildProcessingState = attachedBuild?.attributes?.processingState;
   const version: AppStoreVersionResource = {
     id: entry.id,
     versionString,
     appStoreState,
     ...(releaseType !== undefined && { releaseType }),
     ...(isBuildAttached && { attachedBuildId }),
+    ...(attachedBuildNumber !== undefined && { attachedBuildNumber }),
+    ...(attachedBuildProcessingState !== undefined && { attachedBuildProcessingState }),
   };
   return version;
 };

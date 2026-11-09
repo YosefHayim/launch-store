@@ -3392,4 +3392,29 @@ describe('AppStoreConnectClient - app store versions', () => {
     expect(expectArrayElement(versions, 0, 'version').attachedBuildId).toBe('b-42');
     expect(expectArrayElement(versions, 1, 'version').attachedBuildId).toBeUndefined();
   });
+
+  it('reads the attached build number and processing state from the included build', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            {
+              id: 'v-edit',
+              attributes: { versionString: '1.2.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
+              relationships: { build: { data: { type: 'builds', id: 'b-42' } } },
+            },
+          ],
+          included: [
+            { type: 'builds', id: 'b-42', attributes: { version: '42', processingState: 'VALID' } },
+          ],
+        }),
+      ),
+    );
+    const versions = await client.listAppStoreVersions('app1', 'IOS');
+    expect(expectArrayElement(versions, 0, 'version')).toMatchObject({
+      attachedBuildNumber: '42',
+      attachedBuildProcessingState: 'VALID',
+    });
+  });
 });
