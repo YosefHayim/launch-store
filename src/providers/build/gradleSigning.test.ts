@@ -58,8 +58,8 @@ describe('Gradle signing transport', () => {
       );
       const invocation = vi.mocked(runWithProgress).mock.calls[0];
       expect(invocation).toBeDefined();
-      expect(invocation?.[1]).not.toContain('store-secret');
-      expect(invocation?.[1]).not.toContain('key-secret');
+      expect(invocation?.[1].join(' ')).not.toContain('store-secret');
+      expect(invocation?.[1].join(' ')).not.toContain('key-secret');
       expect(invocation?.[2]?.env).toMatchObject({
         'ORG_GRADLE_PROJECT_android.injected.signing.store.password': 'store-secret',
         'ORG_GRADLE_PROJECT_android.injected.signing.key.password': 'key-secret',
