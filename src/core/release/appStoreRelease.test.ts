@@ -282,7 +282,44 @@ describe('releaseApp - submit an update over the API', () => {
           Effect.succeed([{ id: 'v1', versionString: '1.2.0', appStoreState: 'READY_FOR_SALE' }]),
         ),
     });
-    await expect(runRelease(api, releaseInput())).rejects.toThrow(/already on the App Store/);
+    await expect(runRelease(api, releaseInput())).rejects.toThrow(
+      /already on the App Store \(READY_FOR_SALE\)\. Next step: set a new marketing version/,
+    );
+  });
+  it('refuses a build whose marketing version is already live, before any App Store write', async () => {
+    const api = makeApi({
+      listAppStoreVersions: vi.fn().mockReturnValue(
+        Effect.succeed([
+          { id: 'v-live', versionString: '1.1.0', appStoreState: 'READY_FOR_SALE' },
+          { id: 'v-next', versionString: '1.1.1', appStoreState: 'PREPARE_FOR_SUBMISSION' },
+        ]),
+      ),
+    });
+    const liveBuild = { ...VALID_BUILD, version: '591', marketingVersion: '1.1.0' };
+
+    const attempt = runRelease(api, releaseInput({ versionString: '1.2.0', build: liveBuild }));
+
+    await expect(attempt).rejects.toThrow(
+      'Build 591 (version 1.1.0) cannot join a new App Store version: App Store version 1.1.0 is already live. Next step: create a worktree from tag ios/1.1.0-591, set a new marketing version there, run `launch build ios`, then release that build.',
+    );
+    expect(api.updateAppStoreVersion).not.toHaveBeenCalled();
+    expect(api.selectBuildForVersion).not.toHaveBeenCalled();
+    expect(api.createAppStoreVersion).not.toHaveBeenCalled();
+  });
+  it('attaches a build whose marketing version is not live yet, to its editable version', async () => {
+    const api = makeApi({
+      listAppStoreVersions: vi.fn().mockReturnValue(
+        Effect.succeed([
+          { id: 'v-live', versionString: '1.1.0', appStoreState: 'READY_FOR_SALE' },
+          { id: 'v-next', versionString: '1.2.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
+        ]),
+      ),
+    });
+    const editableBuild = { ...VALID_BUILD, marketingVersion: '1.2.0' };
+
+    await runRelease(api, releaseInput({ versionString: '1.2.0', build: editableBuild }));
+
+    expect(api.selectBuildForVersion).toHaveBeenCalledWith('v-next', 'b-1');
   });
   it('errors without changing anything when the exact version is in an unknown state', async () => {
     const api = makeApi({
