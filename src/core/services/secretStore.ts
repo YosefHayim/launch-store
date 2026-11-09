@@ -15,18 +15,31 @@ export const LaunchSecretStore = Context.GenericTag<LaunchSecretStoreService>(
   'launch-store/SecretStore',
 );
 
+/** `security` exits 44 (errSecItemNotFound) when no item matches; only that means no secret is saved. */
+const macosItemNotFoundExitCode = 44;
+
+const readMacosSecret = (account: string): Effect.Effect<string | null, unknown> =>
+  provideNodeCommandServices(
+    captureCommandOutput('security', [
+      'find-generic-password',
+      '-s',
+      KEYCHAIN_SERVICE_NAME,
+      '-a',
+      account,
+      '-w',
+    ]),
+  ).pipe(
+    Effect.catchAll((commandFailure) => {
+      const isItemMissing = commandFailure.exitCode === macosItemNotFoundExitCode;
+      if (isItemMissing) return Effect.succeed(null);
+      return Effect.fail(
+        new Error(`Could not read ${account} from the keychain`, { cause: commandFailure }),
+      );
+    }),
+  );
+
 const macosSecretStore: LaunchSecretStoreService = {
-  readSecret: (account) =>
-    provideNodeCommandServices(
-      captureCommandOutput('security', [
-        'find-generic-password',
-        '-s',
-        KEYCHAIN_SERVICE_NAME,
-        '-a',
-        account,
-        '-w',
-      ]),
-    ).pipe(Effect.catchAll(() => Effect.succeed(null))),
+  readSecret: readMacosSecret,
   storeSecret: (account, secretText) =>
     provideNodeCommandServices(
       captureCommandOutput('security', [
@@ -72,9 +85,12 @@ const nativeKeyringSecretStore: LaunchSecretStoreService = {
   readSecret: (account) =>
     Effect.gen(function* () {
       const { Entry } = yield* loadNativeKeyring();
-      return yield* Effect.try(() => new Entry(KEYCHAIN_SERVICE_NAME, account).getPassword()).pipe(
-        Effect.catchAll(() => Effect.succeed(null)),
-      );
+      // The keyring returns null only for a missing entry; every other failure throws.
+      const storedPassword = yield* Effect.try({
+        try: () => new Entry(KEYCHAIN_SERVICE_NAME, account).getPassword(),
+        catch: (cause) => new Error(`Could not read ${account} from the keychain`, { cause }),
+      });
+      return storedPassword;
     }),
   storeSecret: (account, secretText) =>
     Effect.gen(function* () {
