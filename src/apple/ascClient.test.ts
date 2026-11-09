@@ -893,7 +893,14 @@ describe('AppStoreConnectClient - product catalog', () => {
   });
   it('writes a subscription localization onto the existing draft version', async () => {
     fetchMock
-      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: 'sv1' }] })))
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [{ id: 'sv1', attributes: { state: 'PREPARE_FOR_SUBMISSION', version: 1 } }],
+          }),
+        ),
+      )
       .mockResolvedValueOnce(
         fakeResponse(
           201,
@@ -912,7 +919,7 @@ describe('AppStoreConnectClient - product catalog', () => {
       'mock call',
     );
     expect(String(draftLookupUrl)).toBe(
-      'https://api.appstoreconnect.apple.com/v1/subscriptions/sub1/versions?filter[state]=PREPARE_FOR_SUBMISSION&limit=200',
+      'https://api.appstoreconnect.apple.com/v1/subscriptions/sub1/versions?limit=200',
     );
     expect(String(localizationUrl)).toBe(
       'https://api.appstoreconnect.apple.com/v2/subscriptionLocalizations',
@@ -961,7 +968,14 @@ describe('AppStoreConnectClient - product catalog', () => {
   });
   it('omits description on a group localization (groups carry a name only)', async () => {
     fetchMock
-      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: 'gv1' }] })))
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [{ id: 'gv1', attributes: { state: 'PREPARE_FOR_SUBMISSION', version: 1 } }],
+          }),
+        ),
+      )
       .mockResolvedValueOnce(
         fakeResponse(
           201,
@@ -1077,7 +1091,14 @@ describe('AppStoreConnectClient - product catalog', () => {
   });
   it('reads IAP localizations from the draft version, not the deprecated parent collection', async () => {
     fetchMock
-      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: 'iapv1' }] })))
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [{ id: 'iapv1', attributes: { state: 'PREPARE_FOR_SUBMISSION', version: 1 } }],
+          }),
+        ),
+      )
       .mockResolvedValueOnce(
         fakeResponse(
           200,
@@ -1096,20 +1117,130 @@ describe('AppStoreConnectClient - product catalog', () => {
       { id: 'loc1', locale: 'en-US', name: 'Lifetime', description: 'Forever access' },
     ]);
     expect(String(expectArrayElement(fetchMock.mock.calls, 0, 'mock call')[0])).toBe(
-      'https://api.appstoreconnect.apple.com/v2/inAppPurchases/iap1/versions?filter[state]=PREPARE_FOR_SUBMISSION&limit=200',
+      'https://api.appstoreconnect.apple.com/v2/inAppPurchases/iap1/versions?limit=200',
     );
     expect(String(expectArrayElement(fetchMock.mock.calls, 1, 'mock call')[0])).toBe(
       'https://api.appstoreconnect.apple.com/v1/inAppPurchaseVersions/iapv1/localizations?limit=200',
     );
   });
-  it('lists no IAP localizations and makes no localization read when there is no draft version', async () => {
+  it('lists no IAP localizations and makes no localization read when the product has no version at all', async () => {
     fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })));
     expect(await client.listInAppPurchaseLocalizations('iap1')).toEqual([]);
     expect(fetchMock.mock.calls).toHaveLength(1);
   });
+  it('lists the newest approved version when the product has no draft, so an approved product is not shown empty', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [
+              { id: 'iapv1', attributes: { state: 'APPROVED', version: 1 } },
+              { id: 'iapv2', attributes: { state: 'APPROVED', version: 2 } },
+            ],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [{ id: 'loc2', attributes: { locale: 'en-US', name: 'Lifetime' } }],
+          }),
+        ),
+      );
+    expect(await client.listInAppPurchaseLocalizations('iap1')).toEqual([
+      { id: 'loc2', locale: 'en-US', name: 'Lifetime' },
+    ]);
+    expect(String(expectArrayElement(fetchMock.mock.calls, 1, 'mock call')[0])).toBe(
+      'https://api.appstoreconnect.apple.com/v1/inAppPurchaseVersions/iapv2/localizations?limit=200',
+    );
+  });
+  it('PATCHes an existing locale on the draft version, leaving the approved copy alone', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [{ id: 'iapv1', attributes: { state: 'PREPARE_FOR_SUBMISSION', version: 1 } }],
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({ data: [{ id: 'loc1', attributes: { locale: 'en-US', name: 'Old' } }] }),
+        ),
+      )
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: { id: 'loc1' } })));
+    await client.updateInAppPurchaseLocalization('iap1', {
+      locale: 'en-US',
+      name: 'Lifetime',
+      description: 'Forever access',
+    });
+    const [patchUrl, patchInit] = expectArrayElement(fetchMock.mock.calls, 2, 'mock call');
+    expect(fetchMock.mock.calls).toHaveLength(3);
+    expect(String(patchUrl)).toBe(
+      'https://api.appstoreconnect.apple.com/v2/inAppPurchaseLocalizations/loc1',
+    );
+    expect(patchInit).toMatchObject({ method: 'PATCH' });
+    expect(readRequestDocument(patchInit)).toEqual({
+      data: {
+        type: 'inAppPurchaseLocalizations',
+        id: 'loc1',
+        attributes: { name: 'Lifetime', description: 'Forever access' },
+      },
+    });
+  });
+  it('creates the draft version and POSTs the locale when the product has no draft', async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })))
+      .mockResolvedValueOnce(fakeResponse(201, JSON.stringify({ data: { id: 'iapv2' } })))
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })))
+      .mockResolvedValueOnce(
+        fakeResponse(
+          201,
+          JSON.stringify({ data: { id: 'loc3', attributes: { locale: 'fr-FR', name: 'À vie' } } }),
+        ),
+      );
+    await client.updateInAppPurchaseLocalization('iap1', { locale: 'fr-FR', name: 'À vie' });
+    const [versionCreateUrl, versionCreateInit] = expectArrayElement(
+      fetchMock.mock.calls,
+      1,
+      'mock call',
+    );
+    const [localizationUrl, localizationInit] = expectArrayElement(
+      fetchMock.mock.calls,
+      3,
+      'mock call',
+    );
+    expect(fetchMock.mock.calls).toHaveLength(4);
+    expect(String(versionCreateUrl)).toBe(
+      'https://api.appstoreconnect.apple.com/v1/inAppPurchaseVersions',
+    );
+    expect(readRequestDocument(versionCreateInit)).toEqual({
+      data: {
+        type: 'inAppPurchaseVersions',
+        relationships: { inAppPurchase: { data: { type: 'inAppPurchases', id: 'iap1' } } },
+      },
+    });
+    expect(String(localizationUrl)).toBe(
+      'https://api.appstoreconnect.apple.com/v2/inAppPurchaseLocalizations',
+    );
+    expect(
+      documentValueAt(readRequestDocument(localizationInit), ['data', 'relationships']),
+    ).toEqual({ version: { data: { type: 'inAppPurchaseVersions', id: 'iapv2' } } });
+  });
   it('reads a subscription fixture from its draft version into the rows the sync diff compares', async () => {
     fetchMock
-      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: 'sv1' }] })))
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [{ id: 'sv1', attributes: { state: 'PREPARE_FOR_SUBMISSION', version: 1 } }],
+          }),
+        ),
+      )
       .mockResolvedValueOnce(
         fakeResponse(
           200,
@@ -1454,7 +1585,14 @@ describe('AppStoreConnectClient - listing localizations', () => {
           }),
         ),
       )
-      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: 'iapv1' }] })))
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [{ id: 'iapv1', attributes: { state: 'PREPARE_FOR_SUBMISSION', version: 1 } }],
+          }),
+        ),
+      )
       .mockResolvedValueOnce(
         fakeResponse(
           200,
