@@ -12,7 +12,7 @@ Launch runs the EAS pipeline locally: prebuild -> resolve credentials -> compile
 
 ## Genshot screenshot generation
 
-`launch ai screenshots` turns real app screens into polished App Store or Google Play creatives through the official Genshot CLI. Install the companion with `npm install --save-dev @genshot/cli`, authenticate once with `npx genshot login` (browser OAuth), and keep credentials out of `launch.config.ts`. Source images live under `<app>/screenshots/<locale>/<DISPLAY_TYPE>/`. Launch sends them to Genshot with `GENSHOT_CLIENT_SOURCE=launch-store`, validates every returned image against the selected store, and promotes approved files into the listing tree. Generation spends Genshot Credits; an agent should confirm the sources, platform, count, and brief unless the developer directly requested the run. Review with `launch plan screenshots`, then obtain human confirmation before the live `launch sync` upload. The bare `npx launch` TUI exposes the same journey and can install and authenticate Genshot interactively.
+`launch ai screenshots` turns real app screens into polished App Store or Google Play creatives through the official Genshot CLI. Install the companion with `npm install --save-dev @genshot/cli`, authenticate once with `npx genshot login` (browser OAuth), and keep credentials out of `launch.config.ts`. Source images live under `<app>/screenshots/<locale>/<DISPLAY_TYPE>/`. Launch sends them to Genshot with `GENSHOT_CLIENT_SOURCE=launch-store`, validates every returned image against the selected store, and promotes approved files into the listing tree. Generation spends Genshot Credits; an agent should confirm the sources, platform, count, and brief unless the developer directly requested the run. For App Store, review with `launch plan screenshots`, then obtain human confirmation before the live `launch sync` upload. Launch cannot upload Google Play screenshots yet (https://github.com/YosefHayim/launch-store/issues/512), so upload those by hand in Play Console under the main store listing. The bare `npx launch` TUI exposes the same journey and can install and authenticate Genshot interactively.
 
 ## Features
 
@@ -181,7 +181,7 @@ All 65 `launch` commands (205 store-API operations underneath, 2878 tests):
   - `launch offers deactivate <productId> <offerName>` - deactivate an offer-code campaign (its terms can't be edited, only switched off)
 - `launch ai` - AI-assisted authoring for your store presence
   - `launch ai listing` - draft App Store / Play listing copy with AI into store.config.json (review with `launch plan`)
-  - `launch ai screenshots` - enhance your real screenshots into store-ready ones with genshot (review with `launch plan screenshots`)
+  - `launch ai screenshots` - enhance your real screenshots into store-ready ones with genshot (App Store: review with `launch plan screenshots`)
   - `launch ai help [command]` - display help for command
 - `launch reviews` - read App Store customer reviews and reply from the CLI
   - `launch reviews list` - list an app's customer reviews, newest first

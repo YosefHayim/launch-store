@@ -12,7 +12,7 @@ export const registerAiScreenshotsCommand = (program: Command): void => {
   aiCommand
     .command('screenshots')
     .description(
-      'enhance your real screenshots into store-ready ones with genshot (review with `launch plan screenshots`)',
+      'enhance your real screenshots into store-ready ones with genshot (App Store: review with `launch plan screenshots`)',
     )
     .option('-a, --app <name>', "app handle (auto-selected if there's only one)")
     .option('--brief <text>', 'a short description of the app to steer the enhancement')

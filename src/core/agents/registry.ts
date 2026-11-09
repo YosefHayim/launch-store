@@ -559,7 +559,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
     id: 'launch-ai-screenshots',
     title: 'AI-generated store screenshots with Genshot',
     description:
-      'Use when the developer wants polished App Store or Google Play screenshots generated from real app screens. Covers installing and authenticating the Genshot companion, `launch ai screenshots`, store-dimension validation, `launch plan screenshots`, and the guarded upload through `launch sync`.',
+      'Use when the developer wants polished App Store or Google Play screenshots generated from real app screens. Covers installing and authenticating the Genshot companion, `launch ai screenshots`, store-dimension validation, `launch plan screenshots`, and the guarded App Store upload through `launch sync`.',
     triggers: [
       'generate polished App Store or Google Play screenshots',
       'turn real app screens into store marketing creatives',
@@ -573,10 +573,13 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       ),
       recipeStep(
         ['plan'],
-        'review the generated screenshot diff against the live store without writing',
+        'review the generated App Store screenshot diff against the live store without writing',
         ['screenshots'],
       ),
-      recipeStep(['sync'], 'upload the reviewed screenshots with the rest of the declared listing'),
+      recipeStep(
+        ['sync'],
+        'upload the reviewed App Store screenshots with the rest of the declared listing',
+      ),
     ],
     body: markdownBody([
       'Before generation, make sure the companion is available: `npm install --save-dev @genshot/cli`, then `npx genshot login`. Browser OAuth stores the Genshot credential in the user account config; never put an API key in `launch.config.ts`.',
@@ -584,7 +587,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
       '- Put real source images under `<app>/screenshots/<locale>/<DISPLAY_TYPE>/`. Launch enhances those screens; it does not fabricate product UI.',
       '- `launch ai screenshots` delegates to Genshot, identifies Launch as the client source, validates every returned image against the selected store, and promotes approved files into the listing tree.',
       '- Use `--captions` for ordered marketing captions, `--locale` for localization, and `--device-types` only when overriding the supported default (`APP_IPHONE_67` for iOS or `phone` for Android).',
-      '- Review with `launch plan screenshots`. Uploading remains the separate `launch sync` action and requires human confirmation.',
+      '- For App Store, review with `launch plan screenshots`. Uploading remains the separate `launch sync` action and requires human confirmation. Launch cannot upload Google Play screenshots yet (https://github.com/YosefHayim/launch-store/issues/512), so upload those by hand in Play Console under the main store listing.',
     ]),
     cautions: [
       'Genshot generation spends Credits. If the developer did not directly request generation, show the selected sources, platform, count, and brief and get approval before running it.',
