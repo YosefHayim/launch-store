@@ -553,7 +553,7 @@ type BetaFeedbackPage = {
 };
 const BUILD_PAGE_QUERY =
   'fields[builds]=version,processingState,uploadedDate,expired,preReleaseVersion&include=preReleaseVersion&fields[preReleaseVersions]=version';
-const buildMarketingVersionFilter = (marketingVersion: string | undefined): string => {
+const createMarketingVersionFilter = (marketingVersion: string | undefined): string => {
   const isMarketingVersionGiven = marketingVersion !== undefined;
   if (!isMarketingVersionGiven) return '';
   return `&filter[preReleaseVersion.version]=${marketingVersion}`;
@@ -3985,7 +3985,7 @@ export class AppStoreConnectClient {
     buildNumber: number,
     marketingVersion?: string,
   ): Promise<BuildResource | null> {
-    const versionFilter = buildMarketingVersionFilter(marketingVersion);
+    const versionFilter = createMarketingVersionFilter(marketingVersion);
     const buildPage = await this.request<BuildPage>(
       'GET',
       `/builds?filter[app]=${appId}&filter[version]=${buildNumber}${versionFilter}&sort=-uploadedDate&limit=1&${BUILD_PAGE_QUERY}`,
