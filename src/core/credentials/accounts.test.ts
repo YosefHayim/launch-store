@@ -74,6 +74,7 @@ import {
   getActiveKeyId,
   listAccounts,
   loadActiveAscKey,
+  loadAscKeyForAccount,
   loadAscKeyById,
   matchAccount,
   migrateLegacyAccounts,
@@ -282,15 +283,16 @@ describe('registry mutations', () => {
     expect(await runAccountEffect(getActiveKeyId())).toBe('AAAA1111');
   });
 });
+const addTwoAccounts = async () => {
+  await runAccountEffect(
+    addAccount({ keyId: 'AAAA1111', issuerId: 'issuer-a', label: 'Personal', p8: PEM }),
+  );
+  await runAccountEffect(
+    addAccount({ keyId: 'BBBB2222', issuerId: 'issuer-b', label: 'Acme', p8: PEM }),
+  );
+};
+
 describe('loadActiveAscKey', () => {
-  const addTwoAccounts = async () => {
-    await runAccountEffect(
-      addAccount({ keyId: 'AAAA1111', issuerId: 'issuer-a', label: 'Personal', p8: PEM }),
-    );
-    await runAccountEffect(
-      addAccount({ keyId: 'BBBB2222', issuerId: 'issuer-b', label: 'Acme', p8: PEM }),
-    );
-  };
   it('loads the active account without ASC_ACCOUNT', async () => {
     await addTwoAccounts();
     expect((await loadActiveKeyWith({}))?.keyId).toBe('BBBB2222');
@@ -307,6 +309,53 @@ describe('loadActiveAscKey', () => {
     );
   });
 });
+describe('loadAscKeyForAccount', () => {
+  const loadKeyForAccountWith = (
+    accountSelector: string | undefined,
+    environmentVariables: Readonly<Record<string, string>>,
+  ) =>
+    Effect.runPromise(
+      loadAscKeyForAccount(accountSelector).pipe(
+        Effect.provide(makeLaunchEnvironmentTest(environmentVariables).pipe(Layer.orDie)),
+        Effect.provide(NodeContext.layer),
+        Effect.provide(makeLaunchPathsTest(home.dir, home.dir)),
+        Effect.provide(makeLaunchSecretStoreTest()),
+      ),
+    );
+
+  it('loads the account the flag names, even when another account is active', async () => {
+    await addTwoAccounts();
+
+    const ascKey = await loadKeyForAccountWith('personal', {});
+
+    expect(ascKey?.keyId).toBe('AAAA1111');
+  });
+
+  it('falls back to the active account when no flag is given', async () => {
+    await addTwoAccounts();
+
+    const ascKey = await loadKeyForAccountWith(undefined, {});
+
+    expect(ascKey?.keyId).toBe('BBBB2222');
+  });
+
+  it('lets the flag win over ASC_ACCOUNT', async () => {
+    await addTwoAccounts();
+
+    const ascKey = await loadKeyForAccountWith('AAAA1111', { ASC_ACCOUNT: 'BBBB2222' });
+
+    expect(ascKey?.keyId).toBe('AAAA1111');
+  });
+
+  it('fails when the flag matches no account', async () => {
+    await addTwoAccounts();
+
+    await expect(loadKeyForAccountWith('nobody', {})).rejects.toThrow(
+      /No Apple account matching.*nobody/,
+    );
+  });
+});
+
 describe('migrateLegacyAccounts', () => {
   it("moves a legacy single key into the registry as the active 'default' account", async () => {
     secrets.store.set('asc-key-id', 'KEYXYZ7890');
