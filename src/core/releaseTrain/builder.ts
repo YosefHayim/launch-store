@@ -17,7 +17,10 @@ import {
   ensureCodeSigner,
 } from '../credentials/codeSign.js';
 import { loadActiveAscKey } from '../credentials/accounts.js';
-import { loadServiceAccount } from '../credentials/androidKeystore.js';
+import {
+  loadServiceAccount,
+  missingPlayServiceAccountMessage,
+} from '../credentials/androidKeystore.js';
 import { publishOtaPlatform, readExportMetadata } from '../distribution/otaPublish.js';
 import {
   ensureArtifactPresent,
@@ -181,7 +184,9 @@ export const createTrainRuntime = (
           runtimeFailure(
             'load Google Play service account',
             appDescriptor.name,
-            'No Google Play service account configured. Run `launch creds set-key --platform android`.',
+            yield* missingPlayServiceAccountMessage().pipe(
+              Effect.mapError((cause) => runtimeFailure('load Google Play service account', cause)),
+            ),
           ),
         );
       }

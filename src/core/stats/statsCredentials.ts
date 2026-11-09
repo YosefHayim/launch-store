@@ -2,6 +2,7 @@ import type { FileSystem, Path } from '@effect/platform';
 import { Context, Data, Effect, Layer } from 'effect';
 import { listAccounts, loadAscKeyById } from '../credentials/accounts.js';
 import { loadPortfolioFile } from '../portfolio/portfolioStore.js';
+import { loadConfig } from '../config/config.js';
 import { loadServiceAccount } from '../credentials/androidKeystore.js';
 import { AppleStoreClientService } from '../services/appleStoreClient.js';
 import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
@@ -43,17 +44,37 @@ export const StatsCredentialsLive = Layer.effect(
     const googleAccessToken = yield* GoogleAccessToken;
     const googleReportingClients = yield* GoogleReportingClientService;
 
-    const loadSavedServiceAccountKey = () =>
-      loadServiceAccount().pipe(
+    const loadSavedServiceAccountKey = (packageName: string) =>
+      loadServiceAccount(packageName).pipe(
         Effect.provide(capturedServices),
         Effect.mapError((cause) =>
           createCredentialsFailure('load the Play service account', cause),
         ),
       );
 
-    const playServiceAccount: StatsCredentialsShape['playServiceAccount'] = () =>
+    const googlePackageForApp: StatsCredentialsShape['googlePackageForApp'] = (app) =>
       Effect.gen(function* () {
-        const savedServiceAccountKey = yield* loadSavedServiceAccountKey();
+        if (app.packageName !== null) return app.packageName;
+        if (app.bundleId === null) return null;
+        const configuration = yield* loadConfig();
+        const matches = configuration.apps.filter(
+          (candidate) => candidate.bundleId === app.bundleId && candidate.packageName !== undefined,
+        );
+        if (matches.length !== 1) return null;
+        const matched = matches[0];
+        if (matched === undefined || matched.packageName === undefined) return null;
+        return matched.packageName;
+      }).pipe(
+        Effect.provide(capturedServices),
+        Effect.mapError((cause) =>
+          createCredentialsFailure('resolve the app Google credentials', cause),
+        ),
+      );
+
+    const playServiceAccount: StatsCredentialsShape['playServiceAccount'] = (packageName) =>
+      Effect.gen(function* () {
+        if (packageName === null) return null;
+        const savedServiceAccountKey = yield* loadSavedServiceAccountKey(packageName);
         const isKeyMissing = savedServiceAccountKey === null;
         if (isKeyMissing) return null;
         return yield* googleAccessToken
@@ -65,9 +86,10 @@ export const StatsCredentialsLive = Layer.effect(
           );
       });
 
-    const playReportingClient: StatsCredentialsShape['playReportingClient'] = () =>
+    const playReportingClient: StatsCredentialsShape['playReportingClient'] = (packageName) =>
       Effect.gen(function* () {
-        const savedServiceAccountKey = yield* loadSavedServiceAccountKey();
+        if (packageName === null) return null;
+        const savedServiceAccountKey = yield* loadSavedServiceAccountKey(packageName);
         const isKeyMissing = savedServiceAccountKey === null;
         if (isKeyMissing) return null;
         return yield* googleReportingClients
@@ -119,9 +141,12 @@ export const StatsCredentialsLive = Layer.effect(
         Effect.mapError((cause) => createCredentialsFailure('read the Play reports bucket', cause)),
       );
 
-    const readGoogleAccessToken: StatsCredentialsShape['googleAccessToken'] = (scopes) =>
+    const readGoogleAccessToken: StatsCredentialsShape['googleAccessToken'] = (
+      scopes,
+      packageName,
+    ) =>
       Effect.gen(function* () {
-        const serviceAccount = yield* playServiceAccount();
+        const serviceAccount = yield* playServiceAccount(packageName);
         const isServiceAccountMissing = serviceAccount === null;
         if (isServiceAccountMissing) return null;
         return yield* googleAccessToken
@@ -136,6 +161,7 @@ export const StatsCredentialsLive = Layer.effect(
     return {
       ascClientForAccount,
       vendorNumberForAccount,
+      googlePackageForApp,
       playServiceAccount,
       playReportingClient,
       playReportsBucket,
@@ -150,6 +176,7 @@ export const makeStatsCredentialsTest = (
   Layer.succeed(StatsCredentials, {
     ascClientForAccount: () => Effect.succeed(null),
     vendorNumberForAccount: () => Effect.succeed(null),
+    googlePackageForApp: (app) => Effect.succeed(app.packageName),
     playServiceAccount: () => Effect.succeed(null),
     playReportingClient: () => Effect.succeed(null),
     playReportsBucket: () => Effect.succeed(null),

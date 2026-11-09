@@ -1,6 +1,9 @@
 import { Terminal } from '@effect/platform';
 import { Data, Effect } from 'effect';
-import { loadServiceAccount } from '../credentials/androidKeystore.js';
+import {
+  loadServiceAccount,
+  missingPlayServiceAccountMessage,
+} from '../credentials/androidKeystore.js';
 import {
   GoogleStoreClientService,
   type EffectGooglePlayClient,
@@ -45,7 +48,14 @@ export const loadActiveGoogleStore = (
     if (serviceAccountJson === null) {
       return yield* Effect.fail(
         makeActiveGoogleStoreFailure({
-          message: 'No Play service account. Run `launch creds set-key --platform android` first.',
+          message: yield* missingPlayServiceAccountMessage().pipe(
+            Effect.mapError((cause) =>
+              makeActiveGoogleStoreFailure({
+                message: 'Could not read legacy Play credentials.',
+                cause,
+              }),
+            ),
+          ),
           cause: 'missing-service-account',
         }),
       );

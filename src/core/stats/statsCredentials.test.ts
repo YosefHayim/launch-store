@@ -1,4 +1,6 @@
 import { Effect, Layer } from 'effect';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTemporaryHomeDirectory,
@@ -42,10 +44,12 @@ describe('makeStatsCredentialsTest', () => {
 
     expect(await Effect.runPromise(credentials.ascClientForAccount('KEYA'))).toBeNull();
     expect(await Effect.runPromise(credentials.vendorNumberForAccount('KEYA'))).toBeNull();
-    expect(await Effect.runPromise(credentials.playServiceAccount())).toBeNull();
-    expect(await Effect.runPromise(credentials.playReportingClient())).toBeNull();
+    expect(await Effect.runPromise(credentials.playServiceAccount('com.example.app'))).toBeNull();
+    expect(await Effect.runPromise(credentials.playReportingClient('com.example.app'))).toBeNull();
     expect(await Effect.runPromise(credentials.playReportsBucket())).toBeNull();
-    expect(await Effect.runPromise(credentials.googleAccessToken(['scope']))).toBeNull();
+    expect(
+      await Effect.runPromise(credentials.googleAccessToken(['scope'], 'com.example.app')),
+    ).toBeNull();
   });
 
   test('uses the answer a test passes in', async () => {
@@ -55,7 +59,9 @@ describe('makeStatsCredentialsTest', () => {
       playReportingClient: () => Effect.succeed(playClient),
     });
 
-    expect(await Effect.runPromise(credentials.playReportingClient())).toBe(playClient);
+    expect(await Effect.runPromise(credentials.playReportingClient('com.example.app'))).toBe(
+      playClient,
+    );
   });
 });
 
@@ -125,19 +131,75 @@ describe('StatsCredentialsLive', () => {
   test('has no Play account, client or token when no service account is saved', async () => {
     const credentials = await readCredentials(new Map());
 
-    expect(await Effect.runPromise(credentials.playServiceAccount())).toBeNull();
-    expect(await Effect.runPromise(credentials.playReportingClient())).toBeNull();
-    expect(await Effect.runPromise(credentials.googleAccessToken(['scope']))).toBeNull();
+    expect(await Effect.runPromise(credentials.playServiceAccount('com.example.app'))).toBeNull();
+    expect(await Effect.runPromise(credentials.playReportingClient('com.example.app'))).toBeNull();
+    expect(
+      await Effect.runPromise(credentials.googleAccessToken(['scope'], 'com.example.app')),
+    ).toBeNull();
   });
 
   test('reads the Play account, builds the reporting client and gets a token when one is saved', async () => {
     const credentials = await readCredentials(
-      new Map([['play-service-account', JSON.stringify(SERVICE_ACCOUNT)]]),
+      new Map([['play-service-account:com.example.app', JSON.stringify(SERVICE_ACCOUNT)]]),
     );
 
-    expect(await Effect.runPromise(credentials.playServiceAccount())).toEqual(SERVICE_ACCOUNT);
-    expect(await Effect.runPromise(credentials.playReportingClient())).toBe(playClient);
-    expect(await Effect.runPromise(credentials.googleAccessToken(['scope']))).toBe('token-1');
+    expect(await Effect.runPromise(credentials.playServiceAccount('com.example.app'))).toEqual(
+      SERVICE_ACCOUNT,
+    );
+    expect(await Effect.runPromise(credentials.playReportingClient('com.example.app'))).toBe(
+      playClient,
+    );
+    expect(
+      await Effect.runPromise(credentials.googleAccessToken(['scope'], 'com.example.app')),
+    ).toBe('token-1');
+  });
+
+  test('uses only the requested app slot and ignores an unscoped key', async () => {
+    const credentials = await readCredentials(
+      new Map([
+        ['play-service-account:com.example.app', JSON.stringify(SERVICE_ACCOUNT)],
+        ['play-service-account', JSON.stringify(SERVICE_ACCOUNT)],
+      ]),
+    );
+    expect(await Effect.runPromise(credentials.playServiceAccount('com.example.app'))).toEqual(
+      SERVICE_ACCOUNT,
+    );
+    expect(await Effect.runPromise(credentials.playServiceAccount('com.example.other'))).toBeNull();
+    expect(await Effect.runPromise(credentials.playServiceAccount(null))).toBeNull();
+  });
+
+  test('maps an iOS app to its uniquely matched configured Android package', async () => {
+    const project = join(homeDirectory, 'work');
+    mkdirSync(project, { recursive: true });
+    writeFileSync(
+      join(project, 'app.json'),
+      JSON.stringify({
+        expo: {
+          slug: 'demo',
+          ios: { bundleIdentifier: 'com.example.ios' },
+          android: { package: 'com.example.android' },
+        },
+      }),
+    );
+    const credentials = await readCredentials(new Map());
+    const app = {
+      key: 'ios-1',
+      platform: 'ios' as const,
+      storeId: '1',
+      name: 'Demo',
+      bundleId: 'com.example.ios',
+      packageName: null,
+      accountKeyId: null,
+      accountLabel: 'test',
+      owner: null,
+      ga4PropertyId: null,
+    };
+    expect(await Effect.runPromise(credentials.googlePackageForApp(app))).toBe(
+      'com.example.android',
+    );
+    expect(
+      await Effect.runPromise(credentials.googlePackageForApp({ ...app, bundleId: 'unknown' })),
+    ).toBeNull();
   });
 
   test('reads the Play reports bucket from portfolio.json, or null when none is saved', async () => {

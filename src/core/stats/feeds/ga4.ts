@@ -30,18 +30,20 @@ const createCredentialsFailure = (app: PortfolioApp, cause: unknown): StatsFeedF
 const readAccessToken = (
   credentials: StatsCredentialsShape,
   app: PortfolioApp,
+  packageName: string | null,
 ): Effect.Effect<string | null, StatsFeedFailure> =>
   credentials
-    .googleAccessToken([GA4_READONLY_SCOPE])
+    .googleAccessToken([GA4_READONLY_SCOPE], packageName)
     .pipe(Effect.mapError((cause) => createCredentialsFailure(app, cause)));
 
 const readProjectId = (
   credentials: StatsCredentialsShape,
   app: PortfolioApp,
+  packageName: string | null,
 ): Effect.Effect<string | null, StatsFeedFailure> =>
   Effect.gen(function* () {
     const serviceAccount = yield* credentials
-      .playServiceAccount()
+      .playServiceAccount(packageName)
       .pipe(Effect.mapError((cause) => createCredentialsFailure(app, cause)));
     if (serviceAccount === null) return null;
     return readProjectIdFromClientEmail(serviceAccount.clientEmail);
@@ -111,14 +113,17 @@ export const ga4Feed: StatsFeedPlugin = {
   isApplicable: () => true,
   fetchDays: ({ app, range, credentials }) =>
     Effect.gen(function* () {
-      const accessToken = yield* readAccessToken(credentials, app);
+      const packageName = yield* credentials
+        .googlePackageForApp(app)
+        .pipe(Effect.mapError((cause) => createCredentialsFailure(app, cause)));
+      const accessToken = yield* readAccessToken(credentials, app, packageName);
       if (accessToken === null) {
         return {
           status: 'skipped',
           reason: 'No Google service account saved; add one with launch credentials',
         } as const;
       }
-      const projectId = yield* readProjectId(credentials, app);
+      const projectId = yield* readProjectId(credentials, app, packageName);
       const session = { appKey: app.key, accessToken, projectId };
       return yield* fetchWithSession(session, app, range).pipe(
         Effect.catchTag('Ga4SkipSignal', (skipSignal) =>

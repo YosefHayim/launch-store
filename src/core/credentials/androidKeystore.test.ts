@@ -70,37 +70,43 @@ afterAll(() => {
 });
 describe('storeServiceAccount / loadServiceAccount', () => {
   it('stores the JSON as a single base64 line so `security -w` cannot hex-encode it', async () => {
-    await runAndroidCredentialEffect(storeServiceAccount(SERVICE_ACCOUNT));
-    const stored = store.get('play-service-account');
+    await runAndroidCredentialEffect(storeServiceAccount(SERVICE_ACCOUNT, 'com.example.app'));
+    const stored = store.get('play-service-account:com.example.app');
     expect(stored).toBeDefined();
     expect(stored).not.toContain('\n');
     expect(stored).not.toBe(SERVICE_ACCOUNT);
   });
   it('round-trips a multi-line key through store -> load unchanged', async () => {
-    await runAndroidCredentialEffect(storeServiceAccount(SERVICE_ACCOUNT));
-    expect(await runAndroidCredentialEffect(loadServiceAccount())).toBe(SERVICE_ACCOUNT);
+    await runAndroidCredentialEffect(storeServiceAccount(SERVICE_ACCOUNT, 'com.example.app'));
+    expect(await runAndroidCredentialEffect(loadServiceAccount('com.example.app'))).toBe(
+      SERVICE_ACCOUNT,
+    );
   });
   it('validates the key shape before storing anything', async () => {
     await expect(
-      runAndroidCredentialEffect(storeServiceAccount(JSON.stringify({ type: 'authorized_user' }))),
+      runAndroidCredentialEffect(
+        storeServiceAccount(JSON.stringify({ type: 'authorized_user' }), 'com.example.app'),
+      ),
     ).rejects.toThrow(/client_email.*private_key/);
     expect(store.size).toBe(0);
   });
   it('returns null when no service account has been imported', async () => {
-    expect(await runAndroidCredentialEffect(loadServiceAccount())).toBeNull();
+    expect(await runAndroidCredentialEffect(loadServiceAccount('com.example.app'))).toBeNull();
   });
 });
 describe('describeStoredAndroidCredentials', () => {
   it('reports nothing cached on a fresh machine', async () => {
-    expect(await runAndroidCredentialEffect(describeStoredAndroidCredentials())).toEqual({
+    expect(
+      await runAndroidCredentialEffect(describeStoredAndroidCredentials('com.example.app')),
+    ).toEqual({
       keystoreAlias: null,
       hasServiceAccount: false,
     });
   });
   it('reports the service account once imported', async () => {
-    await runAndroidCredentialEffect(storeServiceAccount(SERVICE_ACCOUNT));
+    await runAndroidCredentialEffect(storeServiceAccount(SERVICE_ACCOUNT, 'com.example.app'));
     const { hasServiceAccount, keystoreAlias } = await runAndroidCredentialEffect(
-      describeStoredAndroidCredentials(),
+      describeStoredAndroidCredentials('com.example.app'),
     );
     expect(hasServiceAccount).toBe(true);
     expect(keystoreAlias).toBeNull();

@@ -1,6 +1,9 @@
 import type { FileSystem, Path } from '@effect/platform';
 import { Effect } from 'effect';
 import { listAccounts } from '../credentials/accounts.js';
+import { listStoredAndroidPackages } from '../credentials/androidKeystore.js';
+import { loadConfig } from '../config/config.js';
+import { loadPortfolioFile } from './portfolioStore.js';
 import { errorMessage } from '../services/errorMessage.js';
 import type { LaunchPathsService } from '../services/paths.js';
 import { StatsCredentials } from '../stats/statsCredentials.js';
@@ -59,10 +62,12 @@ const discoverAppleAccount = (
     return { accountLabel: account.label, apps, warning: null };
   }).pipe(Effect.catchAll((cause) => Effect.succeed(failedAccountDiscovery(account.label, cause))));
 
-const discoverPlay = (): Effect.Effect<AccountDiscovery | null, never, StatsCredentialsShape> =>
+const discoverPlay = (
+  packageName: string,
+): Effect.Effect<AccountDiscovery | null, never, StatsCredentialsShape> =>
   Effect.gen(function* () {
     const credentials = yield* StatsCredentials;
-    const reportingClient = yield* credentials.playReportingClient();
+    const reportingClient = yield* credentials.playReportingClient(packageName);
     const isPlayNotConnected = reportingClient === null;
     if (isPlayNotConnected) return null;
     const playApps = yield* reportingClient.listApps();
@@ -89,10 +94,20 @@ export const discoverApps = (): Effect.Effect<DiscoveryReport, never, DiscoveryR
     const appleDiscoveries = yield* Effect.forEach(accounts, discoverAppleAccount, {
       concurrency: APPLE_DISCOVERY_CONCURRENCY,
     });
-    const playDiscovery = yield* discoverPlay();
+    const configuration = yield* loadConfig().pipe(Effect.orElseSucceed(() => ({ apps: [] })));
+    const savedPortfolio = yield* loadPortfolioFile().pipe(Effect.orElseSucceed(() => null));
+    const storedPackages = yield* listStoredAndroidPackages().pipe(Effect.orElseSucceed(() => []));
+    const packages = new Set<string>(storedPackages);
+    for (const app of configuration.apps)
+      if (app.packageName !== undefined) packages.add(app.packageName);
+    if (savedPortfolio !== null) {
+      for (const app of savedPortfolio.apps)
+        if (app.packageName !== null) packages.add(app.packageName);
+    }
+    const playDiscoveries = yield* Effect.forEach([...packages], discoverPlay, { concurrency: 1 });
     const discoveries: AccountDiscovery[] = [...appleDiscoveries];
-    const isPlayConnected = playDiscovery !== null;
-    if (isPlayConnected) discoveries.push(playDiscovery);
+    for (const playDiscovery of playDiscoveries)
+      if (playDiscovery !== null) discoveries.push(playDiscovery);
     const warnings: DiscoveryWarning[] = [];
     for (const discovery of discoveries) {
       const hasWarning = discovery.warning !== null;

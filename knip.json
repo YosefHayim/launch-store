@@ -8,5 +8,6 @@
     ".claude-plugin/launch-store/tests/*.test.ts"
   ],
   "project": ["src/**/*.ts", "scripts/**/*.ts", ".claude-plugin/**/*.ts"],
-  "ignoreDependencies": ["claude-code"]
+  "ignoreDependencies": ["claude-code"],
+  "ignoreBinaries": ["keytool"]
 }

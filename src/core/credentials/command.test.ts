@@ -1,6 +1,6 @@
 import { NodeContext } from '@effect/platform-node';
 import { Effect, Schema } from 'effect';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -17,6 +17,7 @@ import {
   AppleCredentialsClientFactory,
   type AppleCredentialsClientFactory as AppleCredentialsFactory,
 } from '../services/appleCredentialsClient.js';
+import { GoogleStoreClientLive } from '../services/googleStoreClient.js';
 import { LaunchEnvironmentTest } from '../services/environment.js';
 import { makeLaunchLoggerTest } from '../services/logger.js';
 import { makeLaunchPathsTest } from '../services/paths.js';
@@ -61,6 +62,7 @@ const runCredentialsFailure = (commandInput: unknown): Promise<CredentialsComman
       Effect.flip,
       Effect.provide(NodeContext.layer),
       Effect.provide(LaunchEnvironmentTest),
+      Effect.provide(GoogleStoreClientLive),
       Effect.provide(
         makeLaunchPathsTest('/tmp/launch-creds-command-test', '/tmp/launch-creds-command-test'),
       ),
@@ -213,6 +215,7 @@ describe('set-vendor-number action', () => {
         Effect.either,
         Effect.provide(makeLaunchHomeTest(homeDirectory)),
         Effect.provide(LaunchEnvironmentTest),
+        Effect.provide(GoogleStoreClientLive),
         Effect.provide(makeLaunchLoggerTest(lines)),
         Effect.provide(makeLaunchPromptTest()),
         Effect.provide(makeLaunchSecretStoreTest()),
@@ -271,6 +274,7 @@ describe('set-play-reports-bucket action', () => {
         Effect.either,
         Effect.provide(makeLaunchHomeTest(homeDirectory)),
         Effect.provide(LaunchEnvironmentTest),
+        Effect.provide(GoogleStoreClientLive),
         Effect.provide(makeLaunchLoggerTest(lines)),
         Effect.provide(makeLaunchPromptTest()),
         Effect.provide(makeLaunchSecretStoreTest()),
@@ -322,5 +326,41 @@ describe('set-play-reports-bucket action', () => {
       _tag: 'Left',
       left: { message: expect.stringContaining('pubsite_prod_rev_') },
     });
+  });
+});
+
+describe('Android credential status', () => {
+  it('lists all configured Android apps without asking for an app', async () => {
+    const homeDirectory = createTemporaryHomeDirectory();
+    try {
+      for (const name of ['alpha', 'beta']) {
+        const directory = join(homeDirectory, 'work', 'apps', name);
+        mkdirSync(directory, { recursive: true });
+        writeFileSync(
+          join(directory, 'app.json'),
+          JSON.stringify({ expo: { slug: name, android: { package: `com.example.${name}` } } }),
+        );
+      }
+      const lines: string[] = [];
+      const secrets = new Map([['play-service-account:com.example.alpha', 'dummy']]);
+      const outcome = await Effect.runPromise(
+        credentialsCommandProgram({ action: 'status', options: { yes: true } }).pipe(
+          Effect.either,
+          Effect.provide(makeLaunchHomeTest(homeDirectory)),
+          Effect.provide(LaunchEnvironmentTest),
+          Effect.provide(GoogleStoreClientLive),
+          Effect.provide(makeLaunchLoggerTest(lines)),
+          Effect.provide(makeLaunchPromptTest()),
+          Effect.provide(makeLaunchSecretStoreTest(secrets)),
+          Effect.provideService(AppStoreIdentityService, unusedIdentity),
+          Effect.provideService(AppleCredentialsClientFactory, unusedCredentialsFactory),
+        ),
+      );
+      expect(outcome._tag).toBe('Right');
+      expect(lines.join('')).toContain('Google service account (alpha): stored');
+      expect(lines.join('')).toContain('Google service account (beta): not stored');
+    } finally {
+      removeTemporaryHomeDirectory(homeDirectory);
+    }
   });
 });
