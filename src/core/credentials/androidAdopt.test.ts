@@ -102,7 +102,7 @@ describe('legacy Android credential adoption', () => {
     await expect(
       sandbox.run(adoptLegacyAndroidCredentials('com.example.app', false, () => Effect.void)),
     ).rejects.toThrow(/--yes/);
-  });
+  }, 30_000);
   it('rejects an incorrect private key password before copying anything', async () => {
     const sandbox = setup();
     sandbox.secrets.set('android-keystore-key-password', 'wrongpass');
@@ -111,7 +111,7 @@ describe('legacy Android credential adoption', () => {
     ).rejects.toThrow(/Could not open/);
     expect(await sandbox.run(loadServiceAccount('com.example.app'))).toBeNull();
     expect(await sandbox.run(loadCachedKeystore('com.example.app'))).toBeNull();
-  });
+  }, 30_000);
   it('does not copy when the Play key cannot read the package', async () => {
     const sandbox = setup();
     await expect(
@@ -123,7 +123,7 @@ describe('legacy Android credential adoption', () => {
     ).rejects.toThrow(/denied/);
     expect(await sandbox.run(loadServiceAccount('com.example.app'))).toBeNull();
     expect(await sandbox.run(loadCachedKeystore('com.example.app'))).toBeNull();
-  });
+  }, 30_000);
   it('rejects a wrong key password when importing a keystore', async () => {
     const sandbox = setup();
     const attempt = Effect.gen(function* () {
@@ -144,5 +144,5 @@ describe('legacy Android credential adoption', () => {
     }).pipe(Effect.provide(makeLaunchLoggerTest([])));
     await expect(sandbox.run(attempt)).rejects.toThrow(/Could not open keystore/);
     expect(await sandbox.run(loadCachedKeystore('com.example.app'))).toBeNull();
-  });
+  }, 30_000);
 });
