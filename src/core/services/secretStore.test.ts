@@ -6,37 +6,10 @@ import {
   makeLaunchSecretStoreTest,
 } from './secretStore.js';
 
-const fakeHost = vi.hoisted(() => ({
-  operatingSystem: 'macos' as 'macos' | 'linux',
-  securityExitCode: 0,
-}));
-
 const fakeKeyring = vi.hoisted(() => ({
   storedPassword: null as string | null,
   isBroken: false,
 }));
-
-vi.mock('./os.js', async () => {
-  const { Effect: EffectModule } = await import('effect');
-  return { detectHostOperatingSystem: EffectModule.sync(() => fakeHost.operatingSystem) };
-});
-
-vi.mock('./exec.js', async () => {
-  const { Effect: EffectModule } = await import('effect');
-  return {
-    provideNodeCommandServices: <TValue, TError>(program: Effect.Effect<TValue, TError>) => program,
-    captureCommandOutput: () => {
-      const isSecuritySuccessful = fakeHost.securityExitCode === 0;
-      if (isSecuritySuccessful) return EffectModule.succeed('secret-text');
-      return EffectModule.fail({
-        _tag: 'CommandFailed',
-        command: 'security',
-        exitCode: fakeHost.securityExitCode,
-        stderr: '',
-      });
-    },
-  };
-});
 
 vi.mock('@napi-rs/keyring', () => ({
   Entry: class {
@@ -78,30 +51,11 @@ describe('LaunchSecretStore', () => {
 
 describe('LaunchSecretStoreLive', () => {
   beforeEach(() => {
-    fakeHost.operatingSystem = 'macos';
-    fakeHost.securityExitCode = 0;
     fakeKeyring.storedPassword = null;
     fakeKeyring.isBroken = false;
   });
 
-  it('readSecret returns null when the macOS keychain has no such item', async () => {
-    fakeHost.securityExitCode = 44;
-
-    const storedSecret = await readSecretFromLiveStore('review-password');
-
-    expect(storedSecret).toBeNull();
-  });
-
-  it('readSecret fails with a clear message when security fails for another reason', async () => {
-    fakeHost.securityExitCode = 1;
-
-    const readAttempt = readSecretFromLiveStore('review-password');
-
-    await expect(readAttempt).rejects.toThrow('Could not read review-password from the keychain');
-  });
-
-  it('readSecret returns null when the Windows or Linux keyring has no entry', async () => {
-    fakeHost.operatingSystem = 'linux';
+  it('readSecret returns null when the native keyring has no entry', async () => {
     fakeKeyring.storedPassword = null;
 
     const storedSecret = await readSecretFromLiveStore('review-password');
@@ -109,8 +63,7 @@ describe('LaunchSecretStoreLive', () => {
     expect(storedSecret).toBeNull();
   });
 
-  it('readSecret fails with a clear message when the Windows or Linux keyring throws', async () => {
-    fakeHost.operatingSystem = 'linux';
+  it('readSecret fails with a clear message when the native keyring throws', async () => {
     fakeKeyring.isBroken = true;
 
     const readAttempt = readSecretFromLiveStore('review-password');
