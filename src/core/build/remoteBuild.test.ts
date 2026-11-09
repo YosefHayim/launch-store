@@ -69,11 +69,11 @@ beforeEach(() => {
 
 describe('remote credential transport', () => {
   it('uses a protected environment file rather than secret-bearing SSH arguments', async () => {
-    let environmentDocument = '';
+    const environmentDocuments: string[] = [];
     vi.mocked(scpUp).mockImplementation((_target, localPath, remotePath) =>
       Effect.sync(() => {
         if (remotePath.endsWith('/environment.sh')) {
-          environmentDocument = readFileSync(localPath, 'utf8');
+          environmentDocuments.push(readFileSync(localPath, 'utf8'));
           expect(statSync(localPath).mode & 0o077).toBe(0);
         }
       }),
@@ -89,6 +89,7 @@ describe('remote credential transport', () => {
         remoteInputs({ env: { BACKEND_TOKEN: "dummy'quoted-token" } }),
       ).pipe(Effect.provide(NodeContext.layer)),
     );
+    const environmentDocument = environmentDocuments.join('');
     expect(environmentDocument).toContain('export KEYCHAIN_PASSWORD=');
     expect(environmentDocument).toContain('dummy-keychain-password');
     expect(environmentDocument).toContain('export BACKEND_TOKEN=');

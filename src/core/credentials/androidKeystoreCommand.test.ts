@@ -55,7 +55,10 @@ describe('Android signing command secret transport', () => {
     expect(invocation?.[0]).toBe('keytool');
     expect(invocation?.[1]).toContain('LAUNCH_KEYSTORE_STORE_PASSWORD');
     expect(invocation?.[1]).toContain('LAUNCH_KEYSTORE_KEY_PASSWORD');
-    expect(invocation?.[1]).not.toContain('dummy');
+    const storePassword = invocation?.[2]?.environmentOverrides?.['LAUNCH_KEYSTORE_STORE_PASSWORD'];
+    const keyPassword = invocation?.[2]?.environmentOverrides?.['LAUNCH_KEYSTORE_KEY_PASSWORD'];
+    expect(invocation?.[1]).not.toContain(storePassword);
+    expect(invocation?.[1]).not.toContain(keyPassword);
     expect(invocation?.[2]?.environmentOverrides?.['LAUNCH_KEYSTORE_STORE_PASSWORD']).toMatch(
       /^[a-f0-9]+$/,
     );
