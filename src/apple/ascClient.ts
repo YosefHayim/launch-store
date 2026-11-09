@@ -918,7 +918,7 @@ export class AppStoreConnectClient {
     let next: string | undefined = path;
     while (next) {
       // biome-ignore lint/performance/noAwaitInLoops: cursor pagination - each page’s `next` link comes from the prior response, so the reads are inherently sequential
-      const page = await this.request<Page>('GET', next);
+      const page: Page = await this.request<Page>('GET', next);
       pages.push(page);
       next = page.links?.next;
     }
