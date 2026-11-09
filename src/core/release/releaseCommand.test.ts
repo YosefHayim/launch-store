@@ -288,7 +288,7 @@ const runReleaseCommand = async (commandRun: CommandRun): Promise<CommandOutcome
   const appleStoreClientTest = Layer.succeed(AppleStoreClientService, {
     createClient: () => Effect.succeed(commandRun.releaseApi),
     createEffectClient: () => Effect.succeed(makeFakeAscClient([])),
-    createReleaseAttributesClient: () => Effect.succeed(commandRun.releaseApi),
+    createReleaseAttributesClient: () => Effect.succeed(makeFakeAscClient([])),
   });
   const releaseCommandTest = Layer.succeed(ReleaseCommandService, {
     terminalIsInteractive: true,
