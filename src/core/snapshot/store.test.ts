@@ -63,6 +63,26 @@ describe('snapshot store', () => {
     await runStoreEffect(saveSnapshot(snapshot, dir));
     expect(await runStoreEffect(loadSnapshot(snapshot.name, dir))).toEqual(snapshot);
   });
+  it('preserves per-app skip reasons when saving a partial capture', async () => {
+    const snapshot = snap({
+      reports: [
+        {
+          id: 'play-products',
+          title: 'Products',
+          store: 'play',
+          outcome: {
+            state: 'captured',
+            apps: [],
+            skippedApps: [
+              { app: 'beta', identifier: 'com.beta', reason: 'no Play service account' },
+            ],
+          },
+        },
+      ],
+    });
+    await runStoreEffect(saveSnapshot(snapshot, dir));
+    expect(await runStoreEffect(loadSnapshot(snapshot.name, dir))).toEqual(snapshot);
+  });
   it('overwrites a snapshot re-saved under the same name', async () => {
     await runStoreEffect(saveSnapshot(snap({ capturedAt: '2026-06-16T00:00:00.000Z' }), dir));
     await runStoreEffect(saveSnapshot(snap({ capturedAt: '2026-06-16T12:00:00.000Z' }), dir));

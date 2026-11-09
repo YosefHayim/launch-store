@@ -247,7 +247,7 @@ describe('legacy Android build guidance', () => {
     expect(outcome._tag).toBe('Left');
     if (outcome._tag !== 'Left') throw new Error('Expected missing credentials');
     expect(JSON.stringify(outcome.left)).toContain(
-      'launch creds adopt --platform android --app <name>',
+      "launch creds adopt --platform android --app 'demo'",
     );
   });
 });

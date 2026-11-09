@@ -38,7 +38,7 @@ export type LocalCredentialsStoreService = Readonly<{
     bundleId: string,
     extensions?: readonly string[],
   ) => Effect.Effect<SigningAssets | null, unknown>;
-  readonly missingPlayServiceAccountMessage: () => Effect.Effect<string, unknown>;
+  readonly missingPlayServiceAccountMessage: (appName: string) => Effect.Effect<string, unknown>;
   readonly loadPlayServiceAccount: (packageName: string) => Effect.Effect<string | null, unknown>;
   readonly loadAndroidKeystore: (
     packageName: string,
@@ -93,8 +93,8 @@ export const LocalCredentialsStoreLive: Layer.Layer<
         loadCachedSigningAssets(keyId, bundleId, extensions).pipe(
           Effect.provide(credentialStoreContext),
         ),
-      missingPlayServiceAccountMessage: () =>
-        missingPlayServiceAccountMessage().pipe(Effect.provide(credentialStoreContext)),
+      missingPlayServiceAccountMessage: (appName) =>
+        missingPlayServiceAccountMessage(appName).pipe(Effect.provide(credentialStoreContext)),
       loadPlayServiceAccount: (packageName: string) =>
         loadServiceAccount(packageName).pipe(Effect.provide(credentialStoreContext)),
       loadAndroidKeystore: (packageName: string) =>

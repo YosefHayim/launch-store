@@ -184,7 +184,7 @@ export const createTrainRuntime = (
           runtimeFailure(
             'load Google Play service account',
             appDescriptor.name,
-            yield* missingPlayServiceAccountMessage().pipe(
+            yield* missingPlayServiceAccountMessage(appDescriptor.name).pipe(
               Effect.mapError((cause) => runtimeFailure('load Google Play service account', cause)),
             ),
           ),

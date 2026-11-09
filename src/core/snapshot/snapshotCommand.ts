@@ -264,6 +264,14 @@ const renderCaptureReport = (
       return;
     }
     if (captureOutcome.state !== 'captured') return;
+    if (captureOutcome.skippedApps !== undefined) {
+      for (const skipped of captureOutcome.skippedApps) {
+        yield* writeLog(
+          'render skipped snapshot app',
+          logger.warn(`${captureReport.title} (${skipped.app}): skipped - ${skipped.reason}`),
+        );
+      }
+    }
     for (const appEntities of captureOutcome.apps) {
       yield* writeLog(
         'render snapshot capture',

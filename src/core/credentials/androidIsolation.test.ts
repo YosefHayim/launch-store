@@ -1,6 +1,6 @@
 import { NodeContext } from '@effect/platform-node';
 import { Effect } from 'effect';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -8,6 +8,7 @@ import { LaunchEnvironmentTest } from '../services/environment.js';
 import { createLogger, makeLaunchLoggerTest } from '../services/logger.js';
 import { makeLaunchPathsTest } from '../services/paths.js';
 import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
+import { captureCommandOutput } from '../services/exec.js';
 import {
   ensureUploadKeystore,
   loadCachedKeystore,
@@ -17,10 +18,11 @@ import {
 } from './androidKeystore.js';
 
 vi.mock('../services/exec.js', () => ({
-  captureCommandOutput: () => Effect.succeed('verified dummy keystore'),
+  captureCommandOutput: vi.fn(() => Effect.succeed('verified dummy keystore')),
 }));
 const temporaryRoots: string[] = [];
 afterEach(() => {
+  vi.clearAllMocks();
   for (const directory of temporaryRoots.splice(0))
     rmSync(directory, { recursive: true, force: true });
 });
@@ -101,6 +103,16 @@ describe('Android package credential isolation', () => {
     expect(alpha.path).not.toBe(beta.path);
     expect(readFileSync(alpha.path, 'utf8')).toBe('dummy alpha key');
     expect(readFileSync(beta.path, 'utf8')).toBe('dummy beta key');
+    const verificationCalls = vi.mocked(captureCommandOutput).mock.calls.slice(0, 2);
+    const firstPassword =
+      verificationCalls[0]?.[2]?.environmentOverrides?.['LAUNCH_VERIFY_DEST_PASSWORD'];
+    const secondPassword =
+      verificationCalls[1]?.[2]?.environmentOverrides?.['LAUNCH_VERIFY_DEST_PASSWORD'];
+    expect(firstPassword).toMatch(/^[a-f0-9]{64}$/);
+    expect(secondPassword).toMatch(/^[a-f0-9]{64}$/);
+    expect(firstPassword).not.toBe(secondPassword);
+    expect(verificationCalls[0]?.[1].join(' ')).not.toContain(firstPassword);
+
     expect((await sandbox.run(loadCachedKeystore('com.example.alpha')))?.storePassword).toBe(
       'alpha-password',
     );
@@ -171,5 +183,39 @@ describe('Android package credential isolation', () => {
       /not replaced/,
     );
     expect(readFileSync(original.path, 'utf8')).toBe('first key');
+  });
+  it('never reuses or regenerates when only a legacy keystore exists', async () => {
+    const sandbox = makeCredentialSandbox();
+    const legacyDirectory = join(sandbox.directory, '.launch', 'credentials');
+    mkdirSync(legacyDirectory, { recursive: true });
+    const legacyPath = join(legacyDirectory, 'upload.keystore');
+    writeFileSync(legacyPath, 'legacy key');
+    writeFileSync(
+      join(legacyDirectory, 'android.json'),
+      JSON.stringify({ keystore: { path: legacyPath, alias: 'upload' } }),
+    );
+    sandbox.secrets.set('android-keystore-store-password', 'store-password');
+    sandbox.secrets.set('android-keystore-key-password', 'key-password');
+    expect(await sandbox.run(loadCachedKeystore('com.example.app'))).toBeNull();
+    let offered = false;
+    const attempt = Effect.gen(function* () {
+      const logger = yield* createLogger(false);
+      return yield* ensureUploadKeystore({
+        appName: 'demo',
+        packageName: 'com.example.app',
+        log: logger,
+        dryRun: false,
+        confirmCreate: () =>
+          Effect.sync(() => {
+            offered = true;
+            return false;
+          }),
+      });
+    }).pipe(Effect.provide(makeLaunchLoggerTest([])));
+    await expect(sandbox.run(attempt)).rejects.toThrow(
+      /launch creds adopt --platform android --app 'demo'/,
+    );
+    expect(offered).toBe(false);
+    expect(readFileSync(legacyPath, 'utf8')).toBe('legacy key');
   });
 });

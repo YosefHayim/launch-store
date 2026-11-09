@@ -330,6 +330,33 @@ describe('set-play-reports-bucket action', () => {
 });
 
 describe('Android credential status', () => {
+  it('reports a broken Launch config instead of hiding it', async () => {
+    const homeDirectory = createTemporaryHomeDirectory();
+    try {
+      const work = join(homeDirectory, 'work');
+      mkdirSync(work, { recursive: true });
+      writeFileSync(join(work, 'launch.config.js'), 'throw new Error("broken config fixture")');
+      const outcome = await Effect.runPromise(
+        credentialsCommandProgram({ action: 'status', options: { yes: true } }).pipe(
+          Effect.either,
+          Effect.provide(makeLaunchHomeTest(homeDirectory)),
+          Effect.provide(LaunchEnvironmentTest),
+          Effect.provide(GoogleStoreClientLive),
+          Effect.provide(makeLaunchLoggerTest([])),
+          Effect.provide(makeLaunchPromptTest()),
+          Effect.provide(makeLaunchSecretStoreTest()),
+          Effect.provideService(AppStoreIdentityService, unusedIdentity),
+          Effect.provideService(AppleCredentialsClientFactory, unusedCredentialsFactory),
+        ),
+      );
+      expect(outcome).toMatchObject({
+        _tag: 'Left',
+        left: { message: expect.stringContaining('Could not load launch.config.js') },
+      });
+    } finally {
+      removeTemporaryHomeDirectory(homeDirectory);
+    }
+  });
   it('lists all configured Android apps without asking for an app', async () => {
     const homeDirectory = createTemporaryHomeDirectory();
     try {

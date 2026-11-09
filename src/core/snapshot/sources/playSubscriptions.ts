@@ -164,36 +164,38 @@ export const playSubscriptionsSource: SnapshotSource = {
     return Effect.gen(function* () {
       const apps = androidApps(snapshotContext.apps);
       if (apps.length === 0) return { state: 'omitted' };
-      const appClients = yield* Effect.forEach(
-        apps,
-        (app) => snapshotContext.resolvePlayApi(app.identifier),
-        { concurrency: 1 },
-      );
-      const api = appClients.find((client) => client !== null);
-      if (!api) {
-        return {
-          state: 'skipped',
-          reason: 'no Play service account',
-          hint: 'configure Play credentials',
-        };
-      }
-      const captured = yield* Effect.forEach(
+      const results = yield* Effect.forEach(
         apps,
         ({ name, identifier }) =>
           Effect.gen(function* () {
-            const appClient = yield* snapshotContext.resolvePlayApi(identifier);
-            if (!appClient)
-              return yield* Effect.fail({
-                _tag: 'MissingPlayCredentials',
-                message: `No Play credentials for ${identifier}.`,
-              });
-            const subscriptions = yield* appClient.listSubscriptions(identifier);
-            const entities = subscriptions.map(toEntity);
-            return { app: name, identifier, entities };
+            const client = yield* snapshotContext.resolvePlayApi(identifier);
+            if (client === null)
+              return {
+                skipped: { app: name, identifier, reason: 'no Play service account' },
+              } as const;
+            const records = yield* client.listSubscriptions(identifier);
+            return {
+              captured: { app: name, identifier, entities: records.map(toEntity) },
+            } as const;
           }),
         { concurrency: 'unbounded' },
       );
-      return { state: 'captured', apps: captured };
+      const captured = results.flatMap((entry) => {
+        if ('captured' in entry) return [entry.captured];
+        return [];
+      });
+      const skippedApps = results.flatMap((entry) => {
+        if ('skipped' in entry) return [entry.skipped];
+        return [];
+      });
+      if (captured.length === 0)
+        return {
+          state: 'skipped',
+          reason: `no Play service account for ${skippedApps.map((entry) => entry.app).join(', ')}`,
+          hint: 'configure Play credentials',
+        };
+      if (skippedApps.length === 0) return { state: 'captured', apps: captured };
+      return { state: 'captured', apps: captured, skippedApps };
     });
   },
   /**

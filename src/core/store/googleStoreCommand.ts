@@ -35,6 +35,7 @@ export type ActiveGoogleStoreRequirements =
 /** Load the keychain-backed Play service account and create its Effect transport client. */
 export const loadActiveGoogleStore = (
   packageName: string,
+  appName: string,
 ): Effect.Effect<EffectGooglePlayClient, ActiveGoogleStoreFailure, ActiveGoogleStoreRequirements> =>
   Effect.gen(function* () {
     const serviceAccountJson = yield* loadServiceAccount(packageName).pipe(
@@ -48,7 +49,7 @@ export const loadActiveGoogleStore = (
     if (serviceAccountJson === null) {
       return yield* Effect.fail(
         makeActiveGoogleStoreFailure({
-          message: yield* missingPlayServiceAccountMessage().pipe(
+          message: yield* missingPlayServiceAccountMessage(appName).pipe(
             Effect.mapError((cause) =>
               makeActiveGoogleStoreFailure({
                 message: 'Could not read legacy Play credentials.',
@@ -72,12 +73,17 @@ export const loadActiveGoogleStore = (
   });
 
 /** Resolve the selected app's Google Play package name. */
-export const resolveGoogleStorePackageName = (
+export const resolveGoogleStoreApp = (
   appSelector: string | undefined,
-): Effect.Effect<string, StoreAppSelectionFailure, StoreAppSelectionRequirements> =>
+): Effect.Effect<
+  { packageName: string; appName: string },
+  StoreAppSelectionFailure,
+  StoreAppSelectionRequirements
+> =>
   Effect.gen(function* () {
     const selectedApp = yield* selectStoreApp(appSelector);
-    if (selectedApp.packageName !== undefined) return selectedApp.packageName;
+    if (selectedApp.packageName !== undefined)
+      return { packageName: selectedApp.packageName, appName: selectedApp.name };
     return yield* Effect.fail(
       makeStoreAppSelectionFailure({
         message: `No Android application id for ${selectedApp.name} (set android.package in app.json).`,

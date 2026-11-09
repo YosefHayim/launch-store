@@ -84,4 +84,23 @@ describe('diffSnapshots', () => {
     // The same key under a different source must not collide - re-capturing identical state yields no diff.
     expect(diffSnapshots(before, before).entries).toHaveLength(0);
   });
+  it('does not report skipped app data as removed', () => {
+    const before = snap([entity('coins', { id: 1 })]);
+    const after: Snapshot = {
+      ...before,
+      reports: [
+        {
+          id: 'apple-products',
+          title: 'App Store in-app purchases',
+          store: 'appstore',
+          outcome: {
+            state: 'captured',
+            apps: [],
+            skippedApps: [{ app: 'alpha', identifier: 'com.acme.alpha', reason: 'no credentials' }],
+          },
+        },
+      ],
+    };
+    expect(diffSnapshots(before, after).entries).toEqual([]);
+  });
 });
