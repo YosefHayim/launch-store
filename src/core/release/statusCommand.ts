@@ -1,6 +1,6 @@
 import { Data, Effect, Schema } from 'effect';
 import { loadConfig } from '../config/config.js';
-import { loadActiveAscKey } from '../credentials/accounts.js';
+import { loadAscKeyForAccount } from '../credentials/accounts.js';
 import {
   AppleStoreClientService,
   type AppleStoreClientService as AppleStoreClientRequirements,
@@ -10,29 +10,49 @@ import { createLogger, type Logger } from '../services/logger.js';
 import { notify } from '../services/notify.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
+import { alignTableColumns, type Column } from '../terminal/table.js';
+import { endWithUsageFailure, makeUsageFailure } from '../terminal/usageFailure.js';
 import type { AppDescriptor } from '../types/app.js';
+import type { BuildResource } from '../types/appleCatalog.js';
 import type { LaunchConfig } from '../types/config.js';
-import { IOS_PLATFORM, readReleaseStatus, type ReleaseStatus } from './appStoreRelease.js';
+import {
+  type AscReleaseApi,
+  IOS_PLATFORM,
+  readAppStoreAppId,
+  readReleaseStatusForApp,
+  type ReleaseStatus,
+  waitForValidBuild,
+} from './appStoreRelease.js';
 import { createTransitionTracker, planTransitionNotifications } from './releaseNotify.js';
 
 const WATCH_INTERVAL_MS = 30_000;
+const NO_IOS_APPS_MESSAGE =
+  'No iOS apps discovered. Add an app with an ios.bundleIdentifier in app.json.';
 
-export const StatusCommandInputSchema = Schema.Struct({
+const StatusFlagsSchema = Schema.Struct({
   app: Schema.optionalWith(Schema.String, { exact: true }),
+  account: Schema.optionalWith(Schema.String, { exact: true }),
   watch: Schema.optionalWith(Schema.Boolean, { default: () => false }),
+  build: Schema.optionalWith(Schema.NumberFromString.pipe(Schema.int(), Schema.positive()), {
+    exact: true,
+  }),
+  builds: Schema.optionalWith(Schema.Boolean, { default: () => false }),
   json: Schema.optionalWith(Schema.Boolean, { default: () => false }),
 });
 
-export type StatusCommandInput = Schema.Schema.Type<typeof StatusCommandInputSchema>;
+type StatusFlags = Schema.Schema.Type<typeof StatusFlagsSchema>;
 
-/** One discovered iOS app reduced to status-read identity. */
-export type StatusApp = Readonly<{ name: string; bundleId: string }>;
+export type StatusCommandFlags = Schema.Schema.Encoded<typeof StatusFlagsSchema>;
 
-/** One app and its latest App Store status. */
-export type AppReleaseStatus = Readonly<{ appName: string; releaseStatus: ReleaseStatus }>;
+type StatusApp = Readonly<{ name: string; bundleId: string }>;
 
-/** Reading or watching App Store status failed. */
-export type StatusCommandFailure = Readonly<{
+type AppReleaseStatus = Readonly<{
+  appName: string;
+  releaseStatus: ReleaseStatus;
+  recentBuilds?: readonly BuildResource[];
+}>;
+
+type StatusCommandFailure = Readonly<{
   readonly _tag: 'StatusCommandFailure';
   readonly operation: string;
   readonly message: string;
@@ -48,7 +68,12 @@ const StatusCommandFailureSchema: Schema.Schema<StatusCommandFailure> = Schema.S
   cause: Schema.Unknown,
 });
 
-type AccountRequirements = Effect.Effect.Context<ReturnType<typeof loadActiveAscKey>>;
+const isStatusCommandFailure = (cause: unknown): cause is StatusCommandFailure =>
+  Schema.is(StatusCommandFailureSchema)(cause);
+
+const isCommandExit = (cause: unknown): cause is CommandExit => Schema.is(CommandExitSchema)(cause);
+
+type AccountRequirements = Effect.Effect.Context<ReturnType<typeof loadAscKeyForAccount>>;
 type NotifyRequirements = Effect.Effect.Context<ReturnType<typeof notify>>;
 
 type StatusCommandRequirements =
@@ -58,28 +83,22 @@ type StatusCommandRequirements =
   | Logger
   | NotifyRequirements;
 
-/** Normalize one status command failure. */
-const statusFailure = (
-  operation: string,
-  cause: unknown,
-  explicitMessage?: string,
-): StatusCommandFailure => {
-  let message = errorMessage(cause);
-  if (explicitMessage !== undefined) message = explicitMessage;
-  return makeStatusCommandFailure({ operation, message, cause });
-};
+const createStatusFailure = (operation: string, cause: unknown): StatusCommandFailure =>
+  makeStatusCommandFailure({ operation, message: errorMessage(cause), cause });
 
-/** Select iOS apps from discovery and an optional comma-separated handle list. */
 export const selectIosApps = (
   discoveredApps: readonly AppDescriptor[],
   appSelector: string | undefined,
 ): Effect.Effect<StatusApp[], StatusCommandFailure> => {
   const iosApps: StatusApp[] = [];
   for (const discoveredApp of discoveredApps) {
-    if (discoveredApp.bundleId === undefined) continue;
-    iosApps.push({ name: discoveredApp.name, bundleId: discoveredApp.bundleId });
+    const { bundleId } = discoveredApp;
+    const isIosApp = bundleId !== undefined;
+    if (isIosApp) iosApps.push({ name: discoveredApp.name, bundleId });
   }
-  if (appSelector === undefined) return Effect.succeed(iosApps);
+
+  const isAppSelectorMissing = appSelector === undefined;
+  if (isAppSelectorMissing) return Effect.succeed(iosApps);
   const requestedNames = appSelector
     .split(',')
     .map((appName) => appName.trim())
@@ -88,45 +107,44 @@ export const selectIosApps = (
   const selectedApps: StatusApp[] = [];
   for (const requestedName of requestedNames) {
     const selectedApp = iosAppsByName.get(requestedName);
-    if (selectedApp !== undefined) {
+    const isAppFound = selectedApp !== undefined;
+    if (isAppFound) {
       selectedApps.push(selectedApp);
       continue;
     }
-    let availableApps = 'none';
-    if (iosApps.length > 0) availableApps = iosApps.map((iosApp) => iosApp.name).join(', ');
+    const isThereIosApp = iosApps.length > 0;
+    const availableApps = isThereIosApp ? iosApps.map((iosApp) => iosApp.name).join(', ') : 'none';
     return Effect.fail(
-      statusFailure(
+      createStatusFailure(
         'select iOS apps',
-        requestedName,
-        `Unknown iOS app "${requestedName}". iOS apps: ${availableApps}.`,
+        new Error(`Unknown iOS app "${requestedName}". iOS apps: ${availableApps}.`),
       ),
     );
   }
   return Effect.succeed(selectedApps);
 };
 
-/** Format one human-readable App Store status line. */
-export const formatStatusLine = (releaseStatus: ReleaseStatus): string => {
-  const statusParts: string[] = [];
-  if (releaseStatus.versionString === null) statusParts.push('no App Store version');
-  else statusParts.push(`v${releaseStatus.versionString}`);
-  statusParts.push(releaseStatus.verdict.label);
-  if (releaseStatus.buildNumber !== null) {
-    let processingSuffix = '';
-    if (
-      releaseStatus.buildProcessingState !== null &&
-      releaseStatus.buildProcessingState !== 'VALID'
-    ) {
-      processingSuffix = ` (${releaseStatus.buildProcessingState})`;
-    }
-    statusParts.push(`build ${releaseStatus.buildNumber}${processingSuffix}`);
+const describeAttachedBuild = (releaseStatus: ReleaseStatus): string => {
+  const isNoBuildAttached = releaseStatus.buildNumber === null;
+  if (isNoBuildAttached) return 'no build';
+  const isBuildStillProcessing =
+    releaseStatus.buildProcessingState !== null && releaseStatus.buildProcessingState !== 'VALID';
+  if (isBuildStillProcessing) {
+    return `build ${releaseStatus.buildNumber} (${releaseStatus.buildProcessingState})`;
   }
-  if (releaseStatus.phasedReleaseState !== null)
-    statusParts.push(`phased: ${releaseStatus.phasedReleaseState}`);
+  return `build ${releaseStatus.buildNumber}`;
+};
+
+const describeReleaseStatus = (releaseStatus: ReleaseStatus): string => {
+  const isVersionPresent = releaseStatus.versionString !== null;
+  const versionPart = isVersionPresent ? `v${releaseStatus.versionString}` : 'no App Store version';
+  const statusParts = [versionPart, releaseStatus.verdict.label];
+  if (isVersionPresent) statusParts.push(describeAttachedBuild(releaseStatus));
+  const isPhasedReleaseKnown = releaseStatus.phasedReleaseState !== null;
+  if (isPhasedReleaseKnown) statusParts.push(`phased: ${releaseStatus.phasedReleaseState}`);
   return statusParts.join(' - ');
 };
 
-/** Rank process exit codes from most severe to least severe. */
 const exitCodeRank = (exitCode: number): number => {
   switch (exitCode) {
     case 1:
@@ -140,8 +158,7 @@ const exitCodeRank = (exitCode: number): number => {
   }
 };
 
-/** Return the most severe exit code in a status batch. */
-export const worstExitCode = (exitCodes: readonly number[]): number => {
+const worstExitCode = (exitCodes: readonly number[]): number => {
   let worstCode = 0;
   for (const exitCode of exitCodes) {
     if (exitCodeRank(exitCode) > exitCodeRank(worstCode)) worstCode = exitCode;
@@ -149,40 +166,107 @@ export const worstExitCode = (exitCodes: readonly number[]): number => {
   return worstCode;
 };
 
-/** Read every selected app concurrently through the shared Apple transport. */
+const readAppId = (appleClient: AscReleaseApi, selectedApp: StatusApp) =>
+  readAppStoreAppId(appleClient, selectedApp.bundleId).pipe(
+    Effect.mapError((cause) =>
+      createStatusFailure(`find App Store app for ${selectedApp.name}`, cause),
+    ),
+  );
+
+const listRecentBuilds = (
+  appleClient: AscReleaseApi,
+  appId: string,
+  appName: string,
+): Effect.Effect<BuildResource[], StatusCommandFailure> => {
+  const recentBuildCount = 25;
+  return appleClient
+    .listBuilds(appId, recentBuildCount)
+    .pipe(Effect.mapError((cause) => createStatusFailure(`list builds for ${appName}`, cause)));
+};
+
+const describeUploadTime = (uploadedDate: string | undefined): string => {
+  const isUploadTimeMissing = uploadedDate === undefined;
+  if (isUploadTimeMissing) return '-';
+  return new Date(uploadedDate).toISOString().slice(0, 16).replace('T', ' ');
+};
+
+const describeRecentBuilds = (recentBuilds: readonly BuildResource[]): string => {
+  const isThereNoBuild = recentBuilds.length === 0;
+  if (isThereNoBuild) return '  no builds uploaded yet';
+  const recentBuildColumns: readonly Column<BuildResource>[] = [
+    { header: 'VERSION', cell: (build) => build.marketingVersion ?? '-' },
+    { header: 'BUILD', cell: (build) => build.version },
+    { header: 'PROCESSING', cell: (build) => build.processingState },
+    { header: 'UPLOADED (UTC)', cell: (build) => describeUploadTime(build.uploadedDate) },
+  ];
+  return alignTableColumns(recentBuildColumns, recentBuilds);
+};
+
+const readOneAppStatus = (
+  appleClient: AscReleaseApi,
+  selectedApp: StatusApp,
+  isBuildListWanted: boolean,
+): Effect.Effect<AppReleaseStatus, StatusCommandFailure> =>
+  Effect.gen(function* () {
+    const appId = yield* readAppId(appleClient, selectedApp);
+    const releaseStatus = yield* readReleaseStatusForApp(
+      appleClient,
+      appId,
+      selectedApp.bundleId,
+      IOS_PLATFORM,
+    ).pipe(
+      Effect.mapError((cause) =>
+        createStatusFailure(`read App Store status for ${selectedApp.name}`, cause),
+      ),
+    );
+
+    const isBuildListSkipped = !isBuildListWanted;
+    if (isBuildListSkipped) return { appName: selectedApp.name, releaseStatus };
+    const recentBuilds = yield* listRecentBuilds(appleClient, appId, selectedApp.name);
+    return { appName: selectedApp.name, releaseStatus, recentBuilds };
+  });
+
 const readSelectedStatuses = (
-  appleClient: Parameters<typeof readReleaseStatus>[0],
+  appleClient: AscReleaseApi,
   selectedApps: readonly StatusApp[],
+  isBuildListWanted: boolean,
 ): Effect.Effect<AppReleaseStatus[], StatusCommandFailure> =>
   Effect.forEach(
     selectedApps,
-    (selectedApp) =>
-      readReleaseStatus(appleClient, selectedApp.bundleId, IOS_PLATFORM).pipe(
-        Effect.mapError((cause) =>
-          statusFailure(`read App Store status for ${selectedApp.name}`, cause),
-        ),
-        Effect.map((releaseStatus) => ({ appName: selectedApp.name, releaseStatus })),
-      ),
+    (selectedApp) => readOneAppStatus(appleClient, selectedApp, isBuildListWanted),
     { concurrency: 'unbounded' },
   );
 
-/** Print one human-readable status batch. */
+const printOneAppStatus = (
+  logger: Logger,
+  appStatus: AppReleaseStatus,
+): Effect.Effect<void, unknown> =>
+  Effect.gen(function* () {
+    yield* logger.step(appStatus.appName, describeReleaseStatus(appStatus.releaseStatus));
+    const isBuildListPresent = appStatus.recentBuilds !== undefined;
+    if (!isBuildListPresent) return;
+    yield* logger.line(describeRecentBuilds(appStatus.recentBuilds));
+  });
+
 const printStatusBatch = (
   logger: Logger,
   appStatuses: readonly AppReleaseStatus[],
 ): Effect.Effect<void, unknown> =>
-  Effect.forEach(
-    appStatuses,
-    (appStatus) => logger.step(appStatus.appName, formatStatusLine(appStatus.releaseStatus)),
-    { concurrency: 1, discard: true },
-  );
+  Effect.forEach(appStatuses, (appStatus) => printOneAppStatus(logger, appStatus), {
+    concurrency: 1,
+    discard: true,
+  });
 
-/** Poll until every selected app reaches a terminal verdict. */
-export const watchReleaseStatuses = (
+const createStatusJsonRow = (appStatus: AppReleaseStatus) => {
+  const isBuildListPresent = appStatus.recentBuilds !== undefined;
+  if (!isBuildListPresent) return appStatus.releaseStatus;
+  return { ...appStatus.releaseStatus, recentBuilds: appStatus.recentBuilds };
+};
+
+const watchReleaseStatuses = (
   readStatuses: () => Effect.Effect<AppReleaseStatus[], StatusCommandFailure>,
   logger: Logger,
   launchConfiguration: LaunchConfig,
-  sleepBetweenPolls: () => Effect.Effect<void> = () => Effect.sleep(WATCH_INTERVAL_MS),
 ): Effect.Effect<number, StatusCommandFailure, NotifyRequirements> =>
   Effect.gen(function* () {
     const transitionTracker = createTransitionTracker();
@@ -202,75 +286,206 @@ export const watchReleaseStatuses = (
           { concurrency: 1, discard: true },
         );
       }
-      const allDone = appStatuses.every((appStatus) => appStatus.releaseStatus.verdict.done);
-      if (allDone) {
+
+      const isEveryAppDone = appStatuses.every((appStatus) => appStatus.releaseStatus.verdict.done);
+      if (isEveryAppDone) {
         return worstExitCode(
           appStatuses.map((appStatus) => appStatus.releaseStatus.verdict.exitCode),
         );
       }
-      yield* sleepBetweenPolls();
+      yield* Effect.sleep(WATCH_INTERVAL_MS);
     }
   }).pipe(
     Effect.mapError((cause) => {
-      if (Schema.is(StatusCommandFailureSchema)(cause)) return cause;
-      return statusFailure('watch App Store status', cause);
+      if (isStatusCommandFailure(cause)) return cause;
+      return createStatusFailure('watch App Store status', cause);
     }),
   );
 
-/** Run the schema-decoded App Store status command. */
+type BuildWatchRequest = Readonly<{
+  appleClient: AscReleaseApi;
+  selectedApp: StatusApp;
+  buildNumber: number;
+  logger: Logger;
+  isJson: boolean;
+}>;
+
+const watchBuildProcessing = (
+  buildWatchRequest: BuildWatchRequest,
+): Effect.Effect<BuildResource, StatusCommandFailure> =>
+  Effect.gen(function* () {
+    const { appleClient, selectedApp, buildNumber, logger, isJson } = buildWatchRequest;
+    const appId = yield* readAppId(appleClient, selectedApp);
+
+    const isProgressShown = !isJson;
+    const reportProgress = (processingState: string) => {
+      if (!isProgressShown) return Effect.void;
+      return logger
+        .step(selectedApp.name, `build ${buildNumber} is ${processingState}`)
+        .pipe(Effect.orDie);
+    };
+    const storeBuild = yield* waitForValidBuild(appleClient, appId, buildNumber, {
+      onTick: reportProgress,
+    }).pipe(
+      Effect.mapError((cause) =>
+        createStatusFailure(`wait for build ${buildNumber} of ${selectedApp.name}`, cause),
+      ),
+    );
+    return storeBuild;
+  });
+
+const reportValidBuild = (
+  buildWatchRequest: BuildWatchRequest,
+  storeBuild: BuildResource,
+): Effect.Effect<void, StatusCommandFailure> =>
+  Effect.gen(function* () {
+    const { logger, selectedApp, buildNumber, isJson } = buildWatchRequest;
+    if (isJson) {
+      const validBuildReport = {
+        ok: true,
+        appName: selectedApp.name,
+        buildNumber,
+        processingState: storeBuild.processingState,
+      };
+      yield* logger.line(JSON.stringify(validBuildReport, null, 2)).pipe(Effect.orDie);
+      return;
+    }
+    yield* logger
+      .step(
+        selectedApp.name,
+        `build ${buildNumber} is ${storeBuild.processingState} - ready to release`,
+      )
+      .pipe(Effect.orDie);
+  });
+
+const reportFailedBuildWatch = (
+  buildWatchRequest: BuildWatchRequest,
+  watchFailure: StatusCommandFailure,
+): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const { logger, selectedApp, buildNumber, isJson } = buildWatchRequest;
+    const isHumanOutput = !isJson;
+    if (isHumanOutput) return;
+    const failedBuildReport = {
+      ok: false,
+      appName: selectedApp.name,
+      buildNumber,
+      error: watchFailure.message,
+    };
+    yield* logger.line(JSON.stringify(failedBuildReport, null, 2)).pipe(Effect.orDie);
+  });
+
+const findStatusUsageProblem = (statusFlags: StatusFlags, iosAppCount: number): string | null => {
+  const isBuildWithoutWatch = statusFlags.build !== undefined && !statusFlags.watch;
+  if (isBuildWithoutWatch) {
+    return '--build needs --watch: it waits for that build to finish processing.';
+  }
+  const isBuildsWithWatch = statusFlags.builds && statusFlags.watch;
+  if (isBuildsWithWatch) return '--builds lists builds without waiting: drop --watch to list them.';
+  const isBuildForSeveralApps = statusFlags.build !== undefined && iosAppCount > 1;
+  if (isBuildForSeveralApps) return '--build waits on one build of one app: pass --app <name>.';
+  return null;
+};
+
 export const statusCommandProgram = (
-  rawCommandInput: unknown,
+  flagsFromCli: StatusCommandFlags,
 ): Effect.Effect<void, CommandExit | StatusCommandFailure, StatusCommandRequirements> =>
   Effect.gen(function* () {
-    const commandInput = yield* Schema.decodeUnknown(StatusCommandInputSchema)(rawCommandInput);
+    const isJsonRequested = flagsFromCli.json === true;
+    const statusFlags = yield* Schema.decodeUnknown(StatusFlagsSchema)(flagsFromCli).pipe(
+      Effect.catchTag('ParseError', () =>
+        endWithUsageFailure(
+          makeUsageFailure({ message: '--build takes a whole number above 0, such as 42.' }),
+          isJsonRequested,
+        ),
+      ),
+    );
     const launchPaths = yield* LaunchPaths;
     const logger = yield* createLogger(false);
     const loadedConfiguration = yield* loadConfig(launchPaths.workingDirectory);
-    const selectedApps = yield* selectIosApps(loadedConfiguration.apps, commandInput.app);
-    if (selectedApps.length === 0) {
-      yield* logger.note(
-        'No iOS apps discovered. Add an app with an ios.bundleIdentifier in app.json.',
+    const selectedApps = yield* selectIosApps(loadedConfiguration.apps, statusFlags.app);
+
+    const usageProblem = findStatusUsageProblem(statusFlags, selectedApps.length);
+    const isUsageProblemFound = usageProblem !== null;
+    if (isUsageProblemFound) {
+      return yield* endWithUsageFailure(
+        makeUsageFailure({ message: usageProblem }),
+        statusFlags.json,
       );
+    }
+
+    const isThereNoSelectedApp = selectedApps.length === 0;
+    const isBuildWatchWithNoApp = isThereNoSelectedApp && statusFlags.build !== undefined;
+    if (isBuildWatchWithNoApp) {
+      return yield* Effect.fail(
+        createStatusFailure('find iOS app', new Error(NO_IOS_APPS_MESSAGE)),
+      );
+    }
+    if (isThereNoSelectedApp) {
+      yield* logger.note(NO_IOS_APPS_MESSAGE);
       return;
     }
-    const ascKey = yield* loadActiveAscKey();
-    if (ascKey === null) {
+
+    const ascKey = yield* loadAscKeyForAccount(statusFlags.account);
+    const isThereNoAscKey = ascKey === null;
+    if (isThereNoAscKey) {
       return yield* Effect.fail(
-        statusFailure(
-          'load active Apple account',
-          'missing-active-account',
-          'No active Apple account. Run `launch creds set-key` first.',
+        createStatusFailure(
+          'load Apple account',
+          new Error(
+            'No Apple account key found. Run `launch creds set-key`, or pick one with --account.',
+          ),
         ),
       );
     }
     const appleStoreClients = yield* AppleStoreClientService;
     const appleClient = yield* appleStoreClients.createClient(ascKey);
-    const readStatuses = () => readSelectedStatuses(appleClient, selectedApps);
-    let exitCode: number;
-    if (commandInput.watch && !commandInput.json) {
-      exitCode = yield* watchReleaseStatuses(readStatuses, logger, loadedConfiguration.config);
-    } else {
-      const appStatuses = yield* readStatuses();
-      if (commandInput.json) {
-        yield* logger.line(
-          JSON.stringify(
-            appStatuses.map((appStatus) => appStatus.releaseStatus),
-            null,
-            2,
-          ),
-        );
-      } else {
-        yield* printStatusBatch(logger, appStatuses);
-      }
-      exitCode = worstExitCode(
-        appStatuses.map((appStatus) => appStatus.releaseStatus.verdict.exitCode),
+
+    const [onlySelectedApp] = selectedApps;
+    const watchedBuildNumber = statusFlags.build;
+    const isBuildWatch = watchedBuildNumber !== undefined && onlySelectedApp !== undefined;
+    if (isBuildWatch) {
+      const buildWatchRequest: BuildWatchRequest = {
+        appleClient,
+        selectedApp: onlySelectedApp,
+        buildNumber: watchedBuildNumber,
+        logger,
+        isJson: statusFlags.json,
+      };
+      const storeBuild = yield* watchBuildProcessing(buildWatchRequest).pipe(
+        Effect.tapError((watchFailure) => reportFailedBuildWatch(buildWatchRequest, watchFailure)),
       );
+      return yield* reportValidBuild(buildWatchRequest, storeBuild);
     }
-    yield* completeCommand(exitCode);
+
+    const isWatchingInTerminal = statusFlags.watch && !statusFlags.json;
+    if (isWatchingInTerminal) {
+      const isBuildListWanted = false;
+      const readStatuses = () => readSelectedStatuses(appleClient, selectedApps, isBuildListWanted);
+      const watchExitCode = yield* watchReleaseStatuses(
+        readStatuses,
+        logger,
+        loadedConfiguration.config,
+      );
+      return yield* completeCommand(watchExitCode);
+    }
+
+    const appStatuses = yield* readSelectedStatuses(appleClient, selectedApps, statusFlags.builds);
+    const isJsonOutput = statusFlags.json;
+    if (isJsonOutput) {
+      yield* logger.line(JSON.stringify(appStatuses.map(createStatusJsonRow), null, 2));
+    }
+
+    const isHumanOutput = !isJsonOutput;
+    if (isHumanOutput) yield* printStatusBatch(logger, appStatuses);
+    const statusExitCode = worstExitCode(
+      appStatuses.map((appStatus) => appStatus.releaseStatus.verdict.exitCode),
+    );
+    return yield* completeCommand(statusExitCode);
   }).pipe(
     Effect.mapError((cause) => {
-      if (Schema.is(CommandExitSchema)(cause)) return cause;
-      if (Schema.is(StatusCommandFailureSchema)(cause)) return cause;
-      return statusFailure('read App Store status', cause);
+      if (isCommandExit(cause)) return cause;
+      if (isStatusCommandFailure(cause)) return cause;
+      return createStatusFailure('read App Store status', cause);
     }),
   );

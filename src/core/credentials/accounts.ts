@@ -366,6 +366,18 @@ export const loadActiveAscKey = (): Effect.Effect<
     if (active) return yield* loadAscKeyById(active);
     return null;
   });
+export const loadAscKeyForAccount = (
+  accountSelector: string | undefined,
+): Effect.Effect<
+  AscKey | null,
+  unknown,
+  AccountStorageRequirements | LaunchEnvironmentService | LaunchSecretStoreService
+> =>
+  Effect.gen(function* () {
+    const isAccountSelected = accountSelector !== undefined;
+    if (isAccountSelected) return yield* loadSelectedAscKey(accountSelector);
+    return yield* loadActiveAscKey();
+  });
 /**
  * The decision tree for which account a build uses, factored out as a pure function so it's unit-
  * testable without the filesystem: an explicit selector wins (error if it matches nothing), else the

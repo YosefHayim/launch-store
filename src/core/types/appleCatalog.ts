@@ -455,6 +455,8 @@ export type AppStoreVersionResource = Readonly<{
   releaseType?: string;
   /** Id of the build attached to this version; absent when no build is attached. */
   attachedBuildId?: string;
+  attachedBuildNumber?: string;
+  attachedBuildProcessingState?: string;
 }>;
 /** One locale's editable version copy. Launch only ever writes `whatsNew` (the release notes). */
 export type AppStoreVersionLocalizationResource = Readonly<{

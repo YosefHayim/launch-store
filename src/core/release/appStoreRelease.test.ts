@@ -500,12 +500,19 @@ describe('pickCurrentVersion', () => {
 });
 
 describe('readReleaseStatus', () => {
-  it('classifies the current version and latest build', async () => {
+  it('classifies the current version and the build attached to it', async () => {
     const api = makeReleaseApiFake({
       listAppStoreVersions: vi.fn(() =>
-        Effect.succeed([{ id: 'v2', versionString: '1.1.0', appStoreState: 'IN_REVIEW' }]),
+        Effect.succeed([
+          {
+            id: 'v2',
+            versionString: '1.1.0',
+            appStoreState: 'IN_REVIEW',
+            attachedBuildNumber: '42',
+            attachedBuildProcessingState: 'VALID',
+          },
+        ]),
       ),
-      listBuilds: vi.fn(() => Effect.succeed([VALID_BUILD])),
       getPhasedRelease: vi.fn(() => Effect.succeed({ id: 'ph-1', phasedReleaseState: 'ACTIVE' })),
     });
     const releaseStatus = await Effect.runPromise(
@@ -520,6 +527,20 @@ describe('readReleaseStatus', () => {
       phasedReleaseState: 'ACTIVE',
       verdict: expect.objectContaining({ state: 'in-review', exitCode: 3 }),
     });
+  });
+
+  it('reports no build when the current version has none attached', async () => {
+    const api = makeReleaseApiFake({
+      listAppStoreVersions: vi.fn(() =>
+        Effect.succeed([
+          { id: 'v2', versionString: '1.1.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
+        ]),
+      ),
+    });
+    const releaseStatus = await Effect.runPromise(
+      readReleaseStatus(api, 'com.acme.app', IOS_PLATFORM),
+    );
+    expect(releaseStatus).toMatchObject({ versionString: '1.1.0', buildNumber: null });
   });
 
   it('returns an empty preparing verdict when the app has no versions yet', async () => {
@@ -584,6 +605,24 @@ describe('waitForValidBuild', () => {
     ).rejects.toThrow(/INVALID/);
   });
 
+  it('throws on FAILED processing', async () => {
+    const api = makeReleaseApiFake({
+      findBuildByVersion: vi.fn(() =>
+        Effect.succeed({ id: 'b', version: '42', processingState: 'FAILED', expired: false }),
+      ),
+    });
+    await expect(
+      Effect.runPromise(waitForValidBuild(api, 'app1', 42, { sleep: noSleep })),
+    ).rejects.toThrow(/FAILED/);
+  });
+
+  it('throws a not-found message when the build never appears before the timeout', async () => {
+    const api = makeReleaseApiFake({ findBuildByVersion: vi.fn(() => Effect.succeed(null)) });
+    await expect(
+      Effect.runPromise(waitForValidBuild(api, 'app1', 42, { sleep: noSleep, timeoutMs: 0 })),
+    ).rejects.toThrow(/was not found on App Store Connect/);
+  });
+
   it('throws on timeout', async () => {
     const api = makeReleaseApiFake({
       findBuildByVersion: vi.fn(() =>
@@ -598,5 +637,36 @@ describe('waitForValidBuild', () => {
     await expect(
       Effect.runPromise(waitForValidBuild(api, 'app1', 42, { sleep: noSleep, timeoutMs: 0 })),
     ).rejects.toThrow(/still PROCESSING/);
+  });
+
+  it('waits for the build of the given marketing version, not another version with the same number', async () => {
+    const findBuildByVersion = vi.fn(
+      (_appId: string, _buildNumber: number, marketingVersion?: string) =>
+        Effect.succeed(
+          marketingVersion === '1.3.0'
+            ? {
+                id: 'b-130',
+                version: '42',
+                marketingVersion: '1.3.0',
+                processingState: 'VALID',
+                expired: false,
+              }
+            : {
+                id: 'b-120',
+                version: '42',
+                marketingVersion: '1.2.0',
+                processingState: 'FAILED',
+                expired: false,
+              },
+        ),
+    );
+    const api = makeReleaseApiFake({ findBuildByVersion });
+
+    const storeBuild = await Effect.runPromise(
+      waitForValidBuild(api, 'app1', 42, { sleep: noSleep, marketingVersion: '1.3.0' }),
+    );
+
+    expect(findBuildByVersion).toHaveBeenCalledWith('app1', 42, '1.3.0');
+    expect(storeBuild).toMatchObject({ id: 'b-130', processingState: 'VALID' });
   });
 });

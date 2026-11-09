@@ -3084,7 +3084,7 @@ describe('AppStoreConnectClient - App Store release lifecycle', () => {
       marketingVersion: '6.11.77',
     });
     expect(expectArrayElement(fetchMock.mock.calls, 0, 'mock call')[0]).toContain(
-      'filter[version]=591&limit=1&fields[builds]=version,processingState,uploadedDate,expired,preReleaseVersion&include=preReleaseVersion',
+      'filter[version]=591&sort=-uploadedDate&limit=1&fields[builds]=version,processingState,uploadedDate,expired,preReleaseVersion&include=preReleaseVersion',
     );
   });
   it('declares export compliance with a PATCH to the build', async () => {
@@ -3391,5 +3391,96 @@ describe('AppStoreConnectClient - app store versions', () => {
     );
     expect(expectArrayElement(versions, 0, 'version').attachedBuildId).toBe('b-42');
     expect(expectArrayElement(versions, 1, 'version').attachedBuildId).toBeUndefined();
+  });
+
+  it('reads the attached build number and processing state from the included build', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            {
+              id: 'v-edit',
+              attributes: { versionString: '1.2.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
+              relationships: { build: { data: { type: 'builds', id: 'b-42' } } },
+            },
+          ],
+          included: [
+            { type: 'builds', id: 'b-42', attributes: { version: '42', processingState: 'VALID' } },
+          ],
+        }),
+      ),
+    );
+    const versions = await client.listAppStoreVersions('app1', 'IOS');
+    expect(expectArrayElement(versions, 0, 'version')).toMatchObject({
+      attachedBuildNumber: '42',
+      attachedBuildProcessingState: 'VALID',
+    });
+  });
+
+  it('keeps each attached build number when the versions span two pages', async () => {
+    const page2Url =
+      'https://api.appstoreconnect.apple.com/v1/apps/app1/appStoreVersions?cursor=page-2';
+    fetchMock
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [
+              {
+                id: 'v-1',
+                attributes: { versionString: '1.2.0', appStoreState: 'IN_REVIEW' },
+                relationships: { build: { data: { type: 'builds', id: 'b-1' } } },
+              },
+            ],
+            included: [
+              {
+                type: 'builds',
+                id: 'b-1',
+                attributes: { version: '42', processingState: 'PROCESSING' },
+              },
+            ],
+            links: { next: page2Url },
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [
+              {
+                id: 'v-2',
+                attributes: { versionString: '1.1.0', appStoreState: 'READY_FOR_SALE' },
+                relationships: { build: { data: { type: 'builds', id: 'b-2' } } },
+              },
+            ],
+            included: [
+              {
+                type: 'builds',
+                id: 'b-2',
+                attributes: { version: '41', processingState: 'VALID' },
+              },
+            ],
+          }),
+        ),
+      );
+
+    const versions = await client.listAppStoreVersions('app1', 'IOS');
+
+    expect(versions.map((version) => version.attachedBuildNumber)).toEqual(['42', '41']);
+    expect(String(expectArrayElement(fetchMock.mock.calls, 1, 'mock call')[0])).toBe(page2Url);
+  });
+
+  it('asks Apple for the build of one marketing version, newest upload first', async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })));
+
+    const storeBuild = await client.findBuildByVersion('app1', 9, '1.2.0');
+
+    const [requestUrl] = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
+    expect(String(requestUrl)).toContain(
+      'filter[version]=9&filter[preReleaseVersion.version]=1.2.0&sort=-uploadedDate&limit=1',
+    );
+    expect(storeBuild).toBeNull();
   });
 });
