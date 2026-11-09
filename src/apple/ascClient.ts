@@ -250,11 +250,6 @@ const pickNewestVersion = (versions: ProductVersion[]): ProductVersion | null =>
   if (hasNoVersion) return null;
   return newestVersion;
 };
-/** The name and the optional description Apple takes for one locale's copy. */
-const pickCopyFields = (copy: LocaleCopy): { name: string; description?: string } => ({
-  name: copy.name,
-  ...(copy.description == null ? {} : { description: copy.description }),
-});
 
 const AscErrorSchema: Schema.Schema<AscError> = Schema.suspend(() =>
   Schema.Struct({
@@ -1948,10 +1943,6 @@ export class AppStoreConnectClient {
   ): Promise<LocalizationResource> {
     return this.createLocalization(IN_APP_PURCHASE_VERSION_RESOURCES, iapId, copy);
   }
-  /** Update one locale's display copy for an in-app purchase on its draft version. */
-  async updateInAppPurchaseLocalization(iapId: string, copy: LocaleCopy): Promise<void> {
-    return this.updateLocalization(IN_APP_PURCHASE_VERSION_RESOURCES, iapId, copy);
-  }
   /** List an app's subscription groups. */
   async listSubscriptionGroups(appId: string): Promise<SubscriptionGroupResource[]> {
     const appleResources = await this.requestAll<{
@@ -1989,13 +1980,6 @@ export class AppStoreConnectClient {
     copy: Omit<LocaleCopy, 'description'>,
   ): Promise<LocalizationResource> {
     return this.createLocalization(SUBSCRIPTION_GROUP_VERSION_RESOURCES, groupId, copy);
-  }
-  /** Update one locale's display name for a subscription group on its draft version. */
-  async updateSubscriptionGroupLocalization(
-    groupId: string,
-    copy: Omit<LocaleCopy, 'description'>,
-  ): Promise<void> {
-    return this.updateLocalization(SUBSCRIPTION_GROUP_VERSION_RESOURCES, groupId, copy);
   }
   /** List the subscriptions in a group. */
   async listSubscriptions(groupId: string): Promise<SubscriptionResource[]> {
@@ -2065,10 +2049,6 @@ export class AppStoreConnectClient {
     copy: LocaleCopy,
   ): Promise<LocalizationResource> {
     return this.createLocalization(SUBSCRIPTION_VERSION_RESOURCES, subscriptionId, copy);
-  }
-  /** Update one locale's display copy for a subscription on its draft version. */
-  async updateSubscriptionLocalization(subscriptionId: string, copy: LocaleCopy): Promise<void> {
-    return this.updateLocalization(SUBSCRIPTION_VERSION_RESOURCES, subscriptionId, copy);
   }
   /** Whether a subscription already has at least one price set (so the reconciler skips re-pricing it). */
   async subscriptionHasPrice(subscriptionId: string): Promise<boolean> {
@@ -3485,7 +3465,9 @@ export class AppStoreConnectClient {
     versionId: string,
     copy: LocaleCopy,
   ): Promise<LocalizationResource> {
-    const localizationAttributes = { locale: copy.locale, ...pickCopyFields(copy) };
+    const hasNoDescription = copy.description == null;
+    const descriptionField = hasNoDescription ? {} : { description: copy.description };
+    const localizationAttributes = { locale: copy.locale, name: copy.name, ...descriptionField };
     const appleResources = await this.createResource<{
       locale?: string;
       name?: string;
@@ -3519,33 +3501,6 @@ export class AppStoreConnectClient {
   ): Promise<LocalizationResource> {
     const draftVersionId = await this.findOrCreateDraftVersionId(resources, parentId);
     return this.postLocalization(resources, draftVersionId, copy);
-  }
-  /** Update one locale on the draft version: PATCH it when the draft has it, POST it when not. */
-  private async updateLocalization(
-    resources: VersionedLocalizationResources,
-    parentId: string,
-    copy: LocaleCopy,
-  ): Promise<void> {
-    const draftVersionId = await this.findOrCreateDraftVersionId(resources, parentId);
-    const draftLocalizations = await this.localizationsOnVersion(resources, draftVersionId);
-    const existingLocalization = draftLocalizations.find(
-      (localization) => localization.locale === copy.locale,
-    );
-
-    const hasLocaleOnDraft = existingLocalization != null;
-    if (!hasLocaleOnDraft) {
-      await this.postLocalization(resources, draftVersionId, copy);
-      return;
-    }
-
-    await this.updateResource(
-      this.v2(`/${resources.localizationType}/${existingLocalization.id}`),
-      {
-        type: resources.localizationType,
-        id: existingLocalization.id,
-        attributes: pickCopyFields(copy),
-      },
-    );
   }
   /** Customer reviews and developer responses. */
   /**
