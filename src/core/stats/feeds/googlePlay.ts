@@ -89,12 +89,12 @@ const fetchPlayStats = (
   credentials: StatsCredentialsShape,
 ): Effect.Effect<FeedFetchReply, unknown, HttpClient.HttpClient> =>
   Effect.gen(function* () {
-    const playClient = yield* credentials.playReportingClient();
+    const playClient = yield* credentials.playReportingClient(packageName);
     const isServiceAccountMissing = playClient === null;
     if (isServiceAccountMissing) {
       return {
         status: 'skipped',
-        reason: 'No Play service account saved: run launch creds setup --platform android',
+        reason: `No Play service account saved: run launch creds set-key --platform android --app ${app.name} <key.json>`,
       } satisfies FeedFetchReply;
     }
     const vitals = yield* readVitals(playClient, packageName, range);
@@ -109,7 +109,10 @@ const fetchPlayStats = (
         notes: [BUCKET_NOT_SET_NOTE],
       } satisfies FeedFetchReply;
     }
-    const accessToken = yield* credentials.googleAccessToken([STORAGE_READ_ONLY_SCOPE]);
+    const accessToken = yield* credentials.googleAccessToken(
+      [STORAGE_READ_ONLY_SCOPE],
+      packageName,
+    );
     const isAccessTokenMissing = accessToken === null;
     if (isAccessTokenMissing) {
       return yield* Effect.fail(`Could not get a Cloud Storage token for ${app.key}`);

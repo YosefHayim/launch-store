@@ -65,8 +65,7 @@ const resolveAndroidCredentials = (
       return yield* Effect.fail(
         makeMissingCredentialsFailure({
           platform: 'android',
-          message:
-            'No Play service account found. Import one with: launch creds set-key --platform android <key.json>',
+          message: yield* credentialStore.missingPlayServiceAccountMessage(),
         }),
       );
     }
@@ -107,7 +106,7 @@ const appleStatus = (credentialStore: typeof LocalCredentialsStore.Service) =>
 /** Render the Android portion of the credential status report. */
 const androidStatus = (
   credentialStore: typeof LocalCredentialsStore.Service,
-  packageName?: string,
+  packageName: string,
 ) =>
   credentialStore.readAndroidCredentialStatus(packageName).pipe(
     Effect.map(({ keystoreAlias, hasServiceAccount }) => {
@@ -124,22 +123,15 @@ const androidStatus = (
 
 const statusReport = (
   credentialStore: typeof LocalCredentialsStore.Service,
-  packageNames?: readonly string[],
+  packageNames: readonly string[] = [],
 ) =>
   Effect.gen(function* () {
     const apple = yield* appleStatus(credentialStore);
-    let android: string[];
-    if (packageNames === undefined) {
-      android = [yield* androidStatus(credentialStore)];
-    } else if (packageNames.length === 0) {
-      android = [yield* androidStatus(credentialStore)];
-    } else {
-      android = yield* Effect.forEach(packageNames, (packageName) =>
-        androidStatus(credentialStore, packageName).pipe(
-          Effect.map((status) => `${packageName}: ${status}`),
-        ),
-      );
-    }
+    const android = yield* Effect.forEach(packageNames, (packageName) =>
+      androidStatus(credentialStore, packageName).pipe(
+        Effect.map((status) => `${packageName}: ${status}`),
+      ),
+    );
     return [apple, ...android].join('\n');
   });
 

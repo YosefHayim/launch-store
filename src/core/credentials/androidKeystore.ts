@@ -7,6 +7,7 @@ import type { Logger } from '../services/logger.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import {
   resolveAndroidCredentialsIndexPath,
+  resolveCredentialsDirectory,
   resolveAndroidCredentialsDirectory,
   type LaunchPathsService,
 } from '../services/paths.js';
@@ -71,10 +72,11 @@ export type KeystoreImport = {
 
 export type EnsureKeystoreOptions = {
   appName: string;
-  packageName?: string;
+  packageName: string;
   log: Logger;
   dryRun: boolean;
   confirmCreate: (message: string) => Effect.Effect<boolean, unknown>;
+  confirmReplace?: (message: string) => Effect.Effect<boolean, unknown>;
   import?: KeystoreImport;
 };
 
@@ -163,17 +165,46 @@ const validateServiceAccountJson = (
 
 export const storeServiceAccount = (
   serviceAccountJson: string,
-  packageName?: string,
-): Effect.Effect<void, AndroidCredentialFailure | unknown, LaunchSecretStoreService> =>
+  packageName: string,
+): Effect.Effect<
+  void,
+  AndroidCredentialFailure | unknown,
+  LaunchSecretStoreService | FileSystem.FileSystem | LaunchPathsService | Path.Path
+> =>
   Effect.gen(function* () {
     yield* validateServiceAccountJson(serviceAccountJson);
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const directory = yield* resolveAndroidCredentialsDirectory(packageName);
+    yield* fileSystem.makeDirectory(directory, { recursive: true });
     yield* setSecret(
       androidSecretAccount(SERVICE_ACCOUNT_SECRET, packageName),
       encodeJson(serviceAccountJson),
     );
+    yield* fileSystem.writeFileString(pathService.join(directory, 'package.txt'), packageName);
   });
 
-export const loadServiceAccount = (
+/** List non-secret package identifiers saved alongside app-scoped Play credentials. */
+export const listStoredAndroidPackages = () =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    const pathService = yield* Path.Path;
+    const directory = pathService.join(yield* resolveCredentialsDirectory(), 'android');
+    if (!(yield* fileSystem.exists(directory))) return [];
+    const entries = yield* fileSystem.readDirectory(directory);
+    const names: string[] = [];
+    for (const entry of entries) {
+      if (!/^[a-f0-9]{64}$/.test(entry)) continue;
+      const candidate = yield* fileSystem
+        .readFileString(pathService.join(directory, entry, 'package.txt'))
+        .pipe(Effect.orElseSucceed(() => ''));
+      if (/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/.test(candidate))
+        names.push(candidate);
+    }
+    return names;
+  });
+
+const readServiceAccount = (
   packageName?: string,
 ): Effect.Effect<string | null, unknown, LaunchSecretStoreService> =>
   Effect.gen(function* () {
@@ -184,7 +215,9 @@ export const loadServiceAccount = (
     return decodeJson(storedServiceAccount);
   });
 
-export const loadCachedKeystore = (
+export const loadServiceAccount = (packageName: string) => readServiceAccount(packageName);
+
+const readCachedKeystore = (
   packageName?: string,
 ): Effect.Effect<
   KeystoreAssets | null,
@@ -208,8 +241,10 @@ export const loadCachedKeystore = (
     return { path: keystoreRecord.path, alias: keystoreRecord.alias, storePassword, keyPassword };
   });
 
+export const loadCachedKeystore = (packageName: string) => readCachedKeystore(packageName);
+
 export const describeStoredAndroidCredentials = (
-  packageName?: string,
+  packageName: string,
 ): Effect.Effect<
   {
     keystoreAlias: string | null;
@@ -230,6 +265,154 @@ export const describeStoredAndroidCredentials = (
     );
     return { keystoreAlias, hasServiceAccount: serviceAccountJson !== null };
   });
+
+/** Give callers an explicit migration path when a legacy Play key is present. */
+export const missingPlayServiceAccountMessage = () =>
+  Effect.gen(function* () {
+    const legacyAccount = yield* getSecret(SERVICE_ACCOUNT_SECRET);
+    const legacyStorePassword = yield* getSecret(KEYSTORE_STORE_PASSWORD);
+    if (legacyAccount !== null || legacyStorePassword !== null)
+      return 'A legacy Play service account exists. Run `launch creds adopt --platform android --app <name>`.';
+    return 'No Play service account. Import one with `launch creds set-key --platform android --app <name> <key.json>`.';
+  });
+
+/** Verify the store and private-key passwords without writing secrets to arguments. */
+const verifyKeystore = (keystore: KeystoreImport) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const pathService = yield* Path.Path;
+      const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: 'launch-verify-key-' });
+      yield* captureCommandOutput(
+        'keytool',
+        [
+          '-importkeystore',
+          '-noprompt',
+          '-srckeystore',
+          keystore.path,
+          '-srcalias',
+          keystore.alias,
+          '-srcstorepass:env',
+          'LAUNCH_VERIFY_STORE_PASSWORD',
+          '-srckeypass:env',
+          'LAUNCH_VERIFY_KEY_PASSWORD',
+          '-destkeystore',
+          pathService.join(directory, 'verified.p12'),
+          '-deststoretype',
+          'PKCS12',
+          '-deststorepass:env',
+          'LAUNCH_VERIFY_DEST_PASSWORD',
+          '-destkeypass:env',
+          'LAUNCH_VERIFY_DEST_PASSWORD',
+        ],
+        {
+          environmentOverrides: {
+            LAUNCH_VERIFY_STORE_PASSWORD: keystore.storePassword,
+            LAUNCH_VERIFY_KEY_PASSWORD: keystore.keyPassword,
+            LAUNCH_VERIFY_DEST_PASSWORD: 'launch-verification-password',
+          },
+        },
+      );
+    }),
+  );
+
+/** Validate both legacy assets before copying them into an explicitly selected app slot. */
+export const adoptLegacyAndroidCredentials = (
+  packageName: string,
+  overwrite: boolean,
+  verifyPlayAccess: (
+    serviceAccountJson: string,
+    packageName: string,
+  ) => Effect.Effect<void, unknown>,
+) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const legacyAccount = yield* readServiceAccount();
+      const legacyIndex = yield* readAndroidIndex();
+      const legacyKeystore = yield* readCachedKeystore();
+      const legacyBackupExists = yield* fileSystem.exists(yield* resolveKeystoreBackupPath());
+      const legacyIndexExists = yield* fileSystem.exists(
+        yield* resolveAndroidCredentialsIndexPath(),
+      );
+      if (legacyAccount === null && !legacyBackupExists && !legacyIndexExists) {
+        return yield* Effect.fail(
+          makeAndroidCredentialFailure({ message: 'No legacy Android credentials were found.' }),
+        );
+      }
+      if (
+        (legacyIndex.keystore !== undefined || legacyBackupExists || legacyIndexExists) &&
+        legacyKeystore === null
+      ) {
+        return yield* Effect.fail(
+          makeAndroidCredentialFailure({
+            message:
+              'The legacy upload keystore or its passwords could not be read. Restore them before adoption.',
+          }),
+        );
+      }
+      const destinationIndex = yield* readAndroidIndex(packageName);
+      const destinationAccount = yield* readServiceAccount(packageName);
+      const destinationBackup = yield* resolveKeystoreBackupPath(packageName);
+      const destinationFileExists = yield* fileSystem.exists(destinationBackup);
+      const destinationIndexExists = yield* fileSystem.exists(
+        yield* resolveAndroidCredentialsIndexPath(packageName),
+      );
+      const destinationStorePassword = yield* getSecret(
+        androidSecretAccount(KEYSTORE_STORE_PASSWORD, packageName),
+      );
+      const destinationKeyPassword = yield* getSecret(
+        androidSecretAccount(KEYSTORE_KEY_PASSWORD, packageName),
+      );
+      if (
+        !overwrite &&
+        ((legacyAccount !== null && destinationAccount !== null) ||
+          (legacyKeystore !== null &&
+            (destinationIndex.keystore !== undefined ||
+              destinationFileExists ||
+              destinationIndexExists ||
+              destinationStorePassword !== null ||
+              destinationKeyPassword !== null)))
+      ) {
+        return yield* Effect.fail(
+          makeAndroidCredentialFailure({
+            message: 'App credentials already exist. Pass --yes to replace them.',
+          }),
+        );
+      }
+      if (legacyAccount !== null) yield* verifyPlayAccess(legacyAccount, packageName);
+      if (legacyKeystore !== null) {
+        yield* verifyKeystore(legacyKeystore).pipe(
+          Effect.mapError((cause) =>
+            makeAndroidCredentialFailure({
+              message:
+                'Could not open the legacy keystore and its private key with the stored passwords.',
+              cause,
+            }),
+          ),
+        );
+      }
+      if (legacyKeystore !== null) {
+        const credentialsDirectory = yield* resolveAndroidCredentialsDirectory(packageName);
+        yield* fileSystem.makeDirectory(credentialsDirectory, { recursive: true });
+        yield* fileSystem.copyFile(legacyKeystore.path, destinationBackup);
+        yield* fileSystem.chmod(destinationBackup, 0o600);
+        yield* setSecret(
+          androidSecretAccount(KEYSTORE_STORE_PASSWORD, packageName),
+          legacyKeystore.storePassword,
+        );
+        yield* setSecret(
+          androidSecretAccount(KEYSTORE_KEY_PASSWORD, packageName),
+          legacyKeystore.keyPassword,
+        );
+        yield* writeAndroidIndex(
+          { keystore: { path: destinationBackup, alias: legacyKeystore.alias } },
+          packageName,
+        );
+      }
+      if (legacyAccount !== null) yield* storeServiceAccount(legacyAccount, packageName);
+    }),
+  );
 
 const dryRunKeystore = (
   packageName?: string,
@@ -261,8 +444,26 @@ export const ensureUploadKeystore = (
       );
       return yield* dryRunKeystore(options.packageName);
     }
-    if (options.import)
+    const fileSystem = yield* FileSystem.FileSystem;
+    const record = (yield* readAndroidIndex(options.packageName)).keystore;
+    const backupExists = yield* fileSystem.exists(
+      yield* resolveKeystoreBackupPath(options.packageName),
+    );
+    const indexExists = yield* fileSystem.exists(
+      yield* resolveAndroidCredentialsIndexPath(options.packageName),
+    );
+    if (options.import) {
+      if (record !== undefined || backupExists || indexExists) {
+        let confirmed = false;
+        if (options.confirmReplace !== undefined)
+          confirmed = yield* options.confirmReplace('Replace the existing upload keystore?');
+        if (!confirmed)
+          return yield* Effect.fail(
+            makeAndroidCredentialFailure({ message: 'Existing upload keystore was not replaced.' }),
+          );
+      }
       return yield* importKeystore(options.import, options.log, options.packageName);
+    }
     const cachedKeystore = yield* loadCachedKeystore(options.packageName);
     if (cachedKeystore) {
       yield* options.log.step(
@@ -271,6 +472,25 @@ export const ensureUploadKeystore = (
         'upload-key',
       );
       return cachedKeystore;
+    }
+    if (record !== undefined || backupExists || indexExists) {
+      return yield* Effect.fail(
+        makeAndroidCredentialFailure({
+          message:
+            'An upload keystore already exists but could not be loaded. Restore its file and passwords before continuing.',
+        }),
+      );
+    }
+    const legacyIndex = yield* readAndroidIndex();
+    const legacyBackupExists = yield* fileSystem.exists(yield* resolveKeystoreBackupPath());
+    const legacyIndexExists = yield* fileSystem.exists(yield* resolveAndroidCredentialsIndexPath());
+    if (legacyIndex.keystore !== undefined || legacyBackupExists || legacyIndexExists) {
+      return yield* Effect.fail(
+        makeAndroidCredentialFailure({
+          message:
+            'A legacy upload keystore exists. Run `launch creds adopt --platform android --app <name>`.',
+        }),
+      );
     }
     const shouldCreate = yield* options.confirmCreate(
       'Generate a new upload keystore and back it up locally?',
@@ -328,7 +548,10 @@ const generateKeystore = (
     yield* fileSystem.chmod(keystoreBackupPath, 0o600);
     yield* setSecret(androidSecretAccount(KEYSTORE_STORE_PASSWORD, packageName), password);
     yield* setSecret(androidSecretAccount(KEYSTORE_KEY_PASSWORD, packageName), password);
-    yield* writeAndroidIndex({ keystore: { path: keystoreBackupPath, alias: DEFAULT_ALIAS } }, packageName);
+    yield* writeAndroidIndex(
+      { keystore: { path: keystoreBackupPath, alias: DEFAULT_ALIAS } },
+      packageName,
+    );
     yield* log.step('keystore', `generated upload keystore (alias ${DEFAULT_ALIAS})`, 'upload-key');
     return {
       path: keystoreBackupPath,
@@ -355,19 +578,7 @@ const importKeystore = (
       return yield* Effect.fail(
         makeAndroidCredentialFailure({ message: `No keystore at ${keystoreImport.path}.` }),
       );
-    const verificationAttempt = yield* captureCommandOutput(
-      'keytool',
-      [
-        '-list',
-        '-keystore',
-        keystoreImport.path,
-        '-storepass:env',
-        'LAUNCH_KEYSTORE_STORE_PASSWORD',
-        '-alias',
-        keystoreImport.alias,
-      ],
-      { environmentOverrides: { LAUNCH_KEYSTORE_STORE_PASSWORD: keystoreImport.storePassword } },
-    ).pipe(Effect.either);
+    const verificationAttempt = yield* verifyKeystore(keystoreImport).pipe(Effect.either);
     if (verificationAttempt._tag === 'Left') {
       return yield* Effect.fail(
         makeAndroidCredentialFailure({
@@ -378,6 +589,7 @@ const importKeystore = (
     }
     yield* fileSystem.makeDirectory(credentialsDirectory, { recursive: true });
     yield* fileSystem.copyFile(keystoreImport.path, keystoreBackupPath);
+    yield* fileSystem.chmod(keystoreBackupPath, 0o600);
     yield* setSecret(
       androidSecretAccount(KEYSTORE_STORE_PASSWORD, packageName),
       keystoreImport.storePassword,

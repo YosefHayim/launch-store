@@ -6,6 +6,7 @@ import { AppStoreIdentityService, type AppStoreIdentity } from '../services/appS
 import type { AppleCredentialsClientFactory } from '../services/appleCredentialsClient.js';
 import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
 import { errorMessage } from '../services/errorMessage.js';
+import { GoogleStoreClientService } from '../services/googleStoreClient.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
@@ -28,6 +29,7 @@ import {
   updateAccountIdentity,
 } from './accounts.js';
 import {
+  adoptLegacyAndroidCredentials,
   describeStoredAndroidCredentials,
   ensureUploadKeystore,
   storeServiceAccount,
@@ -48,6 +50,7 @@ const optionalCommandFlag = Schema.optionalWith(Schema.Boolean, { exact: true })
 
 const CredentialsActionSchema = Schema.Literal(
   'status',
+  'adopt',
   'accounts',
   'set-key',
   'setup',
@@ -90,6 +93,7 @@ export type CredentialsCommandOptions = Schema.Schema.Type<typeof CredentialsCom
 
 type CredentialsCommandRequirements =
   | AppStoreIdentityService
+  | GoogleStoreClientService
   | AppleCredentialsClientFactory
   | CommandExecutor
   | FileSystem.FileSystem
@@ -685,6 +689,11 @@ const setupAndroid = (
         if (!canPrompt) return Effect.succeed(true);
         return prompt.confirm(message);
       },
+      confirmReplace: (message: string) => {
+        if (commandOptions.yes === true) return Effect.succeed(true);
+        if (!canPrompt) return Effect.succeed(false);
+        return prompt.confirm(message);
+      },
     };
     let keystoreEffect = ensureUploadKeystore(keystoreRequest);
     if (keystoreImport !== undefined) {
@@ -694,6 +703,33 @@ const setupAndroid = (
     yield* logger.ok(
       `Ready: upload keystore at ${yield* displayPath(keystore.path)} (alias ${keystore.alias}).`,
     );
+  });
+
+/** Copy validated legacy Android credentials into one selected app. */
+const adoptAndroid = (options: CredentialsCommandOptions) =>
+  Effect.gen(function* () {
+    if (options.app === undefined)
+      return yield* failCommand('adopt Android credentials', 'Pass --app <name>.');
+    const launchPaths = yield* LaunchPaths;
+    const configuration = yield* loadConfig(launchPaths.workingDirectory);
+    const app = yield* selectConfiguredApp(configuration.apps, options.app, false);
+    if (app.packageName === undefined)
+      return yield* failCommand(
+        'adopt Android credentials',
+        'Set android.package for the selected app.',
+      );
+    const clients = yield* GoogleStoreClientService;
+    yield* adoptLegacyAndroidCredentials(
+      app.packageName,
+      options.yes === true,
+      (account, packageName) =>
+        clients.createEffectClient(account).pipe(
+          Effect.flatMap((client) => client.listTracks(packageName)),
+          Effect.asVoid,
+        ),
+    );
+    const logger = yield* createLogger(false);
+    yield* logger.ok(`Adopted legacy Android credentials for ${app.name}.`);
   });
 
 /** Render the current Apple, Android, and APNs credential inventory. */
@@ -724,21 +760,23 @@ const showCredentialStatus = (
       Effect.map((configuration) => configuration.apps),
       Effect.orElseSucceed(() => []),
     );
-    let selectedAndroidPackage: string | undefined;
-    if (configuredApps.length > 0) {
-      const selectedApp = yield* selectConfiguredApp(
-        configuredApps,
-        commandOptions.app,
-        yield* commandCanPrompt(commandOptions),
-      );
-      selectedAndroidPackage = selectedApp.packageName;
+    let androidApps = configuredApps.filter((app) => app.packageName !== undefined);
+    if (commandOptions.app !== undefined) {
+      const selected = yield* selectConfiguredApp(configuredApps, commandOptions.app, false);
+      androidApps = [];
+      if (selected.packageName !== undefined) androidApps = [selected];
     }
-    const androidCredentials = yield* describeStoredAndroidCredentials(selectedAndroidPackage);
-    let serviceAccountStatus = 'not stored';
-    if (androidCredentials.hasServiceAccount) serviceAccountStatus = 'stored';
-    yield* logger.line(`Google service account: ${serviceAccountStatus}`);
-    if (androidCredentials.keystoreAlias !== null) {
-      yield* logger.line(`Android upload keystore: alias ${androidCredentials.keystoreAlias}`);
+    for (const app of androidApps) {
+      if (app.packageName === undefined) continue;
+      const androidCredentials = yield* describeStoredAndroidCredentials(app.packageName);
+      let serviceAccountStatus = 'not stored';
+      if (androidCredentials.hasServiceAccount) serviceAccountStatus = 'stored';
+      yield* logger.line(`Google service account (${app.name}): ${serviceAccountStatus}`);
+      if (androidCredentials.keystoreAlias !== null) {
+        yield* logger.line(
+          `Android upload keystore (${app.name}): alias ${androidCredentials.keystoreAlias}`,
+        );
+      }
     }
     const pushKeys = yield* listPushKeys();
     yield* logger.line(`APNs keys: ${pushKeys.length}`);
@@ -1056,6 +1094,10 @@ export const credentialsCommandProgram = (
       case 'status':
       case 'accounts':
         return yield* showCredentialStatus(decodedCommand.options);
+      case 'adopt':
+        if (platform !== 'android')
+          return yield* failCommand('adopt credentials', 'Pass --platform android.');
+        return yield* adoptAndroid(decodedCommand.options);
       case 'set-key':
         if (platform === 'android') {
           return yield* setGoogleKey(decodedCommand.firstArgument, decodedCommand.options);

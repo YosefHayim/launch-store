@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
@@ -110,6 +110,12 @@ describe('appsListProgram and appsTagProgram', () => {
   let homeDirectory: string;
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    const project = join(homeDirectory, 'work');
+    mkdirSync(project, { recursive: true });
+    writeFileSync(
+      join(project, 'app.json'),
+      JSON.stringify({ expo: { slug: 'fit', android: { package: 'com.jts.fit' } } }),
+    );
     writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE);
   });
   afterEach(() => {

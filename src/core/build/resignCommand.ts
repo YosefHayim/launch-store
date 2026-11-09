@@ -456,7 +456,8 @@ const runAndroidResign = (
       return yield* Effect.fail(
         makeResignCommandFailure({
           operation: 'load Android signing assets',
-          message: 'No cached upload keystore exists. Run `launch creds setup --platform android`.',
+          message:
+            'No cached upload keystore exists. Run `launch creds setup --platform android --app <name>`.',
         }),
       );
     }

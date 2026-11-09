@@ -1,7 +1,10 @@
 import { FileSystem, Path, type Terminal } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
 import { loadActiveAscKey } from '../credentials/accounts.js';
-import { loadServiceAccount } from '../credentials/androidKeystore.js';
+import {
+  loadServiceAccount,
+  missingPlayServiceAccountMessage,
+} from '../credentials/androidKeystore.js';
 import {
   AppleStoreClientService,
   type EffectAppStoreConnectClient,
@@ -217,7 +220,9 @@ const requirePlayServiceAccount = (
         metadataFailure(
           'load Play service account',
           'missing-service-account',
-          'No Play service account. Run `launch creds set-key --platform android` first.',
+          yield* missingPlayServiceAccountMessage().pipe(
+            Effect.mapError((cause) => metadataFailure('load Play service account', cause)),
+          ),
         ),
       );
     }
