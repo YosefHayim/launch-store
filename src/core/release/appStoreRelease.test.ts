@@ -283,7 +283,7 @@ describe('releaseApp - submit an update over the API', () => {
         ),
     });
     await expect(runRelease(api, releaseInput())).rejects.toThrow(
-      /already on the App Store\). Next step: set a new marketing version/,
+      /already on the App Store \(READY_FOR_SALE\)\. Next step: set a new marketing version/,
     );
   });
   it('refuses a build whose marketing version is already live, before any App Store write', async () => {
