@@ -180,7 +180,9 @@ const readAppId = (appleClient: AscReleaseApi, selectedApp: StatusApp) =>
     const appId = yield* appleClient
       .getAppId(selectedApp.bundleId)
       .pipe(
-        Effect.mapError((cause) => statusFailure(`find App Store app for ${selectedApp.name}`, cause)),
+        Effect.mapError((cause) =>
+          statusFailure(`find App Store app for ${selectedApp.name}`, cause),
+        ),
       );
     const isThereNoAppRecord = appId === null;
     if (isThereNoAppRecord) {
@@ -212,7 +214,9 @@ export const readRecentBuilds = (
     const recentBuildCount = 25;
     const storeBuilds = yield* appleClient
       .listBuilds(appId, recentBuildCount)
-      .pipe(Effect.mapError((cause) => statusFailure(`list builds for ${selectedApp.name}`, cause)));
+      .pipe(
+        Effect.mapError((cause) => statusFailure(`list builds for ${selectedApp.name}`, cause)),
+      );
     return [...storeBuilds].sort(
       (firstBuild, secondBuild) =>
         uploadTimeMilliseconds(secondBuild) - uploadTimeMilliseconds(firstBuild),
@@ -252,7 +256,9 @@ const readOneAppStatus = (
       selectedApp.bundleId,
       IOS_PLATFORM,
     ).pipe(
-      Effect.mapError((cause) => statusFailure(`read App Store status for ${selectedApp.name}`, cause)),
+      Effect.mapError((cause) =>
+        statusFailure(`read App Store status for ${selectedApp.name}`, cause),
+      ),
     );
     const isBuildListSkipped = !shouldListBuilds;
     if (isBuildListSkipped) return { appName: selectedApp.name, releaseStatus };
@@ -396,7 +402,10 @@ const reportBuildWatchOutcome = (
       return;
     }
     yield* logger
-      .step(selectedApp.name, `build ${buildNumber} is ${storeBuild.processingState} - ready to release`)
+      .step(
+        selectedApp.name,
+        `build ${buildNumber} is ${storeBuild.processingState} - ready to release`,
+      )
       .pipe(Effect.orDie);
   });
 
@@ -422,7 +431,8 @@ export const findStatusUsageProblem = (
   selectedApps: readonly StatusApp[],
 ): string | null => {
   const isBuildWithoutWatch = commandInput.build !== undefined && !commandInput.watch;
-  if (isBuildWithoutWatch) return '--build needs --watch: it waits for that build to finish processing.';
+  if (isBuildWithoutWatch)
+    return '--build needs --watch: it waits for that build to finish processing.';
   const isBuildsWithWatch = commandInput.builds && commandInput.watch;
   if (isBuildsWithWatch) return '--builds lists builds without waiting: drop --watch to list them.';
   const isBuildForSeveralApps = commandInput.build !== undefined && selectedApps.length !== 1;

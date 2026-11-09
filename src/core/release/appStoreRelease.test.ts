@@ -532,7 +532,9 @@ describe('readReleaseStatus', () => {
   it('reports no build when the current version has none attached', async () => {
     const api = makeReleaseApiFake({
       listAppStoreVersions: vi.fn(() =>
-        Effect.succeed([{ id: 'v2', versionString: '1.1.0', appStoreState: 'PREPARE_FOR_SUBMISSION' }]),
+        Effect.succeed([
+          { id: 'v2', versionString: '1.1.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
+        ]),
       ),
     });
     const releaseStatus = await Effect.runPromise(

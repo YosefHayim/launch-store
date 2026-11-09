@@ -14,7 +14,10 @@ export const registerStatusCommand = (program: Command): void => {
     )
     .option('--watch', 'poll until the review reaches a terminal verdict', false)
     .option('--build <number>', 'with --watch: wait until this build is VALID, then exit')
-    .option('--builds', 'list each app recent builds: version, build, processing state, upload time')
+    .option(
+      '--builds',
+      'list each app recent builds: version, build, processing state, upload time',
+    )
     .option('--json', 'machine-readable output for CI', false)
     .action((commandOptions: StatusCommandOptions) =>
       runCliProgram(statusCommandProgram(commandOptions)),

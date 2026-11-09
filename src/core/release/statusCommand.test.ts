@@ -101,9 +101,9 @@ describe('formatStatusLine', () => {
   });
 
   it('shows no build when the version has none attached', () => {
-    expect(
-      formatStatusLine(releaseStatus({ buildNumber: null, buildProcessingState: null })),
-    ).toBe('v1.2.0 - In review - no build');
+    expect(formatStatusLine(releaseStatus({ buildNumber: null, buildProcessingState: null }))).toBe(
+      'v1.2.0 - In review - no build',
+    );
   });
 
   it('handles an app with no App Store version yet', () => {
