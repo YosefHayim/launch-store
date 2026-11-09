@@ -8,6 +8,8 @@ import type {
 } from '../types/appleCatalog.js';
 import type { ReleaseType } from '../types/storeSurface.js';
 
+const BUILD_AND_RELEASE_STEP = 'run `launch build ios`, then release that build.';
+
 /**
  * Exact App Store Connect surface the release walk needs. Declared here so the state machine is
  * fakeable and documents the client's release methods in one place; AppStoreConnectClient satisfies
@@ -345,12 +347,42 @@ const requireValidStoreBuild = (
 };
 
 /**
+ * A build joins only an App Store version with its own marketing version, and a live version takes no
+ * new build. Fails when the build's marketing version is already live; a build with no known marketing
+ * version has nothing to compare, so it passes.
+ */
+const checkBuildCanJoinVersion = (
+  storeBuild: BuildResource,
+  storeVersions: ReadonlyArray<AppStoreVersionResource>,
+): Effect.Effect<void, AppStoreReleaseFailure> => {
+  const buildMarketingVersion = storeBuild.marketingVersion;
+  const isBuildMarketingVersionUnknown = buildMarketingVersion === undefined;
+  if (isBuildMarketingVersionUnknown) return Effect.void;
+
+  const liveVersion = storeVersions.find(
+    (storeVersion) =>
+      storeVersion.versionString === buildMarketingVersion &&
+      nextReleaseAction(storeVersion.appStoreState) === 'live',
+  );
+  const isBuildVersionLive = liveVersion !== undefined;
+  if (!isBuildVersionLive) return Effect.void;
+
+  return Effect.fail(
+    releaseFailure(
+      'validate App Store build',
+      storeBuild,
+      `Build ${storeBuild.version} (version ${buildMarketingVersion}) cannot join a new App Store version: App Store version ${liveVersion.versionString} is already live. Next step: create a worktree from tag ios/${buildMarketingVersion}-${storeBuild.version}, set a new marketing version there, ${BUILD_AND_RELEASE_STEP}`,
+    ),
+  );
+};
+
+/**
  * Drive one App Store version to "submitted for review", idempotently. Reuses, retargets, or creates
  * the editable version; attaches build; declares export compliance; writes notes; sets release type /
  * phased rollout; submits via Apple's review-submission model. With `releaseInput.dryRun` records
  * planned steps and performs no writes. Fails only on preconditions the user must fix (no app record,
- * build not VALID/expired, version already live); every other step is captured per-action so one
- * failure never aborts the rest.
+ * build not VALID/expired, build's marketing version already live, version already live); every other
+ * step is captured per-action so one failure never aborts the rest.
  */
 export const releaseApp = (
   appleReleaseApi: AscReleaseApi,
@@ -378,7 +410,19 @@ export const releaseApp = (
     if (storeBuild !== null) {
       yield* requireValidStoreBuild(storeBuild);
     }
-    const selectedVersion = yield* selectReleaseVersion(releaseContext, appId, releaseInput);
+    const storeVersions = yield* appleReleaseApi
+      .listAppStoreVersions(appId, releaseInput.platform)
+      .pipe(Effect.mapError((cause) => releaseFailure('list App Store versions', cause)));
+
+    const isBuildAttached = storeBuild !== null;
+    if (isBuildAttached) {
+      yield* checkBuildCanJoinVersion(storeBuild, storeVersions);
+    }
+
+    const selectedVersion = yield* selectReleaseVersion(releaseContext, releaseInput, {
+      appId,
+      storeVersions,
+    });
     if (selectedVersion.idempotentState !== undefined) {
       releaseContext.actions.push({
         description: `version ${selectedVersion.versionString} already ${selectedVersion.idempotentState} - nothing to submit`,
@@ -525,13 +569,13 @@ const applyExportCompliance = (
  */
 const selectReleaseVersion = (
   releaseContext: ReleaseContext,
-  appId: string,
   releaseInput: ReleaseInput,
+  {
+    appId,
+    storeVersions,
+  }: Readonly<{ appId: string; storeVersions: ReadonlyArray<AppStoreVersionResource> }>,
 ): Effect.Effect<SelectedReleaseVersion, AppStoreReleaseFailure> =>
   Effect.gen(function* () {
-    const storeVersions = yield* releaseContext.appleReleaseApi
-      .listAppStoreVersions(appId, releaseInput.platform)
-      .pipe(Effect.mapError((cause) => releaseFailure('list App Store versions', cause)));
     const appReleasedBefore = hasReleasedVersion(storeVersions);
     const matchingVersion = storeVersions.find(
       (storeVersion) => storeVersion.versionString === releaseInput.versionString,
@@ -543,7 +587,7 @@ const selectReleaseVersion = (
           releaseFailure(
             'select App Store version',
             matchingVersion,
-            `Version ${releaseInput.versionString} is already on the App Store (${matchingVersion.appStoreState}). Bump the version in app.json, build, then release again.`,
+            `Version ${releaseInput.versionString} is already on the App Store (${matchingVersion.appStoreState}). Next step: set a new marketing version in app.json, ${BUILD_AND_RELEASE_STEP}`,
           ),
         );
       }
