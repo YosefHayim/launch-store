@@ -210,7 +210,7 @@ const gradleBuildEngine = {
           makeProviderInputFailure({
             provider: 'gradle',
             message:
-              'No upload keystore resolved - run `launch creds setup --platform android` first.',
+              'No upload keystore resolved - run `launch creds setup --platform android --app <name>` first.',
           }),
         );
       const androidDir = pathService.join(buildContext.app.dir, 'android');

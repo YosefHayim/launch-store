@@ -23,7 +23,10 @@ import type { PlayListing } from '../types/googlePlay.js';
 
 vi.mock('./selectStoreApp.js', () => ({ loadStoreAppContext: vi.fn() }));
 vi.mock('../credentials/accounts.js', () => ({ loadActiveAscKey: vi.fn() }));
-vi.mock('../credentials/androidKeystore.js', () => ({ loadServiceAccount: vi.fn() }));
+vi.mock('../credentials/androidKeystore.js', () => ({
+  loadServiceAccount: vi.fn(),
+  missingPlayServiceAccountMessage: () => Effect.succeed('No Play service account.'),
+}));
 
 import { loadActiveAscKey } from '../credentials/accounts.js';
 import { loadServiceAccount } from '../credentials/androidKeystore.js';

@@ -39,10 +39,8 @@ export const createPlayClientResolver = () =>
     return (packageName?: string) =>
       Effect.gen(function* () {
         if (!packageName) return null;
-        if (clients.has(packageName)) {
-          const cachedClient = clients.get(packageName);
-          if (cachedClient !== undefined) return cachedClient;
-        }
+        const cachedClient = clients.get(packageName);
+        if (cachedClient !== undefined) return cachedClient;
         const serviceAccountJson = yield* loadServiceAccount(packageName);
         if (serviceAccountJson === null) {
           clients.set(packageName, null);

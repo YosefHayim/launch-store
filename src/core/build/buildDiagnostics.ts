@@ -93,7 +93,7 @@ const SIGNATURES: DiagnosticSignature[] = [
   {
     title: 'Android signing - keystore problem',
     cause: "Gradle couldn't read the upload keystore, or the keystore/key password is wrong.",
-    fix: 'Re-import the keystore: `launch creds setup --platform android`, and check the keystore + key passwords.',
+    fix: 'Re-import the keystore: `launch creds setup --platform android --app <name>`, and check the keystore + key passwords.',
     match: [
       /Keystore file .* not found/i,
       /keystore password was incorrect/i,

@@ -12,6 +12,7 @@ import {
   ensureUploadKeystore,
   loadCachedKeystore,
   loadServiceAccount,
+  listStoredAndroidPackages,
   storeServiceAccount,
 } from './androidKeystore.js';
 
@@ -52,13 +53,17 @@ const serviceAccount = (label: string) =>
 describe('Android package credential isolation', () => {
   it('isolates Play accounts and never falls back to an unscoped account', async () => {
     const sandbox = makeCredentialSandbox();
-    await sandbox.run(storeServiceAccount(serviceAccount('legacy')));
+    sandbox.secrets.set(
+      'play-service-account',
+      Buffer.from(serviceAccount('legacy')).toString('base64'),
+    );
     await sandbox.run(storeServiceAccount(serviceAccount('alpha'), 'com.example.alpha'));
     expect(await sandbox.run(loadServiceAccount('com.example.alpha'))).toBe(
       serviceAccount('alpha'),
     );
     expect(await sandbox.run(loadServiceAccount('com.example.beta'))).toBeNull();
-    expect(await sandbox.run(loadServiceAccount())).toBe(serviceAccount('legacy'));
+    expect(sandbox.secrets.has('play-service-account')).toBe(true);
+    expect(await sandbox.run(listStoredAndroidPackages())).toEqual(['com.example.alpha']);
   });
   it('imports different app keys concurrently and honors an explicit replacement before the cache', async () => {
     const sandbox = makeCredentialSandbox();
@@ -75,6 +80,7 @@ describe('Android package credential isolation', () => {
           log: logger,
           dryRun: false,
           confirmCreate: () => Effect.dieMessage('must not generate a new upload key'),
+          confirmReplace: () => Effect.succeed(true),
           import: {
             path: inputPath,
             alias: packageName,
@@ -110,5 +116,60 @@ describe('Android package credential isolation', () => {
     expect((await sandbox.run(loadCachedKeystore('com.example.beta')))?.storePassword).toBe(
       'beta-password',
     );
+  });
+  it('does not generate a replacement when an existing key has missing passwords', async () => {
+    const sandbox = makeCredentialSandbox();
+    const input = join(sandbox.directory, 'upload.jks');
+    writeFileSync(input, 'existing key');
+    const request = (withImport: boolean) =>
+      Effect.gen(function* () {
+        const logger = yield* createLogger(false);
+        const options = {
+          appName: 'alpha',
+          packageName: 'com.example.alpha',
+          log: logger,
+          dryRun: false,
+          confirmCreate: () => Effect.dieMessage('must not generate'),
+        };
+        if (withImport)
+          return yield* ensureUploadKeystore({
+            ...options,
+            import: {
+              path: input,
+              alias: 'upload',
+              storePassword: 'password',
+              keyPassword: 'password',
+            },
+          });
+        return yield* ensureUploadKeystore(options);
+      }).pipe(Effect.provide(makeLaunchLoggerTest([])));
+    await sandbox.run(request(true));
+    sandbox.secrets.clear();
+    await expect(sandbox.run(request(false))).rejects.toThrow(/already exists/);
+  });
+  it('requires explicit approval before replacing a saved keystore', async () => {
+    const sandbox = makeCredentialSandbox();
+    const first = join(sandbox.directory, 'first.jks');
+    const replacement = join(sandbox.directory, 'replacement.jks');
+    writeFileSync(first, 'first key');
+    writeFileSync(replacement, 'replacement key');
+    const provision = (path: string, confirmReplace: () => Effect.Effect<boolean>) =>
+      Effect.gen(function* () {
+        const logger = yield* createLogger(false);
+        return yield* ensureUploadKeystore({
+          appName: 'demo',
+          packageName: 'com.example.app',
+          log: logger,
+          dryRun: false,
+          confirmCreate: () => Effect.succeed(false),
+          confirmReplace,
+          import: { path, alias: 'upload', storePassword: 'password', keyPassword: 'password' },
+        });
+      }).pipe(Effect.provide(makeLaunchLoggerTest([])));
+    const original = await sandbox.run(provision(first, () => Effect.succeed(false)));
+    await expect(sandbox.run(provision(replacement, () => Effect.succeed(false)))).rejects.toThrow(
+      /not replaced/,
+    );
+    expect(readFileSync(original.path, 'utf8')).toBe('first key');
   });
 });

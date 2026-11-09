@@ -11,10 +11,12 @@ export type CredsOptions = CredentialsCommandOptions;
 export const registerCredsCommand = (program: Command): void => {
   program
     .command('creds')
-    .description('inspect credentials, onboard/switch Apple accounts, or provision signing assets')
+    .description(
+      'inspect credentials, onboard Apple accounts, provision signing assets, or adopt legacy Android credentials',
+    )
     .argument(
       '[action]',
-      'status | set-key | setup | use | rename | remove | refresh | push-key | set-vendor-number | set-play-reports-bucket',
+      'status | adopt | set-key | setup | use | rename | remove | refresh | push-key | set-vendor-number | set-play-reports-bucket',
       'status',
     )
     .argument('[firstArgument]', 'account selector, Android key path, or push-key action')
@@ -36,7 +38,7 @@ export const registerCredsCommand = (program: Command): void => {
     )
     .option('--out <path>', 'APNs export destination')
     .option('--force', 'overwrite an existing APNs export destination')
-    .option('--yes', 'run without interactive prompts')
+    .option('--yes', 'run without interactive prompts; allow adoption to replace app credentials')
     .action(
       (
         action: string,

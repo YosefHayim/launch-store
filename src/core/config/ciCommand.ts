@@ -36,6 +36,7 @@ const workflowHeader = (includeAndroid: boolean): string => {
   ];
   if (includeAndroid) {
     headerLines.push(
+      '#   LAUNCH_APP_NAME               Actions variable: configured app name',
       '#   PLAY_SERVICE_ACCOUNT_BASE64   base64 of your Play service-account .json',
       '#   ANDROID_KEYSTORE_BASE64       base64 of your upload keystore',
       '#   ANDROID_KEY_ALIAS             the key alias inside that keystore',
@@ -112,10 +113,11 @@ const ANDROID_JOB = `
           ANDROID_KEYSTORE_BASE64: \${{ secrets.ANDROID_KEYSTORE_BASE64 }}
       - name: Build and upload to Google Play
         run: |
-          launch creds set-key --platform android "$RUNNER_TEMP/launch/play.json" --yes
-          launch creds setup --platform android --import "$RUNNER_TEMP/launch/upload.keystore" --alias "$ANDROID_KEY_ALIAS" --yes
-          launch build android --yes
+          launch creds set-key --platform android --app "$LAUNCH_APP_NAME" "$RUNNER_TEMP/launch/play.json" --yes
+          launch creds setup --platform android --app "$LAUNCH_APP_NAME" --import "$RUNNER_TEMP/launch/upload.keystore" --alias "$ANDROID_KEY_ALIAS" --yes
+          launch build android --app "$LAUNCH_APP_NAME" --yes
         env:
+          LAUNCH_APP_NAME: \${{ vars.LAUNCH_APP_NAME }}
           PLAY_SERVICE_ACCOUNT: \${{ runner.temp }}/launch/play.json
           ANDROID_KEY_ALIAS: \${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEYSTORE_PASSWORD: \${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
