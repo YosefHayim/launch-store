@@ -267,26 +267,35 @@ const generateKeystore = (
     const keystoreBackupPath = yield* resolveKeystoreBackupPath();
     yield* fileSystem.makeDirectory(credentialsDirectory, { recursive: true });
     const password = yield* randomHexSecret(24);
-    yield* captureCommandOutput('keytool', [
-      '-genkeypair',
-      '-noprompt',
-      '-keystore',
-      keystoreBackupPath,
-      '-alias',
-      DEFAULT_ALIAS,
-      '-keyalg',
-      'RSA',
-      '-keysize',
-      '2048',
-      '-validity',
-      '10000',
-      '-storepass',
-      password,
-      '-keypass',
-      password,
-      '-dname',
-      `CN=Launch Upload (${appName}), O=Launch, C=US`,
-    ]);
+    yield* captureCommandOutput(
+      'keytool',
+      [
+        '-genkeypair',
+        '-noprompt',
+        '-keystore',
+        keystoreBackupPath,
+        '-alias',
+        DEFAULT_ALIAS,
+        '-keyalg',
+        'RSA',
+        '-keysize',
+        '2048',
+        '-validity',
+        '10000',
+        '-storepass:env',
+        'LAUNCH_KEYSTORE_STORE_PASSWORD',
+        '-keypass:env',
+        'LAUNCH_KEYSTORE_KEY_PASSWORD',
+        '-dname',
+        `CN=Launch Upload (${appName}), O=Launch, C=US`,
+      ],
+      {
+        environmentOverrides: {
+          LAUNCH_KEYSTORE_STORE_PASSWORD: password,
+          LAUNCH_KEYSTORE_KEY_PASSWORD: password,
+        },
+      },
+    );
     yield* fileSystem.chmod(keystoreBackupPath, 0o600);
     yield* setSecret(KEYSTORE_STORE_PASSWORD, password);
     yield* setSecret(KEYSTORE_KEY_PASSWORD, password);
@@ -316,15 +325,19 @@ const importKeystore = (
       return yield* Effect.fail(
         makeAndroidCredentialFailure({ message: `No keystore at ${keystoreImport.path}.` }),
       );
-    const verificationAttempt = yield* captureCommandOutput('keytool', [
-      '-list',
-      '-keystore',
-      keystoreImport.path,
-      '-storepass',
-      keystoreImport.storePassword,
-      '-alias',
-      keystoreImport.alias,
-    ]).pipe(Effect.either);
+    const verificationAttempt = yield* captureCommandOutput(
+      'keytool',
+      [
+        '-list',
+        '-keystore',
+        keystoreImport.path,
+        '-storepass:env',
+        'LAUNCH_KEYSTORE_STORE_PASSWORD',
+        '-alias',
+        keystoreImport.alias,
+      ],
+      { environmentOverrides: { LAUNCH_KEYSTORE_STORE_PASSWORD: keystoreImport.storePassword } },
+    ).pipe(Effect.either);
     if (verificationAttempt._tag === 'Left') {
       return yield* Effect.fail(
         makeAndroidCredentialFailure({

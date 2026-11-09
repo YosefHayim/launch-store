@@ -19,9 +19,7 @@ describe('gradleBuildArguments - signed release build', () => {
       ':app:bundleRelease',
       '--build-cache',
       '-Pandroid.injected.signing.store.file=/keys/upload.jks',
-      '-Pandroid.injected.signing.store.password=store-secret',
       '-Pandroid.injected.signing.key.alias=upload',
-      '-Pandroid.injected.signing.key.password=key-secret',
     ]);
   });
   it('prepends the clean task for a from-scratch build', () => {
