@@ -346,17 +346,13 @@ const requireValidStoreBuild = (
   return Effect.void;
 };
 
-/**
- * A build joins only an App Store version with its own marketing version, and a live version takes no
- * new build. Fails when the build's marketing version is already live; a build with no known marketing
- * version has nothing to compare, so it passes.
- */
+/** Apple refuses a build whose marketing version is already live, so stop before any write. */
 const checkBuildCanJoinVersion = (
   storeBuild: BuildResource,
   storeVersions: ReadonlyArray<AppStoreVersionResource>,
 ): Effect.Effect<void, AppStoreReleaseFailure> => {
   const buildMarketingVersion = storeBuild.marketingVersion;
-  const isBuildMarketingVersionUnknown = buildMarketingVersion === undefined;
+  const isBuildMarketingVersionUnknown = buildMarketingVersion == null;
   if (isBuildMarketingVersionUnknown) return Effect.void;
 
   const liveVersion = storeVersions.find(
@@ -364,8 +360,8 @@ const checkBuildCanJoinVersion = (
       storeVersion.versionString === buildMarketingVersion &&
       nextReleaseAction(storeVersion.appStoreState) === 'live',
   );
-  const isBuildVersionLive = liveVersion !== undefined;
-  if (!isBuildVersionLive) return Effect.void;
+  const isNoLiveVersionFound = liveVersion == null;
+  if (isNoLiveVersionFound) return Effect.void;
 
   return Effect.fail(
     releaseFailure(
@@ -407,15 +403,16 @@ export const releaseApp = (
       );
     }
     const storeBuild = releaseInput.build;
-    if (storeBuild !== null) {
+
+    const hasStoreBuild = storeBuild != null;
+    if (hasStoreBuild) {
       yield* requireValidStoreBuild(storeBuild);
     }
+
     const storeVersions = yield* appleReleaseApi
       .listAppStoreVersions(appId, releaseInput.platform)
       .pipe(Effect.mapError((cause) => releaseFailure('list App Store versions', cause)));
-
-    const isBuildAttached = storeBuild !== null;
-    if (isBuildAttached) {
+    if (hasStoreBuild) {
       yield* checkBuildCanJoinVersion(storeBuild, storeVersions);
     }
 
@@ -450,7 +447,7 @@ export const releaseApp = (
         actions: releaseContext.actions,
       };
     }
-    if (storeBuild !== null) {
+    if (hasStoreBuild) {
       yield* performReleaseAction(releaseContext, `attach build ${storeBuild.version}`, () =>
         appleReleaseApi.selectBuildForVersion(versionId, storeBuild.id),
       );
