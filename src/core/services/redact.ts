@@ -4,7 +4,8 @@ import { isSecretLookingName } from '../config/env.js';
 const HOME = homedir();
 /** `NAME=value` / `NAME: value` - the value is masked when NAME looks secret (e.g. `API_TOKEN=...`). */
 // Raw row example: "assignment"-like input should match.
-const ASSIGNMENT = /\b([A-Za-z][A-Za-z0-9_]*)(\s*[:=]\s*)("[^"]*"|'[^']*'|\S+)/g;
+const ASSIGNMENT =
+  /\b([A-Za-z][A-Za-z0-9_]*)(["']?\s*[:=]\s*)("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\S+)/g;
 /** A JWT (`eyJ...header.payload.signature`) - App Store Connect / service-account tokens take this form. */
 // Raw row example: JWT token segments should match.
 const JWT = /\beyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}/g;
@@ -43,4 +44,45 @@ export const redactLine = (line: string): string => {
  */
 export const redactText = (text: string): string => {
   return text.replace(PEM_BLOCK, '[redacted-key-material]').split('\n').map(redactLine).join('\n');
+};
+
+/** One base64 line of a PEM body, the key material itself. */
+const PEM_BASE64_LINE = /^[A-Za-z0-9+/=]+$/;
+/** The RFC 1421 header lines an encrypted PEM block can carry before its body. */
+const PEM_HEADER_LINE = /^(Proc-Type|DEK-Info): /;
+const isPemBodyLine = (line: string): boolean => {
+  const isEmptyLine = line === '';
+  if (isEmptyLine) return true;
+
+  const isKeyMaterialLine = PEM_BASE64_LINE.test(line);
+  if (isKeyMaterialLine) return true;
+
+  return PEM_HEADER_LINE.test(line);
+};
+
+/**
+ * Keep a PEM body off disk even when the child emits it over multiple chunks. A block that never
+ * closes ends at the first line that is not key material, so later error lines still show.
+ */
+export const makeLogRedactor = (): ((line: string) => string) => {
+  let withinPem = false;
+  return (line) => {
+    const isPemBegin = line.includes('-----BEGIN ');
+    if (isPemBegin) {
+      withinPem = !line.includes('-----END ');
+      return '[redacted-key-material]';
+    }
+
+    const isPemEnd = line.includes('-----END ');
+    if (withinPem && isPemEnd) {
+      withinPem = false;
+      return '[redacted-key-material]';
+    }
+
+    const isHiddenPemLine = withinPem && isPemBodyLine(line);
+    if (isHiddenPemLine) return '[redacted-key-material]';
+
+    withinPem = false;
+    return redactLine(line);
+  };
 };
