@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from 'effect';
-import { requireOptional } from './optionalDep.js';
 import { captureCommandOutput, provideNodeCommandServices } from './exec.js';
+import { requireOptional } from './optionalDep.js';
 import { detectHostOperatingSystem } from './os.js';
 
 const KEYCHAIN_SERVICE_NAME = 'launch';
@@ -31,6 +31,10 @@ const loadNativeKeyring = (): Effect.Effect<KeyringModule, unknown> =>
     return loadedKeyring;
   });
 
+/** `security` exits 44 (errSecItemNotFound) when no item matches; only that means no secret is saved. */
+const macosItemNotFoundExitCode = 44;
+
+// The native binding also returns null when the user denies access, so a metadata-only query (no -w) tells the two apart.
 const confirmMacosMissingSecret = (account: string): Effect.Effect<null, unknown> =>
   provideNodeCommandServices(
     captureCommandOutput('security', [
@@ -44,7 +48,8 @@ const confirmMacosMissingSecret = (account: string): Effect.Effect<null, unknown
     Effect.matchEffect({
       onSuccess: () => Effect.fail(new Error(`Could not read ${account} from the keychain`)),
       onFailure: (cause) => {
-        if (cause.exitCode === 44) return Effect.succeed(null);
+        const isItemMissing = cause.exitCode === macosItemNotFoundExitCode;
+        if (isItemMissing) return Effect.succeed(null);
         return Effect.fail(new Error(`Could not read ${account} from the keychain`, { cause }));
       },
     }),
