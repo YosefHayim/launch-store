@@ -379,10 +379,6 @@ type ResourceSingle<A> = {
   };
 };
 /**
- * One page of a paginated collection: the page's `data` plus Apple's `links.next` - an absolute URL
- * to the following page, present only while more pages remain. Consumed by {@link AppStoreConnectClient.requestAll}.
- */
-/**
  * One App Store Connect resource. `relationships` holds the `build` linkage only when the request named
  * `build` in `fields`; Apple then returns its `data` linkage (null when no build is attached).
  */
@@ -391,6 +387,10 @@ type AppleResource<Attributes> = {
   attributes: Attributes;
   relationships?: { build?: { data?: { id: string } | null } };
 };
+/**
+ * One page of a paginated collection: the page's `data` plus Apple's `links.next` - an absolute URL
+ * to the following page, present only while more pages remain. Consumed by {@link AppStoreConnectClient.requestAll}.
+ */
 type PagedList<A> = {
   data: AppleResource<A>[];
   links?: {
@@ -4983,16 +4983,16 @@ const toVersionResource = (
   if (versionString === undefined) versionString = fallbackVersion;
   let appStoreState = entry.attributes.appStoreState;
   if (appStoreState === undefined) appStoreState = '';
+  const releaseType = entry.attributes.releaseType;
+  const attachedBuildId = entry.relationships?.build?.data?.id;
+  const isBuildAttached = attachedBuildId !== undefined;
   const version: AppStoreVersionResource = {
     id: entry.id,
     versionString,
     appStoreState,
+    ...(releaseType !== undefined && { releaseType }),
+    ...(isBuildAttached && { attachedBuildId }),
   };
-  if (entry.attributes.releaseType !== undefined)
-    Object.assign(version, { releaseType: entry.attributes.releaseType });
-  const attachedBuildId = entry.relationships?.build?.data?.id;
-  const isBuildAttached = attachedBuildId !== undefined;
-  if (isBuildAttached) Object.assign(version, { attachedBuildId });
   return version;
 };
 /** Map a raw phased-release row onto a {@link PhasedReleaseResource}. */
