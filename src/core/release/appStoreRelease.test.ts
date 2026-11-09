@@ -500,12 +500,19 @@ describe('pickCurrentVersion', () => {
 });
 
 describe('readReleaseStatus', () => {
-  it('classifies the current version and latest build', async () => {
+  it('classifies the current version and the build attached to it', async () => {
     const api = makeReleaseApiFake({
       listAppStoreVersions: vi.fn(() =>
-        Effect.succeed([{ id: 'v2', versionString: '1.1.0', appStoreState: 'IN_REVIEW' }]),
+        Effect.succeed([
+          {
+            id: 'v2',
+            versionString: '1.1.0',
+            appStoreState: 'IN_REVIEW',
+            attachedBuildNumber: '42',
+            attachedBuildProcessingState: 'VALID',
+          },
+        ]),
       ),
-      listBuilds: vi.fn(() => Effect.succeed([VALID_BUILD])),
       getPhasedRelease: vi.fn(() => Effect.succeed({ id: 'ph-1', phasedReleaseState: 'ACTIVE' })),
     });
     const releaseStatus = await Effect.runPromise(
@@ -520,6 +527,18 @@ describe('readReleaseStatus', () => {
       phasedReleaseState: 'ACTIVE',
       verdict: expect.objectContaining({ state: 'in-review', exitCode: 3 }),
     });
+  });
+
+  it('reports no build when the current version has none attached', async () => {
+    const api = makeReleaseApiFake({
+      listAppStoreVersions: vi.fn(() =>
+        Effect.succeed([{ id: 'v2', versionString: '1.1.0', appStoreState: 'PREPARE_FOR_SUBMISSION' }]),
+      ),
+    });
+    const releaseStatus = await Effect.runPromise(
+      readReleaseStatus(api, 'com.acme.app', IOS_PLATFORM),
+    );
+    expect(releaseStatus).toMatchObject({ versionString: '1.1.0', buildNumber: null });
   });
 
   it('returns an empty preparing verdict when the app has no versions yet', async () => {
@@ -582,6 +601,24 @@ describe('waitForValidBuild', () => {
     await expect(
       Effect.runPromise(waitForValidBuild(api, 'app1', 42, { sleep: noSleep })),
     ).rejects.toThrow(/INVALID/);
+  });
+
+  it('throws on FAILED processing', async () => {
+    const api = makeReleaseApiFake({
+      findBuildByVersion: vi.fn(() =>
+        Effect.succeed({ id: 'b', version: '42', processingState: 'FAILED', expired: false }),
+      ),
+    });
+    await expect(
+      Effect.runPromise(waitForValidBuild(api, 'app1', 42, { sleep: noSleep })),
+    ).rejects.toThrow(/FAILED/);
+  });
+
+  it('throws a not-found message when the build never appears before the timeout', async () => {
+    const api = makeReleaseApiFake({ findBuildByVersion: vi.fn(() => Effect.succeed(null)) });
+    await expect(
+      Effect.runPromise(waitForValidBuild(api, 'app1', 42, { sleep: noSleep, timeoutMs: 0 })),
+    ).rejects.toThrow(/was not found on App Store Connect/);
   });
 
   it('throws on timeout', async () => {

@@ -826,6 +826,7 @@ export type ReleaseStatus = {
   bundleId: string;
   versionString: string | null;
   appStoreState: string | null;
+  /** Number of the build attached to the current version; null when none is attached. */
   buildNumber: string | null;
   buildProcessingState: string | null;
   phasedReleaseState: string | null;
@@ -869,17 +870,16 @@ export const readReleaseStatus = (
         verdict: classifyVerdict(''),
       };
     }
-    const [phasedRelease, storeBuilds] = yield* Effect.all(
-      [appleReleaseApi.getPhasedRelease(currentVersion.id), appleReleaseApi.listBuilds(appId, 1)],
-      { concurrency: 2 },
-    ).pipe(Effect.mapError((cause) => releaseFailure('read App Store release status', cause)));
-    let latestBuild: BuildResource | null = null;
-    if (storeBuilds[0] !== undefined) latestBuild = storeBuilds[0];
+    const phasedRelease = yield* appleReleaseApi
+      .getPhasedRelease(currentVersion.id)
+      .pipe(Effect.mapError((cause) => releaseFailure('read App Store release status', cause)));
     let buildNumber: string | null = null;
+    if (currentVersion.attachedBuildNumber !== undefined) {
+      buildNumber = currentVersion.attachedBuildNumber;
+    }
     let buildProcessingState: string | null = null;
-    if (latestBuild !== null) {
-      buildNumber = latestBuild.version;
-      buildProcessingState = latestBuild.processingState;
+    if (currentVersion.attachedBuildProcessingState !== undefined) {
+      buildProcessingState = currentVersion.attachedBuildProcessingState;
     }
     let phasedReleaseState: string | null = null;
     if (phasedRelease !== null) {
@@ -914,11 +914,11 @@ export type WaitOptions = {
   intervalMs?: number;
   timeoutMs?: number;
   sleep?: (milliseconds: number) => Effect.Effect<void>;
-  onTick?: (state: string) => void;
+  onTick?: (processingState: string) => Effect.Effect<void>;
 };
 
 /**
- * Poll a freshly uploaded build until processing reaches `VALID`. Fails on `INVALID` or timeout.
+ * Poll a freshly uploaded build until processing reaches `VALID`. Fails on `INVALID`, `FAILED` or timeout.
  * Returns the chosen build so the caller can hand it to {@link releaseApp}.
  */
 export const waitForValidBuild = (
@@ -947,25 +947,36 @@ export const waitForValidBuild = (
           processingState = reportedState;
         }
       }
-      if (options.onTick !== undefined) {
-        options.onTick(processingState);
-      }
+      if (options.onTick !== undefined) yield* options.onTick(processingState);
       if (storeBuild !== null && processingState === 'VALID') return storeBuild;
-      if (processingState === 'INVALID') {
+      const isProcessingRejected = processingState === 'INVALID' || processingState === 'FAILED';
+      if (isProcessingRejected) {
         return yield* Effect.fail(
           releaseFailure(
             'wait for App Store build',
             storeBuild,
-            `Build ${buildNumber} failed App Store Connect processing (INVALID) - check the email Apple sent.`,
+            `Build ${buildNumber} failed App Store Connect processing (${processingState}) - check the email Apple sent.`,
           ),
         );
       }
-      if (waited >= timeoutMs) {
+      const isTimedOut = waited >= timeoutMs;
+      if (isTimedOut) {
+        const timeoutMinutes = Math.round(timeoutMs / 60_000);
+        const isBuildMissing = storeBuild === null;
+        if (isBuildMissing) {
+          return yield* Effect.fail(
+            releaseFailure(
+              'wait for App Store build',
+              storeBuild,
+              `Build ${buildNumber} was not found on App Store Connect after ${timeoutMinutes} min - check that the upload finished.`,
+            ),
+          );
+        }
         return yield* Effect.fail(
           releaseFailure(
             'wait for App Store build',
             storeBuild,
-            `Build ${buildNumber} is still ${processingState} after ${Math.round(timeoutMs / 60_000)} min. Re-run \`launch release ios --build ${buildNumber}\` once \`launch status\` shows it VALID.`,
+            `Build ${buildNumber} is still ${processingState} after ${timeoutMinutes} min. Re-run \`launch release ios --build ${buildNumber}\` once \`launch status\` shows it VALID.`,
           ),
         );
       }
