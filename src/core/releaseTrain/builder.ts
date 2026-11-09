@@ -395,6 +395,7 @@ export const createTrainRuntime = (
       yield* executeCommand('npx', ['expo', 'export', '--output-dir', distributionDirectory], {
         workingDirectory: appDescriptor.dir,
         environmentOverrides: environmentValues,
+        envExclude: launchConfiguration.envExclude,
       }).pipe(Effect.mapError((cause) => runtimeFailure('export OTA bundle', cause)));
       const exportMetadata = yield* readExportMetadata(distributionDirectory).pipe(
         Effect.mapError((cause) => runtimeFailure('read OTA export metadata', cause)),

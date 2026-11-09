@@ -43,8 +43,8 @@ const makeCommand = (
   Effect.gen(function* () {
     const environment = yield* LaunchEnvironment;
     let command = Command.make(executable, ...commandArguments);
-    let exclusions = commandOptions.envExclude;
-    if (exclusions === undefined) exclusions = yield* FiberRef.get(commandEnvironmentExclusions);
+    const inheritedExclusions = yield* FiberRef.get(commandEnvironmentExclusions);
+    const { envExclude: exclusions = inheritedExclusions } = commandOptions;
     const childEnvironment = mergeChildEnv(
       environment.rawVariables,
       commandOptions.environmentOverrides,
@@ -56,7 +56,6 @@ const makeCommand = (
     for (const pattern of exclusions) {
       if (!pattern.endsWith('*')) childEnvironment[pattern] = '';
     }
-    if (exclusions.length > 0) childEnvironment['EXPO_NO_DOTENV'] = '1';
     command = Command.env(command, childEnvironment);
     if (commandOptions.workingDirectory !== undefined) {
       command = Command.workingDirectory(command, commandOptions.workingDirectory);
