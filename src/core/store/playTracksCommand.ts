@@ -7,7 +7,7 @@ import {
   confirmGoogleStoreWrite,
   loadActiveGoogleStore,
   type ActiveGoogleStoreRequirements,
-  resolveGoogleStorePackageName,
+  resolveGoogleStoreApp,
 } from './googleStoreCommand.js';
 import {
   buildRelease,
@@ -154,8 +154,8 @@ const showTrackStatus = (
   commandInput: PlayTracksStatusInput,
 ): Effect.Effect<void, PlayTracksCommandFailure, PlayTracksCommandRequirements> =>
   Effect.gen(function* () {
-    const packageName = yield* resolveGoogleStorePackageName(commandInput.app);
-    const googleStore = yield* loadActiveGoogleStore();
+    const { packageName, appName } = yield* resolveGoogleStoreApp(commandInput.app);
+    const googleStore = yield* loadActiveGoogleStore(packageName, appName);
     const trackCatalog = yield* googleStore.listTracks(packageName);
     const tracksWithCountries = yield* Effect.forEach(
       trackCatalog,
@@ -202,8 +202,8 @@ const promoteTrackRelease = (
   commandInput: PlayTracksPromoteInput,
 ): Effect.Effect<void, PlayTracksCommandFailure, PlayTracksCommandRequirements> =>
   Effect.gen(function* () {
-    const packageName = yield* resolveGoogleStorePackageName(commandInput.app);
-    const googleStore = yield* loadActiveGoogleStore();
+    const { packageName, appName } = yield* resolveGoogleStoreApp(commandInput.app);
+    const googleStore = yield* loadActiveGoogleStore(packageName, appName);
     let versionCode = commandInput.versionCode;
     if (versionCode === undefined) {
       const latestVersionCode = yield* googleStore.getLatestVersionCode(packageName);
@@ -265,8 +265,8 @@ const manageTrackTesters = (
   commandInput: PlayTracksTestersInput,
 ): Effect.Effect<void, PlayTracksCommandFailure, PlayTracksCommandRequirements> =>
   Effect.gen(function* () {
-    const packageName = yield* resolveGoogleStorePackageName(commandInput.app);
-    const googleStore = yield* loadActiveGoogleStore();
+    const { packageName, appName } = yield* resolveGoogleStoreApp(commandInput.app);
+    const googleStore = yield* loadActiveGoogleStore(packageName, appName);
     const logger = yield* createLogger(false);
     if (commandInput.groups === undefined) {
       const testerGroups = yield* googleStore.getTesters(packageName, commandInput.track);

@@ -1,4 +1,6 @@
 import { Effect } from 'effect';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   createTemporaryHomeDirectory,
@@ -23,6 +25,12 @@ describe('discoverApps', () => {
   let homeDirectory: string;
   beforeEach(() => {
     homeDirectory = createTemporaryHomeDirectory();
+    const project = join(homeDirectory, 'work');
+    mkdirSync(project, { recursive: true });
+    writeFileSync(
+      join(project, 'app.json'),
+      JSON.stringify({ expo: { name: 'Play', slug: 'play', android: { package: 'com.play' } } }),
+    );
   });
   afterEach(() => {
     removeTemporaryHomeDirectory(homeDirectory);

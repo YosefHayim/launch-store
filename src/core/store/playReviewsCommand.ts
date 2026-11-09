@@ -8,7 +8,7 @@ import {
   confirmGoogleStoreWrite,
   loadActiveGoogleStore,
   type ActiveGoogleStoreRequirements,
-  resolveGoogleStorePackageName,
+  resolveGoogleStoreApp,
 } from './googleStoreCommand.js';
 import type { StoreAppSelectionRequirements } from './selectStoreApp.js';
 import { hasMessage } from '../services/errorMessage.js';
@@ -147,8 +147,8 @@ const listRecentPlayReviews = (
 ): Effect.Effect<void, PlayReviewsCommandFailure, PlayReviewsCommandRequirements> =>
   Effect.gen(function* () {
     const rating = yield* parsePlayReviewRating(commandInput.rating);
-    const packageName = yield* resolveGoogleStorePackageName(commandInput.app);
-    const googleStore = yield* loadActiveGoogleStore();
+    const { packageName, appName } = yield* resolveGoogleStoreApp(commandInput.app);
+    const googleStore = yield* loadActiveGoogleStore(packageName, appName);
     let reviewFilters: PlayReviewFilters = { unansweredOnly: commandInput.unanswered };
     if (rating !== undefined) reviewFilters = { ...reviewFilters, rating };
     if (commandInput.lang !== undefined) {
@@ -178,8 +178,8 @@ const replyToRecentPlayReview = (
 ): Effect.Effect<void, PlayReviewsCommandFailure, PlayReviewsCommandRequirements> =>
   Effect.gen(function* () {
     const replyText = yield* readPlayReplyText(commandInput);
-    const packageName = yield* resolveGoogleStorePackageName(commandInput.app);
-    const googleStore = yield* loadActiveGoogleStore();
+    const { packageName, appName } = yield* resolveGoogleStoreApp(commandInput.app);
+    const googleStore = yield* loadActiveGoogleStore(packageName, appName);
     const existingReview = yield* googleStore.getReview(packageName, commandInput.reviewId);
     let confirmationVerb = 'Post a public reply to';
     if (existingReview?.answered) {

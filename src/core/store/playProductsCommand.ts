@@ -56,7 +56,7 @@ const productsFailure = (operation: string, cause: unknown): PlayProductsCommand
 const resolveProductsTarget = (
   appSelector: string | undefined,
 ): Effect.Effect<
-  Readonly<{ packageName: string; products: InAppPurchaseConfig[] }>,
+  Readonly<{ appName: string; packageName: string; products: InAppPurchaseConfig[] }>,
   PlayProductsCommandFailure,
   StoreAppSelectionRequirements
 > =>
@@ -91,7 +91,11 @@ const resolveProductsTarget = (
         );
       }
     }
-    return { packageName: selectedApp.packageName, products: declaredProducts };
+    return {
+      appName: selectedApp.name,
+      packageName: selectedApp.packageName,
+      products: declaredProducts,
+    };
   });
 
 /** Decode, plan, confirm, and apply Play one-time products. */
@@ -111,7 +115,10 @@ const executePlayProducts = (
       );
       return 0;
     }
-    const googleStore = yield* loadActiveGoogleStore();
+    const googleStore = yield* loadActiveGoogleStore(
+      productsTarget.packageName,
+      productsTarget.appName,
+    );
     const productsPlan = yield* reconcilePlayProducts(googleStore, {
       packageName: productsTarget.packageName,
       products: productsTarget.products,

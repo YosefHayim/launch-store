@@ -206,7 +206,7 @@ export type ReadinessContext = Readonly<{
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
   resolveAscApi(): Effect.Effect<AscReadinessApi | null, unknown>;
-  resolvePlayApi(): Effect.Effect<PlayReadinessApi | null, unknown>;
+  resolvePlayApi(packageName?: string): Effect.Effect<PlayReadinessApi | null, unknown>;
 }>;
 /** Registered read-only probe selected by category. */
 export type ReadinessProbe = Readonly<{

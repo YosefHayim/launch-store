@@ -6,6 +6,7 @@ import { AppStoreIdentityService, type AppStoreIdentity } from '../services/appS
 import type { AppleCredentialsClientFactory } from '../services/appleCredentialsClient.js';
 import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
 import { errorMessage } from '../services/errorMessage.js';
+import { GoogleStoreClientService } from '../services/googleStoreClient.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
@@ -28,6 +29,7 @@ import {
   updateAccountIdentity,
 } from './accounts.js';
 import {
+  adoptLegacyAndroidCredentials,
   describeStoredAndroidCredentials,
   ensureUploadKeystore,
   storeServiceAccount,
@@ -48,6 +50,7 @@ const optionalCommandFlag = Schema.optionalWith(Schema.Boolean, { exact: true })
 
 const CredentialsActionSchema = Schema.Literal(
   'status',
+  'adopt',
   'accounts',
   'set-key',
   'setup',
@@ -90,6 +93,7 @@ export type CredentialsCommandOptions = Schema.Schema.Type<typeof CredentialsCom
 
 type CredentialsCommandRequirements =
   | AppStoreIdentityService
+  | GoogleStoreClientService
   | AppleCredentialsClientFactory
   | CommandExecutor
   | FileSystem.FileSystem
@@ -489,7 +493,12 @@ const setGoogleKey = (
     if (!(yield* fileSystem.exists(keyPath))) {
       return yield* failCommand('import Google key', `No service-account JSON at ${enteredPath}.`);
     }
-    yield* storeServiceAccount(yield* fileSystem.readFileString(keyPath));
+    const launchPaths = yield* LaunchPaths;
+    const loadedConfig = yield* loadConfig(launchPaths.workingDirectory);
+    const app = yield* selectConfiguredApp(loadedConfig.apps, commandOptions.app, canPrompt);
+    if (!app.packageName)
+      return yield* failCommand('import Google key', 'Set android.package for the selected app.');
+    yield* storeServiceAccount(yield* fileSystem.readFileString(keyPath), app.packageName);
     const logger = yield* createLogger(false);
     yield* logger.ok(`Stored the Play service account from ${yield* displayPath(keyPath)}.`);
     yield* offerSourceRemoval(keyPath, 'Play service-account key', canPrompt);
@@ -657,6 +666,15 @@ const selectKeystoreImport = (
     return { path: importedPath, alias, storePassword, keyPassword };
   });
 
+const provisionAndroidKeystore = (
+  options: Parameters<typeof ensureUploadKeystore>[0],
+  keystoreImport: KeystoreImport | undefined,
+) => {
+  if (keystoreImport !== undefined)
+    return ensureUploadKeystore({ ...options, import: keystoreImport });
+  return ensureUploadKeystore(options);
+};
+
 /** Provision or import the upload keystore for one Android application. */
 const setupAndroid = (
   commandOptions: CredentialsCommandOptions,
@@ -669,27 +687,60 @@ const setupAndroid = (
     const keystoreImport = yield* selectKeystoreImport(commandOptions, canPrompt);
     const logger = yield* createLogger(false);
     const prompt = yield* LaunchPrompt;
+    if (!app.packageName)
+      return yield* failCommand('setup Android', 'Set android.package for the selected app.');
     const keystoreRequest = {
       appName: app.name,
+      packageName: app.packageName,
       log: logger,
       dryRun: false,
       confirmCreate: (message: string) => {
         if (!canPrompt) return Effect.succeed(true);
         return prompt.confirm(message);
       },
+      confirmReplace: (message: string) => {
+        if (commandOptions.yes === true) return Effect.succeed(true);
+        if (!canPrompt) return Effect.succeed(false);
+        return prompt.confirm(message);
+      },
     };
-    let keystoreEffect = ensureUploadKeystore(keystoreRequest);
-    if (keystoreImport !== undefined) {
-      keystoreEffect = ensureUploadKeystore({ ...keystoreRequest, import: keystoreImport });
-    }
-    const keystore = yield* keystoreEffect;
+    const keystore = yield* provisionAndroidKeystore(keystoreRequest, keystoreImport);
     yield* logger.ok(
       `Ready: upload keystore at ${yield* displayPath(keystore.path)} (alias ${keystore.alias}).`,
     );
   });
 
+/** Copy validated legacy Android credentials into one selected app. */
+const adoptAndroid = (options: CredentialsCommandOptions) =>
+  Effect.gen(function* () {
+    if (options.app === undefined)
+      return yield* failCommand('adopt Android credentials', 'Pass --app <name>.');
+    const launchPaths = yield* LaunchPaths;
+    const configuration = yield* loadConfig(launchPaths.workingDirectory);
+    const app = yield* selectConfiguredApp(configuration.apps, options.app, false);
+    if (app.packageName === undefined)
+      return yield* failCommand(
+        'adopt Android credentials',
+        'Set android.package for the selected app.',
+      );
+    const clients = yield* GoogleStoreClientService;
+    yield* adoptLegacyAndroidCredentials(
+      app.packageName,
+      options.yes === true,
+      (account, packageName) =>
+        clients.createEffectClient(account).pipe(
+          Effect.flatMap((client) => client.listTracks(packageName)),
+          Effect.asVoid,
+        ),
+    );
+    const logger = yield* createLogger(false);
+    yield* logger.ok(`Adopted legacy Android credentials for ${app.name}.`);
+  });
+
 /** Render the current Apple, Android, and APNs credential inventory. */
-const showCredentialStatus = (): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
+const showCredentialStatus = (
+  commandOptions: CredentialsCommandOptions,
+): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>
   Effect.gen(function* () {
     const logger = yield* createLogger(false);
     const accounts = yield* listAccounts();
@@ -709,12 +760,26 @@ const showCredentialStatus = (): Effect.Effect<void, unknown, CredentialsCommand
         yield* logger.line(`  profiles: ${storedSigning.bundleIds.join(', ')}`);
       }
     }
-    const androidCredentials = yield* describeStoredAndroidCredentials();
-    let serviceAccountStatus = 'not stored';
-    if (androidCredentials.hasServiceAccount) serviceAccountStatus = 'stored';
-    yield* logger.line(`Google service account: ${serviceAccountStatus}`);
-    if (androidCredentials.keystoreAlias !== null) {
-      yield* logger.line(`Android upload keystore: alias ${androidCredentials.keystoreAlias}`);
+    const launchPaths = yield* LaunchPaths;
+    const configuredApps = (yield* loadConfig(launchPaths.workingDirectory)).apps;
+    const androidApps = yield* Effect.gen(function* () {
+      if (commandOptions.app === undefined)
+        return configuredApps.filter((app) => app.packageName !== undefined);
+      const selected = yield* selectConfiguredApp(configuredApps, commandOptions.app, false);
+      if (selected.packageName === undefined) return [];
+      return [selected];
+    });
+    for (const app of androidApps) {
+      if (app.packageName === undefined) continue;
+      const androidCredentials = yield* describeStoredAndroidCredentials(app.packageName);
+      let serviceAccountStatus = 'not stored';
+      if (androidCredentials.hasServiceAccount) serviceAccountStatus = 'stored';
+      yield* logger.line(`Google service account (${app.name}): ${serviceAccountStatus}`);
+      if (androidCredentials.keystoreAlias !== null) {
+        yield* logger.line(
+          `Android upload keystore (${app.name}): alias ${androidCredentials.keystoreAlias}`,
+        );
+      }
     }
     const pushKeys = yield* listPushKeys();
     yield* logger.line(`APNs keys: ${pushKeys.length}`);
@@ -1031,7 +1096,11 @@ export const credentialsCommandProgram = (
     switch (decodedCommand.action) {
       case 'status':
       case 'accounts':
-        return yield* showCredentialStatus();
+        return yield* showCredentialStatus(decodedCommand.options);
+      case 'adopt':
+        if (platform !== 'android')
+          return yield* failCommand('adopt credentials', 'Pass --platform android.');
+        return yield* adoptAndroid(decodedCommand.options);
       case 'set-key':
         if (platform === 'android') {
           return yield* setGoogleKey(decodedCommand.firstArgument, decodedCommand.options);

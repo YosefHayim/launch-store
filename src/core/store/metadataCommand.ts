@@ -1,7 +1,10 @@
 import { FileSystem, Path, type Terminal } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
 import { loadActiveAscKey } from '../credentials/accounts.js';
-import { loadServiceAccount } from '../credentials/androidKeystore.js';
+import {
+  loadServiceAccount,
+  describeMissingPlayServiceAccount,
+} from '../credentials/androidKeystore.js';
 import {
   AppleStoreClientService,
   type EffectAppStoreConnectClient,
@@ -205,13 +208,12 @@ const requireActiveAscKey = (): Effect.Effect<
   });
 
 /** Require a Play service account before talking to Google Play. */
-const requirePlayServiceAccount = (): Effect.Effect<
-  string,
-  MetadataCommandFailure,
-  MetadataCredentialRequirements
-> =>
+const requirePlayServiceAccount = (
+  packageName: string,
+  appName: string,
+): Effect.Effect<string, MetadataCommandFailure, MetadataCredentialRequirements> =>
   Effect.gen(function* () {
-    const serviceAccountJson = yield* loadServiceAccount().pipe(
+    const serviceAccountJson = yield* loadServiceAccount(packageName).pipe(
       Effect.mapError((cause) => metadataFailure('load Play service account', cause)),
     );
     if (serviceAccountJson === null) {
@@ -219,7 +221,9 @@ const requirePlayServiceAccount = (): Effect.Effect<
         metadataFailure(
           'load Play service account',
           'missing-service-account',
-          'No Play service account. Run `launch creds set-key --platform android` first.',
+          yield* describeMissingPlayServiceAccount(appName).pipe(
+            Effect.mapError((cause) => metadataFailure('load Play service account', cause)),
+          ),
         ),
       );
     }
@@ -239,13 +243,12 @@ const createAppleClient = (): Effect.Effect<
   });
 
 /** Build the Google Play client for the stored service account. */
-const createPlayClient = (): Effect.Effect<
-  EffectGooglePlayClient,
-  MetadataCommandFailure,
-  GoogleMetadataRequirements
-> =>
+const createPlayClient = (
+  packageName: string,
+  appName: string,
+): Effect.Effect<EffectGooglePlayClient, MetadataCommandFailure, GoogleMetadataRequirements> =>
   Effect.gen(function* () {
-    const serviceAccountJson = yield* requirePlayServiceAccount();
+    const serviceAccountJson = yield* requirePlayServiceAccount(packageName, appName);
     const googleStoreClients = yield* GoogleStoreClientService;
     return yield* googleStoreClients
       .createEffectClient(serviceAccountJson)
@@ -310,12 +313,13 @@ const androidStoreConfigFromListings = (listings: readonly PlayListing[]): Andro
 /** Pull the live Play listing into store.config.json. */
 const pullAndroidListing = (
   packageName: string,
+  appName: string,
   configPath: string,
   dryRun: boolean,
 ): Effect.Effect<void, MetadataCommandFailure, GoogleMetadataRequirements> =>
   Effect.gen(function* () {
     const logger = yield* createLogger(false);
-    const playClient = yield* createPlayClient();
+    const playClient = yield* createPlayClient(packageName, appName);
     const listings = yield* playClient
       .listListings(packageName)
       .pipe(Effect.mapError((cause) => metadataFailure('read Play listings', cause)));
@@ -390,6 +394,7 @@ const listingsFromAndroidStoreConfig = (androidStoreConfig: AndroidStoreConfig):
 /** Push Play listing metadata without uploading a binary or screenshots. */
 const pushAndroidListing = (
   packageName: string,
+  appName: string,
   configPath: string,
   dryRun: boolean,
 ): Effect.Effect<void, MetadataCommandFailure, GoogleMetadataRequirements> =>
@@ -421,7 +426,7 @@ const pushAndroidListing = (
       yield* logger.note(`${configPath} has no Play locales to push.`);
       return;
     }
-    const playClient = yield* createPlayClient();
+    const playClient = yield* createPlayClient(packageName, appName);
     yield* playClient
       .updateListings(packageName, listings)
       .pipe(Effect.mapError((cause) => metadataFailure('upload Play listings', cause)));
@@ -480,6 +485,7 @@ export const metadataCommandProgram = (
     if (commandInput.operation === 'pull') {
       yield* pullAndroidListing(
         metadataTarget.app.packageName,
+        metadataTarget.app.name,
         metadataTarget.configPath,
         commandInput.dryRun,
       );
@@ -487,6 +493,7 @@ export const metadataCommandProgram = (
     }
     yield* pushAndroidListing(
       metadataTarget.app.packageName,
+      metadataTarget.app.name,
       metadataTarget.configPath,
       commandInput.dryRun,
     );

@@ -29,9 +29,9 @@ describe('workflowYaml', () => {
   it('adds the Android job and secrets when requested', () => {
     const workflow = workflowYaml(true);
     expect(workflow).toContain('runs-on: ubuntu-latest');
-    expect(workflow).toContain('launch build android --yes');
+    expect(workflow).toContain('launch build android --app "$LAUNCH_APP_NAME" --yes');
     expect(workflow).toContain(
-      'launch creds set-key --platform android "$RUNNER_TEMP/launch/play.json" --yes',
+      'launch creds set-key --platform android --app "$LAUNCH_APP_NAME" "$RUNNER_TEMP/launch/play.json" --yes',
     );
     expect(workflow).toContain('PLAY_SERVICE_ACCOUNT: ${{ runner.temp }}/launch/play.json');
     expect(workflow).toContain('secrets.ANDROID_KEYSTORE_BASE64');

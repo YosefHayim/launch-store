@@ -17,7 +17,10 @@ import {
   ensureCodeSigner,
 } from '../credentials/codeSign.js';
 import { loadActiveAscKey } from '../credentials/accounts.js';
-import { loadServiceAccount } from '../credentials/androidKeystore.js';
+import {
+  loadServiceAccount,
+  describeMissingPlayServiceAccount,
+} from '../credentials/androidKeystore.js';
 import { publishOtaPlatform, readExportMetadata } from '../distribution/otaPublish.js';
 import {
   ensureArtifactPresent,
@@ -165,7 +168,15 @@ export const createTrainRuntime = (
   > =>
     Effect.gen(function* () {
       if (cachedGoogleClient !== undefined) return cachedGoogleClient;
-      const serviceAccountJson = yield* loadServiceAccount().pipe(
+      if (!appDescriptor.packageName)
+        return yield* Effect.fail(
+          runtimeFailure(
+            'load Google Play service account',
+            appDescriptor.name,
+            'Set android.package before using Google Play.',
+          ),
+        );
+      const serviceAccountJson = yield* loadServiceAccount(appDescriptor.packageName).pipe(
         Effect.mapError((cause) => runtimeFailure('load Google Play service account', cause)),
       );
       if (serviceAccountJson === null) {
@@ -173,7 +184,9 @@ export const createTrainRuntime = (
           runtimeFailure(
             'load Google Play service account',
             appDescriptor.name,
-            'No Google Play service account configured. Run `launch creds set-key --platform android`.',
+            yield* describeMissingPlayServiceAccount(appDescriptor.name).pipe(
+              Effect.mapError((cause) => runtimeFailure('load Google Play service account', cause)),
+            ),
           ),
         );
       }

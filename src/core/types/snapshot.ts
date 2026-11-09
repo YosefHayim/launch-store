@@ -60,6 +60,7 @@ export type SourceCapture =
   | Readonly<{
       state: 'captured';
       apps: readonly AppEntities[];
+      skippedApps?: readonly Readonly<{ app: string; identifier: string; reason: string }>[];
     }>;
 /**
  * A {@link SourceCapture} plus the `errored` state the orchestrator synthesizes when a source throws
@@ -167,7 +168,7 @@ export type SnapshotContext = Readonly<{
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
   resolveAscApi(): Effect.Effect<SnapshotAscApi | null, unknown>;
-  resolvePlayApi(): Effect.Effect<SnapshotPlayApi | null, unknown>;
+  resolvePlayApi(packageName?: string): Effect.Effect<SnapshotPlayApi | null, unknown>;
 }>;
 /**
  * What a {@link SnapshotSource.restore} pass is handed: the write-capable counterpart to
@@ -181,7 +182,7 @@ export type RestoreContext = Readonly<{
   config: LaunchConfig;
   apps: readonly AppDescriptor[];
   resolveAscWriteClient(): Effect.Effect<AscCatalogApi | null, unknown>;
-  resolvePlayWriteClient(): Effect.Effect<PlayCatalogApi | null, unknown>;
+  resolvePlayWriteClient(packageName?: string): Effect.Effect<PlayCatalogApi | null, unknown>;
 }>;
 /**
  * One source's restore request: the write context plus the per-app entities loaded from the saved snapshot

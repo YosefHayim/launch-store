@@ -97,14 +97,19 @@ export interface StatsCredentialsShape {
   readonly vendorNumberForAccount: (
     accountKeyId: string,
   ) => Effect.Effect<string | null, StatsCredentialsFailure>;
-  readonly playServiceAccount: () => Effect.Effect<ServiceAccount | null, StatsCredentialsFailure>;
-  readonly playReportingClient: () => Effect.Effect<
-    PlayReportingClient | null,
-    StatsCredentialsFailure
-  >;
+  readonly googlePackageForApp: (
+    app: PortfolioApp,
+  ) => Effect.Effect<string | null, StatsCredentialsFailure>;
+  readonly playServiceAccount: (
+    packageName: string | null,
+  ) => Effect.Effect<ServiceAccount | null, StatsCredentialsFailure>;
+  readonly playReportingClient: (
+    packageName: string | null,
+  ) => Effect.Effect<PlayReportingClient | null, StatsCredentialsFailure>;
   readonly playReportsBucket: () => Effect.Effect<string | null, StatsCredentialsFailure>;
   readonly googleAccessToken: (
     scopes: readonly string[],
+    packageName: string | null,
   ) => Effect.Effect<string | null, StatsCredentialsFailure>;
 }
 

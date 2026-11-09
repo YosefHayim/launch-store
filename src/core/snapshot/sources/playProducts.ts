@@ -126,25 +126,38 @@ export const playProductsSource: SnapshotSource = {
     return Effect.gen(function* () {
       const apps = androidApps(snapshotContext.apps);
       if (apps.length === 0) return { state: 'omitted' };
-      const api = yield* snapshotContext.resolvePlayApi();
-      if (!api) {
-        return {
-          state: 'skipped',
-          reason: 'no Play service account',
-          hint: 'configure Play credentials',
-        };
-      }
-      const captured = yield* Effect.forEach(
+      const results = yield* Effect.forEach(
         apps,
         ({ name, identifier }) =>
           Effect.gen(function* () {
-            const products = yield* api.listInAppProducts(identifier);
-            const entities = products.map(toEntity);
-            return { app: name, identifier, entities };
+            const client = yield* snapshotContext.resolvePlayApi(identifier);
+            if (client === null)
+              return {
+                skipped: { app: name, identifier, reason: 'no Play service account' },
+              } as const;
+            const records = yield* client.listInAppProducts(identifier);
+            return {
+              captured: { app: name, identifier, entities: records.map(toEntity) },
+            } as const;
           }),
         { concurrency: 'unbounded' },
       );
-      return { state: 'captured', apps: captured };
+      const captured = results.flatMap((entry) => {
+        if ('captured' in entry) return [entry.captured];
+        return [];
+      });
+      const skippedApps = results.flatMap((entry) => {
+        if ('skipped' in entry) return [entry.skipped];
+        return [];
+      });
+      if (captured.length === 0)
+        return {
+          state: 'skipped',
+          reason: `no Play service account for ${skippedApps.map((entry) => entry.app).join(', ')}`,
+          hint: 'configure Play credentials',
+        };
+      if (skippedApps.length === 0) return { state: 'captured', apps: captured };
+      return { state: 'captured', apps: captured, skippedApps };
     });
   },
   /**
@@ -156,14 +169,15 @@ export const playProductsSource: SnapshotSource = {
    */
   restore({ ctx: restoreContext, saved, dryRun }: RestoreInput) {
     return Effect.gen(function* () {
-      const client = yield* restoreContext.resolvePlayWriteClient();
-      if (!client) {
-        return {
-          actions: [skippedAction('Google Play products: skipped - no Play service account')],
-        };
-      }
       const actions: PlannedAction[] = [];
       for (const app of saved) {
+        const client = yield* restoreContext.resolvePlayWriteClient(app.identifier);
+        if (!client) {
+          actions.push(
+            skippedAction(`Google Play: skipped - no Play service account for ${app.identifier}`),
+          );
+          continue;
+        }
         const products: InAppPurchaseConfig[] = [];
         for (const entity of app.entities) {
           const config = toProductConfig(entity);

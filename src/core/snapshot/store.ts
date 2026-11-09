@@ -48,6 +48,12 @@ const CaptureOutcomeSchema: Schema.Schema<CaptureOutcome> = Schema.Union(
   Schema.Struct({
     state: Schema.Literal('captured'),
     apps: Schema.Array(AppEntitiesSchema),
+    skippedApps: Schema.optionalWith(
+      Schema.Array(
+        Schema.Struct({ app: Schema.String, identifier: Schema.String, reason: Schema.String }),
+      ),
+      { exact: true },
+    ),
   }),
   Schema.Struct({
     state: Schema.Literal('errored'),

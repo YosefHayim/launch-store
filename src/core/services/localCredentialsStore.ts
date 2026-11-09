@@ -10,6 +10,7 @@ import {
   describeStoredAndroidCredentials,
   loadCachedKeystore,
   loadServiceAccount,
+  describeMissingPlayServiceAccount,
 } from '../credentials/androidKeystore.js';
 import { describeStoredCredentials, loadCachedSigningAssets } from '../credentials/appleSigning.js';
 import type { AscKey, KeystoreAssets, SigningAssets } from '../types/credentials.js';
@@ -37,13 +38,18 @@ export type LocalCredentialsStoreService = Readonly<{
     bundleId: string,
     extensions?: readonly string[],
   ) => Effect.Effect<SigningAssets | null, unknown>;
-  readonly loadPlayServiceAccount: () => Effect.Effect<string | null, unknown>;
-  readonly loadAndroidKeystore: () => Effect.Effect<KeystoreAssets | null, unknown>;
+  readonly describeMissingPlayServiceAccount: (appName: string) => Effect.Effect<string, unknown>;
+  readonly loadPlayServiceAccount: (packageName: string) => Effect.Effect<string | null, unknown>;
+  readonly loadAndroidKeystore: (
+    packageName: string,
+  ) => Effect.Effect<KeystoreAssets | null, unknown>;
   readonly listAppleAccountStatuses: () => Effect.Effect<
     readonly AppleCredentialAccountStatus[],
     unknown
   >;
-  readonly readAndroidCredentialStatus: () => Effect.Effect<AndroidCredentialStatus, unknown>;
+  readonly readAndroidCredentialStatus: (
+    packageName: string,
+  ) => Effect.Effect<AndroidCredentialStatus, unknown>;
 }>;
 
 export const LocalCredentialsStore = Context.GenericTag<LocalCredentialsStoreService>(
@@ -59,7 +65,8 @@ type LocalCredentialsStoreRequirements =
   | Effect.Effect.Context<ReturnType<typeof loadAscKeyById>>
   | Effect.Effect.Context<ReturnType<typeof loadCachedKeystore>>
   | Effect.Effect.Context<ReturnType<typeof loadCachedSigningAssets>>
-  | Effect.Effect.Context<ReturnType<typeof loadServiceAccount>>;
+  | Effect.Effect.Context<ReturnType<typeof loadServiceAccount>>
+  | Effect.Effect.Context<ReturnType<typeof describeMissingPlayServiceAccount>>;
 
 const accountIsUnresolved = (teamId: string | undefined, appCount: number): boolean => {
   if (teamId !== undefined && teamId.length > 0) return false;
@@ -86,9 +93,12 @@ export const LocalCredentialsStoreLive: Layer.Layer<
         loadCachedSigningAssets(keyId, bundleId, extensions).pipe(
           Effect.provide(credentialStoreContext),
         ),
-      loadPlayServiceAccount: () =>
-        loadServiceAccount().pipe(Effect.provide(credentialStoreContext)),
-      loadAndroidKeystore: () => loadCachedKeystore().pipe(Effect.provide(credentialStoreContext)),
+      describeMissingPlayServiceAccount: (appName) =>
+        describeMissingPlayServiceAccount(appName).pipe(Effect.provide(credentialStoreContext)),
+      loadPlayServiceAccount: (packageName: string) =>
+        loadServiceAccount(packageName).pipe(Effect.provide(credentialStoreContext)),
+      loadAndroidKeystore: (packageName: string) =>
+        loadCachedKeystore(packageName).pipe(Effect.provide(credentialStoreContext)),
       listAppleAccountStatuses: () =>
         Effect.gen(function* () {
           const appleAccounts = yield* listAccounts();
@@ -113,8 +123,8 @@ export const LocalCredentialsStoreLive: Layer.Layer<
             { concurrency: 1 },
           );
         }).pipe(Effect.provide(credentialStoreContext)),
-      readAndroidCredentialStatus: () =>
-        describeStoredAndroidCredentials().pipe(Effect.provide(credentialStoreContext)),
+      readAndroidCredentialStatus: (packageName: string) =>
+        describeStoredAndroidCredentials(packageName).pipe(Effect.provide(credentialStoreContext)),
     } satisfies LocalCredentialsStoreService;
   }),
 );

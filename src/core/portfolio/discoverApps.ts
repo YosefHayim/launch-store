@@ -1,8 +1,11 @@
 import type { FileSystem, Path } from '@effect/platform';
-import { Effect } from 'effect';
+import { Effect, Either } from 'effect';
 import { listAccounts } from '../credentials/accounts.js';
+import { listStoredAndroidPackages } from '../credentials/androidKeystore.js';
+import { loadConfig } from '../config/config.js';
+import { loadPortfolioFile } from './portfolioStore.js';
 import { errorMessage } from '../services/errorMessage.js';
-import type { LaunchPathsService } from '../services/paths.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import { StatsCredentials } from '../stats/statsCredentials.js';
 import type { AccountRecord } from '../types/credentials.js';
 import type { DiscoveredApp, DiscoveryReport, DiscoveryWarning } from '../types/portfolio.js';
@@ -59,10 +62,12 @@ const discoverAppleAccount = (
     return { accountLabel: account.label, apps, warning: null };
   }).pipe(Effect.catchAll((cause) => Effect.succeed(failedAccountDiscovery(account.label, cause))));
 
-const discoverPlay = (): Effect.Effect<AccountDiscovery | null, never, StatsCredentialsShape> =>
+const discoverPlay = (
+  packageName: string,
+): Effect.Effect<AccountDiscovery | null, never, StatsCredentialsShape> =>
   Effect.gen(function* () {
     const credentials = yield* StatsCredentials;
-    const reportingClient = yield* credentials.playReportingClient();
+    const reportingClient = yield* credentials.playReportingClient(packageName);
     const isPlayNotConnected = reportingClient === null;
     if (isPlayNotConnected) return null;
     const playApps = yield* reportingClient.listApps();
@@ -89,10 +94,34 @@ export const discoverApps = (): Effect.Effect<DiscoveryReport, never, DiscoveryR
     const appleDiscoveries = yield* Effect.forEach(accounts, discoverAppleAccount, {
       concurrency: APPLE_DISCOVERY_CONCURRENCY,
     });
-    const playDiscovery = yield* discoverPlay();
-    const discoveries: AccountDiscovery[] = [...appleDiscoveries];
-    const isPlayConnected = playDiscovery !== null;
-    if (isPlayConnected) discoveries.push(playDiscovery);
+    const launchPaths = yield* LaunchPaths;
+    const configuredPackagesReply = yield* loadConfig(launchPaths.workingDirectory).pipe(
+      Effect.map((configuration) => configuration.apps.flatMap((app) => app.packageName ?? [])),
+      Effect.either,
+    );
+    const savedPackagesReply = yield* loadPortfolioFile().pipe(
+      Effect.map(
+        (savedPortfolio) => savedPortfolio?.apps.flatMap((app) => app.packageName ?? []) ?? [],
+      ),
+      Effect.either,
+    );
+    const storedPackagesReply = yield* listStoredAndroidPackages().pipe(Effect.either);
+    const packageSourceReplies: readonly Either.Either<readonly string[], unknown>[] = [
+      configuredPackagesReply,
+      savedPackagesReply,
+      storedPackagesReply,
+    ];
+    // A source that cannot be read marks Play as failed, so its cached apps are kept, not dropped.
+    const packageSourceFailures = packageSourceReplies
+      .filter(Either.isLeft)
+      .map((failedReply) => failedAccountDiscovery(PLAY_ACCOUNT_LABEL, failedReply.left));
+    const packages = new Set<string>(
+      packageSourceReplies.filter(Either.isRight).flatMap((readReply) => readReply.right),
+    );
+    const playDiscoveries = yield* Effect.forEach([...packages], discoverPlay, { concurrency: 1 });
+    const discoveries: AccountDiscovery[] = [...appleDiscoveries, ...packageSourceFailures];
+    for (const playDiscovery of playDiscoveries)
+      if (playDiscovery !== null) discoveries.push(playDiscovery);
     const warnings: DiscoveryWarning[] = [];
     for (const discovery of discoveries) {
       const hasWarning = discovery.warning !== null;

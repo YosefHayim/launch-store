@@ -1,8 +1,13 @@
 import { Effect, Layer } from 'effect';
+import { NodeContext } from '@effect/platform-node';
+import { makeLaunchPathsTest } from '@core/services/paths.js';
+import { LaunchEnvironmentTest } from '@core/services/environment.js';
+import { makeLaunchSecretStoreTest } from '@core/services/secretStore.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   type AppleCredentialAccountStatus,
   LocalCredentialsStore,
+  LocalCredentialsStoreLive,
   type LocalCredentialsStoreService,
 } from '@core/services/localCredentialsStore.js';
 import type { ResolvedBuildContext } from '@core/types/config.js';
@@ -15,6 +20,9 @@ type LocalCredentialsTestState = {
   appleKeys: Map<string, AscKey>;
   activeAppleKeyId: string | null;
   appleAccountStatuses: readonly AppleCredentialAccountStatus[];
+  androidStatuses: Readonly<
+    Record<string, { keystoreAlias: string | null; hasServiceAccount: boolean }>
+  >;
 };
 
 const KEY_A: AscKey = { keyId: 'AAAA1111', issuerId: 'issuer-a', p8: 'pem-a' };
@@ -24,6 +32,7 @@ let credentialState: LocalCredentialsTestState = {
   appleKeys: new Map(),
   activeAppleKeyId: null,
   appleAccountStatuses: [],
+  androidStatuses: {},
 };
 
 const LocalCredentialsStoreTest = Layer.succeed(LocalCredentialsStore, {
@@ -37,11 +46,20 @@ const LocalCredentialsStoreTest = Layer.succeed(LocalCredentialsStore, {
       return selectedKey;
     }),
   loadAppleSigningAssets: () => Effect.succeed(null),
+  describeMissingPlayServiceAccount: () => Effect.succeed('No Play service account.'),
   loadPlayServiceAccount: () => Effect.succeed(null),
   loadAndroidKeystore: () => Effect.succeed(null),
   listAppleAccountStatuses: () => Effect.succeed(credentialState.appleAccountStatuses),
-  readAndroidCredentialStatus: () =>
-    Effect.succeed({ keystoreAlias: null, hasServiceAccount: false }),
+  readAndroidCredentialStatus: (packageName) => {
+    if (packageName === undefined) {
+      return Effect.succeed({ keystoreAlias: null, hasServiceAccount: false });
+    }
+    const storedStatus = credentialState.androidStatuses[packageName];
+    if (storedStatus === undefined) {
+      return Effect.succeed({ keystoreAlias: null, hasServiceAccount: false });
+    }
+    return Effect.succeed(storedStatus);
+  },
 } satisfies LocalCredentialsStoreService);
 
 const runWithLocalCredentials = <Success, Failure>(
@@ -83,6 +101,7 @@ describe('localCredentialsProvider.resolveBuildCredentials (iOS account selectio
       ]),
       activeAppleKeyId: 'AAAA1111',
       appleAccountStatuses: [],
+      androidStatuses: {},
     };
   });
 
@@ -134,6 +153,7 @@ describe('localCredentialsProvider.status', () => {
         profileCount: 0,
       },
     ];
+    credentialState.androidStatuses = {};
   });
 
   it('lists each account with the active one marked', async () => {
@@ -179,5 +199,55 @@ describe('localCredentialsProvider.status', () => {
     credentialState.appleAccountStatuses = [];
     const status = await runWithLocalCredentials((provider) => provider.status());
     expect(status).toContain('no Apple account imported');
+  });
+
+  it('checks Android credentials against each configured app package', async () => {
+    credentialState.androidStatuses = {
+      'com.x.sampleapp': { keystoreAlias: 'upload-key', hasServiceAccount: true },
+    };
+    const status = await runWithLocalCredentials((provider) =>
+      provider.status(['com.x.sampleapp']),
+    );
+    expect(status).toContain(
+      'com.x.sampleapp: Android: service account present; upload keystore (alias upload-key).',
+    );
+  });
+});
+
+describe('legacy Android build guidance', () => {
+  it('tells a legacy-only user how to adopt for the selected app', async () => {
+    const legacyAccount = Buffer.from(
+      JSON.stringify({ client_email: 'robot@example.invalid', private_key: 'dummy' }),
+    ).toString('base64');
+    const context: ResolvedBuildContext = {
+      ...iosContext(),
+      platform: 'android',
+      app: {
+        name: 'demo',
+        dir: '/tmp/launch-legacy-guidance',
+        configPath: '/tmp/launch-legacy-guidance/app.json',
+        packageName: 'com.example.demo',
+      },
+    };
+    const outcome = await Effect.runPromise(
+      makeLocalCredentialsProvider().pipe(
+        Effect.flatMap((provider) => provider.resolveBuildCredentials(context)),
+        Effect.either,
+        Effect.provide(LocalCredentialsStoreLive),
+        Effect.provide(LaunchEnvironmentTest),
+        Effect.provide(NodeContext.layer),
+        Effect.provide(
+          makeLaunchPathsTest('/tmp/launch-legacy-guidance', '/tmp/launch-legacy-guidance'),
+        ),
+        Effect.provide(
+          makeLaunchSecretStoreTest(new Map([['play-service-account', legacyAccount]])),
+        ),
+      ),
+    );
+    expect(outcome._tag).toBe('Left');
+    if (outcome._tag !== 'Left') throw new Error('Expected missing credentials');
+    expect(JSON.stringify(outcome.left)).toContain(
+      "launch creds adopt --platform android --app 'demo'",
+    );
   });
 });

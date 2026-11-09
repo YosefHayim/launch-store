@@ -1,5 +1,8 @@
 import { Data, Effect, Schema } from 'effect';
-import { loadServiceAccount } from '../credentials/androidKeystore.js';
+import {
+  loadServiceAccount,
+  describeMissingPlayServiceAccount,
+} from '../credentials/androidKeystore.js';
 import { errorMessage } from '../services/errorMessage.js';
 import {
   GoogleReportingClientService,
@@ -125,11 +128,11 @@ export const playReportsCommandProgram = (
       );
     }
     const packageName = selectedApp.packageName;
-    const serviceAccountJson = yield* loadServiceAccount();
+    const serviceAccountJson = yield* loadServiceAccount(packageName);
     if (serviceAccountJson === null) {
       return yield* Effect.fail(
         makePlayReportsCommandFailure({
-          message: 'No Play service account. Run `launch creds set-key --platform android` first.',
+          message: yield* describeMissingPlayServiceAccount(selectedApp.name),
         }),
       );
     }
