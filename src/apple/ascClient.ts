@@ -382,11 +382,17 @@ type ResourceSingle<A> = {
  * One page of a paginated collection: the page's `data` plus Apple's `links.next` - an absolute URL
  * to the following page, present only while more pages remain. Consumed by {@link AppStoreConnectClient.requestAll}.
  */
+/**
+ * One App Store Connect resource. `relationships` holds a linked id only when the request named that
+ * relationship in `fields`; Apple then returns its `data` linkage.
+ */
+type AppleResource<Attributes> = {
+  id: string;
+  attributes: Attributes;
+  relationships?: Record<string, { data?: { id: string } | null }>;
+};
 type PagedList<A> = {
-  data: {
-    id: string;
-    attributes: A;
-  }[];
+  data: AppleResource<A>[];
   links?: {
     next?: string;
   };
@@ -891,16 +897,8 @@ export class AppStoreConnectClient {
    */
   // A is the caller-specified attributes shape of the returned rows; no argument infers it, so the param is required.
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-  private async requestAll<A>(path: string): Promise<
-    {
-      id: string;
-      attributes: A;
-    }[]
-  > {
-    const all: {
-      id: string;
-      attributes: A;
-    }[] = [];
+  private async requestAll<A>(path: string): Promise<AppleResource<A>[]> {
+    const all: AppleResource<A>[] = [];
     let next: string | undefined = path;
     while (next) {
       // biome-ignore lint/performance/noAwaitInLoops: cursor pagination - each page’s `next` link comes from the prior response, so the reads are inherently sequential
@@ -4043,7 +4041,7 @@ export class AppStoreConnectClient {
       appStoreState?: string;
       releaseType?: string;
     }>(
-      `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=200&fields[appStoreVersions]=versionString,appStoreState,releaseType`,
+      `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=200&fields[appStoreVersions]=versionString,appStoreState,releaseType,build`,
     );
     return appleResources.map((entry) => toVersionResource(entry));
   }
@@ -4974,14 +4972,11 @@ const toBuildResources = ({ data: builds, included = [] }: BuildPage): BuildReso
   builds.map((entry) => toBuildResource(entry, included));
 /** Map a raw version row onto an {@link AppStoreVersionResource}, keeping a known versionString fallback. */
 const toVersionResource = (
-  entry: {
-    id: string;
-    attributes: {
-      versionString?: string;
-      appStoreState?: string;
-      releaseType?: string;
-    };
-  },
+  entry: AppleResource<{
+    versionString?: string;
+    appStoreState?: string;
+    releaseType?: string;
+  }>,
   fallbackVersion = '',
 ): AppStoreVersionResource => {
   let versionString = entry.attributes.versionString;
@@ -4995,6 +4990,9 @@ const toVersionResource = (
   };
   if (entry.attributes.releaseType !== undefined)
     Object.assign(version, { releaseType: entry.attributes.releaseType });
+  const attachedBuildId = entry.relationships?.build?.data?.id;
+  const isBuildAttached = attachedBuildId !== undefined;
+  if (isBuildAttached) Object.assign(version, { attachedBuildId });
   return version;
 };
 /** Map a raw phased-release row onto a {@link PhasedReleaseResource}. */

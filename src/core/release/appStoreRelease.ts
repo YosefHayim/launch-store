@@ -242,6 +242,8 @@ export type ReleaseInput = {
   whatsNew: Record<string, string>;
   build: BuildResource | null;
   dryRun: boolean;
+  /** Attach the build to the editable version and stop before review submission. */
+  attachOnly: boolean;
 };
 
 /** Where one release step ended: planned (dry-run), or applied / skipped / failed after a real run. */
@@ -261,6 +263,7 @@ export type ReleaseReport = {
   versionId: string;
   versionString: string;
   appStoreState: string;
+  /** False for attach-only runs, which stop before review, and for dry runs. */
   submitted: boolean;
   alreadyInReview: boolean;
   actions: ReleaseAction[];
@@ -279,6 +282,8 @@ type ReleaseContext = {
 type SelectedReleaseVersion = Readonly<{
   versionId: string;
   versionString: string;
+  appStoreState: string;
+  attachedBuildId?: string;
   appReleasedBefore: boolean;
   idempotentState?: string;
 }>;
@@ -375,7 +380,8 @@ const checkBuildCanJoinVersion = (
 /**
  * Drive one App Store version to "submitted for review", idempotently. Reuses, retargets, or creates
  * the editable version; attaches build; declares export compliance; writes notes; sets release type /
- * phased rollout; submits via Apple's review-submission model. With `releaseInput.dryRun` records
+ * phased rollout; submits via Apple's review-submission model. With `releaseInput.attachOnly` it stops
+ * before that submit, leaving the version editable. With `releaseInput.dryRun` records
  * planned steps and performs no writes. Fails only on preconditions the user must fix (no app record,
  * build not VALID/expired, build's marketing version already live, version already live); every other
  * step is captured per-action so one failure never aborts the rest.
@@ -405,6 +411,7 @@ export const releaseApp = (
     const storeBuild = releaseInput.build;
 
     const hasStoreBuild = storeBuild != null;
+    const isAttachOnly = releaseInput.attachOnly;
     if (hasStoreBuild) {
       yield* requireValidStoreBuild(storeBuild);
     }
@@ -447,6 +454,25 @@ export const releaseApp = (
         actions: releaseContext.actions,
       };
     }
+
+    const isBuildAlreadyAttached =
+      hasStoreBuild && selectedVersion.attachedBuildId === storeBuild.id;
+    const isAttachNoOp = isAttachOnly && isBuildAlreadyAttached;
+    if (isAttachNoOp) {
+      releaseContext.actions.push({
+        description: `build already attached to version ${selectedVersion.versionString} - nothing to change`,
+        status: 'skipped',
+      });
+      return {
+        bundleId: releaseInput.bundleId,
+        versionId,
+        versionString: selectedVersion.versionString,
+        appStoreState: selectedVersion.appStoreState,
+        submitted: false,
+        alreadyInReview: false,
+        actions: releaseContext.actions,
+      };
+    }
     if (hasStoreBuild) {
       yield* performReleaseAction(releaseContext, `attach build ${storeBuild.version}`, () =>
         appleReleaseApi.selectBuildForVersion(versionId, storeBuild.id),
@@ -480,13 +506,18 @@ export const releaseApp = (
       appleReleaseApi.updateAppStoreVersion(versionId, versionUpdate),
     );
     yield* applyPhasedRelease(releaseContext, versionId, releaseInput.phasedRelease);
-    yield* submitForReview(releaseContext, appId, versionId, releaseInput.platform);
+
+    const isSubmitting = !isAttachOnly;
+    if (isSubmitting) {
+      yield* submitForReview(releaseContext, appId, versionId, releaseInput.platform);
+    }
+
     return {
       bundleId: releaseInput.bundleId,
       versionId,
       versionString: selectedVersion.versionString,
-      appStoreState: 'WAITING_FOR_REVIEW',
-      submitted: !releaseInput.dryRun,
+      appStoreState: isAttachOnly ? selectedVersion.appStoreState : 'WAITING_FOR_REVIEW',
+      submitted: !isAttachOnly && !releaseInput.dryRun,
       alreadyInReview: false,
       actions: releaseContext.actions,
     };
@@ -601,6 +632,8 @@ const selectReleaseVersion = (
         return {
           versionId: matchingVersion.id,
           versionString: matchingVersion.versionString,
+          appStoreState: matchingVersion.appStoreState,
+          attachedBuildId: matchingVersion.attachedBuildId,
           appReleasedBefore,
           idempotentState: matchingVersion.appStoreState,
         };
@@ -608,6 +641,8 @@ const selectReleaseVersion = (
       return {
         versionId: matchingVersion.id,
         versionString: matchingVersion.versionString,
+        appStoreState: matchingVersion.appStoreState,
+        attachedBuildId: matchingVersion.attachedBuildId,
         appReleasedBefore,
       };
     }
@@ -626,6 +661,8 @@ const selectReleaseVersion = (
       return {
         versionId: editableVersion.id,
         versionString: releaseInput.versionString,
+        appStoreState: editableVersion.appStoreState,
+        attachedBuildId: editableVersion.attachedBuildId,
         appReleasedBefore,
       };
     }
@@ -652,6 +689,7 @@ const selectReleaseVersion = (
     return {
       versionId,
       versionString: releaseInput.versionString,
+      appStoreState: 'PREPARE_FOR_SUBMISSION',
       appReleasedBefore,
     };
   });

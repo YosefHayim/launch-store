@@ -5,11 +5,13 @@ import type { BuildResource } from '../types/appleCatalog.js';
 import type { ReleaseAction, ReleaseReport } from './appStoreRelease.js';
 import {
   countFailedReleaseActions,
+  describePromotionQuestion,
   formatReleaseActionLine,
   isVerifiedStoreBuild,
   makeReleaseCommandFailure,
   newestValidBuild,
   parseAppStoreBuildSelector,
+  pickReceiptTitle,
   androidReleasePlanLines,
   resolveAndroidRollout,
   resolveVersionString,
@@ -186,5 +188,55 @@ describe('makeReleaseCommandFailure', () => {
     expect(failure._tag).toBe('ReleaseCommandFailure');
     expect(failure.operation).toBe('upload App Store build');
     expect(failure.message).toBe('network down');
+  });
+});
+
+describe('pickReceiptTitle', () => {
+  const attachedReport: ReleaseReport = {
+    bundleId: 'com.acme.app',
+    versionId: 'v-edit',
+    versionString: '1.2.0',
+    appStoreState: 'PREPARE_FOR_SUBMISSION',
+    submitted: false,
+    alreadyInReview: false,
+    actions: [],
+  };
+  const submittedReport: ReleaseReport = { ...attachedReport, submitted: true };
+
+  it('titles an attach-only receipt as attached, not submitted for review', () => {
+    expect(pickReceiptTitle(attachedReport, '42', 0)).toBe(
+      'Build 42 attached - not submitted for review',
+    );
+  });
+
+  it('keeps the submitted title for a normal release', () => {
+    expect(pickReceiptTitle(submittedReport, '42', 0)).toBe('Submitted for App Store review');
+  });
+
+  it('counts failed steps in an attach-only receipt title', () => {
+    expect(pickReceiptTitle(attachedReport, '42', 2)).toBe(
+      'Attached with 2 failed step(s) - see below',
+    );
+  });
+});
+
+describe('describePromotionQuestion', () => {
+  const promotion = {
+    appName: 'Oly',
+    versionString: '6.11.78',
+    buildLabel: '42',
+    attachOnly: false,
+  };
+
+  it('asks to submit the build for App Store review by default', () => {
+    expect(describePromotionQuestion(promotion)).toBe(
+      'Submit Oly 6.11.78 (build 42) for App Store review?',
+    );
+  });
+
+  it('says the build is only attached when attach-only is set', () => {
+    expect(describePromotionQuestion({ ...promotion, attachOnly: true })).toBe(
+      'Attach build 42 to Oly 6.11.78 without submitting for review?',
+    );
   });
 });

@@ -80,6 +80,7 @@ const releaseInput = (overrides: Partial<ReleaseInput> = {}): ReleaseInput => ({
   whatsNew: { 'en-US': 'Bug fixes.' },
   build: VALID_BUILD,
   dryRun: false,
+  attachOnly: false,
   ...overrides,
 });
 describe('nextReleaseAction - the appStoreState transition table', () => {
@@ -470,6 +471,56 @@ describe('releaseApp - submit an update over the API', () => {
     expect(api.createReviewSubmission).not.toHaveBeenCalled();
     expect(api.addReviewSubmissionItem).toHaveBeenCalledWith('rs-open', 'v-new');
     expect(api.submitReviewSubmission).toHaveBeenCalledWith('rs-open');
+  });
+});
+
+describe('releaseApp - attach only (no review submission)', () => {
+  const EDITABLE_VERSION = {
+    id: 'v-edit',
+    versionString: '1.2.0',
+    appStoreState: 'PREPARE_FOR_SUBMISSION',
+  };
+
+  it('attaches the build to the editable version and never submits it', async () => {
+    const api = makeApi({
+      listAppStoreVersions: vi.fn(() => Effect.succeed([LIVE_VERSION, EDITABLE_VERSION])),
+    });
+    const report = await runRelease(api, releaseInput({ attachOnly: true }));
+    expect(api.selectBuildForVersion).toHaveBeenCalledWith('v-edit', 'b-1');
+    expect(api.createReviewSubmission).not.toHaveBeenCalled();
+    expect(api.addReviewSubmissionItem).not.toHaveBeenCalled();
+    expect(api.submitReviewSubmission).not.toHaveBeenCalled();
+    expect(report).toMatchObject({
+      versionId: 'v-edit',
+      appStoreState: 'PREPARE_FOR_SUBMISSION',
+      submitted: false,
+      alreadyInReview: false,
+    });
+  });
+
+  it('sends no write when the same build is already attached', async () => {
+    const api = makeApi({
+      listAppStoreVersions: vi.fn(() =>
+        Effect.succeed([{ ...EDITABLE_VERSION, attachedBuildId: 'b-1' }]),
+      ),
+    });
+    const report = await runRelease(api, releaseInput({ attachOnly: true }));
+    expect(api.selectBuildForVersion).not.toHaveBeenCalled();
+    expect(api.updateAppStoreVersion).not.toHaveBeenCalled();
+    expect(api.updateAppStoreVersionLocalization).not.toHaveBeenCalled();
+    expect(report).toMatchObject({ submitted: false, alreadyInReview: false });
+    expect(report.actions).toEqual([expect.objectContaining({ status: 'skipped' })]);
+  });
+
+  it('swaps an attached build for the new one while the version is editable', async () => {
+    const api = makeApi({
+      listAppStoreVersions: vi.fn(() =>
+        Effect.succeed([{ ...EDITABLE_VERSION, attachedBuildId: 'b-old' }]),
+      ),
+    });
+    await runRelease(api, releaseInput({ attachOnly: true }));
+    expect(api.selectBuildForVersion).toHaveBeenCalledWith('v-edit', 'b-1');
+    expect(api.submitReviewSubmission).not.toHaveBeenCalled();
   });
 });
 

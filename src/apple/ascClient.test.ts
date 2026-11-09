@@ -3362,3 +3362,34 @@ describe('findBundleId - exact identifier, not substring (#291)', () => {
     expect(await client.findBundleId('com.example.sampleapp')).toBeNull();
   });
 });
+
+describe('AppStoreConnectClient - app store versions', () => {
+  it('reads the attached build id from the build relationship, and asks Apple for it', async () => {
+    fetchMock.mockResolvedValueOnce(
+      fakeResponse(
+        200,
+        JSON.stringify({
+          data: [
+            {
+              id: 'v-edit',
+              attributes: { versionString: '1.2.0', appStoreState: 'PREPARE_FOR_SUBMISSION' },
+              relationships: { build: { data: { type: 'builds', id: 'b-42' } } },
+            },
+            {
+              id: 'v-empty',
+              attributes: { versionString: '1.1.0', appStoreState: 'READY_FOR_SALE' },
+              relationships: { build: { data: null } },
+            },
+          ],
+        }),
+      ),
+    );
+    const versions = await client.listAppStoreVersions('app1', 'IOS');
+    const [requestUrl] = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
+    expect(String(requestUrl)).toContain(
+      'fields[appStoreVersions]=versionString,appStoreState,releaseType,build',
+    );
+    expect(expectArrayElement(versions, 0, 'version').attachedBuildId).toBe('b-42');
+    expect(expectArrayElement(versions, 1, 'version').attachedBuildId).toBeUndefined();
+  });
+});
