@@ -93,7 +93,7 @@ describe('redaction before log persistence', () => {
       const endFence = ['-----', 'END', ' PRIVATE KEY-----'].join('');
       const secretOutput = [
         beginFence,
-        'dummy-private-key-body',
+        'ZHVtbXktcHJpdmF0ZS1rZXktYm9keQ==',
         endFence,
         '{"password":"dummy-json-password"}',
       ].join('\n');
@@ -105,7 +105,7 @@ describe('redaction before log persistence', () => {
         ),
       );
       const persistedLog = readFileSync(logFilePath, 'utf8');
-      expect(persistedLog).not.toContain('dummy-private-key-body');
+      expect(persistedLog).not.toContain('ZHVtbXktcHJpdmF0ZS1rZXktYm9keQ==');
       expect(persistedLog).not.toContain('dummy-json-password');
       expect(persistedLog).toContain('[redacted-key-material]');
     } finally {
