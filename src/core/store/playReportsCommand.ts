@@ -132,7 +132,7 @@ export const playReportsCommandProgram = (
     if (serviceAccountJson === null) {
       return yield* Effect.fail(
         makePlayReportsCommandFailure({
-          message: yield* missingPlayServiceAccountMessage(),
+          message: yield* missingPlayServiceAccountMessage(selectedApp.name),
         }),
       );
     }

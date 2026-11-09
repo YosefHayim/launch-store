@@ -61,7 +61,7 @@ const subscriptionsFailure = (
 const resolveSubscriptionsTarget = (
   appSelector: string | undefined,
 ): Effect.Effect<
-  Readonly<{ packageName: string; subscriptions: SubscriptionConfig[] }>,
+  Readonly<{ appName: string; packageName: string; subscriptions: SubscriptionConfig[] }>,
   PlaySubscriptionsCommandFailure,
   StoreAppSelectionRequirements
 > =>
@@ -99,6 +99,7 @@ const resolveSubscriptionsTarget = (
       }
     }
     return {
+      appName: selectedApp.name,
       packageName: selectedApp.packageName,
       subscriptions: declaredSubscriptions,
     };
@@ -121,7 +122,10 @@ const executePlaySubscriptions = (
       );
       return 0;
     }
-    const googleStore = yield* loadActiveGoogleStore(subscriptionsTarget.packageName);
+    const googleStore = yield* loadActiveGoogleStore(
+      subscriptionsTarget.packageName,
+      subscriptionsTarget.appName,
+    );
     const subscriptionsPlan = yield* reconcilePlaySubscriptions(googleStore, {
       packageName: subscriptionsTarget.packageName,
       serviceAccountEmail: googleStore.serviceAccountEmail,

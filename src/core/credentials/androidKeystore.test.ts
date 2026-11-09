@@ -31,6 +31,7 @@ vi.mock('./keychain.js', () => ({
 import {
   describeStoredAndroidCredentials,
   loadServiceAccount,
+  missingPlayServiceAccountMessage,
   storeServiceAccount,
 } from './androidKeystore.js';
 import { makeLaunchPathsTest, type LaunchPathsService } from '../services/paths.js';
@@ -110,5 +111,22 @@ describe('describeStoredAndroidCredentials', () => {
     );
     expect(hasServiceAccount).toBe(true);
     expect(keystoreAlias).toBeNull();
+  });
+});
+
+describe('legacy Android recovery guidance', () => {
+  it('names the selected app and distinguishes an upload keystore from a Play key', async () => {
+    store.set('android-keystore-store-password', 'fixture');
+    const message = await runAndroidCredentialEffect(missingPlayServiceAccountMessage('demo'));
+    expect(message).toContain('Legacy upload keystore passwords');
+    expect(message).toContain("launch creds adopt --platform android --app 'demo'");
+    expect(message).not.toContain('legacy Play service account');
+  });
+  it('quotes app handles safely in the adoption command', async () => {
+    store.set('play-service-account', 'fixture');
+    const message = await runAndroidCredentialEffect(
+      missingPlayServiceAccountMessage("Dylan's App"),
+    );
+    expect(message).toContain("--app 'Dylan'\\''s App'");
   });
 });

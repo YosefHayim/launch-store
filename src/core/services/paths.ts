@@ -81,22 +81,32 @@ export const resolveCredentialsDirectory = (): Effect.Effect<
     return pathService.join(yield* resolveLaunchHomeDirectory(), 'credentials');
   });
 export const resolveAndroidCredentialsDirectory = (
-  packageName?: string,
+  packageName: string,
 ): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
   Effect.gen(function* () {
     const pathService = yield* Path.Path;
     const credentialsDirectory = yield* resolveCredentialsDirectory();
-    if (packageName === undefined) return credentialsDirectory;
     const packageDigest = createHash('sha256').update(packageName).digest('hex');
     return pathService.join(credentialsDirectory, 'android', packageDigest);
   });
 export const resolveAndroidCredentialsIndexPath = (
-  packageName?: string,
+  packageName: string,
 ): Effect.Effect<string, never, LaunchPathsService | Path.Path> =>
   Effect.gen(function* () {
     const pathService = yield* Path.Path;
     return pathService.join(yield* resolveAndroidCredentialsDirectory(packageName), 'android.json');
   });
+/** Legacy, unscoped Android index used only by explicit adoption. */
+export const resolveLegacyAndroidCredentialsIndexPath = (): Effect.Effect<
+  string,
+  never,
+  LaunchPathsService | Path.Path
+> =>
+  Effect.gen(function* () {
+    const pathService = yield* Path.Path;
+    return pathService.join(yield* resolveCredentialsDirectory(), 'android.json');
+  });
+
 export const resolveProvisioningProfilesDirectory = (): Effect.Effect<
   string,
   never,

@@ -4,7 +4,7 @@ import type { ConvertedPrices, PlayMoneyUnits } from '../types/playPricing.js';
 import {
   loadActiveGoogleStore,
   type ActiveGoogleStoreRequirements,
-  resolveGoogleStorePackageName,
+  resolveGoogleStoreApp,
 } from './googleStoreCommand.js';
 import type { StoreAppSelectionRequirements } from './selectStoreApp.js';
 
@@ -170,13 +170,11 @@ export const playPricingCommandProgram = (
       ),
     );
     const basePrice = yield* parsePlayPrice(commandInput.amount, commandInput.currency);
-    const packageName = yield* resolveGoogleStorePackageName(commandInput.app).pipe(
+    const { packageName, appName } = yield* resolveGoogleStoreApp(commandInput.app).pipe(
       Effect.mapError((cause) => pricingFailure('app', 'Could not select an app.', cause)),
     );
-    const googleStore = yield* loadActiveGoogleStore(packageName).pipe(
-      Effect.mapError((cause) =>
-        pricingFailure('credentials', 'Could not load the Play service account.', cause),
-      ),
+    const googleStore = yield* loadActiveGoogleStore(packageName, appName).pipe(
+      Effect.mapError((cause) => pricingFailure('credentials', cause.message, cause)),
     );
     const convertedPrices = yield* googleStore
       .convertRegionPrices(packageName, basePrice)

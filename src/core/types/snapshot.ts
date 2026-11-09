@@ -60,6 +60,7 @@ export type SourceCapture =
   | Readonly<{
       state: 'captured';
       apps: readonly AppEntities[];
+      skippedApps?: readonly Readonly<{ app: string; identifier: string; reason: string }>[];
     }>;
 /**
  * A {@link SourceCapture} plus the `errored` state the orchestrator synthesizes when a source throws

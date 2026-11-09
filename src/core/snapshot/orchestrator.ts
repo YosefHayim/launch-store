@@ -57,6 +57,7 @@ export const captureSnapshot = (
       else if (outcome.state === 'errored') errorCount++;
       else if (outcome.state === 'captured') {
         for (const app of outcome.apps) entityCount += app.entities.length;
+        if (outcome.skippedApps !== undefined) skippedCount += outcome.skippedApps.length;
       }
     }
     let exitCode: number = SNAPSHOT_EXIT.ok;

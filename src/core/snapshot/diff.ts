@@ -69,6 +69,22 @@ export const stableStringify = (jsonNode: JsonValue): string => {
     .join(',');
   return `{${serializedFields}}`;
 };
+/** An unavailable app or source must not be interpreted as deleted data. */
+const unavailableScopes = (snapshot: Snapshot) => {
+  const sources = new Set<string>();
+  const apps = new Set<string>();
+  for (const report of snapshot.reports) {
+    if (report.outcome.state === 'skipped' || report.outcome.state === 'errored') {
+      sources.add(JSON.stringify([report.store, report.id]));
+    }
+    if (report.outcome.state === 'captured' && report.outcome.skippedApps !== undefined) {
+      for (const app of report.outcome.skippedApps)
+        apps.add(JSON.stringify([report.store, report.id, app.app]));
+    }
+  }
+  return { sources, apps };
+};
+
 /**
  * Compare snapshot `a` (the baseline) against `b` (the newer / `live`). Entries are emitted in the
  * deterministic order the combined key space sorts to, so the rendered diff is stable run to run.
@@ -76,10 +92,25 @@ export const stableStringify = (jsonNode: JsonValue): string => {
 export const diffSnapshots = (a: Snapshot, b: Snapshot): SnapshotDiff => {
   const before = flatten(a);
   const after = flatten(b);
+  const unavailableBefore = unavailableScopes(a);
+  const unavailableAfter = unavailableScopes(b);
   const entries: EntityDiff[] = [];
   for (const key of [...new Set([...before.keys(), ...after.keys()])].sort()) {
     const prev = before.get(key);
     const next = after.get(key);
+    let entry = prev;
+    if (entry === undefined) entry = next;
+    if (entry !== undefined) {
+      const sourceKey = JSON.stringify([entry.store, entry.sourceId]);
+      const appKey = JSON.stringify([entry.store, entry.sourceId, entry.app]);
+      if (
+        unavailableBefore.sources.has(sourceKey) ||
+        unavailableAfter.sources.has(sourceKey) ||
+        unavailableBefore.apps.has(appKey) ||
+        unavailableAfter.apps.has(appKey)
+      )
+        continue;
+    }
     if (prev && !next) {
       entries.push(toEntry(prev, 'removed'));
     } else if (!prev && next) {

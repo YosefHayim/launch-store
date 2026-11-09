@@ -665,3 +665,27 @@ describe('playSubscriptionsSource.restore', () => {
     expect(api.createSubscription).toHaveBeenCalledTimes(0);
   });
 });
+
+describe('mixed Android snapshot capture', () => {
+  for (const source of [playProductsSource, playSubscriptionsSource]) {
+    it(`${source.id} retains the reachable app and records the missing one`, async () => {
+      const capture = await captureSource(
+        source,
+        snapshotContext({
+          apps: [
+            app({ name: 'alpha', packageName: 'com.acme.alpha' }),
+            app({ name: 'beta', packageName: 'com.acme.beta' }),
+          ],
+          resolvePlayApi: (packageName) =>
+            Effect.succeed(packageName === 'com.acme.alpha' ? playApi : null),
+        }),
+      );
+      if (capture.state !== 'captured')
+        throw new Error(`Expected partial capture: ${capture.state}`);
+      expect(capture.apps.map((item) => item.app)).toEqual(['alpha']);
+      expect(capture.skippedApps).toEqual([
+        { app: 'beta', identifier: 'com.acme.beta', reason: 'no Play service account' },
+      ]);
+    });
+  }
+});

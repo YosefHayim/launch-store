@@ -666,6 +666,15 @@ const selectKeystoreImport = (
     return { path: importedPath, alias, storePassword, keyPassword };
   });
 
+const provisionAndroidKeystore = (
+  options: Parameters<typeof ensureUploadKeystore>[0],
+  keystoreImport: KeystoreImport | undefined,
+) => {
+  if (keystoreImport !== undefined)
+    return ensureUploadKeystore({ ...options, import: keystoreImport });
+  return ensureUploadKeystore(options);
+};
+
 /** Provision or import the upload keystore for one Android application. */
 const setupAndroid = (
   commandOptions: CredentialsCommandOptions,
@@ -695,11 +704,7 @@ const setupAndroid = (
         return prompt.confirm(message);
       },
     };
-    let keystoreEffect = ensureUploadKeystore(keystoreRequest);
-    if (keystoreImport !== undefined) {
-      keystoreEffect = ensureUploadKeystore({ ...keystoreRequest, import: keystoreImport });
-    }
-    const keystore = yield* keystoreEffect;
+    const keystore = yield* provisionAndroidKeystore(keystoreRequest, keystoreImport);
     yield* logger.ok(
       `Ready: upload keystore at ${yield* displayPath(keystore.path)} (alias ${keystore.alias}).`,
     );
@@ -756,16 +761,14 @@ const showCredentialStatus = (
       }
     }
     const launchPaths = yield* LaunchPaths;
-    const configuredApps = yield* loadConfig(launchPaths.workingDirectory).pipe(
-      Effect.map((configuration) => configuration.apps),
-      Effect.orElseSucceed(() => []),
-    );
-    let androidApps = configuredApps.filter((app) => app.packageName !== undefined);
-    if (commandOptions.app !== undefined) {
+    const configuredApps = (yield* loadConfig(launchPaths.workingDirectory)).apps;
+    const androidApps = yield* Effect.gen(function* () {
+      if (commandOptions.app === undefined)
+        return configuredApps.filter((app) => app.packageName !== undefined);
       const selected = yield* selectConfiguredApp(configuredApps, commandOptions.app, false);
-      androidApps = [];
-      if (selected.packageName !== undefined) androidApps = [selected];
-    }
+      if (selected.packageName === undefined) return [];
+      return [selected];
+    });
     for (const app of androidApps) {
       if (app.packageName === undefined) continue;
       const androidCredentials = yield* describeStoredAndroidCredentials(app.packageName);
