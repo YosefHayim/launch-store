@@ -6,19 +6,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ArtifactRetention } from '@core/services/artifactRetention.js';
-import { makeLocalStorageProvider } from './local.js';
+import type { StorageProvider } from '@core/types/providers.js';
+import { makeLocalStorageProviderResolver } from './local.js';
 
 const temporaryRoots: string[] = [];
 const withStorage = async (
-  check: (
-    storage: Effect.Effect.Success<ReturnType<typeof makeLocalStorageProvider>>,
-    directory: string,
-  ) => Promise<void>,
+  check: (storage: StorageProvider, directory: string) => Promise<void>,
 ) => {
   const directory = mkdtempSync(join(tmpdir(), 'launch-storage-security-'));
   temporaryRoots.push(directory);
-  const storage = await Effect.runPromise(
-    makeLocalStorageProvider(join(directory, 'storage')).pipe(
+  const storageResolver = await Effect.runPromise(
+    makeLocalStorageProviderResolver().pipe(
       Effect.provideService(ArtifactRetention, {
         readIndex: () => Effect.succeed([]),
         writeIndex: () => Effect.void,
@@ -27,6 +25,9 @@ const withStorage = async (
       Effect.provide(NodeContext.layer),
       Effect.provide(makeLaunchPathsTest(directory, directory)),
     ),
+  );
+  const storage = await Effect.runPromise(
+    storageResolver.resolveStorageProvider({ artifactDirectory: join(directory, 'storage') }),
   );
   await check(storage, directory);
 };
