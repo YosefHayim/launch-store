@@ -195,6 +195,37 @@ type AscError = {
     associatedErrors?: Record<string, readonly AscError[]>;
   };
 };
+/** Apple's resource names for one product kind's localizations, which live on a version (spec 4.5.1). */
+type VersionedLocalizationResources = {
+  /** Absolute URL of the parent's versions collection, given the parent id. */
+  versionsUrl: (parentId: string) => string;
+  versionType: string;
+  parentRelationship: string;
+  parentType: string;
+  localizationType: string;
+};
+const IN_APP_PURCHASE_VERSION_RESOURCES: VersionedLocalizationResources = {
+  versionsUrl: (parentId) => `${API_ORIGIN}/v2/inAppPurchases/${parentId}/versions`,
+  versionType: 'inAppPurchaseVersions',
+  parentRelationship: 'inAppPurchase',
+  parentType: 'inAppPurchases',
+  localizationType: 'inAppPurchaseLocalizations',
+};
+const SUBSCRIPTION_VERSION_RESOURCES: VersionedLocalizationResources = {
+  versionsUrl: (parentId) => `${BASE_URL}/subscriptions/${parentId}/versions`,
+  versionType: 'subscriptionVersions',
+  parentRelationship: 'subscription',
+  parentType: 'subscriptions',
+  localizationType: 'subscriptionLocalizations',
+};
+const SUBSCRIPTION_GROUP_VERSION_RESOURCES: VersionedLocalizationResources = {
+  versionsUrl: (parentId) => `${BASE_URL}/subscriptionGroups/${parentId}/versions`,
+  versionType: 'subscriptionGroupVersions',
+  parentRelationship: 'subscriptionGroup',
+  parentType: 'subscriptionGroups',
+  localizationType: 'subscriptionGroupLocalizations',
+};
+
 const AscErrorSchema: Schema.Schema<AscError> = Schema.suspend(() =>
   Schema.Struct({
     status: Schema.optionalWith(Schema.String, { exact: true }),
@@ -1876,15 +1907,11 @@ export class AppStoreConnectClient {
       inAppPurchaseType: purchaseType,
     };
   }
-  /** List the localizations already attached to an in-app purchase. */
+  /** List the localizations on an in-app purchase's draft version (none until one exists). */
   async listInAppPurchaseLocalizations(iapId: string): Promise<LocalizationResource[]> {
-    // The relationship read lives under /v2/inAppPurchases/{id}/... - the bare /v1 inAppPurchasesV2/{id}
-    // resource path 404s ("does not match a defined resource type"); only the collection is v1.
-    return this.localizationsFrom(
-      this.v2(`/inAppPurchases/${iapId}/inAppPurchaseLocalizations?limit=200`),
-    );
+    return this.listDraftLocalizations(IN_APP_PURCHASE_VERSION_RESOURCES, iapId);
   }
-  /** Create one locale's display copy for an in-app purchase. */
+  /** Create one locale's display copy for an in-app purchase on its draft version. */
   async createInAppPurchaseLocalization(
     iapId: string,
     input: {
@@ -1893,13 +1920,7 @@ export class AppStoreConnectClient {
       description?: string | undefined;
     },
   ): Promise<LocalizationResource> {
-    return this.createLocalization(
-      'inAppPurchaseLocalizations',
-      'inAppPurchaseV2',
-      'inAppPurchases',
-      iapId,
-      input,
-    );
+    return this.createLocalization(IN_APP_PURCHASE_VERSION_RESOURCES, iapId, input);
   }
   /** List an app's subscription groups. */
   async listSubscriptionGroups(appId: string): Promise<SubscriptionGroupResource[]> {
@@ -1928,11 +1949,9 @@ export class AppStoreConnectClient {
     if (createdReferenceName === undefined) createdReferenceName = referenceName;
     return { id: appleResources.id, referenceName: createdReferenceName };
   }
-  /** List a subscription group's display-name localizations. */
+  /** List a subscription group's display-name localizations on its draft version. */
   async listSubscriptionGroupLocalizations(groupId: string): Promise<LocalizationResource[]> {
-    return this.localizationsFrom(
-      `/subscriptionGroups/${groupId}/subscriptionGroupLocalizations?limit=200`,
-    );
+    return this.listDraftLocalizations(SUBSCRIPTION_GROUP_VERSION_RESOURCES, groupId);
   }
   /** Create one locale's display name for a subscription group (groups carry a name only, no description). */
   async createSubscriptionGroupLocalization(
@@ -1942,13 +1961,7 @@ export class AppStoreConnectClient {
       name: string;
     },
   ): Promise<LocalizationResource> {
-    return this.createLocalization(
-      'subscriptionGroupLocalizations',
-      'subscriptionGroup',
-      'subscriptionGroups',
-      groupId,
-      input,
-    );
+    return this.createLocalization(SUBSCRIPTION_GROUP_VERSION_RESOURCES, groupId, input);
   }
   /** List the subscriptions in a group. */
   async listSubscriptions(groupId: string): Promise<SubscriptionResource[]> {
@@ -2008,13 +2021,11 @@ export class AppStoreConnectClient {
     if (subscriptionName === undefined) subscriptionName = input.name;
     return { id: appleResources.id, productId, name: subscriptionName };
   }
-  /** List a subscription's display-copy localizations. */
+  /** List a subscription's display-copy localizations on its draft version. */
   async listSubscriptionLocalizations(subscriptionId: string): Promise<LocalizationResource[]> {
-    return this.localizationsFrom(
-      `/subscriptions/${subscriptionId}/subscriptionLocalizations?limit=200`,
-    );
+    return this.listDraftLocalizations(SUBSCRIPTION_VERSION_RESOURCES, subscriptionId);
   }
-  /** Create one locale's display copy for a subscription. */
+  /** Create one locale's display copy for a subscription on its draft version. */
   async createSubscriptionLocalization(
     subscriptionId: string,
     input: {
@@ -2023,13 +2034,7 @@ export class AppStoreConnectClient {
       description?: string | undefined;
     },
   ): Promise<LocalizationResource> {
-    return this.createLocalization(
-      'subscriptionLocalizations',
-      'subscription',
-      'subscriptions',
-      subscriptionId,
-      input,
-    );
+    return this.createLocalization(SUBSCRIPTION_VERSION_RESOURCES, subscriptionId, input);
   }
   /** Whether a subscription already has at least one price set (so the reconciler skips re-pricing it). */
   async subscriptionHasPrice(subscriptionId: string): Promise<boolean> {
@@ -3391,11 +3396,50 @@ export class AppStoreConnectClient {
       return [localizedProduct];
     });
   }
-  /** Shared POST for any localization resource, parameterized by its type and parent relationship. */
+  /** GET the id of a product's draft (PREPARE_FOR_SUBMISSION) version, or null when it has none. */
+  private async findDraftVersionId(
+    resources: VersionedLocalizationResources,
+    parentId: string,
+  ): Promise<string | null> {
+    const draftVersions = await this.requestAll<Record<string, unknown>>(
+      `${resources.versionsUrl(parentId)}?filter[state]=PREPARE_FOR_SUBMISSION&limit=200`,
+    );
+    const [firstDraftVersion] = draftVersions;
+    const hasNoDraftVersion = firstDraftVersion === undefined;
+    if (hasNoDraftVersion) return null;
+    return firstDraftVersion.id;
+  }
+  /** The product's draft version id, creating a draft version first when the product has none. */
+  private async findOrCreateDraftVersionId(
+    resources: VersionedLocalizationResources,
+    parentId: string,
+  ): Promise<string> {
+    const draftVersionId = await this.findDraftVersionId(resources, parentId);
+    const hasDraftVersion = draftVersionId !== null;
+    if (hasDraftVersion) return draftVersionId;
+    const createdVersion = await this.createResource(`/${resources.versionType}`, {
+      type: resources.versionType,
+      relationships: {
+        [resources.parentRelationship]: { data: { type: resources.parentType, id: parentId } },
+      },
+    });
+    return createdVersion.id;
+  }
+  /** List the localizations on a product's draft version; a product with no draft has none yet. */
+  private async listDraftLocalizations(
+    resources: VersionedLocalizationResources,
+    parentId: string,
+  ): Promise<LocalizationResource[]> {
+    const draftVersionId = await this.findDraftVersionId(resources, parentId);
+    const hasNoDraftVersion = draftVersionId === null;
+    if (hasNoDraftVersion) return [];
+    return this.localizationsFrom(
+      `/${resources.versionType}/${draftVersionId}/localizations?limit=200`,
+    );
+  }
+  /** Shared POST of one locale onto a product's draft version, parameterized by the product kind. */
   private async createLocalization(
-    resourceType: string,
-    relationshipName: string,
-    parentType: string,
+    resources: VersionedLocalizationResources,
     parentId: string,
     input: {
       locale: string;
@@ -3403,6 +3447,7 @@ export class AppStoreConnectClient {
       description?: string | undefined;
     },
   ): Promise<LocalizationResource> {
+    const draftVersionId = await this.findOrCreateDraftVersionId(resources, parentId);
     const localizationAttributes = { locale: input.locale, name: input.name };
     if (input.description !== undefined)
       Object.assign(localizationAttributes, { description: input.description });
@@ -3410,10 +3455,12 @@ export class AppStoreConnectClient {
       locale?: string;
       name?: string;
       description?: string | null;
-    }>(`/${resourceType}`, {
-      type: resourceType,
+    }>(this.v2(`/${resources.localizationType}`), {
+      type: resources.localizationType,
       attributes: localizationAttributes,
-      relationships: { [relationshipName]: { data: { type: parentType, id: parentId } } },
+      relationships: {
+        version: { data: { type: resources.versionType, id: draftVersionId } },
+      },
     });
     let locale = appleResources.attributes.locale;
     if (locale === undefined) locale = input.locale;

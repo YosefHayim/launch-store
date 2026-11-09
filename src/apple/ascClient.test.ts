@@ -891,45 +891,99 @@ describe('AppStoreConnectClient - product catalog', () => {
       id: 'group1',
     });
   });
-  it('creates a subscription localization through the shared helper with the right parent relationship', async () => {
-    fetchMock.mockResolvedValueOnce(
-      fakeResponse(
-        201,
-        JSON.stringify({ data: { id: 'loc1', attributes: { locale: 'en-US', name: 'Pro' } } }),
-      ),
-    );
+  it('writes a subscription localization onto the existing draft version', async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: 'sv1' }] })))
+      .mockResolvedValueOnce(
+        fakeResponse(
+          201,
+          JSON.stringify({ data: { id: 'loc1', attributes: { locale: 'en-US', name: 'Pro' } } }),
+        ),
+      );
     await client.createSubscriptionLocalization('sub1', {
       locale: 'en-US',
       name: 'Pro',
       description: 'All features',
     });
-    const [url, init] = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
-    expect(url).toContain('/subscriptionLocalizations');
-    expect(readRequestDocument(init)).toMatchObject({
+    const [draftLookupUrl] = expectArrayElement(fetchMock.mock.calls, 0, 'mock call');
+    const [localizationUrl, localizationInit] = expectArrayElement(
+      fetchMock.mock.calls,
+      1,
+      'mock call',
+    );
+    expect(String(draftLookupUrl)).toBe(
+      'https://api.appstoreconnect.apple.com/v1/subscriptions/sub1/versions?filter[state]=PREPARE_FOR_SUBMISSION&limit=200',
+    );
+    expect(String(localizationUrl)).toBe(
+      'https://api.appstoreconnect.apple.com/v2/subscriptionLocalizations',
+    );
+    expect(fetchMock.mock.calls).toHaveLength(2);
+    expect(readRequestDocument(localizationInit)).toMatchObject({
       data: {
         type: 'subscriptionLocalizations',
         attributes: { locale: 'en-US', name: 'Pro', description: 'All features' },
-        relationships: { subscription: { data: { type: 'subscriptions', id: 'sub1' } } },
+        relationships: { version: { data: { type: 'subscriptionVersions', id: 'sv1' } } },
       },
     });
   });
-  it('omits description on a group localization (groups carry a name only)', async () => {
-    fetchMock.mockResolvedValueOnce(
-      fakeResponse(
-        201,
-        JSON.stringify({ data: { id: 'gl1', attributes: { locale: 'en-US', name: 'Pro Tiers' } } }),
-      ),
+  it('creates the subscription draft version first when the subscription has none', async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })))
+      .mockResolvedValueOnce(fakeResponse(201, JSON.stringify({ data: { id: 'sv2' } })))
+      .mockResolvedValueOnce(
+        fakeResponse(
+          201,
+          JSON.stringify({ data: { id: 'loc1', attributes: { locale: 'en-US', name: 'Pro' } } }),
+        ),
+      );
+    await client.createSubscriptionLocalization('sub1', {
+      locale: 'en-US',
+      name: 'Pro',
+    });
+    const [versionCreateUrl, versionCreateInit] = expectArrayElement(
+      fetchMock.mock.calls,
+      1,
+      'mock call',
     );
+    const [, localizationInit] = expectArrayElement(fetchMock.mock.calls, 2, 'mock call');
+    expect(String(versionCreateUrl)).toBe(
+      'https://api.appstoreconnect.apple.com/v1/subscriptionVersions',
+    );
+    expect(readRequestDocument(versionCreateInit)).toEqual({
+      data: {
+        type: 'subscriptionVersions',
+        relationships: { subscription: { data: { type: 'subscriptions', id: 'sub1' } } },
+      },
+    });
+    expect(
+      documentValueAt(readRequestDocument(localizationInit), ['data', 'relationships']),
+    ).toEqual({ version: { data: { type: 'subscriptionVersions', id: 'sv2' } } });
+  });
+  it('omits description on a group localization (groups carry a name only)', async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: 'gv1' }] })))
+      .mockResolvedValueOnce(
+        fakeResponse(
+          201,
+          JSON.stringify({
+            data: { id: 'gl1', attributes: { locale: 'en-US', name: 'Pro Tiers' } },
+          }),
+        ),
+      );
     await client.createSubscriptionGroupLocalization('group1', {
       locale: 'en-US',
       name: 'Pro Tiers',
     });
     const requestDocument = readRequestDocument(
-      expectArrayElement(fetchMock.mock.calls, 0, 'mock call')[1],
+      expectArrayElement(fetchMock.mock.calls, 1, 'mock call')[1],
     );
     expect(documentValueAt(requestDocument, ['data', 'attributes'])).toEqual({
       locale: 'en-US',
       name: 'Pro Tiers',
+    });
+    expect(documentValueAt(requestDocument, ['data', 'relationships', 'version', 'data'])).toEqual({
+      type: 'subscriptionGroupVersions',
+      id: 'gv1',
     });
     expect(documentValueAt(requestDocument, ['data', 'attributes'])).not.toHaveProperty(
       'description',
@@ -1021,19 +1075,61 @@ describe('AppStoreConnectClient - product catalog', () => {
       'https://api.appstoreconnect.apple.com/v2/inAppPurchases/iap1/iapPriceSchedule',
     );
   });
-  it('reads IAP localizations from the /v2 relationship path (not the bare inAppPurchasesV2 resource)', async () => {
-    fetchMock.mockResolvedValueOnce(
-      fakeResponse(
-        200,
-        JSON.stringify({
-          data: [{ id: 'loc1', attributes: { locale: 'en-US', name: 'Lifetime' } }],
-        }),
-      ),
-    );
+  it('reads IAP localizations from the draft version, not the deprecated parent collection', async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: 'iapv1' }] })))
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [
+              {
+                id: 'loc1',
+                attributes: { locale: 'en-US', name: 'Lifetime', description: 'Forever access' },
+              },
+            ],
+          }),
+        ),
+      );
     const locs = await client.listInAppPurchaseLocalizations('iap1');
-    expect(locs).toEqual([{ id: 'loc1', locale: 'en-US', name: 'Lifetime' }]);
+    expect(locs).toEqual([
+      { id: 'loc1', locale: 'en-US', name: 'Lifetime', description: 'Forever access' },
+    ]);
     expect(String(expectArrayElement(fetchMock.mock.calls, 0, 'mock call')[0])).toBe(
-      'https://api.appstoreconnect.apple.com/v2/inAppPurchases/iap1/inAppPurchaseLocalizations?limit=200',
+      'https://api.appstoreconnect.apple.com/v2/inAppPurchases/iap1/versions?filter[state]=PREPARE_FOR_SUBMISSION&limit=200',
+    );
+    expect(String(expectArrayElement(fetchMock.mock.calls, 1, 'mock call')[0])).toBe(
+      'https://api.appstoreconnect.apple.com/v1/inAppPurchaseVersions/iapv1/localizations?limit=200',
+    );
+  });
+  it('lists no IAP localizations and makes no localization read when there is no draft version', async () => {
+    fetchMock.mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [] })));
+    expect(await client.listInAppPurchaseLocalizations('iap1')).toEqual([]);
+    expect(fetchMock.mock.calls).toHaveLength(1);
+  });
+  it('reads a subscription fixture from its draft version into the rows the sync diff compares', async () => {
+    fetchMock
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: 'sv1' }] })))
+      .mockResolvedValueOnce(
+        fakeResponse(
+          200,
+          JSON.stringify({
+            data: [
+              {
+                id: 'sl1',
+                attributes: { locale: 'en-US', name: 'Pro', description: 'All features' },
+              },
+              { id: 'sl2', attributes: { locale: 'he', name: 'מקצועי', description: null } },
+            ],
+          }),
+        ),
+      );
+    expect(await client.listSubscriptionLocalizations('sub1')).toEqual([
+      { id: 'sl1', locale: 'en-US', name: 'Pro', description: 'All features' },
+      { id: 'sl2', locale: 'he', name: 'מקצועי' },
+    ]);
+    expect(String(expectArrayElement(fetchMock.mock.calls, 1, 'mock call')[0])).toBe(
+      'https://api.appstoreconnect.apple.com/v1/subscriptionVersions/sv1/localizations?limit=200',
     );
   });
   it('lists bundle id capabilities without a limit param (the related endpoint rejects it)', async () => {
@@ -1358,6 +1454,7 @@ describe('AppStoreConnectClient - listing localizations', () => {
           }),
         ),
       )
+      .mockResolvedValueOnce(fakeResponse(200, JSON.stringify({ data: [{ id: 'iapv1' }] })))
       .mockResolvedValueOnce(
         fakeResponse(
           200,
