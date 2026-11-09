@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { redactLine, redactText } from './redact.js';
+import { makeLogRedactor, redactLine, redactText } from './redact.js';
 describe('redactLine', () => {
   it('masks secret-looking assignments but leaves publishable ones', () => {
     expect(redactLine('API_TOKEN=abc123')).toBe('API_TOKEN=***');
@@ -41,6 +41,26 @@ describe('redactText', () => {
     expect(out).toContain('after the key');
     expect(out).toContain('[redacted-key-material]');
     expect(out).not.toContain('AAAAfakekeybodyAAAA');
+  });
+});
+
+describe('makeLogRedactor', () => {
+  it('shows the error lines that follow a PEM block that never closes', () => {
+    const redactOutputLine = makeLogRedactor();
+
+    const redactedLines = [
+      '-----BEGIN PRIVATE KEY-----',
+      'MIIEvQIBADANBgkqhkiG9w0BAQEFAASC',
+      'a1b2c3d4e5f6',
+      'error: signing failed',
+    ].map((line) => redactOutputLine(line));
+
+    expect(redactedLines).toEqual([
+      '[redacted-key-material]',
+      '[redacted-key-material]',
+      '[redacted-key-material]',
+      'error: signing failed',
+    ]);
   });
 });
 

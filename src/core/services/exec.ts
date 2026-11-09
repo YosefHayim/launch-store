@@ -31,7 +31,6 @@ export type QuietCommandExecutionOptions = CommandExecutionOptions &
   Readonly<{
     readonly onLine?: (line: string) => void;
     readonly logFilePath?: string;
-    readonly shouldRedactSecrets?: boolean;
   }>;
 const makeCommand = (
   executable: string,
@@ -188,9 +187,7 @@ export const executeCommandQuietly = (
       const consumeOutput = combinedLines.pipe(
         Stream.runForEach((outputLine) =>
           Effect.gen(function* () {
-            let persistedLine = outputLine;
-            if (commandOptions.shouldRedactSecrets !== false)
-              persistedLine = redactOutputLine(outputLine);
+            const persistedLine = redactOutputLine(outputLine);
             if (commandOptions.onLine !== undefined) {
               yield* Effect.sync(() => commandOptions.onLine?.(persistedLine));
             }

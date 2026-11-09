@@ -46,18 +46,43 @@ export const redactText = (text: string): string => {
   return text.replace(PEM_BLOCK, '[redacted-key-material]').split('\n').map(redactLine).join('\n');
 };
 
-/** Keep a PEM body off disk even when the child emits it over multiple chunks. */
+/** One base64 line of a PEM body, the key material itself. */
+const PEM_BASE64_LINE = /^[A-Za-z0-9+/=]+$/;
+/** The RFC 1421 header lines an encrypted PEM block can carry before its body. */
+const PEM_HEADER_LINE = /^(Proc-Type|DEK-Info): /;
+const isPemBodyLine = (line: string): boolean => {
+  const isEmptyLine = line === '';
+  if (isEmptyLine) return true;
+
+  const isKeyMaterialLine = PEM_BASE64_LINE.test(line);
+  if (isKeyMaterialLine) return true;
+
+  return PEM_HEADER_LINE.test(line);
+};
+
+/**
+ * Keep a PEM body off disk even when the child emits it over multiple chunks. A block that never
+ * closes ends at the first line that is not key material, so later error lines still show.
+ */
 export const makeLogRedactor = (): ((line: string) => string) => {
   let withinPem = false;
   return (line) => {
-    if (line.includes('-----BEGIN ')) {
+    const isPemBegin = line.includes('-----BEGIN ');
+    if (isPemBegin) {
       withinPem = !line.includes('-----END ');
       return '[redacted-key-material]';
     }
-    if (withinPem) {
-      if (line.includes('-----END ')) withinPem = false;
+
+    const isPemEnd = line.includes('-----END ');
+    if (withinPem && isPemEnd) {
+      withinPem = false;
       return '[redacted-key-material]';
     }
+
+    const isHiddenPemLine = withinPem && isPemBodyLine(line);
+    if (isHiddenPemLine) return '[redacted-key-material]';
+
+    withinPem = false;
     return redactLine(line);
   };
 };

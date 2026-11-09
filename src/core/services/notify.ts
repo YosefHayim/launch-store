@@ -102,13 +102,14 @@ export const notificationDocument = (event: NotifyEvent): Record<string, unknown
 };
 /** The `LAUNCH_*` environment a shell hook receives. Omitted fields simply don't appear. */
 export const notifyEnv = (event: NotifyEvent): Record<string, string> => {
+  const message = notifyMessage(event);
   const env: Record<string, string> = {
     LAUNCH_EVENT: event.event,
     LAUNCH_STATUS: event.status,
     LAUNCH_APP: event.app,
     LAUNCH_PLATFORM: event.platform,
     LAUNCH_VERSION: event.version,
-    LAUNCH_MESSAGE: notifyMessage(event),
+    LAUNCH_MESSAGE: redactText(message),
   };
   if (event.event === 'review') {
     if (event.detail !== undefined) env['LAUNCH_DETAIL'] = event.detail;

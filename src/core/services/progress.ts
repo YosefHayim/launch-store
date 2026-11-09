@@ -226,7 +226,6 @@ export const runWithProgress = (
     yield* executeCommandQuietly(command, args, {
       ...commandOptions,
       logFilePath: logFile,
-      shouldRedactSecrets: true,
       onLine: (line) => {
         tail.push(line);
         if (tail.length > TAIL_LINES) tail.shift();
