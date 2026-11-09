@@ -283,7 +283,7 @@ type SelectedReleaseVersion = Readonly<{
   versionId: string;
   versionString: string;
   appStoreState: string;
-  attachedBuildId?: string;
+  attachedBuildId?: string | undefined;
   appReleasedBefore: boolean;
   idempotentState?: string;
 }>;

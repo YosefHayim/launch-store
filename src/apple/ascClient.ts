@@ -383,13 +383,13 @@ type ResourceSingle<A> = {
  * to the following page, present only while more pages remain. Consumed by {@link AppStoreConnectClient.requestAll}.
  */
 /**
- * One App Store Connect resource. `relationships` holds a linked id only when the request named that
- * relationship in `fields`; Apple then returns its `data` linkage.
+ * One App Store Connect resource. `relationships` holds the `build` linkage only when the request named
+ * `build` in `fields`; Apple then returns its `data` linkage (null when no build is attached).
  */
 type AppleResource<Attributes> = {
   id: string;
   attributes: Attributes;
-  relationships?: Record<string, { data?: { id: string } | null }>;
+  relationships?: { build?: { data?: { id: string } | null } };
 };
 type PagedList<A> = {
   data: AppleResource<A>[];
