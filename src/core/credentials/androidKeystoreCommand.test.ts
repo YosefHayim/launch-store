@@ -39,6 +39,7 @@ describe('Android signing command secret transport', () => {
         const log = yield* LaunchLogger;
         return yield* ensureUploadKeystore({
           appName: 'Demo',
+          packageName: 'com.example.demo',
           log,
           dryRun: false,
           confirmCreate: () => Effect.succeed(true),
