@@ -20,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-205%20endpoints-8957e5?logo=apple&logoColor=white" alt="205 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2887%20passing-3fb950?logo=vitest&logoColor=white" alt="2887 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2909%20passing-3fb950?logo=vitest&logoColor=white" alt="2909 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -472,7 +472,7 @@ iOS code signing and the build toolchain are macOS-only, so a Mac has to be in t
 <details>
 <summary><strong>Does Launch support Android and Google Play?</strong></summary>
 
-Yes. Launch builds and signs Android apps and uploads them to Google Play, and it reconciles Play in-app products, subscriptions (base plans + offers), release tracks, and review replies from the same `launch.config.ts` catalog that drives App Store Connect - one source of truth for both stores.
+Yes. Launch builds and signs Android apps and uploads them to Google Play, and it reconciles Play in-app products, subscriptions (base plans + offers), release tracks, and review replies from the same `launch.config.ts` catalog that drives App Store Connect - one source of truth for both stores. Existing users can run `launch creds adopt --platform android --app <name>` once for the app that owns the existing Play key and upload keystore. Launch checks that the Play key can read the package and that both keystore passwords work, then copies the credentials without deleting the originals. Existing app credentials are not overwritten unless you pass `--yes`.
 
 </details>
 

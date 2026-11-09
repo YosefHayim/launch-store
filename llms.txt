@@ -118,7 +118,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 **Can I build iOS apps without a Mac?** iOS code signing and the build toolchain are macOS-only, so a Mac has to be in the loop - but it does not have to be yours. Launch can provision a cloud Mac in your own AWS account (an EC2 Mac), build over SSH on any Mac you can reach, or hand off to Expo EAS's cloud. Android builds anywhere a JDK runs, with no Mac at all.
 
-**Does Launch support Android and Google Play?** Yes. Launch builds and signs Android apps and uploads them to Google Play, and it reconciles Play in-app products, subscriptions (base plans + offers), release tracks, and review replies from the same `launch.config.ts` catalog that drives App Store Connect - one source of truth for both stores.
+**Does Launch support Android and Google Play?** Yes. Launch builds and signs Android apps and uploads them to Google Play, and it reconciles Play in-app products, subscriptions (base plans + offers), release tracks, and review replies from the same `launch.config.ts` catalog that drives App Store Connect - one source of truth for both stores. Existing users can run `launch creds adopt --platform android --app <name>` once for the app that owns the existing Play key and upload keystore. Launch checks that the Play key can read the package and that both keystore passwords work, then copies the credentials without deleting the originals. Existing app credentials are not overwritten unless you pass `--yes`.
 
 **Does Launch do over-the-air updates like EAS Update?** Yes. `launch update` publishes JS and asset updates over the Expo Updates protocol your `expo-updates` runtime already speaks - code-signed and hosted on your own bucket (S3 / R2 / Supabase) instead of Expo's servers. `launch updates rollback` reverses a bad release by promoting a known-good update or dropping clients back to the embedded bundle.
 
@@ -146,7 +146,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 65 `launch` commands (205 store-API operations underneath, 2887 tests):
+All 65 `launch` commands (205 store-API operations underneath, 2909 tests):
 
 - `launch init` - scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` - onboard an app that already ships: import its App Store Connect setup into config
@@ -166,7 +166,7 @@ All 65 `launch` commands (205 store-API operations underneath, 2887 tests):
 - `launch dashboard` - serve a local, read-only web UI over your apps, builds, accounts, and secrets
 - `launch release-train [action] [id]` - coordinate an app's iOS + Android + OTA release as one resumable record
 - `launch rollout <action>` - steer an iOS phased release: pause | resume | complete
-- `launch creds [action] [firstArgument] [secondArgument]` - inspect credentials, onboard/switch Apple accounts, or provision signing assets
+- `launch creds [action] [firstArgument] [secondArgument]` - inspect credentials, onboard Apple accounts, provision signing assets, or adopt legacy Android credentials
 - `launch secret [action] [name]` - manage keychain-backed build secrets (set/list/rm) instead of plaintext .env
 - `launch metadata` - sync the store listing (name, description, keywords) via store.config.json
   - `launch metadata pull` - download the live store listing into store.config.json
