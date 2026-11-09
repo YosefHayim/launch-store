@@ -18,7 +18,7 @@ import { buildLogId, buildLogPath, readBuildLog } from './buildLog.js';
 import { sizeSummary, worstDownloadBytes } from './pipelineArtifact.js';
 import { mb } from './pipelineProviders.js';
 import { hasMessage } from '../services/errorMessage.js';
-import { type Column, formatTable } from '../terminal/table.js';
+import { alignTableColumns, type Column } from '../terminal/table.js';
 
 /** Stable presentation shape emitted by `builds list --json`. */
 export type BuildRow = Readonly<{
@@ -206,11 +206,11 @@ const PRUNE_COLUMNS: readonly Column<PrunedArtifact>[] = [
 
 /** Render build history as a compact table. */
 export const formatBuildsTable = (buildRows: readonly BuildRow[]): string =>
-  formatTable(BUILD_COLUMNS, buildRows);
+  alignTableColumns(BUILD_COLUMNS, buildRows);
 
 /** Render the binaries selected by a prune preview. */
 export const formatPrunePreview = (prunedArtifacts: readonly PrunedArtifact[]): string =>
-  formatTable(PRUNE_COLUMNS, prunedArtifacts);
+  alignTableColumns(PRUNE_COLUMNS, prunedArtifacts);
 
 /** Render the detail block for one stored build. */
 export const formatBuildDetail = (artifact: BuildArtifact): string => {

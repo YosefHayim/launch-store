@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { statusCommandProgram, type StatusCommandOptions } from '@core/release/statusCommand.js';
+import { type StatusCommandFlags, statusCommandProgram } from '@core/release/statusCommand.js';
 import { runCliProgram } from '../runCliProgram.js';
 
 /** Attach the App Store status command. */
@@ -19,7 +19,7 @@ export const registerStatusCommand = (program: Command): void => {
       'list each app recent builds: version, build, processing state, upload time',
     )
     .option('--json', 'machine-readable output for CI', false)
-    .action((commandOptions: StatusCommandOptions) =>
-      runCliProgram(statusCommandProgram(commandOptions)),
+    .action((commandFlags: StatusCommandFlags) =>
+      runCliProgram(statusCommandProgram(commandFlags)),
     );
 };

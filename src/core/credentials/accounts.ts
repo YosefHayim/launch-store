@@ -366,8 +366,13 @@ export const loadActiveAscKey = (): Effect.Effect<
     if (active) return yield* loadAscKeyById(active);
     return null;
   });
-/** Load the key of the account a `--account` flag names; without the flag, the same as {@link loadActiveAscKey}. */
-export const loadAscKeyForAccount = (accountSelector: string | undefined) =>
+export const loadAscKeyForAccount = (
+  accountSelector: string | undefined,
+): Effect.Effect<
+  AscKey | null,
+  unknown,
+  AccountStorageRequirements | LaunchEnvironmentService | LaunchSecretStoreService
+> =>
   Effect.gen(function* () {
     const isAccountSelected = accountSelector !== undefined;
     if (isAccountSelected) return yield* loadSelectedAscKey(accountSelector);

@@ -638,4 +638,35 @@ describe('waitForValidBuild', () => {
       Effect.runPromise(waitForValidBuild(api, 'app1', 42, { sleep: noSleep, timeoutMs: 0 })),
     ).rejects.toThrow(/still PROCESSING/);
   });
+
+  it('waits for the build of the given marketing version, not another version with the same number', async () => {
+    const findBuildByVersion = vi.fn(
+      (_appId: string, _buildNumber: number, marketingVersion?: string) =>
+        Effect.succeed(
+          marketingVersion === '1.3.0'
+            ? {
+                id: 'b-130',
+                version: '42',
+                marketingVersion: '1.3.0',
+                processingState: 'VALID',
+                expired: false,
+              }
+            : {
+                id: 'b-120',
+                version: '42',
+                marketingVersion: '1.2.0',
+                processingState: 'FAILED',
+                expired: false,
+              },
+        ),
+    );
+    const api = makeReleaseApiFake({ findBuildByVersion });
+
+    const storeBuild = await Effect.runPromise(
+      waitForValidBuild(api, 'app1', 42, { sleep: noSleep, marketingVersion: '1.3.0' }),
+    );
+
+    expect(findBuildByVersion).toHaveBeenCalledWith('app1', 42, '1.3.0');
+    expect(storeBuild).toMatchObject({ id: 'b-130', processingState: 'VALID' });
+  });
 });

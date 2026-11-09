@@ -603,7 +603,9 @@ const resolveIosBuild = (
     );
     const storeBuild = yield* attemptRead(
       'wait for App Store build processing',
-      waitForValidBuild(ascClient, appId, artifact.buildNumber),
+      waitForValidBuild(ascClient, appId, artifact.buildNumber, {
+        marketingVersion: artifact.version,
+      }),
     );
     return { storeBuild, versionString: artifact.version };
   });

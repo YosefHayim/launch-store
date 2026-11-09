@@ -1,11 +1,9 @@
-/** A table column and its domain-specific cell renderer. */
 export type Column<TableEntry> = Readonly<{
   header: string;
   cell: (tableEntry: TableEntry) => string;
 }>;
 
-/** Render a non-empty collection as a padded text table. */
-export const formatTable = <TableEntry>(
+export const alignTableColumns = <TableEntry>(
   columns: readonly Column<TableEntry>[],
   tableEntries: readonly TableEntry[],
 ): string => {
@@ -15,19 +13,20 @@ export const formatTable = <TableEntry>(
       ...tableEntries.map((tableEntry) => column.cell(tableEntry).length),
     ),
   );
-  const renderCells = (cells: readonly string[]): string =>
+  const joinCellsIntoLine = (cells: readonly string[]): string =>
     cells
       .map((cell, columnIndex) => {
-        const width = widths[columnIndex];
-        if (width === undefined) return cell;
-        return cell.padEnd(width);
+        const columnWidth = widths[columnIndex];
+        const isColumnWidthMissing = columnWidth === undefined;
+        if (isColumnWidthMissing) return cell;
+        return cell.padEnd(columnWidth);
       })
       .join('  ')
       .trimEnd();
   return [
-    renderCells(columns.map((column) => column.header)),
+    joinCellsIntoLine(columns.map((column) => column.header)),
     ...tableEntries.map((tableEntry) =>
-      renderCells(columns.map((column) => column.cell(tableEntry))),
+      joinCellsIntoLine(columns.map((column) => column.cell(tableEntry))),
     ),
   ].join('\n');
 };

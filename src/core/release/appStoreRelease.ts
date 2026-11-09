@@ -27,6 +27,7 @@ export type AscReleaseApi = {
   findBuildByVersion(
     appId: string,
     buildNumber: number,
+    marketingVersion?: string,
   ): Effect.Effect<BuildResource | null, unknown>;
   setBuildUsesNonExemptEncryption(
     buildId: string,
@@ -826,7 +827,6 @@ export type ReleaseStatus = {
   bundleId: string;
   versionString: string | null;
   appStoreState: string | null;
-  /** Number of the build attached to the current version; null when none is attached. */
   buildNumber: string | null;
   buildProcessingState: string | null;
   phasedReleaseState: string | null;
@@ -843,10 +843,20 @@ export const readReleaseStatus = (
   platform: string,
 ): Effect.Effect<ReleaseStatus, AppStoreReleaseFailure> =>
   Effect.gen(function* () {
+    const appId = yield* readAppStoreAppId(appleReleaseApi, bundleId);
+    return yield* readReleaseStatusForApp(appleReleaseApi, appId, bundleId, platform);
+  });
+
+export const readAppStoreAppId = (
+  appleReleaseApi: AscReleaseApi,
+  bundleId: string,
+): Effect.Effect<string, AppStoreReleaseFailure> =>
+  Effect.gen(function* () {
     const appId = yield* appleReleaseApi
       .getAppId(bundleId)
       .pipe(Effect.mapError((cause) => releaseFailure('find App Store app', cause)));
-    if (appId === null) {
+    const isThereNoAppRecord = appId === null;
+    if (isThereNoAppRecord) {
       return yield* Effect.fail(
         releaseFailure(
           'find App Store app',
@@ -855,11 +865,22 @@ export const readReleaseStatus = (
         ),
       );
     }
+    return appId;
+  });
+
+export const readReleaseStatusForApp = (
+  appleReleaseApi: AscReleaseApi,
+  appId: string,
+  bundleId: string,
+  platform: string,
+): Effect.Effect<ReleaseStatus, AppStoreReleaseFailure> =>
+  Effect.gen(function* () {
     const storeVersions = yield* appleReleaseApi
       .listAppStoreVersions(appId, platform)
       .pipe(Effect.mapError((cause) => releaseFailure('list App Store versions', cause)));
     const currentVersion = pickCurrentVersion(storeVersions);
-    if (currentVersion === null) {
+    const isThereNoCurrentVersion = currentVersion === null;
+    if (isThereNoCurrentVersion) {
       return {
         bundleId,
         versionString: null,
@@ -873,18 +894,9 @@ export const readReleaseStatus = (
     const phasedRelease = yield* appleReleaseApi
       .getPhasedRelease(currentVersion.id)
       .pipe(Effect.mapError((cause) => releaseFailure('read App Store release status', cause)));
-    let buildNumber: string | null = null;
-    if (currentVersion.attachedBuildNumber !== undefined) {
-      buildNumber = currentVersion.attachedBuildNumber;
-    }
-    let buildProcessingState: string | null = null;
-    if (currentVersion.attachedBuildProcessingState !== undefined) {
-      buildProcessingState = currentVersion.attachedBuildProcessingState;
-    }
-    let phasedReleaseState: string | null = null;
-    if (phasedRelease !== null) {
-      phasedReleaseState = phasedRelease.phasedReleaseState;
-    }
+    const buildNumber = currentVersion.attachedBuildNumber ?? null;
+    const buildProcessingState = currentVersion.attachedBuildProcessingState ?? null;
+    const phasedReleaseState = phasedRelease?.phasedReleaseState ?? null;
     return {
       bundleId,
       versionString: currentVersion.versionString,
@@ -915,6 +927,8 @@ export type WaitOptions = {
   timeoutMs?: number;
   sleep?: (milliseconds: number) => Effect.Effect<void>;
   onTick?: (processingState: string) => Effect.Effect<void>;
+  // Picks this version's build when another version reused the same build number.
+  marketingVersion?: string;
 };
 
 /**
@@ -936,19 +950,19 @@ export const waitForValidBuild = (
       Effect.sleep(milliseconds);
     if (options.sleep !== undefined) sleepBetweenPolls = options.sleep;
     let waited = 0;
+    const { onTick, marketingVersion } = options;
+    const timeoutMinutes = Math.round(timeoutMs / 60_000);
     for (;;) {
       const storeBuild = yield* appleReleaseApi
-        .findBuildByVersion(appId, buildNumber)
+        .findBuildByVersion(appId, buildNumber, marketingVersion)
         .pipe(Effect.mapError((cause) => releaseFailure('read App Store build', cause)));
-      let processingState = 'PROCESSING';
-      if (storeBuild !== null) {
-        const reportedState = storeBuild.processingState;
-        if (reportedState !== undefined && reportedState !== null) {
-          processingState = reportedState;
-        }
-      }
-      if (options.onTick !== undefined) yield* options.onTick(processingState);
-      if (storeBuild !== null && processingState === 'VALID') return storeBuild;
+      const processingState = storeBuild?.processingState ?? 'PROCESSING';
+      const isProgressReported = onTick !== undefined;
+      if (isProgressReported) yield* onTick(processingState);
+
+      const isBuildValid = storeBuild !== null && processingState === 'VALID';
+      if (isBuildValid) return storeBuild;
+
       const isProcessingRejected = processingState === 'INVALID' || processingState === 'FAILED';
       if (isProcessingRejected) {
         return yield* Effect.fail(
@@ -959,19 +973,19 @@ export const waitForValidBuild = (
           ),
         );
       }
+
       const isTimedOut = waited >= timeoutMs;
+      const isBuildMissingAtTimeout = isTimedOut && storeBuild === null;
+      if (isBuildMissingAtTimeout) {
+        return yield* Effect.fail(
+          releaseFailure(
+            'wait for App Store build',
+            storeBuild,
+            `Build ${buildNumber} was not found on App Store Connect after ${timeoutMinutes} min - check that the upload finished.`,
+          ),
+        );
+      }
       if (isTimedOut) {
-        const timeoutMinutes = Math.round(timeoutMs / 60_000);
-        const isBuildMissing = storeBuild === null;
-        if (isBuildMissing) {
-          return yield* Effect.fail(
-            releaseFailure(
-              'wait for App Store build',
-              storeBuild,
-              `Build ${buildNumber} was not found on App Store Connect after ${timeoutMinutes} min - check that the upload finished.`,
-            ),
-          );
-        }
         return yield* Effect.fail(
           releaseFailure(
             'wait for App Store build',
@@ -980,6 +994,7 @@ export const waitForValidBuild = (
           ),
         );
       }
+
       yield* sleepBetweenPolls(intervalMs);
       waited += intervalMs;
     }

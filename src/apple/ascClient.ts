@@ -553,6 +553,11 @@ type BetaFeedbackPage = {
 };
 const BUILD_PAGE_QUERY =
   'fields[builds]=version,processingState,uploadedDate,expired,preReleaseVersion&include=preReleaseVersion&fields[preReleaseVersions]=version';
+const buildMarketingVersionFilter = (marketingVersion: string | undefined): string => {
+  const isMarketingVersionGiven = marketingVersion !== undefined;
+  if (!isMarketingVersionGiven) return '';
+  return `&filter[preReleaseVersion.version]=${marketingVersion}`;
+};
 type BuildPageIncluded = {
   type: string;
   id: string;
@@ -561,7 +566,6 @@ type BuildPageIncluded = {
     processingState?: string;
   };
 };
-/** One page of an app's App Store versions, read with `include=build` so each attached build resolves from `included`. */
 type AppStoreVersionPage = PagedList<{
   versionString?: string;
   appStoreState?: string;
@@ -910,7 +914,6 @@ export class AppStoreConnectClient {
     const pages = await this.requestPages<PagedList<A>>(path);
     return pages.flatMap((page) => page.data);
   }
-  /** Walk every page of a collection, keeping each raw page so its `included` sidebar survives. */
   private async requestPages<Page extends { links?: { next?: string } }>(
     path: string,
   ): Promise<Page[]> {
@@ -3977,10 +3980,15 @@ export class AppStoreConnectClient {
     return toBuildResources(buildPage);
   }
   /** Find one build by its `CFBundleVersion` number (the resource id is needed to attach / PATCH it), or null. */
-  async findBuildByVersion(appId: string, buildNumber: number): Promise<BuildResource | null> {
+  async findBuildByVersion(
+    appId: string,
+    buildNumber: number,
+    marketingVersion?: string,
+  ): Promise<BuildResource | null> {
+    const versionFilter = buildMarketingVersionFilter(marketingVersion);
     const buildPage = await this.request<BuildPage>(
       'GET',
-      `/builds?filter[app]=${appId}&filter[version]=${buildNumber}&limit=1&${BUILD_PAGE_QUERY}`,
+      `/builds?filter[app]=${appId}&filter[version]=${buildNumber}${versionFilter}&sort=-uploadedDate&limit=1&${BUILD_PAGE_QUERY}`,
     );
     const [firstBuild] = toBuildResources(buildPage);
     if (firstBuild === undefined) return null;
@@ -4050,13 +4058,12 @@ export class AppStoreConnectClient {
       relationships: { build: { data: { type: 'builds', id: buildId } } },
     });
   }
-  /** List an app's App Store versions for a platform (e.g. `IOS`), across all pages, with each attached build's number and state. */
   async listAppStoreVersions(appId: string, platform: string): Promise<AppStoreVersionResource[]> {
     const versionPages = await this.requestPages<AppStoreVersionPage>(
       `/apps/${appId}/appStoreVersions?filter[platform]=${platform}&limit=200&fields[appStoreVersions]=versionString,appStoreState,releaseType,build&include=build&fields[builds]=version,processingState`,
     );
     return versionPages.flatMap(({ data: entries, included = [] }) =>
-      entries.map((entry) => toVersionResource(entry, '', included)),
+      entries.map((versionEntry) => toVersionResource(versionEntry, '', included)),
     );
   }
   /** Create a new App Store version for a marketing version string on a platform. */

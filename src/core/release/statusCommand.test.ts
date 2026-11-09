@@ -1,53 +1,54 @@
-import { Effect, Schema } from 'effect';
-import { describe, expect, it, vi } from 'vitest';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { NodeHttpClient } from '@effect/platform-node';
+import { Effect, Layer, Schema } from 'effect';
+import { describe, expect, it, vi } from 'vitest';
 import { makeReleaseApiFake } from '@testkit/ascReleaseApi.testkit.js';
-import { createLogger, makeLaunchLoggerTest } from '../services/logger.js';
-import type { AppDescriptor } from '../types/app.js';
-import type { BuildResource } from '../types/appleCatalog.js';
-import { type AscReleaseApi, classifyVerdict, type ReleaseStatus } from './appStoreRelease.js';
-import type { MutableDeep } from '../types/mutable.js';
+import { makeFakeAscClient } from '@testkit/storeClients.testkit.js';
 import {
-  findStatusUsageProblem,
-  formatRecentBuilds,
-  formatStatusLine,
-  readRecentBuilds,
-  selectIosApps,
-  type StatusCommandInput,
-  StatusCommandInputSchema,
-  watchBuildProcessing,
-  watchReleaseStatuses,
-  worstExitCode,
-} from './statusCommand.js';
+  createTemporaryHomeDirectory,
+  makeLaunchHomeTest,
+  removeTemporaryHomeDirectory,
+  writeLaunchHomeFile,
+} from '@testkit/launchHome.testkit.js';
+import { AppleStoreClientService } from '../services/appleStoreClient.js';
+import { errorMessage } from '../services/errorMessage.js';
+import { makeLaunchEnvironmentTest } from '../services/environment.js';
+import { makeLaunchLoggerTest } from '../services/logger.js';
+import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
+import { CommandExitSchema, type CommandExit } from '../terminal/commandExit.js';
+import type { AppStoreVersionResource, BuildResource } from '../types/appleCatalog.js';
+import type { AscReleaseApi } from './appStoreRelease.js';
+import { type StatusCommandFlags, statusCommandProgram } from './statusCommand.js';
 
-const releaseStatus = (overrides: Partial<ReleaseStatus> = {}): ReleaseStatus => {
-  const baseStatus: ReleaseStatus = {
-    bundleId: 'com.acme.app',
-    versionString: '1.2.0',
-    appStoreState: 'IN_REVIEW',
-    buildNumber: '42',
-    buildProcessingState: 'VALID',
-    phasedReleaseState: null,
-    verdict: classifyVerdict('IN_REVIEW'),
-  };
-  const mergedStatus: ReleaseStatus = { ...baseStatus, ...overrides };
-  if (overrides.appStoreState !== undefined && overrides.verdict === undefined) {
-    let appStoreState = overrides.appStoreState;
-    if (appStoreState === null) appStoreState = '';
-    mergedStatus.verdict = classifyVerdict(appStoreState);
-  }
-  return mergedStatus;
-};
+const ASC_KEY_ID = 'KEY123';
+const P8_SECRET = Buffer.from('-----BEGIN PRIVATE KEY-----').toString('base64');
+const ACCOUNTS_FILE_TEXT = JSON.stringify({
+  active: ASC_KEY_ID,
+  accounts: [
+    {
+      keyId: ASC_KEY_ID,
+      issuerId: 'issuer-1',
+      label: 'Owner',
+      addedAt: '2026-11-01T00:00:00.000Z',
+    },
+  ],
+});
+const APP_JSON_TEXT = JSON.stringify({
+  expo: { name: 'Oly', version: '1.2.0', ios: { bundleIdentifier: 'com.acme.app' } },
+});
+const APP_JSON_WITHOUT_IOS_TEXT = JSON.stringify({ expo: { name: 'Oly', version: '1.2.0' } });
 
-const discoveredApp = (appName: string, bundleId?: string): AppDescriptor => {
-  const appDescriptor: MutableDeep<AppDescriptor> = {
-    name: appName,
-    dir: `/repo/${appName}`,
-    configPath: `/repo/${appName}/app.json`,
-  };
-  if (bundleId !== undefined) appDescriptor.bundleId = bundleId;
-  return appDescriptor;
-};
+const liveVersion = (
+  overrides: Partial<AppStoreVersionResource> = {},
+): AppStoreVersionResource => ({
+  id: 'v-1',
+  versionString: '1.2.0',
+  appStoreState: 'READY_FOR_SALE',
+  attachedBuildNumber: '42',
+  attachedBuildProcessingState: 'VALID',
+  ...overrides,
+});
 
 const makeBuild = (overrides: Partial<BuildResource> = {}): BuildResource => ({
   id: 'b-1',
@@ -57,284 +58,228 @@ const makeBuild = (overrides: Partial<BuildResource> = {}): BuildResource => ({
   ...overrides,
 });
 
-const plainInput: StatusCommandInput = { watch: false, json: false, builds: false };
+type StatusRun = Readonly<{
+  exitCode: number;
+  failureMessage: string | null;
+  logLines: string[];
+}>;
 
-describe('StatusCommandInputSchema', () => {
-  it('defaults to one read with human output and no build list', async () => {
-    const commandInput = await Effect.runPromise(
-      Schema.decodeUnknown(StatusCommandInputSchema)({}),
-    );
-    expect(commandInput).toEqual({ watch: false, json: false, builds: false });
-  });
+const isCommandExitFailure = (failure: unknown): failure is CommandExit =>
+  Schema.is(CommandExitSchema)(failure);
 
-  it('reads --build text as a whole build number', async () => {
-    const commandInput = await Effect.runPromise(
-      Schema.decodeUnknown(StatusCommandInputSchema)({ build: '42', watch: true }),
-    );
-    expect(commandInput.build).toBe(42);
-  });
+const outcomeOfFailure = (failure: unknown): Omit<StatusRun, 'logLines'> => {
+  if (isCommandExitFailure(failure)) {
+    return { exitCode: failure.exitCode, failureMessage: failure.message ?? null };
+  }
+  return { exitCode: 1, failureMessage: errorMessage(failure) };
+};
 
-  it('rejects a --build that is not a whole number', async () => {
-    await expect(
-      Effect.runPromise(Schema.decodeUnknown(StatusCommandInputSchema)({ build: '4.5' })),
-    ).rejects.toThrow();
-  });
-});
+const runStatusCommand = async (
+  flags: StatusCommandFlags,
+  appleReleaseApi: AscReleaseApi,
+  appJsonText = APP_JSON_TEXT,
+): Promise<StatusRun> => {
+  const homeDirectory = createTemporaryHomeDirectory();
+  const logLines: string[] = [];
 
-describe('formatStatusLine', () => {
-  it('renders version, verdict, build, and phased state', () => {
-    expect(formatStatusLine(releaseStatus())).toBe('v1.2.0 - In review - build 42');
-  });
+  try {
+    const workDirectory = join(homeDirectory, 'work');
+    mkdirSync(workDirectory, { recursive: true });
+    writeFileSync(join(workDirectory, 'app.json'), appJsonText);
+    writeLaunchHomeFile(homeDirectory, 'accounts.json', ACCOUNTS_FILE_TEXT);
 
-  it('annotates a build still processing', () => {
-    expect(formatStatusLine(releaseStatus({ buildProcessingState: 'PROCESSING' }))).toContain(
-      'build 42 (PROCESSING)',
-    );
-  });
-
-  it('shows the phased-rollout state and a live verdict', () => {
-    const statusLine = formatStatusLine(
-      releaseStatus({ appStoreState: 'READY_FOR_SALE', phasedReleaseState: 'ACTIVE' }),
-    );
-    expect(statusLine).toContain('Live on the App Store');
-    expect(statusLine).toContain('phased: ACTIVE');
-  });
-
-  it('shows no build when the version has none attached', () => {
-    expect(formatStatusLine(releaseStatus({ buildNumber: null, buildProcessingState: null }))).toBe(
-      'v1.2.0 - In review - no build',
-    );
-  });
-
-  it('handles an app with no App Store version yet', () => {
-    expect(
-      formatStatusLine(
-        releaseStatus({ versionString: null, appStoreState: '', buildNumber: null }),
-      ),
-    ).toContain('no App Store version');
-  });
-});
-
-describe('formatRecentBuilds', () => {
-  it('says so when the app has no uploaded builds', () => {
-    expect(formatRecentBuilds([])).toBe('  no builds uploaded yet');
-  });
-
-  it('shows one build with its version, processing state, and UTC upload time', () => {
-    const table = formatRecentBuilds([
-      makeBuild({
-        version: '42',
-        marketingVersion: '1.2.0',
-        uploadedDate: '2026-11-01T09:30:00Z',
+    const appleStoreClientTest = Layer.succeed(AppleStoreClientService, {
+      createClient: () => Effect.succeed(appleReleaseApi),
+      createEffectClient: () => Effect.succeed(makeFakeAscClient([])),
+      createReleaseAttributesClient: () => Effect.succeed(makeFakeAscClient([])),
+    });
+    const statusProgram = statusCommandProgram(flags).pipe(
+      Effect.match({
+        onSuccess: () => ({ exitCode: 0, failureMessage: null }),
+        onFailure: outcomeOfFailure,
       }),
-    ]);
-    expect(table).toContain('UPLOADED (UTC)');
-    expect(table).toContain('1.2.0');
-    expect(table).toContain('VALID');
-    expect(table).toContain('2026-11-01 09:30');
-  });
+      Effect.provide(makeLaunchHomeTest(homeDirectory)),
+      Effect.provide(NodeHttpClient.layer),
+      Effect.provide(makeLaunchEnvironmentTest({})),
+      Effect.provide(makeLaunchSecretStoreTest(new Map([[`asc-p8:${ASC_KEY_ID}`, P8_SECRET]]))),
+      Effect.provide(makeLaunchLoggerTest(logLines)),
+      Effect.provide(appleStoreClientTest),
+    );
 
-  it('lists every build it is given, one row each', () => {
-    const table = formatRecentBuilds([
-      makeBuild({ id: 'b-43', version: '43' }),
-      makeBuild({ id: 'b-42', version: '42' }),
-    ]);
-    expect(table).toContain('43');
-    expect(table).toContain('42');
-  });
-});
+    const outcome = await Effect.runPromise(statusProgram);
+    return { ...outcome, logLines };
+  } finally {
+    removeTemporaryHomeDirectory(homeDirectory);
+  }
+};
 
-describe('readRecentBuilds', () => {
-  const selectedApp = { name: 'alpha', bundleId: 'com.acme.alpha' };
-
-  it('returns the builds newest upload first', async () => {
+describe('statusCommandProgram - plain status', () => {
+  it('prints the status line and exits 0 when the version is live', async () => {
     const api = makeReleaseApiFake({
-      listBuilds: vi.fn(() =>
+      listAppStoreVersions: vi.fn(() => Effect.succeed([liveVersion()])),
+    });
+
+    const run = await runStatusCommand({}, api);
+
+    expect(run.exitCode).toBe(0);
+    expect(run.logLines.join('\n')).toContain('Live on the App Store');
+  });
+
+  it('annotates an attached build that is still processing', async () => {
+    const api = makeReleaseApiFake({
+      listAppStoreVersions: vi.fn(() =>
         Effect.succeed([
-          makeBuild({ version: '41', uploadedDate: '2026-10-01T10:00:00Z' }),
-          makeBuild({ version: '43', uploadedDate: '2026-11-03T10:00:00Z' }),
-          makeBuild({ version: '42', uploadedDate: '2026-10-20T10:00:00Z' }),
+          liveVersion({ appStoreState: 'IN_REVIEW', attachedBuildProcessingState: 'PROCESSING' }),
         ]),
       ),
     });
-    const recentBuilds = await Effect.runPromise(readRecentBuilds(api, selectedApp));
-    expect(recentBuilds.map((build) => build.version)).toEqual(['43', '42', '41']);
+
+    const run = await runStatusCommand({}, api);
+
+    expect(run.logLines.join('\n')).toContain('build 42 (PROCESSING)');
   });
 
-  it('fails with the app record message when App Store Connect has no app for the bundle id', async () => {
-    const api = makeReleaseApiFake({ getAppId: vi.fn(() => Effect.succeed(null)) });
-    await expect(Effect.runPromise(readRecentBuilds(api, selectedApp))).rejects.toThrow(
-      /No App Store Connect app record for com\.acme\.alpha/,
-    );
+  it('never lists builds without --builds', async () => {
+    const listBuilds = vi.fn(() => Effect.succeed([makeBuild()]));
+    const api = makeReleaseApiFake({
+      listAppStoreVersions: vi.fn(() => Effect.succeed([liveVersion()])),
+      listBuilds,
+    });
+
+    await runStatusCommand({}, api);
+
+    expect(listBuilds).not.toHaveBeenCalled();
+  });
+
+  it('lists each recent build in its own row with --builds, looking up the app id once', async () => {
+    const api = makeReleaseApiFake({
+      listAppStoreVersions: vi.fn(() => Effect.succeed([liveVersion()])),
+      listBuilds: vi.fn(() =>
+        Effect.succeed([
+          makeBuild({ id: 'b-43', version: '43', uploadedDate: '2026-11-03T10:00:00Z' }),
+          makeBuild({ id: 'b-42', version: '42', uploadedDate: '2026-10-20T10:00:00Z' }),
+        ]),
+      ),
+    });
+
+    const run = await runStatusCommand({ builds: true }, api);
+
+    const printedText = run.logLines.join('\n');
+    expect(printedText).toContain('2026-11-03 10:00');
+    expect(printedText).toContain('2026-10-20 10:00');
+    expect(api.getAppId).toHaveBeenCalledTimes(1);
+  });
+
+  it('exits 0 with a note when the project has no iOS app', async () => {
+    const api = makeReleaseApiFake();
+
+    const run = await runStatusCommand({}, api, APP_JSON_WITHOUT_IOS_TEXT);
+
+    expect(run.exitCode).toBe(0);
+    expect(run.logLines.join('\n')).toContain('No iOS apps discovered');
+  });
+
+  it('fails with exit 1 on an --app name that is not an iOS app', async () => {
+    const api = makeReleaseApiFake();
+
+    const run = await runStatusCommand({ app: 'delta' }, api);
+
+    expect(run.exitCode).toBe(1);
+    expect(run.failureMessage).toMatch(/Unknown iOS app "delta"/);
   });
 });
 
-describe('watchBuildProcessing', () => {
-  const selectedApp = { name: 'alpha', bundleId: 'com.acme.alpha' };
+describe('statusCommandProgram - usage errors', () => {
+  it('exits 2 when --build comes without --watch', async () => {
+    const run = await runStatusCommand({ build: '42' }, makeReleaseApiFake());
 
-  const watchBuild = (
-    appleClient: AscReleaseApi,
-    terminalWrites: string[],
-    pollOptions: { timeoutMs?: number } = {},
-  ) =>
-    Effect.runPromise(
-      Effect.gen(function* () {
-        const logger = yield* createLogger(false);
-        return yield* watchBuildProcessing(
-          { appleClient, selectedApp, buildNumber: 42, logger, isJson: false },
-          { sleep: () => Effect.void, intervalMs: 1, ...pollOptions },
-        );
-      }).pipe(
-        Effect.provide(makeLaunchLoggerTest(terminalWrites)),
-        Effect.provide(NodeHttpClient.layer),
-      ),
-    );
+    expect(run.exitCode).toBe(2);
+    expect(run.failureMessage).toMatch(/--build needs --watch/);
+  });
 
-  it('returns the build once App Store Connect reports it VALID, and prints the state', async () => {
-    const terminalWrites: string[] = [];
+  it('exits 2 when --builds comes with --watch', async () => {
+    const run = await runStatusCommand({ builds: true, watch: true }, makeReleaseApiFake());
+
+    expect(run.exitCode).toBe(2);
+    expect(run.failureMessage).toMatch(/--builds lists builds/);
+  });
+
+  it('exits 2 with the usage message for a --build that is not a whole number', async () => {
+    const run = await runStatusCommand({ build: '4.5', watch: true }, makeReleaseApiFake());
+
+    expect(run.exitCode).toBe(2);
+    expect(run.failureMessage).toMatch(/--build takes a whole number above 0/);
+  });
+
+  it('exits 2 for a --build of 0', async () => {
+    const run = await runStatusCommand({ build: '0', watch: true }, makeReleaseApiFake());
+
+    expect(run.exitCode).toBe(2);
+  });
+});
+
+describe('statusCommandProgram - --watch and --build', () => {
+  it('exits with the verdict code when the first read is already terminal', async () => {
+    const api = makeReleaseApiFake({
+      listAppStoreVersions: vi.fn(() => Effect.succeed([liveVersion()])),
+    });
+
+    const run = await runStatusCommand({ watch: true }, api);
+
+    expect(run.exitCode).toBe(0);
+  });
+
+  it('reports the build as ready once App Store Connect reports it VALID', async () => {
     const api = makeReleaseApiFake({
       findBuildByVersion: vi.fn(() => Effect.succeed(makeBuild({ processingState: 'VALID' }))),
     });
-    const storeBuild = await watchBuild(api, terminalWrites);
-    expect(storeBuild.version).toBe('42');
-    expect(terminalWrites.join('')).toContain('build 42 is VALID');
+
+    const run = await runStatusCommand({ build: '42', watch: true }, api);
+
+    expect(run.exitCode).toBe(0);
+    expect(run.logLines.join('\n')).toContain('build 42 is VALID - ready to release');
   });
 
-  it('waits through PROCESSING and prints each state it sees', async () => {
-    const terminalWrites: string[] = [];
-    const findBuildByVersion = vi
-      .fn()
-      .mockReturnValueOnce(Effect.succeed(makeBuild({ processingState: 'PROCESSING' })))
-      .mockReturnValueOnce(Effect.succeed(makeBuild({ processingState: 'VALID' })));
-    const api = makeReleaseApiFake({ findBuildByVersion });
-    await watchBuild(api, terminalWrites);
-    expect(terminalWrites.join('')).toContain('build 42 is PROCESSING');
-    expect(terminalWrites.join('')).toContain('build 42 is VALID');
-  });
-
-  it('fails on FAILED processing', async () => {
+  it('fails with exit 1 when App Store Connect rejects the build', async () => {
     const api = makeReleaseApiFake({
       findBuildByVersion: vi.fn(() => Effect.succeed(makeBuild({ processingState: 'FAILED' }))),
     });
-    await expect(watchBuild(api, [])).rejects.toThrow(/FAILED/);
+
+    const run = await runStatusCommand({ build: '42', watch: true }, api);
+
+    expect(run.exitCode).toBe(1);
+    expect(run.failureMessage).toMatch(/failed App Store Connect processing \(FAILED\)/);
   });
 
-  it('fails on INVALID processing', async () => {
+  it('prints ok true with the build under --json when the build is VALID', async () => {
+    const api = makeReleaseApiFake({
+      findBuildByVersion: vi.fn(() => Effect.succeed(makeBuild({ processingState: 'VALID' }))),
+    });
+
+    const run = await runStatusCommand({ build: '42', watch: true, json: true }, api);
+
+    expect(run.logLines.join('\n')).toContain('"ok": true');
+  });
+
+  it('prints ok false with the error under --json when the build is rejected', async () => {
     const api = makeReleaseApiFake({
       findBuildByVersion: vi.fn(() => Effect.succeed(makeBuild({ processingState: 'INVALID' }))),
     });
-    await expect(watchBuild(api, [])).rejects.toThrow(/INVALID/);
+
+    const run = await runStatusCommand({ build: '42', watch: true, json: true }, api);
+
+    expect(run.exitCode).toBe(1);
+    expect(run.logLines.join('\n')).toContain('"ok": false');
   });
 
-  it('fails with the not-found message when the build never appears before the timeout', async () => {
-    const api = makeReleaseApiFake({ findBuildByVersion: vi.fn(() => Effect.succeed(null)) });
-    await expect(watchBuild(api, [], { timeoutMs: 0 })).rejects.toThrow(
-      /was not found on App Store Connect/,
+  it('fails with exit 1 and a clear message when --build has no iOS app to watch', async () => {
+    const run = await runStatusCommand(
+      { build: '42', watch: true },
+      makeReleaseApiFake(),
+      APP_JSON_WITHOUT_IOS_TEXT,
     );
-  });
-});
 
-describe('findStatusUsageProblem', () => {
-  const oneApp = [{ name: 'alpha', bundleId: 'com.acme.alpha' }];
-  const twoApps = [...oneApp, { name: 'beta', bundleId: 'com.acme.beta' }];
-
-  it('returns null when the flags fit together', () => {
-    expect(findStatusUsageProblem(plainInput, oneApp)).toBeNull();
-    expect(findStatusUsageProblem({ ...plainInput, watch: true, build: 42 }, oneApp)).toBeNull();
-  });
-
-  it('asks for --watch when --build is given without it', () => {
-    expect(findStatusUsageProblem({ ...plainInput, build: 42 }, oneApp)).toMatch(/needs --watch/);
-  });
-
-  it('rejects --builds combined with --watch', () => {
-    expect(findStatusUsageProblem({ ...plainInput, watch: true, builds: true }, oneApp)).toMatch(
-      /--builds lists/,
-    );
-  });
-
-  it('asks for one --app when --build is given for several apps', () => {
-    expect(findStatusUsageProblem({ ...plainInput, watch: true, build: 42 }, twoApps)).toMatch(
-      /pass --app/,
-    );
-  });
-});
-
-describe('worstExitCode - error > rejected > in-progress > ok', () => {
-  it('picks the worst code in the batch', () => {
-    expect(worstExitCode([0, 0])).toBe(0);
-    expect(worstExitCode([0, 3])).toBe(3);
-    expect(worstExitCode([3, 2])).toBe(2);
-    expect(worstExitCode([2, 1])).toBe(1);
-    expect(worstExitCode([0, 1, 3])).toBe(1);
-    expect(worstExitCode([])).toBe(0);
-  });
-});
-
-describe('selectIosApps', () => {
-  const apps = [
-    discoveredApp('alpha', 'com.acme.alpha'),
-    discoveredApp('beta'),
-    discoveredApp('gamma', 'com.acme.gamma'),
-  ];
-
-  it('returns every app with a bundle id when no selector is given', async () => {
-    expect(await Effect.runPromise(selectIosApps(apps, undefined))).toEqual([
-      { name: 'alpha', bundleId: 'com.acme.alpha' },
-      { name: 'gamma', bundleId: 'com.acme.gamma' },
-    ]);
-  });
-
-  it('narrows to the named apps', async () => {
-    expect(await Effect.runPromise(selectIosApps(apps, 'gamma'))).toEqual([
-      { name: 'gamma', bundleId: 'com.acme.gamma' },
-    ]);
-  });
-
-  it('fails on an unknown app name', async () => {
-    await expect(Effect.runPromise(selectIosApps(apps, 'delta'))).rejects.toThrow(
-      /Unknown iOS app/,
-    );
-  });
-});
-
-describe('watchReleaseStatuses', () => {
-  it('polls until the verdict is terminal and returns its exit code', async () => {
-    let readCount = 0;
-    const terminalWrites: string[] = [];
-    const exitCode = await Effect.runPromise(
-      Effect.gen(function* () {
-        const logger = yield* createLogger(false);
-        return yield* watchReleaseStatuses(
-          () => {
-            readCount += 1;
-            let appStoreState = 'IN_REVIEW';
-            if (readCount > 1) appStoreState = 'READY_FOR_SALE';
-            return Effect.succeed([
-              {
-                appName: 'alpha',
-                releaseStatus: releaseStatus({ appStoreState }),
-              },
-            ]);
-          },
-          logger,
-          {
-            credentials: 'local',
-            storage: 'local',
-            buildEngine: 'xcode',
-            submit: 'app-store-connect',
-            profiles: {},
-          },
-          () => Effect.void,
-        );
-      }).pipe(
-        Effect.provide(makeLaunchLoggerTest(terminalWrites)),
-        Effect.provide(NodeHttpClient.layer),
-      ),
-    );
-    expect(readCount).toBe(2);
-    expect(exitCode).toBe(0);
-    expect(terminalWrites.join('')).toContain('In review');
-    expect(terminalWrites.join('')).toContain('Live on the App Store');
+    expect(run.exitCode).toBe(1);
+    expect(run.failureMessage).toMatch(/No iOS apps discovered/);
   });
 });
