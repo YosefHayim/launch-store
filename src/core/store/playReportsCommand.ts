@@ -1,7 +1,7 @@
 import { Data, Effect, Schema } from 'effect';
 import {
   loadServiceAccount,
-  missingPlayServiceAccountMessage,
+  describeMissingPlayServiceAccount,
 } from '../credentials/androidKeystore.js';
 import { errorMessage } from '../services/errorMessage.js';
 import {
@@ -132,7 +132,7 @@ export const playReportsCommandProgram = (
     if (serviceAccountJson === null) {
       return yield* Effect.fail(
         makePlayReportsCommandFailure({
-          message: yield* missingPlayServiceAccountMessage(selectedApp.name),
+          message: yield* describeMissingPlayServiceAccount(selectedApp.name),
         }),
       );
     }

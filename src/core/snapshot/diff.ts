@@ -69,7 +69,6 @@ export const stableStringify = (jsonNode: JsonValue): string => {
     .join(',');
   return `{${serializedFields}}`;
 };
-/** An unavailable app or source must not be interpreted as deleted data. */
 const unavailableScopes = (snapshot: Snapshot) => {
   const sources = new Set<string>();
   const apps = new Set<string>();
@@ -98,9 +97,9 @@ export const diffSnapshots = (a: Snapshot, b: Snapshot): SnapshotDiff => {
   for (const key of [...new Set([...before.keys(), ...after.keys()])].sort()) {
     const prev = before.get(key);
     const next = after.get(key);
-    let entry = prev;
-    if (entry === undefined) entry = next;
-    if (entry !== undefined) {
+    const entry = prev ?? next;
+    const isThereEntry = entry != null;
+    if (isThereEntry) {
       const sourceKey = JSON.stringify([entry.store, entry.sourceId]);
       const appKey = JSON.stringify([entry.store, entry.sourceId, entry.app]);
       if (

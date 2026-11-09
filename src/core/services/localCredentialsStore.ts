@@ -10,7 +10,7 @@ import {
   describeStoredAndroidCredentials,
   loadCachedKeystore,
   loadServiceAccount,
-  missingPlayServiceAccountMessage,
+  describeMissingPlayServiceAccount,
 } from '../credentials/androidKeystore.js';
 import { describeStoredCredentials, loadCachedSigningAssets } from '../credentials/appleSigning.js';
 import type { AscKey, KeystoreAssets, SigningAssets } from '../types/credentials.js';
@@ -38,7 +38,7 @@ export type LocalCredentialsStoreService = Readonly<{
     bundleId: string,
     extensions?: readonly string[],
   ) => Effect.Effect<SigningAssets | null, unknown>;
-  readonly missingPlayServiceAccountMessage: (appName: string) => Effect.Effect<string, unknown>;
+  readonly describeMissingPlayServiceAccount: (appName: string) => Effect.Effect<string, unknown>;
   readonly loadPlayServiceAccount: (packageName: string) => Effect.Effect<string | null, unknown>;
   readonly loadAndroidKeystore: (
     packageName: string,
@@ -66,7 +66,7 @@ type LocalCredentialsStoreRequirements =
   | Effect.Effect.Context<ReturnType<typeof loadCachedKeystore>>
   | Effect.Effect.Context<ReturnType<typeof loadCachedSigningAssets>>
   | Effect.Effect.Context<ReturnType<typeof loadServiceAccount>>
-  | Effect.Effect.Context<ReturnType<typeof missingPlayServiceAccountMessage>>;
+  | Effect.Effect.Context<ReturnType<typeof describeMissingPlayServiceAccount>>;
 
 const accountIsUnresolved = (teamId: string | undefined, appCount: number): boolean => {
   if (teamId !== undefined && teamId.length > 0) return false;
@@ -93,8 +93,8 @@ export const LocalCredentialsStoreLive: Layer.Layer<
         loadCachedSigningAssets(keyId, bundleId, extensions).pipe(
           Effect.provide(credentialStoreContext),
         ),
-      missingPlayServiceAccountMessage: (appName) =>
-        missingPlayServiceAccountMessage(appName).pipe(Effect.provide(credentialStoreContext)),
+      describeMissingPlayServiceAccount: (appName) =>
+        describeMissingPlayServiceAccount(appName).pipe(Effect.provide(credentialStoreContext)),
       loadPlayServiceAccount: (packageName: string) =>
         loadServiceAccount(packageName).pipe(Effect.provide(credentialStoreContext)),
       loadAndroidKeystore: (packageName: string) =>

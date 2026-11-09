@@ -25,7 +25,7 @@ vi.mock('./selectStoreApp.js', () => ({ loadStoreAppContext: vi.fn() }));
 vi.mock('../credentials/accounts.js', () => ({ loadActiveAscKey: vi.fn() }));
 vi.mock('../credentials/androidKeystore.js', () => ({
   loadServiceAccount: vi.fn(),
-  missingPlayServiceAccountMessage: () => Effect.succeed('No Play service account.'),
+  describeMissingPlayServiceAccount: () => Effect.succeed('No Play service account.'),
 }));
 
 import { loadActiveAscKey } from '../credentials/accounts.js';

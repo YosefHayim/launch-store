@@ -3,7 +3,7 @@ import { Data, Effect, Schema } from 'effect';
 import { loadActiveAscKey } from '../credentials/accounts.js';
 import {
   loadServiceAccount,
-  missingPlayServiceAccountMessage,
+  describeMissingPlayServiceAccount,
 } from '../credentials/androidKeystore.js';
 import {
   AppleStoreClientService,
@@ -221,7 +221,7 @@ const requirePlayServiceAccount = (
         metadataFailure(
           'load Play service account',
           'missing-service-account',
-          yield* missingPlayServiceAccountMessage(appName).pipe(
+          yield* describeMissingPlayServiceAccount(appName).pipe(
             Effect.mapError((cause) => metadataFailure('load Play service account', cause)),
           ),
         ),

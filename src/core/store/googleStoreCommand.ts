@@ -2,7 +2,7 @@ import { Terminal } from '@effect/platform';
 import { Data, Effect } from 'effect';
 import {
   loadServiceAccount,
-  missingPlayServiceAccountMessage,
+  describeMissingPlayServiceAccount,
 } from '../credentials/androidKeystore.js';
 import {
   GoogleStoreClientService,
@@ -49,7 +49,7 @@ export const loadActiveGoogleStore = (
     if (serviceAccountJson === null) {
       return yield* Effect.fail(
         makeActiveGoogleStoreFailure({
-          message: yield* missingPlayServiceAccountMessage(appName).pipe(
+          message: yield* describeMissingPlayServiceAccount(appName).pipe(
             Effect.mapError((cause) =>
               makeActiveGoogleStoreFailure({
                 message: 'Could not read legacy Play credentials.',

@@ -1,11 +1,11 @@
 import type { FileSystem, Path } from '@effect/platform';
-import { Effect } from 'effect';
+import { Effect, Either } from 'effect';
 import { listAccounts } from '../credentials/accounts.js';
 import { listStoredAndroidPackages } from '../credentials/androidKeystore.js';
 import { loadConfig } from '../config/config.js';
 import { loadPortfolioFile } from './portfolioStore.js';
 import { errorMessage } from '../services/errorMessage.js';
-import type { LaunchPathsService } from '../services/paths.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import { StatsCredentials } from '../stats/statsCredentials.js';
 import type { AccountRecord } from '../types/credentials.js';
 import type { DiscoveredApp, DiscoveryReport, DiscoveryWarning } from '../types/portfolio.js';
@@ -94,18 +94,32 @@ export const discoverApps = (): Effect.Effect<DiscoveryReport, never, DiscoveryR
     const appleDiscoveries = yield* Effect.forEach(accounts, discoverAppleAccount, {
       concurrency: APPLE_DISCOVERY_CONCURRENCY,
     });
-    const configuration = yield* loadConfig().pipe(Effect.orElseSucceed(() => ({ apps: [] })));
-    const savedPortfolio = yield* loadPortfolioFile().pipe(Effect.orElseSucceed(() => null));
-    const storedPackages = yield* listStoredAndroidPackages().pipe(Effect.orElseSucceed(() => []));
-    const packages = new Set<string>(storedPackages);
-    for (const app of configuration.apps)
-      if (app.packageName !== undefined) packages.add(app.packageName);
-    if (savedPortfolio !== null) {
-      for (const app of savedPortfolio.apps)
-        if (app.packageName !== null) packages.add(app.packageName);
-    }
+    const launchPaths = yield* LaunchPaths;
+    const configuredPackagesReply = yield* loadConfig(launchPaths.workingDirectory).pipe(
+      Effect.map((configuration) => configuration.apps.flatMap((app) => app.packageName ?? [])),
+      Effect.either,
+    );
+    const savedPackagesReply = yield* loadPortfolioFile().pipe(
+      Effect.map(
+        (savedPortfolio) => savedPortfolio?.apps.flatMap((app) => app.packageName ?? []) ?? [],
+      ),
+      Effect.either,
+    );
+    const storedPackagesReply = yield* listStoredAndroidPackages().pipe(Effect.either);
+    const packageSourceReplies: readonly Either.Either<readonly string[], unknown>[] = [
+      configuredPackagesReply,
+      savedPackagesReply,
+      storedPackagesReply,
+    ];
+    // A source that cannot be read marks Play as failed, so its cached apps are kept, not dropped.
+    const packageSourceFailures = packageSourceReplies
+      .filter(Either.isLeft)
+      .map((failedReply) => failedAccountDiscovery(PLAY_ACCOUNT_LABEL, failedReply.left));
+    const packages = new Set<string>(
+      packageSourceReplies.filter(Either.isRight).flatMap((readReply) => readReply.right),
+    );
     const playDiscoveries = yield* Effect.forEach([...packages], discoverPlay, { concurrency: 1 });
-    const discoveries: AccountDiscovery[] = [...appleDiscoveries];
+    const discoveries: AccountDiscovery[] = [...appleDiscoveries, ...packageSourceFailures];
     for (const playDiscovery of playDiscoveries)
       if (playDiscovery !== null) discoveries.push(playDiscovery);
     const warnings: DiscoveryWarning[] = [];

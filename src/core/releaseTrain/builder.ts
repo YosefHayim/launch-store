@@ -19,7 +19,7 @@ import {
 import { loadActiveAscKey } from '../credentials/accounts.js';
 import {
   loadServiceAccount,
-  missingPlayServiceAccountMessage,
+  describeMissingPlayServiceAccount,
 } from '../credentials/androidKeystore.js';
 import { publishOtaPlatform, readExportMetadata } from '../distribution/otaPublish.js';
 import {
@@ -184,7 +184,7 @@ export const createTrainRuntime = (
           runtimeFailure(
             'load Google Play service account',
             appDescriptor.name,
-            yield* missingPlayServiceAccountMessage(appDescriptor.name).pipe(
+            yield* describeMissingPlayServiceAccount(appDescriptor.name).pipe(
               Effect.mapError((cause) => runtimeFailure('load Google Play service account', cause)),
             ),
           ),

@@ -110,17 +110,38 @@ const resolveLegacyKeystoreBackupPath = () =>
     return pathService.join(yield* resolveCredentialsDirectory(), 'upload.keystore');
   });
 
-const readIndexAt = (credentialsIndexPath: string) =>
+const readIndexAt = (
+  credentialsIndexPath: string,
+): Effect.Effect<AndroidCredentialsIndex, AndroidCredentialFailure, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
-    const indexExists = yield* fileSystem
-      .exists(credentialsIndexPath)
-      .pipe(Effect.orElseSucceed(() => false));
-    if (!indexExists) return {} as AndroidCredentialsIndex;
-    return yield* fileSystem.readFileString(credentialsIndexPath).pipe(
-      Effect.flatMap((indexText) => Effect.try(() => JSON.parse(indexText))),
+    const indexExists = yield* fileSystem.exists(credentialsIndexPath).pipe(
+      Effect.mapError((cause) =>
+        makeAndroidCredentialFailure({
+          message: `Could not check for the Android credentials index at ${credentialsIndexPath}.`,
+          cause,
+        }),
+      ),
+    );
+    const isThereNoIndexFile = !indexExists;
+    if (isThereNoIndexFile) return {};
+
+    const indexText = yield* fileSystem.readFileString(credentialsIndexPath).pipe(
+      Effect.mapError((cause) =>
+        makeAndroidCredentialFailure({
+          message: `Could not read the Android credentials index at ${credentialsIndexPath}.`,
+          cause,
+        }),
+      ),
+    );
+    return yield* Effect.try(() => JSON.parse(indexText)).pipe(
       Effect.flatMap(Schema.decodeUnknown(AndroidCredentialsIndexSchema)),
-      Effect.orElseSucceed(() => ({}) as AndroidCredentialsIndex),
+      Effect.mapError((cause) =>
+        makeAndroidCredentialFailure({
+          message: `The Android credentials index at ${credentialsIndexPath} is corrupt.`,
+          cause,
+        }),
+      ),
     );
   });
 const readAndroidIndex = (packageName: string) =>
@@ -276,8 +297,7 @@ const quoteAppName = (appName: string) => `'${appName.replaceAll("'", "'\\''")}'
 const androidAdoptionCommand = (appName: string) =>
   `launch creds adopt --platform android --app ${quoteAppName(appName)}`;
 
-/** Give callers an explicit migration path when legacy Android credentials are present. */
-export const missingPlayServiceAccountMessage = (appName: string) =>
+export const describeMissingPlayServiceAccount = (appName: string) =>
   Effect.gen(function* () {
     const legacyAccount = yield* getSecret(SERVICE_ACCOUNT_SECRET);
     const appArgument = quoteAppName(appName);
@@ -467,12 +487,14 @@ export const ensureUploadKeystore = (
     const indexExists = yield* fileSystem.exists(
       yield* resolveAndroidCredentialsIndexPath(options.packageName),
     );
+    const isThereExistingKeystore = record != null || backupExists || indexExists;
     if (options.import) {
-      if (record !== undefined || backupExists || indexExists) {
-        let confirmed = false;
-        if (options.confirmReplace !== undefined)
-          confirmed = yield* options.confirmReplace('Replace the existing upload keystore?');
-        if (!confirmed)
+      if (isThereExistingKeystore) {
+        const isReplaceConfirmed =
+          options.confirmReplace != null &&
+          (yield* options.confirmReplace('Replace the existing upload keystore?'));
+        const isReplaceDeclined = !isReplaceConfirmed;
+        if (isReplaceDeclined)
           return yield* Effect.fail(
             makeAndroidCredentialFailure({ message: 'Existing upload keystore was not replaced.' }),
           );
@@ -480,7 +502,8 @@ export const ensureUploadKeystore = (
       return yield* importKeystore(options.import, options.log, options.packageName);
     }
     const cachedKeystore = yield* loadCachedKeystore(options.packageName);
-    if (cachedKeystore) {
+    const isThereCachedKeystore = cachedKeystore != null;
+    if (isThereCachedKeystore) {
       yield* options.log.step(
         'keystore',
         `reusing upload keystore (alias ${cachedKeystore.alias})`,
@@ -488,7 +511,7 @@ export const ensureUploadKeystore = (
       );
       return cachedKeystore;
     }
-    if (record !== undefined || backupExists || indexExists) {
+    if (isThereExistingKeystore) {
       return yield* Effect.fail(
         makeAndroidCredentialFailure({
           message:

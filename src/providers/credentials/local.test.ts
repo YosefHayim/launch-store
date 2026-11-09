@@ -46,7 +46,7 @@ const LocalCredentialsStoreTest = Layer.succeed(LocalCredentialsStore, {
       return selectedKey;
     }),
   loadAppleSigningAssets: () => Effect.succeed(null),
-  missingPlayServiceAccountMessage: () => Effect.succeed('No Play service account.'),
+  describeMissingPlayServiceAccount: () => Effect.succeed('No Play service account.'),
   loadPlayServiceAccount: () => Effect.succeed(null),
   loadAndroidKeystore: () => Effect.succeed(null),
   listAppleAccountStatuses: () => Effect.succeed(credentialState.appleAccountStatuses),

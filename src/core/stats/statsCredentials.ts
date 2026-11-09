@@ -9,7 +9,7 @@ import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/en
 import { errorMessage } from '../services/errorMessage.js';
 import { GoogleAccessToken, type GoogleAccessTokenService } from '../services/googleAccessToken.js';
 import { GoogleReportingClientService } from '../services/googleReportingClient.js';
-import type { LaunchPathsService } from '../services/paths.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import type { StatsCredentialsFailure, StatsCredentialsShape } from '../types/stats.js';
 
@@ -43,6 +43,7 @@ export const StatsCredentialsLive = Layer.effect(
     const environment = yield* LaunchEnvironment;
     const googleAccessToken = yield* GoogleAccessToken;
     const googleReportingClients = yield* GoogleReportingClientService;
+    const launchPaths = yield* LaunchPaths;
 
     const loadSavedServiceAccountKey = (packageName: string) =>
       loadServiceAccount(packageName).pipe(
@@ -56,7 +57,7 @@ export const StatsCredentialsLive = Layer.effect(
       Effect.gen(function* () {
         if (app.packageName !== null) return app.packageName;
         if (app.bundleId === null) return null;
-        const configuration = yield* loadConfig();
+        const configuration = yield* loadConfig(launchPaths.workingDirectory);
         const matches = configuration.apps.filter(
           (candidate) => candidate.bundleId === app.bundleId && candidate.packageName !== undefined,
         );

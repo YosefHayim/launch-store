@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { rmSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { Effect } from 'effect';
 import { NodeContext } from '@effect/platform-node';
 import {
@@ -31,10 +32,14 @@ vi.mock('./keychain.js', () => ({
 import {
   describeStoredAndroidCredentials,
   loadServiceAccount,
-  missingPlayServiceAccountMessage,
+  describeMissingPlayServiceAccount,
   storeServiceAccount,
 } from './androidKeystore.js';
-import { makeLaunchPathsTest, type LaunchPathsService } from '../services/paths.js';
+import {
+  makeLaunchPathsTest,
+  resolveAndroidCredentialsIndexPath,
+  type LaunchPathsService,
+} from '../services/paths.js';
 /** Run an Android credential program with an isolated secret-store capability. */
 const runAndroidCredentialEffect = <TValue, TError>(
   credentialEffect: Effect.Effect<
@@ -112,12 +117,28 @@ describe('describeStoredAndroidCredentials', () => {
     expect(hasServiceAccount).toBe(true);
     expect(keystoreAlias).toBeNull();
   });
+  it('fails instead of reading a corrupt credentials index as empty', async () => {
+    const indexPath = await runAndroidCredentialEffect(
+      resolveAndroidCredentialsIndexPath('com.example.app'),
+    );
+    mkdirSync(dirname(indexPath), { recursive: true });
+    writeFileSync(indexPath, '{ "keystore": ');
+
+    const failure = await runAndroidCredentialEffect(
+      Effect.flip(describeStoredAndroidCredentials('com.example.app')),
+    );
+
+    expect(failure).toMatchObject({
+      _tag: 'AndroidCredentialFailure',
+      message: expect.stringContaining('is corrupt'),
+    });
+  });
 });
 
 describe('legacy Android recovery guidance', () => {
   it('names the selected app and distinguishes an upload keystore from a Play key', async () => {
     store.set('android-keystore-store-password', 'fixture');
-    const message = await runAndroidCredentialEffect(missingPlayServiceAccountMessage('demo'));
+    const message = await runAndroidCredentialEffect(describeMissingPlayServiceAccount('demo'));
     expect(message).toContain('Legacy upload keystore passwords');
     expect(message).toContain("launch creds adopt --platform android --app 'demo'");
     expect(message).not.toContain('legacy Play service account');
@@ -125,7 +146,7 @@ describe('legacy Android recovery guidance', () => {
   it('quotes app handles safely in the adoption command', async () => {
     store.set('play-service-account', 'fixture');
     const message = await runAndroidCredentialEffect(
-      missingPlayServiceAccountMessage("Dylan's App"),
+      describeMissingPlayServiceAccount("Dylan's App"),
     );
     expect(message).toContain("--app 'Dylan'\\''s App'");
   });

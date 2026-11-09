@@ -65,7 +65,7 @@ const resolveAndroidCredentials = (
       return yield* Effect.fail(
         makeMissingCredentialsFailure({
           platform: 'android',
-          message: yield* credentialStore.missingPlayServiceAccountMessage(buildContext.app.name),
+          message: yield* credentialStore.describeMissingPlayServiceAccount(buildContext.app.name),
         }),
       );
     }
