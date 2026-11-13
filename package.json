@@ -72,7 +72,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.8.1",
-    "@effect/platform": "^0.96.3",
+    "@effect/platform": "^0.97.1",
     "@effect/platform-node": "0.107.0",
     "@googleapis/androidpublisher": "^42.2.0",
     "@googleapis/playdeveloperreporting": "^15.0.1",
