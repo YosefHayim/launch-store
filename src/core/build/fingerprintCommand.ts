@@ -2,7 +2,7 @@ import { Path } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
 import { errorMessage } from '../services/errorMessage.js';
 import { createLogger, type Logger } from '../services/logger.js';
-import { loadStoreAppContext } from '../store/selectStoreApp.js';
+import { loadStoreAppContext } from '../store/shared/selectStoreApp.js';
 import type { Platform } from '../types/app.js';
 import {
   type BuildState,

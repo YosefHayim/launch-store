@@ -13,7 +13,7 @@ import { createLogger, type Logger } from '../services/logger.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
-import { pullAppleListing } from '../store/metadataCommand.js';
+import { pullAppleListing } from '../store/shared/metadataCommand.js';
 import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
 import type { AdoptCatalogApi, Fidelity } from '../types/adopt.js';
 import type { AppDescriptor } from '../types/app.js';

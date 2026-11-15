@@ -7,9 +7,9 @@ import {
   reconcileOwnerScreenshots,
   type ScreenshotSetApi,
   type ScreenshotSetOwner,
-} from '../store/ascScreenshots.js';
-import { act, DRY_RUN_ID, succeededOrPlanned, type ActionLog } from '../store/ascSync.js';
-import { appRecordMissing, plan, type ReconcileContext } from '../store/reconcile.js';
+} from '../store/apple/ascScreenshots.js';
+import { act, DRY_RUN_ID, succeededOrPlanned, type ActionLog } from '../store/apple/ascSync.js';
+import { appRecordMissing, plan, type ReconcileContext } from '../store/shared/reconcile.js';
 import type {
   ExperimentTreatmentLocalizationResource,
   ExperimentTreatmentResource,

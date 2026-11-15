@@ -8,15 +8,15 @@ import {
   renderAppliedStoreSurfaceAction,
   renderStoreSurfaceAction,
   resolveStoreSurfaceSection,
-} from '../store/appStoreSurfaceCommand.js';
+} from '../store/apple/appStoreSurfaceCommand.js';
 import {
   loadActiveAppleStore,
   type ActiveAppleStoreRequirements,
-} from '../store/appleStoreCommand.js';
+} from '../store/apple/appleStoreCommand.js';
 import {
   loadStoreAppContext,
   type StoreAppSelectionRequirements,
-} from '../store/selectStoreApp.js';
+} from '../store/shared/selectStoreApp.js';
 import { completeCommand, type CommandExit } from '../terminal/commandExit.js';
 import {
   discoverTreatmentScreenshots,

@@ -1,6 +1,6 @@
 import { type FileSystem, HttpClient, HttpClientRequest, Path } from '@effect/platform';
 import { Effect } from 'effect';
-import { loadStoreConfig, type AppleStoreConfig } from '@core/store/storeConfig.js';
+import { loadStoreConfig, type AppleStoreConfig } from '@core/store/shared/storeConfig.js';
 import type { AppDescriptor } from '@core/types/app.js';
 import type {
   AppReadiness,

@@ -11,7 +11,7 @@ import type { BuildCredentials } from '../types/credentials.js';
 import type { SubmitArtifact } from '../types/providers.js';
 import type { RemoteTarget } from '../types/remote.js';
 import { resolveWhatsNew } from '../release/releaseInputs.js';
-import { parseReleaseNotesJson } from '../store/playTracks.js';
+import { parseReleaseNotesJson } from '../store/google/playTracks.js';
 import { getSubmitter } from '../services/registry.js';
 import { platformLabel } from '../services/platform.js';
 import {

@@ -6,7 +6,10 @@ import { errorMessage } from '../services/errorMessage.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import type { LaunchPathsService } from '../services/paths.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
-import { selectStoreApp, type StoreAppSelectionRequirements } from '../store/selectStoreApp.js';
+import {
+  selectStoreApp,
+  type StoreAppSelectionRequirements,
+} from '../store/shared/selectStoreApp.js';
 import {
   listSecretRefs,
   removeBuildSecret,

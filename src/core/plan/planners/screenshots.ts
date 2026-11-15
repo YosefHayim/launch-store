@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
-import { reconcileAssetActions } from '@core/store/syncRun.js';
-import { buildJobs, type SyncJob } from '@core/store/syncJobs.js';
+import { reconcileAssetActions } from '@core/store/shared/syncRun.js';
+import { buildJobs, type SyncJob } from '@core/store/shared/syncJobs.js';
 import { checkScreenshotFile } from '@core/listing/screenshots/specs.js';
 import type { PlannedAction } from '@core/types/reconcile.js';
 import type { AppPlan, PlanContext, SurfacePlanner } from '@core/types/plan.js';

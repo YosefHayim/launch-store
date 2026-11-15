@@ -5,11 +5,11 @@ import type { EffectAppStoreConnectClient } from '../services/appleStoreClient.j
 import { createLogger, type Logger } from '../services/logger.js';
 import { isApplePlatform, parsePlatform } from '../services/platform.js';
 import type { LaunchPromptService } from '../services/prompt.js';
-import { createAscClientResolver } from '../store/storeClients.js';
+import { createAscClientResolver } from '../store/shared/storeClients.js';
 import {
   summarizeExportComplianceResult,
   type ExportComplianceResult,
-} from '../store/exportCompliance.js';
+} from '../store/apple/exportCompliance.js';
 import { completeCommand, type CommandExit } from '../terminal/commandExit.js';
 import type { AppDescriptor } from '../types/app.js';
 import type { DoctorCheck, DoctorPlatform, DoctorReport } from '../types/doctor.js';

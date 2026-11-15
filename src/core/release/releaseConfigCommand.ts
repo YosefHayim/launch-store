@@ -14,8 +14,8 @@ import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import { completeCommand, type CommandExit } from '../terminal/commandExit.js';
 import type { PlannedAction } from '../types/reconcile.js';
-import { resolveStoreSurfaceSection } from '../store/appStoreSurfaceCommand.js';
-import { summarize } from '../store/reconcile.js';
+import { resolveStoreSurfaceSection } from '../store/apple/appStoreSurfaceCommand.js';
+import { summarize } from '../store/shared/reconcile.js';
 import { parseReleaseConfig, reconcileRelease } from './releaseAttrs.js';
 import { hasMessage } from '../services/errorMessage.js';
 

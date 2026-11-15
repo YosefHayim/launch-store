@@ -6,11 +6,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { listingPlanner } from './listing.js';
 import { makeAscApiFake } from '@testkit/ascApiFake.testkit.js';
-import type { AscCatalogApi } from '@core/store/ascSync.js';
+import type { AscCatalogApi } from '@core/store/apple/ascSync.js';
 import type { AppDescriptor } from '@core/types/app.js';
 import type { LaunchConfig } from '@core/types/config.js';
 import type { PlanContext } from '@core/types/plan.js';
-import type { AppleLocaleInfo } from '@core/store/storeConfig.js';
+import type { AppleLocaleInfo } from '@core/store/shared/storeConfig.js';
 /** A fully-stubbed {@link AscCatalogApi}: reads default to "nothing exists yet", writes resolve to a created resource. */
 const makeApi = (overrides: Partial<AscCatalogApi> = {}): AscCatalogApi => {
   const base: AscCatalogApi = {

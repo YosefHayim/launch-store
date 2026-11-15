@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
-import { reconcileApp, type AscCatalogApi } from '@core/store/ascSync.js';
-import { buildJobs, type SyncJob } from '@core/store/syncJobs.js';
+import { reconcileApp, type AscCatalogApi } from '@core/store/apple/ascSync.js';
+import { buildJobs, type SyncJob } from '@core/store/shared/syncJobs.js';
 import { errorMessage } from '@core/services/errorMessage.js';
 import type { AppPlan, PlanContext, SurfacePlanner } from '@core/types/plan.js';
 /** Surface id - also the value users pass as `launch plan catalog`. */

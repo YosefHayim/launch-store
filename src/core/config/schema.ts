@@ -375,7 +375,7 @@ const SubscriptionConfigEffectSchema = Schema.Struct({
   ),
   reviewScreenshot: Schema.optional(
     Schema.String.annotations({
-      description: `Path (relative to the app directory) to this subscription's App Review screenshot - the image Apple requires before a subscription can be submitted. \`launch sync\` uploads it via the reservation flow, idempotently: it's skipped when the live screenshot's MD5 already matches the local file. Omit to attach it by hand in App Store Connect. Reconciled in \`core/store/ascScreenshots.ts\`, not here.`,
+      description: `Path (relative to the app directory) to this subscription's App Review screenshot - the image Apple requires before a subscription can be submitted. \`launch sync\` uploads it via the reservation flow, idempotently: it's skipped when the live screenshot's MD5 already matches the local file. Omit to attach it by hand in App Store Connect. Reconciled in \`core/store/apple/ascScreenshots.ts\`, not here.`,
     }),
   ),
   play: Schema.optional(

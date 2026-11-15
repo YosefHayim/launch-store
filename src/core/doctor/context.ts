@@ -11,8 +11,8 @@ import { getCredentialsProvider } from '../services/registry.js';
 import type { LaunchSecretStoreService } from '../services/secretStore.js';
 import type { AppleStoreClientService } from '../services/appleStoreClient.js';
 import type { GoogleStoreClientService } from '../services/googleStoreClient.js';
-import { createAscClientResolver, createPlayClientResolver } from '../store/storeClients.js';
-import { selectApps } from '../store/syncJobs.js';
+import { createAscClientResolver, createPlayClientResolver } from '../store/shared/storeClients.js';
+import { selectApps } from '../store/shared/syncJobs.js';
 import type { DoctorContext, DoctorPlatform } from '../types/doctor.js';
 
 export type DoctorRuntimeRequirements =

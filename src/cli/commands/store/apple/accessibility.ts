@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { accessibilityCommandProgram } from '@core/store/accessibilityCommand.js';
+import { accessibilityCommandProgram } from '@core/store/apple/accessibilityCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type AccessibilityOptions = Readonly<{

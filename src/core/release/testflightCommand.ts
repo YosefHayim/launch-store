@@ -10,8 +10,11 @@ import type { PlannedAction } from '../types/reconcile.js';
 import {
   loadActiveAppleStore,
   type ActiveAppleStoreRequirements,
-} from '../store/appleStoreCommand.js';
-import { selectStoreApp, type StoreAppSelectionRequirements } from '../store/selectStoreApp.js';
+} from '../store/apple/appleStoreCommand.js';
+import {
+  selectStoreApp,
+  type StoreAppSelectionRequirements,
+} from '../store/shared/selectStoreApp.js';
 import {
   loadBetaReviewConfig,
   reconcileBetaReview,

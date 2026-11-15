@@ -11,8 +11,8 @@ import {
 } from '../credentials/signingPreflight.js';
 import { appPrivacyChecklist } from '../privacy/privacyNutritionLabel.js';
 import { errorMessage } from '../services/errorMessage.js';
-import { formatPermissionLine, probeKeyPermissions } from '../store/ascPermissions.js';
-import { describeExportComplianceConfig } from '../store/exportCompliance.js';
+import { formatPermissionLine, probeKeyPermissions } from '../store/apple/ascPermissions.js';
+import { describeExportComplianceConfig } from '../store/apple/exportCompliance.js';
 import { buildConsoleUrl } from '../terminal/consoleLinks.js';
 import { shellLocaleDoctorCheck, type ShellLocaleEnv } from '../terminal/locale.js';
 import type { DoctorCheck, DoctorContext, DoctorPlatform, DoctorReport } from '../types/doctor.js';

@@ -9,9 +9,9 @@ import type {
   SnapshotSource,
 } from '@core/types/snapshot.js';
 import type { PlannedAction } from '@core/types/reconcile.js';
-import { readAppleLocaleFields, toLocaleInfo } from '@core/store/appleListingRead.js';
-import type { AppleLocaleInfo, AppleStoreConfig } from '@core/store/storeConfig.js';
-import { reconcileAppListing } from '@core/store/ascSync.js';
+import { readAppleLocaleFields, toLocaleInfo } from '@core/store/apple/appleListingRead.js';
+import type { AppleLocaleInfo, AppleStoreConfig } from '@core/store/shared/storeConfig.js';
+import { reconcileAppListing } from '@core/store/apple/ascSync.js';
 import { iosApps } from '@core/readiness/appScopes.js';
 /** One locale's merged listing fields -> a snapshot entity keyed by the locale (its natural, stable id). */
 const toEntity = (locale: string, fields: Record<string, string>): SnapshotEntity => {

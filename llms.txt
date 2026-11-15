@@ -326,7 +326,7 @@ All 65 `launch` commands (205 store-API operations underneath, 2933 tests):
 - [AWS EC2 Mac host](./src/providers/compute/awsEc2Mac.ts): allocate/status/teardown + golden-AMI + `cloud doctor`; [SSH transport](./src/core/services/ssh.ts) and [remote build ops](./src/core/build/remoteBuild.ts).
 - [Glossary](./src/core/terminal/glossary.ts): plain-English term definitions shared by `launch explain` and the docs.
 - [App Store domain types](./src/core/types/appleCatalog.ts): normalized App Store resource/query shapes; [generated wire schema](./src/apple/generated/schema.ts): Apple OpenAPI types; [client](./src/apple/ascClient.ts): the Apple API transport.
-- [ASC product sync](./src/core/store/ascSync.ts): the declarative reconciler behind `launch sync` (capabilities, IAPs, subscriptions, pricing).
+- [ASC product sync](./src/core/store/apple/ascSync.ts): the declarative reconciler behind `launch sync` (capabilities, IAPs, subscriptions, pricing).
 - [Config preflight](./src/core/config/configCheck.ts): the app-config footgun validator run by `launch doctor` and at the head of `launch build`.
 - [Build secrets](./src/core/build/buildSecrets.ts): keychain-backed `launch secret` storage, injected through the [env-precedence ladder](./src/core/config/env.ts) shared by `build`, `release`, and `update`.
 - [Completion notifications](./src/core/services/notify.ts): the `notify` webhook + shell hook fired on build/submit completion.

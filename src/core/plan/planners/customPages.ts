@@ -2,7 +2,7 @@ import { resolveSidecarConfig } from '@core/config/config.js';
 import {
   loadCustomProductPagesConfig,
   reconcileCustomProductPages,
-} from '@core/store/customProductPages.js';
+} from '@core/store/apple/customProductPages.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
 import type { SurfacePlanner } from '@core/types/plan.js';
 /** Surface id - also the value users pass as `launch plan custom-pages`. */

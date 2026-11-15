@@ -3,7 +3,7 @@ import { errorMessage } from '@core/services/errorMessage.js';
 import {
   reconcilePlaySubscriptions,
   type PlaySubscriptionsApi,
-} from '@core/store/playSubscriptions.js';
+} from '@core/store/google/playSubscriptions.js';
 import type { AppDescriptor } from '@core/types/app.js';
 import type { SubscriptionConfig } from '@core/types/catalog.js';
 import type { LaunchConfig } from '@core/types/config.js';

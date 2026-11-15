@@ -1,5 +1,8 @@
 import { resolveSidecarConfig } from '@core/config/config.js';
-import { loadAccessibilityConfig, reconcileAccessibility } from '@core/store/accessibility.js';
+import {
+  loadAccessibilityConfig,
+  reconcileAccessibility,
+} from '@core/store/apple/accessibility.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
 import type { SurfacePlanner } from '@core/types/plan.js';
 /** Surface id - also the value users pass as `launch plan accessibility`. */

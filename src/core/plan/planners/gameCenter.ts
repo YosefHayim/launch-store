@@ -1,5 +1,5 @@
 import { resolveSidecarConfig } from '@core/config/config.js';
-import { loadGameCenterConfig, reconcileGameCenter } from '@core/store/gameCenter.js';
+import { loadGameCenterConfig, reconcileGameCenter } from '@core/store/apple/gameCenter.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
 import type { SurfacePlanner } from '@core/types/plan.js';
 import type { GameCenterConfig } from '@core/types/storeSurface.js';

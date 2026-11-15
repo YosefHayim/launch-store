@@ -1,5 +1,8 @@
 import type { Command } from 'commander';
-import { type MetadataCommandInput, metadataCommandProgram } from '@core/store/metadataCommand.js';
+import {
+  type MetadataCommandInput,
+  metadataCommandProgram,
+} from '@core/store/shared/metadataCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type MetadataOptions = Readonly<{

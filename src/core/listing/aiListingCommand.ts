@@ -7,7 +7,11 @@ import type { LaunchEnvironmentService } from '../services/environment.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
-import type { AndroidLocaleInfo, AppleLocaleInfo, StoreConfig } from '../store/storeConfig.js';
+import type {
+  AndroidLocaleInfo,
+  AppleLocaleInfo,
+  StoreConfig,
+} from '../store/shared/storeConfig.js';
 import type { AppDescriptor } from '../types/app.js';
 import type { ListingGenerator, LocaleDraft } from '../types/listing.js';
 import { applyDraft, briefFor, clampDraft, renderDraftPreview } from './apply.js';

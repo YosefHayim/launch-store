@@ -3,7 +3,7 @@ import { Context, Data, Effect, Layer, Option } from 'effect';
 import { loadConfig, readResolvedConfig, type LoadedConfig } from '../config/config.js';
 import { createLogger, type Logger } from '../services/logger.js';
 import { LaunchPaths } from '../services/paths.js';
-import { selectApps } from '../store/syncJobs.js';
+import { selectApps } from '../store/shared/syncJobs.js';
 import { completeCommand, type CommandExit } from '../terminal/commandExit.js';
 import type { AppDescriptor } from '../types/app.js';
 import type { PrivacySurface } from '../types/privacy.js';

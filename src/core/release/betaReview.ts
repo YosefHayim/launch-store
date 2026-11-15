@@ -7,7 +7,7 @@ import type {
   BuildResource,
 } from '../types/appleCatalog.js';
 import { errorMessage } from '../services/errorMessage.js';
-import { plan, skip, type ReconcileContext } from '../store/reconcile.js';
+import { plan, skip, type ReconcileContext } from '../store/shared/reconcile.js';
 import type { PlannedAction } from '../types/reconcile.js';
 
 const BUILD_SCAN_LIMIT = 50;

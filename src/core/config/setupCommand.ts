@@ -33,7 +33,7 @@ import type { AccountRecord, AscKey } from '../types/credentials.js';
 import {
   loadStoreAppContext,
   type StoreAppSelectionRequirements,
-} from '../store/selectStoreApp.js';
+} from '../store/shared/selectStoreApp.js';
 import { runSetup } from './setup.js';
 
 const SetupCommandInputSchema = Schema.Union(

@@ -6,7 +6,7 @@ import { Effect, Layer } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { makeLaunchEnvironmentTest } from '../services/environment.js';
 import { LaunchSecretStoreTest } from '../services/secretStore.js';
-import { summarize } from '../store/reconcile.js';
+import { summarize } from '../store/shared/reconcile.js';
 import type { ReleaseAttributesConfig } from '../types/storeSurface.js';
 import {
   type AscReleaseApi,

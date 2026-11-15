@@ -1,4 +1,4 @@
-import { createPlayClientResolver } from '../store/storeClients.js';
+import { createPlayClientResolver } from '../store/shared/storeClients.js';
 import { FileSystem } from '@effect/platform';
 import { Clock, Data, Effect, Schema } from 'effect';
 import { loadConfig } from '../config/config.js';
@@ -8,7 +8,7 @@ import {
   type EffectAppStoreConnectClient,
 } from '../services/appleStoreClient.js';
 import { createLogger, type Logger } from '../services/logger.js';
-import { selectApps } from '../store/syncJobs.js';
+import { selectApps } from '../store/shared/syncJobs.js';
 import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
 import type { AppDescriptor } from '../types/app.js';
 import type { LaunchConfig } from '../types/config.js';

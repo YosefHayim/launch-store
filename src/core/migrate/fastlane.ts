@@ -7,7 +7,7 @@ import {
   readAppleMetadataDir,
   serializeStoreConfig,
   type StoreConfig,
-} from '../store/storeConfig.js';
+} from '../store/shared/storeConfig.js';
 import type { AppDescriptor } from '../types/app.js';
 import type {
   AppfileData,
