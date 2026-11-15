@@ -80,21 +80,14 @@ const generateDocs = (): GeneratedDoc[] => {
   const agentSkills = renderAgentSkillsRegion();
   const faq = Effect.runSync(renderFaqRegion());
   const features = renderFeaturesRegion();
-  const readmes = readdirSync(ROOT)
-    .filter((file) => /^README.*\.md$/.test(file))
-    .sort();
+  let readmeText = Effect.runSync(
+    spliceReadmeBadges(readFileSync(join(ROOT, 'README.md'), 'utf8'), badges),
+  );
+  readmeText = Effect.runSync(spliceReadmeAgentSkills(readmeText, agentSkills));
+  readmeText = Effect.runSync(spliceReadmeFaq(readmeText, faq));
+  readmeText = Effect.runSync(spliceReadmeFeatures(readmeText, features));
   const generatedDocuments: GeneratedDoc[] = [
-    ...readmes.map((path) => {
-      let documentText = Effect.runSync(
-        spliceReadmeBadges(readFileSync(join(ROOT, path), 'utf8'), badges),
-      );
-      documentText = Effect.runSync(spliceReadmeAgentSkills(documentText, agentSkills));
-      if (path === 'README.md') {
-        documentText = Effect.runSync(spliceReadmeFaq(documentText, faq));
-        documentText = Effect.runSync(spliceReadmeFeatures(documentText, features));
-      }
-      return { path, body: documentText };
-    }),
+    { path: 'README.md', body: readmeText },
     { path: 'llms.txt', body: renderLlmsTxt(commands, stats) },
     { path: 'llms-full.txt', body: renderLlmsFullTxt(commands, stats) },
     {

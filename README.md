@@ -20,22 +20,10 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-205%20endpoints-8957e5?logo=apple&logoColor=white" alt="205 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2934%20passing-3fb950?logo=vitest&logoColor=white" alt="2934 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2933%20passing-3fb950?logo=vitest&logoColor=white" alt="2933 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
-
-<p align="center">
-  <b>English</b> -
-  <a href="./README.zh-CN.md">简体中文</a> -
-  <a href="./README.ja.md">日本語</a> -
-  <a href="./README.ko.md">한국어</a> -
-  <a href="./README.es.md">Español</a> -
-  <a href="./README.pt-BR.md">Português</a> -
-  <a href="./README.fr.md">Français</a> -
-  <a href="./README.de.md">Deutsch</a> -
-  <a href="./README.ru.md">Русский</a>
-</p>
 
 <p align="center">
    <a href="https://github.com/YosefHayim/launch-store/releases">Releases &amp; changelog</a>

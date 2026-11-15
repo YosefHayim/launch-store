@@ -284,7 +284,7 @@ describe('renderAgentSkillsRegion', () => {
     expect(block).toContain(AGENT_SKILLS_BLURB);
     expect(block).toContain(AGENT_SKILLS_SIGNATURE);
   });
-  it("stays a heading-less callout, so it can't shift the translated READMEs' section skeleton", () => {
+  it('stays a heading-less callout, so it cannot shift the README section skeleton', () => {
     expect(block).not.toContain('\n## ');
   });
 });

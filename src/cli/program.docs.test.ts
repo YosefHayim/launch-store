@@ -53,21 +53,12 @@ describe('the numbered Features map is present where readers and AI engines look
     expect(read('llms.txt')).toContain(FEATURES_SIGNATURE);
   });
 });
-describe('the agent-skills mention reaches every README (gated alongside docs:check)', () => {
-  it('appears in the English README and all translations, so the `launch agents` feature is never hidden', () => {
-    const readmes = readdirSync(ROOT, { encoding: 'utf8' }).filter((file) =>
-      /^README.*\.md$/.test(file),
-    );
+describe('the agent-skills mention reaches the README (gated alongside docs:check)', () => {
+  it('appears in the README, so the `launch agents` feature is never hidden', () => {
     expect(
-      readmes.length,
-      'expected the English README plus its translations',
-    ).toBeGreaterThanOrEqual(9);
-    for (const file of readmes) {
-      expect(
-        read(file),
-        `${file} is missing the agent-skills callout - run \`npm run docs:gen\``,
-      ).toContain(AGENT_SKILLS_SIGNATURE);
-    }
+      read('README.md'),
+      'README.md is missing the agent-skills callout - run `npm run docs:gen`',
+    ).toContain(AGENT_SKILLS_SIGNATURE);
   });
 });
 /** Assert every repo-relative link in one doc points at a file that exists. */
@@ -111,48 +102,6 @@ describe('the README live-stats badges track the real codebase (gated alongside 
     expect(readme, 'README tests badge is stale - run `npm run docs:gen`').toContain(
       `tests-${tests}%20passing`,
     );
-  });
-});
-describe('the translated READMEs stay in structural parity with English (no silent FAQ/section drift)', () => {
-  it("match README.md's section count and FAQ-question count, so a translation can't fall behind", () => {
-    // Heading TEXT is translated, but the markdown skeleton is not: split on `## ` and compare the section
-    // count, then the FAQ section question-for-question. The FAQ section is found by English's heading,
-    // then by the SAME position in each translation (section order is identical). The English README renders
-    // each FAQ entry as a collapsible `<details>` whose `<summary>` holds the question, while the translations
-    // keep flat single-line `**Question?**` paragraphs - so a question is a line that starts with either
-    // `<summary` or `**`. Counting those inside that one section is exact and wrap-insensitive - unlike a
-    // whole-file count, which trips on prose-wrap artifacts.
-    const sectionsOf = (md: string): string[] => md.split(/^## /m);
-    const countQuestions = (section: string): number => {
-      const questionMatches = section.match(/^(?:<summary|\*\*)/gm);
-      if (questionMatches === null) return 0;
-      return questionMatches.length;
-    };
-    const english = sectionsOf(read('README.md'));
-    const faqIndex = english.findIndex((section) => section.startsWith('FAQ'));
-    expect(faqIndex, "could not find the '## FAQ' section in README.md").toBeGreaterThan(-1);
-    const translations = readdirSync(ROOT, { encoding: 'utf8' }).filter((file) =>
-      /^README\..+\.md$/.test(file),
-    );
-    expect(
-      translations.length,
-      'expected the translated READMEs to be present',
-    ).toBeGreaterThanOrEqual(8);
-    for (const file of translations) {
-      const sections = sectionsOf(read(file));
-      expect(
-        sections.length,
-        `${file}: '##' section count drifted from README.md - re-sync the translation`,
-      ).toBe(english.length);
-      let translatedFaq = sections[faqIndex];
-      if (translatedFaq === undefined) translatedFaq = '';
-      let englishFaq = english[faqIndex];
-      if (englishFaq === undefined) englishFaq = '';
-      expect(
-        countQuestions(translatedFaq),
-        `${file}: FAQ question count drifted from README.md - re-translate the FAQ`,
-      ).toBe(countQuestions(englishFaq));
-    }
   });
 });
 describe('the generated llms.txt command list covers every command', () => {
