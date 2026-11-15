@@ -9,7 +9,7 @@ import { CommandExitSchema } from '../core/terminal/commandExit.js';
 import { createLogger } from '../core/services/logger.js';
 import { LaunchEnvironment } from '../core/services/environment.js';
 import { renderBanner } from '../core/terminal/banner.js';
-import { runWizard } from './commands/wizard.js';
+import { runWizard } from './commands/setup/wizard.js';
 import { buildProgram } from './program.js';
 import { runCliProgram } from './runCliProgram.js';
 

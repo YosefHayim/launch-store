@@ -98,7 +98,7 @@ destination and signing profile type.
 
 | Task | Start here |
 |------|-----------|
-| New command | `src/cli/commands/` + `src/cli/program.ts` |
+| New command | the job folder under `src/cli/commands/` (setup, build, release, store/apple...) + `src/cli/program.ts` |
 | End-to-end flow | `src/core/build/pipeline.ts` |
 | New backend | `src/core/types/providers.ts` + `src/providers/<role>/` |
 | Domain terms | `src/core/terminal/glossary.ts` (runtime) + `LANGUAGE.md` |
