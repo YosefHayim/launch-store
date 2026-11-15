@@ -1219,7 +1219,13 @@ svg.i {
     padding: 16px;
   }
   .term {
-    min-height: 300px;
+    min-height: 0;
+  }
+  .term .cl {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    padding-left: 2ch;
+    text-indent: -2ch;
   }
   .plan {
     min-height: 0;
@@ -1289,7 +1295,12 @@ svg.i {
   .lane {
     font-size: 11px;
     justify-content: flex-start;
-    padding: 0 8px;
+    padding: 4px 8px;
+    height: auto;
+    min-height: 34px;
+    line-height: 1.25;
+    white-space: normal;
+    overflow-wrap: break-word;
   }
   .pipe-foot {
     grid-template-columns: minmax(0, 1fr);
