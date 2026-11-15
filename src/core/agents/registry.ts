@@ -756,7 +756,7 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
       'a `docs:check` failure after changing the CLI surface',
     ],
     steps: [
-      "Add the command as thin commander wiring in `src/cli/commands/` and register its `register*Command` in `src/cli/program.ts`'s `buildProgram()`. Keep domain logic in `src/core`, not the CLI layer.",
+      "Add the command as thin commander wiring in the job folder under `src/cli/commands/` (setup, build, release, store/apple...) and register its `register*Command` in `src/cli/program.ts`'s `buildProgram()`. Keep domain logic in `src/core`, not the CLI layer.",
       'Run `pnpm docs:gen` - it introspects `buildProgram()` and regenerates `llms.txt`, the README stats badges, and the committed `.cursor/rules` / `.claude/skills`.',
       'Commit the regenerated files; `pnpm docs:check` (CI) fails if they drift.',
       'Add a `*.test.ts` beside the new logic, then run the gate.',
