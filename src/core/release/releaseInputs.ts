@@ -1,7 +1,7 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Effect } from 'effect';
 import type { ReleaseConfig, ReleaseType } from '../types/storeSurface.js';
-import { loadStoreConfig } from '../store/storeConfig.js';
+import { loadStoreConfig } from '../store/shared/storeConfig.js';
 /**
  * The per-run CLI flags that override the configured release type for a single `launch release`.
  * `--scheduled` and `--manual` are mutually exclusive overrides; absent, the configured default wins.

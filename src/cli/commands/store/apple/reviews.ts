@@ -3,7 +3,7 @@ import {
   reviewsCommandProgram,
   type ReviewReplyCommandInput,
   type ReviewsListCommandInput,
-} from '@core/store/reviewsCommand.js';
+} from '@core/store/apple/reviewsCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 /** Attach the `reviews` command group to the program. */

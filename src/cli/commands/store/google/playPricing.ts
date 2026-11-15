@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import {
   type PlayPricingCommandInput,
   playPricingCommandProgram,
-} from '@core/store/playPricing.js';
+} from '@core/store/google/playPricing.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type PlayPricingOptions = Readonly<{

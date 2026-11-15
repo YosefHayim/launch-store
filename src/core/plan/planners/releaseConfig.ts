@@ -1,5 +1,5 @@
 import { parseReleaseConfig, reconcileReleasePlan } from '@core/release/releaseAttrs.js';
-import { resolveStoreSurfaceSection } from '@core/store/appStoreSurfaceCommand.js';
+import { resolveStoreSurfaceSection } from '@core/store/apple/appStoreSurfaceCommand.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
 import type { SurfacePlanner } from '@core/types/plan.js';
 /** Surface id - also the value users pass as `launch plan release-config`. */

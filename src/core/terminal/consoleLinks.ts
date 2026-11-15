@@ -4,9 +4,9 @@ import { executeCommand, provideNodeCommandServices } from '../services/exec.js'
 import { detectHostOperatingSystem } from '../services/os.js';
 import { LaunchPaths } from '../services/paths.js';
 import { isApplePlatform, parsePlatform } from '../services/platform.js';
-import type { ActiveAppleStoreRequirements } from '../store/appleStoreCommand.js';
-import { selectApps } from '../store/syncJobs.js';
-import { createAscClientResolver } from '../store/storeClients.js';
+import type { ActiveAppleStoreRequirements } from '../store/apple/appleStoreCommand.js';
+import { selectApps } from '../store/shared/syncJobs.js';
+import { createAscClientResolver } from '../store/shared/storeClients.js';
 import type { AppDescriptor, OpenTarget, Platform } from '../types/app.js';
 import { hasMessage } from '../services/errorMessage.js';
 

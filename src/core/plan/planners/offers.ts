@@ -1,4 +1,4 @@
-import { appDeclaresOffers, reconcileOffers } from '@core/store/offers.js';
+import { appDeclaresOffers, reconcileOffers } from '@core/store/apple/offers.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
 import type { SurfacePlanner } from '@core/types/plan.js';
 /** Surface id - also the value users pass as `launch plan offers`. */

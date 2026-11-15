@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import {
   type PlaySubscriptionsCommandInput,
   playSubscriptionsCommandProgram,
-} from '@core/store/playSubscriptionsCommand.js';
+} from '@core/store/google/playSubscriptionsCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type PlaySubscriptionsOptions = Readonly<{

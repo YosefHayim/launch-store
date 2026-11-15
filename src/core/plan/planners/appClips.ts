@@ -1,5 +1,5 @@
 import { resolveSidecarConfig } from '@core/config/config.js';
-import { loadAppClipsConfig, reconcileAppClips } from '@core/store/appClips.js';
+import { loadAppClipsConfig, reconcileAppClips } from '@core/store/apple/appClips.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
 import type { SurfacePlanner } from '@core/types/plan.js';
 /** Surface id - also the value users pass as `launch plan app-clips`. */

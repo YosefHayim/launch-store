@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AppleLocaleInfo, StoreConfig } from '../store/storeConfig.js';
+import type { AppleLocaleInfo, StoreConfig } from '../store/shared/storeConfig.js';
 import {
   applyDraft,
   briefFor,

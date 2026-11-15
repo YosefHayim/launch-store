@@ -13,7 +13,7 @@ vi.mock('../services/exec.js', () => ({
   captureCommandOutput: vi.fn(() => Effect.succeed('')),
   checkCommandExists: vi.fn(() => Effect.succeed(true)),
 }));
-vi.mock('../store/storeClients.js', () => ({
+vi.mock('../store/shared/storeClients.js', () => ({
   createAscClientResolver: () => () => Effect.succeed(null),
   createPlayClientResolver: () => Effect.succeed(() => Effect.succeed(null)),
 }));

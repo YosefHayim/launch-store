@@ -1,4 +1,8 @@
-import type { AndroidLocaleInfo, AppleLocaleInfo, StoreConfig } from '../store/storeConfig.js';
+import type {
+  AndroidLocaleInfo,
+  AppleLocaleInfo,
+  StoreConfig,
+} from '../store/shared/storeConfig.js';
 import type { DraftListing, ListingBrief, LocaleDraft } from '../types/listing.js';
 import type { MutableDeep } from '../types/mutable.js';
 /**

@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { errorMessage } from '@core/services/errorMessage.js';
-import { reconcilePlayProducts, type PlayProductsApi } from '@core/store/playProducts.js';
+import { reconcilePlayProducts, type PlayProductsApi } from '@core/store/google/playProducts.js';
 import type { AppDescriptor } from '@core/types/app.js';
 import type { InAppPurchaseConfig } from '@core/types/catalog.js';
 import type { LaunchConfig } from '@core/types/config.js';

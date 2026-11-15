@@ -2,7 +2,7 @@ import { resolveSidecarConfig } from '@core/config/config.js';
 import {
   loadEuDistributionConfig,
   reconcileEuDistributionDomains,
-} from '@core/store/euDistribution.js';
+} from '@core/store/apple/euDistribution.js';
 import { planTeamSurface } from './appStoreSurface.js';
 import type { SurfacePlanner } from '@core/types/plan.js';
 import type { EuDistributionConfig } from '@core/types/storeSurface.js';

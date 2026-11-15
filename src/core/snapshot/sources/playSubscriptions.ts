@@ -23,7 +23,7 @@ import {
   periodFromIso,
   reconcilePlaySubscriptions,
   unitsToMicros,
-} from '@core/store/playSubscriptions.js';
+} from '@core/store/google/playSubscriptions.js';
 import { androidApps } from '@core/readiness/appScopes.js';
 import {
   jsonRecord,

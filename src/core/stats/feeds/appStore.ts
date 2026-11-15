@@ -9,7 +9,7 @@ import {
   parseTsv,
   type AscReportsApi,
   type ParsedReport,
-} from '../../store/reports.js';
+} from '../../store/apple/reports.js';
 import type { PortfolioApp } from '../../types/portfolio.js';
 import type { ReviewDatum, StarRating } from '../../types/insights.js';
 import type {

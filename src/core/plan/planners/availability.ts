@@ -1,6 +1,6 @@
 import { FileSystem } from '@effect/platform';
 import { Effect } from 'effect';
-import { readAvailabilityConfig, reconcileAvailability } from '@core/store/availability.js';
+import { readAvailabilityConfig, reconcileAvailability } from '@core/store/apple/availability.js';
 import { planAppStoreSurface } from './appStoreSurface.js';
 import type { SurfacePlanner } from '@core/types/plan.js';
 /** Surface id - also the value users pass as `launch plan availability`. */

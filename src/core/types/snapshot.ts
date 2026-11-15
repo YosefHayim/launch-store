@@ -1,7 +1,7 @@
 import type { Effect } from 'effect';
 import type { ListingLocalization } from './appleCatalog.js';
 import type { InAppProductResource, SubscriptionResource } from './googlePlay.js';
-import type { AscCatalogApi } from '../store/ascSync.js';
+import type { AscCatalogApi } from '../store/apple/ascSync.js';
 import type { PlannedAction } from './reconcile.js';
 import type { AppDescriptor } from './app.js';
 import type { LaunchConfig } from './config.js';

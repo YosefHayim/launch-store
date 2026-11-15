@@ -1,21 +1,21 @@
 import type { Effect } from 'effect';
 import type { AppDescriptor } from './app.js';
 import type { LaunchConfig } from './config.js';
-import type { AscCatalogApi } from '../store/ascSync.js';
+import type { AscCatalogApi } from '../store/apple/ascSync.js';
 import type { PlannedAction } from './reconcile.js';
 import type { AscReleaseApi } from '../release/releaseAttrs.js';
-import type { AscGameCenterApi } from '../store/gameCenter.js';
-import type { AscAppClipsApi } from '../store/appClips.js';
-import type { AscAvailabilityApi } from '../store/availability.js';
-import type { AscAccessibilityApi } from '../store/accessibility.js';
+import type { AscGameCenterApi } from '../store/apple/gameCenter.js';
+import type { AscAppClipsApi } from '../store/apple/appClips.js';
+import type { AscAvailabilityApi } from '../store/apple/availability.js';
+import type { AscAccessibilityApi } from '../store/apple/accessibility.js';
 import type { AscExperimentsApi } from '../release/versionExperiments.js';
-import type { AscCustomPagesApi } from '../store/customProductPages.js';
-import type { AscWalletApi } from '../store/walletIds.js';
-import type { AscEuDistributionApi } from '../store/euDistribution.js';
-import type { AscOffersApi } from '../store/offers.js';
-import type { PreviewsApi, ScreenshotsApi } from '../store/ascScreenshots.js';
-import type { PlayProductsApi } from '../store/playProducts.js';
-import type { PlaySubscriptionsApi } from '../store/playSubscriptions.js';
+import type { AscCustomPagesApi } from '../store/apple/customProductPages.js';
+import type { AscWalletApi } from '../store/apple/walletIds.js';
+import type { AscEuDistributionApi } from '../store/apple/euDistribution.js';
+import type { AscOffersApi } from '../store/apple/offers.js';
+import type { PreviewsApi, ScreenshotsApi } from '../store/apple/ascScreenshots.js';
+import type { PlayProductsApi } from '../store/google/playProducts.js';
+import type { PlaySubscriptionsApi } from '../store/google/playSubscriptions.js';
 /** Which store a surface belongs to - drives credential resolution and how the diff is grouped. */
 export type PlanStore = 'appstore' | 'play';
 /**

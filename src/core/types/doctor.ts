@@ -1,5 +1,5 @@
 import type { Effect } from 'effect';
-import type { AscPermissionProbeApi } from '../store/ascPermissions.js';
+import type { AscPermissionProbeApi } from '../store/apple/ascPermissions.js';
 import type { AppDescriptor } from './app.js';
 import type { LaunchConfig } from './config.js';
 import type { HostOs } from './remote.js';

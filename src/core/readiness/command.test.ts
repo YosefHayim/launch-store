@@ -37,7 +37,7 @@ let probes: ReadinessProbe[] = [];
 vi.mock('../config/config.js', () => ({
   loadConfig: () => Effect.succeed({ config: {}, apps: [] }),
 }));
-vi.mock('../store/storeClients.js', () => ({
+vi.mock('../store/shared/storeClients.js', () => ({
   createAscClientResolver: () => () => Effect.succeed(null),
   createPlayClientResolver: () => Effect.succeed(() => Effect.succeed(null)),
 }));

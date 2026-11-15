@@ -4,8 +4,8 @@ import {
   playTracksCommandProgram,
   type PlayTracksStatusInput,
   type PlayTracksTestersInput,
-} from '@core/store/playTracksCommand.js';
-import { RELEASE_STATUSES } from '@core/store/playTracks.js';
+} from '@core/store/google/playTracksCommand.js';
+import { RELEASE_STATUSES } from '@core/store/google/playTracks.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type StatusOptions = Readonly<{

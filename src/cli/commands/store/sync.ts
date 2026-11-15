@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { syncCommandProgram } from '@core/store/syncCommand.js';
+import { syncCommandProgram } from '@core/store/shared/syncCommand.js';
 import { runCliProgram } from '@cli/runCliProgram.js';
 
 type SyncOptions = Readonly<{

@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
-import { reconcileAppListing, type AscCatalogApi } from '@core/store/ascSync.js';
-import { buildJobs, hasListing } from '@core/store/syncJobs.js';
-import type { AppleStoreConfig } from '@core/store/storeConfig.js';
+import { reconcileAppListing, type AscCatalogApi } from '@core/store/apple/ascSync.js';
+import { buildJobs, hasListing } from '@core/store/shared/syncJobs.js';
+import type { AppleStoreConfig } from '@core/store/shared/storeConfig.js';
 import { errorMessage } from '@core/services/errorMessage.js';
 import type { AppPlan, PlanContext, SurfacePlanner } from '@core/types/plan.js';
 /** Surface id - also the value users pass as `launch plan listing`. */

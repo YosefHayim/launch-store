@@ -3,7 +3,7 @@ import { runPlanner } from './planner.testkit.js';
 import { describe, expect, it, vi } from 'vitest';
 import { catalogPlanner } from './catalog.js';
 import { makeAscApiFake } from '@testkit/ascApiFake.testkit.js';
-import type { AscCatalogApi } from '@core/store/ascSync.js';
+import type { AscCatalogApi } from '@core/store/apple/ascSync.js';
 import type { AppDescriptor } from '@core/types/app.js';
 import type { AppProducts } from '@core/types/catalog.js';
 import type { LaunchConfig } from '@core/types/config.js';

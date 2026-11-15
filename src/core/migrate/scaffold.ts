@@ -2,7 +2,7 @@ import { FileSystem, Path } from '@effect/platform';
 import type { PlatformError } from '@effect/platform/Error';
 import { Effect } from 'effect';
 import { ENV_EXAMPLE_TEMPLATE } from '../config/configScaffold.js';
-import { serializeStoreConfig, type StoreConfig } from '../store/storeConfig.js';
+import { serializeStoreConfig, type StoreConfig } from '../store/shared/storeConfig.js';
 import type { MigrationArtifact, MigrationNote } from '../types/migrate.js';
 
 /** Fill-in-the-blanks `store.config.json` skeleton (EAS metadata schema for iOS). */
