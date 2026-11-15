@@ -21,7 +21,7 @@ import { errorMessage } from '../../services/platform/errorMessage.js';
 import {
   buildPlayPaymentsProfileUrl,
   buildPlayUsersAndPermissionsUrl,
-} from '../../terminal/consoleLinks.js';
+} from '../../terminal/playConsoleUrls.js';
 
 /** Apple billing period -> ISO-8601 duration, the form Play's base plans and offer phases want. */
 const PERIOD_ISO: Record<SubscriptionPeriod, string> = {
