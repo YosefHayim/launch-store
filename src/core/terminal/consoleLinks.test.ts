@@ -3,12 +3,11 @@ import { describe, expect, it } from 'vitest';
 import type { AppDescriptor, OpenTarget } from '../types/app.js';
 import {
   buildConsoleUrl,
-  buildPlayPaymentsProfileUrl,
-  buildPlayUsersAndPermissionsUrl,
   parseOpenTarget,
   resolveOpenPlatform,
   selectOpenApp,
 } from './consoleLinks.js';
+import { buildPlayPaymentsProfileUrl, buildPlayUsersAndPermissionsUrl } from './playConsoleUrls.js';
 
 const APP_ID = '1490000000';
 

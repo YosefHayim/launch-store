@@ -3,6 +3,10 @@
 </p>
 
 <p align="center">
+  <a href="https://yosefhayim.github.io/launch-store/">Landing page and live plan playground</a>
+</p>
+
+<p align="center">
   <strong>Open-source, self-hosted alternative to <a href="https://docs.expo.dev/eas/">Expo EAS</a> - build, sign, configure your stores, and ship Expo / <a href="https://reactnative.dev/">React Native</a> apps to the <a href="https://developer.apple.com/app-store/">App Store</a> &amp; <a href="https://play.google.com/console/about/">Google Play</a> from one typed launch.config.ts - your machine, your keys. No per-build bill.</strong>
 </p>
 

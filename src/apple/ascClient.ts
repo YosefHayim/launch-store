@@ -751,7 +751,7 @@ const putAssetChunk = async (
       const appleResponse = await fetch(operation.url, {
         method: requestMethod,
         headers,
-        body: chunk,
+        body: chunk as Uint8Array<ArrayBuffer>,
       });
       if (!appleResponse.ok) {
         throw new AscRequestError(

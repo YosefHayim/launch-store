@@ -13,7 +13,7 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'site/**/*.test.ts'],
     environment: 'node',
     forceRerunTriggers: ['**/{vitest,vite}.config.*'],
     coverage: {

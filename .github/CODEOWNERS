@@ -65,3 +65,6 @@
 
 # cli surface
 /src/cli/ @YosefHayim
+
+# landing page
+/site/ @YosefHayim
