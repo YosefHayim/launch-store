@@ -1,12 +1,12 @@
 import { NodeContext } from '@effect/platform-node';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Effect } from 'effect';
-import { captureCommandOutput, makeCommandFailed } from '../services/exec.js';
-import { makeLaunchEnvironmentTest } from '../services/environment.js';
+import { captureCommandOutput, makeCommandFailed } from '../services/platform/exec.js';
+import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
 import { extractProfileEntitlements } from './profileEntitlements.js';
-vi.mock('../services/os.js', () => ({ checkIsMacOperatingSystem: Effect.succeed(true) }));
-vi.mock('../services/exec.js', async (importOriginal) => {
-  const commandServices = await importOriginal<typeof import('../services/exec.js')>();
+vi.mock('../services/platform/os.js', () => ({ checkIsMacOperatingSystem: Effect.succeed(true) }));
+vi.mock('../services/platform/exec.js', async (importOriginal) => {
+  const commandServices = await importOriginal<typeof import('../services/platform/exec.js')>();
   return { ...commandServices, captureCommandOutput: vi.fn() };
 });
 const captureMock = vi.mocked(captureCommandOutput);

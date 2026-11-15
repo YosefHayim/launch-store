@@ -13,11 +13,11 @@ import {
 import { makeFakeAscClient } from '@testkit/storeClients.testkit.js';
 import type { AppDescriptor } from '../types/app.js';
 import type { BuildResource } from '../types/appleCatalog.js';
-import { AppleStoreClientService } from '../services/appleStoreClient.js';
-import { makeLaunchEnvironmentTest } from '../services/environment.js';
-import { makeLaunchLoggerTest } from '../services/logger.js';
-import { makeLaunchPromptTest } from '../services/prompt.js';
-import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
+import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
+import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
+import { makeLaunchLoggerTest } from '../services/platform/logger.js';
+import { makeLaunchPromptTest } from '../services/platform/prompt.js';
+import { makeLaunchSecretStoreTest } from '../services/credentials/secretStore.js';
 import type { AscReleaseApi, ReleaseAction, ReleaseReport } from './appStoreRelease.js';
 import {
   androidReleasePlanLines,

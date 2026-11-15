@@ -1,9 +1,9 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
 import { loadConfig } from '../config/config.js';
-import { errorMessage } from '../services/errorMessage.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
 import type { AppDescriptor } from '../types/app.js';
 import type { MigrationNote, MigrationResult } from '../types/migrate.js';
 import { migrateEas } from './eas.js';

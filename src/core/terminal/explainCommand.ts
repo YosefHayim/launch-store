@@ -1,5 +1,5 @@
 import { Data, Effect, Schema } from 'effect';
-import { createLogger, type Logger } from '../services/logger.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
 import { explainTopic, isGlossaryTopic, listTopics } from './glossary.js';
 
 const ExplainCommandInputSchema = Schema.Struct({

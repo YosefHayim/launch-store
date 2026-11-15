@@ -8,19 +8,19 @@ import {
   captureCommandOutput,
   executeCommand,
   provideNodeCommandServices,
-} from '@core/services/exec.js';
+} from '@core/services/platform/exec.js';
 import {
   runWithProgress,
   gradleProgressStep,
   type ProgressRunOptions,
-} from '@core/services/progress.js';
-import { detectHostOperatingSystem } from '@core/services/os.js';
+} from '@core/services/platform/progress.js';
+import { detectHostOperatingSystem } from '@core/services/platform/os.js';
 import {
   estimateFor,
   readBuildState,
   updateEstimate,
   writeBuildState,
-} from '@core/services/buildEngineSupport.js';
+} from '@core/services/providerSupport/buildEngineSupport.js';
 /**
  * The single ETA baseline key for Android. Unlike iOS there's no clean/incremental split - Gradle tracks
  * its own task inputs/outputs, so every build learns one "default" estimate (see {@link BuildEstimate}).

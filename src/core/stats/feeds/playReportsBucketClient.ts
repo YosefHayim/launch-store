@@ -1,6 +1,6 @@
 import { HttpClient, HttpClientRequest } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
-import { errorMessage } from '../../services/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 
 export const STORAGE_READ_ONLY_SCOPE = 'https://www.googleapis.com/auth/devstorage.read_only';
 

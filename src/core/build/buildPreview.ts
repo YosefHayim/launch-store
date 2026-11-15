@@ -1,5 +1,5 @@
 import { Data, Effect } from 'effect';
-import { isApplePlatform } from '../services/platform.js';
+import { isApplePlatform } from '../services/stores/platform.js';
 import type { AppDescriptor, Platform, PlayTrack } from '../types/app.js';
 import type { LaunchConfig } from '../types/config.js';
 import {

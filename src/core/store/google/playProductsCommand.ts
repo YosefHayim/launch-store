@@ -1,7 +1,7 @@
 import type { Terminal } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
-import { createLogger, type Logger } from '../../services/logger.js';
-import type { LaunchPromptService } from '../../services/prompt.js';
+import { createLogger, type Logger } from '../../services/platform/logger.js';
+import type { LaunchPromptService } from '../../services/platform/prompt.js';
 import { completeCommand, type CommandExit } from '../../terminal/commandExit.js';
 import type { InAppPurchaseConfig } from '../../types/catalog.js';
 import { loadActiveGoogleStore, type ActiveGoogleStoreRequirements } from './googleStoreCommand.js';
@@ -15,7 +15,7 @@ import {
   loadStoreAppContext,
   type StoreAppSelectionRequirements,
 } from '../shared/selectStoreApp.js';
-import { hasMessage } from '../../services/errorMessage.js';
+import { hasMessage } from '../../services/platform/errorMessage.js';
 
 export const PlayProductsCommandInputSchema = Schema.Struct({
   app: Schema.optionalWith(Schema.String, { exact: true }),

@@ -5,7 +5,7 @@ import { NodeContext } from '@effect/platform-node';
 import {
   makeLaunchSecretStoreTest,
   type LaunchSecretStoreService,
-} from '../services/secretStore.js';
+} from '../services/credentials/secretStore.js';
 const secrets = vi.hoisted(() => ({ store: new Map<string, string>() }));
 const home = vi.hoisted(() => {
   let temporaryDirectory = process.env['TMPDIR'];
@@ -30,7 +30,11 @@ vi.mock('./appleSigning.js', () => ({
   migrateLegacySigningIndex: vi.fn(),
   p12PasswordAccount: (keyId: string) => `dist-cert-p12-password:${keyId}`,
 }));
-import { PUSH_KEYS_FILE, makeLaunchPathsTest, type LaunchPathsService } from '../services/paths.js';
+import {
+  PUSH_KEYS_FILE,
+  makeLaunchPathsTest,
+  type LaunchPathsService,
+} from '../services/platform/paths.js';
 import { findPushKey, importPushKey, listPushKeys, loadPushKey } from './pushKeyStore.js';
 /** Run a push-key program with an isolated secret-store capability. */
 const runPushKeyEffect = <TValue, TError>(

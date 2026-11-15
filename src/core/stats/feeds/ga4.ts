@@ -7,7 +7,7 @@ import type {
   StatsFeedFailure,
   StatsFeedPlugin,
 } from '../../types/stats.js';
-import { errorMessage } from '../../services/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 import { readProjectIdFromClientEmail, type Ga4Failure, type Ga4Session } from './ga4Client.js';
 import { loadGa4Report } from './ga4Report.js';
 import { findAppStream, listAllAppStreams, listAppStreams } from './ga4Streams.js';

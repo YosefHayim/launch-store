@@ -4,7 +4,7 @@ import type {
   UserInvitationResource,
   UserResource,
 } from '../../types/appleCatalog.js';
-import { hasMessage } from '../../services/errorMessage.js';
+import { hasMessage } from '../../services/platform/errorMessage.js';
 
 /** App Store Connect operations needed for team membership. */
 export type AscTeamApi = Readonly<{

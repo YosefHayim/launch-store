@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { NodeContext } from '@effect/platform-node';
 import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { makeLaunchPathsTest } from '../services/paths.js';
+import { makeLaunchPathsTest } from '../services/platform/paths.js';
 import type { TrainRecord } from '../types/releaseTrain.js';
 import {
   isLiveTrain,

@@ -1,9 +1,9 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
-import { errorMessage } from '../services/errorMessage.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { detectHostOperatingSystem } from '../services/os.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { detectHostOperatingSystem } from '../services/platform/os.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
 import { installServer, type McpClient } from './install.js';
 import { startMcpServer } from './server.js';
 import type { McpToolRequirements } from './tools.js';

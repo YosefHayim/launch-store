@@ -4,12 +4,12 @@ import {
   readDocumentFile,
   writeDocumentFileAtomically,
   type DocumentFileFailure,
-} from '../services/atomicDocumentFile.js';
+} from '../services/platform/atomicDocumentFile.js';
 import {
   locateAppStatsDirectory,
   type InvalidAppKeyFailure,
   type LaunchPathsService,
-} from '../services/paths.js';
+} from '../services/platform/paths.js';
 import type { DailyStat, StatsMonthFile } from '../types/stats.js';
 import { groupStatsByMonth, mergeStats } from './statsLogic.js';
 

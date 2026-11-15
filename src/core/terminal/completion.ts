@@ -6,8 +6,11 @@ import type { Shell } from '../types/remote.js';
 import { loadConfig } from '../config/config.js';
 import { listSurfacePlanners, registerBuiltinPlanners } from '../plan/registry.js';
 import { listSnapshots } from '../snapshot/store.js';
-import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
+import {
+  LaunchEnvironment,
+  type LaunchEnvironmentService,
+} from '../services/platform/environment.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
 /** The shells `launch completion` supports, in the order help lists them; the first is the default fallback. */
 export const SHELLS: readonly Shell[] = ['bash', 'zsh', 'fish'] as const;
 /**

@@ -10,7 +10,7 @@ import type {
   SubscriptionResource,
 } from '../../types/appleCatalog.js';
 import type { CapabilityType } from '../../credentials/capabilities.js';
-import { errorMessage } from '../../services/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 import type { AppleLocaleInfo, AppleStoreConfig } from '../shared/storeConfig.js';
 import type {
   AppProducts,

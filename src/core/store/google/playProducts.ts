@@ -3,7 +3,7 @@ import type { InAppProductResource, PlayMoney } from '../../types/googlePlay.js'
 import type { InAppPurchaseConfig, PlayPriceConfig } from '../../types/catalog.js';
 import type { PlannedAction } from '../../types/reconcile.js';
 import { plan, type ReconcileContext } from '../shared/reconcile.js';
-import { errorMessage } from '../../services/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 import type { MutableDeep } from '../../types/mutable.js';
 /** Play's purchase type for a one-off managed (non-subscription) product. */
 const MANAGED_PRODUCT = 'managedUser';

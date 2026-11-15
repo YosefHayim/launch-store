@@ -1,8 +1,8 @@
 import { Clock, Effect } from 'effect';
 import { loadPortfolioApps } from '../portfolio/loadPortfolioApps.js';
 import { findAppsByName } from '../portfolio/portfolioLogic.js';
-import type { DocumentFileFailure } from '../services/atomicDocumentFile.js';
-import type { InvalidAppKeyFailure } from '../services/paths.js';
+import type { DocumentFileFailure } from '../services/platform/atomicDocumentFile.js';
+import type { InvalidAppKeyFailure } from '../services/platform/paths.js';
 import type { PortfolioApp } from '../types/portfolio.js';
 import type { StatsFreshness, StatsSyncRequest } from '../types/stats.js';
 import { findFeedCoverage, isFeedCoverageStale } from './coverageLogic.js';

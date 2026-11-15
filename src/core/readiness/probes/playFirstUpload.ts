@@ -1,5 +1,5 @@
 import type { ProbeResult, ReadinessContext, ReadinessProbe } from '@core/types/readiness.js';
-import { errorMessage } from '@core/services/errorMessage.js';
+import { errorMessage } from '@core/services/platform/errorMessage.js';
 import { Effect } from 'effect';
 import { androidApps } from '../appScopes.js';
 import { OMITTED_PROBE, SKIPPED_NO_PLAY_ACCOUNT } from './credentialsSkip.js';

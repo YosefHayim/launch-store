@@ -7,7 +7,7 @@ import {
   assertDeviceArtifact,
   exportOptionsPlist,
   parseThinningReport,
-} from '@core/services/appleArtifact.js';
+} from '@core/services/providerSupport/appleArtifact.js';
 import { xcodebuildEnv, resolveNativeDir } from './xcode.js';
 const MB = 1024 ** 2;
 const resolveTestNativeDir = (

@@ -5,7 +5,7 @@ import {
   resolveCloudStateFilePath,
   resolveLaunchHomeDirectory,
   type LaunchPathsService,
-} from '../services/paths.js';
+} from '../services/platform/paths.js';
 
 export type CloudState = {
   host?: HostHandle;

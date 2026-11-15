@@ -2,11 +2,14 @@ import type * as PlatformCommandExecutor from '@effect/platform/CommandExecutor'
 import { FileSystem, Path } from '@effect/platform';
 import { Effect } from 'effect';
 import { createSign } from 'node:crypto';
-import { captureCommandOutput } from '../services/exec.js';
-import type { LaunchEnvironmentService } from '../services/environment.js';
-import type { Logger } from '../services/logger.js';
-import { resolveCredentialsDirectory, type LaunchPathsService } from '../services/paths.js';
-import type { LaunchSecretStoreService } from '../services/secretStore.js';
+import { captureCommandOutput } from '../services/platform/exec.js';
+import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import type { Logger } from '../services/platform/logger.js';
+import {
+  resolveCredentialsDirectory,
+  type LaunchPathsService,
+} from '../services/platform/paths.js';
+import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
 import { getSecret, setSecret } from './keychain.js';
 
 const PRIVATE_KEY_ACCOUNT = 'ota-code-signing-key';

@@ -1,7 +1,7 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Data, Effect } from 'effect';
-import { captureCommandOutput, provideNodeCommandServices } from '../services/exec.js';
-import { LaunchPaths } from '../services/paths.js';
+import { captureCommandOutput, provideNodeCommandServices } from '../services/platform/exec.js';
+import { LaunchPaths } from '../services/platform/paths.js';
 /** Marker comment that headers Launch's auto-added ignore entry, so it's recognizable and removable by hand. */
 const IGNORE_MARKER = '# launch build artifacts';
 /** Outcome of an {@link ensureArtifactDirIgnored} attempt. */

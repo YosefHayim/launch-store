@@ -50,18 +50,29 @@ src/core/
  mcp/            # MCP server/tools
  migrate/        # EAS/fastlane migration helpers
  plan/           # config-vs-store planning/drift
+ portfolio/      # every app on this machine: discover, tag, list
  privacy/        # privacy parsing/reconciliation/nutrition labels
  readiness/      # store readiness/probes/preflight
  release/        # release, rollout, TestFlight/public release
  releaseTrain/   # release-train records/guards/orchestration
  services/       # Launch-owned Effect service contracts + Live/Test layers
+   platform/       # the machine: os, paths, exec, logger, prompt, progress
+   stores/         # live Apple and Google clients, the only door to src/apple and src/google
+   credentials/    # keychain and local credential stores
+   providerSupport/ # the provider registry and the support code providers plug into
  snapshot/       # live store snapshot/diff/source capture
+ stats/          # download and sales stats feeds and their local store
  store/          # store sync, catalog/product/offers/pricing/reviews/reports across stores
+   apple/          # App Store Connect programs
+   google/         # Google Play programs
+   shared/         # sync, reconcile, store config and app selection used by both
  terminal/       # CLI presentation helpers, glossary, completion, wordmark
  types/          # exported domain shapes imported from owning modules
 ```
 
 Do not create flat `src/core/*.ts` files. Pick the purpose folder that owns the job.
+
+`src/cli/commands/` follows the same jobs: `setup/`, `build/`, `credentials/`, `release/`, `store/` (with `apple/` and `google/`), `listing/`, `readiness/`, `insights/`, `agents/`, `terminal/`.
 
 ## Conventions A Linter Can't Infer
 
@@ -78,7 +89,7 @@ Do not create flat `src/core/*.ts` files. Pick the purpose folder that owns the 
 ```text
 src/cli       -> src/core only; src/cli/index.ts may compose provider live layers
 src/providers -> src/core/types + src/core/services only, plus vendor SDKs
-src/core      -> src/apple and src/google only from live adapters under src/core/services
+src/core      -> src/apple and src/google only from live adapters under src/core/services/stores
 src/apple     -> src/core/types only, never src/core logic
 src/google    -> src/core/types only, never src/core logic
 ```

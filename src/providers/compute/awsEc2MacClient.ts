@@ -1,6 +1,6 @@
 import { Data, Effect } from 'effect';
-import { errorMessage } from '@core/services/errorMessage.js';
-import { requireOptional } from '@core/services/optionalDep.js';
+import { errorMessage } from '@core/services/platform/errorMessage.js';
+import { requireOptional } from '@core/services/platform/optionalDep.js';
 import type { AllocateRequest, AwsConfig } from '@core/types/remote.js';
 
 export type Ec2Module = typeof import('@aws-sdk/client-ec2');

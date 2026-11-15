@@ -23,11 +23,14 @@ import {
   aiScreenshotsCommandProgram,
   ensureGenshotForInteractiveScreenshotsLive,
 } from '../listing/aiScreenshotsCommand.js';
-import { errorMessage } from '../services/errorMessage.js';
-import { createLogger, outroDone } from '../services/logger.js';
-import { checkIsMacOperatingSystem, resolveHostOperatingSystemLabel } from '../services/os.js';
-import { LaunchPaths } from '../services/paths.js';
-import { LaunchPrompt, type PromptSelectionFailure } from '../services/prompt.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { createLogger, outroDone } from '../services/platform/logger.js';
+import {
+  checkIsMacOperatingSystem,
+  resolveHostOperatingSystemLabel,
+} from '../services/platform/os.js';
+import { LaunchPaths } from '../services/platform/paths.js';
+import { LaunchPrompt, type PromptSelectionFailure } from '../services/platform/prompt.js';
 import type { AppDescriptor, BuildLocation, Platform } from '../types/app.js';
 import type { LaunchConfig } from '../types/config.js';
 import { explainTopic, type GlossaryTopic } from './glossary.js';

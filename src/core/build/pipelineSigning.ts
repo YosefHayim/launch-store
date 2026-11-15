@@ -12,11 +12,11 @@ import {
   resolveBuildAccount,
   setActiveKeyId,
 } from '../credentials/accounts.js';
-import type { Logger } from '../services/logger.js';
-import { checkTerminalIsInteractive } from '../services/progress.js';
-import { LaunchEnvironment } from '../services/environment.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
-import { AppleCredentialsClientFactory } from '../services/appleCredentialsClient.js';
+import type { Logger } from '../services/platform/logger.js';
+import { checkTerminalIsInteractive } from '../services/platform/progress.js';
+import { LaunchEnvironment } from '../services/platform/environment.js';
+import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
+import { AppleCredentialsClientFactory } from '../services/stores/appleCredentialsClient.js';
 import {
   ensureAdHocSigningCredentials,
   ensureSigningCredentials,
@@ -29,7 +29,7 @@ import {
 } from '../credentials/signingPreflight.js';
 import { ensureUploadKeystore } from '../credentials/androidKeystore.js';
 import { discoverExtensionBundleIds } from './appleTargets.js';
-import { nativeProjectDirName } from '../services/platform.js';
+import { nativeProjectDirName } from '../services/stores/platform.js';
 import type { BuildRunOptions } from './pipelineTypes.js';
 /** The interactive build-time account picker: choose among onboarded accounts and make the pick active. */
 const pickAccount = (launchPrompt: LaunchPromptService, accounts: readonly AccountRecord[]) =>

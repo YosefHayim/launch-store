@@ -1,6 +1,6 @@
 import { HttpClient, HttpClientRequest } from '@effect/platform';
 import { Data, Effect, Option, Schema } from 'effect';
-import { errorMessage } from '../../services/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 import type { StatsFeedFailure } from '../../types/stats.js';
 
 export const ANALYTICS_ADMIN_URL = 'https://analyticsadmin.googleapis.com/v1beta';

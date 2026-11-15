@@ -1,6 +1,6 @@
 import { Terminal } from '@effect/platform';
 import { Data, Effect } from 'effect';
-import { LaunchPrompt, type LaunchPromptService } from '../../services/prompt.js';
+import { LaunchPrompt, type LaunchPromptService } from '../../services/platform/prompt.js';
 import type { PlannedAction } from '../../types/reconcile.js';
 
 /** Confirmation for a Google Play catalog write failed or was unavailable. */

@@ -1,6 +1,12 @@
 import { Data, Effect, Redacted } from 'effect';
-import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
-import { LaunchSecretStore, type LaunchSecretStoreService } from '../services/secretStore.js';
+import {
+  LaunchEnvironment,
+  type LaunchEnvironmentService,
+} from '../services/platform/environment.js';
+import {
+  LaunchSecretStore,
+  type LaunchSecretStoreService,
+} from '../services/credentials/secretStore.js';
 const ENV_PREFIX = 'env:';
 const KEYCHAIN_PREFIX = 'keychain:';
 /**

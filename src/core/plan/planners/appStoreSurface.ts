@@ -1,7 +1,7 @@
 import type { FileSystem, Path } from '@effect/platform';
 import { Effect } from 'effect';
 import type { PlannedAction } from '@core/types/reconcile.js';
-import { errorMessage } from '@core/services/errorMessage.js';
+import { errorMessage } from '@core/services/platform/errorMessage.js';
 import type {
   AppPlan,
   AscSurfacesApi,

@@ -1,8 +1,8 @@
 import type { FileSystem, Path, Terminal } from '@effect/platform';
 import type { LocalScreenshot } from '../listing/screenshots/assets.js';
 import { Data, Effect, Schema } from 'effect';
-import { createLogger, type Logger } from '../services/logger.js';
-import type { LaunchPromptService } from '../services/prompt.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import type { LaunchPromptService } from '../services/platform/prompt.js';
 import {
   confirmStoreSurfaceWrite,
   renderAppliedStoreSurfaceAction,
@@ -25,7 +25,7 @@ import {
   summarizeExperiments,
   type VersionExperimentsConfig,
 } from './versionExperiments.js';
-import { hasMessage } from '../services/errorMessage.js';
+import { hasMessage } from '../services/platform/errorMessage.js';
 
 export const VersionExperimentsCommandInputSchema = Schema.Struct({
   app: Schema.optionalWith(Schema.String, { exact: true }),

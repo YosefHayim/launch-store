@@ -1,9 +1,9 @@
 import { FileSystem, type Path, Terminal } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
-import { errorMessage } from '../services/errorMessage.js';
-import type { EffectAppStoreConnectClient } from '../services/appleStoreClient.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import type { EffectAppStoreConnectClient } from '../services/stores/appleStoreClient.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
 import type { BetaFeedback, BetaFeedbackKind } from '../types/app.js';
 import type { BetaGroupResource } from '../types/appleCatalog.js';
 import type { PlannedAction } from '../types/reconcile.js';

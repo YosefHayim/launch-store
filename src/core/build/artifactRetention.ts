@@ -2,7 +2,10 @@ import type { ParseError } from 'effect/ParseResult';
 import { FileSystem, Path } from '@effect/platform';
 import type { PlatformError } from '@effect/platform/Error';
 import { Effect, Schema } from 'effect';
-import { resolveArtifactIndexFilePath, type LaunchPathsService } from '../services/paths.js';
+import {
+  resolveArtifactIndexFilePath,
+  type LaunchPathsService,
+} from '../services/platform/paths.js';
 import type {
   BuildArtifact,
   PruneOptions,

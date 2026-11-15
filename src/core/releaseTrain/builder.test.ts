@@ -4,12 +4,12 @@ import { Effect } from 'effect';
 import type { AppDescriptor, BuildProfile } from '../types/app.js';
 import type { LaunchConfig } from '../types/config.js';
 import type { NativeCar, OtaCar } from '../types/releaseTrain.js';
-import { AppleStoreClientLive } from '../services/appleStoreClient.js';
-import { LaunchEnvironmentTest } from '../services/environment.js';
-import { GoogleStoreClientLive } from '../services/googleStoreClient.js';
-import { createLogger, makeLaunchLoggerTest } from '../services/logger.js';
-import { makeLaunchPathsTest } from '../services/paths.js';
-import { LaunchSecretStoreTest } from '../services/secretStore.js';
+import { AppleStoreClientLive } from '../services/stores/appleStoreClient.js';
+import { LaunchEnvironmentTest } from '../services/platform/environment.js';
+import { GoogleStoreClientLive } from '../services/stores/googleStoreClient.js';
+import { createLogger, makeLaunchLoggerTest } from '../services/platform/logger.js';
+import { makeLaunchPathsTest } from '../services/platform/paths.js';
+import { LaunchSecretStoreTest } from '../services/credentials/secretStore.js';
 import {
   createTrainRuntime,
   isStoredAndroidBuild,

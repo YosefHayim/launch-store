@@ -1,6 +1,6 @@
 import { Data, Effect } from 'effect';
 import { parseCliEnv } from '../config/env.js';
-import { parsePlatform, PLATFORMS } from '../services/platform.js';
+import { parsePlatform, PLATFORMS } from '../services/stores/platform.js';
 import type { BuildRunOptions } from './pipelineTypes.js';
 import type { Distribution, PlayTrack } from '../types/app.js';
 import type { RemoteTarget } from '../types/remote.js';

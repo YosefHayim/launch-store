@@ -2,15 +2,18 @@ import { FileSystem, Path } from '@effect/platform';
 import type { CommandExecutor } from '@effect/platform/CommandExecutor';
 import { Data, Effect } from 'effect';
 import { loadConfig } from '../config/config.js';
-import { errorMessage } from '../services/errorMessage.js';
-import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
-import { captureCommandOutput, checkCommandExists } from '../services/exec.js';
-import { detectHostOperatingSystem } from '../services/os.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
-import { getCredentialsProvider } from '../services/registry.js';
-import type { LaunchSecretStoreService } from '../services/secretStore.js';
-import type { AppleStoreClientService } from '../services/appleStoreClient.js';
-import type { GoogleStoreClientService } from '../services/googleStoreClient.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import {
+  LaunchEnvironment,
+  type LaunchEnvironmentService,
+} from '../services/platform/environment.js';
+import { captureCommandOutput, checkCommandExists } from '../services/platform/exec.js';
+import { detectHostOperatingSystem } from '../services/platform/os.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
+import { getCredentialsProvider } from '../services/providerSupport/registry.js';
+import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
+import type { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
+import type { GoogleStoreClientService } from '../services/stores/googleStoreClient.js';
 import { createAscClientResolver, createPlayClientResolver } from '../store/shared/storeClients.js';
 import { selectApps } from '../store/shared/syncJobs.js';
 import type { DoctorContext, DoctorPlatform } from '../types/doctor.js';

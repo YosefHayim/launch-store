@@ -4,13 +4,19 @@ import { listAccounts, loadAscKeyById } from '../credentials/accounts.js';
 import { loadPortfolioFile } from '../portfolio/portfolioStore.js';
 import { loadConfig } from '../config/config.js';
 import { loadServiceAccount } from '../credentials/androidKeystore.js';
-import { AppleStoreClientService } from '../services/appleStoreClient.js';
-import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
-import { errorMessage } from '../services/errorMessage.js';
-import { GoogleAccessToken, type GoogleAccessTokenService } from '../services/googleAccessToken.js';
-import { GoogleReportingClientService } from '../services/googleReportingClient.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
-import type { LaunchSecretStoreService } from '../services/secretStore.js';
+import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
+import {
+  LaunchEnvironment,
+  type LaunchEnvironmentService,
+} from '../services/platform/environment.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import {
+  GoogleAccessToken,
+  type GoogleAccessTokenService,
+} from '../services/stores/googleAccessToken.js';
+import { GoogleReportingClientService } from '../services/stores/googleReportingClient.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
+import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
 import type { StatsCredentialsFailure, StatsCredentialsShape } from '../types/stats.js';
 
 export const StatsCredentials = Context.GenericTag<StatsCredentialsShape>(

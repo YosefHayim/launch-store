@@ -1,5 +1,5 @@
-import { LaunchSecretStoreTest } from '../services/secretStore.js';
-import { GoogleStoreClientService } from '../services/googleStoreClient.js';
+import { LaunchSecretStoreTest } from '../services/credentials/secretStore.js';
+import { GoogleStoreClientService } from '../services/stores/googleStoreClient.js';
 import { NodeContext } from '@effect/platform-node';
 import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
@@ -9,7 +9,7 @@ import type { LaunchConfig } from '../types/config.js';
 vi.mock('../config/config.js', () => ({
   loadConfig: vi.fn(),
 }));
-vi.mock('../services/exec.js', () => ({
+vi.mock('../services/platform/exec.js', () => ({
   captureCommandOutput: vi.fn(() => Effect.succeed('')),
   checkCommandExists: vi.fn(() => Effect.succeed(true)),
 }));
@@ -17,14 +17,14 @@ vi.mock('../store/shared/storeClients.js', () => ({
   createAscClientResolver: () => () => Effect.succeed(null),
   createPlayClientResolver: () => Effect.succeed(() => Effect.succeed(null)),
 }));
-vi.mock('../services/registry.js', () => ({
+vi.mock('../services/providerSupport/registry.js', () => ({
   getCredentialsProvider: () =>
     Effect.succeed({ name: 'local', status: () => Effect.succeed('no credentials') }),
 }));
 
 import { loadConfig } from '../config/config.js';
-import { makeLaunchEnvironmentTest } from '../services/environment.js';
-import { makeLaunchPathsTest } from '../services/paths.js';
+import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
+import { makeLaunchPathsTest } from '../services/platform/paths.js';
 import { buildDoctorContext } from './context.js';
 
 const apps: AppDescriptor[] = [

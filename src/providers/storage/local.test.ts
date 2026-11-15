@@ -1,11 +1,11 @@
-import { makeLaunchPathsTest } from '@core/services/paths.js';
+import { makeLaunchPathsTest } from '@core/services/platform/paths.js';
 import { NodeContext } from '@effect/platform-node';
 import { Effect } from 'effect';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ArtifactRetention } from '@core/services/artifactRetention.js';
+import { ArtifactRetention } from '@core/services/providerSupport/artifactRetention.js';
 import type { StorageProvider } from '@core/types/providers.js';
 import { makeLocalStorageProviderResolver } from './local.js';
 

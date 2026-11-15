@@ -1,7 +1,7 @@
 import { FileSystem, Terminal } from '@effect/platform';
 import { Data, Effect } from 'effect';
-import { createLogger, type Logger } from '../../services/logger.js';
-import { LaunchPrompt, type LaunchPromptService } from '../../services/prompt.js';
+import { createLogger, type Logger } from '../../services/platform/logger.js';
+import { LaunchPrompt, type LaunchPromptService } from '../../services/platform/prompt.js';
 import type { CustomerReviewResource } from '../../types/appleCatalog.js';
 import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './appleStoreCommand.js';
 import { deleteReviewResponse, listReviews, replyToReview } from './reviews.js';
@@ -9,7 +9,7 @@ import {
   resolveStoreBundleId,
   type StoreAppSelectionRequirements,
 } from '../shared/selectStoreApp.js';
-import { hasMessage } from '../../services/errorMessage.js';
+import { hasMessage } from '../../services/platform/errorMessage.js';
 
 /** Options for listing App Store customer reviews. */
 export type ReviewsListCommandInput = Readonly<{

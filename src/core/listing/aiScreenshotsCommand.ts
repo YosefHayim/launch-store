@@ -3,12 +3,16 @@ import type * as PlatformCommandExecutor from '@effect/platform/CommandExecutor'
 import { Data, Effect, Schema } from 'effect';
 import { selectApp } from '../build/pipelineEnv.js';
 import { loadConfig } from '../config/config.js';
-import type { LaunchEnvironmentService } from '../services/environment.js';
-import { errorMessage } from '../services/errorMessage.js';
-import { captureCommandOutput, checkCommandExists, executeCommand } from '../services/exec.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import type { LaunchPathsService } from '../services/paths.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
+import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import {
+  captureCommandOutput,
+  checkCommandExists,
+  executeCommand,
+} from '../services/platform/exec.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import type { LaunchPathsService } from '../services/platform/paths.js';
+import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
 import { openUrl } from '../terminal/consoleLinks.js';
 import type { Platform } from '../types/app.js';
 import {

@@ -3,7 +3,7 @@ import type { SizeReport } from '../types/artifacts.js';
 import type { LaunchConfig, ResolvedBuildContext } from '../types/config.js';
 import type { MutableDeep } from '../types/mutable.js';
 import type { RemoteTarget } from '../types/remote.js';
-import type { Logger } from '../services/logger.js';
+import type { Logger } from '../services/platform/logger.js';
 import type { BumpKind } from '../release/version.js';
 /** Options for one `launch build` invocation. */
 export type BuildRunOptions = {

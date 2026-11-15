@@ -1,9 +1,9 @@
 import { Effect } from 'effect';
 import type { BuildCredentials } from '../types/credentials.js';
 import { makeProviderInputFailure } from '../types/providers.js';
-import { getBuildEngine, getCredentialsProvider } from '../services/registry.js';
+import { getBuildEngine, getCredentialsProvider } from '../services/providerSupport/registry.js';
 import { rememberLastRun } from '../distribution/lastRun.js';
-import { withSpinner } from '../services/progress.js';
+import { withSpinner } from '../services/platform/progress.js';
 import { distributeArtifact } from '../distribution/distribute.js';
 import type { BuildRunOptions, PreparedBuild } from './pipelineTypes.js';
 import {

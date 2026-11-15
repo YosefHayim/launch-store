@@ -1,6 +1,6 @@
 import { Data, Effect, Schema } from 'effect';
-import { errorMessage } from '../services/errorMessage.js';
-import { createLogger } from '../services/logger.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { createLogger } from '../services/platform/logger.js';
 import { openUrl, resolveOpenUrl } from './consoleLinks.js';
 
 export const OpenCommandInputSchema = Schema.Struct({

@@ -8,10 +8,10 @@ import {
   awsHostReleasableAt,
   getAwsGoldenAmiId,
   setAwsGoldenAmiId,
-} from '@core/services/awsComputeSupport.js';
-import { errorMessage } from '@core/services/errorMessage.js';
-import { LAUNCH_HOME } from '@core/services/paths.js';
-import { sshCapture, sshReachable } from '@core/services/ssh.js';
+} from '@core/services/providerSupport/awsComputeSupport.js';
+import { errorMessage } from '@core/services/platform/errorMessage.js';
+import { LAUNCH_HOME } from '@core/services/platform/paths.js';
+import { sshCapture, sshReachable } from '@core/services/platform/ssh.js';
 import type { ComputeHost } from '@core/types/providers.js';
 import type {
   AllocateRequest,

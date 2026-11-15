@@ -1,9 +1,12 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
-import { errorMessage } from '../../services/errorMessage.js';
-import { LaunchEnvironment, type LaunchEnvironmentService } from '../../services/environment.js';
-import { createLogger, type Logger } from '../../services/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../../services/paths.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
+import {
+  LaunchEnvironment,
+  type LaunchEnvironmentService,
+} from '../../services/platform/environment.js';
+import { createLogger, type Logger } from '../../services/platform/logger.js';
+import { LaunchPaths, type LaunchPathsService } from '../../services/platform/paths.js';
 import type { FinanceReportQuery, SalesReportQuery } from '../../types/appleCatalog.js';
 import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './appleStoreCommand.js';
 import {

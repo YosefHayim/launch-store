@@ -8,22 +8,22 @@ import {
 import { loadServiceAccount } from '../credentials/androidKeystore.js';
 import { runBuild } from '../build/pipeline.js';
 import { resolveArtifactDir } from '../distribution/storage.js';
-import { errorMessage } from '../services/errorMessage.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
 import {
   captureCommandOutput,
   checkCommandExists,
   provideNodeCommandServices,
-} from '../services/exec.js';
-import { createLogger } from '../services/logger.js';
+} from '../services/platform/exec.js';
+import { createLogger } from '../services/platform/logger.js';
 import {
   checkIsMacOperatingSystem,
   readHostResources,
   resolveHostOperatingSystemLabel,
-} from '../services/os.js';
-import { isApplePlatform, platformLabel } from '../services/platform.js';
-import { checkTerminalIsInteractive } from '../services/progress.js';
-import { SetupStoreReadiness } from '../services/setupStoreReadiness.js';
-import { LaunchPaths } from '../services/paths.js';
+} from '../services/platform/os.js';
+import { isApplePlatform, platformLabel } from '../services/stores/platform.js';
+import { checkTerminalIsInteractive } from '../services/platform/progress.js';
+import { SetupStoreReadiness } from '../services/stores/setupStoreReadiness.js';
+import { LaunchPaths } from '../services/platform/paths.js';
 import type { AppDescriptor, Platform } from '../types/app.js';
 import { checkApp, formatFinding } from './configCheck.js';
 import {

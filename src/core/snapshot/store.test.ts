@@ -14,7 +14,7 @@ import {
   saveSnapshot,
 } from './store.js';
 import type { Snapshot } from '../types/snapshot.js';
-import { makeLaunchPathsTest, type LaunchPathsService } from '../services/paths.js';
+import { makeLaunchPathsTest, type LaunchPathsService } from '../services/platform/paths.js';
 
 /** Run snapshot persistence with deterministic platform and home-directory services. */
 const runStoreEffect = <Value, Failure>(

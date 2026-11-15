@@ -669,24 +669,24 @@ export const CONTRIBUTOR_RULES: ContributorRule[] = [
     globs: ['src/providers/**'],
     alwaysApply: false,
     body: markdownBody([
-      'Adding a backend = implement one of the five interfaces from `src/core/types/providers.ts` as a named object and register it in `src/providers/index.ts`, which wires into `src/core/services/registry.ts`.',
+      'Adding a backend = implement one of the five interfaces from `src/core/types/providers.ts` as a named object and register it in `src/providers/index.ts`, which wires into `src/core/services/providerSupport/registry.ts`.',
       '',
       '- The pipeline resolves a provider by its `name` (the value users put in `launch.config.ts`), so you **never** edit `src/core/build/pipeline.ts` to add a backend.',
-      '- Lazy-load heavy / optional SDKs (AWS, the native keyring) through `requireOptional` in `src/core/services/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
+      '- Lazy-load heavy / optional SDKs (AWS, the native keyring) through `requireOptional` in `src/core/services/platform/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
     ]),
   },
   {
     file: 'exec-secrets',
     description: 'Running child processes or handling credentials / secrets.',
     globs: [
-      'src/core/services/exec.ts',
+      'src/core/services/platform/exec.ts',
       'src/core/credentials/keychain.ts',
-      'src/core/services/secretStore.ts',
+      'src/core/services/credentials/secretStore.ts',
       'src/core/build/buildSecrets.ts',
     ],
     alwaysApply: false,
     body: markdownBody([
-      'All child processes go through `src/core/services/exec.ts` - `run` streams output, `capture` collects stdout - both with `shell: false` and an explicit argv array. Never build a shell string or call `spawn` / `exec` directly.',
+      'All child processes go through `src/core/services/platform/exec.ts` - `run` streams output, `capture` collects stdout - both with `shell: false` and an explicit argv array. Never build a shell string or call `spawn` / `exec` directly.',
       '',
       "- Secrets (`.p8` / `.p12` / keystore / private keys) live in the OS keychain via the secret store; `~/.launch` holds non-secret paths and ids only. Don't log, write, or commit key material.",
     ]),
@@ -732,8 +732,8 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
     steps: [
       'Pick one of the five types in `src/core/types/providers.ts`: `BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`.',
       'Implement it as a named object in `src/providers/<kind>/<name>.ts`, setting `name` to the value users put in `launch.config.ts`.',
-      'Register it in `src/providers/index.ts` (`registerBuiltins()`), which wires into `src/core/services/registry.ts`. The pipeline resolves a provider by its `name`, so you never edit `src/core/build/pipeline.ts` to add one.',
-      'Lazy-load any heavy or optional SDK through `requireOptional` in `src/core/services/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
+      'Register it in `src/providers/index.ts` (`registerBuiltins()`), which wires into `src/core/services/providerSupport/registry.ts`. The pipeline resolves a provider by its `name`, so you never edit `src/core/build/pipeline.ts` to add one.',
+      'Lazy-load any heavy or optional SDK through `requireOptional` in `src/core/services/platform/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
       'Add a `*.test.ts` beside the provider, then run the gate (see the `run-the-gate` skill).',
     ],
     body: markdownBody([
@@ -742,7 +742,7 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
       'See [AGENTS.md](../../../AGENTS.md) -> “Adding a backend = implement an interface + register it” for the worked S3 example.',
     ]),
     cautions: [
-      'All child processes go through `src/core/services/exec.ts` (`run` / `capture`, `shell: false`, explicit argv) - never build a shell string or call `spawn` / `exec` directly.',
+      'All child processes go through `src/core/services/platform/exec.ts` (`run` / `capture`, `shell: false`, explicit argv) - never build a shell string or call `spawn` / `exec` directly.',
       "Secrets stay in the OS keychain; `~/.launch` holds non-secret paths and ids only. Don't log, write, or commit key material.",
     ],
   },

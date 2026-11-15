@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { makeLaunchPromptTest } from '../services/prompt.js';
+import { makeLaunchPromptTest } from '../services/platform/prompt.js';
 import { resolveDemoPlatform } from './demoCommand.js';
 
 describe('resolveDemoPlatform', () => {

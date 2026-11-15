@@ -1,11 +1,11 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
-import { errorMessage } from '../services/errorMessage.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
 import {
   type LaunchPathsService,
   resolveReleaseTrainFilePath,
   resolveReleaseTrainsDirectory,
-} from '../services/paths.js';
+} from '../services/platform/paths.js';
 import type { TrainRecord } from '../types/releaseTrain.js';
 
 const NativeCarSchema = Schema.Struct({

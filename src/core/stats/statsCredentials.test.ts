@@ -9,11 +9,11 @@ import {
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
 import { makeFakeAscClient, makeFakePlayReportingClient } from '@testkit/storeClients.testkit.js';
-import { AppleStoreClientService } from '../services/appleStoreClient.js';
-import { makeLaunchEnvironmentTest } from '../services/environment.js';
-import { makeGoogleAccessTokenTest } from '../services/googleAccessToken.js';
-import { GoogleReportingClientService } from '../services/googleReportingClient.js';
-import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
+import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
+import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
+import { makeGoogleAccessTokenTest } from '../services/stores/googleAccessToken.js';
+import { GoogleReportingClientService } from '../services/stores/googleReportingClient.js';
+import { makeLaunchSecretStoreTest } from '../services/credentials/secretStore.js';
 import type { ServiceAccount } from '../types/credentials.js';
 import {
   makeStatsCredentialsTest,

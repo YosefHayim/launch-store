@@ -6,12 +6,15 @@ import {
   resolveAccountsFilePath,
   resolveLaunchHomeDirectory,
   type LaunchPathsService,
-} from '../services/paths.js';
+} from '../services/platform/paths.js';
 import { deleteSecret, getSecret, setSecret } from './keychain.js';
 import { migrateLegacySigningIndex, p12PasswordAccount } from './appleSigning.js';
-import { AppStoreIdentityService } from '../services/appStoreIdentity.js';
-import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
-import type { LaunchSecretStoreService } from '../services/secretStore.js';
+import { AppStoreIdentityService } from '../services/stores/appStoreIdentity.js';
+import {
+  LaunchEnvironment,
+  type LaunchEnvironmentService,
+} from '../services/platform/environment.js';
+import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
 import type { MutableDeep } from '../types/mutable.js';
 /** Secret-store account holding one Apple account's `.p8` PEM, namespaced by Key ID. */
 const p8Account = (keyId: string): string => {

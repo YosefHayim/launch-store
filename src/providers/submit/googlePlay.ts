@@ -13,7 +13,7 @@ import {
 import {
   GoogleStoreClientLive,
   GoogleStoreClientService,
-} from '@core/services/googleStoreClient.js';
+} from '@core/services/stores/googleStoreClient.js';
 
 /**
  * The release a Play upload lands as: a partial rollout is a staged (`inProgress`) release at that

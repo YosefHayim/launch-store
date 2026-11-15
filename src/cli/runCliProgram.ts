@@ -5,31 +5,31 @@ import { homedir } from 'node:os';
 import {
   LaunchEnvironmentLive,
   type LaunchEnvironmentService,
-} from '../core/services/environment.js';
+} from '../core/services/platform/environment.js';
 import {
   AppleStoreClientLive,
   type AppleStoreClientService,
-} from '../core/services/appleStoreClient.js';
+} from '../core/services/stores/appleStoreClient.js';
 import {
   AppleCredentialsClientLive,
   type AppleCredentialsClientFactory,
-} from '../core/services/appleCredentialsClient.js';
+} from '../core/services/stores/appleCredentialsClient.js';
 import {
   AppStoreIdentityLive,
   type AppStoreIdentityService,
-} from '../core/services/appStoreIdentity.js';
+} from '../core/services/stores/appStoreIdentity.js';
 import {
   GoogleStoreClientLive,
   type GoogleStoreClientService,
-} from '../core/services/googleStoreClient.js';
+} from '../core/services/stores/googleStoreClient.js';
 import {
   GoogleReportingClientLive,
   type GoogleReportingClientService,
-} from '../core/services/googleReportingClient.js';
+} from '../core/services/stores/googleReportingClient.js';
 import {
   GoogleAccessTokenLive,
   type GoogleAccessTokenService,
-} from '../core/services/googleAccessToken.js';
+} from '../core/services/stores/googleAccessToken.js';
 import { StatsCredentialsLive } from '../core/stats/statsCredentials.js';
 import type { StatsCredentialsShape } from '../core/types/stats.js';
 import {
@@ -37,24 +37,24 @@ import {
   makeLaunchLoggerJson,
   LaunchLoggerLive,
   type Logger,
-} from '../core/services/logger.js';
-import { errorMessage } from '../core/services/errorMessage.js';
-import { setJsonOutput } from '../core/services/jsonOutputMode.js';
+} from '../core/services/platform/logger.js';
+import { errorMessage } from '../core/services/platform/errorMessage.js';
+import { setJsonOutput } from '../core/services/platform/jsonOutputMode.js';
 import { CommandExitSchema, completeCommand } from '../core/terminal/commandExit.js';
-import { type LaunchPathsService, makeLaunchPathsLive } from '../core/services/paths.js';
+import { type LaunchPathsService, makeLaunchPathsLive } from '../core/services/platform/paths.js';
 import {
   LaunchPromptJson,
   LaunchPromptLive,
   type LaunchPromptService,
-} from '../core/services/prompt.js';
+} from '../core/services/platform/prompt.js';
 import {
   LaunchSecretStoreLive,
   type LaunchSecretStoreService,
-} from '../core/services/secretStore.js';
+} from '../core/services/credentials/secretStore.js';
 import {
   SetupStoreReadinessLive,
   type SetupStoreReadinessService,
-} from '../core/services/setupStoreReadiness.js';
+} from '../core/services/stores/setupStoreReadiness.js';
 
 type CliRequirements =
   | HttpClient.HttpClient

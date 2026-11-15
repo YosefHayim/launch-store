@@ -2,8 +2,8 @@ import { FileSystem, Path } from '@effect/platform';
 import type { PlatformError } from '@effect/platform/Error';
 import { createHash } from 'node:crypto';
 import { Effect, Option, Schema } from 'effect';
-import { captureCommandOutput, provideNodeCommandServices } from '../services/exec.js';
-import { resolveLaunchHomeDirectory, type LaunchPathsService } from '../services/paths.js';
+import { captureCommandOutput, provideNodeCommandServices } from '../services/platform/exec.js';
+import { resolveLaunchHomeDirectory, type LaunchPathsService } from '../services/platform/paths.js';
 import type { Platform } from '../types/app.js';
 
 /** Native inputs that determine whether an iOS build cache is reusable. */

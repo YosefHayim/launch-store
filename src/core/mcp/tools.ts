@@ -11,7 +11,7 @@ import { runPlanners } from '../plan/orchestrator.js';
 import { listSurfacePlanners, registerBuiltinPlanners } from '../plan/registry.js';
 import { runProbes } from '../readiness/orchestrator.js';
 import { registerBuiltinProbes, selectReadinessProbes } from '../readiness/registry.js';
-import { LaunchPaths } from '../services/paths.js';
+import { LaunchPaths } from '../services/platform/paths.js';
 import { diffSnapshots } from '../snapshot/diff.js';
 import { captureSnapshot, type CaptureResult } from '../snapshot/orchestrator.js';
 import { listSnapshotSources, registerBuiltinSources } from '../snapshot/registry.js';

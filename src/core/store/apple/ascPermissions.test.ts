@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import { makeAppleTransportFailure } from '../../services/appleStoreClient.js';
+import { makeAppleTransportFailure } from '../../services/stores/appleStoreClient.js';
 import {
   formatPermissionLine,
   probeKeyPermissions,

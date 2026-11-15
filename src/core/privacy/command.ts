@@ -1,15 +1,15 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Context, Data, Effect, Layer, Option } from 'effect';
 import { loadConfig, readResolvedConfig, type LoadedConfig } from '../config/config.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { LaunchPaths } from '../services/paths.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { LaunchPaths } from '../services/platform/paths.js';
 import { selectApps } from '../store/shared/syncJobs.js';
 import { completeCommand, type CommandExit } from '../terminal/commandExit.js';
 import type { AppDescriptor } from '../types/app.js';
 import type { PrivacySurface } from '../types/privacy.js';
 import { surfaceFromExpoConfig, surfaceFromNative } from './parse.js';
 import { buildPrivacyReport, reconcilePrivacy, renderPrivacyReport } from './reconcile.js';
-import { hasMessage } from '../services/errorMessage.js';
+import { hasMessage } from '../services/platform/errorMessage.js';
 
 /** Options accepted by the privacy scan command program. */
 export type PrivacyCommandOptions = {

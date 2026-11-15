@@ -2,11 +2,11 @@ import { FileSystem, type HttpClient, Path, Terminal } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
 import { readResolvedConfig, loadConfig } from '../config/config.js';
 import { readLastApp } from '../distribution/lastRun.js';
-import { errorMessage } from '../services/errorMessage.js';
-import type { LaunchEnvironmentService } from '../services/environment.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
+import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
 import type {
   AndroidLocaleInfo,
   AppleLocaleInfo,

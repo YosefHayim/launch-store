@@ -8,15 +8,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AppleStoreClientService,
   type EffectAppStoreConnectClient,
-} from '../../services/appleStoreClient.js';
+} from '../../services/stores/appleStoreClient.js';
 import {
   type EffectGooglePlayClient,
   GoogleStoreClientService,
-} from '../../services/googleStoreClient.js';
-import { makeLaunchLoggerTest } from '../../services/logger.js';
-import { makeLaunchPathsTest } from '../../services/paths.js';
-import { makeLaunchPromptTest } from '../../services/prompt.js';
-import { makeLaunchSecretStoreTest } from '../../services/secretStore.js';
+} from '../../services/stores/googleStoreClient.js';
+import { makeLaunchLoggerTest } from '../../services/platform/logger.js';
+import { makeLaunchPathsTest } from '../../services/platform/paths.js';
+import { makeLaunchPromptTest } from '../../services/platform/prompt.js';
+import { makeLaunchSecretStoreTest } from '../../services/credentials/secretStore.js';
 import type { AppDescriptor } from '../../types/app.js';
 import type { LaunchConfig } from '../../types/config.js';
 import type { PlayListing } from '../../types/googlePlay.js';

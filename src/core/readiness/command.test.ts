@@ -4,15 +4,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   AppleStoreClientService,
   type AppleStoreClientService as AppleStoreClientContract,
-} from '../services/appleStoreClient.js';
+} from '../services/stores/appleStoreClient.js';
 import {
   GoogleStoreClientService,
   type GoogleStoreClientService as GoogleStoreClientContract,
-} from '../services/googleStoreClient.js';
-import { makeLaunchEnvironmentTest } from '../services/environment.js';
-import { makeLaunchLoggerTest } from '../services/logger.js';
-import { makeLaunchPathsTest } from '../services/paths.js';
-import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
+} from '../services/stores/googleStoreClient.js';
+import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
+import { makeLaunchLoggerTest } from '../services/platform/logger.js';
+import { makeLaunchPathsTest } from '../services/platform/paths.js';
+import { makeLaunchSecretStoreTest } from '../services/credentials/secretStore.js';
 import type { ProbeResult, ReadinessOutcome, ReadinessProbe } from '../types/readiness.js';
 import { formatReadinessSummaryDetail, readinessStoreLabel } from './command.js';
 import { READINESS_EXIT } from './orchestrator.js';

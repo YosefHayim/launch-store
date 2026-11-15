@@ -2,8 +2,8 @@
 
 import { FileSystem, Path } from '@effect/platform';
 import { Effect } from 'effect';
-import { resolveLogsDirectory } from '../services/paths.js';
-import { redactText } from '../services/redact.js';
+import { resolveLogsDirectory } from '../services/platform/paths.js';
+import { redactText } from '../services/platform/redact.js';
 import type { Platform } from '../types/app.js';
 
 /** Natural-key fields that identify one build log. */

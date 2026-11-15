@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { type LaunchPathsService, makeLaunchPathsTest } from '../services/paths.js';
+import { type LaunchPathsService, makeLaunchPathsTest } from '../services/platform/paths.js';
 import {
   type BuildState,
   type FingerprintParts,

@@ -1,5 +1,5 @@
 import { Data, Effect } from 'effect';
-import { errorMessage } from '../../services/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 import type { PlannedAction } from '../../types/reconcile.js';
 import type { MutableDeep } from '../../types/mutable.js';
 

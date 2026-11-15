@@ -1,5 +1,5 @@
 import { Effect, Either } from 'effect';
-import { errorMessage } from '../services/errorMessage.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
 import type {
   Car,
   NativeCar,

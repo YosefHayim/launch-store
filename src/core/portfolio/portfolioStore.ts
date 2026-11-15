@@ -4,8 +4,8 @@ import {
   readDocumentFile,
   writeDocumentFileAtomically,
   type DocumentFileFailure,
-} from '../services/atomicDocumentFile.js';
-import { locatePortfolioFilePath, type LaunchPathsService } from '../services/paths.js';
+} from '../services/platform/atomicDocumentFile.js';
+import { locatePortfolioFilePath, type LaunchPathsService } from '../services/platform/paths.js';
 import type { PortfolioFile } from '../types/portfolio.js';
 
 const OwnerSchema = Schema.Literal('mine', 'client');

@@ -3,11 +3,11 @@ import { rmSync } from 'node:fs';
 import { Effect, Layer } from 'effect';
 import { NodeContext } from '@effect/platform-node';
 import type { AccountRecord, AccountsFile } from '../types/credentials.js';
-import { makeLaunchEnvironmentTest } from '../services/environment.js';
+import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
 import {
   makeLaunchSecretStoreTest,
   type LaunchSecretStoreService,
-} from '../services/secretStore.js';
+} from '../services/credentials/secretStore.js';
 const secrets = vi.hoisted(() => ({ store: new Map<string, string>() }));
 // Redirect HOME before any import evaluates `core/paths.js`, so the real module's `~/.launch` (and
 // `accounts.json`) resolve under a throwaway dir. node:os `homedir()` honors $HOME / %USERPROFILE%.
@@ -38,7 +38,7 @@ import {
   CREDENTIALS_DIR,
   makeLaunchPathsTest,
   type LaunchPathsService,
-} from '../services/paths.js';
+} from '../services/platform/paths.js';
 /** Run an account program with an isolated secret-store capability. */
 const runAccountEffect = <TValue, TError>(
   accountEffect: Effect.Effect<

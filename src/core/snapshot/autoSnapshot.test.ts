@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AUTO_SNAPSHOT_PREFIX, autoSnapshotName, captureAutoSnapshot } from './autoSnapshot.js';
 import type { LaunchConfig } from '../types/config.js';
 import type { SnapshotContext } from '../types/snapshot.js';
-import { makeLaunchPathsTest } from '../services/paths.js';
+import { makeLaunchPathsTest } from '../services/platform/paths.js';
 const CONFIG: LaunchConfig = {
   profiles: {},
   credentials: 'local',

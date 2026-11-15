@@ -1,6 +1,6 @@
 import { FileSystem } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
-import { errorMessage } from '../../services/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 
 const JsonObjectSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown });
 

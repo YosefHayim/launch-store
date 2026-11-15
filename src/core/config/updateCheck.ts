@@ -8,14 +8,14 @@ import {
 } from '@effect/platform';
 import * as CommandExecutor from '@effect/platform/CommandExecutor';
 import { Effect, Option, type ParseResult, Schema } from 'effect';
-import { LaunchEnvironment } from '../services/environment.js';
-import type { LaunchEnvironmentService } from '../services/environment.js';
-import { captureCommandOutput, type CommandFailed } from '../services/exec.js';
+import { LaunchEnvironment } from '../services/platform/environment.js';
+import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import { captureCommandOutput, type CommandFailed } from '../services/platform/exec.js';
 import {
   LaunchPaths,
   resolveUpdateStateFilePath,
   type LaunchPathsService,
-} from '../services/paths.js';
+} from '../services/platform/paths.js';
 import { mergeChildEnv } from '../terminal/locale.js';
 import { makeCommandExit, type CommandExit } from '../terminal/commandExit.js';
 /** The published package name (the `launch` bin's npm package). */

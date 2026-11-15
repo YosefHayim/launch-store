@@ -1,5 +1,5 @@
 import type { FileSystem } from '@effect/platform';
-import { isApplePlatform } from '@core/services/platform.js';
+import { isApplePlatform } from '@core/services/stores/platform.js';
 import type { Platform } from '@core/types/app.js';
 import { Effect } from 'effect';
 import { readScreenshotDimensions } from './imageDimensions.js';

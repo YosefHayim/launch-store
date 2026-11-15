@@ -4,12 +4,12 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { LaunchEnvironmentTest } from '../services/environment.js';
-import { LaunchLogger, makeLaunchLoggerTest } from '../services/logger.js';
-import { makeLaunchPathsTest } from '../services/paths.js';
-import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
+import { LaunchEnvironmentTest } from '../services/platform/environment.js';
+import { LaunchLogger, makeLaunchLoggerTest } from '../services/platform/logger.js';
+import { makeLaunchPathsTest } from '../services/platform/paths.js';
+import { makeLaunchSecretStoreTest } from '../services/credentials/secretStore.js';
 
-vi.mock('../services/exec.js', () => ({
+vi.mock('../services/platform/exec.js', () => ({
   captureCommandOutput: vi.fn((_executable: string, arguments_: readonly string[]) =>
     Effect.sync(() => {
       const keystoreIndex = arguments_.indexOf('-keystore');
@@ -20,7 +20,7 @@ vi.mock('../services/exec.js', () => ({
   ),
 }));
 
-import { captureCommandOutput } from '../services/exec.js';
+import { captureCommandOutput } from '../services/platform/exec.js';
 import { ensureUploadKeystore } from './androidKeystore.js';
 
 describe('Android signing command secret transport', () => {

@@ -27,7 +27,7 @@ import type {
   WinBackOfferConfig,
 } from '../../types/catalog.js';
 import type { MutableDeep } from '../../types/mutable.js';
-import { errorMessage } from '../../services/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 import {
   act,
   makeAppRecordFailure,

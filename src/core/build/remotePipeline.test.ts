@@ -10,16 +10,16 @@ vi.mock('node:child_process', () => ({
     throw new Error('spawn must not run during --dry-run');
   }),
 }));
-import { AppleCredentialsClientLive } from '../services/appleCredentialsClient.js';
-import { AppleStoreClientLive } from '../services/appleStoreClient.js';
-import { AppStoreIdentityLive } from '../services/appStoreIdentity.js';
-import { LaunchEnvironmentTest } from '../services/environment.js';
-import { GoogleStoreClientLive } from '../services/googleStoreClient.js';
-import { makeLaunchLoggerTest } from '../services/logger.js';
-import { makeLaunchPathsTest } from '../services/paths.js';
-import { makeLaunchPromptTest } from '../services/prompt.js';
-import { registerBuildEngine } from '../services/registry.js';
-import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
+import { AppleCredentialsClientLive } from '../services/stores/appleCredentialsClient.js';
+import { AppleStoreClientLive } from '../services/stores/appleStoreClient.js';
+import { AppStoreIdentityLive } from '../services/stores/appStoreIdentity.js';
+import { LaunchEnvironmentTest } from '../services/platform/environment.js';
+import { GoogleStoreClientLive } from '../services/stores/googleStoreClient.js';
+import { makeLaunchLoggerTest } from '../services/platform/logger.js';
+import { makeLaunchPathsTest } from '../services/platform/paths.js';
+import { makeLaunchPromptTest } from '../services/platform/prompt.js';
+import { registerBuildEngine } from '../services/providerSupport/registry.js';
+import { makeLaunchSecretStoreTest } from '../services/credentials/secretStore.js';
 import { prepareBuild, runBuild } from './pipeline.js';
 import { runEasBuild } from './easPipeline.js';
 

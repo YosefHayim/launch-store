@@ -10,7 +10,7 @@ import {
   DEFAULT_STORAGE_PROVIDER,
   DEFAULT_SUBMITTER,
 } from '../types/config.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
 import type { MutableDeep } from '../types/mutable.js';
 /**
  * Absolute path to THIS package's own public entry (`defineConfig` + the config types), resolved

@@ -1,7 +1,7 @@
 import { Terminal } from '@effect/platform';
 import { Data, Effect } from 'effect';
 import type { AppDescriptor, BuildProfile } from '../types/app.js';
-import { pickOne, type PickOneArgs } from '../services/prompt.js';
+import { pickOne, type PickOneArgs } from '../services/platform/prompt.js';
 import { readLastApp } from '../distribution/lastRun.js';
 import { resolveBuildSecrets } from './buildSecrets.js';
 import {
@@ -13,7 +13,7 @@ import {
   type ResolvedEnv,
 } from '../config/env.js';
 import { loadConfig } from '../config/config.js';
-import { createLogger, type Logger } from '../services/logger.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
 import type { BuildRunOptions } from './pipelineTypes.js';
 
 /** App selection failed before a build could start. */

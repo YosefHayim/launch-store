@@ -6,10 +6,10 @@ import {
   resolveLaunchHomeDirectory,
   resolvePushKeysFilePath,
   type LaunchPathsService,
-} from '../services/paths.js';
+} from '../services/platform/paths.js';
 import { getSecret, setSecret } from './keychain.js';
 import { decodeP8, encodeP8 } from './accounts.js';
-import type { LaunchSecretStoreService } from '../services/secretStore.js';
+import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
 import type { MutableDeep } from '../types/mutable.js';
 /** Secret-store account holding one APNs key's `.p8` PEM, namespaced by Key ID. */
 const apnsAccount = (keyId: string): string => {

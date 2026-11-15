@@ -11,11 +11,11 @@ import {
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
-import { AppleStoreClientService } from '../services/appleStoreClient.js';
-import { errorMessage } from '../services/errorMessage.js';
-import { makeLaunchEnvironmentTest } from '../services/environment.js';
-import { makeLaunchLoggerTest } from '../services/logger.js';
-import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
+import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
+import { makeLaunchLoggerTest } from '../services/platform/logger.js';
+import { makeLaunchSecretStoreTest } from '../services/credentials/secretStore.js';
 import { CommandExitSchema, type CommandExit } from '../terminal/commandExit.js';
 import type { AppStoreVersionResource, BuildResource } from '../types/appleCatalog.js';
 import type { AscReleaseApi } from './appStoreRelease.js';

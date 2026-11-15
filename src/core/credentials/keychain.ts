@@ -1,5 +1,8 @@
 import { Effect } from 'effect';
-import { LaunchSecretStore, type LaunchSecretStoreService } from '../services/secretStore.js';
+import {
+  LaunchSecretStore,
+  type LaunchSecretStoreService,
+} from '../services/credentials/secretStore.js';
 /** Store (or overwrite) a secret for `account` in the host's native secret store. */
 export const setSecret = (
   account: string,

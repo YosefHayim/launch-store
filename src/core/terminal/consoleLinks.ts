@@ -1,14 +1,14 @@
 import { Data, Effect } from 'effect';
 import { loadConfig } from '../config/config.js';
-import { executeCommand, provideNodeCommandServices } from '../services/exec.js';
-import { detectHostOperatingSystem } from '../services/os.js';
-import { LaunchPaths } from '../services/paths.js';
-import { isApplePlatform, parsePlatform } from '../services/platform.js';
+import { executeCommand, provideNodeCommandServices } from '../services/platform/exec.js';
+import { detectHostOperatingSystem } from '../services/platform/os.js';
+import { LaunchPaths } from '../services/platform/paths.js';
+import { isApplePlatform, parsePlatform } from '../services/stores/platform.js';
 import type { ActiveAppleStoreRequirements } from '../store/apple/appleStoreCommand.js';
 import { selectApps } from '../store/shared/syncJobs.js';
 import { createAscClientResolver } from '../store/shared/storeClients.js';
 import type { AppDescriptor, OpenTarget, Platform } from '../types/app.js';
-import { hasMessage } from '../services/errorMessage.js';
+import { hasMessage } from '../services/platform/errorMessage.js';
 
 export const OPEN_TARGETS: readonly OpenTarget[] = [
   'asc',

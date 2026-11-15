@@ -13,7 +13,7 @@ import {
 } from './config.js';
 import { validateConfig } from './configSchema.js';
 import type { AppDescriptor } from '../types/app.js';
-import { makeLaunchPathsTest, type LaunchPathsService } from '../services/paths.js';
+import { makeLaunchPathsTest, type LaunchPathsService } from '../services/platform/paths.js';
 import { expectArrayElement, expectDefined } from '@testkit/assertions.testkit.js';
 const tempDirs: string[] = [];
 const runConfigEffect = <Success, Failure>(

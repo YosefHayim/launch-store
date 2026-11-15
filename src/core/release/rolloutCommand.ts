@@ -5,11 +5,11 @@ import {
   AppleStoreClientService,
   appRecordMissingMessage,
   type AppleStoreClientService as AppleStoreClientRequirements,
-} from '../services/appleStoreClient.js';
-import { errorMessage } from '../services/errorMessage.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { notify } from '../services/notify.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
+} from '../services/stores/appleStoreClient.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { notify } from '../services/platform/notify.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
 import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
 import { IOS_PLATFORM, pickCurrentVersion } from './appStoreRelease.js';
 import { selectIosApps } from './statusCommand.js';

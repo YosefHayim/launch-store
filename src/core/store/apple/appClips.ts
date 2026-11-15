@@ -8,7 +8,7 @@ import {
 } from '../../types/appleCatalog.js';
 import type { PlannedAction, ReconcileReport } from '../../types/reconcile.js';
 import { appRecordMissing, plan, skip, type ReconcileContext } from '../shared/reconcile.js';
-import { errorMessage } from '../../services/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 import type {
   AppClipConfig,
   AppClipLocalizationConfig,

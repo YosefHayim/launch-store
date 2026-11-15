@@ -1,8 +1,8 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
-import { errorMessage } from '../services/errorMessage.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
 
 const WORKFLOW_SEGMENTS = ['.github', 'workflows', 'launch.yml'] as const;
 const WORKFLOW_PATH = WORKFLOW_SEGMENTS.join('/');

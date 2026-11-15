@@ -1,7 +1,7 @@
 import type { FileSystem, Path } from '@effect/platform';
 import { Effect } from 'effect';
 import { describeStoredCredentials } from '../credentials/appleSigning.js';
-import type { LaunchPathsService } from '../services/paths.js';
+import type { LaunchPathsService } from '../services/platform/paths.js';
 import type { Adopter, PlannedWrite } from '../types/adopt.js';
 import type { CertificateResource, ProfileResource } from '../types/appleCatalog.js';
 

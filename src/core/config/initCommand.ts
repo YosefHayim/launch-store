@@ -1,9 +1,9 @@
 import { FileSystem, Path, Terminal } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
 import { resolveArtifactDir } from '../distribution/storage.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
+import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
 import type { AppDescriptor } from '../types/app.js';
 import { loadConfig } from './config.js';
 import {
@@ -13,7 +13,7 @@ import {
   ENV_EXAMPLE_TEMPLATE,
 } from './configScaffold.js';
 import { ensureArtifactDirIgnored } from './gitignore.js';
-import { hasMessage } from '../services/errorMessage.js';
+import { hasMessage } from '../services/platform/errorMessage.js';
 
 export const InitCommandInputSchema = Schema.Struct({
   workingDirectory: Schema.optionalWith(Schema.String, { exact: true }),

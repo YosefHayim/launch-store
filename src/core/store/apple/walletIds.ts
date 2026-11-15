@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import type { MerchantIdResource, PassTypeIdResource } from '../../types/appleCatalog.js';
 import { plan, type ReconcileContext } from '../shared/reconcile.js';
-import { errorMessage } from '../../services/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 import type { PlannedAction } from '../../types/reconcile.js';
 import type { WalletConfig, WalletIdConfig } from '../../types/storeSurface.js';
 import {

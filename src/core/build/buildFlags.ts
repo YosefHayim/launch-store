@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import type { SigningAssets } from '../types/credentials.js';
-import { LaunchEnvironment } from '../services/environment.js';
+import { LaunchEnvironment } from '../services/platform/environment.js';
 export const computeParallelJobLimit = (availableCores: number, totalMemoryBytes: number) =>
   Effect.sync(() => {
     const totalMemoryGB = totalMemoryBytes / 1024 ** 3;

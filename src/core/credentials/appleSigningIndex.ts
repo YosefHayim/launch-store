@@ -1,8 +1,11 @@
 import { FileSystem, Path } from '@effect/platform';
 import type { CommandExecutor } from '@effect/platform/CommandExecutor';
 import { Data, Effect, Schema } from 'effect';
-import type { LaunchEnvironmentService } from '../services/environment.js';
-import { resolveAccountCredentialsDirectory, type LaunchPathsService } from '../services/paths.js';
+import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import {
+  resolveAccountCredentialsDirectory,
+  type LaunchPathsService,
+} from '../services/platform/paths.js';
 
 /** Persisted record of the distribution certificate Launch created and backed up. */
 export type CertRecord = {

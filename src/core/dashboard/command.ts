@@ -1,6 +1,6 @@
 import { Data, Effect, Schema } from 'effect';
-import { errorMessage } from '../services/errorMessage.js';
-import { createLogger, type Logger } from '../services/logger.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
 import { gatherDashboardState } from './state.js';
 import type { StatsSyncRequirements } from '../stats/syncStats.js';
 import { renderDashboardHtml } from './render.js';

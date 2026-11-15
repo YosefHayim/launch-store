@@ -3,7 +3,10 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { captureCommandOutput, provideNodeCommandServices } from '../core/services/exec.js';
+import {
+  captureCommandOutput,
+  provideNodeCommandServices,
+} from '../core/services/platform/exec.js';
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'dist', 'cli', 'index.js');
 const PLAY_SUBSCRIPTIONS = join(

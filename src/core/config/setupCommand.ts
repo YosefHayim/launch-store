@@ -12,23 +12,23 @@ import {
   ensureSigningCredentials,
   loadCachedSigningAssets,
 } from '../credentials/appleSigning.js';
-import type { LaunchEnvironmentService } from '../services/environment.js';
-import { errorMessage } from '../services/errorMessage.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import type { LaunchPathsService } from '../services/paths.js';
-import { parsePlatform } from '../services/platform.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
-import type { LaunchSecretStoreService } from '../services/secretStore.js';
-import type { AppleCredentialsClientFactory } from '../services/appleCredentialsClient.js';
-import type { AppStoreIdentityService } from '../services/appStoreIdentity.js';
-import type { GoogleStoreClientService } from '../services/googleStoreClient.js';
+import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import type { LaunchPathsService } from '../services/platform/paths.js';
+import { parsePlatform } from '../services/stores/platform.js';
+import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
+import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
+import type { AppleCredentialsClientFactory } from '../services/stores/appleCredentialsClient.js';
+import type { AppStoreIdentityService } from '../services/stores/appStoreIdentity.js';
+import type { GoogleStoreClientService } from '../services/stores/googleStoreClient.js';
 import {
   AppleStoreClientService,
   type AppleStoreClientService as AppleStoreClientRequirements,
   type AppleTransportFailure,
   type EffectAppStoreConnectClient,
-} from '../services/appleStoreClient.js';
-import type { SetupStoreReadinessService } from '../services/setupStoreReadiness.js';
+} from '../services/stores/appleStoreClient.js';
+import type { SetupStoreReadinessService } from '../services/stores/setupStoreReadiness.js';
 import type { AccountRecord, AscKey } from '../types/credentials.js';
 import {
   loadStoreAppContext,

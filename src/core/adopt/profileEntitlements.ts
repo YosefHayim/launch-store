@@ -1,9 +1,9 @@
 import { FileSystem, Path } from '@effect/platform';
 import type { CommandExecutor } from '@effect/platform/CommandExecutor';
 import { Effect, Schema } from 'effect';
-import type { LaunchEnvironmentService } from '../services/environment.js';
-import { captureCommandOutput } from '../services/exec.js';
-import { checkIsMacOperatingSystem } from '../services/os.js';
+import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import { captureCommandOutput } from '../services/platform/exec.js';
+import { checkIsMacOperatingSystem } from '../services/platform/os.js';
 import type { EntitlementValue } from '../types/adopt.js';
 
 const EntitlementValueSchema: Schema.Schema<EntitlementValue> = Schema.suspend(() =>

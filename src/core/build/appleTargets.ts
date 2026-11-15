@@ -220,7 +220,7 @@ export const multiTargetSigningWarnings = (
 /**
  * The per-target manual-signing inputs stamped into a multi-target project before archiving: the one team
  * that signs every target, and each target's `bundleId -> profileName` (the main app plus every embedded
- * extension). Mirrors the {@link import("../services/appleArtifact.js").exportOptionsPlist} profile map so
+ * extension). Mirrors the {@link import("../services/providerSupport/appleArtifact.js").exportOptionsPlist} profile map so
  * the archive and the export agree on which profile signs which bundle.
  */
 export type ManualSigningTargets = {

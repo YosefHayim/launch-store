@@ -3,7 +3,7 @@ import type {
   CustomerReviewResource,
   CustomerReviewResponseResource,
 } from '../../types/appleCatalog.js';
-import { hasMessage } from '../../services/errorMessage.js';
+import { hasMessage } from '../../services/platform/errorMessage.js';
 
 /** The App Store transport operations required by the customer-reviews domain. */
 export type AscReviewsApi = Readonly<{

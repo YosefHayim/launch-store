@@ -1,7 +1,7 @@
 import { Terminal } from '@effect/platform';
 import { Data, Effect } from 'effect';
-import { createLogger, type Logger } from '../../services/logger.js';
-import { LaunchPrompt, type LaunchPromptService } from '../../services/prompt.js';
+import { createLogger, type Logger } from '../../services/platform/logger.js';
+import { LaunchPrompt, type LaunchPromptService } from '../../services/platform/prompt.js';
 import {
   createEvent,
   deleteEvent,
@@ -14,7 +14,7 @@ import {
   resolveStoreBundleId,
   type StoreAppSelectionRequirements,
 } from '../shared/selectStoreApp.js';
-import { hasMessage } from '../../services/errorMessage.js';
+import { hasMessage } from '../../services/platform/errorMessage.js';
 
 /** Options for creating a draft in-app event. */
 export type CreateEventCommandInput = Readonly<{

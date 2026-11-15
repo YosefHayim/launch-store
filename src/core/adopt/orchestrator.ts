@@ -1,7 +1,7 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Effect } from 'effect';
 import { writeAppEntitlements } from '../config/config.js';
-import { errorMessage } from '../services/errorMessage.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
 import type {
   AdoptCatalogApi,
   AdoptTarget,

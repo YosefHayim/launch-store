@@ -17,9 +17,12 @@ import {
   PROVISIONING_PROFILES_DIR,
   makeLaunchPathsTest,
   type LaunchPathsService,
-} from '../services/paths.js';
-import { LaunchEnvironmentTest, type LaunchEnvironmentService } from '../services/environment.js';
-import { createLogger, makeLaunchLoggerTest } from '../services/logger.js';
+} from '../services/platform/paths.js';
+import {
+  LaunchEnvironmentTest,
+  type LaunchEnvironmentService,
+} from '../services/platform/environment.js';
+import { createLogger, makeLaunchLoggerTest } from '../services/platform/logger.js';
 import {
   ensureAdHocSigningCredentials,
   loadCachedSigningAssets,
@@ -32,11 +35,11 @@ import type { BundleIdCapabilityResource, ProfileResource } from '../types/apple
 import {
   AppleCredentialsClientFactory,
   type AppleCredentialsClient,
-} from '../services/appleCredentialsClient.js';
+} from '../services/stores/appleCredentialsClient.js';
 import {
   makeLaunchSecretStoreTest,
   type LaunchSecretStoreService,
-} from '../services/secretStore.js';
+} from '../services/credentials/secretStore.js';
 // The profile-entitlements reader shells out to `security cms`/`plutil` (Mac-only). Mock it so the
 // stale-profile decision test stays a pure, in-process unit with no exec and no network.
 vi.mock('../adopt/profileEntitlements.js', () => ({

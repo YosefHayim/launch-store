@@ -1,6 +1,6 @@
 import { Data, Effect } from 'effect';
-import type { EffectAppStoreConnectClient } from '../../services/appleStoreClient.js';
-import { errorMessage } from '../../services/errorMessage.js';
+import type { EffectAppStoreConnectClient } from '../../services/stores/appleStoreClient.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 import { summarizeRatings } from '../../insights/aggregate.js';
 import {
   collectAnalyticsSegments,

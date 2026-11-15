@@ -1,7 +1,7 @@
 import { FileSystem } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
 import { resolveSecretRef } from '../credentials/secretRef.js';
-import { errorMessage } from '../services/errorMessage.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
 import { appRecordMissing, skip, type ReconcileContext } from '../store/shared/reconcile.js';
 import {
   deprecatedAgeRatingVerdict,

@@ -1,8 +1,8 @@
 import { FileSystem, Path } from '@effect/platform';
 import type { PlatformError } from '@effect/platform/Error';
 import { Clock, Data, Effect } from 'effect';
-import { errorMessage } from '../services/errorMessage.js';
-import { locateStatsDirectory, type LaunchPathsService } from '../services/paths.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { locateStatsDirectory, type LaunchPathsService } from '../services/platform/paths.js';
 
 const SYNC_LOCK_FILE_NAME = 'sync.lock';
 const SYNC_LOCK_STALE_AFTER_MILLISECONDS = 5 * 60 * 1000;

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { FileSystem, Path } from '@effect/platform';
 import { Clock, Data, Effect, Schema } from 'effect';
 import type { CodeSigner } from '../credentials/codeSign.js';
-import type { Logger } from '../services/logger.js';
+import type { Logger } from '../services/platform/logger.js';
 import type { StorageProvider } from '../types/providers.js';
 import { assembleManifest, contentTypeFor, type ManifestAsset } from './otaManifest.js';
 import { activateUpdate } from './updateHistory.js';

@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { errorMessage } from '@core/services/errorMessage.js';
+import { errorMessage } from '@core/services/platform/errorMessage.js';
 import {
   reconcilePlaySubscriptions,
   type PlaySubscriptionsApi,

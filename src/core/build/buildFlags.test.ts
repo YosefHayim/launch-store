@@ -7,7 +7,10 @@ import {
   resolveCcacheEnvironment,
 } from './buildFlags.js';
 import type { ArchiveArgsInput } from './buildFlags.js';
-import { LaunchEnvironmentTest, makeLaunchEnvironmentTest } from '../services/environment.js';
+import {
+  LaunchEnvironmentTest,
+  makeLaunchEnvironmentTest,
+} from '../services/platform/environment.js';
 const GB = 1024 ** 3;
 const BASE_ARCHIVE: ArchiveArgsInput = {
   workspace: '/app/ios/MyApp.xcworkspace',

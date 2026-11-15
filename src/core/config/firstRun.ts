@@ -4,7 +4,7 @@ import {
   resolveLaunchHomeDirectory,
   resolveStateFilePath,
   type LaunchPathsService,
-} from '../services/paths.js';
+} from '../services/platform/paths.js';
 
 export type FirstRunState = {
   tourSeenAt?: string;

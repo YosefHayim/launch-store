@@ -2,8 +2,8 @@
 // The probe reads only; it never changes store state.
 
 import { Effect } from 'effect';
-import type { AppleTransportFailure } from '../../services/appleStoreClient.js';
-import { errorMessage } from '../../services/errorMessage.js';
+import type { AppleTransportFailure } from '../../services/stores/appleStoreClient.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 
 /** App Store Connect reads that represent distinct role-gated feature groups. */
 export type AscPermissionProbeApi = Readonly<{

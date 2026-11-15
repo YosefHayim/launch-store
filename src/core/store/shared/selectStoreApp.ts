@@ -1,8 +1,8 @@
 import { type FileSystem, type Path, Terminal } from '@effect/platform';
 import { Data, Effect } from 'effect';
 import { loadConfig } from '../../config/config.js';
-import { LaunchPaths, type LaunchPathsService } from '../../services/paths.js';
-import { LaunchPrompt, type LaunchPromptService } from '../../services/prompt.js';
+import { LaunchPaths, type LaunchPathsService } from '../../services/platform/paths.js';
+import { LaunchPrompt, type LaunchPromptService } from '../../services/platform/prompt.js';
 import type { AppDescriptor } from '../../types/app.js';
 import type { LaunchConfig } from '../../types/config.js';
 

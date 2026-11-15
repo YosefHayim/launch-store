@@ -11,8 +11,8 @@ import {
   type ToolchainIo,
 } from './toolchain.js';
 import { expectDefined } from '@testkit/assertions.testkit.js';
-import { makeLaunchLoggerTest, type Logger } from '../services/logger.js';
-import { makeLaunchPromptTest, type LaunchPromptService } from '../services/prompt.js';
+import { makeLaunchLoggerTest, type Logger } from '../services/platform/logger.js';
+import { makeLaunchPromptTest, type LaunchPromptService } from '../services/platform/prompt.js';
 /** Map each brew formula back to the command it provides, so the fake can mark it present after install. */
 const FORMULA_TO_COMMAND = new Map(
   REQUIRED_TOOLS.flatMap((tool) => {

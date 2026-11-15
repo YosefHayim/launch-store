@@ -9,10 +9,10 @@ import {
   assertDeviceArtifact,
   exportOptionsPlist,
   parseThinningReport,
-} from '@core/services/appleArtifact.js';
-import { runWithProgress, xcodeProgressStep } from '@core/services/progress.js';
-import { checkCommandExists, provideNodeCommandServices } from '@core/services/exec.js';
-import { readHostResources } from '@core/services/os.js';
+} from '@core/services/providerSupport/appleArtifact.js';
+import { runWithProgress, xcodeProgressStep } from '@core/services/platform/progress.js';
+import { checkCommandExists, provideNodeCommandServices } from '@core/services/platform/exec.js';
+import { readHostResources } from '@core/services/platform/os.js';
 import {
   assembleArchiveArguments,
   assembleExportArguments,
@@ -25,14 +25,14 @@ import {
   updateEstimate,
   writeBuildState,
   writeManualSigningToProject,
-} from '@core/services/buildEngineSupport.js';
+} from '@core/services/providerSupport/buildEngineSupport.js';
 import {
   appleArtifactExtension,
   archiveDestination,
   isApplePlatform,
   nativeProjectDirName,
   platformLabel,
-} from '@core/services/platform.js';
+} from '@core/services/stores/platform.js';
 /**
  * Resolve an app's native Xcode project directory to an ABSOLUTE path, for the given Apple platform
  * ({@link nativeProjectDirName} - `ios` for iOS/tvOS, `macos`, `visionos`).

@@ -3,17 +3,21 @@ import { Effect, Schema } from 'effect';
 import type { Platform } from '../types/app.js';
 import type { AscKey, SigningAssets } from '../types/credentials.js';
 import type { MutableDeep } from '../types/mutable.js';
-import type { Logger } from '../services/logger.js';
-import { adHocProfileType, appStoreProfileType, platformLabel } from '../services/platform.js';
+import type { Logger } from '../services/platform/logger.js';
+import {
+  adHocProfileType,
+  appStoreProfileType,
+  platformLabel,
+} from '../services/stores/platform.js';
 import {
   resolveAccountCredentialsDirectory,
   resolveCredentialsDirectory,
   resolveProvisioningProfilesDirectory,
   type LaunchPathsService,
-} from '../services/paths.js';
-import { AppleCredentialsClientFactory } from '../services/appleCredentialsClient.js';
+} from '../services/platform/paths.js';
+import { AppleCredentialsClientFactory } from '../services/stores/appleCredentialsClient.js';
 import type { ProfileResource } from '../types/appleCatalog.js';
-import type { LaunchSecretStoreService } from '../services/secretStore.js';
+import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
 import {
   CredentialsIndexSchema,
   makeAppleSigningFailure,

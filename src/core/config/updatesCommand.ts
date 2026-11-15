@@ -16,15 +16,15 @@ import {
   republishUpdate,
   setRollbackToEmbedded,
 } from '../distribution/updateHistory.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import type { LaunchEnvironmentService } from '../services/environment.js';
-import type { LaunchPathsService } from '../services/paths.js';
-import { LaunchPrompt, type LaunchPromptService, pickOne } from '../services/prompt.js';
-import type { LaunchSecretStoreService } from '../services/secretStore.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import type { LaunchPathsService } from '../services/platform/paths.js';
+import { LaunchPrompt, type LaunchPromptService, pickOne } from '../services/platform/prompt.js';
+import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
 import type { Platform } from '../types/app.js';
 import type { StorageProvider } from '../types/providers.js';
 import { loadConfig, type LoadedConfig } from './config.js';
-import { hasMessage } from '../services/errorMessage.js';
+import { hasMessage } from '../services/platform/errorMessage.js';
 
 const ManifestAssetSchema = Schema.Struct({
   key: Schema.String,

@@ -1,7 +1,7 @@
 import type { HttpClient } from '@effect/platform';
 import { Data, Effect } from 'effect';
 import type { PlayReportingClient } from '@google/playReporting.js';
-import { errorMessage } from '../../services/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 import type { PortfolioApp } from '../../types/portfolio.js';
 import type { PlayVitalsMetric } from '../../types/vitals.js';
 import type {

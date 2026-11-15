@@ -1,13 +1,13 @@
 import { FileSystem, Path } from '@effect/platform';
 import type { CommandExecutor } from '@effect/platform/CommandExecutor';
 import { Effect } from 'effect';
-import type { Logger } from '../services/logger.js';
-import { captureCommandOutput } from '../services/exec.js';
-import type { LaunchEnvironmentService } from '../services/environment.js';
-import { resolveAccountCredentialsDirectory } from '../services/paths.js';
-import type { AppleCredentialsClient } from '../services/appleCredentialsClient.js';
+import type { Logger } from '../services/platform/logger.js';
+import { captureCommandOutput } from '../services/platform/exec.js';
+import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import { resolveAccountCredentialsDirectory } from '../services/platform/paths.js';
+import type { AppleCredentialsClient } from '../services/stores/appleCredentialsClient.js';
 import type { CertificateResource } from '../types/appleCatalog.js';
-import type { LaunchSecretStoreService } from '../services/secretStore.js';
+import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
 import { getSecret, setSecret } from './keychain.js';
 import { randomHexSecret } from './randomSecret.js';
 import {

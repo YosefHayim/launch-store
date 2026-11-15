@@ -4,7 +4,7 @@ import { confirmUpload, reportSize, renderReceipt } from './pipelineArtifact.js'
 import { resolveSizeBudgetMB } from './pipelineProviders.js';
 import type { BuildRunOptions, PreparedBuild } from './pipelineTypes.js';
 import { resolveStorageProvider } from '../distribution/storage.js';
-import { getHostedBuildProvider } from '../services/registry.js';
+import { getHostedBuildProvider } from '../services/providerSupport/registry.js';
 /** Build via EAS, store the downloaded `.ipa`, and optionally submit through `eas submit`. */
 export const runEasBuild = (prepared: PreparedBuild, options: BuildRunOptions) =>
   Effect.gen(function* () {

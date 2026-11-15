@@ -4,11 +4,11 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { LaunchEnvironmentTest } from '../services/environment.js';
-import { createLogger, makeLaunchLoggerTest } from '../services/logger.js';
-import { makeLaunchPathsTest } from '../services/paths.js';
-import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
-import { captureCommandOutput } from '../services/exec.js';
+import { LaunchEnvironmentTest } from '../services/platform/environment.js';
+import { createLogger, makeLaunchLoggerTest } from '../services/platform/logger.js';
+import { makeLaunchPathsTest } from '../services/platform/paths.js';
+import { makeLaunchSecretStoreTest } from '../services/credentials/secretStore.js';
+import { captureCommandOutput } from '../services/platform/exec.js';
 import {
   ensureUploadKeystore,
   loadCachedKeystore,
@@ -17,7 +17,7 @@ import {
   storeServiceAccount,
 } from './androidKeystore.js';
 
-vi.mock('../services/exec.js', () => ({
+vi.mock('../services/platform/exec.js', () => ({
   captureCommandOutput: vi.fn(() => Effect.succeed('verified dummy keystore')),
 }));
 const temporaryRoots: string[] = [];

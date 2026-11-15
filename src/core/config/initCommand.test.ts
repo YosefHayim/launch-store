@@ -4,9 +4,9 @@ import { join } from 'node:path';
 import { NodeContext } from '@effect/platform-node';
 import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { makeLaunchLoggerTest } from '../services/logger.js';
-import { makeLaunchPathsTest } from '../services/paths.js';
-import { makeLaunchPromptTest } from '../services/prompt.js';
+import { makeLaunchLoggerTest } from '../services/platform/logger.js';
+import { makeLaunchPathsTest } from '../services/platform/paths.js';
+import { makeLaunchPromptTest } from '../services/platform/prompt.js';
 import { InitCommandInputSchema, runInitProgram } from './initCommand.js';
 
 describe('InitCommandInputSchema', () => {

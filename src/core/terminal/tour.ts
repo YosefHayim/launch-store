@@ -1,9 +1,9 @@
 import type { GlossaryTopic } from './glossary.js';
 import { Terminal } from '@effect/platform';
 import { Effect } from 'effect';
-import { createLogger } from '../services/logger.js';
+import { createLogger } from '../services/platform/logger.js';
 import type { PipelinePhase } from '../build/phases.js';
-import { isApplePlatform, platformLabel } from '../services/platform.js';
+import { isApplePlatform, platformLabel } from '../services/stores/platform.js';
 import type { Platform } from '../types/app.js';
 /**
  * The fixed sample app the tour narrates. Deterministic on purpose - identical for every user, so the
