@@ -92,8 +92,8 @@ const spliceRegion = (
 };
 /**
  * Splice a freshly {@link renderStatsBadges rendered} badge row into a README, replacing the whole
- * {@link STATS_BADGES_START}...{@link STATS_BADGES_END} region. Applied to every `README*.md`: the badge
- * URLs are language-neutral, so the same block goes into the English README and all translations.
+ * {@link STATS_BADGES_START}...{@link STATS_BADGES_END} region. Applied to README.md: the badge
+ * URLs are language-neutral, so the same block is shared by every generated doc.
  */
 export const spliceReadmeBadges = (
   readme: string,
@@ -265,14 +265,14 @@ export const spliceReadmeFeatures = (
 /**
  * Render the README's agent-skills callout from {@link AGENT_SKILLS_BLURB}, fenced by
  * {@link AGENT_SKILLS_START}/{@link AGENT_SKILLS_END} so {@link spliceReadmeAgentSkills} can swap the whole
- * region. Language-neutral, so the same block is spliced into the English README and every translation.
+ * region. Language-neutral, so one block serves all docs.
  */
 export const renderAgentSkillsRegion = (): string => {
   return [AGENT_SKILLS_START, '', AGENT_SKILLS_BLURB, '', AGENT_SKILLS_END].join('\n');
 };
 /**
  * Splice the {@link renderAgentSkillsRegion rendered} agent-skills callout into a README, replacing the
- * whole {@link AGENT_SKILLS_START}...{@link AGENT_SKILLS_END} region. Applied to every `README*.md`, exactly
+ * whole {@link AGENT_SKILLS_START}...{@link AGENT_SKILLS_END} region. Applied to README.md, exactly
  * like the badge row - the callout is language-neutral.
  */
 export const spliceReadmeAgentSkills = (
