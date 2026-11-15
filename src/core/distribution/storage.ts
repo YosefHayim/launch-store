@@ -1,7 +1,10 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Data, Effect } from 'effect';
-import { type LaunchPathsService, LaunchPaths } from '../services/paths.js';
-import { getStorageProvider, getStorageProviderResolver } from '../services/registry.js';
+import { type LaunchPathsService, LaunchPaths } from '../services/platform/paths.js';
+import {
+  getStorageProvider,
+  getStorageProviderResolver,
+} from '../services/providerSupport/registry.js';
 import type { Platform } from '../types/app.js';
 import type { BuildArtifact } from '../types/artifacts.js';
 import type { LaunchConfig } from '../types/config.js';

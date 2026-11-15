@@ -1,10 +1,13 @@
 import { HttpClient, HttpClientRequest, HttpClientResponse } from '@effect/platform';
 import { Data, Effect, Redacted, Schema } from 'effect';
-import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
+import {
+  LaunchEnvironment,
+  type LaunchEnvironmentService,
+} from '../services/platform/environment.js';
 import type { DraftListing, ListingBrief, ListingGenerator } from '../types/listing.js';
 import { APPLE_LIMITS, serializeKeywords } from './apply.js';
 import type { MutableDeep } from '../types/mutable.js';
-import { hasMessage } from '../services/errorMessage.js';
+import { hasMessage } from '../services/platform/errorMessage.js';
 
 const GeneratedListingSchema = Schema.Struct({
   title: Schema.optionalWith(Schema.String, { exact: true }),

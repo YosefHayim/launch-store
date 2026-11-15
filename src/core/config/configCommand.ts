@@ -1,9 +1,9 @@
 import { FileSystem, type Path } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
 import { renderConfigDocs } from '../docs/configDocs.js';
-import { errorMessage } from '../services/errorMessage.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
 import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
 import type { LaunchConfig } from '../types/config.js';
 import { findLaunchConfig } from './config.js';

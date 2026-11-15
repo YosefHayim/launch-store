@@ -1,10 +1,4 @@
-import type {
-  BaseContext,
-  ConsumerSkill,
-  ContributorRule,
-  ContributorSkill,
-  SkillStep,
-} from '../types/agents.js';
+import type { BaseContext, ConsumerSkill, ContributorSkill, SkillStep } from '../types/agents.js';
 
 /** Join markdown paragraphs used as skill / rule bodies. */
 const markdownBody = (sections: readonly string[]): string => sections.join('\n');
@@ -628,73 +622,7 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
   },
 ];
 /**
- * Contributor-facing Cursor rules for working ON the launch-store codebase. `AGENTS.md` stays the
- * canonical prose - these add PATH-triggered guidance Cursor attaches only when the relevant files are
- * open. The first entry is the always-on base rule that simply points Cursor at `AGENTS.md`; the rest
- * are glob-scoped. Emitted under `.cursor/rules/` by `pnpm docs:gen` and gated by `docs:check`.
- */
-export const CONTRIBUTOR_RULES: ContributorRule[] = [
-  {
-    file: 'launch',
-    description: 'Always-on contributing context for the launch-store codebase.',
-    globs: [],
-    alwaysApply: true,
-    body: markdownBody([
-      'You are working **on** launch-store (the `launch` CLI), not using it. The canonical working rules live in [AGENTS.md](../../AGENTS.md) - read it first.',
-      '',
-      '- One Node ESM / TypeScript package. `src/cli` is thin Commander wiring, `src/core` is purpose-grouped domain code, `src/providers` are swappable backends, `src/apple` and `src/google` are store API mirrors, and `src/testkit` holds shared fakes/layers.',
-      '- Do not create flat `src/core/*.ts` files. Put new core work under the owning purpose folder such as `build/`, `config/`, `credentials/`, `release/`, `store/`, `services/`, `terminal/`, or `types/`.',
-      '- Before calling a change done, run `pnpm typecheck && pnpm lint && pnpm docs:check && pnpm test && pnpm build` (the generated docs + these rules are gated).',
-      '- Keep it KISS / YAGNI / DRY: extend the nearest sibling file rather than inventing a new file, util, or abstraction. Add a test (`*.test.ts`) beside any new logic.',
-      '- Never log, write, or commit secrets; `~/.launch` holds non-secret paths and ids only.',
-    ]),
-  },
-  {
-    file: 'core-types',
-    description: 'Editing the domain shapes or provider interfaces.',
-    globs: ['src/core/types/*.ts'],
-    alwaysApply: false,
-    body: markdownBody([
-      'The purpose-named modules under `src/core/types/` are the source of truth for domain shapes and the five provider interfaces (`BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`).',
-      '',
-      '- Add or change a shape in its matching purpose-named module and import it directly. Do not create an internal barrel.',
-      '- Normalized App Store resource/query shapes live in `src/core/types/appleCatalog.ts`; generated Apple wire types stay in `src/apple/generated/schema.ts`.',
-      '- Google Play wire/resource DTOs currently live beside the transport in `src/google/playClient.ts` and `src/google/playReporting.ts`; move them into a resource module only as part of that API mirror cleanup.',
-    ]),
-  },
-  {
-    file: 'providers',
-    description:
-      'Adding or changing a provider backend (build / storage / credentials / submit / compute).',
-    globs: ['src/providers/**'],
-    alwaysApply: false,
-    body: markdownBody([
-      'Adding a backend = implement one of the five interfaces from `src/core/types/providers.ts` as a named object and register it in `src/providers/index.ts`, which wires into `src/core/services/registry.ts`.',
-      '',
-      '- The pipeline resolves a provider by its `name` (the value users put in `launch.config.ts`), so you **never** edit `src/core/build/pipeline.ts` to add a backend.',
-      '- Lazy-load heavy / optional SDKs (AWS, the native keyring) through `requireOptional` in `src/core/services/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
-    ]),
-  },
-  {
-    file: 'exec-secrets',
-    description: 'Running child processes or handling credentials / secrets.',
-    globs: [
-      'src/core/services/exec.ts',
-      'src/core/credentials/keychain.ts',
-      'src/core/services/secretStore.ts',
-      'src/core/build/buildSecrets.ts',
-    ],
-    alwaysApply: false,
-    body: markdownBody([
-      'All child processes go through `src/core/services/exec.ts` - `run` streams output, `capture` collects stdout - both with `shell: false` and an explicit argv array. Never build a shell string or call `spawn` / `exec` directly.',
-      '',
-      "- Secrets (`.p8` / `.p12` / keystore / private keys) live in the OS keychain via the secret store; `~/.launch` holds non-secret paths and ids only. Don't log, write, or commit key material.",
-    ]),
-  },
-];
-/**
- * Claude Skills for working ON launch-store - the task-recipe counterpart to {@link CONTRIBUTOR_RULES}
- * (which are Cursor's path-scoped rules). Each is a repeatable contributor workflow that today lives only
+ * Claude Skills for working ON launch-store - each is a repeatable contributor workflow that today lives only
  * as `AGENTS.md` prose; rendered to `.claude/skills/<id>/SKILL.md` by `pnpm docs:gen` and gated by
  * `docs:check`. The relative links resolve from a skill file's directory (`.claude/skills/<id>/`), so they
  * climb three levels to the repo root. Steps are guidance only - nothing here auto-executes.
@@ -712,7 +640,7 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
     ],
     steps: [
       '`pnpm typecheck && pnpm lint && pnpm docs:check && pnpm test && pnpm build` - the five-part gate from `AGENTS.md` (`lint` is Biome and `docs:check` guards generated docs).',
-      'If `docs:check` fails, run `pnpm docs:gen` and commit the generated docs (`llms.txt`, `.cursor/rules/*`, `.claude/skills/*`, and README badges).',
+      'If `docs:check` fails, run `pnpm docs:gen` and commit the generated docs (`llms.txt`, `llms-full.txt`, `schema/launch.config.schema.json`, `.claude/skills/*`, and README badges).',
     ],
     body: markdownBody([
       'All gates must be green before a change is done. The husky pre-commit hook runs lint + format + typecheck but **not** the tests and **can** be bypassed, so run the full line yourself. Add a `*.test.ts` beside any new logic.',
@@ -732,8 +660,8 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
     steps: [
       'Pick one of the five types in `src/core/types/providers.ts`: `BuildEngine` / `StorageProvider` / `CredentialsProvider` / `Submitter` / `ComputeHost`.',
       'Implement it as a named object in `src/providers/<kind>/<name>.ts`, setting `name` to the value users put in `launch.config.ts`.',
-      'Register it in `src/providers/index.ts` (`registerBuiltins()`), which wires into `src/core/services/registry.ts`. The pipeline resolves a provider by its `name`, so you never edit `src/core/build/pipeline.ts` to add one.',
-      'Lazy-load any heavy or optional SDK through `requireOptional` in `src/core/services/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
+      'Register it in `src/providers/index.ts` (`registerBuiltins()`), which wires into `src/core/services/providerSupport/registry.ts`. The pipeline resolves a provider by its `name`, so you never edit `src/core/build/pipeline.ts` to add one.',
+      'Lazy-load any heavy or optional SDK through `requireOptional` in `src/core/services/platform/optionalDep.ts`, so a missing package becomes an actionable install hint instead of a stack trace.',
       'Add a `*.test.ts` beside the provider, then run the gate (see the `run-the-gate` skill).',
     ],
     body: markdownBody([
@@ -742,7 +670,7 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
       'See [AGENTS.md](../../../AGENTS.md) -> “Adding a backend = implement an interface + register it” for the worked S3 example.',
     ]),
     cautions: [
-      'All child processes go through `src/core/services/exec.ts` (`run` / `capture`, `shell: false`, explicit argv) - never build a shell string or call `spawn` / `exec` directly.',
+      'All child processes go through `src/core/services/platform/exec.ts` (`run` / `capture`, `shell: false`, explicit argv) - never build a shell string or call `spawn` / `exec` directly.',
       "Secrets stay in the OS keychain; `~/.launch` holds non-secret paths and ids only. Don't log, write, or commit key material.",
     ],
   },
@@ -757,7 +685,7 @@ export const CONTRIBUTOR_SKILLS: ContributorSkill[] = [
     ],
     steps: [
       "Add the command as thin commander wiring in the job folder under `src/cli/commands/` (setup, build, release, store/apple...) and register its `register*Command` in `src/cli/program.ts`'s `buildProgram()`. Keep domain logic in `src/core`, not the CLI layer.",
-      'Run `pnpm docs:gen` - it introspects `buildProgram()` and regenerates `llms.txt`, the README stats badges, and the committed `.cursor/rules` / `.claude/skills`.',
+      'Run `pnpm docs:gen` - it introspects `buildProgram()` and regenerates `llms.txt`, `llms-full.txt`, the config JSON schema, the README stats badges, and the committed `.claude/skills`.',
       'Commit the regenerated files; `pnpm docs:check` (CI) fails if they drift.',
       'Add a `*.test.ts` beside the new logic, then run the gate.',
     ],

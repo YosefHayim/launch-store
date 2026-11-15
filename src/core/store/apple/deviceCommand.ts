@@ -1,8 +1,8 @@
 import { Data, Effect, Schema } from 'effect';
-import { createLogger, type Logger } from '../../services/logger.js';
+import { createLogger, type Logger } from '../../services/platform/logger.js';
 import type { DeviceResource } from '../../types/appleCatalog.js';
 import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './appleStoreCommand.js';
-import { hasMessage } from '../../services/errorMessage.js';
+import { hasMessage } from '../../services/platform/errorMessage.js';
 
 const DeviceAddInputSchema = Schema.Struct({
   operation: Schema.Literal('add'),

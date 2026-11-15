@@ -21,11 +21,11 @@ import type { SurfacePlanner } from '../types/plan.js';
 import type { Snapshot } from '../types/snapshot.js';
 import type { McpCapability } from '../types/storeSurface.js';
 import { expectArrayElement } from '@testkit/assertions.testkit.js';
-import { AppleStoreClientLive } from '../services/appleStoreClient.js';
-import { makeLaunchEnvironmentTest } from '../services/environment.js';
-import { GoogleStoreClientLive } from '../services/googleStoreClient.js';
-import { makeLaunchPathsTest } from '../services/paths.js';
-import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
+import { AppleStoreClientLive } from '../services/stores/appleStoreClient.js';
+import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
+import { GoogleStoreClientLive } from '../services/stores/googleStoreClient.js';
+import { makeLaunchPathsTest } from '../services/platform/paths.js';
+import { makeLaunchSecretStoreTest } from '../services/credentials/secretStore.js';
 import { makeStatsCredentialsTest } from '../stats/statsCredentials.js';
 
 /** A bare config exposing the given MCP capability tiers - only the fields the gate reads matter here. */

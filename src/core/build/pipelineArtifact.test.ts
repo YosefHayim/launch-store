@@ -2,10 +2,10 @@ import { FileSystem } from '@effect/platform';
 import { NodeContext } from '@effect/platform-node';
 import { Effect } from 'effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { LaunchEnvironmentTest } from '../services/environment.js';
-import { LaunchLogger, makeLaunchLoggerTest } from '../services/logger.js';
-import { makeLaunchPathsTest } from '../services/paths.js';
-import { runWithProgress } from '../services/progress.js';
+import { LaunchEnvironmentTest } from '../services/platform/environment.js';
+import { LaunchLogger, makeLaunchLoggerTest } from '../services/platform/logger.js';
+import { makeLaunchPathsTest } from '../services/platform/paths.js';
+import { runWithProgress } from '../services/platform/progress.js';
 import type { Platform } from '../types/app.js';
 import type { SizeReport } from '../types/artifacts.js';
 import type { PrebuildMode, ResolvedBuildContext } from '../types/config.js';
@@ -21,8 +21,8 @@ import {
 } from './pipelineArtifact.js';
 
 // A non-dry-run prebuild records its command here instead of spawning npx.
-vi.mock('../services/progress.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../services/progress.js')>();
+vi.mock('../services/platform/progress.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/platform/progress.js')>();
   return { ...actual, runWithProgress: vi.fn(() => Effect.void) };
 });
 

@@ -1,10 +1,10 @@
 import { Data, Effect, Schema } from 'effect';
 import { ensureToolchain } from '../config/toolchain.js';
-import { errorMessage, hasMessage } from '../services/errorMessage.js';
-import type { EffectAppStoreConnectClient } from '../services/appleStoreClient.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { isApplePlatform, parsePlatform } from '../services/platform.js';
-import type { LaunchPromptService } from '../services/prompt.js';
+import { errorMessage, hasMessage } from '../services/platform/errorMessage.js';
+import type { EffectAppStoreConnectClient } from '../services/stores/appleStoreClient.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { isApplePlatform, parsePlatform } from '../services/stores/platform.js';
+import type { LaunchPromptService } from '../services/platform/prompt.js';
 import { createAscClientResolver } from '../store/shared/storeClients.js';
 import {
   summarizeExportComplianceResult,

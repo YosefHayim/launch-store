@@ -4,14 +4,14 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { LaunchEnvironmentTest } from '@core/services/environment.js';
-import { makeLaunchLoggerTest } from '@core/services/logger.js';
-import { makeLaunchPathsTest } from '@core/services/paths.js';
-import { runWithProgress } from '@core/services/progress.js';
+import { LaunchEnvironmentTest } from '@core/services/platform/environment.js';
+import { makeLaunchLoggerTest } from '@core/services/platform/logger.js';
+import { makeLaunchPathsTest } from '@core/services/platform/paths.js';
+import { runWithProgress } from '@core/services/platform/progress.js';
 import { makeGradleBuildEngine } from './gradle.js';
 
-vi.mock('@core/services/progress.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@core/services/progress.js')>()),
+vi.mock('@core/services/platform/progress.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@core/services/platform/progress.js')>()),
   runWithProgress: vi.fn(() => Effect.fail('stop after invocation')),
 }));
 

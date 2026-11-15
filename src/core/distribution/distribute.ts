@@ -1,8 +1,8 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Data, Effect } from 'effect';
-import type { Logger } from '../services/logger.js';
-import type { LaunchPathsService } from '../services/paths.js';
-import { isApplePlatform } from '../services/platform.js';
+import type { Logger } from '../services/platform/logger.js';
+import type { LaunchPathsService } from '../services/platform/paths.js';
+import { isApplePlatform } from '../services/stores/platform.js';
 import type { AppDescriptor, Platform } from '../types/app.js';
 import type { LaunchConfig } from '../types/config.js';
 import { isCloudStorage, resolveStorageProvider } from './storage.js';

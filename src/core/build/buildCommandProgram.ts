@@ -1,8 +1,8 @@
 import { Data, Effect } from 'effect';
 import { runBuild } from './pipeline.js';
-import { setVerboseOutput } from '../services/progress.js';
+import { setVerboseOutput } from '../services/platform/progress.js';
 import { type BuildCommandOptions, parseBuildCommandInput } from './buildCommandInput.js';
-import { hasMessage } from '../services/errorMessage.js';
+import { hasMessage } from '../services/platform/errorMessage.js';
 /** The build pipeline failed while executing a decoded build command. */
 export type BuildCommandExecutionError = Readonly<{
   readonly _tag: 'BuildCommandExecutionError';

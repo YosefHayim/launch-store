@@ -6,18 +6,18 @@ import { loadActiveAscKey } from '../credentials/accounts.js';
 import {
   AppleStoreClientService,
   type AppleStoreClientService as AppleStoreClientDependencies,
-} from '../services/appleStoreClient.js';
-import type { LaunchEnvironmentService } from '../services/environment.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import type { LaunchPathsService } from '../services/paths.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
-import type { LaunchSecretStoreService } from '../services/secretStore.js';
+} from '../services/stores/appleStoreClient.js';
+import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import type { LaunchPathsService } from '../services/platform/paths.js';
+import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
+import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
 import { completeCommand, type CommandExit } from '../terminal/commandExit.js';
 import type { PlannedAction } from '../types/reconcile.js';
 import { resolveStoreSurfaceSection } from '../store/apple/appStoreSurfaceCommand.js';
 import { summarize } from '../store/shared/reconcile.js';
 import { parseReleaseConfig, reconcileRelease } from './releaseAttrs.js';
-import { hasMessage } from '../services/errorMessage.js';
+import { hasMessage } from '../services/platform/errorMessage.js';
 
 /** Inputs resolved from Commander for App Store release-attribute reconciliation. */
 export type ReleaseConfigCommandInput = Readonly<{

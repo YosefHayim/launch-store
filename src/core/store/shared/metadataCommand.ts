@@ -8,18 +8,18 @@ import {
 import {
   AppleStoreClientService,
   type EffectAppStoreConnectClient,
-} from '../../services/appleStoreClient.js';
-import type { LaunchEnvironmentService } from '../../services/environment.js';
-import { errorMessage } from '../../services/errorMessage.js';
+} from '../../services/stores/appleStoreClient.js';
+import type { LaunchEnvironmentService } from '../../services/platform/environment.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 import {
   type EffectGooglePlayClient,
   GoogleStoreClientService,
-} from '../../services/googleStoreClient.js';
-import { createLogger, type Logger } from '../../services/logger.js';
-import type { LaunchPathsService } from '../../services/paths.js';
-import type { LaunchPromptService } from '../../services/prompt.js';
-import type { LaunchSecretStoreService } from '../../services/secretStore.js';
-import { isApplePlatform, parsePlatform, platformLabel } from '../../services/platform.js';
+} from '../../services/stores/googleStoreClient.js';
+import { createLogger, type Logger } from '../../services/platform/logger.js';
+import type { LaunchPathsService } from '../../services/platform/paths.js';
+import type { LaunchPromptService } from '../../services/platform/prompt.js';
+import type { LaunchSecretStoreService } from '../../services/credentials/secretStore.js';
+import { isApplePlatform, parsePlatform, platformLabel } from '../../services/stores/platform.js';
 import type { AppDescriptor, Platform } from '../../types/app.js';
 import type { AscKey } from '../../types/credentials.js';
 import type { PlayListing } from '../../types/googlePlay.js';

@@ -4,11 +4,11 @@ import { loadServiceAccount } from '../../credentials/androidKeystore.js';
 import {
   AppleStoreClientService,
   type EffectAppStoreConnectClient,
-} from '../../services/appleStoreClient.js';
+} from '../../services/stores/appleStoreClient.js';
 import {
   type EffectGooglePlayClient,
   GoogleStoreClientService,
-} from '../../services/googleStoreClient.js';
+} from '../../services/stores/googleStoreClient.js';
 
 /** Build one memoized Effect-native App Store client resolver. */
 export const createAscClientResolver = () => {

@@ -1,9 +1,9 @@
 import { Terminal } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
-import { errorMessage } from '../services/errorMessage.js';
-import { createLogger } from '../services/logger.js';
-import { parsePlatform } from '../services/platform.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { createLogger } from '../services/platform/logger.js';
+import { parsePlatform } from '../services/stores/platform.js';
+import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
 import type { Platform } from '../types/app.js';
 import { runTour } from './tour.js';
 

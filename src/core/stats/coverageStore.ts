@@ -4,12 +4,12 @@ import {
   readDocumentFile,
   writeDocumentFileAtomically,
   type DocumentFileFailure,
-} from '../services/atomicDocumentFile.js';
+} from '../services/platform/atomicDocumentFile.js';
 import {
   locateAppStatsDirectory,
   type InvalidAppKeyFailure,
   type LaunchPathsService,
-} from '../services/paths.js';
+} from '../services/platform/paths.js';
 import type { AppCoverage } from '../types/stats.js';
 
 const COVERAGE_FILE_NAME = 'coverage.json';

@@ -9,7 +9,7 @@ import {
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
 import { makeFakeAscClient, makeFakePlayReportingClient } from '@testkit/storeClients.testkit.js';
-import { makeLaunchLoggerTest } from '../services/logger.js';
+import { makeLaunchLoggerTest } from '../services/platform/logger.js';
 import { makeStatsCredentialsTest } from '../stats/statsCredentials.js';
 import {
   appsListProgram,

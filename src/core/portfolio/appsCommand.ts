@@ -1,8 +1,8 @@
 import type { FileSystem, Path } from '@effect/platform';
 import { Effect } from 'effect';
-import type { DocumentFileFailure } from '../services/atomicDocumentFile.js';
-import { LaunchLogger, type Logger } from '../services/logger.js';
-import type { LaunchPathsService } from '../services/paths.js';
+import type { DocumentFileFailure } from '../services/platform/atomicDocumentFile.js';
+import { LaunchLogger, type Logger } from '../services/platform/logger.js';
+import type { LaunchPathsService } from '../services/platform/paths.js';
 import type { CommandExit } from '../terminal/commandExit.js';
 import {
   endWithUsageFailure,

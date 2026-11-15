@@ -9,7 +9,7 @@ import {
   checkCommandExists,
   executeCommand,
   provideNodeCommandServices,
-} from '@core/services/exec.js';
+} from '@core/services/platform/exec.js';
 /** Where the `eas` binary comes from: the global install if present, else `npx eas-cli`. */
 const easCommand = (): Effect.Effect<{
   cmd: string;

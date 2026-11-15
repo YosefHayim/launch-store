@@ -1,8 +1,8 @@
 import { type FileSystem, Terminal } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
-import { errorMessage } from '../../services/errorMessage.js';
-import { createLogger, type Logger } from '../../services/logger.js';
-import { LaunchPrompt, type LaunchPromptService } from '../../services/prompt.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
+import { createLogger, type Logger } from '../../services/platform/logger.js';
+import { LaunchPrompt, type LaunchPromptService } from '../../services/platform/prompt.js';
 import {
   CommandExitSchema,
   completeCommand,

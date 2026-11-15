@@ -12,7 +12,7 @@ import {
   STATS_PORTFOLIO_FILE,
   writeStatsMonthFiles,
 } from '@testkit/statsHome.testkit.js';
-import { makeLaunchLoggerTest } from '../services/logger.js';
+import { makeLaunchLoggerTest } from '../services/platform/logger.js';
 import type { StatsFeedFailure, StatsFeedPlugin } from '../types/stats.js';
 import { makeStatsCredentialsTest } from './statsCredentials.js';
 import { statsReportProgram, type StatsCommandRequest } from './statsCommand.js';

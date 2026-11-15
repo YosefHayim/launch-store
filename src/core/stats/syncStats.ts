@@ -2,9 +2,9 @@ import type { FileSystem, HttpClient, Path } from '@effect/platform';
 import { Clock, Data, Effect } from 'effect';
 import { loadPortfolioApps } from '../portfolio/loadPortfolioApps.js';
 import { findAppsByName } from '../portfolio/portfolioLogic.js';
-import type { DocumentFileFailure } from '../services/atomicDocumentFile.js';
-import { errorMessage } from '../services/errorMessage.js';
-import type { InvalidAppKeyFailure, LaunchPathsService } from '../services/paths.js';
+import type { DocumentFileFailure } from '../services/platform/atomicDocumentFile.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import type { InvalidAppKeyFailure, LaunchPathsService } from '../services/platform/paths.js';
 import type { PortfolioApp } from '../types/portfolio.js';
 import type {
   AppCoverage,

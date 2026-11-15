@@ -2,16 +2,22 @@ import { FileSystem, Path, Terminal } from '@effect/platform';
 import type { CommandExecutor } from '@effect/platform/CommandExecutor';
 import { Data, Effect, Redacted, Schema } from 'effect';
 import { loadConfig } from '../config/config.js';
-import { AppStoreIdentityService, type AppStoreIdentity } from '../services/appStoreIdentity.js';
-import type { AppleCredentialsClientFactory } from '../services/appleCredentialsClient.js';
-import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
-import { errorMessage } from '../services/errorMessage.js';
-import { GoogleStoreClientService } from '../services/googleStoreClient.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
-import type { LaunchSecretStoreService } from '../services/secretStore.js';
-import { parsePlatform } from '../services/platform.js';
+import {
+  AppStoreIdentityService,
+  type AppStoreIdentity,
+} from '../services/stores/appStoreIdentity.js';
+import type { AppleCredentialsClientFactory } from '../services/stores/appleCredentialsClient.js';
+import {
+  LaunchEnvironment,
+  type LaunchEnvironmentService,
+} from '../services/platform/environment.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { GoogleStoreClientService } from '../services/stores/googleStoreClient.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
+import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
+import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
+import { parsePlatform } from '../services/stores/platform.js';
 import type { AppDescriptor, Platform } from '../types/app.js';
 import type { AccountRecord, AscKey } from '../types/credentials.js';
 import {

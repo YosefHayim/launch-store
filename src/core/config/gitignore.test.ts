@@ -12,8 +12,8 @@ import { join } from 'node:path';
 import { NodeContext } from '@effect/platform-node';
 import { Effect } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { captureCommandOutput, provideNodeCommandServices } from '../services/exec.js';
-import { makeLaunchPathsTest, type LaunchPathsService } from '../services/paths.js';
+import { captureCommandOutput, provideNodeCommandServices } from '../services/platform/exec.js';
+import { makeLaunchPathsTest, type LaunchPathsService } from '../services/platform/paths.js';
 import { ensureArtifactDirIgnored } from './gitignore.js';
 const runGitignoreEffect = <Success, Failure>(
   gitignoreEffect: Effect.Effect<Success, Failure, NodeContext.NodeContext | LaunchPathsService>,

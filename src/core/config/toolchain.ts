@@ -3,10 +3,10 @@ import {
   checkCommandExists,
   executeCommand,
   provideNodeCommandServices,
-} from '../services/exec.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { checkIsMacOperatingSystem } from '../services/os.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
+} from '../services/platform/exec.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { checkIsMacOperatingSystem } from '../services/platform/os.js';
+import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
 /**
  * A tool a local iOS build needs, and how to install it on macOS.
  * - `brew`: installable non-interactively via `brew install <formula>`.

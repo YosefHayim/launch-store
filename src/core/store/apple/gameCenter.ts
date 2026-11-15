@@ -10,7 +10,7 @@ import {
   type GameCenterLeaderboardResource,
 } from '../../types/appleCatalog.js';
 import { appRecordMissing, plan, skip, type ReconcileContext } from '../shared/reconcile.js';
-import { errorMessage } from '../../services/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 import type { PlannedAction } from '../../types/reconcile.js';
 import type {
   AchievementConfig,

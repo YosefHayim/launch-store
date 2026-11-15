@@ -1,7 +1,7 @@
 import type { FileSystem, Path } from '@effect/platform';
 import { Effect } from 'effect';
-import type { DocumentFileFailure } from '../services/atomicDocumentFile.js';
-import type { LaunchPathsService } from '../services/paths.js';
+import type { DocumentFileFailure } from '../services/platform/atomicDocumentFile.js';
+import type { LaunchPathsService } from '../services/platform/paths.js';
 import type { AppTagChange } from '../types/portfolio.js';
 import { applyTagChange } from './portfolioLogic.js';
 import { loadPortfolioFile, pickSavedPortfolioFile, savePortfolioFile } from './portfolioStore.js';

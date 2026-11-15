@@ -5,8 +5,8 @@ import type { FileSystem, Path, Terminal } from '@effect/platform';
 import { NodeContext } from '@effect/platform-node';
 import { Effect } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
-import { makeLaunchLoggerTest, type Logger } from '../services/logger.js';
-import { makeLaunchPromptTest, type LaunchPromptService } from '../services/prompt.js';
+import { makeLaunchLoggerTest, type Logger } from '../services/platform/logger.js';
+import { makeLaunchPromptTest, type LaunchPromptService } from '../services/platform/prompt.js';
 import {
   buildGenshotArguments,
   buildGenshotPrompt,

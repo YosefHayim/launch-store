@@ -1,11 +1,11 @@
 import { type FileSystem, type Path, Terminal } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
 import { loadConfig } from '../../config/config.js';
-import type { EffectAppStoreConnectClient } from '../../services/appleStoreClient.js';
-import { errorMessage } from '../../services/errorMessage.js';
-import { createLogger, type Logger } from '../../services/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../../services/paths.js';
-import { LaunchPrompt, type LaunchPromptService } from '../../services/prompt.js';
+import type { EffectAppStoreConnectClient } from '../../services/stores/appleStoreClient.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
+import { createLogger, type Logger } from '../../services/platform/logger.js';
+import { LaunchPaths, type LaunchPathsService } from '../../services/platform/paths.js';
+import { LaunchPrompt, type LaunchPromptService } from '../../services/platform/prompt.js';
 import { completeCommand, type CommandExit } from '../../terminal/commandExit.js';
 import type { AppDescriptor } from '../../types/app.js';
 import type { AppProducts } from '../../types/catalog.js';

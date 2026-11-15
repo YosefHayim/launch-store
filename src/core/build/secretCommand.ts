@@ -1,11 +1,11 @@
 import type { FileSystem, Path } from '@effect/platform';
 import { Terminal } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
-import type { LaunchSecretStoreService } from '../services/secretStore.js';
-import { errorMessage } from '../services/errorMessage.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import type { LaunchPathsService } from '../services/paths.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
+import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import type { LaunchPathsService } from '../services/platform/paths.js';
+import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
 import {
   selectStoreApp,
   type StoreAppSelectionRequirements,

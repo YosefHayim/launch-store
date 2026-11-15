@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { parseOwnerFlag, parsePlatformFlag } from '../portfolio/appsCommand.js';
-import { LaunchLogger, type Logger } from '../services/logger.js';
+import { LaunchLogger, type Logger } from '../services/platform/logger.js';
 import type { CommandExit } from '../terminal/commandExit.js';
 import {
   endWithUsageFailure,

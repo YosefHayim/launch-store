@@ -1,13 +1,7 @@
-import {
-  BASE_CONTEXT,
-  CONSUMER_SKILLS,
-  CONTRIBUTOR_RULES,
-  CONTRIBUTOR_SKILLS,
-} from './registry.js';
+import { BASE_CONTEXT, CONSUMER_SKILLS, CONTRIBUTOR_SKILLS } from './registry.js';
 import type {
   BaseContext,
   ConsumerSkill,
-  ContributorRule,
   ContributorSkill,
   GeneratedAgentFile,
   SkillStep,
@@ -279,22 +273,6 @@ export const spliceManagedBlock = (existing: string, blockWithMarkers: string): 
   if (existing.trim() === '') return `${blockWithMarkers}\n`;
   return `${existing.replace(/\n*$/, '')}\n\n${blockWithMarkers}\n`;
 };
-
-/** One committed contributor Cursor rule for working ON launch-store (no version stamp - git tracks it). */
-export const renderContributorRule = (rule: ContributorRule): GeneratedAgentFile => {
-  const frontmatter = ['---', `description: ${rule.description}`];
-  if (rule.globs.length > 0) frontmatter.push(`globs: ${rule.globs.join(',')}`);
-  frontmatter.push(`alwaysApply: ${rule.alwaysApply}`, '---');
-  return {
-    path: `.cursor/rules/${rule.file}.mdc`,
-    body: `${frontmatter.join('\n')}\n\n${rule.body}\n`,
-  };
-};
-
-/** Every committed contributor rule (`pnpm docs:gen` / `docs:check`). */
-export const renderContributorRules = (
-  rules: readonly ContributorRule[] = CONTRIBUTOR_RULES,
-): GeneratedAgentFile[] => rules.map(renderContributorRule);
 
 /**
  * One committed contributor Claude skill. Steps are free-form markdown (repo workflow), not

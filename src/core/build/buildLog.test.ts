@@ -1,7 +1,7 @@
 import * as NodeContext from '@effect/platform-node/NodeContext';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { makeLaunchPathsTest } from '../services/paths.js';
+import { makeLaunchPathsTest } from '../services/platform/paths.js';
 import { buildLogId, buildLogPath } from './buildLog.js';
 
 const resolveTestLogPath = (buildIdentifier: string) =>

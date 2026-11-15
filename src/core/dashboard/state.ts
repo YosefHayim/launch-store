@@ -4,7 +4,7 @@ import { listSecretRefs, type SecretRef } from '../build/buildSecrets.js';
 import { findLaunchConfig, loadConfig } from '../config/config.js';
 import { getActiveAccount, listAccounts } from '../credentials/accounts.js';
 import { getLiveHost } from '../distribution/cloudState.js';
-import { LaunchPaths, resolveLaunchHomeDirectory } from '../services/paths.js';
+import { LaunchPaths, resolveLaunchHomeDirectory } from '../services/platform/paths.js';
 import type { AppDescriptor } from '../types/app.js';
 import type { BuildArtifact } from '../types/artifacts.js';
 import type { LaunchConfig } from '../types/config.js';

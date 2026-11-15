@@ -9,13 +9,13 @@ import {
   resolveStorageProvider,
   type StorageResolverRequirements,
 } from '../distribution/storage.js';
-import { errorMessage } from '../services/errorMessage.js';
-import { captureCommandOutput, executeCommand } from '../services/exec.js';
-import type { LaunchEnvironmentService } from '../services/environment.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
-import { isApplePlatform, platformLabel } from '../services/platform.js';
-import type { LaunchSecretStoreService } from '../services/secretStore.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { captureCommandOutput, executeCommand } from '../services/platform/exec.js';
+import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
+import { isApplePlatform, platformLabel } from '../services/stores/platform.js';
+import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
 import type { AppDescriptor, Platform } from '../types/app.js';
 import type { BuildArtifact } from '../types/artifacts.js';
 import type { KeystoreAssets, SigningAssets } from '../types/credentials.js';

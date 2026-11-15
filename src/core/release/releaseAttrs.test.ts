@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { NodeContext } from '@effect/platform-node';
 import { Effect, Layer } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { makeLaunchEnvironmentTest } from '../services/environment.js';
-import { LaunchSecretStoreTest } from '../services/secretStore.js';
+import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
+import { LaunchSecretStoreTest } from '../services/credentials/secretStore.js';
 import { summarize } from '../store/shared/reconcile.js';
 import type { ReleaseAttributesConfig } from '../types/storeSurface.js';
 import {

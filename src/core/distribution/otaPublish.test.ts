@@ -5,7 +5,7 @@ import { NodeContext } from '@effect/platform-node';
 import { Effect, Schema } from 'effect';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { CodeSigner } from '../credentials/codeSign.js';
-import { createLogger, makeLaunchLoggerTest } from '../services/logger.js';
+import { createLogger, makeLaunchLoggerTest } from '../services/platform/logger.js';
 import type { StorageProvider } from '../types/providers.js';
 import {
   historyIndexKey,

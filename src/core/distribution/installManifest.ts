@@ -1,4 +1,4 @@
-import { isApplePlatform } from '../services/platform.js';
+import { isApplePlatform } from '../services/stores/platform.js';
 import type { Platform } from '../types/app.js';
 
 /** Escape the five XML special characters so app titles/ids cannot break the plist or HTML. */

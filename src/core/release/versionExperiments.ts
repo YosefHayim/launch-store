@@ -1,7 +1,7 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
 import { discoverScreenshotsAt, type LocalScreenshot } from '../listing/screenshots/assets.js';
-import { errorMessage } from '../services/errorMessage.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
 import {
   groupBy,
   reconcileOwnerScreenshots,

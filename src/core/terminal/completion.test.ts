@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import { Command } from 'commander';
 import { Effect } from 'effect';
 import { NodeContext } from '@effect/platform-node';
-import { LaunchEnvironmentTest } from '../services/environment.js';
-import { makeLaunchPathsTest } from '../services/paths.js';
+import { LaunchEnvironmentTest } from '../services/platform/environment.js';
+import { makeLaunchPathsTest } from '../services/platform/paths.js';
 import {
   COMPLETE_SUBCOMMAND,
   SHELLS,

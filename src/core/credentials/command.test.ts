@@ -12,17 +12,17 @@ import {
 import {
   AppStoreIdentityService,
   type AppStoreIdentityService as AppStoreIdentity,
-} from '../services/appStoreIdentity.js';
+} from '../services/stores/appStoreIdentity.js';
 import {
   AppleCredentialsClientFactory,
   type AppleCredentialsClientFactory as AppleCredentialsFactory,
-} from '../services/appleCredentialsClient.js';
-import { GoogleStoreClientLive } from '../services/googleStoreClient.js';
-import { LaunchEnvironmentTest } from '../services/environment.js';
-import { makeLaunchLoggerTest } from '../services/logger.js';
-import { makeLaunchPathsTest } from '../services/paths.js';
-import { makeLaunchPromptTest } from '../services/prompt.js';
-import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
+} from '../services/stores/appleCredentialsClient.js';
+import { GoogleStoreClientLive } from '../services/stores/googleStoreClient.js';
+import { LaunchEnvironmentTest } from '../services/platform/environment.js';
+import { makeLaunchLoggerTest } from '../services/platform/logger.js';
+import { makeLaunchPathsTest } from '../services/platform/paths.js';
+import { makeLaunchPromptTest } from '../services/platform/prompt.js';
+import { makeLaunchSecretStoreTest } from '../services/credentials/secretStore.js';
 import {
   credentialSearchDirectories,
   credentialsCommandProgram,

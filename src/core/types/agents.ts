@@ -72,21 +72,8 @@ export type BaseContext = Readonly<{
   bootstrap: readonly string[];
 }>;
 /**
- * A contributor-facing Cursor rule for working ON the launch-store codebase. `AGENTS.md` stays the
- * canonical prose; these add what a flat file can't - PATH-triggered guidance Cursor attaches only when
- * the relevant files are open (e.g. the provider-registration rule when editing `src/providers/**`). The
- * base rule (`alwaysApply`, empty `globs`) simply points Cursor at `AGENTS.md`.
- */
-export type ContributorRule = Readonly<{
-  file: string;
-  description: string;
-  globs: readonly string[];
-  alwaysApply: boolean;
-  body: string;
-}>;
-/**
- * A contributor-facing, task-scoped skill for working ON the launch-store codebase - the Claude Skills
- * counterpart to {@link ContributorRule} (which targets Cursor). Rendered to `.claude/skills/<id>/SKILL.md`
+ * A contributor-facing, task-scoped skill for working ON the launch-store codebase.
+ * Rendered to `.claude/skills/<id>/SKILL.md`
  * by `npm run docs:gen` and gated by `docs:check`, so a committed recipe can't drift from the registry.
  *
  * Unlike a {@link ConsumerSkill}, the `steps` are free-form markdown (npm scripts, file edits, prose) - a

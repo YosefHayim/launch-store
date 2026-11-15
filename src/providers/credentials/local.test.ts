@@ -1,15 +1,15 @@
 import { Effect, Layer } from 'effect';
 import { NodeContext } from '@effect/platform-node';
-import { makeLaunchPathsTest } from '@core/services/paths.js';
-import { LaunchEnvironmentTest } from '@core/services/environment.js';
-import { makeLaunchSecretStoreTest } from '@core/services/secretStore.js';
+import { makeLaunchPathsTest } from '@core/services/platform/paths.js';
+import { LaunchEnvironmentTest } from '@core/services/platform/environment.js';
+import { makeLaunchSecretStoreTest } from '@core/services/credentials/secretStore.js';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   type AppleCredentialAccountStatus,
   LocalCredentialsStore,
   LocalCredentialsStoreLive,
   type LocalCredentialsStoreService,
-} from '@core/services/localCredentialsStore.js';
+} from '@core/services/credentials/localCredentialsStore.js';
 import type { ResolvedBuildContext } from '@core/types/config.js';
 import type { AscKey } from '@core/types/credentials.js';
 import type { CredentialsProvider } from '@core/types/providers.js';

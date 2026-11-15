@@ -7,7 +7,7 @@ import {
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
-import { makeLaunchLoggerTest } from '../services/logger.js';
+import { makeLaunchLoggerTest } from '../services/platform/logger.js';
 import type { PortfolioFile } from '../types/portfolio.js';
 import type { StatsFeedFailure, StatsFeedPlugin } from '../types/stats.js';
 import { makeStatsCredentialsTest } from './statsCredentials.js';

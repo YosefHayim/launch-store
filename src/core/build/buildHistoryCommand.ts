@@ -3,12 +3,15 @@ import type * as PlatformCommandExecutor from '@effect/platform/CommandExecutor'
 import { Context, Data, Effect, Layer } from 'effect';
 import { loadConfig, type LoadedConfig } from '../config/config.js';
 import { resolveStorageProvider } from '../distribution/storage.js';
-import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
-import { executeCommand } from '../services/exec.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { detectHostOperatingSystem } from '../services/os.js';
-import { parsePlatform } from '../services/platform.js';
-import { LaunchPrompt } from '../services/prompt.js';
+import {
+  LaunchEnvironment,
+  type LaunchEnvironmentService,
+} from '../services/platform/environment.js';
+import { executeCommand } from '../services/platform/exec.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { detectHostOperatingSystem } from '../services/platform/os.js';
+import { parsePlatform } from '../services/stores/platform.js';
+import { LaunchPrompt } from '../services/platform/prompt.js';
 import type { Platform } from '../types/app.js';
 import type { LaunchConfig } from '../types/config.js';
 import type { BuildArtifact, PrunedArtifact } from '../types/artifacts.js';
@@ -17,7 +20,7 @@ import { resolveCommandRetentionDays } from './artifactRetention.js';
 import { buildLogId, buildLogPath, readBuildLog } from './buildLog.js';
 import { sizeSummary, worstDownloadBytes } from './pipelineArtifact.js';
 import { mb } from './pipelineProviders.js';
-import { hasMessage } from '../services/errorMessage.js';
+import { hasMessage } from '../services/platform/errorMessage.js';
 import { alignTableColumns, type Column } from '../terminal/table.js';
 
 /** Stable presentation shape emitted by `builds list --json`. */

@@ -1,6 +1,6 @@
 import { Data, Effect } from 'effect';
-import { appRecordMissingMessage } from '../services/appleStoreClient.js';
-import { errorMessage } from '../services/errorMessage.js';
+import { appRecordMissingMessage } from '../services/stores/appleStoreClient.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
 import type {
   AppStoreVersionResource,
   BuildResource,

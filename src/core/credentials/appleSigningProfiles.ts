@@ -3,15 +3,15 @@ import type { CommandExecutor } from '@effect/platform/CommandExecutor';
 import { Effect } from 'effect';
 import type { Platform } from '../types/app.js';
 import type { SigningAssets } from '../types/credentials.js';
-import type { Logger } from '../services/logger.js';
-import { captureCommandOutput } from '../services/exec.js';
-import type { LaunchEnvironmentService } from '../services/environment.js';
-import { appStoreProfileType, toBundleIdPlatform } from '../services/platform.js';
+import type { Logger } from '../services/platform/logger.js';
+import { captureCommandOutput } from '../services/platform/exec.js';
+import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import { appStoreProfileType, toBundleIdPlatform } from '../services/stores/platform.js';
 import {
   resolveAccountCredentialsDirectory,
   resolveProvisioningProfilesDirectory,
-} from '../services/paths.js';
-import type { AppleCredentialsClient } from '../services/appleCredentialsClient.js';
+} from '../services/platform/paths.js';
+import type { AppleCredentialsClient } from '../services/stores/appleCredentialsClient.js';
 import type { BundleIdResource, ProfileResource } from '../types/appleCatalog.js';
 import { staleProfileCapabilities } from './capabilities.js';
 import {

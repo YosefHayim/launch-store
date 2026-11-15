@@ -6,13 +6,13 @@ import { loadActiveAscKey } from '../credentials/accounts.js';
 import {
   AppleStoreClientService,
   type AppleStoreClientService as AppleStoreClientRequirements,
-} from '../services/appleStoreClient.js';
-import type { LaunchEnvironmentService } from '../services/environment.js';
-import { errorMessage } from '../services/errorMessage.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
-import { LaunchPrompt, type LaunchPromptService } from '../services/prompt.js';
-import type { LaunchSecretStoreService } from '../services/secretStore.js';
+} from '../services/stores/appleStoreClient.js';
+import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
+import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
+import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
 import { pullAppleListing } from '../store/shared/metadataCommand.js';
 import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
 import type { AdoptCatalogApi, Fidelity } from '../types/adopt.js';

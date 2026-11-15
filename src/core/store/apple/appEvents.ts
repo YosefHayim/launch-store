@@ -6,7 +6,7 @@ import type {
   AppEventResource,
   NewAppEvent,
 } from '../../types/appleCatalog.js';
-import { hasMessage } from '../../services/errorMessage.js';
+import { hasMessage } from '../../services/platform/errorMessage.js';
 
 /** The App Store transport operations required by the in-app-events domain. */
 export type AscAppEventsApi = Readonly<{

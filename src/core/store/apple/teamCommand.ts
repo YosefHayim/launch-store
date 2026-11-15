@@ -1,11 +1,11 @@
 import { Terminal } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
-import { createLogger, type Logger } from '../../services/logger.js';
-import { LaunchPrompt, type LaunchPromptService } from '../../services/prompt.js';
+import { createLogger, type Logger } from '../../services/platform/logger.js';
+import { LaunchPrompt, type LaunchPromptService } from '../../services/platform/prompt.js';
 import type { UserInvitationResource, UserResource } from '../../types/appleCatalog.js';
 import { loadActiveAppleStore, type ActiveAppleStoreRequirements } from './appleStoreCommand.js';
 import { getTeam, inviteTeamMember, removeTeamMember, type Team } from './team.js';
-import { hasMessage } from '../../services/errorMessage.js';
+import { hasMessage } from '../../services/platform/errorMessage.js';
 
 const TeamListInputSchema = Schema.Struct({
   operation: Schema.Literal('list'),

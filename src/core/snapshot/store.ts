@@ -5,7 +5,7 @@ import {
   resolveSnapshotFilePath,
   resolveSnapshotsDirectory,
   type LaunchPathsService,
-} from '../services/paths.js';
+} from '../services/platform/paths.js';
 import type {
   AppEntities,
   CaptureOutcome,

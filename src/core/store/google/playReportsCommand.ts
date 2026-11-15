@@ -3,13 +3,13 @@ import {
   loadServiceAccount,
   describeMissingPlayServiceAccount,
 } from '../../credentials/androidKeystore.js';
-import { errorMessage } from '../../services/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 import {
   GoogleReportingClientService,
   type GoogleReportingClientService as GoogleReportingClientRequirements,
-} from '../../services/googleReportingClient.js';
-import { createLogger, type Logger } from '../../services/logger.js';
-import type { LaunchSecretStoreService } from '../../services/secretStore.js';
+} from '../../services/stores/googleReportingClient.js';
+import { createLogger, type Logger } from '../../services/platform/logger.js';
+import type { LaunchSecretStoreService } from '../../services/credentials/secretStore.js';
 import type { PlayVitalsMetric, VitalsTimeline } from '../../types/vitals.js';
 import { selectStoreApp, type StoreAppSelectionRequirements } from '../shared/selectStoreApp.js';
 

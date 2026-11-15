@@ -10,7 +10,7 @@ import {
   signingPreflightDoctorChecks,
 } from '../credentials/signingPreflight.js';
 import { appPrivacyChecklist } from '../privacy/privacyNutritionLabel.js';
-import { errorMessage } from '../services/errorMessage.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
 import { formatPermissionLine, probeKeyPermissions } from '../store/apple/ascPermissions.js';
 import { describeExportComplianceConfig } from '../store/apple/exportCompliance.js';
 import { buildConsoleUrl } from '../terminal/consoleLinks.js';

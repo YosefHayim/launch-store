@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { describe, expect, test } from 'vitest';
-import { makeLaunchLoggerTest } from '../services/logger.js';
+import { makeLaunchLoggerTest } from '../services/platform/logger.js';
 import { endWithUsageFailure, makeUsageFailure } from './usageFailure.js';
 
 describe('endWithUsageFailure', () => {

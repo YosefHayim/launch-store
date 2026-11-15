@@ -1,7 +1,7 @@
 import { Duration, Effect } from 'effect';
 import { parseOwnerFlag, parsePlatformFlag } from '../portfolio/appsCommand.js';
-import { errorMessage } from '../services/errorMessage.js';
-import type { Logger } from '../services/logger.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import type { Logger } from '../services/platform/logger.js';
 import { ensureFreshStats } from '../stats/ensureFreshStats.js';
 import { readStatsReport } from '../stats/statsReport.js';
 import { parseDaysFlag } from '../stats/statsSyncCommand.js';

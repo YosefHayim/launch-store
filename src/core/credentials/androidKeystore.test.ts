@@ -6,8 +6,8 @@ import { NodeContext } from '@effect/platform-node';
 import {
   makeLaunchSecretStoreTest,
   type LaunchSecretStoreService,
-} from '../services/secretStore.js';
-// Redirect HOME before `core/services/paths.js` evaluates so `~/.launch/credentials/android.json`
+} from '../services/credentials/secretStore.js';
+// Redirect HOME before `core/services/platform/paths.js` evaluates so `~/.launch/credentials/android.json`
 // resolves under a throwaway path. Must run via vi.hoisted before the static imports below; use the
 // global `process` (not a node:process import) so hoisting does not hit a TDZ on the import binding.
 const { store, homeDir } = vi.hoisted(() => {
@@ -39,7 +39,7 @@ import {
   makeLaunchPathsTest,
   resolveAndroidCredentialsIndexPath,
   type LaunchPathsService,
-} from '../services/paths.js';
+} from '../services/platform/paths.js';
 /** Run an Android credential program with an isolated secret-store capability. */
 const runAndroidCredentialEffect = <TValue, TError>(
   credentialEffect: Effect.Effect<

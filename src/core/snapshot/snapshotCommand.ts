@@ -6,8 +6,8 @@ import { loadActiveAscKey } from '../credentials/accounts.js';
 import {
   AppleStoreClientService,
   type EffectAppStoreConnectClient,
-} from '../services/appleStoreClient.js';
-import { createLogger, type Logger } from '../services/logger.js';
+} from '../services/stores/appleStoreClient.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
 import { selectApps } from '../store/shared/syncJobs.js';
 import { CommandExitSchema, completeCommand, type CommandExit } from '../terminal/commandExit.js';
 import type { AppDescriptor } from '../types/app.js';
@@ -34,7 +34,7 @@ import {
   saveSnapshot,
   type PruneCriteria,
 } from './store.js';
-import { hasMessage } from '../services/errorMessage.js';
+import { hasMessage } from '../services/platform/errorMessage.js';
 
 const LIVE_SNAPSHOT = 'live';
 const SNAPSHOT_STORES: readonly SnapshotStore[] = ['appstore', 'play'];

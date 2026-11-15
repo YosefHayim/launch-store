@@ -5,11 +5,11 @@ import {
   AppleStoreClientService,
   type AppleStoreClientService as AppleStoreClientRequirements,
   type EffectAppStoreConnectClient,
-} from '../../services/appleStoreClient.js';
-import { errorMessage } from '../../services/errorMessage.js';
-import type { LaunchPathsService } from '../../services/paths.js';
-import type { LaunchEnvironmentService } from '../../services/environment.js';
-import type { LaunchSecretStoreService } from '../../services/secretStore.js';
+} from '../../services/stores/appleStoreClient.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
+import type { LaunchPathsService } from '../../services/platform/paths.js';
+import type { LaunchEnvironmentService } from '../../services/platform/environment.js';
+import type { LaunchSecretStoreService } from '../../services/credentials/secretStore.js';
 
 /** Loading the active Apple account or creating its transport client failed. */
 export type ActiveAppleStoreFailure = Readonly<{

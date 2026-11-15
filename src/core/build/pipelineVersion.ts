@@ -12,13 +12,13 @@ import {
   type BumpKind,
 } from '../release/version.js';
 import { readLastBump } from '../distribution/lastRun.js';
-import type { Logger } from '../services/logger.js';
-import { executeCommand, provideNodeCommandServices } from '../services/exec.js';
-import { checkTerminalIsInteractive, withSpinner } from '../services/progress.js';
-import { nativeProjectDirName } from '../services/platform.js';
-import { AppleStoreClientService } from '../services/appleStoreClient.js';
-import { GoogleStoreClientService } from '../services/googleStoreClient.js';
-import { LaunchPrompt } from '../services/prompt.js';
+import type { Logger } from '../services/platform/logger.js';
+import { executeCommand, provideNodeCommandServices } from '../services/platform/exec.js';
+import { checkTerminalIsInteractive, withSpinner } from '../services/platform/progress.js';
+import { nativeProjectDirName } from '../services/stores/platform.js';
+import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
+import { GoogleStoreClientService } from '../services/stores/googleStoreClient.js';
+import { LaunchPrompt } from '../services/platform/prompt.js';
 import type { BuildRunOptions, BumpResolution } from './pipelineTypes.js';
 import type { MutableDeep } from '../types/mutable.js';
 

@@ -3,7 +3,7 @@ import { Data, Effect, Schema } from 'effect';
 import type { AppAvailabilityResource } from '../../types/appleCatalog.js';
 import type { PlannedAction } from '../../types/reconcile.js';
 import { appRecordMissing } from '../shared/reconcile.js';
-import { errorMessage } from '../../services/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 /** How many territory codes to show inline before truncating the plan line. */
 const PREVIEW_LIMIT = 8;
 

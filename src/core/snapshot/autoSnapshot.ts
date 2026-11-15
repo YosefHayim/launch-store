@@ -1,6 +1,6 @@
 import type { FileSystem, Path } from '@effect/platform';
 import { Effect } from 'effect';
-import type { LaunchPathsService } from '../services/paths.js';
+import type { LaunchPathsService } from '../services/platform/paths.js';
 import type { SnapshotContext } from '../types/snapshot.js';
 import { captureSnapshot } from './orchestrator.js';
 import { listSnapshotSources, registerBuiltinSources } from './registry.js';

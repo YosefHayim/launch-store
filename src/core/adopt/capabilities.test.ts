@@ -3,7 +3,7 @@ import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { AdoptCatalogApi, AdoptTarget } from '../types/adopt.js';
 import type { AppDescriptor } from '../types/app.js';
-import { makeLaunchEnvironmentTest } from '../services/environment.js';
+import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
 import { capabilitiesAdopter, NEEDS_VALUE, planCapabilityEntitlements } from './capabilities.js';
 
 describe('planCapabilityEntitlements', () => {

@@ -76,7 +76,7 @@ provider:
    a unique `name` (`"s3"`). Lazy-`import()` the AWS SDK inside the methods so a local-only install
    never pulls it in.
 3. **Register its live layer** through the provider registry in
-   [`src/core/services/registry.ts`](./src/core/services/registry.ts).
+   [`src/core/services/providerSupport/registry.ts`](./src/core/services/providerSupport/registry.ts).
 4. **Select it** by name from a `launch.config.ts` (`storage: "s3"`). Nothing in
    [`src/core/build/pipeline.ts`](./src/core/build/pipeline.ts) changes - the pipeline looks providers up by name.
 5. **Add a test** beside it and run the gate.

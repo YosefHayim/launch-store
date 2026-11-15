@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { LaunchLogger, type Logger } from '../services/logger.js';
+import { LaunchLogger, type Logger } from '../services/platform/logger.js';
 import { makeCommandExit, type CommandExit } from '../terminal/commandExit.js';
 import {
   endWithUsageFailure,
@@ -9,8 +9,8 @@ import {
 import type { AppFeedSyncReport } from '../types/stats.js';
 import { DEFAULT_SYNC_DAYS, MAX_SYNC_DAYS } from './dateRange.js';
 import { syncStats, type StatsSyncRequirements } from './syncStats.js';
-import type { DocumentFileFailure } from '../services/atomicDocumentFile.js';
-import type { InvalidAppKeyFailure } from '../services/paths.js';
+import type { DocumentFileFailure } from '../services/platform/atomicDocumentFile.js';
+import type { InvalidAppKeyFailure } from '../services/platform/paths.js';
 import type { SyncLockFailure } from './syncLock.js';
 
 export interface StatsSyncCommandRequest {

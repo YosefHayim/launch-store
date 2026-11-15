@@ -1,6 +1,6 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Effect, Schema } from 'effect';
-import { resolveLastRunFilePath, type LaunchPathsService } from '../services/paths.js';
+import { resolveLastRunFilePath, type LaunchPathsService } from '../services/platform/paths.js';
 import type { BumpKind } from '../release/version.js';
 import type { BuildLocation, Platform } from '../types/app.js';
 

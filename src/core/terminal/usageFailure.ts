@@ -1,5 +1,5 @@
 import { Data, Effect } from 'effect';
-import { LaunchLogger, type Logger } from '../services/logger.js';
+import { LaunchLogger, type Logger } from '../services/platform/logger.js';
 import { makeCommandExit, type CommandExit } from './commandExit.js';
 
 export type UsageFailure = Readonly<{

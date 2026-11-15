@@ -1,7 +1,7 @@
 import type { HttpClient } from '@effect/platform';
 import type { Effect } from 'effect';
 import type { PlayReportingClient } from '@google/playReporting.js';
-import type { EffectAppStoreConnectClient } from '../services/appleStoreClient.js';
+import type { EffectAppStoreConnectClient } from '../services/stores/appleStoreClient.js';
 import type { PortfolioApp } from './portfolio.js';
 import type { ServiceAccount } from './credentials.js';
 

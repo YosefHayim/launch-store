@@ -10,12 +10,12 @@ import {
   type AppleStoreClientService,
   AppleStoreClientService as AppleStoreClients,
   type EffectAppStoreConnectClient,
-} from '../../services/appleStoreClient.js';
+} from '../../services/stores/appleStoreClient.js';
 import {
   type EffectGooglePlayClient,
   type GoogleStoreClientService,
   GoogleStoreClientService as GoogleStoreClients,
-} from '../../services/googleStoreClient.js';
+} from '../../services/stores/googleStoreClient.js';
 import { createAscClientResolver, createPlayClientResolver } from './storeClients.js';
 
 const appStoreClient = unsafeCoerce<unknown, EffectAppStoreConnectClient>({ store: 'apple' });

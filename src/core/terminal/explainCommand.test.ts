@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { makeLaunchLoggerTest } from '../services/logger.js';
+import { makeLaunchLoggerTest } from '../services/platform/logger.js';
 import { explainCommandProgram } from './explainCommand.js';
 
 describe('explainCommandProgram', () => {

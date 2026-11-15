@@ -2,8 +2,8 @@
 
 import { FileSystem, HttpClient, HttpClientRequest, Path } from '@effect/platform';
 import { Effect, Redacted, Schema } from 'effect';
-import { LaunchEnvironment } from '@core/services/environment.js';
-import { LaunchSecretStore } from '@core/services/secretStore.js';
+import { LaunchEnvironment } from '@core/services/platform/environment.js';
+import { LaunchSecretStore } from '@core/services/credentials/secretStore.js';
 import {
   ArtifactIndexSchema,
   type BuildArtifact,

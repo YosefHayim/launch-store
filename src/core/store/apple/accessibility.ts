@@ -7,7 +7,7 @@ import {
   type DeviceFamily,
 } from '../../types/appleCatalog.js';
 import { appRecordMissing, plan, type ReconcileContext } from '../shared/reconcile.js';
-import { errorMessage } from '../../services/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 import type { PlannedAction } from '../../types/reconcile.js';
 import type { MutableDeep } from '../../types/mutable.js';
 import {

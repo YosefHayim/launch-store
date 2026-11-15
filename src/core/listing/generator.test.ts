@@ -1,7 +1,7 @@
 import { NodeHttpClient } from '@effect/platform-node';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { makeLaunchEnvironmentTest } from '../services/environment.js';
+import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
 import {
   buildListingPrompt,
   createAnthropicListingGenerator,

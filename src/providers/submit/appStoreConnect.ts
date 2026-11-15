@@ -15,8 +15,8 @@ import {
   AppleStoreClientService,
   appRecordMissingMessage,
   type EffectAppStoreConnectClient,
-} from '@core/services/appleStoreClient.js';
-import { toAscPlatform } from '@core/services/platform.js';
+} from '@core/services/stores/appleStoreClient.js';
+import { toAscPlatform } from '@core/services/stores/platform.js';
 
 const PROVIDER = 'app-store-connect';
 /** How long Apple may take to accept a delivered binary before the submit gives up waiting. */

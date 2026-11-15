@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Effect } from 'effect';
-import { makeLaunchEnvironmentTest } from '../services/environment.js';
-import { makeLaunchSecretStoreTest } from '../services/secretStore.js';
+import { makeLaunchEnvironmentTest } from '../services/platform/environment.js';
+import { makeLaunchSecretStoreTest } from '../services/credentials/secretStore.js';
 import { resolveSecretRef } from './secretRef.js';
 
 /** Resolve one test reference with explicit environment and secret-store capabilities. */

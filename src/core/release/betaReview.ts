@@ -6,7 +6,7 @@ import type {
   BetaReviewState,
   BuildResource,
 } from '../types/appleCatalog.js';
-import { errorMessage } from '../services/errorMessage.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
 import { plan, skip, type ReconcileContext } from '../store/shared/reconcile.js';
 import type { PlannedAction } from '../types/reconcile.js';
 

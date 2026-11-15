@@ -1,14 +1,14 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Effect, Layer } from 'effect';
 import { clientConfigPath, installServer } from '../mcp/install.js';
-import { detectHostOperatingSystem } from '../services/os.js';
-import { LaunchPaths } from '../services/paths.js';
+import { detectHostOperatingSystem } from '../services/platform/os.js';
+import { LaunchPaths } from '../services/platform/paths.js';
 import {
   AgentsCommandService,
   type AgentsCommandFailure,
   makeAgentsCommandFailure,
 } from './command.js';
-import { hasMessage } from '../services/errorMessage.js';
+import { hasMessage } from '../services/platform/errorMessage.js';
 
 /** Map an MCP adapter failure into the agents command channel. */
 const liveFailure = (operation: string, cause: unknown): AgentsCommandFailure => {

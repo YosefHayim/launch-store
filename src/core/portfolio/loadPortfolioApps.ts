@@ -1,7 +1,7 @@
 import type { FileSystem, Path } from '@effect/platform';
 import { Clock, Effect } from 'effect';
-import type { DocumentFileFailure } from '../services/atomicDocumentFile.js';
-import type { LaunchPathsService } from '../services/paths.js';
+import type { DocumentFileFailure } from '../services/platform/atomicDocumentFile.js';
+import type { LaunchPathsService } from '../services/platform/paths.js';
 import type { StatsCredentialsShape } from '../types/stats.js';
 import type { PortfolioFile, PortfolioLoad, PortfolioLoadMode } from '../types/portfolio.js';
 import { discoverApps } from './discoverApps.js';

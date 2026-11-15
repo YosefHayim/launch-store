@@ -17,7 +17,7 @@ import type {
 import type { MutableDeep } from '../../types/mutable.js';
 import type { PlannedAction } from '../../types/reconcile.js';
 import { plan, type ReconcileContext } from '../shared/reconcile.js';
-import { errorMessage } from '../../services/errorMessage.js';
+import { errorMessage } from '../../services/platform/errorMessage.js';
 import {
   buildPlayPaymentsProfileUrl,
   buildPlayUsersAndPermissionsUrl,

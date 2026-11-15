@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, writeFileSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { makeLaunchPathsTest } from '../services/paths.js';
+import { makeLaunchPathsTest } from '../services/platform/paths.js';
 import { DiagnoseCommandInputSchema, findMostRecentBuildLog } from './diagnoseCommand.js';
 
 describe('findMostRecentBuildLog', () => {

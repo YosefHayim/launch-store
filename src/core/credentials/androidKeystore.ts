@@ -1,17 +1,17 @@
 import { FileSystem, Path } from '@effect/platform';
 import type { CommandExecutor } from '@effect/platform/CommandExecutor';
 import { Data, Effect, Schema } from 'effect';
-import { captureCommandOutput } from '../services/exec.js';
-import type { LaunchEnvironmentService } from '../services/environment.js';
-import type { Logger } from '../services/logger.js';
-import type { LaunchSecretStoreService } from '../services/secretStore.js';
+import { captureCommandOutput } from '../services/platform/exec.js';
+import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import type { Logger } from '../services/platform/logger.js';
+import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
 import {
   resolveAndroidCredentialsIndexPath,
   resolveLegacyAndroidCredentialsIndexPath,
   resolveCredentialsDirectory,
   resolveAndroidCredentialsDirectory,
   type LaunchPathsService,
-} from '../services/paths.js';
+} from '../services/platform/paths.js';
 import type { KeystoreAssets } from '../types/credentials.js';
 import { getSecret, setSecret } from './keychain.js';
 import { randomHexSecret } from './randomSecret.js';

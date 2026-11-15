@@ -1,6 +1,6 @@
 import { Path } from '@effect/platform';
 import { Effect, Option, Schema } from 'effect';
-import { isApplePlatform } from '../services/platform.js';
+import { isApplePlatform } from '../services/stores/platform.js';
 import type { AppDescriptor, Platform } from '../types/app.js';
 import { readResolvedConfig } from './config.js';
 /**

@@ -1,9 +1,9 @@
 import { Data, Effect } from 'effect';
 import { loadConfig } from '../config/config.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { LaunchPaths } from '../services/paths.js';
-import type { EffectAppStoreConnectClient } from '../services/appleStoreClient.js';
-import type { EffectGooglePlayClient } from '../services/googleStoreClient.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { LaunchPaths } from '../services/platform/paths.js';
+import type { EffectAppStoreConnectClient } from '../services/stores/appleStoreClient.js';
+import type { EffectGooglePlayClient } from '../services/stores/googleStoreClient.js';
 import { listReviews } from '../store/apple/reviews.js';
 import { createAscClientResolver, createPlayClientResolver } from '../store/shared/storeClients.js';
 import { selectApps } from '../store/shared/syncJobs.js';
@@ -19,7 +19,7 @@ import type {
 } from '../types/insights.js';
 import { buildInsightsReport, STARS } from './aggregate.js';
 import type { MutableDeep } from '../types/mutable.js';
-import { hasMessage } from '../services/errorMessage.js';
+import { hasMessage } from '../services/platform/errorMessage.js';
 
 /** Options accepted by the cross-store insights command. */
 export type InsightsCommandOptions = Readonly<{

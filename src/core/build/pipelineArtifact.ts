@@ -8,12 +8,20 @@ import {
   resolveStorageProvider,
   type StorageResolverRequirements,
 } from '../distribution/storage.js';
-import { AppleStoreClientService } from '../services/appleStoreClient.js';
-import { captureCommandOutput, checkCommandExists } from '../services/exec.js';
-import type { Logger } from '../services/logger.js';
-import { nativeProjectDirName, nativeTargetHint, platformLabel } from '../services/platform.js';
-import { checkTerminalIsInteractive, runWithProgress, withSpinner } from '../services/progress.js';
-import { LaunchPrompt } from '../services/prompt.js';
+import { AppleStoreClientService } from '../services/stores/appleStoreClient.js';
+import { captureCommandOutput, checkCommandExists } from '../services/platform/exec.js';
+import type { Logger } from '../services/platform/logger.js';
+import {
+  nativeProjectDirName,
+  nativeTargetHint,
+  platformLabel,
+} from '../services/stores/platform.js';
+import {
+  checkTerminalIsInteractive,
+  runWithProgress,
+  withSpinner,
+} from '../services/platform/progress.js';
+import { LaunchPrompt } from '../services/platform/prompt.js';
 import { makeCommandExit } from '../terminal/commandExit.js';
 import { buildConsoleUrl } from '../terminal/consoleLinks.js';
 import type { GlossaryTopic } from '../terminal/glossary.js';

@@ -7,8 +7,8 @@ import {
   removeTemporaryHomeDirectory,
   writeLaunchHomeFile,
 } from '@testkit/launchHome.testkit.js';
-import { createLogger, makeLaunchLoggerTest } from '../services/logger.js';
-import { makeLaunchPathsTest } from '../services/paths.js';
+import { createLogger, makeLaunchLoggerTest } from '../services/platform/logger.js';
+import { makeLaunchPathsTest } from '../services/platform/paths.js';
 import { makeStatsCredentialsTest } from '../stats/statsCredentials.js';
 import type { DashboardState } from '../types/dashboard.js';
 

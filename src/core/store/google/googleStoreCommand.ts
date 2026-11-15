@@ -8,9 +8,9 @@ import {
   GoogleStoreClientService,
   type EffectGooglePlayClient,
   type GoogleStoreClientService as GoogleStoreClientRequirements,
-} from '../../services/googleStoreClient.js';
-import type { LaunchSecretStoreService } from '../../services/secretStore.js';
-import { LaunchPrompt, type LaunchPromptService } from '../../services/prompt.js';
+} from '../../services/stores/googleStoreClient.js';
+import type { LaunchSecretStoreService } from '../../services/credentials/secretStore.js';
+import { LaunchPrompt, type LaunchPromptService } from '../../services/platform/prompt.js';
 import {
   makeStoreAppSelectionFailure,
   selectStoreApp,

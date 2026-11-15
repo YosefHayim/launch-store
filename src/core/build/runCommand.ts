@@ -6,11 +6,11 @@ import {
   resolveStorageProvider,
   type StorageResolverRequirements,
 } from '../distribution/storage.js';
-import { errorMessage } from '../services/errorMessage.js';
-import { executeCommand } from '../services/exec.js';
-import type { LaunchEnvironmentService } from '../services/environment.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { LaunchPaths, type LaunchPathsService } from '../services/paths.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { executeCommand } from '../services/platform/exec.js';
+import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { LaunchPaths, type LaunchPathsService } from '../services/platform/paths.js';
 import type { BuildArtifact } from '../types/artifacts.js';
 import { findBuild } from './buildHistoryCommand.js';
 

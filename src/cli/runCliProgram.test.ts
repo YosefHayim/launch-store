@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Effect } from 'effect';
 import { completeCommand, makeCommandExit } from '../core/terminal/commandExit.js';
 import { makeBuildCommandExecutionError } from '../core/build/buildCommandProgram.js';
-import { createLogger } from '../core/services/logger.js';
-import { LaunchPrompt } from '../core/services/prompt.js';
-import { setJsonOutput } from '../core/services/jsonOutputMode.js';
+import { createLogger } from '../core/services/platform/logger.js';
+import { LaunchPrompt } from '../core/services/platform/prompt.js';
+import { setJsonOutput } from '../core/services/platform/jsonOutputMode.js';
 import { runJsonCliProgram } from './runCliProgram.js';
 
 const SUMMARY = { command: 'build', platform: 'ios', dryRun: true, profile: 'production' } as const;

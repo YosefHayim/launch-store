@@ -3,7 +3,7 @@
 import { FileSystem, Path } from '@effect/platform';
 import { Effect, Schema } from 'effect';
 import { deleteSecret, getSecret, setSecret } from '../credentials/keychain.js';
-import { type LaunchPathsService, resolveSecretsFilePath } from '../services/paths.js';
+import { type LaunchPathsService, resolveSecretsFilePath } from '../services/platform/paths.js';
 
 /** Non-secret coordinates for one app/profile environment secret. */
 export type SecretRef = Readonly<{

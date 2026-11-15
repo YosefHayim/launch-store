@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Effect } from 'effect';
 import { NodeContext } from '@effect/platform-node';
 import { readFileSync, statSync } from 'node:fs';
-import { scpUp, sshRun } from '../services/ssh.js';
+import { scpUp, sshRun } from '../services/platform/ssh.js';
 import { type RemoteBuildInputs, remoteBuildEnvironment, runBuildOnHost } from './remoteBuild.js';
 
 const remoteInputs = (overrides: Partial<RemoteBuildInputs> = {}): RemoteBuildInputs => ({
@@ -56,7 +56,7 @@ describe('remoteBuildEnvironment', () => {
   });
 });
 
-vi.mock('../services/ssh.js', () => ({
+vi.mock('../services/platform/ssh.js', () => ({
   scpUp: vi.fn(() => Effect.void),
   sshRun: vi.fn(() => Effect.void),
   sshCapture: vi.fn(() => Effect.succeed('0')),

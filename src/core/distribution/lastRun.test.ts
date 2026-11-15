@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { makeLaunchPathsTest, type LaunchPathsService } from '../services/paths.js';
+import { makeLaunchPathsTest, type LaunchPathsService } from '../services/platform/paths.js';
 import type { LastFlow } from './lastRun.js';
 import {
   readLastApp,

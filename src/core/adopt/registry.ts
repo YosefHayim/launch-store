@@ -1,5 +1,5 @@
 import type { Adopter } from '../types/adopt.js';
-import type { LaunchPathsService } from '../services/paths.js';
+import type { LaunchPathsService } from '../services/platform/paths.js';
 import { capabilitiesAdopter } from './capabilities.js';
 import { certsAdopter } from './certs.js';
 import { listingAdopter } from './listing.js';

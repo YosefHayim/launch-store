@@ -2,10 +2,10 @@
 
 import { FileSystem, Path } from '@effect/platform';
 import { Cause, Effect, Redacted, Schema } from 'effect';
-import { LaunchEnvironment } from '@core/services/environment.js';
-import { errorMessage } from '@core/services/errorMessage.js';
-import { requireOptional } from '@core/services/optionalDep.js';
-import { LaunchSecretStore } from '@core/services/secretStore.js';
+import { LaunchEnvironment } from '@core/services/platform/environment.js';
+import { errorMessage } from '@core/services/platform/errorMessage.js';
+import { requireOptional } from '@core/services/platform/optionalDep.js';
+import { LaunchSecretStore } from '@core/services/credentials/secretStore.js';
 import {
   ArtifactIndexSchema,
   type BuildArtifact,

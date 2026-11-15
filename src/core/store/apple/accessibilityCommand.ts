@@ -6,12 +6,12 @@ import { loadActiveAscKey } from '../../credentials/accounts.js';
 import {
   AppleStoreClientService,
   type AppleStoreClientService as AppleStoreClientDependencies,
-} from '../../services/appleStoreClient.js';
-import { createLogger, type Logger } from '../../services/logger.js';
-import type { LaunchPathsService } from '../../services/paths.js';
-import { LaunchPrompt, type LaunchPromptService } from '../../services/prompt.js';
-import type { LaunchEnvironmentService } from '../../services/environment.js';
-import type { LaunchSecretStoreService } from '../../services/secretStore.js';
+} from '../../services/stores/appleStoreClient.js';
+import { createLogger, type Logger } from '../../services/platform/logger.js';
+import type { LaunchPathsService } from '../../services/platform/paths.js';
+import { LaunchPrompt, type LaunchPromptService } from '../../services/platform/prompt.js';
+import type { LaunchEnvironmentService } from '../../services/platform/environment.js';
+import type { LaunchSecretStoreService } from '../../services/credentials/secretStore.js';
 import { completeCommand, type CommandExit } from '../../terminal/commandExit.js';
 import type { PlannedAction } from '../../types/reconcile.js';
 import {
@@ -19,7 +19,7 @@ import {
   reconcileAccessibility,
   summarizeAccessibility,
 } from './accessibility.js';
-import { hasMessage } from '../../services/errorMessage.js';
+import { hasMessage } from '../../services/platform/errorMessage.js';
 
 /** Inputs accepted by the accessibility command. */
 export type AccessibilityCommandInput = Readonly<{

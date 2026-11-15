@@ -2,8 +2,11 @@ import { Terminal } from '@effect/platform';
 import type { PlatformError } from '@effect/platform/Error';
 import type { Command } from 'commander';
 import { Effect } from 'effect';
-import { LaunchEnvironment, type LaunchEnvironmentService } from '../services/environment.js';
-import { createLogger, type Logger } from '../services/logger.js';
+import {
+  LaunchEnvironment,
+  type LaunchEnvironmentService,
+} from '../services/platform/environment.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
 import type { Shell } from '../types/remote.js';
 import {
   completionScript,

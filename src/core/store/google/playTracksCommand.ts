@@ -1,7 +1,7 @@
 import { FileSystem, type Terminal } from '@effect/platform';
 import { Data, Effect, Schema } from 'effect';
-import { createLogger, type Logger } from '../../services/logger.js';
-import type { LaunchPromptService } from '../../services/prompt.js';
+import { createLogger, type Logger } from '../../services/platform/logger.js';
+import type { LaunchPromptService } from '../../services/platform/prompt.js';
 import type { PlayCountryAvailability, PlayRelease } from '../../types/googlePlay.js';
 import {
   confirmGoogleStoreWrite,
@@ -20,7 +20,7 @@ import {
   type ReleaseNote,
 } from './playTracks.js';
 import type { StoreAppSelectionRequirements } from '../shared/selectStoreApp.js';
-import { hasMessage } from '../../services/errorMessage.js';
+import { hasMessage } from '../../services/platform/errorMessage.js';
 
 const PlayTracksStatusInputSchema = Schema.Struct({
   operation: Schema.Literal('status'),

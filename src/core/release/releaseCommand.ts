@@ -14,20 +14,20 @@ import {
   AppleStoreClientService,
   appRecordMissingMessage,
   type AppleStoreClientService as AppleStoreClientDependencies,
-} from '../services/appleStoreClient.js';
-import type { LaunchEnvironmentService } from '../services/environment.js';
-import { createLogger, type Logger } from '../services/logger.js';
-import { notify, type NotifyEvent } from '../services/notify.js';
-import type { LaunchPathsService } from '../services/paths.js';
-import { getCredentialsProvider } from '../services/registry.js';
-import type { LaunchSecretStoreService } from '../services/secretStore.js';
+} from '../services/stores/appleStoreClient.js';
+import type { LaunchEnvironmentService } from '../services/platform/environment.js';
+import { createLogger, type Logger } from '../services/platform/logger.js';
+import { notify, type NotifyEvent } from '../services/platform/notify.js';
+import type { LaunchPathsService } from '../services/platform/paths.js';
+import { getCredentialsProvider } from '../services/providerSupport/registry.js';
+import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
 import {
   isApplePlatform,
   parsePlatform,
   platformLabel,
   toAscPlatform,
-} from '../services/platform.js';
-import { LaunchPrompt, type LaunchPromptService, pickOne } from '../services/prompt.js';
+} from '../services/stores/platform.js';
+import { LaunchPrompt, type LaunchPromptService, pickOne } from '../services/platform/prompt.js';
 import { completeCommand, type CommandExit } from '../terminal/commandExit.js';
 import type { AndroidReleaseOptions, AppDescriptor, BuildProfile, Platform } from '../types/app.js';
 import type { BuildArtifact } from '../types/artifacts.js';
@@ -43,7 +43,7 @@ import {
 } from './appStoreRelease.js';
 import { resolveReleaseConfirmationMode } from './confirmation.js';
 import { resolveReleaseType, resolveWhatsNew } from './releaseInputs.js';
-import { hasMessage } from '../services/errorMessage.js';
+import { hasMessage } from '../services/platform/errorMessage.js';
 
 /** Parsed flags accepted by the public release command. */
 export type ReleaseCommandOptions = Readonly<{

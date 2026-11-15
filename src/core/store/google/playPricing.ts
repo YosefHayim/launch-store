@@ -1,5 +1,5 @@
 import { Data, Effect, Schema } from 'effect';
-import { createLogger, type Logger } from '../../services/logger.js';
+import { createLogger, type Logger } from '../../services/platform/logger.js';
 import type { ConvertedPrices, PlayMoneyUnits } from '../../types/playPricing.js';
 import {
   loadActiveGoogleStore,

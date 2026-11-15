@@ -31,19 +31,19 @@ import {
   AppleStoreClientService,
   appRecordMissingMessage,
   type AppleStoreClientService as AppleStoreClientDependencies,
-} from '../services/appleStoreClient.js';
-import { errorMessage } from '../services/errorMessage.js';
-import { executeCommand } from '../services/exec.js';
-import type { LaunchEnvironmentService } from '../services/environment.js';
+} from '../services/stores/appleStoreClient.js';
+import { errorMessage } from '../services/platform/errorMessage.js';
+import { executeCommand } from '../services/platform/exec.js';
+import type { LaunchEnvironmentService } from '../services/platform/environment.js';
 import {
   GoogleStoreClientService,
   type EffectGooglePlayClient,
   type GoogleStoreClientService as GoogleStoreClientDependencies,
-} from '../services/googleStoreClient.js';
-import type { Logger } from '../services/logger.js';
-import type { LaunchPathsService } from '../services/paths.js';
-import { getCredentialsProvider } from '../services/registry.js';
-import type { LaunchSecretStoreService } from '../services/secretStore.js';
+} from '../services/stores/googleStoreClient.js';
+import type { Logger } from '../services/platform/logger.js';
+import type { LaunchPathsService } from '../services/platform/paths.js';
+import { getCredentialsProvider } from '../services/providerSupport/registry.js';
+import type { LaunchSecretStoreService } from '../services/credentials/secretStore.js';
 import type { AndroidReleaseOptions, AppDescriptor, BuildProfile } from '../types/app.js';
 import type { LaunchConfig, ResolvedBuildContext } from '../types/config.js';
 import type { BuildArtifact } from '../types/artifacts.js';

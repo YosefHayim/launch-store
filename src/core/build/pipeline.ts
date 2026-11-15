@@ -1,14 +1,14 @@
-import { commandEnvironmentExclusions } from '../services/exec.js';
+import { commandEnvironmentExclusions } from '../services/platform/exec.js';
 import { Data, Effect } from 'effect';
 import type { AppDescriptor } from '../types/app.js';
 import type { ResolvedBuildContext } from '../types/config.js';
 import type { MutableDeep } from '../types/mutable.js';
-import type { NotifyEvent } from '../services/notify.js';
-import { notify } from '../services/notify.js';
+import type { NotifyEvent } from '../services/platform/notify.js';
+import { notify } from '../services/platform/notify.js';
 import { loadConfig } from '../config/config.js';
 import { checkApp, formatFinding } from '../config/configCheck.js';
 import { ENV_SOURCE, envInjectionRows } from '../config/env.js';
-import { createLogger } from '../services/logger.js';
+import { createLogger } from '../services/platform/logger.js';
 import {
   resolveStorageProvider,
   type StorageResolverRequirements,
@@ -23,7 +23,7 @@ import { previewEnv, resolveCommandEnv, selectApp, validateResolvedEnv } from '.
 import { receiptDestination, worstDownloadBytes } from './pipelineArtifact.js';
 import { runIosBuild } from './pipelineIos.js';
 import { runAndroidBuild } from './pipelineAndroid.js';
-import { hasMessage } from '../services/errorMessage.js';
+import { hasMessage } from '../services/platform/errorMessage.js';
 /** App configuration failed the pre-build footgun check. */
 export type BuildPreparationFailure = Readonly<{
   readonly _tag: 'BuildPreparationFailure';

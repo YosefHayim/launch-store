@@ -5,13 +5,13 @@ import type { SigningAssets } from '../types/credentials.js';
 import type { SshTarget } from '../types/remote.js';
 import type { RemoteSigningBundle } from '../credentials/appleSigning.js';
 import { randomHexSecret } from '../credentials/randomSecret.js';
-import { rsyncUp, scpDown, scpUp, sshCapture, sshRun } from '../services/ssh.js';
+import { rsyncUp, scpDown, scpUp, sshCapture, sshRun } from '../services/platform/ssh.js';
 import { remoteToolchainPreflight } from '../config/toolchain.js';
 import {
   assertDeviceArtifact,
   exportOptionsPlist,
   parseThinningReport,
-} from '../services/appleArtifact.js';
+} from '../services/providerSupport/appleArtifact.js';
 /**
  * What never leaves your machine in the source archive (decision 9): dependencies and native build
  * dirs are reinstalled/regenerated on the host, history is irrelevant, and `.env` is a secret-bearing
