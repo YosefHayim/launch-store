@@ -7,13 +7,11 @@ import {
 } from '../services/platform/paths.js';
 
 export type FirstRunState = {
-  tourSeenAt?: string;
   ccacheOfferDeclinedAt?: string;
 };
 
 const FirstRunStateSchema: Schema.Schema<FirstRunState> = Schema.mutable(
   Schema.Struct({
-    tourSeenAt: Schema.optionalWith(Schema.String, { exact: true }),
     ccacheOfferDeclinedAt: Schema.optionalWith(Schema.String, { exact: true }),
   }),
 );
@@ -50,17 +48,6 @@ const patchFirstRunState = (
       stateFilePath,
       JSON.stringify({ ...currentState, ...statePatch }, null, 2),
     );
-  });
-
-/** Reports whether the first-run tour has already been shown. */
-export const hasSeenTour = (): Effect.Effect<boolean, never, FirstRunRequirements> =>
-  readFirstRunState().pipe(Effect.map((state) => state.tourSeenAt !== undefined));
-
-/** Records that the first-run tour has been shown. */
-export const markTourSeen = (): Effect.Effect<void, unknown, FirstRunRequirements> =>
-  Effect.gen(function* () {
-    const epochMilliseconds = yield* Clock.currentTimeMillis;
-    yield* patchFirstRunState({ tourSeenAt: new Date(epochMilliseconds).toISOString() });
   });
 
 /** Reports whether the inline ccache offer was declined. */

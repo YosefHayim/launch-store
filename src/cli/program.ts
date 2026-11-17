@@ -7,7 +7,6 @@ import { registerBuildCommand } from './commands/build/build.js';
 import { registerReleaseCommand } from './commands/release/release.js';
 import { registerStatusCommand } from './commands/release/status.js';
 import { registerOpenCommand } from './commands/terminal/open.js';
-import { registerDashboardCommand } from './commands/insights/dashboard.js';
 import { registerReleaseTrainCommand } from './commands/release/releaseTrain.js';
 import { registerRolloutCommand } from './commands/release/rollout.js';
 import { registerCredsCommand } from './commands/credentials/creds.js';
@@ -51,7 +50,6 @@ import { registerCompletionCommand } from './commands/terminal/completion.js';
 import { registerUpdateCommand } from './commands/release/update.js';
 import { registerUpdatesCommand } from './commands/release/updates.js';
 import { registerCloudCommand } from './commands/build/cloud.js';
-import { registerDemoCommand } from './commands/terminal/demo.js';
 import { registerBuildsCommand } from './commands/build/builds.js';
 import { registerCiCommand } from './commands/setup/ci.js';
 import { registerAgentsCommand } from './commands/agents/agents.js';
@@ -64,16 +62,12 @@ import { registerSetupCommand } from './commands/setup/setup.js';
 import { registerSandboxCommand } from './commands/store/apple/sandbox.js';
 import { registerAppsCommand } from './commands/insights/apps.js';
 import { registerStatsCommand } from './commands/insights/stats.js';
-import { runWizard } from './commands/setup/wizard.js';
 /**
  * Assemble the full `launch` command tree and return it unparsed. Pure - registering providers and
  * dispatching `argv` are the caller's job - so importing this module does nothing observable, which is
  * what lets both the runtime entry and the docs generator share one definition of the command surface.
  */
-export const buildProgram = (
-  launchVersion = '0.0.0',
-  runBareCommand: () => void | Promise<void> = runWizard,
-): Command => {
+export const buildProgram = (launchVersion = '0.0.0'): Command => {
   const program = new Command();
   program
     .name('launch')
@@ -89,7 +83,6 @@ export const buildProgram = (
   registerReleaseCommand(program);
   registerStatusCommand(program);
   registerOpenCommand(program);
-  registerDashboardCommand(program);
   registerReleaseTrainCommand(program);
   registerRolloutCommand(program);
   registerCredsCommand(program);
@@ -137,7 +130,6 @@ export const buildProgram = (
   registerUpdateCommand(program);
   registerUpdatesCommand(program);
   registerCloudCommand(program);
-  registerDemoCommand(program);
   registerBuildsCommand(program);
   registerCiCommand(program);
   registerAgentsCommand(program);
@@ -146,6 +138,8 @@ export const buildProgram = (
   registerFingerprintCommand(program);
   registerDiagnoseCommand(program);
   registerResignCommand(program);
-  program.action(runBareCommand);
+  program.action(() => {
+    program.outputHelp();
+  });
   return program;
 };

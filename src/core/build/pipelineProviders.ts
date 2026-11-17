@@ -143,7 +143,7 @@ export const resolveAndroidSubmitReleaseNotes = (
   });
 /**
  * The soft size budget (MB) the pre-upload gate enforces for one run: a per-run override
- * (`--size-budget` / the wizard's custom-budget prompt) wins, then the profile's `sizeBudgetMB`, then
+ * (`--size-budget`) wins, then the profile's `sizeBudgetMB`, then
  * {@link DEFAULT_SIZE_BUDGET_MB}. One source of truth for the three `confirmUpload` call sites (local
  * iOS, local Android, and the EAS handoff) so the precedence can't drift between them.
  */

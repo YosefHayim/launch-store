@@ -45,7 +45,6 @@ src/
     build/        Pipeline, build flags, fingerprint, logs, diagnostics, remote/eas handoff
     config/       Effect Schema config/load/scaffold/semantics/project setup
     credentials/  Accounts, secrets, keychain, signing assets
-    dashboard/    Terminal dashboard state/rendering
     distribution/ Install manifests, OTA updates, storage-facing helpers
     docs/         README and llms.txt generators, config reference renderer
     doctor/       Doctor context/inspection
@@ -61,7 +60,7 @@ src/
     services/     Launch-owned Effect service contracts and Live/Test layers
     snapshot/     Live store snapshot/diff/source capture
     store/        Store sync, catalog/product/offers/pricing/reviews/reports across stores
-    terminal/     CLI presentation helpers, glossary, completion, wordmark
+    terminal/     CLI presentation helpers, glossary, completion
     types/        Exported domain shapes imported from their owning modules
  providers/        Swappable backend implementations
  apple/            ASC transport + generated Apple API mirror

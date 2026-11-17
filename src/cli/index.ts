@@ -7,9 +7,6 @@ import { migrateLegacyAccounts } from '../core/credentials/accounts.js';
 import { runAutoUpgrade } from '../core/config/updateCheck.js';
 import { CommandExitSchema } from '../core/terminal/commandExit.js';
 import { createLogger } from '../core/services/platform/logger.js';
-import { LaunchEnvironment } from '../core/services/platform/environment.js';
-import { renderBanner } from '../core/terminal/banner.js';
-import { runWizard } from './commands/setup/wizard.js';
 import { buildProgram } from './program.js';
 import { runCliProgram } from './runCliProgram.js';
 
@@ -31,9 +28,8 @@ const readVersion = (): Effect.Effect<string, never, FileSystem.FileSystem> =>
   });
 /**
  * Boot the CLI: register providers, silently self-upgrade (guarded/throttled - usually an instant
- * no-op), then let commander dispatch. With no subcommand it falls through to the banner + wizard;
- * with a subcommand it runs that command. Both the upgrade and the banner degrade to no-ops in CI,
- * when piped, and for agents, so scripts are unaffected.
+ * no-op), then let commander dispatch. With no subcommand it prints the help; with a subcommand it runs
+ * that command. The upgrade degrades to a no-op in CI, when piped, and for agents.
  */
 const main = async () => {
   const launchVersion = await runCliProgram(readVersion());
@@ -51,18 +47,7 @@ const main = async () => {
   // One-time, near-instant no-op after the first post-upgrade run: moves a pre-multi-account key into
   // the registry. Best-effort - a hiccup must not block the CLI; commands re-attempt it on next run.
   await runCliProgram(migrateLegacyAccounts().pipe(Effect.catchAll(() => Effect.void)));
-  await buildProgram(launchVersion, () =>
-    runCliProgram(
-      Effect.gen(function* () {
-        const environment = yield* LaunchEnvironment;
-        yield* renderBanner({
-          stream: process.stdout,
-          isTTY: process.stdout.isTTY === true,
-          env: environment.rawVariables,
-        });
-      }),
-    ).then(runWizard),
-  ).parseAsync(process.argv);
+  await buildProgram(launchVersion).parseAsync(process.argv);
 };
 /** The failure a command's Effect failed with, or none for a defect or a plain throw. */
 const commandFailureOf = (runtimeFailure: unknown): Option.Option<unknown> => {

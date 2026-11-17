@@ -29,7 +29,7 @@ export type DoctorCheck = Readonly<{
 /**
  * The aggregate result of a doctor run, structured so the command renders it, `--json` serializes it, and
  * an MCP tool returns it. `ok` is the gate: `true` exactly when no check is `fail` (advisory `info` lines
- * never fail the run), which is what `launch doctor`'s exit code and the wizard's branch both read.
+ * never fail the run), which is what `launch doctor`'s exit code reads.
  */
 export type DoctorReport = Readonly<{
   platform: DoctorPlatform;

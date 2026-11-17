@@ -2,26 +2,14 @@ import { FileSystem, Path } from '@effect/platform';
 import { Effect, Schema } from 'effect';
 import { resolveLastRunFilePath, type LaunchPathsService } from '../services/platform/paths.js';
 import type { BumpKind } from '../release/version.js';
-import type { BuildLocation, Platform } from '../types/app.js';
 
 type AppMemory = {
   bump?: BumpKind;
 };
 
-/** Wizard flow memory. Fields stay writable for journey assembly that fills optionals after create. */
-export type LastFlow = {
-  platform: Platform;
-  location: BuildLocation;
-  sshTarget?: string;
-  account?: string;
-  profile: string;
-  submit: boolean;
-};
-
 export type LastRunState = {
   lastApp?: string;
   apps: Record<string, AppMemory>;
-  lastFlow?: LastFlow;
 };
 
 const BumpKindSchema = Schema.Literal('major', 'minor', 'patch', 'keep');
@@ -30,21 +18,10 @@ const AppMemorySchema: Schema.Schema<AppMemory> = Schema.mutable(
     bump: Schema.optionalWith(BumpKindSchema, { exact: true }),
   }),
 );
-const LastFlowSchema: Schema.Schema<LastFlow> = Schema.mutable(
-  Schema.Struct({
-    platform: Schema.Literal('ios', 'android', 'tvos', 'macos', 'visionos'),
-    location: Schema.Literal('local', 'aws', 'ssh', 'eas'),
-    sshTarget: Schema.optionalWith(Schema.String, { exact: true }),
-    account: Schema.optionalWith(Schema.String, { exact: true }),
-    profile: Schema.String,
-    submit: Schema.Boolean,
-  }),
-);
 const LastRunStateSchema: Schema.Schema<LastRunState> = Schema.mutable(
   Schema.Struct({
     lastApp: Schema.optionalWith(Schema.String, { exact: true }),
     apps: Schema.mutable(Schema.Record({ key: Schema.String, value: AppMemorySchema })),
-    lastFlow: Schema.optionalWith(LastFlowSchema, { exact: true }),
   }),
 );
 
@@ -131,27 +108,6 @@ export const rememberLastRun = (
       ...memory,
       lastApp: appName,
       apps: nextApps,
-    };
-    yield* writeLastRun(memoryFilePath, nextMemory);
-  });
-
-/** Reads the most recent wizard build flow. */
-export const readLastFlow = (
-  filePath?: string,
-): Effect.Effect<LastFlow | undefined, never, LastRunRequirements> =>
-  readLastRun(filePath).pipe(Effect.map((memory) => memory.lastFlow));
-
-/** Records one successful wizard build flow without replacing bump memory. */
-export const rememberLastFlow = (
-  flow: LastFlow,
-  filePath?: string,
-): Effect.Effect<void, unknown, LastRunRequirements> =>
-  Effect.gen(function* () {
-    const memoryFilePath = yield* resolveMemoryFilePath(filePath);
-    const memory = yield* readLastRun(memoryFilePath);
-    const nextMemory: LastRunState = {
-      ...memory,
-      lastFlow: flow,
     };
     yield* writeLastRun(memoryFilePath, nextMemory);
   });

@@ -122,7 +122,7 @@ launch drift                     # same diff; non-zero exit if anything is out o
 These commands operate on your account, devices, or build history rather than a config file. Run
 `launch <command> --help` for flags, or see the [Commands table in the root README](../../README.md#commands).
 
-- **Set up:** `launch init` - `launch doctor` - `launch diagnose` - `launch explain <topic>` - `launch demo`
+- **Set up:** `launch init` - `launch doctor` - `launch diagnose` - `launch explain <topic>`
 - **Build & inspect:** `launch build <ios|android>` - `launch builds [list|view|log]` - `launch fingerprint` - `launch run [id|latest]` - `launch build:resign [id|latest]`
 - **Credentials & secrets:** `launch creds [status|set-key|setup|use|push-key]` - `launch secret [list|set|rm]`
 - **Release & rollout:** `launch release <ios|android>` - `launch status [--watch]` - `launch rollout <pause|resume|complete>`

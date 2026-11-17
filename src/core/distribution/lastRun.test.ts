@@ -3,15 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { makeLaunchPathsTest, type LaunchPathsService } from '../services/platform/paths.js';
-import type { LastFlow } from './lastRun.js';
-import {
-  readLastApp,
-  readLastBump,
-  readLastFlow,
-  readLastRun,
-  rememberLastFlow,
-  rememberLastRun,
-} from './lastRun.js';
+import { readLastApp, readLastBump, readLastRun, rememberLastRun } from './lastRun.js';
 
 /** Run remembered-choice behavior with the official Node platform services. */
 const executeLastRunProgram = <Success, Failure>(
@@ -59,45 +51,6 @@ describe('lastRun - remembered build picks round-trip through a temp file', () =
   it('tolerates a malformed file, reading as nothing remembered', async () => {
     writeFileSync(file, '{ not json');
     await expect(executeLastRunProgram(readLastRun(file))).resolves.toEqual({ apps: {} });
-  });
-  it('remembers a wizard flow and reads it back', async () => {
-    const flow: LastFlow = {
-      platform: 'ios',
-      location: 'local',
-      profile: 'production',
-      submit: true,
-      account: 'ABC123',
-    };
-    await executeLastRunProgram(rememberLastFlow(flow, file));
-    await expect(executeLastRunProgram(readLastFlow(file))).resolves.toEqual(flow);
-  });
-  it('preserves an SSH target on a remembered flow', async () => {
-    const flow: LastFlow = {
-      platform: 'ios',
-      location: 'ssh',
-      sshTarget: 'ec2-user@host',
-      profile: 'production',
-      submit: false,
-    };
-    await executeLastRunProgram(rememberLastFlow(flow, file));
-    const rememberedFlow = await executeLastRunProgram(readLastFlow(file));
-    expect(rememberedFlow?.sshTarget).toBe('ec2-user@host');
-  });
-  it('keeps the remembered flow and app memory independent', async () => {
-    await executeLastRunProgram(rememberLastRun('sampleapp', 'patch', file));
-    await executeLastRunProgram(
-      rememberLastFlow(
-        { platform: 'android', location: 'local', profile: 'production', submit: true },
-        file,
-      ),
-    );
-    await expect(executeLastRunProgram(readLastApp(file))).resolves.toBe('sampleapp');
-    await expect(executeLastRunProgram(readLastBump('sampleapp', file))).resolves.toBe('patch');
-    const rememberedFlow = await executeLastRunProgram(readLastFlow(file));
-    expect(rememberedFlow?.platform).toBe('android');
-  });
-  it('reads no flow before one is recorded', async () => {
-    await expect(executeLastRunProgram(readLastFlow(file))).resolves.toBeUndefined();
   });
 });
 import { NodeContext } from '@effect/platform-node';

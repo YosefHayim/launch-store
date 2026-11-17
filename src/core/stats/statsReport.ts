@@ -71,7 +71,7 @@ const selectNamedApps = (
 };
 
 /** Read the saved numbers of the selected apps for the last `days` days, marked with how fresh they are. */
-export const readStatsReport = (
+const readStatsReport = (
   request: StatsReportRequest,
   freshness: StatsFreshness,
 ): Effect.Effect<StatsReport, StatsReportFailure, StatsSyncRequirements> =>

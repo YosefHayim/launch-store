@@ -29,7 +29,6 @@ One TypeScript / Node ESM package plus its Claude Code mod. Top-level ownership:
 | `src/providers` | Swappable backend implementations for build, storage, credentials, submit, and compute providers. |
 | `src/apple` | App Store Connect transport and the generated Apple API mirror. |
 | `src/google` | Google Play transport wrappers around Google's official generated clients. |
-| `site` | The landing page and its in-browser plan playground. Bundles pure `src/core` modules, never a copy and never node-bound code. |
 | `src/testkit` | Shared test fakes and Effect test layers. |
 | `.claude-plugin/launch-store` | The Claude Code mod: tools and `/launch` that run `launch <command> --json`. Not in the npm package. Check it with `claude plugin validate --strict .claude-plugin/launch-store` and `claude plugin test .claude-plugin/launch-store`. |
 
@@ -42,7 +41,6 @@ src/core/
  build/          # pipeline, build flags, fingerprint, logs, diagnostics, remote/eas handoff
  config/         # config schema/load/scaffold/semantics/project setup
  credentials/    # accounts, secrets, keychain, signing assets
- dashboard/      # terminal dashboard state/rendering
  distribution/   # install manifests, OTA updates, storage-facing distribution helpers
  docs/           # README and llms.txt generators, config reference renderer
  doctor/         # doctor context/inspection
@@ -67,7 +65,7 @@ src/core/
    apple/          # App Store Connect programs
    google/         # Google Play programs
    shared/         # sync, reconcile, store config and app selection used by both
- terminal/       # CLI presentation helpers, glossary, completion, wordmark
+ terminal/       # CLI presentation helpers, glossary, completion
  types/          # exported domain shapes imported from owning modules
 ```
 
@@ -93,7 +91,6 @@ src/providers -> src/core/types + src/core/services only, plus vendor SDKs
 src/core      -> src/apple and src/google only from live adapters under src/core/services/stores
 src/apple     -> src/core/types only, never src/core logic
 src/google    -> src/core/types only, never src/core logic
-site          -> src/core pure modules and src/testkit fakes only
 ```
 
 ### Types And Public Exports

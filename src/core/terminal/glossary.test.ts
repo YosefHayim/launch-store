@@ -33,7 +33,7 @@ describe('glossary - the single source for --explain and docs', () => {
     expect(topics).toContain('xcode');
     expect(topics).toContain('gradle');
     expect(topics).toContain('runtime-version');
-    // Interactive wizard build-flow steps.
+    // Build-flow steps.
     expect(topics).toContain('build-platform');
     expect(topics).toContain('build-location');
     expect(topics).toContain('apple-account');

@@ -3,10 +3,6 @@
 </p>
 
 <p align="center">
-  <a href="https://yosefhayim.github.io/launch-store/">Landing page and live plan playground</a>
-</p>
-
-<p align="center">
   <strong>Open-source, self-hosted alternative to <a href="https://docs.expo.dev/eas/">Expo EAS</a> - build, sign, configure your stores, and ship Expo / <a href="https://reactnative.dev/">React Native</a> apps to the <a href="https://developer.apple.com/app-store/">App Store</a> &amp; <a href="https://play.google.com/console/about/">Google Play</a> from one typed launch.config.ts - your machine, your keys. No per-build bill.</strong>
 </p>
 
@@ -24,7 +20,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/store%20API-205%20endpoints-8957e5?logo=apple&logoColor=white" alt="205 App Store Connect &amp; Google Play API operations" />
   <img src="https://img.shields.io/badge/CRUD-full%20lifecycle-1f6feb" alt="Full create / read / update / delete coverage across the store APIs" />
-  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2929%20passing-3fb950?logo=vitest&logoColor=white" alt="2929 tests passing" /></a>
+  <a href="https://github.com/YosefHayim/launch-store/actions/workflows/ci.yml"><img src="https://img.shields.io/badge/tests-2851%20passing-3fb950?logo=vitest&logoColor=white" alt="2851 tests passing" /></a>
 </p>
 
 <!-- stats-badges:end -->
@@ -42,9 +38,6 @@ offers, capabilities, and listing), generates the native project, builds and sig
 the real per-device download size, stores the artifact, and uploads to the testing track - on hardware
 you own, with keys that stay in your local keychain. iOS signing needs a Mac; if you don't have one,
 Launch builds on a cloud Mac in **your own** [AWS EC2 Mac](https://aws.amazon.com/ec2/instance-types/mac/) account or hands off to Expo EAS - see [Building without a Mac](#building-without-a-mac).
-
-> **New here?** Run `launch demo` for a 60-second simulated walkthrough of the whole pipeline - no
-> setup, no build, no account needed. It also auto-plays the first time you run `launch`.
 
 <!-- Feature map - one visual overview of the release surface. Mirrors the Features section below. -->
 <p align="center">
@@ -71,7 +64,7 @@ and open source:
   exception - see below.)
 - **No lock-in, ever.** MIT-licensed, built on `xcodebuild`, [Gradle](https://gradle.org/), and the platforms' own APIs, with
   pluggable storage/credentials/build/submit providers. Nothing proprietary to migrate off later.
-- **It teaches as it runs.** Add `--explain` to any command - or run `launch demo` - to expand each step
+- **It teaches as it runs.** Add `--explain` to any command to expand each step
   (CSR, provisioning profile, TestFlight, Play track, subscription group) into plain English.
 
 ## What Launch is - and is not
@@ -195,13 +188,10 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 <details>
 <summary><strong>Onboarding, teaching &amp; maintenance</strong></summary>
 
-1. **Animated launch banner.** A glowing pixel-art `LAUNCH` wordmark with an aurora violet->cyan gradient greets you on startup - an adoptable banner style that still degrades to plain text under `NO_COLOR`.
-2. **Zero-setup demo.** `launch demo` replays a simulated walkthrough of the whole build -> sign -> submit pipeline, and auto-plays once on first run.
-3. **Teaching on demand.** `--explain` on any command and `launch explain <topic>` cover the Apple/iOS/Android terminology inline.
-4. **Interactive wizard.** Running bare `launch` opens a guided wizard that remembers your last flow and offers a one-keypress repeat.
-5. **Drive it from an AI agent.** `launch agents init`/`check` scaffolds [Claude Code](https://code.claude.com/docs/en/overview) / [Cursor](https://cursor.com/docs/rules) / [Codex](https://developers.openai.com/codex/guides/agents-md) skills so coding agents run the workflows under the same plan -> confirm -> apply guardrails.
-6. **CI in one command.** `launch ci init` scaffolds a [GitHub Actions](https://docs.github.com/actions) workflow that builds and ships unattended.
-7. **Silent self-upgrade.** A global npm or pnpm install picks up a newer release with that same package manager and re-runs your command on it (or on your next command, if the new copy cannot be found yet); a project install only prints a notice - throttled to once a day, and a no-op in CI, when piped, and for agents.
+1. **Teaching on demand.** `--explain` on any command and `launch explain <topic>` cover the Apple/iOS/Android terminology inline.
+2. **Drive it from an AI agent.** `launch agents init`/`check` scaffolds [Claude Code](https://code.claude.com/docs/en/overview) / [Cursor](https://cursor.com/docs/rules) / [Codex](https://developers.openai.com/codex/guides/agents-md) skills so coding agents run the workflows under the same plan -> confirm -> apply guardrails.
+3. **CI in one command.** `launch ci init` scaffolds a [GitHub Actions](https://docs.github.com/actions) workflow that builds and ships unattended.
+4. **Silent self-upgrade.** A global npm or pnpm install picks up a newer release with that same package manager and re-runs your command on it (or on your next command, if the new copy cannot be found yet); a project install only prints a notice - throttled to once a day, and a no-op in CI, when piped, and for agents.
 
 </details>
 
@@ -258,13 +248,7 @@ globally, drop `npx`.
 
 ## Quick start
 
-Try the whole pipeline first, with no Apple or Google setup:
-
-```bash
-npx launch demo
-```
-
-When you're ready to run against a real app, go from config to the testing track in five commands
+Go from config to the testing track in five commands
 (swap `ios` -> `android` for Google Play):
 
 ```bash
@@ -332,7 +316,6 @@ every app work from any folder, with no `launch.config.ts`:
 claude mcp add --scope user launch -- launch mcp   # stats_portfolio and stats_app tools
 launch stats --owner mine --days 30                 # the same numbers in the terminal
 launch stats --app "cal friend" --json              # one app, one JSON object
-launch dashboard                                    # open the Apps tab at http://127.0.0.1:4477/apps
 ```
 
 **Read next:**
@@ -399,8 +382,7 @@ Center, Wallet, EU distribution, and the Google Play catalog - lives in
 
 ## Building without a Mac
 
-iOS signing is macOS-only, so a Windows/Linux developer needs a Mac somewhere. Run `launch` (the wizard)
-or pick a path directly. Android builds anywhere a JDK runs, so none of this applies to it.
+iOS signing is macOS-only, so a Windows/Linux developer needs a Mac somewhere. Pick a path directly. Android builds anywhere a JDK runs, so none of this applies to it.
 
 | Path                    | What happens                                                                                            | Cost                                                                                             |
 | ----------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -548,7 +530,7 @@ No - there is nothing hosted and nothing proprietary. Launch is MIT-licensed, bu
 <details>
 <summary><strong>How do I get started?</strong></summary>
 
-Install with `npm install --global launch-store` (or `--save-dev` per project), then run `launch demo` for a 60-second simulated walkthrough - no setup or account needed. When you are ready: `launch init` -> `launch creds set-key` -> `launch creds setup` -> `launch build ios`.
+Install with `npm install --global launch-store` (or `--save-dev` per project). Then run: `launch init` -> `launch creds set-key` -> `launch creds setup` -> `launch build ios`.
 
 </details>
 

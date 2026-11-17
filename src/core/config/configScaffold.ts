@@ -21,7 +21,7 @@ export const detectAppRoot = (apps: readonly AppDescriptor[], workingDirectory: 
     return `./${onlySegment}`;
   });
 /**
- * The in-repo artifact directory `launch init` and the no-args wizard scaffold by default - a `.launch`
+ * The in-repo artifact directory `launch init` scaffolds by default - a `.launch`
  * folder in the project, mirroring the global `~/.launch`. Auto-added to `.gitignore` so build binaries
  * never get committed. Users can point `artifactDir` elsewhere (or omit it for the global default).
  */
@@ -78,7 +78,7 @@ ${appRootsLine}
   // artifactRetentionDays: 30, // auto-prune local build binaries older than this (0 = keep forever; newest per app is always kept)
   buildEngine: "xcode", // "xcode" (local) - "remote-mac" (AWS EC2 Mac) - "eas" (Expo cloud)
 
-  // No Mac? Build remotely. Run \`launch\` (the wizard) or \`launch cloud doctor\`.
+  // No Mac? Build remotely. Run \`launch cloud doctor\`.
   // aws: { region: "us-east-1" }, // for \`launch build ios --remote aws\`
 
 ${profilesBlock}

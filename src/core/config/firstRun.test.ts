@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { makeLaunchPathsTest, type LaunchPathsService } from '../services/platform/paths.js';
-import { hasSeenTour, markTourSeen, readFirstRunState } from './firstRun.js';
+import { readFirstRunState } from './firstRun.js';
 
 let temporaryHome: string;
 
@@ -31,19 +31,6 @@ afterEach(() => {
 describe('first-run state', () => {
   it('reads as unseen when the state file does not exist', async () => {
     await expect(executeFirstRunProgram(readFirstRunState())).resolves.toEqual({});
-    await expect(executeFirstRunProgram(hasSeenTour())).resolves.toBe(false);
-  });
-
-  it('records the tour once and reads it back', async () => {
-    await executeFirstRunProgram(markTourSeen());
-    await expect(executeFirstRunProgram(hasSeenTour())).resolves.toBe(true);
-    const firstRunState = await Effect.runPromise(
-      readFirstRunState().pipe(
-        Effect.provide(makeLaunchPathsTest(temporaryHome, temporaryHome)),
-        Effect.provide(NodeContext.layer),
-      ),
-    );
-    expect(firstRunState.tourSeenAt).toBeTypeOf('string');
   });
 
   it('treats malformed state as unseen', async () => {
@@ -52,6 +39,5 @@ describe('first-run state', () => {
     mkdirSync(launchHome, { recursive: true });
     writeFileSync(stateFile, '{ not json');
     await expect(executeFirstRunProgram(readFirstRunState())).resolves.toEqual({});
-    await expect(executeFirstRunProgram(hasSeenTour())).resolves.toBe(false);
   });
 });

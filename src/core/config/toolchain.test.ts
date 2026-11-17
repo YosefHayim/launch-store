@@ -95,7 +95,7 @@ describe('planInstall', () => {
     expect(brew.map((tool) => tool.command)).toEqual(['pod', 'openssl', 'node', 'ccache']);
   });
 });
-describe("missingRequiredTools - the wizard's 'is a Homebrew install even relevant?' signal (issue #117)", () => {
+describe("missingRequiredTools - the 'is a Homebrew install even relevant?' signal (issue #117)", () => {
   it('is empty when every required tool is present', async () => {
     const { io } = makeIo({ present: ALL_COMMANDS });
     expect(await runToolchainEffect(missingRequiredTools(io))).toEqual([]);

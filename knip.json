@@ -3,13 +3,11 @@
   "entry": [
     "scripts/dev/*.ts",
     "src/**/*.e2e.ts",
-    "site/page/main.ts",
-    "site/nodeCryptoShim.ts",
     "src/**/*.testkit.ts",
     ".claude-plugin/launch-store/hooks/register.ts",
     ".claude-plugin/launch-store/tests/*.test.ts"
   ],
-  "project": ["src/**/*.ts", "site/**/*.ts", "scripts/**/*.ts", ".claude-plugin/**/*.ts"],
+  "project": ["src/**/*.ts", "scripts/**/*.ts", ".claude-plugin/**/*.ts"],
   "ignoreDependencies": ["claude-code"],
   "ignoreBinaries": ["keytool"]
 }

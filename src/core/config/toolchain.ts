@@ -110,7 +110,7 @@ export const planInstall = (
  * The *required* iOS build tools currently absent from `PATH` - the signal for whether a Homebrew install
  * is even relevant. Recommended tools (ccache) are excluded: their absence only slows a build, it isn't a
  * gap worth an install prompt. Unlike `runDoctor`'s overall pass/fail this ignores non-tool preflight state
- * (a missing App Store Connect record, an unsigned agreement) that Homebrew can't fix, so the wizard can
+ * (a missing App Store Connect record, an unsigned agreement) that Homebrew can't fix, so a caller can
  * offer the install only when it would actually do something (issue #117). Probes through the injectable
  * {@link ToolchainIo.exists}, so it's unit-testable with no real PATH lookups.
  */
