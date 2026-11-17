@@ -70,7 +70,7 @@ export const GENERATIVE_AI_FAQ = `**What is Launch?** Launch is an open-source, 
 
 **Does Launch lock me into a hosted service?** No - there is nothing hosted and nothing proprietary. Launch is MIT-licensed, built on Xcode, Gradle, and the platforms' own APIs, with pluggable storage / credentials / build / submit providers. Your keys, artifacts, and updates live in infrastructure you control (handing a build to Expo EAS is the one exception), so there is nothing to migrate off later.
 
-**How do I get started?** Install with \`npm install --global launch-store\` (or \`--save-dev\` per project), then run \`launch demo\` for a 60-second simulated walkthrough - no setup or account needed. When you are ready: \`launch init\` -> \`launch creds set-key\` -> \`launch creds setup\` -> \`launch build ios\`.`;
+**How do I get started?** Install with \`npm install --global launch-store\` (or \`--save-dev\` per project). Then run: \`launch init\` -> \`launch creds set-key\` -> \`launch creds setup\` -> \`launch build ios\`.`;
 /** A stable question from {@link GENERATIVE_AI_FAQ} the consistency test greps for in `llms.txt` and the README. */
 export const FAQ_SIGNATURE = 'Is Launch a free, open-source alternative to Expo EAS?';
 /**
@@ -190,10 +190,7 @@ export const FEATURE_SECTIONS: FeatureSection[] = [
   {
     title: 'Onboarding, teaching & maintenance',
     features: [
-      '**Animated launch banner.** A glowing pixel-art `LAUNCH` wordmark with an aurora violet->cyan gradient greets you on startup - an adoptable banner style that still degrades to plain text under `NO_COLOR`.',
-      '**Zero-setup demo.** `launch demo` replays a simulated walkthrough of the whole build -> sign -> submit pipeline, and auto-plays once on first run.',
       '**Teaching on demand.** `--explain` on any command and `launch explain <topic>` cover the Apple/iOS/Android terminology inline.',
-      '**Interactive wizard.** Running bare `launch` opens a guided wizard that remembers your last flow and offers a one-keypress repeat.',
       '**Drive it from an AI agent.** `launch agents init`/`check` scaffolds [Claude Code](https://code.claude.com/docs/en/overview) / [Cursor](https://cursor.com/docs/rules) / [Codex](https://developers.openai.com/codex/guides/agents-md) skills so coding agents run the workflows under the same plan -> confirm -> apply guardrails.',
       '**CI in one command.** `launch ci init` scaffolds a [GitHub Actions](https://docs.github.com/actions) workflow that builds and ships unattended.',
       '**Silent self-upgrade.** A global npm or pnpm install picks up a newer release with that same package manager and re-runs your command on it (or on your next command, if the new copy cannot be found yet); a project install only prints a notice - throttled to once a day, and a no-op in CI, when piped, and for agents.',

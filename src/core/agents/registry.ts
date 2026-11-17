@@ -48,7 +48,7 @@ export const BASE_CONTEXT: BaseContext = {
   rails: [
     '**Secrets stay in the OS keychain.** Never write, log, or commit a `.p8`, `.p12`, keystore, or private key, and never put a real secret in a committed `.env` - store build secrets with `npx launch secret set <NAME>` instead.',
     '**`launch.config.ts` is the source of truth** for store config. The reconcilers (`sync`, `metadata`) run a read-only plan -> confirm -> apply and never clobber a live or in-review version; preview any of them with `--dry-run`.',
-    '**Learn as you go.** `npx launch <command> --explain` expands any step into plain English, and `npx launch demo` walks the whole pipeline as a zero-setup simulation.',
+    '**Learn as you go.** `npx launch <command> --explain` expands any step into plain English.',
     "**iOS signing needs a Mac.** With no local Mac, build on a cloud Mac in the user's own AWS account, over SSH to any Mac, or hand off to EAS (`npx launch build ios --remote`). Android builds anywhere a JDK runs.",
     '**Non-interactive by design.** Pass `--yes` to run the safe, idempotent commands unattended; Launch already degrades to non-interactive when it detects CI, a pipe, or an agent.',
   ],
@@ -56,9 +56,9 @@ export const BASE_CONTEXT: BaseContext = {
     free: [
       '**Setup & onboarding** - `init`, `adopt`, `migrate eas|fastlane`, and first-time `creds set-key` / `creds setup` (provisioning is idempotent).',
       '**Builds to the testing track** - `build ios|android` uploads to TestFlight / Play internal, not the public store.',
-      '**Reads & rehearsals** - `status`, `doctor`, `diagnose`, `demo`, `sync --dry-run`, `metadata pull`, and any command with `--explain`.',
+      '**Reads & rehearsals** - `status`, `doctor`, `diagnose`, `sync --dry-run`, `metadata pull`, and any command with `--explain`.',
       '**Planning & readiness (read-only)** - `plan`, `drift`, `audit`, `store doctor`, `iap doctor`, `privacy scan`, `snapshot create|diff`, and `insights` only read live state.',
-      "**Local-only tooling** - `dashboard` (a read-only local web UI over CLI state) and `mcp install` (expose Launch to local AI clients) run on the developer's machine, never touching the store.",
+      "**Local-only tooling** - `mcp install` (expose Launch to local AI clients) runs on the developer's machine, never touching the store.",
       '**Over-the-air updates** - `update` and `updates list|view` (and `updates rollback` to reverse a bad one).',
     ],
     confirm: [
@@ -590,12 +590,11 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
   },
   {
     id: 'launch-agent-access',
-    title: 'Expose Launch to AI agents & a local dashboard',
+    title: 'Expose Launch to AI agents',
     description:
-      'Use when the developer wants to drive Launch from AI tooling - wire the MCP server into an AI client, serve the read-only local dashboard, or scaffold the agent skills/rules into the repo. All local-only. Covers `launch mcp install`, `launch dashboard`, and `launch agents init`.',
+      'Use when the developer wants to drive Launch from AI tooling - wire the MCP server into an AI client or scaffold the agent skills/rules into the repo. All local-only. Covers `launch mcp install` and `launch agents init`.',
     triggers: [
       'let Claude / Cursor drive Launch (set up MCP)',
-      'open the local Launch dashboard',
       'scaffold the Launch agent skills / rules into this repo',
       'give an AI agent access to Launch',
     ],
@@ -605,18 +604,14 @@ export const CONSUMER_SKILLS: ConsumerSkill[] = [
         "wire `launch mcp` into an AI client's config (auto-detects Claude Code / Cursor)",
       ),
       recipeStep(
-        ['dashboard'],
-        'serve a local, read-only web UI over apps, builds, accounts, and secrets',
-      ),
-      recipeStep(
         ['agents', 'init'],
         'write Claude skills, Cursor rules, and the AGENTS.md Launch section into this repo',
       ),
     ],
     body: markdownBody([
-      "These are the on-ramps for agent-driven and at-a-glance use, all strictly local: `mcp install` exposes Launch's commands to an AI client, `dashboard` opens a read-only web view of your state, and `agents init` drops these very skills into the repo.",
+      "These are the on-ramps for agent-driven use, all strictly local: `mcp install` exposes Launch's commands to an AI client and `agents init` drops these very skills into the repo.",
       '',
-      '- `dashboard` is read-only and `mcp install` only edits a local client config - neither touches the store.',
+      '- `mcp install` only edits a local client config and never touches the store.',
       '- `agents check` keeps the scaffolded skills in sync after Launch upgrades.',
     ]),
   },

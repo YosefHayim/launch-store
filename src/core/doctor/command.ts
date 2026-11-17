@@ -162,7 +162,7 @@ const fixExportCompliance = (
   });
 
 /** Run doctor inspection and return whether all required checks passed. */
-export const runDoctorProgram = (
+const runDoctorProgram = (
   rawCommandInput: unknown,
 ): Effect.Effect<boolean, DoctorCommandFailure, DoctorCommandRequirements> =>
   Effect.gen(function* () {

@@ -24,7 +24,7 @@ describe('registerCredsCommand - non-interactive app selector (#261)', () => {
 });
 
 describe('registerCredsCommand - thin CLI boundary', () => {
-  it('exports only registration (no Promise facades for wizard helpers)', () => {
+  it('exports only registration (no Promise facades for interactive helpers)', () => {
     expect(Object.keys(credsModule).sort()).toEqual(['registerCredsCommand']);
   });
 });

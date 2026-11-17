@@ -61,10 +61,6 @@
 /src/core/agents/ @YosefHayim
 /src/core/mcp/ @YosefHayim
 /src/core/insights/ @YosefHayim
-/src/core/dashboard/ @YosefHayim
 
 # cli surface
 /src/cli/ @YosefHayim
-
-# landing page
-/site/ @YosefHayim

@@ -182,10 +182,3 @@ export const makeLaunchLoggerTest = (lines: string[]): Layer.Layer<Logger> => {
 export const createLogger = (explain: boolean): Effect.Effect<Logger, never, Logger> => {
   return LaunchLogger.pipe(Effect.map((logger) => logger.withExplanation(explain)));
 };
-
-/** Print the setup completion marker through the platform terminal. */
-export const outroDone = (): Effect.Effect<void, PlatformError, Terminal.Terminal> =>
-  Effect.gen(function* () {
-    const terminal = yield* Terminal.Terminal;
-    yield* terminal.display(statusText('OK', 'Done.'));
-  });

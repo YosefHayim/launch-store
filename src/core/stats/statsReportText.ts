@@ -2,8 +2,8 @@ import type { StatsMetric } from '../types/stats.js';
 import type { AppStatsReport, MetricTotal } from '../types/statsReport.js';
 import { listProceedsTotals, pickHeadlineTotals, readHeadlineTotal } from './statsReportLogic.js';
 
-export const DOWNLOAD_METRICS: readonly StatsMetric[] = ['downloads', 'installs'];
-export const USAGE_METRICS: readonly StatsMetric[] = ['sessions', 'activeUsers'];
+const DOWNLOAD_METRICS: readonly StatsMetric[] = ['downloads', 'installs'];
+const USAGE_METRICS: readonly StatsMetric[] = ['sessions', 'activeUsers'];
 const CRASH_METRICS: readonly StatsMetric[] = ['crashRate'];
 const RATING_METRICS: readonly StatsMetric[] = ['ratingAverage'];
 

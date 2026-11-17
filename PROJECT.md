@@ -14,14 +14,14 @@ on your own machine, with your own keys. A self-hosted Expo EAS replacement.
 
 ## Who it's for
 
-1. **Solo / small-team mobile devs** who ship iOS + Android and want one workflow, not five dashboards.
+1. **Solo / small-team mobile devs** who ship iOS + Android and want one workflow, not five web dashboards.
 2. **Teams migrating off EAS** who want $0 compute, local keys, and declarative store config.
 3. **AI agents** that drive the release via `launch agents init` skills under plan -> confirm -> apply guardrails.
 
 ## The product goal
 
 A "boring, traceable" path from source to store that one developer can run and understand - with
-`--explain` that teaches the why and `launch demo` that simulates the pipeline with no setup.
+`--explain` that teaches the why.
 
 ## What success looks like
 

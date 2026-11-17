@@ -321,23 +321,8 @@ export const pruneConfirmationBlocked = (
   return false;
 };
 
-/** Count binaries eligible for the default cleanup policy. */
-export const countPrunableBuilds = () =>
-  Effect.gen(function* () {
-    const storageSession = yield* loadBuildStorageSession();
-    if (storageSession.storageProvider.prune === undefined) return 0;
-    const prunePreview = yield* storageSession.storageProvider
-      .prune({
-        now: Date.now(),
-        retentionDays: resolveCommandRetentionDays(storageSession.config),
-        dryRun: true,
-      })
-      .pipe(Effect.mapError((cause) => buildHistoryFailure('preview build cleanup', cause)));
-    return prunePreview.pruned.length;
-  });
-
-/** Execute build cleanup for CLI and wizard callers. */
-export const runPrune = (commandOptions: PruneCommandOptions) =>
+/** Execute build cleanup for CLI callers. */
+const runPrune = (commandOptions: PruneCommandOptions) =>
   Effect.gen(function* () {
     const commandService = yield* BuildHistoryCommandService;
     const platform = yield* parsePlatformFilter(commandOptions.platform);

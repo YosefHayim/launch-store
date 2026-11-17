@@ -559,8 +559,8 @@ const selectAppleAccount = (
     return yield* chooseAccountInteractive(commandOptions);
   });
 
-/** Present the account chooser used by `creds use` and the interactive wizard. */
-export const chooseAccountInteractive = (
+/** Present the account chooser used by `creds use`. */
+const chooseAccountInteractive = (
   commandOptions: CredentialsCommandOptions = {},
 ): Effect.Effect<AccountRecord, unknown, CredentialsCommandRequirements> =>
   Effect.gen(function* () {
@@ -595,7 +595,7 @@ export const chooseAccountInteractive = (
   });
 
 /** Provision or reuse signing credentials for one Apple application. */
-export const setupIos = (
+const setupIos = (
   commandOptions: CredentialsCommandOptions,
   platform: Platform = 'ios',
 ): Effect.Effect<void, unknown, CredentialsCommandRequirements> =>

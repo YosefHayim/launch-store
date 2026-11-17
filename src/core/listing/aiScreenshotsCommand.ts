@@ -5,11 +5,7 @@ import { selectApp } from '../build/pipelineEnv.js';
 import { loadConfig } from '../config/config.js';
 import type { LaunchEnvironmentService } from '../services/platform/environment.js';
 import { errorMessage } from '../services/platform/errorMessage.js';
-import {
-  captureCommandOutput,
-  checkCommandExists,
-  executeCommand,
-} from '../services/platform/exec.js';
+import { executeCommand } from '../services/platform/exec.js';
 import { createLogger, type Logger } from '../services/platform/logger.js';
 import type { LaunchPathsService } from '../services/platform/paths.js';
 import { LaunchPrompt, type LaunchPromptService } from '../services/platform/prompt.js';
@@ -173,24 +169,6 @@ const writeLog = (
 ): Effect.Effect<void, AiScreenshotsFailure> =>
   logWrite.pipe(Effect.mapError((cause) => screenshotFailure(operation, cause)));
 
-/** Build the production Genshot setup seam from Launch's prompt, logger, and command services. */
-const makeGenshotSetupIo = () =>
-  Effect.gen(function* () {
-    const logger = yield* createLogger(false);
-    const launchPrompt = yield* LaunchPrompt;
-    return {
-      exists: checkCommandExists,
-      authenticated: (executable: string) =>
-        captureCommandOutput(executable, ['balance']).pipe(
-          Effect.as(true),
-          Effect.catchAll(() => Effect.succeed(false)),
-        ),
-      run: executeCommand,
-      confirm: launchPrompt.confirm,
-      note: logger.note,
-    } satisfies GenshotSetupIo<LaunchEnvironmentService | PlatformCommandExecutor.CommandExecutor>;
-  });
-
 /** Install and authenticate Genshot when the user enters screenshot generation from the TUI. */
 export const ensureGenshotForInteractiveScreenshots = <Requirements>(
   setupIo: GenshotSetupIo<Requirements>,
@@ -252,17 +230,6 @@ export const ensureGenshotForInteractiveScreenshots = <Requirements>(
         'Genshot sign-in did not complete. Run `genshot login` and try again.',
       ),
     );
-  });
-
-/** Run interactive Genshot preparation with Launch's production command and prompt services. */
-export const ensureGenshotForInteractiveScreenshotsLive = (): Effect.Effect<
-  boolean,
-  AiScreenshotsFailure,
-  LaunchEnvironmentService | LaunchPromptService | Logger | PlatformCommandExecutor.CommandExecutor
-> =>
-  Effect.gen(function* () {
-    const setupIo = yield* makeGenshotSetupIo();
-    return yield* ensureGenshotForInteractiveScreenshots(setupIo);
   });
 
 /** Whether command execution failed because the configured binary is absent. */

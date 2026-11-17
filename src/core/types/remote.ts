@@ -3,8 +3,8 @@ import type { Effect } from 'effect';
  * The operating-system family Launch is running on.
  *
  * iOS code signing is macOS-only, so a `windows`/`linux` host cannot build locally - it must drive
- * a remote Mac (AWS EC2 Mac or a reachable Mac over SSH) or hand off to Expo EAS. The no-args wizard
- * branches on this value.
+ * a remote Mac (AWS EC2 Mac or a reachable Mac over SSH) or hand off to Expo EAS. Build
+ * routing branches on this value.
  */
 export type HostOs = 'macos' | 'windows' | 'linux';
 /**
@@ -82,7 +82,7 @@ export type CloudDoctorReport = Readonly<{
   checks: readonly CloudCheck[];
 }>;
 /**
- * Where a remote build should run, resolved from `--remote [aws|user@host]` or the wizard.
+ * Where a remote build should run, resolved from `--remote [aws|user@host]`.
  * - `aws`: provision an EC2 Mac via the `aws-ec2-mac` {@link ComputeHost}.
  * - `ssh`: connect to an already-reachable Mac via the `byo-ssh` {@link ComputeHost}.
  */

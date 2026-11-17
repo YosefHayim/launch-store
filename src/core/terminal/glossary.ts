@@ -103,7 +103,7 @@ export type GlossaryTopic =
   | 'play-billing'
   | 'price-localization'
   | 'android-vitals'
-  // Launch wizard - interactive build-flow steps
+  // Build-flow steps
   | 'build-platform'
   | 'build-location'
   | 'apple-account'
@@ -582,7 +582,7 @@ const GLOSSARY: Record<GlossaryTopic, string> = {
     '- that gate your Play ranking and can trigger warnings. `launch play-reports vitals` reads them from the',
     'Play Developer Reporting API, the Android counterpart to the iOS reports/insights observability.',
   ].join('\n'),
-  //  Launch wizard - interactive build-flow steps
+  //  Build-flow steps
   'build-platform': [
     'Platform: which store this build targets. iOS can only be compiled and signed on macOS, so from a',
     "non-Mac (or by choice) Launch routes it to a remote Mac or Expo's cloud; Android builds locally on",

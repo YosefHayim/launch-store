@@ -59,9 +59,9 @@ Use these names in branch paths and as GitHub labels (`domain:<name>`).
 | release | `domain:release` | `src/core/release/`, `releaseTrain/` (includes TestFlight) |
 | testflight | `domain:testflight` | TestFlight-focused changes under release/CLI when that is the whole PR |
 | readiness | `domain:readiness` | plan, doctor, snapshot, adopt, migrate, readiness probes |
-| agents | `domain:agents` | agents, mcp, insights, dashboard |
+| agents | `domain:agents` | agents, mcp, insights |
 | cli | `domain:cli` | `src/cli/commands/**` registration and thin wiring only |
-| docs | `domain:docs` | README, CONTRIBUTING, BRANCHING, the `site/` landing page, docs-only changes with no code |
+| docs | `domain:docs` | README, CONTRIBUTING, BRANCHING, docs-only changes with no code |
 
 Cross-domain work: pick the **primary** domain for the branch name; add a second `domain:*` label.
 If the PR is no longer reviewable as one intent, split it.
