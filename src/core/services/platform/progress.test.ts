@@ -147,7 +147,7 @@ describe('gradleProgressStep - surface the Gradle task', () => {
     expect(gradleProgressStep('BUILD SUCCESSFUL in 1m 12s')).toBeUndefined();
   });
 });
-describe('renderBar - candy Aurora bar, clamped (plain off-TTY)', () => {
+describe('renderBar - candy bar, clamped (plain off-TTY)', () => {
   // Under vitest stdout isn't a TTY, so the bar renders plain (no color): rounded caps ..., a heavy
   // fill, and a dim  track - exactly the captured-log path.
   it('renders empty, half, and full at width 14', () => {

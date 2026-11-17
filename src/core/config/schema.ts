@@ -957,7 +957,7 @@ export const LaunchConfigEffectSchema = Schema.Struct({
   artifactDir: Schema.optional(
     Schema.String.annotations({
       description:
-        'Where the `local` storage provider writes build binaries and raw objects (install plists, OTA manifests). A relative path resolves against the project root (the `launch.config.ts` directory); a leading `~/` expands to the home directory; an absolute path is used as-is. Omit to use the global `~/.launch/artifacts` (the default - existing projects are unaffected). `launch init` and the no-args wizard scaffold this as the in-repo `./.launch/artifacts` and add it to `.gitignore`, so build binaries never get committed. Only the `local` provider observes it - cloud stores key off {@link StorageConfig}. The history index stays under `~/.launch`, so build history and retention span projects regardless of where the binaries land.',
+        'Where the `local` storage provider writes build binaries and raw objects (install plists, OTA manifests). A relative path resolves against the project root (the `launch.config.ts` directory); a leading `~/` expands to the home directory; an absolute path is used as-is. Omit to use the global `~/.launch/artifacts` (the default - existing projects are unaffected). `launch init` scaffolds this as the in-repo `./.launch/artifacts` and add it to `.gitignore`, so build binaries never get committed. Only the `local` provider observes it - cloud stores key off {@link StorageConfig}. The history index stays under `~/.launch`, so build history and retention span projects regardless of where the binaries land.',
     }),
   ),
   artifactRetentionDays: Schema.optional(

@@ -51,7 +51,7 @@ const truncateStep = (step: string): string => {
   return step;
 };
 /**
- * Render the "candy" Aurora progress bar - rounded violet/cyan end-caps (``...``) around a heavy ``
+ * Render the "candy" progress bar - rounded violet/cyan end-caps (``...``) around a heavy ``
  * fill that ramps violet->cyan, over a dim `` track. `fraction` is clamped to 0-1 so an over-budget
  * build (more steps/time than last time) shows a full-but-capped bar rather than overflowing the line.
  * On a color TTY each fill cell is its own gradient step; off a TTY / under `NO_COLOR` it degrades to a
