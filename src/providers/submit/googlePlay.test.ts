@@ -22,25 +22,25 @@ const playUpload = vi.hoisted(() => {
   const bundleStreams: Readable[] = [];
   return { isRejected: false, bundleStreams };
 });
-vi.mock('@google/playClient.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@google/playClient.js')>()),
-  parseServiceAccount: () => Effect.succeed({}),
-  GooglePlayClient: class {
-    uploadBundleToTrack = (
+vi.mock('../../play-console-api/api-client.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../play-console-api/api-client.js')>()),
+  parseServiceAccount: () => ({}),
+}));
+vi.mock('../../play-console-api/play-console-api.js', () => ({
+  makePlayConsoleApi: () => ({
+    uploadBundleToTrack: async (
       packageName: string,
       bundleStream: Readable,
       track: string,
       release: Omit<PlayRelease, 'versionCodes'>,
     ) => {
       playUpload.bundleStreams.push(bundleStream);
-      if (playUpload.isRejected) return Effect.fail(new Error('Google Play rejected the edit.'));
-      return Effect.promise(async () => {
-        const bundleBytes = await buffer(bundleStream);
-        uploadBundleToTrack(packageName, bundleBytes, track, release);
-        return 7;
-      });
-    };
-  },
+      if (playUpload.isRejected) throw new Error('Google Play rejected the edit.');
+      const bundleBytes = await buffer(bundleStream);
+      uploadBundleToTrack(packageName, bundleBytes, track, release);
+      return 7;
+    },
+  }),
 }));
 const { googlePlaySubmitter } = await import('./googlePlay.js');
 const aabPath = fileURLToPath(import.meta.url);

@@ -7,7 +7,9 @@ import { Effect, JSONSchema, Schema } from 'effect';
 import { buildProgram } from '@cli/program.ts';
 import { renderContributorSkills } from '@core/agents/render.ts';
 import { LaunchConfigEffectSchema } from '@core/config/schema.ts';
-import { countAsyncMethods, countTestCases } from '@core/docs/commandDocs/common.ts';
+import { countTestCases } from '@core/docs/commandDocs/common.ts';
+import { makeAppStoreConnectApi } from '@/app-store-connect-api/app-store-connect-api.ts';
+import { makePlayConsoleApi } from '@/play-console-api/play-console-api.ts';
 import { renderLlmsFullTxt, renderLlmsTxt } from '@core/docs/commandDocs/llmsTxt.ts';
 import {
   renderAgentSkillsRegion,
@@ -53,10 +55,19 @@ const readTestSources = (): string[] => {
     .filter((entry) => entry.endsWith('.test.ts'))
     .map((entry) => readFileSync(join(ROOT, 'src', entry), 'utf8'));
 };
+const isFunction = (member: unknown): boolean => typeof member === 'function';
 const computeStats = (commands: CommandSpec[]): DocStats => {
-  const operations =
-    countAsyncMethods(readFileSync(join(ROOT, 'src/apple/ascClient.ts'), 'utf8')) +
-    countAsyncMethods(readFileSync(join(ROOT, 'src/google/playClient.ts'), 'utf8'));
+  const appleOperations = Object.values(
+    makeAppStoreConnectApi({ keyId: 'placeholder', issuerId: 'placeholder', p8: 'placeholder' }),
+  ).filter(isFunction);
+  const playOperations = Object.values(
+    makePlayConsoleApi({
+      clientEmail: 'placeholder@example.com',
+      privateKey: 'placeholder',
+      tokenUri: 'https://oauth2.googleapis.com/token',
+    }),
+  ).filter(isFunction);
+  const operations = appleOperations.length + playOperations.length;
   return { commands: commands.length, operations, tests: countTestCases(readTestSources()) };
 };
 // Effect emits `$defs`; Launch publishes the equivalent draft-07 `definitions` spelling.

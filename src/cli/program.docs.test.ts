@@ -2,7 +2,9 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { countAsyncMethods, countTestCases } from '../core/docs/commandDocs/common.js';
+import { countTestCases } from '../core/docs/commandDocs/common.js';
+import { makeAppStoreConnectApi } from '@/app-store-connect-api/app-store-connect-api.js';
+import { makePlayConsoleApi } from '@/play-console-api/play-console-api.js';
 import {
   AGENT_SKILLS_SIGNATURE,
   CANONICAL_SENTENCE,
@@ -13,6 +15,21 @@ import {
 import { buildProgram } from './program.js';
 /** Repo root, derived from this file's location so the test works regardless of the cwd vitest runs in. */
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
+const isFunction = (member: unknown): boolean => typeof member === 'function';
+// Builds both facades with placeholder keys (no network) and counts their callable members.
+const countStoreApiOperations = (): number => {
+  const appleOperations = Object.values(
+    makeAppStoreConnectApi({ keyId: 'placeholder', issuerId: 'placeholder', p8: 'placeholder' }),
+  ).filter(isFunction);
+  const playOperations = Object.values(
+    makePlayConsoleApi({
+      clientEmail: 'placeholder@example.com',
+      privateKey: 'placeholder',
+      tokenUri: 'https://oauth2.googleapis.com/token',
+    }),
+  ).filter(isFunction);
+  return appleOperations.length + playOperations.length;
+};
 const read = (relative: string): string => readFileSync(join(ROOT, relative), 'utf8');
 /** Strip README hero links and decode HTML entities so linked prose still matches the plain canonical sentence. */
 const decodeHtml = (html: string): string =>
@@ -87,9 +104,7 @@ describe('Genshot is discoverable from every primary documentation surface', () 
 });
 describe('the README live-stats badges track the real codebase (gated alongside docs:check)', () => {
   it("shows the actual store-API operation and test counts, so they can't silently drift", () => {
-    const operations =
-      countAsyncMethods(read('src/apple/ascClient.ts')) +
-      countAsyncMethods(read('src/google/playClient.ts'));
+    const operations = countStoreApiOperations();
     const tests = countTestCases(
       readdirSync(join(ROOT, 'src'), { recursive: true, encoding: 'utf8' })
         .filter((entry) => entry.endsWith('.test.ts'))

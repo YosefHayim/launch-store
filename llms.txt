@@ -146,7 +146,7 @@ Each is declared in `launch.config.ts` (or a `*.config.json` sidecar) and reconc
 
 ## Commands
 
-All 65 `launch` commands (205 store-API operations underneath, 2929 tests):
+All 65 `launch` commands (231 store-API operations underneath, 2966 tests):
 
 - `launch init` - scaffold launch.config.ts (and .env.example) into the current repo
 - `launch adopt` - onboard an app that already ships: import its App Store Connect setup into config
@@ -325,7 +325,7 @@ All 65 `launch` commands (205 store-API operations underneath, 2929 tests):
 - [Remote pipeline](./src/core/build/remotePipeline.ts): the C1-C7 host lifecycle for off-Mac builds; [EAS pipeline](./src/core/build/easPipeline.ts): the Expo handoff.
 - [AWS EC2 Mac host](./src/providers/compute/awsEc2Mac.ts): allocate/status/teardown + golden-AMI + `cloud doctor`; [SSH transport](./src/core/services/platform/ssh.ts) and [remote build ops](./src/core/build/remoteBuild.ts).
 - [Glossary](./src/core/terminal/glossary.ts): plain-English term definitions shared by `launch explain` and the docs.
-- [App Store domain types](./src/core/types/appleCatalog.ts): normalized App Store resource/query shapes; [generated wire schema](./src/apple/generated/schema.ts): Apple OpenAPI types; [client](./src/apple/ascClient.ts): the Apple API transport.
+- [App Store domain types](./src/core/types/appleCatalog.ts): normalized App Store resource/query shapes; [generated wire schema](./src/apple/generated/schema.ts): Apple OpenAPI types; [client](./src/app-store-connect-api/app-store-connect-api.ts): the Apple API, one file per docs section.
 - [ASC product sync](./src/core/store/apple/ascSync.ts): the declarative reconciler behind `launch sync` (capabilities, IAPs, subscriptions, pricing).
 - [Config preflight](./src/core/config/configCheck.ts): the app-config footgun validator run by `launch doctor` and at the head of `launch build`.
 - [Build secrets](./src/core/build/buildSecrets.ts): keychain-backed `launch secret` storage, injected through the [env-precedence ladder](./src/core/config/env.ts) shared by `build`, `release`, and `update`.

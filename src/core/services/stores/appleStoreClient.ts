@@ -1,15 +1,15 @@
 import { Context, Data, Effect, Layer } from 'effect';
-import { AppStoreConnectClient } from '@apple/ascClient.js';
+import {
+  type AppStoreConnectApi,
+  makeAppStoreConnectApi,
+} from '../../../app-store-connect-api/app-store-connect-api.js';
 import type { AscReleaseApi as PublicReleaseApi } from '../../release/appStoreRelease.js';
 import type { AscReleaseApi as ReleaseAttributesApi } from '../../release/releaseAttrs.js';
 import type { AscKey } from '../../types/credentials.js';
 import { effectMethodsProxy, type EffectMethods } from '../platform/effectMethodsClient.js';
 import { hasMessage } from '../platform/errorMessage.js';
 
-export type EffectAppStoreConnectClient = EffectMethods<
-  AppStoreConnectClient,
-  AppleTransportFailure
->;
+export type EffectAppStoreConnectClient = EffectMethods<AppStoreConnectApi, AppleTransportFailure>;
 
 export type AppleTransportFailure = Readonly<{
   readonly _tag: 'AppleTransportFailure';
@@ -45,7 +45,7 @@ export const appRecordMissingMessage = (bundleId: string, command = 'launch rele
   `privacy details, and signed Paid/Free Apps agreement set there once. Then re-run \`${command}\`.`;
 
 const effectClient = (ascKey: AscKey): EffectAppStoreConnectClient => {
-  const promiseClient = new AppStoreConnectClient(ascKey);
+  const promiseClient = makeAppStoreConnectApi(ascKey);
   return effectMethodsProxy(promiseClient, transportFailure);
 };
 

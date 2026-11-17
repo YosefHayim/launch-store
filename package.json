@@ -82,8 +82,7 @@
     "csv-parse": "7.0.2",
     "effect": "^3.22.3",
     "fflate": "0.8.3",
-    "jiti": "^2.7.0",
-    "jose": "^5.10.0"
+    "jiti": "^2.7.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",

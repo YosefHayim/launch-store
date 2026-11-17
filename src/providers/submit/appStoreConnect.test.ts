@@ -15,13 +15,13 @@ const ascFake = vi.hoisted(() => ({
     vi.fn<(buildUploadId: string, fileName: string, binaryPath: string) => Promise<void>>(),
   getBuildUploadStatus: vi.fn<(buildUploadId: string) => Promise<BuildUploadStatus>>(),
 }));
-vi.mock('@apple/ascClient.js', () => ({
-  AppStoreConnectClient: class {
-    getAppId = ascFake.getAppId;
-    createBuildUpload = ascFake.createBuildUpload;
-    uploadBuildFile = ascFake.uploadBuildFile;
-    getBuildUploadStatus = ascFake.getBuildUploadStatus;
-  },
+vi.mock('../../app-store-connect-api/app-store-connect-api.js', () => ({
+  makeAppStoreConnectApi: () => ({
+    getAppId: ascFake.getAppId,
+    createBuildUpload: ascFake.createBuildUpload,
+    uploadBuildFile: ascFake.uploadBuildFile,
+    getBuildUploadStatus: ascFake.getBuildUploadStatus,
+  }),
 }));
 const { makeAppStoreConnectSubmitter } = await import('./appStoreConnect.js');
 const submitter = makeAppStoreConnectSubmitter(Duration.millis(1), Duration.minutes(30));

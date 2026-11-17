@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { parseServiceAccount } from './playClient.js';
+import { parseServiceAccount } from '../play-console-api/api-client.js';
 import {
   PlayReportingClient,
   type PlayReportingTransport,
@@ -70,7 +70,7 @@ let client: PlayReportingClient;
 beforeEach(() => {
   vi.clearAllMocks();
   client = new PlayReportingClient(
-    Effect.runSync(parseServiceAccount(makeServiceAccountJson())),
+    parseServiceAccount(makeServiceAccountJson()),
     generatedReportingFake(),
   );
 });

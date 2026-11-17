@@ -1,9 +1,22 @@
-import { GooglePlayClient, parseServiceAccount } from '@google/playClient.js';
 import { Context, Data, Effect, Layer } from 'effect';
+import {
+  isGooglePlayApiError,
+  isPlayAppNotFoundError,
+  parseServiceAccount,
+  type GooglePlayApiError,
+  type PlayAppNotFoundError,
+} from '../../../play-console-api/api-client.js';
+import {
+  makePlayConsoleApi,
+  type PlayConsoleApi,
+} from '../../../play-console-api/play-console-api.js';
+import { effectMethodsProxy, type EffectMethods } from '../platform/effectMethodsClient.js';
 import { hasMessage } from '../platform/errorMessage.js';
 
 /** Effect-native Google Play transport surface. */
-export type EffectGooglePlayClient = GooglePlayClient;
+export type EffectGooglePlayClient = EffectMethods<PlayConsoleApi, PlayFailure>;
+
+type PlayFailure = GooglePlayApiError | PlayAppNotFoundError | GoogleTransportFailure;
 
 /** A Google Play transport request failed. */
 export type GoogleTransportFailure = Readonly<{
@@ -22,20 +35,27 @@ const transportFailure = (cause: unknown): GoogleTransportFailure => {
   return makeGoogleTransportFailure({ message, cause });
 };
 
+const playFailure = (cause: unknown): PlayFailure => {
+  if (isGooglePlayApiError(cause)) return cause;
+  if (isPlayAppNotFoundError(cause)) return cause;
+  return transportFailure(cause);
+};
+
 /** Decode credentials and construct the Effect-native Google Play adapter. */
 const createGooglePlayClient = (
   serviceAccountJson: string,
 ): Effect.Effect<EffectGooglePlayClient, GoogleTransportFailure> =>
-  parseServiceAccount(serviceAccountJson).pipe(
-    Effect.map((serviceAccount) => new GooglePlayClient(serviceAccount)),
-    Effect.mapError(transportFailure),
-  );
+  Effect.try({
+    try: () =>
+      effectMethodsProxy(makePlayConsoleApi(parseServiceAccount(serviceAccountJson)), playFailure),
+    catch: transportFailure,
+  });
 
 /** Injectable Google Play client factory. */
 export type GoogleStoreClientService = Readonly<{
   createClient: (
     serviceAccountJson: string,
-  ) => Effect.Effect<GooglePlayClient, GoogleTransportFailure>;
+  ) => Effect.Effect<EffectGooglePlayClient, GoogleTransportFailure>;
   createEffectClient: (
     serviceAccountJson: string,
   ) => Effect.Effect<EffectGooglePlayClient, GoogleTransportFailure>;

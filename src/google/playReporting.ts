@@ -12,7 +12,11 @@ import type {
   VitalsWindow,
 } from '../core/types/vitals.js';
 import type { MutableDeep } from '../core/types/mutable.js';
-import { describePlayErrors, nonEmptyPageToken, serviceAccountJwtOptions } from './playClient.js';
+import {
+  describePlayErrors,
+  nonEmptyPageToken,
+  serviceAccountJwtOptions,
+} from '../play-console-api/api-client.js';
 /** Distinct from the Play Developer API scope - the reporting API rejects an `androidpublisher` token. */
 const OAUTH_SCOPE = 'https://www.googleapis.com/auth/playdeveloperreporting';
 /**

@@ -18,7 +18,7 @@ import {
   STATS_BADGES_END,
   STATS_BADGES_START,
 } from './commandDocs/content.js';
-import { countAsyncMethods, countTestCases } from './commandDocs/common.js';
+import { countTestCases } from './commandDocs/common.js';
 import { renderLlmsFullTxt, renderLlmsTxt } from './commandDocs/llmsTxt.js';
 import {
   renderAgentSkillsRegion,
@@ -311,19 +311,6 @@ describe('spliceReadmeAgentSkills', () => {
     expect(() =>
       Effect.runSync(spliceReadmeAgentSkills('# Launch\n\nNo markers here.', 'x')),
     ).toThrow(/agent-skills markers/);
-  });
-});
-describe('countAsyncMethods', () => {
-  it('counts public async methods and ignores private ones and bare keywords', () => {
-    const source = [
-      'class Client {',
-      '  async listApps() {}',
-      '  async getApp(id) {}',
-      '  private async refreshToken() {}',
-      '  build() { const x = async () => 1; }',
-      '}',
-    ].join('\n');
-    expect(countAsyncMethods(source)).toBe(2);
   });
 });
 describe('countTestCases', () => {

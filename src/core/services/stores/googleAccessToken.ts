@@ -1,5 +1,5 @@
 import { createServiceAccountAccessToken } from '@google/serviceAccountToken.js';
-import { parseServiceAccount } from '@google/playClient.js';
+import { parseServiceAccount } from '../../../play-console-api/api-client.js';
 import { Context, Data, Effect, Layer } from 'effect';
 import type { ServiceAccount } from '../../types/credentials.js';
 import { errorMessage } from '../platform/errorMessage.js';
@@ -30,11 +30,10 @@ export const GoogleAccessToken = Context.GenericTag<GoogleAccessTokenService>(
 
 export const GoogleAccessTokenLive = Layer.succeed(GoogleAccessToken, {
   readServiceAccount: (savedServiceAccountKey) =>
-    parseServiceAccount(savedServiceAccountKey).pipe(
-      Effect.mapError((cause) =>
-        makeGoogleAccessTokenFailure({ message: errorMessage(cause), cause }),
-      ),
-    ),
+    Effect.try({
+      try: () => parseServiceAccount(savedServiceAccountKey),
+      catch: (cause) => makeGoogleAccessTokenFailure({ message: errorMessage(cause), cause }),
+    }),
   createAccessToken: (account, scopes) =>
     Effect.tryPromise({
       try: () => createServiceAccountAccessToken(account, scopes),
