@@ -16,6 +16,7 @@ const PLAY_SUBSCRIPTIONS = join(
   'dist',
   'core',
   'store',
+  'google',
   'playSubscriptions.js',
 );
 
