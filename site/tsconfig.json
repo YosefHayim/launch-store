@@ -9,6 +9,7 @@
     "declaration": false,
     "sourceMap": false,
     "paths": {
+      "@/*": ["../src/*"],
       "@apple/*": ["../src/apple/*"],
       "@core/*": ["../src/core/*"],
       "@google/*": ["../src/google/*"],
