@@ -35,7 +35,18 @@ describe('ensureArtifactDirIgnored', () => {
   beforeEach(async () => {
     repo = realpathSync(mkdtempSync(join(tmpdir(), 'launch-gitignore-')));
     await Effect.runPromise(
-      provideNodeCommandServices(captureCommandOutput('git', ['-C', repo, 'init'])),
+      provideNodeCommandServices(
+        captureCommandOutput('env', [
+          '-u',
+          'GIT_DIR',
+          '-u',
+          'GIT_WORK_TREE',
+          'git',
+          '-C',
+          repo,
+          'init',
+        ]),
+      ),
     );
   });
   afterEach(() => {

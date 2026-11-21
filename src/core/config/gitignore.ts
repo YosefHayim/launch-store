@@ -5,16 +5,28 @@ import { LaunchPaths } from '../services/platform/paths.js';
 /** Marker comment that headers Launch's auto-added ignore entry, so it's recognizable and removable by hand. */
 const IGNORE_MARKER = '# launch build artifacts';
 /** Outcome of an {@link ensureArtifactDirIgnored} attempt. */
+// A git hook exports GIT_DIR, and then `git -C <dir>` treats <dir> as that repo. Drop it so discovery follows the directory.
+function runGit(directory: string, gitArguments: readonly string[]) {
+  return captureCommandOutput('env', [
+    '-u',
+    'GIT_DIR',
+    '-u',
+    'GIT_WORK_TREE',
+    'git',
+    '-C',
+    directory,
+    ...gitArguments,
+  ]);
+}
+
 /** The git work-tree root containing `dir`, or null when `dir` isn't inside a repo (or git is absent). */
 const repoRoot = (dir: string): Effect.Effect<string | null> =>
-  provideNodeCommandServices(
-    captureCommandOutput('git', ['-C', dir, 'rev-parse', '--show-toplevel']),
-  ).pipe(Effect.catchAll(() => Effect.succeed(null)));
+  provideNodeCommandServices(runGit(dir, ['rev-parse', '--show-toplevel'])).pipe(
+    Effect.catchAll(() => Effect.succeed(null)),
+  );
 /** Whether git already ignores `dir` (by any pattern). `check-ignore -q` exits 0 when ignored, 1 otherwise. */
 const alreadyIgnored = (root: string, dir: string): Effect.Effect<boolean> =>
-  provideNodeCommandServices(
-    captureCommandOutput('git', ['-C', root, 'check-ignore', '-q', '--', dir]),
-  ).pipe(
+  provideNodeCommandServices(runGit(root, ['check-ignore', '-q', '--', dir])).pipe(
     Effect.as(true),
     Effect.catchAll(() => Effect.succeed(false)),
   );
