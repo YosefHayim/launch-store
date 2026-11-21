@@ -9,8 +9,6 @@ import { REQUIRED_APPLE_SCREENSHOT_DISPLAY_TYPES } from '@core/listing/screensho
 import { Effect } from 'effect';
 import { iosApps } from '../appScopes.js';
 import { OMITTED_PROBE, SKIPPED_NO_APPLE_ACCOUNT } from './credentialsSkip.js';
-/** Apple's display-type prefix for every iPhone screenshot class (e.g. `APP_IPHONE_67`, `APP_IPHONE_65`). */
-const IPHONE_DISPLAY_PREFIX = 'APP_IPHONE';
 const populatedIphoneDisplayTypes = (
   api: AscReadinessApi,
   versionId: string,
@@ -22,9 +20,10 @@ const populatedIphoneDisplayTypes = (
       (localization) => api.listScreenshotSets(localization.id),
       { concurrency: 'unbounded' },
     );
+    /** Apple's display-type prefix for every iPhone screenshot class (e.g. `APP_IPHONE_67`, `APP_IPHONE_65`). */
     const iphoneSets = setsPerLocale
       .flat()
-      .filter((set) => set.screenshotDisplayType.startsWith(IPHONE_DISPLAY_PREFIX));
+      .filter((set) => set.screenshotDisplayType.startsWith('APP_IPHONE'));
     const populatedDisplayTypes = yield* Effect.forEach(
       iphoneSets,
       (screenshotSet) =>

@@ -24,9 +24,6 @@ import {
   type StoreSurfaceConfigFailure,
 } from '../shared/surfaceConfig.js';
 
-/** Default locale for an achievement / leaderboard localization that doesn't name one. */
-const DEFAULT_LOCALE = 'en-US';
-
 const requiredText = (fieldName: string) =>
   Schema.String.pipe(
     Schema.nonEmptyString({
@@ -191,7 +188,8 @@ const vendorIdentifiersOf = (
 /** Localization locale declared on the config entry, else the Game Center default. */
 const localizationLocale = (locale: string | undefined): string => {
   if (locale !== undefined) return locale;
-  return DEFAULT_LOCALE;
+  /** Default locale for an achievement / leaderboard localization that doesn't name one. */
+  return 'en-US';
 };
 
 /**

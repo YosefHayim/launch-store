@@ -36,12 +36,6 @@ import { findAppSkus, summarizeSalesLines } from './appStoreSalesReport.js';
 
 type AppStoreFetchRequest = Parameters<StatsFeedPlugin['fetchDays']>[0];
 
-const HISTORY_RANGE_DAYS = 14;
-const SALES_CONCURRENCY = 4;
-const SEGMENT_CONCURRENCY = 4;
-const NOT_FOUND_STATUS = 404;
-const FORBIDDEN_STATUS = 403;
-
 const SALES_PATH_ANALYTICS_KINDS: readonly AnalyticsReportKind[] = [
   'discovery',
   'sessions',
@@ -64,9 +58,11 @@ export const pickStatsPath = (vendorNumber: string | null): AppStoreStatsPath =>
   return 'sales';
 };
 
+const historyRangeDays = 14;
+
 /** True when the range reaches back past the refresh tail, so the one-time history snapshot is worth reading. */
 export const isHistoryNeeded = (range: DateRange): boolean =>
-  range.from < shiftDate(range.to, -HISTORY_RANGE_DAYS);
+  range.from < shiftDate(range.to, -historyRangeDays);
 
 export const readHttpStatus = (failure: unknown): number | null => {
   const isFailureObject = typeof failure === 'object' && failure !== null;
@@ -133,7 +129,8 @@ const readSalesReport = (
       })
       .pipe(
         Effect.catchAll((failure) => {
-          const isNoSalesThatDay = readHttpStatus(failure) === NOT_FOUND_STATUS;
+          const notFoundStatus = 404;
+          const isNoSalesThatDay = readHttpStatus(failure) === notFoundStatus;
           if (isNoSalesThatDay) return Effect.succeed(null);
           return Effect.fail(failure);
         }),
@@ -156,13 +153,14 @@ const loadSalesStats = (
   Effect.gen(function* () {
     const { app, range } = request;
     const dates = yield* eachDate(range.from, range.to);
+    const salesConcurrency = 4;
     const dailyReports = yield* Effect.forEach(
       dates,
       (date) =>
         readSalesReport(client, vendorNumber, date).pipe(
           Effect.map((report) => ({ date, report })),
         ),
-      { concurrency: SALES_CONCURRENCY },
+      { concurrency: salesConcurrency },
     );
     const allLines = dailyReports.flatMap(({ report }) => readReportLines(report));
     const appSkus = findAppSkus(allLines, app.storeId);
@@ -220,10 +218,11 @@ const loadAnalyticsBatches = (
         const wantedSegments = collection.downloads.filter((download) =>
           isSegmentWanted(download.processingDate, accessType, range),
         );
+        const segmentConcurrency = 4;
         return yield* Effect.forEach(
           wantedSegments,
           (segment) => readAnalyticsSegment(client, segment, kind, accessType),
-          { concurrency: SEGMENT_CONCURRENCY },
+          { concurrency: segmentConcurrency },
         );
       }),
     );
@@ -368,7 +367,8 @@ const fetchAppStoreDays: StatsFeedPlugin['fetchDays'] = (request) =>
     const vendorNumber = yield* credentials.vendorNumberForAccount(accountKeyId);
     const loadOutcome = yield* loadAppStoreStats(client, vendorNumber, request).pipe(Effect.either);
     if (loadOutcome._tag === 'Right') return loadOutcome.right;
-    const isKeyLackingRole = readHttpStatus(loadOutcome.left) === FORBIDDEN_STATUS;
+    const forbiddenStatus = 403;
+    const isKeyLackingRole = readHttpStatus(loadOutcome.left) === forbiddenStatus;
     if (isKeyLackingRole) {
       return {
         status: 'skipped',

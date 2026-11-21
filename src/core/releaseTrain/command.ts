@@ -25,8 +25,6 @@ import {
   writeTrainRecord,
 } from './record.js';
 
-const WATCH_INTERVAL = '30 seconds';
-
 type ReleaseTrainRequirements =
   | LaunchPromptService
   | Logger
@@ -362,7 +360,7 @@ const statusReleaseTrain = (
     );
     if (commandOptions.watch === true && commandOptions.json !== true) {
       while (!isTrainSettled(trainRecord)) {
-        yield* Effect.sleep(WATCH_INTERVAL);
+        yield* Effect.sleep('30 seconds');
         trainRecord = yield* reconcileOnce(
           trainRecord,
           preparedTrain.runtime,

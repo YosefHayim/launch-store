@@ -5,10 +5,6 @@ import type { PlannedAction } from '../../types/reconcile.js';
 import { plan, type ReconcileContext } from '../shared/reconcile.js';
 import { errorMessage } from '../../services/platform/errorMessage.js';
 import type { MutableDeep } from '../../types/mutable.js';
-/** Play's purchase type for a one-off managed (non-subscription) product. */
-const MANAGED_PRODUCT = 'managedUser';
-/** Status Launch publishes products as - declaring a `play` override means "this product should be sellable". */
-const ACTIVE_STATUS = 'active';
 /**
  * The slice of {@link GooglePlayClient} the products reconciler depends on. Declared here (not the
  * concrete client) so the diff logic is unit-testable with a hand-rolled fake; `GooglePlayClient`
@@ -86,10 +82,12 @@ export const toPlayProduct = (
       prices[region] = toMoney(price);
     }
   }
+  /** Play's purchase type for a one-off managed (non-subscription) product. */
+  /** Status Launch publishes products as - declaring a `play` override means "this product should be sellable". */
   const desiredProduct: MutableDeep<InAppProductResource> = {
     sku,
-    status: ACTIVE_STATUS,
-    purchaseType: MANAGED_PRODUCT,
+    status: 'active',
+    purchaseType: 'managedUser',
     defaultLanguage: defaultLocale,
     listings,
   };

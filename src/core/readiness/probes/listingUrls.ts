@@ -10,8 +10,6 @@ import type {
 } from '@core/types/readiness.js';
 import { OMITTED_PROBE } from './credentialsSkip.js';
 
-const URL_LIVENESS_TIMEOUT_MS = 5000;
-
 type ListingUrl = {
   app: string;
   field: string;
@@ -56,6 +54,8 @@ const collectListingUrls = (
     return listingUrls;
   });
 
+const urlLivenessTimeoutMs = 5000;
+
 /** Request one listing URL through the shared HTTP service. */
 const requestListingUrlStatus = (
   listingUrl: string,
@@ -65,7 +65,7 @@ const requestListingUrlStatus = (
     const listingRequest = HttpClientRequest.get(listingUrl);
     const listingReply = yield* httpClient.execute(listingRequest);
     return listingReply.status;
-  }).pipe(Effect.timeout(`${URL_LIVENESS_TIMEOUT_MS} millis`));
+  }).pipe(Effect.timeout(`${urlLivenessTimeoutMs} millis`));
 
 /** Check that declared iOS listing URLs return successful HTTP statuses. */
 export const listingUrlsProbe = {

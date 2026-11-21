@@ -3,8 +3,6 @@ import { errorMessage } from '@core/services/platform/errorMessage.js';
 import { Effect } from 'effect';
 import { androidApps } from '../appScopes.js';
 import { OMITTED_PROBE, SKIPPED_NO_PLAY_ACCOUNT } from './credentialsSkip.js';
-/** The track id Google Play always provisions for internal testing. */
-const INTERNAL_TRACK = 'internal';
 /** The Google Play internal-track readiness probe. */
 export const playInternalTrackProbe = {
   id: 'play-internal-track',
@@ -43,7 +41,8 @@ export const playInternalTrackProbe = {
               };
             return yield* api.listTracks(identifier).pipe(
               Effect.map((tracks) => {
-                if (tracks.some((track) => track.track === INTERNAL_TRACK)) {
+                /** The track id Google Play always provisions for internal testing. */
+                if (tracks.some((track) => track.track === 'internal')) {
                   return {
                     app: name,
                     identifier,

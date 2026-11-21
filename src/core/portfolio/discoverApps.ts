@@ -13,7 +13,6 @@ import type { StatsCredentialsShape } from '../types/stats.js';
 import { createAndroidAppKey, createIosAppKey, mergeDiscoveredApps } from './portfolioLogic.js';
 
 const PLAY_ACCOUNT_LABEL = 'google-play';
-const APPLE_DISCOVERY_CONCURRENCY = 4;
 
 type DiscoveryRequirements =
   | FileSystem.FileSystem
@@ -91,8 +90,9 @@ const discoverPlay = (
 export const discoverApps = (): Effect.Effect<DiscoveryReport, never, DiscoveryRequirements> =>
   Effect.gen(function* () {
     const accounts = yield* listAccounts();
+    const appleDiscoveryConcurrency = 4;
     const appleDiscoveries = yield* Effect.forEach(accounts, discoverAppleAccount, {
-      concurrency: APPLE_DISCOVERY_CONCURRENCY,
+      concurrency: appleDiscoveryConcurrency,
     });
     const launchPaths = yield* LaunchPaths;
     const configuredPackagesReply = yield* loadConfig(launchPaths.workingDirectory).pipe(

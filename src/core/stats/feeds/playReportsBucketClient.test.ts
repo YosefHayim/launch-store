@@ -8,7 +8,6 @@ import {
 } from './playReportsBucketClient.js';
 
 const BUCKET_URL = 'https://storage.googleapis.com/storage/v1/b/pubsite_prod_rev_1/o';
-const OBJECT_URL = `${BUCKET_URL}/stats%2Finstalls%2Finstalls_com.fit_202610_overview.csv?alt=media`;
 const LIST_URL = `${BUCKET_URL}?prefix=earnings%2Fearnings_&fields=items(name),nextPageToken`;
 
 describe('downloadBucketObject', () => {
@@ -20,7 +19,16 @@ describe('downloadBucketObject', () => {
         'token-1',
       ).pipe(
         Effect.either,
-        Effect.provide(makeHttpClientTest([{ method: 'GET', url: OBJECT_URL, status, body }])),
+        Effect.provide(
+          makeHttpClientTest([
+            {
+              method: 'GET',
+              url: `${BUCKET_URL}/stats%2Finstalls%2Finstalls_com.fit_202610_overview.csv?alt=media`,
+              status,
+              body,
+            },
+          ]),
+        ),
       ),
     );
 

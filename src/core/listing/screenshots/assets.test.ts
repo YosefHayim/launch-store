@@ -101,7 +101,7 @@ describe('discoverScreenshots', () => {
     writeFile(appDir, `${SCREENSHOTS_DIRNAME}/en-US/APP_IPHONE_69_FUTURE/notes.txt`, 'ignore me');
     writeFile(
       appDir,
-      `${SCREENSHOTS_DIRNAME}/en-US/APP_IPHONE_69_FUTURE/genshot-generation-run-001.json`,
+      `${SCREENSHOTS_DIRNAME}/en-US/APP_IPHONE_69_FUTURE/sidecar.json`,
       '{"generationId":"run-001"}',
     );
     const shots = await runAssetEffect(discoverScreenshots(appDir));

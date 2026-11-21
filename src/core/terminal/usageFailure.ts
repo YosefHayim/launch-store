@@ -9,8 +9,6 @@ export type UsageFailure = Readonly<{
 
 export const makeUsageFailure = Data.tagged<UsageFailure>('UsageFailure');
 
-const USAGE_EXIT_CODE = 2;
-
 export const endWithUsageFailure = (
   usageFailure: UsageFailure,
   isJson: boolean,
@@ -23,6 +21,7 @@ export const endWithUsageFailure = (
     }
     const isHumanOutput = !isJson;
     if (isHumanOutput) yield* logger.error(usageFailure.message).pipe(Effect.orDie);
-    const usageExit = makeCommandExit({ exitCode: USAGE_EXIT_CODE, message: usageFailure.message });
+    const usageExitCode = 2;
+    const usageExit = makeCommandExit({ exitCode: usageExitCode, message: usageFailure.message });
     return yield* Effect.fail(usageExit);
   });

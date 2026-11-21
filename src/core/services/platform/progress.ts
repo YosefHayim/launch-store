@@ -41,9 +41,6 @@ export type ProgressRunOptions = {
   parseStep?: (line: string) => string | undefined;
   estimate?: BuildEstimate;
 };
-/** What {@link runWithProgress} measured - fed back to {@link import("../../build/buildFingerprint.js").updateEstimate}. */
-/** Trailing lines kept in memory to show as context when a tool fails. */
-const TAIL_LINES = 40;
 /** Cap a step string so the spinner stays on one terminal line. */
 const truncateStep = (step: string): string => {
   const max = 52;
@@ -228,7 +225,8 @@ export const runWithProgress = (
       logFilePath: logFile,
       onLine: (line) => {
         tail.push(line);
-        if (tail.length > TAIL_LINES) tail.shift();
+        const tailLines = 40;
+        if (tail.length > tailLines) tail.shift();
         const next = parseStep?.(line);
         if (next) steps++;
       },

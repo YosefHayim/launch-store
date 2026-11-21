@@ -2,8 +2,6 @@ import { FileSystem, Path } from '@effect/platform';
 import { Data, Effect } from 'effect';
 import { captureCommandOutput, provideNodeCommandServices } from '../services/platform/exec.js';
 import { LaunchPaths } from '../services/platform/paths.js';
-/** Marker comment that headers Launch's auto-added ignore entry, so it's recognizable and removable by hand. */
-const IGNORE_MARKER = '# launch build artifacts';
 /** Outcome of an {@link ensureArtifactDirIgnored} attempt. */
 // A git hook exports GIT_DIR, and then `git -C <dir>` treats <dir> as that repo. Drop it so discovery follows the directory.
 function runGit(directory: string, gitArguments: readonly string[]) {
@@ -74,8 +72,9 @@ export const ensureArtifactDirIgnored = (resolvedDir: string, requestedProjectDi
     let gap = '\n';
     if (base.length === 0) gap = '';
     else if (base.endsWith('\n\n')) gap = '';
+    /** Marker comment that headers Launch's auto-added ignore entry, so it's recognizable and removable by hand. */
     yield* fileSystem
-      .writeFileString(gitignorePath, `${base}${gap}${IGNORE_MARKER}\n${entry}\n`)
+      .writeFileString(gitignorePath, `${base}${gap}# launch build artifacts\n${entry}\n`)
       .pipe(Effect.mapError((cause) => makeGitignoreFailure({ path: gitignorePath, cause })));
     return { added: true, entry };
   });

@@ -51,8 +51,6 @@ const APPLE_FILE_NAMES = {
   supportUrl: 'support_url.txt',
   privacyPolicyUrl: 'privacy_url.txt',
 } as const;
-/** `deliver` stores keywords comma-joined in their own file. */
-const APPLE_KEYWORDS_FILE = 'keywords.txt';
 const ANDROID_FILE_NAMES = {
   title: 'title.txt',
   shortDescription: 'short_description.txt',
@@ -172,12 +170,13 @@ export const readAppleMetadataDir = (
     const localeNames = yield* listLocaleDirectories(metadataDirectory);
     for (const localeName of localeNames) {
       const localeDirectory = pathService.join(metadataDirectory, localeName);
+      /** `deliver` stores keywords comma-joined in their own file. */
       const metadataFields = yield* Effect.all(
         {
           title: readMetadataField(localeDirectory, APPLE_FILE_NAMES.title),
           subtitle: readMetadataField(localeDirectory, APPLE_FILE_NAMES.subtitle),
           description: readMetadataField(localeDirectory, APPLE_FILE_NAMES.description),
-          keywords: readMetadataField(localeDirectory, APPLE_KEYWORDS_FILE),
+          keywords: readMetadataField(localeDirectory, 'keywords.txt'),
           releaseNotes: readMetadataField(localeDirectory, APPLE_FILE_NAMES.releaseNotes),
           promotionalText: readMetadataField(localeDirectory, APPLE_FILE_NAMES.promotionalText),
           marketingUrl: readMetadataField(localeDirectory, APPLE_FILE_NAMES.marketingUrl),

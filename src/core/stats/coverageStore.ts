@@ -12,8 +12,6 @@ import {
 } from '../services/platform/paths.js';
 import type { AppCoverage } from '../types/stats.js';
 
-const COVERAGE_FILE_NAME = 'coverage.json';
-
 const FeedCoverageSchema = Schema.Struct({
   lastSyncedAt: Schema.String,
   coveredFrom: Schema.NullOr(Schema.String),
@@ -48,7 +46,7 @@ const locateCoverageFile = (
   Effect.gen(function* () {
     const pathService = yield* Path.Path;
     const appDirectory = yield* locateAppStatsDirectory(appKey);
-    return pathService.join(appDirectory, COVERAGE_FILE_NAME);
+    return pathService.join(appDirectory, 'coverage.json');
   });
 
 export const loadAppCoverage = (

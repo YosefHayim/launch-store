@@ -52,7 +52,6 @@ type FeatureProbe = Readonly<{
 }>;
 
 const IOS_PLATFORM = 'IOS';
-const ANALYTICS_ACCESS_TYPE = 'ONGOING';
 
 const FEATURE_PROBES: readonly FeatureProbe[] = [
   {
@@ -96,7 +95,7 @@ const FEATURE_PROBES: readonly FeatureProbe[] = [
     roles: ['Admin', 'App Manager', 'Developer', 'Marketing'],
     needsApp: true,
     run: (permissionClient, appId) =>
-      permissionClient.listAnalyticsReportRequests(appId, ANALYTICS_ACCESS_TYPE),
+      permissionClient.listAnalyticsReportRequests(appId, 'ONGOING'),
   },
 ];
 

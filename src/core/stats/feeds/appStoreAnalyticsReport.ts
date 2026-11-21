@@ -8,8 +8,6 @@ import type {
 import { readCell, roundMoney, sumColumn } from './reportCells.js';
 
 const DATE_COLUMN = 'Date';
-const APP_IDENTIFIER_COLUMN = 'App Apple Identifier';
-const ISO_DATE_LENGTH = 10;
 
 /** The Standard report names Apple lists under an analytics report request. */
 export const ANALYTICS_REPORT_NAMES: Readonly<Record<AnalyticsReportKind, string>> = {
@@ -139,14 +137,15 @@ const rankBatch = (accessType: AnalyticsAccessType, processingDate: string): str
   return `0|${processingDate}`;
 };
 
+const isoDateLength = 10;
 const readLineDate = (line: ReportLine): string =>
-  readCell(line, DATE_COLUMN).slice(0, ISO_DATE_LENGTH);
+  readCell(line, DATE_COLUMN).slice(0, isoDateLength);
 
 const isLineWanted = (line: ReportLine, request: AnalyticsReadRequest): boolean => {
   const date = readLineDate(line);
   const isDateOutsideRange = date < request.range.from || date > request.range.to;
   if (isDateOutsideRange) return false;
-  const appIdentifier = readCell(line, APP_IDENTIFIER_COLUMN);
+  const appIdentifier = readCell(line, 'App Apple Identifier');
   const isAppIdentifierMissing = appIdentifier === '';
   if (isAppIdentifierMissing) return true;
   return appIdentifier === request.storeId;

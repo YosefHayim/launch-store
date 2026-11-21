@@ -5,11 +5,7 @@ import type { StatsFeedFailure } from '../../types/stats.js';
 
 export const ANALYTICS_ADMIN_URL = 'https://analyticsadmin.googleapis.com/v1beta';
 export const ANALYTICS_DATA_URL = 'https://analyticsdata.googleapis.com/v1beta';
-const SERVICE_DISABLED_REASON = 'SERVICE_DISABLED';
-const PERMISSION_DENIED_STATUS = 'PERMISSION_DENIED';
 const HTTP_FORBIDDEN = 403;
-const HTTP_SUCCESS_MIN = 200;
-const HTTP_SUCCESS_MAX = 299;
 
 export interface Ga4Session {
   readonly appKey: string;
@@ -71,11 +67,11 @@ export const readGa4Error = (httpStatus: number, errorDocument: unknown): Ga4Err
   const googleError = decodedErrorReply.value.error;
   const message = readGoogleMessage(googleError.message, fallbackMessage);
   const isServiceDisabled = googleError.details.some(
-    (detail) => detail.reason === SERVICE_DISABLED_REASON,
+    (detail) => detail.reason === 'SERVICE_DISABLED',
   );
   if (isServiceDisabled) return { kind: 'service-disabled', message };
   const isPermissionDenied =
-    httpStatus === HTTP_FORBIDDEN && googleError.status === PERMISSION_DENIED_STATUS;
+    httpStatus === HTTP_FORBIDDEN && googleError.status === 'PERMISSION_DENIED';
   if (isPermissionDenied) return { kind: 'permission-denied', message };
   return { kind: 'other', message };
 };
@@ -142,8 +138,10 @@ export const requestGa4Document = (
         ),
       ),
     );
+    const httpSuccessMin = 200;
+    const httpSuccessMax = 299;
     const isSuccess =
-      analyticsReply.status >= HTTP_SUCCESS_MIN && analyticsReply.status <= HTTP_SUCCESS_MAX;
+      analyticsReply.status >= httpSuccessMin && analyticsReply.status <= httpSuccessMax;
     if (isSuccess) return analyticsDocument;
     const errorReading = readGa4Error(analyticsReply.status, analyticsDocument);
     if (errorReading.kind === 'permission-denied') {

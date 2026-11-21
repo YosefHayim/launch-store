@@ -12,8 +12,6 @@ import {
 import { Context, Data, Effect, Layer } from 'effect';
 import { createLogger, type Logger } from './logger.js';
 
-const PICK_SEARCH_THRESHOLD = 8;
-
 export type PromptSelectionFailure = Readonly<{
   readonly _tag: 'PromptSelectionFailure';
   readonly message: string;
@@ -120,7 +118,8 @@ const makeClackChoices = <TSelection>(
   });
 
 const resolveSearchThreshold = (requestedThreshold: number | undefined): number => {
-  if (requestedThreshold === undefined) return PICK_SEARCH_THRESHOLD;
+  const pickSearchThreshold = 8;
+  if (requestedThreshold === undefined) return pickSearchThreshold;
   return requestedThreshold;
 };
 

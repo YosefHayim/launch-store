@@ -19,9 +19,6 @@ import {
   writeIndex,
 } from './appleSigningIndex.js';
 
-/** Apple's distribution-certificate cap; creating past it fails, so warn first. */
-const DISTRIBUTION_CERT_CAP = 2;
-
 /** Xcode identity name used for App Store and ad-hoc distribution certificates. */
 export const DISTRIBUTION_CERT_NAME = 'Apple Distribution';
 
@@ -249,7 +246,9 @@ export const ensureDistributionCertificate = (
       );
       return { cert: reusable, freshCert: false, password };
     }
-    if (warnAtCertCap && liveCerts.length >= DISTRIBUTION_CERT_CAP) {
+    /** Apple's distribution-certificate cap; creating past it fails, so warn first. */
+    const distributionCertCap = 2;
+    if (warnAtCertCap && liveCerts.length >= distributionCertCap) {
       yield* log.warn(
         `Apple already has ${liveCerts.length} distribution certificate(s) and none are Launch's. ` +
           `If creation fails, revoke an unused one in the Developer portal (Apple caps these).`,

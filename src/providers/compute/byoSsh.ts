@@ -1,8 +1,6 @@
 import { Effect } from 'effect';
 import { makeProviderInputFailure, type ComputeHost } from '@core/types/providers.js';
 import type { AllocateRequest, HostHandle, HostStatus, SshTarget } from '@core/types/remote.js';
-/** Default SSH login user for the common EC2 Mac case; overridden by `user@` in the target string. */
-const DEFAULT_USER = 'ec2-user';
 /**
  * Parse a `user@host[:port]` (or bare `host`) connection string into an {@link SshTarget}.
  * Exported so the CLI can validate `--remote <ssh>` before doing any work.
@@ -19,7 +17,8 @@ export const parseSshTarget = (spec: string): Effect.Effect<SshTarget, unknown> 
       );
     }
     const at = trimmed.indexOf('@');
-    let user = DEFAULT_USER;
+    /** Default SSH login user for the common EC2 Mac case; overridden by `user@` in the target string. */
+    let user = 'ec2-user';
     if (at !== -1) user = trimmed.slice(0, at);
     let hostPort = trimmed;
     if (at !== -1) hostPort = trimmed.slice(at + 1);

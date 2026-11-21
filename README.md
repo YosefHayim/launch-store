@@ -83,18 +83,6 @@ launch stats --owner mine --days 30
 launch stats --app "cal friend" --json
 ```
 
-### Store screenshots
-
-```bash
-npm install --save-dev @genshot/cli
-npx genshot login
-npx launch ai screenshots --platform ios --brief "A calm habit tracker" --yes
-npx launch plan screenshots
-npx launch sync
-```
-
-`launch ai screenshots` delegates generation to the official Genshot CLI. Launch then validates every generated image against the target store. Genshot starts new accounts with free Credits. Generation never needs a Genshot API key inside `launch.config.ts`.
-
 ### Configuration
 
 App facts (bundle id, version) are read from each app's Expo config, `app.json` or `app.config.{ts,js}`. `launch.config.ts` holds Launch settings. `defineConfig` is the public helper. The published [JSON Schema](https://json-schema.org/) is `schema/launch.config.schema.json`. `launch config schema` prints it, and `launch config schema --out launch.config.schema.json` writes a copy for your editor.

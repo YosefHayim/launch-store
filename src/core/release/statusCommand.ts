@@ -25,7 +25,6 @@ import {
 } from './appStoreRelease.js';
 import { createTransitionTracker, planTransitionNotifications } from './releaseNotify.js';
 
-const WATCH_INTERVAL_MS = 30_000;
 const NO_IOS_APPS_MESSAGE =
   'No iOS apps discovered. Add an app with an ios.bundleIdentifier in app.json.';
 
@@ -293,7 +292,8 @@ const watchReleaseStatuses = (
           appStatuses.map((appStatus) => appStatus.releaseStatus.verdict.exitCode),
         );
       }
-      yield* Effect.sleep(WATCH_INTERVAL_MS);
+      const watchIntervalMs = 30_000;
+      yield* Effect.sleep(watchIntervalMs);
     }
   }).pipe(
     Effect.mapError((cause) => {

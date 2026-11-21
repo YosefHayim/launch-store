@@ -16,7 +16,6 @@
       "@testkit/*": ["src/testkit/*"]
     },
     "outDir": "dist",
-    "rootDir": "src",
 
     "strict": true,
     "noUncheckedIndexedAccess": true,
@@ -39,5 +38,5 @@
     "declaration": true,
     "sourceMap": true
   },
-  "include": ["src"]
+  "include": ["src", "e2e"]
 }

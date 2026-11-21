@@ -15,7 +15,6 @@ import { registerMetadataCommand } from './commands/listing/metadata.js';
 
 import { registerOffersCommand } from './commands/store/apple/offers.js';
 import { registerAiListingCommand } from './commands/listing/aiListing.js';
-import { registerAiScreenshotsCommand } from './commands/listing/aiScreenshots.js';
 import { registerReviewsCommand } from './commands/store/apple/reviews.js';
 import { registerReportsCommand } from './commands/store/apple/reports.js';
 import { registerInsightsCommand } from './commands/insights/insights.js';
@@ -90,7 +89,6 @@ export const buildProgram = (launchVersion = '0.0.0'): Command => {
 
   registerOffersCommand(program);
   registerAiListingCommand(program);
-  registerAiScreenshotsCommand(program);
   registerReviewsCommand(program);
   registerReportsCommand(program);
   registerInsightsCommand(program);

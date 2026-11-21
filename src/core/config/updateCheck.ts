@@ -20,11 +20,8 @@ import { mergeChildEnv } from '../terminal/locale.js';
 import { makeCommandExit, type CommandExit } from '../terminal/commandExit.js';
 /** The published package name (the `launch` bin's npm package). */
 const PACKAGE_NAME = 'launch-store';
-const CLI_ENTRY_PATH = 'dist/cli/index.js';
 /** Poll the registry at most this often. */
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
-/** Cap the registry request so a slow/offline network never delays the CLI. */
-const FETCH_TIMEOUT_MS = 1500;
 /** Throttle state persisted to `~/.launch/update.json`. */
 export type UpdateState = {
   lastCheckedAt: number;
@@ -203,6 +200,9 @@ const writeState = (
     yield* fileSystem.makeDirectory(stateDirectory, { recursive: true });
     yield* fileSystem.writeFileString(stateFilePath, JSON.stringify(state));
   }).pipe(Effect.catchAll(() => Effect.void));
+/** Cap the registry request so a slow/offline network never delays the CLI. */
+const fetchTimeoutMs = 1500;
+
 /** Fetch the latest published version from the npm registry, or null on any error/timeout. */
 const fetchLatestVersion = (
   packageName: string,
@@ -219,7 +219,7 @@ const fetchLatestVersion = (
       yield* HttpClientResponse.schemaBodyJson(RegistryMetadataSchema)(registryReply);
     return registryMetadata.version;
   }).pipe(
-    Effect.timeout(`${FETCH_TIMEOUT_MS} millis`),
+    Effect.timeout(`${fetchTimeoutMs} millis`),
     Effect.catchAll(() => Effect.succeed(null)),
   );
 /**
@@ -316,7 +316,7 @@ const resolveGlobalEntryPath = (
     const globalPackagePath = yield* resolveGlobalPackagePath(installer, homeDirectory);
     if (globalPackagePath === null) return null;
     const pathService = yield* Path.Path;
-    return pathService.join(globalPackagePath, CLI_ENTRY_PATH);
+    return pathService.join(globalPackagePath, 'dist/cli/index.js');
   }).pipe(Effect.orElseSucceed(() => null));
 const isRunningGlobalInstall = (
   installer: GlobalInstaller,

@@ -27,14 +27,10 @@ import {
 
 export const API_ORIGIN = 'https://api.appstoreconnect.apple.com';
 export const BASE_URL = `${API_ORIGIN}/v1`;
-export const AUDIENCE = 'appstoreconnect-v1';
-
 export const TOKEN_TTL_SECONDS = 19 * 60;
 export const TOKEN_REUSE_SECONDS = 15 * 60;
 export const mintedTokens = new Map<string, Readonly<{ token: string; issuedAt: number }>>();
 export const ASSET_UPLOAD_CONCURRENCY = 4;
-
-export const CLOCK_SKEW_TOLERANCE_SECONDS = 60;
 
 export const DISTRIBUTION_CERT_TYPE = 'DISTRIBUTION';
 
@@ -556,7 +552,7 @@ export const mintToken = async (key: AscKey, issuedAt: number): Promise<string> 
     .setIssuer(key.issuerId)
     .setIssuedAt(issuedAt)
     .setExpirationTime(issuedAt + TOKEN_TTL_SECONDS)
-    .setAudience(AUDIENCE)
+    .setAudience('appstoreconnect-v1')
     .sign(privateKey);
 };
 
@@ -914,7 +910,8 @@ export const clockSkewHint = (args: {
   const appleMs = Date.parse(args.appleDate);
   if (Number.isNaN(appleMs)) return '';
   const skewSeconds = Math.abs(args.nowMs - appleMs) / 1000;
-  if (skewSeconds < CLOCK_SKEW_TOLERANCE_SECONDS) return '';
+  const clockSkewToleranceSeconds = 60;
+  if (skewSeconds < clockSkewToleranceSeconds) return '';
   let drift = `~${Math.round(skewSeconds)} seconds`;
   if (skewSeconds >= 120) drift = `~${Math.round(skewSeconds / 60)} minutes`;
   return ` Your Mac's clock is off by ${drift} from Apple's, which makes the signed token read as expired - run \`sudo sntp -sS time.apple.com\` to resync, then retry.`;

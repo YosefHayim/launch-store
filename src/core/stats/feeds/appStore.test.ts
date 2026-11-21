@@ -20,8 +20,6 @@ import {
 const APP_ID = '6802289557';
 const SHORT_RANGE: DateRange = { from: '2026-10-08', to: '2026-10-10' };
 const DISCOVERY_NAME = 'App Store Discovery and Engagement Standard';
-const DOWNLOADS_NAME = 'App Downloads Standard';
-const PURCHASES_NAME = 'App Store Purchases Standard';
 
 const SALES_HEADERS = [
   'Apple Identifier',
@@ -258,7 +256,7 @@ describe('appStoreFeed', () => {
               ],
             },
           ],
-          [`ONGOING|${DOWNLOADS_NAME}`]: [
+          [`ONGOING|App Downloads Standard`]: [
             {
               processingDate: '2026-10-10',
               segmentTsvs: [
@@ -269,7 +267,7 @@ describe('appStoreFeed', () => {
               ],
             },
           ],
-          [`ONGOING|${PURCHASES_NAME}`]: [
+          [`ONGOING|App Store Purchases Standard`]: [
             {
               processingDate: '2026-10-10',
               segmentTsvs: [createTsv(PURCHASES_HEADERS, [['2026-10-09', APP_ID, '1', '4.2']])],

@@ -29,7 +29,7 @@ export default defineConfig({
       exclude: [
         'src/**/*.test.ts',
         'src/**/*.testkit.ts',
-        'src/**/*.e2e.ts',
+        'e2e/**/*.e2e.ts',
         'src/cli/**',
         'src/index.ts',
       ],
@@ -48,7 +48,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'e2e',
-          include: ['src/**/*.e2e.ts'],
+          include: ['e2e/**/*.e2e.ts'],
           testTimeout: endToEndTimeoutMilliseconds,
         },
       },

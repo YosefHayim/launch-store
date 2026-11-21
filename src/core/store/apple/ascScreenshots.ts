@@ -84,7 +84,6 @@ export type ScreenshotReconcileInput = {
   dryRun: boolean;
   allowDestructive: boolean;
 };
-const SET_UPLOAD_CONCURRENCY = 4;
 /** Group members by a derived string key. */
 export const groupBy = <Member>(
   members: readonly Member[],
@@ -109,13 +108,14 @@ const reconcileSetsInOrder = <SetMember>(
   ) => Effect.Effect<void, unknown>,
 ): Effect.Effect<void, unknown> =>
   Effect.gen(function* () {
+    const setUploadConcurrency = 4;
     const setLogs = yield* Effect.forEach(
       setGroups,
       ([setType, setMembers]) => {
         const setLog: ActionLog = { ...log, actions: [] };
         return reconcileSet(setLog, setType, setMembers).pipe(Effect.as(setLog));
       },
-      { concurrency: SET_UPLOAD_CONCURRENCY },
+      { concurrency: setUploadConcurrency },
     );
     for (const setLog of setLogs) log.actions.push(...setLog.actions);
   });

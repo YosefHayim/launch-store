@@ -10,8 +10,6 @@ import { errorMessage } from '../services/platform/errorMessage.js';
 import { plan, skip, type ReconcileContext } from '../store/shared/reconcile.js';
 import type { PlannedAction } from '../types/reconcile.js';
 
-const BUILD_SCAN_LIMIT = 50;
-
 const WhatToTestSchema = Schema.Record({
   key: Schema.String,
   value: Schema.String.pipe(Schema.minLength(1)),
@@ -212,10 +210,8 @@ export const reconcileBetaReview = (
       actions: [],
       dryRun: reconciliationInput.dryRun,
     };
-    const availableBuilds = yield* appleStore.listBuilds(
-      reconciliationInput.appId,
-      BUILD_SCAN_LIMIT,
-    );
+    const buildScanLimit = 50;
+    const availableBuilds = yield* appleStore.listBuilds(reconciliationInput.appId, buildScanLimit);
     const selectedBuild = yield* selectBuild(availableBuilds, reconciliationInput.buildVersion);
     yield* reconcileNotes(
       reconciliation,

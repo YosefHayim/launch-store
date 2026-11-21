@@ -41,12 +41,10 @@ import type {
   ReceiptOptions,
 } from './pipelineTypes.js';
 
-/** Marketing version stamped on artifacts and logs when app config omits one. */
-const FALLBACK_MARKETING_VERSION = '0.0.0';
-
 /** Prefer the app's marketing version; fall back so logs and indexes never store blanks. */
 const artifactMarketingVersion = (app: AppDescriptor): string => {
-  if (app.version === undefined) return FALLBACK_MARKETING_VERSION;
+  /** Marketing version stamped on artifacts and logs when app config omits one. */
+  if (app.version === undefined) return '0.0.0';
   return app.version;
 };
 

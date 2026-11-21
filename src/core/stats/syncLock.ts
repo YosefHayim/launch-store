@@ -4,7 +4,6 @@ import { Clock, Data, Effect } from 'effect';
 import { errorMessage } from '../services/platform/errorMessage.js';
 import { locateStatsDirectory, type LaunchPathsService } from '../services/platform/paths.js';
 
-const SYNC_LOCK_FILE_NAME = 'sync.lock';
 const SYNC_LOCK_STALE_AFTER_MILLISECONDS = 5 * 60 * 1000;
 
 export type SyncLockFailure = Readonly<{
@@ -42,7 +41,7 @@ const acquireSyncLock = (): Effect.Effect<string, SyncLockFailure, SyncLockRequi
     const fileSystem = yield* FileSystem.FileSystem;
     const pathService = yield* Path.Path;
     const statsDirectory = yield* locateStatsDirectory();
-    const lockFilePath = pathService.join(statsDirectory, SYNC_LOCK_FILE_NAME);
+    const lockFilePath = pathService.join(statsDirectory, 'sync.lock');
     const nowMilliseconds = yield* Clock.currentTimeMillis;
     yield* fileSystem.makeDirectory(statsDirectory, { recursive: true });
     const isLockTaken = yield* createLockFile(fileSystem, lockFilePath, nowMilliseconds).pipe(

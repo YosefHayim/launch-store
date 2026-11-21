@@ -2,7 +2,6 @@ import { Clock, Effect } from 'effect';
 import type { DateRange } from '../types/stats.js';
 
 export const REFRESH_TAIL_DAYS = 3;
-const STATS_STALE_AFTER_HOURS = 12;
 export const MAX_SYNC_DAYS = 365;
 export const DEFAULT_SYNC_DAYS = 30;
 
@@ -44,5 +43,6 @@ export const isSyncedAtStale = (lastSyncedAt: string, nowMilliseconds: number): 
   const lastSyncedMilliseconds = Date.parse(lastSyncedAt);
   const isTimeUnreadable = Number.isNaN(lastSyncedMilliseconds);
   if (isTimeUnreadable) return true;
-  return nowMilliseconds - lastSyncedMilliseconds > STATS_STALE_AFTER_HOURS * HOUR_MILLISECONDS;
+  const statsStaleAfterHours = 12;
+  return nowMilliseconds - lastSyncedMilliseconds > statsStaleAfterHours * HOUR_MILLISECONDS;
 };

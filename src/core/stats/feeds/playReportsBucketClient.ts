@@ -7,7 +7,6 @@ export const STORAGE_READ_ONLY_SCOPE = 'https://www.googleapis.com/auth/devstora
 const STORAGE_API_ROOT = 'https://storage.googleapis.com/storage/v1/b';
 const HTTP_OK = 200;
 const HTTP_FORBIDDEN = 403;
-const HTTP_NOT_FOUND = 404;
 
 export type PlayReportsBucketFailure = Readonly<{
   readonly _tag: 'PlayReportsBucketFailure';
@@ -56,7 +55,8 @@ export const downloadBucketObject = (
     const objectReply = yield* httpClient.execute(objectRequest);
     const isForbidden = objectReply.status === HTTP_FORBIDDEN;
     if (isForbidden) return { status: 'forbidden' } satisfies BucketObjectReply;
-    const isMissing = objectReply.status === HTTP_NOT_FOUND;
+    const httpNotFound = 404;
+    const isMissing = objectReply.status === httpNotFound;
     if (isMissing) return { status: 'missing' } satisfies BucketObjectReply;
     const isReplyUnexpected = objectReply.status !== HTTP_OK;
     if (isReplyUnexpected) {

@@ -19,8 +19,6 @@ import { STORAGE_READ_ONLY_SCOPE } from './playReportsBucketClient.js';
 
 const makeStatsFeedFailure = Data.tagged<StatsFeedFailure>('StatsFeedFailure');
 
-// Play publishes vitals a day or two behind, so the query window reaches back a little further than the range.
-const VITALS_FRESHNESS_BUFFER_DAYS = 7;
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1000;
 const VITALS_METRICS: Readonly<Record<PlayVitalsMetric, StatsMetric>> = {
   crash: 'crashRate',
@@ -54,7 +52,9 @@ const readVitals = (
   range: DateRange,
 ): Effect.Effect<VitalsReading, unknown> =>
   Effect.gen(function* () {
-    const windowDays = countRangeDays(range) + VITALS_FRESHNESS_BUFFER_DAYS;
+    // Play publishes vitals a day or two behind, so the query window reaches back a little further than the range.
+    const vitalsFreshnessBufferDays = 7;
+    const windowDays = countRangeDays(range) + vitalsFreshnessBufferDays;
     const [crashTimeline, anrTimeline] = yield* Effect.all([
       playClient.vitalsTimeline(packageName, 'crash', windowDays),
       playClient.vitalsTimeline(packageName, 'anr', windowDays),

@@ -1,7 +1,5 @@
 import { Data, Effect } from 'effect';
 import type { EncryptionDeclarationResource } from '../../types/appleCatalog.js';
-/** Apple marks an App Encryption Declaration reusable only once it reaches this review state. */
-const APPROVED_STATE = 'APPROVED';
 /**
  * The slice of {@link AppStoreConnectClient} that {@link reconcileExportCompliance} needs. Declared as a
  * seam (not the whole client) so the reconcile is testable with a fake and the core layer stays
@@ -113,8 +111,9 @@ export const reconcileExportCompliance = (
       return exportComplianceOutcome({ status: 'answered', usesNonExemptEncryption: false });
     }
     const encryptionDeclarations = yield* exportComplianceApi.listEncryptionDeclarations(bundleId);
+    /** Apple marks an App Encryption Declaration reusable only once it reaches this review state. */
     const approvedDeclaration = encryptionDeclarations.find(
-      (encryptionDeclaration) => encryptionDeclaration.state === APPROVED_STATE,
+      (encryptionDeclaration) => encryptionDeclaration.state === 'APPROVED',
     );
     if (approvedDeclaration !== undefined) {
       yield* exportComplianceApi.linkBuildToDeclaration(approvedDeclaration.id, storeBuild.id);

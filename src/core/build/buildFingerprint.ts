@@ -69,13 +69,13 @@ const AppConfigSchema = Schema.Struct({
 type BuildStateRequirements = FileSystem.FileSystem | LaunchPathsService | Path.Path;
 
 /** Weight assigned to a new duration sample. */
-const EMA_ALPHA = 0.5;
+const emaAlpha = 0.5;
 
 /** Fold a completed build into its moving estimate. */
 export const updateEstimate = (
   previousEstimate: BuildEstimate | undefined,
   sample: BuildEstimate,
-  alpha: number = EMA_ALPHA,
+  alpha: number = emaAlpha,
 ): BuildEstimate => {
   if (previousEstimate === undefined) {
     return { ms: Math.round(sample.ms), steps: Math.round(sample.steps) };

@@ -21,7 +21,6 @@ export interface StatsSyncCommandRequest {
 
 type StatsSyncCommandFailure = InvalidAppKeyFailure | DocumentFileFailure | SyncLockFailure;
 
-const FAILED_FEED_EXIT_CODE = 1;
 const DAYS_PATTERN = /^[0-9]+$/;
 
 export const parseDaysFlag = (
@@ -78,8 +77,9 @@ export const statsSyncProgram = (
     }
     const hasFeedFailed = report.appFeeds.some((appFeed) => appFeed.status === 'failed');
     if (hasFeedFailed) {
+      const failedFeedExitCode = 1;
       const failedFeedExit = makeCommandExit({
-        exitCode: FAILED_FEED_EXIT_CODE,
+        exitCode: failedFeedExitCode,
         message: 'At least one stats feed failed.',
       });
       return yield* Effect.fail(failedFeedExit);

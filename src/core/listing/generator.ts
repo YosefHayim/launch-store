@@ -39,10 +39,6 @@ const AnthropicRequestSchema = Schema.Struct({
   ),
 });
 
-const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com/v1/messages';
-const ANTHROPIC_VERSION = '2023-06-01';
-const DEFAULT_MODEL = 'claude-sonnet-4-6';
-
 /** Anthropic listing generation or decoding failed. */
 export type ListingGenerationFailure = Readonly<{
   readonly _tag: 'ListingGenerationFailure';
@@ -202,7 +198,7 @@ export const createAnthropicListingGenerator = (
 ): Effect.Effect<ListingGenerator<HttpClient.HttpClient>, never, LaunchEnvironmentService> =>
   Effect.gen(function* () {
     const launchEnvironment = yield* LaunchEnvironment;
-    let model = DEFAULT_MODEL;
+    let model = 'claude-sonnet-4-6';
     if (launchEnvironment.values.aiModel !== undefined) model = launchEnvironment.values.aiModel;
     if (options.model !== undefined) model = options.model;
     return {
@@ -230,10 +226,12 @@ export const createAnthropicListingGenerator = (
             max_tokens: 1024,
             messages: [{ role: 'user', content: buildListingPrompt(listingBrief) }],
           };
-          const anthropicRequest = yield* HttpClientRequest.post(ANTHROPIC_ENDPOINT).pipe(
+          const anthropicRequest = yield* HttpClientRequest.post(
+            'https://api.anthropic.com/v1/messages',
+          ).pipe(
             HttpClientRequest.setHeaders({
               'x-api-key': apiKey,
-              'anthropic-version': ANTHROPIC_VERSION,
+              'anthropic-version': '2023-06-01',
             }),
             HttpClientRequest.schemaBodyJson(AnthropicRequestSchema)(requestDocument),
           );

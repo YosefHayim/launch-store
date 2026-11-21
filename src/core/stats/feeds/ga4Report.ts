@@ -9,7 +9,6 @@ import {
   type Ga4Session,
 } from './ga4Client.js';
 
-const REPORT_PAGE_SIZE = 10000;
 const GA4_METRICS: readonly Ga4Metric[] = ['activeUsers', 'newUsers', 'sessions'];
 
 type Ga4Metric = 'activeUsers' | 'newUsers' | 'sessions';
@@ -36,12 +35,13 @@ const ReportReplySchema = Schema.Struct({
 type ReportReply = typeof ReportReplySchema.Type;
 
 const createReportQuery = (report: Ga4Report, offset: number) => {
+  const reportPageSize = 10000;
   const reportQuery = {
     dimensions: [{ name: 'date' }],
     metrics: GA4_METRICS.map((metricName) => ({ name: metricName })),
     dateRanges: [{ startDate: report.range.from, endDate: report.range.to }],
     orderBys: [{ dimension: { dimensionName: 'date' } }],
-    limit: String(REPORT_PAGE_SIZE),
+    limit: String(reportPageSize),
     offset: String(offset),
   };
   if (report.streamId === null) return reportQuery;

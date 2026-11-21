@@ -13,7 +13,6 @@ const SOURCE_SCAN_SKIP_DIRECTORIES = new Set([
   'vendor',
   'Pods',
 ]);
-const MAX_SCAN_DEPTH = 8;
 const MAX_SCANNED_FILES = 5000;
 
 export type SourceScanRequirements = FileSystem.FileSystem | Path.Path;
@@ -69,7 +68,8 @@ export const walkAppSource = <InspectionFailure, InspectionRequirements>(
       directoryDepth: number,
     ): Effect.Effect<boolean, InspectionFailure, InspectionRequirements> =>
       Effect.gen(function* () {
-        if (directoryDepth > MAX_SCAN_DEPTH) return false;
+        const maxScanDepth = 8;
+        if (directoryDepth > maxScanDepth) return false;
         if (scannedFileCount >= MAX_SCANNED_FILES) return true;
 
         const entryNames = yield* fileSystem

@@ -13,7 +13,6 @@ import type { LaunchSecretStoreService } from '../services/credentials/secretSto
 import { getSecret, setSecret } from './keychain.js';
 
 const PRIVATE_KEY_ACCOUNT = 'ota-code-signing-key';
-const CODE_SIGNING_KEYID = 'main';
 
 export type CodeSigner = Readonly<{
   readonly certPath: string;
@@ -34,7 +33,7 @@ export const signatureHeader = (manifestBody: string, privateKeyPem: string): st
   signer.update(manifestBody);
   signer.end();
   const signature = signer.sign(privateKeyPem).toString('base64');
-  return `sig="${signature}", keyid="${CODE_SIGNING_KEYID}", alg="rsa-v1_5-sha256"`;
+  return `sig="${signature}", keyid="main", alg="rsa-v1_5-sha256"`;
 };
 
 /** Load or generate the local Expo Updates signing key and public certificate. */

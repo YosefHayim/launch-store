@@ -11,16 +11,12 @@ import type { DailyPoint, MetricSeries, MetricTotal } from '../types/statsReport
 import { findFeedCoverage } from './coverageLogic.js';
 import { readMonthOfDate, shiftDate } from './dateRange.js';
 
-const SAFE_DAY_TO_REACH_NEXT_MONTH = 4;
-const LAST_SAFE_DAY_OF_ANY_MONTH = 28;
-
 const listMonthsFrom = (month: string, lastMonth: string): string[] => {
   const isPastLastMonth = month > lastMonth;
   if (isPastLastMonth) return [];
-  const dayInNextMonth = shiftDate(
-    `${month}-${LAST_SAFE_DAY_OF_ANY_MONTH}`,
-    SAFE_DAY_TO_REACH_NEXT_MONTH,
-  );
+  const safeDayToReachNextMonth = 4;
+  const lastSafeDayOfAnyMonth = 28;
+  const dayInNextMonth = shiftDate(`${month}-${lastSafeDayOfAnyMonth}`, safeDayToReachNextMonth);
   return [month, ...listMonthsFrom(readMonthOfDate(dayInNextMonth), lastMonth)];
 };
 

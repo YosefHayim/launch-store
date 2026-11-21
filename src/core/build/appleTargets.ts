@@ -11,8 +11,6 @@ export type TargetSigningReadiness = {
   registered: boolean;
   missingCapabilities: string[];
 };
-/** The Xcode product type marking the primary app target (everything else is an embedded extension). */
-const APPLICATION_PRODUCT_TYPE = 'com.apple.product-type.application';
 /** A `PBXNativeTarget` object, mid-parse, before its bundle id is resolved through the config list. */
 type NativeTargetRef = {
   name: string;
@@ -156,7 +154,10 @@ export const splitMainAndExtensions = (
 } => {
   let main = targets.find((target) => target.bundleId === mainBundleId)?.bundleId;
   if (main === undefined) {
-    main = targets.find((target) => target.productType === APPLICATION_PRODUCT_TYPE)?.bundleId;
+    /** The Xcode product type marking the primary app target (everything else is an embedded extension). */
+    main = targets.find(
+      (target) => target.productType === 'com.apple.product-type.application',
+    )?.bundleId;
   }
   const extensions = targets
     .filter((target) => target.bundleId !== main)

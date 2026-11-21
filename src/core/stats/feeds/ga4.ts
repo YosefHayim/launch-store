@@ -12,8 +12,6 @@ import { readProjectIdFromClientEmail, type Ga4Failure, type Ga4Session } from '
 import { loadGa4Report } from './ga4Report.js';
 import { findAppStream, listAllAppStreams, listAppStreams } from './ga4Streams.js';
 
-const GA4_READONLY_SCOPE = 'https://www.googleapis.com/auth/analytics.readonly';
-
 interface Ga4Target {
   readonly propertyId: string;
   readonly streamId: string | null;
@@ -33,7 +31,7 @@ const readAccessToken = (
   packageName: string | null,
 ): Effect.Effect<string | null, StatsFeedFailure> =>
   credentials
-    .googleAccessToken([GA4_READONLY_SCOPE], packageName)
+    .googleAccessToken(['https://www.googleapis.com/auth/analytics.readonly'], packageName)
     .pipe(Effect.mapError((cause) => createCredentialsFailure(app, cause)));
 
 const readProjectId = (

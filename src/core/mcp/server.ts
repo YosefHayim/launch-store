@@ -11,7 +11,6 @@ import { gateTools } from './gate.js';
 import { STATS_TOOLS } from './statsTools.js';
 import { ALL_TOOLS, type McpToolRequirements } from './tools.js';
 
-const SDK_INSTALL_HINT = 'pnpm add @modelcontextprotocol/sdk';
 const PackageManifestSchema = Schema.Struct({ version: Schema.String });
 
 type McpSdk = Readonly<{
@@ -22,7 +21,7 @@ type McpSdk = Readonly<{
 
 /** Lazily load the optional MCP transport SDK. */
 const loadSdk = (): Effect.Effect<McpSdk, unknown> =>
-  requireOptional('launch mcp (the MCP server)', SDK_INSTALL_HINT, () =>
+  requireOptional('launch mcp (the MCP server)', 'pnpm add @modelcontextprotocol/sdk', () =>
     Effect.all(
       {
         serverModule: Effect.tryPromise(() => import('@modelcontextprotocol/sdk/server/index.js')),

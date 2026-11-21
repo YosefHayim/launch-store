@@ -9,9 +9,6 @@ import {
   type Ga4Session,
 } from './ga4Client.js';
 
-const ACCOUNT_SUMMARIES_PAGE_SIZE = 200;
-const DATA_STREAMS_PAGE_SIZE = 200;
-
 export interface Ga4AppStream {
   readonly propertyId: string;
   readonly streamId: string;
@@ -125,11 +122,12 @@ export const listAppStreams = (
   propertyId: string,
 ): Effect.Effect<readonly Ga4AppStream[], Ga4Failure, HttpClient.HttpClient> =>
   Effect.gen(function* () {
+    const dataStreamsPageSize = 200;
     const pages = yield* listPages(
       session,
       {
         url: `${ANALYTICS_ADMIN_URL}/properties/${propertyId}/dataStreams`,
-        pageSize: DATA_STREAMS_PAGE_SIZE,
+        pageSize: dataStreamsPageSize,
         propertyId,
       },
       null,
@@ -155,11 +153,12 @@ const listPropertyIds = (
   session: Ga4Session,
 ): Effect.Effect<readonly string[], Ga4Failure, HttpClient.HttpClient> =>
   Effect.gen(function* () {
+    const accountSummariesPageSize = 200;
     const pages = yield* listPages(
       session,
       {
         url: `${ANALYTICS_ADMIN_URL}/accountSummaries`,
-        pageSize: ACCOUNT_SUMMARIES_PAGE_SIZE,
+        pageSize: accountSummariesPageSize,
         propertyId: null,
       },
       null,

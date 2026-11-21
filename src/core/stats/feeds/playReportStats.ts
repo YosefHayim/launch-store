@@ -27,11 +27,6 @@ const STORE_PERFORMANCE_COLUMNS: readonly PlayColumnMapping[] = [
 ];
 
 const DATE_COLUMN = 'date';
-const EARNINGS_DATE_COLUMN = 'transaction date';
-const EARNINGS_TYPE_COLUMN = 'transaction type';
-const EARNINGS_PACKAGE_COLUMN = 'package id';
-const EARNINGS_CURRENCY_COLUMN = 'merchant currency';
-const EARNINGS_AMOUNT_COLUMN = 'amount (merchant currency)';
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const EARNINGS_DATE_PATTERN = /^([A-Za-z]{3}) (\d{1,2}), (\d{4})$/;
 const MONTH_NAMES: readonly string[] = [
@@ -48,8 +43,6 @@ const MONTH_NAMES: readonly string[] = [
   'nov',
   'dec',
 ];
-
-const MONTHS_IN_YEAR = 12;
 
 export const pickLaterKnownDate = (firstDate: string | null, secondDate: string): string => {
   if (firstDate === null) return secondDate;
@@ -182,18 +175,18 @@ export const readEarningsStats = (
   range: DateRange,
 ): DailyStat[] => {
   const proceeds = table.lines.flatMap((line) => {
-    const isOtherPackage = line[EARNINGS_PACKAGE_COLUMN] !== packageName;
+    const isOtherPackage = line['package id'] !== packageName;
     if (isOtherPackage) return [];
-    if (isTaxTransaction(line[EARNINGS_TYPE_COLUMN])) return [];
-    const transactionDate = line[EARNINGS_DATE_COLUMN];
+    if (isTaxTransaction(line['transaction type'])) return [];
+    const transactionDate = line['transaction date'];
     if (transactionDate === undefined) return [];
     const date = readEarningsDate(transactionDate);
     if (date === null) return [];
     if (!isDateInRange(date, range)) return [];
-    const merchantCurrency = line[EARNINGS_CURRENCY_COLUMN];
+    const merchantCurrency = line['merchant currency'];
     const isCurrencyMissing = merchantCurrency === undefined || merchantCurrency === '';
     if (isCurrencyMissing) return [];
-    const amount = readNumber(line[EARNINGS_AMOUNT_COLUMN]);
+    const amount = readNumber(line['amount (merchant currency)']);
     if (amount === null) return [];
     return [
       {
@@ -212,8 +205,9 @@ export const readEarningsStats = (
 export const listReportMonths = (range: DateRange): string[] => {
   const firstMonth = new Date(`${readMonthOfDate(range.from)}-01T00:00:00.000Z`);
   const lastMonth = new Date(`${readMonthOfDate(range.to)}-01T00:00:00.000Z`);
+  const monthsInYear = 12;
   const monthCount =
-    (lastMonth.getUTCFullYear() - firstMonth.getUTCFullYear()) * MONTHS_IN_YEAR +
+    (lastMonth.getUTCFullYear() - firstMonth.getUTCFullYear()) * monthsInYear +
     lastMonth.getUTCMonth() -
     firstMonth.getUTCMonth() +
     1;

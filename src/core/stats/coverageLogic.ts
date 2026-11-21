@@ -7,8 +7,6 @@ import {
   shiftDate,
 } from './dateRange.js';
 
-const NEVER_SYNCED_AT = '1970-01-01T00:00:00.000Z';
-
 export const findFeedCoverage = (
   appCoverage: AppCoverage,
   feed: StatsFeed,
@@ -107,7 +105,7 @@ export const markFeedCoverageFailed = (
   const isNeverSynced = previous === null;
   if (isNeverSynced) {
     return {
-      lastSyncedAt: NEVER_SYNCED_AT,
+      lastSyncedAt: '1970-01-01T00:00:00.000Z',
       coveredFrom: null,
       coveredThrough: null,
       lastError: message,

@@ -7,7 +7,6 @@ import { listSnapshotSources, registerBuiltinSources } from './registry.js';
 import { pruneSnapshots, saveSnapshot } from './store.js';
 
 export const AUTO_SNAPSHOT_PREFIX = 'pre-sync-';
-const AUTO_SNAPSHOT_KEEP = 10;
 
 /** Build a filesystem-safe auto-snapshot name from an ISO timestamp. */
 export const autoSnapshotName = (capturedAt: string): string =>
@@ -44,7 +43,8 @@ export const captureAutoSnapshot = (
       capturedAt: options.capturedAt,
     });
     const snapshotFilePath = yield* saveSnapshot(capturedSnapshot.snapshot, options.dir);
-    let keepCount = AUTO_SNAPSHOT_KEEP;
+    const autoSnapshotKeep = 10;
+    let keepCount = autoSnapshotKeep;
     if (options.keep !== undefined) keepCount = options.keep;
     const prunedSnapshots = yield* pruneSnapshots(AUTO_SNAPSHOT_PREFIX, keepCount, options.dir);
     return {

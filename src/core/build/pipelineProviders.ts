@@ -19,10 +19,7 @@ import {
   type BuildRunOptions,
   type BuildTransportChoice,
 } from './pipelineTypes.js';
-/** The built-in iOS provider defaults that `config` carries by default, and their Android twins. */
-const IOS_BUILD_ENGINE = 'xcode';
 const IOS_SUBMITTER = 'app-store-connect';
-const ANDROID_BUILD_ENGINE = 'gradle';
 const ANDROID_SUBMITTER = 'google-play';
 
 export type BuildTransportFailure = Readonly<{
@@ -32,11 +29,10 @@ export type BuildTransportFailure = Readonly<{
 
 const makeBuildTransportFailure = Data.tagged<BuildTransportFailure>('BuildTransportFailure');
 /** Engines that only build Apple apps; an Android build swaps any of them for `gradle`. */
-const APPLE_ONLY_BUILD_ENGINES = new Set([IOS_BUILD_ENGINE, 'remote-mac', 'eas']);
+const APPLE_ONLY_BUILD_ENGINES = new Set(['xcode', 'remote-mac', 'eas']);
 /** The build engine name for a platform, swapping an Apple-only engine (`xcode`, `remote-mac`, `eas`) for `gradle` on Android. */
 export const resolveBuildEngineName = (config: LaunchConfig, platform: Platform): string => {
-  if (platform === 'android' && APPLE_ONLY_BUILD_ENGINES.has(config.buildEngine))
-    return ANDROID_BUILD_ENGINE;
+  if (platform === 'android' && APPLE_ONLY_BUILD_ENGINES.has(config.buildEngine)) return 'gradle';
   return config.buildEngine;
 };
 /** The standard store for a platform: Play for Android, App Store Connect for every Apple platform. */
