@@ -54,6 +54,7 @@
         "useTemplate": "off"
       },
       "correctness": {
+        "noInnerDeclarations": "off",
         "noNodejsModules": "off",
         "noUnresolvedImports": "off",
         "useImportExtensions": "off",
@@ -62,7 +63,7 @@
       },
       "performance": {
         "useSolidForComponent": "off",
-        "noAwaitInLoops": "error",
+        "noAwaitInLoops": "off",
         "useTopLevelRegex": "off"
       },
       "suspicious": {
@@ -72,10 +73,12 @@
         "noTemplateCurlyInString": "off",
         "noFocusedTests": "off",
         "noNonNullAssertedOptionalChain": "error",
+        "noDoubleEquals": "off",
         "noAssignInExpressions": "off",
         "noReturnAssign": "off"
       },
       "complexity": {
+        "useArrowFunction": "off",
         "useLiteralKeys": "off",
         "noExcessiveCognitiveComplexity": "off",
         "noExcessiveLinesPerFunction": "off",

@@ -7,7 +7,7 @@ import { migrateLegacyAccounts } from '../core/credentials/accounts.js';
 import { runAutoUpgrade } from '../core/config/updateCheck.js';
 import { CommandExitSchema } from '../core/terminal/commandExit.js';
 import { createLogger } from '../core/services/platform/logger.js';
-import { buildProgram } from './program.js';
+import { Cli } from '../cli.js';
 import { runCliProgram } from './runCliProgram.js';
 
 const PackageManifestJsonSchema = Schema.parseJson(Schema.Struct({ version: Schema.String }));
@@ -47,7 +47,7 @@ const main = async () => {
   // One-time, near-instant no-op after the first post-upgrade run: moves a pre-multi-account key into
   // the registry. Best-effort - a hiccup must not block the CLI; commands re-attempt it on next run.
   await runCliProgram(migrateLegacyAccounts().pipe(Effect.catchAll(() => Effect.void)));
-  await buildProgram(launchVersion).parseAsync(process.argv);
+  await new Cli().start(launchVersion);
 };
 /** The failure a command's Effect failed with, or none for a defect or a plain throw. */
 const commandFailureOf = (runtimeFailure: unknown): Option.Option<unknown> => {

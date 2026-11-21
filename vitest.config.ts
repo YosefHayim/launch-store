@@ -3,14 +3,36 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   resolve: {
-    alias: {
-      '@apple': fileURLToPath(new URL('./src/apple', import.meta.url)),
-      '@cli': fileURLToPath(new URL('./src/cli', import.meta.url)),
-      '@core': fileURLToPath(new URL('./src/core', import.meta.url)),
-      '@google': fileURLToPath(new URL('./src/google', import.meta.url)),
-      '@providers': fileURLToPath(new URL('./src/providers', import.meta.url)),
-      '@testkit': fileURLToPath(new URL('./src/testkit', import.meta.url)),
-    },
+    alias: [
+      {
+        find: /^@\//,
+        replacement: fileURLToPath(new URL('./src/', import.meta.url)),
+      },
+      {
+        find: '@apple',
+        replacement: fileURLToPath(new URL('./src/apple', import.meta.url)),
+      },
+      {
+        find: '@cli',
+        replacement: fileURLToPath(new URL('./src/cli', import.meta.url)),
+      },
+      {
+        find: '@core',
+        replacement: fileURLToPath(new URL('./src/core', import.meta.url)),
+      },
+      {
+        find: '@google',
+        replacement: fileURLToPath(new URL('./src/google', import.meta.url)),
+      },
+      {
+        find: '@providers',
+        replacement: fileURLToPath(new URL('./src/providers', import.meta.url)),
+      },
+      {
+        find: '@testkit',
+        replacement: fileURLToPath(new URL('./src/testkit', import.meta.url)),
+      },
+    ],
   },
   test: {
     include: ['src/**/*.test.ts'],

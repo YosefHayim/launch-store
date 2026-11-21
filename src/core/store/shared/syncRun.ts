@@ -12,7 +12,7 @@ import {
 import { fingerprintAsset } from '../../listing/screenshots/assets.js';
 import type { SyncJob } from './syncJobs.js';
 /** How many apps reconcile concurrently. Bounded so the single ASC key stays under Apple's rate ceiling. */
-export const SYNC_CONCURRENCY = 4;
+const SYNC_CONCURRENCY = 4;
 /**
  * The slice of the App Store Connect client a sync reconcile touches: the catalog surface plus the
  * screenshot and preview surfaces. Declared as the intersection of the three narrow reconciler interfaces
@@ -171,7 +171,7 @@ export const reconcileAssetActions = (
     return [...screenshotReconcileActions, ...previewReconcileActions];
   });
 /** Reconcile one job, never throwing: a thrown precondition becomes `{ error }` so the pool stays whole. */
-export const reconcileJob = (
+const reconcileJob = (
   client: SyncCatalogClient,
   job: SyncJob,
   dryRun: boolean,
@@ -204,7 +204,7 @@ export const reconcileJob = (
     ),
   );
 /** Tally a report's action statuses for the run summary. */
-export const summarize = (
+const summarize = (
   report: ReconcileReport,
 ): {
   applied: number;

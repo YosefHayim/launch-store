@@ -200,9 +200,3 @@ export const runInitProgram = (
     if (commandInput.framed) yield* logger.line('Launch is configured.');
     return true;
   }).pipe(Effect.mapError((cause) => initFailure('run init', cause)));
-
-/** Run one schema-decoded init command. */
-export const initCommandProgram = (
-  rawCommandInput: unknown,
-): Effect.Effect<void, InitCommandFailure, InitCommandRequirements> =>
-  runInitProgram(rawCommandInput).pipe(Effect.asVoid);

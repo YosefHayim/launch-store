@@ -109,7 +109,7 @@ Key material never touches the repo or `~/.launch`. `.p8`, `.p12`, private keys,
 
 ### Rules Digest
 
-- **Effect everywhere in production.** Exported behavior returns `Effect`; pure logic -> `Effect.sync`, I/O -> `Effect.gen`.
+- **Ship path is plain TypeScript.** `init`, `creds`, `build`, `release`, `plan`, `drift`, `sync`, and `adopt` are classes under `src/` and do not use Effect. Imports inside that path use `@/`. A method that calls Apple or Google has a TSDoc `@see` for that exact endpoint. `launch.config.ts` and `defineConfig` stay the public names. Later commands still return `Effect`.
 - **Tagged failure values.** Expected failures are readonly tagged data in the Effect channel; no raw production throws or error classes.
 - **Official platform services.** Use Effect FileSystem, Path, CommandExecutor, and Terminal; Launch services own domain policy only.
 - **Services, not classes.** Use readonly service types with `Context.GenericTag` and `Layer`; tests provide hand `*Test` layers.

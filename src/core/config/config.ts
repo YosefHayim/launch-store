@@ -28,7 +28,11 @@ const SELF_ENTRY = fileURLToPath(new URL('../../index.js', import.meta.url));
  * it - no dual-package version skew. (jiti chosen over bundling a TS toolchain ourselves; it's the
  * same loader Nuxt/ESLint use for config files.)
  */
-const jiti = createJiti(import.meta.url, { alias: { 'launch-store': SELF_ENTRY } });
+const jiti = createJiti(import.meta.url, {
+  alias: { 'launch-store': SELF_ENTRY },
+  // Source still imports with `@/`. The build rewrites those; this loader does not.
+  tsconfigPaths: true,
+});
 // Re-exported so `import { LaunchConfigInput } from "launch-store"` (via src/index.ts -> here) still
 // resolves; the type itself is `LaunchConfigInput`, owned by `types/config.ts`.
 export type { LaunchConfigInput };
@@ -38,39 +42,7 @@ const pathExists = (
   candidatePath: string,
 ): Effect.Effect<boolean> =>
   fileSystem.exists(candidatePath).pipe(Effect.orElseSucceed(() => false));
-/**
- * Author a typed `launch.config.ts`. Fills in the v1 defaults (`local` credentials + storage,
- * `xcode` engine) so a minimal config only needs to declare profiles.
- *
- * The whole `input` is spread through first, so anything the user wrote - including a typo'd top-level
- * key the type system can't catch in an un-compiled config - survives onto the resolved object. That lets
- * `launch config validate` flag unknown keys on the `.ts` path the same way the schema's
- * `additionalProperties: false` root already catches them on the `.json` path (issue #197), instead of
- * silently dropping them. Known keys are inert noise to the pipeline; an unknown one becomes a reported
- * violation rather than a swallowed mistake.
- *
- * Deliberately fills defaults by hand rather than Effect Schema parse - parsing would strip those
- * unknown top-level keys (defeating #197) and throw on a not-yet-valid field at load time, whereas
- * `launch config validate` is the explicit gate. The defaults come from the same `DEFAULT_*` constants
- * the schema's `.default(...)` uses, so the two paths can't disagree.
- */
-export const defineConfig = (input: LaunchConfigInput): LaunchConfig => {
-  let credentials = input.credentials;
-  if (credentials === undefined) credentials = DEFAULT_CREDENTIALS_PROVIDER;
-  let storage = input.storage;
-  if (storage === undefined) storage = DEFAULT_STORAGE_PROVIDER;
-  let buildEngine = input.buildEngine;
-  if (buildEngine === undefined) buildEngine = DEFAULT_BUILD_ENGINE;
-  let submit = input.submit;
-  if (submit === undefined) submit = DEFAULT_SUBMITTER;
-  return {
-    ...input,
-    credentials,
-    storage,
-    buildEngine,
-    submit,
-  };
-};
+export { defineConfig } from '@/define-launch-file.js';
 /**
  * Resolve a Launch-native config section that can be declared either as a typed field on
  * `launch.config.ts` (the single-config path - issue #101) or as its standalone `*.config.json`
