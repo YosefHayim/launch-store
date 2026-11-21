@@ -224,7 +224,7 @@ const fetchLatestVersion = (
   );
 /**
  * Run the global upgrade under a spinner, classifying a permission failure so the caller can degrade
- * to a notice. Uses the same `@clack/prompts` spinner as the rest of the CLI, but is result-driven
+ * to a notice. Uses the same progress spinner as the rest of the CLI, but is result-driven
  * rather than throw-driven so the EACCES-vs-generic distinction survives in the return value. Always
  * called on an interactive TTY (auto-upgrade is otherwise blocked), so a spinner is the right
  * affordance here.

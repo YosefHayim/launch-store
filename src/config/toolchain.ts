@@ -180,7 +180,7 @@ export const remoteToolchainPreflight = (mode: 'install' | 'assert'): string => 
 };
 /**
  * Side-effecting operations {@link ensureToolchain} needs, injected so tests can supply fakes.
- * Production wiring ({@link realIo}) maps these onto the repo's exec helpers, clack prompts, and console.
+ * Production wiring ({@link realIo}) maps these onto the repo's exec helpers, terminal prompts, and console.
  */
 export type ToolchainIo = {
   exists(command: string): Effect.Effect<boolean, unknown>;
@@ -189,7 +189,7 @@ export type ToolchainIo = {
   confirmText(message: string, expected: string): Effect.Effect<boolean, unknown>;
   log(message: string): Effect.Effect<void, unknown>;
 };
-/** Production {@link ToolchainIo}: real PATH/exec, clack prompts, logger-seam output. */
+/** Production {@link ToolchainIo}: real PATH/exec, terminal prompts, logger-seam output. */
 const realIo = (logger: Logger, prompt: LaunchPromptService): ToolchainIo => {
   return {
     exists: (executable) => provideNodeCommandServices(checkCommandExists(executable)),

@@ -69,7 +69,6 @@
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
-    "@clack/prompts": "^1.8.1",
     "@effect/platform": "^0.96.3",
     "@effect/platform-node": "0.107.0",
     "@googleapis/androidpublisher": "^42.2.0",

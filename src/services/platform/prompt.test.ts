@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Effect } from 'effect';
-import { fuzzyMatch, LaunchPrompt, makeLaunchPromptTest, pickOne } from './prompt.js';
+import { fuzzyMatch } from '../../prompts.js';
+import { LaunchPrompt, makeLaunchPromptTest, pickOne } from './prompt.js';
 import { makeLaunchLoggerTest } from './logger.js';
 describe("fuzzyMatch - the picker's subsequence filter", () => {
   it('matches an in-order subsequence, case-insensitively', () => {

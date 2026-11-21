@@ -1,16 +1,8 @@
-import {
-  autocomplete,
-  type CANCEL_SYMBOL,
-  cancel,
-  confirm as clackConfirm,
-  isCancel,
-  multiselect,
-  password,
-  select,
-  text,
-} from '@clack/prompts';
 import { Context, Data, Effect, Layer } from 'effect';
+import { Prompts } from '../../prompts.js';
 import { createLogger, type Logger } from './logger.js';
+
+const prompts = new Prompts();
 
 type PromptSelectionFailure = Readonly<{
   readonly _tag: 'PromptSelectionFailure';
@@ -78,192 +70,61 @@ type LaunchPromptTestAnswers = Readonly<{
 
 export const LaunchPrompt = Context.GenericTag<LaunchPromptService>('launch-store/Prompt');
 
-export const fuzzyMatch = (query: string, candidate: string): boolean => {
-  const searchNeedle = query.trim().toLowerCase();
-  if (searchNeedle.length === 0) return true;
-  const searchableText = candidate.toLowerCase();
-  let needleOffset = 0;
-  for (
-    let candidateOffset = 0;
-    candidateOffset < searchableText.length && needleOffset < searchNeedle.length;
-    candidateOffset += 1
-  ) {
-    if (searchableText[candidateOffset] === searchNeedle[needleOffset]) needleOffset += 1;
+const requireEnteredText = (
+  enteredText: string | null,
+): Effect.Effect<string, PromptSelectionFailure> => {
+  if (enteredText == null) {
+    return Effect.fail(makePromptSelectionFailure({ message: 'Prompt cancelled.' }));
   }
-  return needleOffset === searchNeedle.length;
+
+  const isBlank = enteredText.trim() == '';
+
+  if (isBlank) {
+    return Effect.fail(makePromptSelectionFailure({ message: 'A value is required.' }));
+  }
+
+  return Effect.succeed(enteredText);
 };
-
-const requirePromptAnswer = (
-  promptEffect: Effect.Effect<string | typeof CANCEL_SYMBOL, PromptSelectionFailure>,
-): Effect.Effect<string, PromptSelectionFailure> =>
-  promptEffect.pipe(
-    Effect.flatMap((answer) => {
-      if (isCancel(answer))
-        return Effect.fail(makePromptSelectionFailure({ message: 'Prompt cancelled.' }));
-      return Effect.succeed(answer);
-    }),
-  );
-
-const makeClackChoices = <TSelection>(
-  choices: readonly PromptChoice<TSelection>[],
-): Array<{
-  readonly value: string;
-  readonly label: string;
-  readonly hint?: string;
-}> =>
-  choices.map((promptChoice, choiceIndex) => {
-    if (promptChoice.hint === undefined)
-      return { value: String(choiceIndex), label: promptChoice.label };
-    return { value: String(choiceIndex), label: promptChoice.label, hint: promptChoice.hint };
-  });
-
-const resolveSearchThreshold = (requestedThreshold: number | undefined): number => {
-  const pickSearchThreshold = 8;
-  if (requestedThreshold === undefined) return pickSearchThreshold;
-  return requestedThreshold;
-};
-
-const runSelectionPrompt = <TSelection>(
-  request: PromptSelectionRequest<TSelection>,
-): Effect.Effect<TSelection, PromptSelectionFailure> =>
-  Effect.gen(function* () {
-    const clackChoices = makeClackChoices(request.choices);
-    const searchThreshold = resolveSearchThreshold(request.searchThreshold);
-    let initialChoiceIndex = -1;
-    if (request.initialSelection !== undefined)
-      initialChoiceIndex = request.choices.findIndex(
-        (promptChoice) => promptChoice.selection === request.initialSelection,
-      );
-
-    const selectedIdentifier = yield* Effect.tryPromise({
-      try: () => {
-        if (request.choices.length > searchThreshold) {
-          return autocomplete({
-            message: request.message,
-            options: clackChoices,
-            placeholder: 'Type to search...',
-            maxItems: 10,
-            filter: (searchText, clackChoice) => {
-              let searchableHint = '';
-              if (clackChoice.hint !== undefined) searchableHint = clackChoice.hint;
-              return fuzzyMatch(searchText, `${clackChoice.label} ${searchableHint}`);
-            },
-          });
-        }
-        if (initialChoiceIndex >= 0) {
-          return select({
-            message: request.message,
-            options: clackChoices,
-            initialValue: String(initialChoiceIndex),
-          });
-        }
-        return select({ message: request.message, options: clackChoices });
-      },
-      catch: (cause) =>
-        makePromptSelectionFailure({ message: 'The selection prompt failed.', cause }),
-    });
-
-    if (isCancel(selectedIdentifier)) {
-      cancel('Cancelled.');
-      return yield* Effect.fail(makePromptSelectionFailure({ message: 'Selection cancelled.' }));
-    }
-    const selectedChoice = request.choices[Number(selectedIdentifier)];
-    if (selectedChoice === undefined)
-      return yield* Effect.fail(
-        makePromptSelectionFailure({ message: 'The selection did not match a provided choice.' }),
-      );
-    return selectedChoice.selection;
-  });
-
-/** Present a typed multi-selection prompt and retain cancellation as an explicit null. */
-const runMultiSelectionPrompt = <TSelection>(
-  request: PromptMultiSelectionRequest<TSelection>,
-): Effect.Effect<readonly TSelection[] | null, PromptSelectionFailure> =>
-  Effect.gen(function* () {
-    const clackChoices = makeClackChoices(request.choices);
-    const initialIdentifiers: string[] = [];
-    if (request.initialSelections !== undefined) {
-      for (const initialSelection of request.initialSelections) {
-        const choiceIndex = request.choices.findIndex(
-          (promptChoice) => promptChoice.selection === initialSelection,
-        );
-        if (choiceIndex >= 0) initialIdentifiers.push(String(choiceIndex));
-      }
-    }
-    const selectedIdentifiers = yield* Effect.tryPromise({
-      try: () =>
-        multiselect({
-          message: request.message,
-          options: clackChoices,
-          initialValues: initialIdentifiers,
-        }),
-      catch: (cause) =>
-        makePromptSelectionFailure({ message: 'The multi-selection prompt failed.', cause }),
-    });
-    if (isCancel(selectedIdentifiers)) return null;
-    const selections: TSelection[] = [];
-    for (const selectedIdentifier of selectedIdentifiers) {
-      const selectedChoice = request.choices[Number(selectedIdentifier)];
-      if (selectedChoice === undefined) {
-        return yield* Effect.fail(
-          makePromptSelectionFailure({
-            message: 'A multi-selection did not match a provided choice.',
-          }),
-        );
-      }
-      selections.push(selectedChoice.selection);
-    }
-    return selections;
-  });
 
 export const LaunchPromptLive = Layer.succeed(LaunchPrompt, {
   confirm: (message) =>
     Effect.tryPromise({
-      try: () => clackConfirm({ message }),
+      try: () => prompts.confirm(message),
       catch: (cause) =>
         makePromptSelectionFailure({ message: 'The confirmation prompt failed.', cause }),
-    }).pipe(
-      Effect.map((confirmation) => {
-        if (isCancel(confirmation)) return false;
-        return confirmation;
-      }),
-    ),
+    }),
   requiredText: (message) =>
-    requirePromptAnswer(
-      Effect.tryPromise({
-        try: () =>
-          text({
-            message,
-            validate: (enteredText) => {
-              if (enteredText === undefined) return 'A value is required.';
-              if (enteredText.trim().length === 0) return 'A value is required.';
-              return undefined;
-            },
-          }),
-        catch: (cause) => makePromptSelectionFailure({ message: 'The text prompt failed.', cause }),
-      }),
-    ),
+    Effect.tryPromise({
+      try: () => prompts.text(message),
+      catch: (cause) => makePromptSelectionFailure({ message: 'The text prompt failed.', cause }),
+    }).pipe(Effect.flatMap(requireEnteredText)),
   requiredSecret: (message) =>
-    requirePromptAnswer(
-      Effect.tryPromise({
-        try: () =>
-          password({
-            message,
-            validate: (enteredSecret) => {
-              if (enteredSecret === undefined) return 'A value is required.';
-              if (enteredSecret.trim().length === 0) return 'A value is required.';
-              return undefined;
-            },
-          }),
-        catch: (cause) =>
-          makePromptSelectionFailure({ message: 'The secret prompt failed.', cause }),
+    Effect.tryPromise({
+      try: () => prompts.secret(message),
+      catch: (cause) => makePromptSelectionFailure({ message: 'The secret prompt failed.', cause }),
+    }).pipe(Effect.flatMap(requireEnteredText)),
+  select: (request) =>
+    Effect.tryPromise({
+      try: () => prompts.select(request),
+      catch: (cause) =>
+        makePromptSelectionFailure({ message: 'The selection prompt failed.', cause }),
+    }).pipe(
+      Effect.flatMap((selection) => {
+        if (selection == null) {
+          return Effect.fail(makePromptSelectionFailure({ message: 'Selection cancelled.' }));
+        }
+        return Effect.succeed(selection);
       }),
     ),
-  select: runSelectionPrompt,
-  selectMany: runMultiSelectionPrompt,
+  selectMany: (request) =>
+    Effect.tryPromise({
+      try: () => prompts.selectMany(request),
+      catch: (cause) =>
+        makePromptSelectionFailure({ message: 'The multi-selection prompt failed.', cause }),
+    }),
   cancel: (message) =>
     Effect.sync(() => {
-      cancel(message);
+      prompts.cancel(message);
     }),
 });
 
